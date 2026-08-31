@@ -43,6 +43,7 @@ Live:
 
 ## Notes
 
+- [[.scratch/transport-layer/project.md]] cross-cutting pattern — HTML codec and publish are outbound transport: generate HTML and send attachments and CSS through transport-layer (Graph / HTML File content → visitor-facing site), not a separate publisher stack. Distinct from wiki Public URL (`.md` → HTML) in [[build-or-explore-a-wiki.md]]. In-app styling and Published-page CSS are the same outbound transport with CSS as payload. See [[.scratch/transport-layer/overview.md]], [[.scratch/transport-layer/map.md]].
 - Scaling is [[organize-huge-outlines.md]]; first use does not wait on it.
 - Wiki page and published page are the same family; presentation and needs vary greatly at the detail level. Do not collapse with [[build-or-explore-a-wiki.md]].
 - Not documents-from-anywhere: that audience is the person working; this is visitors without the App. Not export to another host.

@@ -72,3 +72,5 @@ Only offer to create an ADR when all three are true:
 3. **The result of a real trade-off** — there were genuine alternatives and you picked one for specific reasons
 
 If any of the three is missing, skip the ADR. Use the format in [ADR-FORMAT.md](./ADR-FORMAT.md).
+
+A project's Out of scope section is **scope**, not an ADR. Do not promote inferred exclusions to Committed Decisions or `doc/` without human confirmation. See [[docs/agents/scope-vs-commitment.md]].

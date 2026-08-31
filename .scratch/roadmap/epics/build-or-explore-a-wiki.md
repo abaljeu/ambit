@@ -32,6 +32,7 @@ Live:
 
 ## Notes
 
+- [[.scratch/transport-layer/project.md]] cross-cutting pattern — the `.md` codec is a Parse/Persist round-trip (authoring) leg; Public URL (wiki publish) is an outbound transport instance (Graph / `.md` File content → HTML for visitors), not the HTML File body or in-app HTML of [[create-and-publish-web-pages.md]]. Publish still uses Parse/Persist as the text-processing unit. See [[.scratch/transport-layer/overview.md]], [[.scratch/transport-layer/map.md]].
 - Scaling is [[organize-huge-outlines.md]]; first use does not wait on it.
 - In-product wiki. The three documentation wikis stay Projects: [[.scratch/end-user-wiki/map.md]], [[.scratch/architecture/map.md]], [[.scratch/marketing-wiki/map.md]].
 - Two document classes: `.md` (this Epic) vs HTML Files ([[create-and-publish-web-pages.md]]).

@@ -2,7 +2,7 @@
 
 **Context:** Soft-lock meaning is accepted; job↔lock lifecycle coupling is an accepted direction. Issuance, expiry, chrome, and job launch/cancel mechanics are proposed and do not exist yet. Shipping lock and job as two products would create two surfaces that must immediately couple. Parse (08) is the tracer without this footprint.
 
-**What to build:** Client-held job identity, launch that returns before apply, cancel that stops further Changes (not Undo), and advisory soft-lock as the same surface: the lock is owned by the job; job completion clears it; the lock indicator is an access point to the job. Edits under the lock remain legal and merge. Still not a plug-in bus.
+**What to build:** Client-held job identity, launch that returns before apply, cancel that stops further Changes (not Undo), and advisory soft-lock as the same surface: the lock is owned by the job; job completion clears it; the lock indicator is an access point to the job. Edits under the lock remain legal and merge. One vertical — not the plug-in-bus pattern (ESO scope; see [[../overview.md]] § What this is not).
 
 **Blocked by:** 07 — Generalized Server Actor produce path, 08 — Parse File realignment (tracer bullet)
 

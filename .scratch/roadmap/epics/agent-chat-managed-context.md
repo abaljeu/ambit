@@ -56,4 +56,5 @@ Live:
 
 ## Notes
 
+- [[.scratch/transport-layer/project.md]] cross-cutting pattern — agent Actor is an inbound transport leg (reply as Owned children); see [[.scratch/transport-layer/overview.md]], [[.scratch/transport-layer/map.md]].
 - Scaling is [[organize-huge-outlines.md]]; first use does not wait on it.

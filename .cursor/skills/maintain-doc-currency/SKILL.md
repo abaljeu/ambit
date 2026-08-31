@@ -20,6 +20,8 @@ If a doc's content no longer matches its directory, propose the smallest correct
 
 ## Currency Workflow
 
+Before promoting any exclusion or "Gambol does not …" into `doc/`, confirm it is a product **commitment** with an authorized source — not **scope** or **surmise** from a Project. See [[docs/agents/scope-vs-commitment.md]].
+
 1. Read the relevant current docs before changing roadmap, history, or unsorted material.
 2. Check the Feature index [[doc/index.md]] for current-program coverage.
 3. Check whether implemented behavior is still described as future work; if so, move the durable truth into current or reference docs and reduce leftover roadmap text, or cite it from a `.scratch` Project.
