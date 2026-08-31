@@ -39,7 +39,7 @@ Disk is one transport channel, not the whole layer:
 - **Parse** — turn server files into Graph content (Parse File job as Server **Actor**).
 - **Codec round-trip** — document-formats Parse/reconcile on File Node bodies for editable external copies.
 
-The *Work with my documents from anywhere* Epic is the person job; channels include disk and future Google (Drive/Docs, example), all through transport-layer. Current Chapters are the disk beat (auto upload/download, workspace mapping). Transport-layer owns the pattern those Projects implement.
+The *Work with my documents from anywhere* Epic is the User Epic; channels include disk and future Google (Drive/Docs, example), all through transport-layer. Current Chapters are the disk beat (auto upload/download, workspace mapping). Transport-layer owns the pattern those Projects implement.
 
 ## ESO Actor boundary
 

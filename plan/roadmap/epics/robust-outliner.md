@@ -2,7 +2,7 @@
 
 Stage: charting
 
-Integrity and correctness of the outline: ownership, parse/load state, UI seams, Change/History spine. First use of a person-job Epic may already need a slice of this; the rest is a home for robustness work.
+Integrity and correctness of the outline: ownership, parse/load state, UI seams, Change/History spine. First use of a User Epic may already need a slice of this; the rest is a home for robustness work.
 
 This Epic homes Projects. There are no Chapters to chart.
 

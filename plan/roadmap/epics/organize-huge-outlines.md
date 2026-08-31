@@ -2,7 +2,7 @@
 
 Stage: charting
 
-A person works with outlines too large for naive load and edit. First use of the person-job Epics does not wait on this. Those Epics reference this one when scaling.
+A person works with outlines too large for naive load and edit. First use of the User Epics does not wait on this. Those Epics reference this one when scaling.
 
 This Epic homes Projects. There are no Chapters to chart.
 

@@ -45,7 +45,7 @@ flowchart BT
 
 - Transport-layer replaces the prior **information-hub** slug as the home for inbound/outbound/round-trip pattern (same concept, clearer name).
 - File Parse/Persist is one transport instance, not the definition of the layer.
-- Person-job Epics per channel (files, chat, publish) ship legs; transport-layer holds the cross-cutting contract.
+- User Epics per channel (files, chat, publish) ship legs; transport-layer holds the cross-cutting contract.
 
 ## Future connector Projects (pointer checklist)
 
@@ -57,7 +57,7 @@ Chart a new feature-set Project per source or protocol when work appears. Each s
 - [ ] Actor — person-only, Server job, or long-running Actor; job identity if long-running.
 - [ ] Staging — examine-before-commit Graph view, if any.
 - [ ] Authority — Graph canonical; what the outside copy is allowed to own.
-- [ ] Epic home — which person-job Epic Required-for-done lists this Project.
+- [ ] Epic home — which User Epic Required-for-done lists this Project.
 
 Candidates not yet filed as Projects:
 
@@ -71,7 +71,7 @@ Candidates not yet filed as Projects:
 
 - Hub catalog UX and connection config Nodes.
 - Export-transform-import orchestration above codecs.
-- Home Epic for connector Projects (same class as Organize Huge Outlines).
+- Developer Epic for connector Projects (same class as Organize Huge Outlines).
 - Promotion of transport-layer pattern to [[doc/]].
 
 ## Out of scope

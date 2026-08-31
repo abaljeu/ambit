@@ -6,7 +6,7 @@ Blocked by:
 
 ## Question
 
-Name the Chapters of [[plan/roadmap/epics/work-with-text-files-from-anywhere.md]] as useful increments of capability. Set Current chapter. Point each Chapter at owning Projects or issues; do not own that work on the Epic file. Pin the person-job so “anywhere,” “text files,” and the already-met outline capture stay distinct.
+Name the Chapters of [[plan/roadmap/epics/work-with-text-files-from-anywhere.md]] as useful increments of capability. Set Current chapter. Point each Chapter at owning Projects or issues; do not own that work on the Epic file. Pin the User Epic so “anywhere,” “text files,” and the already-met outline capture stay distinct.
 
 Recommended: grill the in-product job first (App at a desk vs Browser elsewhere vs File Nodes), then name increments breadth-first. Chart documentation on [[plan/end-user-wiki/map.md]] and [[plan/marketing-wiki/map.md]]; use [[plan/architecture/map.md]] only if the use needs how-it-runs. Do not create an Epic Project folder.
 
