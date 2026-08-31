@@ -113,7 +113,7 @@ Path resolution walks workspace owned children by name (case-insensitive), same 
 - File/dir delete trashes stub; repeated delete no-op.
 - `R` rename preserves node ID and parsed child count.
 - Cross-dir `R` reparents under correct Directory ancestor.
-- `docs/.amb` delete alone leaves Directory when other paths remain.
+- `doc/.amb` delete alone leaves Directory when other paths remain.
 - `x.amb` rename/delete as ordinary File.
 - Kind conflict (`D` file + `A` dir same path) → Error.
 - `D` + `A` without `R` → trash old path and add new stub (new ID on add side).

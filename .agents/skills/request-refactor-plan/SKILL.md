@@ -1,11 +1,11 @@
 ---
 name: request-refactor-plan
-description: Create a detailed refactor plan with tiny steps via user interview, then publish it under local .scratch/. Use when user wants to plan a refactor, create a refactoring RFC, or break a refactor into safe incremental steps.
+description: Create a detailed refactor plan with tiny steps via user interview, then publish it under local plan/. Use when user wants to plan a refactor, create a refactoring RFC, or break a refactor into safe incremental steps.
 ---
 
 This skill will be invoked when the user wants to create a refactor request. You should go through the steps below. You may skip steps if you don't consider them necessary.
 
-Git: follow [[.cursor/skills/git-protocol/SKILL.md]]. Publish under `.scratch/` per [[docs/agents/issue-tracker.md]]. Plan grain is **steps** (same size discipline as tiny commits), not commits.
+Git: follow [[.cursor/skills/git-protocol/SKILL.md]]. Publish under `plan/` per [[doc/agents/issue-tracker.md]]. Plan grain is **steps** (same size discipline as tiny commits), not commits.
 
 1. Ask the user for a long, detailed description of the problem they want to solve and any potential ideas for solutions.
 
@@ -21,7 +21,7 @@ Git: follow [[.cursor/skills/git-protocol/SKILL.md]]. Publish under `.scratch/` 
 
 7. Break the implementation into a plan of tiny **steps**. Remember Martin Fowler's advice to "make each refactoring step as small as possible, so that you can always see the program working." Each step should leave the codebase in a working state; when later implementing, a step may become a commit.
 
-8. Publish the refactor plan under `.scratch/<feature-slug>/` per [[docs/agents/issue-tracker.md]]. Use the following template:
+8. Publish the refactor plan under `plan/<feature-slug>/` per [[doc/agents/issue-tracker.md]]. Use the following template:
 
 <refactor-plan-template>
 

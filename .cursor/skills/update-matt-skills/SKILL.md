@@ -83,7 +83,7 @@ bash .cursor/skills/update-matt-skills/scripts/merge-to-live.sh --bootstrap
 
 ### 5. Hand back
 
-Short report: skill counts under `skills/` and `.agents/skills/`, whether anything needed conflict resolution. No SHAs. Do **not** commit further unless the user asks. Forks re-apply from `.scratch/update-matt-skills/forks/` is a separate follow-up when needed.
+Short report: skill counts under `skills/` and `.agents/skills/`, whether anything needed conflict resolution. No SHAs. Do **not** commit further unless the user asks. Forks re-apply from `plan/update-matt-skills/forks/` is a separate follow-up when needed.
 
 ## Do not
 

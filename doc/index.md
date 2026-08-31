@@ -1,9 +1,9 @@
 # Feature Index
 
 Category: Project coordination
-See Also: [[doc/README.md]], [[doc/arch.md]], [[doc/spec.md]], [[doc/api.md]], [[.scratch/roadmap/map.md]]
+See Also: [[doc/README.md]], [[doc/arch.md]], [[doc/spec.md]], [[doc/api.md]], [[plan/roadmap/map.md]]
 
-Index of the current program. One detail source per feature. What to work on next is [[.scratch/roadmap/map.md]].
+Index of the current program. One detail source per feature. What to work on next is [[plan/roadmap/map.md]].
 
 ## Current Features
 
@@ -39,7 +39,7 @@ Summary: Desktop config mapping workspace labels to absolute local filesystem ro
 
 ## Currency Rules
 
-- This file describes the current program only. Planned work lives in `.scratch` Projects; the goto is [[.scratch/roadmap/map.md]].
+- This file describes the current program only. Planned work lives in `plan` Projects; the goto is [[plan/roadmap/map.md]].
 - If an item is fully implemented, its durable behavior should be in [[doc/current/]] or [[doc/reference/]], not only in [[doc/roadmap/]].
 - If this index contradicts a current doc, the current doc wins and this index should be corrected.
 - If two current docs disagree, surface the contradiction for clarification before updating this index.

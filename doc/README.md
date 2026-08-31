@@ -6,7 +6,7 @@ Top level contains the front-door docs for the current system as a whole:
 New docs should normally go in a subfolder:
 
 - `current/` — current subsystem or feature docs
-- `roadmap/` — leftover planned-direction files until a `.scratch` Project cites them or they move to history
+- `roadmap/` — leftover planned-direction files until a `plan` Project cites them or they move to history
 - `history/` — assessed historical project materials
 - `reference/` — operational and reference material
 - `unsorted/` — unassessed docs; temporary and non-authoritative
