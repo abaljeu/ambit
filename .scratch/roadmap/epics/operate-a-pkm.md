@@ -20,6 +20,8 @@ Not a Chapter. The Epic is not done until each item is done (or the named part).
 
 Live:
 
+- [ ] [[.scratch/transport-layer/project.md]] — transport layer (inbound, outbound, round-trip); PKM depends on this, does not implement it
+- [ ] [[.scratch/graph-view/project.md]] — radial focus-centric graph view with Ref overlay ([[doc/roadmap/graph-view.md]])
 - [ ] [[.scratch/expression-language/project.md]] — remainder beyond Find
 - [ ] [[.scratch/selective-client-loading/project.md]]
 - [ ] [[.scratch/bullet-tip-times/project.md]]
@@ -35,3 +37,4 @@ Done:
 ## Notes
 
 - Scaling is [[organize-huge-outlines.md]]; first use does not wait on it.
+- "Imports external data without a seam" names a dependency on [[.scratch/transport-layer/project.md]], not PKM's build mandate. PKM consumes and navigates Graph material; round-trip external edit and generate-from-data stay out of scope here.

@@ -14,3 +14,5 @@ Follow the authority and currency rules in [[doc/README.md]]. Surface contradict
 If [[CONTEXT.md]] exists, treat it as Gambol's concise domain glossary: use its preferred terms and avoid synonyms it rejects. Do not duplicate the detailed project documentation there.
 
 Architecture Decision Records live under [[docs/Decisions/]]. Before changing an area, read any relevant records and explicitly surface proposed changes that contradict them.
+
+When documenting what Gambol excludes or will not do, follow [[docs/agents/scope-vs-commitment.md]] — scope is effort-local; commitment requires an authorized record.

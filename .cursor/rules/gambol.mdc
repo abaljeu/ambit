@@ -26,6 +26,7 @@ Imported engineering skill configuration:
 - [[docs/agents/issue-tracker.md]] — local Markdown issue tracker, shared language, and Wayfinder operations
 - [[docs/agents/triage-labels.md]] — default triage role vocabulary
 - [[docs/agents/domain.md]] — canonical project docs under [[doc/]] and Committed Decisions under [[docs/Decisions/]]
+- [[docs/agents/scope-vs-commitment.md]] — scope is effort-local; product commitments need an authorized record
 - [[docs/agents/project-status.md]] — per-project `Stage:` vocabulary and the `.scratch/index.md` overview
 
 Workflow skills in [[.cursor/skills/]]:

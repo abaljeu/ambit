@@ -64,6 +64,7 @@ Done:
 
 ## Notes
 
+- [[.scratch/transport-layer/project.md]] cross-cutting pattern — disk Upload/Download is one transport instance (Parse/Persist); Google (Drive/Docs, example) is another inbound and likely later round-trip channel on the same contract (plan from Local Graph, Parse/Persist, emit Changes via ESO Actor). See [[.scratch/transport-layer/overview.md]], [[.scratch/transport-layer/map.md]].
 - Scaling is [[organize-huge-outlines.md]]; first use does not wait on it.
 - Outline capture (“get it out of my head”) is already met; this Epic is documents from anywhere.
 - Chapters stay open-ended: add one when a specific document class or usability is named.

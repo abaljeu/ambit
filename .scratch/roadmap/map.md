@@ -54,6 +54,7 @@ Grouped by Stage. Order inside a Stage does not matter.
 
 ## Not yet specified
 
+- Chart connect Epic or home Epic for [[.scratch/transport-layer/project.md]] when connector Projects multiply beyond PKM dependency.
 - Pointer charting for Public URL, Published-page CSS, and In-app styling (web pages) and for wiki Public URL (no owning Project yet).
 - Pointer charting for Status and Date on [[epics/manage-a-project.md]] (no owning Project yet).
 - Later Epics beyond the standing list.
