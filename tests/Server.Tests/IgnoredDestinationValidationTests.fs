@@ -132,6 +132,25 @@ let ``non ignored destination succeeds`` () =
     let postGraph, _ = addSpecial workspaceId File "notes.txt" graph
     assertAllowed dataDir graph postGraph
 
+[<SkippableFact>]
+let ``many new destinations reject ignored and keep gitignore`` () =
+    Skip.IfNot(gitOnPath (), "git unavailable")
+    let dataDir = newTempDir ()
+    writeIgnore (Path.Combine(dataDir, "home")) ".*\nblocked.txt\n"
+    let graph, workspaceId = workspaceGraph "home"
+    let allowedNames =
+        [ 1..20 ] |> List.map (fun i -> sprintf "notes-%02d.txt" i)
+    let withAllowed =
+        allowedNames
+        |> List.fold (fun g name ->
+            addSpecial workspaceId File name g |> fst) graph
+    let withGitignore, _ =
+        addSpecial workspaceId File ".gitignore" withAllowed
+    assertAllowed dataDir graph withGitignore
+    let withBlocked, _ =
+        addSpecial workspaceId File "blocked.txt" withGitignore
+    assertIgnored dataDir graph withBlocked
+
 let private encodeChange graph parentId name =
     let _, ops = FileNodeOps.planCreateOwnedFile graph parentId name
     let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
