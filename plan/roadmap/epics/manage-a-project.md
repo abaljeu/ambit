@@ -6,13 +6,15 @@ A person organizes work. English **project** is the user’s domain word, not an
 
 Current chapter: Status
 
-## Status
+## Chapters
+
+### Status
 
 **What to build:** Status on work items (todo / doing / done).
 
 **Blocked by:** None.
 
-## Date
+### Date
 
 **What to build:** Set a date on a work item, find dates, and compare dates. The product does not force a meaning onto a date.
 
@@ -20,7 +22,7 @@ Current chapter: Status
 
 ## Required for done
 
-Not a Chapter. The Epic is not done until each item is done (or the named part).
+The Epic is not done until each item is done (or the named part).
 
 Live:
 

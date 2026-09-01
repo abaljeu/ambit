@@ -6,7 +6,9 @@ A person operates a personal knowledge management system and imports external da
 
 Current chapter: Find what I wrote
 
-## Find what I wrote
+## Chapters
+
+### Find what I wrote
 
 **What to build:** When a person needs a thing they already wrote, they get to it.
 
@@ -16,7 +18,7 @@ Current chapter: Find what I wrote
 
 ## Required for done
 
-Not a Chapter. The Epic is not done until each item is done (or the named part).
+The Epic is not done until each item is done (or the named part).
 
 Live:
 
