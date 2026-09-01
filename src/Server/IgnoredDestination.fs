@@ -78,37 +78,59 @@ module IgnoredDestination =
         |> Seq.toList
         |> List.sortBy (fun (nodeId, _) -> nodeId.Value)
 
-    let private validateDestination
-        (dataDir: string)
-        (graph: Graph)
-        (nodeId: NodeId)
-        (artifactRel: string)
-        : Result<unit, string> =
-        if GitCheckIgnore.isGitignorePath artifactRel then
-            Ok ()
-        else
-            match ignoreScope dataDir graph nodeId artifactRel with
-            | None -> Ok ()
-            | Some(_, "") -> Ok ()
-            | Some(workTree, relativePath) ->
-                match GitCheckIgnore.isIgnored workTree relativePath with
+    let private classifyChecks
+        (checks: (NodeId * string * string * string) list)
+        : Result<(NodeId * string * bool) list, string> =
+        checks
+        |> List.groupBy (fun (_, _, workTree, _) -> workTree)
+        |> List.fold
+            (fun result (workTree, items) ->
+                match result with
                 | Error err -> Error err
-                | Ok false -> Ok ()
-                | Ok true ->
-                    Error (
-                        "destination path ignored by .gitignore: "
-                        + GitCheckIgnore.normalizeRel artifactRel)
+                | Ok groups ->
+                    let paths =
+                        items |> List.map (fun (_, _, _, path) -> path)
+
+                    match GitCheckIgnore.classify workTree paths with
+                    | Error err -> Error err
+                    | Ok classified ->
+                        let group =
+                            (items, classified)
+                            ||> List.map2 (fun item classification ->
+                                let nodeId, artifactRel, _, _ = item
+                                let _, ignored = classification
+                                nodeId, artifactRel, ignored)
+                        Ok(group :: groups))
+            (Ok [])
+        |> Result.map List.concat
 
     let validateGraphDiskEffects
         (dataDir: string)
         (preGraph: Graph)
         (postGraph: Graph)
         : Result<unit, string> =
-        destinationEffects preGraph postGraph
-        |> List.fold
-            (fun acc (nodeId, artifactRel) ->
-                match acc with
-                | Error msg -> Error msg
-                | Ok () ->
-                    validateDestination dataDir postGraph nodeId artifactRel)
-            (Ok ())
+        let checks =
+            destinationEffects preGraph postGraph
+            |> List.choose (fun (nodeId, artifactRel) ->
+                if GitCheckIgnore.isGitignorePath artifactRel then
+                    None
+                else
+                    match ignoreScope dataDir postGraph nodeId artifactRel with
+                    | Some(workTree, relativePath) when
+                        not (String.IsNullOrWhiteSpace relativePath)
+                        ->
+                        Some(nodeId, artifactRel, workTree, relativePath)
+                    | _ -> None)
+
+        match classifyChecks checks with
+        | Error err -> Error err
+        | Ok classified ->
+            classified
+            |> List.sortBy (fun (nodeId, _, _) -> nodeId.Value)
+            |> List.tryFind (fun (_, _, ignored) -> ignored)
+            |> function
+                | None -> Ok ()
+                | Some(_, artifactRel, _) ->
+                    Error (
+                        "destination path ignored by .gitignore: "
+                        + GitCheckIgnore.normalizeRel artifactRel)
