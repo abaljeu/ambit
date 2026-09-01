@@ -460,6 +460,62 @@ let ``workspace reconcile discovers under workspace root`` () =
     FileAgent.dispose fileAgent
 
 [<Fact>]
+let ``workspace reconcile creates Directory for empty leading-dot dir`` () =
+    let tempDir = newTempDir ()
+    let fileAgent = FileAgent.create tempDir
+    let handle = AgentHandle.ofFile fileAgent
+    let workspaceId = postWorkspace fileAgent "home"
+    let scratch = Path.Combine(tempDir, "home", ".scratch")
+    Directory.CreateDirectory scratch |> ignore
+    LazyLoadReconciliationServer.reconcileWorkspace handle tempDir "home"
+    |> Async.RunSynchronously
+    |> requireOk "empty .scratch reconcile"
+    |> ignore
+    let graph = readGraph fileAgent
+    let scratchNode =
+        graph.nodes.[workspaceId].children
+        |> List.pick (fun child ->
+            match Filename.tryValue graph.nodes.[child.id].name with
+            | Some ".scratch" -> Some graph.nodes.[child.id]
+            | _ -> None)
+    Assert.Equal(Special SpecialKind.Directory, scratchNode.kind)
+    Assert.Equal(Loaded, scratchNode.childrenStatus)
+    FileAgent.dispose fileAgent
+
+[<Fact>]
+let ``directory reconcile keeps .agents Loaded with discovered children`` () =
+    let tempDir = newTempDir ()
+    let fileAgent = FileAgent.create tempDir
+    let handle = AgentHandle.ofFile fileAgent
+    let workspaceId = postWorkspace fileAgent "home"
+    let graph1 = readGraph fileAgent
+    let agentsId, agentsOps =
+        FileNodeOps.planCreateOwnedDirectory graph1 workspaceId ".agents"
+    postOps fileAgent 1 agentsOps
+    let skillPath =
+        Path.Combine(tempDir, "home", ".agents", "skill.md")
+    Directory.CreateDirectory(Path.GetDirectoryName skillPath) |> ignore
+    File.WriteAllText(skillPath, "ok")
+    LazyLoadReconciliationServer.reconcileDirectory
+        handle
+        tempDir
+        "home"
+        ".agents"
+    |> Async.RunSynchronously
+    |> requireOk ".agents reconcile"
+    |> ignore
+    let graph = readGraph fileAgent
+    let agents = graph.nodes.[agentsId]
+    Assert.Equal(Special SpecialKind.Directory, agents.kind)
+    Assert.Equal(Loaded, agents.childrenStatus)
+    let childNames =
+        agents.children
+        |> List.choose (fun child ->
+            Filename.tryValue graph.nodes.[child.id].name)
+    Assert.Contains("skill.md", childNames)
+    FileAgent.dispose fileAgent
+
+[<Fact>]
 let ``SYSTEM workspace reconcile creates File stubs under systemId`` () =
     let tempDir = newTempDir ()
     let fileAgent = FileAgent.create tempDir

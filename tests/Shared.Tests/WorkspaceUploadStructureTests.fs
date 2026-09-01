@@ -48,6 +48,36 @@ let private requirePlan graph label items =
     | Error err -> failwith err
 
 [<Fact>]
+let ``planStubOps creates Directory named .scratch from inventory`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+    let items = [ item ".scratch" true ]
+    let ops = requirePlan graph "home" items
+    let created =
+        ops
+        |> List.choose (function
+            | Op.NewSpecialNode(_, Directory, name) -> Some name
+            | _ -> None)
+    Assert.Contains(".scratch", created)
+    let graph2 = applyOps graph ops
+    let scratch = childNamed graph2 workspaceId ".scratch"
+    Assert.Equal(Special Directory, scratch.kind)
+    Assert.Equal(Filename.Ok ".scratch", scratch.name)
+
+[<Fact>]
+let ``planStubOps creates Directory named .agents with file child`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+    let items =
+        [ item ".agents" true
+          item ".agents/skill.md" false ]
+    let graph2 =
+        requirePlan graph "home" items |> applyOps graph
+    let agents = childNamed graph2 workspaceId ".agents"
+    Assert.Equal(Special Directory, agents.kind)
+    let skill = childNamed graph2 agents.id "skill.md"
+    Assert.Equal(Special File, skill.kind)
+    Assert.Equal(Loaded, agents.childrenStatus)
+
+[<Fact>]
 let ``plan creates directory then file stubs under workspace`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
 

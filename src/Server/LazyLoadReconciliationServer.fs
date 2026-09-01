@@ -104,6 +104,33 @@ module LazyLoadReconciliationServer =
     let private normalizeDirRel (dirRel: string) =
         dirRel.Replace('\\', '/').Trim('/')
 
+    let private isGitDirName (name: string) =
+        String.Equals(name, ".git", StringComparison.OrdinalIgnoreCase)
+
+    /// Empty dirs (no files, no non-git subdirs) as `{rel}/.amb` so Added plans Directory.
+    let rec private emptyDirectoryFileRels (full: string) (rel: string) =
+        if not (Directory.Exists full) then
+            []
+        else
+            Directory.GetDirectories full
+            |> Array.toList
+            |> List.collect (fun dir ->
+                let name = Path.GetFileName dir
+                if isGitDirName name then
+                    []
+                else
+                    let childRel =
+                        if rel = "" then name else rel + "/" + name
+                    let nested = emptyDirectoryFileRels dir childRel
+                    let hasFile =
+                        Directory.EnumerateFiles dir |> Seq.isEmpty |> not
+                    let hasSubdir =
+                        Directory.GetDirectories dir
+                        |> Array.exists (fun d ->
+                            not (isGitDirName (Path.GetFileName d)))
+                    if hasFile || hasSubdir then nested
+                    else (childRel.Replace('\\', '/') + "/.amb") :: nested)
+
     /// Discover under DataDir/{label} or DataDir/{label}/{dirRel}; map to workspace-relative Added.
     let private discoveredAddedPaths
         (dataDir: string)
@@ -122,17 +149,31 @@ module LazyLoadReconciliationServer =
                     dataDir,
                     workspaceLabel,
                     dirRel.Replace('/', Path.DirectorySeparatorChar))
-        discoveryRoot
-        |> DocumentPersistence.discoverArtifactRelatives
-        |> Result.map (fun relatives ->
-            relatives
-            |> List.map (fun rel ->
-                let workspaceRel =
+        let fileAdds =
+            discoveryRoot
+            |> DocumentPersistence.discoverArtifactRelatives
+            |> Result.map (fun relatives ->
+                relatives
+                |> List.map (fun rel ->
+                    let workspaceRel =
+                        match prefix with
+                        | None -> rel
+                        | Some dirRel when String.IsNullOrEmpty rel -> dirRel
+                        | Some dirRel -> dirRel + "/" + rel
+                    workspaceRel))
+        match fileAdds with
+        | Error err -> Error err
+        | Ok fileRels ->
+            let emptyAmb =
+                emptyDirectoryFileRels discoveryRoot ""
+                |> List.map (fun rel ->
                     match prefix with
                     | None -> rel
-                    | Some dirRel when String.IsNullOrEmpty rel -> dirRel
-                    | Some dirRel -> dirRel + "/" + rel
-                LazyLoadReconciliation.Added workspaceRel))
+                    | Some dirRel -> dirRel + "/" + rel)
+            (fileRels @ emptyAmb)
+            |> List.distinct
+            |> List.map LazyLoadReconciliation.Added
+            |> Ok
 
     let private logFailures
         (workspaceLabel: string)

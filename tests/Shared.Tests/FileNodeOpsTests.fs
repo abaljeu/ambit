@@ -93,6 +93,15 @@ let ``planCreateOwnedFile falls back when query is Directory File basename`` () 
     Assert.Equal(Filename.Ok "file.txt", graph2.nodes.[fileId].name)
 
 [<Fact>]
+let ``planCreateOwnedDirectory keeps leading-dot name that is not Directory File`` () =
+    let focus, graph = outlineSetup ()
+    let dirId, ops = FileNodeOps.planCreateOwnedDirectory graph focus ".scratch"
+    Assert.NotEmpty(ops)
+    let graph2 = applyOps graph ops
+    Assert.Equal(Filename.Ok ".scratch", graph2.nodes.[dirId].name)
+    Assert.Equal(Special Directory, graph2.nodes.[dirId].kind)
+
+[<Fact>]
 let ``planCreateOwnedDirectory falls back when query is Directory File basename`` () =
     let focus, graph = outlineSetup ()
     let dirId, ops = FileNodeOps.planCreateOwnedDirectory graph focus ".AMB"

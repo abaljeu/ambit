@@ -32,7 +32,7 @@ Work ready to start but not yet claimed.
 - [[.cursor/skills/git-master/SKILL.md]] — name the tag convention on `master` and who applies a tag
 - [[plan/llm-connector/map.md]] — chart Run `?` pack, LLM call, and write-back
 - [[plan/roadmap/issues/07-chart-automatic-upload-and-download.md]] — chart auto-upload (and remaining pointers) for [[plan/roadmap/epics/work-with-text-files-from-anywhere.md]] current Chapter
-- [[plan/roadmap/reports/changes-post-timeout.md]] — HITL: Upload stub `POST /ambit/changes` (~1000 ops) fail at ~60s vs ~100s vs HTTP 400 persist (FileAgent `classify` batch landed: [[plan/roadmap/reports/ignored-destination-batch-classify.md]], [[src/Server/IgnoredDestination.fs]])
+- [[plan/roadmap/reports/upload-dot-scratch-directory-stub.md]] — HITL: empty `.scratch` Directory in Graph; Load `.agents` then expand stays Loaded (timeout gone; `classify` batch: [[plan/roadmap/reports/ignored-destination-batch-classify.md]])
 - [[plan/end-user-wiki/issues/01-describe-documents-from-any-connected-device.md]] — operator how-to for documents from any connected device
 - [[plan/marketing-wiki/issues/01-use-page-documents-from-any-connected-device.md]] — first use page for documents from any connected device
 - [[plan/document-formats/map.md]] — chart remaining document formats (XML and other draft codecs)
