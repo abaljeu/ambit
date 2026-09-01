@@ -13,7 +13,7 @@ usage() {
     echo "Usage: $0 <command> [options]"
     echo "  ready [-m <msg>]     Merge dev into ready (--no-ff)."
     echo "  master -m <msg>    Squash ready onto master, then propagate forward."
-    echo "  forward [place] [-m <msg>]  Propagate master (default) or ready toward dev."
+    echo "  forward [place]  Propagate master (default) or ready toward dev."
     echo
     echo "A hotfix born on master or ready reaches dev with: $0 forward <place>"
     exit 1
@@ -69,10 +69,14 @@ finish_on_dev() {
 
 forward_from() {
     local place="$1"
-    local msg="${2-}"
     case "$place" in
-        master) merge_no_ff ready master "$msg"; merge_no_ff dev ready "$msg" ;;
-        ready)  merge_no_ff dev ready "$msg" ;;
+        master)
+            merge_no_ff ready master "forward master into ready"
+            merge_no_ff dev ready "forward ready into dev"
+            ;;
+        ready)
+            merge_no_ff dev ready "forward ready into dev"
+            ;;
         *)      echo "Propagate forward from master or ready, not $place" >&2; exit 1 ;;
     esac
 }
@@ -132,7 +136,7 @@ case "$COMMAND" in
         finish_on_dev
         ;;
     forward)
-        forward_from "${PLACE:-master}" "$MESSAGE"
+        forward_from "${PLACE:-master}"
         finish_on_dev
         ;;
     *)

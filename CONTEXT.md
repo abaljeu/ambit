@@ -1,4 +1,4 @@
-# Gambol
+# Ambit
 
 Concise glossary for this repo. Prefer these words; do not invent synonyms.  If a new term seems to be needed, raise the issue.
 
@@ -48,11 +48,17 @@ The steering Project at [[plan/roadmap/]]. It answers what to work on next by gr
 _Avoid_: master project, master steering, doc/roadmap (as this Project), numbered Epic sequence (as the listing rule)
 
 **Epic**:
-A marketable user end-goal, larger than a feature or interaction. On the Roadmap it is a standing file under [[plan/roadmap/epics/]] until that goal is met. It has a Stage (same words as a feature-set Project, except steering). Person-job Epics have Chapters plus a **Required for done** list. Home Epics ([[plan/roadmap/epics/organize-huge-outlines.md]], [[plan/roadmap/epics/robust-outliner.md]]) have only Required for done (no Chapters). The Epic is not done until every Chapter item and every Required item is done (or the named part of that Project). Wiki portions about this Epic are Required; the whole wiki Project is not.
-_Avoid_: saga, tale, epic project, marketable story (as the glossary name), steering (as an Epic Stage), Stage (for a Chapter), pseudo-epic (say home Epic), Homed Projects (say Required for done)
+A marketable user end-goal, larger than a feature or interaction. On the Roadmap it is a standing file under [[plan/roadmap/epics/]] until that goal is met. It has a Stage (same words as a feature-set Project, except steering). Two kinds: **User Epic** and **Developer Epic**. The Epic is not done until every Chapter item and every Required item is done (or the named part of that Project). Wiki portions about this Epic are Required; the whole wiki Project is not.
+_Avoid_: saga, tale, epic project, marketable story (as the glossary name), steering (as an Epic Stage), Stage (for a Chapter), person-job, person-job Epic, home Epic, home-Epic, Person-job, Use Epic, end-user Epic (as this kind name), pseudo-epic (say Developer Epic), Homed Projects (say Required for done)
+
+**User Epic**:
+An Epic that fulfills an end-user’s goal for a particular pattern of usage of the software. Has Chapters plus Required for done. Opening line is still *A person [verb phrase]* where that is already the file shape.
+
+**Developer Epic**:
+An Epic that serves developers. Has only Required for done (no Chapters). Same files: [[plan/roadmap/epics/organize-huge-outlines.md]], [[plan/roadmap/epics/robust-outliner.md]].
 
 **Chapter**:
-A named beat of a person-job Epic (Visit Troy, see Circe). Not a Project Stage. A Chapter’s **What to build** names major features; its checklist points at Projects or issues that belong to that beat and does not own them. Those items are not repeated on Required for done. Home Epics have none.
+A named beat of a User Epic (Visit Troy, see Circe). Not a Project Stage. A Chapter’s **What to build** names major features; its checklist points at Projects or issues that belong to that beat and does not own them. Those items are not repeated on Required for done. Developer Epics have none.
 _Avoid_: Stage (for this beat), leg, beat (as the glossary name)
 
 **Feature-set Project**:
@@ -68,6 +74,8 @@ A record under [[doc/Decisions/]] of a choice that is costly to reverse, surpris
 _Avoid_: ADR (outside vendored skills), architecture decision record, decision record
 
 ## About the Software
+**Ambit**: The name of the SaaS.  Gambol is the name of the repo on this computer, but not a front facing name.
+**Amble**: Ambit's Embedded query Language.
 
 **Graph**:
 The editable structure: a root and the nodes reachable from it, with ownership and ref links among those nodes.
@@ -264,6 +272,14 @@ _Avoid_: is (lowercase, for this combinator), equals, comparison operator
 **Included context**:
 The Nodes shown in the current SiteMap under Zoom, honoring Fold. Not the pixel viewport, and not every Resident Node.
 _Avoid_: visible (as the glossary name), context (bare, for this pack)
+
+**Agent**:
+An LLM-empowered worker. Ambit will have one.
+_Avoid_: Actor (for this counterpart), bot, copilot, assistant (as the glossary name), Grok (as this name)
+
+**Agentic**:
+Pertaining to an Agent.
+_Avoid_: using Agentic for Sync, Upload, or a long-running job
 
 ## Additional approved terms
 These terms are permitted with standard definition:

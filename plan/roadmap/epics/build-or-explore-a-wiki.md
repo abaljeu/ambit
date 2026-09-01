@@ -6,7 +6,9 @@ A person builds and walks their own wiki in Gambol. Wiki pages are `.md` Files. 
 
 Current chapter: Markdown codec
 
-## Markdown codec
+## Chapters
+
+### Markdown codec
 
 **What to build:** Read and write `.md` Files as wiki pages. A person authors in the App as today.
 
@@ -14,7 +16,7 @@ Current chapter: Markdown codec
 
 - [ ] [[plan/document-formats/map.md]] — `.md` File codec
 
-## Public URL
+### Public URL
 
 **What to build:** Visitors open a public URL. The Server reads `.md` Files and presents HTML. Not the HTML File body of [[create-and-publish-web-pages.md]]. In-App walk is not a Chapter.
 
@@ -22,7 +24,7 @@ Current chapter: Markdown codec
 
 ## Required for done
 
-Not a Chapter. The Epic is not done until each item is done (or the named part).
+The Epic is not done until each item is done (or the named part).
 
 Live:
 
