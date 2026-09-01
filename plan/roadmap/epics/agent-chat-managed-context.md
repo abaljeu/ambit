@@ -47,13 +47,15 @@ Current chapter: Ask from what I see
 
 **Blocked by:** Ask from what I see.
 
-### Act through CLI or MCP
+### Act through CLI
 
-**What to build:** Work runs through CLI or MCP as a long-running Actor. Not glossary Agent.
+**What to build:** Work runs through CLI a long-running Actor. Not glossary Agent.
 
 **Blocked by:** Change the Graph.
 
 - [ ] [[plan/event-sourced-ops/details/actors-and-jobs.md]] — shell command as a later Actor
+
+### Act through MCP
 
 ## Required for done
 
