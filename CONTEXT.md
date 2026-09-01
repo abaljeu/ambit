@@ -1,4 +1,4 @@
-# Gambol
+# Ambit
 
 Concise glossary for this repo. Prefer these words; do not invent synonyms.  If a new term seems to be needed, raise the issue.
 
@@ -74,6 +74,8 @@ A record under [[doc/Decisions/]] of a choice that is costly to reverse, surpris
 _Avoid_: ADR (outside vendored skills), architecture decision record, decision record
 
 ## About the Software
+**Ambit**: The name of the SaaS.  Gambol is the name of the repo on this computer, but not a front facing name.
+**Amble**: Ambit's Embedded query Language.
 
 **Graph**:
 The editable structure: a root and the nodes reachable from it, with ownership and ref links among those nodes.
@@ -270,6 +272,14 @@ _Avoid_: is (lowercase, for this combinator), equals, comparison operator
 **Included context**:
 The Nodes shown in the current SiteMap under Zoom, honoring Fold. Not the pixel viewport, and not every Resident Node.
 _Avoid_: visible (as the glossary name), context (bare, for this pack)
+
+**Agent**:
+An LLM-empowered worker. Ambit will have one.
+_Avoid_: Actor (for this counterpart), bot, copilot, assistant (as the glossary name), Grok (as this name)
+
+**Agentic**:
+Pertaining to an Agent.
+_Avoid_: using Agentic for Sync, Upload, or a long-running job
 
 ## Additional approved terms
 These terms are permitted with standard definition:

@@ -2,11 +2,13 @@
 
 Stage: charting
 
-A person chats with an agent that provides managed context.
+A person chats with an Agent that provides managed context.
 
 Current chapter: Ask from what I see
 
-## Ask from what I see
+## Chapters
+
+### Ask from what I see
 
 **What to build:** Run `?` with a message and included context. The reply is Owned children of the focus Node. The call is a long-running Actor: launch, answers arrive while the person works, cancel stops a slow job.
 
@@ -17,25 +19,35 @@ Current chapter: Ask from what I see
 - [ ] [[plan/event-sourced-ops/issues/07-generalized-server-actor-produce-path.md]]
 - [ ] [[plan/event-sourced-ops/issues/09-job-identity-with-advisory-soft-lock.md]]
 
-## Talk again
+### Ambit keeps consistency with desktop repo for Agentic work
+
+**What to build:** Map a desktop repo folder to a Workspace Node in the App (Current). Automatic Upload and Download keep that folder consistent with the Server. The person works in the App and in the Browser. Ambit's Agent continues the Agentic work. Do not name the Agent after a vendor.
+
+**Blocked by:** Ask from what I see; [[work-with-text-files-from-anywhere.md]] Automatic upload and download.
+
+- [ ] [[plan/roadmap/issues/07-chart-automatic-upload-and-download.md]] — chart auto-upload (owned by the documents Chapter)
+- [ ] [[plan/auto-download-persisted-files/project.md]] — auto-download (HITL tabled; owned by the documents Chapter)
+- [ ] [[plan/client-start-time/project.md]] — primarily the Browser on a phone
+
+### Talk again
 
 **What to build:** Follow-up turns live in the Graph, not a one-shot `?`.
 
 **Blocked by:** Ask from what I see.
 
-## Change the Graph
+### Change the Graph
 
 **What to build:** The LLM authors Changes, not only reply text.
 
 **Blocked by:** Ask from what I see.
 
-## Query the Graph or the files
+### Query the Graph or the files
 
 **What to build:** The LLM queries the Graph or the files behind File Nodes, not only included context.
 
 **Blocked by:** Ask from what I see.
 
-## Act through CLI or MCP
+### Act through CLI or MCP
 
 **What to build:** Work runs through CLI or MCP as a long-running Actor. Not glossary Agent.
 
@@ -45,7 +57,7 @@ Current chapter: Ask from what I see
 
 ## Required for done
 
-Not a Chapter. The Epic is not done until each item is done (or the named part).
+The Epic is not done until each item is done (or the named part).
 
 Live:
 
@@ -58,3 +70,4 @@ Live:
 
 - [[plan/transport-layer/project.md]] cross-cutting pattern — agent Actor is an inbound transport leg (reply as Owned children); see [[plan/transport-layer/overview.md]], [[plan/transport-layer/map.md]].
 - Scaling is [[organize-huge-outlines.md]]; first use does not wait on it.
+- Desktop-repo use is Chapter **Ambit keeps consistency with desktop repo for Agentic work**. One Chapter on this Epic; Projects own the details. No Chapter order — only **Blocked by**. Current chapter stays **Ask from what I see** ([[plan/llm-connector/project.md]]). Mapping is Current ([[doc/current/workspace-local-mapping.md]]). Upload/Download stay on [[work-with-text-files-from-anywhere.md]]. **Talk again** stays a separate Chapter. **Agent** and **Agentic**: [[CONTEXT.md]]. Grill: [[plan/roadmap/issues/13-grill-cursor-repo-to-ambit-llm-use.md]]. Options history: [[plan/roadmap/reports/cursor-repo-to-ambit-mobile-grok.md]].

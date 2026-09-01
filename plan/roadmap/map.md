@@ -51,6 +51,7 @@ Grouped by Stage. Order inside a Stage does not matter.
 - [Chart chapters for Manage a project](plan/roadmap/issues/10-chart-manage-a-project.md) — two Chapters; current Status; Date is set/find/compare with no forced meaning; no owning Project yet.
 - [Home every Project on an Epic](plan/roadmap/issues/11-home-every-project-on-an-epic.md) — coverage via Homed Projects; new Developer Epics Organize Huge Outlines and Robust outliner; ChildNode drop ref tabled; work-board-audit on this Roadmap.
 - [Required for Epic done vs Chapter, no overlap](plan/roadmap/issues/12-required-for-epic-done.md) — Chapter vs Required for done; wiki portions about this Epic gate this Epic.
+- [Grill Cursor-repo to Ambit LLM use onto Epics](plan/roadmap/issues/13-grill-cursor-repo-to-ambit-llm-use.md) — one Chapter **Ambit keeps consistency with desktop repo for Agentic work** on [[epics/agent-chat-managed-context.md]]; depends on **Ask from what I see** and documents auto-upload/download; **Agent** in [[CONTEXT.md]].
 
 ## Not yet specified
 
