@@ -11,3 +11,5 @@ Chart pointers for Chapter **Automatic upload and download** on [[plan/roadmap/e
 Recommended: extend or sibling the auto-download Project. HITL resume of auto-download is not this ticket.
 
 ## Comments
+
+- 2026-09-02: Parked from WORK.md. Chart auto-upload (and remaining pointers) for [[plan/roadmap/epics/work-with-text-files-from-anywhere.md]] current Chapter.

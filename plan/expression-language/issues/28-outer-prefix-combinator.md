@@ -6,12 +6,17 @@
 
 **Blocked by:** none.
 
-**See also:** [[plan/expression-language/spec.md]] chapters 4, 6, 7, and 11; [[plan/expression-language/reports/tree2-semantics.md]]; [[plan/expression-language/reports/outer-spec-lock.md]]; [[src/Shared/ExprParse.fs]]; [[src/Shared/ExprEval.fs]] `notEval`; [[src/Shared/ExprWalk.fs]] `treeAnswers`; [[src/Shared/ExprCompile.fs]]. Tests belong next to existing Expr facts in [[tests/Shared.Tests/ExprCombinatorTests.fs]] and the chapter 11 row in [[tests/Shared.Tests/ExprChapter11Tests.fs]].
+**See also:** [[plan/expression-language/spec.md]] chapters 4, 6, 7, and 11; [[plan/expression-language/reports/tree2-semantics.md]]; [[plan/expression-language/reports/outer-spec-lock.md]]; [[plan/expression-language/reports/outer-impl.md]]; [[src/Shared/ExprParse.fs]]; [[src/Shared/ExprEval.fs]] `notEval`; [[src/Shared/ExprWalk.fs]] `treeAnswers`; [[src/Shared/ExprCompile.fs]]. Tests belong next to existing Expr facts in [[tests/Shared.Tests/ExprCombinatorTests.fs]] and the chapter 11 row in [[tests/Shared.Tests/ExprChapter11Tests.fs]].
 
-**Status:** done
+**Status:** ready-for-human
 
 - [x] `OUTER containing "blue"` and `root OUTER containing "blue"` parse as the combinator, not bind of a generator named `OUTER`.
 - [x] Compound operands need parentheses, same as `NOT`. Bare `OUTER` is a missing-operand parse error.
 - [x] A match yields and its Owned descendants are not visited; a non-match does not yield and the walk continues in its Owned Children; sibling matches both yield; a match under a non-match yields.
 - [x] The walk is Owned only, strictly below the input, and does not follow Ref. Unloaded is a miss, never Loaded.
 - [x] `tree` / `**` is unchanged. Evaluation is the fused walk, not a post-pass prune of `tree` Answers.
+- [ ] HITL: Run `= root OUTER containing "…"` on `/ambit` or `/ambit?debug=1`; confirm nested prune, Owned-only walk, and that lowercase `outer` is not the combinator.
+
+## Comments
+
+- 2026-09-02: Parked from WORK.md. Implementation stays done; HITL remains.

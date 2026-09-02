@@ -18,3 +18,7 @@
 - [ ] After a successful Load, the client keeps every Workspace it already had. The client also has the newly requested Workspace in full.
 - [ ] Load checks each target's owning Workspace before running any stage. If any two selected targets have different owning Workspaces, Load refuses the whole request and runs no stage.
 - [ ] A refused Load changes nothing: no source stages run, no Change catch-up applies, and no Workspace installs.
+
+## Comments
+
+- 2026-09-02: Parked from WORK.md. Parent: [[plan/selective-client-loading/spec.md]].

@@ -16,3 +16,7 @@
 - [ ] Fold restore and fold or unfold use only resident content. They never request residency.
 - [ ] Traversal and range commands use projected child lists. They stop or continue at Unloaded boundaries. They never run Load.
 - [ ] Only bootstrap and Load add resident content that these navigation surfaces can then use.
+
+## Comments
+
+- 2026-09-02: Parked from WORK.md. Parent: [[plan/selective-client-loading/spec.md]].
