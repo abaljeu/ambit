@@ -22,6 +22,7 @@ A standing Roadmap that answers “what should I work on next.” Completing it 
 - Stay on `w/roadmap`. Plan by default on this map except when invoking a named feature-set Project.
 - Sessions present multiple choice of takeable work (frontier tickets, uncharted User Epic Chapters, fog now specifiable). Do not auto-pick the first frontier ticket. Do not offer Developer Epic Chapters; there are none.
 - Documentation wikis: [[plan/end-user-wiki/map.md]], [[plan/marketing-wiki/map.md]], [[plan/architecture/map.md]]. An Epic is not done until the wiki portions about that Epic are done. Architecture’s remainder is also Required on [[epics/robust-outliner.md]].
+- [[epics/robust-outliner.md]] records the inner-core aim: a modular Server apply core that never crashes; other work posts Changes ([[plan/event-sourced-ops/overview.md]]) and may hang or crash without harming the core. Same Epic aims at incremental operations (modest send, then more); Workspace upload and Browser Load are current counterexamples.
 
 ## Epics
 

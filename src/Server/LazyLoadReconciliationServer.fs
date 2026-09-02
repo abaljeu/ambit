@@ -10,7 +10,6 @@ open Gambol.Shared
 module LazyLoadReconciliationServer =
 
     module JsonDecode = Thoth.Json.Newtonsoft.Decode
-    module JsonEncode = Thoth.Json.Newtonsoft.Encode
 
     let decodeGraphState (json: string) : Result<int * Graph, string> =
         let decoder =
@@ -25,15 +24,6 @@ module LazyLoadReconciliationServer =
                         Serialization.decodeGraph
                 revision.Value, graph)
         JsonDecode.fromString decoder json
-
-    let private encodeChange revision ops =
-        let change =
-            { id = revision
-              changeId = Guid.NewGuid()
-              ops = ops }
-        JsonEncode.toString 0 (
-            Serialization.encodeChangeBatch
-                { changes = [ change ] })
 
     let private isDirInfoPath (path: string) =
         DocumentArtifactPath.isDirectoryFile path
@@ -226,8 +216,13 @@ module LazyLoadReconciliationServer =
                             | [] -> return Ok report.failures
                             | ops ->
                                 let! result =
-                                    handle.postGraphOnlyChange (encodeChange revision ops)
-                                return result |> Result.map (fun _ -> report.failures)
+                                    GraphOnlyChangePost.postChunks
+                                        handle.postGraphOnlyChange
+                                        revision
+                                        (GraphOnlyChangeChunks.split ops)
+                                return
+                                    result
+                                    |> Result.map (fun () -> report.failures)
         }
 
     let reconcileChangedPaths
