@@ -13,12 +13,11 @@ Canonical project rules are split across [[.cursor/rules/]]:
 - [[.cursor/rules/markdown-writing.mdc]] — markdown conventions (scoped to *.md)
 - [[.cursor/rules/testing-workflow.mdc]] — TDD, test running, and Client compile gate (scoped to tests, Shared, Client)
 - [[.cursor/rules/planning-docs.mdc]] — roadmap/plan documents (scoped to doc/)
-- [[.cursor/rules/work-blackboard.mdc]] — shared task board protocol
 - [[.cursor/rules/project-stage.mdc]] — keep each `plan/` project's `Stage:` and the overview current
 
 Shared runtime state:
 
-- [[WORK.md]] — live actionable work (Active, Pending, Blocked)
+- [[plan/index.md]] — project stage overview; work is that project's issues/
 - [[CONTEXT.md]] — concise domain glossary
 
 Imported engineering skill configuration:
