@@ -40,6 +40,7 @@
     <Compile Include="DatabaseSetup.fs" />
     <Compile Include="SavePrep.fs" />
     <Compile Include="Api.fs" />
+    <Compile Include="GraphOnlyChangePost.fs" />
     <Compile Include="LazyLoadReconciliationServer.fs" />
     <Compile Include="HeadPresence.fs" />
     <Compile Include="RouteRegistration.fs" />
