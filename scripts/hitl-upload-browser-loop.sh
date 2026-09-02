@@ -3,7 +3,7 @@
 # Agent runs this; human answers in the terminal.
 #
 # Usage (from repo root):
-#   bash scripts/hitl-upload-browser-loop.sh
+#   scripts/hitl-upload-browser-loop.sh
 
 set -euo pipefail
 

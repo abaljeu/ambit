@@ -34,7 +34,7 @@ Stop and ask if any fail:
 ### 1. Pull tree (on vendor)
 
 ```bash
-bash .cursor/skills/update-matt-skills/scripts/pull-skills-tree.sh
+.cursor/skills/update-matt-skills/scripts/pull-skills-tree.sh
 ```
 
 Fetches `skills-source` and replaces `skills/` from `skills-source/main`.
@@ -44,7 +44,7 @@ Fetches `skills-source` and replaces `skills/` from `skills-source/main`.
 ### 2. Flatten (on vendor)
 
 ```bash
-bash .cursor/skills/update-matt-skills/scripts/flatten-skills.sh
+.cursor/skills/update-matt-skills/scripts/flatten-skills.sh
 ```
 
 Deletes `.agents/skills` on vendor only, then copies each non-deprecated `skills/**/SKILL.md` parent dir to `.agents/skills/<name>/`. Rejects duplicate basenames. Does not touch `skills/` or this cursor skill.
@@ -54,7 +54,7 @@ Deletes `.agents/skills` on vendor only, then copies each non-deprecated `skills
 ### 3. Commit on vendor
 
 ```bash
-bash .cursor/skills/update-matt-skills/scripts/commit-vendor.sh
+.cursor/skills/update-matt-skills/scripts/commit-vendor.sh
 ```
 
 Stages `skills/` and `.agents/skills/`, commits with message `Update projected skills` when there are changes.
@@ -66,7 +66,7 @@ Stages `skills/` and `.agents/skills/`, commits with message `Update projected s
 Checkout a clean live `w/*` tip first (do not merge while on an arbitrary branch). The merge script requires `w/*`, then creates/resets `update/mattpocock-skills` from that tip and merges vendor there — not onto the shared `w/*` itself.
 
 ```bash
-bash .cursor/skills/update-matt-skills/scripts/merge-to-live.sh
+.cursor/skills/update-matt-skills/scripts/merge-to-live.sh
 ```
 
 Ordinary: `git merge --no-ff vendor/mattpocock-skills` on `update/mattpocock-skills`.
@@ -74,7 +74,7 @@ Ordinary: `git merge --no-ff vendor/mattpocock-skills` on `update/mattpocock-ski
 First-time bootstrap (unrelated histories) only — brings vendor flat skills onto the update branch (live integration):
 
 ```bash
-bash .cursor/skills/update-matt-skills/scripts/merge-to-live.sh --bootstrap
+.cursor/skills/update-matt-skills/scripts/merge-to-live.sh --bootstrap
 ```
 
 (`--bootstrap` adds `--allow-unrelated-histories`.)

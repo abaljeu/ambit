@@ -67,7 +67,6 @@ Work ready to start but not yet claimed.
 - [[doc/reference/dev-debug-workflow.md]] — document watch: prefer `/ambit?debug=1`; after esbuild rebuild hard-reload (Ack on CodeOutdated does not unblock)
 - [[plan/glossary-directory-file/rename-isMarker.md]] — optional remaining speech/doc sweep for informal “marker” (Directory File sense); `isMarker` / related API renames done
 - [[plan/large-node-cursor-perf/delete-children-cost.md]] — profile/optimize delete among large siblings (fromNodes + SiteMap rematch / structural DOM plan) (parent: [[plan/large-node-cursor-perf/project.md]])
-- [[plan/delete-ref/issues/02-delete-owned-self-ref-hangs.md]] — Delete of an Owned Node that has a self-Ref must finish (do not promote the self-Ref; owner-chain must not loop) (artifacts: [[plan/delete-ref/reports/self-ref-delete-owned-hang.md]])
 
 ## Blocked
 

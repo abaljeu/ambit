@@ -53,7 +53,7 @@ dotnet build src/Client/Gambol.Client.fsproj -c Debug
 Passed: 0 warnings, 0 errors.
 
 ```bash
-bash ./scripts/client.sh build
+./scripts/client.sh build
 ```
 
 Passed: Fable compilation and esbuild bundle.

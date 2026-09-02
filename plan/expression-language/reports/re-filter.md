@@ -20,7 +20,7 @@ Implemented two catalog after-filters on Header text (`node.text`), the same fie
 ## Verify
 
 - Shared tests: `ExprFilterTests` and `ExprPathClusterParseTests` — 23 passed
-- Client compile gate: `bash ./scripts/client.sh build` — Fable and esbuild succeeded
+- Client compile gate: `./scripts/client.sh build` — Fable and esbuild succeeded
 
 ## Engine
 

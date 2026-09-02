@@ -1,6 +1,6 @@
 # `ref` / `owned` implementation (issue 32)
 
-Issue [[../issues/32-ref-and-owned-children.md]] is implemented and marked done. Branch `w/tree2-semantics`, no commit. Focused Expr tests are green (58), and the Client compile gate (`bash ./scripts/client.sh build`, Fable plus esbuild) passed.
+Issue [[../issues/32-ref-and-owned-children.md]] is implemented and marked done. Branch `w/tree2-semantics`, no commit. Focused Expr tests are green (58), and the Client compile gate (`./scripts/client.sh build`, Fable plus esbuild) passed.
 
 ## What landed
 
@@ -26,7 +26,7 @@ Spoken **Ref** and **Owned** stay in [[CONTEXT.md]]. Catalog spellings stay `ref
 ## Tests
 
 - `dotnet test tests/Shared.Tests -c Debug --no-build --filter "FullyQualifiedName~ExprPipelineTests|FullyQualifiedName~ExprEvalTests|FullyQualifiedName~ExprCombinatorTests|FullyQualifiedName~ExprChapter11Tests"` — 58 passed.
-- `bash ./scripts/client.sh build` — passed.
+- `./scripts/client.sh build` — passed.
 
 ## Leftover risks
 
