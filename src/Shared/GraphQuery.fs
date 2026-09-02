@@ -18,16 +18,20 @@ module GraphQuery =
         (predicate: Node -> bool)
         (nodeId: NodeId)
         : NodeId option =
-        let rec walk (current: NodeId) =
-            match Map.tryFind current graph.nodes with
-            | None -> None
-            | Some node when predicate node -> Some current
-            | Some _ ->
-                match Map.tryFind current graph.ownerParentByChild with
+        let rec walk (current: NodeId) (visited: Set<NodeId>) =
+            if Set.contains current visited then
+                None
+            else
+                match Map.tryFind current graph.nodes with
                 | None -> None
-                | Some parentId -> walk parentId
+                | Some node when predicate node -> Some current
+                | Some _ ->
+                    match Map.tryFind current graph.ownerParentByChild with
+                    | None -> None
+                    | Some parentId ->
+                        walk parentId (Set.add current visited)
 
-        walk nodeId
+        walk nodeId Set.empty
 
     /// Nearest Workspace|Directory on owner chain from nodeId (inclusive).
     /// File before a container → None (same walk; File is not skipped).

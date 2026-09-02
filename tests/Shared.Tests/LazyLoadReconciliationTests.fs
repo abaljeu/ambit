@@ -296,6 +296,18 @@ let ``exact Directory File represents its containing directory`` () =
         fun (name, _) -> name = ".amb")
 
 [<Fact>]
+let ``leading-dot directory File represents containing Directory named .scratch`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+    let graph2 =
+        requirePlan graph "home" [ ".scratch/.amb" ] |> applyOps graph
+    let scratch =
+        ownedNamedChildren graph2 workspaceId
+        |> List.find (fst >> (=) ".scratch")
+        |> snd
+    Assert.Equal(Special Directory, scratch.kind)
+    Assert.Equal(Filename.Ok ".scratch", scratch.name)
+
+[<Fact>]
 let ``reserved gambol dot files are excluded from reconciliation`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
     let paths = [ "gambol.log"; "nested/GAMBOL.meta"; "gambol" ]
