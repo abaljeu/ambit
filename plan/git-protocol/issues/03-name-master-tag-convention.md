@@ -1,6 +1,6 @@
 # 03 — Name the master tag convention
 
-**Status:** ready-for-human
+**Status:** done
 **Blocked by:** None — can start immediately.
 
 ## Context
@@ -22,9 +22,9 @@ Grill complete. Confirm this, then implement. Do not implement until the human a
 
 The git-master skill states this convention. Other instructions keep pointing at that skill.
 
-- [ ] Tag section names the command, who runs it, and the free-form name.
-- [ ] Squash path does not say “tag it.”
-- [ ] Publish path: `gitpush master` pushes tip tags and force-updates a moved name. No second copy of the convention.
+- [x] Tag section names the command, who runs it, and the free-form name.
+- [x] Squash path does not say “tag it.”
+- [x] Publish path: `gitpush master` pushes tip tags and force-updates a moved name. No second copy of the convention.
 
 ## Comments
 
@@ -36,6 +36,7 @@ The git-master skill states this convention. Other instructions keep pointing at
 - 2026-09-02 grill Q9–Q11: `gitpush master` publishes only tags that point at the master tip being pushed. Overwrite of an annotated tag with lightweight is fine.
 - 2026-09-02 grill Q12: Force-update those tip tags on origin. Local pin wins.
 - 2026-09-02 grill wrap: Frontier empty. Status set to ready-for-human so the next agent does not re-grill. Project Stage stays `active`.
+- 2026-09-02: Implemented. Report: [[plan/git-protocol/reports/implement-03.md]].
 
 ## See also
 

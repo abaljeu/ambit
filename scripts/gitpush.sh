@@ -30,3 +30,18 @@ git rev-parse --verify --quiet "$PLACE" >/dev/null \
     || { echo "No such branch: $PLACE" >&2; exit 1; }
 
 git push origin "$PLACE"
+
+if [[ "$PLACE" == master ]]
+then
+    tip="$(git rev-parse master)"
+    tip_tags=()
+    while IFS= read -r name
+    do
+        [[ -n "$name" ]] && tip_tags+=("refs/tags/$name")
+    done < <(git tag --points-at "$tip")
+    if ((${#tip_tags[@]} > 0))
+    then
+        git push --force origin "${tip_tags[@]}"
+    fi
+fi
+

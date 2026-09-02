@@ -31,7 +31,7 @@ Imported engineering skill configuration:
 Workflow skills in [[.cursor/skills/]]:
 
 - [[.cursor/skills/git-protocol/SKILL.md]] — git procedure (`dev`, `ready`, `master`)
-- [[.cursor/skills/git-master/SKILL.md]] — squash, tag, and publish `master`; explicit invocation only
+- [[.cursor/skills/git-master/SKILL.md]] — squash and publish `master`; explicit invocation only
 - [[.cursor/skills/git-share/SKILL.md]] — publish `ready`, pull, catch up; explicit invocation only
 - [[.cursor/skills/project-work/SKILL.md]] — `plan` project files and Stage
 - [[.cursor/skills/plan-roadmap-change/SKILL.md]] — roadmap and plan doc changes

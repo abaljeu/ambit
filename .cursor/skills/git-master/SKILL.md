@@ -1,6 +1,6 @@
 ---
 name: git-master
-description: Squash ready onto master, tag it, and publish.
+description: Squash ready onto master and publish.
 disable-model-invocation: true
 ---
 
@@ -24,7 +24,15 @@ Bisect squash-by-squash on `master`.
 
 ## Tag
 
-Tags name commits on `master`.
+The human tags only. The agent does not run `git tag`, even if asked.
+
+The name is whatever the human types.
+
+```bash
+git tag -f NAME master
+```
+
+Lightweight. No helper script. No checkout. `-f` may re-point an existing name at the current `master` tip, including replacing an annotated tag with a lightweight tag.
 
 ## Publish
 
@@ -32,4 +40,4 @@ Tags name commits on `master`.
 ./scripts/gitpush.sh master
 ```
 
-[[scripts/gitpush.sh]] refuses `dev` and pushes `origin` `master`. It fast-forwards once the public presentation commits on `origin/master` are in this line's ancestry.
+[[scripts/gitpush.sh]] refuses `dev` and pushes `origin` `master`. It also force-pushes every local tag that points at that `master` tip, so origin follows a moved name. It does not `--tags`. It fast-forwards once the public presentation commits on `origin/master` are in this line's ancestry.
