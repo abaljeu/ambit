@@ -1,6 +1,6 @@
 # Browser Workspace Load: 400 / 502 timeout
 
-Diagnosis only. No product code change. Loop not run: needs a large DataDir Workspace on production (cPanel → Azure) or a replay of a real reconcile Change.
+HITL confirmed **both** HTTP 400 (`change processing timed out`) and HTTP 502 (`Proxy error`) at different times (item 1). Item 2 is implemented: [[graph-only-reconcile-chunk.md]].
 
 Related: [[changes-post-timeout.md]] (desktop `POST /ambit/changes` stubs), [[check-ignore-batch-history.md]], [[upload-dot-scratch-directory-stub.md]]. Not [[plan/client-start-time/project.md]] (F5 `/state` boot).
 
@@ -33,7 +33,7 @@ Empty `path` (Workspace focus) → [[src/Server/LazyLoadReconciliationServer.fs]
 2. `discoveredAddedPaths`: `DocumentPersistence.discoverArtifactRelatives` (`EnumerateFiles` AllDirectories) **plus** empty-dir `{rel}/.amb` walk (uncommitted empty-dir stub work)
 3. Treat **every** discovered path as `Added`
 4. `planChangedPathsWithArtifacts` (stubs + Directory File parse unless Current skip)
-5. If `ops` non-empty: **`postGraphOnlyChange`** one Change
+5. If `ops` non-empty: **`GraphOnlyChangePost.postChunks`** — split at `GraphOnlyChangeChunks.maxOps` (80); each chunk is one `postGraphOnlyChange` (new `changeId`, revision +1)
 6. HTTP 200 `{failures}` or **400** `Results.BadRequest(err)`
 
 Then [[src/Client/UpdateWorkspaceSync.fs]] `completeDirectoryReconcile` → `okDetailWithPoll` → **`POST /{file}/load`** (Fetch packages + Poll). `runLoadServer` treats any non-2xx as a silent `LoadDone` miss (no status in the UI).
@@ -54,46 +54,47 @@ Not Kestrel body size (100 MiB). Reconcile body is a tiny `{workspace, path}`.
 
 ### 502 — cPanel curl, not Kestrel
 
-[[proxy.php]]: non-git routes **`CURLOPT_TIMEOUT` 60s**. Curl error → **HTTP 502** `Proxy error: …`. Git smart HTTP is 600s (`6ce817f` class of bypass; git only).
+[[proxy.php]]: ordinary non-git routes **`CURLOPT_TIMEOUT` 60s**. Curl error → **HTTP 502** `Proxy error: …`. Git smart HTTP is 600s (`6ce817f` class). After item 2, `/workspace/reconciliation/` and `/load` also use 600s once the new [[proxy.php]] is on cPanel. Until that upload, custom-domain Browser still 502s at 60s.
 
 Custom-domain Browser (`collaborative-systems.org/ambit`) always hits this. Desktop LocalProxy talks to Azure directly → 100s `HttpClient` default ([[plan/roadmap/reports/changes-post-timeout.md]]), so the same reconcile can finish in the App and 502 in the Browser.
 
 Azure App Service can also 502 if the worker dies; the **60s** timing plus `Proxy error` text is PHP.
 
-Discovery + plan run **before** `postGraphOnlyChange`. If that walk exceeds 60s, 502 with **no** 400. If plan is fast and DbAgent apply exceeds 8s, **400** at ~8s.
+Discovery + plan run **before** the first `postGraphOnlyChange`. If that walk exceeds the PHP timeout, 502 with **no** 400. If plan is fast and one DbAgent apply exceeds 8s, **400** at ~8s (mitigated by 80-op chunks).
 
 ## Why it is slow
 
-Same cost as [[changes-post-timeout.md]], different door: **one Change with hundreds/thousands of stub ops** (`NewSpecialNode` + `Replace` Children, n² JSON on the apply/log side). Browser never posts that on `/changes` when the Workspace is Unloaded; reconcile does it server-side from disk.
+Same cost as [[changes-post-timeout.md]], different door: **many stub ops** (`NewSpecialNode` + `Replace` Children, n² JSON on the apply/log side). Browser never posts that on `/changes` when the Workspace is Unloaded; reconcile does it server-side from disk, now in 80-op Changes.
 
-Repeat Load of **already Current** stubs is planned to no-op ([[tests/Shared.Tests/LazyLoadReconciliationTests.fs]] `rediscovered Current Directory Files skip parse`; 80 dirs `<100ms`). First Load (or Unparsed / missing stubs / new empty dirs) still posts the giant Change.
+Repeat Load of **already Current** stubs is planned to no-op ([[tests/Shared.Tests/LazyLoadReconciliationTests.fs]] `rediscovered Current Directory Files skip parse`; 80 dirs `<100ms`). First Load (or Unparsed / missing stubs / new empty dirs) still plans a large op list, now posted in 80-op Changes.
 
-`/load` can also exceed 60s if the Fetch package is large (PHP 502; client hides the status).
+`/load` can also exceed 60s if the Fetch package is large (PHP 502 until cPanel has the 600s `/load` timeout; client hides the status).
 
 ## Ranked hypotheses (falsifiable)
 
-1. **If** first Load of a large DataDir Workspace on Azure `db` **then** Network shows `POST …/reconciliation/directory` **400** at ~8s with body `change processing timed out`.
-2. **If** the same request runs through `proxy.php` and wall time **>60s** (discovery or FileAgent apply) **then** **502** `Proxy error` and no app 400.
+1. **Confirmed HITL:** first Load of a large DataDir Workspace on Azure `db` can show `POST …/reconciliation/directory` **400** with body `change processing timed out`.
+2. **Confirmed HITL:** the same Browser path through `proxy.php` can show **502** `Proxy error` when wall time exceeds the PHP timeout (60s until cPanel upload).
 3. **If** reconcile 200s and Fetch is the stall **then** `/load` is the 502 and reconcile was 200.
 4. **If** the Workspace is already Current on the server **then** reconcile `ops=[]` and slowness is disk walk or `/load` — not apply timeout.
 5. **Ruled out as primary:** desktop `workspace-push` / per-path `check-ignore` / Kestrel 100 MiB.
 
 ## What changed
 
-Nothing in src/. No tests run (no fix). Uncommitted [[src/Server/LazyLoadReconciliationServer.fs]] empty-dir discovery **adds** walk work on this exact POST; inspect before merging as a perf fix.
+Item 1 HITL: both 400 and 502. Item 2: [[graph-only-reconcile-chunk.md]] — 80-op graph-only chunks plus PHP 600s for reconcile and `/load`. Empty-dir discovery in [[src/Server/LazyLoadReconciliationServer.fs]] is still present and was not rewritten for this slice.
 
 ## Leftover risk
 
-No HITL HAR. No replay of a 1119-op graph-only batch through `ofDb`. Raising PHP timeout or `ChangeProcessingTimeoutMs` would hide 502/400 without making first Load cheap.
+First Load is still slow. No production replay after this slice. cPanel must receive the new [[proxy.php]] or 502 at 60s remains. Chunking does not skip Current paths (item 3) or bulk stub ingest (item 4).
 
 ## Recommended next slice (small → large)
 
-1. HITL: status, elapsed, URL, body (`change processing timed out` vs `Proxy error`).
-2. Shared/server: chunk `postGraphOnlyChange` so each apply stays under 8s **and** raise `proxy.php` timeout for `/workspace/reconciliation/` and `/load` (cPanel upload). Still slow; stops the hard fail.
+1. HITL confirm 400 vs 502 — **done** (both).
+2. Chunk graph-only reconcile and raise PHP timeout for reconcile+`/load` — **done** in tree; **cPanel upload + production Load HITL** still open ([[graph-only-reconcile-chunk.md]]).
 3. Skip discover+plan for paths already Current **before** `postGraphOnlyChange` (repeat Load). Does not fix first stub ingest.
 4. Bulk stub ingest (avoid per-op `Replace`) — not surgical.
 
 ## Board mutations (parent applies)
 
-- `add` [[plan/roadmap/reports/browser-workspace-load-timeout.md]] — HITL confirm 8s 400 vs 60s 502; next slice chunk graph-only reconcile and/or PHP timeout for reconcile+`/load` (not desktop push).
+- `remove` this report’s HITL confirm 8s 400 vs 60s 502.
+- `add` [[graph-only-reconcile-chunk.md]] — HITL upload [[proxy.php]] to cPanel; large Workspace Load should not 400/502.
 - Do not `remove` [[tmp/load-performance-audit.md]] (desktop PROPFIND) or [[upload-dot-scratch-directory-stub.md]] (leading-dot stub HITL).
