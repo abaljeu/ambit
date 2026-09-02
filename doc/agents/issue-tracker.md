@@ -25,7 +25,7 @@ Use **issue tracker**, not “backlog backend” or “backlog manager.” Use *
 - One Project per directory: `.scratch/<slug>/` (a feature-set Project, or the Roadmap).
 - The spec is `.scratch/<feature-slug>/spec.md`.
 - Implementation issues are separate files at `.scratch/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01`.
-- A `Status:` line records an implementation issue's triage role.
+- A `Status:` line records an implementation issue's triage role. `Status: grilling` or `Stage: grilling` on an issue is not a triage role: it is a directive. The next agent that starts or advances that issue must follow [[.agents/skills/grilling/SKILL.md]] on it before any implement work.
 - Append comments and conversation under `## Comments`.
 
 ## Publishing and fetching

@@ -7,12 +7,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$ROOT"
 
-usage() {
-    echo "Usage: $0 \"<message>\""
-    exit 1
-}
-
-[[ $# -gt 0 ]] || usage
+if [[ $# -eq 0 ]]; then
+    git status
+    exit 0
+fi
 
 head="$(git rev-parse --abbrev-ref HEAD)"
 [[ "$head" == "dev" ]] \

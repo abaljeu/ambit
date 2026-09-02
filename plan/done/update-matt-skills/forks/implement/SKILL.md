@@ -4,6 +4,8 @@ description: "Implement a piece of work based on a spec or set of tickets."
 disable-model-invocation: true
 ---
 
+This file is a historical snapshot. It is not live workplace procedure. `w/` names remain as history; do not resume them as the workplace. Live git procedure: [[.cursor/skills/git-protocol/SKILL.md]].
+
 Implement the work described by the user in the spec or tickets.
 
 Follow /implement-fsharp-feature to code.

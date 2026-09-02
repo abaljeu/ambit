@@ -42,6 +42,7 @@ Workflow skills in [[.cursor/skills/]]:
 - [[.cursor/skills/co-edit-format-plan/SKILL.md]] — collaborative (interactive) document editing
 - [[.cursor/skills/prepare-agent-instruction-change/SKILL.md]] — maintain rules/skills/bridges
 - [[.cursor/skills/write-simple-parser/SKILL.md]] — simple document parsers / format codecs
+- [[.cursor/skills/scratch-script/SKILL.md]] — scratch a short .sh with Write, then run that file
 - [[.cursor/skills/projects-overview/SKILL.md]] — regenerate the `plan/index.md` project stage overview
 - [[.cursor/skills/to-archive/SKILL.md]] — move a `done` project into `plan/done/` and drop it from the overview
 - [[.cursor/skills/update-matt-skills/SKILL.md]] — pull mattpocock skills tree on vendor, flatten to .agents/skills, merge to live

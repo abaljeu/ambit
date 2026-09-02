@@ -1,6 +1,5 @@
 #!/bin/bash
-# Push entry for the git protocol (.cursor/skills/git-share/SKILL.md).
-# Publishes ready or master; dev is never pushed.
+# Push ready or master (git protocol). Does not switch HEAD.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

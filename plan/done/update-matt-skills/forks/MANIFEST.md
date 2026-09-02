@@ -1,6 +1,6 @@
 # Matt skill fork backup
 
-Snapshot of locally edited Matt skills before upstream update.
+Snapshot of locally edited Matt skills before upstream update. These forks are history. They are not live workplace procedure. `w/` names in fork skill text remain as history; do not resume them as the workplace. Live git procedure: [[.cursor/skills/git-protocol/SKILL.md]].
 
 - **PRE:** `c7d7771325404016b71fa8a8c71b412b1e15aea6`
 - **BASE_REF:** `a03b641` (Install matt pocock skill set)

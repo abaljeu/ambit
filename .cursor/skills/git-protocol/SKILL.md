@@ -26,9 +26,9 @@ Commit AFTER writing any report files, not before.
 
 ## Merges
 
-The Desktop agent does not run `git merge` or squash. Those moves go through [[scripts/merge.sh]] (Cursor manual approval) or the human types them in the CLI. `merge.sh ready [-m <msg>]` brings `dev` into `ready` (`--no-ff`); `merge.sh forward [master|ready]` brings a hotfix toward `dev` with a stock forward message. The script refuses a dirty tree, and refuses a local `ready` that is behind `origin/ready`.
+The Desktop agent does not run `git merge` or squash. Those moves go through [[scripts/gitready.sh]], [[scripts/gitmaster.sh]], and [[scripts/gitdev.sh]] (Cursor manual approval) or the human types them in the CLI. `gitready.sh "<msg>"` brings `dev` into `ready` (`--no-ff`); `gitdev.sh` brings a hotfix from `master` toward `dev` with a stock forward message. The scripts refuse a dirty tree, and refuse a local `ready` that is behind `origin/ready`.
 
-**agent-done** is tests green, `/code-review`, and a commit on `dev` via [[scripts/commit.sh]] `"<message>"` or human `git commit`. Then ask the human to run `merge.sh` (or type the merge) to put that work on `ready`.
+**agent-done** is tests green, `/code-review`, and a commit on `dev` via [[scripts/commit.sh]] `"<message>"` or human `git commit`. Then ask the human to run `gitready.sh` (or type the merge) to put that work on `ready`.
 
 ## Bisect
 

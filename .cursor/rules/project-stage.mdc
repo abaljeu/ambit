@@ -10,6 +10,10 @@ Whenever any skill starts or advances a **project** (a `plan/<slug>/` effort), s
 
 Starting or advancing a project follows [[.cursor/skills/project-work/SKILL.md]]. Git: [[.cursor/skills/git-protocol/SKILL.md]].
 
+If `project.md` is `Stage: grilling` when you start or advance that project, follow [[.agents/skills/grilling/SKILL.md]] before any implement or ticket work. After grilling starts, set `charting`. Other stages are status-only. An agent already working a different issue of the same project does not stop.
+
+An issue with `Status:` or `Stage:` `grilling` is the same directive for that issue. Do not implement it until the grill is done. Other issues in the same project do not stop.
+
 Skill-to-stage transitions:
 
 - `/grilling`, `/grill-with-docs`, `/wayfinder` charting a new effort → `charting`

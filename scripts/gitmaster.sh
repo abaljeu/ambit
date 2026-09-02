@@ -1,0 +1,40 @@
+#!/bin/bash
+# Squash ready onto master, then forward (git protocol).
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./_git-protocol.sh
+source "$SCRIPT_DIR/_git-protocol.sh"
+
+usage() {
+    echo "Usage: $0 \"<message>\""
+    exit 1
+}
+
+[[ $# -eq 1 ]] || usage
+MESSAGE="$1"
+
+require_places_clean
+require_ready_current
+if trees_match master ready; then
+    echo "==> ready and master already match; nothing to squash."
+    if branches_aligned master ready dev; then
+        finish_on_dev
+        exit 0
+    fi
+    echo "==> catch up branch ancestry"
+    forward_from master
+    finish_on_dev
+    exit 0
+fi
+echo "==> squash ready onto master"
+git switch master
+git merge --squash ready
+if git diff --cached --quiet; then
+    echo "==> nothing to squash onto master." >&2
+    finish_on_dev
+    exit 1
+fi
+git commit -m "$MESSAGE"
+forward_from master
+finish_on_dev

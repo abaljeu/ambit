@@ -5,7 +5,7 @@ Concise glossary for this repo. Prefer these words; do not invent synonyms.  If 
 ## About Working
 
 **Agent-done**:
-Finished work: tests green, `/code-review` passed, and a commit on `dev` via [[scripts/commit.sh]] or human CLI. Then the human runs [[scripts/merge.sh]] (or types the merge) to put that work on `ready`. Tickets do not record commit SHAs. Procedure: [[.cursor/skills/git-protocol/SKILL.md]].
+Finished work: tests green, `/code-review` passed, and a commit on `dev` via [[scripts/commit.sh]] or human CLI. Then the human runs [[scripts/gitready.sh]] (or types the merge) to put that work on `ready`. Tickets do not record commit SHAs. Procedure: [[.cursor/skills/git-protocol/SKILL.md]].
 _Avoid_: done, finished, shipped, complete
 
 **dev**:
@@ -32,7 +32,7 @@ Retired. Do not add `plan/<feature>/git.md` for branch names. Existing files are
 _Avoid_: branch notes, git status file, branch tracker
 
 **Manual approval**:
-A direct user request that authorizes a named git operation the Desktop agent does not run on its own (for example remotes). Merge goes through [[scripts/merge.sh]] or the human CLI per [[.cursor/skills/git-protocol/SKILL.md]]; squash onto `master` is [[.cursor/skills/git-master/SKILL.md]].
+A direct user request that authorizes a named git operation the Desktop agent does not run on its own (for example remotes). Merge goes through [[scripts/gitready.sh]] or the human CLI per [[.cursor/skills/git-protocol/SKILL.md]]; squash onto `master` is [[.cursor/skills/git-master/SKILL.md]].
 _Avoid_: permission, override, allowlist exception
 
 **Issue tracker**:

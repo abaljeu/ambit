@@ -3,6 +3,8 @@ name: request-refactor-plan
 description: Create a detailed refactor plan with tiny steps via user interview, then publish it under local plan/. Use when user wants to plan a refactor, create a refactoring RFC, or break a refactor into safe incremental steps.
 ---
 
+This file is a historical snapshot. It is not live workplace procedure. `w/` names remain as history; do not resume them as the workplace. Live git procedure: [[.cursor/skills/git-protocol/SKILL.md]].
+
 This skill will be invoked when the user wants to create a refactor request. You should go through the steps below. You may skip steps if you don't consider them necessary.
 
 Git and publish policy: [[.cursor/rules/environment.mdc]], [[doc/agents/issue-tracker.md]]. Plan grain is **steps** (same size discipline as tiny commits), not commits. Publish under `plan/`. Commits are allowed only when implementing on an unlocked project branch (`w/*`).
