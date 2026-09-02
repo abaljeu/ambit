@@ -18,6 +18,7 @@
 | [ChildNode drop ref](childnode-drop-ref/) | spec | Progressive removal of ChildNode.ref; Node.owner + Op.SetOwner sole ownership source; Loaded-scope membership seam; ordered id-only ChildNode retained. |
 | [Client start time](client-start-time/) | active | Cache-first boot tickets 01–07 implemented (IndexedDB snapshot plus Change log, fold then first paint, boot Poll, truncation, optional bootstrapHash); HITL pending. |
 | [Daily git save](daily-git-save/) | active | Once per UTC day after listen and DbAgent ready, sequential commitAll of DataDir and immediate child repos; stamp SYSTEM/gambol.git-save-day only on full success. |
+| [Delete Ref](delete-ref/) | active | Delete of any Ref unlinks that appearance; Delete of an Owned Node that has a self-Ref must finish (must not promote the self-Ref). |
 | [Event-sourced ops](event-sourced-ops/) | active | One semantic standard for how any Actor's Change enters a Graph — implementation issues (`issues/01`–`15`) through wire migration, Actor spine, recovery, and permanent global history; charting docs in overview, architecture, and details. |
 | [Expression Language](expression-language/) | active | Spec locked; tickets 15–26 implemented on `w/expr`. Chapter 11 harness still omits `section` / `subsection` rows (covered in ExprSectionTests). |
 | [Git protocol](git-protocol/) | active | Canonical git procedure for this repo; other instructions point at the skill and do not copy it. |
@@ -25,7 +26,6 @@
 | [Owner-edge database repair](owner-edge-db-repair/) | active | Extend DbAgent startup sweep: ACID repair of `node_children` into a ROOT-owned tree; GC unreachable; promote a Ref when a reachable node has no owner. |
 | [Selective client loading](selective-client-loading/) | active | Client-partial residency with explicit Load and Unloaded/Loaded child lists; spec ready-for-agent, implementation issues in flight. |
 | [Auto-download persisted files](auto-download-persisted-files/) | blocked | Auto-download and filesize peels delivered; four runtime checks are tabled until the user decides to resume HITL verification. |
-| [Delete Ref](delete-ref/) | tickets | Delete of any Ref unlinks that appearance; Delete of an Owned Node that has a self-Ref must finish (must not promote the self-Ref). |
 | [Fix large change apply budget](fix-large-change-apply-budget/) | done | Nested parse-tail Replace apply stayed on append fast-path; optimized Op.apply / Graph.replace validation so LargeChangeApplyTests stay under 300ms without raising the guard. |
 | [Fix SetText SYSTEM css resilience](fix-settext-system-css-resilience/) | done | Cold bootstrap seeds Unparsed File stubs; SetText resilience Parses then edits; DocumentPersistenceTests assert Unparsed File on cold load. |
 | [Glossary: Directory File](glossary-directory-file/) | done | Directory File glossary + isMarker/related API renames toward Directory File language. |

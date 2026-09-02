@@ -1,6 +1,6 @@
 # 02 — Delete of an Owned Node that has a self-Ref hangs
 
-**Status:** ready-for-agent
+**Status:** agent-done
 
 ## What happened
 
@@ -27,3 +27,5 @@ Delete currently treats the self-Ref as another placement and tries to make it t
 ## Comments
 
 Sibling: [[01-delete-any-ref-succeeds.md]]. Database Owned-cycle repair is a separate Project: [[plan/owner-edge-db-repair/spec.md]].
+
+Classify now drops self-Refs from other appearances. A lone self-Ref is Move to TRASH. A real Ref elsewhere is still promoted. Report: [[../reports/fix-02-delete-owned-self-ref-hangs.md]].
