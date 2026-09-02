@@ -1,8 +1,8 @@
 # Event-sourced ops
 
 Stage: active
-Summary: One semantic standard for how any Actor's Change enters a Graph — implementation issues (`issues/01`–`15`) through wire migration, Actor spine, recovery, and permanent global history; charting docs in overview, architecture, and details.
-Updated: 2026-08-23
+Summary: Give one semantic standard for how an Actor's Change enters a Graph so every Actor uses the same path and concurrent work merges instead of being refused.
+Updated: 2026-09-02
 
 Start at [[overview.md]] — objective and semantic means. Then [[architecture.md]] — roles, the life of a Change, the two channels.
 

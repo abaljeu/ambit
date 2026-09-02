@@ -12,7 +12,7 @@ Each project directory holds a `project.md`:
 # <name>
 
 Stage: <stage>
-Summary: <one line>
+Summary: <one line state the goal of the project.  Use [[.agents/skills/wait-what/SKILL.md]]>
 Updated: <YYYY-MM-DD>
 ```
 

@@ -50,20 +50,33 @@ Kept existing [[plan/end-user-wiki/issues/01-describe-documents-from-any-connect
 
 Maps stay maps. No `plan/roadmap/issues/` added.
 
+### debug-reload
+
+- [[plan/debug-reload/issues/01-document-watch-debug-reload.md]] — Status `ready-for-agent` (from [[doc/reference/dev-debug-workflow.md]]; rehomed from work-board-cleanup 2026-09-02)
+
+### daily-git-save
+
+- [[plan/daily-git-save/issues/01-daily-git-save-commit-hitl.md]] — Status `ready-for-human` (rehomed from work-board-cleanup 2026-09-02)
+
+Implement report said no commit; later commits exist (`a14dce7` / `0ab2443`). Remaining is human closeout (HITL or skip, merge to `ready`), not more coding.
+
+### owner-edge-db-repair
+
+- [[plan/owner-edge-db-repair/issues/01-owner-edge-db-repair-commit-hitl.md]] — Status `ready-for-human` (rehomed from work-board-cleanup 2026-09-02)
+
+Implement report said no commit; later commit exists (`a09f35a`). Remaining is human closeout (HITL or skip, merge to `ready`), not more coding.
+
 ### work-board-cleanup leftovers
 
-- [[plan/work-board-cleanup/issues/01-optional-marker-speech-doc-sweep.md]] — Type `grilling`, Status `open` (from [[plan/glossary-directory-file/rename-isMarker.md]])
-- [[plan/work-board-cleanup/issues/02-document-watch-debug-reload.md]] — Status `ready-for-agent` (from [[doc/reference/dev-debug-workflow.md]])
-- [[plan/work-board-cleanup/issues/03-daily-git-save-commit-hitl.md]] — Status `ready-for-human`
-- [[plan/work-board-cleanup/issues/04-owner-edge-db-repair-commit-hitl.md]] — Status `ready-for-human`
+Issue 01 (optional Marker speech and doc sweep) was deleted as stale. No replacement. Did not revive [[plan/glossary-directory-file/]]. [[plan/work-board-cleanup/issues/]] is empty.
 
-Daily git save and owner-edge: implement reports said no commit; later commits exist (`a14dce7` / `0ab2443`, `a09f35a`). Remaining is human closeout (HITL or skip, merge to `ready`), not more coding.
+Issues 03 and 04 are not here. Those HITL tickets are now [[plan/daily-git-save/issues/01-daily-git-save-commit-hitl.md]] and [[plan/owner-edge-db-repair/issues/01-owner-edge-db-repair-commit-hitl.md]]. Number gaps are fine.
 
 ## Skipped
 
 - Skip-inventory ticket **not** skipped: Unloaded Load still inventories.
 - No Roadmap issue file for the retirement decision (map Notes/Decisions only).
 - No retirement ticket left open; board deleted in this session.
-- Empty [[plan/debug-reload/]] (no files, no `project.md`) was already absent from the prior overview; did not invent a Project for an empty directory.
+- Empty [[plan/debug-reload/]] had no files at retirement. Later [[plan/debug-reload/project.md]] exists; the watch-doc issue is [[plan/debug-reload/issues/01-document-watch-debug-reload.md]].
 - Did not move [[tmp/load-performance-audit.md]]; work is in selective-client-loading issues.
 - Did not rewrite old reports. Did not implement transferred F#. Did not commit.

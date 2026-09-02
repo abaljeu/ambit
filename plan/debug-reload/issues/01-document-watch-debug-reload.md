@@ -1,4 +1,4 @@
-# 02 — Document watch: debug URL and hard-reload after esbuild
+# 01 — Document watch: debug URL and hard-reload after esbuild
 
 **Status:** ready-for-agent
 **Blocked by:** None — can start immediately.
@@ -18,6 +18,7 @@ The dev-debug reference tells a person on watch how to load debug modules and ho
 ## Comments
 
 - 2026-09-02: Filed unclaimed from WORK.md.
+- 2026-09-02: Rehomed from [[plan/work-board-cleanup/]].
 
 ## See also
 

@@ -2,7 +2,6 @@
 
 | Project | Stage | Summary |
 | --- | --- | --- |
-| [Roadmap](roadmap/map.md) [pinned] | steering | Standing goto for what to work on next; groups Epics by Stage; Chapter plus Required for done gate Epic completion. |
 | [Architecture](architecture/) | charting | A browsable description of how Gambol is coded and how it runs. |
 | [Bullet tip times](bullet-tip-times/) | charting | Which non-obvious time facts a node-marker tooltip should show (update, workspace, server, last-sync) with de-dup, timezone, and availability rules; open questions unresolved. |
 | [Document formats](document-formats/) | charting | Remaining document formats (including XML read/write) after the workspace file model baseline. |
@@ -14,20 +13,19 @@
 | [Parse load demote](parse-load-demote/) | charting | Empty stub directory; stage unknown until contents land. |
 | [RowView / FocusView layout vs behavior](rowview-layout-behavior/) | charting | Separate layout from behavior inside RowView/FocusView; plan complete, waits on the split-view-by-concern refactor landing. |
 | [Transport layer](transport-layer/) | charting | Cross-cutting transport layer — inbound, outbound, and round-trip patterns for moving information between outside sources and the Graph while Graph stays authority; Parse/Persist as the shared text-processing unit; module contract for connector Actors; `plan` until promoted to `doc/`. |
-
+| [Roadmap](roadmap/map.md) [pinned] | steering | Standing goto for what to work on next; groups Epics by Stage; Chapter plus Required for done gate Epic completion. |
 | [ChildNode drop ref](childnode-drop-ref/) | spec | Progressive removal of ChildNode.ref; Node.owner + Op.SetOwner sole ownership source; Loaded-scope membership seam; ordered id-only ChildNode retained. |
-
+| [Debug reload](debug-reload/) | tickets | Tell a person on watch how to load debug modules and how to pick up an esbuild rebuild with a hard-reload of the Browser. |
 | [Work board cleanup](work-board-cleanup/) | tickets | Retire the live WORK.md board; work lives in each plan/ project's issues/. |
-
-| [Client start time](client-start-time/) | active | Cache-first boot tickets 01–07 implemented (IndexedDB snapshot plus Change log, fold then first paint, boot Poll, truncation, optional bootstrapHash); HITL pending. |
-| [Daily git save](daily-git-save/) | active | Once per UTC day after listen and DbAgent ready, sequential commitAll of DataDir and immediate child repos; stamp SYSTEM/gambol.git-save-day only on full success. |
-| [Delete Ref](delete-ref/) | active | Delete of any Ref unlinks that appearance; Delete of an Owned Node that has a self-Ref must finish (must not promote the self-Ref). |
-| [Event-sourced ops](event-sourced-ops/) | active | One semantic standard for how any Actor's Change enters a Graph — implementation issues (`issues/01`–`15`) through wire migration, Actor spine, recovery, and permanent global history; charting docs in overview, architecture, and details. |
-| [Expression Language](expression-language/) | active | Spec locked; tickets 15–26 implemented on `w/expr`. Chapter 11 harness still omits `section` / `subsection` rows (covered in ExprSectionTests). |
-| [Git protocol](git-protocol/) | active | Canonical git procedure for this repo; other instructions point at the skill and do not copy it. |
-| [Large-node cursor perf](large-node-cursor-perf/) | active | Selection-only planPatchDOM/patchDOM fast path + O(1) SiteEntry.childIndex implemented; delete-children cost analysis in delete-children-cost.md (no delete fix yet). |
-| [Owner-edge database repair](owner-edge-db-repair/) | active | Extend DbAgent startup sweep: ACID repair of `node_children` into a ROOT-owned tree; GC unreachable; promote a Ref when a reachable node has no owner. |
-| [Selective client loading](selective-client-loading/) | active | Client-partial residency with explicit Load and Unloaded/Loaded child lists; spec ready-for-agent, implementation issues in flight. |
+| [Client start time](client-start-time/) | active | On App refresh after a prior Session, the Browser shows the Graph from a local IndexedDB snapshot plus stored Changes, then does a Poll, so the user does not wait for `/state` while a blank screen or Loading... is visible. |
+| [Daily git save](daily-git-save/) | active | The Server saves Graph documents in App DataDir. Commit that directory each day so the operator can recover those files from git without a manual commit. |
+| [Delete Ref](delete-ref/) | active | A person uses a Ref in Children to link to a Node Owned elsewhere in the Graph; this Project makes Delete unlink that appearance from Children and leave the Node in place, and makes Delete of an Owned Node with a self-Ref finish: the command must not hang and must not promote the self-Ref. |
+| [Event-sourced ops](event-sourced-ops/) | active | Give one semantic standard for how an Actor's Change enters a Graph so every Actor uses the same path and concurrent work merges instead of being refused. |
+| [Expression Language](expression-language/) | active | Specify and implement a Prolog-like Expression language in Amble. The language extends path references with a left-to-right word pipeline over the Graph and yields Node, text, and number Answers for Find. |
+| [Git protocol](git-protocol/) | active | Give this repo one git procedure: ordinary commits on **dev**, merge to **ready** after **Agent-done**, squash to **master**; other instructions point at the skill and do not copy it. |
+| [Large-node cursor perf](large-node-cursor-perf/) | active | When one Node has a large Children list in the SiteMap, make Selection, Focus, and delete among the Children stay fast in the Browser. |
+| [Owner-edge database repair](owner-edge-db-repair/) | active | Persisted Owned Children can fail to be a tree. After Server restart, every surviving non-ROOT Node has exactly one Owned parent that reaches ROOT, unreachable Nodes are deleted, and a reachable Node with no Owned parent has a Ref promoted to Owned, durable with no History Change. |
+| [Selective client loading](selective-client-loading/) | active | Give the Browser a Graph that starts with only the Workspace Nodes needed for ROOT and restored navigation, grow residency only through explicit Load, and keep the Server Graph fully Resident and authoritative. |
 | [Auto-download persisted files](auto-download-persisted-files/) | blocked | Auto-download and filesize peels delivered; four runtime checks are tabled until the user decides to resume HITL verification. |
 | [Fix large change apply budget](fix-large-change-apply-budget/) | done | Nested parse-tail Replace apply stayed on append fast-path; optimized Op.apply / Graph.replace validation so LargeChangeApplyTests stay under 300ms without raising the guard. |
 | [Fix SetText SYSTEM css resilience](fix-settext-system-css-resilience/) | done | Cold bootstrap seeds Unparsed File stubs; SetText resilience Parses then edits; DocumentPersistenceTests assert Unparsed File on cold load. |

@@ -1,4 +1,4 @@
-# 04 — Owner-edge DB repair: human closeout
+# 01 — Owner-edge DB repair: human closeout
 
 **Status:** ready-for-human
 **Blocked by:** None — can start immediately.
@@ -18,6 +18,7 @@ A human confirms this Project is agent-done and closes it. No product F# in this
 ## Comments
 
 - 2026-09-02: Filed unclaimed from WORK.md Active. Commit leftover was the original gap; a code commit landed later.
+- 2026-09-02: Moved from work-board-cleanup issue 04. No stub left.
 
 ## See also
 
