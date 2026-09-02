@@ -1,5 +1,5 @@
 # Delete Ref
 
-Stage: done
-Summary: Delete of any Ref unlinks that appearance; the Owned Node stays. Repro: Ref to Workspaces.
-Updated: 2026-08-28
+Stage: tickets
+Summary: Delete of any Ref unlinks that appearance; Delete of an Owned Node that has a self-Ref must finish (must not promote the self-Ref).
+Updated: 2026-09-01
