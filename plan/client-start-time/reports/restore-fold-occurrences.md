@@ -55,7 +55,7 @@ All passed.
 dotnet test tests/Shared.Tests --filter "FullyQualifiedName~restoreFoldOccurrences|FullyQualifiedName~fold restore"
 # Passed: 5
 
-bash ./scripts/client.sh build
+./scripts/client.sh build
 # OK
 ```
 

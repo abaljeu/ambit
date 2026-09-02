@@ -112,7 +112,7 @@ detail is never swallowed/truncated so future issues are self-diagnosing.
 - `doc/roadmap/git-sync-gateway.md`, `doc/roadmap/workspaces-checklist.md` -- update locked decision
 
 ## Verification
-1. `dotnet build src/Server` + `dotnet test` (or `bash scripts/test.sh`) -- GitGatewayTests pass with rewritten cases.
+1. `dotnet build src/Server` + `dotnet test` (or `scripts/test.sh`) -- GitGatewayTests pass with rewritten cases.
 2. Manual repro (localhost): Insert workspace -> Connect -> edit a node (dirty autosave) -> Upload -> succeeds without a prior Download.
 3. Manual repro of real divergence: two clients editing the same workspace; second Upload after the first's changes landed on server surfaces a clear **non-fast-forward** message (not the old "dirty" 403) and still requires pull-first.
 4. For 406: capture `GIT_CURL_VERBOSE=1` trace + server logs on a failing remote push; confirm layer (Apache/WAF vs. PHP proxy vs. Azure) before choosing a mitigation.

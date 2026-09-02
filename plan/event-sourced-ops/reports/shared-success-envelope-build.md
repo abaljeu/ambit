@@ -68,7 +68,7 @@ Exit 0: 67 passed, 0 failed, 0 skipped.
 The final diff matches the accepted plan. Post decodes the shared envelope and dispatches only confirmation data to `SubmitResponse`; Poll separately dispatches the envelope Change list to `PollDone`. Server endpoint tests decode both paths with the same codec and confirm nonzero stamps, readiness, Post `externalChanges = false`, Poll `externalChanges = true` for a non-empty tail, and the expected Changes.
 
 ```bash
-bash .agents/skills/code-review-fsharp/scripts/measure-fs-size.sh --diff HEAD
+.agents/skills/code-review-fsharp/scripts/measure-fs-size.sh --diff HEAD
 git -c core.whitespace=cr-at-eol diff --check -- . ":(exclude)WORK.md"
 ```
 

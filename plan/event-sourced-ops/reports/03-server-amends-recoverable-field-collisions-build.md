@@ -43,7 +43,7 @@ Result: Failed 0, Passed 2, Skipped 0.
 ## Commands
 
 ```bash
-bash ./status.sh
+./status.sh
 dotnet test tests/Shared.Tests -c Debug --filter "FullyQualifiedName~ChangeAmendmentTests"
 dotnet test tests/Server.Tests -c Debug --filter "FullyQualifiedName~StateEndpointTests"
 dotnet test tests/Server.Tests -c Debug --filter "FullyQualifiedName~StateEndpointTests&FullyQualifiedName~concurrent stale"

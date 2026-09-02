@@ -24,7 +24,7 @@ Content present in the `ready` README and **absent** from the `origin/master` RE
 | Client is served under `/ambit`, and the app URL is `http://localhost:5215/ambit`, not the site root | High. The public README still states port **5115** and the site root. Those build instructions are stale and would mislead a reader |
 | Links to [[doc/arch.md]] and [[doc/api.md]] | Entry points into the reference documentation |
 | Whole **Persistence** section: `Persistence:Mode` (`db` default, `file` alternative), `DB_CONNECTION_STRING`, automatic snapshot and change-log writes, links to [[doc/reference/postgres-environments.md]] and [[doc/current/persistence-model.md]] | High. Without it there is no statement that a database is needed to run |
-| Whole **Desktop** section: `bash scripts/desktop.sh run` and the VS Code **desktop: Run** task | Setup step for the desktop shell |
+| Whole **Desktop** section: `scripts/desktop.sh run` and the VS Code **desktop: Run** task | Setup step for the desktop shell |
 | Prerequisite **Node.js 18 or later** | High. Build fails without it |
 | Build steps `npm ci` and `npm run bundle` | High. The bundle step is required; the public README has no npm step at all |
 | Dev guidance: Fable writes modules into `wwwroot`, run `npm run bundle` for a fresh `Program.bundle.js`, open `/ambit?debug=1` for unbundled modules | Debugging workflow |

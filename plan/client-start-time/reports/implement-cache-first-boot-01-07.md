@@ -6,7 +6,7 @@ Parent: [[cache-first-boot-via-poll.md]], [[plan/client-start-time/project.md]]
 
 ## Starting tree
 
-`bash ./status.sh` showed project branch `w/relaxed-concurrency`. Working tree was clean at HEAD `d643d8b`. No files existed under [[plan/client-start-time/issues/]]. [[project.md]] was already `Stage: active`. No prior ticket or `src/` cache-first work was present, so this session published issues 01–07 and implemented them in order.
+`./status.sh` showed project branch `w/relaxed-concurrency`. Working tree was clean at HEAD `d643d8b`. No files existed under [[plan/client-start-time/issues/]]. [[project.md]] was already `Stage: active`. No prior ticket or `src/` cache-first work was present, so this session published issues 01–07 and implemented them in order.
 
 ## Tickets published
 

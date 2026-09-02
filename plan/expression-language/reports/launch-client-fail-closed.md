@@ -4,7 +4,7 @@ Stay on `w/expr`. Did not edit [[WORK.md]]. Did not rewrite agent instruction fi
 
 ## Root cause
 
-[[.vscode/launch.json|(Local Client Chrome)]] and Edge already had `preLaunchTask` [[.vscode/tasks.json|fable: Build Client]], but that task used `"problemMatcher": []`. js-debug treats an empty matcher as nothing to wait on, so Chrome/Edge can open while `bash scripts/client.sh build` is still running, or after it printed F# errors. The browser then loads stale `src/Server/wwwroot`. `continueOnError` was unset (default false) and the watch tasks were not on this path.
+[[.vscode/launch.json|(Local Client Chrome)]] and Edge already had `preLaunchTask` [[.vscode/tasks.json|fable: Build Client]], but that task used `"problemMatcher": []`. js-debug treats an empty matcher as nothing to wait on, so Chrome/Edge can open while `scripts/client.sh build` is still running, or after it printed F# errors. The browser then loads stale `src/Server/wwwroot`. `continueOnError` was unset (default false) and the watch tasks were not on this path.
 
 [[.vscode/launch.json|(Client for Full Stack)]] had no Client `preLaunchTask`. Compound [[.vscode/launch.json|Local Server and Web Client]] used `preLaunchTask` [[.vscode/tasks.json|server: Build]] only, then started Chrome in parallel with Server. A Fable failure never blocked the browser.
 

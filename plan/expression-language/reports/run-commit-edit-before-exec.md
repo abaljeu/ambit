@@ -32,7 +32,7 @@ dotnet test tests/Shared.Tests -c Debug --no-build --filter "FullyQualifiedName~
 Result: **Passed — 20/20**.
 
 ```
-bash ./scripts/client.sh build
+./scripts/client.sh build
 ```
 
 Result: Fable + esbuild succeeded. [[src/Server/wwwroot/UpdateAmbleRun.js]] imports `commitIfEditing` and `runPlanOnNode`.

@@ -35,7 +35,7 @@ Result: Failed 0, Passed 62, Skipped 0 (File + Db backends).
 ## Commands
 
 ```bash
-bash ./status.sh
+./status.sh
 dotnet test tests/Server.Tests -c Debug --filter "FullyQualifiedName~StateEndpointTests&FullyQualifiedName~stale|FullyQualifiedName~StateEndpointTests&FullyQualifiedName~unrelated|FullyQualifiedName~StateEndpointTests&FullyQualifiedName~collision|FullyQualifiedName~StateEndpointTests&FullyQualifiedName~duplicate changeId with stale"
 dotnet test tests/Server.Tests -c Debug --filter "FullyQualifiedName~StateEndpointTests"
 ```

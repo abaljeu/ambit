@@ -33,7 +33,7 @@ dotnet test tests/Shared.Tests -c Debug --no-build --filter FullyQualifiedName~A
 Result: **Passed — 25/25**.
 
 ```
-bash ./scripts/client.sh build
+./scripts/client.sh build
 ```
 
 Result: Fable + esbuild succeeded.
