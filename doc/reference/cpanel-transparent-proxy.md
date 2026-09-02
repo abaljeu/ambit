@@ -40,7 +40,7 @@ Apache `mod_proxy` is not used — shared hosting often disables it. PHP curl in
 
 - **`$BACKEND`** — Azure Web App origin (no trailing slash).
 - **Path mapping** — `/ambit` → backend `/ambit`; `/ambit/login` → `path=/login` → backend `/ambit/login`.
-- **Forwarded request headers** — `Accept`, `Accept-Language`, `Accept-Encoding`, `Content-Type`, `Content-Length`, `Cookie`, `Authorization`, `X-Requested-With`, `User-Agent`; request body for POST/PUT/PATCH. Default curl timeout 60s (raise per route if large uploads need it).
+- **Forwarded request headers** — `Accept`, `Accept-Language`, `Accept-Encoding`, `Content-Type`, `Content-Length`, `Cookie`, `Authorization`, `X-Requested-With`, `User-Agent`; request body for POST/PUT/PATCH. Default curl timeout 60s. Git smart HTTP, paths under `/workspace/reconciliation/`, and `/load` use 600s (same class as git). Upload the updated [[proxy.php]] to cPanel.
 - **Response headers** — passes through except `transfer-encoding` and `content-length` (curl reassembles the body). Rewrites absolute and root-relative `Location` values to the browser's origin (`https://collaborative-systems.org`).
 
 Update `$BACKEND` in `proxy.php` if the Azure Web App hostname changes.

@@ -16,3 +16,7 @@
 - [ ] Add Child, Paste, MoveSelected, ordinary structural moves, delete plans, and other structural commands all use this one guard.
 - [ ] Nonstructural edits to a resident Node header remain allowed when that Node's children are Unloaded.
 - [ ] Ordinary delete, permanent delete, and Undo stay available because ROOT is Loaded, including the lists they need such as TRASH.
+
+## Comments
+
+- 2026-09-02: Parked from WORK.md. Parent: [[plan/selective-client-loading/spec.md]]. Guard all structural Change plans, including MoveSelected, from Unloaded child lists.

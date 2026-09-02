@@ -19,3 +19,4 @@
 ## Comments
 
 - Split from the former combined issue 23: presentation is [[23-introduce-hollow-circle-presentation.md]]; this ticket owns click→Load only.
+- 2026-09-02: Parked from WORK.md Blocked. Blocked by already recorded.

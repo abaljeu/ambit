@@ -38,7 +38,11 @@ foreach ($forwardHeaders as $h) {
 $isGitSmartHttp =
     preg_match('#/git-(upload|receive)-pack$#', $path)
     || (strpos($path, '/info/refs') !== false && isset($_GET['service']));
-$timeoutSec = $isGitSmartHttp ? 600 : 60;
+// Browser Load: directory reconcile + POST /ambit/load can exceed 60s.
+$isLongWorkspaceHttp =
+    strpos($path, '/workspace/reconciliation/') !== false
+    || preg_match('#(?:^|/)load$#', $path);
+$timeoutSec = ($isGitSmartHttp || $isLongWorkspaceHttp) ? 600 : 60;
 
 $ch = curl_init($backendUrl);
 curl_setopt_array($ch, [

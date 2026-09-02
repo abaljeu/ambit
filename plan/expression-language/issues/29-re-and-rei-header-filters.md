@@ -8,14 +8,17 @@
 
 **See also:** [[plan/expression-language/spec.md]] chapter 7 `re` and `rei` rows; [[plan/expression-language/reports/re-filter.md]]; [[src/Shared/ExprWalk.fs]]; [[src/Shared/ExprPrimitive.fs]]; [[tests/Shared.Tests/ExprFilterTests.fs]].
 
-**Status:** done
+**Status:** ready-for-human
 
 - [x] `x re ".*blue.*"` keeps the Node when Header text matches, same field as `containing "blue"`, case-sensitive.
 - [x] `rei` keeps the same Node when only case differs; `re` does not.
 - [x] Bare `re` and `rei` are missing-argument parse errors.
 - [x] An invalid pattern yields no Answers (a miss).
+- [ ] HITL: Run `= … re "…"` and `= … rei "…"` on `/ambit` or `/ambit?debug=1`; confirm Header match, case split, and invalid pattern as no matches.
 
 ## Comments
+
+- 2026-09-02: Parked from WORK.md. Implementation stays done; HITL remains.
 
 Engine: Shared already uses `System.Text.RegularExpressions` ([[src/Shared/ExprParse.fs]], [[src/Shared/CssClass.fs]], [[src/Shared/OpenTarget.fs]]). Fable maps `Regex` to JS `RegExp` and `RegexOptions.IgnoreCase` to the `i` flag. Inline `(?i)` is not the case switch; JS typically does not honor it.
 

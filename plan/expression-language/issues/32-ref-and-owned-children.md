@@ -8,7 +8,7 @@
 
 **See also:** [[../spec.md]] chapters 6 and 7 (`child`, Unloaded rule; reserved `ref` / `owned`); [[12-owned-versus-ref-walk-for-descendant.md]]; [[CONTEXT.md]] Children, Owned, Ref; [[src/Shared/ExprWalk.fs]] `childAnswers` / `ownedChildren`; [[src/Shared/ExprPrimitive.fs]] `childRow`; tests next to existing child/walk facts in [[tests/Shared.Tests/ExprEvalTests.fs]] and [[tests/Shared.Tests/ExprPipelineTests.fs]]. Notes: [[../reports/ref-owned-children.md]].
 
-**Status:** done
+**Status:** ready-for-human
 
 Implementation: [[../reports/ref-owned-children-impl.md]].
 
@@ -17,6 +17,7 @@ Implementation: [[../reports/ref-owned-children-impl.md]].
 - [x] On a mixed parent, `child` equals the Children-order merge of `owned` and `ref` (every Child appearance is in exactly one of the two). `owned OR ref` is not `child` (OR concatenates whole sequences).
 - [x] Unloaded input: `child`, `owned`, and `ref` all miss; evaluation does not Load.
 - [x] Spellings are exactly `ref` and `owned` (lowercase Name tokens, same class as `child` / `tree`). No slot. Text input is a miss.
+- [ ] HITL: Run `= owned` and `= ref` on `/ambit` or `/ambit?debug=1` on a Node with mixed Owned and Ref Children; confirm `child` is the Children-order merge, that `owned OR ref` concatenates when roles interleave, and that `Ref` / `Owned` are unknown words.
 
 ## Comments
 
@@ -27,6 +28,8 @@ The Graph child list is the source of truth: each `ChildNode` is one appearance 
 `child` is not a trivial copy for product F#. `childRow` calls `ExprWalk.childAt graph None`, and `Node.childIds` drops `ChildNode.ref`. Filter the Children list the same way `childAnswers` walks it (Unloaded → empty; Loaded → `Map.tryFind` each id). `ownedChildren` in [[src/Shared/ExprWalk.fs]] is the Owned filter used by `tree` / `OUTER` for recursion; `owned` is that filter at depth one only.
 
 Existing fixture in [[tests/Shared.Tests/ExprPipelineTests.fs]] (`child equals colon-star; descendant follows Ref; tree matches star-star`): File Node has three Owned Children plus one Ref to `outside`. From that File Node: `owned` is the three Owned; `ref` is `outside`; `child` is those four in Children order.
+
+- 2026-09-02: Parked from WORK.md. Implementation stays done; HITL remains. Report: [[../reports/ref-owned-children-impl.md]].
 
 Examples from that parent (Owned A, B, C then Ref D):
 

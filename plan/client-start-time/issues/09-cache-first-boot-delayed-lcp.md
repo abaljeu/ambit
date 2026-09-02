@@ -4,7 +4,7 @@
 
 **What to build:** First paint must start `GET /state` immediately, as before cache-first. Do not wait on IndexedDB read or decode. Equal-Revision Poll must not `getState` plus `graphFingerprint` the live Graph (Fable and .NET hashes already disagree; the walk blocks the agent mailbox).
 
-**See also:** [[08-poll-hash-fallback-loop.md]], [[../reports/cold-load-loading-hang.md]], [[src/Client/Program.fs]], [[src/Server/Api.fs]]
+**See also:** [[08-poll-hash-fallback-loop.md]], [[../reports/cold-load-loading-hang.md]], [[../reports/cache-first-boot-delayed-lcp.md]], [[src/Client/Program.fs]], [[src/Server/Api.fs]]
 
 **Status:** ready-for-agent
 
@@ -15,3 +15,5 @@
 ## Comments
 
 Cache-first read decoded the snapshot on the main thread before `/state` started. A large IndexedDB record plus JSON decode delayed `StateLoaded`. Server Poll at matching Revision also loaded the full Graph to hash it, which queued later `/state` on the same agent.
+
+- 2026-09-02: Parked from WORK.md. HITL: `/ambit` bundle LCP of `div.amb-text` back near ~1 s. Report: [[../reports/cache-first-boot-delayed-lcp.md]].
