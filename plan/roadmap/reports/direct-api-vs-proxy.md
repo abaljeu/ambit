@@ -1,6 +1,6 @@
 # Direct Browser API vs cPanel proxy
 
-Recommendation, not a Committed Decision. Related: [[doc/reference/cpanel-transparent-proxy.md]], [[proxy.php]], [[src/Client/JsInterop.fs]], [[src/Server/RouteRegistration.fs]], [[src/Desktop/LocalProxy.fs]], [[src/Desktop/Desktop.fs]], [[browser-workspace-load-timeout.md]], [[graph-only-reconcile-chunk.md]]. App WebView2 Navigate slice: [[plan/roadmap/issues/14-webview2-navigate-azure-ambit.md]].
+Recommendation, not a Committed Decision. Related: [[doc/reference/cpanel-transparent-proxy.md]], [[proxy.php]], [[src/Client/JsInterop.fs]], [[src/Server/RouteRegistration.fs]], [[src/Desktop/LocalProxy.fs]], [[src/Desktop/Desktop.fs]], [[browser-workspace-load-timeout.md]], [[graph-only-reconcile-chunk.md]]. App WebView2 Navigate slice: [[plan/webview2-azure-origin/issues/01-webview2-navigate-azure-ambit.md]].
 
 ## Recommendation
 

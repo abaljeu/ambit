@@ -1,4 +1,4 @@
-# 14 — App WebView2 Navigate to Azure `/ambit`
+# 01 — App WebView2 Navigate to Azure `/ambit`
 
 **What to build:** After Azure host discovery, the App WebView2 document origin is Azure `/ambit`. Cookie-auth Browser HTTP is then same-site on Azure. Do not `fetch` Azure while the page stays on the pretty URL or on loopback LocalProxy. Login after that Navigate, or copy `gambol_auth` onto the Azure host with the WebView2 cookie API.
 
@@ -20,7 +20,7 @@ Today [[src/Desktop/Desktop.fs]] `resolveTargetUrl` defaults to the pretty URL. 
 
 `AuthStore` stores username and password, not the cookie bytes. LocalProxy rebuilds the Cookie header with `AuthToken.cookieHeaderValue`. A pretty-domain or loopback cookie does not follow `Navigate` to `*.azurewebsites.net`.
 
-There is no App Project folder. This issue lives on the Roadmap because the slice came from a Roadmap report. Roadmap [[map.md]] still treats [[issues/]] as wayfinder tickets; this file is an implementation issue (`Status:` triage), not a wayfinder `Type:` ticket.
+Rehomed from the Roadmap on 2026-09-02 onto this feature-set Project. The slice came from a Roadmap report. This file is an implementation issue (`Status:` triage), not a wayfinder `Type:` ticket.
 
 ## Remaining after 2026-09-02 claim
 
@@ -32,3 +32,4 @@ Do not fetch Azure from the pretty URL. Pretty-URL Browser PHP stays a separate 
 
 - 2026-09-02: Filed from retired WORK.md App slice. Status set `ready-for-agent`, claimed, then returned to `ready-for-agent` after the seam check.
 - 2026-09-02: Parked from WORK.md again. Outcome stays on this issue: after host discovery, WebView2 `Navigate` to Azure `/ambit`; copy `gambol_auth` via CookieManager or login after Navigate; keep `/_desktop` on LocalProxy; do not fetch Azure from the pretty URL.
+- 2026-09-02: Rehomed from [[plan/roadmap/issues/]].

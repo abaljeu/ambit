@@ -16,6 +16,7 @@
 | [Roadmap](roadmap/map.md) [pinned] | steering | Standing goto for what to work on next; groups Epics by Stage; Chapter plus Required for done gate Epic completion. |
 | [ChildNode drop ref](childnode-drop-ref/) | spec | Progressive removal of ChildNode.ref; Node.owner + Op.SetOwner sole ownership source; Loaded-scope membership seam; ordered id-only ChildNode retained. |
 | [Debug reload](debug-reload/) | tickets | Tell a person on watch how to load debug modules and how to pick up an esbuild rebuild with a hard-reload of the Browser. |
+| [WebView2 Azure origin](webview2-azure-origin/) | tickets | After Azure host discovery, the App WebView2 document origin is Azure `/ambit`, so cookie-auth Browser HTTP is same-site on Azure. |
 | [Work board cleanup](work-board-cleanup/) | tickets | Retire the live WORK.md board; work lives in each plan/ project's issues/. |
 | [Client start time](client-start-time/) | active | On App refresh after a prior Session, the Browser shows the Graph from a local IndexedDB snapshot plus stored Changes, then does a Poll, so the user does not wait for `/state` while a blank screen or Loading... is visible. |
 | [Daily git save](daily-git-save/) | active | The Server saves Graph documents in App DataDir. Commit that directory each day so the operator can recover those files from git without a manual commit. |

@@ -37,14 +37,14 @@ Fact-gathering only. No recommendation to adopt or reject. Proposal under review
 2. **Epics / Chapters** — Standing prose in `epics/<slug>.md`, not issue files. Example: [[plan/roadmap/epics/operate-a-pkm.md]].
 3. **Implementation** — Feature-set Project issues (raised shape Chapters copy). Example: [[plan/selective-client-loading/issues/17-represent-unloaded-child-lists-end-to-end.md]].
 4. **doc/roadmap leftovers** — Doc-only until cited; not the live tracker.
-5. **Exception already on disk** — [[plan/roadmap/issues/14-webview2-navigate-azure-ambit.md]] is an implementation issue (`Status:` triage) living under Roadmap `issues/` because no App Project folder; the file itself notes the map still treats `issues/` as wayfinder tickets.
+5. **Exception already on disk** — former Roadmap `issues/14-webview2-navigate-azure-ambit.md` was an implementation issue (`Status:` triage) under Roadmap `issues/` because no App Project folder. Rehomed 2026-09-02 to [[plan/webview2-azure-origin/issues/01-webview2-navigate-azure-ambit.md]].
 
 ## 4. Tensions / duplication
 
 - The live model **already splits** “chart/develop the Roadmap” (Wayfinder tickets) from “User Epic Chapters” (beats with pointers) from “implementation issues” (feature-set Projects). The proposal reads largely like a restatement unless it means something stricter.
 - **Chapter vs issue shape**: Chapters deliberately reuse the raised shape of an implementation issue but are not issues and are not on the frontier.
 - **Path drift**: [[doc/agents/issue-tracker.md]] / [[doc/agents/project-status.md]] still say `.scratch/`; [[CONTEXT.md]] and live tree use `plan/`.
-- **Issue 14** shows Roadmap `issues/` already mixed with product slices — the sharpest conflict with “Roadmap issues = chapters or developing-roadmap tickets only.”
+- **Issue 14** showed Roadmap `issues/` mixed with product slices. That file is now [[plan/webview2-azure-origin/issues/01-webview2-navigate-azure-ambit.md]].
 - Out of scope on the map: third Project kind (Epic Projects); implementing feature slices on the Roadmap map.
 
 ## 5. Implications if adopted (costs / gains; no silent pick)
