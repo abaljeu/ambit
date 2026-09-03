@@ -36,6 +36,7 @@ Grouped by Stage. Order inside a Stage does not matter.
 - [[epics/manage-a-project.md]] — Manage a project (current: [[epics/chapters/status.md]])
 - [[epics/operate-a-pkm.md]] — Operate a PKM (current: [[epics/chapters/find-what-i-wrote.md]])
 - [[epics/agent-chat-managed-context.md]] — Agent chat with managed context (current: [[epics/chapters/ask-from-what-i-see.md]])
+- [[epics/operate-connected-channels.md]] — Operate connected channels (no Chapter yet)
 - [[epics/organize-huge-outlines.md]] — Organize Huge Outlines (Developer Epic; no Chapter to chart)
 - [[epics/robust-outliner.md]] — Robust outliner (Developer Epic; no Chapter to chart)
 
@@ -54,10 +55,11 @@ Grouped by Stage. Order inside a Stage does not matter.
 - [Required for Epic done vs Chapter, no overlap](plan/roadmap/issues/12-required-for-epic-done.md) — Chapter vs Required for done; wiki portions about this Epic gate this Epic.
 - [Grill Cursor-repo to Ambit LLM use onto Epics](plan/roadmap/issues/13-grill-cursor-repo-to-ambit-llm-use.md) — one Chapter **Ambit keeps consistency with desktop repo for Agentic work** on [[epics/agent-chat-managed-context.md]]; depends on **Ask from what I see** and documents auto-upload/download; **Agent** in [[CONTEXT.md]].
 - Work board retired 2026-09-02. No live [[WORK.md]]. Discovery is [[plan/index.md]] plus issue Status plus wayfinder frontier. Recorded here; no Roadmap issue file. Cleanup Project: [[plan/work-board-cleanup/project.md]] (rename of work-board-audit).
+- Operate connected channels User Epic from locked definition (2026-09-03). Connect plus operate; mail is first channel in framing, not the title. No Chapter file yet. Recorded here; no Roadmap issue file.
 
 ## Not yet specified
 
-- Chart connect Epic or Developer Epic for [[plan/transport-layer/project.md]] when connector Projects multiply beyond PKM dependency.
+- Chart Chapters for [[epics/operate-connected-channels.md]] (mail first in framing). Home connector Projects when they exist. [[plan/transport-layer/project.md]] stays the Project pattern; PKM still lists it as a dependency.
 - Pointer charting for Public URL, Published-page CSS, and In-app styling (web pages) and for wiki Public URL (no owning Project yet).
 - Pointer charting for Status and Date on [[epics/manage-a-project.md]] (no owning Project yet).
 - Later Epics beyond the standing list.

@@ -19,3 +19,4 @@ Run `?` with a message and included context. The reply is Owned children of the 
 - [ ] [[plan/event-sourced-ops/issues/09-job-identity-with-advisory-soft-lock.md]]
 
 ## Notes
+Might be implemented through [[plan\roadmap\epics\operate-connected-channels.md]], making a channel for sending messages to an Agent API.  Agent may asynchronously send info to Ambit.
