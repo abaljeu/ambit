@@ -11,6 +11,18 @@ usage() {
     exit 1
 }
 
+if [[ $# -eq 0 ]]; then
+    require_place dev
+    require_place ready
+    if trees_match dev ready && branches_aligned dev ready
+    then
+        echo "==> dev already on ready."
+    else
+        git log --oneline ready..dev
+    fi
+    exit 0
+fi
+
 [[ $# -eq 1 ]] || usage
 MESSAGE="$1"
 

@@ -28,7 +28,7 @@ Pull only after `ready` moved elsewhere. Then catch up, before further Desktop c
 ./scripts/gitdev.sh
 ```
 
-[[scripts/gitdev.sh]] forward-merges `master` into `ready`, then `ready` into dest (`dev`), with the stock forward messages. After `ready` moved elsewhere and `master` is already in `ready`, the first merge is already up to date; the second is the catch-up.
+[[scripts/gitdev.sh]] forward-merges `master` into `ready`, then `ready` into dev (`dev`), with the stock forward messages. After `ready` moved elsewhere and `master` is already in `ready`, the first merge is already up to date; the second is the catch-up.
 
 Local `ready` must hold the published tip before anything merges into it. That keeps first-parent as “this `ready`” and turns a race into a rejected push or a file conflict instead of two `ready` tips mashed together. [[scripts/gitready.sh]] and [[scripts/gitmaster.sh]] enforce it: they refuse a local `ready` behind `origin/ready`.
 

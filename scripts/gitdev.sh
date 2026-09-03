@@ -1,6 +1,6 @@
 #!/bin/bash
-# Forward-merge master toward dest (dev).
-# No dest or desc argument.
+# Forward-merge master toward dev (dev).
+# No dev or desc argument.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

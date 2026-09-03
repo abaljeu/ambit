@@ -19,15 +19,15 @@ The rejected Shell one-liner was about ten checks: files gone, named scripts pre
 
 ## Where logic lives
 
-- [[scripts/gitready.sh]] — dest (`dev`) into `ready`
+- [[scripts/gitready.sh]] — dev (`dev`) into `ready`
 - [[scripts/gitmaster.sh]] — squash `ready` onto `master`, then `forward_from master`
-- [[scripts/gitdev.sh]] — `forward_from master` (no dest or desc argument)
+- [[scripts/gitdev.sh]] — `forward_from master` (no dev or desc argument)
 - [[scripts/_git-protocol.sh]] — shared helpers, including `forward_from ready` (no public CLI)
-- [[scripts/gitpush.sh]] — `origin` `ready` or `master`, refuses dest (`dev`)
+- [[scripts/gitpush.sh]] — `origin` `ready` or `master`, refuses dev (`dev`)
 
 ## Callers
 
-Live skills name the new scripts. [[.cursor/skills/git-share/SKILL.md]] Pull uses [[scripts/gitdev.sh]] (toward dest). That is not a 1:1 of old `forward ready`. Issue 02 cites the named scripts only. History reports and [[plan/git-protocol/scripts-spec.md]] still name the old files as the mapping.
+Live skills name the new scripts. [[.cursor/skills/git-share/SKILL.md]] Pull uses [[scripts/gitdev.sh]] (toward dev). That is not a 1:1 of old `forward ready`. Issue 02 cites the named scripts only. History reports and [[plan/git-protocol/scripts-spec.md]] still name the old files as the mapping.
 
 ## Tmp verify
 

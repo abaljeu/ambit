@@ -7,7 +7,7 @@ Issue [[plan/git-protocol/issues/04-named-ux-scripts.md]] is **done**. No commit
 - [[scripts/commit.sh]] — with no argument, run `git status` and exit 0. With a message, same as before: refuse when HEAD is not `dev`, stage `.`, commit.
 - [[scripts/gitready.sh]] — new. Requires `"desc"`. Calls `merge.sh ready -m "desc"`.
 - [[scripts/gitmaster.sh]] — new. Requires `"desc"`. Calls `merge.sh master -m "desc"`.
-- [[scripts/gitdev.sh]] — new. No dest or desc argument. Calls `merge.sh forward` (default source `master`).
+- [[scripts/gitdev.sh]] — new. No dev or desc argument. Calls `merge.sh forward` (default source `master`).
 - [[scripts/gitpush.sh]] — new. Passes arguments to [[scripts/push.sh]]. No checkout.
 - [[.cursor/skills/git-protocol/SKILL.md]] — merge entry names [[scripts/gitready.sh]], [[scripts/gitmaster.sh]], [[scripts/gitdev.sh]].
 - [[.cursor/skills/git-master/SKILL.md]] — squash and publish use [[scripts/gitmaster.sh]] and [[scripts/gitpush.sh]].
@@ -23,7 +23,7 @@ Issue [[plan/git-protocol/issues/04-named-ux-scripts.md]] is **done**. No commit
 - [[scripts/gitmaster.sh]] `"desc"` — `exec` of `merge.sh master -m "$1"`. Missing args print usage and exit 1.
 - [[scripts/gitdev.sh]] — `exec` of `merge.sh forward`. An extra arg prints usage and exit 1. Did not run with no args (that would merge).
 - [[scripts/gitpush.sh]] — `exec` of `push.sh "$@"`. No-arg and invalid place hit [[scripts/push.sh]] usage. `gitpush.sh dev` refuses `dev` and does not push. Did not run `ready` or `master`.
-- Old scripts deleted — **not applied**. Filing comment: this issue does not retire the old script names. Wrappers need the callees. [[scripts/gitdev.sh]] has no dest, so `merge.sh forward ready` still needs [[scripts/merge.sh]]. Issue 02 still names the old scripts.
+- Old scripts deleted — **not applied**. Filing comment: this issue does not retire the old script names. Wrappers need the callees. [[scripts/gitdev.sh]] has no dev, so `merge.sh forward ready` still needs [[scripts/merge.sh]]. Issue 02 still names the old scripts.
 - References updated — live git-protocol, git-master, git-share, and [[CONTEXT.md]] now name the new scripts. git-share still names `merge.sh forward ready` because there is no named UX for that source.
 
 `bash -n` passed on the five scripts.
