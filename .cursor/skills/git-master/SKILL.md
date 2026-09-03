@@ -18,7 +18,7 @@ Each commit on `master` is one squashed merge from `ready`. Squash `ready` into 
 ./scripts/gitmaster.sh "<message>"
 ```
 
-That squash-commits `ready` onto `master`, then propagates forward: `master` into `ready` (`--no-ff`), then `ready` into `dev` (`--no-ff`). The forward pass keeps the next squash from replaying shipped work, so [[scripts/gitmaster.sh]] runs it in the same breath as the squash.
+With no argument, [[scripts/gitmaster.sh]] lists `ready` commits not on `master` (or reports that the trees already match). With a message it squash-commits `ready` onto `master`, then propagates forward: `master` into `ready` (`--no-ff`), then `ready` into `dev` (`--no-ff`). The forward pass keeps the next squash from replaying shipped work, so [[scripts/gitmaster.sh]] runs it in the same breath as the squash.
 
 Bisect squash-by-squash on `master`.
 
