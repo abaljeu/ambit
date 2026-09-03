@@ -58,8 +58,8 @@ An Epic that fulfills an end-user’s goal for a particular pattern of usage of 
 An Epic that serves developers. Has only Required for done (no Chapters). Same files: [[plan/roadmap/epics/organize-huge-outlines.md]], [[plan/roadmap/epics/robust-outliner.md]].
 
 **Chapter**:
-A named beat of a User Epic (Visit Troy, see Circe). Not a Project Stage. A Chapter’s **What to build** names major features; its checklist points at Projects or issues that belong to that beat and does not own them. Those items are not repeated on Required for done. Developer Epics have none.
-_Avoid_: Stage (for this beat), leg, beat (as the glossary name)
+A named beat of a User Epic (Visit Troy, see Circe). Not a Project Stage. Not an issue. Each Chapter is a file under [[plan/roadmap/epics/chapters/]]. **Part of** names the Epic. **Blocked by** names other Chapters. **Context** and **Goal** follow [[.agents/skills/wait-what/SKILL.md]]. **Required for done** is a checklist of Projects or issues that belong to that beat; the Chapter does not own them. Those items are not repeated on Required for done. Developer Epics have none.
+_Avoid_: Stage (for this beat), leg, beat (as the glossary name), issue (for this file)
 
 **Feature-set Project**:
 A Project defined by focused features, user stories, and implementation issues. It may enable one or more Epics.

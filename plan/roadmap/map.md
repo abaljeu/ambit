@@ -8,16 +8,16 @@ A standing Roadmap that answers “what should I work on next.” Completing it 
 
 ## Notes
 
-- Two Project kinds only: this Roadmap, and feature-set Projects (existing `plan/<slug>/`). No Epic Project folders. Standing Epic files live in [[epics/]] (`epics/<slug>.md`), one file per Epic. User Epics hold Chapters in that file. [[issues/]] is wayfinder tickets only (this map’s decisions and tasks). The frontier does not scan `epics/`.
+- Two Project kinds only: this Roadmap, and feature-set Projects (existing `plan/<slug>/`). No Epic Project folders. Standing Epic files live in [[epics/]] (`epics/<slug>.md`), one file per Epic. User Epics list Chapter files under [[epics/chapters/]] (`epics/chapters/<slug>.md`), one file per Chapter. Chapters are not issues. [[issues/]] is wayfinder tickets only (this map’s decisions and tasks). The frontier does not scan `epics/`.
 - Open Epics are listed under **Epics** below, grouped by Stage (override of “do not list open tickets”). Order inside a Stage does not matter.
-- Standing Epic files stay open until the end-goal is met. An Epic has a Stage and, when it is a User Epic, an ordered list of **Chapters** (named beats: Visit Troy, see Circe). The file names which Chapter is current. Each Chapter follows the shape of [[plan/selective-client-loading/issues/17-represent-unloaded-child-lists-end-to-end.md]] raised one level: **What to build** names major features; the checklist is wikilinks to Projects or issues. The Chapter does not own those items. Most often a Chapter focuses in one Project; several pointers are allowed when the end-goal needs them. Advancing a Chapter is charting those pieces on the Projects that own them. Charting / spec / tickets / active / blocked / done stay on those Projects. This Roadmap is not a coding Project. `/to-tickets` subdivides a feature-set Project, not the Epic or Chapter list.
+- Standing Epic files stay open until the end-goal is met. An Epic has a Stage and, when it is a User Epic, an ordered list of **Chapters** (named beats: Visit Troy, see Circe). The Epic file names which Chapter is current and links the Chapter files. Each Chapter file follows [[epics/chapter-template.md]]: Context, Goal, Required for done. The checklist is wikilinks to Projects or issues. The Chapter does not own those items. Most often a Chapter focuses in one Project; several pointers are allowed when the end-goal needs them. Advancing a Chapter is charting those pieces on the Projects that own them. Charting / spec / tickets / active / blocked / done stay on those Projects. This Roadmap is not a coding Project. `/to-tickets` subdivides a feature-set Project, not the Epic or Chapter list.
 - Every classified feature-set Project (or a named part) sits on at least one Epic. **Chapter** checklists hold items that belong to a beat. **Required for done** holds the rest. No overlap. The Epic is not done until every Chapter item and every Required item is done (or the named part). [[epics/organize-huge-outlines.md]] and [[epics/robust-outliner.md]] exist to home Projects; they have only Required for done. Sessions do not present them as uncharted Chapters. User Epics reference Organize Huge Outlines for scaling; first use does not wait on it. Wiki portions about this Epic are Required on that Epic; the whole wiki Project is not.
 - [[plan/childnode-drop-ref/project.md]] is tabled; no Epic pointer. [[plan/work-board-cleanup/project.md]] served this Roadmap, not an Epic.
 - `plan` is steering. `doc/` is committed facts (target). `doc/roadmap` is subsumed by references from this and other `plan` Projects — not a second project home. [[doc/roadmap/postgres-roadmap.md]] is accomplished inventory.
 - The live work board [[WORK.md]] is retired. Discovery is [[plan/index.md]] plus each project's issues/ Status plus wayfinder frontier. This map does not copy those lines.
 - Feature-set agent-done promotes spec into `doc/` (current or history as fit). This Roadmap groups Epics; it does not copy specs.
 - [[doc/index.md]] is the Feature index of the current program. This map is the goto for what to work on next.
-- This Roadmap’s Stage is **steering**. Feature-set Projects and Epics share the other Stage words; an Epic must not use steering. A User Epic has Stage, Chapters, and Required for done. A Developer Epic has Stage and Required for done only. A Chapter’s body is **What to build** plus a pointer checklist.
+- This Roadmap’s Stage is **steering**. Feature-set Projects and Epics share the other Stage words; an Epic must not use steering. A User Epic has Stage, Chapters, and Required for done. A Developer Epic has Stage and Required for done only. A Chapter file has Context, Goal, and Required for done (pointer checklist).
 - Skills: wayfinder, grilling, domain-modeling, project-work, maintain-doc-currency. Implementation skills run on feature-set Projects.
 - Stay on `w/roadmap`. Plan by default on this map except when invoking a named feature-set Project.
 - Sessions present multiple choice of takeable work (frontier tickets, uncharted User Epic Chapters, fog now specifiable). Do not auto-pick the first frontier ticket. Do not offer Developer Epic Chapters; there are none.
@@ -30,12 +30,12 @@ Grouped by Stage. Order inside a Stage does not matter.
 
 ### charting
 
-- [[epics/work-with-text-files-from-anywhere.md]] — Work with my documents from anywhere (current: Automatic upload and download)
-- [[epics/build-or-explore-a-wiki.md]] — Build or explore a wiki (current: Markdown codec)
-- [[epics/create-and-publish-web-pages.md]] — Create and publish web pages (current: HTML codec)
-- [[epics/manage-a-project.md]] — Manage a project (current: Status)
-- [[epics/operate-a-pkm.md]] — Operate a PKM (current: Find what I wrote)
-- [[epics/agent-chat-managed-context.md]] — Agent chat with managed context (current: Ask from what I see)
+- [[epics/work-with-text-files-from-anywhere.md]] — Work with my documents from anywhere (current: [[epics/chapters/automatic-upload-and-download.md]])
+- [[epics/build-or-explore-a-wiki.md]] — Build or explore a wiki (current: [[epics/chapters/markdown-codec.md]])
+- [[epics/create-and-publish-web-pages.md]] — Create and publish web pages (current: [[epics/chapters/html-codec.md]])
+- [[epics/manage-a-project.md]] — Manage a project (current: [[epics/chapters/status.md]])
+- [[epics/operate-a-pkm.md]] — Operate a PKM (current: [[epics/chapters/find-what-i-wrote.md]])
+- [[epics/agent-chat-managed-context.md]] — Agent chat with managed context (current: [[epics/chapters/ask-from-what-i-see.md]])
 - [[epics/organize-huge-outlines.md]] — Organize Huge Outlines (Developer Epic; no Chapter to chart)
 - [[epics/robust-outliner.md]] — Robust outliner (Developer Epic; no Chapter to chart)
 
