@@ -38,7 +38,7 @@ This slice does **not** wire Search or Move to the new stream. It only matches t
 
 ## Client compile gate
 
-`bash ./scripts/client.sh build` — Fable and esbuild succeeded.
+`./scripts/client.sh build` — Fable and esbuild succeeded.
 
 ## WORK.md mutations
 

@@ -511,3 +511,91 @@ let ``planDeleteOps second Directory with same name as one already in TRASH appl
         Assert.True(trashChildren |> List.exists (fun c -> c.id = dir2), "dir2 should join TRASH")
         Assert.Equal(Filename.Ok "docs", s.graph.nodes.[dir1].name)
         Assert.Equal(Filename.Ok "docs1", s.graph.nodes.[dir2].name)
+
+// ---------------------------------------------------------------------------
+// Self-Ref: Delete of the Owned appearance
+// ---------------------------------------------------------------------------
+
+/// ROOT first child is Owned x; x has one Child: a Ref to x.
+let private ownedWithSelfRef () : Graph * NodeId =
+    let g0 = Graph.create ()
+    let g1, ids = ModelBuilder.createNodes [ "x" ] g0
+    let x = ids.[0]
+    let g2 =
+        Graph.replace g1.root 0 [] (owned [ x ]) g1
+        |> ModelBuilder.requireOk "root->[x]"
+    let g3 =
+        Graph.replace x 0 [] [ ref_ x ] g2
+        |> ModelBuilder.requireOk "x->[x(ref)]"
+    g3, x
+
+[<Fact>]
+let ``classifyDeleteForChildSpan does not promote a self-Ref`` () =
+    let graph, _ = ownedWithSelfRef ()
+    let classified =
+        ViewModelDeleteOps.classifyDeleteForChildSpan graph graph.root 0 1
+    Assert.Equal(1, classified.Length)
+    Assert.Equal(ViewModelDeleteOps.MoveToTrash, classified.[0].action)
+
+[<Fact>]
+let ``classifyDeleteForSelection does not promote a self-Ref`` () =
+    let graph, x = ownedWithSelfRef ()
+    let range = rootRange graph 0 1
+    Assert.Equal(x, graph.nodes.[graph.root].children.[0].id)
+    let classified = ViewModelDeleteOps.classifyDeleteForSelection graph range
+    Assert.Equal(1, classified.Length)
+    Assert.Equal(ViewModelDeleteOps.MoveToTrash, classified.[0].action)
+
+[<Fact>]
+let ``owned Delete with self-Ref moves to TRASH and History applies`` () =
+    let graph, x = ownedWithSelfRef ()
+    let range = rootRange graph 0 1
+    let classified = ViewModelDeleteOps.classifyDeleteForSelection graph range
+    let ops = ViewModelDeleteOps.planDeleteOps graph range classified
+    let change = { id = 0; changeId = System.Guid.NewGuid(); ops = ops }
+    match History.applyChange change (stateOf graph) with
+    | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
+    | ApplyResult.Unchanged _ -> Assert.True(false, "Expected Changed")
+    | ApplyResult.Changed s ->
+        let trashChildren = s.graph.nodes.[Graph.trashId].children
+        Assert.True(
+            trashChildren |> List.exists (fun c -> c.id = x),
+            "x should be under TRASH")
+        let rootChildren = s.graph.nodes.[s.graph.root].children
+        Assert.False(
+            rootChildren |> List.exists (fun c -> c.id = x),
+            "x should not be under root")
+        Assert.Equal(Some Graph.trashId, Map.tryFind x s.graph.ownerParentByChild)
+    match ResidentProjection.applyChange change (stateOf graph) with
+    | ApplyResult.Invalid(_, msg) ->
+        Assert.True(false, $"client apply should succeed: {msg}")
+    | ApplyResult.Unchanged _ -> Assert.True(false, "Expected client Changed")
+    | ApplyResult.Changed s ->
+        Assert.Equal(Some Graph.trashId, Map.tryFind x s.graph.ownerParentByChild)
+
+[<Fact>]
+let ``owned Delete with self-Ref and another Ref promotes the other Ref`` () =
+    let graph0, x = ownedWithSelfRef ()
+    let graph1, ids = ModelBuilder.createNodes [ "y" ] graph0
+    let y = ids.[0]
+    let graph2 =
+        Graph.replace graph1.root 1 [] (owned [ y ]) graph1
+        |> ModelBuilder.requireOk "root->[x,y]"
+    let graph3 =
+        Graph.replace y 0 [] [ ref_ x ] graph2
+        |> ModelBuilder.requireOk "y->[x(ref)]"
+    let range = rootRange graph3 0 1
+    let classified = ViewModelDeleteOps.classifyDeleteForSelection graph3 range
+    Assert.Equal(1, classified.Length)
+    Assert.Equal(ViewModelDeleteOps.LocalDeleteWithPromotion, classified.[0].action)
+    let ops = ViewModelDeleteOps.planDeleteOps graph3 range classified
+    let change = { id = 0; changeId = System.Guid.NewGuid(); ops = ops }
+    match History.applyChange change (stateOf graph3) with
+    | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
+    | ApplyResult.Unchanged _ -> Assert.True(false, "Expected Changed")
+    | ApplyResult.Changed s ->
+        Assert.Equal(Some y, Map.tryFind x s.graph.ownerParentByChild)
+        let yChild = s.graph.nodes.[y].children |> List.find (fun c -> c.id = x)
+        Assert.Equal(Ownership.Owner, yChild.ref)
+        let rootChildren = s.graph.nodes.[s.graph.root].children
+        Assert.False(rootChildren |> List.exists (fun c -> c.id = x))

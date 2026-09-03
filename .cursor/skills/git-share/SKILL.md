@@ -15,20 +15,22 @@ Places and daily merges are in [[.cursor/skills/git-protocol/SKILL.md]]. Publish
 One human operator on this machine. `dev` stays local.
 
 ```bash
-./scripts/push.sh ready
+./scripts/gitpush.sh ready
 ```
 
-[[scripts/push.sh]] refuses `dev` and pushes `origin` `ready`.
+[[scripts/gitpush.sh]] refuses `dev` and pushes `origin` `ready`.
 
 ## Pull
 
 Pull only after `ready` moved elsewhere. Then catch up, before further Desktop commits and before the next `dev` → `ready` merge:
 
 ```bash
-./scripts/merge.sh forward ready
+./scripts/gitdev.sh
 ```
 
-Local `ready` must hold the published tip before anything merges into it. That keeps first-parent as “this `ready`” and turns a race into a rejected push or a file conflict instead of two `ready` tips mashed together. [[scripts/merge.sh]] enforces it: it refuses a local `ready` behind `origin/ready`.
+[[scripts/gitdev.sh]] forward-merges `master` into `ready`, then `ready` into dev (`dev`), with the stock forward messages. After `ready` moved elsewhere and `master` is already in `ready`, the first merge is already up to date; the second is the catch-up.
+
+Local `ready` must hold the published tip before anything merges into it. That keeps first-parent as “this `ready`” and turns a race into a rejected push or a file conflict instead of two `ready` tips mashed together. [[scripts/gitready.sh]] and [[scripts/gitmaster.sh]] enforce it: they refuse a local `ready` behind `origin/ready`.
 
 ## Cloud
 

@@ -58,7 +58,9 @@ module ViewModelDeleteOps =
                 let (ownerParentId, ownerIndex, _) = ownerOcc
                 ownerParentId = parentId && ownerIndex = index
             let ownerUnderTrash = isOwnerUnderTrash graph nodeId
-            let others = occurrencesOutsideSelection graph range nodeId
+            let others =
+                occurrencesOutsideSelection graph range nodeId
+                |> List.filter (fun (pid, _, _) -> pid <> nodeId)
 
             let action =
                 match
@@ -144,7 +146,8 @@ module ViewModelDeleteOps =
             | LocalDeleteWithPromotion ->
                 item.otherOccurrences
                 |> List.tryFind (fun (promoParentId, _, c) ->
-                    Node.childOwnership graph promoParentId c = Ownership.Ref)
+                    promoParentId <> item.child.id
+                    && Node.childOwnership graph promoParentId c = Ownership.Ref)
                 |> Option.map (fun (promoParentId, promoIdx, oldChild) ->
                     let newChild = { oldChild with ref = Ownership.Owner }
                     let oldChildren = graph.nodes.[promoParentId].children
@@ -287,6 +290,7 @@ module ViewModelDeleteOps =
                 let ownerUnderTrash = isOwnerUnderTrash graph nodeId
                 let others =
                     occurrencesOutsideIndices graph parentId indexSet nodeId
+                    |> List.filter (fun (pid, _, _) -> pid <> nodeId)
 
                 let action =
                     match

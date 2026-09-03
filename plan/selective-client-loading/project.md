@@ -1,5 +1,5 @@
 # Selective client loading
 
 Stage: active
-Summary: Client-partial residency with explicit Load and Unloaded/Loaded child lists; spec ready-for-agent, implementation issues in flight.
-Updated: 2026-08-15
+Summary: Give the Browser a Graph that starts with only the Workspace Nodes needed for ROOT and restored navigation, grow residency only through explicit Load, and keep the Server Graph fully Resident and authoritative.
+Updated: 2026-09-02

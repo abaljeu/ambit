@@ -8,7 +8,7 @@
 
 **See also:** [[../spec.md]] chapter 2 (Answer types, equality), chapter 4 (`AndExpr` infix attach), chapter 5 (signatures), chapter 6 (juxtaposition bind; `AND` same-input), chapter 7 (`containing` / `re` / `rei` today; reserved `text` / `name`), chapter 8 (Run vs Search types); [[31-if-pullback.md]]; [[29-re-and-rei-header-filters.md]]; [[CONTEXT.md]] Node, Header, Answer; [[src/Shared/Filename.fs]]; [[src/Shared/Model.fs]] `node.text` / `node.name`; [[src/Shared/ExprAnswer.fs]]; [[src/Shared/ExprEval.fs]] `ofOption` / `andEval`; [[src/Shared/ExprParse.fs]] `parseAnd` / `parseAndTail` (not `tryPrefix`).
 
-**Status:** done
+**Status:** ready-for-human
 
 Implementation of this locked plan landed 2026-08-29. Report: [[../reports/text-ops-impl.md]].
 
@@ -20,6 +20,7 @@ Implementation of this locked plan landed 2026-08-29. Report: [[../reports/text-
 - [x] `containing` / `re` / `rei` are dual: a Text input yields the same Text, and a Node input tests `node.text` and yields the Node. The Node behavior does not regress.
 - [x] No implicit Node to Text coerce: `left 5` at the top level is a type error, and `IF (text left 5 IS "rapid")` is the Node pullback.
 - [x] `tree`, `OUTER`, `IF`, `NOT`, `AND`, `OR`, and the Run consumer `=` are unchanged.
+- [ ] HITL: Run `= … IF (text left 5 IS "rapid")` and `= … IF (name right 4 IS ".txt")` on `/ambit` or `/ambit?debug=1`; Answers are Nodes; bare `left 5` is a type error; lowercase `is` is not the combinator; `"d" "e"` is a parse error.
 
 ## No implicit coerce
 
@@ -133,3 +134,5 @@ HITL 2026-08-29 closed the four open questions: `text` = `node.text`; `name` = F
 HITL 2026-08-29 (later): drop implicit Node→Text. Use `text` to coerce. `containing` / `re` / `rei` dual by input kind (Text→Text or Node via `node.text`→Node). Retract “all string functions coerce via `text`”. `text` on Text is a miss (Node extractor); no example fights that. Examples: `IF (text left 5 IS "rapid")`; `name right 4 IS ".txt"` needs no `text` prefix; Node path `text right 4 IS ".txt"` vs Name path `name right 4 IS ".txt"`.
 
 Two quoted-string terms next to each other in juxtaposition (`"d" "e"`) are a dedicated parse error. Quoted strings remain Text Expressions; combinator operands and catalog slots stay legal.
+
+- 2026-09-02: Parked from WORK.md. Remaining HITL: Run `= … IF (text left 5 IS "rapid")` and `= … IF (name right 4 IS ".txt")` on `/ambit` or `/ambit?debug=1`; confirm the Answers are Nodes, that a bare `left 5` reports a type error, that lowercase `is` is not the combinator, and that `"d" "e"` is a parse error. Implementation report: [[../reports/text-ops-impl.md]].

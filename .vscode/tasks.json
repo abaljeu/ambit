@@ -4,7 +4,7 @@
 		{
 			"label": "desktop: Build",
 			"type": "shell",
-			"command": "bash scripts/desktop.sh build",
+			"command": "scripts/desktop.sh build",
 			"group": "build",
 			"presentation": {
 				"reveal": "silent",
@@ -15,7 +15,7 @@
 		{
 			"label": "desktop: Run (cloud)",
 			"type": "shell",
-			"command": "bash scripts/desktop.sh run --cloud",
+			"command": "scripts/desktop.sh run --cloud",
 			"group": "build",
 			"presentation": {
 				"reveal": "always",
@@ -26,7 +26,7 @@
 		{
 			"label": "desktop: Run (local)",
 			"type": "shell",
-			"command": "bash scripts/desktop.sh run-local",
+			"command": "scripts/desktop.sh run-local",
 			"group": "build",
 			"presentation": {
 				"reveal": "always",
@@ -55,7 +55,7 @@
 		{
 			"label": "fable: Build Client",
 			"type": "shell",
-			"command": "bash scripts/client.sh build",
+			"command": "scripts/client.sh build",
 			"group": "build",
 			"presentation": {
 				"reveal": "always",
@@ -67,7 +67,7 @@
 		{
 			"label": "fullstack: Build",
 			"type": "shell",
-			"command": "bash scripts/fullstack-build.sh",
+			"command": "scripts/fullstack-build.sh",
 			"group": "build",
 			"presentation": {
 				"reveal": "always",

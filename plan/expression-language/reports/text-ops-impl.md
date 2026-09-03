@@ -1,6 +1,6 @@
 # Text operations implementation (issue 30)
 
-Issue [[../issues/30-text-operations.md]] is implemented and marked done. Branch `w/tree2-semantics`, no commit. Focused Expr tests are green (164), Amble and RefExpr tests are green (85), and the Client compile gate (`bash ./scripts/client.sh build`, Fable plus esbuild) passed.
+Issue [[../issues/30-text-operations.md]] is implemented and marked done. Branch `w/tree2-semantics`, no commit. Focused Expr tests are green (164), Amble and RefExpr tests are green (85), and the Client compile gate (`./scripts/client.sh build`, Fable plus esbuild) passed.
 
 ## Adjacent quoted juxtaposition (reversal)
 

@@ -4,7 +4,7 @@ For product discussion. Sources: [[plan/roadmap/map.md]], sample Epics, [[plan/e
 
 ## 1. How existing Epics are framed
 
-**User Epics** open with one sentence: *A person [verb phrase]* — a marketable end-goal, not a mechanism. They have `Stage: charting`, a **current Chapter** (named beat), further Chapters in order, and **Required for done** (cross-cutting Projects not tied to one beat). Each Chapter is **What to build** plus a pointer checklist; charting advances by pointing at feature-set Projects, not by coding on the Epic file.
+**User Epics** open with one sentence: *A person [verb phrase]* — a marketable end-goal, not a mechanism. They have `Stage: charting`, a **current Chapter** (named beat), further Chapters in order, and **Required for done** (cross-cutting Projects not tied to one beat). Each Chapter is a file under [[plan/roadmap/epics/chapters/]] with Context, Goal, and Required for done; charting advances by pointing at feature-set Projects, not by coding on the Epic file.
 
 Examples:
 

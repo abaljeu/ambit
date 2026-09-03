@@ -63,7 +63,7 @@ New cases in [[tests/Shared.Tests/DeleteOpsTests.fs]]:
 - Empty span → empty classify.
 
 ```
-bash ./scripts/client.sh build
+./scripts/client.sh build
 ```
 
 Result: Fable + esbuild succeeded.

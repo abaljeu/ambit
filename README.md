@@ -69,7 +69,7 @@ See [[doc/current/persistence-model.md]] for schema and mode rules.
 Optional shell for local filesystem import while using the same web UI against the cloud server.
 
 ```bash
-bash scripts/desktop.sh run
+scripts/desktop.sh run
 ```
 
 Or VS Code task **desktop: Run (cloud)** / **desktop: Run (local)** (see [[.vscode/tasks.json]]).

@@ -15,3 +15,7 @@
 - [x] Existing coverage still: new Added → Unparsed; Modified Current → Unparsed.
 - [x] Filtered `FullyQualifiedName~LazyLoadReconciliationTests` green.
 - [ ] HITL (user): Parse → Current → Load Workspace → stays Current.
+
+## Comments
+
+- 2026-09-02: Parked from WORK.md Active. Outcome already on this issue: keep Current when Load Workspace rediscovers Added path; demote only new stubs / NoServerFile.

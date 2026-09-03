@@ -17,7 +17,7 @@ We are not testing to the browser.
 
 Run targeted tests related to your edit as a foreground process.  Do not use vscode's test runner because it hangs.  Instead use dotnet test, specifying your test set.
 
-If you edited Client dependencies (`src/Shared/`, `src/Client/`, or anything the Client fsproj references, including Shared documents when that project is in the Client graph), `dotnet test` on Shared.Tests is not enough. Run `bash ./scripts/client.sh build` (Fable and esbuild). `/ambit` serves `Program.bundle.js`; `dotnet fable` alone is not sufficient. A Fable failure is a real failure, not a skip.
+If you edited Client dependencies (`src/Shared/`, `src/Client/`, or anything the Client fsproj references, including Shared documents when that project is in the Client graph), `dotnet test` on Shared.Tests is not enough. Run `./scripts/client.sh build` (Fable and esbuild). `/ambit` serves `Program.bundle.js`; `dotnet fable` alone is not sufficient. A Fable failure is a real failure, not a skip.
 
 # Running all tests (including all tests of any one project) 
 Subagents should never run all tests, because it takes a very long time.

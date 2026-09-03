@@ -266,7 +266,14 @@ let completeWorkspacePush
                     presentModel
                 |> withPathSyncRefresh
             | None ->
-                okDetailWithPoll presentModel sync.detail
+                let parsing =
+                    { presentModel with
+                        syncInfo =
+                            SyncInfo.withSyncState Parsing presentModel.syncInfo }
+                let model', effs =
+                    okDetail parsing "reconciling server disk"
+                (model',
+                 effs @ [ Effect.ContinueDirectoryReconcile scope ])
                 |> withPathSyncRefresh
     | Ok { error = Some e } -> failWorkspacePush e model
     | Ok _ -> failWorkspacePush "request failed" model

@@ -14,7 +14,7 @@ Same-branch model: operator skill lives here under `.cursor/skills`. Branch `ven
 | `.agents/skills/` | Flat install agents use |
 | `.cursor/skills/update-matt-skills/` | This skill + scripts |
 
-Git: follow [[.cursor/skills/git-protocol/SKILL.md]]. Exception: this skill still uses `vendor/mattpocock-skills` and a merge script that expects a clean `w/*` tip, then creates `update/mattpocock-skills` — **diverging; needs human**.
+Git: follow [[.cursor/skills/git-protocol/SKILL.md]]. This skill also uses `vendor/mattpocock-skills` and creates `update/mattpocock-skills` from a clean `dev` tip.
 
 Run scripts **in place** from the repo root (no temp copy, no worktrees).
 
@@ -27,14 +27,14 @@ Stop and ask if any fail:
 - Working tree is clean.
 - Remote `skills-source` exists (local path to upstream clone).
 - For pull / flatten / vendor commit: current branch is `vendor/mattpocock-skills`.
-- For merge: current branch is a clean live `w/*` (script then switches to `update/mattpocock-skills`).
+- For merge: current branch is a clean `dev` (script then switches to `update/mattpocock-skills`).
 
 ## Ordinary update
 
 ### 1. Pull tree (on vendor)
 
 ```bash
-bash .cursor/skills/update-matt-skills/scripts/pull-skills-tree.sh
+.cursor/skills/update-matt-skills/scripts/pull-skills-tree.sh
 ```
 
 Fetches `skills-source` and replaces `skills/` from `skills-source/main`.
@@ -44,7 +44,7 @@ Fetches `skills-source` and replaces `skills/` from `skills-source/main`.
 ### 2. Flatten (on vendor)
 
 ```bash
-bash .cursor/skills/update-matt-skills/scripts/flatten-skills.sh
+.cursor/skills/update-matt-skills/scripts/flatten-skills.sh
 ```
 
 Deletes `.agents/skills` on vendor only, then copies each non-deprecated `skills/**/SKILL.md` parent dir to `.agents/skills/<name>/`. Rejects duplicate basenames. Does not touch `skills/` or this cursor skill.
@@ -54,7 +54,7 @@ Deletes `.agents/skills` on vendor only, then copies each non-deprecated `skills
 ### 3. Commit on vendor
 
 ```bash
-bash .cursor/skills/update-matt-skills/scripts/commit-vendor.sh
+.cursor/skills/update-matt-skills/scripts/commit-vendor.sh
 ```
 
 Stages `skills/` and `.agents/skills/`, commits with message `Update projected skills` when there are changes.
@@ -63,10 +63,10 @@ Stages `skills/` and `.agents/skills/`, commits with message `Update projected s
 
 ### 4. Merge onto update branch
 
-Checkout a clean live `w/*` tip first (do not merge while on an arbitrary branch). The merge script requires `w/*`, then creates/resets `update/mattpocock-skills` from that tip and merges vendor there — not onto the shared `w/*` itself.
+Checkout a clean `dev` tip first (do not merge while on an arbitrary branch). The merge script requires `dev`, then creates/resets `update/mattpocock-skills` from that tip and merges vendor there — not onto `dev` itself.
 
 ```bash
-bash .cursor/skills/update-matt-skills/scripts/merge-to-live.sh
+.cursor/skills/update-matt-skills/scripts/merge-to-live.sh
 ```
 
 Ordinary: `git merge --no-ff vendor/mattpocock-skills` on `update/mattpocock-skills`.
@@ -74,7 +74,7 @@ Ordinary: `git merge --no-ff vendor/mattpocock-skills` on `update/mattpocock-ski
 First-time bootstrap (unrelated histories) only — brings vendor flat skills onto the update branch (live integration):
 
 ```bash
-bash .cursor/skills/update-matt-skills/scripts/merge-to-live.sh --bootstrap
+.cursor/skills/update-matt-skills/scripts/merge-to-live.sh --bootstrap
 ```
 
 (`--bootstrap` adds `--allow-unrelated-histories`.)
@@ -92,4 +92,4 @@ Short report: skill counts under `skills/` and `.agents/skills/`, whether anythi
 - Put SHAs in commit messages or scratch notes.
 - Delete `skills/` or `.cursor/skills/update-matt-skills/` during flatten.
 - Run `npx skills` or maintain `skills-lock.json`.
-- Merge vendor directly onto a shared `w/*` that may carry unrelated work.
+- Merge vendor directly onto `dev`.

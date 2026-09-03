@@ -14,3 +14,7 @@
 - [ ] A user cannot confirm a Move whose destination has Unloaded children.
 - [ ] The dialog rule does not Load content and does not change residency.
 - [ ] MoveSelected still goes through the Shared pre-commit guard from ticket 25.
+
+## Comments
+
+- 2026-09-02: Parked from WORK.md Blocked. Blocked by already recorded.

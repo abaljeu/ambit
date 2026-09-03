@@ -6,9 +6,9 @@
 
 **Blocked by:** 19 — Bootstrap fresh sessions with complete ROOT.
 
-**See also:** [[plan/selective-client-loading/spec.md]] (saved zoom Workspace and fold restoration); [[plan/selective-client-loading/issues/14-simplify-selective-loading.md]] (startup installs ROOT plus at most one saved-zoom Workspace).
+**See also:** [[plan/selective-client-loading/spec.md]] (saved zoom Workspace and fold restoration); [[plan/selective-client-loading/issues/14-simplify-selective-loading.md]] (startup installs ROOT plus at most one saved-zoom Workspace); [[src/Shared/ResidentProjection.fs]] `sessionTargets`; [[src/Client/SessionState.fs]].
 
-**Status:** agent-done
+**Status:** ready-for-human
 
 - [x] With no saved zoom target, `/state` installs complete ROOT and no additional Workspace.
 - [x] A valid saved target owned by ROOT restores from the ROOT closure without requesting or installing ROOT twice.
@@ -17,3 +17,8 @@
 - [x] A stale or missing saved target installs only complete ROOT and selects the normal default in-ROOT view.
 - [x] Saved folds are restored only for resident nodes and neither fold restoration nor saved nonresident fold entries request additional content.
 - [x] The first Graph render waits until that `/state` Graph is installed, so the resolved zoom and folds are not shown against a partial package.
+- [ ] HITL F5: Load Workspace, focus a sub-node (no Zoom), refresh; owning Workspace Loaded and zoom stays at prior zoomRoot / in-ROOT (not zoomed into selection).
+
+## Comments
+
+- 2026-09-02: Parked from WORK.md. Implementation stays agent-done; HITL remains.

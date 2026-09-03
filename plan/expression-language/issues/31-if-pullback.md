@@ -8,12 +8,15 @@
 
 **See also:** [[../spec.md]] chapters 4, 6, 7, and 11; [[src/Shared/ExprEval.fs]] `notEval` / `ifEval`; [[src/Shared/ExprParse.fs]] prefix attach. Tests belong next to existing combinator facts in [[tests/Shared.Tests/ExprCombinatorTests.fs]] and the chapter 11 row in [[tests/Shared.Tests/ExprChapter11Tests.fs]]. Report: [[../reports/if-impl.md]].
 
-**Status:** done
+**Status:** ready-for-human
 
 - [x] `IF containing "blue"` and `root IF containing "blue"` parse as the combinator, not bind. Lowercase `if` is not the combinator.
 - [x] Compound operands need parentheses, same as `NOT`. Bare `IF` is a missing-operand parse error.
 - [x] `IF child` keeps a Node that has Children; `IF containing "blue"` keeps the input Node when the Header matches.
 - [x] `NOT (NOT e)` is the same function as `IF e` under current `NOT` semantics (test oracle). No oracle gap.
 - [x] `OUTER`, `re`, `rei`, and `containing` are unchanged.
+- [ ] HITL: Run `= … IF containing "…"` on `/ambit` or `/ambit?debug=1`; confirm Answers stay Nodes (not an inner stream), and that lowercase `if` is not the combinator.
 
 ## Comments
+
+- 2026-09-02: Parked from WORK.md. Implementation stays done; HITL remains. Report: [[../reports/if-impl.md]].

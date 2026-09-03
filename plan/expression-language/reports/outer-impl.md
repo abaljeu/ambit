@@ -20,7 +20,7 @@ The walk is the locked algorithm in [[../spec.md]] chapter 6: Owned, depth-first
 
 ## Tests
 
-Focused Shared tests passed: all `Expr*` (146), including [[tests/Shared.Tests/ExprCombinatorTests.fs]], [[tests/Shared.Tests/ExprChapter11Tests.fs]], and [[tests/Shared.Tests/ExprFilterTests.fs]] (`re` / `rei`). Client compile gate `bash ./scripts/client.sh build` passed.
+Focused Shared tests passed: all `Expr*` (146), including [[tests/Shared.Tests/ExprCombinatorTests.fs]], [[tests/Shared.Tests/ExprChapter11Tests.fs]], and [[tests/Shared.Tests/ExprFilterTests.fs]] (`re` / `rei`). Client compile gate `./scripts/client.sh build` passed.
 
 ## Spec and glossary
 

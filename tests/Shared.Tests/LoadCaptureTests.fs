@@ -96,6 +96,44 @@ let ``packagesForTarget Unloaded includeWorkspace returns owning Workspace subgr
     Assert.True(byId.ContainsKey fileId)
 
 [<Fact>]
+let ``packagesForTarget keeps Directory named .agents Loaded with children`` () =
+    let graph0 = Graph.create ()
+    let wsId = NodeId.New()
+    let dirId = NodeId.New()
+    let fileId = NodeId.New()
+    let wsNode = specialNode wsId Workspace "home" Graph.workspacesId
+    let dirNode = specialNode dirId Directory ".agents" wsId
+    let fileNode = specialNode fileId File "skill.md" dirId
+    let graph1 =
+        graph0.nodes
+        |> Map.add wsId wsNode
+        |> Map.add dirId dirNode
+        |> Map.add fileId fileNode
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+    let graph2 =
+        Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
+        |> function
+            | Ok g -> g
+            | Error err -> failwith err
+    let graph3 =
+        Graph.replace wsId 0 [] (owned [ dirId ]) graph2
+        |> function
+            | Ok g -> g
+            | Error err -> failwith err
+    let graph4 =
+        Graph.replace dirId 0 [] (owned [ fileId ]) graph3
+        |> function
+            | Ok g -> g
+            | Error err -> failwith err
+    let packages =
+        ResidentProjection.packagesForTarget graph4 dirId true
+    let byId = packages |> List.map (fun n -> n.id, n) |> Map.ofList
+    Assert.Equal(Loaded, byId.[dirId].childrenStatus)
+    Assert.Equal(Special Directory, byId.[dirId].kind)
+    Assert.False(byId.[dirId].children.IsEmpty)
+    Assert.True(byId.ContainsKey fileId)
+
+[<Fact>]
 let ``packagesForTarget missing target returns empty`` () =
     let graph, _, _, _ = graphWithNestedWorkspace ()
     Assert.Empty(

@@ -4,13 +4,13 @@ Branch: `w/expr`. Instruction amendment after HITL: agents proved Shared with `d
 
 ## Command (confirmed)
 
-`bash ./scripts/client.sh build` in [[scripts/client.sh]] runs `dotnet fable src/Client` then `npm run bundle` (esbuild). `/ambit` serves `Program.bundle.js`. Bare `./scripts/client.sh` defaults to watch. `dotnet fable` alone is not the gate.
+`./scripts/client.sh build` in [[scripts/client.sh]] runs `dotnet fable src/Client` then `npm run bundle` (esbuild). `/ambit` serves `Program.bundle.js`. Bare `./scripts/client.sh` defaults to watch. `dotnet fable` alone is not the gate.
 
 ## Exact gate wording
 
 Canonical policy is in [[.cursor/rules/testing-workflow.mdc]]:
 
-> If you edited Client dependencies (`src/Shared/`, `src/Client/`, or anything the Client fsproj references, including Shared documents when that project is in the Client graph), `dotnet test` on Shared.Tests is not enough. Run `bash ./scripts/client.sh build` (Fable and esbuild). `/ambit` serves `Program.bundle.js`; `dotnet fable` alone is not sufficient. A Fable failure is a real failure, not a skip.
+> If you edited Client dependencies (`src/Shared/`, `src/Client/`, or anything the Client fsproj references, including Shared documents when that project is in the Client graph), `dotnet test` on Shared.Tests is not enough. Run `./scripts/client.sh build` (Fable and esbuild). `/ambit` serves `Program.bundle.js`; `dotnet fable` alone is not sufficient. A Fable failure is a real failure, not a skip.
 
 Browser tests stay forbidden.
 

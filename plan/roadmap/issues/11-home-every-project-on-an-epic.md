@@ -15,8 +15,9 @@ Every feature-set Project should appear on the Roadmap. Interview Project by Pro
 - 2026-08-30: Client start time primarily mobile / documents-from-anywhere; that Epic is a key component for Manage a project and Operate a PKM (do not duplicate the Project onto those two).
 - 2026-08-30: ChildNode drop ref left tabled; no Epic pointer.
 - 2026-08-30: Work board audit served this Roadmap, not an Epic.
+- 2026-09-02: That Project is now [[plan/work-board-cleanup/project.md]] (rename).
 - 2026-08-30: End-user wiki and Marketing wiki support every Epic via issues. Architecture wiki does the same and is also homed on Robust outliner.
 
 ## Answer
 
-Every live and Stage-done feature-set Project is homed. Chapter checklists are unchanged as beat work pointers. New Epics: Organize Huge Outlines; Robust outliner. Tabled: [[plan/childnode-drop-ref/project.md]]. Roadmap-only: [[plan/work-board-audit/project.md]]. Full homed lists live on the Epic files.
+Every live and Stage-done feature-set Project is homed. Chapter checklists are unchanged as beat work pointers. New Epics: Organize Huge Outlines; Robust outliner. Tabled: [[plan/childnode-drop-ref/project.md]]. Roadmap-only: [[plan/work-board-cleanup/project.md]]. Full homed lists live on the Epic files.

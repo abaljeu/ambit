@@ -19,14 +19,14 @@ Ctrl+Enter was already `CommandId.Exec` → `runAmbleOp` in [[src/Client/Command
 
 ## Fable compile blocker (why watch could not catch up)
 
-`bash ./scripts/client.sh build` first failed in [[src/Client/UpdateHelpers.fs]]: Fable resolved `Gambol.Shared.Node` / `Node` to `ExprAnswer.Node` / the `Node` type, not `module Node`. That name clash comes from [[src/Shared/ExprAnswer.fs]] (`ExprAnswer.Node`, `ExprAnswerType.Node`) in the same namespace as `module Node`. Shared.Tests still compile because they do not compile Client.
+`./scripts/client.sh build` first failed in [[src/Client/UpdateHelpers.fs]]: Fable resolved `Gambol.Shared.Node` / `Node` to `ExprAnswer.Node` / the `Node` type, not `module Node`. That name clash comes from [[src/Shared/ExprAnswer.fs]] (`ExprAnswer.Node`, `ExprAnswerType.Node`) in the same namespace as `module Node`. Shared.Tests still compile because they do not compile Client.
 
 Patched only the two Client call sites so Fable can emit: `child.ref` in `childrenForPaste`, and an inlined first-child lookup in [[src/Client/Update.fs]] `firstGraphChild`. Error-message and unfold logic in Shared were left as they were.
 
 ## What was rebuilt
 
 ```
-bash ./scripts/client.sh build
+./scripts/client.sh build
 ```
 
 Result: Fable + esbuild succeeded. `missing argument` is in [[src/Server/wwwroot/Shared/ExprParse.js]] and in `Program.bundle.js`. `legacyRun` now passes the parse/eval message, not `line`.

@@ -24,7 +24,7 @@ Today's catalog works: `IF child` keeps a Node that has Children; `IF containing
 
 ## Tests
 
-Focused Shared tests passed: `ExprCombinatorTests`, `ExprChapter11Tests`, and `ExprFilterTests` (`re` / `rei` / `containing`). Client compile gate `bash ./scripts/client.sh build` passed.
+Focused Shared tests passed: `ExprCombinatorTests`, `ExprChapter11Tests`, and `ExprFilterTests` (`re` / `rei` / `containing`). Client compile gate `./scripts/client.sh build` passed.
 
 ## Spec and glossary
 
