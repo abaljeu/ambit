@@ -11,6 +11,18 @@ usage() {
     exit 1
 }
 
+if [[ $# -eq 0 ]]; then
+    require_place master
+    require_place ready
+    if trees_match master ready
+    then
+        echo "==> ready and master already match; nothing to squash."
+    else
+        git log --oneline master..ready
+    fi
+    exit 0
+fi
+
 [[ $# -eq 1 ]] || usage
 MESSAGE="$1"
 
