@@ -18,13 +18,13 @@ Summary was not changed. The project goal is still the git procedure. The named 
 
 ## Ambiguity
 
-Spec writes `gitdev.sh "dest"` and `merge.sh forward dev`, then `i.e. forward-merge the squash from master to dev`.
+Spec writes `gitdev.sh "dev"` and `merge.sh forward dev`, then `i.e. forward-merge the squash from master to dev`.
 
-[[scripts/merge.sh]] has no `forward dev`. `forward [master|ready]` takes the source place. Default is `master`. It uses stock messages and does not take `-m`. `"dest"` is not a commit message (unlike `"desc"` on the other lines). The issue implements `gitdev.sh` as `forward` from `master` with no dest/desc argument.
+[[scripts/merge.sh]] has no `forward dev`. `forward [master|ready]` takes the source place. Default is `master`. It uses stock messages and does not take `-m`. `"dev"` is not a commit message (unlike `"desc"` on the other lines). The issue implements `gitdev.sh` as `forward` from `master` with no dev/desc argument.
 
 Spec writes that [[scripts/gitpush.sh]] does what push.sh did, then `Switch to master or ready and push it`. [[scripts/push.sh]] takes `ready` or `master` and runs `git push origin` for that place. It does not switch HEAD. The issue keeps that behavior and does not add a checkout.
 
-Left [[plan/git-protocol/scripts-spec.md]] as the user's artifact. Did not fix `whate` or `"dest"` there.
+Left [[plan/git-protocol/scripts-spec.md]] as the user's artifact. Did not fix `whate` or `"dev"` there.
 
 ## What I did not do
 
