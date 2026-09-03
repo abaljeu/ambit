@@ -4,17 +4,11 @@ Stage: charting
 
 A person operates a personal knowledge management system and imports external data without a seam.
 
-Current chapter: Find what I wrote
+Current chapter: [[chapters/find-what-i-wrote.md]]
 
 ## Chapters
 
-### Find what I wrote
-
-**What to build:** When a person needs a thing they already wrote, they get to it.
-
-**Blocked by:** None.
-
-- [ ] [[plan/expression-language/project.md]]
+- [[chapters/find-what-i-wrote.md]]
 
 ## Required for done
 

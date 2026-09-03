@@ -13,12 +13,11 @@ Canonical project rules are split across [[.cursor/rules/]]:
 - [[.cursor/rules/markdown-writing.mdc]] — markdown conventions (scoped to *.md)
 - [[.cursor/rules/testing-workflow.mdc]] — TDD, test running, and Client compile gate (scoped to tests, Shared, Client)
 - [[.cursor/rules/planning-docs.mdc]] — roadmap/plan documents (scoped to doc/)
-- [[.cursor/rules/work-blackboard.mdc]] — shared task board protocol
 - [[.cursor/rules/project-stage.mdc]] — keep each `plan/` project's `Stage:` and the overview current
 
 Shared runtime state:
 
-- [[WORK.md]] — live actionable work (Active, Pending, Blocked)
+- [[plan/index.md]] — project stage overview; work is that project's issues/
 - [[CONTEXT.md]] — concise domain glossary
 
 Imported engineering skill configuration:
@@ -32,7 +31,7 @@ Imported engineering skill configuration:
 Workflow skills in [[.cursor/skills/]]:
 
 - [[.cursor/skills/git-protocol/SKILL.md]] — git procedure (`dev`, `ready`, `master`)
-- [[.cursor/skills/git-master/SKILL.md]] — squash, tag, and publish `master`; explicit invocation only
+- [[.cursor/skills/git-master/SKILL.md]] — squash and publish `master`; explicit invocation only
 - [[.cursor/skills/git-share/SKILL.md]] — publish `ready`, pull, catch up; explicit invocation only
 - [[.cursor/skills/project-work/SKILL.md]] — `plan` project files and Stage
 - [[.cursor/skills/plan-roadmap-change/SKILL.md]] — roadmap and plan doc changes
@@ -43,6 +42,7 @@ Workflow skills in [[.cursor/skills/]]:
 - [[.cursor/skills/co-edit-format-plan/SKILL.md]] — collaborative (interactive) document editing
 - [[.cursor/skills/prepare-agent-instruction-change/SKILL.md]] — maintain rules/skills/bridges
 - [[.cursor/skills/write-simple-parser/SKILL.md]] — simple document parsers / format codecs
+- [[.cursor/skills/scratch-script/SKILL.md]] — scratch a short .sh with Write, then run that file
 - [[.cursor/skills/projects-overview/SKILL.md]] — regenerate the `plan/index.md` project stage overview
 - [[.cursor/skills/to-archive/SKILL.md]] — move a `done` project into `plan/done/` and drop it from the overview
 - [[.cursor/skills/update-matt-skills/SKILL.md]] — pull mattpocock skills tree on vendor, flatten to .agents/skills, merge to live

@@ -65,6 +65,8 @@ Work the **frontier**: any ticket whose blockers are all done. For a purely line
 
 Do NOT close or modify any parent issue.
 
+
+<!-- 2026-09-02 updated format.  Do not use old format.  Don't rewrite old tickets unless asked. -->
 <local-ticket-template>
 
 # <NN> — <Ticket title>

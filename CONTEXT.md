@@ -5,7 +5,7 @@ Concise glossary for this repo. Prefer these words; do not invent synonyms.  If 
 ## About Working
 
 **Agent-done**:
-Finished work: tests green, `/code-review` passed, and a commit on `dev` via [[scripts/commit.sh]] or human CLI. Then the human runs [[scripts/merge.sh]] (or types the merge) to put that work on `ready`. Tickets do not record commit SHAs. Procedure: [[.cursor/skills/git-protocol/SKILL.md]].
+Finished work: tests green, `/code-review` passed, and a commit on `dev` via [[scripts/commit.sh]] or human CLI. Then the human runs [[scripts/gitready.sh]] (or types the merge) to put that work on `ready`. Tickets do not record commit SHAs. Procedure: [[.cursor/skills/git-protocol/SKILL.md]].
 _Avoid_: done, finished, shipped, complete
 
 **dev**:
@@ -32,7 +32,7 @@ Retired. Do not add `plan/<feature>/git.md` for branch names. Existing files are
 _Avoid_: branch notes, git status file, branch tracker
 
 **Manual approval**:
-A direct user request that authorizes a named git operation the Desktop agent does not run on its own (for example remotes). Merge goes through [[scripts/merge.sh]] or the human CLI per [[.cursor/skills/git-protocol/SKILL.md]]; squash onto `master` is [[.cursor/skills/git-master/SKILL.md]].
+A direct user request that authorizes a named git operation the Desktop agent does not run on its own (for example remotes). Merge goes through [[scripts/gitready.sh]] or the human CLI per [[.cursor/skills/git-protocol/SKILL.md]]; squash onto `master` is [[.cursor/skills/git-master/SKILL.md]].
 _Avoid_: permission, override, allowlist exception
 
 **Issue tracker**:
@@ -58,8 +58,8 @@ An Epic that fulfills an end-user’s goal for a particular pattern of usage of 
 An Epic that serves developers. Has only Required for done (no Chapters). Same files: [[plan/roadmap/epics/organize-huge-outlines.md]], [[plan/roadmap/epics/robust-outliner.md]].
 
 **Chapter**:
-A named beat of a User Epic (Visit Troy, see Circe). Not a Project Stage. A Chapter’s **What to build** names major features; its checklist points at Projects or issues that belong to that beat and does not own them. Those items are not repeated on Required for done. Developer Epics have none.
-_Avoid_: Stage (for this beat), leg, beat (as the glossary name)
+A named beat of a User Epic (Visit Troy, see Circe). Not a Project Stage. Not an issue. Each Chapter is a file under [[plan/roadmap/epics/chapters/]]. **Part of** names the Epic. **Blocked by** names other Chapters. **Context** and **Goal** follow [[.agents/skills/wait-what/SKILL.md]]. **Required for done** is a checklist of Projects or issues that belong to that beat; the Chapter does not own them. Those items are not repeated on Required for done. Developer Epics have none.
+_Avoid_: Stage (for this beat), leg, beat (as the glossary name), issue (for this file)
 
 **Feature-set Project**:
 A Project defined by focused features, user stories, and implementation issues. It may enable one or more Epics.

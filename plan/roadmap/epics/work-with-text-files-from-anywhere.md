@@ -4,42 +4,15 @@ Stage: charting
 
 A person explores and works with their documents from any connected device, not only at one desk. The Browser or the App talks to the same Server. In the App a document on disk is a File Node. Graphic editing is out of scope.
 
-Current chapter: Automatic upload and download
+Current chapter: [[chapters/automatic-upload-and-download.md]]
 
 ## Chapters
 
-### Automatic upload and download
-
-**What to build:** Replace today's manual Upload, Download, and Load for that path so files stay current on the App and in the Browser.
-
-**Blocked by:** None.
-
-- [ ] [[plan/auto-download-persisted-files/project.md]] — auto-download (HITL tabled)
-- [ ] [[plan/roadmap/issues/07-chart-automatic-upload-and-download.md]] — chart auto-upload (no Project yet)
-
-### Automatic parse
-
-**What to build:** Unparsed File Nodes parse without a separate Parse command.
-
-**Blocked by:** None.
-
-### Markdown styling
-
-**What to build:** Markdown look in the App (bold, italic, headings). Not the markdown file codec. HTML in-app styling is [[create-and-publish-web-pages.md]] In-app styling.
-
-**Blocked by:** None.
-
-### Embed an image
-
-**What to build:** Show an image File in the HTML UI. Formats the Browser already shows as an image are in. No graphic editor.
-
-**Blocked by:** None.
-
-### Tables
-
-**What to build:** Markdown pipe tables shown as a grid, and a grid document class (CSV / grid File). Not the outline shown as a table.
-
-**Blocked by:** None.
+- [[chapters/automatic-upload-and-download.md]]
+- [[chapters/automatic-parse.md]]
+- [[chapters/markdown-styling.md]]
+- [[chapters/embed-an-image.md]]
+- [[chapters/tables.md]]
 
 ## Required for done
 
@@ -74,4 +47,4 @@ Done:
 - A Google Doc (a document that is not a File) is potentially IN scope.
 - Graphic editing is out of scope. A graphic file is not a document.
 - English **document** vs **Document** (project) vs File Node: [[CONTEXT.md]].
-- [[agent-chat-managed-context.md]] Chapter **Ambit keeps consistency with desktop repo for Agentic work** depends on this Epic’s **Automatic upload and download**. This Epic keeps that Chapter and those Projects. Mapping is Current ([[doc/current/workspace-local-mapping.md]]). Grill: [[plan/roadmap/issues/13-grill-cursor-repo-to-ambit-llm-use.md]].
+- [[agent-chat-managed-context.md]] Chapter [[chapters/ambit-keeps-consistency-with-desktop-repo-for-agentic-work.md]] depends on this Epic’s [[chapters/automatic-upload-and-download.md]]. This Epic keeps that Chapter and those Projects. Mapping is Current ([[doc/current/workspace-local-mapping.md]]). Grill: [[plan/roadmap/issues/13-grill-cursor-repo-to-ambit-llm-use.md]].

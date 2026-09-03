@@ -4,7 +4,7 @@ Worker for the retired WORK.md App slice on [[direct-api-vs-proxy.md]]. Did not 
 
 ## Outcome
 
-Durable issue: [[plan/roadmap/issues/14-webview2-navigate-azure-ambit.md]]. Linked from the recommendation report. Status is `ready-for-agent` after a claim-and-check. No F# change.
+Durable issue: [[plan/webview2-azure-origin/issues/01-webview2-navigate-azure-ambit.md]] (rehomed from Roadmap `issues/`). Linked from the recommendation report. Status is `ready-for-agent` after a claim-and-check. No F# change.
 
 The report names no Epic or Chapter. No Epic file edit. Roadmap [[project.md]] stays Stage `steering`. No [[plan/index.md]] regenerate.
 
@@ -19,7 +19,7 @@ Shipping Navigate without those seams would drop App host routes or leave the us
 ## Board mutations (parent applies)
 
 - `remove` Pending [[plan/roadmap/reports/direct-api-vs-proxy.md]] — later App slice: WebView2 `Navigate` to Azure `/ambit` after host discovery; login-after-navigate or copy `gambol_auth` via the WebView2 cookie API (not fetch Azure from the pretty URL)
-- `add` Pending [[plan/roadmap/issues/14-webview2-navigate-azure-ambit.md]] — after host discovery, WebView2 `Navigate` to Azure `/ambit`; copy `gambol_auth` via CookieManager or login after Navigate; keep `/_desktop` on LocalProxy; do not fetch Azure from the pretty URL
+- `add` Pending [[plan/webview2-azure-origin/issues/01-webview2-navigate-azure-ambit.md]] — after host discovery, WebView2 `Navigate` to Azure `/ambit`; copy `gambol_auth` via CookieManager or login after Navigate; keep `/_desktop` on LocalProxy; do not fetch Azure from the pretty URL
 
 Keep the other Pending line on [[direct-api-vs-proxy.md]] (pretty URL stays on PHP unless a same-site Azure hostname is charted).
 

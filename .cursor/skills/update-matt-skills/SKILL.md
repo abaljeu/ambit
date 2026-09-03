@@ -14,7 +14,7 @@ Same-branch model: operator skill lives here under `.cursor/skills`. Branch `ven
 | `.agents/skills/` | Flat install agents use |
 | `.cursor/skills/update-matt-skills/` | This skill + scripts |
 
-Git: follow [[.cursor/skills/git-protocol/SKILL.md]]. Exception: this skill still uses `vendor/mattpocock-skills` and a merge script that expects a clean `w/*` tip, then creates `update/mattpocock-skills` — **diverging; needs human**.
+Git: follow [[.cursor/skills/git-protocol/SKILL.md]]. This skill also uses `vendor/mattpocock-skills` and creates `update/mattpocock-skills` from a clean `dev` tip.
 
 Run scripts **in place** from the repo root (no temp copy, no worktrees).
 
@@ -27,7 +27,7 @@ Stop and ask if any fail:
 - Working tree is clean.
 - Remote `skills-source` exists (local path to upstream clone).
 - For pull / flatten / vendor commit: current branch is `vendor/mattpocock-skills`.
-- For merge: current branch is a clean live `w/*` (script then switches to `update/mattpocock-skills`).
+- For merge: current branch is a clean `dev` (script then switches to `update/mattpocock-skills`).
 
 ## Ordinary update
 
@@ -63,7 +63,7 @@ Stages `skills/` and `.agents/skills/`, commits with message `Update projected s
 
 ### 4. Merge onto update branch
 
-Checkout a clean live `w/*` tip first (do not merge while on an arbitrary branch). The merge script requires `w/*`, then creates/resets `update/mattpocock-skills` from that tip and merges vendor there — not onto the shared `w/*` itself.
+Checkout a clean `dev` tip first (do not merge while on an arbitrary branch). The merge script requires `dev`, then creates/resets `update/mattpocock-skills` from that tip and merges vendor there — not onto `dev` itself.
 
 ```bash
 .cursor/skills/update-matt-skills/scripts/merge-to-live.sh
@@ -92,4 +92,4 @@ Short report: skill counts under `skills/` and `.agents/skills/`, whether anythi
 - Put SHAs in commit messages or scratch notes.
 - Delete `skills/` or `.cursor/skills/update-matt-skills/` during flatten.
 - Run `npx skills` or maintain `skills-lock.json`.
-- Merge vendor directly onto a shared `w/*` that may carry unrelated work.
+- Merge vendor directly onto `dev`.

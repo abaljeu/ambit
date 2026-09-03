@@ -16,7 +16,7 @@ Did not implement product code. Did not write wiki how-to. Did not commit. Issue
 ### Pending (existing issues)
 
 - [[plan/roadmap/issues/07-chart-automatic-upload-and-download.md]] → same — Comments: chart auto-upload and remaining pointers for the current Chapter.
-- [[plan/roadmap/issues/14-webview2-navigate-azure-ambit.md]] → same — Comments: parked outcome (Navigate, cookie copy, `/_desktop`, no pretty-URL fetch). Status stays `ready-for-agent`.
+- [[plan/webview2-azure-origin/issues/01-webview2-navigate-azure-ambit.md]] — Comments: parked outcome (Navigate, cookie copy, `/_desktop`, no pretty-URL fetch). Status stays `ready-for-agent`. Rehomed from Roadmap `issues/` after this park.
 - [[plan/marketing-wiki/issues/01-use-page-documents-from-any-connected-device.md]] → same — Comments: first use page.
 - [[plan/expression-language/reports/ref-owned-children-impl.md]] → [[plan/expression-language/issues/32-ref-and-owned-children.md]] — Status `ready-for-human`; HITL checklist; report link.
 - [[plan/expression-language/reports/text-ops-impl.md]] → [[plan/expression-language/issues/30-text-operations.md]] — Status `ready-for-human`; HITL checklist; Comments HITL steps.
@@ -35,7 +35,7 @@ Did not implement product code. Did not write wiki how-to. Did not commit. Issue
 
 - [[plan/roadmap/reports/upload-dot-scratch-directory-stub.md]] → [[plan/roadmap/issues/15-hitl-empty-scratch-directory-stub.md]] — HITL empty `.scratch`; Load `.agents` stays Loaded; classify-batch report linked.
 - [[plan/roadmap/reports/graph-only-reconcile-chunk.md]] → [[plan/roadmap/issues/16-hitl-cpanel-proxy-php-large-load.md]] — HITL upload [[proxy.php]]; large Load 200 not 400/502.
-- [[plan/roadmap/reports/direct-api-vs-proxy.md]] (pretty URL) → [[plan/roadmap/issues/17-pretty-url-php-or-same-site-azure.md]] — keep PHP or chart same-site Azure hostname; WebView2 stays issue 14.
+- [[plan/roadmap/reports/direct-api-vs-proxy.md]] (pretty URL) → [[plan/roadmap/issues/17-pretty-url-php-or-same-site-azure.md]] — keep PHP or chart same-site Azure hostname; WebView2 is [[plan/webview2-azure-origin/issues/01-webview2-navigate-azure-ambit.md]].
 - [[plan/expression-language/reports/run-changes-not-effective.md]] → [[plan/expression-language/issues/34-hitl-run-error-strings-and-unfold.md]] — HITL hard-reload error strings and unfold.
 - [[plan/expression-language/reports/run-commit-edit-before-exec.md]] → [[plan/expression-language/issues/35-hitl-run-commit-edit-before-exec.md]] — HITL commit then Run.
 - [[plan/expression-language/reports/expr-eval-pull-enumerator-impl.md]] (50 hits) → [[plan/expression-language/issues/36-hitl-run-descendant-cap-50.md]] — HITL 50 Children and unfold.

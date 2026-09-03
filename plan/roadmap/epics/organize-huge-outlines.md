@@ -14,6 +14,7 @@ Live:
 
 - [ ] [[plan/large-node-cursor-perf/project.md]] — selection DOM patch; delete-among-large-siblings still open
 - [ ] [[plan/expression-language/project.md]] — remainder beyond Find / `?` (filters, combinators, paging)
+- [ ] [[plan/webview2-azure-origin/project.md]]
 - [ ] [[plan/end-user-wiki/map.md]] — portion for this Epic (not yet filed)
 - [ ] [[plan/marketing-wiki/map.md]] — portion for this Epic (not yet filed)
 

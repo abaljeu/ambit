@@ -8,7 +8,7 @@ Blocked by:
 
 For the pretty URL in a web browser, keep [[proxy.php]] for cookie-auth Browser API, or chart a same-site Azure hostname. Do not send POSTs to `*.azurewebsites.net` while the page stays on the custom domain.
 
-Report: [[plan/roadmap/reports/direct-api-vs-proxy.md]]. App WebView2 Navigate is [[14-webview2-navigate-azure-ambit.md]], not this ticket.
+Report: [[plan/roadmap/reports/direct-api-vs-proxy.md]]. App WebView2 Navigate is [[plan/webview2-azure-origin/issues/01-webview2-navigate-azure-ambit.md]], not this ticket.
 
 ## Comments
 
