@@ -19,7 +19,7 @@ A standing Roadmap that answers “what should I work on next.” Completing it 
 - [[doc/index.md]] is the Feature index of the current program. This map is the goto for what to work on next.
 - This Roadmap’s Stage is **steering**. Feature-set Projects and Epics share the other Stage words; an Epic must not use steering. A User Epic has Stage, Chapters, and Required for done. A Developer Epic has Stage and Required for done only. A Chapter file has Context, Goal, and Required for done (pointer checklist).
 - Skills: wayfinder, grilling, domain-modeling, project-work, maintain-doc-currency. Implementation skills run on feature-set Projects.
-- Stay on `w/roadmap`. Plan by default on this map except when invoking a named feature-set Project.
+- Work on **dev**; promote finished work to **ready**. Plan by default on this map except when invoking a named feature-set Project. Do not write per-project git notes.
 - Sessions present multiple choice of takeable work (frontier tickets, uncharted User Epic Chapters, fog now specifiable). Do not auto-pick the first frontier ticket. Do not offer Developer Epic Chapters; there are none.
 - Documentation wikis: [[plan/end-user-wiki/map.md]], [[plan/marketing-wiki/map.md]], [[plan/architecture/map.md]]. An Epic is not done until the wiki portions about that Epic are done. Architecture’s remainder is also Required on [[epics/robust-outliner.md]].
 - [[epics/robust-outliner.md]] records the inner-core aim: a modular Server apply core that never crashes; other work posts Changes ([[plan/event-sourced-ops/overview.md]]) and may hang or crash without harming the core. Same Epic aims at incremental operations (modest send, then more); Workspace upload and Browser Load are current counterexamples.

@@ -9,7 +9,7 @@ Canonical git procedure for this repo. Other rules and skills point here; they d
 
 ## Places
 
-Three long-lived branches. Reuse these names. Do not add `w/` branches.
+Three long-lived branches. Reuse these names. Do not add `w/` branches. Do not write per-project git notes. All work on **dev**; promote to **ready**.
 
 **dev** — workplace on this machine. All Desktop edits and ordinary commits happen here. Local-only; do not push `dev`.
 
