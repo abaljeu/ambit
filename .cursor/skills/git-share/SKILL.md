@@ -1,18 +1,42 @@
 ---
 name: git-share
-description: Publish ready to the remote, pull, and catch up afterward.
-disable-model-invocation: true
+description: >-
+  Publish ready to GitHub, pull origin/ready, and catch up. Use when sharing
+  work across agents or machines, after work lands on ready, or when local
+  ready may be behind origin/ready. Code pushes are approval-gated.
 ---
 
 # Share
 
-Explicit invocation only. Remotes are the human's to run.
+Agents and humans may **pull** `ready` freely and **push `ready` only after approval**. `dev` stays local. `master` stays human-only ([[.cursor/skills/git-master/SKILL.md]]).
 
-Places and daily merges are in [[.cursor/skills/git-protocol/SKILL.md]]. Publishing `master` is [[.cursor/skills/git-master/SKILL.md]].
+Places and daily merges are in [[.cursor/skills/git-protocol/SKILL.md]].
 
-## Publish
+## Before editing (shared checkout)
 
-One human operator on this machine. `dev` stays local.
+Fetch, then make local `ready` hold the published tip before merging into it or catching `dev` up:
+
+```bash
+git fetch origin
+git switch ready
+git merge --ff-only origin/ready
+```
+
+If `--ff-only` fails, stop and report. Do not mash two `ready` tips together.
+
+Then catch `dev` up:
+
+```bash
+./scripts/gitdev.sh
+```
+
+[[scripts/gitdev.sh]] forward-merges `master` into `ready`, then `ready` into `dev`, with the stock forward messages. After `ready` moved elsewhere and `master` is already in `ready`, the first merge is already up to date; the second is the catch-up.
+
+Local `ready` must hold the published tip before anything merges into it. That keeps first-parent as "this `ready`" and turns a race into a rejected push or a file conflict instead of two `ready` tips mashed together. [[scripts/gitready.sh]] and [[scripts/gitmaster.sh]] enforce it: they refuse a local `ready` behind `origin/ready`.
+
+## Publish `ready` (approval-gated)
+
+After `dev` is on `ready` via [[scripts/gitready.sh]]:
 
 ```bash
 ./scripts/gitpush.sh ready
@@ -20,22 +44,21 @@ One human operator on this machine. `dev` stays local.
 
 [[scripts/gitpush.sh]] refuses `dev` and pushes `origin` `ready`.
 
-## Pull
+**Code push gate:** do not run `gitpush.sh ready` (or any `git push` of application/plan commits) until Alan has approved that push in chat or via the tool approval card. Pull/fetch needs no approval. Never push `dev`. Never push `master` from this skill.
 
-Pull only after `ready` moved elsewhere. Then catch up, before further Desktop commits and before the next `dev` → `ready` merge:
+## Agent workplaces
 
-```bash
-./scripts/gitdev.sh
-```
+An agent may work on this machine's `dev`, or on a disposable workspace that starts from current `origin/ready`:
 
-[[scripts/gitdev.sh]] forward-merges `master` into `ready`, then `ready` into dev (`dev`), with the stock forward messages. After `ready` moved elsewhere and `master` is already in `ready`, the first merge is already up to date; the second is the catch-up.
+- Land finished work onto `ready` with `--no-ff` (via [[scripts/gitready.sh]] on this machine, or the same merge on a disposable workspace).
+- Push `ready` only after approval.
+- Leave `master` and any new long-lived places alone.
 
-Local `ready` must hold the published tip before anything merges into it. That keeps first-parent as “this `ready`” and turns a race into a rejected push or a file conflict instead of two `ready` tips mashed together. [[scripts/gitready.sh]] and [[scripts/gitmaster.sh]] enforce it: they refuse a local `ready` behind `origin/ready`.
+Do not two-write the same files without fetching first. Prefer disjoint paths when several agents co-edit.
 
-## Cloud
+## Still human-only / gated
 
-Parked; nothing runs in the cloud today.
-
-A Cursor cloud agent would work on its own disposable workspace rather than this machine's `dev`. It would sit on `ready`, merge from that workspace with `--no-ff`, and push `ready`. It would leave `master` and any new long-lived place alone.
-
-Making that real needs a model-invoked home for these three sentences. This skill is user-invoked, so a cloud agent cannot reach it.
+- Squash and publish `master` ([[.cursor/skills/git-master/SKILL.md]]) — human only
+- Tags — human only
+- Pushing `dev` — forbidden
+- Pushing `ready` — agent-allowed only with Alan's push approval

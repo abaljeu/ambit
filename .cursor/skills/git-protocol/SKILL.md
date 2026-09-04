@@ -40,8 +40,9 @@ The three places exist. `dev` and `ready` were born together on the last work ti
 
 `selective-client-sync` and the `w/` names remain as history. Do not resume one as the workplace. Do not create another.
 
-The agent may create and switch places (`git branch`, `git switch`). Merges, squashes, and remotes stay with the human.
+The agent may create and switch places (`git branch`, `git switch`). Merges go through the scripts (or human CLI). Squashes stay with the human. Pulling `ready` is agent-ok; pushing `ready` is agent-ok only with Alan's push approval ([[.cursor/skills/git-share/SKILL.md]]).
 
 ## Sharing
 
-Remotes are explicit invocation only, by the human: [[.cursor/skills/git-share/SKILL.md]].
+Agents may pull `ready` freely. Pushing `ready` is approval-gated. Procedure: [[.cursor/skills/git-share/SKILL.md]].
+`dev` stays local. `master` stays human-only: [[.cursor/skills/git-master/SKILL.md]].
