@@ -44,7 +44,7 @@ A `plan/<slug>/` effort. Two kinds: the Roadmap, and a feature-set Project.
 _Avoid_: epic project (as a third kind)
 
 **Roadmap**:
-The steering Project at [[plan/roadmap/]]. It answers what to work on next by grouping Epics by Stage. Order inside a Stage does not matter.
+The steering Project at [[plan/roadmap/]]. It answers what to work on next by grouping Epics by Stage. Epics are parallel. Continue from recent work: that Epic, its current Chapter (or Developer Required live items), then Project/issue Stage/Status. Order inside a Stage does not rank Epics.
 _Avoid_: master project, master steering, doc/roadmap (as this Project), numbered Epic sequence (as the listing rule)
 
 **Epic**:
