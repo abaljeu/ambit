@@ -6,6 +6,15 @@ Labels: wayfinder:map
 
 A standing Roadmap that answers “what should I work on next.” Completing it means completing the application. It groups **Epics** by Stage — marketable user end-goals, larger than a feature or interaction. Each Epic is a standing file under [[epics/]] until that goal is met. Feature-set Projects implement focused features that enable Epics; this map points at them and does not copy their specs. Sessions invoke those Projects, implement them, and promote committed facts into `doc/`. `doc/` describes the current program.
 
+## Strategy
+
+1. Quality first: a solid product core ([[epics/robust-outliner.md]] — inner core, Change/History spine, incremental load/upload) so other work can fail without killing the Graph.
+2. Value: rapid understanding of information via dynamic organization ([[epics/operate-a-pkm.md]]).
+3. Extend that value by inbound and outbound while the Graph stays authority ([[epics/operate-connected-channels.md]], [[plan/transport-layer/project.md]]).
+4. Vivid inbound example: Grok Bot / agent messages land in Ambit as outline, not generic chat. That is a channel into the Graph. It is not the Ask-from-what-I-see chapter. Mail may still be a later channel.
+
+Epics stay parallel. This strategy is why to continue a given Epic from recent work, not a ranked board.
+
 ## Notes
 
 - Two Project kinds only: this Roadmap, and feature-set Projects (existing `plan/<slug>/`). No Epic Project folders. Standing Epic files live in [[epics/]] (`epics/<slug>.md`), one file per Epic. User Epics list Chapter files under [[epics/chapters/]] (`epics/chapters/<slug>.md`), one file per Chapter. Chapters are not issues. [[issues/]] is wayfinder tickets only (this map’s decisions and tasks). The frontier does not scan `epics/`.
