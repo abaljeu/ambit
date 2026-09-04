@@ -22,3 +22,4 @@ Skill-to-stage transitions:
 - `/to-tickets` → `tickets`
 - implementation underway → `active`; delivered → `done`
 - waiting on a named dependency or decision → `blocked`
+- retired without delivery → `dead`

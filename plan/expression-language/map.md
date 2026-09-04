@@ -10,7 +10,7 @@ A hand-off spec: syntax, evaluation semantics, and the first primitive catalog f
 
 Domain: Graph query and Expression language over Node, text, and number Answers. Consult [[.agents/skills/domain-modeling/SKILL.md]], [[plan/expression-language/reports/existing-language-survey.md]], [[doc/roadmap/language-syntax-and-semantics.md]], [[doc/roadmap/reference-expression-interpretation.md]]. Working draft: [[plan/expression-language/spec-draft.md]].
 
-Standing preferences: plan, do not implement eval or parse in `src/`. Use Graph, Node, ROOT, Ref, Owned, Header, Children. User is AFK; recommended answers live on tickets, not as silent locks. Stay on `w/broken` until asked.
+Standing preferences: plan, do not implement eval or parse in `src/`. Use Graph, Node, ROOT, Ref, Owned, Header, Children. User is AFK; recommended answers live on tickets, not as silent locks. Work on **dev**; promote to **ready**.
 
 ## Decisions so far
 

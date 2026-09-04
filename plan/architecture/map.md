@@ -11,6 +11,7 @@ A browsable description of how Gambol is coded and how it runs: processes, layer
 - Charted from [[plan/roadmap/map.md]] after [[plan/roadmap/issues/02-inventory-live-projects-and-roadmap-remainder.md]].
 - [[doc/arch.md]] is a thin engineering overview. [[doc/current/]] holds feature baselines. [[doc/agents/domain.md]] says where canonical docs live. This Project is the standing effort to describe coding and runtime, not a second source of feature truth.
 - Sister Projects: [[plan/end-user-wiki/map.md]] (what the software is for users), [[plan/marketing-wiki/map.md]] (uses).
+- Related: [[plan/debug-reload/project.md]] -- how a person on watch loads debug modules and picks up an esbuild rebuild (Browser hard-reload). Homed on [[plan/roadmap/epics/robust-outliner.md]].
 
 ## Decisions so far
 

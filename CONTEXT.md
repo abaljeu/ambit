@@ -36,7 +36,7 @@ A direct user request (or tool approval card) that authorizes a named git operat
 _Avoid_: permission, override, allowlist exception
 
 **Issue tracker**:
-Local Markdown under `plan/` for specs and issues; see [[doc/agents/issue-tracker.md]]. Not GitHub or GitLab issues.
+Local Markdown under `plan/` for specs and issues; see [[doc/agents/issue-tracker.md]]. Not GitHub or GitLab issues. Issues may carry optional `Estimate:` / `Actual:` and a `## Time` log. Projects carry `Started:` / `Finished:` / `Actual:` filled from chat handoffs and commits when missing.
 _Avoid_: backlog, GitHub issues, GitLab issues, tickets board
 
 **Project**:
@@ -44,7 +44,7 @@ A `plan/<slug>/` effort. Two kinds: the Roadmap, and a feature-set Project.
 _Avoid_: epic project (as a third kind)
 
 **Roadmap**:
-The steering Project at [[plan/roadmap/]]. It answers what to work on next by grouping Epics by Stage. Order inside a Stage does not matter.
+The steering Project at [[plan/roadmap/]]. It answers what to work on next by grouping Epics by Stage. Epics are parallel. Continue from recent work: that Epic, its current Chapter (or Developer Required live items), then Project/issue Stage/Status. Order inside a Stage does not rank Epics.
 _Avoid_: master project, master steering, doc/roadmap (as this Project), numbered Epic sequence (as the listing rule)
 
 **Epic**:
@@ -55,7 +55,7 @@ _Avoid_: saga, tale, epic project, marketable story (as the glossary name), stee
 An Epic that fulfills an end-user’s goal for a particular pattern of usage of the software. Has Chapters plus Required for done. Opening line is still *A person [verb phrase]* where that is already the file shape.
 
 **Developer Epic**:
-An Epic that serves developers. Has only Required for done (no Chapters). Same files: [[plan/roadmap/epics/organize-huge-outlines.md]], [[plan/roadmap/epics/robust-outliner.md]].
+An Epic that serves developers. Has only Required for done (no Chapters). Same files: [[plan/roadmap/epics/organize-huge-outlines.md]], [[plan/roadmap/epics/robust-outliner.md]], [[plan/roadmap/epics/process-improvement.md]].
 
 **Chapter**:
 A named beat of a User Epic (Visit Troy, see Circe). Not a Project Stage. Not an issue. Each Chapter is a file under [[plan/roadmap/epics/chapters/]]. **Part of** names the Epic. **Blocked by** names other Chapters. **Context** and **Goal** follow [[.agents/skills/wait-what/SKILL.md]]. **Required for done** is a checklist of Projects or issues that belong to that beat; the Chapter does not own them. Those items are not repeated on Required for done. Developer Epics have none.

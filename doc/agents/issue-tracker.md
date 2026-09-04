@@ -28,6 +28,61 @@ Use **issue tracker**, not “backlog backend” or “backlog manager.” Use *
 - A `Status:` line records an implementation issue's triage role. `Status: grilling` or `Stage: grilling` on an issue is not a triage role: it is a directive. The next agent that starts or advances that issue must follow [[.agents/skills/grilling/SKILL.md]] on it before any implement work.
 - Append comments and conversation under `## Comments`.
 
+## Time tracking
+
+Goal: weeks later, answer **when we started**, **when we finished**, and **how many hours** for a ticket or a whole project, using the files plus conversation and commit history.
+
+### On an issue
+
+Optional fields after `Status:`:
+
+- `Estimate:` — optional forecast (`45m`, `2h`). Omit when unknown. Do not rewrite to match Actual unless Alan asks.
+- `Actual:` — sum of `## Time` once any work is logged.
+
+```
+## Time
+
+- 2026-09-04 1.5h — sketched apply seam
+- 2026-09-05 45m — tests for amend path
+```
+
+Prefer logging when a session ends. If a session was never logged, agents may append an inferred line and tag the source: `(from chat)` or `(from commits)`.
+
+### On the project (`project.md`)
+
+After `Updated:`, keep the arc:
+
+```
+Started: 2026-09-01
+Finished: 2026-09-12
+Actual: 14h
+```
+
+- `Started:` — set once (earliest wins). Do not clear.
+- `Finished:` — set when Stage becomes `done` (or Alan says done). For `dead`, use the retire date; leave blank while live.
+- `Actual:` — sum of every issue's `Actual:` / `## Time` under `plan/<slug>/issues/`. Refresh when finishing or when Alan asks.
+
+Optional project-level `## Time` only for reconstruction notes that do not belong on one ticket (e.g. a discuss/review session spanning many tickets).
+
+### How to fill gaps (conversations + commits)
+
+When Alan asks start / finish / hours, or when setting `Finished:`, fill missing fields from evidence — do not invent:
+
+1. **Started** (earliest of what exists):
+   - Conversation: Alan says build / go / start implementing for this project (or the discuss→build handoff).
+   - Else first commit that touches `plan/<slug>/` or the project's implementation paths after tickets exist.
+   - Else first issue `## Time` date or first claim / active work on an issue.
+2. **Finished**:
+   - Conversation date of done / Stage set to `done`.
+   - Else the commit that set `Stage: done`.
+3. **Hours**:
+   - Sum issue `## Time` lines (authoritative when present).
+   - Backfill gaps: cluster commits for that project into sessions (same day, gaps under ~2h count as one session; duration ≈ first→last commit in the cluster, minimum 15m). Tag `(from commits)`.
+   - Chat-only work (discuss, review) with no commits: one line from the conversation date and a fair duration, tagged `(from chat)`.
+4. Write the filled dates and sums back into `project.md` / issue files so the next ask is file-local.
+
+No separate time database. The Markdown files are the record; git and chat are evidence used to complete them.
+
 ## Publishing and fetching
 
 When a skill says “publish to the issue tracker,” create a file under `.scratch/<feature-slug>/`, creating the directory if needed.
