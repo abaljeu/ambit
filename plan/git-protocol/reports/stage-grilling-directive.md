@@ -15,7 +15,7 @@ No bridge edits. No [[plan/index.md]] regen: no live project is at `grilling`. D
 
 An always-apply rule is in context on every turn. If `project.md` is `Stage: grilling` and the agent starts or advances that project, it must follow the grilling skill. It must not implement, ticket, or skip the interview. After grilling starts, stage becomes `charting` (same as `/grilling` today). An agent already working a different issue of the same project does not stop.
 
-`charting`, `steering`, `spec`, `tickets`, `active`, `blocked`, and `done` remain status-only. They do not auto-invoke skills.
+`charting`, `steering`, `spec`, `tickets`, `active`, `blocked`, `done`, and `dead` remain status-only. They do not auto-invoke skills.
 
 ## Verify
 

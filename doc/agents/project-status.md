@@ -30,6 +30,7 @@ Grounded in the wayfinder arc ([[.agents/skills/wayfinder/SKILL.md]]) and the is
 | `active` | implementation underway |
 | `blocked` | waiting on a named dependency or decision |
 | `done` | delivered; awaiting cleanup or removal |
+| `dead` | retired without delivery; will not resume |
 
 ## Setting the stage
 

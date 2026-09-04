@@ -16,6 +16,7 @@ Every feature-set Project should appear on the Roadmap. Interview Project by Pro
 - 2026-08-30: ChildNode drop ref left tabled; no Epic pointer.
 - 2026-08-30: Work board audit served this Roadmap, not an Epic.
 - 2026-09-02: That Project is now [[plan/work-board-cleanup/project.md]] (rename).
+- 2026-09-04: ChildNode drop ref is dead (new Stage). Work board cleanup is done. Process improvement Developer Epic homes git-protocol (done). Debug reload homes on Robust outliner as architecture documentation.
 - 2026-08-30: End-user wiki and Marketing wiki support every Epic via issues. Architecture wiki does the same and is also homed on Robust outliner.
 
 ## Answer

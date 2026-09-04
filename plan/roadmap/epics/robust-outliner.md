@@ -38,6 +38,7 @@ Live:
 - [ ] [[plan/rowview-layout-behavior/project.md]]
 - [ ] [[plan/event-sourced-ops/project.md]] — remainder beyond Agent-chat Actor issues
 - [ ] [[plan/architecture/map.md]] — remainder of the architecture wiki; portions about other Epics gate those Epics
+- [ ] [[plan/debug-reload/project.md]] — architecture documentation: debug modules and esbuild hard-reload
 - [ ] [[plan/end-user-wiki/map.md]] — portion for this Epic (not yet filed)
 - [ ] [[plan/marketing-wiki/map.md]] — portion for this Epic (not yet filed)
 
