@@ -14,7 +14,12 @@ Each project directory holds a `project.md`:
 Stage: <stage>
 Summary: <one line state the goal of the project.  Use [[.agents/skills/wait-what/SKILL.md]]>
 Updated: <YYYY-MM-DD>
+Started: <YYYY-MM-DD>   # optional until known; set from chat or first build commit
+Finished: <YYYY-MM-DD>  # when Stage is done (or dead); omit while live
+Actual: <Nh>            # optional; sum of issue ## Time under this project
 ```
+
+Time arc: see [[doc/agents/issue-tracker.md]] (Time tracking). Fill `Started` / `Finished` / `Actual` from conversation handoffs and commits when missing.
 
 ## Stages
 

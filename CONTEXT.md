@@ -36,7 +36,7 @@ A direct user request (or tool approval card) that authorizes a named git operat
 _Avoid_: permission, override, allowlist exception
 
 **Issue tracker**:
-Local Markdown under `plan/` for specs and issues; see [[doc/agents/issue-tracker.md]]. Not GitHub or GitLab issues.
+Local Markdown under `plan/` for specs and issues; see [[doc/agents/issue-tracker.md]]. Not GitHub or GitLab issues. Issues may carry optional `Estimate:` / `Actual:` and a `## Time` log. Projects carry `Started:` / `Finished:` / `Actual:` filled from chat handoffs and commits when missing.
 _Avoid_: backlog, GitHub issues, GitLab issues, tickets board
 
 **Project**:
