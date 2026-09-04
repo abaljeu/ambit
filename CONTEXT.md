@@ -32,7 +32,7 @@ Retired. Do not add `plan/<feature>/git.md` for branch names. Existing files are
 _Avoid_: branch notes, git status file, branch tracker
 
 **Manual approval**:
-A direct user request that authorizes a named git operation the Desktop agent does not run on its own (for example remotes). Merge goes through [[scripts/gitready.sh]] or the human CLI per [[.cursor/skills/git-protocol/SKILL.md]]; squash onto `master` is [[.cursor/skills/git-master/SKILL.md]].
+A direct user request (or tool approval card) that authorizes a named git operation. **Code pushes of `ready` are approval-gated** ([[.cursor/skills/git-share/SKILL.md]]). Squash onto `master` and tags stay human-only ([[.cursor/skills/git-master/SKILL.md]]). Merge goes through [[scripts/gitready.sh]] or the human CLI per [[.cursor/skills/git-protocol/SKILL.md]]. Pull/fetch of `ready` needs no approval.
 _Avoid_: permission, override, allowlist exception
 
 **Issue tracker**:
