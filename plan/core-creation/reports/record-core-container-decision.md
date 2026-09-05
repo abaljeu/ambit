@@ -21,7 +21,7 @@ No index or register file exists in [[doc/Decisions/]]. [[doc/Decisions/README.m
 
 ## Convention conflicts
 
-- [[doc/agents/domain.md]] still says Projects live under `.scratch/`, but the repo Projects are under `plan/`, and [[CONTEXT.md]] defines a Project as a `plan/<slug>/` effort. I used `plan/`.
+- [[doc/agents/domain.md]] still says Projects live under `plan/`, but the repo Projects are under `plan/`, and [[CONTEXT.md]] defines a Project as a `plan/<slug>/` effort. I used `plan/`.
 - The prompt asked for front matter to copy. The existing records have none, so I followed the repo files.
 
 ## Verification

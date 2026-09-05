@@ -16,17 +16,17 @@ A product-wide fact belongs only where the human has placed it:
 | [[doc/current/]], [[doc/arch.md]], [[doc/spec.md]] | Implemented or agreed system behavior, after promotion per [[.cursor/skills/maintain-doc-currency/SKILL.md]] |
 | [[CONTEXT.md]] | Ubiquitous language — terms and meanings, not exclusions or architecture |
 
-Everything else — `.scratch/` specs and maps, [[doc/roadmap/]], reports, tickets, agent chat — is **non-authoritative for product commitments**. Treat material there as scope, history, or draft unless promoted.
+Everything else — `plan/` specs and maps, [[doc/roadmap/]], reports, tickets, agent chat — is **non-authoritative for product commitments**. Treat material there as scope, history, or draft unless promoted.
 
 ## Scope wording
 
 Scope statements name the effort they belong to:
 
-- "Out of scope for [[.scratch/selective-client-loading/spec.md]]"
+- "Out of scope for [[plan/selective-client-loading/spec.md]]"
 - "This spec does not include …"
 - "Deferred; not decided for the product"
 
-When one effort's scope touches another, say which effort owns the work — as in [[.scratch/client-start-time/reports/cache-first-boot-via-poll.md]] (IndexedDB caches are out of selective-loading scope because fast reboot owns them, not because they are forbidden).
+When one effort's scope touches another, say which effort owns the work — as in [[plan/client-start-time/reports/cache-first-boot-via-poll.md]] (IndexedDB caches are out of selective-loading scope because fast reboot owns them, not because they are forbidden).
 
 ## Commitment wording
 
