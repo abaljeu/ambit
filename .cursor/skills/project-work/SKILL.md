@@ -23,7 +23,7 @@ Set `Stage:` and `Updated:` in `project.md` when the effort starts or advances. 
 
 ## 3. Work
 
-Edit the project's files. Specs, issues, maps, and reports live under `plan/<slug>/`.
+Edit the project's files. Specs, issues, maps, and reports live under `plan/<slug>/`. On issues you touch, log spent time under `## Time` and keep `Actual:` in sync; set optional `Estimate:` when sizing. On `project.md`, set `Started:` on the discuss→build handoff (or first build commit), set `Finished:` when Stage becomes `done`, and keep project `Actual:` as the sum of issue times — backfill from chat and commits when gaps remain (see [[doc/agents/issue-tracker.md]] Time tracking).
 
 ## 4. Finish
 
