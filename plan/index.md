@@ -4,6 +4,7 @@
 | --- | --- | --- |
 | [Architecture](architecture/) | charting | A browsable description of how Gambol is coded and how it runs. |
 | [Bullet tip times](bullet-tip-times/) | charting | Which non-obvious time facts a node-marker tooltip should show (update, workspace, server, last-sync) with de-dup, timezone, and availability rules; open questions unresolved. |
+| [Core creation](core-creation/) | charting | Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool. |
 | [Document formats](document-formats/) | charting | Remaining document formats (including XML read/write) after the workspace file model baseline. |
 | [Download no-parse fix](download-no-parse-fix/) | charting | Download stamp-align must not require Parse; SetUpdateTime is exempt from the unparsed-document gate. |
 | [End-user wiki](end-user-wiki/) | charting | A browsable wiki that describes the software for people who use it. |

@@ -10,7 +10,7 @@ Run `?` with a message and included context. The reply is Owned children of the 
 
 - Enables [[plan/roadmap/epics/agent-chat-managed-context.md]] Chapter **Ask from what I see**.
 - This Project owns pack, LLM call, and write-back. [[plan/expression-language/issues/33-recognize-ask-run-statement.md]] only recognizes `?` as a Run statement.
-- Long-running Actor: [[plan/event-sourced-ops/details/actors-and-jobs.md]], [[plan/event-sourced-ops/issues/07-generalized-server-actor-produce-path.md]], [[plan/event-sourced-ops/issues/09-job-identity-with-advisory-soft-lock.md]].
+- Long-running Actor: [[plan/core-creation/issues/01-generalized-server-actor-produce-path.md]], [[plan/core-creation/issues/02-core-actor-pool.md]]. ESO background: [[plan/event-sourced-ops/details/actors-and-jobs.md]].
 - Glossary: [[CONTEXT.md]] Included context. Do not say Agent for the LLM.
 
 ## Decisions so far
@@ -24,7 +24,7 @@ Run `?` with a message and included context. The reply is Owned children of the 
 - How the pack is encoded for the LLM.
 - Which LLM and where credentials live.
 - The seam after expression-language recognizes `?`.
-- How much of eso 07/09 must land before the first `?` is usable.
+- How much of the Core Actor spine must land before the first `?` is usable.
 
 ## Out of scope
 
