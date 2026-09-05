@@ -21,6 +21,8 @@ The typed asynchronous result distinguishes Reject from acceptance. The accepted
 
 Exact module names, project placement, and HTTP adaptation remain for [[04-separate-http-adapter-from-core-changes]] and [[05-place-core-changes-in-existing-projects]].
 
+The requirement above to preserve persistence-mode behavior is superseded by [[13-delete-runtime-mirror-and-remove-production-persistence-mode.md]]. This does not change the typed Core Changes contract.
+
 ## Time
 
 - 2026-09-05 30m — grilled and resolved the typed Core Changes contract

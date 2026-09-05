@@ -3,16 +3,17 @@
 Stage: charting
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
 Updated: 2026-09-05
-Actual: 90m
+Actual: 4h05m
 
 ## Map
 
-- [[plan/core-creation/map.md|Core creation Wayfinder]] — chart the initial Changes increment and later Core decisions.
+- [[plan/core-creation/map.md|Core creation Wayfinder]] — chart the initial Graph-agent package and later Core decisions.
 
 ## Issues
 
 - [[plan/core-creation/issues/01-generalized-server-actor-produce-path.md]] — establish the shared Core Changes path.
 - [[plan/core-creation/issues/02-core-actor-pool.md]] — establish Core-owned Actor pool machinery.
+- [[plan/core-creation/issues/13-delete-runtime-mirror-and-remove-production-persistence-mode.md|Delete runtime mirror and remove production Persistence:Mode]] — use Database persistence when available and reject Changes when unavailable.
 
 ## Decision tickets
 
