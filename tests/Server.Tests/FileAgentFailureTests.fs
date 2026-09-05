@@ -8,9 +8,6 @@ open Gambol.Server
 open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
 
-module Encode = Thoth.Json.Newtonsoft.Encode
-module Decode = Thoth.Json.Newtonsoft.Decode
-
 let private changedBody () =
     let childId = NodeId.New()
     let change =
@@ -23,9 +20,7 @@ let private changedBody () =
                     Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ])
                 ]
         }
-    Encode.toString 0 (
-        Serialization.encodeChangeBatch
-            { changes = [ change ] })
+    [ change ]
 
 let private softFailPersist : string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, string> =
     fun _ _ postGraph _ ->
@@ -34,17 +29,11 @@ let private softFailPersist : string -> Graph -> Graph -> Op list -> Result<Pers
             message = Some(DocumentPersistence.fileCouldNotSave "SYSTEM/secret.txt")
         }
 
-let private decodeAck (json: string) =
-    match
-        Decode.fromString
-            ApiResponseSerialization.decodeChangeSuccessResponseDecoder
-            json
-    with
-    | Ok response -> response
-    | Error err -> failwith $"decode ack: {err}"
+let private decodeAck (accepted: CoreChangesAccepted) =
+    accepted
 
-let private decodeAckMessage (json: string) : string option =
-    (decodeAck json).message
+let private decodeAckMessage (accepted: CoreChangesAccepted) =
+    accepted.message
 
 /// Insert a normal child at ROOT index 0 (old span [] = insert).
 let private softFailEditBody () =
@@ -59,9 +48,7 @@ let private softFailEditBody () =
                     Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ])
                 ]
         }
-    Encode.toString 0 (
-        Serialization.encodeChangeBatch
-            { changes = [ change ] })
+    [ change ]
 
 [<Fact>]
 let ``persistence exception is logged replied and mailbox survives`` () = task {
@@ -94,7 +81,7 @@ let ``persistence exception is logged replied and mailbox survives`` () = task {
 
         let log = File.ReadAllText logPath
         Assert.Contains("EXCEPTION source=FileAgent operation=PostChange", log)
-        Assert.Contains("context=bodyLength=", log)
+        Assert.Contains("context=changeCount=", log)
         Assert.Contains("type=System.InvalidOperationException", log)
         Assert.Contains("message=injected persistence failure", log)
         Assert.Contains("stack=", log)
@@ -226,8 +213,7 @@ let private incrementingStampPersist (count: int ref) =
                         postGraph.nodes }
         Ok { graph = graph; message = None }
 
-let private encodeBatch (changes: Change list) =
-    Encode.toString 0 (Serialization.encodeChangeBatch { changes = changes })
+let private encodeBatch (changes: Change list) = changes
 
 let private addChildChange rev text =
     let childId = NodeId.New()

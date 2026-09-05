@@ -1,13 +1,18 @@
 # Core creation
 
-Stage: charting
+Stage: active
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
 Updated: 2026-09-05
-Actual: 4h05m
+Started: 2026-09-05
+Actual: 4h30m
 
 ## Map
 
 - [[plan/core-creation/map.md|Core creation Wayfinder]] — chart the initial Graph-agent package and later Core decisions.
+
+## Implementation plan
+
+- [[plan/core-creation/initial-core-changes-implementation.md|Initial Core Changes implementation]] — implement resolved issues 03–06 and enable later delivery issue 01.
 
 ## Issues
 
@@ -36,3 +41,4 @@ Actual: 4h05m
 - [[plan/core-creation/reports/create-project-reorganization.md]] — Project creation and ownership reorganization.
 - [[plan/core-creation/reports/core-wayfinder-fact-inventory.md]] — evidence and open-choice inventory used to chart the map.
 - [[plan/core-creation/reports/chart-core-wayfinder-map.md]] — map, ticket topology, and verification report.
+- [[plan/core-creation/reports/plan-initial-core-changes-implementation.md]] — implementation-plan changes and verification.

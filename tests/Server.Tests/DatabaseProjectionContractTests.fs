@@ -75,10 +75,7 @@ let private scalar<'a> connStr sql = task {
     return unbox<'a> result
 }
 
-let private encodeBatch (changes: Change list) =
-    Encode.toString 0 (
-        Serialization.encodeChangeBatch
-            { changes = changes })
+let private encodeBatch (changes: Change list) = changes
 
 let private exec connStr sql (parameters: (string * obj) list) = task {
     use conn = Database.getConnection connStr
@@ -274,14 +271,7 @@ let ``DbAgent bootstrap duplicate returns stored Change and rejects no-op`` () =
     let! first = DbAgent.postChange agent (encodeBatch [ accepted ]) |> Async.StartAsTask
     let firstAck =
         match first with
-        | Ok json ->
-            match
-                Decode.fromString
-                    ApiResponseSerialization.decodeChangeSuccessResponseDecoder
-                    json
-            with
-            | Ok ack -> ack
-            | Error err -> failwith err
+        | Ok ack -> ack
         | Error err -> failwith err
     Assert.Equal(accepted.changeId, Assert.Single(firstAck.changes).changeId)
     let! xminAfterFirst =
@@ -290,15 +280,8 @@ let ``DbAgent bootstrap duplicate returns stored Change and rejects no-op`` () =
     let! duplicate =
         DbAgent.postChange agent (encodeBatch [ accepted ]) |> Async.StartAsTask
     match duplicate with
-    | Ok json ->
-        match
-            Decode.fromString
-                ApiResponseSerialization.decodeChangeSuccessResponseDecoder
-                json
-        with
-        | Ok ack ->
-            Assert.Equal<Change list>(firstAck.changes, ack.changes)
-        | Error err -> failwith err
+    | Ok ack ->
+        Assert.Equal<Change list>(firstAck.changes, ack.changes)
     | Error err -> failwith err
 
     let noOp =

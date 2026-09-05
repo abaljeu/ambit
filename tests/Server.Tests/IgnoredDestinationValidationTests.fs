@@ -154,9 +154,7 @@ let ``many new destinations reject ignored and keep gitignore`` () =
 let private encodeChange graph parentId name =
     let _, ops = FileNodeOps.planCreateOwnedFile graph parentId name
     let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
-    Encode.toString 0 (
-        Serialization.encodeChangeBatch
-            { changes = [ change ] })
+    [ change ]
 
 [<SkippableFact>]
 let ``FileAgent rejects ignored graph state before acceptance`` () =
@@ -167,7 +165,7 @@ let ``FileAgent rejects ignored graph state before acceptance`` () =
     let body = encodeChange (Graph.create ()) Graph.rootId "blocked.txt"
     let result = FileAgent.postChange agent body |> Async.RunSynchronously
     Assert.True(Result.isError result)
-    Assert.Equal(0, FileAgent.getRevision agent |> Async.RunSynchronously)
+    Assert.Equal(Revision 0, FileAgent.getRevision agent |> Async.RunSynchronously)
     FileAgent.dispose agent
 
 [<SkippableFact>]
@@ -182,5 +180,5 @@ let ``DbAgent rejects ignored graph state before acceptance`` () = task {
     let! result = DbAgent.postChange agent body |> Async.StartAsTask
     Assert.True(Result.isError result)
     let! revision = DbAgent.getRevision agent |> Async.StartAsTask
-    Assert.Equal(0, revision)
+    Assert.Equal(Revision 0, revision)
 }

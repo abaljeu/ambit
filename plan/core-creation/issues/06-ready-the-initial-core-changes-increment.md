@@ -3,7 +3,7 @@
 Type: grilling
 Status: resolved
 Blocked by: 03, 04, 05
-Actual: 45m
+Actual: 50m
 
 ## Question
 
@@ -22,3 +22,4 @@ Focused acceptance evidence adds only a few tests for typed Core API seams. In p
 ## Time
 
 - 2026-09-05 45m — grilled and resolved the initial Core Changes increment
+- 2026-09-05 5m — wrote the implementation-ready plan for resolved issues 03–06
