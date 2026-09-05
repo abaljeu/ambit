@@ -4,7 +4,7 @@
 
 **What to build:** Launch long-running work off the apply queue, assign Core-owned job identity, cancel further output from a job, and finish work through Core Changes and inner apply. The apply queue must remain available while the Actor runs.
 
-**Blocked by:** [[01-generalized-server-actor-produce-path.md]]
+**Blocked by:** [[01-generalized-server-actor-produce-path.md]], [[12-define-actor-pool-shutdown-behavior.md|Define Actor-pool shutdown behavior]]
 
 **See also:** [[plan/core-creation/project.md]], [[plan/core-creation/reports/kernel-fsproj.md]], [[plan/event-sourced-ops/details/actors-and-jobs.md]], [[plan/event-sourced-ops/issues/09-job-identity-with-advisory-soft-lock.md]]
 
