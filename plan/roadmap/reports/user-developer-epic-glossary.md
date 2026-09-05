@@ -2,6 +2,8 @@
 
 Locked kind names from the session: **person-job Epic** → **User Epic**; **home Epic** → **Developer Epic**. Definitions live once in [[CONTEXT.md]]. This Roadmap project was not advanced; Stage stays steering.
 
+Superseded 2026-09-05: a **Chapter** is a beat of an Epic, including a Developer Epic when charted. The line below that called Chapter a User Epic beat only is history.
+
 ## Files changed
 
 - [[CONTEXT.md]] — **Epic** points at two kinds; **User Epic** and **Developer Epic** defined; **Chapter** is a User Epic beat; old kind names on Epic `_Avoid_` (saga, tale, and related Avoid entries kept).

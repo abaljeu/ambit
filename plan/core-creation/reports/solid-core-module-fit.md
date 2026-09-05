@@ -2,16 +2,17 @@
 
 Date: 2026-09-04 (discussion), written 2026-09-05
 
-Links: [[../epics/robust-outliner.md]], [[../../event-sourced-ops/overview.md]]
+Links: [[plan/core-creation/project.md]], [[plan/roadmap/epics/robust-outliner.md]], [[plan/event-sourced-ops/overview.md]]
 
 ## Purpose
 
 Which existing modules adapt toward the Solid core bar vs what does not fit easily.
 
-## Fits / kernel candidate
+## Fits / Core candidate
 
-- Shared apply/amend stack (inner apply path for Changes) — small kernel candidate (~couple thousand lines of apply path inside ~80k-line codebase)
-- ESO spine: one mutation path, amend, Actors hand Changes into inner apply (issues 07–08, actors-and-jobs)
+- Shared apply/amend stack (inner apply path for Changes) — small **Core** candidate (~couple thousand lines of apply path inside ~80k-line codebase)
+- Core Actor spine: one mutation path, amend, and Actors hand Changes into inner apply ([[plan/core-creation/issues/01-generalized-server-actor-produce-path.md]], [[plan/core-creation/issues/02-core-actor-pool.md]])
+- ESO Actor definitions and advisory behavior use that spine but stay outside Core ([[plan/event-sourced-ops/issues/08-parse-file-realignment-tracer.md]], [[plan/event-sourced-ops/issues/09-job-identity-with-advisory-soft-lock.md]])
 
 ## Partial / gaps on the ACID bar (db mode)
 
@@ -19,7 +20,7 @@ Which existing modules adapt toward the Solid core bar vs what does not fit easi
 - Timeout-abandon that can persist after a refused apply
 - Non-Change startup writers that bypass the Change path
 
-## Hard to fold into the kernel without redesign (leave outside for now)
+## Hard to fold into Core without redesign (leave outside for now)
 
 - Persistence layer broadly
 - Parse (Parse File today is request-scoped Actor, not a managed pool)

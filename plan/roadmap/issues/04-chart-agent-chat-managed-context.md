@@ -17,9 +17,9 @@ Recommended: grill the in-product job first, then name increments breadth-first.
 - 2026-08-29 Q3: Included context is SiteMap rows under Zoom, honoring Fold. Visible is de facto speech, not glossary. Unloaded Children stay out of the pack. Term: [[CONTEXT.md]] Included context.
 - 2026-08-29 Q4: Reply is Owned child Nodes under the focus Node, then unfold; errors as one child — same as Run Text Answers.
 - 2026-08-29 Q5: Five Chapters, in order: (1) Ask from what I see, (2) Talk again, (3) Change the Graph, (4) Queries to the Graph or the files behind, (5) Agent work via CLI or MCP. Names still to pin as person-jobs.
-- 2026-08-29 Q6: New feature-set Project owns pack, LLM call, write-back. Expression-language only recognizes `?`. Long-running (stop a slow bot; answers while the person works) already lives on [[plan/event-sourced-ops/]]: [[details/actors-and-jobs.md]], [[issues/07-generalized-server-actor-produce-path.md]], [[issues/09-job-identity-with-advisory-soft-lock.md]].
+- 2026-08-29 Q6, ownership corrected 2026-09-05: New feature-set Project owns pack, LLM call, and write-back. Expression-language only recognizes `?`. Long-running launch, apply, identity, and cancel belong to [[plan/core-creation/project.md]]: [[plan/core-creation/issues/01-generalized-server-actor-produce-path.md]], [[plan/core-creation/issues/02-core-actor-pool.md]]. ESO retains [[plan/event-sourced-ops/details/actors-and-jobs.md]] as background and owns advisory soft-lock behavior.
 - 2026-08-29 Q7: Chapter names: Ask from what I see; Talk again; Change the Graph; Query the Graph or the files; Act through CLI or MCP.
-- 2026-08-29 Q8: Long-running hangs on Ask from what I see (eso 07/09). CLI/MCP stays Chapter 5.
+- 2026-08-29 Q8, ownership corrected 2026-09-05: Long-running work for Ask from what I see depends on the Core Actor spine. CLI/MCP stays Chapter 5.
 
 ## Answer
 

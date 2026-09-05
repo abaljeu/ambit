@@ -1,4 +1,4 @@
-# How much of eso 07/09 before first `?`
+# How much of the Core Actor spine before first `?`
 
 Type: grilling
 Status: open
@@ -6,7 +6,7 @@ Blocked by:
 
 ## Question
 
-How much of [[plan/event-sourced-ops/issues/07-generalized-server-actor-produce-path.md]] and [[plan/event-sourced-ops/issues/09-job-identity-with-advisory-soft-lock.md]] must land before the first `?` is usable? Decide the minimum Actor spine. Do not implement in this ticket.
+How much of [[plan/core-creation/issues/01-generalized-server-actor-produce-path.md]] and [[plan/core-creation/issues/02-core-actor-pool.md]] must land before the first `?` is usable? Decide the minimum Actor spine. Do not implement in this ticket.
 
 ## Comments
 

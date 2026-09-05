@@ -12,7 +12,7 @@ Parent-facing summary of `/to-tickets` step 5 publish. Branch: `w/event-sourced-
 | 04 | [[issues/04-client-consumes-merge-success-without-reload.md]] |
 | 05 | [[issues/05-child-list-accept-both.md]] |
 | 06 | [[issues/06-recovery-safety-decisions.md]] |
-| 07 | [[issues/07-generalized-server-actor-produce-path.md]] |
+| 07 | Moved to [[plan/core-creation/issues/01-generalized-server-actor-produce-path.md]] |
 | 08 | [[issues/08-parse-file-realignment-tracer.md]] |
 | 09 | [[issues/09-job-identity-with-advisory-soft-lock.md]] |
 | 10 | [[issues/10-child-list-approximation-polish.md]] |
@@ -21,13 +21,16 @@ Parent-facing summary of `/to-tickets` step 5 publish. Branch: `w/event-sourced-
 
 Each issue: Context, What to build, Blocked by, See also, Status `ready-for-agent`, acceptance checkboxes.
 
+Current ownership differs from this historical publish: [[plan/core-creation/project.md]] owns former ESO 07 and the Core pool machinery extracted from ESO 09. ESO retains Parse in 08 and advisory soft-lock behavior with Browser-facing job access in 09.
+
 ## Dependency graph
 
 - `01 ∥ 02 → 03 → 04 → 05`
 - `03+04 → 06` (decision only)
-- `03+04 → 07 → 08 → 09`
+- `03+04 → Core 01 → ESO 08`
+- `Core 01 → Core 02 → ESO 09`; ESO 08 also blocks ESO 09
 - `05 → 10`
-- `07 → 11`
+- `Core 01 → 11`
 - `04 → 12` (decision only)
 
 ## Frontier (unblocked, ready-for-agent)
