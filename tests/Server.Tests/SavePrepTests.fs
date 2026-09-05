@@ -25,11 +25,6 @@ let private stateWithRootChild (text: string) : State =
     | ApplyResult.Changed state -> { state with revision = Revision 1 }
     | _ -> failwith "expected changed state"
 
-let private stateResponse (state: State) =
-    { graph = state.graph
-      revision = state.revision
-      isReady = true }
-
 let private requireOk label result =
     match result with
     | Ok value -> value
@@ -54,7 +49,7 @@ let ``Git DB flush returns revision without rewriting disk`` () =
         SavePrep.syncGitArtifacts
             DatabaseSetup.PersistenceMode.Db
             DatabaseSetup.DbStatus.Ok
-            (fun () -> async { return Ok (stateResponse state) })
+            (fun () -> async { return Ok state })
             (fun () -> async { return failwith "file flush should not run" })
             (fun () -> async { return failwith "file revision should not be read" })
             dataDir
@@ -85,7 +80,7 @@ let ``Full DB sync returns revision without rewriting disk`` () =
         SavePrep.syncDataDir
             DatabaseSetup.PersistenceMode.Db
             DatabaseSetup.DbStatus.Ok
-            (fun () -> async { return Ok (stateResponse state) })
+            (fun () -> async { return Ok state })
             (fun () -> async { return failwith "file flush should not run" })
             (fun () -> async { return failwith "file revision should not be read" })
             dataDir

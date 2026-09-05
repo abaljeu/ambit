@@ -4,7 +4,7 @@
 
 **What to build:** Locked fill-in pattern (not only timing): when an Actor's view is too small, the Server completes missing Ops in the same Change; Clients see those Ops on History with that Change. Distinct from amendment and from rewind/replay.
 
-**Blocked by:** 07 — Generalized Server Actor produce path
+**Blocked by:** [[plan/core-creation/issues/01-generalized-server-actor-produce-path.md]]
 
 **See also:** [[../details/completing-ops.md]], [[../details/actors-and-jobs.md]]
 

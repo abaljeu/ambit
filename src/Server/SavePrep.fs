@@ -8,9 +8,9 @@ module SavePrep =
     let syncDataDir
         (persistenceMode: DatabaseSetup.PersistenceMode)
         (dbStatus: DatabaseSetup.DbStatus)
-        (getState: unit -> Async<Result<StateResponse, string>>)
+        (getState: unit -> Async<Result<State, string>>)
         (flushFileSnapshot: unit -> Async<Result<unit, string>>)
-        (getFileRevision: unit -> Async<int>)
+        (getFileRevision: unit -> Async<Revision>)
         (dataDir: string)
         : Async<Result<int, string>> =
         async {
@@ -28,15 +28,15 @@ module SavePrep =
                 | Error err -> return Error err
                 | Ok () ->
                     let! rev = getFileRevision ()
-                    return Ok rev
+                    return Ok rev.Value
         }
 
     let syncGitArtifacts
         (persistenceMode: DatabaseSetup.PersistenceMode)
         (dbStatus: DatabaseSetup.DbStatus)
-        (getState: unit -> Async<Result<StateResponse, string>>)
+        (getState: unit -> Async<Result<State, string>>)
         (flushFileSnapshot: unit -> Async<Result<unit, string>>)
-        (getFileRevision: unit -> Async<int>)
+        (getFileRevision: unit -> Async<Revision>)
         (dataDir: string)
         : Async<Result<int, string>> =
         syncDataDir

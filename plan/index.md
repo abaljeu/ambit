@@ -16,6 +16,7 @@
 | [Roadmap](roadmap/map.md) [pinned] | steering | Standing goto for what to work on next; groups Epics by Stage; Chapter plus Required for done gate Epic completion. |
 | [Debug reload](debug-reload/) | tickets | Tell a person on watch how to load debug modules and how to pick up an esbuild rebuild with a hard-reload of the Browser. |
 | [WebView2 Azure origin](webview2-azure-origin/) | tickets | After Azure host discovery, the App WebView2 document origin is Azure `/ambit`, so cookie-auth Browser HTTP is same-site on Azure. |
+| [Core creation](core-creation/) | active | Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool. |
 | [Client start time](client-start-time/) | active | On App refresh after a prior Session, the Browser shows the Graph from a local IndexedDB snapshot plus stored Changes, then does a Poll, so the user does not wait for `/state` while a blank screen or Loading... is visible. |
 | [Daily git save](daily-git-save/) | active | The Server saves Graph documents in App DataDir. Commit that directory each day so the operator can recover those files from git without a manual commit. |
 | [Delete Ref](delete-ref/) | active | A person uses a Ref in Children to link to a Node Owned elsewhere in the Graph; this Project makes Delete unlink that appearance from Children and leave the Node in place, and makes Delete of an Owned Node with a self-Ref finish: the command must not hang and must not promote the self-Ref. |

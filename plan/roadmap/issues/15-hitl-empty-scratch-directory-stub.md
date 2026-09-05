@@ -1,12 +1,12 @@
-# 15 — HITL empty `.scratch` Directory after Upload
+# 15 — HITL empty `plan` Directory after Upload
 
-**What to build:** HITL only. Empty `.scratch` Directory in the Graph. Load `.agents` then expand stays Loaded. Timeout is gone.
+**What to build:** HITL only. Empty `plan` Directory in the Graph. Load `.agents` then expand stays Loaded. Timeout is gone.
 
 **Blocked by:** None.
 
 **Status:** ready-for-human
 
-- [ ] Upload a mapped Workspace that has empty `.scratch` and `.agents` with files; Graph shows Directory `.scratch`.
+- [ ] Upload a mapped Workspace that has empty `plan` and `.agents` with files; Graph shows Directory `plan`.
 - [ ] Load `.agents` then expand; Children stay Loaded (not Unloaded).
 
 ## Context

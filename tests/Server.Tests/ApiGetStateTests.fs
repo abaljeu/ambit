@@ -20,10 +20,10 @@ let private decodeStateResponse json =
     Decode.fromString ApiResponseSerialization.decodeStateResponseDecoder json
 
 let private handleWithGetState
-    (getState: unit -> Async<Result<StateResponse, string>>)
-    : AgentHandle =
+    (getState: unit -> Async<Result<State, string>>)
+    : CoreChanges =
     { getState = getState
-      getRevision = fun () -> async.Return 0
+      getRevision = fun () -> async.Return(Revision 0)
       getChangesSince = fun _ -> async.Return []
       isReady = fun () -> true
       postChange = fun _ -> async.Return(Result.Error "unused")
@@ -34,8 +34,9 @@ let private defaultStateRequest () =
 
 let private minimalStateResponse () =
     { graph = Graph.create ()
+      history = History.empty
       revision = Revision 0
-      isReady = true }
+    }
 
 /// Nested named Workspace with one Directory child (canonical full graph).
 let private nestedWorkspaceStateResponse () =
@@ -73,8 +74,9 @@ let private nestedWorkspaceStateResponse () =
             | Ok g -> g
             | Error err -> failwith err
     { graph = graph2
+      history = History.empty
       revision = Revision 1
-      isReady = true },
+    },
     wsId,
     dirId
 

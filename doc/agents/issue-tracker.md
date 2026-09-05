@@ -1,18 +1,18 @@
 # Issue tracker: Local Markdown
 
-Issues and specs for this repo live as Markdown files under `.scratch/`.
+Issues and specs for this repo live as Markdown files under `plan/`.
 
 ## Language
 
-**Issue tracker**: The system holding tracked work. In this repo, it is the local `.scratch/` Markdown convention.
+**Issue tracker**: The system holding tracked work. In this repo, it is the local `plan/` Markdown convention.
 
 **Issue**: One tracked unit of work: a bug, task, spec, or implementation slice.
 
 **Decision ticket**: A Wayfinder child issue whose question resolves to a decision rather than an implementation slice.
 
-**Epic**: A standing Roadmap file at `.scratch/roadmap/epics/<slug>.md` whose resolution is a met user end-goal. It has a **Stage** (same words as a feature-set Project, except steering). **User Epics** have **Chapters** (named beats) plus **Required for done**. **Developer Epics** have Required for done and no Chapters. Each Chapter uses the raised shape of an implementation issue: **What to build** is major features; the checklist is pointers to Projects or issues that belong to that beat. See [[.scratch/roadmap/map.md]]. The wayfinder frontier does not scan `epics/`.
+**Epic**: A standing Roadmap file at `plan/roadmap/epics/<slug>.md` whose resolution is a met user end-goal. It has a **Stage** (same words as a feature-set Project, except steering). **User Epics** and **Developer Epics** may have **Chapters** (named beats) plus **Required for done**. Developer Epic Chapters are optional until charted. Each Chapter uses the raised shape of an implementation issue: **What to build** is major features; the checklist is pointers to Projects or issues that belong to that beat. See [[plan/roadmap/map.md]]. The wayfinder frontier does not scan `epics/`.
 
-**Chapter**: A named beat of a User Epic. Not a Stage. Checklist items belong to that beat and are not repeated on Required for done.
+**Chapter**: A named beat of an Epic. Not a Stage. Checklist items belong to that beat and are not repeated on Required for done.
 
 **Triage role**: The next-action state assigned during triage, using the mapping in [[doc/agents/triage-labels.md]].
 
@@ -22,9 +22,9 @@ Use **issue tracker**, not “backlog backend” or “backlog manager.” Use *
 
 ## Conventions
 
-- One Project per directory: `.scratch/<slug>/` (a feature-set Project, or the Roadmap).
-- The spec is `.scratch/<feature-slug>/spec.md`.
-- Implementation issues are separate files at `.scratch/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01`.
+- One Project per directory: `plan/<slug>/` (a feature-set Project, or the Roadmap).
+- The spec is `plan/<feature-slug>/spec.md`.
+- Implementation issues are separate files at `plan/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01`.
 - A `Status:` line records an implementation issue's triage role. `Status: grilling` or `Stage: grilling` on an issue is not a triage role: it is a directive. The next agent that starts or advances that issue must follow [[.agents/skills/grilling/SKILL.md]] on it before any implement work.
 - Append comments and conversation under `## Comments`.
 
@@ -85,7 +85,7 @@ No separate time database. The Markdown files are the record; git and chat are e
 
 ## Publishing and fetching
 
-When a skill says “publish to the issue tracker,” create a file under `.scratch/<feature-slug>/`, creating the directory if needed.
+When a skill says “publish to the issue tracker,” create a file under `plan/<feature-slug>/`, creating the directory if needed.
 
 When a skill says “fetch the relevant issue,” read the referenced file. The user will normally provide its path or number.
 
@@ -93,8 +93,8 @@ When a skill says “fetch the relevant issue,” read the referenced file. The 
 
 The Wayfinder map is one file with one child file per decision ticket.
 
-- **Map**: `.scratch/<effort>/map.md` holds Notes, Decisions so far, Not yet specified, and Out of scope. The Roadmap also lists open Epics grouped by Stage, each with its current Chapter. Order inside a Stage does not matter.
-- **Child decision ticket**: `.scratch/<effort>/issues/NN-<slug>.md`, numbered from `01`, contains the question. `Type:` records `research`, `prototype`, `grilling`, or `task`; `Status:` records `open`, `claimed`, or `resolved`.
+- **Map**: `plan/<effort>/map.md` holds Notes, Decisions so far, Not yet specified, and Out of scope. The Roadmap also lists open Epics grouped by Stage, each with its current Chapter. Order inside a Stage does not matter.
+- **Child decision ticket**: `plan/<effort>/issues/NN-<slug>.md`, numbered from `01`, contains the question. `Type:` records `research`, `prototype`, `grilling`, or `task`; `Status:` records `open`, `claimed`, or `resolved`.
 - **Blocking**: `Blocked by: NN, NN` near the top. A decision ticket is unblocked when every listed ticket is resolved.
 - **Frontier**: Scan the effort's `issues/` directory for open, unblocked, unclaimed tickets; first by number wins. On the Roadmap, do not treat `epics/` as the frontier.
 - **Claim**: Set `Status: claimed` and save before doing any work.

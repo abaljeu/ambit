@@ -22,7 +22,7 @@ ESO is **active** and defines a **semantic standard**, not a connector catalog:
 
 - **One mutation path:** an **Actor** (person, Parse File job, future shell/agent) produces **Changes** (sets of **Ops**); **Server** sequences and amends; **Clients** rewind/replay. No second writer.
 - **Async = same kind:** long-running work concludes as Changes on the same path; Browsers **Poll**, not completion push.
-- **Parse File** is the first non-Browser Server Actor; **generalized produce path** (issue 07) and **job identity + soft-lock** (issue 09) are the spine for more Actors.
+- **Parse File** is the first non-Browser Server Actor. [[plan/core-creation/project.md]] owns the generalized produce path and Core job machinery. ESO owns the Parse definition and advisory soft-lock behavior.
 - **Load** stays **Graph transfer** (residency), not Change replay — relevant for inbound materialization vs ongoing Sync.
 
 **Out of scope for ESO** ([[plan/event-sourced-ops/overview.md]] — not Gambol-wide; see [[doc/agents/scope-vs-commitment.md]]): a plug-in bus, a job-framework product, or an offline editor. ESO is a small framework for how a Change merges into a Local Graph. ESO enables modules that **emit Changes**; it does not specify inbound/outbound UX, source catalogs, or export-transform-import workflows.
@@ -67,7 +67,7 @@ ESO is **active** and defines a **semantic standard**, not a connector catalog:
 | --- | --- |
 | **Operate a PKM** | **Consume and navigate** knowledge in the Graph (Find, graph view, expression). Hub **feeds** PKM; PKM **depends on** the transport layer for seamless inbound materialization. PKM does **not** own round-trip editing of external sources or generating content from data. |
 | **Work with my documents from anywhere** | **File Node channel**: Upload/Download/Load, workspace mapping, auto sync. Hub pattern's **disk leg**; not arbitrary SaaS/API sources. |
-| **Agent chat with managed context** | **One Actor family** (LLM, later CLI/MCP). Hub pattern's **agent leg**; ESO issues 07/09 are shared infrastructure, not this Epic's Chapters. |
+| **Agent chat with managed context** | **One Actor family** (LLM, later CLI/MCP). Hub pattern's **agent leg**; [[plan/core-creation/project.md]] provides the shared Actor spine. |
 | **Document formats** | **Codec round-trip** on File bodies (Parse/reconcile). One **leg** of hub round-trip for text files; not the general module pattern or source catalog. |
 | **Create and publish web pages / Build wiki** | **Outbound publish** to readers (public URL). Hub outbound to *editable* external systems is adjacent but different audience. |
 | **Manage a project** | Work-item semantics on Nodes; not an integration Epic. |

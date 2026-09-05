@@ -5,86 +5,6 @@ open Microsoft.AspNetCore.Http
 open Gambol.Shared
 open Thoth.Json.Newtonsoft
 
-/// Thin abstraction over FileAgent and DbAgent so Api functions are backend-agnostic.
-type AgentHandle =
-    { getState        : unit -> Async<Result<StateResponse, string>>
-      getRevision     : unit -> Async<int>
-      getChangesSince : int -> Async<Change list>
-      isReady         : unit -> bool
-      postChange      : string -> Async<Result<string, string>>
-      postGraphOnlyChange : string -> Async<Result<string, string>> }
-
-[<RequireQualifiedAccess>]
-module AgentHandle =
-    let ofFile (agent: FileAgent) : AgentHandle =
-        { getState        = fun () -> FileAgent.tryGetState agent
-          getRevision     = fun () -> FileAgent.getRevision agent
-          getChangesSince = fun after -> FileAgent.getChangesSince agent after
-          isReady         = fun () -> true
-          postChange      = fun body -> FileAgent.postChange agent body
-          postGraphOnlyChange =
-            fun body -> FileAgent.postGraphOnlyChange agent body }
-
-    let ofDb (agent: DbAgent) : AgentHandle =
-        { getState        = fun () -> DbAgent.tryGetState agent
-          getRevision     = fun () -> DbAgent.getRevision agent
-          getChangesSince = fun after -> DbAgent.getChangesSince agent after
-          isReady         = fun () -> DbAgent.isReady agent
-          postChange      = fun body -> DbAgent.postChange agent body
-          postGraphOnlyChange =
-            fun body -> DbAgent.postGraphOnlyChange agent body }
-
-    let readOnly (handle: AgentHandle) : AgentHandle =
-        let rejectWrite (_: string) : Async<Result<string, string>> =
-            async.Return(Error "Database persistence is unavailable; file fallback is read-only.")
-
-        { handle with
-            postChange = rejectWrite
-            postGraphOnlyChange = rejectWrite }
-
-    /// On-disk document is authoritative; when `db` is present, each successful file `postChange`
-    /// is mirrored to PostgreSQL (best-effort log on DB failure; response still reflects file ack).
-    let ofFileWithDbMirror (file: FileAgent) (db: DbAgent option) : AgentHandle =
-        { getState        = fun () -> FileAgent.tryGetState file
-          getRevision     = fun () -> FileAgent.getRevision file
-          getChangesSince = fun after -> FileAgent.getChangesSince file after
-          isReady         = fun () -> true
-          postChange      =
-            fun body -> async {
-                let! fileResult = FileAgent.postChange file body
-
-                match fileResult, db with
-                | Ok ackJson, Some dbAgent ->
-                    let! dbResult = DbAgent.postChange dbAgent body
-
-                    match dbResult with
-                    | Error err -> eprintfn "[Api] Secondary DB write failed after file persist: %s" err
-                    | Ok _ -> ()
-
-                    return Ok ackJson
-                | Ok ackJson, None -> return Ok ackJson
-                | Error err, _ -> return Error err
-            }
-          postGraphOnlyChange =
-            fun body -> async {
-                let! fileResult = FileAgent.postGraphOnlyChange file body
-
-                match fileResult, db with
-                | Ok ackJson, Some dbAgent ->
-                    let! dbResult = DbAgent.postGraphOnlyChange dbAgent body
-
-                    match dbResult with
-                    | Error err ->
-                        eprintfn
-                            "[Api] Secondary DB graph-only write failed: %s"
-                            err
-                    | Ok _ -> ()
-
-                    return Ok ackJson
-                | Ok ackJson, None -> return Ok ackJson
-                | Error err, _ -> return Error err
-            } }
-
 module Api =
 
     let private jsonResult (json: string) : IResult =
@@ -112,17 +32,18 @@ module Api =
             get.Required.Field "path" Thoth.Json.Core.Decode.string)
 
     let getPoll
-        (handle: AgentHandle)
+        (handle: CoreChanges)
         (buildEpochSec: int)
         (pageBuildEpochSec: int)
         (clientRev: int)
         : Async<IResult> = async {
         let! rev = handle.getRevision ()
         let! changes =
-            if rev > clientRev then handle.getChangesSince clientRev
+            if rev.Value > clientRev then
+                handle.getChangesSince (Revision clientRev)
             else async.Return []
         let poll: ChangeSuccessResponse =
-            { revision = Revision rev
+            { revision = rev
               buildEpochSec = buildEpochSec
               pageBuildEpochSec = pageBuildEpochSec
               apiVersion = ApiVersion.current
@@ -135,7 +56,7 @@ module Api =
     }
 
     let private loadPackages
-        (handle: AgentHandle)
+        (handle: CoreChanges)
         (targets: LoadTarget list)
         : Async<Result<Result<Node list, ResidentProjection.LoadRefuse>, string>> =
         async {
@@ -150,7 +71,7 @@ module Api =
         }
 
     let postLoad
-        (handle: AgentHandle)
+        (handle: CoreChanges)
         (buildEpochSec: int)
         (pageBuildEpochSec: int)
         (body: string)
@@ -173,12 +94,12 @@ module Api =
             | Ok(Ok packages) ->
                 let! rev = handle.getRevision ()
                 let! changes =
-                    if rev > request.revision then
-                        handle.getChangesSince request.revision
+                    if rev.Value > request.revision then
+                        handle.getChangesSince (Revision request.revision)
                     else
                         async.Return []
                 let load: LoadResponse =
-                    { revision = rev
+                    { revision = rev.Value
                       buildEpochSec = buildEpochSec
                       pageBuildEpochSec = pageBuildEpochSec
                       apiVersion = ApiVersion.current
@@ -204,13 +125,17 @@ module Api =
             | _ -> None
         | _ -> None
 
-    let getState (handle: AgentHandle) (req: HttpRequest) : Async<IResult> = async {
+    let getState (handle: CoreChanges) (req: HttpRequest) : Async<IResult> = async {
         try
             let scope = parseBootstrapScope req
             let savedZoom = parseSavedZoom req
             let! result = handle.getState ()
             match result with
-            | Ok response ->
+            | Ok state ->
+                let response: StateResponse =
+                    { graph = state.graph
+                      revision = state.revision
+                      isReady = handle.isReady () }
                 let scoped =
                     ResidentProjection.bootstrapStateResponse
                         scope
@@ -228,33 +153,29 @@ module Api =
     }
 
     let postChange
-        (handle: AgentHandle)
+        (handle: CoreChanges)
         (buildEpochSec: int)
         (pageBuildEpochSec: int)
         (body: string)
         : Async<IResult> = async {
-        let! result = handle.postChange body
-
-        match result with
-        | Ok json ->
-            match
-                Decode.fromString
-                    ApiResponseSerialization.decodeChangeSuccessResponseDecoder
-                    json
-            with
-            | Error err ->
-                return
-                    internalError
-                        $"Internal server error in PostChange decode: {err}"
-            | Ok response ->
+        match Decode.fromString Serialization.decodeChangeBatch body with
+        | Error err ->
+            return agentErrorResult $"Invalid JSON: {err}"
+        | Ok batch ->
+            match! handle.postChange batch.changes with
+            | Ok accepted ->
                 return
                     changeSuccessResult
-                        { response with
-                            buildEpochSec = buildEpochSec
-                            pageBuildEpochSec = pageBuildEpochSec
-                            apiVersion = ApiVersion.current
-                            isReady = handle.isReady () }
-        | Error err -> return agentErrorResult err
+                        { revision = accepted.revision
+                          buildEpochSec = buildEpochSec
+                          pageBuildEpochSec = pageBuildEpochSec
+                          apiVersion = ApiVersion.current
+                          isReady = accepted.isReady
+                          externalChanges = accepted.externalChanges
+                          changes = accepted.changes
+                          message = accepted.message
+                          bootstrapHash = None }
+            | Error err -> return agentErrorResult err
     }
 
     let getCapabilities (dataDir: string) : IResult =
@@ -291,15 +212,6 @@ module Api =
         | true, guid -> Some(NodeId guid)
         | false, _ -> None
 
-    let private encodeGraphOnlyChange revision ops =
-        let change =
-            { id = revision
-              changeId = Guid.NewGuid()
-              ops = ops }
-        Encode.toString 0 (
-            Serialization.encodeChangeBatch
-                { changes = [ change ] })
-
     type private ParseFileBody =
         { fileId: string
           text: string option }
@@ -313,7 +225,7 @@ module Api =
 
     /// ParseFile command: optional body text or DataDir read → apply on agent graph.
     let postParseFile
-        (handle: AgentHandle)
+        (handle: CoreChanges)
         (dataDir: string)
         (body: string)
         : Async<IResult> =
@@ -343,11 +255,12 @@ module Api =
                         | Ok [] ->
                             return jsonResult """{"ok":true}"""
                         | Ok ops ->
+                            let change =
+                                { id = stateResponse.revision.Value
+                                  changeId = Guid.NewGuid()
+                                  ops = ops }
                             let! result =
-                                handle.postGraphOnlyChange (
-                                    encodeGraphOnlyChange
-                                        stateResponse.revision.Value
-                                        ops)
+                                handle.postGraphOnlyChange [ change ]
                             match result with
                             | Ok _ -> return jsonResult """{"ok":true}"""
                             | Error err -> return agentErrorResult err

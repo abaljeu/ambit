@@ -1,15 +1,17 @@
-# 09 — Job identity with advisory soft-lock (one vertical)
+# 09 — Advisory soft-lock and Browser job access
 
-**Context:** Soft-lock meaning is accepted; job↔lock lifecycle coupling is an accepted direction. Issuance, expiry, chrome, and job launch/cancel mechanics are proposed and do not exist yet. Shipping lock and job as two products would create two surfaces that must immediately couple. Parse (08) is the tracer without this footprint.
+**Context:** Soft-lock meaning is accepted, and its lifecycle coupling to a job is an accepted direction. Core owns job launch, identity, cancellation, and finish through Changes. ESO owns the advisory semantics and Browser-facing access. Issuance, expiry, and Browser chrome are still proposed. Parse (08) proves the Actor path without this Browser surface.
 
-**What to build:** Client-held job identity, launch that returns before apply, cancel that stops further Changes (not Undo), and advisory soft-lock as the same surface: the lock is owned by the job; job completion clears it; the lock indicator is an access point to the job. Edits under the lock remain legal and merge. One vertical — not the plug-in-bus pattern (ESO scope; see [[../overview.md]] § What this is not).
+**What to build:** Use Core job identity as the Browser access point for an advisory subtree reservation. The lock belongs to the job, job completion clears it, and its indicator lets the person inspect or cancel the job through the Core pool surface. Edits under the lock remain legal and merge. Do not duplicate Core pool implementation.
 
-**Blocked by:** 07 — Generalized Server Actor produce path, 08 — Parse File realignment (tracer bullet)
+**Blocked by:** [[plan/core-creation/issues/02-core-actor-pool.md]], [[08-parse-file-realignment-tracer.md]]
 
-**See also:** [[../details/soft-lock.md]], [[../details/actors-and-jobs.md]]
+**See also:** [[../details/soft-lock.md]], [[../details/actors-and-jobs.md]], [[plan/core-creation/project.md]]
 
-**Status:** ready-for-agent
+**Status:** needs-info
 
-- [ ] A Client can launch a long job with an identity, receive return before apply completes, and cancel further Changes without undoing merged work.
-- [ ] Advisory soft-lock belongs to that job: completion clears it; the indicator opens the job; edits under the lock remain legal and merge.
-- [ ] Job identity and soft-lock ship as one vertical surface, not two independent products.
+- [ ] Advisory soft-lock semantics remain advisory: edits under the reservation are legal and merge.
+- [ ] The reservation belongs to a Core job identity, and job completion clears it.
+- [ ] The Browser indicator provides access to inspect or cancel the job through the Core pool surface.
+- [ ] Issuance, expiry, and exact Browser chrome are specified before implementation.
+- [ ] This issue does not implement job launch, identity, cancellation, or inner apply machinery.

@@ -55,10 +55,10 @@ _Avoid_: saga, tale, epic project, marketable story (as the glossary name), stee
 An Epic that fulfills an end-user’s goal for a particular pattern of usage of the software. Has Chapters plus Required for done. Opening line is still *A person [verb phrase]* where that is already the file shape.
 
 **Developer Epic**:
-An Epic that serves developers. Has only Required for done (no Chapters). Same files: [[plan/roadmap/epics/organize-huge-outlines.md]], [[plan/roadmap/epics/robust-outliner.md]], [[plan/roadmap/epics/process-improvement.md]].
+An Epic that serves developers. May have Chapters plus Required for done (same Chapter files as a User Epic). Chapters are optional until charted. Same files: [[plan/roadmap/epics/organize-huge-outlines.md]], [[plan/roadmap/epics/robust-outliner.md]], [[plan/roadmap/epics/process-improvement.md]].
 
 **Chapter**:
-A named beat of a User Epic (Visit Troy, see Circe). Not a Project Stage. Not an issue. Each Chapter is a file under [[plan/roadmap/epics/chapters/]]. **Part of** names the Epic. **Blocked by** names other Chapters. **Context** and **Goal** follow [[.agents/skills/wait-what/SKILL.md]]. **Required for done** is a checklist of Projects or issues that belong to that beat; the Chapter does not own them. Those items are not repeated on Required for done. Developer Epics have none.
+A named beat of an Epic (Visit Troy, see Circe). Not a Project Stage. Not an issue. Each Chapter is a file under [[plan/roadmap/epics/chapters/]]. **Part of** names the Epic. **Blocked by** names other Chapters. **Context** and **Goal** follow [[.agents/skills/wait-what/SKILL.md]]. **Required for done** is a checklist of Projects or issues that belong to that beat; the Chapter does not own them. Those items are not repeated on Required for done.
 _Avoid_: Stage (for this beat), leg, beat (as the glossary name), issue (for this file)
 
 **Feature-set Project**:
@@ -187,7 +187,15 @@ _Avoid_: Desktop (in speech), shell, host app
 
 **Shared**:
 Projects (`Shared` and `Shared/dotnet`) whose code is shared across modules and tests.
-_Avoid_: common, core, lib
+_Avoid_: common, core (as a name for Shared), lib
+
+**Core**:
+The Module that owns persistent state (durable Graph and History facts; file bytes and git of those files) and that manages the Actor pool. Persist algorithms stay outside and persist via Core API; Core owns open and write of the file. In file mode it owns persist and does not write bytes. In db mode it writes (bytes, git, projection). It does not own advanced logic (Parse algorithms, Graph↔document persist algorithms). Not the Solid core bar on [[plan/roadmap/epics/robust-outliner.md]].
+_Avoid_: kernel (for this Module), apply Module (as the name)
+
+**Core API**:
+The four-call Interface of Core: Files, Changes, Query, Command. Files is send, get, and git of file bytes; Core owns the open and write. Persist algorithms do not open the file themselves. In file mode Files does not write. inner apply is the Changes path that applies a Change. Advanced logic and Actor definitions work to this Interface. Not the web API.
+_Avoid_: web API, REST, `/ambit` (those are HTTP Adapters that may call Core API)
 
 **Document**:
 The project that reads and writes documents between Graph and file.

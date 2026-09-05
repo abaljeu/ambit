@@ -179,7 +179,7 @@ module LazyLoadReconciliationServer =
     /// Shared pipeline: discover on chosen root → union with changedPaths → plan → log → post.
     /// `discoveryDirRel` None = workspace root; Some dir = DataDir/{label}/{dir}.
     let reconcileChangedPathsWithDiscovery
-        (handle: AgentHandle)
+        (handle: CoreChanges)
         (dataDir: string)
         (workspaceLabel: string)
         (discoveryDirRel: string option)
@@ -226,7 +226,7 @@ module LazyLoadReconciliationServer =
         }
 
     let reconcileChangedPaths
-        (handle: AgentHandle)
+        (handle: CoreChanges)
         (dataDir: string)
         (workspaceLabel: string)
         (changedPaths: LazyLoadReconciliation.ChangedPath list)
@@ -239,7 +239,7 @@ module LazyLoadReconciliationServer =
             changedPaths
 
     let reconcileDirectory
-        (handle: AgentHandle)
+        (handle: CoreChanges)
         (dataDir: string)
         (workspaceLabel: string)
         (dirRel: string)
@@ -253,7 +253,7 @@ module LazyLoadReconciliationServer =
 
     /// Discover under DataDir/{label} (workspace root) with no git delta.
     let reconcileWorkspace
-        (handle: AgentHandle)
+        (handle: CoreChanges)
         (dataDir: string)
         (workspaceLabel: string)
         : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
@@ -265,7 +265,7 @@ module LazyLoadReconciliationServer =
             []
 
     let reconcileAddedPaths
-        (handle: AgentHandle)
+        (handle: CoreChanges)
         (dataDir: string)
         (workspaceLabel: string)
         (addedPaths: string list)
@@ -317,7 +317,7 @@ module LazyLoadReconciliationServer =
         (app: WebApplication)
         (isAuthenticated: HttpRequest -> bool)
         (dataDir: string)
-        (getHandle: unit -> AgentHandle)
+        (getHandle: unit -> CoreChanges)
         =
         app.MapPost(
             "/ambit/workspace/reconciliation/directory",
@@ -355,7 +355,7 @@ module LazyLoadReconciliationServer =
         (app: WebApplication)
         (isAuthenticated: HttpRequest -> bool)
         (dataDir: string)
-        (getHandle: unit -> AgentHandle)
+        (getHandle: unit -> CoreChanges)
         =
         app.MapPost(
             "/ambit/workspace/reconciliation/added",

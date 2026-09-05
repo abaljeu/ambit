@@ -20,6 +20,8 @@ The project stage is `charting`. No part of this is software. No part of it is a
 
 Give one semantic standard for how a mutation enters a Graph, so that every producer of mutations uses the same path, and so that concurrent work merges instead of being refused.
 
+[[plan/core-creation/project.md]] owns implementation of Core as the sole Server Graph writer and Actor pool. ESO owns the merge standard, the Parse definition in [[issues/08-parse-file-realignment-tracer.md]], and advisory soft-lock behavior in [[issues/09-job-identity-with-advisory-soft-lock.md]].
+
 Three aims:
 
 1. **One mutation path.** An Op is the only mutation. A Change is a set of Ops. An Actor is anything that produces a Change — a person editing in the Browser, the Parse File job, a later shell command or agent. There is no second writer.

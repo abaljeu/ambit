@@ -1,8 +1,8 @@
 # Project stage
 
-Every **project** — a `.scratch/<slug>/` effort — carries one lifecycle **stage**. This file is the single source of truth for the stage vocabulary, the per-project `project.md`, and the overview index.
+Every **project** — a `plan/<slug>/` effort — carries one lifecycle **stage**. This file is the single source of truth for the stage vocabulary, the per-project `project.md`, and the overview index.
 
-A project's `Stage:` is distinct from an issue's `Status:` line, which records a triage role (see [[doc/agents/issue-tracker.md]]). Exception: `Status: grilling` or `Stage: grilling` on an issue is the grilling directive for that issue, not a triage role. An Epic also has a **Stage** (same words as a feature-set Project, except `steering`). **User Epics** have **Chapters** (named beats) plus **Required for done**; **Developer Epics** have Required for done and no Chapters. Record Epic Stage on the Epic file. The Roadmap map groups Epics by Stage; they are not rows in [[.scratch/index.md]]. Advancing a Chapter means charting pointers to other Projects’ pieces, not coding on the Roadmap.
+A project's `Stage:` is distinct from an issue's `Status:` line, which records a triage role (see [[doc/agents/issue-tracker.md]]). Exception: `Status: grilling` or `Stage: grilling` on an issue is the grilling directive for that issue, not a triage role. An Epic also has a **Stage** (same words as a feature-set Project, except `steering`). **User Epics** and **Developer Epics** may have **Chapters** (named beats) plus **Required for done**; Developer Epic Chapters are optional until charted. Record Epic Stage on the Epic file. The Roadmap map groups Epics by Stage; they are not rows in [[plan/index.md]]. Advancing a Chapter means charting pointers to other Projects’ pieces, not coding on the Roadmap.
 
 ## project.md
 
@@ -45,8 +45,8 @@ Whenever a skill advances a project's **stage** — grilling or wayfinder names 
 
 ## Overview
 
-[[.scratch/index.md]] is a regenerated table of every live project's name, stage, and summary. Regenerate it from the `project.md` files with [[.cursor/skills/projects-overview/SKILL.md]] after any stage change. Never hand-maintain its rows.
+[[plan/index.md]] is a regenerated table of every live project's name, stage, and summary. Regenerate it from the `project.md` files with [[.cursor/skills/projects-overview/SKILL.md]] after any stage change. Never hand-maintain its rows.
 
 ## Archive
 
-`.scratch/done/` holds archived projects and is not itself a project — the overview skips it. Once a project reaches `done`, [[.cursor/skills/to-archive/SKILL.md]] moves `.scratch/<slug>/` to `.scratch/done/<slug>/` and drops it from the overview.
+`plan/done/` holds archived projects and is not itself a project — the overview skips it. Once a project reaches `done`, [[.cursor/skills/to-archive/SKILL.md]] moves `plan/<slug>/` to `plan/done/<slug>/` and drops it from the overview.

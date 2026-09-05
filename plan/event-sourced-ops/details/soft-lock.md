@@ -16,7 +16,7 @@ Merge runs exactly as it would without the lock. The soft lock changes no rule i
 
 ## Lifecycle with a job (accepted direction)
 
-The reservation **belongs to a job**. Job completion clears the lock. The lock indicator is an **access point to the job** (inspect / cancel), not a second independent object. Product work should ship job identity and soft-lock as **one vertical**, not as two sibling features ([[actors-and-jobs.md]], [[../to-tickets-draft.md]]).
+The reservation **belongs to a job**. Job completion clears the lock. The lock indicator is an **access point to the job** (inspect / cancel), not a second independent object. [[plan/core-creation/issues/02-core-actor-pool.md]] owns the job machinery; [[../issues/09-job-identity-with-advisory-soft-lock.md]] owns this policy and Browser surface. Product work can ship them as one vertical without duplicating ownership ([[actors-and-jobs.md]], [[../to-tickets-draft.md]]).
 
 Parse realignment can prove the Actor produce path **without** inventing this surface first (request-scoped Parse needs no multi-job soft-lock chrome).
 

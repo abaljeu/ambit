@@ -4,13 +4,12 @@ open System
 open System.Threading.Tasks
 open Gambol.Shared
 
-module Encode = Thoth.Json.Newtonsoft.Encode
 module Decode = Thoth.Json.Newtonsoft.Decode
 
 /// PostgreSQL-backed agent. Same message type as `FileAgent`.
 type DbAgent =
-    { mailbox: MailboxProcessor<FileAgentMsg>
-      isReady: unit -> bool }
+    private { mailbox: MailboxProcessor<FileAgentMsg>
+              isReady: unit -> bool }
 
 [<RequireQualifiedAccess>]
 module DbAgent =
@@ -60,27 +59,13 @@ module DbAgent =
                 trimDeletedIds result.deletedIds
                 Ok ()
 
-        let stateResponse () =
-            { graph = state.Value.graph
-              revision = state.Value.revision
-              isReady = ready.Task.IsCompletedSuccessfully }
-
-        let encodeChangeAckJson
-            (confirmed: Change list)
-            (externalChanges: bool)
-            (message: string option)
-            =
-            Encode.toString 0 (
-                ApiResponseSerialization.encodeChangeSuccessResponse
-                    { revision = state.Value.revision
-                      buildEpochSec = 0
-                      pageBuildEpochSec = 0
-                      apiVersion = ApiVersion.current
-                      isReady = ready.Task.IsCompletedSuccessfully
-                      externalChanges = externalChanges
-                      changes = confirmed
-                      message = message
-                      bootstrapHash = None })
+        let accepted confirmed externalChanges message =
+            CoreChanges.accepted
+                state.Value.revision
+                ready.Task.IsCompletedSuccessfully
+                confirmed
+                externalChanges
+                message
 
         let overlayFresh confirmations fresh stampOps =
             let stamped = PersistStamp.appendToLast fresh stampOps
@@ -212,19 +197,18 @@ module DbAgent =
             ) |> ignore
 
         let handlePostChange
-            body
+            (changes: Change list)
             graphOnly
-            (reply: AsyncReplyChannel<Result<string, string>>)
+            (reply: AsyncReplyChannel<Result<CoreChangesAccepted, string>>)
             inbox
             =
-            match Decode.fromString Serialization.decodeChangeBatch body with
-            | Error err ->
-                reply.Reply(Error $"Invalid JSON: {err}")
-            | Ok batch ->
+            if changes.IsEmpty then
+                reply.Reply(Error "changes must not be empty")
+            else
                 match
                     FileAgent.runBounded
                         FileAgent.ChangeProcessingTimeoutMs
-                        (fun () -> applyBatch batch.changes)
+                        (fun () -> applyBatch changes)
                 with
                 | Error err -> reply.Reply(Error err)
                 | Ok (newState, confirmations, logEntries, externalChanges) ->
@@ -291,11 +275,7 @@ module DbAgent =
                             | Ok () ->
                                 state.Value <- stateToStore
                                 reply.Reply(
-                                    Ok(
-                                        encodeChangeAckJson
-                                            ackChanges
-                                            externalChanges
-                                            persistMessage))
+                                    Ok(accepted ackChanges externalChanges persistMessage))
                                 if graphOnly then
                                     persistedGraph.Value <- stateToStore.graph
                                 elif not (List.isEmpty logEntries) then
@@ -304,17 +284,15 @@ module DbAgent =
                                     else startSnapshot inbox
 
         let operationContext msg =
-            let bodyLength (body: string) =
-                if isNull body then 0 else body.Length
             match msg with
             | GetState _ -> "GetState", ""
             | GetRevision _ -> "GetRevision", ""
             | GetChangesSince (after, _) ->
                 "GetChangesSince", $"after={after}"
-            | PostChange (body, _) ->
-                "PostChange", $"bodyLength={bodyLength body}"
-            | PostGraphOnlyChange (body, _) ->
-                "PostGraphOnlyChange", $"bodyLength={bodyLength body}"
+            | PostChange (changes, _) ->
+                "PostChange", $"changeCount={changes.Length}"
+            | PostGraphOnlyChange (changes, _) ->
+                "PostGraphOnlyChange", $"changeCount={changes.Length}"
             | SnapshotDone _ -> "SnapshotDone", ""
 
         let replyFailure operation msg =
@@ -351,9 +329,9 @@ module DbAgent =
         let tryHandleRead msg =
             match msg with
             | GetState reply ->
-                Some(async { reply.Reply(Ok (stateResponse ())) })
+                Some(async { reply.Reply(Ok state.Value) })
             | GetRevision reply ->
-                Some(async { reply.Reply(Ok state.Value.revision.Value) })
+                Some(async { reply.Reply(Ok state.Value.revision) })
             | GetChangesSince (after, reply) ->
                 Some(async {
                     let rows =
@@ -379,10 +357,10 @@ module DbAgent =
                         | Some read -> do! read
                         | None ->
                             match msg with
-                            | PostChange (body, reply) ->
-                                handlePostChange body false reply inbox
-                            | PostGraphOnlyChange (body, reply) ->
-                                handlePostChange body true reply inbox
+                            | PostChange (changes, reply) ->
+                                handlePostChange changes false reply inbox
+                            | PostGraphOnlyChange (changes, reply) ->
+                                handlePostChange changes true reply inbox
                             | SnapshotDone persisted ->
                                 match persisted with
                                 | Some graph
@@ -521,16 +499,16 @@ module DbAgent =
         | Ok value -> value
         | Error error -> failwith error
 
-    let tryGetState (agent: DbAgent) : Async<Result<StateResponse, string>> =
+    let tryGetState (agent: DbAgent) : Async<Result<State, string>> =
         agent.mailbox.PostAndAsyncReply GetState
 
-    let getState (agent: DbAgent) : Async<StateResponse> =
+    let getState (agent: DbAgent) : Async<State> =
         async {
             let! result = tryGetState agent
             return unwrap result
         }
 
-    let getRevision (agent: DbAgent) : Async<int> =
+    let getRevision (agent: DbAgent) : Async<Revision> =
         async {
             let! result = agent.mailbox.PostAndAsyncReply GetRevision
             return unwrap result
@@ -544,12 +522,24 @@ module DbAgent =
             return unwrap result
         }
 
-    let postChange (agent: DbAgent) (body: string) : Async<Result<string, string>> =
-        agent.mailbox.PostAndAsyncReply(fun reply -> PostChange(body, reply))
-
-    let postGraphOnlyChange
+    let private postChange
         (agent: DbAgent)
-        (body: string)
-        : Async<Result<string, string>> =
+        (changes: Change list)
+        : Async<Result<CoreChangesAccepted, string>> =
+        agent.mailbox.PostAndAsyncReply(fun reply -> PostChange(changes, reply))
+
+    let private postGraphOnlyChange
+        (agent: DbAgent)
+        (changes: Change list)
+        : Async<Result<CoreChangesAccepted, string>> =
         agent.mailbox.PostAndAsyncReply(fun reply ->
-            PostGraphOnlyChange(body, reply))
+            PostGraphOnlyChange(changes, reply))
+
+    /// The only route from this agent to the Core Changes contract.
+    let coreChanges (agent: DbAgent) : CoreChanges =
+        { getState = fun () -> tryGetState agent
+          getRevision = fun () -> getRevision agent
+          getChangesSince = fun after -> getChangesSince agent after.Value
+          isReady = fun () -> isReady agent
+          postChange = postChange agent
+          postGraphOnlyChange = postGraphOnlyChange agent }
