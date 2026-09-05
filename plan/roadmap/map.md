@@ -1,16 +1,21 @@
-# Roadmap
-
+# Ambit Roadmap
+Apply [[.agents/skills/wait-what/SKILL.md]] to this file.
 Labels: wayfinder:map
+
+Ambit's Key Value Proposition: Rapid understanding via dynamic organization.
+Every development aims to leverage this.
+
 
 ## Destination
 
 A standing Roadmap that answers “what should I work on next.” Completing it means completing the application. It groups **Epics** by Stage — marketable user end-goals, larger than a feature or interaction. Each Epic is a standing file under [[epics/]] until that goal is met. Feature-set Projects implement focused features that enable Epics; this map points at them and does not copy their specs. Sessions invoke those Projects, implement them, and promote committed facts into `doc/`. `doc/` describes the current program.
 
+
 ## Current strategy
+(Mutable section. Replace this section when the near-term aim changes; do not append.)
 
-Mutable. Replace this section when the near-term aim changes; do not append.
-
-Solid product core via [[epics/robust-outliner.md]] **Solid core** (four-call surface, ACID apply, managed actor pool). Value is rapid understanding via dynamic organization; grow by pull in / organize / send out. First inbound example: **Grok Bot / agent messages into the outline** (instead of generic chat UI). Mail and other connected channels come **after** that near-term agent inbound (see [[epics/operate-connected-channels.md]]).
+Solid product core via [[epics/robust-outliner.md]] **Solid core** (four-call surface, ACID apply, managed actor pool). Grow by pull in / organize / send out. First inbound example: **Grok Bot / agent messages into the outline** (instead of generic chat UI). Mail and other connected channels come **after** that near-term agent inbound (see [[epics/operate-connected-channels.md]]).
+=======
 
 ## Notes
 
