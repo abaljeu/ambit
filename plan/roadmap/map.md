@@ -1,16 +1,20 @@
-# Roadmap
+# Ambit Roadmap
 
 Labels: wayfinder:map
+
+Ambit's Key Value Proposition: Rapid understanding via dynamic organization.
+Every development aims to leverage this.
+
 
 ## Destination
 
 A standing Roadmap that answers “what should I work on next.” Completing it means completing the application. It groups **Epics** by Stage — marketable user end-goals, larger than a feature or interaction. Each Epic is a standing file under [[epics/]] until that goal is met. Feature-set Projects implement focused features that enable Epics; this map points at them and does not copy their specs. Sessions invoke those Projects, implement them, and promote committed facts into `doc/`. `doc/` describes the current program.
 
+
 ## Current strategy
+(Mutable section. Replace this section when the near-term aim changes; do not append.)
 
-Mutable. Replace this section when the near-term aim changes; do not append.
-
-Solid product core ([[epics/robust-outliner.md]]) so Ambit can pull information in, organize it dynamically, and send it out. Rapid understanding via organization is the value; inbound/outbound (agent messages into the outline instead of generic chat) is how that value grows.
+Solid product core ([[epics/robust-outliner.md]]) is needed to support new functionality without breaking.  so Ambit can pull information in, organize it dynamically, and send it out. R; Expanding the inbound/outbound information sources (e.g. agent messages into the outline instead of generic chat) is how that value grows.
 
 ## Notes
 
