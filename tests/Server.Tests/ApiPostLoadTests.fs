@@ -68,16 +68,17 @@ let private nestedWorkspaceGraph () : Graph * NodeId * NodeId * NodeId =
 
 let private stateResponse (graph: Graph) (revision: int) =
     { graph = graph
+      history = History.empty
       revision = Revision revision
-      isReady = true }
+    }
 
 let private handleForLoad
     (revision: int)
     (changes: Change list)
-    (state: StateResponse)
-    : AgentHandle =
+    (state: State)
+    : CoreChanges =
     { getState = fun () -> async.Return(Result.Ok state)
-      getRevision = fun () -> async.Return revision
+      getRevision = fun () -> async.Return(Revision revision)
       getChangesSince = fun _ -> async.Return changes
       isReady = fun () -> true
       postChange = fun _ -> async.Return(Result.Error "unused")

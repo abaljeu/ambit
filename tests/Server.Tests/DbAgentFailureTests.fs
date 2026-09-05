@@ -6,8 +6,6 @@ open Gambol.Server
 open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
 
-module Encode = Thoth.Json.Newtonsoft.Encode
-
 let private changedBody () =
     let childId = NodeId.New()
     let change =
@@ -20,9 +18,7 @@ let private changedBody () =
                     Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ])
                 ]
         }
-    Encode.toString 0 (
-        Serialization.encodeChangeBatch
-            { changes = [ change ] })
+    [ change ]
 
 let private freshState () : State =
     { graph = Graph.create ()
@@ -49,7 +45,7 @@ let ``persistence exception is logged replied and mailbox survives`` () = task {
             throwingPersist
             (fun _ -> Ok [])
     let! postResult =
-        DbAgent.postChange agent (changedBody ())
+        (DbAgent.coreChanges agent).postChange (changedBody ())
         |> Async.StartAsTask
         |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
     match postResult with
@@ -60,7 +56,7 @@ let ``persistence exception is logged replied and mailbox survives`` () = task {
 
     let log = IO.File.ReadAllText logPath
     Assert.Contains("EXCEPTION source=DbAgent operation=PostChange", log)
-    Assert.Contains("context=bodyLength=", log)
+    Assert.Contains("context=changeCount=", log)
     Assert.Contains("type=System.InvalidOperationException", log)
     Assert.Contains("message=injected persistence failure", log)
     Assert.Contains("stack=", log)

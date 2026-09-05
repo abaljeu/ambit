@@ -5,16 +5,17 @@ open System.IO
 open System.Threading.Tasks
 open Gambol.Shared
 
-module Encode = Thoth.Json.Newtonsoft.Encode
-module Decode = Thoth.Json.Newtonsoft.Decode
-
 type FileAgentMsg =
-    | GetState of AsyncReplyChannel<Result<StateResponse, string>>
-    | GetRevision of AsyncReplyChannel<Result<int, string>>
+    | GetState of AsyncReplyChannel<Result<State, string>>
+    | GetRevision of AsyncReplyChannel<Result<Revision, string>>
     | GetChangesSince of
         after: int * AsyncReplyChannel<Result<Change list, string>>
-    | PostChange of body: string * AsyncReplyChannel<Result<string, string>>
-    | PostGraphOnlyChange of body: string * AsyncReplyChannel<Result<string, string>>
+    | PostChange of
+        changes: Change list *
+        AsyncReplyChannel<Result<CoreChangesAccepted, string>>
+    | PostGraphOnlyChange of
+        changes: Change list *
+        AsyncReplyChannel<Result<CoreChangesAccepted, string>>
     | SnapshotDone of graph: Graph option
 
 type FileAgentDependencies = {
@@ -27,7 +28,7 @@ type FileAgentDependencies = {
 }
 
 // FileAgent — serialises all reads/writes for a single file
-type FileAgent = {
+type FileAgent = private {
     mailbox: MailboxProcessor<FileAgentMsg>
     logStream: FileStream
     initialState: Gambol.Shared.State  // checkpoint state captured at startup; used by DB setup
@@ -87,27 +88,13 @@ module FileAgent =
 
         logStream.Seek(0L, SeekOrigin.End) |> ignore
 
-        let stateResponse () =
-            { graph = state.Value.graph
-              revision = state.Value.revision
-              isReady = true }
-
-        let encodeChangeAckJson
-            (confirmed: Change list)
-            (externalChanges: bool)
-            (message: string option)
-            =
-            Encode.toString 0 (
-                ApiResponseSerialization.encodeChangeSuccessResponse
-                    { revision = state.Value.revision
-                      buildEpochSec = 0
-                      pageBuildEpochSec = 0
-                      apiVersion = ApiVersion.current
-                      isReady = true
-                      externalChanges = externalChanges
-                      changes = confirmed
-                      message = message
-                      bootstrapHash = None })
+        let accepted confirmed externalChanges message =
+            CoreChanges.accepted
+                state.Value.revision
+                true
+                confirmed
+                externalChanges
+                message
 
         let overlayFresh confirmations fresh stampOps =
             let stamped = PersistStamp.appendToLast fresh stampOps
@@ -192,15 +179,14 @@ module FileAgent =
                 Error $"Log error: {ex.Message}"
 
         let handlePostChange
-            body
+            (changes: Change list)
             graphOnly
-            (reply: AsyncReplyChannel<Result<string, string>>)
+            (reply: AsyncReplyChannel<Result<CoreChangesAccepted, string>>)
             =
-            match Decode.fromString Serialization.decodeChangeBatch body with
-            | Error err ->
-                reply.Reply(Error $"Invalid JSON: {err}")
-            | Ok batch ->
-                match applyBatch batch.changes with
+            if changes.IsEmpty then
+                reply.Reply(Error "changes must not be empty")
+            else
+                match applyBatch changes with
                 | Error err -> reply.Reply(Error err)
                 | Ok (newState, confirmations, fresh, changed, externalChanges) ->
                     let preGraph = state.Value.graph
@@ -262,24 +248,18 @@ module FileAgent =
                                     | None -> newState
                                 state.Value <- finalState
                                 reply.Reply(
-                                    Ok(
-                                        encodeChangeAckJson
-                                            ackChanges
-                                            externalChanges
-                                            persistMessage))
+                                    Ok(accepted ackChanges externalChanges persistMessage))
 
         let operationContext msg =
-            let bodyLength (body: string) =
-                if isNull body then 0 else body.Length
             match msg with
             | GetState _ -> "GetState", ""
             | GetRevision _ -> "GetRevision", ""
             | GetChangesSince (after, _) ->
                 "GetChangesSince", $"after={after}"
-            | PostChange (body, _) ->
-                "PostChange", $"bodyLength={bodyLength body}"
-            | PostGraphOnlyChange (body, _) ->
-                "PostGraphOnlyChange", $"bodyLength={bodyLength body}"
+            | PostChange (changes, _) ->
+                "PostChange", $"changeCount={changes.Length}"
+            | PostGraphOnlyChange (changes, _) ->
+                "PostGraphOnlyChange", $"changeCount={changes.Length}"
             | SnapshotDone _ -> "SnapshotDone", ""
 
         let replyFailure operation msg =
@@ -296,9 +276,9 @@ module FileAgent =
         let dispatch msg =
             match msg with
             | GetState reply ->
-                reply.Reply(Ok (stateResponse ()))
+                reply.Reply(Ok state.Value)
             | GetRevision reply ->
-                reply.Reply(Ok state.Value.revision.Value)
+                reply.Reply(Ok state.Value.revision)
             | GetChangesSince (after, reply) ->
                 let changes =
                     [ after .. offsetIndex.Count - 1 ]
@@ -309,10 +289,10 @@ module FileAgent =
                         | Ok change -> Some change
                         | Error _ -> None)
                 reply.Reply(Ok changes)
-            | PostChange (body, reply) ->
-                handlePostChange body false reply
-            | PostGraphOnlyChange (body, reply) ->
-                handlePostChange body true reply
+            | PostChange (changes, reply) ->
+                handlePostChange changes false reply
+            | PostGraphOnlyChange (changes, reply) ->
+                handlePostChange changes true reply
             | SnapshotDone _ -> ()
 
         let mailbox = MailboxProcessor<FileAgentMsg>.Start(fun inbox ->
@@ -345,16 +325,16 @@ module FileAgent =
         | Ok value -> value
         | Error error -> failwith error
 
-    let tryGetState (agent: FileAgent) : Async<Result<StateResponse, string>> =
+    let tryGetState (agent: FileAgent) : Async<Result<State, string>> =
         agent.mailbox.PostAndAsyncReply(GetState)
 
-    let getState (agent: FileAgent) : Async<StateResponse> =
+    let getState (agent: FileAgent) : Async<State> =
         async {
             let! result = tryGetState agent
             return unwrap result
         }
 
-    let getRevision (agent: FileAgent) : Async<int> =
+    let getRevision (agent: FileAgent) : Async<Revision> =
         async {
             let! result = agent.mailbox.PostAndAsyncReply(GetRevision)
             return unwrap result
@@ -368,18 +348,34 @@ module FileAgent =
             return unwrap result
         }
 
-    let postChange (agent: FileAgent) (body: string) : Async<Result<string, string>> =
-        agent.mailbox.PostAndAsyncReply(fun reply -> PostChange(body, reply))
-
-    let postGraphOnlyChange
+    let private postChange
         (agent: FileAgent)
-        (body: string)
-        : Async<Result<string, string>> =
+        (changes: Change list)
+        : Async<Result<CoreChangesAccepted, string>> =
+        agent.mailbox.PostAndAsyncReply(fun reply -> PostChange(changes, reply))
+
+    let private postGraphOnlyChange
+        (agent: FileAgent)
+        (changes: Change list)
+        : Async<Result<CoreChangesAccepted, string>> =
         agent.mailbox.PostAndAsyncReply(fun reply ->
-            PostGraphOnlyChange(body, reply))
+            PostGraphOnlyChange(changes, reply))
+
+    /// The only route from this agent to the Core Changes contract.
+    let coreChanges (agent: FileAgent) : CoreChanges =
+        { getState = fun () -> tryGetState agent
+          getRevision = fun () -> getRevision agent
+          getChangesSince = fun after -> getChangesSince agent after.Value
+          isReady = fun () -> true
+          postChange = postChange agent
+          postGraphOnlyChange = postGraphOnlyChange agent }
 
     let flushSnapshot (_: FileAgent) : Async<Result<unit, string>> =
         async { return Ok () }
+
+    /// Checkpoint state captured at startup; used by DB setup and startup checks.
+    let initialState (agent: FileAgent) : State =
+        agent.initialState
 
     let dispose (agent: FileAgent) =
         agent.logStream.Flush()

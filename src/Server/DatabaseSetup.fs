@@ -44,7 +44,8 @@ module DatabaseSetup =
     let private dbAgentCache: (string * DbAgent) option ref = ref None
     let private dbAgentLock = obj ()
 
-    let getOrCreateDbAgent (connStr: string) (dataDir: string) : DbAgent =
+    /// Hands back the Core Changes contract only; the raw agent stays in the cache.
+    let getOrCreateDbAgent (connStr: string) (dataDir: string) : CoreChanges =
         lock dbAgentLock (fun () ->
             match !dbAgentCache with
             | Some (dir, agent) when dir = dataDir -> agent
@@ -53,6 +54,7 @@ module DatabaseSetup =
                 dbAgentCache.Value <- Some (dataDir, agent)
                 agent
         )
+        |> DbAgent.coreChanges
 
     let statusFromMatches (matchesBeforeRebuild: bool) (matchesAfterRebuild: bool) : DbStatus =
         if matchesBeforeRebuild then

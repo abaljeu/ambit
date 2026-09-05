@@ -32,6 +32,7 @@
     <Compile Include="Bookkeeping.fs" />
     <Compile Include="DailyGitSave.fs" />
     <Compile Include="DocumentLoader.fs" />
+    <Compile Include="Core\CoreChanges.fs" />
     <Compile Include="FileAgent.fs" />
     <Compile Include="Database.fs" />
     <Compile Include="DatabaseProjection.fs" />
@@ -39,6 +40,7 @@
     <Compile Include="DbAgent.fs" />
     <Compile Include="DatabaseSetup.fs" />
     <Compile Include="SavePrep.fs" />
+    <Compile Include="Core\CoreRuntime.fs" />
     <Compile Include="Api.fs" />
     <Compile Include="GraphOnlyChangePost.fs" />
     <Compile Include="LazyLoadReconciliationServer.fs" />

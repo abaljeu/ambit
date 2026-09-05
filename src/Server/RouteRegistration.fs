@@ -29,8 +29,9 @@ module RouteRegistration =
             DataDir: string
             Mode: DatabaseSetup.PersistenceMode
             DbStatus: DatabaseSetup.DbStatus
-            GetHandle: unit -> AgentHandle
-            GetOrCreateFileAgent: unit -> FileAgent
+            GetHandle: unit -> CoreChanges
+            FlushFileSnapshot: unit -> Async<Result<unit, string>>
+            GetFileRevision: unit -> Async<Revision>
         }
 
     type RouteAssets =
@@ -120,38 +121,21 @@ module RouteRegistration =
         (dataDir: string)
         (persistenceMode: DatabaseSetup.PersistenceMode)
         =
-        let mutable currentFileAgent: FileAgent option = None
-        let fileAgentLock = obj ()
-        let getOrCreateFileAgent () : FileAgent =
-            lock fileAgentLock (fun () ->
-                match currentFileAgent with
-                | Some agent -> agent
-                | None ->
-                    let newAgent = FileAgent.create dataDir
-                    currentFileAgent <- Some newAgent
-                    newAgent)
         let dbConnString = config.["DB_CONNECTION_STRING"] |> Option.ofObj |> Option.defaultValue ""
         let dbStatus = DatabaseSetup.resolveDbConnection persistenceMode dbConnString dataDir
-        let getHandle () : AgentHandle =
-            match persistenceMode, dbStatus with
-            | DatabaseSetup.PersistenceMode.Db, DatabaseSetup.DbStatus.Ok ->
-                AgentHandle.ofDb (DatabaseSetup.getOrCreateDbAgent dbConnString dataDir)
-            | DatabaseSetup.PersistenceMode.File, DatabaseSetup.DbStatus.Ok ->
-                let fileAgent = getOrCreateFileAgent ()
-                let dbAgent = DatabaseSetup.getOrCreateDbAgent dbConnString dataDir
-                AgentHandle.ofFileWithDbMirror fileAgent (Some dbAgent)
-            | DatabaseSetup.PersistenceMode.Db, _ ->
-                getOrCreateFileAgent ()
-                |> AgentHandle.ofFile
-                |> AgentHandle.readOnly
-            | DatabaseSetup.PersistenceMode.File, _ ->
-                AgentHandle.ofFile (getOrCreateFileAgent ())
+        let runtime =
+            CoreRuntime.create
+                persistenceMode
+                dbStatus
+                dbConnString
+                dataDir
         {
             DataDir = dataDir
             Mode = persistenceMode
             DbStatus = dbStatus
-            GetHandle = getHandle
-            GetOrCreateFileAgent = getOrCreateFileAgent
+            GetHandle = runtime.getHandle
+            FlushFileSnapshot = runtime.flushFileSnapshot
+            GetFileRevision = runtime.getFileRevision
         }
 
     let private stripXmlDeclaration (text: string) =
@@ -335,14 +319,13 @@ module RouteRegistration =
 
     let private prepareGitSave (persistence: PersistenceContext) () = async {
         let handle = persistence.GetHandle ()
-        let fileAgent = persistence.GetOrCreateFileAgent ()
         return!
             SavePrep.syncDataDir
                 persistence.Mode
                 persistence.DbStatus
                 (fun () -> handle.getState ())
-                (fun () -> FileAgent.flushSnapshot fileAgent)
-                (fun () -> FileAgent.getRevision fileAgent)
+                persistence.FlushFileSnapshot
+                persistence.GetFileRevision
                 persistence.DataDir
     }
 
@@ -523,12 +506,8 @@ module RouteRegistration =
                         persistence.Mode
                         persistence.DbStatus
                         (fun () -> handle.getState ())
-                        (fun () ->
-                            persistence.GetOrCreateFileAgent ()
-                            |> FileAgent.flushSnapshot)
-                        (fun () ->
-                            persistence.GetOrCreateFileAgent ()
-                            |> FileAgent.getRevision)
+                        persistence.FlushFileSnapshot
+                        persistence.GetFileRevision
                         persistence.DataDir
                 match flushResult with
                 | Ok _ -> return Ok ()

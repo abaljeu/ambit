@@ -6,7 +6,7 @@
 
 **Blocked by:** [[plan/event-sourced-ops/issues/03-server-amends-recoverable-field-collisions.md]], [[plan/event-sourced-ops/issues/04-client-consumes-merge-success-without-reload.md]], [[06-ready-the-initial-core-changes-increment.md|Ready the initial Core Changes increment]]
 
-**See also:** [[plan/core-creation/project.md]], [[plan/core-creation/reports/kernel-fsproj.md]], [[plan/event-sourced-ops/details/actors-and-jobs.md]], [[plan/event-sourced-ops/architecture.md]]
+**See also:** [[plan/core-creation/project.md]], [[plan/core-creation/initial-core-changes-implementation.md|Initial Core Changes implementation (enables this issue)]], [[plan/core-creation/reports/kernel-fsproj.md]], [[plan/event-sourced-ops/details/actors-and-jobs.md]], [[plan/event-sourced-ops/architecture.md]]
 
 **Status:** needs-info
 

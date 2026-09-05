@@ -4,7 +4,7 @@ Fact-gathering only. No recommendation to adopt or reject. Proposal under review
 
 ## 1. Current model
 
-**Issue** — One tracked unit of work: bug, task, spec, or implementation slice ([[doc/agents/issue-tracker.md]]). Files live under `plan/<slug>/issues/` (CONTEXT; agent docs still say `.scratch/` in places).
+**Issue** — One tracked unit of work: bug, task, spec, or implementation slice ([[doc/agents/issue-tracker.md]]). Files live under `plan/<slug>/issues/` (CONTEXT; agent docs still say `plan/` in places).
 
 **Project** — A `plan/<slug>/` effort. Two kinds only: the **Roadmap** (`steering`), and a **feature-set Project** ([[CONTEXT.md]], [[plan/roadmap/map.md]]). Avoid “epic project” as a third kind.
 
@@ -43,7 +43,7 @@ Fact-gathering only. No recommendation to adopt or reject. Proposal under review
 
 - The live model **already splits** “chart/develop the Roadmap” (Wayfinder tickets) from “User Epic Chapters” (beats with pointers) from “implementation issues” (feature-set Projects). The proposal reads largely like a restatement unless it means something stricter.
 - **Chapter vs issue shape**: Chapters deliberately reuse the raised shape of an implementation issue but are not issues and are not on the frontier.
-- **Path drift**: [[doc/agents/issue-tracker.md]] / [[doc/agents/project-status.md]] still say `.scratch/`; [[CONTEXT.md]] and live tree use `plan/`.
+- **Path drift**: [[doc/agents/issue-tracker.md]] / [[doc/agents/project-status.md]] still say `plan/`; [[CONTEXT.md]] and live tree use `plan/`.
 - **Issue 14** showed Roadmap `issues/` mixed with product slices. That file is now [[plan/webview2-azure-origin/issues/01-webview2-navigate-azure-ambit.md]].
 - Out of scope on the map: third Project kind (Epic Projects); implementing feature slices on the Roadmap map.
 
