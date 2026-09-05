@@ -11,10 +11,13 @@ open Gambol.Server.Tests.TestBackend
 module Encode = Thoth.Json.Newtonsoft.Encode
 module Decode = Thoth.Json.Newtonsoft.Decode
 
+/// Result-aware assertion: an Error fails the test through xUnit, not an exception.
 let private requireOk label result =
     match result with
     | Ok value -> value
-    | Error err -> failwith $"{label}: {err}"
+    | Error err ->
+        Assert.Fail($"{label}: {err}")
+        Unchecked.defaultof<_>
 
 let private decodeChangeResponse json =
     Decode.fromString
@@ -35,7 +38,7 @@ let ``typed Normal caller publishes accepted Change to Poll`` () = task {
     let dataDir = newTempDir ()
     let agent = FileAgent.create dataDir
     try
-        let handle = GraphAgentHandle.ofFile agent
+        let handle = FileAgent.coreChanges agent
         let change = addRootChild 0 "typed caller"
         let! accepted =
             handle.postChange [ change ]
@@ -78,7 +81,7 @@ let private recordingHandle (posts: ResizeArray<Change list>) =
             posts.Add(changes)
             async.Return(Result.Ok(accepted changes))
       postGraphOnlyChange = fun _ -> async.Return(Result.Error "unused") }
-    : GraphAgentHandle
+    : CoreChanges
 
 [<Fact>]
 let ``HTTP Adapter passes typed Changes only after valid decode`` () = task {

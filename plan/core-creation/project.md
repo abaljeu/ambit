@@ -10,6 +10,10 @@ Actual: 4h30m
 
 - [[plan/core-creation/map.md|Core creation Wayfinder]] — chart the initial Graph-agent package and later Core decisions.
 
+## Committed Decisions
+
+- [[doc/Decisions/0003-core-is-a-container-of-subobjects.md|Core is a container of subobjects]] — provisional framing of the Core structure.
+
 ## Implementation plan
 
 - [[plan/core-creation/initial-core-changes-implementation.md|Initial Core Changes implementation]] — implement resolved issues 03–06 and enable later delivery issue 01.

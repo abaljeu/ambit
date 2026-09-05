@@ -21,7 +21,7 @@ let private decodeStateResponse json =
 
 let private handleWithGetState
     (getState: unit -> Async<Result<State, string>>)
-    : GraphAgentHandle =
+    : CoreChanges =
     { getState = getState
       getRevision = fun () -> async.Return(Revision 0)
       getChangesSince = fun _ -> async.Return []

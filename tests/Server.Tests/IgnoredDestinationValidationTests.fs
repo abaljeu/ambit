@@ -163,7 +163,7 @@ let ``FileAgent rejects ignored graph state before acceptance`` () =
     writeIgnore dataDir "blocked.txt\n"
     let agent = FileAgent.create dataDir
     let body = encodeChange (Graph.create ()) Graph.rootId "blocked.txt"
-    let result = FileAgent.postChange agent body |> Async.RunSynchronously
+    let result = (FileAgent.coreChanges agent).postChange body |> Async.RunSynchronously
     Assert.True(Result.isError result)
     Assert.Equal(Revision 0, FileAgent.getRevision agent |> Async.RunSynchronously)
     FileAgent.dispose agent
@@ -177,7 +177,7 @@ let ``DbAgent rejects ignored graph state before acceptance`` () = task {
     writeIgnore dataDir "blocked.txt\n"
     let agent = DbAgent.createWithDataDir connectionString dataDir
     let body = encodeChange (Graph.create ()) Graph.rootId "blocked.txt"
-    let! result = DbAgent.postChange agent body |> Async.StartAsTask
+    let! result = (DbAgent.coreChanges agent).postChange body |> Async.StartAsTask
     Assert.True(Result.isError result)
     let! revision = DbAgent.getRevision agent |> Async.StartAsTask
     Assert.Equal(Revision 0, revision)

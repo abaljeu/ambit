@@ -70,7 +70,7 @@ let ``persistence exception is logged replied and mailbox survives`` () = task {
     let agent = FileAgent.createWithDependencies dependencies dataDir
     try
         let! postResult =
-            FileAgent.postChange agent (changedBody ())
+            (FileAgent.coreChanges agent).postChange (changedBody ())
             |> Async.StartAsTask
             |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
         match postResult with
@@ -116,7 +116,7 @@ let ``persist step hang is rejected within timeout and mailbox survives`` () = t
     try
         let sw = Diagnostics.Stopwatch.StartNew()
         let! postResult =
-            FileAgent.postChange agent (changedBody ())
+            (FileAgent.coreChanges agent).postChange (changedBody ())
             |> Async.StartAsTask
             |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
         sw.Stop()
@@ -147,7 +147,7 @@ let ``soft-fail live-save still commits graph and returns could-not-save message
     let agent = FileAgent.createWithDependencies dependencies dataDir
     try
         let! postResult =
-            FileAgent.postChange agent (softFailEditBody ())
+            (FileAgent.coreChanges agent).postChange (softFailEditBody ())
             |> Async.StartAsTask
         match postResult with
         | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")
@@ -173,7 +173,7 @@ let ``soft-fail log is not replayed into FileAgent state after restart`` () = ta
     let agent1 = FileAgent.createWithDependencies dependencies dataDir
     try
         let! postResult =
-            FileAgent.postChange agent1 (softFailEditBody ())
+            (FileAgent.coreChanges agent1).postChange (softFailEditBody ())
             |> Async.StartAsTask
         match postResult with
         | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")
@@ -191,8 +191,8 @@ let ``soft-fail log is not replayed into FileAgent state after restart`` () = ta
             state.graph.nodes
             |> Map.exists (fun _ n -> n.text = "soft-fail-probe"))
         Assert.Equal(Revision 0, state.revision)
-        Assert.Empty(agent2.initialState.history.past)
-        Assert.Empty(agent2.initialState.history.future)
+        Assert.Empty((FileAgent.initialState agent2).history.past)
+        Assert.Empty((FileAgent.initialState agent2).history.future)
     finally
         FileAgent.dispose agent2
 }
@@ -237,7 +237,7 @@ let ``ACK returns stamped complete Change equal to ChangeLog`` () = task {
     try
         let change = addChildChange 0 "stamp-prefix"
         let! postResult =
-            FileAgent.postChange agent (encodeBatch [ change ])
+            (FileAgent.coreChanges agent).postChange (encodeBatch [ change ])
             |> Async.StartAsTask
         match postResult with
         | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")
@@ -274,7 +274,7 @@ let ``trailing duplicate keeps stamps on last new Change`` () = task {
     try
         let first = addChildChange 0 "first-new"
         let! firstResult =
-            FileAgent.postChange agent (encodeBatch [ first ])
+            (FileAgent.coreChanges agent).postChange (encodeBatch [ first ])
             |> Async.StartAsTask
         let firstConfirmed =
             match firstResult with
@@ -282,7 +282,7 @@ let ``trailing duplicate keeps stamps on last new Change`` () = task {
             | Error err -> failwith err
         let second = addChildChange 1 "second-new"
         let! batchResult =
-            FileAgent.postChange agent (encodeBatch [ second; first ])
+            (FileAgent.coreChanges agent).postChange (encodeBatch [ second; first ])
             |> Async.StartAsTask
         match batchResult with
         | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")

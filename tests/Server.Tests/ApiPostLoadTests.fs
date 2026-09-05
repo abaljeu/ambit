@@ -76,7 +76,7 @@ let private handleForLoad
     (revision: int)
     (changes: Change list)
     (state: State)
-    : GraphAgentHandle =
+    : CoreChanges =
     { getState = fun () -> async.Return(Result.Ok state)
       getRevision = fun () -> async.Return(Revision revision)
       getChangesSince = fun _ -> async.Return changes

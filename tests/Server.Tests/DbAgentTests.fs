@@ -111,8 +111,8 @@ let ``DbAgent serves reads while sweep buffers FIFO mutations then trims`` () = 
 
     let stateTask = DbAgent.getState agent |> Async.StartAsTask
     let revisionTask = DbAgent.getRevision agent |> Async.StartAsTask
-    let firstPost = DbAgent.postChange agent [] |> Async.StartAsTask
-    let secondPost = DbAgent.postChange agent [] |> Async.StartAsTask
+    let firstPost = (DbAgent.coreChanges agent).postChange [] |> Async.StartAsTask
+    let secondPost = (DbAgent.coreChanges agent).postChange [] |> Async.StartAsTask
     do! Task.Delay(100)
     Assert.True(stateTask.IsCompleted)
     Assert.True(revisionTask.IsCompleted)
@@ -150,7 +150,7 @@ let ``DbAgent startup sweep failure preserves reads and fails mutations closed``
     Assert.False(DbAgent.isReady agent)
 
     let! postResult =
-        DbAgent.postChange agent [] |> Async.StartAsTask
+        (DbAgent.coreChanges agent).postChange [] |> Async.StartAsTask
 
     match postResult with
     | Error error -> Assert.Contains("Startup projection sweep failed: blocked", error)
@@ -179,7 +179,7 @@ let ``DbAgent new process loads state from projection and changes after post`` (
               Op.Replace(rootId, [], [ ChildNode.owner childId ]) ] }
 
     let body = encodeChangeBatch [ change ]
-    let! postResult = DbAgent.postChange agent1 body |> Async.StartAsTask
+    let! postResult = (DbAgent.coreChanges agent1).postChange body |> Async.StartAsTask
 
     match postResult with
     | Error e -> Assert.Fail($"postChange: {e}")
@@ -245,7 +245,7 @@ let ``DbAgent reload preserves node updateTime from projection`` () = task {
               Op.Replace(rootId, [], [ ChildNode.owner childId ]) ] }
 
     let! postResult =
-        DbAgent.postChange agent1 (encodeChangeBatch [ change ]) |> Async.StartAsTask
+        (DbAgent.coreChanges agent1).postChange (encodeChangeBatch [ change ]) |> Async.StartAsTask
 
     match postResult with
     | Error e -> Assert.Fail($"postChange: {e}")
@@ -280,7 +280,7 @@ let ``DbAgent change fails and state is unchanged when DB goes away after startu
     try
         do! setDatabaseAllowConnections connStr false
         let body = encodeChangeBatch [ change ]
-        let! postResult = DbAgent.postChange agent body |> Async.StartAsTask
+        let! postResult = (DbAgent.coreChanges agent).postChange body |> Async.StartAsTask
 
         match postResult with
         | Ok _ -> Assert.Fail("Expected postChange to fail while DB rejects connections.")
@@ -320,7 +320,7 @@ let ``rebuildFromDocumentFiles aligns DB with on-disk document`` () = task {
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
 
         let body = encodeChangeBatch [ change ]
-        let! postR = DbAgent.postChange agent body |> Async.StartAsTask
+        let! postR = (DbAgent.coreChanges agent).postChange body |> Async.StartAsTask
 
         match postR with
         | Error e -> Assert.Fail($"postChange: {e}")
@@ -438,7 +438,7 @@ let ``DbAgent commit hang is rejected within timeout and mailbox survives`` () =
 
     let sw = Diagnostics.Stopwatch.StartNew()
     let! postResult =
-        DbAgent.postChange agent (encodeChangeBatch [ change ]) |> Async.StartAsTask
+        (DbAgent.coreChanges agent).postChange (encodeChangeBatch [ change ]) |> Async.StartAsTask
     sw.Stop()
 
     lockTx.Rollback()
@@ -479,7 +479,7 @@ let ``DbAgent postChange live-saves artifacts before ack returns`` () = task {
               Op.Replace(rootId, [], [ ChildNode.owner childId ]) ] }
 
     let! postResult =
-        DbAgent.postChange agent (encodeChangeBatch [ change ]) |> Async.StartAsTask
+        (DbAgent.coreChanges agent).postChange (encodeChangeBatch [ change ]) |> Async.StartAsTask
 
     match postResult with
     | Error e -> Assert.Fail($"postChange: {e}")
@@ -513,7 +513,7 @@ let ``DbAgent missing ROOT fails closed while reads stay available`` () = task {
           changeId = Guid.NewGuid()
           ops = [ Op.NewNode(NodeId.New(), "blocked") ] }
     let! postResult =
-        DbAgent.postChange agent (encodeChangeBatch [ change ]) |> Async.StartAsTask
+        (DbAgent.coreChanges agent).postChange (encodeChangeBatch [ change ]) |> Async.StartAsTask
     match postResult with
     | Error error ->
         Assert.Contains("Startup projection sweep failed", error)

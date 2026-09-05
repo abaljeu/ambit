@@ -28,7 +28,7 @@ type FileAgentDependencies = {
 }
 
 // FileAgent — serialises all reads/writes for a single file
-type FileAgent = {
+type FileAgent = private {
     mailbox: MailboxProcessor<FileAgentMsg>
     logStream: FileStream
     initialState: Gambol.Shared.State  // checkpoint state captured at startup; used by DB setup
@@ -88,16 +88,13 @@ module FileAgent =
 
         logStream.Seek(0L, SeekOrigin.End) |> ignore
 
-        let accepted
-            (confirmed: Change list)
-            (externalChanges: bool)
-            (message: string option)
-            : CoreChangesAccepted =
-            { revision = state.Value.revision
-              changes = confirmed
-              externalChanges = externalChanges
-              message = message
-              isReady = true }
+        let accepted confirmed externalChanges message =
+            CoreChanges.accepted
+                state.Value.revision
+                true
+                confirmed
+                externalChanges
+                message
 
         let overlayFresh confirmations fresh stampOps =
             let stamped = PersistStamp.appendToLast fresh stampOps
@@ -351,21 +348,34 @@ module FileAgent =
             return unwrap result
         }
 
-    let postChange
+    let private postChange
         (agent: FileAgent)
         (changes: Change list)
         : Async<Result<CoreChangesAccepted, string>> =
         agent.mailbox.PostAndAsyncReply(fun reply -> PostChange(changes, reply))
 
-    let postGraphOnlyChange
+    let private postGraphOnlyChange
         (agent: FileAgent)
         (changes: Change list)
         : Async<Result<CoreChangesAccepted, string>> =
         agent.mailbox.PostAndAsyncReply(fun reply ->
             PostGraphOnlyChange(changes, reply))
 
+    /// The only route from this agent to the Core Changes contract.
+    let coreChanges (agent: FileAgent) : CoreChanges =
+        { getState = fun () -> tryGetState agent
+          getRevision = fun () -> getRevision agent
+          getChangesSince = fun after -> getChangesSince agent after.Value
+          isReady = fun () -> true
+          postChange = postChange agent
+          postGraphOnlyChange = postGraphOnlyChange agent }
+
     let flushSnapshot (_: FileAgent) : Async<Result<unit, string>> =
         async { return Ok () }
+
+    /// Checkpoint state captured at startup; used by DB setup and startup checks.
+    let initialState (agent: FileAgent) : State =
+        agent.initialState
 
     let dispose (agent: FileAgent) =
         agent.logStream.Flush()

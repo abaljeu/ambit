@@ -29,7 +29,7 @@ module RouteRegistration =
             DataDir: string
             Mode: DatabaseSetup.PersistenceMode
             DbStatus: DatabaseSetup.DbStatus
-            GetHandle: unit -> GraphAgentHandle
+            GetHandle: unit -> CoreChanges
             FlushFileSnapshot: unit -> Async<Result<unit, string>>
             GetFileRevision: unit -> Async<Revision>
         }
@@ -124,7 +124,7 @@ module RouteRegistration =
         let dbConnString = config.["DB_CONNECTION_STRING"] |> Option.ofObj |> Option.defaultValue ""
         let dbStatus = DatabaseSetup.resolveDbConnection persistenceMode dbConnString dataDir
         let runtime =
-            GraphAgentHandle.createRuntime
+            CoreRuntime.create
                 persistenceMode
                 dbStatus
                 dbConnString

@@ -15,13 +15,13 @@ let private requireOk label result =
 let private postWorkspace (fileAgent: FileAgent) (label: string) =
     let workspaceId, ops = FileNodeOps.planCreateWorkspace (Graph.create ()) label
     let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
-    FileAgent.postChange fileAgent [ change ]
+    (FileAgent.coreChanges fileAgent).postChange [ change ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
     workspaceId
 
-let private recordingHandle (inner: GraphAgentHandle) =
+let private recordingHandle (inner: CoreChanges) =
     let posts = ResizeArray<Change list>()
     let handle =
         { inner with
@@ -41,7 +41,7 @@ let ``reconcile posts graph-only chunks at or under maxOps`` () =
     Directory.CreateDirectory(home) |> ignore
     for i in 1 .. fileCount do
         File.WriteAllText(Path.Combine(home, sprintf "n%03d.txt" i), "x")
-    let inner = GraphAgentHandle.ofFile fileAgent
+    let inner = FileAgent.coreChanges fileAgent
     let handle, posts = recordingHandle inner
     LazyLoadReconciliationServer.reconcileChangedPaths handle tempDir "home" []
     |> Async.RunSynchronously

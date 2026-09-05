@@ -32,14 +32,15 @@ module Api =
             get.Required.Field "path" Thoth.Json.Core.Decode.string)
 
     let getPoll
-        (handle: GraphAgentHandle)
+        (handle: CoreChanges)
         (buildEpochSec: int)
         (pageBuildEpochSec: int)
         (clientRev: int)
         : Async<IResult> = async {
         let! rev = handle.getRevision ()
         let! changes =
-            if rev.Value > clientRev then handle.getChangesSince clientRev
+            if rev.Value > clientRev then
+                handle.getChangesSince (Revision clientRev)
             else async.Return []
         let poll: ChangeSuccessResponse =
             { revision = rev
@@ -55,7 +56,7 @@ module Api =
     }
 
     let private loadPackages
-        (handle: GraphAgentHandle)
+        (handle: CoreChanges)
         (targets: LoadTarget list)
         : Async<Result<Result<Node list, ResidentProjection.LoadRefuse>, string>> =
         async {
@@ -70,7 +71,7 @@ module Api =
         }
 
     let postLoad
-        (handle: GraphAgentHandle)
+        (handle: CoreChanges)
         (buildEpochSec: int)
         (pageBuildEpochSec: int)
         (body: string)
@@ -94,7 +95,7 @@ module Api =
                 let! rev = handle.getRevision ()
                 let! changes =
                     if rev.Value > request.revision then
-                        handle.getChangesSince request.revision
+                        handle.getChangesSince (Revision request.revision)
                     else
                         async.Return []
                 let load: LoadResponse =
@@ -124,7 +125,7 @@ module Api =
             | _ -> None
         | _ -> None
 
-    let getState (handle: GraphAgentHandle) (req: HttpRequest) : Async<IResult> = async {
+    let getState (handle: CoreChanges) (req: HttpRequest) : Async<IResult> = async {
         try
             let scope = parseBootstrapScope req
             let savedZoom = parseSavedZoom req
@@ -152,7 +153,7 @@ module Api =
     }
 
     let postChange
-        (handle: GraphAgentHandle)
+        (handle: CoreChanges)
         (buildEpochSec: int)
         (pageBuildEpochSec: int)
         (body: string)
@@ -224,7 +225,7 @@ module Api =
 
     /// ParseFile command: optional body text or DataDir read → apply on agent graph.
     let postParseFile
-        (handle: GraphAgentHandle)
+        (handle: CoreChanges)
         (dataDir: string)
         (body: string)
         : Async<IResult> =

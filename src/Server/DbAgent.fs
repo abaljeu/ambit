@@ -8,8 +8,8 @@ module Decode = Thoth.Json.Newtonsoft.Decode
 
 /// PostgreSQL-backed agent. Same message type as `FileAgent`.
 type DbAgent =
-    { mailbox: MailboxProcessor<FileAgentMsg>
-      isReady: unit -> bool }
+    private { mailbox: MailboxProcessor<FileAgentMsg>
+              isReady: unit -> bool }
 
 [<RequireQualifiedAccess>]
 module DbAgent =
@@ -59,16 +59,13 @@ module DbAgent =
                 trimDeletedIds result.deletedIds
                 Ok ()
 
-        let accepted
-            (confirmed: Change list)
-            (externalChanges: bool)
-            (message: string option)
-            : CoreChangesAccepted =
-            { revision = state.Value.revision
-              changes = confirmed
-              externalChanges = externalChanges
-              message = message
-              isReady = ready.Task.IsCompletedSuccessfully }
+        let accepted confirmed externalChanges message =
+            CoreChanges.accepted
+                state.Value.revision
+                ready.Task.IsCompletedSuccessfully
+                confirmed
+                externalChanges
+                message
 
         let overlayFresh confirmations fresh stampOps =
             let stamped = PersistStamp.appendToLast fresh stampOps
@@ -525,15 +522,24 @@ module DbAgent =
             return unwrap result
         }
 
-    let postChange
+    let private postChange
         (agent: DbAgent)
         (changes: Change list)
         : Async<Result<CoreChangesAccepted, string>> =
         agent.mailbox.PostAndAsyncReply(fun reply -> PostChange(changes, reply))
 
-    let postGraphOnlyChange
+    let private postGraphOnlyChange
         (agent: DbAgent)
         (changes: Change list)
         : Async<Result<CoreChangesAccepted, string>> =
         agent.mailbox.PostAndAsyncReply(fun reply ->
             PostGraphOnlyChange(changes, reply))
+
+    /// The only route from this agent to the Core Changes contract.
+    let coreChanges (agent: DbAgent) : CoreChanges =
+        { getState = fun () -> tryGetState agent
+          getRevision = fun () -> getRevision agent
+          getChangesSince = fun after -> getChangesSince agent after.Value
+          isReady = fun () -> isReady agent
+          postChange = postChange agent
+          postGraphOnlyChange = postGraphOnlyChange agent }

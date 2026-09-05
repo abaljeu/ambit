@@ -268,7 +268,8 @@ let ``DbAgent bootstrap duplicate returns stored Change and rejects no-op`` () =
             [ Op.NewNode(childId, "bootstrap")
               Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
 
-    let! first = DbAgent.postChange agent (encodeBatch [ accepted ]) |> Async.StartAsTask
+    let core = DbAgent.coreChanges agent
+    let! first = core.postChange (encodeBatch [ accepted ]) |> Async.StartAsTask
     let firstAck =
         match first with
         | Ok ack -> ack
@@ -278,7 +279,7 @@ let ``DbAgent bootstrap duplicate returns stored Change and rejects no-op`` () =
         scalar<string> connStr "SELECT xmin::text FROM graph WHERE singleton = 1"
 
     let! duplicate =
-        DbAgent.postChange agent (encodeBatch [ accepted ]) |> Async.StartAsTask
+        core.postChange (encodeBatch [ accepted ]) |> Async.StartAsTask
     match duplicate with
     | Ok ack ->
         Assert.Equal<Change list>(firstAck.changes, ack.changes)
@@ -288,7 +289,7 @@ let ``DbAgent bootstrap duplicate returns stored Change and rejects no-op`` () =
         { id = 1
           changeId = Guid.NewGuid()
           ops = [] }
-    let! unchanged = DbAgent.postChange agent (encodeBatch [ noOp ]) |> Async.StartAsTask
+    let! unchanged = core.postChange (encodeBatch [ noOp ]) |> Async.StartAsTask
     match unchanged with
     | Ok _ -> Assert.Fail("unchanged submission must be rejected")
     | Error err -> Assert.Contains("Unchanged", err)
