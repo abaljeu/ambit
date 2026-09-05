@@ -1,16 +1,21 @@
-# Roadmap
-
+# Ambit Roadmap
+Apply [[.agents/skills/wait-what/SKILL.md]] to this file.
 Labels: wayfinder:map
+
+Ambit's Key Value Proposition: Rapid understanding via dynamic organization.
+Every development aims to leverage this.
+
 
 ## Destination
 
 A standing Roadmap that answers “what should I work on next.” Completing it means completing the application. It groups **Epics** by Stage — marketable user end-goals, larger than a feature or interaction. Each Epic is a standing file under [[epics/]] until that goal is met. Feature-set Projects implement focused features that enable Epics; this map points at them and does not copy their specs. Sessions invoke those Projects, implement them, and promote committed facts into `doc/`. `doc/` describes the current program.
 
+
 ## Current strategy
+(Mutable section. Replace this section when the near-term aim changes; do not append.)
 
-Mutable. Replace this section when the near-term aim changes; do not append.
-
-Solid product core ([[epics/robust-outliner.md]]) so Ambit can pull information in, organize it dynamically, and send it out. Rapid understanding via organization is the value; inbound/outbound (agent messages into the outline instead of generic chat) is how that value grows.
+Solid product core via [[epics/robust-outliner.md]] **Solid core** (four-call surface, ACID apply, managed actor pool). Grow by pull in / organize / send out. First inbound example: **Grok Bot / agent messages into the outline** (instead of generic chat UI). Mail and other connected channels come **after** that near-term agent inbound (see [[epics/operate-connected-channels.md]]).
+=======
 
 ## Notes
 
@@ -28,7 +33,7 @@ Solid product core ([[epics/robust-outliner.md]]) so Ambit can pull information 
 - Work on **dev**; promote finished work to **ready**. Plan by default on this map except when invoking a named feature-set Project. Do not write per-project git notes.
 - Epics are parallel (order inside a Stage does not rank them). Continue from memories of recent work: that Epic, its current Chapter (or Developer Required live items), then pointed Project/issue status. Present that path as choices. Do not auto-pick. Do not offer Developer Epic Chapters; there are none.
 - Documentation wikis: [[plan/end-user-wiki/map.md]], [[plan/marketing-wiki/map.md]], [[plan/architecture/map.md]]. An Epic is not done until the wiki portions about that Epic are done. Architecture’s remainder is also Required on [[epics/robust-outliner.md]].
-- [[epics/robust-outliner.md]] records the inner-core aim: a modular Server apply core that never crashes; other work posts Changes ([[plan/event-sourced-ops/overview.md]]) and may hang or crash without harming the core. Same Epic aims at incremental operations (modest send, then more); Workspace upload and Browser Load are current counterexamples.
+- [[epics/robust-outliner.md]] **Solid core** records the shape: four-call surface, ACID apply, managed actor pool (not process crash isolation); file mode view-only. Other work posts Changes ([[plan/event-sourced-ops/overview.md]]). Same Epic aims at incremental operations (modest send, then more); Workspace upload and Browser Load are current counterexamples.
 
 ## Epics
 
