@@ -28,6 +28,7 @@
     <Compile Include="GraphOnlyChangePostTests.fs" />
     <Compile Include="CoreChangesTests.fs" />
     <Compile Include="CoreCredentialsTests.fs" />
+    <Compile Include="BrowserCredentialTests.fs" />
     <Compile Include="CoreActorPoolTests.fs" />
     <Compile Include="GitSaveEndpointTests.fs" />
     <Compile Include="WorkspaceWebDavTests.fs" />

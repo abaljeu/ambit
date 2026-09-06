@@ -190,3 +190,103 @@ let ``unknown actor is refused`` () = task {
     finally
         FileAgent.dispose agent
 }
+
+[<Fact>]
+let ``query by public number identifies the registered Actor`` () = task {
+    let dataDir = newTempDir ()
+    let agent = FileAgent.create dataDir
+    try
+        let handle = FileAgent.coreChanges agent
+        let pool = CoreActorPool.create (CoreCredentials.create ())
+        pool.register (ActorName "test") (fun _ _ _ -> async.Return())
+        let! childId = addChild handle "span" |> Async.StartAsTask
+        let! state = handle.getState () |> Async.StartAsTask
+        let state = requireOk "state" state
+        let request =
+            { name = ActorName "test"
+              revision = state.revision
+              span = spanOf state.graph childId }
+        let! launched = pool.launch handle request |> Async.StartAsTask
+        let number = requireOk "launch" launched
+        let! found = pool.query number |> Async.StartAsTask
+        Assert.Equal(Ok request, found)
+    finally
+        FileAgent.dispose agent
+}
+
+[<Fact>]
+let ``query does not return a job result or job Error`` () = task {
+    let dataDir = newTempDir ()
+    let agent = FileAgent.create dataDir
+    try
+        let handle = FileAgent.coreChanges agent
+        let credentials = CoreCredentials.create ()
+        let started = TaskCompletionSource<Graph * Credential>()
+        let pool = CoreActorPool.create credentials
+        pool.register (ActorName "test") (fun subgraph cred _ -> async {
+            started.TrySetResult(subgraph, cred) |> ignore
+        })
+        let! childId = addChild handle "span" |> Async.StartAsTask
+        let! state = handle.getState () |> Async.StartAsTask
+        let state = requireOk "state" state
+        let request =
+            { name = ActorName "test"
+              revision = state.revision
+              span = spanOf state.graph childId }
+        let! launched = pool.launch handle request |> Async.StartAsTask
+        let number = requireOk "launch" launched
+        let! _, cred = waitActor started
+        let! live = credentials.contains cred |> Async.StartAsTask
+        Assert.True(live)
+        let! found = pool.query number |> Async.StartAsTask
+        match found with
+        | Error err ->
+            Assert.Fail($"query returned Error, not identity: {err}")
+        | Ok job ->
+            Assert.Equal(ActorName "test", job.name)
+            Assert.Equal(state.revision, job.revision)
+            Assert.Equal(request.span, job.span)
+    finally
+        FileAgent.dispose agent
+}
+
+[<Fact>]
+let ``query uses the public number, not a span NodeId`` () = task {
+    let dataDir = newTempDir ()
+    let agent = FileAgent.create dataDir
+    try
+        let handle = FileAgent.coreChanges agent
+        let pool = CoreActorPool.create (CoreCredentials.create ())
+        pool.register (ActorName "first") (fun _ _ _ -> async.Return())
+        pool.register (ActorName "second") (fun _ _ _ -> async.Return())
+        let! a = addChild handle "a" |> Async.StartAsTask
+        let! b = addChild handle "b" |> Async.StartAsTask
+        let! state = handle.getState () |> Async.StartAsTask
+        let state = requireOk "state" state
+        let! first =
+            pool.launch handle
+                { name = ActorName "first"
+                  revision = state.revision
+                  span = spanOf state.graph a }
+            |> Async.StartAsTask
+        let! second =
+            pool.launch handle
+                { name = ActorName "second"
+                  revision = state.revision
+                  span = spanOf state.graph b }
+            |> Async.StartAsTask
+        let n1 = requireOk "first" first
+        let n2 = requireOk "second" second
+        let! q1 = pool.query n1 |> Async.StartAsTask
+        let! q2 = pool.query n2 |> Async.StartAsTask
+        let job1 = requireOk "query first" q1
+        let job2 = requireOk "query second" q2
+        Assert.Equal(ActorName "first", job1.name)
+        Assert.Equal(ActorName "second", job2.name)
+        Assert.Equal(spanOf state.graph a, job1.span)
+        Assert.Equal(spanOf state.graph b, job2.span)
+        let! missing = pool.query (PublicNumber 0) |> Async.StartAsTask
+        Assert.Equal(Error CoreActorPool.unknownJob, missing)
+    finally
+        FileAgent.dispose agent
+}

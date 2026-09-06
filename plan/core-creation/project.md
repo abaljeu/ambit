@@ -4,7 +4,7 @@ Stage: active
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
 Updated: 2026-09-06
 Started: 2026-09-05
-Actual: 11h35m
+Actual: 12h50m
 
 ## Map
 
@@ -59,6 +59,9 @@ Actual: 11h35m
 - [[plan/core-creation/reports/implement-issue-14-credentials.md]] — Core credential set and one auth-refuse family.
 - [[plan/core-creation/reports/commit-14-implement-15.md]] — commit issue 14; implement launch, span hold, and lock-present.
 - [[plan/core-creation/reports/commit-15-what-is-16.md]] — commit issue 15; what issue 16 asks.
+- [[plan/core-creation/reports/implement-issue-16.md]] — query a registered job by public number.
+- [[plan/core-creation/reports/implement-issue-20.md]] — Browser presents the session cookie; missing cookie is auth-refuse.
+- [[plan/core-creation/reports/core-api-boundary-review.md]] — Core API seam vs the map destination.
 - [[plan/core-creation/reports/grill-issue-09-launch-contract.md]] — start grill of the Core Command launch contract.
 - [[plan/core-creation/reports/grill-issue-10-cancellation.md]] — start grill of Actor cancellation and output admission.
 - [[plan/core-creation/reports/grill-issue-11-finish.md]] — grill of Actor finish and failure behavior.

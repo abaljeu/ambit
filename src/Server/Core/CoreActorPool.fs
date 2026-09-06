@@ -18,6 +18,7 @@ type CoreActorPool =
     { register: ActorName -> ActorFn -> unit
       launch:
         CoreChanges -> LaunchRequest -> Async<Result<PublicNumber, string>>
+      query: PublicNumber -> Async<Result<LaunchRequest, string>>
       lockedIds: unit -> Async<Set<NodeId>>
       withLocks: CoreChanges -> CoreChanges }
 
@@ -26,6 +27,9 @@ module CoreActorPool =
 
     [<Literal>]
     let unknownActor = "unknown actor"
+
+    [<Literal>]
+    let unknownJob = "unknown job"
 
     [<Literal>]
     let overlap = "span overlaps a live job"
@@ -56,7 +60,13 @@ module CoreActorPool =
             Graph *
             LaunchRequest *
             AsyncReplyChannel<Result<LaunchPlan, string>>
+        | Query of int * AsyncReplyChannel<LaunchRequest option>
         | GetLocked of AsyncReplyChannel<Set<NodeId>>
+
+    let private tracked (job: Job) : LaunchRequest =
+        { name = job.name
+          revision = job.revision
+          span = job.span }
 
     let private nameKey (ActorName name) = name
 
@@ -107,6 +117,10 @@ module CoreActorPool =
                         loop { model with defs = Map.add name actor model.defs }
                 | GetLocked reply ->
                     reply.Reply model.locked
+                    return! loop model
+                | Query(number, reply) ->
+                    reply.Reply(
+                        Map.tryFind number model.jobs |> Option.map tracked)
                     return! loop model
                 | TryLaunch(graph, request, reply) ->
                     match planLaunch model graph request with
@@ -161,6 +175,18 @@ module CoreActorPool =
                     return Ok(PublicNumber plan.number)
         }
 
+    let private runQuery
+        (mailbox: MailboxProcessor<Msg>)
+        (PublicNumber number)
+        : Async<Result<LaunchRequest, string>> =
+        async {
+            let! found =
+                mailbox.PostAndAsyncReply(fun reply -> Query(number, reply))
+            match found with
+            | Some job -> return Ok job
+            | None -> return Error unknownJob
+        }
+
     let create (credentials: CoreCredentials) : CoreActorPool =
         let mailbox = startMailbox ()
         let lockedIds () = mailbox.PostAndAsyncReply GetLocked
@@ -171,4 +197,5 @@ module CoreActorPool =
                 |> Async.RunSynchronously
           lockedIds = lockedIds
           withLocks = overlayLocks lockedIds
-          launch = runLaunch mailbox credentials }
+          launch = runLaunch mailbox credentials
+          query = runQuery mailbox }
