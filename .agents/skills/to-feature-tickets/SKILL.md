@@ -54,7 +54,6 @@ Write one file per ticket under `plan/<feature-slug>/issues/<NN>-<slug>.md`, num
 
 Do not close or modify any parent issue.
 
-<!-- 2026-09-02 updated format. Do not use old format. Don't rewrite old tickets unless asked. -->
 <local-ticket-template>
 
 # <NN> — <Ticket title>

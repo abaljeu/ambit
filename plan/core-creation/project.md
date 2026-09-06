@@ -2,7 +2,7 @@
 
 Stage: active
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
-Updated: 2026-09-05
+Updated: 2026-09-06
 Started: 2026-09-05
 Actual: 9h15m
 
@@ -23,6 +23,15 @@ Actual: 9h15m
 - [[plan/core-creation/issues/01-generalized-server-actor-produce-path.md]] — establish the shared Core Changes path.
 - [[plan/core-creation/issues/02-core-actor-pool.md]] — establish Core-owned Actor pool machinery.
 - [[plan/core-creation/issues/13-delete-runtime-mirror-and-remove-production-persistence-mode.md|Delete runtime mirror and remove production Persistence:Mode]] — use Database persistence when available and reject Changes when unavailable.
+- [[plan/core-creation/issues/14-server-tracks-credentials.md]] — Core credential set for the Server process and one auth-refuse family.
+- [[plan/core-creation/issues/15-launch-actor-and-hold-span.md]] — launch an Actor, hold the span, and write lock-present.
+- [[plan/core-creation/issues/16-track-running-job.md]] — query a registered job by public number.
+- [[plan/core-creation/issues/17-cancel-a-job.md]] — cancel by NodeId without Undo.
+- [[plan/core-creation/issues/18-finish-and-drop.md]] — delete-actor after any Actor stop.
+- [[plan/core-creation/issues/19-database-down-and-host-stop.md]] — Database-down probe and host StopAsync drain.
+- [[plan/core-creation/issues/20-client-presents-credential.md]] — live Browser presents a credential on every message.
+- [[plan/core-creation/issues/21-client-shows-lock-present.md]] — Browser shows lock-present via state, Fetch, or Query.
+- [[plan/core-creation/issues/22-client-cancels-a-job.md]] — user cancels a job from the UI.
 
 ## Decision tickets
 
