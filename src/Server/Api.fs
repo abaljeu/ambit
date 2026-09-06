@@ -19,7 +19,9 @@ module Api =
     /// Prefer Content over Results.Problem: Problem.ExecuteAsync needs RequestServices
     /// and can leave HTTP 500 with an empty body if execution fails after status is set.
     let private agentErrorResult (error: string) : IResult =
-        if error.StartsWith("Internal server error", StringComparison.Ordinal) then
+        if CoreAuth.isAuthRefuse error then
+            Results.Unauthorized()
+        elif error.StartsWith("Internal server error", StringComparison.Ordinal) then
             Results.Content(error, "text/plain; charset=utf-8", statusCode = 500)
         else
             Results.BadRequest({| error = error |})

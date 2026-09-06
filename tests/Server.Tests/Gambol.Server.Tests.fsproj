@@ -27,6 +27,7 @@
     <Compile Include="LazyLoadReconciliationServerTests.fs" />
     <Compile Include="GraphOnlyChangePostTests.fs" />
     <Compile Include="CoreChangesTests.fs" />
+    <Compile Include="CoreCredentialsTests.fs" />
     <Compile Include="GitSaveEndpointTests.fs" />
     <Compile Include="WorkspaceWebDavTests.fs" />
     <Compile Include="HttpResponseLogTests.fs" />

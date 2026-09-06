@@ -30,6 +30,7 @@ module RouteRegistration =
             Mode: DatabaseSetup.PersistenceMode
             DbStatus: DatabaseSetup.DbStatus
             GetHandle: unit -> CoreChanges
+            Credentials: CoreCredentials
             FlushFileSnapshot: unit -> Async<Result<unit, string>>
             GetFileRevision: unit -> Async<Revision>
         }
@@ -134,6 +135,7 @@ module RouteRegistration =
             Mode = persistenceMode
             DbStatus = dbStatus
             GetHandle = runtime.getHandle
+            Credentials = runtime.credentials
             FlushFileSnapshot = runtime.flushFileSnapshot
             GetFileRevision = runtime.getFileRevision
         }

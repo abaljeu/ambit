@@ -4,6 +4,7 @@ open Gambol.Shared
 
 type CoreRuntime =
     { getHandle: unit -> CoreChanges
+      credentials: CoreCredentials
       flushFileSnapshot: unit -> Async<Result<unit, string>>
       getFileRevision: unit -> Async<Revision> }
 
@@ -70,6 +71,7 @@ module CoreRuntime =
             | DatabaseSetup.PersistenceMode.File, _ ->
                 getFile ()
         { getHandle = getHandle
+          credentials = CoreCredentials.create ()
           flushFileSnapshot =
             fun () -> fileAgent.Value |> FileAgent.flushSnapshot
           getFileRevision =

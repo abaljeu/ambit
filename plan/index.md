@@ -12,6 +12,7 @@
 | [Marketing wiki](marketing-wiki/) | charting | A GitLab-level browsable wiki of uses; not a campaign. |
 | [Parse load demote](parse-load-demote/) | charting | Empty stub directory; stage unknown until contents land. |
 | [RowView / FocusView layout vs behavior](rowview-layout-behavior/) | charting | Separate layout from behavior inside RowView/FocusView; plan complete, waits on the split-view-by-concern refactor landing. |
+| [Skills cleanup](skills-cleanup/) | charting | Eliminate inconsistency and redundancy in agent skills ([[.agents/skills/]], [[.cursor/skills/]]) and the related instruction surfaces that copy them (rules, [[doc/agents/]], setup-matt-pocock-skills vendor copies). One meaning per fact. The cleanup must produce one complete status definition set (or an explicit non-colliding split) for every Status, Stage, and equivalent next-action word. |
 | [transport-layer](transport-layer/) | charting | Cross-cutting transport layer — inbound, outbound, and round-trip patterns for moving information between outside sources and the Graph while Graph stays authority; Parse/Persist as the shared text-processing unit; module contract for connector Actors; `plan` until promoted to `doc/`. |
 | [Roadmap](roadmap/map.md) [pinned] | steering | Standing goto for what to work on next; groups Epics by Stage; Chapter plus Required for done gate Epic completion. |
 | [Debug reload](debug-reload/) | tickets | Tell a person on watch how to load debug modules and how to pick up an esbuild rebuild with a hard-reload of the Browser. |

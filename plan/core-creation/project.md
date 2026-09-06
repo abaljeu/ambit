@@ -4,7 +4,7 @@ Stage: active
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
 Updated: 2026-09-06
 Started: 2026-09-05
-Actual: 9h15m
+Actual: 10h5m
 
 ## Map
 
@@ -56,6 +56,7 @@ Actual: 9h15m
 - [[plan/core-creation/reports/chart-core-wayfinder-map.md]] — map, ticket topology, and verification report.
 - [[plan/core-creation/reports/plan-initial-core-changes-implementation.md]] — implementation-plan changes and verification.
 - [[plan/core-creation/reports/implement-issue-01-actor-produce-path.md]] — test Actor produce path on Normal Core Changes.
+- [[plan/core-creation/reports/implement-issue-14-credentials.md]] — Core credential set and one auth-refuse family.
 - [[plan/core-creation/reports/grill-issue-09-launch-contract.md]] — start grill of the Core Command launch contract.
 - [[plan/core-creation/reports/grill-issue-10-cancellation.md]] — start grill of Actor cancellation and output admission.
 - [[plan/core-creation/reports/grill-issue-11-finish.md]] — grill of Actor finish and failure behavior.
