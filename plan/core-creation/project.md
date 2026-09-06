@@ -4,7 +4,7 @@ Stage: active
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
 Updated: 2026-09-05
 Started: 2026-09-05
-Actual: 4h30m
+Actual: 5h15m
 
 ## Map
 
@@ -46,3 +46,4 @@ Actual: 4h30m
 - [[plan/core-creation/reports/core-wayfinder-fact-inventory.md]] — evidence and open-choice inventory used to chart the map.
 - [[plan/core-creation/reports/chart-core-wayfinder-map.md]] — map, ticket topology, and verification report.
 - [[plan/core-creation/reports/plan-initial-core-changes-implementation.md]] — implementation-plan changes and verification.
+- [[plan/core-creation/reports/implement-issue-01-actor-produce-path.md]] — test Actor produce path on Normal Core Changes.
