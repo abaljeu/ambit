@@ -144,6 +144,9 @@ module RouteRegistration =
             core.parseCredential
             (core.changes ())
 
+    let private changesBound (persistence: PersistenceContext) =
+        persistence.Core.browserChanges ()
+
     let private stripXmlDeclaration (text: string) =
         if text.StartsWith("<?xml") then
             match text.IndexOf("?>") with
@@ -312,13 +315,10 @@ module RouteRegistration =
                 bindClientHint req |> ignore
                 use reader = new StreamReader(req.Body)
                 let! body = reader.ReadToEndAsync()
-                let core = persistence.Core
                 let pageEpoch = stamps.PageBuildEpochSec ()
                 return!
                     Api.postChange
-                        (core.changes ())
-                        core.credentials
-                        core.browserCredential
+                        (changesBound persistence)
                         (stamps.DeployEpochSec ())
                         pageEpoch
                         body

@@ -4,7 +4,7 @@ Stage: active
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
 Updated: 2026-09-06
 Started: 2026-09-05
-Actual: 16h30m
+Actual: 17h15m
 
 ## Map
 
@@ -44,7 +44,7 @@ This increment: Core owns Graph write, History, agent selection, the credential 
 - [[plan/core-creation/issues/22-client-cancels-a-job.md]] — user cancels a job from the UI.
 - [[plan/core-creation/issues/23-close-core-object-seam.md]] — production posts present Credential; callers use the typed Core object.
 - [[plan/core-creation/issues/24-clarify-core-increment-boundary.md]] — agent instruction: Core vs Adapter vs Client; no lock UI this increment.
-- [[plan/core-creation/issues/25-bind-changes-at-core-seam.md]] — leftover after 23: HTTP posts through bound Changes, not unpacked CoreAuth.
+- [[plan/core-creation/issues/25-bind-changes-at-core-seam.md]] — leftover after 23: HTTP posts through bound Changes, not unpacked CoreAuth. Status `done`.
 
 ## Decision tickets
 
@@ -81,6 +81,7 @@ This increment: Core owns Graph write, History, agent selection, the credential 
 - [[plan/core-creation/reports/actor-core-and-mailbox-check.md]] — Actor `CoreChanges` handle vs mailbox; writes are the two Posts.
 - [[plan/core-creation/reports/commit-24-and-23.md]] — commit 24 then 23 on `dev`.
 - [[plan/core-creation/reports/improve-codebase-architecture.md]] — Core hot-spot deepening candidates; top recommendation is 25.
+- [[plan/core-creation/reports/implement-issue-25.md]] — bind Browser Changes on Core; Adapter decode and status only.
 - [[plan/core-creation/reports/grill-issue-09-launch-contract.md]] — start grill of the Core Command launch contract.
 - [[plan/core-creation/reports/grill-issue-10-cancellation.md]] — start grill of Actor cancellation and output admission.
 - [[plan/core-creation/reports/grill-issue-11-finish.md]] — grill of Actor finish and failure behavior.

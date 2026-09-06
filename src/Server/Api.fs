@@ -156,8 +156,6 @@ module Api =
 
     let postChange
         (handle: CoreChanges)
-        (credentials: CoreCredentials)
-        (sender: Credential)
         (buildEpochSec: int)
         (pageBuildEpochSec: int)
         (body: string)
@@ -166,13 +164,7 @@ module Api =
         | Error err ->
             return agentErrorResult $"Invalid JSON: {err}"
         | Ok batch ->
-            match!
-                CoreAuth.post
-                    credentials
-                    sender
-                    handle.postChange
-                    batch.changes
-            with
+            match! handle.postChange batch.changes with
             | Ok accepted ->
                 return
                     changeSuccessResult

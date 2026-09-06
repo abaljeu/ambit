@@ -5,6 +5,8 @@ open Gambol.Shared
 
 type CoreRuntime =
     { changes: unit -> CoreChanges
+      bindChanges: Credential -> CoreChanges
+      browserChanges: unit -> CoreChanges
       credentials: CoreCredentials
       command: CoreActorPool
       browserCredential: Credential
@@ -85,7 +87,12 @@ module CoreRuntime =
         let browserCredential, parseCredential =
             addLifetimeCredentials credentials
         let pool = CoreActorPool.create credentials
-        { changes = fun () -> pool.withLocks (rawHandle ())
+        let changes () = pool.withLocks (rawHandle ())
+        let bindChanges sender =
+            CoreAuth.bindHandle credentials sender (changes ())
+        { changes = changes
+          bindChanges = bindChanges
+          browserChanges = fun () -> bindChanges browserCredential
           credentials = credentials
           command = pool
           browserCredential = browserCredential

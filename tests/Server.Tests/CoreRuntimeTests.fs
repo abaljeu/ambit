@@ -63,44 +63,31 @@ let ``CoreRuntime holds process-lifetime Browser and Parse credentials`` () =
     }
 
 [<Fact>]
-let ``production-shaped post without a live Credential is not enqueued`` () =
+let ``bound Changes refuses an inactive sender and does not enqueue`` () =
     task {
         let runtime = fileRuntime ()
-        let posts = ResizeArray<Change list>()
-        let enqueue changes =
-            posts.Add(changes)
-            async.Return(Result.Error "must not enqueue")
+        let bound = runtime.bindChanges (Credential "inactive")
+        let! before = bound.getRevision () |> Async.StartAsTask
         let! result =
-            CoreAuth.post
-                runtime.credentials
-                (Credential "inactive")
-                enqueue
-                [ addRootChild "refused" ]
+            bound.postChange [ addRootChild "refused" ]
             |> Async.StartAsTask
-        Assert.Equal(
-            Error(CoreAdmissionError.text CoreAdmissionError.Unauthorized),
-            result)
-        Assert.Empty(posts)
+        let! after = bound.getRevision () |> Async.StartAsTask
+        Assert.Equal(Error CoreAuth.refuse, result)
+        Assert.Equal(before, after)
     }
 
 [<Fact>]
-let ``production-shaped post with live Browser credential is enqueued`` () =
-    task {
-        let runtime = fileRuntime ()
-        let handle = runtime.changes ()
-        let change = addRootChild "admitted"
-        let! result =
-            CoreAuth.post
-                runtime.credentials
-                runtime.browserCredential
-                handle.postChange
-                [ change ]
-            |> Async.StartAsTask
-        let accepted = requireOk "browser post" result
-        Assert.Equal<Guid list>(
-            [ change.changeId ],
-            accepted.changes |> List.map (_.changeId))
-    }
+let ``bound Browser Changes admits a live Browser credential`` () = task {
+    let runtime = fileRuntime ()
+    let change = addRootChild "admitted"
+    let! result =
+        (runtime.browserChanges ()).postChange [ change ]
+        |> Async.StartAsTask
+    let accepted = requireOk "browser post" result
+    Assert.Equal<Guid list>(
+        [ change.changeId ],
+        accepted.changes |> List.map (_.changeId))
+}
 
 [<Fact>]
 let ``HTTP Adapter refuses inactive Core sender with 401 and does not enqueue``
@@ -109,18 +96,17 @@ let ``HTTP Adapter refuses inactive Core sender with 401 and does not enqueue``
         let posts = ResizeArray<Change list>()
         let handle = recordingHandle posts
         let credentials = CoreCredentials.create ()
+        let bound =
+            CoreAuth.bindHandle
+                credentials
+                (Credential "inactive")
+                handle
         let body =
             Encode.toString 0 (
                 Serialization.encodeChangeBatch
                     { changes = [ addRootChild "http" ] })
         let! result =
-            Api.postChange
-                handle
-                credentials
-                (Credential "inactive")
-                10
-                20
-                body
+            Api.postChange bound 10 20 body
             |> Async.StartAsTask
         Assert.Equal("UnauthorizedHttpResult", result.GetType().Name)
         Assert.Empty(posts)
@@ -133,12 +119,13 @@ let ``HTTP Adapter enqueues when Browser credential is live`` () = task {
     let credentials = CoreCredentials.create ()
     let sender = Credential "browser"
     do! credentials.add sender |> Async.StartAsTask
+    let bound = CoreAuth.bindHandle credentials sender handle
     let change = addRootChild "http-live"
     let body =
         Encode.toString 0 (
             Serialization.encodeChangeBatch { changes = [ change ] })
     let! result =
-        Api.postChange handle credentials sender 10 20 body
+        Api.postChange bound 10 20 body
         |> Async.StartAsTask
     Assert.False(result.GetType().Name = "UnauthorizedHttpResult")
     Assert.Equal<Change list>([ change ], Assert.Single(posts))
@@ -161,10 +148,7 @@ let ``callers reach changes and command on the Core object`` () = task {
 let ``bound Graph-only post refuses an inactive sender`` () = task {
     let runtime = fileRuntime ()
     let bound =
-        CoreAuth.bind
-            runtime.credentials
-            (Credential "inactive")
-            (runtime.changes().postGraphOnlyChange)
+        (runtime.bindChanges (Credential "inactive")).postGraphOnlyChange
     let! result =
         GraphOnlyChangePost.postChunks
             bound

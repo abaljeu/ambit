@@ -1,9 +1,9 @@
 # 25 — Bind Changes at the Core seam
 
-**Status:** needs-triage
+**Status:** done
 **Blocked by:** none
 **Estimate:** 2h
-**Actual:** 15m
+**Actual:** 1h
 
 ## Context
 
@@ -15,9 +15,9 @@ Domain: Core Changes admission. This ticket does not re-open [[07-define-core-fi
 
 Bind Changes inside Core. The Adapter posts through one nested interface, same pattern as `parseBound`. Do not add a Core-level `postChange` facade ([[doc/Decisions/0003-core-is-a-container-of-subobjects.md]]).
 
-- [ ] [[src/Server/RouteRegistration.fs]] `/ambit/changes` does not pass `core.changes ()`, `core.credentials`, and `core.browserCredential` as three arguments into `Api.postChange`. It posts through a bound Changes handle (Browser credential), nested on the Core object.
-- [ ] [[src/Server/Api.fs]] `postChange` does not run `CoreAuth.post` or take a credentials set. Decode JSON and map HTTP status only. Admission stays behind the bound Changes interface.
-- [ ] Tests hit that bound interface: a live Browser credential is admitted; an inactive sender is auth-refused. Callers do not unpack CoreRuntime into admission primitives.
+- [x] [[src/Server/RouteRegistration.fs]] `/ambit/changes` does not pass `core.changes ()`, `core.credentials`, and `core.browserCredential` as three arguments into `Api.postChange`. It posts through a bound Changes handle (Browser credential), nested on the Core object.
+- [x] [[src/Server/Api.fs]] `postChange` does not run `CoreAuth.post` or take a credentials set. Decode JSON and map HTTP status only. Admission stays behind the bound Changes interface.
+- [x] Tests hit that bound interface: a live Browser credential is admitted; an inactive sender is auth-refused. Callers do not unpack CoreRuntime into admission primitives.
 
 ## Related, not this ticket
 
@@ -30,10 +30,17 @@ Bind Changes inside Core. The Adapter posts through one nested interface, same p
 
 [[23-close-core-object-seam.md|23 (Close Core object seam)]], [[src/Server/Core/CoreCredentials.fs]], [[src/Server/Core/CoreRuntime.fs]], [[src/Server/Api.fs]], [[src/Server/RouteRegistration.fs]], [[doc/Decisions/0003-core-is-a-container-of-subobjects.md]], [[plan/core-creation/reports/improve-codebase-architecture.md]], [[CONTEXT.md]]
 
+## Answer
+
+HTTP `/ambit/changes` posts through nested `browserChanges` (Browser credential). [[src/Server/Api.fs]] `postChange` decodes JSON and maps HTTP status only. [[plan/core-creation/reports/implement-issue-25.md]]
+
 ## Time
 
 - 2026-09-06 15m — filed from the architecture review (from chat)
+- 2026-09-06 45m — bind Browser Changes on CoreRuntime; Adapter decode and status only (from chat)
 
 ## Comments
 
 - 2026-09-06 — Filed from [[plan/core-creation/reports/improve-codebase-architecture.md]] (Strong, in-process). Does not swallow 07, 08, Graph-only chunking, or Browser SyncPlanner.
+- 2026-09-06 — Alan handed this to the core-creation agent to implement. Status `ready-for-agent`.
+- 2026-09-06 — Nested `bindChanges` / `browserChanges` on [[src/Server/Core/CoreRuntime.fs]]. `/ambit/changes` posts through `changesBound`. [[src/Server/Api.fs]] `postChange` decodes JSON and maps HTTP status only. No Core-level `postChange` facade. Report: [[plan/core-creation/reports/implement-issue-25.md]].
