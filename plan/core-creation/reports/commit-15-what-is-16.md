@@ -4,7 +4,7 @@ Date: 2026-09-06
 
 ## Issue 15 commit
 
-- Hash: pending
+- Hash: `5d48e8b26dae2176eab3aab489d4032a2e3b7161`
 - Message: Core launches a registered Actor on a span; the caller gets a never-reused public number, not the send credential, and live Nodes show lock-present without SQL or History carrying lock.
 - Script: [[scripts/commit.sh]] with an explicit file list under `src/`, `tests/`, and [[plan/core-creation/]]. [[plan/skills-cleanup/]] and [[.agents/skills/wayfinder/SKILL.md]] were not staged.
 
