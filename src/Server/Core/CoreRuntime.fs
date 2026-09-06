@@ -1,11 +1,14 @@
 namespace Gambol.Server
 
+open System
 open Gambol.Shared
 
 type CoreRuntime =
-    { getHandle: unit -> CoreChanges
+    { changes: unit -> CoreChanges
       credentials: CoreCredentials
-      pool: CoreActorPool
+      command: CoreActorPool
+      browserCredential: Credential
+      parseCredential: Credential
       flushFileSnapshot: unit -> Async<Result<unit, string>>
       getFileRevision: unit -> Async<Revision> }
 
@@ -51,6 +54,13 @@ module CoreRuntime =
                     file.postGraphOnlyChange
                     (fun handle -> handle.postGraphOnlyChange) }
 
+    let private addLifetimeCredentials (credentials: CoreCredentials) =
+        let browser = Credential(Guid.NewGuid().ToString("N"))
+        let parse = Credential(Guid.NewGuid().ToString("N"))
+        credentials.add browser |> Async.RunSynchronously
+        credentials.add parse |> Async.RunSynchronously
+        browser, parse
+
     let create
         (persistenceMode: DatabaseSetup.PersistenceMode)
         (dbStatus: DatabaseSetup.DbStatus)
@@ -72,10 +82,14 @@ module CoreRuntime =
             | DatabaseSetup.PersistenceMode.File, _ ->
                 getFile ()
         let credentials = CoreCredentials.create ()
+        let browserCredential, parseCredential =
+            addLifetimeCredentials credentials
         let pool = CoreActorPool.create credentials
-        { getHandle = fun () -> pool.withLocks (rawHandle ())
+        { changes = fun () -> pool.withLocks (rawHandle ())
           credentials = credentials
-          pool = pool
+          command = pool
+          browserCredential = browserCredential
+          parseCredential = parseCredential
           flushFileSnapshot =
             fun () -> fileAgent.Value |> FileAgent.flushSnapshot
           getFileRevision =

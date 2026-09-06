@@ -58,6 +58,9 @@ let ``inactive sender is auth-refused and is not enqueued`` () = task {
         CoreAuth.post credentials (Credential "inactive") enqueue [ change ]
         |> Async.StartAsTask
     Assert.Equal(Error CoreAuth.refuse, result)
+    Assert.Equal(
+        Error(CoreAdmissionError.text CoreAdmissionError.Unauthorized),
+        result)
     Assert.Empty(posts)
 }
 
@@ -96,7 +99,14 @@ let ``Adapter cookie fail and inactive sender are the same refuse family`` () =
             Encode.toString 0 (
                 Serialization.encodeChangeBatch { changes = [ change ] })
         let! coreFail =
-            Api.postChange handle 10 20 body |> Async.StartAsTask
+            Api.postChange
+                handle
+                (CoreCredentials.create ())
+                (Credential "inactive")
+                10
+                20
+                body
+            |> Async.StartAsTask
         Assert.Equal(cookieFail.GetType(), coreFail.GetType())
         Assert.Equal("UnauthorizedHttpResult", coreFail.GetType().Name)
     }
@@ -110,10 +120,15 @@ let ``TCP or Database failure is not that auth refuse`` () = task {
     Assert.False(CoreAuth.isAuthRefuse tcp)
     Assert.True(CoreAuth.isAuthRefuse CoreAuth.refuse)
     let handle = unusedHandle (fun _ -> async.Return(Error unavailable))
+    let credentials = CoreCredentials.create ()
+    let sender = Credential "live"
+    do! credentials.add sender |> Async.StartAsTask
     let change = addRootChild "system"
     let body =
         Encode.toString 0 (
             Serialization.encodeChangeBatch { changes = [ change ] })
-    let! result = Api.postChange handle 10 20 body |> Async.StartAsTask
+    let! result =
+        Api.postChange handle credentials sender 10 20 body
+        |> Async.StartAsTask
     Assert.False(result.GetType().Name = "UnauthorizedHttpResult")
 }

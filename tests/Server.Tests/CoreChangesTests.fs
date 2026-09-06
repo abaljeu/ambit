@@ -144,14 +144,21 @@ let private recordingHandle (posts: ResizeArray<Change list>) =
 let ``HTTP Adapter passes typed Changes only after valid decode`` () = task {
     let posts = ResizeArray<Change list>()
     let handle = recordingHandle posts
+    let credentials = CoreCredentials.create ()
+    let sender = Credential "browser"
+    do! credentials.add sender |> Async.StartAsTask
     let change = addRootChild 0 "adapter"
     let validBody =
         Encode.toString 0 (
             Serialization.encodeChangeBatch
                 { changes = [ change ] })
 
-    let! _ = Api.postChange handle 10 20 validBody |> Async.StartAsTask
-    let! _ = Api.postChange handle 10 20 "not-json" |> Async.StartAsTask
+    let! _ =
+        Api.postChange handle credentials sender 10 20 validBody
+        |> Async.StartAsTask
+    let! _ =
+        Api.postChange handle credentials sender 10 20 "not-json"
+        |> Async.StartAsTask
 
     let posted = Assert.Single(posts)
     Assert.Equal<Change list>([ change ], posted)

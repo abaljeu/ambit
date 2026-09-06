@@ -25,14 +25,11 @@ type CoreActorPool =
 [<RequireQualifiedAccess>]
 module CoreActorPool =
 
-    [<Literal>]
-    let unknownActor = "unknown actor"
+    let unknownActor = CoreAdmissionError.text UnknownActor
 
-    [<Literal>]
-    let unknownJob = "unknown job"
+    let unknownJob = CoreAdmissionError.text UnknownJob
 
-    [<Literal>]
-    let overlap = "span overlaps a live job"
+    let overlap = CoreAdmissionError.text Overlap
 
     type private Job =
         { credential: Credential
@@ -171,7 +168,13 @@ module CoreActorPool =
                 | Error err -> return Error err
                 | Ok plan ->
                     do! credentials.add plan.credential
-                    Async.Start(plan.actor plan.subgraph plan.credential handle)
+                    let bound =
+                        CoreAuth.bindHandle
+                            credentials
+                            plan.credential
+                            handle
+                    Async.Start(
+                        plan.actor plan.subgraph plan.credential bound)
                     return Ok(PublicNumber plan.number)
         }
 

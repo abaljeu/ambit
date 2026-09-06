@@ -125,6 +125,10 @@ let ``launch that shares a NodeId with a live span is refused`` () = task {
         ignore (requireOk "first" first)
         let! second = pool.launch handle request |> Async.StartAsTask
         Assert.Equal(Error CoreActorPool.overlap, second)
+        Assert.Equal(
+            Error(CoreAdmissionError.text CoreAdmissionError.Overlap),
+            second)
+        Assert.False(CoreAuth.isAuthRefuse CoreActorPool.overlap)
     finally
         FileAgent.dispose agent
 }
@@ -187,6 +191,10 @@ let ``unknown actor is refused`` () = task {
                   span = spanOf state.graph childId }
             |> Async.StartAsTask
         Assert.Equal(Error CoreActorPool.unknownActor, launched)
+        Assert.Equal(
+            Error(CoreAdmissionError.text CoreAdmissionError.UnknownActor),
+            launched)
+        Assert.False(CoreAuth.isAuthRefuse CoreActorPool.unknownActor)
     finally
         FileAgent.dispose agent
 }
@@ -287,6 +295,76 @@ let ``query uses the public number, not a span NodeId`` () = task {
         Assert.Equal(spanOf state.graph b, job2.span)
         let! missing = pool.query (PublicNumber 0) |> Async.StartAsTask
         Assert.Equal(Error CoreActorPool.unknownJob, missing)
+        Assert.Equal(
+            Error(CoreAdmissionError.text CoreAdmissionError.UnknownJob),
+            missing)
+        Assert.False(CoreAuth.isAuthRefuse CoreActorPool.unknownJob)
+    finally
+        FileAgent.dispose agent
+}
+
+[<Fact>]
+let ``Actor post through launch handle is admitted with the job credential`` () =
+    task {
+        let dataDir = newTempDir ()
+        let agent = FileAgent.create dataDir
+        try
+            let handle = FileAgent.coreChanges agent
+            let credentials = CoreCredentials.create ()
+            let pool = CoreActorPool.create credentials
+            let posted =
+                TaskCompletionSource<Result<CoreChangesAccepted, string>>()
+            pool.register (ActorName "test") (fun subgraph _ core -> async {
+                let parent = subgraph.nodes.[Graph.rootId]
+                let childId = NodeId.New()
+                let! rev = core.getRevision ()
+                let change =
+                    { id = rev.Value
+                      changeId = Guid.NewGuid()
+                      ops =
+                        [ Op.NewNode(childId, "from actor")
+                          Op.Replace(
+                              Graph.rootId,
+                              parent.children,
+                              parent.children @ [ ChildNode.owner childId ]) ] }
+                let! result = core.postChange [ change ]
+                posted.TrySetResult(result) |> ignore
+            })
+            let! childId = addChild handle "span" |> Async.StartAsTask
+            let! state = handle.getState () |> Async.StartAsTask
+            let state = requireOk "state" state
+            let! launched =
+                pool.launch handle
+                    { name = ActorName "test"
+                      revision = state.revision
+                      span = spanOf state.graph childId }
+                |> Async.StartAsTask
+            ignore (requireOk "launch" launched)
+            let! actorResult = posted.Task.WaitAsync(TimeSpan.FromSeconds 5.0)
+            ignore (requireOk "actor post" actorResult)
+        finally
+            FileAgent.dispose agent
+    }
+
+[<Fact>]
+let ``Actor handle wrap refuses a different inactive credential`` () = task {
+    let dataDir = newTempDir ()
+    let agent = FileAgent.create dataDir
+    try
+        let handle = FileAgent.coreChanges agent
+        let credentials = CoreCredentials.create ()
+        let bound =
+            CoreAuth.bindHandle credentials (Credential "inactive") handle
+        let! state = handle.getState () |> Async.StartAsTask
+        let state = requireOk "state" state
+        let change =
+            { id = state.revision.Value
+              changeId = Guid.NewGuid()
+              ops =
+                [ Op.NewNode(NodeId.New(), "nope")
+                  Op.Replace(Graph.rootId, [], [ ChildNode.owner (NodeId.New()) ]) ] }
+        let! result = bound.postChange [ change ] |> Async.StartAsTask
+        Assert.Equal(Error CoreAuth.refuse, result)
     finally
         FileAgent.dispose agent
 }

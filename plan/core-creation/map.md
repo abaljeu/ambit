@@ -11,6 +11,7 @@ Define an implementation-ready initial Core increment that extracts the full cur
 - Preserve current HTTP, database, file-authority, acknowledgement, timeout, and mirror behavior during extraction. Database authority and view-only file mode remain later work under [[plan/roadmap/epics/chapters/acid-apply.md]].
 - Every runtime Change must reach the authoritative Server Graph and History through Core Changes. Named startup and repair paths may remain temporary exceptions until the ACID apply work.
 - Future map sessions must follow [[.agents/skills/wayfinder/SKILL.md]]. Grilling tickets must also follow [[.agents/skills/grilling/SKILL.md]] and [[.agents/skills/domain-modeling/SKILL.md]], use [[CONTEXT.md]], and keep the Project current through [[.cursor/skills/project-work/SKILL.md]].
+- Agent instruction for Core vs Adapter vs Browser (typed Core object; no lock UI this increment) lives in [[project.md]].
 
 ## Decisions so far
 

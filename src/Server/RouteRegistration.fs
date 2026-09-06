@@ -29,10 +29,7 @@ module RouteRegistration =
             DataDir: string
             Mode: DatabaseSetup.PersistenceMode
             DbStatus: DatabaseSetup.DbStatus
-            GetHandle: unit -> CoreChanges
-            Credentials: CoreCredentials
-            FlushFileSnapshot: unit -> Async<Result<unit, string>>
-            GetFileRevision: unit -> Async<Revision>
+            Core: CoreRuntime
         }
 
     type RouteAssets =
@@ -134,11 +131,18 @@ module RouteRegistration =
             DataDir = dataDir
             Mode = persistenceMode
             DbStatus = dbStatus
-            GetHandle = runtime.getHandle
-            Credentials = runtime.credentials
-            FlushFileSnapshot = runtime.flushFileSnapshot
-            GetFileRevision = runtime.getFileRevision
+            Core = runtime
         }
+
+    let private coreChanges (persistence: PersistenceContext) =
+        persistence.Core.changes ()
+
+    let private parseBound (persistence: PersistenceContext) =
+        let core = persistence.Core
+        CoreAuth.bindHandle
+            core.credentials
+            core.parseCredential
+            (core.changes ())
 
     let private stripXmlDeclaration (text: string) =
         if text.StartsWith("<?xml") then
@@ -267,7 +271,7 @@ module RouteRegistration =
                 return Results.Unauthorized()
             else
                 try
-                    let handle = persistence.GetHandle ()
+                    let handle = coreChanges persistence
                     return! Api.getState handle req |> Async.StartAsTask
                 with ex ->
                     let detail =
@@ -282,7 +286,7 @@ module RouteRegistration =
             if not (auth.IsAuthenticated req) then
                 return Results.Unauthorized()
             else
-                let handle = persistence.GetHandle ()
+                let handle = coreChanges persistence
                 let pageEpoch = stamps.PageBuildEpochSec ()
                 let clientRev = parseClientRev req
                 return!
@@ -295,7 +299,7 @@ module RouteRegistration =
             else
                 use reader = new StreamReader(req.Body)
                 let! body = reader.ReadToEndAsync()
-                let handle = persistence.GetHandle ()
+                let handle = coreChanges persistence
                 let pageEpoch = stamps.PageBuildEpochSec ()
                 return!
                     Api.postLoad handle (stamps.DeployEpochSec ()) pageEpoch body
@@ -308,11 +312,13 @@ module RouteRegistration =
                 bindClientHint req |> ignore
                 use reader = new StreamReader(req.Body)
                 let! body = reader.ReadToEndAsync()
-                let handle = persistence.GetHandle ()
+                let core = persistence.Core
                 let pageEpoch = stamps.PageBuildEpochSec ()
                 return!
                     Api.postChange
-                        handle
+                        (core.changes ())
+                        core.credentials
+                        core.browserCredential
                         (stamps.DeployEpochSec ())
                         pageEpoch
                         body
@@ -320,14 +326,14 @@ module RouteRegistration =
         })) |> ignore
 
     let private prepareGitSave (persistence: PersistenceContext) () = async {
-        let handle = persistence.GetHandle ()
+        let handle = coreChanges persistence
         return!
             SavePrep.syncDataDir
                 persistence.Mode
                 persistence.DbStatus
                 (fun () -> handle.getState ())
-                persistence.FlushFileSnapshot
-                persistence.GetFileRevision
+                persistence.Core.flushFileSnapshot
+                persistence.Core.getFileRevision
                 persistence.DataDir
     }
 
@@ -365,9 +371,14 @@ module RouteRegistration =
             else
                 use reader = new StreamReader(req.Body)
                 let! body = reader.ReadToEndAsync()
-                let handle = persistence.GetHandle ()
+                let core = persistence.Core
                 return!
-                    Api.postParseFile handle persistence.DataDir body
+                    Api.postParseFile
+                        (core.changes ())
+                        core.credentials
+                        core.parseCredential
+                        persistence.DataDir
+                        body
                     |> Async.StartAsTask
         })) |> ignore
         app.MapPost("/ambit/save", Func<HttpRequest, Task<IResult>>(fun req -> task {
@@ -502,14 +513,14 @@ module RouteRegistration =
                 auth.IsAuthenticated
                 httpResponseLogFile
             let flushForGit () = async {
-                let handle = persistence.GetHandle ()
+                let handle = coreChanges persistence
                 let! flushResult =
                     SavePrep.syncGitArtifacts
                         persistence.Mode
                         persistence.DbStatus
                         (fun () -> handle.getState ())
-                        persistence.FlushFileSnapshot
-                        persistence.GetFileRevision
+                        persistence.Core.flushFileSnapshot
+                        persistence.Core.getFileRevision
                         persistence.DataDir
                 match flushResult with
                 | Ok _ -> return Ok ()
@@ -517,7 +528,7 @@ module RouteRegistration =
             }
             let reconcileGitPush label changedPaths =
                 LazyLoadReconciliationServer.reconcileChangedPaths
-                    (persistence.GetHandle ())
+                    (parseBound persistence)
                     persistence.DataDir
                     label
                     changedPaths
@@ -537,12 +548,12 @@ module RouteRegistration =
                 app
                 auth.IsAuthenticated
                 persistence.DataDir
-                persistence.GetHandle
+                (fun () -> parseBound persistence)
             LazyLoadReconciliationServer.registerAddedRoute
                 app
                 auth.IsAuthenticated
                 persistence.DataDir
-                persistence.GetHandle
+                (fun () -> parseBound persistence)
             WorkspaceWebDav.registerRoutes
                 app
                 auth.IsAuthenticated

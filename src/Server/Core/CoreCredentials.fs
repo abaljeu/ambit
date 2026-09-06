@@ -4,6 +4,21 @@ open Gambol.Shared
 
 type Credential = Credential of string
 
+type CoreAdmissionError =
+    | Unauthorized
+    | UnknownJob
+    | UnknownActor
+    | Overlap
+
+module CoreAdmissionError =
+
+    let text (err: CoreAdmissionError) =
+        match err with
+        | Unauthorized -> "Unauthorized"
+        | UnknownJob -> "unknown job"
+        | UnknownActor -> "unknown actor"
+        | Overlap -> "span overlaps a live job"
+
 type CoreCredentials =
     { add: Credential -> Async<unit>
       remove: Credential -> Async<unit>
@@ -12,13 +27,12 @@ type CoreCredentials =
 [<RequireQualifiedAccess>]
 module CoreAuth =
 
-    [<Literal>]
-    let refuse = "Unauthorized"
+    let refuse = CoreAdmissionError.text Unauthorized
 
     let isAuthRefuse (err: string) = err = refuse
 
-    let admit (live: bool) : Result<unit, string> =
-        if live then Ok () else Error refuse
+    let admit (live: bool) : Result<unit, CoreAdmissionError> =
+        if live then Ok () else Error Unauthorized
 
     let post
         (credentials: CoreCredentials)
@@ -30,9 +44,27 @@ module CoreAuth =
         async {
             let! live = credentials.contains sender
             match admit live with
-            | Error err -> return Error err
+            | Error err -> return Error(CoreAdmissionError.text err)
             | Ok () -> return! enqueue changes
         }
+
+    let bind
+        (credentials: CoreCredentials)
+        (sender: Credential)
+        (enqueue:
+            Change list -> Async<Result<CoreChangesAccepted, string>>)
+        : Change list -> Async<Result<CoreChangesAccepted, string>> =
+        fun changes -> post credentials sender enqueue changes
+
+    let bindHandle
+        (credentials: CoreCredentials)
+        (sender: Credential)
+        (handle: CoreChanges)
+        : CoreChanges =
+        { handle with
+            postChange = bind credentials sender handle.postChange
+            postGraphOnlyChange =
+                bind credentials sender handle.postGraphOnlyChange }
 
 [<RequireQualifiedAccess>]
 module CoreCredentials =

@@ -1,8 +1,9 @@
 # 23 — Close Core object seam
 
-**Status:** ready-for-agent
-**Blocked by:** None — can start immediately.
+**Status:** done
+**Blocked by:** [[24-clarify-core-increment-boundary.md|24 (Clarify Core increment boundary)]]
 **Estimate:** 3h
+**Actual:** 2h45m
 
 ## Context
 
@@ -14,10 +15,10 @@ Domain: outliner Graph, files, and Actors. Files stay behind 07 except that this
 
 Close the Core object / typed DDD function seam. Production `postChange` presents a live `Credential`. Call sites hold a Core object and call typed functions on its subobjects. They do not unpack `CoreRuntime` into a flattened HTTP context and drop `pool`.
 
-- [ ] Every production post to Core Changes presents a live `Credential` (`CoreAuth.post` or the typed Changes function that admits). HTTP [[src/Server/Api.fs]] `postChange`, Graph-only [[src/Server/GraphOnlyChangePost.fs]] / [[src/Server/LazyLoadReconciliationServer.fs]], and an Actor that holds `CoreChanges` do not enqueue with no sender.
-- [ ] The HTTP host keeps a Core object ([[doc/Decisions/0003-core-is-a-container-of-subobjects.md]]). [[src/Server/RouteRegistration.fs]] does not unpack `CoreRuntime` into `PersistenceContext`, drop `pool`, and keep an unused `Credentials` field. Callers use `core.changes.*` and `core.command.launch` / `core.command.query` (names may match the live modules) instead of a bare `GetHandle`.
-- [ ] Typed functions, not primitives, at the Core seam: `Credential`, `Revision`, `Change list`, `ActorName`, `PublicNumber`, `NodeRange`. Cookie token strings stay in the Adapter. `GraphOnlyChangePost` uses `Revision`, not `revision: int`. Admission Error is typed (`Unauthorized`, unknown job, overlap refuse), not a free `string`. Existing Change Reject text from [[03-define-typed-core-changes-contract.md|03]] may remain.
-- [ ] Tests prove the two success facts: production-shaped posts present `Credential` and are auth-refused when the sender is not live; callers reach Changes and Command through the Core object, not a dismantled runtime.
+- [x] Every production post to Core Changes presents a live `Credential` (`CoreAuth.post` or the typed Changes function that admits). HTTP [[src/Server/Api.fs]] `postChange`, Graph-only [[src/Server/GraphOnlyChangePost.fs]] / [[src/Server/LazyLoadReconciliationServer.fs]], and an Actor that holds `CoreChanges` do not enqueue with no sender.
+- [x] The HTTP host keeps a Core object ([[doc/Decisions/0003-core-is-a-container-of-subobjects.md]]). [[src/Server/RouteRegistration.fs]] does not unpack `CoreRuntime` into `PersistenceContext`, drop `pool`, and keep an unused `Credentials` field. Callers use `core.changes.*` and `core.command.launch` / `core.command.query` (names may match the live modules) instead of a bare `GetHandle`.
+- [x] Typed functions, not primitives, at the Core seam: `Credential`, `Revision`, `Change list`, `ActorName`, `PublicNumber`, `NodeRange`. Cookie token strings stay in the Adapter. `GraphOnlyChangePost` uses `Revision`, not `revision: int`. Admission Error is typed (`Unauthorized`, unknown job, overlap refuse), not a free `string`. Existing Change Reject text from [[03-define-typed-core-changes-contract.md|03]] may remain.
+- [x] Tests prove the two success facts: production-shaped posts present `Credential` and are auth-refused when the sender is not live; callers reach Changes and Command through the Core object, not a dismantled runtime.
 
 ## Related, not this ticket
 
@@ -31,6 +32,15 @@ Close the Core object / typed DDD function seam. Production `postChange` present
 
 [[14-server-tracks-credentials.md|14 (Server tracks credentials)]], [[src/Server/Core/CoreChanges.fs]], [[src/Server/Core/CoreCredentials.fs]], [[src/Server/Core/CoreActorPool.fs]], [[src/Server/Core/CoreRuntime.fs]], [[CONTEXT.md]], [[plan/core-creation/reports/core-api-boundary-review.md]], [[24-clarify-core-increment-boundary.md|24 (Clarify Core increment boundary)]]
 
+## Answer
+
+Production posts present a live Credential through CoreAuth; HTTP holds CoreRuntime as Core (`changes` / `command`). [[plan/core-creation/reports/implement-24-then-23.md]]
+
+## Time
+
+- 2026-09-06 2h45m — Core object at HTTP, CoreAuth on production posts, typed admission DU (from chat)
+
 ## Comments
 
 - 2026-09-06 — Filed from the Core API boundary review (partial). Closes the remaining 14 Post-admission seam and the unpacked `CoreRuntime` seam. Does not swallow 07, 08, 17, or 21.
+- 2026-09-06 — Locked plan [[plan/core-creation/mitigations.md]]: 24 first, then this ticket. Blocked by 24 until the Agent instruction lands.
