@@ -47,6 +47,11 @@ Workflow skills in [[.cursor/skills/]]:
 - [[.cursor/skills/to-archive/SKILL.md]] — move a `done` project into `plan/done/` and drop it from the overview
 - [[.cursor/skills/update-matt-skills/SKILL.md]] — pull mattpocock skills tree on vendor, flatten to .agents/skills, merge to live
 
+Ticket skills in [[.agents/skills/]] (user-invoked):
+
+- [[.agents/skills/to-tickets/SKILL.md]] — tracer-bullet vertical slices
+- [[.agents/skills/to-feature-tickets/SKILL.md]] — cohesive testable capabilities
+
 Tool-specific notes:
 
 - Codex: [[.cursor/codex-context.md]]

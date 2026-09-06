@@ -6,7 +6,9 @@ disable-model-invocation: true
 
 # To Feature Tickets
 
-Break a plan, spec, or conversation into **tickets**. Each ticket is one cohesive piece of functionality that you can test on its own. Each ticket names the tickets that **block** it.
+Break a plan, spec, or conversation into **implementantion feature** tickets. A feature ticket does not correspond one to one with end-user features.  Each ticket is one cohesive code module (casual meaning) that you can test on its own. Each ticket names the tickets that **block** it.
+
+[[.agents/skills/to-tickets/SKILL.md]] tickets tracer-bullet vertical slices. This skill tickets capabilities.
 
 ## Process
 
@@ -49,6 +51,8 @@ Iterate until the user approves the breakdown.
 ### 5. Publish the tickets
 
 Publish the approved tickets.
+
+Plan files and Stage: follow [[.cursor/skills/project-work/SKILL.md]].
 
 Write one file per ticket under `plan/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01` in dependency order (blockers first). Each file's "Blocked by" lists the numbers/titles it depends on. Use the per-ticket file template below — one ticket per file. Include one or two pointers to defining specs from which the ticket was derived. Not just `spec.md` but more trace back to decision files.
 

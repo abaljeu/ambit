@@ -39,7 +39,7 @@ Grounded in the wayfinder arc ([[.agents/skills/wayfinder/SKILL.md]]) and the is
 
 ## Setting the stage
 
-Whenever a skill advances a project's **stage** — grilling or wayfinder names a destination, a spec or refactor plan locks, `to-tickets` breaks it down, implementation starts or finishes — set `Stage:` in that project's `project.md`, refresh `Updated:`, then regenerate the overview. Create `project.md` if the effort lacks one.
+Whenever a skill advances a project's **stage** — grilling or wayfinder names a destination, a spec or refactor plan locks, `to-tickets` or `to-feature-tickets` breaks it down, implementation starts or finishes — set `Stage:` in that project's `project.md`, refresh `Updated:`, then regenerate the overview. Create `project.md` if the effort lacks one.
 
 `grilling` is the only stage that invokes a skill. When you start or advance a project and `Stage:` is `grilling`, follow [[.agents/skills/grilling/SKILL.md]]. Stay in the interview: do not implement, ticket, or skip it. After grilling starts, set `charting`. An agent already working a different issue of the same project does not stop. Other stages are status-only.
 
