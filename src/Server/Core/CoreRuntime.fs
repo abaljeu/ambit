@@ -5,6 +5,7 @@ open Gambol.Shared
 type CoreRuntime =
     { getHandle: unit -> CoreChanges
       credentials: CoreCredentials
+      pool: CoreActorPool
       flushFileSnapshot: unit -> Async<Result<unit, string>>
       getFileRevision: unit -> Async<Revision> }
 
@@ -58,7 +59,7 @@ module CoreRuntime =
         : CoreRuntime =
         let fileAgent = lazy (FileAgent.create dataDir)
         let getFile () = fileAgent.Value |> FileAgent.coreChanges
-        let getHandle () =
+        let rawHandle () =
             match persistenceMode, dbStatus with
             | DatabaseSetup.PersistenceMode.Db, DatabaseSetup.DbStatus.Ok ->
                 DatabaseSetup.getOrCreateDbAgent dbConnectionString dataDir
@@ -70,8 +71,11 @@ module CoreRuntime =
                 getFile () |> readOnly
             | DatabaseSetup.PersistenceMode.File, _ ->
                 getFile ()
-        { getHandle = getHandle
-          credentials = CoreCredentials.create ()
+        let credentials = CoreCredentials.create ()
+        let pool = CoreActorPool.create credentials
+        { getHandle = fun () -> pool.withLocks (rawHandle ())
+          credentials = credentials
+          pool = pool
           flushFileSnapshot =
             fun () -> fileAgent.Value |> FileAgent.flushSnapshot
           getFileRevision =

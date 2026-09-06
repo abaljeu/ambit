@@ -15,6 +15,7 @@
 
     <Compile Include="GraphBuild.fs" />
     <Compile Include="GraphQuery.fs" />
+    <Compile Include="GraphSpan.fs" />
     <Compile Include="GraphMutate.fs" />
     <Compile Include="GraphOps.fs" />
     <Compile Include="RefExprTypes.fs" />
