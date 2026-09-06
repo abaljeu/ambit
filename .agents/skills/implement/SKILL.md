@@ -8,7 +8,7 @@ Implement the work described by the user in the spec or tickets.
 
 Git: follow [[.cursor/skills/git-protocol/SKILL.md]].
 
-Follow /implement-fsharp-feature to code.
+Follow [[.cursor/skills/implement-fsharp-feature/SKILL.md]] to code.
 
 Use /tdd where possible, at pre-agreed seams.
 
