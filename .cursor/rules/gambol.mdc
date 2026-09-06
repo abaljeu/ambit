@@ -10,6 +10,7 @@ Canonical project rules are split across [[.cursor/rules/]]:
 - [[.cursor/rules/project-values.mdc]] — project aims and stack
 - [[.cursor/rules/environment.mdc]] — shell, paths, tooling
 - [[.cursor/rules/fsharp-source.mdc]] — F# conventions (scoped to *.fs)
+- [[.cursor/rules/core-api.mdc]] — Core vs Adapter pointers (scoped to Server Core / Adapter)
 - [[.cursor/rules/markdown-writing.mdc]] — markdown conventions (scoped to *.md)
 - [[.cursor/rules/testing-workflow.mdc]] — TDD, test running, and Client compile gate (scoped to tests, Shared, Client)
 - [[.cursor/rules/planning-docs.mdc]] — roadmap/plan documents (scoped to doc/)
@@ -46,6 +47,11 @@ Workflow skills in [[.cursor/skills/]]:
 - [[.cursor/skills/projects-overview/SKILL.md]] — regenerate the `plan/index.md` project stage overview
 - [[.cursor/skills/to-archive/SKILL.md]] — move a `done` project into `plan/done/` and drop it from the overview
 - [[.cursor/skills/update-matt-skills/SKILL.md]] — pull mattpocock skills tree on vendor, flatten to .agents/skills, merge to live
+
+Ticket skills in [[.agents/skills/]] (user-invoked):
+
+- [[.agents/skills/to-tickets/SKILL.md]] — tracer-bullet vertical slices
+- [[.agents/skills/to-feature-tickets/SKILL.md]] — cohesive testable capabilities
 
 Tool-specific notes:
 

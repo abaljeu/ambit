@@ -10,13 +10,13 @@ Issues and specs for this repo live as Markdown files under `plan/`.
 
 **Decision ticket**: A Wayfinder child issue whose question resolves to a decision rather than an implementation slice.
 
-**Epic**: A standing Roadmap file at `plan/roadmap/epics/<slug>.md` whose resolution is a met user end-goal. It has a **Stage** (same words as a feature-set Project, except steering). **User Epics** and **Developer Epics** may have **Chapters** (named beats) plus **Required for done**. Developer Epic Chapters are optional until charted. Each Chapter uses the raised shape of an implementation issue: **What to build** is major features; the checklist is pointers to Projects or issues that belong to that beat. See [[plan/roadmap/map.md]]. The wayfinder frontier does not scan `epics/`.
+**Epic**: A standing Roadmap file at `plan/roadmap/epics/<slug>.md` whose resolution is a met user end-goal. It has **Stage**, never Status, and never Stage `slice`. **User Epics** and **Developer Epics** may have **Chapters** (named beats) plus **Required for done**. Developer Epic Chapters are optional until charted. Each Chapter uses the raised shape of an implementation issue: **What to build** is major features; the checklist is pointers to Projects or tickets that belong to that beat. See [[plan/roadmap/map.md]]. The wayfinder frontier does not scan `epics/`.
 
-**Chapter**: A named beat of an Epic. Not a Stage. Checklist items belong to that beat and are not repeated on Required for done.
+**Chapter**: A named beat of an Epic. The Chapter file has Stage, never Status, and never Stage `slice`. Checklist items belong to that beat and are not repeated on Required for done.
 
-**Triage role**: The next-action state assigned during triage, using the mapping in [[doc/agents/triage-labels.md]].
+**Triage role**: The next-action state on a ticket, using the Status list in [[doc/agents/triage-labels.md]].
 
-An issue tracker holds issues. An issue carries one triage role at a time. A decision ticket is an issue, but its Wayfinder lifecycle is recorded separately from implementation triage.
+An issue tracker holds issues. Every ticket carries one Status at a time, including Wayfinder decision tickets. A ticket does not carry Stage.
 
 Use **issue tracker**, not “backlog backend” or “backlog manager.” Use **issue** except for Wayfinder decision tickets.
 
@@ -25,7 +25,7 @@ Use **issue tracker**, not “backlog backend” or “backlog manager.” Use *
 - One Project per directory: `plan/<slug>/` (a feature-set Project, or the Roadmap).
 - The spec is `plan/<feature-slug>/spec.md`.
 - Implementation issues are separate files at `plan/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01`.
-- A `Status:` line records an implementation issue's triage role. `Status: grilling` or `Stage: grilling` on an issue is not a triage role: it is a directive. The next agent that starts or advances that issue must follow [[.agents/skills/grilling/SKILL.md]] on it before any implement work.
+- A `Status:` line records a ticket's triage role from [[triage-labels.md]]. Tickets do not carry `Stage:`. Grilling is a method, not a Status or a Stage.
 - Append comments and conversation under `## Comments`.
 
 ## Time tracking
@@ -59,7 +59,7 @@ Actual: 14h
 ```
 
 - `Started:` — set once (earliest wins). Do not clear.
-- `Finished:` — set when Stage becomes `done` (or Alan says done). For `dead`, use the retire date; leave blank while live.
+- `Finished:` — set when Stage becomes `done` (or Alan says done). Omit on `dead` (revive is allowed). Leave blank while live.
 - `Actual:` — sum of every issue's `Actual:` / `## Time` under `plan/<slug>/issues/`. Refresh when finishing or when Alan asks.
 
 Optional project-level `## Time` only for reconstruction notes that do not belong on one ticket (e.g. a discuss/review session spanning many tickets).
@@ -93,9 +93,9 @@ When a skill says “fetch the relevant issue,” read the referenced file. The 
 
 The Wayfinder map is one file with one child file per decision ticket.
 
-- **Map**: `plan/<effort>/map.md` holds Notes, Decisions so far, Not yet specified, and Out of scope. The Roadmap also lists open Epics grouped by Stage, each with its current Chapter. Order inside a Stage does not matter.
-- **Child decision ticket**: `plan/<effort>/issues/NN-<slug>.md`, numbered from `01`, contains the question. `Type:` records `research`, `prototype`, `grilling`, or `task`; `Status:` records `open`, `claimed`, or `resolved`.
-- **Blocking**: `Blocked by: NN, NN` near the top. A decision ticket is unblocked when every listed ticket is resolved.
-- **Frontier**: Scan the effort's `issues/` directory for open, unblocked, unclaimed tickets; first by number wins. On the Roadmap, do not treat `epics/` as the frontier.
-- **Claim**: Set `Status: claimed` and save before doing any work.
-- **Resolve**: Append the resolution under `## Answer`, set `Status: resolved`, then append a one-line gist and link to the map's Decisions so far.
+- **Map**: `plan/<effort>/map.md` holds Notes, Decisions so far, Not yet specified, and Out of scope. The Roadmap also lists Epics grouped by Stage, each with its current Chapter. Order inside a Stage does not matter. The Roadmap file itself has no Stage and no Status.
+- **Child decision ticket**: `plan/<effort>/issues/NN-<slug>.md`, numbered from `01`, contains the question. `Type:` records `research`, `prototype`, `grilling`, or `task`; `Status:` records a value from [[triage-labels.md]].
+- **Blocking**: `Blocked by: NN, NN` near the top. A ticket is unblocked when every listed ticket is `done`.
+- **Frontier**: Scan the effort's `issues/` directory for tickets whose Status is `ready-for-agent` or `ready-for-human` and that are unblocked; first by number wins. On the Roadmap, do not treat `epics/` as the frontier.
+- **Claim**: Do not change Status. In-flight work keeps `ready-for-agent` or `ready-for-human` until `done`.
+- **Resolve**: Append the resolution under `## Answer`, set `Status: done`, then append a one-line gist and link to the map's Decisions so far.

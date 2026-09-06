@@ -61,6 +61,63 @@ let ``typed Normal caller publishes accepted Change to Poll`` () = task {
         FileAgent.dispose agent
 }
 
+/// Thread-pool Actor: Local Graph plus full CoreChanges, off the apply mailbox.
+let private runActor
+    (subgraph: Graph)
+    (handle: CoreChanges)
+    (act: Graph -> CoreChanges -> Async<'a>)
+    : Task<'a> =
+    act subgraph handle |> Async.StartAsTask
+
+let private produceFromSubgraph
+    (subgraph: Graph)
+    (handle: CoreChanges)
+    : Async<Result<CoreChangesAccepted, string>> =
+    async {
+        let priorChildren =
+            match Map.tryFind Graph.rootId subgraph.nodes with
+            | Some node -> node.children
+            | None -> []
+        let childId = NodeId.New()
+        let change =
+            { id = 0
+              changeId = Guid.NewGuid()
+              ops =
+                [ Op.NewNode(childId, "test Actor")
+                  Op.Replace(
+                      Graph.rootId,
+                      priorChildren,
+                      priorChildren @ [ ChildNode.owner childId ]) ] }
+        return! handle.postChange [ change ]
+    }
+
+[<Fact>]
+let ``test Actor posts Normal Change off apply mailbox and Poll sees it`` () =
+    task {
+        let dataDir = newTempDir ()
+        let agent = FileAgent.create dataDir
+        try
+            let handle = FileAgent.coreChanges agent
+            let subgraph = Graph.create ()
+            let! accepted =
+                runActor subgraph handle produceFromSubgraph
+            let accepted = requireOk "actor post" accepted
+            Assert.Equal(Revision 1, accepted.revision)
+            Assert.NotEmpty(accepted.changes)
+
+            let! poll = Api.getPoll handle 10 20 0 |> Async.StartAsTask
+            match box poll with
+            | :? ContentHttpResult as content ->
+                let response = decodeChangeResponse content.ResponseContent
+                Assert.Equal(accepted.revision, response.revision)
+                Assert.Equal<Change list>(accepted.changes, response.changes)
+            | other ->
+                Assert.Fail(
+                    $"Expected ContentHttpResult, got {other.GetType().FullName}")
+        finally
+            FileAgent.dispose agent
+    }
+
 let private recordingHandle (posts: ResizeArray<Change list>) =
     let state =
         { graph = Graph.create ()
@@ -93,8 +150,12 @@ let ``HTTP Adapter passes typed Changes only after valid decode`` () = task {
             Serialization.encodeChangeBatch
                 { changes = [ change ] })
 
-    let! _ = Api.postChange handle 10 20 validBody |> Async.StartAsTask
-    let! _ = Api.postChange handle 10 20 "not-json" |> Async.StartAsTask
+    let! _ =
+        Api.postChange handle 10 20 validBody
+        |> Async.StartAsTask
+    let! _ =
+        Api.postChange handle 10 20 "not-json"
+        |> Async.StartAsTask
 
     let posted = Assert.Single(posts)
     Assert.Equal<Change list>([ change ], posted)

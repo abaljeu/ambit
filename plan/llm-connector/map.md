@@ -4,27 +4,31 @@ Labels: wayfinder:map
 
 ## Destination
 
-Run `?` with a message and included context. The reply is Owned children of the focus Node. The call is a long-running Actor: launch, answers arrive while the person works, cancel stops a slow job.
+Run Agent with a message and included context. The reply is Owned children of the focus Node. The call is a long-running Actor: launch, answers arrive while the person works, cancel stops a slow job.
 
 ## Notes
 
 - Enables [[plan/roadmap/epics/agent-chat-managed-context.md]] Chapter **Ask from what I see**.
 - This Project owns pack, LLM call, and write-back. [[plan/expression-language/issues/33-recognize-ask-run-statement.md]] only recognizes `?` as a Run statement.
+- Spoken name is Run Agent. Spelling on Focus is `?` plus a message, then Run. Glossary: [[CONTEXT.md]] Run Agent, Included context, Agent. Do not say Agent for the Actor.
 - Long-running Actor: [[plan/core-creation/issues/01-generalized-server-actor-produce-path.md]], [[plan/core-creation/issues/02-core-actor-pool.md]]. ESO background: [[plan/event-sourced-ops/details/actors-and-jobs.md]].
-- Glossary: [[CONTEXT.md]] Included context. Do not say Agent for the LLM.
 
 ## Decisions so far
 
-- Same Run command, third statement `?` plus a message. Reply is Owned children of the focus Node.
-- Included context is SiteMap under Zoom, honoring Fold. Visible is speech, not glossary.
-- Project name is llm-connector (renamed from run-ask).
+- Same Run command. Third statement `?` plus a message. Spoken name: Run Agent.
+- Reply is Owned children of Focus. Actor converts reply Md→graph and adds those children.
+- Included context is SiteMap under Zoom, honoring Fold. First Run Agent uses Zoom as `rootnode`. Later calls may pass another root. Nodelist is SiteMap visible Nodes below `rootnode`.
+- First Agent is Grok Bot. One-user env/host secret bundled with the Actor. Core does not touch the key. FIXME before publishing: per-user keys. [[issues/02-which-llm-and-credentials.md]]
+- Extra launch UI and secondary logins stay later. Executing Run Agent launches the Actor: Browser async POST → Server launch → Actor. Not a blocking Run.
+- `POST /ambit/actors` Create only. JSON `{ actor, nodelist, focusnode, rootnode, revision }`. Cookie from [[plan/core-creation/issues/20-client-presents-credential.md]]. No token field in JSON. Returns `PublicNumber` (Browser may ignore until cancel).
+- ActorName selects which Actor. LLM message is the `?` remainder on Focus Header, not a LaunchRequest field.
+- This Project changes extract/`LaunchRequest` to nodelist + focus + root. Do not revise [[plan/core-creation/issues/09-define-core-command-launch-contract.md]]. Extract graph is that subgraph (include `rootnode` as Md document root). Actor Md-writes it (not to a file). Codec is Md for now.
+- Lock is about Changes: only Focus Changes, so lock Focus only. Extract may be larger.
+- First usable Run Agent has no cancel. Actor must return by itself. Drop-on-complete waits on [[plan/core-creation/issues/18-finish-and-drop.md]]. Cancel remains on the destination as later work.
 
 ## Not yet specified
 
-- How the pack is encoded for the LLM.
-- Which LLM and where credentials live.
-- The seam after expression-language recognizes `?`.
-- How much of the Core Actor spine must land before the first `?` is usable.
+- Implementation waits on [[plan/core-creation/issues/18-finish-and-drop.md]]. Cancel is later, not first usable Run Agent.
 
 ## Out of scope
 

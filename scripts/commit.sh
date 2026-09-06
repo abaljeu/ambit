@@ -16,5 +16,11 @@ head="$(git rev-parse --abbrev-ref HEAD)"
 [[ "$head" == "dev" ]] \
     || { echo "Commits belong on dev; HEAD is $head. Switch to dev first." >&2; exit 1; }
 
-git add .
-git commit -m "$1"
+message="$1"
+shift
+if [[ $# -eq 0 ]]; then
+    git add .
+else
+    git add -- "$@"
+fi
+git commit -m "$message"

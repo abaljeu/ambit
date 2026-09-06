@@ -323,7 +323,7 @@ let postEmpty
 
 /// POST JSON: onSuccess (2xx body), onHttpError (4xx/5xx status + body text),
 /// onNetworkFail (fetch failure). Error bodies are logged in App.fs batch submit.
-[<Emit("fetch($0,{method:'POST',headers:$5,body:$1})" +
+[<Emit("fetch($0,{method:'POST',credentials:'same-origin',headers:$5,body:$1})" +
        ".then(function(r){return r.text().then(function(t){" +
        "if(r.ok){$2(t);}else{$3(r.status,t);}});})" +
        ".catch(function(){$4()})")>]

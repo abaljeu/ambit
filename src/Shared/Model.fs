@@ -99,7 +99,9 @@ type Node =
       kind       : NodeKind
       documentState : DocumentState
       /// Mutation time via `touch`; after server persist, artifact disk mtime.
-      updateTime : DateTime }
+      updateTime : DateTime
+      /// Live lock-present. History and SQL omit this field.
+      lockPresent : bool }
 
 
 [<RequireQualifiedAccess>]
@@ -134,7 +136,8 @@ module NodeUpdateTime =
 
 type Node with
     /// Build a node; omit fields to use defaults (empty text/name/children/classes,
-    /// childrenStatus = Loaded, owner = root Guid.Empty, kind = Normal, updateTime = missing).
+    /// childrenStatus = Loaded, owner = root Guid.Empty, kind = Normal,
+    /// updateTime = missing, lockPresent = false).
     /// Unloaded is valid only when children is empty.
     static member Create
         (
@@ -147,7 +150,8 @@ type Node with
             ?owner: NodeId,
             ?kind: NodeKind,
             ?documentState: DocumentState,
-            ?updateTime: DateTime
+            ?updateTime: DateTime,
+            ?lockPresent: bool
         ) : Node =
         let children' = defaultArg children []
         let childrenStatus' = defaultArg childrenStatus Loaded
@@ -164,7 +168,8 @@ type Node with
               owner = defaultArg owner (NodeId Guid.Empty)
               kind = defaultArg kind Normal
               documentState = defaultArg documentState Current
-              updateTime = defaultArg updateTime NodeUpdateTime.missing }
+              updateTime = defaultArg updateTime NodeUpdateTime.missing
+              lockPresent = defaultArg lockPresent false }
 
 
 // Span of child indices [start, endd) under graph node `pnode` (parent NodeId).

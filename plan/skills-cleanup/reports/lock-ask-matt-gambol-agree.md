@@ -1,0 +1,14 @@
+# Lock: Ask-Matt and gambol.mdc must agree
+
+Ask-Matt ([[.agents/skills/ask-matt/SKILL.md]]) is the human advisor agent (Matt-style interview and route for the human). [[.cursor/rules/gambol.mdc]] is the primary agent instruction file (what the coding agent always follows). Keep both surfaces. They must agree: same jobs, same skill names, same sequence. Do not skip Gambol adapters. Do not pick one router and delete the other. Cluster 1's "which router is canonical?" is answered as both, aligned. Skill home is locked in [[plan/skills-cleanup/reports/lock-tickets-home-wayfinder.md]]. The vendor merge/setup-matt bootstrap is obsolete in [[plan/skills-cleanup/reports/lock-vendor-merge-obsolete.md]] (Ask-Matt stays). Later instruction edits follow [[.cursor/skills/prepare-agent-instruction-change/SKILL.md]].
+
+Current disagreements (facts from the two files; later obedience must close them):
+
+- Ask-Matt never names [[.agents/skills/to-feature-tickets/SKILL.md]]. gambol.mdc lists it as a ticket skill next to [[.agents/skills/to-tickets/SKILL.md]]. After Wayfinder, Ask-Matt always goes `/to-spec` then `/to-tickets` then `/implement`.
+- Ask-Matt routes build to `/implement` driving `/tdd` (now the locked entry). gambol.mdc still names [[.cursor/skills/implement-fsharp-feature/SKILL.md]] as a workflow skill; later they must agree as referenced augmentations ([[plan/skills-cleanup/reports/lock-implement-path.md]]).
+- Ask-Matt Precondition says run [[.agents/skills/setup-matt-pocock-skills/SKILL.md]] first. gambol.mdc already points at the live local tracker docs ([[doc/agents/issue-tracker.md]], [[doc/agents/triage-labels.md]], [[doc/agents/domain.md]]) and does not name setup-matt.
+- Ask-Matt does not name Gambol adapters that gambol.mdc lists: [[.cursor/skills/git-protocol/SKILL.md]], [[.cursor/skills/git-share/SKILL.md]], [[.cursor/skills/git-master/SKILL.md]], [[.cursor/skills/project-work/SKILL.md]], [[.cursor/skills/plan-roadmap-change/SKILL.md]], [[.cursor/skills/add-shared-test/SKILL.md]], [[.cursor/skills/investigate-fable-client/SKILL.md]], [[.cursor/skills/prepare-agent-instruction-change/SKILL.md]], [[.cursor/skills/to-archive/SKILL.md]], [[.cursor/skills/projects-overview/SKILL.md]], and the other workflow skills in that index.
+- Ask-Matt records hard decisions as ADRs via `/grill-with-docs` and `/domain-modeling`. gambol.mdc points at [[doc/agents/domain.md]] (Committed Decisions under [[doc/Decisions/]]).
+- gambol.mdc's ticket-skill index names only `to-tickets` and `to-feature-tickets` from [[.agents/skills/]]. Ask-Matt is a full idea-to-ship router over `/grill-with-docs`, `/to-spec`, `/implement`, `/tdd`, `/code-review`, `/triage`, `/wayfinder`, and more. The two surfaces do not yet list the same jobs.
+
+This pass did not edit skill or rule bodies (no SKILL.md, gambol.mdc, or AGENTS.md rewrites).
