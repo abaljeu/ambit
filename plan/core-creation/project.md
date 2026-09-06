@@ -32,6 +32,8 @@ Actual: 12h50m
 - [[plan/core-creation/issues/20-client-presents-credential.md]] — live Browser presents a credential on every message.
 - [[plan/core-creation/issues/21-client-shows-lock-present.md]] — Browser shows lock-present via state, Fetch, or Query.
 - [[plan/core-creation/issues/22-client-cancels-a-job.md]] — user cancels a job from the UI.
+- [[plan/core-creation/issues/23-close-core-object-seam.md]] — production posts present Credential; callers use the typed Core object.
+- [[plan/core-creation/issues/24-clarify-core-increment-boundary.md]] — agent instruction: Core vs Adapter vs Client; no lock UI this increment.
 
 ## Decision tickets
 
@@ -62,6 +64,7 @@ Actual: 12h50m
 - [[plan/core-creation/reports/implement-issue-16.md]] — query a registered job by public number.
 - [[plan/core-creation/reports/implement-issue-20.md]] — Browser presents the session cookie; missing cookie is auth-refuse.
 - [[plan/core-creation/reports/core-api-boundary-review.md]] — Core API seam vs the map destination.
+- [[plan/core-creation/reports/commit-16-mitigation-tickets.md]] — commit issue 16/20; file 23 and 24 from the boundary review.
 - [[plan/core-creation/reports/grill-issue-09-launch-contract.md]] — start grill of the Core Command launch contract.
 - [[plan/core-creation/reports/grill-issue-10-cancellation.md]] — start grill of Actor cancellation and output admission.
 - [[plan/core-creation/reports/grill-issue-11-finish.md]] — grill of Actor finish and failure behavior.
