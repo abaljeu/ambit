@@ -4,7 +4,7 @@ Date: 2026-09-06
 
 ## Commit
 
-- Hash: pending `commit.sh`
+- Hash: `018ac1fac645d378f1fb852610ee2fc43b666817`
 - Message: Clarify Core vs Adapter vs Client for workers, and hold CoreRuntime as the Core object with Credential on every production post.
 - Script: [[scripts/commit.sh]] with an explicit file list. One commit: the locked pair [[../issues/24-clarify-core-increment-boundary.md|24 (Clarify Core increment boundary)]] then [[../issues/23-close-core-object-seam.md|23 (Close Core object seam)]].
 
