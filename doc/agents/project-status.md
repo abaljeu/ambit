@@ -1,12 +1,24 @@
-# Project stage
+# Stage
 
-Every **project** — a `plan/<slug>/` effort — carries one lifecycle **stage**. This file is the single source of truth for the stage vocabulary, the per-project `project.md`, and the overview index.
+This file is the single source of truth for the **Stage** list. Glossary names: [[CONTEXT.md]]. Ticket **Status** is [[triage-labels.md]]. Tracker operations: [[issue-tracker.md]].
 
-A project's `Stage:` is distinct from an issue's `Status:` line, which records a triage role (see [[doc/agents/issue-tracker.md]]). Exception: `Status: grilling` or `Stage: grilling` on an issue is the grilling directive for that issue, not a triage role. An Epic also has a **Stage** (same words as a feature-set Project, except `steering`). **User Epics** and **Developer Epics** may have **Chapters** (named beats) plus **Required for done**; Developer Epic Chapters are optional until charted. Record Epic Stage on the Epic file. The Roadmap map groups Epics by Stage; they are not rows in [[plan/index.md]]. Advancing a Chapter means charting pointers to other Projects’ pieces, not coding on the Roadmap.
+## Who carries Stage
+
+| Entity | `Stage:` | `Status:` | May be `slice` |
+| --- | --- | --- | --- |
+| Feature-set Project | yes | no | yes |
+| Epic | yes | no | no |
+| Chapter | yes | no | no |
+| Ticket | no | yes | — |
+| Roadmap | no | no | — |
+
+Record Project Stage on `plan/<slug>/project.md`. Record Epic Stage on the Epic file. Record Chapter Stage on the Chapter file. The Roadmap map groups Epics by Stage; Epics are not rows in [[plan/index.md]].
+
+**Grilling** is a method, not a Stage. Use it when a concept is already clear. **Archive** is an action from `done` ([[.cursor/skills/to-archive/SKILL.md]]), not a Stage. **Rework** is a move back to a live Stage, not a value. Forced skill gates wait; skills write Stage and do not refuse work by Stage yet.
 
 ## project.md
 
-Each project directory holds a `project.md`:
+Each feature-set Project directory holds a `project.md`:
 
 ```
 # <name>
@@ -15,37 +27,41 @@ Stage: <stage>
 Summary: <one line state the goal of the project.  Use [[.agents/skills/wait-what/SKILL.md]]>
 Updated: <YYYY-MM-DD>
 Started: <YYYY-MM-DD>   # optional until known; set from chat or first build commit
-Finished: <YYYY-MM-DD>  # when Stage is done (or dead); omit while live
+Finished: <YYYY-MM-DD>  # when Stage is done; omit while live; omit on dead
 Actual: <Nh>            # optional; sum of issue ## Time under this project
 ```
 
-Time arc: see [[doc/agents/issue-tracker.md]] (Time tracking). Fill `Started` / `Finished` / `Actual` from conversation handoffs and commits when missing.
+Time arc: see [[issue-tracker.md]] (Time tracking). Fill `Started` / `Finished` / `Actual` from conversation handoffs and commits when missing.
 
-## Stages
-
-Grounded in the wayfinder arc ([[.agents/skills/wayfinder/SKILL.md]]) and the issue tracker:
+## Stage list
 
 | Stage | Meaning |
 | --- | --- |
-| `grilling` | directive: the next agent that starts or advances this project must follow [[.agents/skills/grilling/SKILL.md]]; not status-only. After grilling starts, set `charting`. |
-| `charting` | destination unnamed; grilling or wayfinder mapping the frontier |
-| `steering` | standing Project that sequences Epics toward the application; not a bounded feature-set destination |
-| `spec` | destination reached (spec, plan, or decision); not yet broken into issues |
-| `tickets` | broken into implementation issues; ready to build |
-| `active` | implementation underway |
-| `blocked` | waiting on a named dependency or decision |
-| `done` | delivered; awaiting cleanup or removal |
-| `dead` | retired without delivery; will not resume |
+| `chart` | Scope the effort. Wayfinder writes the charter (scope and explore). |
+| `spec` | Tight spec. On an Epic or Chapter: fill Context, Goal, and pointers to Projects or tickets. |
+| `slice` | Project only. Sequence implementation increments after spec. |
+| `build` | Implementing. On an Epic or Chapter: stamp when a pointed Project enters `slice` or `build`. |
+| `done` | Delivered. |
+| `dead` | Abandoned. Replaces the live Stage. Revive by setting a live Stage (`chart`, `spec`, `slice`, or `build`). |
 
-## Setting the stage
+## Who writes Stage
 
-Whenever a skill advances a project's **stage** — grilling or wayfinder names a destination, a spec or refactor plan locks, `to-tickets` or `to-feature-tickets` breaks it down, implementation starts or finishes — set `Stage:` in that project's `project.md`, refresh `Updated:`, then regenerate the overview. Create `project.md` if the effort lacks one.
+Set `Stage:` and `Updated:`, then regenerate [[plan/index.md]] with [[.cursor/skills/projects-overview/SKILL.md]] when a feature-set Project Stage changes. Create `project.md` if the effort lacks one.
 
-`grilling` is the only stage that invokes a skill. When you start or advance a project and `Stage:` is `grilling`, follow [[.agents/skills/grilling/SKILL.md]]. Stay in the interview: do not implement, ticket, or skip it. After grilling starts, set `charting`. An agent already working a different issue of the same project does not stop. Other stages are status-only.
+| Skill or act | Stage |
+| --- | --- |
+| `/wayfinder` on a bounded effort | `chart` |
+| `/to-spec` | `spec` |
+| `/to-tickets`, `/to-feature-tickets` | `slice` |
+| First implement | `build` |
+| Delivered | `done` |
+| Abandon | `dead` |
+
+Epic and Chapter never run `/to-tickets`. Stamp `build` when a pointed Project enters `slice` or `build`. The Roadmap writes neither field.
 
 ## Overview
 
-[[plan/index.md]] is a regenerated table of every live project's name, stage, and summary. Regenerate it from the `project.md` files with [[.cursor/skills/projects-overview/SKILL.md]] after any stage change. Never hand-maintain its rows.
+[[plan/index.md]] is a regenerated table of every live feature-set Project's name, stage, and summary. Regenerate it from the `project.md` files with [[.cursor/skills/projects-overview/SKILL.md]] after any stage change. Never hand-maintain its rows. The Roadmap is not a Stage row of this vocabulary.
 
 ## Archive
 

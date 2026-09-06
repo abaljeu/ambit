@@ -39,17 +39,29 @@ _Avoid_: permission, override, allowlist exception
 Local Markdown under `plan/` for specs and issues; see [[doc/agents/issue-tracker.md]]. Not GitHub or GitLab issues. Issues may carry optional `Estimate:` / `Actual:` and a `## Time` log. Projects carry `Started:` / `Finished:` / `Actual:` filled from chat handoffs and commits when missing.
 _Avoid_: backlog, GitHub issues, GitLab issues, tickets board
 
+**Stage**:
+The arc field (`Stage:`) on a feature-set Project, an Epic, or a Chapter. The value list is [[doc/agents/project-status.md]]. The Roadmap does not carry Stage. A ticket does not carry Stage.
+_Avoid_: Status (for this field), grilling (as a Stage), steering (as a Stage), charting, tickets, active (as Stage tokens)
+
+**Status**:
+The next-action field (`Status:`) on a ticket. The value list is [[doc/agents/triage-labels.md]]. A Project, Epic, Chapter, and the Roadmap do not carry Status.
+_Avoid_: Stage (for this field), open, claimed, resolved (as ticket Status)
+
+**Grilling**:
+An interview method that refines a concept that is already clear. Not a Stage and not a Status. Use it at any live Stage when a slice is sharp. When the destination is still fog, use Wayfinder.
+_Avoid_: Stage: grilling, Status: grilling
+
 **Project**:
 A `plan/<slug>/` effort. Two kinds: the Roadmap, and a feature-set Project.
 _Avoid_: epic project (as a third kind)
 
 **Roadmap**:
-The steering Project at [[plan/roadmap/]]. It answers what to work on next by grouping Epics by Stage. Epics are parallel. Continue from recent work: that Epic, its current Chapter (or Developer Required live items), then Project/issue Stage/Status. Order inside a Stage does not rank Epics.
+The Project at [[plan/roadmap/]] that sequences Epics toward the application. It answers what to work on next by grouping Epics by Stage. It carries neither Stage nor Status. Epics are parallel. Continue from recent work: that Epic, its current Chapter (or Developer Required live items), then Project Stage and ticket Status. Order inside a Stage does not rank Epics.
 _Avoid_: master project, master steering, doc/roadmap (as this Project), numbered Epic sequence (as the listing rule)
 
 **Epic**:
-A marketable user end-goal, larger than a feature or interaction. On the Roadmap it is a standing file under [[plan/roadmap/epics/]] until that goal is met. It has a Stage (same words as a feature-set Project, except steering). Two kinds: **User Epic** and **Developer Epic**. The Epic is not done until every Chapter item and every Required item is done (or the named part of that Project). Wiki portions about this Epic are Required; the whole wiki Project is not.
-_Avoid_: saga, tale, epic project, marketable story (as the glossary name), steering (as an Epic Stage), Stage (for a Chapter), person-job, person-job Epic, home Epic, home-Epic, Person-job, Use Epic, end-user Epic (as this kind name), pseudo-epic (say Developer Epic), Homed Projects (say Required for done)
+A marketable user end-goal, larger than a feature or interaction. On the Roadmap it is a standing file under [[plan/roadmap/epics/]] until that goal is met. It has Stage, never Status, and never Stage `slice`. Two kinds: **User Epic** and **Developer Epic**. The Epic is not done until every Chapter item and every Required item is done (or the named part of that Project). Wiki portions about this Epic are Required; the whole wiki Project is not.
+_Avoid_: saga, tale, epic project, marketable story (as the glossary name), steering (as an Epic Stage), tickets (as an Epic Stage), slice (as an Epic Stage), person-job, person-job Epic, home Epic, home-Epic, Person-job, Use Epic, end-user Epic (as this kind name), pseudo-epic (say Developer Epic), Homed Projects (say Required for done)
 
 **User Epic**:
 An Epic that fulfills an end-user’s goal for a particular pattern of usage of the software. Has Chapters plus Required for done. Opening line is still *A person [verb phrase]* where that is already the file shape.
@@ -58,16 +70,16 @@ An Epic that fulfills an end-user’s goal for a particular pattern of usage of 
 An Epic that serves developers. May have Chapters plus Required for done (same Chapter files as a User Epic). Chapters are optional until charted. Same files: [[plan/roadmap/epics/organize-huge-outlines.md]], [[plan/roadmap/epics/robust-outliner.md]], [[plan/roadmap/epics/process-improvement.md]].
 
 **Chapter**:
-A named beat of an Epic (Visit Troy, see Circe). Not a Project Stage. Not an issue. Each Chapter is a file under [[plan/roadmap/epics/chapters/]]. **Part of** names the Epic. **Blocked by** names other Chapters. **Context** and **Goal** follow [[.agents/skills/wait-what/SKILL.md]]. **Required for done** is a checklist of Projects or issues that belong to that beat; the Chapter does not own them. Those items are not repeated on Required for done.
-_Avoid_: Stage (for this beat), leg, beat (as the glossary name), issue (for this file)
+A named beat of an Epic (Visit Troy, see Circe). Not an issue. The Chapter file carries Stage, never Status, and never Stage `slice`. Each Chapter is a file under [[plan/roadmap/epics/chapters/]]. **Part of** names the Epic. **Blocked by** names other Chapters. **Context** and **Goal** follow [[.agents/skills/wait-what/SKILL.md]]. **Required for done** is a checklist of Projects or tickets that belong to that beat; the Chapter does not own them. Those items are not repeated on Required for done.
+_Avoid_: calling the beat itself a Stage, leg, beat (as the glossary name), issue (for this file), Status (on a Chapter)
 
 **Feature-set Project**:
 A Project defined by focused features, user stories, and implementation issues. It may enable one or more Epics.
 _Avoid_: epic project, feature project (say Feature-set Project)
 
 **Steering**:
-The Stage of the Roadmap. It sequences Epics and does not reach done while the application is unfinished.
-_Avoid_: using steering as a Stage on a feature-set Project
+The Roadmap’s work of sequencing Epics. Not a Stage value.
+_Avoid_: using steering as a Stage
 
 **Committed Decision**:
 A record under [[doc/Decisions/]] of a choice that is costly to reverse, surprising without context, and made between genuine alternatives. The mattpocock skills call this an ADR; in this project always say Committed Decision.
@@ -292,6 +304,7 @@ _Avoid_: using Agentic for Sync, Upload, or a long-running job
 ## Additional approved terms
 These terms are permitted with standard definition:
 
+- **slice**: an implementation increment, and the Project-only Stage after spec ([[doc/agents/project-status.md]]).
 - **SiteMap**: the client's derived view index over the resident Graph.
 - **ChangeRequest**: the client's pending-queue and submit-payload unit (Change, Undo, or Redo).
 - **StateResponse**: the `/state` endpoint's response payload.
