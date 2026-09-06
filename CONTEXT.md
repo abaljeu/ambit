@@ -297,6 +297,10 @@ _Avoid_: visible (as the glossary name), context (bare, for this pack)
 An LLM-empowered worker. Ambit will have one.
 _Avoid_: Actor (for this counterpart), bot, copilot, assistant (as the glossary name), Grok (as this name)
 
+**Run Agent**:
+The Run command that invokes the Agent. The person types `?` plus a message on Focus, then Run. `?` is the statement spelling, not the spoken name.
+_Avoid_: Ask (as this command name), `?` (as this command name)
+
 **Agentic**:
 Pertaining to an Agent.
 _Avoid_: using Agentic for Sync, Upload, or a long-running job
