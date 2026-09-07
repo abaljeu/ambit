@@ -25,7 +25,7 @@ Use **issue tracker**, not “backlog backend” or “backlog manager.” Use *
 - One Project per directory: `plan/<slug>/` (a feature-set Project, or the Roadmap).
 - The spec is `plan/<feature-slug>/spec.md`.
 - Implementation issues are separate files at `plan/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01`.
-- A `Status:` line records a ticket's triage role from [[triage-labels.md]]. Tickets do not carry `Stage:`. Grilling is a method, not a Status or a Stage.
+- A `**Status:**` line records a ticket's triage role from [[triage-labels.md]]. Tickets do not carry `Stage:`. Grilling is a method, not a Status or a Stage.
 - Append comments and conversation under `## Comments`.
 
 ## Time tracking
@@ -34,7 +34,7 @@ Goal: weeks later, answer **when we started**, **when we finished**, and **how m
 
 ### On an issue
 
-Optional fields after `Status:`:
+Optional fields after `**Status:**`:
 
 - `Estimate:` — optional forecast (`45m`, `2h`). Omit when unknown. Do not rewrite to match Actual unless Alan asks.
 - `Actual:` — sum of `## Time` once any work is logged.
@@ -94,8 +94,8 @@ When a skill says “fetch the relevant issue,” read the referenced file. The 
 The Wayfinder map is one file with one child file per decision ticket.
 
 - **Map**: `plan/<effort>/map.md` holds Notes, Decisions so far, Not yet specified, and Out of scope. The Roadmap also lists Epics grouped by Stage, each with its current Chapter. Order inside a Stage does not matter. The Roadmap file itself has no Stage and no Status.
-- **Child decision ticket**: `plan/<effort>/issues/NN-<slug>.md`, numbered from `01`, contains the question. `Type:` records `research`, `prototype`, `grilling`, or `task`; `Status:` records a value from [[triage-labels.md]].
+- **Child decision ticket**: `plan/<effort>/issues/NN-<slug>.md`, numbered from `01`, contains the question. `**Type:**` records `research`, `prototype`, `grilling`, or `task`; `**Status:**` records a value from [[triage-labels.md]].
 - **Blocking**: `Blocked by: NN, NN` near the top. A ticket is unblocked when every listed ticket is `done`.
 - **Frontier**: Scan the effort's `issues/` directory for tickets whose Status is `ready-for-agent` or `ready-for-human` and that are unblocked; first by number wins. On the Roadmap, do not treat `epics/` as the frontier.
 - **Claim**: Do not change Status. In-flight work keeps `ready-for-agent` or `ready-for-human` until `done`.
-- **Resolve**: Append the resolution under `## Answer`, set `Status: done`, then append a one-line gist and link to the map's Decisions so far.
+- **Resolve**: Append the resolution under `## Answer`, set `**Status:** done`, then append a one-line gist and link to the map's Decisions so far.

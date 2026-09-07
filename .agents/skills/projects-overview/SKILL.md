@@ -5,10 +5,10 @@ description: Regenerate plan/index.md, a stage overview of every project. Use wh
 
 # Projects overview
 
-Follow [[doc/agents/project-status.md]] for the stage vocabulary and the `project.md` format. Git: [[.agents/skills/git-protocol/SKILL.md]].
+Follow [[doc/agents/project-status.md]] for the Stage list (`chart` | `spec` | `slice` | `build` | `done` | `dead`) and the Who-writes-Stage table. Git: [[.agents/skills/git-protocol/SKILL.md]].
 
 Regenerate [[plan/index.md]] so every **project** — a `plan/<slug>/` directory — appears with its **stage**.
 
 1. List every `plan/*/` directory except the `done/` archive. Completion: every live directory accounted for, including any lacking a `project.md`.
-2. For each, read `Stage:` and `Summary:` from its `project.md`. If the file is missing, derive a one-line summary from the directory's contents, assign stage `charting`, and create the `project.md`.
-3. Write `plan/index.md`: a table with one row per directory, sorted by stage in vocabulary order (`grilling`, `charting`, `steering`, `spec`, `tickets`, `active`, `blocked`, `done`, `dead`) then by name, each row linking the project. Completion: row count equals directory count.
+2. For each, read `Stage:` and `Summary:` from its `project.md`. If the file is missing, derive a one-line summary from the directory's contents, assign Stage `chart`, and create the `project.md`.
+3. Write `plan/index.md`: a table with one row per directory, sorted by Stage in vocabulary order (`chart`, `spec`, `slice`, `build`, `done`, `dead`) then by name, each row linking the project. Completion: row count equals directory count.

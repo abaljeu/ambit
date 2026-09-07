@@ -40,12 +40,12 @@ Local Markdown under `plan/` for specs and issues; see [[doc/agents/issue-tracke
 _Avoid_: backlog, GitHub issues, GitLab issues, tickets board
 
 **Stage**:
-The arc field (`Stage:`) on a feature-set Project, an Epic, or a Chapter. The value list is [[doc/agents/project-status.md]]. The Roadmap does not carry Stage. A ticket does not carry Stage.
-_Avoid_: Status (for this field), grilling (as a Stage), steering (as a Stage), charting, tickets, active (as Stage tokens)
+The arc field (`Stage:`) on a feature-set Project, an Epic, or a Chapter. Values: `chart` | `spec` | `slice` | `build` | `done` | `dead`. The value list is [[doc/agents/project-status.md]]. The Roadmap does not carry Stage. A ticket does not carry Stage.
+_Avoid_: Status (for this field), grilling (as a Stage), steering (as a Stage), charting, tickets, active, blocked (as Stage tokens)
 
 **Status**:
-The next-action field (`Status:`) on a ticket. The value list is [[doc/agents/triage-labels.md]]. A Project, Epic, Chapter, and the Roadmap do not carry Status.
-_Avoid_: Stage (for this field), open, claimed, resolved (as ticket Status)
+The next-action field (`**Status:**`) on a ticket. Values: `ready-for-agent` | `ready-for-human` | `needs-info` | `blocked` | `done` | `cancelled`. The value list is [[doc/agents/triage-labels.md]]. A Project, Epic, Chapter, and the Roadmap do not carry Status.
+_Avoid_: Stage (for this field), needs-triage, wontfix, open, resolved, claimed, closed, agent-done, in-progress (as ticket Status)
 
 **Grilling**:
 An interview method that refines a concept that is already clear. Not a Stage and not a Status. Use it at any live Stage when a slice is sharp. When the destination is still fog, use Wayfinder.

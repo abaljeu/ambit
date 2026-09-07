@@ -17,7 +17,7 @@ Follow [[.agents/skills/git-protocol/SKILL.md]] for where work sits. Then write 
 
 ## 2. Stage
 
-Read `Stage:` before you change it. If it is `grilling`, follow [[.agents/skills/grilling/SKILL.md]]. As soon as grilling starts, set `charting`. Stay in the interview. Vocabulary: [[doc/agents/project-status.md]]. An issue with `Status:` or `Stage:` `grilling` is the same directive for that issue; do not change the project's Stage for it.
+Read `Stage:` before you change it. Vocabulary and Who-writes-Stage: [[doc/agents/project-status.md]]. Grilling is a method, not a Stage. Do not write `Stage: grilling`. If the user invokes a grill skill, follow it; grilling does not write Stage.
 
 Set `Stage:` and `Updated:` in `project.md` when the effort starts or advances. Then regenerate [[plan/index.md]].
 
