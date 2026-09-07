@@ -7,11 +7,11 @@ Canonical project rules are split across [[.agents/rules/]]. Cursor attaches the
 - [[.agents/rules/core-api.md]] — Core vs Adapter pointers (scoped to Server Core / Adapter)
 - [[.agents/rules/markdown-writing.md]] — markdown conventions (scoped to *.md)
 - [[.agents/rules/planning-docs.md]] — roadmap/plan documents (scoped to doc/)
-- [[.agents/rules/project-stage.md]] — keep each `plan/` project's `Stage:` and the overview current
+- [[.agents/rules/project-stage.md]] — keep each `plan/` project's `Stage:` current
 
 Shared runtime state:
 
-- [[plan/index.md]] — project stage overview; work is that project's issues/
+- [[plan/index.md]] — leftover snapshot left on disk; Stage of record is each `plan/<slug>/project.md`. Work is that project's issues/
 - [[CONTEXT.md]] — concise domain glossary
 
 Imported engineering skill configuration:
@@ -20,7 +20,7 @@ Imported engineering skill configuration:
 - [[doc/agents/triage-labels.md]] — ticket Status list
 - [[doc/agents/domain.md]] — canonical project docs under [[doc/]] and Committed Decisions under [[doc/Decisions/]]
 - [[doc/agents/scope-vs-commitment.md]] — scope is effort-local; product commitments need an authorized record
-- [[doc/agents/project-status.md]] — per-project `Stage:` vocabulary and the [[plan/index.md]] overview
+- [[doc/agents/project-status.md]] — per-project `Stage:` vocabulary
 
 Ask-Matt is the human advisor: [[.agents/skills/ask-matt/SKILL.md]]. This file is the primary Agent instruction file. Both remain. The job lists below match that skill in name and sequence. Default grill is `/grill-me`.
 
@@ -65,8 +65,7 @@ Workflow skills in [[.agents/skills/]]:
 - [[.agents/skills/prepare-agent-instruction-change/SKILL.md]] — maintain rules/skills/bridges
 - [[.agents/skills/write-simple-parser/SKILL.md]] — simple document parsers / format codecs
 - [[.agents/skills/scratch-script/SKILL.md]] — scratch a short .sh with Write, then run that file
-- [[.agents/skills/projects-overview/SKILL.md]] — regenerate the [[plan/index.md]] project stage overview
-- [[.agents/skills/to-archive/SKILL.md]] — move a `done` project into [[plan/done/]] and drop it from the overview
+- [[.agents/skills/to-archive/SKILL.md]] — move a `done` project into [[plan/done/]]
 
 ## Standalone
 
@@ -80,6 +79,7 @@ Workflow skills in [[.agents/skills/]]:
 - [[.agents/skills/wait-what/SKILL.md]] — re-pitch a message that did not land
 - [[.agents/skills/teach/SKILL.md]] — learn a concept over multiple sessions
 - [[.agents/skills/writing-for-agents/SKILL.md]] — writing documents that agents consume
+- [[.agents/skills/projects-overview/SKILL.md]] — retired; leave [[plan/index.md]] as a leftover snapshot
 
 Tool-specific notes:
 

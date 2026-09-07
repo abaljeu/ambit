@@ -1,6 +1,6 @@
 ## Project stage upkeep
 
-Whenever any skill starts or advances a **project** (a `plan/<slug>/` effort), set that project's `Stage:` and regenerate [[plan/index.md]] per [[doc/agents/project-status.md]]. Create `project.md` if the effort lacks one.
+Whenever any skill starts or advances a **project** (a `plan/<slug>/` effort), set that project's `Stage:` on its `project.md` per [[doc/agents/project-status.md]]. Create `project.md` if the effort lacks one. Leave [[plan/index.md]] as the leftover snapshot on disk.
 
 Starting or advancing a project follows [[.agents/skills/project-work/SKILL.md]]. Git: [[.agents/skills/git-protocol/SKILL.md]].
 

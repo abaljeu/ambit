@@ -12,7 +12,7 @@ This file is the single source of truth for the **Stage** list. Glossary names: 
 | Ticket | no | yes | — |
 | Roadmap | no | no | — |
 
-Record Project Stage on `plan/<slug>/project.md`. Record Epic Stage on the Epic file. Record Chapter Stage on the Chapter file. The Roadmap map groups Epics by Stage; Epics are not rows in [[plan/index.md]].
+Record Project Stage on `plan/<slug>/project.md`. Record Epic Stage on the Epic file. Record Chapter Stage on the Chapter file. The Roadmap map groups Epics by Stage.
 
 **Grilling** is a method, not a Stage. Use it when a concept is already clear. **Archive** is an action from `done` ([[.agents/skills/to-archive/SKILL.md]]), not a Stage. **Rework** is a move back to a live Stage, not a value. Forced skill gates wait; skills write Stage and do not refuse work by Stage yet.
 
@@ -46,7 +46,7 @@ Time arc: see [[issue-tracker.md]] (Time tracking). Fill `Started` / `Finished` 
 
 ## Who writes Stage
 
-Set `Stage:` and `Updated:`, then regenerate [[plan/index.md]] with [[.agents/skills/projects-overview/SKILL.md]] when a feature-set Project Stage changes. Create `project.md` if the effort lacks one.
+Set `Stage:` and `Updated:` when a feature-set Project Stage changes. Create `project.md` if the effort lacks one. Leave [[plan/index.md]] as the leftover snapshot on disk.
 
 | Skill or act | Stage |
 | --- | --- |
@@ -59,10 +59,10 @@ Set `Stage:` and `Updated:`, then regenerate [[plan/index.md]] with [[.agents/sk
 
 Epic and Chapter never run `/to-tickets`. Stamp `build` when a pointed Project enters `slice` or `build`. The Roadmap writes neither field.
 
-## Overview
+## Leftover snapshot
 
-[[plan/index.md]] is a regenerated table of every live feature-set Project's name, stage, and summary. Regenerate it from the `project.md` files with [[.agents/skills/projects-overview/SKILL.md]] after any stage change. Never hand-maintain its rows. The Roadmap is not a Stage row of this vocabulary.
+[[plan/index.md]] is a leftover snapshot. Leave it on disk. Stage of record is each feature-set Project's `project.md`. The Roadmap is not a Stage row of this vocabulary.
 
 ## Archive
 
-`plan/done/` holds archived projects and is not itself a project — the overview skips it. Once a project reaches `done`, [[.agents/skills/to-archive/SKILL.md]] moves `plan/<slug>/` to `plan/done/<slug>/` and drops it from the overview.
+`plan/done/` holds archived projects and is not itself a project. Once a project reaches `done`, [[.agents/skills/to-archive/SKILL.md]] moves `plan/<slug>/` to `plan/done/<slug>/`.

@@ -10,7 +10,7 @@ You do not remember every skill, so ask. This file is the human advisor. [[.agen
 
 Shared runtime state:
 
-- [[plan/index.md]] — project stage overview; work is that project's issues/
+- [[plan/index.md]] — leftover snapshot left on disk; Stage of record is each `plan/<slug>/project.md`. Work is that project's issues/
 - [[CONTEXT.md]] — concise domain glossary
 
 Imported engineering skill configuration:
@@ -19,7 +19,7 @@ Imported engineering skill configuration:
 - [[doc/agents/triage-labels.md]] — ticket Status list
 - [[doc/agents/domain.md]] — canonical project docs under [[doc/]] and Committed Decisions under [[doc/Decisions/]]
 - [[doc/agents/scope-vs-commitment.md]] — scope is effort-local; product commitments need an authorized record
-- [[doc/agents/project-status.md]] — per-project `Stage:` vocabulary and the [[plan/index.md]] overview
+- [[doc/agents/project-status.md]] — per-project `Stage:` vocabulary
 
 A **flow** is a path through the skills. Most paths run along **idea to ship**. On-ramps merge onto it. Gambol adapters apply on every path. Do not skip them.
 
@@ -82,8 +82,7 @@ Keep grill, spec, and tickets in **one unbroken context window**. Each `/impleme
 - [[.agents/skills/prepare-agent-instruction-change/SKILL.md]] — maintain rules/skills/bridges
 - [[.agents/skills/write-simple-parser/SKILL.md]] — simple document parsers / format codecs
 - [[.agents/skills/scratch-script/SKILL.md]] — scratch a short .sh with Write, then run that file
-- [[.agents/skills/projects-overview/SKILL.md]] — regenerate the [[plan/index.md]] project stage overview
-- [[.agents/skills/to-archive/SKILL.md]] — move a `done` project into [[plan/done/]] and drop it from the overview
+- [[.agents/skills/to-archive/SKILL.md]] — move a `done` project into [[plan/done/]]
 
 These apply on every path. Do not skip them. Git work stays on `dev`, then `ready` / `master`.
 
@@ -99,6 +98,7 @@ These apply on every path. Do not skip them. Git work stays on `dev`, then `read
 - [[.agents/skills/wait-what/SKILL.md]] — re-pitch a message that did not land
 - [[.agents/skills/teach/SKILL.md]] — learn a concept over multiple sessions
 - [[.agents/skills/writing-for-agents/SKILL.md]] — writing documents that agents consume
+- [[.agents/skills/projects-overview/SKILL.md]] — retired; leave [[plan/index.md]] as a leftover snapshot
 
 `/grill-me` is the default grill. `/grill-with-docs` leaves a paper trail in [[CONTEXT.md]]; it is not the default invoke. `/grilling` is the primitive: rounds, the frontier, facts are the agent's job and decisions are yours. `/grill-me` and `/grill-with-docs` are named ways in; `/wayfinder` and `/improve-codebase-architecture` run it internally. Reach for `/grilling` directly only when you want the interview with no wrapper.
 
