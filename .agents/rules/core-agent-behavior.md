@@ -78,7 +78,7 @@ Do not websearch. Tell me if you lack information.
 While in plan mode, any request for a change should be interpreted as a request to plan for the change; do not write detailed code then.
 
 ## Multitasking / SubAgent Delegation
-At startup, a subagent runs `./status.sh` once instead of separate Git branch and working-tree status commands. Run extra Git commands only when the task requires them.
+At startup, a subagent runs [[scripts/gitstatus.sh]] once per [[.agents/skills/git-protocol/SKILL.md]]. Run extra Git commands only when that output is not enough.
 Use subagents to carry out tasks.
 When a subagent completes, summarize its conclusion for the user.
 Subagent must report final results to `plan/<project-name>/reports/<subagent-title>.md`, not chat. Only the final report goes to reports/. The reports directory exists to isolate transactional reporting from longterm project definition artifacts which go to the main <project-name> directory. If a workflow specifies another report path, use that path instead.
