@@ -73,12 +73,6 @@ Only offer to create a Committed Decision when all three are true:
 2. **Surprising without context** — a future reader will wonder "why did they do it this way?"
 3. **The result of a real trade-off** — there were genuine alternatives and you picked one for specific reasons
 
-If any of the three is missing, skip the record. Write it under [[doc/Decisions/]] with sequential numbering (`0001-slug.md`). Scan that directory for the highest existing number and increment by one.
-
-```md
-# {Short title of the decision}
-
-{1-3 sentences: what's the context, what did we decide, and why.}
-```
+If any of the three is missing, skip the record. Write it under [[doc/Decisions/]] with sequential numbering (`0001-slug.md`). Format and optional sections: [[COMMITTED-DECISION-FORMAT.md]](./COMMITTED-DECISION-FORMAT.md).
 
 A project's Out of scope section is **scope**, not a Committed Decision. Do not promote inferred exclusions to Committed Decisions or `doc/` without human confirmation. See [[doc/agents/scope-vs-commitment.md]].

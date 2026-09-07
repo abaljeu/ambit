@@ -1,7 +1,7 @@
 # Define the Core Command launch contract
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by: 03, 05
 Actual: 2h5m
 

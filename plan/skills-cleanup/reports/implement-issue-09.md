@@ -7,7 +7,7 @@
 - domain-modeling: lazy create of [[doc/Decisions/]] is for the first Committed Decision. The offer section uses that name and an inline short template. The skill no longer points at [[.agents/skills/domain-modeling/ADR-FORMAT.md]].
 - ubiquitous-language: description and process name [[CONTEXT.md]] as the glossary. Conversation output stays a proposal. Accepted terms go through domain-modeling. Re-run reads [[CONTEXT.md]].
 - Ticket [[plan/skills-cleanup/issues/09-one-glossary-committed-decision.md]] is `Status: done`.
-- Project Stage stays `build`. [[plan/index.md]] was not edited. This commit stages only the four owned paths.
+- Project Stage stays `build`. This commit stages only the four owned paths.
 
 ## How verified
 

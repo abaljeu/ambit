@@ -1,7 +1,7 @@
 # Research: Prolog control mapped to this language
 
-Type: research
-Status: resolved
+**Type:** research
+**Status:** done
 Blocked by: none
 
 ## Question

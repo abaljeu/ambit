@@ -1,7 +1,7 @@
 # Ready the initial Core Changes increment
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by: 03, 04, 05
 Actual: 50m
 

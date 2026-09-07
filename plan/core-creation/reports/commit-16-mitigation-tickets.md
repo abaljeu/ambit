@@ -8,7 +8,7 @@ Date: 2026-09-06
 - Message: Query a registered Actor by launch public number without a job result; Browser POST presents the session cookie.
 - Script: [[scripts/commit.sh]] with an explicit file list. One commit: [[../issues/16-track-running-job.md|16 (Track running job)]], [[../issues/20-client-presents-credential.md|20 (Client presents credential)]], their tests and sources, [[implement-issue-16.md]], [[implement-issue-20.md]], [[core-api-boundary-review.md]], and [[../project.md]] report index.
 
-[[../issues/16-track-running-job.md]] and [[../issues/20-client-presents-credential.md]] are Status `done`. Project Stage stays `active`. [[plan/index.md]] was not regenerated.
+[[../issues/16-track-running-job.md]] and [[../issues/20-client-presents-credential.md]] are Status `done`. Project Stage stays `active`.
 
 ## Mitigation tickets
 
@@ -22,5 +22,4 @@ Filed from [[core-api-boundary-review.md]] (verdict **partial**). No code mitiga
 ## Left unstaged
 
 - [[.agents/skills/wayfinder/SKILL.md]]
-- [[plan/index.md]] (skills-cleanup Stage row)
 - [[plan/skills-cleanup/project.md]] and [[plan/skills-cleanup/reports/]]

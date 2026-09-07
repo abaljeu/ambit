@@ -9,7 +9,7 @@ Recorded the HITL lock on [[plan/expression-language/issues/07-statements-in-thi
 - Map [[plan/expression-language/map.md]] Decisions so far: 06 gist updated; 07 gist added. Shell remains Not yet specified (not in this spec).
 - [[plan/expression-language/spec-draft.md]] Statements marked Locked. Duplicate section removed.
 - [[plan/expression-language/reports/pipeline-examples.md]] statement rows use `=` / `Name=`. [[plan/expression-language/issues/08-prototype-pipeline-examples.md|Prototype: pipeline examples]] stays open.
-- [[plan/expression-language/project.md]] summary. [[plan/index.md]] updated for that row.
+- [[plan/expression-language/project.md]] summary.
 
 ## Frontier
 

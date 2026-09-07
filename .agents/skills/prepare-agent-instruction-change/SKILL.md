@@ -1,23 +1,23 @@
 ---
 name: prepare-agent-instruction-change
-description: Maintains Gambol agent instructions by editing rules, skills, and tool bridge files without duplication. Use when changing .cursor/rules, .agents/skills, AGENTS.md, .cursor/codex-context.md, or .cursor/copilot-instructions.md.
+description: Maintains Gambol agent instructions by editing rules, skills, and tool bridge files without duplication. Use when changing .agents/rules, .agents/skills, AGENTS.md, .agents/codex-context.md, or .agents/copilot-instructions.md.
 ---
 
 # Prepare Agent Instruction Change
 
-Canonical layout: [[.cursor/rules/gambol.mdc]].
+Canonical layout: [[.agents/rules/gambol.md]].
 
 ## Principles
 
-- **Rules** — policy and file conventions (`alwaysApply` or `globs`).
+- **Rules** — policy and file conventions. Canonical text lives in [[.agents/rules/]]. Cursor loads [[.cursor/rules/]] `.mdc` stubs (`alwaysApply` or `globs`) that point at those files.
 - **Skills** — recurring workflows; link to rules, do not copy them. Repo-shared skills live in [[.agents/skills/]].
-- **Bridges** — tool-specific deltas only (`AGENTS.md`, `.cursor/copilot-instructions.md`, `.cursor/codex-context.md`).
+- **Bridges** — tool-specific deltas only (`AGENTS.md`, [[.agents/copilot-instructions.md]], [[.agents/codex-context.md]]). Cursor still reads [[.cursor/copilot-instructions.md]] and [[.cursor/codex-context.md]] as stubs.
 
 ## Edit workflow
 
 1. Inventory: universal rule, scoped rule, skill, or bridge?
 2. Edit the most specific location; remove duplicated text elsewhere.
-3. Update [[.cursor/rules/gambol.mdc]] if files are added or removed.
+3. Update [[.agents/rules/gambol.md]] if files are added or removed. Keep the matching `.cursor/rules/` stub's frontmatter if a rule is added or removed.
 
 ## Review before finishing
 

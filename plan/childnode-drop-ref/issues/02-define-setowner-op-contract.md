@@ -1,7 +1,7 @@
 # Define SetOwner op contract
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by: 01, 07
 
 ## Question

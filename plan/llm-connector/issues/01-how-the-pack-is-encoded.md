@@ -1,7 +1,7 @@
 # How the pack is encoded for the LLM
 
-Type: grilling
-Status: done
+**Type:** grilling
+**Status:** done
 Blocked by:
 Actual: 55m
 

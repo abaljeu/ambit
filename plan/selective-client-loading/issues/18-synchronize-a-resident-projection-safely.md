@@ -8,7 +8,7 @@
 
 **See also:** [[plan/selective-client-loading/spec.md]] (projected catch-up and atomic install); [[plan/selective-client-loading/issues/14-simplify-selective-loading.md]] (Synchronization and projected correctness); [[plan/selective-client-loading/undo-spec.md]] (clear local History on Poll Changes).
 
-**Status:** agent-done
+**Status:** done
 
 - [x] Ordered Changes from Poll apply structural Ops only to Loaded child lists and apply non-structural facts to resident Headers.
 - [x] An Action that concerns an Absent Header has no projected Graph effect; the Browser still consumes every received Revision so Sync does not stall.

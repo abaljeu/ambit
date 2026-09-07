@@ -1,7 +1,7 @@
 # Define synchronization and revision correctness
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by: 03
 
 ## Question

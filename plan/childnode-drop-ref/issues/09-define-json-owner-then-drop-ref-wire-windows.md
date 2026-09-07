@@ -1,7 +1,7 @@
 # Define JSON owner-then-drop-ref wire windows
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by: 01
 
 ## Question

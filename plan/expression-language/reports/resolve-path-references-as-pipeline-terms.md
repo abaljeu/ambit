@@ -10,7 +10,7 @@ Recorded the HITL decision on [[plan/expression-language/issues/02-path-referenc
 - New open grilling ticket [[plan/expression-language/issues/12-owned-versus-ref-walk-for-descendant.md|Owned versus Ref walk for descendant]] (unblocked). That fog line left the map. Not resolved. No further ticket for the empty-miss addendum.
 - [[plan/expression-language/spec-draft.md]] path-operator table marked Locked, including fail-to-answer.
 - [[plan/expression-language/reports/pipeline-examples.md]] adds `//ws/x`, `#blue` versus `^#blue`, `:*`, and `!-249053534` (zero Answers). [[plan/expression-language/issues/08-prototype-pipeline-examples.md|Prototype: pipeline examples]] stays open.
-- [[plan/expression-language/project.md]] summary mentions path operators locked. [[plan/index.md]] updated for that row.
+- [[plan/expression-language/project.md]] summary mentions path operators locked.
 
 ## Frontier
 

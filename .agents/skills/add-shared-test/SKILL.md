@@ -5,7 +5,7 @@ description: Adds pure xUnit tests in tests/Shared.Tests with fixtures and fspro
 
 # Add Shared Test
 
-Augments [[.agents/skills/implement/SKILL.md]] for Shared.Tests coverage. Follow [[.cursor/rules/fsharp-source.mdc]]. Run tests per [[.agents/skills/implement-fsharp-feature/SKILL.md]].
+Augments [[.agents/skills/implement/SKILL.md]] for Shared.Tests coverage. Follow [[.agents/rules/fsharp-source.md]]. Run tests per [[.agents/skills/implement-fsharp-feature/SKILL.md]].
 
 ## Project setup
 

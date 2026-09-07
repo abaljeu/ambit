@@ -6,11 +6,11 @@ Date: 2026-09-02. No commit. No claimed tickets. No product F# for transferred w
 
 Deleted [[WORK.md]] and [[.cursor/rules/work-blackboard.mdc]]. Both are absent on disk.
 
-Live instructions now point at [[plan/index.md]] plus that project's `issues/`. [[.cursor/rules/gambol.mdc]] no longer lists the blackboard rule or the live board. [[AGENTS.md]], [[CONTEXT.md]], [[doc/agents/]], and `.cursor/skills/` had no live board rules to change. Historical `plan/**/reports/` WORK.md mutation sections were not rewritten.
+Live instructions now point at each Project's `project.md` plus that project's `issues/`. [[.cursor/rules/gambol.mdc]] no longer lists the blackboard rule or the live board. [[AGENTS.md]], [[CONTEXT.md]], [[doc/agents/]], and `.cursor/skills/` had no live board rules to change. Historical `plan/**/reports/` WORK.md mutation sections were not rewritten.
 
-[[plan/roadmap/map.md]]: Notes retarget [[plan/work-board-cleanup/project.md]] (was work-board-audit); WORK.md is retired; discovery is [[plan/index.md]] plus issue Status plus wayfinder frontier. Out of scope no longer says “Replacing WORK.md”. Decisions so far records the retirement **without** a Roadmap issue file. [[plan/roadmap/issues/11-home-every-project-on-an-epic.md]] gist now names cleanup.
+[[plan/roadmap/map.md]]: Notes retarget [[plan/work-board-cleanup/project.md]] (was work-board-audit); WORK.md is retired; discovery is each Project's `project.md` plus issue Status plus wayfinder frontier. Out of scope no longer says “Replacing WORK.md”. Decisions so far records the retirement **without** a Roadmap issue file. [[plan/roadmap/issues/11-home-every-project-on-an-epic.md]] gist now names cleanup.
 
-[[plan/work-board-cleanup/project.md]] Stage is `tickets`, Updated 2026-09-02, summary is cleanup not audit-only. [[plan/index.md]] regenerated. Cleanup is the only work-board row. Did not file a retirement issue; the board is gone.
+[[plan/work-board-cleanup/project.md]] Stage is `tickets`, Updated 2026-09-02, summary is cleanup not audit-only. Cleanup is the only work-board row. Did not file a retirement issue; the board is gone.
 
 `plan/work-board-audit/` is **not** on disk. Cleanup already holds the copied audit notes ([[external-multiline-paste.md]], [[warm-parse-dual-owner.md]], [[git.md]]). No duplicate folder to keep or destroy.
 

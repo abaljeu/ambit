@@ -1,7 +1,7 @@
 # How much of the Core Actor spine before first `?`
 
-Type: grilling
-Status: done
+**Type:** grilling
+**Status:** done
 Blocked by:
 Actual: 55m
 

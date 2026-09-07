@@ -1,7 +1,7 @@
 # Delete runtime mirror and remove production Persistence:Mode
 
-Type: task
-Status: open
+**Type:** task
+**Status:** ready-for-agent
 Blocked by:
 
 ## What to build

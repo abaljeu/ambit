@@ -1,7 +1,7 @@
 # Inventory edge ref sites
 
-Type: research
-Status: resolved
+**Type:** research
+**Status:** done
 
 ## Question
 

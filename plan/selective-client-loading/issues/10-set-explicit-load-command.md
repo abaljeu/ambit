@@ -1,7 +1,7 @@
 # Set explicit Load command responsibility
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by: 03
 
 ## Question

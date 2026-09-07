@@ -1,7 +1,7 @@
 # Pretty URL: keep PHP or chart a same-site Azure hostname
 
-Type: task
-Status: open
+**Type:** task
+**Status:** ready-for-agent
 Blocked by:
 
 ## Question

@@ -42,7 +42,6 @@ Test evidence and forced signature adaptations:
 Project tracking:
 
 - Updated [[plan/core-creation/project.md]] to Stage active, added Started 2026-09-05, and added 20m to the prior 4h10m Project Actual aggregate.
-- Regenerated the Core creation row in [[plan/index.md]].
 
 ## TDD evidence
 

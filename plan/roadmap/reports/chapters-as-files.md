@@ -1,6 +1,6 @@
 # Chapters as files
 
-Roadmap Stage stays **steering**. No `plan/index.md` regen. No commit. Issue 14 untouched. No new files under [[plan/roadmap/issues/]].
+Roadmap Stage stays **steering**. No commit. Issue 14 untouched. No new files under [[plan/roadmap/issues/]].
 
 Chapters live under [[plan/roadmap/epics/chapters/]] (not per-epic folders, not issues). Canonical shape: [[plan/roadmap/epics/chapter-template.md]].
 

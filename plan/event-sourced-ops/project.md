@@ -1,6 +1,6 @@
 # Event-sourced ops
 
-Stage: active
+Stage: build
 Summary: Give one semantic standard for how an Actor's Change enters a Graph so every Actor uses the same path and concurrent work merges instead of being refused.
 Updated: 2026-09-02
 

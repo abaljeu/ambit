@@ -19,7 +19,6 @@ The Wayfinder frontier (`Status: open|claimed|resolved`) vs triage roles (`ready
 ## Files created or changed
 
 - [[plan/skills-cleanup/project.md]] — created. Stage `charting`. Summary, Core problem, Destination, later implementation pointer, in/out of scope. No `Started:`. No `Actual:`. Did not create git.md.
-- [[plan/index.md]] — regenerated: listed every `plan/*/` except `done/`, read `Stage:` and `Summary:` from each `project.md`, wrote one row per directory in vocabulary order then name. Added the Skills cleanup row under `charting`.
 - [[plan/skills-cleanup/reports/establish-project.md]] — this report.
 
 Not created: [[plan/skills-cleanup/notes.md]] (project.md is sufficient). Not created: [[plan/skills-cleanup/map.md]] (Destination is two lines on project.md; no tickets invented).

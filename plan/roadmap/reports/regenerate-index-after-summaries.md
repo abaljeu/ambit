@@ -1,14 +1,12 @@
 # Regenerate index after summaries
 
-Regenerated [[plan/index.md]] from every live `plan/*/` `project.md` per [[.cursor/skills/projects-overview/SKILL.md]]. Did not commit.
+Copied Summary lines from every live `plan/*/` `project.md`. Did not commit.
 
 ## Counts
 
-Live directories (`plan/*/`, skip [[plan/done/]]): **33**.
+Live directories (`plan/*/`, skip [[plan/done/]]): **33**. Directory count equals `project.md` count.
 
-Overview table rows: **33**. Row count equals directory count.
-
-[[plan/debug-reload/]] had no `project.md` at list time. The live file is now Stage `tickets` with Summary `Tell a person on watch how to load debug modules and how to pick up an esbuild rebuild with a hard-reload of the Browser.` The overview uses that line. Did not change any other `project.md`.
+[[plan/debug-reload/]] had no `project.md` at list time. The live file is now Stage `tickets` with Summary `Tell a person on watch how to load debug modules and how to pick up an esbuild rebuild with a hard-reload of the Browser.` That Summary is the line copied here. Did not change any other `project.md`.
 
 ## Nine active Summary lines
 

@@ -1,7 +1,7 @@
 # Create Ask from what I see Project
 
-Type: task
-Status: resolved
+**Type:** task
+**Status:** done
 Blocked by: 04
 
 ## Question

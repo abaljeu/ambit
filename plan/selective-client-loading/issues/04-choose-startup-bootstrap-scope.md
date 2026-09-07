@@ -1,7 +1,7 @@
 # Choose startup bootstrap scope
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by: 01, 02
 
 ## Question

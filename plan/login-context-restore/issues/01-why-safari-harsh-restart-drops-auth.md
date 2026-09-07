@@ -1,7 +1,7 @@
 # Why Safari harsh restart drops auth
 
-Type: research
-Status: closed
+**Type:** research
+**Status:** done
 
 ## Question
 

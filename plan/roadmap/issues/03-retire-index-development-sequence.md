@@ -1,7 +1,7 @@
 # Retire index Development Sequence
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by: 01
 
 ## Question

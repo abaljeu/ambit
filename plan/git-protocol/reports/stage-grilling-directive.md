@@ -9,7 +9,7 @@ Instruction change. `Stage: grilling` on a [[plan]] `project.md` now forces the 
 - [[.cursor/skills/project-work/SKILL.md]] — start/advance workflow. Read `Stage:` before you change it. If `grilling`, follow the grilling skill, set `charting` as soon as grilling starts, stay in the interview.
 - [[.cursor/skills/projects-overview/SKILL.md]] — overview sort order includes `grilling` first.
 
-No bridge edits. No [[plan/index.md]] regen: no live project is at `grilling`. Did not edit vendor [[.agents/skills/grilling/SKILL.md]].
+No bridge edits. No live project is at `grilling`. Did not edit vendor [[.agents/skills/grilling/SKILL.md]].
 
 ## How the force works
 

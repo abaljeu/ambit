@@ -1,7 +1,7 @@
 # Required for Epic done vs Chapter, no overlap
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by: 11
 
 ## Question

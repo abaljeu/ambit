@@ -1,6 +1,6 @@
 # 01 — Delete of any Ref succeeds
 
-**Status:** agent-done
+**Status:** done
 
 ## What happened
 

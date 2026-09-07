@@ -1,7 +1,7 @@
 # Place selective-loading module seams
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by: 11
 
 ## Question
