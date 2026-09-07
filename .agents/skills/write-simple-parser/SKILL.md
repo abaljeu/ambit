@@ -11,8 +11,8 @@ description: >-
 # Write Simple Parser
 
 Follow [[.cursor/rules/core-agent-behavior.mdc]] and [[.cursor/rules/fsharp-source.mdc]].
-Pair with [[.cursor/skills/implement-fsharp-feature/SKILL.md]] for TDD layout and
-[[.cursor/skills/add-shared-test/SKILL.md]] for fixtures.
+Pair with [[.agents/skills/implement-fsharp-feature/SKILL.md]] for TDD layout and
+[[.agents/skills/add-shared-test/SKILL.md]] for fixtures.
 
 ## Before coding
 

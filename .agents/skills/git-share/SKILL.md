@@ -8,9 +8,9 @@ description: >-
 
 # Share
 
-Agents and humans may **pull** `ready` freely and **push `ready` only after approval**. `dev` stays local. `master` stays human-only ([[.cursor/skills/git-master/SKILL.md]]).
+Agents and humans may **pull** `ready` freely and **push `ready` only after approval**. `dev` stays local. `master` stays human-only ([[.agents/skills/git-master/SKILL.md]]).
 
-Places and daily merges are in [[.cursor/skills/git-protocol/SKILL.md]].
+Places and daily merges are in [[.agents/skills/git-protocol/SKILL.md]].
 
 ## Before editing (shared checkout)
 
@@ -58,7 +58,7 @@ Do not two-write the same files without fetching first. Prefer disjoint paths wh
 
 ## Still human-only / gated
 
-- Squash and publish `master` ([[.cursor/skills/git-master/SKILL.md]]) — human only
+- Squash and publish `master` ([[.agents/skills/git-master/SKILL.md]]) — human only
 - Tags — human only
 - Pushing `dev` — forbidden
 - Pushing `ready` — agent-allowed only with Alan's push approval

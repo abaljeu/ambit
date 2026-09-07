@@ -5,26 +5,26 @@ Concise glossary for this repo. Prefer these words; do not invent synonyms.  If 
 ## About Working
 
 **Agent-done**:
-Finished work: tests green, `/code-review` passed, and a commit on `dev` via [[scripts/commit.sh]] or human CLI. Then the human runs [[scripts/gitready.sh]] (or types the merge) to put that work on `ready`. Tickets do not record commit SHAs. Procedure: [[.cursor/skills/git-protocol/SKILL.md]].
+Finished work: tests green, `/code-review` passed, and a commit on `dev` via [[scripts/commit.sh]] or human CLI. Then the human runs [[scripts/gitready.sh]] (or types the merge) to put that work on `ready`. Tickets do not record commit SHAs. Procedure: [[.agents/skills/git-protocol/SKILL.md]].
 _Avoid_: done, finished, shipped, complete
 
 **dev**:
-Desktop workplace. Ordinary commits happen here. Local-only. Procedure: [[.cursor/skills/git-protocol/SKILL.md]].
+Desktop workplace. Ordinary commits happen here. Local-only. Procedure: [[.agents/skills/git-protocol/SKILL.md]].
 _Avoid_: original branch, project branch, `w/` (for this place)
 
 **ready**:
-Integration place. Procedure: [[.cursor/skills/git-protocol/SKILL.md]].
+Integration place. Procedure: [[.agents/skills/git-protocol/SKILL.md]].
 _Avoid_: original branch (for this place)
 
 **master**:
-The place squashed merges from `ready` land, one commit each. Procedure: [[.cursor/skills/git-master/SKILL.md]].
+The place squashed merges from `ready` land, one commit each. Procedure: [[.agents/skills/git-master/SKILL.md]].
 
 **Original branch**:
-Retired. Use **dev**, **ready**, and **master**. See [[.cursor/skills/git-protocol/SKILL.md]].
+Retired. Use **dev**, **ready**, and **master**. See [[.agents/skills/git-protocol/SKILL.md]].
 _Avoid_: original branch, base branch, long-lived branch
 
 **Project branch**:
-Retired. Do not create `w/` branches. See [[.cursor/skills/git-protocol/SKILL.md]].
+Retired. Do not create `w/` branches. See [[.agents/skills/git-protocol/SKILL.md]].
 _Avoid_: project branch, work branch, agent branch, `w/`
 
 **Git bookkeeping**:
@@ -32,7 +32,7 @@ Retired. Do not add `plan/<feature>/git.md` for branch names. Existing files are
 _Avoid_: branch notes, git status file, branch tracker
 
 **Manual approval**:
-A direct user request (or tool approval card) that authorizes a named git operation. **Code pushes of `ready` are approval-gated** ([[.cursor/skills/git-share/SKILL.md]]). Squash onto `master` and tags stay human-only ([[.cursor/skills/git-master/SKILL.md]]). Merge goes through [[scripts/gitready.sh]] or the human CLI per [[.cursor/skills/git-protocol/SKILL.md]]. Pull/fetch of `ready` needs no approval.
+A direct user request (or tool approval card) that authorizes a named git operation. **Code pushes of `ready` are approval-gated** ([[.agents/skills/git-share/SKILL.md]]). Squash onto `master` and tags stay human-only ([[.agents/skills/git-master/SKILL.md]]). Merge goes through [[scripts/gitready.sh]] or the human CLI per [[.agents/skills/git-protocol/SKILL.md]]. Pull/fetch of `ready` needs no approval.
 _Avoid_: permission, override, allowlist exception
 
 **Issue tracker**:

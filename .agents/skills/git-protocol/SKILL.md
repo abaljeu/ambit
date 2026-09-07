@@ -15,7 +15,7 @@ Three long-lived branches. Reuse these names. Do not add `w/` branches. Do not w
 
 **ready** — integration. Sit on `ready` and `git merge --no-ff dev`. Bisect commit-by-commit here. This is “brought into ready.”
 
-**master** — one commit per squashed merge from `ready`. Updating it is explicit invocation only, by the human: [[.cursor/skills/git-master/SKILL.md]].
+**master** — one commit per squashed merge from `ready`. Updating it is explicit invocation only, by the human: [[.agents/skills/git-master/SKILL.md]].
 
 A hotfix is born on the oldest place that must contain it, then merged toward `dev`.
 
@@ -40,9 +40,9 @@ The three places exist. `dev` and `ready` were born together on the last work ti
 
 `selective-client-sync` and the `w/` names remain as history. Do not resume one as the workplace. Do not create another.
 
-The agent may create and switch places (`git branch`, `git switch`). Merges go through the scripts (or human CLI). Squashes stay with the human. Pulling `ready` is agent-ok; pushing `ready` is agent-ok only with Alan's push approval ([[.cursor/skills/git-share/SKILL.md]]).
+The agent may create and switch places (`git branch`, `git switch`). Merges go through the scripts (or human CLI). Squashes stay with the human. Pulling `ready` is agent-ok; pushing `ready` is agent-ok only with Alan's push approval ([[.agents/skills/git-share/SKILL.md]]).
 
 ## Sharing
 
-Agents may pull `ready` freely. Pushing `ready` is approval-gated. Procedure: [[.cursor/skills/git-share/SKILL.md]].
-`dev` stays local. `master` stays human-only: [[.cursor/skills/git-master/SKILL.md]].
+Agents may pull `ready` freely. Pushing `ready` is approval-gated. Procedure: [[.agents/skills/git-share/SKILL.md]].
+`dev` stays local. `master` stays human-only: [[.agents/skills/git-master/SKILL.md]].

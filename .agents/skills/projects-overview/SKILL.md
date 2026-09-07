@@ -5,7 +5,7 @@ description: Regenerate plan/index.md, a stage overview of every project. Use wh
 
 # Projects overview
 
-Follow [[doc/agents/project-status.md]] for the stage vocabulary and the `project.md` format. Git: [[.cursor/skills/git-protocol/SKILL.md]].
+Follow [[doc/agents/project-status.md]] for the stage vocabulary and the `project.md` format. Git: [[.agents/skills/git-protocol/SKILL.md]].
 
 Regenerate [[plan/index.md]] so every **project** — a `plan/<slug>/` directory — appears with its **stage**.
 

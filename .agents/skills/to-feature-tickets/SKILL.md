@@ -52,7 +52,7 @@ Iterate until the user approves the breakdown.
 
 Publish the approved tickets.
 
-Plan files and Stage: follow [[.cursor/skills/project-work/SKILL.md]].
+Plan files and Stage: follow [[.agents/skills/project-work/SKILL.md]].
 
 Write one file per ticket under `plan/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01` in dependency order (blockers first). Each file's "Blocked by" lists the numbers/titles it depends on. Use the per-ticket file template below — one ticket per file. Include one or two pointers to defining specs from which the ticket was derived. Not just `spec.md` but more trace back to decision files.
 

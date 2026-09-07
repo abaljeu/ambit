@@ -6,9 +6,9 @@ disable-model-invocation: true
 
 Implement the work described by the user in the spec or tickets.
 
-Git: follow [[.cursor/skills/git-protocol/SKILL.md]].
+Git: follow [[.agents/skills/git-protocol/SKILL.md]].
 
-Follow [[.cursor/skills/implement-fsharp-feature/SKILL.md]] to code.
+Follow [[.agents/skills/implement-fsharp-feature/SKILL.md]] to code.
 
 Use /tdd where possible, at pre-agreed seams.
 
@@ -19,4 +19,4 @@ While you wait, use /code-review to review the work.
 
 Time: on issues you touched, append `## Time` and keep `Actual:`; on the project set/keep `Started:` / `Finished:` / `Actual:` per [[doc/agents/issue-tracker.md]] (Time tracking). Backfill from this chat and commits when a session was not logged.
 
-Finish as **agent-done** per [[.cursor/skills/git-protocol/SKILL.md]].
+Finish as **agent-done** per [[.agents/skills/git-protocol/SKILL.md]].

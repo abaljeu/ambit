@@ -43,5 +43,5 @@ Shared edits that must ship to `/ambit` are Client dependencies. After those edi
 
 ## Escalation
 
-- Cross-cutting feature or multi-file Client refactor → [[.cursor/skills/plan-roadmap-change/SKILL.md]].
-- New Shared behavior → [[.cursor/skills/implement-fsharp-feature/SKILL.md]].
+- Cross-cutting feature or multi-file Client refactor → [[.agents/skills/plan-roadmap-change/SKILL.md]].
+- New Shared behavior → [[.agents/skills/implement-fsharp-feature/SKILL.md]].

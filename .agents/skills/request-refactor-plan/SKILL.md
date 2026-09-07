@@ -5,7 +5,7 @@ description: Create a detailed refactor plan with tiny steps via user interview,
 
 This skill will be invoked when the user wants to create a refactor request. You should go through the steps below. You may skip steps if you don't consider them necessary.
 
-Git: follow [[.cursor/skills/git-protocol/SKILL.md]]. Publish under `plan/` per [[doc/agents/issue-tracker.md]]. Plan grain is **steps** (same size discipline as tiny commits), not commits.
+Git: follow [[.agents/skills/git-protocol/SKILL.md]]. Publish under `plan/` per [[doc/agents/issue-tracker.md]]. Plan grain is **steps** (same size discipline as tiny commits), not commits.
 
 1. Ask the user for a long, detailed description of the problem they want to solve and any potential ideas for solutions.
 

@@ -14,7 +14,7 @@
 | [RowView / FocusView layout vs behavior](rowview-layout-behavior/) | charting | Separate layout from behavior inside RowView/FocusView; plan complete, waits on the split-view-by-concern refactor landing. |
 | [transport-layer](transport-layer/) | charting | Cross-cutting transport layer — inbound, outbound, and round-trip patterns for moving information between outside sources and the Graph while Graph stays authority; Parse/Persist as the shared text-processing unit; module contract for connector Actors; `plan` until promoted to `doc/`. |
 | [Roadmap](roadmap/map.md) [pinned] | steering | Standing goto for what to work on next; groups Epics by Stage; Chapter plus Required for done gate Epic completion. |
-| [Skills cleanup](skills-cleanup/) | spec | Chart closed. Locked lists and skill-tree decisions are the destination. Remaining work is later obedience (instruction edits, ticket Status migrate). |
+| [Skills cleanup](skills-cleanup/) | build | Skill home is .agents/skills/. Frontier is the prepare-rule flip. Shared ticket-publish core stays out of this Project. |
 | [Debug reload](debug-reload/) | tickets | Tell a person on watch how to load debug modules and how to pick up an esbuild rebuild with a hard-reload of the Browser. |
 | [WebView2 Azure origin](webview2-azure-origin/) | tickets | After Azure host discovery, the App WebView2 document origin is Azure `/ambit`, so cookie-auth Browser HTTP is same-site on Azure. |
 | [Client start time](client-start-time/) | active | On App refresh after a prior Session, the Browser shows the Graph from a local IndexedDB snapshot plus stored Changes, then does a Poll, so the user does not wait for `/state` while a blank screen or Loading... is visible. |

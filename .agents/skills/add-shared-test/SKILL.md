@@ -31,4 +31,4 @@ Match naming: backtick F# test names, xUnit `[<Fact>]` / `[<Theory>]`.
 1. Find the closest existing test file for the behavior.
 2. Add the failing case (or new file if the concern is distinct).
 3. Update the fsproj if you added a file.
-4. Run tests per [[.cursor/skills/implement-fsharp-feature/SKILL.md]].
+4. Run tests per [[.agents/skills/implement-fsharp-feature/SKILL.md]].

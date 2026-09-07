@@ -7,7 +7,7 @@ description: Co-edits a document-format with the user one section at a time and 
 
 Follow [[.cursor/rules/planning-docs.mdc]], [[.cursor/rules/markdown-writing.mdc]], and [[.cursor/rules/core-agent-behavior.mdc]].
 
-Pair with [[.cursor/skills/plan-roadmap-change/SKILL.md]] for roadmap shape and [[.cursor/skills/maintain-doc-currency/SKILL.md]] when touching `doc/index.md` or stage sequencing.
+Pair with [[.agents/skills/plan-roadmap-change/SKILL.md]] for roadmap shape and [[.agents/skills/maintain-doc-currency/SKILL.md]] when touching `doc/index.md` or stage sequencing.
 
 ## Interaction
 

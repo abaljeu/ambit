@@ -6,15 +6,15 @@ disable-model-invocation: true
 
 # Update Matt Skills
 
-Same-branch model: operator skill lives here under `.cursor/skills`. Branch `vendor/mattpocock-skills` holds:
+Same-branch model: operator skill lives here under `.agents/skills`. Branch `vendor/mattpocock-skills` holds:
 
 | Path | Role |
 | --- | --- |
 | `skills/` | Bucketed tree from `skills-source` |
 | `.agents/skills/` | Flat install agents use |
-| `.cursor/skills/update-matt-skills/` | This skill + scripts |
+| `.agents/skills/update-matt-skills/` | This skill + scripts |
 
-Git: follow [[.cursor/skills/git-protocol/SKILL.md]]. This skill also uses `vendor/mattpocock-skills` and creates `update/mattpocock-skills` from a clean `dev` tip.
+Git: follow [[.agents/skills/git-protocol/SKILL.md]]. This skill also uses `vendor/mattpocock-skills` and creates `update/mattpocock-skills` from a clean `dev` tip.
 
 Run scripts **in place** from the repo root (no temp copy, no worktrees).
 
@@ -34,7 +34,7 @@ Stop and ask if any fail:
 ### 1. Pull tree (on vendor)
 
 ```bash
-.cursor/skills/update-matt-skills/scripts/pull-skills-tree.sh
+.agents/skills/update-matt-skills/scripts/pull-skills-tree.sh
 ```
 
 Fetches `skills-source` and replaces `skills/` from `skills-source/main`.
@@ -44,7 +44,7 @@ Fetches `skills-source` and replaces `skills/` from `skills-source/main`.
 ### 2. Flatten (on vendor)
 
 ```bash
-.cursor/skills/update-matt-skills/scripts/flatten-skills.sh
+.agents/skills/update-matt-skills/scripts/flatten-skills.sh
 ```
 
 Deletes `.agents/skills` on vendor only, then copies each non-deprecated `skills/**/SKILL.md` parent dir to `.agents/skills/<name>/`. Rejects duplicate basenames. Does not touch `skills/` or this cursor skill.
@@ -54,7 +54,7 @@ Deletes `.agents/skills` on vendor only, then copies each non-deprecated `skills
 ### 3. Commit on vendor
 
 ```bash
-.cursor/skills/update-matt-skills/scripts/commit-vendor.sh
+.agents/skills/update-matt-skills/scripts/commit-vendor.sh
 ```
 
 Stages `skills/` and `.agents/skills/`, commits with message `Update projected skills` when there are changes.
@@ -66,7 +66,7 @@ Stages `skills/` and `.agents/skills/`, commits with message `Update projected s
 Checkout a clean `dev` tip first (do not merge while on an arbitrary branch). The merge script requires `dev`, then creates/resets `update/mattpocock-skills` from that tip and merges vendor there — not onto `dev` itself.
 
 ```bash
-.cursor/skills/update-matt-skills/scripts/merge-to-live.sh
+.agents/skills/update-matt-skills/scripts/merge-to-live.sh
 ```
 
 Ordinary: `git merge --no-ff vendor/mattpocock-skills` on `update/mattpocock-skills`.
@@ -74,7 +74,7 @@ Ordinary: `git merge --no-ff vendor/mattpocock-skills` on `update/mattpocock-ski
 First-time bootstrap (unrelated histories) only — brings vendor flat skills onto the update branch (live integration):
 
 ```bash
-.cursor/skills/update-matt-skills/scripts/merge-to-live.sh --bootstrap
+.agents/skills/update-matt-skills/scripts/merge-to-live.sh --bootstrap
 ```
 
 (`--bootstrap` adds `--allow-unrelated-histories`.)
@@ -90,6 +90,6 @@ Short report: skill counts under `skills/` and `.agents/skills/`, whether anythi
 - Use `mktemp` worktrees or copy this skill elsewhere to run it.
 - Push `vendor/mattpocock-skills` or touch origin remotes unless asked.
 - Put SHAs in commit messages or scratch notes.
-- Delete `skills/` or `.cursor/skills/update-matt-skills/` during flatten.
+- Delete `skills/` or `.agents/skills/update-matt-skills/` during flatten.
 - Run `npx skills` or maintain `skills-lock.json`.
 - Merge vendor directly onto `dev`.

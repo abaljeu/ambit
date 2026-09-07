@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 Explicit invocation only. Updating `master` is a decision the human makes by hand.
 
-Places, daily commits, and `dev` → `ready` merges are in [[.cursor/skills/git-protocol/SKILL.md]].
+Places, daily commits, and `dev` → `ready` merges are in [[.agents/skills/git-protocol/SKILL.md]].
 
 ## Squash
 

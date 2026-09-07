@@ -5,15 +5,15 @@ description: plan project files and Stage. Use before editing a project's files,
 
 # Project work
 
-Stages: [[doc/agents/project-status.md]]. Git: [[.cursor/skills/git-protocol/SKILL.md]].
+Stages: [[doc/agents/project-status.md]]. Git: [[.agents/skills/git-protocol/SKILL.md]].
 
-Each `plan/<slug>/` effort is a **Project**. Keep its `project.md` Stage current. Create `project.md` if the effort lacks one. Regenerating the overview: [[.cursor/skills/projects-overview/SKILL.md]].
+Each `plan/<slug>/` effort is a **Project**. Keep its `project.md` Stage current. Create `project.md` if the effort lacks one. Regenerating the overview: [[.agents/skills/projects-overview/SKILL.md]].
 
 Do not create `git.md` to record branch names. Existing `git.md` files are history.
 
 ## 1. Start
 
-Follow [[.cursor/skills/git-protocol/SKILL.md]] for where work sits. Then write the project files.
+Follow [[.agents/skills/git-protocol/SKILL.md]] for where work sits. Then write the project files.
 
 ## 2. Stage
 
@@ -27,4 +27,4 @@ Edit the project's files. Specs, issues, maps, and reports live under `plan/<slu
 
 ## 4. Finish
 
-Commit only the changes the user approved, as **agent-done** per [[.cursor/skills/git-protocol/SKILL.md]].
+Commit only the changes the user approved, as **agent-done** per [[.agents/skills/git-protocol/SKILL.md]].

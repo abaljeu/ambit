@@ -24,7 +24,7 @@ ALL non-interacting logic belongs here.
 4. src/Server/ - .net backend.
 5. src/Server/wwwroot - target of Client build, and permanent residence of web-native sources
 6. Tests/ - .net tests for shared and server.
-Shared.Tests coverage — use [[.cursor/skills/add-shared-test/SKILL.md]] when adding tests.
+Shared.Tests coverage — use [[.agents/skills/add-shared-test/SKILL.md]] when adding tests.
 
 **Foreground** (related tests only):
 
@@ -49,5 +49,5 @@ Use `./scripts/test.sh all` when Server tests may be affected.
 
 ## Escalation
 
-- Browser-only or ambiguous DOM behavior → [[.cursor/skills/investigate-fable-client/SKILL.md]].
-- Large cross-layer change → [[.cursor/skills/plan-roadmap-change/SKILL.md]] first.
+- Browser-only or ambiguous DOM behavior → [[.agents/skills/investigate-fable-client/SKILL.md]].
+- Large cross-layer change → [[.agents/skills/plan-roadmap-change/SKILL.md]] first.

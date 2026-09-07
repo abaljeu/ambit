@@ -1,5 +1,5 @@
 #!/bin/bash
-# Commit entry for the git protocol (.cursor/skills/git-protocol/SKILL.md).
+# Commit entry for the git protocol (.agents/skills/git-protocol/SKILL.md).
 # Ordinary commits on dev; the Desktop agent uses this or the human types git commit.
 set -euo pipefail
 
