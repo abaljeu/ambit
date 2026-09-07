@@ -11,7 +11,7 @@ How much of [[plan/core-creation/issues/01-generalized-server-actor-produce-path
 
 ## Answer
 
-First usable Run Agent needs: Core `launch` and `postChange` (already in code), `POST /ambit/actors` Create, this Project’s nodelist+root extract (do not revise [[plan/core-creation/issues/09-define-core-command-launch-contract.md]]), a registered Grok Bot Actor with the env/host key ([[02-which-llm-and-credentials.md]]), cookie auth ([[plan/core-creation/issues/20-client-presents-credential.md]], done), and drop-on-complete so Focus unlocks ([[plan/core-creation/issues/18-finish-and-drop.md]] — core-creation implements; this Project waits).
+First usable Run Agent needs: Core `launch` and `postChange` (already in code), `POST /ambit/actors` Create, this Project’s nodelist+root extract (do not revise [[plan/core-creation/issues/09-define-core-command-launch-contract.md]]), a registered Cursor Cloud Agents Actor with the env/host Cursor API key (and life repo URL) ([[02-which-llm-and-credentials.md]]), cookie auth ([[plan/core-creation/issues/20-client-presents-credential.md]], done), and drop-on-complete so Focus unlocks ([[plan/core-creation/issues/18-finish-and-drop.md]] — core-creation implements; this Project waits).
 
 Not required for first usable Run Agent: cancel, HTTP query, or a JSON client token. Lock is about Changes: only Focus Changes, so lock Focus only. The Actor must return by itself. Cancel stays later (map destination).
 
