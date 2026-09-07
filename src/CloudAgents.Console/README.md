@@ -10,7 +10,7 @@ CloudAgents.Console "<prompt>" [options]
 
 ## Options
 
-- `--repo <url>` - Repository URL to work on
+- `--repo <url>` - (Optional) Repository URL to work on
 - `--ref <ref>` - Starting branch or commit (default: repository default)
 - `--name <name>` - Display name for the agent
 
@@ -22,14 +22,21 @@ Get your API key from: https://cursor.com/settings
 
 ## Examples
 
-### No-repo agent
+### No-repo agent (primary use case)
 
 ```bash
 export CURSOR_API_KEY=your_key_here
 CloudAgents.Console "Explain how async/await works in F#"
 ```
 
-### Work on a repository
+### Another no-repo example
+
+```bash
+export CURSOR_API_KEY=your_key_here
+CloudAgents.Console "What are the trade-offs between actor model and CSP?"
+```
+
+### With repository (optional)
 
 ```bash
 export CURSOR_API_KEY=your_key_here
@@ -45,4 +52,4 @@ The console prints:
 - Agent ID and Run ID
 - Progress updates
 - Final result text
-- Git branch and PR information (if applicable)
+- Git branch and PR information (if repository was provided and agent made changes)

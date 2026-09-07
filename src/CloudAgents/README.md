@@ -25,24 +25,51 @@ Cursor-specific types, URLs, or identifiers in the public surface.
 
 ## Usage
 
+### No-repo agent (primary use case)
+
 ```fsharp
 open Gambol.CloudAgents
 
 let config = { RunnerConfig.ApiKey = "your-cursor-api-key" }
 
 let options =
-    { AgentOptions.DisplayName = Some "My Agent"
+    { AgentOptions.DisplayName = Some "Research Agent"
+      ModelHint = None }
+
+match AgentRunner.start config "Explain F# computation expressions" None options with
+| Error err -> printfn "Failed: %A" err
+| Ok (agentId, runId) ->
+    match AgentRunner.waitUntilComplete config agentId runId 5000 None with
+    | Ok result -> printfn "Result: %s" result.Text
+    | Error err -> printfn "Error: %A" err
+```
+
+### With repository (optional)
+
+```fsharp
+open Gambol.CloudAgents
+
+let config = { RunnerConfig.ApiKey = "your-cursor-api-key" }
+
+let options =
+    { AgentOptions.DisplayName = Some "Add Tests"
       ModelHint = None }
 
 let repos =
     Some [ { RepoConfig.Url = "https://github.com/org/repo"
              StartingRef = Some "main" } ]
 
-match AgentRunner.start config "Add tests" repos options with
+match AgentRunner.start config "Add unit tests" repos options with
 | Error err -> printfn "Failed: %A" err
 | Ok (agentId, runId) ->
     match AgentRunner.waitUntilComplete config agentId runId 5000 None with
-    | Ok result -> printfn "Result: %s" result.Text
+    | Ok result ->
+        printfn "Result: %s" result.Text
+        for git in result.Git do
+            printfn "Branch: %s" (git.Branch |> Option.defaultValue "none")
+            match git.PullRequestUrl with
+            | Some pr -> printfn "PR: %s" pr
+            | None -> ()
     | Error err -> printfn "Error: %A" err
 ```
 
