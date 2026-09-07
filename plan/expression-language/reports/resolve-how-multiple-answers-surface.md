@@ -9,7 +9,7 @@ Recorded the HITL lock on [[plan/expression-language/issues/05-how-multiple-answ
 - [[plan/expression-language/issues/03-first-primitive-catalog.md|First primitive catalog]] Answer: pointer for `OR`/`AND` sequence rules.
 - Map [[plan/expression-language/map.md]] Decisions so far: one gist line.
 - [[plan/expression-language/spec-draft.md]] Multiple Answers marked Locked. Top-level context no longer waits on 05.
-- [[plan/expression-language/project.md]] summary mentions Answer sequence locked. [[plan/index.md]] updated for that row.
+- [[plan/expression-language/project.md]] summary mentions Answer sequence locked.
 
 ## Frontier
 

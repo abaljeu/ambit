@@ -6,7 +6,7 @@ Worker for the retired WORK.md App slice on [[direct-api-vs-proxy.md]]. Did not 
 
 Durable issue: [[plan/webview2-azure-origin/issues/01-webview2-navigate-azure-ambit.md]] (rehomed from Roadmap `issues/`). Linked from the recommendation report. Status is `ready-for-agent` after a claim-and-check. No F# change.
 
-The report names no Epic or Chapter. No Epic file edit. Roadmap [[project.md]] stays Stage `steering`. No [[plan/index.md]] regenerate.
+The report names no Epic or Chapter. No Epic file edit. Roadmap [[project.md]] stays Stage `steering`.
 
 ## Why no Navigate this sitting
 

@@ -10,7 +10,7 @@ Moved sixteen repo-shared workflow skill directories from [[.cursor/skills/]] to
 - update-matt-skills self-paths now name [[.agents/skills/update-matt-skills/]]. The skill remains; ticket 04 deletes it.
 - [[.agents/skills/prepare-agent-instruction-change/SKILL.md]] still forbids storing repo-shared skills in [[.agents/skills/]] (ticket 02).
 - Chart-time lock reports under [[plan/skills-cleanup/reports/]] were not rewritten.
-- Project Stage is `build`. [[plan/index.md]] skills-cleanup row matches.
+- Project Stage is `build`.
 
 ## How verified
 

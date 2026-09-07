@@ -1,7 +1,7 @@
 # Boundary vs Architecture and Marketing wiki
 
-Type: grilling
-Status: open
+**Type:** grilling
+**Status:** ready-for-agent
 Blocked by:
 
 ## Question

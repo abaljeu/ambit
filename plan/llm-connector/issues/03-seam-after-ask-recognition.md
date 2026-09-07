@@ -1,7 +1,7 @@
 # Seam after expression-language recognizes `?`
 
-Type: grilling
-Status: done
+**Type:** grilling
+**Status:** done
 Blocked by:
 Actual: 60m
 

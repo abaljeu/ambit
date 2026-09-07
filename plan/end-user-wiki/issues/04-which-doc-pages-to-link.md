@@ -1,7 +1,7 @@
 # Which existing doc pages to link vs rewrite
 
-Type: grilling
-Status: open
+**Type:** grilling
+**Status:** ready-for-agent
 Blocked by:
 
 ## Question

@@ -1,6 +1,6 @@
 # transport-layer
 
-Stage: charting
+Stage: chart
 Summary: Cross-cutting transport layer — inbound, outbound, and round-trip patterns for moving information between outside sources and the Graph while Graph stays authority; Parse/Persist as the shared text-processing unit; module contract for connector Actors; `plan` until promoted to `doc/`.
 Updated: 2026-08-31
 

@@ -1,7 +1,7 @@
 # Owned versus Ref walk for descendant
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by: none
 
 ## Question

@@ -36,7 +36,7 @@ Do **not** harvest GitHub/GitLab issue numbers from commit messages as the spec 
 
 ### 3. Identify the standards sources
 
-Anything in the repo that documents how code should be written, such as `CODING_STANDARDS.md` or `CONTRIBUTING.md`.
+Live coding standards for this repo live under [[.agents/rules/]]: [[.agents/rules/fsharp-source.md]] (F#), [[.agents/rules/core-api.md]] (Core vs Adapter), [[.agents/rules/core-agent-behavior.md]] (surgical changes), and the other scoped rules. Do not hunt missing `CODING_STANDARDS.md` or `CONTRIBUTING.md`.
 
 On top of whatever the repo documents, the Standards axis always carries the **smell baseline** below — a fixed set of Fowler code smells (_Refactoring_, ch.3) that applies even when a repo documents nothing. Two rules bind it:
 

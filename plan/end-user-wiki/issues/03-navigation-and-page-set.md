@@ -1,7 +1,7 @@
 # Navigation and page set besides documents from any connected device
 
-Type: grilling
-Status: open
+**Type:** grilling
+**Status:** ready-for-agent
 Blocked by:
 
 ## Question

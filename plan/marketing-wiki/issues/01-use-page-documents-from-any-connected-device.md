@@ -1,7 +1,7 @@
 # Use page: documents from any connected device
 
-Type: task
-Status: open
+**Type:** task
+**Status:** ready-for-agent
 Blocked by:
 
 ## Question

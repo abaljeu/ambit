@@ -1,7 +1,7 @@
 # Separate the HTTP Adapter from Core Changes
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by: 03
 Actual: 10m
 

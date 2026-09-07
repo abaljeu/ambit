@@ -184,4 +184,4 @@ Whether Core Command is the launch seam. Whether Core holds a name-to-definition
 
 ## File updates
 
-Project Stage stays active. This is an issue-level grill; [[.cursor/skills/project-work/SKILL.md]] says do not change the project's Stage for that. Resolved [[../issues/09-define-core-command-launch-contract.md]] and added a gist to [[plan/core-creation/map.md]] Decisions so far. Did not regenerate [[plan/index.md]].
+Project Stage stays active. This is an issue-level grill; [[.cursor/skills/project-work/SKILL.md]] says do not change the project's Stage for that. Resolved [[../issues/09-define-core-command-launch-contract.md]] and added a gist to [[plan/core-creation/map.md]] Decisions so far.

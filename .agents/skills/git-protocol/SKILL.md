@@ -1,11 +1,15 @@
 ---
 name: git-protocol
-description: "Gambol git procedure: three named places (dev, ready, master), commits on dev, merge --no-ff into ready. Use when committing, merging, branching, tagging, agent-done, implement, or any other git instruction."
+description: "Gambol git procedure: three named places (dev, ready, master), commits on dev, merge --no-ff into ready. First git step is scripts/gitstatus.sh. Use when committing, merging, branching, tagging, agent-done, implement, or any other git instruction."
 ---
 
 # Git protocol
 
 Canonical git procedure for this repo. Other rules and skills point here; they do not copy these steps.
+
+## Status
+
+At the outset, from the project root, run [[scripts/gitstatus.sh]] with no arguments. This is the first git step. Use extra git commands only when that output is not enough.
 
 ## Places
 

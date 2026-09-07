@@ -24,7 +24,7 @@ The old files were removed after the new files were written.
 - [[plan/event-sourced-ops/issues/08-parse-file-realignment-tracer.md]] stays in ESO and owns the Parse definition.
 - [[plan/event-sourced-ops/issues/09-job-identity-with-advisory-soft-lock.md]] stays in ESO and owns advisory soft-lock semantics and Browser-facing job access. It does not own Core pool implementation.
 
-Roadmap Chapters and Epics now sequence these Projects and issues without copying the Core specification. Actor-spine consumers now point to Core. [[plan/index.md]] contains 35 Project rows, including Core creation at Stage `charting`.
+Roadmap Chapters and Epics now sequence these Projects and issues without copying the Core specification. Actor-spine consumers now point to Core. [[plan/core-creation/project.md]] records Stage `charting`.
 
 ## Unresolved questions
 

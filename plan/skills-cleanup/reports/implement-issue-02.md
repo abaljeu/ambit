@@ -8,7 +8,7 @@ Flipped [[.agents/skills/prepare-agent-instruction-change/SKILL.md]] so repo-sha
 - Edit workflow and review checklist are unchanged.
 - [[.cursor/rules/gambol.mdc]] was not edited: no skill files were added or removed.
 - Ticket [[plan/skills-cleanup/issues/02-allow-agents-skill-home-in-prepare-rule.md]] is `Status: done`.
-- Project Stage stays `build`. Summary frontier is canonical Status and Stage lists (ticket 03). [[plan/index.md]] skills-cleanup row matches.
+- Project Stage stays `build`. Summary frontier is canonical Status and Stage lists (ticket 03).
 
 ## How verified
 

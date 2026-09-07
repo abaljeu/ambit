@@ -1,7 +1,7 @@
 # Which LLM and where credentials live
 
-Type: grilling
-Status: done
+**Type:** grilling
+**Status:** done
 Blocked by:
 Actual: 55m
 

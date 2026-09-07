@@ -1,7 +1,7 @@
 # Define unloaded navigation and UI semantics
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by: 01, 03
 
 ## Question

@@ -1,7 +1,7 @@
 # Chart Automatic upload and download onto Projects
 
-Type: task
-Status: open
+**Type:** task
+**Status:** ready-for-agent
 Blocked by: 06
 
 ## Question

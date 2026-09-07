@@ -88,7 +88,7 @@ Status and Stage **token lists are already locked**. Do not re-open them. This p
 
 Stage: `chart` | `spec` | `slice` | `build` | `done` | `dead`. Status is re-locked in [[plan/skills-cleanup/reports/lock-status-set-v2.md]] (`ready-for-agent` | `ready-for-human` | `needs-info` | `blocked` | `done` | `cancelled`). Grilling is a method. Archive is an action. Rework is a move back. Live copies of old tokens are **later** obedience. Do not re-grill the lists.
 
-Mismatch while catching up: [[.cursor/skills/projects-overview/SKILL.md]] still sorts by the old Stage list. This Project is stamped `chart` as directed. Other Projects still show old Stage words in [[plan/index.md]] until a later ticket.
+Mismatch while catching up: [[.cursor/skills/projects-overview/SKILL.md]] still sorts by the old Stage list. This Project is stamped `chart` as directed. Other Projects still show old Stage words on their `project.md` until a later ticket.
 
 ## What is already fine
 

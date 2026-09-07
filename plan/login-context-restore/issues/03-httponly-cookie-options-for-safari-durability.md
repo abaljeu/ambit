@@ -1,7 +1,7 @@
 # HttpOnly cookie options for Safari durability
 
-Type: research
-Status: closed
+**Type:** research
+**Status:** done
 
 ## Question
 

@@ -1,7 +1,7 @@
 # Which formats are in the first destination besides XML
 
-Type: grilling
-Status: open
+**Type:** grilling
+**Status:** ready-for-agent
 Blocked by:
 
 ## Question

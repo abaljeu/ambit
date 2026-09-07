@@ -5,7 +5,7 @@ description: Maintains doc/ currency by auditing document placement, contradicti
 
 # Maintain Doc Currency
 
-Follow [[.cursor/rules/markdown-writing.mdc]] and read [[doc/README.md]] first. Treat [[doc/README.md]] as the source of truth for what each documentation subdir means.
+Follow [[.agents/rules/markdown-writing.md]] and read [[doc/README.md]] first. Treat [[doc/README.md]] as the source of truth for what each documentation subdir means.
 
 ## Directory Fit
 

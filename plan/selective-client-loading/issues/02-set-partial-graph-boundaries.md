@@ -1,7 +1,7 @@
 # Set partial-graph and document boundaries
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 
 ## Question
 

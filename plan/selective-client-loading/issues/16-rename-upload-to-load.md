@@ -4,7 +4,7 @@
 
 **Blocked by:** None — can start immediately.
 
-**Status:** agent-done
+**Status:** done
 
 - [x] Users can invoke Load through the existing `Ctrl+Shift+>` shortcut and every former user-facing Upload command entry point now uses the Load name.
 - [x] Load preserves the existing target filters, synchronization stages, stage ordering, desktop push, parsing, and reconciliation outcomes.

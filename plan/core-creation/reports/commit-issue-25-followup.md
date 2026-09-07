@@ -15,10 +15,9 @@ Date: 2026-09-06
 - [[code-review-issue-25.md]] — independent review of `eba2f53`. Parent **pass**. Standards: **1 (Mysterious Name)** on the refuse-family test; **2 (Middle Man)** on `changesBound`. Spec: **1 (Tests hit a test-built bind)** on HTTP Adapter tests. Parse leftover is out of 25.
 - [[read-issue-25.md]] — read note before implement. Status at read was `needs-triage`.
 
-Project Stage stays `active`. [[plan/index.md]] was not staged: the diff is llm-connector wording, skills-cleanup summary, and row order, not a Core creation Stage change.
+Project Stage stays `active`. The llm-connector wording, skills-cleanup summary, and row-order diff was not a Core creation Stage change.
 
 ## Left unstaged
 
 - [[CONTEXT.md]] (Run Agent glossary)
-- [[plan/index.md]] (llm-connector and skills-cleanup)
 - [[plan/llm-connector/]]

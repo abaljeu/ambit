@@ -5,12 +5,12 @@ description: Plans roadmap and architecture doc changes in doc/ with incremental
 
 # Plan Roadmap Change
 
-Follow [[.cursor/rules/planning-docs.mdc]] and [[.cursor/rules/markdown-writing.mdc]].
+Follow [[.agents/rules/planning-docs.md]] and [[.agents/rules/markdown-writing.md]].
 
 ## Workflow
 
 1. Read [[doc/arch.md]] and related current docs before proposing structure.
-2. Align with [[doc/plan]] priorities when choosing what to plan next.
+2. Align with live `plan/` Projects and [[plan/roadmap/map.md]] when choosing what to plan next. Follow [[.agents/rules/planning-docs.md]].
 3. Prefer a **slice** with clear user value over a full-system design.
 4. State assumptions and tradeoffs before writing the doc.
 5. Defer unrelated work explicitly in the plan.

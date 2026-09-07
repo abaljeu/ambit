@@ -20,7 +20,3 @@ Status, Context, What to build, and See also are unchanged. Comments keep the WO
 
 - [[plan/work-board-cleanup/reports/retire-work-board.md]]: Filed section now points at the new path under debug-reload; leftovers no longer own the issue. Skipped note records that this Project now holds the watch-doc issue.
 - Repo grep: no remaining links to `02-document-watch-debug-reload` or `work-board-cleanup/issues/02`.
-
-## Overview
-
-Regenerated [[plan/index.md]] last, from every live `plan/*/` `project.md`.

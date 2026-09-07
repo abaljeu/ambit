@@ -1,7 +1,7 @@
 # Finalize permanent Delete undo semantics
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by: 09
 
 ## Question

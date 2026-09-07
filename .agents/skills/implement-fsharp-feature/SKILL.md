@@ -5,7 +5,7 @@ description: Implements Gambol F# features with Shared-first logic and surgical 
 
 # Implement F# Feature
 
-Augments [[.agents/skills/implement/SKILL.md]] for F# layout and test commands. TDD quality: [[.agents/skills/tdd/SKILL.md]]. Follow [[.cursor/rules/fsharp-source.mdc]] and [[.cursor/rules/core-agent-behavior.mdc]].
+Augments [[.agents/skills/implement/SKILL.md]] for F# layout and test commands. TDD quality: [[.agents/skills/tdd/SKILL.md]]. Follow [[.agents/rules/fsharp-source.md]] and [[.agents/rules/core-agent-behavior.md]].
 
 See [[doc/arch.md]] for layer boundaries.
 

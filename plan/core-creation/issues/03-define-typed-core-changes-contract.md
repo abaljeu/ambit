@@ -1,7 +1,7 @@
 # Define the typed Core Changes contract
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by:
 Actual: 30m
 

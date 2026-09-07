@@ -9,7 +9,7 @@ Recorded the HITL lock on [[plan/expression-language/issues/04-boolean-operators
 - Map [[plan/expression-language/map.md]] Decisions so far: one gist line. Not yet specified no longer waits on precedence or letter-case.
 - [[plan/expression-language/spec-draft.md]] boolean section marked Locked; catalog word `NOT`.
 - [[plan/expression-language/reports/pipeline-examples.md]] uses `NOT containing`. [[plan/expression-language/issues/08-prototype-pipeline-examples.md|Prototype: pipeline examples]] stays open.
-- [[plan/expression-language/project.md]] summary mentions boolean combinators locked. [[plan/index.md]] updated for that row.
+- [[plan/expression-language/project.md]] summary mentions boolean combinators locked.
 
 ## Frontier
 

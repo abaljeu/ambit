@@ -37,7 +37,6 @@ Glossary and decisions:
 Project:
 
 - [[plan/git-protocol/project.md]] — Stage `active`
-- [[plan/index.md]] — Git protocol row
 
 Unchanged (no git procedure, or not competing):
 

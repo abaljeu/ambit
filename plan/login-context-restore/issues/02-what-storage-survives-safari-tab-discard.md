@@ -1,7 +1,7 @@
 # What storage survives Safari tab discard
 
-Type: research
-Status: closed
+**Type:** research
+**Status:** done
 
 ## Question
 

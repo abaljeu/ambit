@@ -1,7 +1,7 @@
 # Simplify selective client loading
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 
 ## Question
 
