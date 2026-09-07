@@ -1,11 +1,11 @@
 ---
 name: implement-fsharp-feature
-description: Implements Gambol F# features test-first with Shared-first logic and surgical diffs. Use when adding or changing behavior in src/Shared, src/Client, or src/Server, or when the user asks for TDD on a feature.
+description: Implements Gambol F# features with Shared-first logic and surgical diffs. Use when adding or changing behavior in src/Shared, src/Client, or src/Server.
 ---
 
 # Implement F# Feature
 
-Follow [[.cursor/rules/fsharp-source.mdc]], [[.cursor/rules/testing-workflow.mdc]], and [[.cursor/rules/core-agent-behavior.mdc]].
+Augments [[.agents/skills/implement/SKILL.md]] for F# layout and test commands. TDD quality: [[.agents/skills/tdd/SKILL.md]]. Follow [[.cursor/rules/fsharp-source.mdc]] and [[.cursor/rules/core-agent-behavior.mdc]].
 
 See [[doc/arch.md]] for layer boundaries.
 
@@ -26,14 +26,14 @@ ALL non-interacting logic belongs here.
 6. Tests/ - .net tests for shared and server.
 Shared.Tests coverage — use [[.agents/skills/add-shared-test/SKILL.md]] when adding tests.
 
-**Foreground** (related tests only):
+**Foreground** (related tests only). Do not use vscode's test runner; it hangs. Use `dotnet test` with a filter.
 
 ```bash
 dotnet build tests/Shared.Tests -c Debug
 dotnet test tests/Shared.Tests -c Debug --no-build --filter "FullyQualifiedName~YourTestModule"
 ```
 
-When Client dependencies changed (`src/Shared/`, `src/Client/`, or other Client fsproj references), run the Client compile gate after Shared tests. Policy: [[.cursor/rules/testing-workflow.mdc]].
+When Client dependencies changed (`src/Shared/`, `src/Client/`, or anything the Client fsproj references, including Shared documents when that project is in the Client graph), `dotnet test` on Shared.Tests is not enough. Run `./scripts/client.sh build` (Fable and esbuild). `/ambit` serves `Program.bundle.js`; `dotnet fable` alone is not sufficient. A Fable failure is a real failure, not a skip.
 
 ```bash
 ./scripts/client.sh build
