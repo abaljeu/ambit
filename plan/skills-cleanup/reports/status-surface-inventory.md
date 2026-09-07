@@ -20,7 +20,7 @@ Confirmed known clash: Wayfinder `Status: open|claimed|resolved` vs triage `read
 
 **Duplicates / pointers:** [[.cursor/rules/project-stage.mdc]] (skill-to-stage transitions); [[.cursor/skills/project-work/SKILL.md]]; [[.cursor/skills/projects-overview/SKILL.md]] (sort order repeats the enum); [[.cursor/skills/to-archive/SKILL.md]]; [[.cursor/rules/gambol.mdc]] (index); [[CONTEXT.md]] (Roadmap / Epic / Chapter / steering glossary); [[doc/agents/issue-tracker.md]] (Epic Stage note); [[.agents/skills/to-feature-tickets/SKILL.md]] (points at project-work for Stage)
 
-**Field:** `Stage:` on `plan/<slug>/project.md`; Epic Stage recorded on the Epic file under [[plan/roadmap/epics/]] (not a row in [[plan/index.md]])
+**Field:** `Stage:` on `plan/<slug>/project.md`; Epic Stage recorded on the Epic file under [[plan/roadmap/epics/]]
 
 **Allowed values:** `grilling` | `charting` | `steering` | `spec` | `tickets` | `active` | `blocked` | `done` | `dead`
 

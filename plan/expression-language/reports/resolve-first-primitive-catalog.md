@@ -10,7 +10,7 @@ Recorded the HITL decision on [[plan/expression-language/issues/03-first-primiti
 - [[plan/expression-language/issues/11-keep-or-drop-amble-of-and-comma.md|Keep or drop Amble of and comma]] stays open; pointer that comma is kept as `OR` / concatenation; `of` is still that ticket.
 - [[plan/expression-language/spec-draft.md]] catalog marked Locked.
 - [[plan/expression-language/reports/pipeline-examples.md]] adds `containing "the" AND named "blue"` and `#x , #y`. [[plan/expression-language/issues/08-prototype-pipeline-examples.md|Prototype: pipeline examples]] stays open.
-- [[plan/expression-language/project.md]] summary mentions catalog locked. [[plan/index.md]] updated for that row.
+- [[plan/expression-language/project.md]] summary mentions catalog locked.
 
 ## Frontier
 

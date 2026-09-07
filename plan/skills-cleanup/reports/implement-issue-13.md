@@ -9,7 +9,7 @@ Live tickets under [[plan/]] `issues/` now use only the locked Status set with b
 - `resolved` / `closed` / `agent-done` → `done`. No live `wontfix`.
 - Unbolded `Status:` / `Type:` → `**Status:**` / `**Type:**`.
 - `charting` → `chart`, `tickets` → `slice`, `active` → `build`. [[plan/auto-download-persisted-files/project.md]] `blocked` → `build` (tabled HITL, not `dead` or `done`).
-- Dropped `Stage: steering` from [[plan/roadmap/project.md]]. Regenerated [[plan/index.md]] (Roadmap row Stage is `—`).
+- Dropped `Stage: steering` from [[plan/roadmap/project.md]].
 
 ## How verified
 

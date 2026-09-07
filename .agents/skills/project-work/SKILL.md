@@ -7,7 +7,7 @@ description: plan project files and Stage. Use before editing a project's files,
 
 Stages: [[doc/agents/project-status.md]]. Git: [[.agents/skills/git-protocol/SKILL.md]].
 
-Each `plan/<slug>/` effort is a **Project**. Keep its `project.md` Stage current. Create `project.md` if the effort lacks one. Leave [[plan/index.md]] as the leftover snapshot on disk.
+Each `plan/<slug>/` effort is a **Project**. Keep its `project.md` Stage current. Create `project.md` if the effort lacks one.
 
 Do not create `git.md` to record branch names. Existing `git.md` files are history.
 

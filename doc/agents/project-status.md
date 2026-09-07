@@ -46,7 +46,7 @@ Time arc: see [[issue-tracker.md]] (Time tracking). Fill `Started` / `Finished` 
 
 ## Who writes Stage
 
-Set `Stage:` and `Updated:` when a feature-set Project Stage changes. Create `project.md` if the effort lacks one. Leave [[plan/index.md]] as the leftover snapshot on disk.
+Set `Stage:` and `Updated:` when a feature-set Project Stage changes. Create `project.md` if the effort lacks one.
 
 | Skill or act | Stage |
 | --- | --- |
@@ -58,10 +58,6 @@ Set `Stage:` and `Updated:` when a feature-set Project Stage changes. Create `pr
 | Abandon | `dead` |
 
 Epic and Chapter never run `/to-tickets`. Stamp `build` when a pointed Project enters `slice` or `build`. The Roadmap writes neither field.
-
-## Leftover snapshot
-
-[[plan/index.md]] is a leftover snapshot. Leave it on disk. Stage of record is each feature-set Project's `project.md`. The Roadmap is not a Stage row of this vocabulary.
 
 ## Archive
 

@@ -11,7 +11,7 @@ Recorded the HITL decision on [[plan/expression-language/issues/01-pipeline-vers
 - New open grilling ticket [[plan/expression-language/issues/11-keep-or-drop-amble-of-and-comma.md|Keep or drop Amble of and comma]] (unblocked). Not resolved.
 - [[plan/expression-language/spec-draft.md]] juxtaposition, fixity, `Ref text`, and current-Node context marked Locked.
 - [[plan/expression-language/reports/pipeline-examples.md]] uses `#todo text`; notes old prefix `text #todo` as a type error. [[plan/expression-language/issues/08-prototype-pipeline-examples.md|Prototype: pipeline examples]] stays open.
-- [[plan/expression-language/project.md]] summary mentions juxtaposition locked. [[plan/index.md]] regenerated for that row.
+- [[plan/expression-language/project.md]] summary mentions juxtaposition locked.
 
 ## Frontier
 

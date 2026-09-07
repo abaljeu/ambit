@@ -12,7 +12,7 @@ Glossary: [[CONTEXT.md]]. Ambit is the SaaS. Gambol is the repo name. Do not inv
 - [[plan/roadmap/epics/agent-chat-managed-context.md]] — Notes name the in-Ambit LLM step, list options, and a recommended default. **No new Chapter.** Current Chapter stays **Ask from what I see**. Owning Project stays [[plan/llm-connector/project.md]].
 - [[plan/roadmap/map.md]] — **Not yet specified** points at this report and issue 13. No Decision until HITL.
 - [[plan/roadmap/issues/13-grill-cursor-repo-to-ambit-llm-use.md]] — grilling ticket to pick an option.
-- [[plan/roadmap/project.md]] — `Updated: 2026-09-01`. Stage stays **steering**. [[plan/index.md]] was not regenerated.
+- [[plan/roadmap/project.md]] — `Updated: 2026-09-01`. Stage stays **steering**.
 
 No product code. No third Epic kind. No new User Epic file. No duplicate of issue 07.
 

@@ -15,7 +15,7 @@ The owner-chain visited set in [[src/Shared/GraphQuery.fs]] `enclosing` stays as
 - [[src/Shared/ViewModelDeleteOps.fs]] — filter self-occurrences in both classify paths; skip self-Ref in promote
 - [[tests/Shared.Tests/DeleteOpsTests.fs]] — failing then passing facts for classify, History, Browser apply, and mixed real Ref
 - [[plan/delete-ref/project.md]] — Stage `active`
-- [[plan/index.md]] — Delete Ref row Stage `active`
+- [[plan/delete-ref/project.md]] — Stage `active`
 - [[plan/delete-ref/issues/02-delete-owned-self-ref-hangs.md]] — Status `agent-done`
 
 ## Tests

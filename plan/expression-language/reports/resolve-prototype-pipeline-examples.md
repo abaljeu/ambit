@@ -9,7 +9,7 @@ Recorded the HITL reaction on [[plan/expression-language/issues/08-prototype-pip
 - Map [[plan/expression-language/map.md]] Decisions so far: 08 gist added.
 - [[plan/expression-language/spec-draft.md]] Examples marked confirmed prototype (not locked syntax).
 - Comment on [[plan/expression-language/issues/12-owned-versus-ref-walk-for-descendant.md|Owned versus Ref walk for descendant]]: HITL on 08 said Owned-only, same as `**`. That ticket stays open (one ticket per session).
-- [[plan/expression-language/project.md]] summary. [[plan/index.md]] updated for that row.
+- [[plan/expression-language/project.md]] summary.
 
 ## Frontier
 

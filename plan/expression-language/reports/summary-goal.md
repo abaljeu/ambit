@@ -26,4 +26,4 @@ In [[plan/expression-language/project.md]]:
 - Set `Updated: 2026-09-02`.
 - Left `Stage: active` unchanged.
 
-No other project files changed. Did not regenerate [[plan/index.md]].
+No other project files changed.

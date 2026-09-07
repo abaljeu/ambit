@@ -47,5 +47,5 @@ The map points Parse Actor definition, advisory soft-lock policy and Browser UI,
 - Confirmed every new ticket has a title, Type grilling, Status open, ticket-number Blocked by metadata, and only a Question section.
 - Confirmed all new tickets are unclaimed and unresolved, and only the typed Core Changes contract has an empty Blocked by field.
 - Confirmed [[plan/core-creation/project.md]] retains Stage charting, Updated 2026-09-05, both implementation issues, and all prior report links.
-- The Project Stage and Summary did not change, so overview regeneration is content-identical. Confirmed [[plan/index.md]] contains the matching Core creation row and all 35 live Project rows; no overview edit was needed.
+- Confirmed [[plan/core-creation/project.md]] retains the matching Stage and Summary; no overview edit was needed.
 - No repository Markdown lint configuration or focused Markdown lint command was available. Validation used focused structure and link inspection. No tests or builds ran.

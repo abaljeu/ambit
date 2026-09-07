@@ -17,5 +17,4 @@ Repo grep for `01-optional-marker-speech-doc-sweep` and `optional-marker-speech`
 - Did not commit.
 - Did not change product F#.
 - Did not change [[plan/work-board-cleanup/project.md]] (Stage stays `tickets`).
-- Did not regenerate [[plan/index.md]].
 - Did not edit [[plan/glossary-directory-file/]].

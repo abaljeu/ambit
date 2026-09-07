@@ -32,10 +32,6 @@ Did not split the ticket.
 
 No Chapter Required for done pointed at issue 14. No `doc/` or [[CONTEXT.md]] hits. Repo grep: no remaining live links to `plan/roadmap/issues/14-webview2`.
 
-## Overview
-
-Regenerated [[plan/index.md]] for the new Project row (`tickets`, sorted with Debug reload and Work board cleanup).
-
 ## Thin or ambiguous
 
 - The issue is still one large slice (discovery, `/_desktop` origin, Navigate, cookie copy). The file did not say it must split.

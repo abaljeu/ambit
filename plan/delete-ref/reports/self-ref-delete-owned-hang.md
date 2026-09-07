@@ -7,7 +7,7 @@ QA filing plus diagnosis. No commit. [[WORK.md]] not edited.
 - Path: [[plan/delete-ref/issues/02-delete-owned-self-ref-hangs.md]]
 - Title: Delete of an Owned Node that has a self-Ref hangs
 - Status: ready-for-agent
-- Project: [[plan/delete-ref/project.md]] Stage set to `tickets` (was `done`); [[plan/index.md]] row updated.
+- Project: [[plan/delete-ref/project.md]] Stage set to `tickets` (was `done`).
 
 ## What the user meant
 

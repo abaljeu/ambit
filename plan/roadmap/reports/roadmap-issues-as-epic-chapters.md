@@ -82,4 +82,4 @@ Ambiguity of the proposal means these are different change sets; do not pick one
 
 ## Sources (primary)
 
-[[CONTEXT.md]], [[doc/agents/issue-tracker.md]], [[doc/agents/project-status.md]], [[doc/agents/scope-vs-commitment.md]], [[doc/agents/domain.md]], [[plan/roadmap/map.md]], [[plan/roadmap/project.md]], [[plan/index.md]], sample issues and epics under [[plan/roadmap/]], [[doc/Decisions/README.md]].
+[[CONTEXT.md]], [[doc/agents/issue-tracker.md]], [[doc/agents/project-status.md]], [[doc/agents/scope-vs-commitment.md]], [[doc/agents/domain.md]], [[plan/roadmap/map.md]], [[plan/roadmap/project.md]], sample issues and epics under [[plan/roadmap/]], [[doc/Decisions/README.md]].
