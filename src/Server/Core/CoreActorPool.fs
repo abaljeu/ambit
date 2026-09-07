@@ -104,7 +104,7 @@ module CoreActorPool =
           jobs = Map.add plan.number plan.job model.jobs
           locked = Set.union model.locked plan.job.spanIds }
 
-    let private startMailbox () =
+    let private startMailbox (credentials: CoreCredentials) =
         MailboxProcessor.Start(fun inbox ->
             let rec loop model = async {
                 let! msg = inbox.Receive()
@@ -132,6 +132,7 @@ module CoreActorPool =
                     match Map.tryFind number model.jobs with
                     | None -> return! loop model
                     | Some job ->
+                        do! credentials.remove job.credential
                         return!
                             loop
                                 { model with
@@ -186,7 +187,6 @@ module CoreActorPool =
                             handle
                     Async.Start(async {
                         do! plan.actor plan.subgraph plan.credential bound
-                        do! credentials.remove plan.credential
                         mailbox.Post(DeleteActor plan.number)
                     })
                     return Ok(PublicNumber plan.number)
@@ -205,7 +205,7 @@ module CoreActorPool =
         }
 
     let create (credentials: CoreCredentials) : CoreActorPool =
-        let mailbox = startMailbox ()
+        let mailbox = startMailbox credentials
         let lockedIds () = mailbox.PostAndAsyncReply GetLocked
         { register =
             fun name actor ->
