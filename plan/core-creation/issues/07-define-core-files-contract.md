@@ -1,7 +1,7 @@
 # Define the Core Files contract
 
-Type: grilling
-Status: open
+**Type:** grilling
+**Status:** ready-for-agent
 Blocked by: 05
 
 ## Question

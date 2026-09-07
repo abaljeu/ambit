@@ -1,7 +1,7 @@
 # Define the Core Query contract
 
-Type: grilling
-Status: open
+**Type:** grilling
+**Status:** ready-for-agent
 Blocked by: 05
 
 ## Question

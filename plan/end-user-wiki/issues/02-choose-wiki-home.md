@@ -1,7 +1,7 @@
 # Choose the end-user wiki home
 
-Type: grilling
-Status: open
+**Type:** grilling
+**Status:** ready-for-agent
 Blocked by:
 
 ## Question

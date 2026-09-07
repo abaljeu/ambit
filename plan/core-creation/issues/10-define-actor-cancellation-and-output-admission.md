@@ -1,7 +1,7 @@
 # Define Actor cancellation and output admission
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by: 03, 09
 Actual: 1h20m
 

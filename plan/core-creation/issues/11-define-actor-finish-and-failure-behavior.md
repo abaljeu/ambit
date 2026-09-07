@@ -1,7 +1,7 @@
 # Define Actor finish and failure behavior
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by: 03, 09, 10
 Actual: 55m
 

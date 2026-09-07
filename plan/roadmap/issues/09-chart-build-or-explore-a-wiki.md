@@ -1,7 +1,7 @@
 # Chart chapters for Build or explore a wiki
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by: 01
 
 ## Question

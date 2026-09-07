@@ -8,7 +8,7 @@
 
 **See also:** Plan `fix_load_demotes_parse_8d40752b`; [[src/Shared/dotnet/LazyLoadReconciliationApply.fs]], [[tests/Shared.Tests/LazyLoadReconciliationTests.fs]].
 
-**Status:** in-progress
+**Status:** ready-for-human
 
 - [x] Shared regression: plan-add `note.txt`, promote to `Current`, re-plan same path as Added; id and `documentState` stay `Current` (children preserved).
 - [x] `resolvedStubIds` in `addedStubIds` includes only `NoServerFile` resolved stubs.

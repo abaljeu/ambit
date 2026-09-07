@@ -1,7 +1,7 @@
 # Define move and edit residency dependencies
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by: 03
 
 ## Question

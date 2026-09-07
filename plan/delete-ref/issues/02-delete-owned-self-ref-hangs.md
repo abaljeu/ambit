@@ -1,6 +1,6 @@
 # 02 — Delete of an Owned Node that has a self-Ref hangs
 
-**Status:** agent-done
+**Status:** done
 
 ## What happened
 

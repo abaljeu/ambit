@@ -1,7 +1,7 @@
 # Place Core Changes in the existing projects
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Actual: 40m
 Blocked by: 03, 04
 

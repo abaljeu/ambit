@@ -1,7 +1,7 @@
 # Grill Cursor-repo to Ambit LLM use onto Epics
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by:
 
 ## Question

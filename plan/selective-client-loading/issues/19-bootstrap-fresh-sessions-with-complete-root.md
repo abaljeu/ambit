@@ -8,7 +8,7 @@
 
 **See also:** [[plan/selective-client-loading/spec.md]] (ROOT `/state` scope); [[plan/selective-client-loading/issues/14-simplify-selective-loading.md]] (Residency and graph model); [[plan/selective-client-loading/undo-spec.md]] (`/state` installs graph; Poll/Load catch-up remain Changes).
 
-**Status:** agent-done
+**Status:** done
 
 - [x] `/state` returns `StateResponse` with a scoped `graph` and one response revision; it does not return or apply a Change tail.
 - [x] The graph map contains only the resident ROOT closure, not the full canonical Server Graph.

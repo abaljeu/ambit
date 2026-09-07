@@ -1,7 +1,7 @@
 # Reshape childOwnership API
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by: 01
 
 ## Question

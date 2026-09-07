@@ -1,7 +1,7 @@
 # Define Actor-pool shutdown behavior
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by: 09, 10, 11
 Actual: 95m
 

@@ -1,7 +1,7 @@
 # Home every Project on an Epic
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by: none
 
 ## Question

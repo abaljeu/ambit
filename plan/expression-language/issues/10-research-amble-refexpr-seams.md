@@ -1,7 +1,7 @@
 # Research: existing Amble and RefExpr seams the spec must not contradict
 
-Type: research
-Status: resolved
+**Type:** research
+**Status:** done
 Blocked by: none
 
 ## Question

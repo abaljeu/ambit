@@ -1,7 +1,7 @@
 # Inventory live Projects and roadmap remainder
 
-Type: research
-Status: resolved
+**Type:** research
+**Status:** done
 Blocked by: none
 
 ## Question

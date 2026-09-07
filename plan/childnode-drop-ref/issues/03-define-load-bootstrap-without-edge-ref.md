@@ -1,7 +1,7 @@
 # Define load bootstrap without edge ref
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by: 01, 08
 
 ## Question

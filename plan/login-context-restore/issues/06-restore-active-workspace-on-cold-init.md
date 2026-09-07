@@ -1,7 +1,7 @@
 # Restore active Workspace on cold init
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by: 04
 
 ## Question

@@ -1,7 +1,7 @@
 # What GitLab-level browsable means for architecture
 
-Type: grilling
-Status: open
+**Type:** grilling
+**Status:** ready-for-agent
 Blocked by:
 
 ## Question

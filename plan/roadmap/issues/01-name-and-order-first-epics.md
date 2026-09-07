@@ -1,7 +1,7 @@
 # Name and order the first Epics
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by: 02
 
 ## Question
