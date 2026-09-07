@@ -13,6 +13,7 @@ Actual: 17h15m
 ## Committed Decisions
 
 - [[doc/Decisions/0003-core-is-a-container-of-subobjects.md|Core is a container of subobjects]] — provisional framing of the Core structure.
+- [[doc/Decisions/0004-core-mailbox-messages-clear-fast.md|Core mailbox messages clear fast]] — cancel/finish are fast queue messages; slow work is an Actor.
 
 ## Agent instruction
 

@@ -23,3 +23,6 @@ Cancel takes a NodeId. Core finds the job by span membership. Core signals the A
 ## Comments
 
 - 2026-09-06 — Blocked by [[23-close-core-object-seam.md|23 (Close Core object seam)]]. Cancel needs sender-at-Post; production Changes still post with no Credential.
+## Design note (2026-09-07)
+
+Cancel is a fast Core mailbox message sharing the finish/drop path ([[doc/Decisions/0004-core-mailbox-messages-clear-fast.md]], [[18-finish-and-drop.md]]). Signal CT and update admission state quickly; do not invent a second drop or a cancel-specific reject. Posts already ahead of cancel on the queue still apply; posts behind reject via the normal active-source check.

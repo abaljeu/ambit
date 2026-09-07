@@ -21,6 +21,8 @@ Auth refuse is one family: Adapter cookie fail (HTTP 401) and Core inactive-send
 
 Grill notes: [[plan/core-creation/reports/grill-issue-10-cancellation.md]].
 
+**Amend (2026-09-07):** Core mailbox messages clear fast; slow work is an Actor. Cancel is a fast mailbox message. Posts ahead of cancel still apply (FIFO); posts behind fail the normal active-source check after cancel has run — no special cancel reject. See [[doc/Decisions/0004-core-mailbox-messages-clear-fast.md]].
+
 ## Comments
 
 - Grilling started. Round 1 is in [[plan/core-creation/reports/grill-issue-10-cancellation.md]]. Blockers 03 and 09 are resolved, so this ticket is unblocked. Facts: [[plan/core-creation/reports/grill-issue-10-facts.md]].
