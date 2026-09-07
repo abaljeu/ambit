@@ -59,6 +59,7 @@ module CoreActorPool =
             AsyncReplyChannel<Result<LaunchPlan, string>>
         | Query of int * AsyncReplyChannel<LaunchRequest option>
         | GetLocked of AsyncReplyChannel<Set<NodeId>>
+        | DeleteActor of int
 
     let private tracked (job: Job) : LaunchRequest =
         { name = job.name
@@ -103,7 +104,7 @@ module CoreActorPool =
           jobs = Map.add plan.number plan.job model.jobs
           locked = Set.union model.locked plan.job.spanIds }
 
-    let private startMailbox () =
+    let private startMailbox (credentials: CoreCredentials) =
         MailboxProcessor.Start(fun inbox ->
             let rec loop model = async {
                 let! msg = inbox.Receive()
@@ -127,6 +128,17 @@ module CoreActorPool =
                     | Ok plan ->
                         reply.Reply(Ok plan)
                         return! loop (applyPlan model plan)
+                | DeleteActor number ->
+                    match Map.tryFind number model.jobs with
+                    | None -> return! loop model
+                    | Some job ->
+                        do! credentials.remove job.credential
+                        return!
+                            loop
+                                { model with
+                                    jobs = Map.remove number model.jobs
+                                    locked =
+                                        Set.difference model.locked job.spanIds }
             }
             loop
                 { next = 1
@@ -173,8 +185,10 @@ module CoreActorPool =
                             credentials
                             plan.credential
                             handle
-                    Async.Start(
-                        plan.actor plan.subgraph plan.credential bound)
+                    Async.Start(async {
+                        do! plan.actor plan.subgraph plan.credential bound
+                        mailbox.Post(DeleteActor plan.number)
+                    })
                     return Ok(PublicNumber plan.number)
         }
 
@@ -191,7 +205,7 @@ module CoreActorPool =
         }
 
     let create (credentials: CoreCredentials) : CoreActorPool =
-        let mailbox = startMailbox ()
+        let mailbox = startMailbox credentials
         let lockedIds () = mailbox.PostAndAsyncReply GetLocked
         { register =
             fun name actor ->
