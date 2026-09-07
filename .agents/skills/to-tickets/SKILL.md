@@ -8,8 +8,6 @@ disable-model-invocation: true
 
 Break a plan, spec, or conversation into a set of **tickets** — tracer-bullet vertical slices, each declaring the tickets that **block** it.
 
-The issue tracker and triage label vocabulary should have been provided to you — run `/setup-matt-pocock-skills` if not.
-
 ## Process
 
 ### 1. Gather context
@@ -18,7 +16,7 @@ Work from whatever is already in the conversation context. If the user passes a 
 
 ### 2. Explore the codebase (optional)
 
-If you have not already explored the codebase, do so to understand the current state of the code. Ticket titles and descriptions should use the project's domain glossary vocabulary, and respect ADRs in the area you're touching.
+If you have not already explored the codebase, do so to understand the current state of the code. Ticket titles and descriptions should use the project's domain glossary vocabulary, and respect Committed Decisions in the area you're touching.
 
 Look for opportunities to prefactor the code to make the implementation easier. "Make the change easy, then make the easy change."
 
@@ -28,11 +26,11 @@ Break the work into **tracer bullet** tickets.
 
 <vertical-slice-rules>
 
-- Each slice cuts a narrow but COMPLETE path through every layer (schema, API, UI, tests) — vertical, NOT a horizontal slice of one layer
+- A product slice cuts a narrow but COMPLETE path through every affected layer (schema, API, UI, tests) — vertical, NOT a horizontal slice of one layer
+- An instruction-file slice (skills, rules, agent docs) is verifiable by repo search and published instruction behavior; schema, API, and UI are not required
 - A completed slice is demoable or verifiable on its own
 - Each slice is sized to fit in a single fresh context window
 - Any prefactoring should be done first
-
 </vertical-slice-rules>
 
 Give each ticket its **blocking edges** — the other tickets that must complete before it can start. A ticket with no blockers can start immediately.
@@ -61,7 +59,7 @@ Publish the approved tickets.
 
 write one file per ticket under `plan/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01` in dependency order (blockers first). Each file's "Blocked by" lists the numbers/titles it depends on. Use the per-ticket file template below — one ticket per file, never a single combined file.  Include one or two pointers to defining specs from which the ticket was derived.  Not just `spec.md` but more trace back to decision files.
 
-Work the **frontier**: any ticket whose blockers are all done. For a purely linear chain that means top to bottom.
+Record the **frontier** (takeable tickets whose blockers are all done) for a later implement. For a purely linear chain that is the first ticket.
 
 Do NOT close or modify any parent issue.
 
@@ -83,12 +81,11 @@ The end-to-end behaviour this ticket makes work, from the user's perspective —
 - [ ] Acceptance criterion 1
 - [ ] Acceptance criterion 2
 
-## Comments
-Add this when there is a comment.
-
 ## See also
 One or two wikilinks to the defining spec and decision files this ticket was derived from (not only the parent `spec.md`).
 
 </local-ticket-template>
+
+Add a ## Comments section only when there is a comment.
 
 Avoid code snippets — they go stale fast. Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it and note briefly that it came from a prototype. Trim to the decision-rich parts — not a working demo, just the important bits.

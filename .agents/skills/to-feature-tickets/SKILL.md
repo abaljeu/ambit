@@ -18,7 +18,7 @@ Work from whatever is already in the conversation context. If the user passes a 
 
 ### 2. Explore the codebase (optional)
 
-If you have not already explored the codebase, do so. Ticket titles and descriptions should use the project's domain glossary vocabulary, and respect ADRs in the area you're touching.
+If you have not already explored the codebase, do so. Ticket titles and descriptions should use the project's domain glossary vocabulary, and respect Committed Decisions in the area you're touching.
 
 ### 3. Draft feature tickets
 
@@ -52,7 +52,7 @@ Iterate until the user approves the breakdown.
 
 Publish the approved tickets.
 
-Plan files and Stage: follow [[.cursor/skills/project-work/SKILL.md]].
+Plan files and Stage: follow [[.agents/skills/project-work/SKILL.md]].
 
 Write one file per ticket under `plan/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01` in dependency order (blockers first). Each file's "Blocked by" lists the numbers/titles it depends on. Use the per-ticket file template below — one ticket per file. Include one or two pointers to defining specs from which the ticket was derived. Not just `spec.md` but more trace back to decision files.
 
@@ -74,12 +74,11 @@ The functionality this ticket makes work — not a layer-by-layer implementation
 - [ ] Acceptance criterion 1
 - [ ] Acceptance criterion 2
 
-## Comments
-Add this when there is a comment.
-
 ## See also
 One or two wikilinks to the defining spec and decision files this ticket was derived from (not only the parent `spec.md`).
 
 </local-ticket-template>
+
+Add a ## Comments section only when there is a comment.
 
 Avoid code snippets — they go stale fast. Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it and note briefly that it came from a prototype. Trim to the decision-rich parts.

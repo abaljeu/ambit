@@ -1,70 +1,30 @@
 ---
 name: request-refactor-plan
-description: Create a detailed refactor plan with tiny steps via user interview, then publish it under local plan/. Use when user wants to plan a refactor, create a refactoring RFC, or break a refactor into safe incremental steps.
+description: Chart a new Feature-set Project for a refactor — interview, tiny steps, then a map. Use when the user wants to plan a refactor, a refactoring RFC, or safe incremental refactor steps.
 ---
 
-This skill will be invoked when the user wants to create a refactor request. You should go through the steps below. You may skip steps if you don't consider them necessary.
+This skill **charts** a new Feature-set Project under [[plan/]], like [[.agents/skills/wayfinder/SKILL.md]]. Spec work is [[.agents/skills/to-spec/SKILL.md]]. Implementation tickets are [[.agents/skills/to-tickets/SKILL.md]] and [[.agents/skills/to-feature-tickets/SKILL.md]].
 
-Git: follow [[.cursor/skills/git-protocol/SKILL.md]]. Publish under `plan/` per [[doc/agents/issue-tracker.md]]. Plan grain is **steps** (same size discipline as tiny commits), not commits.
+Git: [[.agents/skills/git-protocol/SKILL.md]]. Start the Project and set Stage with [[.agents/skills/project-work/SKILL.md]]. This invocation is a chart — the same Who-writes-Stage act as `/wayfinder` in [[doc/agents/project-status.md]]. Map, child tickets, blocking, and frontier: [[doc/agents/issue-tracker.md]] (Wayfinding operations). Those docs own structure. This skill owns the refactor interview and the **steps** grain.
 
-1. Ask the user for a long, detailed description of the problem they want to solve and any potential ideas for solutions.
+Plan grain is **steps** (same size discipline as tiny commits). Martin Fowler: make each refactoring step as small as possible, so that you can always see the program working. Each step leaves the codebase in a working state; when later implementing, a step may become a commit.
 
-2. Explore the repo to verify their assertions and understand the current state of the codebase.
+## Process
 
-3. Ask whether they have considered other options, and present other options to them.
+You may skip an interview step that is not necessary. Always create and chart.
 
-4. Interview the user about the implementation. Be extremely detailed and thorough.
+1. Ask the user for a long, detailed description of the problem they want to solve and any potential ideas for solutions. Done when the destination of the refactor is named.
 
-5. Hammer out the exact scope of the implementation. Work out what you plan to change and what you plan not to change.
+2. Explore the repo to verify their assertions and understand the current state of the codebase. Done when you can confirm or correct those assertions.
 
-6. Look in the codebase to check for test coverage of this area of the codebase. If there is insufficient test coverage, ask the user what their plans for testing are.
+3. Ask whether they have considered other options, and present other options to them. Done when the user has seen the options and chosen a direction.
 
-7. Break the implementation into a plan of tiny **steps**. Remember Martin Fowler's advice to "make each refactoring step as small as possible, so that you can always see the program working." Each step should leave the codebase in a working state; when later implementing, a step may become a commit.
+4. Interview the user about the implementation. Be extremely detailed and thorough. Default grill: [[.agents/skills/grill-me/SKILL.md]]. Done when the implementation shape is sharp enough to chart.
 
-8. Publish the refactor plan under `plan/<feature-slug>/` per [[doc/agents/issue-tracker.md]]. Use the following template:
+5. Hammer out the exact scope of the implementation. Work out what you plan to change and what you plan not to change. Done when in-scope and out-of-scope are named.
 
-<refactor-plan-template>
+6. Look in the codebase to check for test coverage of this area of the codebase. If there is insufficient test coverage, ask the user what their plans for testing are. Done when testing intent is named.
 
-## Problem Statement
+7. Break the implementation into tiny **steps**. Done when the first chartable questions and the remaining fog are visible.
 
-The problem that the developer is facing, from the developer's perspective.
-
-## Solution
-
-The solution to the problem, from the developer's perspective.
-
-## Steps
-
-A LONG, detailed implementation plan. Write the plan in plain English, breaking down the implementation into the tiniest steps possible. Each step should leave the codebase in a working state.
-
-## Decision Document
-
-A list of implementation decisions that were made. This can include:
-
-- The modules that will be built/modified
-- The interfaces of those modules that will be modified
-- Technical clarifications from the developer
-- Architectural decisions
-- Schema changes
-- API contracts
-- Specific interactions
-
-Do NOT include specific file paths or code snippets. They may end up being outdated very quickly.
-
-## Testing Decisions
-
-A list of testing decisions that were made. Include:
-
-- A description of what makes a good test (only test external behavior, not implementation details)
-- Which modules will be tested
-- Prior art for the tests (i.e. similar types of tests in the codebase)
-
-## Out of Scope
-
-A description of the things that are out of scope for this refactor.
-
-## Further Notes (optional)
-
-Any further notes about the refactor.
-
-</refactor-plan-template>
+8. Create the Feature-set Project and chart it. Follow [[.agents/skills/project-work/SKILL.md]] to start. Follow [[.agents/skills/wayfinder/SKILL.md]] Chart the map for how to write the map and tickets (this session's interview is the destination grill). Record the **steps** grain on the map Notes. Follow [[doc/agents/issue-tracker.md]] for where those files live. Done when project.md exists at Stage `chart`, the map exists, and the first tickets you can specify now are filed.

@@ -9,9 +9,9 @@ Use relative paths such as ./src. Do not use absolute paths.
 
 ## Git
 
-Follow [[.cursor/skills/git-protocol/SKILL.md]]. Terms: [[CONTEXT.md]].
+Follow [[.agents/skills/git-protocol/SKILL.md]]. Terms: [[CONTEXT.md]].
 
-The Desktop agent does not run remotes unless the user asks (manual approval). Remotes are [[.cursor/skills/git-share/SKILL.md]], which the human invokes.
+The Desktop agent does not run remotes unless the user asks (manual approval). Remotes are [[.agents/skills/git-share/SKILL.md]], which the human invokes.
 
 Read-only local git (`status`, `diff`, `log`, `rev-parse`, `check-ignore`, etc.) is always fine.
 

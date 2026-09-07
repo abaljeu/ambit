@@ -10,7 +10,7 @@ Two-axis review of a working-tree or tip diff:
 
 Both axes run as **parallel sub-agents** so they don't pollute each other's context, then this skill aggregates their findings.
 
-Issue tracker: [[doc/agents/issue-tracker.md]] (local `plan/`). Git: [[.cursor/skills/git-protocol/SKILL.md]].
+Issue tracker: [[doc/agents/issue-tracker.md]] (local `plan/`). Git: [[.agents/skills/git-protocol/SKILL.md]].
 
 When the diff touches F# (`*.fs` / `*.fsi`), follow [[.agents/skills/code-review-fsharp/SKILL.md]] before spawning sub-agents.
 
