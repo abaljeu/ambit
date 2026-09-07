@@ -1,26 +1,28 @@
 # Skill flaws found while ticketing
 
-Noted during `/to-tickets` publish for [[plan/skills-cleanup/]]. Do not repair in this pass. Later review.
+Noted during `/to-tickets` publish for [[plan/skills-cleanup/]]. Leftover repair: [[plan/skills-cleanup/reports/address-skill-flaws-while-ticketing.md]].
 
 ## [[.agents/skills/to-tickets/SKILL.md]]
 
-- Precondition still says run [[.agents/skills/setup-matt-pocock-skills/SKILL.md]] if tracker vocab is missing. This repo already has [[doc/agents/issue-tracker.md]]. Ticket [[plan/skills-cleanup/issues/04-remove-vendor-merge-and-setup-matt.md]] deletes that bootstrap.
-- Step 2 says respect ADRs. [[CONTEXT.md]] says Committed Decision.
-- Vertical-slice rules assume schema, API, UI, and tests. Instruction-file work has no product layers. The rule does not describe a verifiable instruction slice.
-- Step 5 says work the frontier right after publish. That reads as start implement in the same session.
-- The template always includes Comments. The skill text says add Comments when there is a comment.
+- **Done** (ticket 04). No setup-matt precondition. This repo already has [[doc/agents/issue-tracker.md]].
+- **Done** (leftover repair). Step 2 says Committed Decision, not ADR.
+- **Done** (leftover repair). Instruction-file slices are verifiable by repo search and published instruction behavior. Schema, API, and UI are not required for that work.
+- **Done** (leftover repair). Step 5 publishes tickets and records the frontier for a later implement.
+- **Done** (leftover repair). The template has no Comments section. The skill adds `## Comments` only when there is a comment.
+
+Same ADR and Comments leftovers were in [[.agents/skills/to-feature-tickets/SKILL.md]]. Those two are **Done**. That skill had no frontier-after-publish leftover.
 
 ## [[.agents/skills/wait-what/SKILL.md]]
 
-- One sentence. It does not say how Context differs from What to build. Ticket prose has to invent that split.
+- **Done** (leftover repair). The skill names how Context differs from What to build.
 
 ## [[.agents/skills/project-work/SKILL.md]] and [[.cursor/rules/project-stage.mdc]]
 
-- After grilling starts, project-work still writes Stage `charting`. Locked Stage is `chart` in [[doc/agents/project-status.md]].
-- Both still map `/to-tickets` to Stage `tickets`. Locked Who-writes-Stage is `slice`. This publish used `slice` from [[doc/agents/project-status.md]].
+- **Done** (ticket 03). Stage is `chart`, not `charting`.
+- **Done** (ticket 03). `/to-tickets` writes `slice`, not `tickets`. Grilling is a method, not a Stage.
 
 ## [[doc/agents/issue-tracker.md]] and [[doc/agents/triage-labels.md]]
 
-- Conventions still say an unbolded `Status:` line. The 2026-09-02 template and the bold-field lock require `**Status:**`.
-- triage-labels still lists `needs-triage` and `wontfix`. Locked Status set is in [[plan/skills-cleanup/reports/lock-status-set-v2.md]]. Ticket [[plan/skills-cleanup/issues/03-write-status-and-stage-lists-into-canonical-docs.md]] is the obedience.
-- triage-labels has Status `blocked`. The to-tickets template always writes `ready-for-agent` and puts the wait in Blocked by. Frontier text is takeable plus unblocked. Two stories for a named wait. This publish followed the template.
+- **Done** (ticket 03). Conventions use `**Status:**`.
+- **Done** (ticket 03). Locked Status set. `needs-triage` and `wontfix` are not live values.
+- **Leftover.** triage-labels has Status `blocked`. The to-tickets template writes `ready-for-agent` and puts the wait in Blocked by. Frontier is takeable plus unblocked. Two stories for a named wait. The publish followed the template. No new policy. Do not merge the stories.
