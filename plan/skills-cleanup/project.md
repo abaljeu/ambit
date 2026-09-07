@@ -1,10 +1,10 @@
 # Skills cleanup
 
 Stage: build
-Summary: Skill home is .agents/skills/. Frontier is the prepare-rule flip. Shared ticket-publish core stays out of this Project.
+Summary: Skill home is .agents/skills/. Frontier is canonical Status and Stage lists. Shared ticket-publish core stays out of this Project.
 Updated: 2026-09-06
 Started: 2026-09-06
-Actual: 2h
+Actual: 2h 45m
 
 ## Core problem
 
@@ -27,7 +27,7 @@ Build order: [[plan/skills-cleanup/spec.md]]. Canonical lists in [[doc/agents/pr
 - Forced gates wait.
 - **Ask-Matt and gambol.mdc:** Ask-Matt ([[.agents/skills/ask-matt/SKILL.md]]) is the human advisor agent. [[.cursor/rules/gambol.mdc]] is the primary agent instruction file. Keep both. They must agree: same jobs, same skill names, same sequence; do not skip Gambol adapters. Do not pick one router and delete the other. See [[plan/skills-cleanup/reports/lock-ask-matt-gambol-agree.md]].
 - **Both ticket skills:** Keep [[.agents/skills/to-tickets/SKILL.md]] (tracer-bullet vertical slices) and [[.agents/skills/to-feature-tickets/SKILL.md]] (cohesive testable capabilities). Later: refactor the common core (shared publish path, template, tracker wiring). That refactor is a destination, not work now. See [[plan/skills-cleanup/reports/lock-tickets-home-wayfinder.md]].
-- **Skill home:** Repo-shared skills live in [[.agents/skills/]]. Today's split is not the destination. Later obedience: [[.agents/skills/prepare-agent-instruction-change/SKILL.md]] currently forbids that home; change that rule to match this lock. Do not edit that skill in this charting pass.
+- **Skill home:** Repo-shared skills live in [[.agents/skills/]]. [[.agents/skills/prepare-agent-instruction-change/SKILL.md]] names that home.
 - **Wayfinder and tracker:** [[.agents/skills/wayfinder/SKILL.md]] must reference and not repeat [[doc/agents/issue-tracker.md]]. Wayfinder is a process; issue-tracker is a structure. Issue-tracker wins on structure (claim, Type, Status, frontier, file layout). Wayfinder owns the process (when to research, grill, or prototype; how to chart a destination).
 - **All git on `dev`:** No extra long-lived places (`research/`, `prototype/`, `vendor/`, `update/`). Work stays on the git-protocol `dev` place, then `ready` / `master` per [[.agents/skills/git-protocol/SKILL.md]]. Wayfinder research and prototype skills must not teach throwaway topic branches. See [[plan/skills-cleanup/reports/lock-git-all-on-dev.md]].
 - **Vendor merge obsolete:** Alan will not use the merge-vendor-skills process. [[.agents/skills/update-matt-skills/SKILL.md]] is obsolete: do not run it; do not keep it as a live workflow. Places `vendor/mattpocock-skills` and `update/mattpocock-skills` are dead (also forbidden by all-git-on-`dev`). Live skills must not say run [[.agents/skills/setup-matt-pocock-skills/SKILL.md]] first. Copies under that folder are leftover, not a second tracker. Ask-Matt stays. See [[plan/skills-cleanup/reports/lock-vendor-merge-obsolete.md]].
@@ -44,7 +44,7 @@ Build order: [[plan/skills-cleanup/spec.md]]. Canonical lists in [[doc/agents/pr
 
 ## Later implementation
 
-When this Project edits live skills, rules, or bridges, follow [[.agents/skills/prepare-agent-instruction-change/SKILL.md]]. That skill currently forbids storing repo-shared skills in [[.agents/skills/]]; later obedience must change that rule to match the skill-home lock. Later obedience must also write the new Status set into [[doc/agents/triage-labels.md]] and [[doc/agents/issue-tracker.md]], migrate live ticket Status values and unbolded labels to `**Status:**` (and the same for other fields), drop the obsolete vendor merge, delete [[.agents/skills/triage/SKILL.md]] and its pointers, ditch [[.cursor/rules/testing-workflow.mdc]], make tdd and implement-fsharp-feature agree with `/implement` by reference (no second loop), retarget Ask-Matt to default `/grill-me`, change ADR wording to Committed Decision, make request-refactor-plan reference the tracker instead of copying Project structure, make to-spec publish `spec.md` only (not a ticket), change [[.agents/skills/improve-codebase-architecture/SKILL.md]] from temp HTML to a Markdown report under `plan/<slug>/reports/`, and make issues QA files carry tracker structure fields without turning QA into a pointer skill. Catch-up includes [[.cursor/rules/project-stage.mdc]] (still the old grilling directive) and live `Stage:` tokens on other Projects.
+When this Project edits live skills, rules, or bridges, follow [[.agents/skills/prepare-agent-instruction-change/SKILL.md]]. Later obedience must write the new Status set into [[doc/agents/triage-labels.md]] and [[doc/agents/issue-tracker.md]], migrate live ticket Status values and unbolded labels to `**Status:**` (and the same for other fields), drop the obsolete vendor merge, delete [[.agents/skills/triage/SKILL.md]] and its pointers, ditch [[.cursor/rules/testing-workflow.mdc]], make tdd and implement-fsharp-feature agree with `/implement` by reference (no second loop), retarget Ask-Matt to default `/grill-me`, change ADR wording to Committed Decision, make request-refactor-plan reference the tracker instead of copying Project structure, make to-spec publish `spec.md` only (not a ticket), change [[.agents/skills/improve-codebase-architecture/SKILL.md]] from temp HTML to a Markdown report under `plan/<slug>/reports/`, and make issues QA files carry tracker structure fields without turning QA into a pointer skill. Catch-up includes [[.cursor/rules/project-stage.mdc]] (still the old grilling directive) and live `Stage:` tokens on other Projects.
 
 ## In scope
 
@@ -82,3 +82,4 @@ Rewriting product code, rewriting the whole Roadmap map body, implementing Core,
 - [[plan/skills-cleanup/reports/skill-flaws-found-while-ticketing.md]] — Skill flaws noted during publish; not repaired.
 - [[plan/skills-cleanup/reports/to-tickets-publish.md]] — Published issue list and frontier.
 - [[plan/skills-cleanup/reports/implement-issue-01.md]] — Skill-home move.
+- [[plan/skills-cleanup/reports/implement-issue-02.md]] — Prepare-rule home flip.
