@@ -5,7 +5,7 @@ description: Scratch a short .sh with Write, then run that file. Use when asked 
 
 # Scratch script
 
-Shell and paths: [[.cursor/rules/environment.mdc]].
+Shell and paths: [[.agents/rules/environment.md]].
 
 A **scratch** is the same commands you would have run, written as a file, then run as that file.
 The purpose is to make the commands readable and editable by a human, not to make it reusable or general.

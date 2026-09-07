@@ -5,7 +5,7 @@ description: Investigates Gambol Fable client MVU and DOM issues while keeping l
 
 # Investigate Fable Client
 
-Follow [[.cursor/rules/fsharp-source.mdc]], [[.cursor/rules/testing-workflow.mdc]], and [[doc/arch.md]].
+Follow [[.agents/rules/fsharp-source.md]], [[.agents/skills/implement-fsharp-feature/SKILL.md]], and [[doc/arch.md]].
 
 ## Client layout
 
@@ -39,7 +39,7 @@ Fable output goes to `src/Server/wwwroot`; the server serves `/ambit`.
 
 VS Code default: Fable watch + server. Manual: `./scripts/client.sh` (default action is watch).
 
-Shared edits that must ship to `/ambit` are Client dependencies. After those edits, run `./scripts/client.sh build` (Fable and esbuild). Shared.Tests do not compile the Client. A Fable failure is a real failure, not a skip. Policy: [[.cursor/rules/testing-workflow.mdc]].
+Shared edits that must ship to `/ambit` are Client dependencies. After those edits, run `./scripts/client.sh build` (Fable and esbuild). Shared.Tests do not compile the Client. A Fable failure is a real failure, not a skip. Policy: [[.agents/skills/implement-fsharp-feature/SKILL.md]].
 
 ## Escalation
 

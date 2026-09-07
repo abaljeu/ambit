@@ -8,7 +8,7 @@ Core is a container of subobjects, not a facade. A call site reaches Core functi
 
 We keep owned mutable state instead of threading a value. The earlier idea was a pure transition, `newCore = coreFunction core parameters`. The Change path is not a pure transition: it interleaves amend and apply with disk validation, disk write, persist-stamp absorption, log append, and publish. A pure form needs a decide / perform / absorb split, which is not worth its cost now. Instead Core keeps state behind its seam, and `core.subobject.function parameters` updates Core and its subobjects.
 
-Mutation is confined behind the Core seam. [[.cursor/rules/project-values.mdc]] and [[.cursor/rules/fsharp-source.mdc]] ask for pure functional F# with no mutable. Core satisfies this at the seam, not inside: the state reference lives in one owner's mailbox loop, the arrangement [[src/Server/FileAgent.fs]] already uses. This is the intended exception, not a regression to report.
+Mutation is confined behind the Core seam. [[.agents/rules/project-values.md]] and [[.agents/rules/fsharp-source.md]] ask for pure functional F# with no mutable. Core satisfies this at the seam, not inside: the state reference lives in one owner's mailbox loop, the arrangement [[src/Server/FileAgent.fs]] already uses. This is the intended exception, not a regression to report.
 
 In F# the container is a record of closures over private state. The handle in [[src/Server/Core/CoreChanges.fs]] already has this form, so no new mechanism is necessary.
 

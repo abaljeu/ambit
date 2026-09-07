@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # Ask Matt
 
-You do not remember every skill, so ask. This file is the human advisor. [[.cursor/rules/gambol.mdc]] is the primary Agent instruction file. Both remain. The job lists below match that file in name and sequence. Default grill is `/grill-me`.
+You do not remember every skill, so ask. This file is the human advisor. [[.agents/rules/gambol.md]] is the primary Agent instruction file. Both remain. The job lists below match that file in name and sequence. Default grill is `/grill-me`.
 
 Shared runtime state:
 

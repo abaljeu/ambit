@@ -1,0 +1,2 @@
+The aim is for clear, concise, robust, private, useful software.
+Full Stack Functional F# (ASP.NET and Fable client).

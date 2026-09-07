@@ -15,7 +15,7 @@ Before the Standards sub-agent runs, measure against the same review range. Pref
 
 If a fixed point was named, pass that ref instead of `HEAD`.
 
-Thresholds match [[.cursor/rules/fsharp-source.mdc]]: **40 lines/function**, **100 chars/line**. Long lines are reported only on **added** hunk lines. Paste the script output into the Standards sub-agent prompt; treat over-limit bindings and added long lines as documented-standard findings citing `fsharp-source.mdc`.
+Thresholds match [[.agents/rules/fsharp-source.md]]: **40 lines/function**, **100 chars/line**. Long lines are reported only on **added** hunk lines. Paste the script output into the Standards sub-agent prompt; treat over-limit bindings and added long lines as documented-standard findings citing [[.agents/rules/fsharp-source.md]].
 
 Do **not** measure match arms separately — they are sub-parts of a function, and the enclosing `let`/`and` must already be ≤40 lines. The script finds module-level `let`/`and` via indentation (no `--arm`).
 

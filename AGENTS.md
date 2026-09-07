@@ -1,1 +1,1 @@
-Follow [[.cursor/rules/gambol.mdc]].
+Follow [[.agents/rules/gambol.md]].
