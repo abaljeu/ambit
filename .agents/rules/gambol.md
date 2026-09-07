@@ -11,7 +11,6 @@ Canonical project rules are split across [[.agents/rules/]]. Cursor attaches the
 
 Shared runtime state:
 
-- [[plan/index.md]] — leftover snapshot left on disk; Stage of record is each `plan/<slug>/project.md`. Work is that project's issues/
 - [[CONTEXT.md]] — concise domain glossary
 
 Imported engineering skill configuration:
@@ -22,7 +21,7 @@ Imported engineering skill configuration:
 - [[doc/agents/scope-vs-commitment.md]] — scope is effort-local; product commitments need an authorized record
 - [[doc/agents/project-status.md]] — per-project `Stage:` vocabulary
 
-Ask-Matt is the human advisor: [[.agents/skills/ask-matt/SKILL.md]]. This file is the primary Agent instruction file. Both remain. The job lists below match that skill in name and sequence. Default grill is `/grill-me`.
+Ask-Matt is the human advisor: [[.agents/skills/ask-matt/SKILL.md]]. This file is the primary Agent instruction file. Both remain. This file holds the job catalog. Ask-Matt references it. Do not paste the catalog there.
 
 Workflow skills in [[.agents/skills/]]:
 
@@ -79,7 +78,7 @@ Workflow skills in [[.agents/skills/]]:
 - [[.agents/skills/wait-what/SKILL.md]] — re-pitch a message that did not land
 - [[.agents/skills/teach/SKILL.md]] — learn a concept over multiple sessions
 - [[.agents/skills/writing-for-agents/SKILL.md]] — writing documents that agents consume
-- [[.agents/skills/projects-overview/SKILL.md]] — retired; leave [[plan/index.md]] as a leftover snapshot
+- [[.agents/skills/projects-overview/SKILL.md]] — retired
 
 Tool-specific notes:
 

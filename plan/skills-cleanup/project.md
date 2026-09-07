@@ -2,10 +2,10 @@
 
 Stage: done
 Summary: Skill home is .agents/skills/. Frontier is canonical Status and Stage lists. Shared ticket-publish core stays out of this Project.
-Updated: 2026-09-06
+Updated: 2026-09-07
 Started: 2026-09-06
 Finished: 2026-09-06
-Actual: 12h 35m
+Actual: 13h 15m
 
 ## Core problem
 
@@ -17,7 +17,7 @@ We did not have one Stage list and one Status list. Those lists are now locked b
 
 ## Destination
 
-Build order: [[plan/skills-cleanup/spec.md]]. Canonical lists in [[doc/agents/project-status.md]] and [[doc/agents/triage-labels.md]] (Status catch-up later; lock lives here until those files match). Glossary names in [[CONTEXT.md]]. Ask-Matt and gambol.md must agree (same jobs, skill names, sequence; no skip of Gambol adapters). Keep both ticket skills; later extract their common core. Repo-shared skills live in [[.agents/skills/]]. Wayfinder is process and points at [[doc/agents/issue-tracker.md]] (structure). All work on `dev` (then `ready` / `master` per [[.agents/skills/git-protocol/SKILL.md]]). The vendor merge/flatten/setup-matt bootstrap is obsolete; Ask-Matt stays. Default grill entry is [[.agents/skills/grill-me/SKILL.md]]. Reports live under `plan/<slug>/reports/` unless a skill names another path. [[.agents/skills/request-refactor-plan/SKILL.md]] is a process that creates and charts a new Project (like Wayfinder), not a third spec/ticket skill. [[.agents/skills/domain-modeling/SKILL.md]] writes [[CONTEXT.md]]; always say Committed Decision, not ADR. Entry implement is [[.agents/skills/implement/SKILL.md]]; ditch [[.cursor/rules/testing-workflow.mdc]] later; tdd and implement-fsharp-feature augment by reference. Delete [[.agents/skills/triage/SKILL.md]] later. Keep [[.agents/skills/qa/SKILL.md]] (process); issues it files must be valid tracker files (structure already locked). Later: skills and rules obey those lists. Forced Stage gates wait.
+Build order: [[plan/skills-cleanup/spec.md]]. Canonical lists in [[doc/agents/project-status.md]] and [[doc/agents/triage-labels.md]] (Status catch-up later; lock lives here until those files match). Glossary names in [[CONTEXT.md]]. Ask-Matt and gambol.md must agree (one job catalog in gambol; Ask-Matt points at it; no skip of Gambol adapters). Keep both ticket skills; later extract their common core. Repo-shared skills live in [[.agents/skills/]]. Wayfinder is process and points at [[doc/agents/issue-tracker.md]] (structure). All work on `dev` (then `ready` / `master` per [[.agents/skills/git-protocol/SKILL.md]]). The vendor merge/flatten/setup-matt bootstrap is obsolete; Ask-Matt stays. Default grill entry is [[.agents/skills/grill-me/SKILL.md]]. Reports live under `plan/<slug>/reports/` unless a skill names another path. [[.agents/skills/request-refactor-plan/SKILL.md]] is a process that creates and charts a new Project (like Wayfinder), not a third spec/ticket skill. [[.agents/skills/domain-modeling/SKILL.md]] writes [[CONTEXT.md]]; always say Committed Decision, not ADR. Entry implement is [[.agents/skills/implement/SKILL.md]]; ditch [[.cursor/rules/testing-workflow.mdc]] later; tdd and implement-fsharp-feature augment by reference. Delete [[.agents/skills/triage/SKILL.md]] later. Keep [[.agents/skills/qa/SKILL.md]] (process); issues it files must be valid tracker files (structure already locked). Later: skills and rules obey those lists. Forced Stage gates wait.
 
 ## Locked
 
@@ -26,7 +26,7 @@ Build order: [[plan/skills-cleanup/spec.md]]. Canonical lists in [[doc/agents/pr
 - **Who writes Stage:** `/wayfinder` → `chart`; `/to-spec` → `spec`; `/to-tickets` and `/to-feature-tickets` → `slice`; first implement → `build`; delivered → `done`; abandon → `dead`. Stamp Epic/Chapter `build` when a pointed Project enters `slice` or `build`.
 - **Grilling** is a method, not a field. **Archive** is an action from `done`. **Rework** is a move back. Revive from `dead` by naming a live Stage.
 - Forced gates wait.
-- **Ask-Matt and gambol.md:** Ask-Matt ([[.agents/skills/ask-matt/SKILL.md]]) is the human advisor agent. [[.agents/rules/gambol.md]] is the primary agent instruction file. Keep both. They must agree: same jobs, same skill names, same sequence; do not skip Gambol adapters. Do not pick one router and delete the other. See [[plan/skills-cleanup/reports/lock-ask-matt-gambol-agree.md]].
+- **Ask-Matt and gambol.md:** Ask-Matt ([[.agents/skills/ask-matt/SKILL.md]]) is the human advisor agent. [[.agents/rules/gambol.md]] is the primary agent instruction file and holds the job catalog. Keep both. Ask-Matt references that catalog; do not paste it twice. Same jobs, skill names, and sequence; do not skip Gambol adapters. Do not pick one router and delete the other. See [[plan/skills-cleanup/reports/lock-ask-matt-gambol-agree.md]].
 - **Both ticket skills:** Keep [[.agents/skills/to-tickets/SKILL.md]] (tracer-bullet vertical slices) and [[.agents/skills/to-feature-tickets/SKILL.md]] (cohesive testable capabilities). Later: refactor the common core (shared publish path, template, tracker wiring). That refactor is a destination, not work now. See [[plan/skills-cleanup/reports/lock-tickets-home-wayfinder.md]].
 - **Skill home:** Repo-shared skills live in [[.agents/skills/]]. [[.agents/skills/prepare-agent-instruction-change/SKILL.md]] names that home.
 - **Wayfinder and tracker:** [[.agents/skills/wayfinder/SKILL.md]] must reference and not repeat [[doc/agents/issue-tracker.md]]. Wayfinder is a process; issue-tracker is a structure. Issue-tracker wins on structure (claim, Type, Status, frontier, file layout). Wayfinder owns the process (when to research, grill, or prototype; how to chart a destination).
@@ -65,6 +65,7 @@ Rewriting product code, rewriting the whole Roadmap map body, implementing Core,
 - [[plan/skills-cleanup/reports/status-set-candidates.md]] — Early set candidates (superseded by Locked).
 - [[plan/skills-cleanup/reports/skill-contradiction-chart.md]] — Skill-tree contradictions beyond the locked lists.
 - [[plan/skills-cleanup/reports/lock-ask-matt-gambol-agree.md]] — Ask-Matt / gambol.mdc lock and current disagreements.
+- [[plan/skills-cleanup/reports/dry-ask-matt-gambol.md]] — One catalog in gambol; Ask-Matt points at it.
 - [[plan/skills-cleanup/reports/lock-tickets-home-wayfinder.md]] — Both ticket skills, skill home, and Wayfinder-vs-tracker locks.
 - [[plan/skills-cleanup/reports/lock-git-all-on-dev.md]] — All git work on `dev`; no extra long-lived places.
 - [[plan/skills-cleanup/reports/lock-vendor-merge-obsolete.md]] — Vendor merge/flatten/setup-matt bootstrap is obsolete; Ask-Matt stays.
