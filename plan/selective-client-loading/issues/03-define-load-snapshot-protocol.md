@@ -1,7 +1,7 @@
 # Define the load snapshot protocol
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by: 01, 02
 
 ## Question

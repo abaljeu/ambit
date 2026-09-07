@@ -1,7 +1,7 @@
 # Prototype: pipeline examples
 
-Type: prototype
-Status: resolved
+**Type:** prototype
+**Status:** done
 Blocked by: none
 
 ## Question

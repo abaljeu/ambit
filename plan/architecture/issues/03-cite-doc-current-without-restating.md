@@ -1,7 +1,7 @@
 # How this wiki cites doc/current without restating
 
-Type: grilling
-Status: open
+**Type:** grilling
+**Status:** ready-for-agent
 Blocked by:
 
 ## Question

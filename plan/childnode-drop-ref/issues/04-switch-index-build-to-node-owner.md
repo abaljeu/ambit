@@ -1,7 +1,7 @@
 # Switch index build to Node.owner
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by: 01
 
 ## Question

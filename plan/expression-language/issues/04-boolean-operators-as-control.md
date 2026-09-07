@@ -1,7 +1,7 @@
 # Boolean operators as control
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by: none
 
 ## Question

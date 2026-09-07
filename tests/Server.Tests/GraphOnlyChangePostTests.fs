@@ -7,9 +7,6 @@ open Gambol.Server
 open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
 
-module Encode = Thoth.Json.Newtonsoft.Encode
-module Decode = Thoth.Json.Newtonsoft.Decode
-
 let private requireOk label result =
     match result with
     | Ok value -> value
@@ -18,28 +15,20 @@ let private requireOk label result =
 let private postWorkspace (fileAgent: FileAgent) (label: string) =
     let workspaceId, ops = FileNodeOps.planCreateWorkspace (Graph.create ()) label
     let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
-    let body =
-        Encode.toString 0 (Serialization.encodeChangeBatch { changes = [ change ] })
-    FileAgent.postChange fileAgent body
+    (FileAgent.coreChanges fileAgent).postChange [ change ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
     workspaceId
 
-let private decodePostedOps (body: string) : int =
-    match Decode.fromString Serialization.decodeChangeBatch body with
-    | Error err -> failwith $"decode posted change: {err}"
-    | Ok batch ->
-        batch.changes |> List.sumBy (fun c -> c.ops.Length)
-
-let private recordingHandle (inner: AgentHandle) =
-    let posts = ResizeArray<string>()
+let private recordingHandle (inner: CoreChanges) =
+    let posts = ResizeArray<Change list>()
     let handle =
         { inner with
             postGraphOnlyChange =
-                fun body ->
-                    posts.Add(body)
-                    inner.postGraphOnlyChange body }
+                fun changes ->
+                    posts.Add(changes)
+                    inner.postGraphOnlyChange changes }
     handle, posts
 
 [<Fact>]
@@ -52,7 +41,7 @@ let ``reconcile posts graph-only chunks at or under maxOps`` () =
     Directory.CreateDirectory(home) |> ignore
     for i in 1 .. fileCount do
         File.WriteAllText(Path.Combine(home, sprintf "n%03d.txt" i), "x")
-    let inner = AgentHandle.ofFile fileAgent
+    let inner = FileAgent.coreChanges fileAgent
     let handle, posts = recordingHandle inner
     LazyLoadReconciliationServer.reconcileChangedPaths handle tempDir "home" []
     |> Async.RunSynchronously
@@ -61,8 +50,8 @@ let ``reconcile posts graph-only chunks at or under maxOps`` () =
     Assert.True(
         posts.Count >= 2,
         sprintf "expected multiple posts, got %d" posts.Count)
-    for body in posts do
-        let n = decodePostedOps body
+    for changes in posts do
+        let n = changes |> List.sumBy (fun change -> change.ops.Length)
         Assert.True(
             n <= GraphOnlyChangeChunks.maxOps,
             sprintf "chunk had %d ops" n)

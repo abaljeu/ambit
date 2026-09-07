@@ -4,7 +4,7 @@
 
 **Blocked by:** None — can start immediately.
 
-**Status:** agent-done
+**Status:** done
 
 - [x] A child list has exactly Unloaded or Loaded status, Unloaded is valid only with no resident children, and existing current and full graphs default to Loaded.
 - [x] A resident header with Unloaded children is observably distinct from both a Loaded empty leaf and a Loaded parent.

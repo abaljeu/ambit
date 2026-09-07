@@ -4,6 +4,8 @@ How a long-running Server-side Actor fits the framework, what already fits, and 
 
 Status: **assessment**, not a lock. The merge rules that apply once a Change arrives are accepted. How a job enters apply, how it is packaged, and residency are **not** decided.
 
+Ownership: [[plan/core-creation/project.md]] owns the Core entry path and Actor pool. [[../issues/08-parse-file-realignment-tracer.md]] owns the Parse definition. [[../issues/09-job-identity-with-advisory-soft-lock.md]] owns advisory soft-lock behavior and Browser-facing job access.
+
 ## The fit, in one line
 
 Once a Change **arrives** at Server apply, every existing rule decides the merge and the way a Browser consumes it. Everything before arrival — launch, identity, cancel, packaging — is undecided.

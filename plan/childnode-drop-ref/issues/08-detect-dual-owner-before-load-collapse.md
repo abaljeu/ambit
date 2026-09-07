@@ -1,7 +1,7 @@
 # Detect dual-Owner before load collapse
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by: 01
 
 ## Question

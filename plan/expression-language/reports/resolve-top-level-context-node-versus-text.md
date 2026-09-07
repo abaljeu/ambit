@@ -8,7 +8,7 @@ Recorded the HITL lock on [[plan/expression-language/issues/06-top-level-context
 - [[plan/expression-language/issues/07-statements-in-this-spec.md|Statements in this spec]] pointer that 06 locked Run materialise.
 - Map [[plan/expression-language/map.md]] Decisions so far: one gist line. Not yet specified drops Find-versus-Run (now locked) and names number-returning functions. Out of scope: keep Find/Move dialog chrome.
 - [[plan/expression-language/spec-draft.md]] Top-level context marked Locked. Number Answers wait for a catalog producer.
-- [[plan/expression-language/project.md]] summary mentions Run/Search/Move consumers. [[plan/index.md]] updated for that row.
+- [[plan/expression-language/project.md]] summary mentions Run/Search/Move consumers.
 
 ## Frontier
 

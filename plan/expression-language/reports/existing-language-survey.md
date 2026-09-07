@@ -12,7 +12,7 @@ Contents of [[plan/expression-language/git.md]]:
 - **Cut from:** `w/broken` (already on a project branch; stayed)
 - **Notes:** Wayfinder charting; destination still unnamed.
 
-[[plan/expression-language/project.md]] Stage is `charting`. [[plan/index.md]] was regenerated from every live `plan/*/project.md`. The overview skill also required a missing [[plan/download-no-parse-fix/project.md]]; that file was created as `charting`.
+[[plan/expression-language/project.md]] Stage is `charting`. A missing [[plan/download-no-parse-fix/project.md]] was created as `charting`.
 
 ## 2. Path and reference syntax: specified versus implemented
 

@@ -15,8 +15,8 @@ Run `?` with a message and included context. The reply is Owned children of the 
 
 - [ ] [[plan/llm-connector/project.md]] — pack, LLM call, write-back
 - [ ] [[plan/expression-language/issues/33-recognize-ask-run-statement.md]] — recognize `?` as a Run statement
-- [ ] [[plan/event-sourced-ops/issues/07-generalized-server-actor-produce-path.md]]
-- [ ] [[plan/event-sourced-ops/issues/09-job-identity-with-advisory-soft-lock.md]]
+- [ ] [[plan/core-creation/issues/01-generalized-server-actor-produce-path.md]]
+- [ ] [[plan/core-creation/issues/02-core-actor-pool.md]]
 
 ## Notes
 Might be implemented through [[plan\roadmap\epics\operate-connected-channels.md]], making a channel for sending messages to an Agent API.  Agent may asynchronously send info to Ambit.

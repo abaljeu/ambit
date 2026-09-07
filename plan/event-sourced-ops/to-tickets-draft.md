@@ -90,6 +90,8 @@ Each item is project-sized (likely its own `plan/<slug>/`). Status words follow 
 
 ### Actor spine (fewer concepts)
 
+Ownership changed on 2026-09-05. Former ticket 07 moved to [[plan/core-creation/issues/01-generalized-server-actor-produce-path.md]]. Core pool machinery from ticket 09 moved to [[plan/core-creation/issues/02-core-actor-pool.md]]. ESO retains Parse in [[issues/08-parse-file-realignment-tracer.md]] and advisory soft-lock behavior in [[issues/09-job-identity-with-advisory-soft-lock.md]]. The sections below preserve the approved publish history.
+
 #### Ticket 6 — Generalized Server Actor produce path → publish `07`
 
 - **Blocked by:** Tickets 2 and 3.

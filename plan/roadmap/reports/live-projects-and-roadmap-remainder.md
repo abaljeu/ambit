@@ -1,10 +1,10 @@
 # Live feature-set Projects and roadmap remainder
 
-Research for [[plan/roadmap/issues/02-inventory-live-projects-and-roadmap-remainder.md]]. Facts only. Branch at write: `w/roadmap`. Sources: [[plan/index.md]], each cited `project.md` / `map.md` / `spec.md`, [[doc/index.md]], [[doc/README.md]], [[doc/current/]], [[doc/roadmap/]].
+Research for [[plan/roadmap/issues/02-inventory-live-projects-and-roadmap-remainder.md]]. Facts only. Branch at write: `w/roadmap`. Sources: each cited `project.md` / `map.md` / `spec.md`, [[doc/index.md]], [[doc/README.md]], [[doc/current/]], [[doc/roadmap/]].
 
 ## 1. Live feature-set Projects
 
-Scope: every `plan/*/project.md` except [[plan/done/]] and except [[plan/roadmap/]] (Roadmap is steering, not a feature-set Project). Overview table: [[plan/index.md]].
+Scope: every `plan/*/project.md` except [[plan/done/]] and except [[plan/roadmap/]] (Roadmap is steering, not a feature-set Project).
 
 ### Charting
 
@@ -49,7 +49,7 @@ Scope: every `plan/*/project.md` except [[plan/done/]] and except [[plan/roadmap
 
 ### Index note
 
-[[plan/index.md]] also lists **Roadmap** at Stage `steering` (excluded here as non–feature-set). Expression Language summary text in the index differs slightly from [[plan/expression-language/project.md]] (index: tickets 15–22, next ticket 23; project.md: tickets 15–26 implemented). This report cites `project.md` for Stage and Summary.
+The Roadmap is excluded here as non–feature-set. Expression Language summary text in a leftover catalog differed slightly from [[plan/expression-language/project.md]] (catalog: tickets 15–22, next ticket 23; project.md: tickets 15–26 implemented). This report cites `project.md` for Stage and Summary.
 
 ## 2. `doc/roadmap/*.md` vs `doc/current/`
 

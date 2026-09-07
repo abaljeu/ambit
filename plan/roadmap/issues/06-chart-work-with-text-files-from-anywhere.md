@@ -1,7 +1,7 @@
 # Chart chapters for Work with my text files from anywhere
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by:
 
 ## Question

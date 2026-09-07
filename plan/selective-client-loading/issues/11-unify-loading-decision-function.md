@@ -1,7 +1,7 @@
 # Unify the loading decision function
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by: 05, 06, 07, 08, 09, 10
 
 ## Question

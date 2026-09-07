@@ -16,4 +16,4 @@ The destination in [[investigation.md]] and [[delete-children-cost.md]] is the s
 
 ## What changed
 
-In [[project.md]]: replaced the implementation-inventory Summary with the goal line above; set `Updated: 2026-09-02`; left `Stage: active` and the `Artifacts:` line unchanged. No other project files. Did not regenerate [[plan/index.md]].
+In [[project.md]]: replaced the implementation-inventory Summary with the goal line above; set `Updated: 2026-09-02`; left `Stage: active` and the `Artifacts:` line unchanged. No other project files.

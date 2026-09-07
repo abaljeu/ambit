@@ -14,7 +14,7 @@ One issue. The spec is one rename/wrapper slice.
 
 Summary was not changed. The project goal is still the git procedure. The named scripts are UX for that procedure.
 
-`Updated:` is already 2026-09-02. [[plan/index.md]] was not regenerated (Stage did not change).
+`Updated:` is already 2026-09-02.
 
 ## Ambiguity
 

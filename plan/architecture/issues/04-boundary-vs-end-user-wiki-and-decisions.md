@@ -1,7 +1,7 @@
 # Boundary vs End-user wiki and Committed Decisions
 
-Type: grilling
-Status: open
+**Type:** grilling
+**Status:** ready-for-agent
 Blocked by:
 
 ## Question

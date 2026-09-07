@@ -1,7 +1,7 @@
 # Keep or drop Amble of and comma
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by: none
 
 ## Question

@@ -33,7 +33,7 @@ Did not implement product code. Did not write wiki how-to. Did not commit. Issue
 
 ### Pending (new issues from reports)
 
-- [[plan/roadmap/reports/upload-dot-scratch-directory-stub.md]] → [[plan/roadmap/issues/15-hitl-empty-scratch-directory-stub.md]] — HITL empty `.scratch`; Load `.agents` stays Loaded; classify-batch report linked.
+- [[plan/roadmap/reports/upload-dot-scratch-directory-stub.md]] → [[plan/roadmap/issues/15-hitl-empty-scratch-directory-stub.md]] — HITL empty `plan`; Load `.agents` stays Loaded; classify-batch report linked.
 - [[plan/roadmap/reports/graph-only-reconcile-chunk.md]] → [[plan/roadmap/issues/16-hitl-cpanel-proxy-php-large-load.md]] — HITL upload [[proxy.php]]; large Load 200 not 400/502.
 - [[plan/roadmap/reports/direct-api-vs-proxy.md]] (pretty URL) → [[plan/roadmap/issues/17-pretty-url-php-or-same-site-azure.md]] — keep PHP or chart same-site Azure hostname; WebView2 is [[plan/webview2-azure-origin/issues/01-webview2-navigate-azure-ambit.md]].
 - [[plan/expression-language/reports/run-changes-not-effective.md]] → [[plan/expression-language/issues/34-hitl-run-error-strings-and-unfold.md]] — HITL hard-reload error strings and unfold.

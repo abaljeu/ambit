@@ -33,7 +33,7 @@ Issue [[plan/git-protocol/issues/04-named-ux-scripts.md]] is **done**. No commit
 - [[scripts/merge.sh]] and [[scripts/push.sh]] — callees. Same git operations as today.
 - [[plan/git-protocol/scripts-spec.md]] — user artifact; typos left as filed.
 - [[plan/git-protocol/issues/02-git-guardrails-may-block-ready-push.md]] and [[plan/git-protocol/issues/03-name-master-tag-convention.md]] — not this issue.
-- [[plan/git-protocol/project.md]] and [[plan/index.md]] — Stage already `active`. Issue 01 may also touch them.
+- [[plan/git-protocol/project.md]] — Stage already `active`. Issue 01 may also touch it.
 - Historical reports under [[plan/git-protocol/reports/]].
 
 ## Issue 04 marked done

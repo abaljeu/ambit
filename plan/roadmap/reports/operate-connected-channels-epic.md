@@ -1,6 +1,6 @@
 # Operate connected channels — Epic file
 
-Did not implement product code. Did not commit. Did not add a Chapter file. Did not move issue 01. Did not steal [[plan/webview2-azure-origin/project.md]] from [[plan/roadmap/epics/organize-huge-outlines.md]]. Did not rewrite neighbor Epic Notes or [[plan/transport-layer/map.md]]. Roadmap Stage stays steering. Did not regenerate [[plan/index.md]].
+Did not implement product code. Did not commit. Did not add a Chapter file. Did not move issue 01. Did not steal [[plan/webview2-azure-origin/project.md]] from [[plan/roadmap/epics/organize-huge-outlines.md]]. Did not rewrite neighbor Epic Notes or [[plan/transport-layer/map.md]]. Roadmap Stage stays steering.
 
 ## Created
 

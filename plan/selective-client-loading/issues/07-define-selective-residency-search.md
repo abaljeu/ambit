@@ -1,7 +1,7 @@
 # Define search across selective residency
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by: 03, 04
 
 ## Question

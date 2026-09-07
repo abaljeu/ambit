@@ -1,7 +1,7 @@
 # Choose progressive migration spine
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by: 06
 
 ## Question

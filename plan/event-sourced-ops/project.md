@@ -1,12 +1,12 @@
 # Event-sourced ops
 
-Stage: active
+Stage: build
 Summary: Give one semantic standard for how an Actor's Change enters a Graph so every Actor uses the same path and concurrent work merges instead of being refused.
 Updated: 2026-09-02
 
 Start at [[overview.md]] — objective and semantic means. Then [[architecture.md]] — roles, the life of a Change, the two channels.
 
-Implementation issues (dependency order): [[issues/01-shared-success-envelope-expand.md]] through [[issues/14-drop-replace-index-wire-migration.md]]. Done wire slices: [[issues/13-migrate-producers-full-list-replace-wire.md]], [[issues/14-drop-replace-index-wire-migration.md]]. Draft and quiz history: [[to-tickets-draft.md]].
+Implementation issues (dependency order): [[issues/01-shared-success-envelope-expand.md]] through [[issues/14-drop-replace-index-wire-migration.md]], except former issue 07 moved to [[plan/core-creation/issues/01-generalized-server-actor-produce-path.md]]. Parse remains [[issues/08-parse-file-realignment-tracer.md]]. Advisory soft-lock behavior and Browser job access remain [[issues/09-job-identity-with-advisory-soft-lock.md]]. Core pool machinery is [[plan/core-creation/issues/02-core-actor-pool.md]]. Done wire slices: [[issues/13-migrate-producers-full-list-replace-wire.md]], [[issues/14-drop-replace-index-wire-migration.md]]. Draft and quiz history: [[to-tickets-draft.md]].
 
 Details, by topic:
 

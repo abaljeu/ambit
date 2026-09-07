@@ -26,7 +26,6 @@ Covers:
 - `plan/relaxed-concurrency/spec.md` — created (this spec)
 - `plan/relaxed-concurrency/to-spec-report.md` — created (this report)
 - `plan/relaxed-concurrency/project.md` — summary refreshed
-- `plan/index.md` — regenerated
 - `WORK.md` — pending entry now links to spec
 
 ## Stage

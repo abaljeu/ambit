@@ -1,7 +1,7 @@
 # Choose UI-context persistence approach
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by: 02
 
 ## Question

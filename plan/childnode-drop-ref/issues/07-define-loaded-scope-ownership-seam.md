@@ -1,7 +1,7 @@
 # Define Loaded-scope ownership seam
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by: 01
 
 ## Question

@@ -1,7 +1,7 @@
 # Represent authoritative child-list residency
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 
 ## Question
 

@@ -53,6 +53,15 @@ let ``Node childrenStatus Unloaded round-trip`` () =
     Assert.Equal(node, decoded)
 
 [<Fact>]
+let ``Node JSON omits lock-present`` () =
+    let node = Node.Create(NodeId.New(), text = "locked", lockPresent = true)
+    let json = Enc.toString 0 (Serialization.encodeNode node)
+    Assert.DoesNotContain("lockPresent", json)
+    Assert.DoesNotContain("lock-present", json)
+    let decoded = roundTrip Serialization.encodeNode Serialization.decodeNode node
+    Assert.False(decoded.lockPresent)
+
+[<Fact>]
 let ``Node decode without childrenStatus defaults to Loaded`` () =
     let nodeId = NodeId.New()
     let json =

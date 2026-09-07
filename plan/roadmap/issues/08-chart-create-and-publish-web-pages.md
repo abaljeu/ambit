@@ -1,7 +1,7 @@
 # Chart chapters for Create and publish web pages
 
-Type: grilling
-Status: resolved
+**Type:** grilling
+**Status:** done
 Blocked by: 01
 
 ## Question

@@ -1,7 +1,7 @@
 # Choose the marketing wiki home
 
-Type: grilling
-Status: open
+**Type:** grilling
+**Status:** ready-for-agent
 Blocked by:
 
 ## Question

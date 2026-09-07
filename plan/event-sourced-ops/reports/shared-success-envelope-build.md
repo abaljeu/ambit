@@ -6,7 +6,7 @@ Post and Poll now use one complete `ChangeSuccessResponse` type and codec. Both 
 
 ## Files changed
 
-- Tracking: [[plan/event-sourced-ops/project.md]], [[plan/index.md]], and [[plan/event-sourced-ops/issues/01-shared-success-envelope-expand.md]]
+- Tracking: [[plan/event-sourced-ops/project.md]] and [[plan/event-sourced-ops/issues/01-shared-success-envelope-expand.md]]
 - Shared contract: [[src/Shared/ApiResponses.fs]], [[src/Shared/ApiResponseSerialization.fs]], [[src/Shared/Serialization.fs]], and [[src/Shared/SyncLogic.fs]]
 - Server: [[src/Server/Api.fs]], [[src/Server/RouteRegistration.fs]], [[src/Server/FileAgent.fs]], and [[src/Server/DbAgent.fs]]
 - Browser: [[src/Client/UpdateCodec.fs]], [[src/Client/Update.fs]], [[src/Client/UpdateWorkspaceSync.fs]], and [[src/Client/App.fs]]

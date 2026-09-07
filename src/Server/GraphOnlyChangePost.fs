@@ -6,27 +6,22 @@ open Gambol.Shared
 [<RequireQualifiedAccess>]
 module GraphOnlyChangePost =
 
-    module JsonEncode = Thoth.Json.Newtonsoft.Encode
-
-    let encodeChange revision ops =
-        let change =
-            { id = revision
-              changeId = Guid.NewGuid()
-              ops = ops }
-        JsonEncode.toString 0 (
-            Serialization.encodeChangeBatch { changes = [ change ] })
-
     let rec postChunks
-        (post: string -> Async<Result<string, string>>)
-        (revision: int)
+        (post: Change list -> Async<Result<CoreChangesAccepted, string>>)
+        (revision: Revision)
         (chunks: Op list list)
         : Async<Result<unit, string>> =
         match chunks with
         | [] -> async.Return(Ok ())
         | chunk :: rest ->
             async {
-                let! result = post (encodeChange revision chunk)
+                let change =
+                    { id = revision.Value
+                      changeId = Guid.NewGuid()
+                      ops = chunk }
+                let! result = post [ change ]
                 match result with
                 | Error err -> return Error err
-                | Ok _ -> return! postChunks post (revision + 1) rest
+                | Ok accepted ->
+                    return! postChunks post accepted.revision rest
             }

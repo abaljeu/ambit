@@ -10,7 +10,7 @@ Parent: [[cache-first-boot-via-poll.md]], [[plan/client-start-time/project.md]]
 
 ## Tickets published
 
-All seven issues live under [[plan/client-start-time/issues/]]. Criteria are checked. [[project.md]] stays `Stage: active`. [[plan/index.md]] was regenerated.
+All seven issues live under [[plan/client-start-time/issues/]]. Criteria are checked. [[project.md]] stays `Stage: active`.
 
 ## What each ticket delivered
 

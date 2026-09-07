@@ -8,9 +8,6 @@ open Gambol.Server
 open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
 
-module Encode = Thoth.Json.Newtonsoft.Encode
-module Decode = Thoth.Json.Newtonsoft.Decode
-
 let private changedBody () =
     let childId = NodeId.New()
     let change =
@@ -23,9 +20,7 @@ let private changedBody () =
                     Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ])
                 ]
         }
-    Encode.toString 0 (
-        Serialization.encodeChangeBatch
-            { changes = [ change ] })
+    [ change ]
 
 let private softFailPersist : string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, string> =
     fun _ _ postGraph _ ->
@@ -34,17 +29,11 @@ let private softFailPersist : string -> Graph -> Graph -> Op list -> Result<Pers
             message = Some(DocumentPersistence.fileCouldNotSave "SYSTEM/secret.txt")
         }
 
-let private decodeAck (json: string) =
-    match
-        Decode.fromString
-            ApiResponseSerialization.decodeChangeSuccessResponseDecoder
-            json
-    with
-    | Ok response -> response
-    | Error err -> failwith $"decode ack: {err}"
+let private decodeAck (accepted: CoreChangesAccepted) =
+    accepted
 
-let private decodeAckMessage (json: string) : string option =
-    (decodeAck json).message
+let private decodeAckMessage (accepted: CoreChangesAccepted) =
+    accepted.message
 
 /// Insert a normal child at ROOT index 0 (old span [] = insert).
 let private softFailEditBody () =
@@ -59,9 +48,7 @@ let private softFailEditBody () =
                     Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ])
                 ]
         }
-    Encode.toString 0 (
-        Serialization.encodeChangeBatch
-            { changes = [ change ] })
+    [ change ]
 
 [<Fact>]
 let ``persistence exception is logged replied and mailbox survives`` () = task {
@@ -83,7 +70,7 @@ let ``persistence exception is logged replied and mailbox survives`` () = task {
     let agent = FileAgent.createWithDependencies dependencies dataDir
     try
         let! postResult =
-            FileAgent.postChange agent (changedBody ())
+            (FileAgent.coreChanges agent).postChange (changedBody ())
             |> Async.StartAsTask
             |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
         match postResult with
@@ -94,7 +81,7 @@ let ``persistence exception is logged replied and mailbox survives`` () = task {
 
         let log = File.ReadAllText logPath
         Assert.Contains("EXCEPTION source=FileAgent operation=PostChange", log)
-        Assert.Contains("context=bodyLength=", log)
+        Assert.Contains("context=changeCount=", log)
         Assert.Contains("type=System.InvalidOperationException", log)
         Assert.Contains("message=injected persistence failure", log)
         Assert.Contains("stack=", log)
@@ -129,7 +116,7 @@ let ``persist step hang is rejected within timeout and mailbox survives`` () = t
     try
         let sw = Diagnostics.Stopwatch.StartNew()
         let! postResult =
-            FileAgent.postChange agent (changedBody ())
+            (FileAgent.coreChanges agent).postChange (changedBody ())
             |> Async.StartAsTask
             |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
         sw.Stop()
@@ -160,7 +147,7 @@ let ``soft-fail live-save still commits graph and returns could-not-save message
     let agent = FileAgent.createWithDependencies dependencies dataDir
     try
         let! postResult =
-            FileAgent.postChange agent (softFailEditBody ())
+            (FileAgent.coreChanges agent).postChange (softFailEditBody ())
             |> Async.StartAsTask
         match postResult with
         | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")
@@ -186,7 +173,7 @@ let ``soft-fail log is not replayed into FileAgent state after restart`` () = ta
     let agent1 = FileAgent.createWithDependencies dependencies dataDir
     try
         let! postResult =
-            FileAgent.postChange agent1 (softFailEditBody ())
+            (FileAgent.coreChanges agent1).postChange (softFailEditBody ())
             |> Async.StartAsTask
         match postResult with
         | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")
@@ -204,8 +191,8 @@ let ``soft-fail log is not replayed into FileAgent state after restart`` () = ta
             state.graph.nodes
             |> Map.exists (fun _ n -> n.text = "soft-fail-probe"))
         Assert.Equal(Revision 0, state.revision)
-        Assert.Empty(agent2.initialState.history.past)
-        Assert.Empty(agent2.initialState.history.future)
+        Assert.Empty((FileAgent.initialState agent2).history.past)
+        Assert.Empty((FileAgent.initialState agent2).history.future)
     finally
         FileAgent.dispose agent2
 }
@@ -226,8 +213,7 @@ let private incrementingStampPersist (count: int ref) =
                         postGraph.nodes }
         Ok { graph = graph; message = None }
 
-let private encodeBatch (changes: Change list) =
-    Encode.toString 0 (Serialization.encodeChangeBatch { changes = changes })
+let private encodeBatch (changes: Change list) = changes
 
 let private addChildChange rev text =
     let childId = NodeId.New()
@@ -251,7 +237,7 @@ let ``ACK returns stamped complete Change equal to ChangeLog`` () = task {
     try
         let change = addChildChange 0 "stamp-prefix"
         let! postResult =
-            FileAgent.postChange agent (encodeBatch [ change ])
+            (FileAgent.coreChanges agent).postChange (encodeBatch [ change ])
             |> Async.StartAsTask
         match postResult with
         | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")
@@ -288,7 +274,7 @@ let ``trailing duplicate keeps stamps on last new Change`` () = task {
     try
         let first = addChildChange 0 "first-new"
         let! firstResult =
-            FileAgent.postChange agent (encodeBatch [ first ])
+            (FileAgent.coreChanges agent).postChange (encodeBatch [ first ])
             |> Async.StartAsTask
         let firstConfirmed =
             match firstResult with
@@ -296,7 +282,7 @@ let ``trailing duplicate keeps stamps on last new Change`` () = task {
             | Error err -> failwith err
         let second = addChildChange 1 "second-new"
         let! batchResult =
-            FileAgent.postChange agent (encodeBatch [ second; first ])
+            (FileAgent.coreChanges agent).postChange (encodeBatch [ second; first ])
             |> Async.StartAsTask
         match batchResult with
         | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")

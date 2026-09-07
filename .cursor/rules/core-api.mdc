@@ -1,0 +1,5 @@
+---
+globs: src/Server/Core/**/*.fs,src/Server/Api.fs,src/Server/RouteRegistration.fs,src/Server/GraphOnlyChangePost.fs,src/Server/LazyLoadReconciliationServer.fs
+---
+
+Obey [[.agents/rules/core-api.md]].
