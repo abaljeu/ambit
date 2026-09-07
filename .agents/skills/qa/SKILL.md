@@ -48,6 +48,8 @@ Keep as a single issue when:
 
 Publish under `plan/<feature-slug>/issues/` per [[doc/agents/issue-tracker.md]]. Do NOT ask the user to review first — file and share the paths.
 
+Each published file is a tracker issue as defined in that doc: numbered `NN-slug.md`, a title heading, and a bold `**Status:**` line with a Status value from the tracker. Newly filed issues that have reproduction steps use `ready-for-agent`. Numbering, field labels, and other tracker fields follow the tracker doc. Do not copy the ticket template from [[.agents/skills/to-tickets/SKILL.md]].
+
 Issues must be **durable** — they should still make sense after major refactors. Write from the user's perspective.
 
 #### For a single issue
@@ -55,6 +57,10 @@ Issues must be **durable** — they should still make sense after major refactor
 Use this template:
 
 ```
+# <short title>
+
+**Status:** ready-for-agent
+
 ## What happened
 
 [Describe the actual behavior the user experienced, in plain language]
@@ -81,6 +87,10 @@ Create issue files in dependency order (blockers first) so you can reference sib
 Use this template for each sub-issue:
 
 ```
+# <short title>
+
+**Status:** ready-for-agent
+
 ## Parent issue
 
 Path to parent under plan/ (if any) or "Reported during QA session"
@@ -115,6 +125,7 @@ When creating a breakdown:
 
 #### Rules for all issue bodies
 
+- **Tracker header** — keep bold `**Status:**` at the top with a Status value from [[doc/agents/issue-tracker.md]]
 - **No source file paths or line numbers** — these go stale (issue paths under `plan/` are fine)
 - **Use the project's domain language** (check [[CONTEXT.md]] if it exists)
 - **Describe behaviors, not code** — "the sync service fails to apply the patch" not "applyPatch() throws on line 42"
