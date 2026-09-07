@@ -8,7 +8,7 @@ module GraphOnlyChangePost =
 
     let rec postChunks
         (post: Change list -> Async<Result<CoreChangesAccepted, string>>)
-        (revision: int)
+        (revision: Revision)
         (chunks: Op list list)
         : Async<Result<unit, string>> =
         match chunks with
@@ -16,12 +16,12 @@ module GraphOnlyChangePost =
         | chunk :: rest ->
             async {
                 let change =
-                    { id = revision
+                    { id = revision.Value
                       changeId = Guid.NewGuid()
                       ops = chunk }
                 let! result = post [ change ]
                 match result with
                 | Error err -> return Error err
                 | Ok accepted ->
-                    return! postChunks post accepted.revision.Value rest
+                    return! postChunks post accepted.revision rest
             }

@@ -8,16 +8,17 @@
 | [Download no-parse fix](download-no-parse-fix/) | charting | Download stamp-align must not require Parse; SetUpdateTime is exempt from the unparsed-document gate. |
 | [End-user wiki](end-user-wiki/) | charting | A browsable wiki that describes the software for people who use it. |
 | [Graph view](graph-view/) | charting | Radial focus-centric tree view with Ref edges as annulus overlay; portals and optional satellite radials for off-subtree links. |
-| [llm-connector](llm-connector/) | charting | Run `?` with included context; LLM reply as Owned children; long-running Actor. |
+| [llm-connector](llm-connector/) | charting | Run Agent with included context; LLM reply as Owned children; long-running Actor. |
 | [Marketing wiki](marketing-wiki/) | charting | A GitLab-level browsable wiki of uses; not a campaign. |
 | [Parse load demote](parse-load-demote/) | charting | Empty stub directory; stage unknown until contents land. |
 | [RowView / FocusView layout vs behavior](rowview-layout-behavior/) | charting | Separate layout from behavior inside RowView/FocusView; plan complete, waits on the split-view-by-concern refactor landing. |
 | [transport-layer](transport-layer/) | charting | Cross-cutting transport layer — inbound, outbound, and round-trip patterns for moving information between outside sources and the Graph while Graph stays authority; Parse/Persist as the shared text-processing unit; module contract for connector Actors; `plan` until promoted to `doc/`. |
 | [Roadmap](roadmap/map.md) [pinned] | steering | Standing goto for what to work on next; groups Epics by Stage; Chapter plus Required for done gate Epic completion. |
+| [Skills cleanup](skills-cleanup/) | build | Skill home is .agents/skills/. Frontier is canonical Status and Stage lists. Shared ticket-publish core stays out of this Project. |
 | [Debug reload](debug-reload/) | tickets | Tell a person on watch how to load debug modules and how to pick up an esbuild rebuild with a hard-reload of the Browser. |
 | [WebView2 Azure origin](webview2-azure-origin/) | tickets | After Azure host discovery, the App WebView2 document origin is Azure `/ambit`, so cookie-auth Browser HTTP is same-site on Azure. |
-| [Core creation](core-creation/) | active | Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool. |
 | [Client start time](client-start-time/) | active | On App refresh after a prior Session, the Browser shows the Graph from a local IndexedDB snapshot plus stored Changes, then does a Poll, so the user does not wait for `/state` while a blank screen or Loading... is visible. |
+| [Core creation](core-creation/) | active | Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool. |
 | [Daily git save](daily-git-save/) | active | The Server saves Graph documents in App DataDir. Commit that directory each day so the operator can recover those files from git without a manual commit. |
 | [Delete Ref](delete-ref/) | active | A person uses a Ref in Children to link to a Node Owned elsewhere in the Graph; this Project makes Delete unlink that appearance from Children and leave the Node in place, and makes Delete of an Owned Node with a self-Ref finish: the command must not hang and must not promote the self-Ref. |
 | [Event-sourced ops](event-sourced-ops/) | active | Give one semantic standard for how an Actor's Change enters a Graph so every Actor uses the same path and concurrent work merges instead of being refused. |

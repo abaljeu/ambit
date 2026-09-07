@@ -1,9 +1,16 @@
 namespace Gambol.Server
 
+open System
 open Gambol.Shared
 
 type CoreRuntime =
-    { getHandle: unit -> CoreChanges
+    { changes: unit -> CoreChanges
+      bindChanges: Credential -> CoreChanges
+      browserChanges: unit -> CoreChanges
+      credentials: CoreCredentials
+      command: CoreActorPool
+      browserCredential: Credential
+      parseCredential: Credential
       flushFileSnapshot: unit -> Async<Result<unit, string>>
       getFileRevision: unit -> Async<Revision> }
 
@@ -49,6 +56,13 @@ module CoreRuntime =
                     file.postGraphOnlyChange
                     (fun handle -> handle.postGraphOnlyChange) }
 
+    let private addLifetimeCredentials (credentials: CoreCredentials) =
+        let browser = Credential(Guid.NewGuid().ToString("N"))
+        let parse = Credential(Guid.NewGuid().ToString("N"))
+        credentials.add browser |> Async.RunSynchronously
+        credentials.add parse |> Async.RunSynchronously
+        browser, parse
+
     let create
         (persistenceMode: DatabaseSetup.PersistenceMode)
         (dbStatus: DatabaseSetup.DbStatus)
@@ -57,7 +71,7 @@ module CoreRuntime =
         : CoreRuntime =
         let fileAgent = lazy (FileAgent.create dataDir)
         let getFile () = fileAgent.Value |> FileAgent.coreChanges
-        let getHandle () =
+        let rawHandle () =
             match persistenceMode, dbStatus with
             | DatabaseSetup.PersistenceMode.Db, DatabaseSetup.DbStatus.Ok ->
                 DatabaseSetup.getOrCreateDbAgent dbConnectionString dataDir
@@ -69,7 +83,20 @@ module CoreRuntime =
                 getFile () |> readOnly
             | DatabaseSetup.PersistenceMode.File, _ ->
                 getFile ()
-        { getHandle = getHandle
+        let credentials = CoreCredentials.create ()
+        let browserCredential, parseCredential =
+            addLifetimeCredentials credentials
+        let pool = CoreActorPool.create credentials
+        let changes () = pool.withLocks (rawHandle ())
+        let bindChanges sender =
+            CoreAuth.bindHandle credentials sender (changes ())
+        { changes = changes
+          bindChanges = bindChanges
+          browserChanges = fun () -> bindChanges browserCredential
+          credentials = credentials
+          command = pool
+          browserCredential = browserCredential
+          parseCredential = parseCredential
           flushFileSnapshot =
             fun () -> fileAgent.Value |> FileAgent.flushSnapshot
           getFileRevision =

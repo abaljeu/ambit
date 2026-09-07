@@ -1,9 +1,11 @@
 ---
 name: tdd
-description: Test-driven development. Use when the user wants to build features or fix bugs test-first, mentions "red-green-refactor", or wants integration tests.
+description: TDD augmentation for /implement. Use when the user mentions TDD, red-green-refactor, seams, or wants the test-quality reference. Ticket-build entry is /implement.
 ---
 
 # Test-Driven Development
+
+When building a ticket, start at [[.agents/skills/implement/SKILL.md]]. This skill is the TDD augmentation: good tests, seams, anti-patterns, and red-green. It does not stop for review after each color. F# tests: [[.agents/skills/implement-fsharp-feature/SKILL.md]].
 
 TDD is the red → green loop. This skill is the reference that makes that loop produce tests worth keeping: what a good test is, where tests go, the anti-patterns, and the rules of the loop. Every section applies on every cycle — consult them before and during the loop, not after.
 

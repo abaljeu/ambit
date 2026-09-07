@@ -33,6 +33,8 @@
     <Compile Include="DailyGitSave.fs" />
     <Compile Include="DocumentLoader.fs" />
     <Compile Include="Core\CoreChanges.fs" />
+    <Compile Include="Core\CoreCredentials.fs" />
+    <Compile Include="Core\CoreActorPool.fs" />
     <Compile Include="FileAgent.fs" />
     <Compile Include="Database.fs" />
     <Compile Include="DatabaseProjection.fs" />

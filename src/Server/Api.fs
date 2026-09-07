@@ -19,7 +19,9 @@ module Api =
     /// Prefer Content over Results.Problem: Problem.ExecuteAsync needs RequestServices
     /// and can leave HTTP 500 with an empty body if execution fails after status is set.
     let private agentErrorResult (error: string) : IResult =
-        if error.StartsWith("Internal server error", StringComparison.Ordinal) then
+        if CoreAuth.isAuthRefuse error then
+            Results.Unauthorized()
+        elif error.StartsWith("Internal server error", StringComparison.Ordinal) then
             Results.Content(error, "text/plain; charset=utf-8", statusCode = 500)
         else
             Results.BadRequest({| error = error |})
@@ -223,9 +225,48 @@ module Api =
                   text = get.Optional.Field "text" Thoth.Json.Core.Decode.string })
         Decode.fromString decoder json
 
+    let private applyParseFile
+        (handle: CoreChanges)
+        (credentials: CoreCredentials)
+        (sender: Credential)
+        (dataDir: string)
+        (fileId: NodeId)
+        (text: string option)
+        (state: State)
+        : Async<IResult> =
+        async {
+            match
+                DocumentPersistence.planParseFile
+                    dataDir
+                    state.graph
+                    fileId
+                    text
+            with
+            | Error err ->
+                return Results.BadRequest({| error = err |})
+            | Ok [] ->
+                return jsonResult """{"ok":true}"""
+            | Ok ops ->
+                let change =
+                    { id = state.revision.Value
+                      changeId = Guid.NewGuid()
+                      ops = ops }
+                match!
+                    CoreAuth.post
+                        credentials
+                        sender
+                        handle.postGraphOnlyChange
+                        [ change ]
+                with
+                | Ok _ -> return jsonResult """{"ok":true}"""
+                | Error err -> return agentErrorResult err
+        }
+
     /// ParseFile command: optional body text or DataDir read → apply on agent graph.
     let postParseFile
         (handle: CoreChanges)
+        (credentials: CoreCredentials)
+        (sender: Credential)
         (dataDir: string)
         (body: string)
         : Async<IResult> =
@@ -238,32 +279,19 @@ module Api =
                 | None ->
                     return Results.BadRequest({| error = "fileId is invalid" |})
                 | Some fileId ->
-                    let! stateResult = handle.getState ()
-                    match stateResult with
+                    match! handle.getState () with
                     | Error err ->
                         return agentErrorResult err
-                    | Ok stateResponse ->
-                        match
-                            DocumentPersistence.planParseFile
+                    | Ok state ->
+                        return!
+                            applyParseFile
+                                handle
+                                credentials
+                                sender
                                 dataDir
-                                stateResponse.graph
                                 fileId
                                 payload.text
-                        with
-                        | Error err ->
-                            return Results.BadRequest({| error = err |})
-                        | Ok [] ->
-                            return jsonResult """{"ok":true}"""
-                        | Ok ops ->
-                            let change =
-                                { id = stateResponse.revision.Value
-                                  changeId = Guid.NewGuid()
-                                  ops = ops }
-                            let! result =
-                                handle.postGraphOnlyChange [ change ]
-                            match result with
-                            | Ok _ -> return jsonResult """{"ok":true}"""
-                            | Error err -> return agentErrorResult err
+                                state
         }
 
     let gitSave

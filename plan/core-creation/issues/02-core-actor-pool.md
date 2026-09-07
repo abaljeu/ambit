@@ -1,6 +1,6 @@
 # 02 — Core Actor pool
 
-**Context:** Core owns Actor pool machinery, but the exact pool packaging and API are not yet specified. Actor definitions and advisory soft-lock behavior stay outside Core.
+**Context:** Core owns Actor pool machinery, but the exact pool packaging and API are not yet specified. Actor definitions and stay outside Core.  
 
 **What to build:** Launch long-running work off the apply queue, assign Core-owned job identity, cancel further output from a job, and finish work through Core Changes and inner apply. The apply queue must remain available while the Actor runs.
 

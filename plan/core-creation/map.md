@@ -11,12 +11,17 @@ Define an implementation-ready initial Core increment that extracts the full cur
 - Preserve current HTTP, database, file-authority, acknowledgement, timeout, and mirror behavior during extraction. Database authority and view-only file mode remain later work under [[plan/roadmap/epics/chapters/acid-apply.md]].
 - Every runtime Change must reach the authoritative Server Graph and History through Core Changes. Named startup and repair paths may remain temporary exceptions until the ACID apply work.
 - Future map sessions must follow [[.agents/skills/wayfinder/SKILL.md]]. Grilling tickets must also follow [[.agents/skills/grilling/SKILL.md]] and [[.agents/skills/domain-modeling/SKILL.md]], use [[CONTEXT.md]], and keep the Project current through [[.cursor/skills/project-work/SKILL.md]].
+- Agent instruction for Core vs Adapter vs Browser (typed Core object; no lock UI this increment) lives in [[project.md]].
 
 ## Decisions so far
 
 - [[plan/core-creation/issues/03-define-typed-core-changes-contract.md|Typed Core Changes contract]] — normal and Parse-only Graph-only operations accept typed Change lists and return typed acceptance facts or the current text Reject while preserving all existing behavior.
 - [[plan/core-creation/issues/04-separate-http-adapter-from-core-changes.md|HTTP Adapter boundary]] — `Api.postChange` decodes and encodes the normal HTTP path around typed Core Changes, while Parse calls typed Graph-only Post Change directly.
 - [[plan/core-creation/issues/05-place-core-changes-in-existing-projects.md|Graph-agent package placement]] — a new Server Core module owns agent selection and exposes the full current Graph-agent package as one typed GraphAgentHandle while existing Shared and agent modules stay in place.
+- [[plan/core-creation/issues/09-define-core-command-launch-contract.md|Core Command launch contract]] — every launch is registered name plus Revision and a non-empty NodeId span; caller gets a never-reused public number; Actor starts with extracted subgraph plus send credential; Core retains number, credential, span, Revision, and name. Issue 10 forbids overlapping spans. Issue 11: query fails after delete-actor applies.
+- [[plan/core-creation/issues/10-define-actor-cancellation-and-output-admission.md|Actor cancellation and output admission]] — cancel Command takes NodeId; lookup is span membership; Core signals with a CancellationToken and refuses at Post unless sender id matches an active source; Actor source is the 09 credential; Browser source is the login cookie at the Adapter; already-enqueued batches apply; Adapter 401 and Core Unauthorized are one auth refuse; system error stays on 12.
+- [[plan/core-creation/issues/11-define-actor-finish-and-failure-behavior.md|Actor finish and failure]] — no job status; on any stop enqueue delete-actor; registry lasts until that message runs; then drop number, clear Node lock-present, remove send credential; Changes accept/dedup/Reject do not change a job terminal; lock is on the Node, not History.
+- [[plan/core-creation/issues/12-define-actor-pool-shutdown-behavior.md|Actor-pool shutdown]] — two events; crash out; TCP fail on mutate Rejects that Change and marks Database down; already-enqueued siblings apply; Reject of mutating Posts and launch is system error (13 / readOnly), not auth refuse; reads stay admitted; lock-present is live Node only; SQL statements omit the lock field; host-stop applies mailbox including delete-actor, cancels Actors, exits idle or host default timeout.
 
 ## Not yet specified
 

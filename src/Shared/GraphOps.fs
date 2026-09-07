@@ -22,6 +22,7 @@ module GraphOps =
         static member isCanonicalNode nodeId = GraphBuild.isCanonicalNode nodeId
         static member rootPlaceholder = GraphBuild.rootPlaceholder
         static member fromNodes root nodes = GraphBuild.fromNodes root nodes
+        static member fromExtracted root nodes = GraphBuild.fromExtracted root nodes
         static member addDetachedNode node graph = GraphBuild.addDetachedNode node graph
         static member nodeCount graph = GraphBuild.nodeCount graph
         static member contains nodeId graph = GraphBuild.contains nodeId graph

@@ -1,12 +1,12 @@
 ---
 name: ubiquitous-language
-description: Extract a DDD-style ubiquitous language glossary from the current conversation, flagging ambiguities and proposing canonical terms. Saves to UBIQUITOUS_LANGUAGE.md. Use when user wants to define domain terms, build a glossary, harden terminology, create a ubiquitous language, or mentions "domain model" or "DDD".
+description: Extract domain terms from the current conversation, flag ambiguities, and propose canonical terms. The glossary is CONTEXT.md; domain-modeling writes it.
 disable-model-invocation: true
 ---
 
 # Ubiquitous Language
 
-Extract and formalize domain terminology from the current conversation into a consistent glossary, saved to a local file.
+Extract and formalize domain terminology from the current conversation. Propose a canonical glossary in the conversation. [[CONTEXT.md]] is the one glossary; [[.agents/skills/domain-modeling/SKILL.md]] writes it. Hard choices are Committed Decisions under [[doc/Decisions/]], recorded by domain-modeling.
 
 ## Process
 
@@ -15,13 +15,16 @@ Extract and formalize domain terminology from the current conversation into a co
    - Same word used for different concepts (ambiguity)
    - Different words used for the same concept (synonyms)
    - Vague or overloaded terms
-3. **Propose a canonical glossary** with opinionated term choices
-4. **Write to `UBIQUITOUS_LANGUAGE.md`** in the working directory using the format below
-5. **Output a summary** inline in the conversation
+3. **Read [[CONTEXT.md]]** if it exists — that file is the glossary
+4. **Propose a canonical glossary** with opinionated term choices
+5. **Output a summary** in the conversation using the format below
+6. **Record accepted terms** by following [[.agents/skills/domain-modeling/SKILL.md]] into [[CONTEXT.md]]
+
+Do not create `UBIQUITOUS_LANGUAGE.md`. Do not own a second glossary file.
 
 ## Output Format
 
-Write a `UBIQUITOUS_LANGUAGE.md` file with this structure:
+Show this structure in the conversation. It is a proposal, not a file to write.
 
 ```md
 # Ubiquitous Language
@@ -36,7 +39,7 @@ Write a `UBIQUITOUS_LANGUAGE.md` file with this structure:
 ## People
 
 | Term         | Definition                                  | Aliases to avoid       |
-| ------------ | ------------------------------------------- | ---------------------- |
+| ----------- | ------------------------------------------- | ---------------------- |
 | **Customer** | A person or organization that places orders | Client, buyer, account |
 | **User**     | An authentication identity in the system    | Login, account         |
 
@@ -56,6 +59,8 @@ Write a `UBIQUITOUS_LANGUAGE.md` file with this structure:
 
 - "account" was used to mean both **Customer** and **User** — these are distinct concepts: a **Customer** places orders, while a **User** is an authentication identity that may or may not represent a **Customer**.
 ```
+
+When domain-modeling writes accepted terms, use the format in [[.agents/skills/domain-modeling/CONTEXT-FORMAT.md]].
 
 ## Rules
 
@@ -86,8 +91,9 @@ Write a `UBIQUITOUS_LANGUAGE.md` file with this structure:
 
 When invoked again in the same conversation:
 
-1. Read the existing `UBIQUITOUS_LANGUAGE.md`
+1. Read [[CONTEXT.md]]
 2. Incorporate any new terms from subsequent discussion
 3. Update definitions if understanding has evolved
 4. Re-flag any new ambiguities
 5. Rewrite the example dialogue to incorporate new terms
+6. Record accepted updates through [[.agents/skills/domain-modeling/SKILL.md]]

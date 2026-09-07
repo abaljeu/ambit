@@ -289,6 +289,16 @@ module GraphBuild =
           parentByChild = pbc
           ownerParentByChild = opc }
 
+    /// Build a Graph from an extracted node set without injecting canonical folders.
+    let fromExtracted (root: NodeId) (nodes: Map<NodeId, Node>) : Graph =
+        requireValidChildrenStatus nodes
+        let pbc, opc = buildParentMaps nodes
+        let nodesWithOwner = applyOwnerField root opc nodes
+        { root = root
+          nodes = nodesWithOwner
+          parentByChild = pbc
+          ownerParentByChild = opc }
+
     /// Insert a fresh, childless, not-yet-attached node. Such a node contributes no
     /// parent edges, so the indexes are unchanged and bulk inserts (a parse tail is
     /// thousands of NewNode ops) avoid a whole-graph rebuild per op.
