@@ -78,7 +78,6 @@ Workflow skills in [[.agents/skills/]]:
 - [[.agents/skills/wait-what/SKILL.md]] — re-pitch a message that did not land
 - [[.agents/skills/teach/SKILL.md]] — learn a concept over multiple sessions
 - [[.agents/skills/writing-for-agents/SKILL.md]] — writing documents that agents consume
-- [[.agents/skills/projects-overview/SKILL.md]] — retired
 
 Tool-specific notes:
 
