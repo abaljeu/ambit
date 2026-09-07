@@ -2,7 +2,11 @@
 
 Date: 2026-09-07
 
-Locked for implementers (Cursor / cloud coding agents). Supersedes the earlier “Grok Bot / Get API key” reading of [[../issues/02-which-llm-and-credentials.md]] for the **first** outbound Agent.
+Locked for implementers (Cursor / cloud coding agents). Supersedes the earlier "Grok Bot / Get API key" reading of [[../issues/02-which-llm-and-credentials.md]] for the **first** outbound Agent.
+
+## Implementation Status
+
+**CloudAgents standalone stack landed** (2026-09-07): `src/CloudAgents/`, `tests/CloudAgents.Tests/`, `src/CloudAgents.Console/`. Vendor-neutral public API; Cursor adapter internal; no Ambit references. Ambit Actor integration remains future work.
 
 ## Target
 
@@ -21,7 +25,7 @@ Locked for implementers (Cursor / cloud coding agents). Supersedes the earlier �
 
 Do **not** implement the full Cloud Agents surface (pools, MCP inject, artifacts, worker claim, etc.).
 
-1. `POST /v1/agents` with `prompt.text` built from `?` message + Md pack (and a short brief for “what’s next” / “work on that”).
+1. `POST /v1/agents` with `prompt.text` built from `?` message + Md pack (and a short brief for "what's next" / "work on that").
 2. For work on `life`: `repos: [{ url: <life git url>, startingRef: … }]`. Omit `repos` only if a no-repo ask is enough.
 3. Auth: Cursor Dashboard **API key** as process/env secret bundled with the Actor at register time. Core never sees it.
 4. Poll `GET /v1/agents/{id}/runs/{runId}` until terminal; use `result` (and PR URL from `git` if present). **No streaming in v1.**
@@ -39,7 +43,7 @@ Do **not** implement the full Cloud Agents surface (pools, MCP inject, artifacts
 
 - Core: mailbox cancel (issues 10/17) + [[doc/Decisions/0004-core-mailbox-messages-clear-fast.md]].
 - Actor on cancel: `POST /v1/agents/{id}/runs/{runId}/cancel`, then stop polling/reading.
-- Do not treat “kill thread / abort HTTP” as the protocol; remote cancel is authoritative.
+- Do not treat "kill thread / abort HTTP" as the protocol; remote cancel is authoritative.
 
 ## Stream (later)
 
