@@ -15,7 +15,7 @@ Run Agent with a message and included context. The reply is Owned children of th
 
 ## Decisions so far
 
-- 2026-09-08 grill: Server Actor slice locked — [[reports/grill-run-agent-actor-2026-09-08.md]]; tickets 05–06.
+- 2026-09-08 grill: Server Actor slice locked — [[reports/grill-run-agent-actor-2026-09-08.md]]; tracer ticket 05 (Create posts reply under Focus).
 
 - Same Run command. Third statement `?` plus a message. Spoken name: Run Agent.
 - Reply is Owned children of Focus. Actor converts reply Md→graph and adds those children.
@@ -30,7 +30,7 @@ Run Agent with a message and included context. The reply is Owned children of th
 
 ## Not yet specified
 
-- Implement [[issues/05-register-cloud-agent-actor.md]] and [[issues/06-api-actors-create-to-core-launch.md]] (grill [[reports/grill-run-agent-actor-2026-09-08.md]]). Client/`?` later. Cancel and stream later. Repo attach later.
+- Implement [[issues/05-create-cloud-agent-posts-reply-under-focus.md]] (grill [[reports/grill-run-agent-actor-2026-09-08.md]]). Client/`?` later. Cancel and stream later. Repo attach later.
 
 ## Out of scope
 

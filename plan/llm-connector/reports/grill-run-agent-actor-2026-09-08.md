@@ -23,8 +23,9 @@ Build the **Server** Run Agent Actor that uses Core’s actor pool (register / l
 
 ## Implementation tickets
 
-- [[../issues/05-register-cloud-agent-actor.md]]
-- [[../issues/06-api-actors-create-to-core-launch.md]]
+Tracer-bullet vertical slice (not horizontal Api vs Actor layers):
+
+- [[../issues/05-create-cloud-agent-posts-reply-under-focus.md]]
 
 ## Next
 

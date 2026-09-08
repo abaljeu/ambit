@@ -6,9 +6,8 @@ Updated: 2026-09-08
 
 Grill (2026-09-08): [[reports/grill-run-agent-actor-2026-09-08.md]]
 
-Build next:
+Build next (frontier):
 
-- [[issues/05-register-cloud-agent-actor.md]]
-- [[issues/06-api-actors-create-to-core-launch.md]]
+- [[issues/05-create-cloud-agent-posts-reply-under-focus.md]]
 
 Client / `?` recognition out of this session.
