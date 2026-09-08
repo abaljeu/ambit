@@ -1,17 +1,23 @@
-# Create cloud-agent posts reply under Focus
+# 05 — Create cloud-agent posts a reply under Focus
 
-**Type:** vertical
 **Status:** done
-**Stage:** slice
+**Blocked by:** None — can start immediately.
 Actual: 2h30m
 
-## Question
+## Context
 
-Implement the vertical Server slice (no Browser Client) for the cloud-agent actor that receives a POST request with actor name, nodelist, focus node, root node, and revision, launches a Cloud Agent with the focus message and Markdown-packed subgraph, and posts the agent's response as Owned children under the focus node.
+A person (or a Server test) already has a session cookie and a Focus Node in a Graph. They want Run Agent without the Browser Client this session: they POST Create for ActorName `cloud-agent` with nodelist, focus, root, and revision. The Server must launch work outside Core's HTTP layer, run the registered Actor, and leave the agent's reply as Owned children under Focus when the job finishes.
 
-## Answer
+## What to build
 
-Vertical Server slice completed:
+Create on `/ambit/actors` starts `cloud-agent`. The Actor builds an Ambit system prompt plus the Focus message plus an Md pack of the launch subgraph, calls CloudAgents with no repo (key from CloudAgents config), and `postChange`s the result as Owned children of Focus. Focus alone is locked for the job. Api.fs turns the POST into a typed message; the handler maps nodelist/focus/root to Core launch without changing **Define the Core Command launch contract**. Composition registers `cloud-agent` outside Core. When the Actor returns, Core finish-drop clears the job.
+
+- [x] A Create request with cookie and `{ actor: cloud-agent, nodelist, focusnode, rootnode, revision }` returns a public number and starts the job.
+- [x] When the Actor finishes, Focus has new Owned children from the agent result text.
+- [x] Core never sees `CURSOR_API_KEY`; the Actor uses CloudAgents config; no repo is attached.
+- [x] A Server test (or equivalent) proves Create → launch → reply under Focus without the Browser Client.
+
+## Implementation details
 
 1. **Composition registers ActorName `cloud-agent` outside Core at startup**
    - `RouteRegistration.registerCloudAgentActor` registers the actor with `CoreActorPool`
@@ -42,22 +48,9 @@ Vertical Server slice completed:
    - Tests `payloadToLaunchRequest` conversion from nodelist to span
    - Tests focus message extraction from `?` prefix
 
-## Constraints satisfied
+## See also
 
-- Actors are objects registered into Core; definitions not inside Core ✓
-- In-process library reference to CloudAgents, not stdin/stdout console ✓
-- Issue Status/checkboxes/Time updated ✓
-- Project Started (Stage stays slice until more done) ✓
-- Test-first approach followed ✓
-
-## Out of scope (later slices)
-
-- Browser Client integration
-- Cancel/stream support
-- Repo attachment
-- Multiple repositories
-- User-selectable models
-- Follow-up turns
+[[../reports/grill-run-agent-actor-2026-09-08.md]], [[../reports/first-agent-cursor-cloud-agents.md]], [[03-seam-after-ask-recognition.md]], [[plan/core-creation/issues/09-define-core-command-launch-contract.md]]
 
 ## Time
 
