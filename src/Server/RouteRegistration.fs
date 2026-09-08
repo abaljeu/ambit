@@ -114,6 +114,14 @@ module RouteRegistration =
         app.Use(fun ctx (_next: RequestDelegate) -> writeError ctx) |> ignore
         app.MapFallback(fun (ctx: HttpContext) -> writeError ctx) |> ignore
 
+    let private registerCloudAgentActor (runtime: CoreRuntime) (config: IConfiguration) =
+        let apiKey = config.["CURSOR_API_KEY"] |> Option.ofObj |> Option.defaultValue ""
+        if String.IsNullOrWhiteSpace(apiKey) then
+            eprintfn "[Gambol] Warning: CURSOR_API_KEY not configured; cloud-agent actor will fail"
+        let actorConfig = { CloudAgentActor.ApiKey = apiKey }
+        let actorFn = CloudAgentActor.createActorFn actorConfig
+        runtime.command.register (ActorName CloudAgentActor.actorName) actorFn
+
     let private createPersistenceContext
         (config: IConfiguration)
         (dataDir: string)
@@ -127,6 +135,7 @@ module RouteRegistration =
                 dbStatus
                 dbConnString
                 dataDir
+        registerCloudAgentActor runtime config
         {
             DataDir = dataDir
             Mode = persistenceMode
@@ -321,6 +330,19 @@ module RouteRegistration =
                         (changesBound persistence)
                         (stamps.DeployEpochSec ())
                         pageEpoch
+                        body
+                    |> Async.StartAsTask
+        })) |> ignore
+        app.MapPost("/ambit/actors", Func<HttpRequest, Task<IResult>>(fun req -> task {
+            if not (auth.IsAuthenticated req) then
+                return Results.Unauthorized()
+            else
+                use reader = new StreamReader(req.Body)
+                let! body = reader.ReadToEndAsync()
+                return!
+                    Api.postActorLaunch
+                        persistence.Core.command
+                        (coreChanges persistence)
                         body
                     |> Async.StartAsTask
         })) |> ignore

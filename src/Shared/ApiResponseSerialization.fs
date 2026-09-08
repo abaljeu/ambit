@@ -138,3 +138,25 @@ module ApiResponseSerialization =
 
     let decodeLoadResponse text =
         Decode.fromString decodeLoadResponseDecoder text
+
+    type ActorLaunchPayload =
+        { actor: string
+          nodelist: NodeId list
+          focusnode: NodeId
+          rootnode: NodeId
+          revision: int }
+
+    let decodeActorLaunchPayloadDecoder: Decoder<ActorLaunchPayload> =
+        Decode.object (fun get ->
+            { actor = get.Required.Field "actor" Decode.string
+              nodelist =
+                get.Required.Field "nodelist" (Decode.list Serialization.decodeNodeId)
+              focusnode = get.Required.Field "focusnode" Serialization.decodeNodeId
+              rootnode = get.Required.Field "rootnode" Serialization.decodeNodeId
+              revision = get.Required.Field "revision" Decode.int })
+
+    let decodeActorLaunchPayload text =
+        Decode.fromString decodeActorLaunchPayloadDecoder text
+
+    let encodePublicNumber (number: int) : IEncodable =
+        Encode.object [ "number", Encode.int number ]

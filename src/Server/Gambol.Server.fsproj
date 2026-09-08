@@ -43,6 +43,7 @@
     <Compile Include="DatabaseSetup.fs" />
     <Compile Include="SavePrep.fs" />
     <Compile Include="Core\CoreRuntime.fs" />
+    <Compile Include="CloudAgentActor.fs" />
     <Compile Include="Api.fs" />
     <Compile Include="GraphOnlyChangePost.fs" />
     <Compile Include="LazyLoadReconciliationServer.fs" />
@@ -54,6 +55,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Shared\Gambol.Shared.fsproj" />
     <ProjectReference Include="..\Shared\dotnet\Gambol.Shared.DotNet.fsproj" />
+    <ProjectReference Include="..\CloudAgents\Gambol.CloudAgents.fsproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -327,3 +327,62 @@ module Api =
                         { ok = false; detail = ""; error = Some err }
                     return Results.BadRequest(Encode.toString 0 (GitSaveResponse.encode response))
     }
+
+    let payloadToLaunchRequest
+        (payload: ApiResponseSerialization.ActorLaunchPayload)
+        (graph: Graph)
+        : Result<LaunchRequest, string> =
+        // Find the focus node
+        match Map.tryFind payload.focusnode graph.nodes with
+        | None -> Error "Focus node not found"
+        | Some focusNode ->
+            // Find indices of nodelist items in focus node's children
+            let childIds = focusNode.children |> List.map _.id
+            let indices =
+                payload.nodelist
+                |> List.choose (fun nodeId ->
+                    childIds |> List.tryFindIndex ((=) nodeId))
+            
+            if indices.Length <> payload.nodelist.Length then
+                Error "Some nodes in nodelist not found as children of focus"
+            elif List.isEmpty indices then
+                Error "Node list is empty"
+            else
+                let start = List.min indices
+                let endd = List.max indices + 1
+                Ok
+                    { name = ActorName payload.actor
+                      revision = Revision payload.revision
+                      span =
+                        { pnode = payload.focusnode
+                          start = start
+                          endd = endd } }
+
+    let postActorLaunch
+        (pool: CoreActorPool)
+        (handle: CoreChanges)
+        (body: string)
+        : Async<IResult> = async {
+        match
+            Decode.fromString
+                ApiResponseSerialization.decodeActorLaunchPayloadDecoder
+                body
+        with
+        | Error err ->
+            return Results.BadRequest({| error = $"Invalid actor launch request: {err}" |})
+        | Ok payload ->
+            let! stateResult = handle.getState ()
+            match stateResult with
+            | Error err -> return agentErrorResult err
+            | Ok state ->
+                match payloadToLaunchRequest payload state.graph with
+                | Error err -> return Results.BadRequest({| error = err |})
+                | Ok launchRequest ->
+                    let! launchResult = pool.launch handle launchRequest
+                    match launchResult with
+                    | Error err -> return agentErrorResult err
+                    | Ok (PublicNumber number) ->
+                        return
+                            jsonResult
+                                (Encode.toString 0 (ApiResponseSerialization.encodePublicNumber number))
+    }
