@@ -1,6 +1,6 @@
 # llm-connector
 
-Stage: tickets
+Stage: slice
 Summary: Run Agent Actor via CloudAgents; Server Create path; reply as Owned children of Focus.
 Updated: 2026-09-08
 
