@@ -14,13 +14,13 @@ Sets 2 and 3 sit later on `ready` (CloudAgents merge `4f974f0`; Create actor is 
 
 ## Intended shape (confirmed)
 
-- Exactly one Core mailbox: the Changes apply queue. Posts, cancel, and delete-actor are fast messages on that mailbox. See [[doc/Decisions/0004-core-mailbox-messages-clear-fast.md]].
-- The Actor pool is a TaskPool (or equivalent). It runs Actors off the apply queue. It is not a mailbox and does not serialize launch, query, lock, or drop on a second inbox.
-- Any Actor stop, including a failed stop, enqueues delete-actor on that one mailbox. Callers do not get a job Error.
+- Exactly one Core mailbox: the Changes apply queue. Posts, cancel, delete-actor, launch, query, and admit-and-enqueue are fast messages on that mailbox. See [[doc/Decisions/0004-core-mailbox-messages-clear-fast.md]].
+- Distinguish the task runner from the registry. The runner is a TaskPool (or equivalent): it runs Actors off the apply queue and may release the thread when the Actor returns or is terminated. It is not a mailbox.
+- The registry (public number, lock-present, credential, handle to terminate) is state of that one mailbox. The addressable ID stays until the mailbox processes delete-actor. The task ending does not remove the ID.
+- Any Actor stop, including a failed stop, enqueues delete-actor on that mailbox. Callers do not get a job Error.
 - FIFO is the mailbox order, not “the Actor awaited `postChange`.” Awaiting Post is Actor-specific. Core must not rely on it.
-- Job registry, lock set, and live credentials are state of that one mailbox. There is no credential `MailboxProcessor`. Admit and Post see that same state.
-- Drop removes the Actor from the pool (public number, lock-present, credential). If the Actor task is still running, async terminate; do not wait. If it has already stopped, terminate is a no-op. Cancel and finish share this drop.
-- Constraints on that drop: the TaskPool completion callback only enqueues delete-actor. Removing the job in the callback skips FIFO. The mailbox handler removes from the pool and async-terminates if still running. Admit and enqueue are one mailbox message; `contains` then `postChange` as two hops lets drop run between them.
+- There is no credential `MailboxProcessor`. Admit and enqueue are one mailbox message.
+- Drop removes the Actor from the registry (public number, lock-present, credential). If the task is still running, async terminate; do not wait. If it has already stopped, terminate is a no-op. Cancel and finish share this drop.
 
 ## Current implementation (to discard)
 
@@ -38,6 +38,16 @@ No further independent Core 18 misses. Redo is the pool/mailbox shape above, not
 ## Set 2 — CloudAgents stack
 
 PR 3, merged `4f974f0`. Commits: `1b9874e` Add standalone CloudAgents stack; `2c521f7` Lead with no-repo agents in documentation. Spec: [[plan/llm-connector/reports/first-agent-cursor-cloud-agents.md]].
+
+**Miss:** [[tests/CloudAgents.Tests/]] does not prove the stack. `AgentRunner.start` hits live `api.cursor.com`. Facts accept any Error or Ok. `PublicTypesTests` only construct records.
+
+**Proposed harness (not implemented):** a registered TestActor plus the existing Server Core tests (`dotnet test` on FileAgent / Core, not a new runner).
+
+- ActorName `test`. Focus Header is the case id (not `?`, so it does not collide with Run Agent).
+- TestActor switches on that line, does only what the case needs, and `postChange`s Owned children (or other Graph output) under Focus. It does not Assert and does not return a job result.
+- Outer fact: launch, wait until the public number is gone (delete-actor applied), then match Graph/History to a table of expected output for that case.
+- First cases: `echo` (write known children, then stop); `fail` (stop with failure, still drop); `post-twice` (two Posts, both present after drop). A `cloud-stub` case may call a fake AgentRunner and post the stub text; it does not live in CloudAgents and does not need a Cursor key.
+- CloudAgents stays with no Ambit references. Cursor HTTP still needs a seam or stays untested in-process. TestActor does not replace that seam.
 
 ## Still open
 
