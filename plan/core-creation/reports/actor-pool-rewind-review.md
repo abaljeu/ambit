@@ -63,6 +63,23 @@ PR 4 DRAFT. Branch `cursor/cloud-agent-actor-posts-reply-0b7d`. Commits vs `read
 
 **Miss (confirmed):** Focus, lock, and extract/pack are three different things. Focus is the write-back parent: the parent of the nodes that the Actor replaces. Usually that child list is empty. Lock is Focus, not the extract set. Extract/pack is rootnode plus nodelist (the set can be larger than Focus). Map extract/pack at the edge. Do not revise Define the Core Command launch contract ([[plan/core-creation/issues/09-define-core-command-launch-contract.md]]) in this slice. Delivery mashed extract, lock, and replace-parent onto one Core span. [[src/Server/Api.fs]] `payloadToLaunchRequest` (PR 4 branch `cursor/cloud-agent-actor-posts-reply-0b7d`) requires nodelist items as children of Focus, and it errors on an empty list. Core then locks `spanIds` of that child range. [[src/Server/CloudAgentActor.fs]] treats `subgraph.root` as Focus. Consequence: the usual case (Focus with empty children) cannot launch.
 
+**Miss (confirmed):** Creating reply nodes has the same shape as paste, but Focus’s old children are dropped. Replace the child list; do not append. Delivery `addChildrenToFocus` in [[src/Server/CloudAgentActor.fs]] does `Op.Replace(..., focusNode.children @ newChildRefs)`, which appends.
+
+**Miss (confirmed):** The agent reply is an Md tree. Alan’s example:
+
+```md
+## Section A
+Section A text
+
+## Section B
+### Subsection C
+Section D text
+### Subsection D
+Subsection D text
+```
+
+Section A and Section B are Owned children of Focus. Subsection C and Subsection D nest under Section B. Delivery `markdownToGraph` in [[src/Server/CloudAgentActor.fs]] keeps only the Md document-root’s direct children, then `Op.NewNode(id, header text)` plus optional CSS. Nested Owned from the Md read never get ops. Redo: paste-shaped create of that whole reply tree.
+
 ## Still open
 
 Set 3 interactive review continues. Confirmed misses stay in this file. No product patch. No wrap tickets.
@@ -73,3 +90,5 @@ Set 3 interactive review continues. Confirmed misses stay in this file. No produ
 - 2026-09-11 — Set 3 pin confirmed; first miss: name, not number (from chat)
 - 2026-09-11 — Set 3 miss: tests do not prove Create → reply (from chat)
 - 2026-09-11 — Set 3 miss: Focus is replace parent, lock Focus (from chat)
+- 2026-09-11 — Set 3 miss: paste-replace Focus children, do not append (from chat)
+- 2026-09-11 — Set 3 miss: reply is Md tree; nested Owned need ops (from chat)
