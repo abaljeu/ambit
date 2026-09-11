@@ -53,10 +53,17 @@ PR 3, merged `4f974f0`. Commits: `1b9874e` Add standalone CloudAgents stack; `2c
 
 **Set 2 leftovers dropped:** `try`/`with` at the HTTP edge is the no-leak rule, already present. Library `cancel` is in scope.
 
+## Set 3 — Create cloud-agent posts reply under Focus
+
+PR 4 DRAFT. Branch `cursor/cloud-agent-actor-posts-reply-0b7d`. Commits vs `ready`: `eb5c4bf` Add cloud-agent actor with POST /ambit/actors endpoint; `68d14a2` Add issue 05 and update project stage to slice; `d79c706` Update llm-connector project stage to slice; `8ba1e97` Merge origin/ready. Spec: [[plan/llm-connector/issues/05-create-cloud-agent-posts-reply-under-focus.md]], [[plan/llm-connector/reports/grill-run-agent-actor-2026-09-08.md]].
+
+**Miss (confirmed):** Identify work by name, not by a number. `68d14a2` subject is “Add issue 05…”. The merge `8ba1e97` body says “authoritative issue 05”. The name is Create cloud-agent posts a reply under Focus ([[plan/llm-connector/issues/05-create-cloud-agent-posts-reply-under-focus.md]]).
+
 ## Still open
 
-Set 3 (Create `cloud-agent` posts reply) is for a **new main** agent. Handoff: [[plan/core-creation/reports/set3-review-handoff.md]]. This run does not start set 3.
+Set 3 interactive review continues. Confirmed misses stay in this file. No product patch. No wrap tickets.
 
 ## Time
 
 - 2026-09-11 — Core 18 interactive review; rewind/redo plan (from chat)
+- 2026-09-11 — Set 3 pin confirmed; first miss: name, not number (from chat)
