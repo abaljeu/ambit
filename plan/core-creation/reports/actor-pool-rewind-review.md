@@ -59,6 +59,8 @@ PR 4 DRAFT. Branch `cursor/cloud-agent-actor-posts-reply-0b7d`. Commits vs `read
 
 **Miss (confirmed):** Identify work by name, not by a number. `68d14a2` subject is “Add issue 05…”. The merge `8ba1e97` body says “authoritative issue 05”. The name is Create cloud-agent posts a reply under Focus ([[plan/llm-connector/issues/05-create-cloud-agent-posts-reply-under-focus.md]]).
 
+**Miss (confirmed):** [[tests/Server.Tests/CloudAgentActorTests.fs]] does not prove Create → launch → reply under Focus. The spec asks a Server test with cookie, public number, and Owned children when the job finishes. The facts do not POST `/ambit/actors`. Registration accepts any Error except `unknown actor`. Extract copies the `?` trim locally and does not call the Actor. Nothing waits until the public number is gone or asserts reply children. Same family as set 2: the tests do not prove the path. TestActor does not replace CloudAgents HTTP-seam tests or CloudAgent Actor tests.
+
 ## Still open
 
 Set 3 interactive review continues. Confirmed misses stay in this file. No product patch. No wrap tickets.
@@ -67,3 +69,4 @@ Set 3 interactive review continues. Confirmed misses stay in this file. No produ
 
 - 2026-09-11 — Core 18 interactive review; rewind/redo plan (from chat)
 - 2026-09-11 — Set 3 pin confirmed; first miss: name, not number (from chat)
+- 2026-09-11 — Set 3 miss: tests do not prove Create → reply (from chat)
