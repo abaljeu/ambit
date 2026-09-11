@@ -10,9 +10,9 @@ description: >-
 
 Cloud agents follow Work. Desktop git stays [[.agents/skills/git-protocol/SKILL.md]].
 
-If this run **downloads staging**, follow [[LAND.md]] only.
+If this run **downloads staging**, follow [[LAND.md]] only: pull `origin/staging` onto local `staging`. `dev` never pulls from cloud.
 
-**staging** is a published long-lived branch on `origin`. It is the drop for finished cloud-agent work. It is not a workplace.
+**staging** is a published long-lived branch on `origin`. It is the drop for finished cloud-agent work. It is not a workplace. Desktop holds a local `staging` that tracks `origin/staging`.
 
 The CloudAgents library still returns the vendor branch and PR URL. That is not the drop. Send to `staging` is this protocol.
 

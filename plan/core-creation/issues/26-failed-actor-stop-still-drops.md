@@ -5,19 +5,23 @@
 
 ## What happened
 
-When an Actor stops because its work failed, Core does not enqueue delete-actor. Query by the public number still succeeds. The send credential stays in the set. lock-present stays on the span.
+The rewound implementation did not drop a failed Actor. Its live registry and secret credential remained. It also had no durable ActorFinished failure Event.
 
 ## What I expected
 
-Any Actor stop enqueues delete-actor, including a failed stop. After delete-actor applies, query fails, the credential is gone, and lock-present is off. Callers still do not get a job Error.
+Failed is a terminal mailbox message. Core appends ActorFinished with a safe domain error, synchronously removes the live registry and secret, and requests task termination without waiting. Raw provider details stay in logs. This corrected expectation is controlled by [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]].
 
 ## Why cancelled
 
-This was a patch ticket on the current pool mailbox. Sets 1–3 product was rewound on `dev`. Reimplement from the tightened spec on [[18-finish-and-drop.md]]. The finding lives in [[../reports/actor-pool-rewind-review.md]].
+This was a patch ticket on the discarded pool mailbox. Sets 1–3 product was rewound on `dev`. Reimplement through [[plan/core-creation/issues/18-finish-and-drop.md]]. The finding lives in [[plan/core-creation/reports/actor-pool-rewind-review.md]].
+
+## Comments
+
+- 2026-09-11 — Reconciled with the locked redesign. This issue remains `cancelled`; [[18-finish-and-drop.md]] owns failed-stop cleanup through the one mailbox and shared drop path.
 
 ## See also
 
-[[18-finish-and-drop.md]], [[11-define-actor-finish-and-failure-behavior.md]]
+[[plan/core-creation/issues/18-finish-and-drop.md]], [[plan/core-creation/issues/11-define-actor-finish-and-failure-behavior.md]]
 
 ## Time
 

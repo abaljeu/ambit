@@ -11,15 +11,15 @@ At what exact point does cancellation stop later Actor output, how does Core adm
 
 ## Answer
 
-Command cancel takes a NodeId. The public number stays the 09 query key. Core finds the job by NodeId membership in the retained span. Named may-change: a Node field if a span scan is not cheapest. Launch forbids overlapping locks: any shared NodeId. This amends [[09-define-core-command-launch-contract.md]]. Core creates the advisory lock at launch. Core retains 09's list. Lock-present is on the Node, not a job flag ([[11-define-actor-finish-and-failure-behavior.md]]). Cancel is not Undo.
+The controlling contract is [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]]. Command cancel takes Focus NodeId. Exactly one live Actor may target that Focus, so lookup is unique. Different Focus values may run concurrently despite overlapping extracts. Cancel is not Undo.
 
-Core signals the Actor with a CancellationToken and refuses later output. A mailbox message has a sender id that must match an active source. For an Actor, sender id is the 09 send credential. Match at Post: not active → Unauthorized, do not enqueue. Already in the mailbox → apply. Cancel removes the source from the active set.
+The one Core mailbox strictly orders Change and Cancelled. Change-before-Cancelled is admitted and applies. Cancelled-before-Change synchronously removes the live registry and secret credential, so the later Change is auth-refused and creates no Event. Earlier accepted output is never undone.
 
-Browser PostChange must be admitted after page open. The Browser active source is the existing `gambol_auth` cookie. The HTTP Adapter already checks it on every `/ambit/changes` and `/ambit/poll` (and state, load). Two kinds of source: session cookie (Adapter) and job credential (Core). This ticket does not rewrite login.
+Every caller presents a public Authority plus secret credential. Core validates both. Login creates Browser identity; launch creates Actor identity. Accepted Events retain the readable Authority name, but secrets never persist.
 
-Auth refuse is one family: Adapter cookie fail (HTTP 401) and Core inactive-sender (Unauthorized) are the same refuse — one word and one path. Named may-change about mapping Core Unauthorized to HTTP 401 is now: they merge. Actor admission fail is that refuse without enqueue. TCP / Database-unavailable / readOnly Reject is a system error, not this refuse ([[12-define-actor-pool-shutdown-behavior.md]]).
+Processing Cancelled appends ActorFinished without Error or Change, removes the live Actor and secret, and requests asynchronous task termination without waiting. A late duplicate completion is ignored. Authentication refusal remains distinct from Database-unavailable system failure.
 
-Grill notes: [[plan/core-creation/reports/grill-issue-10-cancellation.md]].
+Grill notes: [[plan/core-creation/reports/grill-issue-10-cancellation.md]]. The earlier span-lock answers below are historical interrogation notes and no longer control implementation.
 
 **Amend (2026-09-07):** Core mailbox messages clear fast; slow work is an Actor. Cancel is a fast mailbox message. Posts ahead of cancel still apply (FIFO); posts behind fail the normal active-source check after cancel has run — no special cancel reject. See [[doc/Decisions/0004-core-mailbox-messages-clear-fast.md]].
 
@@ -43,6 +43,7 @@ Grill notes: [[plan/core-creation/reports/grill-issue-10-cancellation.md]].
 - Q15: Unauthorized. Browser cookie fail is HTTP 401; Actor fail is Core Error "Unauthorized". See the grill report.
 - Q16: Lock. Status resolved. See the grill report.
 - Amend (2026-09-06): merge Adapter 401 and Core Unauthorized into one auth refuse; system error stays on 12. Lock-present is on the Node (11), not a job flag. Status stays resolved.
+- 2026-09-11 — [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] superseded span membership, Graph lock-present, and non-event cancellation. Focus-keyed cancellation, credential admission, FIFO ordering, and no Undo remain standing.
 
 ## Time
 

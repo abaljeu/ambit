@@ -11,17 +11,17 @@ How does Core transition and retain job state when an Actor finishes successfull
 
 ## Answer
 
-There is no completed or aborted job result. Callers do not get a job Error. `postChange` `Ok` / `Error` (accept, dedup, Reject) is the Changes result to the Actor. Accepted, deduplicated, and Rejected batches do not change a job terminal. They apply or Reject in mailbox order while the Actor is still registered. The Command caller sees Graph and History through Poll. Query by the public number works until delete-actor applies.
+The controlling contract is [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]]. Succeeded, Failed, and Cancelled are Core mailbox terminal messages. The first terminal message durably appends ActorFinished to the one global Event sequence. Failed stores a safe domain error; raw provider details stay in logs. Cancelled has no Error or Change. A duplicate or late terminal message is ignored.
 
-Launch writes lock-present on each Node in the span immediately. Lock status is not History. Clients see it through state, Fetch, or Query. Cancel still finds the job by span. The public number stays the query key. This amends [[10-define-actor-cancellation-and-output-admission.md]] (lock-present flag on the job) and [[09-define-core-command-launch-contract.md]] ("after the task ends").
+Core accepts Changes while the Actor remains registered. Terminal processing runs after earlier queued Changes, derives truthful success from their outcomes, appends ActorFinished, synchronously removes the live registry and secret, then requests asynchronous termination only if the task is still running. Core never waits. Earlier accepted output remains even if later output rejects.
 
-When the Actor Async/Task has stopped for any reason, Core enqueues a Core-only delete-actor message. It is not a Change and does not use the Actor sender id. FIFO processes earlier Actor-sent Changes first. When delete-actor applies, Core removes the registry entry, drops the number, writes lock off the Nodes, and removes the send credential.
+The Browser observes Graph and lifecycle Events through universal Core responses and Poll. Public Actor identity remains durable after drop. ActorStarted and ActorFinished replace the non-History lock-present overlay; no Graph lock field is written or cleared.
 
-Amend (2026-09-11): Exactly one Core mailbox (the Changes apply queue). The runner is a TaskPool, not a mailbox. Registry is mailbox state. There is no credential MailboxProcessor; admit and enqueue are one message. Drop is registry remove plus async terminate if the task is still running. Failed stop enqueues delete-actor the same as a normal stop. See [[../reports/actor-pool-rewind-review.md]] and [[18-finish-and-drop.md]].
+On restart, every unmatched ActorStarted receives ActorFinished Interrupted. The live secret is not recovered and work does not resume.
 
 Shutdown stays [[12-define-actor-pool-shutdown-behavior.md]].
 
-Grill notes: [[plan/core-creation/reports/grill-issue-11-finish.md]].
+Grill notes: [[plan/core-creation/reports/grill-issue-11-finish.md]]. The earlier no-terminal and Graph-lock answers below are historical interrogation notes and no longer control implementation.
 
 ## Comments
 
@@ -36,6 +36,7 @@ Grill notes: [[plan/core-creation/reports/grill-issue-11-finish.md]].
 - Q8: B. Source stays active until delete-actor applies. See the grill report.
 - Q9/Q10: Withdrawn as too picky. On any stop, enqueue delete-actor. Registry lasts until that message is processed. See the grill report.
 - Q11: Lock. Status resolved. See the grill report.
+- 2026-09-11 — [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] superseded no-result completion, lock-present outside History, and delete-only finish. Durable ActorFinished is the terminal result.
 
 ## Time
 

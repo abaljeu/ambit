@@ -38,6 +38,7 @@ Three primary patterns:
 - **Run logic**: If Focus is not a Command, walk **ancestors** to find a Command; fail if none. That Command is what runs.
   - **Focus** = where Run was pressed.
   - **Command** = self or nearest command ancestor.
+  - **Dispatch:** The Command Node's text selects which Actor to run. `?test echo` launches TestActor echo. `?ai ...` will launch the Agent Actor; payload details later. Kind, CSS class, and Command role do not select the Actor.
 
 ## Soft Lock / Working Set
 

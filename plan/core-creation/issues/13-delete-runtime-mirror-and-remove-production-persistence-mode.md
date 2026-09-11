@@ -23,3 +23,7 @@ This issue is independent and does not block [[01-generalized-server-actor-produ
 - [ ] The runtime mirror path is deleted and production behavior does not read `Persistence:Mode`.
 - [ ] Existing initialization, repair, reconciliation, secondary-file, and test-only FileAgent behavior remains unchanged.
 - [ ] Reuse or adjust focused startup and fallback tests; do not add duplicate behavior matrices.
+
+## Comments
+
+- 2026-09-11 — Reconciled after the Actor rewind and Agent redesign. This remains independent persistence work. Database-down state and the mutating Post/launch probe belong with this persistence boundary through [[19-database-down-and-host-stop.md]]; host-stop Actor drain does not.

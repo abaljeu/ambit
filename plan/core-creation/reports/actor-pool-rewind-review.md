@@ -49,6 +49,8 @@ PR 3, merged `4f974f0`. Commits: `1b9874e` Add standalone CloudAgents stack; `2c
 
 **TestActor (not implemented):** ActorName `test`. Focus Header is the case id (not `?`). TestActor switches on that line, does only what the case needs, and `postChange`s Owned children under Focus. It does not Assert and does not return a job result. Outer fact: launch, wait until the public number is gone, match Graph to a table for that case. First cases: `echo`, `fail`, `post-twice`. No `cloud-stub` in this Actor.
 
+**2026-09-11 invoke:** Command Node text is the dispatch. `?test echo` launches TestActor echo. Do not require a separate Focus Header case id for that increment. Echo Graph under Focus remains the assertion. Later cases such as `?test fail` keep the case in the Command text after `?test`. See [[../issues/29-prove-testactor-echo.md]].
+
 **Confirmed algorithm:** the Actor is not a foreground worker. Await POST (ids), then await each poll GET; between polls `do! Async.Sleep` (or later stream). Wake when that HTTP response arrives. Do not `Thread.Sleep` or `RunSynchronously` on the Actor path. Sync `waitUntilComplete` is console-only, or drop it. CloudAgents must not leak exceptions: HTTP failures are `AgentError`. Keep `cancel` in the library now (Core/Actor cancel protocol can stay later).
 
 **Set 2 leftovers dropped:** `try`/`with` at the HTTP edge is the no-leak rule, already present. Library `cancel` is in scope.

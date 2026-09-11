@@ -1,15 +1,16 @@
 # llm-connector
 
-Stage: chart
-Summary: Info-hub restart — Command Node + Run; text↔text Agent Actor; adaptive update common across varying Actor formats.
+Stage: spec
+Summary: Run an Agent from a Zoom-rooted mixed-format extract and replace Focus Children through ordinary Core Changes.
 Updated: 2026-09-11
+Actual: 6h55m
 
-## Post-Implementation Restart
+## Locked Restart
 
-Draft PR #4 (cloud-agent Create slice / POST `/ambit/actors` / Md reply under Focus) was **closed unmerged** on 2026-09-11. Issue 05 and the fat vertical slice approach are obsolete as the build frontier.
+Draft PR #4 (cloud-agent Create slice / POST `/ambit/actors` / Md reply under Focus) was **closed unmerged** on 2026-09-11. [[plan/llm-connector/issues/05-create-cloud-agent-posts-reply-under-focus.md]] and the fat vertical slice approach are obsolete as the build frontier.
 
 **Locked design points:** [[reports/agent-redesign-locked-2026-09.md]]
 
-Project is restarting from the September 2026 redesign decisions. Ambit is an **info hub**; data formats and protocols vary by Actor, but the update process is common. Command Node + Run; text↔text agent wire; soft lock working set; Focus vs Command ancestor walk.
+[[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]] locks the replacement Agent behavior. [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] locks the typed boundaries, one global Event sequence, Authority identities, mailbox lifecycle, recovery, and test seams. The Browser sends exact included NodeIds plus Zoom, Focus, Command, and current event id. Core reads Command Node text to resolve ActorName (`?test echo` launches TestActor; `?ai ...` later) and constructs the extract from its authoritative Graph. The Run Agent Actor orchestrates Document, CloudAgents, and ordinary Core Changes.
 
-No new implementation tickets yet. The frontier clears back to locked architectural points and the revised design that will emerge from them.
+The Phase 1 and Phase 1b gates are complete. The Project remains at `spec`; no Agent implementation issue or vertical-proof issue exists yet. The next serial executable work is the provider-neutral Core lifecycle in [[plan/core-creation/issues/Implementation Planning and Record.md]]. After that lifecycle is rebuilt, specify the smallest vendor-neutral CloudAgents implementation increment from the locked behavior and architecture.
