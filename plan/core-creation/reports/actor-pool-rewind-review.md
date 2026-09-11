@@ -18,6 +18,7 @@ Sets 2 and 3 sit later on `ready` (CloudAgents merge `4f974f0`; Create actor is 
 - The Actor pool is a TaskPool (or equivalent). It runs Actors off the apply queue. It is not a mailbox and does not serialize launch, query, lock, or drop on a second inbox.
 - Any Actor stop, including a failed stop, enqueues delete-actor on that one mailbox. Callers do not get a job Error.
 - FIFO is the mailbox order, not “the Actor awaited `postChange`.” Awaiting Post is Actor-specific. Core must not rely on it.
+- Job registry, lock set, and live credentials are state of that one mailbox. Drop mutates that state in the same fast message. It does not wait on a second processor. Admit (`contains`) and Post see the same state.
 
 ## Current implementation (to discard)
 
@@ -25,10 +26,12 @@ Sets 2 and 3 sit later on `ready` (CloudAgents merge `4f974f0`; Create actor is 
 - The Actor body is `Async.Start`. Posts go to the FileAgent or DbAgent mailbox. `DeleteActor` is posted to the pool inbox after `do! plan.actor`.
 - Failed Actor stop never reaches `DeleteActor`. The wrap has no catcher. Query, credential, and lock-present stay live. [[../issues/26-failed-actor-stop-still-drops.md]] recorded this, then was cancelled as a patch.
 - The FIFO test awaits Post inside the test Actor, then sleeps. It does not put Post and delete-actor on one mailbox.
+- `DeleteActor` does `do! credentials.remove` on a third `MailboxProcessor` ([[src/Server/Core/CoreCredentials.fs]]). Admit is `contains` on that processor, then enqueue on FileAgent or DbAgent. Drop is not one fast message.
+- Standards on this delivery: `startMailbox` is 41 lines; four finish tests use `Task.Delay(100)`; [[tests/Server.Tests/CoreActorPoolTests.fs]] grew to 550 lines.
 
 ## Still open on set 1
 
-Standards pass on Core 18 (size, tests, other 18 checkboxes) waits until Spec on the pool/mailbox shape is locked. Next: remaining Core 18 findings, then agent sets 2 and 3.
+Next: any leftover Core 18 items, then agent sets 2 and 3.
 
 ## Time
 
