@@ -19,6 +19,10 @@ Any Actor stop causes Core to enqueue a Core-only delete-actor mailbox item. It 
 
 [[11-define-actor-finish-and-failure-behavior.md]], [[02-core-actor-pool.md]]
 
+## Comments
+
+- 2026-09-11 — Failed stop does not enqueue delete-actor. Follow-up: [[26-failed-actor-stop-still-drops.md]].
+
 ## Time
 
 - 2026-09-07 ~1h — implemented finish-and-drop with tests
