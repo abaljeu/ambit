@@ -19,3 +19,7 @@ Create on `/ambit/actors` starts `cloud-agent`. The Actor builds an Ambit system
 ## See also
 
 [[../reports/grill-run-agent-actor-2026-09-08.md]], [[../reports/first-agent-cursor-cloud-agents.md]], [[03-seam-after-ask-recognition.md]], [[plan/core-creation/issues/09-define-core-command-launch-contract.md]]
+
+## Comments
+
+- 2026-09-11 — Set 3 review closed. Six confirmed misses in [[../../core-creation/reports/actor-pool-rewind-review.md]]: identify work by name; tests must prove Create → reply under Focus; Focus is the replace-parent and lock is Focus (extract/pack is a larger set); paste-replace Focus children, do not append; reply is a nested Md tree that needs ops; do not convert pack errors into agent calls. CloudAgents product was rewound. Do not implement this ticket as a wrap of discarded PR 4.

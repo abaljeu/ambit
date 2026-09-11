@@ -53,10 +53,8 @@ let ``launch starts Actor with subgraph and credential and returns a public numb
             let credentials = CoreCredentials.create ()
             let pool = CoreActorPool.create credentials
             let started = TaskCompletionSource<Graph * Credential>()
-            let canFinish = TaskCompletionSource<unit>()
             pool.register (ActorName "test") (fun subgraph cred _ -> async {
                 started.TrySetResult(subgraph, cred) |> ignore
-                do! canFinish.Task |> Async.AwaitTask
             })
             let! childId = addChild handle "span" |> Async.StartAsTask
             let! state = handle.getState () |> Async.StartAsTask
@@ -73,7 +71,6 @@ let ``launch starts Actor with subgraph and credential and returns a public numb
             Assert.True(Map.containsKey childId subgraph.nodes)
             let! live = credentials.contains cred |> Async.StartAsTask
             Assert.True(live)
-            canFinish.TrySetResult() |> ignore
         finally
             FileAgent.dispose agent
     }
@@ -116,10 +113,7 @@ let ``launch that shares a NodeId with a live span is refused`` () = task {
     try
         let handle = FileAgent.coreChanges agent
         let pool = CoreActorPool.create (CoreCredentials.create ())
-        let canFinish = TaskCompletionSource<unit>()
-        pool.register (ActorName "test") (fun _ _ _ -> async {
-            do! canFinish.Task |> Async.AwaitTask
-        })
+        pool.register (ActorName "test") (fun _ _ _ -> async.Return())
         let! childId = addChild handle "held" |> Async.StartAsTask
         let! state = handle.getState () |> Async.StartAsTask
         let state = requireOk "state" state
@@ -135,7 +129,6 @@ let ``launch that shares a NodeId with a live span is refused`` () = task {
             Error(CoreAdmissionError.text CoreAdmissionError.Overlap),
             second)
         Assert.False(CoreAuth.isAuthRefuse CoreActorPool.overlap)
-        canFinish.TrySetResult() |> ignore
     finally
         FileAgent.dispose agent
 }
@@ -148,10 +141,7 @@ let ``live span Nodes show lock-present; History and agent graph do not`` () =
         try
             let handle = FileAgent.coreChanges agent
             let pool = CoreActorPool.create (CoreCredentials.create ())
-            let canFinish = TaskCompletionSource<unit>()
-            pool.register (ActorName "test") (fun _ _ _ -> async {
-                do! canFinish.Task |> Async.AwaitTask
-            })
+            pool.register (ActorName "test") (fun _ _ _ -> async.Return())
             let! childId = addChild handle "lock" |> Async.StartAsTask
             let! before = handle.getChangesSince (Revision 0) |> Async.StartAsTask
             let! state = handle.getState () |> Async.StartAsTask
@@ -180,7 +170,6 @@ let ``live span Nodes show lock-present; History and agent graph do not`` () =
                 |> List.map ChangeLog.encodeChange
                 |> String.concat ""
             Assert.DoesNotContain("lockPresent", historyJson)
-            canFinish.TrySetResult() |> ignore
         finally
             FileAgent.dispose agent
     }
@@ -217,10 +206,7 @@ let ``query by public number identifies the registered Actor`` () = task {
     try
         let handle = FileAgent.coreChanges agent
         let pool = CoreActorPool.create (CoreCredentials.create ())
-        let canFinish = TaskCompletionSource<unit>()
-        pool.register (ActorName "test") (fun _ _ _ -> async {
-            do! canFinish.Task |> Async.AwaitTask
-        })
+        pool.register (ActorName "test") (fun _ _ _ -> async.Return())
         let! childId = addChild handle "span" |> Async.StartAsTask
         let! state = handle.getState () |> Async.StartAsTask
         let state = requireOk "state" state
@@ -232,7 +218,6 @@ let ``query by public number identifies the registered Actor`` () = task {
         let number = requireOk "launch" launched
         let! found = pool.query number |> Async.StartAsTask
         Assert.Equal(Ok request, found)
-        canFinish.TrySetResult() |> ignore
     finally
         FileAgent.dispose agent
 }
@@ -245,11 +230,9 @@ let ``query does not return a job result or job Error`` () = task {
         let handle = FileAgent.coreChanges agent
         let credentials = CoreCredentials.create ()
         let started = TaskCompletionSource<Graph * Credential>()
-        let canFinish = TaskCompletionSource<unit>()
         let pool = CoreActorPool.create credentials
         pool.register (ActorName "test") (fun subgraph cred _ -> async {
             started.TrySetResult(subgraph, cred) |> ignore
-            do! canFinish.Task |> Async.AwaitTask
         })
         let! childId = addChild handle "span" |> Async.StartAsTask
         let! state = handle.getState () |> Async.StartAsTask
@@ -271,7 +254,6 @@ let ``query does not return a job result or job Error`` () = task {
             Assert.Equal(ActorName "test", job.name)
             Assert.Equal(state.revision, job.revision)
             Assert.Equal(request.span, job.span)
-        canFinish.TrySetResult() |> ignore
     finally
         FileAgent.dispose agent
 }
@@ -283,13 +265,8 @@ let ``query uses the public number, not a span NodeId`` () = task {
     try
         let handle = FileAgent.coreChanges agent
         let pool = CoreActorPool.create (CoreCredentials.create ())
-        let canFinish = TaskCompletionSource<unit>()
-        pool.register (ActorName "first") (fun _ _ _ -> async {
-            do! canFinish.Task |> Async.AwaitTask
-        })
-        pool.register (ActorName "second") (fun _ _ _ -> async {
-            do! canFinish.Task |> Async.AwaitTask
-        })
+        pool.register (ActorName "first") (fun _ _ _ -> async.Return())
+        pool.register (ActorName "second") (fun _ _ _ -> async.Return())
         let! a = addChild handle "a" |> Async.StartAsTask
         let! b = addChild handle "b" |> Async.StartAsTask
         let! state = handle.getState () |> Async.StartAsTask
@@ -322,7 +299,6 @@ let ``query uses the public number, not a span NodeId`` () = task {
             Error(CoreAdmissionError.text CoreAdmissionError.UnknownJob),
             missing)
         Assert.False(CoreAuth.isAuthRefuse CoreActorPool.unknownJob)
-        canFinish.TrySetResult() |> ignore
     finally
         FileAgent.dispose agent
 }
@@ -389,162 +365,6 @@ let ``Actor handle wrap refuses a different inactive credential`` () = task {
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner (NodeId.New()) ]) ] }
         let! result = bound.postChange [ change ] |> Async.StartAsTask
         Assert.Equal(Error CoreAuth.refuse, result)
-    finally
-        FileAgent.dispose agent
-}
-
-[<Fact>]
-let ``Actor finish removes public number so query fails`` () = task {
-    let dataDir = newTempDir ()
-    let agent = FileAgent.create dataDir
-    try
-        let handle = FileAgent.coreChanges agent
-        let pool = CoreActorPool.create (CoreCredentials.create ())
-        let finished = TaskCompletionSource<unit>()
-        pool.register (ActorName "test") (fun _ _ _ -> async {
-            finished.TrySetResult() |> ignore
-        })
-        let! childId = addChild handle "span" |> Async.StartAsTask
-        let! state = handle.getState () |> Async.StartAsTask
-        let state = requireOk "state" state
-        let! launched =
-            pool.launch handle
-                { name = ActorName "test"
-                  revision = state.revision
-                  span = spanOf state.graph childId }
-            |> Async.StartAsTask
-        let number = requireOk "launch" launched
-        let! _ = finished.Task.WaitAsync(TimeSpan.FromSeconds 5.0)
-        do! Task.Delay(100)
-        let! missing = pool.query number |> Async.StartAsTask
-        Assert.Equal(Error CoreActorPool.unknownJob, missing)
-    finally
-        FileAgent.dispose agent
-}
-
-[<Fact>]
-let ``Actor finish removes credential from the set`` () = task {
-    let dataDir = newTempDir ()
-    let agent = FileAgent.create dataDir
-    try
-        let handle = FileAgent.coreChanges agent
-        let credentials = CoreCredentials.create ()
-        let pool = CoreActorPool.create credentials
-        let captured = TaskCompletionSource<Credential>()
-        let canFinish = TaskCompletionSource<unit>()
-        pool.register (ActorName "test") (fun _ cred _ -> async {
-            captured.TrySetResult(cred) |> ignore
-            do! canFinish.Task |> Async.AwaitTask
-        })
-        let! childId = addChild handle "span" |> Async.StartAsTask
-        let! state = handle.getState () |> Async.StartAsTask
-        let state = requireOk "state" state
-        let! launched =
-            pool.launch handle
-                { name = ActorName "test"
-                  revision = state.revision
-                  span = spanOf state.graph childId }
-            |> Async.StartAsTask
-        ignore (requireOk "launch" launched)
-        let! cred = captured.Task.WaitAsync(TimeSpan.FromSeconds 5.0)
-        let! liveBefore = credentials.contains cred |> Async.StartAsTask
-        Assert.True(liveBefore)
-        canFinish.TrySetResult() |> ignore
-        do! Task.Delay(100)
-        let! liveAfter = credentials.contains cred |> Async.StartAsTask
-        Assert.False(liveAfter)
-    finally
-        FileAgent.dispose agent
-}
-
-[<Fact>]
-let ``Actor finish clears lock-present from span Nodes`` () = task {
-    let dataDir = newTempDir ()
-    let agent = FileAgent.create dataDir
-    try
-        let handle = FileAgent.coreChanges agent
-        let pool = CoreActorPool.create (CoreCredentials.create ())
-        let started = TaskCompletionSource<unit>()
-        let canFinish = TaskCompletionSource<unit>()
-        pool.register (ActorName "test") (fun _ _ _ -> async {
-            started.TrySetResult() |> ignore
-            do! canFinish.Task |> Async.AwaitTask
-        })
-        let! childId = addChild handle "span" |> Async.StartAsTask
-        let! state = handle.getState () |> Async.StartAsTask
-        let state = requireOk "state" state
-        let! launched =
-            pool.launch handle
-                { name = ActorName "test"
-                  revision = state.revision
-                  span = spanOf state.graph childId }
-            |> Async.StartAsTask
-        ignore (requireOk "launch" launched)
-        let! _ = started.Task.WaitAsync(TimeSpan.FromSeconds 5.0)
-        let! viewedBefore =
-            pool.withLocks(handle).getState () |> Async.StartAsTask
-        let viewedBefore = requireOk "viewed before" viewedBefore
-        Assert.True(viewedBefore.graph.nodes.[childId].lockPresent)
-        canFinish.TrySetResult() |> ignore
-        do! Task.Delay(100)
-        let! viewedAfter =
-            pool.withLocks(handle).getState () |> Async.StartAsTask
-        let viewedAfter = requireOk "viewed after" viewedAfter
-        Assert.False(viewedAfter.graph.nodes.[childId].lockPresent)
-    finally
-        FileAgent.dispose agent
-}
-
-[<Fact>]
-let ``Actor Posts apply before delete-actor in FIFO order`` () = task {
-    let dataDir = newTempDir ()
-    let agent = FileAgent.create dataDir
-    try
-        let handle = FileAgent.coreChanges agent
-        let credentials = CoreCredentials.create ()
-        let pool = CoreActorPool.create credentials
-        let posted = TaskCompletionSource<unit>()
-        pool.register (ActorName "test") (fun subgraph cred core -> async {
-            let parent = subgraph.nodes.[Graph.rootId]
-            let childId = NodeId.New()
-            let! rev = core.getRevision ()
-            let change =
-                { id = rev.Value
-                  changeId = Guid.NewGuid()
-                  ops =
-                    [ Op.NewNode(childId, "from actor")
-                      Op.Replace(
-                          Graph.rootId,
-                          parent.children,
-                          parent.children @ [ ChildNode.owner childId ]) ] }
-            let! result = core.postChange [ change ]
-            ignore (requireOk "actor post" result)
-            posted.TrySetResult() |> ignore
-        })
-        let! childId = addChild handle "span" |> Async.StartAsTask
-        let! state = handle.getState () |> Async.StartAsTask
-        let state = requireOk "state" state
-        let! launched =
-            pool.launch handle
-                { name = ActorName "test"
-                  revision = state.revision
-                  span = spanOf state.graph childId }
-            |> Async.StartAsTask
-        let number = requireOk "launch" launched
-        let! _ = posted.Task.WaitAsync(TimeSpan.FromSeconds 5.0)
-        do! Task.Delay(100)
-        let! finalState = handle.getState () |> Async.StartAsTask
-        let finalState = requireOk "final" finalState
-        let root = finalState.graph.nodes.[Graph.rootId]
-        let hasActorChild =
-            root.children
-            |> List.exists (fun c ->
-                match finalState.graph.nodes.TryGetValue(c.id) with
-                | true, node -> node.text = "from actor"
-                | false, _ -> false)
-        Assert.True(hasActorChild)
-        let! missing = pool.query number |> Async.StartAsTask
-        Assert.Equal(Error CoreActorPool.unknownJob, missing)
     finally
         FileAgent.dispose agent
 }

@@ -6,7 +6,7 @@ Locked for implementers (Cursor / cloud coding agents). Supersedes the earlier "
 
 ## Implementation Status
 
-**CloudAgents standalone stack landed** (2026-09-07): `src/CloudAgents/`, `tests/CloudAgents.Tests/`, `src/CloudAgents.Console/`. Vendor-neutral public API; Cursor adapter internal; no Ambit references. Ambit Actor integration remains future work.
+**CloudAgents product rewound** (2026-09-11) with sets 1–3. Redo the library after the Core pool mailbox rebuild. Confirmed test and algorithm misses: [[../../core-creation/reports/actor-pool-rewind-review.md]].
 
 **First path: no-repo agents.** Omit `repos` from the initial Agent call. Attaching `life` or any repo is later work; v1 starts with standalone agents (Q&A, planning, research) that do not push code.
 

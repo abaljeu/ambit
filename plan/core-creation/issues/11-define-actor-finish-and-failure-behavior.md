@@ -3,7 +3,7 @@
 **Type:** grilling
 **Status:** done
 Blocked by: 03, 09, 10
-Actual: 55m
+Actual: 1h
 
 ## Question
 
@@ -16,6 +16,8 @@ There is no completed or aborted job result. Callers do not get a job Error. `po
 Launch writes lock-present on each Node in the span immediately. Lock status is not History. Clients see it through state, Fetch, or Query. Cancel still finds the job by span. The public number stays the query key. This amends [[10-define-actor-cancellation-and-output-admission.md]] (lock-present flag on the job) and [[09-define-core-command-launch-contract.md]] ("after the task ends").
 
 When the Actor Async/Task has stopped for any reason, Core enqueues a Core-only delete-actor message. It is not a Change and does not use the Actor sender id. FIFO processes earlier Actor-sent Changes first. When delete-actor applies, Core removes the registry entry, drops the number, writes lock off the Nodes, and removes the send credential.
+
+Amend (2026-09-11): Exactly one Core mailbox (the Changes apply queue). The runner is a TaskPool, not a mailbox. Registry is mailbox state. There is no credential MailboxProcessor; admit and enqueue are one message. Drop is registry remove plus async terminate if the task is still running. Failed stop enqueues delete-actor the same as a normal stop. See [[../reports/actor-pool-rewind-review.md]] and [[18-finish-and-drop.md]].
 
 Shutdown stays [[12-define-actor-pool-shutdown-behavior.md]].
 
@@ -46,3 +48,4 @@ Grill notes: [[plan/core-creation/reports/grill-issue-11-finish.md]].
 - 2026-09-05 5m — recorded Q7=A and Q8=B (from chat)
 - 2026-09-05 5m — recorded delete-actor rule; withdrew Q9/Q10 (from chat)
 - 2026-09-05 5m — locked contract; Q11=A; resolved (from chat)
+- 2026-09-11 5m — amend Answer with mailbox/TaskPool/drop shape (from chat)

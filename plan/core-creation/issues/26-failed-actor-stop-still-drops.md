@@ -13,7 +13,7 @@ Any Actor stop enqueues delete-actor, including a failed stop. After delete-acto
 
 ## Why cancelled
 
-This was a patch ticket on the current pool mailbox. The Core 18 review will reset the working head before those commits and reimplement from a tighter spec. The finding lives in [[../reports/actor-pool-rewind-review.md]].
+This was a patch ticket on the current pool mailbox. Sets 1–3 product was rewound on `dev`. Reimplement from the tightened spec on [[18-finish-and-drop.md]]. The finding lives in [[../reports/actor-pool-rewind-review.md]].
 
 ## See also
 
