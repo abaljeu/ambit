@@ -46,7 +46,7 @@ This increment: Core owns Graph write, History, agent selection, the credential 
 - [[plan/core-creation/issues/23-close-core-object-seam.md]] — production posts present Credential; callers use the typed Core object.
 - [[plan/core-creation/issues/24-clarify-core-increment-boundary.md]] — agent instruction: Core vs Adapter vs Client; no lock UI this increment.
 - [[plan/core-creation/issues/25-bind-changes-at-core-seam.md]] — leftover after 23: HTTP posts through bound Changes, not unpacked CoreAuth. Status `done`.
-- [[plan/core-creation/issues/26-failed-actor-stop-still-drops.md]] — failed Actor stop must still enqueue delete-actor.
+- [[plan/core-creation/issues/26-failed-actor-stop-still-drops.md]] — failed Actor stop must still enqueue delete-actor. Status `cancelled` (rewind/redo, not a wrap patch).
 
 ## Decision tickets
 
@@ -81,6 +81,7 @@ This increment: Core owns Graph write, History, agent selection, the credential 
 - [[plan/core-creation/reports/plan-23-24-mitigations.md]] — pointer at the locked 24-then-23 plan.
 - [[plan/core-creation/reports/implement-24-then-23.md]] — 24 instruction then 23 Core object seam.
 - [[plan/core-creation/reports/actor-core-and-mailbox-check.md]] — Actor `CoreChanges` handle vs mailbox; writes are the two Posts.
+- [[plan/core-creation/reports/actor-pool-rewind-review.md]] — Core 18 review: one mailbox, pool is TaskPool; rewind and redo.
 - [[plan/core-creation/reports/commit-24-and-23.md]] — commit 24 then 23 on `dev`.
 - [[plan/core-creation/reports/improve-codebase-architecture.md]] — Core hot-spot deepening candidates; top recommendation is 25.
 - [[plan/core-creation/reports/implement-issue-25.md]] — bind Browser Changes on Core; Adapter decode and status only.

@@ -21,7 +21,7 @@ Any Actor stop causes Core to enqueue a Core-only delete-actor mailbox item. It 
 
 ## Comments
 
-- 2026-09-11 — Failed stop does not enqueue delete-actor. Follow-up: [[26-failed-actor-stop-still-drops.md]].
+- 2026-09-11 — Review of this delivery: failed stop does not enqueue delete-actor; pool is a second mailbox. Do not patch in place. Notes: [[../reports/actor-pool-rewind-review.md]].
 
 ## Time
 
