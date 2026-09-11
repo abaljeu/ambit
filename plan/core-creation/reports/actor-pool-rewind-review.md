@@ -61,6 +61,8 @@ PR 4 DRAFT. Branch `cursor/cloud-agent-actor-posts-reply-0b7d`. Commits vs `read
 
 **Miss (confirmed):** [[tests/Server.Tests/CloudAgentActorTests.fs]] does not prove Create → launch → reply under Focus. The spec asks a Server test with cookie, public number, and Owned children when the job finishes. The facts do not POST `/ambit/actors`. Registration accepts any Error except `unknown actor`. Extract copies the `?` trim locally and does not call the Actor. Nothing waits until the public number is gone or asserts reply children. Same family as set 2: the tests do not prove the path. TestActor does not replace CloudAgents HTTP-seam tests or CloudAgent Actor tests.
 
+**Miss (confirmed):** Focus, lock, and extract/pack are three different things. Focus is the write-back parent: the parent of the nodes that the Actor replaces. Usually that child list is empty. Lock is Focus, not the extract set. Extract/pack is rootnode plus nodelist (the set can be larger than Focus). Map extract/pack at the edge. Do not revise Define the Core Command launch contract ([[plan/core-creation/issues/09-define-core-command-launch-contract.md]]) in this slice. Delivery mashed extract, lock, and replace-parent onto one Core span. [[src/Server/Api.fs]] `payloadToLaunchRequest` (PR 4 branch `cursor/cloud-agent-actor-posts-reply-0b7d`) requires nodelist items as children of Focus, and it errors on an empty list. Core then locks `spanIds` of that child range. [[src/Server/CloudAgentActor.fs]] treats `subgraph.root` as Focus. Consequence: the usual case (Focus with empty children) cannot launch.
+
 ## Still open
 
 Set 3 interactive review continues. Confirmed misses stay in this file. No product patch. No wrap tickets.
@@ -70,3 +72,4 @@ Set 3 interactive review continues. Confirmed misses stay in this file. No produ
 - 2026-09-11 — Core 18 interactive review; rewind/redo plan (from chat)
 - 2026-09-11 — Set 3 pin confirmed; first miss: name, not number (from chat)
 - 2026-09-11 — Set 3 miss: tests do not prove Create → reply (from chat)
+- 2026-09-11 — Set 3 miss: Focus is replace parent, lock Focus (from chat)
