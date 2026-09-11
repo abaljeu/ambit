@@ -39,7 +39,7 @@ No further independent Core 18 misses. Redo is the pool/mailbox shape above, not
 
 PR 3, merged `4f974f0`. Commits: `1b9874e` Add standalone CloudAgents stack; `2c521f7` Lead with no-repo agents in documentation. Spec: [[plan/llm-connector/reports/first-agent-cursor-cloud-agents.md]].
 
-**Miss:** [[tests/CloudAgents.Tests/]] does not prove the stack. `AgentRunner.start` hits live `api.cursor.com`. Facts accept any Error or Ok. `PublicTypesTests` only construct records.
+**Miss (confirmed):** [[tests/CloudAgents.Tests/]] does not prove the stack. `AgentRunner.start` hits live `api.cursor.com`. Facts accept any Error or Ok. `PublicTypesTests` only construct records.
 
 **Proposed harness (not implemented):** a registered TestActor plus the existing Server Core tests (`dotnet test` on FileAgent / Core, not a new runner).
 
