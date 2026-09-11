@@ -39,15 +39,17 @@ No further independent Core 18 misses. Redo is the pool/mailbox shape above, not
 
 PR 3, merged `4f974f0`. Commits: `1b9874e` Add standalone CloudAgents stack; `2c521f7` Lead with no-repo agents in documentation. Spec: [[plan/llm-connector/reports/first-agent-cursor-cloud-agents.md]].
 
-**Miss (confirmed):** [[tests/CloudAgents.Tests/]] does not prove the stack. `AgentRunner.start` hits live `api.cursor.com`. Facts accept any Error or Ok. `PublicTypesTests` only construct records.
+**Miss (confirmed):** [[tests/CloudAgents.Tests/]] does not prove the stack. `AgentRunner.start` hits live `api.cursor.com`. Facts accept any Error or Ok. `PublicTypesTests` only construct records. CloudAgents is the Cursor connector; it needs its own tests (HTTP seam, no live key). TestActor does not replace those tests.
 
-**Proposed harness (not implemented):** a registered TestActor plus the existing Server Core tests (`dotnet test` on FileAgent / Core, not a new runner).
+**Three test layers (confirmed):**
 
-- ActorName `test`. Focus Header is the case id (not `?`, so it does not collide with Run Agent).
-- TestActor switches on that line, does only what the case needs, and `postChange`s Owned children (or other Graph output) under Focus. It does not Assert and does not return a job result.
-- Outer fact: launch, wait until the public number is gone (delete-actor applied), then match Graph/History to a table of expected output for that case.
-- First cases: `echo` (write known children, then stop); `fail` (stop with failure, still drop); `post-twice` (two Posts, both present after drop). A `cloud-stub` case may call a fake AgentRunner and post the stub text; it does not live in CloudAgents and does not need a Cursor key.
-- CloudAgents stays with no Ambit references. Cursor HTTP still needs a seam or stays untested in-process. TestActor does not replace that seam.
+1. CloudAgents library — create, poll, cancel, wait; fake HTTP; no Ambit refs.
+2. TestActor — Actor *system* only. No Cursor. Existing Server Core tests (`dotnet test` on FileAgent / Core).
+3. CloudAgent Actor — optional later facts for that Actor’s pack/reply path. Not TestActor.
+
+**TestActor (not implemented):** ActorName `test`. Focus Header is the case id (not `?`). TestActor switches on that line, does only what the case needs, and `postChange`s Owned children under Focus. It does not Assert and does not return a job result. Outer fact: launch, wait until the public number is gone, match Graph to a table for that case. First cases: `echo`, `fail`, `post-twice`. No `cloud-stub` in this Actor.
+
+**Still open on set 2:** `waitUntilComplete` uses `Thread.Sleep`; `CursorHttp` uses `try`/`with` and `Async.RunSynchronously`. That is CloudAgents, not TestActor.
 
 ## Still open
 
