@@ -20,6 +20,7 @@ Sets 2 and 3 sit later on `ready` (CloudAgents merge `4f974f0`; Create actor is 
 - FIFO is the mailbox order, not “the Actor awaited `postChange`.” Awaiting Post is Actor-specific. Core must not rely on it.
 - Job registry, lock set, and live credentials are state of that one mailbox. There is no credential `MailboxProcessor`. Admit and Post see that same state.
 - Drop removes the Actor from the pool (public number, lock-present, credential). If the Actor task is still running, async terminate; do not wait. If it has already stopped, terminate is a no-op. Cancel and finish share this drop.
+- Constraints on that drop: the TaskPool completion callback only enqueues delete-actor. Removing the job in the callback skips FIFO. The mailbox handler removes from the pool and async-terminates if still running. Admit and enqueue are one mailbox message; `contains` then `postChange` as two hops lets drop run between them.
 
 ## Current implementation (to discard)
 
@@ -30,9 +31,17 @@ Sets 2 and 3 sit later on `ready` (CloudAgents merge `4f974f0`; Create actor is 
 - `DeleteActor` does `do! credentials.remove` on a third `MailboxProcessor` ([[src/Server/Core/CoreCredentials.fs]]). Admit is `contains` on that processor, then enqueue on FileAgent or DbAgent. There is no reason for that third inbox. Drop should remove the job from the pool and async-terminate only if the task is still running. The current wrap waits for the Actor, then hops to remove the credential, and never terminates a live task.
 - Standards on this delivery: `startMailbox` is 41 lines; four finish tests use `Task.Delay(100)`; [[tests/Server.Tests/CoreActorPoolTests.fs]] grew to 550 lines.
 
-## Still open on set 1
+## Set 1 closed
 
-Next: any leftover Core 18 items, then agent sets 2 and 3.
+No further independent Core 18 misses. Redo is the pool/mailbox shape above, not a wrap patch.
+
+## Set 2 — CloudAgents stack
+
+PR 3, merged `4f974f0`. Commits: `1b9874e` Add standalone CloudAgents stack; `2c521f7` Lead with no-repo agents in documentation. Spec: [[plan/llm-connector/reports/first-agent-cursor-cloud-agents.md]].
+
+## Still open
+
+Agent sets 2 and 3.
 
 ## Time
 
