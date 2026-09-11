@@ -1,15 +1,15 @@
 # llm-connector
 
-Stage: slice
-Summary: Run Agent Actor via CloudAgents; Server Create path; reply as Owned children of Focus.
+Stage: chart
+Summary: Info-hub restart — Command Node + Run; text↔text Agent Actor; adaptive update common across varying Actor formats.
 Updated: 2026-09-11
 
-Grill (2026-09-08): [[reports/grill-run-agent-actor-2026-09-08.md]]
+## Post-Implementation Restart
 
-Build next (frontier):
+Draft PR #4 (cloud-agent Create slice / POST `/ambit/actors` / Md reply under Focus) was **closed unmerged** on 2026-09-11. Issue 05 and the fat vertical slice approach are obsolete as the build frontier.
 
-- [[issues/05-create-cloud-agent-posts-reply-under-focus.md]]
+**Locked design points:** [[reports/agent-redesign-locked-2026-09.md]]
 
-Client / `?` recognition out of this session.
+Project is restarting from the September 2026 redesign decisions. Ambit is an **info hub**; data formats and protocols vary by Actor, but the update process is common. Command Node + Run; text↔text agent wire; soft lock working set; Focus vs Command ancestor walk.
 
-CloudAgents library product rewound 2026-09-11 (set 2). Ticket 05 stays the frontier after Core 18 redo and CloudAgents redo. Set 3 review findings: [[../core-creation/reports/actor-pool-rewind-review.md]].
+No new implementation tickets yet. The frontier clears back to locked architectural points and the revised design that will emerge from them.

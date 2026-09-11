@@ -1,6 +1,6 @@
 # 05 — Create cloud-agent posts a reply under Focus
 
-**Status:** ready-for-agent
+**Status:** cancelled
 **Blocked by:** None — can start immediately.
 
 ## Context
@@ -23,3 +23,4 @@ Create on `/ambit/actors` starts `cloud-agent`. The Actor builds an Ambit system
 ## Comments
 
 - 2026-09-11 — Set 3 review closed. Six confirmed misses in [[../../core-creation/reports/actor-pool-rewind-review.md]]: identify work by name; tests must prove Create → reply under Focus; Focus is the replace-parent and lock is Focus (extract/pack is a larger set); paste-replace Focus children, do not append; reply is a nested Md tree that needs ops; do not convert pack errors into agent calls. CloudAgents product was rewound. Do not implement this ticket as a wrap of discarded PR 4.
+- 2026-09-11 — **Cancelled.** Draft PR #4 (https://github.com/abaljeu/ambit/pull/4) closed unmerged. This Create slice and the fat vertical-slice issue approach are superseded by the agent redesign. See [[../reports/agent-redesign-locked-2026-09.md]] for locked restart points.
