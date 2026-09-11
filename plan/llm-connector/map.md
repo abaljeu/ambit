@@ -20,7 +20,7 @@ Run Agent with a message and included context. The reply is Owned children of th
 - Same Run command. Third statement `?` plus a message. Spoken name: Run Agent.
 - Reply is Owned children of Focus. Actor converts reply Md→graph and adds those children.
 - Included context is SiteMap under Zoom, honoring Fold. First Run Agent uses Zoom as `rootnode`. Later calls may pass another root. Nodelist is SiteMap visible Nodes below `rootnode`.
-- First Agent is **Cursor Cloud Agents** via standalone [[src/CloudAgents/]] (ActorName `cloud-agent`). v1 **no-repo**; key in CloudAgents config. Details: [[reports/first-agent-cursor-cloud-agents.md]], [[reports/grill-run-agent-actor-2026-09-08.md]], [[issues/02-which-llm-and-credentials.md]]
+- First Agent is **Cursor Cloud Agents** (ActorName `cloud-agent`). v1 **no-repo**; key in CloudAgents config. Library product was rewound 2026-09-11; redo after the Core pool. Details: [[reports/first-agent-cursor-cloud-agents.md]], [[reports/grill-run-agent-actor-2026-09-08.md]], [[issues/02-which-llm-and-credentials.md]]
 - Extra launch UI and secondary logins stay later. Executing Run Agent launches the Actor: Browser async POST → Server launch → Actor. Not a blocking Run.
 - `POST /ambit/actors` Create only. JSON `{ actor, nodelist, focusnode, rootnode, revision }`. Cookie from [[plan/core-creation/issues/20-client-presents-credential.md]]. No token field in JSON. Returns `PublicNumber` (Browser may ignore until cancel).
 - ActorName selects which Actor. LLM message is the `?` remainder on Focus Header, not a LaunchRequest field.

@@ -1,16 +1,16 @@
 # Actor pool rewind review
 
-Date: 2026-09-11. Interactive review of the last three agent sets, starting at Core 18. No product patch on the current head. After the review, reset the working head to before those commits and reimplement from a tighter spec.
+Date: 2026-09-11. Interactive review of the last three agent sets, starting at Core 18. Product of those sets was rewound on `dev`. Rebuild from the tightened spec. Do not wrap-patch.
 
 ## How we work
 
-Accumulate confirmed misses here. Do not file `ready-for-agent` patch tickets against the current pool mailbox. Tighten [[../issues/18-finish-and-drop.md]], [[../issues/02-core-actor-pool.md]], and [[../issues/11-define-actor-finish-and-failure-behavior.md]] only after this review names the intended shape. Then reset and rebuild.
+Confirmed misses stay here. Do not file wrap-patch tickets. Specs [[../issues/18-finish-and-drop.md]], [[../issues/02-core-actor-pool.md]], and [[../issues/11-define-actor-finish-and-failure-behavior.md]] are tightened. Rebuild from those.
 
 ## Rewind pin
 
-Set 1 (Core 18) parent: `e0f92b9`. Commits to drop with that set: `f3eb420`, `351ce6c`, `0c85dff`, merge `05eb06f`.
+Set 1 (Core 18) parent: `e0f92b9`. Commits dropped with that set: `f3eb420`, `351ce6c`, `0c85dff`, merge `05eb06f`.
 
-Sets 2 and 3 sit later on `ready` (CloudAgents merge `4f974f0`; Create actor is still draft PR 4). Intervening `ready` work after 18 includes the fast-clear decision. Confirm at reset whether the pin is only set 1 or all three agent sets.
+Sets 2 and 3: CloudAgents merge `4f974f0` (`1b9874e`, `2c521f7`); Create actor stayed on draft PR 4 (not on this tree). Alan 2026-09-11: rewind all three sets; keep unrelated later work (decision 0004, llm-connector grill/reticket, rewind notes, staging-remote skill).
 
 ## Intended shape (confirmed)
 
@@ -82,9 +82,13 @@ Section A and Section B are Owned children of Focus. Subsection C and Subsection
 
 **Miss (confirmed):** Do not convert errors into agent calls. Delivery `packToMarkdown` in [[src/Server/CloudAgentActor.fs]] (PR 4 branch `cursor/cloud-agent-actor-posts-reply-0b7d`) maps `MdDocument.writeArtifact` `Error` to `""`, and `createActorFn` still calls CloudAgents with that empty pack.
 
-## Still open
+## Set 3 closed
 
-Set 3 interactive review continues. Confirmed misses stay in this file. No product patch. No wrap tickets.
+Alan closed set 3 review on 2026-09-11. The six confirmed misses above are closed review findings, not wrap tickets. No product patch. Rebuild Create cloud-agent from those findings after the Core pool and CloudAgents redos.
+
+## Rewind executed
+
+2026-09-11 on `dev`: restored [[src/Server/Core/CoreActorPool.fs]] and [[tests/Server.Tests/CoreActorPoolTests.fs]] to `e0f92b9`; removed the CloudAgents library, console, tests, and solution entries. Specs [[../issues/18-finish-and-drop.md]], [[../issues/02-core-actor-pool.md]], and [[../issues/11-define-actor-finish-and-failure-behavior.md]] tightened to the intended shape. Next: rebuild, do not wrap-patch.
 
 ## Time
 
@@ -95,3 +99,5 @@ Set 3 interactive review continues. Confirmed misses stay in this file. No produ
 - 2026-09-11 — Set 3 miss: paste-replace Focus children, do not append (from chat)
 - 2026-09-11 — Set 3 miss: reply is Md tree; nested Owned need ops (from chat)
 - 2026-09-11 — Set 3 miss: do not convert errors into agent calls (from chat)
+- 2026-09-11 — Set 3 review closed; rewind all three sets; keep unrelated later work (from chat)
+- 2026-09-11 30m — execute product rewind and tighten specs (from chat)

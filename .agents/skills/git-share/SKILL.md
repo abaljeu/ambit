@@ -48,11 +48,15 @@ After `dev` is on `ready` via [[scripts/gitready.sh]]:
 
 ## Agent workplaces
 
-An agent may work on this machine's `dev`, or on a disposable workspace that starts from current `origin/ready`:
+An agent may work on this machine's `dev`, or on a disposable workspace that starts from current `origin/ready`.
+
+Cloud agents send finished work to `staging`: [[.agents/skills/cloud-agent-git/SKILL.md]]. Do not land cloud work onto `ready` from the cloud run.
+
+Other disposable desktops:
 
 - Land finished work onto `ready` with `--no-ff` (via [[scripts/gitready.sh]] on this machine, or the same merge on a disposable workspace).
 - Push `ready` only after approval.
-- Leave `master` and any new long-lived places alone.
+- Leave `master` alone. `staging` is the cloud drop.
 
 Do not two-write the same files without fetching first. Prefer disjoint paths when several agents co-edit.
 
