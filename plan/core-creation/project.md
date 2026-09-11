@@ -82,6 +82,7 @@ This increment: Core owns Graph write, History, agent selection, the credential 
 - [[plan/core-creation/reports/implement-24-then-23.md]] — 24 instruction then 23 Core object seam.
 - [[plan/core-creation/reports/actor-core-and-mailbox-check.md]] — Actor `CoreChanges` handle vs mailbox; writes are the two Posts.
 - [[plan/core-creation/reports/actor-pool-rewind-review.md]] — Core 18 review: one mailbox, pool is TaskPool; rewind and redo.
+- [[plan/core-creation/reports/set3-review-handoff.md]] — handoff for a new main agent to review set 3.
 - [[plan/core-creation/reports/commit-24-and-23.md]] — commit 24 then 23 on `dev`.
 - [[plan/core-creation/reports/improve-codebase-architecture.md]] — Core hot-spot deepening candidates; top recommendation is 25.
 - [[plan/core-creation/reports/implement-issue-25.md]] — bind Browser Changes on Core; Adapter decode and status only.

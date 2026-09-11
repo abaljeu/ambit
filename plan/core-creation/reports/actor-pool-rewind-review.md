@@ -55,7 +55,7 @@ PR 3, merged `4f974f0`. Commits: `1b9874e` Add standalone CloudAgents stack; `2c
 
 ## Still open
 
-Set 3 (Create `cloud-agent` posts reply), unless you want the extra `HttpClient` per call.
+Set 3 (Create `cloud-agent` posts reply) is for a **new main** agent. Handoff: [[plan/core-creation/reports/set3-review-handoff.md]]. This run does not start set 3.
 
 ## Time
 
