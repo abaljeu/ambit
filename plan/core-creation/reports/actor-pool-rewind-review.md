@@ -80,6 +80,8 @@ Subsection D text
 
 Section A and Section B are Owned children of Focus. Subsection C and Subsection D nest under Section B. Delivery `markdownToGraph` in [[src/Server/CloudAgentActor.fs]] keeps only the Md document-root’s direct children, then `Op.NewNode(id, header text)` plus optional CSS. Nested Owned from the Md read never get ops. Redo: paste-shaped create of that whole reply tree.
 
+**Miss (confirmed):** Do not convert errors into agent calls. Delivery `packToMarkdown` in [[src/Server/CloudAgentActor.fs]] (PR 4 branch `cursor/cloud-agent-actor-posts-reply-0b7d`) maps `MdDocument.writeArtifact` `Error` to `""`, and `createActorFn` still calls CloudAgents with that empty pack.
+
 ## Still open
 
 Set 3 interactive review continues. Confirmed misses stay in this file. No product patch. No wrap tickets.
@@ -92,3 +94,4 @@ Set 3 interactive review continues. Confirmed misses stay in this file. No produ
 - 2026-09-11 — Set 3 miss: Focus is replace parent, lock Focus (from chat)
 - 2026-09-11 — Set 3 miss: paste-replace Focus children, do not append (from chat)
 - 2026-09-11 — Set 3 miss: reply is Md tree; nested Owned need ops (from chat)
+- 2026-09-11 — Set 3 miss: do not convert errors into agent calls (from chat)
