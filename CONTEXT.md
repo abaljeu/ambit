@@ -19,8 +19,12 @@ _Avoid_: original branch (for this place)
 **master**:
 The place squashed merges from `ready` land, one commit each. Procedure: [[.agents/skills/git-master/SKILL.md]].
 
+**staging**:
+Published drop for finished cloud-agent work. Not a workplace. Procedure: [[.agents/skills/cloud-agent-git/SKILL.md]].
+_Avoid_: PR (as the drop), cloud branch (as the drop)
+
 **Original branch**:
-Retired. Use **dev**, **ready**, and **master**. See [[.agents/skills/git-protocol/SKILL.md]].
+Retired. Use **dev**, **ready**, **master**, and **staging**. See [[.agents/skills/git-protocol/SKILL.md]].
 _Avoid_: original branch, base branch, long-lived branch
 
 **Project branch**:
@@ -32,7 +36,7 @@ Retired. Do not add `plan/<feature>/git.md` for branch names. Existing files are
 _Avoid_: branch notes, git status file, branch tracker
 
 **Manual approval**:
-A direct user request (or tool approval card) that authorizes a named git operation. **Code pushes of `ready` are approval-gated** ([[.agents/skills/git-share/SKILL.md]]). Squash onto `master` and tags stay human-only ([[.agents/skills/git-master/SKILL.md]]). Merge goes through [[scripts/gitready.sh]] or the human CLI per [[.agents/skills/git-protocol/SKILL.md]]. Pull/fetch of `ready` needs no approval.
+A direct user request (or tool approval card) that authorizes a named git operation. **Code pushes of `ready` are approval-gated** ([[.agents/skills/git-share/SKILL.md]]). Squash onto `master` and tags stay human-only ([[.agents/skills/git-master/SKILL.md]]). Merge goes through [[scripts/gitready.sh]] or the human CLI per [[.agents/skills/git-protocol/SKILL.md]]. Merge `origin/staging` into `dev` is [[.agents/skills/cloud-agent-git/SKILL.md]]. Pull/fetch of `ready` and `staging` needs no approval.
 _Avoid_: permission, override, allowlist exception
 
 **Issue tracker**:

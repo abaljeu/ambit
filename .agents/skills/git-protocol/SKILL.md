@@ -13,7 +13,7 @@ At the outset, from the project root, run [[scripts/gitstatus.sh]] with no argum
 
 ## Places
 
-Three long-lived branches. Reuse these names. Do not add `w/` branches. Do not write per-project git notes. All work on **dev**; promote to **ready**.
+Three Desktop places. Reuse these names. Do not add `w/` branches. Do not write per-project git notes. All Desktop work on **dev**; promote to **ready**. Cloud agents work on a disposable branch and send to **staging**: [[.agents/skills/cloud-agent-git/SKILL.md]].
 
 **dev** — workplace on this machine. All Desktop edits and ordinary commits happen here. Local-only; do not push `dev`.
 
@@ -30,7 +30,7 @@ Commit AFTER writing any report files, not before.
 
 ## Merges
 
-The Desktop agent does not run `git merge` or squash. Those moves go through [[scripts/gitready.sh]], [[scripts/gitmaster.sh]], and [[scripts/gitdev.sh]] (Cursor manual approval) or the human types them in the CLI. `gitready.sh` with no argument lists dev commits not on `ready`. `gitmaster.sh` with no argument lists `ready` commits not on `master`. `gitready.sh "<msg>"` brings `dev` into `ready` (`--no-ff`); `gitdev.sh` brings a hotfix from `master` toward `dev` with a stock forward message. The merge scripts refuse a dirty tree, and refuse a local `ready` that is behind `origin/ready`.
+The Desktop agent does not run `git merge` or squash. Those moves go through [[scripts/gitready.sh]], [[scripts/gitmaster.sh]], and [[scripts/gitdev.sh]] (Cursor manual approval) or the human types them in the CLI. Merge `origin/staging` into `dev` is [[.agents/skills/cloud-agent-git/SKILL.md]]. `gitready.sh` with no argument lists dev commits not on `ready`. `gitmaster.sh` with no argument lists `ready` commits not on `master`. `gitready.sh "<msg>"` brings `dev` into `ready` (`--no-ff`); `gitdev.sh` brings a hotfix from `master` toward `dev` with a stock forward message. The merge scripts refuse a dirty tree, and refuse a local `ready` that is behind `origin/ready`.
 
 **agent-done** is tests green, `/code-review`, and a commit on `dev` via [[scripts/commit.sh]] `"<message>"` or human `git commit`. Then ask the human to run `gitready.sh` (or type the merge) to put that work on `ready`.
 
@@ -40,13 +40,13 @@ The agent prepares a read-only recipe (log range and a red command). The human r
 
 ## Workplace
 
-The three places exist. `dev` and `ready` were born together on the last work tip; `master` is an older ancestor of both. Edit only on `dev`.
+The three Desktop places exist. `dev` and `ready` were born together on the last work tip; `master` is an older ancestor of both. Desktop: edit only on `dev`.
 
 `selective-client-sync` and the `w/` names remain as history. Do not resume one as the workplace. Do not create another.
 
-The agent may create and switch places (`git branch`, `git switch`). Merges go through the scripts (or human CLI). Squashes stay with the human. Pulling `ready` is agent-ok; pushing `ready` is agent-ok only with Alan's push approval ([[.agents/skills/git-share/SKILL.md]]).
+The agent may create and switch places (`git branch`, `git switch`). Merges go through the scripts (or human CLI), except `staging` → `dev` ([[.agents/skills/cloud-agent-git/SKILL.md]]). Squashes stay with the human. Pulling `ready` is agent-ok; pushing `ready` is agent-ok only with Alan's push approval ([[.agents/skills/git-share/SKILL.md]]).
 
 ## Sharing
 
 Agents may pull `ready` freely. Pushing `ready` is approval-gated. Procedure: [[.agents/skills/git-share/SKILL.md]].
-`dev` stays local. `master` stays human-only: [[.agents/skills/git-master/SKILL.md]].
+`dev` stays local. `master` stays human-only: [[.agents/skills/git-master/SKILL.md]]. Cloud-agent `staging`: [[.agents/skills/cloud-agent-git/SKILL.md]].
