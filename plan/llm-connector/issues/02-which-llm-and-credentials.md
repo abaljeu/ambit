@@ -11,6 +11,8 @@ Which Agent does the first agent-invoking Actor call, and where do credentials l
 
 ## Answer
 
+**Amend (2026-09-07):** First Agent is **Cursor Cloud Agents API**, not Grok Bot desktop agents and not a raw xAI chat key for v1. Secret is a Cursor Dashboard API key (process/env). Primary work repo is `life`. Full lock: [[../reports/first-agent-cursor-cloud-agents.md]]. Historical Answer below kept for grill trail; treat the amend + report as authoritative for implement.
+
 The first agent-invoking Actor calls Grok Bot. Get API key is for outbound send. Cursor Cloud Agent is not the first target. The user action that launches the Actor is postponed. Pipeline: that action launches the Actor; the Agent receives context; the Actor receives the response; the Actor posts to the Graph (`postChange`). Operate on a connected channel is log in, fetch, and send — not receive-only posts.
 
 First context is the launch subgraph. Included context (SiteMap under Zoom, honoring Fold) waits on the postponed UI action. Pack shape is [[01-how-the-pack-is-encoded.md]]. Named may-change: Included context instead of subgraph.

@@ -15,10 +15,12 @@ Run Agent with a message and included context. The reply is Owned children of th
 
 ## Decisions so far
 
+- 2026-09-08 grill: Server Actor slice locked — [[reports/grill-run-agent-actor-2026-09-08.md]]; tracer ticket 05 (Create posts reply under Focus).
+
 - Same Run command. Third statement `?` plus a message. Spoken name: Run Agent.
 - Reply is Owned children of Focus. Actor converts reply Md→graph and adds those children.
 - Included context is SiteMap under Zoom, honoring Fold. First Run Agent uses Zoom as `rootnode`. Later calls may pass another root. Nodelist is SiteMap visible Nodes below `rootnode`.
-- First Agent is Grok Bot. One-user env/host secret bundled with the Actor. Core does not touch the key. FIXME before publishing: per-user keys. [[issues/02-which-llm-and-credentials.md]]
+- First Agent is **Cursor Cloud Agents** via standalone [[src/CloudAgents/]] (ActorName `cloud-agent`). v1 **no-repo**; key in CloudAgents config. Details: [[reports/first-agent-cursor-cloud-agents.md]], [[reports/grill-run-agent-actor-2026-09-08.md]], [[issues/02-which-llm-and-credentials.md]]
 - Extra launch UI and secondary logins stay later. Executing Run Agent launches the Actor: Browser async POST → Server launch → Actor. Not a blocking Run.
 - `POST /ambit/actors` Create only. JSON `{ actor, nodelist, focusnode, rootnode, revision }`. Cookie from [[plan/core-creation/issues/20-client-presents-credential.md]]. No token field in JSON. Returns `PublicNumber` (Browser may ignore until cancel).
 - ActorName selects which Actor. LLM message is the `?` remainder on Focus Header, not a LaunchRequest field.
@@ -28,7 +30,7 @@ Run Agent with a message and included context. The reply is Owned children of th
 
 ## Not yet specified
 
-- Implementation waits on [[plan/core-creation/issues/18-finish-and-drop.md]]. Cancel is later, not first usable Run Agent.
+- Implement [[issues/05-create-cloud-agent-posts-reply-under-focus.md]] (grill [[reports/grill-run-agent-actor-2026-09-08.md]]). Client/`?` later. Cancel and stream later. Repo attach later.
 
 ## Out of scope
 

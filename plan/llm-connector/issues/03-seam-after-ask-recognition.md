@@ -11,9 +11,9 @@ After [[plan/expression-language/issues/33-recognize-ask-run-statement.md]] reco
 
 ## Answer
 
-Spoken name is Run Agent. Issue 33 only recognizes a Focus line that starts with `?`. This Project owns the rest: Browser Run Agent POSTs `/ambit/actors` with `{ actor, nodelist, focusnode, rootnode, revision }` and the [[plan/core-creation/issues/20-client-presents-credential.md]] cookie. Server launches the Actor. Extract is the nodelist subgraph under `rootnode`. The Actor Md-writes that graph, calls Grok Bot, converts reply Md→graph, and posts Owned children of Focus.
+Spoken name is Run Agent. Issue 33 only recognizes a Focus line that starts with `?`. This Project owns the rest: Browser Run Agent POSTs `/ambit/actors` with `{ actor, nodelist, focusnode, rootnode, revision }` and the [[plan/core-creation/issues/20-client-presents-credential.md]] cookie. Server launches the Actor. Extract is the nodelist subgraph under `rootnode`. The Actor Md-writes that graph, calls Cursor Cloud Agents (see [[../reports/first-agent-cursor-cloud-agents.md]]), converts reply Md→graph, and posts Owned children of Focus.
 
-ActorName selects which Actor (first is Grok Bot). The LLM message is the `?` remainder on Focus Header, not a LaunchRequest field. Create returns `PublicNumber`. This Project changes extract/`LaunchRequest`. Do not revise [[plan/core-creation/issues/09-define-core-command-launch-contract.md]].
+ActorName selects which Actor (first is the Cloud Agents Actor). The LLM message is the `?` remainder on Focus Header, not a LaunchRequest field. Create returns `PublicNumber`. This Project changes extract/`LaunchRequest`. Do not revise [[plan/core-creation/issues/09-define-core-command-launch-contract.md]].
 
 ## Comments
 

@@ -1,6 +1,6 @@
 # 18 — Finish and drop
 
-**Status:** ready-for-agent
+**Status:** done
 **Blocked by:** [[15-launch-actor-and-hold-span.md|15 Launch an Actor and hold the span]]
 
 ## Context
@@ -11,10 +11,18 @@ When an Actor stops, Core must drop the job so later query fails and lock-presen
 
 Any Actor stop causes Core to enqueue a Core-only delete-actor mailbox item. It is not a Change. FIFO applies that sender's Posts first. Then Core drops the public number, removes the credential, and writes lock off.
 
-- [ ] Any Actor stop enqueues a Core-only delete-actor item that is not a Change.
-- [ ] delete-actor applies after that sender's earlier Posts (FIFO).
-- [ ] After delete-actor, the public number is gone, the credential is out of the set, and lock-present is off.
+- [x] Any Actor stop enqueues a Core-only delete-actor item that is not a Change.
+- [x] delete-actor applies after that sender's earlier Posts (FIFO).
+- [x] After delete-actor, the public number is gone, the credential is out of the set, and lock-present is off.
 
 ## See also
 
 [[11-define-actor-finish-and-failure-behavior.md]], [[02-core-actor-pool.md]]
+
+## Comments
+
+- 2026-09-11 — Review of this delivery: failed stop does not enqueue delete-actor; pool is a second mailbox. Do not patch in place. Notes: [[../reports/actor-pool-rewind-review.md]].
+
+## Time
+
+- 2026-09-07 ~1h — implemented finish-and-drop with tests
