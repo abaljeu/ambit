@@ -3,7 +3,7 @@
 **Type:** task
 **Status:** blocked
 **Blocked by:** [[plan/core-creation/issues/17-cancel-a-job.md]]
-Actual: 20m
+Actual: 15m
 
 ## Context
 
@@ -16,7 +16,7 @@ Prove the rebuilt lifecycle through the public Core path with TestActor and no A
 Tests observe Graph and registry outcomes from outside; TestActor does not assert.
 
 - [ ] Tests launch TestActor through the normal Core Actor path.
-- [x] Tests observe Graph and registry outcomes from outside the Actor; TestActor does not assert.
+- [ ] Tests observe Graph and registry outcomes from outside the Actor; TestActor does not assert.
 - [ ] Catalog covers launch ordering, Change/Cancel order, success, safe Failed, Cancelled, duplicate terminal, drop, and Interrupted restart.
 - [ ] Tests use no live service, key, or Agent transport.
 
@@ -28,11 +28,9 @@ Tests observe Graph and registry outcomes from outside; TestActor does not asser
 
 - 2026-09-11 — First proof slice is [[29-prove-testactor-hello.md]]. This ticket stays the full TestActor proof catalog.
 - 2026-09-11 — Dispatch is [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]].
-- 2026-09-11 — Marked observe-from-outside as a complete locked detail. Catalog proof boxes stay open.
 
 ## Time
 
 - 2026-09-11 5m — stub provider-neutral TestActor proof after redesign reconciliation (from chat)
 - 2026-09-11 5m — record Command-text TestActor dispatch (from chat)
 - 2026-09-11 5m — drop restated hello and finish contracts; keep unique catalog (from chat)
-- 2026-09-11 5m — mark observe-from-outside complete; leave catalog proof open (from chat)

@@ -3,7 +3,7 @@
 **Type:** grilling
 **Status:** done
 Blocked by: 09, 10, 11
-Actual: 105m
+Actual: 100m
 
 ## Question
 
@@ -41,7 +41,6 @@ Grill notes: [[plan/core-creation/reports/grill-issue-12-shutdown.md]]. Earlier 
 - Persist how (2026-09-06): Q5 semantics stay; SQL create, update, and select omit the lock field. See the grill report.
 - Amend (2026-09-06): revert Q2B / Q13A. Keep one mailbox rule: already-enqueued items apply (10). TCP fail Rejects that one mutating Change and marks Database down; siblings stay. Q6 "dropped outage items stay gone" was that old drop-siblings world. No mailbox-clear API. System error stays distinct from 10 auth refuse. Status stays resolved.
 - 2026-09-11 — [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] replaced the Graph lock field and no-terminal shutdown assumption with durable lifecycle Events and Interrupted restart reconciliation.
-- 2026-09-11 — Completed-detail pass from [[29-prove-testactor-hello.md]]: Answer has no checkboxes. Locked Database-down vs host-stop prose stays unmarked. Did not invent a new list.
 
 ## Time
 
@@ -59,4 +58,3 @@ Grill notes: [[plan/core-creation/reports/grill-issue-12-shutdown.md]]. Earlier 
 - 2026-09-06 10m — revert drop-siblings (Q2B / Q13A); keep apply-already-enqueued; system error stays out of auth refuse (from chat)
 - 2026-09-06 5m — Comments: Q6 dropped-outage line is the old drop-siblings world (from chat)
 - 2026-09-11 5m — keep unique Database-down lock; point host-stop and Interrupted at 28 and 18 (from chat)
-- 2026-09-11 5m — completed-detail pass; leave locked Answer as prose (from chat)

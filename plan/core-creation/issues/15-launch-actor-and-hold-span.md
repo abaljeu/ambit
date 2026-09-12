@@ -2,7 +2,7 @@
 
 **Status:** blocked
 **Blocked by:** [[plan/core-creation/issues/14-server-tracks-credentials.md]]
-**Actual:** 1h45m
+**Actual:** 1h40m
 
 ## Context
 
@@ -12,9 +12,9 @@ This issue records a historical span-based launch delivery. The span, Graph lock
 
 Implement launch and Focus registration from [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]]. Dispatch is [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]]. Pool shape is [[02-core-actor-pool.md]].
 
-- [x] Register public identity, secret, termination handle, and Focus NodeId in mailbox state.
-- [x] Append ActorStarted, then schedule so output cannot be admitted first.
-- [x] Refuse only a second live Actor for the same Focus.
+- [ ] Register public identity, secret, termination handle, and Focus NodeId in mailbox state.
+- [ ] Append ActorStarted, then schedule so output cannot be admitted first.
+- [ ] Refuse only a second live Actor for the same Focus.
 
 ## See also
 
@@ -28,11 +28,9 @@ Implement launch and Focus registration from [[plan/llm-connector/issues/07-lock
 - 2026-09-11 — [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] superseded the remaining span and non-event assumptions. ActorStarted now communicates durable public Actor identity.
 - 2026-09-11 — Reopened as `blocked` by [[plan/core-creation/issues/14-server-tracks-credentials.md]] because the replacement launch contract is not delivered.
 - 2026-09-11 — Dispatch is [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]].
-- 2026-09-11 — Marked locked Focus-registration shape complete. Status stays `blocked`; launch-and-query rebuild is not this mark.
 
 ## Time
 
 - 2026-09-06 1h30m — launch pool, span extract, and lock-present overlay (from chat)
 - 2026-09-11 5m — record Command-text Actor dispatch (from chat)
 - 2026-09-11 5m — drop restated launch membership; keep unique Focus registration (from chat)
-- 2026-09-11 5m — mark locked Focus-registration shape complete (from chat)

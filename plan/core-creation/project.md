@@ -2,9 +2,9 @@
 
 Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
-Updated: 2026-09-11
+Updated: 2026-09-12
 Started: 2026-09-05
-Actual: 21h25m
+Actual: 18h25m
 
 ## Map
 
@@ -98,6 +98,6 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 
 ## Comments
 
-- 2026-09-11 — Added [[plan/core-creation/issues/29-prove-testactor-hello.md]]. Project `Actual:` is 20h10m after the hello implement session.
+- 2026-09-11 — Added [[plan/core-creation/issues/29-prove-testactor-hello.md]].
 - 2026-09-11 — One-home DRY of Phase 2 issues and locked 06/07. Command text `?test hello` is owned by [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]].
-- 2026-09-11 — Completed-detail pass on files referenced by [[plan/core-creation/issues/29-prove-testactor-hello.md]]. Report: [[plan/core-creation/reports/align-29-referenced-completed-details.md]].
+- 2026-09-12 — Reviews of the TestActor hello increment failed. Code was stashed. Yesterday's issue checkboxes and implementation logs for that increment were cleared.

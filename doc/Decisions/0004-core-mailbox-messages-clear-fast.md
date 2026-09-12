@@ -16,8 +16,8 @@ Cancel and natural finish share that drop path. There is no rival cleanup mechan
 
 FIFO stands:
 
-- [x] Messages **ahead** of cancel on the queue still apply.
-- [x] Messages **behind** cancel are processed after cancel has already run, so the ordinary active-source / active-credential check rejects them immediately.
+- Messages **ahead** of cancel on the queue still apply.
+- Messages **behind** cancel are processed after cancel has already run, so the ordinary active-source / active-credential check rejects them immediately.
 
 That is the same admission gate as any inactive sender, not a separate cancel-after-enqueue rule. This amends the reading of [[plan/core-creation/issues/10-define-actor-cancellation-and-output-admission.md]] and guides [[plan/core-creation/issues/17-cancel-a-job.md]]: cancel is the fast mailbox message; refuse is the normal active-source check after prior messages.
 

@@ -11,11 +11,11 @@ Launch and query exist on a discarded second pool mailbox. Rebuild the shape.
 **See also:** [[plan/core-creation/project.md]], [[plan/core-creation/reports/kernel-fsproj.md]], [[plan/event-sourced-ops/details/actors-and-jobs.md]], [[plan/event-sourced-ops/issues/09-job-identity-with-advisory-soft-lock.md]]
 
 **Status:** ready-for-agent
-Actual: 35m
+Actual: 25m
 
 - [ ] Launch does not hold the mailbox while the Actor runs. Registration is [[15-launch-actor-and-hold-span.md]].
 - [x] The design specifies cancellation and cancel-after-enqueue behavior before implementation.
-- [x] Actor definitions, Browser chrome, and advisory soft-lock policy or indicators are not implemented in this issue.
+- [ ] Actor definitions, Browser chrome, and advisory soft-lock policy or indicators are not implemented in this issue.
 - [ ] Rebuild on the one apply mailbox; do not wrap-patch the discarded second pool mailbox.
 
 Cancel, finish, and Interrupted restart are [[17-cancel-a-job.md]] and [[18-finish-and-drop.md]].
@@ -25,10 +25,8 @@ Cancel, finish, and Interrupted restart are [[17-cancel-a-job.md]] and [[18-fini
 - 2026-09-11 — Rewind review named the mailbox/TaskPool/registry shape. Status was `needs-info`. Launch/query remain on the discarded second mailbox until rebuild.
 - 2026-09-11 — [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] superseded span locks, lock-present outside History, delete-only completion, and no terminal result. [[plan/core-creation/issues/27-prove-core-actor-lifecycle-with-testactor.md]] proves the provider-neutral machinery without an Agent transport.
 - 2026-09-11 — First implementation increment is [[29-prove-testactor-hello.md]]. This ticket stays the program piece for the full pool.
-- 2026-09-11 — Marked the locked scope exclusion complete. Launch-and-query rebuild and one-mailbox rebuild stay open.
 
 ## Time
 
 - 2026-09-11 15m — tighten intended mailbox/TaskPool shape after rewind (from chat)
 - 2026-09-11 10m — drop restated finish and Interrupted gates; keep unique pool rebuild (from chat)
-- 2026-09-11 10m — mark locked scope complete; leave launch and mailbox rebuild open (from chat)
