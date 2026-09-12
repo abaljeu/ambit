@@ -34,6 +34,7 @@ module DbAgent =
         let ready =
             TaskCompletionSource<unit>(
                 TaskCreationOptions.RunContinuationsAsynchronously)
+        let startupError: string option ref = ref None
 
         let trimDeletedIds deletedIds =
             let deletedNodeIds = deletedIds |> List.map NodeId
@@ -307,22 +308,27 @@ module DbAgent =
             (changes: Change list)
             graphOnly
             : Result<CoreChangesAccepted, string> =
-            if changes.IsEmpty then
-                Error "changes must not be empty"
-            else
-                match
-                    CoreMailboxBackend.runBounded
-                        CoreMailboxBackend.ChangeProcessingTimeoutMs
-                        (fun () -> applyBatch changes)
-                with
-                | Error err -> Error err
-                | Ok (newState, confirmations, logEntries, externalChanges) ->
-                    finishAppliedPostChange
-                        graphOnly
-                        newState
-                        confirmations
-                        logEntries
-                        externalChanges
+            match startupError.Value with
+            | Some error -> Error error
+            | None when not ready.Task.IsCompletedSuccessfully ->
+                Error "Database agent startup in progress"
+            | None ->
+                if changes.IsEmpty then
+                    Error "changes must not be empty"
+                else
+                    match
+                        CoreMailboxBackend.runBounded
+                            CoreMailboxBackend.ChangeProcessingTimeoutMs
+                            (fun () -> applyBatch changes)
+                    with
+                    | Error err -> Error err
+                    | Ok (newState, confirmations, logEntries, externalChanges) ->
+                        finishAppliedPostChange
+                            graphOnly
+                            newState
+                            confirmations
+                            logEntries
+                            externalChanges
 
         let handleSnapshotDone persisted =
             match persisted with
@@ -384,17 +390,24 @@ module DbAgent =
             | None ->
                 $"Internal server error in DbAgent {operation}."
 
-        let startupResult = ref None
+        let sweepTask =
+            Task.Run(fun () ->
+                try
+                    runStartupSweep initialState.graph
+                with ex ->
+                    Error $"Startup projection sweep failed: {ex.Message}")
+
+        Task.Run(fun () ->
+            match sweepTask.GetAwaiter().GetResult() with
+            | Ok result ->
+                match applyMaintenance result with
+                | Ok () -> ready.TrySetResult() |> ignore
+                | Error error -> startupError.Value <- Some error
+            | Error error -> startupError.Value <- Some error)
+        |> ignore
 
         let mailbox =
-            DbAgentStartup.startWithBackend
-                (fun () -> runStartupSweep initialState.graph)
-                applyMaintenance
-                (fun () -> ready.TrySetResult() |> ignore)
-                handlers
-                logUnhandledException
-                formatError
-                startupResult
+            CoreMailboxBackend.start handlers logUnhandledException formatError
 
         mailboxRef.Value <- Some mailbox
 
