@@ -198,20 +198,19 @@ module FileAgent =
                 reply.Reply(
                     Ok(accepted ackChanges externalChanges persistMessage))
 
-        let handlePostChange
+        let processPostChange
             (changes: Change list)
             graphOnly
-            (reply: AsyncReplyChannel<Result<CoreChangesAccepted, string>>)
-            =
+            : Result<CoreChangesAccepted, string> =
             if changes.IsEmpty then
-                reply.Reply(Error "changes must not be empty")
+                Error "changes must not be empty"
             else
                 match applyBatch changes with
-                | Error err -> reply.Reply(Error err)
+                | Error err -> Error err
                 | Ok (newState, confirmations, fresh, changed, externalChanges) ->
                     let preGraph = state.Value.graph
                     match validatePostChange graphOnly preGraph newState.graph with
-                    | Error err -> reply.Reply(Error err)
+                    | Error err -> Error err
                     | Ok () ->
                         match
                             persistPostChange
@@ -221,7 +220,7 @@ module FileAgent =
                                 newState
                                 fresh
                         with
-                        | Error err -> reply.Reply(Error err)
+                        | Error err -> Error err
                         | Ok stampedOpt ->
                             let finalState, ackChanges, encodedLog, persistMessage =
                                 preparePostChange
@@ -229,61 +228,46 @@ module FileAgent =
                                     confirmations
                                     fresh
                                     stampedOpt
-                            commitPostChange
-                                finalState
-                                ackChanges
-                                externalChanges
-                                persistMessage
-                                encodedLog
-                                reply
+                            match persistLogEntries encodedLog with
+                            | Error err -> Error err
+                            | Ok offsets ->
+                                offsets |> List.iter offsetIndex.Add
+                                state.Value <- finalState
+                                Ok(accepted
+                                    ackChanges
+                                    externalChanges
+                                    persistMessage)
 
-        let replyFailure operation msg =
-            let error =
-                $"Internal server error in FileAgent {operation} (dataDir={dataDir})."
-            CoreMailboxBackend.replyFailure error msg
-
-        let dispatch msg =
-            match msg with
-            | GetState reply ->
-                reply.Reply(Ok state.Value)
-            | GetRevision reply ->
-                reply.Reply(Ok state.Value.revision)
-            | GetChangesSince (after, reply) ->
+        let handlers: PersistHandlers = {
+            getState = fun () -> Ok state.Value
+            getRevision = fun () -> Ok state.Value.revision
+            getChangesSince = fun after ->
                 let changes =
                     [ after.Value .. offsetIndex.Count - 1 ]
                     |> List.choose (fun i ->
                         let _, json =
-                            ChangeLog.readEntryAt logStream offsetIndex.[i]
+                            ChangeLog.readEntryAt
+                                logStream
+                                offsetIndex.[i]
                         match ChangeLog.decodeChange json with
                         | Ok change -> Some change
                         | Error _ -> None)
-                reply.Reply(Ok changes)
-            | PostChange (changes, reply) ->
-                handlePostChange changes false reply
-            | PostGraphOnlyChange (changes, reply) ->
-                handlePostChange changes true reply
-            | SnapshotDone _ -> ()
+                Ok changes
+            postChange = fun changes ->
+                processPostChange changes false
+            postGraphOnlyChange = fun changes ->
+                processPostChange changes true
+            snapshotDone = fun _ -> ()
+        }
 
-        let mailbox = MailboxProcessor<CoreMsg>.Start(fun inbox ->
-            let rec loop () = async {
-                let! msg = inbox.Receive()
-                try
-                    dispatch msg
-                with ex ->
-                    let operation, context =
-                        CoreMailboxBackend.operationContext msg
-                    try
-                        dependencies.appendException operation context ex
-                    with _ ->
-                        ()
-                    try
-                        replyFailure operation msg
-                    with _ ->
-                        ()
-                return! loop ()
-            }
-            loop ()
-        )
+        let onError operation context ex =
+            dependencies.appendException operation context ex
+
+        let formatError operation =
+            $"Internal server error in FileAgent {operation} (dataDir={dataDir})."
+
+        let mailbox =
+            CoreMailboxBackend.start handlers onError formatError
 
         { mailbox = mailbox; logStream = logStream; initialState = capturedInitialState }
 
