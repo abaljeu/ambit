@@ -4,7 +4,6 @@ Don't use Exceptions. Use Error types.
 Don't embed anything more than tiny amounts of html, CSS, JS or SQL in F# code.
 If you are looking for browser access functions, look at ./other/fable.browser.dom.fs.
 
-Use CRLF endings.
 100 characters or less per line on source code.
 
 40 lines or less per function.
