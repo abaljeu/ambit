@@ -237,6 +237,8 @@ module DbAgent =
                 List.zip (logEntries |> List.map fst) stampedFresh
             stateToStore, ackChanges, storedEntries, persistMessage
 
+        let mailboxRef: MailboxProcessor<CoreMsg> option ref = ref None
+
         let commitPostChange
             graphOnly
             sourceEntries
@@ -245,25 +247,26 @@ module DbAgent =
             externalChanges
             persistMessage
             storedEntries
-            (reply: AsyncReplyChannel<Result<CoreChangesAccepted, string>>)
-            inbox
-            =
+            : Result<CoreChangesAccepted, string> =
             match
                 CoreMailboxBackend.runBounded
                     CoreMailboxBackend.ChangeProcessingTimeoutMs
                     (fun () -> persistBatch stateToStore storedEntries)
             with
-            | Error err -> reply.Reply(Error err)
+            | Error err -> Error err
             | Ok () ->
                 state.Value <- stateToStore
-                reply.Reply(
-                    Ok(accepted ackChanges externalChanges persistMessage))
                 if graphOnly then
                     persistedGraph.Value <- stateToStore.graph
                 elif not (List.isEmpty sourceEntries) then
                     persistedGraph.Value <- stateToStore.graph
-                    if snapshotInProgress.Value then snapshotNeeded.Value <- true
-                    else startSnapshot inbox
+                    if snapshotInProgress.Value then
+                        snapshotNeeded.Value <- true
+                    else
+                        match mailboxRef.Value with
+                        | Some inbox -> startSnapshot inbox
+                        | None -> ()
+                Ok(accepted ackChanges externalChanges persistMessage)
 
         let finishAppliedPostChange
             graphOnly
@@ -271,12 +274,10 @@ module DbAgent =
             (confirmations: Change list)
             (logEntries: (int * Change) list)
             externalChanges
-            (reply: AsyncReplyChannel<Result<CoreChangesAccepted, string>>)
-            (inbox: MailboxProcessor<CoreMsg>)
-            =
+            : Result<CoreChangesAccepted, string> =
             let preGraph = state.Value.graph
             match validatePostChange graphOnly preGraph newState.graph with
-            | Error err -> reply.Reply(Error err)
+            | Error err -> Error err
             | Ok () ->
                 match
                     persistLiveChange
@@ -285,7 +286,7 @@ module DbAgent =
                         newState
                         logEntries
                 with
-                | Error err -> reply.Reply(Error err)
+                | Error err -> Error err
                 | Ok stampedOpt ->
                     let stateToStore, ackChanges, storedEntries, persistMessage =
                         preparePostChange
@@ -301,24 +302,20 @@ module DbAgent =
                         externalChanges
                         persistMessage
                         storedEntries
-                        reply
-                        inbox
 
-        let handlePostChange
+        let processPostChange
             (changes: Change list)
             graphOnly
-            (reply: AsyncReplyChannel<Result<CoreChangesAccepted, string>>)
-            inbox
-            =
+            : Result<CoreChangesAccepted, string> =
             if changes.IsEmpty then
-                reply.Reply(Error "changes must not be empty")
+                Error "changes must not be empty"
             else
                 match
                     CoreMailboxBackend.runBounded
                         CoreMailboxBackend.ChangeProcessingTimeoutMs
                         (fun () -> applyBatch changes)
                 with
-                | Error err -> reply.Reply(Error err)
+                | Error err -> Error err
                 | Ok (newState, confirmations, logEntries, externalChanges) ->
                     finishAppliedPostChange
                         graphOnly
@@ -326,17 +323,43 @@ module DbAgent =
                         confirmations
                         logEntries
                         externalChanges
-                        reply
-                        inbox
 
-        let replyFailure operation msg =
-            let error =
-                match liveSaveDataDir with
-                | Some dir ->
-                    $"Internal server error in DbAgent {operation} (dataDir={dir})."
-                | None ->
-                    $"Internal server error in DbAgent {operation}."
-            CoreMailboxBackend.replyFailure error msg
+        let handleSnapshotDone persisted =
+            match persisted with
+            | Some graph
+                when GraphProjection.graphEquals
+                    state.Value.graph
+                    graph ->
+                persistedGraph.Value <- graph
+            | _ -> ()
+            snapshotInProgress.Value <- false
+            if snapshotNeeded.Value then
+                match mailboxRef.Value with
+                | Some inbox -> startSnapshot inbox
+                | None -> ()
+
+        let handlers: PersistHandlers = {
+            getState = fun () -> Ok state.Value
+            getRevision = fun () -> Ok state.Value.revision
+            getChangesSince = fun after ->
+                let rows =
+                    Database.getChangesAfterCheckpointRevision
+                        connectionString
+                        after.Value
+                    |> Async.AwaitTask
+                    |> Async.RunSynchronously
+                let changes =
+                    rows
+                    |> List.choose (fun row ->
+                        decodeChangePayload row.payload
+                        |> Result.toOption)
+                Ok changes
+            postChange = fun changes ->
+                processPostChange changes false
+            postGraphOnlyChange = fun changes ->
+                processPostChange changes true
+            snapshotDone = handleSnapshotDone
+        }
 
         let logUnhandledException operation context (ex: exn) =
             match liveSaveDataDir with
@@ -354,81 +377,26 @@ module DbAgent =
                     context
                     ex.Message
 
-        let tryHandleRead msg =
-            match msg with
-            | GetState reply ->
-                Some(async { reply.Reply(Ok state.Value) })
-            | GetRevision reply ->
-                Some(async { reply.Reply(Ok state.Value.revision) })
-            | GetChangesSince (after, reply) ->
-                Some(async {
-                    let rows =
-                        Database.getChangesAfterCheckpointRevision
-                            connectionString
-                            after.Value
-                        |> Async.AwaitTask
-                        |> Async.RunSynchronously
-                    let changes =
-                        rows
-                        |> List.choose (fun row ->
-                            decodeChangePayload row.payload |> Result.toOption)
-                    reply.Reply(Ok changes)
-                })
-            | _ -> None
+        let formatError operation =
+            match liveSaveDataDir with
+            | Some dir ->
+                $"Internal server error in DbAgent {operation} (dataDir={dir})."
+            | None ->
+                $"Internal server error in DbAgent {operation}."
+
+        let startupResult = ref None
 
         let mailbox =
-            MailboxProcessor<CoreMsg>.Start(fun inbox ->
-                let rec loop () = async {
-                    let! msg = inbox.Receive()
-                    try
-                        match tryHandleRead msg with
-                        | Some read -> do! read
-                        | None ->
-                            match msg with
-                            | PostChange (changes, reply) ->
-                                handlePostChange changes false reply inbox
-                            | PostGraphOnlyChange (changes, reply) ->
-                                handlePostChange changes true reply inbox
-                            | SnapshotDone persisted ->
-                                match persisted with
-                                | Some graph
-                                    when GraphProjection.graphEquals
-                                        state.Value.graph
-                                        graph ->
-                                    persistedGraph.Value <- graph
-                                | _ -> ()
-                                snapshotInProgress.Value <- false
-                                if snapshotNeeded.Value then startSnapshot inbox
-                            | _ -> ()
-                    with ex ->
-                        let operation, context =
-                            CoreMailboxBackend.operationContext msg
-                        try logUnhandledException operation context ex with _ -> ()
-                        try replyFailure operation msg with _ -> ()
-                    return! loop ()
-                }
-                let rec failedLoop error = async {
-                    let! msg = inbox.Receive()
-                    match tryHandleRead msg with
-                    | Some read -> do! read
-                    | None ->
-                        match msg with
-                        | PostChange (_, reply)
-                        | PostGraphOnlyChange (_, reply) ->
-                            reply.Reply(Error error)
-                        | SnapshotDone _ -> ()
-                        | _ -> ()
-                    return! failedLoop error
-                }
+            DbAgentStartup.startWithBackend
+                (fun () -> runStartupSweep initialState.graph)
+                applyMaintenance
+                (fun () -> ready.TrySetResult() |> ignore)
+                handlers
+                logUnhandledException
+                formatError
+                startupResult
 
-                DbAgentStartup.run
-                    (fun () -> runStartupSweep initialState.graph)
-                    applyMaintenance
-                    (fun () -> ready.TrySetResult() |> ignore)
-                    tryHandleRead
-                    loop
-                    failedLoop
-                    inbox)
+        mailboxRef.Value <- Some mailbox
 
         { mailbox = mailbox
           isReady = fun () -> ready.Task.IsCompletedSuccessfully }

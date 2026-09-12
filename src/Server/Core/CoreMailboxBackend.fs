@@ -3,6 +3,17 @@ namespace Gambol.Server
 open System.Threading.Tasks
 open Gambol.Shared
 
+type PersistHandlers = {
+    getState: unit -> Result<State, string>
+    getRevision: unit -> Result<Revision, string>
+    getChangesSince: Revision -> Result<Change list, string>
+    postChange:
+        Change list -> Result<CoreChangesAccepted, string>
+    postGraphOnlyChange:
+        Change list -> Result<CoreChangesAccepted, string>
+    snapshotDone: Graph option -> unit
+}
+
 [<RequireQualifiedAccess>]
 module internal CoreMailboxBackend =
 
@@ -64,3 +75,41 @@ module internal CoreMailboxBackend =
         | PostChange (_, reply) -> reply.Reply(Error error)
         | PostGraphOnlyChange (_, reply) -> reply.Reply(Error error)
         | SnapshotDone _ -> ()
+
+    let start
+        (handlers: PersistHandlers)
+        (onError: string -> string -> exn -> unit)
+        (formatError: string -> string)
+        : MailboxProcessor<CoreMsg> =
+        MailboxProcessor<CoreMsg>.Start(fun inbox ->
+            let rec loop () = async {
+                let! msg = inbox.Receive()
+                try
+                    match msg with
+                    | GetState reply ->
+                        reply.Reply(handlers.getState ())
+                    | GetRevision reply ->
+                        reply.Reply(handlers.getRevision ())
+                    | GetChangesSince (after, reply) ->
+                        reply.Reply(handlers.getChangesSince after)
+                    | PostChange (changes, reply) ->
+                        reply.Reply(handlers.postChange changes)
+                    | PostGraphOnlyChange (changes, reply) ->
+                        reply.Reply(
+                            handlers.postGraphOnlyChange changes)
+                    | SnapshotDone graph ->
+                        handlers.snapshotDone graph
+                with ex ->
+                    let operation, context = operationContext msg
+                    try
+                        onError operation context ex
+                    with _ ->
+                        ()
+                    try
+                        replyFailure (formatError operation) msg
+                    with _ ->
+                        ()
+                return! loop ()
+            }
+            loop ()
+        )

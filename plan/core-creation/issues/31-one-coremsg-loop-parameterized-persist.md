@@ -24,3 +24,8 @@ One loop pulls CoreMsg. It is parameterized to use File or Db persist for persis
 ## Comments
 
 - 2026-09-12 — Alan: Point 0 preamble. 30 is a separate commit; 31 is also Point 0. One loop, File/Db injected; not all items are persist.
+- 2026-09-12 — Locked element names:
+  1. **Persist parameter** — record of persist handlers for GetState, GetRevision, GetChangesSince, PostChange, PostGraphOnlyChange, SnapshotDone. File and Db are two fillings. Not a mailbox.
+  2. **One loop** — owns MailboxProcessor<CoreMsg> and the match. Lives in CoreMailbox / CoreMailboxBackend. No third mailbox type.
+  3. **Two persist fillings** — FileAgent and DbAgent keep those names; they lose their own Start/loop. Persist logic stays; twin queues go.
+  - Do not create Actor CoreMsg cases, TestActor, Browser bits, or a second pool queue.
