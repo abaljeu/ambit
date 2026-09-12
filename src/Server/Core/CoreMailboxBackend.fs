@@ -120,3 +120,61 @@ module internal CoreMailboxBackend =
             }
             loop ()
         )
+
+    let startWithPrelude
+        (handlers: PersistHandlers)
+        (onError: string -> string -> exn -> unit)
+        (formatError: string -> string)
+        (until: Async<Result<unit, string>>)
+        : MailboxProcessor<CoreMsg> =
+        let untilTask =
+            Task.Run(fun () ->
+                try
+                    until |> Async.RunSynchronously
+                with ex ->
+                    Error $"Startup prelude failed: {ex.Message}")
+
+        let failedHandlers error : PersistHandlers = {
+            getState = handlers.getState
+            getRevision = handlers.getRevision
+            getChangesSince = handlers.getChangesSince
+            postChange = fun _ -> Error error
+            postGraphOnlyChange = fun _ -> Error error
+            snapshotDone = fun _ -> ()
+        }
+
+        MailboxProcessor<CoreMsg>.Start(fun inbox ->
+            let rec startupLoop () = async {
+                if untilTask.IsCompleted then
+                    match untilTask.GetAwaiter().GetResult() with
+                    | Ok () ->
+                        return! normalLoop ()
+                    | Error error ->
+                        return! failedLoop error
+                else
+                    let! _ =
+                        inbox.TryScan(
+                            (fun msg ->
+                                match msg with
+                                | GetState _ | GetRevision _ | GetChangesSince _ ->
+                                    Some(async {
+                                        dispatch handlers onError formatError msg
+                                    })
+                                | _ -> None),
+                            timeout = 20)
+                    return! startupLoop ()
+            }
+            and normalLoop () = async {
+                let! msg = inbox.Receive()
+                dispatch handlers onError formatError msg
+                return! normalLoop ()
+            }
+            and failedLoop error = async {
+                let! msg = inbox.Receive()
+                let failed = failedHandlers error
+                dispatch failed onError formatError msg
+                return! failedLoop error
+            }
+
+            startupLoop ()
+        )
