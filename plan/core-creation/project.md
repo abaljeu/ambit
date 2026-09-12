@@ -95,6 +95,7 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/reports/grill-issue-12-shutdown.md]] — start grill of Actor-pool shutdown behavior.
 - [[plan/core-creation/reports/implement-issue-29-testactor-hello.md]] — public Core TestActor hello on the FileAgent apply mailbox.
 - [[plan/core-creation/reports/align-29-referenced-completed-details.md]] — completed-detail `[x]` pass on files referenced by 29.
+- [[plan/core-creation/reports/file-db-agent-mailbox-twins.md]] — FileAgent and DbAgent persist twins plus CoreActorMailbox module.
 
 ## Comments
 

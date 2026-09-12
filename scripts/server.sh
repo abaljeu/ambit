@@ -51,7 +51,7 @@ case "$ACTION" in
         dotnet run --project src/Server -c "$CONFIG"
         ;;
     watch)
-        dotnet watch run --project src/Server -c "$CONFIG"
+        dotnet watch --project src/Server -c "$CONFIG"
         ;;
     *)
         usage

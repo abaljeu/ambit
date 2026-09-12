@@ -1,0 +1,66 @@
+namespace Gambol.Server
+
+open System.Threading.Tasks
+open Gambol.Shared
+
+[<RequireQualifiedAccess>]
+module internal CoreMailboxBackend =
+
+    /// Bound on wall-clock time for a single change's persist step (disk write via
+    /// DocumentWarm/CStyleReconcile). That reconcile path is a known-slow/hanging
+    /// algorithm; this timeout exists to keep the mailbox loop responsive, not to fix it.
+    [<Literal>]
+    let ChangeProcessingTimeoutMs = 8000
+
+    /// Runs a synchronous computation on a background Task, bounding wall-clock time so
+    /// a pathologically slow computation can never wedge the caller's mailbox loop. If the
+    /// timeout elapses, the background Task is abandoned (fire-and-forget): it may still run
+    /// to completion later and write to disk concurrently with subsequently accepted changes.
+    /// Uses WaitAny (not Wait/Result) because WaitAny reports timeout vs settled without
+    /// itself throwing on a faulted task; GetAwaiter().GetResult() then rethrows `f`'s
+    /// original exception unwrapped (as if called synchronously), so the caller's existing
+    /// exception handling is unaffected.
+    let runBounded
+        (timeoutMs: int)
+        (f: unit -> Result<'a, string>)
+        : Result<'a, string> =
+        let task = Task.Run(fun () -> f ())
+        let settledIndex = Task.WaitAny([| task :> Task |], timeoutMs)
+        if settledIndex = -1 then
+            Error "change processing timed out"
+        else
+            task.GetAwaiter().GetResult()
+
+    let overlayFresh confirmations fresh stampOps =
+        let stamped = PersistStamp.appendToLast fresh stampOps
+        let stampedById =
+            stamped
+            |> List.map (fun change -> change.changeId, change)
+            |> Map.ofList
+        let confirmed =
+            confirmations
+            |> List.map (fun change ->
+                Map.tryFind change.changeId stampedById
+                |> Option.defaultValue change)
+        stamped, confirmed
+
+    let operationContext msg =
+        match msg with
+        | GetState _ -> "GetState", ""
+        | GetRevision _ -> "GetRevision", ""
+        | GetChangesSince (after, _) ->
+            "GetChangesSince", $"after={after}"
+        | PostChange (changes, _) ->
+            "PostChange", $"changeCount={changes.Length}"
+        | PostGraphOnlyChange (changes, _) ->
+            "PostGraphOnlyChange", $"changeCount={changes.Length}"
+        | SnapshotDone _ -> "SnapshotDone", ""
+
+    let replyFailure error msg =
+        match msg with
+        | GetState reply -> reply.Reply(Error error)
+        | GetRevision reply -> reply.Reply(Error error)
+        | GetChangesSince (_, reply) -> reply.Reply(Error error)
+        | PostChange (_, reply) -> reply.Reply(Error error)
+        | PostGraphOnlyChange (_, reply) -> reply.Reply(Error error)
+        | SnapshotDone _ -> ()

@@ -2,21 +2,7 @@ namespace Gambol.Server
 
 open System
 open System.IO
-open System.Threading.Tasks
 open Gambol.Shared
-
-type FileAgentMsg =
-    | GetState of AsyncReplyChannel<Result<State, string>>
-    | GetRevision of AsyncReplyChannel<Result<Revision, string>>
-    | GetChangesSince of
-        after: int * AsyncReplyChannel<Result<Change list, string>>
-    | PostChange of
-        changes: Change list *
-        AsyncReplyChannel<Result<CoreChangesAccepted, string>>
-    | PostGraphOnlyChange of
-        changes: Change list *
-        AsyncReplyChannel<Result<CoreChangesAccepted, string>>
-    | SnapshotDone of graph: Graph option
 
 type FileAgentDependencies = {
     persistGraphOps:
@@ -29,34 +15,12 @@ type FileAgentDependencies = {
 
 // FileAgent — serialises all reads/writes for a single file
 type FileAgent = private {
-    mailbox: MailboxProcessor<FileAgentMsg>
+    mailbox: MailboxProcessor<CoreMsg>
     logStream: FileStream
     initialState: Gambol.Shared.State  // checkpoint state captured at startup; used by DB setup
 }
 
 module FileAgent =
-
-    /// Bound on wall-clock time for a single change's persist step (disk write via
-    /// DocumentWarm/CStyleReconcile). That reconcile path is a known-slow/hanging
-    /// algorithm; this timeout exists to keep the mailbox loop responsive, not to fix it.
-    [<Literal>]
-    let ChangeProcessingTimeoutMs = 8000
-
-    /// Runs a synchronous computation on a background Task, bounding wall-clock time so
-    /// a pathologically slow computation can never wedge the caller's mailbox loop. If the
-    /// timeout elapses, the background Task is abandoned (fire-and-forget): it may still run
-    /// to completion later and write to disk concurrently with subsequently accepted changes.
-    /// Uses WaitAny (not Wait/Result) because WaitAny reports timeout vs settled without
-    /// itself throwing on a faulted task; GetAwaiter().GetResult() then rethrows `f`'s
-    /// original exception unwrapped (as if called synchronously), so the caller's existing
-    /// exception handling is unaffected.
-    let runBounded (timeoutMs: int) (f: unit -> Result<'a, string>) : Result<'a, string> =
-        let task = Task.Run(fun () -> f ())
-        let settledIndex = Task.WaitAny([| task :> Task |], timeoutMs)
-        if settledIndex = -1 then
-            Error "change processing timed out"
-        else
-            task.GetAwaiter().GetResult()
 
     let defaultDependencies (dataDir: string) =
         {
@@ -65,7 +29,8 @@ module FileAgent =
                 HttpResponseLog.appendException
                     (HttpResponseLog.logPath dataDir)
                     "FileAgent"
-            changeProcessingTimeoutMs = ChangeProcessingTimeoutMs
+            changeProcessingTimeoutMs =
+                CoreMailboxBackend.ChangeProcessingTimeoutMs
         }
 
     let createWithDependencies
@@ -96,19 +61,6 @@ module FileAgent =
                 externalChanges
                 message
 
-        let overlayFresh confirmations fresh stampOps =
-            let stamped = PersistStamp.appendToLast fresh stampOps
-            let stampedById =
-                stamped
-                |> List.map (fun change -> change.changeId, change)
-                |> Map.ofList
-            let confirmed =
-                confirmations
-                |> List.map (fun change ->
-                    Map.tryFind change.changeId stampedById
-                    |> Option.defaultValue change)
-            stamped, confirmed
-
         let syncPersistChange
             (rev: int)
             (preGraph: Graph)
@@ -116,8 +68,10 @@ module FileAgent =
             (ops: Op list)
             =
             let persisted =
-                runBounded dependencies.changeProcessingTimeoutMs (fun () ->
-                    dependencies.persistGraphOps dataDir preGraph postGraph ops)
+                CoreMailboxBackend.runBounded
+                    dependencies.changeProcessingTimeoutMs
+                    (fun () ->
+                        dependencies.persistGraphOps dataDir preGraph postGraph ops)
             match persisted with
             | Error err -> Error err
             | Ok stamped ->
@@ -232,7 +186,10 @@ module FileAgent =
                                     stamped.message
                                 | None -> [], newState.graph, None
                             let stampedFresh, ackChanges =
-                                overlayFresh confirmations fresh stampOps
+                                CoreMailboxBackend.overlayFresh
+                                    confirmations
+                                    fresh
+                                    stampOps
                             let encodedLog =
                                 stampedFresh
                                 |> List.map (fun change ->
@@ -250,28 +207,10 @@ module FileAgent =
                                 reply.Reply(
                                     Ok(accepted ackChanges externalChanges persistMessage))
 
-        let operationContext msg =
-            match msg with
-            | GetState _ -> "GetState", ""
-            | GetRevision _ -> "GetRevision", ""
-            | GetChangesSince (after, _) ->
-                "GetChangesSince", $"after={after}"
-            | PostChange (changes, _) ->
-                "PostChange", $"changeCount={changes.Length}"
-            | PostGraphOnlyChange (changes, _) ->
-                "PostGraphOnlyChange", $"changeCount={changes.Length}"
-            | SnapshotDone _ -> "SnapshotDone", ""
-
         let replyFailure operation msg =
             let error =
                 $"Internal server error in FileAgent {operation} (dataDir={dataDir})."
-            match msg with
-            | GetState reply -> reply.Reply(Error error)
-            | GetRevision reply -> reply.Reply(Error error)
-            | GetChangesSince (_, reply) -> reply.Reply(Error error)
-            | PostChange (_, reply) -> reply.Reply(Error error)
-            | PostGraphOnlyChange (_, reply) -> reply.Reply(Error error)
-            | SnapshotDone _ -> ()
+            CoreMailboxBackend.replyFailure error msg
 
         let dispatch msg =
             match msg with
@@ -295,13 +234,14 @@ module FileAgent =
                 handlePostChange changes true reply
             | SnapshotDone _ -> ()
 
-        let mailbox = MailboxProcessor<FileAgentMsg>.Start(fun inbox ->
+        let mailbox = MailboxProcessor<CoreMsg>.Start(fun inbox ->
             let rec loop () = async {
                 let! msg = inbox.Receive()
                 try
                     dispatch msg
                 with ex ->
-                    let operation, context = operationContext msg
+                    let operation, context =
+                        CoreMailboxBackend.operationContext msg
                     try
                         dependencies.appendException operation context ex
                     with _ ->
@@ -320,55 +260,21 @@ module FileAgent =
     let create (dataDir: string) : FileAgent =
         createWithDependencies (defaultDependencies dataDir) dataDir
 
-    let private unwrap result =
-        match result with
-        | Ok value -> value
-        | Error error -> failwith error
-
     let tryGetState (agent: FileAgent) : Async<Result<State, string>> =
-        agent.mailbox.PostAndAsyncReply(GetState)
+        CoreMailbox.tryGetState agent.mailbox
 
     let getState (agent: FileAgent) : Async<State> =
-        async {
-            let! result = tryGetState agent
-            return unwrap result
-        }
+        CoreMailbox.getState agent.mailbox
 
     let getRevision (agent: FileAgent) : Async<Revision> =
-        async {
-            let! result = agent.mailbox.PostAndAsyncReply(GetRevision)
-            return unwrap result
-        }
+        CoreMailbox.getRevision agent.mailbox
 
     let getChangesSince (agent: FileAgent) (after: int) : Async<Change list> =
-        async {
-            let! result =
-                agent.mailbox.PostAndAsyncReply(fun reply ->
-                    GetChangesSince(after, reply))
-            return unwrap result
-        }
-
-    let private postChange
-        (agent: FileAgent)
-        (changes: Change list)
-        : Async<Result<CoreChangesAccepted, string>> =
-        agent.mailbox.PostAndAsyncReply(fun reply -> PostChange(changes, reply))
-
-    let private postGraphOnlyChange
-        (agent: FileAgent)
-        (changes: Change list)
-        : Async<Result<CoreChangesAccepted, string>> =
-        agent.mailbox.PostAndAsyncReply(fun reply ->
-            PostGraphOnlyChange(changes, reply))
+        CoreMailbox.getChangesSince agent.mailbox after
 
     /// The only route from this agent to the Core Changes contract.
     let coreChanges (agent: FileAgent) : CoreChanges =
-        { getState = fun () -> tryGetState agent
-          getRevision = fun () -> getRevision agent
-          getChangesSince = fun after -> getChangesSince agent after.Value
-          isReady = fun () -> true
-          postChange = postChange agent
-          postGraphOnlyChange = postGraphOnlyChange agent }
+        CoreMailbox.coreChanges (fun () -> true) agent.mailbox
 
     let flushSnapshot (_: FileAgent) : Async<Result<unit, string>> =
         async { return Ok () }

@@ -139,7 +139,17 @@ The server:
 
 - Optional cookie auth (`Auth:Username` / `Auth:Password` in config → derived token cookie)
 
-Key modules: `Api.fs` (`AgentHandle`), `FileAgent.fs`, `DbAgent.fs`, `Database.fs`, `DatabaseSetup.fs`, `ChangeLog.fs`, `DocumentLoader.fs`.
+Key modules: [[src/Server/Api.fs]] (`AgentHandle`), [[src/Server/Core/CoreMailbox.fs]], [[src/Server/Core/CoreMailboxBackend.fs]], [[src/Server/FileAgent.fs]], [[src/Server/DbAgent.fs]], [[src/Server/Database.fs]], [[src/Server/DatabaseSetup.fs]], [[src/Server/ChangeLog.fs]], [[src/Server/DocumentLoader.fs]].
+
+### Core mailbox and persistence agents
+
+[[src/Server/Core/CoreMailbox.fs]] owns the shared `CoreMsg` mailbox contract and the qualified callable interface over `MailboxProcessor<CoreMsg>`. The contract has exactly six cases with their existing payloads: `GetState` with a state result reply, `GetRevision` with a revision result reply, `GetChangesSince` with the revision index and change-list result reply, `PostChange` and `PostGraphOnlyChange` with change lists and accepted-change result replies, and `SnapshotDone` with an optional graph. `CoreMailbox` centralizes the mailbox posts, result unwrapping, Revision-to-int conversion, and construction of the six-field `CoreChanges` handle.
+
+[[src/Server/Core/CoreMailboxBackend.fs]] is the internal shared implementation used directly by both persistence agents. It contains the common bounded-execution helper and timeout, fresh-change overlay, operation context, and failure reply routing. These mechanics stay out of the mailbox contract file and are not duplicated between agents.
+
+[[src/Server/FileAgent.fs]] and [[src/Server/DbAgent.fs]] are persistence twins: each hosts and starts its own `MailboxProcessor<CoreMsg>`, while its exported `coreChanges` delegates to `CoreMailbox.coreChanges` with the private mailbox and the agent's readiness callback. FileAgent owns file logging, checkpointing, and file-persistence details. DbAgent owns SQL persistence, snapshots, reads, startup, and failed-loop behavior.
+
+The server project compiles [[src/Server/Core/CoreMailbox.fs]] before [[src/Server/Core/CoreMailboxBackend.fs]], then compiles the agents. This mailbox refactor adds no Actor or TestActor message cases, endpoints, registry, command dispatch, lifecycle, or other behavior.
 
 ### Sync (multi-client, N<5)
 
