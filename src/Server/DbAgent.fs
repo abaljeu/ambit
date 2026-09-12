@@ -183,6 +183,127 @@ module DbAgent =
                 inbox.Post(SnapshotDone persisted)
             ) |> ignore
 
+        let validatePostChange graphOnly preGraph postGraph =
+            match graphOnly, liveSaveDataDir with
+            | true, _ -> Ok ()
+            | false, None -> Ok ()
+            | false, Some dataDir ->
+                DocumentPersistence.validatePathMoves dataDir preGraph postGraph
+                |> Result.bind (fun () ->
+                    DocumentPersistence.validateGraphDiskEffects
+                        dataDir
+                        preGraph
+                        postGraph)
+
+        let persistLiveChange
+            graphOnly
+            preGraph
+            (newState: State)
+            (logEntries: (int * Change) list)
+            =
+            match graphOnly, liveSaveDataDir, logEntries with
+            | false, Some dataDir, _::_ ->
+                let ops =
+                    logEntries
+                    |> List.collect (fun (_, change) -> change.ops)
+                CoreMailboxBackend.runBounded
+                    CoreMailboxBackend.ChangeProcessingTimeoutMs
+                    (fun () ->
+                        persistGraphOps
+                            dataDir
+                            preGraph
+                            newState.graph
+                            ops)
+                |> Result.map Some
+            | _ -> Ok None
+
+        let preparePostChange
+            (newState: State)
+            (confirmations: Change list)
+            (logEntries: (int * Change) list)
+            (stampedOpt: PersistGraphOk option)
+            =
+            let stampOps, stateToStore, persistMessage =
+                match stampedOpt with
+                | Some stamped ->
+                    PersistStamp.opsBetween newState.graph stamped.graph,
+                    { newState with graph = stamped.graph },
+                    stamped.message
+                | None -> [], newState, None
+            let fresh = logEntries |> List.map snd
+            let stampedFresh, ackChanges =
+                CoreMailboxBackend.overlayFresh confirmations fresh stampOps
+            let storedEntries =
+                List.zip (logEntries |> List.map fst) stampedFresh
+            stateToStore, ackChanges, storedEntries, persistMessage
+
+        let commitPostChange
+            graphOnly
+            sourceEntries
+            stateToStore
+            ackChanges
+            externalChanges
+            persistMessage
+            storedEntries
+            (reply: AsyncReplyChannel<Result<CoreChangesAccepted, string>>)
+            inbox
+            =
+            match
+                CoreMailboxBackend.runBounded
+                    CoreMailboxBackend.ChangeProcessingTimeoutMs
+                    (fun () -> persistBatch stateToStore storedEntries)
+            with
+            | Error err -> reply.Reply(Error err)
+            | Ok () ->
+                state.Value <- stateToStore
+                reply.Reply(
+                    Ok(accepted ackChanges externalChanges persistMessage))
+                if graphOnly then
+                    persistedGraph.Value <- stateToStore.graph
+                elif not (List.isEmpty sourceEntries) then
+                    persistedGraph.Value <- stateToStore.graph
+                    if snapshotInProgress.Value then snapshotNeeded.Value <- true
+                    else startSnapshot inbox
+
+        let finishAppliedPostChange
+            graphOnly
+            (newState: State)
+            (confirmations: Change list)
+            (logEntries: (int * Change) list)
+            externalChanges
+            (reply: AsyncReplyChannel<Result<CoreChangesAccepted, string>>)
+            (inbox: MailboxProcessor<CoreMsg>)
+            =
+            let preGraph = state.Value.graph
+            match validatePostChange graphOnly preGraph newState.graph with
+            | Error err -> reply.Reply(Error err)
+            | Ok () ->
+                match
+                    persistLiveChange
+                        graphOnly
+                        preGraph
+                        newState
+                        logEntries
+                with
+                | Error err -> reply.Reply(Error err)
+                | Ok stampedOpt ->
+                    let stateToStore, ackChanges, storedEntries, persistMessage =
+                        preparePostChange
+                            newState
+                            confirmations
+                            logEntries
+                            stampedOpt
+                    commitPostChange
+                        graphOnly
+                        logEntries
+                        stateToStore
+                        ackChanges
+                        externalChanges
+                        persistMessage
+                        storedEntries
+                        reply
+                        inbox
+
         let handlePostChange
             (changes: Change list)
             graphOnly
@@ -199,79 +320,14 @@ module DbAgent =
                 with
                 | Error err -> reply.Reply(Error err)
                 | Ok (newState, confirmations, logEntries, externalChanges) ->
-                    let preGraph = state.Value.graph
-                    let pathValidation =
-                        match graphOnly, liveSaveDataDir with
-                        | true, _ -> Ok ()
-                        | false, None -> Ok ()
-                        | false, Some dataDir ->
-                            DocumentPersistence.validatePathMoves
-                                dataDir
-                                preGraph
-                                newState.graph
-                            |> Result.bind (fun () ->
-                                DocumentPersistence.validateGraphDiskEffects
-                                    dataDir
-                                    preGraph
-                                    newState.graph)
-
-                    match pathValidation with
-                    | Error err -> reply.Reply(Error err)
-                    | Ok () ->
-                        let livePersist =
-                            match graphOnly, liveSaveDataDir, logEntries with
-                            | false, Some dataDir, _::_ ->
-                                let ops =
-                                    logEntries
-                                    |> List.collect (fun (_, change) -> change.ops)
-                                CoreMailboxBackend.runBounded
-                                    CoreMailboxBackend.ChangeProcessingTimeoutMs
-                                    (fun () ->
-                                        persistGraphOps
-                                            dataDir
-                                            preGraph
-                                            newState.graph
-                                            ops)
-                                |> Result.map Some
-                            | _ -> Ok None
-                        match livePersist with
-                        | Error err -> reply.Reply(Error err)
-                        | Ok stampedOpt ->
-                            let stampOps, stateToStore, persistMessage =
-                                match stampedOpt with
-                                | Some stamped ->
-                                    PersistStamp.opsBetween
-                                        newState.graph
-                                        stamped.graph,
-                                    { newState with graph = stamped.graph },
-                                    stamped.message
-                                | None -> [], newState, None
-                            let fresh = logEntries |> List.map snd
-                            let stampedFresh, ackChanges =
-                                CoreMailboxBackend.overlayFresh
-                                    confirmations
-                                    fresh
-                                    stampOps
-                            let logEntries' =
-                                List.zip
-                                    (logEntries |> List.map fst)
-                                    stampedFresh
-                            match
-                                CoreMailboxBackend.runBounded
-                                    CoreMailboxBackend.ChangeProcessingTimeoutMs
-                                    (fun () -> persistBatch stateToStore logEntries')
-                            with
-                            | Error err -> reply.Reply(Error err)
-                            | Ok () ->
-                                state.Value <- stateToStore
-                                reply.Reply(
-                                    Ok(accepted ackChanges externalChanges persistMessage))
-                                if graphOnly then
-                                    persistedGraph.Value <- stateToStore.graph
-                                elif not (List.isEmpty logEntries) then
-                                    persistedGraph.Value <- stateToStore.graph
-                                    if snapshotInProgress.Value then snapshotNeeded.Value <- true
-                                    else startSnapshot inbox
+                    finishAppliedPostChange
+                        graphOnly
+                        newState
+                        confirmations
+                        logEntries
+                        externalChanges
+                        reply
+                        inbox
 
         let replyFailure operation msg =
             let error =
@@ -309,7 +365,7 @@ module DbAgent =
                     let rows =
                         Database.getChangesAfterCheckpointRevision
                             connectionString
-                            after
+                            after.Value
                         |> Async.AwaitTask
                         |> Async.RunSynchronously
                     let changes =
@@ -470,13 +526,13 @@ module DbAgent =
     let tryGetState (agent: DbAgent) : Async<Result<State, string>> =
         CoreMailbox.tryGetState agent.mailbox
 
-    let getState (agent: DbAgent) : Async<State> =
+    let getState (agent: DbAgent) : Async<Result<State, string>> =
         CoreMailbox.getState agent.mailbox
 
     let getRevision (agent: DbAgent) : Async<Revision> =
         CoreMailbox.getRevision agent.mailbox
 
-    let getChangesSince (agent: DbAgent) (after: int) : Async<Change list> =
+    let getChangesSince (agent: DbAgent) (after: Revision) : Async<Change list> =
         CoreMailbox.getChangesSince agent.mailbox after
 
     /// The only route from this agent to the Core Changes contract.

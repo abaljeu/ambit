@@ -7,7 +7,7 @@ type CoreMsg =
     | GetState of AsyncReplyChannel<Result<State, string>>
     | GetRevision of AsyncReplyChannel<Result<Revision, string>>
     | GetChangesSince of
-        after: int * AsyncReplyChannel<Result<Change list, string>>
+        after: Revision * AsyncReplyChannel<Result<Change list, string>>
     | PostChange of
         changes: Change list *
         AsyncReplyChannel<Result<CoreChangesAccepted, string>>
@@ -29,11 +29,10 @@ module CoreMailbox =
         : Async<Result<State, string>> =
         mailbox.PostAndAsyncReply GetState
 
-    let getState (mailbox: MailboxProcessor<CoreMsg>) : Async<State> =
-        async {
-            let! result = tryGetState mailbox
-            return unwrap result
-        }
+    let getState
+        (mailbox: MailboxProcessor<CoreMsg>)
+        : Async<Result<State, string>> =
+        tryGetState mailbox
 
     let getRevision
         (mailbox: MailboxProcessor<CoreMsg>)
@@ -45,7 +44,7 @@ module CoreMailbox =
 
     let getChangesSince
         (mailbox: MailboxProcessor<CoreMsg>)
-        (after: int)
+        (after: Revision)
         : Async<Change list> =
         async {
             let! result =
@@ -73,7 +72,7 @@ module CoreMailbox =
         : CoreChanges =
         { getState = fun () -> tryGetState mailbox
           getRevision = fun () -> getRevision mailbox
-          getChangesSince = fun after -> getChangesSince mailbox after.Value
+          getChangesSince = getChangesSince mailbox
           isReady = isReady
           postChange = postChange mailbox
           postGraphOnlyChange = postGraphOnlyChange mailbox }

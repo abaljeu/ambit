@@ -25,6 +25,14 @@ let private freshState () : State =
       history = History.empty
       revision = Revision 0 }
 
+let private getState agent = async {
+    match! DbAgent.getState agent with
+    | Ok state -> return state
+    | Error error ->
+        Assert.Fail($"get state: {error}")
+        return Unchecked.defaultof<_>
+}
+
 /// Reproduces the wedged-mailbox bug: an uncaught exception thrown from the live-persist
 /// step (e.g. the real IndexOutOfRangeException surfaced via DocumentPersistence.persistGraphOps
 /// -> OutlineDocumentWarm) must not kill the DbAgent mailbox loop. The specific pending
@@ -62,7 +70,7 @@ let ``persistence exception is logged replied and mailbox survives`` () = task {
     Assert.Contains("stack=", log)
 
     let! state =
-        DbAgent.getState agent
+        getState agent
         |> Async.StartAsTask
         |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
     Assert.Equal(Revision 0, state.revision)

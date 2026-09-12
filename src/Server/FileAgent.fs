@@ -132,6 +132,72 @@ module FileAgent =
                 logStream.Seek(0L, SeekOrigin.End) |> ignore
                 Error $"Log error: {ex.Message}"
 
+        let validatePostChange graphOnly preGraph postGraph =
+            if graphOnly then
+                Ok ()
+            else
+                DocumentPersistence.validatePathMoves dataDir preGraph postGraph
+                |> Result.bind (fun () ->
+                    DocumentPersistence.validateGraphDiskEffects
+                        dataDir
+                        preGraph
+                        postGraph)
+
+        let persistPostChange graphOnly changed preGraph newState fresh =
+            if changed && not graphOnly then
+                let ops =
+                    fresh
+                    |> List.collect (fun change -> change.ops)
+                syncPersistChange
+                    newState.revision.Value
+                    preGraph
+                    newState.graph
+                    ops
+                |> Result.map Some
+            else
+                Ok None
+
+        let preparePostChange
+            (newState: State)
+            (confirmations: Change list)
+            (fresh: Change list)
+            (stampedOpt: PersistGraphOk option)
+            =
+            let stampOps, stampedGraph, persistMessage =
+                match stampedOpt with
+                | Some stamped ->
+                    PersistStamp.opsBetween newState.graph stamped.graph,
+                    stamped.graph,
+                    stamped.message
+                | None -> [], newState.graph, None
+            let stampedFresh, ackChanges =
+                CoreMailboxBackend.overlayFresh confirmations fresh stampOps
+            let encodedLog =
+                stampedFresh
+                |> List.map (fun change ->
+                    change.id, ChangeLog.encodeChange change)
+            let finalState =
+                match stampedOpt with
+                | Some _ -> { newState with graph = stampedGraph }
+                | None -> newState
+            finalState, ackChanges, encodedLog, persistMessage
+
+        let commitPostChange
+            finalState
+            ackChanges
+            externalChanges
+            persistMessage
+            encodedLog
+            (reply: AsyncReplyChannel<Result<CoreChangesAccepted, string>>)
+            =
+            match persistLogEntries encodedLog with
+            | Error err -> reply.Reply(Error err)
+            | Ok offsets ->
+                offsets |> List.iter offsetIndex.Add
+                state.Value <- finalState
+                reply.Reply(
+                    Ok(accepted ackChanges externalChanges persistMessage))
+
         let handlePostChange
             (changes: Change list)
             graphOnly
@@ -144,68 +210,32 @@ module FileAgent =
                 | Error err -> reply.Reply(Error err)
                 | Ok (newState, confirmations, fresh, changed, externalChanges) ->
                     let preGraph = state.Value.graph
-                    let validation =
-                        if graphOnly then
-                            Ok ()
-                        else
-                            DocumentPersistence.validatePathMoves
-                                dataDir
-                                preGraph
-                                newState.graph
-                            |> Result.bind (fun () ->
-                                DocumentPersistence.validateGraphDiskEffects
-                                    dataDir
-                                    preGraph
-                                    newState.graph)
-                    match validation with
+                    match validatePostChange graphOnly preGraph newState.graph with
                     | Error err -> reply.Reply(Error err)
                     | Ok () ->
-                        let diskPersist =
-                            if changed && not graphOnly then
-                                let ops =
-                                    fresh
-                                    |> List.collect (fun change -> change.ops)
-                                syncPersistChange
-                                    newState.revision.Value
-                                    preGraph
-                                    newState.graph
-                                    ops
-                                |> Result.map Some
-                            else
-                                Ok None
-                        match diskPersist with
+                        match
+                            persistPostChange
+                                graphOnly
+                                changed
+                                preGraph
+                                newState
+                                fresh
+                        with
                         | Error err -> reply.Reply(Error err)
                         | Ok stampedOpt ->
-                            let stampOps, stampedGraph, persistMessage =
-                                match stampedOpt with
-                                | Some stamped ->
-                                    PersistStamp.opsBetween
-                                        newState.graph
-                                        stamped.graph,
-                                    stamped.graph,
-                                    stamped.message
-                                | None -> [], newState.graph, None
-                            let stampedFresh, ackChanges =
-                                CoreMailboxBackend.overlayFresh
+                            let finalState, ackChanges, encodedLog, persistMessage =
+                                preparePostChange
+                                    newState
                                     confirmations
                                     fresh
-                                    stampOps
-                            let encodedLog =
-                                stampedFresh
-                                |> List.map (fun change ->
-                                    change.id, ChangeLog.encodeChange change)
-                            match persistLogEntries encodedLog with
-                            | Error err -> reply.Reply(Error err)
-                            | Ok offsets ->
-                                offsets |> List.iter offsetIndex.Add
-                                let finalState =
-                                    match stampedOpt with
-                                    | Some _ ->
-                                        { newState with graph = stampedGraph }
-                                    | None -> newState
-                                state.Value <- finalState
-                                reply.Reply(
-                                    Ok(accepted ackChanges externalChanges persistMessage))
+                                    stampedOpt
+                            commitPostChange
+                                finalState
+                                ackChanges
+                                externalChanges
+                                persistMessage
+                                encodedLog
+                                reply
 
         let replyFailure operation msg =
             let error =
@@ -220,7 +250,7 @@ module FileAgent =
                 reply.Reply(Ok state.Value.revision)
             | GetChangesSince (after, reply) ->
                 let changes =
-                    [ after .. offsetIndex.Count - 1 ]
+                    [ after.Value .. offsetIndex.Count - 1 ]
                     |> List.choose (fun i ->
                         let _, json =
                             ChangeLog.readEntryAt logStream offsetIndex.[i]
@@ -263,13 +293,13 @@ module FileAgent =
     let tryGetState (agent: FileAgent) : Async<Result<State, string>> =
         CoreMailbox.tryGetState agent.mailbox
 
-    let getState (agent: FileAgent) : Async<State> =
+    let getState (agent: FileAgent) : Async<Result<State, string>> =
         CoreMailbox.getState agent.mailbox
 
     let getRevision (agent: FileAgent) : Async<Revision> =
         CoreMailbox.getRevision agent.mailbox
 
-    let getChangesSince (agent: FileAgent) (after: int) : Async<Change list> =
+    let getChangesSince (agent: FileAgent) (after: Revision) : Async<Change list> =
         CoreMailbox.getChangesSince agent.mailbox after
 
     /// The only route from this agent to the Core Changes contract.

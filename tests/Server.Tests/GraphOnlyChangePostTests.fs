@@ -56,7 +56,11 @@ let ``reconcile posts graph-only chunks at or under maxOps`` () =
             n <= GraphOnlyChangeChunks.maxOps,
             sprintf "chunk had %d ops" n)
         Assert.True(n > 0)
-    let graph = (FileAgent.getState fileAgent |> Async.RunSynchronously).graph
+    let graph =
+        FileAgent.getState fileAgent
+        |> Async.RunSynchronously
+        |> requireOk "state"
+        |> fun state -> state.graph
     let names =
         graph.nodes.[workspaceId].children
         |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)

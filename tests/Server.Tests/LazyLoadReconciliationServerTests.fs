@@ -140,7 +140,10 @@ let ``server reconciler applies planner ops through active agent`` () =
     |> requireOk "reconcile"
     |> ignore
     FileAgent.flushSnapshot fileAgent |> Async.RunSynchronously |> requireOk "reconcile persist"
-    let state = FileAgent.getState fileAgent |> Async.RunSynchronously
+    let state =
+        FileAgent.getState fileAgent
+        |> Async.RunSynchronously
+        |> requireOk "state"
     let graph = state.graph
     let srcId = graph.nodes.[workspaceId].children |> List.exactlyOne |> fun child -> child.id
     let fileId = graph.nodes.[srcId].children |> List.exactlyOne |> fun child -> child.id
@@ -174,7 +177,10 @@ let ``server reconciler adds disk files outside the changed path list`` () =
     |> Async.RunSynchronously
     |> requireOk "reconcile"
     |> ignore
-    let state = FileAgent.getState fileAgent |> Async.RunSynchronously
+    let state =
+        FileAgent.getState fileAgent
+        |> Async.RunSynchronously
+        |> requireOk "state"
     let graph = state.graph
     let childNames =
         graph.nodes.[workspaceId].children
@@ -205,7 +211,10 @@ let ``server reconciler adds missing directory and file nodes from discovered pa
     |> Async.RunSynchronously
     |> requireOk "reconcile"
     |> ignore
-    let state = FileAgent.getState fileAgent |> Async.RunSynchronously
+    let state =
+        FileAgent.getState fileAgent
+        |> Async.RunSynchronously
+        |> requireOk "state"
     let graph = state.graph
     let docsId =
         graph.nodes.[workspaceId].children
@@ -263,7 +272,10 @@ let ``post receive rename of unparsed stub is rejected without moving disk twice
     FileAgent.flushSnapshot fileAgent
     |> Async.RunSynchronously
     |> requireOk "flush"
-    let state = FileAgent.getState fileAgent |> Async.RunSynchronously
+    let state =
+        FileAgent.getState fileAgent
+        |> Async.RunSynchronously
+        |> requireOk "state"
     let graph = state.graph
     let fileId =
         graph.nodes.[workspaceId].children
@@ -317,7 +329,10 @@ let ``server reconciler posts good sibling when one path fails`` () =
         fun f ->
             f.path = "bad.txt"
             && f.message.Contains("unparsed document"))
-    let state = FileAgent.getState fileAgent |> Async.RunSynchronously
+    let state =
+        FileAgent.getState fileAgent
+        |> Async.RunSynchronously
+        |> requireOk "state"
     let graph = state.graph
     let names =
         graph.nodes.[workspaceId].children
@@ -372,7 +387,10 @@ let private postOps (fileAgent: FileAgent) (revision: int) (ops: Op list) =
     |> ignore
 
 let private readGraph (fileAgent: FileAgent) =
-    (FileAgent.getState fileAgent |> Async.RunSynchronously).graph
+    FileAgent.getState fileAgent
+    |> Async.RunSynchronously
+    |> requireOk "state"
+    |> fun state -> state.graph
 
 [<Fact>]
 let ``directory reconcile discovers only under directory prefix`` () =
