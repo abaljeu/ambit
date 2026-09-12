@@ -16,12 +16,8 @@ Run an Agent from a Zoom-rooted mixed-format Graph extract, mark Focus in the ou
 ## Decisions so far
 
 - 2026-09-11 redesign: Ambit is an info hub. Actor data formats and protocols vary; the adaptive-update process is common. [[reports/agent-redesign-locked-2026-09.md]]
-- [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]] — the Command Node's text is the dispatch (`?test echo` for TestActor echo; `?ai ...` later). The document codec formats Command Nodes as prompt-like content, but the provider request does not extract a separate Command instruction.
-- [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] — the Browser sends exact included NodeIds plus Zoom, Focus, Command, and current event id. Core reads Command Node text to resolve ActorName and constructs the extract from its authoritative Graph. No Browser-selected ActorName crosses the boundary.
-- One Core API returns `{ nodes; events; latestId }` for Browser Poll, Change, and Command and in-process Actor Change. Change, Undo, Redo, ActorStarted, and ActorFinished share one durable ordered Event sequence. Public Authority identity persists; secret credentials never persist.
-- Run Agent Actor owns the system prompt and orchestrates generic Document mixed-format serialization, vendor-neutral CloudAgents completion, Reference-Paste-style replacement, and normal Core Change.
-- Success replaces every Child under Focus. A failed structural response parse retries the complete response through the plain-text indentation outline parser. Existing Core Change merge and amendment own reconciliation.
-- One live Actor is allowed per Focus NodeId; other overlap is allowed. Cancel uses Focus NodeId. ActorStarted exposes durable public actor identity; ActorFinished records Succeeded, safe Failed, Cancelled, or restart reconciliation as Interrupted. Failure and cancellation preserve Focus Children and emit no Graph text.
+- [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]] — Command-text dispatch, command text `?test hello`, Zoom-rooted extract, Focus replacement, Focus exclusivity, preserve-children, ordinary merge.
+- [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] — typed boundaries, launch membership, Event sequence, mailbox lifecycle, recovery, test seams.
 - CloudAgents remains the standalone vendor-neutral project and API. Cursor is an ordinary adapter. Provider selection is not a domain decision in this Project.
 - [[plan/llm-connector/issues/05-create-cloud-agent-posts-reply-under-focus.md]] and its Create payload, Md paste-replace implementation, and vertical proof remain cancelled.
 

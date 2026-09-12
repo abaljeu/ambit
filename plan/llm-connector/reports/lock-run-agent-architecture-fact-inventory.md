@@ -37,7 +37,7 @@ Date: 2026-09-11. Place: `dev` after `scripts/gitstatus.sh`. Recon only for Phas
 
 ### Forced (issue 06 + Implementation Planning Phase 1)
 
-- The Command Node's text is the dispatch (`?test echo` launches TestActor echo; `?ai ...` later). Command role, Kind, and CSS class do not select the Actor. Command Nodes do not become a separate provider instruction.
+- Dispatch is [[../issues/06-define-command-run-agent-redesign.md]]. Command text `?test hello` launches TestActor hello.
 - One Run payload: Zoom-rooted Graph extract with exactly one Focus; Actor serializes model context; model does not own Graph structure.
 - Each Node encodes through its owning document codec → one mixed-format document; transport-only Focus mark; CloudAgents call = system prompt + that document.
 - Success: delete every Child under Focus; create new Children from the complete response; structural parse first, else whole-response plain-text indentation outline (atomic discard of failed structural parse).
