@@ -1,7 +1,7 @@
 # 29 — Prove TestActor hello
 
 **Status:** blocked
-**Blocked by:** [[30-reshape-coreactorpool-synchronized-table.md]] — Reshape CoreActorPool to a synchronized table
+**Blocked by:** [[31-one-coremsg-loop-parameterized-persist.md]] — One CoreMsg loop, parameterized persist (note: 30 is done)
 Actual: 1h10m
 
 ## Context
@@ -75,6 +75,7 @@ This is the first user-visible functional augmentation after the foundation and 
 - 2026-09-11 — Hello uses the universal `{ nodes; events; latestId }` response. It does not use `CoreChangesAccepted`. TestActor receives the secret credential; after ActorFinished the outer fact proves that secret no longer admits a post.
 - 2026-09-12 — Alan locked the first user-visible augmentation as existing Browser Run through one-Node Command transport, named Actor dispatch, and TestActor hello. The same current Node is Command, Zoom root, and Focus.
 - 2026-09-12 — Blocked on 30. CoreActorPool is not discarded; its queue design is.
+- 2026-09-12 — Point 0 continues with 31 (one CoreMsg loop, parameterized persist) before hello.
 
 ## Time
 
