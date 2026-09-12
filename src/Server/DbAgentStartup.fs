@@ -107,53 +107,13 @@ module DbAgentStartup =
             }
             and normalLoop () = async {
                 let! msg = inbox.Receive()
-                try
-                    match msg with
-                    | GetState reply ->
-                        reply.Reply(handlers.getState ())
-                    | GetRevision reply ->
-                        reply.Reply(handlers.getRevision ())
-                    | GetChangesSince (after, reply) ->
-                        reply.Reply(handlers.getChangesSince after)
-                    | PostChange (changes, reply) ->
-                        reply.Reply(handlers.postChange changes)
-                    | PostGraphOnlyChange (changes, reply) ->
-                        reply.Reply(handlers.postGraphOnlyChange changes)
-                    | SnapshotDone graph ->
-                        handlers.snapshotDone graph
-                with ex ->
-                    let operation, context =
-                        CoreMailboxBackend.operationContext msg
-                    try
-                        onError operation context ex
-                    with _ ->
-                        ()
-                    try
-                        CoreMailboxBackend.replyFailure
-                            (formatError operation)
-                            msg
-                    with _ ->
-                        ()
+                CoreMailboxBackend.dispatch handlers onError formatError msg
                 return! normalLoop ()
             }
             and failedLoop error = async {
                 let! msg = inbox.Receive()
                 let failed = failedHandlers error
-                try
-                    match msg with
-                    | GetState reply ->
-                        reply.Reply(failed.getState ())
-                    | GetRevision reply ->
-                        reply.Reply(failed.getRevision ())
-                    | GetChangesSince (after, reply) ->
-                        reply.Reply(failed.getChangesSince after)
-                    | PostChange (changes, reply) ->
-                        reply.Reply(failed.postChange changes)
-                    | PostGraphOnlyChange (changes, reply) ->
-                        reply.Reply(failed.postGraphOnlyChange changes)
-                    | SnapshotDone _ -> ()
-                with _ ->
-                    ()
+                CoreMailboxBackend.dispatch failed onError formatError msg
                 return! failedLoop error
             }
 

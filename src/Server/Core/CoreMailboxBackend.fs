@@ -76,6 +76,37 @@ module internal CoreMailboxBackend =
         | PostGraphOnlyChange (_, reply) -> reply.Reply(Error error)
         | SnapshotDone _ -> ()
 
+    let dispatch
+        (handlers: PersistHandlers)
+        (onError: string -> string -> exn -> unit)
+        (formatError: string -> string)
+        (msg: CoreMsg)
+        : unit =
+        try
+            match msg with
+            | GetState reply ->
+                reply.Reply(handlers.getState ())
+            | GetRevision reply ->
+                reply.Reply(handlers.getRevision ())
+            | GetChangesSince (after, reply) ->
+                reply.Reply(handlers.getChangesSince after)
+            | PostChange (changes, reply) ->
+                reply.Reply(handlers.postChange changes)
+            | PostGraphOnlyChange (changes, reply) ->
+                reply.Reply(handlers.postGraphOnlyChange changes)
+            | SnapshotDone graph ->
+                handlers.snapshotDone graph
+        with ex ->
+            let operation, context = operationContext msg
+            try
+                onError operation context ex
+            with _ ->
+                ()
+            try
+                replyFailure (formatError operation) msg
+            with _ ->
+                ()
+
     let start
         (handlers: PersistHandlers)
         (onError: string -> string -> exn -> unit)
@@ -84,31 +115,7 @@ module internal CoreMailboxBackend =
         MailboxProcessor<CoreMsg>.Start(fun inbox ->
             let rec loop () = async {
                 let! msg = inbox.Receive()
-                try
-                    match msg with
-                    | GetState reply ->
-                        reply.Reply(handlers.getState ())
-                    | GetRevision reply ->
-                        reply.Reply(handlers.getRevision ())
-                    | GetChangesSince (after, reply) ->
-                        reply.Reply(handlers.getChangesSince after)
-                    | PostChange (changes, reply) ->
-                        reply.Reply(handlers.postChange changes)
-                    | PostGraphOnlyChange (changes, reply) ->
-                        reply.Reply(
-                            handlers.postGraphOnlyChange changes)
-                    | SnapshotDone graph ->
-                        handlers.snapshotDone graph
-                with ex ->
-                    let operation, context = operationContext msg
-                    try
-                        onError operation context ex
-                    with _ ->
-                        ()
-                    try
-                        replyFailure (formatError operation) msg
-                    with _ ->
-                        ()
+                dispatch handlers onError formatError msg
                 return! loop ()
             }
             loop ()
