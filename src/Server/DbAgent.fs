@@ -308,27 +308,22 @@ module DbAgent =
             (changes: Change list)
             graphOnly
             : Result<CoreChangesAccepted, string> =
-            match startupError.Value with
-            | Some error -> Error error
-            | None when not ready.Task.IsCompletedSuccessfully ->
-                Error "Database agent startup in progress"
-            | None ->
-                if changes.IsEmpty then
-                    Error "changes must not be empty"
-                else
-                    match
-                        CoreMailboxBackend.runBounded
-                            CoreMailboxBackend.ChangeProcessingTimeoutMs
-                            (fun () -> applyBatch changes)
-                    with
-                    | Error err -> Error err
-                    | Ok (newState, confirmations, logEntries, externalChanges) ->
-                        finishAppliedPostChange
-                            graphOnly
-                            newState
-                            confirmations
-                            logEntries
-                            externalChanges
+            if changes.IsEmpty then
+                Error "changes must not be empty"
+            else
+                match
+                    CoreMailboxBackend.runBounded
+                        CoreMailboxBackend.ChangeProcessingTimeoutMs
+                        (fun () -> applyBatch changes)
+                with
+                | Error err -> Error err
+                | Ok (newState, confirmations, logEntries, externalChanges) ->
+                    finishAppliedPostChange
+                        graphOnly
+                        newState
+                        confirmations
+                        logEntries
+                        externalChanges
 
         let handleSnapshotDone persisted =
             match persisted with
@@ -390,24 +385,28 @@ module DbAgent =
             | None ->
                 $"Internal server error in DbAgent {operation}."
 
-        let sweepTask =
-            Task.Run(fun () ->
+        let startupPrelude = async {
+            let result =
                 try
                     runStartupSweep initialState.graph
                 with ex ->
-                    Error $"Startup projection sweep failed: {ex.Message}")
-
-        Task.Run(fun () ->
-            match sweepTask.GetAwaiter().GetResult() with
-            | Ok result ->
-                match applyMaintenance result with
-                | Ok () -> ready.TrySetResult() |> ignore
-                | Error error -> startupError.Value <- Some error
-            | Error error -> startupError.Value <- Some error)
-        |> ignore
+                    Error $"Startup projection sweep failed: {ex.Message}"
+            match result with
+            | Ok maintenanceResult ->
+                match applyMaintenance maintenanceResult with
+                | Ok () ->
+                    ready.TrySetResult() |> ignore
+                    return Ok ()
+                | Error error ->
+                    startupError.Value <- Some error
+                    return Error error
+            | Error error ->
+                startupError.Value <- Some error
+                return Error error
+        }
 
         let mailbox =
-            CoreMailboxBackend.start handlers logUnhandledException formatError
+            CoreMailboxBackend.startWithPrelude handlers logUnhandledException formatError startupPrelude
 
         mailboxRef.Value <- Some mailbox
 
