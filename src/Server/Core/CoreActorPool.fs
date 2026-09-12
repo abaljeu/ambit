@@ -51,15 +51,6 @@ module CoreActorPool =
           credential: Credential
           job: Job }
 
-    type private Msg =
-        | Register of ActorName * ActorFn * AsyncReplyChannel<unit>
-        | TryLaunch of
-            Graph *
-            LaunchRequest *
-            AsyncReplyChannel<Result<LaunchPlan, string>>
-        | Query of int * AsyncReplyChannel<LaunchRequest option>
-        | GetLocked of AsyncReplyChannel<Set<NodeId>>
-
     let private tracked (job: Job) : LaunchRequest =
         { name = job.name
           revision = job.revision
@@ -103,39 +94,35 @@ module CoreActorPool =
           jobs = Map.add plan.number plan.job model.jobs
           locked = Set.union model.locked plan.job.spanIds }
 
-    let private startMailbox () =
-        MailboxProcessor.Start(fun inbox ->
-            let rec loop model = async {
-                let! msg = inbox.Receive()
-                match msg with
-                | Register(ActorName name, actor, reply) ->
-                    reply.Reply()
-                    return!
-                        loop { model with defs = Map.add name actor model.defs }
-                | GetLocked reply ->
-                    reply.Reply model.locked
-                    return! loop model
-                | Query(number, reply) ->
-                    reply.Reply(
-                        Map.tryFind number model.jobs |> Option.map tracked)
-                    return! loop model
-                | TryLaunch(graph, request, reply) ->
-                    match planLaunch model graph request with
-                    | Error err ->
-                        reply.Reply(Error err)
-                        return! loop model
-                    | Ok plan ->
-                        reply.Reply(Ok plan)
-                        return! loop (applyPlan model plan)
-            }
-            loop
-                { next = 1
-                  defs = Map.empty
-                  jobs = Map.empty
-                  locked = Set.empty })
+    type private SynchronizedTable() =
+        let lockObj = obj ()
+        let mutable model =
+            { next = 1
+              defs = Map.empty
+              jobs = Map.empty
+              locked = Set.empty }
+
+        member _.Register(ActorName name, actor) =
+            lock lockObj (fun () ->
+                model <- { model with defs = Map.add name actor model.defs })
+
+        member _.TryPlanLaunch(graph, request) =
+            lock lockObj (fun () ->
+                match planLaunch model graph request with
+                | Error err -> Error err
+                | Ok plan ->
+                    model <- applyPlan model plan
+                    Ok plan)
+
+        member _.Query(number) =
+            lock lockObj (fun () ->
+                Map.tryFind number model.jobs |> Option.map tracked)
+
+        member _.GetLockedIds() =
+            lock lockObj (fun () -> model.locked)
 
     let private overlayLocks
-        (lockedIds: unit -> Async<Set<NodeId>>)
+        (lockedIds: unit -> Set<NodeId>)
         (handle: CoreChanges)
         : CoreChanges =
         { handle with
@@ -145,13 +132,13 @@ module CoreActorPool =
                     match state with
                     | Error err -> return Error err
                     | Ok s ->
-                        let! ids = lockedIds ()
+                        let ids = lockedIds ()
                         let graph = GraphSpan.withLockPresent ids s.graph
                         return Ok { s with graph = graph }
                 } }
 
     let private runLaunch
-        (mailbox: MailboxProcessor<Msg>)
+        (table: SynchronizedTable)
         (credentials: CoreCredentials)
         (handle: CoreChanges)
         (request: LaunchRequest)
@@ -161,9 +148,7 @@ module CoreActorPool =
             match state with
             | Error err -> return Error err
             | Ok s ->
-                let! planned =
-                    mailbox.PostAndAsyncReply(fun reply ->
-                        TryLaunch(s.graph, request, reply))
+                let planned = table.TryPlanLaunch(s.graph, request)
                 match planned with
                 | Error err -> return Error err
                 | Ok plan ->
@@ -179,26 +164,21 @@ module CoreActorPool =
         }
 
     let private runQuery
-        (mailbox: MailboxProcessor<Msg>)
+        (table: SynchronizedTable)
         (PublicNumber number)
         : Async<Result<LaunchRequest, string>> =
         async {
-            let! found =
-                mailbox.PostAndAsyncReply(fun reply -> Query(number, reply))
+            let found = table.Query(number)
             match found with
             | Some job -> return Ok job
             | None -> return Error unknownJob
         }
 
     let create (credentials: CoreCredentials) : CoreActorPool =
-        let mailbox = startMailbox ()
-        let lockedIds () = mailbox.PostAndAsyncReply GetLocked
-        { register =
-            fun name actor ->
-                mailbox.PostAndAsyncReply(fun reply ->
-                    Register(name, actor, reply))
-                |> Async.RunSynchronously
-          lockedIds = lockedIds
+        let table = SynchronizedTable()
+        let lockedIds () = table.GetLockedIds()
+        { register = fun name actor -> table.Register(name, actor)
+          lockedIds = fun () -> async.Return(lockedIds ())
           withLocks = overlayLocks lockedIds
-          launch = runLaunch mailbox credentials
-          query = runQuery mailbox }
+          launch = runLaunch table credentials
+          query = runQuery table }
