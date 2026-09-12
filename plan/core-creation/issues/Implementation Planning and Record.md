@@ -27,7 +27,7 @@ The eight numbered items are pieces of the Core lifecycle program. They are not 
 
 Phase 2b is the implementation sequence for the remaining spec, not only the eight Core lifecycle pieces. The sequence selects pieces from that spec to implement visible increments. Advanced parts wait.
 
-Current implement cut: [[29-prove-testactor-hello.md]]. After that increment is agent-done, mark delivered facts and identify the next increment. Do not invent later increment tickets now. That cut does not include the later vendor-neutral Agent seam or the locked vertical proof.
+Current implement cut: [[30-reshape-coreactorpool-synchronized-table.md]], then [[29-prove-testactor-hello.md]]. The prefactor strips CoreActorPool mailbox queue; synchronized table + thread pool. After 30 is agent-done, 29 remains the first user-visible increment. After 29 is agent-done, mark delivered facts and identify the next increment. Do not invent later increment tickets now. That cut does not include the later vendor-neutral Agent seam or the locked vertical proof.
 
 - Vendor-neutral Agent seam — After the Core lifecycle program is executable, create the smallest implementation issue for the standalone CloudAgents project and the contracts in [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]] and [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]]. Keep provider selection and provider-specific behavior behind the vendor-neutral CloudAgents API. Do not restore the old Md-only payload or Cursor-specific domain behavior.
 - Locked vertical proof — Define and run the vertical proof only after the Core lifecycle and [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]] are executable. The cancelled Create/Focus/Md paste-replace path is not that proof.
@@ -38,3 +38,4 @@ The former executable three-set sequence was withdrawn by [[plan/llm-connector/r
 
 2026-09-11 — Alan locked Command-text dispatch. See Phase 1.
 2026-09-12 — Reviews of the TestActor hello increment failed. Code was stashed. Issue checkboxes and implementation logs from 2026-09-11 were cleared. The current implement cut remains [[29-prove-testactor-hello.md]].
+2026-09-12 — Issue [[30-reshape-coreactorpool-synchronized-table.md]] created as prefactor: strip CoreActorPool mailbox-queue design; synchronized table mutators + thread pool. Issue 29 blocked by 30. Current implement order: 30, then 29.

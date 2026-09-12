@@ -49,7 +49,8 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/issues/26-failed-actor-stop-still-drops.md]] — failed Actor stop must still enqueue delete-actor. Status `cancelled` (rewind/redo, not a wrap patch).
 - [[plan/core-creation/issues/27-prove-core-actor-lifecycle-with-testactor.md]] — prove the public Core lifecycle and universal response without an Agent transport.
 - [[plan/core-creation/issues/28-drain-actor-lifecycle-on-host-stop.md]] — later host-stop terminal drain and restart reconciliation, separate from Database availability.
-- [[plan/core-creation/issues/29-prove-testactor-hello.md]] — current implement cut: prove TestActor hello through the public Core path.
+- [[plan/core-creation/issues/30-reshape-coreactorpool-synchronized-table.md]] — current implement cut: strip CoreActorPool mailbox-queue design; synchronized table + thread pool.
+- [[plan/core-creation/issues/29-prove-testactor-hello.md]] — first user-visible increment: prove TestActor hello through the public Core path.
 
 ## Decision tickets
 
