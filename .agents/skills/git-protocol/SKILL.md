@@ -9,7 +9,7 @@ Canonical git procedure for this repo. Other rules and skills point here; they d
 
 ## Status
 
-At the outset, from the project root, run [[scripts/gitstatus.sh]] with no arguments. This is the first git step. Use extra git commands only when that output is not enough.
+At the outset, from the project root, run `scripts/gitstatus.sh` (NOT `bash scripts/gitstatus.sh`.  Never explicitly invoke bash.) with no arguments. This is the first git step. Use extra git commands only when that output is not enough.
 
 ## Places
 
@@ -30,7 +30,7 @@ Commit AFTER writing any report files, not before.
 
 ## Merges
 
-The Desktop agent does not run `git merge` or squash. Those moves go through [[scripts/gitready.sh]], [[scripts/gitmaster.sh]], and [[scripts/gitdev.sh]] (Cursor manual approval) or the human types them in the CLI. Merge `origin/staging` into `dev` is [[.agents/skills/cloud-agent-git/SKILL.md]]. `gitready.sh` with no argument lists dev commits not on `ready`. `gitmaster.sh` with no argument lists `ready` commits not on `master`. `gitready.sh "<msg>"` brings `dev` into `ready` (`--no-ff`); `gitdev.sh` brings a hotfix from `master` toward `dev` with a stock forward message. The merge scripts refuse a dirty tree, and refuse a local `ready` that is behind `origin/ready`.
+The Desktop agent does not run `git merge` or squash. Those moves go through [[scripts/gitready.sh]], [[scripts/gitmaster.sh]], and [[scripts/gitdev.sh]] (Cursor manual approval) or the human types them in the CLI. Land downloaded `staging` into `dev` is [[.agents/skills/cloud-agent-git/SKILL.md]]. `gitready.sh` with no argument lists dev commits not on `ready`. `gitmaster.sh` with no argument lists `ready` commits not on `master`. `gitready.sh "<msg>"` brings `dev` into `ready` (`--no-ff`); `gitdev.sh` brings a hotfix from `master` toward `dev` with a stock forward message. The merge scripts refuse a dirty tree, and refuse a local `ready` that is behind `origin/ready`.
 
 **agent-done** is tests green, `/code-review`, and a commit on `dev` via [[scripts/commit.sh]] `"<message>"` or human `git commit`. Then ask the human to run `gitready.sh` (or type the merge) to put that work on `ready`.
 

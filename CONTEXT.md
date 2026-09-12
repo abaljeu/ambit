@@ -36,7 +36,7 @@ Retired. Do not add `plan/<feature>/git.md` for branch names. Existing files are
 _Avoid_: branch notes, git status file, branch tracker
 
 **Manual approval**:
-A direct user request (or tool approval card) that authorizes a named git operation. **Code pushes of `ready` are approval-gated** ([[.agents/skills/git-share/SKILL.md]]). Squash onto `master` and tags stay human-only ([[.agents/skills/git-master/SKILL.md]]). Merge goes through [[scripts/gitready.sh]] or the human CLI per [[.agents/skills/git-protocol/SKILL.md]]. Merge `origin/staging` into `dev` is [[.agents/skills/cloud-agent-git/SKILL.md]]. Pull/fetch of `ready` and `staging` needs no approval.
+A direct user request (or tool approval card) that authorizes a named git operation. **Code pushes of `ready` are approval-gated** ([[.agents/skills/git-share/SKILL.md]]). Squash onto `master` and tags stay human-only ([[.agents/skills/git-master/SKILL.md]]). Merge goes through [[scripts/gitready.sh]] or the human CLI per [[.agents/skills/git-protocol/SKILL.md]]. Land downloaded `staging` into `dev` is [[.agents/skills/cloud-agent-git/SKILL.md]]. Pull/fetch of `ready` and `staging` needs no approval.
 _Avoid_: permission, override, allowlist exception
 
 **Issue tracker**:
@@ -213,6 +213,14 @@ _Avoid_: kernel (for this Module), apply Module (as the name)
 The four-call Interface of Core: Files, Changes, Query, Command. Files is send, get, and git of file bytes; Core owns the open and write. Persist algorithms do not open the file themselves. In file mode Files does not write. inner apply is the Changes path that applies a Change. Advanced logic and Actor definitions work to this Interface. Not the web API.
 _Avoid_: web API, REST, `/ambit` (those are HTTP Adapters that may call Core API)
 
+**Authority**:
+A named source that submits requests to Core and is recorded on accepted Events. Browser identities, Actors, Cursor, Zapier, and Amble are Authorities.
+_Avoid_: sender, user (when the source may not be a person)
+
+**Actor**:
+A Core-managed execution of long-running work. Its public identity is durable, while its secret identity exists only while it is live.
+_Avoid_: Agent, job, task
+
 **Document**:
 The project that reads and writes documents between Graph and file.
 _Avoid_: codec package, documents project, parsers (as the project name); File Node (do not say Document for the Node)
@@ -246,8 +254,8 @@ A single Graph modification, either to a Node Header or to its Children.
 _Avoid_: operation (casually for Change), mutation, edit
 
 **Action**:
-A History entry: a Change, an Undo, or a Redo.
-_Avoid_: operation, event (as synonyms for Action)
+A Graph-changing Event: a Change, an Undo, or a Redo.
+_Avoid_: operation, lifecycle Event
 
 **Undo**:
 An Action that reverses a prior Change, following Emacs undo semantics; numbered like other Actions.
@@ -257,20 +265,28 @@ _Avoid_: revert, rollback
 An Action that re-applies after Undo, following Emacs undo semantics; numbered like other Actions.
 _Avoid_: un-undo
 
+**Event**:
+One durable record in the global ordered sequence. An Event is a Change, Undo, Redo, ActorStarted, or ActorFinished.
+_Avoid_: Action (when lifecycle Events are included), audit record
+
+**event id**:
+The unique ordered position of an Event in the global Event sequence.
+_Avoid_: Revision, EventPosition, version, change id
+
 **Revision**:
-The number of an Action (Change, Undo, or Redo).
-_Avoid_: version, sequence number, change id (for this integer)
+Retired name for **event id**. There is no separate Revision counter.
+_Avoid_: Revision
 
 **History**:
-A log of Actions.
-_Avoid_: undo stack, change log (as a synonym for History)
+The Graph-Action view of relevant Events used by Undo and Redo. Ambit has no separate History or audit UI application.
+_Avoid_: the full Event sequence, audit log
 
 **Sync**:
 Keeping Browser and Server Graphs aligned by exchanging Actions (and related residency work). Not a synonym for Load.
 _Avoid_: Load (for this meaning), reconcile (as a synonym for Sync)
 
 **Poll**:
-A Browser request for Actions since a known Revision in History; used in Sync and also as part of Load's final stage with Fetch.
+A Browser request for Events since a known event id; used in Sync and lifecycle projection and also as part of Load's final stage with Fetch.
 _Avoid_: sync (as a synonym for Poll), fetch (for this meaning)
 
 **Expression**:

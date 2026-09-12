@@ -11,10 +11,10 @@ module DbAgentStartup =
         (runSweep: unit -> Result<DatabaseProjection.ProjectionMaintenanceResult, string>)
         (applySuccess: DatabaseProjection.ProjectionMaintenanceResult -> Result<unit, string>)
         (setReady: unit -> unit)
-        (tryHandleRead: FileAgentMsg -> Async<unit> option)
+        (tryHandleRead: CoreMsg -> Async<unit> option)
         (normalLoop: unit -> Async<unit>)
         (failedLoop: string -> Async<unit>)
-        (inbox: MailboxProcessor<FileAgentMsg>)
+        (inbox: MailboxProcessor<CoreMsg>)
         : Async<unit> =
         let sweepTask =
             Task.Run(fun () ->

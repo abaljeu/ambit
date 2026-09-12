@@ -3,7 +3,7 @@
 **Type:** grilling
 **Status:** done
 Blocked by: 03, 05
-Actual: 2h5m
+Actual: 2h15m
 
 ## Question
 
@@ -11,15 +11,9 @@ What typed Command input selects and launches an Actor definition off the apply 
 
 ## Answer
 
-Every Core Command launch receives a registered Actor name plus Revision, parent NodeId, and a non-empty start/endd span. The span has the shape of [[src/Shared/ViewModel.fs]] SiteNodeRange, except parent is NodeId, not SiteEntry. No selection is forbidden. A caret (start == endd) is forbidden. The site-map child list and the Node child list never differ; that is a universal view-edits-model law, not a Command-only restriction. Core extracts the parent Node, then the child occurrences in that span, and passes that subgraph to the named Actor. Command does not contain Parse, shell, or Agent cases. Composition registers definitions with the pool.
+The controlling contract is [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]]. Dispatch is [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]]. Rebuild implementation is [[15-launch-actor-and-hold-span.md]]. This grill no longer owns launch membership or identity.
 
-Launch returns a public number to the Command caller. Core stores a map from that number to the Actor and does not reuse numbers. A query by that number identifies the task while the Actor is registered. After delete-actor applies, the query fails because the number is gone ([[11-define-actor-finish-and-failure-behavior.md]]). The internal send-auth credential is not returned to the caller.
-
-Actor initial state is the extracted subgraph plus the send credential. Core does not copy span, Revision, or registered name into the Actor. Named may-change, not an open question: later Core may pass a larger subgraph. The credential stays the same.
-
-Core retains number→Actor, send credential, span, Revision, and registered name. Nothing else.
-
-Grill notes: [[plan/core-creation/reports/grill-issue-09-launch-contract.md]].
+Grill notes: [[plan/core-creation/reports/grill-issue-09-launch-contract.md]]. The earlier span answers below are historical interrogation notes and no longer control implementation.
 
 ## Comments
 
@@ -41,6 +35,8 @@ Grill notes: [[plan/core-creation/reports/grill-issue-09-launch-contract.md]].
 - Q15: Core retains number→Actor, send credential, span, Revision, and registered name. Nothing else. Whether Actor initial state is only subgraph plus credential is still unresolved (parent press). See the grill report.
 - Q16: Actor initial state is subgraph plus send credential only; Core keeps span, Revision, and registered name. See the grill report.
 - Q17: What might change is sending more subgraph. Lock. Status resolved.
+- 2026-09-11 — [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] superseded the span-shaped request, Browser-selected registered name, transient-only public number, and non-event launch assumptions.
+- 2026-09-11 — Dispatch is [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]].
 
 ## Time
 
@@ -63,3 +59,5 @@ Grill notes: [[plan/core-creation/reports/grill-issue-09-launch-contract.md]].
 - 2026-09-05 5m — recorded Q16 (from chat)
 - 2026-09-05 10m — locked contract; Q17 more-subgraph may-change; resolved (from chat)
 - 2026-09-06 5m — Answer: query fails after delete-actor applies, not when the Actor Task returns (from chat)
+- 2026-09-11 5m — record Command-text Actor dispatch (from chat)
+- 2026-09-11 5m — drop restated launch contract; point at 07 and 15 (from chat)

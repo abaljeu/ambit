@@ -1,31 +1,36 @@
 # 15 — Launch an Actor and hold the span
 
-**Status:** done
-**Blocked by:** [[14-server-tracks-credentials.md|14 Server tracks credentials]]
-**Actual:** 1h30m
+**Status:** blocked
+**Blocked by:** [[plan/core-creation/issues/14-server-tracks-credentials.md]]
+**Actual:** 1h40m
 
 ## Context
 
-A person starts long-running work on a span of Nodes. Core must start the Actor off the apply mailbox, give the caller a public number, and mark the live Nodes in that span.
+This issue records a historical span-based launch delivery. The span, Graph lock-present, Browser-selected ActorName, and transient-only public number are superseded by [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]]. Its replacement contract directs the launch part of the rebuild; the historical delivery remains in Comments and Time.
 
 ## What to build
 
-Launch takes a registered name, a Revision, a parent NodeId, and a non-empty span. Core extracts that subgraph and starts the Actor. The caller receives a public number that Core never reuses. The send credential is only in the Actor and is added to the set from [[14-server-tracks-credentials.md]]. Launch that shares any NodeId with a live span is refused. Core writes lock-present on the live Nodes in the span. SQL create, update, and select omit the lock field. History never carries lock.
+Implement launch and Focus registration from [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]]. Dispatch is [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]]. Pool shape is [[02-core-actor-pool.md]].
 
-- [x] Launch with registered name, Revision, parent NodeId, and a non-empty span starts an Actor and returns a never-reused public number.
-- [x] The Command caller does not receive the send credential; the Actor does, and that credential is in the Core set.
-- [x] Launch that shares any NodeId with a live span is refused.
-- [x] Live Nodes in the span show lock-present; SQL and History do not carry lock.
+- [ ] Register public identity, secret, termination handle, and Focus NodeId in mailbox state.
+- [ ] Append ActorStarted, then schedule so output cannot be admitted first.
+- [ ] Refuse only a second live Actor for the same Focus.
 
 ## See also
 
-[[09-define-core-command-launch-contract.md]], [[plan/core-creation/reports/to-build-09-12-actor-pool.md]], [[plan/core-creation/reports/commit-14-implement-15.md]]
+[[plan/core-creation/issues/09-define-core-command-launch-contract.md]], [[plan/core-creation/reports/to-build-09-12-actor-pool.md]], [[plan/core-creation/reports/commit-14-implement-15.md]]
 
 ## Comments
 
 - 2026-09-06 — Implementation started on `dev`.
 - 2026-09-06 — Delivered Core Actor pool launch, span extract, never-reused public number, send credential in the Actor and the Core set, overlap refuse, and lock-present overlay on live Nodes. Node JSON, History Changes, and projection SQL rows omit lock. HTTP Command launch, query, cancel, and Browser lock UI stay 16–22. See [[plan/core-creation/reports/commit-14-implement-15.md]].
+- 2026-09-11 — Reconciled with [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]]. Credential and registry responsibility remain relevant. Focus NodeId replaces span membership: refuse only a second live Actor for the same Focus and allow every other extract overlap.
+- 2026-09-11 — [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] superseded the remaining span and non-event assumptions. ActorStarted now communicates durable public Actor identity.
+- 2026-09-11 — Reopened as `blocked` by [[plan/core-creation/issues/14-server-tracks-credentials.md]] because the replacement launch contract is not delivered.
+- 2026-09-11 — Dispatch is [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]].
 
 ## Time
 
 - 2026-09-06 1h30m — launch pool, span extract, and lock-present overlay (from chat)
+- 2026-09-11 5m — record Command-text Actor dispatch (from chat)
+- 2026-09-11 5m — drop restated launch membership; keep unique Focus registration (from chat)

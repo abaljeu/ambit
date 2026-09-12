@@ -22,6 +22,14 @@ let private changedBody () =
         }
     [ change ]
 
+let private getState agent = async {
+    match! FileAgent.getState agent with
+    | Ok state -> return state
+    | Error error ->
+        Assert.Fail($"get state: {error}")
+        return Unchecked.defaultof<_>
+}
+
 let private softFailPersist : string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, string> =
     fun _ _ postGraph _ ->
         Ok {
@@ -87,7 +95,7 @@ let ``persistence exception is logged replied and mailbox survives`` () = task {
         Assert.Contains("stack=", log)
 
         let! state =
-            FileAgent.getState agent
+            getState agent
             |> Async.StartAsTask
             |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
         Assert.Equal(Revision 0, state.revision)
@@ -129,7 +137,7 @@ let ``persist step hang is rejected within timeout and mailbox survives`` () = t
             $"Expected reject before the {hangMs}ms hang completed, took {sw.ElapsedMilliseconds}ms.")
 
         let! state =
-            FileAgent.getState agent
+            getState agent
             |> Async.StartAsTask
             |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
         Assert.Equal(Revision 0, state.revision)
@@ -156,7 +164,7 @@ let ``soft-fail live-save still commits graph and returns could-not-save message
                 Some(DocumentPersistence.fileCouldNotSave "SYSTEM/secret.txt"),
                 decodeAckMessage ackJson)
         let! state =
-            FileAgent.getState agent |> Async.StartAsTask
+            getState agent |> Async.StartAsTask
         Assert.True(
             state.graph.nodes
             |> Map.exists (fun _ n -> n.text = "soft-fail-probe"))
@@ -186,7 +194,7 @@ let ``soft-fail log is not replayed into FileAgent state after restart`` () = ta
     let agent2 = FileAgent.createWithDependencies dependencies dataDir
     try
         let! state =
-            FileAgent.getState agent2 |> Async.StartAsTask
+            getState agent2 |> Async.StartAsTask
         Assert.False(
             state.graph.nodes
             |> Map.exists (fun _ n -> n.text = "soft-fail-probe"))
@@ -257,7 +265,8 @@ let ``ACK returns stamped complete Change equal to ChangeLog`` () = task {
                     Assert.Equal(Graph.workspacesId, nodeId)
                 | _ -> failwith "expected SetUpdateTime suffix")
             let! logged =
-                FileAgent.getChangesSince agent 0 |> Async.StartAsTask
+                FileAgent.getChangesSince agent (Revision 0)
+                |> Async.StartAsTask
             Assert.Equal<Change list>([ confirmed ], logged)
     finally
         FileAgent.dispose agent
@@ -301,7 +310,8 @@ let ``trailing duplicate keeps stamps on last new Change`` () = task {
                 suffixAfter first firstConfirmed,
                 secondSuffix)
             let! logged =
-                FileAgent.getChangesSince agent 0 |> Async.StartAsTask
+                FileAgent.getChangesSince agent (Revision 0)
+                |> Async.StartAsTask
             Assert.Equal<Change list>(
                 [ firstConfirmed; secondConfirmed ],
                 logged)

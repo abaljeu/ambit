@@ -35,6 +35,8 @@
     <Compile Include="Core\CoreChanges.fs" />
     <Compile Include="Core\CoreCredentials.fs" />
     <Compile Include="Core\CoreActorPool.fs" />
+    <Compile Include="Core\CoreMailbox.fs" />
+    <Compile Include="Core\CoreMailboxBackend.fs" />
     <Compile Include="FileAgent.fs" />
     <Compile Include="Database.fs" />
     <Compile Include="DatabaseProjection.fs" />
