@@ -3,7 +3,7 @@
 **Type:** task
 **Status:** blocked
 **Blocked by:** [[plan/core-creation/issues/27-prove-core-actor-lifecycle-with-testactor.md]]
-Actual: 5m
+Actual: 10m
 
 ## Context
 
@@ -11,12 +11,12 @@ Host shutdown is Actor lifecycle work, not Database availability policy. It foll
 
 ## What to build
 
-On host StopAsync, Core refuses new mutating requests, drains the ordered mailbox through ActorFinished and drop, requests cancellation of running Actors without waiting, and exits when the mailbox is idle or the host default timeout fires. On a later restart, any ActorStarted still unmatched after an interrupted stop receives ActorFinished Interrupted.
+On host StopAsync, refuse new Posts, drain the mailbox through [[18-finish-and-drop.md]], request cancellation without waiting, and exit when idle or the host default timeout fires. Restart Interrupted is [[18-finish-and-drop.md]].
 
 - [ ] New Posts are refused after host stop begins.
 - [ ] Already-enqueued Change and terminal messages drain in order.
 - [ ] Running Actors receive non-blocking termination requests after durable terminal handling.
-- [ ] Restart reconciles unmatched ActorStarted with ActorFinished Interrupted.
+- [ ] Interrupted restart after an interrupted stop follows [[18-finish-and-drop.md]].
 - [ ] Core does not define a separate shutdown timeout or crash-isolation design.
 
 ## See also
@@ -26,3 +26,4 @@ On host StopAsync, Core refuses new mutating requests, drains the ordered mailbo
 ## Time
 
 - 2026-09-11 5m — split host-stop drain from Database-down persistence work (from chat)
+- 2026-09-11 5m — drop restated finish path; keep unique host-stop drain (from chat)

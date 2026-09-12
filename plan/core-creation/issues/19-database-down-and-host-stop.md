@@ -9,9 +9,7 @@ The Database can fail while work is active. Database availability, system-error 
 
 ## What to build
 
-A mutating Post that fails TCP is a system-error Reject. Core marks the Database down. Sibling mailbox items still apply. The next mutating Post or launch is the probe. Reads stay admitted. Launch Rejects while the Database is down.
-
-A refused request creates no durable Event. Recovery of unmatched ActorStarted Events belongs to [[plan/core-creation/issues/18-finish-and-drop.md]] and follows [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]].
+Implement the Database-down policy locked by [[12-define-actor-pool-shutdown-behavior.md]]. Host-stop drain is [[28-drain-actor-lifecycle-on-host-stop.md]]. Restart Interrupted is [[18-finish-and-drop.md]].
 
 - [ ] A mutating Post that fails TCP is a system-error Reject, the Database is marked down, and already-enqueued siblings still apply.
 - [ ] While down, reads are admitted and launch Rejects; the next mutating Post or launch is the probe.

@@ -4,7 +4,7 @@ Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
 Updated: 2026-09-11
 Started: 2026-09-05
-Actual: 18h10m
+Actual: 21h25m
 
 ## Map
 
@@ -17,12 +17,12 @@ Actual: 18h10m
 
 ## Agent instruction
 
-This increment: Core owns the authoritative Graph, the one global durable Event sequence, Authority validation, Command-text-to-ActorName interpretation, and the Actor pool. The Adapter owns HTTP JSON and Browser transport. Persist algorithms and Parse algorithms stay outside Core. Parse retains its typed Graph-only operation; Actor output uses normal Core Change. Actor definitions stay outside Core.
+This increment: Core owns the authoritative Graph, Authority validation, and the Actor pool. The Adapter owns HTTP JSON and Browser transport. Persist algorithms and Parse algorithms stay outside Core. Parse retains its typed Graph-only operation; Actor output uses normal Core Change. Actor definitions stay outside Core.
 
-- Callers hold the Core object ([[doc/Decisions/0003-core-is-a-container-of-subobjects.md]]). Different typed request members share one universal `{ nodes; events; latestId }` response. Browser HTTP is an adapter; in-process Actor Change has the same Core behavior. Callers do not unpack [[src/Server/Core/CoreRuntime.fs]] into a flattened HTTP context.
-- Launch follows [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]]: the Browser sends included NodeIds, Zoom, Focus, Command, and current event id; Core reads Command Node text to resolve ActorName (`?test echo` launches TestActor; `?ai ...` later) and constructs the extract. Exactly one live Actor may target Focus. ActorStarted and ActorFinished are durable Events; secrets never persist.
+- Callers hold the Core object ([[doc/Decisions/0003-core-is-a-container-of-subobjects.md]]). Browser HTTP is an adapter. Callers do not unpack [[src/Server/Core/CoreRuntime.fs]] into a flattened HTTP context.
+- Dispatch is [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]]. Boundaries, launch membership, Event sequence, universal response, and mailbox lifecycle are [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]].
 - Files stay [[plan/core-creation/issues/07-define-core-files-contract.md]]. General Query stays [[plan/core-creation/issues/08-define-core-query-contract.md]]. Live Actor query stays [[plan/core-creation/issues/16-track-running-job.md]].
-- This increment does not add Browser lifecycle UI. [[plan/core-creation/issues/21-client-shows-lock-present.md]] belongs with [[plan/event-sourced-ops/project.md]] and must project Events rather than add Graph lock-present.
+- This increment does not add Browser lifecycle UI. [[plan/core-creation/issues/21-client-shows-lock-present.md]] belongs with [[plan/event-sourced-ops/project.md]].
 - Locked code plan: [[plan/core-creation/mitigations.md]].
 
 ## Implementation plan
@@ -49,7 +49,7 @@ This increment: Core owns the authoritative Graph, the one global durable Event 
 - [[plan/core-creation/issues/26-failed-actor-stop-still-drops.md]] — failed Actor stop must still enqueue delete-actor. Status `cancelled` (rewind/redo, not a wrap patch).
 - [[plan/core-creation/issues/27-prove-core-actor-lifecycle-with-testactor.md]] — prove the public Core lifecycle and universal response without an Agent transport.
 - [[plan/core-creation/issues/28-drain-actor-lifecycle-on-host-stop.md]] — later host-stop terminal drain and restart reconciliation, separate from Database availability.
-- [[plan/core-creation/issues/29-prove-testactor-echo.md]] — current implement cut: prove TestActor echo through the public Core path.
+- [[plan/core-creation/issues/29-prove-testactor-hello.md]] — current implement cut: prove TestActor hello through the public Core path.
 
 ## Decision tickets
 
@@ -93,8 +93,11 @@ This increment: Core owns the authoritative Graph, the one global durable Event 
 - [[plan/core-creation/reports/grill-issue-10-cancellation.md]] — start grill of Actor cancellation and output admission.
 - [[plan/core-creation/reports/grill-issue-11-finish.md]] — grill of Actor finish and failure behavior.
 - [[plan/core-creation/reports/grill-issue-12-shutdown.md]] — start grill of Actor-pool shutdown behavior.
+- [[plan/core-creation/reports/implement-issue-29-testactor-hello.md]] — public Core TestActor hello on the FileAgent apply mailbox.
+- [[plan/core-creation/reports/align-29-referenced-completed-details.md]] — completed-detail `[x]` pass on files referenced by 29.
 
 ## Comments
 
-- 2026-09-11 — Added [[plan/core-creation/issues/29-prove-testactor-echo.md]]. Project `Actual:` stays 18h10m; issue Actuals do not sum cleanly from the files.
-- 2026-09-11 — Command Node text is the Actor dispatch (`?test echo` / `?ai ...`). Kind, CSS, and Command role do not select the Actor.
+- 2026-09-11 — Added [[plan/core-creation/issues/29-prove-testactor-hello.md]]. Project `Actual:` is 20h10m after the hello implement session.
+- 2026-09-11 — One-home DRY of Phase 2 issues and locked 06/07. Command text `?test hello` is owned by [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]].
+- 2026-09-11 — Completed-detail pass on files referenced by [[plan/core-creation/issues/29-prove-testactor-hello.md]]. Report: [[plan/core-creation/reports/align-29-referenced-completed-details.md]].

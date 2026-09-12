@@ -14,6 +14,8 @@ Sets 2 and 3: CloudAgents merge `4f974f0` (`1b9874e`, `2c521f7`); Create actor s
 
 ## Intended shape (confirmed)
 
+Live homes: [[../issues/02-core-actor-pool.md]] and [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]]. The bullets below are the rewind-time confirmation.
+
 - Exactly one Core mailbox: the Changes apply queue. Posts, cancel, delete-actor, launch, query, and admit-and-enqueue are fast messages on that mailbox. See [[doc/Decisions/0004-core-mailbox-messages-clear-fast.md]].
 - Distinguish the task runner from the registry. The runner is a TaskPool (or equivalent): it runs Actors off the apply queue and may release the thread when the Actor returns or is terminated. It is not a mailbox.
 - The registry (public number, lock-present, credential, handle to terminate) is state of that one mailbox. The addressable ID stays until the mailbox processes delete-actor. The task ending does not remove the ID.
@@ -47,9 +49,9 @@ PR 3, merged `4f974f0`. Commits: `1b9874e` Add standalone CloudAgents stack; `2c
 2. TestActor — Actor *system* only. No Cursor. Existing Server Core tests (`dotnet test` on FileAgent / Core).
 3. CloudAgent Actor — optional later facts for that Actor’s pack/reply path. Not TestActor.
 
-**TestActor (not implemented):** ActorName `test`. Focus Header is the case id (not `?`). TestActor switches on that line, does only what the case needs, and `postChange`s Owned children under Focus. It does not Assert and does not return a job result. Outer fact: launch, wait until the public number is gone, match Graph to a table for that case. First cases: `echo`, `fail`, `post-twice`. No `cloud-stub` in this Actor.
+**TestActor (rewind-time note):** Later lock: the Command Node's text is the dispatch ([[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]]); command text `?test hello` launches TestActor hello. TestActor posts Owned children under Focus. It does not Assert and does not return a job result. Outer fact: launch, wait until the public identity is gone from the live registry, match Graph to a table for that case. First cases: `hello`, `fail`, `post-twice`. No `cloud-stub` in this Actor.
 
-**2026-09-11 invoke:** Command Node text is the dispatch. `?test echo` launches TestActor echo. Do not require a separate Focus Header case id for that increment. Echo Graph under Focus remains the assertion. Later cases such as `?test fail` keep the case in the Command text after `?test`. See [[../issues/29-prove-testactor-echo.md]].
+**2026-09-11 invoke:** Dispatch is [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]]. First increment is [[../issues/29-prove-testactor-hello.md]]. Later cases stay on [[../issues/27-prove-core-actor-lifecycle-with-testactor.md]].
 
 **Confirmed algorithm:** the Actor is not a foreground worker. Await POST (ids), then await each poll GET; between polls `do! Async.Sleep` (or later stream). Wake when that HTTP response arrives. Do not `Thread.Sleep` or `RunSynchronously` on the Actor path. Sync `waitUntilComplete` is console-only, or drop it. CloudAgents must not leak exceptions: HTTP failures are `AgentError`. Keep `cancel` in the library now (Core/Actor cancel protocol can stay later).
 
@@ -103,3 +105,4 @@ Alan closed set 3 review on 2026-09-11. The six confirmed misses above are close
 - 2026-09-11 — Set 3 miss: do not convert errors into agent calls (from chat)
 - 2026-09-11 — Set 3 review closed; rewind all three sets; keep unrelated later work (from chat)
 - 2026-09-11 30m — execute product rewind and tighten specs (from chat)
+- 2026-09-11 5m — replace Focus-Header case-id restatement with 06 Command-text dispatch (from chat)

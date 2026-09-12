@@ -3,7 +3,7 @@
 **Type:** grilling
 **Status:** done
 Blocked by: 03, 09
-Actual: 1h20m
+Actual: 1h25m
 
 ## Question
 
@@ -11,13 +11,7 @@ At what exact point does cancellation stop later Actor output, how does Core adm
 
 ## Answer
 
-The controlling contract is [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]]. Command cancel takes Focus NodeId. Exactly one live Actor may target that Focus, so lookup is unique. Different Focus values may run concurrently despite overlapping extracts. Cancel is not Undo.
-
-The one Core mailbox strictly orders Change and Cancelled. Change-before-Cancelled is admitted and applies. Cancelled-before-Change synchronously removes the live registry and secret credential, so the later Change is auth-refused and creates no Event. Earlier accepted output is never undone.
-
-Every caller presents a public Authority plus secret credential. Core validates both. Login creates Browser identity; launch creates Actor identity. Accepted Events retain the readable Authority name, but secrets never persist.
-
-Processing Cancelled appends ActorFinished without Error or Change, removes the live Actor and secret, and requests asynchronous task termination without waiting. A late duplicate completion is ignored. Authentication refusal remains distinct from Database-unavailable system failure.
+The controlling contract is [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]]. Cancel implementation is [[17-cancel-a-job.md]]. Admission is [[14-server-tracks-credentials.md]].
 
 Grill notes: [[plan/core-creation/reports/grill-issue-10-cancellation.md]]. The earlier span-lock answers below are historical interrogation notes and no longer control implementation.
 
@@ -56,3 +50,4 @@ Grill notes: [[plan/core-creation/reports/grill-issue-10-cancellation.md]]. The 
 - 2026-09-05 10m — recorded Q14 cookie source, Q15 Unauthorized, Q16 lock; resolved (from chat)
 - 2026-09-06 5m — merge 401 and Unauthorized into one auth refuse; keep system error off this ticket (from chat)
 - 2026-09-06 5m — Answer: lock-present is on the Node (11), not a job flag (from chat)
+- 2026-09-11 5m — drop restated cancel and admission; point at 07, 14, and 17 (from chat)

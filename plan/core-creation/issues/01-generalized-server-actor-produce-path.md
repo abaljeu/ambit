@@ -20,7 +20,7 @@ Protocol:
 
 **Status:** done
 
-**Actual:** 1h30m
+**Actual:** 1h35m
 
 - [x] A Server-side producer can submit a Change through Core Changes without HTTP self-post.
 - [x] That Change is amended, logged, and visible on Poll like a Browser-posted Change.
@@ -35,9 +35,11 @@ Protocol:
 - 2026-09-05 — Alan offered an Actor protocol (Task, separate thread, subgraph, async send hook, Core responds, more work allowed, one test Actor). The **What to build** block is that hypothesis, refined against existing Normal `postChange`. Named tensions, not silent locks: (1) **Task / Async / thread.** Intent is off the apply mailbox, not a dedicated OS thread. F# `Async` and .NET `Task` use the thread pool. The apply queue is already a `MailboxProcessor`. A thread-per-Actor pool is issue 02. (2) **Send hook vs `postChange`.** The hook is probably `Change list -> Async<Result<CoreChangesAccepted, string>>`, which is the `postChange` signature. A send-only wrapper keeps Graph-only out of the Actor. Passing the full `CoreChanges` handle would also let the Actor `getState` / `getChangesSince`. Not locked. (3) **Who supplies the subgraph.** For this issue the test constructs a small `Graph` and passes it in. Production extraction at launch belongs to Query, Files, or the pool ([[08-define-core-query-contract.md]], [[07-define-core-files-contract.md]], [[02-core-actor-pool.md]]), not here. (4) **Test Actor vs production caller.** Alan's test Actor is enough for 01. A shipped Parse or shell Actor, Command launch, and pool identity are later. (5) **Core responds.** The hook return is the produce acknowledgement, same facts `Api.postChange` encodes today. Poll is how other Browsers consume. Do not invent a completion push. Whether the Actor must use the confirmed (amended) Changes, or only Ok/Error, is not locked.
 - 2026-09-05 — Alan locked the four protocol questions: thread-pool `Async`/`Task` (not a dedicated OS thread; pool is 02); full `CoreChanges` handle (produce still Normal `postChange`); acknowledgement is returned, await optional for one-shot Actors, test Actor awaits and asserts; test-constructed subgraph is enough (Query/Files/pool extraction waits). Fire-and-forget: apply still runs once the `postChange` Async is started (`Async.Start`); dropping the await hides Error. An unstarted Async never posts. Process or test exit before the pool runs that work can drop the post. No new lock.
 - 2026-09-05 — Implemented the test Actor in [[tests/Server.Tests/CoreChangesTests.fs]]. See [[plan/core-creation/reports/implement-issue-01-actor-produce-path.md]]. Pool and Command stay out.
+- 2026-09-11 — Completed-detail pass from [[29-prove-testactor-hello.md]]: produce-path proof boxes stay `[x]`. This delivery is not 29's hello proof.
 
 ## Time
 
 - 2026-09-05 30m — refined Actor produce protocol hypothesis (from chat)
 - 2026-09-05 15m — folded Alan's four protocol locks (from chat)
 - 2026-09-05 45m — test Actor on Normal `CoreChanges.postChange` (from chat)
+- 2026-09-11 5m — confirm produce-path proof boxes stay complete (from chat)

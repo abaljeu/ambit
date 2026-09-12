@@ -3,7 +3,7 @@
 **Type:** task
 **Status:** blocked
 **Blocked by:** [[plan/core-creation/issues/17-cancel-a-job.md]]
-Actual: 10m
+Actual: 20m
 
 ## Context
 
@@ -11,14 +11,13 @@ The rebuilt Actor system needs public-boundary proof of the lifecycle locked by 
 
 ## What to prove
 
-Test through the public Core request member types and universal `{ nodes; events; latestId }` response. Register TestActor through normal composition. Launch dispatch is Command Node text (`?test echo` for the first increment; later cases such as `?test fail`). Focus Header is not the case id. Cases should prove launch ordering, ActorStarted identity, Change ordering, Succeeded, safe Failed, Cancelled, duplicate terminal ignore, ActorFinished-before-drop, and Interrupted restart reconciliation. TestActor may produce controlled Changes and outcomes but does not assert.
+Prove the rebuilt lifecycle through the public Core path with TestActor and no Agent transport. Dispatch is [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]]. First increment is [[29-prove-testactor-hello.md]]. Later cases stay on this catalog.
+
+Tests observe Graph and registry outcomes from outside; TestActor does not assert.
 
 - [ ] Tests launch TestActor through the normal Core Actor path.
-- [ ] Tests observe Graph and registry outcomes from outside the Actor; TestActor does not assert.
-- [ ] Tests prove ActorStarted is durable and the registry exists before Actor output admission.
-- [ ] Tests prove Change-before-Cancel applies and Cancel-before-Change rejects.
-- [ ] Tests prove exactly one ActorFinished for success, safe failure, cancellation, duplicate completion, and restart interruption.
-- [ ] Tests prove synchronous registry and secret removal plus non-blocking task termination.
+- [x] Tests observe Graph and registry outcomes from outside the Actor; TestActor does not assert.
+- [ ] Catalog covers launch ordering, Change/Cancel order, success, safe Failed, Cancelled, duplicate terminal, drop, and Interrupted restart.
 - [ ] Tests use no live service, key, or Agent transport.
 
 ## See also
@@ -27,10 +26,13 @@ Test through the public Core request member types and universal `{ nodes; events
 
 ## Comments
 
-- 2026-09-11 — First proof slice is [[29-prove-testactor-echo.md]] (echo only). This ticket stays the full TestActor proof catalog.
-- 2026-09-11 — Launch dispatch is Command Node text (`?test echo`; later `?test fail`). Focus Header is not the case id.
+- 2026-09-11 — First proof slice is [[29-prove-testactor-hello.md]]. This ticket stays the full TestActor proof catalog.
+- 2026-09-11 — Dispatch is [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]].
+- 2026-09-11 — Marked observe-from-outside as a complete locked detail. Catalog proof boxes stay open.
 
 ## Time
 
 - 2026-09-11 5m — stub provider-neutral TestActor proof after redesign reconciliation (from chat)
 - 2026-09-11 5m — record Command-text TestActor dispatch (from chat)
+- 2026-09-11 5m — drop restated hello and finish contracts; keep unique catalog (from chat)
+- 2026-09-11 5m — mark observe-from-outside complete; leave catalog proof open (from chat)

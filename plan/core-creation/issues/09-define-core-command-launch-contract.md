@@ -3,7 +3,7 @@
 **Type:** grilling
 **Status:** done
 Blocked by: 03, 05
-Actual: 2h10m
+Actual: 2h15m
 
 ## Question
 
@@ -11,11 +11,7 @@ What typed Command input selects and launches an Actor definition off the apply 
 
 ## Answer
 
-The controlling contract is now [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]]. The Browser sends exact unordered included NodeIds, Zoom, Focus, Command, and current event id. Zoom and Focus are included and reachable. Command may be outside the included set. Core reads Command Node text to resolve ActorName (`?test echo` launches TestActor; `?ai ...` later) and constructs the extract from its authoritative Graph. Command role, Kind, and CSS class do not select the Actor. A Browser-selected ActorName, Revision field, parent range, and non-empty span are not part of the locked launch request.
-
-Launch creates a public Actor identity and a secret credential. ActorStarted in the universal `{ nodes; events; latestId }` response communicates the public identity. The public identity remains durable. The secret is available only to the Actor and live Core registry, and it never persists.
-
-Exactly one live Actor may target Focus. Other extract overlap is allowed. Launch is ordered on the one Core mailbox: create identities, register, append ActorStarted durably, then schedule the task so output cannot be admitted first. A refused launch creates no Event; start failure queues Failed.
+The controlling contract is [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]]. Dispatch is [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]]. Rebuild implementation is [[15-launch-actor-and-hold-span.md]]. This grill no longer owns launch membership or identity.
 
 Grill notes: [[plan/core-creation/reports/grill-issue-09-launch-contract.md]]. The earlier span answers below are historical interrogation notes and no longer control implementation.
 
@@ -40,7 +36,7 @@ Grill notes: [[plan/core-creation/reports/grill-issue-09-launch-contract.md]]. T
 - Q16: Actor initial state is subgraph plus send credential only; Core keeps span, Revision, and registered name. See the grill report.
 - Q17: What might change is sending more subgraph. Lock. Status resolved.
 - 2026-09-11 — [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] superseded the span-shaped request, Browser-selected registered name, transient-only public number, and non-event launch assumptions.
-- 2026-09-11 — Command Node text is the Actor dispatch (`?test echo` / `?ai ...`). This replaces Browser Command-role selection.
+- 2026-09-11 — Dispatch is [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]].
 
 ## Time
 
@@ -64,3 +60,4 @@ Grill notes: [[plan/core-creation/reports/grill-issue-09-launch-contract.md]]. T
 - 2026-09-05 10m — locked contract; Q17 more-subgraph may-change; resolved (from chat)
 - 2026-09-06 5m — Answer: query fails after delete-actor applies, not when the Actor Task returns (from chat)
 - 2026-09-11 5m — record Command-text Actor dispatch (from chat)
+- 2026-09-11 5m — drop restated launch contract; point at 07 and 15 (from chat)

@@ -20,10 +20,10 @@ Define an implementation-ready initial Core increment that extracts the full cur
 - [[plan/core-creation/issues/03-define-typed-core-changes-contract.md]] — normal and Parse-only Graph-only operations accept typed Change lists and return typed acceptance facts or the current text Reject while preserving all existing behavior.
 - [[plan/core-creation/issues/04-separate-http-adapter-from-core-changes.md]] — `Api.postChange` decodes and encodes the normal HTTP path around typed Core Changes, while Parse calls typed Graph-only Post Change directly.
 - [[plan/core-creation/issues/05-place-core-changes-in-existing-projects.md]] — a new Server Core module owns agent selection and exposes the full current Graph-agent package as one typed GraphAgentHandle while existing Shared and agent modules stay in place.
-- [[plan/core-creation/issues/09-define-core-command-launch-contract.md]] — Browser sends included NodeIds, Zoom, Focus, Command, and current event id. Core reads Command Node text to resolve ActorName and constructs the authoritative extract. Launch appends ActorStarted before scheduling.
-- [[plan/core-creation/issues/10-define-actor-cancellation-and-output-admission.md]] — public Authority plus secret admission, Focus-keyed Cancelled, and strict mailbox ordering replace span membership and Graph lock-present.
-- [[plan/core-creation/issues/11-define-actor-finish-and-failure-behavior.md]] — Succeeded, Failed, and Cancelled append exactly one ActorFinished before registry removal. Safe failure is durable; raw provider detail stays in logs.
-- [[plan/core-creation/issues/12-define-actor-pool-shutdown-behavior.md]] — Database unavailability remains distinct from host stop. Host stop drains through terminal Events; restart appends ActorFinished Interrupted for unmatched ActorStarted.
+- [[plan/core-creation/issues/09-define-core-command-launch-contract.md]] — launch grill; controlling contract is [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]]; rebuild is [[plan/core-creation/issues/15-launch-actor-and-hold-span.md]].
+- [[plan/core-creation/issues/10-define-actor-cancellation-and-output-admission.md]] — cancellation grill; controlling contract is [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]]; rebuild is [[plan/core-creation/issues/17-cancel-a-job.md]].
+- [[plan/core-creation/issues/11-define-actor-finish-and-failure-behavior.md]] — finish grill; controlling contract is [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]]; rebuild is [[plan/core-creation/issues/18-finish-and-drop.md]].
+- [[plan/core-creation/issues/12-define-actor-pool-shutdown-behavior.md]] — Database-down vs host-stop; implementations [[plan/core-creation/issues/19-database-down-and-host-stop.md]] and [[plan/core-creation/issues/28-drain-actor-lifecycle-on-host-stop.md]].
 
 ## Not yet specified
 

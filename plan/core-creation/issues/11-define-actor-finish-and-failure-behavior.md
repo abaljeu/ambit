@@ -3,7 +3,7 @@
 **Type:** grilling
 **Status:** done
 Blocked by: 03, 09, 10
-Actual: 1h
+Actual: 1h5m
 
 ## Question
 
@@ -11,15 +11,7 @@ How does Core transition and retain job state when an Actor finishes successfull
 
 ## Answer
 
-The controlling contract is [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]]. Succeeded, Failed, and Cancelled are Core mailbox terminal messages. The first terminal message durably appends ActorFinished to the one global Event sequence. Failed stores a safe domain error; raw provider details stay in logs. Cancelled has no Error or Change. A duplicate or late terminal message is ignored.
-
-Core accepts Changes while the Actor remains registered. Terminal processing runs after earlier queued Changes, derives truthful success from their outcomes, appends ActorFinished, synchronously removes the live registry and secret, then requests asynchronous termination only if the task is still running. Core never waits. Earlier accepted output remains even if later output rejects.
-
-The Browser observes Graph and lifecycle Events through universal Core responses and Poll. Public Actor identity remains durable after drop. ActorStarted and ActorFinished replace the non-History lock-present overlay; no Graph lock field is written or cleared.
-
-On restart, every unmatched ActorStarted receives ActorFinished Interrupted. The live secret is not recovered and work does not resume.
-
-Shutdown stays [[12-define-actor-pool-shutdown-behavior.md]].
+The controlling contract is [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]]. Finish and drop implementation is [[18-finish-and-drop.md]]. Shutdown stays [[12-define-actor-pool-shutdown-behavior.md]].
 
 Grill notes: [[plan/core-creation/reports/grill-issue-11-finish.md]]. The earlier no-terminal and Graph-lock answers below are historical interrogation notes and no longer control implementation.
 
@@ -50,3 +42,4 @@ Grill notes: [[plan/core-creation/reports/grill-issue-11-finish.md]]. The earlie
 - 2026-09-05 5m — recorded delete-actor rule; withdrew Q9/Q10 (from chat)
 - 2026-09-05 5m — locked contract; Q11=A; resolved (from chat)
 - 2026-09-11 5m — amend Answer with mailbox/TaskPool/drop shape (from chat)
+- 2026-09-11 5m — drop restated finish contract; point at 07 and 18 (from chat)

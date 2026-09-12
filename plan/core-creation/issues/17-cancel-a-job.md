@@ -5,18 +5,15 @@
 
 ## Context
 
-A person stops further Actor work by Focus NodeId. At most one live Actor may target that Focus, so lookup is unique. Different Focus NodeIds may run concurrently regardless of overlapping or nested Zoom extracts. Changes that already merged stay. Cancel is not Undo.
+A person stops further Actor work by Focus NodeId. Lookup is unique because Focus exclusivity is [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]]. Changes that already merged stay. Cancel is not Undo.
 
 ## What to build
 
-Core finds the live Actor by Focus NodeId and queues terminal Cancelled on the one Core mailbox. Processing Cancelled durably appends ActorFinished with no Error or Change, synchronously removes the registry and secret credential, then requests asynchronous task termination without waiting. Strict mailbox order means Change-before-Cancel applies and Cancel-before-Change rejects. A late duplicate completion is ignored. Cancellation preserves Focus Children except for earlier accepted Changes. Do not restore span membership or Graph lock-present.
+Cancel the unique live Actor by Focus NodeId. Terminal and drop are [[18-finish-and-drop.md]]. Preserve earlier accepted Changes, reject later output through normal Authority admission, and do not Undo. Do not restore span membership or Graph lock-present.
 
 - [ ] Cancel identifies the unique live job by Focus NodeId.
-- [ ] Cancelled appends ActorFinished, removes the registry and secret, and requests termination without waiting.
-- [ ] Change-before-Cancel applies and Cancel-before-Change rejects through normal Authority admission.
 - [ ] Cancel does not Undo merged Changes.
-- [ ] Cancellation emits no Error or Graph Change and preserves Focus Children.
-- [ ] A late duplicate completion after cancellation is ignored.
+- [ ] Later output after Cancelled is refused through normal Authority admission.
 
 ## See also
 
@@ -30,4 +27,8 @@ Core finds the live Actor by Focus NodeId and queues terminal Cancelled on the o
 
 ## Design note (2026-09-07)
 
-Cancel is a fast Core mailbox message sharing the terminal and drop path ([[doc/Decisions/0004-core-mailbox-messages-clear-fast.md]], [[plan/core-creation/issues/18-finish-and-drop.md]]). Update durable lifecycle and admission state synchronously, request termination without waiting, and do not invent a second drop or cancel-specific reject.
+Cancel is a fast Core mailbox message. It shares the terminal and drop path in [[plan/core-creation/issues/18-finish-and-drop.md]]. See [[doc/Decisions/0004-core-mailbox-messages-clear-fast.md]].
+
+## Time
+
+- 2026-09-11 5m — drop restated terminal and drop path; keep unique Focus cancel (from chat)

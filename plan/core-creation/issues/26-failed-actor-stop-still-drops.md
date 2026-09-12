@@ -9,7 +9,7 @@ The rewound implementation did not drop a failed Actor. Its live registry and se
 
 ## What I expected
 
-Failed is a terminal mailbox message. Core appends ActorFinished with a safe domain error, synchronously removes the live registry and secret, and requests task termination without waiting. Raw provider details stay in logs. This corrected expectation is controlled by [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]].
+Failed-stop cleanup is [[plan/core-creation/issues/18-finish-and-drop.md]], locked by [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]].
 
 ## Why cancelled
 

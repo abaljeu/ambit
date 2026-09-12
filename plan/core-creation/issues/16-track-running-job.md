@@ -2,7 +2,7 @@
 
 **Status:** blocked
 **Blocked by:** [[plan/core-creation/issues/15-launch-actor-and-hold-span.md]]
-**Actual:** 45m
+**Actual:** 50m
 
 ## Context
 
@@ -10,11 +10,10 @@ This issue records historical query-by-public-number delivery. The claim that th
 
 ## What to build
 
-The existing live-registry query may identify the Actor while it runs. Durable lifecycle state is an Event projection, not a retained task object: ActorStarted exposes public identity, and exactly one ActorFinished records Succeeded, safe Failed, Cancelled, or Interrupted. Universal Core responses carry `{ nodes; events; latestId }`.
+Query the registered Actor by public identity while it is live. Durable lifecycle after drop is [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] and [[18-finish-and-drop.md]]. Cancel by Focus is [[17-cancel-a-job.md]].
 
 - [x] Query by the public number identifies the Actor while it is registered.
-- [x] Focus NodeId, not public identity, is the cancel argument.
-- [ ] ActorStarted and ActorFinished remain the durable lifecycle result after live-registry query ends.
+- [ ] After live-registry query ends, lifecycle remains an Event projection.
 
 ## See also
 
@@ -30,3 +29,4 @@ The existing live-registry query may identify the Actor while it runs. Durable l
 ## Time
 
 - 2026-09-06 45m — query-by-number on the Core Actor pool (from chat)
+- 2026-09-11 5m — drop restated terminal and cancel rules; keep unique live query (from chat)

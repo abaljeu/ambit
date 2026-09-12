@@ -3,7 +3,7 @@
 **Type:** grilling
 **Status:** done
 Blocked by: 09, 10, 11
-Actual: 95m
+Actual: 105m
 
 ## Question
 
@@ -11,13 +11,11 @@ When the Server or Core shuts down, how are running and queued Actors cancelled 
 
 ## Answer
 
-Database unavailability and host stop are distinct. Crash isolation stays out of scope. The controlling Actor lifecycle is [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]].
+Database unavailability and host stop are distinct. Crash isolation stays out of scope.
 
-When a mutating request attempts a transaction and gets a TCP or transport error, Core rejects that request and treats the Database as down. Already-enqueued mailbox items remain ordered and each reaches its normal processing attempt. There is no clear-the-mailbox API. The next mutating request or launch is the probe; reads stay admitted. This system failure is distinct from Authority refusal. Persistence detail remains controlled by [[plan/core-creation/issues/13-delete-runtime-mirror-and-remove-production-persistence-mode.md]].
+Database-down: a mutating request that gets a TCP error is a system-error Reject; the Database is down; already-enqueued items still apply; the next mutating Post or launch is the probe; reads stay admitted. Persistence detail is [[plan/core-creation/issues/13-delete-runtime-mirror-and-remove-production-persistence-mode.md]]. Implementation is [[19-database-down-and-host-stop.md]]. This failure is distinct from Authority refusal ([[14-server-tracks-credentials.md]]).
 
-Actor lifecycle is durable Event state, not a Graph lock field. ActorStarted and ActorFinished use the same global Event sequence as Change, Undo, and Redo. On restart, Core appends ActorFinished Interrupted for each unmatched ActorStarted. No secret credential persists or recovers.
-
-On host stop, Core refuses new mutating requests, drains the ordered mailbox through terminal Events and drop, requests cancellation of running Actors without waiting, and exits when the mailbox is idle or the host default timeout fires. No separate Core timeout is defined.
+Host-stop drain is [[28-drain-actor-lifecycle-on-host-stop.md]]. Restart Interrupted is [[18-finish-and-drop.md]].
 
 Grill notes: [[plan/core-creation/reports/grill-issue-12-shutdown.md]]. Earlier lock-field and no-terminal statements below are historical interrogation notes and no longer control implementation.
 
@@ -43,6 +41,7 @@ Grill notes: [[plan/core-creation/reports/grill-issue-12-shutdown.md]]. Earlier 
 - Persist how (2026-09-06): Q5 semantics stay; SQL create, update, and select omit the lock field. See the grill report.
 - Amend (2026-09-06): revert Q2B / Q13A. Keep one mailbox rule: already-enqueued items apply (10). TCP fail Rejects that one mutating Change and marks Database down; siblings stay. Q6 "dropped outage items stay gone" was that old drop-siblings world. No mailbox-clear API. System error stays distinct from 10 auth refuse. Status stays resolved.
 - 2026-09-11 — [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] replaced the Graph lock field and no-terminal shutdown assumption with durable lifecycle Events and Interrupted restart reconciliation.
+- 2026-09-11 — Completed-detail pass from [[29-prove-testactor-hello.md]]: Answer has no checkboxes. Locked Database-down vs host-stop prose stays unmarked. Did not invent a new list.
 
 ## Time
 
@@ -59,3 +58,5 @@ Grill notes: [[plan/core-creation/reports/grill-issue-12-shutdown.md]]. Earlier 
 - 2026-09-06 5m — lock-present persist how: SQL omit lock field (from chat)
 - 2026-09-06 10m — revert drop-siblings (Q2B / Q13A); keep apply-already-enqueued; system error stays out of auth refuse (from chat)
 - 2026-09-06 5m — Comments: Q6 dropped-outage line is the old drop-siblings world (from chat)
+- 2026-09-11 5m — keep unique Database-down lock; point host-stop and Interrupted at 28 and 18 (from chat)
+- 2026-09-11 5m — completed-detail pass; leave locked Answer as prose (from chat)
