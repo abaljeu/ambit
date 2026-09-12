@@ -137,8 +137,7 @@ let ``callers reach changes and command on the Core object`` () = task {
     let handle = runtime.changes ()
     let! rev = handle.getRevision () |> Async.StartAsTask
     Assert.Equal(Revision 0, rev)
-    let! missing =
-        runtime.command.query (PublicNumber 1) |> Async.StartAsTask
+    let missing = runtime.command.query (PublicNumber 1)
     Assert.Equal(Error CoreActorPool.unknownJob, missing)
     Assert.False(CoreAuth.isAuthRefuse CoreActorPool.unknownJob)
     Assert.False(CoreAuth.isAuthRefuse CoreActorPool.overlap)

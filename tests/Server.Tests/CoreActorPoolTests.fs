@@ -216,7 +216,7 @@ let ``query by public number identifies the registered Actor`` () = task {
               span = spanOf state.graph childId }
         let! launched = pool.launch handle request |> Async.StartAsTask
         let number = requireOk "launch" launched
-        let! found = pool.query number |> Async.StartAsTask
+        let found = pool.query number
         Assert.Equal(Ok request, found)
     finally
         FileAgent.dispose agent
@@ -246,7 +246,7 @@ let ``query does not return a job result or job Error`` () = task {
         let! _, cred = waitActor started
         let! live = credentials.contains cred |> Async.StartAsTask
         Assert.True(live)
-        let! found = pool.query number |> Async.StartAsTask
+        let found = pool.query number
         match found with
         | Error err ->
             Assert.Fail($"query returned Error, not identity: {err}")
@@ -285,15 +285,15 @@ let ``query uses the public number, not a span NodeId`` () = task {
             |> Async.StartAsTask
         let n1 = requireOk "first" first
         let n2 = requireOk "second" second
-        let! q1 = pool.query n1 |> Async.StartAsTask
-        let! q2 = pool.query n2 |> Async.StartAsTask
+        let q1 = pool.query n1
+        let q2 = pool.query n2
         let job1 = requireOk "query first" q1
         let job2 = requireOk "query second" q2
         Assert.Equal(ActorName "first", job1.name)
         Assert.Equal(ActorName "second", job2.name)
         Assert.Equal(spanOf state.graph a, job1.span)
         Assert.Equal(spanOf state.graph b, job2.span)
-        let! missing = pool.query (PublicNumber 0) |> Async.StartAsTask
+        let missing = pool.query (PublicNumber 0)
         Assert.Equal(Error CoreActorPool.unknownJob, missing)
         Assert.Equal(
             Error(CoreAdmissionError.text CoreAdmissionError.UnknownJob),

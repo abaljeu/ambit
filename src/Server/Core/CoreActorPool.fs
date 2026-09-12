@@ -18,8 +18,8 @@ type CoreActorPool =
     { register: ActorName -> ActorFn -> unit
       launch:
         CoreChanges -> LaunchRequest -> Async<Result<PublicNumber, string>>
-      query: PublicNumber -> Async<Result<LaunchRequest, string>>
-      lockedIds: unit -> Async<Set<NodeId>>
+      query: PublicNumber -> Result<LaunchRequest, string>
+      lockedIds: unit -> Set<NodeId>
       withLocks: CoreChanges -> CoreChanges }
 
 [<RequireQualifiedAccess>]
@@ -96,6 +96,7 @@ module CoreActorPool =
 
     type private SynchronizedTable() =
         let lockObj = obj ()
+        // Ticket 30 exception: table mutators are synchronous (not mailbox-based)
         let mutable model =
             { next = 1
               defs = Map.empty
@@ -166,19 +167,17 @@ module CoreActorPool =
     let private runQuery
         (table: SynchronizedTable)
         (PublicNumber number)
-        : Async<Result<LaunchRequest, string>> =
-        async {
-            let found = table.Query(number)
-            match found with
-            | Some job -> return Ok job
-            | None -> return Error unknownJob
-        }
+        : Result<LaunchRequest, string> =
+        let found = table.Query(number)
+        match found with
+        | Some job -> Ok job
+        | None -> Error unknownJob
 
     let create (credentials: CoreCredentials) : CoreActorPool =
         let table = SynchronizedTable()
         let lockedIds () = table.GetLockedIds()
         { register = fun name actor -> table.Register(name, actor)
-          lockedIds = fun () -> async.Return(lockedIds ())
+          lockedIds = lockedIds
           withLocks = overlayLocks lockedIds
           launch = runLaunch table credentials
           query = runQuery table }
