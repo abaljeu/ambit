@@ -1,12 +1,12 @@
 # 29 — Prove TestActor hello
 
-**Status:** ready-for-agent
-**Blocked by:** None — can start immediately.
+**Status:** blocked
+**Blocked by:** [[30-reshape-coreactorpool-synchronized-table.md]] — Reshape CoreActorPool to a synchronized table
 Actual: 1h10m
 
 ## Context
 
-Core can already apply a Change from a test Actor through the produce path. [[plan/core-creation/issues/01-generalized-server-actor-produce-path.md]], [[plan/core-creation/issues/12-define-actor-pool-shutdown-behavior.md]], and [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] are done. Launch and query still sit on a discarded second pool mailbox. The eight Phase 2 items name pieces of that program; they are not this increment. A first proof must use the existing Browser Run path, launch TestActor through the public Core path, and show one successful hello from outside.
+Core can already apply a Change from a test Actor through the produce path. [[plan/core-creation/issues/01-generalized-server-actor-produce-path.md]], [[plan/core-creation/issues/12-define-actor-pool-shutdown-behavior.md]], and [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] are done. The eight Phase 2 items name pieces of that program; they are not this increment. A first proof must use the existing Browser Run path, launch TestActor through the public Core path, and show one successful hello from outside.
 
 ## What to build
 
@@ -16,7 +16,7 @@ This increment draws only those bits from [[02-core-actor-pool.md]], [[14-server
 
 Build this augmentation on the shared `CoreMailbox` callable interface in [[src/Server/Core/CoreMailbox.fs]] and the internal `CoreMailboxBackend` implementation used by the FileAgent and DbAgent persistence twins in [[src/Server/Core/CoreMailboxBackend.fs]]. This foundation is a prerequisite, not another mailbox refactor.
 
-- [ ] Rebuild that shape on the one Core mailbox. Put the registry (public Actor identity, secret credential, termination handle, and Focus NodeId) in mailbox state. The runner is not a mailbox. Do not wrap-patch the discarded second pool mailbox.
+- [ ] Rebuild that shape on the one Core mailbox. Put the registry (public Actor identity, secret credential, termination handle, and Focus NodeId) in mailbox state. CoreActorPool shall be used as the thread-pool runner after 30; do not wrap-patch its old mailbox-queue internals.
 - [ ] This increment does not include live query, cancel, host-stop, fail, post-twice, duplicate terminal, Interrupted restart, new Browser chrome or controls, or Actor definitions other than TestActor.
 
 ### 2. Register the TestActor definition
@@ -74,6 +74,7 @@ This is the first user-visible functional augmentation after the foundation and 
 - 2026-09-11 — Dispatch itself is [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]]. That ticket owns command text `?test hello`.
 - 2026-09-11 — Hello uses the universal `{ nodes; events; latestId }` response. It does not use `CoreChangesAccepted`. TestActor receives the secret credential; after ActorFinished the outer fact proves that secret no longer admits a post.
 - 2026-09-12 — Alan locked the first user-visible augmentation as existing Browser Run through one-Node Command transport, named Actor dispatch, and TestActor hello. The same current Node is Command, Zoom root, and Focus.
+- 2026-09-12 — Blocked on 30. CoreActorPool is not discarded; its queue design is.
 
 ## Time
 
