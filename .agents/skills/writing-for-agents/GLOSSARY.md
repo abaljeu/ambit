@@ -174,6 +174,12 @@ The desired state where each meaning lives in exactly one authoritative place, s
 
 _Avoid_: home, canonical location
 
+### Cache
+
+A document that restates a lookup the environment already answers — scripts, config files, the directory layout, `--help` output. The environment is a **single source of truth**. A cache earns its load only when the lookup is expensive: the unwritten convention, the gotcha no config confesses.
+
+_Avoid_: environment dump, restated lookup
+
 ### Duplication
 
 _Failure mode._ The same meaning given more than one **single source of truth**. It costs maintenance (change one place, you must change the others), costs tokens, and inflates prominence — repeating a meaning weights it on the ladder past its real rank. The accidental inverse of a **leading word**, which raises attention on purpose by repeating a token, never the meaning.

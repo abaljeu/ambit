@@ -8,6 +8,7 @@ Canonical project rules are split across [[.agents/rules/]]. Cursor attaches the
 - [[.agents/rules/markdown-writing.md]] — markdown conventions (scoped to *.md)
 - [[.agents/rules/planning-docs.md]] — roadmap/plan documents (scoped to doc/)
 - [[.agents/rules/project-stage.md]] — keep each `plan/` project's `Stage:` current
+- [[.agents/rules/no-retrofit.md]] — skill or rule change; old work stays
 
 Shared runtime state:
 

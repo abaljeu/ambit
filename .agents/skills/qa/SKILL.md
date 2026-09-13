@@ -48,7 +48,7 @@ Keep as a single issue when:
 
 Publish under `plan/<feature-slug>/issues/` per [[doc/agents/issue-tracker.md]]. Do NOT ask the user to review first — file and share the paths.
 
-Each published file is a tracker issue as defined in that doc: numbered `NN-slug.md`, a title heading, and a bold `**Status:**` line with a Status value from the tracker. Newly filed issues that have reproduction steps use `ready-for-agent`. Numbering, field labels, and other tracker fields follow the tracker doc. Do not copy the ticket template from [[.agents/skills/to-tickets/SKILL.md]].
+Each published file is a tracker issue as defined in that doc: numbered `NN-slug.md`, a title heading, and a bold `**Status:**` line with a Status value from the tracker. Newly filed issues that have reproduction steps use `ready-for-agent`. Numbering, field labels, and other tracker fields follow the tracker doc. Do not copy the ticket template from [[.agents/skills/to-tickets/PUBLISH.md]].
 
 Issues must be **durable** — they should still make sense after major refactors. Write from the user's perspective.
 

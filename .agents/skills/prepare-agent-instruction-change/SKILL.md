@@ -10,7 +10,7 @@ Canonical layout: [[.agents/rules/gambol.md]].
 ## Principles
 
 - **Rules** — policy and file conventions. Canonical text lives in [[.agents/rules/]]. Cursor loads [[.cursor/rules/]] `.mdc` stubs (`alwaysApply` or `globs`) that point at those files.
-- **Skills** — recurring workflows; link to rules, do not copy them. Repo-shared skills live in [[.agents/skills/]].
+- **Skills** — recurring workflows; link to rules, do not copy them. Repo-shared skills live in [[.agents/skills/]]. Write each SKILL.md per [[.agents/skills/writing-for-agents/SKILL.md]].
 - **Bridges** — tool-specific deltas only (`AGENTS.md`, [[.agents/copilot-instructions.md]], [[.agents/codex-context.md]]). Cursor still reads [[.cursor/copilot-instructions.md]] and [[.cursor/codex-context.md]] as stubs.
 
 ## Edit workflow
@@ -25,6 +25,7 @@ Canonical layout: [[.agents/rules/gambol.md]].
 - [ ] Universal rules stay short; scoped rules do not repeat them.
 - [ ] Skills link to rules instead of copying policy.
 - [ ] Bridge files do not duplicate rule or skill bodies.
+- [ ] When the change includes a skill SKILL.md, every paragraph is a step or an in-file caveat the agent needs on every run; else disclose or delete ([[.agents/skills/writing-for-agents/SKILL.md]]).
 
 ## Do not
 

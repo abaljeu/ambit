@@ -53,39 +53,6 @@ Ask the user:
 
 Iterate until the user approves the breakdown.
 
-### 5. Publish the tickets to the configured tracker
+### 5. Publish
 
-Publish the approved tickets.
-
-write one file per ticket under `plan/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01` in dependency order (blockers first). Each file's "Blocked by" lists the numbers/titles it depends on. Use the per-ticket file template below — one ticket per file, never a single combined file.  Include one or two pointers to defining specs from which the ticket was derived.  Not just `spec.md` but more trace back to decision files.
-
-Record the **frontier** (takeable tickets whose blockers are all done) for a later implement. For a purely linear chain that is the first ticket.
-
-Do NOT close or modify any parent issue.
-
-
-<!-- 2026-09-02 updated format.  Do not use old format.  Don't rewrite old tickets unless asked. -->
-<local-ticket-template>
-
-# <NN> — <Ticket title>
-
-**Status:** ready-for-agent
-**Blocked by:** the numbers/titles of the tickets that gate this one, or "None — can start immediately".
-
-## Context
-Explain the scenario where the newly built feature will be applied.  Write in the style of [[.agents/skills/wait-what/SKILL.md]].
-
-## What to build
-The end-to-end behaviour this ticket makes work, from the user's perspective — not a layer-by-layer implementation list.  Write in the style of [[.agents/skills/wait-what/SKILL.md]].
-
-- [ ] Acceptance criterion 1
-- [ ] Acceptance criterion 2
-
-## See also
-One or two wikilinks to the defining spec and decision files this ticket was derived from (not only the parent `spec.md`).
-
-</local-ticket-template>
-
-Add a ## Comments section only when there is a comment.
-
-Avoid code snippets — they go stale fast. Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it and note briefly that it came from a prototype. Trim to the decision-rich parts — not a working demo, just the important bits.
+When the user approves the breakdown, publish the tickets per [[PUBLISH.md]].

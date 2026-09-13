@@ -48,37 +48,6 @@ Ask the user:
 
 Iterate until the user approves the breakdown.
 
-### 5. Publish the tickets
+### 5. Publish
 
-Publish the approved tickets.
-
-Plan files and Stage: follow [[.agents/skills/project-work/SKILL.md]].
-
-Write one file per ticket under `plan/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01` in dependency order (blockers first). Each file's "Blocked by" lists the numbers/titles it depends on. Use the per-ticket file template below — one ticket per file. Include one or two pointers to defining specs from which the ticket was derived. Not just `spec.md` but more trace back to decision files.
-
-Do not close or modify any parent issue.
-
-<local-ticket-template>
-
-# <NN> — <Ticket title>
-
-**Status:** ready-for-agent
-**Blocked by:** the numbers/titles of the tickets that gate this one, or "None — can start immediately".
-
-## Context
-Explain the scenario where the newly built feature will be applied. Write in the style of [[.agents/skills/wait-what/SKILL.md]].
-
-## What to build
-The functionality this ticket makes work — not a layer-by-layer implementation list. Write in the style of [[.agents/skills/wait-what/SKILL.md]].
-
-- [ ] Acceptance criterion 1
-- [ ] Acceptance criterion 2
-
-## See also
-One or two wikilinks to the defining spec and decision files this ticket was derived from (not only the parent `spec.md`).
-
-</local-ticket-template>
-
-Add a ## Comments section only when there is a comment.
-
-Avoid code snippets — they go stale fast. Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it and note briefly that it came from a prototype. Trim to the decision-rich parts.
+When the user approves the breakdown, publish the tickets per [[.agents/skills/to-tickets/PUBLISH.md]].
