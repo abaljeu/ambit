@@ -44,17 +44,19 @@ module DatabaseSetup =
     let private dbAgentCache: (string * MailboxHost) option ref = ref None
     let private dbAgentLock = obj ()
 
-    /// Hands back the Core Changes contract only; the host stays in the cache.
-    let getOrCreateDbAgent (connStr: string) (dataDir: string) : CoreChanges =
+    /// Shared MailboxHost for a dataDir; the host stays in the cache.
+    let getOrCreateDbHost (connStr: string) (dataDir: string) : MailboxHost =
         lock dbAgentLock (fun () ->
             match !dbAgentCache with
             | Some (dir, host) when dir = dataDir -> host
             | _ ->
                 let host = CoreMailbox.createDbWithDataDir connStr dataDir
                 dbAgentCache.Value <- Some (dataDir, host)
-                host
-        )
-        |> CoreMailbox.coreChanges
+                host)
+
+    /// Hands back the Core Changes contract only; the host stays in the cache.
+    let getOrCreateDbAgent (connStr: string) (dataDir: string) : CoreChanges =
+        getOrCreateDbHost connStr dataDir |> CoreMailbox.coreChanges
 
     let statusFromMatches (matchesBeforeRebuild: bool) (matchesAfterRebuild: bool) : DbStatus =
         if matchesBeforeRebuild then

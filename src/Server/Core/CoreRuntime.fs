@@ -56,11 +56,16 @@ module CoreRuntime =
                     file.postGraphOnlyChange
                     (fun handle -> handle.postGraphOnlyChange) }
 
-    let private addLifetimeCredentials (credentials: CoreCredentials) =
+    let private addLifetimeCredentials
+        (credentials: CoreCredentials)
+        (callers: CallerTable)
+        =
         let browser = Credential(Guid.NewGuid().ToString("N"))
         let parse = Credential(Guid.NewGuid().ToString("N"))
         credentials.add browser |> Async.RunSynchronously
         credentials.add parse |> Async.RunSynchronously
+        callers.add (Authority "browser") browser
+        callers.add (Authority "parse") parse
         browser, parse
 
     let create
@@ -71,6 +76,14 @@ module CoreRuntime =
         : CoreRuntime =
         let fileHost = lazy (CoreMailbox.createFile dataDir)
         let getFile () = fileHost.Value |> CoreMailbox.coreChanges
+        let actorHost =
+            match persistenceMode, dbStatus with
+            | DatabaseSetup.PersistenceMode.Db, DatabaseSetup.DbStatus.Ok ->
+                DatabaseSetup.getOrCreateDbHost
+                    dbConnectionString
+                    dataDir
+            | _ ->
+                fileHost.Value
         let rawHandle () =
             match persistenceMode, dbStatus with
             | DatabaseSetup.PersistenceMode.Db, DatabaseSetup.DbStatus.Ok ->
@@ -83,10 +96,10 @@ module CoreRuntime =
                 getFile () |> readOnly
             | DatabaseSetup.PersistenceMode.File, _ ->
                 getFile ()
-        let credentials = CoreCredentials.create ()
+        let credentials = actorHost.credentials
         let browserCredential, parseCredential =
-            addLifetimeCredentials credentials
-        let pool = CoreActorPool.create credentials
+            addLifetimeCredentials credentials actorHost.callers
+        let pool = actorHost.pool
         let changes () = pool.withLocks (rawHandle ())
         let bindChanges sender =
             CoreAuth.bindHandle credentials sender (changes ())

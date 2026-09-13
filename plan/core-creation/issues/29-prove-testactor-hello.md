@@ -1,8 +1,8 @@
 # 29 — Prove TestActor hello
 
-**Status:** blocked
-**Blocked by:** [[32-move-persist-agents-under-coremailbox.md]] — Persist agents under Core, generic CoreMailbox door (note: 30 and 31 are done)
-Actual: 2h15m
+**Status:** ready-for-agent
+**Blocked by:** none — [[32-move-persist-agents-under-coremailbox.md]] is done. Remaining hello sections still open.
+Actual: 4h15m
 
 ## Context
 
@@ -20,13 +20,13 @@ Live query, cancel, host-stop, fail, post-twice, duplicate terminal, Interrupted
 
 The foundation is one Core mailbox: the `CoreMsg` union, the `CoreMailboxBackend` loop, and the CoreMailbox door on MailboxHost after [[32-move-persist-agents-under-coremailbox.md]]. Sources: [[src/Server/Core/CoreMailbox.fs]], [[src/Server/Core/CoreMailboxBackend.fs]]. Persist stays the PersistHandlers parameter from [[31-one-coremsg-loop-parameterized-persist.md]]. `StartActor` and `ActorStop of ActorResult` are new `CoreMsg` cases on that same loop. `type ActorResult = | ActorSucceeded`. The loop handles `StartActor`: mailbox validates the caller's public Authority and secret, then hands off async to startActor in CoreActorPool. The loop handles `ActorStop`. `ActorStop` mutates the CoreActorPool table. The loop admits the Actor against that table before `PostChange`. There is no second mailbox and no second live registry beside that table. This foundation is a prerequisite for the hello proof, not another mailbox refactor.
 
-- [ ] The live registry is CoreActorPool's data: public Actor identity, secret credential, termination handle, and Focus NodeId. That data is the pool's synchronized table. Mailbox-loop state does not hold a second copy.
-- [ ] Add the `StartActor` launch case to `CoreMsg`. The loop handles `StartActor`. Mailbox validates the caller's public Authority and secret, then hands off async to startActor in CoreActorPool to do the work.
-- [ ] startActor creates the Actor public identity and secret, writes the live row on that table against Focus, appends ActorStarted, then asks CoreActorPool to run the Actor body. The mailbox stays free. ActorStarted and the live row exist before any Actor Change can be admitted.
-- [ ] After the same loop admits the Actor's public Authority and secret against that table, Actor `test` (TestActor) switches to run `hello` and posts that Change through the existing `PostChange` persist case.
-- [ ] Add `ActorStop of ActorResult` to `CoreMsg`. `type ActorResult = | ActorSucceeded`. The loop handles `ActorStop`. After earlier queued Changes, `ActorStop ActorSucceeded` appends ActorFinished, removes the live row from the CoreActorPool table and the secret together, and requests terminate only if the body still runs. `ActorStop` is not a Change. The mailbox never waits.
-- [ ] CoreActorPool is the synchronized live table and thread-pool runner ([[src/Server/Core/CoreActorPool.fs]]). The live registry is that table. `StartActor` and `ActorStop` are `CoreMsg` cases. startActor writes the live row on that table. `ActorStop` mutates that table. The loop admits the Actor against that table before `PostChange`. The pool runs the Actor body (`ActorFn`) on the thread pool. The mailbox does not wait on that body or wrap-patch the discarded pool queue.
-- [ ] Callers reach `StartActor`, `PostChange`, and `ActorStop` through the public CoreMailbox door (MailboxHost after [[32-move-persist-agents-under-coremailbox.md]]), not FileAgent or DbAgent wrappers.
+- [x] The live registry is CoreActorPool's data: public Actor identity, secret credential, termination handle, and Focus NodeId. That data is the pool's synchronized table. Mailbox-loop state does not hold a second copy.
+- [x] Add the `StartActor` launch case to `CoreMsg`. The loop handles `StartActor`. Mailbox validates the caller's public Authority and secret, then hands off async to startActor in CoreActorPool to do the work.
+- [x] startActor creates the Actor public identity and secret, writes the live row on that table against Focus, appends ActorStarted, then asks CoreActorPool to run the Actor body. The mailbox stays free. ActorStarted and the live row exist before any Actor Change can be admitted.
+- [x] After the same loop admits the Actor's public Authority and secret against that table, Actor `test` (TestActor) switches to run `hello` and posts that Change through the existing `PostChange` persist case.
+- [x] Add `ActorStop of ActorResult` to `CoreMsg`. `type ActorResult = | ActorSucceeded`. The loop handles `ActorStop`. After earlier queued Changes, `ActorStop ActorSucceeded` appends ActorFinished, removes the live row from the CoreActorPool table and the secret together, and requests terminate only if the body still runs. `ActorStop` is not a Change. The mailbox never waits.
+- [x] CoreActorPool is the synchronized live table and thread-pool runner ([[src/Server/Core/CoreActorPool.fs]]). The live registry is that table. `StartActor` and `ActorStop` are `CoreMsg` cases. startActor writes the live row on that table. `ActorStop` mutates that table. The loop admits the Actor against that table before `PostChange`. The pool runs the Actor body (`ActorFn`) on the thread pool. The mailbox does not wait on that body or wrap-patch the discarded pool queue.
+- [x] Callers reach `StartActor`, `PostChange`, and `ActorStop` through the public CoreMailbox door (MailboxHost after [[32-move-persist-agents-under-coremailbox.md]]), not FileAgent or DbAgent wrappers.
 
 ### 2. Register the TestActor definition
 
@@ -90,6 +90,7 @@ This is the first user-visible functional augmentation after the foundation and 
 - 2026-09-13 — Alan: StartActor opener unclear; name the CoreMsg case, not mailbox-state.
 - 2026-09-13 — Alan: `StartActor` is the CoreMsg case; mailbox validates then async-hands to CoreActorPool.startActor.
 - 2026-09-13 — Alan: generalize; CoreMsg gets `ActorStop of ActorResult`; `type ActorResult = | ActorSucceeded`. No other ActorResult cases yet.
+- 2026-09-13 — Section 1 implemented: one Core mailbox owns `StartActor` / admit-before-`PostChange` / `ActorStop`; live rows live only on the CoreActorPool table; TestActor hello posts through that `PostChange` path. Later sections still open.
 
 ## Time
 
@@ -103,3 +104,4 @@ This is the first user-visible functional augmentation after the foundation and 
 - 2026-09-13 10m — lock live registry as CoreActorPool table (from chat)
 - 2026-09-13 15m — reconcile StartActor / startActor shape after Alan's four bullets (from chat)
 - 2026-09-13 10m — lock ActorStop of ActorResult; ActorSucceeded only (from chat)
+- 2026-09-13 2h — Shared Core mailbox foundation (section 1) (from chat)

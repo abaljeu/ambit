@@ -53,7 +53,7 @@ let ``launch starts Actor with subgraph and credential and returns a public numb
             let credentials = CoreCredentials.create ()
             let pool = CoreActorPool.create credentials
             let started = TaskCompletionSource<Graph * Credential>()
-            pool.register (ActorName "test") (fun subgraph cred _ -> async {
+            pool.register (ActorName "test") (fun _ subgraph cred _ -> async {
                 started.TrySetResult(subgraph, cred) |> ignore
             })
             let! childId = addChild handle "span" |> Async.StartAsTask
@@ -82,7 +82,7 @@ let ``public numbers are never reused`` () = task {
     try
         let handle = CoreMailbox.coreChanges agent
         let pool = CoreActorPool.create (CoreCredentials.create ())
-        pool.register (ActorName "test") (fun _ _ _ -> async.Return())
+        pool.register (ActorName "test") (fun _ _ _ _ -> async.Return())
         let! a = addChild handle "a" |> Async.StartAsTask
         let! b = addChild handle "b" |> Async.StartAsTask
         let! state = handle.getState () |> Async.StartAsTask
@@ -113,7 +113,7 @@ let ``launch that shares a NodeId with a live span is refused`` () = task {
     try
         let handle = CoreMailbox.coreChanges agent
         let pool = CoreActorPool.create (CoreCredentials.create ())
-        pool.register (ActorName "test") (fun _ _ _ -> async.Return())
+        pool.register (ActorName "test") (fun _ _ _ _ -> async.Return())
         let! childId = addChild handle "held" |> Async.StartAsTask
         let! state = handle.getState () |> Async.StartAsTask
         let state = requireOk "state" state
@@ -141,7 +141,7 @@ let ``live span Nodes show lock-present; History and agent graph do not`` () =
         try
             let handle = CoreMailbox.coreChanges agent
             let pool = CoreActorPool.create (CoreCredentials.create ())
-            pool.register (ActorName "test") (fun _ _ _ -> async.Return())
+            pool.register (ActorName "test") (fun _ _ _ _ -> async.Return())
             let! childId = addChild handle "lock" |> Async.StartAsTask
             let! before = handle.getChangesSince (Revision 0) |> Async.StartAsTask
             let! state = handle.getState () |> Async.StartAsTask
@@ -206,7 +206,7 @@ let ``query by public number identifies the registered Actor`` () = task {
     try
         let handle = CoreMailbox.coreChanges agent
         let pool = CoreActorPool.create (CoreCredentials.create ())
-        pool.register (ActorName "test") (fun _ _ _ -> async.Return())
+        pool.register (ActorName "test") (fun _ _ _ _ -> async.Return())
         let! childId = addChild handle "span" |> Async.StartAsTask
         let! state = handle.getState () |> Async.StartAsTask
         let state = requireOk "state" state
@@ -231,7 +231,7 @@ let ``query does not return a job result or job Error`` () = task {
         let credentials = CoreCredentials.create ()
         let started = TaskCompletionSource<Graph * Credential>()
         let pool = CoreActorPool.create credentials
-        pool.register (ActorName "test") (fun subgraph cred _ -> async {
+        pool.register (ActorName "test") (fun _ subgraph cred _ -> async {
             started.TrySetResult(subgraph, cred) |> ignore
         })
         let! childId = addChild handle "span" |> Async.StartAsTask
@@ -265,8 +265,8 @@ let ``query uses the public number, not a span NodeId`` () = task {
     try
         let handle = CoreMailbox.coreChanges agent
         let pool = CoreActorPool.create (CoreCredentials.create ())
-        pool.register (ActorName "first") (fun _ _ _ -> async.Return())
-        pool.register (ActorName "second") (fun _ _ _ -> async.Return())
+        pool.register (ActorName "first") (fun _ _ _ _ -> async.Return())
+        pool.register (ActorName "second") (fun _ _ _ _ -> async.Return())
         let! a = addChild handle "a" |> Async.StartAsTask
         let! b = addChild handle "b" |> Async.StartAsTask
         let! state = handle.getState () |> Async.StartAsTask
@@ -314,7 +314,7 @@ let ``Actor post through launch handle is admitted with the job credential`` () 
             let pool = CoreActorPool.create credentials
             let posted =
                 TaskCompletionSource<Result<CoreChangesAccepted, string>>()
-            pool.register (ActorName "test") (fun subgraph _ core -> async {
+            pool.register (ActorName "test") (fun _ subgraph _ core -> async {
                 let parent = subgraph.nodes.[Graph.rootId]
                 let childId = NodeId.New()
                 let! rev = core.getRevision ()

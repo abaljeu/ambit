@@ -404,13 +404,23 @@ module DbAgent =
                 return Error error
         }
 
+        let actors = ActorMailboxCtx.create ()
         let mailbox =
-            CoreMailboxBackend.startWithPrelude handlers logUnhandledException formatError startupPrelude
+            CoreMailboxBackend.startWithPrelude
+                handlers
+                logUnhandledException
+                formatError
+                actors
+                startupPrelude
 
         mailboxRef.Value <- Some mailbox
 
         { host = {
             mailbox = mailbox
+            pool = actors.pool
+            callers = actors.callers
+            credentials = actors.credentials
+            events = actors.events
             isReady = fun () -> ready.Task.IsCompletedSuccessfully
             flushSnapshot = fun () -> async { return Ok () }
             dispose = fun () -> ()
