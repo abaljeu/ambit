@@ -42,42 +42,7 @@ module CoreMailbox =
         (changes: Change list)
         : Async<Result<CoreChangesAccepted, string>> =
         host.mailbox.PostAndAsyncReply(fun reply ->
-            PostChange(changes, None, reply))
-
-    let postActorChange
-        (host: MailboxHost)
-        (authority: Authority)
-        (secret: Credential)
-        (changes: Change list)
-        : Async<Result<CoreChangesAccepted, string>> =
-        host.mailbox.PostAndAsyncReply(fun reply ->
-            PostChange(changes, Some(authority, secret), reply))
-
-    let addCaller
-        (host: MailboxHost)
-        (authority: Authority)
-        (secret: Credential)
-        : unit =
-        host.callers.add authority secret
-
-    let startActor
-        (host: MailboxHost)
-        (request: StartActorRequest)
-        : Async<Result<ActorStarted, string>> =
-        host.mailbox.PostAndAsyncReply(fun reply ->
-            StartActor(request, reply))
-
-    let actorStop
-        (host: MailboxHost)
-        (authority: Authority)
-        (secret: Credential)
-        (result: ActorResult)
-        : Async<Result<unit, string>> =
-        host.mailbox.PostAndAsyncReply(fun reply ->
-            ActorStop(authority, secret, result, reply))
-
-    let lifecycleEvents (host: MailboxHost) : CoreEvent list =
-        host.events.all ()
+            PostChange(changes, reply))
 
     let postGraphOnlyChange
         (host: MailboxHost)

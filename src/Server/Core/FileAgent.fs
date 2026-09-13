@@ -265,16 +265,11 @@ module FileAgent =
         let formatError operation =
             $"Internal server error in FileAgent {operation} (dataDir={dataDir})."
 
-        let actors = ActorMailboxCtx.create ()
         let mailbox =
-            CoreMailboxBackend.start handlers onError formatError actors
+            CoreMailboxBackend.start handlers onError formatError
 
         let host: MailboxHost = {
             mailbox = mailbox
-            pool = actors.pool
-            callers = actors.callers
-            credentials = actors.credentials
-            events = actors.events
             isReady = fun () -> true
             flushSnapshot = fun () -> async { return Ok () }
             dispose =

@@ -4,29 +4,6 @@ open Gambol.Shared
 
 type Credential = Credential of string
 
-type Authority = Authority of string
-
-type CallerTable =
-    { add: Authority -> Credential -> unit
-      admit: Authority -> Credential -> bool }
-
-[<RequireQualifiedAccess>]
-module CallerTable =
-
-    let create () : CallerTable =
-        let lockObj = obj ()
-        let mutable live: Map<string, Credential> = Map.empty
-        { add =
-            fun (Authority name) secret ->
-                lock lockObj (fun () ->
-                    live <- Map.add name secret live)
-          admit =
-            fun (Authority name) secret ->
-                lock lockObj (fun () ->
-                    match Map.tryFind name live with
-                    | Some stored -> stored = secret
-                    | None -> false) }
-
 type CoreAdmissionError =
     | Unauthorized
     | UnknownJob
