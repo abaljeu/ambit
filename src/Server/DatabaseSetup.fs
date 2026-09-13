@@ -41,20 +41,20 @@ module DatabaseSetup =
         Thoth.Json.Newtonsoft.Decode.fromString Serialization.decodeChange s
 
     // DB agent is a single shared instance (one database per dataDir).
-    let private dbAgentCache: (string * DbAgent) option ref = ref None
+    let private dbAgentCache: (string * MailboxHost) option ref = ref None
     let private dbAgentLock = obj ()
 
-    /// Hands back the Core Changes contract only; the raw agent stays in the cache.
+    /// Hands back the Core Changes contract only; the host stays in the cache.
     let getOrCreateDbAgent (connStr: string) (dataDir: string) : CoreChanges =
         lock dbAgentLock (fun () ->
             match !dbAgentCache with
-            | Some (dir, agent) when dir = dataDir -> agent
+            | Some (dir, host) when dir = dataDir -> host
             | _ ->
-                let agent = DbAgent.createWithDataDir connStr dataDir
-                dbAgentCache.Value <- Some (dataDir, agent)
-                agent
+                let host = CoreMailbox.createDbWithDataDir connStr dataDir
+                dbAgentCache.Value <- Some (dataDir, host)
+                host
         )
-        |> DbAgent.coreChanges
+        |> CoreMailbox.coreChanges
 
     let statusFromMatches (matchesBeforeRebuild: bool) (matchesAfterRebuild: bool) : DbStatus =
         if matchesBeforeRebuild then

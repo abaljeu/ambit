@@ -22,8 +22,10 @@ let private changedBody () =
         }
     [ change ]
 
+let private host agent = FileAgent.mailboxHost agent
+
 let private getState agent = async {
-    match! FileAgent.getState agent with
+    match! CoreMailbox.getState (host agent) with
     | Ok state -> return state
     | Error error ->
         Assert.Fail($"get state: {error}")
@@ -78,7 +80,7 @@ let ``persistence exception is logged replied and mailbox survives`` () = task {
     let agent = FileAgent.createWithDependencies dependencies dataDir
     try
         let! postResult =
-            (FileAgent.coreChanges agent).postChange (changedBody ())
+            (CoreMailbox.coreChanges (host agent)).postChange (changedBody ())
             |> Async.StartAsTask
             |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
         match postResult with
@@ -100,7 +102,7 @@ let ``persistence exception is logged replied and mailbox survives`` () = task {
             |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
         Assert.Equal(Revision 0, state.revision)
     finally
-        FileAgent.dispose agent
+        CoreMailbox.dispose (host agent)
 }
 
 /// A hang (not an exception) in the persist step must not wedge the mailbox forever:
@@ -124,7 +126,7 @@ let ``persist step hang is rejected within timeout and mailbox survives`` () = t
     try
         let sw = Diagnostics.Stopwatch.StartNew()
         let! postResult =
-            (FileAgent.coreChanges agent).postChange (changedBody ())
+            (CoreMailbox.coreChanges (host agent)).postChange (changedBody ())
             |> Async.StartAsTask
             |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
         sw.Stop()
@@ -144,7 +146,7 @@ let ``persist step hang is rejected within timeout and mailbox survives`` () = t
     finally
         // let the orphaned background task finish before disposing shared resources
         Thread.Sleep(hangMs)
-        FileAgent.dispose agent
+        CoreMailbox.dispose (host agent)
 }
 
 [<Fact>]
@@ -155,7 +157,7 @@ let ``soft-fail live-save still commits graph and returns could-not-save message
     let agent = FileAgent.createWithDependencies dependencies dataDir
     try
         let! postResult =
-            (FileAgent.coreChanges agent).postChange (softFailEditBody ())
+            (CoreMailbox.coreChanges (host agent)).postChange (softFailEditBody ())
             |> Async.StartAsTask
         match postResult with
         | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")
@@ -170,7 +172,7 @@ let ``soft-fail live-save still commits graph and returns could-not-save message
             |> Map.exists (fun _ n -> n.text = "soft-fail-probe"))
         Assert.Equal(Revision 1, state.revision)
     finally
-        FileAgent.dispose agent
+        CoreMailbox.dispose (host agent)
 }
 
 [<Fact>]
@@ -181,13 +183,13 @@ let ``soft-fail log is not replayed into FileAgent state after restart`` () = ta
     let agent1 = FileAgent.createWithDependencies dependencies dataDir
     try
         let! postResult =
-            (FileAgent.coreChanges agent1).postChange (softFailEditBody ())
+            (CoreMailbox.coreChanges (host agent1)).postChange (softFailEditBody ())
             |> Async.StartAsTask
         match postResult with
         | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")
         | Ok _ -> ()
     finally
-        FileAgent.dispose agent1
+        CoreMailbox.dispose (host agent1)
 
     // Meta checkpoint stays behind after soft-fail; restart trusts that checkpoint.
     Assert.Equal(Revision 0, Bookkeeping.readRevision dataDir)
@@ -202,7 +204,7 @@ let ``soft-fail log is not replayed into FileAgent state after restart`` () = ta
         Assert.Empty((FileAgent.initialState agent2).history.past)
         Assert.Empty((FileAgent.initialState agent2).history.future)
     finally
-        FileAgent.dispose agent2
+        CoreMailbox.dispose (host agent2)
 }
 
 let private stampBase = DateTime(2026, 8, 16, 12, 0, 0, DateTimeKind.Utc)
@@ -245,7 +247,7 @@ let ``ACK returns stamped complete Change equal to ChangeLog`` () = task {
     try
         let change = addChildChange 0 "stamp-prefix"
         let! postResult =
-            (FileAgent.coreChanges agent).postChange (encodeBatch [ change ])
+            (CoreMailbox.coreChanges (host agent)).postChange (encodeBatch [ change ])
             |> Async.StartAsTask
         match postResult with
         | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")
@@ -265,11 +267,11 @@ let ``ACK returns stamped complete Change equal to ChangeLog`` () = task {
                     Assert.Equal(Graph.workspacesId, nodeId)
                 | _ -> failwith "expected SetUpdateTime suffix")
             let! logged =
-                FileAgent.getChangesSince agent (Revision 0)
+                CoreMailbox.getChangesSince (host agent) (Revision 0)
                 |> Async.StartAsTask
             Assert.Equal<Change list>([ confirmed ], logged)
     finally
-        FileAgent.dispose agent
+        CoreMailbox.dispose (host agent)
 }
 
 [<Fact>]
@@ -283,7 +285,7 @@ let ``trailing duplicate keeps stamps on last new Change`` () = task {
     try
         let first = addChildChange 0 "first-new"
         let! firstResult =
-            (FileAgent.coreChanges agent).postChange (encodeBatch [ first ])
+            (CoreMailbox.coreChanges (host agent)).postChange (encodeBatch [ first ])
             |> Async.StartAsTask
         let firstConfirmed =
             match firstResult with
@@ -291,7 +293,7 @@ let ``trailing duplicate keeps stamps on last new Change`` () = task {
             | Error err -> failwith err
         let second = addChildChange 1 "second-new"
         let! batchResult =
-            (FileAgent.coreChanges agent).postChange (encodeBatch [ second; first ])
+            (CoreMailbox.coreChanges (host agent)).postChange (encodeBatch [ second; first ])
             |> Async.StartAsTask
         match batchResult with
         | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")
@@ -310,11 +312,11 @@ let ``trailing duplicate keeps stamps on last new Change`` () = task {
                 suffixAfter first firstConfirmed,
                 secondSuffix)
             let! logged =
-                FileAgent.getChangesSince agent (Revision 0)
+                CoreMailbox.getChangesSince (host agent) (Revision 0)
                 |> Async.StartAsTask
             Assert.Equal<Change list>(
                 [ firstConfirmed; secondConfirmed ],
                 logged)
     finally
-        FileAgent.dispose agent
+        CoreMailbox.dispose (host agent)
 }

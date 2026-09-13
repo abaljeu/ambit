@@ -2,9 +2,9 @@
 
 Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
-Updated: 2026-09-12
+Updated: 2026-09-13
 Started: 2026-09-05
-Actual: 18h25m
+Actual: 19h40m
 
 ## Map
 
@@ -50,7 +50,8 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/issues/27-prove-core-actor-lifecycle-with-testactor.md]] — prove the public Core lifecycle and universal response without an Agent transport.
 - [[plan/core-creation/issues/28-drain-actor-lifecycle-on-host-stop.md]] — later host-stop terminal drain and restart reconciliation, separate from Database availability.
 - [[plan/core-creation/issues/30-reshape-coreactorpool-synchronized-table.md]] — Point 0 preamble (done): strip CoreActorPool mailbox-queue design; synchronized table + thread pool.
-- [[plan/core-creation/issues/31-one-coremsg-loop-parameterized-persist.md]] — current implement cut: one CoreMsg loop, parameterized persist.
+- [[plan/core-creation/issues/31-one-coremsg-loop-parameterized-persist.md]] — Point 0 (done): one CoreMsg loop, parameterized persist.
+- [[plan/core-creation/issues/32-move-persist-agents-under-coremailbox.md]] — current implement cut: persist agents under Core; generic CoreMailbox door.
 - [[plan/core-creation/issues/29-prove-testactor-hello.md]] — first user-visible increment: prove TestActor hello through the public Core path.
 
 ## Decision tickets
@@ -104,3 +105,4 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - 2026-09-11 — Added [[plan/core-creation/issues/29-prove-testactor-hello.md]].
 - 2026-09-11 — One-home DRY of Phase 2 issues and locked 06/07. Command text `?test hello` is owned by [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]].
 - 2026-09-12 — Reviews of the TestActor hello increment failed. Code was stashed. Yesterday's issue checkboxes and implementation logs for that increment were cleared.
+- 2026-09-13 — Added [[plan/core-creation/issues/32-move-persist-agents-under-coremailbox.md]]. Point 0 current cut is 32.

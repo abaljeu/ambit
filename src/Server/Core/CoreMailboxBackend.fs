@@ -1,7 +1,21 @@
 namespace Gambol.Server
 
+open System
 open System.Threading.Tasks
 open Gambol.Shared
+
+type CoreMsg =
+    | GetState of AsyncReplyChannel<Result<State, string>>
+    | GetRevision of AsyncReplyChannel<Result<Revision, string>>
+    | GetChangesSince of
+        after: Revision * AsyncReplyChannel<Result<Change list, string>>
+    | PostChange of
+        changes: Change list *
+        AsyncReplyChannel<Result<CoreChangesAccepted, string>>
+    | PostGraphOnlyChange of
+        changes: Change list *
+        AsyncReplyChannel<Result<CoreChangesAccepted, string>>
+    | SnapshotDone of graph: Graph option
 
 type PersistHandlers = {
     getState: unit -> Result<State, string>

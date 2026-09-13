@@ -157,28 +157,28 @@ let private encodeChange graph parentId name =
     [ change ]
 
 [<SkippableFact>]
-let ``FileAgent rejects ignored graph state before acceptance`` () =
+let ``file persist rejects ignored graph state before acceptance`` () =
     Skip.IfNot(gitOnPath (), "git unavailable")
     let dataDir = newTempDir ()
     writeIgnore dataDir "blocked.txt\n"
-    let agent = FileAgent.create dataDir
+    let agent = CoreMailbox.createFile dataDir
     let body = encodeChange (Graph.create ()) Graph.rootId "blocked.txt"
-    let result = (FileAgent.coreChanges agent).postChange body |> Async.RunSynchronously
+    let result = (CoreMailbox.coreChanges agent).postChange body |> Async.RunSynchronously
     Assert.True(Result.isError result)
-    Assert.Equal(Revision 0, FileAgent.getRevision agent |> Async.RunSynchronously)
-    FileAgent.dispose agent
+    Assert.Equal(Revision 0, CoreMailbox.getRevision agent |> Async.RunSynchronously)
+    CoreMailbox.dispose agent
 
 [<SkippableFact>]
-let ``DbAgent rejects ignored graph state before acceptance`` () = task {
+let ``db persist rejects ignored graph state before acceptance`` () = task {
     Skip.IfNot(gitOnPath (), "git unavailable")
     let connectionString = requireDbConnStr ()
     do! resetTestDatabase connectionString
     let dataDir = newTempDir ()
     writeIgnore dataDir "blocked.txt\n"
-    let agent = DbAgent.createWithDataDir connectionString dataDir
+    let agent = CoreMailbox.createDbWithDataDir connectionString dataDir
     let body = encodeChange (Graph.create ()) Graph.rootId "blocked.txt"
-    let! result = (DbAgent.coreChanges agent).postChange body |> Async.StartAsTask
+    let! result = (CoreMailbox.coreChanges agent).postChange body |> Async.StartAsTask
     Assert.True(Result.isError result)
-    let! revision = DbAgent.getRevision agent |> Async.StartAsTask
+    let! revision = CoreMailbox.getRevision agent |> Async.StartAsTask
     Assert.Equal(Revision 0, revision)
 }

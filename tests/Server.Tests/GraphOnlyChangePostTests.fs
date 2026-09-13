@@ -12,10 +12,10 @@ let private requireOk label result =
     | Ok value -> value
     | Error err -> failwith $"{label}: {err}"
 
-let private postWorkspace (fileAgent: FileAgent) (label: string) =
+let private postWorkspace (fileAgent: MailboxHost) (label: string) =
     let workspaceId, ops = FileNodeOps.planCreateWorkspace (Graph.create ()) label
     let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
-    (FileAgent.coreChanges fileAgent).postChange [ change ]
+    (CoreMailbox.coreChanges fileAgent).postChange [ change ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
@@ -34,14 +34,14 @@ let private recordingHandle (inner: CoreChanges) =
 [<Fact>]
 let ``reconcile posts graph-only chunks at or under maxOps`` () =
     let tempDir = newTempDir ()
-    let fileAgent = FileAgent.create tempDir
+    let fileAgent = CoreMailbox.createFile tempDir
     let workspaceId = postWorkspace fileAgent "home"
     let fileCount = GraphOnlyChangeChunks.maxOps
     let home = Path.Combine(tempDir, "home")
     Directory.CreateDirectory(home) |> ignore
     for i in 1 .. fileCount do
         File.WriteAllText(Path.Combine(home, sprintf "n%03d.txt" i), "x")
-    let inner = FileAgent.coreChanges fileAgent
+    let inner = CoreMailbox.coreChanges fileAgent
     let handle, posts = recordingHandle inner
     LazyLoadReconciliationServer.reconcileChangedPaths handle tempDir "home" []
     |> Async.RunSynchronously
@@ -57,7 +57,7 @@ let ``reconcile posts graph-only chunks at or under maxOps`` () =
             sprintf "chunk had %d ops" n)
         Assert.True(n > 0)
     let graph =
-        FileAgent.getState fileAgent
+        CoreMailbox.getState fileAgent
         |> Async.RunSynchronously
         |> requireOk "state"
         |> fun state -> state.graph
@@ -66,4 +66,4 @@ let ``reconcile posts graph-only chunks at or under maxOps`` () =
         |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
         |> List.sort
     Assert.Equal(fileCount, names.Length)
-    FileAgent.dispose fileAgent
+    CoreMailbox.dispose fileAgent

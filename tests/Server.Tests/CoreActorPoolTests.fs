@@ -47,9 +47,9 @@ let ``launch starts Actor with subgraph and credential and returns a public numb
     () =
     task {
         let dataDir = newTempDir ()
-        let agent = FileAgent.create dataDir
+        let agent = CoreMailbox.createFile dataDir
         try
-            let handle = FileAgent.coreChanges agent
+            let handle = CoreMailbox.coreChanges agent
             let credentials = CoreCredentials.create ()
             let pool = CoreActorPool.create credentials
             let started = TaskCompletionSource<Graph * Credential>()
@@ -72,15 +72,15 @@ let ``launch starts Actor with subgraph and credential and returns a public numb
             let! live = credentials.contains cred |> Async.StartAsTask
             Assert.True(live)
         finally
-            FileAgent.dispose agent
+            CoreMailbox.dispose agent
     }
 
 [<Fact>]
 let ``public numbers are never reused`` () = task {
     let dataDir = newTempDir ()
-    let agent = FileAgent.create dataDir
+    let agent = CoreMailbox.createFile dataDir
     try
-        let handle = FileAgent.coreChanges agent
+        let handle = CoreMailbox.coreChanges agent
         let pool = CoreActorPool.create (CoreCredentials.create ())
         pool.register (ActorName "test") (fun _ _ _ -> async.Return())
         let! a = addChild handle "a" |> Async.StartAsTask
@@ -103,15 +103,15 @@ let ``public numbers are never reused`` () = task {
         let (PublicNumber n2) = requireOk "second" second
         Assert.NotEqual(n1, n2)
     finally
-        FileAgent.dispose agent
+        CoreMailbox.dispose agent
 }
 
 [<Fact>]
 let ``launch that shares a NodeId with a live span is refused`` () = task {
     let dataDir = newTempDir ()
-    let agent = FileAgent.create dataDir
+    let agent = CoreMailbox.createFile dataDir
     try
-        let handle = FileAgent.coreChanges agent
+        let handle = CoreMailbox.coreChanges agent
         let pool = CoreActorPool.create (CoreCredentials.create ())
         pool.register (ActorName "test") (fun _ _ _ -> async.Return())
         let! childId = addChild handle "held" |> Async.StartAsTask
@@ -130,16 +130,16 @@ let ``launch that shares a NodeId with a live span is refused`` () = task {
             second)
         Assert.False(CoreAuth.isAuthRefuse CoreActorPool.overlap)
     finally
-        FileAgent.dispose agent
+        CoreMailbox.dispose agent
 }
 
 [<Fact>]
 let ``live span Nodes show lock-present; History and agent graph do not`` () =
     task {
         let dataDir = newTempDir ()
-        let agent = FileAgent.create dataDir
+        let agent = CoreMailbox.createFile dataDir
         try
-            let handle = FileAgent.coreChanges agent
+            let handle = CoreMailbox.coreChanges agent
             let pool = CoreActorPool.create (CoreCredentials.create ())
             pool.register (ActorName "test") (fun _ _ _ -> async.Return())
             let! childId = addChild handle "lock" |> Async.StartAsTask
@@ -171,15 +171,15 @@ let ``live span Nodes show lock-present; History and agent graph do not`` () =
                 |> String.concat ""
             Assert.DoesNotContain("lockPresent", historyJson)
         finally
-            FileAgent.dispose agent
+            CoreMailbox.dispose agent
     }
 
 [<Fact>]
 let ``unknown actor is refused`` () = task {
     let dataDir = newTempDir ()
-    let agent = FileAgent.create dataDir
+    let agent = CoreMailbox.createFile dataDir
     try
-        let handle = FileAgent.coreChanges agent
+        let handle = CoreMailbox.coreChanges agent
         let pool = CoreActorPool.create (CoreCredentials.create ())
         let! childId = addChild handle "x" |> Async.StartAsTask
         let! state = handle.getState () |> Async.StartAsTask
@@ -196,15 +196,15 @@ let ``unknown actor is refused`` () = task {
             launched)
         Assert.False(CoreAuth.isAuthRefuse CoreActorPool.unknownActor)
     finally
-        FileAgent.dispose agent
+        CoreMailbox.dispose agent
 }
 
 [<Fact>]
 let ``query by public number identifies the registered Actor`` () = task {
     let dataDir = newTempDir ()
-    let agent = FileAgent.create dataDir
+    let agent = CoreMailbox.createFile dataDir
     try
-        let handle = FileAgent.coreChanges agent
+        let handle = CoreMailbox.coreChanges agent
         let pool = CoreActorPool.create (CoreCredentials.create ())
         pool.register (ActorName "test") (fun _ _ _ -> async.Return())
         let! childId = addChild handle "span" |> Async.StartAsTask
@@ -219,15 +219,15 @@ let ``query by public number identifies the registered Actor`` () = task {
         let found = pool.query number
         Assert.Equal(Ok request, found)
     finally
-        FileAgent.dispose agent
+        CoreMailbox.dispose agent
 }
 
 [<Fact>]
 let ``query does not return a job result or job Error`` () = task {
     let dataDir = newTempDir ()
-    let agent = FileAgent.create dataDir
+    let agent = CoreMailbox.createFile dataDir
     try
-        let handle = FileAgent.coreChanges agent
+        let handle = CoreMailbox.coreChanges agent
         let credentials = CoreCredentials.create ()
         let started = TaskCompletionSource<Graph * Credential>()
         let pool = CoreActorPool.create credentials
@@ -255,15 +255,15 @@ let ``query does not return a job result or job Error`` () = task {
             Assert.Equal(state.revision, job.revision)
             Assert.Equal(request.span, job.span)
     finally
-        FileAgent.dispose agent
+        CoreMailbox.dispose agent
 }
 
 [<Fact>]
 let ``query uses the public number, not a span NodeId`` () = task {
     let dataDir = newTempDir ()
-    let agent = FileAgent.create dataDir
+    let agent = CoreMailbox.createFile dataDir
     try
-        let handle = FileAgent.coreChanges agent
+        let handle = CoreMailbox.coreChanges agent
         let pool = CoreActorPool.create (CoreCredentials.create ())
         pool.register (ActorName "first") (fun _ _ _ -> async.Return())
         pool.register (ActorName "second") (fun _ _ _ -> async.Return())
@@ -300,16 +300,16 @@ let ``query uses the public number, not a span NodeId`` () = task {
             missing)
         Assert.False(CoreAuth.isAuthRefuse CoreActorPool.unknownJob)
     finally
-        FileAgent.dispose agent
+        CoreMailbox.dispose agent
 }
 
 [<Fact>]
 let ``Actor post through launch handle is admitted with the job credential`` () =
     task {
         let dataDir = newTempDir ()
-        let agent = FileAgent.create dataDir
+        let agent = CoreMailbox.createFile dataDir
         try
-            let handle = FileAgent.coreChanges agent
+            let handle = CoreMailbox.coreChanges agent
             let credentials = CoreCredentials.create ()
             let pool = CoreActorPool.create credentials
             let posted =
@@ -343,15 +343,15 @@ let ``Actor post through launch handle is admitted with the job credential`` () 
             let! actorResult = posted.Task.WaitAsync(TimeSpan.FromSeconds 5.0)
             ignore (requireOk "actor post" actorResult)
         finally
-            FileAgent.dispose agent
+            CoreMailbox.dispose agent
     }
 
 [<Fact>]
 let ``Actor handle wrap refuses a different inactive credential`` () = task {
     let dataDir = newTempDir ()
-    let agent = FileAgent.create dataDir
+    let agent = CoreMailbox.createFile dataDir
     try
-        let handle = FileAgent.coreChanges agent
+        let handle = CoreMailbox.coreChanges agent
         let credentials = CoreCredentials.create ()
         let bound =
             CoreAuth.bindHandle credentials (Credential "inactive") handle
@@ -366,5 +366,5 @@ let ``Actor handle wrap refuses a different inactive credential`` () = task {
         let! result = bound.postChange [ change ] |> Async.StartAsTask
         Assert.Equal(Error CoreAuth.refuse, result)
     finally
-        FileAgent.dispose agent
+        CoreMailbox.dispose agent
 }

@@ -36,9 +36,9 @@ let private addRootChild revision text =
 [<Fact>]
 let ``typed Normal caller publishes accepted Change to Poll`` () = task {
     let dataDir = newTempDir ()
-    let agent = FileAgent.create dataDir
+    let agent = CoreMailbox.createFile dataDir
     try
-        let handle = FileAgent.coreChanges agent
+        let handle = CoreMailbox.coreChanges agent
         let change = addRootChild 0 "typed caller"
         let! accepted =
             handle.postChange [ change ]
@@ -58,7 +58,7 @@ let ``typed Normal caller publishes accepted Change to Poll`` () = task {
         | other ->
             Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
     finally
-        FileAgent.dispose agent
+        CoreMailbox.dispose agent
 }
 
 /// Thread-pool Actor: Local Graph plus full CoreChanges, off the apply mailbox.
@@ -95,9 +95,9 @@ let private produceFromSubgraph
 let ``test Actor posts Normal Change off apply mailbox and Poll sees it`` () =
     task {
         let dataDir = newTempDir ()
-        let agent = FileAgent.create dataDir
+        let agent = CoreMailbox.createFile dataDir
         try
-            let handle = FileAgent.coreChanges agent
+            let handle = CoreMailbox.coreChanges agent
             let subgraph = Graph.create ()
             let! accepted =
                 runActor subgraph handle produceFromSubgraph
@@ -115,7 +115,7 @@ let ``test Actor posts Normal Change off apply mailbox and Poll sees it`` () =
                 Assert.Fail(
                     $"Expected ContentHttpResult, got {other.GetType().FullName}")
         finally
-            FileAgent.dispose agent
+            CoreMailbox.dispose agent
     }
 
 let private recordingHandle (posts: ResizeArray<Change list>) =

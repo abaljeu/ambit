@@ -8,8 +8,7 @@ module Decode = Thoth.Json.Newtonsoft.Decode
 
 /// PostgreSQL-backed agent. Same message type as `FileAgent`.
 type DbAgent =
-    private { mailbox: MailboxProcessor<CoreMsg>
-              isReady: unit -> bool }
+    private { host: MailboxHost }
 
 [<RequireQualifiedAccess>]
 module DbAgent =
@@ -410,8 +409,12 @@ module DbAgent =
 
         mailboxRef.Value <- Some mailbox
 
-        { mailbox = mailbox
-          isReady = fun () -> ready.Task.IsCompletedSuccessfully }
+        { host = {
+            mailbox = mailbox
+            isReady = fun () -> ready.Task.IsCompletedSuccessfully
+            flushSnapshot = fun () -> async { return Ok () }
+            dispose = fun () -> ()
+          } }
 
     let private createWithLiveSave
         (connectionString: string)
@@ -500,21 +503,4 @@ module DbAgent =
     let create (connectionString: string) : DbAgent =
         createWithLiveSave connectionString None
 
-    let isReady (agent: DbAgent) =
-        agent.isReady ()
-
-    let tryGetState (agent: DbAgent) : Async<Result<State, string>> =
-        CoreMailbox.tryGetState agent.mailbox
-
-    let getState (agent: DbAgent) : Async<Result<State, string>> =
-        CoreMailbox.getState agent.mailbox
-
-    let getRevision (agent: DbAgent) : Async<Revision> =
-        CoreMailbox.getRevision agent.mailbox
-
-    let getChangesSince (agent: DbAgent) (after: Revision) : Async<Change list> =
-        CoreMailbox.getChangesSince agent.mailbox after
-
-    /// The only route from this agent to the Core Changes contract.
-    let coreChanges (agent: DbAgent) : CoreChanges =
-        CoreMailbox.coreChanges agent.isReady agent.mailbox
+    let mailboxHost (agent: DbAgent) = agent.host

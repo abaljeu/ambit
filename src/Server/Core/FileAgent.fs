@@ -15,9 +15,8 @@ type FileAgentDependencies = {
 
 // FileAgent — serialises all reads/writes for a single file
 type FileAgent = private {
-    mailbox: MailboxProcessor<CoreMsg>
-    logStream: FileStream
-    initialState: Gambol.Shared.State  // checkpoint state captured at startup; used by DB setup
+    host: MailboxHost
+    initialState: Gambol.Shared.State
 }
 
 module FileAgent =
@@ -269,34 +268,22 @@ module FileAgent =
         let mailbox =
             CoreMailboxBackend.start handlers onError formatError
 
-        { mailbox = mailbox; logStream = logStream; initialState = capturedInitialState }
+        let host: MailboxHost = {
+            mailbox = mailbox
+            isReady = fun () -> true
+            flushSnapshot = fun () -> async { return Ok () }
+            dispose =
+                fun () ->
+                    logStream.Flush()
+                    logStream.Dispose()
+        }
+
+        { host = host; initialState = capturedInitialState }
 
     let create (dataDir: string) : FileAgent =
         createWithDependencies (defaultDependencies dataDir) dataDir
 
-    let tryGetState (agent: FileAgent) : Async<Result<State, string>> =
-        CoreMailbox.tryGetState agent.mailbox
+    let mailboxHost (agent: FileAgent) = agent.host
 
-    let getState (agent: FileAgent) : Async<Result<State, string>> =
-        CoreMailbox.getState agent.mailbox
-
-    let getRevision (agent: FileAgent) : Async<Revision> =
-        CoreMailbox.getRevision agent.mailbox
-
-    let getChangesSince (agent: FileAgent) (after: Revision) : Async<Change list> =
-        CoreMailbox.getChangesSince agent.mailbox after
-
-    /// The only route from this agent to the Core Changes contract.
-    let coreChanges (agent: FileAgent) : CoreChanges =
-        CoreMailbox.coreChanges (fun () -> true) agent.mailbox
-
-    let flushSnapshot (_: FileAgent) : Async<Result<unit, string>> =
-        async { return Ok () }
-
-    /// Checkpoint state captured at startup; used by DB setup and startup checks.
     let initialState (agent: FileAgent) : State =
         agent.initialState
-
-    let dispose (agent: FileAgent) =
-        agent.logStream.Flush()
-        agent.logStream.Dispose()
