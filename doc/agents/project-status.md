@@ -39,10 +39,11 @@ Time arc: see [[issue-tracker.md]] (Time tracking). Fill `Started` / `Finished` 
 | --- | --- |
 | `chart` | Scope the effort. Wayfinder writes the charter (scope and explore). |
 | `spec` | Tight spec. On an Epic or Chapter: fill Context, Goal, and pointers to Projects or tickets. |
+| `arch` | Whole-feature architecture. Module map and seams before implementation tickets. Writes `arch.md`. |
 | `slice` | Project only. Sequence implementation increments after spec. |
 | `build` | Implementing. On an Epic or Chapter: stamp when a pointed Project enters `slice` or `build`. |
 | `done` | Delivered. |
-| `dead` | Abandoned. Replaces the live Stage. Revive by setting a live Stage (`chart`, `spec`, `slice`, or `build`). |
+| `dead` | Abandoned. Replaces the live Stage. Revive by setting a live Stage (`chart`, `spec`, `arch`, `slice`, or `build`). |
 
 ## Who writes Stage
 
@@ -52,7 +53,8 @@ Set `Stage:` and `Updated:` when a feature-set Project Stage changes. Create `pr
 | --- | --- |
 | `/wayfinder` on a bounded effort | `chart` |
 | `/to-spec` | `spec` |
-| `/to-tickets`, `/to-feature-tickets` | `slice` |
+| `/to-arch` | `arch` |
+| `/to-tickets` | `slice` |
 | First implement | `build` |
 | Delivered | `done` |
 | Abandon | `dead` |

@@ -3,7 +3,7 @@ name: request-refactor-plan
 description: Chart a new Feature-set Project for a refactor — interview, tiny steps, then a map. Use when the user wants to plan a refactor, a refactoring RFC, or safe incremental refactor steps.
 ---
 
-This skill **charts** a new Feature-set Project under [[plan/]], like [[.agents/skills/wayfinder/SKILL.md]]. Spec work is [[.agents/skills/to-spec/SKILL.md]]. Implementation tickets are [[.agents/skills/to-tickets/SKILL.md]] and [[.agents/skills/to-feature-tickets/SKILL.md]].
+This skill **charts** a new Feature-set Project under [[plan/]], like [[.agents/skills/wayfinder/SKILL.md]]. Spec work is [[.agents/skills/to-spec/SKILL.md]]. Implementation tickets are [[.agents/skills/to-tickets/SKILL.md]].
 
 Git: [[.agents/skills/git-protocol/SKILL.md]]. Start the Project and set Stage with [[.agents/skills/project-work/SKILL.md]]. This invocation is a chart — the same Who-writes-Stage act as `/wayfinder` in [[doc/agents/project-status.md]]. Map, child tickets, blocking, and frontier: [[doc/agents/issue-tracker.md]] (Wayfinding operations). Those docs own structure. This skill owns the refactor interview and the **steps** grain.
 

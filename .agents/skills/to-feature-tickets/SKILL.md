@@ -1,53 +1,9 @@
 ---
 name: to-feature-tickets
-description: Break a plan, spec, or conversation into tickets of cohesive testable functionality, each declaring its blocking edges, published as one file per ticket under plan/.
+description: Retired. Use /to-tickets with Sequence module-build.
 disable-model-invocation: true
 ---
 
-# To Feature Tickets
+# To Feature Tickets (retired)
 
-Break a plan, spec, or conversation into **implementantion feature** tickets. A feature ticket does not correspond one to one with end-user features.  Each ticket is one cohesive code module (casual meaning) that you can test on its own. Each ticket names the tickets that **block** it.
-
-[[.agents/skills/to-tickets/SKILL.md]] tickets tracer-bullet vertical slices. This skill tickets capabilities.
-
-## Process
-
-### 1. Gather context
-
-Work from whatever is already in the conversation context. If the user passes a reference (a spec path, an issue number or URL), fetch it and read its full body and comments.
-
-### 2. Explore the codebase (optional)
-
-If you have not already explored the codebase, do so. Ticket titles and descriptions should use the project's domain glossary vocabulary, and respect Committed Decisions in the area you're touching.
-
-### 3. Draft feature tickets
-
-Break the work into tickets of **cohesive testable functionality**.
-
-- One ticket is one capability that hangs together and can be proven with tests
-- A finished ticket is verifiable once its blockers are done — later tickets are not required to know whether this one works
-- Size each ticket to fit in a single fresh context window
-- Split when two capabilities can be tested independently; merge when a split would leave an untestable fragment
-- After testable functionality is covered, add tickets for user-visible functionality.
-
-Give each ticket its **blocking edges** — the other tickets that must complete before it can start. A ticket with no blockers can start immediately.
-
-### 4. Quiz the user
-
-Present the proposed breakdown as a numbered list. For each ticket, show:
-
-- **Title**: short descriptive name
-- **Blocked by**: which other tickets (if any) must complete first
-- **What it delivers**: the functionality this ticket makes work, and how you would know it works
-
-Ask the user:
-
-- Does the granularity feel right? (too coarse / too fine)
-- Are the blocking edges correct — does each ticket only depend on tickets that genuinely gate it?
-- Should any tickets be merged or split further?
-
-Iterate until the user approves the breakdown.
-
-### 5. Publish
-
-When the user approves the breakdown, publish the tickets per [[.agents/skills/to-tickets/PUBLISH.md]].
+This skill is retired. Use [[.agents/skills/to-tickets/SKILL.md]] with Sequence `module-build`.

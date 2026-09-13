@@ -24,6 +24,7 @@ Use **issue tracker**, not “backlog backend” or “backlog manager.” Use *
 
 - One Project per directory: `plan/<slug>/` (a feature-set Project, or the Roadmap).
 - The spec is `plan/<feature-slug>/spec.md`.
+- The architecture is `plan/<feature-slug>/arch.md`.
 - Implementation issues are separate files at `plan/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01`.
 - A `**Status:**` line records a ticket's triage role from [[triage-labels.md]]. Tickets do not carry `Stage:`. Grilling is a method, not a Status or a Stage.
 - Append comments and conversation under `## Comments`.

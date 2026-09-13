@@ -7,6 +7,9 @@ If you are looking for browser access functions, look at ./other/fable.browser.d
 100 characters or less per line on source code.
 
 40 lines or less per function.
+
+Group related function parameters into a named, reused type (record or DU). When adding a parameter that belongs with existing ones, extend that type instead of lengthening the argument list. Reuse a type that already exists. Do not invent a one-off tuple or a mega-record of unrelated values; split by cohesion.
+
 400 lines or less per file. If a file is already longer, only restructure to split up the code if your changes would increase it.
 
 TABs are not allowed in F#. Always indent 4 spaces.

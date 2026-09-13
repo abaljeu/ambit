@@ -18,7 +18,7 @@ Delegate research, but not grilling.  The user cannot easily review questions po
 
 ## Refer by name
 
-Every map and ticket is an issue, so it has a **name** — its title. In everything the human reads — narration, the map's Decisions-so-far — refer to it by that name, never by a bare id, by number, or by slug. A wall of `#42, #43, #44` is illegible; names read at a glance. The id and URL don't vanish — a name wraps its link — but they ride _inside_ the name, never stand in for it.
+Follow [[.agents/rules/refer-by-name.md]]: number and name every ticket, map section, and list item. Decisions-so-far is one of those surfaces.
 
 ## The Map
 
@@ -31,27 +31,27 @@ The map is an **index**, not a store. It lists the decisions made and points at 
 The whole map at low resolution, loaded once per session. Live tickets are **not** listed — the frontier finds them.
 
 ```markdown
-## Destination
+## 1. Destination
 
 <what reaching the end of this map looks like — the spec, decision, or change this effort is finding its way to. One or two lines; every session orients to it before choosing a ticket.>
 
-## Notes
+## 2. Notes
 
 <domain; skills every session should consult; standing preferences for this effort>
 
-## Decisions so far
+## 3. Decisions so far
 
-<!-- the index — one line per resolved ticket: enough to judge relevance, then zoom the link for the detail the ticket holds -->
+<!-- the index — one numbered line per resolved ticket: enough to judge relevance, then zoom the link for the detail the ticket holds -->
 
-- [<resolved ticket title>](link) — <one-line gist of the answer>
+1. [<NN> — <resolved ticket title>](link) — <one-line gist of the answer>
 
-## Not yet specified
+## 4. Not yet specified
 
-<!-- see "Fog of war": in-scope fog you can't ticket yet; graduates as the frontier advances -->
+<!-- see "Fog of war": in-scope fog you can't ticket yet; graduates as the frontier advances; numbered list when items exist -->
 
-## Out of scope
+## 5. Out of scope
 
-<!-- see "Out of scope": work ruled beyond the destination; never graduates -->
+<!-- see "Out of scope": work ruled beyond the destination; never graduates; numbered list when items exist -->
 ```
 
 ### Tickets
@@ -59,7 +59,7 @@ The whole map at low resolution, loaded once per session. Live tickets are **not
 Each ticket is a child of the map. Its body is the question, sized to one 100K token agent session:
 
 ```markdown
-## Question
+## 1. Question
 
 <the decision or investigation this ticket resolves>
 ```
@@ -108,7 +108,7 @@ User invokes with a loose idea.
 
 1. **Name the destination.** Run a `/grilling` and `/domain-modeling` session to pin down what this map is finding its way to — the spec, decision, or change. The destination fixes the scope, so it's settled first.
 2. **Map the frontier.** Grill again, **breadth-first** this time: fan out across the whole space rather than deep on any one thread, surfacing the open decisions and the first steps takeable now. **If this surfaces no fog** — the way to the destination is already clear, the whole journey small enough for one session — you don't need a map. Stop and ask the user how they'd like to proceed.
-3. **Create the map** per the tracker: Destination and Notes filled in, Decisions-so-far empty, the fog sketched into **Not yet specified**.
+3. **Create the map** per the tracker: numbered sections (Destination, Notes, Decisions so far, Not yet specified, Out of scope); Destination and Notes filled in, Decisions-so-far empty, the fog sketched into **Not yet specified**.
 4. **Create the tickets you can specify now** as children of the map — then wire blocking in a **second pass** per the tracker (tickets need identities before they can reference each other). Wiring sorts them into the frontier and the blocked; everything you can't yet specify stays in the fog — the **Not yet specified** section.
 5. **Fire the research subagents.** For each `research` ticket you just created, spin up a `/research` subagent to resolve it in parallel. Findings land where [[.agents/skills/research/SKILL.md]] writes. Leave a context pointer from the ticket.
 6. Stop — charting is one session's work; it hand-resolves nothing.
@@ -119,7 +119,7 @@ User invokes with a map. A ticket is **optional** — without one, you pick the 
 
 1. Load the **map** — the low-res view, not every ticket body.
 2. Choose the ticket. If the user named one, use it. Otherwise take the first frontier ticket in order. **Claim it** per the tracker before any work.
-3. Resolve it — **zoom as needed**: fetch the full body of any related or already resolved ticket on demand; invoke the skills the `## Notes` block names. If in doubt, use `/grilling` and `/domain-modeling`.
+3. Resolve it — **zoom as needed**: fetch the full body of any related or already resolved ticket on demand; invoke the skills the `## 2. Notes` block names. If in doubt, use `/grilling` and `/domain-modeling`.
 4. Record the resolution per the tracker, and **append a context pointer** to the map's Decisions-so-far.
 5. Add newly-surfaced tickets (create-then-wire); graduate any fog the answer has made specifiable, clearing each graduated patch from **Not yet specified** so it lives only as its new ticket. If the answer reveals a ticket — this one or another — sits beyond the destination, **rule it out of scope** rather than resolving it on the route. If the decision invalidates other parts of the map, update or delete those tickets.
 
