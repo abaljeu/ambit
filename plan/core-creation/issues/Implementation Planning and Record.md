@@ -12,6 +12,8 @@ This is the controlling planning and record document for the reviewed and rewoun
 
 ## Phase 2 — The Spec
 
+Arch.md is newer and supersedes anything here that disagrees.  So long as it is in agreement, these issues are valid.
+
 The eight numbered items are pieces of the Core lifecycle program. They are not the implementation sequence.
 
 1. **Rebuild the Actor pool baseline** — Registry and admission live on the one Core mailbox; TaskPool runs and terminates Actors without waiting. [[plan/core-creation/issues/02-core-actor-pool.md]]

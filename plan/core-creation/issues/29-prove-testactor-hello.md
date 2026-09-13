@@ -2,7 +2,7 @@
 
 **Status:** ready-for-agent
 **Blocked by:** none — Point 0 ([[32-move-persist-agents-under-coremailbox.md]] and prior) is done. Sections 1ff are not implemented.
-Actual: 4h50m
+Actual: 5h
 
 ## Context
 
@@ -48,7 +48,7 @@ Payload and Pool/TestActor split: arch **CoreMailbox**, **CoreActorPool**, **Tes
 First user-visible functional augmentation. Browser trigger rules live here; module contracts on arch **Browser Run**, **HTTP Adapter**, **TestActor**.
 
 1. [ ] Trigger only when existing Browser Run and current Node text starts with literal `?` (no trim/normalize; no role/Kind/CSS trigger)
-2. [ ] Browser sends a Command request; Graph extract is only the current Node (Command, Zoom root, and Focus — no ancestors, siblings, or Children)
+2. [ ] Browser sends a Command request; current Node is Command, Zoom root, and Focus; `graphIds` from arch **Loaded descendant id list** at that Zoom root (flat ids; Loaded children only; no Unloaded descent; ownership ignored)
 3. [ ] Server uses that Node’s text as dispatch
 4. [ ] For `?test hello`, TestActor posts one Owned child text `hello` under Focus via admitted `PostChange`, then queues `ActorStop ActorSucceeded`
 5. [ ] Existing Run for text not starting with `?` stays unchanged
@@ -96,6 +96,7 @@ Entry shapes and test seam: arch Story path **Outside Core lifecycle proof** and
 - 2026-09-13 — Earlier note that section 1 was implemented is withdrawn: code was reverted; sections 1ff remain open. Point 0 only is implemented. See [[plan/core-creation/arch.md]] and [[Implementation Planning and Record.md]].
 - 2026-09-13 — Alan: CoreActorPool selects Actor kind `test` from the command Node and creates TestActor; TestActor interprets the command Node and runs `hello`. StartActor / HTTP / Core fields are `zoomId`, `focusId`, `commandId`, `graphIds` only; Pool expands to Graph and passes named ids + Actor secret. Outside tests call Pool or Actor at those shapes — not an HTTP-only gap. Story path 3 is Browser Change posts only.
 - 2026-09-13 — DRY reshape: ticket acceptance points at arch Module map; checklists use numbered `N. [ ]` (from chat).
+- 2026-09-13 — Alan: Browser Command `graphIds` are the Zoom-rooted Loaded descendant flat id list (Shared reusable function); not a one-Node-only extract. Unloaded children omitted; ownership ignored.
 
 ## Time
 
@@ -112,3 +113,4 @@ Entry shapes and test seam: arch Story path **Outside Core lifecycle proof** and
 - 2026-09-13 2h — Shared Core mailbox foundation attempt (section 1); not retained in tree (from chat)
 - 2026-09-13 15m — Align to arch: Pool selects `test` from command Node; TestActor interprets → hello; StartActor fields zoomId/focusId/commandId/graphIds; Pool→Graph + named ids + secret; outside proof calls Pool or Actor (from chat)
 - 2026-09-13 20m — DRY reshape vs arch; numbered checklist items (from chat)
+- 2026-09-13 10m — lock Browser `graphIds` as Shared Loaded descendant id list (from chat)

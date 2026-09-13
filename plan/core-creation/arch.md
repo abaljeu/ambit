@@ -22,6 +22,9 @@ Implementation status for this cut: Point 0 ([[issues/30-reshape-coreactorpool-s
    9. [ ] History appends ActorFinished
    10. [ ] universal response when that path is exercised
    11. [ ] Browser shows one Owned child text `hello`
+
+   [[issues\Implementation Planning and Record.md]] should be referenced when considering tickets for this story path.
+
 2. **Outside Core lifecycle proof**
    1. [ ] Test harness (no Agent transport; not HTTP-only)
    2. [ ] Enter at CoreActorPool.startActor or at TestActor body input
@@ -117,17 +120,30 @@ Deltas for this Project’s hello / one-mailbox Actor program. Persist fillings 
    - Uses:
      1. [ ] CoreChanges (bound through the mailbox)
      2. [ ] Graph
-6. **Browser Run**
+6. **Loaded descendant id list**
+   1. [ ] State: none (Shared pure function)
+   - Interface:
+     1. [ ] given a Graph and a start NodeId (Zoom root), return a flat `NodeId` list
+     2. [ ] include the start Node
+     3. [ ] recurse only through `childrenStatus = Loaded` child lists; add every child id found there
+     4. [ ] do not descend into `Unloaded` child lists
+     5. [ ] do not filter or branch on ownership (Owner vs other child kinds); walk Loaded children only
+     6. [ ] result is ids only — not a Graph, not edges, not ownership facts
+     7. [ ] same function is reused wherever a Zoom-rooted Loaded id list is needed (Browser Command `graphIds`, Actors, and later callers)
+   - Uses:
+     1. [ ] Graph / Node (`children`, `childrenStatus`)
+7. **Browser Run**
    1. [ ] State: Client selection and current Node text
    - Interface:
      1. [ ] existing Exec / Run command
-     2. [ ] when text starts with literal `?`, send one-Node Command (current Node is Command, Zoom root, and Focus) with caller credentials as `zoomId`, `focusId`, `commandId`, `graphIds`
+     2. [ ] when text starts with literal `?`, send one-Node Command (current Node is Command, Zoom root, and Focus) with caller credentials as `zoomId`, `focusId`, `commandId`, and `graphIds` from **Loaded descendant id list** at that Zoom root
      3. [ ] otherwise AmbleRun (not part of Story path 3)
      4. [ ] Browser-originated Change posts supply Authority and secret (Story path 3)
    - Uses:
      1. [ ] HTTP Adapter
      2. [ ] AmbleRun
-7. **HTTP Adapter**
+     3. [ ] Loaded descendant id list
+8. **HTTP Adapter**
    1. [ ] State: none (transport)
    - Interface:
      1. [ ] decode Browser Command / Change / Poll
@@ -137,7 +153,7 @@ Deltas for this Project’s hello / one-mailbox Actor program. Persist fillings 
      5. [ ] encode universal `{ nodes; events; latestId }` for Command when that path is exercised (spec lock; not critical path for the hello outside proof)
    - Uses:
      1. [ ] CoreMailbox / CoreRuntime
-8. **CoreRuntime**
+9. **CoreRuntime**
    1. [ ] State: composed credentials and registered Actors
    - Interface:
      1. [ ] host composition
@@ -147,7 +163,7 @@ Deltas for this Project’s hello / one-mailbox Actor program. Persist fillings 
      2. [ ] CoreActorPool
      3. [ ] TestActor
      4. [ ] CoreCredentials
-9. **PersistHandlers**
+10. **PersistHandlers**
    1. [x] State: File or Db persist implementation behind the loop
    - Interface:
      1. [x] getState, getRevision, getChangesSince, postChange, postGraphOnlyChange, snapshotDone
@@ -164,11 +180,12 @@ Deltas for this Project’s hello / one-mailbox Actor program. Persist fillings 
 5. [ ] **ActorFn / TestActor input** — Definition and body-input seam. Interface on **TestActor**; register via **CoreActorPool**. Core does not embed Actor bodies.
 6. [x] **PersistHandlers** — Persist seam already landed by [[issues/31-one-coremsg-loop-parameterized-persist.md|One CoreMsg loop parameterized persist]] and [[issues/32-move-persist-agents-under-coremailbox.md|Move persist agents under CoreMailbox]]. Hello does not widen it. Interface on **PersistHandlers**.
 7. [ ] **Credentialed Change posts** — Browser and Actor posts validate via **CoreMsg** before PersistHandlers; Actor also admits on the live table. Story path 3 is Browser Change posts only.
-8. [ ] **Test seam for this tracer** — Story path 2: harness at CoreActorPool or TestActor. Outer facts assert Graph and lifecycle; TestActor does not assert. HTTP universal-response encoding is not on the outside-proof critical path.
+8. [ ] **Loaded descendant id list** — Shared Zoom-rooted Loaded id walk. Interface on **Loaded descendant id list**. Browser Command `graphIds` and Actor reuse call the same function.
+9. [ ] **Test seam for this tracer** — Story path 2: harness at CoreActorPool or TestActor. Outer facts assert Graph and lifecycle; TestActor does not assert. HTTP universal-response encoding is not on the outside-proof critical path.
 
 ## 4. Alternative considered
 
-1. **Chosen** — One CoreMsg loop owns fast messages (`StartActor`, credentialed admit-before-`PostChange`, `ActorStop`). CoreActorPool is the synchronized live table and thread-pool runner; it owns Actor-kind selection from the command Node and expands id payload to Graph + named ids + secret for the Actor. TestActor owns command-Node interpretation (hello). Production callers use the CoreMailbox door; outside proofs may call Pool or Actor at those seams. History carries Actor events with Change events; Undo stays Change-only. Matches [[doc/Decisions/0004-core-mailbox-messages-clear-fast.md]], Point 0 (tickets 30–32), and Alan’s lock that the live registry is CoreActorPool’s data.
+1. **Chosen** — One CoreMsg loop owns fast messages (`StartActor`, credentialed admit-before-`PostChange`, `ActorStop`). CoreActorPool is the synchronized live table and thread-pool runner; it owns Actor-kind selection from the command Node and expands id payload to Graph + named ids + secret for the Actor. Browser Command `graphIds` come from Shared **Loaded descendant id list** (Zoom root + Loaded children only; flat ids; ownership ignored; reusable by Actors). TestActor owns command-Node interpretation (hello). Production callers use the CoreMailbox door; outside proofs may call Pool or Actor at those seams. History carries Actor events with Change events; Undo stays Change-only. Matches [[doc/Decisions/0004-core-mailbox-messages-clear-fast.md]], Point 0 (tickets 30–32), and Alan’s lock that the live registry is CoreActorPool’s data.
 2. **Rejected: mailbox-held second registry** — Keep live rows only in mailbox-loop state and treat the pool as a dumb Task runner. Loses the table as the single live registry; duplicates identity/secret/Focus beside CoreActorPool; fights ticket 30’s synchronized-table reshape.
 3. **Rejected: nested ActorMsg pump / FileAgent twin mailbox** — Restore a second mailbox or per-agent Actor cases (shape in the stashed [[reports/implement-issue-29-testactor-hello.md]]). Violates one-mailbox ordering from [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] and the CoreMailbox-only door from ticket 32.
 4. **Rejected: Actor event sequence outside the mailbox** — A separate EventLog / Actor-only sequence beside CoreMailbox. Misfeature; use only CoreMailbox and History, with Actor events on History.
