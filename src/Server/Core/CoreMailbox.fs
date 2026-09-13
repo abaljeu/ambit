@@ -1,20 +1,6 @@
 namespace Gambol.Server
 
-open System
 open Gambol.Shared
-
-type CoreMsg =
-    | GetState of AsyncReplyChannel<Result<State, string>>
-    | GetRevision of AsyncReplyChannel<Result<Revision, string>>
-    | GetChangesSince of
-        after: Revision * AsyncReplyChannel<Result<Change list, string>>
-    | PostChange of
-        changes: Change list *
-        AsyncReplyChannel<Result<CoreChangesAccepted, string>>
-    | PostGraphOnlyChange of
-        changes: Change list *
-        AsyncReplyChannel<Result<CoreChangesAccepted, string>>
-    | SnapshotDone of graph: Graph option
 
 [<RequireQualifiedAccess>]
 module CoreMailbox =
@@ -25,54 +11,69 @@ module CoreMailbox =
         | Error error -> failwith error
 
     let tryGetState
-        (mailbox: MailboxProcessor<CoreMsg>)
+        (host: MailboxHost)
         : Async<Result<State, string>> =
-        mailbox.PostAndAsyncReply GetState
+        host.mailbox.PostAndAsyncReply GetState
 
     let getState
-        (mailbox: MailboxProcessor<CoreMsg>)
+        (host: MailboxHost)
         : Async<Result<State, string>> =
-        tryGetState mailbox
+        tryGetState host
 
-    let getRevision
-        (mailbox: MailboxProcessor<CoreMsg>)
-        : Async<Revision> =
+    let getRevision (host: MailboxHost) : Async<Revision> =
         async {
-            let! result = mailbox.PostAndAsyncReply GetRevision
+            let! result = host.mailbox.PostAndAsyncReply GetRevision
             return unwrap result
         }
 
     let getChangesSince
-        (mailbox: MailboxProcessor<CoreMsg>)
+        (host: MailboxHost)
         (after: Revision)
         : Async<Change list> =
         async {
             let! result =
-                mailbox.PostAndAsyncReply(fun reply ->
+                host.mailbox.PostAndAsyncReply(fun reply ->
                     GetChangesSince(after, reply))
             return unwrap result
         }
 
     let postChange
-        (mailbox: MailboxProcessor<CoreMsg>)
+        (host: MailboxHost)
         (changes: Change list)
         : Async<Result<CoreChangesAccepted, string>> =
-        mailbox.PostAndAsyncReply(fun reply -> PostChange(changes, reply))
+        host.mailbox.PostAndAsyncReply(fun reply ->
+            PostChange(changes, reply))
 
     let postGraphOnlyChange
-        (mailbox: MailboxProcessor<CoreMsg>)
+        (host: MailboxHost)
         (changes: Change list)
         : Async<Result<CoreChangesAccepted, string>> =
-        mailbox.PostAndAsyncReply(fun reply ->
+        host.mailbox.PostAndAsyncReply(fun reply ->
             PostGraphOnlyChange(changes, reply))
 
-    let coreChanges
-        (isReady: unit -> bool)
-        (mailbox: MailboxProcessor<CoreMsg>)
-        : CoreChanges =
-        { getState = fun () -> tryGetState mailbox
-          getRevision = fun () -> getRevision mailbox
-          getChangesSince = getChangesSince mailbox
-          isReady = isReady
-          postChange = postChange mailbox
-          postGraphOnlyChange = postGraphOnlyChange mailbox }
+    let coreChanges (host: MailboxHost) : CoreChanges =
+        { getState = fun () -> tryGetState host
+          getRevision = fun () -> getRevision host
+          getChangesSince = getChangesSince host
+          isReady = host.isReady
+          postChange = postChange host
+          postGraphOnlyChange = postGraphOnlyChange host }
+
+    let isReady (host: MailboxHost) = host.isReady ()
+
+    let flushSnapshot (host: MailboxHost) = host.flushSnapshot ()
+
+    let dispose (host: MailboxHost) = host.dispose ()
+
+    let createFile (dataDir: string) : MailboxHost =
+        FileAgent.create dataDir |> FileAgent.mailboxHost
+
+    let createDb (connectionString: string) : MailboxHost =
+        DbAgent.create connectionString |> DbAgent.mailboxHost
+
+    let createDbWithDataDir
+        (connectionString: string)
+        (dataDir: string)
+        : MailboxHost =
+        DbAgent.createWithDataDir connectionString dataDir
+        |> DbAgent.mailboxHost

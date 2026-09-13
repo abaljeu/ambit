@@ -1,0 +1,5 @@
+interface:
+  display_name: "To Arch"
+  short_description: "Design whole-feature architecture as arch.md"
+policy:
+  allow_implicit_invocation: false

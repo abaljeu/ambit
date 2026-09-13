@@ -69,8 +69,8 @@ module CoreRuntime =
         (dbConnectionString: string)
         (dataDir: string)
         : CoreRuntime =
-        let fileAgent = lazy (FileAgent.create dataDir)
-        let getFile () = fileAgent.Value |> FileAgent.coreChanges
+        let fileHost = lazy (CoreMailbox.createFile dataDir)
+        let getFile () = fileHost.Value |> CoreMailbox.coreChanges
         let rawHandle () =
             match persistenceMode, dbStatus with
             | DatabaseSetup.PersistenceMode.Db, DatabaseSetup.DbStatus.Ok ->
@@ -98,6 +98,6 @@ module CoreRuntime =
           browserCredential = browserCredential
           parseCredential = parseCredential
           flushFileSnapshot =
-            fun () -> fileAgent.Value |> FileAgent.flushSnapshot
+            fun () -> fileHost.Value |> CoreMailbox.flushSnapshot
           getFileRevision =
-            fun () -> fileAgent.Value |> FileAgent.getRevision }
+            fun () -> fileHost.Value |> CoreMailbox.getRevision }

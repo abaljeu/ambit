@@ -7,45 +7,21 @@ description: Implements Gambol F# features with Shared-first logic and surgical 
 
 Augments [[.agents/skills/implement/SKILL.md]] for F# layout and test commands. TDD quality: [[.agents/skills/tdd/SKILL.md]]. Follow [[.agents/rules/fsharp-source.md]] and [[.agents/rules/core-agent-behavior.md]].
 
-See [[doc/arch.md]] for layer boundaries.
+Layer paths and boundaries: [[doc/arch.md]].
 
 ## Implementation layout
 
-1. src/Shared/ pure functions and ops.  Used by both .net and fable compilers, and by tests.  
-ALL non-interacting logic belongs here.
-- based on library dependencies
-- so it can reused by the different layers of the application.
-- so that it is possible to unit-test.
-- This does not apply to web UI.
+1. Put new non-interacting logic in Shared first (pure functions and ops). Shared compiles for .NET and Fable, and for tests. This does not apply to web UI. Rarely, put .NET-only code in Shared when more than one consumer requires it. Done: that logic is in Shared.
+2. Then edit Client, Server, or Desktop as the feature needs those layers. Done: other-layer edits match the feature.
+3. When you add tests, use [[.agents/skills/add-shared-test/SKILL.md]]. Done: new Shared.Tests files follow that skill.
 
-- Rarely, code that only compiles in .net will go here if it's required by multiple consumers.
-2. src/Desktop/ - .net browser wrapper providing host machine access.
-3. src/Client/ - Fable-compiled F# webpages.
-4. src/Server/ - .net backend.
-5. src/Server/wwwroot - target of Client build, and permanent residence of web-native sources
-6. Tests/ - .net tests for shared and server.
-Shared.Tests coverage — use [[.agents/skills/add-shared-test/SKILL.md]] when adding tests.
+## Tests
 
-**Foreground** (related tests only). Do not use vscode's test runner; it hangs. Use `dotnet test` with a filter.
+Invocations for each class: [[TEST-COMMANDS.md]].
 
-```bash
-dotnet build tests/Shared.Tests -c Debug
-dotnet test tests/Shared.Tests -c Debug --no-build --filter "FullyQualifiedName~YourTestModule"
-```
-
-When Client dependencies changed (`src/Shared/`, `src/Client/`, or anything the Client fsproj references, including Shared documents when that project is in the Client graph), `dotnet test` on Shared.Tests is not enough. Run `./scripts/client.sh build` (Fable and esbuild). `/ambit` serves `Program.bundle.js`; `dotnet fable` alone is not sufficient. A Fable failure is a real failure, not a skip.
-
-```bash
-./scripts/client.sh build
-```
-
-**Background** (full suite — slow):
-
-```bash
-./scripts/test.sh shared
-```
-
-Use `./scripts/test.sh all` when Server tests may be affected.
+1. **Foreground.** Run related tests only. Done: those tests pass.
+2. **Client compile gate.** When Client dependencies changed (`src/Shared/`, `src/Client/`, or anything the Client fsproj references, including Shared documents when that project is in the Client graph), run the Client compile gate. Shared.Tests is not enough. A Fable failure is a real failure, not a skip. Done: the gate succeeds.
+3. **Background.** After coding is complete, run the full suite as a background task. Use the shared suite unless Server tests may be affected. Done: the suite is running in the background.
 
 ## Escalation
 

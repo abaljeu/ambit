@@ -25,8 +25,10 @@ let private freshState () : State =
       history = History.empty
       revision = Revision 0 }
 
+let private host agent = DbAgent.mailboxHost agent
+
 let private getState agent = async {
-    match! DbAgent.getState agent with
+    match! CoreMailbox.getState (host agent) with
     | Ok state -> return state
     | Error error ->
         Assert.Fail($"get state: {error}")
@@ -53,7 +55,7 @@ let ``persistence exception is logged replied and mailbox survives`` () = task {
             throwingPersist
             (fun _ -> Ok [])
     let! postResult =
-        (DbAgent.coreChanges agent).postChange (changedBody ())
+        (CoreMailbox.coreChanges (host agent)).postChange (changedBody ())
         |> Async.StartAsTask
         |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
     match postResult with

@@ -1,0 +1,896 @@
+diff --git a/.agents/rules/core-agent-behavior.md b/.agents/rules/core-agent-behavior.md
+index 780a410..1eea16e 100644
+--- a/.agents/rules/core-agent-behavior.md
++++ b/.agents/rules/core-agent-behavior.md
+@@ -67,7 +67,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
+ Include me in your work. Tell me what you're thinking about.
+ OBLIGAGTORY: Before any tool call that is not a simple information query, build, or test, explain the goal of that call.
+ Never output multiple pages of text to the user. That much content works much better as a file.
+-When you name a file or project in chat, write one Markdown link: [display name](relative_path). The display name is the name you are talking about, for example [fast reboot](plan/client-start-time/reports/cache-first-boot-via-poll.md). Put the path in that same link. Never emit like `**fast reboot** ([client-start-time](plan/client-start-time/project.md))`. In files use [[relative_path]] wikilinks instead.
++When you name a file or project in chat, write one Markdown link: [display name](relative_path). The display name is the name you are talking about, for example [fast reboot](plan/client-start-time/reports/cache-first-boot-via-poll.md). Put the path in that same link. Never emit like `**fast reboot** ([client-start-time](plan/client-start-time/project.md))`. In files use [[relative_path]] wikilinks instead. When you name an issue, follow [[.agents/rules/refer-by-name.md]].
+ 
+ Advise me if there is a better way to do something.
+ If a request is unclear, just ask.
+diff --git a/.agents/rules/fsharp-source.md b/.agents/rules/fsharp-source.md
+index 540863d..ec0a719 100644
+--- a/.agents/rules/fsharp-source.md
++++ b/.agents/rules/fsharp-source.md
+@@ -7,6 +7,9 @@ If you are looking for browser access functions, look at ./other/fable.browser.d
+ 100 characters or less per line on source code.
+ 
+ 40 lines or less per function.
++
++Group related function parameters into a named, reused type (record or DU). When adding a parameter that belongs with existing ones, extend that type instead of lengthening the argument list. Reuse a type that already exists. Do not invent a one-off tuple or a mega-record of unrelated values; split by cohesion.
++
+ 400 lines or less per file. If a file is already longer, only restructure to split up the code if your changes would increase it.
+ 
+ TABs are not allowed in F#. Always indent 4 spaces.
+diff --git a/.agents/rules/gambol.md b/.agents/rules/gambol.md
+index b95115c..f993d25 100644
+--- a/.agents/rules/gambol.md
++++ b/.agents/rules/gambol.md
+@@ -8,6 +8,8 @@ Canonical project rules are split across [[.agents/rules/]]. Cursor attaches the
+ - [[.agents/rules/markdown-writing.md]] — markdown conventions (scoped to *.md)
+ - [[.agents/rules/planning-docs.md]] — roadmap/plan documents (scoped to doc/)
+ - [[.agents/rules/project-stage.md]] — keep each `plan/` project's `Stage:` current
++- [[.agents/rules/no-retrofit.md]] — skill or rule change; old work stays
++- [[.agents/rules/refer-by-name.md]] — issues the human reads: title wraps the link
+ 
+ Shared runtime state:
+ 
+diff --git a/.agents/rules/no-retrofit.md b/.agents/rules/no-retrofit.md
+new file mode 100644
+index 0000000..795c1d5
+--- /dev/null
++++ b/.agents/rules/no-retrofit.md
+@@ -0,0 +1,7 @@
++# Skill or rule change
++
++When a skill or a rule changes, keep existing tickets, specs, reports, skills-as-examples, and other already-written work in their current shape. Rewrite them only when the user asks.
++
++Edit the process document to change the process. That edit is not a rewrite of old work.
++
++New work after the change follows the new process.
+diff --git a/.agents/rules/refer-by-name.md b/.agents/rules/refer-by-name.md
+new file mode 100644
+index 0000000..0e2567d
+--- /dev/null
++++ b/.agents/rules/refer-by-name.md
+@@ -0,0 +1,3 @@
++# Refer by name
++
++Every project, issue, numbered section, numbered item should have a **name** — its title. In everything the human reads — narration, tickets, maps, specs — never refer to these by only their id or number, but always also include their name. A wall of `#42, #43, #44` is illegible; names read at a glance. The id and URL don't vanish — a name wraps its link — but they ride _inside_ the name, never stand in for it.
+diff --git a/.agents/skills/code-review/SKILL.md b/.agents/skills/code-review/SKILL.md
+index 13ccc61..cd7e7f0 100644
+--- a/.agents/skills/code-review/SKILL.md
++++ b/.agents/skills/code-review/SKILL.md
+@@ -38,25 +38,7 @@ Do **not** harvest GitHub/GitLab issue numbers from commit messages as the spec
+ 
+ Live coding standards for this repo live under [[.agents/rules/]]: [[.agents/rules/fsharp-source.md]] (F#), [[.agents/rules/core-api.md]] (Core vs Adapter), [[.agents/rules/core-agent-behavior.md]] (surgical changes), and the other scoped rules. Do not hunt missing `CODING_STANDARDS.md` or `CONTRIBUTING.md`.
+ 
+-On top of whatever the repo documents, the Standards axis always carries the **smell baseline** below — a fixed set of Fowler code smells (_Refactoring_, ch.3) that applies even when a repo documents nothing. Two rules bind it:
+-
+-- **The repo overrides.** A documented repo standard always wins; where it endorses something the baseline would flag, suppress the smell.
+-- **Always a judgement call.** Each smell is a labelled heuristic ("possible Feature Envy"), never a hard violation — and, like any standard here, skip anything tooling already enforces.
+-
+-Each smell reads *what it is* → *how to fix*; match it against the diff:
+-
+-- **Mysterious Name** — a function, variable, or type whose name doesn't reveal what it does or holds. → rename it; if no honest name comes, the design's murky.
+-- **Duplicated Code** — the same logic shape appears in more than one hunk or file in the change. → extract the shared shape, call it from both.
+-- **Feature Envy** — a method that reaches into another object's data more than its own. → move the method onto the data it envies.
+-- **Data Clumps** — the same few fields or params keep travelling together (a type wanting to be born). → bundle them into one type, pass that.
+-- **Primitive Obsession** — a primitive or string standing in for a domain concept that deserves its own type. → give the concept its own small type.
+-- **Repeated Switches** — the same `switch`/`if`-cascade on the same type recurs across the change. → replace with polymorphism, or one map both sites share.
+-- **Shotgun Surgery** — one logical change forces scattered edits across many files in the diff. → gather what changes together into one module.
+-- **Divergent Change** — one file or module is edited for several unrelated reasons. → split so each module changes for one reason.
+-- **Speculative Generality** — abstraction, parameters, or hooks added for needs the spec doesn't have. → delete it; inline back until a real need shows.
+-- **Message Chains** — long `a.b().c().d()` navigation the caller shouldn't depend on. → hide the walk behind one method on the first object.
+-- **Middle Man** — a class or function that mostly just delegates onward. → cut it, call the real target direct.
+-- **Refused Bequest** — a subclass or implementer that ignores or overrides most of what it inherits. → drop the inheritance, use composition.
++The Standards axis also always carries the smell baseline in [[SMELLS.md]].
+ 
+ ### 4. Spawn both sub-agents in parallel
+ 
+@@ -65,8 +47,8 @@ Send a single message with two `Agent` tool calls. Use the `general-purpose` sub
+ **Standards sub-agent prompt** — include:
+ 
+ - The full diff command (default `git diff HEAD`) and commit list if a fixed point was named.
+-- The list of standards-source files you found in step 3, **plus the smell baseline from step 3** pasted in full — the sub-agent has no other access to it.
+-- The brief: "Report — per file/hunk where relevant — (a) every place the diff violates a documented standard: cite the standard (file + the rule); and (b) any baseline smell you spot: name it and quote the hunk. Distinguish hard violations from judgement calls — documented-standard breaches can be hard, but baseline smells are always judgement calls, and a documented repo standard overrides the baseline. Skip anything tooling enforces. Under 400 words."
++- The list of standards-source files you found in step 3, **plus [[SMELLS.md]]**: include that file's contents in the prompt, or give the path and instruct the sub-agent to read it. The sub-agent has no other access to the smell baseline.
++- The brief: "Report — per file/hunk where relevant — (a) every place the diff violates a documented standard: cite the standard (file + the rule); and (b) any baseline smell you spot: name it and quote the hunk. Distinguish hard violations from judgement calls per the included smell baseline. Under 400 words."
+ 
+ **Spec sub-agent prompt** — include:
+ 
+@@ -78,15 +60,6 @@ If the spec is missing, skip the Spec sub-agent and note this in the final repor
+ 
+ ### 5. Aggregate
+ 
+-Present the two reports under `## Standards` and `## Spec` headings, verbatim or lightly cleaned. Do **not** merge or rerank findings — the two axes are deliberately separate (see _Why two axes_).
++Present the two reports under `## Standards` and `## Spec` headings, verbatim or lightly cleaned. Keep the axes separate: do not merge or rerank findings, and do not pick a single winner across axes.
+ 
+-End with a one-line summary: total findings per axis, and the worst issue _within each axis_ (if any). Don't pick a single winner across axes — that's the reranking the separation exists to prevent.
+-
+-## Why two axes
+-
+-A change can pass one axis and fail the other:
+-
+-- Code that follows every standard but implements the wrong thing → **Standards pass, Spec fail.**
+-- Code that does exactly what the issue asked but breaks the project's conventions → **Spec pass, Standards fail.**
+-
+-Reporting them separately stops one axis from masking the other.
++End with a one-line summary: total findings per axis, and the worst issue _within each axis_ (if any).
+diff --git a/.agents/skills/code-review/SMELLS.md b/.agents/skills/code-review/SMELLS.md
+new file mode 100644
+index 0000000..4e356b3
+--- /dev/null
++++ b/.agents/skills/code-review/SMELLS.md
+@@ -0,0 +1,23 @@
++# Smell baseline
++
++The Standards axis always carries this baseline — a fixed set of Fowler code smells (_Refactoring_, ch.3) that applies even when a repo documents nothing.
++
++Two rules bind it:
++
++- **The repo overrides.** A documented repo standard always wins; where it endorses something the baseline would flag, suppress the smell.
++- **Always a judgement call.** Each smell is a labelled heuristic ("possible Feature Envy"), never a hard violation — and, like any standard here, skip anything tooling already enforces.
++
++Each smell reads *what it is* → *how to fix*. Match it against the diff:
++
++- **Mysterious Name** — a function, variable, or type whose name doesn't reveal what it does or holds. → rename it; if no honest name comes, the design's murky.
++- **Duplicated Code** — the same logic shape appears in more than one hunk or file in the change. → extract the shared shape, call it from both.
++- **Feature Envy** — a method that reaches into another object's data more than its own. → move the method onto the data it envies.
++- **Data Clumps** — the same few fields or params keep travelling together (a type wanting to be born). → bundle them into one type, pass that.
++- **Primitive Obsession** — a primitive or string standing in for a domain concept that deserves its own type. → give the concept its own small type.
++- **Shotgun Surgery** — one logical change forces scattered edits across many files in the diff. → gather what changes together into one module.
++- **Divergent Change** — one file or module is edited for several unrelated reasons. → split so each module changes for one reason.
++- **Speculative Generality** — abstraction, parameters, or hooks added for needs the spec doesn't have. → delete it; inline back until a real need shows.
++- **Message Chains** — long `a.b().c().d()` navigation the caller shouldn't depend on. → hide the walk behind one method on the first object.
++- **Middle Man** — a class or function that mostly just delegates onward. → cut it, call the real target direct.
++- **Refused Bequest** — a subclass or implementer that ignores or overrides most of what it inherits. → drop the inheritance, use composition.
++- **Parameter Explosion** - a function has a large number of parameters.  → Identify among its call chain what subset of the parameters come as a package and establish a meaninful type, not "FunctionParametersType".
+\ No newline at end of file
+diff --git a/.agents/skills/implement-fsharp-feature/SKILL.md b/.agents/skills/implement-fsharp-feature/SKILL.md
+index 7b7525c..d211992 100644
+--- a/.agents/skills/implement-fsharp-feature/SKILL.md
++++ b/.agents/skills/implement-fsharp-feature/SKILL.md
+@@ -7,45 +7,21 @@ description: Implements Gambol F# features with Shared-first logic and surgical
+ 
+ Augments [[.agents/skills/implement/SKILL.md]] for F# layout and test commands. TDD quality: [[.agents/skills/tdd/SKILL.md]]. Follow [[.agents/rules/fsharp-source.md]] and [[.agents/rules/core-agent-behavior.md]].
+ 
+-See [[doc/arch.md]] for layer boundaries.
++Layer paths and boundaries: [[doc/arch.md]].
+ 
+ ## Implementation layout
+ 
+-1. src/Shared/ pure functions and ops.  Used by both .net and fable compilers, and by tests.  
+-ALL non-interacting logic belongs here.
+-- based on library dependencies
+-- so it can reused by the different layers of the application.
+-- so that it is possible to unit-test.
+-- This does not apply to web UI.
++1. Put new non-interacting logic in Shared first (pure functions and ops). Shared compiles for .NET and Fable, and for tests. This does not apply to web UI. Rarely, put .NET-only code in Shared when more than one consumer requires it. Done: that logic is in Shared.
++2. Then edit Client, Server, or Desktop as the feature needs those layers. Done: other-layer edits match the feature.
++3. When you add tests, use [[.agents/skills/add-shared-test/SKILL.md]]. Done: new Shared.Tests files follow that skill.
+ 
+-- Rarely, code that only compiles in .net will go here if it's required by multiple consumers.
+-2. src/Desktop/ - .net browser wrapper providing host machine access.
+-3. src/Client/ - Fable-compiled F# webpages.
+-4. src/Server/ - .net backend.
+-5. src/Server/wwwroot - target of Client build, and permanent residence of web-native sources
+-6. Tests/ - .net tests for shared and server.
+-Shared.Tests coverage — use [[.agents/skills/add-shared-test/SKILL.md]] when adding tests.
++## Tests
+ 
+-**Foreground** (related tests only). Do not use vscode's test runner; it hangs. Use `dotnet test` with a filter.
++Invocations for each class: [[TEST-COMMANDS.md]].
+ 
+-```bash
+-dotnet build tests/Shared.Tests -c Debug
+-dotnet test tests/Shared.Tests -c Debug --no-build --filter "FullyQualifiedName~YourTestModule"
+-```
+-
+-When Client dependencies changed (`src/Shared/`, `src/Client/`, or anything the Client fsproj references, including Shared documents when that project is in the Client graph), `dotnet test` on Shared.Tests is not enough. Run `./scripts/client.sh build` (Fable and esbuild). `/ambit` serves `Program.bundle.js`; `dotnet fable` alone is not sufficient. A Fable failure is a real failure, not a skip.
+-
+-```bash
+-./scripts/client.sh build
+-```
+-
+-**Background** (full suite — slow):
+-
+-```bash
+-./scripts/test.sh shared
+-```
+-
+-Use `./scripts/test.sh all` when Server tests may be affected.
++1. **Foreground.** Run related tests only. Done: those tests pass.
++2. **Client compile gate.** When Client dependencies changed (`src/Shared/`, `src/Client/`, or anything the Client fsproj references, including Shared documents when that project is in the Client graph), run the Client compile gate. Shared.Tests is not enough. A Fable failure is a real failure, not a skip. Done: the gate succeeds.
++3. **Background.** After coding is complete, run the full suite as a background task. Use the shared suite unless Server tests may be affected. Done: the suite is running in the background.
+ 
+ ## Escalation
+ 
+diff --git a/.agents/skills/implement-fsharp-feature/TEST-COMMANDS.md b/.agents/skills/implement-fsharp-feature/TEST-COMMANDS.md
+new file mode 100644
+index 0000000..85aa09c
+--- /dev/null
++++ b/.agents/skills/implement-fsharp-feature/TEST-COMMANDS.md
+@@ -0,0 +1,36 @@
++# Test commands
++
++Invocations for [[SKILL.md]].
++
++## Foreground
++
++Use `dotnet test` with a filter. The vscode test runner hangs.
++
++```bash
++dotnet build tests/Shared.Tests -c Debug
++dotnet test tests/Shared.Tests -c Debug --no-build --filter "FullyQualifiedName~YourTestModule"
++```
++
++Replace `YourTestModule` with the test module that covers the change.
++
++## Client compile gate
++
++```bash
++./scripts/client.sh build
++```
++
++`/ambit` serves `Program.bundle.js`. Bare `dotnet fable` is not the gate. Default `./scripts/client.sh` is watch, not this gate.
++
++## Background
++
++Shared:
++
++```bash
++./scripts/test.sh shared
++```
++
++Shared and Server:
++
++```bash
++./scripts/test.sh all
++```
+diff --git a/.agents/skills/investigate-fable-client/SKILL.md b/.agents/skills/investigate-fable-client/SKILL.md
+index 8e21518..06c1800 100644
+--- a/.agents/skills/investigate-fable-client/SKILL.md
++++ b/.agents/skills/investigate-fable-client/SKILL.md
+@@ -39,7 +39,7 @@ Fable output goes to `src/Server/wwwroot`; the server serves `/ambit`.
+ 
+ VS Code default: Fable watch + server. Manual: `./scripts/client.sh` (default action is watch).
+ 
+-Shared edits that must ship to `/ambit` are Client dependencies. After those edits, run `./scripts/client.sh build` (Fable and esbuild). Shared.Tests do not compile the Client. A Fable failure is a real failure, not a skip. Policy: [[.agents/skills/implement-fsharp-feature/SKILL.md]].
++Shared edits that must ship to `/ambit` are Client dependencies. After those edits, run the Client compile gate. Shared.Tests do not compile the Client. Policy: [[.agents/skills/implement-fsharp-feature/SKILL.md]]. Invocation: [[.agents/skills/implement-fsharp-feature/TEST-COMMANDS.md]].
+ 
+ ## Escalation
+ 
+diff --git a/.agents/skills/prepare-agent-instruction-change/SKILL.md b/.agents/skills/prepare-agent-instruction-change/SKILL.md
+index 91fdf11..880ad88 100644
+--- a/.agents/skills/prepare-agent-instruction-change/SKILL.md
++++ b/.agents/skills/prepare-agent-instruction-change/SKILL.md
+@@ -10,7 +10,7 @@ Canonical layout: [[.agents/rules/gambol.md]].
+ ## Principles
+ 
+ - **Rules** — policy and file conventions. Canonical text lives in [[.agents/rules/]]. Cursor loads [[.cursor/rules/]] `.mdc` stubs (`alwaysApply` or `globs`) that point at those files.
+-- **Skills** — recurring workflows; link to rules, do not copy them. Repo-shared skills live in [[.agents/skills/]].
++- **Skills** — recurring workflows; link to rules, do not copy them. Repo-shared skills live in [[.agents/skills/]]. Write each SKILL.md per [[.agents/skills/writing-for-agents/SKILL.md]].
+ - **Bridges** — tool-specific deltas only (`AGENTS.md`, [[.agents/copilot-instructions.md]], [[.agents/codex-context.md]]). Cursor still reads [[.cursor/copilot-instructions.md]] and [[.cursor/codex-context.md]] as stubs.
+ 
+ ## Edit workflow
+@@ -25,6 +25,7 @@ Canonical layout: [[.agents/rules/gambol.md]].
+ - [ ] Universal rules stay short; scoped rules do not repeat them.
+ - [ ] Skills link to rules instead of copying policy.
+ - [ ] Bridge files do not duplicate rule or skill bodies.
++- [ ] When the change includes a skill SKILL.md, every paragraph is a step or an in-file caveat the agent needs on every run; else disclose or delete ([[.agents/skills/writing-for-agents/SKILL.md]]).
+ 
+ ## Do not
+ 
+diff --git a/.agents/skills/qa/SKILL.md b/.agents/skills/qa/SKILL.md
+index f8a8aa3..c955fea 100644
+--- a/.agents/skills/qa/SKILL.md
++++ b/.agents/skills/qa/SKILL.md
+@@ -48,7 +48,7 @@ Keep as a single issue when:
+ 
+ Publish under `plan/<feature-slug>/issues/` per [[doc/agents/issue-tracker.md]]. Do NOT ask the user to review first — file and share the paths.
+ 
+-Each published file is a tracker issue as defined in that doc: numbered `NN-slug.md`, a title heading, and a bold `**Status:**` line with a Status value from the tracker. Newly filed issues that have reproduction steps use `ready-for-agent`. Numbering, field labels, and other tracker fields follow the tracker doc. Do not copy the ticket template from [[.agents/skills/to-tickets/SKILL.md]].
++Each published file is a tracker issue as defined in that doc: numbered `NN-slug.md`, a title heading, and a bold `**Status:**` line with a Status value from the tracker. Newly filed issues that have reproduction steps use `ready-for-agent`. Numbering, field labels, and other tracker fields follow the tracker doc. Do not copy the ticket template from [[.agents/skills/to-tickets/PUBLISH.md]].
+ 
+ Issues must be **durable** — they should still make sense after major refactors. Write from the user's perspective.
+ 
+diff --git a/.agents/skills/to-feature-tickets/SKILL.md b/.agents/skills/to-feature-tickets/SKILL.md
+index a2b6dc2..c83821e 100644
+--- a/.agents/skills/to-feature-tickets/SKILL.md
++++ b/.agents/skills/to-feature-tickets/SKILL.md
+@@ -48,37 +48,6 @@ Ask the user:
+ 
+ Iterate until the user approves the breakdown.
+ 
+-### 5. Publish the tickets
++### 5. Publish
+ 
+-Publish the approved tickets.
+-
+-Plan files and Stage: follow [[.agents/skills/project-work/SKILL.md]].
+-
+-Write one file per ticket under `plan/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01` in dependency order (blockers first). Each file's "Blocked by" lists the numbers/titles it depends on. Use the per-ticket file template below — one ticket per file. Include one or two pointers to defining specs from which the ticket was derived. Not just `spec.md` but more trace back to decision files.
+-
+-Do not close or modify any parent issue.
+-
+-<local-ticket-template>
+-
+-# <NN> — <Ticket title>
+-
+-**Status:** ready-for-agent
+-**Blocked by:** the numbers/titles of the tickets that gate this one, or "None — can start immediately".
+-
+-## Context
+-Explain the scenario where the newly built feature will be applied. Write in the style of [[.agents/skills/wait-what/SKILL.md]].
+-
+-## What to build
+-The functionality this ticket makes work — not a layer-by-layer implementation list. Write in the style of [[.agents/skills/wait-what/SKILL.md]].
+-
+-- [ ] Acceptance criterion 1
+-- [ ] Acceptance criterion 2
+-
+-## See also
+-One or two wikilinks to the defining spec and decision files this ticket was derived from (not only the parent `spec.md`).
+-
+-</local-ticket-template>
+-
+-Add a ## Comments section only when there is a comment.
+-
+-Avoid code snippets — they go stale fast. Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it and note briefly that it came from a prototype. Trim to the decision-rich parts.
++When the user approves the breakdown, publish the tickets per [[.agents/skills/to-tickets/PUBLISH.md]].
+diff --git a/.agents/skills/to-tickets/PUBLISH.md b/.agents/skills/to-tickets/PUBLISH.md
+new file mode 100644
+index 0000000..2afa974
+--- /dev/null
++++ b/.agents/skills/to-tickets/PUBLISH.md
+@@ -0,0 +1,36 @@
++# Publish tickets
++
++Write one file per ticket under `plan/<feature-slug>/issues/<NN>-<slug>.md`. Number from `01` in dependency order (blockers first). Each file's **Blocked by** lists the numbers/titles it depends on. Use the template below. One ticket per file. Include one or two pointers to defining specs from which the ticket was derived. Trace back to decision files, not only `spec.md`.
++
++Record the **frontier** (takeable tickets whose blockers are all done) for a later implement. For a purely linear chain that is the first ticket. Name it in the reply.
++
++Leave the parent issue as it is. Publish the child tickets only.
++
++Existing tickets stay in their current shape. See [[.agents/rules/no-retrofit.md]].
++
++<local-ticket-template>
++
++# <NN> — <Ticket title>
++
++**Status:** ready-for-agent
++**Blocked by:** the numbers/titles of the tickets that gate this one, or "None — can start immediately".
++
++## Context
++Explain the scenario where the newly built feature will be applied. Write in the style of [[.agents/skills/wait-what/SKILL.md]].
++
++## What to build
++The end-to-end behaviour this ticket makes work, from the user's perspective — not a layer-by-layer implementation list. Write in the style of [[.agents/skills/wait-what/SKILL.md]].
++
++- [ ] Acceptance criterion 1
++- [ ] Acceptance criterion 2
++
++## See also
++One or two wikilinks to the defining spec and decision files this ticket was derived from (not only the parent `spec.md`).
++
++</local-ticket-template>
++
++When a ticket has a comment, add a ## Comments section with that comment. Omit ## Comments when there is none.
++
++Write the ticket in prose. Inline a code snippet only when a prototype encoded a decision more precisely than prose can (state machine, reducer, schema, type shape). Note that it came from a prototype. Trim to the decision-rich parts — not a working demo, just the important bits.
++
++Done when each approved ticket is one file in that shape, the frontier is named, and the parent issue is unchanged.
+diff --git a/.agents/skills/to-tickets/SKILL.md b/.agents/skills/to-tickets/SKILL.md
+index bafe0d6..9928841 100644
+--- a/.agents/skills/to-tickets/SKILL.md
++++ b/.agents/skills/to-tickets/SKILL.md
+@@ -53,39 +53,6 @@ Ask the user:
+ 
+ Iterate until the user approves the breakdown.
+ 
+-### 5. Publish the tickets to the configured tracker
++### 5. Publish
+ 
+-Publish the approved tickets.
+-
+-write one file per ticket under `plan/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01` in dependency order (blockers first). Each file's "Blocked by" lists the numbers/titles it depends on. Use the per-ticket file template below — one ticket per file, never a single combined file.  Include one or two pointers to defining specs from which the ticket was derived.  Not just `spec.md` but more trace back to decision files.
+-
+-Record the **frontier** (takeable tickets whose blockers are all done) for a later implement. For a purely linear chain that is the first ticket.
+-
+-Do NOT close or modify any parent issue.
+-
+-
+-<!-- 2026-09-02 updated format.  Do not use old format.  Don't rewrite old tickets unless asked. -->
+-<local-ticket-template>
+-
+-# <NN> — <Ticket title>
+-
+-**Status:** ready-for-agent
+-**Blocked by:** the numbers/titles of the tickets that gate this one, or "None — can start immediately".
+-
+-## Context
+-Explain the scenario where the newly built feature will be applied.  Write in the style of [[.agents/skills/wait-what/SKILL.md]].
+-
+-## What to build
+-The end-to-end behaviour this ticket makes work, from the user's perspective — not a layer-by-layer implementation list.  Write in the style of [[.agents/skills/wait-what/SKILL.md]].
+-
+-- [ ] Acceptance criterion 1
+-- [ ] Acceptance criterion 2
+-
+-## See also
+-One or two wikilinks to the defining spec and decision files this ticket was derived from (not only the parent `spec.md`).
+-
+-</local-ticket-template>
+-
+-Add a ## Comments section only when there is a comment.
+-
+-Avoid code snippets — they go stale fast. Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it and note briefly that it came from a prototype. Trim to the decision-rich parts — not a working demo, just the important bits.
++When the user approves the breakdown, publish the tickets per [[PUBLISH.md]].
+diff --git a/.agents/skills/wayfinder/SKILL.md b/.agents/skills/wayfinder/SKILL.md
+index 374ac4e..c58bc89 100644
+--- a/.agents/skills/wayfinder/SKILL.md
++++ b/.agents/skills/wayfinder/SKILL.md
+@@ -18,7 +18,7 @@ Delegate research, but not grilling.  The user cannot easily review questions po
+ 
+ ## Refer by name
+ 
+-Every map and ticket is an issue, so it has a **name** — its title. In everything the human reads — narration, the map's Decisions-so-far — refer to it by that name, never by a bare id, by number, or by slug. A wall of `#42, #43, #44` is illegible; names read at a glance. The id and URL don't vanish — a name wraps its link — but they ride _inside_ the name, never stand in for it.
++Follow [[.agents/rules/refer-by-name.md]]. Decisions-so-far is one of those surfaces.
+ 
+ ## The Map
+ 
+diff --git a/.agents/skills/writing-for-agents/GLOSSARY.md b/.agents/skills/writing-for-agents/GLOSSARY.md
+index 52cdcf4..209a57d 100644
+--- a/.agents/skills/writing-for-agents/GLOSSARY.md
++++ b/.agents/skills/writing-for-agents/GLOSSARY.md
+@@ -174,6 +174,12 @@ The desired state where each meaning lives in exactly one authoritative place, s
+ 
+ _Avoid_: home, canonical location
+ 
++### Cache
++
++A document that restates a lookup the environment already answers — scripts, config files, the directory layout, `--help` output. The environment is a **single source of truth**. A cache earns its load only when the lookup is expensive: the unwritten convention, the gotcha no config confesses.
++
++_Avoid_: environment dump, restated lookup
++
+ ### Duplication
+ 
+ _Failure mode._ The same meaning given more than one **single source of truth**. It costs maintenance (change one place, you must change the others), costs tokens, and inflates prominence — repeating a meaning weights it on the ladder past its real rank. The accidental inverse of a **leading word**, which raises attention on purpose by repeating a token, never the meaning.
+diff --git a/.agents/skills/writing-for-agents/SKILL-MECHANICS.md b/.agents/skills/writing-for-agents/SKILL-MECHANICS.md
+index c28e3bf..24a0e5e 100644
+--- a/.agents/skills/writing-for-agents/SKILL-MECHANICS.md
++++ b/.agents/skills/writing-for-agents/SKILL-MECHANICS.md
+@@ -1,12 +1,12 @@
+ # Skill mechanics
+ 
+-The skill-specific branch of [`writing-for-agents`](SKILL.md): what changes when the document is a skill — frontmatter, the invocation choice, and router skills. Everything else about writing it is the universal reference in `SKILL.md`.
++The skill-specific branch of [[SKILL.md]]: what changes when the document is a skill — frontmatter, the invocation choice, and router skills. Writing theory: [[WHY.md]].
+ 
+ ## Invocation
+ 
+ Two choices, trading the two loads:
+ 
+-- A **model-invoked** skill keeps a `description`, so the agent can fire it autonomously — and other skills can reach it. You can still type its name: model-invocation always _includes_ user reach; a description only ever adds agent discovery, never removes the human's. The description is the skill's top-level context pointer, forced to stay loaded at all times — permanent context load in exchange for discoverability. A model-invoked skill whose content is all reference is also one home for shared reference: another skill can invoke it, so reference needed by several skills lives in one place. Mechanics: omit `disable-model-invocation`, and write a model-facing description carrying the trigger branches (the pointer-writing rules in `SKILL.md` apply in full).
++- A **model-invoked** skill keeps a `description`, so the agent can fire it autonomously — and other skills can reach it. You can still type its name: model-invocation always _includes_ user reach; a description only ever adds agent discovery, never removes the human's. The description is the skill's top-level context pointer, forced to stay loaded at all times — permanent context load in exchange for discoverability. A model-invoked skill whose content is all reference is also one home for shared reference: another skill can invoke it, so reference needed by several skills lives in one place. Mechanics: omit `disable-model-invocation`, and write a model-facing description carrying the trigger branches (the pointer-writing rules in [[SKILL.md]] apply in full).
+ - A **user-invoked** skill strips the description from the agent's reach: only the human typing its name can invoke it, and no other skill can. Zero context load, but it spends cognitive load — you are the index that must remember it exists. Mechanics: set `disable-model-invocation: true`; the `description` becomes human-facing — a one-line summary, trigger lists stripped.
+ 
+ Pick model-invocation only when the agent must reach the skill on its own, or another skill must. If it only ever fires by hand, make it user-invoked and pay no context load.
+@@ -15,7 +15,7 @@ Shared reference that two user-invoked skills both need can live in neither —
+ 
+ ## Splitting by invocation
+ 
+-The invocation cut of splitting (the sequence cut lives in `SKILL.md`): split off a model-invoked skill when you have a distinct leading word that should trigger it on its own — a trigger word you actually use in your prompts — or another skill must reach it. You pay context load for the new always-loaded description, so that independent reach has to be worth it.
++The invocation cut of splitting (the sequence cut lives in [[WHY.md]]): split off a model-invoked skill when you have a distinct leading word that should trigger it on its own — a trigger word you actually use in your prompts — or another skill must reach it. You pay context load for the new always-loaded description, so that independent reach has to be worth it.
+ 
+ ## Router skills
+ 
+diff --git a/.agents/skills/writing-for-agents/SKILL.md b/.agents/skills/writing-for-agents/SKILL.md
+index 0f7a3dc..85c4041 100644
+--- a/.agents/skills/writing-for-agents/SKILL.md
++++ b/.agents/skills/writing-for-agents/SKILL.md
+@@ -3,79 +3,19 @@ name: writing-for-agents
+ description: Writing documents for agents. Use when creating or editing skills, or modifying AGENTS.md or .agents/ bridges.
+ ---
+ 
+-Reference for writing any document an agent consumes — a skill, an `AGENTS.md`, a `.agents/` bridge, or a doc reached by a pointer. The packaging differs; the writing does not: the same levers make each one predictable — the agent taking the same _process_ every run, not producing the same output.
++Write any document an agent consumes — a skill, [[AGENTS.md]], a `.agents/` bridge, or a doc reached by a pointer. Skill packaging: [[SKILL-MECHANICS.md]]. Terms: [[GLOSSARY.md]]. Method (why the levers work): [[WHY.md]].
+ 
+-When the document you're writing is a skill, read [`SKILL-MECHANICS.md`](SKILL-MECHANICS.md) for frontmatter, invocation choice, and router skills. Formal term definitions: [`GLOSSARY.md`](GLOSSARY.md).
++## Recipe
+ 
+-## Context pointers
++1. Name the document and its **branches**. Done: each always-loaded pointer has one trigger per genuine branch, and the leading word is front-loaded.
++2. If the document is a skill, apply [[SKILL-MECHANICS.md]] for frontmatter, invocation, and routers. Done: invocation matches the reach you need.
++3. Write ordered **steps** in the main file. Each step ends on a checkable, exhaustive **completion criterion**. Why is never a step. Done: a reader can tell done from not-done for every step.
++4. Keep in-file only the caveats every run needs, beside the rule they justify. Disclose other **reference** behind a pointer. Product and architecture why live in a Committed Decision ([[doc/Decisions/]]) or spec, not a skill. Done: every in-file paragraph is a step or an every-run caveat.
++5. Prune. One meaning, one home. Leave environment lookups in the environment. Delete **no-ops** as whole sentences. Done: no **cache** of a cheap lookup, and no sentence that does not change behaviour.
+ 
+-A **context pointer** is a reference held in the agent's context that names some out-of-context material and encodes the condition for reaching it. A skill's description is one; a line in `AGENTS.md` naming a doc is the same object. The pointer's _wording_, not its target, decides when the agent reaches the material — and how reliably. A must-have target behind a weakly worded pointer is a variance bug: sharpen the wording first, and inline the material only if sharpening fails.
++## Gates
+ 
+-A pointer does two jobs — state what the material is, and list the **branches** that should trigger reaching it (a branch is a distinct case the document handles, so different runs take different paths through it). Every word of an always-loaded pointer costs on every turn, so it earns even harder pruning than the body:
+-
+-- **Front-load the leading word** — the pointer is where it does its triggering work.
+-- **One trigger per branch.** Synonyms that rename a single branch are one branch written twice; collapse them and keep only genuinely distinct branches.
+-- **Cut identity the body already carries.**
+-
+-## The two loads
+-
+-Every document and pointer you add spends one of two budgets:
+-
+-- **Context load** — the cost of always-loaded material on the agent's window: an `AGENTS.md` line, a skill description, anything sitting in context every turn, spending tokens and attention whether or not it fires.
+-- **Cognitive load** — the cost on the human: which documents exist and when to reach for each. The human is the index. Not a cost to minimise — it is the price of human agency; spend it where human judgement matters, remove it where it does not.
+-
+-Material reached only through a pointer escapes context load at the price of the pointer's own line; material with no pointer at all rides entirely on cognitive load.
+-
+-## Information hierarchy
+-
+-A document is built from two content types — **steps** (the ordered actions the agent performs) and **reference** (definitions, rules, facts consulted on demand) — that mix freely: all steps (a recipe), all reference (a review's rules, this skill), or both. The core decision is where each piece sits on the **information hierarchy**, a ladder ranked by how immediately the agent needs the material:
+-
+-1. **In-file step** — the primary tier: what the agent does, in order.
+-2. **In-file reference** — consulted on demand. Often a legitimately flat peer-set (every rule of a review on one rung) — a fine arrangement, not a smell.
+-3. **Disclosed reference** — pushed out into a separate file, reached by a context pointer, loaded only when the pointer fires. Spans a sibling file in the same folder through fully external reference that lives anywhere and any document can point at.
+-
+-Push too little down and the top bloats; push too much and you hide material the agent actually needs. That tension is the whole decision.
+-
+-**Progressive disclosure** is the move down the ladder — out of the main file and behind a pointer — so the top stays legible. Not primarily a token optimisation: it is how the hierarchy is protected. Branching is the cleanest disclosure test: inline what every branch needs, and push behind a pointer what only some branches reach. When a document has steps, in-file reference that should be disclosed buries them and turns attending to them into a coin-flip — a variance lever, not just a legibility one.
+-
+-**Co-location** is the within-file companion: where the ladder decides _how far down_ a piece sits, co-location decides _what sits beside it_ once there. Keep a concept's definition, rules, and caveats under one heading rather than scattered, so reading one part brings its neighbours with it. The test: the document should read like documentation written for the agent — grouped material reads that way; scattered material does not. (Distinct from duplication: that repeats one meaning in two places; scattering fragments one meaning across many.)
+-
+-**Sprawl** is the failure mode here: a document simply too long, even when every line is live and unique. Attention thins across the excess, and every extra line is one more to keep relevant. The cure is the ladder: disclose reference behind pointers, and split by branch or sequence so each path carries only what it needs.
+-
+-## Steps and completion criteria
+-
+-Every step ends on a **completion criterion** — the condition that tells the agent the work is done. Two properties make it a lever:
+-
+-- **Clarity** — can the agent tell done from not-done? A vague bound ("understanding reached") invites **premature completion**: ending the step before it is genuinely done, attention slipping to _being done_. The visible steps still ahead — the **post-completion steps** — supply the pull; the criterion's clarity is the resistance. Defend in order: **sharpen the bound first** (local and cheap); only if it is irreducibly fuzzy _and_ you observe the rush, hide the later steps by splitting the sequence — and hiding only works across a real context boundary (a hand-off or a subagent dispatch; an inline call leaves the later steps in context and clears nothing).
+-- **Demand** — how much it requires. "Every modified model accounted for" forces thorough work where "produce a change list" does not. Demand drives **legwork** — the digging the agent does within the work, latent in the wording rather than written as its own step — and it is not step-bound: "every rule applied" binds a body of flat reference just as "every step done" binds a sequence, which is how an all-reference document still carries an exhaustiveness bar.
+-
+-The strongest criteria are both checkable and exhaustive.
+-
+-## When to split
+-
+-Splitting one document into two spends one of the two loads, so split only when the cut earns it:
+-
+-- **By sequence** — split a run of steps where the post-completion steps tempt the agent to rush the one in front of it. Keeping them out of view drives more legwork on the current task. Beware the reverse: merging sequences exposes each step's later steps to what follows, inviting premature completion.
+-- **By invocation** — skill-specific: see [`SKILL-MECHANICS.md`](SKILL-MECHANICS.md).
+-
+-## Leading words
+-
+-A **leading word** is a compact concept already living in the model's pretraining that the agent thinks with while running the document (_lesson_, _fog of war_, _tracer bullets_). Repeated as a token, never as a sentence, it accumulates a distributed definition and anchors a whole region of behaviour in the fewest tokens, by recruiting priors the model already holds. Coining your own works if you define it clearly, but a made-up word recruits no priors — you pay in definition tokens what a pretrained word gives free; reach for an existing word first.
+-
+-It anchors twice. In the body, _execution_: the agent reaches for the same behaviour every time the word appears, and inside flat reference it focuses attention on a class of thing to look for. In a pointer, _invocation_: when the same word lives in your prompts, your docs, and your codebase, the agent links that shared language to the material and reaches it more reliably.
+-
+-Hunt for opportunities to refactor with leading words. A triad spelled out at three sites, a pointer spending a sentence to gesture at one idea — each is a passage begging to collapse into a single token:
+-
+-- "fast, deterministic, low-overhead" → _tight_ (a _tight_ loop).
+-- "a loop you believe in" → _red_ — a fuzzy gate becomes a binary observable state (the loop goes _red_ on the bug, or it doesn't).
+-
+-You win twice: fewer tokens, and a sharper hook for the agent to hang its thinking on. Assume every document is carrying restatements that leading words retire — go find them.
+-
+-**Negation** is the failure mode beside this lever: steering by prohibition drags the forbidden behaviour into context and makes it _more_ available, not less. _Don't think of an elephant_, and the elephant is all there is; the negation is a weak modifier the strongly-activated concept overruns, so the ban half-reads as an instruction to do the thing. Prompt the **positive** — state the target behaviour ("write one-line comments") so the banned one is never spoken. A prohibition earns its place only as a hard guardrail you cannot phrase positively; even then, pair it with the positive target so attention lands on what to do.
+-
+-## Pruning
+-
+-- Keep each meaning in a **single source of truth**: one authoritative place, so changing the behaviour is a one-place edit. **Duplication** — the same meaning in more than one place — costs maintenance and tokens, and inflates a meaning's prominence on the ladder past its real rank. (The accidental inverse of a leading word, which repeats a token on purpose, never the meaning.)
+-- The **environment** is a source of truth too — `package.json` scripts, config files, the directory layout, `--help` output — and a document that restates it is a **cache**: a copy of a lookup, earning its load only when the lookup is expensive. Cache what the agent cannot find by looking: the unwritten convention, the reason behind a choice, the gotcha no config confesses. Leave the one-file, one-command lookups to the environment, where they cannot go stale.
+-- Check every line for **relevance**: does it still bear on what the document does? A line loses relevance by never bearing on the task (mere exposition, or a branch that should be disclosed) or by going stale as the behaviour or world it describes changes. Shorter documents are easier to keep relevant. Without a pruning discipline the default fate is **sediment**: stale layers that settle because adding feels safe and removing feels risky, until you must core down through them to find what is still live.
+-- Hunt **no-ops** sentence by sentence: an instruction the model already obeys by default pays load to say nothing. The test — does it change behaviour versus the default? — is model-relative, not reader-relative: two people disagreeing about a no-op disagree about the default, and settle it by running the document, not by debate. When a sentence fails, delete the whole sentence rather than trim words from it. The test also grades leading words: a word too weak to beat the default (_be thorough_ when the agent is already thorough-ish) is a no-op, and the fix is a stronger word (_relentless_), not a different technique.
++- Pointer: cut identity the body already carries. Sharpen wording before you inline.
++- Split only when the cut earns a load: by sequence (hide **post-completion steps** across a real context boundary) or by invocation ([[SKILL-MECHANICS.md]]).
++- Prompt the positive. A prohibition is a last-resort guardrail, paired with the target.
++- Keep structure (WHAT, WHERE) and method (HOW) in wholly separate documents. Put why in [[WHY.md]] or another disclosed file, not in a Method section of the recipe.
+diff --git a/.agents/skills/writing-for-agents/WHY.md b/.agents/skills/writing-for-agents/WHY.md
+new file mode 100644
+index 0000000..c421fb1
+--- /dev/null
++++ b/.agents/skills/writing-for-agents/WHY.md
+@@ -0,0 +1,48 @@
++# Why — writing for agents
++
++Terms: [[GLOSSARY.md]]. Recipe: [[SKILL.md]]. Skill packaging: [[SKILL-MECHANICS.md]].
++
++The packaging of a skill, [[AGENTS.md]], a `.agents/` bridge, or a pointed doc differs. The writing does not. The same levers make the agent take the same process every run, not the same output. **Predictability** is that process.
++
++## Spend the two loads
++
++Every document and pointer you add spends **context load** or **cognitive load**. An always-loaded [[AGENTS.md]] line and a skill description are the same spend: tokens and attention on every turn, whether the pointer fires or not. Material reached only through a **context pointer** escapes context load at the price of the pointer's own line. Material with no pointer rides entirely on cognitive load.
++
++Cognitive load is the price of human agency. Spend it where human judgement matters. Remove it where it does not.
++
++## Protect the ladder
++
++**Progressive disclosure** is how the **information hierarchy** stays legible. It is not a token optimisation. Inline what every **branch** needs. Push behind a pointer what only some branches reach. When a document has **steps**, in-file **reference** that should be disclosed buries them and turns attending to them into a coin-flip — a variance lever, not only a legibility one. Maintainer rationale, theory, and history belong in a sibling file behind a pointer.
++
++**Sprawl** is length itself, even when every line is live. Attention thins across the excess. The cure is the ladder: disclose reference, and split by branch or sequence so each path carries only what it needs.
++
++**Co-location** decides what sits beside a piece once the ladder ranks it. Keep a concept's rules and caveats under one heading. Grouped material reads as documentation written for the agent. Scattered material does not.
++
++## Completion as a lever
++
++Apply the **completion criterion** as a lever: sharpen the bound before you hide **post-completion steps**. A vague bound invites **premature completion**. Hiding works only across a real context boundary — a hand-off or a subagent dispatch. An inline call leaves the later steps in context and clears nothing.
++
++Demand drives **legwork**. "Every modified model accounted for" forces thorough work where "produce a change list" does not. Demand also binds a body of flat reference: "every rule applied" is how an all-reference document still carries an exhaustiveness bar. The strongest criteria are both checkable and exhaustive.
++
++## Split by sequence
++
++Split a run of steps when the later steps tempt the agent to rush the one in front. Keeping them out of view drives more legwork on the current task. Merging sequences exposes each step's later steps and invites premature completion. The invocation cut is [[SKILL-MECHANICS.md]].
++
++## Hunt leading words
++
++A triad spelled out at three sites, or a pointer spending a sentence to gesture at one idea, is a passage that wants a single token:
++
++- "fast, deterministic, low-overhead" → _tight_ (a _tight_ loop)
++- "a loop you believe in" → _red_ — a fuzzy gate becomes a binary observable state (the loop goes _red_ on the bug, or it does not)
++
++You win twice: fewer tokens, and a sharper hook for the agent to hang its thinking on. Assume every document carries restatements that **leading words** retire. Go find them.
++
++**Negation** names the elephant into the frame and makes the forbidden behaviour more available. Prompt the positive so the banned behaviour is never spoken. A prohibition earns its place only as a hard guardrail you cannot phrase positively. Pair it with the target so attention lands on what to do.
++
++## Prune
++
++A document that restates the environment is a **cache**. Leave one-file, one-command lookups to the environment, where they cannot go stale. If [[doc/]] or a script already states the fact, leave the why there.
++
++Check every line for **relevance**. Without a pruning discipline the default fate is **sediment**: adding feels safe and removing feels risky.
++
++Hunt **no-ops** sentence by sentence. The test is model-relative: does the sentence change behaviour versus the default? When it fails, delete the whole sentence. The same test grades leading words. A word too weak to beat the default (_be thorough_ when the agent is already thorough-ish) is a no-op. The fix is a stronger word (_relentless_), not a different technique.
+diff --git a/.cursor/rules/no-retrofit.mdc b/.cursor/rules/no-retrofit.mdc
+new file mode 100644
+index 0000000..d4b9b64
+--- /dev/null
++++ b/.cursor/rules/no-retrofit.mdc
+@@ -0,0 +1,5 @@
++---
++alwaysApply: true
++---
++
++Obey [[.agents/rules/no-retrofit.md]].
+diff --git a/.cursor/rules/refer-by-name.mdc b/.cursor/rules/refer-by-name.mdc
+new file mode 100644
+index 0000000..441de5b
+--- /dev/null
++++ b/.cursor/rules/refer-by-name.mdc
+@@ -0,0 +1,5 @@
++---
++alwaysApply: true
++---
++
++Obey [[.agents/rules/refer-by-name.md]].
+diff --git a/plan/core-creation/reports/new-artifacts-meta-rule.md b/plan/core-creation/reports/new-artifacts-meta-rule.md
+new file mode 100644
+index 0000000..f267ace
+--- /dev/null
++++ b/plan/core-creation/reports/new-artifacts-meta-rule.md
+@@ -0,0 +1,39 @@
++# New-artifacts meta rule
++
++Date: 2026-09-13
++
++## SoT
++
++[[.agents/rules/new-artifacts.md]] — always-apply policy. One file because the rule covers plan artifacts and later skill/template use. Not copied into to-tickets, to-spec, implement, code-review, git-protocol, project-work, or prepare-agent-instruction-change. [[.agents/skills/writing-for-agents/SKILL.md]] unchanged (always-apply loads the rule; no pointer required).
++
++## Exact text added
++
++[[.agents/rules/new-artifacts.md]]:
++
++```
++# New artifacts
++
++When a process, a template, or a skill changes, apply it to new artifacts that you create after the change.
++
++Keep existing tickets, specs, reports, skills-as-examples, and other already-written work in their current shape. Rewrite them only when the user asks.
++
++Edit the process document to change the process. That edit is not a rewrite of old work.
++```
++
++[[.cursor/rules/new-artifacts.mdc]] (`alwaysApply: true`):
++
++```
++Obey [[.agents/rules/new-artifacts.md]].
++```
++
++## gambol.md / stub
++
++Catalog line added under the rules list in [[.agents/rules/gambol.md]] (file added):
++
++`- [[.agents/rules/new-artifacts.md]] — apply a changed process to new artifacts only`
++
++No rule file removed. No other catalog or stub edits.
++
++## Not done
++
++No application source. No commits. No rewrite of existing tickets, specs, reports, or skills. Did not touch [[plan/core-creation/reports/skill-structure-vs-method.md]]. Did not start a ship-pipeline split.
+diff --git a/plan/core-creation/reports/skill-structure-vs-method.md b/plan/core-creation/reports/skill-structure-vs-method.md
+new file mode 100644
+index 0000000..9497147
+--- /dev/null
++++ b/plan/core-creation/reports/skill-structure-vs-method.md
+@@ -0,0 +1,60 @@
++# Skill structure vs method
++
++First cut: [[.agents/skills/]] only. **Structure** is order, gates, names, schemas, and done. **Method** is how a step is done this month. Two documents, not a method section in the same essay.
++
++[[.agents/skills/writing-for-agents/SKILL.md]] on disk is complete (~81 lines) plus [[.agents/skills/writing-for-agents/SKILL-MECHANICS.md]] and [[.agents/skills/writing-for-agents/GLOSSARY.md]]. The editor showed it truncated. Concurrent edit: not rewritten. That skill splits steps vs disclosed reference. Alan's cut is stricter: structure file vs method file.
++
++## High-value splits
++
++Four whole-document splits. Not every bulky skill.
++
++| Split | Current | Stays (structure) | Leaves (method) | Why method changes |
++| --- | --- | --- | --- | --- |
++| Ticket publish | [[.agents/skills/to-tickets/SKILL.md]], [[.agents/skills/to-feature-tickets/SKILL.md]] | Each skill: gather → explore → **draft** (vertical slice vs cohesive capability) → quiz → pointer to publish. Distinct step 3 only. | Shared [[.agents/skills/to-tickets/PUBLISH.md]] (plain file; both skills are user-invoked so neither can fire the other): numbering, tracker fields, wait-what style, snippet policy, the local-ticket template. | Template labels and snippet rules change independently of slice-vs-capability. Today they must be edited twice. |
++| Fowler smells | [[.agents/skills/code-review/SKILL.md]] | Pin range, spec source, two parallel axes, aggregate, one-line summary. | [[.agents/skills/code-review/SMELLS.md]] — the smell list and “how to fix”. Parent still pastes it into the Standards sub-agent. | Which smells and how to phrase them change; the two-axis process does not. |
++| Diagnosis loop recipes | [[.agents/skills/diagnosing-bugs/SKILL.md]] | Phase names, order, gates, completion checklists (red command, minimise, 3–5 hypotheses, cleanup). | [[.agents/skills/diagnosing-bugs/LOOP.md]] — the ten loop-construction recipes, tighten tactics, non-det tactics, instrument tool preference. | How you build a loop this month (Playwright vs curl vs harness) changes; “no red command, no Phase 2” does not. |
++| Teach pedagogy | [[.agents/skills/teach/SKILL.md]] | Named workspace files, when to write each, formats already in MISSION-FORMAT / RESOURCES-FORMAT / LEARNING-RECORD-FORMAT / GLOSSARY-FORMAT. | [[.agents/skills/teach/PEDAGOGY.md]] — fluency vs storage, ZPD, quiz design, communities. | Teaching fashion changes; the file layout does not. |
++
++Smaller, still real: [[.agents/skills/implement-fsharp-feature/SKILL.md]] keep Shared-first layout and the Client compile gate; pull filter recipes (`dotnet test --filter`, `./scripts/client.sh build`) to [[.agents/skills/implement-fsharp-feature/TEST-COMMANDS.md]]. Commands follow scripts; layout does not.
++
++## Shared method (one home)
++
++- **Ticket publish** — see above. One template. [[.agents/skills/to-feature-tickets/SKILL.md]] points at it. Do not keep a second copy.
++- **Prototype snippet exception** — the same “inline a decision-rich prototype snippet” paragraph lives in to-tickets, to-feature-tickets, and [[.agents/skills/to-spec/SKILL.md]]. Fold into PUBLISH.md (tickets) plus one line in to-spec, or one tiny shared snippet note both point at. Three copies today.
++- **Grounding** — duplicated in [[.agents/skills/writing-shape/SKILL.md]] and [[.agents/skills/writing-beats/SKILL.md]]. One [[.agents/skills/writing-shape/GROUNDING.md]] (or a plain file next to both). Each SKILL.md keeps its own loop.
++- **DI / mockability examples** — TypeScript “pass the gateway in” lives in [[.agents/skills/tdd/mocking.md]] and again under Designing for testability in [[.agents/skills/codebase-design/SKILL.md]]. Keep examples in mocking.md. Codebase-design keeps the glossary and principles only.
++
++Not a new method file: git bash blocks in [[.agents/skills/git-share/SKILL.md]] and [[.agents/skills/git-master/SKILL.md]]. Those are caches of [[scripts/]]. Structure stays (pull free, push gated, never push `dev`). Point at the scripts; do not duplicate `git fetch` recipes.
++
++`./scripts/client.sh build` is restated in implement-fsharp-feature and [[.agents/skills/investigate-fable-client/SKILL.md]]. After TEST-COMMANDS.md exists, the client skill points there.
++
++## Already separated
++
++| Skill | Siblings | Cut today | Vs structure/method |
++| --- | --- | --- | --- |
++| tdd | [[.agents/skills/tdd/tests.md]], [[.agents/skills/tdd/mocking.md]] | Examples vs loop | Close. SKILL.md is seams, anti-patterns, red-green (structure). tests.md / mocking.md are how-to. SKILL.md still restates “what a good test is” that tests.md shows. |
++| prototype | [[.agents/skills/prototype/LOGIC.md]], [[.agents/skills/prototype/UI.md]] | By branch | Right by-branch split. SKILL.md is pick-branch + shared rules (structure). LOGIC/UI are still mixed process + how-to; do not split further this cut. |
++| codebase-design | [[.agents/skills/codebase-design/DEEPENING.md]], [[.agents/skills/codebase-design/DESIGN-IT-TWICE.md]] | Glossary + principles in SKILL.md | Already method/process siblings. Remaining TS examples should leave SKILL.md (see DI above). |
++| domain-modeling | CONTEXT-FORMAT, COMMITTED-DECISION-FORMAT | Schemas | Structure siblings. Session tactics stay in SKILL.md (short; leave). |
++| teach | four *-FORMAT.md | Schemas | Formats are structure. Pedagogy still sits in SKILL.md (the split above). |
++| cloud-agent-git | [[.agents/skills/cloud-agent-git/LAND.md]] | Work vs download | Sequence split, not structure/method. Keep. |
++| ask-matt | [[.agents/skills/ask-matt/PHASE-BOUNDARIES.md]] | Router vs phase tree | Structure sibling. Leave. |
++| writing-for-agents | SKILL-MECHANICS, GLOSSARY | Reference disclose | Concurrent; skip. Not Alan's structure/method cut. |
++
++## Stay put (tight recipes)
++
++Idea to ship: [[.agents/skills/grill-me/SKILL.md]], [[.agents/skills/grilling/SKILL.md]], [[.agents/skills/grill-with-docs/SKILL.md]], [[.agents/skills/implement/SKILL.md]], [[.agents/skills/add-shared-test/SKILL.md]]. to-spec stays: the spec template is a schema.
++
++On-ramps: [[.agents/skills/wayfinder/SKILL.md]] is long because map/ticket schemas are structure. [[.agents/skills/qa/SKILL.md]] is long because issue templates are schemas. [[.agents/skills/request-refactor-plan/SKILL.md]] already points at wayfinder for the map.
++
++Adapters: [[.agents/skills/git-protocol/SKILL.md]], [[.agents/skills/project-work/SKILL.md]], [[.agents/skills/to-archive/SKILL.md]], [[.agents/skills/scratch-script/SKILL.md]], [[.agents/skills/write-simple-parser/SKILL.md]], [[.agents/skills/prepare-agent-instruction-change/SKILL.md]] (concurrent; skip rewrite), [[.agents/skills/code-review-fsharp/SKILL.md]].
++
++Standalone: [[.agents/skills/handoff/SKILL.md]], [[.agents/skills/research/SKILL.md]], [[.agents/skills/wait-what/SKILL.md]], [[.agents/skills/resolving-merge-conflicts/SKILL.md]], [[.agents/skills/wizard/SKILL.md]], [[.agents/skills/to-questionnaire/SKILL.md]] (template is schema).
++
++Imported bulky recipes (azure, migrate-to-shoehorn, scaffold-exercises, setup-*) are not Gambol pipeline. Do not split this cut.
++
++## Cluster remainder (no extra files)
++
++- **Vocabulary:** [[.agents/skills/improve-codebase-architecture/SKILL.md]] report card + grill loop stay. Explore heuristics can stay; they are short. [[.agents/skills/ubiquitous-language/SKILL.md]] is mostly output format; if it is split later, the proposal tables are schema, not a new method essay.
++- **Adapters:** [[.agents/skills/plan-roadmap-change/SKILL.md]] outline is structure. [[.agents/skills/maintain-doc-currency/SKILL.md]] directory fit is a cache of [[doc/README.md]]. [[.agents/skills/co-edit-format-plan/SKILL.md]] interaction rules are structure.
++- **Do not split for length:** qa, wayfinder, codebase-design SKILL.md, ubiquitous-language. Length here is schema or glossary.
+diff --git a/plan/core-creation/reports/to-tickets-what-why-how.md b/plan/core-creation/reports/to-tickets-what-why-how.md
+new file mode 100644
+index 0000000..0273772
+--- /dev/null
++++ b/plan/core-creation/reports/to-tickets-what-why-how.md
+@@ -0,0 +1,77 @@
++# to-tickets: what / why / how
++
++Feedback only. No skill or ticket rewrite. New tickets only if Alan adopts a shape.
++
++## Current ticket mapped
++
++The published shape is [[.agents/skills/to-tickets/PUBLISH.md]]. Style pointer: [[.agents/skills/wait-what/SKILL.md]].
++
++| Part | Cut | What it actually is |
++| --- | --- | --- |
++| Status, Blocked by, file path | WHERE | Graph of work. The path is the artifact location. |
++| Context | WHERE | Situation: who, before the new behaviour. Product why already leaks in (see [[plan/core-creation/issues/21-client-shows-lock-present.md]]). |
++| What to build (prose) | WHAT | End-to-end behaviour from the person's view. |
++| Criteria checkboxes | WHAT done-bar | Checkable. They become HOW when they name files, types, or layer steps. |
++| See also | WHERE | Pointers to spec and decisions. Product why already lives there. |
++| Comments | history | Session locks. Not a method file. |
++| Prototype snippet | HOW, rare | Allowed only when a prototype encoded a decision better than prose. |
++
++The template already bans a layer-by-layer list. wait-what repeats that ban.
++
++## Where HOW lives today
++
++Not on the ticket, by design.
++
++- Act: [[.agents/skills/implement/SKILL.md]] plus [[.agents/skills/tdd/SKILL.md]].
++- Project locked shape: spec Implementation Decisions ([[.agents/skills/to-spec/SKILL.md]]), plus [[doc/Decisions/]].
++- Skill method for publishing: [[.agents/skills/to-tickets/PUBLISH.md]] (already split from both ticket skills).
++- Failure exhibit: [[plan/core-creation/issues/29-prove-testactor-hello.md]] kept the headings, then put numbered layer sections, file paths, and CoreMsg cases under What to build.
++
++## Separate files vs omitted HOW
++
++A sibling WHY.md and HOW.md per ticket is too heavy.
++
++Skills earn SKILL vs method vs WHY because the recipe is re-read every run and method churns independently. A ticket is a thing consumed once by implement. Writing HOW at publish time is a plan before the tracer teaches anything.
++
++Named sections with HOW omitted matches the existing intent. Do not add a How heading. An empty How heading invites filling it.
++
++New process → new tickets in the new shape. Not a new three-file family. [[.agents/rules/no-retrofit.md]] already keeps old issues as they are.
++
++## Risks if HOW is added
++
++- Stale how: [[.agents/skills/to-spec/SKILL.md]] already forbids file paths for that reason.
++- Tickets become implementation plans. Issue 29 is that ticket.
++- Tracer-bullet and wait-what: HOW on the ticket is a horizontal list. Feature tickets ([[.agents/skills/to-feature-tickets/SKILL.md]]) will leak module steps even faster.
++- Duplicate spec: Implementation Decisions, ticket How, and Comments would all hold the same locks.
++
++## Experimental shape (new tickets only)
++
++Keep one file. Headings:
++
++```
++# <NN> — <title>
++**Status:** ready-for-agent
++**Blocked by:** ...
++
++## Context
++## What to build
++- [ ] ...
++
++## See also
++```
++
++Do not put on the ticket:
++
++- How, Why, or Method headings
++- WHY.md or HOW.md siblings
++- Layer lists, file paths, implement/tdd steps
++- Product why (point at spec or a decision from See also)
++- A restatement of the spec
++
++Slice scope ("this increment does not") may stay as one short paragraph under What to build. That is scope, not method.
++
++If a type shape must travel with the slice, use the existing prototype-snippet exception, or point at a decision. Do not open a How section.
++
++## Pushback
++
++The skill-level cut is already in force: SKILL.md drafts slices; PUBLISH.md is the method; wait-what is the style. Applying "wholly separate documents" to each issue fights to-tickets: the ticket is the thing; implement is acting with it. Clone the orientation (WHAT/WHERE on the ticket, why disclosed, HOW omitted). Do not clone the packaging.
+diff --git a/plan/planning-skills/project.md b/plan/planning-skills/project.md
+new file mode 100644
+index 0000000..6fc53c3
+--- /dev/null
++++ b/plan/planning-skills/project.md
+@@ -0,0 +1,21 @@
++# Planning skills
++
++Stage: chart
++Summary: Give agents a planning-code path that keeps plan/, reports/, issues/, and Wayfinder, retires the to-spec / to-tickets / to-feature-tickets transitions, and leaves implement to consume better tickets.
++Updated: 2026-09-13
++
++## Homes
++
++- [[plan/roadmap/epics/process-improvement.md]]
++
++## Keep
++
++- `plan/<slug>/` layout: `project.md`, `reports/`, `issues/`
++- [[.agents/skills/wayfinder/SKILL.md]]
++- [[.agents/skills/implement/SKILL.md]] once tickets are good
++
++## Current transitions to replace
++
++- [[.agents/skills/to-spec/SKILL.md]]
++- [[.agents/skills/to-tickets/SKILL.md]]
++- [[.agents/skills/to-feature-tickets/SKILL.md]]
+diff --git a/plan/roadmap/epics/process-improvement.md b/plan/roadmap/epics/process-improvement.md
+index d2cf8c2..8a504b2 100644
+--- a/plan/roadmap/epics/process-improvement.md
++++ b/plan/roadmap/epics/process-improvement.md
+@@ -12,7 +12,7 @@ The Epic is not done until each item is done (or the named part).
+ 
+ Live:
+ 
+-_(none)_
++- [ ] [[plan/planning-skills/project.md]] — new planning-code skills; keep Wayfinder and the plan/ layout; retire the to-spec / to-tickets / to-feature-tickets transitions
+ 
+ Done:
+ 

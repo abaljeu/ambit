@@ -20,5 +20,3 @@ Never override OutputPath/BaseIntermediateOutputPath (e.g. bin-verify/obj-verify
 The linter is never able to handle project edits until the environment reloads. Don't let this stop you.
 
 Occasionally the first time you send a command, the tool will delete the first character of your command. If so, just send it again.
-
-When writing with Write, do not include explicit CRLF (`\r\n`) in the content; use normal newlines and let the tool/editor preserve CRLF.
