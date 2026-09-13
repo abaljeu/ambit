@@ -1,6 +1,6 @@
 # Core creation
 
-Stage: build
+Stage: arch
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
 Updated: 2026-09-13
 Started: 2026-09-05
@@ -9,6 +9,7 @@ Actual: 21h40m
 ## Map
 
 - [[plan/core-creation/map.md]] — chart the initial Graph-agent package and later Core decisions.
+- [[plan/core-creation/arch.md]] — hello / one-mailbox Actor program module map (critique before remaining [[plan/core-creation/issues/29-prove-testactor-hello.md|Prove TestActor hello]] sections).
 
 ## Committed Decisions
 
@@ -109,3 +110,4 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - 2026-09-13 — Added [[plan/core-creation/issues/32-move-persist-agents-under-coremailbox.md]]. Point 0 current cut is 32.
 - 2026-09-13 — Section 1 of [[plan/core-creation/issues/29-prove-testactor-hello.md]] implemented on `dev`.
 - 2026-09-13 — Redo gate: architecture before remaining hello sections — [[plan/core-creation/reports/redo-29-architecture-before-proceed.md]].
+- 2026-09-13 — [[plan/core-creation/arch.md]] written via to-arch; Stage `arch`. Critique Story paths / Module map / Seams / Sequence / Alternative / Unsettled before reconciling tickets or implementing sections 2–6.

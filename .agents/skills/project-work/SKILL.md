@@ -9,7 +9,7 @@ Stages: [[doc/agents/project-status.md]]. Git: [[.agents/skills/git-protocol/SKI
 
 Each `plan/<slug>/` effort is a **Project**. Keep its `project.md` Stage current. Create `project.md` if the effort lacks one.
 
-Do not create `git.md` to record branch names. Existing `git.md` files are history.
+Do not create `git.md` to record branch names. Existing `git.md` files are history. Plan and arch text do not discuss git branches; record implementation status by ticket, section, or Point per [[.agents/rules/planning-docs.md]].
 
 ## 1. Start
 

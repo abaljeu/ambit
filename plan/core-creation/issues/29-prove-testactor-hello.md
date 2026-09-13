@@ -1,16 +1,18 @@
 # 29 — Prove TestActor hello
 
 **Status:** ready-for-agent
-**Blocked by:** none — [[32-move-persist-agents-under-coremailbox.md]] is done. Remaining hello sections still open.
-Actual: 4h15m
+**Blocked by:** none — Point 0 ([[32-move-persist-agents-under-coremailbox.md]] and prior) is done. Sections 1ff are not implemented.
+Actual: 4h50m
 
 ## Context
 
 Core can already apply a Change from a test Actor through the produce path. [[plan/core-creation/issues/01-generalized-server-actor-produce-path.md]], [[plan/core-creation/issues/12-define-actor-pool-shutdown-behavior.md]], and [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] are done. The eight Phase 2 items name pieces of that program; they are not this increment. A first proof must use the existing Browser Run path, launch TestActor through the public Core path (`StartActor`), and show one successful hello from outside.
 
+Architecture (Story paths, Module map, Seams): [[plan/core-creation/arch.md|Core creation architecture]]. This ticket holds acceptance for the hello tracer; do not restate Module map Interface here.
+
 ## What to build
 
-Build the hello slice of the one-mailbox Actor program locked by [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]]. This increment takes mailbox, Authority, StartActor, and Succeeded-drop pieces from [[02-core-actor-pool.md]], [[14-server-tracks-credentials.md]], [[15-launch-actor-and-hold-span.md]], [[18-finish-and-drop.md]], and [[27-prove-core-actor-lifecycle-with-testactor.md]]. After [[32-move-persist-agents-under-coremailbox.md]], callers use the CoreMailbox door. A first proof uses the existing Browser Run path, launches TestActor through the public Core path (`StartActor`), and shows one successful hello from outside.
+Build the hello slice of the one-mailbox Actor program locked by [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]]. This increment takes mailbox, Authority, StartActor, and Succeeded-drop pieces from [[02-core-actor-pool.md]], [[14-server-tracks-credentials.md]], [[15-launch-actor-and-hold-span.md]], [[18-finish-and-drop.md]], and [[27-prove-core-actor-lifecycle-with-testactor.md]]. After [[32-move-persist-agents-under-coremailbox.md]], callers use the CoreMailbox door. Follow arch Story paths **Browser Run hello** and **Outside Core lifecycle proof**; Story path **Browser Change posts** is out of this ticket’s acceptance except as shared credentialed `PostChange` context on the arch.
 
 ### What this increment avoids
 
@@ -18,62 +20,63 @@ Live query, cancel, host-stop, fail, post-twice, duplicate terminal, Interrupted
 
 ### 1. Shared Core mailbox foundation
 
-The foundation is one Core mailbox: the `CoreMsg` union, the `CoreMailboxBackend` loop, and the CoreMailbox door on MailboxHost after [[32-move-persist-agents-under-coremailbox.md]]. Sources: [[src/Server/Core/CoreMailbox.fs]], [[src/Server/Core/CoreMailboxBackend.fs]]. Persist stays the PersistHandlers parameter from [[31-one-coremsg-loop-parameterized-persist.md]]. `StartActor` and `ActorStop of ActorResult` are new `CoreMsg` cases on that same loop. `type ActorResult = | ActorSucceeded`. The loop handles `StartActor`: mailbox validates the caller's public Authority and secret, then hands off async to startActor in CoreActorPool. The loop handles `ActorStop`. `ActorStop` mutates the CoreActorPool table. The loop admits the Actor against that table before `PostChange`. There is no second mailbox and no second live registry beside that table. This foundation is a prerequisite for the hello proof, not another mailbox refactor.
+Prerequisite for the hello proof. Land Actor cases on the one Core mailbox per arch Story paths 1–2 and Module map (**CoreMsg / CoreMailboxBackend**, **CoreMailbox**, **CoreActorPool**, **History**). Sources: [[src/Server/Core/CoreMailbox.fs]], [[src/Server/Core/CoreMailboxBackend.fs]], [[src/Server/Core/CoreActorPool.fs]]. Persist stays PersistHandlers (Point 0). `type ActorResult = | ActorSucceeded`. No second mailbox, nested `ActorMsg` pump, or second live registry.
 
-- [ ] The live registry is CoreActorPool's data: public Actor identity, secret credential, termination handle, and Focus NodeId. That data is the pool's synchronized table. Mailbox-loop state does not hold a second copy.
-- [ ] Add the `StartActor` launch case to `CoreMsg`. The loop handles `StartActor`. Mailbox validates the caller's public Authority and secret, then hands off async to startActor in CoreActorPool to do the work.
-- [ ] startActor creates the Actor public identity and secret, writes the live row on that table against Focus, appends ActorStarted, then asks CoreActorPool to run the Actor body. The mailbox stays free. ActorStarted and the live row exist before any Actor Change can be admitted.
-- [ ] After the same loop admits the Actor's public Authority and secret against that table, Actor `test` (TestActor) switches to run `hello` and posts that Change through the existing `PostChange` persist case.
-- [ ] Add `ActorStop of ActorResult` to `CoreMsg`. `type ActorResult = | ActorSucceeded`. The loop handles `ActorStop`. After earlier queued Changes, `ActorStop ActorSucceeded` appends ActorFinished, removes the live row from the CoreActorPool table and the secret together, and requests terminate only if the body still runs. `ActorStop` is not a Change. The mailbox never waits.
-- [ ] CoreActorPool is the synchronized live table and thread-pool runner ([[src/Server/Core/CoreActorPool.fs]]). The live registry is that table. `StartActor` and `ActorStop` are `CoreMsg` cases. startActor writes the live row on that table. `ActorStop` mutates that table. The loop admits the Actor against that table before `PostChange`. The pool runs the Actor body (`ActorFn`) on the thread pool. The mailbox does not wait on that body or wrap-patch the discarded pool queue.
-- [ ] Callers reach `StartActor`, `PostChange`, and `ActorStop` through the public CoreMailbox door (MailboxHost after [[32-move-persist-agents-under-coremailbox.md]]), not FileAgent or DbAgent wrappers.
+1. [ ] Live registry is only CoreActorPool’s synchronized table — arch **CoreActorPool**
+2. [ ] `StartActor` on CoreMsg: validate credentials, async handoff to CoreActorPool.startActor — arch **CoreMsg / CoreMailboxBackend**
+3. [ ] startActor writes live row, appends ActorStarted, schedules body; mailbox stays free — arch **CoreActorPool**
+4. [ ] Admit before Actor `PostChange`; TestActor (Pool-selected `test`) runs `hello` through existing `PostChange` — arch **CoreMsg / CoreMailboxBackend**, **TestActor**
+5. [ ] `ActorStop of ActorResult` (`ActorSucceeded` only): append ActorFinished, drop live row and secret, request terminate without waiting — arch **CoreMsg / CoreMailboxBackend**
+6. [ ] Callers use CoreMailbox door only (not FileAgent / DbAgent wrappers) — arch **CoreMailbox**
 
 ### 2. Register the TestActor definition
 
-- [ ] Register TestActor through CoreActorPool.register (normal composition).
+1. [ ] Register TestActor through CoreActorPool.register (normal composition) — arch **CoreRuntime**, **TestActor**
 
 ### 3. Admit and invoke the named Actor from Command text
 
-- [ ] Launch TestActor through the public Core request members (`StartActor`).
-- [ ] The universal response is `{ nodes; events; latestId }`.
-- [ ] The Command Node's text is the dispatch. Dispatch is [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]].
-- [ ] The Server interprets the Command text to resolve and invoke the named Actor. The Command text `?test hello` selects Actor `test` (TestActor), then that Actor switches to run the `hello` case. `hello` is the only case on TestActor in this increment.
-- [ ] Do not select the Actor from Command role, Kind, CSS class, or a separate Focus Header case id.
+Payload and Pool/TestActor split: arch **CoreMailbox**, **CoreActorPool**, **TestActor**, **HTTP Adapter**.
+
+1. [ ] Launch through public Core `StartActor` (id payload shape on arch Module map)
+2. [ ] Universal response `{ nodes; events; latestId }` when that path is exercised
+3. [ ] Command Node text is the dispatch ([[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]])
+4. [ ] Pool selects Actor kind `test` from the command Node; TestActor interprets and runs `hello` only — command text `?test hello`
+5. [ ] Do not select the Actor from Command role, Kind, CSS class, or a separate Focus Header case id
 
 ### 4. Run the one-Node Command and admit hello
 
-This is the first user-visible functional augmentation after the foundation and its internal registration and launch prerequisites.
+First user-visible functional augmentation. Browser trigger rules live here; module contracts on arch **Browser Run**, **HTTP Adapter**, **TestActor**.
 
-- [ ] Trigger this path only when the existing Browser command/action is Run and the current Node's text starts with the literal `?`. Do not trim or normalize text, inspect case, role, Kind, or CSS, or add another trigger.
-- [ ] The Browser sends a Command request to the Server.
-- [ ] The request's complete Graph extract/context contains only the current Node. That one Node is the named Command Node, the Zoom root, and the one Focus. Do not include ancestors, siblings, or Children.
-- [ ] The Server uses that Node's text as the dispatch.
-- [ ] For `?test hello`, TestActor receives the Command Node with that complete text and posts `hello` as one Owned child of the current Focus through the normal Core Change path, then queues `ActorStop ActorSucceeded`.
-- [ ] Existing Run behavior for a current Node whose text does not start with `?` stays unchanged.
-- [ ] Reuse the existing Run UI. Add no new Browser chrome or control.
+1. [ ] Trigger only when existing Browser Run and current Node text starts with literal `?` (no trim/normalize; no role/Kind/CSS trigger)
+2. [ ] Browser sends a Command request; Graph extract is only the current Node (Command, Zoom root, and Focus — no ancestors, siblings, or Children)
+3. [ ] Server uses that Node’s text as dispatch
+4. [ ] For `?test hello`, TestActor posts one Owned child text `hello` under Focus via admitted `PostChange`, then queues `ActorStop ActorSucceeded`
+5. [ ] Existing Run for text not starting with `?` stays unchanged
+6. [ ] Reuse existing Run UI; add no new Browser chrome or control
 
 ### 5. Finish and drop
 
-- [ ] `ActorStop` is a Core-only terminal message, not a Change.
-- [ ] Core appends exactly one ActorFinished, then removes the live row from the CoreActorPool table and the secret together, then requests terminate only if the task still runs and never waits.
+1. [ ] `ActorStop` is Core-only terminal message, not a Change — arch **CoreMsg / CoreMailboxBackend**
+2. [ ] Exactly one ActorFinished, then drop live row and secret together; request terminate only if still running; never wait — arch **History**, **CoreActorPool**
 
 ### 6. Prove from outside
 
-- [ ] A first proof must launch TestActor through the public Core path (`StartActor`) and show one successful hello from outside.
-- [ ] Tests launch TestActor through the public Core Actor path (Command text `?test hello`).
-- [ ] Tests observe Graph and registry outcomes from outside; TestActor does not assert.
-- [ ] After `StartActor`, the outer fact sees ActorStarted with durable public Actor identity before Actor output is admitted.
-- [ ] After one hello Change under Focus and `ActorStop ActorSucceeded`, the outer fact sees the hello Graph (one Owned child text `hello`).
-- [ ] The outer fact sees exactly one ActorFinished.
-- [ ] After ActorFinished, the live row is gone from the CoreActorPool table; the secret no longer admits a post; the public identity remains on the Events.
-- [ ] Tests use no live service, key, or Agent transport.
-- [ ] For the final manual proof, run the Server and Browser, make the current Node's text `?test hello`, and execute the existing Run.
-- [ ] In that manual proof, the Browser sends the one-Node Command request and the final visible outcome is one Owned child with text `hello`.
-- [ ] The manual proof uses no live external Agent service or key.
+Entry shapes and test seam: arch Story path **Outside Core lifecycle proof** and Seam **Test seam for this tracer**.
+
+1. [ ] First proof shows one successful hello from outside; harness may call CoreActorPool or TestActor at arch body-input / start shapes (not HTTP-only)
+2. [ ] Command text remains `?test hello` (Pool selects `test`; TestActor runs `hello`)
+3. [ ] Outer facts assert Graph and lifecycle; TestActor does not assert
+4. [ ] After `StartActor`, outer fact sees ActorStarted with durable public Actor identity before Actor output is admitted
+5. [ ] After hello Change under Focus and `ActorStop ActorSucceeded`, outer fact sees hello Graph (one Owned child text `hello`)
+6. [ ] Outer fact sees exactly one ActorFinished
+7. [ ] After ActorFinished: live row gone; secret no longer admits; public identity remains on Events
+8. [ ] Tests use no live service, key, or Agent transport
+9. [ ] Manual proof: Server + Browser, current Node `?test hello`, existing Run → one Owned child text `hello`
+10. [ ] Manual proof uses no live external Agent service or key
 
 ## See also
 
-[[02-core-actor-pool.md]], [[14-server-tracks-credentials.md]], [[15-launch-actor-and-hold-span.md]], [[18-finish-and-drop.md]], [[27-prove-core-actor-lifecycle-with-testactor.md]], [[30-reshape-coreactorpool-synchronized-table.md]], [[31-one-coremsg-loop-parameterized-persist.md]], [[32-move-persist-agents-under-coremailbox.md]], [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]], [[Implementation Planning and Record.md]], [[plan/core-creation/reports/actor-pool-rewind-review.md]], [[doc/Decisions/0004-core-mailbox-messages-clear-fast.md]], [[plan/core-creation/reports/implement-issue-29-testactor-hello.md]]
+[[plan/core-creation/arch.md|Core creation architecture]], [[02-core-actor-pool.md]], [[14-server-tracks-credentials.md]], [[15-launch-actor-and-hold-span.md]], [[18-finish-and-drop.md]], [[27-prove-core-actor-lifecycle-with-testactor.md]], [[30-reshape-coreactorpool-synchronized-table.md]], [[31-one-coremsg-loop-parameterized-persist.md]], [[32-move-persist-agents-under-coremailbox.md]], [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]], [[Implementation Planning and Record.md]], [[plan/core-creation/reports/actor-pool-rewind-review.md]], [[doc/Decisions/0004-core-mailbox-messages-clear-fast.md]], [[plan/core-creation/reports/implement-issue-29-testactor-hello.md]]
 
 ## Comments
 
@@ -90,7 +93,9 @@ This is the first user-visible functional augmentation after the foundation and 
 - 2026-09-13 — Alan: StartActor opener unclear; name the CoreMsg case, not mailbox-state.
 - 2026-09-13 — Alan: `StartActor` is the CoreMsg case; mailbox validates then async-hands to CoreActorPool.startActor.
 - 2026-09-13 — Alan: generalize; CoreMsg gets `ActorStop of ActorResult`; `type ActorResult = | ActorSucceeded`. No other ActorResult cases yet.
-- 2026-09-13 — Section 1 implemented: one Core mailbox owns `StartActor` / admit-before-`PostChange` / `ActorStop`; live rows live only on the CoreActorPool table; TestActor hello posts through that `PostChange` path. Later sections still open.
+- 2026-09-13 — Earlier note that section 1 was implemented is withdrawn: code was reverted; sections 1ff remain open. Point 0 only is implemented. See [[plan/core-creation/arch.md]] and [[Implementation Planning and Record.md]].
+- 2026-09-13 — Alan: CoreActorPool selects Actor kind `test` from the command Node and creates TestActor; TestActor interprets the command Node and runs `hello`. StartActor / HTTP / Core fields are `zoomId`, `focusId`, `commandId`, `graphIds` only; Pool expands to Graph and passes named ids + Actor secret. Outside tests call Pool or Actor at those shapes — not an HTTP-only gap. Story path 3 is Browser Change posts only.
+- 2026-09-13 — DRY reshape: ticket acceptance points at arch Module map; checklists use numbered `N. [ ]` (from chat).
 
 ## Time
 
@@ -104,4 +109,6 @@ This is the first user-visible functional augmentation after the foundation and 
 - 2026-09-13 10m — lock live registry as CoreActorPool table (from chat)
 - 2026-09-13 15m — reconcile StartActor / startActor shape after Alan's four bullets (from chat)
 - 2026-09-13 10m — lock ActorStop of ActorResult; ActorSucceeded only (from chat)
-- 2026-09-13 2h — Shared Core mailbox foundation (section 1) (from chat)
+- 2026-09-13 2h — Shared Core mailbox foundation attempt (section 1); not retained in tree (from chat)
+- 2026-09-13 15m — Align to arch: Pool selects `test` from command Node; TestActor interprets → hello; StartActor fields zoomId/focusId/commandId/graphIds; Pool→Graph + named ids + secret; outside proof calls Pool or Actor (from chat)
+- 2026-09-13 20m — DRY reshape vs arch; numbered checklist items (from chat)

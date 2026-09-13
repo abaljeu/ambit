@@ -14,7 +14,7 @@ Break a plan, spec, or conversation into **tickets**. Pick one **Sequence** mode
 
 Work from whatever is already in the conversation context. If the user passes a reference (a spec path, an issue number or URL) as an argument, fetch it and read its full body and comments.
 
-When the Project has `arch.md`, read it. Use its Module map names and its **Sequence** field. Done: you have the source material and, when present, arch module names and Sequence.
+When the Project has `arch.md`, read it. Use its Module map names and its **Sequence** field. Tickets cite Story paths and modules by name (wikilink to `arch.md`); they hold acceptance and section checklists, not a second Module map Interface. Done: you have the source material and, when present, arch module names and Sequence.
 
 ### 2. Choose Sequence
 
@@ -45,7 +45,7 @@ Each ticket is a **visible end-user increment** across modules (exemplar: [[plan
 - A completed slice is demoable or verifiable on its own
 - Each slice is sized to fit in a single fresh context window
 - Any prefactoring should be done first
-- Under What to build, name subsections by the modules crossed; cite modules by name per [[.agents/rules/refer-by-name.md]]
+- Under What to build, name subsections by the modules crossed; cite modules by name per [[.agents/rules/refer-by-name.md]]. Point at `arch.md` for State / Interface / Uses; do not restate those bullets on the ticket. Acceptance checklists use numbered tasks (`1. [ ]`), not bare `- [ ]`
 
 #### Module build (`module-build`)
 
