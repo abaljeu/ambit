@@ -71,29 +71,47 @@ let ``CoreMailbox.startActor with inactive secret is refused`` () =
     })
 
 [<Fact>]
-let ``CoreMailbox.actorStop drops live row`` () =
-    withHost (fun host credentials pool -> task {
-        let! started =
-            CoreMailbox.startActor host testCaller sampleRequest
-            |> Async.StartAsTask
-        requireOk "startActor" started
-        let actorSecret = Credential "actor-stop"
-        do! credentials.add actorSecret |> Async.StartAsTask
-        let! state1 =
-            CoreMailbox.getState host
-            |> Async.StartAsTask
-        let state1 = requireOk "GetState before stop" state1
-        let lockFocus = state1.graph.nodes.[sampleRequest.focusId].lockPresent
-        Assert.True(lockFocus)
-        let! stopped =
-            CoreMailbox.actorStop
-                host
-                (actorCaller actorSecret)
-                ActorSucceeded
-            |> Async.StartAsTask
-        requireOk "actorStop" stopped
-        Assert.False(Set.contains sampleRequest.focusId (pool.liveFocusIds ()))
-    })
+let ``CoreMailbox.actorStop with valid credential drops live row`` () =
+    let actorSecret = Credential "actor-live"
+    let stopped = ResizeArray<Credential * ActorResult>()
+    let live = ResizeArray<Credential>()
+    live.Add actorSecret
+    let recordingPool: CoreActorPool = {
+        register = fun _ _ -> ()
+        startActor = fun _ -> Ok ()
+        isLive = fun secret -> live.Contains secret
+        admit = fun _ -> Ok ()
+        drop = fun _ -> ()
+        finish =
+            fun secret result ->
+                live.Remove secret |> ignore
+                stopped.Add(secret, result)
+                Ok ()
+        liveFocusIds = fun () -> Set.empty
+    }
+    task {
+        let dataDir = newTempDir ()
+        let credentials = admittedCredentials ()
+        let host =
+            CoreMailbox.host
+                credentials
+                recordingPool
+                (FileAgent.persist (FileAgent.create dataDir))
+        try
+            do! credentials.add actorSecret |> Async.StartAsTask
+            let! result =
+                CoreMailbox.actorStop
+                    host
+                    (actorCaller actorSecret)
+                    ActorSucceeded
+                |> Async.StartAsTask
+            requireOk "actorStop" result
+            Assert.Equal(1, stopped.Count)
+            Assert.Equal(actorSecret, fst stopped.[0])
+            Assert.False(live.Contains actorSecret)
+        finally
+            CoreMailbox.dispose host
+    }
 
 [<Fact>]
 let ``CoreMailbox door exposes lifecycle facts via getState`` () =
