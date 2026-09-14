@@ -21,8 +21,6 @@ let withAuthDisabledCookie (client: HttpClient) =
         AuthToken.cookieHeaderValue "" "")
     client
 
-let authDisabledCookieHeader = AuthToken.cookieHeaderValue "" ""
-
 let private quoteIdentifier (identifier: string) =
     "\"" + identifier.Replace("\"", "\"\"") + "\""
 
@@ -205,7 +203,8 @@ let createClientForDirWithoutCookie (tempDir: string) =
             Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", priorDb)
 
 /// Create a test client pointing at the given data directory (file backend, no DB).
-/// GET `/ambit/state` returns the scoped ROOT bootstrap graph; use `?scope=full` for total-load tests.
+/// GET `/ambit/state` returns the scoped ROOT bootstrap graph;
+/// use `?scope=full` for total-load tests.
 /// Carries the auth-disabled `gambol_auth` cookie (request-carried; no closed-over fallback).
 let createClientForDir (tempDir: string) =
     createClientForDirWithoutCookie tempDir |> withAuthDisabledCookie
