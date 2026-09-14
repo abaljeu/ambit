@@ -9,7 +9,7 @@ type CoreMsg =
     | GetRevision of AsyncReplyChannel<Result<Revision, string>>
     | GetChangesSince of
         after: Revision * AsyncReplyChannel<Result<Change list, string>>
-    | GetLifecycleEvents of AsyncReplyChannel<HistoryEvent list>
+    | GetEventHistory of AsyncReplyChannel<HistoryEvent list>
     | PostChange of
         caller: Caller *
         changes: Change list *
@@ -85,7 +85,7 @@ module internal CoreMailboxBackend =
         | GetRevision _ -> "GetRevision", ""
         | GetChangesSince (after, _) ->
             "GetChangesSince", $"after={after}"
-        | GetLifecycleEvents _ -> "GetLifecycleEvents", ""
+        | GetEventHistory _ -> "GetEventHistory", ""
         | PostChange (_, changes, _) ->
             "PostChange", $"changeCount={changes.Length}"
         | PostGraphOnlyChange (changes, _) ->
@@ -101,7 +101,7 @@ module internal CoreMailboxBackend =
         | GetState reply -> reply.Reply(Error error)
         | GetRevision reply -> reply.Reply(Error error)
         | GetChangesSince (_, reply) -> reply.Reply(Error error)
-        | GetLifecycleEvents reply -> reply.Reply([])
+        | GetEventHistory reply -> reply.Reply([])
         | PostChange (_, _, reply) -> reply.Reply(Error error)
         | PostGraphOnlyChange (_, reply) -> reply.Reply(Error error)
         | SnapshotDone _ -> ()
@@ -274,7 +274,7 @@ module internal CoreMailboxBackend =
         | GetRevision reply -> reply.Reply(loop.persist.getRevision ())
         | GetChangesSince (after, reply) ->
             reply.Reply(loop.persist.getChangesSince after)
-        | GetLifecycleEvents reply ->
+        | GetEventHistory reply ->
             reply.Reply(loop.mailboxHistory.Value.past)
         | PostChange (caller, changes, reply) ->
             dispatchPostChange loop caller changes reply
@@ -373,7 +373,7 @@ module internal CoreMailboxBackend =
                                 | GetState _
                                 | GetRevision _
                                 | GetChangesSince _
-                                | GetLifecycleEvents _ ->
+                                | GetEventHistory _ ->
                                     Some(async { dispatch loop msg })
                                 | _ -> None),
                             timeout = 20)

@@ -36,7 +36,7 @@ module CoreMailbox =
     let eventHistory
         (host: MailboxHost)
         : Async<HistoryEvent list> =
-        host.mailbox.PostAndAsyncReply GetLifecycleEvents
+        host.mailbox.PostAndAsyncReply GetEventHistory
 
     let getRevision (host: MailboxHost) : Async<Revision> =
         async {
