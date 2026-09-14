@@ -35,7 +35,7 @@ let private createRawClient (tempDir: string) : HttpClient * IDisposable =
         let handler = factory.Server.CreateHandler()
         let client = new HttpClient(handler, disposeHandler = true)
         client.BaseAddress <- factory.Server.BaseAddress
-        client, (factory :> IDisposable)
+        withAuthDisabledCookie client, (factory :> IDisposable)
     finally
         if isNull priorDb then
             Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)

@@ -49,6 +49,7 @@
     <Compile Include="GraphOnlyChangePost.fs" />
     <Compile Include="LazyLoadReconciliationServer.fs" />
     <Compile Include="HeadPresence.fs" />
+    <Compile Include="BrowserRequestCreds.fs" />
     <Compile Include="RouteRegistration.fs" />
     <Compile Include="Server.fs" />
   </ItemGroup>

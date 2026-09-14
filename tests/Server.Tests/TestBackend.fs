@@ -2,6 +2,7 @@ module Gambol.Server.Tests.TestBackend
 
 open System
 open System.IO
+open System.Net.Http
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Mvc.Testing
 open Microsoft.Extensions.Configuration
@@ -12,6 +13,15 @@ open Gambol.Server.Tests.TestDbConfigTests
 type BackendKind = File | Db
 
 let private testConnEnv = "TEST_DB_CONNECTION_STRING"
+
+/// Auth-disabled boot seed uses deriveToken("",""); request-carried cookie must match.
+let withAuthDisabledCookie (client: HttpClient) =
+    client.DefaultRequestHeaders.Add(
+        "Cookie",
+        AuthToken.cookieHeaderValue "" "")
+    client
+
+let authDisabledCookieHeader = AuthToken.cookieHeaderValue "" ""
 
 let private quoteIdentifier (identifier: string) =
     "\"" + identifier.Replace("\"", "\"\"") + "\""
@@ -166,9 +176,8 @@ let private suppressDailyGitSave (dataDir: string) =
         (DailyGitSave.formatUtcDay DateTime.UtcNow)
     |> ignore
 
-/// Create a test client pointing at the given data directory (file backend, no DB).
-/// GET `/ambit/state` returns the scoped ROOT bootstrap graph; use `?scope=full` for total-load tests.
-let createClientForDir (tempDir: string) =
+/// Auth-disabled factory without cookie — for refuse-without-cookie facts.
+let createClientForDirWithoutCookie (tempDir: string) =
     suppressDailyGitSave tempDir
     let priorDb = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
     try
@@ -194,6 +203,12 @@ let createClientForDir (tempDir: string) =
             Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
         else
             Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", priorDb)
+
+/// Create a test client pointing at the given data directory (file backend, no DB).
+/// GET `/ambit/state` returns the scoped ROOT bootstrap graph; use `?scope=full` for total-load tests.
+/// Carries the auth-disabled `gambol_auth` cookie (request-carried; no closed-over fallback).
+let createClientForDir (tempDir: string) =
+    createClientForDirWithoutCookie tempDir |> withAuthDisabledCookie
 
 /// File-backend client with Auth:Username / Auth:Password set (cookie + git PAT).
 let createClientForDirWithAuth
@@ -251,7 +266,7 @@ let createDbClientForDir (connStr: string) (tempDir: string) =
                         ) |> ignore
                     ) |> ignore
                 )
-        factory.CreateClient()
+        factory.CreateClient() |> withAuthDisabledCookie
     finally
         if isNull priorDb then
             Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
@@ -279,7 +294,7 @@ let createFileModeWithDbClientForDir (connStr: string) (tempDir: string) =
                         ) |> ignore
                     ) |> ignore
                 )
-        factory.CreateClient()
+        factory.CreateClient() |> withAuthDisabledCookie
     finally
         if isNull priorDb then
             Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
@@ -317,7 +332,7 @@ let createDbModeWithoutConnectionClientForDir (tempDir: string) =
                         ) |> ignore
                     ) |> ignore
                 )
-        factory.CreateClient()
+        factory.CreateClient() |> withAuthDisabledCookie
     finally
         if isNull priorDb then
             Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)

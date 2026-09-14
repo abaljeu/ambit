@@ -69,12 +69,6 @@ module CoreRuntime =
                              |> Option.map (fun d -> d.asCaller a s)) }
         wrap file db
 
-    let private startFile (credentials: CoreCredentials) : FileAgent.MailboxStarter =
-        CoreMailbox.startFile credentials
-
-    let private startDb (credentials: CoreCredentials) =
-        CoreMailbox.startDb credentials
-
     let private seedBrowserCredential
         (credentials: CoreCredentials)
         (authUser: string)
@@ -103,8 +97,8 @@ module CoreRuntime =
         let browserCredential =
             seedBrowserCredential credentials authUser authPass
         let parseCredential = seedParseCredential credentials
-        let fileStart = startFile credentials
-        let dbStart = startDb credentials
+        let fileStart = CoreMailbox.startFile credentials
+        let dbStart = CoreMailbox.startDb credentials
         let fileHost =
             lazy (CoreMailbox.createFile fileStart dataDir)
         let makeHandle authority secret =

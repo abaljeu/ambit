@@ -404,6 +404,8 @@ let createRuntime (initialModel: VM) =
         let onPollOk (text: string) : unit =
             match ApiResponseSerialization.decodeChangeSuccessResponse text with
             | Ok poll ->
+                reseedDeployEpochOnServerSignal poll.buildEpochSec
+                |> ignore
                 let outcome =
                     SyncLogic.getPollOutcome poll model.revision.Value
                 dispatch (
@@ -436,6 +438,8 @@ let createRuntime (initialModel: VM) =
         let onLoadOk (text: string) : unit =
             match ApiResponseSerialization.decodeLoadResponse text with
             | Ok load ->
+                reseedDeployEpochOnServerSignal load.buildEpochSec
+                |> ignore
                 let outcome =
                     SyncLogic.getPollOutcome
                         (SyncLogic.loadResponseToPoll load)

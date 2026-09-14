@@ -114,3 +114,71 @@ let ``request-carried cookie secret is admitted; foreign secret is refused`` () 
             |> Async.StartAsTask
         Assert.Equal(Error CoreAuth.refuse, refused)
     }
+
+[<Fact>]
+let ``missing cookie secret is the same auth refuse before PersistHandlers`` () =
+    task {
+        let runtime =
+            CoreRuntime.create
+                DatabaseSetup.PersistenceMode.File
+                DatabaseSetup.DbStatus.Absent
+                ""
+                (newTempDir ())
+                "alice"
+                "secret"
+        match BrowserRequestCreds.trySecretFromCookieValue None with
+        | Some _ -> Assert.Fail("missing cookie must not yield a secret")
+        | None -> ()
+        match BrowserRequestCreds.trySecretFromCookieValue (Some "") with
+        | Some _ -> Assert.Fail("blank cookie must not yield a secret")
+        | None -> ()
+        match BrowserRequestCreds.trySecretFromCookieValue (Some "  ") with
+        | Some _ -> Assert.Fail("whitespace cookie must not yield a secret")
+        | None -> ()
+        let! before =
+            (runtime.browserChanges runtime.browserCredential).getRevision ()
+            |> Async.StartAsTask
+        let! refused =
+            (runtime.browserChanges (Credential "")).postChange
+                [ addRootChild "missing-cookie" ]
+            |> Async.StartAsTask
+        let! after =
+            (runtime.browserChanges runtime.browserCredential).getRevision ()
+            |> Async.StartAsTask
+        Assert.Equal(Error CoreAuth.refuse, refused)
+        Assert.Equal(before, after)
+        Assert.NotEqual(Credential "", runtime.browserCredential)
+    }
+
+[<Fact>]
+let ``request cookie value is admitted without closed-over browserCredential`` () =
+    task {
+        let runtime =
+            CoreRuntime.create
+                DatabaseSetup.PersistenceMode.File
+                DatabaseSetup.DbStatus.Absent
+                ""
+                (newTempDir ())
+                "alice"
+                "secret"
+        let cookie = runtime.browserCredential
+        do!
+            runtime.credentials.remove cookie
+            |> Async.StartAsTask
+        do!
+            runtime.credentials.add cookie
+            |> Async.StartAsTask
+        match BrowserRequestCreds.trySecretFromCookieValue (
+            Some(let (Credential s) = cookie in s)
+        ) with
+        | None -> Assert.Fail("cookie value must become the request secret")
+        | Some secret ->
+            Assert.Equal(cookie, secret)
+            Assert.NotEqual(Credential "", secret)
+            let! ok =
+                (runtime.browserChanges secret).postChange
+                    [ addRootChild "request-only" ]
+                |> Async.StartAsTask
+            let accepted = requireOk "request secret" ok
+            Assert.Equal(Revision 1, accepted.revision)
+    }

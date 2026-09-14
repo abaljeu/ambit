@@ -32,6 +32,16 @@ module SyncLogic =
         elif dataOutdated then Some DataOutdated
         else None
 
+    /// Server-restart signal: poll/load `buildEpochSec` (DeployEpochSec) differs
+    /// from the page's deploy stamp. Not CodeOutdated — same API can keep the tab.
+    let serverProcessRestarted
+        (pageDeployEpochSec: int)
+        (serverBuildEpochSec: int)
+        : bool =
+        pageDeployEpochSec > 0
+        && serverBuildEpochSec > 0
+        && pageDeployEpochSec <> serverBuildEpochSec
+
     let private asProjectionState (state: ClientSyncState) : State =
         { graph = state.graph
           revision = state.revision

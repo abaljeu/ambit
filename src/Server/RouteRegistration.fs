@@ -147,25 +147,16 @@ module RouteRegistration =
             core.parseCredential
             (core.changes ())
 
-    let private browserSecret
+    /// Request cookie only — never fall back to closed-over browserCredential.
+    let private withBrowserChanges
         (persistence: PersistenceContext)
         (req: HttpRequest)
-        : Credential =
-        match req.Cookies.TryGetValue(AuthToken.cookieName) with
-        | true, cookie when not (String.IsNullOrWhiteSpace cookie) ->
-            let secret = Credential cookie
-            // Reseed/re-establish on request (initial load and after server restart signal).
-            persistence.Core.credentials.add secret
-            |> Async.RunSynchronously
-            secret
-        | _ ->
-            persistence.Core.browserCredential
-
-    let private changesBound
-        (persistence: PersistenceContext)
-        (req: HttpRequest)
-        =
-        persistence.Core.browserChanges (browserSecret persistence req)
+        (cont: CoreChanges -> Async<IResult>)
+        : Async<IResult> =
+        match BrowserRequestCreds.tryCookieSecret req with
+        | None -> async.Return(Results.Unauthorized())
+        | Some secret ->
+            cont (persistence.Core.browserChanges secret)
 
     let private stripXmlDeclaration (text: string) =
         if text.StartsWith("<?xml") then
@@ -306,8 +297,10 @@ module RouteRegistration =
                 return Results.Unauthorized()
             else
                 try
-                    let handle = coreChanges persistence
-                    return! Api.getState handle req |> Async.StartAsTask
+                    return!
+                        withBrowserChanges persistence req (fun handle ->
+                            Api.getState handle req)
+                        |> Async.StartAsTask
                 with ex ->
                     let detail =
                         $"Internal server error loading state (dataDir={persistence.DataDir}): {ex.Message}"
@@ -321,11 +314,15 @@ module RouteRegistration =
             if not (auth.IsAuthenticated req) then
                 return Results.Unauthorized()
             else
-                let handle = coreChanges persistence
                 let pageEpoch = stamps.PageBuildEpochSec ()
                 let clientRev = parseClientRev req
                 return!
-                    Api.getPoll handle (stamps.DeployEpochSec ()) pageEpoch clientRev
+                    withBrowserChanges persistence req (fun handle ->
+                        Api.getPoll
+                            handle
+                            (stamps.DeployEpochSec ())
+                            pageEpoch
+                            clientRev)
                     |> Async.StartAsTask
         })) |> ignore
         app.MapPost("/ambit/load", Func<HttpRequest, Task<IResult>>(fun req -> task {
@@ -334,10 +331,14 @@ module RouteRegistration =
             else
                 use reader = new StreamReader(req.Body)
                 let! body = reader.ReadToEndAsync()
-                let handle = coreChanges persistence
                 let pageEpoch = stamps.PageBuildEpochSec ()
                 return!
-                    Api.postLoad handle (stamps.DeployEpochSec ()) pageEpoch body
+                    withBrowserChanges persistence req (fun handle ->
+                        Api.postLoad
+                            handle
+                            (stamps.DeployEpochSec ())
+                            pageEpoch
+                            body)
                     |> Async.StartAsTask
         })) |> ignore
         app.MapPost("/ambit/changes", Func<HttpRequest, Task<IResult>>(fun req -> task {
@@ -349,11 +350,12 @@ module RouteRegistration =
                 let! body = reader.ReadToEndAsync()
                 let pageEpoch = stamps.PageBuildEpochSec ()
                 return!
-                    Api.postChange
-                        (changesBound persistence req)
-                        (stamps.DeployEpochSec ())
-                        pageEpoch
-                        body
+                    withBrowserChanges persistence req (fun handle ->
+                        Api.postChange
+                            handle
+                            (stamps.DeployEpochSec ())
+                            pageEpoch
+                            body)
                     |> Async.StartAsTask
         })) |> ignore
 
@@ -478,6 +480,9 @@ module RouteRegistration =
         =
         let serveAmbitApp (ctx: HttpContext) : IResult =
             if auth.IsAuthenticated ctx.Request then
+                // Auth-disabled: issue the boot-seed token so later APIs carry a cookie.
+                if auth.Disabled then
+                    auth.SetCookie ctx.Response
                 ctx.Response.Headers.CacheControl <- "no-cache, no-store, must-revalidate"
                 ctx.Response.Headers.Pragma <- "no-cache"
                 ctx.Response.Headers.Expires <- "0"
