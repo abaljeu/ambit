@@ -177,7 +177,7 @@ let ``db persist rejects ignored graph state before acceptance`` () = task {
     writeIgnore dataDir "blocked.txt\n"
     let agent =
         CoreMailbox.createDbWithDataDir
-            (admittedStartDb ())
+            (admittedCredentials ())
             connectionString
             dataDir
     let body = encodeChange (Graph.create ()) Graph.rootId "blocked.txt"

@@ -40,33 +40,6 @@ module DatabaseSetup =
     let private decodeChangePayload (s: string) =
         Thoth.Json.Newtonsoft.Decode.fromString Serialization.decodeChange s
 
-    // DB agent is a single shared instance (one database per dataDir).
-    let private dbAgentCache: (string * MailboxHost) option ref = ref None
-    let private dbAgentLock = obj ()
-
-    /// Hands back the host; callers stamp Authority and secret via CoreMailbox.coreChanges.
-    let getOrCreateDbHost
-        (startMailbox:
-            PersistHandlers
-                -> (string -> string -> exn -> unit)
-                -> (string -> string)
-                -> Async<Result<unit, string>>
-                -> MailboxProcessor<CoreMsg>)
-        (connStr: string)
-        (dataDir: string)
-        : MailboxHost =
-        lock dbAgentLock (fun () ->
-            match !dbAgentCache with
-            | Some (dir, host) when dir = dataDir -> host
-            | _ ->
-                let host =
-                    CoreMailbox.createDbWithDataDir
-                        startMailbox
-                        connStr
-                        dataDir
-                dbAgentCache.Value <- Some (dataDir, host)
-                host
-        )
     let statusFromMatches (matchesBeforeRebuild: bool) (matchesAfterRebuild: bool) : DbStatus =
         if matchesBeforeRebuild then
             DbStatus.Ok
@@ -164,6 +137,5 @@ module DatabaseSetup =
                 eprintfn "Gambol: DB connection failed - falling back to file store. %s" ex.Message
                 DbStatus.Absent
 
-    /// For test use only: clears the DB agent cache so the next startup creates a fresh instance.
-    let resetAgentCacheForTest () =
-        lock dbAgentLock (fun () -> dbAgentCache.Value <- None)
+    /// Former two-host Db cache. CoreRuntime starts one host; tests still call this.
+    let resetAgentCacheForTest () = ()

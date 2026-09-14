@@ -54,13 +54,9 @@ module CoreAuth =
         : Change list -> Async<Result<CoreChangesAccepted, string>> =
         fun changes -> post credentials sender enqueue changes
 
-    /// Stamp Authority and secret onto posts; mailbox CoreMsg validates before persist.
-    let bindHandle
-        (authority: Authority)
-        (secret: Credential)
-        (handle: CoreChanges)
-        : CoreChanges =
-        handle.asCaller authority secret
+    /// Stamp Caller onto posts; mailbox CoreMsg validates before persist.
+    let bindHandle (caller: Caller) (handle: CoreChanges) : CoreChanges =
+        handle.asCaller caller
 
 [<RequireQualifiedAccess>]
 module CoreCredentials =

@@ -10,8 +10,7 @@ type CoreMsg =
     | GetChangesSince of
         after: Revision * AsyncReplyChannel<Result<Change list, string>>
     | PostChange of
-        authority: Authority *
-        secret: Credential *
+        caller: Caller *
         changes: Change list *
         AsyncReplyChannel<Result<CoreChangesAccepted, string>>
     | PostGraphOnlyChange of
@@ -19,38 +18,13 @@ type CoreMsg =
         AsyncReplyChannel<Result<CoreChangesAccepted, string>>
     | SnapshotDone of graph: Graph option
     | StartActor of
-        authority: Authority *
-        secret: Credential *
+        caller: Caller *
         request: StartActorRequest *
         AsyncReplyChannel<Result<unit, string>>
     | ActorStop of
-        authority: Authority *
-        secret: Credential *
+        caller: Caller *
         result: ActorResult *
         AsyncReplyChannel<Result<unit, string>>
-
-/// Actor cases on the one CoreMsg loop. Not PersistHandlers.
-type ActorMailboxHandlers = {
-    startActor: StartActorRequest -> Async<Result<unit, string>>
-    isLive: Credential -> bool
-    actorStop: Credential -> ActorResult -> Result<unit, string>
-}
-
-[<RequireQualifiedAccess>]
-module ActorMailboxHandlers =
-
-    /// Persist-only filling: Actor live-table check is pass-through.
-    let noop: ActorMailboxHandlers = {
-        startActor = fun _ -> async.Return (Ok ())
-        isLive = fun _ -> true
-        actorStop = fun _ _ -> Ok ()
-    }
-
-    let fromPool (pool: CoreActorPool) : ActorMailboxHandlers = {
-        startActor = pool.startActor
-        isLive = pool.isLive
-        actorStop = pool.finish
-    }
 
 type PersistHandlers = {
     getState: unit -> Result<State, string>
@@ -110,13 +84,13 @@ module internal CoreMailboxBackend =
         | GetRevision _ -> "GetRevision", ""
         | GetChangesSince (after, _) ->
             "GetChangesSince", $"after={after}"
-        | PostChange (_, _, changes, _) ->
+        | PostChange (_, changes, _) ->
             "PostChange", $"changeCount={changes.Length}"
         | PostGraphOnlyChange (changes, _) ->
             "PostGraphOnlyChange", $"changeCount={changes.Length}"
         | SnapshotDone _ -> "SnapshotDone", ""
         | StartActor _ -> "StartActor", ""
-        | ActorStop (_, _, result, _) ->
+        | ActorStop (_, result, _) ->
             match result with
             | ActorSucceeded -> "ActorStop", "ActorSucceeded"
 
@@ -125,11 +99,11 @@ module internal CoreMailboxBackend =
         | GetState reply -> reply.Reply(Error error)
         | GetRevision reply -> reply.Reply(Error error)
         | GetChangesSince (_, reply) -> reply.Reply(Error error)
-        | PostChange (_, _, _, reply) -> reply.Reply(Error error)
+        | PostChange (_, _, reply) -> reply.Reply(Error error)
         | PostGraphOnlyChange (_, reply) -> reply.Reply(Error error)
         | SnapshotDone _ -> ()
-        | StartActor (_, _, _, reply) -> reply.Reply(Error error)
-        | ActorStop (_, _, _, reply) -> reply.Reply(Error error)
+        | StartActor (_, _, reply) -> reply.Reply(Error error)
+        | ActorStop (_, _, reply) -> reply.Reply(Error error)
 
     let private admitSecret
         (credentials: CoreCredentials)
@@ -144,138 +118,134 @@ module internal CoreMailboxBackend =
 
     let private admitCaller
         (credentials: CoreCredentials)
-        (authority: Authority)
-        (secret: Credential)
+        (caller: Caller)
         : Result<unit, string> =
-        match authority, admitSecret credentials secret with
+        match caller.authority, admitSecret credentials caller.secret with
         | Authority name, _ when String.IsNullOrWhiteSpace name ->
             Error CoreAuth.refuse
         | _, Error err -> Error err
         | _, Ok () -> Ok ()
 
-    let private admitActorPost
-        (credentials: CoreCredentials)
-        (actors: ActorMailboxHandlers)
-        (authority: Authority)
-        (secret: Credential)
-        : Result<unit, string> =
-        match admitCaller credentials authority secret with
+    type private Loop = {
+        credentials: CoreCredentials
+        persist: PersistHandlers
+        pool: CoreActorPool
+        onError: string -> string -> exn -> unit
+        formatError: string -> string
+    }
+
+    let private admitActorPost (loop: Loop) (caller: Caller) =
+        match admitCaller loop.credentials caller with
         | Error err -> Error err
         | Ok () ->
-            match authority with
+            match caller.authority with
             | Authority "Actor" ->
-                match CoreAuth.admit (actors.isLive secret) with
+                match CoreAuth.admit (loop.pool.isLive caller.secret) with
                 | Error err -> Error(CoreAdmissionError.text err)
                 | Ok () -> Ok ()
             | _ -> Ok ()
 
     let private dispatchStartActor
-        (credentials: CoreCredentials)
-        (actors: ActorMailboxHandlers)
-        (authority: Authority)
-        (secret: Credential)
+        (loop: Loop)
+        (caller: Caller)
         (request: StartActorRequest)
         (reply: AsyncReplyChannel<Result<unit, string>>)
         : unit =
-        match admitCaller credentials authority secret with
+        match admitCaller loop.credentials caller with
         | Error err -> reply.Reply(Error err)
-        | Ok () ->
-            let result =
-                actors.startActor request |> Async.RunSynchronously
-            reply.Reply result
+        | Ok () -> reply.Reply(loop.pool.startActor request)
 
     let private dispatchActorStop
-        (credentials: CoreCredentials)
-        (actors: ActorMailboxHandlers)
-        (authority: Authority)
-        (secret: Credential)
+        (loop: Loop)
+        (caller: Caller)
         (result: ActorResult)
         (reply: AsyncReplyChannel<Result<unit, string>>)
         : unit =
-        match admitCaller credentials authority secret with
+        match admitCaller loop.credentials caller with
         | Error err -> reply.Reply(Error err)
         | Ok () ->
-            match CoreAuth.admit (actors.isLive secret) with
+            match CoreAuth.admit (loop.pool.isLive caller.secret) with
             | Error err ->
                 reply.Reply(Error(CoreAdmissionError.text err))
             | Ok () ->
-                reply.Reply(actors.actorStop secret result)
+                reply.Reply(loop.pool.finish caller.secret result)
 
     let private dispatchPostChange
-        (credentials: CoreCredentials)
-        (handlers: PersistHandlers)
-        (actors: ActorMailboxHandlers)
-        (authority: Authority)
-        (secret: Credential)
+        (loop: Loop)
+        (caller: Caller)
         (changes: Change list)
         (reply: AsyncReplyChannel<Result<CoreChangesAccepted, string>>)
         : unit =
-        match admitActorPost credentials actors authority secret with
+        match admitActorPost loop caller with
         | Error err -> reply.Reply(Error err)
-        | Ok () -> reply.Reply(handlers.postChange changes)
+        | Ok () -> reply.Reply(loop.persist.postChange changes)
 
-    let dispatch
-        (credentials: CoreCredentials)
-        (handlers: PersistHandlers)
-        (actors: ActorMailboxHandlers)
-        (onError: string -> string -> exn -> unit)
-        (formatError: string -> string)
-        (msg: CoreMsg)
-        : unit =
+    let private runMsg (loop: Loop) (msg: CoreMsg) =
+        match msg with
+        | GetState reply ->
+            match loop.persist.getState () with
+            | Error err -> reply.Reply(Error err)
+            | Ok state ->
+                let graph =
+                    GraphSpan.withLockPresent
+                        (loop.pool.liveFocusIds ())
+                        state.graph
+                reply.Reply(Ok { state with graph = graph })
+        | GetRevision reply -> reply.Reply(loop.persist.getRevision ())
+        | GetChangesSince (after, reply) ->
+            reply.Reply(loop.persist.getChangesSince after)
+        | PostChange (caller, changes, reply) ->
+            dispatchPostChange loop caller changes reply
+        | PostGraphOnlyChange (changes, reply) ->
+            reply.Reply(loop.persist.postGraphOnlyChange changes)
+        | SnapshotDone graph -> loop.persist.snapshotDone graph
+        | StartActor (caller, request, reply) ->
+            dispatchStartActor loop caller request reply
+        | ActorStop (caller, result, reply) ->
+            dispatchActorStop loop caller result reply
+
+    let private dispatch (loop: Loop) (msg: CoreMsg) : unit =
         try
-            match msg with
-            | GetState reply ->
-                reply.Reply(handlers.getState ())
-            | GetRevision reply ->
-                reply.Reply(handlers.getRevision ())
-            | GetChangesSince (after, reply) ->
-                reply.Reply(handlers.getChangesSince after)
-            | PostChange (authority, secret, changes, reply) ->
-                dispatchPostChange
-                    credentials handlers actors
-                    authority secret changes reply
-            | PostGraphOnlyChange (changes, reply) ->
-                reply.Reply(handlers.postGraphOnlyChange changes)
-            | SnapshotDone graph ->
-                handlers.snapshotDone graph
-            | StartActor (authority, secret, request, reply) ->
-                dispatchStartActor
-                    credentials actors authority secret request reply
-            | ActorStop (authority, secret, result, reply) ->
-                dispatchActorStop
-                    credentials actors authority secret result reply
+            runMsg loop msg
         with ex ->
             let operation, context = operationContext msg
             try
-                onError operation context ex
+                loop.onError operation context ex
             with _ ->
                 ()
             try
-                replyFailure (formatError operation) msg
+                replyFailure (loop.formatError operation) msg
             with _ ->
                 ()
 
+    let private makeLoop credentials persist pool onError formatError : Loop =
+        { credentials = credentials
+          persist = persist
+          pool = pool
+          onError = onError
+          formatError = formatError }
+
     let start
         (credentials: CoreCredentials)
-        (handlers: PersistHandlers)
-        (actors: ActorMailboxHandlers)
+        (persist: PersistHandlers)
+        (pool: CoreActorPool)
         (onError: string -> string -> exn -> unit)
         (formatError: string -> string)
         : MailboxProcessor<CoreMsg> =
+        let loop = makeLoop credentials persist pool onError formatError
         MailboxProcessor<CoreMsg>.Start(fun inbox ->
-            let rec loop () = async {
+            let rec pump () = async {
                 let! msg = inbox.Receive()
-                dispatch
-                    credentials handlers actors onError formatError msg
-                return! loop ()
+                dispatch loop msg
+                return! pump ()
             }
-            loop ()
+            pump ()
         )
 
     let startWithPrelude
         (credentials: CoreCredentials)
-        (handlers: PersistHandlers)
-        (actors: ActorMailboxHandlers)
+        (persist: PersistHandlers)
+        (pool: CoreActorPool)
         (onError: string -> string -> exn -> unit)
         (formatError: string -> string)
         (until: Async<Result<unit, string>>)
@@ -287,10 +257,11 @@ module internal CoreMailboxBackend =
                 with ex ->
                     Error $"Startup prelude failed: {ex.Message}")
 
+        let loop = makeLoop credentials persist pool onError formatError
         let failedHandlers error : PersistHandlers = {
-            getState = handlers.getState
-            getRevision = handlers.getRevision
-            getChangesSince = handlers.getChangesSince
+            getState = persist.getState
+            getRevision = persist.getRevision
+            getChangesSince = persist.getChangesSince
             postChange = fun _ -> Error error
             postGraphOnlyChange = fun _ -> Error error
             snapshotDone = fun _ -> ()
@@ -312,30 +283,20 @@ module internal CoreMailboxBackend =
                                 | GetState _
                                 | GetRevision _
                                 | GetChangesSince _ ->
-                                    Some(async {
-                                        dispatch
-                                            credentials
-                                            handlers
-                                            actors
-                                            onError
-                                            formatError
-                                            msg
-                                    })
+                                    Some(async { dispatch loop msg })
                                 | _ -> None),
                             timeout = 20)
                     return! startupLoop ()
             }
             and normalLoop () = async {
                 let! msg = inbox.Receive()
-                dispatch
-                    credentials handlers actors onError formatError msg
+                dispatch loop msg
                 return! normalLoop ()
             }
             and failedLoop error = async {
                 let! msg = inbox.Receive()
                 let failed = failedHandlers error
-                dispatch
-                    credentials failed actors onError formatError msg
+                dispatch { loop with persist = failed } msg
                 return! failedLoop error
             }
 

@@ -28,46 +28,8 @@ module CoreRuntime =
             { h with
                 postChange = rejectWrite
                 postGraphOnlyChange = rejectWrite
-                asCaller = fun a s -> wrap (h.asCaller a s) }
+                asCaller = fun caller -> wrap (h.asCaller caller) }
         wrap handle
-
-    let ofFileWithDbMirror
-        (file: CoreChanges)
-        (db: CoreChanges option)
-        : CoreChanges =
-        let mirror logFailure postFile postDb changes = async {
-            let! fileResult = postFile changes
-            match fileResult, db with
-            | Ok accepted, Some dbHandle ->
-                let! dbResult = postDb dbHandle changes
-                match dbResult with
-                | Error err -> logFailure err
-                | Ok _ -> ()
-                return Ok accepted
-            | Ok accepted, None -> return Ok accepted
-            | Error err, _ -> return Error err
-        }
-        let rec wrap fileHandle dbHandle : CoreChanges =
-            { fileHandle with
-                postChange =
-                    mirror
-                        (eprintfn
-                            "[Core] Secondary DB write failed after file persist: %s")
-                        fileHandle.postChange
-                        (fun handle -> handle.postChange)
-                postGraphOnlyChange =
-                    mirror
-                        (eprintfn
-                            "[Core] Secondary DB graph-only write failed: %s")
-                        fileHandle.postGraphOnlyChange
-                        (fun handle -> handle.postGraphOnlyChange)
-                asCaller =
-                    fun a s ->
-                        wrap
-                            (fileHandle.asCaller a s)
-                            (dbHandle
-                             |> Option.map (fun d -> d.asCaller a s)) }
-        wrap file db
 
     let private seedBrowserCredential
         (credentials: CoreCredentials)
@@ -84,6 +46,58 @@ module CoreRuntime =
         credentials.add parse |> Async.RunSynchronously
         parse
 
+    let private startHost
+        (persistenceMode: DatabaseSetup.PersistenceMode)
+        (dbStatus: DatabaseSetup.DbStatus)
+        (credentials: CoreCredentials)
+        (pool: CoreActorPool)
+        (dbConnectionString: string)
+        (dataDir: string)
+        : MailboxHost =
+        match persistenceMode, dbStatus with
+        | DatabaseSetup.PersistenceMode.Db, DatabaseSetup.DbStatus.Ok ->
+            CoreMailbox.hostDb
+                credentials
+                pool
+                (DbAgent.createWithDataDir dbConnectionString dataDir)
+        | _ ->
+            CoreMailbox.hostFile
+                credentials
+                pool
+                (FileAgent.create dataDir)
+
+    let private bindRuntime
+        host
+        pool
+        credentials
+        browserAuthority
+        browserCredential
+        parseCredential
+        makeHandle
+        : CoreRuntime =
+        { changes =
+            fun () ->
+                makeHandle
+                    { authority = browserAuthority
+                      secret = browserCredential }
+          bindChanges =
+            fun sender ->
+                makeHandle
+                    { authority = Authority "Caller"
+                      secret = sender }
+          browserChanges =
+            fun secret ->
+                makeHandle
+                    { authority = browserAuthority
+                      secret = secret }
+          credentials = credentials
+          command = pool
+          browserAuthority = browserAuthority
+          browserCredential = browserCredential
+          parseCredential = parseCredential
+          flushFileSnapshot = fun () -> CoreMailbox.flushSnapshot host
+          getFileRevision = fun () -> CoreMailbox.getRevision host }
+
     let create
         (persistenceMode: DatabaseSetup.PersistenceMode)
         (dbStatus: DatabaseSetup.DbStatus)
@@ -98,67 +112,25 @@ module CoreRuntime =
             seedBrowserCredential credentials authUser authPass
         let parseCredential = seedParseCredential credentials
         let pool = CoreActorPool.create credentials
-        let actors = ActorMailboxHandlers.fromPool pool
-        let fileStart = CoreMailbox.startFileWithActors credentials actors
-        let dbStart = CoreMailbox.startDbWithActors credentials actors
-        let fileHost =
-            lazy (CoreMailbox.createFile fileStart dataDir)
-        let makeHandle authority secret =
-            let file =
-                CoreMailbox.coreChanges
-                    fileHost.Value
-                    credentials
-                    authority
-                    secret
-            let raw =
-                match persistenceMode, dbStatus with
-                | DatabaseSetup.PersistenceMode.Db, DatabaseSetup.DbStatus.Ok ->
-                    let dbHost =
-                        DatabaseSetup.getOrCreateDbHost
-                            dbStart
-                            dbConnectionString
-                            dataDir
-                    CoreMailbox.coreChanges
-                        dbHost
-                        credentials
-                        authority
-                        secret
-                | DatabaseSetup.PersistenceMode.File, DatabaseSetup.DbStatus.Ok ->
-                    let dbHost =
-                        DatabaseSetup.getOrCreateDbHost
-                            dbStart
-                            dbConnectionString
-                            dataDir
-                    let db =
-                        CoreMailbox.coreChanges
-                            dbHost
-                            credentials
-                            authority
-                            secret
-                    ofFileWithDbMirror file (Some db)
-                | DatabaseSetup.PersistenceMode.Db, _ ->
-                    readOnly file
-                | DatabaseSetup.PersistenceMode.File, _ ->
-                    file
-            raw
-        let changes () =
-            pool.withLocks (
-                makeHandle browserAuthority browserCredential)
-        let bindChanges sender =
-            pool.withLocks (
-                makeHandle (Authority "Caller") sender)
-        { changes = changes
-          bindChanges = bindChanges
-          browserChanges =
-            fun secret ->
-                pool.withLocks (
-                    makeHandle browserAuthority secret)
-          credentials = credentials
-          command = pool
-          browserAuthority = browserAuthority
-          browserCredential = browserCredential
-          parseCredential = parseCredential
-          flushFileSnapshot =
-            fun () -> fileHost.Value |> CoreMailbox.flushSnapshot
-          getFileRevision =
-            fun () -> fileHost.Value |> CoreMailbox.getRevision }
+        let host =
+            startHost
+                persistenceMode
+                dbStatus
+                credentials
+                pool
+                dbConnectionString
+                dataDir
+        let writable =
+            persistenceMode <> DatabaseSetup.PersistenceMode.Db
+            || dbStatus = DatabaseSetup.DbStatus.Ok
+        let makeHandle caller =
+            let raw = CoreMailbox.coreChanges host credentials caller
+            if writable then raw else readOnly raw
+        bindRuntime
+            host
+            pool
+            credentials
+            browserAuthority
+            browserCredential
+            parseCredential
+            makeHandle

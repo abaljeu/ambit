@@ -2,7 +2,7 @@
 
 **Status:** ready-for-agent
 **Blocked by:** None — can start immediately. Point 0 ([[30-reshape-coreactorpool-synchronized-table.md]], [[31-one-coremsg-loop-parameterized-persist.md]], [[32-move-persist-agents-under-coremailbox.md]]) is done. [[33-credentialed-browser-change-posts.md|Credentialed Browser Change posts]] landed shared credentialed `PostChange` through CoreMsg; this ticket adds Actor live-table admit and the hello lifecycle. Not blocked by [[29-prove-testactor-hello.md|Prove TestActor hello]].
-Actual: 1h
+Actual: 4h
 
 ## Context
 
@@ -23,8 +23,8 @@ Browser Run / one-Node Command UI, HTTP Adapter Command encoding, universal `{ n
 ### 1. CoreMsg / CoreMailboxBackend
 
 Mailbox Actor cases for this proof. Contracts on arch **CoreMsg / CoreMailboxBackend**; Seams **CoreMsg union**, **Credentialed Change posts** (Actor live-table admit).
-0. [x] `StartActorRequest` type — `{ zoomId; focusId; commandId; graphIds }`; one Command / StartActor payload shared by CoreMsg `StartActor`, CoreMailbox `startActor`, and CoreActorPool.startActor
-1. [x] `StartActor` on CoreMsg — carry `StartActorRequest`; validate caller Authority and secret; async handoff to CoreActorPool.startActor
+0. [x] `StartActorRequest` type — `{ zoomId; focusId; commandId; graphIds; revision }`; one Command / StartActor payload shared by CoreMsg `StartActor`, CoreMailbox `startActor`, and CoreActorPool.startActor. `LaunchRequest` is gone.
+1. [x] `StartActor` on CoreMsg — carry `StartActorRequest`; validate caller Authority and secret; call startActor synchronously; reply with that result; do not wait for the Actor body
 2. [x] Admit before Actor `PostChange` — same credential fields plus live-row check against CoreActorPool table before PersistHandlers
 3. [x] `ActorStop` of `ActorResult` — `ActorSucceeded` only in this slice; append ActorFinished on History; drop live row and secret; request terminate without waiting
 4. [x] No second mailbox — no nested `ActorMsg` pump; Actor cases share the one CoreMsg loop with persist cases
@@ -45,7 +45,7 @@ Live table and start. Contracts on arch **CoreActorPool**; Seam **CoreActorPool 
 2. [ ] Select and create — read command Node; select Actor kind `test`; create matching Actor
 3. [ ] Live row and schedule — create identities and secret; write live row; append ActorStarted on History via the mailbox path; schedule body on the thread pool
 4. [ ] Pass body input — Graph plus named ids from `StartActorRequest` (`zoomId`, `focusId`, `commandId`) and the Actor secret
-5. [ ] Live registry is only the pool table — no second registry in mailbox-loop state; `admit` / `drop` / `isLive` as needed for this slice
+5. [ ] Live registry is only the pool table — no second registry in mailbox-loop state; access is mailbox-owned (no SynchronizedTable); mailbox ownership of access is not a second copy of identity/secret/Focus; `admit` / `drop` / `isLive` as needed for this slice
 
 ### 4. History
 
@@ -93,8 +93,12 @@ Verifiable facts. Arch Story path **Outside Core lifecycle proof**; Seam **Test 
 - 2026-09-14 — Filed via `/to-tickets` for arch Story paths **Outside Core lifecycle proof** and **Browser Run hello** (tracer-cut). Sibling [[35-browser-run-hello.md|Browser Run hello]] is blocked by this ticket. Parent [[29-prove-testactor-hello.md|Prove TestActor hello]] left unchanged per no-retrofit.
 - 2026-09-14 — Point 0 names `StartActorRequest` so CoreMsg, the CoreMailbox door, and CoreActorPool.startActor share one id payload instead of repeating `zoomId` / `focusId` / `commandId` / `graphIds`.
 - 2026-09-14 — Section 1 CoreMsg / CoreMailboxBackend implemented. `StartActorRequest` and `ActorResult` (`ActorSucceeded` only) are shared types. CoreMsg adds `StartActor` and `ActorStop` on the one loop. Actor `PostChange` admits against the live table after credentials. `ActorStop` drops the live row and secret and cancels without waiting via `CoreActorPool.finish`. History ActorFinished records stay on section 4. CoreMailbox `startActor` / `actorStop` doors stay on section 2. Report: [[plan/core-creation/reports/implement-34-section-1-coremsg.md]].
+- 2026-09-14 — Design corrections on section 1: `StartActorRequest` gains `revision` and replaces `LaunchRequest`; `Caller` groups Authority+secret; mailbox calls `CoreActorPool` directly (no `ActorMailboxHandlers`); `StartActor` replies then hands off without holding the loop. `PersistHandlers` stays — FileAgent and DbAgent have no other persist object to pass. Report: [[plan/core-creation/reports/mailbox-start-type-corrections.md]].
+- 2026-09-14 — Arch correction: startActor is a synchronous mailbox call; one CoreMsg host; mailbox-owned live table (no SynchronizedTable); File and Db persist only; persist mode is File or Db (mirror deleted). Section 1 item 1 and section 3 item 5 aligned. Report: [[plan/core-creation/reports/sync-startactor-one-mailbox.md]].
 
 ## Time
 
 - 2026-09-14 10m — Name `StartActorRequest` and point later items at it (from chat)
 - 2026-09-14 50m — Section 1 CoreMsg / CoreMailboxBackend Actor cases
+- 2026-09-14 1h — StartActorRequest replaces LaunchRequest; Caller; drop ActorMailboxHandlers; async StartActor handoff; dispatch size/clump (from chat)
+- 2026-09-14 2h — Sync startActor, one mailbox, drop mirror, lift DbAgent createLoaded helpers (from chat)

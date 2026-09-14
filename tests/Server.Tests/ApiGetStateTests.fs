@@ -28,7 +28,7 @@ let private handleWithGetState
       isReady = fun () -> true
       postChange = fun _ -> async.Return(Result.Error "unused")
       postGraphOnlyChange = fun _ -> async.Return(Result.Error "unused")
-      asCaller = fun _ _ -> Unchecked.defaultof<CoreChanges> }
+      asCaller = fun _ -> Unchecked.defaultof<CoreChanges> }
 
 let private defaultStateRequest () =
     DefaultHttpContext().Request

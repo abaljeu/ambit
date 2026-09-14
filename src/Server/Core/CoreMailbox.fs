@@ -39,12 +39,11 @@ module CoreMailbox =
 
     let postChange
         (host: MailboxHost)
-        (authority: Authority)
-        (secret: Credential)
+        (caller: Caller)
         (changes: Change list)
         : Async<Result<CoreChangesAccepted, string>> =
         host.mailbox.PostAndAsyncReply(fun reply ->
-            PostChange(authority, secret, changes, reply))
+            PostChange(caller, changes, reply))
 
     let postGraphOnlyChange
         (host: MailboxHost)
@@ -56,10 +55,9 @@ module CoreMailbox =
     let coreChanges
         (host: MailboxHost)
         (credentials: CoreCredentials)
-        (authority: Authority)
-        (secret: Credential)
+        (caller: Caller)
         : CoreChanges =
-        let rec make auth sec : CoreChanges =
+        let rec make c : CoreChanges =
             { getState = fun () -> tryGetState host
               getRevision = fun () -> getRevision host
               getChangesSince = getChangesSince host
@@ -68,18 +66,18 @@ module CoreMailbox =
                 fun changes ->
                     CoreAuth.post
                         credentials
-                        sec
-                        (postChange host auth sec)
+                        c.secret
+                        (postChange host c)
                         changes
               postGraphOnlyChange =
                 fun changes ->
                     CoreAuth.post
                         credentials
-                        sec
+                        c.secret
                         (postGraphOnlyChange host)
                         changes
-              asCaller = fun a s -> make a s }
-        make authority secret
+              asCaller = make }
+        make caller
 
     let isReady (host: MailboxHost) = host.isReady ()
 
@@ -87,59 +85,66 @@ module CoreMailbox =
 
     let dispose (host: MailboxHost) = host.dispose ()
 
-    let startFileWithActors
+    let hostFile
         (credentials: CoreCredentials)
-        (actors: ActorMailboxHandlers)
-        : FileAgent.MailboxStarter =
-        fun handlers onError formatError ->
+        (pool: CoreActorPool)
+        (file: FileAgent)
+        : MailboxHost =
+        let mailbox =
             CoreMailboxBackend.start
-                credentials handlers actors onError formatError
+                credentials
+                (FileAgent.handlers file)
+                pool
+                (FileAgent.onError file)
+                (FileAgent.formatError file)
+        { mailbox = mailbox
+          isReady = FileAgent.isReady file
+          flushSnapshot = FileAgent.flushSnapshot file
+          dispose = FileAgent.dispose file }
 
-    let startFile (credentials: CoreCredentials) : FileAgent.MailboxStarter =
-        startFileWithActors credentials ActorMailboxHandlers.noop
-
-    let startDbWithActors
+    let hostDb
         (credentials: CoreCredentials)
-        (actors: ActorMailboxHandlers)
-        =
-        fun handlers onError formatError until ->
+        (pool: CoreActorPool)
+        (db: DbAgent)
+        : MailboxHost =
+        let mailbox =
             CoreMailboxBackend.startWithPrelude
                 credentials
-                handlers
-                actors
-                onError
-                formatError
-                until
-
-    let startDb (credentials: CoreCredentials) =
-        startDbWithActors credentials ActorMailboxHandlers.noop
+                (DbAgent.persistOf db)
+                pool
+                (DbAgent.onErrorOf db)
+                (DbAgent.formatErrorOf db)
+                (DbAgent.untilOf db)
+        DbAgent.attachMailbox db mailbox
+        { mailbox = mailbox
+          isReady = DbAgent.isReadyOf db
+          flushSnapshot = DbAgent.flushOf db
+          dispose = DbAgent.disposeOf db }
 
     let createFile
-        (startMailbox: FileAgent.MailboxStarter)
+        (credentials: CoreCredentials)
         (dataDir: string)
         : MailboxHost =
-        FileAgent.create startMailbox dataDir |> FileAgent.mailboxHost
+        hostFile
+            credentials
+            (CoreActorPool.create credentials)
+            (FileAgent.create dataDir)
 
     let createDb
-        (startMailbox:
-            PersistHandlers
-                -> (string -> string -> exn -> unit)
-                -> (string -> string)
-                -> Async<Result<unit, string>>
-                -> MailboxProcessor<CoreMsg>)
+        (credentials: CoreCredentials)
         (connectionString: string)
         : MailboxHost =
-        DbAgent.create startMailbox connectionString |> DbAgent.mailboxHost
+        hostDb
+            credentials
+            (CoreActorPool.create credentials)
+            (DbAgent.create connectionString)
 
     let createDbWithDataDir
-        (startMailbox:
-            PersistHandlers
-                -> (string -> string -> exn -> unit)
-                -> (string -> string)
-                -> Async<Result<unit, string>>
-                -> MailboxProcessor<CoreMsg>)
+        (credentials: CoreCredentials)
         (connectionString: string)
         (dataDir: string)
         : MailboxHost =
-        DbAgent.createWithDataDir startMailbox connectionString dataDir
-        |> DbAgent.mailboxHost
+        hostDb
+            credentials
+            (CoreActorPool.create credentials)
+            (DbAgent.createWithDataDir connectionString dataDir)
