@@ -87,51 +87,54 @@ module CoreActorPool =
         =
         let fullGraph = getState ()
         
-        // Interim: expand from Zoom root ignoring request.graphIds until LoadedDescendantIds aligns with arch.
-        let expandedIds = LoadedDescendantIds.expand fullGraph request.zoomId
-        let expandedNodes =
-            expandedIds
-            |> List.choose (fun id -> Map.tryFind id fullGraph.nodes |> Option.map (fun n -> id, n))
-            |> Map.ofList
-        let actorGraph = Graph.fromNodes fullGraph.root expandedNodes
-        
-        match Map.tryFind request.commandId actorGraph.nodes with
-        | None -> Error "command node not found"
-        | Some commandNode ->
-            // Actor selection: prefer CSS class "actor-<name>" for explicit marking,
-            // fall back to command node text for interim compatibility.
-            // This separates actor selection from command interpretation (TestActor reads text).
-            let actorName =
-                CssClass.toList commandNode.cssClasses
-                |> List.tryPick (fun cls ->
-                    if cls.StartsWith("actor-") && cls.Length > 6 then
-                        Some (cls.Substring(6))
-                    else
-                        None)
-                |> Option.defaultValue (commandNode.text.Trim().ToLowerInvariant())
+        // Build Actor input Graph from client-provided graphIds. Server does NOT
+        // expand from Zoom root; client walks its SiteMap (honoring Fold) and sends graphIds.
+        if request.graphIds.IsEmpty then
+            Error "graphIds required: client must provide Included context (SiteMap under Zoom, honoring Fold)"
+        else
+            let actorNodes =
+                request.graphIds
+                |> List.choose (fun id -> Map.tryFind id fullGraph.nodes |> Option.map (fun n -> id, n))
+                |> Map.ofList
+            let actorGraph = Graph.fromNodes fullGraph.root actorNodes
             
-            let model = getModel ()
-            match Map.tryFind actorName model.defs with
-            | None -> Error $"actor '{actorName}' not registered"
-            | Some actorFn ->
-                let secret = Credential(Guid.NewGuid().ToString("N"))
-                credentials.add secret |> Async.RunSynchronously
-                putLive secret request.focusId
+            match Map.tryFind request.commandId actorGraph.nodes with
+            | None -> Error "command node not found in provided graphIds"
+            | Some commandNode ->
+                // Actor selection: prefer CSS class "actor-<name>" for explicit marking,
+                // fall back to command node text for interim compatibility.
+                // This separates actor selection from command interpretation (TestActor reads text).
+                let actorName =
+                    CssClass.toList commandNode.cssClasses
+                    |> List.tryPick (fun cls ->
+                        if cls.StartsWith("actor-") && cls.Length > 6 then
+                            Some (cls.Substring(6))
+                        else
+                            None)
+                    |> Option.defaultValue (commandNode.text.Trim().ToLowerInvariant())
                 
-                appendActorStarted request.focusId "Actor"
-                
-                let input: ActorInput =
-                    { graph = actorGraph
-                      zoomId = request.zoomId
-                      focusId = request.focusId
-                      commandId = request.commandId
-                      secret = secret }
-                
-                let modelWithLive = getModel ()
-                let cts = modelWithLive.live.[secret].cancel
-                Async.Start(actorFn input coreChanges, cts.Token)
-                
-                Ok ()
+                let model = getModel ()
+                match Map.tryFind actorName model.defs with
+                | None -> Error $"actor '{actorName}' not registered"
+                | Some actorFn ->
+                    let secret = Credential(Guid.NewGuid().ToString("N"))
+                    credentials.add secret |> Async.RunSynchronously
+                    putLive secret request.focusId
+                    
+                    appendActorStarted request.focusId "Actor"
+                    
+                    let input: ActorInput =
+                        { graph = actorGraph
+                          zoomId = request.zoomId
+                          focusId = request.focusId
+                          commandId = request.commandId
+                          secret = secret }
+                    
+                    let modelWithLive = getModel ()
+                    let cts = modelWithLive.live.[secret].cancel
+                    Async.Start(actorFn input coreChanges, cts.Token)
+                    
+                    Ok ()
 
     let create (credentials: CoreCredentials) : CoreActorPool =
         let mutable model =
