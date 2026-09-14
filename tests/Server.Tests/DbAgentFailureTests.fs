@@ -25,7 +25,7 @@ let private freshState () : State =
       history = History.empty
       revision = Revision 0 }
 
-let private host agent = DbAgent.mailboxHost agent
+let private host agent = admittedHostDb agent
 
 let private getState agent = async {
     match! CoreMailbox.getState (host agent) with
@@ -50,7 +50,6 @@ let ``persistence exception is logged replied and mailbox survives`` () = task {
             raise (InvalidOperationException("injected persistence failure"))
     let agent =
         DbAgent.createForTestWithDependencies
-            (admittedStartDb ())
             (freshState ())
             (Some dataDir)
             throwingPersist

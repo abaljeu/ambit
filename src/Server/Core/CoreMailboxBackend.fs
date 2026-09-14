@@ -153,9 +153,7 @@ module internal CoreMailboxBackend =
         : unit =
         match admitCaller loop.credentials caller with
         | Error err -> reply.Reply(Error err)
-        | Ok () ->
-            reply.Reply(Ok ())
-            Async.Start(loop.pool.startActor request |> Async.Ignore)
+        | Ok () -> reply.Reply(loop.pool.startActor request)
 
     let private dispatchActorStop
         (loop: Loop)
@@ -184,7 +182,15 @@ module internal CoreMailboxBackend =
 
     let private runMsg (loop: Loop) (msg: CoreMsg) =
         match msg with
-        | GetState reply -> reply.Reply(loop.persist.getState ())
+        | GetState reply ->
+            match loop.persist.getState () with
+            | Error err -> reply.Reply(Error err)
+            | Ok state ->
+                let graph =
+                    GraphSpan.withLockPresent
+                        (loop.pool.liveFocusIds ())
+                        state.graph
+                reply.Reply(Ok { state with graph = graph })
         | GetRevision reply -> reply.Reply(loop.persist.getRevision ())
         | GetChangesSince (after, reply) ->
             reply.Reply(loop.persist.getChangesSince after)

@@ -13,9 +13,14 @@ type FileAgentDependencies = {
     changeProcessingTimeoutMs: int
 }
 
-// FileAgent — serialises all reads/writes for a single file
+// FileAgent — persist filling for one dataDir. Does not start a mailbox.
 type FileAgent = private {
-    host: MailboxHost
+    handlers: PersistHandlers
+    onError: string -> string -> exn -> unit
+    formatError: string -> string
+    isReady: unit -> bool
+    flushSnapshot: unit -> Async<Result<unit, string>>
+    dispose: unit -> unit
     initialState: Gambol.Shared.State
 }
 
@@ -32,16 +37,7 @@ module FileAgent =
                 CoreMailboxBackend.ChangeProcessingTimeoutMs
         }
 
-    /// Starts the CoreMsg loop. CoreMailbox supplies credentials for admit;
-    /// FileAgent only builds PersistHandlers (changes-only after admit).
-    type MailboxStarter =
-        PersistHandlers
-            -> (string -> string -> exn -> unit)
-            -> (string -> string)
-            -> MailboxProcessor<CoreMsg>
-
     let createWithDependencies
-        (startMailbox: MailboxStarter)
         (dependencies: FileAgentDependencies)
         (dataDir: string)
         : FileAgent =
@@ -274,30 +270,26 @@ module FileAgent =
         let formatError operation =
             $"Internal server error in FileAgent {operation} (dataDir={dataDir})."
 
-        let mailbox = startMailbox handlers onError formatError
+        { handlers = handlers
+          onError = onError
+          formatError = formatError
+          isReady = fun () -> true
+          flushSnapshot = fun () -> async { return Ok () }
+          dispose =
+            fun () ->
+                logStream.Flush()
+                logStream.Dispose()
+          initialState = capturedInitialState }
 
-        let host: MailboxHost = {
-            mailbox = mailbox
-            isReady = fun () -> true
-            flushSnapshot = fun () -> async { return Ok () }
-            dispose =
-                fun () ->
-                    logStream.Flush()
-                    logStream.Dispose()
-        }
+    let create (dataDir: string) : FileAgent =
+        createWithDependencies (defaultDependencies dataDir) dataDir
 
-        { host = host; initialState = capturedInitialState }
-
-    let create
-        (startMailbox: MailboxStarter)
-        (dataDir: string)
-        : FileAgent =
-        createWithDependencies
-            startMailbox
-            (defaultDependencies dataDir)
-            dataDir
-
-    let mailboxHost (agent: FileAgent) = agent.host
+    let handlers (agent: FileAgent) = agent.handlers
+    let onError (agent: FileAgent) = agent.onError
+    let formatError (agent: FileAgent) = agent.formatError
+    let isReady (agent: FileAgent) = agent.isReady
+    let flushSnapshot (agent: FileAgent) = agent.flushSnapshot
+    let dispose (agent: FileAgent) = agent.dispose
 
     let initialState (agent: FileAgent) : State =
         agent.initialState

@@ -42,12 +42,10 @@ let private recordingPool () =
     let live = ResizeArray<Credential>()
     let pool: CoreActorPool = {
         register = fun _ _ -> ()
-        lockedIds = fun () -> Set.empty
-        withLocks = id
         startActor =
             fun request ->
                 started.TrySetResult request |> ignore
-                async.Return (Ok ())
+                Ok ()
         isLive = fun secret -> live.Contains secret
         admit = fun _ -> Ok ()
         drop = fun _ -> ()
@@ -56,15 +54,17 @@ let private recordingPool () =
                 live.Remove secret |> ignore
                 stopped.Add(secret, result)
                 Ok ()
+        liveFocusIds = fun () -> Set.empty
     }
     started, stopped, live, pool
 
 let private createHost dataDir pool =
     let credentials = admittedCredentials ()
     let host =
-        CoreMailbox.createFile
-            (CoreMailbox.startFileWithActors credentials pool)
-            dataDir
+        CoreMailbox.hostFile
+            credentials
+            pool
+            (FileAgent.create dataDir)
     host, credentials
 
 let private withHost pool body =
@@ -86,7 +86,7 @@ let private postActorStop host caller result =
         ActorStop(caller, result, reply))
 
 [<Fact>]
-let ``StartActor with live credentials hands off StartActorRequest`` () =
+let ``StartActor with live credentials calls startActor with StartActorRequest`` () =
     let started, _, _, pool = recordingPool ()
     withHost pool (fun host _ -> task {
         let! result =
@@ -102,23 +102,19 @@ let ``StartActor with live credentials hands off StartActorRequest`` () =
     })
 
 [<Fact>]
-let ``StartActor reply does not wait for startActor to finish`` () =
-    let started = TaskCompletionSource<StartActorRequest>()
+let ``startActor does not wait for the Actor body`` () =
     let gate = TaskCompletionSource<unit>()
     let pool: CoreActorPool = {
         register = fun _ _ -> ()
-        lockedIds = fun () -> Set.empty
-        withLocks = id
         startActor =
-            fun request -> async {
-                started.TrySetResult request |> ignore
-                do! Async.AwaitTask gate.Task
-                return Ok ()
-            }
+            fun _ ->
+                Async.Start(async { do! Async.AwaitTask gate.Task })
+                Ok ()
         isLive = fun _ -> false
         admit = fun _ -> Ok ()
         drop = fun _ -> ()
         finish = fun _ _ -> Ok ()
+        liveFocusIds = fun () -> Set.empty
     }
     withHost pool (fun host _ -> task {
         let sw = Stopwatch.StartNew()
@@ -130,8 +126,22 @@ let ``StartActor reply does not wait for startActor to finish`` () =
         Assert.True(sw.Elapsed < TimeSpan.FromSeconds 1.0)
         Assert.False(gate.Task.IsCompleted)
         gate.SetResult()
-        let! _ = started.Task.WaitAsync(TimeSpan.FromSeconds 5.0)
-        ()
+    })
+
+[<Fact>]
+let ``GetState stamps lockPresent from the live table after startActor`` () =
+    let credentials = admittedCredentials ()
+    let pool = CoreActorPool.create credentials
+    withHost pool (fun host _ -> task {
+        let! started =
+            postStartActor host testCaller sampleRequest
+            |> Async.StartAsTask
+        requireOk "StartActor" started
+        let! state =
+            CoreMailbox.getState host
+            |> Async.StartAsTask
+        let state = requireOk "GetState" state
+        Assert.True(state.graph.nodes.[sampleRequest.focusId].lockPresent)
     })
 
 [<Fact>]

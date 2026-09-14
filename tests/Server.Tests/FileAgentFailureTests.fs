@@ -22,7 +22,7 @@ let private changedBody () =
         }
     [ change ]
 
-let private host agent = FileAgent.mailboxHost agent
+let private host agent = admittedHostFile agent
 
 let private getState agent = async {
     match! CoreMailbox.getState (host agent) with
@@ -77,7 +77,7 @@ let ``persistence exception is logged replied and mailbox survives`` () = task {
                         defaults.appendException operation context ex
                         raise (IOException("injected logger failure"))
         }
-    let agent = FileAgent.createWithDependencies (admittedStartFile ()) dependencies dataDir
+    let agent = FileAgent.createWithDependencies dependencies dataDir
     try
         let! postResult =
             (admittedChanges (host agent)).postChange (changedBody ())
@@ -122,7 +122,7 @@ let ``persist step hang is rejected within timeout and mailbox survives`` () = t
                         Ok { graph = preGraph; message = None }
                 changeProcessingTimeoutMs = 50
         }
-    let agent = FileAgent.createWithDependencies (admittedStartFile ()) dependencies dataDir
+    let agent = FileAgent.createWithDependencies dependencies dataDir
     try
         let sw = Diagnostics.Stopwatch.StartNew()
         let! postResult =
@@ -154,7 +154,7 @@ let ``soft-fail live-save still commits graph and returns could-not-save message
     let dataDir = newTempDir ()
     let defaults = FileAgent.defaultDependencies dataDir
     let dependencies = { defaults with persistGraphOps = softFailPersist }
-    let agent = FileAgent.createWithDependencies (admittedStartFile ()) dependencies dataDir
+    let agent = FileAgent.createWithDependencies dependencies dataDir
     try
         let! postResult =
             (admittedChanges (host agent)).postChange (softFailEditBody ())
@@ -180,7 +180,7 @@ let ``soft-fail log is not replayed into FileAgent state after restart`` () = ta
     let dataDir = newTempDir ()
     let defaults = FileAgent.defaultDependencies dataDir
     let dependencies = { defaults with persistGraphOps = softFailPersist }
-    let agent1 = FileAgent.createWithDependencies (admittedStartFile ()) dependencies dataDir
+    let agent1 = FileAgent.createWithDependencies dependencies dataDir
     try
         let! postResult =
             (admittedChanges (host agent1)).postChange (softFailEditBody ())
@@ -193,7 +193,7 @@ let ``soft-fail log is not replayed into FileAgent state after restart`` () = ta
 
     // Meta checkpoint stays behind after soft-fail; restart trusts that checkpoint.
     Assert.Equal(Revision 0, Bookkeeping.readRevision dataDir)
-    let agent2 = FileAgent.createWithDependencies (admittedStartFile ()) dependencies dataDir
+    let agent2 = FileAgent.createWithDependencies dependencies dataDir
     try
         let! state =
             getState agent2 |> Async.StartAsTask
@@ -243,7 +243,7 @@ let ``ACK returns stamped complete Change equal to ChangeLog`` () = task {
     let defaults = FileAgent.defaultDependencies dataDir
     let dependencies =
         { defaults with persistGraphOps = incrementingStampPersist count }
-    let agent = FileAgent.createWithDependencies (admittedStartFile ()) dependencies dataDir
+    let agent = FileAgent.createWithDependencies dependencies dataDir
     try
         let change = addChildChange 0 "stamp-prefix"
         let! postResult =
@@ -281,7 +281,7 @@ let ``trailing duplicate keeps stamps on last new Change`` () = task {
     let defaults = FileAgent.defaultDependencies dataDir
     let dependencies =
         { defaults with persistGraphOps = incrementingStampPersist count }
-    let agent = FileAgent.createWithDependencies (admittedStartFile ()) dependencies dataDir
+    let agent = FileAgent.createWithDependencies dependencies dataDir
     try
         let first = addChildChange 0 "first-new"
         let! firstResult =

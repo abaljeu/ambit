@@ -133,19 +133,23 @@ let admittedCredentials () =
     credentials.add testSecret |> Async.RunSynchronously
     credentials
 
-let private startFile (credentials: CoreCredentials) : FileAgent.MailboxStarter =
-    CoreMailbox.startFile credentials
+let admittedHostFile (file: FileAgent) =
+    let credentials = admittedCredentials ()
+    CoreMailbox.hostFile
+        credentials
+        (CoreActorPool.create credentials)
+        file
 
-let private startDb (credentials: CoreCredentials) =
-    CoreMailbox.startDb credentials
-
-let admittedStartFile () = startFile (admittedCredentials ())
-
-let admittedStartDb () = startDb (admittedCredentials ())
+let admittedHostDb (db: DbAgent) =
+    let credentials = admittedCredentials ()
+    CoreMailbox.hostDb
+        credentials
+        (CoreActorPool.create credentials)
+        db
 
 let createAdmittedFile (dataDir: string) =
     let credentials = admittedCredentials ()
-    let host = CoreMailbox.createFile (startFile credentials) dataDir
+    let host = CoreMailbox.createFile credentials dataDir
     let handle =
         CoreMailbox.coreChanges host credentials testCaller
     host, handle
@@ -153,7 +157,7 @@ let createAdmittedFile (dataDir: string) =
 /// Same as createAdmittedFile, and returns the shared credential set (for Actor pool).
 let createAdmittedFileWithCredentials (dataDir: string) =
     let credentials = admittedCredentials ()
-    let host = CoreMailbox.createFile (startFile credentials) dataDir
+    let host = CoreMailbox.createFile credentials dataDir
     let handle =
         CoreMailbox.coreChanges host credentials testCaller
     host, handle, credentials

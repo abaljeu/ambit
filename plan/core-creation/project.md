@@ -1,10 +1,10 @@
 # Core creation
 
-Stage: slice
+Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
 Updated: 2026-09-14
 Started: 2026-09-05
-Actual: 32h20m
+Actual: 34h20m
 
 ## Map
 
@@ -55,7 +55,7 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/issues/32-move-persist-agents-under-coremailbox.md]] — Point 0 (done): persist agents under Core; generic CoreMailbox door.
 - [[plan/core-creation/issues/29-prove-testactor-hello.md]] — current cut: section 1 mailbox foundation on `dev`; remaining hello sections open. Redo: land [[plan/core-creation/arch.md]] before further hello implement — [[plan/core-creation/reports/redo-29-architecture-before-proceed.md]].
 - [[plan/core-creation/issues/33-credentialed-browser-change-posts.md]] — Story path Browser Change posts: cookie-as-credential, boot seed, CoreMailbox admit only; Status `coded`. `auth.Disabled` skip removed; development cookie is auto-issued and still required.
-- [[plan/core-creation/issues/34-outside-core-lifecycle-proof.md]] — Story path Outside Core lifecycle proof: TestActor hello from Pool/Actor seam without HTTP. Section 1 CoreMsg / CoreMailboxBackend coded; remaining sections open.
+- [[plan/core-creation/issues/34-outside-core-lifecycle-proof.md]] — Story path Outside Core lifecycle proof: TestActor hello from Pool/Actor seam without HTTP. Section 1 CoreMsg / CoreMailboxBackend plus sync startActor / one-mailbox composition coded; remaining sections 2–7 open.
 - [[plan/core-creation/issues/35-browser-run-hello.md]] — Story path Browser Run hello: `?` one-Node Command through HTTP to Owned child `hello`; blocked by 34.
 
 ## Decision tickets
@@ -107,6 +107,7 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/reports/remove-auth-disabled-bypass.md]] — remove `auth.Disabled` skip; development cookie is real and required.
 - [[plan/core-creation/reports/implement-34-section-1-coremsg.md]] — issue 34 section 1 CoreMsg / CoreMailboxBackend Actor cases.
 - [[plan/core-creation/reports/mailbox-start-type-corrections.md]] — StartActorRequest replaces LaunchRequest; Caller; no ActorMailboxHandlers; async StartActor handoff.
+- [[plan/core-creation/reports/sync-startactor-one-mailbox.md]] — Sync startActor, one CoreMsg host, mailbox-owned live table, File or Db persist, mirror deleted.
 
 ## Comments
 
