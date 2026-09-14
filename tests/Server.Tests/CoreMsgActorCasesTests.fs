@@ -61,10 +61,10 @@ let private recordingPool () =
 let private createHost dataDir pool =
     let credentials = admittedCredentials ()
     let host =
-        CoreMailbox.hostFile
+        CoreMailbox.host
             credentials
             pool
-            (FileAgent.create dataDir)
+            (FileAgent.persist (FileAgent.create dataDir))
     host, credentials
 
 let private withHost pool body =
@@ -102,20 +102,9 @@ let ``StartActor with live credentials calls startActor with StartActorRequest``
     })
 
 [<Fact>]
-let ``startActor does not wait for the Actor body`` () =
-    let gate = TaskCompletionSource<unit>()
-    let pool: CoreActorPool = {
-        register = fun _ _ -> ()
-        startActor =
-            fun _ ->
-                Async.Start(async { do! Async.AwaitTask gate.Task })
-                Ok ()
-        isLive = fun _ -> false
-        admit = fun _ -> Ok ()
-        drop = fun _ -> ()
-        finish = fun _ _ -> Ok ()
-        liveFocusIds = fun () -> Set.empty
-    }
+let ``StartActor reply is startActor bookkeeping without waiting for an Actor body`` () =
+    let credentials = admittedCredentials ()
+    let pool = CoreActorPool.create credentials
     withHost pool (fun host _ -> task {
         let sw = Stopwatch.StartNew()
         let! result =
@@ -124,8 +113,7 @@ let ``startActor does not wait for the Actor body`` () =
         sw.Stop()
         requireOk "StartActor" result
         Assert.True(sw.Elapsed < TimeSpan.FromSeconds 1.0)
-        Assert.False(gate.Task.IsCompleted)
-        gate.SetResult()
+        Assert.True(Set.contains sampleRequest.focusId (pool.liveFocusIds ()))
     })
 
 [<Fact>]

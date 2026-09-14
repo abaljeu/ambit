@@ -85,66 +85,59 @@ module CoreMailbox =
 
     let dispose (host: MailboxHost) = host.dispose ()
 
-    let hostFile
+    let host
         (credentials: CoreCredentials)
         (pool: CoreActorPool)
-        (file: FileAgent)
+        (persist: PersistFilling)
         : MailboxHost =
         let mailbox =
-            CoreMailboxBackend.start
-                credentials
-                (FileAgent.handlers file)
-                pool
-                (FileAgent.onError file)
-                (FileAgent.formatError file)
+            match persist.until with
+            | None ->
+                CoreMailboxBackend.start
+                    credentials
+                    persist.handlers
+                    pool
+                    persist.onError
+                    persist.formatError
+            | Some until ->
+                CoreMailboxBackend.startWithPrelude
+                    credentials
+                    persist.handlers
+                    pool
+                    persist.onError
+                    persist.formatError
+                    until
+        persist.bindMailbox mailbox
         { mailbox = mailbox
-          isReady = FileAgent.isReady file
-          flushSnapshot = FileAgent.flushSnapshot file
-          dispose = FileAgent.dispose file }
-
-    let hostDb
-        (credentials: CoreCredentials)
-        (pool: CoreActorPool)
-        (db: DbAgent)
-        : MailboxHost =
-        let mailbox =
-            CoreMailboxBackend.startWithPrelude
-                credentials
-                (DbAgent.persistOf db)
-                pool
-                (DbAgent.onErrorOf db)
-                (DbAgent.formatErrorOf db)
-                (DbAgent.untilOf db)
-        DbAgent.attachMailbox db mailbox
-        { mailbox = mailbox
-          isReady = DbAgent.isReadyOf db
-          flushSnapshot = DbAgent.flushOf db
-          dispose = DbAgent.disposeOf db }
+          isReady = persist.isReady
+          flushSnapshot = persist.flushSnapshot
+          dispose = persist.dispose }
 
     let createFile
         (credentials: CoreCredentials)
         (dataDir: string)
         : MailboxHost =
-        hostFile
+        host
             credentials
             (CoreActorPool.create credentials)
-            (FileAgent.create dataDir)
+            (FileAgent.persist (FileAgent.create dataDir))
 
     let createDb
         (credentials: CoreCredentials)
         (connectionString: string)
         : MailboxHost =
-        hostDb
+        host
             credentials
             (CoreActorPool.create credentials)
-            (DbAgent.create connectionString)
+            (DbAgent.persist (DbAgent.create connectionString))
 
     let createDbWithDataDir
         (credentials: CoreCredentials)
         (connectionString: string)
         (dataDir: string)
         : MailboxHost =
-        hostDb
+        host
             credentials
             (CoreActorPool.create credentials)
-            (DbAgent.createWithDataDir connectionString dataDir)
+            (DbAgent.persist
+                (DbAgent.createWithDataDir connectionString dataDir))

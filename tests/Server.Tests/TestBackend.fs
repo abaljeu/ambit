@@ -135,17 +135,17 @@ let admittedCredentials () =
 
 let admittedHostFile (file: FileAgent) =
     let credentials = admittedCredentials ()
-    CoreMailbox.hostFile
+    CoreMailbox.host
         credentials
         (CoreActorPool.create credentials)
-        file
+        (FileAgent.persist file)
 
 let admittedHostDb (db: DbAgent) =
     let credentials = admittedCredentials ()
-    CoreMailbox.hostDb
+    CoreMailbox.host
         credentials
         (CoreActorPool.create credentials)
-        db
+        (DbAgent.persist db)
 
 let createAdmittedFile (dataDir: string) =
     let credentials = admittedCredentials ()

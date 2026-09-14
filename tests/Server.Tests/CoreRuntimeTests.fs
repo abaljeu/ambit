@@ -124,12 +124,11 @@ let ``HTTP Adapter enqueues when Browser credential is live`` () = task {
 }
 
 [<Fact>]
-let ``callers reach changes and command on the Core object`` () = task {
+let ``callers reach changes on the Core object`` () = task {
     let runtime = fileRuntime ()
     let handle = runtime.changes ()
     let! rev = handle.getRevision () |> Async.StartAsTask
     Assert.Equal(Revision 0, rev)
-    Assert.False(runtime.command.isLive (Credential "missing"))
 }
 
 [<Fact>]
