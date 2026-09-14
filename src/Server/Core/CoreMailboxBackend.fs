@@ -236,6 +236,15 @@ module internal CoreMailboxBackend =
                 }
                 reply.Reply(loop.pool.finish caller.secret result)
 
+    let private appendChangeEvents (loop: Loop) (changes: Change list) : unit =
+        changes
+        |> List.iter (fun change ->
+            let event = ChangeEvent(change)
+            loop.mailboxHistory.Value <- {
+                loop.mailboxHistory.Value with
+                    past = loop.mailboxHistory.Value.past @ [ event ]
+            })
+
     let private dispatchPostChange
         (loop: Loop)
         (caller: Caller)
@@ -244,7 +253,12 @@ module internal CoreMailboxBackend =
         : unit =
         match admitActorPost loop caller with
         | Error err -> reply.Reply(Error err)
-        | Ok () -> reply.Reply(loop.persist.postChange changes)
+        | Ok () ->
+            match loop.persist.postChange changes with
+            | Error _ as err -> reply.Reply(err)
+            | Ok accepted as result ->
+                appendChangeEvents loop accepted.changes
+                reply.Reply(result)
 
     let private runMsg (loop: Loop) (msg: CoreMsg) =
         match msg with
@@ -265,7 +279,11 @@ module internal CoreMailboxBackend =
         | PostChange (caller, changes, reply) ->
             dispatchPostChange loop caller changes reply
         | PostGraphOnlyChange (changes, reply) ->
-            reply.Reply(loop.persist.postGraphOnlyChange changes)
+            match loop.persist.postGraphOnlyChange changes with
+            | Error _ as err -> reply.Reply(err)
+            | Ok accepted as result ->
+                appendChangeEvents loop accepted.changes
+                reply.Reply(result)
         | SnapshotDone graph -> loop.persist.snapshotDone graph
         | StartActor (caller, request, reply) ->
             dispatchStartActor loop caller request reply
