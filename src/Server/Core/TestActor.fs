@@ -32,10 +32,13 @@ module TestActor =
                     let caller =
                         { authority = Authority "Actor"
                           secret = input.secret }
-                    let! result =
+                    let! postResult =
                         coreChanges.asCaller(caller).postChange [ change ]
-                    match result with
-                    | Ok _ -> return ()
+                    match postResult with
+                    | Ok _ ->
+                        let! stopResult =
+                            coreChanges.asCaller(caller).actorStop ActorSucceeded
+                        return ()
                     | Error _ -> return ()
                 | _ -> return ()
         }

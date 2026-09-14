@@ -110,6 +110,14 @@ module CoreMailbox =
                         c.secret
                         (postGraphOnlyChange host)
                         changes
+              actorStop =
+                fun result ->
+                    async {
+                        let! live = credentials.contains c.secret
+                        match CoreAuth.admit live with
+                        | Error err -> return Error(CoreAdmissionError.text err)
+                        | Ok () -> return! actorStop host c result
+                    }
               asCaller = make }
         make caller
 
