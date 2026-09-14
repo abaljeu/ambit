@@ -11,9 +11,10 @@ open Gambol.Shared
 /// - postChange / coreChanges: Credentialed Actor Changes use the same mailbox
 ///   as Browser Changes; no second Actor mailbox.
 ///
-/// Lifecycle fact exposure:
-/// - getState: Read the Graph, lockPresent, and lifecycle Events (history.past).
-/// - ActorStarted and ActorFinished Events are accessible via getState.
+/// Data exposure:
+/// - getState: Read the Graph with lockPresent overlay. Returns Graph facts only.
+/// - lifecycleEvents: Read Actor lifecycle Events (ActorStarted, ActorFinished)
+///   from mailbox-owned History. Separate door for Events, not merged into State.
 [<RequireQualifiedAccess>]
 module CoreMailbox =
 
@@ -31,6 +32,11 @@ module CoreMailbox =
         (host: MailboxHost)
         : Async<Result<State, string>> =
         tryGetState host
+
+    let lifecycleEvents
+        (host: MailboxHost)
+        : Async<HistoryEvent list> =
+        host.mailbox.PostAndAsyncReply GetLifecycleEvents
 
     let getRevision (host: MailboxHost) : Async<Revision> =
         async {
