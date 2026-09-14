@@ -8,7 +8,9 @@ open Gambol.Shared
 module TestActor =
 
     /// ActorFn for Actor name "test".
-    /// Interprets command Node text and dispatches to behavior.
+    /// Interprets command Node text to determine which behavior to run.
+    /// Actor selection (choosing TestActor) happens at CoreActorPool via CSS class "actor-test" or node text.
+    /// This function reads node text for command interpretation only ("hello", etc.).
     let run (input: ActorInput) (coreChanges: CoreChanges) : Async<unit> =
         async {
             match Map.tryFind input.commandId input.graph.nodes with
