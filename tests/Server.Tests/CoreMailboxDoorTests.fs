@@ -200,7 +200,7 @@ let ``CoreMailbox.actorStop appends ActorFinished and drops live row`` () =
     }
 
 [<Fact>]
-let ``CoreActorPool.startActor expands graphIds and creates subgraph`` () =
+let ``CoreActorPool.startActor uses client graphIds to build subgraph`` () =
     withHost (fun host credentials pool -> task {
         let childId = NodeId.New()
         let change =
@@ -257,6 +257,56 @@ let ``CoreActorPool.startActor selects actor from command node text`` () =
         requireOk "startActor" result
         
         Assert.True(Set.contains request.focusId (pool.liveFocusIds ()))
+    })
+
+[<Fact>]
+let ``CoreActorPool.startActor fails when graphIds is empty`` () =
+    withHost (fun host _ _ -> task {
+        let request =
+            { zoomId = Graph.rootId
+              focusId = Graph.rootId
+              commandId = Graph.rootId
+              graphIds = []
+              revision = Revision 0 }
+        
+        let! result =
+            CoreMailbox.startActor host testCaller request
+            |> Async.StartAsTask
+        
+        match result with
+        | Error msg -> Assert.Contains("graphIds required", msg)
+        | Ok _ -> Assert.Fail("expected error for empty graphIds")
+    })
+
+[<Fact>]
+let ``CoreActorPool.startActor fails when commandId not in graphIds`` () =
+    withHost (fun host _ _ -> task {
+        let commandId = NodeId.New()
+        let change =
+            { id = 0
+              changeId = Guid.NewGuid()
+              ops =
+                [ Op.NewNode(commandId, "test")
+                  Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
+        let! postResult =
+            CoreMailbox.postGraphOnlyChange host [ change ]
+            |> Async.StartAsTask
+        requireOk "postChange" postResult
+        
+        let request =
+            { zoomId = Graph.rootId
+              focusId = Graph.rootId
+              commandId = commandId
+              graphIds = [ Graph.rootId ]  // commandId not included
+              revision = Revision 0 }
+        
+        let! result =
+            CoreMailbox.startActor host testCaller request
+            |> Async.StartAsTask
+        
+        match result with
+        | Error msg -> Assert.Contains("command node not found in provided graphIds", msg)
+        | Ok _ -> Assert.Fail("expected error when command not in graphIds")
     })
 
 [<Fact>]
