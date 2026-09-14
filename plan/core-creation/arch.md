@@ -195,4 +195,5 @@ Deltas for this Project’s hello / one-mailbox Actor program. Persist fillings 
 
 ## 5. Unsettled
 
-None.
+- Cherry-pick Undo (invert a chosen earlier ChangeEvent; Actor Events skipped; conflicts via normal apply/merge). Depends on mailbox History holding invertible Changes. Deferred past hello; not a ticket yet.
+- Restoring older file versions via git (time-travel / restore family with cherry-pick Undo). Deferred past hello; not a ticket yet.
