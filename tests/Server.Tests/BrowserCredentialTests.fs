@@ -68,6 +68,25 @@ let ``Auth-disabled Browser APIs without cookie are refused`` () = task {
 }
 
 [<Fact>]
+let ``Auth-disabled app page Set-Cookie matches empty deriveToken`` () =
+    task {
+        let dataDir = newTempDir ()
+        use client = createClientForDirWithoutCookie dataDir
+        let! page = client.GetAsync("/ambit")
+        Assert.Equal(HttpStatusCode.OK, page.StatusCode)
+        let setCookies =
+            match page.Headers.TryGetValues("Set-Cookie") with
+            | true, values -> values |> Seq.toList
+            | _ ->
+                match page.Content.Headers.TryGetValues("Set-Cookie") with
+                | true, values -> values |> Seq.toList
+                | _ -> []
+        let issued =
+            AuthToken.applySetCookieHeaders None setCookies
+        Assert.Equal(Some(AuthToken.deriveToken "" ""), issued)
+    }
+
+[<Fact>]
 let ``Auth-disabled Browser APIs with request cookie are not refused`` () =
     task {
         let dataDir = newTempDir ()

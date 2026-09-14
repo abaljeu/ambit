@@ -3,7 +3,7 @@
 **Status:** done
 **Blocked by:** None — can start immediately. Point 0 ([[30-reshape-coreactorpool-synchronized-table.md]], [[31-one-coremsg-loop-parameterized-persist.md]], [[32-move-persist-agents-under-coremailbox.md]]) is done. Not blocked by [[29-prove-testactor-hello.md|Prove TestActor hello]].
 Estimate: 2h
-Actual: 5h30m
+Actual: 5h45m
 
 ## 1. Context
 
@@ -19,16 +19,20 @@ Make Browser Change posts credentialed end-to-end with cookie-as-credential and 
 
 ### Credential identity
 
-1. Login.html cookie `gambol_auth` is the Browser authorization to post.
+1. Login.html cookie `gambol_auth` is the Browser authorization to post. That value is `AuthToken.deriveToken` from Auth config; boot seeds CoreCredentials with the same value.
 2. When the server issues that cookie, that value is what belongs in CoreCredentials (`credentials.add`).
 3. All Browser API requests include creds; they arrive at CoreMailbox; mailbox validates before action; nothing further needs the credentials.
+4. A missing cookie still refuses at mailbox / API. There is no closed-over server fallback.
 
 ### Restart / seed (chosen: option 2)
 
 1. Seed at server boot: source is deterministic `AuthToken.deriveToken` from Auth config username/password; `credentials.add` that value. “validToken” is recomputed from the same Auth config (not a mystery GUID).
-2. Browser has a server-restart signal in messages from the server; that tells the client to reseed / re-establish. On initial Browser load, the client can make the same call.
-3. Rejected for web: option 1 — re-login-after-restart only if invisible via stored password.
-4. Not needed: option 3 — persist the credential set (seed replaces it).
+2. After server restart, the same derived token still admits if the Cookie header is sent. Credential identity does not need client cookie re-issue or re-login.
+3. `DeployEpochSec` / `window.__BUILD_TS__` is the server-restart signal for the Fable client (reload / page epoch). The client writes `__BUILD_TS__` on that signal and on initial load. That write is not credential re-establish.
+4. Desktop presents Cookie via LocalProxy (AuthStore / captured Set-Cookie / auth-disabled `deriveToken("", "")`), not via `DeployEpochSec`.
+5. A Browser with a durable cookie already has the credential; silent web re-login is not required.
+6. Rejected for web: option 1 — re-login-after-restart only if invisible via stored password.
+7. Not needed: option 3 — persist the credential set (seed replaces it).
 
 ### What this increment avoids
 
@@ -51,7 +55,7 @@ Browser-originated Change posts. Contracts on arch **Browser Run**.
 
 1. [x] Browser Change submit — existing Change submit presents cookie / Authority and secret on the post (request-carried; not a server-closed GUID)
 2. [x] No new Browser chrome — reuse existing Change UI; add no new control
-3. [x] Restart / initial load reseed — client reacts to server-restart signal and may reseed on initial load
+3. [x] Restart / initial load epoch — client writes `window.__BUILD_TS__` from `DeployEpochSec` (restart signal and initial load); that is not cookie re-issue or credential re-establish
 
 ### 3. HTTP Adapter
 
