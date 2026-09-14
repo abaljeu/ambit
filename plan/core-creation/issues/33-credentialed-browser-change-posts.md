@@ -109,9 +109,11 @@ Boot seed for Browser credential. Contracts on arch **CoreRuntime**.
 - 2026-09-13 — Redesign locked: cookie `gambol_auth` is the credential; seed at boot with `AuthToken.deriveToken(Auth config)`; request-carried creds validate at CoreMailbox only; undo File/Db/CoreActor/CoreActorPool/GUID deltas. Status returned to `ready-for-agent`; acceptance unchecked until target holds. Arch Story path **Browser Change posts** still shows `[x]` — align [[plan/core-creation/arch.md|Core creation architecture]] when reconciling (prefer this ticket as source of truth for remaining work).
 - 2026-09-13 — Re-implement against redesign: File/Db take MailboxStarter (no CoreCredentials); createFile/createDb take starter; boot seeds `deriveToken`; Change posts carry request cookie; login `credentials.add`; request path reseeds cookie into the set.
 - 2026-09-14 — Spec-gap fix after review of `4008e8d`: state/poll/load use request cookie; missing cookie refuses (no closed-over fallback); client reacts to DeployEpochSec restart/initial-load; boot+login `credentials.add` only.
+- 2026-09-14 — Wording correction: client “reseed / re-establish” is epoch / `__BUILD_TS__` only, not cookie re-issue. Credential identity stays boot-seeded `gambol_auth` = `deriveToken`; durable cookie still admits after restart. Desktop Cookie-header attach (vs this wording) is [[plan/core-creation/reports/desktop-app-401.md]].
 
 ## Time
 
 - 2026-09-13 2h30m — Credentialed Browser Change posts through CoreMsg (from chat; partial/wrong vs redesign)
 - 2026-09-13 1h30m — Re-implement cookie-as-credential, boot seed, stop-at-mailbox undo (from chat)
 - 2026-09-14 1h30m — Spec-gap fix: request-carried creds on state/poll/load, no closed-over fallback, client DeployEpochSec reseed, drop every-post add (from chat)
+- 2026-09-14 15m — Correct restart/seed wording: DeployEpochSec is epoch, not credential re-establish (from chat)
