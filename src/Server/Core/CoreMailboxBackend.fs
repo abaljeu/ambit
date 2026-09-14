@@ -35,8 +35,7 @@ type PersistHandlers = {
     postGraphOnlyChange:
         Change list -> Result<CoreChangesAccepted, string>
     snapshotDone: Graph option -> unit
-    appendActorStarted: NodeId -> string -> Result<unit, string>
-    appendActorFinished: NodeId -> Result<unit, string>
+    mapState: (State -> State) -> Result<unit, string>
 }
 
 [<RequireQualifiedAccess>]
@@ -159,7 +158,8 @@ module internal CoreMailboxBackend =
             match loop.pool.startActor request with
             | Error err -> reply.Reply(Error err)
             | Ok () ->
-                match loop.persist.appendActorStarted request.focusId "" with
+                match loop.persist.mapState
+                    (History.appendActorStarted request.focusId "") with
                 | Error err -> reply.Reply(Error err)
                 | Ok () -> reply.Reply(Ok ())
 
@@ -179,7 +179,8 @@ module internal CoreMailboxBackend =
                 let focusId = 
                     loop.pool.getFocusId caller.secret 
                     |> Option.defaultValue Graph.rootId
-                match loop.persist.appendActorFinished focusId with
+                match loop.persist.mapState
+                    (History.appendActorFinished focusId) with
                 | Error err -> reply.Reply(Error err)
                 | Ok () -> reply.Reply(loop.pool.finish caller.secret result)
 
@@ -278,8 +279,7 @@ module internal CoreMailboxBackend =
             postChange = fun _ -> Error error
             postGraphOnlyChange = fun _ -> Error error
             snapshotDone = fun _ -> ()
-            appendActorStarted = fun _ _ -> Error error
-            appendActorFinished = fun _ -> Error error
+            mapState = fun _ -> Error error
         }
 
         MailboxProcessor<CoreMsg>.Start(fun inbox ->
