@@ -15,11 +15,22 @@ type StartActorRequest =
 
 type ActorResult = | ActorSucceeded
 
-type ActorFn = Graph -> Credential -> CoreChanges -> Async<unit>
+/// Actor input: Graph plus named ids and Actor secret.
+type ActorInput =
+    { graph: Graph
+      zoomId: NodeId
+      focusId: NodeId
+      commandId: NodeId
+      secret: Credential }
+
+type ActorFn = ActorInput -> CoreChanges -> Async<unit>
+
+/// Callback to append ActorStarted to mailbox History.
+type AppendActorStarted = NodeId -> string -> unit
 
 type CoreActorPool =
     { register: ActorName -> ActorFn -> unit
-      startActor: StartActorRequest -> Result<unit, string>
+      startActor: StartActorRequest -> (Graph -> Graph) -> CoreChanges -> AppendActorStarted -> Result<unit, string>
       isLive: Credential -> bool
       admit: Credential -> Result<unit, string>
       drop: Credential -> unit
@@ -66,14 +77,47 @@ module CoreActorPool =
                 Ok ()
 
     let private runStartActor
+        (model: Model)
         (putLive: Credential -> NodeId -> unit)
         (credentials: CoreCredentials)
         (request: StartActorRequest)
+        (getState: unit -> Graph)
+        (coreChanges: CoreChanges)
+        (appendActorStarted: AppendActorStarted)
         =
-        let secret = Credential(Guid.NewGuid().ToString("N"))
-        credentials.add secret |> Async.RunSynchronously
-        putLive secret request.focusId
-        Ok ()
+        let fullGraph = getState ()
+        
+        let expandedIds = LoadedDescendantIds.expand fullGraph request.zoomId
+        let expandedNodes =
+            expandedIds
+            |> List.choose (fun id -> Map.tryFind id fullGraph.nodes |> Option.map (fun n -> id, n))
+            |> Map.ofList
+        let actorGraph = Graph.fromNodes fullGraph.root expandedNodes
+        
+        match Map.tryFind request.commandId actorGraph.nodes with
+        | None -> Error "command node not found"
+        | Some commandNode ->
+            let actorName = commandNode.text.Trim().ToLowerInvariant()
+            match Map.tryFind actorName model.defs with
+            | None -> Error $"actor '{actorName}' not registered"
+            | Some actorFn ->
+                let secret = Credential(Guid.NewGuid().ToString("N"))
+                credentials.add secret |> Async.RunSynchronously
+                putLive secret request.focusId
+                
+                appendActorStarted request.focusId "Actor"
+                
+                let input: ActorInput =
+                    { graph = actorGraph
+                      zoomId = request.zoomId
+                      focusId = request.focusId
+                      commandId = request.commandId
+                      secret = secret }
+                
+                let cts = model.live.[secret].cancel
+                Async.Start(actorFn input coreChanges, cts.Token)
+                
+                Ok ()
 
     let create (credentials: CoreCredentials) : CoreActorPool =
         let mutable model =
@@ -98,7 +142,7 @@ module CoreActorPool =
         { register =
             fun (ActorName name) actor ->
                 model <- { model with defs = Map.add name actor model.defs }
-          startActor = runStartActor putLive credentials
+          startActor = runStartActor model putLive credentials
           isLive = isLive
           admit = runAdmit isLive
           drop = runDrop takeLive credentials

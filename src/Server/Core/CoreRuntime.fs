@@ -110,6 +110,7 @@ module CoreRuntime =
             seedBrowserCredential credentials authUser authPass
         let parseCredential = seedParseCredential credentials
         let pool = CoreActorPool.create credentials
+        pool.register (ActorName "test") TestActor.actorFn
         let host =
             startHost
                 persistenceMode
