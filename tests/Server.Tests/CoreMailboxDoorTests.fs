@@ -128,18 +128,17 @@ let ``CoreMailbox door exposes Graph lockPresent via getState`` () =
     })
 
 [<Fact>]
-let ``CoreMailbox.startActor appends ActorStarted to history.past`` () =
+let ``CoreMailbox.startActor appends ActorStarted to lifecycle events`` () =
     withHost (fun host _ _ -> task {
         let! result =
             CoreMailbox.startActor host testCaller sampleRequest
             |> Async.StartAsTask
         requireOk "startActor" result
-        let! state =
-            CoreMailbox.getState host
+        let! events =
+            CoreMailbox.lifecycleEvents host
             |> Async.StartAsTask
-        let state = requireOk "getState" state
         let actorStartedEvents =
-            state.history.past
+            events
             |> List.choose (fun event ->
                 match event with
                 | ActorEvent (_, ActorStarted (focusId, _)) when focusId = sampleRequest.focusId ->
@@ -184,12 +183,11 @@ let ``CoreMailbox.actorStop appends ActorFinished and drops live row`` () =
                 |> Async.StartAsTask
             requireOk "actorStop" stopResult
             Assert.False(live.Contains actorSecret)
-            let! state =
-                CoreMailbox.getState host
+            let! events =
+                CoreMailbox.lifecycleEvents host
                 |> Async.StartAsTask
-            let state = requireOk "getState" state
             let actorFinishedEvents =
-                state.history.past
+                events
                 |> List.choose (fun event ->
                     match event with
                     | ActorEvent (_, ActorFinished focusId) when focusId = sampleRequest.focusId ->

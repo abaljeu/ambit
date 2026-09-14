@@ -9,6 +9,7 @@ type CoreMsg =
     | GetRevision of AsyncReplyChannel<Result<Revision, string>>
     | GetChangesSince of
         after: Revision * AsyncReplyChannel<Result<Change list, string>>
+    | GetLifecycleEvents of AsyncReplyChannel<HistoryEvent list>
     | PostChange of
         caller: Caller *
         changes: Change list *
@@ -84,6 +85,7 @@ module internal CoreMailboxBackend =
         | GetRevision _ -> "GetRevision", ""
         | GetChangesSince (after, _) ->
             "GetChangesSince", $"after={after}"
+        | GetLifecycleEvents _ -> "GetLifecycleEvents", ""
         | PostChange (_, changes, _) ->
             "PostChange", $"changeCount={changes.Length}"
         | PostGraphOnlyChange (changes, _) ->
@@ -99,6 +101,7 @@ module internal CoreMailboxBackend =
         | GetState reply -> reply.Reply(Error error)
         | GetRevision reply -> reply.Reply(Error error)
         | GetChangesSince (_, reply) -> reply.Reply(Error error)
+        | GetLifecycleEvents reply -> reply.Reply([])
         | PostChange (_, _, reply) -> reply.Reply(Error error)
         | PostGraphOnlyChange (_, reply) -> reply.Reply(Error error)
         | SnapshotDone _ -> ()
@@ -216,15 +219,12 @@ module internal CoreMailboxBackend =
                     GraphSpan.withLockPresent
                         (loop.pool.liveFocusIds ())
                         state.graph
-                let mergedHistory = {
-                    state.history with
-                        past = state.history.past @ loop.mailboxHistory.Value.past
-                        nextId = max state.history.nextId loop.mailboxHistory.Value.nextId
-                }
-                reply.Reply(Ok { state with graph = graph; history = mergedHistory })
+                reply.Reply(Ok { state with graph = graph })
         | GetRevision reply -> reply.Reply(loop.persist.getRevision ())
         | GetChangesSince (after, reply) ->
             reply.Reply(loop.persist.getChangesSince after)
+        | GetLifecycleEvents reply ->
+            reply.Reply(loop.mailboxHistory.Value.past)
         | PostChange (caller, changes, reply) ->
             dispatchPostChange loop caller changes reply
         | PostGraphOnlyChange (changes, reply) ->
@@ -314,7 +314,8 @@ module internal CoreMailboxBackend =
                                 match msg with
                                 | GetState _
                                 | GetRevision _
-                                | GetChangesSince _ ->
+                                | GetChangesSince _
+                                | GetLifecycleEvents _ ->
                                     Some(async { dispatch loop msg })
                                 | _ -> None),
                             timeout = 20)
