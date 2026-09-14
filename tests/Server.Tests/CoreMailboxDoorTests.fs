@@ -78,7 +78,7 @@ let ``CoreMailbox.actorStop with valid credential drops live row`` () =
     live.Add actorSecret
     let recordingPool: CoreActorPool = {
         register = fun _ _ -> ()
-        startActor = fun _ -> Ok ()
+        startActor = fun _ _ _ _ -> Ok ()
         isLive = fun secret -> live.Contains secret
         admit = fun _ -> Ok ()
         drop = fun _ -> ()
@@ -88,6 +88,7 @@ let ``CoreMailbox.actorStop with valid credential drops live row`` () =
                 stopped.Add(secret, result)
                 Ok ()
         liveFocusIds = fun () -> Set.empty
+        getFocusId = fun _ -> None
     }
     task {
         let dataDir = newTempDir ()
@@ -154,7 +155,7 @@ let ``CoreMailbox.actorStop appends ActorFinished and drops live row`` () =
     live.Add actorSecret
     let recordingPool: CoreActorPool = {
         register = fun _ _ -> ()
-        startActor = fun _ -> Ok ()
+        startActor = fun _ _ _ _ -> Ok ()
         isLive = fun secret -> live.Contains secret
         admit = fun _ -> Ok ()
         drop = fun _ -> ()
@@ -197,3 +198,98 @@ let ``CoreMailbox.actorStop appends ActorFinished and drops live row`` () =
         finally
             CoreMailbox.dispose host
     }
+
+[<Fact>]
+let ``CoreActorPool.startActor expands graphIds and creates subgraph`` () =
+    withHost (fun host credentials pool -> task {
+        let childId = NodeId.New()
+        let change =
+            { id = 0
+              changeId = Guid.NewGuid()
+              ops =
+                [ Op.NewNode(childId, "child")
+                  Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
+        let! postResult =
+            CoreMailbox.postGraphOnlyChange host [ change ]
+            |> Async.StartAsTask
+        requireOk "postChange" postResult
+        
+        let request =
+            { zoomId = Graph.rootId
+              focusId = Graph.rootId
+              commandId = Graph.rootId
+              graphIds = [ Graph.rootId; childId ]
+              revision = Revision 0 }
+        
+        let! result =
+            CoreMailbox.startActor host testCaller request
+            |> Async.StartAsTask
+        requireOk "startActor" result
+        
+        Assert.True(Set.contains request.focusId (pool.liveFocusIds ()))
+    })
+
+[<Fact>]
+let ``CoreActorPool.startActor selects actor from command node text`` () =
+    withHost (fun host credentials pool -> task {
+        let commandId = NodeId.New()
+        let change =
+            { id = 0
+              changeId = Guid.NewGuid()
+              ops =
+                [ Op.NewNode(commandId, "test")
+                  Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
+        let! postResult =
+            CoreMailbox.postGraphOnlyChange host [ change ]
+            |> Async.StartAsTask
+        requireOk "postChange" postResult
+        
+        let request =
+            { zoomId = Graph.rootId
+              focusId = Graph.rootId
+              commandId = commandId
+              graphIds = [ Graph.rootId; commandId ]
+              revision = Revision 0 }
+        
+        let! result =
+            CoreMailbox.startActor host testCaller request
+            |> Async.StartAsTask
+        requireOk "startActor" result
+        
+        Assert.True(Set.contains request.focusId (pool.liveFocusIds ()))
+    })
+
+[<Fact>]
+let ``CoreActorPool.startActor appends ActorStarted before actor body runs`` () =
+    withHost (fun host _ _ -> task {
+        let! result =
+            CoreMailbox.startActor host testCaller sampleRequest
+            |> Async.StartAsTask
+        requireOk "startActor" result
+        
+        let! events =
+            CoreMailbox.lifecycleEvents host
+            |> Async.StartAsTask
+        
+        let actorStartedEvents =
+            events
+            |> List.choose (fun event ->
+                match event with
+                | ActorEvent (_, ActorStarted (focusId, _)) when focusId = sampleRequest.focusId ->
+                    Some focusId
+                | _ -> None)
+        
+        Assert.Equal(1, actorStartedEvents.Length)
+    })
+
+[<Fact>]
+let ``CoreActorPool.startActor creates live row synchronously`` () =
+    withHost (fun host _ pool -> task {
+        let! result =
+            CoreMailbox.startActor host testCaller sampleRequest
+            |> Async.StartAsTask
+        requireOk "startActor" result
+        
+        let focusIds = pool.liveFocusIds ()
+        Assert.True(Set.contains sampleRequest.focusId focusIds)
+    })

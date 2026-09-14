@@ -136,6 +136,7 @@ module internal CoreMailboxBackend =
         onError: string -> string -> exn -> unit
         formatError: string -> string
         mailboxHistory: History ref
+        mailbox: MailboxProcessor<CoreMsg> option ref
     }
 
     let private admitActorPost (loop: Loop) (caller: Caller) =
@@ -158,19 +159,55 @@ module internal CoreMailboxBackend =
         match admitCaller loop.credentials caller with
         | Error err -> reply.Reply(Error err)
         | Ok () ->
-            match loop.pool.startActor request with
-            | Error err -> reply.Reply(Error err)
-            | Ok () ->
-                let event =
-                    ActorEvent(
-                        loop.mailboxHistory.Value.nextId,
-                        ActorStarted(request.focusId, ""))
-                loop.mailboxHistory.Value <- {
-                    loop.mailboxHistory.Value with
-                        past = loop.mailboxHistory.Value.past @ [ event ]
-                        nextId = loop.mailboxHistory.Value.nextId + 1
-                }
-                reply.Reply(Ok ())
+            match loop.mailbox.Value with
+            | None -> reply.Reply(Error "mailbox not initialized")
+            | Some mailbox ->
+                let getState () =
+                    match loop.persist.getState () with
+                    | Ok state -> state.graph
+                    | Error _ -> Graph.create ()
+                
+                let rec makeCoreChanges (c: Caller) : CoreChanges =
+                    { getState = fun () -> mailbox.PostAndAsyncReply GetState
+                      getRevision = fun () ->
+                        async {
+                            let! result = mailbox.PostAndAsyncReply GetRevision
+                            return match result with
+                                   | Ok rev -> rev
+                                   | Error _ -> Revision 0
+                        }
+                      getChangesSince = fun after ->
+                        async {
+                            let! result = mailbox.PostAndAsyncReply(fun reply -> GetChangesSince(after, reply))
+                            return match result with
+                                   | Ok changes -> changes
+                                   | Error _ -> []
+                        }
+                      isReady = fun () -> true
+                      postChange = fun changes ->
+                        CoreAuth.post loop.credentials c.secret (fun caller changes ->
+                            mailbox.PostAndAsyncReply(fun reply -> PostChange(caller, changes, reply))) changes
+                      postGraphOnlyChange = fun changes ->
+                        CoreAuth.post loop.credentials c.secret (fun _caller changes ->
+                            mailbox.PostAndAsyncReply(fun reply -> PostGraphOnlyChange(changes, reply))) changes
+                      asCaller = makeCoreChanges }
+                
+                let coreChanges = makeCoreChanges caller
+                
+                let appendActorStarted focusId authority =
+                    let event =
+                        ActorEvent(
+                            loop.mailboxHistory.Value.nextId,
+                            ActorStarted(focusId, authority))
+                    loop.mailboxHistory.Value <- {
+                        loop.mailboxHistory.Value with
+                            past = loop.mailboxHistory.Value.past @ [ event ]
+                            nextId = loop.mailboxHistory.Value.nextId + 1
+                    }
+                
+                match loop.pool.startActor request getState coreChanges appendActorStarted with
+                | Error err -> reply.Reply(Error err)
+                | Ok () -> reply.Reply(Ok ())
 
     let private dispatchActorStop
         (loop: Loop)
@@ -255,7 +292,8 @@ module internal CoreMailboxBackend =
           pool = pool
           onError = onError
           formatError = formatError
-          mailboxHistory = ref History.empty }
+          mailboxHistory = ref History.empty
+          mailbox = ref None }
 
     let start
         (credentials: CoreCredentials)
@@ -265,7 +303,7 @@ module internal CoreMailboxBackend =
         (formatError: string -> string)
         : MailboxProcessor<CoreMsg> =
         let loop = makeLoop credentials persist pool onError formatError
-        MailboxProcessor<CoreMsg>.Start(fun inbox ->
+        let mailbox = MailboxProcessor<CoreMsg>.Start(fun inbox ->
             let rec pump () = async {
                 let! msg = inbox.Receive()
                 dispatch loop msg
@@ -273,6 +311,8 @@ module internal CoreMailboxBackend =
             }
             pump ()
         )
+        loop.mailbox.Value <- Some mailbox
+        mailbox
 
     let startWithPrelude
         (credentials: CoreCredentials)
@@ -299,7 +339,7 @@ module internal CoreMailboxBackend =
             snapshotDone = fun _ -> ()
         }
 
-        MailboxProcessor<CoreMsg>.Start(fun inbox ->
+        let mailbox = MailboxProcessor<CoreMsg>.Start(fun inbox ->
             let rec startupLoop () = async {
                 if untilTask.IsCompleted then
                     match untilTask.GetAwaiter().GetResult() with
@@ -335,3 +375,5 @@ module internal CoreMailboxBackend =
 
             startupLoop ()
         )
+        loop.mailbox.Value <- Some mailbox
+        mailbox
