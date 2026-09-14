@@ -18,9 +18,9 @@ Prove one successful TestActor `hello` as a complete tracer through Core. The ou
 
 Use the **CoreMailbox** door when the proof exercises the full public Core lifecycle.
 
-1. [ ] Start Actor — submit the architecture's StartActor request through CoreMailbox.
-2. [ ] Carry Actor output — route credentialed Actor Change and ActorStop messages through the same mailbox. There is no second Actor mailbox.
-3. [ ] Expose lifecycle facts — let the outer proof read the resulting Graph and lifecycle Events.
+1. [x] Start Actor — submit the architecture's StartActor request through CoreMailbox.
+2. [x] Carry Actor output — route credentialed Actor Change and ActorStop messages through the same mailbox. There is no second Actor mailbox.
+3. [x] Expose lifecycle facts — let the outer proof read the resulting Graph and lifecycle Events.
 
 ### 2. CoreMsg lifecycle
 
@@ -85,3 +85,4 @@ Verify Story path **Outside Core lifecycle proof** from outside the Actor.
 ## Time
 
 - 2026-09-14 20m — Align Story path 2 wording to current arch (from chat)
+- 2026-09-14 25m — Implement §1 CoreMailbox door (startActor, actorStop, lifecycle facts)
