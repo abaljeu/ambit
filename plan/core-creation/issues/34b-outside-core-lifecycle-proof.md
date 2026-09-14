@@ -51,16 +51,16 @@ Record Actor lifecycle Events on **History** with Graph Actions.
 
 Implement the `hello` behavior at the **ActorFn / TestActor input** seam.
 
-1. [ ] Interpret the command — select `hello` from the command Node.
-2. [ ] Post hello — submit one admitted `PostChange` that adds one Owned child text `hello` under Focus.
-3. [ ] Stop successfully — queue `ActorStop ActorSucceeded` after the Change.
-4. [ ] Keep assertions outside — return behavior only; do not assert inside TestActor.
+1. [x] Interpret the command — select `hello` from the command Node.
+2. [x] Post hello — submit one admitted `PostChange` that adds one Owned child text `hello` under Focus.
+3. [x] Stop successfully — queue `ActorStop ActorSucceeded` after the Change.
+4. [x] Keep assertions outside — return behavior only; do not assert inside TestActor.
 
 ### 6. CoreRuntime composition
 
 Make TestActor available to the proof through **CoreRuntime** composition.
 
-1. [ ] Register TestActor — register the `test` Actor before the mailbox starts (register-then-start one host).
+1. [x] Register TestActor — register the `test` Actor before the mailbox starts (register-then-start one host).
 
 ### 7. Outside proof
 
@@ -92,3 +92,4 @@ Verify Story path **Outside Core lifecycle proof** from outside the Actor.
 - 2026-09-14 — Alan lock fix: getState now returns Graph facts only per CONTEXT.md State = Graph data. Added separate CoreMailbox.lifecycleEvents door to read Actor lifecycle Events from mailbox-owned History. CoreMailboxBackend.GetState no longer merges mailboxHistory into State.history. Updated CoreMailboxDoorTests to use lifecycleEvents instead of getState for ActorStarted/ActorFinished assertions. Graph door ≠ Events door; State reserved for Graph.
 - 2026-09-14 — Implement §3 CoreActorPool start: Created IncludedDescendantIds.expand (renamed from LoadedDescendantIds) for graph expansion honoring Fold state (not just residency); created TestActor module with actorFn that interprets command node text; updated ActorFn signature to accept ActorInput with named ids and secret; implemented CoreActorPool.startActor to use client-provided graphIds (not server expand), select actor from command node, append ActorStarted via callback, and schedule actor body as fire-and-forget; updated CoreMailboxBackend to pass getState, coreChanges, and appendActorStarted callback to pool.startActor; registered TestActor in CoreRuntime.create; added tests proving client-graphIds-driven subgraph, select/live-row-before-schedule order, and ActorStarted recording via lifecycleEvents.
 - 2026-09-14 — Alan lock: CoreActorPool.startActor now builds Actor input Graph from client-provided graphIds; server does NOT expand from Zoom or call IncludedDescendantIds. Client must walk SiteMap honoring Fold state (Included context per CONTEXT.md) and send graphIds. IncludedDescendantIds module renamed from LoadedDescendantIds to reflect Fold-based (not residency-based) walking; algorithm kept for future client use but notes it should walk SiteMap.expanded (Fold state) when Browser Command graphIds is implemented. Added validation: empty graphIds fails; commandId must be in provided graphIds. Updated test name to "uses client graphIds to build subgraph"; added tests for empty graphIds and missing commandId.
+- 2026-09-14 — Implement §5 TestActor hello: Extended CoreChanges with actorStop method; updated TestActor.run to call actorStop ActorSucceeded after successful PostChange; added CoreRuntime.readOnly wrapper for actorStop; created TestActorHelloTests.fs with five outside tests proving hello child under Focus, ActorFinished lifecycle event, dropped live row, ActorStarted before output order, and case-insensitive command interpretation. CoreRuntime already registers TestActor before mailbox starts (§6 verified). Tests assert outside TestActor module per spec.

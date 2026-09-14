@@ -23,10 +23,15 @@ module CoreRuntime =
             async.Return(
                 Error
                     "Database persistence is unavailable; file fallback is read-only.")
+        let rejectActorStop (_: ActorResult) =
+            async.Return(
+                Error
+                    "Database persistence is unavailable; file fallback is read-only.")
         let rec wrap h : CoreChanges =
             { h with
                 postChange = rejectWrite
                 postGraphOnlyChange = rejectWrite
+                actorStop = rejectActorStop
                 asCaller = fun caller -> wrap (h.asCaller caller) }
         wrap handle
 

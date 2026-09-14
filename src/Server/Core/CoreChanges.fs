@@ -30,6 +30,7 @@ type CoreChanges =
       postChange: Change list -> Async<Result<CoreChangesAccepted, string>>
       postGraphOnlyChange:
         Change list -> Async<Result<CoreChangesAccepted, string>>
+      actorStop: ActorResult -> Async<Result<unit, string>>
       /// Rebind posts to another Caller on the same mailbox door.
       asCaller: Caller -> CoreChanges }
 
