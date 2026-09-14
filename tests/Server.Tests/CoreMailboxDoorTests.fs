@@ -185,7 +185,7 @@ let ``CoreMailbox.actorStop appends ActorFinished and drops live row`` () =
             requireOk "actorStop" stopResult
             Assert.False(live.Contains actorSecret)
             let! events =
-                CoreMailbox.lifecycleEvents host
+                CoreMailbox.eventHistory host
                 |> Async.StartAsTask
             let actorFinishedEvents =
                 events
