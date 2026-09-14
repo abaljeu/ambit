@@ -67,12 +67,12 @@ Make TestActor available to the proof through **CoreRuntime** composition.
 
 Verify Story path **Outside Core lifecycle proof** from outside the Actor.
 
-1. [ ] Enter at the named seam — start at CoreActorPool.startActor or at TestActor body input without Browser HTTP or a live external service. When at Pool: expand, select `test`, create, pass body input. When at Actor: TestActor interprets → `hello`.
-2. [ ] Exercise the full lifecycle — keep admit-before-`PostChange` and `ActorStop` on CoreMailbox and CoreMsg. There is no second Actor mailbox.
-3. [ ] Observe the Graph — find one Owned child text `hello` under Focus.
-4. [ ] Observe lifecycle order — find ActorStarted before output and exactly one ActorFinished after it.
-5. [ ] Observe cleanup — confirm the live row is gone and the secret no longer admits output. The public identity remains on History.
-6. [ ] Exclude transport encoding — do not require the HTTP Adapter universal response.
+1. [x] Enter at the named seam — start at CoreActorPool.startActor or at TestActor body input without Browser HTTP or a live external service. When at Pool: expand, select `test`, create, pass body input. When at Actor: TestActor interprets → `hello`.
+2. [x] Exercise the full lifecycle — keep admit-before-`PostChange` and `ActorStop` on CoreMailbox and CoreMsg. There is no second Actor mailbox.
+3. [x] Observe the Graph — find one Owned child text `hello` under Focus.
+4. [x] Observe lifecycle order — find ActorStarted before output and exactly one ActorFinished after it.
+5. [x] Observe cleanup — confirm the live row is gone and the secret no longer admits output. The public identity remains on History.
+6. [x] Exclude transport encoding — do not require the HTTP Adapter universal response.
 
 ## See also
 
@@ -94,3 +94,4 @@ Verify Story path **Outside Core lifecycle proof** from outside the Actor.
 - 2026-09-14 — Implement §3 CoreActorPool start: Created IncludedDescendantIds.expand (renamed from LoadedDescendantIds) for graph expansion honoring Fold state (not just residency); created TestActor module with actorFn that interprets command node text; updated ActorFn signature to accept ActorInput with named ids and secret; implemented CoreActorPool.startActor to use client-provided graphIds (not server expand), select actor from command node, append ActorStarted via callback, and schedule actor body as fire-and-forget; updated CoreMailboxBackend to pass getState, coreChanges, and appendActorStarted callback to pool.startActor; registered TestActor in CoreRuntime.create; added tests proving client-graphIds-driven subgraph, select/live-row-before-schedule order, and ActorStarted recording via lifecycleEvents.
 - 2026-09-14 — Alan lock: CoreActorPool.startActor now builds Actor input Graph from client-provided graphIds; server does NOT expand from Zoom or call IncludedDescendantIds. Client must walk SiteMap honoring Fold state (Included context per CONTEXT.md) and send graphIds. IncludedDescendantIds module renamed from LoadedDescendantIds to reflect Fold-based (not residency-based) walking; algorithm kept for future client use but notes it should walk SiteMap.expanded (Fold state) when Browser Command graphIds is implemented. Added validation: empty graphIds fails; commandId must be in provided graphIds. Updated test name to "uses client graphIds to build subgraph"; added tests for empty graphIds and missing commandId.
 - 2026-09-14 — Implement §5 TestActor hello: Extended CoreChanges with actorStop method; updated TestActor.run to call actorStop ActorSucceeded after successful PostChange; added CoreRuntime.readOnly wrapper for actorStop; created TestActorHelloTests.fs with five outside tests proving hello child under Focus, ActorFinished lifecycle event, dropped live row, ActorStarted before output order, and case-insensitive command interpretation. CoreRuntime already registers TestActor before mailbox starts (§6 verified). Tests assert outside TestActor module per spec.
+- 2026-09-14 — Implement §7 Outside proof: Added comprehensive test `34b section7 outside proof - full lifecycle via CoreMailbox` that consolidates all §7 requirements. Test enters at CoreMailbox.startActor (Pool seam), exercises full lifecycle via CoreMailbox/CoreMsg (no second mailbox), observes Graph (one Owned child text "hello"), observes order via eventHistory (ActorStarted before Change before ActorFinished, exactly one ActorFinished), observes cleanup (live row dropped, public Actor identity preserved on History), no HTTP Adapter. All §7 checkboxes proven.
