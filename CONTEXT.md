@@ -213,6 +213,10 @@ _Avoid_: kernel (for this Module), apply Module (as the name)
 The four-call Interface of Core: Files, Changes, Query, Command. Files is send, get, and git of file bytes; Core owns the open and write. Persist algorithms do not open the file themselves. In file mode Files does not write. inner apply is the Changes path that applies a Change. Advanced logic and Actor definitions work to this Interface. Not the web API.
 _Avoid_: web API, REST, `/ambit` (those are HTTP Adapters that may call Core API)
 
+**State**:
+The graph data the Core exposes (what getState returns as Graph / document structure — the editable Graph facts), not a dumping ground for every server field. Actor start/stop and Changes are Events, not State; lifecycle Events live on History, not the file/DB graph store.
+_Avoid_: using State for Actor lifecycle, History, mapState, Events, or code identifiers that do not match this Graph-data meaning
+
 **Authority**:
 A named source that submits requests to Core and is recorded on accepted Events. Browser identities, Actors, Cursor, Zapier, and Amble are Authorities.
 _Avoid_: sender, user (when the source may not be a person)
