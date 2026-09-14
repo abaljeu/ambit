@@ -286,3 +286,119 @@ let ``TestActor hello interprets command node text`` () =
         
         Assert.Equal(1, helloChildren.Length)
     })
+
+[<Fact>]
+let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
+    withHost (fun host credentials pool -> task {
+        let commandId = NodeId.New()
+        let change =
+            { id = 0
+              changeId = Guid.NewGuid()
+              ops =
+                [ Op.NewNode(commandId, "hello")
+                  Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
+                  Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
+        let! postResult =
+            CoreMailbox.postGraphOnlyChange host [ change ]
+            |> Async.StartAsTask
+        requireOk "postChange" postResult
+        
+        let request = sampleRequest Graph.rootId commandId [ Graph.rootId; commandId ]
+        
+        let! result =
+            CoreMailbox.startActor host testCaller request
+            |> Async.StartAsTask
+        requireOk "startActor" result
+        
+        Assert.True(Set.contains request.focusId (pool.liveFocusIds ()),
+            "Live row should exist after startActor")
+        
+        let! finished = waitForActorFinished host request.focusId 1000
+        Assert.True(finished, "ActorFinished not received within timeout")
+        
+        let! dropped = waitForLiveRowDrop pool request.focusId 1000
+        Assert.True(dropped, "Live row not dropped within timeout")
+        
+        let! state =
+            CoreMailbox.getState host
+            |> Async.StartAsTask
+        let state = requireOk "getState" state
+        
+        let helloChildren =
+            state.graph.nodes.[Graph.rootId].children
+            |> List.filter (fun child ->
+                match child with
+                | Owner nodeId ->
+                    match Map.tryFind nodeId state.graph.nodes with
+                    | Some node -> node.text = "hello"
+                    | None -> false
+                | _ -> false)
+        
+        Assert.Equal(1, helloChildren.Length,
+            "§7.3: Should observe exactly one Owned child text 'hello' under Focus")
+        
+        let! events =
+            CoreMailbox.eventHistory host
+            |> Async.StartAsTask
+        
+        let actorStartedIndex =
+            events
+            |> List.tryFindIndex (fun event ->
+                match event with
+                | ActorEvent (_, ActorStarted (focusId, _)) when focusId = request.focusId ->
+                    true
+                | _ -> false)
+        
+        let firstChangeIndex =
+            events
+            |> List.tryFindIndex (fun event ->
+                match event with
+                | ChangeEvent _ -> true
+                | _ -> false)
+        
+        let actorFinishedIndex =
+            events
+            |> List.tryFindIndex (fun event ->
+                match event with
+                | ActorEvent (_, ActorFinished focusId) when focusId = request.focusId ->
+                    true
+                | _ -> false)
+        
+        let actorFinishedCount =
+            events
+            |> List.filter (fun event ->
+                match event with
+                | ActorEvent (_, ActorFinished focusId) when focusId = request.focusId ->
+                    true
+                | _ -> false)
+            |> List.length
+        
+        Assert.True(actorStartedIndex.IsSome,
+            "§7.4: ActorStarted event should be present")
+        Assert.True(firstChangeIndex.IsSome,
+            "§7.4: Change event (output) should be present")
+        Assert.True(actorFinishedIndex.IsSome,
+            "§7.4: ActorFinished event should be present")
+        Assert.True(actorStartedIndex.Value < firstChangeIndex.Value,
+            "§7.4: ActorStarted should appear before output Change")
+        Assert.True(firstChangeIndex.Value < actorFinishedIndex.Value,
+            "§7.4: Output Change should appear before ActorFinished")
+        Assert.Equal(1, actorFinishedCount,
+            "§7.4: Should observe exactly one ActorFinished event")
+        
+        Assert.False(Set.contains request.focusId (pool.liveFocusIds ()),
+            "§7.5: Live row should be gone after finish")
+        
+        let actorEventsPresent =
+            events
+            |> List.exists (fun event ->
+                match event with
+                | ActorEvent (_, ActorStarted (focusId, _)) when focusId = request.focusId ->
+                    true
+                | ActorEvent (_, ActorFinished focusId) when focusId = request.focusId ->
+                    true
+                | _ -> false)
+        
+        Assert.True(actorEventsPresent,
+            "§7.5: Public Actor identity (ActorStarted, ActorFinished) should remain on History")
+    })
