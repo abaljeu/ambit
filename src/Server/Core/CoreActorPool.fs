@@ -77,7 +77,7 @@ module CoreActorPool =
                 Ok ()
 
     let private runStartActor
-        (model: Model)
+        (getModel: unit -> Model)
         (putLive: Credential -> NodeId -> unit)
         (credentials: CoreCredentials)
         (request: StartActorRequest)
@@ -87,6 +87,7 @@ module CoreActorPool =
         =
         let fullGraph = getState ()
         
+        // Interim: expand from Zoom root ignoring request.graphIds until LoadedDescendantIds aligns with arch.
         let expandedIds = LoadedDescendantIds.expand fullGraph request.zoomId
         let expandedNodes =
             expandedIds
@@ -97,7 +98,19 @@ module CoreActorPool =
         match Map.tryFind request.commandId actorGraph.nodes with
         | None -> Error "command node not found"
         | Some commandNode ->
-            let actorName = commandNode.text.Trim().ToLowerInvariant()
+            // Actor selection: prefer CSS class "actor-<name>" for explicit marking,
+            // fall back to command node text for interim compatibility.
+            // This separates actor selection from command interpretation (TestActor reads text).
+            let actorName =
+                CssClass.toList commandNode.cssClasses
+                |> List.tryPick (fun cls ->
+                    if cls.StartsWith("actor-") && cls.Length > 6 then
+                        Some (cls.Substring(6))
+                    else
+                        None)
+                |> Option.defaultValue (commandNode.text.Trim().ToLowerInvariant())
+            
+            let model = getModel ()
             match Map.tryFind actorName model.defs with
             | None -> Error $"actor '{actorName}' not registered"
             | Some actorFn ->
@@ -114,7 +127,8 @@ module CoreActorPool =
                       commandId = request.commandId
                       secret = secret }
                 
-                let cts = model.live.[secret].cancel
+                let modelWithLive = getModel ()
+                let cts = modelWithLive.live.[secret].cancel
                 Async.Start(actorFn input coreChanges, cts.Token)
                 
                 Ok ()
@@ -123,6 +137,7 @@ module CoreActorPool =
         let mutable model =
             { defs = Map.empty
               live = Map.empty }
+        let getModel () = model
         let putLive secret focusId =
             let row =
                 { focusId = focusId
@@ -142,7 +157,7 @@ module CoreActorPool =
         { register =
             fun (ActorName name) actor ->
                 model <- { model with defs = Map.add name actor model.defs }
-          startActor = runStartActor model putLive credentials
+          startActor = runStartActor getModel putLive credentials
           isLive = isLive
           admit = runAdmit isLive
           drop = runDrop takeLive credentials
