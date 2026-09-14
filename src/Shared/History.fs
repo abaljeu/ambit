@@ -24,10 +24,17 @@ type Change =
       changeId: System.Guid   // unique per network submission; used for server-side dedup
       ops: Op list }
 
+type ActorLifecycleEvent =
+    | ActorStarted of focusId: NodeId * authority: string
+    | ActorFinished of focusId: NodeId
+
+type HistoryEvent =
+    | ChangeEvent of Change
+    | ActorEvent of id: int * ActorLifecycleEvent
 
 type History =
-    { past: Change list
-      future: Change list
+    { past: HistoryEvent list
+      future: HistoryEvent list
       nextId: int }
 
 
@@ -650,6 +657,29 @@ module History =
             match validateOwnershipForChange s.graph change with
             | Error msg -> ApplyResult.Invalid(state, msg)
             | Ok () -> ApplyResult.Changed s
+
+    let appendActorStarted
+        (focusId: NodeId)
+        (authority: string)
+        (state: State)
+        : State =
+        let event = ActorEvent(state.history.nextId, ActorStarted(focusId, authority))
+        { state with
+            history =
+                { past = state.history.past @ [ event ]
+                  future = []
+                  nextId = state.history.nextId + 1 } }
+
+    let appendActorFinished
+        (focusId: NodeId)
+        (state: State)
+        : State =
+        let event = ActorEvent(state.history.nextId, ActorFinished(focusId))
+        { state with
+            history =
+                { past = state.history.past @ [ event ]
+                  future = []
+                  nextId = state.history.nextId + 1 } }
 
 /// After DocumentPersistence stamps artifact roots, emit ops for the change log / poll tail.
 [<RequireQualifiedAccess>]

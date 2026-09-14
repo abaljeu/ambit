@@ -24,7 +24,8 @@ type CoreActorPool =
       admit: Credential -> Result<unit, string>
       drop: Credential -> unit
       finish: Credential -> ActorResult -> Result<unit, string>
-      liveFocusIds: unit -> Set<NodeId> }
+      liveFocusIds: unit -> Set<NodeId>
+      getFocusId: Credential -> NodeId option }
 
 [<RequireQualifiedAccess>]
 module CoreActorPool =
@@ -91,6 +92,9 @@ module CoreActorPool =
                     { model with live = Map.remove secret model.live }
                 Some row
         let isLive secret = Map.containsKey secret model.live
+        let getFocusId secret =
+            Map.tryFind secret model.live
+            |> Option.map (fun row -> row.focusId)
         { register =
             fun (ActorName name) actor ->
                 model <- { model with defs = Map.add name actor model.defs }
@@ -99,4 +103,5 @@ module CoreActorPool =
           admit = runAdmit isLive
           drop = runDrop takeLive credentials
           finish = runFinish isLive takeLive credentials
-          liveFocusIds = fun () -> liveFocusIds model }
+          liveFocusIds = fun () -> liveFocusIds model
+          getFocusId = getFocusId }
