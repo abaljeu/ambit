@@ -28,7 +28,7 @@ module AuthToken =
         sprintf "%s=%s" cookieName (deriveToken username password)
 
     /// Desktop LocalProxy: request-carried `gambol_auth`. Server-issued
-    /// cookie wins; else stored user/pass; else auth-disabled deriveToken.
+    /// cookie wins; else stored user/pass; else development deriveToken.
     type ProxyCookieInput =
         { storedUsername: string option
           storedPassword: string option

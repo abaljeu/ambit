@@ -14,8 +14,8 @@ type BackendKind = File | Db
 
 let private testConnEnv = "TEST_DB_CONNECTION_STRING"
 
-/// Auth-disabled boot seed uses deriveToken("",""); request-carried cookie must match.
-let withAuthDisabledCookie (client: HttpClient) =
+/// Development boot seed uses deriveToken("",""); request-carried cookie must match.
+let withDevelopmentCookie (client: HttpClient) =
     client.DefaultRequestHeaders.Add(
         "Cookie",
         AuthToken.cookieHeaderValue "" "")
@@ -205,9 +205,9 @@ let createClientForDirWithoutCookie (tempDir: string) =
 /// Create a test client pointing at the given data directory (file backend, no DB).
 /// GET `/ambit/state` returns the scoped ROOT bootstrap graph;
 /// use `?scope=full` for total-load tests.
-/// Carries the auth-disabled `gambol_auth` cookie (request-carried; no closed-over fallback).
+/// Carries the development `gambol_auth` cookie (request-carried; no closed-over fallback).
 let createClientForDir (tempDir: string) =
-    createClientForDirWithoutCookie tempDir |> withAuthDisabledCookie
+    createClientForDirWithoutCookie tempDir |> withDevelopmentCookie
 
 /// File-backend client with Auth:Username / Auth:Password set (cookie + git PAT).
 let createClientForDirWithAuth
@@ -265,7 +265,7 @@ let createDbClientForDir (connStr: string) (tempDir: string) =
                         ) |> ignore
                     ) |> ignore
                 )
-        factory.CreateClient() |> withAuthDisabledCookie
+        factory.CreateClient() |> withDevelopmentCookie
     finally
         if isNull priorDb then
             Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
@@ -293,7 +293,7 @@ let createFileModeWithDbClientForDir (connStr: string) (tempDir: string) =
                         ) |> ignore
                     ) |> ignore
                 )
-        factory.CreateClient() |> withAuthDisabledCookie
+        factory.CreateClient() |> withDevelopmentCookie
     finally
         if isNull priorDb then
             Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
@@ -331,7 +331,7 @@ let createDbModeWithoutConnectionClientForDir (tempDir: string) =
                         ) |> ignore
                     ) |> ignore
                 )
-        factory.CreateClient() |> withAuthDisabledCookie
+        factory.CreateClient() |> withDevelopmentCookie
     finally
         if isNull priorDb then
             Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)

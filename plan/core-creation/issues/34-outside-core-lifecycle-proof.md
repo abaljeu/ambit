@@ -2,6 +2,7 @@
 
 **Status:** ready-for-agent
 **Blocked by:** None — can start immediately. Point 0 ([[30-reshape-coreactorpool-synchronized-table.md]], [[31-one-coremsg-loop-parameterized-persist.md]], [[32-move-persist-agents-under-coremailbox.md]]) is done. [[33-credentialed-browser-change-posts.md|Credentialed Browser Change posts]] landed shared credentialed `PostChange` through CoreMsg; this ticket adds Actor live-table admit and the hello lifecycle. Not blocked by [[29-prove-testactor-hello.md|Prove TestActor hello]].
+Actual: 10m
 
 ## 1. Context
 
@@ -22,8 +23,8 @@ Browser Run / one-Node Command UI, HTTP Adapter Command encoding, universal `{ n
 ### 1. CoreMsg / CoreMailboxBackend
 
 Mailbox Actor cases for this proof. Contracts on arch **CoreMsg / CoreMailboxBackend**; Seams **CoreMsg union**, **Credentialed Change posts** (Actor live-table admit).
-
-1. [ ] `StartActor` on CoreMsg — carry `zoomId`, `focusId`, `commandId`, `graphIds`; validate caller Authority and secret; async handoff to CoreActorPool.startActor
+0. [ ] `StartActorRequest` type — `{ zoomId; focusId; commandId; graphIds }`; one Command / StartActor payload shared by CoreMsg `StartActor`, CoreMailbox `startActor`, and CoreActorPool.startActor
+1. [ ] `StartActor` on CoreMsg — carry `StartActorRequest`; validate caller Authority and secret; async handoff to CoreActorPool.startActor
 2. [ ] Admit before Actor `PostChange` — same credential fields plus live-row check against CoreActorPool table before PersistHandlers
 3. [ ] `ActorStop` of `ActorResult` — `ActorSucceeded` only in this slice; append ActorFinished on History; drop live row and secret; request terminate without waiting
 4. [ ] No second mailbox — no nested `ActorMsg` pump; Actor cases share the one CoreMsg loop with persist cases
@@ -32,7 +33,7 @@ Mailbox Actor cases for this proof. Contracts on arch **CoreMsg / CoreMailboxBac
 
 Public door used when the harness exercises full lifecycle. Contracts on arch **CoreMailbox**; Seam **CoreMailbox door**.
 
-1. [ ] `startActor` door — public `startActor` with `zoomId`, `focusId`, `commandId`, `graphIds`
+1. [ ] `startActor` door — public `startActor` with `StartActorRequest`
 2. [ ] Credentialed Actor posts and stop — credentialed `postChange` (Actor path); `actorStop`; lifecycle event read from History
 3. [ ] Callers use CoreMailbox door — not FileAgent / DbAgent wrappers
 
@@ -40,10 +41,10 @@ Public door used when the harness exercises full lifecycle. Contracts on arch **
 
 Live table and start. Contracts on arch **CoreActorPool**; Seam **CoreActorPool table and start**.
 
-1. [ ] `startActor` shape — receives `zoomId`, `focusId`, `commandId`, `graphIds`; expand `graphIds` to a Graph
+1. [ ] `startActor` shape — receives `StartActorRequest`; expand `graphIds` to a Graph
 2. [ ] Select and create — read command Node; select Actor kind `test`; create matching Actor
 3. [ ] Live row and schedule — create identities and secret; write live row; append ActorStarted on History via the mailbox path; schedule body on the thread pool
-4. [ ] Pass body input — Graph plus named `zoomId`, `focusId`, `commandId` and the Actor secret
+4. [ ] Pass body input — Graph plus named ids from `StartActorRequest` (`zoomId`, `focusId`, `commandId`) and the Actor secret
 5. [ ] Live registry is only the pool table — no second registry in mailbox-loop state; `admit` / `drop` / `isLive` as needed for this slice
 
 ### 4. History
@@ -58,7 +59,7 @@ Actor events on the one sequence. Contracts on arch **History**; Seam **History*
 
 `hello` body. Contracts on arch **TestActor**; Seam **ActorFn / TestActor input**.
 
-1. [ ] `ActorFn` for name `test` — input is Graph plus named ids and Actor secret
+1. [ ] `ActorFn` for name `test` — input is Graph plus named ids from `StartActorRequest` and Actor secret
 2. [ ] Interpret command Node — switch on case text; this slice has only `hello`
 3. [ ] `hello` posts then stops — post one Owned child text `hello` under Focus through admitted `PostChange`, then queue `ActorStop ActorSucceeded`
 4. [ ] TestActor does not assert — outer facts own Graph and lifecycle assertions
@@ -90,3 +91,8 @@ Verifiable facts. Arch Story path **Outside Core lifecycle proof**; Seam **Test 
 ## 4. Comments
 
 - 2026-09-14 — Filed via `/to-tickets` for arch Story paths **Outside Core lifecycle proof** and **Browser Run hello** (tracer-cut). Sibling [[35-browser-run-hello.md|Browser Run hello]] is blocked by this ticket. Parent [[29-prove-testactor-hello.md|Prove TestActor hello]] left unchanged per no-retrofit.
+- 2026-09-14 — Point 0 names `StartActorRequest` so CoreMsg, the CoreMailbox door, and CoreActorPool.startActor share one id payload instead of repeating `zoomId` / `focusId` / `commandId` / `graphIds`.
+
+## Time
+
+- 2026-09-14 10m — Name `StartActorRequest` and point later items at it (from chat)

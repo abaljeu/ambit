@@ -11,7 +11,7 @@ This page records how the Browser and the App present authorization to the Serve
 
 ## 2. Credential identity
 
-1. **Cookie is the Core secret** — [[src/Server/wwwroot/login.html|Login.html]] issues the cookie `gambol_auth`. That cookie value is the Browser Core credential. CoreCredentials holds that same value.
+1. **Cookie is the Core secret** — The cookie `gambol_auth` is the Browser Core credential. [[src/Server/wwwroot/login.html|Login.html]] and GET `/ambit` development auto-issue set that cookie. CoreCredentials holds that same value.
 2. **Derived token** — The Server computes the value with `AuthToken.deriveToken` from Auth config username and password ([[src/Server/AuthToken.fs]]). Login and boot seed use the same function.
 3. **Request-carried** — Every Browser API request carries `gambol_auth`. The Server reads the cookie from that request. The Server does not close over a boot secret and attach it when the cookie is missing.
 4. **Missing cookie refuses** — A missing or blank cookie is refused. The Adapter returns HTTP 401 and does not call CoreMailbox.
@@ -20,8 +20,8 @@ This page records how the Browser and the App present authorization to the Serve
 
 ## 3. Browser
 
-1. **Login issues the cookie** — `POST /ambit/login` checks username and password. On success the Server sets `gambol_auth` to the derived token and adds that token to CoreCredentials. The Browser then loads `/ambit`.
-2. **Auth-disabled page cookie** — When Auth username and password are empty ([[src/Server/appsettings.Development.json]]), HTTP `IsAuthenticated` is true without a cookie. `GET /ambit` still issues `gambol_auth` as `deriveToken("", "")` so later Browser APIs carry a cookie.
+1. **Login issues the cookie** — `POST /ambit/login` checks username and password. On success the Server sets `gambol_auth` to the derived token and adds that token to CoreCredentials. Empty Auth matches empty username and password. The Browser then loads `/ambit`.
+2. **Development credential** — When Auth username and password are empty ([[src/Server/appsettings.Development.json]]), the token is still `deriveToken("", "")`. Boot seeds CoreCredentials with that value. `IsAuthenticated` requires the cookie. GET `/ambit` auto-issues that cookie so a Development Browser does not type a password. Later Browser APIs must send the cookie. There is no `auth.Disabled` skip. Git PAT `GitAuthDisabled` is a separate empty-Auth git-gateway path.
 3. **Production login** — When Auth is set ([[src/Server/appsettings.json]]), `/ambit` redirects to [[src/Server/wwwroot/login.html|Login.html]] until the cookie equals the derived token.
 4. **Browser APIs carry the cookie** — State, Poll, Load, and Change posts use fetch with `credentials: 'same-origin'`. The Browser sends `gambol_auth` as a cookie. Browser JavaScript does not rebuild the token.
 5. **HTTP Adapter encodes the request** — [[src/Server/BrowserRequestCreds.fs]] reads the cookie. [[src/Server/RouteRegistration.fs]] `withBrowserChanges` returns HTTP 401 for a missing cookie and for a cookie that is not in the CoreCredentials set. It does not call CoreMailbox in those cases. A live cookie is passed into CoreRuntime `browserChanges`. Authority is `Browser`.
@@ -30,9 +30,9 @@ This page records how the Browser and the App present authorization to the Serve
 ## 4. App
 
 1. **LocalProxy presents Cookie** — The App (Desktop project, [[src/Desktop/LocalProxy.fs]]) forwards `/ambit/*` to the Server. It always attaches a `Cookie` header. `HttpClient` uses `UseCookies = false` so the header is set in code.
-2. **Cookie source order** — `AuthToken.proxyCookieHeader` picks one value: the captured server `Set-Cookie` `gambol_auth` when present; else `deriveToken` from [[src/Desktop/AuthStore.fs]] username and password; else `deriveToken("", "")` for Auth-disabled Development.
+2. **Cookie source order** — `AuthToken.proxyCookieHeader` picks one value: the captured server `Set-Cookie` `gambol_auth` when present; else `deriveToken` from [[src/Desktop/AuthStore.fs]] username and password; else `deriveToken("", "")` for the development credential.
 3. **Secure cookie on HTTP localhost** — The Server sets the cookie with `Secure = true`. The App loads `http://localhost`. A Secure cookie does not attach reliably on HTTP. The App writes the Cookie header on each forward and does not rely on the WebView cookie jar.
-4. **AuthStore vs empty Development Auth** — AuthStore holds user and password after a successful login. Typical local Development has empty Auth and an empty AuthStore. The App still sends the Auth-disabled derived token so Browser APIs are not refused.
+4. **AuthStore vs empty Development Auth** — AuthStore holds user and password after a successful login. Typical local Development has empty Auth and an empty AuthStore. The App still sends the development derived token so Browser APIs are not refused.
 5. **Capture and logout** — The App stores the Server `Set-Cookie` `gambol_auth` in `issuedCookie` for that Server. Logout clears AuthStore, the session, and `issuedCookie`.
 6. **No DeployEpochSec cookie work** — The App does not rebuild credentials from the restart signal. LocalProxy attaches the Cookie on every forward.
 
@@ -59,6 +59,6 @@ This page records how the Browser and the App present authorization to the Serve
 
 ## 8. Out of scope
 
-1. **Git PAT** — Basic username plus `deriveGitToken` for smart HTTP. Not the Browser cookie.
+1. **Git PAT** — Basic username plus `deriveGitToken` for smart HTTP. Not the Browser cookie. Empty Auth still reports `GitAuthDisabled` and leaves the git gateway open.
 2. **Actor live-table admit** — Actor secrets on the CoreActorPool live table. Not this page.
 3. **Wiki home** — Whether this page later moves under [[doc/arch.md]] or another tree is [[issues/01-choose-wiki-home.md|Choose the architecture wiki home]].

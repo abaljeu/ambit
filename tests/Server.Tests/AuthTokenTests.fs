@@ -22,7 +22,7 @@ let ``cookieHeaderValue includes cookie name`` () =
     Assert.StartsWith("gambol_auth=", header)
 
 [<Fact>]
-let ``proxyCookieHeader uses auth-disabled token when nothing stored`` () =
+let ``proxyCookieHeader uses development token when nothing stored`` () =
     let header =
         AuthToken.proxyCookieHeader
             { storedUsername = None

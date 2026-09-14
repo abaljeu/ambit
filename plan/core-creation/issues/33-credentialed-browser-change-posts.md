@@ -1,9 +1,9 @@
 # 33 — Credentialed Browser Change posts
 
-**Status:** ready-for-agent
+**Status:** coded
 **Blocked by:** None — can start immediately. Point 0 ([[30-reshape-coreactorpool-synchronized-table.md]], [[31-one-coremsg-loop-parameterized-persist.md]], [[32-move-persist-agents-under-coremailbox.md]]) is done. Not blocked by [[29-prove-testactor-hello.md|Prove TestActor hello]].
 Estimate: 2h
-Actual: 5h45m
+Actual: 7h30m
 
 ## 1. Context
 
@@ -20,23 +20,24 @@ Make Browser Change posts credentialed end-to-end with cookie-as-credential and 
 ### Credential identity
 
 1. Login.html cookie `gambol_auth` is the Browser authorization to post. That value is `AuthToken.deriveToken` from Auth config; boot seeds CoreCredentials with the same value.
-2. When the server issues that cookie, that value is what belongs in CoreCredentials (`credentials.add`).
-3. All Browser API requests include creds; they arrive at CoreMailbox; mailbox validates before action; nothing further needs the credentials.
-4. A missing cookie still refuses at mailbox / API. There is no closed-over server fallback.
+2. When the Server issues that cookie, that value is what belongs in CoreCredentials (`credentials.add`). Login POST issues the cookie. GET `/ambit` may auto-issue the same `AuthToken.deriveToken` value when Auth username and password are empty (development credential). Empty Auth does not make `IsAuthenticated` true without a cookie. There is no `auth.Disabled` skip.
+3. Browser API requests that carry `gambol_auth` arrive at CoreMailbox; mailbox validates before action; nothing further needs the credentials.
+4. A missing cookie refuses at the Adapter as HTTP 401 and does not call CoreMailbox. There is no closed-over server fallback.
 
 ### Restart / seed (chosen: option 2)
 
 1. Seed at server boot: source is deterministic `AuthToken.deriveToken` from Auth config username/password; `credentials.add` that value. “validToken” is recomputed from the same Auth config (not a mystery GUID).
 2. After server restart, the same derived token still admits if the Cookie header is sent. Credential identity does not need client cookie re-issue or re-login.
 3. `DeployEpochSec` / `window.__BUILD_TS__` is the server-restart signal for the Fable client (reload / page epoch). The client writes `__BUILD_TS__` on that signal and on initial load. That write is not credential re-establish.
-4. Desktop presents Cookie via LocalProxy (AuthStore / captured Set-Cookie / auth-disabled `deriveToken("", "")`), not via `DeployEpochSec`.
+4. Desktop presents Cookie via LocalProxy (AuthStore / captured Set-Cookie / development `deriveToken("", "")`), not via `DeployEpochSec`.
 5. A Browser with a durable cookie already has the credential; silent web re-login is not required.
 6. Rejected for web: option 1 — re-login-after-restart only if invisible via stored password.
 7. Not needed: option 3 — persist the credential set (seed replaces it).
+8. Rejected: `auth.Disabled` skip that treats empty Auth as authenticated without a cookie. Auto-issue of a real development cookie is allowed. `credentials.add` stays boot + login.
 
 ### What this increment avoids
 
-Actor live-table admit (Story path **Browser Run hello** hop admit-before-`PostChange`), StartActor, TestActor hello, Outside Core lifecycle proof, new Browser chrome or controls, PersistHandlers widening (still changes-only after admit), Actor `PostChange` beyond the shared CoreMsg credential check that Browser posts also use, and any CoreActor / CoreActorPool deltas for this round.
+Actor live-table admit (Story path **Browser Run hello** hop admit-before-`PostChange`), StartActor, TestActor hello, Outside Core lifecycle proof, new Browser chrome or controls, PersistHandlers widening (still changes-only after admit), Actor `PostChange` beyond the shared CoreMsg credential check that Browser posts also use, any CoreActor / CoreActorPool deltas for this round, and `auth.Disabled` skip of cookie checks.
 
 ### 1. Undo mistaken deltas
 
@@ -63,7 +64,8 @@ Transport encoding. Contracts on arch **HTTP Adapter**.
 
 1. [x] Encode Change + credentials — decode Browser Change; Change posts carry credentials from the request/cookie
 2. [x] Pass into Core door — pass Authority and secret into CoreMailbox `postChange`
-3. [x] Adapter stays decode and status — admission is not re-implemented in the Adapter
+3. [x] Adapter stays decode and status — Adapter may refuse a missing cookie or a cookie not in CoreCredentials as HTTP 401; persist admission stays in CoreMsg
+4. [x] Missing-cookie refuse — `withBrowserChanges` returns HTTP 401 when the cookie is absent and does not call `browserChanges` / CoreMailbox
 
 ### 4. CoreMailbox
 
@@ -80,7 +82,7 @@ Mailbox validation before persist. Contracts on arch **CoreMsg / CoreMailboxBack
 2. [x] Validate before PersistHandlers — CoreMsg validates Browser credentials before calling PersistHandlers
 3. [x] PersistHandlers stays changes-only — `postChange` after admit does not take credentials
 4. [x] Live admits — a live Browser credential (cookie value seeded / added) is admitted and the Change reaches PersistHandlers
-5. [x] Inactive refuses — a missing or inactive credential is the same auth refuse; PersistHandlers is not called for that refuse
+5. [x] Inactive refuses — a missing cookie is Adapter HTTP 401 without CoreMailbox; a present but inactive cookie is the same auth refuse (Adapter `contains` and/or CoreMsg); PersistHandlers is not called for that refuse
 6. [x] No Actor live-table admit — this ticket does not require CoreActorPool live-row admit (that stays with hello Story paths)
 
 ### 6. CoreRuntime seed
@@ -88,7 +90,8 @@ Mailbox validation before persist. Contracts on arch **CoreMsg / CoreMailboxBack
 Boot seed for Browser credential. Contracts on arch **CoreRuntime**.
 
 1. [x] Seed at boot — `credentials.add` of `AuthToken.deriveToken` from Auth config user/pass
-2. [x] Cookie match — Login.html / auth routes issue the same derived token as `gambol_auth`; that value is what CoreCredentials holds
+2. [x] Cookie match — Login.html / auth login POST issues the same derived token as `gambol_auth`; that value is what CoreCredentials holds
+3. [x] No auth-disabled skip — `IsAuthenticated` always requires a cookie that equals `AuthToken.deriveToken` of Auth config. Empty Auth is a development credential, not a skip. GET `/ambit` may auto-issue that real cookie; Browser APIs still require it; Core admits the boot-seeded value. `credentials.add` stays boot + login.
 
 ## 3. Out of scope
 
@@ -97,6 +100,7 @@ Boot seed for Browser credential. Contracts on arch **CoreRuntime**.
 3. Persisting the credential set across restarts (option 3)
 4. Invisible stored-password re-login after restart for web (option 1)
 5. Actor live-table admit, StartActor, TestActor hello, Outside Core lifecycle proof, new Browser chrome
+6. Bypass: `auth.Disabled` / empty Auth making `IsAuthenticated` true without a cookie (remove if present; do not add)
 
 ## 4. See also
 
@@ -112,6 +116,8 @@ Boot seed for Browser credential. Contracts on arch **CoreRuntime**.
 - 2026-09-14 — Durable runtime auth description: [[plan/architecture/browser-and-app-auth.md|Browser and App auth]].
 - 2026-09-14 — Wording correction: client “reseed / re-establish” is epoch / `__BUILD_TS__` only, not cookie re-issue. Credential identity stays boot-seeded `gambol_auth` = `deriveToken`; durable cookie still admits after restart. Desktop Cookie-header attach (vs this wording) is [[plan/core-creation/reports/desktop-app-401.md]].
 - 2026-09-14 — Status returned to `ready-for-agent`: coded, not review-approved. `done` waits for review approval (no coded Status).
+- 2026-09-14 — Spec aligned to [[plan/core-creation/reports/code-review-33-spec-gap-tip.md|Code review — 33 Spec-gap tip]]: Adapter missing-cookie HTTP 401 without CoreMailbox is accepted; client DeployEpochSec stays epoch / `__BUILD_TS__` only; auth-disabled app-serve `SetCookie` is rejected and remaining.
+- 2026-09-14 — Removed `auth.Disabled` skip. Empty Auth is a development credential (`deriveToken("", "")`). GET `/ambit` auto-issues that real cookie. Browser APIs and `IsAuthenticated` require the cookie. Git PAT `GitAuthDisabled` stays the empty-Auth git-gateway path. Status `coded`. Report: [[plan/core-creation/reports/remove-auth-disabled-bypass.md]].
 
 ## Time
 
@@ -119,3 +125,5 @@ Boot seed for Browser credential. Contracts on arch **CoreRuntime**.
 - 2026-09-13 1h30m — Re-implement cookie-as-credential, boot seed, stop-at-mailbox undo (from chat)
 - 2026-09-14 1h30m — Spec-gap fix: request-carried creds on state/poll/load, no closed-over fallback, client DeployEpochSec reseed, drop every-post add (from chat)
 - 2026-09-14 15m — Correct restart/seed wording: DeployEpochSec is epoch, not credential re-establish (from chat)
+- 2026-09-14 15m — Align spec to review findings; reject auth-disabled app-serve SetCookie (from chat)
+- 2026-09-14 1h30m — Remove `auth.Disabled` skip; development auto-issue of real cookie (from chat)
