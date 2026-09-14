@@ -22,6 +22,51 @@ let ``cookieHeaderValue includes cookie name`` () =
     Assert.StartsWith("gambol_auth=", header)
 
 [<Fact>]
+let ``proxyCookieHeader uses development token when nothing stored`` () =
+    let header =
+        AuthToken.proxyCookieHeader
+            { storedUsername = None
+              storedPassword = None
+              serverIssuedValue = None }
+    Assert.Equal(AuthToken.cookieHeaderValue "" "", header)
+
+[<Fact>]
+let ``proxyCookieHeader prefers server-issued over stored credentials`` () =
+    let issued = AuthToken.deriveToken "" ""
+    let header =
+        AuthToken.proxyCookieHeader
+            { storedUsername = Some "alice"
+              storedPassword = Some "secret"
+              serverIssuedValue = Some issued }
+    Assert.Equal("gambol_auth=" + issued, header)
+
+[<Fact>]
+let ``proxyCookieHeader stored matches boot-seed deriveToken after restart`` () =
+    // Server restart re-seeds CoreCredentials with deriveToken(user,pass).
+    // Desktop AuthStore rebuilds the same cookie — DeployEpochSec is not required.
+    let bootSeed = AuthToken.deriveToken "alice" "secret"
+    let header =
+        AuthToken.proxyCookieHeader
+            { storedUsername = Some "alice"
+              storedPassword = Some "secret"
+              serverIssuedValue = None }
+    Assert.Equal("gambol_auth=" + bootSeed, header)
+
+[<Fact>]
+let ``applySetCookieHeaders captures gambol_auth and clears on empty`` () =
+    let token = AuthToken.deriveToken "" ""
+    let captured =
+        AuthToken.applySetCookieHeaders
+            None
+            [ "gambol_auth=" + token + "; path=/; secure; httponly" ]
+    Assert.Equal(Some token, captured)
+    let cleared =
+        AuthToken.applySetCookieHeaders
+            captured
+            [ "gambol_auth=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT" ]
+    Assert.Equal(None, cleared)
+
+[<Fact>]
 let ``deriveGitToken is stable and distinct from cookie token`` () =
     let cookie = AuthToken.deriveToken "alice" "secret"
     let git = AuthToken.deriveGitToken "alice" "secret"

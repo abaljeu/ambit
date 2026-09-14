@@ -27,6 +27,51 @@ module AuthToken =
     let cookieHeaderValue (username: string) (password: string) =
         sprintf "%s=%s" cookieName (deriveToken username password)
 
+    /// Desktop LocalProxy: request-carried `gambol_auth`. Server-issued
+    /// cookie wins; else stored user/pass; else development deriveToken.
+    type ProxyCookieInput =
+        { storedUsername: string option
+          storedPassword: string option
+          serverIssuedValue: string option }
+
+    let proxyCookieHeader (input: ProxyCookieInput) =
+        match input.serverIssuedValue with
+        | Some value when not (String.IsNullOrWhiteSpace value) ->
+            sprintf "%s=%s" cookieName value
+        | _ ->
+            match input.storedUsername with
+            | Some user ->
+                cookieHeaderValue
+                    user
+                    (input.storedPassword |> Option.defaultValue "")
+            | None -> cookieHeaderValue "" ""
+
+    let tryCookieValueFromSetCookie (setCookie: string) : string option =
+        if isNull setCookie then
+            None
+        else
+            let trimmed = setCookie.Trim()
+            let prefix = cookieName + "="
+            if not (trimmed.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) then
+                None
+            else
+                let rest = trimmed.Substring(prefix.Length)
+                let semi = rest.IndexOf ';'
+                let raw =
+                    if semi < 0 then rest else rest.Substring(0, semi)
+                Some(raw.Trim())
+
+    let applySetCookieHeaders
+        (current: string option)
+        (headers: seq<string>)
+        : string option =
+        (current, headers)
+        ||> Seq.fold (fun acc header ->
+            match tryCookieValueFromSetCookie header with
+            | None -> acc
+            | Some value when String.IsNullOrWhiteSpace value -> None
+            | Some value -> Some value)
+
     let basicAuthHeaderValue (username: string) (password: string) =
         let raw = sprintf "%s:%s" username password
         let b64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(raw))

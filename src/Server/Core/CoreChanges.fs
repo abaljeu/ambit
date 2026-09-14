@@ -2,6 +2,11 @@ namespace Gambol.Server
 
 open Gambol.Shared
 
+type Credential = Credential of string
+
+/// Named source that submits requests to Core (Browser, Actor, …).
+type Authority = Authority of string
+
 type CoreChangesAccepted =
     { revision: Revision
       changes: Change list
@@ -10,6 +15,8 @@ type CoreChangesAccepted =
       isReady: bool }
 
 /// The Core Changes contract. Every Change reaches persistence through this handle.
+/// `postChange` is a stamped view: Authority and secret are closed over and sent on
+/// CoreMsg PostChange for mailbox validation before PersistHandlers.
 type CoreChanges =
     { getState: unit -> Async<Result<State, string>>
       getRevision: unit -> Async<Revision>
@@ -17,7 +24,9 @@ type CoreChanges =
       isReady: unit -> bool
       postChange: Change list -> Async<Result<CoreChangesAccepted, string>>
       postGraphOnlyChange:
-        Change list -> Async<Result<CoreChangesAccepted, string>> }
+        Change list -> Async<Result<CoreChangesAccepted, string>>
+      /// Rebind posts to another Authority and secret on the same mailbox door.
+      asCaller: Authority -> Credential -> CoreChanges }
 
 [<RequireQualifiedAccess>]
 module CoreChanges =

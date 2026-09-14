@@ -121,11 +121,10 @@ let ``reconciliation failure preserves successful receive response`` () =
 [<Fact>]
 let ``server reconciler applies planner ops through active agent`` () =
     let tempDir = newTempDir ()
-    let fileAgent = CoreMailbox.createFile tempDir
-    let handle = CoreMailbox.coreChanges fileAgent
+    let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId, ops = FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
     let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
-    (CoreMailbox.coreChanges fileAgent).postChange [ change ]
+    handle.postChange [ change ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
@@ -156,11 +155,10 @@ let ``server reconciler applies planner ops through active agent`` () =
 [<Fact>]
 let ``server reconciler adds disk files outside the changed path list`` () =
     let tempDir = newTempDir ()
-    let fileAgent = CoreMailbox.createFile tempDir
-    let handle = CoreMailbox.coreChanges fileAgent
+    let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId, ops = FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
     let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
-    (CoreMailbox.coreChanges fileAgent).postChange [ change ]
+    handle.postChange [ change ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
@@ -192,11 +190,10 @@ let ``server reconciler adds disk files outside the changed path list`` () =
 [<Fact>]
 let ``server reconciler adds missing directory and file nodes from discovered paths`` () =
     let tempDir = newTempDir ()
-    let fileAgent = CoreMailbox.createFile tempDir
-    let handle = CoreMailbox.coreChanges fileAgent
+    let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId, ops = FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
     let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
-    (CoreMailbox.coreChanges fileAgent).postChange [ change ]
+    handle.postChange [ change ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
@@ -233,12 +230,11 @@ let ``server reconciler adds missing directory and file nodes from discovered pa
 [<Fact>]
 let ``post receive rename of unparsed stub is rejected without moving disk twice`` () =
     let tempDir = newTempDir ()
-    let fileAgent = CoreMailbox.createFile tempDir
-    let handle = CoreMailbox.coreChanges fileAgent
+    let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId, ops =
         FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
     let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
-    (CoreMailbox.coreChanges fileAgent).postChange [ change ]
+    handle.postChange [ change ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
@@ -292,12 +288,11 @@ let ``post receive rename of unparsed stub is rejected without moving disk twice
 [<Fact>]
 let ``server reconciler posts good sibling when one path fails`` () =
     let tempDir = newTempDir ()
-    let fileAgent = CoreMailbox.createFile tempDir
-    let handle = CoreMailbox.coreChanges fileAgent
+    let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId, ops =
         FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
     let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
-    (CoreMailbox.coreChanges fileAgent).postChange [ change ]
+    handle.postChange [ change ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
@@ -373,7 +368,7 @@ let ``latest diagnostics GET returns failures once then empty`` () =
 let private postWorkspace (fileAgent: MailboxHost) (label: string) =
     let workspaceId, ops = FileNodeOps.planCreateWorkspace (Graph.create ()) label
     let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
-    (CoreMailbox.coreChanges fileAgent).postChange [ change ]
+    (admittedChanges fileAgent).postChange [ change ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
@@ -381,7 +376,7 @@ let private postWorkspace (fileAgent: MailboxHost) (label: string) =
 
 let private postOps (fileAgent: MailboxHost) (revision: int) (ops: Op list) =
     let change = { id = revision; changeId = Guid.NewGuid(); ops = ops }
-    (CoreMailbox.coreChanges fileAgent).postChange [ change ]
+    (admittedChanges fileAgent).postChange [ change ]
     |> Async.RunSynchronously
     |> requireOk "ops"
     |> ignore
@@ -395,8 +390,7 @@ let private readGraph (fileAgent: MailboxHost) =
 [<Fact>]
 let ``directory reconcile discovers only under directory prefix`` () =
     let tempDir = newTempDir ()
-    let fileAgent = CoreMailbox.createFile tempDir
-    let handle = CoreMailbox.coreChanges fileAgent
+    let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId = postWorkspace fileAgent "home"
     let graph1 = readGraph fileAgent
     let docsId, docsOps =
@@ -427,8 +421,7 @@ let ``directory reconcile discovers only under directory prefix`` () =
 [<Fact>]
 let ``workspace reconcile discovers under workspace root`` () =
     let tempDir = newTempDir ()
-    let fileAgent = CoreMailbox.createFile tempDir
-    let handle = CoreMailbox.coreChanges fileAgent
+    let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId = postWorkspace fileAgent "home"
     let outsidePath = Path.Combine(tempDir, "home", "outside.txt")
     let insidePath = Path.Combine(tempDir, "home", "docs", "inside.txt")
@@ -461,8 +454,7 @@ let ``workspace reconcile discovers under workspace root`` () =
 [<Fact>]
 let ``workspace reconcile creates Directory for empty leading-dot dir`` () =
     let tempDir = newTempDir ()
-    let fileAgent = CoreMailbox.createFile tempDir
-    let handle = CoreMailbox.coreChanges fileAgent
+    let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId = postWorkspace fileAgent "home"
     let scratch = Path.Combine(tempDir, "home", ".scratch")
     Directory.CreateDirectory scratch |> ignore
@@ -484,8 +476,7 @@ let ``workspace reconcile creates Directory for empty leading-dot dir`` () =
 [<Fact>]
 let ``directory reconcile keeps .agents Loaded with discovered children`` () =
     let tempDir = newTempDir ()
-    let fileAgent = CoreMailbox.createFile tempDir
-    let handle = CoreMailbox.coreChanges fileAgent
+    let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId = postWorkspace fileAgent "home"
     let graph1 = readGraph fileAgent
     let agentsId, agentsOps =
@@ -517,8 +508,7 @@ let ``directory reconcile keeps .agents Loaded with discovered children`` () =
 [<Fact>]
 let ``SYSTEM workspace reconcile creates File stubs under systemId`` () =
     let tempDir = newTempDir ()
-    let fileAgent = CoreMailbox.createFile tempDir
-    let handle = CoreMailbox.coreChanges fileAgent
+    let fileAgent, handle = createAdmittedFile tempDir
     let systemDir = Path.Combine(tempDir, "SYSTEM")
     Directory.CreateDirectory(systemDir) |> ignore
     File.WriteAllText(Path.Combine(systemDir, "user.css"), "body{}")
@@ -553,8 +543,7 @@ let ``SYSTEM workspace reconcile creates File stubs under systemId`` () =
 [<Fact>]
 let ``directory reconcile does not duplicate Normal-owned present file`` () =
     let tempDir = newTempDir ()
-    let fileAgent = CoreMailbox.createFile tempDir
-    let handle = CoreMailbox.coreChanges fileAgent
+    let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId = postWorkspace fileAgent "home"
     let graph1 = readGraph fileAgent
     let docsId, docsOps =
@@ -591,8 +580,7 @@ let ``directory reconcile does not duplicate Normal-owned present file`` () =
 [<Fact>]
 let ``directory reconcile creates missing sibling under directory`` () =
     let tempDir = newTempDir ()
-    let fileAgent = CoreMailbox.createFile tempDir
-    let handle = CoreMailbox.coreChanges fileAgent
+    let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId = postWorkspace fileAgent "home"
     let graph1 = readGraph fileAgent
     let docsId, docsOps =
@@ -616,8 +604,7 @@ let ``directory reconcile creates missing sibling under directory`` () =
 [<Fact>]
 let ``directory reconcile with amb outline and missing file posts without ownership error`` () =
     let tempDir = newTempDir ()
-    let fileAgent = CoreMailbox.createFile tempDir
-    let handle = CoreMailbox.coreChanges fileAgent
+    let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId = postWorkspace fileAgent "home"
     let graph1 = readGraph fileAgent
     let tasksId, tasksOps =
@@ -661,8 +648,7 @@ let ``directory reconcile with amb outline and missing file posts without owners
 [<Fact>]
 let ``directory reconcile returns resilient failures and posts good sibling`` () =
     let tempDir = newTempDir ()
-    let fileAgent = CoreMailbox.createFile tempDir
-    let handle = CoreMailbox.coreChanges fileAgent
+    let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId = postWorkspace fileAgent "home"
     let graph1 = readGraph fileAgent
     let docsId, docsOps =

@@ -20,6 +20,12 @@ module DbAgent =
         Database.loadPersistedState connectionString decodeChangePayload |> Async.AwaitTask
 
     let private createLoaded
+        (startMailbox:
+            PersistHandlers
+                -> (string -> string -> exn -> unit)
+                -> (string -> string)
+                -> Async<Result<unit, string>>
+                -> MailboxProcessor<CoreMsg>)
         (initialState: State)
         (connectionString: string)
         (liveSaveDataDir: string option)
@@ -405,7 +411,11 @@ module DbAgent =
         }
 
         let mailbox =
-            CoreMailboxBackend.startWithPrelude handlers logUnhandledException formatError startupPrelude
+            startMailbox
+                handlers
+                logUnhandledException
+                formatError
+                startupPrelude
 
         mailboxRef.Value <- Some mailbox
 
@@ -417,6 +427,12 @@ module DbAgent =
           } }
 
     let private createWithLiveSave
+        (startMailbox:
+            PersistHandlers
+                -> (string -> string -> exn -> unit)
+                -> (string -> string)
+                -> Async<Result<unit, string>>
+                -> MailboxProcessor<CoreMsg>)
         (connectionString: string)
         (liveSaveDataDir: string option)
         : DbAgent =
@@ -451,6 +467,7 @@ module DbAgent =
                 Error $"Startup projection sweep failed: {ex.Message}"
 
         createLoaded
+            startMailbox
             initialState
             connectionString
             liveSaveDataDir
@@ -468,10 +485,17 @@ module DbAgent =
                   logFacts = ProjectionOwnershipRepair.emptyPlan.logFacts })
 
     let createForTest
+        (startMailbox:
+            PersistHandlers
+                -> (string -> string -> exn -> unit)
+                -> (string -> string)
+                -> Async<Result<unit, string>>
+                -> MailboxProcessor<CoreMsg>)
         (initialState: State)
         (runStartupSweep: Graph -> Result<Guid list, string>)
         : DbAgent =
         createLoaded
+            startMailbox
             initialState
             ""
             None
@@ -482,12 +506,19 @@ module DbAgent =
     /// liveSaveDataDir) so failure/timeout behavior can be exercised without a real DB
     /// connection or the real (slow/bug-prone) document reconcile path.
     let createForTestWithDependencies
+        (startMailbox:
+            PersistHandlers
+                -> (string -> string -> exn -> unit)
+                -> (string -> string)
+                -> Async<Result<unit, string>>
+                -> MailboxProcessor<CoreMsg>)
         (initialState: State)
         (liveSaveDataDir: string option)
         (persistGraphOps: string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, string>)
         (runStartupSweep: Graph -> Result<Guid list, string>)
         : DbAgent =
         createLoaded
+            startMailbox
             initialState
             ""
             liveSaveDataDir
@@ -495,12 +526,26 @@ module DbAgent =
             (wrapFakeSweep runStartupSweep)
 
     let createWithDataDir
+        (startMailbox:
+            PersistHandlers
+                -> (string -> string -> exn -> unit)
+                -> (string -> string)
+                -> Async<Result<unit, string>>
+                -> MailboxProcessor<CoreMsg>)
         (connectionString: string)
         (dataDir: string)
         : DbAgent =
-        createWithLiveSave connectionString (Some dataDir)
+        createWithLiveSave startMailbox connectionString (Some dataDir)
 
-    let create (connectionString: string) : DbAgent =
-        createWithLiveSave connectionString None
+    let create
+        (startMailbox:
+            PersistHandlers
+                -> (string -> string -> exn -> unit)
+                -> (string -> string)
+                -> Async<Result<unit, string>>
+                -> MailboxProcessor<CoreMsg>)
+        (connectionString: string)
+        : DbAgent =
+        createWithLiveSave startMailbox connectionString None
 
     let mailboxHost (agent: DbAgent) = agent.host

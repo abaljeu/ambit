@@ -48,7 +48,7 @@ Keep as a single issue when:
 
 Publish under `plan/<feature-slug>/issues/` per [[doc/agents/issue-tracker.md]]. Do NOT ask the user to review first — file and share the paths.
 
-Each published file is a tracker issue as defined in that doc: numbered `NN-slug.md`, a title heading, and a bold `**Status:**` line with a Status value from the tracker. Newly filed issues that have reproduction steps use `ready-for-agent`. Numbering, field labels, and other tracker fields follow the tracker doc. Do not copy the ticket template from [[.agents/skills/to-tickets/PUBLISH.md]].
+Each published file is a tracker issue as defined in that doc: numbered `NN-slug.md`, a title heading, and a bold `**Status:**` line with a Status value that names the next action ([[doc/agents/triage-labels.md]]). Do not write `ready-for-agent` or `ready-for-human`. Numbering, field labels, and other tracker fields follow the tracker doc. Do not copy the ticket template from [[.agents/skills/to-tickets/PUBLISH.md]].
 
 Issues must be **durable** — they should still make sense after major refactors. Write from the user's perspective.
 
@@ -59,7 +59,7 @@ Use this template:
 ```
 # <short title>
 
-**Status:** ready-for-agent
+**Status:** a value from [[doc/agents/triage-labels.md]] that names the next action. Never `ready-for-agent` or `ready-for-human`.
 
 ## What happened
 
@@ -89,7 +89,7 @@ Use this template for each sub-issue:
 ```
 # <short title>
 
-**Status:** ready-for-agent
+**Status:** a value from [[doc/agents/triage-labels.md]] that names the next action. Never `ready-for-agent` or `ready-for-human`.
 
 ## Parent issue
 

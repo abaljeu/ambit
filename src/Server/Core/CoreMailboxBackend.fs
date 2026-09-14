@@ -10,6 +10,8 @@ type CoreMsg =
     | GetChangesSince of
         after: Revision * AsyncReplyChannel<Result<Change list, string>>
     | PostChange of
+        authority: Authority *
+        secret: Credential *
         changes: Change list *
         AsyncReplyChannel<Result<CoreChangesAccepted, string>>
     | PostGraphOnlyChange of
@@ -75,7 +77,7 @@ module internal CoreMailboxBackend =
         | GetRevision _ -> "GetRevision", ""
         | GetChangesSince (after, _) ->
             "GetChangesSince", $"after={after}"
-        | PostChange (changes, _) ->
+        | PostChange (_, _, changes, _) ->
             "PostChange", $"changeCount={changes.Length}"
         | PostGraphOnlyChange (changes, _) ->
             "PostGraphOnlyChange", $"changeCount={changes.Length}"
@@ -86,11 +88,23 @@ module internal CoreMailboxBackend =
         | GetState reply -> reply.Reply(Error error)
         | GetRevision reply -> reply.Reply(Error error)
         | GetChangesSince (_, reply) -> reply.Reply(Error error)
-        | PostChange (_, reply) -> reply.Reply(Error error)
+        | PostChange (_, _, _, reply) -> reply.Reply(Error error)
         | PostGraphOnlyChange (_, reply) -> reply.Reply(Error error)
         | SnapshotDone _ -> ()
 
+    let private admitSecret
+        (credentials: CoreCredentials)
+        (secret: Credential)
+        : Result<unit, string> =
+        let live =
+            credentials.contains secret
+            |> Async.RunSynchronously
+        match CoreAuth.admit live with
+        | Error err -> Error(CoreAdmissionError.text err)
+        | Ok () -> Ok ()
+
     let dispatch
+        (credentials: CoreCredentials)
         (handlers: PersistHandlers)
         (onError: string -> string -> exn -> unit)
         (formatError: string -> string)
@@ -104,8 +118,15 @@ module internal CoreMailboxBackend =
                 reply.Reply(handlers.getRevision ())
             | GetChangesSince (after, reply) ->
                 reply.Reply(handlers.getChangesSince after)
-            | PostChange (changes, reply) ->
-                reply.Reply(handlers.postChange changes)
+            | PostChange (authority, secret, changes, reply) ->
+                match authority, admitSecret credentials secret with
+                | Authority name, _
+                    when String.IsNullOrWhiteSpace name ->
+                    reply.Reply(Error CoreAuth.refuse)
+                | _, Error err ->
+                    reply.Reply(Error err)
+                | _, Ok () ->
+                    reply.Reply(handlers.postChange changes)
             | PostGraphOnlyChange (changes, reply) ->
                 reply.Reply(handlers.postGraphOnlyChange changes)
             | SnapshotDone graph ->
@@ -122,6 +143,7 @@ module internal CoreMailboxBackend =
                 ()
 
     let start
+        (credentials: CoreCredentials)
         (handlers: PersistHandlers)
         (onError: string -> string -> exn -> unit)
         (formatError: string -> string)
@@ -129,13 +151,14 @@ module internal CoreMailboxBackend =
         MailboxProcessor<CoreMsg>.Start(fun inbox ->
             let rec loop () = async {
                 let! msg = inbox.Receive()
-                dispatch handlers onError formatError msg
+                dispatch credentials handlers onError formatError msg
                 return! loop ()
             }
             loop ()
         )
 
     let startWithPrelude
+        (credentials: CoreCredentials)
         (handlers: PersistHandlers)
         (onError: string -> string -> exn -> unit)
         (formatError: string -> string)
@@ -170,9 +193,16 @@ module internal CoreMailboxBackend =
                         inbox.TryScan(
                             (fun msg ->
                                 match msg with
-                                | GetState _ | GetRevision _ | GetChangesSince _ ->
+                                | GetState _
+                                | GetRevision _
+                                | GetChangesSince _ ->
                                     Some(async {
-                                        dispatch handlers onError formatError msg
+                                        dispatch
+                                            credentials
+                                            handlers
+                                            onError
+                                            formatError
+                                            msg
                                     })
                                 | _ -> None),
                             timeout = 20)
@@ -180,13 +210,13 @@ module internal CoreMailboxBackend =
             }
             and normalLoop () = async {
                 let! msg = inbox.Receive()
-                dispatch handlers onError formatError msg
+                dispatch credentials handlers onError formatError msg
                 return! normalLoop ()
             }
             and failedLoop error = async {
                 let! msg = inbox.Receive()
                 let failed = failedHandlers error
-                dispatch failed onError formatError msg
+                dispatch credentials failed onError formatError msg
                 return! failedLoop error
             }
 

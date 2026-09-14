@@ -15,7 +15,6 @@ module RouteRegistration =
         {
             ExpectedUser: string
             ExpectedPass: string
-            Disabled: bool
             GitToken: string
             IsAuthenticated: HttpRequest -> bool
             /// Smart HTTP only: Basic username + git PAT (not browser cookie).
@@ -53,15 +52,13 @@ module RouteRegistration =
         let expectedPass = config.["Auth:Password"] |> Option.ofObj |> Option.defaultValue ""
         let validToken = AuthToken.deriveToken expectedUser expectedPass
         let gitToken = AuthToken.deriveGitToken expectedUser expectedPass
-        let authDisabled = expectedUser = "" && expectedPass = ""
+        let gitAuthOpen = expectedUser = "" && expectedPass = ""
         let isAuthenticated (req: HttpRequest) =
-            if authDisabled then true
-            else
-                match req.Cookies.TryGetValue(AuthToken.cookieName) with
-                | true, cookie -> cookie = validToken
-                | _ -> false
+            match req.Cookies.TryGetValue(AuthToken.cookieName) with
+            | true, cookie -> cookie = validToken
+            | _ -> false
         let isGitAuthenticated (req: HttpRequest) =
-            if authDisabled then true
+            if gitAuthOpen then true
             else
                 match req.Headers.TryGetValue("Authorization") with
                 | true, values ->
@@ -88,7 +85,6 @@ module RouteRegistration =
         {
             ExpectedUser = expectedUser
             ExpectedPass = expectedPass
-            Disabled = authDisabled
             GitToken = gitToken
             IsAuthenticated = isAuthenticated
             IsGitAuthenticated = isGitAuthenticated
@@ -118,6 +114,7 @@ module RouteRegistration =
         (config: IConfiguration)
         (dataDir: string)
         (persistenceMode: DatabaseSetup.PersistenceMode)
+        (auth: Authentication)
         =
         let dbConnString = config.["DB_CONNECTION_STRING"] |> Option.ofObj |> Option.defaultValue ""
         let dbStatus = DatabaseSetup.resolveDbConnection persistenceMode dbConnString dataDir
@@ -127,6 +124,8 @@ module RouteRegistration =
                 dbStatus
                 dbConnString
                 dataDir
+                auth.ExpectedUser
+                auth.ExpectedPass
         {
             DataDir = dataDir
             Mode = persistenceMode
@@ -140,12 +139,26 @@ module RouteRegistration =
     let private parseBound (persistence: PersistenceContext) =
         let core = persistence.Core
         CoreAuth.bindHandle
-            core.credentials
+            (Authority "Parse")
             core.parseCredential
             (core.changes ())
 
-    let private changesBound (persistence: PersistenceContext) =
-        persistence.Core.browserChanges ()
+    /// Request cookie only — never fall back to closed-over browserCredential.
+    let private withBrowserChanges
+        (persistence: PersistenceContext)
+        (req: HttpRequest)
+        (cont: CoreChanges -> Async<IResult>)
+        : Async<IResult> =
+        match BrowserRequestCreds.tryCookieSecret req with
+        | None -> async.Return(Results.Unauthorized())
+        | Some secret ->
+            async {
+                let! live = persistence.Core.credentials.contains secret
+                if live then
+                    return! cont (persistence.Core.browserChanges secret)
+                else
+                    return Results.Unauthorized()
+            }
 
     let private stripXmlDeclaration (text: string) =
         if text.StartsWith("<?xml") then
@@ -212,7 +225,11 @@ module RouteRegistration =
             InlineCommandDockSprite = inlineCommandDockSprite
         }
 
-    let private registerAuthRoutes (app: WebApplication) (auth: Authentication) =
+    let private registerAuthRoutes
+        (app: WebApplication)
+        (auth: Authentication)
+        (persistence: PersistenceContext)
+        =
         let loginHtml = Path.Combine(app.Environment.WebRootPath, "login.html")
         app.MapGet("/ambit/login", Func<IResult>(fun () ->
             Results.File(loginHtml, "text/html")
@@ -221,8 +238,16 @@ module RouteRegistration =
             let! form = req.ReadFormAsync()
             let username = string form.["username"]
             let password = string form.["password"]
-            if username = auth.ExpectedUser && password = auth.ExpectedPass && username <> "" then
+            if username = auth.ExpectedUser && password = auth.ExpectedPass then
                 auth.SetCookie req.HttpContext.Response
+                let token =
+                    Credential(
+                        AuthToken.deriveToken
+                            auth.ExpectedUser
+                            auth.ExpectedPass)
+                do!
+                    persistence.Core.credentials.add token
+                    |> Async.StartAsTask
                 return Results.Redirect("/ambit")
             else
                 return Results.Redirect("/ambit/login?error=1")
@@ -233,7 +258,7 @@ module RouteRegistration =
         )) |> ignore
         // Git PAT for smart HTTP (cookie session required; not the cookie itself).
         app.MapGet("/ambit/git-token", Func<HttpRequest, IResult>(fun req ->
-            if auth.Disabled then
+            if auth.ExpectedUser = "" && auth.ExpectedPass = "" then
                 Results.Json(
                     {| disabled = true; message = "Auth disabled; git gateway is open" |})
             elif not (auth.IsAuthenticated req) then
@@ -274,8 +299,10 @@ module RouteRegistration =
                 return Results.Unauthorized()
             else
                 try
-                    let handle = coreChanges persistence
-                    return! Api.getState handle req |> Async.StartAsTask
+                    return!
+                        withBrowserChanges persistence req (fun handle ->
+                            Api.getState handle req)
+                        |> Async.StartAsTask
                 with ex ->
                     let detail =
                         $"Internal server error loading state (dataDir={persistence.DataDir}): {ex.Message}"
@@ -289,11 +316,15 @@ module RouteRegistration =
             if not (auth.IsAuthenticated req) then
                 return Results.Unauthorized()
             else
-                let handle = coreChanges persistence
                 let pageEpoch = stamps.PageBuildEpochSec ()
                 let clientRev = parseClientRev req
                 return!
-                    Api.getPoll handle (stamps.DeployEpochSec ()) pageEpoch clientRev
+                    withBrowserChanges persistence req (fun handle ->
+                        Api.getPoll
+                            handle
+                            (stamps.DeployEpochSec ())
+                            pageEpoch
+                            clientRev)
                     |> Async.StartAsTask
         })) |> ignore
         app.MapPost("/ambit/load", Func<HttpRequest, Task<IResult>>(fun req -> task {
@@ -302,10 +333,14 @@ module RouteRegistration =
             else
                 use reader = new StreamReader(req.Body)
                 let! body = reader.ReadToEndAsync()
-                let handle = coreChanges persistence
                 let pageEpoch = stamps.PageBuildEpochSec ()
                 return!
-                    Api.postLoad handle (stamps.DeployEpochSec ()) pageEpoch body
+                    withBrowserChanges persistence req (fun handle ->
+                        Api.postLoad
+                            handle
+                            (stamps.DeployEpochSec ())
+                            pageEpoch
+                            body)
                     |> Async.StartAsTask
         })) |> ignore
         app.MapPost("/ambit/changes", Func<HttpRequest, Task<IResult>>(fun req -> task {
@@ -317,11 +352,12 @@ module RouteRegistration =
                 let! body = reader.ReadToEndAsync()
                 let pageEpoch = stamps.PageBuildEpochSec ()
                 return!
-                    Api.postChange
-                        (changesBound persistence)
-                        (stamps.DeployEpochSec ())
-                        pageEpoch
-                        body
+                    withBrowserChanges persistence req (fun handle ->
+                        Api.postChange
+                            handle
+                            (stamps.DeployEpochSec ())
+                            pageEpoch
+                            body)
                     |> Async.StartAsTask
         })) |> ignore
 
@@ -343,7 +379,7 @@ module RouteRegistration =
         (persistence: PersistenceContext)
         =
         app.MapGet("/ambit/capabilities", Func<HttpRequest, IResult>(fun req ->
-            if auth.Disabled || auth.IsAuthenticated req then
+            if auth.IsAuthenticated req then
                 Api.getCapabilities persistence.DataDir
             else
                 Results.Unauthorized()
@@ -444,23 +480,29 @@ module RouteRegistration =
         (stamps: BuildStamps)
         (persistence: PersistenceContext)
         =
+        let serveAmbitHtml (ctx: HttpContext) =
+            ctx.Response.Headers.CacheControl <- "no-cache, no-store, must-revalidate"
+            ctx.Response.Headers.Pragma <- "no-cache"
+            ctx.Response.Headers.Expires <- "0"
+            let programFile =
+                match ctx.Request.Query.TryGetValue("debug") with
+                | true, value when value.ToString() = "1" -> "Program.js"
+                | _ -> "Program.bundle.js"
+            let html =
+                renderGambolHtml
+                    publicAssetBaseOpt
+                    programFile
+                    assets
+                    stamps
+                    persistence.DbStatus
+            Results.Content(html, "text/html")
         let serveAmbitApp (ctx: HttpContext) : IResult =
             if auth.IsAuthenticated ctx.Request then
-                ctx.Response.Headers.CacheControl <- "no-cache, no-store, must-revalidate"
-                ctx.Response.Headers.Pragma <- "no-cache"
-                ctx.Response.Headers.Expires <- "0"
-                let programFile =
-                    match ctx.Request.Query.TryGetValue("debug") with
-                    | true, value when value.ToString() = "1" -> "Program.js"
-                    | _ -> "Program.bundle.js"
-                let html =
-                    renderGambolHtml
-                        publicAssetBaseOpt
-                        programFile
-                        assets
-                        stamps
-                        persistence.DbStatus
-                Results.Content(html, "text/html")
+                serveAmbitHtml ctx
+            elif auth.ExpectedUser = "" && auth.ExpectedPass = "" then
+                // Development credential: auto-issue a real cookie, then serve.
+                auth.SetCookie ctx.Response
+                serveAmbitHtml ctx
             else
                 Results.Redirect("/ambit/login")
         app.MapGet("/ambit", Func<HttpContext, IResult>(serveAmbitApp)) |> ignore
@@ -503,9 +545,9 @@ module RouteRegistration =
         | _, Error err ->
             registerStartupError app err
         | Ok dataDir, Ok persistenceMode ->
-            let persistence = createPersistenceContext config dataDir persistenceMode
+            let persistence = createPersistenceContext config dataDir persistenceMode auth
             let assets, stamps = createBuildStamps app
-            registerAuthRoutes app auth
+            registerAuthRoutes app auth persistence
             registerStateRoutes app auth persistence stamps
             registerSaveRoutes app auth persistence
             HttpResponseLog.registerErrorReportRoute

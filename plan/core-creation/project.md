@@ -2,13 +2,14 @@
 
 Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
-Updated: 2026-09-13
+Updated: 2026-09-14
 Started: 2026-09-05
-Actual: 21h40m
+Actual: 30h30m
 
 ## Map
 
 - [[plan/core-creation/map.md]] — chart the initial Graph-agent package and later Core decisions.
+- [[plan/core-creation/arch.md]] — hello / one-mailbox Actor program module map (critique before remaining [[plan/core-creation/issues/29-prove-testactor-hello.md|Prove TestActor hello]] sections).
 
 ## Committed Decisions
 
@@ -53,6 +54,9 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/issues/31-one-coremsg-loop-parameterized-persist.md]] — Point 0 (done): one CoreMsg loop, parameterized persist.
 - [[plan/core-creation/issues/32-move-persist-agents-under-coremailbox.md]] — Point 0 (done): persist agents under Core; generic CoreMailbox door.
 - [[plan/core-creation/issues/29-prove-testactor-hello.md]] — current cut: section 1 mailbox foundation on `dev`; remaining hello sections open. Redo: land [[plan/core-creation/arch.md]] before further hello implement — [[plan/core-creation/reports/redo-29-architecture-before-proceed.md]].
+- [[plan/core-creation/issues/33-credentialed-browser-change-posts.md]] — Story path Browser Change posts: cookie-as-credential, boot seed, CoreMailbox admit only; Status `coded`. `auth.Disabled` skip removed; development cookie is auto-issued and still required.
+- [[plan/core-creation/issues/34-outside-core-lifecycle-proof.md]] — Story path Outside Core lifecycle proof: TestActor hello from Pool/Actor seam without HTTP.
+- [[plan/core-creation/issues/35-browser-run-hello.md]] — Story path Browser Run hello: `?` one-Node Command through HTTP to Owned child `hello`; blocked by 34.
 
 ## Decision tickets
 
@@ -100,6 +104,7 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/reports/align-29-referenced-completed-details.md]] — completed-detail `[x]` pass on files referenced by 29.
 - [[plan/core-creation/reports/file-db-agent-mailbox-twins.md]] — FileAgent and DbAgent persist twins plus CoreActorMailbox module.
 - [[plan/core-creation/reports/redo-29-architecture-before-proceed.md]] — ticket 29 redo: keep map/tickets/partial implement; `/to-arch` before remaining hello sections.
+- [[plan/core-creation/reports/remove-auth-disabled-bypass.md]] — remove `auth.Disabled` skip; development cookie is real and required.
 
 ## Comments
 
@@ -109,3 +114,13 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - 2026-09-13 — Added [[plan/core-creation/issues/32-move-persist-agents-under-coremailbox.md]]. Point 0 current cut is 32.
 - 2026-09-13 — Section 1 of [[plan/core-creation/issues/29-prove-testactor-hello.md]] implemented on `dev`.
 - 2026-09-13 — Redo gate: architecture before remaining hello sections — [[plan/core-creation/reports/redo-29-architecture-before-proceed.md]].
+- 2026-09-13 — [[plan/core-creation/arch.md]] written via to-arch; Stage `arch`. Critique Story paths / Module map / Seams / Sequence / Alternative / Unsettled before reconciling tickets or implementing sections 2–6.
+- 2026-09-13 — `/to-tickets` for Story path Browser Change posts only; published [[plan/core-creation/issues/33-credentialed-browser-change-posts.md]]; Stage `slice`.
+- 2026-09-13 — First implement: [[plan/core-creation/issues/33-credentialed-browser-change-posts.md|Credentialed Browser Change posts]] done; Stage `build`.
+- 2026-09-13 — Redesign on [[plan/core-creation/issues/33-credentialed-browser-change-posts.md|Credentialed Browser Change posts]]: cookie/seed target; undo File/Db/GUID deltas; Status `ready-for-agent` again. Arch Story path checkboxes still `[x]` — align when reconciling.
+- 2026-09-13 — Re-implement [[plan/core-creation/issues/33-credentialed-browser-change-posts.md|Credentialed Browser Change posts]] against redesign; Status `done`.
+- 2026-09-14 — Spec-gap fix on [[plan/core-creation/issues/33-credentialed-browser-change-posts.md|Credentialed Browser Change posts]]: request-carried Browser API creds, client DeployEpochSec reseed, no closed-over cookie fallback.
+- 2026-09-14 — `/to-tickets` for Story paths Outside Core lifecycle proof and Browser Run hello; published [[plan/core-creation/issues/34-outside-core-lifecycle-proof.md]] and [[plan/core-creation/issues/35-browser-run-hello.md]]; Stage `slice`. Parent [[plan/core-creation/issues/29-prove-testactor-hello.md|Prove TestActor hello]] unchanged.
+- 2026-09-14 — [[plan/core-creation/issues/33-credentialed-browser-change-posts.md|Credentialed Browser Change posts]] Status back to `ready-for-agent`: coded is not `done`; `done` is review approval only.
+- 2026-09-14 — Spec of [[plan/core-creation/issues/33-credentialed-browser-change-posts.md|Credentialed Browser Change posts]] aligned to review findings; auth-disabled app-serve SetCookie rejected and remaining.
+- 2026-09-14 — Removed `auth.Disabled` skip on [[plan/core-creation/issues/33-credentialed-browser-change-posts.md|Credentialed Browser Change posts]]; Status `coded`; Stage `build`. Report: [[plan/core-creation/reports/remove-auth-disabled-bypass.md]].

@@ -50,6 +50,19 @@ let ``getPollOutcome does not CodeOutdated an existing page after server restart
     Assert.Equal(None, SyncLogic.getPollOutcome poll 5)
 
 [<Fact>]
+let ``serverProcessRestarted detects DeployEpochSec change without CodeOutdated`` () =
+    let pageProcessStart = 1_700_000_000
+    let restarted = pageProcessStart + 1
+    let poll = mkPoll 5 restarted 1_699_999_000
+    Assert.True(
+        SyncLogic.serverProcessRestarted pageProcessStart poll.buildEpochSec)
+    Assert.Equal(None, SyncLogic.getPollOutcome poll 5)
+    Assert.False(
+        SyncLogic.serverProcessRestarted restarted poll.buildEpochSec)
+    Assert.False(SyncLogic.serverProcessRestarted 0 poll.buildEpochSec)
+    Assert.False(SyncLogic.serverProcessRestarted pageProcessStart 0)
+
+[<Fact>]
 let ``getPollOutcome returns DataOutdated after server restart when revision is ahead`` () =
     let pageProcessStart = 1_700_000_000
     let poll = mkPoll 6 (pageProcessStart + 1) 1_699_999_000

@@ -7,7 +7,7 @@ Hand this file to an agent. Scope: [[plan/core-creation/issues/29-prove-testacto
 Treat these as settled inputs for the redo:
 
 1. Wayfinder map — [[plan/core-creation/map.md]]
-2. Ticket — [[plan/core-creation/issues/29-prove-testactor-hello.md|Prove TestActor hello]] (sections 2–6 still open; section 1 Shared Core mailbox foundation done on `dev`)
+2. Ticket — [[plan/core-creation/issues/29-prove-testactor-hello.md|Prove TestActor hello]] (sections 1ff not implemented; Point 0 done)
 3. Related tickets — [[02-core-actor-pool.md]], [[14-server-tracks-credentials.md]], [[15-launch-actor-and-hold-span.md]], [[18-finish-and-drop.md]], [[27-prove-core-actor-lifecycle-with-testactor.md]], [[30-reshape-coreactorpool-synchronized-table.md]], [[31-one-coremsg-loop-parameterized-persist.md]], [[32-move-persist-agents-under-coremailbox.md]]
 4. Implementation Planning and Record — [[plan/core-creation/issues/Implementation Planning and Record.md]]
 5. Partial implement log — [[plan/core-creation/reports/implement-issue-29-testactor-hello.md]] (historical; foundation shape has moved under Point 0)

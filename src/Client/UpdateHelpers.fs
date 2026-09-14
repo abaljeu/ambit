@@ -17,6 +17,20 @@ let currentFile =
     let path = Browser.Dom.window.location.pathname
     if path.StartsWith("/") then path.Substring(1) else path
 
+/// DeployEpochSec restart signal / initial-load establish — no new chrome.
+let reseedDeployEpochOnServerSignal (serverBuildEpochSec: int) : bool =
+    let webpageTime = readBuildEpochSec ()
+    if SyncLogic.serverProcessRestarted webpageTime serverBuildEpochSec then
+        writeBuildEpochSec serverBuildEpochSec
+        consoleLog (
+            "[Gambol sync] server restart signal — reseed deploy epoch")
+        true
+    elif webpageTime <= 0 && serverBuildEpochSec > 0 then
+        writeBuildEpochSec serverBuildEpochSec
+        true
+    else
+        false
+
 // ---------------------------------------------------------------------------
 // Mutating POST headers (X-Gambol-Client from getClientHint)
 // ---------------------------------------------------------------------------

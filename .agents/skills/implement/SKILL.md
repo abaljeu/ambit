@@ -32,10 +32,12 @@ On first implement for this Project, set `Stage: build` and `Updated:` on `proje
 
 Anything you write on tickets or under `reports/` — number and name every section and list item per [[.agents/rules/refer-by-name.md]].
 
-Done: the ticket's What to build is implemented and verified; Stage is `build` if this was the first implement.
+Set ticket `**Status:** coded`. Do not set `done`. `done` is review approval only ([[doc/agents/triage-labels.md]]).
+
+Done: the ticket's What to build is implemented and verified; Stage is `build` if this was the first implement; Status is `coded`.
 
 ### 4. Log time and finish
 
 Time: on issues you touched, append `## Time` and keep `Actual:`; on the project set/keep `Started:` / `Finished:` / `Actual:` per [[doc/agents/issue-tracker.md]] (Time tracking). Backfill from this chat and commits when a session was not logged.
 
-Finish as **agent-done** per [[.agents/skills/git-protocol/SKILL.md]]. Done: time is logged and work is agent-done.
+Finish as **agent-done** per [[.agents/skills/git-protocol/SKILL.md]]. Git agent-done is not ticket `done`. Done: time is logged, work is agent-done, and Status is `coded`.

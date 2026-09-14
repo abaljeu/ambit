@@ -39,10 +39,12 @@ module CoreMailbox =
 
     let postChange
         (host: MailboxHost)
+        (authority: Authority)
+        (secret: Credential)
         (changes: Change list)
         : Async<Result<CoreChangesAccepted, string>> =
         host.mailbox.PostAndAsyncReply(fun reply ->
-            PostChange(changes, reply))
+            PostChange(authority, secret, changes, reply))
 
     let postGraphOnlyChange
         (host: MailboxHost)
@@ -51,13 +53,33 @@ module CoreMailbox =
         host.mailbox.PostAndAsyncReply(fun reply ->
             PostGraphOnlyChange(changes, reply))
 
-    let coreChanges (host: MailboxHost) : CoreChanges =
-        { getState = fun () -> tryGetState host
-          getRevision = fun () -> getRevision host
-          getChangesSince = getChangesSince host
-          isReady = host.isReady
-          postChange = postChange host
-          postGraphOnlyChange = postGraphOnlyChange host }
+    let coreChanges
+        (host: MailboxHost)
+        (credentials: CoreCredentials)
+        (authority: Authority)
+        (secret: Credential)
+        : CoreChanges =
+        let rec make auth sec : CoreChanges =
+            { getState = fun () -> tryGetState host
+              getRevision = fun () -> getRevision host
+              getChangesSince = getChangesSince host
+              isReady = host.isReady
+              postChange =
+                fun changes ->
+                    CoreAuth.post
+                        credentials
+                        sec
+                        (postChange host auth sec)
+                        changes
+              postGraphOnlyChange =
+                fun changes ->
+                    CoreAuth.post
+                        credentials
+                        sec
+                        (postGraphOnlyChange host)
+                        changes
+              asCaller = fun a s -> make a s }
+        make authority secret
 
     let isReady (host: MailboxHost) = host.isReady ()
 
@@ -65,15 +87,45 @@ module CoreMailbox =
 
     let dispose (host: MailboxHost) = host.dispose ()
 
-    let createFile (dataDir: string) : MailboxHost =
-        FileAgent.create dataDir |> FileAgent.mailboxHost
+    let startFile (credentials: CoreCredentials) : FileAgent.MailboxStarter =
+        fun handlers onError formatError ->
+            CoreMailboxBackend.start credentials handlers onError formatError
 
-    let createDb (connectionString: string) : MailboxHost =
-        DbAgent.create connectionString |> DbAgent.mailboxHost
+    let startDb (credentials: CoreCredentials) =
+        fun handlers onError formatError until ->
+            CoreMailboxBackend.startWithPrelude
+                credentials
+                handlers
+                onError
+                formatError
+                until
+
+    let createFile
+        (startMailbox: FileAgent.MailboxStarter)
+        (dataDir: string)
+        : MailboxHost =
+        FileAgent.create startMailbox dataDir |> FileAgent.mailboxHost
+
+    let createDb
+        (startMailbox:
+            PersistHandlers
+                -> (string -> string -> exn -> unit)
+                -> (string -> string)
+                -> Async<Result<unit, string>>
+                -> MailboxProcessor<CoreMsg>)
+        (connectionString: string)
+        : MailboxHost =
+        DbAgent.create startMailbox connectionString |> DbAgent.mailboxHost
 
     let createDbWithDataDir
+        (startMailbox:
+            PersistHandlers
+                -> (string -> string -> exn -> unit)
+                -> (string -> string)
+                -> Async<Result<unit, string>>
+                -> MailboxProcessor<CoreMsg>)
         (connectionString: string)
         (dataDir: string)
         : MailboxHost =
-        DbAgent.createWithDataDir connectionString dataDir
+        DbAgent.createWithDataDir startMailbox connectionString dataDir
         |> DbAgent.mailboxHost

@@ -12,6 +12,8 @@ This is the controlling planning and record document for the reviewed and rewoun
 
 ## Phase 2 — The Spec
 
+Arch.md is newer and supersedes anything here that disagrees.  So long as it is in agreement, these issues are valid.
+
 The eight numbered items are pieces of the Core lifecycle program. They are not the implementation sequence.
 
 1. **Rebuild the Actor pool baseline** — Registry and admission live on the one Core mailbox; TaskPool runs and terminates Actors without waiting. [[plan/core-creation/issues/02-core-actor-pool.md]]
@@ -27,7 +29,9 @@ The eight numbered items are pieces of the Core lifecycle program. They are not 
 
 Phase 2b is the implementation sequence for the remaining spec, not only the eight Core lifecycle pieces. The sequence selects pieces from that spec to implement visible increments. Advanced parts wait.
 
-Point 0 = Core-shape preamble: [[30-reshape-coreactorpool-synchronized-table.md]] (done, own commit) then [[31-one-coremsg-loop-parameterized-persist.md]] (done) then [[32-move-persist-agents-under-coremailbox.md]] (done), then [[29-prove-testactor-hello.md]] as first new behavior. Current implement cut: [[29-prove-testactor-hello.md]] (section 1 mailbox foundation on `dev`; later hello sections still open). 30 strips CoreActorPool mailbox queue; synchronized table + thread pool. 31 unifies FileAgent and DbAgent MailboxProcessor loops; persist is a parameter for persist cases only. 32 moves those persist fillings into Core/, removes their CoreMailbox wrappers, and makes CoreMailbox the only door except agent-specific tests. After 32 is agent-done, 29 remains the first user-visible increment. After 29 is agent-done, mark delivered facts and identify the next increment. Do not invent later increment tickets now. That cut does not include the later vendor-neutral Agent seam or the locked vertical proof.
+Point 0 = Core-shape preamble: [[30-reshape-coreactorpool-synchronized-table.md]] (done) then [[31-one-coremsg-loop-parameterized-persist.md]] (done) then [[32-move-persist-agents-under-coremailbox.md]] (done), then [[29-prove-testactor-hello.md]] as first new behavior. Point 0 is implemented. [[29-prove-testactor-hello.md]] sections 1ff are not. Current implement cut: [[29-prove-testactor-hello.md]]. 30 strips CoreActorPool mailbox queue; synchronized table + thread pool. 31 unifies FileAgent and DbAgent MailboxProcessor loops; persist is a parameter for persist cases only. 32 moves those persist fillings into Core/, removes their CoreMailbox wrappers, and makes CoreMailbox the only door except agent-specific tests. After 29 is agent-done, mark delivered facts and identify the next increment. Do not invent later increment tickets now. That cut does not include the later vendor-neutral Agent seam or the locked vertical proof.
+
+The Phase 2 Spec is a lock. It is not on the critical path for the hello outside proof: that test does not impact the response shape.
 
 - Vendor-neutral Agent seam — After the Core lifecycle program is executable, create the smallest implementation issue for the standalone CloudAgents project and the contracts in [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]] and [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]]. Keep provider selection and provider-specific behavior behind the vendor-neutral CloudAgents API. Do not restore the old Md-only payload or Cursor-specific domain behavior.
 - Locked vertical proof — Define and run the vertical proof only after the Core lifecycle and [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]] are executable. The cancelled Create/Focus/Md paste-replace path is not that proof.
@@ -39,7 +43,7 @@ The former executable three-set sequence was withdrawn by [[plan/llm-connector/r
 2026-09-11 — Alan locked Command-text dispatch. See Phase 1.
 2026-09-12 — Reviews of the TestActor hello increment failed. Code was stashed. Issue checkboxes and implementation logs from 2026-09-11 were cleared. The current implement cut remains [[29-prove-testactor-hello.md]].
 2026-09-12 — Issue [[30-reshape-coreactorpool-synchronized-table.md]] created as prefactor: strip CoreActorPool mailbox-queue design; synchronized table mutators + thread pool. Issue 29 blocked by 30. Current implement order: 30, then 29.
-2026-09-12 — Issue [[31-one-coremsg-loop-parameterized-persist.md]] created as second Point 0 increment: one CoreMsg loop, File/Db persist injected for persist cases only. Point 0 = 30 (done, own commit) then 31, then 29 as first new behavior. Current implement cut: 31.
+2026-09-12 — Issue [[31-one-coremsg-loop-parameterized-persist.md]] created as second Point 0 increment: one CoreMsg loop, File/Db persist injected for persist cases only. Point 0 = 30 (done) then 31, then 29 as first new behavior. Current implement cut: 31.
 2026-09-13 — Issue [[32-move-persist-agents-under-coremailbox.md]] created as third Point 0 increment: FileAgent and DbAgent move to Core/; they do not call CoreMailbox; CoreMailbox may call them; only agent-specific tests name them. Point 0 = 30 (done) then 31 (done) then 32, then 29 as first new behavior.
-2026-09-13 — Issue 32 is agent-done on `dev`. Current implement cut: [[29-prove-testactor-hello.md]].
-2026-09-13 — Issue 29 section 1 (Shared Core mailbox foundation) implemented on `dev`. Later hello sections remain open.
+2026-09-13 — Issue 32 is agent-done. Point 0 (30–32) is implemented. Current implement cut: [[29-prove-testactor-hello.md]]; sections 1ff are not implemented.
+2026-09-13 — Arch settling: Sequence `tracer-cut`; History carries Actor events (no separate Actor event sequence); Browser Change posts supply credentials like Actor posts; Phase 2 Spec lock stands but is not hello outside-proof critical path. See [[plan/core-creation/arch.md]].

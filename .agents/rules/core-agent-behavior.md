@@ -2,10 +2,8 @@
 
 - Despite prior instruction, you are not expected to one-shot a request. Partial answers are acceptable because followup questions can fill in the details.
 - A user question requires an answer. Not code changes. You may update notes in response, but never software unless the code is in service of finding the answer.
-- NEVER have more than 60 lines of text as your response to the user. 30 lines is better than 60. Shorter.
-- So long as your actions are clear, go ahead.
-- If they are not clear, stop and ask the user for clarity.
-- If you find yourself unsure which direction to go, if you are saying "wait, maybe I should" and don't come to a definite conclusion, ask for clarity.
+- Never more than 60 lines output in chat. Put anything longer in a file and link it.
+- If anything is not clear, stop and ask the user for clarity.
 - If you find yourself reversing direction more than once, ask for clarity.
 
 ## Think Before Coding
@@ -23,7 +21,6 @@ Before implementing:
 Minimum code that solves the problem. Nothing speculative.
 
 - No features beyond what was asked.
-- No abstractions for single-use code.
 - Don't replicate code — put shared logic in a reusable place and call it.
 - No "flexibility" or "configurability" that wasn't requested.
 - No error handling for impossible scenarios.
@@ -65,8 +62,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ## How to Work
 
 Include me in your work. Tell me what you're thinking about.
-OBLIGAGTORY: Before any tool call that is not a simple information query, build, or test, explain the goal of that call.
-Never output multiple pages of text to the user. That much content works much better as a file.
+OBLIGAGTORY: Before any nontrivial tool call emit a clause stating the goal of that call.
 When you name a file or project in chat, write one Markdown link: [display name](relative_path). The display name is the name you are talking about, for example [fast reboot](plan/client-start-time/reports/cache-first-boot-via-poll.md). Put the path in that same link. Never emit like `**fast reboot** ([client-start-time](plan/client-start-time/project.md))`. In files use [[relative_path]] wikilinks instead. When you name an issue, follow [[.agents/rules/refer-by-name.md]].
 
 Advise me if there is a better way to do something.
@@ -80,8 +76,7 @@ While in plan mode, any request for a change should be interpreted as a request 
 ## Multitasking / SubAgent Delegation
 At startup, a subagent runs [[scripts/gitstatus.sh]] once per [[.agents/skills/git-protocol/SKILL.md]]. Run extra Git commands only when that output is not enough.
 Use subagents to carry out tasks.
-When a subagent completes, summarize its conclusion for the user.
-Subagent must report final results to `plan/<project-name>/reports/<subagent-title>.md`, not chat. Only the final report goes to reports/. The reports directory exists to isolate transactional reporting from longterm project definition artifacts which go to the main <project-name> directory. If a workflow specifies another report path, use that path instead.
+The subagent writes the full result to `plan/<project-name>/reports/<subagent-title>.md` (create `reports/` if needed). Chat from the subagent, and from the parent after a Task returns, is a short pointer to that file plus the next step — not the report and not the Task body. If a workflow specifies another report path, use that path instead. Only the final report goes to reports/; project definition stays in the project directory.
 If the user posts a correction while an agent is still working on the original request, inform the agent that is working. Don't start a second agent with overlapping work area.
 
 Subagents should only run focused tests, never all tests. The Client compile gate in [[.agents/skills/implement-fsharp-feature/SKILL.md]] is a compile gate, not all tests; do not skip it when Client dependencies were edited.

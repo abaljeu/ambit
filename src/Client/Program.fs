@@ -8,6 +8,7 @@ open Gambol.Client.App
 open Gambol.Client.SessionState
 open Gambol.Client.Update
 open Gambol.Client.UpdateCodec
+open Gambol.Client.UpdateHelpers
 open Gambol.Client.Controller
 open Gambol.Client.JsInterop
 
@@ -151,6 +152,7 @@ and private applyBootNovel (novel: Change list) (ready: bool) =
             newState.graph
 
 and private handleBootPoll (clientRev: int) (poll: ChangeSuccessResponse) =
+    reseedDeployEpochOnServerSignal poll.buildEpochSec |> ignore
     let cached =
         BootCache.cachedHashForBootPoll justFetchedState bootHash
     justFetchedState <- false

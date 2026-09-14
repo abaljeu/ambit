@@ -15,7 +15,7 @@ let private requireOk label result =
 let private postWorkspace (fileAgent: MailboxHost) (label: string) =
     let workspaceId, ops = FileNodeOps.planCreateWorkspace (Graph.create ()) label
     let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
-    (CoreMailbox.coreChanges fileAgent).postChange [ change ]
+    (admittedChanges fileAgent).postChange [ change ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
@@ -34,14 +34,14 @@ let private recordingHandle (inner: CoreChanges) =
 [<Fact>]
 let ``reconcile posts graph-only chunks at or under maxOps`` () =
     let tempDir = newTempDir ()
-    let fileAgent = CoreMailbox.createFile tempDir
+    let fileAgent, _ = createAdmittedFile tempDir
     let workspaceId = postWorkspace fileAgent "home"
     let fileCount = GraphOnlyChangeChunks.maxOps
     let home = Path.Combine(tempDir, "home")
     Directory.CreateDirectory(home) |> ignore
     for i in 1 .. fileCount do
         File.WriteAllText(Path.Combine(home, sprintf "n%03d.txt" i), "x")
-    let inner = CoreMailbox.coreChanges fileAgent
+    let inner = admittedChanges fileAgent
     let handle, posts = recordingHandle inner
     LazyLoadReconciliationServer.reconcileChangedPaths handle tempDir "home" []
     |> Async.RunSynchronously

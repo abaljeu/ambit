@@ -115,18 +115,24 @@ module LocalProxy =
 
     let private addAuthCookie
         (credentials: LoginForm.Credentials option)
+        (serverIssued: string option)
         (tryAdd: string -> string array -> bool)
         =
-        credentials
-        |> Option.iter (fun creds ->
-            let cookie = AuthToken.cookieHeaderValue creds.Username creds.Password
-            tryAdd "Cookie" [| cookie |] |> ignore)
+        let cookie =
+            AuthToken.proxyCookieHeader
+                { storedUsername =
+                    credentials |> Option.map (fun c -> c.Username)
+                  storedPassword =
+                    credentials |> Option.map (fun c -> c.Password)
+                  serverIssuedValue = serverIssued }
+        tryAdd "Cookie" [| cookie |] |> ignore
 
     let private createProxyRequest
         (cloudAppUrl: Uri)
         (request: HttpRequest)
         (bodyOverride: HttpContent option)
         (credentials: LoginForm.Credentials option)
+        (serverIssued: string option)
         =
         let targetUri = resolveTargetUri cloudAppUrl request.Path request.QueryString
         let proxyRequest = new HttpRequestMessage(HttpMethod(request.Method), targetUri)
@@ -138,7 +144,7 @@ module LocalProxy =
         let addRequestHeader (key: string) (values: string array) =
             proxyRequest.Headers.TryAddWithoutValidation(key, Seq.ofArray values)
 
-        addAuthCookie credentials addRequestHeader
+        addAuthCookie credentials serverIssued addRequestHeader
         addHeaders addRequestHeader request.Headers
         addCloudBrowserHeaders cloudAppUrl proxyRequest
 
@@ -176,8 +182,16 @@ module LocalProxy =
                 response.Headers[header.Key] <- StringValues(values)
 
     let private createHttpClient () =
-        let handler = new HttpClientHandler(AllowAutoRedirect = false)
+        let handler =
+            new HttpClientHandler(
+                AllowAutoRedirect = false,
+                UseCookies = false)
         new HttpClient(handler, disposeHandler = true)
+
+    let private setCookieHeaders (response: HttpResponseMessage) =
+        match response.Headers.TryGetValues("Set-Cookie") with
+        | true, values -> values
+        | _ -> Seq.empty
 
     let private isDesktopRequest (path: PathString) =
         path.StartsWithSegments(PathString "/_desktop")
@@ -559,11 +573,13 @@ module LocalProxy =
         (client: HttpClient)
         (cloudAppUrl: Uri)
         (session: ref<LoginForm.Credentials option>)
+        (issuedCookie: ref<string option>)
         (context: HttpContext)
         = task {
         if isAmbitLogoutGet context.Request then
             AuthStore.clear()
             session .Value <- None
+            issuedCookie .Value <- None
 
         let! bodyOverride, loginAttempt =
             if isAmbitLoginPost context.Request then
@@ -588,7 +604,12 @@ module LocalProxy =
                 task { return None, None }
 
         use proxyRequest =
-            createProxyRequest cloudAppUrl context.Request bodyOverride session.Value
+            createProxyRequest
+                cloudAppUrl
+                context.Request
+                bodyOverride
+                session.Value
+                issuedCookie.Value
 
         let localUrl = currentOrigin context.Request
 
@@ -598,7 +619,16 @@ module LocalProxy =
                 HttpCompletionOption.ResponseHeadersRead,
                 context.RequestAborted)
 
-        match loginAttempt, LoginRedirect.isSuccess (int proxyResponse.StatusCode) (responseLocations proxyResponse) with
+        issuedCookie .Value <-
+            AuthToken.applySetCookieHeaders
+                issuedCookie.Value
+                (setCookieHeaders proxyResponse)
+
+        let loginOk =
+            LoginRedirect.isSuccess
+                (int proxyResponse.StatusCode)
+                (responseLocations proxyResponse)
+        match loginAttempt, loginOk with
         | Some creds, true ->
             AuthStore.save creds
             session .Value <- Some creds
@@ -634,6 +664,7 @@ module LocalProxy =
         let app = builder.Build()
         let client = createHttpClient ()
         let session = ref (AuthStore.load())
+        let issuedCookie = ref None
         let downloadManager =
             WorkspaceDownloadManager.create
                 client
@@ -658,7 +689,8 @@ module LocalProxy =
                     downloadManager
                     context
             else
-                forward client cloudUri session context)) |> ignore
+                forward client cloudUri session issuedCookie context))
+        |> ignore
 
         do! app.StartAsync()
 

@@ -258,7 +258,7 @@ let ``writer clears one parent without rewriting unrelated rows and rolls back``
 let ``db bootstrap duplicate returns stored Change and rejects no-op`` () = task {
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
-    let agent = CoreMailbox.createDb connStr
+    let agent = CoreMailbox.createDb (admittedStartDb ()) connStr
     let childId = id 70
 
     let accepted =
@@ -268,7 +268,7 @@ let ``db bootstrap duplicate returns stored Change and rejects no-op`` () = task
             [ Op.NewNode(childId, "bootstrap")
               Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
 
-    let core = CoreMailbox.coreChanges agent
+    let core = admittedChanges agent
     let! first = core.postChange (encodeBatch [ accepted ]) |> Async.StartAsTask
     let firstAck =
         match first with
