@@ -113,3 +113,4 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - 2026-09-13 — Redo gate: architecture before remaining hello sections — [[plan/core-creation/reports/redo-29-architecture-before-proceed.md]].
 - 2026-09-13 — [[plan/core-creation/arch.md]] written via to-arch; Stage `arch`. Critique Story paths / Module map / Seams / Sequence / Alternative / Unsettled before reconciling tickets or implementing sections 2–6.
 - 2026-09-13 — `/to-tickets` for Story path Browser Change posts only; published [[plan/core-creation/issues/33-credentialed-browser-change-posts.md]]; Stage `slice`.
+- 2026-09-13 — First implement: [[plan/core-creation/issues/33-credentialed-browser-change-posts.md|Credentialed Browser Change posts]] done; Stage `build`.
