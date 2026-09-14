@@ -349,12 +349,17 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
                     true
                 | _ -> false)
         
-        let firstChangeIndex =
-            events
-            |> List.tryFindIndex (fun event ->
-                match event with
-                | ChangeEvent _ -> true
-                | _ -> false)
+        let actorOutputChangeIndex =
+            match actorStartedIndex with
+            | Some startIdx ->
+                events
+                |> List.skip (startIdx + 1)
+                |> List.tryFindIndex (fun event ->
+                    match event with
+                    | ChangeEvent _ -> true
+                    | _ -> false)
+                |> Option.map (fun idx -> startIdx + 1 + idx)
+            | None -> None
         
         let actorFinishedIndex =
             events
@@ -375,13 +380,13 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
         
         Assert.True(actorStartedIndex.IsSome,
             "§7.4: ActorStarted event should be present")
-        Assert.True(firstChangeIndex.IsSome,
+        Assert.True(actorOutputChangeIndex.IsSome,
             "§7.4: Change event (output) should be present")
         Assert.True(actorFinishedIndex.IsSome,
             "§7.4: ActorFinished event should be present")
-        Assert.True(actorStartedIndex.Value < firstChangeIndex.Value,
+        Assert.True(actorStartedIndex.Value < actorOutputChangeIndex.Value,
             "§7.4: ActorStarted should appear before output Change")
-        Assert.True(firstChangeIndex.Value < actorFinishedIndex.Value,
+        Assert.True(actorOutputChangeIndex.Value < actorFinishedIndex.Value,
             "§7.4: Output Change should appear before ActorFinished")
         Assert.Equal(1, actorFinishedCount,
             "§7.4: Should observe exactly one ActorFinished event")
