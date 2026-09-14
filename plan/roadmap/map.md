@@ -72,8 +72,8 @@ Grouped by Stage. Order inside a Stage does not matter.
 - Chart Chapters for [[epics/operate-connected-channels.md]] (mail first in framing). Place connector Projects when they exist. [[plan/transport-layer/project.md]] stays the Project pattern; PKM still lists it as a dependency.
 - Pointer charting for Public URL, Published-page CSS, and In-app styling (web pages) and for wiki Public URL (no owning Project yet).
 - Pointer charting for Status and Date on [[epics/manage-a-project.md]] (no owning Project yet).
-- Cherry-pick Undo (invert a chosen earlier ChangeEvent; Actor Events skipped; conflicts via normal apply/merge). Depends on mailbox History holding invertible Changes.
-- Restoring older file versions via git (time-travel / restore family with cherry-pick Undo; not hello-slice).
+- Cherry-pick Undo (invert a chosen ChangeEvent; skip Actor Events).
+- Restore older file versions via actual git (from the commits already made on edits).
 - Later Epics beyond the standing list.
 - Which remaining Required-until-done items belong on a Chapter. Named parts of a Project still unspecified.
 - How leftover `doc/roadmap` files become references vs history vs current.
