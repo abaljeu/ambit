@@ -114,7 +114,7 @@ let ``CoreMailbox.actorStop with valid credential drops live row`` () =
     }
 
 [<Fact>]
-let ``CoreMailbox door exposes lifecycle facts via getState`` () =
+let ``CoreMailbox door exposes Graph lockPresent via getState`` () =
     withHost (fun host _ _ -> task {
         let! result =
             CoreMailbox.startActor host testCaller sampleRequest
