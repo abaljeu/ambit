@@ -7,6 +7,15 @@ type ActorName = ActorName of string
 
 type PublicNumber = PublicNumber of int
 
+/// One Command / StartActor payload for CoreMsg, CoreMailbox, and the pool.
+type StartActorRequest =
+    { zoomId: NodeId
+      focusId: NodeId
+      commandId: NodeId
+      graphIds: NodeId list }
+
+type ActorResult = | ActorSucceeded
+
 type LaunchRequest =
     { name: ActorName
       revision: Revision
@@ -20,7 +29,12 @@ type CoreActorPool =
         CoreChanges -> LaunchRequest -> Async<Result<PublicNumber, string>>
       query: PublicNumber -> Result<LaunchRequest, string>
       lockedIds: unit -> Set<NodeId>
-      withLocks: CoreChanges -> CoreChanges }
+      withLocks: CoreChanges -> CoreChanges
+      startActor: StartActorRequest -> Async<Result<unit, string>>
+      isLive: Credential -> bool
+      admit: Credential -> Result<unit, string>
+      drop: Credential -> unit
+      finish: Credential -> ActorResult -> Result<unit, string> }
 
 [<RequireQualifiedAccess>]
 module CoreActorPool =
@@ -38,11 +52,16 @@ module CoreActorPool =
           revision: Revision
           name: ActorName }
 
+    type private LiveRow =
+        { focusId: NodeId
+          cancel: System.Threading.CancellationTokenSource }
+
     type private Model =
         { next: int
           defs: Map<string, ActorFn>
           jobs: Map<int, Job>
-          locked: Set<NodeId> }
+          locked: Set<NodeId>
+          live: Map<Credential, LiveRow> }
 
     type private LaunchPlan =
         { number: int
@@ -92,7 +111,8 @@ module CoreActorPool =
         { next = model.next + 1
           defs = model.defs
           jobs = Map.add plan.number plan.job model.jobs
-          locked = Set.union model.locked plan.job.spanIds }
+          locked = Set.union model.locked plan.job.spanIds
+          live = model.live }
 
     type private SynchronizedTable() =
         let lockObj = obj ()
@@ -101,7 +121,8 @@ module CoreActorPool =
             { next = 1
               defs = Map.empty
               jobs = Map.empty
-              locked = Set.empty }
+              locked = Set.empty
+              live = Map.empty }
 
         member _.Register(ActorName name, actor) =
             lock lockObj (fun () ->
@@ -121,6 +142,25 @@ module CoreActorPool =
 
         member _.GetLockedIds() =
             lock lockObj (fun () -> model.locked)
+
+        member _.PutLive(secret, focusId) =
+            lock lockObj (fun () ->
+                let row =
+                    { focusId = focusId
+                      cancel = new System.Threading.CancellationTokenSource() }
+                model <- { model with live = Map.add secret row model.live })
+
+        member _.IsLive(secret) =
+            lock lockObj (fun () -> Map.containsKey secret model.live)
+
+        member _.TakeLive(secret) =
+            lock lockObj (fun () ->
+                match Map.tryFind secret model.live with
+                | None -> None
+                | Some row ->
+                    model <-
+                        { model with live = Map.remove secret model.live }
+                    Some row)
 
     let private overlayLocks
         (lockedIds: unit -> Set<NodeId>)
@@ -158,6 +198,7 @@ module CoreActorPool =
                 | Error err -> return Error err
                 | Ok plan ->
                     do! credentials.add plan.credential
+                    table.PutLive(plan.credential, request.span.pnode)
                     let bound =
                         CoreAuth.bindHandle
                             (Authority "Actor")
@@ -177,6 +218,48 @@ module CoreActorPool =
         | Some job -> Ok job
         | None -> Error unknownJob
 
+    let private runStartActor
+        (table: SynchronizedTable)
+        (credentials: CoreCredentials)
+        (request: StartActorRequest)
+        : Async<Result<unit, string>> =
+        async {
+            let secret = Credential(Guid.NewGuid().ToString("N"))
+            do! credentials.add secret
+            table.PutLive(secret, request.focusId)
+            return Ok ()
+        }
+
+    let private runAdmit (table: SynchronizedTable) (secret: Credential) =
+        match CoreAuth.admit (table.IsLive secret) with
+        | Error err -> Error(CoreAdmissionError.text err)
+        | Ok () -> Ok ()
+
+    let private runDrop
+        (table: SynchronizedTable)
+        (credentials: CoreCredentials)
+        (secret: Credential)
+        : unit =
+        match table.TakeLive secret with
+        | None -> ()
+        | Some row ->
+            row.cancel.Cancel()
+            credentials.remove secret |> Async.RunSynchronously
+
+    let private runFinish
+        (table: SynchronizedTable)
+        (credentials: CoreCredentials)
+        (secret: Credential)
+        (result: ActorResult)
+        : Result<unit, string> =
+        match result with
+        | ActorSucceeded ->
+            match runAdmit table secret with
+            | Error err -> Error err
+            | Ok () ->
+                runDrop table credentials secret
+                Ok ()
+
     let create (credentials: CoreCredentials) : CoreActorPool =
         let table = SynchronizedTable()
         let lockedIds () = table.GetLockedIds()
@@ -184,4 +267,9 @@ module CoreActorPool =
           lockedIds = lockedIds
           withLocks = overlayLocks lockedIds
           launch = runLaunch table credentials
-          query = runQuery table }
+          query = runQuery table
+          startActor = runStartActor table credentials
+          isLive = table.IsLive
+          admit = runAdmit table
+          drop = runDrop table credentials
+          finish = runFinish table credentials }

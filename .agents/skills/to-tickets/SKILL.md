@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # To Tickets
 
-Turn the Project's `arch.md` into **tickets**. Propagate its **Sequence** — do not re-choose or quiz. Draft the full predefined set for that Sequence. Each ticket declares the tickets that **block** it.
+Turn the Project's `arch.md` into **tickets**. Propagate its **Sequence** — do not re-choose or quiz. Draft and publish the full predefined set for that Sequence immediately; the written files are the review surface. Each ticket declares the tickets that **block** it.
 
 ## Process
 
@@ -28,7 +28,7 @@ Done: one mode is fixed for this run.
 
 ### 3. Draft the full set
 
-Draft every ticket the Sequence implies (all open Story paths, or all open Module map entries, or the expand–contract chain). When the user names a subset, ticket only that subset — Sequence still governs the kind. Number and name every ticket, section, and list item per [[.agents/rules/refer-by-name.md]]. Give each ticket its **blocking edges**. A ticket with no blockers can start immediately. Skip Story paths or modules the arch already marks fully `[x]` unless the user names them.
+Draft every ticket the Sequence implies (all open Story paths, or all open Module map entries, or the expand–contract chain). When the user names a subset, ticket only that subset — Sequence still governs the kind. Number and name every ticket, build subsection, and checklist item per [[.agents/rules/refer-by-name.md]]; keep the fixed wrapper sections unnumbered per [[PUBLISH.md]]. Give each ticket its **blocking edges**. A ticket with no blockers can start immediately. Skip Story paths or modules the arch already marks fully `[x]` unless the user names them.
 
 #### Tracer cut (`tracer-cut`)
 
@@ -60,4 +60,4 @@ Done: a numbered draft list exists for every item in the Sequence's set, each wi
 
 ### 4. Publish
 
-Publish the full draft set per [[PUBLISH.md]] — no breakdown quiz. Set `Stage: slice` and `Updated:` on `project.md` per [[doc/agents/project-status.md]]. Name the frontier in the reply. Done: each ticket is one file, the frontier is named, and project Stage is `slice`.
+Publish the full draft set immediately per [[PUBLISH.md]]; do not ask for approval or run a breakdown quiz first. Set `Stage: slice` and `Updated:` on `project.md` per [[doc/agents/project-status.md]]. Name the frontier in the reply. Done: each ticket is one file, the frontier is named, and project Stage is `slice`.

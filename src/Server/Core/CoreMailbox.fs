@@ -87,18 +87,32 @@ module CoreMailbox =
 
     let dispose (host: MailboxHost) = host.dispose ()
 
-    let startFile (credentials: CoreCredentials) : FileAgent.MailboxStarter =
+    let startFileWithActors
+        (credentials: CoreCredentials)
+        (actors: ActorMailboxHandlers)
+        : FileAgent.MailboxStarter =
         fun handlers onError formatError ->
-            CoreMailboxBackend.start credentials handlers onError formatError
+            CoreMailboxBackend.start
+                credentials handlers actors onError formatError
 
-    let startDb (credentials: CoreCredentials) =
+    let startFile (credentials: CoreCredentials) : FileAgent.MailboxStarter =
+        startFileWithActors credentials ActorMailboxHandlers.noop
+
+    let startDbWithActors
+        (credentials: CoreCredentials)
+        (actors: ActorMailboxHandlers)
+        =
         fun handlers onError formatError until ->
             CoreMailboxBackend.startWithPrelude
                 credentials
                 handlers
+                actors
                 onError
                 formatError
                 until
+
+    let startDb (credentials: CoreCredentials) =
+        startDbWithActors credentials ActorMailboxHandlers.noop
 
     let createFile
         (startMailbox: FileAgent.MailboxStarter)
