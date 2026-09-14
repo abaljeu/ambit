@@ -362,11 +362,8 @@ module DbAgent =
         postGraphOnlyChange = fun changes ->
             processPostChange loaded changes true
         snapshotDone = handleSnapshotDone loaded
-        appendActorStarted = fun focusId authority ->
-            loaded.state.Value <- History.appendActorStarted focusId authority loaded.state.Value
-            Ok ()
-        appendActorFinished = fun focusId ->
-            loaded.state.Value <- History.appendActorFinished focusId loaded.state.Value
+        mapState = fun f ->
+            loaded.state.Value <- f loaded.state.Value
             Ok ()
     }
 

@@ -262,11 +262,8 @@ module FileAgent =
             postGraphOnlyChange = fun changes ->
                 processPostChange changes true
             snapshotDone = fun _ -> ()
-            appendActorStarted = fun focusId authority ->
-                state.Value <- History.appendActorStarted focusId authority state.Value
-                Ok ()
-            appendActorFinished = fun focusId ->
-                state.Value <- History.appendActorFinished focusId state.Value
+            mapState = fun f ->
+                state.Value <- f state.Value
                 Ok ()
         }
 
