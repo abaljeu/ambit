@@ -1,7 +1,6 @@
 module Gambol.Server.Tests.TestActorHelloTests
 
 open System
-open System.Threading
 open System.Threading.Tasks
 open Xunit
 open Gambol.Server
@@ -14,6 +13,36 @@ let private requireOk label result =
     | Error err ->
         Assert.Fail($"{label}: {err}")
         Unchecked.defaultof<_>
+
+let private waitForActorFinished host focusId timeoutMs =
+    task {
+        let mutable found = false
+        let startTime = DateTime.UtcNow
+        while not found && (DateTime.UtcNow - startTime).TotalMilliseconds < float timeoutMs do
+            let! events =
+                CoreMailbox.lifecycleEvents host
+                |> Async.StartAsTask
+            found <-
+                events
+                |> List.exists (fun event ->
+                    match event with
+                    | ActorEvent (_, ActorFinished fid) when fid = focusId -> true
+                    | _ -> false)
+            if not found then
+                do! Task.Delay(10)
+        return found
+    }
+
+let private waitForLiveRowDrop pool focusId timeoutMs =
+    task {
+        let mutable dropped = false
+        let startTime = DateTime.UtcNow
+        while not dropped && (DateTime.UtcNow - startTime).TotalMilliseconds < float timeoutMs do
+            dropped <- not (Set.contains focusId (pool.liveFocusIds ()))
+            if not dropped then
+                do! Task.Delay(10)
+        return dropped
+    }
 
 let private sampleRequest focusId commandId graphIds: StartActorRequest =
     { zoomId = Graph.rootId
@@ -70,7 +99,8 @@ let ``TestActor hello posts one Owned child text hello under Focus`` () =
             |> Async.StartAsTask
         requireOk "startActor" result
         
-        Thread.Sleep(100)
+        let! finished = waitForActorFinished host request.focusId 1000
+        Assert.True(finished, "ActorFinished not received within timeout")
         
         let! state =
             CoreMailbox.getState host
@@ -113,7 +143,8 @@ let ``TestActor hello stops successfully with ActorSucceeded`` () =
             |> Async.StartAsTask
         requireOk "startActor" result
         
-        Thread.Sleep(100)
+        let! finished = waitForActorFinished host request.focusId 1000
+        Assert.True(finished, "ActorFinished not received within timeout")
         
         let! events =
             CoreMailbox.lifecycleEvents host
@@ -155,7 +186,8 @@ let ``TestActor hello drops live row after successful stop`` () =
         
         Assert.True(Set.contains request.focusId (pool.liveFocusIds ()))
         
-        Thread.Sleep(100)
+        let! dropped = waitForLiveRowDrop pool request.focusId 1000
+        Assert.True(dropped, "Live row not dropped within timeout")
         
         Assert.False(Set.contains request.focusId (pool.liveFocusIds ()))
     })
@@ -183,7 +215,8 @@ let ``TestActor hello observes ActorStarted before output`` () =
             |> Async.StartAsTask
         requireOk "startActor" result
         
-        Thread.Sleep(100)
+        let! finished = waitForActorFinished host request.focusId 1000
+        Assert.True(finished, "ActorFinished not received within timeout")
         
         let! events =
             CoreMailbox.lifecycleEvents host
@@ -233,7 +266,8 @@ let ``TestActor hello interprets command node text`` () =
             |> Async.StartAsTask
         requireOk "startActor" result
         
-        Thread.Sleep(100)
+        let! finished = waitForActorFinished host request.focusId 1000
+        Assert.True(finished, "ActorFinished not received within timeout")
         
         let! state =
             CoreMailbox.getState host
