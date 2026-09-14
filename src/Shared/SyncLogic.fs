@@ -33,14 +33,14 @@ module SyncLogic =
         else None
 
     /// Server-restart signal: poll/load `buildEpochSec` (DeployEpochSec) differs
-    /// from the page's deploy stamp. Not CodeOutdated — same API can keep the tab.
+    /// from the webpage's deploy stamp. Not CodeOutdated — same API can keep the tab.
     let serverProcessRestarted
-        (pageDeployEpochSec: int)
+        (webpageDeployEpochSec: int)
         (serverBuildEpochSec: int)
         : bool =
-        pageDeployEpochSec > 0
+        webpageDeployEpochSec > 0
         && serverBuildEpochSec > 0
-        && pageDeployEpochSec <> serverBuildEpochSec
+        && webpageDeployEpochSec <> serverBuildEpochSec
 
     let private asProjectionState (state: ClientSyncState) : State =
         { graph = state.graph

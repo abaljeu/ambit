@@ -63,3 +63,7 @@ If the spec is missing, skip the Spec sub-agent and note this in the final repor
 Present the two reports under `## Standards` and `## Spec` headings, verbatim or lightly cleaned. Keep the axes separate: do not merge or rerank findings, and do not pick a single winner across axes.
 
 End with a one-line summary: total findings per axis, and the worst issue _within each axis_ (if any).
+
+### 6. Ticket Status
+
+A report is not approval. Leave `coded` unless the user approves the review for a named ticket. Then set that ticket `**Status:** done` ([[doc/agents/triage-labels.md]]). Do not rewrite a legacy Status on a ticket you did not set to `coded`. Done: Status is `done` only after that approval; otherwise Status is unchanged.

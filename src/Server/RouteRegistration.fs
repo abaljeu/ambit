@@ -156,7 +156,13 @@ module RouteRegistration =
         match BrowserRequestCreds.tryCookieSecret req with
         | None -> async.Return(Results.Unauthorized())
         | Some secret ->
-            cont (persistence.Core.browserChanges secret)
+            async {
+                let! live = persistence.Core.credentials.contains secret
+                if live then
+                    return! cont (persistence.Core.browserChanges secret)
+                else
+                    return Results.Unauthorized()
+            }
 
     let private stripXmlDeclaration (text: string) =
         if text.StartsWith("<?xml") then

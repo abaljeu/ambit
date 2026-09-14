@@ -6,11 +6,10 @@ This file is the single source of truth for the **Status** list on every ticket.
 
 | Status | Meaning |
 | --- | --- |
-| `ready-for-agent` | Fully specified and ready for an AFK agent |
-| `ready-for-human` | Human implementation or judgment is required |
-| `needs-info` | Waiting for more information |
-| `blocked` | Waiting on a named dependency |
-| `done` | Work on this ticket is delivered |
+| `needs-info` | Get more information |
+| `blocked` | Wait on a named dependency |
+| `coded` | Review the implementation |
+| `done` | Review approved this ticket |
 | `cancelled` | Reject or abandon this ticket |
 
-Takeable tickets are `ready-for-agent` or `ready-for-human`. Closed is `done` only. In-flight work keeps a takeable value until `done`. `cancelled` is reject or abandon of a ticket, not Stage `dead`. Keep `blocked` even when no live ticket uses it. Do not use `needs-triage`, `wontfix`, `open`, `resolved`, `claimed`, `closed`, `agent-done`, or `in-progress`. Do not use `dead` on a ticket; `dead` is a Stage.
+Each value names the next action, or a closed end. Closed is `done` only. Implement writes `coded`. Review approval writes `done`. Git **agent-done** is not `coded` and not `done`. Do not write `ready-for-agent` or `ready-for-human` on new tickets. Existing tickets may still carry those values; do not rewrite them. `cancelled` is reject or abandon of a ticket, not Stage `dead`. Keep `blocked` even when no live ticket uses it. Do not use `needs-triage`, `wontfix`, `open`, `resolved`, `claimed`, `closed`, `agent-done`, or `in-progress`. Do not use `dead` on a ticket; `dead` is a Stage.

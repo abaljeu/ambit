@@ -64,7 +64,13 @@ module CoreMailbox =
               getRevision = fun () -> getRevision host
               getChangesSince = getChangesSince host
               isReady = host.isReady
-              postChange = fun changes -> postChange host auth sec changes
+              postChange =
+                fun changes ->
+                    CoreAuth.post
+                        credentials
+                        sec
+                        (postChange host auth sec)
+                        changes
               postGraphOnlyChange =
                 fun changes ->
                     CoreAuth.post

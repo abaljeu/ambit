@@ -49,7 +49,7 @@ _Avoid_: Status (for this field), grilling (as a Stage), steering (as a Stage), 
 
 **Status**:
 The next-action field (`**Status:**`) on a ticket. The value list is [[doc/agents/triage-labels.md]]. A Project, Epic, Chapter, and the Roadmap do not carry Status.
-_Avoid_: Stage (for this field), needs-triage, wontfix, open, resolved, claimed, closed, agent-done, in-progress (as ticket Status)
+_Avoid_: Stage (for this field), needs-triage, wontfix, open, resolved, claimed, closed, agent-done, in-progress, ready-for-agent, ready-for-human (as ticket Status on new work)
 
 **Grilling**:
 An interview method that refines a concept that is already clear. Not a Stage and not a Status. Use it at any live Stage when a slice is sharp. When the destination is still fog, use Wayfinder.

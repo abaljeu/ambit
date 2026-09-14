@@ -2,7 +2,7 @@
 
 Write one file per ticket under `plan/<feature-slug>/issues/<NN>-<slug>.md`. Number from `01` in dependency order (blockers first). Each file's **Blocked by** lists the numbers and names it depends on. Number every section and every checklist item; give each a name per [[.agents/rules/refer-by-name.md]]. Use the template below. One ticket per file. Include one or two pointers to defining specs from which the ticket was derived. Trace back to decision files, not only `spec.md`.
 
-Record the **frontier** (takeable tickets whose blockers are all done) for a later implement. For a purely linear chain that is the first ticket. Name it in the reply.
+Record the **frontier** (unblocked tickets whose Status names the next action, per [[doc/agents/triage-labels.md]]) for a later implement. For a purely linear chain that is the first ticket. Name it in the reply. Do not write `ready-for-agent` or `ready-for-human`. Do not rewrite Status on existing tickets.
 
 Leave the parent issue as it is. Publish the child tickets only.
 
@@ -12,7 +12,7 @@ Existing tickets stay in their current shape. See [[.agents/rules/no-retrofit.md
 
 # <NN> — <Ticket title>
 
-**Status:** ready-for-agent
+**Status:** a value from [[doc/agents/triage-labels.md]] that names the next action (`needs-info`, `blocked`, or later `coded`). Never `ready-for-agent` or `ready-for-human`.
 **Blocked by:** the numbers and names of the tickets that gate this one, or "None — can start immediately".
 
 ## 1. Context

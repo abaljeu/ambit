@@ -1,5 +1,5 @@
 interface:
   display_name: "To Tickets"
-  short_description: "Split a plan into tickets (tracer-cut, module-build, or expand-contract)"
+  short_description: "Propagate arch Sequence into tickets (story paths, modules, or expand-contract)"
 policy:
   allow_implicit_invocation: false

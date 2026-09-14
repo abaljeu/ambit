@@ -1,6 +1,6 @@
 # 33 — Credentialed Browser Change posts
 
-**Status:** done
+**Status:** ready-for-agent
 **Blocked by:** None — can start immediately. Point 0 ([[30-reshape-coreactorpool-synchronized-table.md]], [[31-one-coremsg-loop-parameterized-persist.md]], [[32-move-persist-agents-under-coremailbox.md]]) is done. Not blocked by [[29-prove-testactor-hello.md|Prove TestActor hello]].
 Estimate: 2h
 Actual: 5h45m
@@ -100,7 +100,7 @@ Boot seed for Browser credential. Contracts on arch **CoreRuntime**.
 
 ## 4. See also
 
-[[plan/core-creation/arch.md|Core creation architecture]], [[doc/Decisions/0004-core-mailbox-messages-clear-fast.md]], [[20-client-presents-credential.md]], [[23-close-core-object-seam.md]], [[25-bind-changes-at-core-seam.md]], [[32-move-persist-agents-under-coremailbox.md]], [[29-prove-testactor-hello.md]], [[Implementation Planning and Record.md]], [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]], [[src/Server/AuthToken.fs]]
+[[plan/architecture/browser-and-app-auth.md|Browser and App auth]] (durable runtime auth), [[plan/core-creation/arch.md|Core creation architecture]], [[doc/Decisions/0004-core-mailbox-messages-clear-fast.md]], [[20-client-presents-credential.md]], [[23-close-core-object-seam.md]], [[25-bind-changes-at-core-seam.md]], [[32-move-persist-agents-under-coremailbox.md]], [[29-prove-testactor-hello.md]], [[Implementation Planning and Record.md]], [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]], [[src/Server/AuthToken.fs]]
 
 ## 5. Comments
 
@@ -109,7 +109,9 @@ Boot seed for Browser credential. Contracts on arch **CoreRuntime**.
 - 2026-09-13 — Redesign locked: cookie `gambol_auth` is the credential; seed at boot with `AuthToken.deriveToken(Auth config)`; request-carried creds validate at CoreMailbox only; undo File/Db/CoreActor/CoreActorPool/GUID deltas. Status returned to `ready-for-agent`; acceptance unchecked until target holds. Arch Story path **Browser Change posts** still shows `[x]` — align [[plan/core-creation/arch.md|Core creation architecture]] when reconciling (prefer this ticket as source of truth for remaining work).
 - 2026-09-13 — Re-implement against redesign: File/Db take MailboxStarter (no CoreCredentials); createFile/createDb take starter; boot seeds `deriveToken`; Change posts carry request cookie; login `credentials.add`; request path reseeds cookie into the set.
 - 2026-09-14 — Spec-gap fix after review of `4008e8d`: state/poll/load use request cookie; missing cookie refuses (no closed-over fallback); client reacts to DeployEpochSec restart/initial-load; boot+login `credentials.add` only.
+- 2026-09-14 — Durable runtime auth description: [[plan/architecture/browser-and-app-auth.md|Browser and App auth]].
 - 2026-09-14 — Wording correction: client “reseed / re-establish” is epoch / `__BUILD_TS__` only, not cookie re-issue. Credential identity stays boot-seeded `gambol_auth` = `deriveToken`; durable cookie still admits after restart. Desktop Cookie-header attach (vs this wording) is [[plan/core-creation/reports/desktop-app-401.md]].
+- 2026-09-14 — Status returned to `ready-for-agent`: coded, not review-approved. `done` waits for review approval (no coded Status).
 
 ## Time
 

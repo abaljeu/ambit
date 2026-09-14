@@ -19,13 +19,13 @@ let currentFile =
 
 /// DeployEpochSec restart signal / initial-load establish — no new chrome.
 let reseedDeployEpochOnServerSignal (serverBuildEpochSec: int) : bool =
-    let page = readBuildEpochSec ()
-    if SyncLogic.serverProcessRestarted page serverBuildEpochSec then
+    let webpageTime = readBuildEpochSec ()
+    if SyncLogic.serverProcessRestarted webpageTime serverBuildEpochSec then
         writeBuildEpochSec serverBuildEpochSec
         consoleLog (
             "[Gambol sync] server restart signal — reseed deploy epoch")
         true
-    elif page <= 0 && serverBuildEpochSec > 0 then
+    elif webpageTime <= 0 && serverBuildEpochSec > 0 then
         writeBuildEpochSec serverBuildEpochSec
         true
     else
