@@ -26,9 +26,9 @@ Use the **CoreMailbox** door when the proof exercises the full public Core lifec
 
 Keep start, admitted output, and stop ordered on **CoreMsg / CoreMailboxBackend**.
 
-1. [ ] Start on the loop — validate the caller, call startActor synchronously, and reply with that result; do not wait for the Actor body. Bookkeeping (identities, live row, ActorStarted, schedule) is on the loop. Schedule is fire-and-forget of the body only. ActorStarted uses in-loop persist/History, not PostAndAsyncReply to the same mailbox.
-2. [ ] Admit live output — accept TestActor's Change only while its Authority and live row remain valid on the mailbox-owned table.
-3. [ ] Finish once — process `ActorStop ActorSucceeded` after earlier Actor output; drop the live row and secret (the mailbox uses pool drop); request terminate without waiting. The public identity stays on History.
+1. [x] Start on the loop — validate the caller, call startActor synchronously, and reply with that result; do not wait for the Actor body. Bookkeeping (identities, live row, ActorStarted, schedule) is on the loop. Schedule is fire-and-forget of the body only. ActorStarted uses in-loop persist/History, not PostAndAsyncReply to the same mailbox.
+2. [x] Admit live output — accept TestActor's Change only while its Authority and live row remain valid on the mailbox-owned table.
+3. [x] Finish once — process `ActorStop ActorSucceeded` after earlier Actor output; drop the live row and secret (the mailbox uses pool drop); request terminate without waiting. The public identity stays on History.
 
 ### 3. CoreActorPool start
 
@@ -43,9 +43,9 @@ Use **CoreActorPool** as the live registry and start seam.
 
 Record Actor lifecycle Events on **History** with Graph Actions.
 
-1. [ ] Record ActorStarted — preserve the durable public Actor identity.
-2. [ ] Record one ActorFinished — append exactly one successful terminal Event.
-3. [ ] Preserve Change-only Undo — do not make Actor lifecycle Events Undo targets.
+1. [x] Record ActorStarted — preserve the durable public Actor identity.
+2. [x] Record one ActorFinished — append exactly one successful terminal Event.
+3. [x] Preserve Change-only Undo — do not make Actor lifecycle Events Undo targets.
 
 ### 5. TestActor hello
 
@@ -87,3 +87,4 @@ Verify Story path **Outside Core lifecycle proof** from outside the Actor.
 - 2026-09-14 20m — Align Story path 2 wording to current arch (from chat)
 - 2026-09-14 25m — Implement §1 CoreMailbox door (startActor, actorStop, lifecycle facts)
 - 2026-09-14 — §1.3 partial: Graph and `lockPresent` exposed via getState; lifecycle Events blocked on §4 History append (ActorStarted/Finished). Door functions startActor/actorStop remain in place.
+- 2026-09-14 90m — Implement §2 CoreMsg lifecycle and §4 History append (ActorStarted/ActorFinished). dispatchStartActor appends ActorStarted via in-loop persist after pool.startActor; dispatchActorStop appends ActorFinished before pool.finish. History holds HistoryEvent (Change or Actor lifecycle) on one sequence. Actor authority placeholder until §3 selection. Events exist but not yet exposed (§1.3 remains partial).
