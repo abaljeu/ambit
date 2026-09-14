@@ -56,6 +56,7 @@ let ``TestActor hello posts one Owned child text hello under Focus`` () =
               changeId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(commandId, "hello")
+                  Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
             CoreMailbox.postGraphOnlyChange host [ change ]
@@ -98,6 +99,7 @@ let ``TestActor hello stops successfully with ActorSucceeded`` () =
               changeId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(commandId, "hello")
+                  Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
             CoreMailbox.postGraphOnlyChange host [ change ]
@@ -137,6 +139,7 @@ let ``TestActor hello drops live row after successful stop`` () =
               changeId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(commandId, "hello")
+                  Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
             CoreMailbox.postGraphOnlyChange host [ change ]
@@ -166,6 +169,7 @@ let ``TestActor hello observes ActorStarted before output`` () =
               changeId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(commandId, "hello")
+                  Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
             CoreMailbox.postGraphOnlyChange host [ change ]
@@ -215,6 +219,7 @@ let ``TestActor hello interprets command node text`` () =
               changeId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(commandId, "HELLO")
+                  Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
             CoreMailbox.postGraphOnlyChange host [ change ]
