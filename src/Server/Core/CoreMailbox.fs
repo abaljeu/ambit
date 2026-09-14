@@ -13,7 +13,7 @@ open Gambol.Shared
 ///
 /// Data exposure:
 /// - getState: Read the Graph with lockPresent overlay. Returns Graph facts only.
-/// - lifecycleEvents: Read mailbox-owned History (Change + Actor lifecycle Events).
+/// - eventHistory: Read mailbox-owned History (Change + Actor lifecycle Events).
 ///   One sequence per mailbox, process-lifetime until durability. Undo remains Change-only.
 [<RequireQualifiedAccess>]
 module CoreMailbox =
@@ -33,7 +33,7 @@ module CoreMailbox =
         : Async<Result<State, string>> =
         tryGetState host
 
-    let lifecycleEvents
+    let eventHistory
         (host: MailboxHost)
         : Async<HistoryEvent list> =
         host.mailbox.PostAndAsyncReply GetLifecycleEvents

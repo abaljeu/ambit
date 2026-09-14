@@ -20,7 +20,7 @@ let private waitForActorFinished host focusId timeoutMs =
         let startTime = DateTime.UtcNow
         while not found && (DateTime.UtcNow - startTime).TotalMilliseconds < float timeoutMs do
             let! events =
-                CoreMailbox.lifecycleEvents host
+                CoreMailbox.eventHistory host
                 |> Async.StartAsTask
             found <-
                 events
@@ -147,7 +147,7 @@ let ``TestActor hello stops successfully with ActorSucceeded`` () =
         Assert.True(finished, "ActorFinished not received within timeout")
         
         let! events =
-            CoreMailbox.lifecycleEvents host
+            CoreMailbox.eventHistory host
             |> Async.StartAsTask
         
         let actorFinishedEvents =
@@ -219,7 +219,7 @@ let ``TestActor hello observes ActorStarted before output`` () =
         Assert.True(finished, "ActorFinished not received within timeout")
         
         let! events =
-            CoreMailbox.lifecycleEvents host
+            CoreMailbox.eventHistory host
             |> Async.StartAsTask
         
         let actorStartedIndex =

@@ -136,7 +136,7 @@ let ``CoreMailbox.startActor appends ActorStarted to lifecycle events`` () =
             |> Async.StartAsTask
         requireOk "startActor" result
         let! events =
-            CoreMailbox.lifecycleEvents host
+            CoreMailbox.eventHistory host
             |> Async.StartAsTask
         let actorStartedEvents =
             events
@@ -318,7 +318,7 @@ let ``CoreActorPool.startActor appends ActorStarted before actor body runs`` () 
         requireOk "startActor" result
         
         let! events =
-            CoreMailbox.lifecycleEvents host
+            CoreMailbox.eventHistory host
             |> Async.StartAsTask
         
         let actorStartedEvents =
@@ -361,7 +361,7 @@ let ``Successful PostChange appends ChangeEvent to mailbox history`` () =
         requireOk "postChange" postResult
         
         let! events =
-            CoreMailbox.lifecycleEvents host
+            CoreMailbox.eventHistory host
             |> Async.StartAsTask
         
         let changeEvents =
@@ -398,7 +398,7 @@ let ``Actor lifecycle and Changes appear on same History sequence`` () =
         requireOk "postChange" postResult
         
         let! events =
-            CoreMailbox.lifecycleEvents host
+            CoreMailbox.eventHistory host
             |> Async.StartAsTask
         
         // Verify we have both ActorStarted and ChangeEvent in the same sequence
