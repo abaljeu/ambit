@@ -35,8 +35,8 @@ Keep start, admitted output, and stop ordered on **CoreMsg / CoreMailboxBackend*
 Use **CoreActorPool** as the live registry and start seam.
 
 1. [x] Prepare Actor input — expand the requested Graph and pass the named ids and Actor secret to TestActor.
-2. [x] Select TestActor — resolve the `test` Actor from the command Node.
-3. [x] Establish lifecycle order — identities, live row, ActorStarted, and schedule run inside the synchronous startActor call so the live row and ActorStarted are observable before TestActor output can be admitted. ActorStarted uses in-loop persist/History; schedule is fire-and-forget of the body only.
+2. [x] Select TestActor — resolve the `test` Actor from the command Node. (Fixed: actor selection now via CSS class "actor-test" or fallback to text; TestActor interprets text for command only.)
+3. [x] Establish lifecycle order — identities, live row, ActorStarted, and schedule run inside the synchronous startActor call so the live row and ActorStarted are observable before TestActor output can be admitted. ActorStarted uses in-loop persist/History; schedule is fire-and-forget of the body only. (Fixed: frozen Model bug; startActor now reads current mutable model via getModel().)
 4. [x] Own the live table — mailbox-owned live table (no SynchronizedTable, no lock, no second registry copy in loop state). The mailbox is the only thread that reads or writes the table. `admit` / `drop` / `isLive` as the mailbox uses them.
 
 ### 4. History lifecycle
