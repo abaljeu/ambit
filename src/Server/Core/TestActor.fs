@@ -42,16 +42,15 @@ module TestActor =
                     | "hello" ->
                         do! hello input coreChanges
                     | _ -> ()
-                
-                let caller =
-                    { authority = Authority "Actor"
-                      secret = input.secret }
-                let! stopResult =
-                    coreChanges.asCaller(caller).actorStop ActorSucceeded
-                return ()
             with
-            | ex ->
-                return ()
+            | ex -> ()
+            
+            let caller =
+                { authority = Authority "Actor"
+                  secret = input.secret }
+            let! stopResult =
+                coreChanges.asCaller(caller).actorStop ActorSucceeded
+            return ()
         }
 
     /// ActorFn for Actor name "test".

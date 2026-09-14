@@ -288,6 +288,36 @@ let ``TestActor hello interprets command node text`` () =
     })
 
 [<Fact>]
+let ``TestActor unknown command still finishes and drops live row`` () =
+    withHost (fun host credentials pool -> task {
+        let commandId = NodeId.New()
+        let change =
+            { id = 0
+              changeId = Guid.NewGuid()
+              ops =
+                [ Op.NewNode(commandId, "unknown")
+                  Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
+                  Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
+        let! postResult =
+            CoreMailbox.postGraphOnlyChange host [ change ]
+            |> Async.StartAsTask
+        requireOk "postChange" postResult
+        
+        let request = sampleRequest Graph.rootId commandId [ Graph.rootId; commandId ]
+        
+        let! result =
+            CoreMailbox.startActor host testCaller request
+            |> Async.StartAsTask
+        requireOk "startActor" result
+        
+        let! finished = waitForActorFinished host request.focusId 1000
+        Assert.True(finished, "ActorFinished not received within timeout")
+        
+        let! dropped = waitForLiveRowDrop pool request.focusId 1000
+        Assert.True(dropped, "Live row not dropped within timeout")
+    })
+
+[<Fact>]
 let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
     withHost (fun host credentials pool -> task {
         let commandId = NodeId.New()
