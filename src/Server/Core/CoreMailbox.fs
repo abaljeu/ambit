@@ -13,8 +13,8 @@ open Gambol.Shared
 ///
 /// Data exposure:
 /// - getState: Read the Graph with lockPresent overlay. Returns Graph facts only.
-/// - lifecycleEvents: Read Actor lifecycle Events (ActorStarted, ActorFinished)
-///   from mailbox-owned History. Separate door for Events, not merged into State.
+/// - lifecycleEvents: Read mailbox-owned History (Change + Actor lifecycle Events).
+///   One sequence per mailbox, process-lifetime until durability. Undo remains Change-only.
 [<RequireQualifiedAccess>]
 module CoreMailbox =
 

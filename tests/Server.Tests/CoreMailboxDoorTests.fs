@@ -343,3 +343,79 @@ let ``CoreActorPool.startActor creates live row synchronously`` () =
         let focusIds = pool.liveFocusIds ()
         Assert.True(Set.contains sampleRequest.focusId focusIds)
     })
+
+[<Fact>]
+let ``Successful PostChange appends ChangeEvent to mailbox history`` () =
+    withHost (fun host _ _ -> task {
+        let childId = NodeId.New()
+        let change =
+            { id = 0
+              changeId = Guid.NewGuid()
+              ops =
+                [ Op.NewNode(childId, "test")
+                  Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
+        
+        let! postResult =
+            CoreMailbox.postGraphOnlyChange host [ change ]
+            |> Async.StartAsTask
+        requireOk "postChange" postResult
+        
+        let! events =
+            CoreMailbox.lifecycleEvents host
+            |> Async.StartAsTask
+        
+        let changeEvents =
+            events
+            |> List.choose (fun event ->
+                match event with
+                | ChangeEvent c when c.changeId = change.changeId -> Some c
+                | _ -> None)
+        
+        Assert.Equal(1, changeEvents.Length)
+    })
+
+[<Fact>]
+let ``Actor lifecycle and Changes appear on same History sequence`` () =
+    withHost (fun host _ _ -> task {
+        // Start actor
+        let! startResult =
+            CoreMailbox.startActor host testCaller sampleRequest
+            |> Async.StartAsTask
+        requireOk "startActor" startResult
+        
+        // Post a change
+        let childId = NodeId.New()
+        let change =
+            { id = 0
+              changeId = Guid.NewGuid()
+              ops =
+                [ Op.NewNode(childId, "hello")
+                  Op.Replace(sampleRequest.focusId, [], [ ChildNode.owner childId ]) ] }
+        
+        let! postResult =
+            CoreMailbox.postGraphOnlyChange host [ change ]
+            |> Async.StartAsTask
+        requireOk "postChange" postResult
+        
+        let! events =
+            CoreMailbox.lifecycleEvents host
+            |> Async.StartAsTask
+        
+        // Verify we have both ActorStarted and ChangeEvent in the same sequence
+        let hasActorStarted =
+            events
+            |> List.exists (fun event ->
+                match event with
+                | ActorEvent (_, ActorStarted _) -> true
+                | _ -> false)
+        
+        let hasChangeEvent =
+            events
+            |> List.exists (fun event ->
+                match event with
+                | ChangeEvent c when c.changeId = change.changeId -> true
+                | _ -> false)
+        
+        Assert.True(hasActorStarted, "Expected ActorStarted in history")
+        Assert.True(hasChangeEvent, "Expected ChangeEvent in history")
+    })
