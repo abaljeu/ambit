@@ -11,10 +11,10 @@ open Gambol.Shared
 /// - postChange / coreChanges: Credentialed Actor Changes use the same mailbox
 ///   as Browser Changes; no second Actor mailbox.
 ///
-/// Lifecycle fact exposure:
+/// Lifecycle fact exposure (partial):
 /// - getState: Read the Graph and lockPresent facts after Actor start/stop.
-/// - Lifecycle Events (ActorStarted, ActorFinished) will be read from History
-///   once recorded (future sections of 34b).
+/// - Lifecycle Events (ActorStarted, ActorFinished) are NOT yet exposed;
+///   blocked on §4 History append.
 [<RequireQualifiedAccess>]
 module CoreMailbox =
 
