@@ -9,7 +9,6 @@ type CoreRuntime =
       /// Browser Change posts: secret is the request cookie (`gambol_auth`), not a closed-over GUID.
       browserChanges: Credential -> CoreChanges
       credentials: CoreCredentials
-      command: CoreActorPool
       browserAuthority: Authority
       browserCredential: Credential
       parseCredential: Credential
@@ -56,19 +55,19 @@ module CoreRuntime =
         : MailboxHost =
         match persistenceMode, dbStatus with
         | DatabaseSetup.PersistenceMode.Db, DatabaseSetup.DbStatus.Ok ->
-            CoreMailbox.hostDb
+            CoreMailbox.host
                 credentials
                 pool
-                (DbAgent.createWithDataDir dbConnectionString dataDir)
+                (DbAgent.persist
+                    (DbAgent.createWithDataDir dbConnectionString dataDir))
         | _ ->
-            CoreMailbox.hostFile
+            CoreMailbox.host
                 credentials
                 pool
-                (FileAgent.create dataDir)
+                (FileAgent.persist (FileAgent.create dataDir))
 
     let private bindRuntime
         host
-        pool
         credentials
         browserAuthority
         browserCredential
@@ -91,7 +90,6 @@ module CoreRuntime =
                     { authority = browserAuthority
                       secret = secret }
           credentials = credentials
-          command = pool
           browserAuthority = browserAuthority
           browserCredential = browserCredential
           parseCredential = parseCredential
@@ -128,7 +126,6 @@ module CoreRuntime =
             if writable then raw else readOnly raw
         bindRuntime
             host
-            pool
             credentials
             browserAuthority
             browserCredential

@@ -284,12 +284,16 @@ module FileAgent =
     let create (dataDir: string) : FileAgent =
         createWithDependencies (defaultDependencies dataDir) dataDir
 
-    let handlers (agent: FileAgent) = agent.handlers
-    let onError (agent: FileAgent) = agent.onError
-    let formatError (agent: FileAgent) = agent.formatError
-    let isReady (agent: FileAgent) = agent.isReady
-    let flushSnapshot (agent: FileAgent) = agent.flushSnapshot
-    let dispose (agent: FileAgent) = agent.dispose
+    let persist (agent: FileAgent) : PersistFilling = {
+        handlers = agent.handlers
+        onError = agent.onError
+        formatError = agent.formatError
+        isReady = agent.isReady
+        flushSnapshot = agent.flushSnapshot
+        dispose = agent.dispose
+        until = None
+        bindMailbox = ignore
+    }
 
     let initialState (agent: FileAgent) : State =
         agent.initialState

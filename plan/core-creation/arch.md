@@ -6,7 +6,7 @@ Sequence: tracer-cut
 
 Feature under design: the hello slice of the one-mailbox Actor program locked by [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]]. Prefer existing seams. Do not open Wayfinder map tickets for items under Unsettled. Story hops name modules and doors; State / Interface / Uses live only under Module map (thin hops / fat map).
 
-Implementation status for this cut: Point 0 loop code is shared ([[issues/30-reshape-coreactorpool-synchronized-table.md]], [[issues/31-one-coremsg-loop-parameterized-persist.md]], [[issues/32-move-persist-agents-under-coremailbox.md]]). Two started processors and a synchronized table are not the locked shape. Register-then-start one host. [[issues/29-prove-testactor-hello.md|Prove TestActor hello]] sections 1ff are not.
+Implementation status for this cut: Point 0 loop code is shared ([[issues/30-reshape-coreactorpool-synchronized-table.md]], [[issues/31-one-coremsg-loop-parameterized-persist.md]], [[issues/32-move-persist-agents-under-coremailbox.md]]). Two started processors and a locked live table are not the locked shape. Register-then-start one host. Mailbox-owned live table (no lock). [[issues/29-prove-testactor-hello.md|Prove TestActor hello]] sections 1ff are not.
 
 ## 1. Story paths
 
@@ -177,7 +177,7 @@ Deltas for this Project’s hello / one-mailbox Actor program. Persist fillings 
 
 1. [ ] **CoreMailbox door** — External seam for production and HTTP. Interface on **CoreMailbox**.
 2. [ ] **CoreMsg union** — Internal one-mailbox seam. Interface on **CoreMsg / CoreMailboxBackend**. No second Actor mailbox or nested `ActorMsg` pump in this slice.
-3. [ ] **CoreActorPool table and start** — Live registry plus start seam. Interface on **CoreActorPool**. Table is the single registry (no second copy in loop state). Access is mailbox-owned, so no SynchronizedTable.
+3. [ ] **CoreActorPool table and start** — Live registry plus start seam. Interface on **CoreActorPool**. Table is the single registry (no second copy in loop state). Access is mailbox-owned, so not a lock around the live table.
 4. [ ] **History** — Interface on **History**. One sequence; no Actor event log outside CoreMailbox.
 5. [ ] **ActorFn / TestActor input** — Definition and body-input seam. Interface on **TestActor**; register via **CoreActorPool**. Core does not embed Actor bodies.
 6. [x] **PersistHandlers** — Persist seam already landed by [[issues/31-one-coremsg-loop-parameterized-persist.md|One CoreMsg loop parameterized persist]] and [[issues/32-move-persist-agents-under-coremailbox.md|Move persist agents under CoreMailbox]]. Hello does not widen it. Actor cases stay off this parameter. File and Db are not Actor mailboxes. Interface on **PersistHandlers**.

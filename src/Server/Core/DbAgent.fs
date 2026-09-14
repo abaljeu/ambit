@@ -517,12 +517,13 @@ module DbAgent =
     let create (connectionString: string) : DbAgent =
         createWithLiveSave connectionString None
 
-    let persistOf (agent: DbAgent) = agent.handlers
-    let onErrorOf (agent: DbAgent) = agent.onError
-    let formatErrorOf (agent: DbAgent) = agent.formatError
-    let untilOf (agent: DbAgent) = agent.until
-    let attachMailbox (agent: DbAgent) mailbox =
-        agent.bindMailbox mailbox
-    let isReadyOf (agent: DbAgent) = agent.isReady
-    let flushOf (agent: DbAgent) = agent.flushSnapshot
-    let disposeOf (agent: DbAgent) = agent.dispose
+    let persist (agent: DbAgent) : PersistFilling = {
+        handlers = agent.handlers
+        onError = agent.onError
+        formatError = agent.formatError
+        isReady = agent.isReady
+        flushSnapshot = agent.flushSnapshot
+        dispose = agent.dispose
+        until = Some agent.until
+        bindMailbox = agent.bindMailbox
+    }
