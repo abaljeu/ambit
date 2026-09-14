@@ -35,7 +35,6 @@ type PersistHandlers = {
     postGraphOnlyChange:
         Change list -> Result<CoreChangesAccepted, string>
     snapshotDone: Graph option -> unit
-    mapState: (State -> State) -> Result<unit, string>
 }
 
 [<RequireQualifiedAccess>]
@@ -133,6 +132,7 @@ module internal CoreMailboxBackend =
         pool: CoreActorPool
         onError: string -> string -> exn -> unit
         formatError: string -> string
+        mailboxHistory: History ref
     }
 
     let private admitActorPost (loop: Loop) (caller: Caller) =
@@ -158,10 +158,16 @@ module internal CoreMailboxBackend =
             match loop.pool.startActor request with
             | Error err -> reply.Reply(Error err)
             | Ok () ->
-                match loop.persist.mapState
-                    (History.appendActorStarted request.focusId "") with
-                | Error err -> reply.Reply(Error err)
-                | Ok () -> reply.Reply(Ok ())
+                let event =
+                    ActorEvent(
+                        loop.mailboxHistory.Value.nextId,
+                        ActorStarted(request.focusId, ""))
+                loop.mailboxHistory.Value <- {
+                    loop.mailboxHistory.Value with
+                        past = loop.mailboxHistory.Value.past @ [ event ]
+                        nextId = loop.mailboxHistory.Value.nextId + 1
+                }
+                reply.Reply(Ok ())
 
     let private dispatchActorStop
         (loop: Loop)
@@ -179,10 +185,16 @@ module internal CoreMailboxBackend =
                 let focusId = 
                     loop.pool.getFocusId caller.secret 
                     |> Option.defaultValue Graph.rootId
-                match loop.persist.mapState
-                    (History.appendActorFinished focusId) with
-                | Error err -> reply.Reply(Error err)
-                | Ok () -> reply.Reply(loop.pool.finish caller.secret result)
+                let event =
+                    ActorEvent(
+                        loop.mailboxHistory.Value.nextId,
+                        ActorFinished(focusId))
+                loop.mailboxHistory.Value <- {
+                    loop.mailboxHistory.Value with
+                        past = loop.mailboxHistory.Value.past @ [ event ]
+                        nextId = loop.mailboxHistory.Value.nextId + 1
+                }
+                reply.Reply(loop.pool.finish caller.secret result)
 
     let private dispatchPostChange
         (loop: Loop)
@@ -204,7 +216,12 @@ module internal CoreMailboxBackend =
                     GraphSpan.withLockPresent
                         (loop.pool.liveFocusIds ())
                         state.graph
-                reply.Reply(Ok { state with graph = graph })
+                let mergedHistory = {
+                    state.history with
+                        past = state.history.past @ loop.mailboxHistory.Value.past
+                        nextId = max state.history.nextId loop.mailboxHistory.Value.nextId
+                }
+                reply.Reply(Ok { state with graph = graph; history = mergedHistory })
         | GetRevision reply -> reply.Reply(loop.persist.getRevision ())
         | GetChangesSince (after, reply) ->
             reply.Reply(loop.persist.getChangesSince after)
@@ -237,7 +254,8 @@ module internal CoreMailboxBackend =
           persist = persist
           pool = pool
           onError = onError
-          formatError = formatError }
+          formatError = formatError
+          mailboxHistory = ref History.empty }
 
     let start
         (credentials: CoreCredentials)
@@ -279,7 +297,6 @@ module internal CoreMailboxBackend =
             postChange = fun _ -> Error error
             postGraphOnlyChange = fun _ -> Error error
             snapshotDone = fun _ -> ()
-            mapState = fun _ -> Error error
         }
 
         MailboxProcessor<CoreMsg>.Start(fun inbox ->

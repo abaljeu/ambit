@@ -362,9 +362,6 @@ module DbAgent =
         postGraphOnlyChange = fun changes ->
             processPostChange loaded changes true
         snapshotDone = handleSnapshotDone loaded
-        mapState = fun f ->
-            loaded.state.Value <- f loaded.state.Value
-            Ok ()
     }
 
     let private logUnhandledException liveSaveDataDir operation context (ex: exn) =

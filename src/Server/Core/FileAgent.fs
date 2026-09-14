@@ -262,9 +262,6 @@ module FileAgent =
             postGraphOnlyChange = fun changes ->
                 processPostChange changes true
             snapshotDone = fun _ -> ()
-            mapState = fun f ->
-                state.Value <- f state.Value
-                Ok ()
         }
 
         let onError operation context ex =
