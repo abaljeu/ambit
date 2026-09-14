@@ -141,6 +141,8 @@ The server:
 
 Key modules: [[src/Server/Api.fs]] (`AgentHandle`), [[src/Server/Core/CoreMailbox.fs]], [[src/Server/Core/CoreMailboxBackend.fs]], [[src/Server/FileAgent.fs]], [[src/Server/DbAgent.fs]], [[src/Server/Database.fs]], [[src/Server/DatabaseSetup.fs]], [[src/Server/ChangeLog.fs]], [[src/Server/DocumentLoader.fs]].
 
+**History**: The mailbox owns one in-memory History sequence (process-lifetime until durability) containing both successful Change events and Actor lifecycle events (ActorStarted, ActorFinished). Undo/Redo remain Change-only; Actor Events are not Undo targets.
+
 ### Core mailbox and persistence agents
 
 [[src/Server/Core/CoreMailbox.fs]] owns the shared `CoreMsg` mailbox contract and the qualified callable interface over `MailboxProcessor<CoreMsg>`. The contract has exactly six cases with their existing payloads: `GetState` with a state result reply, `GetRevision` with a revision result reply, `GetChangesSince` with the revision index and change-list result reply, `PostChange` and `PostGraphOnlyChange` with change lists and accepted-change result replies, and `SnapshotDone` with an optional graph. `CoreMailbox` centralizes the mailbox posts, result unwrapping, Revision-to-int conversion, and construction of the six-field `CoreChanges` handle.

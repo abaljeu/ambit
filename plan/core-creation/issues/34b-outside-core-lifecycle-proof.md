@@ -41,11 +41,12 @@ Use **CoreActorPool** as the live registry and start seam.
 
 ### 4. History lifecycle
 
-Record Actor lifecycle Events on **History** with Graph Actions.
+Record Actor lifecycle Events and successful Changes on **History**.
 
 1. [x] Record ActorStarted — preserve the durable public Actor identity.
 2. [x] Record one ActorFinished — append exactly one successful terminal Event.
 3. [x] Preserve Change-only Undo — do not make Actor lifecycle Events Undo targets.
+4. [x] Mailbox owns one History sequence — successful PostChange and postGraphOnlyChange append ChangeEvent(s) for the accepted Change(s); ActorStarted and ActorFinished append Actor Events. All on mailboxHistory.past (process-lifetime until durability).
 
 ### 5. TestActor hello
 
