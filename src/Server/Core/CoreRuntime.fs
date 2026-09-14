@@ -6,7 +6,8 @@ open Gambol.Shared
 type CoreRuntime =
     { changes: unit -> CoreChanges
       bindChanges: Credential -> CoreChanges
-      browserChanges: unit -> CoreChanges
+      /// Browser Change posts: secret is the request cookie (`gambol_auth`), not a closed-over GUID.
+      browserChanges: Credential -> CoreChanges
       credentials: CoreCredentials
       command: CoreActorPool
       browserAuthority: Authority
@@ -68,25 +69,44 @@ module CoreRuntime =
                              |> Option.map (fun d -> d.asCaller a s)) }
         wrap file db
 
-    let private addLifetimeCredentials (credentials: CoreCredentials) =
-        let browser = Credential(Guid.NewGuid().ToString("N"))
-        let parse = Credential(Guid.NewGuid().ToString("N"))
+    let private startFile (credentials: CoreCredentials) : FileAgent.MailboxStarter =
+        CoreMailbox.startFile credentials
+
+    let private startDb (credentials: CoreCredentials) =
+        CoreMailbox.startDb credentials
+
+    let private seedBrowserCredential
+        (credentials: CoreCredentials)
+        (authUser: string)
+        (authPass: string)
+        : Credential =
+        let browser =
+            Credential(AuthToken.deriveToken authUser authPass)
         credentials.add browser |> Async.RunSynchronously
+        browser
+
+    let private seedParseCredential (credentials: CoreCredentials) : Credential =
+        let parse = Credential(Guid.NewGuid().ToString("N"))
         credentials.add parse |> Async.RunSynchronously
-        browser, parse
+        parse
 
     let create
         (persistenceMode: DatabaseSetup.PersistenceMode)
         (dbStatus: DatabaseSetup.DbStatus)
         (dbConnectionString: string)
         (dataDir: string)
+        (authUser: string)
+        (authPass: string)
         : CoreRuntime =
         let credentials = CoreCredentials.create ()
         let browserAuthority = Authority "Browser"
-        let browserCredential, parseCredential =
-            addLifetimeCredentials credentials
+        let browserCredential =
+            seedBrowserCredential credentials authUser authPass
+        let parseCredential = seedParseCredential credentials
+        let fileStart = startFile credentials
+        let dbStart = startDb credentials
         let fileHost =
-            lazy (CoreMailbox.createFile credentials dataDir)
+            lazy (CoreMailbox.createFile fileStart dataDir)
         let makeHandle authority secret =
             let file =
                 CoreMailbox.coreChanges
@@ -99,7 +119,7 @@ module CoreRuntime =
                 | DatabaseSetup.PersistenceMode.Db, DatabaseSetup.DbStatus.Ok ->
                     let dbHost =
                         DatabaseSetup.getOrCreateDbHost
-                            credentials
+                            dbStart
                             dbConnectionString
                             dataDir
                     CoreMailbox.coreChanges
@@ -110,7 +130,7 @@ module CoreRuntime =
                 | DatabaseSetup.PersistenceMode.File, DatabaseSetup.DbStatus.Ok ->
                     let dbHost =
                         DatabaseSetup.getOrCreateDbHost
-                            credentials
+                            dbStart
                             dbConnectionString
                             dataDir
                     let db =
@@ -135,9 +155,9 @@ module CoreRuntime =
         { changes = changes
           bindChanges = bindChanges
           browserChanges =
-            fun () ->
+            fun secret ->
                 pool.withLocks (
-                    makeHandle browserAuthority browserCredential)
+                    makeHandle browserAuthority secret)
           credentials = credentials
           command = pool
           browserAuthority = browserAuthority

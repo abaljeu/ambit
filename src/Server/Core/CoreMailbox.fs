@@ -81,23 +81,45 @@ module CoreMailbox =
 
     let dispose (host: MailboxHost) = host.dispose ()
 
+    let startFile (credentials: CoreCredentials) : FileAgent.MailboxStarter =
+        fun handlers onError formatError ->
+            CoreMailboxBackend.start credentials handlers onError formatError
+
+    let startDb (credentials: CoreCredentials) =
+        fun handlers onError formatError until ->
+            CoreMailboxBackend.startWithPrelude
+                credentials
+                handlers
+                onError
+                formatError
+                until
+
     let createFile
-        (credentials: CoreCredentials)
+        (startMailbox: FileAgent.MailboxStarter)
         (dataDir: string)
         : MailboxHost =
-        FileAgent.create credentials dataDir |> FileAgent.mailboxHost
+        FileAgent.create startMailbox dataDir |> FileAgent.mailboxHost
 
     let createDb
-        (credentials: CoreCredentials)
+        (startMailbox:
+            PersistHandlers
+                -> (string -> string -> exn -> unit)
+                -> (string -> string)
+                -> Async<Result<unit, string>>
+                -> MailboxProcessor<CoreMsg>)
         (connectionString: string)
         : MailboxHost =
-        DbAgent.create credentials connectionString
-        |> DbAgent.mailboxHost
+        DbAgent.create startMailbox connectionString |> DbAgent.mailboxHost
 
     let createDbWithDataDir
-        (credentials: CoreCredentials)
+        (startMailbox:
+            PersistHandlers
+                -> (string -> string -> exn -> unit)
+                -> (string -> string)
+                -> Async<Result<unit, string>>
+                -> MailboxProcessor<CoreMsg>)
         (connectionString: string)
         (dataDir: string)
         : MailboxHost =
-        DbAgent.createWithDataDir credentials connectionString dataDir
+        DbAgent.createWithDataDir startMailbox connectionString dataDir
         |> DbAgent.mailboxHost

@@ -50,7 +50,7 @@ let ``persistence exception is logged replied and mailbox survives`` () = task {
             raise (InvalidOperationException("injected persistence failure"))
     let agent =
         DbAgent.createForTestWithDependencies
-            (admittedCredentials ())
+            (admittedStartDb ())
             (freshState ())
             (Some dataDir)
             throwingPersist

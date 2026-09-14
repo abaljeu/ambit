@@ -52,7 +52,7 @@ let private stateWithDetachedNode () =
 let ``DbAgent empty test DB has revision 0 and canonical ROOT`` () = task {
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
-    let agent = DbAgent.create (admittedCredentials ()) connStr
+    let agent = DbAgent.create (admittedStartDb ()) connStr
     let! rev = CoreMailbox.getRevision (host agent) |> Async.StartAsTask
     let! state = getState agent |> Async.StartAsTask
     Assert.Equal(Revision 0, rev)
@@ -87,7 +87,7 @@ let ``DbAgent startup sweeps and trims unreachable persisted nodes before ready`
     do! Database.replaceGraphProjectionWithTx tx graph 9 |> Async.AwaitTask
     tx.Commit()
 
-    let agent = DbAgent.create (admittedCredentials ()) connStr
+    let agent = DbAgent.create (admittedStartDb ()) connStr
     let! ready = waitUntil 2000 (fun () -> CoreMailbox.isReady (host agent))
     Assert.True(ready, "Expected startup sweep to enable normal queue processing.")
     let! state = getState agent |> Async.StartAsTask
@@ -115,7 +115,7 @@ let ``DbAgent serves reads while sweep buffers FIFO mutations then trims`` () = 
         entered.Set()
         release.Wait()
         Ok [ orphanId.Value ]
-    let agent = DbAgent.createForTest (admittedCredentials ()) initialState sweep
+    let agent = DbAgent.createForTest (admittedStartDb ()) initialState sweep
     Assert.True(entered.Wait(1000), "Expected startup sweep to begin.")
     Assert.False(CoreMailbox.isReady (host agent))
 
@@ -154,7 +154,7 @@ let ``DbAgent serves reads while sweep buffers FIFO mutations then trims`` () = 
 let ``DbAgent startup sweep failure preserves reads and fails mutations closed`` () = task {
     let initialState, orphanId = stateWithDetachedNode ()
     let agent =
-        DbAgent.createForTest (admittedCredentials ()) initialState (fun _ ->
+        DbAgent.createForTest (admittedStartDb ()) initialState (fun _ ->
             Error "Startup projection sweep failed: blocked")
     do! Task.Delay(50)
     Assert.False(CoreMailbox.isReady (host agent))
@@ -176,7 +176,7 @@ let ``DbAgent startup sweep failure preserves reads and fails mutations closed``
 let ``DbAgent new process loads state from projection and changes after post`` () = task {
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
-    let agent1 = DbAgent.create (admittedCredentials ()) connStr
+    let agent1 = DbAgent.create (admittedStartDb ()) connStr
     let! state0 = getState agent1 |> Async.StartAsTask
     let rootId = state0.graph.root
     let childId = NodeId.New()
@@ -195,7 +195,7 @@ let ``DbAgent new process loads state from projection and changes after post`` (
     | Error e -> Assert.Fail($"postChange: {e}")
     | Ok _ -> ()
 
-    let agent2 = DbAgent.create (admittedCredentials ()) connStr
+    let agent2 = DbAgent.create (admittedStartDb ()) connStr
     let! rev2 = CoreMailbox.getRevision (host agent2) |> Async.StartAsTask
     let! state2 = getState agent2 |> Async.StartAsTask
     Assert.Equal(Revision 1, rev2)
@@ -242,7 +242,7 @@ let ``loadPersistedState ignores Change rows beyond authoritative projection`` (
 let ``DbAgent reload preserves node updateTime from projection`` () = task {
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
-    let agent1 = DbAgent.create (admittedCredentials ()) connStr
+    let agent1 = DbAgent.create (admittedStartDb ()) connStr
     let! state0 = getState agent1 |> Async.StartAsTask
     let rootId = state0.graph.root
     let childId = NodeId.New()
@@ -267,7 +267,7 @@ let ``DbAgent reload preserves node updateTime from projection`` () = task {
     let stored = state1.graph.nodes.[childId].updateTime
     Assert.True(stored > NodeUpdateTime.missing)
 
-    let agent2 = DbAgent.create (admittedCredentials ()) connStr
+    let agent2 = DbAgent.create (admittedStartDb ()) connStr
     let! state2 = getState agent2 |> Async.StartAsTask
     let reloaded = state2.graph.nodes.[childId].updateTime
     Assert.Equal(NodeUpdateTime.toDbPrecision stored, reloaded)
@@ -277,7 +277,7 @@ let ``DbAgent reload preserves node updateTime from projection`` () = task {
 let ``DbAgent change fails and state is unchanged when DB goes away after startup`` () = task {
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
-    let agent = DbAgent.create (admittedCredentials ()) connStr
+    let agent = DbAgent.create (admittedStartDb ()) connStr
     let! state0 = getState agent |> Async.StartAsTask
     let rootId = state0.graph.root
     let childId = NodeId.New()
@@ -323,7 +323,7 @@ let ``rebuildFromDocumentFiles aligns DB with on-disk document`` () = task {
         File.WriteAllText(Bookkeeping.logPath tempRoot, "")
 
         do! resetTestDatabase connStr
-        let agent = DbAgent.create (admittedCredentials ()) connStr
+        let agent = DbAgent.create (admittedStartDb ()) connStr
         let childId = NodeId.New()
 
         let change =
@@ -430,7 +430,7 @@ let ``loadPersistedState preserves node kind`` () = task {
 let ``DbAgent commit hang is rejected within timeout and mailbox survives`` () = task {
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
-    let agent = DbAgent.create (admittedCredentials ()) connStr
+    let agent = DbAgent.create (admittedStartDb ()) connStr
     let! state0 = getState agent |> Async.StartAsTask
     let rootId = state0.graph.root
     let childId = NodeId.New()
@@ -481,7 +481,7 @@ let ``DbAgent postChange live-saves artifacts before ack returns`` () = task {
     do! resetTestDatabase connStr
     let tempRoot = newTempDir ()
 
-    let agent = DbAgent.createWithDataDir (admittedCredentials ()) connStr tempRoot
+    let agent = DbAgent.createWithDataDir (admittedStartDb ()) connStr tempRoot
 
     let! state0 = getState agent |> Async.StartAsTask
     let rootId = state0.graph.root
@@ -522,7 +522,7 @@ let ``DbAgent missing ROOT fails closed while reads stay available`` () = task {
         """
     let! _ = command.ExecuteNonQueryAsync()
 
-    let agent = DbAgent.create (admittedCredentials ()) connStr
+    let agent = DbAgent.create (admittedStartDb ()) connStr
     do! Task.Delay(200)
     Assert.False(CoreMailbox.isReady (host agent))
 
@@ -574,7 +574,7 @@ let ``DbAgent dual-owned repair reloads ready graph from projection`` () = task 
     do! Database.replaceGraphProjectionWithTx tx graph 6 |> Async.AwaitTask
     tx.Commit()
 
-    let agent = DbAgent.create (admittedCredentials ()) connStr
+    let agent = DbAgent.create (admittedStartDb ()) connStr
     let! ready = waitUntil 2000 (fun () -> CoreMailbox.isReady (host agent))
     Assert.True(ready, "Expected ownership repair to enable normal processing.")
     let! state = getState agent |> Async.StartAsTask

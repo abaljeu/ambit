@@ -32,8 +32,16 @@ module FileAgent =
                 CoreMailboxBackend.ChangeProcessingTimeoutMs
         }
 
+    /// Starts the CoreMsg loop. CoreMailbox supplies credentials for admit;
+    /// FileAgent only builds PersistHandlers (changes-only after admit).
+    type MailboxStarter =
+        PersistHandlers
+            -> (string -> string -> exn -> unit)
+            -> (string -> string)
+            -> MailboxProcessor<CoreMsg>
+
     let createWithDependencies
-        (credentials: CoreCredentials)
+        (startMailbox: MailboxStarter)
         (dependencies: FileAgentDependencies)
         (dataDir: string)
         : FileAgent =
@@ -266,12 +274,7 @@ module FileAgent =
         let formatError operation =
             $"Internal server error in FileAgent {operation} (dataDir={dataDir})."
 
-        let mailbox =
-            CoreMailboxBackend.start
-                credentials
-                handlers
-                onError
-                formatError
+        let mailbox = startMailbox handlers onError formatError
 
         let host: MailboxHost = {
             mailbox = mailbox
@@ -286,11 +289,11 @@ module FileAgent =
         { host = host; initialState = capturedInitialState }
 
     let create
-        (credentials: CoreCredentials)
+        (startMailbox: MailboxStarter)
         (dataDir: string)
         : FileAgent =
         createWithDependencies
-            credentials
+            startMailbox
             (defaultDependencies dataDir)
             dataDir
 

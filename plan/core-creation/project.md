@@ -4,7 +4,8 @@ Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
 Updated: 2026-09-13
 Started: 2026-09-05
-Actual: 24h20m
+Actual: 25h50m
+
 
 ## Map
 
@@ -54,7 +55,7 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/issues/31-one-coremsg-loop-parameterized-persist.md]] — Point 0 (done): one CoreMsg loop, parameterized persist.
 - [[plan/core-creation/issues/32-move-persist-agents-under-coremailbox.md]] — Point 0 (done): persist agents under Core; generic CoreMailbox door.
 - [[plan/core-creation/issues/29-prove-testactor-hello.md]] — current cut: section 1 mailbox foundation on `dev`; remaining hello sections open. Redo: land [[plan/core-creation/arch.md]] before further hello implement — [[plan/core-creation/reports/redo-29-architecture-before-proceed.md]].
-- [[plan/core-creation/issues/33-credentialed-browser-change-posts.md]] — Story path Browser Change posts: credentialed `PostChange` through CoreMsg before PersistHandlers.
+- [[plan/core-creation/issues/33-credentialed-browser-change-posts.md]] — Story path Browser Change posts: cookie-as-credential, boot seed, CoreMailbox admit only; Status `done`.
 
 ## Decision tickets
 
@@ -114,3 +115,5 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - 2026-09-13 — [[plan/core-creation/arch.md]] written via to-arch; Stage `arch`. Critique Story paths / Module map / Seams / Sequence / Alternative / Unsettled before reconciling tickets or implementing sections 2–6.
 - 2026-09-13 — `/to-tickets` for Story path Browser Change posts only; published [[plan/core-creation/issues/33-credentialed-browser-change-posts.md]]; Stage `slice`.
 - 2026-09-13 — First implement: [[plan/core-creation/issues/33-credentialed-browser-change-posts.md|Credentialed Browser Change posts]] done; Stage `build`.
+- 2026-09-13 — Redesign on [[plan/core-creation/issues/33-credentialed-browser-change-posts.md|Credentialed Browser Change posts]]: cookie/seed target; undo File/Db/GUID deltas; Status `ready-for-agent` again. Arch Story path checkboxes still `[x]` — align when reconciling.
+- 2026-09-13 — Re-implement [[plan/core-creation/issues/33-credentialed-browser-change-posts.md|Credentialed Browser Change posts]] against redesign; Status `done`.

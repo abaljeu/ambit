@@ -118,6 +118,7 @@ module RouteRegistration =
         (config: IConfiguration)
         (dataDir: string)
         (persistenceMode: DatabaseSetup.PersistenceMode)
+        (auth: Authentication)
         =
         let dbConnString = config.["DB_CONNECTION_STRING"] |> Option.ofObj |> Option.defaultValue ""
         let dbStatus = DatabaseSetup.resolveDbConnection persistenceMode dbConnString dataDir
@@ -127,6 +128,8 @@ module RouteRegistration =
                 dbStatus
                 dbConnString
                 dataDir
+                auth.ExpectedUser
+                auth.ExpectedPass
         {
             DataDir = dataDir
             Mode = persistenceMode
@@ -144,8 +147,25 @@ module RouteRegistration =
             core.parseCredential
             (core.changes ())
 
-    let private changesBound (persistence: PersistenceContext) =
-        persistence.Core.browserChanges ()
+    let private browserSecret
+        (persistence: PersistenceContext)
+        (req: HttpRequest)
+        : Credential =
+        match req.Cookies.TryGetValue(AuthToken.cookieName) with
+        | true, cookie when not (String.IsNullOrWhiteSpace cookie) ->
+            let secret = Credential cookie
+            // Reseed/re-establish on request (initial load and after server restart signal).
+            persistence.Core.credentials.add secret
+            |> Async.RunSynchronously
+            secret
+        | _ ->
+            persistence.Core.browserCredential
+
+    let private changesBound
+        (persistence: PersistenceContext)
+        (req: HttpRequest)
+        =
+        persistence.Core.browserChanges (browserSecret persistence req)
 
     let private stripXmlDeclaration (text: string) =
         if text.StartsWith("<?xml") then
@@ -212,7 +232,11 @@ module RouteRegistration =
             InlineCommandDockSprite = inlineCommandDockSprite
         }
 
-    let private registerAuthRoutes (app: WebApplication) (auth: Authentication) =
+    let private registerAuthRoutes
+        (app: WebApplication)
+        (auth: Authentication)
+        (persistence: PersistenceContext)
+        =
         let loginHtml = Path.Combine(app.Environment.WebRootPath, "login.html")
         app.MapGet("/ambit/login", Func<IResult>(fun () ->
             Results.File(loginHtml, "text/html")
@@ -223,6 +247,14 @@ module RouteRegistration =
             let password = string form.["password"]
             if username = auth.ExpectedUser && password = auth.ExpectedPass && username <> "" then
                 auth.SetCookie req.HttpContext.Response
+                let token =
+                    Credential(
+                        AuthToken.deriveToken
+                            auth.ExpectedUser
+                            auth.ExpectedPass)
+                do!
+                    persistence.Core.credentials.add token
+                    |> Async.StartAsTask
                 return Results.Redirect("/ambit")
             else
                 return Results.Redirect("/ambit/login?error=1")
@@ -318,7 +350,7 @@ module RouteRegistration =
                 let pageEpoch = stamps.PageBuildEpochSec ()
                 return!
                     Api.postChange
-                        (changesBound persistence)
+                        (changesBound persistence req)
                         (stamps.DeployEpochSec ())
                         pageEpoch
                         body
@@ -503,9 +535,9 @@ module RouteRegistration =
         | _, Error err ->
             registerStartupError app err
         | Ok dataDir, Ok persistenceMode ->
-            let persistence = createPersistenceContext config dataDir persistenceMode
+            let persistence = createPersistenceContext config dataDir persistenceMode auth
             let assets, stamps = createBuildStamps app
-            registerAuthRoutes app auth
+            registerAuthRoutes app auth persistence
             registerStateRoutes app auth persistence stamps
             registerSaveRoutes app auth persistence
             HttpResponseLog.registerErrorReportRoute

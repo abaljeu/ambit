@@ -30,13 +30,18 @@ let private fileRuntime () =
         DatabaseSetup.DbStatus.Absent
         ""
         dataDir
+        "alice"
+        "secret"
 
 [<Fact>]
-let ``CoreRuntime holds process-lifetime Browser and Parse credentials`` () =
+let ``CoreRuntime seeds Browser credential from AuthToken.deriveToken`` () =
     task {
         let runtime = fileRuntime ()
+        let expected =
+            Credential(AuthToken.deriveToken "alice" "secret")
+        Assert.Equal(expected, runtime.browserCredential)
         let! browserLive =
-            runtime.credentials.contains runtime.browserCredential
+            runtime.credentials.contains expected
             |> Async.StartAsTask
         let! parseLive =
             runtime.credentials.contains runtime.parseCredential
@@ -60,11 +65,11 @@ let ``bound Changes refuses an inactive sender and does not enqueue`` () =
     }
 
 [<Fact>]
-let ``bound Browser Changes admits a live Browser credential`` () = task {
+let ``bound Browser Changes admits a live Browser cookie credential`` () = task {
     let runtime = fileRuntime ()
     let change = addRootChild "admitted"
     let! result =
-        (runtime.browserChanges ()).postChange [ change ]
+        (runtime.browserChanges runtime.browserCredential).postChange [ change ]
         |> Async.StartAsTask
     let accepted = requireOk "browser post" result
     Assert.Equal<Guid list>(

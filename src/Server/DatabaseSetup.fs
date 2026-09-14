@@ -46,7 +46,12 @@ module DatabaseSetup =
 
     /// Hands back the host; callers stamp Authority and secret via CoreMailbox.coreChanges.
     let getOrCreateDbHost
-        (credentials: CoreCredentials)
+        (startMailbox:
+            PersistHandlers
+                -> (string -> string -> exn -> unit)
+                -> (string -> string)
+                -> Async<Result<unit, string>>
+                -> MailboxProcessor<CoreMsg>)
         (connStr: string)
         (dataDir: string)
         : MailboxHost =
@@ -56,7 +61,7 @@ module DatabaseSetup =
             | _ ->
                 let host =
                     CoreMailbox.createDbWithDataDir
-                        credentials
+                        startMailbox
                         connStr
                         dataDir
                 dbAgentCache.Value <- Some (dataDir, host)

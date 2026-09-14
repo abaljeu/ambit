@@ -89,3 +89,28 @@ let ``blank Authority is the same auth refuse before PersistHandlers`` () =
         finally
             CoreMailbox.dispose agent
     }
+
+[<Fact>]
+let ``request-carried cookie secret is admitted; foreign secret is refused`` () =
+    task {
+        let runtime =
+            CoreRuntime.create
+                DatabaseSetup.PersistenceMode.File
+                DatabaseSetup.DbStatus.Absent
+                ""
+                (newTempDir ())
+                "alice"
+                "secret"
+        let cookie = runtime.browserCredential
+        let change = addRootChild "cookie-post"
+        let! ok =
+            (runtime.browserChanges cookie).postChange [ change ]
+            |> Async.StartAsTask
+        let accepted = requireOk "cookie post" ok
+        Assert.Equal(Revision 1, accepted.revision)
+        let! refused =
+            (runtime.browserChanges (Credential "not-the-cookie")).postChange
+                [ addRootChild "nope" ]
+            |> Async.StartAsTask
+        Assert.Equal(Error CoreAuth.refuse, refused)
+    }
