@@ -80,7 +80,7 @@ Deltas for this Project’s hello / one-mailbox Actor program. Persist fillings 
 2. **CoreMailbox**
    1. [ ] State: none beyond MailboxHost
    - Interface:
-     1. [ ] public door on MailboxHost — `startActor` with `zoomId`, `focusId`, `commandId`, `graphIds`; credentialed `postChange` (Browser and Actor); `actorStop`; lifecycle event read from History
+     1. [ ] public door on MailboxHost — `startActor` with `zoomId`, `focusId`, `commandId`, `graphIds`; credentialed `postChange` (Browser and Actor); `actorStop`; `eventHistory` for lifecycle event read from History
      2. [x] existing getState / getRevision / getChangesSince / postGraphOnlyChange / createFile / createDb
    - Uses:
      1. [ ] MailboxHost
@@ -109,6 +109,7 @@ Deltas for this Project’s hello / one-mailbox Actor program. Persist fillings 
      1. [ ] append Change and Actor lifecycle events (ActorStarted, ActorFinished) on the one sequence
      2. [ ] Undo / Redo still target Change events only
      3. [ ] no second Actor-only event log beside CoreMailbox
+     4. [ ] persist mailbox History so the audit sequence survives restart (Graph/ChangeLog durability already separate; Undo stays Change-only)
    - Uses:
      1. [ ] Change / Actor event records as History members
 5. **TestActor**
