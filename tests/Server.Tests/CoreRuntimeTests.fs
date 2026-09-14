@@ -86,8 +86,8 @@ let ``HTTP Adapter refuses inactive Core sender with 401 and does not enqueue``
         try
             let bound =
                 CoreAuth.bindHandle
-                    (Authority "Caller")
-                    (Credential "inactive")
+                    { authority = Authority "Caller"
+                      secret = Credential "inactive" }
                     handle
             let! before = handle.getRevision () |> Async.StartAsTask
             let body =
@@ -129,10 +129,7 @@ let ``callers reach changes and command on the Core object`` () = task {
     let handle = runtime.changes ()
     let! rev = handle.getRevision () |> Async.StartAsTask
     Assert.Equal(Revision 0, rev)
-    let missing = runtime.command.query (PublicNumber 1)
-    Assert.Equal(Error CoreActorPool.unknownJob, missing)
-    Assert.False(CoreAuth.isAuthRefuse CoreActorPool.unknownJob)
-    Assert.False(CoreAuth.isAuthRefuse CoreActorPool.overlap)
+    Assert.False(runtime.command.isLive (Credential "missing"))
 }
 
 [<Fact>]

@@ -28,7 +28,7 @@ module CoreRuntime =
             { h with
                 postChange = rejectWrite
                 postGraphOnlyChange = rejectWrite
-                asCaller = fun a s -> wrap (h.asCaller a s) }
+                asCaller = fun caller -> wrap (h.asCaller caller) }
         wrap handle
 
     let ofFileWithDbMirror
@@ -62,11 +62,11 @@ module CoreRuntime =
                         fileHandle.postGraphOnlyChange
                         (fun handle -> handle.postGraphOnlyChange)
                 asCaller =
-                    fun a s ->
+                    fun caller ->
                         wrap
-                            (fileHandle.asCaller a s)
+                            (fileHandle.asCaller caller)
                             (dbHandle
-                             |> Option.map (fun d -> d.asCaller a s)) }
+                             |> Option.map (fun d -> d.asCaller caller)) }
         wrap file db
 
     let private seedBrowserCredential
@@ -98,18 +98,16 @@ module CoreRuntime =
             seedBrowserCredential credentials authUser authPass
         let parseCredential = seedParseCredential credentials
         let pool = CoreActorPool.create credentials
-        let actors = ActorMailboxHandlers.fromPool pool
-        let fileStart = CoreMailbox.startFileWithActors credentials actors
-        let dbStart = CoreMailbox.startDbWithActors credentials actors
+        let fileStart = CoreMailbox.startFileWithActors credentials pool
+        let dbStart = CoreMailbox.startDbWithActors credentials pool
         let fileHost =
             lazy (CoreMailbox.createFile fileStart dataDir)
-        let makeHandle authority secret =
+        let makeHandle caller =
             let file =
                 CoreMailbox.coreChanges
                     fileHost.Value
                     credentials
-                    authority
-                    secret
+                    caller
             let raw =
                 match persistenceMode, dbStatus with
                 | DatabaseSetup.PersistenceMode.Db, DatabaseSetup.DbStatus.Ok ->
@@ -121,8 +119,7 @@ module CoreRuntime =
                     CoreMailbox.coreChanges
                         dbHost
                         credentials
-                        authority
-                        secret
+                        caller
                 | DatabaseSetup.PersistenceMode.File, DatabaseSetup.DbStatus.Ok ->
                     let dbHost =
                         DatabaseSetup.getOrCreateDbHost
@@ -133,8 +130,7 @@ module CoreRuntime =
                         CoreMailbox.coreChanges
                             dbHost
                             credentials
-                            authority
-                            secret
+                            caller
                     ofFileWithDbMirror file (Some db)
                 | DatabaseSetup.PersistenceMode.Db, _ ->
                     readOnly file
@@ -143,16 +139,22 @@ module CoreRuntime =
             raw
         let changes () =
             pool.withLocks (
-                makeHandle browserAuthority browserCredential)
+                makeHandle
+                    { authority = browserAuthority
+                      secret = browserCredential })
         let bindChanges sender =
             pool.withLocks (
-                makeHandle (Authority "Caller") sender)
+                makeHandle
+                    { authority = Authority "Caller"
+                      secret = sender })
         { changes = changes
           bindChanges = bindChanges
           browserChanges =
             fun secret ->
                 pool.withLocks (
-                    makeHandle browserAuthority secret)
+                    makeHandle
+                        { authority = browserAuthority
+                          secret = secret })
           credentials = credentials
           command = pool
           browserAuthority = browserAuthority

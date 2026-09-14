@@ -21,7 +21,8 @@ let private sampleRequest: StartActorRequest =
     { zoomId = Graph.rootId
       focusId = Graph.rootId
       commandId = Graph.rootId
-      graphIds = [ Graph.rootId ] }
+      graphIds = [ Graph.rootId ]
+      revision = Revision 0 }
 
 let private addRootChild text =
     let childId = NodeId.New()
@@ -31,181 +32,200 @@ let private addRootChild text =
         [ Op.NewNode(childId, text)
           Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
 
-let private actorAuthority = Authority "Actor"
+let private actorCaller secret =
+    { authority = Authority "Actor"
+      secret = secret }
 
-let private recordingActors () =
-    let started = ResizeArray<StartActorRequest>()
+let private recordingPool () =
+    let started = TaskCompletionSource<StartActorRequest>()
     let stopped = ResizeArray<Credential * ActorResult>()
     let live = ResizeArray<Credential>()
-    let actors: ActorMailboxHandlers = {
+    let pool: CoreActorPool = {
+        register = fun _ _ -> ()
+        lockedIds = fun () -> Set.empty
+        withLocks = id
         startActor =
             fun request ->
-                started.Add request
+                started.TrySetResult request |> ignore
                 async.Return (Ok ())
         isLive = fun secret -> live.Contains secret
-        actorStop =
+        admit = fun _ -> Ok ()
+        drop = fun _ -> ()
+        finish =
             fun secret result ->
                 live.Remove secret |> ignore
                 stopped.Add(secret, result)
                 Ok ()
     }
-    started, stopped, live, actors
+    started, stopped, live, pool
 
-let private createHost dataDir actors =
+let private createHost dataDir pool =
     let credentials = admittedCredentials ()
     let host =
         CoreMailbox.createFile
-            (CoreMailbox.startFileWithActors credentials actors)
+            (CoreMailbox.startFileWithActors credentials pool)
             dataDir
     host, credentials
 
-let private postStartActor host authority secret request =
-    host.mailbox.PostAndAsyncReply(fun reply ->
-        StartActor(authority, secret, request, reply))
-
-let private postActorStop host authority secret result =
-    host.mailbox.PostAndAsyncReply(fun reply ->
-        ActorStop(authority, secret, result, reply))
-
-[<Fact>]
-let ``StartActor with live credentials hands off StartActorRequest`` () =
+let private withHost pool body =
     task {
         let dataDir = newTempDir ()
-        let started, _, _, actors = recordingActors ()
-        let host, _ = createHost dataDir actors
+        let host, credentials = createHost dataDir pool
         try
-            let! result =
-                postStartActor host testAuthority testSecret sampleRequest
-                |> Async.StartAsTask
-            requireOk "StartActor" result
-            Assert.Equal(1, started.Count)
-            Assert.Equal(sampleRequest.zoomId, started.[0].zoomId)
-            Assert.Equal(sampleRequest.focusId, started.[0].focusId)
-            Assert.Equal(sampleRequest.commandId, started.[0].commandId)
-            Assert.Equal<NodeId list>(
-                sampleRequest.graphIds, started.[0].graphIds)
+            do! body host credentials
         finally
             CoreMailbox.dispose host
     }
 
+let private postStartActor host caller request =
+    host.mailbox.PostAndAsyncReply(fun reply ->
+        StartActor(caller, request, reply))
+
+let private postActorStop host caller result =
+    host.mailbox.PostAndAsyncReply(fun reply ->
+        ActorStop(caller, result, reply))
+
 [<Fact>]
-let ``StartActor with inactive secret does not hand off`` () = task {
-    let dataDir = newTempDir ()
-    let started, _, _, actors = recordingActors ()
-    let host, _ = createHost dataDir actors
-    try
+let ``StartActor with live credentials hands off StartActorRequest`` () =
+    let started, _, _, pool = recordingPool ()
+    withHost pool (fun host _ -> task {
+        let! result =
+            postStartActor host testCaller sampleRequest
+            |> Async.StartAsTask
+        requireOk "StartActor" result
+        let! handed = started.Task.WaitAsync(TimeSpan.FromSeconds 5.0)
+        Assert.Equal(sampleRequest.zoomId, handed.zoomId)
+        Assert.Equal(sampleRequest.focusId, handed.focusId)
+        Assert.Equal(sampleRequest.commandId, handed.commandId)
+        Assert.Equal<NodeId list>(sampleRequest.graphIds, handed.graphIds)
+        Assert.Equal(sampleRequest.revision, handed.revision)
+    })
+
+[<Fact>]
+let ``StartActor reply does not wait for startActor to finish`` () =
+    let started = TaskCompletionSource<StartActorRequest>()
+    let gate = TaskCompletionSource<unit>()
+    let pool: CoreActorPool = {
+        register = fun _ _ -> ()
+        lockedIds = fun () -> Set.empty
+        withLocks = id
+        startActor =
+            fun request -> async {
+                started.TrySetResult request |> ignore
+                do! Async.AwaitTask gate.Task
+                return Ok ()
+            }
+        isLive = fun _ -> false
+        admit = fun _ -> Ok ()
+        drop = fun _ -> ()
+        finish = fun _ _ -> Ok ()
+    }
+    withHost pool (fun host _ -> task {
+        let sw = Stopwatch.StartNew()
+        let! result =
+            postStartActor host testCaller sampleRequest
+            |> Async.StartAsTask
+        sw.Stop()
+        requireOk "StartActor" result
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds 1.0)
+        Assert.False(gate.Task.IsCompleted)
+        gate.SetResult()
+        let! _ = started.Task.WaitAsync(TimeSpan.FromSeconds 5.0)
+        ()
+    })
+
+[<Fact>]
+let ``StartActor with inactive secret does not hand off`` () =
+    let started, _, _, pool = recordingPool ()
+    withHost pool (fun host _ -> task {
         let! result =
             postStartActor
                 host
-                testAuthority
-                (Credential "inactive")
+                { authority = testAuthority
+                  secret = Credential "inactive" }
                 sampleRequest
             |> Async.StartAsTask
         Assert.Equal(Error CoreAuth.refuse, result)
-        Assert.Equal(0, started.Count)
-    finally
-        CoreMailbox.dispose host
-}
+        Assert.False(started.Task.IsCompleted)
+    })
 
 [<Fact>]
-let ``StartActor with blank Authority does not hand off`` () = task {
-    let dataDir = newTempDir ()
-    let started, _, _, actors = recordingActors ()
-    let host, _ = createHost dataDir actors
-    try
+let ``StartActor with blank Authority does not hand off`` () =
+    let started, _, _, pool = recordingPool ()
+    withHost pool (fun host _ -> task {
         let! result =
             postStartActor
                 host
-                (Authority "  ")
-                testSecret
+                { authority = Authority "  "
+                  secret = testSecret }
                 sampleRequest
             |> Async.StartAsTask
         Assert.Equal(Error CoreAuth.refuse, result)
-        Assert.Equal(0, started.Count)
-    finally
-        CoreMailbox.dispose host
-}
+        Assert.False(started.Task.IsCompleted)
+    })
 
 [<Fact>]
-let ``Actor PostChange with live row reaches PersistHandlers`` () = task {
-    let dataDir = newTempDir ()
-    let _, _, live, actors = recordingActors ()
+let ``Actor PostChange with live row reaches PersistHandlers`` () =
+    let _, _, live, pool = recordingPool ()
     let actorSecret = Credential "actor-live"
     live.Add actorSecret
-    let host, credentials = createHost dataDir actors
-    try
+    withHost pool (fun host credentials -> task {
         do! credentials.add actorSecret |> Async.StartAsTask
         let change = addRootChild "actor-hello"
         let! result =
             CoreMailbox.postChange
-                host actorAuthority actorSecret [ change ]
+                host (actorCaller actorSecret) [ change ]
             |> Async.StartAsTask
         let accepted = requireOk "Actor post" result
         Assert.Equal(Revision 1, accepted.revision)
-    finally
-        CoreMailbox.dispose host
-}
+    })
 
 [<Fact>]
 let ``Actor PostChange without live row is refused before persist`` () =
-    task {
-        let dataDir = newTempDir ()
-        let _, _, _, actors = recordingActors ()
-        let actorSecret = Credential "actor-not-live"
-        let host, credentials = createHost dataDir actors
-        try
-            do! credentials.add actorSecret |> Async.StartAsTask
-            let handle =
-                CoreMailbox.coreChanges
-                    host credentials testAuthority testSecret
-            let! before = handle.getRevision () |> Async.StartAsTask
-            let! result =
-                CoreMailbox.postChange
-                    host
-                    actorAuthority
-                    actorSecret
-                    [ addRootChild "nope" ]
-                |> Async.StartAsTask
-            let! after = handle.getRevision () |> Async.StartAsTask
-            Assert.Equal(Error CoreAuth.refuse, result)
-            Assert.Equal(before, after)
-        finally
-            CoreMailbox.dispose host
-    }
-
-[<Fact>]
-let ``Browser PostChange does not require a live row`` () = task {
-    let dataDir = newTempDir ()
-    let _, _, _, actors = recordingActors ()
-    let host, _ = createHost dataDir actors
-    try
+    let _, _, _, pool = recordingPool ()
+    let actorSecret = Credential "actor-not-live"
+    withHost pool (fun host credentials -> task {
+        do! credentials.add actorSecret |> Async.StartAsTask
+        let handle = CoreMailbox.coreChanges host credentials testCaller
+        let! before = handle.getRevision () |> Async.StartAsTask
         let! result =
             CoreMailbox.postChange
                 host
-                (Authority "Browser")
-                testSecret
+                (actorCaller actorSecret)
+                [ addRootChild "nope" ]
+            |> Async.StartAsTask
+        let! after = handle.getRevision () |> Async.StartAsTask
+        Assert.Equal(Error CoreAuth.refuse, result)
+        Assert.Equal(before, after)
+    })
+
+[<Fact>]
+let ``Browser PostChange does not require a live row`` () =
+    let _, _, _, pool = recordingPool ()
+    withHost pool (fun host _ -> task {
+        let! result =
+            CoreMailbox.postChange
+                host
+                { authority = Authority "Browser"
+                  secret = testSecret }
                 [ addRootChild "browser" ]
             |> Async.StartAsTask
         let accepted = requireOk "Browser post" result
         Assert.Equal(Revision 1, accepted.revision)
-    finally
-        CoreMailbox.dispose host
-}
+    })
 
 [<Fact>]
-let ``ActorStop ActorSucceeded drops live row without waiting`` () = task {
-    let dataDir = newTempDir ()
-    let _, stopped, live, actors = recordingActors ()
+let ``ActorStop ActorSucceeded drops live row without waiting`` () =
+    let _, stopped, live, pool = recordingPool ()
     let actorSecret = Credential "actor-stop"
     live.Add actorSecret
-    let host, credentials = createHost dataDir actors
-    try
+    withHost pool (fun host credentials -> task {
         do! credentials.add actorSecret |> Async.StartAsTask
         let lingering = Task.Delay 5000
         let sw = Stopwatch.StartNew()
         let! result =
             postActorStop
-                host actorAuthority actorSecret ActorSucceeded
+                host (actorCaller actorSecret) ActorSucceeded
             |> Async.StartAsTask
         sw.Stop()
         requireOk "ActorStop" result
@@ -215,6 +235,4 @@ let ``ActorStop ActorSucceeded drops live row without waiting`` () = task {
         Assert.False(live.Contains actorSecret)
         Assert.True(sw.Elapsed < TimeSpan.FromSeconds 1.0)
         Assert.False(lingering.IsCompleted)
-    finally
-        CoreMailbox.dispose host
-}
+    })

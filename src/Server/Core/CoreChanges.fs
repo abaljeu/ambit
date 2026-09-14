@@ -7,6 +7,11 @@ type Credential = Credential of string
 /// Named source that submits requests to Core (Browser, Actor, …).
 type Authority = Authority of string
 
+/// Public Authority and secret presented together at a Core door.
+type Caller =
+    { authority: Authority
+      secret: Credential }
+
 type CoreChangesAccepted =
     { revision: Revision
       changes: Change list
@@ -15,7 +20,7 @@ type CoreChangesAccepted =
       isReady: bool }
 
 /// The Core Changes contract. Every Change reaches persistence through this handle.
-/// `postChange` is a stamped view: Authority and secret are closed over and sent on
+/// `postChange` is a stamped view: Caller is closed over and sent on
 /// CoreMsg PostChange for mailbox validation before PersistHandlers.
 type CoreChanges =
     { getState: unit -> Async<Result<State, string>>
@@ -25,8 +30,8 @@ type CoreChanges =
       postChange: Change list -> Async<Result<CoreChangesAccepted, string>>
       postGraphOnlyChange:
         Change list -> Async<Result<CoreChangesAccepted, string>>
-      /// Rebind posts to another Authority and secret on the same mailbox door.
-      asCaller: Authority -> Credential -> CoreChanges }
+      /// Rebind posts to another Caller on the same mailbox door.
+      asCaller: Caller -> CoreChanges }
 
 [<RequireQualifiedAccess>]
 module CoreChanges =

@@ -136,7 +136,7 @@ let private recordingHandle (posts: ResizeArray<Change list>) =
             posts.Add(changes)
             async.Return(Result.Ok(accepted changes))
       postGraphOnlyChange = fun _ -> async.Return(Result.Error "unused")
-      asCaller = fun _ _ -> Unchecked.defaultof<CoreChanges> }
+      asCaller = fun _ -> Unchecked.defaultof<CoreChanges> }
     : CoreChanges
 
 [<Fact>]

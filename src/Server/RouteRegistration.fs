@@ -139,8 +139,8 @@ module RouteRegistration =
     let private parseBound (persistence: PersistenceContext) =
         let core = persistence.Core
         CoreAuth.bindHandle
-            (Authority "Parse")
-            core.parseCredential
+            { authority = Authority "Parse"
+              secret = core.parseCredential }
             (core.changes ())
 
     /// Request cookie only — never fall back to closed-over browserCredential.

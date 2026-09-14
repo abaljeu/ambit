@@ -32,11 +32,7 @@ let ``live Browser credential is admitted and Change reaches PersistHandlers``
         try
             let change = addRootChild "live"
             let! result =
-                CoreMailbox.postChange
-                    agent
-                    testAuthority
-                    testSecret
-                    [ change ]
+                CoreMailbox.postChange agent testCaller [ change ]
                 |> Async.StartAsTask
             let accepted = requireOk "live post" result
             Assert.Equal(Revision 1, accepted.revision)
@@ -58,8 +54,8 @@ let ``inactive credential is auth-refused before PersistHandlers`` () = task {
         let! result =
             CoreMailbox.postChange
                 agent
-                (Authority "Browser")
-                (Credential "inactive")
+                { authority = Authority "Browser"
+                  secret = Credential "inactive" }
                 [ addRootChild "nope" ]
             |> Async.StartAsTask
         let! after = handle.getRevision () |> Async.StartAsTask
@@ -79,8 +75,8 @@ let ``blank Authority is the same auth refuse before PersistHandlers`` () =
             let! result =
                 CoreMailbox.postChange
                     agent
-                    (Authority "   ")
-                    testSecret
+                    { authority = Authority "   "
+                      secret = testSecret }
                     [ addRootChild "blank-auth" ]
                 |> Async.StartAsTask
             let! after = handle.getRevision () |> Async.StartAsTask

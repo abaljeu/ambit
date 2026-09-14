@@ -23,7 +23,7 @@ let private unusedHandle
       isReady = fun () -> true
       postChange = post
       postGraphOnlyChange = fun _ -> async.Return(Result.Error "unused")
-      asCaller = fun _ _ -> Unchecked.defaultof<CoreChanges> }
+      asCaller = fun _ -> Unchecked.defaultof<CoreChanges> }
 
 let private addRootChild text =
     let childId = NodeId.New()

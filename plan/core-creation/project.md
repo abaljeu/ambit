@@ -4,7 +4,7 @@ Stage: slice
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
 Updated: 2026-09-14
 Started: 2026-09-05
-Actual: 31h20m
+Actual: 32h20m
 
 ## Map
 
@@ -106,6 +106,7 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/reports/redo-29-architecture-before-proceed.md]] — ticket 29 redo: keep map/tickets/partial implement; `/to-arch` before remaining hello sections.
 - [[plan/core-creation/reports/remove-auth-disabled-bypass.md]] — remove `auth.Disabled` skip; development cookie is real and required.
 - [[plan/core-creation/reports/implement-34-section-1-coremsg.md]] — issue 34 section 1 CoreMsg / CoreMailboxBackend Actor cases.
+- [[plan/core-creation/reports/mailbox-start-type-corrections.md]] — StartActorRequest replaces LaunchRequest; Caller; no ActorMailboxHandlers; async StartActor handoff.
 
 ## Comments
 

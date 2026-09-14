@@ -39,12 +39,11 @@ module CoreMailbox =
 
     let postChange
         (host: MailboxHost)
-        (authority: Authority)
-        (secret: Credential)
+        (caller: Caller)
         (changes: Change list)
         : Async<Result<CoreChangesAccepted, string>> =
         host.mailbox.PostAndAsyncReply(fun reply ->
-            PostChange(authority, secret, changes, reply))
+            PostChange(caller, changes, reply))
 
     let postGraphOnlyChange
         (host: MailboxHost)
@@ -56,10 +55,9 @@ module CoreMailbox =
     let coreChanges
         (host: MailboxHost)
         (credentials: CoreCredentials)
-        (authority: Authority)
-        (secret: Credential)
+        (caller: Caller)
         : CoreChanges =
-        let rec make auth sec : CoreChanges =
+        let rec make c : CoreChanges =
             { getState = fun () -> tryGetState host
               getRevision = fun () -> getRevision host
               getChangesSince = getChangesSince host
@@ -68,18 +66,18 @@ module CoreMailbox =
                 fun changes ->
                     CoreAuth.post
                         credentials
-                        sec
-                        (postChange host auth sec)
+                        c.secret
+                        (postChange host c)
                         changes
               postGraphOnlyChange =
                 fun changes ->
                     CoreAuth.post
                         credentials
-                        sec
+                        c.secret
                         (postGraphOnlyChange host)
                         changes
-              asCaller = fun a s -> make a s }
-        make authority secret
+              asCaller = make }
+        make caller
 
     let isReady (host: MailboxHost) = host.isReady ()
 
@@ -89,30 +87,30 @@ module CoreMailbox =
 
     let startFileWithActors
         (credentials: CoreCredentials)
-        (actors: ActorMailboxHandlers)
+        (pool: CoreActorPool)
         : FileAgent.MailboxStarter =
         fun handlers onError formatError ->
             CoreMailboxBackend.start
-                credentials handlers actors onError formatError
+                credentials handlers pool onError formatError
 
     let startFile (credentials: CoreCredentials) : FileAgent.MailboxStarter =
-        startFileWithActors credentials ActorMailboxHandlers.noop
+        startFileWithActors credentials (CoreActorPool.create credentials)
 
     let startDbWithActors
         (credentials: CoreCredentials)
-        (actors: ActorMailboxHandlers)
+        (pool: CoreActorPool)
         =
         fun handlers onError formatError until ->
             CoreMailboxBackend.startWithPrelude
                 credentials
                 handlers
-                actors
+                pool
                 onError
                 formatError
                 until
 
     let startDb (credentials: CoreCredentials) =
-        startDbWithActors credentials ActorMailboxHandlers.noop
+        startDbWithActors credentials (CoreActorPool.create credentials)
 
     let createFile
         (startMailbox: FileAgent.MailboxStarter)
