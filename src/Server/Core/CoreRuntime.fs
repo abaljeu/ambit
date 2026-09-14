@@ -97,8 +97,10 @@ module CoreRuntime =
         let browserCredential =
             seedBrowserCredential credentials authUser authPass
         let parseCredential = seedParseCredential credentials
-        let fileStart = CoreMailbox.startFile credentials
-        let dbStart = CoreMailbox.startDb credentials
+        let pool = CoreActorPool.create credentials
+        let actors = ActorMailboxHandlers.fromPool pool
+        let fileStart = CoreMailbox.startFileWithActors credentials actors
+        let dbStart = CoreMailbox.startDbWithActors credentials actors
         let fileHost =
             lazy (CoreMailbox.createFile fileStart dataDir)
         let makeHandle authority secret =
@@ -139,7 +141,6 @@ module CoreRuntime =
                 | DatabaseSetup.PersistenceMode.File, _ ->
                     file
             raw
-        let pool = CoreActorPool.create credentials
         let changes () =
             pool.withLocks (
                 makeHandle browserAuthority browserCredential)

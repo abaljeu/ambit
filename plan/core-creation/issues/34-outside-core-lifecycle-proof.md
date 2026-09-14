@@ -2,15 +2,15 @@
 
 **Status:** ready-for-agent
 **Blocked by:** None — can start immediately. Point 0 ([[30-reshape-coreactorpool-synchronized-table.md]], [[31-one-coremsg-loop-parameterized-persist.md]], [[32-move-persist-agents-under-coremailbox.md]]) is done. [[33-credentialed-browser-change-posts.md|Credentialed Browser Change posts]] landed shared credentialed `PostChange` through CoreMsg; this ticket adds Actor live-table admit and the hello lifecycle. Not blocked by [[29-prove-testactor-hello.md|Prove TestActor hello]].
-Actual: 10m
+Actual: 1h
 
-## 1. Context
+## Context
 
 Core can already apply Changes and validate Browser credentials on the one mailbox. The hello slice still needs a proof that StartActor, TestActor `hello`, admit-before-`PostChange`, and `ActorStop ActorSucceeded` run as one ordered lifecycle — without Browser HTTP and without an Agent transport. Architecture names that proof as Story path **Outside Core lifecycle proof** on [[plan/core-creation/arch.md|Core creation architecture]]. Seam **Test seam for this tracer** is the entry: harness at CoreActorPool or TestActor.
 
 Architecture (Story paths, Module map, Seams): [[plan/core-creation/arch.md|Core creation architecture]]. This ticket holds acceptance for that outside path; do not restate Module map Interface here. Parent umbrella [[29-prove-testactor-hello.md|Prove TestActor hello]] stays as written; this ticket is the takeable cut for Story path 2.
 
-## 2. What to build
+## What to build
 
 Prove one successful TestActor `hello` from outside Core: harness enters at CoreActorPool.startActor or at TestActor body input; when at Pool, expand / select `test` / create / pass body input; when at Actor, TestActor interprets → `hello`; full lifecycle still uses CoreMailbox / CoreMsg for admit-before-`PostChange` and `ActorStop`; CoreActorPool table and History carry the live row and Actor events; outer asserts Graph, ActorStarted, one ActorFinished, dropped live row, and revoked secret; TestActor does not assert; HTTP Adapter universal-response encoding is not required. Follow arch Story path **Outside Core lifecycle proof** and Seam **Test seam for this tracer**. Point at arch Module map for State / Interface / Uses.
 
@@ -23,11 +23,11 @@ Browser Run / one-Node Command UI, HTTP Adapter Command encoding, universal `{ n
 ### 1. CoreMsg / CoreMailboxBackend
 
 Mailbox Actor cases for this proof. Contracts on arch **CoreMsg / CoreMailboxBackend**; Seams **CoreMsg union**, **Credentialed Change posts** (Actor live-table admit).
-0. [ ] `StartActorRequest` type — `{ zoomId; focusId; commandId; graphIds }`; one Command / StartActor payload shared by CoreMsg `StartActor`, CoreMailbox `startActor`, and CoreActorPool.startActor
-1. [ ] `StartActor` on CoreMsg — carry `StartActorRequest`; validate caller Authority and secret; async handoff to CoreActorPool.startActor
-2. [ ] Admit before Actor `PostChange` — same credential fields plus live-row check against CoreActorPool table before PersistHandlers
-3. [ ] `ActorStop` of `ActorResult` — `ActorSucceeded` only in this slice; append ActorFinished on History; drop live row and secret; request terminate without waiting
-4. [ ] No second mailbox — no nested `ActorMsg` pump; Actor cases share the one CoreMsg loop with persist cases
+0. [x] `StartActorRequest` type — `{ zoomId; focusId; commandId; graphIds }`; one Command / StartActor payload shared by CoreMsg `StartActor`, CoreMailbox `startActor`, and CoreActorPool.startActor
+1. [x] `StartActor` on CoreMsg — carry `StartActorRequest`; validate caller Authority and secret; async handoff to CoreActorPool.startActor
+2. [x] Admit before Actor `PostChange` — same credential fields plus live-row check against CoreActorPool table before PersistHandlers
+3. [x] `ActorStop` of `ActorResult` — `ActorSucceeded` only in this slice; append ActorFinished on History; drop live row and secret; request terminate without waiting
+4. [x] No second mailbox — no nested `ActorMsg` pump; Actor cases share the one CoreMsg loop with persist cases
 
 ### 2. CoreMailbox
 
@@ -84,15 +84,17 @@ Verifiable facts. Arch Story path **Outside Core lifecycle proof**; Seam **Test 
 8. [ ] After ActorFinished — live row gone; secret no longer admits; public identity remains on Events
 9. [ ] No universal-response requirement — does not require HTTP Adapter universal-response encoding
 
-## 3. See also
+## See also
 
 [[plan/core-creation/arch.md|Core creation architecture]], [[doc/Decisions/0004-core-mailbox-messages-clear-fast.md]], [[29-prove-testactor-hello.md]], [[33-credentialed-browser-change-posts.md]], [[32-move-persist-agents-under-coremailbox.md]], [[27-prove-core-actor-lifecycle-with-testactor.md]], [[18-finish-and-drop.md]], [[15-launch-actor-and-hold-span.md]], [[14-server-tracks-credentials.md]], [[02-core-actor-pool.md]], [[Implementation Planning and Record.md]], [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]], [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]]
 
-## 4. Comments
+## Comments
 
 - 2026-09-14 — Filed via `/to-tickets` for arch Story paths **Outside Core lifecycle proof** and **Browser Run hello** (tracer-cut). Sibling [[35-browser-run-hello.md|Browser Run hello]] is blocked by this ticket. Parent [[29-prove-testactor-hello.md|Prove TestActor hello]] left unchanged per no-retrofit.
 - 2026-09-14 — Point 0 names `StartActorRequest` so CoreMsg, the CoreMailbox door, and CoreActorPool.startActor share one id payload instead of repeating `zoomId` / `focusId` / `commandId` / `graphIds`.
+- 2026-09-14 — Section 1 CoreMsg / CoreMailboxBackend implemented. `StartActorRequest` and `ActorResult` (`ActorSucceeded` only) are shared types. CoreMsg adds `StartActor` and `ActorStop` on the one loop. Actor `PostChange` admits against the live table after credentials. `ActorStop` drops the live row and secret and cancels without waiting via `CoreActorPool.finish`. History ActorFinished records stay on section 4. CoreMailbox `startActor` / `actorStop` doors stay on section 2. Report: [[plan/core-creation/reports/implement-34-section-1-coremsg.md]].
 
 ## Time
 
 - 2026-09-14 10m — Name `StartActorRequest` and point later items at it (from chat)
+- 2026-09-14 50m — Section 1 CoreMsg / CoreMailboxBackend Actor cases

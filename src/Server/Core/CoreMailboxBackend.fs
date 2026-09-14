@@ -18,6 +18,39 @@ type CoreMsg =
         changes: Change list *
         AsyncReplyChannel<Result<CoreChangesAccepted, string>>
     | SnapshotDone of graph: Graph option
+    | StartActor of
+        authority: Authority *
+        secret: Credential *
+        request: StartActorRequest *
+        AsyncReplyChannel<Result<unit, string>>
+    | ActorStop of
+        authority: Authority *
+        secret: Credential *
+        result: ActorResult *
+        AsyncReplyChannel<Result<unit, string>>
+
+/// Actor cases on the one CoreMsg loop. Not PersistHandlers.
+type ActorMailboxHandlers = {
+    startActor: StartActorRequest -> Async<Result<unit, string>>
+    isLive: Credential -> bool
+    actorStop: Credential -> ActorResult -> Result<unit, string>
+}
+
+[<RequireQualifiedAccess>]
+module ActorMailboxHandlers =
+
+    /// Persist-only filling: Actor live-table check is pass-through.
+    let noop: ActorMailboxHandlers = {
+        startActor = fun _ -> async.Return (Ok ())
+        isLive = fun _ -> true
+        actorStop = fun _ _ -> Ok ()
+    }
+
+    let fromPool (pool: CoreActorPool) : ActorMailboxHandlers = {
+        startActor = pool.startActor
+        isLive = pool.isLive
+        actorStop = pool.finish
+    }
 
 type PersistHandlers = {
     getState: unit -> Result<State, string>
@@ -82,6 +115,10 @@ module internal CoreMailboxBackend =
         | PostGraphOnlyChange (changes, _) ->
             "PostGraphOnlyChange", $"changeCount={changes.Length}"
         | SnapshotDone _ -> "SnapshotDone", ""
+        | StartActor _ -> "StartActor", ""
+        | ActorStop (_, _, result, _) ->
+            match result with
+            | ActorSucceeded -> "ActorStop", "ActorSucceeded"
 
     let replyFailure error msg =
         match msg with
@@ -91,6 +128,8 @@ module internal CoreMailboxBackend =
         | PostChange (_, _, _, reply) -> reply.Reply(Error error)
         | PostGraphOnlyChange (_, reply) -> reply.Reply(Error error)
         | SnapshotDone _ -> ()
+        | StartActor (_, _, _, reply) -> reply.Reply(Error error)
+        | ActorStop (_, _, _, reply) -> reply.Reply(Error error)
 
     let private admitSecret
         (credentials: CoreCredentials)
@@ -103,9 +142,82 @@ module internal CoreMailboxBackend =
         | Error err -> Error(CoreAdmissionError.text err)
         | Ok () -> Ok ()
 
+    let private admitCaller
+        (credentials: CoreCredentials)
+        (authority: Authority)
+        (secret: Credential)
+        : Result<unit, string> =
+        match authority, admitSecret credentials secret with
+        | Authority name, _ when String.IsNullOrWhiteSpace name ->
+            Error CoreAuth.refuse
+        | _, Error err -> Error err
+        | _, Ok () -> Ok ()
+
+    let private admitActorPost
+        (credentials: CoreCredentials)
+        (actors: ActorMailboxHandlers)
+        (authority: Authority)
+        (secret: Credential)
+        : Result<unit, string> =
+        match admitCaller credentials authority secret with
+        | Error err -> Error err
+        | Ok () ->
+            match authority with
+            | Authority "Actor" ->
+                match CoreAuth.admit (actors.isLive secret) with
+                | Error err -> Error(CoreAdmissionError.text err)
+                | Ok () -> Ok ()
+            | _ -> Ok ()
+
+    let private dispatchStartActor
+        (credentials: CoreCredentials)
+        (actors: ActorMailboxHandlers)
+        (authority: Authority)
+        (secret: Credential)
+        (request: StartActorRequest)
+        (reply: AsyncReplyChannel<Result<unit, string>>)
+        : unit =
+        match admitCaller credentials authority secret with
+        | Error err -> reply.Reply(Error err)
+        | Ok () ->
+            let result =
+                actors.startActor request |> Async.RunSynchronously
+            reply.Reply result
+
+    let private dispatchActorStop
+        (credentials: CoreCredentials)
+        (actors: ActorMailboxHandlers)
+        (authority: Authority)
+        (secret: Credential)
+        (result: ActorResult)
+        (reply: AsyncReplyChannel<Result<unit, string>>)
+        : unit =
+        match admitCaller credentials authority secret with
+        | Error err -> reply.Reply(Error err)
+        | Ok () ->
+            match CoreAuth.admit (actors.isLive secret) with
+            | Error err ->
+                reply.Reply(Error(CoreAdmissionError.text err))
+            | Ok () ->
+                reply.Reply(actors.actorStop secret result)
+
+    let private dispatchPostChange
+        (credentials: CoreCredentials)
+        (handlers: PersistHandlers)
+        (actors: ActorMailboxHandlers)
+        (authority: Authority)
+        (secret: Credential)
+        (changes: Change list)
+        (reply: AsyncReplyChannel<Result<CoreChangesAccepted, string>>)
+        : unit =
+        match admitActorPost credentials actors authority secret with
+        | Error err -> reply.Reply(Error err)
+        | Ok () -> reply.Reply(handlers.postChange changes)
+
     let dispatch
         (credentials: CoreCredentials)
         (handlers: PersistHandlers)
+        (actors: ActorMailboxHandlers)
         (onError: string -> string -> exn -> unit)
         (formatError: string -> string)
         (msg: CoreMsg)
@@ -119,18 +231,19 @@ module internal CoreMailboxBackend =
             | GetChangesSince (after, reply) ->
                 reply.Reply(handlers.getChangesSince after)
             | PostChange (authority, secret, changes, reply) ->
-                match authority, admitSecret credentials secret with
-                | Authority name, _
-                    when String.IsNullOrWhiteSpace name ->
-                    reply.Reply(Error CoreAuth.refuse)
-                | _, Error err ->
-                    reply.Reply(Error err)
-                | _, Ok () ->
-                    reply.Reply(handlers.postChange changes)
+                dispatchPostChange
+                    credentials handlers actors
+                    authority secret changes reply
             | PostGraphOnlyChange (changes, reply) ->
                 reply.Reply(handlers.postGraphOnlyChange changes)
             | SnapshotDone graph ->
                 handlers.snapshotDone graph
+            | StartActor (authority, secret, request, reply) ->
+                dispatchStartActor
+                    credentials actors authority secret request reply
+            | ActorStop (authority, secret, result, reply) ->
+                dispatchActorStop
+                    credentials actors authority secret result reply
         with ex ->
             let operation, context = operationContext msg
             try
@@ -145,13 +258,15 @@ module internal CoreMailboxBackend =
     let start
         (credentials: CoreCredentials)
         (handlers: PersistHandlers)
+        (actors: ActorMailboxHandlers)
         (onError: string -> string -> exn -> unit)
         (formatError: string -> string)
         : MailboxProcessor<CoreMsg> =
         MailboxProcessor<CoreMsg>.Start(fun inbox ->
             let rec loop () = async {
                 let! msg = inbox.Receive()
-                dispatch credentials handlers onError formatError msg
+                dispatch
+                    credentials handlers actors onError formatError msg
                 return! loop ()
             }
             loop ()
@@ -160,6 +275,7 @@ module internal CoreMailboxBackend =
     let startWithPrelude
         (credentials: CoreCredentials)
         (handlers: PersistHandlers)
+        (actors: ActorMailboxHandlers)
         (onError: string -> string -> exn -> unit)
         (formatError: string -> string)
         (until: Async<Result<unit, string>>)
@@ -200,6 +316,7 @@ module internal CoreMailboxBackend =
                                         dispatch
                                             credentials
                                             handlers
+                                            actors
                                             onError
                                             formatError
                                             msg
@@ -210,13 +327,15 @@ module internal CoreMailboxBackend =
             }
             and normalLoop () = async {
                 let! msg = inbox.Receive()
-                dispatch credentials handlers onError formatError msg
+                dispatch
+                    credentials handlers actors onError formatError msg
                 return! normalLoop ()
             }
             and failedLoop error = async {
                 let! msg = inbox.Receive()
                 let failed = failedHandlers error
-                dispatch credentials failed onError formatError msg
+                dispatch
+                    credentials failed actors onError formatError msg
                 return! failedLoop error
             }
 
