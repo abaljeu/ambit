@@ -2,6 +2,19 @@ namespace Gambol.Server
 
 open Gambol.Shared
 
+/// CoreMailbox door — public API for MailboxHost.
+///
+/// Actor lifecycle:
+/// - startActor: Start an Actor with StartActorRequest (includes revision).
+///   Returns startActor bookkeeping result; does not wait for Actor body.
+/// - actorStop: Stop an Actor with ActorResult.
+/// - postChange / coreChanges: Credentialed Actor Changes use the same mailbox
+///   as Browser Changes; no second Actor mailbox.
+///
+/// Lifecycle fact exposure:
+/// - getState: Read the Graph and lockPresent facts after Actor start/stop.
+/// - Lifecycle Events (ActorStarted, ActorFinished) will be read from History
+///   once recorded (future sections of 34b).
 [<RequireQualifiedAccess>]
 module CoreMailbox =
 
@@ -51,6 +64,22 @@ module CoreMailbox =
         : Async<Result<CoreChangesAccepted, string>> =
         host.mailbox.PostAndAsyncReply(fun reply ->
             PostGraphOnlyChange(changes, reply))
+
+    let startActor
+        (host: MailboxHost)
+        (caller: Caller)
+        (request: StartActorRequest)
+        : Async<Result<unit, string>> =
+        host.mailbox.PostAndAsyncReply(fun reply ->
+            StartActor(caller, request, reply))
+
+    let actorStop
+        (host: MailboxHost)
+        (caller: Caller)
+        (result: ActorResult)
+        : Async<Result<unit, string>> =
+        host.mailbox.PostAndAsyncReply(fun reply ->
+            ActorStop(caller, result, reply))
 
     let coreChanges
         (host: MailboxHost)
