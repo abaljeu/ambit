@@ -214,8 +214,8 @@ The four-call Interface of Core: Files, Changes, Query, Command. Files is send, 
 _Avoid_: web API, REST, `/ambit` (those are HTTP Adapters that may call Core API)
 
 **State**:
-The graph data the Core exposes (what getState returns as Graph / document structure — the editable Graph facts), not a dumping ground for every server field. Actor start/stop and Changes are Events, not State; lifecycle Events live on History, not the file/DB graph store.
-_Avoid_: using State for Actor lifecycle, History, mapState, Events, or code identifiers that do not match this Graph-data meaning
+The Graph data Core exposes (what people mean by the `/state` / getState graph payload, the StateResponse). Reserved for this Graph-data meaning; do not use State for Events, History, Actor lifecycle, or code type nicknames unless that Graph-data meaning.
+_Avoid_: mapState, treating History or ActorStarted/ActorFinished as State, using State as a synonym for Event or the full server record
 
 **Authority**:
 A named source that submits requests to Core and is recorded on accepted Events. Browser identities, Actors, Cursor, Zapier, and Amble are Authorities.
