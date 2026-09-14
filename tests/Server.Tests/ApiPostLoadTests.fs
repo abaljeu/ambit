@@ -82,7 +82,8 @@ let private handleForLoad
       getChangesSince = fun _ -> async.Return changes
       isReady = fun () -> true
       postChange = fun _ -> async.Return(Result.Error "unused")
-      postGraphOnlyChange = fun _ -> async.Return(Result.Error "unused") }
+      postGraphOnlyChange = fun _ -> async.Return(Result.Error "unused")
+      asCaller = fun _ _ -> Unchecked.defaultof<CoreChanges> }
 
 let private encodeRequest (request: LoadRequest) =
     Encode.toString 0 (ApiResponseSerialization.encodeLoadRequest request)

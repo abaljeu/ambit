@@ -2,8 +2,6 @@ namespace Gambol.Server
 
 open Gambol.Shared
 
-type Credential = Credential of string
-
 type CoreAdmissionError =
     | Unauthorized
     | UnknownJob
@@ -56,15 +54,13 @@ module CoreAuth =
         : Change list -> Async<Result<CoreChangesAccepted, string>> =
         fun changes -> post credentials sender enqueue changes
 
+    /// Stamp Authority and secret onto posts; mailbox CoreMsg validates before persist.
     let bindHandle
-        (credentials: CoreCredentials)
-        (sender: Credential)
+        (authority: Authority)
+        (secret: Credential)
         (handle: CoreChanges)
         : CoreChanges =
-        { handle with
-            postChange = bind credentials sender handle.postChange
-            postGraphOnlyChange =
-                bind credentials sender handle.postGraphOnlyChange }
+        handle.asCaller authority secret
 
 [<RequireQualifiedAccess>]
 module CoreCredentials =

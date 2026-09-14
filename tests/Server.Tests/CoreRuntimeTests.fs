@@ -31,23 +31,6 @@ let private fileRuntime () =
         ""
         dataDir
 
-let private recordingHandle (posts: ResizeArray<Change list>) : CoreChanges =
-    let accepted changes : CoreChangesAccepted =
-        { revision = Revision 1
-          changes = changes
-          externalChanges = false
-          message = None
-          isReady = true }
-    { getState = fun () -> async.Return(Result.Error "unused")
-      getRevision = fun () -> async.Return(Revision 0)
-      getChangesSince = fun _ -> async.Return []
-      isReady = fun () -> true
-      postChange =
-        fun changes ->
-            posts.Add(changes)
-            async.Return(Result.Ok(accepted changes))
-      postGraphOnlyChange = fun _ -> async.Return(Result.Error "unused") }
-
 [<Fact>]
 let ``CoreRuntime holds process-lifetime Browser and Parse credentials`` () =
     task {
@@ -93,42 +76,46 @@ let ``bound Browser Changes admits a live Browser credential`` () = task {
 let ``HTTP Adapter refuses inactive Core sender with 401 and does not enqueue``
     () =
     task {
-        let posts = ResizeArray<Change list>()
-        let handle = recordingHandle posts
-        let credentials = CoreCredentials.create ()
-        let bound =
-            CoreAuth.bindHandle
-                credentials
-                (Credential "inactive")
-                handle
-        let body =
-            Encode.toString 0 (
-                Serialization.encodeChangeBatch
-                    { changes = [ addRootChild "http" ] })
-        let! result =
-            Api.postChange bound 10 20 body
-            |> Async.StartAsTask
-        Assert.Equal("UnauthorizedHttpResult", result.GetType().Name)
-        Assert.Empty(posts)
+        let dataDir = newTempDir ()
+        let agent, handle, _ = createAdmittedFileWithCredentials dataDir
+        try
+            let bound =
+                CoreAuth.bindHandle
+                    (Authority "Caller")
+                    (Credential "inactive")
+                    handle
+            let! before = handle.getRevision () |> Async.StartAsTask
+            let body =
+                Encode.toString 0 (
+                    Serialization.encodeChangeBatch
+                        { changes = [ addRootChild "http" ] })
+            let! result =
+                Api.postChange bound 10 20 body
+                |> Async.StartAsTask
+            let! after = handle.getRevision () |> Async.StartAsTask
+            Assert.Equal("UnauthorizedHttpResult", result.GetType().Name)
+            Assert.Equal(before, after)
+        finally
+            CoreMailbox.dispose agent
     }
 
 [<Fact>]
 let ``HTTP Adapter enqueues when Browser credential is live`` () = task {
-    let posts = ResizeArray<Change list>()
-    let handle = recordingHandle posts
-    let credentials = CoreCredentials.create ()
-    let sender = Credential "browser"
-    do! credentials.add sender |> Async.StartAsTask
-    let bound = CoreAuth.bindHandle credentials sender handle
-    let change = addRootChild "http-live"
-    let body =
-        Encode.toString 0 (
-            Serialization.encodeChangeBatch { changes = [ change ] })
-    let! result =
-        Api.postChange bound 10 20 body
-        |> Async.StartAsTask
-    Assert.False(result.GetType().Name = "UnauthorizedHttpResult")
-    Assert.Equal<Change list>([ change ], Assert.Single(posts))
+    let dataDir = newTempDir ()
+    let agent, handle, _ = createAdmittedFileWithCredentials dataDir
+    try
+        let change = addRootChild "http-live"
+        let body =
+            Encode.toString 0 (
+                Serialization.encodeChangeBatch { changes = [ change ] })
+        let! result =
+            Api.postChange handle 10 20 body
+            |> Async.StartAsTask
+        Assert.False(result.GetType().Name = "UnauthorizedHttpResult")
+        let! rev = handle.getRevision () |> Async.StartAsTask
+        Assert.Equal(Revision 1, rev)
+    finally
+        CoreMailbox.dispose agent
 }
 
 [<Fact>]

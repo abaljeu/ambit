@@ -33,6 +33,7 @@ module FileAgent =
         }
 
     let createWithDependencies
+        (credentials: CoreCredentials)
         (dependencies: FileAgentDependencies)
         (dataDir: string)
         : FileAgent =
@@ -266,7 +267,11 @@ module FileAgent =
             $"Internal server error in FileAgent {operation} (dataDir={dataDir})."
 
         let mailbox =
-            CoreMailboxBackend.start handlers onError formatError
+            CoreMailboxBackend.start
+                credentials
+                handlers
+                onError
+                formatError
 
         let host: MailboxHost = {
             mailbox = mailbox
@@ -280,8 +285,14 @@ module FileAgent =
 
         { host = host; initialState = capturedInitialState }
 
-    let create (dataDir: string) : FileAgent =
-        createWithDependencies (defaultDependencies dataDir) dataDir
+    let create
+        (credentials: CoreCredentials)
+        (dataDir: string)
+        : FileAgent =
+        createWithDependencies
+            credentials
+            (defaultDependencies dataDir)
+            dataDir
 
     let mailboxHost (agent: FileAgent) = agent.host
 

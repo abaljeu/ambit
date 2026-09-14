@@ -140,7 +140,7 @@ module RouteRegistration =
     let private parseBound (persistence: PersistenceContext) =
         let core = persistence.Core
         CoreAuth.bindHandle
-            core.credentials
+            (Authority "Parse")
             core.parseCredential
             (core.changes ())
 

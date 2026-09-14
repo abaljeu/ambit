@@ -1,10 +1,10 @@
 # Core creation
 
-Stage: slice
+Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
 Updated: 2026-09-13
 Started: 2026-09-05
-Actual: 21h50m
+Actual: 24h20m
 
 ## Map
 

@@ -111,6 +111,45 @@ let newTempDir () =
     Directory.CreateDirectory(dir) |> ignore
     dir
 
+let testAuthority = Authority "Test"
+
+let testSecret = Credential "test-secret"
+
+/// Live test credentials for CoreMailbox posts (mailbox admits before persist).
+let admittedCredentials () =
+    let credentials = CoreCredentials.create ()
+    credentials.add testSecret |> Async.RunSynchronously
+    credentials
+
+let createAdmittedFile (dataDir: string) =
+    let credentials = admittedCredentials ()
+    let host = CoreMailbox.createFile credentials dataDir
+    let handle =
+        CoreMailbox.coreChanges
+            host
+            credentials
+            testAuthority
+            testSecret
+    host, handle
+
+/// Same as createAdmittedFile, and returns the shared credential set (for Actor pool).
+let createAdmittedFileWithCredentials (dataDir: string) =
+    let credentials = admittedCredentials ()
+    let host = CoreMailbox.createFile credentials dataDir
+    let handle =
+        CoreMailbox.coreChanges
+            host
+            credentials
+            testAuthority
+            testSecret
+    host, handle, credentials
+
+let admittedChanges (host: MailboxHost) =
+    let credentials = admittedCredentials ()
+    // Note: new credential set — only use when host was created with the same
+    // testSecret via admittedCredentials / createAdmittedFile.
+    CoreMailbox.coreChanges host credentials testAuthority testSecret
+
 let private suppressDailyGitSave (dataDir: string) =
     DailyGitSave.writeStamp
         dataDir

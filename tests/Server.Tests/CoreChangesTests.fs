@@ -36,9 +36,8 @@ let private addRootChild revision text =
 [<Fact>]
 let ``typed Normal caller publishes accepted Change to Poll`` () = task {
     let dataDir = newTempDir ()
-    let agent = CoreMailbox.createFile dataDir
+    let agent, handle = createAdmittedFile dataDir
     try
-        let handle = CoreMailbox.coreChanges agent
         let change = addRootChild 0 "typed caller"
         let! accepted =
             handle.postChange [ change ]
@@ -95,9 +94,8 @@ let private produceFromSubgraph
 let ``test Actor posts Normal Change off apply mailbox and Poll sees it`` () =
     task {
         let dataDir = newTempDir ()
-        let agent = CoreMailbox.createFile dataDir
+        let agent, handle = createAdmittedFile dataDir
         try
-            let handle = CoreMailbox.coreChanges agent
             let subgraph = Graph.create ()
             let! accepted =
                 runActor subgraph handle produceFromSubgraph
@@ -137,7 +135,8 @@ let private recordingHandle (posts: ResizeArray<Change list>) =
         fun changes ->
             posts.Add(changes)
             async.Return(Result.Ok(accepted changes))
-      postGraphOnlyChange = fun _ -> async.Return(Result.Error "unused") }
+      postGraphOnlyChange = fun _ -> async.Return(Result.Error "unused")
+      asCaller = fun _ _ -> Unchecked.defaultof<CoreChanges> }
     : CoreChanges
 
 [<Fact>]

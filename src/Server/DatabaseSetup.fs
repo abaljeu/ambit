@@ -44,18 +44,24 @@ module DatabaseSetup =
     let private dbAgentCache: (string * MailboxHost) option ref = ref None
     let private dbAgentLock = obj ()
 
-    /// Hands back the Core Changes contract only; the host stays in the cache.
-    let getOrCreateDbAgent (connStr: string) (dataDir: string) : CoreChanges =
+    /// Hands back the host; callers stamp Authority and secret via CoreMailbox.coreChanges.
+    let getOrCreateDbHost
+        (credentials: CoreCredentials)
+        (connStr: string)
+        (dataDir: string)
+        : MailboxHost =
         lock dbAgentLock (fun () ->
             match !dbAgentCache with
             | Some (dir, host) when dir = dataDir -> host
             | _ ->
-                let host = CoreMailbox.createDbWithDataDir connStr dataDir
+                let host =
+                    CoreMailbox.createDbWithDataDir
+                        credentials
+                        connStr
+                        dataDir
                 dbAgentCache.Value <- Some (dataDir, host)
                 host
         )
-        |> CoreMailbox.coreChanges
-
     let statusFromMatches (matchesBeforeRebuild: bool) (matchesAfterRebuild: bool) : DbStatus =
         if matchesBeforeRebuild then
             DbStatus.Ok
@@ -148,7 +154,6 @@ module DatabaseSetup =
                     else
                         DbStatus.Ok
 
-                getOrCreateDbAgent connStr dataDir |> ignore
                 status
             with ex ->
                 eprintfn "Gambol: DB connection failed - falling back to file store. %s" ex.Message

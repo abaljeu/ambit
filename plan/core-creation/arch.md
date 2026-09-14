@@ -36,10 +36,10 @@ Implementation status for this cut: Point 0 ([[issues/30-reshape-coreactorpool-s
    8. [ ] TestActor does not assert
    9. [ ] Does not require HTTP Adapter universal-response encoding
 3. **Browser Change posts**
-   1. [ ] Browser Change submit
-   2. [ ] HTTP Adapter encodes Change + credentials
-   3. [ ] CoreMailbox `postChange`
-   4. [ ] CoreMsg validates Browser credentials before PersistHandlers
+   1. [x] Browser Change submit
+   2. [x] HTTP Adapter encodes Change + credentials
+   3. [x] CoreMailbox `postChange`
+   4. [x] CoreMsg validates Browser credentials before PersistHandlers
 
 Composition: Each Story path above is a complete end-to-end hop list. Shared segments below factor hop sequences that appear in more than one path (for core modules / test seam); they are not missing hops to splice into a path.
 
@@ -54,7 +54,7 @@ Shared segments across 1 and 2:
 8. [ ] `ActorStop`
 
 Shared segment with path 3:
-1. [ ] Credentialed `PostChange` through CoreMsg
+1. [x] Credentialed `PostChange` through CoreMsg
 
 Narrowest shared test seam:
 1. [ ] CoreActorPool start and/or TestActor body input — not HTTP encoding, not PersistHandlers, not TestActor private helpers
@@ -68,7 +68,7 @@ Deltas for this Project’s hello / one-mailbox Actor program. Persist fillings 
    - Interface:
      1. [ ] match `CoreMsg` cases
      2. [ ] for `StartActor`, carry `zoomId`, `focusId`, `commandId`, `graphIds` (same fields as HTTP transport and Core door); validate caller Authority and secret then hand off async to CoreActorPool.startActor
-     3. [ ] for every `PostChange` (Browser or Actor), require and validate Authority and secret before PersistHandlers
+     3. [x] for every `PostChange` (Browser or Actor), require and validate Authority and secret before PersistHandlers
      4. [ ] for Actor `PostChange`, admit against the live table (same credential fields, live-row check)
      5. [ ] for `ActorStop` of `ActorResult` (`ActorSucceeded` only in this slice), append ActorFinished on History, drop the live row and secret, request terminate without waiting
    - Uses:
@@ -138,7 +138,7 @@ Deltas for this Project’s hello / one-mailbox Actor program. Persist fillings 
      1. [ ] existing Exec / Run command
      2. [ ] when text starts with literal `?`, send one-Node Command (current Node is Command, Zoom root, and Focus) with caller credentials as `zoomId`, `focusId`, `commandId`, and `graphIds` from **Loaded descendant id list** at that Zoom root
      3. [ ] otherwise AmbleRun (not part of Story path 3)
-     4. [ ] Browser-originated Change posts supply Authority and secret (Story path 3)
+     4. [x] Browser-originated Change posts supply Authority and secret (Story path 3)
    - Uses:
      1. [ ] HTTP Adapter
      2. [ ] AmbleRun
@@ -148,7 +148,7 @@ Deltas for this Project’s hello / one-mailbox Actor program. Persist fillings 
    - Interface:
      1. [ ] decode Browser Command / Change / Poll
      2. [ ] Command / StartActor transport fields are `zoomId`, `focusId`, `commandId`, `graphIds` — same shape as the Core door and CoreActorPool.startActor
-     3. [ ] Change posts carry credentials; pass Authority and secret into CoreMailbox `postChange`
+     3. [x] Change posts carry credentials; pass Authority and secret into CoreMailbox `postChange`
      4. [ ] call Core through CoreMailbox or CoreRuntime-bound members
      5. [ ] encode universal `{ nodes; events; latestId }` for Command when that path is exercised (spec lock; not critical path for the hello outside proof)
    - Uses:
@@ -179,7 +179,7 @@ Deltas for this Project’s hello / one-mailbox Actor program. Persist fillings 
 4. [ ] **History** — Interface on **History**. One sequence; no Actor event log outside CoreMailbox.
 5. [ ] **ActorFn / TestActor input** — Definition and body-input seam. Interface on **TestActor**; register via **CoreActorPool**. Core does not embed Actor bodies.
 6. [x] **PersistHandlers** — Persist seam already landed by [[issues/31-one-coremsg-loop-parameterized-persist.md|One CoreMsg loop parameterized persist]] and [[issues/32-move-persist-agents-under-coremailbox.md|Move persist agents under CoreMailbox]]. Hello does not widen it. Interface on **PersistHandlers**.
-7. [ ] **Credentialed Change posts** — Browser and Actor posts validate via **CoreMsg** before PersistHandlers; Actor also admits on the live table. Story path 3 is Browser Change posts only.
+7. [x] **Credentialed Change posts** — Browser and Actor posts validate via **CoreMsg** before PersistHandlers; Actor also admits on the live table. Story path 3 is Browser Change posts only.
 8. [ ] **Loaded descendant id list** — Shared Zoom-rooted Loaded id walk. Interface on **Loaded descendant id list**. Browser Command `graphIds` and Actor reuse call the same function.
 9. [ ] **Test seam for this tracer** — Story path 2: harness at CoreActorPool or TestActor. Outer facts assert Graph and lifecycle; TestActor does not assert. HTTP universal-response encoding is not on the outside-proof critical path.
 

@@ -50,12 +50,13 @@ let ``persistence exception is logged replied and mailbox survives`` () = task {
             raise (InvalidOperationException("injected persistence failure"))
     let agent =
         DbAgent.createForTestWithDependencies
+            (admittedCredentials ())
             (freshState ())
             (Some dataDir)
             throwingPersist
             (fun _ -> Ok [])
     let! postResult =
-        (CoreMailbox.coreChanges (host agent)).postChange (changedBody ())
+        (admittedChanges (host agent)).postChange (changedBody ())
         |> Async.StartAsTask
         |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
     match postResult with

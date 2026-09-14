@@ -126,17 +126,21 @@ module CoreActorPool =
         (lockedIds: unit -> Set<NodeId>)
         (handle: CoreChanges)
         : CoreChanges =
-        { handle with
-            getState =
-                fun () -> async {
-                    let! state = handle.getState ()
-                    match state with
-                    | Error err -> return Error err
-                    | Ok s ->
-                        let ids = lockedIds ()
-                        let graph = GraphSpan.withLockPresent ids s.graph
-                        return Ok { s with graph = graph }
-                } }
+        let rec wrap h : CoreChanges =
+            { h with
+                getState =
+                    fun () -> async {
+                        let! state = h.getState ()
+                        match state with
+                        | Error err -> return Error err
+                        | Ok s ->
+                            let ids = lockedIds ()
+                            let graph =
+                                GraphSpan.withLockPresent ids s.graph
+                            return Ok { s with graph = graph }
+                    }
+                asCaller = fun a s -> wrap (h.asCaller a s) }
+        wrap handle
 
     let private runLaunch
         (table: SynchronizedTable)
@@ -156,7 +160,7 @@ module CoreActorPool =
                     do! credentials.add plan.credential
                     let bound =
                         CoreAuth.bindHandle
-                            credentials
+                            (Authority "Actor")
                             plan.credential
                             handle
                     Async.Start(

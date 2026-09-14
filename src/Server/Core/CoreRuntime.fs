@@ -9,6 +9,7 @@ type CoreRuntime =
       browserChanges: unit -> CoreChanges
       credentials: CoreCredentials
       command: CoreActorPool
+      browserAuthority: Authority
       browserCredential: Credential
       parseCredential: Credential
       flushFileSnapshot: unit -> Async<Result<unit, string>>
@@ -22,9 +23,12 @@ module CoreRuntime =
             async.Return(
                 Error
                     "Database persistence is unavailable; file fallback is read-only.")
-        { handle with
-            postChange = rejectWrite
-            postGraphOnlyChange = rejectWrite }
+        let rec wrap h : CoreChanges =
+            { h with
+                postChange = rejectWrite
+                postGraphOnlyChange = rejectWrite
+                asCaller = fun a s -> wrap (h.asCaller a s) }
+        wrap handle
 
     let ofFileWithDbMirror
         (file: CoreChanges)
@@ -42,19 +46,27 @@ module CoreRuntime =
             | Ok accepted, None -> return Ok accepted
             | Error err, _ -> return Error err
         }
-        { file with
-            postChange =
-                mirror
-                    (eprintfn
-                        "[Core] Secondary DB write failed after file persist: %s")
-                    file.postChange
-                    (fun handle -> handle.postChange)
-            postGraphOnlyChange =
-                mirror
-                    (eprintfn
-                        "[Core] Secondary DB graph-only write failed: %s")
-                    file.postGraphOnlyChange
-                    (fun handle -> handle.postGraphOnlyChange) }
+        let rec wrap fileHandle dbHandle : CoreChanges =
+            { fileHandle with
+                postChange =
+                    mirror
+                        (eprintfn
+                            "[Core] Secondary DB write failed after file persist: %s")
+                        fileHandle.postChange
+                        (fun handle -> handle.postChange)
+                postGraphOnlyChange =
+                    mirror
+                        (eprintfn
+                            "[Core] Secondary DB graph-only write failed: %s")
+                        fileHandle.postGraphOnlyChange
+                        (fun handle -> handle.postGraphOnlyChange)
+                asCaller =
+                    fun a s ->
+                        wrap
+                            (fileHandle.asCaller a s)
+                            (dbHandle
+                             |> Option.map (fun d -> d.asCaller a s)) }
+        wrap file db
 
     let private addLifetimeCredentials (credentials: CoreCredentials) =
         let browser = Credential(Guid.NewGuid().ToString("N"))
@@ -69,32 +81,66 @@ module CoreRuntime =
         (dbConnectionString: string)
         (dataDir: string)
         : CoreRuntime =
-        let fileHost = lazy (CoreMailbox.createFile dataDir)
-        let getFile () = fileHost.Value |> CoreMailbox.coreChanges
-        let rawHandle () =
-            match persistenceMode, dbStatus with
-            | DatabaseSetup.PersistenceMode.Db, DatabaseSetup.DbStatus.Ok ->
-                DatabaseSetup.getOrCreateDbAgent dbConnectionString dataDir
-            | DatabaseSetup.PersistenceMode.File, DatabaseSetup.DbStatus.Ok ->
-                let db =
-                    DatabaseSetup.getOrCreateDbAgent dbConnectionString dataDir
-                ofFileWithDbMirror (getFile ()) (Some db)
-            | DatabaseSetup.PersistenceMode.Db, _ ->
-                getFile () |> readOnly
-            | DatabaseSetup.PersistenceMode.File, _ ->
-                getFile ()
         let credentials = CoreCredentials.create ()
+        let browserAuthority = Authority "Browser"
         let browserCredential, parseCredential =
             addLifetimeCredentials credentials
+        let fileHost =
+            lazy (CoreMailbox.createFile credentials dataDir)
+        let makeHandle authority secret =
+            let file =
+                CoreMailbox.coreChanges
+                    fileHost.Value
+                    credentials
+                    authority
+                    secret
+            let raw =
+                match persistenceMode, dbStatus with
+                | DatabaseSetup.PersistenceMode.Db, DatabaseSetup.DbStatus.Ok ->
+                    let dbHost =
+                        DatabaseSetup.getOrCreateDbHost
+                            credentials
+                            dbConnectionString
+                            dataDir
+                    CoreMailbox.coreChanges
+                        dbHost
+                        credentials
+                        authority
+                        secret
+                | DatabaseSetup.PersistenceMode.File, DatabaseSetup.DbStatus.Ok ->
+                    let dbHost =
+                        DatabaseSetup.getOrCreateDbHost
+                            credentials
+                            dbConnectionString
+                            dataDir
+                    let db =
+                        CoreMailbox.coreChanges
+                            dbHost
+                            credentials
+                            authority
+                            secret
+                    ofFileWithDbMirror file (Some db)
+                | DatabaseSetup.PersistenceMode.Db, _ ->
+                    readOnly file
+                | DatabaseSetup.PersistenceMode.File, _ ->
+                    file
+            raw
         let pool = CoreActorPool.create credentials
-        let changes () = pool.withLocks (rawHandle ())
+        let changes () =
+            pool.withLocks (
+                makeHandle browserAuthority browserCredential)
         let bindChanges sender =
-            CoreAuth.bindHandle credentials sender (changes ())
+            pool.withLocks (
+                makeHandle (Authority "Caller") sender)
         { changes = changes
           bindChanges = bindChanges
-          browserChanges = fun () -> bindChanges browserCredential
+          browserChanges =
+            fun () ->
+                pool.withLocks (
+                    makeHandle browserAuthority browserCredential)
           credentials = credentials
           command = pool
+          browserAuthority = browserAuthority
           browserCredential = browserCredential
           parseCredential = parseCredential
           flushFileSnapshot =
