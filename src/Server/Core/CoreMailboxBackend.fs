@@ -35,6 +35,8 @@ type PersistHandlers = {
     postGraphOnlyChange:
         Change list -> Result<CoreChangesAccepted, string>
     snapshotDone: Graph option -> unit
+    appendActorStarted: NodeId -> string -> Result<unit, string>
+    appendActorFinished: NodeId -> Result<unit, string>
 }
 
 [<RequireQualifiedAccess>]
@@ -153,7 +155,13 @@ module internal CoreMailboxBackend =
         : unit =
         match admitCaller loop.credentials caller with
         | Error err -> reply.Reply(Error err)
-        | Ok () -> reply.Reply(loop.pool.startActor request)
+        | Ok () ->
+            match loop.pool.startActor request with
+            | Error err -> reply.Reply(Error err)
+            | Ok () ->
+                match loop.persist.appendActorStarted request.focusId "" with
+                | Error err -> reply.Reply(Error err)
+                | Ok () -> reply.Reply(Ok ())
 
     let private dispatchActorStop
         (loop: Loop)
@@ -168,7 +176,12 @@ module internal CoreMailboxBackend =
             | Error err ->
                 reply.Reply(Error(CoreAdmissionError.text err))
             | Ok () ->
-                reply.Reply(loop.pool.finish caller.secret result)
+                let focusId = 
+                    loop.pool.getFocusId caller.secret 
+                    |> Option.defaultValue Graph.rootId
+                match loop.persist.appendActorFinished focusId with
+                | Error err -> reply.Reply(Error err)
+                | Ok () -> reply.Reply(loop.pool.finish caller.secret result)
 
     let private dispatchPostChange
         (loop: Loop)
@@ -265,6 +278,8 @@ module internal CoreMailboxBackend =
             postChange = fun _ -> Error error
             postGraphOnlyChange = fun _ -> Error error
             snapshotDone = fun _ -> ()
+            appendActorStarted = fun _ _ -> Error error
+            appendActorFinished = fun _ -> Error error
         }
 
         MailboxProcessor<CoreMsg>.Start(fun inbox ->

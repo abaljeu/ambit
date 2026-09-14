@@ -362,6 +362,12 @@ module DbAgent =
         postGraphOnlyChange = fun changes ->
             processPostChange loaded changes true
         snapshotDone = handleSnapshotDone loaded
+        appendActorStarted = fun focusId authority ->
+            loaded.state.Value <- History.appendActorStarted focusId authority loaded.state.Value
+            Ok ()
+        appendActorFinished = fun focusId ->
+            loaded.state.Value <- History.appendActorFinished focusId loaded.state.Value
+            Ok ()
     }
 
     let private logUnhandledException liveSaveDataDir operation context (ex: exn) =
