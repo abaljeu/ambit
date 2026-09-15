@@ -62,14 +62,21 @@ Implementation status for this cut: Point 0 loop code is shared ([[issues/30-res
       2. [ ] mailbox store is `EventLog ref`
       3. [ ] persist EventLog as Event JSON (today’s [[src/Server/ChangeLog.fs]])
    2. **Migrate**
-      1. [ ] Changes callers use `postEvent`; name-only Undo/Redo may carry only `target`; dispatch fills inverse Ops
-      2. [ ] `GetEventHistory` returns the log or `since`, not a two-stack
-      3. [ ] Poll returns an Event tail
-      4. [ ] persist ActorStart / ActorStop
-      5. [ ] Browser `ClientHistory` callers use History
-      6. [ ] every start request is `ActorStart`; Core stamps `authority` from the admitted Caller
+      1. [ ] HTTP Adapter ([[src/Server/Api.fs]]) decode/encode: Change posts call `postEvent`; Poll/Load tail is Events (not a Change list)
+      2. [ ] Changes callers use `postEvent`; name-only Undo/Redo may carry only `target`; dispatch fills inverse Ops (same `submissionId`)
+      3. [ ] command-builder still produces Change (Ops); Event is built at the `postEvent` door
+      4. [ ] `GetEventHistory` returns the log or `since`, not a two-stack
+      5. [ ] Poll returns an Event tail (server return and client consume)
+      6. [ ] Browser Poll consume; `Revision` → EventId cursor (`State.revision`, `ClientSyncState.revision`)
+      7. [ ] PendingChange / ChangeBatch wrap Event (or EventBody)
+      8. [ ] Browser `ClientHistory` callers use History; `History.undo` locally then name-only submit; ack/reconcile stays the pending path
+      9. [ ] CoreMsg / CoreActorPool: mailbox appends ActorStart / ActorStop Events; callers do not `postEvent` those bodies
+      10. [ ] persist ActorStart / ActorStop
+      11. [ ] PersistHandlers load/restore: File/Db call `EventLog.restore`; `getEventsSince` returns Events
+      12. [ ] every start request is `ActorStart`
+      13. [ ] stamp `authority` on every stored Event from the admitted Caller
    3. **Contract**
-      1. [ ] Delete `HistoryEvent`, `ActorLifecycleEvent`, and `ClientHistory` once no caller remains
+      1. [ ] Delete `HistoryEvent`, `ActorLifecycleEvent`, `ClientHistory`, and `PendingKind` once no caller remains
       2. [ ] Delete the name `StartActorRequest` once every caller says `ActorStart`
       3. [ ] Drop the ChangeLog name; persist is EventLog
 
@@ -101,7 +108,7 @@ Narrowest test seam for Story **Caller, persist, and Poll**:
 
 Mailbox is intake. EventLog is the store after the mailbox has taken it. History is the Emacs view of Actions. Persistence is the persisted EventLog. Same Event type throughout. Field shapes for Event, EventLog, History, and `postEvent` live in [[reports/event-abstraction.md]]. Hello modules keep their State / Interface / Uses here.
 
-1. **CoreMsg / CoreMailboxBackend**
+1. **CoreMsg / CoreMailboxBackend** — [[src/Server/Core/CoreMsg.fs]], [[src/Server/Core/CoreMailboxBackend.fs]]
    1. [x] State: the one ordered mailbox loop
    - Interface:
      1. [x] match `CoreMsg` cases
@@ -117,7 +124,7 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. History
      2. [ ] mailbox secret set (Browser) and live-table isLive (Actor). No CoreCredentials mailbox.
      3. [ ] EventLog
      4. [ ] PersistHandlers (persist cases only)
-2. **CoreMailbox**
+2. **CoreMailbox** — [[src/Server/Core/CoreMailbox.fs]]
    1. [x] State: none beyond MailboxHost
    - Interface:
      1. [x] public door on MailboxHost — `startActor` with `zoomId`, `focusId`, `commandId`, `graphIds`; `actorStop`; `login` (mailbox privately adds the Browser secret); `isAdmitted` (query). No public add-credential door.
@@ -130,7 +137,7 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. History
      1. [ ] MailboxHost
      2. [ ] CoreMsg
      3. [ ] EventLog
-3. **CoreActorPool**
+3. **CoreActorPool** — [[src/Server/Core/CoreActorPool.fs]]
    - State:
      1. [x] mailbox-owned live table (public Actor identity, secret, termination handle, Focus NodeId); no lock; the mailbox is the only thread that reads or writes the table
      2. [x] registered `ActorFn` defs
@@ -148,7 +155,7 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. History
      10. [x] launch / query are gone; `withLocks` / `lockedIds` leave the CoreRuntime wrap
    - Uses:
      1. [ ] `ActorFn` (injected; Core does not own Actor bodies). Pool does not Use EventLog or CoreCredentials. Live row is Actor liveness.
-4. **Event**
+4. **Event** — planned [[src/Shared/Event.fs]]
    Field shapes: [[reports/event-abstraction.md]].
    1. [ ] State: `Event` record (`id`, `submissionId`, `authority`, `body`); `EventBody` is Change / Undo / Redo / ActorStart / ActorStop; `EventId` is the log position
    - Interface:
@@ -161,7 +168,7 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. History
      7. [ ] Change is the command-builder product (Ops)
    - Uses:
      1. [ ] Op, Graph, `Authority`, `ActorResult`
-5. **EventLog**
+5. **EventLog** — planned [[src/Shared/EventLog.fs]]
    Field shapes: [[reports/event-abstraction.md]].
    1. [ ] State: append-only oldest-head Event sequence; mailbox store after intake. Persistence is this same EventLog on file/DB (today’s [[src/Server/ChangeLog.fs]]). Not a second log.
    - Interface:
@@ -175,7 +182,7 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. History
      8. [ ] persist ActorStart / ActorStop
    - Uses:
      1. [ ] Event
-6. **History**
+6. **History** — planned [[src/Shared/History.fs]]; today’s [[src/Shared/ClientHistory.fs]]
    Field shapes: [[reports/event-abstraction.md]].
    1. [ ] State: newest-head `past`/`future` of Actions (Change/Undo/Redo); `commandName` for peek. Not persisted. Not sent on Poll
    - Interface:
@@ -184,7 +191,7 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. History
      3. [ ] `tryPeekUndoName` / `tryPeekRedoName`
    - Uses:
      1. [ ] Event (Change / Undo / Redo bodies)
-7. **TestActor** (injected proof Actor; not a Core module)
+7. **TestActor** (injected proof Actor; not a Core module) — [[tests/Server.Tests/TestActor.fs]]
    1. [x] State: none. The test host registers this ActorFn on CoreActorPool before the mailbox starts.
    - Interface:
      1. [x] `ActorFn` for Actor name `test`
@@ -194,7 +201,7 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. History
    - Uses:
      1. [ ] CoreChanges (bound through the mailbox)
      2. [ ] Graph
-8. **Loaded descendant id list**
+8. **Loaded descendant id list** — [[src/Shared/IncludedDescendantIds.fs]]
    1. [ ] State: none (Shared pure function)
    - Interface:
      1. [ ] given a Graph and a start NodeId (Zoom root), return a flat `NodeId` list
@@ -206,7 +213,7 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. History
      7. [ ] same function is reused wherever a Zoom-rooted Loaded id list is needed (Browser Command `graphIds`, Actors, and later callers)
    - Uses:
      1. [ ] Graph / Node (`children`, `childrenStatus`)
-9. **Browser Run**
+9. **Browser Run** — [[src/Client/Commands.fs]]
    1. [ ] State: Client selection and current Node text
    - Interface:
      1. [ ] existing Exec / Run command
@@ -217,7 +224,7 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. History
      1. [ ] HTTP Adapter
      2. [ ] AmbleRun
      3. [ ] Loaded descendant id list
-10. **HTTP Adapter**
+10. **HTTP Adapter** — [[src/Server/Api.fs]]
    1. [ ] State: none (transport)
    - Interface:
      1. [ ] decode Browser Command / Change / Poll
@@ -229,7 +236,7 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. History
      7. [ ] encode universal `{ nodes; events; latestId }` for Command when that path is exercised (spec lock; not critical path for the hello outside proof)
    - Uses:
      1. [ ] CoreMailbox / CoreRuntime
-11. **CoreRuntime**
+11. **CoreRuntime** — [[src/Server/Core/CoreRuntime.fs]]
    1. [x] State: composed host and registered Actors. Does not export a credentials field.
    - Interface:
      1. [x] one `MailboxProcessor<CoreMsg>`; persist mode chooses File or Db handlers (not File-with-Db-mirror)
@@ -238,7 +245,7 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. History
    - Uses:
      1. [ ] CoreMailbox
      2. [ ] CoreActorPool
-12. **PersistHandlers**
+12. **PersistHandlers** — [[src/Server/Core/FileAgent.fs]], [[src/Server/Core/DbAgent.fs]]
    1. [x] State: File or Db persist implementation behind the loop
    - Interface:
      1. [x] getState, getRevision, postGraphOnlyChange, snapshotDone

@@ -1,6 +1,6 @@
 # Core creation
 
-Stage: arch
+Stage: slice
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
 Updated: 2026-09-15
 Started: 2026-09-05
@@ -58,6 +58,13 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/issues/34b-outside-core-lifecycle-proof.md|34b — Outside Core lifecycle proof]] — Story path Outside Core lifecycle proof: TestActor hello from Pool/Actor seam without HTTP. Status `coded`.
 - [[plan/core-creation/issues/35b-browser-run-hello.md|35b — Browser Run hello]] — Story path Browser Run hello: `?` one-Node Command through HTTP to Owned child `hello`; blocked by [[plan/core-creation/issues/34b-outside-core-lifecycle-proof.md|34b — Outside Core lifecycle proof]].
 - [[plan/core-creation/issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]] — Collapse extra Core entrances onto CoreMailbox; Status `coded`. Report: [[plan/core-creation/reports/mailbox-single-door.md]].
+- [[plan/core-creation/issues/37-expand-shared-event-eventlog-and-history.md|37 — Expand Shared Event, EventLog, and History]] — Story **Event, EventLog, and History** Shared expand beside HistoryEvent / ClientHistory. Status `ready-to-implement`.
+- [[plan/core-creation/issues/40-expand-postevent-eventlog-and-event-json.md|40 — Expand postEvent, EventLog store, and Event JSON persist]] — Story **Caller, persist, and Poll** expand: `postEvent`, EventLog store, Event JSON beside ChangeLog. Status `blocked` by [[plan/core-creation/issues/37-expand-shared-event-eventlog-and-history.md|37 — Expand Shared Event, EventLog, and History]].
+- [[plan/core-creation/issues/41-migrate-core-mailbox-coremsg-and-pool-onto-event.md|41 — Migrate Core mailbox, CoreMsg, and Pool onto Event]] — Story **Caller, persist, and Poll** Core migrate batch. Status `blocked`.
+- [[plan/core-creation/issues/42-migrate-persisthandlers-restore-and-geteventssince.md|42 — Migrate PersistHandlers restore and getEventsSince]] — Story **Caller, persist, and Poll** persist migrate batch. Status `blocked`.
+- [[plan/core-creation/issues/43-migrate-http-adapter-onto-postevent-and-event-poll.md|43 — Migrate HTTP Adapter onto postEvent and Event Poll]] — Story **Caller, persist, and Poll** HTTP Adapter migrate batch. Status `blocked`.
+- [[plan/core-creation/issues/44-migrate-browser-poll-history-pending-and-eventid.md|44 — Migrate Browser Poll, History, pending, and EventId cursor]] — Story **Caller, persist, and Poll** Browser migrate batch. Status `blocked`.
+- [[plan/core-creation/issues/45-contract-historyevent-clienthistory-pendingkind-and-changelog.md|45 — Contract HistoryEvent, ClientHistory, PendingKind, StartActorRequest, and ChangeLog]] — Story **Caller, persist, and Poll** contract. Status `blocked`.
 
 ## Decision tickets
 
@@ -147,4 +154,6 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - 2026-09-15 — Removed State.history. Mailbox `eventHistory` is the one History (undo stack); EventLog is durability and restore, not a post-time copy. ClientHistory is leftover and still does Browser undo.
 - 2026-09-15 — Cancelled poll-carried eventHistory / mailbox undo door. Reverted that increment only. Report: [[plan/core-creation/reports/cancel-poll-eventhistory-undo.md]].
 - 2026-09-15 — `/to-arch` Event destination on existing [[plan/core-creation/arch.md]]. Completed hello stories unchanged. Module map is destination-only. New stories **Event, EventLog, and History** and **Caller, persist, and Poll** are expand-migrate-contract. Stage `arch`. Report: [[plan/core-creation/reports/event-abstraction.md]].
+- 2026-09-15 — `/to-tickets` for Story **Event, EventLog, and History** only; published [[plan/core-creation/issues/37-expand-shared-event-eventlog-and-history.md|37 — Expand Shared Event, EventLog, and History]]. Stage `slice`. Story **Caller, persist, and Poll** not ticketed.
+- 2026-09-15 — `/to-tickets` for Story **Caller, persist, and Poll** only; published [[plan/core-creation/issues/40-expand-postevent-eventlog-and-event-json.md|40 — Expand postEvent, EventLog store, and Event JSON persist]] through [[plan/core-creation/issues/45-contract-historyevent-clienthistory-pendingkind-and-changelog.md|45 — Contract HistoryEvent, ClientHistory, PendingKind, StartActorRequest, and ChangeLog]]. Numbers start at 40. Story 4 tickets unchanged. Stage `slice`.
 - 2026-09-15 — EventLog is the Event sequence and its persist. ChangeLog is a lagging code name only (`src/Server/ChangeLog.fs`).
