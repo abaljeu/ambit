@@ -2,136 +2,44 @@ namespace Gambol.Shared
 
 open Gambol.Shared.Events
 
-type HistoryRecord =
-    { recordId: int
-      commandName: string
-      applied: Change }
-
-type EventAction =
-    { commandName: string
-      event: Event }
-
 type ClientHistory =
     private
-        { past: HistoryRecord list
-          future: HistoryRecord list
-          nextRecordId: int
-          eventPast: EventAction list
-          eventFuture: EventAction list
-          nextEventId: Gambol.Shared.Events.EventId }
-
+        { eventPast: Event list
+          eventFuture: Event list
+          nextEventId: EventId }
 
 [<RequireQualifiedAccess>]
 module ClientHistory =
     let clear () : ClientHistory =
-        { past = []
-          future = []
-          nextRecordId = 0
-          eventPast = []
+        { eventPast = []
           eventFuture = []
-          nextEventId = EventId 0 }
-
-    let record
-        (commandName: string)
-        (change: Change)
-        (history: ClientHistory)
-        : ClientHistory * int =
-        let historyRecord =
-            { recordId = history.nextRecordId
-              commandName = commandName
-              applied = change }
-        let foldedPast =
-            List.foldBack
-                (fun futureRecord past -> futureRecord :: past)
-                history.future
-                history.past
-        let nextHistory =
-            { history with
-                past = historyRecord :: foldedPast
-                future = []
-                nextRecordId = history.nextRecordId + 1 }
-        nextHistory,
-        historyRecord.recordId
-
-    let undo
-        (baseRevision: Revision)
-        (changeId: System.Guid)
-        (history: ClientHistory)
-        : (Change * string * ClientHistory * int) option =
-        match history.past with
-        | [] -> None
-        | historyRecord :: remainingPast ->
-            let inverse =
-                Change.inverse baseRevision changeId historyRecord.applied
-            let movedRecord = { historyRecord with applied = inverse }
-            let nextHistory =
-                { history with
-                    past = remainingPast
-                    future = movedRecord :: history.future }
-            Some(
-                inverse,
-                historyRecord.commandName,
-                nextHistory,
-                historyRecord.recordId)
-
-    let redo
-        (baseRevision: Revision)
-        (changeId: System.Guid)
-        (history: ClientHistory)
-        : (Change * string * ClientHistory * int) option =
-        match history.future with
-        | [] -> None
-        | historyRecord :: remainingFuture ->
-            let inverse =
-                Change.inverse baseRevision changeId historyRecord.applied
-            let movedRecord = { historyRecord with applied = inverse }
-            let nextHistory =
-                { history with
-                    past = movedRecord :: history.past
-                    future = remainingFuture }
-            Some(
-                inverse,
-                historyRecord.commandName,
-                nextHistory,
-                historyRecord.recordId)
-
-    let private eventHasOps (event: Event) : bool =
-        match event.body with
-        | EventBody.Change _
-        | EventBody.Undo _
-        | EventBody.Redo _ -> true
-        | EventBody.ActorStart _
-        | EventBody.ActorStop _ -> false
+          nextEventId = EventId.zero }
 
     let private tryTakeAction
-        (stack: EventAction list)
-        : (EventAction list * EventAction) option =
+        (stack: Event list)
+        : (Event list * Event) option =
         let rec walk skipped remaining =
             match remaining with
             | [] -> None
-            | action :: rest when eventHasOps action.event ->
+            | action :: rest when Event.isAction action ->
                 let kept = List.fold (fun acc x -> x :: acc) rest skipped
                 Some(kept, action)
             | actor :: rest ->
                 walk (actor :: skipped) rest
         walk [] stack
 
-    let private bumpEventId (EventId n) = EventId(n + 1)
-
-    let private maxEventId (EventId a) (EventId b) = EventId(max a b)
-
     let private invertAs
         (wrap: EventId * Op list -> EventBody)
-        (action: EventAction)
+        (action: Event)
         (id: EventId)
         : Event =
         let inverse =
-            Event.inverseOps action.event |> Option.defaultValue []
+            Event.inverseOps action |> Option.defaultValue []
         { id = id
           submissionId = System.Guid.NewGuid()
-          authority = action.event.authority
-          commandName = action.event.commandName
-          body = wrap (Event.id action.event, inverse) }
+          authority = action.authority
+          commandName = action.commandName
+          body = wrap (Event.id action, inverse) }
 
     let recordEvent
         (commandName: string)
@@ -139,17 +47,16 @@ module ClientHistory =
         (history: ClientHistory)
         : ClientHistory =
         let event = { event with commandName = commandName }
-        let action = { commandName = commandName; event = event }
         let foldedPast =
             List.foldBack
-                (fun futureAction past -> futureAction :: past)
+                (fun futureEvent past -> futureEvent :: past)
                 history.eventFuture
                 history.eventPast
-        let (EventId n) = event.id
         { history with
-            eventPast = action :: foldedPast
+            eventPast = event :: foldedPast
             eventFuture = []
-            nextEventId = maxEventId history.nextEventId (EventId(n + 1)) }
+            nextEventId =
+                EventId.max history.nextEventId (EventId.next event.id) }
 
     let undoEvent
         (history: ClientHistory)
@@ -158,12 +65,11 @@ module ClientHistory =
         | None -> None
         | Some (remainingPast, action) ->
             let produced = invertAs EventBody.Undo action history.nextEventId
-            let moved = { action with event = produced }
             let nextHistory =
                 { history with
                     eventPast = remainingPast
-                    eventFuture = moved :: history.eventFuture
-                    nextEventId = bumpEventId history.nextEventId }
+                    eventFuture = produced :: history.eventFuture
+                    nextEventId = EventId.next history.nextEventId }
             Some(produced, nextHistory)
 
     let redoEvent
@@ -173,36 +79,78 @@ module ClientHistory =
         | None -> None
         | Some (remainingFuture, action) ->
             let produced = invertAs EventBody.Redo action history.nextEventId
-            let moved = { action with event = produced }
             let nextHistory =
                 { history with
-                    eventPast = moved :: history.eventPast
+                    eventPast = produced :: history.eventPast
                     eventFuture = remainingFuture
-                    nextEventId = bumpEventId history.nextEventId }
+                    nextEventId = EventId.next history.nextEventId }
             Some(produced, nextHistory)
 
-    let private tryPeekActionName (stack: EventAction list) : string option =
+    let private tryPeekActionName (stack: Event list) : string option =
         let rec walk remaining =
             match remaining with
             | [] -> None
-            | action :: _ when eventHasOps action.event ->
-                Some action.commandName
+            | event :: _ when Event.isAction event -> Some event.commandName
             | _ :: rest -> walk rest
         walk stack
 
-    let private tryPeekChangeName
-        (stack: HistoryRecord list)
-        : string option =
-        match stack with
-        | [] -> None
-        | historyRecord :: _ -> Some historyRecord.commandName
-
     let tryPeekUndoName (history: ClientHistory) : string option =
-        match tryPeekActionName history.eventPast with
-        | Some name -> Some name
-        | None -> tryPeekChangeName history.past
+        tryPeekActionName history.eventPast
 
     let tryPeekRedoName (history: ClientHistory) : string option =
-        match tryPeekActionName history.eventFuture with
-        | Some name -> Some name
-        | None -> tryPeekChangeName history.future
+        tryPeekActionName history.eventFuture
+
+    let private unwrap (EventId n) = n
+
+    let private callerRecordId (event: Event) : int =
+        unwrap (Event.target event |> Option.defaultValue event.id)
+
+    let private asChange
+        (Revision rev)
+        (changeId: System.Guid)
+        (event: Event)
+        : Change =
+        { id = rev
+          changeId = changeId
+          ops = Event.ops event |> Option.defaultValue [] }
+
+    let record
+        (commandName: string)
+        (change: Change)
+        (history: ClientHistory)
+        : ClientHistory * int =
+        let event =
+            { id = history.nextEventId
+              submissionId = change.changeId
+              authority = Authority "Browser"
+              commandName = commandName
+              body = EventBody.Change change.ops }
+        recordEvent commandName event history, unwrap event.id
+
+    let undo
+        (baseRevision: Revision)
+        (changeId: System.Guid)
+        (history: ClientHistory)
+        : (Change * string * ClientHistory * int) option =
+        match undoEvent history with
+        | None -> None
+        | Some (produced, nextHistory) ->
+            Some(
+                asChange baseRevision changeId produced,
+                produced.commandName,
+                nextHistory,
+                callerRecordId produced)
+
+    let redo
+        (baseRevision: Revision)
+        (changeId: System.Guid)
+        (history: ClientHistory)
+        : (Change * string * ClientHistory * int) option =
+        match redoEvent history with
+        | None -> None
+        | Some (produced, nextHistory) ->
+            Some(
+                asChange baseRevision changeId produced,
+                produced.commandName,
+                nextHistory,
+                callerRecordId produced)

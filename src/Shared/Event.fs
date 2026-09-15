@@ -5,6 +5,12 @@ open Gambol.Shared
 
 type EventId = EventId of int
 
+[<RequireQualifiedAccess>]
+module EventId =
+    let zero = EventId 0
+    let next (EventId n) = EventId(n + 1)
+    let max (EventId a) (EventId b) = EventId(Operators.max a b)
+
 type Authority = Authority of string
 
 type ActorResult =
@@ -46,6 +52,8 @@ module Event =
         | EventBody.Redo(_, ops) -> Some ops
         | EventBody.ActorStart _
         | EventBody.ActorStop _ -> None
+
+    let isAction (event: Event) : bool = ops event |> Option.isSome
 
     let target (event: Event) : EventId option =
         match event.body with

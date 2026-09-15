@@ -1,22 +1,18 @@
 namespace Gambol.Shared.Events
 
-open System
-open Gambol.Shared
-
 type EventLog =
     { events: Event list
       nextId: EventId }
 
 [<RequireQualifiedAccess>]
 module EventLog =
-    let empty: EventLog = { events = []; nextId = EventId 0 }
+    let empty: EventLog = { events = []; nextId = EventId.zero }
 
     let nextId (log: EventLog) : EventId = log.nextId
 
     let append (event: Event) (log: EventLog) : EventLog =
-        let (EventId n) = log.nextId
         { events = { event with id = log.nextId } :: log.events
-          nextId = EventId(n + 1) }
+          nextId = EventId.next log.nextId }
 
     let since (EventId after) (log: EventLog) : EventLog =
         { log with
@@ -34,15 +30,10 @@ module EventLog =
             log.events
             |> List.map (fun event -> event.submissionId)
             |> Set.ofList
-        let (EventId start) = log.nextId
-        let folder (events, seen, next) event =
+        let folder (events, seen) event =
             if Set.contains event.submissionId seen then
-                events, seen, next
+                events, seen
             else
-                let (EventId n) = event.id
-                event :: events,
-                Set.add event.submissionId seen,
-                max next (n + 1)
-        let events, _, next =
-            List.fold folder (log.events, known, start) persisted
-        { events = events; nextId = EventId next }
+                event :: events, Set.add event.submissionId seen
+        let events, _ = List.fold folder (log.events, known) persisted
+        { log with events = events }
