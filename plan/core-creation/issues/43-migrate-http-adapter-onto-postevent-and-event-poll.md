@@ -1,6 +1,6 @@
 # 43 — Migrate HTTP Adapter onto postEvent and Event Poll
 
-**Status:** ready-to-implement
+**Status:** done
 **Blocked by:** [40 — Expand postEvent, EventLog store, and Event JSON persist](40-expand-postevent-eventlog-and-event-json.md), [41 — Migrate Core mailbox, CoreMsg, and Pool onto Event](41-migrate-core-mailbox-coremsg-and-pool-onto-event.md), [42 — Migrate PersistHandlers restore and getEventsSince](42-migrate-persisthandlers-restore-and-geteventssince.md)
 
 ## Context
@@ -15,14 +15,14 @@ Move HTTP Adapter decode/encode onto Event. Change posts call `postEvent`. Poll 
 
 Migrate HTTP Changes posts on **HTTP Adapter**. Seam **`postEvent` door**.
 
-- [ ] Change posts call postEvent — HTTP Adapter decodes Change posts and calls CoreMailbox `postEvent`. Command-builder still produces Change (Ops). Event is built at the `postEvent` door.
+- [x] Change posts call postEvent — HTTP Adapter decodes Change posts and calls CoreMailbox `postEvent`. Command-builder still produces Change (Ops). Event is built at the `postEvent` door.
 
 ### 2. Poll and Load Event tail
 
 Migrate Poll and Load encode on **HTTP Adapter**. Seam **EventLog** (`since` is the Poll/Load tail).
 
-- [ ] Poll Event tail — Poll returns an Event tail (server return). Old Change Poll remains beside it until Browser migrate.
-- [ ] Load Event tail — Load tail is Events. Old Change Load remains beside it until Browser migrate.
+- [x] Poll Event tail — Poll returns an Event tail (server return). Old Change Poll remains beside it until Browser migrate.
+- [x] Load Event tail — Load tail is Events. Old Change Load remains beside it until Browser migrate.
 
 ## Out of scope
 
@@ -36,3 +36,4 @@ Migrate Poll and Load encode on **HTTP Adapter**. Seam **EventLog** (`since` is 
 ## Comments
 
 - 2026-09-15 — Filed via `/to-tickets` for Story **Caller, persist, and Poll** only. HTTP Adapter migrate batch. Blocked by expand, Core migrate, and PersistHandlers migrate. Event Poll sits beside the old Change list until [44 — Migrate Browser Poll, History, pending, and EventId cursor](44-migrate-browser-poll-history-pending-and-eventid.md).
+- 2026-09-15 — Implemented. Added `getEventsSince` to CoreChanges interface. Poll and Load now return Event tail alongside Change list. Change posts already call postEvent through CoreMailbox.postChange. Merged to staging (9035ceb).
