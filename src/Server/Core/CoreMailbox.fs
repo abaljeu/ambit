@@ -5,7 +5,7 @@ open Gambol.Shared
 /// CoreMailbox door — public API for MailboxHost.
 ///
 /// Actor lifecycle:
-/// - startActor: Start an Actor with StartActorRequest (includes revision).
+/// - startActor: Start an Actor with ActorStart (includes revision).
 ///   Returns startActor bookkeeping result; does not wait for Actor body.
 /// - actorStop: Stop an Actor with ActorResult.
 /// - postChange / coreChanges: Credentialed Actor Changes use the same mailbox
@@ -19,7 +19,7 @@ open Gambol.Shared
 ///
 /// Data exposure:
 /// - getState: Read the Graph with lockPresent overlay. Returns Graph facts only.
-/// - eventHistory: The mailbox History (undo stack). Change + Actor Events.
+/// - eventHistory: The mailbox EventLog. Change + Actor Events.
 [<RequireQualifiedAccess>]
 module CoreMailbox =
 
@@ -43,7 +43,7 @@ module CoreMailbox =
 
     let eventHistory
         (host: MailboxHost)
-        : Async<History> =
+        : Async<Gambol.Shared.Events.EventLog> =
         reply host GetEventHistory
 
     let getRevision (host: MailboxHost) : Async<Revision> =
@@ -62,19 +62,98 @@ module CoreMailbox =
             return unwrap result
         }
 
+    let private eventFromChange
+        (change: Change)
+        : Gambol.Shared.Events.Event =
+        { id = Gambol.Shared.Events.EventId 0
+          submissionId = change.changeId
+          authority = Gambol.Shared.Events.Authority ""
+          commandName = ""
+          body = Gambol.Shared.Events.EventBody.Change change.ops }
+
+    let private postEventAccepted
+        (host: MailboxHost)
+        (caller: Caller)
+        (event: Gambol.Shared.Events.Event)
+        =
+        reply host (fun channel -> PostEvent(caller, event, channel))
+
+    let private acceptedFromPosted
+        (host: MailboxHost)
+        (posted:
+            Result<
+                Gambol.Shared.Events.Event *
+                CoreChangesAccepted option,
+                string>)
+        : Async<Result<CoreChangesAccepted, string>> =
+        async {
+            match posted with
+            | Error error -> return Error error
+            | Ok (_, Some accepted) -> return Ok accepted
+            | Ok (_, None) ->
+                let! revision = getRevision host
+                return
+                    Ok(
+                        CoreChanges.accepted
+                            revision
+                            (MailboxHost.isReady host ())
+                            []
+                            false
+                            None)
+        }
+
+    let private postOneChange host caller change =
+        async {
+            let! posted =
+                postEventAccepted host caller (eventFromChange change)
+            return! acceptedFromPosted host posted
+        }
+
+    /// Transport may pass a Change list; each Change becomes one PostEvent
+    /// on the mailbox queue (no multi-Event CoreMsg / postMany).
     let postChange
         (host: MailboxHost)
         (caller: Caller)
         (changes: Change list)
         : Async<Result<CoreChangesAccepted, string>> =
-        reply host (fun channel -> PostChange(caller, changes, channel))
+        async {
+            match changes with
+            | [] -> return Error "changes must not be empty"
+            | first :: rest ->
+                let! firstAccepted = postOneChange host caller first
+                match firstAccepted with
+                | Error error -> return Error error
+                | Ok accepted ->
+                    let folder acc change =
+                        async {
+                            match! acc with
+                            | Error error -> return Error error
+                            | Ok prior ->
+                                match! postOneChange host caller change with
+                                | Error error -> return Error error
+                                | Ok next ->
+                                    return
+                                        Ok(
+                                            CoreChanges.mergeAccepted
+                                                prior
+                                                next)
+                        }
+                    return!
+                        List.fold
+                            folder
+                            (async.Return(Ok accepted))
+                            rest
+        }
 
     let postEvent
         (host: MailboxHost)
         (caller: Caller)
         (event: Gambol.Shared.Events.Event)
         : Async<Result<Gambol.Shared.Events.Event, string>> =
-        reply host (fun channel -> PostEvent(caller, event, channel))
+        async {
+            let! result = postEventAccepted host caller event
+            return result |> Result.map fst
+        }
 
     let eventsSince
         (host: MailboxHost)
@@ -82,18 +161,19 @@ module CoreMailbox =
         : Async<Gambol.Shared.Events.EventLog> =
         reply host (fun channel -> EventsSince(after, channel))
 
+    /// Graph work that skips EventLog (CoreMailbox). One Change.
     let postGraphOnlyChange
         (host: MailboxHost)
         (caller: Caller)
-        (changes: Change list)
+        (change: Change)
         : Async<Result<CoreChangesAccepted, string>> =
         reply host (fun channel ->
-            PostGraphOnlyChange(caller, changes, channel))
+            PostGraphOnlyChange(caller, change, channel))
 
     let startActor
         (host: MailboxHost)
         (caller: Caller)
-        (request: StartActorRequest)
+        (request: Gambol.Shared.Events.ActorStart)
         : Async<Result<unit, string>> =
         reply host (fun channel ->
             StartActor(caller, request, channel))
@@ -138,9 +218,9 @@ module CoreMailbox =
               getRevision = fun () -> getRevision host
               getChangesSince = getChangesSince host
               isReady = MailboxHost.isReady host
-              postChange = fun changes -> postChange host c changes
+              postChange = postChange host c
               postGraphOnlyChange =
-                fun changes -> postGraphOnlyChange host c changes
+                fun change -> postGraphOnlyChange host c change
               actorStop = fun result -> actorStop host c result
               asCaller = make }
         make caller

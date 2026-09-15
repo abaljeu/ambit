@@ -5,13 +5,8 @@ open Gambol.Shared
 
 type ActorName = ActorName of string
 
-/// One Command / StartActor payload for CoreMsg, CoreMailbox, and the pool.
-type StartActorRequest =
-    { zoomId: NodeId
-      focusId: NodeId
-      commandId: NodeId
-      graphIds: NodeId list
-      revision: Revision }
+/// Compatibility name retained until the Event contract ticket.
+type StartActorRequest = Gambol.Shared.Events.ActorStart
 
 /// Actor input: Graph plus named ids and Actor secret.
 type ActorInput =
@@ -26,7 +21,9 @@ type ActorFn = ActorInput -> CoreChanges -> Async<unit>
 type CoreActorPool =
     { register: ActorName -> ActorFn -> unit
       startActor:
-        StartActorRequest -> (unit -> Graph) -> Result<Credential, string>
+        Gambol.Shared.Events.ActorStart ->
+            (unit -> Graph) ->
+            Result<Credential, string>
       schedule: Credential -> CoreChanges -> unit
       isLive: Credential -> bool
       admit: Credential -> Result<unit, string>
@@ -95,7 +92,7 @@ module CoreActorPool =
     let private runStartActor
         (putLive: Credential -> NodeId -> PendingBody -> unit)
         (getModel: unit -> Model)
-        (request: StartActorRequest)
+        (request: Gambol.Shared.Events.ActorStart)
         (getState: unit -> Graph)
         =
         let fullGraph = getState ()

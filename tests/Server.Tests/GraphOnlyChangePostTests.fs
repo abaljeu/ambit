@@ -22,13 +22,13 @@ let private postWorkspace (fileAgent: MailboxHost) (label: string) =
     workspaceId
 
 let private recordingHandle (inner: CoreChanges) =
-    let posts = ResizeArray<Change list>()
+    let posts = ResizeArray<Change>()
     let handle =
         { inner with
             postGraphOnlyChange =
-                fun changes ->
-                    posts.Add(changes)
-                    inner.postGraphOnlyChange changes }
+                fun change ->
+                    posts.Add(change)
+                    inner.postGraphOnlyChange change }
     handle, posts
 
 [<Fact>]
@@ -50,8 +50,8 @@ let ``reconcile posts graph-only chunks at or under maxOps`` () =
     Assert.True(
         posts.Count >= 2,
         sprintf "expected multiple posts, got %d" posts.Count)
-    for changes in posts do
-        let n = changes |> List.sumBy (fun change -> change.ops.Length)
+    for change in posts do
+        let n = change.ops.Length
         Assert.True(
             n <= GraphOnlyChangeChunks.maxOps,
             sprintf "chunk had %d ops" n)

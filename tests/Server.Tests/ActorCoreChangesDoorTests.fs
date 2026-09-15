@@ -21,7 +21,7 @@ let private sampleRequest: StartActorRequest =
       focusId = Graph.rootId
       commandId = Graph.rootId
       graphIds = [ Graph.rootId ]
-      revision = Revision 0 }
+      revision = Gambol.Shared.Events.EventId 0 }
 
 let private withPersist persist body =
     task {

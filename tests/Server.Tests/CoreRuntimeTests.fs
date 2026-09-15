@@ -65,7 +65,7 @@ let ``bound Changes refuses an inactive sender and does not enqueue`` () =
                 (BrowserRequestCreds.callerFromSecret (Credential "inactive"))
         let! before = bound.getRevision () |> Async.StartAsTask
         let! result =
-            bound.postChange [ addRootChild "refused" ]
+            bound.postChange [ addRootChild "refused" ] 
             |> Async.StartAsTask
         let! after = bound.getRevision () |> Async.StartAsTask
         Assert.Equal(Error CoreAuth.refuse, result)
@@ -173,7 +173,7 @@ let ``CoreRuntime seeds a Parse process Caller distinct from Browser cookie`` ()
             CoreMailbox.postGraphOnlyChange
                 runtime.host
                 runtime.parseCaller
-                [ change ]
+                change
             |> Async.StartAsTask
         requireOk "parse Graph-only" posted |> ignore
         Assert.True(parseLive)

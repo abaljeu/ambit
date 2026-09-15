@@ -8,17 +8,15 @@ open Gambol.Server.Tests.TestBackend
 
 let private changedBody () =
     let childId = NodeId.New()
-    let change =
-        {
-            id = 0
-            changeId = Guid.NewGuid()
-            ops =
-                [
-                    Op.NewNode(childId, "failure probe")
-                    Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ])
-                ]
-        }
-    [ change ]
+    [ {
+        id = 0
+        changeId = Guid.NewGuid()
+        ops =
+            [
+                Op.NewNode(childId, "failure probe")
+                Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ])
+            ]
+    } ]
 
 let private freshState () : State =
     { graph = Graph.create ()
@@ -60,12 +58,11 @@ let ``persistence exception is logged replied and mailbox survives`` () = task {
     match postResult with
     | Ok _ -> Assert.Fail("Expected persistence failure.")
     | Error error ->
-        Assert.Contains("Internal server error in DbAgent PostChange", error)
+        Assert.Contains("Internal server error in DbAgent PostEvent", error)
         Assert.Contains($"(dataDir={dataDir})", error)
 
     let log = IO.File.ReadAllText logPath
-    Assert.Contains("EXCEPTION source=DbAgent operation=PostChange", log)
-    Assert.Contains("context=changeCount=", log)
+    Assert.Contains("EXCEPTION source=DbAgent operation=PostEvent", log)
     Assert.Contains("type=System.InvalidOperationException", log)
     Assert.Contains("message=injected persistence failure", log)
     Assert.Contains("stack=", log)

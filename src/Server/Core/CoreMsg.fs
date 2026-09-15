@@ -7,14 +7,11 @@ type internal CoreMsg =
     | GetRevision of AsyncReplyChannel<Result<Revision, string>>
     | GetChangesSince of
         after: Revision * AsyncReplyChannel<Result<Change list, string>>
-    | GetEventHistory of AsyncReplyChannel<History>
-    | PostChange of
-        caller: Caller *
-        changes: Change list *
-        AsyncReplyChannel<Result<CoreChangesAccepted, string>>
+    | GetEventHistory of
+        AsyncReplyChannel<Gambol.Shared.Events.EventLog>
     | PostGraphOnlyChange of
         caller: Caller *
-        changes: Change list *
+        change: Change *
         AsyncReplyChannel<Result<CoreChangesAccepted, string>>
     | Logout of
         Caller *
@@ -22,7 +19,7 @@ type internal CoreMsg =
     | SnapshotDone of graph: Graph option
     | StartActor of
         caller: Caller *
-        request: StartActorRequest *
+        request: Gambol.Shared.Events.ActorStart *
         AsyncReplyChannel<Result<unit, string>>
     | ActorStop of
         caller: Caller *
@@ -35,7 +32,11 @@ type internal CoreMsg =
     | PostEvent of
         caller: Caller *
         event: Gambol.Shared.Events.Event *
-        AsyncReplyChannel<Result<Gambol.Shared.Events.Event, string>>
+        AsyncReplyChannel<
+            Result<
+                Gambol.Shared.Events.Event *
+                CoreChangesAccepted option,
+                string>>
     | EventsSince of
         after: Gambol.Shared.Events.EventId *
         AsyncReplyChannel<Gambol.Shared.Events.EventLog>

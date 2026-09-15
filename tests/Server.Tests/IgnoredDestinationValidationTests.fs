@@ -153,8 +153,7 @@ let ``many new destinations reject ignored and keep gitignore`` () =
 
 let private encodeChange graph parentId name =
     let _, ops = FileNodeOps.planCreateOwnedFile graph parentId name
-    let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
-    [ change ]
+    [ { id = 0; changeId = Guid.NewGuid(); ops = ops } ]
 
 [<SkippableFact>]
 let ``file persist rejects ignored graph state before acceptance`` () =

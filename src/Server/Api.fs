@@ -164,6 +164,7 @@ module Api =
         | Error err ->
             return agentErrorResult $"Invalid JSON: {err}"
         | Ok batch ->
+            // Transport batch; CoreMailbox loops one PostEvent per Change.
             match! handle.postChange batch.changes with
             | Ok accepted ->
                 return
@@ -249,7 +250,7 @@ module Api =
                     { id = state.revision.Value
                       changeId = Guid.NewGuid()
                       ops = ops }
-                match! handle.postGraphOnlyChange [ change ] with
+                match! handle.postGraphOnlyChange change with
                 | Ok _ -> return jsonResult """{"ok":true}"""
                 | Error err -> return agentErrorResult err
         }

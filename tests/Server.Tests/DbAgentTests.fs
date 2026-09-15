@@ -17,6 +17,11 @@ let private decodeChange (s: string) =
 let private encodeChangeBatch (changes: Change list) =
     changes
 
+let private emptyChange () =
+    [ { id = 0
+        changeId = Guid.NewGuid()
+        ops = [] } ]
+
 let private host agent = admittedHostDb agent
 
 let private getState agent = async {
@@ -120,8 +125,12 @@ let ``DbAgent serves reads while sweep buffers FIFO mutations then trims`` () = 
 
     let stateTask = getState agent |> Async.StartAsTask
     let revisionTask = CoreMailbox.getRevision (host agent) |> Async.StartAsTask
-    let firstPost = (admittedChanges (host agent)).postChange [] |> Async.StartAsTask
-    let secondPost = (admittedChanges (host agent)).postChange [] |> Async.StartAsTask
+    let firstPost =
+        (admittedChanges (host agent)).postChange (emptyChange ())
+        |> Async.StartAsTask
+    let secondPost =
+        (admittedChanges (host agent)).postChange (emptyChange ())
+        |> Async.StartAsTask
     do! Task.Delay(100)
     Assert.True(stateTask.IsCompleted)
     Assert.True(revisionTask.IsCompleted)
@@ -138,10 +147,10 @@ let ``DbAgent serves reads while sweep buffers FIFO mutations then trims`` () = 
     Assert.True(firstPost.IsCompleted, "Expected first queued mutation to complete first.")
     let! firstResult = firstPost
     match firstResult with
-    | Error error -> Assert.Contains("changes must not be empty", error)
+    | Error error -> Assert.Contains("Unchanged submission is rejected.", error)
     | Ok _ -> Assert.Fail("Expected invalid first mutation to fail.")
     match secondResult with
-    | Error error -> Assert.Contains("changes must not be empty", error)
+    | Error error -> Assert.Contains("Unchanged submission is rejected.", error)
     | Ok _ -> Assert.Fail("Expected invalid buffered mutation to fail.")
     let! afterState = getState agent |> Async.StartAsTask
     Assert.True(CoreMailbox.isReady (host agent))
@@ -159,7 +168,8 @@ let ``DbAgent startup sweep failure preserves reads and fails mutations closed``
     Assert.False(CoreMailbox.isReady (host agent))
 
     let! postResult =
-        (admittedChanges (host agent)).postChange [] |> Async.StartAsTask
+        (admittedChanges (host agent)).postChange (emptyChange ())
+        |> Async.StartAsTask
 
     match postResult with
     | Error error -> Assert.Contains("Startup projection sweep failed: blocked", error)

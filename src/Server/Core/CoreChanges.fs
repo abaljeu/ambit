@@ -26,8 +26,8 @@ type CoreChangesAccepted =
       isReady: bool }
 
 /// The Core Changes contract. Every Change reaches persistence through this handle.
-/// `postChange` is a stamped view: Caller is closed over and sent on
-/// CoreMsg PostChange for mailbox validation before PersistHandlers.
+/// `postChange` may take a transport batch (Change list) but enqueues one Event
+/// per Change into the mailbox (postEvent door).
 type CoreChanges =
     { getState: unit -> Async<Result<State, string>>
       getRevision: unit -> Async<Revision>
@@ -35,7 +35,7 @@ type CoreChanges =
       isReady: unit -> bool
       postChange: Change list -> Async<Result<CoreChangesAccepted, string>>
       postGraphOnlyChange:
-        Change list -> Async<Result<CoreChangesAccepted, string>>
+        Change -> Async<Result<CoreChangesAccepted, string>>
       actorStop: ActorResult -> Async<Result<unit, string>>
       /// Rebind posts to another Caller on the same mailbox door.
       asCaller: Caller -> CoreChanges }
@@ -55,3 +55,14 @@ module CoreChanges =
           externalChanges = externalChanges
           message = message
           isReady = isReady }
+
+    let mergeAccepted
+        (prior: CoreChangesAccepted)
+        (next: CoreChangesAccepted)
+        : CoreChangesAccepted =
+        { revision = next.revision
+          changes = prior.changes @ next.changes
+          externalChanges =
+            prior.externalChanges || next.externalChanges
+          message = next.message |> Option.orElse prior.message
+          isReady = next.isReady }

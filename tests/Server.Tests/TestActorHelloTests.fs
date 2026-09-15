@@ -17,9 +17,8 @@ let private requireOk label result =
 let private eventPast host =
     async {
         let! history = CoreMailbox.eventHistory host
-        return history.past
+        return history.events
     }
-
 let private waitForActorFinished host focusId timeoutMs =
     task {
         let mutable found = false
@@ -31,14 +30,14 @@ let private waitForActorFinished host focusId timeoutMs =
             found <-
                 events
                 |> List.exists (fun event ->
-                    match event with
-                    | ActorEvent (_, ActorFinished fid) when fid = focusId -> true
+                    match event.body with
+                    | Gambol.Shared.Events.EventBody.ActorStop(fid, _)
+                        when fid = focusId -> true
                     | _ -> false)
             if not found then
                 do! Task.Delay(10)
         return found
     }
-
 let private waitForLiveRowDrop pool focusId timeoutMs =
     task {
         let mutable dropped = false
@@ -64,7 +63,7 @@ let private sampleRequest focusId commandId graphIds: StartActorRequest =
       focusId = focusId
       commandId = commandId
       graphIds = graphIds
-      revision = Revision 0 }
+      revision = Gambol.Shared.Events.EventId 0 }
 
 let private actorCaller secret =
     { authority = Authority "Actor"
@@ -103,7 +102,7 @@ let ``TestActor hello posts one Owned child text hello under Focus`` () =
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host testCaller [ change ]
+            CoreMailbox.postGraphOnlyChange host testCaller change
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
@@ -139,7 +138,7 @@ let ``TestActor hello stops successfully with ActorSucceeded`` () =
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host testCaller [ change ]
+            CoreMailbox.postGraphOnlyChange host testCaller change
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
@@ -156,15 +155,14 @@ let ``TestActor hello stops successfully with ActorSucceeded`` () =
         let! events =
             eventPast host
             |> Async.StartAsTask
-        
         let actorFinishedEvents =
             events
             |> List.choose (fun event ->
-                match event with
-                | ActorEvent (_, ActorFinished focusId) when focusId = request.focusId ->
+                match event.body with
+                | Gambol.Shared.Events.EventBody.ActorStop(focusId, _)
+                    when focusId = request.focusId ->
                     Some focusId
                 | _ -> None)
-        
         Assert.Equal(1, actorFinishedEvents.Length)
     })
 
@@ -180,7 +178,7 @@ let ``TestActor hello drops live row after successful stop`` () =
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host testCaller [ change ]
+            CoreMailbox.postGraphOnlyChange host testCaller change
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
@@ -211,7 +209,7 @@ let ``TestActor hello observes ActorStarted before output`` () =
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host testCaller [ change ]
+            CoreMailbox.postGraphOnlyChange host testCaller change
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
@@ -228,26 +226,27 @@ let ``TestActor hello observes ActorStarted before output`` () =
         let! events =
             eventPast host
             |> Async.StartAsTask
-        
         let actorStartedIndex =
             events
             |> List.tryFindIndex (fun event ->
-                match event with
-                | ActorEvent (_, ActorStarted (focusId, _)) when focusId = request.focusId ->
+                match event.body with
+                | Gambol.Shared.Events.EventBody.ActorStart started
+                    when started.focusId = request.focusId ->
                     true
                 | _ -> false)
         
         let actorFinishedIndex =
             events
             |> List.tryFindIndex (fun event ->
-                match event with
-                | ActorEvent (_, ActorFinished focusId) when focusId = request.focusId ->
+                match event.body with
+                | Gambol.Shared.Events.EventBody.ActorStop(focusId, _)
+                    when focusId = request.focusId ->
                     true
                 | _ -> false)
         
         Assert.True(actorStartedIndex.IsSome)
         Assert.True(actorFinishedIndex.IsSome)
-        Assert.True(actorStartedIndex.Value < actorFinishedIndex.Value)
+        Assert.True(actorFinishedIndex.Value < actorStartedIndex.Value)
     })
 
 [<Fact>]
@@ -262,7 +261,7 @@ let ``TestActor hello interprets command node text`` () =
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host testCaller [ change ]
+            CoreMailbox.postGraphOnlyChange host testCaller change
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
@@ -298,7 +297,7 @@ let ``TestActor unknown command still finishes and drops live row`` () =
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host testCaller [ change ]
+            CoreMailbox.postGraphOnlyChange host testCaller change
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
@@ -328,7 +327,7 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host testCaller [ change ]
+            CoreMailbox.postGraphOnlyChange host testCaller change
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
@@ -364,36 +363,34 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
         let actorStartedIndex =
             events
             |> List.tryFindIndex (fun event ->
-                match event with
-                | ActorEvent (_, ActorStarted (focusId, _)) when focusId = request.focusId ->
+                match event.body with
+                | Gambol.Shared.Events.EventBody.ActorStart started
+                    when started.focusId = request.focusId ->
                     true
                 | _ -> false)
         
         let actorOutputChangeIndex =
-            match actorStartedIndex with
-            | Some startIdx ->
-                events
-                |> List.skip (startIdx + 1)
-                |> List.tryFindIndex (fun event ->
-                    match event with
-                    | ChangeEvent _ -> true
-                    | _ -> false)
-                |> Option.map (fun idx -> startIdx + 1 + idx)
-            | None -> None
+            events
+            |> List.tryFindIndex (fun event ->
+                match event.body with
+                | Gambol.Shared.Events.EventBody.Change _ -> true
+                | _ -> false)
         
         let actorFinishedIndex =
             events
             |> List.tryFindIndex (fun event ->
-                match event with
-                | ActorEvent (_, ActorFinished focusId) when focusId = request.focusId ->
+                match event.body with
+                | Gambol.Shared.Events.EventBody.ActorStop(focusId, _)
+                    when focusId = request.focusId ->
                     true
                 | _ -> false)
         
         let actorFinishedCount =
             events
             |> List.filter (fun event ->
-                match event with
-                | ActorEvent (_, ActorFinished focusId) when focusId = request.focusId ->
+                match event.body with
+                | Gambol.Shared.Events.EventBody.ActorStop(focusId, _)
+                    when focusId = request.focusId ->
                     true
                 | _ -> false)
             |> List.length
@@ -404,9 +401,9 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
             "§7.4: Change event (output) should be present")
         Assert.True(actorFinishedIndex.IsSome,
             "§7.4: ActorFinished event should be present")
-        Assert.True(actorStartedIndex.Value < actorOutputChangeIndex.Value,
+        Assert.True(actorOutputChangeIndex.Value < actorStartedIndex.Value,
             "§7.4: ActorStarted should appear before output Change")
-        Assert.True(actorOutputChangeIndex.Value < actorFinishedIndex.Value,
+        Assert.True(actorFinishedIndex.Value < actorOutputChangeIndex.Value,
             "§7.4: Output Change should appear before ActorFinished")
         Assert.Equal(1, actorFinishedCount)
         
@@ -416,10 +413,12 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
         let actorEventsPresent =
             events
             |> List.exists (fun event ->
-                match event with
-                | ActorEvent (_, ActorStarted (focusId, _)) when focusId = request.focusId ->
+                match event.body with
+                | Gambol.Shared.Events.EventBody.ActorStart started
+                    when started.focusId = request.focusId ->
                     true
-                | ActorEvent (_, ActorFinished focusId) when focusId = request.focusId ->
+                | Gambol.Shared.Events.EventBody.ActorStop(focusId, _)
+                    when focusId = request.focusId ->
                     true
                 | _ -> false)
         
@@ -439,7 +438,7 @@ let ``TestActor throw command fails gracefully and drops live row`` () =
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host testCaller [ change ]
+            CoreMailbox.postGraphOnlyChange host testCaller change
             |> Async.StartAsTask
         let _ = requireOk "postChange" postResult
         

@@ -10,17 +10,15 @@ open Gambol.Server.Tests.TestBackend
 
 let private changedBody () =
     let childId = NodeId.New()
-    let change =
-        {
-            id = 0
-            changeId = Guid.NewGuid()
-            ops =
-                [
-                    Op.NewNode(childId, "failure probe")
-                    Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ])
-                ]
-        }
-    [ change ]
+    [ {
+        id = 0
+        changeId = Guid.NewGuid()
+        ops =
+            [
+                Op.NewNode(childId, "failure probe")
+                Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ])
+            ]
+    } ]
 
 let private host agent = admittedHostFile agent
 
@@ -48,17 +46,15 @@ let private decodeAckMessage (accepted: CoreChangesAccepted) =
 /// Insert a normal child at ROOT index 0 (old span [] = insert).
 let private softFailEditBody () =
     let childId = NodeId.New()
-    let change =
-        {
-            id = 0
-            changeId = Guid.NewGuid()
-            ops =
-                [
-                    Op.NewNode(childId, "soft-fail-probe")
-                    Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ])
-                ]
-        }
-    [ change ]
+    [ {
+        id = 0
+        changeId = Guid.NewGuid()
+        ops =
+            [
+                Op.NewNode(childId, "soft-fail-probe")
+                Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ])
+            ]
+    } ]
 
 [<Fact>]
 let ``persistence exception is logged replied and mailbox survives`` () = task {
@@ -86,12 +82,11 @@ let ``persistence exception is logged replied and mailbox survives`` () = task {
         match postResult with
         | Ok _ -> Assert.Fail("Expected persistence failure.")
         | Error error ->
-            Assert.Contains("Internal server error in FileAgent PostChange", error)
+            Assert.Contains("Internal server error in FileAgent PostEvent", error)
             Assert.Contains($"(dataDir={dataDir})", error)
 
         let log = File.ReadAllText logPath
-        Assert.Contains("EXCEPTION source=FileAgent operation=PostChange", log)
-        Assert.Contains("context=changeCount=", log)
+        Assert.Contains("EXCEPTION source=FileAgent operation=PostEvent", log)
         Assert.Contains("type=System.InvalidOperationException", log)
         Assert.Contains("message=injected persistence failure", log)
         Assert.Contains("stack=", log)
@@ -221,8 +216,6 @@ let private incrementingStampPersist (count: int ref) =
                         postGraph.nodes }
         Ok { graph = graph; message = None }
 
-let private encodeBatch (changes: Change list) = changes
-
 let private addChildChange rev text =
     let childId = NodeId.New()
     { id = rev
@@ -245,7 +238,7 @@ let ``ACK returns stamped complete Change equal to ChangeLog`` () = task {
     try
         let change = addChildChange 0 "stamp-prefix"
         let! postResult =
-            (admittedChanges (host agent)).postChange (encodeBatch [ change ])
+            (admittedChanges (host agent)).postChange [ change ]
             |> Async.StartAsTask
         match postResult with
         | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")
@@ -283,22 +276,22 @@ let ``trailing duplicate keeps stamps on last new Change`` () = task {
     try
         let first = addChildChange 0 "first-new"
         let! firstResult =
-            (admittedChanges (host agent)).postChange (encodeBatch [ first ])
+            (admittedChanges (host agent)).postChange [ first ]
             |> Async.StartAsTask
         let firstConfirmed =
             match firstResult with
             | Ok json -> Assert.Single((decodeAck json).changes)
             | Error err -> failwith err
         let second = addChildChange 1 "second-new"
-        let! batchResult =
-            (admittedChanges (host agent)).postChange (encodeBatch [ second; first ])
-            |> Async.StartAsTask
-        match batchResult with
+        // Multi-Change persist batch stays on PersistHandlers until 42.
+        match
+            (FileAgent.persist agent).handlers.postChange [ second; first ]
+        with
         | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")
-        | Ok ackJson ->
-            let ack = decodeAck ackJson
+        | Ok ack ->
             Assert.Equal(2, ack.changes.Length)
-            let secondConfirmed, trailingDup = ack.changes.[0], ack.changes.[1]
+            let secondConfirmed, trailingDup =
+                ack.changes.[0], ack.changes.[1]
             Assert.Equal(firstConfirmed, trailingDup)
             Assert.Equal(second.changeId, secondConfirmed.changeId)
             Assert.Equal<Op list>(

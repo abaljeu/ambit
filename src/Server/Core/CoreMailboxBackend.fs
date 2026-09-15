@@ -57,10 +57,8 @@ module internal CoreMailboxBackend =
         | GetChangesSince (after, _) ->
             "GetChangesSince", $"after={after}"
         | GetEventHistory _ -> "GetEventHistory", ""
-        | PostChange (_, changes, _) ->
-            "PostChange", $"changeCount={changes.Length}"
-        | PostGraphOnlyChange (_, changes, _) ->
-            "PostGraphOnlyChange", $"changeCount={changes.Length}"
+        | PostGraphOnlyChange (_, change, _) ->
+            "PostGraphOnlyChange", $"ops={change.ops.Length}"
         | SnapshotDone _ -> "SnapshotDone", ""
         | StartActor _ -> "StartActor", ""
         | ActorStop (_, result, _) ->
@@ -78,8 +76,7 @@ module internal CoreMailboxBackend =
         | GetState reply -> reply.Reply(Error error)
         | GetRevision reply -> reply.Reply(Error error)
         | GetChangesSince (_, reply) -> reply.Reply(Error error)
-        | GetEventHistory reply -> reply.Reply(History.empty)
-        | PostChange (_, _, reply) -> reply.Reply(Error error)
+        | GetEventHistory reply -> reply.Reply(EventLog.empty)
         | PostGraphOnlyChange (_, _, reply) -> reply.Reply(Error error)
         | SnapshotDone _ -> ()
         | StartActor (_, _, reply) -> reply.Reply(Error error)
@@ -101,7 +98,6 @@ module internal CoreMailboxBackend =
         pool: CoreActorPool
         onError: string -> string -> exn -> unit
         formatError: string -> string
-        eventHistory: History ref
         eventLog: EventLog ref
         coreChanges: (Caller -> CoreChanges) option ref
     }
@@ -130,27 +126,10 @@ module internal CoreMailboxBackend =
             | Error err -> Error(CoreAdmissionError.text err)
             | Ok () -> Ok ()
 
-    let private recordActorStarted (context: MailboxContext) focusId =
-        let history = context.eventHistory.Value
-        let event =
-            ActorEvent(history.nextId, ActorStarted(focusId, "Actor"))
-        context.eventHistory.Value <-
-            { history with
-                past = history.past @ [ event ]
-                nextId = history.nextId + 1 }
-
-    let private recordActorFinished (context: MailboxContext) focusId =
-        let history = context.eventHistory.Value
-        let event = ActorEvent(history.nextId, ActorFinished(focusId))
-        context.eventHistory.Value <-
-            { history with
-                past = history.past @ [ event ]
-                nextId = history.nextId + 1 }
-
     let private dispatchStartActor
         (context: MailboxContext)
         (caller: Caller)
-        (request: StartActorRequest)
+        (request: Gambol.Shared.Events.ActorStart)
         (reply: AsyncReplyChannel<Result<unit, string>>)
         : unit =
         match admitCaller context caller with
@@ -166,7 +145,10 @@ module internal CoreMailboxBackend =
                 match context.pool.startActor request getState with
                 | Error err -> reply.Reply(Error err)
                 | Ok secret ->
-                    recordActorStarted context request.focusId
+                    CoreEventDispatch.actorStart
+                        context.eventLog
+                        caller
+                        request
                     context.pool.schedule secret (make caller)
                     reply.Reply(Ok ())
 
@@ -184,52 +166,43 @@ module internal CoreMailboxBackend =
                 let focusId =
                     context.pool.getFocusId caller.secret
                     |> Option.defaultValue Graph.rootId
-                recordActorFinished context focusId
+                CoreEventDispatch.actorStop
+                    context.eventLog
+                    caller
+                    focusId
+                    result
                 reply.Reply(context.pool.finish caller.secret result)
             | _ ->
                 reply.Reply(Error CoreAuth.refuse)
 
-    let private loggedChanges persist =
-        try
-            persist.getChangesSince (Revision 0)
-        with _ ->
-            Error "change log unavailable"
+    let private eventDispatchContext context : CoreEventDispatch.Context =
+        { admit = admitCaller context
+          persist = context.persist
+          eventLog = context.eventLog }
 
-    let private syncEventHistory (context: MailboxContext) =
-        match loggedChanges context.persist with
-        | Ok changes ->
-            context.eventHistory.Value <-
-                History.restoreChanges changes context.eventHistory.Value
-        | Error _ -> ()
-
-    let private dispatchPostChange
+    /// Graph-only: admit then persist; skips EventLog (arch).
+    let private dispatchPostGraphOnlyChange
         (context: MailboxContext)
         (caller: Caller)
-        (changes: Change list)
+        (change: Change)
         (reply: AsyncReplyChannel<Result<CoreChangesAccepted, string>>)
         : unit =
         match admitCaller context caller with
         | Error err -> reply.Reply(Error err)
         | Ok () ->
-            match context.persist.postChange changes with
-            | Error _ as err -> reply.Reply(err)
-            | Ok _ as result ->
-                syncEventHistory context
-                reply.Reply(result)
+            // PersistHandlers stay Change-list until ticket 42.
+            reply.Reply(context.persist.postGraphOnlyChange [ change ])
 
     let private dispatchPostEvent
         (context: MailboxContext)
         (caller: Caller)
         (event: Event)
-        (reply: AsyncReplyChannel<Result<Event, string>>)
+        (reply:
+            AsyncReplyChannel<
+                Result<Event * CoreChangesAccepted option, string>>)
         : unit =
-        match admitCaller context caller with
-        | Error err -> reply.Reply(Error err)
-        | Ok () ->
-            let id = EventLog.nextId context.eventLog.Value
-            context.eventLog.Value <-
-                EventLog.append event context.eventLog.Value
-            reply.Reply(Ok { event with id = id })
+        CoreEventDispatch.postEvent (eventDispatchContext context) caller event
+        |> reply.Reply
 
     let private runMsg (context: MailboxContext) (msg: CoreMsg) =
         match msg with
@@ -246,19 +219,12 @@ module internal CoreMailboxBackend =
         | GetChangesSince (after, reply) ->
             reply.Reply(context.persist.getChangesSince after)
         | GetEventHistory reply ->
-            syncEventHistory context
-            reply.Reply(context.eventHistory.Value)
-        | PostChange (caller, changes, reply) ->
-            dispatchPostChange
+            reply.Reply(context.eventLog.Value)
+        | PostGraphOnlyChange (caller, change, reply) ->
+            dispatchPostGraphOnlyChange
                 context
                 caller
-                changes
-                reply
-        | PostGraphOnlyChange (caller, changes, reply) ->
-            dispatchPostChange
-                context
-                caller
-                changes
+                change
                 reply
         | SnapshotDone graph -> context.persist.snapshotDone graph
         | StartActor (caller, request, reply) ->
@@ -298,7 +264,6 @@ module internal CoreMailboxBackend =
           pool = pool
           onError = onError
           formatError = formatError
-          eventHistory = ref History.empty
           eventLog = ref EventLog.empty
           coreChanges = ref None }
 
