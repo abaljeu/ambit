@@ -83,6 +83,7 @@ let private handleForLoad
       isReady = fun () -> true
       postChange = fun _ -> async.Return(Result.Error "unused")
       postGraphOnlyChange = fun _ -> async.Return(Result.Error "unused")
+      actorStop = fun _ -> async.Return(Result.Error "unused")
       asCaller = fun _ -> Unchecked.defaultof<CoreChanges> }
 
 let private encodeRequest (request: LoadRequest) =

@@ -95,6 +95,7 @@ module internal CoreMailboxBackend =
         | ActorStop (_, result, _) ->
             match result with
             | ActorSucceeded -> "ActorStop", "ActorSucceeded"
+            | ActorFailed -> "ActorStop", "ActorFailed"
 
     let replyFailure error msg =
         match msg with
@@ -185,11 +186,13 @@ module internal CoreMailboxBackend =
                         }
                       isReady = fun () -> true
                       postChange = fun changes ->
-                        CoreAuth.post loop.credentials c.secret (fun caller changes ->
-                            mailbox.PostAndAsyncReply(fun reply -> PostChange(caller, changes, reply))) changes
+                        CoreAuth.post loop.credentials c.secret (fun changes ->
+                            mailbox.PostAndAsyncReply(fun reply -> PostChange(c, changes, reply))) changes
                       postGraphOnlyChange = fun changes ->
-                        CoreAuth.post loop.credentials c.secret (fun _caller changes ->
+                        CoreAuth.post loop.credentials c.secret (fun changes ->
                             mailbox.PostAndAsyncReply(fun reply -> PostGraphOnlyChange(changes, reply))) changes
+                      actorStop = fun result ->
+                        mailbox.PostAndAsyncReply(fun reply -> ActorStop(c, result, reply))
                       asCaller = makeCoreChanges }
                 
                 let coreChanges = makeCoreChanges caller

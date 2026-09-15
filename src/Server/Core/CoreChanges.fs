@@ -12,6 +12,10 @@ type Caller =
     { authority: Authority
       secret: Credential }
 
+type ActorResult =
+    | ActorSucceeded
+    | ActorFailed
+
 type CoreChangesAccepted =
     { revision: Revision
       changes: Change list

@@ -364,7 +364,7 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
                     | None -> false
                 | _ -> false)
         
-        Assert.Equal(1, helloChildren.Length,
+        Assert.True(helloChildren.Length = 1,
             "§7.3: Should observe exactly one Owned child text 'hello' under Focus")
         
         let! events =
@@ -418,7 +418,7 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
             "§7.4: ActorStarted should appear before output Change")
         Assert.True(actorOutputChangeIndex.Value < actorFinishedIndex.Value,
             "§7.4: Output Change should appear before ActorFinished")
-        Assert.Equal(1, actorFinishedCount,
+        Assert.True(actorFinishedCount = 1,
             "§7.4: Should observe exactly one ActorFinished event")
         
         Assert.False(Set.contains request.focusId (pool.liveFocusIds ()),
@@ -436,4 +436,39 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
         
         Assert.True(actorEventsPresent,
             "§7.5: Public Actor identity (ActorStarted, ActorFinished) should remain on History")
+    })
+
+[<Fact>]
+let ``TestActor throw command fails gracefully and drops live row`` () =
+    withHost (fun host credentials pool -> task {
+        let commandId = NodeId.New()
+        let change =
+            { id = 0
+              changeId = Guid.NewGuid()
+              ops =
+                [ Op.NewNode(commandId, "throw")
+                  Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
+                  Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
+        let! postResult =
+            CoreMailbox.postGraphOnlyChange host [ change ]
+            |> Async.StartAsTask
+        let _ = requireOk "postChange" postResult
+        
+        let request = sampleRequest Graph.rootId commandId [ Graph.rootId; commandId ]
+        
+        let! result =
+            CoreMailbox.startActor host testCaller request
+            |> Async.StartAsTask
+        requireOk "startActor" result
+        
+        let! finished =
+            waitForActorFinished host request.focusId 5000
+        Assert.True(finished, "Actor should finish within timeout")
+        
+        let! dropped =
+            waitForLiveRowDrop pool request.focusId 5000
+        Assert.True(dropped, "Live row should be dropped after fail")
+        
+        Assert.False(Set.contains request.focusId (pool.liveFocusIds ()),
+            "Live row should be gone after exception")
     })

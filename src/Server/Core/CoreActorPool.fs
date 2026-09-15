@@ -13,8 +13,6 @@ type StartActorRequest =
       graphIds: NodeId list
       revision: Revision }
 
-type ActorResult = | ActorSucceeded
-
 /// Actor input: Graph plus named ids and Actor secret.
 type ActorInput =
     { graph: Graph
@@ -30,7 +28,7 @@ type AppendActorStarted = NodeId -> string -> unit
 
 type CoreActorPool =
     { register: ActorName -> ActorFn -> unit
-      startActor: StartActorRequest -> (Graph -> Graph) -> CoreChanges -> AppendActorStarted -> Result<unit, string>
+      startActor: StartActorRequest -> (unit -> Graph) -> CoreChanges -> AppendActorStarted -> Result<unit, string>
       isLive: Credential -> bool
       admit: Credential -> Result<unit, string>
       drop: Credential -> unit
@@ -70,6 +68,12 @@ module CoreActorPool =
     let private runFinish isLive takeLive credentials secret result =
         match result with
         | ActorSucceeded ->
+            match runAdmit isLive secret with
+            | Error err -> Error err
+            | Ok () ->
+                runDrop takeLive credentials secret
+                Ok ()
+        | ActorFailed ->
             match runAdmit isLive secret with
             | Error err -> Error err
             | Ok () ->

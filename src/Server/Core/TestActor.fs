@@ -33,6 +33,7 @@ module TestActor =
     /// Catches exceptions, dispatches to behavior by command, and always enqueues ActorStop.
     let private dispatch (input: ActorInput) (coreChanges: CoreChanges) : Async<unit> =
         async {
+            let mutable result = ActorSucceeded
             try
                 match Map.tryFind input.commandId input.graph.nodes with
                 | None -> ()
@@ -41,15 +42,17 @@ module TestActor =
                     match commandText with
                     | "hello" ->
                         do! hello input coreChanges
+                    | "throw" ->
+                        failwith "test exception"
                     | _ -> ()
             with
-            | ex -> ()
+            | ex -> result <- ActorFailed
             
             let caller =
                 { authority = Authority "Actor"
                   secret = input.secret }
             let! stopResult =
-                coreChanges.asCaller(caller).actorStop ActorSucceeded
+                coreChanges.asCaller(caller).actorStop result
             return ()
         }
 
