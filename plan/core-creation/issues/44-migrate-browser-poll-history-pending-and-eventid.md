@@ -1,11 +1,11 @@
 # 44 — Migrate Browser Poll, History, pending, and EventId cursor
 
 **Status:** blocked
-**Blocked by:** [[40-expand-postevent-eventlog-and-event-json.md|40 — Expand postEvent, EventLog store, and Event JSON persist]], [[41-migrate-core-mailbox-coremsg-and-pool-onto-event.md|41 — Migrate Core mailbox, CoreMsg, and Pool onto Event]], [[43-migrate-http-adapter-onto-postevent-and-event-poll.md|43 — Migrate HTTP Adapter onto postEvent and Event Poll]]
+**Blocked by:** [40 — Expand postEvent, EventLog store, and Event JSON persist](40-expand-postevent-eventlog-and-event-json.md), [41 — Migrate Core mailbox, CoreMsg, and Pool onto Event](41-migrate-core-mailbox-coremsg-and-pool-onto-event.md), [43 — Migrate HTTP Adapter onto postEvent and Event Poll](43-migrate-http-adapter-onto-postevent-and-event-poll.md)
 
 ## Context
 
-[[43-migrate-http-adapter-onto-postevent-and-event-poll.md|43 — Migrate HTTP Adapter onto postEvent and Event Poll]] returns an Event tail on Poll/Load and sends Change posts through `postEvent`. [[41-migrate-core-mailbox-coremsg-and-pool-onto-event.md|41 — Migrate Core mailbox, CoreMsg, and Pool onto Event]] fills name-only Undo/Redo on the server. Browser still consumes a Change list on Poll, holds a Revision cursor (`State.revision`, `ClientSyncState.revision`), wraps pending work as Change plus PendingKind, and uses Change-shaped ClientHistory for Emacs undo. Story **Caller, persist, and Poll** on [[../arch.md|Core creation architecture]] migrates the Browser next. Field shapes: [[../reports/event-abstraction.md]]. ClientHistory module: [[../arch.md|Core creation architecture]] Module **ClientHistory**. There is no destination module named History.
+[43 — Migrate HTTP Adapter onto postEvent and Event Poll](43-migrate-http-adapter-onto-postevent-and-event-poll.md) returns an Event tail on Poll/Load and sends Change posts through `postEvent`. [41 — Migrate Core mailbox, CoreMsg, and Pool onto Event](41-migrate-core-mailbox-coremsg-and-pool-onto-event.md) fills name-only Undo/Redo on the server. Browser still consumes a Change list on Poll, holds a Revision cursor (`State.revision`, `ClientSyncState.revision`), wraps pending work as Change plus PendingKind, and uses Change-shaped ClientHistory for Emacs undo. Story **Caller, persist, and Poll** on [Core creation architecture](../arch.md) migrates the Browser next. Field shapes: [[../reports/event-abstraction.md]]. ClientHistory module: [Core creation architecture](../arch.md) Module **ClientHistory**. There is no destination module named History.
 
 ## What to build
 
@@ -35,11 +35,11 @@ Keep Browser Emacs undo on **ClientHistory** (Event-shaped). Do not migrate onto
 
 ## Out of scope
 
-1. Contract deletes — Delete of HistoryEvent, ActorLifecycleEvent, mailbox `type History` / History name (replaced by EventLog), PendingKind, the StartActorRequest name, and the ChangeLog name stays on [[45-contract-historyevent-clienthistory-pendingkind-and-changelog.md|45 — Contract HistoryEvent, mailbox History, PendingKind, StartActorRequest, and ChangeLog]]. ClientHistory remains.
+1. Contract deletes — Delete of HistoryEvent, ActorLifecycleEvent, mailbox `type History` / History name (replaced by EventLog), PendingKind, the StartActorRequest name, and the ChangeLog name stays on [45 — Contract HistoryEvent, mailbox History, PendingKind, StartActorRequest, and ChangeLog](45-contract-historyevent-clienthistory-pendingkind-and-changelog.md). ClientHistory remains.
 
 ## See also
 
-[[../arch.md|Core creation architecture]], [[../reports/event-abstraction.md|Event abstraction]]
+[Core creation architecture](../arch.md), [Event abstraction](../reports/event-abstraction.md)
 
 ## Comments
 

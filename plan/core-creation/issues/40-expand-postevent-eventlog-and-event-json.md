@@ -1,7 +1,8 @@
 # 40 — Expand postEvent, EventLog store, and Event JSON persist
 
-**Status:** blocked
-**Blocked by:** [[37-expand-shared-event-eventlog-and-history.md|37 — Expand Shared Event, EventLog, and History]]
+**Status:** coded
+Actual: 1h30m
+**Blocked by:** None — [[37-expand-shared-event-eventlog-and-history.md|37 — Expand Shared Event, EventLog, and History]] is Status `coded`.
 
 ## Context
 
@@ -15,25 +16,25 @@ Add CoreMailbox `postEvent`, hold the mailbox store as EventLog, and persist tha
 
 Add the Changes door on **CoreMailbox**. State, Interface, and Uses: [[../arch.md|Core creation architecture]] Module **CoreMailbox**. Seam **`postEvent` door**. Field shapes: [[../reports/event-abstraction.md]].
 
-- [ ] postEvent door — `postEvent` is on CoreMailbox. Payload is Event (Change, Undo, Redo). Name-only Undo/Redo may arrive with only `target`. Today’s Changes post door still compiles.
+- [x] postEvent door — `postEvent` is on CoreMailbox. Payload is Event (Change, Undo, Redo). Name-only Undo/Redo may arrive with only `target`. Today’s Changes post door still compiles.
 
 ### 2. mailbox EventLog store
 
 Hold the mailbox store as EventLog after intake. Modules **CoreMailbox** and **CoreMsg / CoreMailboxBackend**. Seam **EventLog**.
 
-- [ ] EventLog ref — mailbox store is `EventLog ref`. CoreMailboxBackend is the only writer of that store. Today’s History two-stack GetEventHistory still compiles.
+- [x] EventLog ref — mailbox store is `EventLog ref`. CoreMailboxBackend is the only writer of that store. Today’s History two-stack GetEventHistory still compiles.
 
 ### 3. Event JSON persist
 
 Persist EventLog as Event JSON beside today’s ChangeLog. Module **EventLog**. Persist seam **PersistHandlers**.
 
-- [ ] Event JSON beside ChangeLog — encode and read Event JSON. Persist is this same EventLog on file/DB. Today’s [[src/Server/ChangeLog.fs]] name remains. Do not drop the ChangeLog name.
+- [x] Event JSON beside ChangeLog — encode and read Event JSON. Persist is this same EventLog on file/DB. Today’s [[src/Server/ChangeLog.fs]] name remains. Do not drop the ChangeLog name.
 
 ### 4. Narrowest test seam
 
 Prove CoreMailbox `postEvent` and EventLog `since`.
 
-- [ ] postEvent and since — CoreMailbox `postEvent` appends an Event. EventLog `since` returns that Event tail.
+- [x] postEvent and since — CoreMailbox `postEvent` appends an Event. EventLog `since` returns that Event tail.
 
 ## Out of scope
 
@@ -47,6 +48,11 @@ Prove CoreMailbox `postEvent` and EventLog `since`.
 
 [[../arch.md|Core creation architecture]], [[../reports/event-abstraction.md|Event abstraction]]
 
+## Time
+
+- 2026-09-15 1h30m — expand postEvent, EventLog ref via public API, Event JSON in EventJson (from chat)
+
 ## Comments
 
 - 2026-09-15 — Filed via `/to-tickets` for Story **Caller, persist, and Poll** only (expand–contract). Sequence expand-migrate-contract on that story is skill `expand-contract`. First expand ticket. Blocked by story 4 expand [[37-expand-shared-event-eventlog-and-history.md|37 — Expand Shared Event, EventLog, and History]].
+- 2026-09-15 — Did not edit [[src/Shared/EventLog.fs]], [[src/Shared/Event.fs]], or [[src/Shared/ClientHistory.fs]]. Alan locked newest-head EventLog and skip-non-change ClientHistory undo. Event JSON is [[src/Shared/EventJson.fs]]. Mailbox store calls `EventLog.append` / `EventLog.since` only. Report: [[../reports/implement-issue-40.md]].

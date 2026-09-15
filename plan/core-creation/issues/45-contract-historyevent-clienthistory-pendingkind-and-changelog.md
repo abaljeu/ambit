@@ -1,11 +1,11 @@
 # 45 — Contract HistoryEvent, mailbox History, PendingKind, StartActorRequest, and ChangeLog
 
 **Status:** blocked
-**Blocked by:** [[41-migrate-core-mailbox-coremsg-and-pool-onto-event.md|41 — Migrate Core mailbox, CoreMsg, and Pool onto Event]], [[42-migrate-persisthandlers-restore-and-geteventssince.md|42 — Migrate PersistHandlers restore and getEventsSince]], [[43-migrate-http-adapter-onto-postevent-and-event-poll.md|43 — Migrate HTTP Adapter onto postEvent and Event Poll]], [[44-migrate-browser-poll-history-pending-and-eventid.md|44 — Migrate Browser Poll, History, pending, and EventId cursor]]
+**Blocked by:** [41 — Migrate Core mailbox, CoreMsg, and Pool onto Event](41-migrate-core-mailbox-coremsg-and-pool-onto-event.md), [42 — Migrate PersistHandlers restore and getEventsSince](42-migrate-persisthandlers-restore-and-geteventssince.md), [43 — Migrate HTTP Adapter onto postEvent and Event Poll](43-migrate-http-adapter-onto-postevent-and-event-poll.md), [44 — Migrate Browser Poll, History, pending, and EventId cursor](44-migrate-browser-poll-history-pending-and-eventid.md)
 
 ## Context
 
-The migrate batches of Story **Caller, persist, and Poll** on [[../arch.md|Core creation architecture]] have moved callers onto Event, EventLog, ClientHistory, `postEvent`, Event Poll, and Event persist. HistoryEvent, ActorLifecycleEvent, mailbox `type History` / History name, PendingKind, the StartActorRequest name, and the ChangeLog name remain beside the new form. No caller should remain. This ticket is the contract hop: delete the old form. Do not delete ClientHistory. Field shapes: [[../reports/event-abstraction.md]]. Type inventory this replaces: [[../reports/event-abstraction.md]] section **Type inventory this replaces**.
+The migrate batches of Story **Caller, persist, and Poll** on [Core creation architecture](../arch.md) have moved callers onto Event, EventLog, ClientHistory, `postEvent`, Event Poll, and Event persist. HistoryEvent, ActorLifecycleEvent, mailbox `type History` / History name, PendingKind, the StartActorRequest name, and the ChangeLog name remain beside the new form. No caller should remain. This ticket is the contract hop: delete the old form. Do not delete ClientHistory. Field shapes: [[../reports/event-abstraction.md]]. Type inventory this replaces: [[../reports/event-abstraction.md]] section **Type inventory this replaces**.
 
 ## What to build
 
@@ -35,13 +35,13 @@ Rename persist to EventLog. Module **EventLog**. Persist seam **PersistHandlers*
 
 ## Out of scope
 
-1. Shared Event expand — Shared Event / EventLog / ClientHistory functions stay on [[37-expand-shared-event-eventlog-and-history.md|37 — Expand Shared Event, EventLog, and History]]. Do not reopen that expand.
-2. Cherry-pick Undo — invert a chosen Change Event; skip Actor Events. Deferred past hello on [[../arch.md|Core creation architecture]] Unsettled. Not this ticket.
+1. Shared Event expand — Shared Event / EventLog / ClientHistory functions stay on [37 — Expand Shared Event, EventLog, and History](37-expand-shared-event-eventlog-and-history.md). Do not reopen that expand.
+2. Cherry-pick Undo — invert a chosen Change Event; skip Actor Events. Deferred past hello on [Core creation architecture](../arch.md) Unsettled. Not this ticket.
 3. Delete ClientHistory — ClientHistory is the destination Emacs Action view. Contract does not delete it.
 
 ## See also
 
-[[../arch.md|Core creation architecture]], [[../reports/event-abstraction.md|Event abstraction]]
+[Core creation architecture](../arch.md), [Event abstraction](../reports/event-abstraction.md)
 
 ## Comments
 

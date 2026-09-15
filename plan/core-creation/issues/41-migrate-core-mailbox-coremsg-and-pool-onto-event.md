@@ -1,11 +1,11 @@
 # 41 — Migrate Core mailbox, CoreMsg, and Pool onto Event
 
 **Status:** blocked
-**Blocked by:** [[40-expand-postevent-eventlog-and-event-json.md|40 — Expand postEvent, EventLog store, and Event JSON persist]]
+**Blocked by:** [40 — Expand postEvent, EventLog store, and Event JSON persist](40-expand-postevent-eventlog-and-event-json.md)
 
 ## Context
 
-[[40-expand-postevent-eventlog-and-event-json.md|40 — Expand postEvent, EventLog store, and Event JSON persist]] adds `postEvent`, an EventLog mailbox store, and Event JSON beside ChangeLog. Core Changes callers still use the old door. GetEventHistory is still a two-stack. The mailbox does not yet append ActorStart / ActorStop Events. Start still uses the StartActorRequest name. Story **Caller, persist, and Poll** on [[../arch.md|Core creation architecture]] migrates this Core layer next. Field shapes: [[../reports/event-abstraction.md]].
+[40 — Expand postEvent, EventLog store, and Event JSON persist](40-expand-postevent-eventlog-and-event-json.md) adds `postEvent`, an EventLog mailbox store, and Event JSON beside ChangeLog. Core Changes callers still use the old door. GetEventHistory is still a two-stack. The mailbox does not yet append ActorStart / ActorStop Events. Start still uses the StartActorRequest name. Story **Caller, persist, and Poll** on [Core creation architecture](../arch.md) migrates this Core layer next. Field shapes: [[../reports/event-abstraction.md]].
 
 ## What to build
 
@@ -28,8 +28,8 @@ Migrate the history door on **CoreMailbox**.
 
 Migrate lifecycle append on **CoreMsg / CoreMailboxBackend** and **CoreActorPool**. Seam **CoreActorPool table and start**.
 
-- [ ] Mailbox appends ActorStart — mailbox appends ActorStart Events. Callers do not `postEvent` those bodies. Interface: [[../arch.md|Core creation architecture]] Module **CoreActorPool**.
-- [ ] Mailbox appends ActorStop — mailbox stores an ActorStop Event on EventLog for `ActorResult`. Callers do not `postEvent` ActorStop. Interface: [[../arch.md|Core creation architecture]] Module **CoreMsg / CoreMailboxBackend**.
+- [ ] Mailbox appends ActorStart — mailbox appends ActorStart Events. Callers do not `postEvent` those bodies. Interface: [Core creation architecture](../arch.md) Module **CoreActorPool**.
+- [ ] Mailbox appends ActorStop — mailbox stores an ActorStop Event on EventLog for `ActorResult`. Callers do not `postEvent` ActorStop. Interface: [Core creation architecture](../arch.md) Module **CoreMsg / CoreMailboxBackend**.
 - [ ] start request is ActorStart — every start request is ActorStart. The StartActorRequest name still compiles until contract.
 
 ### 4. Authority stamp
@@ -40,14 +40,14 @@ Stamp authority on **CoreMsg / CoreMailboxBackend**.
 
 ## Out of scope
 
-1. PersistHandlers migrate — File/Db `EventLog.restore`, `getEventsSince` as Events, and persist of ActorStart / ActorStop stay on [[42-migrate-persisthandlers-restore-and-geteventssince.md|42 — Migrate PersistHandlers restore and getEventsSince]].
-2. HTTP Adapter migrate — Change posts calling `postEvent` from [[src/Server/Api.fs]], Poll/Load Event tail, and command-builder still producing Change stay on [[43-migrate-http-adapter-onto-postevent-and-event-poll.md|43 — Migrate HTTP Adapter onto postEvent and Event Poll]].
-3. Browser migrate — Poll consume, EventId cursor, PendingChange / ChangeBatch, and ClientHistory undo stay on [[44-migrate-browser-poll-history-pending-and-eventid.md|44 — Migrate Browser Poll, History, pending, and EventId cursor]].
-4. Contract deletes — Delete of HistoryEvent, ActorLifecycleEvent, mailbox `type History` / History name, PendingKind, the StartActorRequest name, and the ChangeLog name stays on [[45-contract-historyevent-clienthistory-pendingkind-and-changelog.md|45 — Contract HistoryEvent, mailbox History, PendingKind, StartActorRequest, and ChangeLog]]. ClientHistory remains.
+1. PersistHandlers migrate — File/Db `EventLog.restore`, `getEventsSince` as Events, and persist of ActorStart / ActorStop stay on [42 — Migrate PersistHandlers restore and getEventsSince](42-migrate-persisthandlers-restore-and-geteventssince.md).
+2. HTTP Adapter migrate — Change posts calling `postEvent` from [[src/Server/Api.fs]], Poll/Load Event tail, and command-builder still producing Change stay on [43 — Migrate HTTP Adapter onto postEvent and Event Poll](43-migrate-http-adapter-onto-postevent-and-event-poll.md).
+3. Browser migrate — Poll consume, EventId cursor, PendingChange / ChangeBatch, and ClientHistory undo stay on [44 — Migrate Browser Poll, History, pending, and EventId cursor](44-migrate-browser-poll-history-pending-and-eventid.md).
+4. Contract deletes — Delete of HistoryEvent, ActorLifecycleEvent, mailbox `type History` / History name, PendingKind, the StartActorRequest name, and the ChangeLog name stays on [45 — Contract HistoryEvent, mailbox History, PendingKind, StartActorRequest, and ChangeLog](45-contract-historyevent-clienthistory-pendingkind-and-changelog.md). ClientHistory remains.
 
 ## See also
 
-[[../arch.md|Core creation architecture]], [[../reports/event-abstraction.md|Event abstraction]]
+[Core creation architecture](../arch.md), [Event abstraction](../reports/event-abstraction.md)
 
 ## Comments
 
