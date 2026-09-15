@@ -19,7 +19,6 @@ let private stateWithRootChild (text: string) : State =
               Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
     let initial =
         { graph = Graph.create ()
-          history = History.empty
           revision = Revision 0 }
     match History.applyChange change initial with
     | ApplyResult.Changed state -> { state with revision = Revision 1 }

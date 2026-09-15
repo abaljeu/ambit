@@ -6,7 +6,6 @@ open Xunit
 let private applyOps (graph: Graph) (ops: Op list) : Graph =
     let state =
         { graph = graph
-          history = History.empty
           revision = Revision.Zero }
 
     ops
@@ -420,7 +419,6 @@ let ``Load Unloaded stub plan must not name-conflict on resident server`` () =
               ops = ops }
         let state =
             { graph = server
-              history = History.empty
               revision = Revision 0 }
         match History.applyChange change state with
         | ApplyResult.Invalid(_, msg) ->

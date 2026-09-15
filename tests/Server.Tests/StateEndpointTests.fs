@@ -148,7 +148,6 @@ let private writeDocumentFiles (tempDir: string) (state: State) =
 let private stateWithChild (text: string) =
     let initialState =
         { graph = Graph.create ()
-          history = History.empty
           revision = Revision 0 }
 
     let change, _ = changeAddChild Graph.rootId 0 text

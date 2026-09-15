@@ -9,7 +9,7 @@ let private requireOk label r =
     | Error e -> failwith $"{label}: {e}"
 
 let private applyOps (graph: Graph) (ops: Op list) : Graph =
-    let state = { graph = graph; history = History.empty; revision = Revision.Zero }
+    let state = { graph = graph; revision = Revision.Zero }
     ops
     |> List.fold (fun s op ->
         match Op.apply op s with

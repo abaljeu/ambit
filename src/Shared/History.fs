@@ -40,7 +40,6 @@ type History =
 
 type State =
     { graph: Graph
-      history: History
       revision: Revision }
 
 
@@ -562,6 +561,39 @@ module History =
         { past = []
           future = []
           nextId = 0 }
+
+    let private loggedChangeId =
+        function
+        | ChangeEvent change -> Some change.changeId
+        | ActorEvent _ -> None
+
+    /// Restore ChangeEvents from the durable Change stream. Skips changeIds
+    /// already on History so persist is not copied onto a second list.
+    let restoreChanges (logged: Change list) (history: History) : History =
+        let known =
+            history.past
+            |> List.choose loggedChangeId
+            |> Set.ofList
+        let fresh =
+            logged
+            |> List.filter (fun change ->
+                not (Set.contains change.changeId known))
+        if List.isEmpty fresh then
+            history
+        else
+            let events = fresh |> List.map ChangeEvent
+            let nextId =
+                fresh
+                |> List.fold
+                    (fun acc change -> max acc (change.id + 1))
+                    history.nextId
+            { history with
+                past = history.past @ events
+                future = []
+                nextId = nextId }
+
+    let fromChanges (changes: Change list) : History =
+        restoreChanges changes empty
 
     let newChange (history: History) : Change =
         { id = history.nextId

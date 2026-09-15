@@ -435,17 +435,13 @@ let ``restorePending strips transition and does not record History`` () =
           changeId = Guid.NewGuid()
           ops = [ Op.SetText(node.id, node.text, "restored") ] }
     let saved = [ stale; change |> withKind 3 PendingKind.Undo ]
-    let snapshot =
-        { state0 with
-            history = History.empty
-            revision = Revision 1 }
+    let snapshot = { state0 with revision = Revision 1 }
     let next, restored =
         SyncPlanner.restorePending (Revision 1) saved snapshot
     let queued = Assert.Single(restored)
     Assert.Equal(None, queued.transition)
     Assert.Equal(change.changeId, queued.change.changeId)
     Assert.Equal("restored", next.graph.nodes.[node.id].text)
-    Assert.Equal(History.empty, next.history)
 
 [<Fact>]
 let ``workspace singleton lineage is the exact item used before the request`` () =

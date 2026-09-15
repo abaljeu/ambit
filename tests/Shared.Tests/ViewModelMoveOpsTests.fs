@@ -451,7 +451,6 @@ let ``indent Directory under Normal sibling is accepted by History.applyChange``
           ops = ops }
     let state =
         { graph = graph
-          history = History.empty
           revision = selected.revision }
     match History.applyChange change state with
     | ApplyResult.Changed s ->
@@ -515,7 +514,6 @@ let ``indent Ref Directory under Normal succeeds despite foreign name duplicates
           ops = ops }
     let state =
         { graph = graph
-          history = History.empty
           revision = selected.revision }
     match History.applyChange change state with
     | ApplyResult.Changed s ->

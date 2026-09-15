@@ -32,6 +32,7 @@
     <Compile Include="CredentialedChangePostsTests.fs" />
     <Compile Include="CoreMsgActorCasesTests.fs" />
     <Compile Include="CoreMailboxDoorTests.fs" />
+    <Compile Include="ActorCoreChangesDoorTests.fs" />
     <Compile Include="CoreRuntimeTests.fs" />
     <Compile Include="BrowserCredentialTests.fs" />
     <Compile Include="CoreActorPoolTests.fs" />

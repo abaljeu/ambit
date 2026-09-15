@@ -1,7 +1,7 @@
 # Core creation architecture
 
 Spec: [[issues/Implementation Planning and Record.md]] (Phase 2 Spec); hello stories from [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]], [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]], and [[issues/29-prove-testactor-hello.md|Prove TestActor hello]]. No Project `spec.md` yet.
-Updated: 2026-09-14
+Updated: 2026-09-15
 Sequence: tracer-cut
 
 Feature under design: the hello slice of the one-mailbox Actor program locked by [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]]. Prefer existing seams. Do not open Wayfinder map tickets for items under Unsettled. Story hops name modules and doors; State / Interface / Uses live only under Module map (thin hops / fat map).
@@ -104,10 +104,10 @@ Deltas for this Project’s hello / one-mailbox Actor program. Persist fillings 
 4. **History**
    1. [x] State: ordered past/future sequence extended to carry Actor events alongside Change events
    - Interface:
-     1. [x] append Change and Actor lifecycle events (ActorStarted, ActorFinished) on mailboxHistory only. CoreMailboxBackend is the only writer. History module helpers that wrote Actor Events onto State.history are gone. getState stays Graph-only; do not merge mailboxHistory into State.history
+     1. [x] `eventHistory` is the mailbox History (undo stack). CoreMailboxBackend is the only writer. ChangeLog is the durable Change stream: the mailbox restores `eventHistory` from it and does not copy persist replies onto a second list. State has no `history` field. getState stays Graph-only
      2. [x] Undo / Redo still target Change events only
      3. [x] no second Actor-only event log beside CoreMailbox
-     4. [ ] persist mailbox History so the audit sequence survives restart (Graph/ChangeLog durability already separate; Undo stays Change-only)
+     4. [ ] persist Actor Events on that same History across restart (Change Events already restore from ChangeLog; Undo stays Change-only)
    - Uses:
      1. [ ] Change / Actor event records as History members
 5. **TestActor** (injected proof Actor; not a Core module)
@@ -175,7 +175,7 @@ Deltas for this Project’s hello / one-mailbox Actor program. Persist fillings 
 1. [x] **CoreMailbox door** — External seam for production and HTTP. Interface on **CoreMailbox**.
 2. [x] **CoreMsg union** — Internal one-mailbox seam. Interface on **CoreMsg / CoreMailboxBackend**. No second Actor mailbox or nested `ActorMsg` pump in this slice.
 3. [x] **CoreActorPool table and start** — Live registry plus start/schedule seam only. Interface on **CoreActorPool**. Table is the single registry (no second copy in loop state). Access is mailbox-owned, so not a lock around the live table. Pool does not take or write History.
-4. [x] **History** — Interface on mailbox **History** (`MailboxContext.mailboxHistory`). One sequence; no Actor event log outside CoreMailbox. ActorStarted is recorded on the mailbox loop before the body runs.
+4. [x] **History** — Interface on mailbox **History** (`MailboxContext.eventHistory`, door `eventHistory`). One undo-stack sequence; no Actor event log outside CoreMailbox. ActorStarted is recorded on the mailbox loop before the body runs. ChangeLog is durability for Change Events, not a second in-memory copy.
 5. [x] **ActorFn / TestActor input** — Definition and body-input seam. Interface on **TestActor** (outside Core). Callers pass ActorFn into **CoreActorPool.register** / **CoreRuntime.create**. Core does not embed Actor bodies.
 6. [x] **PersistHandlers** — Persist seam already landed by [[issues/31-one-coremsg-loop-parameterized-persist.md|One CoreMsg loop parameterized persist]] and [[issues/32-move-persist-agents-under-coremailbox.md|Move persist agents under CoreMailbox]]. Hello does not widen it. Actor cases stay off this parameter. File and Db are not Actor mailboxes. Interface on **PersistHandlers**.
 7. [x] **Credentialed Change posts** — Browser and Actor posts validate via **CoreMsg** before PersistHandlers; Actor also admits on the live table. Story path 3 is Browser Change posts only.

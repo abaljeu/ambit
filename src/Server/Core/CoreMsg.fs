@@ -7,7 +7,7 @@ type internal CoreMsg =
     | GetRevision of AsyncReplyChannel<Result<Revision, string>>
     | GetChangesSince of
         after: Revision * AsyncReplyChannel<Result<Change list, string>>
-    | GetEventHistory of AsyncReplyChannel<HistoryEvent list>
+    | GetEventHistory of AsyncReplyChannel<History>
     | PostChange of
         caller: Caller *
         changes: Change list *

@@ -201,8 +201,6 @@ let ``soft-fail log is not replayed into FileAgent state after restart`` () = ta
             state.graph.nodes
             |> Map.exists (fun _ n -> n.text = "soft-fail-probe"))
         Assert.Equal(Revision 0, state.revision)
-        Assert.Empty((FileAgent.initialState agent2).history.past)
-        Assert.Empty((FileAgent.initialState agent2).history.future)
     finally
         CoreMailbox.dispose (host agent2)
 }

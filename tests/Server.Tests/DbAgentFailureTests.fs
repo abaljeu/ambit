@@ -22,7 +22,6 @@ let private changedBody () =
 
 let private freshState () : State =
     { graph = Graph.create ()
-      history = History.empty
       revision = Revision 0 }
 
 let private host agent = admittedHostDb agent

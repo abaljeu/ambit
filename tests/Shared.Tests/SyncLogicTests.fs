@@ -542,7 +542,7 @@ let ``consumeCatchUpPoll rewinds to baseline and preserves History`` () =
         match Graph.setText nodeId "after" "before" optimistic.graph with
         | Ok graph -> graph
         | Error msg -> failwith msg
-    let baseline =
+    let baseline : CatchUpBaseline =
         { revision = Revision 0
           graph = baselineGraph }
     let serverChange =

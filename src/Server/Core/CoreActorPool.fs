@@ -72,15 +72,12 @@ module CoreActorPool =
         | None -> ()
         | Some row -> row.cancel.Cancel()
 
-    let private runFinish isLive takeLive secret result =
+    let private runFinish takeLive secret result =
         match result with
         | ActorSucceeded
         | ActorFailed ->
-            match runAdmit isLive secret with
-            | Error err -> Error err
-            | Ok () ->
-                runDrop takeLive secret
-                Ok ()
+            runDrop takeLive secret
+            Ok ()
 
     let private actorNameFrom (commandNode: Node) =
         CssClass.toList commandNode.cssClasses
@@ -184,10 +181,7 @@ module CoreActorPool =
           isLive = fun secret -> Map.containsKey secret model.live
           admit = runAdmit (fun secret -> Map.containsKey secret model.live)
           drop = runDrop takeLive
-          finish =
-            runFinish
-                (fun secret -> Map.containsKey secret model.live)
-                takeLive
+          finish = runFinish takeLive
           liveFocusIds = fun () -> liveFocusIds model
           getFocusId =
             fun secret ->

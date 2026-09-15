@@ -12,7 +12,6 @@ let private dummyOps (count: int) : Op list =
 let private applyOps (graph: Graph) (ops: Op list) : Graph =
     let state =
         { graph = graph
-          history = History.empty
           revision = Revision.Zero }
     ops
     |> List.fold
@@ -69,7 +68,6 @@ let ``maxOps stub creates apply well under DbAgent 8s bound`` () =
     Assert.True(ops.Length > 0)
     let state =
         { graph = graph
-          history = History.empty
           revision = Revision.Zero }
     let change =
         { id = 0

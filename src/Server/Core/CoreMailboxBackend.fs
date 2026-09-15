@@ -71,7 +71,7 @@ module internal CoreMailboxBackend =
         | GetState reply -> reply.Reply(Error error)
         | GetRevision reply -> reply.Reply(Error error)
         | GetChangesSince (_, reply) -> reply.Reply(Error error)
-        | GetEventHistory reply -> reply.Reply([])
+        | GetEventHistory reply -> reply.Reply(History.empty)
         | PostChange (_, _, reply) -> reply.Reply(Error error)
         | PostGraphOnlyChange (_, _, reply) -> reply.Reply(Error error)
         | SnapshotDone _ -> ()
@@ -81,14 +81,19 @@ module internal CoreMailboxBackend =
         | Logout (_, reply) -> reply.Reply(Error error)
         | AdmitCaller (_, reply) -> reply.Reply(false)
 
-    type private MailboxContext = {
+    type Started = {
+        processor: MailboxProcessor<CoreMsg>
+        bindCoreChanges: (Caller -> CoreChanges) -> unit
+    }
+
+    type MailboxContext = {
         credentials: CoreCredentials ref
         persist: PersistHandlers
         pool: CoreActorPool
         onError: string -> string -> exn -> unit
         formatError: string -> string
-        mailboxHistory: History ref
-        mailbox: MailboxProcessor<CoreMsg> option ref
+        eventHistory: History ref
+        coreChanges: (Caller -> CoreChanges) option ref
     }
 
     let private addCaller (context: MailboxContext) caller =
@@ -116,18 +121,18 @@ module internal CoreMailboxBackend =
             | Ok () -> Ok ()
 
     let private recordActorStarted (context: MailboxContext) focusId =
-        let history = context.mailboxHistory.Value
+        let history = context.eventHistory.Value
         let event =
             ActorEvent(history.nextId, ActorStarted(focusId, "Actor"))
-        context.mailboxHistory.Value <-
+        context.eventHistory.Value <-
             { history with
                 past = history.past @ [ event ]
                 nextId = history.nextId + 1 }
 
     let private recordActorFinished (context: MailboxContext) focusId =
-        let history = context.mailboxHistory.Value
+        let history = context.eventHistory.Value
         let event = ActorEvent(history.nextId, ActorFinished(focusId))
-        context.mailboxHistory.Value <-
+        context.eventHistory.Value <-
             { history with
                 past = history.past @ [ event ]
                 nextId = history.nextId + 1 }
@@ -141,48 +146,18 @@ module internal CoreMailboxBackend =
         match admitCaller context caller with
         | Error err -> reply.Reply(Error err)
         | Ok () ->
-            match context.mailbox.Value with
+            match context.coreChanges.Value with
             | None -> reply.Reply(Error "mailbox not initialized")
-            | Some mailbox ->
+            | Some make ->
                 let getState () =
                     match context.persist.getState () with
                     | Ok state -> state.graph
                     | Error _ -> Graph.create ()
-                let rec makeCoreChanges (c: Caller) : CoreChanges =
-                    { getState = fun () -> mailbox.PostAndAsyncReply GetState
-                      getRevision = fun () ->
-                        async {
-                            let! result = mailbox.PostAndAsyncReply GetRevision
-                            return match result with
-                                   | Ok rev -> rev
-                                   | Error _ -> Revision 0
-                        }
-                      getChangesSince = fun after ->
-                        async {
-                            let! result =
-                                mailbox.PostAndAsyncReply(fun reply ->
-                                    GetChangesSince(after, reply))
-                            return match result with
-                                   | Ok changes -> changes
-                                   | Error _ -> []
-                        }
-                      isReady = fun () -> true
-                      postChange = fun changes ->
-                        mailbox.PostAndAsyncReply(fun reply ->
-                            PostChange(c, changes, reply))
-                      postGraphOnlyChange = fun changes ->
-                        mailbox.PostAndAsyncReply(fun reply ->
-                            PostGraphOnlyChange(c, changes, reply))
-                      actorStop = fun result ->
-                        mailbox.PostAndAsyncReply(fun reply ->
-                            ActorStop(c, result, reply))
-                      asCaller = makeCoreChanges }
-                let coreChanges = makeCoreChanges caller
                 match context.pool.startActor request getState with
                 | Error err -> reply.Reply(Error err)
                 | Ok started ->
                     recordActorStarted context started.focusId
-                    context.pool.schedule started.secret coreChanges
+                    context.pool.schedule started.secret (make caller)
                     reply.Reply(Ok ())
 
     let private dispatchActorStop
@@ -194,28 +169,30 @@ module internal CoreMailboxBackend =
         match admitCaller context caller with
         | Error err -> reply.Reply(Error err)
         | Ok () ->
-            match CoreAuth.admit (context.pool.isLive caller.secret) with
-            | Error err ->
-                reply.Reply(Error(CoreAdmissionError.text err))
-            | Ok () ->
+            match caller.authority with
+            | Authority "Actor" ->
                 let focusId =
                     context.pool.getFocusId caller.secret
                     |> Option.defaultValue Graph.rootId
                 recordActorFinished context focusId
                 reply.Reply(context.pool.finish caller.secret result)
+            | _ ->
+                reply.Reply(Error CoreAuth.refuse)
 
-    let private appendChangeEvents (context: MailboxContext) (changes: Change list) : unit =
-        changes
-        |> List.iter (fun change ->
-            let event = ChangeEvent(change)
-            context.mailboxHistory.Value <- {
-                context.mailboxHistory.Value with
-                    past = context.mailboxHistory.Value.past @ [ event ]
-            })
+    let private loggedChanges persist =
+        try
+            persist.getChangesSince (Revision 0)
+        with _ ->
+            Error "change log unavailable"
+
+    let private syncEventHistory (context: MailboxContext) =
+        match loggedChanges context.persist with
+        | Ok changes ->
+            context.eventHistory.Value <-
+                History.restoreChanges changes context.eventHistory.Value
+        | Error _ -> ()
 
     let private dispatchPostChange
-        (persistPost:
-            Change list -> Result<CoreChangesAccepted, string>)
         (context: MailboxContext)
         (caller: Caller)
         (changes: Change list)
@@ -224,10 +201,10 @@ module internal CoreMailboxBackend =
         match admitCaller context caller with
         | Error err -> reply.Reply(Error err)
         | Ok () ->
-            match persistPost changes with
+            match context.persist.postChange changes with
             | Error _ as err -> reply.Reply(err)
-            | Ok accepted as result ->
-                appendChangeEvents context accepted.changes
+            | Ok _ as result ->
+                syncEventHistory context
                 reply.Reply(result)
 
     let private runMsg (context: MailboxContext) (msg: CoreMsg) =
@@ -245,17 +222,16 @@ module internal CoreMailboxBackend =
         | GetChangesSince (after, reply) ->
             reply.Reply(context.persist.getChangesSince after)
         | GetEventHistory reply ->
-            reply.Reply(context.mailboxHistory.Value.past)
+            syncEventHistory context
+            reply.Reply(context.eventHistory.Value)
         | PostChange (caller, changes, reply) ->
             dispatchPostChange
-                context.persist.postChange
                 context
                 caller
                 changes
                 reply
         | PostGraphOnlyChange (caller, changes, reply) ->
             dispatchPostChange
-                context.persist.postGraphOnlyChange
                 context
                 caller
                 changes
@@ -288,67 +264,60 @@ module internal CoreMailboxBackend =
             with _ ->
                 ()
 
-    let private makeMailBox credentials persist pool onError formatError : MailboxContext =
+    let makeMailBox credentials persist pool onError formatError : MailboxContext =
         { credentials = ref credentials
           persist = persist
           pool = pool
           onError = onError
           formatError = formatError
-          mailboxHistory = ref History.empty
-          mailbox = ref None }
+          eventHistory = ref History.empty
+          coreChanges = ref None }
 
-    let start
-        (credentials: CoreCredentials)
-        (persist: PersistHandlers)
-        (pool: CoreActorPool)
-        (onError: string -> string -> exn -> unit)
-        (formatError: string -> string)
-        : MailboxProcessor<CoreMsg> =
-        let context = makeMailBox credentials persist pool onError formatError
-        let mailbox = MailboxProcessor<CoreMsg>.Start(fun inbox ->
-            let rec pump () = async {
-                let! msg = inbox.Receive()
-                dispatch context msg
-                return! pump ()
-            }
-            pump ()
-        )
-        context.mailbox.Value <- Some mailbox
-        mailbox
+    let private started mailbox (context: MailboxContext) : Started =
+        { processor = mailbox
+          bindCoreChanges =
+            fun make -> context.coreChanges.Value <- Some make }
 
-    let startWithPrelude
-        (credentials: CoreCredentials)
-        (persist: PersistHandlers)
-        (pool: CoreActorPool)
-        (onError: string -> string -> exn -> unit)
-        (formatError: string -> string)
-        (until: Async<Result<unit, string>>)
-        : MailboxProcessor<CoreMsg> =
-        let untilTask =
-            Task.Run(fun () ->
-                try
-                    until |> Async.RunSynchronously
-                with ex ->
-                    Error $"Startup prelude failed: {ex.Message}")
-
-        let context = makeMailBox credentials persist pool onError formatError
-        let failedHandlers error : PersistHandlers = {
-            getState = persist.getState
-            getRevision = persist.getRevision
-            getChangesSince = persist.getChangesSince
-            postChange = fun _ -> Error error
-            postGraphOnlyChange = fun _ -> Error error
-            snapshotDone = fun _ -> ()
+    let rec private pump
+        (context: MailboxContext)
+        (inbox: MailboxProcessor<CoreMsg>)
+        =
+        async {
+            let! msg = inbox.Receive()
+            dispatch context msg
+            return! pump context inbox
         }
 
+    let private failedPersist persist error : PersistHandlers = {
+        getState = persist.getState
+        getRevision = persist.getRevision
+        getChangesSince = persist.getChangesSince
+        postChange = fun _ -> Error error
+        postGraphOnlyChange = fun _ -> Error error
+        snapshotDone = fun _ -> ()
+    }
+
+    let private runUntil (until: Async<Result<unit, string>>) =
+        Task.Run(fun () ->
+            try
+                until |> Async.RunSynchronously
+            with ex ->
+                Error $"Startup prelude failed: {ex.Message}")
+
+    let start (context: MailboxContext) : Started =
+        started (MailboxProcessor<CoreMsg>.Start(pump context)) context
+
+    let startWithPrelude
+        (context: MailboxContext)
+        (until: Async<Result<unit, string>>)
+        : Started =
+        let untilTask = runUntil until
         let mailbox = MailboxProcessor<CoreMsg>.Start(fun inbox ->
             let rec startupLoop () = async {
                 if untilTask.IsCompleted then
                     match untilTask.GetAwaiter().GetResult() with
-                    | Ok () ->
-                        return! normalLoop ()
-                    | Error error ->
-                        return! failedLoop error
+                    | Ok () -> return! pump context inbox
+                    | Error error -> return! failedLoop error
                 else
                     let! _ =
                         inbox.TryScan(
@@ -363,19 +332,12 @@ module internal CoreMailboxBackend =
                             timeout = 20)
                     return! startupLoop ()
             }
-            and normalLoop () = async {
-                let! msg = inbox.Receive()
-                dispatch context msg
-                return! normalLoop ()
-            }
             and failedLoop error = async {
                 let! msg = inbox.Receive()
-                let failed = failedHandlers error
+                let failed = failedPersist context.persist error
                 dispatch { context with persist = failed } msg
                 return! failedLoop error
             }
-
             startupLoop ()
         )
-        context.mailbox.Value <- Some mailbox
-        mailbox
+        started mailbox context

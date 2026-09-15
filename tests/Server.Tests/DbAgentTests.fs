@@ -44,7 +44,6 @@ let private stateWithDetachedNode () =
         |> Graph.fromNodes Graph.rootId
 
     { graph = graph
-      history = History.empty
       revision = Revision 4 },
     orphanId
 
@@ -234,8 +233,6 @@ let ``loadPersistedState ignores Change rows beyond authoritative projection`` (
         |> Async.AwaitTask
     Assert.Equal(Revision 0, loaded.revision)
     Assert.False(loaded.graph.nodes.ContainsKey childId)
-    Assert.Empty(loaded.history.past)
-    Assert.Empty(loaded.history.future)
 }
 
 [<Fact>]
@@ -404,7 +401,6 @@ let ``loadPersistedState preserves node kind`` () = task {
         match
             History.applyChange change
                 { graph = g0
-                  history = History.empty
                   revision = Revision 0 }
         with
         | ApplyResult.Changed st -> st.graph

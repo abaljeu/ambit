@@ -19,7 +19,7 @@ open Gambol.Shared
 ///
 /// Data exposure:
 /// - getState: Read the Graph with lockPresent overlay. Returns Graph facts only.
-/// - eventHistory: Read mailbox-owned History (Change + Actor lifecycle Events).
+/// - eventHistory: The mailbox History (undo stack). Change + Actor Events.
 [<RequireQualifiedAccess>]
 module CoreMailbox =
 
@@ -43,7 +43,7 @@ module CoreMailbox =
 
     let eventHistory
         (host: MailboxHost)
-        : Async<HistoryEvent list> =
+        : Async<History> =
         reply host GetEventHistory
 
     let getRevision (host: MailboxHost) : Async<Revision> =
@@ -144,30 +144,28 @@ module CoreMailbox =
         (persist: PersistFilling)
         (credentials: CoreCredentials)
         : MailboxHost =
-        let mailbox =
+        let context =
+            CoreMailboxBackend.makeMailBox
+                credentials
+                persist.handlers
+                pool
+                persist.onError
+                persist.formatError
+        let started =
             match persist.until with
-            | None ->
-                CoreMailboxBackend.start
-                    credentials
-                    persist.handlers
-                    pool
-                    persist.onError
-                    persist.formatError
+            | None -> CoreMailboxBackend.start context
             | Some until ->
-                CoreMailboxBackend.startWithPrelude
-                    credentials
-                    persist.handlers
-                    pool
-                    persist.onError
-                    persist.formatError
-                    until
+                CoreMailboxBackend.startWithPrelude context until
         persist.bindSnapshot (fun graph ->
-            mailbox.Post(SnapshotDone graph))
-        MailboxHost.create
-            mailbox
-            persist.isReady
-            persist.flushSnapshot
-            persist.dispose
+            started.processor.Post(SnapshotDone graph))
+        let created =
+            MailboxHost.create
+                started.processor
+                persist.isReady
+                persist.flushSnapshot
+                persist.dispose
+        started.bindCoreChanges (coreChanges created)
+        created
 
     let createFile
         (dataDir: string)

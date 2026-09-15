@@ -3,7 +3,7 @@
 **Status:** coded
 **Blocked by:** None — can start immediately. Builds on the Caller-set remake in [[../reports/corecredentials-caller-set.md]]. Does not rewrite [[33-credentialed-browser-change-posts.md|33 — Credentialed Browser Change posts]].
 Estimate: 2h
-Actual: 7h
+Actual: 9h
 
 ## 1. Context
 
@@ -42,10 +42,14 @@ Collapse multiple entrances so the mailbox is the only who-may-talk decision. Ad
 2. [x] Persist agents post SnapshotDone through a private snapshot channel, not a public mailbox field.
 3. [x] Tests and HTTP must not Post CoreMsg around CoreMailbox.
 
+### 5. Second CoreChanges handle
+
+1. [x] Actors receive [[src/Server/Core/CoreMailbox.fs]] `coreChanges`. No Actor `makeCoreChanges` that swallows getRevision / getChangesSince.
+
 ## 3. Out of scope
 
-1. Second CoreChanges handle (`coreChanges` vs Actor `makeCoreChanges` that swallows errors).
-2. Pool as second lifecycle door; Actor kind as CSS string; ActorStop double admit; unread StartActorRequest.revision.
+1. [x] Second CoreChanges handle (`coreChanges` vs Actor `makeCoreChanges` that swallows errors). Done as section 5. Report: [[../reports/actor-corechanges-mailbox-door.md]].
+2. Pool as second lifecycle door; Actor kind as CSS string; unread StartActorRequest.revision. ActorStop double admit closed: [[../reports/actorstop-single-admit.md]].
 3. Two Histories (persist undo vs mailboxHistory); ActorStarted authority string; graph restart not restoring Actor lifecycle.
 
 ## 4. See also
@@ -67,6 +71,8 @@ Collapse multiple entrances so the mailbox is the only who-may-talk decision. Ad
 - 2026-09-15 — `CoreBoot` is the Core-owned create input. Status stays `coded`.
 - 2026-09-15 — `CoreBoot` now reaches `startHost` / `bootCallers`; Adapter `CreateBoot` so RouteRegistration does not rebuild the persist list. Status stays `coded`.
 - 2026-09-15 — `GitGateway.Routes` holds shell/flush/reconcile; built once at `registerPersistenceAndRoutes`. Status stays `coded`. Report: [[../reports/gitgateway-routes-type.md]].
+- 2026-09-15 — Actors use mailbox `coreChanges`; removed Actor `makeCoreChanges` swallow. Status stays `coded`. Report: [[../reports/actor-corechanges-mailbox-door.md]].
+- 2026-09-15 — ActorStop admits once on the mailbox path; `pool.finish` drops without re-admit. Status stays `coded`. Report: [[../reports/actorstop-single-admit.md]].
 
 ## Time
 
@@ -82,3 +88,5 @@ Collapse multiple entrances so the mailbox is the only who-may-talk decision. Ad
 - 2026-09-15 15m — CoreBoot for CoreRuntime.create (from chat)
 - 2026-09-15 15m — CoreBoot through startHost and CreateBoot (from chat)
 - 2026-09-15 15m — GitGateway.Routes for registerRoutes/handleInfoRefs/handlePackPost (from chat)
+- 2026-09-15 1h15m — Actor CoreChanges through mailbox coreChanges; no makeCoreChanges swallow (from chat)
+- 2026-09-15 45m — ActorStop admits once; pool.finish drops without re-admit (from chat)

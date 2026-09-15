@@ -446,7 +446,6 @@ module Database =
 
             return
                 { graph = graph
-                  history = History.empty
                   revision = Revision revision }
         }
 

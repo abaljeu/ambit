@@ -14,13 +14,19 @@ let private requireOk label result =
         Assert.Fail($"{label}: {err}")
         Unchecked.defaultof<_>
 
+let private eventPast host =
+    async {
+        let! history = CoreMailbox.eventHistory host
+        return history.past
+    }
+
 let private waitForActorFinished host focusId timeoutMs =
     task {
         let mutable found = false
         let startTime = DateTime.UtcNow
         while not found && (DateTime.UtcNow - startTime).TotalMilliseconds < float timeoutMs do
             let! events =
-                CoreMailbox.eventHistory host
+                eventPast host
                 |> Async.StartAsTask
             found <-
                 events
@@ -148,7 +154,7 @@ let ``TestActor hello stops successfully with ActorSucceeded`` () =
         Assert.True(finished, "ActorFinished not received within timeout")
         
         let! events =
-            CoreMailbox.eventHistory host
+            eventPast host
             |> Async.StartAsTask
         
         let actorFinishedEvents =
@@ -220,7 +226,7 @@ let ``TestActor hello observes ActorStarted before output`` () =
         Assert.True(finished, "ActorFinished not received within timeout")
         
         let! events =
-            CoreMailbox.eventHistory host
+            eventPast host
             |> Async.StartAsTask
         
         let actorStartedIndex =
@@ -352,7 +358,7 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
         Assert.Equal(1, helloChildren.Length)
         
         let! events =
-            CoreMailbox.eventHistory host
+            eventPast host
             |> Async.StartAsTask
         
         let actorStartedIndex =

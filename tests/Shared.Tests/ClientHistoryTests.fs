@@ -76,7 +76,6 @@ let ``ordinary inverse reverses nested Replace order`` () =
 let private createPasteScenario () : State * Change * NodeId list =
     let initial =
         { graph = Graph.create ()
-          history = History.empty
           revision = Revision.Zero }
     let topIds, pasteOps =
         Paste.buildPasteOps [ "parent", 0; "child", 1 ]

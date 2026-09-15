@@ -247,3 +247,147 @@ let ``ActorStop ActorFailed drops live row and records terminal`` () =
         Assert.Equal(ActorFailed, snd stopped.[0])
         Assert.False(live.Contains actorSecret)
     })
+
+[<Fact>]
+let ``ActorStop consults isLive once for a live Actor`` () =
+    let isLiveCalls = ResizeArray<Credential>()
+    let live = ResizeArray<Credential>()
+    let actorSecret = Credential "actor-once"
+    live.Add actorSecret
+    let pool: CoreActorPool = {
+        register = fun _ _ -> ()
+        startActor =
+            fun request _ ->
+                Ok { secret = actorSecret; focusId = request.focusId }
+        schedule = fun _ _ -> ()
+        isLive =
+            fun secret ->
+                isLiveCalls.Add secret
+                live.Contains secret
+        admit = fun _ -> Ok ()
+        drop = fun _ -> ()
+        finish =
+            fun secret _ ->
+                live.Remove secret |> ignore
+                Ok ()
+        liveFocusIds = fun () -> Set.empty
+        getFocusId = fun _ -> None
+    }
+    withHost pool (fun host -> task {
+        let! result =
+            postActorStop
+                host (actorCaller actorSecret) ActorSucceeded
+            |> Async.StartAsTask
+        requireOk "ActorStop" result
+        Assert.Equal(1, isLiveCalls.Count)
+        Assert.Equal(actorSecret, isLiveCalls.[0])
+    })
+
+[<Fact>]
+let ``live Actor stop succeeds and already-finished cannot`` () =
+    let pool = CoreActorPool.create ()
+    let seen = TaskCompletionSource<Credential>()
+    pool.register (ActorName "root") (fun input _ -> async {
+        seen.TrySetResult input.secret |> ignore
+    })
+    withHost pool (fun host -> task {
+        let! started =
+            postStartActor host testCaller sampleRequest
+            |> Async.StartAsTask
+        requireOk "StartActor" started
+        let! secret = seen.Task.WaitAsync(TimeSpan.FromSeconds 5.0)
+        let caller = actorCaller secret
+        let! stopped =
+            postActorStop host caller ActorSucceeded
+            |> Async.StartAsTask
+        requireOk "ActorStop" stopped
+        Assert.False(pool.isLive secret)
+        let! again =
+            postActorStop host caller ActorSucceeded
+            |> Async.StartAsTask
+        Assert.Equal(Error CoreAuth.refuse, again)
+    })
+
+[<Fact>]
+let ``ActorStop of an already-finished Actor is refused`` () =
+    let _, stopped, live, pool = recordingPool ()
+    let actorSecret = Credential "actor-finished"
+    live.Add actorSecret
+    withHost pool (fun host -> task {
+        let caller = actorCaller actorSecret
+        let! first =
+            postActorStop host caller ActorSucceeded
+            |> Async.StartAsTask
+        requireOk "first stop" first
+        let! second =
+            postActorStop host caller ActorSucceeded
+            |> Async.StartAsTask
+        Assert.Equal(Error CoreAuth.refuse, second)
+        Assert.Equal(1, stopped.Count)
+        Assert.False(live.Contains actorSecret)
+    })
+
+[<Fact>]
+let ``ActorStop with Test credentials is refused`` () =
+    let _, stopped, live, pool = recordingPool ()
+    let actorSecret = Credential "actor-test-auth"
+    live.Add actorSecret
+    withHost pool (fun host -> task {
+        let! result =
+            postActorStop host testCaller ActorSucceeded
+            |> Async.StartAsTask
+        Assert.Equal(Error CoreAuth.refuse, result)
+        Assert.Equal(0, stopped.Count)
+        Assert.True(live.Contains actorSecret)
+    })
+
+[<Fact>]
+let ``ActorStop with Browser credentials is refused`` () =
+    let _, stopped, live, pool = recordingPool ()
+    let actorSecret = Credential "actor-browser-auth"
+    live.Add actorSecret
+    withHost pool (fun host -> task {
+        let secret = Credential "browser-stop"
+        let! logged =
+            CoreMailbox.login host "browser" secret
+            |> Async.StartAsTask
+        requireOk "login" logged
+        let browserCaller =
+            { authority = Authority "Browser"
+              name = "browser"
+              secret = secret }
+        let! result =
+            postActorStop host browserCaller ActorSucceeded
+            |> Async.StartAsTask
+        Assert.Equal(Error CoreAuth.refuse, result)
+        Assert.Equal(0, stopped.Count)
+        Assert.True(live.Contains actorSecret)
+    })
+
+[<Fact>]
+let ``ActorStop with Parse credentials is refused`` () =
+    let _, stopped, live, pool = recordingPool ()
+    let actorSecret = Credential "actor-parse-auth"
+    live.Add actorSecret
+    let parseCaller =
+        { authority = Authority "Parse"
+          name = "process"
+          secret = Credential "parse-secret" }
+    let creds = CoreCredentials.add parseCaller admittedCredentials
+    task {
+        let dataDir = newTempDir ()
+        let host =
+            CoreMailbox.host
+                pool
+                (FileAgent.persist (FileAgent.create dataDir))
+                creds
+        try
+            let! result =
+                postActorStop host parseCaller ActorSucceeded
+                |> Async.StartAsTask
+            Assert.Equal(Error CoreAuth.refuse, result)
+            Assert.Equal(0, stopped.Count)
+            Assert.True(live.Contains actorSecret)
+        finally
+            CoreMailbox.dispose host
+    }

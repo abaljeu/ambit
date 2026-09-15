@@ -7,7 +7,7 @@ open Xunit
 type ExclusiveTimingCollection() = class end
 
 let private applyOps (graph: Graph) (ops: Op list) : Graph =
-    let state = { graph = graph; history = History.empty; revision = Revision.Zero }
+    let state = { graph = graph; revision = Revision.Zero }
     ops
     |> List.fold (fun s op ->
         match Op.apply op s with
@@ -79,7 +79,7 @@ let ``nested file parse after upload tree build is accepted`` () =
     let parsedId = NodeId.New()
     let attach = ChildNode.owner parsedId
     let state =
-        { graph = graph2; history = History.empty; revision = Revision.Zero }
+        { graph = graph2; revision = Revision.Zero }
     let parseChange =
         { id = 0
           changeId = System.Guid.NewGuid()
@@ -614,7 +614,6 @@ let ``directory amb ref to existing owned child keeps owner occurrence`` () =
               ops = report.ops }
         let state =
             { graph = graph1
-              history = History.empty
               revision = Revision.Zero }
         match History.applyChange change state with
         | ApplyResult.Invalid(_, msg) ->
