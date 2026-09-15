@@ -1,7 +1,7 @@
 # 37 — Expand Shared Event, EventLog, and History
 
 **Status:** coded
-Actual: 1h30m
+Actual: 2h30m
 **Blocked by:** None — can start immediately.
 
 ## Context
@@ -68,7 +68,9 @@ Keep the old form. Expand does not replace it.
 - 2026-09-15 — Filed via `/to-tickets` for Story **Event, EventLog, and History** only (expand–contract, Shared expand). Sequence expand-migrate-contract on that story is skill `expand-contract`. No migrate batch and no contract delete in this story. Story **Caller, persist, and Poll** is not ticketed.
 - 2026-09-15 — Destination module 6 is ClientHistory, not a new History. Section 3 evolves ClientHistory (Event-shaped beside Change-shaped). EventLog replaces the mailbox History role. Do not add a Shared History type.
 - 2026-09-15 — Shared expand coded. Event types live in namespace Gambol.Shared.Events. Event-shaped ClientHistory API is recordEvent / undoEvent / redoEvent beside the Change API. No destination History module.
+- 2026-09-15 — Alan review lock: ClientHistory undo/redo/peek skip ActorStart/ActorStop (leave them on the stack; invert the next Action only). ClientHistory.nextEventId is EventId. EventLog is newest-head throughout with no List.rev: append cons, since filters to EventLog (not Event list), restore conses oldest-first persist. CoreMailbox.eventsSince returns EventLog.
 
 ## Time
 
 - 2026-09-15 1h30m — Shared Event / EventLog / ClientHistory expand (from chat)
+- 2026-09-15 1h — Review lock: skip-non-change undo, newest-head EventLog, since returns EventLog (from chat)

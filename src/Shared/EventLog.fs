@@ -15,49 +15,34 @@ module EventLog =
 
     let append (event: Event) (log: EventLog) : EventLog =
         let (EventId n) = log.nextId
-        { events = log.events @ [ { event with id = log.nextId } ]
+        { events = { event with id = log.nextId } :: log.events
           nextId = EventId(n + 1) }
 
-    let since (EventId after) (log: EventLog) : Event list =
-        log.events
-        |> List.filter (fun event ->
-            let (EventId n) = event.id
-            n > after)
+    let since (EventId after) (log: EventLog) : EventLog =
+        { log with
+            events =
+                log.events
+                |> List.filter (fun event ->
+                    let (EventId n) = event.id
+                    n > after) }
 
     let tryFind (eventId: EventId) (log: EventLog) : Event option =
         log.events |> List.tryFind (fun event -> event.id = eventId)
-
-    let private unusedBySubmission
-        (known: Set<Guid>)
-        (persisted: Event list)
-        : Event list =
-        let folder (acc, seen) event =
-            if Set.contains event.submissionId seen then
-                acc, seen
-            else
-                event :: acc, Set.add event.submissionId seen
-
-        persisted
-        |> List.fold folder ([], known)
-        |> fst
-        |> List.rev
 
     let restore (persisted: Event list) (log: EventLog) : EventLog =
         let known =
             log.events
             |> List.map (fun event -> event.submissionId)
             |> Set.ofList
-        let fresh = unusedBySubmission known persisted
-        if List.isEmpty fresh then
-            log
-        else
-            let (EventId start) = log.nextId
-            let next =
-                fresh
-                |> List.fold
-                    (fun acc event ->
-                        let (EventId n) = event.id
-                        max acc (n + 1))
-                    start
-            { events = log.events @ fresh
-              nextId = EventId next }
+        let (EventId start) = log.nextId
+        let folder (events, seen, next) event =
+            if Set.contains event.submissionId seen then
+                events, seen, next
+            else
+                let (EventId n) = event.id
+                event :: events,
+                Set.add event.submissionId seen,
+                max next (n + 1)
+        let events, _, next =
+            List.fold folder (log.events, known, start) persisted
+        { events = events; nextId = EventId next }
