@@ -49,6 +49,12 @@ module FileAgent =
         let logStream = Bookkeeping.openLogStream dataDir
 
         let offsetIndex = ChangeLog.buildIndex logStream
+        let eventStream = EventLogFile.openStream dataDir
+        let eventOffsets = ChangeLog.buildIndex eventStream
+        let persistedEventLog =
+            ref (
+                EventLogFile.readAll eventStream eventOffsets
+                |> Gambol.Shared.Events.EventLog.restorePersisted)
         let state = ref loadedState
         /// False after a soft file-write failure until process restart (meta stays behind).
         let persistClean = ref true
@@ -56,6 +62,7 @@ module FileAgent =
         let capturedInitialState = state.Value
 
         logStream.Seek(0L, SeekOrigin.End) |> ignore
+        eventStream.Seek(0L, SeekOrigin.End) |> ignore
 
         let accepted confirmed externalChanges message =
             CoreChanges.accepted
@@ -257,6 +264,19 @@ module FileAgent =
                         | Ok change -> Some change
                         | Error _ -> None)
                 Ok changes
+            getEventsSince = fun after ->
+                Ok(
+                    Gambol.Shared.Events.EventLog.since after persistedEventLog.Value
+                    |> fun log -> log.events)
+            appendEvent = fun event ->
+                match EventLogFile.append eventStream eventOffsets event with
+                | Error err -> Error err
+                | Ok () ->
+                    persistedEventLog.Value <-
+                        Gambol.Shared.Events.EventLog.restore
+                            [ event ]
+                            persistedEventLog.Value
+                    Ok ()
             postChange = fun changes ->
                 processPostChange changes false
             postGraphOnlyChange = fun changes ->
@@ -279,6 +299,8 @@ module FileAgent =
             fun () ->
                 logStream.Flush()
                 logStream.Dispose()
+                eventStream.Flush()
+                eventStream.Dispose()
           initialState = capturedInitialState }
 
     let create (dataDir: string) : FileAgent =

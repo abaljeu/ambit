@@ -18,11 +18,15 @@ module internal CoreEventDispatch =
     let private eventAuthority (Authority name) =
         Gambol.Shared.Events.Authority name
 
-    let append (eventLog: EventLog ref) (event: Event) =
-        let id = EventLog.nextId eventLog.Value
-        let stored = { event with id = id }
-        eventLog.Value <- EventLog.append stored eventLog.Value
-        stored
+    let private commit (context: Context) (event: Event) =
+        let stored =
+            { event with id = EventLog.nextId context.eventLog.Value }
+        match context.persist.appendEvent stored with
+        | Error error -> Error error
+        | Ok () ->
+            context.eventLog.Value <-
+                EventLog.append stored context.eventLog.Value
+            Ok stored
 
     let private lifecycleEvent
         (caller: Caller)
@@ -34,14 +38,14 @@ module internal CoreEventDispatch =
           commandName = ""
           body = body }
 
-    let actorStart eventLog caller request =
+    let actorStart (context: Context) caller request =
         lifecycleEvent
             caller
             (Gambol.Shared.Events.EventBody.ActorStart request)
-        |> append eventLog
-        |> ignore
+        |> commit context
+        |> Result.map ignore
 
-    let actorStop eventLog caller focusId result =
+    let actorStop (context: Context) caller focusId result =
         let sharedResult =
             match result with
             | ActorSucceeded ->
@@ -53,8 +57,8 @@ module internal CoreEventDispatch =
             (Gambol.Shared.Events.EventBody.ActorStop(
                 focusId,
                 sharedResult))
-        |> append eventLog
-        |> ignore
+        |> commit context
+        |> Result.map ignore
 
     let private completeAction (eventLog: EventLog) (event: Event) =
         match event.body with
@@ -114,8 +118,6 @@ module internal CoreEventDispatch =
         completeAction context.eventLog.Value admitted
 
     let private persist (context: Context) (completed: Event) =
-        // Empty Ops still reach File/Db (Unchanged rejection).
-        // PersistHandlers stay Change-list until ticket 42.
         match Gambol.Shared.Events.Event.ops completed with
         | None -> Ok None
         | Some ops ->
@@ -134,7 +136,7 @@ module internal CoreEventDispatch =
             match accepted with
             | None -> completed
             | Some result -> withConfirmedOps completed result
-        append context.eventLog confirmed
+        commit context confirmed
 
     let postEvent
         (context: Context)
@@ -150,4 +152,6 @@ module internal CoreEventDispatch =
                 match persist context completed with
                 | Error error -> Error error
                 | Ok accepted ->
-                    Ok(store context accepted completed, accepted)
+                    match store context accepted completed with
+                    | Error error -> Error error
+                    | Ok stored -> Ok(stored, accepted)

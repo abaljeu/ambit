@@ -63,18 +63,18 @@ Implementation status for this cut: Point 0 loop code is shared ([[issues/30-res
       3. [ ] persist EventLog as Event JSON (today’s [[src/Server/ChangeLog.fs]])
    2. **Migrate**
       1. [ ] HTTP Adapter ([[src/Server/Api.fs]]) decode/encode: Change posts call `postEvent`; Poll/Load tail is Events (not a Change list)
-      2. [ ] Changes callers use `postEvent`; name-only Undo/Redo may carry only `target`; dispatch fills inverse Ops (same `submissionId`)
-      3. [ ] command-builder still produces Change (Ops); Event is built at the `postEvent` door
-      4. [ ] `GetEventHistory` returns the log or `since`, not a two-stack
+      2. [x] Changes callers use `postEvent`; name-only Undo/Redo may carry only `target`; dispatch fills inverse Ops (same `submissionId`)
+      3. [x] command-builder still produces Change (Ops); Event is built at the `postEvent` door
+      4. [x] `GetEventHistory` returns the log or `since`, not a two-stack
       5. [ ] Poll returns an Event tail (server return and client consume)
       6. [ ] Browser Poll consume; `Revision` → EventId cursor (`State.revision`, `ClientSyncState.revision`)
       7. [ ] PendingChange / ChangeBatch wrap Event (or EventBody)
       8. [ ] Browser callers keep using ClientHistory (Event-shaped); client holds EventLog of the same type. Do not migrate onto a module named History. `ClientHistory.undo` locally then name-only submit; ack/reconcile stays the pending path
-      9. [ ] CoreMsg / CoreActorPool: mailbox appends ActorStart / ActorStop Events; callers do not `postEvent` those bodies
-      10. [ ] persist ActorStart / ActorStop
-      11. [ ] PersistHandlers load/restore: File/Db call `EventLog.restore`; `getEventsSince` returns Events
-      12. [ ] every start request is `ActorStart`
-      13. [ ] stamp `authority` on every stored Event from the admitted Caller
+      9. [x] CoreMsg / CoreActorPool: mailbox appends ActorStart / ActorStop Events; callers do not `postEvent` those bodies
+      10. [x] persist ActorStart / ActorStop
+      11. [x] PersistHandlers load/restore: File/Db call `EventLog.restore`; `getEventsSince` returns Events
+      12. [x] every start request is `ActorStart`
+      13. [x] stamp `authority` on every stored Event from the admitted Caller
    3. **Contract**
       1. [ ] Delete `HistoryEvent`, `ActorLifecycleEvent`, mailbox `type History` / History name (replaced by EventLog), and `PendingKind` once no caller remains. Do not delete ClientHistory
       2. [ ] Delete the name `StartActorRequest` once every caller says `ActorStart`
@@ -112,13 +112,13 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. ClientH
    1. [x] State: the one ordered mailbox loop
    - Interface:
      1. [x] match `CoreMsg` cases
-     2. [ ] for `StartActor`, carry `ActorStart` (include EventId); validate caller Authority and secret; call startActor; reply with that result; do not wait for the Actor body
+     2. [x] for `StartActor`, carry `ActorStart` (include EventId); validate caller Authority and secret; call startActor; reply with that result; do not wait for the Actor body
      3. [x] for every Changes post (Browser or Actor), require and validate Authority and secret before PersistHandlers
      4. [x] for Actor Changes posts, admit against the live table (same credential fields, live-row check)
-     5. [ ] for `ActorStop` of `ActorResult` (`ActorSucceeded` or `ActorFailed`), store an ActorStop Event on EventLog, drop the live row and secret, request terminate without waiting
+     5. [x] for `ActorStop` of `ActorResult` (`ActorSucceeded` or `ActorFailed`), store an ActorStop Event on EventLog, drop the live row and secret, request terminate without waiting
      6. [x] for `GetState`, apply `lockPresent` from the live table on the mailbox thread, then reply; persist getState stays on PersistHandlers
-     7. [ ] stamp `authority` from the admitted Caller on every stored Event
-     8. [ ] name-only Undo/Redo: `tryFind` the target Event, fill inverse Ops, store the completed Event (same `submissionId`)
+     7. [x] stamp `authority` from the admitted Caller on every stored Event
+     8. [x] name-only Undo/Redo: `tryFind` the target Event, fill inverse Ops, store the completed Event (same `submissionId`)
    - Uses:
      1. [ ] CoreActorPool
      2. [ ] mailbox secret set (Browser) and live-table isLive (Actor). No CoreCredentials mailbox.
@@ -128,11 +128,11 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. ClientH
    1. [x] State: none beyond MailboxHost
    - Interface:
      1. [x] public door on MailboxHost — `startActor` with `zoomId`, `focusId`, `commandId`, `graphIds`; `actorStop`; `login` (mailbox privately adds the Browser secret); `isAdmitted` (query). No public add-credential door.
-     2. [ ] `postEvent` is the Changes door. Payload is Event (Change, Undo, Redo). Name-only Undo/Redo may arrive with only `target`
+     2. [x] `postEvent` is the Changes door. Payload is Event (Change, Undo, Redo). Name-only Undo/Redo may arrive with only `target`
      3. [x] `postGraphOnlyChange` — Event-shaped Graph work that skips EventLog
-     4. [ ] `eventHistory` is EventLog (the log or `since`), not a two-stack
+     4. [x] `eventHistory` is EventLog (the log or `since`), not a two-stack
      5. [x] getState / getRevision / createFile / createDb
-     6. [ ] `getEventsSince` returns an Event tail
+     6. [x] `getEventsSince` returns an Event tail
    - Uses:
      1. [ ] MailboxHost
      2. [ ] CoreMsg
@@ -144,12 +144,12 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. ClientH
      3. [x] thread-pool runner
    - Interface:
      1. [x] `register` finishes before the mailbox starts
-     2. [ ] `startActor` receives `ActorStart` (`zoomId`, `focusId`, `commandId`, `graphIds`, EventId)
+     2. [x] `startActor` receives `ActorStart` (`zoomId`, `focusId`, `commandId`, `graphIds`, EventId)
      3. [x] `startActor` returns `Result<Credential, string>`
      4. [x] expand `graphIds` to a Graph
      5. [x] read the command Node and select Actor kind (`test` in this slice); create the matching Actor
      6. [x] startActor prepares and creates the live row and secret only (no EventLog, no schedule). schedule is fire-and-forget of the body only
-     7. [ ] On the mailbox thread: live row → ActorStart Event on EventLog → pool.schedule. ActorStart is in-loop, not PostAndAsyncReply
+     7. [x] On the mailbox thread: live row → ActorStart Event on EventLog → pool.schedule. ActorStart is in-loop, not PostAndAsyncReply
      8. [x] pass Graph plus named `zoomId`, `focusId`, `commandId` and the Actor secret into the Actor
      9. [x] `admit`, `drop`, `isLive`
      10. [x] launch / query are gone; `withLocks` / `lockedIds` leave the CoreRuntime wrap
@@ -173,13 +173,13 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. ClientH
    1. [ ] State: append-only newest-head Event sequence; mailbox store after intake. Persistence is this same EventLog on file/DB (today’s [[src/Server/ChangeLog.fs]]). Not a second log.
    - Interface:
      1. [ ] `empty`, `append`, `nextId`
-     2. [ ] `since eventId` — Poll/Load tail (self-contained Events)
-     3. [ ] `tryFind` — Core name-only Undo/Redo
-     4. [ ] `restore` — merge persisted Events; dedupe by `submissionId`
+     2. [x] `since eventId` — Poll/Load tail (self-contained Events)
+     3. [x] `tryFind` — Core name-only Undo/Redo
+     4. [x] `restore` — merge persisted Events; dedupe by `submissionId`
      5. [x] CoreMailboxBackend is the only writer of the mailbox store. State has no `history` field. getState stays Graph-only
      6. [x] no second Actor-only event log beside CoreMailbox
      7. [ ] encode and read Event JSON [[src/Shared/EventLog.fs]]
-     8. [ ] persist ActorStart / ActorStop
+     8. [x] persist ActorStart / ActorStop
    - Uses:
      1. [ ] Event
 6. **ClientHistory** — [[src/Shared/ClientHistory.fs]]
@@ -249,7 +249,7 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. ClientH
    1. [x] State: File or Db persist implementation behind the loop
    - Interface:
      1. [x] getState, getRevision, postGraphOnlyChange, snapshotDone
-     2. [ ] getEventsSince / persist EventLog
+     2. [x] getEventsSince / persist EventLog
      3. [x] Actor cases are not on this parameter
    - Uses:
      1. [ ] FileAgent / DbAgent fill persist only (handlers, flush, ready, dispose); they do not dispatch Actor cases and are not Actor mailboxes

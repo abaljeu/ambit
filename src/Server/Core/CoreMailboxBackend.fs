@@ -10,6 +10,8 @@ module internal CoreMailboxBackend =
     type Event = Gambol.Shared.Events.Event
     type EventId = Gambol.Shared.Events.EventId
     type EventLog = Gambol.Shared.Events.EventLog
+    module Event = Gambol.Shared.Events.Event
+    module EventId = Gambol.Shared.Events.EventId
     module EventLog = Gambol.Shared.Events.EventLog
 
     /// Bound on wall-clock time for a single change's persist step (disk write via
@@ -56,6 +58,8 @@ module internal CoreMailboxBackend =
         | GetRevision _ -> "GetRevision", ""
         | GetChangesSince (after, _) ->
             "GetChangesSince", $"after={after}"
+        | GetEventsSince (after, _) ->
+            "GetEventsSince", $"after={after}"
         | GetEventHistory _ -> "GetEventHistory", ""
         | PostGraphOnlyChange (_, change, _) ->
             "PostGraphOnlyChange", $"ops={change.ops.Length}"
@@ -76,6 +80,7 @@ module internal CoreMailboxBackend =
         | GetState reply -> reply.Reply(Error error)
         | GetRevision reply -> reply.Reply(Error error)
         | GetChangesSince (_, reply) -> reply.Reply(Error error)
+        | GetEventsSince (_, reply) -> reply.Reply(Error error)
         | GetEventHistory reply -> reply.Reply(EventLog.empty)
         | PostGraphOnlyChange (_, _, reply) -> reply.Reply(Error error)
         | SnapshotDone _ -> ()
@@ -126,6 +131,11 @@ module internal CoreMailboxBackend =
             | Error err -> Error(CoreAdmissionError.text err)
             | Ok () -> Ok ()
 
+    let private eventDispatchContext context : CoreEventDispatch.Context =
+        { admit = admitCaller context
+          persist = context.persist
+          eventLog = context.eventLog }
+
     let private dispatchStartActor
         (context: MailboxContext)
         (caller: Caller)
@@ -145,12 +155,16 @@ module internal CoreMailboxBackend =
                 match context.pool.startActor request getState with
                 | Error err -> reply.Reply(Error err)
                 | Ok secret ->
-                    CoreEventDispatch.actorStart
-                        context.eventLog
-                        caller
-                        request
-                    context.pool.schedule secret (make caller)
-                    reply.Reply(Ok ())
+                    match
+                        CoreEventDispatch.actorStart
+                            (eventDispatchContext context)
+                            caller
+                            request
+                    with
+                    | Error err -> reply.Reply(Error err)
+                    | Ok () ->
+                        context.pool.schedule secret (make caller)
+                        reply.Reply(Ok ())
 
     let private dispatchActorStop
         (context: MailboxContext)
@@ -166,19 +180,19 @@ module internal CoreMailboxBackend =
                 let focusId =
                     context.pool.getFocusId caller.secret
                     |> Option.defaultValue Graph.rootId
-                CoreEventDispatch.actorStop
-                    context.eventLog
-                    caller
-                    focusId
-                    result
-                reply.Reply(context.pool.finish caller.secret result)
+                match
+                    CoreEventDispatch.actorStop
+                        (eventDispatchContext context)
+                        caller
+                        focusId
+                        result
+                with
+                | Error err -> reply.Reply(Error err)
+                | Ok () ->
+                    reply.Reply(
+                        context.pool.finish caller.secret result)
             | _ ->
                 reply.Reply(Error CoreAuth.refuse)
-
-    let private eventDispatchContext context : CoreEventDispatch.Context =
-        { admit = admitCaller context
-          persist = context.persist
-          eventLog = context.eventLog }
 
     /// Graph-only: admit then persist; skips EventLog (arch).
     let private dispatchPostGraphOnlyChange
@@ -190,7 +204,6 @@ module internal CoreMailboxBackend =
         match admitCaller context caller with
         | Error err -> reply.Reply(Error err)
         | Ok () ->
-            // PersistHandlers stay Change-list until ticket 42.
             reply.Reply(context.persist.postGraphOnlyChange [ change ])
 
     let private dispatchPostEvent
@@ -218,6 +231,8 @@ module internal CoreMailboxBackend =
         | GetRevision reply -> reply.Reply(context.persist.getRevision ())
         | GetChangesSince (after, reply) ->
             reply.Reply(context.persist.getChangesSince after)
+        | GetEventsSince (after, reply) ->
+            reply.Reply(context.persist.getEventsSince after)
         | GetEventHistory reply ->
             reply.Reply(context.eventLog.Value)
         | PostGraphOnlyChange (caller, change, reply) ->
@@ -258,13 +273,40 @@ module internal CoreMailboxBackend =
             with _ ->
                 ()
 
+    let private failedPersist persist error : PersistHandlers = {
+        getState = persist.getState
+        getRevision = persist.getRevision
+        getChangesSince = persist.getChangesSince
+        getEventsSince = persist.getEventsSince
+        appendEvent = fun _ -> Error error
+        postChange = fun _ -> Error error
+        postGraphOnlyChange = fun _ -> Error error
+        snapshotDone = fun _ -> ()
+    }
+
+    let private failedSeed persist error : PersistHandlers =
+        { failedPersist persist error with
+            getEventsSince = fun _ -> Error error }
+
+    let private seedEventLog (persist: PersistHandlers) =
+        let after = Gambol.Shared.Events.EventId(-1)
+        try
+            persist.getEventsSince after
+            |> Result.map EventLog.restorePersisted
+        with ex ->
+            Error ex.Message
+
     let makeMailBox credentials persist pool onError formatError : MailboxContext =
+        let eventLog, handlers =
+            match seedEventLog persist with
+            | Ok log -> log, persist
+            | Error error -> EventLog.empty, failedSeed persist error
         { credentials = ref credentials
-          persist = persist
+          persist = handlers
           pool = pool
           onError = onError
           formatError = formatError
-          eventLog = ref EventLog.empty
+          eventLog = ref eventLog
           coreChanges = ref None }
 
     let private started mailbox (context: MailboxContext) : Started =
@@ -281,15 +323,6 @@ module internal CoreMailboxBackend =
             dispatch context msg
             return! pump context inbox
         }
-
-    let private failedPersist persist error : PersistHandlers = {
-        getState = persist.getState
-        getRevision = persist.getRevision
-        getChangesSince = persist.getChangesSince
-        postChange = fun _ -> Error error
-        postGraphOnlyChange = fun _ -> Error error
-        snapshotDone = fun _ -> ()
-    }
 
     let private runUntil (until: Async<Result<unit, string>>) =
         Task.Run(fun () ->
@@ -320,6 +353,7 @@ module internal CoreMailboxBackend =
                                 | GetState _
                                 | GetRevision _
                                 | GetChangesSince _
+                                | GetEventsSince _
                                 | GetEventHistory _
                                 | EventsSince _ ->
                                     Some(async { dispatch context msg })

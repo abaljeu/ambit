@@ -1,7 +1,7 @@
 # 41 — Migrate Core mailbox, CoreMsg, and Pool onto Event
 
-**Status:** blocked
-**Blocked by:** [40 — Expand postEvent, EventLog store, and Event JSON persist](40-expand-postevent-eventlog-and-event-json.md)
+**Status:** coded
+**Blocked by:** None — [40 — Expand postEvent, EventLog store, and Event JSON persist](40-expand-postevent-eventlog-and-event-json.md) is Status `coded`.
 
 ## Context
 
@@ -15,28 +15,28 @@ Move Core mailbox, CoreMsg, and Pool callers onto Event. Changes callers use `po
 
 Migrate Changes callers on **CoreMailbox** and **CoreMsg / CoreMailboxBackend**. Seam **`postEvent` door**.
 
-- [ ] Changes callers use postEvent — Core Changes callers use `postEvent`. Event is built at that door.
-- [ ] Name-only Undo/Redo — name-only Undo/Redo may carry only `target`. Dispatch `tryFind`s the target Event, fills inverse Ops, and stores the completed Event (same `submissionId`).
+- [x] Changes callers use postEvent — Core Changes callers use `postEvent`. Event is built at that door.
+- [x] Name-only Undo/Redo — name-only Undo/Redo may carry only `target`. Dispatch `tryFind`s the target Event, fills inverse Ops, and stores the completed Event (same `submissionId`).
 
 ### 2. GetEventHistory
 
 Migrate the history door on **CoreMailbox**.
 
-- [ ] GetEventHistory log or since — `eventHistory` / `GetEventHistory` returns the EventLog (the log or `since`), not a two-stack.
+- [x] GetEventHistory log or since — `eventHistory` / `GetEventHistory` returns the EventLog (the log or `since`), not a two-stack.
 
 ### 3. ActorStart and ActorStop on EventLog
 
 Migrate lifecycle append on **CoreMsg / CoreMailboxBackend** and **CoreActorPool**. Seam **CoreActorPool table and start**.
 
-- [ ] Mailbox appends ActorStart — mailbox appends ActorStart Events. Callers do not `postEvent` those bodies. Interface: [Core creation architecture](../arch.md) Module **CoreActorPool**.
-- [ ] Mailbox appends ActorStop — mailbox stores an ActorStop Event on EventLog for `ActorResult`. Callers do not `postEvent` ActorStop. Interface: [Core creation architecture](../arch.md) Module **CoreMsg / CoreMailboxBackend**.
-- [ ] start request is ActorStart — every start request is ActorStart. The StartActorRequest name still compiles until contract.
+- [x] Mailbox appends ActorStart — mailbox appends ActorStart Events. Callers do not `postEvent` those bodies. Interface: [Core creation architecture](../arch.md) Module **CoreActorPool**.
+- [x] Mailbox appends ActorStop — mailbox stores an ActorStop Event on EventLog for `ActorResult`. Callers do not `postEvent` ActorStop. Interface: [Core creation architecture](../arch.md) Module **CoreMsg / CoreMailboxBackend**.
+- [x] start request is ActorStart — every start request is ActorStart. The StartActorRequest name still compiles until contract.
 
 ### 4. Authority stamp
 
 Stamp authority on **CoreMsg / CoreMailboxBackend**.
 
-- [ ] authority from admitted Caller — stamp `authority` from the admitted Caller on every stored Event. The wire does not supply it.
+- [x] authority from admitted Caller — stamp `authority` from the admitted Caller on every stored Event. The wire does not supply it.
 
 ## Out of scope
 
@@ -52,3 +52,4 @@ Stamp authority on **CoreMsg / CoreMailboxBackend**.
 ## Comments
 
 - 2026-09-15 — Filed via `/to-tickets` for Story **Caller, persist, and Poll** only. Core-layer migrate batch. Blocked by the story 5 expand.
+- 2026-09-15 — Status corrected to `coded` (implementation already landed; ticket state lagged).

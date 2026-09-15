@@ -62,6 +62,16 @@ module CoreMailbox =
             return unwrap result
         }
 
+    let getEventsSince
+        (host: MailboxHost)
+        (after: Gambol.Shared.Events.EventId)
+        : Async<Gambol.Shared.Events.Event list> =
+        async {
+            let! result =
+                reply host (fun channel -> GetEventsSince(after, channel))
+            return unwrap result
+        }
+
     let private eventFromChange
         (change: Change)
         : Gambol.Shared.Events.Event =

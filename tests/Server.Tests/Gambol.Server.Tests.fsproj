@@ -33,6 +33,7 @@
     <Compile Include="CoreMsgActorCasesTests.fs" />
     <Compile Include="CoreMailboxDoorTests.fs" />
     <Compile Include="Issue41CoreMailboxTests.fs" />
+    <Compile Include="Issue42PersistHandlersTests.fs" />
     <Compile Include="ActorCoreChangesDoorTests.fs" />
     <Compile Include="CoreRuntimeTests.fs" />
     <Compile Include="BrowserCredentialTests.fs" />

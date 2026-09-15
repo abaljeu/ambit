@@ -109,7 +109,7 @@ let resetTestDatabase (connStr: string) : Task<unit> =
         do! conn.OpenAsync()
         use cmd = conn.CreateCommand()
         cmd.CommandText <-
-            "TRUNCATE TABLE changes, node_children, nodes, graph RESTART IDENTITY CASCADE;"
+            "TRUNCATE TABLE events, changes, node_children, nodes, graph RESTART IDENTITY CASCADE;"
         let! _ = cmd.ExecuteNonQueryAsync()
         return ()
     }

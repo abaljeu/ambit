@@ -1,7 +1,8 @@
 # 42 — Migrate PersistHandlers restore and getEventsSince
 
-**Status:** blocked
-**Blocked by:** [40 — Expand postEvent, EventLog store, and Event JSON persist](40-expand-postevent-eventlog-and-event-json.md), [41 — Migrate Core mailbox, CoreMsg, and Pool onto Event](41-migrate-core-mailbox-coremsg-and-pool-onto-event.md)
+**Status:** coded
+
+**Blocked by:** None — [40 — Expand postEvent, EventLog store, and Event JSON persist](40-expand-postevent-eventlog-and-event-json.md) and [41 — Migrate Core mailbox, CoreMsg, and Pool onto Event](41-migrate-core-mailbox-coremsg-and-pool-onto-event.md) are Status `coded`.
 
 ## Context
 
@@ -15,19 +16,19 @@ Move PersistHandlers onto EventLog. File and Db call `EventLog.restore` on load.
 
 Persist lifecycle Events on **EventLog**. Module **PersistHandlers**.
 
-- [ ] persist ActorStart ActorStop — persist ActorStart / ActorStop. Persistence is this same EventLog on file/DB.
+- [x] persist ActorStart ActorStop — persist ActorStart / ActorStop. Persistence is this same EventLog on file/DB.
 
 ### 2. restore
 
 Migrate load/restore on **PersistHandlers**.
 
-- [ ] EventLog.restore — File/Db call `EventLog.restore`. Restore merges persisted Events and dedupes by `submissionId`.
+- [x] EventLog.restore — File/Db call `EventLog.restore`. Restore merges persisted Events and dedupes by `submissionId`.
 
 ### 3. getEventsSince
 
 Migrate the Poll/Load persist tail on **PersistHandlers** and **CoreMailbox**.
 
-- [ ] getEventsSince returns Events — `getEventsSince` returns an Event tail. The old Change persist read still compiles until HTTP Adapter migrates Poll.
+- [x] getEventsSince returns Events — `getEventsSince` returns an Event tail. The old Change persist read still compiles until HTTP Adapter migrates Poll.
 
 ## Out of scope
 
@@ -42,3 +43,9 @@ Migrate the Poll/Load persist tail on **PersistHandlers** and **CoreMailbox**.
 ## Comments
 
 - 2026-09-15 — Filed via `/to-tickets` for Story **Caller, persist, and Poll** only. PersistHandlers migrate batch. Blocked by the story 5 expand and the Core migrate batch so ActorStart / ActorStop exist to persist.
+
+## Time
+
+- 2026-09-15 1h30m — PersistHandlers Event append/getEventsSince, File/Db EventLog restore, CoreMailbox door (from chat)
+- 2026-09-15 15m — Db Event persist/restore test + report; filter Pass 4/4. Notes: [[../reports/issue-42-db-restore-test.md]].
+- Actual: 1h45m

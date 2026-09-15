@@ -1,6 +1,6 @@
 # 43 — Migrate HTTP Adapter onto postEvent and Event Poll
 
-**Status:** blocked
+**Status:** ready-to-implement
 **Blocked by:** [40 — Expand postEvent, EventLog store, and Event JSON persist](40-expand-postevent-eventlog-and-event-json.md), [41 — Migrate Core mailbox, CoreMsg, and Pool onto Event](41-migrate-core-mailbox-coremsg-and-pool-onto-event.md), [42 — Migrate PersistHandlers restore and getEventsSince](42-migrate-persisthandlers-restore-and-geteventssince.md)
 
 ## Context

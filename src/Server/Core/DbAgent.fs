@@ -3,6 +3,7 @@ namespace Gambol.Server
 open System
 open System.Threading.Tasks
 open Gambol.Shared
+open Gambol.Shared.Events
 
 module Decode = Thoth.Json.Newtonsoft.Decode
 
@@ -24,6 +25,7 @@ module DbAgent =
     type private LoadedPersist = {
         state: State ref
         persistedGraph: Graph ref
+        eventLog: EventLog ref
         snapshotInProgress: bool ref
         snapshotNeeded: bool ref
         ready: TaskCompletionSource<unit>
@@ -34,6 +36,20 @@ module DbAgent =
         persistGraphOps:
             string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, string>
     }
+
+    let private loadRestoredEventLog (connectionString: string) : EventLog =
+        if String.IsNullOrWhiteSpace connectionString then
+            EventLog.empty
+        else
+            let rows =
+                Database.getEventsAfter connectionString (-1)
+                |> Async.AwaitTask
+                |> Async.RunSynchronously
+            let raw =
+                rows
+                |> List.choose (fun row ->
+                    EventLogFile.decode row.payload |> Result.toOption)
+            EventLog.restorePersisted raw
 
     let private decodeChangePayload (s: string) =
         Decode.fromString Serialization.decodeChange s
@@ -50,6 +66,7 @@ module DbAgent =
         : LoadedPersist =
         { state = ref initialState
           persistedGraph = ref initialState.graph
+          eventLog = ref EventLog.empty
           snapshotInProgress = ref false
           snapshotNeeded = ref false
           ready =
@@ -354,10 +371,37 @@ module DbAgent =
         |> List.choose (fun row ->
             decodeChangePayload row.payload |> Result.toOption)
 
+    let private eventsSince loaded after =
+        EventLog.since after loaded.eventLog.Value |> fun log -> log.events
+
+    let private appendPersistedEvent
+        loaded
+        (persisted: Gambol.Shared.Events.Event)
+        =
+        if String.IsNullOrWhiteSpace loaded.connectionString then
+            Ok ()
+        else
+            let (Gambol.Shared.Events.EventId n) = persisted.id
+            try
+                Database.appendEvent
+                    loaded.connectionString
+                    n
+                    persisted.submissionId
+                    (EventLogFile.encode persisted)
+                |> Async.AwaitTask
+                |> Async.RunSynchronously
+                loaded.eventLog.Value <-
+                    EventLog.restore [ persisted ] loaded.eventLog.Value
+                Ok ()
+            with ex ->
+                Error $"Event persist error: {ex.Message}"
+
     let private persistHandlers loaded = {
         getState = fun () -> Ok loaded.state.Value
         getRevision = fun () -> Ok loaded.state.Value.revision
         getChangesSince = fun after -> Ok(changesSince loaded after)
+        getEventsSince = fun after -> Ok(eventsSince loaded after)
+        appendEvent = appendPersistedEvent loaded
         postChange = fun changes -> processPostChange loaded changes false
         postGraphOnlyChange = fun changes ->
             processPostChange loaded changes true
@@ -421,6 +465,7 @@ module DbAgent =
                 connectionString
                 liveSaveDataDir
                 persistGraphOps
+        loaded.eventLog.Value <- loadRestoredEventLog connectionString
         { handlers = persistHandlers loaded
           onError = logUnhandledException loaded.liveSaveDataDir
           formatError = formatError loaded.liveSaveDataDir

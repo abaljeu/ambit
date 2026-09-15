@@ -41,3 +41,15 @@ module EventLog =
                 event :: events, Set.add event.submissionId seen
         let events, _ = List.fold folder (log.events, known) persisted
         { log with events = events }
+
+    /// Merge persisted Events into an empty log, dedupe by `submissionId`, set `nextId` past max id.
+    let restorePersisted (persisted: Event list) : EventLog =
+        let nextId =
+            match persisted with
+            | [] -> EventId.zero
+            | _ ->
+                persisted
+                |> List.map Event.id
+                |> List.reduce EventId.max
+                |> EventId.next
+        restore persisted { empty with nextId = nextId }

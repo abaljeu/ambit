@@ -7,6 +7,10 @@ type internal CoreMsg =
     | GetRevision of AsyncReplyChannel<Result<Revision, string>>
     | GetChangesSince of
         after: Revision * AsyncReplyChannel<Result<Change list, string>>
+    | GetEventsSince of
+        after: Gambol.Shared.Events.EventId *
+        AsyncReplyChannel<
+            Result<Gambol.Shared.Events.Event list, string>>
     | GetEventHistory of
         AsyncReplyChannel<Gambol.Shared.Events.EventLog>
     | PostGraphOnlyChange of
@@ -45,6 +49,11 @@ type PersistHandlers = {
     getState: unit -> Result<State, string>
     getRevision: unit -> Result<Revision, string>
     getChangesSince: Revision -> Result<Change list, string>
+    getEventsSince:
+        Gambol.Shared.Events.EventId
+            -> Result<Gambol.Shared.Events.Event list, string>
+    appendEvent:
+        Gambol.Shared.Events.Event -> Result<unit, string>
     postChange:
         Change list -> Result<CoreChangesAccepted, string>
     postGraphOnlyChange:

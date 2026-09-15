@@ -80,6 +80,16 @@ module Database =
                 CREATE INDEX IF NOT EXISTS idx_changes_server_revision_after
                     ON changes (server_revision_after);
 
+                CREATE TABLE IF NOT EXISTS events (
+                    event_id        INT          PRIMARY KEY,
+                    submission_id   UUID         NOT NULL,
+                    payload         TEXT         NOT NULL,
+                    recorded_at     TIMESTAMPTZ  DEFAULT NOW()
+                );
+
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_events_submission_id
+                    ON events (submission_id);
+
                 CREATE TABLE IF NOT EXISTS graph (
                     singleton   SMALLINT PRIMARY KEY DEFAULT 1 CHECK (singleton = 1),
                     root_id     UUID         NOT NULL,
@@ -140,6 +150,10 @@ module Database =
 
     type ChangeRow =
         { client_base_revision: int
+          payload: string }
+
+    type EventRow =
+        { event_id: int
           payload: string }
 
     type GraphSingletonRow =
@@ -237,6 +251,45 @@ module Database =
                     """,
                     {| rev = checkpointRevision |})
 
+            return rows |> Seq.toList
+        }
+
+    let appendEvent
+        (connectionString: string)
+        (eventId: int)
+        (submissionId: Guid)
+        (json: string)
+        : Task =
+        task {
+            use conn = getConnection connectionString
+            do! conn.OpenAsync()
+            let! _ =
+                conn.ExecuteAsync(
+                    """
+                    INSERT INTO events (event_id, submission_id, payload)
+                    VALUES (@event_id, @submission_id, @payload)
+                    """,
+                    {| event_id = eventId
+                       submission_id = submissionId
+                       payload = json |})
+            return ()
+        }
+
+    let getEventsAfter
+        (connectionString: string)
+        (afterEventId: int)
+        : Task<EventRow list> =
+        task {
+            use conn = getConnection connectionString
+            do! conn.OpenAsync()
+            let! rows =
+                conn.QueryAsync<EventRow>(
+                    """
+                    SELECT event_id, payload FROM events
+                    WHERE event_id > @after
+                    ORDER BY event_id ASC
+                    """,
+                    {| after = afterEventId |})
             return rows |> Seq.toList
         }
 
