@@ -4,7 +4,7 @@ Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
 Updated: 2026-09-14
 Started: 2026-09-05
-Actual: 36h35m
+Actual: 38h35m
 
 ## Map
 
@@ -57,6 +57,7 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/issues/33-credentialed-browser-change-posts.md]] — Story path Browser Change posts: cookie-as-credential, boot seed, CoreMailbox admit only; Status `coded`. `auth.Disabled` skip removed; development cookie is auto-issued and still required.
 - [[plan/core-creation/issues/34b-outside-core-lifecycle-proof.md|34b — Outside Core lifecycle proof]] — Story path Outside Core lifecycle proof: TestActor hello from Pool/Actor seam without HTTP. Status `coded`.
 - [[plan/core-creation/issues/35b-browser-run-hello.md|35b — Browser Run hello]] — Story path Browser Run hello: `?` one-Node Command through HTTP to Owned child `hello`; blocked by [[plan/core-creation/issues/34b-outside-core-lifecycle-proof.md|34b — Outside Core lifecycle proof]].
+- [[plan/core-creation/issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]] — Collapse extra Core entrances onto CoreMailbox; Status `coded`. Report: [[plan/core-creation/reports/mailbox-single-door.md]].
 
 ## Decision tickets
 
@@ -109,6 +110,7 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/reports/mailbox-start-type-corrections.md]] — StartActorRequest replaces LaunchRequest; Caller; no ActorMailboxHandlers; async StartActor handoff.
 - [[plan/core-creation/reports/sync-startactor-one-mailbox.md]] — Sync startActor, one CoreMsg host, mailbox-owned live table, File or Db persist, mirror deleted.
 - [[plan/core-creation/reports/corecredentials-caller-set.md]] — CoreCredentials is a mailbox-owned Set of Caller; login maps name+secret.
+- [[plan/core-creation/reports/mailbox-single-door.md]] — Mailbox is the only Core door: one admission, thinned CoreRuntime, credentialed Graph-only, hidden CoreMsg.
 
 ## Comments
 
@@ -129,3 +131,4 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - 2026-09-14 — [[plan/core-creation/issues/33-credentialed-browser-change-posts.md|Credentialed Browser Change posts]] Status back to `ready-for-agent`: coded is not `done`; `done` is review approval only.
 - 2026-09-14 — Spec of [[plan/core-creation/issues/33-credentialed-browser-change-posts.md|Credentialed Browser Change posts]] aligned to review findings; auth-disabled app-serve SetCookie rejected and remaining.
 - 2026-09-14 — Removed `auth.Disabled` skip on [[plan/core-creation/issues/33-credentialed-browser-change-posts.md|Credentialed Browser Change posts]]; Status `coded`; Stage `build`. Report: [[plan/core-creation/reports/remove-auth-disabled-bypass.md]].
+- 2026-09-14 — [[plan/core-creation/issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]] Status `coded`. Report: [[plan/core-creation/reports/mailbox-single-door.md]].

@@ -2,17 +2,11 @@ namespace Gambol.Server
 
 open Gambol.Shared
 
+/// Composition result: mailbox door plus in-process Parse Caller.
+/// Not a second admission API. HTTP builds Browser Caller from the cookie.
 type CoreRuntime =
-    { changes: unit -> CoreChanges
-      bindChanges: Credential -> CoreChanges
-      /// Browser Change posts: secret is the request cookie (`gambol_auth`).
-      browserChanges: Credential -> CoreChanges
-      browserAuthority: Authority
-      browserCredential: Credential
-      login: string -> Credential -> Async<Result<unit, string>>
-      isAdmitted: Credential -> Async<bool>
-      flushFileSnapshot: unit -> Async<Result<unit, string>>
-      getFileRevision: unit -> Async<Revision> }
+    { host: MailboxHost
+      parseCaller: Caller }
 
 [<RequireQualifiedAccess>]
 module CoreRuntime =
@@ -55,42 +49,20 @@ module CoreRuntime =
                 (FileAgent.persist (FileAgent.create dataDir))
                 credentials
 
-    let private bindRuntime
-        host
-        browserAuthority
-        browserCredential
-        makeHandle
-        : CoreRuntime =
-        { changes =
-            fun () ->
-                makeHandle
-                    { authority = browserAuthority
-                      name = ""
-                      secret = browserCredential }
-          bindChanges =
-            fun sender ->
-                makeHandle
-                    { authority = Authority "Caller"
-                      name = ""
-                      secret = sender }
-          browserChanges =
-            fun secret ->
-                makeHandle
-                    { authority = browserAuthority
-                      name = ""
-                      secret = secret }
-          browserAuthority = browserAuthority
-          browserCredential = browserCredential
-          login = fun name secret -> CoreMailbox.login host name secret
-          isAdmitted =
-            fun secret ->
-                CoreMailbox.isAdmitted
-                    host
-                    { authority = browserAuthority
-                      name = ""
-                      secret = secret }
-          flushFileSnapshot = fun () -> CoreMailbox.flushSnapshot host
-          getFileRevision = fun () -> CoreMailbox.getRevision host }
+    let private bootCallers authUser authPass =
+        let browserSecret =
+            Credential(AuthToken.deriveToken authUser authPass)
+        let browserCaller =
+            { authority = Authority "Browser"
+              name = ""
+              secret = browserSecret }
+        let parseCaller =
+            { authority = Authority "Parse"
+              name = "process"
+              secret =
+                Credential(
+                    "parse:" + AuthToken.deriveToken authUser authPass) }
+        browserCaller, parseCaller
 
     let create
         (persistenceMode: DatabaseSetup.PersistenceMode)
@@ -101,9 +73,7 @@ module CoreRuntime =
         (authPass: string)
         (actors: (ActorName * ActorFn) list)
         : CoreRuntime =
-        let browserAuthority = Authority "Browser"
-        let browserCredential =
-            Credential(AuthToken.deriveToken authUser authPass)
+        let browserCaller, parseCaller = bootCallers authUser authPass
         let pool = CoreActorPool.create ()
         actors
         |> List.iter (fun (name, actorFn) -> pool.register name actorFn)
@@ -115,14 +85,5 @@ module CoreRuntime =
                 dbConnectionString
                 dataDir
                 (CoreCredentials.ofCallers (
-                    Set.singleton
-                        { authority = browserAuthority
-                          name = ""
-                          secret = browserCredential }))
-        let writable =
-            persistenceMode <> DatabaseSetup.PersistenceMode.Db
-            || dbStatus = DatabaseSetup.DbStatus.Ok
-        let makeHandle caller =
-            let raw = CoreMailbox.coreChanges host caller
-            if writable then raw else readOnly raw
-        bindRuntime host browserAuthority browserCredential makeHandle
+                    Set.ofList [ browserCaller; parseCaller ]))
+        { host = host; parseCaller = parseCaller }

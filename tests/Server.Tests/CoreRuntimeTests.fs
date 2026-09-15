@@ -1,6 +1,7 @@
 module Gambol.Server.Tests.CoreRuntimeTests
 
 open System
+open System.Reflection
 open Xunit
 open Gambol.Server
 open Gambol.Shared
@@ -34,15 +35,21 @@ let private fileRuntime () =
         "secret"
         []
 
+let private browserCaller user pass =
+    BrowserRequestCreds.callerFromSecret (
+        Credential(AuthToken.deriveToken user pass))
+
+let private browserHandle runtime user pass =
+    CoreMailbox.coreChanges runtime.host (browserCaller user pass)
+
 [<Fact>]
 let ``CoreRuntime seeds Browser credential from AuthToken.deriveToken`` () =
     task {
         let runtime = fileRuntime ()
-        let expected =
-            Credential(AuthToken.deriveToken "alice" "secret")
-        Assert.Equal(expected, runtime.browserCredential)
+        let expected = browserCaller "alice" "secret"
         let! browserLive =
-            runtime.isAdmitted expected |> Async.StartAsTask
+            CoreMailbox.isAdmitted runtime.host expected
+            |> Async.StartAsTask
         Assert.True(browserLive)
     }
 
@@ -50,7 +57,10 @@ let ``CoreRuntime seeds Browser credential from AuthToken.deriveToken`` () =
 let ``bound Changes refuses an inactive sender and does not enqueue`` () =
     task {
         let runtime = fileRuntime ()
-        let bound = runtime.bindChanges (Credential "inactive")
+        let bound =
+            CoreMailbox.coreChanges
+                runtime.host
+                (BrowserRequestCreds.callerFromSecret (Credential "inactive"))
         let! before = bound.getRevision () |> Async.StartAsTask
         let! result =
             bound.postChange [ addRootChild "refused" ]
@@ -65,7 +75,7 @@ let ``bound Browser Changes admits a live Browser cookie credential`` () = task 
     let runtime = fileRuntime ()
     let change = addRootChild "admitted"
     let! result =
-        (runtime.browserChanges runtime.browserCredential).postChange [ change ]
+        (browserHandle runtime "alice" "secret").postChange [ change ]
         |> Async.StartAsTask
     let accepted = requireOk "browser post" result
     Assert.Equal<Guid list>(
@@ -121,25 +131,60 @@ let ``HTTP Adapter enqueues when Browser credential is live`` () = task {
 }
 
 [<Fact>]
-let ``callers reach changes on the Core object`` () = task {
+let ``callers reach changes on the mailbox Core door`` () = task {
     let runtime = fileRuntime ()
-    let handle = runtime.changes ()
-    let! rev = handle.getRevision () |> Async.StartAsTask
+    let! rev =
+        CoreMailbox.getRevision runtime.host |> Async.StartAsTask
     Assert.Equal(Revision 0, rev)
 }
 
 [<Fact>]
-let ``bound Graph-only post does not require a live sender`` () = task {
+let ``Graph-only post refuses an inactive Caller`` () = task {
     let runtime = fileRuntime ()
     let bound =
-        (runtime.bindChanges (Credential "inactive")).postGraphOnlyChange
+        CoreMailbox.coreChanges
+            runtime.host
+            (BrowserRequestCreds.callerFromSecret (Credential "inactive"))
     let! result =
         GraphOnlyChangePost.postChunks
-            bound
+            bound.postGraphOnlyChange
             (Revision 0)
             [ [ Op.NewNode(NodeId.New(), "x") ] ]
         |> Async.StartAsTask
     match result with
-    | Ok () -> ()
-    | Error err -> Assert.Fail($"graph-only post: {err}")
+    | Error err -> Assert.Equal(CoreAuth.refuse, err)
+    | Ok () -> Assert.Fail("inactive Graph-only must be refused")
 }
+
+[<Fact>]
+let ``CoreRuntime seeds a Parse process Caller distinct from Browser cookie`` () =
+    task {
+        let runtime = fileRuntime ()
+        let cookie = browserCaller "alice" "secret"
+        Assert.NotEqual(cookie.secret, runtime.parseCaller.secret)
+        Assert.Equal(Authority "Parse", runtime.parseCaller.authority)
+        let! parseLive =
+            CoreMailbox.isAdmitted runtime.host runtime.parseCaller
+            |> Async.StartAsTask
+        let change = addRootChild "parse-process"
+        let! posted =
+            CoreMailbox.postGraphOnlyChange
+                runtime.host
+                runtime.parseCaller
+                [ change ]
+            |> Async.StartAsTask
+        requireOk "parse Graph-only" posted |> ignore
+        Assert.True(parseLive)
+    }
+
+[<Fact>]
+let ``CoreRuntime is not a second credential factory`` () =
+    let names =
+        typeof<CoreRuntime>.GetMembers(
+            BindingFlags.Public ||| BindingFlags.Instance)
+        |> Array.map (fun m -> m.Name)
+        |> Set.ofArray
+    Assert.False(Set.contains "changes" names)
+    Assert.False(Set.contains "bindChanges" names)
+    Assert.False(Set.contains "browserChanges" names)
+    Assert.False(Set.contains "browserCredential" names)

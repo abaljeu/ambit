@@ -287,7 +287,7 @@ let ``upload-error-report appends ERROR-REPORT to SYSTEM http-responses.log`` ()
                 )
                 |> ignore
             )
-    use client = factory.CreateClient()
+    use client = factory.CreateClient() |> withDevelopmentCookie
     let logPath = HttpResponseLog.logPath dataDir
     use content =
         new StringContent(

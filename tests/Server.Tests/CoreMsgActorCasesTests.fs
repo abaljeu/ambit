@@ -78,12 +78,10 @@ let private withHost pool body =
     }
 
 let private postStartActor host caller request =
-    host.mailbox.PostAndAsyncReply(fun reply ->
-        StartActor(caller, request, reply))
+    CoreMailbox.startActor host caller request
 
 let private postActorStop host caller result =
-    host.mailbox.PostAndAsyncReply(fun reply ->
-        ActorStop(caller, result, reply))
+    CoreMailbox.actorStop host caller result
 
 [<Fact>]
 let ``StartActor with live credentials calls startActor with StartActorRequest`` () =

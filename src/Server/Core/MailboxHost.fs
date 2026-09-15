@@ -2,12 +2,44 @@ namespace Gambol.Server
 
 open Gambol.Shared
 
-type MailboxHost = {
-    mailbox: MailboxProcessor<CoreMsg>
-    isReady: unit -> bool
-    flushSnapshot: unit -> Async<Result<unit, string>>
-    dispose: unit -> unit
-}
+type MailboxHost =
+    private {
+        mailbox: MailboxProcessor<CoreMsg>
+        isReady: unit -> bool
+        flushSnapshot: unit -> Async<Result<unit, string>>
+        dispose: unit -> unit
+    }
+
+[<RequireQualifiedAccess>]
+module MailboxHost =
+
+    let internal create
+        mailbox
+        isReady
+        flushSnapshot
+        dispose
+        : MailboxHost =
+        { mailbox = mailbox
+          isReady = isReady
+          flushSnapshot = flushSnapshot
+          dispose = dispose }
+
+    let internal post (host: MailboxHost) (msg: CoreMsg) =
+        host.mailbox.Post msg
+
+    let internal postAndAsyncReply
+        (host: MailboxHost)
+        (build: AsyncReplyChannel<'a> -> CoreMsg)
+        : Async<'a> =
+        host.mailbox.PostAndAsyncReply build
+
+    let isReady (host: MailboxHost) = host.isReady ()
+
+    let isReadyFn (host: MailboxHost) = host.isReady
+
+    let flushSnapshot (host: MailboxHost) = host.flushSnapshot ()
+
+    let dispose (host: MailboxHost) = host.dispose ()
 
 /// Persist + lifecycle the mailbox hosts. File and Db build this; CoreMailbox
 /// does not read agent fields.
@@ -19,5 +51,5 @@ type PersistFilling = {
     flushSnapshot: unit -> Async<Result<unit, string>>
     dispose: unit -> unit
     until: Async<Result<unit, string>> option
-    bindMailbox: MailboxProcessor<CoreMsg> -> unit
+    bindSnapshot: (Graph option -> unit) -> unit
 }

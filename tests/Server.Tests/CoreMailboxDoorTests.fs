@@ -1,6 +1,7 @@
 module Gambol.Server.Tests.CoreMailboxDoorTests
 
 open System
+open System.Reflection
 open System.Threading.Tasks
 open Xunit
 open Gambol.Server
@@ -298,7 +299,7 @@ let ``CoreActorPool.startActor uses client graphIds to build subgraph`` () =
                 [ Op.NewNode(childId, "child")
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host [ change ]
+            CoreMailbox.postGraphOnlyChange host testCaller [ change ]
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
@@ -328,7 +329,7 @@ let ``CoreActorPool.startActor selects actor from command node text`` () =
                 [ Op.NewNode(commandId, "test")
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host [ change ]
+            CoreMailbox.postGraphOnlyChange host testCaller [ change ]
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
@@ -377,7 +378,7 @@ let ``CoreActorPool.startActor fails when commandId not in graphIds`` () =
                 [ Op.NewNode(commandId, "test")
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host [ change ]
+            CoreMailbox.postGraphOnlyChange host testCaller [ change ]
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
@@ -444,7 +445,7 @@ let ``Successful PostChange appends ChangeEvent to mailbox history`` () =
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
         
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host [ change ]
+            CoreMailbox.postGraphOnlyChange host testCaller [ change ]
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
@@ -481,7 +482,7 @@ let ``Actor lifecycle and Changes appear on same History sequence`` () =
                   Op.Replace(sampleRequest.focusId, [], [ ChildNode.owner childId ]) ] }
         
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host [ change ]
+            CoreMailbox.postGraphOnlyChange host testCaller [ change ]
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
@@ -507,3 +508,78 @@ let ``Actor lifecycle and Changes appear on same History sequence`` () =
         Assert.True(hasActorStarted, "Expected ActorStarted in history")
         Assert.True(hasChangeEvent, "Expected ChangeEvent in history")
     })
+
+[<Fact>]
+let ``Graph-only post without admitted Caller is refused`` () =
+    withHost (fun host _ -> task {
+        let change =
+            { id = 0
+              changeId = Guid.NewGuid()
+              ops = [ Op.NewNode(NodeId.New(), "nope") ] }
+        let! result =
+            CoreMailbox.postGraphOnlyChange
+                host
+                { testCaller with secret = Credential "inactive" }
+                [ change ]
+            |> Async.StartAsTask
+        Assert.Equal(Error CoreAuth.refuse, result)
+    })
+
+[<Fact>]
+let ``Graph-only post with admitted Caller reaches persist`` () =
+    withHost (fun host _ -> task {
+        let childId = NodeId.New()
+        let change =
+            { id = 0
+              changeId = Guid.NewGuid()
+              ops =
+                [ Op.NewNode(childId, "graph-only")
+                  Op.Replace(
+                      Graph.rootId,
+                      [],
+                      [ ChildNode.owner childId ]) ] }
+        let! result =
+            CoreMailbox.postGraphOnlyChange host testCaller [ change ]
+            |> Async.StartAsTask
+        let accepted = requireOk "graph-only admitted" result
+        Assert.Equal(Revision 1, accepted.revision)
+    })
+
+[<Fact>]
+let ``CoreMailbox.logout revokes the Caller at the mailbox`` () =
+    withHost (fun host _ -> task {
+        let! before =
+            CoreMailbox.isAdmitted host testCaller |> Async.StartAsTask
+        Assert.True(before)
+        let! loggedOut =
+            CoreMailbox.logout host testCaller |> Async.StartAsTask
+        requireOk "logout" loggedOut
+        let! after =
+            CoreMailbox.isAdmitted host testCaller |> Async.StartAsTask
+        Assert.False(after)
+        let! refused =
+            CoreMailbox.postChange host testCaller [
+                { id = 0
+                  changeId = Guid.NewGuid()
+                  ops = [ Op.NewNode(NodeId.New(), "after-logout") ] }
+            ]
+            |> Async.StartAsTask
+        Assert.Equal(Error CoreAuth.refuse, refused)
+    })
+
+[<Fact>]
+let ``MailboxHost has no public mailbox processor field`` () =
+    let leaked =
+        typeof<MailboxHost>.GetMembers(
+            BindingFlags.Public ||| BindingFlags.Instance)
+        |> Array.exists (fun m ->
+            m.Name.IndexOf("mailbox", StringComparison.OrdinalIgnoreCase)
+            >= 0)
+    Assert.False(leaked)
+
+[<Fact>]
+let ``CoreMsg is not a public type`` () =
+    let found =
+        typeof<MailboxHost>.Assembly.GetExportedTypes()
+        |> Array.exists (fun t -> t.Name = "CoreMsg")
+    Assert.False(found)

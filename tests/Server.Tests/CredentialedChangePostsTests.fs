@@ -100,15 +100,21 @@ let ``request-carried cookie secret is admitted; foreign secret is refused`` () 
                 "alice"
                 "secret"
                 []
-        let cookie = runtime.browserCredential
+        let cookie =
+            Credential(AuthToken.deriveToken "alice" "secret")
+        let caller = BrowserRequestCreds.callerFromSecret cookie
+        let handle = CoreMailbox.coreChanges runtime.host caller
         let change = addRootChild "cookie-post"
         let! ok =
-            (runtime.browserChanges cookie).postChange [ change ]
+            handle.postChange [ change ]
             |> Async.StartAsTask
         let accepted = requireOk "cookie post" ok
         Assert.Equal(Revision 1, accepted.revision)
         let! refused =
-            (runtime.browserChanges (Credential "not-the-cookie")).postChange
+            (CoreMailbox.coreChanges
+                runtime.host
+                (BrowserRequestCreds.callerFromSecret
+                    (Credential "not-the-cookie"))).postChange
                 [ addRootChild "nope" ]
             |> Async.StartAsTask
         Assert.Equal(Error CoreAuth.refuse, refused)
@@ -126,6 +132,12 @@ let ``missing cookie secret is the same auth refuse before PersistHandlers`` () 
                 "alice"
                 "secret"
                 []
+        let cookie =
+            Credential(AuthToken.deriveToken "alice" "secret")
+        let handle =
+            CoreMailbox.coreChanges
+                runtime.host
+                (BrowserRequestCreds.callerFromSecret cookie)
         match BrowserRequestCreds.trySecretFromCookieValue None with
         | Some _ -> Assert.Fail("missing cookie must not yield a secret")
         | None -> ()
@@ -135,19 +147,17 @@ let ``missing cookie secret is the same auth refuse before PersistHandlers`` () 
         match BrowserRequestCreds.trySecretFromCookieValue (Some "  ") with
         | Some _ -> Assert.Fail("whitespace cookie must not yield a secret")
         | None -> ()
-        let! before =
-            (runtime.browserChanges runtime.browserCredential).getRevision ()
-            |> Async.StartAsTask
+        let! before = handle.getRevision () |> Async.StartAsTask
         let! refused =
-            (runtime.browserChanges (Credential "")).postChange
+            (CoreMailbox.coreChanges
+                runtime.host
+                (BrowserRequestCreds.callerFromSecret (Credential ""))).postChange
                 [ addRootChild "missing-cookie" ]
             |> Async.StartAsTask
-        let! after =
-            (runtime.browserChanges runtime.browserCredential).getRevision ()
-            |> Async.StartAsTask
+        let! after = handle.getRevision () |> Async.StartAsTask
         Assert.Equal(Error CoreAuth.refuse, refused)
         Assert.Equal(before, after)
-        Assert.NotEqual(Credential "", runtime.browserCredential)
+        Assert.NotEqual(Credential "", cookie)
     }
 
 [<Fact>]
@@ -162,7 +172,8 @@ let ``request cookie value is admitted without closed-over browserCredential`` (
                 "alice"
                 "secret"
                 []
-        let cookie = runtime.browserCredential
+        let cookie =
+            Credential(AuthToken.deriveToken "alice" "secret")
         match BrowserRequestCreds.trySecretFromCookieValue (
             Some(let (Credential s) = cookie in s)
         ) with
@@ -171,7 +182,9 @@ let ``request cookie value is admitted without closed-over browserCredential`` (
             Assert.Equal(cookie, secret)
             Assert.NotEqual(Credential "", secret)
             let! ok =
-                (runtime.browserChanges secret).postChange
+                (CoreMailbox.coreChanges
+                    runtime.host
+                    (BrowserRequestCreds.callerFromSecret secret)).postChange
                     [ addRootChild "request-only" ]
                 |> Async.StartAsTask
             let accepted = requireOk "request secret" ok

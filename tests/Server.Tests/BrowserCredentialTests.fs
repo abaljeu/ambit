@@ -52,6 +52,16 @@ let ``Browser message with live cookie is not auth-refused`` () = task {
 }
 
 [<Fact>]
+let ``present cookie is admitted only when mailbox contains the Caller`` () =
+    task {
+        let dataDir = newTempDir ()
+        use client = createClientForDirWithAuth dataDir "alice" "secret"
+        client.DefaultRequestHeaders.Add("Cookie", "gambol_auth=not-seeded")
+        let! state = client.GetAsync("/ambit/state")
+        Assert.Equal(HttpStatusCode.Unauthorized, state.StatusCode)
+    }
+
+[<Fact>]
 let ``Empty Auth Browser APIs without cookie are refused`` () = task {
     let dataDir = newTempDir ()
     use client = createClientForDirWithoutCookie dataDir

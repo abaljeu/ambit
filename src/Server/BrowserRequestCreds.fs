@@ -17,3 +17,12 @@ module BrowserRequestCreds =
         match req.Cookies.TryGetValue(AuthToken.cookieName) with
         | true, cookie -> trySecretFromCookieValue (Some cookie)
         | _ -> trySecretFromCookieValue None
+
+    /// Request-carried Browser Caller. Empty name is the cookie session key.
+    let callerFromSecret (secret: Credential) : Caller =
+        { authority = Authority "Browser"
+          name = ""
+          secret = secret }
+
+    let tryCookieCaller (req: HttpRequest) : Caller option =
+        tryCookieSecret req |> Option.map callerFromSecret

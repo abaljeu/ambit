@@ -54,9 +54,7 @@ module RouteRegistration =
         let gitToken = AuthToken.deriveGitToken expectedUser expectedPass
         let gitAuthOpen = expectedUser = "" && expectedPass = ""
         let isAuthenticated (req: HttpRequest) =
-            match req.Cookies.TryGetValue(AuthToken.cookieName) with
-            | true, cookie -> cookie = validToken
-            | _ -> false
+            BrowserRequestCreds.tryCookieSecret req |> Option.isSome
         let isGitAuthenticated (req: HttpRequest) =
             if gitAuthOpen then true
             else
@@ -134,32 +132,35 @@ module RouteRegistration =
             Core = runtime
         }
 
-    let private coreChanges (persistence: PersistenceContext) =
-        persistence.Core.changes ()
+    let private isWritable (persistence: PersistenceContext) =
+        persistence.Mode <> DatabaseSetup.PersistenceMode.Db
+        || persistence.DbStatus = DatabaseSetup.DbStatus.Ok
+
+    let private boundChanges
+        (persistence: PersistenceContext)
+        (caller: Caller)
+        : CoreChanges =
+        let raw = CoreMailbox.coreChanges persistence.Core.host caller
+        if isWritable persistence then raw
+        else CoreRuntime.readOnly raw
 
     let private parseBound (persistence: PersistenceContext) =
-        let core = persistence.Core
-        CoreAuth.bindHandle
-            { authority = Authority "Parse"
-              name = ""
-              secret = core.browserCredential }
-            (core.changes ())
+        boundChanges persistence persistence.Core.parseCaller
 
-    /// Request cookie only — never fall back to closed-over browserCredential.
+    /// Missing cookie is 401 without Core. Present cookie uses mailbox admit.
     let private withBrowserChanges
         (persistence: PersistenceContext)
         (req: HttpRequest)
         (cont: CoreChanges -> Async<IResult>)
         : Async<IResult> =
-        match BrowserRequestCreds.tryCookieSecret req with
+        match BrowserRequestCreds.tryCookieCaller req with
         | None -> async.Return(Results.Unauthorized())
-        | Some secret ->
+        | Some caller ->
             async {
-                let! live = persistence.Core.isAdmitted secret
-                if live then
-                    return! cont (persistence.Core.browserChanges secret)
-                else
-                    return Results.Unauthorized()
+                let! live =
+                    CoreMailbox.isAdmitted persistence.Core.host caller
+                if live then return! cont (boundChanges persistence caller)
+                else return Results.Unauthorized()
             }
 
     let private stripXmlDeclaration (text: string) =
@@ -248,15 +249,25 @@ module RouteRegistration =
                             auth.ExpectedUser
                             auth.ExpectedPass)
                 let! loginResult =
-                    persistence.Core.login "" token |> Async.StartAsTask
+                    CoreMailbox.login
+                        persistence.Core.host
+                        ""
+                        token
+                    |> Async.StartAsTask
                 match loginResult with
                 | Error _ -> return Results.Redirect("/ambit/login?error=1")
                 | Ok () -> return Results.Redirect("/ambit")
             else
                 return Results.Redirect("/ambit/login?error=1")
         })) |> ignore
-        app.MapGet("/ambit/logout", Func<HttpResponse, IResult>(fun resp ->
-            auth.ClearCookie resp
+        app.MapGet("/ambit/logout", Func<HttpContext, IResult>(fun ctx ->
+            match BrowserRequestCreds.tryCookieCaller ctx.Request with
+            | Some caller ->
+                CoreMailbox.logout persistence.Core.host caller
+                |> Async.RunSynchronously
+                |> ignore
+            | None -> ()
+            auth.ClearCookie ctx.Response
             Results.Redirect("/ambit/login")
         )) |> ignore
         // Git PAT for smart HTTP (cookie session required; not the cookie itself).
@@ -293,86 +304,73 @@ module RouteRegistration =
 
     let private registerStateRoutes
         (app: WebApplication)
-        (auth: Authentication)
         (persistence: PersistenceContext)
         (stamps: BuildStamps)
         =
         app.MapGet("/ambit/state", Func<HttpRequest, Task<IResult>>(fun req -> task {
-            if not (auth.IsAuthenticated req) then
-                return Results.Unauthorized()
-            else
-                try
-                    return!
-                        withBrowserChanges persistence req (fun handle ->
-                            Api.getState handle req)
-                        |> Async.StartAsTask
-                with ex ->
-                    let detail =
-                        $"Internal server error loading state (dataDir={persistence.DataDir}): {ex.Message}"
-                    return
-                        Results.Content(
-                            detail,
-                            "text/plain; charset=utf-8",
-                            statusCode = 500)
+            try
+                return!
+                    withBrowserChanges persistence req (fun handle ->
+                        Api.getState handle req)
+                    |> Async.StartAsTask
+            with ex ->
+                let detail =
+                    $"Internal server error loading state (dataDir={persistence.DataDir}): {ex.Message}"
+                return
+                    Results.Content(
+                        detail,
+                        "text/plain; charset=utf-8",
+                        statusCode = 500)
         })) |> ignore
         app.MapGet("/ambit/poll", Func<HttpRequest, Task<IResult>>(fun req -> task {
-            if not (auth.IsAuthenticated req) then
-                return Results.Unauthorized()
-            else
-                let pageEpoch = stamps.PageBuildEpochSec ()
-                let clientRev = parseClientRev req
-                return!
-                    withBrowserChanges persistence req (fun handle ->
-                        Api.getPoll
-                            handle
-                            (stamps.DeployEpochSec ())
-                            pageEpoch
-                            clientRev)
-                    |> Async.StartAsTask
+            let pageEpoch = stamps.PageBuildEpochSec ()
+            let clientRev = parseClientRev req
+            return!
+                withBrowserChanges persistence req (fun handle ->
+                    Api.getPoll
+                        handle
+                        (stamps.DeployEpochSec ())
+                        pageEpoch
+                        clientRev)
+                |> Async.StartAsTask
         })) |> ignore
         app.MapPost("/ambit/load", Func<HttpRequest, Task<IResult>>(fun req -> task {
-            if not (auth.IsAuthenticated req) then
-                return Results.Unauthorized()
-            else
-                use reader = new StreamReader(req.Body)
-                let! body = reader.ReadToEndAsync()
-                let pageEpoch = stamps.PageBuildEpochSec ()
-                return!
-                    withBrowserChanges persistence req (fun handle ->
-                        Api.postLoad
-                            handle
-                            (stamps.DeployEpochSec ())
-                            pageEpoch
-                            body)
-                    |> Async.StartAsTask
+            use reader = new StreamReader(req.Body)
+            let! body = reader.ReadToEndAsync()
+            let pageEpoch = stamps.PageBuildEpochSec ()
+            return!
+                withBrowserChanges persistence req (fun handle ->
+                    Api.postLoad
+                        handle
+                        (stamps.DeployEpochSec ())
+                        pageEpoch
+                        body)
+                |> Async.StartAsTask
         })) |> ignore
         app.MapPost("/ambit/changes", Func<HttpRequest, Task<IResult>>(fun req -> task {
-            if not (auth.IsAuthenticated req) then
-                return Results.Unauthorized()
-            else
-                bindClientHint req |> ignore
-                use reader = new StreamReader(req.Body)
-                let! body = reader.ReadToEndAsync()
-                let pageEpoch = stamps.PageBuildEpochSec ()
-                return!
-                    withBrowserChanges persistence req (fun handle ->
-                        Api.postChange
-                            handle
-                            (stamps.DeployEpochSec ())
-                            pageEpoch
-                            body)
-                    |> Async.StartAsTask
+            bindClientHint req |> ignore
+            use reader = new StreamReader(req.Body)
+            let! body = reader.ReadToEndAsync()
+            let pageEpoch = stamps.PageBuildEpochSec ()
+            return!
+                withBrowserChanges persistence req (fun handle ->
+                    Api.postChange
+                        handle
+                        (stamps.DeployEpochSec ())
+                        pageEpoch
+                        body)
+                |> Async.StartAsTask
         })) |> ignore
 
     let private prepareGitSave (persistence: PersistenceContext) () = async {
-        let handle = coreChanges persistence
+        let handle = parseBound persistence
         return!
             SavePrep.syncDataDir
                 persistence.Mode
                 persistence.DbStatus
                 (fun () -> handle.getState ())
-                persistence.Core.flushFileSnapshot
-                persistence.Core.getFileRevision
+                (fun () -> CoreMailbox.flushSnapshot persistence.Core.host)
+                (fun () -> CoreMailbox.getRevision persistence.Core.host)
                 persistence.DataDir
     }
 
@@ -410,10 +408,9 @@ module RouteRegistration =
             else
                 use reader = new StreamReader(req.Body)
                 let! body = reader.ReadToEndAsync()
-                let core = persistence.Core
                 return!
                     Api.postParseFile
-                        (core.changes ())
+                        (parseBound persistence)
                         persistence.DataDir
                         body
                     |> Async.StartAsTask
@@ -547,23 +544,36 @@ module RouteRegistration =
             registerStartupError app err
         | Ok dataDir, Ok persistenceMode ->
             let persistence = createPersistenceContext config dataDir persistenceMode auth
+            let auth =
+                { auth with
+                    IsAuthenticated =
+                        fun req ->
+                            match BrowserRequestCreds.tryCookieCaller req with
+                            | None -> false
+                            | Some caller ->
+                                CoreMailbox.isAdmitted
+                                    persistence.Core.host
+                                    caller
+                                |> Async.RunSynchronously }
             let assets, stamps = createBuildStamps app
             registerAuthRoutes app auth persistence
-            registerStateRoutes app auth persistence stamps
+            registerStateRoutes app persistence stamps
             registerSaveRoutes app auth persistence
             HttpResponseLog.registerErrorReportRoute
                 app
                 auth.IsAuthenticated
                 httpResponseLogFile
             let flushForGit () = async {
-                let handle = coreChanges persistence
+                let handle = parseBound persistence
                 let! flushResult =
                     SavePrep.syncGitArtifacts
                         persistence.Mode
                         persistence.DbStatus
                         (fun () -> handle.getState ())
-                        persistence.Core.flushFileSnapshot
-                        persistence.Core.getFileRevision
+                        (fun () ->
+                            CoreMailbox.flushSnapshot persistence.Core.host)
+                        (fun () ->
+                            CoreMailbox.getRevision persistence.Core.host)
                         persistence.DataDir
                 match flushResult with
                 | Ok _ -> return Ok ()

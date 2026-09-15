@@ -292,7 +292,7 @@ module FileAgent =
         flushSnapshot = agent.flushSnapshot
         dispose = agent.dispose
         until = None
-        bindMailbox = ignore
+        bindSnapshot = ignore
     }
 
     let initialState (agent: FileAgent) : State =

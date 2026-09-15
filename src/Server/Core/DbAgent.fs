@@ -12,7 +12,7 @@ type DbAgent = private {
     onError: string -> string -> exn -> unit
     formatError: string -> string
     until: Async<Result<unit, string>>
-    bindMailbox: MailboxProcessor<CoreMsg> -> unit
+    bindSnapshot: (Graph option -> unit) -> unit
     isReady: unit -> bool
     flushSnapshot: unit -> Async<Result<unit, string>>
     dispose: unit -> unit
@@ -27,7 +27,7 @@ module DbAgent =
         snapshotInProgress: bool ref
         snapshotNeeded: bool ref
         ready: TaskCompletionSource<unit>
-        mailboxRef: MailboxProcessor<CoreMsg> option ref
+        snapshotPost: (Graph option -> unit) option ref
         startupError: string option ref
         connectionString: string
         liveSaveDataDir: string option
@@ -55,7 +55,7 @@ module DbAgent =
           ready =
             TaskCompletionSource<unit>(
                 TaskCreationOptions.RunContinuationsAsynchronously)
-          mailboxRef = ref None
+          snapshotPost = ref None
           startupError = ref None
           connectionString = connectionString
           liveSaveDataDir = liveSaveDataDir
@@ -192,7 +192,7 @@ module DbAgent =
                 ex.Message
             None
 
-    let private startSnapshot loaded (inbox: MailboxProcessor<CoreMsg>) =
+    let private startSnapshot loaded (post: Graph option -> unit) =
         loaded.snapshotInProgress.Value <- true
         loaded.snapshotNeeded.Value <- false
         let snapshotState = loaded.state.Value
@@ -201,13 +201,13 @@ module DbAgent =
         Task.Run(fun () ->
             let persisted =
                 writeLiveSnapshot loaded.liveSaveDataDir preGraph postGraph
-            inbox.Post(SnapshotDone persisted)
+            post persisted
         )
         |> ignore
 
     let private requestSnapshot loaded =
-        match loaded.mailboxRef.Value with
-        | Some inbox -> startSnapshot loaded inbox
+        match loaded.snapshotPost.Value with
+        | Some post -> startSnapshot loaded post
         | None -> ()
 
     let private validatePostChange loaded graphOnly preGraph postGraph =
@@ -425,8 +425,8 @@ module DbAgent =
           onError = logUnhandledException loaded.liveSaveDataDir
           formatError = formatError loaded.liveSaveDataDir
           until = startupPrelude loaded runStartupSweep
-          bindMailbox =
-            fun mailbox -> loaded.mailboxRef.Value <- Some mailbox
+          bindSnapshot =
+            fun post -> loaded.snapshotPost.Value <- Some post
           isReady = fun () -> loaded.ready.Task.IsCompletedSuccessfully
           flushSnapshot = fun () -> async { return Ok () }
           dispose = fun () -> () }
@@ -525,5 +525,5 @@ module DbAgent =
         flushSnapshot = agent.flushSnapshot
         dispose = agent.dispose
         until = Some agent.until
-        bindMailbox = agent.bindMailbox
+        bindSnapshot = agent.bindSnapshot
     }

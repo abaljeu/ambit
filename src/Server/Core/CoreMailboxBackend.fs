@@ -4,7 +4,7 @@ open System
 open System.Threading.Tasks
 open Gambol.Shared
 
-type CoreMsg =
+type internal CoreMsg =
     | GetState of AsyncReplyChannel<Result<State, string>>
     | GetRevision of AsyncReplyChannel<Result<Revision, string>>
     | GetChangesSince of
@@ -15,8 +15,12 @@ type CoreMsg =
         changes: Change list *
         AsyncReplyChannel<Result<CoreChangesAccepted, string>>
     | PostGraphOnlyChange of
+        caller: Caller *
         changes: Change list *
         AsyncReplyChannel<Result<CoreChangesAccepted, string>>
+    | Logout of
+        Caller *
+        AsyncReplyChannel<Result<unit, string>>
     | SnapshotDone of graph: Graph option
     | StartActor of
         caller: Caller *
@@ -92,7 +96,7 @@ module internal CoreMailboxBackend =
         | GetEventHistory _ -> "GetEventHistory", ""
         | PostChange (_, changes, _) ->
             "PostChange", $"changeCount={changes.Length}"
-        | PostGraphOnlyChange (changes, _) ->
+        | PostGraphOnlyChange (_, changes, _) ->
             "PostGraphOnlyChange", $"changeCount={changes.Length}"
         | SnapshotDone _ -> "SnapshotDone", ""
         | StartActor _ -> "StartActor", ""
@@ -101,6 +105,7 @@ module internal CoreMailboxBackend =
             | ActorSucceeded -> "ActorStop", "ActorSucceeded"
             | ActorFailed -> "ActorStop", "ActorFailed"
         | Login _ -> "Login", ""
+        | Logout _ -> "Logout", ""
         | AdmitCaller _ -> "AdmitCaller", ""
 
     let replyFailure error msg =
@@ -110,11 +115,12 @@ module internal CoreMailboxBackend =
         | GetChangesSince (_, reply) -> reply.Reply(Error error)
         | GetEventHistory reply -> reply.Reply([])
         | PostChange (_, _, reply) -> reply.Reply(Error error)
-        | PostGraphOnlyChange (_, reply) -> reply.Reply(Error error)
+        | PostGraphOnlyChange (_, _, reply) -> reply.Reply(Error error)
         | SnapshotDone _ -> ()
         | StartActor (_, _, reply) -> reply.Reply(Error error)
         | ActorStop (_, _, reply) -> reply.Reply(Error error)
         | Login (_, reply) -> reply.Reply(Error error)
+        | Logout (_, reply) -> reply.Reply(Error error)
         | AdmitCaller (_, reply) -> reply.Reply(false)
 
     type private MailboxContext = {
@@ -204,7 +210,7 @@ module internal CoreMailboxBackend =
                             PostChange(c, changes, reply))
                       postGraphOnlyChange = fun changes ->
                         mailbox.PostAndAsyncReply(fun reply ->
-                            PostGraphOnlyChange(changes, reply))
+                            PostGraphOnlyChange(c, changes, reply))
                       actorStop = fun result ->
                         mailbox.PostAndAsyncReply(fun reply ->
                             ActorStop(c, result, reply))
@@ -246,6 +252,8 @@ module internal CoreMailboxBackend =
             })
 
     let private dispatchPostChange
+        (persistPost:
+            Change list -> Result<CoreChangesAccepted, string>)
         (context: MailboxContext)
         (caller: Caller)
         (changes: Change list)
@@ -254,7 +262,7 @@ module internal CoreMailboxBackend =
         match admitCaller context caller with
         | Error err -> reply.Reply(Error err)
         | Ok () ->
-            match context.persist.postChange changes with
+            match persistPost changes with
             | Error _ as err -> reply.Reply(err)
             | Ok accepted as result ->
                 appendChangeEvents context accepted.changes
@@ -277,13 +285,19 @@ module internal CoreMailboxBackend =
         | GetEventHistory reply ->
             reply.Reply(context.mailboxHistory.Value.past)
         | PostChange (caller, changes, reply) ->
-            dispatchPostChange context caller changes reply
-        | PostGraphOnlyChange (changes, reply) ->
-            match context.persist.postGraphOnlyChange changes with
-            | Error _ as err -> reply.Reply(err)
-            | Ok accepted as result ->
-                appendChangeEvents context accepted.changes
-                reply.Reply(result)
+            dispatchPostChange
+                context.persist.postChange
+                context
+                caller
+                changes
+                reply
+        | PostGraphOnlyChange (caller, changes, reply) ->
+            dispatchPostChange
+                context.persist.postGraphOnlyChange
+                context
+                caller
+                changes
+                reply
         | SnapshotDone graph -> context.persist.snapshotDone graph
         | StartActor (caller, request, reply) ->
             dispatchStartActor context caller request reply
@@ -291,6 +305,10 @@ module internal CoreMailboxBackend =
             dispatchActorStop context caller result reply
         | Login (caller, reply) ->
             addCaller context caller
+            reply.Reply(Ok ())
+        | Logout (caller, reply) ->
+            context.credentials.Value <-
+                CoreCredentials.remove caller context.credentials.Value
             reply.Reply(Ok ())
         | AdmitCaller (caller, reply) ->
             reply.Reply(hasCaller context caller)

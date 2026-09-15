@@ -14,7 +14,8 @@ open Gambol.Shared
 /// Secrets:
 /// - The mailbox owns one CoreCredentials set of Caller on the loop.
 /// - There is no public add-credential door. Login maps name+secret to a
-///   Browser Caller and adds it. Actor liveness is the live row, not this set.
+///   Browser Caller and adds it. Logout removes that Caller. Actor liveness
+///   is the live row, not this set.
 ///
 /// Data exposure:
 /// - getState: Read the Graph with lockPresent overlay. Returns Graph facts only.
@@ -27,10 +28,13 @@ module CoreMailbox =
         | Ok value -> value
         | Error error -> failwith error
 
+    let private reply host build =
+        MailboxHost.postAndAsyncReply host build
+
     let tryGetState
         (host: MailboxHost)
         : Async<Result<State, string>> =
-        host.mailbox.PostAndAsyncReply GetState
+        reply host GetState
 
     let getState
         (host: MailboxHost)
@@ -40,11 +44,11 @@ module CoreMailbox =
     let eventHistory
         (host: MailboxHost)
         : Async<HistoryEvent list> =
-        host.mailbox.PostAndAsyncReply GetEventHistory
+        reply host GetEventHistory
 
     let getRevision (host: MailboxHost) : Async<Revision> =
         async {
-            let! result = host.mailbox.PostAndAsyncReply GetRevision
+            let! result = reply host GetRevision
             return unwrap result
         }
 
@@ -54,8 +58,7 @@ module CoreMailbox =
         : Async<Change list> =
         async {
             let! result =
-                host.mailbox.PostAndAsyncReply(fun reply ->
-                    GetChangesSince(after, reply))
+                reply host (fun channel -> GetChangesSince(after, channel))
             return unwrap result
         }
 
@@ -64,31 +67,31 @@ module CoreMailbox =
         (caller: Caller)
         (changes: Change list)
         : Async<Result<CoreChangesAccepted, string>> =
-        host.mailbox.PostAndAsyncReply(fun reply ->
-            PostChange(caller, changes, reply))
+        reply host (fun channel -> PostChange(caller, changes, channel))
 
     let postGraphOnlyChange
         (host: MailboxHost)
+        (caller: Caller)
         (changes: Change list)
         : Async<Result<CoreChangesAccepted, string>> =
-        host.mailbox.PostAndAsyncReply(fun reply ->
-            PostGraphOnlyChange(changes, reply))
+        reply host (fun channel ->
+            PostGraphOnlyChange(caller, changes, channel))
 
     let startActor
         (host: MailboxHost)
         (caller: Caller)
         (request: StartActorRequest)
         : Async<Result<unit, string>> =
-        host.mailbox.PostAndAsyncReply(fun reply ->
-            StartActor(caller, request, reply))
+        reply host (fun channel ->
+            StartActor(caller, request, channel))
 
     let actorStop
         (host: MailboxHost)
         (caller: Caller)
         (result: ActorResult)
         : Async<Result<unit, string>> =
-        host.mailbox.PostAndAsyncReply(fun reply ->
-            ActorStop(caller, result, reply))
+        reply host (fun channel ->
+            ActorStop(caller, result, channel))
 
     let login
         (host: MailboxHost)
@@ -99,14 +102,19 @@ module CoreMailbox =
             { authority = Authority "Browser"
               name = name
               secret = secret }
-        host.mailbox.PostAndAsyncReply(fun reply -> Login(caller, reply))
+        reply host (fun channel -> Login(caller, channel))
+
+    let logout
+        (host: MailboxHost)
+        (caller: Caller)
+        : Async<Result<unit, string>> =
+        reply host (fun channel -> Logout(caller, channel))
 
     let isAdmitted
         (host: MailboxHost)
         (caller: Caller)
         : Async<bool> =
-        host.mailbox.PostAndAsyncReply(fun reply ->
-            AdmitCaller(caller, reply))
+        reply host (fun channel -> AdmitCaller(caller, channel))
 
     let coreChanges
         (host: MailboxHost)
@@ -116,19 +124,20 @@ module CoreMailbox =
             { getState = fun () -> tryGetState host
               getRevision = fun () -> getRevision host
               getChangesSince = getChangesSince host
-              isReady = host.isReady
+              isReady = MailboxHost.isReadyFn host
               postChange = fun changes -> postChange host c changes
               postGraphOnlyChange =
-                fun changes -> postGraphOnlyChange host changes
+                fun changes -> postGraphOnlyChange host c changes
               actorStop = fun result -> actorStop host c result
               asCaller = make }
         make caller
 
-    let isReady (host: MailboxHost) = host.isReady ()
+    let isReady (host: MailboxHost) = MailboxHost.isReady host
 
-    let flushSnapshot (host: MailboxHost) = host.flushSnapshot ()
+    let flushSnapshot (host: MailboxHost) =
+        MailboxHost.flushSnapshot host
 
-    let dispose (host: MailboxHost) = host.dispose ()
+    let dispose (host: MailboxHost) = MailboxHost.dispose host
 
     let host
         (pool: CoreActorPool)
@@ -152,11 +161,13 @@ module CoreMailbox =
                     persist.onError
                     persist.formatError
                     until
-        persist.bindMailbox mailbox
-        { mailbox = mailbox
-          isReady = persist.isReady
-          flushSnapshot = persist.flushSnapshot
-          dispose = persist.dispose }
+        persist.bindSnapshot (fun graph ->
+            mailbox.Post(SnapshotDone graph))
+        MailboxHost.create
+            mailbox
+            persist.isReady
+            persist.flushSnapshot
+            persist.dispose
 
     let createFile
         (dataDir: string)
