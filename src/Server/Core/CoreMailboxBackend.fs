@@ -151,6 +151,23 @@ module internal CoreMailboxBackend =
                 | Ok () -> Ok ()
             | _ -> Ok ()
 
+    let private recordActorStarted (loop: Loop) focusId =
+        let history = loop.mailboxHistory.Value
+        let event =
+            ActorEvent(history.nextId, ActorStarted(focusId, "Actor"))
+        loop.mailboxHistory.Value <-
+            { history with
+                past = history.past @ [ event ]
+                nextId = history.nextId + 1 }
+
+    let private recordActorFinished (loop: Loop) focusId =
+        let history = loop.mailboxHistory.Value
+        let event = ActorEvent(history.nextId, ActorFinished(focusId))
+        loop.mailboxHistory.Value <-
+            { history with
+                past = history.past @ [ event ]
+                nextId = history.nextId + 1 }
+
     let private dispatchStartActor
         (loop: Loop)
         (caller: Caller)
@@ -167,7 +184,6 @@ module internal CoreMailboxBackend =
                     match loop.persist.getState () with
                     | Ok state -> state.graph
                     | Error _ -> Graph.create ()
-                
                 let rec makeCoreChanges (c: Caller) : CoreChanges =
                     { getState = fun () -> mailbox.PostAndAsyncReply GetState
                       getRevision = fun () ->
@@ -179,7 +195,9 @@ module internal CoreMailboxBackend =
                         }
                       getChangesSince = fun after ->
                         async {
-                            let! result = mailbox.PostAndAsyncReply(fun reply -> GetChangesSince(after, reply))
+                            let! result =
+                                mailbox.PostAndAsyncReply(fun reply ->
+                                    GetChangesSince(after, reply))
                             return match result with
                                    | Ok changes -> changes
                                    | Error _ -> []
@@ -187,30 +205,23 @@ module internal CoreMailboxBackend =
                       isReady = fun () -> true
                       postChange = fun changes ->
                         CoreAuth.post loop.credentials c.secret (fun changes ->
-                            mailbox.PostAndAsyncReply(fun reply -> PostChange(c, changes, reply))) changes
+                            mailbox.PostAndAsyncReply(fun reply ->
+                                PostChange(c, changes, reply))) changes
                       postGraphOnlyChange = fun changes ->
                         CoreAuth.post loop.credentials c.secret (fun changes ->
-                            mailbox.PostAndAsyncReply(fun reply -> PostGraphOnlyChange(changes, reply))) changes
+                            mailbox.PostAndAsyncReply(fun reply ->
+                                PostGraphOnlyChange(changes, reply))) changes
                       actorStop = fun result ->
-                        mailbox.PostAndAsyncReply(fun reply -> ActorStop(c, result, reply))
+                        mailbox.PostAndAsyncReply(fun reply ->
+                            ActorStop(c, result, reply))
                       asCaller = makeCoreChanges }
-                
                 let coreChanges = makeCoreChanges caller
-                
-                let appendActorStarted focusId authority =
-                    let event =
-                        ActorEvent(
-                            loop.mailboxHistory.Value.nextId,
-                            ActorStarted(focusId, authority))
-                    loop.mailboxHistory.Value <- {
-                        loop.mailboxHistory.Value with
-                            past = loop.mailboxHistory.Value.past @ [ event ]
-                            nextId = loop.mailboxHistory.Value.nextId + 1
-                    }
-                
-                match loop.pool.startActor request getState coreChanges appendActorStarted with
+                match loop.pool.startActor request getState with
                 | Error err -> reply.Reply(Error err)
-                | Ok () -> reply.Reply(Ok ())
+                | Ok started ->
+                    recordActorStarted loop started.focusId
+                    loop.pool.schedule started.secret coreChanges
+                    reply.Reply(Ok ())
 
     let private dispatchActorStop
         (loop: Loop)
@@ -225,18 +236,10 @@ module internal CoreMailboxBackend =
             | Error err ->
                 reply.Reply(Error(CoreAdmissionError.text err))
             | Ok () ->
-                let focusId = 
-                    loop.pool.getFocusId caller.secret 
+                let focusId =
+                    loop.pool.getFocusId caller.secret
                     |> Option.defaultValue Graph.rootId
-                let event =
-                    ActorEvent(
-                        loop.mailboxHistory.Value.nextId,
-                        ActorFinished(focusId))
-                loop.mailboxHistory.Value <- {
-                    loop.mailboxHistory.Value with
-                        past = loop.mailboxHistory.Value.past @ [ event ]
-                        nextId = loop.mailboxHistory.Value.nextId + 1
-                }
+                recordActorFinished loop focusId
                 reply.Reply(loop.pool.finish caller.secret result)
 
     let private appendChangeEvents (loop: Loop) (changes: Change list) : unit =

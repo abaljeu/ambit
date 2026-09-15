@@ -108,6 +108,7 @@ module CoreRuntime =
         (dataDir: string)
         (authUser: string)
         (authPass: string)
+        (actors: (ActorName * ActorFn) list)
         : CoreRuntime =
         let credentials = CoreCredentials.create ()
         let browserAuthority = Authority "Browser"
@@ -115,7 +116,8 @@ module CoreRuntime =
             seedBrowserCredential credentials authUser authPass
         let parseCredential = seedParseCredential credentials
         let pool = CoreActorPool.create credentials
-        pool.register (ActorName "test") TestActor.actorFn
+        actors
+        |> List.iter (fun (name, actorFn) -> pool.register name actorFn)
         let host =
             startHost
                 persistenceMode

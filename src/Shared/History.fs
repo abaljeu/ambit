@@ -658,29 +658,6 @@ module History =
             | Error msg -> ApplyResult.Invalid(state, msg)
             | Ok () -> ApplyResult.Changed s
 
-    let appendActorStarted
-        (focusId: NodeId)
-        (authority: string)
-        (state: State)
-        : State =
-        let event = ActorEvent(state.history.nextId, ActorStarted(focusId, authority))
-        { state with
-            history =
-                { past = state.history.past @ [ event ]
-                  future = []
-                  nextId = state.history.nextId + 1 } }
-
-    let appendActorFinished
-        (focusId: NodeId)
-        (state: State)
-        : State =
-        let event = ActorEvent(state.history.nextId, ActorFinished(focusId))
-        { state with
-            history =
-                { past = state.history.past @ [ event ]
-                  future = []
-                  nextId = state.history.nextId + 1 } }
-
 /// After DocumentPersistence stamps artifact roots, emit ops for the change log / poll tail.
 [<RequireQualifiedAccess>]
 module PersistStamp =

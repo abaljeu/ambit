@@ -32,6 +32,7 @@ let private fileRuntime () =
         dataDir
         "alice"
         "secret"
+        []
 
 [<Fact>]
 let ``CoreRuntime seeds Browser credential from AuthToken.deriveToken`` () =

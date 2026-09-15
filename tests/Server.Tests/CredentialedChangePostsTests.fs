@@ -97,6 +97,7 @@ let ``request-carried cookie secret is admitted; foreign secret is refused`` () 
                 (newTempDir ())
                 "alice"
                 "secret"
+                []
         let cookie = runtime.browserCredential
         let change = addRootChild "cookie-post"
         let! ok =
@@ -122,6 +123,7 @@ let ``missing cookie secret is the same auth refuse before PersistHandlers`` () 
                 (newTempDir ())
                 "alice"
                 "secret"
+                []
         match BrowserRequestCreds.trySecretFromCookieValue None with
         | Some _ -> Assert.Fail("missing cookie must not yield a secret")
         | None -> ()
@@ -157,6 +159,7 @@ let ``request cookie value is admitted without closed-over browserCredential`` (
                 (newTempDir ())
                 "alice"
                 "secret"
+                []
         let cookie = runtime.browserCredential
         do!
             runtime.credentials.remove cookie

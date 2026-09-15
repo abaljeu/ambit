@@ -4,7 +4,7 @@ Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
 Updated: 2026-09-14
 Started: 2026-09-05
-Actual: 34h20m
+Actual: 35h45m
 
 ## Map
 

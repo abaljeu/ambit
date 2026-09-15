@@ -126,6 +126,7 @@ module RouteRegistration =
                 dataDir
                 auth.ExpectedUser
                 auth.ExpectedPass
+                []
         {
             DataDir = dataDir
             Mode = persistenceMode

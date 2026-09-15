@@ -31,6 +31,8 @@ let private createHost () =
     let dataDir = newTempDir ()
     let credentials = admittedCredentials ()
     let pool = CoreActorPool.create credentials
+    pool.register (ActorName "root") (fun _ _ -> async.Return ())
+    pool.register (ActorName "test") TestActor.actorFn
     let host =
         CoreMailbox.host
             credentials
@@ -78,7 +80,10 @@ let ``CoreMailbox.actorStop with valid credential drops live row`` () =
     live.Add actorSecret
     let recordingPool: CoreActorPool = {
         register = fun _ _ -> ()
-        startActor = fun _ _ _ _ -> Ok ()
+        startActor =
+            fun request _ ->
+                Ok { secret = actorSecret; focusId = request.focusId }
+        schedule = fun _ _ -> ()
         isLive = fun secret -> live.Contains secret
         admit = fun _ -> Ok ()
         drop = fun _ -> ()
@@ -155,7 +160,10 @@ let ``CoreMailbox.actorStop appends ActorFinished and drops live row`` () =
     live.Add actorSecret
     let recordingPool: CoreActorPool = {
         register = fun _ _ -> ()
-        startActor = fun _ _ _ _ -> Ok ()
+        startActor =
+            fun request _ ->
+                Ok { secret = actorSecret; focusId = request.focusId }
+        schedule = fun _ _ -> ()
         isLive = fun secret -> live.Contains secret
         admit = fun _ -> Ok ()
         drop = fun _ -> ()
@@ -212,7 +220,7 @@ let ``CoreActorPool.startActor uses client graphIds to build subgraph`` () =
         let! postResult =
             CoreMailbox.postGraphOnlyChange host [ change ]
             |> Async.StartAsTask
-        requireOk "postChange" postResult
+        requireOk "postChange" postResult |> ignore
         
         let request =
             { zoomId = Graph.rootId
@@ -242,7 +250,7 @@ let ``CoreActorPool.startActor selects actor from command node text`` () =
         let! postResult =
             CoreMailbox.postGraphOnlyChange host [ change ]
             |> Async.StartAsTask
-        requireOk "postChange" postResult
+        requireOk "postChange" postResult |> ignore
         
         let request =
             { zoomId = Graph.rootId
@@ -291,7 +299,7 @@ let ``CoreActorPool.startActor fails when commandId not in graphIds`` () =
         let! postResult =
             CoreMailbox.postGraphOnlyChange host [ change ]
             |> Async.StartAsTask
-        requireOk "postChange" postResult
+        requireOk "postChange" postResult |> ignore
         
         let request =
             { zoomId = Graph.rootId
@@ -310,7 +318,7 @@ let ``CoreActorPool.startActor fails when commandId not in graphIds`` () =
     })
 
 [<Fact>]
-let ``CoreActorPool.startActor appends ActorStarted before actor body runs`` () =
+let ``mailbox records ActorStarted before actor body runs`` () =
     withHost (fun host _ _ -> task {
         let! result =
             CoreMailbox.startActor host testCaller sampleRequest
@@ -358,7 +366,7 @@ let ``Successful PostChange appends ChangeEvent to mailbox history`` () =
         let! postResult =
             CoreMailbox.postGraphOnlyChange host [ change ]
             |> Async.StartAsTask
-        requireOk "postChange" postResult
+        requireOk "postChange" postResult |> ignore
         
         let! events =
             CoreMailbox.eventHistory host
@@ -395,7 +403,7 @@ let ``Actor lifecycle and Changes appear on same History sequence`` () =
         let! postResult =
             CoreMailbox.postGraphOnlyChange host [ change ]
             |> Async.StartAsTask
-        requireOk "postChange" postResult
+        requireOk "postChange" postResult |> ignore
         
         let! events =
             CoreMailbox.eventHistory host

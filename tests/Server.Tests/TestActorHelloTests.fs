@@ -44,6 +44,15 @@ let private waitForLiveRowDrop pool focusId timeoutMs =
         return dropped
     }
 
+let private helloOutputChildren (graph: Graph) focusId commandId =
+    graph.nodes.[focusId].children
+    |> List.filter (fun child ->
+        child.ref = Ownership.Owner
+        && child.id <> commandId
+        && match Map.tryFind child.id graph.nodes with
+           | Some node -> node.text = "hello"
+           | None -> false)
+
 let private sampleRequest focusId commandId graphIds: StartActorRequest =
     { zoomId = Graph.rootId
       focusId = focusId
@@ -90,7 +99,7 @@ let ``TestActor hello posts one Owned child text hello under Focus`` () =
         let! postResult =
             CoreMailbox.postGraphOnlyChange host [ change ]
             |> Async.StartAsTask
-        requireOk "postChange" postResult
+        requireOk "postChange" postResult |> ignore
         
         let request = sampleRequest Graph.rootId commandId [ Graph.rootId; commandId ]
         
@@ -108,15 +117,7 @@ let ``TestActor hello posts one Owned child text hello under Focus`` () =
         let state = requireOk "getState" state
         
         let helloChildren =
-            state.graph.nodes.[Graph.rootId].children
-            |> List.filter (fun child ->
-                match child with
-                | Owner nodeId ->
-                    match Map.tryFind nodeId state.graph.nodes with
-                    | Some node -> node.text = "hello"
-                    | None -> false
-                | _ -> false)
-        
+            helloOutputChildren state.graph Graph.rootId commandId
         Assert.Equal(1, helloChildren.Length)
     })
 
@@ -134,7 +135,7 @@ let ``TestActor hello stops successfully with ActorSucceeded`` () =
         let! postResult =
             CoreMailbox.postGraphOnlyChange host [ change ]
             |> Async.StartAsTask
-        requireOk "postChange" postResult
+        requireOk "postChange" postResult |> ignore
         
         let request = sampleRequest Graph.rootId commandId [ Graph.rootId; commandId ]
         
@@ -175,7 +176,7 @@ let ``TestActor hello drops live row after successful stop`` () =
         let! postResult =
             CoreMailbox.postGraphOnlyChange host [ change ]
             |> Async.StartAsTask
-        requireOk "postChange" postResult
+        requireOk "postChange" postResult |> ignore
         
         let request = sampleRequest Graph.rootId commandId [ Graph.rootId; commandId ]
         
@@ -206,7 +207,7 @@ let ``TestActor hello observes ActorStarted before output`` () =
         let! postResult =
             CoreMailbox.postGraphOnlyChange host [ change ]
             |> Async.StartAsTask
-        requireOk "postChange" postResult
+        requireOk "postChange" postResult |> ignore
         
         let request = sampleRequest Graph.rootId commandId [ Graph.rootId; commandId ]
         
@@ -257,7 +258,7 @@ let ``TestActor hello interprets command node text`` () =
         let! postResult =
             CoreMailbox.postGraphOnlyChange host [ change ]
             |> Async.StartAsTask
-        requireOk "postChange" postResult
+        requireOk "postChange" postResult |> ignore
         
         let request = sampleRequest Graph.rootId commandId [ Graph.rootId; commandId ]
         
@@ -275,15 +276,7 @@ let ``TestActor hello interprets command node text`` () =
         let state = requireOk "getState" state
         
         let helloChildren =
-            state.graph.nodes.[Graph.rootId].children
-            |> List.filter (fun child ->
-                match child with
-                | Owner nodeId ->
-                    match Map.tryFind nodeId state.graph.nodes with
-                    | Some node -> node.text = "hello"
-                    | None -> false
-                | _ -> false)
-        
+            helloOutputChildren state.graph Graph.rootId commandId
         Assert.Equal(1, helloChildren.Length)
     })
 
@@ -301,7 +294,7 @@ let ``TestActor unknown command still finishes and drops live row`` () =
         let! postResult =
             CoreMailbox.postGraphOnlyChange host [ change ]
             |> Async.StartAsTask
-        requireOk "postChange" postResult
+        requireOk "postChange" postResult |> ignore
         
         let request = sampleRequest Graph.rootId commandId [ Graph.rootId; commandId ]
         
@@ -331,7 +324,7 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
         let! postResult =
             CoreMailbox.postGraphOnlyChange host [ change ]
             |> Async.StartAsTask
-        requireOk "postChange" postResult
+        requireOk "postChange" postResult |> ignore
         
         let request = sampleRequest Graph.rootId commandId [ Graph.rootId; commandId ]
         
@@ -355,17 +348,8 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
         let state = requireOk "getState" state
         
         let helloChildren =
-            state.graph.nodes.[Graph.rootId].children
-            |> List.filter (fun child ->
-                match child with
-                | Owner nodeId ->
-                    match Map.tryFind nodeId state.graph.nodes with
-                    | Some node -> node.text = "hello"
-                    | None -> false
-                | _ -> false)
-        
-        Assert.True(helloChildren.Length = 1,
-            "§7.3: Should observe exactly one Owned child text 'hello' under Focus")
+            helloOutputChildren state.graph Graph.rootId commandId
+        Assert.Equal(1, helloChildren.Length)
         
         let! events =
             CoreMailbox.eventHistory host
@@ -418,8 +402,7 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
             "§7.4: ActorStarted should appear before output Change")
         Assert.True(actorOutputChangeIndex.Value < actorFinishedIndex.Value,
             "§7.4: Output Change should appear before ActorFinished")
-        Assert.True(actorFinishedCount = 1,
-            "§7.4: Should observe exactly one ActorFinished event")
+        Assert.Equal(1, actorFinishedCount)
         
         Assert.False(Set.contains request.focusId (pool.liveFocusIds ()),
             "§7.5: Live row should be gone after finish")

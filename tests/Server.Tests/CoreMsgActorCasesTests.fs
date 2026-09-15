@@ -43,9 +43,10 @@ let private recordingPool () =
     let pool: CoreActorPool = {
         register = fun _ _ -> ()
         startActor =
-            fun request ->
+            fun request _ ->
                 started.TrySetResult request |> ignore
-                Ok ()
+                Ok { secret = Credential "recorded"; focusId = request.focusId }
+        schedule = fun _ _ -> ()
         isLive = fun secret -> live.Contains secret
         admit = fun _ -> Ok ()
         drop = fun _ -> ()
@@ -55,6 +56,7 @@ let private recordingPool () =
                 stopped.Add(secret, result)
                 Ok ()
         liveFocusIds = fun () -> Set.empty
+        getFocusId = fun _ -> None
     }
     started, stopped, live, pool
 
@@ -105,6 +107,7 @@ let ``StartActor with live credentials calls startActor with StartActorRequest``
 let ``StartActor reply is startActor bookkeeping without waiting for an Actor body`` () =
     let credentials = admittedCredentials ()
     let pool = CoreActorPool.create credentials
+    pool.register (ActorName "root") (fun _ _ -> async.Return ())
     withHost pool (fun host _ -> task {
         let sw = Stopwatch.StartNew()
         let! result =
@@ -120,6 +123,7 @@ let ``StartActor reply is startActor bookkeeping without waiting for an Actor bo
 let ``GetState stamps lockPresent from the live table after startActor`` () =
     let credentials = admittedCredentials ()
     let pool = CoreActorPool.create credentials
+    pool.register (ActorName "root") (fun _ _ -> async.Return ())
     withHost pool (fun host _ -> task {
         let! started =
             postStartActor host testCaller sampleRequest
