@@ -32,6 +32,13 @@ type internal CoreMsg =
         Caller *
         AsyncReplyChannel<Result<unit, string>>
     | AdmitCaller of Caller * AsyncReplyChannel<bool>
+    | PostEvent of
+        caller: Caller *
+        event: Gambol.Shared.Events.Event *
+        AsyncReplyChannel<Result<Gambol.Shared.Events.Event, string>>
+    | EventsSince of
+        after: Gambol.Shared.Events.EventId *
+        AsyncReplyChannel<Gambol.Shared.Events.EventLog>
 
 type PersistHandlers = {
     getState: unit -> Result<State, string>

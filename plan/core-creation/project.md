@@ -4,7 +4,7 @@ Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
 Updated: 2026-09-15
 Started: 2026-09-05
-Actual: 48h35m
+Actual: 50h20m
 
 ## Map
 
@@ -125,6 +125,7 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/reports/actorstop-single-admit.md]] — ActorStop admits once; `pool.finish` drops without a third admit.
 - [[plan/core-creation/reports/cancel-poll-eventhistory-undo.md]] — Cancelled poll-carried eventHistory / ClientHistory replacement; increment reverted.
 - [[plan/core-creation/reports/event-abstraction.md]] — Locked Event / EventLog / ClientHistory / `postEvent` destination.
+- [[plan/core-creation/reports/implement-issue-40.md]] — [[plan/core-creation/issues/40-expand-postevent-eventlog-and-event-json.md|40 — Expand postEvent, EventLog store, and Event JSON persist]].
 
 ## Comments
 
@@ -159,3 +160,5 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - 2026-09-15 — EventLog is the Event sequence and its persist. ChangeLog is a lagging code name only (`src/Server/ChangeLog.fs`).
 - 2026-09-15 — Destination module 6 and report §3.3 are ClientHistory, not History. EventLog is the sequence (today’s mailbox `type History` / `module History` is the lagging name). ClientHistory stays at [[src/Shared/ClientHistory.fs]]. No destination module named History.
 - 2026-09-15 — [[plan/core-creation/issues/37-expand-shared-event-eventlog-and-history.md|37 — Expand Shared Event, EventLog, and History]] Status `coded`. Event types in `Gambol.Shared.Events`. Stage `build`. Report: [[plan/core-creation/reports/implement-issue-37.md]].
+- 2026-09-15 — [[plan/core-creation/issues/40-expand-postevent-eventlog-and-event-json.md|40 — Expand postEvent, EventLog store, and Event JSON persist]] Status `coded`. Did not edit EventLog / Event / ClientHistory (newest-head redesign lock). Report: [[plan/core-creation/reports/implement-issue-40.md]].
+- 2026-09-15 — [[plan/core-creation/issues/40-expand-postevent-eventlog-and-event-json.md|40 — Expand postEvent, EventLog store, and Event JSON persist]] Event JSON encode/read on EventLog. Deleted EventJson and ChangeLog Event codec. Status stays `coded`.

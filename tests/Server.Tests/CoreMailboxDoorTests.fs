@@ -644,3 +644,44 @@ let ``CoreMsg is not a public type`` () =
         typeof<MailboxHost>.Assembly.GetExportedTypes()
         |> Array.exists (fun t -> t.Name = "CoreMsg")
     Assert.False(found)
+
+let private postedEvent () : Gambol.Shared.Events.Event =
+    { id = Gambol.Shared.Events.EventId 0
+      submissionId = Guid.NewGuid()
+      authority = Gambol.Shared.Events.Authority "Browser"
+      commandName = "Set text"
+      body = Gambol.Shared.Events.EventBody.Change [] }
+
+[<Fact>]
+let ``CoreMailbox.postEvent appends an Event that eventsSince returns`` () =
+    withHost (fun host _ -> task {
+        let event = postedEvent ()
+        let! posted =
+            CoreMailbox.postEvent host testCaller event
+            |> Async.StartAsTask
+        let stored = requireOk "postEvent" posted
+        let! tail =
+            CoreMailbox.eventsSince
+                host
+                (Gambol.Shared.Events.EventId -1)
+            |> Async.StartAsTask
+        Assert.Equal(1, tail.events.Length)
+        Assert.Contains(stored, tail.events)
+        Assert.Equal(event.submissionId, stored.submissionId)
+        let! afterStored =
+            CoreMailbox.eventsSince host stored.id
+            |> Async.StartAsTask
+        Assert.Empty(afterStored.events)
+    })
+
+[<Fact>]
+let ``CoreMailbox.postEvent without admitted Caller is refused`` () =
+    withHost (fun host _ -> task {
+        let! result =
+            CoreMailbox.postEvent
+                host
+                { testCaller with secret = Credential "inactive" }
+                (postedEvent ())
+            |> Async.StartAsTask
+        Assert.Equal(Error CoreAuth.refuse, result)
+    })

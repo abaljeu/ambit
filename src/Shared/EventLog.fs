@@ -1,5 +1,9 @@
 namespace Gambol.Shared.Events
 
+open Thoth.Json.Core
+open Thoth.Json.JavaScript
+open Gambol.Shared
+
 type EventLog =
     { events: Event list
       nextId: EventId }

@@ -69,6 +69,19 @@ module CoreMailbox =
         : Async<Result<CoreChangesAccepted, string>> =
         reply host (fun channel -> PostChange(caller, changes, channel))
 
+    let postEvent
+        (host: MailboxHost)
+        (caller: Caller)
+        (event: Gambol.Shared.Events.Event)
+        : Async<Result<Gambol.Shared.Events.Event, string>> =
+        reply host (fun channel -> PostEvent(caller, event, channel))
+
+    let eventsSince
+        (host: MailboxHost)
+        (after: Gambol.Shared.Events.EventId)
+        : Async<Gambol.Shared.Events.EventLog> =
+        reply host (fun channel -> EventsSince(after, channel))
+
     let postGraphOnlyChange
         (host: MailboxHost)
         (caller: Caller)

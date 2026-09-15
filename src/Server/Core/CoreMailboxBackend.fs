@@ -7,6 +7,11 @@ open Gambol.Shared
 [<RequireQualifiedAccess>]
 module internal CoreMailboxBackend =
 
+    type Event = Gambol.Shared.Events.Event
+    type EventId = Gambol.Shared.Events.EventId
+    type EventLog = Gambol.Shared.Events.EventLog
+    module EventLog = Gambol.Shared.Events.EventLog
+
     /// Bound on wall-clock time for a single change's persist step (disk write via
     /// DocumentWarm/CStyleReconcile). That reconcile path is a known-slow/hanging
     /// algorithm; this timeout exists to keep the mailbox context responsive, not to fix it.
@@ -65,6 +70,8 @@ module internal CoreMailboxBackend =
         | Login _ -> "Login", ""
         | Logout _ -> "Logout", ""
         | AdmitCaller _ -> "AdmitCaller", ""
+        | PostEvent _ -> "PostEvent", ""
+        | EventsSince (after, _) -> "EventsSince", $"after={after}"
 
     let replyFailure error msg =
         match msg with
@@ -80,6 +87,8 @@ module internal CoreMailboxBackend =
         | Login (_, reply) -> reply.Reply(Error error)
         | Logout (_, reply) -> reply.Reply(Error error)
         | AdmitCaller (_, reply) -> reply.Reply(false)
+        | PostEvent (_, _, reply) -> reply.Reply(Error error)
+        | EventsSince (_, reply) -> reply.Reply(EventLog.empty)
 
     type Started = {
         processor: MailboxProcessor<CoreMsg>
@@ -93,6 +102,7 @@ module internal CoreMailboxBackend =
         onError: string -> string -> exn -> unit
         formatError: string -> string
         eventHistory: History ref
+        eventLog: EventLog ref
         coreChanges: (Caller -> CoreChanges) option ref
     }
 
@@ -207,6 +217,20 @@ module internal CoreMailboxBackend =
                 syncEventHistory context
                 reply.Reply(result)
 
+    let private dispatchPostEvent
+        (context: MailboxContext)
+        (caller: Caller)
+        (event: Event)
+        (reply: AsyncReplyChannel<Result<Event, string>>)
+        : unit =
+        match admitCaller context caller with
+        | Error err -> reply.Reply(Error err)
+        | Ok () ->
+            let id = EventLog.nextId context.eventLog.Value
+            context.eventLog.Value <-
+                EventLog.append event context.eventLog.Value
+            reply.Reply(Ok { event with id = id })
+
     let private runMsg (context: MailboxContext) (msg: CoreMsg) =
         match msg with
         | GetState reply ->
@@ -249,6 +273,10 @@ module internal CoreMailboxBackend =
             reply.Reply(Ok ())
         | AdmitCaller (caller, reply) ->
             reply.Reply(hasCaller context caller)
+        | PostEvent (caller, event, reply) ->
+            dispatchPostEvent context caller event reply
+        | EventsSince (after, reply) ->
+            reply.Reply(EventLog.since after context.eventLog.Value)
 
     let private dispatch (contex: MailboxContext) (msg: CoreMsg) : unit =
         try
@@ -271,6 +299,7 @@ module internal CoreMailboxBackend =
           onError = onError
           formatError = formatError
           eventHistory = ref History.empty
+          eventLog = ref EventLog.empty
           coreChanges = ref None }
 
     let private started mailbox (context: MailboxContext) : Started =
@@ -326,7 +355,8 @@ module internal CoreMailboxBackend =
                                 | GetState _
                                 | GetRevision _
                                 | GetChangesSince _
-                                | GetEventHistory _ ->
+                                | GetEventHistory _
+                                | EventsSince _ ->
                                     Some(async { dispatch context msg })
                                 | _ -> None),
                             timeout = 20)

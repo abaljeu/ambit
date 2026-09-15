@@ -1,7 +1,7 @@
 # 40 — Expand postEvent, EventLog store, and Event JSON persist
 
 **Status:** coded
-Actual: 1h30m
+Actual: 2h15m
 **Blocked by:** None — [[37-expand-shared-event-eventlog-and-history.md|37 — Expand Shared Event, EventLog, and History]] is Status `coded`.
 
 ## Context
@@ -51,8 +51,10 @@ Prove CoreMailbox `postEvent` and EventLog `since`.
 ## Time
 
 - 2026-09-15 1h30m — expand postEvent, EventLog ref via public API, Event JSON in EventJson (from chat)
+- 2026-09-15 45m — move Event JSON encode/read onto EventLog; drop EventJson and ChangeLog codec (from chat)
 
 ## Comments
 
 - 2026-09-15 — Filed via `/to-tickets` for Story **Caller, persist, and Poll** only (expand–contract). Sequence expand-migrate-contract on that story is skill `expand-contract`. First expand ticket. Blocked by story 4 expand [[37-expand-shared-event-eventlog-and-history.md|37 — Expand Shared Event, EventLog, and History]].
 - 2026-09-15 — Did not edit [[src/Shared/EventLog.fs]], [[src/Shared/Event.fs]], or [[src/Shared/ClientHistory.fs]]. Alan locked newest-head EventLog and skip-non-change ClientHistory undo. Event JSON is [[src/Shared/EventJson.fs]]. Mailbox store calls `EventLog.append` / `EventLog.since` only. Report: [[../reports/implement-issue-40.md]].
+- 2026-09-15 — Event JSON encode/read moved onto [[src/Shared/EventLog.fs]]. Deleted EventJson sidecar and ChangeLog Event codec. Did not revert newest-head EventLog or ClientHistory locks. Report: [[../reports/implement-issue-40.md]].

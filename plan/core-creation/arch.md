@@ -170,7 +170,7 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. ClientH
      1. [ ] Op, Graph, `Authority`, `ActorResult`
 5. **EventLog** — planned [[src/Shared/EventLog.fs]]
    Field shapes: [[reports/event-abstraction.md]].
-   1. [ ] State: append-only oldest-head Event sequence; mailbox store after intake. Persistence is this same EventLog on file/DB (today’s [[src/Server/ChangeLog.fs]]). Not a second log.
+   1. [ ] State: append-only newest-head Event sequence; mailbox store after intake. Persistence is this same EventLog on file/DB (today’s [[src/Server/ChangeLog.fs]]). Not a second log.
    - Interface:
      1. [ ] `empty`, `append`, `nextId`
      2. [ ] `since eventId` — Poll/Load tail (self-contained Events)
@@ -178,7 +178,7 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. ClientH
      4. [ ] `restore` — merge persisted Events; dedupe by `submissionId`
      5. [x] CoreMailboxBackend is the only writer of the mailbox store. State has no `history` field. getState stays Graph-only
      6. [x] no second Actor-only event log beside CoreMailbox
-     7. [ ] encode and read Event JSON
+     7. [ ] encode and read Event JSON [[src/Shared/EventLog.fs]]
      8. [ ] persist ActorStart / ActorStop
    - Uses:
      1. [ ] Event
