@@ -83,6 +83,7 @@ let ``HTTP Adapter refuses inactive Core sender with 401 and does not enqueue``
             let bound =
                 CoreAuth.bindHandle
                     { authority = Authority "Caller"
+                      name = ""
                       secret = Credential "inactive" }
                     handle
             let! before = handle.getRevision () |> Async.StartAsTask

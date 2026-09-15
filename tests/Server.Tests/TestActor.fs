@@ -20,6 +20,7 @@ let private hello (input: ActorInput) (coreChanges: CoreChanges) : Async<unit> =
                       [ ChildNode.owner helloNodeId ]) ] }
         let caller =
             { authority = Authority "Actor"
+              name = ""
               secret = input.secret }
         let! _ =
             coreChanges.asCaller(caller).postChange [ change ]
@@ -46,6 +47,7 @@ let private dispatch (input: ActorInput) (coreChanges: CoreChanges) : Async<unit
         | _ -> result <- ActorFailed
         let caller =
             { authority = Authority "Actor"
+              name = ""
               secret = input.secret }
         let! _ =
             coreChanges.asCaller(caller).actorStop result

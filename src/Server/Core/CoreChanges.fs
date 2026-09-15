@@ -7,9 +7,11 @@ type Credential = Credential of string
 /// Named source that submits requests to Core (Browser, Actor, …).
 type Authority = Authority of string
 
-/// Public Authority and secret presented together at a Core door.
+/// Public Authority, login instance name, and secret at a Core door.
+/// `name` is this browser/session instance, not the global user name.
 type Caller =
     { authority: Authority
+      name: string
       secret: Credential }
 
 type ActorResult =

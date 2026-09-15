@@ -25,6 +25,7 @@ let private sampleRequest: StartActorRequest =
 
 let private actorCaller secret =
     { authority = Authority "Actor"
+      name = ""
       secret = secret }
 
 let private createHost () =
@@ -36,7 +37,7 @@ let private createHost () =
         CoreMailbox.host
             pool
             (FileAgent.persist (FileAgent.create dataDir))
-            admittedSecrets
+            admittedCredentials
     host, pool
 
 let private withHost body =
@@ -65,6 +66,7 @@ let ``CoreMailbox.startActor with inactive secret is refused`` () =
             CoreMailbox.startActor
                 host
                 { authority = testAuthority
+                  name = testCaller.name
                   secret = Credential "inactive" }
                 sampleRequest
             |> Async.StartAsTask
@@ -79,11 +81,13 @@ let ``CoreMailbox.login privately admits a Browser secret`` () =
             CoreMailbox.host
                 (CoreActorPool.create ())
                 (FileAgent.persist (FileAgent.create dataDir))
-                Set.empty
+                CoreCredentials.empty
         try
             let secret = Credential "login-secret"
+            let name = "browser-session"
             let caller =
                 { authority = Authority "Browser"
+                  name = name
                   secret = secret }
             let childId = NodeId.New()
             let change =
@@ -100,21 +104,54 @@ let ``CoreMailbox.login privately admits a Browser secret`` () =
                 |> Async.StartAsTask
             Assert.Equal(Error CoreAuth.refuse, refused)
             let! before =
-                CoreMailbox.isAdmitted host secret
+                CoreMailbox.isAdmitted host caller
                 |> Async.StartAsTask
             Assert.False(before)
             let! loggedIn =
-                CoreMailbox.login host secret
+                CoreMailbox.login host name secret
                 |> Async.StartAsTask
             requireOk "login" loggedIn
             let! after =
-                CoreMailbox.isAdmitted host secret
+                CoreMailbox.isAdmitted host caller
                 |> Async.StartAsTask
             Assert.True(after)
             let! posted =
                 CoreMailbox.postChange host caller [ change ]
                 |> Async.StartAsTask
             requireOk "post after login" posted |> ignore
+        finally
+            CoreMailbox.dispose host
+    }
+
+[<Fact>]
+let ``CoreMailbox.login name distinguishes Callers that share a secret`` () =
+    task {
+        let dataDir = newTempDir ()
+        let host =
+            CoreMailbox.host
+                (CoreActorPool.create ())
+                (FileAgent.persist (FileAgent.create dataDir))
+                CoreCredentials.empty
+        try
+            let secret = Credential "shared-secret"
+            let loggedIn =
+                { authority = Authority "Browser"
+                  name = "browser-a"
+                  secret = secret }
+            let otherName =
+                { loggedIn with name = "browser-b" }
+            let! logged =
+                CoreMailbox.login host loggedIn.name secret
+                |> Async.StartAsTask
+            requireOk "login" logged
+            let! admitted =
+                CoreMailbox.isAdmitted host loggedIn
+                |> Async.StartAsTask
+            let! refusedName =
+                CoreMailbox.isAdmitted host otherName
+                |> Async.StartAsTask
+            Assert.True(admitted)
+            Assert.False(refusedName)
         finally
             CoreMailbox.dispose host
     }
@@ -148,7 +185,7 @@ let ``CoreMailbox.actorStop with valid credential drops live row`` () =
             CoreMailbox.host
                 recordingPool
                 (FileAgent.persist (FileAgent.create dataDir))
-                admittedSecrets
+                admittedCredentials
         try
             let! result =
                 CoreMailbox.actorStop
@@ -225,7 +262,7 @@ let ``CoreMailbox.actorStop appends ActorFinished and drops live row`` () =
             CoreMailbox.host
                 recordingPool
                 (FileAgent.persist (FileAgent.create dataDir))
-                admittedSecrets
+                admittedCredentials
         try
             let! stopResult =
                 CoreMailbox.actorStop

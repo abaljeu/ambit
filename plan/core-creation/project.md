@@ -4,7 +4,7 @@ Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
 Updated: 2026-09-14
 Started: 2026-09-05
-Actual: 35h45m
+Actual: 36h35m
 
 ## Map
 
@@ -108,6 +108,7 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/reports/implement-34-section-1-coremsg.md]] — issue 34 section 1 CoreMsg / CoreMailboxBackend Actor cases.
 - [[plan/core-creation/reports/mailbox-start-type-corrections.md]] — StartActorRequest replaces LaunchRequest; Caller; no ActorMailboxHandlers; async StartActor handoff.
 - [[plan/core-creation/reports/sync-startactor-one-mailbox.md]] — Sync startActor, one CoreMsg host, mailbox-owned live table, File or Db persist, mirror deleted.
+- [[plan/core-creation/reports/corecredentials-caller-set.md]] — CoreCredentials is a mailbox-owned Set of Caller; login maps name+secret.
 
 ## Comments
 

@@ -2,7 +2,7 @@
 
 **Status:** coded
 **Blocked by:** None — can start immediately.
-Actual: 4h35m
+Actual: 5h25m
 
 ## Context
 
@@ -83,6 +83,7 @@ Verify Story path **Outside Core lifecycle proof** from outside the Actor.
 - 2026-09-14 — This ticket implements Story path 2 **Outside Core lifecycle proof**. Story path 1 **Browser Run hello** stays on [[35b-browser-run-hello.md|35b — Browser Run hello]].
 - 2026-09-14 — Aligned to the 2026-09-14 arch correction: synchronous startActor (bookkeeping on the loop, body off-loop), mailbox-owned live table, register-then-start one host, `ActorStop ActorSucceeded` drop of live row and secret.
 - 2026-09-14 — Architectural correction: the mailbox owns Browser secrets. No CoreCredentials mailbox and no public add-credential door. Login is a mailbox message; CoreActorPool does not take CoreCredentials; CoreRuntime does not export a credentials field.
+- 2026-09-14 — Remade CoreCredentials as a mailbox-owned Set of Caller (add/remove/contains). Login is name+secret mapped to Browser Caller; `name` is the browser instance, not the user name. Report: [[../reports/corecredentials-caller-set.md]].
 
 ## Time
 
@@ -102,3 +103,4 @@ Verify Story path **Outside Core lifecycle proof** from outside the Actor.
 - 2026-09-14 — Architectural correction: Core does not own Actors. Moved TestActor to the test host. CoreRuntime.create takes a caller-supplied ActorFn list and registers those entries before the mailbox starts; it does not hardcode TestActor. Production composition passes an empty list.
 - 2026-09-14 — Architectural correction: History belongs to the mailbox, not CoreActorPool. Dropped AppendActorStarted. pool.startActor returns ActorStart (secret, focusId) without scheduling. dispatchStartActor writes ActorStarted on mailboxHistory, then pool.schedule starts the body. Deleted History.appendActorStarted / appendActorFinished so they cannot write Actor Events onto State.history. getState stays Graph-only.
 - 2026-09-14 50m — Mailbox owns Browser secrets; no public add; admit is hasBrowserSecret / isLive on the loop (from chat)
+- 2026-09-14 50m — Remake CoreCredentials as Set of Caller; login name+secret (from chat)

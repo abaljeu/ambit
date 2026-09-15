@@ -141,6 +141,7 @@ module RouteRegistration =
         let core = persistence.Core
         CoreAuth.bindHandle
             { authority = Authority "Parse"
+              name = ""
               secret = core.browserCredential }
             (core.changes ())
 
@@ -247,7 +248,7 @@ module RouteRegistration =
                             auth.ExpectedUser
                             auth.ExpectedPass)
                 let! loginResult =
-                    persistence.Core.login token |> Async.StartAsTask
+                    persistence.Core.login "" token |> Async.StartAsTask
                 match loginResult with
                 | Error _ -> return Results.Redirect("/ambit/login?error=1")
                 | Ok () -> return Results.Redirect("/ambit")

@@ -125,31 +125,33 @@ let testSecret = Credential "test-secret"
 
 let testCaller =
     { authority = testAuthority
+      name = "test"
       secret = testSecret }
 
-/// Browser secrets the mailbox holds at host start (no public add).
-let admittedSecrets = Set.singleton testSecret
+/// Admitted Callers the mailbox holds at host start (no public add).
+let admittedCredentials =
+    CoreCredentials.ofCallers (Set.singleton testCaller)
 
 let admittedHostFile (file: FileAgent) =
     CoreMailbox.host
         (CoreActorPool.create ())
         (FileAgent.persist file)
-        admittedSecrets
+        admittedCredentials
 
 let admittedHostDb (db: DbAgent) =
     CoreMailbox.host
         (CoreActorPool.create ())
         (DbAgent.persist db)
-        admittedSecrets
+        admittedCredentials
 
 let createAdmittedFile (dataDir: string) =
-    let host = CoreMailbox.createFile dataDir admittedSecrets
+    let host = CoreMailbox.createFile dataDir admittedCredentials
     let handle = CoreMailbox.coreChanges host testCaller
     host, handle
 
 /// Same as createAdmittedFile. Third value is the admitted Browser secret.
 let createAdmittedFileWithCredentials (dataDir: string) =
-    let host = CoreMailbox.createFile dataDir admittedSecrets
+    let host = CoreMailbox.createFile dataDir admittedCredentials
     let handle = CoreMailbox.coreChanges host testCaller
     host, handle, testSecret
 

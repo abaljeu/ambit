@@ -34,6 +34,7 @@ let private addRootChild text =
 
 let private actorCaller secret =
     { authority = Authority "Actor"
+      name = ""
       secret = secret }
 
 let private recordingPool () =
@@ -64,7 +65,7 @@ let private createHost dataDir pool =
     CoreMailbox.host
         pool
         (FileAgent.persist (FileAgent.create dataDir))
-        admittedSecrets
+        admittedCredentials
 
 let private withHost pool body =
     task {
@@ -139,6 +140,7 @@ let ``StartActor with inactive secret does not hand off`` () =
             postStartActor
                 host
                 { authority = testAuthority
+                  name = testCaller.name
                   secret = Credential "inactive" }
                 sampleRequest
             |> Async.StartAsTask
@@ -154,6 +156,7 @@ let ``StartActor with blank Authority does not hand off`` () =
             postStartActor
                 host
                 { authority = Authority "  "
+                  name = testCaller.name
                   secret = testSecret }
                 sampleRequest
             |> Async.StartAsTask
@@ -201,8 +204,7 @@ let ``Browser PostChange does not require a live row`` () =
         let! result =
             CoreMailbox.postChange
                 host
-                { authority = Authority "Browser"
-                  secret = testSecret }
+                testCaller
                 [ addRootChild "browser" ]
             |> Async.StartAsTask
         let accepted = requireOk "Browser post" result

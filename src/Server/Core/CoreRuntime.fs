@@ -9,7 +9,7 @@ type CoreRuntime =
       browserChanges: Credential -> CoreChanges
       browserAuthority: Authority
       browserCredential: Credential
-      login: Credential -> Async<Result<unit, string>>
+      login: string -> Credential -> Async<Result<unit, string>>
       isAdmitted: Credential -> Async<bool>
       flushFileSnapshot: unit -> Async<Result<unit, string>>
       getFileRevision: unit -> Async<Revision> }
@@ -40,7 +40,7 @@ module CoreRuntime =
         (pool: CoreActorPool)
         (dbConnectionString: string)
         (dataDir: string)
-        (initialSecrets: Set<Credential>)
+        (credentials: CoreCredentials)
         : MailboxHost =
         match persistenceMode, dbStatus with
         | DatabaseSetup.PersistenceMode.Db, DatabaseSetup.DbStatus.Ok ->
@@ -48,12 +48,12 @@ module CoreRuntime =
                 pool
                 (DbAgent.persist
                     (DbAgent.createWithDataDir dbConnectionString dataDir))
-                initialSecrets
+                credentials
         | _ ->
             CoreMailbox.host
                 pool
                 (FileAgent.persist (FileAgent.create dataDir))
-                initialSecrets
+                credentials
 
     let private bindRuntime
         host
@@ -65,21 +65,30 @@ module CoreRuntime =
             fun () ->
                 makeHandle
                     { authority = browserAuthority
+                      name = ""
                       secret = browserCredential }
           bindChanges =
             fun sender ->
                 makeHandle
                     { authority = Authority "Caller"
+                      name = ""
                       secret = sender }
           browserChanges =
             fun secret ->
                 makeHandle
                     { authority = browserAuthority
+                      name = ""
                       secret = secret }
           browserAuthority = browserAuthority
           browserCredential = browserCredential
-          login = fun secret -> CoreMailbox.login host secret
-          isAdmitted = fun secret -> CoreMailbox.isAdmitted host secret
+          login = fun name secret -> CoreMailbox.login host name secret
+          isAdmitted =
+            fun secret ->
+                CoreMailbox.isAdmitted
+                    host
+                    { authority = browserAuthority
+                      name = ""
+                      secret = secret }
           flushFileSnapshot = fun () -> CoreMailbox.flushSnapshot host
           getFileRevision = fun () -> CoreMailbox.getRevision host }
 
@@ -105,7 +114,11 @@ module CoreRuntime =
                 pool
                 dbConnectionString
                 dataDir
-                (Set.singleton browserCredential)
+                (CoreCredentials.ofCallers (
+                    Set.singleton
+                        { authority = browserAuthority
+                          name = ""
+                          secret = browserCredential }))
         let writable =
             persistenceMode <> DatabaseSetup.PersistenceMode.Db
             || dbStatus = DatabaseSetup.DbStatus.Ok

@@ -62,6 +62,7 @@ let private sampleRequest focusId commandId graphIds: StartActorRequest =
 
 let private actorCaller secret =
     { authority = Authority "Actor"
+      name = ""
       secret = secret }
 
 let private createHost () =
@@ -72,7 +73,7 @@ let private createHost () =
         CoreMailbox.host
             pool
             (FileAgent.persist (FileAgent.create dataDir))
-            admittedSecrets
+            admittedCredentials
     host, pool
 
 let private withHost body =

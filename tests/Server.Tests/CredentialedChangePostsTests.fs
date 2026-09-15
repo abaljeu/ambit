@@ -55,6 +55,7 @@ let ``inactive credential is auth-refused before PersistHandlers`` () = task {
             CoreMailbox.postChange
                 agent
                 { authority = Authority "Browser"
+                  name = ""
                   secret = Credential "inactive" }
                 [ addRootChild "nope" ]
             |> Async.StartAsTask
@@ -76,6 +77,7 @@ let ``blank Authority is the same auth refuse before PersistHandlers`` () =
                 CoreMailbox.postChange
                     agent
                     { authority = Authority "   "
+                      name = testCaller.name
                       secret = testSecret }
                     [ addRootChild "blank-auth" ]
                 |> Async.StartAsTask

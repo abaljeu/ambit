@@ -12,10 +12,9 @@ open Gambol.Shared
 ///   as Browser Changes; no second Actor mailbox.
 ///
 /// Secrets:
-/// - The mailbox owns the Browser secret set on the loop thread.
-/// - There is no public add-credential door. Login is a mailbox message;
-///   the mailbox privately adds that Browser secret. Actor liveness is
-///   the live row, not this set.
+/// - The mailbox owns one CoreCredentials set of Caller on the loop.
+/// - There is no public add-credential door. Login maps name+secret to a
+///   Browser Caller and adds it. Actor liveness is the live row, not this set.
 ///
 /// Data exposure:
 /// - getState: Read the Graph with lockPresent overlay. Returns Graph facts only.
@@ -93,15 +92,21 @@ module CoreMailbox =
 
     let login
         (host: MailboxHost)
+        (name: string)
         (secret: Credential)
         : Async<Result<unit, string>> =
-        host.mailbox.PostAndAsyncReply(fun reply -> Login(secret, reply))
+        let caller =
+            { authority = Authority "Browser"
+              name = name
+              secret = secret }
+        host.mailbox.PostAndAsyncReply(fun reply -> Login(caller, reply))
 
     let isAdmitted
         (host: MailboxHost)
-        (secret: Credential)
+        (caller: Caller)
         : Async<bool> =
-        host.mailbox.PostAndAsyncReply(fun reply -> AdmitSecret(secret, reply))
+        host.mailbox.PostAndAsyncReply(fun reply ->
+            AdmitCaller(caller, reply))
 
     let coreChanges
         (host: MailboxHost)
@@ -128,20 +133,20 @@ module CoreMailbox =
     let host
         (pool: CoreActorPool)
         (persist: PersistFilling)
-        (initialSecrets: Set<Credential>)
+        (credentials: CoreCredentials)
         : MailboxHost =
         let mailbox =
             match persist.until with
             | None ->
                 CoreMailboxBackend.start
-                    initialSecrets
+                    credentials
                     persist.handlers
                     pool
                     persist.onError
                     persist.formatError
             | Some until ->
                 CoreMailboxBackend.startWithPrelude
-                    initialSecrets
+                    credentials
                     persist.handlers
                     pool
                     persist.onError
@@ -155,29 +160,29 @@ module CoreMailbox =
 
     let createFile
         (dataDir: string)
-        (initialSecrets: Set<Credential>)
+        (credentials: CoreCredentials)
         : MailboxHost =
         host
             (CoreActorPool.create ())
             (FileAgent.persist (FileAgent.create dataDir))
-            initialSecrets
+            credentials
 
     let createDb
         (connectionString: string)
-        (initialSecrets: Set<Credential>)
+        (credentials: CoreCredentials)
         : MailboxHost =
         host
             (CoreActorPool.create ())
             (DbAgent.persist (DbAgent.create connectionString))
-            initialSecrets
+            credentials
 
     let createDbWithDataDir
         (connectionString: string)
         (dataDir: string)
-        (initialSecrets: Set<Credential>)
+        (credentials: CoreCredentials)
         : MailboxHost =
         host
             (CoreActorPool.create ())
             (DbAgent.persist
                 (DbAgent.createWithDataDir connectionString dataDir))
-            initialSecrets
+            credentials

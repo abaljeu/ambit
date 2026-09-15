@@ -2,6 +2,26 @@ namespace Gambol.Server
 
 open Gambol.Shared
 
+/// Mailbox-owned admitted Caller set. Not a second inbox.
+type CoreCredentials = private { callers: Set<Caller> }
+
+[<RequireQualifiedAccess>]
+module CoreCredentials =
+
+    let empty = { callers = Set.empty }
+
+    let ofCallers (callers: Set<Caller>) : CoreCredentials =
+        { callers = callers }
+
+    let add (caller: Caller) (creds: CoreCredentials) =
+        { callers = Set.add caller creds.callers }
+
+    let remove (caller: Caller) (creds: CoreCredentials) =
+        { callers = Set.remove caller creds.callers }
+
+    let contains (caller: Caller) (creds: CoreCredentials) =
+        Set.contains caller creds.callers
+
 type CoreAdmissionError =
     | Unauthorized
     | UnknownJob

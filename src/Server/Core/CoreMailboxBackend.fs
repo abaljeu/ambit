@@ -27,9 +27,9 @@ type CoreMsg =
         result: ActorResult *
         AsyncReplyChannel<Result<unit, string>>
     | Login of
-        Credential *
+        Caller *
         AsyncReplyChannel<Result<unit, string>>
-    | AdmitSecret of Credential * AsyncReplyChannel<bool>
+    | AdmitCaller of Caller * AsyncReplyChannel<bool>
 
 type PersistHandlers = {
     getState: unit -> Result<State, string>
@@ -101,7 +101,7 @@ module internal CoreMailboxBackend =
             | ActorSucceeded -> "ActorStop", "ActorSucceeded"
             | ActorFailed -> "ActorStop", "ActorFailed"
         | Login _ -> "Login", ""
-        | AdmitSecret _ -> "AdmitSecret", ""
+        | AdmitCaller _ -> "AdmitCaller", ""
 
     let replyFailure error msg =
         match msg with
@@ -115,10 +115,10 @@ module internal CoreMailboxBackend =
         | StartActor (_, _, reply) -> reply.Reply(Error error)
         | ActorStop (_, _, reply) -> reply.Reply(Error error)
         | Login (_, reply) -> reply.Reply(Error error)
-        | AdmitSecret (_, reply) -> reply.Reply(false)
+        | AdmitCaller (_, reply) -> reply.Reply(false)
 
     type private MailboxContext = {
-        secrets: Set<Credential> ref
+        credentials: CoreCredentials ref
         persist: PersistHandlers
         pool: CoreActorPool
         onError: string -> string -> exn -> unit
@@ -127,11 +127,12 @@ module internal CoreMailboxBackend =
         mailbox: MailboxProcessor<CoreMsg> option ref
     }
 
-    let private addSecret (context: MailboxContext) secret =
-        context.secrets.Value <- Set.add secret context.secrets.Value
+    let private addCaller (context: MailboxContext) caller =
+        context.credentials.Value <-
+            CoreCredentials.add caller context.credentials.Value
 
-    let private hasBrowserSecret (context: MailboxContext) secret =
-        Set.contains secret context.secrets.Value
+    let private hasCaller (context: MailboxContext) caller =
+        CoreCredentials.contains caller context.credentials.Value
 
     let private admitCaller (context: MailboxContext) (caller: Caller) =
         match caller.authority with
@@ -142,7 +143,7 @@ module internal CoreMailboxBackend =
             | Error err -> Error(CoreAdmissionError.text err)
             | Ok () -> Ok ()
         | _ ->
-            match CoreAuth.admit (hasBrowserSecret context caller.secret) with
+            match CoreAuth.admit (hasCaller context caller) with
             | Error err -> Error(CoreAdmissionError.text err)
             | Ok () -> Ok ()
 
@@ -288,11 +289,11 @@ module internal CoreMailboxBackend =
             dispatchStartActor context caller request reply
         | ActorStop (caller, result, reply) ->
             dispatchActorStop context caller result reply
-        | Login (secret, reply) ->
-            addSecret context secret
+        | Login (caller, reply) ->
+            addCaller context caller
             reply.Reply(Ok ())
-        | AdmitSecret (secret, reply) ->
-            reply.Reply(hasBrowserSecret context secret)
+        | AdmitCaller (caller, reply) ->
+            reply.Reply(hasCaller context caller)
 
     let private dispatch (contex: MailboxContext) (msg: CoreMsg) : unit =
         try
@@ -308,8 +309,8 @@ module internal CoreMailboxBackend =
             with _ ->
                 ()
 
-    let private makeMailBox initialSecrets persist pool onError formatError : MailboxContext =
-        { secrets = ref initialSecrets
+    let private makeMailBox credentials persist pool onError formatError : MailboxContext =
+        { credentials = ref credentials
           persist = persist
           pool = pool
           onError = onError
@@ -318,13 +319,13 @@ module internal CoreMailboxBackend =
           mailbox = ref None }
 
     let start
-        (initialSecrets: Set<Credential>)
+        (credentials: CoreCredentials)
         (persist: PersistHandlers)
         (pool: CoreActorPool)
         (onError: string -> string -> exn -> unit)
         (formatError: string -> string)
         : MailboxProcessor<CoreMsg> =
-        let context = makeMailBox initialSecrets persist pool onError formatError
+        let context = makeMailBox credentials persist pool onError formatError
         let mailbox = MailboxProcessor<CoreMsg>.Start(fun inbox ->
             let rec pump () = async {
                 let! msg = inbox.Receive()
@@ -337,7 +338,7 @@ module internal CoreMailboxBackend =
         mailbox
 
     let startWithPrelude
-        (initialSecrets: Set<Credential>)
+        (credentials: CoreCredentials)
         (persist: PersistHandlers)
         (pool: CoreActorPool)
         (onError: string -> string -> exn -> unit)
@@ -351,7 +352,7 @@ module internal CoreMailboxBackend =
                 with ex ->
                     Error $"Startup prelude failed: {ex.Message}")
 
-        let context = makeMailBox initialSecrets persist pool onError formatError
+        let context = makeMailBox credentials persist pool onError formatError
         let failedHandlers error : PersistHandlers = {
             getState = persist.getState
             getRevision = persist.getRevision
