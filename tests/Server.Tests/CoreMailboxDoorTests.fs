@@ -172,8 +172,8 @@ let ``CoreMailbox.actorStop with valid credential drops live row`` () =
     let recordingPool: CoreActorPool = {
         register = fun _ _ -> ()
         startActor =
-            fun request _ ->
-                Ok { secret = actorSecret; focusId = request.focusId }
+            fun _ _ ->
+                Ok actorSecret
         schedule = fun _ _ -> ()
         isLive = fun secret -> live.Contains secret
         admit = fun _ -> Ok ()
@@ -250,8 +250,8 @@ let ``CoreMailbox.actorStop appends ActorFinished and drops live row`` () =
     let recordingPool: CoreActorPool = {
         register = fun _ _ -> ()
         startActor =
-            fun request _ ->
-                Ok { secret = actorSecret; focusId = request.focusId }
+            fun _ _ ->
+                Ok actorSecret
         schedule = fun _ _ -> ()
         isLive = fun secret -> live.Contains secret
         admit = fun _ -> Ok ()

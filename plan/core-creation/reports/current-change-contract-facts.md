@@ -193,5 +193,5 @@ Upload structure POST also uses `SyncBatch.toWireBatch` + POST changes before wo
 - **Change**: graph modification unit; multiple Ops; one Action kind ([[CONTEXT.md]]).
 - **Revision**: number of an Action (Change, Undo, Redo) ([[CONTEXT.md]]).
 - **Poll**: request for Actions since a known Revision ([[CONTEXT.md]]).
-- **ChangeLog**: server's durable ordered log of Changes ([[CONTEXT.md]]).
+- **EventLog**: the server's Event sequence ([[CONTEXT.md]]). Today’s [[src/Server/ChangeLog.fs]] is the lagging persist name.
 - **ChangeRequest**: client pending-queue unit (Change, Undo, or Redo) ([[CONTEXT.md]]).

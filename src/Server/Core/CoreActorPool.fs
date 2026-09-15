@@ -23,15 +23,10 @@ type ActorInput =
 
 type ActorFn = ActorInput -> CoreChanges -> Async<unit>
 
-/// Live-row facts the mailbox needs after pool start (no History, no schedule).
-type ActorStart =
-    { secret: Credential
-      focusId: NodeId }
-
 type CoreActorPool =
     { register: ActorName -> ActorFn -> unit
       startActor:
-        StartActorRequest -> (unit -> Graph) -> Result<ActorStart, string>
+        StartActorRequest -> (unit -> Graph) -> Result<Credential, string>
       schedule: Credential -> CoreChanges -> unit
       isLive: Credential -> bool
       admit: Credential -> Result<unit, string>
@@ -127,7 +122,7 @@ module CoreActorPool =
                         secret
                         request.focusId
                         { actorFn = actorFn; input = input }
-                    Ok { secret = secret; focusId = request.focusId }
+                    Ok secret
 
     let private takePending (model: Model) secret =
         match Map.tryFind secret model.live with

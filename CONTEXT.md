@@ -215,7 +215,7 @@ _Avoid_: web API, REST, `/ambit` (those are HTTP Adapters that may call Core API
 
 **State**:
 The Graph data Core exposes (what people mean by the `/state` / getState graph payload, the StateResponse). Reserved for this Graph-data meaning; do not use State for Events, History, Actor lifecycle, or code type nicknames unless that Graph-data meaning.
-_Avoid_: mapState, treating History or ActorStarted/ActorFinished as State, using State as a synonym for Event or the full server record
+_Avoid_: mapState, treating History or ActorStart/ActorStop as State, using State as a synonym for Event or the full server record
 
 **Authority**:
 A named source that submits requests to Core and is recorded on accepted Events. Browser identities, Actors, Cursor, Zapier, and Amble are Authorities.
@@ -270,20 +270,24 @@ An Action that re-applies after Undo, following Emacs undo semantics; numbered l
 _Avoid_: un-undo
 
 **Event**:
-One durable record in the global ordered sequence. An Event is a Change, Undo, Redo, ActorStarted, or ActorFinished.
+One durable record in EventLog. An Event is a Change, Undo, Redo, ActorStart, or ActorStop.
 _Avoid_: Action (when lifecycle Events are included), audit record
 
 **event id**:
-The unique ordered position of an Event in the global Event sequence.
+The unique ordered position of an Event in EventLog.
 _Avoid_: Revision, EventPosition, version, change id
 
 **Revision**:
 Retired name for **event id**. There is no separate Revision counter.
 _Avoid_: Revision
 
+**EventLog**:
+The server's Event sequence.
+_Avoid_: ChangeLog
+
 **History**:
 The Graph-Action view of relevant Events used by Undo and Redo. Ambit has no separate History or audit UI application.
-_Avoid_: the full Event sequence, audit log
+_Avoid_: EventLog (for this view), the full Event sequence, audit log
 
 **Sync**:
 Keeping Browser and Server Graphs aligned by exchanging Actions (and related residency work). Not a synonym for Load.
@@ -336,7 +340,6 @@ These terms are permitted with standard definition:
 - **SiteMap**: the client's derived view index over the resident Graph.
 - **ChangeRequest**: the client's pending-queue and submit-payload unit (Change, Undo, or Redo).
 - **StateResponse**: the `/state` endpoint's response payload.
-- **ChangeLog**: the server's durable ordered log of Changes.
 - **Session**: one webpage lifetime from load to refresh or close.
 - **Selection**: the set of Nodes a user has currently selected.  It will always be a range of children of a node.
 - **Focus**: the active node.  It will always be the first or last of selection.

@@ -155,9 +155,9 @@ module internal CoreMailboxBackend =
                     | Error _ -> Graph.create ()
                 match context.pool.startActor request getState with
                 | Error err -> reply.Reply(Error err)
-                | Ok started ->
-                    recordActorStarted context started.focusId
-                    context.pool.schedule started.secret (make caller)
+                | Ok secret ->
+                    recordActorStarted context request.focusId
+                    context.pool.schedule secret (make caller)
                     reply.Reply(Ok ())
 
     let private dispatchActorStop

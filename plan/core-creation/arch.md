@@ -3,10 +3,11 @@
 Spec: [[issues/Implementation Planning and Record.md]] (Phase 2 Spec); hello stories from [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]], [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]], and [[issues/29-prove-testactor-hello.md|Prove TestActor hello]]. No Project `spec.md` yet.
 Updated: 2026-09-15
 Sequence: tracer-cut
+Event stories Sequence: expand-migrate-contract
 
-Feature under design: the hello slice of the one-mailbox Actor program locked by [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]]. Prefer existing seams. Do not open Wayfinder map tickets for items under Unsettled. Story hops name modules and doors; State / Interface / Uses live only under Module map (thin hops / fat map).
+Feature under design: the hello slice of the one-mailbox Actor program locked by [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]], plus the Event destination locked in [[reports/event-abstraction.md]]. Prefer existing seams. Do not open Wayfinder map tickets for items under Unsettled. Story hops name modules and doors; State / Interface / Uses live only under Module map (thin hops / fat map). Field shapes for Event, EventLog, History, and `postEvent` live in [[reports/event-abstraction.md]].
 
-Implementation status for this cut: Point 0 loop code is shared ([[issues/30-reshape-coreactorpool-synchronized-table.md]], [[issues/31-one-coremsg-loop-parameterized-persist.md]], [[issues/32-move-persist-agents-under-coremailbox.md]]). Register-then-start one host. Mailbox-owned live table (no lock). Story path **Outside Core lifecycle proof** is implemented ([[issues/34b-outside-core-lifecycle-proof.md|34b — Outside Core lifecycle proof]]). Story path **Browser Run hello** is not. [[issues/29-prove-testactor-hello.md|Prove TestActor hello]] remaining Browser sections stay on [[issues/35b-browser-run-hello.md|35b — Browser Run hello]].
+Implementation status for this cut: Point 0 loop code is shared ([[issues/30-reshape-coreactorpool-synchronized-table.md]], [[issues/31-one-coremsg-loop-parameterized-persist.md]], [[issues/32-move-persist-agents-under-coremailbox.md]]). Register-then-start one host. Mailbox-owned live table (no lock). Story path **Outside Core lifecycle proof** is implemented ([[issues/34b-outside-core-lifecycle-proof.md|34b — Outside Core lifecycle proof]]). Story path **Browser Run hello** is not. [[issues/29-prove-testactor-hello.md|Prove TestActor hello]] remaining Browser sections stay on [[issues/35b-browser-run-hello.md|35b — Browser Run hello]]. Stories **Event, EventLog, and History** and **Caller, persist, and Poll** sequence the Event destination as expand-migrate-contract.
 
 ## 1. Story paths
 
@@ -40,8 +41,39 @@ Implementation status for this cut: Point 0 loop code is shared ([[issues/30-res
    2. [x] HTTP Adapter encodes Change + credentials
    3. [x] CoreMailbox `postChange`
    4. [x] CoreMsg validates Browser credentials before PersistHandlers
+4. **Event, EventLog, and History**
+   Sequence: expand-migrate-contract. Locked interface: [[reports/event-abstraction.md]]. Shared slice only.
+   1. **Expand**
+      1. [ ] Additive Shared `EventId`, `ActorStart`, `EventBody`, `Event`
+      2. [ ] Event module: `id`, `authority`, `ops`, `target`, `apply`, `inverseOps`
+      3. [ ] EventLog module: `empty`, `append`, `nextId`, `since`, `tryFind`, `restore`
+      4. [ ] History module: Emacs Actions only — `record`, `undo` / `redo`, `tryPeekUndoName` / `tryPeekRedoName`
+      5. [ ] `Authority`, `ActorStart`, and `ActorResult` live in Shared with Event
+      6. [ ] Shared.Tests: append/since/tryFind; restore dedupe; `History.record` fold; undo produces `Undo(target, inverseOps)` and redo names the Undo Event; Actor bodies do not apply; `Event.apply` of Undo/Redo uses carried Ops; every Event carries `Authority`; `ActorStart` body equals the start request; `ActorStop` carries `ActorResult`
+      7. [ ] `ClientHistory` and `HistoryEvent` still compile
+   2. **Migrate**
+      1. [ ] No production callers in this story
+   3. **Contract**
+      1. [ ] No delete of `HistoryEvent`, `ActorLifecycleEvent`, or `ClientHistory` in this story
+5. **Caller, persist, and Poll**
+   Sequence: expand-migrate-contract. Follows **Event, EventLog, and History**.
+   1. **Expand**
+      1. [ ] `postEvent` door on CoreMailbox; payload is Event
+      2. [ ] mailbox store is `EventLog ref`
+      3. [ ] persist EventLog as Event JSON (today’s [[src/Server/ChangeLog.fs]])
+   2. **Migrate**
+      1. [ ] Changes callers use `postEvent`; name-only Undo/Redo may carry only `target`; dispatch fills inverse Ops
+      2. [ ] `GetEventHistory` returns the log or `since`, not a two-stack
+      3. [ ] Poll returns an Event tail
+      4. [ ] persist ActorStart / ActorStop
+      5. [ ] Browser `ClientHistory` callers use History
+      6. [ ] every start request is `ActorStart`; Core stamps `authority` from the admitted Caller
+   3. **Contract**
+      1. [ ] Delete `HistoryEvent`, `ActorLifecycleEvent`, and `ClientHistory` once no caller remains
+      2. [ ] Delete the name `StartActorRequest` once every caller says `ActorStart`
+      3. [ ] Drop the ChangeLog name; persist is EventLog
 
-Composition: Each Story path above is a complete end-to-end hop list. Shared segments below factor hop sequences that appear in more than one path (for core modules / test seam); they are not missing hops to splice into a path.
+Composition: Story paths 1–3 are tracer-cut hop lists. Stories **Event, EventLog, and History** and **Caller, persist, and Poll** are expand-migrate-contract. Shared segments below factor hop sequences that appear in more than one hello path (for core modules / test seam); they are not missing hops to splice into a path.
 
 Shared segments across 1 and 2:
 1. [ ] StartActor through HTTP / Core / Pool
@@ -59,32 +91,45 @@ Shared segment with path 3:
 Narrowest shared test seam:
 1. [x] CoreActorPool start and/or TestActor body input — not HTTP encoding, not PersistHandlers, not TestActor private helpers
 
+Narrowest test seam for Story **Event, EventLog, and History**:
+1. [ ] Shared Event / EventLog / History functions
+
+Narrowest test seam for Story **Caller, persist, and Poll**:
+1. [ ] CoreMailbox `postEvent` and EventLog `since`
+
 ## 2. Module map
 
-Deltas for this Project’s hello / one-mailbox Actor program. Persist fillings and the generic CoreMailbox door from Point 0 stay; this map names how Actor work and credentialed Change posts attach. There is no Actor event sequence outside the mailbox: only CoreMailbox and History. Sole home of field shapes, validation, and event policy for this cut.
+Mailbox is intake. EventLog is the store after the mailbox has taken it. History is the Emacs view of Actions. Persistence is the persisted EventLog. Same Event type throughout. Field shapes for Event, EventLog, History, and `postEvent` live in [[reports/event-abstraction.md]]. Hello modules keep their State / Interface / Uses here.
 
 1. **CoreMsg / CoreMailboxBackend**
    1. [x] State: the one ordered mailbox loop
    - Interface:
      1. [x] match `CoreMsg` cases
-     2. [x] for `StartActor`, carry `StartActorRequest` (include revision); validate caller Authority and secret; call startActor; reply with that result; do not wait for the Actor body
-     3. [x] for every `PostChange` (Browser or Actor), require and validate Authority and secret before PersistHandlers
-     4. [x] for Actor `PostChange`, admit against the live table (same credential fields, live-row check)
-     5. [x] for `ActorStop` of `ActorResult` (`ActorSucceeded` or `ActorFailed`), append ActorFinished on History, drop the live row and secret, request terminate without waiting
+     2. [ ] for `StartActor`, carry `ActorStart` (include EventId); validate caller Authority and secret; call startActor; reply with that result; do not wait for the Actor body
+     3. [x] for every Changes post (Browser or Actor), require and validate Authority and secret before PersistHandlers
+     4. [x] for Actor Changes posts, admit against the live table (same credential fields, live-row check)
+     5. [ ] for `ActorStop` of `ActorResult` (`ActorSucceeded` or `ActorFailed`), store an ActorStop Event on EventLog, drop the live row and secret, request terminate without waiting
      6. [x] for `GetState`, apply `lockPresent` from the live table on the mailbox thread, then reply; persist getState stays on PersistHandlers
+     7. [ ] stamp `authority` from the admitted Caller on every stored Event
+     8. [ ] name-only Undo/Redo: `tryFind` the target Event, fill inverse Ops, store the completed Event (same `submissionId`)
    - Uses:
      1. [ ] CoreActorPool
      2. [ ] mailbox secret set (Browser) and live-table isLive (Actor). No CoreCredentials mailbox.
-     3. [ ] History
+     3. [ ] EventLog
      4. [ ] PersistHandlers (persist cases only)
 2. **CoreMailbox**
    1. [x] State: none beyond MailboxHost
    - Interface:
-     1. [x] public door on MailboxHost — `startActor` with `zoomId`, `focusId`, `commandId`, `graphIds`; credentialed `postChange` (Browser and Actor); `actorStop`; `eventHistory`; `login` (mailbox privately adds the Browser secret); `isAdmitted` (query). No public add-credential door.
-     2. [x] existing getState / getRevision / getChangesSince / postGraphOnlyChange / createFile / createDb
+     1. [x] public door on MailboxHost — `startActor` with `zoomId`, `focusId`, `commandId`, `graphIds`; `actorStop`; `login` (mailbox privately adds the Browser secret); `isAdmitted` (query). No public add-credential door.
+     2. [ ] `postEvent` is the Changes door. Payload is Event (Change, Undo, Redo). Name-only Undo/Redo may arrive with only `target`
+     3. [x] `postGraphOnlyChange` — Event-shaped Graph work that skips EventLog
+     4. [ ] `eventHistory` is EventLog (the log or `since`), not a two-stack
+     5. [x] getState / getRevision / createFile / createDb
+     6. [ ] `getEventsSince` returns an Event tail
    - Uses:
      1. [ ] MailboxHost
      2. [ ] CoreMsg
+     3. [ ] EventLog
 3. **CoreActorPool**
    - State:
      1. [x] mailbox-owned live table (public Actor identity, secret, termination handle, Focus NodeId); no lock; the mailbox is the only thread that reads or writes the table
@@ -92,25 +137,54 @@ Deltas for this Project’s hello / one-mailbox Actor program. Persist fillings 
      3. [x] thread-pool runner
    - Interface:
      1. [x] `register` finishes before the mailbox starts
-     2. [x] `startActor` receives `StartActorRequest` (`zoomId`, `focusId`, `commandId`, `graphIds`, `revision`)
-     3. [x] expand `graphIds` to a Graph
-     4. [x] read the command Node and select Actor kind (`test` in this slice); create the matching Actor
-     5. [x] startActor prepares and creates the live row and secret only (no History, no schedule). On the mailbox thread: live row → ActorStarted on mailboxHistory → pool.schedule. ActorStarted is in-loop, not PostAndAsyncReply. schedule is fire-and-forget of the body only
-     6. [x] pass Graph plus named `zoomId`, `focusId`, `commandId` and the Actor secret into the Actor
-     7. [x] `admit`, `drop`, `isLive`
-     8. [x] launch / query are gone; `withLocks` / `lockedIds` leave the CoreRuntime wrap
+     2. [ ] `startActor` receives `ActorStart` (`zoomId`, `focusId`, `commandId`, `graphIds`, EventId)
+     3. [x] `startActor` returns `Result<Credential, string>`
+     4. [x] expand `graphIds` to a Graph
+     5. [x] read the command Node and select Actor kind (`test` in this slice); create the matching Actor
+     6. [x] startActor prepares and creates the live row and secret only (no EventLog, no schedule). schedule is fire-and-forget of the body only
+     7. [ ] On the mailbox thread: live row → ActorStart Event on EventLog → pool.schedule. ActorStart is in-loop, not PostAndAsyncReply
+     8. [x] pass Graph plus named `zoomId`, `focusId`, `commandId` and the Actor secret into the Actor
+     9. [x] `admit`, `drop`, `isLive`
+     10. [x] launch / query are gone; `withLocks` / `lockedIds` leave the CoreRuntime wrap
    - Uses:
-     1. [ ] `ActorFn` (injected; Core does not own Actor bodies). Pool does not Use History or CoreCredentials. Live row is Actor liveness.
-4. **History**
-   1. [x] State: ordered past/future sequence extended to carry Actor events alongside Change events
+     1. [ ] `ActorFn` (injected; Core does not own Actor bodies). Pool does not Use EventLog or CoreCredentials. Live row is Actor liveness.
+4. **Event**
+   Field shapes: [[reports/event-abstraction.md]].
+   1. [ ] State: `Event` record (`id`, `submissionId`, `authority`, `body`); `EventBody` is Change / Undo / Redo / ActorStart / ActorStop; `EventId` is the log position
    - Interface:
-     1. [x] `eventHistory` is the mailbox History (undo stack). CoreMailboxBackend is the only writer. ChangeLog is the durable Change stream: the mailbox restores `eventHistory` from it and does not copy persist replies onto a second list. State has no `history` field. getState stays Graph-only
-     2. [x] Undo / Redo still target Change events only
-     3. [x] no second Actor-only event log beside CoreMailbox
-     4. [ ] persist Actor Events on that same History across restart (Change Events already restore from ChangeLog; Undo stays Change-only)
+     1. [ ] `id`, `authority`, `ops` (none for Actor bodies), `target` (none except Undo/Redo)
+     2. [ ] `apply` — Graph apply via those Ops; Actor bodies do not touch the Graph
+     3. [ ] `inverseOps` — used when building Undo/Redo from a target Event
+     4. [ ] `ActorStart` is the start request (zoom, focus, command, graphIds, basis EventId)
+     5. [ ] `ActorStop` is `focusId` plus `ActorResult`
+     6. [ ] every Event carries `Authority`; Core stamps it from the admitted Caller; the wire does not supply it
+     7. [ ] Change is the command-builder product (Ops)
    - Uses:
-     1. [ ] Change / Actor event records as History members
-5. **TestActor** (injected proof Actor; not a Core module)
+     1. [ ] Op, Graph, `Authority`, `ActorResult`
+5. **EventLog**
+   Field shapes: [[reports/event-abstraction.md]].
+   1. [ ] State: append-only oldest-head Event sequence; mailbox store after intake. Persistence is this same EventLog on file/DB (today’s [[src/Server/ChangeLog.fs]]). Not a second log.
+   - Interface:
+     1. [ ] `empty`, `append`, `nextId`
+     2. [ ] `since eventId` — Poll/Load tail (self-contained Events)
+     3. [ ] `tryFind` — Core name-only Undo/Redo
+     4. [ ] `restore` — merge persisted Events; dedupe by `submissionId`
+     5. [x] CoreMailboxBackend is the only writer of the mailbox store. State has no `history` field. getState stays Graph-only
+     6. [x] no second Actor-only event log beside CoreMailbox
+     7. [ ] encode and read Event JSON
+     8. [ ] persist ActorStart / ActorStop
+   - Uses:
+     1. [ ] Event
+6. **History**
+   Field shapes: [[reports/event-abstraction.md]].
+   1. [ ] State: newest-head `past`/`future` of Actions (Change/Undo/Redo); `commandName` for peek. Not persisted. Not sent on Poll
+   - Interface:
+     1. [ ] `record commandName event` — fold `future` into `past`
+     2. [ ] `undo` / `redo` — move the local stack and produce the Undo/Redo Event (target + inverse Ops)
+     3. [ ] `tryPeekUndoName` / `tryPeekRedoName`
+   - Uses:
+     1. [ ] Event (Change / Undo / Redo bodies)
+7. **TestActor** (injected proof Actor; not a Core module)
    1. [x] State: none. The test host registers this ActorFn on CoreActorPool before the mailbox starts.
    - Interface:
      1. [x] `ActorFn` for Actor name `test`
@@ -120,7 +194,7 @@ Deltas for this Project’s hello / one-mailbox Actor program. Persist fillings 
    - Uses:
      1. [ ] CoreChanges (bound through the mailbox)
      2. [ ] Graph
-6. **Loaded descendant id list**
+8. **Loaded descendant id list**
    1. [ ] State: none (Shared pure function)
    - Interface:
      1. [ ] given a Graph and a start NodeId (Zoom root), return a flat `NodeId` list
@@ -132,7 +206,7 @@ Deltas for this Project’s hello / one-mailbox Actor program. Persist fillings 
      7. [ ] same function is reused wherever a Zoom-rooted Loaded id list is needed (Browser Command `graphIds`, Actors, and later callers)
    - Uses:
      1. [ ] Graph / Node (`children`, `childrenStatus`)
-7. **Browser Run**
+9. **Browser Run**
    1. [ ] State: Client selection and current Node text
    - Interface:
      1. [ ] existing Exec / Run command
@@ -143,17 +217,19 @@ Deltas for this Project’s hello / one-mailbox Actor program. Persist fillings 
      1. [ ] HTTP Adapter
      2. [ ] AmbleRun
      3. [ ] Loaded descendant id list
-8. **HTTP Adapter**
+10. **HTTP Adapter**
    1. [ ] State: none (transport)
    - Interface:
      1. [ ] decode Browser Command / Change / Poll
      2. [ ] Command / StartActor transport fields are `zoomId`, `focusId`, `commandId`, `graphIds` — same shape as the Core door and CoreActorPool.startActor
-     3. [x] Change posts carry credentials; pass Authority and secret into CoreMailbox `postChange`
-     4. [ ] call Core through CoreMailbox or CoreRuntime-bound members
-     5. [ ] encode universal `{ nodes; events; latestId }` for Command when that path is exercised (spec lock; not critical path for the hello outside proof)
+     3. [x] Change posts carry credentials
+     4. [ ] Changes posts call CoreMailbox `postEvent`
+     5. [ ] Poll returns an Event tail
+     6. [ ] call Core through CoreMailbox or CoreRuntime-bound members
+     7. [ ] encode universal `{ nodes; events; latestId }` for Command when that path is exercised (spec lock; not critical path for the hello outside proof)
    - Uses:
      1. [ ] CoreMailbox / CoreRuntime
-9. **CoreRuntime**
+11. **CoreRuntime**
    1. [x] State: composed host and registered Actors. Does not export a credentials field.
    - Interface:
      1. [x] one `MailboxProcessor<CoreMsg>`; persist mode chooses File or Db handlers (not File-with-Db-mirror)
@@ -162,35 +238,41 @@ Deltas for this Project’s hello / one-mailbox Actor program. Persist fillings 
    - Uses:
      1. [ ] CoreMailbox
      2. [ ] CoreActorPool
-10. **PersistHandlers**
+12. **PersistHandlers**
    1. [x] State: File or Db persist implementation behind the loop
    - Interface:
-     1. [x] getState, getRevision, getChangesSince, postChange, postGraphOnlyChange, snapshotDone
-     2. [x] Actor cases are not on this parameter
+     1. [x] getState, getRevision, postGraphOnlyChange, snapshotDone
+     2. [ ] getEventsSince / persist EventLog
+     3. [x] Actor cases are not on this parameter
    - Uses:
      1. [ ] FileAgent / DbAgent fill persist only (handlers, flush, ready, dispose); they do not dispatch Actor cases and are not Actor mailboxes
+     2. [ ] EventLog (today’s [[src/Server/ChangeLog.fs]])
 
 ## 3. Seams
 
 1. [x] **CoreMailbox door** — External seam for production and HTTP. Interface on **CoreMailbox**.
 2. [x] **CoreMsg union** — Internal one-mailbox seam. Interface on **CoreMsg / CoreMailboxBackend**. No second Actor mailbox or nested `ActorMsg` pump in this slice.
-3. [x] **CoreActorPool table and start** — Live registry plus start/schedule seam only. Interface on **CoreActorPool**. Table is the single registry (no second copy in loop state). Access is mailbox-owned, so not a lock around the live table. Pool does not take or write History.
-4. [x] **History** — Interface on mailbox **History** (`MailboxContext.eventHistory`, door `eventHistory`). One undo-stack sequence; no Actor event log outside CoreMailbox. ActorStarted is recorded on the mailbox loop before the body runs. ChangeLog is durability for Change Events, not a second in-memory copy.
-5. [x] **ActorFn / TestActor input** — Definition and body-input seam. Interface on **TestActor** (outside Core). Callers pass ActorFn into **CoreActorPool.register** / **CoreRuntime.create**. Core does not embed Actor bodies.
-6. [x] **PersistHandlers** — Persist seam already landed by [[issues/31-one-coremsg-loop-parameterized-persist.md|One CoreMsg loop parameterized persist]] and [[issues/32-move-persist-agents-under-coremailbox.md|Move persist agents under CoreMailbox]]. Hello does not widen it. Actor cases stay off this parameter. File and Db are not Actor mailboxes. Interface on **PersistHandlers**.
-7. [x] **Credentialed Change posts** — Browser and Actor posts validate via **CoreMsg** before PersistHandlers; Actor also admits on the live table. Story path 3 is Browser Change posts only.
-8. [ ] **Loaded descendant id list** — Shared Zoom-rooted Loaded id walk. Interface on **Loaded descendant id list**. Browser Command `graphIds` and Actor reuse call the same function.
-9. [x] **Test seam for this tracer** — Story path 2: harness at CoreActorPool or TestActor. Outer facts assert Graph and lifecycle; TestActor does not assert. HTTP universal-response encoding is not on the outside-proof critical path.
+3. [x] **CoreActorPool table and start** — Live registry plus start/schedule seam only. Interface on **CoreActorPool**. Table is the single registry (no second copy in loop state). Access is mailbox-owned, so not a lock around the live table. Pool does not take or write EventLog.
+4. [ ] **Event** — Shared Event type and functions. Interface on **Event**. Field shapes: [[reports/event-abstraction.md]].
+5. [ ] **EventLog** — Mailbox store after intake; persist is this same EventLog on file/DB. Interface on **EventLog**. `since` is the Poll/Load tail.
+6. [ ] **History** — Emacs Action view. Interface on **History**. Not persisted. Not sent on Poll.
+7. [ ] **`postEvent` door** — Changes door. Interface on **CoreMailbox**. Payload is Event.
+8. [x] **ActorFn / TestActor input** — Definition and body-input seam. Interface on **TestActor** (outside Core). Callers pass ActorFn into **CoreActorPool.register** / **CoreRuntime.create**. Core does not embed Actor bodies.
+9. [x] **PersistHandlers** — Persist seam already landed by [[issues/31-one-coremsg-loop-parameterized-persist.md|One CoreMsg loop parameterized persist]] and [[issues/32-move-persist-agents-under-coremailbox.md|Move persist agents under CoreMailbox]]. Hello does not widen it. Actor cases stay off this parameter. File and Db are not Actor mailboxes. Interface on **PersistHandlers**.
+10. [x] **Credentialed Change posts** — Browser and Actor posts validate via **CoreMsg** before PersistHandlers; Actor also admits on the live table. Story path 3 is Browser Change posts only.
+11. [ ] **Loaded descendant id list** — Shared Zoom-rooted Loaded id walk. Interface on **Loaded descendant id list**. Browser Command `graphIds` and Actor reuse call the same function.
+12. [x] **Test seam for this tracer** — Story path 2: harness at CoreActorPool or TestActor. Outer facts assert Graph and lifecycle; TestActor does not assert. HTTP universal-response encoding is not on the outside-proof critical path.
 
 ## 4. Alternative considered
 
-1. **Chosen** — One CoreMsg loop owns fast messages (`StartActor`, credentialed admit-before-`PostChange`, `ActorStop`) and live-table access. CoreActorPool.startActor is synchronous prepare (validate, live row, secret) and returns ActorStart; the mailbox writes ActorStarted on mailboxHistory, then pool.schedule fires the body. The mailbox does not wait for the body. CoreActorPool owns the table data, defs, selection, and runner; it does not Use History. Persist mode chooses File or Db handlers; there is no File-with-Db-mirror. Browser Command `graphIds` come from Shared **Loaded descendant id list** (Zoom root + Loaded children only; flat ids; ownership ignored; reusable by Actors). TestActor (outside Core) owns command-Node interpretation (hello) and is passed in as ActorFn. Production callers use the CoreMailbox door; outside proofs may call Pool or Actor at those seams. Mailbox History carries Actor events with Change events; Undo stays Change-only. Matches [[doc/Decisions/0004-core-mailbox-messages-clear-fast.md]], Point 0 loop code (tickets 30–32), and Alan’s lock that the live registry is CoreActorPool’s data.
+1. **Chosen** — One CoreMsg loop owns fast messages (`StartActor`, credentialed admit-before-`PostChange`, `ActorStop`) and live-table access. CoreActorPool.startActor is synchronous prepare (validate, live row, secret) and returns `Result<Credential, string>`; the mailbox writes the ActorStart Event on EventLog, then pool.schedule fires the body. The mailbox does not wait for the body. CoreActorPool owns the table data, defs, selection, and runner; it does not Use EventLog. Persist mode chooses File or Db handlers; there is no File-with-Db-mirror. Browser Command `graphIds` come from Shared **Loaded descendant id list** (Zoom root + Loaded children only; flat ids; ownership ignored; reusable by Actors). TestActor (outside Core) owns command-Node interpretation (hello) and is passed in as ActorFn. Production callers use the CoreMailbox door; outside proofs may call Pool or Actor at those seams. Matches [[doc/Decisions/0004-core-mailbox-messages-clear-fast.md]], Point 0 loop code (tickets 30–32), and Alan’s lock that the live registry is CoreActorPool’s data.
 2. **Rejected: mailbox-held second registry** — Keep live rows only in mailbox-loop state and treat the pool as a dumb Task runner. Loses the table as the single live registry; duplicates identity/secret/Focus beside CoreActorPool. Mailbox ownership of access is not a second copy of identity/secret/Focus beside the pool.
 3. **Rejected: nested ActorMsg pump / FileAgent twin mailbox** — Restore a second mailbox or per-agent Actor cases (shape in the stashed [[reports/implement-issue-29-testactor-hello.md]]). File and Db must not start Actor-capable processors. Twin queues for Actor work stay rejected. Violates one-mailbox ordering from [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] and the CoreMailbox-only door from ticket 32.
-4. **Rejected: Actor event sequence outside the mailbox** — A separate EventLog / Actor-only sequence beside CoreMailbox. Misfeature; use only CoreMailbox and History, with Actor events on History.
+4. **Rejected: Actor event sequence outside the mailbox** — A second Actor-only sequence beside CoreMailbox. EventLog is the mailbox store after intake, not a second sequence.
 5. **Deferred past hello** — Cancel, live query, host-stop, post-twice, duplicate terminal, and Interrupted restart stay out of the hello stories. `ActorFailed` is in this slice: same drop as success; TestActor exceptions stop as `ActorFailed`. Record only; do not ticket from Unsettled.
+6. **Chosen Event destination** — One Event type. Mailbox is intake; EventLog is the store; History is the Emacs Action view; persistence is the persisted EventLog. `postEvent` is the Changes door. `ActorStart` is the start request; pool `startActor` returns `Result<Credential, string>`. `authority` is on every Event, stamped from the admitted Caller. Poll returns an Event tail.
 
 ## 5. Unsettled
 
-- Cherry-pick Undo (invert a chosen ChangeEvent; skip Actor Events). Deferred past hello; not a ticket yet.
-- Restore older file versions via actual git (from the commits already made on edits). Deferred past hello; not a ticket yet.
+1. Cherry-pick Undo (invert a chosen Change Event; skip Actor Events). Deferred past hello; not a ticket yet.
+2. Restore older file versions via actual git (from the commits already made on edits). Deferred past hello; not a ticket yet.

@@ -1,6 +1,6 @@
 # Core creation
 
-Stage: build
+Stage: arch
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
 Updated: 2026-09-15
 Started: 2026-09-05
@@ -9,7 +9,7 @@ Actual: 45h35m
 ## Map
 
 - [[plan/core-creation/map.md]] — chart the initial Graph-agent package and later Core decisions.
-- [[plan/core-creation/arch.md]] — hello / one-mailbox Actor program module map (critique before remaining [[plan/core-creation/issues/29-prove-testactor-hello.md|Prove TestActor hello]] sections).
+- [[plan/core-creation/arch.md]] — hello / one-mailbox Actor program module map, plus Event destination. Stories **Event, EventLog, and History** and **Caller, persist, and Poll** are expand-migrate-contract.
 
 ## Committed Decisions
 
@@ -116,6 +116,8 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/reports/gitgateway-routes-type.md]] — GitGateway.Routes for the shell/flush/reconcile clump leftover from [[plan/core-creation/issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]].
 - [[plan/core-creation/reports/actor-corechanges-mailbox-door.md]] — Actors use mailbox `coreChanges`; no second `makeCoreChanges` swallow.
 - [[plan/core-creation/reports/actorstop-single-admit.md]] — ActorStop admits once; `pool.finish` drops without a third admit.
+- [[plan/core-creation/reports/cancel-poll-eventhistory-undo.md]] — Cancelled poll-carried eventHistory / ClientHistory replacement; increment reverted.
+- [[plan/core-creation/reports/event-abstraction.md]] — Locked Event / EventLog / History / `postEvent` destination.
 
 ## Comments
 
@@ -142,4 +144,7 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - 2026-09-15 — GitGateway.Routes for the git registration clump. Status of [[plan/core-creation/issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]] stays `coded`. Report: [[plan/core-creation/reports/gitgateway-routes-type.md]].
 - 2026-09-15 — Actors use mailbox `coreChanges`. Status of [[plan/core-creation/issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]] stays `coded`. Report: [[plan/core-creation/reports/actor-corechanges-mailbox-door.md]].
 - 2026-09-15 — ActorStop admits once. Status of [[plan/core-creation/issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]] stays `coded`. Report: [[plan/core-creation/reports/actorstop-single-admit.md]].
-- 2026-09-15 — Removed State.history. Mailbox `eventHistory` is the one History (undo stack); ChangeLog is durability and restore, not a post-time copy. ClientHistory is leftover and still does Browser undo.
+- 2026-09-15 — Removed State.history. Mailbox `eventHistory` is the one History (undo stack); EventLog is durability and restore, not a post-time copy. ClientHistory is leftover and still does Browser undo.
+- 2026-09-15 — Cancelled poll-carried eventHistory / mailbox undo door. Reverted that increment only. Report: [[plan/core-creation/reports/cancel-poll-eventhistory-undo.md]].
+- 2026-09-15 — `/to-arch` Event destination on existing [[plan/core-creation/arch.md]]. Completed hello stories unchanged. Module map is destination-only. New stories **Event, EventLog, and History** and **Caller, persist, and Poll** are expand-migrate-contract. Stage `arch`. Report: [[plan/core-creation/reports/event-abstraction.md]].
+- 2026-09-15 — EventLog is the Event sequence and its persist. ChangeLog is a lagging code name only (`src/Server/ChangeLog.fs`).

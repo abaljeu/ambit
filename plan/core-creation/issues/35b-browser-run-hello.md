@@ -65,7 +65,7 @@ Make mailbox-owned History survive process restart.
 
 1. [ ] Persist mailbox History — save Change and Actor Events (ChangeEvent, ActorStarted, ActorFinished) so the audit sequence survives restart.
 2. [ ] Load mailbox History — restore the past/future sequence on mailbox startup.
-3. [ ] Graph/ChangeLog durability separate — Graph and ChangeLog persist stays distinct; this slice covers mailbox History only.
+3. [ ] Graph/EventLog durability separate — Graph and EventLog persist stays distinct; this slice covers mailbox History only.
 4. [ ] Undo stays Change-only — do not make Actor lifecycle Events Undo targets; only Changes are undoable.
 
 ### 7. Browser proof

@@ -46,7 +46,7 @@ let private recordingPool () =
         startActor =
             fun request _ ->
                 started.TrySetResult request |> ignore
-                Ok { secret = Credential "recorded"; focusId = request.focusId }
+                Ok (Credential "recorded")
         schedule = fun _ _ -> ()
         isLive = fun secret -> live.Contains secret
         admit = fun _ -> Ok ()
@@ -257,8 +257,8 @@ let ``ActorStop consults isLive once for a live Actor`` () =
     let pool: CoreActorPool = {
         register = fun _ _ -> ()
         startActor =
-            fun request _ ->
-                Ok { secret = actorSecret; focusId = request.focusId }
+            fun _ _ ->
+                Ok actorSecret
         schedule = fun _ _ -> ()
         isLive =
             fun secret ->
