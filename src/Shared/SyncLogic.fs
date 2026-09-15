@@ -28,7 +28,8 @@ module SyncLogic =
         (clientRev: int)
         : SyncState option =
         let codeOutdated = poll.apiVersion <> ApiVersion.current
-        let dataOutdated = poll.revision.Value > clientRev
+        let (Gambol.Shared.Events.EventId pollRev) = poll.revision
+        let dataOutdated = pollRev > clientRev
         if codeOutdated then Some CodeOutdated
         elif dataOutdated then Some DataOutdated
         else None
@@ -51,9 +52,10 @@ module SyncLogic =
         (state: ClientSyncState)
         (projected: State)
         : ClientSyncState =
+        let (Gambol.Shared.Events.EventId rev) = state.revision
         { state with
             graph = projected.graph
-            revision = Revision (state.revision.Value + 1) }
+            revision = Gambol.Shared.Events.EventId (rev + 1) }
 
     let private foldProjectedChanges
         (changes: Change list)
@@ -75,13 +77,13 @@ module SyncLogic =
     let private pendingItem
         (kind: PendingKind)
         (recordId: int)
-        (change: Change)
+        (event: Gambol.Shared.Events.Event)
         : PendingChange =
-        { change = change
+        { event = event
           transition =
             Some
                 { recordId = recordId
-                  submittedChangeId = change.changeId
+                  submittedChangeId = event.submissionId
                   kind = kind } }
 
     /// Apply a Sync response atomically under Loaded rules.
