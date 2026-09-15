@@ -127,46 +127,34 @@ let testCaller =
     { authority = testAuthority
       secret = testSecret }
 
-/// Live test credentials for CoreMailbox posts (mailbox admits before persist).
-let admittedCredentials () =
-    let credentials = CoreCredentials.create ()
-    credentials.add testSecret |> Async.RunSynchronously
-    credentials
+/// Browser secrets the mailbox holds at host start (no public add).
+let admittedSecrets = Set.singleton testSecret
 
 let admittedHostFile (file: FileAgent) =
-    let credentials = admittedCredentials ()
     CoreMailbox.host
-        credentials
-        (CoreActorPool.create credentials)
+        (CoreActorPool.create ())
         (FileAgent.persist file)
+        admittedSecrets
 
 let admittedHostDb (db: DbAgent) =
-    let credentials = admittedCredentials ()
     CoreMailbox.host
-        credentials
-        (CoreActorPool.create credentials)
+        (CoreActorPool.create ())
         (DbAgent.persist db)
+        admittedSecrets
 
 let createAdmittedFile (dataDir: string) =
-    let credentials = admittedCredentials ()
-    let host = CoreMailbox.createFile credentials dataDir
-    let handle =
-        CoreMailbox.coreChanges host credentials testCaller
+    let host = CoreMailbox.createFile dataDir admittedSecrets
+    let handle = CoreMailbox.coreChanges host testCaller
     host, handle
 
-/// Same as createAdmittedFile, and returns the shared credential set (for Actor pool).
+/// Same as createAdmittedFile. Third value is the admitted Browser secret.
 let createAdmittedFileWithCredentials (dataDir: string) =
-    let credentials = admittedCredentials ()
-    let host = CoreMailbox.createFile credentials dataDir
-    let handle =
-        CoreMailbox.coreChanges host credentials testCaller
-    host, handle, credentials
+    let host = CoreMailbox.createFile dataDir admittedSecrets
+    let handle = CoreMailbox.coreChanges host testCaller
+    host, handle, testSecret
 
 let admittedChanges (host: MailboxHost) =
-    let credentials = admittedCredentials ()
-    // Note: new credential set — only use when host was created with the same
-    // testSecret via admittedCredentials / createAdmittedFile.
-    CoreMailbox.coreChanges host credentials testCaller
+    CoreMailbox.coreChanges host testCaller
 
 let private suppressDailyGitSave (dataDir: string) =
     DailyGitSave.writeStamp

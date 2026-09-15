@@ -66,28 +66,27 @@ let private actorCaller secret =
 
 let private createHost () =
     let dataDir = newTempDir ()
-    let credentials = admittedCredentials ()
-    let pool = CoreActorPool.create credentials
+    let pool = CoreActorPool.create ()
     pool.register (ActorName "test") TestActor.actorFn
     let host =
         CoreMailbox.host
-            credentials
             pool
             (FileAgent.persist (FileAgent.create dataDir))
-    host, credentials, pool
+            admittedSecrets
+    host, pool
 
 let private withHost body =
     task {
-        let host, credentials, pool = createHost ()
+        let host, pool = createHost ()
         try
-            do! body host credentials pool
+            do! body host pool
         finally
             CoreMailbox.dispose host
     }
 
 [<Fact>]
 let ``TestActor hello posts one Owned child text hello under Focus`` () =
-    withHost (fun host credentials pool -> task {
+    withHost (fun host _ -> task {
         let commandId = NodeId.New()
         let change =
             { id = 0
@@ -123,7 +122,7 @@ let ``TestActor hello posts one Owned child text hello under Focus`` () =
 
 [<Fact>]
 let ``TestActor hello stops successfully with ActorSucceeded`` () =
-    withHost (fun host credentials pool -> task {
+    withHost (fun host _ -> task {
         let commandId = NodeId.New()
         let change =
             { id = 0
@@ -164,7 +163,7 @@ let ``TestActor hello stops successfully with ActorSucceeded`` () =
 
 [<Fact>]
 let ``TestActor hello drops live row after successful stop`` () =
-    withHost (fun host credentials pool -> task {
+    withHost (fun host pool -> task {
         let commandId = NodeId.New()
         let change =
             { id = 0
@@ -195,7 +194,7 @@ let ``TestActor hello drops live row after successful stop`` () =
 
 [<Fact>]
 let ``TestActor hello observes ActorStarted before output`` () =
-    withHost (fun host credentials pool -> task {
+    withHost (fun host _ -> task {
         let commandId = NodeId.New()
         let change =
             { id = 0
@@ -246,7 +245,7 @@ let ``TestActor hello observes ActorStarted before output`` () =
 
 [<Fact>]
 let ``TestActor hello interprets command node text`` () =
-    withHost (fun host credentials pool -> task {
+    withHost (fun host _ -> task {
         let commandId = NodeId.New()
         let change =
             { id = 0
@@ -282,7 +281,7 @@ let ``TestActor hello interprets command node text`` () =
 
 [<Fact>]
 let ``TestActor unknown command still finishes and drops live row`` () =
-    withHost (fun host credentials pool -> task {
+    withHost (fun host pool -> task {
         let commandId = NodeId.New()
         let change =
             { id = 0
@@ -312,7 +311,7 @@ let ``TestActor unknown command still finishes and drops live row`` () =
 
 [<Fact>]
 let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
-    withHost (fun host credentials pool -> task {
+    withHost (fun host pool -> task {
         let commandId = NodeId.New()
         let change =
             { id = 0
@@ -423,7 +422,7 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
 
 [<Fact>]
 let ``TestActor throw command fails gracefully and drops live row`` () =
-    withHost (fun host credentials pool -> task {
+    withHost (fun host pool -> task {
         let commandId = NodeId.New()
         let change =
             { id = 0

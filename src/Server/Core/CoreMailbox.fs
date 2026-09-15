@@ -11,10 +11,15 @@ open Gambol.Shared
 /// - postChange / coreChanges: Credentialed Actor Changes use the same mailbox
 ///   as Browser Changes; no second Actor mailbox.
 ///
+/// Secrets:
+/// - The mailbox owns the Browser secret set on the loop thread.
+/// - There is no public add-credential door. Login is a mailbox message;
+///   the mailbox privately adds that Browser secret. Actor liveness is
+///   the live row, not this set.
+///
 /// Data exposure:
 /// - getState: Read the Graph with lockPresent overlay. Returns Graph facts only.
 /// - eventHistory: Read mailbox-owned History (Change + Actor lifecycle Events).
-///   One sequence per mailbox, process-lifetime until durability. Undo remains Change-only.
 [<RequireQualifiedAccess>]
 module CoreMailbox =
 
@@ -86,9 +91,20 @@ module CoreMailbox =
         host.mailbox.PostAndAsyncReply(fun reply ->
             ActorStop(caller, result, reply))
 
+    let login
+        (host: MailboxHost)
+        (secret: Credential)
+        : Async<Result<unit, string>> =
+        host.mailbox.PostAndAsyncReply(fun reply -> Login(secret, reply))
+
+    let isAdmitted
+        (host: MailboxHost)
+        (secret: Credential)
+        : Async<bool> =
+        host.mailbox.PostAndAsyncReply(fun reply -> AdmitSecret(secret, reply))
+
     let coreChanges
         (host: MailboxHost)
-        (credentials: CoreCredentials)
         (caller: Caller)
         : CoreChanges =
         let rec make (c: Caller) : CoreChanges =
@@ -96,28 +112,10 @@ module CoreMailbox =
               getRevision = fun () -> getRevision host
               getChangesSince = getChangesSince host
               isReady = host.isReady
-              postChange =
-                fun changes ->
-                    CoreAuth.post
-                        credentials
-                        c.secret
-                        (postChange host c)
-                        changes
+              postChange = fun changes -> postChange host c changes
               postGraphOnlyChange =
-                fun changes ->
-                    CoreAuth.post
-                        credentials
-                        c.secret
-                        (postGraphOnlyChange host)
-                        changes
-              actorStop =
-                fun result ->
-                    async {
-                        let! live = credentials.contains c.secret
-                        match CoreAuth.admit live with
-                        | Error err -> return Error(CoreAdmissionError.text err)
-                        | Ok () -> return! actorStop host c result
-                    }
+                fun changes -> postGraphOnlyChange host changes
+              actorStop = fun result -> actorStop host c result
               asCaller = make }
         make caller
 
@@ -128,22 +126,22 @@ module CoreMailbox =
     let dispose (host: MailboxHost) = host.dispose ()
 
     let host
-        (credentials: CoreCredentials)
         (pool: CoreActorPool)
         (persist: PersistFilling)
+        (initialSecrets: Set<Credential>)
         : MailboxHost =
         let mailbox =
             match persist.until with
             | None ->
                 CoreMailboxBackend.start
-                    credentials
+                    initialSecrets
                     persist.handlers
                     pool
                     persist.onError
                     persist.formatError
             | Some until ->
                 CoreMailboxBackend.startWithPrelude
-                    credentials
+                    initialSecrets
                     persist.handlers
                     pool
                     persist.onError
@@ -156,30 +154,30 @@ module CoreMailbox =
           dispose = persist.dispose }
 
     let createFile
-        (credentials: CoreCredentials)
         (dataDir: string)
+        (initialSecrets: Set<Credential>)
         : MailboxHost =
         host
-            credentials
-            (CoreActorPool.create credentials)
+            (CoreActorPool.create ())
             (FileAgent.persist (FileAgent.create dataDir))
+            initialSecrets
 
     let createDb
-        (credentials: CoreCredentials)
         (connectionString: string)
+        (initialSecrets: Set<Credential>)
         : MailboxHost =
         host
-            credentials
-            (CoreActorPool.create credentials)
+            (CoreActorPool.create ())
             (DbAgent.persist (DbAgent.create connectionString))
+            initialSecrets
 
     let createDbWithDataDir
-        (credentials: CoreCredentials)
         (connectionString: string)
         (dataDir: string)
+        (initialSecrets: Set<Credential>)
         : MailboxHost =
         host
-            credentials
-            (CoreActorPool.create credentials)
+            (CoreActorPool.create ())
             (DbAgent.persist
                 (DbAgent.createWithDataDir connectionString dataDir))
+            initialSecrets

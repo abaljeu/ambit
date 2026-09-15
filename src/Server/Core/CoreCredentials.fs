@@ -17,11 +17,6 @@ module CoreAdmissionError =
         | UnknownActor -> "unknown actor"
         | Overlap -> "span overlaps a live job"
 
-type CoreCredentials =
-    { add: Credential -> Async<unit>
-      remove: Credential -> Async<unit>
-      contains: Credential -> Async<bool> }
-
 [<RequireQualifiedAccess>]
 module CoreAuth =
 
@@ -33,63 +28,17 @@ module CoreAuth =
         if live then Ok () else Error Unauthorized
 
     let post
-        (credentials: CoreCredentials)
-        (sender: Credential)
+        (live: bool)
         (enqueue:
             Change list -> Async<Result<CoreChangesAccepted, string>>)
         (changes: Change list)
         : Async<Result<CoreChangesAccepted, string>> =
         async {
-            let! live = credentials.contains sender
             match admit live with
             | Error err -> return Error(CoreAdmissionError.text err)
             | Ok () -> return! enqueue changes
         }
 
-    let bind
-        (credentials: CoreCredentials)
-        (sender: Credential)
-        (enqueue:
-            Change list -> Async<Result<CoreChangesAccepted, string>>)
-        : Change list -> Async<Result<CoreChangesAccepted, string>> =
-        fun changes -> post credentials sender enqueue changes
-
     /// Stamp Caller onto posts; mailbox CoreMsg validates before persist.
     let bindHandle (caller: Caller) (handle: CoreChanges) : CoreChanges =
         handle.asCaller caller
-
-[<RequireQualifiedAccess>]
-module CoreCredentials =
-
-    type private Msg =
-        | Add of Credential * AsyncReplyChannel<unit>
-        | Remove of Credential * AsyncReplyChannel<unit>
-        | Contains of Credential * AsyncReplyChannel<bool>
-
-    let create () : CoreCredentials =
-        let mailbox =
-            MailboxProcessor.Start(fun inbox ->
-                let rec loop set = async {
-                    let! msg = inbox.Receive()
-                    match msg with
-                    | Add(cred, reply) ->
-                        reply.Reply()
-                        return! loop (Set.add cred set)
-                    | Remove(cred, reply) ->
-                        reply.Reply()
-                        return! loop (Set.remove cred set)
-                    | Contains(cred, reply) ->
-                        reply.Reply(Set.contains cred set)
-                        return! loop set
-                }
-                loop Set.empty)
-        { add =
-            fun cred ->
-                mailbox.PostAndAsyncReply(fun reply -> Add(cred, reply))
-          remove =
-            fun cred ->
-                mailbox.PostAndAsyncReply(fun reply -> Remove(cred, reply))
-          contains =
-            fun cred ->
-                mailbox.PostAndAsyncReply(fun reply ->
-                    Contains(cred, reply)) }

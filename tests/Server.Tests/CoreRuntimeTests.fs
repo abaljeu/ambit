@@ -42,13 +42,8 @@ let ``CoreRuntime seeds Browser credential from AuthToken.deriveToken`` () =
             Credential(AuthToken.deriveToken "alice" "secret")
         Assert.Equal(expected, runtime.browserCredential)
         let! browserLive =
-            runtime.credentials.contains expected
-            |> Async.StartAsTask
-        let! parseLive =
-            runtime.credentials.contains runtime.parseCredential
-            |> Async.StartAsTask
+            runtime.isAdmitted expected |> Async.StartAsTask
         Assert.True(browserLive)
-        Assert.True(parseLive)
     }
 
 [<Fact>]
@@ -133,7 +128,7 @@ let ``callers reach changes on the Core object`` () = task {
 }
 
 [<Fact>]
-let ``bound Graph-only post refuses an inactive sender`` () = task {
+let ``bound Graph-only post does not require a live sender`` () = task {
     let runtime = fileRuntime ()
     let bound =
         (runtime.bindChanges (Credential "inactive")).postGraphOnlyChange
@@ -143,5 +138,7 @@ let ``bound Graph-only post refuses an inactive sender`` () = task {
             (Revision 0)
             [ [ Op.NewNode(NodeId.New(), "x") ] ]
         |> Async.StartAsTask
-    Assert.Equal(Error CoreAuth.refuse, result)
+    match result with
+    | Ok () -> ()
+    | Error err -> Assert.Fail($"graph-only post: {err}")
 }

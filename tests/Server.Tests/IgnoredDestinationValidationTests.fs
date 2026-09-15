@@ -177,9 +177,9 @@ let ``db persist rejects ignored graph state before acceptance`` () = task {
     writeIgnore dataDir "blocked.txt\n"
     let agent =
         CoreMailbox.createDbWithDataDir
-            (admittedCredentials ())
             connectionString
             dataDir
+            admittedSecrets
     let body = encodeChange (Graph.create ()) Graph.rootId "blocked.txt"
     let! result = (admittedChanges agent).postChange body |> Async.StartAsTask
     Assert.True(Result.isError result)

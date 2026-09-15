@@ -26,6 +26,10 @@ type CoreMsg =
         caller: Caller *
         result: ActorResult *
         AsyncReplyChannel<Result<unit, string>>
+    | Login of
+        Credential *
+        AsyncReplyChannel<Result<unit, string>>
+    | AdmitSecret of Credential * AsyncReplyChannel<bool>
 
 type PersistHandlers = {
     getState: unit -> Result<State, string>
@@ -96,6 +100,8 @@ module internal CoreMailboxBackend =
             match result with
             | ActorSucceeded -> "ActorStop", "ActorSucceeded"
             | ActorFailed -> "ActorStop", "ActorFailed"
+        | Login _ -> "Login", ""
+        | AdmitSecret _ -> "AdmitSecret", ""
 
     let replyFailure error msg =
         match msg with
@@ -108,30 +114,11 @@ module internal CoreMailboxBackend =
         | SnapshotDone _ -> ()
         | StartActor (_, _, reply) -> reply.Reply(Error error)
         | ActorStop (_, _, reply) -> reply.Reply(Error error)
-
-    let private admitSecret
-        (credentials: CoreCredentials)
-        (secret: Credential)
-        : Result<unit, string> =
-        let live =
-            credentials.contains secret
-            |> Async.RunSynchronously
-        match CoreAuth.admit live with
-        | Error err -> Error(CoreAdmissionError.text err)
-        | Ok () -> Ok ()
-
-    let private admitCaller
-        (credentials: CoreCredentials)
-        (caller: Caller)
-        : Result<unit, string> =
-        match caller.authority, admitSecret credentials caller.secret with
-        | Authority name, _ when String.IsNullOrWhiteSpace name ->
-            Error CoreAuth.refuse
-        | _, Error err -> Error err
-        | _, Ok () -> Ok ()
+        | Login (_, reply) -> reply.Reply(Error error)
+        | AdmitSecret (_, reply) -> reply.Reply(false)
 
     type private Loop = {
-        credentials: CoreCredentials
+        secrets: Set<Credential> ref
         persist: PersistHandlers
         pool: CoreActorPool
         onError: string -> string -> exn -> unit
@@ -140,16 +127,24 @@ module internal CoreMailboxBackend =
         mailbox: MailboxProcessor<CoreMsg> option ref
     }
 
-    let private admitActorPost (loop: Loop) (caller: Caller) =
-        match admitCaller loop.credentials caller with
-        | Error err -> Error err
-        | Ok () ->
-            match caller.authority with
-            | Authority "Actor" ->
-                match CoreAuth.admit (loop.pool.isLive caller.secret) with
-                | Error err -> Error(CoreAdmissionError.text err)
-                | Ok () -> Ok ()
-            | _ -> Ok ()
+    let private addSecret (loop: Loop) secret =
+        loop.secrets.Value <- Set.add secret loop.secrets.Value
+
+    let private hasBrowserSecret (loop: Loop) secret =
+        Set.contains secret loop.secrets.Value
+
+    let private admitCaller (loop: Loop) (caller: Caller) =
+        match caller.authority with
+        | Authority name when String.IsNullOrWhiteSpace name ->
+            Error CoreAuth.refuse
+        | Authority "Actor" ->
+            match CoreAuth.admit (loop.pool.isLive caller.secret) with
+            | Error err -> Error(CoreAdmissionError.text err)
+            | Ok () -> Ok ()
+        | _ ->
+            match CoreAuth.admit (hasBrowserSecret loop caller.secret) with
+            | Error err -> Error(CoreAdmissionError.text err)
+            | Ok () -> Ok ()
 
     let private recordActorStarted (loop: Loop) focusId =
         let history = loop.mailboxHistory.Value
@@ -174,7 +169,7 @@ module internal CoreMailboxBackend =
         (request: StartActorRequest)
         (reply: AsyncReplyChannel<Result<unit, string>>)
         : unit =
-        match admitCaller loop.credentials caller with
+        match admitCaller loop caller with
         | Error err -> reply.Reply(Error err)
         | Ok () ->
             match loop.mailbox.Value with
@@ -204,13 +199,11 @@ module internal CoreMailboxBackend =
                         }
                       isReady = fun () -> true
                       postChange = fun changes ->
-                        CoreAuth.post loop.credentials c.secret (fun changes ->
-                            mailbox.PostAndAsyncReply(fun reply ->
-                                PostChange(c, changes, reply))) changes
+                        mailbox.PostAndAsyncReply(fun reply ->
+                            PostChange(c, changes, reply))
                       postGraphOnlyChange = fun changes ->
-                        CoreAuth.post loop.credentials c.secret (fun changes ->
-                            mailbox.PostAndAsyncReply(fun reply ->
-                                PostGraphOnlyChange(changes, reply))) changes
+                        mailbox.PostAndAsyncReply(fun reply ->
+                            PostGraphOnlyChange(changes, reply))
                       actorStop = fun result ->
                         mailbox.PostAndAsyncReply(fun reply ->
                             ActorStop(c, result, reply))
@@ -229,7 +222,7 @@ module internal CoreMailboxBackend =
         (result: ActorResult)
         (reply: AsyncReplyChannel<Result<unit, string>>)
         : unit =
-        match admitCaller loop.credentials caller with
+        match admitCaller loop caller with
         | Error err -> reply.Reply(Error err)
         | Ok () ->
             match CoreAuth.admit (loop.pool.isLive caller.secret) with
@@ -257,7 +250,7 @@ module internal CoreMailboxBackend =
         (changes: Change list)
         (reply: AsyncReplyChannel<Result<CoreChangesAccepted, string>>)
         : unit =
-        match admitActorPost loop caller with
+        match admitCaller loop caller with
         | Error err -> reply.Reply(Error err)
         | Ok () ->
             match loop.persist.postChange changes with
@@ -295,6 +288,11 @@ module internal CoreMailboxBackend =
             dispatchStartActor loop caller request reply
         | ActorStop (caller, result, reply) ->
             dispatchActorStop loop caller result reply
+        | Login (secret, reply) ->
+            addSecret loop secret
+            reply.Reply(Ok ())
+        | AdmitSecret (secret, reply) ->
+            reply.Reply(hasBrowserSecret loop secret)
 
     let private dispatch (loop: Loop) (msg: CoreMsg) : unit =
         try
@@ -310,8 +308,8 @@ module internal CoreMailboxBackend =
             with _ ->
                 ()
 
-    let private makeLoop credentials persist pool onError formatError : Loop =
-        { credentials = credentials
+    let private makeLoop initialSecrets persist pool onError formatError : Loop =
+        { secrets = ref initialSecrets
           persist = persist
           pool = pool
           onError = onError
@@ -320,13 +318,13 @@ module internal CoreMailboxBackend =
           mailbox = ref None }
 
     let start
-        (credentials: CoreCredentials)
+        (initialSecrets: Set<Credential>)
         (persist: PersistHandlers)
         (pool: CoreActorPool)
         (onError: string -> string -> exn -> unit)
         (formatError: string -> string)
         : MailboxProcessor<CoreMsg> =
-        let loop = makeLoop credentials persist pool onError formatError
+        let loop = makeLoop initialSecrets persist pool onError formatError
         let mailbox = MailboxProcessor<CoreMsg>.Start(fun inbox ->
             let rec pump () = async {
                 let! msg = inbox.Receive()
@@ -339,7 +337,7 @@ module internal CoreMailboxBackend =
         mailbox
 
     let startWithPrelude
-        (credentials: CoreCredentials)
+        (initialSecrets: Set<Credential>)
         (persist: PersistHandlers)
         (pool: CoreActorPool)
         (onError: string -> string -> exn -> unit)
@@ -353,7 +351,7 @@ module internal CoreMailboxBackend =
                 with ex ->
                     Error $"Startup prelude failed: {ex.Message}")
 
-        let loop = makeLoop credentials persist pool onError formatError
+        let loop = makeLoop initialSecrets persist pool onError formatError
         let failedHandlers error : PersistHandlers = {
             getState = persist.getState
             getRevision = persist.getRevision

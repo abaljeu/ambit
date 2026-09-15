@@ -74,13 +74,13 @@ Deltas for this Project’s hello / one-mailbox Actor program. Persist fillings 
      6. [x] for `GetState`, apply `lockPresent` from the live table on the mailbox thread, then reply; persist getState stays on PersistHandlers
    - Uses:
      1. [ ] CoreActorPool
-     2. [ ] CoreCredentials / CallerTable
+     2. [ ] mailbox secret set (Browser) and live-table isLive (Actor). No CoreCredentials mailbox.
      3. [ ] History
      4. [ ] PersistHandlers (persist cases only)
 2. **CoreMailbox**
    1. [x] State: none beyond MailboxHost
    - Interface:
-     1. [x] public door on MailboxHost — `startActor` with `zoomId`, `focusId`, `commandId`, `graphIds`; credentialed `postChange` (Browser and Actor); `actorStop`; `eventHistory` for lifecycle event read from History
+     1. [x] public door on MailboxHost — `startActor` with `zoomId`, `focusId`, `commandId`, `graphIds`; credentialed `postChange` (Browser and Actor); `actorStop`; `eventHistory`; `login` (mailbox privately adds the Browser secret); `isAdmitted` (query). No public add-credential door.
      2. [x] existing getState / getRevision / getChangesSince / postGraphOnlyChange / createFile / createDb
    - Uses:
      1. [ ] MailboxHost
@@ -100,8 +100,7 @@ Deltas for this Project’s hello / one-mailbox Actor program. Persist fillings 
      7. [x] `admit`, `drop`, `isLive`
      8. [x] launch / query are gone; `withLocks` / `lockedIds` leave the CoreRuntime wrap
    - Uses:
-     1. [ ] CoreCredentials
-     2. [ ] `ActorFn` (injected; Core does not own Actor bodies). Pool does not Use History.
+     1. [ ] `ActorFn` (injected; Core does not own Actor bodies). Pool does not Use History or CoreCredentials. Live row is Actor liveness.
 4. **History**
    1. [x] State: ordered past/future sequence extended to carry Actor events alongside Change events
    - Interface:
@@ -155,15 +154,14 @@ Deltas for this Project’s hello / one-mailbox Actor program. Persist fillings 
    - Uses:
      1. [ ] CoreMailbox / CoreRuntime
 9. **CoreRuntime**
-   1. [x] State: composed credentials and registered Actors
+   1. [x] State: composed host and registered Actors. Does not export a credentials field.
    - Interface:
      1. [x] one `MailboxProcessor<CoreMsg>`; persist mode chooses File or Db handlers (not File-with-Db-mirror)
      2. [x] `CoreActorPool.register` for caller-supplied ActorFn entries; register finishes before the mailbox starts. CoreRuntime.create takes an actor list; it does not hardcode TestActor
-     3. [x] File and Db do not take the pool
+     3. [x] File and Db do not take the pool. Login and cookie admit go through CoreMailbox doors. No public add-credential.
    - Uses:
      1. [ ] CoreMailbox
      2. [ ] CoreActorPool
-     3. [ ] CoreCredentials
 10. **PersistHandlers**
    1. [x] State: File or Db persist implementation behind the loop
    - Interface:

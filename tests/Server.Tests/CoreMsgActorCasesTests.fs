@@ -61,20 +61,17 @@ let private recordingPool () =
     started, stopped, live, pool
 
 let private createHost dataDir pool =
-    let credentials = admittedCredentials ()
-    let host =
-        CoreMailbox.host
-            credentials
-            pool
-            (FileAgent.persist (FileAgent.create dataDir))
-    host, credentials
+    CoreMailbox.host
+        pool
+        (FileAgent.persist (FileAgent.create dataDir))
+        admittedSecrets
 
 let private withHost pool body =
     task {
         let dataDir = newTempDir ()
-        let host, credentials = createHost dataDir pool
+        let host = createHost dataDir pool
         try
-            do! body host credentials
+            do! body host
         finally
             CoreMailbox.dispose host
     }
@@ -90,7 +87,7 @@ let private postActorStop host caller result =
 [<Fact>]
 let ``StartActor with live credentials calls startActor with StartActorRequest`` () =
     let started, _, _, pool = recordingPool ()
-    withHost pool (fun host _ -> task {
+    withHost pool (fun host -> task {
         let! result =
             postStartActor host testCaller sampleRequest
             |> Async.StartAsTask
@@ -105,10 +102,9 @@ let ``StartActor with live credentials calls startActor with StartActorRequest``
 
 [<Fact>]
 let ``StartActor reply is startActor bookkeeping without waiting for an Actor body`` () =
-    let credentials = admittedCredentials ()
-    let pool = CoreActorPool.create credentials
+    let pool = CoreActorPool.create ()
     pool.register (ActorName "root") (fun _ _ -> async.Return ())
-    withHost pool (fun host _ -> task {
+    withHost pool (fun host -> task {
         let sw = Stopwatch.StartNew()
         let! result =
             postStartActor host testCaller sampleRequest
@@ -121,10 +117,9 @@ let ``StartActor reply is startActor bookkeeping without waiting for an Actor bo
 
 [<Fact>]
 let ``GetState stamps lockPresent from the live table after startActor`` () =
-    let credentials = admittedCredentials ()
-    let pool = CoreActorPool.create credentials
+    let pool = CoreActorPool.create ()
     pool.register (ActorName "root") (fun _ _ -> async.Return ())
-    withHost pool (fun host _ -> task {
+    withHost pool (fun host -> task {
         let! started =
             postStartActor host testCaller sampleRequest
             |> Async.StartAsTask
@@ -139,7 +134,7 @@ let ``GetState stamps lockPresent from the live table after startActor`` () =
 [<Fact>]
 let ``StartActor with inactive secret does not hand off`` () =
     let started, _, _, pool = recordingPool ()
-    withHost pool (fun host _ -> task {
+    withHost pool (fun host -> task {
         let! result =
             postStartActor
                 host
@@ -154,7 +149,7 @@ let ``StartActor with inactive secret does not hand off`` () =
 [<Fact>]
 let ``StartActor with blank Authority does not hand off`` () =
     let started, _, _, pool = recordingPool ()
-    withHost pool (fun host _ -> task {
+    withHost pool (fun host -> task {
         let! result =
             postStartActor
                 host
@@ -171,8 +166,7 @@ let ``Actor PostChange with live row reaches PersistHandlers`` () =
     let _, _, live, pool = recordingPool ()
     let actorSecret = Credential "actor-live"
     live.Add actorSecret
-    withHost pool (fun host credentials -> task {
-        do! credentials.add actorSecret |> Async.StartAsTask
+    withHost pool (fun host -> task {
         let change = addRootChild "actor-hello"
         let! result =
             CoreMailbox.postChange
@@ -186,9 +180,8 @@ let ``Actor PostChange with live row reaches PersistHandlers`` () =
 let ``Actor PostChange without live row is refused before persist`` () =
     let _, _, _, pool = recordingPool ()
     let actorSecret = Credential "actor-not-live"
-    withHost pool (fun host credentials -> task {
-        do! credentials.add actorSecret |> Async.StartAsTask
-        let handle = CoreMailbox.coreChanges host credentials testCaller
+    withHost pool (fun host -> task {
+        let handle = CoreMailbox.coreChanges host testCaller
         let! before = handle.getRevision () |> Async.StartAsTask
         let! result =
             CoreMailbox.postChange
@@ -204,7 +197,7 @@ let ``Actor PostChange without live row is refused before persist`` () =
 [<Fact>]
 let ``Browser PostChange does not require a live row`` () =
     let _, _, _, pool = recordingPool ()
-    withHost pool (fun host _ -> task {
+    withHost pool (fun host -> task {
         let! result =
             CoreMailbox.postChange
                 host
@@ -221,8 +214,7 @@ let ``ActorStop ActorSucceeded drops live row without waiting`` () =
     let _, stopped, live, pool = recordingPool ()
     let actorSecret = Credential "actor-stop"
     live.Add actorSecret
-    withHost pool (fun host credentials -> task {
-        do! credentials.add actorSecret |> Async.StartAsTask
+    withHost pool (fun host -> task {
         let lingering = Task.Delay 5000
         let sw = Stopwatch.StartNew()
         let! result =
@@ -244,8 +236,7 @@ let ``ActorStop ActorFailed drops live row and records terminal`` () =
     let _, stopped, live, pool = recordingPool ()
     let actorSecret = Credential "actor-fail"
     live.Add actorSecret
-    withHost pool (fun host credentials -> task {
-        do! credentials.add actorSecret |> Async.StartAsTask
+    withHost pool (fun host -> task {
         let! result =
             postActorStop
                 host (actorCaller actorSecret) ActorFailed

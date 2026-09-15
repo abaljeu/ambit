@@ -2,7 +2,7 @@
 
 **Status:** coded
 **Blocked by:** None — can start immediately.
-Actual: 3h45m
+Actual: 4h35m
 
 ## Context
 
@@ -82,6 +82,7 @@ Verify Story path **Outside Core lifecycle proof** from outside the Actor.
 
 - 2026-09-14 — This ticket implements Story path 2 **Outside Core lifecycle proof**. Story path 1 **Browser Run hello** stays on [[35b-browser-run-hello.md|35b — Browser Run hello]].
 - 2026-09-14 — Aligned to the 2026-09-14 arch correction: synchronous startActor (bookkeeping on the loop, body off-loop), mailbox-owned live table, register-then-start one host, `ActorStop ActorSucceeded` drop of live row and secret.
+- 2026-09-14 — Architectural correction: the mailbox owns Browser secrets. No CoreCredentials mailbox and no public add-credential door. Login is a mailbox message; CoreActorPool does not take CoreCredentials; CoreRuntime does not export a credentials field.
 
 ## Time
 
@@ -100,3 +101,4 @@ Verify Story path **Outside Core lifecycle proof** from outside the Actor.
 - 2026-09-14 — Refactor TestActor into generic dispatcher: Extracted hello behavior (interprets hello, posts Owned child, no actorStop or try/catch). Generic dispatcher owns exception handling, command dispatch, and always enqueues ActorStop after behavior. ActorFinished remains Actor-posted via dispatcher wrapper. TestActor.actorFn stays registered as "test" Actor.
 - 2026-09-14 — Architectural correction: Core does not own Actors. Moved TestActor to the test host. CoreRuntime.create takes a caller-supplied ActorFn list and registers those entries before the mailbox starts; it does not hardcode TestActor. Production composition passes an empty list.
 - 2026-09-14 — Architectural correction: History belongs to the mailbox, not CoreActorPool. Dropped AppendActorStarted. pool.startActor returns ActorStart (secret, focusId) without scheduling. dispatchStartActor writes ActorStarted on mailboxHistory, then pool.schedule starts the body. Deleted History.appendActorStarted / appendActorFinished so they cannot write Actor Events onto State.history. getState stays Graph-only.
+- 2026-09-14 50m — Mailbox owns Browser secrets; no public add; admit is hasBrowserSecret / isLive on the loop (from chat)

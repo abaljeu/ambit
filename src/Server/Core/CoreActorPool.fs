@@ -67,26 +67,19 @@ module CoreActorPool =
         | Error err -> Error(CoreAdmissionError.text err)
         | Ok () -> Ok ()
 
-    let private runDrop takeLive credentials secret =
+    let private runDrop takeLive secret =
         match takeLive secret with
         | None -> ()
-        | Some row ->
-            row.cancel.Cancel()
-            credentials.remove secret |> Async.RunSynchronously
+        | Some row -> row.cancel.Cancel()
 
-    let private runFinish isLive takeLive credentials secret result =
+    let private runFinish isLive takeLive secret result =
         match result with
-        | ActorSucceeded ->
-            match runAdmit isLive secret with
-            | Error err -> Error err
-            | Ok () ->
-                runDrop takeLive credentials secret
-                Ok ()
+        | ActorSucceeded
         | ActorFailed ->
             match runAdmit isLive secret with
             | Error err -> Error err
             | Ok () ->
-                runDrop takeLive credentials secret
+                runDrop takeLive secret
                 Ok ()
 
     let private actorNameFrom (commandNode: Node) =
@@ -109,7 +102,6 @@ module CoreActorPool =
 
     let private runStartActor
         (putLive: Credential -> NodeId -> PendingBody -> unit)
-        (credentials: CoreCredentials)
         (getModel: unit -> Model)
         (request: StartActorRequest)
         (getState: unit -> Graph)
@@ -128,7 +120,6 @@ module CoreActorPool =
                 | None -> Error $"actor '{actorName}' not registered"
                 | Some actorFn ->
                     let secret = Credential(Guid.NewGuid().ToString("N"))
-                    credentials.add secret |> Async.RunSynchronously
                     let input: ActorInput =
                         { graph = actorGraph
                           zoomId = request.zoomId
@@ -164,7 +155,7 @@ module CoreActorPool =
                 pending.actorFn pending.input coreChanges,
                 row.cancel.Token)
 
-    let create (credentials: CoreCredentials) : CoreActorPool =
+    let create () : CoreActorPool =
         let mutable model =
             { defs = Map.empty
               live = Map.empty }
@@ -188,16 +179,15 @@ module CoreActorPool =
         { register =
             fun (ActorName name) actor ->
                 model <- { model with defs = Map.add name actor model.defs }
-          startActor = runStartActor putLive credentials getModel
+          startActor = runStartActor putLive getModel
           schedule = runSchedule takePendingBody
           isLive = fun secret -> Map.containsKey secret model.live
           admit = runAdmit (fun secret -> Map.containsKey secret model.live)
-          drop = runDrop takeLive credentials
+          drop = runDrop takeLive
           finish =
             runFinish
                 (fun secret -> Map.containsKey secret model.live)
                 takeLive
-                credentials
           liveFocusIds = fun () -> liveFocusIds model
           getFocusId =
             fun secret ->

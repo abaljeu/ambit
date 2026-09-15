@@ -161,12 +161,6 @@ let ``request cookie value is admitted without closed-over browserCredential`` (
                 "secret"
                 []
         let cookie = runtime.browserCredential
-        do!
-            runtime.credentials.remove cookie
-            |> Async.StartAsTask
-        do!
-            runtime.credentials.add cookie
-            |> Async.StartAsTask
         match BrowserRequestCreds.trySecretFromCookieValue (
             Some(let (Credential s) = cookie in s)
         ) with

@@ -29,29 +29,28 @@ let private actorCaller secret =
 
 let private createHost () =
     let dataDir = newTempDir ()
-    let credentials = admittedCredentials ()
-    let pool = CoreActorPool.create credentials
+    let pool = CoreActorPool.create ()
     pool.register (ActorName "root") (fun _ _ -> async.Return ())
     pool.register (ActorName "test") TestActor.actorFn
     let host =
         CoreMailbox.host
-            credentials
             pool
             (FileAgent.persist (FileAgent.create dataDir))
-    host, credentials, pool
+            admittedSecrets
+    host, pool
 
 let private withHost body =
     task {
-        let host, credentials, pool = createHost ()
+        let host, pool = createHost ()
         try
-            do! body host credentials pool
+            do! body host pool
         finally
             CoreMailbox.dispose host
     }
 
 [<Fact>]
 let ``CoreMailbox.startActor calls pool.startActor and returns bookkeeping result`` () =
-    withHost (fun host _ pool -> task {
+    withHost (fun host pool -> task {
         let! result =
             CoreMailbox.startActor host testCaller sampleRequest
             |> Async.StartAsTask
@@ -61,7 +60,7 @@ let ``CoreMailbox.startActor calls pool.startActor and returns bookkeeping resul
 
 [<Fact>]
 let ``CoreMailbox.startActor with inactive secret is refused`` () =
-    withHost (fun host _ _ -> task {
+    withHost (fun host _ -> task {
         let! result =
             CoreMailbox.startActor
                 host
@@ -71,6 +70,54 @@ let ``CoreMailbox.startActor with inactive secret is refused`` () =
             |> Async.StartAsTask
         Assert.Equal(Error CoreAuth.refuse, result)
     })
+
+[<Fact>]
+let ``CoreMailbox.login privately admits a Browser secret`` () =
+    task {
+        let dataDir = newTempDir ()
+        let host =
+            CoreMailbox.host
+                (CoreActorPool.create ())
+                (FileAgent.persist (FileAgent.create dataDir))
+                Set.empty
+        try
+            let secret = Credential "login-secret"
+            let caller =
+                { authority = Authority "Browser"
+                  secret = secret }
+            let childId = NodeId.New()
+            let change =
+                { id = 0
+                  changeId = Guid.NewGuid()
+                  ops =
+                    [ Op.NewNode(childId, "after-login")
+                      Op.Replace(
+                          Graph.rootId,
+                          [],
+                          [ ChildNode.owner childId ]) ] }
+            let! refused =
+                CoreMailbox.postChange host caller [ change ]
+                |> Async.StartAsTask
+            Assert.Equal(Error CoreAuth.refuse, refused)
+            let! before =
+                CoreMailbox.isAdmitted host secret
+                |> Async.StartAsTask
+            Assert.False(before)
+            let! loggedIn =
+                CoreMailbox.login host secret
+                |> Async.StartAsTask
+            requireOk "login" loggedIn
+            let! after =
+                CoreMailbox.isAdmitted host secret
+                |> Async.StartAsTask
+            Assert.True(after)
+            let! posted =
+                CoreMailbox.postChange host caller [ change ]
+                |> Async.StartAsTask
+            requireOk "post after login" posted |> ignore
+        finally
+            CoreMailbox.dispose host
+    }
 
 [<Fact>]
 let ``CoreMailbox.actorStop with valid credential drops live row`` () =
@@ -97,14 +144,12 @@ let ``CoreMailbox.actorStop with valid credential drops live row`` () =
     }
     task {
         let dataDir = newTempDir ()
-        let credentials = admittedCredentials ()
         let host =
             CoreMailbox.host
-                credentials
                 recordingPool
                 (FileAgent.persist (FileAgent.create dataDir))
+                admittedSecrets
         try
-            do! credentials.add actorSecret |> Async.StartAsTask
             let! result =
                 CoreMailbox.actorStop
                     host
@@ -121,7 +166,7 @@ let ``CoreMailbox.actorStop with valid credential drops live row`` () =
 
 [<Fact>]
 let ``CoreMailbox door exposes Graph lockPresent via getState`` () =
-    withHost (fun host _ _ -> task {
+    withHost (fun host _ -> task {
         let! result =
             CoreMailbox.startActor host testCaller sampleRequest
             |> Async.StartAsTask
@@ -135,7 +180,7 @@ let ``CoreMailbox door exposes Graph lockPresent via getState`` () =
 
 [<Fact>]
 let ``CoreMailbox.startActor appends ActorStarted to lifecycle events`` () =
-    withHost (fun host _ _ -> task {
+    withHost (fun host _ -> task {
         let! result =
             CoreMailbox.startActor host testCaller sampleRequest
             |> Async.StartAsTask
@@ -176,14 +221,12 @@ let ``CoreMailbox.actorStop appends ActorFinished and drops live row`` () =
     }
     task {
         let dataDir = newTempDir ()
-        let credentials = admittedCredentials ()
         let host =
             CoreMailbox.host
-                credentials
                 recordingPool
                 (FileAgent.persist (FileAgent.create dataDir))
+                admittedSecrets
         try
-            do! credentials.add actorSecret |> Async.StartAsTask
             let! stopResult =
                 CoreMailbox.actorStop
                     host
@@ -209,7 +252,7 @@ let ``CoreMailbox.actorStop appends ActorFinished and drops live row`` () =
 
 [<Fact>]
 let ``CoreActorPool.startActor uses client graphIds to build subgraph`` () =
-    withHost (fun host credentials pool -> task {
+    withHost (fun host pool -> task {
         let childId = NodeId.New()
         let change =
             { id = 0
@@ -239,7 +282,7 @@ let ``CoreActorPool.startActor uses client graphIds to build subgraph`` () =
 
 [<Fact>]
 let ``CoreActorPool.startActor selects actor from command node text`` () =
-    withHost (fun host credentials pool -> task {
+    withHost (fun host pool -> task {
         let commandId = NodeId.New()
         let change =
             { id = 0
@@ -269,7 +312,7 @@ let ``CoreActorPool.startActor selects actor from command node text`` () =
 
 [<Fact>]
 let ``CoreActorPool.startActor fails when graphIds is empty`` () =
-    withHost (fun host _ _ -> task {
+    withHost (fun host _ -> task {
         let request =
             { zoomId = Graph.rootId
               focusId = Graph.rootId
@@ -288,7 +331,7 @@ let ``CoreActorPool.startActor fails when graphIds is empty`` () =
 
 [<Fact>]
 let ``CoreActorPool.startActor fails when commandId not in graphIds`` () =
-    withHost (fun host _ _ -> task {
+    withHost (fun host _ -> task {
         let commandId = NodeId.New()
         let change =
             { id = 0
@@ -319,7 +362,7 @@ let ``CoreActorPool.startActor fails when commandId not in graphIds`` () =
 
 [<Fact>]
 let ``mailbox records ActorStarted before actor body runs`` () =
-    withHost (fun host _ _ -> task {
+    withHost (fun host _ -> task {
         let! result =
             CoreMailbox.startActor host testCaller sampleRequest
             |> Async.StartAsTask
@@ -342,7 +385,7 @@ let ``mailbox records ActorStarted before actor body runs`` () =
 
 [<Fact>]
 let ``CoreActorPool.startActor creates live row synchronously`` () =
-    withHost (fun host _ pool -> task {
+    withHost (fun host pool -> task {
         let! result =
             CoreMailbox.startActor host testCaller sampleRequest
             |> Async.StartAsTask
@@ -354,7 +397,7 @@ let ``CoreActorPool.startActor creates live row synchronously`` () =
 
 [<Fact>]
 let ``Successful PostChange appends ChangeEvent to mailbox history`` () =
-    withHost (fun host _ _ -> task {
+    withHost (fun host _ -> task {
         let childId = NodeId.New()
         let change =
             { id = 0
@@ -384,7 +427,7 @@ let ``Successful PostChange appends ChangeEvent to mailbox history`` () =
 
 [<Fact>]
 let ``Actor lifecycle and Changes appear on same History sequence`` () =
-    withHost (fun host _ _ -> task {
+    withHost (fun host _ -> task {
         // Start actor
         let! startResult =
             CoreMailbox.startActor host testCaller sampleRequest

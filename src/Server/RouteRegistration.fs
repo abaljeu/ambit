@@ -141,7 +141,7 @@ module RouteRegistration =
         let core = persistence.Core
         CoreAuth.bindHandle
             { authority = Authority "Parse"
-              secret = core.parseCredential }
+              secret = core.browserCredential }
             (core.changes ())
 
     /// Request cookie only — never fall back to closed-over browserCredential.
@@ -154,7 +154,7 @@ module RouteRegistration =
         | None -> async.Return(Results.Unauthorized())
         | Some secret ->
             async {
-                let! live = persistence.Core.credentials.contains secret
+                let! live = persistence.Core.isAdmitted secret
                 if live then
                     return! cont (persistence.Core.browserChanges secret)
                 else
@@ -246,10 +246,11 @@ module RouteRegistration =
                         AuthToken.deriveToken
                             auth.ExpectedUser
                             auth.ExpectedPass)
-                do!
-                    persistence.Core.credentials.add token
-                    |> Async.StartAsTask
-                return Results.Redirect("/ambit")
+                let! loginResult =
+                    persistence.Core.login token |> Async.StartAsTask
+                match loginResult with
+                | Error _ -> return Results.Redirect("/ambit/login?error=1")
+                | Ok () -> return Results.Redirect("/ambit")
             else
                 return Results.Redirect("/ambit/login?error=1")
         })) |> ignore
@@ -412,8 +413,6 @@ module RouteRegistration =
                 return!
                     Api.postParseFile
                         (core.changes ())
-                        core.credentials
-                        core.parseCredential
                         persistence.DataDir
                         body
                     |> Async.StartAsTask

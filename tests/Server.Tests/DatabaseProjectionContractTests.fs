@@ -258,7 +258,7 @@ let ``writer clears one parent without rewriting unrelated rows and rolls back``
 let ``db bootstrap duplicate returns stored Change and rejects no-op`` () = task {
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
-    let agent = CoreMailbox.createDb (admittedCredentials ()) connStr
+    let agent = CoreMailbox.createDb connStr admittedSecrets
     let childId = id 70
 
     let accepted =

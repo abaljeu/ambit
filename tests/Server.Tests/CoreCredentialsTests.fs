@@ -35,30 +35,14 @@ let private addRootChild text =
           Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
 
 [<Fact>]
-let ``Core holds a credential until Core removes it`` () = task {
-    let credentials = CoreCredentials.create ()
-    let sender = Credential "job-1"
-    let! missing = credentials.contains sender |> Async.StartAsTask
-    Assert.False(missing)
-    do! credentials.add sender |> Async.StartAsTask
-    let! live = credentials.contains sender |> Async.StartAsTask
-    Assert.True(live)
-    do! credentials.remove sender |> Async.StartAsTask
-    let! gone = credentials.contains sender |> Async.StartAsTask
-    Assert.False(gone)
-}
-
-[<Fact>]
 let ``inactive sender is auth-refused and is not enqueued`` () = task {
-    let credentials = CoreCredentials.create ()
     let posts = ResizeArray<Change list>()
     let enqueue changes =
         posts.Add(changes)
         async.Return(Result.Error "must not enqueue")
     let change = addRootChild "refused"
     let! result =
-        CoreAuth.post credentials (Credential "inactive") enqueue [ change ]
-        |> Async.StartAsTask
+        CoreAuth.post false enqueue [ change ] |> Async.StartAsTask
     Assert.Equal(Error CoreAuth.refuse, result)
     Assert.Equal(
         Error(CoreAdmissionError.text CoreAdmissionError.Unauthorized),
@@ -68,9 +52,6 @@ let ``inactive sender is auth-refused and is not enqueued`` () = task {
 
 [<Fact>]
 let ``live credential is enqueued`` () = task {
-    let credentials = CoreCredentials.create ()
-    let sender = Credential "live"
-    do! credentials.add sender |> Async.StartAsTask
     let posts = ResizeArray<Change list>()
     let accepted changes : CoreChangesAccepted =
         { revision = Revision 1
@@ -83,8 +64,7 @@ let ``live credential is enqueued`` () = task {
         async.Return(Result.Ok(accepted changes))
     let change = addRootChild "admitted"
     let! result =
-        CoreAuth.post credentials sender enqueue [ change ]
-        |> Async.StartAsTask
+        CoreAuth.post true enqueue [ change ] |> Async.StartAsTask
     let accepted = requireOk "admitted post" result
     Assert.Equal<Change list>([ change ], Assert.Single(posts))
     Assert.Equal<Change list>([ change ], accepted.changes)
