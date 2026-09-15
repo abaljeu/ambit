@@ -14,18 +14,18 @@ type BootstrapScope =
 /// Response from GET /{file}/state.
 type StateResponse =
     { graph: Graph
-      revision: Revision
+      revision: Gambol.Shared.Events.EventId
       isReady: bool }
 
 /// Complete success response from POST /changes and GET /poll.
 type ChangeSuccessResponse =
-    { revision: Revision
+    { revision: Gambol.Shared.Events.EventId
       buildEpochSec: int
       pageBuildEpochSec: int
       apiVersion: int
       isReady: bool
       externalChanges: bool
-      changes: Change list
+      events: Gambol.Shared.Events.Event list
       /// File-write status when graph change succeeded but artifact save had issues.
       message: string option
       /// Optional ROOT-closure fingerprint; omitted by old Servers.
@@ -48,12 +48,12 @@ type LoadResponse =
       pageBuildEpochSec: int
       apiVersion: int
       isReady: bool
-      changes: Change list
+      events: Gambol.Shared.Events.Event list
       /// Complete Workspace subgraph Nodes at the response Revision (wire: packages).
       packages: Node list }
 
 /// Authoritative Sync install: ordered Change tail plus optional resident packages.
 type SyncResponse =
-    { changes: Change list
+    { events: Gambol.Shared.Events.Event list
       /// Complete Workspace / child-list snapshots at the response revision.
       packages: Node list }

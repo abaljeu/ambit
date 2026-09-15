@@ -46,10 +46,11 @@ module CoreMailbox =
         : Async<Gambol.Shared.Events.EventLog> =
         reply host GetEventHistory
 
-    let getRevision (host: MailboxHost) : Async<Revision> =
+    let getRevision (host: MailboxHost) : Async<Gambol.Shared.Events.EventId> =
         async {
             let! result = reply host GetRevision
-            return unwrap result
+            let (Revision rev) = unwrap result
+            return Gambol.Shared.Events.EventId rev
         }
 
     let getChangesSince
@@ -227,6 +228,7 @@ module CoreMailbox =
             { getState = fun () -> tryGetState host
               getRevision = fun () -> getRevision host
               getChangesSince = getChangesSince host
+              getEventsSince = getEventsSince host
               isReady = MailboxHost.isReady host
               postChange = postChange host c
               postGraphOnlyChange =

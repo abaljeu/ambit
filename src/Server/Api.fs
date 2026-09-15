@@ -40,9 +40,10 @@ module Api =
         (clientRev: int)
         : Async<IResult> = async {
         let! rev = handle.getRevision ()
-        let! changes =
-            if rev.Value > clientRev then
-                handle.getChangesSince (Revision clientRev)
+        let (Gambol.Shared.Events.EventId revValue) = rev
+        let! events =
+            if revValue > clientRev then
+                handle.getEventsSince (Gambol.Shared.Events.EventId clientRev)
             else async.Return []
         let poll: ChangeSuccessResponse =
             { revision = rev
@@ -50,8 +51,8 @@ module Api =
               pageBuildEpochSec = pageBuildEpochSec
               apiVersion = ApiVersion.current
               isReady = handle.isReady ()
-              externalChanges = not changes.IsEmpty
-              changes = changes
+              externalChanges = not events.IsEmpty
+              events = events
               message = None
               bootstrapHash = None }
         return changeSuccessResult poll
@@ -95,18 +96,19 @@ module Api =
                             "Load requires all selected targets in one Workspace" |})
             | Ok(Ok packages) ->
                 let! rev = handle.getRevision ()
-                let! changes =
-                    if rev.Value > request.revision then
-                        handle.getChangesSince (Revision request.revision)
+                let (Gambol.Shared.Events.EventId revValue) = rev
+                let! events =
+                    if revValue > request.revision then
+                        handle.getEventsSince (Gambol.Shared.Events.EventId request.revision)
                     else
                         async.Return []
                 let load: LoadResponse =
-                    { revision = rev.Value
+                    { revision = revValue
                       buildEpochSec = buildEpochSec
                       pageBuildEpochSec = pageBuildEpochSec
                       apiVersion = ApiVersion.current
                       isReady = handle.isReady ()
-                      changes = changes
+                      events = events
                       packages = packages }
                 let json =
                     Encode.toString 0 (ApiResponseSerialization.encodeLoadResponse load)
@@ -164,18 +166,31 @@ module Api =
         | Error err ->
             return agentErrorResult $"Invalid JSON: {err}"
         | Ok batch ->
-            // Transport batch; CoreMailbox loops one PostEvent per Change.
-            match! handle.postChange batch.changes with
+            // Transport batch; CoreMailbox loops one PostEvent per Event.
+            // Extract Change ops from Event bodies for backward compatibility
+            let changes = batch.events |> List.map (fun event ->
+                { id = 0
+                  changeId = event.submissionId
+                  ops = Gambol.Shared.Events.Event.ops event |> Option.defaultValue [] })
+            match! handle.postChange changes with
             | Ok accepted ->
+                // Convert accepted changes back to events for response
+                let events = accepted.changes |> List.map (fun change ->
+                    { id = Gambol.Shared.Events.EventId 0
+                      submissionId = change.changeId
+                      authority = Gambol.Shared.Events.Authority "Browser"
+                      commandName = ""
+                      body = Gambol.Shared.Events.EventBody.Change change.ops })
+                let! rev = handle.getRevision ()
                 return
                     changeSuccessResult
-                        { revision = accepted.revision
+                        { revision = rev
                           buildEpochSec = buildEpochSec
                           pageBuildEpochSec = pageBuildEpochSec
                           apiVersion = ApiVersion.current
                           isReady = accepted.isReady
                           externalChanges = accepted.externalChanges
-                          changes = accepted.changes
+                          events = events
                           message = accepted.message
                           bootstrapHash = None }
             | Error err -> return agentErrorResult err

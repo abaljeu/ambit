@@ -6,7 +6,7 @@ open Thoth.Json.JavaScript
 
 
 type ChangeBatch =
-    { changes: Change list }
+    { events: Gambol.Shared.Events.Event list }
 
 [<RequireQualifiedAccess>]
 module Serialization =

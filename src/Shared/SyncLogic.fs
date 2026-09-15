@@ -3,8 +3,9 @@ namespace Gambol.Shared
 /// Browser graph, Revision, and ClientHistory used by local and remote apply.
 type ClientSyncState =
     { graph: Graph
-      revision: Revision
-      history: ClientHistory }
+      revision: Gambol.Shared.Events.EventId
+      history: ClientHistory
+      eventLog: Gambol.Shared.Events.EventLog }
 
 [<RequireQualifiedAccess>]
 type AckReconcile =
