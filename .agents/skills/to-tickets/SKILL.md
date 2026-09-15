@@ -58,8 +58,6 @@ First **expand** — add the new form beside the old so nothing breaks. Then **m
 
 ### 4. Publish
 
-Done: a draft list exists for every item in the Sequence's set, each with title, blockers, and what it delivers.  Checklists use unnumbered tasks (`- [ ]`), not numbered.
-
-
+Done: a draft list exists for every item in the Sequence's set, each with title, blockers, and what it delivers.  Checklists use unnumbered tasks, but reference arch.md numbers. E.g. `- [ ] 5.3.2 item description` for story 5, item 3.2.
 
 Publish the full draft set immediately per [[PUBLISH.md]]; do not ask for approval or run a breakdown quiz first. Set `Stage: slice` and `Updated:` on `project.md` per [[doc/agents/project-status.md]]. Name the frontier in the reply. Done: each ticket is one file, the frontier is named, and project Stage is `slice`.

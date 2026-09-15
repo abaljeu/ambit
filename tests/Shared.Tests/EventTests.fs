@@ -8,7 +8,7 @@ open Xunit
 let private browser = Authority "Browser"
 
 let private event commandName body : Event =
-    { id = EventId 0
+    { id = EventId.zero
       submissionId = Guid.NewGuid()
       authority = browser
       commandName = commandName
@@ -33,7 +33,7 @@ let ``append since tryFind`` () =
     let log2 = EventLog.append (event "" (EventBody.Change [])) log1
     let log3 = EventLog.append (event "" (EventBody.Change [])) log2
     Assert.Equal(EventId 2, Event.id log3.events.Head)
-    let tail = EventLog.since (EventId 0) log3
+    let tail = EventLog.since EventId.zero log3
     Assert.Equal(2, tail.events.Length)
     Assert.Equal(EventId 2, Event.id tail.events.Head)
     Assert.Equal(EventId 1, Event.id tail.events.[1])
@@ -45,7 +45,7 @@ let ``append since tryFind`` () =
 let ``restore dedupe`` () =
     let submissionId = Guid.NewGuid()
     let first =
-        { id = EventId 0
+        { id = EventId.zero
           submissionId = submissionId
           authority = browser
           commandName = "First"
@@ -57,14 +57,14 @@ let ``restore dedupe`` () =
     let second =
         { event "Second" (EventBody.Change []) with id = EventId 2 }
     let log = EventLog.restore [ first; duplicate; second ] EventLog.empty
-    Assert.Equal(EventId 0, EventLog.nextId log)
+    Assert.Equal(EventId.zero, EventLog.nextId log)
     Assert.Equal(EventId 2, Event.id log.events.Head)
     Assert.Equal("Second", log.events.Head.commandName)
     let restored = EventLog.since (EventId -1) log
     Assert.Equal(2, restored.events.Length)
     Assert.Equal(EventId 2, Event.id restored.events.Head)
     Assert.Equal("Second", restored.events.Head.commandName)
-    Assert.Equal(EventId 0, Event.id restored.events.[1])
+    Assert.Equal(EventId.zero, Event.id restored.events.[1])
     Assert.Equal("First", restored.events.[1].commandName)
 
 [<Fact>]
@@ -152,7 +152,7 @@ let ``tryPeekUndoName and tryPeekRedoName skip Actor events`` () =
         Assert.Equal(Some "Edit node", ClientHistory.tryPeekRedoName undone)
 
 [<Fact>]
-let ``tryPeek falls back to Change stacks when Event stack has no Action`` () =
+let ``tryPeek finds Action under Actors after Change-shaped record`` () =
     let source =
         { id = 0
           changeId = Guid.NewGuid()
@@ -175,11 +175,8 @@ let ``tryPeek falls back to Change stacks when Event stack has no Action`` () =
     match ClientHistory.undo (Revision 1) (Guid.NewGuid()) changeOnly with
     | None -> failwith "expected Change Undo"
     | Some (_, _, undoneChange, _) ->
-        let actorsOnEvent =
-            undoneChange
-            |> ClientHistory.recordEvent "Start" (actorStart "Start")
-        Assert.Equal(None, ClientHistory.tryPeekUndoName actorsOnEvent)
-        Assert.Equal(Some "Cut", ClientHistory.tryPeekRedoName actorsOnEvent)
+        Assert.Equal(None, ClientHistory.tryPeekUndoName undoneChange)
+        Assert.Equal(Some "Cut", ClientHistory.tryPeekRedoName undoneChange)
 
 [<Fact>]
 let ``ClientHistory.record fold`` () =
