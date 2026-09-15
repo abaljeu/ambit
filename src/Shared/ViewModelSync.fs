@@ -49,7 +49,7 @@ type QueuedRequest =
 
 /// Optimistic graph at the last server revision before catch-up replay.
 type CatchUpBaseline =
-    { revision: Revision
+    { revision: Gambol.Shared.Events.EventId
       graph: Graph }
 
 type SyncInfo =

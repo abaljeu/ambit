@@ -339,7 +339,7 @@ module SyncLogic =
             | ApplyResult.Unchanged projected
             | ApplyResult.Changed projected -> Ok projected.graph
 
-    let isConfirmationEcho (submitted: PendingChange list) (confirmed: Change list) =
+    let isConfirmationEcho (submitted: PendingChange list) (confirmed: Gambol.Shared.Events.Event list) =
         if submitted.IsEmpty then
             false
         else
@@ -350,13 +350,17 @@ module SyncLogic =
                 | Error _ -> false
                 | Ok _ -> true
 
-    /// Rewind to the noted baseline and replay a Poll Change list without clearing History.
+    /// Rewind to the noted baseline and replay a Poll Event list without clearing History.
     let consumeCatchUpPoll
         (baseline: CatchUpBaseline)
-        (changes: Change list)
-        (serverRevision: Revision)
+        (events: Gambol.Shared.Events.Event list)
+        (serverRevision: Gambol.Shared.Events.EventId)
         (state: ClientSyncState)
         : Result<ClientSyncState, string> =
+        let changes = events |> List.map (fun event ->
+            { id = 0
+              changeId = event.submissionId
+              ops = Gambol.Shared.Events.Event.ops event |> Option.defaultValue [] })
         let atBaseline =
             { state with
                 graph = baseline.graph
@@ -371,7 +375,7 @@ module SyncLogic =
 
     let reconcileExternalAck
         (submitted: PendingChange list)
-        (serverRevision: Revision)
+        (serverRevision: Gambol.Shared.Events.EventId)
         (state: ClientSyncState)
         (syncInfo: SyncInfo)
         : AckReconcile =
@@ -394,8 +398,8 @@ module SyncLogic =
 
     let reconcileAck
         (submitted: PendingChange list)
-        (confirmed: Change list)
-        (serverRevision: Revision)
+        (confirmed: Gambol.Shared.Events.Event list)
+        (serverRevision: Gambol.Shared.Events.EventId)
         (state: ClientSyncState)
         (syncInfo: SyncInfo)
         : AckReconcile =
@@ -408,12 +412,14 @@ module SyncLogic =
                 match collectSuffixes submitted confirmed with
                 | Error err -> AckReconcile.Rejected err
                 | Ok suffixOps ->
+                    let (Gambol.Shared.Events.EventId serverRev) = serverRevision
+                    let (Gambol.Shared.Events.EventId stateRev) = state.revision
                     match
                         queueOutcome
                             submitted
                             syncInfo.pendingChanges
-                            serverRevision.Value
-                            state.revision.Value
+                            serverRev
+                            stateRev
                     with
                     | Error err -> AckReconcile.Rejected err
                     | Ok "ignore" -> AckReconcile.Ignored
