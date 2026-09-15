@@ -41,6 +41,7 @@ module CoreRuntime =
                 postChange = rejectPost
                 postGraphOnlyChange = rejectGraph
                 actorStop = rejectActorStop
+                getEventsSince = h.getEventsSince
                 asCaller = fun caller -> wrap (h.asCaller caller) }
         wrap handle
 

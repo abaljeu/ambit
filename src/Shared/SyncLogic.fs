@@ -3,8 +3,9 @@ namespace Gambol.Shared
 /// Browser graph, Revision, and ClientHistory used by local and remote apply.
 type ClientSyncState =
     { graph: Graph
-      revision: Revision
-      history: ClientHistory }
+      revision: Gambol.Shared.Events.EventId
+      history: ClientHistory
+      eventLog: Gambol.Shared.Events.EventLog }
 
 [<RequireQualifiedAccess>]
 type AckReconcile =
@@ -27,7 +28,8 @@ module SyncLogic =
         (clientRev: int)
         : SyncState option =
         let codeOutdated = poll.apiVersion <> ApiVersion.current
-        let dataOutdated = poll.revision.Value > clientRev
+        let (Gambol.Shared.Events.EventId pollRev) = poll.revision
+        let dataOutdated = pollRev > clientRev
         if codeOutdated then Some CodeOutdated
         elif dataOutdated then Some DataOutdated
         else None
@@ -50,9 +52,10 @@ module SyncLogic =
         (state: ClientSyncState)
         (projected: State)
         : ClientSyncState =
+        let (Gambol.Shared.Events.EventId rev) = state.revision
         { state with
             graph = projected.graph
-            revision = Revision (state.revision.Value + 1) }
+            revision = Gambol.Shared.Events.EventId (rev + 1) }
 
     let private foldProjectedChanges
         (changes: Change list)
@@ -74,13 +77,13 @@ module SyncLogic =
     let private pendingItem
         (kind: PendingKind)
         (recordId: int)
-        (change: Change)
+        (event: Gambol.Shared.Events.Event)
         : PendingChange =
-        { change = change
+        { event = event
           transition =
             Some
                 { recordId = recordId
-                  submittedChangeId = change.changeId
+                  submittedChangeId = event.submissionId
                   kind = kind } }
 
     /// Apply a Sync response atomically under Loaded rules.
@@ -90,7 +93,11 @@ module SyncLogic =
         (response: SyncResponse)
         (state: ClientSyncState)
         : Result<ClientSyncState, string> =
-        match foldProjectedChanges response.changes state with
+        let changes = response.events |> List.map (fun event ->
+            { id = 0
+              changeId = event.submissionId
+              ops = Gambol.Shared.Events.Event.ops event |> Option.defaultValue [] })
+        match foldProjectedChanges changes state with
         | Error msg -> Error msg
         | Ok afterChanges ->
             let graph =
@@ -106,39 +113,44 @@ module SyncLogic =
         (state: ClientSyncState)
         : Result<ClientSyncState, string> =
         let packageOnly =
-            List.isEmpty response.changes
+            List.isEmpty response.events
             && not (List.isEmpty response.packages)
+        let (Gambol.Shared.Events.EventId stateRev) = state.revision
         if
             packageOnly
-            && (hasPendingLocal || responseRevision <> state.revision.Value)
+            && (hasPendingLocal || responseRevision <> stateRev)
         then
             Error "raced package payload"
         else
             applySyncResponse response state
 
     let loadResponseToSync (response: LoadResponse) : SyncResponse =
-        { changes = response.changes
+        { events = response.events
           packages = response.packages }
 
     let loadResponseToPoll (response: LoadResponse) : ChangeSuccessResponse =
-        { revision = Revision response.revision
+        { revision = Gambol.Shared.Events.EventId response.revision
           buildEpochSec = response.buildEpochSec
           pageBuildEpochSec = response.pageBuildEpochSec
           apiVersion = response.apiVersion
           isReady = response.isReady
+<<<<<<< HEAD
           externalChanges = not response.changes.IsEmpty
           changes = response.changes
+=======
+          externalChanges = not response.events.IsEmpty
+>>>>>>> cursor/issue-44-browser-poll-history-pending-eventid-56d1
           events = response.events
           message = None
           bootstrapHash = None }
 
-    /// Apply a server-supplied Change tail onto local State (Poll path).
+    /// Apply a server-supplied Event tail onto local State (Poll path).
     /// Empty list is a no-op that preserves History.
     let applyServerTail
-        (changes: Change list)
+        (events: Gambol.Shared.Events.Event list)
         (state: ClientSyncState)
         : Result<ClientSyncState, string> =
-        applySyncResponse { changes = changes; packages = [] } state
+        applySyncResponse { events = events; packages = [] } state
 
     let private undoPendingGraph
         (state: ClientSyncState)
@@ -148,11 +160,15 @@ module SyncLogic =
         |> List.rev
         |> List.fold
             (fun graph item ->
+                let change =
+                    { id = 0
+                      changeId = item.event.submissionId
+                      ops = Gambol.Shared.Events.Event.ops item.event |> Option.defaultValue [] }
                 let inverse =
                     Change.inverse
                         state.revision
-                        item.change.changeId
-                        item.change
+                        item.event.submissionId
+                        change
                 match
                     ResidentProjection.applyChange
                         inverse
@@ -174,11 +190,17 @@ module SyncLogic =
         | ApplyResult.Changed newState ->
             let history, recordId =
                 ClientHistory.record commandName change state.history
+            let event =
+                { id = Gambol.Shared.Events.EventId recordId
+                  submissionId = change.changeId
+                  authority = Gambol.Shared.Events.Authority "Browser"
+                  commandName = commandName
+                  body = Gambol.Shared.Events.EventBody.Change change.ops }
             Ok(
                 { state with
                     graph = newState.graph
                     history = history },
-                pendingItem PendingKind.Normal recordId change)
+                pendingItem PendingKind.Normal recordId event)
 
     let private applyInverse
         (kind: PendingKind)
@@ -187,17 +209,31 @@ module SyncLogic =
         : Result<ClientSyncState * PendingChange, string> option =
         match planned with
         | None -> None
-        | Some (inverse, _, history, recordId) ->
+        | Some (inverse, commandName, history, recordId) ->
             match ResidentProjection.applyChange inverse (asProjectionState state) with
             | ApplyResult.Invalid (_, msg) -> Some (Error msg)
             | ApplyResult.Unchanged newState
             | ApplyResult.Changed newState ->
+                let bodyKind = 
+                    match kind with
+                    | PendingKind.Undo -> 
+                        Gambol.Shared.Events.EventBody.Undo(Gambol.Shared.Events.EventId recordId, inverse.ops)
+                    | PendingKind.Redo -> 
+                        Gambol.Shared.Events.EventBody.Redo(Gambol.Shared.Events.EventId recordId, inverse.ops)
+                    | PendingKind.Normal -> 
+                        Gambol.Shared.Events.EventBody.Change inverse.ops
+                let event =
+                    { id = Gambol.Shared.Events.EventId recordId
+                      submissionId = inverse.changeId
+                      authority = Gambol.Shared.Events.Authority "Browser"
+                      commandName = commandName
+                      body = bodyKind }
                 Some(
                     Ok(
                         { state with
                             graph = newState.graph
                             history = history },
-                        pendingItem kind recordId inverse))
+                        pendingItem kind recordId event))
 
     let applyLocalUndo
         (changeId: System.Guid)
@@ -308,7 +344,7 @@ module SyncLogic =
             | ApplyResult.Unchanged projected
             | ApplyResult.Changed projected -> Ok projected.graph
 
-    let isConfirmationEcho (submitted: PendingChange list) (confirmed: Change list) =
+    let isConfirmationEcho (submitted: PendingChange list) (confirmed: Gambol.Shared.Events.Event list) =
         if submitted.IsEmpty then
             false
         else
@@ -319,13 +355,17 @@ module SyncLogic =
                 | Error _ -> false
                 | Ok _ -> true
 
-    /// Rewind to the noted baseline and replay a Poll Change list without clearing History.
+    /// Rewind to the noted baseline and replay a Poll Event list without clearing History.
     let consumeCatchUpPoll
         (baseline: CatchUpBaseline)
-        (changes: Change list)
-        (serverRevision: Revision)
+        (events: Gambol.Shared.Events.Event list)
+        (serverRevision: Gambol.Shared.Events.EventId)
         (state: ClientSyncState)
         : Result<ClientSyncState, string> =
+        let changes = events |> List.map (fun event ->
+            { id = 0
+              changeId = event.submissionId
+              ops = Gambol.Shared.Events.Event.ops event |> Option.defaultValue [] })
         let atBaseline =
             { state with
                 graph = baseline.graph
@@ -340,7 +380,7 @@ module SyncLogic =
 
     let reconcileExternalAck
         (submitted: PendingChange list)
-        (serverRevision: Revision)
+        (serverRevision: Gambol.Shared.Events.EventId)
         (state: ClientSyncState)
         (syncInfo: SyncInfo)
         : AckReconcile =
@@ -363,8 +403,8 @@ module SyncLogic =
 
     let reconcileAck
         (submitted: PendingChange list)
-        (confirmed: Change list)
-        (serverRevision: Revision)
+        (confirmed: Gambol.Shared.Events.Event list)
+        (serverRevision: Gambol.Shared.Events.EventId)
         (state: ClientSyncState)
         (syncInfo: SyncInfo)
         : AckReconcile =
@@ -377,12 +417,14 @@ module SyncLogic =
                 match collectSuffixes submitted confirmed with
                 | Error err -> AckReconcile.Rejected err
                 | Ok suffixOps ->
+                    let (Gambol.Shared.Events.EventId serverRev) = serverRevision
+                    let (Gambol.Shared.Events.EventId stateRev) = state.revision
                     match
                         queueOutcome
                             submitted
                             syncInfo.pendingChanges
-                            serverRevision.Value
-                            state.revision.Value
+                            serverRev
+                            stateRev
                     with
                     | Error err -> AckReconcile.Rejected err
                     | Ok "ignore" -> AckReconcile.Ignored

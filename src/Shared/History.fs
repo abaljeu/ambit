@@ -40,7 +40,7 @@ type History =
 
 type State =
     { graph: Graph
-      revision: Revision }
+      revision: Gambol.Shared.Events.EventId }
 
 
 [<RequireQualifiedAccess>]

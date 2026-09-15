@@ -12,20 +12,20 @@ type PendingTransition =
       kind: PendingKind }
 
 type PendingChange =
-    { change: Change
+    { event: Gambol.Shared.Events.Event
       transition: PendingTransition option }
 
 [<RequireQualifiedAccess>]
 module PendingChange =
-    let ofChange (change: Change) : PendingChange =
-        { change = change; transition = None }
+    let ofEvent (event: Gambol.Shared.Events.Event) : PendingChange =
+        { event = event; transition = None }
 
-    let workspaceSingleton (recordId: int) (change: Change) : PendingChange =
-        { change = change
+    let workspaceSingleton (recordId: int) (event: Gambol.Shared.Events.Event) : PendingChange =
+        { event = event
           transition =
             Some
                 { recordId = recordId
-                  submittedChangeId = change.changeId
+                  submittedChangeId = event.submissionId
                   kind = PendingKind.Normal } }
 
 type SyncState =
@@ -49,7 +49,7 @@ type QueuedRequest =
 
 /// Optimistic graph at the last server revision before catch-up replay.
 type CatchUpBaseline =
-    { revision: Revision
+    { revision: Gambol.Shared.Events.EventId
       graph: Graph }
 
 type SyncInfo =

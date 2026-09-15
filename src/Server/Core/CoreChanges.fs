@@ -30,7 +30,7 @@ type CoreChangesAccepted =
 /// per Change into the mailbox (postEvent door).
 type CoreChanges =
     { getState: unit -> Async<Result<State, string>>
-      getRevision: unit -> Async<Revision>
+      getRevision: unit -> Async<Gambol.Shared.Events.EventId>
       getChangesSince: Revision -> Async<Change list>
       getEventsSince: Gambol.Shared.Events.EventId -> Async<Gambol.Shared.Events.Event list>
       isReady: unit -> bool
