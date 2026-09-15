@@ -45,6 +45,8 @@ match AgentRunner.start config "Explain F# computation expressions" None options
 
 ### With repository (optional)
 
+Gambol repo work: send finished git to `staging` ([[.agents/skills/cloud-agent-git/SKILL.md]]). The library still returns the vendor branch and PR URL; that is not the drop.
+
 ```fsharp
 open Gambol.CloudAgents
 
