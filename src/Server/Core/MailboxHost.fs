@@ -24,18 +24,13 @@ module MailboxHost =
           flushSnapshot = flushSnapshot
           dispose = dispose }
 
-    let internal post (host: MailboxHost) (msg: CoreMsg) =
-        host.mailbox.Post msg
-
     let internal postAndAsyncReply
         (host: MailboxHost)
         (build: AsyncReplyChannel<'a> -> CoreMsg)
         : Async<'a> =
         host.mailbox.PostAndAsyncReply build
 
-    let isReady (host: MailboxHost) = host.isReady ()
-
-    let isReadyFn (host: MailboxHost) = host.isReady
+    let isReady (host: MailboxHost) = host.isReady
 
     let flushSnapshot (host: MailboxHost) = host.flushSnapshot ()
 

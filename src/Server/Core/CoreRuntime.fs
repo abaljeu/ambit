@@ -8,6 +8,18 @@ type CoreRuntime =
     { host: MailboxHost
       parseCaller: Caller }
 
+/// Persist choice, auth seed, and optional actors to boot a CoreRuntime.
+type CoreBoot =
+    {
+        PersistenceMode: DatabaseSetup.PersistenceMode
+        DbStatus: DatabaseSetup.DbStatus
+        DbConnectionString: string
+        DataDir: string
+        AuthUser: string
+        AuthPass: string
+        Actors: (ActorName * ActorFn) list
+    }
+
 [<RequireQualifiedAccess>]
 module CoreRuntime =
 
@@ -29,61 +41,49 @@ module CoreRuntime =
         wrap handle
 
     let private startHost
-        (persistenceMode: DatabaseSetup.PersistenceMode)
-        (dbStatus: DatabaseSetup.DbStatus)
+        (boot: CoreBoot)
         (pool: CoreActorPool)
-        (dbConnectionString: string)
-        (dataDir: string)
         (credentials: CoreCredentials)
         : MailboxHost =
-        match persistenceMode, dbStatus with
+        match boot.PersistenceMode, boot.DbStatus with
         | DatabaseSetup.PersistenceMode.Db, DatabaseSetup.DbStatus.Ok ->
             CoreMailbox.host
                 pool
                 (DbAgent.persist
-                    (DbAgent.createWithDataDir dbConnectionString dataDir))
+                    (DbAgent.createWithDataDir
+                        boot.DbConnectionString
+                        boot.DataDir))
                 credentials
         | _ ->
             CoreMailbox.host
                 pool
-                (FileAgent.persist (FileAgent.create dataDir))
+                (FileAgent.persist (FileAgent.create boot.DataDir))
                 credentials
 
-    let private bootCallers authUser authPass =
+    let private bootCallers (boot: CoreBoot) =
         let browserSecret =
-            Credential(AuthToken.deriveToken authUser authPass)
+            Credential(AuthToken.deriveToken boot.AuthUser boot.AuthPass)
         let browserCaller =
             { authority = Authority "Browser"
               name = ""
               secret = browserSecret }
+        let parseSecret =
+            "parse:" + AuthToken.deriveToken boot.AuthUser boot.AuthPass
         let parseCaller =
             { authority = Authority "Parse"
               name = "process"
-              secret =
-                Credential(
-                    "parse:" + AuthToken.deriveToken authUser authPass) }
+              secret = Credential parseSecret }
         browserCaller, parseCaller
 
-    let create
-        (persistenceMode: DatabaseSetup.PersistenceMode)
-        (dbStatus: DatabaseSetup.DbStatus)
-        (dbConnectionString: string)
-        (dataDir: string)
-        (authUser: string)
-        (authPass: string)
-        (actors: (ActorName * ActorFn) list)
-        : CoreRuntime =
-        let browserCaller, parseCaller = bootCallers authUser authPass
+    let create (boot: CoreBoot) : CoreRuntime =
+        let browserCaller, parseCaller = bootCallers boot
         let pool = CoreActorPool.create ()
-        actors
+        boot.Actors
         |> List.iter (fun (name, actorFn) -> pool.register name actorFn)
         let host =
             startHost
-                persistenceMode
-                dbStatus
+                boot
                 pool
-                dbConnectionString
-                dataDir
                 (CoreCredentials.ofCallers (
                     Set.ofList [ browserCaller; parseCaller ]))
         { host = host; parseCaller = parseCaller }

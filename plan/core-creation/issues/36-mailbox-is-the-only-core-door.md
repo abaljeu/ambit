@@ -3,7 +3,7 @@
 **Status:** coded
 **Blocked by:** None — can start immediately. Builds on the Caller-set remake in [[../reports/corecredentials-caller-set.md]]. Does not rewrite [[33-credentialed-browser-change-posts.md|33 — Credentialed Browser Change posts]].
 Estimate: 2h
-Actual: 2h
+Actual: 7h
 
 ## 1. Context
 
@@ -54,9 +54,31 @@ Collapse multiple entrances so the mailbox is the only who-may-talk decision. Ad
 
 ## 5. Comments
 
-- 2026-09-14 — Filed for the multiple-entrances cut. Keep 33 as the coded Browser-path ticket.
+- 2026-09-14 — Filed for the multiple-entrances cut. Keep [[33-credentialed-browser-change-posts.md|33 — Credentialed Browser Change posts]] as the coded Browser-path ticket.
 - 2026-09-14 — Implemented mailbox-only admission, thinned CoreRuntime, credentialed Graph-only, hidden CoreMsg processor. Status `coded`. Report: [[../reports/mailbox-single-door.md]].
+- 2026-09-15 — Two-axis review corrections. Status stays `coded`. Report: [[../reports/36-review-corrections.md]].
+- 2026-09-15 — Six-arg route clump is [[../reports/ambitapp-record.md|AmbitApp]]. Status stays `coded`.
+- 2026-09-15 — GitGateway, WebDAV, diagnostics, HttpResponseLog take `this` (AmbitApp), not unpacked App/Auth/DataDir. Status stays `coded`.
+- 2026-09-15 — `CreateRuntime` collapses Auth/DataDir unpack into CoreRuntime. Persistence is not an AmbitApp member. Status stays `coded`.
+- 2026-09-15 — Shell registration clump is `AppShellContext`. Status stays `coded`.
+- 2026-09-15 — `AppShellContext` built once and passed to auth/state/save/shell register helpers. Status stays `coded`.
+- 2026-09-15 — `serveUserCss` and `renderGambolHtml` take `AppShellContext`, not unpacked fields. Status stays `coded`.
+- 2026-09-15 — GitGateway handlers take `AppShellContext` for git auth and DataDir; flush/reconcile stay args. Status stays `coded`.
+- 2026-09-15 — `CoreBoot` is the Core-owned create input. Status stays `coded`.
+- 2026-09-15 — `CoreBoot` now reaches `startHost` / `bootCallers`; Adapter `CreateBoot` so RouteRegistration does not rebuild the persist list. Status stays `coded`.
+- 2026-09-15 — `GitGateway.Routes` holds shell/flush/reconcile; built once at `registerPersistenceAndRoutes`. Status stays `coded`. Report: [[../reports/gitgateway-routes-type.md]].
 
 ## Time
 
 - 2026-09-14 2h — Collapse extra Core doors onto CoreMailbox (from chat)
+- 2026-09-15 1h30m — Two-axis review corrections (from chat)
+- 2026-09-15 1h — AmbitApp record for the route parameter clump (from chat)
+- 2026-09-15 30m — Helpers take AmbitApp `this` instead of unpacked fields (from chat)
+- 2026-09-15 15m — CreateRuntime; no Persistence member (from chat)
+- 2026-09-15 15m — AppShellContext for CSS and /ambit shell routes (from chat)
+- 2026-09-15 15m — Reuse AppShellContext for auth/state/save register helpers (from chat)
+- 2026-09-15 15m — serveUserCss and renderGambolHtml take AppShellContext (from chat)
+- 2026-09-15 15m — GitGateway handleInfoRefs/handlePackPost take AppShellContext (from chat)
+- 2026-09-15 15m — CoreBoot for CoreRuntime.create (from chat)
+- 2026-09-15 15m — CoreBoot through startHost and CreateBoot (from chat)
+- 2026-09-15 15m — GitGateway.Routes for registerRoutes/handleInfoRefs/handlePackPost (from chat)

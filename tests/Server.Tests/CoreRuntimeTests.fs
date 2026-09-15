@@ -27,13 +27,15 @@ let private addRootChild text =
 let private fileRuntime () =
     let dataDir = newTempDir ()
     CoreRuntime.create
-        DatabaseSetup.PersistenceMode.File
-        DatabaseSetup.DbStatus.Absent
-        ""
-        dataDir
-        "alice"
-        "secret"
-        []
+        {
+            PersistenceMode = DatabaseSetup.PersistenceMode.File
+            DbStatus = DatabaseSetup.DbStatus.Absent
+            DbConnectionString = ""
+            DataDir = dataDir
+            AuthUser = "alice"
+            AuthPass = "secret"
+            Actors = []
+        }
 
 let private browserCaller user pass =
     BrowserRequestCreds.callerFromSecret (

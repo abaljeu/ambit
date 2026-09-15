@@ -48,7 +48,7 @@ Closed:
 
 ## 2. Remaining doors not touched
 
-These stay out of scope (user items 5–7). No mechanical change was required in them to close 1–4.
+These stay out of scope: the second CoreChanges handle; pool as second lifecycle door; two Histories. No mechanical change was required in them to close 1–4.
 
 1. **Second CoreChanges handle** — `CoreMailbox.coreChanges` vs Actor `makeCoreChanges` inside `dispatchStartActor` that swallows getRevision / getChangesSince errors.
 2. **Pool as second lifecycle door** — Actor kind as CSS string; ActorStop double admit; unread `StartActorRequest.revision`.
@@ -109,4 +109,4 @@ Client compile gate skipped: Client/Shared were not edited.
 
 ## 5. Next step for the human
 
-Review [[../issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]] (Status `coded`, not `done`). Do not start items 5–7 until this door-collapse is accepted. No commit unless you ask for one.
+Review [[../issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]] (Status `coded`, not `done`). Do not start the remaining doors (second CoreChanges handle; pool as second lifecycle door; two Histories) until this door-collapse is accepted. No commit unless you ask for one.

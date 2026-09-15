@@ -2,7 +2,6 @@ namespace Gambol.Server
 
 open System
 open System.Collections.Concurrent
-open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Http
 open Gambol.Shared
 open Thoth.Json.Core
@@ -37,11 +36,9 @@ module LazyLoadReconciliationDiagnostics =
         Encode.object [ "failures", Encode.list items ]
         |> JsonEncode.toString 0
 
-    let registerRoute
-        (app: WebApplication)
-        (isAuthenticated: HttpRequest -> bool)
-        =
-        app.MapGet(
+    let registerRoute (this: AmbitApp) =
+        let isAuthenticated = this.Auth.IsAuthenticated
+        this.MapGet(
             "/ambit/workspace/reconciliation/latest",
             Func<HttpRequest, IResult>(fun req ->
                 if not (isAuthenticated req) then

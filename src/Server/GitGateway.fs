@@ -4,7 +4,6 @@ open System
 open System.IO
 open System.Text
 open System.Threading.Tasks
-open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.Primitives
 open Gambol.Shared
@@ -96,6 +95,11 @@ module GitGateway =
         string
             -> LazyLoadReconciliation.ChangedPath list
             -> Async<Result<LazyLoadReconciliationReport.Failure list, string>>
+
+    type Routes =
+        { shell: AppShellContext
+          flush: FlushFn
+          reconcile: ReconcileFn }
 
     let private logReconcileError label err =
         eprintfn
@@ -269,12 +273,12 @@ module GitGateway =
     // nested `task` CEs with many `do!` branches fail static reduction; keep
     // these handlers in `async` and surface Task only at the ASP.NET boundary.
     let private handleInfoRefs
-        (isAuthenticated: HttpRequest -> bool)
-        (dataDir: string)
-        (flush: FlushFn)
+        (routes: Routes)
         (ctx: HttpContext)
         (repoName: string)
         : Task =
+        let isAuthenticated = routes.shell.AmbitApp.Auth.IsGitAuthenticated
+        let dataDir = routes.shell.Persistence.DataDir
         async {
             if not (isAuthenticated ctx.Request) then
                 do! rejectUnauthorized ctx.Response |> Async.AwaitTask
@@ -319,7 +323,7 @@ module GitGateway =
                                 |> Async.AwaitTask
                     | Some WorkspacePull ->
                         let hint = clientHintOf ctx.Request
-                        let! prep = prepareWorkspacePull flush root hint
+                        let! prep = prepareWorkspacePull routes.flush root hint
                         match prep with
                         | Error err ->
                             do!
@@ -344,14 +348,13 @@ module GitGateway =
         :> Task
 
     let private handlePackPost
-        (isAuthenticated: HttpRequest -> bool)
-        (dataDir: string)
-        (flush: FlushFn)
-        (reconcile: ReconcileFn)
+        (routes: Routes)
         (service: Service)
         (ctx: HttpContext)
         (repoName: string)
         : Task =
+        let isAuthenticated = routes.shell.AmbitApp.Auth.IsGitAuthenticated
+        let dataDir = routes.shell.Persistence.DataDir
         async {
             if not (isAuthenticated ctx.Request) then
                 do! rejectUnauthorized ctx.Response |> Async.AwaitTask
@@ -369,7 +372,7 @@ module GitGateway =
                     match service with
                     | WorkspacePush ->
                         let hint = clientHintOf ctx.Request
-                        let! prep = prepareWorkspacePush flush root hint
+                        let! prep = prepareWorkspacePush routes.flush root hint
                         match prep with
                         | Error err ->
                             do!
@@ -384,7 +387,7 @@ module GitGateway =
                                     label
                                     oldHead
                                     (statelessRpc root WorkspacePush body)
-                                    reconcile
+                                    routes.reconcile
                             match completed with
                             | Error err ->
                                 do!
@@ -400,7 +403,7 @@ module GitGateway =
                                     |> Async.AwaitTask
                     | WorkspacePull ->
                         let hint = clientHintOf ctx.Request
-                        let! prep = prepareWorkspacePull flush root hint
+                        let! prep = prepareWorkspacePull routes.flush root hint
                         match prep with
                         | Error err ->
                             do!
@@ -426,40 +429,28 @@ module GitGateway =
         |> Async.StartAsTask
         :> Task
 
-    let registerRoutes
-        (app: WebApplication)
-        (isAuthenticated: HttpRequest -> bool)
-        (dataDir: string)
-        (flush: FlushFn)
-        (reconcile: ReconcileFn)
-        =
-        app.MapGet(
+    let registerRoutes (routes: Routes) =
+        routes.shell.AmbitApp.MapGet(
             "/ambit/git/{repoName}/info/refs",
             Func<HttpContext, string, Task>(fun ctx repoName ->
-                handleInfoRefs isAuthenticated dataDir flush ctx repoName)
+                handleInfoRefs routes ctx repoName)
         )
         |> ignore
-        app.MapPost(
+        routes.shell.AmbitApp.MapPost(
             "/ambit/git/{repoName}/git-upload-pack",
             Func<HttpContext, string, Task>(fun ctx repoName ->
                 handlePackPost
-                    isAuthenticated
-                    dataDir
-                    flush
-                    reconcile
+                    routes
                     WorkspacePull
                     ctx
                     repoName)
         )
         |> ignore
-        app.MapPost(
+        routes.shell.AmbitApp.MapPost(
             "/ambit/git/{repoName}/git-receive-pack",
             Func<HttpContext, string, Task>(fun ctx repoName ->
                 handlePackPost
-                    isAuthenticated
-                    dataDir
-                    flush
-                    reconcile
+                    routes
                     WorkspacePush
                     ctx
                     repoName)

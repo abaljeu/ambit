@@ -23,6 +23,18 @@ let private addRootChild text =
         [ Op.NewNode(childId, text)
           Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
 
+let private fileRuntime () =
+    CoreRuntime.create
+        {
+            PersistenceMode = DatabaseSetup.PersistenceMode.File
+            DbStatus = DatabaseSetup.DbStatus.Absent
+            DbConnectionString = ""
+            DataDir = newTempDir ()
+            AuthUser = "alice"
+            AuthPass = "secret"
+            Actors = []
+        }
+
 [<Fact>]
 let ``live Browser credential is admitted and Change reaches PersistHandlers``
     () =
@@ -91,15 +103,7 @@ let ``blank Authority is the same auth refuse before PersistHandlers`` () =
 [<Fact>]
 let ``request-carried cookie secret is admitted; foreign secret is refused`` () =
     task {
-        let runtime =
-            CoreRuntime.create
-                DatabaseSetup.PersistenceMode.File
-                DatabaseSetup.DbStatus.Absent
-                ""
-                (newTempDir ())
-                "alice"
-                "secret"
-                []
+        let runtime = fileRuntime ()
         let cookie =
             Credential(AuthToken.deriveToken "alice" "secret")
         let caller = BrowserRequestCreds.callerFromSecret cookie
@@ -123,15 +127,7 @@ let ``request-carried cookie secret is admitted; foreign secret is refused`` () 
 [<Fact>]
 let ``missing cookie secret is the same auth refuse before PersistHandlers`` () =
     task {
-        let runtime =
-            CoreRuntime.create
-                DatabaseSetup.PersistenceMode.File
-                DatabaseSetup.DbStatus.Absent
-                ""
-                (newTempDir ())
-                "alice"
-                "secret"
-                []
+        let runtime = fileRuntime ()
         let cookie =
             Credential(AuthToken.deriveToken "alice" "secret")
         let handle =
@@ -163,15 +159,7 @@ let ``missing cookie secret is the same auth refuse before PersistHandlers`` () 
 [<Fact>]
 let ``request cookie value is admitted without closed-over browserCredential`` () =
     task {
-        let runtime =
-            CoreRuntime.create
-                DatabaseSetup.PersistenceMode.File
-                DatabaseSetup.DbStatus.Absent
-                ""
-                (newTempDir ())
-                "alice"
-                "secret"
-                []
+        let runtime = fileRuntime ()
         let cookie =
             Credential(AuthToken.deriveToken "alice" "secret")
         match BrowserRequestCreds.trySecretFromCookieValue (

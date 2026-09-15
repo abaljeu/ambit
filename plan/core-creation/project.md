@@ -2,9 +2,9 @@
 
 Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
-Updated: 2026-09-14
+Updated: 2026-09-15
 Started: 2026-09-05
-Actual: 38h35m
+Actual: 43h35m
 
 ## Map
 
@@ -111,6 +111,9 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/reports/sync-startactor-one-mailbox.md]] — Sync startActor, one CoreMsg host, mailbox-owned live table, File or Db persist, mirror deleted.
 - [[plan/core-creation/reports/corecredentials-caller-set.md]] — CoreCredentials is a mailbox-owned Set of Caller; login maps name+secret.
 - [[plan/core-creation/reports/mailbox-single-door.md]] — Mailbox is the only Core door: one admission, thinned CoreRuntime, credentialed Graph-only, hidden CoreMsg.
+- [[plan/core-creation/reports/36-review-corrections.md]] — Review corrections for [[plan/core-creation/issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]].
+- [[plan/core-creation/reports/ambitapp-record.md]] — AmbitApp record for the six-arg route clump leftover from [[plan/core-creation/issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]].
+- [[plan/core-creation/reports/gitgateway-routes-type.md]] — GitGateway.Routes for the shell/flush/reconcile clump leftover from [[plan/core-creation/issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]].
 
 ## Comments
 
@@ -132,3 +135,6 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - 2026-09-14 — Spec of [[plan/core-creation/issues/33-credentialed-browser-change-posts.md|Credentialed Browser Change posts]] aligned to review findings; auth-disabled app-serve SetCookie rejected and remaining.
 - 2026-09-14 — Removed `auth.Disabled` skip on [[plan/core-creation/issues/33-credentialed-browser-change-posts.md|Credentialed Browser Change posts]]; Status `coded`; Stage `build`. Report: [[plan/core-creation/reports/remove-auth-disabled-bypass.md]].
 - 2026-09-14 — [[plan/core-creation/issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]] Status `coded`. Report: [[plan/core-creation/reports/mailbox-single-door.md]].
+- 2026-09-15 — Review corrections for [[plan/core-creation/issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]]. Status stays `coded`. Report: [[plan/core-creation/reports/36-review-corrections.md]].
+- 2026-09-15 — AmbitApp record for the route parameter clump. Status of [[plan/core-creation/issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]] stays `coded`. Report: [[plan/core-creation/reports/ambitapp-record.md]].
+- 2026-09-15 — GitGateway.Routes for the git registration clump. Status of [[plan/core-creation/issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]] stays `coded`. Report: [[plan/core-creation/reports/gitgateway-routes-type.md]].

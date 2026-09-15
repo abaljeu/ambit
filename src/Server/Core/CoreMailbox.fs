@@ -124,7 +124,7 @@ module CoreMailbox =
             { getState = fun () -> tryGetState host
               getRevision = fun () -> getRevision host
               getChangesSince = getChangesSince host
-              isReady = MailboxHost.isReadyFn host
+              isReady = MailboxHost.isReady host
               postChange = fun changes -> postChange host c changes
               postGraphOnlyChange =
                 fun changes -> postGraphOnlyChange host c changes
@@ -132,7 +132,7 @@ module CoreMailbox =
               asCaller = make }
         make caller
 
-    let isReady (host: MailboxHost) = MailboxHost.isReady host
+    let isReady (host: MailboxHost) = MailboxHost.isReady host ()
 
     let flushSnapshot (host: MailboxHost) =
         MailboxHost.flushSnapshot host
