@@ -195,6 +195,7 @@ let ``delivered inverse of large paste measures phases without per-created-Node 
           isReady = true
           externalChanges = false
           changes = [ inverse ]
+          events = None
           message = None
           bootstrapHash = None }
     let _, ackMs =

@@ -38,6 +38,13 @@ module ApiResponseSerialization =
                 response.changes
                 |> List.map Serialization.encodeChange
                 |> Encode.list ]
+            @ match response.events with
+              | None -> []
+              | Some events ->
+                  [ "events",
+                    events
+                    |> List.map Events.EventJson.encode
+                    |> Encode.list ]
             @ match response.message with
               | None -> []
               | Some message -> [ "message", Encode.string message ]
@@ -61,6 +68,10 @@ module ApiResponseSerialization =
                 get.Required.Field
                     "c"
                     (Decode.list Serialization.decodeChange)
+              events =
+                get.Optional.Field
+                    "events"
+                    (Decode.list Events.EventJson.decode)
               message = get.Optional.Field "message" Decode.string
               bootstrapHash =
                 get.Optional.Field "bootstrapHash" Decode.string })
@@ -99,7 +110,7 @@ module ApiResponseSerialization =
         Decode.fromString decodeLoadRequestDecoder text
 
     let encodeLoadResponse (response: LoadResponse) : IEncodable =
-        Encode.object
+        Encode.object (
             [ "r", Encode.int response.revision
               "b", Encode.int response.buildEpochSec
               "p", Encode.int response.pageBuildEpochSec
@@ -113,6 +124,13 @@ module ApiResponseSerialization =
                 response.packages
                 |> List.map Serialization.encodeNode
                 |> Encode.list ]
+            @ match response.events with
+              | None -> []
+              | Some events ->
+                  [ "events",
+                    events
+                    |> List.map Events.EventJson.encode
+                    |> Encode.list ])
 
     let decodeLoadResponseDecoder: Decoder<LoadResponse> =
         Decode.object (fun get ->
@@ -130,6 +148,10 @@ module ApiResponseSerialization =
                     "c"
                     (Decode.list Serialization.decodeChange)
                 |> Option.defaultValue []
+              events =
+                get.Optional.Field
+                    "events"
+                    (Decode.list Events.EventJson.decode)
               packages =
                 get.Optional.Field
                     "packages"

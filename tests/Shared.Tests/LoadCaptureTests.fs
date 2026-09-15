@@ -176,6 +176,7 @@ let ``LoadResponse toSyncResponse preserves changes and packages`` () =
           apiVersion = ApiVersion.current
           isReady = true
           changes = []
+          events = None
           packages = [ node ] }
     let sync = SyncLogic.loadResponseToSync load
     Assert.Empty(sync.changes)

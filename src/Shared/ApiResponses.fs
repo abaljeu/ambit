@@ -26,6 +26,8 @@ type ChangeSuccessResponse =
       isReady: bool
       externalChanges: bool
       changes: Change list
+      /// Event tail (new). Kept beside changes until Browser migrate (issue 44).
+      events: Gambol.Shared.Events.Event list option
       /// File-write status when graph change succeeded but artifact save had issues.
       message: string option
       /// Optional ROOT-closure fingerprint; omitted by old Servers.
@@ -49,6 +51,8 @@ type LoadResponse =
       apiVersion: int
       isReady: bool
       changes: Change list
+      /// Event tail (new). Kept beside changes until Browser migrate (issue 44).
+      events: Gambol.Shared.Events.Event list option
       /// Complete Workspace subgraph Nodes at the response Revision (wire: packages).
       packages: Node list }
 

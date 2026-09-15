@@ -227,6 +227,7 @@ module CoreMailbox =
             { getState = fun () -> tryGetState host
               getRevision = fun () -> getRevision host
               getChangesSince = getChangesSince host
+              getEventsSince = getEventsSince host
               isReady = MailboxHost.isReady host
               postChange = postChange host c
               postGraphOnlyChange =

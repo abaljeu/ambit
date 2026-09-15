@@ -20,6 +20,7 @@ let private mkPoll rev build page : ChangeSuccessResponse =
       isReady = true
       externalChanges = false
       changes = []
+      events = None
       message = None
       bootstrapHash = None }
 

@@ -32,6 +32,7 @@ type CoreChanges =
     { getState: unit -> Async<Result<State, string>>
       getRevision: unit -> Async<Revision>
       getChangesSince: Revision -> Async<Change list>
+      getEventsSince: Gambol.Shared.Events.EventId -> Async<Gambol.Shared.Events.Event list>
       isReady: unit -> bool
       postChange: Change list -> Async<Result<CoreChangesAccepted, string>>
       postGraphOnlyChange:

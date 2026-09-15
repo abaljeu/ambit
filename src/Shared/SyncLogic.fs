@@ -128,6 +128,7 @@ module SyncLogic =
           isReady = response.isReady
           externalChanges = not response.changes.IsEmpty
           changes = response.changes
+          events = response.events
           message = None
           bootstrapHash = None }
 

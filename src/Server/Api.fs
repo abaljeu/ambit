@@ -44,6 +44,10 @@ module Api =
             if rev.Value > clientRev then
                 handle.getChangesSince (Revision clientRev)
             else async.Return []
+        let! events =
+            if rev.Value > clientRev then
+                handle.getEventsSince (Gambol.Shared.Events.EventId clientRev)
+            else async.Return []
         let poll: ChangeSuccessResponse =
             { revision = rev
               buildEpochSec = buildEpochSec
@@ -52,6 +56,7 @@ module Api =
               isReady = handle.isReady ()
               externalChanges = not changes.IsEmpty
               changes = changes
+              events = Some events
               message = None
               bootstrapHash = None }
         return changeSuccessResult poll
@@ -100,6 +105,11 @@ module Api =
                         handle.getChangesSince (Revision request.revision)
                     else
                         async.Return []
+                let! events =
+                    if rev.Value > request.revision then
+                        handle.getEventsSince (Gambol.Shared.Events.EventId request.revision)
+                    else
+                        async.Return []
                 let load: LoadResponse =
                     { revision = rev.Value
                       buildEpochSec = buildEpochSec
@@ -107,6 +117,7 @@ module Api =
                       apiVersion = ApiVersion.current
                       isReady = handle.isReady ()
                       changes = changes
+                      events = Some events
                       packages = packages }
                 let json =
                     Encode.toString 0 (ApiResponseSerialization.encodeLoadResponse load)
@@ -176,6 +187,7 @@ module Api =
                           isReady = accepted.isReady
                           externalChanges = accepted.externalChanges
                           changes = accepted.changes
+                          events = None
                           message = accepted.message
                           bootstrapHash = None }
             | Error err -> return agentErrorResult err
