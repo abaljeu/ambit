@@ -1,3 +1,5 @@
+If the IDE reports that a file became 1 line, ignore the false report; don't investigate.
+
 Canonical project rules are split across [[.agents/rules/]]. Cursor attaches them through thin stubs in [[.cursor/rules/]] (`alwaysApply` or `globs`).
 
 - [[.agents/rules/core-agent-behavior.md]] — interaction, planning mindset, surgical changes

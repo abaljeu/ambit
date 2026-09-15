@@ -42,7 +42,7 @@ let ``proxyCookieHeader prefers server-issued over stored credentials`` () =
 
 [<Fact>]
 let ``proxyCookieHeader stored matches boot-seed deriveToken after restart`` () =
-    // Server restart re-seeds CoreCredentials with deriveToken(user,pass).
+    // Server restart starts the mailbox with deriveToken(user,pass) in the secret set.
     // Desktop AuthStore rebuilds the same cookie — DeployEpochSec is not required.
     let bootSeed = AuthToken.deriveToken "alice" "secret"
     let header =

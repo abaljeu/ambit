@@ -424,6 +424,9 @@ let ``WorkspaceFileSync.post uploads edited local file into DataDir`` () = task 
         use handler = new ForceAsyncSendHandler(factory.Server.CreateHandler())
         use client = new HttpClient(handler, disposeHandler = true)
         client.BaseAddress <- factory.Server.BaseAddress
+        client.DefaultRequestHeaders.Add(
+            "Cookie",
+            AuthToken.cookieHeaderValue "" "")
         let ambitBase =
             client.BaseAddress.ToString().TrimEnd('/') + "/ambit"
         let scope =

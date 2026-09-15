@@ -119,7 +119,6 @@ let ``test Actor posts Normal Change off apply mailbox and Poll sees it`` () =
 let private recordingHandle (posts: ResizeArray<Change list>) =
     let state =
         { graph = Graph.create ()
-          history = History.empty
           revision = Revision 0 }
     let accepted changes : CoreChangesAccepted =
         { revision = Revision 1
@@ -136,6 +135,7 @@ let private recordingHandle (posts: ResizeArray<Change list>) =
             posts.Add(changes)
             async.Return(Result.Ok(accepted changes))
       postGraphOnlyChange = fun _ -> async.Return(Result.Error "unused")
+      actorStop = fun _ -> async.Return(Result.Error "unused")
       asCaller = fun _ -> Unchecked.defaultof<CoreChanges> }
     : CoreChanges
 

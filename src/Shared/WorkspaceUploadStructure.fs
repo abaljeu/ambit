@@ -46,7 +46,6 @@ module WorkspaceUploadStructure =
     let private applyOps (graph: Graph) (ops: Op list) : Result<Graph, string> =
         let initial: State =
             { graph = graph
-              history = History.empty
               revision = Revision.Zero }
 
         ops

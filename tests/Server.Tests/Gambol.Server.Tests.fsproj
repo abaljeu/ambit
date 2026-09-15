@@ -14,6 +14,7 @@
     <Compile Include="TestDbConfigTests.fs" />
     <Compile Include="DatabaseSetupTests.fs" />
     <Compile Include="TestBackend.fs" />
+    <Compile Include="TestActor.fs" />
     <Compile Include="DocumentPersistenceTests.fs" />
     <Compile Include="DocumentOpPersistenceTests.fs" />
     <Compile Include="DocumentPathMoveExecutionTests.fs" />
@@ -30,9 +31,14 @@
     <Compile Include="CoreCredentialsTests.fs" />
     <Compile Include="CredentialedChangePostsTests.fs" />
     <Compile Include="CoreMsgActorCasesTests.fs" />
+    <Compile Include="CoreMailboxDoorTests.fs" />
+    <Compile Include="Issue41CoreMailboxTests.fs" />
+    <Compile Include="Issue42PersistHandlersTests.fs" />
+    <Compile Include="ActorCoreChangesDoorTests.fs" />
     <Compile Include="CoreRuntimeTests.fs" />
     <Compile Include="BrowserCredentialTests.fs" />
     <Compile Include="CoreActorPoolTests.fs" />
+    <Compile Include="TestActorHelloTests.fs" />
     <Compile Include="GitSaveEndpointTests.fs" />
     <Compile Include="WorkspaceWebDavTests.fs" />
     <Compile Include="HttpResponseLogTests.fs" />

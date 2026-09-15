@@ -6,7 +6,6 @@ open System.Security.Cryptography
 open System.Text
 open System.Text.Json
 open System.Threading.Tasks
-open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Http
 open Gambol.Shared
 
@@ -673,20 +672,18 @@ module WorkspaceWebDav =
                         claim.relative
     }
 
-    let registerRoutes
-        (app: WebApplication)
-        (isAuthenticated: HttpRequest -> bool)
-        (dataDir: string)
-        (user: string)
-        (capabilitySecret: string)
-        =
+    let registerRoutes (this: AmbitApp) =
+        let isAuthenticated = this.Auth.IsAuthenticated
+        let dataDir = this.DataDir
+        let user = this.Auth.ExpectedUser
+        let capabilitySecret = this.Auth.ExpectedPass
         let methods = [| "PROPFIND"; "GET"; "PUT"; "MKCOL" |]
         let clientHint (req: HttpRequest) =
             match req.Headers.TryGetValue(ClientIdentity.HeaderName) with
             | true, values -> ClientIdentity.tryFromValues values
             | _ -> None
 
-        app.MapPost(
+        this.MapPost(
             "/ambit/upload-capability",
             Func<HttpRequest, Task<IResult>>(fun req ->
                 if isAuthenticated req then
@@ -696,14 +693,14 @@ module WorkspaceWebDav =
         )
         |> ignore
 
-        app.MapPost(
+        this.MapPost(
             "/ambit/direct-upload",
             Func<HttpContext, Task<IResult>>(fun ctx ->
                 directUpload dataDir user capabilitySecret ctx)
         )
         |> ignore
 
-        app.MapPost(
+        this.MapPost(
             "/ambit/dav/{label}/_prepare-push",
             Func<HttpRequest, string, Task<IResult>>(fun req label ->
                 task {
@@ -715,7 +712,7 @@ module WorkspaceWebDav =
         )
         |> ignore
 
-        app.MapPost(
+        this.MapPost(
             "/ambit/dav/{label}/_finish-commit",
             Func<HttpRequest, string, Task<IResult>>(fun req label ->
                 task {
@@ -727,7 +724,7 @@ module WorkspaceWebDav =
         )
         |> ignore
 
-        app.MapMethods(
+        this.MapMethods(
             "/ambit/dav-resource/{token}",
             [| "PROPFIND"; "GET"; "MKCOL" |],
             Func<HttpContext, string, Task<IResult>>(
@@ -736,7 +733,7 @@ module WorkspaceWebDav =
         )
         |> ignore
 
-        app.MapMethods(
+        this.MapMethods(
             "/ambit/dav/{label}/{*path}",
             methods,
             Func<HttpContext, string, string, Task<IResult>>(
@@ -745,7 +742,7 @@ module WorkspaceWebDav =
         )
         |> ignore
 
-        app.MapMethods(
+        this.MapMethods(
             "/ambit/dav/{label}",
             methods,
             Func<HttpContext, string, Task<IResult>>(fun ctx label ->

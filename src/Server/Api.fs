@@ -164,6 +164,7 @@ module Api =
         | Error err ->
             return agentErrorResult $"Invalid JSON: {err}"
         | Ok batch ->
+            // Transport batch; CoreMailbox loops one PostEvent per Change.
             match! handle.postChange batch.changes with
             | Ok accepted ->
                 return
@@ -227,8 +228,6 @@ module Api =
 
     let private applyParseFile
         (handle: CoreChanges)
-        (credentials: CoreCredentials)
-        (sender: Credential)
         (dataDir: string)
         (fileId: NodeId)
         (text: string option)
@@ -251,13 +250,7 @@ module Api =
                     { id = state.revision.Value
                       changeId = Guid.NewGuid()
                       ops = ops }
-                match!
-                    CoreAuth.post
-                        credentials
-                        sender
-                        handle.postGraphOnlyChange
-                        [ change ]
-                with
+                match! handle.postGraphOnlyChange change with
                 | Ok _ -> return jsonResult """{"ok":true}"""
                 | Error err -> return agentErrorResult err
         }
@@ -265,8 +258,6 @@ module Api =
     /// ParseFile command: optional body text or DataDir read → apply on agent graph.
     let postParseFile
         (handle: CoreChanges)
-        (credentials: CoreCredentials)
-        (sender: Credential)
         (dataDir: string)
         (body: string)
         : Async<IResult> =
@@ -286,8 +277,6 @@ module Api =
                         return!
                             applyParseFile
                                 handle
-                                credentials
-                                sender
                                 dataDir
                                 fileId
                                 payload.text

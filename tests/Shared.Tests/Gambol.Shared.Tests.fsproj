@@ -19,6 +19,8 @@
     <Compile Include="ModelBuilderTests.fs" />
     <Compile Include="HistoryTests.fs" />
     <Compile Include="ClientHistoryTests.fs" />
+    <Compile Include="EventTests.fs" />
+    <Compile Include="EventJsonTests.fs" />
     <Compile Include="ChangeAmendmentTests.fs" />
     <Compile Include="ChildListMergeTests.fs" />
     <Compile Include="LargeChangeApplyTests.fs" />

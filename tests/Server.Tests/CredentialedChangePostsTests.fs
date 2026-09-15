@@ -23,6 +23,18 @@ let private addRootChild text =
         [ Op.NewNode(childId, text)
           Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
 
+let private fileRuntime () =
+    CoreRuntime.create
+        {
+            PersistenceMode = DatabaseSetup.PersistenceMode.File
+            DbStatus = DatabaseSetup.DbStatus.Absent
+            DbConnectionString = ""
+            DataDir = newTempDir ()
+            AuthUser = "alice"
+            AuthPass = "secret"
+            Actors = []
+        }
+
 [<Fact>]
 let ``live Browser credential is admitted and Change reaches PersistHandlers``
     () =
@@ -55,6 +67,7 @@ let ``inactive credential is auth-refused before PersistHandlers`` () = task {
             CoreMailbox.postChange
                 agent
                 { authority = Authority "Browser"
+                  name = ""
                   secret = Credential "inactive" }
                 [ addRootChild "nope" ]
             |> Async.StartAsTask
@@ -76,6 +89,7 @@ let ``blank Authority is the same auth refuse before PersistHandlers`` () =
                 CoreMailbox.postChange
                     agent
                     { authority = Authority "   "
+                      name = testCaller.name
                       secret = testSecret }
                     [ addRootChild "blank-auth" ]
                 |> Async.StartAsTask
@@ -89,23 +103,22 @@ let ``blank Authority is the same auth refuse before PersistHandlers`` () =
 [<Fact>]
 let ``request-carried cookie secret is admitted; foreign secret is refused`` () =
     task {
-        let runtime =
-            CoreRuntime.create
-                DatabaseSetup.PersistenceMode.File
-                DatabaseSetup.DbStatus.Absent
-                ""
-                (newTempDir ())
-                "alice"
-                "secret"
-        let cookie = runtime.browserCredential
+        let runtime = fileRuntime ()
+        let cookie =
+            Credential(AuthToken.deriveToken "alice" "secret")
+        let caller = BrowserRequestCreds.callerFromSecret cookie
+        let handle = CoreMailbox.coreChanges runtime.host caller
         let change = addRootChild "cookie-post"
         let! ok =
-            (runtime.browserChanges cookie).postChange [ change ]
+            handle.postChange [ change ]
             |> Async.StartAsTask
         let accepted = requireOk "cookie post" ok
         Assert.Equal(Revision 1, accepted.revision)
         let! refused =
-            (runtime.browserChanges (Credential "not-the-cookie")).postChange
+            (CoreMailbox.coreChanges
+                runtime.host
+                (BrowserRequestCreds.callerFromSecret
+                    (Credential "not-the-cookie"))).postChange
                 [ addRootChild "nope" ]
             |> Async.StartAsTask
         Assert.Equal(Error CoreAuth.refuse, refused)
@@ -114,14 +127,13 @@ let ``request-carried cookie secret is admitted; foreign secret is refused`` () 
 [<Fact>]
 let ``missing cookie secret is the same auth refuse before PersistHandlers`` () =
     task {
-        let runtime =
-            CoreRuntime.create
-                DatabaseSetup.PersistenceMode.File
-                DatabaseSetup.DbStatus.Absent
-                ""
-                (newTempDir ())
-                "alice"
-                "secret"
+        let runtime = fileRuntime ()
+        let cookie =
+            Credential(AuthToken.deriveToken "alice" "secret")
+        let handle =
+            CoreMailbox.coreChanges
+                runtime.host
+                (BrowserRequestCreds.callerFromSecret cookie)
         match BrowserRequestCreds.trySecretFromCookieValue None with
         | Some _ -> Assert.Fail("missing cookie must not yield a secret")
         | None -> ()
@@ -131,39 +143,25 @@ let ``missing cookie secret is the same auth refuse before PersistHandlers`` () 
         match BrowserRequestCreds.trySecretFromCookieValue (Some "  ") with
         | Some _ -> Assert.Fail("whitespace cookie must not yield a secret")
         | None -> ()
-        let! before =
-            (runtime.browserChanges runtime.browserCredential).getRevision ()
-            |> Async.StartAsTask
+        let! before = handle.getRevision () |> Async.StartAsTask
         let! refused =
-            (runtime.browserChanges (Credential "")).postChange
+            (CoreMailbox.coreChanges
+                runtime.host
+                (BrowserRequestCreds.callerFromSecret (Credential ""))).postChange
                 [ addRootChild "missing-cookie" ]
             |> Async.StartAsTask
-        let! after =
-            (runtime.browserChanges runtime.browserCredential).getRevision ()
-            |> Async.StartAsTask
+        let! after = handle.getRevision () |> Async.StartAsTask
         Assert.Equal(Error CoreAuth.refuse, refused)
         Assert.Equal(before, after)
-        Assert.NotEqual(Credential "", runtime.browserCredential)
+        Assert.NotEqual(Credential "", cookie)
     }
 
 [<Fact>]
 let ``request cookie value is admitted without closed-over browserCredential`` () =
     task {
-        let runtime =
-            CoreRuntime.create
-                DatabaseSetup.PersistenceMode.File
-                DatabaseSetup.DbStatus.Absent
-                ""
-                (newTempDir ())
-                "alice"
-                "secret"
-        let cookie = runtime.browserCredential
-        do!
-            runtime.credentials.remove cookie
-            |> Async.StartAsTask
-        do!
-            runtime.credentials.add cookie
-            |> Async.StartAsTask
+        let runtime = fileRuntime ()
+        let cookie =
+            Credential(AuthToken.deriveToken "alice" "secret")
         match BrowserRequestCreds.trySecretFromCookieValue (
             Some(let (Credential s) = cookie in s)
         ) with
@@ -172,7 +170,9 @@ let ``request cookie value is admitted without closed-over browserCredential`` (
             Assert.Equal(cookie, secret)
             Assert.NotEqual(Credential "", secret)
             let! ok =
-                (runtime.browserChanges secret).postChange
+                (CoreMailbox.coreChanges
+                    runtime.host
+                    (BrowserRequestCreds.callerFromSecret secret)).postChange
                     [ addRootChild "request-only" ]
                 |> Async.StartAsTask
             let accepted = requireOk "request secret" ok

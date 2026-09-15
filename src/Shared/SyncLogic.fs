@@ -44,8 +44,7 @@ module SyncLogic =
 
     let private asProjectionState (state: ClientSyncState) : State =
         { graph = state.graph
-          revision = state.revision
-          history = History.empty }
+          revision = state.revision }
 
     let private withProjectedGraph
         (state: ClientSyncState)

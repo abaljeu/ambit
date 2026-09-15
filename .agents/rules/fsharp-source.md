@@ -12,6 +12,8 @@ Group related function parameters into a named, reused type (record or DU). When
 
 400 lines or less per file. If a file is already longer, only restructure to split up the code if your changes would increase it.
 
+Public function names must be either more than one word, or explicitly require context to be called.
+
 TABs are not allowed in F#. Always indent 4 spaces.
 Indentation is equally important as it is in python or Haskell.
 

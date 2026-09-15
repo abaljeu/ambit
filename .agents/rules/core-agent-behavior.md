@@ -44,7 +44,6 @@ When your changes create orphans:
 - Don't remove pre-existing dead code unless asked.
 
 Every changed line should trace directly to the user's request.
-Prefer diffs under 100 lines per request; if more is needed, propose a plan and work in smaller increments.
 
 ## Goal-Driven Execution
 

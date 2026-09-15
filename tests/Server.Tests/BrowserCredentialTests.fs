@@ -3,9 +3,23 @@ module Gambol.Server.Tests.BrowserCredentialTests
 open System.Net
 open System.Net.Http
 open System.Text
+open Microsoft.AspNetCore.Http
+open Microsoft.Extensions.Configuration
 open Xunit
 open Gambol.Server
 open Gambol.Server.Tests.TestBackend
+
+let private authFromMemory (pairs: (string * string) list) =
+    let config =
+        ConfigurationBuilder()
+            .AddInMemoryCollection(dict pairs)
+            .Build()
+    RouteAuthentication.create config
+
+let private requestWithCookie (cookie: string) =
+    let ctx = DefaultHttpContext()
+    ctx.Request.Headers.Cookie <- cookie
+    ctx.Request
 
 let private jsonContent body =
     new StringContent(body, Encoding.UTF8, "application/json")
@@ -50,6 +64,16 @@ let ``Browser message with live cookie is not auth-refused`` () = task {
     Assert.NotEqual(HttpStatusCode.Unauthorized, changes.StatusCode)
     Assert.NotEqual(HttpStatusCode.Unauthorized, load.StatusCode)
 }
+
+[<Fact>]
+let ``present cookie is admitted only when mailbox contains the Caller`` () =
+    task {
+        let dataDir = newTempDir ()
+        use client = createClientForDirWithAuth dataDir "alice" "secret"
+        client.DefaultRequestHeaders.Add("Cookie", "gambol_auth=not-seeded")
+        let! state = client.GetAsync("/ambit/state")
+        Assert.Equal(HttpStatusCode.Unauthorized, state.StatusCode)
+    }
 
 [<Fact>]
 let ``Empty Auth Browser APIs without cookie are refused`` () = task {
@@ -122,4 +146,42 @@ let ``Empty Auth Browser APIs with request cookie are not refused`` () =
         let! load = client.PostAsync("/ambit/load", loadBody)
         Assert.NotEqual(HttpStatusCode.Unauthorized, changes.StatusCode)
         Assert.NotEqual(HttpStatusCode.Unauthorized, load.StatusCode)
+    }
+
+[<Fact>]
+let ``createAuthentication IsAuthenticated is false for a present unknown cookie`` () =
+    let auth =
+        authFromMemory [ "Auth:Username", "alice"; "Auth:Password", "secret" ]
+    let req = requestWithCookie "gambol_auth=not-in-any-mailbox"
+    Assert.False(auth.IsAuthenticated req)
+
+[<Fact>]
+let ``createAuthentication IsAuthenticated is false when a cookie is missing`` () =
+    let auth =
+        authFromMemory [ "Auth:Username", "alice"; "Auth:Password", "secret" ]
+    let req = DefaultHttpContext().Request
+    Assert.False(auth.IsAuthenticated req)
+
+[<Fact>]
+let ``after logout the development cookie is not admitted without login`` () =
+    task {
+        let dataDir = newTempDir ()
+        use client = createClientForDir dataDir
+        let! logout = client.GetAsync("/ambit/logout")
+        Assert.Equal(HttpStatusCode.OK, logout.StatusCode)
+        let! state = client.GetAsync("/ambit/state")
+        Assert.Equal(HttpStatusCode.Unauthorized, state.StatusCode)
+    }
+
+[<Fact>]
+let ``after logout GET /ambit login auto-issue admits the development cookie`` () =
+    task {
+        let dataDir = newTempDir ()
+        use client = createClientForDir dataDir
+        let! logout = client.GetAsync("/ambit/logout")
+        Assert.Equal(HttpStatusCode.OK, logout.StatusCode)
+        let! page = client.GetAsync("/ambit")
+        Assert.Equal(HttpStatusCode.OK, page.StatusCode)
+        let! state = client.GetAsync("/ambit/state")
+        Assert.Equal(HttpStatusCode.OK, state.StatusCode)
     }

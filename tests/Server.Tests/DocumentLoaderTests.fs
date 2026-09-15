@@ -30,7 +30,6 @@ let private stateWithRootChild (text: string) : State =
 
     let initial =
         { graph = Graph.create ()
-          history = History.empty
           revision = Revision 0 }
 
     match History.applyChange change initial with

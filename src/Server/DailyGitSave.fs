@@ -4,7 +4,6 @@ open System
 open System.Globalization
 open System.IO
 open System.Threading.Tasks
-open Microsoft.Extensions.Hosting
 
 [<RequireQualifiedAccess>]
 module DailyGitSave =
@@ -109,8 +108,8 @@ module DailyGitSave =
             | Error err -> eprintfn "[DailyGitSave] %s" err
         }
 
-    let register (lifetime: IHostApplicationLifetime) (dataDir: string) =
-        lifetime.ApplicationStarted.Register(fun () ->
-            Task.Run(fun () -> start dataDir DateTime.UtcNow)
+    let register (this: AmbitApp) =
+        this.Lifetime.ApplicationStarted.Register(fun () ->
+            Task.Run(fun () -> start this.DataDir DateTime.UtcNow)
             |> ignore)
         |> ignore

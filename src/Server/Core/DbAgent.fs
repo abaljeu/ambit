@@ -3,6 +3,7 @@ namespace Gambol.Server
 open System
 open System.Threading.Tasks
 open Gambol.Shared
+open Gambol.Shared.Events
 
 module Decode = Thoth.Json.Newtonsoft.Decode
 
@@ -12,7 +13,7 @@ type DbAgent = private {
     onError: string -> string -> exn -> unit
     formatError: string -> string
     until: Async<Result<unit, string>>
-    bindMailbox: MailboxProcessor<CoreMsg> -> unit
+    bindSnapshot: (Graph option -> unit) -> unit
     isReady: unit -> bool
     flushSnapshot: unit -> Async<Result<unit, string>>
     dispose: unit -> unit
@@ -24,16 +25,31 @@ module DbAgent =
     type private LoadedPersist = {
         state: State ref
         persistedGraph: Graph ref
+        eventLog: EventLog ref
         snapshotInProgress: bool ref
         snapshotNeeded: bool ref
         ready: TaskCompletionSource<unit>
-        mailboxRef: MailboxProcessor<CoreMsg> option ref
+        snapshotPost: (Graph option -> unit) option ref
         startupError: string option ref
         connectionString: string
         liveSaveDataDir: string option
         persistGraphOps:
             string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, string>
     }
+
+    let private loadRestoredEventLog (connectionString: string) : EventLog =
+        if String.IsNullOrWhiteSpace connectionString then
+            EventLog.empty
+        else
+            let rows =
+                Database.getEventsAfter connectionString (-1)
+                |> Async.AwaitTask
+                |> Async.RunSynchronously
+            let raw =
+                rows
+                |> List.choose (fun row ->
+                    EventLogFile.decode row.payload |> Result.toOption)
+            EventLog.restorePersisted raw
 
     let private decodeChangePayload (s: string) =
         Decode.fromString Serialization.decodeChange s
@@ -50,12 +66,13 @@ module DbAgent =
         : LoadedPersist =
         { state = ref initialState
           persistedGraph = ref initialState.graph
+          eventLog = ref EventLog.empty
           snapshotInProgress = ref false
           snapshotNeeded = ref false
           ready =
             TaskCompletionSource<unit>(
                 TaskCreationOptions.RunContinuationsAsynchronously)
-          mailboxRef = ref None
+          snapshotPost = ref None
           startupError = ref None
           connectionString = connectionString
           liveSaveDataDir = liveSaveDataDir
@@ -192,7 +209,7 @@ module DbAgent =
                 ex.Message
             None
 
-    let private startSnapshot loaded (inbox: MailboxProcessor<CoreMsg>) =
+    let private startSnapshot loaded (post: Graph option -> unit) =
         loaded.snapshotInProgress.Value <- true
         loaded.snapshotNeeded.Value <- false
         let snapshotState = loaded.state.Value
@@ -201,13 +218,13 @@ module DbAgent =
         Task.Run(fun () ->
             let persisted =
                 writeLiveSnapshot loaded.liveSaveDataDir preGraph postGraph
-            inbox.Post(SnapshotDone persisted)
+            post persisted
         )
         |> ignore
 
     let private requestSnapshot loaded =
-        match loaded.mailboxRef.Value with
-        | Some inbox -> startSnapshot loaded inbox
+        match loaded.snapshotPost.Value with
+        | Some post -> startSnapshot loaded post
         | None -> ()
 
     let private validatePostChange loaded graphOnly preGraph postGraph =
@@ -354,10 +371,37 @@ module DbAgent =
         |> List.choose (fun row ->
             decodeChangePayload row.payload |> Result.toOption)
 
+    let private eventsSince loaded after =
+        EventLog.since after loaded.eventLog.Value |> fun log -> log.events
+
+    let private appendPersistedEvent
+        loaded
+        (persisted: Gambol.Shared.Events.Event)
+        =
+        if String.IsNullOrWhiteSpace loaded.connectionString then
+            Ok ()
+        else
+            let (Gambol.Shared.Events.EventId n) = persisted.id
+            try
+                Database.appendEvent
+                    loaded.connectionString
+                    n
+                    persisted.submissionId
+                    (EventLogFile.encode persisted)
+                |> Async.AwaitTask
+                |> Async.RunSynchronously
+                loaded.eventLog.Value <-
+                    EventLog.restore [ persisted ] loaded.eventLog.Value
+                Ok ()
+            with ex ->
+                Error $"Event persist error: {ex.Message}"
+
     let private persistHandlers loaded = {
         getState = fun () -> Ok loaded.state.Value
         getRevision = fun () -> Ok loaded.state.Value.revision
         getChangesSince = fun after -> Ok(changesSince loaded after)
+        getEventsSince = fun after -> Ok(eventsSince loaded after)
+        appendEvent = appendPersistedEvent loaded
         postChange = fun changes -> processPostChange loaded changes false
         postGraphOnlyChange = fun changes ->
             processPostChange loaded changes true
@@ -421,12 +465,13 @@ module DbAgent =
                 connectionString
                 liveSaveDataDir
                 persistGraphOps
+        loaded.eventLog.Value <- loadRestoredEventLog connectionString
         { handlers = persistHandlers loaded
           onError = logUnhandledException loaded.liveSaveDataDir
           formatError = formatError loaded.liveSaveDataDir
           until = startupPrelude loaded runStartupSweep
-          bindMailbox =
-            fun mailbox -> loaded.mailboxRef.Value <- Some mailbox
+          bindSnapshot =
+            fun post -> loaded.snapshotPost.Value <- Some post
           isReady = fun () -> loaded.ready.Task.IsCompletedSuccessfully
           flushSnapshot = fun () -> async { return Ok () }
           dispose = fun () -> () }
@@ -525,5 +570,5 @@ module DbAgent =
         flushSnapshot = agent.flushSnapshot
         dispose = agent.dispose
         until = Some agent.until
-        bindMailbox = agent.bindMailbox
+        bindSnapshot = agent.bindSnapshot
     }

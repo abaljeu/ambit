@@ -6,7 +6,6 @@ open Gambol.Shared
 let private stateWithChild (text: string) =
     let initialState =
         { graph = Graph.create ()
-          history = History.empty
           revision = Revision 0 }
 
     let childId = NodeId.New()
@@ -85,7 +84,6 @@ let ``applyChange amends stale SetClasses with set delta`` () =
 let private stateWithParentChild (parentText: string) (childText: string) =
     let initialState =
         { graph = Graph.create ()
-          history = History.empty
           revision = Revision 0 }
 
     let parentId = NodeId.New()

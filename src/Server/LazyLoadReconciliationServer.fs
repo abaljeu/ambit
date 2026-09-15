@@ -2,7 +2,6 @@ namespace Gambol.Server
 
 open System
 open System.IO
-open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Http
 open Gambol.Shared
 
@@ -314,12 +313,12 @@ module LazyLoadReconciliationServer =
                 "application/json")
 
     let registerDirectoryRoute
-        (app: WebApplication)
-        (isAuthenticated: HttpRequest -> bool)
-        (dataDir: string)
+        (this: AmbitApp)
         (getHandle: unit -> CoreChanges)
         =
-        app.MapPost(
+        let isAuthenticated = this.Auth.IsAuthenticated
+        let dataDir = this.DataDir
+        this.MapPost(
             "/ambit/workspace/reconciliation/directory",
             Func<HttpRequest, System.Threading.Tasks.Task<IResult>>(fun req ->
                 task {
@@ -352,12 +351,12 @@ module LazyLoadReconciliationServer =
         |> ignore
 
     let registerAddedRoute
-        (app: WebApplication)
-        (isAuthenticated: HttpRequest -> bool)
-        (dataDir: string)
+        (this: AmbitApp)
         (getHandle: unit -> CoreChanges)
         =
-        app.MapPost(
+        let isAuthenticated = this.Auth.IsAuthenticated
+        let dataDir = this.DataDir
+        this.MapPost(
             "/ambit/workspace/reconciliation/added",
             Func<HttpRequest, System.Threading.Tasks.Task<IResult>>(fun req ->
                 task {

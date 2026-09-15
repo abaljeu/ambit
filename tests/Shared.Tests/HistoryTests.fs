@@ -28,7 +28,6 @@ let private stateWithNodes (nodes: Node list) =
         nodes
         |> List.fold (fun acc node -> Map.add node.id node acc) graph0.nodes
     { graph = Graph.fromNodes graph0.root allNodes
-      history = History.empty
       revision = Revision.Zero }
 
 let private specialNode kind name =
@@ -98,10 +97,47 @@ let ``Replace rejects Special path under reserved ancestor but allows Normal chi
     |> ignore
 
 [<Fact>]
-let ``CreateState12 has empty history`` () =
-    let state = ModelBuilder.createState12 ()
-    Assert.Empty(state.history.past)
-    Assert.Empty(state.history.future)
+let ``fromChanges builds past ChangeEvents and nextId`` () =
+    let first =
+        { id = 2
+          changeId = Guid.NewGuid()
+          ops = [] }
+    let second =
+        { id = 5
+          changeId = Guid.NewGuid()
+          ops = [] }
+    let history = History.fromChanges [ first; second ]
+    Assert.Equal<HistoryEvent list>(
+        [ ChangeEvent first; ChangeEvent second ],
+        history.past)
+    Assert.Empty(history.future)
+    Assert.Equal(6, history.nextId)
+
+[<Fact>]
+let ``restoreChanges skips known changeIds and records new ones`` () =
+    let first =
+        { id = 0
+          changeId = Guid.NewGuid()
+          ops = [] }
+    let second =
+        { id = 1
+          changeId = Guid.NewGuid()
+          ops = [] }
+    let started = History.fromChanges [ first ]
+    let withActor =
+        { started with
+            past =
+                started.past
+                @ [ ActorEvent(10, ActorStarted(Graph.rootId, "Actor")) ]
+            nextId = 11 }
+    let restored = History.restoreChanges [ first; second ] withActor
+    match restored.past with
+    | [ ChangeEvent a; ActorEvent _; ChangeEvent b ] ->
+        Assert.Equal(first.changeId, a.changeId)
+        Assert.Equal(second.changeId, b.changeId)
+    | other -> Assert.Fail($"unexpected past {other}")
+    Assert.Empty(restored.future)
+    Assert.Equal(11, restored.nextId)
 
 [<Fact>]
 let ``NewChange uses next id and has no ops`` () =
@@ -262,7 +298,7 @@ let ``Invalid move change does not modify graph`` () =
     let insertAtEnd =
         ChildListWire.insertAt parentId originalChildren originalChildren.Length [ first ]
     let moveChange =
-        History.newChange state0.history
+        History.newChange History.empty
         |> Change.addOp invalidRemove
         |> Change.addOp insertAtEnd
 
@@ -288,7 +324,7 @@ let ``Move with correct old span is rejected when target is owned-descendant`` (
     let insertAUnderB =
         ChildListWire.insertAt childB.id originalBChildren originalBChildren.Length [ childA ]
     let moveChange =
-        History.newChange state0.history
+        History.newChange History.empty
         |> Change.addOp removeAFromRoot
         |> Change.addOp insertAUnderB
 
@@ -338,7 +374,7 @@ let private unparsedFileState () =
         |> Map.add otherId other
         |> Map.add holderId holder
     let graph = Graph.fromNodes graph0.root nodes
-    { graph = graph; history = History.empty; revision = Revision.Zero },
+    { graph = graph; revision = Revision.Zero },
     fileId,
     childId,
     otherId,
@@ -489,7 +525,7 @@ let ``nested file parse under current directory replaces file tree`` () =
     let state0 =
         workspaceOps
         |> List.fold (fun state op -> Op.apply op state |> expectChanged)
-            { graph = graph0; history = History.empty; revision = Revision.Zero }
+            { graph = graph0; revision = Revision.Zero }
     let directoryId, directoryOps =
         FileNodeOps.planCreateOwnedDirectory state0.graph workspaceId "docs"
     let state1 =
@@ -526,7 +562,7 @@ let ``nested file parse still allowed when enclosing directory is unparsed`` () 
     let state0 =
         workspaceOps
         |> List.fold (fun state op -> Op.apply op state |> expectChanged)
-            { graph = graph0; history = History.empty; revision = Revision.Zero }
+            { graph = graph0; revision = Revision.Zero }
     let directoryId, directoryOps =
         FileNodeOps.planCreateOwnedDirectory state0.graph workspaceId "docs"
     let state1 =
@@ -564,7 +600,7 @@ let ``unparsed invariant also applies to directory and workspace documents`` () 
     let state0 =
         workspaceOps
         |> List.fold (fun state op -> Op.apply op state |> expectChanged)
-            { graph = graph0; history = History.empty; revision = Revision.Zero }
+            { graph = graph0; revision = Revision.Zero }
     let directoryId, directoryOps =
         FileNodeOps.planCreateOwnedDirectory state0.graph workspaceId "docs"
     let state1 =
@@ -613,7 +649,7 @@ let ``SetClasses via applyChange succeeds despite distant ownership violation`` 
         Assert.Contains("File and Directory", msg)
         Assert.Equal(fileBId, nodeId)
     let state =
-        { graph = graph; history = History.empty; revision = Revision.Zero }
+        { graph = graph; revision = Revision.Zero }
     let fileB = state.graph.nodes.[fileBId]
     let change =
         History.newChange History.empty
@@ -850,7 +886,7 @@ let ``validateOwnershipLocated reports duplicate artifact name`` () =
 let ``local shape op succeeds despite distant ownership violation`` () =
     let graph, _, _ = graphWithDistantFileUnderFileViolation ()
     let state =
-        { graph = graph; history = History.empty; revision = Revision.Zero }
+        { graph = graph; revision = Revision.Zero }
     let newId = NodeId.New()
     let change =
         History.newChange History.empty
@@ -943,7 +979,7 @@ let ``Duplicate Ref succeeds despite dual-Owned Replace parent`` () =
     | Ok () -> failwith "expected dual-Owner parent seed"
     | Error (msg, _) -> Assert.Contains("expected exactly one owner occurrence", msg)
     let state =
-        { graph = graph; history = History.empty; revision = Revision.Zero }
+        { graph = graph; revision = Revision.Zero }
     let insertAt = state.graph.nodes.[parentId].children.Length
     let change =
         { id = 0
@@ -987,7 +1023,7 @@ let ``Duplicate Ref succeeds despite distant dual-Owner`` () =
     | Ok () -> failwith "expected distant dual-Owner seed"
     | Error _ -> ()
     let state =
-        { graph = graph; history = History.empty; revision = Revision.Zero }
+        { graph = graph; revision = Revision.Zero }
     let insertAt = state.graph.nodes.[parentId].children.Length
     let change =
         { id = 0
@@ -1053,7 +1089,6 @@ let private applyUndoRedo (change: Change) (state: State) =
 let ``nested paste and NewSpecialNode Undo and Redo preserve reachable structure`` () =
     let state =
         { graph = Graph.create ()
-          history = History.empty
           revision = Revision.Zero }
     let topIds, pasteOps =
         Paste.buildPasteOps [ "parent", 0; "child", 1; "leaf", 2; "sibling", 0 ]

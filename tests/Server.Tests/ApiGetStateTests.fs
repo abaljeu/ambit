@@ -28,6 +28,7 @@ let private handleWithGetState
       isReady = fun () -> true
       postChange = fun _ -> async.Return(Result.Error "unused")
       postGraphOnlyChange = fun _ -> async.Return(Result.Error "unused")
+      actorStop = fun _ -> async.Return(Result.Error "unused")
       asCaller = fun _ -> Unchecked.defaultof<CoreChanges> }
 
 let private defaultStateRequest () =
@@ -35,7 +36,6 @@ let private defaultStateRequest () =
 
 let private minimalStateResponse () =
     { graph = Graph.create ()
-      history = History.empty
       revision = Revision 0
     }
 
@@ -75,7 +75,6 @@ let private nestedWorkspaceStateResponse () =
             | Ok g -> g
             | Error err -> failwith err
     { graph = graph2
-      history = History.empty
       revision = Revision 1
     },
     wsId,

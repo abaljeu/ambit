@@ -12,7 +12,7 @@ Both axes run as **parallel sub-agents** so they don't pollute each other's cont
 
 Issue tracker: [[doc/agents/issue-tracker.md]] (local `plan/`). Git: [[.agents/skills/git-protocol/SKILL.md]].
 
-When the diff touches F# (`*.fs` / `*.fsi`), follow [[.agents/skills/code-review-fsharp/SKILL.md]] before spawning sub-agents.
+When pinning the range, run the mechanical Standards scan in step 2. Optional F# narrowing (`--fn`, `--range`, `--usage`) stays in [[.agents/skills/code-review-fsharp/SKILL.md]].
 
 ## Process
 
@@ -24,7 +24,19 @@ If the tree is clean (everything committed), the tip under review is `HEAD`. Whe
 
 For an explicit fixed point: `git diff <fixed-point>...HEAD` (three-dot) and `git log <fixed-point>..HEAD --oneline`. Confirm the ref resolves and the diff is non-empty before spawning sub-agents.
 
-### 2. Identify the spec source
+### 2. Run the mechanical Standards scan
+
+Run against the range from step 1 (cwd = repo root):
+
+```bash
+python .agents/skills/code-review/scripts/standards-scan.py
+```
+
+If a fixed point was named, pass `--diff <fixed-point>`. The script invokes [[.agents/skills/code-review-fsharp/SKILL.md]] measure-fs-size when `*.fs` / `*.fsi` are in the range — do not run measure-fs-size as a second parent command. Paste the full stdout into the Standards prompt. Treat each printed finding as a documented-standard hit and cite the rule path on that line. Thresholds live in [[.agents/rules/fsharp-source.md]], [[.agents/rules/refer-by-name.md]], and [[.agents/rules/markdown-writing.md]]. Surgical under-100-line preference is not a script fail ([[.agents/rules/core-agent-behavior.md]]). Smells stay human ([[SMELLS.md]]).
+
+Done: the script has been run for this range, and its stdout is in the Standards prompt (or the prompt says `scan: none`).
+
+### 3. Identify the spec source
 
 Look for the originating spec, in this order:
 
@@ -34,20 +46,21 @@ Look for the originating spec, in this order:
 
 Do **not** harvest GitHub/GitLab issue numbers from commit messages as the spec source. No SHA bookkeeping on tickets.
 
-### 3. Identify the standards sources
+### 4. Identify the standards sources
 
 Live coding standards for this repo live under [[.agents/rules/]]: [[.agents/rules/fsharp-source.md]] (F#), [[.agents/rules/core-api.md]] (Core vs Adapter), [[.agents/rules/core-agent-behavior.md]] (surgical changes), and the other scoped rules. Do not hunt missing `CODING_STANDARDS.md` or `CONTRIBUTING.md`.
 
 The Standards axis also always carries the smell baseline in [[SMELLS.md]].
 
-### 4. Spawn both sub-agents in parallel
+### 5. Spawn both sub-agents in parallel
 
 Send a single message with two `Agent` tool calls. Use the `general-purpose` subagent for both.
 
 **Standards sub-agent prompt** — include:
 
 - The full diff command (default `git diff HEAD`) and commit list if a fixed point was named.
-- The list of standards-source files you found in step 3, **plus [[SMELLS.md]]**: include that file's contents in the prompt, or give the path and instruct the sub-agent to read it. The sub-agent has no other access to the smell baseline.
+- The stdout of the mechanical scan from step 2 (or `scan: none`).
+- The list of standards-source files you found in step 4, **plus [[SMELLS.md]]**: include that file's contents in the prompt, or give the path and instruct the sub-agent to read it. The sub-agent has no other access to the smell baseline.
 - The brief: "Report — per file/hunk where relevant — (a) every place the diff violates a documented standard: cite the standard (file + the rule); and (b) any baseline smell you spot: name it and quote the hunk. Distinguish hard violations from judgement calls per the included smell baseline. Under 400 words."
 
 **Spec sub-agent prompt** — include:
@@ -58,12 +71,12 @@ Send a single message with two `Agent` tool calls. Use the `general-purpose` sub
 
 If the spec is missing, skip the Spec sub-agent and note this in the final report.
 
-### 5. Aggregate
+### 6. Aggregate
 
-Present the two reports under `## Standards` and `## Spec` headings, verbatim or lightly cleaned. Keep the axes separate: do not merge or rerank findings, and do not pick a single winner across axes.
+Make a report file.  Present the two reports under `## Standards` and `## Spec` headings, verbatim or lightly cleaned. Keep the axes separate: do not merge or rerank findings, and do not pick a single winner across axes.
 
 End with a one-line summary: total findings per axis, and the worst issue _within each axis_ (if any).
 
-### 6. Ticket Status
+### 7. Ticket Status
 
 A report is not approval. Leave `coded` unless the user approves the review for a named ticket. Then set that ticket `**Status:** done` ([[doc/agents/triage-labels.md]]). Do not rewrite a legacy Status on a ticket you did not set to `coded`. Done: Status is `done` only after that approval; otherwise Status is unchanged.

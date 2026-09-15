@@ -7,7 +7,7 @@ open Gambol.Shared
 module GraphOnlyChangePost =
 
     let rec postChunks
-        (post: Change list -> Async<Result<CoreChangesAccepted, string>>)
+        (post: Change -> Async<Result<CoreChangesAccepted, string>>)
         (revision: Revision)
         (chunks: Op list list)
         : Async<Result<unit, string>> =
@@ -19,7 +19,7 @@ module GraphOnlyChangePost =
                     { id = revision.Value
                       changeId = Guid.NewGuid()
                       ops = chunk }
-                let! result = post [ change ]
+                let! result = post change
                 match result with
                 | Error err -> return Error err
                 | Ok accepted ->

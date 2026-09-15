@@ -2,14 +2,14 @@
 
 Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
-Updated: 2026-09-14
+Updated: 2026-09-15
 Started: 2026-09-05
-Actual: 34h20m
+Actual: 51h50m
 
 ## Map
 
 - [[plan/core-creation/map.md]] — chart the initial Graph-agent package and later Core decisions.
-- [[plan/core-creation/arch.md]] — hello / one-mailbox Actor program module map (critique before remaining [[plan/core-creation/issues/29-prove-testactor-hello.md|Prove TestActor hello]] sections).
+- [[plan/core-creation/arch.md]] — hello / one-mailbox Actor program module map, plus Event destination. Stories **Event, EventLog, and ClientHistory** and **Caller, persist, and Poll** are expand-migrate-contract.
 
 ## Committed Decisions
 
@@ -55,8 +55,16 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/issues/32-move-persist-agents-under-coremailbox.md]] — Point 0 (done): persist agents under Core; generic CoreMailbox door.
 - [[plan/core-creation/issues/29-prove-testactor-hello.md]] — current cut: section 1 mailbox foundation on `dev`; remaining hello sections open. Redo: land [[plan/core-creation/arch.md]] before further hello implement — [[plan/core-creation/reports/redo-29-architecture-before-proceed.md]].
 - [[plan/core-creation/issues/33-credentialed-browser-change-posts.md]] — Story path Browser Change posts: cookie-as-credential, boot seed, CoreMailbox admit only; Status `coded`. `auth.Disabled` skip removed; development cookie is auto-issued and still required.
-- [[plan/core-creation/issues/34-outside-core-lifecycle-proof.md]] — Story path Outside Core lifecycle proof: TestActor hello from Pool/Actor seam without HTTP. Section 1 CoreMsg / CoreMailboxBackend plus sync startActor / one-mailbox composition coded; remaining sections 2–7 open.
-- [[plan/core-creation/issues/35-browser-run-hello.md]] — Story path Browser Run hello: `?` one-Node Command through HTTP to Owned child `hello`; blocked by 34.
+- [[plan/core-creation/issues/34b-outside-core-lifecycle-proof.md|34b — Outside Core lifecycle proof]] — Story path Outside Core lifecycle proof: TestActor hello from Pool/Actor seam without HTTP. Status `coded`.
+- [[plan/core-creation/issues/35b-browser-run-hello.md|35b — Browser Run hello]] — Story path Browser Run hello: `?` one-Node Command through HTTP to Owned child `hello`; blocked by [[plan/core-creation/issues/34b-outside-core-lifecycle-proof.md|34b — Outside Core lifecycle proof]].
+- [[plan/core-creation/issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]] — Collapse extra Core entrances onto CoreMailbox; Status `coded`. Report: [[plan/core-creation/reports/mailbox-single-door.md]].
+- [[plan/core-creation/issues/37-expand-shared-event-eventlog-and-history.md|37 — Expand Shared Event, EventLog, and History]] — Story **Event, EventLog, and ClientHistory** Shared expand beside HistoryEvent; Event-shaped ClientHistory beside the Change-shaped API. No new History module. Status `coded`.
+- [[plan/core-creation/issues/40-expand-postevent-eventlog-and-event-json.md|40 — Expand postEvent, EventLog store, and Event JSON persist]] — Story **Caller, persist, and Poll** expand: `postEvent`, EventLog store, Event JSON beside ChangeLog. Status `coded`.
+- [[plan/core-creation/issues/41-migrate-core-mailbox-coremsg-and-pool-onto-event.md|41 — Migrate Core mailbox, CoreMsg, and Pool onto Event]] — Story **Caller, persist, and Poll** Core migrate batch. Status `coded`.
+- [[plan/core-creation/issues/42-migrate-persisthandlers-restore-and-geteventssince.md|42 — Migrate PersistHandlers restore and getEventsSince]] — Story **Caller, persist, and Poll** persist migrate batch. Status `coded`.
+- [[plan/core-creation/issues/43-migrate-http-adapter-onto-postevent-and-event-poll.md|43 — Migrate HTTP Adapter onto postEvent and Event Poll]] — Story **Caller, persist, and Poll** HTTP Adapter migrate batch. Status `blocked`.
+- [[plan/core-creation/issues/44-migrate-browser-poll-history-pending-and-eventid.md|44 — Migrate Browser Poll, History, pending, and EventId cursor]] — Story **Caller, persist, and Poll** Browser migrate batch. Status `blocked`.
+- [[plan/core-creation/issues/45-contract-historyevent-clienthistory-pendingkind-and-changelog.md|45 — Contract HistoryEvent, mailbox History, PendingKind, StartActorRequest, and ChangeLog]] — Story **Caller, persist, and Poll** contract. Deletes HistoryEvent, ActorLifecycleEvent, mailbox History name (replaced by EventLog), PendingKind, StartActorRequest, and the ChangeLog name. ClientHistory remains. Status `blocked`.
 
 ## Decision tickets
 
@@ -108,6 +116,16 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/reports/implement-34-section-1-coremsg.md]] — issue 34 section 1 CoreMsg / CoreMailboxBackend Actor cases.
 - [[plan/core-creation/reports/mailbox-start-type-corrections.md]] — StartActorRequest replaces LaunchRequest; Caller; no ActorMailboxHandlers; async StartActor handoff.
 - [[plan/core-creation/reports/sync-startactor-one-mailbox.md]] — Sync startActor, one CoreMsg host, mailbox-owned live table, File or Db persist, mirror deleted.
+- [[plan/core-creation/reports/corecredentials-caller-set.md]] — CoreCredentials is a mailbox-owned Set of Caller; login maps name+secret.
+- [[plan/core-creation/reports/mailbox-single-door.md]] — Mailbox is the only Core door: one admission, thinned CoreRuntime, credentialed Graph-only, hidden CoreMsg.
+- [[plan/core-creation/reports/36-review-corrections.md]] — Review corrections for [[plan/core-creation/issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]].
+- [[plan/core-creation/reports/ambitapp-record.md]] — AmbitApp record for the six-arg route clump leftover from [[plan/core-creation/issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]].
+- [[plan/core-creation/reports/gitgateway-routes-type.md]] — GitGateway.Routes for the shell/flush/reconcile clump leftover from [[plan/core-creation/issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]].
+- [[plan/core-creation/reports/actor-corechanges-mailbox-door.md]] — Actors use mailbox `coreChanges`; no second `makeCoreChanges` swallow.
+- [[plan/core-creation/reports/actorstop-single-admit.md]] — ActorStop admits once; `pool.finish` drops without a third admit.
+- [[plan/core-creation/reports/cancel-poll-eventhistory-undo.md]] — Cancelled poll-carried eventHistory / ClientHistory replacement; increment reverted.
+- [[plan/core-creation/reports/event-abstraction.md]] — Locked Event / EventLog / ClientHistory / `postEvent` destination.
+- [[plan/core-creation/reports/implement-issue-40.md]] — [[plan/core-creation/issues/40-expand-postevent-eventlog-and-event-json.md|40 — Expand postEvent, EventLog store, and Event JSON persist]].
 
 ## Comments
 
@@ -123,7 +141,24 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - 2026-09-13 — Redesign on [[plan/core-creation/issues/33-credentialed-browser-change-posts.md|Credentialed Browser Change posts]]: cookie/seed target; undo File/Db/GUID deltas; Status `ready-for-agent` again. Arch Story path checkboxes still `[x]` — align when reconciling.
 - 2026-09-13 — Re-implement [[plan/core-creation/issues/33-credentialed-browser-change-posts.md|Credentialed Browser Change posts]] against redesign; Status `done`.
 - 2026-09-14 — Spec-gap fix on [[plan/core-creation/issues/33-credentialed-browser-change-posts.md|Credentialed Browser Change posts]]: request-carried Browser API creds, client DeployEpochSec reseed, no closed-over cookie fallback.
-- 2026-09-14 — `/to-tickets` for Story paths Outside Core lifecycle proof and Browser Run hello; published [[plan/core-creation/issues/34-outside-core-lifecycle-proof.md]] and [[plan/core-creation/issues/35-browser-run-hello.md]]; Stage `slice`. Parent [[plan/core-creation/issues/29-prove-testactor-hello.md|Prove TestActor hello]] unchanged.
+- 2026-09-14 — `/to-tickets` for Story paths Outside Core lifecycle proof and Browser Run hello; published 34 — Outside Core lifecycle proof and 35 — Browser Run hello (later deleted). Stage `slice`. Parent [[plan/core-creation/issues/29-prove-testactor-hello.md|Prove TestActor hello]] unchanged.
+- 2026-09-14 — Deleted 34 — Outside Core lifecycle proof and 35 — Browser Run hello. Living story tickets remain [[plan/core-creation/issues/34b-outside-core-lifecycle-proof.md|34b — Outside Core lifecycle proof]] and [[plan/core-creation/issues/35b-browser-run-hello.md|35b — Browser Run hello]].
 - 2026-09-14 — [[plan/core-creation/issues/33-credentialed-browser-change-posts.md|Credentialed Browser Change posts]] Status back to `ready-for-agent`: coded is not `done`; `done` is review approval only.
 - 2026-09-14 — Spec of [[plan/core-creation/issues/33-credentialed-browser-change-posts.md|Credentialed Browser Change posts]] aligned to review findings; auth-disabled app-serve SetCookie rejected and remaining.
 - 2026-09-14 — Removed `auth.Disabled` skip on [[plan/core-creation/issues/33-credentialed-browser-change-posts.md|Credentialed Browser Change posts]]; Status `coded`; Stage `build`. Report: [[plan/core-creation/reports/remove-auth-disabled-bypass.md]].
+- 2026-09-14 — [[plan/core-creation/issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]] Status `coded`. Report: [[plan/core-creation/reports/mailbox-single-door.md]].
+- 2026-09-15 — Review corrections for [[plan/core-creation/issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]]. Status stays `coded`. Report: [[plan/core-creation/reports/36-review-corrections.md]].
+- 2026-09-15 — AmbitApp record for the route parameter clump. Status of [[plan/core-creation/issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]] stays `coded`. Report: [[plan/core-creation/reports/ambitapp-record.md]].
+- 2026-09-15 — GitGateway.Routes for the git registration clump. Status of [[plan/core-creation/issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]] stays `coded`. Report: [[plan/core-creation/reports/gitgateway-routes-type.md]].
+- 2026-09-15 — Actors use mailbox `coreChanges`. Status of [[plan/core-creation/issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]] stays `coded`. Report: [[plan/core-creation/reports/actor-corechanges-mailbox-door.md]].
+- 2026-09-15 — ActorStop admits once. Status of [[plan/core-creation/issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]] stays `coded`. Report: [[plan/core-creation/reports/actorstop-single-admit.md]].
+- 2026-09-15 — Removed State.history. Mailbox `eventHistory` is the one History (undo stack); EventLog is durability and restore, not a post-time copy. ClientHistory is leftover and still does Browser undo.
+- 2026-09-15 — Cancelled poll-carried eventHistory / mailbox undo door. Reverted that increment only. Report: [[plan/core-creation/reports/cancel-poll-eventhistory-undo.md]].
+- 2026-09-15 — `/to-arch` Event destination on existing [[plan/core-creation/arch.md]]. Completed hello stories unchanged. Module map is destination-only. New stories **Event, EventLog, and History** and **Caller, persist, and Poll** are expand-migrate-contract. Stage `arch`. Report: [[plan/core-creation/reports/event-abstraction.md]].
+- 2026-09-15 — `/to-tickets` for Story **Event, EventLog, and History** only; published [[plan/core-creation/issues/37-expand-shared-event-eventlog-and-history.md|37 — Expand Shared Event, EventLog, and History]]. Stage `slice`. Story **Caller, persist, and Poll** not ticketed.
+- 2026-09-15 — `/to-tickets` for Story **Caller, persist, and Poll** only; published [[plan/core-creation/issues/40-expand-postevent-eventlog-and-event-json.md|40 — Expand postEvent, EventLog store, and Event JSON persist]] through [[plan/core-creation/issues/45-contract-historyevent-clienthistory-pendingkind-and-changelog.md|45 — Contract HistoryEvent, mailbox History, PendingKind, StartActorRequest, and ChangeLog]]. Numbers start at 40. Story 4 tickets unchanged. Stage `slice`.
+- 2026-09-15 — EventLog is the Event sequence and its persist. ChangeLog is a lagging code name only (`src/Server/ChangeLog.fs`).
+- 2026-09-15 — Destination module 6 and report §3.3 are ClientHistory, not History. EventLog is the sequence (today’s mailbox `type History` / `module History` is the lagging name). ClientHistory stays at [[src/Shared/ClientHistory.fs]]. No destination module named History.
+- 2026-09-15 — [[plan/core-creation/issues/37-expand-shared-event-eventlog-and-history.md|37 — Expand Shared Event, EventLog, and History]] Status `coded`. Event types in `Gambol.Shared.Events`. Stage `build`. Report: [[plan/core-creation/reports/implement-issue-37.md]].
+- 2026-09-15 — [[plan/core-creation/issues/40-expand-postevent-eventlog-and-event-json.md|40 — Expand postEvent, EventLog store, and Event JSON persist]] Status `coded`. Did not edit EventLog / Event / ClientHistory (newest-head redesign lock). Report: [[plan/core-creation/reports/implement-issue-40.md]].
+- 2026-09-15 — [[plan/core-creation/issues/40-expand-postevent-eventlog-and-event-json.md|40 — Expand postEvent, EventLog store, and Event JSON persist]] Event JSON encode/read on EventLog. Deleted EventJson and ChangeLog Event codec. Status stays `coded`.
