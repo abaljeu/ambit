@@ -1,0 +1,28 @@
+warning: in the working copy of 'src/Server/Database.fs', LF will be replaced by CRLF the next time Git touches it
+plan/core-creation/reports/implement-issue-42.md:7  .agents/rules/refer-by-name.md  BARE_ID  ticket 43
+plan/core-creation/reports/issue-42-persist-seam-map.md:28  .agents/rules/refer-by-name.md  BARE_ID  ticket 43
+plan/core-creation/reports/issue-42-persist-seam-map.md:41  .agents/rules/refer-by-name.md  BARE_ID  Issue 40
+plan/core-creation/reports/issue-42-persist-seam-map.md:52  .agents/rules/refer-by-name.md  BARE_ID  ticket 41
+plan/core-creation/reports/issue-42-persist-seam-map.md:69  .agents/rules/refer-by-name.md  BARE_ID  issue 40
+plan/core-creation/reports/issue-42-persist-seam-map.md:77  .agents/rules/refer-by-name.md  BARE_ID  ticket 41
+plan/core-creation/reports/issue-42-persist-seam-map.md:87  .agents/rules/refer-by-name.md  BARE_ID  Ticket 42
+plan/core-creation/reports/issue-42-persist-seam-map.md:124  .agents/rules/refer-by-name.md  BARE_ID  ticket 42
+plan/core-creation/reports/issue-42-persist-seam-map.md:126  .agents/rules/refer-by-name.md  BARE_ID  ticket 43
+plan/core-creation/reports/issue-42-persist-seam-map.md:146  .agents/rules/refer-by-name.md  BARE_ID  ticket 43
+plan/core-creation/reports/issue-42-persist-seam-map.md:162  .agents/rules/refer-by-name.md  BARE_ID  ticket 43
+plan/core-creation/reports/issue-42-persist-seam-map.md:163  .agents/rules/refer-by-name.md  BARE_ID  ticket 44
+plan/core-creation/reports/issue-42-persist-seam-map.md:164  .agents/rules/refer-by-name.md  BARE_ID  ticket 45
+plan/core-creation/reports/issue-42-persist-seam-map.md:168  .agents/rules/refer-by-name.md  BARE_ID  Issue 40
+plan/core-creation/reports/issue-42-persist-seam-map.md:169  .agents/rules/refer-by-name.md  BARE_ID  ticket 42
+src/Server/Core/DbAgent.fs  .agents/rules/fsharp-source.md  FILE 529->564  already over 400 or new file over 400; change increased it
+src/Server/Database.fs  .agents/rules/fsharp-source.md  FILE 476->529  already over 400 or new file over 400; change increased it
+--- measure-fs-size ---
+src/Server/Core/CoreEventDispatch.fs::actorStart: lines 37-44 (8 lines)
+src/Server/Core/CoreEventDispatch.fs::actorStop: lines 45-60 (16 lines)
+src/Server/Core/CoreMailbox.fs::getEventsSince: lines 65-74 (10 lines)
+src/Server/Core/CoreMailboxBackend.fs::eventDispatchContext: lines 134-138 (5 lines)
+src/Server/Core/CoreMailboxBackend.fs::seedEventLog: lines 276-296 (21 lines)
+src/Server/Core/DbAgent.fs::eventsSince: lines 357-369 (13 lines)
+src/Server/Core/DbAgent.fs::appendPersistedEvent: lines 370-389 (20 lines)
+src/Server/Database.fs::appendEvent: lines 257-277 (21 lines)
+src/Server/Database.fs::getEventsAfter: lines 278-295 (18 lines)

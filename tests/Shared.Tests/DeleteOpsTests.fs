@@ -25,7 +25,7 @@ let private buildTwoSiblings () : Graph * NodeId * NodeId =
 
 /// Build initial State from graph.
 let private stateOf (graph: Graph) : State =
-    { graph = graph; history = History.empty; revision = Revision.Zero }
+    { graph = graph; revision = Revision.Zero }
 
 /// SiteNodeRange for root's children [start, endd).
 let private rootRange (graph: Graph) (start: int) (endd: int) : SiteNodeRange =

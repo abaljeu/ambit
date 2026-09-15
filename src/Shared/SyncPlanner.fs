@@ -63,7 +63,7 @@ module SyncPlanner =
             (fun (state, reversed) item ->
                 match History.applyChange item.change state with
                 | ApplyResult.Changed next ->
-                    { next with history = state.history }, item :: reversed
+                    next, item :: reversed
                 | _ ->
                     state, reversed)
             (state, [])

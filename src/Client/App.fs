@@ -118,7 +118,6 @@ let createRuntime (initialModel: VM) =
                 restored.revision
                 saved
                 { graph = restored.graph
-                  history = History.empty
                   revision = restored.revision }
         savePendingQueue restoredPending
         if restoredPending.IsEmpty then

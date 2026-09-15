@@ -20,22 +20,24 @@
     <Compile Include="Types.fs" />
     <Compile Include="ChangeLog.fs" />
     <Compile Include="AuthToken.fs" />
+    <Compile Include="AmbitApp.fs" />
     <Compile Include="HttpResponseLog.fs" />
     <Compile Include="GitSave.fs" />
     <Compile Include="WorkspaceGit.fs" />
     <Compile Include="WorkspaceWebDav.fs" />
     <Compile Include="LazyLoadReconciliationDiagnostics.fs" />
     <Compile Include="GitGatewayDiagnostics.fs" />
-    <Compile Include="GitGateway.fs" />
     <Compile Include="IgnoredDestination.fs" />
     <Compile Include="DocumentPersistence.fs" />
     <Compile Include="Bookkeeping.fs" />
+    <Compile Include="EventLogFile.fs" />
     <Compile Include="DailyGitSave.fs" />
     <Compile Include="DocumentLoader.fs" />
     <Compile Include="Core\CoreChanges.fs" />
     <Compile Include="Core\CoreCredentials.fs" />
     <Compile Include="Core\CoreActorPool.fs" />
-    <Compile Include="Core\TestActor.fs" />
+    <Compile Include="Core\CoreMsg.fs" />
+    <Compile Include="Core\CoreEventDispatch.fs" />
     <Compile Include="Core\CoreMailboxBackend.fs" />
     <Compile Include="Core\MailboxHost.fs" />
     <Compile Include="Core\FileAgent.fs" />
@@ -51,6 +53,10 @@
     <Compile Include="LazyLoadReconciliationServer.fs" />
     <Compile Include="HeadPresence.fs" />
     <Compile Include="BrowserRequestCreds.fs" />
+    <Compile Include="RouteTypes.fs" />
+    <Compile Include="GitGateway.fs" />
+    <Compile Include="RouteAuthentication.fs" />
+    <Compile Include="RouteAppShell.fs" />
     <Compile Include="RouteRegistration.fs" />
     <Compile Include="Server.fs" />
   </ItemGroup>

@@ -2949,7 +2949,7 @@ let ``MoveToTrash ops apply successfully and node lands under TRASH`` () =
         Graph.replace graph1.root 0 [] (owned [ a ]) graph1
         |> ModelBuilder.requireOk "root->a"
     let state0 : State =
-        { graph = graph2; history = History.empty; revision = Revision.Zero }
+        { graph = graph2; revision = Revision.Zero }
 
     let removeOp = Op.Replace(graph2.root, owned [ a ], [])
 

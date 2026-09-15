@@ -1,6 +1,7 @@
 module Gambol.Server.Tests.CoreMailboxDoorTests
 
 open System
+open System.Reflection
 open System.Threading.Tasks
 open Xunit
 open Gambol.Server
@@ -16,40 +17,48 @@ let private requireOk label result =
         Assert.Fail($"{label}: {err}")
         Unchecked.defaultof<_>
 
+let private eventPast host =
+    async {
+        let! history = CoreMailbox.eventHistory host
+        return history.events
+    }
+
 let private sampleRequest: StartActorRequest =
     { zoomId = Graph.rootId
       focusId = Graph.rootId
       commandId = Graph.rootId
       graphIds = [ Graph.rootId ]
-      revision = Revision 0 }
+      revision = Gambol.Shared.Events.EventId 0 }
 
 let private actorCaller secret =
     { authority = Authority "Actor"
+      name = ""
       secret = secret }
 
 let private createHost () =
     let dataDir = newTempDir ()
-    let credentials = admittedCredentials ()
-    let pool = CoreActorPool.create credentials
+    let pool = CoreActorPool.create ()
+    pool.register (ActorName "root") (fun _ _ -> async.Return ())
+    pool.register (ActorName "test") TestActor.actorFn
     let host =
         CoreMailbox.host
-            credentials
             pool
             (FileAgent.persist (FileAgent.create dataDir))
-    host, credentials, pool
+            admittedCredentials
+    host, pool
 
 let private withHost body =
     task {
-        let host, credentials, pool = createHost ()
+        let host, pool = createHost ()
         try
-            do! body host credentials pool
+            do! body host pool
         finally
             CoreMailbox.dispose host
     }
 
 [<Fact>]
 let ``CoreMailbox.startActor calls pool.startActor and returns bookkeeping result`` () =
-    withHost (fun host _ pool -> task {
+    withHost (fun host pool -> task {
         let! result =
             CoreMailbox.startActor host testCaller sampleRequest
             |> Async.StartAsTask
@@ -59,16 +68,100 @@ let ``CoreMailbox.startActor calls pool.startActor and returns bookkeeping resul
 
 [<Fact>]
 let ``CoreMailbox.startActor with inactive secret is refused`` () =
-    withHost (fun host _ _ -> task {
+    withHost (fun host _ -> task {
         let! result =
             CoreMailbox.startActor
                 host
                 { authority = testAuthority
+                  name = testCaller.name
                   secret = Credential "inactive" }
                 sampleRequest
             |> Async.StartAsTask
         Assert.Equal(Error CoreAuth.refuse, result)
     })
+
+[<Fact>]
+let ``CoreMailbox.login privately admits a Browser secret`` () =
+    task {
+        let dataDir = newTempDir ()
+        let host =
+            CoreMailbox.host
+                (CoreActorPool.create ())
+                (FileAgent.persist (FileAgent.create dataDir))
+                CoreCredentials.empty
+        try
+            let secret = Credential "login-secret"
+            let name = "browser-session"
+            let caller =
+                { authority = Authority "Browser"
+                  name = name
+                  secret = secret }
+            let childId = NodeId.New()
+            let change =
+                { id = 0
+                  changeId = Guid.NewGuid()
+                  ops =
+                    [ Op.NewNode(childId, "after-login")
+                      Op.Replace(
+                          Graph.rootId,
+                          [],
+                          [ ChildNode.owner childId ]) ] }
+            let! refused =
+                CoreMailbox.postChange host caller [ change ]
+                |> Async.StartAsTask
+            Assert.Equal(Error CoreAuth.refuse, refused)
+            let! before =
+                CoreMailbox.isAdmitted host caller
+                |> Async.StartAsTask
+            Assert.False(before)
+            let! loggedIn =
+                CoreMailbox.login host name secret
+                |> Async.StartAsTask
+            requireOk "login" loggedIn
+            let! after =
+                CoreMailbox.isAdmitted host caller
+                |> Async.StartAsTask
+            Assert.True(after)
+            let! posted =
+                CoreMailbox.postChange host caller [ change ]
+                |> Async.StartAsTask
+            requireOk "post after login" posted |> ignore
+        finally
+            CoreMailbox.dispose host
+    }
+
+[<Fact>]
+let ``CoreMailbox.login name distinguishes Callers that share a secret`` () =
+    task {
+        let dataDir = newTempDir ()
+        let host =
+            CoreMailbox.host
+                (CoreActorPool.create ())
+                (FileAgent.persist (FileAgent.create dataDir))
+                CoreCredentials.empty
+        try
+            let secret = Credential "shared-secret"
+            let loggedIn =
+                { authority = Authority "Browser"
+                  name = "browser-a"
+                  secret = secret }
+            let otherName =
+                { loggedIn with name = "browser-b" }
+            let! logged =
+                CoreMailbox.login host loggedIn.name secret
+                |> Async.StartAsTask
+            requireOk "login" logged
+            let! admitted =
+                CoreMailbox.isAdmitted host loggedIn
+                |> Async.StartAsTask
+            let! refusedName =
+                CoreMailbox.isAdmitted host otherName
+                |> Async.StartAsTask
+            Assert.True(admitted)
+            Assert.False(refusedName)
+        finally
+            CoreMailbox.dispose host
+    }
 
 [<Fact>]
 let ``CoreMailbox.actorStop with valid credential drops live row`` () =
@@ -78,7 +171,10 @@ let ``CoreMailbox.actorStop with valid credential drops live row`` () =
     live.Add actorSecret
     let recordingPool: CoreActorPool = {
         register = fun _ _ -> ()
-        startActor = fun _ _ _ _ -> Ok ()
+        startActor =
+            fun _ _ ->
+                Ok actorSecret
+        schedule = fun _ _ -> ()
         isLive = fun secret -> live.Contains secret
         admit = fun _ -> Ok ()
         drop = fun _ -> ()
@@ -92,14 +188,12 @@ let ``CoreMailbox.actorStop with valid credential drops live row`` () =
     }
     task {
         let dataDir = newTempDir ()
-        let credentials = admittedCredentials ()
         let host =
             CoreMailbox.host
-                credentials
                 recordingPool
                 (FileAgent.persist (FileAgent.create dataDir))
+                admittedCredentials
         try
-            do! credentials.add actorSecret |> Async.StartAsTask
             let! result =
                 CoreMailbox.actorStop
                     host
@@ -116,7 +210,7 @@ let ``CoreMailbox.actorStop with valid credential drops live row`` () =
 
 [<Fact>]
 let ``CoreMailbox door exposes Graph lockPresent via getState`` () =
-    withHost (fun host _ _ -> task {
+    withHost (fun host _ -> task {
         let! result =
             CoreMailbox.startActor host testCaller sampleRequest
             |> Async.StartAsTask
@@ -129,33 +223,37 @@ let ``CoreMailbox door exposes Graph lockPresent via getState`` () =
     })
 
 [<Fact>]
-let ``CoreMailbox.startActor appends ActorStarted to lifecycle events`` () =
-    withHost (fun host _ _ -> task {
+let ``CoreMailbox.startActor appends ActorStart to lifecycle events`` () =
+    withHost (fun host _ -> task {
         let! result =
             CoreMailbox.startActor host testCaller sampleRequest
             |> Async.StartAsTask
         requireOk "startActor" result
         let! events =
-            CoreMailbox.eventHistory host
+            eventPast host
             |> Async.StartAsTask
         let actorStartedEvents =
             events
             |> List.choose (fun event ->
-                match event with
-                | ActorEvent (_, ActorStarted (focusId, _)) when focusId = sampleRequest.focusId ->
-                    Some focusId
+                match event.body with
+                | Gambol.Shared.Events.EventBody.ActorStart request
+                    when request.focusId = sampleRequest.focusId ->
+                    Some request.focusId
                 | _ -> None)
         Assert.Equal(1, actorStartedEvents.Length)
     })
 
 [<Fact>]
-let ``CoreMailbox.actorStop appends ActorFinished and drops live row`` () =
+let ``CoreMailbox.actorStop appends ActorStop and drops live row`` () =
     let actorSecret = Credential "actor-live"
     let live = ResizeArray<Credential>()
     live.Add actorSecret
     let recordingPool: CoreActorPool = {
         register = fun _ _ -> ()
-        startActor = fun _ _ _ _ -> Ok ()
+        startActor =
+            fun _ _ ->
+                Ok actorSecret
+        schedule = fun _ _ -> ()
         isLive = fun secret -> live.Contains secret
         admit = fun _ -> Ok ()
         drop = fun _ -> ()
@@ -168,14 +266,12 @@ let ``CoreMailbox.actorStop appends ActorFinished and drops live row`` () =
     }
     task {
         let dataDir = newTempDir ()
-        let credentials = admittedCredentials ()
         let host =
             CoreMailbox.host
-                credentials
                 recordingPool
                 (FileAgent.persist (FileAgent.create dataDir))
+                admittedCredentials
         try
-            do! credentials.add actorSecret |> Async.StartAsTask
             let! stopResult =
                 CoreMailbox.actorStop
                     host
@@ -185,13 +281,14 @@ let ``CoreMailbox.actorStop appends ActorFinished and drops live row`` () =
             requireOk "actorStop" stopResult
             Assert.False(live.Contains actorSecret)
             let! events =
-                CoreMailbox.eventHistory host
+                eventPast host
                 |> Async.StartAsTask
             let actorFinishedEvents =
                 events
                 |> List.choose (fun event ->
-                    match event with
-                    | ActorEvent (_, ActorFinished focusId) when focusId = sampleRequest.focusId ->
+                    match event.body with
+                    | Gambol.Shared.Events.EventBody.ActorStop(focusId, _)
+                        when focusId = sampleRequest.focusId ->
                         Some focusId
                     | _ -> None)
             Assert.Equal(1, actorFinishedEvents.Length)
@@ -201,7 +298,7 @@ let ``CoreMailbox.actorStop appends ActorFinished and drops live row`` () =
 
 [<Fact>]
 let ``CoreActorPool.startActor uses client graphIds to build subgraph`` () =
-    withHost (fun host credentials pool -> task {
+    withHost (fun host pool -> task {
         let childId = NodeId.New()
         let change =
             { id = 0
@@ -210,28 +307,36 @@ let ``CoreActorPool.startActor uses client graphIds to build subgraph`` () =
                 [ Op.NewNode(childId, "child")
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host [ change ]
+            CoreMailbox.postGraphOnlyChange host testCaller change
             |> Async.StartAsTask
-        requireOk "postChange" postResult
+        requireOk "postChange" postResult |> ignore
         
-        let request =
+        let request: StartActorRequest =
             { zoomId = Graph.rootId
               focusId = Graph.rootId
               commandId = Graph.rootId
               graphIds = [ Graph.rootId; childId ]
-              revision = Revision 0 }
+              revision = Gambol.Shared.Events.EventId 0 }
         
         let! result =
             CoreMailbox.startActor host testCaller request
             |> Async.StartAsTask
         requireOk "startActor" result
-        
-        Assert.True(Set.contains request.focusId (pool.liveFocusIds ()))
+        let! history =
+            CoreMailbox.eventHistory host
+            |> Async.StartAsTask
+        Assert.Contains(
+            history.events,
+            fun event ->
+                match event.body with
+                | Gambol.Shared.Events.EventBody.ActorStart started ->
+                    started.commandId = request.commandId
+                | _ -> false)
     })
 
 [<Fact>]
 let ``CoreActorPool.startActor selects actor from command node text`` () =
-    withHost (fun host credentials pool -> task {
+    withHost (fun host _ -> task {
         let commandId = NodeId.New()
         let change =
             { id = 0
@@ -240,34 +345,42 @@ let ``CoreActorPool.startActor selects actor from command node text`` () =
                 [ Op.NewNode(commandId, "test")
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host [ change ]
+            CoreMailbox.postGraphOnlyChange host testCaller change
             |> Async.StartAsTask
-        requireOk "postChange" postResult
+        requireOk "postChange" postResult |> ignore
         
-        let request =
+        let request: StartActorRequest =
             { zoomId = Graph.rootId
               focusId = Graph.rootId
               commandId = commandId
               graphIds = [ Graph.rootId; commandId ]
-              revision = Revision 0 }
+              revision = Gambol.Shared.Events.EventId 0 }
         
         let! result =
             CoreMailbox.startActor host testCaller request
             |> Async.StartAsTask
         requireOk "startActor" result
-        
-        Assert.True(Set.contains request.focusId (pool.liveFocusIds ()))
+        let! history =
+            CoreMailbox.eventHistory host
+            |> Async.StartAsTask
+        Assert.Contains(
+            history.events,
+            fun event ->
+                match event.body with
+                | Gambol.Shared.Events.EventBody.ActorStart started ->
+                    started.commandId = request.commandId
+                | _ -> false)
     })
 
 [<Fact>]
 let ``CoreActorPool.startActor fails when graphIds is empty`` () =
-    withHost (fun host _ _ -> task {
-        let request =
+    withHost (fun host _ -> task {
+        let request: StartActorRequest =
             { zoomId = Graph.rootId
               focusId = Graph.rootId
               commandId = Graph.rootId
               graphIds = []
-              revision = Revision 0 }
+              revision = Gambol.Shared.Events.EventId 0 }
         
         let! result =
             CoreMailbox.startActor host testCaller request
@@ -280,7 +393,7 @@ let ``CoreActorPool.startActor fails when graphIds is empty`` () =
 
 [<Fact>]
 let ``CoreActorPool.startActor fails when commandId not in graphIds`` () =
-    withHost (fun host _ _ -> task {
+    withHost (fun host _ -> task {
         let commandId = NodeId.New()
         let change =
             { id = 0
@@ -289,16 +402,16 @@ let ``CoreActorPool.startActor fails when commandId not in graphIds`` () =
                 [ Op.NewNode(commandId, "test")
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host [ change ]
+            CoreMailbox.postGraphOnlyChange host testCaller change
             |> Async.StartAsTask
-        requireOk "postChange" postResult
+        requireOk "postChange" postResult |> ignore
         
-        let request =
+        let request: StartActorRequest =
             { zoomId = Graph.rootId
               focusId = Graph.rootId
               commandId = commandId
               graphIds = [ Graph.rootId ]  // commandId not included
-              revision = Revision 0 }
+              revision = Gambol.Shared.Events.EventId 0 }
         
         let! result =
             CoreMailbox.startActor host testCaller request
@@ -310,23 +423,24 @@ let ``CoreActorPool.startActor fails when commandId not in graphIds`` () =
     })
 
 [<Fact>]
-let ``CoreActorPool.startActor appends ActorStarted before actor body runs`` () =
-    withHost (fun host _ _ -> task {
+let ``mailbox records ActorStarted before actor body runs`` () =
+    withHost (fun host _ -> task {
         let! result =
             CoreMailbox.startActor host testCaller sampleRequest
             |> Async.StartAsTask
         requireOk "startActor" result
         
         let! events =
-            CoreMailbox.eventHistory host
+            eventPast host
             |> Async.StartAsTask
         
         let actorStartedEvents =
             events
             |> List.choose (fun event ->
-                match event with
-                | ActorEvent (_, ActorStarted (focusId, _)) when focusId = sampleRequest.focusId ->
-                    Some focusId
+                match event.body with
+                | Gambol.Shared.Events.EventBody.ActorStart request
+                    when request.focusId = sampleRequest.focusId ->
+                    Some request.focusId
                 | _ -> None)
         
         Assert.Equal(1, actorStartedEvents.Length)
@@ -334,7 +448,7 @@ let ``CoreActorPool.startActor appends ActorStarted before actor body runs`` () 
 
 [<Fact>]
 let ``CoreActorPool.startActor creates live row synchronously`` () =
-    withHost (fun host _ pool -> task {
+    withHost (fun host pool -> task {
         let! result =
             CoreMailbox.startActor host testCaller sampleRequest
             |> Async.StartAsTask
@@ -345,77 +459,125 @@ let ``CoreActorPool.startActor creates live row synchronously`` () =
     })
 
 [<Fact>]
-let ``Successful PostChange appends ChangeEvent to mailbox history`` () =
-    withHost (fun host _ _ -> task {
-        let childId = NodeId.New()
+let ``Graph-only post without admitted Caller is refused`` () =
+    withHost (fun host _ -> task {
         let change =
             { id = 0
               changeId = Guid.NewGuid()
-              ops =
-                [ Op.NewNode(childId, "test")
-                  Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
-        
-        let! postResult =
-            CoreMailbox.postGraphOnlyChange host [ change ]
+              ops = [ Op.NewNode(NodeId.New(), "nope") ] }
+        let! result =
+            CoreMailbox.postGraphOnlyChange
+                host
+                { testCaller with secret = Credential "inactive" }
+                change
             |> Async.StartAsTask
-        requireOk "postChange" postResult
-        
-        let! events =
-            CoreMailbox.eventHistory host
-            |> Async.StartAsTask
-        
-        let changeEvents =
-            events
-            |> List.choose (fun event ->
-                match event with
-                | ChangeEvent c when c.changeId = change.changeId -> Some c
-                | _ -> None)
-        
-        Assert.Equal(1, changeEvents.Length)
+        Assert.Equal(Error CoreAuth.refuse, result)
     })
 
 [<Fact>]
-let ``Actor lifecycle and Changes appear on same History sequence`` () =
-    withHost (fun host _ _ -> task {
-        // Start actor
-        let! startResult =
-            CoreMailbox.startActor host testCaller sampleRequest
-            |> Async.StartAsTask
-        requireOk "startActor" startResult
-        
-        // Post a change
+let ``Graph-only post with admitted Caller reaches persist`` () =
+    withHost (fun host _ -> task {
         let childId = NodeId.New()
         let change =
             { id = 0
               changeId = Guid.NewGuid()
               ops =
-                [ Op.NewNode(childId, "hello")
-                  Op.Replace(sampleRequest.focusId, [], [ ChildNode.owner childId ]) ] }
-        
-        let! postResult =
-            CoreMailbox.postGraphOnlyChange host [ change ]
+                [ Op.NewNode(childId, "graph-only")
+                  Op.Replace(
+                      Graph.rootId,
+                      [],
+                      [ ChildNode.owner childId ]) ] }
+        let! result =
+            CoreMailbox.postGraphOnlyChange host testCaller change
             |> Async.StartAsTask
-        requireOk "postChange" postResult
-        
-        let! events =
-            CoreMailbox.eventHistory host
+        let accepted = requireOk "graph-only admitted" result
+        Assert.Equal(Revision 1, accepted.revision)
+    })
+
+[<Fact>]
+let ``CoreMailbox.logout revokes the Caller at the mailbox`` () =
+    withHost (fun host _ -> task {
+        let! before =
+            CoreMailbox.isAdmitted host testCaller |> Async.StartAsTask
+        Assert.True(before)
+        let! loggedOut =
+            CoreMailbox.logout host testCaller |> Async.StartAsTask
+        requireOk "logout" loggedOut
+        let! after =
+            CoreMailbox.isAdmitted host testCaller |> Async.StartAsTask
+        Assert.False(after)
+        let! refused =
+            CoreMailbox.postChange
+                host
+                testCaller
+                [ { id = 0
+                    changeId = Guid.NewGuid()
+                    ops = [ Op.NewNode(NodeId.New(), "after-logout") ] } ]
             |> Async.StartAsTask
-        
-        // Verify we have both ActorStarted and ChangeEvent in the same sequence
-        let hasActorStarted =
-            events
-            |> List.exists (fun event ->
-                match event with
-                | ActorEvent (_, ActorStarted _) -> true
-                | _ -> false)
-        
-        let hasChangeEvent =
-            events
-            |> List.exists (fun event ->
-                match event with
-                | ChangeEvent c when c.changeId = change.changeId -> true
-                | _ -> false)
-        
-        Assert.True(hasActorStarted, "Expected ActorStarted in history")
-        Assert.True(hasChangeEvent, "Expected ChangeEvent in history")
+        Assert.Equal(Error CoreAuth.refuse, refused)
+    })
+
+[<Fact>]
+let ``MailboxHost has no public mailbox processor field`` () =
+    let leaked =
+        typeof<MailboxHost>.GetMembers(
+            BindingFlags.Public ||| BindingFlags.Instance)
+        |> Array.exists (fun m ->
+            m.Name.IndexOf("mailbox", StringComparison.OrdinalIgnoreCase)
+            >= 0)
+    Assert.False(leaked)
+
+[<Fact>]
+let ``CoreMsg is not a public type`` () =
+    let found =
+        typeof<MailboxHost>.Assembly.GetExportedTypes()
+        |> Array.exists (fun t -> t.Name = "CoreMsg")
+    Assert.False(found)
+
+let private postedEvent () : Gambol.Shared.Events.Event =
+    let childId = NodeId.New()
+    { id = Gambol.Shared.Events.EventId 0
+      submissionId = Guid.NewGuid()
+      authority = Gambol.Shared.Events.Authority "Browser"
+      commandName = "Set text"
+      body =
+        Gambol.Shared.Events.EventBody.Change
+            [ Op.NewNode(childId, "posted")
+              Op.Replace(
+                  Graph.rootId,
+                  [],
+                  [ ChildNode.owner childId ]) ] }
+
+[<Fact>]
+let ``CoreMailbox.postEvent appends an Event that eventsSince returns`` () =
+    withHost (fun host _ -> task {
+        let event = postedEvent ()
+        let! posted =
+            CoreMailbox.postEvent host testCaller event
+            |> Async.StartAsTask
+        let stored = requireOk "postEvent" posted
+        let! tail =
+            CoreMailbox.eventsSince
+                host
+                (Gambol.Shared.Events.EventId -1)
+            |> Async.StartAsTask
+        Assert.Equal(1, tail.events.Length)
+        Assert.Contains(stored, tail.events)
+        Assert.Equal(event.submissionId, stored.submissionId)
+        let! afterStored =
+            CoreMailbox.eventsSince host stored.id
+            |> Async.StartAsTask
+        Assert.Empty(afterStored.events)
+    })
+
+[<Fact>]
+let ``CoreMailbox.postEvent without admitted Caller is refused`` () =
+    withHost (fun host _ -> task {
+        let! result =
+            CoreMailbox.postEvent
+                host
+                { testCaller with secret = Credential "inactive" }
+                (postedEvent ())
+            |> Async.StartAsTask
+        Assert.Equal(Error CoreAuth.refuse, result)
     })

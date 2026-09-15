@@ -40,7 +40,6 @@ type History =
 
 type State =
     { graph: Graph
-      history: History
       revision: Revision }
 
 
@@ -563,6 +562,39 @@ module History =
           future = []
           nextId = 0 }
 
+    let private loggedChangeId =
+        function
+        | ChangeEvent change -> Some change.changeId
+        | ActorEvent _ -> None
+
+    /// Restore ChangeEvents from the durable Change stream. Skips changeIds
+    /// already on History so persist is not copied onto a second list.
+    let restoreChanges (logged: Change list) (history: History) : History =
+        let known =
+            history.past
+            |> List.choose loggedChangeId
+            |> Set.ofList
+        let fresh =
+            logged
+            |> List.filter (fun change ->
+                not (Set.contains change.changeId known))
+        if List.isEmpty fresh then
+            history
+        else
+            let events = fresh |> List.map ChangeEvent
+            let nextId =
+                fresh
+                |> List.fold
+                    (fun acc change -> max acc (change.id + 1))
+                    history.nextId
+            { history with
+                past = history.past @ events
+                future = []
+                nextId = nextId }
+
+    let fromChanges (changes: Change list) : History =
+        restoreChanges changes empty
+
     let newChange (history: History) : Change =
         { id = history.nextId
           changeId = System.Guid.NewGuid()
@@ -657,29 +689,6 @@ module History =
             match validateOwnershipForChange s.graph change with
             | Error msg -> ApplyResult.Invalid(state, msg)
             | Ok () -> ApplyResult.Changed s
-
-    let appendActorStarted
-        (focusId: NodeId)
-        (authority: string)
-        (state: State)
-        : State =
-        let event = ActorEvent(state.history.nextId, ActorStarted(focusId, authority))
-        { state with
-            history =
-                { past = state.history.past @ [ event ]
-                  future = []
-                  nextId = state.history.nextId + 1 } }
-
-    let appendActorFinished
-        (focusId: NodeId)
-        (state: State)
-        : State =
-        let event = ActorEvent(state.history.nextId, ActorFinished(focusId))
-        { state with
-            history =
-                { past = state.history.past @ [ event ]
-                  future = []
-                  nextId = state.history.nextId + 1 } }
 
 /// After DocumentPersistence stamps artifact roots, emit ops for the change log / poll tail.
 [<RequireQualifiedAccess>]

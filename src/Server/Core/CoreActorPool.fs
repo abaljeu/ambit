@@ -5,13 +5,8 @@ open Gambol.Shared
 
 type ActorName = ActorName of string
 
-/// One Command / StartActor payload for CoreMsg, CoreMailbox, and the pool.
-type StartActorRequest =
-    { zoomId: NodeId
-      focusId: NodeId
-      commandId: NodeId
-      graphIds: NodeId list
-      revision: Revision }
+/// Compatibility name retained until the Event contract ticket.
+type StartActorRequest = Gambol.Shared.Events.ActorStart
 
 /// Actor input: Graph plus named ids and Actor secret.
 type ActorInput =
@@ -23,12 +18,13 @@ type ActorInput =
 
 type ActorFn = ActorInput -> CoreChanges -> Async<unit>
 
-/// Callback to append ActorStarted to mailbox History.
-type AppendActorStarted = NodeId -> string -> unit
-
 type CoreActorPool =
     { register: ActorName -> ActorFn -> unit
-      startActor: StartActorRequest -> (unit -> Graph) -> CoreChanges -> AppendActorStarted -> Result<unit, string>
+      startActor:
+        Gambol.Shared.Events.ActorStart ->
+            (unit -> Graph) ->
+            Result<Credential, string>
+      schedule: Credential -> CoreChanges -> unit
       isLive: Credential -> bool
       admit: Credential -> Result<unit, string>
       drop: Credential -> unit
@@ -39,9 +35,14 @@ type CoreActorPool =
 [<RequireQualifiedAccess>]
 module CoreActorPool =
 
+    type private PendingBody =
+        { actorFn: ActorFn
+          input: ActorInput }
+
     type private LiveRow =
         { focusId: NodeId
-          cancel: System.Threading.CancellationTokenSource }
+          cancel: System.Threading.CancellationTokenSource
+          pending: PendingBody option }
 
     type private Model =
         { defs: Map<string, ActorFn>
@@ -58,116 +59,123 @@ module CoreActorPool =
         | Error err -> Error(CoreAdmissionError.text err)
         | Ok () -> Ok ()
 
-    let private runDrop takeLive credentials secret =
+    let private runDrop takeLive secret =
         match takeLive secret with
         | None -> ()
-        | Some row ->
-            row.cancel.Cancel()
-            credentials.remove secret |> Async.RunSynchronously
+        | Some row -> row.cancel.Cancel()
 
-    let private runFinish isLive takeLive credentials secret result =
+    let private runFinish takeLive secret result =
         match result with
-        | ActorSucceeded ->
-            match runAdmit isLive secret with
-            | Error err -> Error err
-            | Ok () ->
-                runDrop takeLive credentials secret
-                Ok ()
+        | ActorSucceeded
         | ActorFailed ->
-            match runAdmit isLive secret with
-            | Error err -> Error err
-            | Ok () ->
-                runDrop takeLive credentials secret
-                Ok ()
+            runDrop takeLive secret
+            Ok ()
+
+    let private actorNameFrom (commandNode: Node) =
+        CssClass.toList commandNode.cssClasses
+        |> List.tryPick (fun cls ->
+            if cls.StartsWith("actor-") && cls.Length > 6 then
+                Some (cls.Substring(6))
+            else
+                None)
+        |> Option.defaultValue (commandNode.text.Trim().ToLowerInvariant())
+
+    let private actorGraphFrom (fullGraph: Graph) graphIds =
+        let actorNodes =
+            graphIds
+            |> List.choose (fun id ->
+                Map.tryFind id fullGraph.nodes
+                |> Option.map (fun n -> id, n))
+            |> Map.ofList
+        Graph.fromNodes fullGraph.root actorNodes
 
     let private runStartActor
+        (putLive: Credential -> NodeId -> PendingBody -> unit)
         (getModel: unit -> Model)
-        (putLive: Credential -> NodeId -> unit)
-        (credentials: CoreCredentials)
-        (request: StartActorRequest)
+        (request: Gambol.Shared.Events.ActorStart)
         (getState: unit -> Graph)
-        (coreChanges: CoreChanges)
-        (appendActorStarted: AppendActorStarted)
         =
         let fullGraph = getState ()
-        
-        // Build Actor input Graph from client-provided graphIds. Server does NOT
-        // expand from Zoom root; client walks its SiteMap (honoring Fold) and sends graphIds.
         if request.graphIds.IsEmpty then
-            Error "graphIds required: client must provide Included context (SiteMap under Zoom, honoring Fold)"
+            Error
+                "graphIds required: client must provide Included context (SiteMap under Zoom, honoring Fold)"
         else
-            let actorNodes =
-                request.graphIds
-                |> List.choose (fun id -> Map.tryFind id fullGraph.nodes |> Option.map (fun n -> id, n))
-                |> Map.ofList
-            let actorGraph = Graph.fromNodes fullGraph.root actorNodes
-            
+            let actorGraph = actorGraphFrom fullGraph request.graphIds
             match Map.tryFind request.commandId actorGraph.nodes with
             | None -> Error "command node not found in provided graphIds"
             | Some commandNode ->
-                // Actor selection: prefer CSS class "actor-<name>" for explicit marking,
-                // fall back to command node text for interim compatibility.
-                // This separates actor selection from command interpretation (TestActor reads text).
-                let actorName =
-                    CssClass.toList commandNode.cssClasses
-                    |> List.tryPick (fun cls ->
-                        if cls.StartsWith("actor-") && cls.Length > 6 then
-                            Some (cls.Substring(6))
-                        else
-                            None)
-                    |> Option.defaultValue (commandNode.text.Trim().ToLowerInvariant())
-                
-                let model = getModel ()
-                match Map.tryFind actorName model.defs with
+                let actorName = actorNameFrom commandNode
+                match Map.tryFind actorName (getModel ()).defs with
                 | None -> Error $"actor '{actorName}' not registered"
                 | Some actorFn ->
                     let secret = Credential(Guid.NewGuid().ToString("N"))
-                    credentials.add secret |> Async.RunSynchronously
-                    putLive secret request.focusId
-                    
-                    appendActorStarted request.focusId "Actor"
-                    
                     let input: ActorInput =
                         { graph = actorGraph
                           zoomId = request.zoomId
                           focusId = request.focusId
                           commandId = request.commandId
                           secret = secret }
-                    
-                    let modelWithLive = getModel ()
-                    let cts = modelWithLive.live.[secret].cancel
-                    Async.Start(actorFn input coreChanges, cts.Token)
-                    
-                    Ok ()
+                    putLive
+                        secret
+                        request.focusId
+                        { actorFn = actorFn; input = input }
+                    Ok secret
 
-    let create (credentials: CoreCredentials) : CoreActorPool =
+    let private takePending (model: Model) secret =
+        match Map.tryFind secret model.live with
+        | None -> model, None
+        | Some row ->
+            match row.pending with
+            | None -> model, None
+            | Some pending ->
+                let live =
+                    Map.add secret { row with pending = None } model.live
+                { model with live = live }, Some (pending, row)
+
+    let private runSchedule
+        (takePendingBody: Credential -> (PendingBody * LiveRow) option)
+        (secret: Credential)
+        (coreChanges: CoreChanges)
+        =
+        match takePendingBody secret with
+        | None -> ()
+        | Some (pending, row) ->
+            Async.Start(
+                pending.actorFn pending.input coreChanges,
+                row.cancel.Token)
+
+    let create () : CoreActorPool =
         let mutable model =
             { defs = Map.empty
               live = Map.empty }
         let getModel () = model
-        let putLive secret focusId =
+        let putLive secret focusId pending =
             let row =
                 { focusId = focusId
-                  cancel = new System.Threading.CancellationTokenSource() }
+                  cancel = new System.Threading.CancellationTokenSource()
+                  pending = Some pending }
             model <- { model with live = Map.add secret row model.live }
         let takeLive secret =
             match Map.tryFind secret model.live with
             | None -> None
             | Some row ->
-                model <-
-                    { model with live = Map.remove secret model.live }
+                model <- { model with live = Map.remove secret model.live }
                 Some row
-        let isLive secret = Map.containsKey secret model.live
-        let getFocusId secret =
-            Map.tryFind secret model.live
-            |> Option.map (fun row -> row.focusId)
+        let takePendingBody secret =
+            let next, pending = takePending model secret
+            model <- next
+            pending
         { register =
             fun (ActorName name) actor ->
                 model <- { model with defs = Map.add name actor model.defs }
-          startActor = runStartActor getModel putLive credentials
-          isLive = isLive
-          admit = runAdmit isLive
-          drop = runDrop takeLive credentials
-          finish = runFinish isLive takeLive credentials
+          startActor = runStartActor putLive getModel
+          schedule = runSchedule takePendingBody
+          isLive = fun secret -> Map.containsKey secret model.live
+          admit = runAdmit (fun secret -> Map.containsKey secret model.live)
+          drop = runDrop takeLive
+          finish = runFinish takeLive
           liveFocusIds = fun () -> liveFocusIds model
-          getFocusId = getFocusId }
+          getFocusId =
+            fun secret ->
+                Map.tryFind secret model.live
+                |> Option.map (fun row -> row.focusId) }

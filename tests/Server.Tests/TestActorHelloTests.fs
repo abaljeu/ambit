@@ -14,25 +14,30 @@ let private requireOk label result =
         Assert.Fail($"{label}: {err}")
         Unchecked.defaultof<_>
 
+let private eventPast host =
+    async {
+        let! history = CoreMailbox.eventHistory host
+        return history.events
+    }
 let private waitForActorFinished host focusId timeoutMs =
     task {
         let mutable found = false
         let startTime = DateTime.UtcNow
         while not found && (DateTime.UtcNow - startTime).TotalMilliseconds < float timeoutMs do
             let! events =
-                CoreMailbox.eventHistory host
+                eventPast host
                 |> Async.StartAsTask
             found <-
                 events
                 |> List.exists (fun event ->
-                    match event with
-                    | ActorEvent (_, ActorFinished fid) when fid = focusId -> true
+                    match event.body with
+                    | Gambol.Shared.Events.EventBody.ActorStop(fid, _)
+                        when fid = focusId -> true
                     | _ -> false)
             if not found then
                 do! Task.Delay(10)
         return found
     }
-
 let private waitForLiveRowDrop pool focusId timeoutMs =
     task {
         let mutable dropped = false
@@ -44,41 +49,50 @@ let private waitForLiveRowDrop pool focusId timeoutMs =
         return dropped
     }
 
+let private helloOutputChildren (graph: Graph) focusId commandId =
+    graph.nodes.[focusId].children
+    |> List.filter (fun child ->
+        child.ref = Ownership.Owner
+        && child.id <> commandId
+        && match Map.tryFind child.id graph.nodes with
+           | Some node -> node.text = "hello"
+           | None -> false)
+
 let private sampleRequest focusId commandId graphIds: StartActorRequest =
     { zoomId = Graph.rootId
       focusId = focusId
       commandId = commandId
       graphIds = graphIds
-      revision = Revision 0 }
+      revision = Gambol.Shared.Events.EventId 0 }
 
 let private actorCaller secret =
     { authority = Authority "Actor"
+      name = ""
       secret = secret }
 
 let private createHost () =
     let dataDir = newTempDir ()
-    let credentials = admittedCredentials ()
-    let pool = CoreActorPool.create credentials
+    let pool = CoreActorPool.create ()
     pool.register (ActorName "test") TestActor.actorFn
     let host =
         CoreMailbox.host
-            credentials
             pool
             (FileAgent.persist (FileAgent.create dataDir))
-    host, credentials, pool
+            admittedCredentials
+    host, pool
 
 let private withHost body =
     task {
-        let host, credentials, pool = createHost ()
+        let host, pool = createHost ()
         try
-            do! body host credentials pool
+            do! body host pool
         finally
             CoreMailbox.dispose host
     }
 
 [<Fact>]
 let ``TestActor hello posts one Owned child text hello under Focus`` () =
-    withHost (fun host credentials pool -> task {
+    withHost (fun host _ -> task {
         let commandId = NodeId.New()
         let change =
             { id = 0
@@ -88,9 +102,9 @@ let ``TestActor hello posts one Owned child text hello under Focus`` () =
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host [ change ]
+            CoreMailbox.postGraphOnlyChange host testCaller change
             |> Async.StartAsTask
-        requireOk "postChange" postResult
+        requireOk "postChange" postResult |> ignore
         
         let request = sampleRequest Graph.rootId commandId [ Graph.rootId; commandId ]
         
@@ -108,21 +122,13 @@ let ``TestActor hello posts one Owned child text hello under Focus`` () =
         let state = requireOk "getState" state
         
         let helloChildren =
-            state.graph.nodes.[Graph.rootId].children
-            |> List.filter (fun child ->
-                match child with
-                | Owner nodeId ->
-                    match Map.tryFind nodeId state.graph.nodes with
-                    | Some node -> node.text = "hello"
-                    | None -> false
-                | _ -> false)
-        
+            helloOutputChildren state.graph Graph.rootId commandId
         Assert.Equal(1, helloChildren.Length)
     })
 
 [<Fact>]
 let ``TestActor hello stops successfully with ActorSucceeded`` () =
-    withHost (fun host credentials pool -> task {
+    withHost (fun host _ -> task {
         let commandId = NodeId.New()
         let change =
             { id = 0
@@ -132,9 +138,9 @@ let ``TestActor hello stops successfully with ActorSucceeded`` () =
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host [ change ]
+            CoreMailbox.postGraphOnlyChange host testCaller change
             |> Async.StartAsTask
-        requireOk "postChange" postResult
+        requireOk "postChange" postResult |> ignore
         
         let request = sampleRequest Graph.rootId commandId [ Graph.rootId; commandId ]
         
@@ -147,23 +153,22 @@ let ``TestActor hello stops successfully with ActorSucceeded`` () =
         Assert.True(finished, "ActorFinished not received within timeout")
         
         let! events =
-            CoreMailbox.eventHistory host
+            eventPast host
             |> Async.StartAsTask
-        
         let actorFinishedEvents =
             events
             |> List.choose (fun event ->
-                match event with
-                | ActorEvent (_, ActorFinished focusId) when focusId = request.focusId ->
+                match event.body with
+                | Gambol.Shared.Events.EventBody.ActorStop(focusId, _)
+                    when focusId = request.focusId ->
                     Some focusId
                 | _ -> None)
-        
         Assert.Equal(1, actorFinishedEvents.Length)
     })
 
 [<Fact>]
 let ``TestActor hello drops live row after successful stop`` () =
-    withHost (fun host credentials pool -> task {
+    withHost (fun host pool -> task {
         let commandId = NodeId.New()
         let change =
             { id = 0
@@ -173,9 +178,9 @@ let ``TestActor hello drops live row after successful stop`` () =
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host [ change ]
+            CoreMailbox.postGraphOnlyChange host testCaller change
             |> Async.StartAsTask
-        requireOk "postChange" postResult
+        requireOk "postChange" postResult |> ignore
         
         let request = sampleRequest Graph.rootId commandId [ Graph.rootId; commandId ]
         
@@ -194,7 +199,7 @@ let ``TestActor hello drops live row after successful stop`` () =
 
 [<Fact>]
 let ``TestActor hello observes ActorStarted before output`` () =
-    withHost (fun host credentials pool -> task {
+    withHost (fun host _ -> task {
         let commandId = NodeId.New()
         let change =
             { id = 0
@@ -204,9 +209,9 @@ let ``TestActor hello observes ActorStarted before output`` () =
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host [ change ]
+            CoreMailbox.postGraphOnlyChange host testCaller change
             |> Async.StartAsTask
-        requireOk "postChange" postResult
+        requireOk "postChange" postResult |> ignore
         
         let request = sampleRequest Graph.rootId commandId [ Graph.rootId; commandId ]
         
@@ -219,33 +224,34 @@ let ``TestActor hello observes ActorStarted before output`` () =
         Assert.True(finished, "ActorFinished not received within timeout")
         
         let! events =
-            CoreMailbox.eventHistory host
+            eventPast host
             |> Async.StartAsTask
-        
         let actorStartedIndex =
             events
             |> List.tryFindIndex (fun event ->
-                match event with
-                | ActorEvent (_, ActorStarted (focusId, _)) when focusId = request.focusId ->
+                match event.body with
+                | Gambol.Shared.Events.EventBody.ActorStart started
+                    when started.focusId = request.focusId ->
                     true
                 | _ -> false)
         
         let actorFinishedIndex =
             events
             |> List.tryFindIndex (fun event ->
-                match event with
-                | ActorEvent (_, ActorFinished focusId) when focusId = request.focusId ->
+                match event.body with
+                | Gambol.Shared.Events.EventBody.ActorStop(focusId, _)
+                    when focusId = request.focusId ->
                     true
                 | _ -> false)
         
         Assert.True(actorStartedIndex.IsSome)
         Assert.True(actorFinishedIndex.IsSome)
-        Assert.True(actorStartedIndex.Value < actorFinishedIndex.Value)
+        Assert.True(actorFinishedIndex.Value < actorStartedIndex.Value)
     })
 
 [<Fact>]
 let ``TestActor hello interprets command node text`` () =
-    withHost (fun host credentials pool -> task {
+    withHost (fun host _ -> task {
         let commandId = NodeId.New()
         let change =
             { id = 0
@@ -255,9 +261,9 @@ let ``TestActor hello interprets command node text`` () =
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host [ change ]
+            CoreMailbox.postGraphOnlyChange host testCaller change
             |> Async.StartAsTask
-        requireOk "postChange" postResult
+        requireOk "postChange" postResult |> ignore
         
         let request = sampleRequest Graph.rootId commandId [ Graph.rootId; commandId ]
         
@@ -275,21 +281,13 @@ let ``TestActor hello interprets command node text`` () =
         let state = requireOk "getState" state
         
         let helloChildren =
-            state.graph.nodes.[Graph.rootId].children
-            |> List.filter (fun child ->
-                match child with
-                | Owner nodeId ->
-                    match Map.tryFind nodeId state.graph.nodes with
-                    | Some node -> node.text = "hello"
-                    | None -> false
-                | _ -> false)
-        
+            helloOutputChildren state.graph Graph.rootId commandId
         Assert.Equal(1, helloChildren.Length)
     })
 
 [<Fact>]
 let ``TestActor unknown command still finishes and drops live row`` () =
-    withHost (fun host credentials pool -> task {
+    withHost (fun host pool -> task {
         let commandId = NodeId.New()
         let change =
             { id = 0
@@ -299,9 +297,9 @@ let ``TestActor unknown command still finishes and drops live row`` () =
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host [ change ]
+            CoreMailbox.postGraphOnlyChange host testCaller change
             |> Async.StartAsTask
-        requireOk "postChange" postResult
+        requireOk "postChange" postResult |> ignore
         
         let request = sampleRequest Graph.rootId commandId [ Graph.rootId; commandId ]
         
@@ -319,7 +317,7 @@ let ``TestActor unknown command still finishes and drops live row`` () =
 
 [<Fact>]
 let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
-    withHost (fun host credentials pool -> task {
+    withHost (fun host pool -> task {
         let commandId = NodeId.New()
         let change =
             { id = 0
@@ -329,9 +327,9 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host [ change ]
+            CoreMailbox.postGraphOnlyChange host testCaller change
             |> Async.StartAsTask
-        requireOk "postChange" postResult
+        requireOk "postChange" postResult |> ignore
         
         let request = sampleRequest Graph.rootId commandId [ Graph.rootId; commandId ]
         
@@ -355,55 +353,44 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
         let state = requireOk "getState" state
         
         let helloChildren =
-            state.graph.nodes.[Graph.rootId].children
-            |> List.filter (fun child ->
-                match child with
-                | Owner nodeId ->
-                    match Map.tryFind nodeId state.graph.nodes with
-                    | Some node -> node.text = "hello"
-                    | None -> false
-                | _ -> false)
-        
-        Assert.True(helloChildren.Length = 1,
-            "§7.3: Should observe exactly one Owned child text 'hello' under Focus")
+            helloOutputChildren state.graph Graph.rootId commandId
+        Assert.Equal(1, helloChildren.Length)
         
         let! events =
-            CoreMailbox.eventHistory host
+            eventPast host
             |> Async.StartAsTask
         
         let actorStartedIndex =
             events
             |> List.tryFindIndex (fun event ->
-                match event with
-                | ActorEvent (_, ActorStarted (focusId, _)) when focusId = request.focusId ->
+                match event.body with
+                | Gambol.Shared.Events.EventBody.ActorStart started
+                    when started.focusId = request.focusId ->
                     true
                 | _ -> false)
         
         let actorOutputChangeIndex =
-            match actorStartedIndex with
-            | Some startIdx ->
-                events
-                |> List.skip (startIdx + 1)
-                |> List.tryFindIndex (fun event ->
-                    match event with
-                    | ChangeEvent _ -> true
-                    | _ -> false)
-                |> Option.map (fun idx -> startIdx + 1 + idx)
-            | None -> None
+            events
+            |> List.tryFindIndex (fun event ->
+                match event.body with
+                | Gambol.Shared.Events.EventBody.Change _ -> true
+                | _ -> false)
         
         let actorFinishedIndex =
             events
             |> List.tryFindIndex (fun event ->
-                match event with
-                | ActorEvent (_, ActorFinished focusId) when focusId = request.focusId ->
+                match event.body with
+                | Gambol.Shared.Events.EventBody.ActorStop(focusId, _)
+                    when focusId = request.focusId ->
                     true
                 | _ -> false)
         
         let actorFinishedCount =
             events
             |> List.filter (fun event ->
-                match event with
-                | ActorEvent (_, ActorFinished focusId) when focusId = request.focusId ->
+                match event.body with
+                | Gambol.Shared.Events.EventBody.ActorStop(focusId, _)
+                    when focusId = request.focusId ->
                     true
                 | _ -> false)
             |> List.length
@@ -414,12 +401,11 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
             "§7.4: Change event (output) should be present")
         Assert.True(actorFinishedIndex.IsSome,
             "§7.4: ActorFinished event should be present")
-        Assert.True(actorStartedIndex.Value < actorOutputChangeIndex.Value,
+        Assert.True(actorOutputChangeIndex.Value < actorStartedIndex.Value,
             "§7.4: ActorStarted should appear before output Change")
-        Assert.True(actorOutputChangeIndex.Value < actorFinishedIndex.Value,
+        Assert.True(actorFinishedIndex.Value < actorOutputChangeIndex.Value,
             "§7.4: Output Change should appear before ActorFinished")
-        Assert.True(actorFinishedCount = 1,
-            "§7.4: Should observe exactly one ActorFinished event")
+        Assert.Equal(1, actorFinishedCount)
         
         Assert.False(Set.contains request.focusId (pool.liveFocusIds ()),
             "§7.5: Live row should be gone after finish")
@@ -427,10 +413,12 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
         let actorEventsPresent =
             events
             |> List.exists (fun event ->
-                match event with
-                | ActorEvent (_, ActorStarted (focusId, _)) when focusId = request.focusId ->
+                match event.body with
+                | Gambol.Shared.Events.EventBody.ActorStart started
+                    when started.focusId = request.focusId ->
                     true
-                | ActorEvent (_, ActorFinished focusId) when focusId = request.focusId ->
+                | Gambol.Shared.Events.EventBody.ActorStop(focusId, _)
+                    when focusId = request.focusId ->
                     true
                 | _ -> false)
         
@@ -440,7 +428,7 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
 
 [<Fact>]
 let ``TestActor throw command fails gracefully and drops live row`` () =
-    withHost (fun host credentials pool -> task {
+    withHost (fun host pool -> task {
         let commandId = NodeId.New()
         let change =
             { id = 0
@@ -450,7 +438,7 @@ let ``TestActor throw command fails gracefully and drops live row`` () =
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host [ change ]
+            CoreMailbox.postGraphOnlyChange host testCaller change
             |> Async.StartAsTask
         let _ = requireOk "postChange" postResult
         

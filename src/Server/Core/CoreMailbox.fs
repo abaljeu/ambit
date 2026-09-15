@@ -5,16 +5,21 @@ open Gambol.Shared
 /// CoreMailbox door — public API for MailboxHost.
 ///
 /// Actor lifecycle:
-/// - startActor: Start an Actor with StartActorRequest (includes revision).
+/// - startActor: Start an Actor with ActorStart (includes revision).
 ///   Returns startActor bookkeeping result; does not wait for Actor body.
 /// - actorStop: Stop an Actor with ActorResult.
 /// - postChange / coreChanges: Credentialed Actor Changes use the same mailbox
 ///   as Browser Changes; no second Actor mailbox.
 ///
+/// Secrets:
+/// - The mailbox owns one CoreCredentials set of Caller on the loop.
+/// - There is no public add-credential door. Login maps name+secret to a
+///   Browser Caller and adds it. Logout removes that Caller. Actor liveness
+///   is the live row, not this set.
+///
 /// Data exposure:
 /// - getState: Read the Graph with lockPresent overlay. Returns Graph facts only.
-/// - eventHistory: Read mailbox-owned History (Change + Actor lifecycle Events).
-///   One sequence per mailbox, process-lifetime until durability. Undo remains Change-only.
+/// - eventHistory: The mailbox EventLog. Change + Actor Events.
 [<RequireQualifiedAccess>]
 module CoreMailbox =
 
@@ -23,10 +28,13 @@ module CoreMailbox =
         | Ok value -> value
         | Error error -> failwith error
 
+    let private reply host build =
+        MailboxHost.postAndAsyncReply host build
+
     let tryGetState
         (host: MailboxHost)
         : Async<Result<State, string>> =
-        host.mailbox.PostAndAsyncReply GetState
+        reply host GetState
 
     let getState
         (host: MailboxHost)
@@ -35,12 +43,12 @@ module CoreMailbox =
 
     let eventHistory
         (host: MailboxHost)
-        : Async<HistoryEvent list> =
-        host.mailbox.PostAndAsyncReply GetEventHistory
+        : Async<Gambol.Shared.Events.EventLog> =
+        reply host GetEventHistory
 
     let getRevision (host: MailboxHost) : Async<Revision> =
         async {
-            let! result = host.mailbox.PostAndAsyncReply GetRevision
+            let! result = reply host GetRevision
             return unwrap result
         }
 
@@ -50,136 +58,244 @@ module CoreMailbox =
         : Async<Change list> =
         async {
             let! result =
-                host.mailbox.PostAndAsyncReply(fun reply ->
-                    GetChangesSince(after, reply))
+                reply host (fun channel -> GetChangesSince(after, channel))
             return unwrap result
         }
 
+    let getEventsSince
+        (host: MailboxHost)
+        (after: Gambol.Shared.Events.EventId)
+        : Async<Gambol.Shared.Events.Event list> =
+        async {
+            let! result =
+                reply host (fun channel -> GetEventsSince(after, channel))
+            return unwrap result
+        }
+
+    let private eventFromChange
+        (change: Change)
+        : Gambol.Shared.Events.Event =
+        { id = Gambol.Shared.Events.EventId 0
+          submissionId = change.changeId
+          authority = Gambol.Shared.Events.Authority ""
+          commandName = ""
+          body = Gambol.Shared.Events.EventBody.Change change.ops }
+
+    let private postEventAccepted
+        (host: MailboxHost)
+        (caller: Caller)
+        (event: Gambol.Shared.Events.Event)
+        =
+        reply host (fun channel -> PostEvent(caller, event, channel))
+
+    let private acceptedFromPosted
+        (host: MailboxHost)
+        (posted:
+            Result<
+                Gambol.Shared.Events.Event *
+                CoreChangesAccepted option,
+                string>)
+        : Async<Result<CoreChangesAccepted, string>> =
+        async {
+            match posted with
+            | Error error -> return Error error
+            | Ok (_, Some accepted) -> return Ok accepted
+            | Ok (_, None) ->
+                let! revision = getRevision host
+                return
+                    Ok(
+                        CoreChanges.accepted
+                            revision
+                            (MailboxHost.isReady host ())
+                            []
+                            false
+                            None)
+        }
+
+    let private postOneChange host caller change =
+        async {
+            let! posted =
+                postEventAccepted host caller (eventFromChange change)
+            return! acceptedFromPosted host posted
+        }
+
+    /// Transport may pass a Change list; each Change becomes one PostEvent
+    /// on the mailbox queue (no multi-Event CoreMsg / postMany).
     let postChange
         (host: MailboxHost)
         (caller: Caller)
         (changes: Change list)
         : Async<Result<CoreChangesAccepted, string>> =
-        host.mailbox.PostAndAsyncReply(fun reply ->
-            PostChange(caller, changes, reply))
+        async {
+            match changes with
+            | [] -> return Error "changes must not be empty"
+            | first :: rest ->
+                let! firstAccepted = postOneChange host caller first
+                match firstAccepted with
+                | Error error -> return Error error
+                | Ok accepted ->
+                    let folder acc change =
+                        async {
+                            match! acc with
+                            | Error error -> return Error error
+                            | Ok prior ->
+                                match! postOneChange host caller change with
+                                | Error error -> return Error error
+                                | Ok next ->
+                                    return
+                                        Ok(
+                                            CoreChanges.mergeAccepted
+                                                prior
+                                                next)
+                        }
+                    return!
+                        List.fold
+                            folder
+                            (async.Return(Ok accepted))
+                            rest
+        }
 
+    let postEvent
+        (host: MailboxHost)
+        (caller: Caller)
+        (event: Gambol.Shared.Events.Event)
+        : Async<Result<Gambol.Shared.Events.Event, string>> =
+        async {
+            let! result = postEventAccepted host caller event
+            return result |> Result.map fst
+        }
+
+    let eventsSince
+        (host: MailboxHost)
+        (after: Gambol.Shared.Events.EventId)
+        : Async<Gambol.Shared.Events.EventLog> =
+        reply host (fun channel -> EventsSince(after, channel))
+
+    /// Graph work that skips EventLog (CoreMailbox). One Change.
     let postGraphOnlyChange
         (host: MailboxHost)
-        (changes: Change list)
+        (caller: Caller)
+        (change: Change)
         : Async<Result<CoreChangesAccepted, string>> =
-        host.mailbox.PostAndAsyncReply(fun reply ->
-            PostGraphOnlyChange(changes, reply))
+        reply host (fun channel ->
+            PostGraphOnlyChange(caller, change, channel))
 
     let startActor
         (host: MailboxHost)
         (caller: Caller)
-        (request: StartActorRequest)
+        (request: Gambol.Shared.Events.ActorStart)
         : Async<Result<unit, string>> =
-        host.mailbox.PostAndAsyncReply(fun reply ->
-            StartActor(caller, request, reply))
+        reply host (fun channel ->
+            StartActor(caller, request, channel))
 
     let actorStop
         (host: MailboxHost)
         (caller: Caller)
         (result: ActorResult)
         : Async<Result<unit, string>> =
-        host.mailbox.PostAndAsyncReply(fun reply ->
-            ActorStop(caller, result, reply))
+        reply host (fun channel ->
+            ActorStop(caller, result, channel))
+
+    let login
+        (host: MailboxHost)
+        (name: string)
+        (secret: Credential)
+        : Async<Result<unit, string>> =
+        let caller =
+            { authority = Authority "Browser"
+              name = name
+              secret = secret }
+        reply host (fun channel -> Login(caller, channel))
+
+    let logout
+        (host: MailboxHost)
+        (caller: Caller)
+        : Async<Result<unit, string>> =
+        reply host (fun channel -> Logout(caller, channel))
+
+    let isAdmitted
+        (host: MailboxHost)
+        (caller: Caller)
+        : Async<bool> =
+        reply host (fun channel -> AdmitCaller(caller, channel))
 
     let coreChanges
         (host: MailboxHost)
-        (credentials: CoreCredentials)
         (caller: Caller)
         : CoreChanges =
         let rec make (c: Caller) : CoreChanges =
             { getState = fun () -> tryGetState host
               getRevision = fun () -> getRevision host
               getChangesSince = getChangesSince host
-              isReady = host.isReady
-              postChange =
-                fun changes ->
-                    CoreAuth.post
-                        credentials
-                        c.secret
-                        (postChange host c)
-                        changes
+              getEventsSince = getEventsSince host
+              isReady = MailboxHost.isReady host
+              postChange = postChange host c
               postGraphOnlyChange =
-                fun changes ->
-                    CoreAuth.post
-                        credentials
-                        c.secret
-                        (postGraphOnlyChange host)
-                        changes
-              actorStop =
-                fun result ->
-                    async {
-                        let! live = credentials.contains c.secret
-                        match CoreAuth.admit live with
-                        | Error err -> return Error(CoreAdmissionError.text err)
-                        | Ok () -> return! actorStop host c result
-                    }
+                fun change -> postGraphOnlyChange host c change
+              actorStop = fun result -> actorStop host c result
               asCaller = make }
         make caller
 
-    let isReady (host: MailboxHost) = host.isReady ()
+    let isReady (host: MailboxHost) = MailboxHost.isReady host ()
 
-    let flushSnapshot (host: MailboxHost) = host.flushSnapshot ()
+    let flushSnapshot (host: MailboxHost) =
+        MailboxHost.flushSnapshot host
 
-    let dispose (host: MailboxHost) = host.dispose ()
+    let dispose (host: MailboxHost) = MailboxHost.dispose host
 
     let host
-        (credentials: CoreCredentials)
         (pool: CoreActorPool)
         (persist: PersistFilling)
+        (credentials: CoreCredentials)
         : MailboxHost =
-        let mailbox =
+        let context =
+            CoreMailboxBackend.makeMailBox
+                credentials
+                persist.handlers
+                pool
+                persist.onError
+                persist.formatError
+        let started =
             match persist.until with
-            | None ->
-                CoreMailboxBackend.start
-                    credentials
-                    persist.handlers
-                    pool
-                    persist.onError
-                    persist.formatError
+            | None -> CoreMailboxBackend.start context
             | Some until ->
-                CoreMailboxBackend.startWithPrelude
-                    credentials
-                    persist.handlers
-                    pool
-                    persist.onError
-                    persist.formatError
-                    until
-        persist.bindMailbox mailbox
-        { mailbox = mailbox
-          isReady = persist.isReady
-          flushSnapshot = persist.flushSnapshot
-          dispose = persist.dispose }
+                CoreMailboxBackend.startWithPrelude context until
+        persist.bindSnapshot (fun graph ->
+            started.processor.Post(SnapshotDone graph))
+        let created =
+            MailboxHost.create
+                started.processor
+                persist.isReady
+                persist.flushSnapshot
+                persist.dispose
+        started.bindCoreChanges (coreChanges created)
+        created
 
     let createFile
-        (credentials: CoreCredentials)
         (dataDir: string)
+        (credentials: CoreCredentials)
         : MailboxHost =
         host
-            credentials
-            (CoreActorPool.create credentials)
+            (CoreActorPool.create ())
             (FileAgent.persist (FileAgent.create dataDir))
+            credentials
 
     let createDb
-        (credentials: CoreCredentials)
         (connectionString: string)
+        (credentials: CoreCredentials)
         : MailboxHost =
         host
-            credentials
-            (CoreActorPool.create credentials)
+            (CoreActorPool.create ())
             (DbAgent.persist (DbAgent.create connectionString))
+            credentials
 
     let createDbWithDataDir
-        (credentials: CoreCredentials)
         (connectionString: string)
         (dataDir: string)
+        (credentials: CoreCredentials)
         : MailboxHost =
         host
-            credentials
-            (CoreActorPool.create credentials)
+            (CoreActorPool.create ())
             (DbAgent.persist
                 (DbAgent.createWithDataDir connectionString dataDir))
+            credentials

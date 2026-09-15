@@ -2,7 +2,6 @@ namespace Gambol.Server
 
 open System
 open System.Collections.Concurrent
-open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Http
 open Thoth.Json.Core
 
@@ -36,11 +35,9 @@ module GitGatewayDiagnostics =
                   "message", Encode.string e.message ]
             |> JsonEncode.toString 0
 
-    let registerRoute
-        (app: WebApplication)
-        (isAuthenticated: HttpRequest -> bool)
-        =
-        app.MapGet(
+    let registerRoute (this: AmbitApp) =
+        let isAuthenticated = this.Auth.IsAuthenticated
+        this.MapGet(
             "/ambit/git/gateway-error",
             Func<HttpRequest, IResult>(fun req ->
                 if not (isAuthenticated req) then

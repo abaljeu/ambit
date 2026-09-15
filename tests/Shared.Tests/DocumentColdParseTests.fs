@@ -148,7 +148,6 @@ let private applySelectModeExternalPaste
 
         let state =
             { graph = graph
-              history = History.empty
               revision = Revision.Zero }
 
         match History.applyChange change state with

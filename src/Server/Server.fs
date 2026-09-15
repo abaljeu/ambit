@@ -247,17 +247,19 @@ module Main =
             match dataDirResult with
             | Ok dataDir -> HttpResponseLog.register dataDir app
             | Error _ -> ""
-        let auth = RouteRegistration.createAuthentication config
+        let auth = RouteAuthentication.create config
         let publicAssetBaseOpt =
             configureStaticAssetsAndSources hasHead location config app
-
-        RouteRegistration.registerPersistenceAndRoutes
-            config
-            auth
-            publicAssetBaseOpt
-            dataDirResult
-            app
-            httpLogFile
+        let ambit =
+            AmbitApp.create
+                config
+                auth
+                publicAssetBaseOpt
+                dataDirResult
+                app
+                httpLogFile
+        RouteRegistration.registerPersistenceAndRoutes ambit
+        |> ignore
 
     [<EntryPoint>]
     let main args =

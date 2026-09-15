@@ -11,7 +11,6 @@ module DocumentLoader =
 
     let private stateFromGraph (dataDir: string) (graph: Graph) : State =
         { graph = graph
-          history = History.empty
           revision = Bookkeeping.readRevision dataDir }
 
     /// Read `.amb` network from disk (empty graph when no artifacts exist).

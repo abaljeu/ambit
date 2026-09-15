@@ -17,6 +17,7 @@ let private mkPoll rev (changes: Change list) : ChangeSuccessResponse =
       isReady = true
       externalChanges = not changes.IsEmpty
       changes = changes
+      events = None
       message = None
       bootstrapHash = None }
 

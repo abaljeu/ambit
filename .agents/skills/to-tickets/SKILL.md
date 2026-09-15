@@ -38,7 +38,7 @@ One ticket per **Story path** (exemplar shape: [[plan/core-creation/issues/34-ou
 - An instruction-file slice is verifiable by repo search and published instruction behavior; schema, API, and UI are not required
 - A completed slice is demoable or verifiable on its own
 - Each slice is sized to fit in a single fresh context window
-- Under What to build, name subsections by the modules crossed; cite modules by name. Point at `arch.md` for State / Interface / Uses; do not restate those bullets on the ticket. Acceptance checklists use numbered tasks (`1. [ ]`), not bare `- [ ]`
+- Under What to build, name subsections by the modules crossed; cite modules by name. Point at `arch.md` for State / Interface / Uses; do not restate those bullets on the ticket.
 
 #### Module build (`module-build`)
 
@@ -56,8 +56,8 @@ Use when a **wide mechanical change** — rename a column, retype a shared symbo
 
 First **expand** — add the new form beside the old so nothing breaks. Then **migrate** call sites in batches sized by blast radius (per package, per directory), each batch its own ticket blocked by the expand, keeping CI green batch to batch because the old form still exists. Finally **contract** — delete the old form once no caller remains, in a ticket blocked by every migrate batch. When even the batches cannot stay green alone, keep the sequence but let them share an integration branch that all block a final integrate-and-verify ticket — green is promised only there.
 
-Done: a numbered draft list exists for every item in the Sequence's set, each with title, blockers, and what it delivers.
-
 ### 4. Publish
+
+Done: a draft list exists for every item in the Sequence's set, each with title, blockers, and what it delivers.  Checklists use unnumbered tasks, but reference arch.md numbers. E.g. `- [ ] 5.3.2 item description` for story 5, item 3.2.
 
 Publish the full draft set immediately per [[PUBLISH.md]]; do not ask for approval or run a breakdown quiz first. Set `Stage: slice` and `Updated:` on `project.md` per [[doc/agents/project-status.md]]. Name the frontier in the reply. Done: each ticket is one file, the frontier is named, and project Stage is `slice`.

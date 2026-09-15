@@ -20,7 +20,6 @@ let private baseState () : State =
     let nodes =
         filler |> List.fold (fun acc node -> Map.add node.id node acc) graph0.nodes
     { graph = Graph.fromNodes graph0.root nodes
-      history = History.empty
       revision = Revision.Zero }
 
 let private parseLikeChange (parentId: NodeId) : Change =
@@ -196,6 +195,7 @@ let ``delivered inverse of large paste measures phases without per-created-Node 
           isReady = true
           externalChanges = false
           changes = [ inverse ]
+          events = None
           message = None
           bootstrapHash = None }
     let _, ackMs =

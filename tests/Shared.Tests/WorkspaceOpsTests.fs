@@ -23,7 +23,7 @@ let private requireInvalid (r: ApplyResult) : State * string =
     | ApplyResult.Unchanged _ -> failwith "expected Invalid, got Unchanged"
 
 let private makeState (graph: Graph) : State =
-    { graph = graph; history = History.empty; revision = Revision.Zero }
+    { graph = graph; revision = Revision.Zero }
 
 let private freshState () = makeState (Graph.create ())
 

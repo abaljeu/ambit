@@ -14,6 +14,7 @@ let ``Actor handle wrap refuses a different inactive credential`` () = task {
         let bound =
             CoreAuth.bindHandle
                 { authority = Authority "Actor"
+                  name = ""
                   secret = Credential "inactive" }
                 handle
         let! state = handle.getState () |> Async.StartAsTask

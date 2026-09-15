@@ -538,7 +538,6 @@ let ``Graph.replace allows Upload-style File stub under SYSTEM`` () =
     let fileId, ops = FileNodeOps.planCreateOwnedFile graph0 Graph.systemId "x.amb"
     let state0 =
         { graph = graph0
-          history = History.empty
           revision = Revision.Zero }
     let state1 =
         ops
@@ -561,7 +560,6 @@ let ``Graph.replace allows Upload-style Directory stub under SYSTEM`` () =
         FileNodeOps.planCreateOwnedDirectory graph0 Graph.systemId "cfg"
     let state0 =
         { graph = graph0
-          history = History.empty
           revision = Revision.Zero }
     let state1 =
         ops
@@ -601,7 +599,6 @@ let ``Graph.replace rejects moving existing owned node under SYSTEM`` () =
     let fileId, ops = FileNodeOps.planCreateOwnedFile graph2 parent "x.amb"
     let state0 =
         { graph = graph2
-          history = History.empty
           revision = Revision.Zero }
     let state1 =
         ops
@@ -1088,7 +1085,6 @@ let ``History.applyChange rejects Normal-owning-File moved under File`` () =
               Op.Replace(outerFile, [], [ normalChild ]) ] }
     let state =
         { graph = graph6
-          history = History.empty
           revision = Revision.Zero }
     match History.applyChange change state with
     | ApplyResult.Invalid(_, msg) ->

@@ -44,6 +44,10 @@ module Api =
             if rev.Value > clientRev then
                 handle.getChangesSince (Revision clientRev)
             else async.Return []
+        let! events =
+            if rev.Value > clientRev then
+                handle.getEventsSince (Gambol.Shared.Events.EventId clientRev)
+            else async.Return []
         let poll: ChangeSuccessResponse =
             { revision = rev
               buildEpochSec = buildEpochSec
@@ -52,6 +56,7 @@ module Api =
               isReady = handle.isReady ()
               externalChanges = not changes.IsEmpty
               changes = changes
+              events = Some events
               message = None
               bootstrapHash = None }
         return changeSuccessResult poll
@@ -100,6 +105,11 @@ module Api =
                         handle.getChangesSince (Revision request.revision)
                     else
                         async.Return []
+                let! events =
+                    if rev.Value > request.revision then
+                        handle.getEventsSince (Gambol.Shared.Events.EventId request.revision)
+                    else
+                        async.Return []
                 let load: LoadResponse =
                     { revision = rev.Value
                       buildEpochSec = buildEpochSec
@@ -107,6 +117,7 @@ module Api =
                       apiVersion = ApiVersion.current
                       isReady = handle.isReady ()
                       changes = changes
+                      events = Some events
                       packages = packages }
                 let json =
                     Encode.toString 0 (ApiResponseSerialization.encodeLoadResponse load)
@@ -164,6 +175,7 @@ module Api =
         | Error err ->
             return agentErrorResult $"Invalid JSON: {err}"
         | Ok batch ->
+            // Transport batch; CoreMailbox loops one PostEvent per Change.
             match! handle.postChange batch.changes with
             | Ok accepted ->
                 return
@@ -175,6 +187,7 @@ module Api =
                           isReady = accepted.isReady
                           externalChanges = accepted.externalChanges
                           changes = accepted.changes
+                          events = None
                           message = accepted.message
                           bootstrapHash = None }
             | Error err -> return agentErrorResult err
@@ -227,8 +240,6 @@ module Api =
 
     let private applyParseFile
         (handle: CoreChanges)
-        (credentials: CoreCredentials)
-        (sender: Credential)
         (dataDir: string)
         (fileId: NodeId)
         (text: string option)
@@ -251,13 +262,7 @@ module Api =
                     { id = state.revision.Value
                       changeId = Guid.NewGuid()
                       ops = ops }
-                match!
-                    CoreAuth.post
-                        credentials
-                        sender
-                        handle.postGraphOnlyChange
-                        [ change ]
-                with
+                match! handle.postGraphOnlyChange change with
                 | Ok _ -> return jsonResult """{"ok":true}"""
                 | Error err -> return agentErrorResult err
         }
@@ -265,8 +270,6 @@ module Api =
     /// ParseFile command: optional body text or DataDir read → apply on agent graph.
     let postParseFile
         (handle: CoreChanges)
-        (credentials: CoreCredentials)
-        (sender: Credential)
         (dataDir: string)
         (body: string)
         : Async<IResult> =
@@ -286,8 +289,6 @@ module Api =
                         return!
                             applyParseFile
                                 handle
-                                credentials
-                                sender
                                 dataDir
                                 fileId
                                 payload.text

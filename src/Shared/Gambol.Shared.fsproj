@@ -48,6 +48,7 @@
     <Compile Include="ChildListWire.fs" />
     <Compile Include="ChildListMerge.fs" />
     <Compile Include="ChangeAmendment.fs" />
+    <Compile Include="Event.fs" />
     <Compile Include="ClientHistory.fs" />
     <Compile Include="DocumentOpImpact.fs" />
     <Compile Include="ApiResponses.fs" />
@@ -87,6 +88,9 @@
     <Compile Include="ExportText.fs" />
     <Compile Include="Snapshot.fs" />
     <Compile Include="Serialization.fs" />
+    <Compile Include="EventLog.fs" />
+    <Compile Include="EventJson.fs" />
+
     <Compile Include="ApiResponseSerialization.fs" />
     <Compile Include="SyncBatch.fs" />
     <Compile Include="SyncPlanner.fs" />

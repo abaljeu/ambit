@@ -120,7 +120,6 @@ module BootCache =
         let ordered = changesAfter snapshot.revision.Value delta
         let state0: State =
             { graph = snapshot.graph
-              history = History.empty
               revision = snapshot.revision }
         ordered
         |> List.fold

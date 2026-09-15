@@ -6,7 +6,6 @@ module internal LazyLoadReconciliationApply =
     let applyOps (graph: Graph) (ops: Op list) : Result<Graph, string> =
         let initial =
             { graph = graph
-              history = History.empty
               revision = Revision.Zero }
         ops
         |> List.fold (fun result op ->

@@ -343,7 +343,7 @@ let ``documentRootsAffectedByGraphChange upload sibling does not dirty existing 
                 | ApplyResult.Changed next
                 | ApplyResult.Unchanged next -> next
                 | ApplyResult.Invalid(_, error) -> failwith error)
-            { graph = graph; history = History.empty; revision = Revision.Zero }
+            { graph = graph; revision = Revision.Zero }
         |> fun state -> state.graph
     let affected =
         DocumentPartition.documentRootsAffectedByGraphChange graph afterUpload []

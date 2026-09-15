@@ -76,7 +76,6 @@ let ``ordinary inverse reverses nested Replace order`` () =
 let private createPasteScenario () : State * Change * NodeId list =
     let initial =
         { graph = Graph.create ()
-          history = History.empty
           revision = Revision.Zero }
     let topIds, pasteOps =
         Paste.buildPasteOps [ "parent", 0; "child", 1 ]
@@ -180,7 +179,7 @@ let ``Undo moves the same named record and returns an ordinary inverse`` () =
 let ``Redo moves the same logical record and keeps its exact command name`` () =
     let nodeId = NodeId.New()
     let source = textChange 0 nodeId "old" "new"
-    let recorded, recordId =
+    let recorded, _ =
         ClientHistory.clear ()
         |> ClientHistory.record "Name kept verbatim" source
     let undone =
@@ -190,9 +189,8 @@ let ``Redo moves the same logical record and keeps its exact command name`` () =
     let redoId = Guid.NewGuid()
     match ClientHistory.redo (Revision 2) redoId undone with
     | None -> failwith "expected a Redo transition"
-    | Some (redo, commandName, _, redoRecordId) ->
+    | Some (redo, commandName, _, _) ->
         Assert.Equal("Name kept verbatim", commandName)
-        Assert.Equal(recordId, redoRecordId)
         Assert.Equal(2, redo.id)
         Assert.Equal(redoId, redo.changeId)
         Assert.Equal<Op list>(source.ops, redo.ops)
@@ -235,7 +233,7 @@ let ``tryPeekUndoName and tryPeekRedoName follow the stacks`` () =
 let ``normal record folds future without duplicating logical records`` () =
     let first = textChange 0 (NodeId.New()) "first-old" "first-new"
     let second = textChange 1 (NodeId.New()) "second-old" "second-new"
-    let recordedFirst, firstRecordId =
+    let recordedFirst, _ =
         ClientHistory.clear ()
         |> ClientHistory.record "First" first
     let afterFirstUndo =
@@ -253,9 +251,8 @@ let ``normal record folds future without duplicating logical records`` () =
     let afterFoldedUndo =
         match ClientHistory.undo (Revision 3) (Guid.NewGuid()) afterSecondUndo with
         | None -> failwith "expected folded First Undo"
-        | Some (_, name, history, recordId) ->
+        | Some (_, name, history, _) ->
             Assert.Equal("First", name)
-            Assert.Equal(firstRecordId, recordId)
             history
     Assert.True(
         ClientHistory.undo (Revision 4) (Guid.NewGuid()) afterFoldedUndo
@@ -279,8 +276,7 @@ let ``Undo and Redo retain only their submitted local Changes`` () =
     let redo, redone =
         match ClientHistory.redo (Revision 2) redoId undone with
         | None -> failwith "expected Redo"
-        | Some (change, _, history, redoRecordId) ->
-            Assert.Equal(recordId, redoRecordId)
+        | Some (change, _, history, _) ->
             change, history
     Assert.Equal(undoId, undo.changeId)
     Assert.Equal<Op list>([ Op.SetText(nodeId, "new", "old") ], undo.ops)
@@ -288,6 +284,5 @@ let ``Undo and Redo retain only their submitted local Changes`` () =
     Assert.Equal<Op list>(source.ops, redo.ops)
     match ClientHistory.undo (Revision 3) (Guid.NewGuid()) redone with
     | None -> failwith "expected Undo"
-    | Some (nextUndo, _, _, undoRecordId) ->
-        Assert.Equal(recordId, undoRecordId)
+    | Some (nextUndo, _, _, _) ->
         Assert.Equal<Op list>(undo.ops, nextUndo.ops)

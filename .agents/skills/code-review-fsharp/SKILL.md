@@ -1,13 +1,13 @@
 ---
 name: code-review-fsharp
-description: F#-specific helpers for the code-review skill — measure binding size and long lines against fsharp-source thresholds. Use when a code-review diff touches *.fs / *.fsi.
+description: F# binding-size and long-line measurer invoked by code-review standards-scan. Use directly only for --fn, --range, or --usage on *.fs / *.fsi.
 ---
 
-Companion to [[.agents/skills/code-review/SKILL.md]]. Run when the review range touches F# (`*.fs` / `*.fsi`).
+Companion measurer for [[.agents/skills/code-review/SKILL.md]]. The parent invokes it via [[.agents/skills/code-review/scripts/standards-scan.py]]; use this skill directly only for `--fn`, `--range`, or `--usage`.
 
 ## Size check
 
-Before the Standards sub-agent runs, measure against the same review range. Prefer the shell wrapper:
+This wrapper is the F# size implementation that [[.agents/skills/code-review/scripts/standards-scan.py]] invokes. For optional narrowing:
 
 ```bash
 .agents/skills/code-review-fsharp/scripts/measure-fs-size.sh --diff HEAD
@@ -15,7 +15,7 @@ Before the Standards sub-agent runs, measure against the same review range. Pref
 
 If a fixed point was named, pass that ref instead of `HEAD`.
 
-Thresholds match [[.agents/rules/fsharp-source.md]]: **40 lines/function**, **100 chars/line**. Long lines are reported only on **added** hunk lines. Paste the script output into the Standards sub-agent prompt; treat over-limit bindings and added long lines as documented-standard findings citing [[.agents/rules/fsharp-source.md]].
+Thresholds match [[.agents/rules/fsharp-source.md]]: **40 lines/function**, **100 chars/line**. Long lines are reported only on **added** hunk lines. Over-limit bindings and added long lines are documented-standard findings citing [[.agents/rules/fsharp-source.md]].
 
 Do **not** measure match arms separately — they are sub-parts of a function, and the enclosing `let`/`and` must already be ≤40 lines. The script finds module-level `let`/`and` via indentation (no `--arm`).
 

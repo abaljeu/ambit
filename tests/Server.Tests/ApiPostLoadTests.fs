@@ -68,7 +68,6 @@ let private nestedWorkspaceGraph () : Graph * NodeId * NodeId * NodeId =
 
 let private stateResponse (graph: Graph) (revision: int) =
     { graph = graph
-      history = History.empty
       revision = Revision revision
     }
 

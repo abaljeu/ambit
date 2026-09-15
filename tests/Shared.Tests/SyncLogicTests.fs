@@ -20,6 +20,7 @@ let private mkPoll rev build page : ChangeSuccessResponse =
       isReady = true
       externalChanges = false
       changes = []
+      events = None
       message = None
       bootstrapHash = None }
 
@@ -542,7 +543,7 @@ let ``consumeCatchUpPoll rewinds to baseline and preserves History`` () =
         match Graph.setText nodeId "after" "before" optimistic.graph with
         | Ok graph -> graph
         | Error msg -> failwith msg
-    let baseline =
+    let baseline : CatchUpBaseline =
         { revision = Revision 0
           graph = baselineGraph }
     let serverChange =

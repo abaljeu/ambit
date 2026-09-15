@@ -16,7 +16,7 @@ let private replaceOps (ops: Op list) : Op list =
         | _ -> None)
 
 let private applyChange (graph: Graph) (change: Change) : Graph =
-    let state = { graph = graph; history = History.empty; revision = Revision.Zero }
+    let state = { graph = graph; revision = Revision.Zero }
 
     change.ops
     |> List.fold
@@ -277,7 +277,7 @@ let ``planParseFile md reorder updates child order`` () =
     Assert.False(List.isEmpty ops, "reorder must produce ops")
 
     let state0 =
-        { graph = graph; history = History.empty; revision = Revision.Zero }
+        { graph = graph; revision = Revision.Zero }
     let after =
         match History.applyChange { id = 0; changeId = Guid.NewGuid(); ops = ops } state0 with
         | ApplyResult.Changed s -> s.graph
@@ -537,7 +537,7 @@ let ``planParseFile Unparsed with prior children warms and keeps line ids`` () =
           changeId = Guid.NewGuid()
           ops = ops }
     let state =
-        { graph = graph; history = History.empty; revision = Revision.Zero }
+        { graph = graph; revision = Revision.Zero }
 
     match History.applyChange change state with
     | ApplyResult.Invalid(_, msg) ->
@@ -558,7 +558,7 @@ let ``planParseFile Current warm plain defers matching Ref`` () =
     let graph0 = Graph.create ()
     let workspaceId, wsOps = FileNodeOps.planCreateWorkspace graph0 "home"
     let state0 =
-        { graph = graph0; history = History.empty; revision = Revision.Zero }
+        { graph = graph0; revision = Revision.Zero }
     let withWs =
         wsOps
         |> List.fold
@@ -634,7 +634,7 @@ let ``planParseFile Current warm plain defers matching Ref`` () =
           changeId = Guid.NewGuid()
           ops = ops }
     let state =
-        { graph = graph; history = History.empty; revision = Revision.Zero }
+        { graph = graph; revision = Revision.Zero }
 
     match History.applyChange change state with
     | ApplyResult.Invalid(_, msg) ->
@@ -670,7 +670,7 @@ let ``planParseFile Current warm plain keeps foreign Ref`` () =
     let graph0 = Graph.create ()
     let workspaceId, wsOps = FileNodeOps.planCreateWorkspace graph0 "home"
     let state0 =
-        { graph = graph0; history = History.empty; revision = Revision.Zero }
+        { graph = graph0; revision = Revision.Zero }
     let withWs =
         wsOps
         |> List.fold
@@ -742,7 +742,7 @@ let ``planParseFile Current warm plain keeps foreign Ref`` () =
           changeId = Guid.NewGuid()
           ops = ops }
     let state =
-        { graph = graph; history = History.empty; revision = Revision.Zero }
+        { graph = graph; revision = Revision.Zero }
 
     match History.applyChange change state with
     | ApplyResult.Invalid(_, msg) ->
@@ -770,7 +770,7 @@ let ``planParseFile Current warm Amb reuses foreign owner without Ref`` () =
     let graph0 = Graph.create ()
     let workspaceId, wsOps = FileNodeOps.planCreateWorkspace graph0 "home"
     let state0 =
-        { graph = graph0; history = History.empty; revision = Revision.Zero }
+        { graph = graph0; revision = Revision.Zero }
     let withWs =
         wsOps
         |> List.fold
@@ -839,7 +839,7 @@ let ``planParseFile Current warm Amb reuses foreign owner without Ref`` () =
           changeId = Guid.NewGuid()
           ops = ops }
     let state =
-        { graph = graph; history = History.empty; revision = Revision.Zero }
+        { graph = graph; revision = Revision.Zero }
 
     match History.applyChange change state with
     | ApplyResult.Invalid(_, msg) ->
@@ -880,7 +880,7 @@ let ``planParseFile Current warm overlay reparent does not dual-Own`` () =
     let graph0 = Graph.create ()
     let workspaceId, wsOps = FileNodeOps.planCreateWorkspace graph0 "life"
     let state0 =
-        { graph = graph0; history = History.empty; revision = Revision.Zero }
+        { graph = graph0; revision = Revision.Zero }
     let applyOps (s: State) ops =
         ops
         |> List.fold
@@ -918,7 +918,6 @@ let ``planParseFile Current warm overlay reparent does not dual-Own`` () =
             History.applyChange
                 { id = 0; changeId = Guid.NewGuid(); ops = seedOps }
                 { graph = seededGraph
-                  history = History.empty
                   revision = Revision.Zero }
         with
         | ApplyResult.Changed s -> s.graph
@@ -945,7 +944,7 @@ let ``planParseFile Current warm overlay reparent does not dual-Own`` () =
           changeId = Guid.NewGuid()
           ops = ops }
     let state =
-        { graph = seeded; history = History.empty; revision = Revision.Zero }
+        { graph = seeded; revision = Revision.Zero }
 
     match History.applyChange change state with
     | ApplyResult.Invalid(_, msg) ->
@@ -977,7 +976,7 @@ let ``planParseFile Current warm unmatched owned child Deletes to trash`` () =
     let graph0 = Graph.create ()
     let workspaceId, wsOps = FileNodeOps.planCreateWorkspace graph0 "life"
     let state0 =
-        { graph = graph0; history = History.empty; revision = Revision.Zero }
+        { graph = graph0; revision = Revision.Zero }
     let applyOps (s: State) ops =
         ops
         |> List.fold
@@ -1014,7 +1013,6 @@ let ``planParseFile Current warm unmatched owned child Deletes to trash`` () =
             History.applyChange
                 { id = 0; changeId = Guid.NewGuid(); ops = seedOps }
                 { graph = seededGraph
-                  history = History.empty
                   revision = Revision.Zero }
         with
         | ApplyResult.Changed s -> s.graph
@@ -1035,7 +1033,7 @@ let ``planParseFile Current warm unmatched owned child Deletes to trash`` () =
           changeId = Guid.NewGuid()
           ops = ops }
     let state =
-        { graph = seeded; history = History.empty; revision = Revision.Zero }
+        { graph = seeded; revision = Revision.Zero }
 
     match History.applyChange change state with
     | ApplyResult.Invalid(_, msg) ->
@@ -1075,7 +1073,7 @@ let ``planParseFile Unparsed plain upload body applies via History`` () =
     let graph0 = Graph.create ()
     let workspaceId, wsOps = FileNodeOps.planCreateWorkspace graph0 "home"
     let state0 =
-        { graph = graph0; history = History.empty; revision = Revision.Zero }
+        { graph = graph0; revision = Revision.Zero }
     let withWs =
         wsOps
         |> List.fold
@@ -1112,7 +1110,7 @@ let ``planParseFile Unparsed plain upload body applies via History`` () =
           changeId = Guid.NewGuid()
           ops = ops }
     let state =
-        { graph = graph; history = History.empty; revision = Revision.Zero }
+        { graph = graph; revision = Revision.Zero }
 
     match History.applyChange change state with
     | ApplyResult.Invalid(_, msg) ->
@@ -1137,7 +1135,7 @@ let private graphWithUnrelatedDualOwner () =
     let workspaceId, wsOps = FileNodeOps.planCreateWorkspace graph0 "home"
     let withWs =
         applyOpsState
-            { graph = graph0; history = History.empty; revision = Revision.Zero }
+            { graph = graph0; revision = Revision.Zero }
             wsOps
     let parseFileId, parseOps =
         FileNodeOps.planCreateOwnedFile withWs.graph workspaceId "target.txt"
@@ -1190,7 +1188,7 @@ let ``planParseFile succeeds despite unrelated dual-Owner on graph`` () =
     let change =
         { id = 0; changeId = Guid.NewGuid(); ops = ops }
     let state =
-        { graph = graph; history = History.empty; revision = Revision.Zero }
+        { graph = graph; revision = Revision.Zero }
 
     match History.applyChange change state with
     | ApplyResult.Invalid(_, msg) ->
@@ -1210,7 +1208,7 @@ let ``planParseFile succeeds when parse File itself has dual Owner`` () =
     let workspaceId, wsOps = FileNodeOps.planCreateWorkspace graph0 "home"
     let withWs =
         applyOpsState
-            { graph = graph0; history = History.empty; revision = Revision.Zero }
+            { graph = graph0; revision = Revision.Zero }
             wsOps
     let fileId, fileOps =
         FileNodeOps.planCreateOwnedFile withWs.graph workspaceId "dual.txt"
@@ -1247,7 +1245,7 @@ let ``planParseFile succeeds when parse File itself has dual Owner`` () =
     match
         History.applyChange
             { id = 0; changeId = Guid.NewGuid(); ops = ops }
-            { graph = graph; history = History.empty; revision = Revision.Zero }
+            { graph = graph; revision = Revision.Zero }
     with
     | ApplyResult.Invalid(_, msg) ->
         Assert.True(false, $"parse must not be blocked by File dual-Owner: {msg}")
@@ -1262,7 +1260,7 @@ let ``planParseFile after Insert Ref reaches Current`` () =
     let workspaceId, wsOps = FileNodeOps.planCreateWorkspace graph0 "home"
     let withWs =
         applyOpsState
-            { graph = graph0; history = History.empty; revision = Revision.Zero }
+            { graph = graph0; revision = Revision.Zero }
             wsOps
     let fileId, fileOps =
         FileNodeOps.planCreateOwnedFile withWs.graph workspaceId "refed.txt"
@@ -1298,7 +1296,7 @@ let ``planParseFile after Insert Ref reaches Current`` () =
     match
         History.applyChange
             { id = 0; changeId = Guid.NewGuid(); ops = ops }
-            { graph = graph; history = History.empty; revision = Revision.Zero }
+            { graph = graph; revision = Revision.Zero }
     with
     | ApplyResult.Invalid(_, msg) ->
         Assert.True(false, "parse after Insert Ref must apply; got: " + msg)
