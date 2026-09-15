@@ -9,8 +9,8 @@ module Enc = Thoth.Json.Newtonsoft.Encode
 module Dec = Thoth.Json.Newtonsoft.Decode
 
 let private roundTrip (event: Event) : Event =
-    let json = Enc.toString 0 (EventLog.encode event)
-    match Dec.fromString EventLog.decode json with
+    let json = Enc.toString 0 (EventJson.encode event)
+    match Dec.fromString EventJson.decode json with
     | Ok decoded -> decoded
     | Error err -> failwith $"Decode failed: {err}"
 
