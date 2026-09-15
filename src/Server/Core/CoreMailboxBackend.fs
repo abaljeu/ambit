@@ -47,12 +47,12 @@ module internal CoreMailboxBackend =
 
     /// Bound on wall-clock time for a single change's persist step (disk write via
     /// DocumentWarm/CStyleReconcile). That reconcile path is a known-slow/hanging
-    /// algorithm; this timeout exists to keep the mailbox loop responsive, not to fix it.
+    /// algorithm; this timeout exists to keep the mailbox context responsive, not to fix it.
     [<Literal>]
     let ChangeProcessingTimeoutMs = 8000
 
     /// Runs a synchronous computation on a background Task, bounding wall-clock time so
-    /// a pathologically slow computation can never wedge the caller's mailbox loop. If the
+    /// a pathologically slow computation can never wedge the caller's mailbox context. If the
     /// timeout elapses, the background Task is abandoned (fire-and-forget): it may still run
     /// to completion later and write to disk concurrently with subsequently accepted changes.
     /// Uses WaitAny (not Wait/Result) because WaitAny reports timeout vs settled without
@@ -117,7 +117,7 @@ module internal CoreMailboxBackend =
         | Login (_, reply) -> reply.Reply(Error error)
         | AdmitSecret (_, reply) -> reply.Reply(false)
 
-    type private Loop = {
+    type private MailboxContext = {
         secrets: Set<Credential> ref
         persist: PersistHandlers
         pool: CoreActorPool
@@ -127,56 +127,56 @@ module internal CoreMailboxBackend =
         mailbox: MailboxProcessor<CoreMsg> option ref
     }
 
-    let private addSecret (loop: Loop) secret =
-        loop.secrets.Value <- Set.add secret loop.secrets.Value
+    let private addSecret (context: MailboxContext) secret =
+        context.secrets.Value <- Set.add secret context.secrets.Value
 
-    let private hasBrowserSecret (loop: Loop) secret =
-        Set.contains secret loop.secrets.Value
+    let private hasBrowserSecret (context: MailboxContext) secret =
+        Set.contains secret context.secrets.Value
 
-    let private admitCaller (loop: Loop) (caller: Caller) =
+    let private admitCaller (context: MailboxContext) (caller: Caller) =
         match caller.authority with
         | Authority name when String.IsNullOrWhiteSpace name ->
             Error CoreAuth.refuse
         | Authority "Actor" ->
-            match CoreAuth.admit (loop.pool.isLive caller.secret) with
+            match CoreAuth.admit (context.pool.isLive caller.secret) with
             | Error err -> Error(CoreAdmissionError.text err)
             | Ok () -> Ok ()
         | _ ->
-            match CoreAuth.admit (hasBrowserSecret loop caller.secret) with
+            match CoreAuth.admit (hasBrowserSecret context caller.secret) with
             | Error err -> Error(CoreAdmissionError.text err)
             | Ok () -> Ok ()
 
-    let private recordActorStarted (loop: Loop) focusId =
-        let history = loop.mailboxHistory.Value
+    let private recordActorStarted (context: MailboxContext) focusId =
+        let history = context.mailboxHistory.Value
         let event =
             ActorEvent(history.nextId, ActorStarted(focusId, "Actor"))
-        loop.mailboxHistory.Value <-
+        context.mailboxHistory.Value <-
             { history with
                 past = history.past @ [ event ]
                 nextId = history.nextId + 1 }
 
-    let private recordActorFinished (loop: Loop) focusId =
-        let history = loop.mailboxHistory.Value
+    let private recordActorFinished (context: MailboxContext) focusId =
+        let history = context.mailboxHistory.Value
         let event = ActorEvent(history.nextId, ActorFinished(focusId))
-        loop.mailboxHistory.Value <-
+        context.mailboxHistory.Value <-
             { history with
                 past = history.past @ [ event ]
                 nextId = history.nextId + 1 }
 
     let private dispatchStartActor
-        (loop: Loop)
+        (context: MailboxContext)
         (caller: Caller)
         (request: StartActorRequest)
         (reply: AsyncReplyChannel<Result<unit, string>>)
         : unit =
-        match admitCaller loop caller with
+        match admitCaller context caller with
         | Error err -> reply.Reply(Error err)
         | Ok () ->
-            match loop.mailbox.Value with
+            match context.mailbox.Value with
             | None -> reply.Reply(Error "mailbox not initialized")
             | Some mailbox ->
                 let getState () =
-                    match loop.persist.getState () with
+                    match context.persist.getState () with
                     | Ok state -> state.graph
                     | Error _ -> Graph.create ()
                 let rec makeCoreChanges (c: Caller) : CoreChanges =
@@ -209,106 +209,106 @@ module internal CoreMailboxBackend =
                             ActorStop(c, result, reply))
                       asCaller = makeCoreChanges }
                 let coreChanges = makeCoreChanges caller
-                match loop.pool.startActor request getState with
+                match context.pool.startActor request getState with
                 | Error err -> reply.Reply(Error err)
                 | Ok started ->
-                    recordActorStarted loop started.focusId
-                    loop.pool.schedule started.secret coreChanges
+                    recordActorStarted context started.focusId
+                    context.pool.schedule started.secret coreChanges
                     reply.Reply(Ok ())
 
     let private dispatchActorStop
-        (loop: Loop)
+        (context: MailboxContext)
         (caller: Caller)
         (result: ActorResult)
         (reply: AsyncReplyChannel<Result<unit, string>>)
         : unit =
-        match admitCaller loop caller with
+        match admitCaller context caller with
         | Error err -> reply.Reply(Error err)
         | Ok () ->
-            match CoreAuth.admit (loop.pool.isLive caller.secret) with
+            match CoreAuth.admit (context.pool.isLive caller.secret) with
             | Error err ->
                 reply.Reply(Error(CoreAdmissionError.text err))
             | Ok () ->
                 let focusId =
-                    loop.pool.getFocusId caller.secret
+                    context.pool.getFocusId caller.secret
                     |> Option.defaultValue Graph.rootId
-                recordActorFinished loop focusId
-                reply.Reply(loop.pool.finish caller.secret result)
+                recordActorFinished context focusId
+                reply.Reply(context.pool.finish caller.secret result)
 
-    let private appendChangeEvents (loop: Loop) (changes: Change list) : unit =
+    let private appendChangeEvents (context: MailboxContext) (changes: Change list) : unit =
         changes
         |> List.iter (fun change ->
             let event = ChangeEvent(change)
-            loop.mailboxHistory.Value <- {
-                loop.mailboxHistory.Value with
-                    past = loop.mailboxHistory.Value.past @ [ event ]
+            context.mailboxHistory.Value <- {
+                context.mailboxHistory.Value with
+                    past = context.mailboxHistory.Value.past @ [ event ]
             })
 
     let private dispatchPostChange
-        (loop: Loop)
+        (context: MailboxContext)
         (caller: Caller)
         (changes: Change list)
         (reply: AsyncReplyChannel<Result<CoreChangesAccepted, string>>)
         : unit =
-        match admitCaller loop caller with
+        match admitCaller context caller with
         | Error err -> reply.Reply(Error err)
         | Ok () ->
-            match loop.persist.postChange changes with
+            match context.persist.postChange changes with
             | Error _ as err -> reply.Reply(err)
             | Ok accepted as result ->
-                appendChangeEvents loop accepted.changes
+                appendChangeEvents context accepted.changes
                 reply.Reply(result)
 
-    let private runMsg (loop: Loop) (msg: CoreMsg) =
+    let private runMsg (context: MailboxContext) (msg: CoreMsg) =
         match msg with
         | GetState reply ->
-            match loop.persist.getState () with
+            match context.persist.getState () with
             | Error err -> reply.Reply(Error err)
             | Ok state ->
                 let graph =
                     GraphSpan.withLockPresent
-                        (loop.pool.liveFocusIds ())
+                        (context.pool.liveFocusIds ())
                         state.graph
                 reply.Reply(Ok { state with graph = graph })
-        | GetRevision reply -> reply.Reply(loop.persist.getRevision ())
+        | GetRevision reply -> reply.Reply(context.persist.getRevision ())
         | GetChangesSince (after, reply) ->
-            reply.Reply(loop.persist.getChangesSince after)
+            reply.Reply(context.persist.getChangesSince after)
         | GetEventHistory reply ->
-            reply.Reply(loop.mailboxHistory.Value.past)
+            reply.Reply(context.mailboxHistory.Value.past)
         | PostChange (caller, changes, reply) ->
-            dispatchPostChange loop caller changes reply
+            dispatchPostChange context caller changes reply
         | PostGraphOnlyChange (changes, reply) ->
-            match loop.persist.postGraphOnlyChange changes with
+            match context.persist.postGraphOnlyChange changes with
             | Error _ as err -> reply.Reply(err)
             | Ok accepted as result ->
-                appendChangeEvents loop accepted.changes
+                appendChangeEvents context accepted.changes
                 reply.Reply(result)
-        | SnapshotDone graph -> loop.persist.snapshotDone graph
+        | SnapshotDone graph -> context.persist.snapshotDone graph
         | StartActor (caller, request, reply) ->
-            dispatchStartActor loop caller request reply
+            dispatchStartActor context caller request reply
         | ActorStop (caller, result, reply) ->
-            dispatchActorStop loop caller result reply
+            dispatchActorStop context caller result reply
         | Login (secret, reply) ->
-            addSecret loop secret
+            addSecret context secret
             reply.Reply(Ok ())
         | AdmitSecret (secret, reply) ->
-            reply.Reply(hasBrowserSecret loop secret)
+            reply.Reply(hasBrowserSecret context secret)
 
-    let private dispatch (loop: Loop) (msg: CoreMsg) : unit =
+    let private dispatch (contex: MailboxContext) (msg: CoreMsg) : unit =
         try
-            runMsg loop msg
+            runMsg contex msg
         with ex ->
             let operation, context = operationContext msg
             try
-                loop.onError operation context ex
+                contex.onError operation context ex
             with _ ->
                 ()
             try
-                replyFailure (loop.formatError operation) msg
+                replyFailure (contex.formatError operation) msg
             with _ ->
                 ()
 
-    let private makeLoop initialSecrets persist pool onError formatError : Loop =
+    let private makeMailBox initialSecrets persist pool onError formatError : MailboxContext =
         { secrets = ref initialSecrets
           persist = persist
           pool = pool
@@ -324,16 +324,16 @@ module internal CoreMailboxBackend =
         (onError: string -> string -> exn -> unit)
         (formatError: string -> string)
         : MailboxProcessor<CoreMsg> =
-        let loop = makeLoop initialSecrets persist pool onError formatError
+        let context = makeMailBox initialSecrets persist pool onError formatError
         let mailbox = MailboxProcessor<CoreMsg>.Start(fun inbox ->
             let rec pump () = async {
                 let! msg = inbox.Receive()
-                dispatch loop msg
+                dispatch context msg
                 return! pump ()
             }
             pump ()
         )
-        loop.mailbox.Value <- Some mailbox
+        context.mailbox.Value <- Some mailbox
         mailbox
 
     let startWithPrelude
@@ -351,7 +351,7 @@ module internal CoreMailboxBackend =
                 with ex ->
                     Error $"Startup prelude failed: {ex.Message}")
 
-        let loop = makeLoop initialSecrets persist pool onError formatError
+        let context = makeMailBox initialSecrets persist pool onError formatError
         let failedHandlers error : PersistHandlers = {
             getState = persist.getState
             getRevision = persist.getRevision
@@ -378,24 +378,24 @@ module internal CoreMailboxBackend =
                                 | GetRevision _
                                 | GetChangesSince _
                                 | GetEventHistory _ ->
-                                    Some(async { dispatch loop msg })
+                                    Some(async { dispatch context msg })
                                 | _ -> None),
                             timeout = 20)
                     return! startupLoop ()
             }
             and normalLoop () = async {
                 let! msg = inbox.Receive()
-                dispatch loop msg
+                dispatch context msg
                 return! normalLoop ()
             }
             and failedLoop error = async {
                 let! msg = inbox.Receive()
                 let failed = failedHandlers error
-                dispatch { loop with persist = failed } msg
+                dispatch { context with persist = failed } msg
                 return! failedLoop error
             }
 
             startupLoop ()
         )
-        loop.mailbox.Value <- Some mailbox
+        context.mailbox.Value <- Some mailbox
         mailbox
