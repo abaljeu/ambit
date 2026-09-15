@@ -6,9 +6,9 @@ open Gambol.Shared
 
 [<RequireQualifiedAccess>]
 module EventJson =
-    let private encodeEventId (EventId n) = Encode.int n
+    let encodeEventId (EventId n) = Encode.int n
 
-    let private decodeEventId: Decoder<EventId> =
+    let decodeEventId: Decoder<EventId> =
         Decode.int |> Decode.map EventId
 
     let private encodeAuthority (Authority name) = Encode.string name
