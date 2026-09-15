@@ -15,23 +15,23 @@ Move Browser Poll consume, pending submit, and Emacs undo onto Event. Poll consu
 
 Migrate Browser Poll consume. Seam **EventLog** (`since` is the Poll tail). The client holds EventLog of the same type.
 
-- [ ] Poll consume Events — Browser Poll consume reads an Event tail (client consume).
-- [ ] EventId cursor — poll cursor is EventId. Today’s `State.revision` and `ClientSyncState.revision` become that EventId cursor.
-- [ ] Client EventLog — client holds EventLog of the same type as the server; restores Poll/ack tails (undo optimistic Graph edits, apply server list, dedupe by submissionId).
+- [x] Poll consume Events — Browser Poll consume reads an Event tail (client consume).
+- [x] EventId cursor — poll cursor is EventId. Today’s `State.revision` and `ClientSyncState.revision` become that EventId cursor.
+- [x] Client EventLog — client holds EventLog of the same type as the server; restores Poll/ack tails (undo optimistic Graph edits, apply server list, dedupe by submissionId).
 
 ### 2. PendingChange and ChangeBatch wrap Event
 
 Migrate pending submit wrappers.
 
-- [ ] PendingChange wraps Event — PendingChange wraps Event (or EventBody). PendingKind remains until contract.
-- [ ] ChangeBatch wraps Event — ChangeBatch wraps Event (or EventBody).
+- [x] PendingChange wraps Event — PendingChange wraps Event (or EventBody). PendingKind remains until contract.
+- [x] ChangeBatch wraps Event — ChangeBatch wraps Event (or EventBody).
 
 ### 3. ClientHistory undo and name-only submit
 
 Keep Browser Emacs undo on **ClientHistory** (Event-shaped). Do not migrate onto a module named History.
 
-- [ ] Event-shaped ClientHistory — Browser ClientHistory callers keep using ClientHistory (`record`, `undo` / `redo`, peek) with Event (Action bodies).
-- [ ] ClientHistory undo then name-only submit — `ClientHistory.undo` runs locally, then a name-only submit. Ack/reconcile stays the pending path.
+- [x] Event-shaped ClientHistory — Browser ClientHistory callers keep using ClientHistory (`record`, `undo` / `redo`, peek) with Event (Action bodies).
+- [x] ClientHistory undo then name-only submit — `ClientHistory.undo` runs locally, then a name-only submit. Ack/reconcile stays the pending path.
 
 ## Out of scope
 
@@ -45,3 +45,4 @@ Keep Browser Emacs undo on **ClientHistory** (Event-shaped). Do not migrate onto
 
 - 2026-09-15 — Filed via `/to-tickets` for Story **Caller, persist, and Poll** only. Browser migrate batch. Blocked by Core name-only Undo/Redo and HTTP Adapter Event Poll.
 - 2026-09-15 — ClientHistory callers stay on Event-shaped ClientHistory; client holds EventLog of the same type. Do not migrate onto a module named History.
+- 2026-09-15 — **COMPLETED**: All Browser Poll, pending, and EventId cursors migrated to Event. Merged into staging after resolving conflicts with issue 43. ClientHistory uses Event internally, client holds EventLog, API responses use Event tails.

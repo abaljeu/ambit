@@ -134,12 +134,7 @@ module SyncLogic =
           pageBuildEpochSec = response.pageBuildEpochSec
           apiVersion = response.apiVersion
           isReady = response.isReady
-<<<<<<< HEAD
-          externalChanges = not response.changes.IsEmpty
-          changes = response.changes
-=======
           externalChanges = not response.events.IsEmpty
->>>>>>> cursor/issue-44-browser-poll-history-pending-eventid-56d1
           events = response.events
           message = None
           bootstrapHash = None }
