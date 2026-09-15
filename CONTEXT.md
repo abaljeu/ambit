@@ -206,7 +206,7 @@ Projects (`Shared` and `Shared/dotnet`) whose code is shared across modules and 
 _Avoid_: common, core (as a name for Shared), lib
 
 **Core**:
-The Module that owns persistent state (durable Graph and History facts; file bytes and git of those files) and that manages the Actor pool. Persist algorithms stay outside and persist via Core API; Core owns open and write of the file. In file mode it owns persist and does not write bytes. In db mode it writes (bytes, git, projection). It does not own advanced logic (Parse algorithms, Graph↔document persist algorithms). Not the Solid core bar on [[plan/roadmap/epics/robust-outliner.md]].
+The Module that owns persistent state (durable Graph and EventLog facts; file bytes and git of those files) and that manages the Actor pool. Persist algorithms stay outside and persist via Core API; Core owns open and write of the file. In file mode it owns persist and does not write bytes. In db mode it writes (bytes, git, projection). It does not own advanced logic (Parse algorithms, Graph↔document persist algorithms). Not the Solid core bar on [[plan/roadmap/epics/robust-outliner.md]].
 _Avoid_: kernel (for this Module), apply Module (as the name)
 
 **Core API**:
@@ -282,12 +282,16 @@ Retired name for **event id**. There is no separate Revision counter.
 _Avoid_: Revision
 
 **EventLog**:
-The server's Event sequence.
-_Avoid_: ChangeLog
+The server's Event sequence. Same type on client and server.
+_Avoid_: ChangeLog, History (for this sequence)
+
+**ClientHistory**:
+The Emacs Action view of Change, Undo, and Redo Events. Not the server Event sequence.
+_Avoid_: History (as a module name), EventLog (for this view), the full Event sequence, audit log
 
 **History**:
-The Graph-Action view of relevant Events used by Undo and Redo. Ambit has no separate History or audit UI application.
-_Avoid_: EventLog (for this view), the full Event sequence, audit log
+Retired as a module name. Spoken history of the server sequence is EventLog. The Emacs Action view is ClientHistory. Ambit has no separate History or audit UI application.
+_Avoid_: History (as a destination module)
 
 **Sync**:
 Keeping Browser and Server Graphs aligned by exchanging Actions (and related residency work). Not a synonym for Load.

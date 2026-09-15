@@ -26,8 +26,8 @@ Migrate Poll and Load encode on **HTTP Adapter**. Seam **EventLog** (`since` is 
 
 ## Out of scope
 
-1. Browser consume — Browser Poll consume, `Revision` → EventId cursor, PendingChange / ChangeBatch wrapping Event, and History undo stay on [[44-migrate-browser-poll-history-pending-and-eventid.md|44 — Migrate Browser Poll, History, pending, and EventId cursor]].
-2. Contract deletes — Delete of HistoryEvent, ActorLifecycleEvent, ClientHistory, PendingKind, the StartActorRequest name, and the ChangeLog name stays on [[45-contract-historyevent-clienthistory-pendingkind-and-changelog.md|45 — Contract HistoryEvent, ClientHistory, PendingKind, StartActorRequest, and ChangeLog]].
+1. Browser consume — Browser Poll consume, `Revision` → EventId cursor, PendingChange / ChangeBatch wrapping Event, and ClientHistory undo stay on [[44-migrate-browser-poll-history-pending-and-eventid.md|44 — Migrate Browser Poll, History, pending, and EventId cursor]].
+2. Contract deletes — Delete of HistoryEvent, ActorLifecycleEvent, mailbox `type History` / History name, PendingKind, the StartActorRequest name, and the ChangeLog name stays on [[45-contract-historyevent-clienthistory-pendingkind-and-changelog.md|45 — Contract HistoryEvent, mailbox History, PendingKind, StartActorRequest, and ChangeLog]]. ClientHistory remains.
 
 ## See also
 

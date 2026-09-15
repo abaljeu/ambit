@@ -48,6 +48,8 @@
     <Compile Include="ChildListWire.fs" />
     <Compile Include="ChildListMerge.fs" />
     <Compile Include="ChangeAmendment.fs" />
+    <Compile Include="Event.fs" />
+    <Compile Include="EventLog.fs" />
     <Compile Include="ClientHistory.fs" />
     <Compile Include="DocumentOpImpact.fs" />
     <Compile Include="ApiResponses.fs" />
