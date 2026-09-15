@@ -91,7 +91,7 @@ module CoreMailbox =
         (credentials: CoreCredentials)
         (caller: Caller)
         : CoreChanges =
-        let rec make c : CoreChanges =
+        let rec make (c: Caller) : CoreChanges =
             { getState = fun () -> tryGetState host
               getRevision = fun () -> getRevision host
               getChangesSince = getChangesSince host

@@ -234,3 +234,21 @@ let ``ActorStop ActorSucceeded drops live row without waiting`` () =
         Assert.True(sw.Elapsed < TimeSpan.FromSeconds 1.0)
         Assert.False(lingering.IsCompleted)
     })
+
+[<Fact>]
+let ``ActorStop ActorFailed drops live row and records terminal`` () =
+    let _, stopped, live, pool = recordingPool ()
+    let actorSecret = Credential "actor-fail"
+    live.Add actorSecret
+    withHost pool (fun host credentials -> task {
+        do! credentials.add actorSecret |> Async.StartAsTask
+        let! result =
+            postActorStop
+                host (actorCaller actorSecret) ActorFailed
+            |> Async.StartAsTask
+        requireOk "ActorStop fail" result
+        Assert.Equal(1, stopped.Count)
+        Assert.Equal(actorSecret, fst stopped.[0])
+        Assert.Equal(ActorFailed, snd stopped.[0])
+        Assert.False(live.Contains actorSecret)
+    })
