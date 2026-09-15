@@ -55,8 +55,8 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/issues/32-move-persist-agents-under-coremailbox.md]] — Point 0 (done): persist agents under Core; generic CoreMailbox door.
 - [[plan/core-creation/issues/29-prove-testactor-hello.md]] — current cut: section 1 mailbox foundation on `dev`; remaining hello sections open. Redo: land [[plan/core-creation/arch.md]] before further hello implement — [[plan/core-creation/reports/redo-29-architecture-before-proceed.md]].
 - [[plan/core-creation/issues/33-credentialed-browser-change-posts.md]] — Story path Browser Change posts: cookie-as-credential, boot seed, CoreMailbox admit only; Status `coded`. `auth.Disabled` skip removed; development cookie is auto-issued and still required.
-- [[plan/core-creation/issues/34-outside-core-lifecycle-proof.md]] — Story path Outside Core lifecycle proof: TestActor hello from Pool/Actor seam without HTTP. Section 1 CoreMsg / CoreMailboxBackend plus sync startActor / one-mailbox composition coded; remaining sections 2–7 open.
-- [[plan/core-creation/issues/35-browser-run-hello.md]] — Story path Browser Run hello: `?` one-Node Command through HTTP to Owned child `hello`; blocked by 34.
+- [[plan/core-creation/issues/34b-outside-core-lifecycle-proof.md|34b — Outside Core lifecycle proof]] — Story path Outside Core lifecycle proof: TestActor hello from Pool/Actor seam without HTTP. Status `coded`.
+- [[plan/core-creation/issues/35b-browser-run-hello.md|35b — Browser Run hello]] — Story path Browser Run hello: `?` one-Node Command through HTTP to Owned child `hello`; blocked by [[plan/core-creation/issues/34b-outside-core-lifecycle-proof.md|34b — Outside Core lifecycle proof]].
 
 ## Decision tickets
 
@@ -123,7 +123,8 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - 2026-09-13 — Redesign on [[plan/core-creation/issues/33-credentialed-browser-change-posts.md|Credentialed Browser Change posts]]: cookie/seed target; undo File/Db/GUID deltas; Status `ready-for-agent` again. Arch Story path checkboxes still `[x]` — align when reconciling.
 - 2026-09-13 — Re-implement [[plan/core-creation/issues/33-credentialed-browser-change-posts.md|Credentialed Browser Change posts]] against redesign; Status `done`.
 - 2026-09-14 — Spec-gap fix on [[plan/core-creation/issues/33-credentialed-browser-change-posts.md|Credentialed Browser Change posts]]: request-carried Browser API creds, client DeployEpochSec reseed, no closed-over cookie fallback.
-- 2026-09-14 — `/to-tickets` for Story paths Outside Core lifecycle proof and Browser Run hello; published [[plan/core-creation/issues/34-outside-core-lifecycle-proof.md]] and [[plan/core-creation/issues/35-browser-run-hello.md]]; Stage `slice`. Parent [[plan/core-creation/issues/29-prove-testactor-hello.md|Prove TestActor hello]] unchanged.
+- 2026-09-14 — `/to-tickets` for Story paths Outside Core lifecycle proof and Browser Run hello; published 34 — Outside Core lifecycle proof and 35 — Browser Run hello (later deleted). Stage `slice`. Parent [[plan/core-creation/issues/29-prove-testactor-hello.md|Prove TestActor hello]] unchanged.
+- 2026-09-14 — Deleted 34 — Outside Core lifecycle proof and 35 — Browser Run hello. Living story tickets remain [[plan/core-creation/issues/34b-outside-core-lifecycle-proof.md|34b — Outside Core lifecycle proof]] and [[plan/core-creation/issues/35b-browser-run-hello.md|35b — Browser Run hello]].
 - 2026-09-14 — [[plan/core-creation/issues/33-credentialed-browser-change-posts.md|Credentialed Browser Change posts]] Status back to `ready-for-agent`: coded is not `done`; `done` is review approval only.
 - 2026-09-14 — Spec of [[plan/core-creation/issues/33-credentialed-browser-change-posts.md|Credentialed Browser Change posts]] aligned to review findings; auth-disabled app-serve SetCookie rejected and remaining.
 - 2026-09-14 — Removed `auth.Disabled` skip on [[plan/core-creation/issues/33-credentialed-browser-change-posts.md|Credentialed Browser Change posts]]; Status `coded`; Stage `build`. Report: [[plan/core-creation/reports/remove-auth-disabled-bypass.md]].
