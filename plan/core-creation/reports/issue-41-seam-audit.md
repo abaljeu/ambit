@@ -82,7 +82,7 @@ New private helpers likely needed (names illustrative): **`stampAuthority`**, **
 
 1. **`eventHistory`** — Return type `Async<Gambol.Shared.Events.EventLog>`.
 2. **`postChange`** — Build `Event`(s) from `Change list` + `commandName` (may need default or caller-supplied name) and call **`postEvent`**, or post **`PostEvent`** internally while keeping public signature for compat.
-3. **`coreChanges.postChange` / `postGraphOnlyChange`** — Graph-only may stay on persist-only path per arch **`postGraphOnlyChange`**; credentialed Change posts must use Event door semantics for EventLog append.
+3. **`coreChanges.postChange` / `postGraphOnlyChange`** — Both use Event door semantics for EventLog append; graph-only skips file persistence only.
 4. Doc comments — Update `eventHistory` and lifecycle lines to EventLog / ActorStart / ActorStop vocabulary.
 
 ### 3.4 [[src/Server/Core/CoreActorPool.fs]]
@@ -109,7 +109,7 @@ New private helpers likely needed (names illustrative): **`stampAuthority`**, **
 2. **Revision vs EventId** — `StartActorRequest.revision` is `Revision`; `ActorStart.revision` is `EventId`. Mailbox must convert when appending ActorStart (likely `EventId` of basis log position at admit time).
 3. **Change batch → single Event** — `postChange` accepts `Change list`; `postEvent` accepts one `Event`. Define one rule (e.g. one Event per batch with merged ops and `submissionId` from primary change, or one Event per `Change`) and keep `CoreChangesAccepted.changes` aligned with persist until HTTP migrates.
 4. **Graph apply and revision** — Today persist owns Graph and `Revision`. EventLog append must not regress **CoreMsgActorCasesTests** persist/admit behavior. Until 42, Change Events likely still flow through `persist.postChange` while also appending to `eventLog`.
-5. **postGraphOnlyChange** — Arch: skips EventLog. Keep bypass; do not force those through `postEvent`.
+5. **postGraphOnlyChange** — Goes through same Event flow; skips file persistence only (not EventLog).
 6. **History two-stack** — Type and `GetEventHistory`→`History` path may remain compiled but should not be the returned history door after 41; tests that read `history.past` need EventLog-shaped assertions (see §6).
 7. **Dual store during migrate** — If History ref stays for compat, avoid divergent Actor/Change sequences between `eventHistory` and `eventLog`; prefer single writer logic appending EventLog and optionally mirroring to History until 45.
 

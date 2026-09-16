@@ -73,7 +73,7 @@ let ``CoreMailbox.postChange appends Change Events to EventLog`` () =
     })
 
 [<Fact>]
-let ``postGraphOnlyChange updates Graph without EventLog append`` () =
+let ``postGraphOnlyChange updates Graph and EventLog without file write`` () =
     withHost [] (fun host _ -> task {
         let childId, change = addRootChild "graph-only"
         let! accepted =
@@ -88,7 +88,8 @@ let ``postGraphOnlyChange updates Graph without EventLog append`` () =
             |> Async.StartAsTask
         let state = requireOk "get state" state
         Assert.Equal(Revision 1, accepted.revision)
-        Assert.Empty(history.events)
+        let stored = Assert.Single(history.events)
+        Assert.Equal(change.changeId, stored.submissionId)
         Assert.Equal("graph-only", state.graph.nodes.[childId].text)
     })
 

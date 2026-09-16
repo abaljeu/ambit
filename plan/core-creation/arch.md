@@ -129,7 +129,7 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. ClientH
    - Interface:
      1. [x] public door on MailboxHost — `startActor` with `zoomId`, `focusId`, `commandId`, `graphIds`; `actorStop`; `login` (mailbox privately adds the Browser secret); `isAdmitted` (query). No public add-credential door.
      2. [x] `postEvent` is the Changes door. Payload is Event (Change, Undo, Redo). Name-only Undo/Redo may arrive with only `target`
-     3. [x] `postGraphOnlyChange` — Event-shaped Graph work that skips EventLog
+     3. [x] `postGraphOnlyChange` — Same Event flow as postChange, skips file persistence only (not EventLog)
      4. [x] `eventHistory` is EventLog (the log or `since`), not a two-stack
      5. [x] getState / getRevision / createFile / createDb
      6. [x] `getEventsSince` returns an Event tail

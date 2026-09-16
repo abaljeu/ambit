@@ -21,7 +21,7 @@ At the adapter / Core door boundary: **loop** the received Changes and enqueue *
 1. **Removed** `CoreEventDispatch.postMany`. Only `postEvent` remains; prepare / persist / store take one `Event`.
 2. **Removed** `CoreMsg.PostChange`. Credentialed Graph Changes go through `PostEvent` only (no multi-Event CoreMsg).
 3. **`CoreMailbox.postChange`** accepts a transport `Change list`, builds one Event per Change, and posts each via `PostEvent`. Empty list returns `Error "changes must not be empty"` at the door (does not invent a batch message). Accepted replies merge across the loop.
-4. **`postGraphOnlyChange`** stays **singular `Change`** (chunk posts already one Change; skips EventLog). Persist still receives `[ change ]`.
+4. **`postGraphOnlyChange`** stays **singular `Change`** (chunk posts already one Change; goes through EventLog, skips file persistence). Persist still receives `[ change ]` via `postGraphOnlyChange`.
 5. **Authority stamp**, name-only Undo/Redo fill, ActorStart/ActorStop append, unchanged-submission via empty Ops → persist, EventLog append — preserved on the singular `postEvent` path.
 6. **Api.postChange** still decodes ChangeBatch and calls `handle.postChange batch.changes`; the loop into the mailbox is on CoreMailbox.
 
