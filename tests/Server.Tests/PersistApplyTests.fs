@@ -26,13 +26,24 @@ let private wireEvent submissionId ops : Ev =
       commandName = "persist-apply"
       body = EventBody.Change ops }
 
+let private eventsSince (handlers: PersistHandlers) after =
+    requireOk "getEventsSince" (handlers.getEventsSince after)
+
+let private applyThenAppend (handlers: PersistHandlers) event =
+    let accepted = requireOk "applyEvent" (handlers.applyEvent event false)
+    Assert.Empty(eventsSince handlers (EventId -1))
+    requireOk "appendEvent" (handlers.appendEvent event)
+    let stored = Assert.Single(eventsSince handlers (EventId -1))
+    Assert.Equal(event.submissionId, stored.submissionId)
+    accepted
+
 [<Fact>]
 let ``FileAgent applyEvent applies Ev Ops without leftover Change`` () =
     let childId, ops = addRootChild "persist-apply-file"
     let event = wireEvent (Guid.NewGuid()) ops
     let agent = FileAgent.create (newTempDir ())
     let handlers = (FileAgent.persist agent).handlers
-    let accepted = requireOk "applyEvent" (handlers.applyEvent event false)
+    let accepted = applyThenAppend handlers event
     let state = requireOk "getState" (handlers.getState ())
     Assert.Equal("persist-apply-file", state.graph.nodes.[childId].text)
     Assert.Equal(event.submissionId, Assert.Single(accepted.events).submissionId)
@@ -45,7 +56,7 @@ let ``DbAgent applyEvent applies Ev Ops without leftover Change`` () =
         { graph = Graph.create (); revision = Revision 0 }
     let agent = DbAgent.createForTest initial (fun _ -> Ok [])
     let handlers = (DbAgent.persist agent).handlers
-    let accepted = requireOk "applyEvent" (handlers.applyEvent event false)
+    let accepted = applyThenAppend handlers event
     let state = requireOk "getState" (handlers.getState ())
     Assert.Equal("persist-apply-db", state.graph.nodes.[childId].text)
     Assert.Equal(event.submissionId, Assert.Single(accepted.events).submissionId)
@@ -83,5 +94,9 @@ let ``CoreEventDispatch persist apply does not copy Ev to leftover Change`` () =
         | Some storedOps ->
             Assert.Equal<Op list>(ops, List.take ops.Length storedOps)
         | None -> Assert.Fail("expected Change EventBody Ops")
+        let logged =
+            CoreMailbox.getEventsSince host (EventId -1)
+            |> Async.RunSynchronously
+        Assert.Equal(event.submissionId, Assert.Single(logged).submissionId)
     finally
         CoreMailbox.dispose host
