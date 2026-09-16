@@ -56,8 +56,6 @@ module internal CoreMailboxBackend =
         match msg with
         | GetState _ -> "GetState", ""
         | GetRevision _ -> "GetRevision", ""
-        | GetChangesSince (after, _) ->
-            "GetChangesSince", $"after={after}"
         | GetEventsSince (after, _) ->
             "GetEventsSince", $"after={after}"
         | GetEventHistory _ -> "GetEventHistory", ""
@@ -79,7 +77,6 @@ module internal CoreMailboxBackend =
         match msg with
         | GetState reply -> reply.Reply(Error error)
         | GetRevision reply -> reply.Reply(Error error)
-        | GetChangesSince (_, reply) -> reply.Reply(Error error)
         | GetEventsSince (_, reply) -> reply.Reply(Error error)
         | GetEventHistory reply -> reply.Reply(EventLog.empty)
         | PostGraphOnlyChange (_, _, reply) -> reply.Reply(Error error)
@@ -229,8 +226,6 @@ module internal CoreMailboxBackend =
                         state.graph
                 reply.Reply(Ok { state with graph = graph })
         | GetRevision reply -> reply.Reply(context.persist.getRevision ())
-        | GetChangesSince (after, reply) ->
-            reply.Reply(context.persist.getChangesSince after)
         | GetEventsSince (after, reply) ->
             reply.Reply(context.persist.getEventsSince after)
         | GetEventHistory reply ->
@@ -276,7 +271,6 @@ module internal CoreMailboxBackend =
     let private failedPersist persist error : PersistHandlers = {
         getState = persist.getState
         getRevision = persist.getRevision
-        getChangesSince = persist.getChangesSince
         getEventsSince = persist.getEventsSince
         appendEvent = fun _ -> Error error
         postChange = fun _ -> Error error
@@ -352,7 +346,6 @@ module internal CoreMailboxBackend =
                                 match msg with
                                 | GetState _
                                 | GetRevision _
-                                | GetChangesSince _
                                 | GetEventsSince _
                                 | GetEventHistory _
                                 | EventsSince _ ->

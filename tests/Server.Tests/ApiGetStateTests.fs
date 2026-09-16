@@ -23,10 +23,11 @@ let private handleWithGetState
     (getState: unit -> Async<Result<State, string>>)
     : CoreChanges =
     { getState = getState
-      getRevision = fun () -> async.Return(Revision 0)
-      getChangesSince = fun _ -> async.Return []
+      getRevision = fun () -> async.Return(Gambol.Shared.Events.EventId 0)
+      getEventsSince = fun _ -> async.Return []
       isReady = fun () -> true
       postChange = fun _ -> async.Return(Result.Error "unused")
+      postEvents = fun _ -> async.Return(Result.Error "unused")
       postGraphOnlyChange = fun _ -> async.Return(Result.Error "unused")
       actorStop = fun _ -> async.Return(Result.Error "unused")
       asCaller = fun _ -> Unchecked.defaultof<CoreChanges> }

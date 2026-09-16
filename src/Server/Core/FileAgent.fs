@@ -231,25 +231,6 @@ module FileAgent =
         let handlers: PersistHandlers = {
             getState = fun () -> Ok state.Value
             getRevision = fun () -> Ok state.Value.revision
-            getChangesSince = fun after ->
-                // Derive Changes from Events
-                let events =
-                    Gambol.Shared.Events.EventLog.since
-                        (Gambol.Shared.Events.EventId after.Value)
-                        persistedEventLog.Value
-                let changes =
-                    events.events
-                    |> List.choose (fun event ->
-                        match Gambol.Shared.Events.Event.ops event with
-                        | Some ops ->
-                            Some {
-                                id = 0  // Not used in poll
-                                changeId = event.submissionId
-                                ops = ops
-                            }
-                        | None -> None)
-                    |> List.rev
-                Ok changes
             getEventsSince = fun after ->
                 Ok(
                     Gambol.Shared.Events.EventLog.since after persistedEventLog.Value

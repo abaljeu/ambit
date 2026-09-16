@@ -5,8 +5,6 @@ open Gambol.Shared
 type internal CoreMsg =
     | GetState of AsyncReplyChannel<Result<State, string>>
     | GetRevision of AsyncReplyChannel<Result<Revision, string>>
-    | GetChangesSince of
-        after: Revision * AsyncReplyChannel<Result<Change list, string>>
     | GetEventsSince of
         after: Gambol.Shared.Events.EventId *
         AsyncReplyChannel<
@@ -48,7 +46,6 @@ type internal CoreMsg =
 type PersistHandlers = {
     getState: unit -> Result<State, string>
     getRevision: unit -> Result<Revision, string>
-    getChangesSince: Revision -> Result<Change list, string>
     getEventsSince:
         Gambol.Shared.Events.EventId
             -> Result<Gambol.Shared.Events.Event list, string>

@@ -346,17 +346,6 @@ module DbAgent =
         if loaded.snapshotNeeded.Value then
             requestSnapshot loaded
 
-    let private changesSince loaded (after: Revision) =
-        let rows =
-            Database.getChangesAfterCheckpointRevision
-                loaded.connectionString
-                after.Value
-            |> Async.AwaitTask
-            |> Async.RunSynchronously
-        rows
-        |> List.choose (fun row ->
-            decodeChangePayload row.payload |> Result.toOption)
-
     let private eventsSince loaded after =
         EventLog.since after loaded.eventLog.Value |> fun log -> log.events
 
@@ -385,7 +374,6 @@ module DbAgent =
     let private persistHandlers loaded = {
         getState = fun () -> Ok loaded.state.Value
         getRevision = fun () -> Ok loaded.state.Value.revision
-        getChangesSince = fun after -> Ok(changesSince loaded after)
         getEventsSince = fun after -> Ok(eventsSince loaded after)
         appendEvent = appendPersistedEvent loaded
         postChange = fun changes -> processPostChange loaded changes false

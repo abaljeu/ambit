@@ -187,72 +187,6 @@ module Database =
             with _ ->
                 CssClass.empty
 
-    let appendChangeWithTx
-        (tx: IDbTransaction)
-        (serverRevisionAfter: int)
-        (clientBaseRevision: int)
-        (clientChangeId: Guid)
-        (json: string)
-        : Task =
-        tx.Connection.ExecuteAsync(
-            """
-            INSERT INTO changes (
-                client_base_revision,
-                change_uuid,
-                server_revision_after,
-                payload
-            )
-            VALUES (
-                @client_base_revision,
-                @change_uuid,
-                @server_revision_after,
-                @payload
-            )
-            """,
-            {| client_base_revision = clientBaseRevision
-               change_uuid = clientChangeId
-               server_revision_after = serverRevisionAfter
-               payload = json |},
-            tx)
-        :> Task
-
-    let appendChange
-        (connectionString: string)
-        (serverRevisionAfter: int)
-        (clientBaseRevision: int)
-        (clientChangeId: Guid)
-        (json: string)
-        : Task =
-        task {
-            use conn = getConnection connectionString
-            do! conn.OpenAsync()
-            use tx = conn.BeginTransaction()
-
-            do!
-                appendChangeWithTx tx serverRevisionAfter clientBaseRevision clientChangeId json
-
-            tx.Commit()
-        }
-
-    let getChangesAfterCheckpointRevision
-        (connectionString: string)
-        (checkpointRevision: int)
-        : Task<ChangeRow list> =
-        task {
-            use conn = getConnection connectionString
-            do! conn.OpenAsync()
-
-            let! rows =
-                conn.QueryAsync<ChangeRow>(
-                    """
-                    SELECT client_base_revision, payload FROM changes
-                    WHERE server_revision_after > @rev
-                    ORDER BY server_revision_after ASC
-                    """,
-                    {| rev = checkpointRevision |})
-
-            return rows |> Seq.toList
-        }
 
     let appendEvent
         (connectionString: string)
@@ -293,23 +227,6 @@ module Database =
             return rows |> Seq.toList
         }
 
-    let tryGetPersistedPayload
-        (connectionString: string)
-        (changeId: Guid)
-        : Task<string option> =
-        task {
-            use conn = getConnection connectionString
-            do! conn.OpenAsync()
-
-            let! payload =
-                conn.QueryFirstOrDefaultAsync<string>(
-                    """
-                    SELECT payload FROM changes WHERE change_uuid = @change_uuid
-                    """,
-                    {| change_uuid = changeId |})
-
-            return if isNull payload then None else Some payload
-        }
 
     let tryGetGraphSingleton (connectionString: string) : Task<GraphSingletonRow option> =
         task {

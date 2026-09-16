@@ -64,30 +64,6 @@ let ``Actor getRevision surfaces persist error instead of Revision 0`` () =
         Assert.Equal(Some "revision unavailable", observed)
     })
 
-[<Fact>]
-let ``Actor getChangesSince surfaces persist error instead of empty list`` () =
-    let persist = filePersist ()
-    let filling =
-        { persist with
-            handlers =
-                { persist.handlers with
-                    getChangesSince =
-                        fun _ -> Error "changes unavailable" } }
-    let seen = TaskCompletionSource<string option>()
-    withPersist filling (fun host pool -> task {
-        let! started =
-            startRootActor host pool (fun _ coreChanges -> async {
-                try
-                    let! _ = coreChanges.getChangesSince (Revision 0)
-                    seen.TrySetResult None |> ignore
-                with ex ->
-                    seen.TrySetResult (Some ex.Message) |> ignore
-            })
-            |> Async.StartAsTask
-        requireOk "startActor" started
-        let! observed = seen.Task.WaitAsync(TimeSpan.FromSeconds 5.0)
-        Assert.Equal(Some "changes unavailable", observed)
-    })
 
 [<Fact>]
 let ``Actor isReady uses mailbox host isReady`` () =

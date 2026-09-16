@@ -127,13 +127,14 @@ let private recordingHandle (posts: ResizeArray<Change list>) =
           message = None
           isReady = true }
     { getState = fun () -> async.Return(Result.Ok state)
-      getRevision = fun () -> async.Return state.revision
-      getChangesSince = fun _ -> async.Return []
+      getRevision = fun () -> async.Return (Gambol.Shared.Events.EventId 0)
+      getEventsSince = fun _ -> async.Return []
       isReady = fun () -> true
       postChange =
         fun changes ->
             posts.Add(changes)
             async.Return(Result.Ok(accepted changes))
+      postEvents = fun _ -> async.Return(Result.Error "unused")
       postGraphOnlyChange = fun _ -> async.Return(Result.Error "unused")
       actorStop = fun _ -> async.Return(Result.Error "unused")
       asCaller = fun _ -> Unchecked.defaultof<CoreChanges> }
