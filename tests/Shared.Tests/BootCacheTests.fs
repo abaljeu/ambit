@@ -93,13 +93,13 @@ let ``changesAfter drops the snapshot Revision itself`` () =
 [<Fact>]
 let ``acceptedForLog prefers confirmed Changes when the server assigned ids`` () =
     let confirmed = [ mkChange 9 ]
-    let submitted = [ PendingChange.ofChange (mkChange 8) ]
+    let submitted = [ PendingChange.ofEvent (Ev.ofChange "fixture" (mkChange 8)) ]
     let accepted = BootCache.acceptedForLog confirmed submitted
     Assert.Equal(9, accepted.Head.id)
 
 [<Fact>]
 let ``acceptedForLog uses submitted Changes when confirmed is empty`` () =
-    let submitted = [ PendingChange.ofChange (mkChange 8) ]
+    let submitted = [ PendingChange.ofEvent (Ev.ofChange "fixture" (mkChange 8)) ]
     let accepted = BootCache.acceptedForLog [] submitted
     Assert.Equal(8, accepted.Head.id)
 

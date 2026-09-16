@@ -219,7 +219,7 @@ module ResidentProjection =
         (buildEpochSec: int)
         (pageBuildEpochSec: int)
         (isReady: bool)
-        (changes: Change list)
+        (changes: Ev list)
         (graph: Graph)
         (targets: LoadTarget list)
         : Result<LoadResponse, LoadRefuse> =
@@ -232,9 +232,7 @@ module ResidentProjection =
                   pageBuildEpochSec = pageBuildEpochSec
                   apiVersion = ApiVersion.current
                   isReady = isReady
-                  events =
-                    changes
-                    |> List.map (Ev.ofChange "")
+                  events = changes
                   packages = packages }
 
     /// Scoped resident graph for fresh-session bootstrap: complete ROOT Workspace,

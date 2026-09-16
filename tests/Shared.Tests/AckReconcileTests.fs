@@ -154,11 +154,11 @@ let ``partial residency skips a stamp on an Absent node`` () =
 let ``retry ACK removes only the submitted prefix and resubmits the remainder`` () =
     let _, state, first = seededEdit ()
     let later =
-        { first.change with
-            id = 1
-            submissionId = Guid.NewGuid()
-            ops = [ Op.SetText(NodeId.New(), "x", "y") ] }
-        |> PendingChange.ofChange
+        PendingChange.ofEvent
+            { first.event with
+                id = EventId 1
+                submissionId = Guid.NewGuid()
+                body = EventBody.Change [ Op.SetText(NodeId.New(), "x", "y") ] }
     let pending = [ first; later ]
     let result =
         SyncLogic.reconcileAck

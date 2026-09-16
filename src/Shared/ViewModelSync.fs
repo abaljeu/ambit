@@ -16,10 +16,6 @@ type PendingChange =
 module PendingChange =
     let ofEvent (event: Ev) : PendingChange =
         { event = event; transition = None }
-
-    let ofChange (change: Change) : PendingChange =
-        ofEvent (Ev.ofChange "" change)
-
     let workspaceSingleton (recordId: int) (event: Ev) : PendingChange =
         { event = event
           transition =

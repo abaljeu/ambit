@@ -25,8 +25,6 @@ These build Ev from a Change (or Change fields). They are the long-term problem.
 
 | # | File | Symbol | Why it is a problem |
 | --- | --- | --- | --- |
-| 1 | [[src/Shared/History.fs]] | `Ev.ofChange` | Canonical Change→Ev copy (`id` → `EventId`, `submissionId`, `EventBody.Change ops`, dummy `Authority "Browser"`). When Change is gone, this door has no input. |
-| 2 | [[src/Shared/Event.fs]] | `Ev.ofChange` | Uncompiled leftover duplicate (not in [[src/Shared/Gambol.Shared.fsproj]]). Same shape as row 1. Do not add it back to the fsproj. |
 | 3 | [[src/Shared/ViewModelSync.fs]] | `PendingChange.ofChange` | Wraps `Ev.ofChange ""`. Tests and command builders still enter pending through Change. |
 | 4 | [[src/Shared/ResidentProjection.fs]] | `captureLoadResponse` | Maps a Change **list** with `Ev.ofChange ""` onto `LoadResponse.events`. Server load capture still thinks in Change lists. |
 | 5 | [[src/Server/Core/FileAgent.fs]] | `accepted` | `confirmed` Change list → `List.map (Ev.ofChange "")` for `CoreChangesAccepted.events`. Persist apply still outputs Change, then upcasts. |

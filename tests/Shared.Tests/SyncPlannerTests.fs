@@ -11,10 +11,11 @@ let private mkChange id =
       submissionId = Guid.NewGuid()
       ops = [] }
 
-let private asPending change = PendingChange.ofChange change
+let private asPending change =
+    PendingChange.ofEvent (Ev.ofChange "fixture" change)
 
 let private withKind recordId change : PendingChange =
-    { event = Ev.ofChange "" change
+    { event = Ev.ofChange "fixture" change
       transition =
         Some
             { recordId = recordId
@@ -341,9 +342,9 @@ let ``mixed C Undo Redo delta chain preserves identities and rewrites revisions`
         chained |> List.map (fun item -> item.change.submissionId))
     let wire = SyncBatch.toWireBatch 7 items
     Assert.Equal<Ev list>(
-        [ { Ev.ofChange "" change with id = EventId 7 }
-          { Ev.ofChange "" undo with id = EventId 8 }
-          { Ev.ofChange "" redo with id = EventId 9 } ],
+        [ { Ev.ofChange "fixture" change with id = EventId 7 }
+          { Ev.ofChange "fixture" undo with id = EventId 8 }
+          { Ev.ofChange "fixture" redo with id = EventId 9 } ],
         wire)
 
 [<Fact>]
@@ -441,7 +442,7 @@ let ``restorePending strips transition and does not record History`` () =
 [<Fact>]
 let ``workspace singleton lineage is the exact item used before the request`` () =
     let change = mkChange 12
-    let submitted = PendingChange.workspaceSingleton 5 (Ev.ofChange "" change)
+    let submitted = PendingChange.workspaceSingleton 5 (Ev.ofChange "fixture" change)
     match submitted.transition with
     | Some transition ->
         Assert.Equal(5, transition.recordId)
@@ -453,7 +454,7 @@ let ``workspace singleton lineage is the exact item used before the request`` ()
     Assert.Equal(submitted.change.submissionId, chained.Head.change.submissionId)
     Assert.Equal(submitted.transition, chained.Head.transition)
     Assert.Equal<Ev list>(
-        [ { Ev.ofChange "" change with id = EventId 12 } ],
+        [ { Ev.ofChange "fixture" change with id = EventId 12 } ],
         wire)
     let effect =
         ContinuePostUploadStructure(

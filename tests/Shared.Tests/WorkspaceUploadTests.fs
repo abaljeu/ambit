@@ -96,7 +96,7 @@ let ``Upload cannot start from revision 14706 while its prior submit is in fligh
     let syncInfo =
         { SyncInfo.initial with
             syncState = Sending 1
-            pendingChanges = [ PendingChange.ofChange pending ] }
+            pendingChanges = [ PendingChange.ofEvent (Ev.ofChange "fixture" pending) ] }
     Assert.False(WorkspaceUpload.canStart syncInfo)
     Assert.True(WorkspaceUpload.canStart SyncInfo.initial)
 
@@ -110,10 +110,12 @@ let ``canStart is true only when Idle with empty pending`` () =
         WorkspaceUpload.canStart
             { SyncInfo.initial with
                 pendingChanges =
-                    [ PendingChange.ofChange
-                        { id = 1
-                          submissionId = System.Guid.NewGuid()
-                          ops = [] } ] })
+                    [ PendingChange.ofEvent
+                        (Ev.ofChange
+                            "fixture"
+                            { id = 1
+                              submissionId = System.Guid.NewGuid()
+                              ops = [] }) ] })
 
 [<Fact>]
 let ``canStartWeb allows Polling when pending is empty`` () =
@@ -129,10 +131,12 @@ let ``canStartWeb allows Polling when pending is empty`` () =
             { SyncInfo.initial with
                 syncState = Polling
                 pendingChanges =
-                    [ PendingChange.ofChange
-                        { id = 1
-                          submissionId = System.Guid.NewGuid()
-                          ops = [] } ] })
+                    [ PendingChange.ofEvent
+                        (Ev.ofChange
+                            "fixture"
+                            { id = 1
+                              submissionId = System.Guid.NewGuid()
+                              ops = [] }) ] })
     Assert.False(
         WorkspaceUpload.canStartWeb
             { SyncInfo.initial with syncState = Parsing })
@@ -148,10 +152,12 @@ let ``queueBlockedDetail distinguishes pending from poll`` () =
         WorkspaceUpload.queueBlockedDetail
             { SyncInfo.initial with
                 pendingChanges =
-                    [ PendingChange.ofChange
-                        { id = 1
-                          submissionId = System.Guid.NewGuid()
-                          ops = [] } ] })
+                    [ PendingChange.ofEvent
+                        (Ev.ofChange
+                            "fixture"
+                            { id = 1
+                              submissionId = System.Guid.NewGuid()
+                              ops = [] }) ] })
     Assert.Equal(
         "load queued until current upload completes",
         WorkspaceUpload.queueBlockedDetail
