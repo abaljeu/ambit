@@ -141,7 +141,7 @@ let private projectInverse inverse state =
     | ApplyResult.Invalid(_, message) -> failwithf "projected apply failed: %s" message
 
 let private serverApplyInverse inverse state =
-    match History.applyChange inverse state with
+    match ChangeValidation.applyChange inverse state with
     | ApplyResult.Changed _ -> ()
     | ApplyResult.Unchanged _ -> failwith "server apply did not change the graph"
     | ApplyResult.Invalid(_, message) -> failwithf "server apply failed: %s" message

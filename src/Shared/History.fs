@@ -636,14 +636,6 @@ module ChangeValidation =
             | Error msg -> ApplyResult.Invalid(state, msg)
             | Ok () -> ApplyResult.Changed s
 
-/// Backward compatibility - reexport ChangeValidation functions under History name temporarily
-[<RequireQualifiedAccess>]
-module History =
-    let validateOwnership = ChangeValidation.validateOwnership
-    let validateOwnershipLocated = ChangeValidation.validateOwnershipLocated
-    let applyChange = ChangeValidation.applyChange
-    let applyChangeTrusted = ChangeValidation.applyChangeTrusted
-
 /// After DocumentPersistence stamps artifact roots, emit ops for the change log / poll tail.
 [<RequireQualifiedAccess>]
 module PersistStamp =

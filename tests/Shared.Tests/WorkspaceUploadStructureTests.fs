@@ -420,7 +420,7 @@ let ``Load Unloaded stub plan must not name-conflict on resident server`` () =
         let state =
             { graph = server
               revision = Revision 0 }
-        match History.applyChange change state with
+        match ChangeValidation.applyChange change state with
         | ApplyResult.Invalid(_, msg) ->
             Assert.True(
                 false,

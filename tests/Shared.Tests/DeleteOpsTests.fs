@@ -62,7 +62,7 @@ let ``planDeleteOps multi-sibling: change applies and both nodes land under TRAS
     Assert.Equal(2, classified.Length)
     let ops = ViewModelDeleteOps.planDeleteOps graph range classified
     let change = { id = 0; changeId = System.Guid.NewGuid(); ops = ops }
-    let result = History.applyChange change (stateOf graph)
+    let result = ChangeValidation.applyChange change (stateOf graph)
     match result with
     | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
     | ApplyResult.Unchanged _ -> Assert.True(false, "Expected Changed")
@@ -91,7 +91,7 @@ let ``reconcileSiteMapFrom after planDeleteOps drops deleted children from paren
     let classified = ViewModelDeleteOps.classifyDeleteForSelection graph range
     let ops = ViewModelDeleteOps.planDeleteOps graph range classified
     let change = { id = 0; changeId = System.Guid.NewGuid(); ops = ops }
-    match History.applyChange change (stateOf graph) with
+    match ChangeValidation.applyChange change (stateOf graph) with
     | ApplyResult.Changed s ->
         Assert.Contains(a, rootChildNodeIds siteMap)
         Assert.Contains(b, rootChildNodeIds siteMap)
@@ -113,7 +113,7 @@ let ``reconcileSiteMapFrom after partial planDeleteOps keeps leftover children``
     let classified = ViewModelDeleteOps.classifyDeleteForSelection graph range
     let ops = ViewModelDeleteOps.planDeleteOps graph range classified
     let change = { id = 0; changeId = System.Guid.NewGuid(); ops = ops }
-    match History.applyChange change (stateOf graph) with
+    match ChangeValidation.applyChange change (stateOf graph) with
     | ApplyResult.Changed s ->
         Assert.Contains(a, rootChildNodeIds siteMap)
         Assert.Contains(b, rootChildNodeIds siteMap)
@@ -134,7 +134,7 @@ let ``classifyDeleteForChildSpan plans delete without a SiteEntry`` () =
     Assert.Equal(2, classified.Length)
     let ops = ViewModelDeleteOps.planDeleteChildSpan graph classified
     let change = { id = 0; changeId = System.Guid.NewGuid(); ops = ops }
-    match History.applyChange change (stateOf graph) with
+    match ChangeValidation.applyChange change (stateOf graph) with
     | ApplyResult.Changed s ->
         let rootKids = s.graph.nodes.[s.graph.root].children
         Assert.False(rootKids |> List.exists (fun c -> c.id = a))
@@ -177,7 +177,7 @@ let ``planDeleteOps promotion: ref promoted to owner, original owner row removed
     Assert.Equal(ViewModelDeleteOps.LocalDeleteWithPromotion, classified.[0].action)
     let ops = ViewModelDeleteOps.planDeleteOps g3 range classified
     let change = { id = 0; changeId = System.Guid.NewGuid(); ops = ops }
-    let result = History.applyChange change (stateOf g3)
+    let result = ChangeValidation.applyChange change (stateOf g3)
     match result with
     | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
     | ApplyResult.Unchanged _ -> Assert.True(false, "Expected Changed")
@@ -216,7 +216,7 @@ let ``classifyDeleteForSelection returns empty for workspace delete`` () =
     let ws = NodeId.New()
     let g0 = Graph.create ()
     let g1 =
-        History.applyChange
+        ChangeValidation.applyChange
             { id = 0
               changeId = System.Guid.NewGuid()
               ops =
@@ -237,7 +237,7 @@ let ``classifyDeleteForSelection cancels whole selection when workspace is in ra
     let other = NodeId.New()
     let g0 = Graph.create ()
     let g1 =
-        History.applyChange
+        ChangeValidation.applyChange
             { id = 0
               changeId = System.Guid.NewGuid()
               ops =
@@ -270,7 +270,7 @@ let ``planDeleteOps single node MoveToTrash still works`` () =
     Assert.Equal(1, classified.Length)
     let ops = ViewModelDeleteOps.planDeleteOps g2 range classified
     let change = { id = 0; changeId = System.Guid.NewGuid(); ops = ops }
-    let result = History.applyChange change (stateOf g2)
+    let result = ChangeValidation.applyChange change (stateOf g2)
     match result with
     | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
     | ApplyResult.Unchanged _ -> Assert.True(false, "Expected Changed")
@@ -300,7 +300,7 @@ let ``planDeleteOps single item hard-delete from TRASH: item removed permanently
     Assert.Equal(ViewModelDeleteOps.HardDeleteSubtreeInTrash, classified.[0].action)
     let ops = ViewModelDeleteOps.planDeleteOps g2 range classified
     let change = { id = 0; changeId = System.Guid.NewGuid(); ops = ops }
-    let result = History.applyChange change (stateOf g2)
+    let result = ChangeValidation.applyChange change (stateOf g2)
     match result with
     | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
     | ApplyResult.Unchanged _ -> Assert.True(false, "Expected Changed, not Unchanged")
@@ -328,7 +328,7 @@ let ``planDeleteOps multi-item hard-delete from TRASH: both items removed perman
         "all items should be HardDeleteSubtreeInTrash")
     let ops = ViewModelDeleteOps.planDeleteOps g2 range classified
     let change = { id = 0; changeId = System.Guid.NewGuid(); ops = ops }
-    let result = History.applyChange change (stateOf g2)
+    let result = ChangeValidation.applyChange change (stateOf g2)
     match result with
     | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
     | ApplyResult.Unchanged _ -> Assert.True(false, "Expected Changed, not Unchanged")
@@ -395,7 +395,7 @@ let ``classifyDeleteForSelection unlinks a Ref to Workspaces`` () =
     Assert.Equal(ViewModelDeleteOps.LocalDeleteRefOnly, classified.[0].action)
     let ops = ViewModelDeleteOps.planDeleteOps g3 range classified
     let result =
-        History.applyChange
+        ChangeValidation.applyChange
             { id = 0; changeId = System.Guid.NewGuid(); ops = ops }
             (stateOf g3)
     match result with
@@ -419,7 +419,7 @@ let ``classifyDeleteForSelection unlinks a Ref to a Workspace Node`` () =
         Graph.replace g1.root 0 [] (owned [ a ]) g1
         |> ModelBuilder.requireOk "root->[a]"
     let g3 =
-        History.applyChange
+        ChangeValidation.applyChange
             { id = 0
               changeId = System.Guid.NewGuid()
               ops =
@@ -437,7 +437,7 @@ let ``classifyDeleteForSelection unlinks a Ref to a Workspace Node`` () =
         Assert.Equal(ViewModelDeleteOps.LocalDeleteRefOnly, classified.[0].action)
         let ops = ViewModelDeleteOps.planDeleteOps g4 range classified
         let result =
-            History.applyChange
+            ChangeValidation.applyChange
                 { id = 1; changeId = System.Guid.NewGuid(); ops = ops }
                 (stateOf g4)
         match result with
@@ -461,7 +461,7 @@ let ``planDeleteOps Directory under workspace moves to TRASH`` () =
     Assert.Equal(ViewModelDeleteOps.MoveToTrash, classified.[0].action)
     let ops = ViewModelDeleteOps.planDeleteOps graph range classified
     let change = { id = 0; changeId = System.Guid.NewGuid(); ops = ops }
-    let result = History.applyChange change (stateOf graph)
+    let result = ChangeValidation.applyChange change (stateOf graph)
     match result with
     | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
     | ApplyResult.Unchanged _ -> Assert.True(false, "Expected Changed")
@@ -484,7 +484,7 @@ let ``planDeleteOps second Directory with same name as one already in TRASH appl
             range1
             (ViewModelDeleteOps.classifyDeleteForSelection graph0 range1)
     let graph1 =
-        match History.applyChange { id = 0; changeId = System.Guid.NewGuid(); ops = ops1 } (stateOf graph0) with
+        match ChangeValidation.applyChange { id = 0; changeId = System.Guid.NewGuid(); ops = ops1 } (stateOf graph0) with
         | ApplyResult.Changed s -> s.graph
         | r -> failwithf "first delete failed: %A" r
     let dir2 = NodeId.New()
@@ -501,7 +501,7 @@ let ``planDeleteOps second Directory with same name as one already in TRASH appl
             range2
             (ViewModelDeleteOps.classifyDeleteForSelection graph2 range2)
     let result =
-        History.applyChange { id = 1; changeId = System.Guid.NewGuid(); ops = ops2 } (stateOf graph2)
+        ChangeValidation.applyChange { id = 1; changeId = System.Guid.NewGuid(); ops = ops2 } (stateOf graph2)
     match result with
     | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
     | ApplyResult.Unchanged _ -> Assert.True(false, "Expected Changed")
@@ -553,7 +553,7 @@ let ``owned Delete with self-Ref moves to TRASH and History applies`` () =
     let classified = ViewModelDeleteOps.classifyDeleteForSelection graph range
     let ops = ViewModelDeleteOps.planDeleteOps graph range classified
     let change = { id = 0; changeId = System.Guid.NewGuid(); ops = ops }
-    match History.applyChange change (stateOf graph) with
+    match ChangeValidation.applyChange change (stateOf graph) with
     | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
     | ApplyResult.Unchanged _ -> Assert.True(false, "Expected Changed")
     | ApplyResult.Changed s ->
@@ -590,7 +590,7 @@ let ``owned Delete with self-Ref and another Ref promotes the other Ref`` () =
     Assert.Equal(ViewModelDeleteOps.LocalDeleteWithPromotion, classified.[0].action)
     let ops = ViewModelDeleteOps.planDeleteOps graph3 range classified
     let change = { id = 0; changeId = System.Guid.NewGuid(); ops = ops }
-    match History.applyChange change (stateOf graph3) with
+    match ChangeValidation.applyChange change (stateOf graph3) with
     | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
     | ApplyResult.Unchanged _ -> Assert.True(false, "Expected Changed")
     | ApplyResult.Changed s ->

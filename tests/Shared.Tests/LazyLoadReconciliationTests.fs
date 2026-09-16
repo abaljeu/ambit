@@ -87,7 +87,7 @@ let ``nested file parse after upload tree build is accepted`` () =
             [ Op.SetDocumentState(file.id, Unparsed, Current)
               Op.NewNode(parsedId, "parsed")
               Op.Replace(file.id, [], [ attach ]) ] }
-    match History.applyChange parseChange state with
+    match ChangeValidation.applyChange parseChange state with
     | ApplyResult.Changed next ->
         Assert.Equal(Current, next.graph.nodes.[file.id].documentState)
         Assert.Equal(Current, next.graph.nodes.[src.id].documentState)
@@ -615,7 +615,7 @@ let ``directory amb ref to existing owned child keeps owner occurrence`` () =
         let state =
             { graph = graph1
               revision = Revision.Zero }
-        match History.applyChange change state with
+        match ChangeValidation.applyChange change state with
         | ApplyResult.Invalid(_, msg) ->
             Assert.Fail($"ownership/apply failed: {msg}")
         | ApplyResult.Unchanged _ -> Assert.Fail("expected Changed")

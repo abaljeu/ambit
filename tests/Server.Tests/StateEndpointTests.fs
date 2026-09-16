@@ -152,7 +152,7 @@ let private stateWithChild (text: string) =
 
     let change, _ = changeAddChild Graph.rootId 0 text
 
-    match History.applyChange change initialState with
+    match ChangeValidation.applyChange change initialState with
     | ApplyResult.Changed st -> { st with revision = Revision 1 }
     | ApplyResult.Unchanged _ -> failwith "Expected file bootstrap change to apply"
     | ApplyResult.Invalid (_, err) -> failwith $"Expected valid bootstrap change: {err}"
@@ -1101,7 +1101,7 @@ let ``DB restart keeps duplicate changeId idempotent`` () = task {
 }
 
 [<Fact>]
-let ``file restart keeps inverse Change in ChangeLog`` () = task {
+let ``file restart keeps inverse Change in EventLog`` () = task {
     let tempDir = newTempDir ()
     use client1 = createClientForDir tempDir
     let! json0 = getStateJson client1 testFile
@@ -1128,7 +1128,7 @@ let ``file restart keeps inverse Change in ChangeLog`` () = task {
 }
 
 [<Fact>]
-let ``DB restart keeps inverse Change in ChangeLog`` () = task {
+let ``DB restart keeps inverse Change in EventLog`` () = task {
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
     use client1 = createDbClient connStr

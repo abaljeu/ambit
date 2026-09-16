@@ -228,7 +228,7 @@ let private suffixAfter (submitted: Change) (confirmed: Change) =
     List.skip submitted.ops.Length confirmed.ops
 
 [<Fact>]
-let ``ACK returns stamped complete Change equal to ChangeLog`` () = task {
+let ``ACK returns stamped complete Change equal to EventLog`` () = task {
     let dataDir = newTempDir ()
     let count = ref 0
     let defaults = FileAgent.defaultDependencies dataDir

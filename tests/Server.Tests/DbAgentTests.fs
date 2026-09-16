@@ -236,7 +236,7 @@ let ``loadPersistedState ignores Change rows beyond authoritative projection`` (
             1
             change.id
             change.changeId
-            (ChangeLog.encodeChange change)
+            (EventLogFile.encodeChange change)
         |> Async.AwaitTask
     let! loaded =
         Database.loadPersistedState connStr decodeChange
@@ -409,7 +409,7 @@ let ``loadPersistedState preserves node kind`` () = task {
                   ChildListWire.insertAt Graph.rootId g0.nodes.[Graph.rootId].children idx [ ChildNode.owner fileId ] ] }
 
         match
-            History.applyChange change
+            ChangeValidation.applyChange change
                 { graph = g0
                   revision = Revision 0 }
         with
