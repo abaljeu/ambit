@@ -310,10 +310,10 @@ let ``leading-dot directory File represents containing Directory named .scratch`
 [<Fact>]
 let ``reserved gambol dot files are excluded from reconciliation`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
-    let paths = [ "gambol.log"; "nested/GAMBOL.meta"; "gambol" ]
+    let paths = [ "gambol.events"; "nested/GAMBOL.meta"; "gambol" ]
     let graph2 = requirePlan graph "home" paths |> applyOps graph
     let children = ownedNamedChildren graph2 workspaceId
-    Assert.DoesNotContain(children, fun (name, _) -> name = "gambol.log")
+    Assert.DoesNotContain(children, fun (name, _) -> name = "gambol.events")
     Assert.DoesNotContain(children, fun (name, _) -> name = "nested")
     Assert.Contains(children, fun (name, _) -> name = "gambol")
 

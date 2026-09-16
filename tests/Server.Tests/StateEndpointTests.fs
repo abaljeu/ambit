@@ -143,7 +143,7 @@ let private writeDocumentFiles (tempDir: string) (state: State) =
     match Bookkeeping.writeRevision tempDir state.revision.Value with
     | Ok () -> ()
     | Error err -> failwith err
-    File.WriteAllText(Bookkeeping.logPath tempDir, "")
+    File.WriteAllText(EventLogFile.eventsPath tempDir, "")
 
 let private stateWithChild (text: string) =
     let initialState =
@@ -901,8 +901,8 @@ let ``POST changes creates log file`` () = task {
 
     let! _ = addChild client testFile rootId (Revision 0) "logged"
 
-    let logPath = Bookkeeping.logPath tempDir
-    Assert.True(File.Exists(logPath), "Log file should exist after first change")
+    let logPath = EventLogFile.eventsPath tempDir
+    Assert.True(File.Exists(logPath), "Events file should exist after first change")
     let content = readFileShared logPath
     Assert.Contains("logged", content)
 }
@@ -938,11 +938,11 @@ let ``Log contains valid change data after POST`` () = task {
 
     let! _ = addChild client testFile rootId (Revision 0) "logged-entry"
 
-    let logPath = Bookkeeping.logPath tempDir
+    let logPath = EventLogFile.eventsPath tempDir
     Assert.True(File.Exists(logPath))
     let content = readFileShared logPath
     Assert.Contains("logged-entry", content)
-    Assert.True(content.StartsWith("00000000"), "Log entry should have 8-digit padded change id prefix")
+    Assert.True(content.StartsWith("00000000"), "Log entry should have 8-digit padded id prefix")
 }
 
 // ---- DB restart tests (DB backend only) ----

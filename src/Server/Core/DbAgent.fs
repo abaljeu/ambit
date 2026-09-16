@@ -111,19 +111,19 @@ module DbAgent =
             externalChanges
             message
 
-    let private tryPersistedChange loaded changeId =
-        if String.IsNullOrEmpty loaded.connectionString then
-            None
-        else
-            Database.tryGetPersistedPayload loaded.connectionString changeId
-            |> Async.AwaitTask
-            |> Async.RunSynchronously
-            |> Option.bind (decodeChangePayload >> Result.toOption)
+    let private tryPersistedEvent loaded submissionId =
+        loaded.eventLog.Value.events
+        |> List.tryFind (fun e -> e.submissionId = submissionId)
 
-    let private applyOneChange loaded (s, confirmations, logEntries, externalChanges) change =
-        match tryPersistedChange loaded change.changeId with
-        | Some stored ->
-            Ok(s, stored :: confirmations, logEntries, externalChanges)
+    let private applyOneChange loaded (s, confirmations, externalChanges) change =
+        match tryPersistedEvent loaded change.changeId with
+        | Some storedEvent ->
+            // Already applied - derive Change from Event
+            let stored =
+                { id = s.revision.Value
+                  changeId = storedEvent.submissionId
+                  ops = Gambol.Shared.Events.Event.ops storedEvent |> Option.defaultValue [] }
+            Ok(s, stored :: confirmations, externalChanges)
         | None ->
             let result, amended, applied =
                 ChangeAmendment.applyChange change s
@@ -137,7 +137,6 @@ module DbAgent =
                 Ok(
                     nextState,
                     applied :: confirmations,
-                    (nextRev, applied) :: logEntries,
                     externalChanges || amended)
 
     let private applyBatch loaded changes =
@@ -148,47 +147,35 @@ module DbAgent =
                     match acc with
                     | Error err -> Error err
                     | Ok stateAndLog -> applyOneChange loaded stateAndLog change)
-                (Ok(loaded.state.Value, [], [], false))
-            |> Result.map (fun (newState, confirmations, entries, externalChanges) ->
-                newState, List.rev confirmations, List.rev entries, externalChanges)
+                (Ok(loaded.state.Value, [], false))
+            |> Result.map (fun (newState, confirmations, externalChanges) ->
+                newState, List.rev confirmations, externalChanges)
         with ex ->
             eprintfn "DbAgent: failed to apply batch: %s" ex.Message
             Error $"Database error: {ex.Message}"
 
-    let private persistBatch loaded newState
-        (logEntries: (int * Change) list)
+    let private persistGraphProjection loaded newState
         =
-        try
-            use conn = Database.getConnection loaded.connectionString
-            conn.Open()
-            use tx = conn.BeginTransaction()
-            logEntries
-            |> List.iter (fun (serverRevAfter, change) ->
-                (Database.appendChangeWithTx
-                    tx
-                    serverRevAfter
-                    change.id
-                    change.changeId
-                    (EventLogFile.encodeChange change))
-                    .GetAwaiter()
-                    .GetResult())
-            match logEntries with
-            | [] -> ()
-            | _ ->
+        if List.isEmpty (Map.toList newState.graph.nodes) then
+            Ok ()
+        else
+            try
+                use conn = Database.getConnection loaded.connectionString
+                conn.Open()
+                use tx = conn.BeginTransaction()
                 let patch =
-                    logEntries
-                    |> List.map snd
-                    |> DatabaseProjection.plan
+                    DatabaseProjection.plan
+                        loaded.state.Value.graph
                         newState.graph
                         newState.revision.Value
                 (DatabaseProjection.persistWithTx tx newState.graph patch)
                     .GetAwaiter()
                     .GetResult()
-            tx.Commit()
-            Ok ()
-        with ex ->
-            eprintfn "DbAgent: failed to persist batch: %s" ex.Message
-            Error $"Database error: {ex.Message}"
+                tx.Commit()
+                Ok ()
+            with ex ->
+                eprintfn "DbAgent: failed to persist projection: %s" ex.Message
+                Error $"Database error: {ex.Message}"
 
     let private writeLiveSnapshot liveSaveDataDir preGraph postGraph =
         try
@@ -239,12 +226,12 @@ module DbAgent =
                     preGraph
                     postGraph)
 
-    let private persistLiveChange loaded graphOnly preGraph newState logEntries =
-        match graphOnly, loaded.liveSaveDataDir, logEntries with
+    let private persistLiveChange loaded graphOnly preGraph newState fresh =
+        match graphOnly, loaded.liveSaveDataDir, fresh with
         | false, Some dataDir, _::_ ->
             let ops =
-                logEntries
-                |> List.collect (fun (_, change) -> change.ops)
+                fresh
+                |> List.collect (fun change -> change.ops)
             CoreMailboxBackend.runBounded
                 CoreMailboxBackend.ChangeProcessingTimeoutMs
                 (fun () ->
@@ -256,7 +243,7 @@ module DbAgent =
             |> Result.map Some
         | _ -> Ok None
 
-    let private preparePostChange newState confirmations logEntries
+    let private preparePostChange newState confirmations fresh
         (stampedOpt: PersistGraphOk option)
         =
         let stampOps, stateToStore, persistMessage =
@@ -266,34 +253,30 @@ module DbAgent =
                 { newState with graph = stamped.graph },
                 stamped.message
             | None -> [], newState, None
-        let fresh = logEntries |> List.map snd
         let stampedFresh, ackChanges =
             CoreMailboxBackend.overlayFresh confirmations fresh stampOps
-        let storedEntries =
-            List.zip (logEntries |> List.map fst) stampedFresh
-        stateToStore, ackChanges, storedEntries, persistMessage
+        stateToStore, ackChanges, persistMessage
 
     let private commitPostChange
         loaded
         graphOnly
-        sourceEntries
+        fresh
         stateToStore
         ackChanges
         externalChanges
         persistMessage
-        storedEntries
         =
         match
             CoreMailboxBackend.runBounded
                 CoreMailboxBackend.ChangeProcessingTimeoutMs
-                (fun () -> persistBatch loaded stateToStore storedEntries)
+                (fun () -> persistGraphProjection loaded stateToStore)
         with
         | Error err -> Error err
         | Ok () ->
             loaded.state.Value <- stateToStore
             if graphOnly then
                 loaded.persistedGraph.Value <- stateToStore.graph
-            elif not (List.isEmpty sourceEntries) then
+            elif not (List.isEmpty fresh) then
                 loaded.persistedGraph.Value <- stateToStore.graph
                 if loaded.snapshotInProgress.Value then
                     loaded.snapshotNeeded.Value <- true
@@ -306,7 +289,7 @@ module DbAgent =
         graphOnly
         newState
         confirmations
-        logEntries
+        fresh
         externalChanges
         =
         let preGraph = loaded.state.Value.graph
@@ -314,22 +297,21 @@ module DbAgent =
         | Error err -> Error err
         | Ok () ->
             match
-                persistLiveChange loaded graphOnly preGraph newState logEntries
+                persistLiveChange loaded graphOnly preGraph newState fresh
             with
             | Error err -> Error err
             | Ok stampedOpt ->
-                let stateToStore, ackChanges, storedEntries, persistMessage =
+                let stateToStore, ackChanges, persistMessage =
                     preparePostChange
-                        newState confirmations logEntries stampedOpt
+                        newState confirmations fresh stampedOpt
                 commitPostChange
                     loaded
                     graphOnly
-                    logEntries
+                    fresh
                     stateToStore
                     ackChanges
                     externalChanges
                     persistMessage
-                    storedEntries
 
     let private processPostChange loaded (changes: Change list) graphOnly =
         if changes.IsEmpty then
@@ -341,13 +323,17 @@ module DbAgent =
                     (fun () -> applyBatch loaded changes)
             with
             | Error err -> Error err
-            | Ok (newState, confirmations, logEntries, externalChanges) ->
+            | Ok (newState, confirmations, externalChanges) ->
+                // Fresh changes are ones not found in confirmations before submission
+                let submittedIds = changes |> List.map (fun c -> c.changeId) |> Set.ofList
+                let fresh = confirmations |> List.filter (fun c ->
+                    Set.contains c.changeId submittedIds)
                 finishAppliedPostChange
                     loaded
                     graphOnly
                     newState
                     confirmations
-                    logEntries
+                    fresh
                     externalChanges
 
     let private handleSnapshotDone loaded persisted =
