@@ -24,18 +24,6 @@ type Change =
       changeId: System.Guid   // unique per network submission; used for server-side dedup
       ops: Op list }
 
-type ActorLifecycleEvent =
-    | ActorStarted of focusId: NodeId * authority: string
-    | ActorFinished of focusId: NodeId
-
-type HistoryEvent =
-    | ChangeEvent of Change
-    | ActorEvent of id: int * ActorLifecycleEvent
-
-type History =
-    { past: HistoryEvent list
-      future: HistoryEvent list
-      nextId: int }
 
 
 type State =
@@ -367,8 +355,9 @@ module Change =
 
 
 
+/// Validation and apply functions for Change operations with ownership semantics.
 [<RequireQualifiedAccess>]
-module History =
+module ChangeValidation =
     let private validateOwnershipSemantics
         (graph: Graph)
         (childIdsScope: Set<NodeId> option)
@@ -557,49 +546,6 @@ module History =
                                     dupId)
                             | None -> Ok ()
 
-    let empty: History =
-        { past = []
-          future = []
-          nextId = 0 }
-
-    let private loggedChangeId =
-        function
-        | ChangeEvent change -> Some change.changeId
-        | ActorEvent _ -> None
-
-    /// Restore ChangeEvents from the durable Change stream. Skips changeIds
-    /// already on History so persist is not copied onto a second list.
-    let restoreChanges (logged: Change list) (history: History) : History =
-        let known =
-            history.past
-            |> List.choose loggedChangeId
-            |> Set.ofList
-        let fresh =
-            logged
-            |> List.filter (fun change ->
-                not (Set.contains change.changeId known))
-        if List.isEmpty fresh then
-            history
-        else
-            let events = fresh |> List.map ChangeEvent
-            let nextId =
-                fresh
-                |> List.fold
-                    (fun acc change -> max acc (change.id + 1))
-                    history.nextId
-            { history with
-                past = history.past @ events
-                future = []
-                nextId = nextId }
-
-    let fromChanges (changes: Change list) : History =
-        restoreChanges changes empty
-
-    let newChange (history: History) : Change =
-        { id = history.nextId
-          changeId = System.Guid.NewGuid()
-          ops = [] }
-
     let validateOwnershipLocated (graph: Graph) : Result<unit, string * NodeId> =
         validateOwnershipSemantics graph None
 
@@ -689,6 +635,14 @@ module History =
             match validateOwnershipForChange s.graph change with
             | Error msg -> ApplyResult.Invalid(state, msg)
             | Ok () -> ApplyResult.Changed s
+
+/// Backward compatibility - reexport ChangeValidation functions under History name temporarily
+[<RequireQualifiedAccess>]
+module History =
+    let validateOwnership = ChangeValidation.validateOwnership
+    let validateOwnershipLocated = ChangeValidation.validateOwnershipLocated
+    let applyChange = ChangeValidation.applyChange
+    let applyChangeTrusted = ChangeValidation.applyChangeTrusted
 
 /// After DocumentPersistence stamps artifact roots, emit ops for the change log / poll tail.
 [<RequireQualifiedAccess>]

@@ -12,13 +12,12 @@ let private mkChange id =
 
 let private asPending change = PendingChange.ofChange change
 
-let private withKind recordId kind change : PendingChange =
+let private withKind recordId change : PendingChange =
     { change = change
       transition =
         Some
             { recordId = recordId
-              submittedChangeId = change.changeId
-              kind = kind } }
+              submittedChangeId = change.changeId } }
 
 [<Fact>]
 let ``tryStartSubmit returns SubmitPendingBatch effect when queue is ready`` () =
@@ -329,9 +328,9 @@ let ``mixed C Undo Redo delta chain preserves identities and rewrites revisions`
     let undo = mkChange 99
     let redo = mkChange 99
     let items =
-        [ withKind 4 PendingKind.Normal change
-          withKind 4 PendingKind.Undo undo
-          withKind 4 PendingKind.Redo redo ]
+        [ withKind 4 change
+          withKind 4 undo
+          withKind 4 redo ]
     let chained = SyncBatch.toPendingDeltaChain 7 items
     Assert.Equal<int list>(
         [ 7; 8; 9 ],
@@ -339,11 +338,6 @@ let ``mixed C Undo Redo delta chain preserves identities and rewrites revisions`
     Assert.Equal<Guid list>(
         [ change.changeId; undo.changeId; redo.changeId ],
         chained |> List.map (fun item -> item.change.changeId))
-    Assert.Equal<PendingKind option list>(
-        [ Some PendingKind.Normal; Some PendingKind.Undo; Some PendingKind.Redo ],
-        chained
-        |> List.map (fun item ->
-            item.transition |> Option.map (fun t -> t.kind)))
     let wire = SyncBatch.toWireBatch 7 items
     Assert.Equal<Change list>(
         [ { change with id = 7 }
@@ -390,9 +384,9 @@ let ``retry list stays the submitted snapshot after later actions append`` () =
 [<Fact>]
 let ``same recordId C Undo Redo remain one SubmitPendingBatch`` () =
     let items =
-        [ mkChange 0 |> withKind 7 PendingKind.Normal
-          mkChange 0 |> withKind 7 PendingKind.Undo
-          mkChange 0 |> withKind 7 PendingKind.Redo ]
+        [ mkChange 0 |> withKind 7
+          mkChange 0 |> withKind 7
+          mkChange 0 |> withKind 7 ]
     let syncInfo = { SyncInfo.initial with pendingChanges = items }
     let _, effects = SyncPlanner.tryStartSubmit (Revision 3) syncInfo
     match effects with
@@ -403,10 +397,10 @@ let ``same recordId C Undo Redo remain one SubmitPendingBatch`` () =
 
 [<Fact>]
 let ``retireSubmittedPrefix remainder with the same recordId still submits together`` () =
-    let first = mkChange 0 |> withKind 7 PendingKind.Normal
+    let first = mkChange 0 |> withKind 7
     let remainder =
-        [ mkChange 0 |> withKind 7 PendingKind.Undo
-          mkChange 0 |> withKind 7 PendingKind.Redo ]
+        [ mkChange 0 |> withKind 7
+          mkChange 0 |> withKind 7 ]
     let syncInfo =
         { SyncInfo.initial with
             pendingChanges = first :: remainder
@@ -434,7 +428,7 @@ let ``restorePending strips transition and does not record History`` () =
         { id = 1
           changeId = Guid.NewGuid()
           ops = [ Op.SetText(node.id, node.text, "restored") ] }
-    let saved = [ stale; change |> withKind 3 PendingKind.Undo ]
+    let saved = [ stale; change |> withKind 3 ]
     let snapshot = { state0 with revision = Revision 1 }
     let next, restored =
         SyncPlanner.restorePending (Revision 1) saved snapshot
@@ -451,7 +445,6 @@ let ``workspace singleton lineage is the exact item used before the request`` ()
     | Some transition ->
         Assert.Equal(5, transition.recordId)
         Assert.Equal(change.changeId, transition.submittedChangeId)
-        Assert.Equal(PendingKind.Normal, transition.kind)
     | None ->
         failwith "Expected workspace PendingTransition"
     let chained = SyncBatch.toPendingDeltaChain 12 [ submitted ]

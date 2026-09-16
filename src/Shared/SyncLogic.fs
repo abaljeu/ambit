@@ -75,7 +75,6 @@ module SyncLogic =
             (Ok state)
 
     let private pendingItem
-        (kind: PendingKind)
         (recordId: int)
         (event: Gambol.Shared.Events.Event)
         : PendingChange =
@@ -83,8 +82,7 @@ module SyncLogic =
           transition =
             Some
                 { recordId = recordId
-                  submittedChangeId = event.submissionId
-                  kind = kind } }
+                  submittedChangeId = event.submissionId } }
 
     /// Apply a Sync response atomically under Loaded rules.
     /// Packages install after the projected tail so authoritative snapshots at the
@@ -195,10 +193,10 @@ module SyncLogic =
                 { state with
                     graph = newState.graph
                     history = history },
-                pendingItem PendingKind.Normal recordId event)
+                pendingItem recordId event)
 
     let private applyInverse
-        (kind: PendingKind)
+        (createBody: EventId * Op list -> EventBody)
         (planned: (Change * string * ClientHistory * int) option)
         (state: ClientSyncState)
         : Result<ClientSyncState * PendingChange, string> option =
@@ -209,14 +207,7 @@ module SyncLogic =
             | ApplyResult.Invalid (_, msg) -> Some (Error msg)
             | ApplyResult.Unchanged newState
             | ApplyResult.Changed newState ->
-                let bodyKind = 
-                    match kind with
-                    | PendingKind.Undo -> 
-                        Gambol.Shared.Events.EventBody.Undo(Gambol.Shared.Events.EventId recordId, inverse.ops)
-                    | PendingKind.Redo -> 
-                        Gambol.Shared.Events.EventBody.Redo(Gambol.Shared.Events.EventId recordId, inverse.ops)
-                    | PendingKind.Normal -> 
-                        Gambol.Shared.Events.EventBody.Change inverse.ops
+                let bodyKind = createBody (Gambol.Shared.Events.EventId recordId, inverse.ops)
                 let event =
                     { id = Gambol.Shared.Events.EventId recordId
                       submissionId = inverse.changeId
@@ -228,14 +219,14 @@ module SyncLogic =
                         { state with
                             graph = newState.graph
                             history = history },
-                        pendingItem kind recordId event))
+                        pendingItem recordId event))
 
     let applyLocalUndo
         (changeId: System.Guid)
         (state: ClientSyncState)
         : Result<ClientSyncState * PendingChange, string> option =
         applyInverse
-            PendingKind.Undo
+            EventBody.Undo
             (ClientHistory.undo state.revision changeId state.history)
             state
 
@@ -244,7 +235,7 @@ module SyncLogic =
         (state: ClientSyncState)
         : Result<ClientSyncState * PendingChange, string> option =
         applyInverse
-            PendingKind.Redo
+            EventBody.Redo
             (ClientHistory.redo state.revision changeId state.history)
             state
 

@@ -5,9 +5,6 @@ open Gambol.Shared
 
 type ActorName = ActorName of string
 
-/// Compatibility name retained until the Event contract ticket.
-type StartActorRequest = Gambol.Shared.Events.ActorStart
-
 /// Actor input: Graph plus named ids and Actor secret.
 type ActorInput =
     { graph: Graph
