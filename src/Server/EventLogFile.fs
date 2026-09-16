@@ -8,8 +8,6 @@ open Gambol.Shared.Events
 
 module EventEnc = Thoth.Json.Newtonsoft.Encode
 module EventDec = Thoth.Json.Newtonsoft.Decode
-module Encode = Thoth.Json.Newtonsoft.Encode
-module Decode = Thoth.Json.Newtonsoft.Decode
 
 /// Append-only JSON log for Events and Changes.
 [<RequireQualifiedAccess>]
@@ -21,12 +19,13 @@ module EventLogFile =
 
     let private headerLength = 8
 
+    let private entryLine (id: int) (json: string) =
+        sprintf "%08d" id + json + Environment.NewLine
+
     /// Append a single entry to the log with an 8-char zero-padded decimal id.
     let appendEntry (stream: FileStream) (id: int) (json: string) : int64 =
         let offset = stream.Position
-        let header = sprintf "%08d" id
-        let line = header + json + Environment.NewLine
-        let bytes = Encoding.UTF8.GetBytes(line)
+        let bytes = Encoding.UTF8.GetBytes(entryLine id json)
         stream.Write(bytes, 0, bytes.Length)
         stream.Flush()
         offset
@@ -36,9 +35,7 @@ module EventLogFile =
         let startOffset = stream.Position
         let lines =
             entries
-            |> List.map (fun (id, json) ->
-                let header = sprintf "%08d" id
-                header + json + Environment.NewLine)
+            |> List.map (fun (id, json) -> entryLine id json)
         let offsets =
             lines
             |> List.mapFold
@@ -59,10 +56,11 @@ module EventLogFile =
         let length = int stream.Length
         if length > 0 then
             let bytes = Array.zeroCreate length
-            let mutable totalRead = 0
-            while totalRead < length do
-                let n = stream.Read(bytes, totalRead, length - totalRead)
-                totalRead <- totalRead + n
+            let rec fill totalRead =
+                if totalRead < length then
+                    let n = stream.Read(bytes, totalRead, length - totalRead)
+                    fill (totalRead + n)
+            fill 0
             index.Add(0L)
             for i in 0 .. length - 1 do
                 if bytes.[i] = byte '\n' && i + 1 < length then
@@ -70,17 +68,26 @@ module EventLogFile =
         index
 
     /// Read a single record at the given byte offset. Returns (id, jsonPayload).
-    let readEntryAt (stream: FileStream) (offset: int64) : int * string =
+    let readEntryAt
+        (stream: FileStream)
+        (offset: int64)
+        : Result<int * string, string> =
         stream.Seek(offset, SeekOrigin.Begin) |> ignore
         let buf = ResizeArray<byte>()
-        let mutable b = stream.ReadByte()
-        while b >= 0 && b <> int '\n' do
-            buf.Add(byte b)
-            b <- stream.ReadByte()
+        let rec readLine () =
+            match stream.ReadByte() with
+            | b when b < 0 || b = int '\n' -> ()
+            | b ->
+                buf.Add(byte b)
+                readLine ()
+        readLine ()
         let line = Encoding.UTF8.GetString(buf.ToArray()).TrimEnd('\r')
-        let id = Int32.Parse(line.Substring(0, headerLength))
-        let json = line.Substring(headerLength)
-        id, json
+        if line.Length < headerLength then
+            Error "Event log entry shorter than header"
+        else
+            match Int32.TryParse(line.Substring(0, headerLength)) with
+            | true, id -> Ok(id, line.Substring(headerLength))
+            | false, _ -> Error "Invalid event log entry header"
 
     // ------------------------------------------------------------------
     // Event-specific operations
@@ -110,9 +117,11 @@ module EventLogFile =
         : Event list =
         [ 0 .. offsets.Count - 1 ]
         |> List.choose (fun i ->
-            let _, json = readEntryAt stream offsets.[i]
-            match decodeEvent json with
-            | Ok event -> Some event
+            match readEntryAt stream offsets.[i] with
+            | Ok(_, json) ->
+                match decodeEvent json with
+                | Ok event -> Some event
+                | Error _ -> None
             | Error _ -> None)
 
     let appendEvent
@@ -131,4 +140,3 @@ module EventLogFile =
             stream.SetLength(startLen)
             stream.Seek(0L, SeekOrigin.End) |> ignore
             Error $"Event log error: {ex.Message}"
-

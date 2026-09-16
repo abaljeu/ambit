@@ -14,7 +14,11 @@ module SyncBatch =
         : PendingChange list =
         items
         |> List.mapi (fun index item ->
-            { item with event = { item.event with id = Gambol.Shared.Events.EventId (baseRevision + index) } })
+            { item with
+                event = { item.event with 
+                            id = Gambol.Shared.Events.EventId 
+                                        (baseRevision + index) 
+                        } } )
 
     let toWireBatch
         (baseRevision: int)
