@@ -198,8 +198,8 @@ module internal CoreMailboxBackend =
         (change: Change)
         (reply: AsyncReplyChannel<Result<CoreChangesAccepted, string>>)
         : unit =
-        let event =
-            { id = Gambol.Shared.Events.EventId 0
+        let event: Event =
+            { id = EventId.zero
               submissionId = change.changeId
               authority = Gambol.Shared.Events.Authority ""
               commandName = ""

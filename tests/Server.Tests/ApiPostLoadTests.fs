@@ -7,6 +7,7 @@ open Microsoft.AspNetCore.Http.HttpResults
 open Xunit
 open Gambol.Server
 open Gambol.Shared
+open Gambol.Shared.Events
 open Thoth.Json.Newtonsoft
 
 module Encode = Thoth.Json.Newtonsoft.Encode
@@ -102,7 +103,7 @@ let ``postLoad Event-only when includeWorkspace false`` () = task {
         handleForLoad 5 [ event ] (stateResponse graph 5)
     let body =
         encodeRequest
-            { revision = 2
+            { revision = EventId 2
               targets =
                 [ { targetId = fileId; includeWorkspace = false } ] }
     let! result = Api.postLoad handle 100 200 body |> Async.StartAsTask
@@ -111,7 +112,7 @@ let ``postLoad Event-only when includeWorkspace false`` () = task {
         match decodeLoadResponse content.ResponseContent with
         | Error err -> failwith err
         | Ok (response: LoadResponse) ->
-            Assert.Equal(5, response.revision)
+            Assert.Equal(EventId 5, response.revision)
             Assert.Equal(100, response.buildEpochSec)
             Assert.Equal(200, response.pageBuildEpochSec)
             Assert.Equal(1, response.events.Length)
@@ -128,7 +129,7 @@ let ``postLoad Workspace subgraph when includeWorkspace true`` () = task {
         handleForLoad 7 [] (stateResponse graph 7)
     let body =
         encodeRequest
-            { revision = 7
+            { revision = EventId 7
               targets =
                 [ { targetId = fileId; includeWorkspace = true } ] }
     let! result = Api.postLoad handle 1 2 body |> Async.StartAsTask
@@ -137,7 +138,7 @@ let ``postLoad Workspace subgraph when includeWorkspace true`` () = task {
         match decodeLoadResponse content.ResponseContent with
         | Error err -> failwith err
         | Ok (response: LoadResponse) ->
-            Assert.Equal(7, response.revision)
+            Assert.Equal(EventId 7, response.revision)
             Assert.Empty(response.events)
             let byId = response.packages |> List.map (fun n -> n.id, n) |> Map.ofList
             Assert.True(byId.ContainsKey wsId)
@@ -161,7 +162,7 @@ let ``postLoad missing target returns events without packages`` () = task {
         handleForLoad 4 [ event ] (stateResponse graph 4)
     let body =
         encodeRequest
-            { revision = 0
+            { revision = EventId 0
               targets =
                 [ { targetId = NodeId.New(); includeWorkspace = true } ] }
     let! result = Api.postLoad handle 0 0 body |> Async.StartAsTask
@@ -170,7 +171,7 @@ let ``postLoad missing target returns events without packages`` () = task {
         match decodeLoadResponse content.ResponseContent with
         | Error err -> failwith err
         | Ok (response: LoadResponse) ->
-            Assert.Equal(4, response.revision)
+            Assert.Equal(EventId 4, response.revision)
             Assert.Equal(1, response.events.Length)
             Assert.Empty(response.packages)
     | other ->
@@ -190,7 +191,7 @@ let ``postLoad shares one revision for events and packages`` () = task {
         handleForLoad 9 [ event ] (stateResponse graph 9)
     let body =
         encodeRequest
-            { revision = 3
+            { revision = EventId 3
               targets =
                 [ { targetId = fileId; includeWorkspace = true } ] }
     let! result = Api.postLoad handle 10 20 body |> Async.StartAsTask
@@ -199,7 +200,7 @@ let ``postLoad shares one revision for events and packages`` () = task {
         match decodeLoadResponse content.ResponseContent with
         | Error err -> failwith err
         | Ok (response: LoadResponse) ->
-            Assert.Equal(9, response.revision)
+            Assert.Equal(EventId 9, response.revision)
             Assert.Equal(1, response.events.Length)
             Assert.True(response.packages |> List.exists (fun n -> n.id = wsId))
     | other ->
@@ -213,7 +214,7 @@ let ``postLoad same Workspace multi-target dedupes one package`` () = task {
         handleForLoad 8 [] (stateResponse graph 8)
     let body =
         encodeRequest
-            { revision = 8
+            { revision = EventId 8
               targets =
                 [ { targetId = dirId; includeWorkspace = true }
                   { targetId = fileId; includeWorkspace = true } ] }
@@ -291,7 +292,7 @@ let ``postLoad refuses selection spanning two Workspaces`` () = task {
         handleForLoad 3 [] (stateResponse graph3 3)
     let body =
         encodeRequest
-            { revision = 3
+            { revision = EventId 3
               targets =
                 [ { targetId = fileA; includeWorkspace = true }
                   { targetId = fileB; includeWorkspace = true } ] }

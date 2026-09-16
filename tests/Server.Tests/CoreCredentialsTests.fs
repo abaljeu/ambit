@@ -4,6 +4,7 @@ open Microsoft.AspNetCore.Http
 open Xunit
 open Gambol.Server
 open Gambol.Shared
+open Gambol.Server.Tests.TestBackend
 
 module Encode = Thoth.Json.Newtonsoft.Encode
 
@@ -81,7 +82,7 @@ let ``Adapter cookie fail and inactive sender are the same refuse family`` () =
         let event = eventFromChange change
         let body =
             Encode.toString 0 (
-                Serialization.encodeEventBatch { events = [ event ] })
+                Gambol.Shared.Events.EventJson.encodeEventBatch { events = [ event ] })
         let! coreFail =
             Api.postEvents handle 10 20 body
             |> Async.StartAsTask
@@ -102,7 +103,7 @@ let ``TCP or Database failure is not that auth refuse`` () = task {
     let event = eventFromChange change
     let body =
         Encode.toString 0 (
-            Serialization.encodeEventBatch { events = [ event ] })
+            Gambol.Shared.Events.EventJson.encodeEventBatch { events = [ event ] })
     let! result =
         Api.postEvents handle 10 20 body
         |> Async.StartAsTask

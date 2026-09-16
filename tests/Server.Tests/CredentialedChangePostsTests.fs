@@ -52,7 +52,7 @@ let ``live Browser credential is admitted and Change reaches PersistHandlers``
                 [ change.changeId ],
                 accepted.changes |> List.map _.changeId)
             let! rev = handle.getRevision () |> Async.StartAsTask
-            Assert.Equal(Revision 1, rev)
+            Assert.Equal(Gambol.Shared.Events.EventId 1, rev)
         finally
             CoreMailbox.dispose agent
     }

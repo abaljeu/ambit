@@ -34,6 +34,8 @@ type ChangeSuccessResponse =
       /// Optional ROOT-closure fingerprint; omitted by old Servers.
       bootstrapHash: string option }
 
+    member this.changes = this.events
+
 /// One selected Load target and whether its owning Workspace package is needed.
 type LoadTarget =
     { targetId: NodeId
@@ -55,8 +57,12 @@ type LoadResponse =
       /// Complete Workspace subgraph Nodes at the response Revision (wire: packages).
       packages: Node list }
 
+    member this.changes = this.events
+
 /// Authoritative Sync install: ordered Change tail plus optional resident packages.
 type SyncResponse =
     { events: Gambol.Shared.Events.Event list
       /// Complete Workspace / child-list snapshots at the response revision.
       packages: Node list }
+
+    member this.changes = this.events

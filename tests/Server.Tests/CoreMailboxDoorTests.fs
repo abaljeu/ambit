@@ -23,7 +23,7 @@ let private eventPast host =
         return history.events
     }
 
-let private sampleRequest: ActorStart =
+let private sampleRequest: Gambol.Shared.Events.ActorStart =
     { zoomId = Graph.rootId
       focusId = Graph.rootId
       commandId = Graph.rootId
@@ -311,7 +311,7 @@ let ``CoreActorPool.startActor uses client graphIds to build subgraph`` () =
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
-        let request: ActorStart =
+        let request: Gambol.Shared.Events.ActorStart =
             { zoomId = Graph.rootId
               focusId = Graph.rootId
               commandId = Graph.rootId
@@ -349,7 +349,7 @@ let ``CoreActorPool.startActor selects actor from command node text`` () =
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
-        let request: ActorStart =
+        let request: Gambol.Shared.Events.ActorStart =
             { zoomId = Graph.rootId
               focusId = Graph.rootId
               commandId = commandId
@@ -375,7 +375,7 @@ let ``CoreActorPool.startActor selects actor from command node text`` () =
 [<Fact>]
 let ``CoreActorPool.startActor fails when graphIds is empty`` () =
     withHost (fun host _ -> task {
-        let request: ActorStart =
+        let request: Gambol.Shared.Events.ActorStart =
             { zoomId = Graph.rootId
               focusId = Graph.rootId
               commandId = Graph.rootId
@@ -406,7 +406,7 @@ let ``CoreActorPool.startActor fails when commandId not in graphIds`` () =
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
-        let request: ActorStart =
+        let request: Gambol.Shared.Events.ActorStart =
             { zoomId = Graph.rootId
               focusId = Graph.rootId
               commandId = commandId

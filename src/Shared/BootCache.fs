@@ -1,6 +1,7 @@
 namespace Gambol.Shared
 
 open Thoth.Json.Core
+open Gambol.Shared.Events
 
 [<RequireQualifiedAccess>]
 module BootCache =
@@ -120,7 +121,7 @@ module BootCache =
         let ordered = changesAfter snapshot.revision.Value delta
         let state0: State =
             { graph = snapshot.graph
-              revision = snapshot.revision }
+              revision = EventId.toRevision snapshot.revision }
         ordered
         |> List.fold
             (fun acc change ->
@@ -134,7 +135,8 @@ module BootCache =
             (Ok state0)
         |> Result.map (fun st ->
             { graph = st.graph
-              revision = Revision (clientRevision snapshot.revision.Value ordered)
+              revision =
+                EventId (clientRevision snapshot.revision.Value ordered)
               isReady = snapshot.isReady })
 
     let decideBootRead
@@ -234,7 +236,8 @@ module BootCache =
             | Some CodeOutdated -> BootPoll.CodeOutdated
             | Some DataOutdated
             | None ->
-                let novel = novelChanges log poll.changes
+                let novel =
+                    novelChanges log (poll.events |> List.map Event.asChange)
                 let gap = poll.revision.Value - clientRev
                 if
                     novel.Length > maxNovelCount

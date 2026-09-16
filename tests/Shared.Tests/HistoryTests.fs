@@ -240,7 +240,7 @@ let ``Invalid move change does not modify graph`` () =
     let insertAtEnd =
         ChildListWire.insertAt parentId originalChildren originalChildren.Length [ first ]
     let moveChange =
-        History.newChange History.empty
+        { id = 0; changeId = Guid.NewGuid(); ops = [] }
         |> Change.addOp invalidRemove
         |> Change.addOp insertAtEnd
 
@@ -266,7 +266,7 @@ let ``Move with correct old span is rejected when target is owned-descendant`` (
     let insertAUnderB =
         ChildListWire.insertAt childB.id originalBChildren originalBChildren.Length [ childA ]
     let moveChange =
-        History.newChange History.empty
+        { id = 0; changeId = Guid.NewGuid(); ops = [] }
         |> Change.addOp removeAFromRoot
         |> Change.addOp insertAUnderB
 

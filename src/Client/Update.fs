@@ -1,6 +1,7 @@
 module Gambol.Client.Update
 
 open Gambol.Shared
+open Gambol.Shared.Events
 open Gambol.Shared.ViewModel
 open Gambol.Client.JsInterop
 open Gambol.Client.UpdateCodec
@@ -16,11 +17,6 @@ let currentFile = UpdateHelpers.currentFile
 // update : Msg -> VM -> VM * Effect list
 // ---------------------------------------------------------------------------
 let firstGraphChild = ViewModel.firstGraphChild
-
-let private clientSyncState (model: VM) : ClientSyncState =
-    { graph = model.graph
-      revision = model.revision
-      history = model.history }
 
 let private rejectPending detail (model: VM) : VM * Effect list =
     let err = Some (CmdLastResult.Error (None, detail))
@@ -50,16 +46,22 @@ let private applySubmitResponse
             + string revision.Value + " modelRev=" + string model.revision.Value)
         model, []
     | _ ->
+        let confirmedEvents = confirmed |> List.map (Event.ofChange "")
+        let serverRev = EventId.ofRevision revision
         let useExternal =
             externalChanges
-            || not (SyncLogic.isConfirmationEcho submitted confirmed)
+            || not (SyncLogic.isConfirmationEcho submitted confirmedEvents)
         let result =
             if useExternal then
                 SyncLogic.reconcileExternalAck
-                    submitted revision (clientSyncState model) model.syncInfo
+                    submitted serverRev (clientSyncState model) model.syncInfo
             else
                 SyncLogic.reconcileAck
-                    submitted confirmed revision (clientSyncState model) model.syncInfo
+                    submitted
+                    confirmedEvents
+                    serverRev
+                    (clientSyncState model)
+                    model.syncInfo
         match result with
         | AckReconcile.Ignored -> model, []
         | AckReconcile.Rejected detail -> rejectPending detail model
@@ -73,7 +75,7 @@ let private applySubmitResponse
             let updated =
                 { model with
                     graph = nextState.graph
-                    revision = nextState.revision
+                    revision = EventId.toRevision nextState.revision
                     history = nextState.history
                     syncInfo = nextSync
                     lastCmdResult =
@@ -88,7 +90,9 @@ let private applySubmitResponse
                     && nextSync.pendingChanges.IsEmpty
                     && nextSync.catchUp.IsSome
                 then
-                    SyncPlanner.tryStartPoll model.revision nextSync
+                    SyncPlanner.tryStartPoll
+                        (EventId.ofRevision model.revision)
+                        nextSync
                 else
                     nextSync, []
             { updated' with syncInfo = nextSync' },
@@ -123,7 +127,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
         let siteMap, nextId =
             ViewModel.buildSiteMapFrom graph zoomRoot (Sid 0)
         { graph = graph
-          revision = response.revision
+          revision = EventId.toRevision response.revision
           history = ClientHistory.clear ()
           selectedNodes = None
           mode = Selecting
@@ -201,7 +205,10 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
         { model' with workspaceRoots = rootsByLabel }, []
 
     | SysMsg PollTick ->
-        let si, effects = SyncPlanner.tryStartPoll model.revision model.syncInfo
+        let si, effects =
+            SyncPlanner.tryStartPoll
+                (EventId.ofRevision model.revision)
+                model.syncInfo
         { model with syncInfo = si }, effects
 
     | SysMsg AutoDownloadTick ->
@@ -227,18 +234,17 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
             | Some DataOutdated
                 when not changes.IsEmpty
                     && not (isAutoSyncBlocked readyModel) ->
-                let clientState: ClientSyncState =
-                    { graph = readyModel.graph
-                      revision = readyModel.revision
-                      history = readyModel.history }
-                match SyncLogic.applyServerTail changes clientState with
+                let events = changes |> List.map (Event.ofChange "")
+                match
+                    SyncLogic.applyServerTail events (clientSyncState readyModel)
+                with
                 | Error _ -> readyModel, []
                 | Ok newState ->
                     let kept =
                         { readyModel with
                             graph = newState.graph
                             history = newState.history
-                            revision = newState.revision }
+                            revision = EventId.toRevision newState.revision }
                         |> withSiteMap
                         |> adjustModeAfterServerApply readyModel.graph
                     { kept with
@@ -249,19 +255,17 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
             let si = SyncInfo.withSyncState Idle readyModel.syncInfo
             match readyModel.syncInfo.catchUp, changes with
             | Some baseline, _ :: _ ->
+                let events = changes |> List.map (Event.ofChange "")
                 let serverRev =
                     responseRevision
+                    |> Option.map EventId.ofRevision
                     |> Option.defaultValue baseline.revision
-                let clientState: ClientSyncState =
-                    { graph = readyModel.graph
-                      history = readyModel.history
-                      revision = readyModel.revision }
                 match
                     SyncLogic.consumeCatchUpPoll
                         baseline
-                        changes
+                        events
                         serverRev
-                        clientState
+                        (clientSyncState readyModel)
                 with
                 | Error _ ->
                     { readyModel with
@@ -276,7 +280,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                         { readyModel with
                             graph = newState.graph
                             history = newState.history
-                            revision = newState.revision
+                            revision = EventId.toRevision newState.revision
                             syncInfo = si |> SyncInfo.clearCatchUp }
                         |> withSiteMap
                         |> adjustModeAfterServerApply readyModel.graph
@@ -294,11 +298,12 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                     { readyModel with
                         syncInfo = SyncInfo.withSyncState DataOutdated si }, []
                 | Some DataOutdated ->
-                    let clientState: ClientSyncState =
-                        { graph = readyModel.graph
-                          history = readyModel.history
-                          revision = readyModel.revision }
-                    match SyncLogic.applyServerTail changes clientState with
+                    let events = changes |> List.map (Event.ofChange "")
+                    match
+                        SyncLogic.applyServerTail
+                            events
+                            (clientSyncState readyModel)
+                    with
                     | Error _ ->
                         { readyModel with
                             syncInfo = SyncInfo.withSyncState DataOutdated si }, []
@@ -312,7 +317,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                             { readyModel with
                                 graph = newState.graph
                                 history = newState.history
-                                revision = newState.revision
+                                revision = EventId.toRevision newState.revision
                                 syncInfo = si }
                             |> withSiteMap
                             |> adjustModeAfterServerApply readyModel.graph
@@ -364,16 +369,12 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                 syncInfo = SyncInfo.withSyncState DataOutdated si }, []
         | None
         | Some DataOutdated ->
-            let clientState: ClientSyncState =
-                { graph = readyModel.graph
-                  history = readyModel.history
-                  revision = readyModel.revision }
             match
                 SyncLogic.applyLoadResponse
                     responseRevision
                     hasPendingLocal
                     syncResponse
-                    clientState
+                    (clientSyncState readyModel)
             with
             | Error _ ->
                 { readyModel with
@@ -390,7 +391,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                     { readyModel with
                         graph = newState.graph
                         history = newState.history
-                        revision = newState.revision
+                        revision = EventId.toRevision newState.revision
                         syncInfo = si }
                     |> withSiteMap
                     |> adjustModeAfterServerApply readyModel.graph

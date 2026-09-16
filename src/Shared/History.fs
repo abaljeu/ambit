@@ -28,7 +28,7 @@ type Change =
 
 type State =
     { graph: Graph
-      revision: Gambol.Shared.Events.EventId }
+      revision: Revision }
 
 
 [<RequireQualifiedAccess>]
