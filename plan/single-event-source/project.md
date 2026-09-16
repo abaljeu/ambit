@@ -18,8 +18,8 @@ Home: [[plan/roadmap/epics/robust-outliner.md]] Required for done (Live). Chart 
 
 ## Issues
 
-- [[plan/single-event-source/issues/05-expand-op-list-apply.md|05 — Expand Op-list apply]] — expand. Status `coded`.
-- [[plan/single-event-source/issues/06-compile-preamble.md|06 — Compile preamble]] — migrate. Status `coded`.
+- [[plan/single-event-source/issues/05-expand-op-list-apply.md|05 — Expand Op-list apply]] — expand. Status `done`.
+- [[plan/single-event-source/issues/06-compile-preamble.md|06 — Compile preamble]] — migrate. Status `done`.
 - [[plan/single-event-source/issues/07-persist-apply.md|07 — Persist apply]] — migrate. Blocked by 05, 06.
 - [[plan/single-event-source/issues/08-core-doors.md|08 — Core doors]] — migrate. Blocked by 05, 07.
 - [[plan/single-event-source/issues/09-command-mint.md|09 — Command mint]] — migrate. Blocked by 05, 08.

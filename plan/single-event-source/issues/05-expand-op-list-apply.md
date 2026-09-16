@@ -1,6 +1,6 @@
 # 05 — Expand Op-list apply
 
-**Status:** coded
+**Status:** done
 **Actual:** 1h30m
 **Blocked by:** None — can start immediately
 
