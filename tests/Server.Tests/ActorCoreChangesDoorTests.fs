@@ -16,7 +16,7 @@ let private requireOk label result =
         Assert.Fail($"{label}: {err}")
         Unchecked.defaultof<_>
 
-let private sampleRequest: ActorStart =
+let private sampleRequest: Gambol.Shared.Events.ActorStart =
     { zoomId = Graph.rootId
       focusId = Graph.rootId
       commandId = Graph.rootId

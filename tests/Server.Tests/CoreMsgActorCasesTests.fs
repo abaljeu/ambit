@@ -17,7 +17,7 @@ let private requireOk label result =
         Assert.Fail($"{label}: {err}")
         Unchecked.defaultof<_>
 
-let private sampleRequest: ActorStart =
+let private sampleRequest: Gambol.Shared.Events.ActorStart =
     { zoomId = Graph.rootId
       focusId = Graph.rootId
       commandId = Graph.rootId
@@ -38,7 +38,7 @@ let private actorCaller secret =
       secret = secret }
 
 let private recordingPool () =
-    let started = TaskCompletionSource<ActorStart>()
+    let started = TaskCompletionSource<Gambol.Shared.Events.ActorStart>()
     let stopped = ResizeArray<Credential * ActorResult>()
     let live = ResizeArray<Credential>()
     let pool: CoreActorPool = {

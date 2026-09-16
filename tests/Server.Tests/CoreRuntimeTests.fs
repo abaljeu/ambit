@@ -103,7 +103,7 @@ let ``HTTP Adapter refuses inactive Core sender with 401 and does not enqueue``
             let event = eventFromChange change
             let body =
                 Encode.toString 0 (
-                    Serialization.encodeEventBatch
+                    Gambol.Shared.Events.EventJson.encodeEventBatch
                         { events = [ event ] })
             let! result =
                 Api.postEvents bound 10 20 body
@@ -124,13 +124,13 @@ let ``HTTP Adapter enqueues when Browser credential is live`` () = task {
         let event = eventFromChange change
         let body =
             Encode.toString 0 (
-                Serialization.encodeEventBatch { events = [ event ] })
+                Gambol.Shared.Events.EventJson.encodeEventBatch { events = [ event ] })
         let! result =
             Api.postEvents handle 10 20 body
             |> Async.StartAsTask
         Assert.False(result.GetType().Name = "UnauthorizedHttpResult")
         let! rev = handle.getRevision () |> Async.StartAsTask
-        Assert.Equal(Revision 1, rev)
+        Assert.Equal(Gambol.Shared.Events.EventId 1, rev)
     finally
         CoreMailbox.dispose agent
 }
@@ -140,7 +140,7 @@ let ``callers reach changes on the mailbox Core door`` () = task {
     let runtime = fileRuntime ()
     let! rev =
         CoreMailbox.getRevision runtime.host |> Async.StartAsTask
-    Assert.Equal(Revision 0, rev)
+    Assert.Equal(Gambol.Shared.Events.EventId 0, rev)
 }
 
 [<Fact>]

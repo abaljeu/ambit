@@ -7,6 +7,7 @@ open Gambol.Client.UpdateImport
 open Gambol.Client.UpdateWorkspaceDesktop
 open Gambol.Shared
 open Gambol.Shared.CommandEntry
+open Gambol.Shared.Events
 open Gambol.Shared.ViewModel
 
 let private jsonHeaders () = jsonMutatingPostHeaders ()
@@ -56,17 +57,15 @@ let private reconcileWorkspaceAck
     (history: ClientHistory)
     (revision: Revision)
     : AckReconcile =
-    let state: ClientSyncState =
-        { graph = graph
-          history = history
-          revision = revision }
+    let state =
+        ClientSyncState.create graph (EventId.ofRevision revision) history
     let syncInfo =
         { SyncInfo.initial with
             pendingChanges = [ submitted ]
             syncState = Sending 1 }
     if
         ack.externalChanges
-        || not (SyncLogic.isConfirmationEcho [ submitted ] ack.changes)
+        || not (SyncLogic.isConfirmationEcho [ submitted ] ack.events)
     then
         SyncLogic.reconcileExternalAck
             [ submitted ]
@@ -76,18 +75,14 @@ let private reconcileWorkspaceAck
     else
         SyncLogic.reconcileAck
             [ submitted ]
-            ack.changes
+            ack.events
             ack.revision
             state
             syncInfo
 
 /// Apply + synchronous POST so server graph has the workspace before push/reconcile.
 let applyAndPostSync (commandName: string) (change: Change) (model: VM) : Result<VM, string> =
-    let clientState: ClientSyncState =
-        { graph = model.graph
-          revision = model.revision
-          history = model.history }
-    match SyncLogic.applyLocalChange commandName change clientState with
+    match SyncLogic.applyLocalChange commandName change (clientSyncState model) with
     | Error msg -> Error msg
     | Ok (nextState, submitted) ->
         let body =
@@ -114,7 +109,7 @@ let applyAndPostSync (commandName: string) (change: Change) (model: VM) : Result
                         { model with
                             graph = st.graph
                             history = st.history
-                            revision = st.revision }
+                            revision = EventId.toRevision st.revision }
                 | AckReconcile.Ignored ->
                     Ok
                         { model with
@@ -125,11 +120,7 @@ let applyAndPostSync (commandName: string) (change: Change) (model: VM) : Result
 /// Local graph only — stubs paint before structure POST / body push.
 let private applyStructureLocally
     (commandName: string) (change: Change) (model: VM) : Result<VM * PendingChange, string> =
-    let clientState: ClientSyncState =
-        { graph = model.graph
-          revision = model.revision
-          history = model.history }
-    match SyncLogic.applyLocalChange commandName change clientState with
+    match SyncLogic.applyLocalChange commandName change (clientSyncState model) with
     | Error msg -> Error msg
     | Ok (nextState, submitted) ->
         Ok (
@@ -284,11 +275,7 @@ let encodeWorkspaceInventoryBody (scope: WorkspaceSyncScope) : string =
 
 /// Undo local stubs if structure POST fails after optimistic apply.
 let private undoLocalStructure (model: VM) : VM =
-    let clientState: ClientSyncState =
-        { graph = model.graph
-          history = model.history
-          revision = model.revision }
-    match SyncLogic.applyLocalUndo (System.Guid.NewGuid()) clientState with
+    match SyncLogic.applyLocalUndo (System.Guid.NewGuid()) (clientSyncState model) with
     | Some (Ok (nextState, _)) ->
         { model with
             graph = nextState.graph
@@ -356,7 +343,7 @@ let completeUploadStructurePost
             let model' =
                 { model with
                     graph = st.graph
-                    revision = st.revision }
+                    revision = EventId.toRevision st.revision }
                 |> withSiteMap
                 |> keepUploading
             model', [ Effect.ContinueWorkspacePush (scope, parseFileId) ]

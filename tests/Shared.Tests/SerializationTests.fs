@@ -2,6 +2,7 @@ module Gambol.Shared.Tests.SerializationTests
 
 open Xunit
 open Gambol.Shared
+open Gambol.Shared.Events
 
 module Enc = Thoth.Json.Newtonsoft.Encode
 module Dec = Thoth.Json.Newtonsoft.Decode
@@ -244,7 +245,7 @@ let ``EventBatch round-trip`` () =
           commandName = ""
           body = Gambol.Shared.Events.EventBody.Change change.ops }
     let batch = { events = [ event ] }
-    let decoded = roundTrip Serialization.encodeEventBatch Serialization.decodeEventBatch batch
+    let decoded = roundTrip EventJson.encodeEventBatch EventJson.decodeEventBatch batch
     Assert.Equal<Gambol.Shared.Events.Event list>(batch.events, decoded.events)
 
 [<Fact>]
@@ -270,17 +271,17 @@ let ``EventBatch round-trip preserves request order`` () =
           commandName = ""
           body = Gambol.Shared.Events.EventBody.Change second.ops }
     let batch = { events = [ firstEvent; secondEvent ] }
-    let json = Enc.toString 0 (Serialization.encodeEventBatch batch)
+    let json = Enc.toString 0 (EventJson.encodeEventBatch batch)
     Assert.DoesNotContain("\"action\":\"undo\"", json)
     Assert.DoesNotContain("\"action\":\"redo\"", json)
     let decoded =
-        roundTrip Serialization.encodeEventBatch Serialization.decodeEventBatch batch
+        roundTrip EventJson.encodeEventBatch EventJson.decodeEventBatch batch
     Assert.Equal<Gambol.Shared.Events.Event list>([ firstEvent; secondEvent ], decoded.events)
 
 [<Fact>]
 let ``EventBatch decoder rejects empty events`` () =
     let json = """{"events":[]}"""
-    match Dec.fromString Serialization.decodeEventBatch json with
+    match Dec.fromString EventJson.decodeEventBatch json with
     | Ok _ -> failwith "Expected empty batch to fail decoding"
     | Error _ -> ()
 
@@ -288,7 +289,7 @@ let ``EventBatch decoder rejects empty events`` () =
 let ``EventBatch decoder rejects explicit Undo JSON`` () =
     let json =
         """{"events":[{"id":0,"submissionId":"00000000-0000-0000-0000-000000000001","authority":"","commandName":"","body":{"Undo":{"Item1":0,"Item2":[]}}}]}"""
-    match Dec.fromString Serialization.decodeEventBatch json with
+    match Dec.fromString EventJson.decodeEventBatch json with
     | Ok _ -> failwith "Expected explicit Undo JSON to fail decoding"
     | Error _ -> ()
 
@@ -296,7 +297,7 @@ let ``EventBatch decoder rejects explicit Undo JSON`` () =
 let ``EventBatch decoder rejects explicit Redo JSON`` () =
     let json =
         """{"events":[{"id":0,"submissionId":"00000000-0000-0000-0000-000000000001","authority":"","commandName":"","body":{"Redo":{"Item1":0,"Item2":[]}}}]}"""
-    match Dec.fromString Serialization.decodeEventBatch json with
+    match Dec.fromString EventJson.decodeEventBatch json with
     | Ok _ -> failwith "Expected explicit Redo JSON to fail decoding"
     | Error _ -> ()
 
@@ -307,14 +308,13 @@ let ``ChangeSuccessResponse round-trip with non-empty Changes`` () =
           changeId = System.Guid.NewGuid()
           ops = [ Op.SetText(NodeId.New(), "old", "new") ] }
     let response: ChangeSuccessResponse =
-        { revision = Revision 7
+        { revision = EventId 7
           buildEpochSec = 100
           pageBuildEpochSec = 200
           apiVersion = ApiVersion.current
           isReady = false
           externalChanges = true
-          changes = [ change ]
-          events = None
+          events = [ Event.ofChange "" change ]
           message = Some "stable file update failed"
           bootstrapHash = None }
     let decoded =
@@ -329,21 +329,20 @@ let ``ChangeSuccessResponse round-trip with non-empty Changes`` () =
     Assert.False(decoded.isReady)
     Assert.True(decoded.externalChanges)
     Assert.Equal(1, decoded.changes.Length)
-    Assert.Equal(change.id, decoded.changes.[0].id)
-    Assert.Equal<Op list>(change.ops, decoded.changes.[0].ops)
+    Assert.Equal(change.id, decoded.events.[0].id.Value)
+    Assert.Equal<Op list>(change.ops, Event.ops decoded.events.[0] |> Option.defaultValue [])
     Assert.Equal(response.message, decoded.message)
 
 [<Fact>]
 let ``ChangeSuccessResponse round-trip with empty Changes`` () =
     let response: ChangeSuccessResponse =
-        { revision = Revision 5
+        { revision = EventId 5
           buildEpochSec = 0
           pageBuildEpochSec = 0
           apiVersion = ApiVersion.current
           isReady = true
           externalChanges = false
-          changes = []
-          events = None
+          events = []
           message = None
           bootstrapHash = None }
     let decoded =
@@ -354,7 +353,7 @@ let ``ChangeSuccessResponse round-trip with empty Changes`` () =
     Assert.Equal(response.revision, decoded.revision)
     Assert.False(decoded.externalChanges)
     Assert.Equal(response.apiVersion, decoded.apiVersion)
-    Assert.Equal<Change list>([], decoded.changes)
+    Assert.Equal<Event list>([], decoded.events)
     Assert.Equal(None, decoded.message)
     Assert.Equal(None, decoded.bootstrapHash)
 
@@ -371,14 +370,13 @@ let ``ChangeSuccessResponse omits bootstrapHash and still decodes`` () =
 [<Fact>]
 let ``ChangeSuccessResponse round-trip with bootstrapHash`` () =
     let response: ChangeSuccessResponse =
-        { revision = Revision 3
+        { revision = EventId 3
           buildEpochSec = 0
           pageBuildEpochSec = 0
           apiVersion = ApiVersion.current
           isReady = true
           externalChanges = false
-          changes = []
-          events = None
+          events = []
           message = None
           bootstrapHash = Some "deadbeef" }
     let decoded =
@@ -391,7 +389,7 @@ let ``ChangeSuccessResponse round-trip with bootstrapHash`` () =
 [<Fact>]
 let ``LoadRequest round-trip`` () =
     let request: LoadRequest =
-        { revision = 11
+        { revision = EventId 11
           targets =
             [ { targetId = NodeId.New(); includeWorkspace = true }
               { targetId = NodeId.New(); includeWorkspace = false } ] }
@@ -415,13 +413,12 @@ let ``LoadResponse round-trip with packages`` () =
           changeId = System.Guid.NewGuid()
           ops = [ Op.SetText(node.id, "a", "b") ] }
     let response: LoadResponse =
-        { revision = 8
+        { revision = EventId 8
           buildEpochSec = 10
           pageBuildEpochSec = 20
           apiVersion = ApiVersion.current
           isReady = false
-          changes = [ change ]
-          events = None
+          events = [ Event.ofChange "" change ]
           packages = [ node ] }
     let decoded =
         roundTrip
@@ -443,14 +440,14 @@ let ``LoadResponse decoder tolerates missing packages`` () =
     match Dec.fromString ApiResponseSerialization.decodeLoadResponseDecoder json with
     | Error err -> failwith $"Decode failed: {err}"
     | Ok (decoded: LoadResponse) ->
-        Assert.Equal(4, decoded.revision)
+        Assert.Equal(EventId 4, decoded.revision)
         Assert.Empty(decoded.packages)
 
 [<Fact>]
 let ``StateResponse round-trip preserves startup readiness`` () =
     let response =
         { graph = Graph.create ()
-          revision = Revision 3
+          revision = EventId 3
           isReady = false }
         : StateResponse
     let decoded =

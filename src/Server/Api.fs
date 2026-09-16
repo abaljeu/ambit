@@ -98,12 +98,12 @@ module Api =
                 let! rev = handle.getRevision ()
                 let (Gambol.Shared.Events.EventId revValue) = rev
                 let! events =
-                    if revValue > request.revision then
-                        handle.getEventsSince (Gambol.Shared.Events.EventId request.revision)
+                    if revValue > request.revision.Value then
+                        handle.getEventsSince request.revision
                     else
                         async.Return []
                 let load: LoadResponse =
-                    { revision = revValue
+                    { revision = rev
                       buildEpochSec = buildEpochSec
                       pageBuildEpochSec = pageBuildEpochSec
                       apiVersion = ApiVersion.current
@@ -138,7 +138,7 @@ module Api =
             | Ok state ->
                 let response: StateResponse =
                     { graph = state.graph
-                      revision = state.revision
+                      revision = Gambol.Shared.Events.EventId state.revision.Value
                       isReady = handle.isReady () }
                 let scoped =
                     ResidentProjection.bootstrapStateResponse
@@ -162,7 +162,7 @@ module Api =
         (pageBuildEpochSec: int)
         (body: string)
         : Async<IResult> = async {
-        match Decode.fromString Serialization.decodeEventBatch body with
+        match Decode.fromString Gambol.Shared.Events.EventJson.decodeEventBatch body with
         | Error err ->
             return agentErrorResult $"Invalid JSON: {err}"
         | Ok batch ->

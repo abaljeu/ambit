@@ -256,7 +256,7 @@ let ``mailbox appends ActorStart and ActorStop in lifecycle order`` () =
                 (FileAgent.persist (FileAgent.create (newTempDir ())))
                 admittedCredentials
         try
-            let request: ActorStart =
+            let request: Gambol.Shared.Events.ActorStart =
                 { zoomId = Graph.rootId
                   focusId = Graph.rootId
                   commandId = Graph.rootId
