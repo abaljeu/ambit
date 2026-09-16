@@ -77,32 +77,34 @@ Alan lock: [[src/Shared/History.fs]] is not in this range.
 
 ## Spec
 
-Range: commit Persist apply admits Ev and applies Ops locally (PR 18). [[src/Shared/History.fs]] is not in the range (Alan lock). PersistStamp stays in History; 05 already added `appendToLastEvent`.
+Match: the [[../issues/05-expand-op-list-apply.md|05 — Expand Op-list apply]] / [[../issues/06-compile-preamble.md|06 — Compile preamble]] / [[../issues/07-persist-apply.md|07 — Persist apply]] target, not [[plan/core-creation/arch.md]]. Leftover Change wrapping, `Ev.ofChange` / `Ev.asChange`, and `postChange` doors stay until 08/12. They are not findings here.
 
-Unexpected files: [[src/Server/Core/CoreMsg.fs]] adds `applyEvent` and keeps `postChange`. That matches “admit Ev” and “Leftover Change still compiles”. [[src/Server/Core/CoreMailboxBackend.fs]] overlays stamp Ops on Ev and fills failed `applyEvent`. That is persist apply, not 08. [[src/Server/Core/CoreChanges.fs]] is comment only. It does not drop `postChange`.
+Range: Persist apply admits Ev and applies Ops locally; Merge origin/staging into persist apply; Merge pull request #18 from abaljeu/cursor/persist-apply-e547. [[src/Shared/History.fs]] is not in the range.
+
+**The 07 target is reached.**
 
 ### (a) Missing or partial
 
-1. Arch: “FileAgent / DbAgent persist apply of one Ev (Ops on EventBody, then `appendEvent`)”. [[tests/Server.Tests/PersistApplyTests.fs]] checks graph apply and ACK `submissionId`. FileAgent and DbAgent tests do not call `appendEvent`. `DbAgent.createForTest` already no-ops `appendEvent` when `connectionString` is empty, so the DbAgent seam cannot show EventLog append.
+None. After this range, 05–07 stay true.
 
-### (b) Not asked
+05: “`Ev.apply` / invert / ChangeValidation / amend / PersistStamp take `Op list` (or Ops on EventBody). They do not wrap leftover Change. `Change.apply` still compiles.” Those seams stay in [[src/Shared/History.fs]]. This range does not touch that file.
 
-2. Arch Shared segments: “Append Ev to EventLog” marked done. Issue Context already: “then appends Ev”. This range does not add `appendEvent`. Checkbox only.
+06: “TestBackend Ev type and Authority constructor are in scope. Leftover Change still compiles.” [[src/Shared/History.fs]] is unchanged. [[tests/Server.Tests/TestBackend.fs]] keeps `open Gambol.Shared` and `Authority`.
 
-3. [[src/Server/Core/DbAgent.fs]] `persistGraphProjection` now returns Ok when `connectionString` is empty. Spec does not ask for that skip. It supports the new `createForTest` `applyEvent` test.
+07 / Sequence: “FileAgent and DbAgent admit Ev, apply Ops locally, then appendEvent.” “CoreEventDispatch does not copy Ev to leftover Change for apply.” “No Ev→Change copy for apply.”
 
-Extra arch flips this range does implement: Persist apply sequence; CoreEventDispatch `postEvent`; FileAgent/DbAgent PersistHandlers; Stamp Ops (persist calls `PersistStamp.appendToLastEvent`).
+[[src/Server/Core/FileAgent.fs]] and [[src/Server/Core/DbAgent.fs]] add `applyEvent`, take Ev, and call `ChangeAmendment.applyOps` on `Ev.ops`. [[src/Server/Core/CoreEventDispatch.fs]] `persist` calls `applyEvent`; it does not build leftover Change. `commit` still calls `appendEvent` on Ev after apply.
 
-### (c) Looks done, looks wrong
+### (b) Not asked for
 
-4. Arch FileAgent: “No `processPostChange` of leftover Change list” marked done. Issue: “Leftover Change still compiles.” `postChange` still maps leftover Change with `Ev.ofChange` and runs `processPostEvents`. The door still applies leftover Change. That wrap is 08/12, not a drop here.
+1. 07: “FileAgent and DbAgent admit Ev, apply Ops locally, then `appendEvent`.” [[src/Server/Core/DbAgent.fs]] `persistGraphProjection` now returns Ok when `connectionString` is empty. 05–07 do not ask for that skip. It serves the new `createForTest` apply test.
 
-5. Issue: “No Ev→Change copy for apply”. CoreEventDispatch persist now calls `applyEvent`. FileAgent/DbAgent apply `ChangeAmendment.applyOps`. DbAgent still does `List.map Ev.asChange` for `DatabaseProjection.plan` on the persist-apply finish path. That is leftover Change wrapping, not Op apply.
+### (c) Looks done, target not reached
 
-Out of scope 08 (drop `postChange`) and 12 (contract deletes) are not done. That is correct.
+None. Apply is `ChangeAmendment.applyOps` / `applyEvent`. `appendEvent` after apply already runs in `CoreEventDispatch.commit`. Out of scope 08 (drop `postChange`) and 12 (contract deletes) stay undone. That is correct.
 
 ## Summary
 
 Standards: 7 findings (5 hard, 2 judgement). Worst: [[src/Server/Core/FileAgent.fs]] `createWithDependencies` is about 240 lines (40-line rule).
 
-Spec: 5 findings. Worst: FileAgent and DbAgent persist-apply tests do not call `appendEvent`.
+Spec: 1 finding. Worst: [[src/Server/Core/DbAgent.fs]] `persistGraphProjection` skips an empty `connectionString` (not asked). The 07 persist-apply target is reached.
