@@ -12,7 +12,7 @@ Range: uncommitted working tree vs `HEAD`.
 
 ### (a) Missing / partial
 
-1. **Core `PostChange` path not on `postEvent`.** — **addressed** ([[issue-41-postchange-postevent-fix.md]]). `CoreMailbox.postChange` / `coreChanges.postChange` build Events at the door and loop `postEvent`. Graph Changes via that door appear on EventLog / `eventHistory`. `postGraphOnlyChange` still skips EventLog per arch.
+1. **Core `PostChange` path not on `postEvent`.** — **addressed** ([[issue-41-postchange-postevent-fix.md]]). `CoreMailbox.postChange` / `coreChanges.postChange` build Events at the door and loop `postEvent`. Graph Changes via that door appear on EventLog / `eventHistory`. `postGraphOnlyChange` also goes through Event flow and EventLog, skipping only file persistence.
 
 2. **EventLog incomplete for remaining Change posts.** — **addressed** with (a)1. Empty `postChange []` still hits persist rejection via CoreMsg `PostChange` with `[]` (unchanged-submission path).
 

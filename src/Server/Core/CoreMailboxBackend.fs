@@ -191,17 +191,34 @@ module internal CoreMailboxBackend =
             | _ ->
                 reply.Reply(Error CoreAuth.refuse)
 
-    /// Graph-only: admit then persist; skips EventLog (arch).
+    /// Graph-only: same Event flow as postEvent, but skips file persistence.
     let private dispatchPostGraphOnlyChange
         (context: MailboxContext)
         (caller: Caller)
         (change: Change)
         (reply: AsyncReplyChannel<Result<CoreChangesAccepted, string>>)
         : unit =
-        match admitCaller context caller with
+        let event =
+            { id = Gambol.Shared.Events.EventId 0
+              submissionId = change.changeId
+              authority = Gambol.Shared.Events.Authority ""
+              commandName = ""
+              body = Gambol.Shared.Events.EventBody.Change change.ops }
+        match CoreEventDispatch.postEvent (eventDispatchContext context) caller event true with
         | Error err -> reply.Reply(Error err)
-        | Ok () ->
-            reply.Reply(context.persist.postGraphOnlyChange [ change ])
+        | Ok (_, Some accepted) -> reply.Reply(Ok accepted)
+        | Ok (_, None) ->
+            match context.persist.getRevision () with
+            | Error err -> reply.Reply(Error err)
+            | Ok revision ->
+                reply.Reply(
+                    Ok(
+                        CoreChanges.accepted
+                            revision
+                            true
+                            []
+                            false
+                            None))
 
     let private dispatchPostEvent
         (context: MailboxContext)
@@ -211,7 +228,7 @@ module internal CoreMailboxBackend =
             AsyncReplyChannel<
                 Result<Event * CoreChangesAccepted option, string>>)
         : unit =
-        CoreEventDispatch.postEvent (eventDispatchContext context) caller event
+        CoreEventDispatch.postEvent (eventDispatchContext context) caller event false
         |> reply.Reply
 
     let private runMsg (context: MailboxContext) (msg: CoreMsg) =

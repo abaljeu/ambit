@@ -117,7 +117,7 @@ module internal CoreEventDispatch =
                 authority = eventAuthority caller.authority }
         completeAction context.eventLog.Value admitted
 
-    let private persist (context: Context) (completed: Event) =
+    let private persist (context: Context) (completed: Event) (graphOnly: bool) =
         match Gambol.Shared.Events.Event.ops completed with
         | None -> Ok None
         | Some ops ->
@@ -128,8 +128,12 @@ module internal CoreEventDispatch =
                     { id = revision.Value
                       changeId = completed.submissionId
                       ops = ops }
-                context.persist.postChange [ change ]
-                |> Result.map Some
+                if graphOnly then
+                    context.persist.postGraphOnlyChange [ change ]
+                    |> Result.map Some
+                else
+                    context.persist.postChange [ change ]
+                    |> Result.map Some
 
     let private store context accepted completed =
         let confirmed =
@@ -142,6 +146,7 @@ module internal CoreEventDispatch =
         (context: Context)
         (caller: Caller)
         (event: Event)
+        (graphOnly: bool)
         : Result<Event * CoreChangesAccepted option, string> =
         match context.admit caller with
         | Error error -> Error error
@@ -149,7 +154,7 @@ module internal CoreEventDispatch =
             match prepare context caller event with
             | Error error -> Error error
             | Ok completed ->
-                match persist context completed with
+                match persist context completed graphOnly with
                 | Error error -> Error error
                 | Ok accepted ->
                     match store context accepted completed with

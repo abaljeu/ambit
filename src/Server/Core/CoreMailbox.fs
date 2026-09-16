@@ -204,7 +204,7 @@ module CoreMailbox =
         : Async<Gambol.Shared.Events.EventLog> =
         reply host (fun channel -> EventsSince(after, channel))
 
-    /// Graph work that skips EventLog (CoreMailbox). One Change.
+    /// Graph-only Change: same Event flow as postChange, skips file persistence only.
     let postGraphOnlyChange
         (host: MailboxHost)
         (caller: Caller)
