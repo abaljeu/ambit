@@ -18,10 +18,11 @@ let private unusedHandle
     (post: Change list -> Async<Result<CoreChangesAccepted, string>>)
     : CoreChanges =
     { getState = fun () -> async.Return(Result.Error "unused")
-      getRevision = fun () -> async.Return(Revision 0)
-      getChangesSince = fun _ -> async.Return []
+      getRevision = fun () -> async.Return(Gambol.Shared.Events.EventId 0)
+      getEventsSince = fun _ -> async.Return []
       isReady = fun () -> true
       postChange = post
+      postEvents = fun _ -> async.Return(Result.Error "unused")
       postGraphOnlyChange = fun _ -> async.Return(Result.Error "unused")
       actorStop = fun _ -> async.Return(Result.Error "unused")
       asCaller = fun _ -> Unchecked.defaultof<CoreChanges> }

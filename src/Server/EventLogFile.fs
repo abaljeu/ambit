@@ -132,24 +132,3 @@ module EventLogFile =
             stream.Seek(0L, SeekOrigin.End) |> ignore
             Error $"Event log error: {ex.Message}"
 
-    // ------------------------------------------------------------------
-    // Change-specific operations
-    // ------------------------------------------------------------------
-
-    let encodeChange (change: Change) : string =
-        Encode.toString 0 (Serialization.encodeChange change)
-
-    let decodeChange (json: string) : Result<Change, string> =
-        Decode.fromString Serialization.decodeChange json
-
-    let tryFindChangeById
-        (stream: FileStream)
-        (offsets: int64 ResizeArray)
-        (changeId: Guid)
-        : Change option =
-        offsets
-        |> Seq.tryPick (fun offset ->
-            let _, json = readEntryAt stream offset
-            match decodeChange json with
-            | Ok change when change.changeId = changeId -> Some change
-            | _ -> None)

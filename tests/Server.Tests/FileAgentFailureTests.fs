@@ -257,10 +257,16 @@ let ``ACK returns stamped complete Change equal to EventLog`` () = task {
                 | Op.SetUpdateTime(nodeId, _, _) ->
                     Assert.Equal(Graph.workspacesId, nodeId)
                 | _ -> failwith "expected SetUpdateTime suffix")
-            let! logged =
-                CoreMailbox.getChangesSince (host agent) (Revision 0)
+            let! events =
+                CoreMailbox.getEventsSince (host agent) (Gambol.Shared.Events.EventId 0)
                 |> Async.StartAsTask
-            Assert.Equal<Change list>([ confirmed ], logged)
+            Assert.Single(events) |> ignore
+            let event = events.[0]
+            match Gambol.Shared.Events.Event.ops event with
+            | Some ops ->
+                Assert.Equal<Op list>(confirmed.ops, ops)
+            | None ->
+                Assert.Fail("Expected Change event")
     finally
         CoreMailbox.dispose (host agent)
 }
@@ -302,12 +308,16 @@ let ``trailing duplicate keeps stamps on last new Change`` () = task {
             Assert.NotEqual<Op list>(
                 suffixAfter first firstConfirmed,
                 secondSuffix)
-            let! logged =
-                CoreMailbox.getChangesSince (host agent) (Revision 0)
+            let! events =
+                CoreMailbox.getEventsSince (host agent) (Gambol.Shared.Events.EventId 0)
                 |> Async.StartAsTask
-            Assert.Equal<Change list>(
-                [ firstConfirmed; secondConfirmed ],
-                logged)
+            Assert.Equal(2, events.Length)
+            match Gambol.Shared.Events.Event.ops events.[0], Gambol.Shared.Events.Event.ops events.[1] with
+            | Some ops1, Some ops2 ->
+                Assert.Equal<Op list>(firstConfirmed.ops, ops1)
+                Assert.Equal<Op list>(secondConfirmed.ops, ops2)
+            | _ ->
+                Assert.Fail("Expected Change events")
     finally
         CoreMailbox.dispose (host agent)
 }

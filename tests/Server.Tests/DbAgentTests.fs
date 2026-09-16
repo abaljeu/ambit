@@ -219,31 +219,6 @@ let ``DbAgent new process loads state from projection and changes after post`` (
     Assert.Equal(Graph.trashId, root.children.[3].id)
 }
 
-[<Fact>]
-let ``loadPersistedState ignores Change rows beyond authoritative projection`` () = task {
-    let connStr = requireDbConnStr ()
-    do! resetTestDatabase connStr
-    let childId = NodeId.New()
-    let change =
-        { id = 0
-          changeId = Guid.NewGuid()
-          ops =
-            [ Op.NewNode(childId, "log-only")
-              Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
-    do!
-        Database.appendChange
-            connStr
-            1
-            change.id
-            change.changeId
-            (EventLogFile.encodeChange change)
-        |> Async.AwaitTask
-    let! loaded =
-        Database.loadPersistedState connStr decodeChange
-        |> Async.AwaitTask
-    Assert.Equal(Revision 0, loaded.revision)
-    Assert.False(loaded.graph.nodes.ContainsKey childId)
-}
 
 [<Fact>]
 let ``DbAgent reload preserves node updateTime from projection`` () = task {

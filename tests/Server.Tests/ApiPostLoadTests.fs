@@ -73,14 +73,15 @@ let private stateResponse (graph: Graph) (revision: int) =
 
 let private handleForLoad
     (revision: int)
-    (changes: Change list)
+    (events: Gambol.Shared.Events.Event list)
     (state: State)
     : CoreChanges =
     { getState = fun () -> async.Return(Result.Ok state)
-      getRevision = fun () -> async.Return(Revision revision)
-      getChangesSince = fun _ -> async.Return changes
+      getRevision = fun () -> async.Return(Gambol.Shared.Events.EventId revision)
+      getEventsSince = fun _ -> async.Return events
       isReady = fun () -> true
       postChange = fun _ -> async.Return(Result.Error "unused")
+      postEvents = fun _ -> async.Return(Result.Error "unused")
       postGraphOnlyChange = fun _ -> async.Return(Result.Error "unused")
       actorStop = fun _ -> async.Return(Result.Error "unused")
       asCaller = fun _ -> Unchecked.defaultof<CoreChanges> }
@@ -89,14 +90,16 @@ let private encodeRequest (request: LoadRequest) =
     Encode.toString 0 (ApiResponseSerialization.encodeLoadRequest request)
 
 [<Fact>]
-let ``postLoad Change-only when includeWorkspace false`` () = task {
+let ``postLoad Event-only when includeWorkspace false`` () = task {
     let graph, wsId, _, fileId = nestedWorkspaceGraph ()
-    let change =
-        { id = 3
-          changeId = Guid.NewGuid()
-          ops = [ Op.SetText(fileId, "a", "b") ] }
+    let event =
+        { id = Gambol.Shared.Events.EventId 5
+          submissionId = Guid.NewGuid()
+          authority = Gambol.Shared.Events.Authority ""
+          commandName = ""
+          body = Gambol.Shared.Events.EventBody.Change [ Op.SetText(fileId, "a", "b") ] }
     let handle =
-        handleForLoad 5 [ change ] (stateResponse graph 5)
+        handleForLoad 5 [ event ] (stateResponse graph 5)
     let body =
         encodeRequest
             { revision = 2
@@ -111,7 +114,7 @@ let ``postLoad Change-only when includeWorkspace false`` () = task {
             Assert.Equal(5, response.revision)
             Assert.Equal(100, response.buildEpochSec)
             Assert.Equal(200, response.pageBuildEpochSec)
-            Assert.Equal(1, response.changes.Length)
+            Assert.Equal(1, response.events.Length)
             Assert.Empty(response.packages)
             Assert.False(response.packages |> List.exists (fun n -> n.id = wsId))
     | other ->
@@ -135,7 +138,7 @@ let ``postLoad Workspace subgraph when includeWorkspace true`` () = task {
         | Error err -> failwith err
         | Ok (response: LoadResponse) ->
             Assert.Equal(7, response.revision)
-            Assert.Empty(response.changes)
+            Assert.Empty(response.events)
             let byId = response.packages |> List.map (fun n -> n.id, n) |> Map.ofList
             Assert.True(byId.ContainsKey wsId)
             Assert.Equal(Loaded, byId.[wsId].childrenStatus)
@@ -146,14 +149,16 @@ let ``postLoad Workspace subgraph when includeWorkspace true`` () = task {
 }
 
 [<Fact>]
-let ``postLoad missing target returns changes without packages`` () = task {
+let ``postLoad missing target returns events without packages`` () = task {
     let graph, _, _, _ = nestedWorkspaceGraph ()
-    let change =
-        { id = 1
-          changeId = Guid.NewGuid()
-          ops = [] }
+    let event =
+        { id = Gambol.Shared.Events.EventId 4
+          submissionId = Guid.NewGuid()
+          authority = Gambol.Shared.Events.Authority ""
+          commandName = ""
+          body = Gambol.Shared.Events.EventBody.Change [] }
     let handle =
-        handleForLoad 4 [ change ] (stateResponse graph 4)
+        handleForLoad 4 [ event ] (stateResponse graph 4)
     let body =
         encodeRequest
             { revision = 0
@@ -166,21 +171,23 @@ let ``postLoad missing target returns changes without packages`` () = task {
         | Error err -> failwith err
         | Ok (response: LoadResponse) ->
             Assert.Equal(4, response.revision)
-            Assert.Equal(1, response.changes.Length)
+            Assert.Equal(1, response.events.Length)
             Assert.Empty(response.packages)
     | other ->
         Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
 }
 
 [<Fact>]
-let ``postLoad shares one revision for changes and packages`` () = task {
+let ``postLoad shares one revision for events and packages`` () = task {
     let graph, wsId, _, fileId = nestedWorkspaceGraph ()
-    let change =
-        { id = 6
-          changeId = Guid.NewGuid()
-          ops = [ Op.SetText(fileId, "x", "y") ] }
+    let event =
+        { id = Gambol.Shared.Events.EventId 9
+          submissionId = Guid.NewGuid()
+          authority = Gambol.Shared.Events.Authority ""
+          commandName = ""
+          body = Gambol.Shared.Events.EventBody.Change [ Op.SetText(fileId, "x", "y") ] }
     let handle =
-        handleForLoad 9 [ change ] (stateResponse graph 9)
+        handleForLoad 9 [ event ] (stateResponse graph 9)
     let body =
         encodeRequest
             { revision = 3
@@ -193,7 +200,7 @@ let ``postLoad shares one revision for changes and packages`` () = task {
         | Error err -> failwith err
         | Ok (response: LoadResponse) ->
             Assert.Equal(9, response.revision)
-            Assert.Equal(1, response.changes.Length)
+            Assert.Equal(1, response.events.Length)
             Assert.True(response.packages |> List.exists (fun n -> n.id = wsId))
     | other ->
         Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")

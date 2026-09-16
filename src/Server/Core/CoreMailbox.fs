@@ -53,16 +53,6 @@ module CoreMailbox =
             return Gambol.Shared.Events.EventId rev
         }
 
-    let getChangesSince
-        (host: MailboxHost)
-        (after: Revision)
-        : Async<Change list> =
-        async {
-            let! result =
-                reply host (fun channel -> GetChangesSince(after, channel))
-            return unwrap result
-        }
-
     let getEventsSince
         (host: MailboxHost)
         (after: Gambol.Shared.Events.EventId)
@@ -269,7 +259,6 @@ module CoreMailbox =
         let rec make (c: Caller) : CoreChanges =
             { getState = fun () -> tryGetState host
               getRevision = fun () -> getRevision host
-              getChangesSince = getChangesSince host
               getEventsSince = getEventsSince host
               isReady = MailboxHost.isReady host
               postChange = postChange host c
