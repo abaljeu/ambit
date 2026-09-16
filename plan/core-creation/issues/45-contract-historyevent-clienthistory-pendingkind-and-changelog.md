@@ -15,23 +15,23 @@ Delete the old form once no caller remains. Delete HistoryEvent, ActorLifecycleE
 
 Remove the replaced Shared types. Modules **Event** and **EventLog**. ClientHistory remains.
 
-- [ ] Delete HistoryEvent — no HistoryEvent (`ChangeEvent` / `ActorEvent`) remains.
-- [ ] Delete ActorLifecycleEvent — no ActorLifecycleEvent (`ActorStarted` / `ActorFinished`) remains.
-- [ ] Delete mailbox History name — no `type History` / `module History` remains. EventLog replaced that mailbox-log role. Do not plan a new History at [[src/Shared/History.fs]].
-- [ ] Delete PendingKind — no PendingKind remains. PendingChange / ChangeBatch wrap Event (or EventBody).
-- [ ] ClientHistory remains — ClientHistory stays ClientHistory (Emacs Action view). Do not delete it.
+- [x] Delete HistoryEvent — no HistoryEvent (`ChangeEvent` / `ActorEvent`) remains.
+- [x] Delete ActorLifecycleEvent — no ActorLifecycleEvent (`ActorStarted` / `ActorFinished`) remains.
+- [x] Delete mailbox History name — no `type History` / `module History` remains. EventLog replaced that mailbox-log role. Do not plan a new History at [[src/Shared/History.fs]].
+- [x] Delete PendingKind — no PendingKind remains. PendingChange / ChangeBatch wrap Event (or EventBody).
+- [x] ClientHistory remains — ClientHistory stays ClientHistory (Emacs Action view). Do not delete it.
 
 ### 2. Delete StartActorRequest name
 
 Remove the old start-request name. Modules **CoreMailbox**, **CoreActorPool**, **HTTP Adapter**.
 
-- [ ] Delete StartActorRequest name — every caller says ActorStart. The name StartActorRequest is gone.
+- [x] Delete StartActorRequest name — every caller says ActorStart. The name StartActorRequest is gone.
 
 ### 3. Drop ChangeLog name
 
 Rename persist to EventLog. Module **EventLog**. Persist seam **PersistHandlers**.
 
-- [ ] Drop ChangeLog name — persist is EventLog. Payload is Event. There is no second log. Today’s [[src/Server/ChangeLog.fs]] name is gone.
+- [x] Drop ChangeLog name — persist is EventLog. Payload is Event. There is no second log. Today’s [[src/Server/ChangeLog.fs]] name is gone.
 
 ## Out of scope
 
