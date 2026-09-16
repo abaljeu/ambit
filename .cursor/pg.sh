@@ -70,12 +70,19 @@ EOF
     upsert_env_line /etc/environment DB_CONNECTION_STRING "$CONN_DEV"
 }
 
+apt_noninteractive() {
+    sudo DEBIAN_FRONTEND=noninteractive apt-get \
+        -o Dpkg::Options::="--force-confdef" \
+        -o Dpkg::Options::="--force-confold" \
+        "$@"
+}
+
 install_postgres_packages() {
     export DEBIAN_FRONTEND=noninteractive
     sudo apt-get update -qq
-    sudo apt-get install -y --no-install-recommends ca-certificates curl postgresql-common
+    apt_noninteractive install -y --no-install-recommends ca-certificates curl postgresql-common
     if [ -x /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh ]; then
-        sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+        sudo DEBIAN_FRONTEND=noninteractive /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
     else
         sudo install -d /usr/share/postgresql-common/pgdg
         sudo curl --retry 3 --retry-delay 2 -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
@@ -85,7 +92,7 @@ install_postgres_packages() {
         sudo apt-get update -qq
     fi
     echo 'create_main_cluster = false' | sudo tee /etc/postgresql-common/createcluster.conf >/dev/null
-    sudo apt-get install -y --no-install-recommends postgresql-17 postgresql-client-17
+    apt_noninteractive install -y --no-install-recommends postgresql-17 postgresql-client-17
     if [ ! -x "${PGBIN}/pg_ctl" ]; then
         echo "PostgreSQL 17 binaries missing at ${PGBIN}" >&2
         exit 1
