@@ -360,6 +360,10 @@ module DbAgent =
     let private eventsSince loaded after =
         EventLog.since after loaded.eventLog.Value |> fun log -> log.events
 
+    let private recordPersistedEvent loaded (persisted: Ev) =
+        loaded.eventLog.Value <-
+            EventLog.restore [ persisted ] loaded.eventLog.Value
+
     let private writePersistedEvent loaded (persisted: Ev) =
         let (Gambol.Shared.EventId n) = persisted.id
         try
@@ -370,8 +374,7 @@ module DbAgent =
                 (EventLogFile.encodeEvent persisted)
             |> Async.AwaitTask
             |> Async.RunSynchronously
-            loaded.eventLog.Value <-
-                EventLog.restore [ persisted ] loaded.eventLog.Value
+            recordPersistedEvent loaded persisted
             Ok ()
         with ex ->
             Error $"Ev persist error: {ex.Message}"
@@ -381,6 +384,7 @@ module DbAgent =
         (persisted: Ev)
         =
         if String.IsNullOrWhiteSpace loaded.connectionString then
+            recordPersistedEvent loaded persisted
             Ok ()
         else
             CoreMailboxBackend.runBounded

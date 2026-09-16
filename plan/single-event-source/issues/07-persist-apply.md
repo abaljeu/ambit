@@ -1,8 +1,8 @@
 # 07 — Persist apply
 
 **Status:** coded
-**Actual:** 2h
-**Blocked by:** None — [05 — Expand Op-list apply](05-expand-op-list-apply.md) and [06 — Compile preamble](06-compile-preamble.md) are done
+**Actual:** 3h
+**Blocked by:** None — [[05-expand-op-list-apply.md|05 — Expand Op-list apply]] and [[06-compile-preamble.md|06 — Compile preamble]] are done
 
 ## Context
 
@@ -29,4 +29,5 @@ Modules **FileAgent**, **DbAgent**, **PersistStamp**, **CoreEventDispatch**. Sea
 
 ## Time
 
-- 2026-09-16 2h — FileAgent and DbAgent apply Ev Ops then CoreEventDispatch appendEvent; leftover Change still compiles (from chat)
+- 1. Persist apply — 2026-09-16 2h — FileAgent and DbAgent apply Ev Ops then CoreEventDispatch appendEvent; leftover Change still compiles (from chat)
+- 2. Persist apply follow-up — 2026-09-16 1h — FileAgent createWithDependencies helpers extracted; PersistApplyTests assert appendEvent (from chat)
