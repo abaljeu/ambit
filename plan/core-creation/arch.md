@@ -68,7 +68,7 @@ Implementation status for this cut: Point 0 loop code is shared ([[issues/30-res
       4. [x] `GetEventHistory` returns the log or `since`, not a two-stack
       5. [x] Poll returns an Event tail (server return and client consume)
       6. [x] Browser Poll consume; `Revision` → EventId cursor (`State.revision`, `ClientSyncState.revision`)
-      7. [x] PendingChange / ChangeBatch wrap Event (or EventBody)
+      7. [x] PendingChange / EventBatch wrap Event (or EventBody)
       8. [x] Browser callers keep using ClientHistory (Event-shaped); client holds EventLog of the same type. Do not migrate onto a module named History. `ClientHistory.undo` locally then name-only submit; ack/reconcile stays the pending path
       9. [x] CoreMsg / CoreActorPool: mailbox appends ActorStart / ActorStop Events; callers do not `postEvent` those bodies
       10. [x] persist ActorStart / ActorStop
@@ -170,7 +170,7 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. ClientH
      1. [ ] Op, Graph, `Authority`, `ActorResult`
 5. **EventLog** — planned [[src/Shared/EventLog.fs]]
    Field shapes: [[reports/event-abstraction.md]].
-   1. [x] State: append-only newest-head Event sequence; mailbox store after intake. Persistence is this same EventLog on file/DB (today’s [[src/Server/ChangeLog.fs]]). Not a second log.
+   1. [x] State: append-only newest-head Event sequence; mailbox store after intake. Persistence is this same EventLog on file/DB via EventLogFile (`gambol.events` file) and `events` table (DB). Not a second log.
    - Interface:
      1. [x] `empty`, `append`, `nextId`
      2. [x] `since eventId` — Poll/Load tail (self-contained Events)
@@ -217,13 +217,13 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. ClientH
    1. [ ] State: Client selection and current Node text
    - Interface:
      1. [ ] existing Exec / Run command
-     2. [ ] when text starts with literal `?`, send one-Node Command (current Node is Command, Zoom root, and Focus) with caller credentials as `zoomId`, `focusId`, `commandId`, and `graphIds` from **Loaded descendant id list** at that Zoom root
+     2. [ ] when text starts with literal `?`, send one-Node Command (current Node is Command, Zoom root, and Focus) with caller credentials as `zoomId`, `focusId`, `commandId`, and `graphIds` from **Included descendant id list** at that Zoom root
      3. [ ] otherwise AmbleRun (not part of Story path 3)
      4. [x] Browser-originated Change posts supply Authority and secret (Story path 3)
    - Uses:
      1. [ ] HTTP Adapter
      2. [ ] AmbleRun
-     3. [ ] Loaded descendant id list
+     3. [ ] Included descendant id list
 10. **HTTP Adapter** — [[src/Server/Api.fs]]
    1. [ ] State: none (transport)
    - Interface:
@@ -272,7 +272,7 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. ClientH
 
 ## 4. Alternative considered
 
-1. **Chosen** — One CoreMsg loop owns fast messages (`StartActor`, credentialed admit-before-`PostChange`, `ActorStop`) and live-table access. CoreActorPool.startActor is synchronous prepare (validate, live row, secret) and returns `Result<Credential, string>`; the mailbox writes the ActorStart Event on EventLog, then pool.schedule fires the body. The mailbox does not wait for the body. CoreActorPool owns the table data, defs, selection, and runner; it does not Use EventLog. Persist mode chooses File or Db handlers; there is no File-with-Db-mirror. Browser Command `graphIds` come from Shared **Loaded descendant id list** (Zoom root + Loaded children only; flat ids; ownership ignored; reusable by Actors). TestActor (outside Core) owns command-Node interpretation (hello) and is passed in as ActorFn. Production callers use the CoreMailbox door; outside proofs may call Pool or Actor at those seams. Matches [[doc/Decisions/0004-core-mailbox-messages-clear-fast.md]], Point 0 loop code (tickets 30–32), and Alan’s lock that the live registry is CoreActorPool’s data.
+1. **Chosen** — One CoreMsg loop owns fast messages (`StartActor`, credentialed admit-before-`PostChange`, `ActorStop`) and live-table access. CoreActorPool.startActor is synchronous prepare (validate, live row, secret) and returns `Result<Credential, string>`; the mailbox writes the ActorStart Event on EventLog, then pool.schedule fires the body. The mailbox does not wait for the body. CoreActorPool owns the table data, defs, selection, and runner; it does not Use EventLog. Persist mode chooses File or Db handlers; there is no File-with-Db-mirror. Browser Command `graphIds` come from Shared **Included descendant id list** (unfolded context; flat ids; ownership ignored; reusable by Actors). TestActor (outside Core) owns command-Node interpretation (hello) and is passed in as ActorFn. Production callers use the CoreMailbox door; outside proofs may call Pool or Actor at those seams. Matches [[doc/Decisions/0004-core-mailbox-messages-clear-fast.md]], Point 0 loop code (tickets 30–32), and Alan’s lock that the live registry is CoreActorPool’s data.
 2. **Rejected: mailbox-held second registry** — Keep live rows only in mailbox-loop state and treat the pool as a dumb Task runner. Loses the table as the single live registry; duplicates identity/secret/Focus beside CoreActorPool. Mailbox ownership of access is not a second copy of identity/secret/Focus beside the pool.
 3. **Rejected: nested ActorMsg pump / FileAgent twin mailbox** — Restore a second mailbox or per-agent Actor cases (shape in the stashed [[reports/implement-issue-29-testactor-hello.md]]). File and Db must not start Actor-capable processors. Twin queues for Actor work stay rejected. Violates one-mailbox ordering from [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] and the CoreMailbox-only door from ticket 32.
 4. **Rejected: Actor event sequence outside the mailbox** — A second Actor-only sequence beside CoreMailbox. EventLog is the mailbox store after intake, not a second sequence.
