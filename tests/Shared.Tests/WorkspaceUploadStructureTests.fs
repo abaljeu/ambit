@@ -384,7 +384,7 @@ let ``planStubOps creates File under SYSTEM label`` () =
 
 /// Issue 21 Load path: client sees Unloaded workspace (bootstrap), inventory
 /// lists paths already resident on the server. Stub planning against empty
-/// Unloaded children invents NewSpecialNodes; POST /changes then 400s with
+/// Unloaded children invents NewSpecialNodes; POST /events then 400s with
 /// "name conflict" — stuck Uploading, package never fetched.
 [<Fact>]
 let ``Load Unloaded stub plan must not name-conflict on resident server`` () =

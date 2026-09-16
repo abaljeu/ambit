@@ -26,9 +26,8 @@ type CoreChangesAccepted =
       isReady: bool }
 
 /// The Core Changes contract. Every Change reaches persistence through this handle.
-/// `postChange` may take a transport batch (Change list) but enqueues one Event
-/// per Change into the mailbox (postEvent door).
-/// `postEvents` accepts Event list directly and enqueues them without narrowing to Changes.
+/// HTTP uses `postEvents` (Event list from wire). `postChange` is graph-apply only
+/// (Change list) — CoreEventDispatch builds Changes from Event ops and calls postChange.
 type CoreChanges =
     { getState: unit -> Async<Result<State, string>>
       getRevision: unit -> Async<Gambol.Shared.Events.EventId>

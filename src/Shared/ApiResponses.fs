@@ -2,7 +2,7 @@ namespace Gambol.Shared
 
 open Gambol.Shared.Events
 
-/// Shared Poll/changes/load protocol marker. Bump on incompatible wire or semantics.
+/// Shared Poll/events/load protocol marker. Bump on incompatible wire or semantics.
 [<RequireQualifiedAccess>]
 module ApiVersion =
     let current = 1
@@ -19,7 +19,7 @@ type StateResponse =
       revision: Gambol.Shared.Events.EventId
       isReady: bool }
 
-/// Complete success response from POST /changes and GET /poll.
+/// Complete success response from POST /events and GET /poll.
 type ChangeSuccessResponse =
     { revision: Gambol.Shared.Events.EventId
       buildEpochSec: int

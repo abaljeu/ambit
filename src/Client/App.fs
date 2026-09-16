@@ -190,7 +190,7 @@ let createRuntime (initialModel: VM) =
             let body =
                 SyncBatch.toWireBatch model.revision.Value [ submitted ]
                 |> encodePendingBatchBody
-            let url = sprintf "/%s/changes" currentFile
+            let url = sprintf "/%s/events" currentFile
             let rec post () =
                 let retry () =
                     setTimeout post 1000 |> ignore
