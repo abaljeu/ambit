@@ -366,7 +366,7 @@ module WorkspaceUploadStructure =
     /// Ops for one Change: Directory/File stubs, reuse owned paths, Unparsed.
     /// `items` must already be the volume-capped path set (1:1).
     /// Unloaded workspaces skip inventing stubs: empty children would create
-    /// new ids that collide with the server's resident names on POST /changes.
+    /// new ids that collide with the server's resident names on POST /events.
     let planStubOps
         (graph: Graph)
         (workspaceLabel: string)

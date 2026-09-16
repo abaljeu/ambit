@@ -93,7 +93,7 @@ let applyAndPostSync (commandName: string) (change: Change) (model: VM) : Result
         let body =
             SyncBatch.toWireBatch model.revision.Value [ submitted ]
             |> encodePendingBatchBody
-        let url = sprintf "/%s/changes" currentFile
+        let url = sprintf "/%s/events" currentFile
         let status, text = postJsonSync url body (jsonHeaders ())
         if status < 200 || status >= 300 then
             Error(httpError status text)
