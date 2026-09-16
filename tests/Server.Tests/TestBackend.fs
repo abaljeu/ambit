@@ -8,18 +8,28 @@ open Microsoft.AspNetCore.Mvc.Testing
 open Microsoft.Extensions.Configuration
 open Npgsql
 open Gambol.Server
+open Gambol.Shared
 open Gambol.Server.Tests.TestDbConfigTests
 
 type BackendKind = File | Db
 
 let private testConnEnv = "TEST_DB_CONNECTION_STRING"
 
-/// Development boot seed uses deriveToken("",""); request-carried cookie must match.
-let withDevelopmentCookie (client: HttpClient) =
+/// Request Cookie from AuthToken. Same helper for empty Auth and named Auth.
+let withAuthCookie username password (client: HttpClient) =
     client.DefaultRequestHeaders.Add(
         "Cookie",
-        AuthToken.cookieHeaderValue "" "")
+        AuthToken.cookieHeaderValue username password)
     client
+
+/// Development boot seed uses deriveToken("",""); request-carried cookie must match.
+let withDevelopmentCookie (client: HttpClient) =
+    withAuthCookie "" "" client
+
+/// Mailbox Browser Caller for the same AuthToken secret the cookie carries.
+let browserCallerFromAuth username password =
+    BrowserRequestCreds.callerFromSecret (
+        Credential(AuthToken.deriveToken username password))
 
 let private quoteIdentifier (identifier: string) =
     "\"" + identifier.Replace("\"", "\"\"") + "\""

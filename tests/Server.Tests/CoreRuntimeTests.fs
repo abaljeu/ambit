@@ -37,18 +37,14 @@ let private fileRuntime () =
             Actors = []
         }
 
-let private browserCaller user pass =
-    BrowserRequestCreds.callerFromSecret (
-        Credential(AuthToken.deriveToken user pass))
-
 let private browserHandle runtime user pass =
-    CoreMailbox.coreChanges runtime.host (browserCaller user pass)
+    CoreMailbox.coreChanges runtime.host (browserCallerFromAuth user pass)
 
 [<Fact>]
 let ``CoreRuntime seeds Browser credential from AuthToken.deriveToken`` () =
     task {
         let runtime = fileRuntime ()
-        let expected = browserCaller "alice" "secret"
+        let expected = browserCallerFromAuth "alice" "secret"
         let! browserLive =
             CoreMailbox.isAdmitted runtime.host expected
             |> Async.StartAsTask
@@ -165,7 +161,7 @@ let ``Graph-only post refuses an inactive Caller`` () = task {
 let ``CoreRuntime seeds a Parse process Caller distinct from Browser cookie`` () =
     task {
         let runtime = fileRuntime ()
-        let cookie = browserCaller "alice" "secret"
+        let cookie = browserCallerFromAuth "alice" "secret"
         Assert.NotEqual(cookie.secret, runtime.parseCaller.secret)
         Assert.Equal(Authority "Parse", runtime.parseCaller.authority)
         let! parseLive =

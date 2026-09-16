@@ -22,7 +22,7 @@ module BrowserRequestCreds =
     /// Request-carried Browser Caller. Empty name is the cookie session key.
     let callerFromSecret (secret: Credential) : Caller =
         { authority = Authority "Browser"
-          name = "Browser"
+          name = ""
           secret = secret }
 
     let tryCookieCaller (req: HttpRequest) : Caller option =
