@@ -1,11 +1,14 @@
 # 06 — Compile preamble
 
-**Status:** blocked
-**Blocked by:** [05 — Expand Op-list apply](05-expand-op-list-apply.md)
+**Status:** coded
+**Actual:** 1h
+**Blocked by:** None — [[05-expand-op-list-apply.md|05 — Expand Op-list apply]] is coded on staging
 
 ## Context
 
 Server.Tests cannot see `Ev` and `Authority` in [[tests/Server.Tests/TestBackend.fs]] because `module Ev` shadows the type. Persist migrate needs those tests to compile.
+
+After [[05-expand-op-list-apply.md|05 — Expand Op-list apply]], that compile already succeeds. `open Gambol.Shared` puts bare `Ev` (the type) and `Authority` (the constructor) in scope. Leftover Change still compiles. `module Ev` did not produce a compile error, so [[src/Shared/History.fs]] was left unchanged.
 
 ## What to build
 
@@ -13,7 +16,7 @@ Server.Tests cannot see `Ev` and `Authority` in [[tests/Server.Tests/TestBackend
 
 ### 1. TestBackend Ev and Authority
 
-- [ ] 1.2.1 Compile preamble — TestBackend `Ev` type and `Authority` constructor in scope (`module Ev` must not shadow the type)
+- [x] 1.2.1 Compile preamble — TestBackend `Ev` type and `Authority` constructor in scope (`module Ev` must not shadow the type)
 
 ## Out of scope
 
@@ -23,3 +26,7 @@ Server.Tests cannot see `Ev` and `Authority` in [[tests/Server.Tests/TestBackend
 ## See also
 
 [[../arch.md|Single event source architecture]], [[../map.md]]
+
+## Time
+
+- 2026-09-16 1h — Verified TestBackend `Ev` type and `Authority` constructor in scope after 05; no History.fs change (from chat)

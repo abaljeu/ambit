@@ -16,7 +16,7 @@ Feature under design: leftover Change record and Revision serial out of the runn
       3. [ ] leftover Change.id is `EventId` (same type as `Ev.id`). No `Revision` stop
    2. **Migrate**
       Batches after compile may run in any order among persist and command. Serial batch may run beside them. Leftover Change still compiles until Contract.
-      1. [ ] Compile preamble — [[tests/Server.Tests/TestBackend.fs]] `Ev` type and `Authority` constructor in scope (`module Ev` must not shadow the type)
+      1. [x] Compile preamble — [[tests/Server.Tests/TestBackend.fs]] `Ev` type and `Authority` constructor in scope (`module Ev` must not shadow the type)
       2. [ ] Persist apply — [[src/Server/Core/FileAgent.fs]] / [[src/Server/Core/DbAgent.fs]] / PersistStamp / [[src/Server/Core/CoreEventDispatch.fs]] admit Ev, apply Ops, `appendEvent` Ev. No Ev→Change copy for apply
       3. [ ] Core doors — **CoreChanges** `postEvents` and `postGraphOnly` both take Ev. `postChange` (Change list) and `PostGraphOnlyChange` of leftover Change are gone. Graph-only still skips file persist, not EventLog
       4. [ ] Command mint — Browser command builders and Parse [[src/Server/GraphOnlyChangePost.fs]] mint Ev (`EventId.zero`, `commandName`). Run is ActorStart or a Change Event with that Run command in `commandName`
