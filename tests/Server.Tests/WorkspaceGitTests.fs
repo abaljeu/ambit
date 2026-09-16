@@ -154,11 +154,11 @@ let ``ensureInit excludes reserved gambol dot files from tracking`` () =
     Skip.IfNot(gitOnPath(), "git not on PATH")
     let home = Path.Combine(newTempDir (), "home")
     requireOk "ensureInit" (WorkspaceGit.ensureInit home)
-    File.WriteAllText(Path.Combine(home, "gambol.log"), "bookkeeping")
+    File.WriteAllText(Path.Combine(home, "gambol.events"), "bookkeeping")
     File.WriteAllText(Path.Combine(home, "GAMBOL.meta"), "bookkeeping")
     File.WriteAllText(Path.Combine(home, "gambol"), "ordinary")
     let status = WorkspaceGit.statusPorcelain home |> requireOk "status"
-    Assert.DoesNotContain("gambol.log", status)
+    Assert.DoesNotContain("gambol.events", status)
     Assert.DoesNotContain("GAMBOL.meta", status)
     Assert.Contains("gambol", status)
 

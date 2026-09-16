@@ -34,12 +34,12 @@ let ``Git DB flush returns revision without rewriting disk`` () =
     let dataDir = newTempDir ()
     let state = stateWithRootChild "git-artifact"
     Directory.CreateDirectory(Bookkeeping.systemDir dataDir) |> ignore
-    File.WriteAllText(Bookkeeping.logPath dataDir, "pending")
+    File.WriteAllText(EventLogFile.eventsPath dataDir, "pending")
     File.WriteAllText(Bookkeeping.metaPath dataDir, "sentinel")
 
     use lockedLog =
         new FileStream(
-            Bookkeeping.logPath dataDir,
+            EventLogFile.eventsPath dataDir,
             FileMode.Open,
             FileAccess.ReadWrite,
             FileShare.None)
@@ -65,12 +65,12 @@ let ``Full DB sync returns revision without rewriting disk`` () =
     let dataDir = newTempDir ()
     let state = stateWithRootChild "full-backup"
     Directory.CreateDirectory(Bookkeeping.systemDir dataDir) |> ignore
-    File.WriteAllText(Bookkeeping.logPath dataDir, "pending")
+    File.WriteAllText(EventLogFile.eventsPath dataDir, "pending")
     File.WriteAllText(Bookkeeping.metaPath dataDir, "sentinel")
 
     use lockedLog =
         new FileStream(
-            Bookkeeping.logPath dataDir,
+            EventLogFile.eventsPath dataDir,
             FileMode.Open,
             FileAccess.ReadWrite,
             FileShare.None)
