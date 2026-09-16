@@ -466,7 +466,9 @@ let ``POST changes batch with two changes bumps revision to 2`` (backend: Backen
     })
 
 [<Theory; MemberData(nameof backends)>]
-let ``POST changes batch with bad second change leaves state unchanged`` (backend: BackendKind) =
+let ``POST changes batch with bad second change keeps earlier items``
+    (backend: BackendKind)
+    =
     withClient backend (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
@@ -480,16 +482,19 @@ let ``POST changes batch with bad second change leaves state unchanged`` (backen
         Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode)
 
         let! json = getStateJson client testFile
-        Assert.Equal(Revision 0, decodeRevision json)
-        Assert.False((decodeGraph json).nodes.ContainsKey childId)
+        Assert.Equal(Revision 1, decodeRevision json)
+        Assert.True((decodeGraph json).nodes.ContainsKey childId)
+        Assert.Equal("first", (decodeGraph json).nodes.[childId].text)
         let! pollResponse = client.GetAsync("/ambit/poll?rev=0")
         let! pollJson = pollResponse.Content.ReadAsStringAsync()
         let poll =
             decode
                 ApiResponseSerialization.decodeChangeSuccessResponseDecoder
                 pollJson
-        Assert.False(poll.externalChanges)
-        Assert.Empty(poll.changes)
+        Assert.True(poll.externalChanges)
+        Assert.Equal<Guid list>(
+            [ change1.submissionId ],
+            poll.changes |> List.map (fun change -> change.submissionId))
     })
 
 [<Theory; MemberData(nameof backends)>]
@@ -945,7 +950,9 @@ let ``Log contains valid change data after POST`` () = task {
     Assert.True(File.Exists(logPath))
     let content = readFileShared logPath
     Assert.Contains("logged-entry", content)
-    Assert.True(content.StartsWith("00000000"), "Log entry should have 8-digit padded id prefix")
+    Assert.True(
+        content.StartsWith("00000001"),
+        "Log entry should have 8-digit padded id prefix")
 }
 
 // ---- DB restart tests (DB backend only) ----

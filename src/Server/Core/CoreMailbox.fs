@@ -111,27 +111,6 @@ module CoreMailbox =
             return! acceptedFromPosted host posted
         }
 
-    let private previewTransportBatch
-        (host: MailboxHost)
-        (events: Ev list)
-        : Async<Result<unit, string>> =
-        async {
-            let! stateResult = tryGetState host
-            let! log = eventHistory host
-            match stateResult with
-            | Error error -> return Error error
-            | Ok state ->
-                let known =
-                    log.events
-                    |> List.map (fun e -> e.submissionId)
-                    |> Set.ofList
-                return
-                    CoreEventDispatch.previewEvents
-                        known
-                        state
-                        events
-        }
-
     let private mergePostLoop postOne host caller first rest =
         async {
             let! firstAccepted = postOne host caller first
@@ -170,17 +149,13 @@ module CoreMailbox =
             match changes with
             | [] -> return Error "changes must not be empty"
             | first :: rest ->
-                let events = changes |> List.map eventFromChange
-                match! previewTransportBatch host events with
-                | Error error -> return Error error
-                | Ok () ->
-                    return!
-                        mergePostLoop
-                            postOneChange
-                            host
-                            caller
-                            first
-                            rest
+                return!
+                    mergePostLoop
+                        postOneChange
+                        host
+                        caller
+                        first
+                        rest
         }
 
     let postEvent
@@ -210,16 +185,13 @@ module CoreMailbox =
             match events with
             | [] -> return Error "events must not be empty"
             | first :: rest ->
-                match! previewTransportBatch host events with
-                | Error error -> return Error error
-                | Ok () ->
-                    return!
-                        mergePostLoop
-                            postOneEvent
-                            host
-                            caller
-                            first
-                            rest
+                return!
+                    mergePostLoop
+                        postOneEvent
+                        host
+                        caller
+                        first
+                        rest
         }
 
     let eventsSince
