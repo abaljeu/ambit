@@ -150,7 +150,7 @@ let private applySelectModeExternalPaste
             { graph = graph
               revision = Revision.Zero }
 
-        match History.applyChange change state with
+        match ChangeValidation.applyChange change state with
         | ApplyResult.Changed s -> Ok s.graph
         | ApplyResult.Unchanged _ -> Error "paste applied as Unchanged"
         | ApplyResult.Invalid(_, msg) -> Error msg

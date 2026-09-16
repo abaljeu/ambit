@@ -163,7 +163,7 @@ module ChangeAmendment =
 
     /// Apply a Change, amending recoverable field CAS failures instead of rejecting.
     let applyChange (change: Change) (state: State) : ApplyResult * bool * Change =
-        match History.applyChange change state with
+        match ChangeValidation.applyChange change state with
         | (ApplyResult.Changed _ | ApplyResult.Unchanged _) as ok ->
             ok, false, change
         | ApplyResult.Invalid (_, msg) when isRecoverableCas msg ->
@@ -174,7 +174,7 @@ module ChangeAmendment =
             | Ok ops ->
                 let amendedChange = { change with ops = ops }
 
-                match History.applyChange amendedChange state with
+                match ChangeValidation.applyChange amendedChange state with
                 | ApplyResult.Invalid _ as err -> err, false, change
                 | ApplyResult.Unchanged _ as unchanged -> unchanged, true, amendedChange
                 | ApplyResult.Changed _ as changed -> changed, true, amendedChange

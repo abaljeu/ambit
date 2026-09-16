@@ -16,7 +16,7 @@ let private stateWithChild (text: string) =
             [ Op.NewNode(childId, text)
               Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
 
-    match History.applyChange change initialState with
+    match ChangeValidation.applyChange change initialState with
     | ApplyResult.Changed st -> st, childId
     | _ -> failwith "bootstrap failed"
 
@@ -97,7 +97,7 @@ let private stateWithParentChild (parentText: string) (childText: string) =
               Op.Replace(Graph.rootId, [], [ ChildNode.owner parentId ])
               Op.Replace(parentId, [], [ ChildNode.owner childId ]) ] }
 
-    match History.applyChange change initialState with
+    match ChangeValidation.applyChange change initialState with
     | ApplyResult.Changed st -> st, parentId, childId
     | _ -> failwith "bootstrap failed"
 

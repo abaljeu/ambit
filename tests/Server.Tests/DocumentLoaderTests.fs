@@ -32,7 +32,7 @@ let private stateWithRootChild (text: string) : State =
         { graph = Graph.create ()
           revision = Revision 0 }
 
-    match History.applyChange change initial with
+    match ChangeValidation.applyChange change initial with
     | ApplyResult.Changed st -> { st with revision = Revision 1 }
     | _ -> failwith "expected changed state"
 

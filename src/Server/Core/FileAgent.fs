@@ -48,12 +48,12 @@ module FileAgent =
 
         let logStream = Bookkeeping.openLogStream dataDir
 
-        let offsetIndex = ChangeLog.buildIndex logStream
+        let offsetIndex = EventLogFile.buildIndex logStream
         let eventStream = EventLogFile.openStream dataDir
-        let eventOffsets = ChangeLog.buildIndex eventStream
+        let eventOffsets = EventLogFile.buildIndex eventStream
         let persistedEventLog =
             ref (
-                EventLogFile.readAll eventStream eventOffsets
+                EventLogFile.readAllEvents eventStream eventOffsets
                 |> Gambol.Shared.Events.EventLog.restorePersisted)
         let state = ref loadedState
         /// False after a soft file-write failure until process restart (meta stays behind).
@@ -101,7 +101,7 @@ module FileAgent =
 
         let applyBatch (changes: Change list) =
             let step (s, confirmations, fresh, changed, externalChanges) change =
-                match ChangeLog.tryFindByChangeId logStream offsetIndex change.changeId with
+                match EventLogFile.tryFindChangeById logStream offsetIndex change.changeId with
                 | Some stored ->
                     Ok(s, stored :: confirmations, fresh, changed, externalChanges)
                 | None ->
@@ -136,7 +136,7 @@ module FileAgent =
             let logStart = logStream.Length
             logStream.Seek(0L, SeekOrigin.End) |> ignore
             try
-                let offsets = ChangeLog.appendEntries logStream logEntries
+                let offsets = EventLogFile.appendEntries logStream logEntries
                 Ok offsets
             with ex ->
                 logStream.SetLength(logStart)
@@ -186,7 +186,7 @@ module FileAgent =
             let encodedLog =
                 stampedFresh
                 |> List.map (fun change ->
-                    change.id, ChangeLog.encodeChange change)
+                    change.id, EventLogFile.encodeChange change)
             let finalState =
                 match stampedOpt with
                 | Some _ -> { newState with graph = stampedGraph }
@@ -257,10 +257,10 @@ module FileAgent =
                     [ after.Value .. offsetIndex.Count - 1 ]
                     |> List.choose (fun i ->
                         let _, json =
-                            ChangeLog.readEntryAt
+                            EventLogFile.readEntryAt
                                 logStream
                                 offsetIndex.[i]
-                        match ChangeLog.decodeChange json with
+                        match EventLogFile.decodeChange json with
                         | Ok change -> Some change
                         | Error _ -> None)
                 Ok changes
@@ -269,7 +269,7 @@ module FileAgent =
                     Gambol.Shared.Events.EventLog.since after persistedEventLog.Value
                     |> fun log -> log.events)
             appendEvent = fun event ->
-                match EventLogFile.append eventStream eventOffsets event with
+                match EventLogFile.appendEvent eventStream eventOffsets event with
                 | Error err -> Error err
                 | Ok () ->
                     persistedEventLog.Value <-

@@ -511,7 +511,7 @@ let ``applyServerTail trusts server tails without ownership re-check`` () =
     | Ok result ->
         Assert.Equal(Revision (state0.revision.Value + 2), result.revision)
         Assert.Equal("ok", result.graph.nodes.[nodeC.id].text)
-        match History.validateOwnership result.graph with
+        match ChangeValidation.validateOwnership result.graph with
         | Ok () -> failwith "Expected ownership to fail on result (proves check was skipped)"
         | Error msg -> Assert.Contains("ownership", msg)
 

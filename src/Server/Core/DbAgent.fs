@@ -169,7 +169,7 @@ module DbAgent =
                     serverRevAfter
                     change.id
                     change.changeId
-                    (ChangeLog.encodeChange change))
+                    (EventLogFile.encodeChange change))
                     .GetAwaiter()
                     .GetResult())
             match logEntries with

@@ -70,7 +70,7 @@ module SyncPlanner =
         prepared
         |> List.fold
             (fun (state, reversed) item ->
-                match History.applyChange (extractChange item.event) state with
+                match ChangeValidation.applyChange (extractChange item.event) state with
                 | ApplyResult.Changed next ->
                     next, item :: reversed
                 | _ ->

@@ -18,7 +18,6 @@
   <ItemGroup>
     <Compile Include="DataDir.fs" />
     <Compile Include="Types.fs" />
-    <Compile Include="ChangeLog.fs" />
     <Compile Include="AuthToken.fs" />
     <Compile Include="AmbitApp.fs" />
     <Compile Include="HttpResponseLog.fs" />
