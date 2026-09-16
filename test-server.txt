@@ -257,7 +257,7 @@ Actual:   [{ id = EventId 2
 [xUnit.net 00:00:43.03]     Gambol.Server.Tests.StateEndpointTests.POST changes batch with bad second change leaves state unchanged(backend: File) [FAIL]
 [xUnit.net 00:00:43.57]     Gambol.Server.Tests.StateEndpointTests.POST changes batch with bad second change leaves state unchanged(backend: Db) [FAIL]
   Failed Gambol.Server.Tests.StateEndpointTests.POST changes batch with bad second change leaves state unchanged(backend: File) [290 ms]
-  [ ] Error Message:
+  [x] Error Message:
    Assert.Equal() Failure: Values differ
 Expected: Revision 0
 Actual:   Revision 1
@@ -274,7 +274,7 @@ Actual:   Revision 1
 --- End of stack trace from previous location ---
 --- End of stack trace from previous location ---
   Failed Gambol.Server.Tests.StateEndpointTests.POST changes batch with bad second change leaves state unchanged(backend: Db) [538 ms]
-  [ ] Error Message:
+  [x] Error Message:
    Assert.Equal() Failure: Values differ
 Expected: Revision 0
 Actual:   Revision 1

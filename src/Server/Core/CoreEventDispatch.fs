@@ -168,3 +168,29 @@ module internal CoreEventDispatch =
                     match store context accepted completed with
                     | Error error -> Error error
                     | Ok stored -> Ok(stored, accepted)
+
+    /// Wire/transport batches loop singular postEvent; preview keeps
+    /// all-or-nothing Reject before any commit (arch: postEvent door).
+    let previewEvents
+        (knownSubmissionIds: Set<Guid>)
+        (state: State)
+        (events: Event list)
+        : Result<unit, string> =
+        let step (acc: Result<State, string>) (event: Event) =
+            match acc with
+            | Error error -> Error error
+            | Ok s when Set.contains event.submissionId knownSubmissionIds ->
+                Ok s
+            | Ok s ->
+                match Gambol.Shared.Events.Event.apply event s with
+                | ApplyResult.Invalid (_, msg) -> Error msg
+                | ApplyResult.Unchanged _ ->
+                    Error "Unchanged submission is rejected."
+                | ApplyResult.Changed s' ->
+                    Ok {
+                        s' with
+                            revision =
+                                Revision(s.revision.Value + 1)
+                    }
+        List.fold step (Ok state) events
+        |> Result.map ignore

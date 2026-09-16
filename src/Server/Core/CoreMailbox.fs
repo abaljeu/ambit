@@ -111,6 +111,54 @@ module CoreMailbox =
             return! acceptedFromPosted host posted
         }
 
+    let private previewTransportBatch
+        (host: MailboxHost)
+        (events: Gambol.Shared.Events.Event list)
+        : Async<Result<unit, string>> =
+        async {
+            let! stateResult = tryGetState host
+            let! log = eventHistory host
+            match stateResult with
+            | Error error -> return Error error
+            | Ok state ->
+                let known =
+                    log.events
+                    |> List.map (fun e -> e.submissionId)
+                    |> Set.ofList
+                return
+                    CoreEventDispatch.previewEvents
+                        known
+                        state
+                        events
+        }
+
+    let private mergePostLoop postOne host caller first rest =
+        async {
+            let! firstAccepted = postOne host caller first
+            match firstAccepted with
+            | Error error -> return Error error
+            | Ok accepted ->
+                let folder acc item =
+                    async {
+                        match! acc with
+                        | Error error -> return Error error
+                        | Ok prior ->
+                            match! postOne host caller item with
+                            | Error error -> return Error error
+                            | Ok next ->
+                                return
+                                    Ok(
+                                        CoreChanges.mergeAccepted
+                                            prior
+                                            next)
+                    }
+                return!
+                    List.fold
+                        folder
+                        (async.Return(Ok accepted))
+                        rest
+        }
+
     /// Transport may pass a Change list; each Change becomes one PostEvent
     /// on the mailbox queue (no multi-Event CoreMsg / postMany).
     let postChange
@@ -122,28 +170,16 @@ module CoreMailbox =
             match changes with
             | [] -> return Error "changes must not be empty"
             | first :: rest ->
-                let! firstAccepted = postOneChange host caller first
-                match firstAccepted with
+                let events = changes |> List.map eventFromChange
+                match! previewTransportBatch host events with
                 | Error error -> return Error error
-                | Ok accepted ->
-                    let folder acc change =
-                        async {
-                            match! acc with
-                            | Error error -> return Error error
-                            | Ok prior ->
-                                match! postOneChange host caller change with
-                                | Error error -> return Error error
-                                | Ok next ->
-                                    return
-                                        Ok(
-                                            CoreChanges.mergeAccepted
-                                                prior
-                                                next)
-                        }
+                | Ok () ->
                     return!
-                        List.fold
-                            folder
-                            (async.Return(Ok accepted))
+                        mergePostLoop
+                            postOneChange
+                            host
+                            caller
+                            first
                             rest
         }
 
@@ -174,28 +210,15 @@ module CoreMailbox =
             match events with
             | [] -> return Error "events must not be empty"
             | first :: rest ->
-                let! firstAccepted = postOneEvent host caller first
-                match firstAccepted with
+                match! previewTransportBatch host events with
                 | Error error -> return Error error
-                | Ok accepted ->
-                    let folder acc event =
-                        async {
-                            match! acc with
-                            | Error error -> return Error error
-                            | Ok prior ->
-                                match! postOneEvent host caller event with
-                                | Error error -> return Error error
-                                | Ok next ->
-                                    return
-                                        Ok(
-                                            CoreChanges.mergeAccepted
-                                                prior
-                                                next)
-                        }
+                | Ok () ->
                     return!
-                        List.fold
-                            folder
-                            (async.Return(Ok accepted))
+                        mergePostLoop
+                            postOneEvent
+                            host
+                            caller
+                            first
                             rest
         }
 
