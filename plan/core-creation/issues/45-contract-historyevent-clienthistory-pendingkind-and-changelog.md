@@ -1,7 +1,7 @@
 # 45 — Contract HistoryEvent, mailbox History, PendingKind, StartActorRequest, and ChangeLog
 
-**Status:** blocked
-**Blocked by:** [41 — Migrate Core mailbox, CoreMsg, and Pool onto Event](41-migrate-core-mailbox-coremsg-and-pool-onto-event.md), [42 — Migrate PersistHandlers restore and getEventsSince](42-migrate-persisthandlers-restore-and-geteventssince.md), [43 — Migrate HTTP Adapter onto postEvent and Event Poll](43-migrate-http-adapter-onto-postevent-and-event-poll.md), [44 — Migrate Browser Poll, History, pending, and EventId cursor](44-migrate-browser-poll-history-pending-and-eventid.md)
+**Status:** done
+**Blocked by:** ~~[41 — Migrate Core mailbox, CoreMsg, and Pool onto Event](41-migrate-core-mailbox-coremsg-and-pool-onto-event.md), [42 — Migrate PersistHandlers restore and getEventsSince](42-migrate-persisthandlers-restore-and-geteventssince.md), [43 — Migrate HTTP Adapter onto postEvent and Event Poll](43-migrate-http-adapter-onto-postevent-and-event-poll.md), [44 — Migrate Browser Poll, History, pending, and EventId cursor](44-migrate-browser-poll-history-pending-and-eventid.md)~~
 
 ## Context
 
@@ -47,3 +47,4 @@ Rename persist to EventLog. Module **EventLog**. Persist seam **PersistHandlers*
 
 - 2026-09-15 — Filed via `/to-tickets` for Story **Caller, persist, and Poll** only. Contract hop. Blocked by every story 5 migrate batch.
 - 2026-09-15 — Contract deletes HistoryEvent, ActorLifecycleEvent, mailbox History name (replaced by EventLog), PendingKind, StartActorRequest, and the ChangeLog name. ClientHistory remains. Do not delete ClientHistory as if a History module replaced it.
+- 2026-09-16 — Completed section 3: Migrated all ChangeLog callers to EventLogFile. Deleted src/Server/ChangeLog.fs. Deleted temporary module History reexport shim. All History.* calls updated to ChangeValidation.*. Merged to staging.
