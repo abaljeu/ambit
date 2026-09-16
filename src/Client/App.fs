@@ -368,7 +368,7 @@ let createRuntime (initialModel: VM) =
             changes
             |> List.tryHead
             |> Option.map (fun item ->
-                item.change.changeId.ToString("N").Substring(0, 8))
+                item.event.submissionId.ToString("N").Substring(0, 8))
             |> Option.defaultValue "empty"
         let url = $"/{currentFile}/changes"
         let postChanges = SyncBatch.toWireBatch baseRev changes

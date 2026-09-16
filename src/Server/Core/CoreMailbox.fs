@@ -166,6 +166,48 @@ module CoreMailbox =
             return result |> Result.map fst
         }
 
+    let private postOneEvent host caller event =
+        async {
+            let! posted = postEventAccepted host caller event
+            return! acceptedFromPosted host posted
+        }
+
+    /// Transport may pass an Event list; each Event becomes one PostEvent
+    /// on the mailbox queue (no multi-Event CoreMsg / postMany).
+    let postEvents
+        (host: MailboxHost)
+        (caller: Caller)
+        (events: Gambol.Shared.Events.Event list)
+        : Async<Result<CoreChangesAccepted, string>> =
+        async {
+            match events with
+            | [] -> return Error "events must not be empty"
+            | first :: rest ->
+                let! firstAccepted = postOneEvent host caller first
+                match firstAccepted with
+                | Error error -> return Error error
+                | Ok accepted ->
+                    let folder acc event =
+                        async {
+                            match! acc with
+                            | Error error -> return Error error
+                            | Ok prior ->
+                                match! postOneEvent host caller event with
+                                | Error error -> return Error error
+                                | Ok next ->
+                                    return
+                                        Ok(
+                                            CoreChanges.mergeAccepted
+                                                prior
+                                                next)
+                        }
+                    return!
+                        List.fold
+                            folder
+                            (async.Return(Ok accepted))
+                            rest
+        }
+
     let eventsSince
         (host: MailboxHost)
         (after: Gambol.Shared.Events.EventId)
@@ -231,6 +273,7 @@ module CoreMailbox =
               getEventsSince = getEventsSince host
               isReady = MailboxHost.isReady host
               postChange = postChange host c
+              postEvents = postEvents host c
               postGraphOnlyChange =
                 fun change -> postGraphOnlyChange host c change
               actorStop = fun result -> actorStop host c result

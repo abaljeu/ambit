@@ -28,6 +28,7 @@ type CoreChangesAccepted =
 /// The Core Changes contract. Every Change reaches persistence through this handle.
 /// `postChange` may take a transport batch (Change list) but enqueues one Event
 /// per Change into the mailbox (postEvent door).
+/// `postEvents` accepts Event list directly and enqueues them without narrowing to Changes.
 type CoreChanges =
     { getState: unit -> Async<Result<State, string>>
       getRevision: unit -> Async<Gambol.Shared.Events.EventId>
@@ -35,6 +36,7 @@ type CoreChanges =
       getEventsSince: Gambol.Shared.Events.EventId -> Async<Gambol.Shared.Events.Event list>
       isReady: unit -> bool
       postChange: Change list -> Async<Result<CoreChangesAccepted, string>>
+      postEvents: Gambol.Shared.Events.Event list -> Async<Result<CoreChangesAccepted, string>>
       postGraphOnlyChange:
         Change -> Async<Result<CoreChangesAccepted, string>>
       actorStop: ActorResult -> Async<Result<unit, string>>

@@ -166,21 +166,8 @@ module Api =
         | Error err ->
             return agentErrorResult $"Invalid JSON: {err}"
         | Ok batch ->
-            // Transport batch; CoreMailbox loops one PostEvent per Event.
-            // Extract Change ops from Event bodies for backward compatibility
-            let changes = batch.events |> List.map (fun event ->
-                { id = 0
-                  changeId = event.submissionId
-                  ops = Gambol.Shared.Events.Event.ops event |> Option.defaultValue [] })
-            match! handle.postChange changes with
+            match! handle.postEvents batch.events with
             | Ok accepted ->
-                // Convert accepted changes back to events for response
-                let events = accepted.changes |> List.map (fun change ->
-                    { id = Gambol.Shared.Events.EventId 0
-                      submissionId = change.changeId
-                      authority = Gambol.Shared.Events.Authority "Browser"
-                      commandName = ""
-                      body = Gambol.Shared.Events.EventBody.Change change.ops })
                 let! rev = handle.getRevision ()
                 return
                     changeSuccessResult
@@ -190,7 +177,7 @@ module Api =
                           apiVersion = ApiVersion.current
                           isReady = accepted.isReady
                           externalChanges = accepted.externalChanges
-                          events = events
+                          events = batch.events
                           message = accepted.message
                           bootstrapHash = None }
             | Error err -> return agentErrorResult err
