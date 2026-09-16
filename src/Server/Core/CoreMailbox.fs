@@ -90,15 +90,16 @@ module CoreMailbox =
         async {
             match posted with
             | Error error -> return Error error
-            | Ok (_, Some accepted) -> return Ok accepted
-            | Ok (_, None) ->
+            | Ok (stored, Some accepted) ->
+                return Ok { accepted with events = [ stored ] }
+            | Ok (stored, None) ->
                 let! revision = getRevision host
                 return
                     Ok(
                         CoreChanges.accepted
                             (Revision revision.Value)
                             (MailboxHost.isReady host ())
-                            []
+                            [ stored ]
                             false
                             None)
         }

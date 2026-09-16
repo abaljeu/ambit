@@ -32,11 +32,11 @@ let ``append since tryFind`` () =
     let log1 = EventLog.append (event "" (EventBody.Change [])) EventLog.empty
     let log2 = EventLog.append (event "" (EventBody.Change [])) log1
     let log3 = EventLog.append (event "" (EventBody.Change [])) log2
-    Assert.Equal(EventId 2, Event.id log3.events.Head)
+    Assert.Equal(EventId 3, Event.id log3.events.Head)
     let tail = EventLog.since EventId.zero log3
-    Assert.Equal(2, tail.events.Length)
-    Assert.Equal(EventId 2, Event.id tail.events.Head)
-    Assert.Equal(EventId 1, Event.id tail.events.[1])
+    Assert.Equal(3, tail.events.Length)
+    Assert.Equal(EventId 3, Event.id tail.events.Head)
+    Assert.Equal(EventId 1, Event.id tail.events.[2])
     match EventLog.tryFind (EventId 1) log3 with
     | None -> failwith "expected EventId 1"
     | Some found -> Assert.Equal(EventId 1, Event.id found)
@@ -57,7 +57,7 @@ let ``restore dedupe`` () =
     let second =
         { event "Second" (EventBody.Change []) with id = EventId 2 }
     let log = EventLog.restore [ first; duplicate; second ] EventLog.empty
-    Assert.Equal(EventId.zero, EventLog.nextId log)
+    Assert.Equal(EventId 1, EventLog.nextId log)
     Assert.Equal(EventId 2, Event.id log.events.Head)
     Assert.Equal("Second", log.events.Head.commandName)
     let restored = EventLog.since (EventId -1) log

@@ -274,7 +274,8 @@ let ``POST Change and inverse Changes return complete confirmations in request o
         Assert.True(poll.pageBuildEpochSec > 0)
         Assert.True(poll.isReady)
         Assert.True(poll.externalChanges)
-        Assert.Equal<Event list>(post.changes, poll.changes)
+        // Poll is EventLog.since: newest-head. ACK keeps request order.
+        Assert.Equal<Event list>(List.rev post.changes, poll.changes)
     })
 
 [<Fact>]
@@ -1124,7 +1125,7 @@ let ``file restart keeps inverse Change in EventLog`` () = task {
             ApiResponseSerialization.decodeChangeSuccessResponseDecoder
             pollJson
     Assert.Equal(2, poll.changes.Length)
-    Assert.Equal(confirmedUndo, poll.changes.[1])
+    Assert.Equal(confirmedUndo, poll.changes.[0])
     let! stateJson = getStateJson client2 testFile
     Assert.Equal(Revision 2, decodeRevision stateJson)
 }
@@ -1152,7 +1153,7 @@ let ``DB restart keeps inverse Change in EventLog`` () = task {
             ApiResponseSerialization.decodeChangeSuccessResponseDecoder
             pollJson
     Assert.Equal(2, poll.changes.Length)
-    Assert.Equal(confirmedUndo, poll.changes.[1])
+    Assert.Equal(confirmedUndo, poll.changes.[0])
     let! stateJson = getStateJson client2 testFile
     Assert.Equal(Revision 2, decodeRevision stateJson)
 }

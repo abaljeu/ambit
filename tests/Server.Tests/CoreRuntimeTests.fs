@@ -82,7 +82,7 @@ let ``bound Browser Changes admits a live Browser cookie credential`` () = task 
     let accepted = requireOk "browser post" result
     Assert.Equal<Guid list>(
         [ change.changeId ],
-        accepted.changes |> List.map (_.changeId))
+        accepted.events |> List.map (_.submissionId))
 }
 
 [<Fact>]

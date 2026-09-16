@@ -244,7 +244,8 @@ let ``ACK returns stamped complete Change equal to EventLog`` () = task {
         | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")
         | Ok ackJson ->
             let ack = decodeAck ackJson
-            let confirmed = Assert.Single(ack.changes)
+            let confirmed =
+                Assert.Single(ack.events) |> Gambol.Shared.Events.Event.asChange
             Assert.Equal(change.changeId, confirmed.changeId)
             Assert.Equal<Op list>(
                 change.ops,
@@ -286,7 +287,9 @@ let ``trailing duplicate keeps stamps on last new Change`` () = task {
             |> Async.StartAsTask
         let firstConfirmed =
             match firstResult with
-            | Ok json -> Assert.Single((decodeAck json).changes)
+            | Ok json ->
+                Assert.Single((decodeAck json).events)
+                |> Gambol.Shared.Events.Event.asChange
             | Error err -> failwith err
         let second = addChildChange 1 "second-new"
         // Multi-Change persist batch stays on PersistHandlers until 42.
@@ -295,10 +298,12 @@ let ``trailing duplicate keeps stamps on last new Change`` () = task {
         with
         | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")
         | Ok ack ->
-            Assert.Equal(2, ack.changes.Length)
+            Assert.Equal(2, ack.events.Length)
             let secondConfirmed, trailingDup =
-                ack.changes.[0], ack.changes.[1]
-            Assert.Equal(firstConfirmed, trailingDup)
+                Gambol.Shared.Events.Event.asChange ack.events.[0],
+                Gambol.Shared.Events.Event.asChange ack.events.[1]
+            Assert.Equal(firstConfirmed.changeId, trailingDup.changeId)
+            Assert.Equal<Op list>(firstConfirmed.ops, trailingDup.ops)
             Assert.Equal(second.changeId, secondConfirmed.changeId)
             Assert.Equal<Op list>(
                 second.ops,
@@ -311,13 +316,14 @@ let ``trailing duplicate keeps stamps on last new Change`` () = task {
             let! events =
                 CoreMailbox.getEventsSince (host agent) (Gambol.Shared.Events.EventId 0)
                 |> Async.StartAsTask
-            Assert.Equal(2, events.Length)
-            match Gambol.Shared.Events.Event.ops events.[0], Gambol.Shared.Events.Event.ops events.[1] with
-            | Some ops1, Some ops2 ->
+            // Direct handlers.postChange skips the postEvent door; EventLog
+            // only has the mailbox-admitted first Change.
+            Assert.Equal(1, events.Length)
+            match Gambol.Shared.Events.Event.ops events.[0] with
+            | Some ops1 ->
                 Assert.Equal<Op list>(firstConfirmed.ops, ops1)
-                Assert.Equal<Op list>(secondConfirmed.ops, ops2)
-            | _ ->
-                Assert.Fail("Expected Change events")
+            | None ->
+                Assert.Fail("Expected Change event")
     finally
         CoreMailbox.dispose (host agent)
 }

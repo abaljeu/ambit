@@ -77,7 +77,7 @@ type Event =
 
 ### 3.2 EventLog
 
-Append-only, oldest-head. This is the sequence. Persistence is this same EventLog on file/DB. Today’s [[src/Server/ChangeLog.fs]] is the lagging persist name.
+Append-only, newest-head. This is the sequence. Persistence is this same EventLog on file/DB. Today’s [[src/Server/ChangeLog.fs]] is the lagging persist name.
 
 1. `empty`
 2. `append`

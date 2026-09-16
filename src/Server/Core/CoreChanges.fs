@@ -20,7 +20,8 @@ type ActorResult =
 
 type CoreChangesAccepted =
     { revision: Revision
-      changes: Change list
+      /// Stored Events for POST /events ACK (submission / request order).
+      events: Gambol.Shared.Events.Event list
       externalChanges: bool
       message: string option
       isReady: bool }
@@ -47,12 +48,12 @@ module CoreChanges =
     let accepted
         (revision: Revision)
         (isReady: bool)
-        (confirmed: Change list)
+        (events: Gambol.Shared.Events.Event list)
         (externalChanges: bool)
         (message: string option)
         : CoreChangesAccepted =
         { revision = revision
-          changes = confirmed
+          events = events
           externalChanges = externalChanges
           message = message
           isReady = isReady }
@@ -62,7 +63,7 @@ module CoreChanges =
         (next: CoreChangesAccepted)
         : CoreChangesAccepted =
         { revision = next.revision
-          changes = prior.changes @ next.changes
+          events = prior.events @ next.events
           externalChanges =
             prior.externalChanges || next.externalChanges
           message = next.message |> Option.orElse prior.message

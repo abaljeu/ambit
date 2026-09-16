@@ -274,7 +274,9 @@ let ``db bootstrap duplicate returns stored Change and rejects no-op`` () = task
         match first with
         | Ok ack -> ack
         | Error err -> failwith err
-    Assert.Equal(accepted.changeId, Assert.Single(firstAck.changes).changeId)
+    Assert.Equal(
+        accepted.changeId,
+        Assert.Single(firstAck.events).submissionId)
     let! xminAfterFirst =
         scalar<string> connStr "SELECT xmin::text FROM graph WHERE singleton = 1"
 
@@ -282,7 +284,9 @@ let ``db bootstrap duplicate returns stored Change and rejects no-op`` () = task
         core.postChange (encodeBatch [ accepted ]) |> Async.StartAsTask
     match duplicate with
     | Ok ack ->
-        Assert.Equal<Change list>(firstAck.changes, ack.changes)
+        Assert.Equal<Gambol.Shared.Events.Event list>(
+            firstAck.events,
+            ack.events)
     | Error err -> failwith err
 
     let noOp =

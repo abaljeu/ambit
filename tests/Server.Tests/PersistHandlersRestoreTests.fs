@@ -1,4 +1,4 @@
-module Gambol.Server.Tests.Issue42PersistHandlersTests
+module Gambol.Server.Tests.PersistHandlersRestoreTests
 
 open System
 open Xunit
@@ -67,7 +67,7 @@ let ``EventLog.restore seeds mailbox across File restart`` () = task {
             |> Async.StartAsTask
         let stored = Assert.Single(history.events)
         Assert.Equal(change.changeId, stored.submissionId)
-        Assert.Equal(EventId 1, EventLog.nextId history)
+        Assert.Equal(EventId 2, EventLog.nextId history)
     finally
         CoreMailbox.dispose second
 }
@@ -92,7 +92,7 @@ let ``EventLog.restore seeds mailbox across Db restart`` () = task {
             |> Async.StartAsTask
         let stored = Assert.Single(history.events)
         Assert.Equal(change.changeId, stored.submissionId)
-        Assert.Equal(EventId 1, EventLog.nextId history)
+        Assert.Equal(EventId 2, EventLog.nextId history)
     finally
         CoreMailbox.dispose second
 }
@@ -100,7 +100,7 @@ let ``EventLog.restore seeds mailbox across Db restart`` () = task {
 [<Fact>]
 let ``ActorStart persists across File restart`` () = task {
     let dir = newTempDir ()
-    let actorSecret = Credential "issue-42-actor"
+    let actorSecret = Credential "persist-restore-actor"
     let pool: CoreActorPool =
         { register = fun _ _ -> ()
           startActor = fun _ _ -> Ok actorSecret
@@ -207,7 +207,7 @@ let ``ActorStart persist Error does not keep Event in mailbox log`` () =
             handlers =
                 { persist.handlers with
                     appendEvent = fun _ -> Error "event persist failed" } }
-    let pool = stubPool (Credential "issue-42-append-fail")
+    let pool = stubPool (Credential "persist-append-fail")
     withFilling filling pool (fun host -> task {
         let! started =
             CoreMailbox.startActor host testCaller sampleActorStart

@@ -177,7 +177,7 @@ module Api =
                           apiVersion = ApiVersion.current
                           isReady = accepted.isReady
                           externalChanges = accepted.externalChanges
-                          events = batch.events
+                          events = accepted.events
                           message = accepted.message
                           bootstrapHash = None }
             | Error err -> return agentErrorResult err

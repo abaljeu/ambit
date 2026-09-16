@@ -64,7 +64,8 @@ module FileAgent =
             CoreChanges.accepted
                 state.Value.revision
                 true
-                confirmed
+                (confirmed
+                 |> List.map (Gambol.Shared.Events.Event.ofChange ""))
                 externalChanges
                 message
 

@@ -107,7 +107,8 @@ module DbAgent =
         CoreChanges.accepted
             loaded.state.Value.revision
             loaded.ready.Task.IsCompletedSuccessfully
-            confirmed
+            (confirmed
+             |> List.map (Gambol.Shared.Events.Event.ofChange ""))
             externalChanges
             message
 

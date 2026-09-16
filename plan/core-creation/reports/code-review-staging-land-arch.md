@@ -9,7 +9,7 @@ Fixed point: current `dev` tip before land (`persist handlers`).
 ### Hard violations
 
 **[[.agents/rules/refer-by-name.md]]** — bare id  
-- [44 — …](../issues/44-migrate-browser-poll-history-pending-and-eventid.md):48 — “conflicts with issue 43” (no name).
+- [44 — Migrate Browser Poll, History, pending, and EventId cursor](../issues/44-migrate-browser-poll-history-pending-and-eventid.md):48 — was “conflicts with issue 43” (no name); **fixed** to name [43 — Migrate HTTP Adapter onto postEvent and Event Poll](../issues/43-migrate-http-adapter-onto-postevent-and-event-poll.md).
 
 **[[.agents/rules/fsharp-source.md]] — Don’t use mutable**  
 - [EventLogFile.fs](../../../src/Server/EventLogFile.fs):62 `let mutable totalRead = 0`  

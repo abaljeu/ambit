@@ -50,7 +50,7 @@ let ``live Browser credential is admitted and Change reaches PersistHandlers``
             Assert.Equal(Revision 1, accepted.revision)
             Assert.Equal<Guid list>(
                 [ change.changeId ],
-                accepted.changes |> List.map _.changeId)
+                accepted.events |> List.map _.submissionId)
             let! rev = handle.getRevision () |> Async.StartAsTask
             Assert.Equal(Gambol.Shared.Events.EventId 1, rev)
         finally

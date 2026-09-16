@@ -47,14 +47,14 @@ let ``typed Normal caller publishes accepted Change to Poll`` () = task {
         Assert.Equal(Revision 1, accepted.revision)
         Assert.Equal<Guid list>(
             [ change.changeId ],
-            accepted.changes |> List.map (_.changeId))
+            accepted.events |> List.map (_.submissionId))
 
         let! poll = Api.getPoll handle 10 20 0 |> Async.StartAsTask
         match box poll with
         | :? ContentHttpResult as content ->
             let response = decodeChangeResponse content.ResponseContent
             Assert.Equal(accepted.revision.Value, response.revision.Value)
-            Assert.Equal<Change list>(accepted.changes, response.changes |> List.map Event.asChange)
+            Assert.Equal<Event list>(accepted.events, response.events)
         | other ->
             Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
     finally
@@ -102,14 +102,14 @@ let ``test Actor posts Normal Change off apply mailbox and Poll sees it`` () =
                 runActor subgraph handle produceFromSubgraph
             let accepted = requireOk "actor post" accepted
             Assert.Equal(Revision 1, accepted.revision)
-            Assert.NotEmpty(accepted.changes)
+            Assert.NotEmpty(accepted.events)
 
             let! poll = Api.getPoll handle 10 20 0 |> Async.StartAsTask
             match box poll with
             | :? ContentHttpResult as content ->
                 let response = decodeChangeResponse content.ResponseContent
                 Assert.Equal(accepted.revision.Value, response.revision.Value)
-                Assert.Equal<Change list>(accepted.changes, response.changes |> List.map Event.asChange)
+                Assert.Equal<Event list>(accepted.events, response.events)
             | other ->
                 Assert.Fail(
                     $"Expected ContentHttpResult, got {other.GetType().FullName}")
@@ -117,13 +117,13 @@ let ``test Actor posts Normal Change off apply mailbox and Poll sees it`` () =
             CoreMailbox.dispose agent
     }
 
-let private recordingHandle (posts: ResizeArray<Change list>) =
+let private recordingHandle (posts: ResizeArray<Event list>) =
     let state =
         { graph = Graph.create ()
           revision = Revision 0 }
-    let accepted changes : CoreChangesAccepted =
+    let accepted events : CoreChangesAccepted =
         { revision = Revision 1
-          changes = changes
+          events = events
           externalChanges = false
           message = None
           isReady = true }
@@ -131,11 +131,11 @@ let private recordingHandle (posts: ResizeArray<Change list>) =
       getRevision = fun () -> async.Return (Gambol.Shared.Events.EventId 0)
       getEventsSince = fun _ -> async.Return []
       isReady = fun () -> true
-      postChange =
-        fun changes ->
-            posts.Add(changes)
-            async.Return(Result.Ok(accepted changes))
-      postEvents = fun _ -> async.Return(Result.Error "unused")
+      postChange = fun _ -> async.Return(Result.Error "unused")
+      postEvents =
+        fun events ->
+            posts.Add(events)
+            async.Return(Result.Ok(accepted events))
       postGraphOnlyChange = fun _ -> async.Return(Result.Error "unused")
       actorStop = fun _ -> async.Return(Result.Error "unused")
       asCaller = fun _ -> Unchecked.defaultof<CoreChanges> }
@@ -143,7 +143,7 @@ let private recordingHandle (posts: ResizeArray<Change list>) =
 
 [<Fact>]
 let ``HTTP Adapter passes typed Changes only after valid decode`` () = task {
-    let posts = ResizeArray<Change list>()
+    let posts = ResizeArray<Event list>()
     let handle = recordingHandle posts
     let change = addRootChild 0 "adapter"
     let event = eventFromChange change
@@ -160,5 +160,5 @@ let ``HTTP Adapter passes typed Changes only after valid decode`` () = task {
         |> Async.StartAsTask
 
     let posted = Assert.Single(posts)
-    Assert.Equal<Change list>([ change ], posted)
+    Assert.Equal<Event list>([ event ], posted)
 }

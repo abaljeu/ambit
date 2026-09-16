@@ -45,4 +45,4 @@ Keep Browser Emacs undo on **ClientHistory** (Event-shaped). Do not migrate onto
 
 - 2026-09-15 — Filed via `/to-tickets` for Story **Caller, persist, and Poll** only. Browser migrate batch. Blocked by Core name-only Undo/Redo and HTTP Adapter Event Poll.
 - 2026-09-15 — ClientHistory callers stay on Event-shaped ClientHistory; client holds EventLog of the same type. Do not migrate onto a module named History.
-- 2026-09-15 — **COMPLETED**: All Browser Poll, pending, and EventId cursors migrated to Event. Merged into staging after resolving conflicts with issue 43. ClientHistory uses Event internally, client holds EventLog, API responses use Event tails.
+- 2026-09-15 — **COMPLETED**: All Browser Poll, pending, and EventId cursors migrated to Event. Merged into staging after resolving conflicts with [43 — Migrate HTTP Adapter onto postEvent and Event Poll](43-migrate-http-adapter-onto-postevent-and-event-poll.md). ClientHistory uses Event internally, client holds EventLog, API responses use Event tails.

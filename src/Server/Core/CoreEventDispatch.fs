@@ -18,15 +18,22 @@ module internal CoreEventDispatch =
     let private eventAuthority (Authority name) =
         Gambol.Shared.Events.Authority name
 
+    /// submissionId is Guid dedup (event-abstraction): replay returns the stored Event.
     let private commit (context: Context) (event: Event) =
-        let stored =
-            { event with id = EventLog.nextId context.eventLog.Value }
-        match context.persist.appendEvent stored with
-        | Error error -> Error error
-        | Ok () ->
-            context.eventLog.Value <-
-                EventLog.append stored context.eventLog.Value
-            Ok stored
+        match
+            context.eventLog.Value.events
+            |> List.tryFind (fun e -> e.submissionId = event.submissionId)
+        with
+        | Some existing -> Ok existing
+        | None ->
+            let stored =
+                { event with id = EventLog.nextId context.eventLog.Value }
+            match context.persist.appendEvent stored with
+            | Error error -> Error error
+            | Ok () ->
+                context.eventLog.Value <-
+                    EventLog.append stored context.eventLog.Value
+                Ok stored
 
     let private lifecycleEvent
         (caller: Caller)
@@ -89,21 +96,22 @@ module internal CoreEventDispatch =
         (accepted: CoreChangesAccepted)
         : Event =
         let confirmed =
-            accepted.changes
-            |> List.tryFind (fun change ->
-                change.changeId = event.submissionId)
-        match confirmed, event.body with
-        | Some change, Gambol.Shared.Events.EventBody.Change _ ->
+            accepted.events
+            |> List.tryFind (fun stored ->
+                stored.submissionId = event.submissionId)
+        let confirmedOps =
+            confirmed
+            |> Option.bind Gambol.Shared.Events.Event.ops
+        match confirmedOps, event.body with
+        | Some ops, Gambol.Shared.Events.EventBody.Change _ ->
             { event with
-                body = Gambol.Shared.Events.EventBody.Change change.ops }
-        | Some change, Gambol.Shared.Events.EventBody.Undo(target, _) ->
+                body = Gambol.Shared.Events.EventBody.Change ops }
+        | Some ops, Gambol.Shared.Events.EventBody.Undo(target, _) ->
             { event with
-                body =
-                    Gambol.Shared.Events.EventBody.Undo(target, change.ops) }
-        | Some change, Gambol.Shared.Events.EventBody.Redo(target, _) ->
+                body = Gambol.Shared.Events.EventBody.Undo(target, ops) }
+        | Some ops, Gambol.Shared.Events.EventBody.Redo(target, _) ->
             { event with
-                body =
-                    Gambol.Shared.Events.EventBody.Redo(target, change.ops) }
+                body = Gambol.Shared.Events.EventBody.Redo(target, ops) }
         | _ -> event
 
     let private prepare

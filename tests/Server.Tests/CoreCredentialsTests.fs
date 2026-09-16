@@ -16,14 +16,14 @@ let private requireOk label result =
         Unchecked.defaultof<_>
 
 let private unusedHandle
-    (post: Change list -> Async<Result<CoreChangesAccepted, string>>)
+    (post: Gambol.Shared.Events.Event list -> Async<Result<CoreChangesAccepted, string>>)
     : CoreChanges =
     { getState = fun () -> async.Return(Result.Error "unused")
       getRevision = fun () -> async.Return(Gambol.Shared.Events.EventId 0)
       getEventsSince = fun _ -> async.Return []
       isReady = fun () -> true
-      postChange = post
-      postEvents = fun _ -> async.Return(Result.Error "unused")
+      postChange = fun _ -> async.Return(Result.Error "unused")
+      postEvents = post
       postGraphOnlyChange = fun _ -> async.Return(Result.Error "unused")
       actorStop = fun _ -> async.Return(Result.Error "unused")
       asCaller = fun _ -> Unchecked.defaultof<CoreChanges> }
@@ -55,21 +55,23 @@ let ``inactive sender is auth-refused and is not enqueued`` () = task {
 [<Fact>]
 let ``live credential is enqueued`` () = task {
     let posts = ResizeArray<Change list>()
-    let accepted changes : CoreChangesAccepted =
+    let accepted events : CoreChangesAccepted =
         { revision = Revision 1
-          changes = changes
+          events = events
           externalChanges = false
           message = None
           isReady = true }
     let enqueue changes =
         posts.Add(changes)
-        async.Return(Result.Ok(accepted changes))
+        async.Return(Result.Ok(accepted (changes |> List.map (fun c -> eventFromChange c))))
     let change = addRootChild "admitted"
     let! result =
         CoreAuth.post true enqueue [ change ] |> Async.StartAsTask
     let accepted = requireOk "admitted post" result
     Assert.Equal<Change list>([ change ], Assert.Single(posts))
-    Assert.Equal<Change list>([ change ], accepted.changes)
+    Assert.Equal<System.Guid list>(
+        [ change.changeId ],
+        accepted.events |> List.map _.submissionId)
 }
 
 [<Fact>]

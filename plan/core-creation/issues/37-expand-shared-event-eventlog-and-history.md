@@ -24,7 +24,7 @@ Add Shared **Event** beside HistoryEvent. State, Interface, and Uses: [[../arch.
 
 Add Shared **EventLog** beside the old mailbox History sequence. State, Interface, and Uses: [[../arch.md|Core creation architecture]] Module **EventLog**. Field shapes: [[../reports/event-abstraction.md]]. EventLog replaces the mailbox History role. Today’s `type History` / `module History` in [[src/Shared/History.fs]] stays until contract; do not add a second History module.
 
-- [x] EventLog functions — `empty`, `append`, `nextId`, `since`, `tryFind`, `restore`. The log is append-only, oldest-head. `since` is the Poll/Load tail of self-contained Events. `tryFind` serves Core name-only Undo/Redo. `restore` merges persisted Events and dedupes by submissionId. Do not add Event JSON encode/read or persist of ActorStart / ActorStop on this ticket.
+- [x] EventLog functions — `empty`, `append`, `nextId`, `since`, `tryFind`, `restore`. The log is append-only, newest-head. `since` is the Poll/Load tail of self-contained Events. `tryFind` serves Core name-only Undo/Redo. `restore` merges persisted Events and dedupes by submissionId. Do not add Event JSON encode/read or persist of ActorStart / ActorStop on this ticket.
 
 ### 3. ClientHistory
 

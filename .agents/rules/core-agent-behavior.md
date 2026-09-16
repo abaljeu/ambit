@@ -74,6 +74,8 @@ Include me in your work. Tell me what you're thinking about.
 OBLIGAGTORY: Before any nontrivial tool call emit a clause stating the goal of that call.
 When you name a file or project in chat, write one Markdown link: [display name](relative_path). The display name is the name you are talking about, for example [fast reboot](plan/client-start-time/reports/cache-first-boot-via-poll.md). Put the path in that same link. Never emit like `**fast reboot** ([client-start-time](plan/client-start-time/project.md))`. In files use [[relative_path]] wikilinks instead. When you name an issue, follow [[.agents/rules/refer-by-name.md]].
 
+NEVER call on bash.  It's already the shell.
+
 Advise me if there is a better way to do something.
 If a request is unclear, just ask.
 If a requested course of action seems inefficient, stop and propose a more efficient course.
