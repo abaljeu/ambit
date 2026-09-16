@@ -231,7 +231,7 @@ module ResidentProjection =
                   isReady = isReady
                   events =
                     changes
-                    |> List.map (Gambol.Shared.Ev.ofChange "")
+                    |> List.map (Ev.ofChange "")
                   packages = packages }
 
     /// Scoped resident graph for fresh-session bootstrap: complete ROOT Workspace,

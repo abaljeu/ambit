@@ -143,7 +143,7 @@ let private applySelectModeExternalPaste
 
         let change =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops = nested @ [ replaceOp ] }
 
         let state =

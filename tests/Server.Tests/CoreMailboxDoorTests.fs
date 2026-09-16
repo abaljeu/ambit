@@ -99,7 +99,7 @@ let ``CoreMailbox.login privately admits a Browser secret`` () =
             let childId = NodeId.New()
             let change =
                 { id = 0
-                  changeId = Guid.NewGuid()
+                  submissionId = Guid.NewGuid()
                   ops =
                     [ Op.NewNode(childId, "after-login")
                       Op.Replace(
@@ -302,7 +302,7 @@ let ``CoreActorPool.startActor uses client graphIds to build subgraph`` () =
         let childId = NodeId.New()
         let change =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(childId, "child")
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
@@ -340,7 +340,7 @@ let ``CoreActorPool.startActor selects actor from command node text`` () =
         let commandId = NodeId.New()
         let change =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(commandId, "test")
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
@@ -397,7 +397,7 @@ let ``CoreActorPool.startActor fails when commandId not in graphIds`` () =
         let commandId = NodeId.New()
         let change =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(commandId, "test")
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
@@ -463,7 +463,7 @@ let ``Graph-only post without admitted Caller is refused`` () =
     withHost (fun host _ -> task {
         let change =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops = [ Op.NewNode(NodeId.New(), "nope") ] }
         let! result =
             CoreMailbox.postGraphOnlyChange
@@ -480,7 +480,7 @@ let ``Graph-only post with admitted Caller reaches persist`` () =
         let childId = NodeId.New()
         let change =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(childId, "graph-only")
                   Op.Replace(
@@ -511,7 +511,7 @@ let ``CoreMailbox.logout revokes the Caller at the mailbox`` () =
                 host
                 testCaller
                 [ { id = 0
-                    changeId = Guid.NewGuid()
+                    submissionId = Guid.NewGuid()
                     ops = [ Op.NewNode(NodeId.New(), "after-logout") ] } ]
             |> Async.StartAsTask
         Assert.Equal(Error CoreAuth.refuse, refused)
@@ -534,7 +534,7 @@ let ``CoreMsg is not a public type`` () =
         |> Array.exists (fun t -> t.Name = "CoreMsg")
     Assert.False(found)
 
-let private postedEvent () : Gambol.Shared.Ev =
+let private postedEvent () : Ev =
     let childId = NodeId.New()
     { id = Gambol.Shared.EventId 0
       submissionId = Guid.NewGuid()

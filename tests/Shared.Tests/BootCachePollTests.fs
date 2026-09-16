@@ -7,7 +7,7 @@ open Xunit
 
 let private mkChange id =
     { id = id
-      changeId = Guid.NewGuid()
+      submissionId = Guid.NewGuid()
       ops = [] }
 
 let private mkPoll rev (changes: Change list) : ChangeSuccessResponse =
@@ -27,16 +27,16 @@ let private decide clientRev log poll =
 [<Fact>]
 let ``novelChanges skips Poll Changes already in the log by id`` () =
     let local = mkChange 4
-    let pollDup = { local with changeId = Guid.NewGuid() }
+    let pollDup = { local with submissionId = Guid.NewGuid() }
     let novel = mkChange 5
     let kept = BootCache.novelChanges [ local ] [ pollDup; novel ]
     Assert.Equal(5, kept.Head.id)
     Assert.Equal(1, kept.Length)
 
 [<Fact>]
-let ``novelChanges skips Poll Changes already in the log by changeId`` () =
+let ``novelChanges skips Poll Changes already in the log by submissionId`` () =
     let local = mkChange 4
-    let pollDup = { mkChange 99 with changeId = local.changeId }
+    let pollDup = { mkChange 99 with submissionId = losubmissionIdissionId }
     Assert.Empty(BootCache.novelChanges [ local ] [ pollDup ])
 
 [<Fact>]

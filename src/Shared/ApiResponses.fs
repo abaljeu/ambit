@@ -28,7 +28,7 @@ type ChangeSuccessResponse =
       apiVersion: int
       isReady: bool
       externalChanges: bool
-      events: Gambol.Shared.Ev list
+      events: Ev list
       /// File-write status when graph change succeeded but artifact save had issues.
       message: string option
       /// Optional ROOT-closure fingerprint; omitted by old Servers.
@@ -53,7 +53,7 @@ type LoadResponse =
       pageBuildEpochSec: int
       apiVersion: int
       isReady: bool
-      events: Gambol.Shared.Ev list
+      events: Ev list
       /// Complete Workspace subgraph Nodes at the response Revision (wire: packages).
       packages: Node list }
 
@@ -61,7 +61,7 @@ type LoadResponse =
 
 /// Authoritative Sync install: ordered Change tail plus optional resident packages.
 type SyncResponse =
-    { events: Gambol.Shared.Ev list
+    { events: Ev list
       /// Complete Workspace / child-list snapshots at the response revision.
       packages: Node list }
 

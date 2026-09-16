@@ -105,7 +105,7 @@ let ``Apply change that updates f g h text`` () =
 
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops = []}
         |> Change.addOp (Op.SetText(nodeF.id, nodeF.text, "newf"))
         |> Change.addOp (Op.SetText(nodeG.id, nodeG.text, "newg"))
@@ -240,7 +240,7 @@ let ``Invalid move change does not modify graph`` () =
     let insertAtEnd =
         ChildListWire.insertAt parentId originalChildren originalChildren.Length [ first ]
     let moveChange =
-        { id = 0; changeId = Guid.NewGuid(); ops = [] }
+        { id = 0; submissionId = Guid.NewGuid(); ops = [] }
         |> Change.addOp invalidRemove
         |> Change.addOp insertAtEnd
 
@@ -266,7 +266,7 @@ let ``Move with correct old span is rejected when target is owned-descendant`` (
     let insertAUnderB =
         ChildListWire.insertAt childB.id originalBChildren originalBChildren.Length [ childA ]
     let moveChange =
-        { id = 0; changeId = Guid.NewGuid(); ops = [] }
+        { id = 0; submissionId = Guid.NewGuid(); ops = [] }
         |> Change.addOp removeAFromRoot
         |> Change.addOp insertAUnderB
 
@@ -414,7 +414,7 @@ let ``parse state transition before tree mutation succeeds and reverse order fai
     let fileChildren = state.graph.nodes.[fileId].children
     let parseChange =
         { id = 0
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops =
             [ Op.SetDocumentState(fileId, Unparsed, Current)
               Op.NewNode(parsedId, "parsed")
@@ -425,7 +425,7 @@ let ``parse state transition before tree mutation succeeds and reverse order fai
 
     let reverse =
         { parseChange with
-            changeId = System.Guid.NewGuid()
+            submissionId = System.Guid.NewGuid()
             ops =
                 [ Op.NewNode(parsedId, "parsed")
                   ChildListWire.append fileId fileChildren [ attach ]
@@ -447,7 +447,7 @@ let ``valid parse batch can replay undo and redo`` () =
     let state, fileId, childId, _, _ = unparsedFileState ()
     let change =
         { id = 0
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops =
             [ Op.SetDocumentState(fileId, Unparsed, Current)
               Op.SetText(childId, "body", "parsed") ] }
@@ -486,7 +486,7 @@ let ``nested file parse under current directory replaces file tree`` () =
     let attach = ChildNode.owner parsedId
     let parseChange =
         { id = 0
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops =
             [ Op.SetDocumentState(fileId, Unparsed, Current)
               Op.NewNode(parsedId, "parsed")
@@ -524,7 +524,7 @@ let ``nested file parse still allowed when enclosing directory is unparsed`` () 
     let attach = ChildNode.owner parsedId
     let parseChange =
         { id = 0
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops =
             [ Op.SetDocumentState(fileId, Unparsed, Current)
               Op.NewNode(parsedId, "parsed")
@@ -595,7 +595,7 @@ let ``SetClasses via applyChange succeeds despite distant ownership violation`` 
     let fileB = state.graph.nodes.[fileBId]
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops = []}
         |> Change.addOp (Op.SetClasses(fileBId, fileB.cssClasses, CssClass.ofList [ "edited" ]))
     let result = ChangeValidation.applyChange change state |> expectChanged
@@ -834,7 +834,7 @@ let ``local shape op succeeds despite distant ownership violation`` () =
     let newId = NodeId.New()
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops = []}
         |> Change.addOp (Op.NewNode(newId, "sibling"))
         |> Change.addOp (
@@ -862,7 +862,7 @@ let ``applyChange accepts same-parent Owner then Ref (Duplicate link)`` () =
     let insertAt = parent.children.Length
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops =
             [ ChildListWire.insertAt
                   state0.graph.root
@@ -886,7 +886,7 @@ let ``applyChange accepts mid-list same-parent Ref (Duplicate link)`` () =
     let insertAt = 1
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops =
             [ ChildListWire.insertAt parentId kids0 insertAt [ ChildNode.reference ownedChild.id ] ] }
     let state1 = ChangeValidation.applyChange change state0 |> expectChanged
@@ -929,7 +929,7 @@ let ``Duplicate Ref succeeds despite dual-Owned Replace parent`` () =
     let insertAt = state.graph.nodes.[parentId].children.Length
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops =
             [ ChildListWire.insertAt
                   parentId
@@ -973,7 +973,7 @@ let ``Duplicate Ref succeeds despite distant dual-Owner`` () =
     let insertAt = state.graph.nodes.[parentId].children.Length
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops =
             [ ChildListWire.insertAt
                   parentId
@@ -992,7 +992,7 @@ let ``applyChange rejects Replace that introduces a second Owner edge`` () =
     let insertAt = state0.graph.nodes.[parentB].children.Length
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops =
             [ ChildListWire.insertAt
                   parentB
@@ -1042,7 +1042,7 @@ let ``nested paste and NewSpecialNode Undo and Redo preserve reachable structure
     let root = state.graph.nodes.[state.graph.root]
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops =
             pasteOps
             @ [ ChildListWire.append state.graph.root root.children (ChildNode.owners topIds)
@@ -1069,7 +1069,7 @@ let ``split-shaped Change Undo and Redo preserve sibling semantics`` () =
     let splitId = NodeId.New()
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops =
             [ Op.NewNode(splitId, "right")
               ChildListWire.insertAt parentId state.graph.nodes.[parentId].children 1 [ ChildNode.owner splitId ]

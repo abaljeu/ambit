@@ -37,7 +37,7 @@ module EventLog =
             log.events
             |> List.map (fun event -> event.submissionId)
             |> Set.ofList
-        let folder (events, seen) event =
+        let folder (events, seen) (event: Ev) =
             if Set.contains event.submissionId seen then
                 events, seen
             else

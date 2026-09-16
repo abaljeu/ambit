@@ -447,7 +447,7 @@ let ``indent Directory under Normal sibling is accepted by ChangeValidation.appl
           ChildListWire.insertAt normalId normKids plan.target.endd [ dirChild ] ]
     let change =
         { id = selected.revision.Value
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops = ops }
     let state =
         { graph = graph
@@ -510,7 +510,7 @@ let ``indent Ref Directory under Normal succeeds despite foreign name duplicates
           ChildListWire.insertAt normalId normKids plan.target.endd [ dirRef ] ]
     let change =
         { id = selected.revision.Value
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops = ops }
     let state =
         { graph = graph

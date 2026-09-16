@@ -7,7 +7,7 @@ open Xunit
 
 let private textChange id nodeId oldText newText : Change =
     { id = id
-      changeId = Guid.NewGuid()
+      submissionId = Guid.NewGuid()
       ops = [ Op.SetText(nodeId, oldText, newText) ] }
 
 let private clientState graph revision history : ClientSyncState =
@@ -45,9 +45,9 @@ let ``applyLocalChange records the submitted Change and Normal transition`` () =
     | Error msg -> failwith msg
     | Ok (next, pending) ->
         Assert.Equal("after", next.graph.nodes.[nodeId].text)
-        Assert.Equal(change.changeId, pending.change.changeId)
+        Assert.Equal(change.submissionId, pending.chasubmissionIdissionId)
         Assert.Equal<Op list>(change.ops, pending.change.ops)
-        Assert.Equal(change.changeId, pending.transition.Value.submittedChangeId)
+        Assert.Equal(change.submissionId, pending.transition.Value.submittedChangeId)
         Assert.Equal(0, pending.transition.Value.recordId)
         match ClientHistory.undo (Revision 4) (Guid.NewGuid()) next.history with
         | None -> failwith "Expected recorded History"
@@ -77,7 +77,7 @@ let ``applyLocalUndo projects the inverse through ResidentProjection`` () =
         | Some (Error msg) -> failwith msg
         | Some (Ok (afterUndo, pending)) ->
             Assert.Equal("before", afterUndo.graph.nodes.[nodeId].text)
-            Assert.Equal(undoId, pending.change.changeId)
+            Assert.Equal(undoId, pending.change.submissionId)
             Assert.Equal<Op list>(
                 [ Op.SetText(nodeId, "after", "before") ],
                 pending.change.ops)
@@ -103,7 +103,7 @@ let ``applyLocalRedo projects the inverse through ResidentProjection`` () =
             | Some (Error msg) -> failwith msg
             | Some (Ok (afterRedo, pending)) ->
                 Assert.Equal("after", afterRedo.graph.nodes.[nodeId].text)
-                Assert.Equal(redoId, pending.change.changeId)
+                Assert.Equal(redoId, pending.change.submissionId)
         | _ -> failwith "Expected Undo before Redo"
 
 [<Fact>]
@@ -130,7 +130,7 @@ let ``non-empty Poll tail preserves ClientHistory before projection`` () =
     let state = clientState graph1 (EventId 3) history
     let upstream =
         { id = 3
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops = [ Op.SetText(nodeId, "before", "remote") ] }
     match SyncLogic.applyServerTail [ Ev.ofChange "" upstream ] state with
     | Error msg -> failwith msg

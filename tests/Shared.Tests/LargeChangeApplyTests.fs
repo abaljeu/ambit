@@ -27,7 +27,7 @@ let private parseLikeChange (parentId: NodeId) : Change =
     let children =
         List.init nodeCount (fun _ -> ChildNode.owner (NodeId.New()))
     { id = 0
-      changeId = System.Guid.NewGuid()
+      submissionId = System.Guid.NewGuid()
       ops =
         [ for i, child in List.indexed children ->
             Op.NewNode(child.id, "line " + string i)
@@ -184,9 +184,9 @@ let ``delivered inverse of large paste measures phases without per-created-Node 
             ViewModel.reconcileSiteMapFrom
                 projected.graph Graph.workspacesId siteMap0 nextId
             |> ignore)
-    let inverseEvent: Gambol.Shared.Ev =
+    let inverseEvent: Ev =
         { id = Gambol.Shared.EventId 0
-          submissionId = inverse.changeId
+          submissionId = inverse.submissionId
           authority = Gambol.Shared.Authority ""
           commandName = ""
           body = Gambol.Shared.EventBody.Change inverse.ops }
@@ -223,7 +223,7 @@ let private nestedParseChange (documentRootId: NodeId) : Change =
             ChildNode.owner (NodeId.New()),
             List.init 10 (fun _ -> ChildNode.owner (NodeId.New())))
     { id = 0
-      changeId = System.Guid.NewGuid()
+      submissionId = System.Guid.NewGuid()
       ops =
         [ for branch, leaves in branches do
             yield Op.NewNode(branch.id, "branch")

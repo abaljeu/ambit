@@ -12,7 +12,7 @@ let private changedBody () =
     let childId = NodeId.New()
     [ {
         id = 0
-        changeId = Guid.NewGuid()
+        submissionId = Guid.NewGuid()
         ops =
             [
                 Op.NewNode(childId, "failure probe")
@@ -48,7 +48,7 @@ let private softFailEditBody () =
     let childId = NodeId.New()
     [ {
         id = 0
-        changeId = Guid.NewGuid()
+        submissionId = Guid.NewGuid()
         ops =
             [
                 Op.NewNode(childId, "soft-fail-probe")
@@ -219,7 +219,7 @@ let private incrementingStampPersist (count: int ref) =
 let private addChildChange rev text =
     let childId = NodeId.New()
     { id = rev
-      changeId = Guid.NewGuid()
+      submissionId = Guid.NewGuid()
       ops =
         [ Op.NewNode(childId, text)
           Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
@@ -245,8 +245,8 @@ let ``ACK returns stamped complete Change equal to EventLog`` () = task {
         | Ok ackJson ->
             let ack = decodeAck ackJson
             let confirmed =
-                Assert.Single(ack.events) |> Gambol.Shared.Ev.asChange
-            Assert.Equal(change.changeId, confirmed.changeId)
+                Assert.Single(ack.events) |> Ev.asChange
+            Assert.Equal(change.submissionId, confirmed.submissionId)
             Assert.Equal<Op list>(
                 change.ops,
                 List.take change.ops.Length confirmed.ops)
@@ -263,7 +263,7 @@ let ``ACK returns stamped complete Change equal to EventLog`` () = task {
                 |> Async.StartAsTask
             Assert.Single(events) |> ignore
             let event = events.[0]
-            match Gambol.Shared.Ev.ops event with
+            match Ev.ops event with
             | Some ops ->
                 Assert.Equal<Op list>(confirmed.ops, ops)
             | None ->
@@ -289,7 +289,7 @@ let ``trailing duplicate keeps stamps on last new Change`` () = task {
             match firstResult with
             | Ok json ->
                 Assert.Single((decodeAck json).events)
-                |> Gambol.Shared.Ev.asChange
+                |> Ev.asChange
             | Error err -> failwith err
         let second = addChildChange 1 "second-new"
         // Multi-Change persist batch stays on PersistHandlers until 42.
@@ -300,11 +300,11 @@ let ``trailing duplicate keeps stamps on last new Change`` () = task {
         | Ok ack ->
             Assert.Equal(2, ack.events.Length)
             let secondConfirmed, trailingDup =
-                Gambol.Shared.Ev.asChange ack.events.[0],
-                Gambol.Shared.Ev.asChange ack.events.[1]
-            Assert.Equal(firstConfirmed.changeId, trailingDup.changeId)
+                Ev.asChange ack.events.[0],
+                Ev.asChange ack.events.[1]
+            Assert.Equal(firstConfirmed.submissionId, trailingDup.submissionId)
             Assert.Equal<Op list>(firstConfirmed.ops, trailingDup.ops)
-            Assert.Equal(second.changeId, secondConfirmed.changeId)
+            Assert.Equal(second.submissionId, secondConfirmed.submissionId)
             Assert.Equal<Op list>(
                 second.ops,
                 List.take second.ops.Length secondConfirmed.ops)
@@ -319,7 +319,7 @@ let ``trailing duplicate keeps stamps on last new Change`` () = task {
             // Direct handlers.postChange skips the postEvent door; EventLog
             // only has the mailbox-admitted first Change.
             Assert.Equal(1, events.Length)
-            match Gambol.Shared.Ev.ops events.[0] with
+            match Ev.ops events.[0] with
             | Some ops1 ->
                 Assert.Equal<Op list>(firstConfirmed.ops, ops1)
             | None ->

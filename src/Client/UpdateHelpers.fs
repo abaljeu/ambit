@@ -278,7 +278,7 @@ let commitTextEdit
     | ops ->
         let change: Change =
             { id = model.revision.Value
-              changeId = System.Guid.NewGuid()
+              submissionId = System.Guid.NewGuid()
               ops = ops }
         match applyAndPost (displayName EditNode) change model with
         | Ok (m, effects) -> { m with mode = Selecting }, effects
@@ -332,7 +332,7 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) : VM * Effect l
 
         let change: Change =
             { id = model.revision.Value
-              changeId = System.Guid.NewGuid()
+              submissionId = System.Guid.NewGuid()
               ops = ops }
         match applyAndPost (displayName SplitAtCursor) change model with
         | Ok (m, effects) ->

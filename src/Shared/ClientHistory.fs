@@ -107,11 +107,11 @@ module ClientHistory =
 
     let private asChange
         (Revision rev)
-        (changeId: System.Guid)
+        (submissionId: System.Guid)
         (event: Ev)
         : Change =
         { id = rev
-          changeId = changeId
+          submissionId = submissionId
           ops = Ev.ops event |> Option.defaultValue [] }
 
     let record
@@ -121,7 +121,7 @@ module ClientHistory =
         : ClientHistory * int =
         let event =
             { id = history.nextEventId
-              submissionId = change.changeId
+              submissionId = change.submissionId
               authority = Authority "Browser"
               commandName = commandName
               body = EventBody.Change change.ops }
@@ -129,28 +129,28 @@ module ClientHistory =
 
     let undo
         (baseRevision: Revision)
-        (changeId: System.Guid)
+        (submissionId: System.Guid)
         (history: ClientHistory)
         : (Change * string * ClientHistory * int) option =
         match undoEvent history with
         | None -> None
         | Some (produced, nextHistory) ->
             Some(
-                asChange baseRevision changeId produced,
+                asChange baseRevision submissionId produced,
                 produced.commandName,
                 nextHistory,
                 callerRecordId produced)
 
     let redo
         (baseRevision: Revision)
-        (changeId: System.Guid)
+        (submissionId: System.Guid)
         (history: ClientHistory)
         : (Change * string * ClientHistory * int) option =
         match redoEvent history with
         | None -> None
         | Some (produced, nextHistory) ->
             Some(
-                asChange baseRevision changeId produced,
+                asChange baseRevision submissionId produced,
                 produced.commandName,
                 nextHistory,
                 callerRecordId produced)

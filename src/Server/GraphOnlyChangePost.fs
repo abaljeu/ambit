@@ -17,7 +17,7 @@ module GraphOnlyChangePost =
             async {
                 let change =
                     { id = revision.Value
-                      changeId = Guid.NewGuid()
+                      submissionId = Guid.NewGuid()
                       ops = chunk }
                 let! result = post change
                 match result with

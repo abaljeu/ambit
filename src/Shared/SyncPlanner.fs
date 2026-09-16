@@ -63,10 +63,10 @@ module SyncPlanner =
                 let (Gambol.Shared.EventId itemId) = item.event.id
                 itemId >= serverRev)
             |> List.map (fun item -> { item with transition = None })
-        let extractChange (event: Gambol.Shared.Ev) =
+        let extractChange (event: Ev) =
             { id = 0
-              changeId = event.submissionId
-              ops = Gambol.Shared.Ev.ops event |> Option.defaultValue [] }
+              submissionId = event.submissionId
+              ops = Ev.ops event |> Option.defaultValue [] }
         prepared
         |> List.fold
             (fun (state, reversed) item ->

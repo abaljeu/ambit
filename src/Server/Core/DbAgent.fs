@@ -108,7 +108,7 @@ module DbAgent =
             loaded.state.Value.revision
             loaded.ready.Task.IsCompletedSuccessfully
             (confirmed
-             |> List.map (Gambol.Shared.Ev.ofChange ""))
+             |> List.map (Ev.ofChange ""))
             externalChanges
             message
 
@@ -121,13 +121,13 @@ module DbAgent =
         ((s: State), confirmations, externalChanges)
         change
         =
-        match tryPersistedEvent loaded change.changeId with
+        match tryPersistedEvent loaded change.submissionId with
         | Some storedEvent ->
             // Already applied - derive Change from Ev
             let stored =
                 { id = s.revision.Value
-                  changeId = storedEvent.submissionId
-                  ops = Gambol.Shared.Ev.ops storedEvent |> Option.defaultValue [] }
+                  submissionId = storedEvent.submissionId
+                  ops = Ev.ops storedEvent |> Option.defaultValue [] }
             Ok(s, stored :: confirmations, externalChanges)
         | None ->
             let result, amended, applied =
@@ -329,9 +329,9 @@ module DbAgent =
             | Error err -> Error err
             | Ok (newState, confirmations, externalChanges) ->
                 // Fresh changes are ones not found in confirmations before submission
-                let submittedIds = changes |> List.map (fun c -> c.changeId) |> Set.ofList
+                let submittedIds = changes |> List.map (fun c -> c.submissionId) |> Set.ofList
                 let fresh = confirmations |> List.filter (fun c ->
-                    Set.contains c.changeId submittedIds)
+                    Set.contains c.submissionId submittedIds)
                 finishAppliedPostChange
                     loaded
                     graphOnly
@@ -355,7 +355,7 @@ module DbAgent =
 
     let private appendPersistedEvent
         loaded
-        (persisted: Gambol.Shared.Ev)
+        (persisted: Ev)
         =
         if String.IsNullOrWhiteSpace loaded.connectionString then
             Ok ()

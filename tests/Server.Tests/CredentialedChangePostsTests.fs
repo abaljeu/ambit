@@ -18,7 +18,7 @@ let private requireOk label result =
 let private addRootChild text =
     let childId = NodeId.New()
     { id = 0
-      changeId = Guid.NewGuid()
+      submissionId = Guid.NewGuid()
       ops =
         [ Op.NewNode(childId, text)
           Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
@@ -49,7 +49,7 @@ let ``live Browser credential is admitted and Change reaches PersistHandlers``
             let accepted = requireOk "live post" result
             Assert.Equal(Revision 1, accepted.revision)
             Assert.Equal<Guid list>(
-                [ change.changeId ],
+                [ change.submissionId ],
                 accepted.events |> List.map _.submissionId)
             let! rev = handle.getRevision () |> Async.StartAsTask
             Assert.Equal(Gambol.Shared.EventId 1, rev)

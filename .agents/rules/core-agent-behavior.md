@@ -89,6 +89,7 @@ At startup, a subagent runs [[scripts/gitstatus.sh]] once per [[.agents/skills/g
 Unless otherwise specified, always delegate to Grok 4.6.
 Use subagents to carry out tasks.
 The subagent writes the full result to `plan/<project-name>/reports/<subagent-title>.md` (create `reports/` if needed). Chat from the subagent, and from the parent after a Task returns, is a short pointer to that file plus the next step — not the report and not the Task body. If a workflow specifies another report path, use that path instead. Only the final report goes to reports/; project definition stays in the project directory.
+Reports are not authority.  They are the opinion of one agent, at one time, intended for the user.  Reports are write-once.  Never edit a report you didn't create.  Never read a report unless explicitly requested.
 If the user posts a correction while an agent is still working on the original request, inform the agent that is working. Don't start a second agent with overlapping work area.
 
 Subagents should only run focused tests, never all tests. That limit does not skip the Build / test toolchain gate when tools are absent. The Client compile gate in [[.agents/skills/implement-fsharp-feature/SKILL.md]] is a compile gate, not all tests; do not skip it when Client dependencies were edited.

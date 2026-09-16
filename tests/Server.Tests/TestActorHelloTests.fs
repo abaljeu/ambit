@@ -96,7 +96,7 @@ let ``TestActor hello posts one Owned child text hello under Focus`` () =
         let commandId = NodeId.New()
         let change =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(commandId, "hello")
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
@@ -132,7 +132,7 @@ let ``TestActor hello stops successfully with ActorSucceeded`` () =
         let commandId = NodeId.New()
         let change =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(commandId, "hello")
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
@@ -172,7 +172,7 @@ let ``TestActor hello drops live row after successful stop`` () =
         let commandId = NodeId.New()
         let change =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(commandId, "hello")
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
@@ -203,7 +203,7 @@ let ``TestActor hello observes ActorStarted before output`` () =
         let commandId = NodeId.New()
         let change =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(commandId, "hello")
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
@@ -255,7 +255,7 @@ let ``TestActor hello interprets command node text`` () =
         let commandId = NodeId.New()
         let change =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(commandId, "HELLO")
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
@@ -291,7 +291,7 @@ let ``TestActor unknown command still finishes and drops live row`` () =
         let commandId = NodeId.New()
         let change =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(commandId, "unknown")
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
@@ -321,7 +321,7 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
         let commandId = NodeId.New()
         let change =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(commandId, "hello")
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
@@ -432,7 +432,7 @@ let ``TestActor throw command fails gracefully and drops live row`` () =
         let commandId = NodeId.New()
         let change =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(commandId, "throw")
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])

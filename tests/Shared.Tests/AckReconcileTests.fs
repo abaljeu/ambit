@@ -25,7 +25,7 @@ let private stamp nodeId =
 
 let private textChange id nodeId oldText newText : Change =
     { id = id
-      changeId = Guid.NewGuid()
+      submissionId = Guid.NewGuid()
       ops = [ Op.SetText(nodeId, oldText, newText) ] }
 
 let private seededEdit () =
@@ -156,7 +156,7 @@ let ``retry ACK removes only the submitted prefix and resubmits the remainder`` 
     let later =
         { first.change with
             id = 1
-            changeId = Guid.NewGuid()
+            submissionId = Guid.NewGuid()
             ops = [ Op.SetText(NodeId.New(), "x", "y") ] }
         |> PendingChange.ofChange
     let pending = [ first; later ]
@@ -275,7 +275,7 @@ let ``reordered confirmation is rejected atomically`` () =
 [<Fact>]
 let ``unmatched confirmation is rejected atomically`` () =
     let _, state, pending = seededEdit ()
-    let other = { pending.change with changeId = Guid.NewGuid() }
+    let other = { pending.change with submissionId = Guid.NewGuid() }
     let result =
         SyncLogic.reconcileAck
             [ pending ]

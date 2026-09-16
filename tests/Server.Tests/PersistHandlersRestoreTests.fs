@@ -18,7 +18,7 @@ let private addRootChild text =
     let childId = NodeId.New()
     childId,
     { id = 0
-      changeId = Guid.NewGuid()
+      submissionId = Guid.NewGuid()
       ops =
         [ Op.NewNode(childId, text)
           Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
@@ -40,7 +40,7 @@ let ``getEventsSince returns Ev after postChange`` () = task {
                 (EventId -1)
             |> Async.StartAsTask
         let stored = Assert.Single(events)
-        Assert.Equal(change.changeId, stored.submissionId)
+        Assert.Equal(change.submissionId, stored.submissionId)
         match stored.body with
         | EventBody.Change _ -> ()
         | _ -> Assert.Fail("expected Change EventBody")
@@ -66,7 +66,7 @@ let ``EventLog.restore seeds mailbox across File restart`` () = task {
             CoreMailbox.eventHistory second
             |> Async.StartAsTask
         let stored = Assert.Single(history.events)
-        Assert.Equal(change.changeId, stored.submissionId)
+        Assert.Equal(change.submissionId, stored.submissionId)
         Assert.Equal(EventId 2, EventLog.nextId history)
     finally
         CoreMailbox.dispose second
@@ -91,7 +91,7 @@ let ``EventLog.restore seeds mailbox across Db restart`` () = task {
             CoreMailbox.eventHistory second
             |> Async.StartAsTask
         let stored = Assert.Single(history.events)
-        Assert.Equal(change.changeId, stored.submissionId)
+        Assert.Equal(change.submissionId, stored.submissionId)
         Assert.Equal(EventId 2, EventLog.nextId history)
     finally
         CoreMailbox.dispose second

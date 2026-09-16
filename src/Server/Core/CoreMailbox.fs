@@ -56,7 +56,7 @@ module CoreMailbox =
     let getEventsSince
         (host: MailboxHost)
         (after: Gambol.Shared.EventId)
-        : Async<Gambol.Shared.Ev list> =
+        : Async<Ev list> =
         async {
             let! result =
                 reply host (fun channel -> GetEventsSince(after, channel))
@@ -65,9 +65,9 @@ module CoreMailbox =
 
     let private eventFromChange
         (change: Change)
-        : Gambol.Shared.Ev =
+        : Ev =
         { id = Gambol.Shared.EventId 0
-          submissionId = change.changeId
+          submissionId = change.submissionId
           authority = Gambol.Shared.Authority ""
           commandName = ""
           body = Gambol.Shared.EventBody.Change change.ops }
@@ -75,7 +75,7 @@ module CoreMailbox =
     let private postEventAccepted
         (host: MailboxHost)
         (caller: Caller)
-        (event: Gambol.Shared.Ev)
+        (event: Ev)
         =
         reply host (fun channel -> PostEvent(caller, event, channel))
 
@@ -83,7 +83,7 @@ module CoreMailbox =
         (host: MailboxHost)
         (posted:
             Result<
-                Gambol.Shared.Ev *
+                Ev *
                 CoreChangesAccepted option,
                 string>)
         : Async<Result<CoreChangesAccepted, string>> =
@@ -113,7 +113,7 @@ module CoreMailbox =
 
     let private previewTransportBatch
         (host: MailboxHost)
-        (events: Gambol.Shared.Ev list)
+        (events: Ev list)
         : Async<Result<unit, string>> =
         async {
             let! stateResult = tryGetState host
@@ -186,8 +186,8 @@ module CoreMailbox =
     let postEvent
         (host: MailboxHost)
         (caller: Caller)
-        (event: Gambol.Shared.Ev)
-        : Async<Result<Gambol.Shared.Ev, string>> =
+        (event: Ev)
+        : Async<Result<Ev, string>> =
         async {
             let! result = postEventAccepted host caller event
             return result |> Result.map fst
@@ -204,7 +204,7 @@ module CoreMailbox =
     let postEvents
         (host: MailboxHost)
         (caller: Caller)
-        (events: Gambol.Shared.Ev list)
+        (events: Ev list)
         : Async<Result<CoreChangesAccepted, string>> =
         async {
             match events with

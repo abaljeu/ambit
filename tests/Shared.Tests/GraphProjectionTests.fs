@@ -9,7 +9,7 @@ let private owned = ChildNode.owners
 let private applyChange (ops: Op list) (graph: Graph) : Graph =
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops = ops }
 
     match ChangeValidation.applyChange change { graph = graph; revision = Revision 0 } with
@@ -105,7 +105,7 @@ let ``graphRoundTrip preserves graph with child`` () =
 
     let change =
         { id = 0
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "x")
               Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
@@ -136,7 +136,7 @@ let ``graphRoundTrip preserves updateTime`` () =
 
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "stamped")
               Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
@@ -161,7 +161,7 @@ let ``graphEquals is false when text differs`` () =
 
     let change =
         { id = 0
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "alpha")
               Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }

@@ -200,11 +200,11 @@ module BootCache =
         (pollChanges: Change list)
         : Change list =
         let byId = log |> List.map (fun c -> c.id) |> Set.ofList
-        let byChangeId = log |> List.map (fun c -> c.changeId) |> Set.ofList
+        let byChangeId = log |> List.map (fun c -> c.submissionId) |> Set.ofList
         pollChanges
         |> List.filter (fun change ->
             not (Set.contains change.id byId)
-            && not (Set.contains change.changeId byChangeId))
+            && not (Set.contains change.submissionId byChangeId))
 
     [<RequireQualifiedAccess>]
     type BootPoll =

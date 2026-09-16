@@ -43,12 +43,12 @@ module internal CoreMailboxBackend =
         let stamped = PersistStamp.appendToLast fresh stampOps
         let stampedById =
             stamped
-            |> List.map (fun change -> change.changeId, change)
+            |> List.map (fun change -> change.submissionId, change)
             |> Map.ofList
         let confirmed =
             confirmations
             |> List.map (fun change ->
-                Map.tryFind change.changeId stampedById
+                Map.tryFind change.submissionId stampedById
                 |> Option.defaultValue change)
         stamped, confirmed
 
@@ -200,7 +200,7 @@ module internal CoreMailboxBackend =
         : unit =
         let event: Ev =
             { id = EventId.zero
-              submissionId = change.changeId
+              submissionId = change.submissionId
               authority = Gambol.Shared.Authority ""
               commandName = ""
               body = Gambol.Shared.EventBody.Change change.ops }

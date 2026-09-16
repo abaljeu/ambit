@@ -94,7 +94,7 @@ let private changeObj (file: string) (change: Change) : obj =
     createObj
         [ "file" ==> file
           "id" ==> change.id
-          "changeId" ==> change.changeId.ToString()
+          "submissionId" ==> chasubmissionIdissionId.ToString()
           "changeJson"
           ==> Thoth.Json.JavaScript.Encode.toString
                   0

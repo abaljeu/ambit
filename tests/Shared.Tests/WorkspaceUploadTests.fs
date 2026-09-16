@@ -91,7 +91,7 @@ let ``Upload available on web for file and directory`` () =
 let ``Upload cannot start from revision 14706 while its prior submit is in flight`` () =
     let pending =
         { id = 14706
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops = [] }
     let syncInfo =
         { SyncInfo.initial with
@@ -112,7 +112,7 @@ let ``canStart is true only when Idle with empty pending`` () =
                 pendingChanges =
                     [ PendingChange.ofChange
                         { id = 1
-                          changeId = System.Guid.NewGuid()
+                          submissionId = System.Guid.NewGuid()
                           ops = [] } ] })
 
 [<Fact>]
@@ -131,7 +131,7 @@ let ``canStartWeb allows Polling when pending is empty`` () =
                 pendingChanges =
                     [ PendingChange.ofChange
                         { id = 1
-                          changeId = System.Guid.NewGuid()
+                          submissionId = System.Guid.NewGuid()
                           ops = [] } ] })
     Assert.False(
         WorkspaceUpload.canStartWeb
@@ -150,7 +150,7 @@ let ``queueBlockedDetail distinguishes pending from poll`` () =
                 pendingChanges =
                     [ PendingChange.ofChange
                         { id = 1
-                          changeId = System.Guid.NewGuid()
+                          submissionId = System.Guid.NewGuid()
                           ops = [] } ] })
     Assert.Equal(
         "load queued until current upload completes",

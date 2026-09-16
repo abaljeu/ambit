@@ -16,7 +16,7 @@ let private requireOk label result =
         Unchecked.defaultof<_>
 
 let private unusedHandle
-    (post: Gambol.Shared.Ev list -> Async<Result<CoreChangesAccepted, string>>)
+    (post: Ev list -> Async<Result<CoreChangesAccepted, string>>)
     : CoreChanges =
     { getState = fun () -> async.Return(Result.Error "unused")
       getRevision = fun () -> async.Return(Gambol.Shared.EventId 0)
@@ -31,7 +31,7 @@ let private unusedHandle
 let private addRootChild text =
     let childId = NodeId.New()
     { id = 0
-      changeId = System.Guid.NewGuid()
+      submissionId = System.Guid.NewGuid()
       ops =
         [ Op.NewNode(childId, text)
           Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
@@ -70,7 +70,7 @@ let ``live credential is enqueued`` () = task {
     let accepted = requireOk "admitted post" result
     Assert.Equal<Change list>([ change ], Assert.Single(posts))
     Assert.Equal<System.Guid list>(
-        [ change.changeId ],
+        [ change.submissionId ],
         accepted.events |> List.map _.submissionId)
 }
 

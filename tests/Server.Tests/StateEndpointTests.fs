@@ -106,7 +106,7 @@ let private ownedChild (id: NodeId) : ChildNode list =
     ChildNode.owners [ id ]
 
 let private assertExactPrefix (submitted: Change) (confirmed: Change) =
-    Assert.Equal(submitted.changeId, confirmed.changeId)
+    Assert.Equal(submitted.submissionId, confirmed.submissionId)
     Assert.True(
         confirmed.ops.Length >= submitted.ops.Length,
         "confirmation must keep submitted ops as a prefix")
@@ -125,7 +125,7 @@ let private changeAddChild (rootId: NodeId) (rev: int) (childText: string) : Cha
     let childId = NodeId.New()
     let c =
         { id = rev
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, childText)
               Op.Replace(rootId, [], ownedChild childId) ] }
@@ -258,7 +258,7 @@ let ``POST Change and inverse Changes return complete confirmations in request o
         Assert.True(post.isReady)
         Assert.False(post.externalChanges)
         Assert.Equal<Guid list>(
-            [ change.changeId; undo.changeId; redo.changeId ],
+            [ change.submissionId; undo.submissionId; redo.submissionId ],
             post.changes |> List.map (fun confirmed -> confirmed.submissionId))
         List.iter2 assertExactPrefix [ change; undo; redo ] (post.changes |> List.map Ev.asChange)
         let! stateJson = getStateJson client testFile
@@ -285,7 +285,7 @@ let ``file backend large paste inverse total response is measured`` () = task {
         List.init 2000 (fun _ -> ChildNode.owner (NodeId.New()))
     let paste =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops =
             [ for i, child in List.indexed children ->
                 Op.NewNode(child.id, "line " + string i)
@@ -319,7 +319,7 @@ let ``POST unchanged submission is rejected`` (backend: BackendKind) =
     withClient backend (fun client -> task {
         let noOp =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops = [] }
         let! response = postChange client testFile noOp
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode)
@@ -356,13 +356,13 @@ let ``POST changes SetText changes child text and bumps revision`` (backend: Bac
         let! r0 = postChange client testFile change0
         Assert.Equal(HttpStatusCode.OK, r0.StatusCode)
 
-        let change = { id = 1; changeId = Guid.NewGuid(); ops = [ Op.SetText(childId, "", "hello") ] }
+        let change = { id = 1; submissionId = Guid.NewGuid(); ops = [ Op.SetText(childId, "", "hello") ] }
         let! resp = postChange client testFile change
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
 
         let! postBody = resp.Content.ReadAsStringAsync()
         Assert.Equal(EventId 2, decodeSuccessRevision postBody)
-        Assert.Equal<Guid list>([ change.changeId ], decodeAckChangeIds postBody)
+        Assert.Equal<Guid list>([ change.submissionId ], decodeAckChangeIds postBody)
 
         let! json = getStateJson client testFile
         let graph = decodeGraph json
@@ -378,7 +378,7 @@ let ``POST changes NewNode+Replace adds child to root`` (backend: BackendKind) =
 
         let change =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(childId, "child")
                   Op.Replace(rootId, [], [ ChildNode.owner childId ]) ] }
@@ -388,7 +388,7 @@ let ``POST changes NewNode+Replace adds child to root`` (backend: BackendKind) =
 
         let! postBody = resp.Content.ReadAsStringAsync()
         Assert.Equal(EventId 1, decodeSuccessRevision postBody)
-        Assert.Equal<Guid list>([ change.changeId ], decodeAckChangeIds postBody)
+        Assert.Equal<Guid list>([ change.submissionId ], decodeAckChangeIds postBody)
 
         let! json = getStateJson client testFile
         let graph = decodeGraph json
@@ -411,7 +411,7 @@ let ``POST changes with bad op returns 400`` (backend: BackendKind) =
     withClient backend (fun client -> task {
         let! _ = getStateJson client testFile
         let bogusId = NodeId.New()
-        let change = { id = 0; changeId = Guid.NewGuid(); ops = [ Op.SetText(bogusId, "wrong", "new") ] }
+        let change = { id = 0; submissionId = Guid.NewGuid(); ops = [ Op.SetText(bogusId, "wrong", "new") ] }
         let! resp = postChange client testFile change
         Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode)
         let! body = resp.Content.ReadAsStringAsync()
@@ -428,7 +428,7 @@ let ``POST changes twice bumps revision to 2`` (backend: BackendKind) =
         let! resp1 = postChange client testFile change1
         Assert.Equal(HttpStatusCode.OK, resp1.StatusCode)
 
-        let change2 = { id = 1; changeId = Guid.NewGuid(); ops = [ Op.SetText(childId, "first", "second") ] }
+        let change2 = { id = 1; submissionId = Guid.NewGuid(); ops = [ Op.SetText(childId, "first", "second") ] }
         let! resp2 = postChange client testFile change2
         Assert.Equal(HttpStatusCode.OK, resp2.StatusCode)
 
@@ -448,7 +448,7 @@ let ``POST changes batch with two changes bumps revision to 2`` (backend: Backen
         let change1, childId = changeAddChild rootId 0 "first"
         let change2 =
             { id = 1
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops = [ Op.SetText(childId, "first", "second") ] }
 
         let! resp = postChanges client testFile [ change1; change2 ]
@@ -457,7 +457,7 @@ let ``POST changes batch with two changes bumps revision to 2`` (backend: Backen
         let! postBody = resp.Content.ReadAsStringAsync()
         Assert.Equal(EventId 2, decodeSuccessRevision postBody)
         Assert.Equal<Guid list>(
-            [ change1.changeId; change2.changeId ],
+            [ change1.submissionId; change2.submissionId ],
             decodeAckChangeIds postBody)
 
         let! json = getStateJson client testFile
@@ -473,7 +473,7 @@ let ``POST changes batch with bad second change leaves state unchanged`` (backen
         let change1, childId = changeAddChild rootId 0 "first"
         let bad =
             { id = 1
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops = [ Op.SetText(NodeId.New(), "old", "new") ] }
 
         let! resp = postChanges client testFile [ change1; bad ]
@@ -501,7 +501,7 @@ let ``POST changes persists in GET state`` (backend: BackendKind) =
         let! _ = postChange client testFile c0
         let! _ =
             postChange client testFile
-                { id = 1; changeId = Guid.NewGuid(); ops = [ Op.SetText(childId, "", "persisted") ] }
+                { id = 1; submissionId = Guid.NewGuid(); ops = [ Op.SetText(childId, "", "persisted") ] }
 
         let! json = getStateJson client testFile
         Assert.Equal(Revision 2, decodeRevision json)
@@ -510,7 +510,7 @@ let ``POST changes persists in GET state`` (backend: BackendKind) =
     })
 
 [<Theory; MemberData(nameof backends)>]
-let ``POST same changeId twice is idempotent`` (backend: BackendKind) =
+let ``POST same submissionId twice is idempotent`` (backend: BackendKind) =
     withClient backend (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
@@ -518,7 +518,7 @@ let ``POST same changeId twice is idempotent`` (backend: BackendKind) =
         let childId = NodeId.New()
         let change =
             { id = 0
-              changeId = cid
+              submissionId = cid
               ops =
                 [ Op.NewNode(childId, "once")
                   Op.Replace(rootId, [], ownedChild childId) ] }
@@ -556,14 +556,14 @@ let ``POST with stale base revision and valid SetText succeeds`` (backend: Backe
 
         let stale =
             { id = 5
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops = [ Op.SetText(childId, "", "x") ] }
         let! resp = postChange client testFile stale
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
 
         let! postBody = resp.Content.ReadAsStringAsync()
         Assert.Equal(EventId 2, decodeSuccessRevision postBody)
-        Assert.Equal<Guid list>([ stale.changeId ], decodeAckChangeIds postBody)
+        Assert.Equal<Guid list>([ stale.submissionId ], decodeAckChangeIds postBody)
 
         let! json = getStateJson client testFile
         Assert.Equal(Revision 2, decodeRevision json)
@@ -586,7 +586,7 @@ let ``POST unrelated attribute edits with stale revision both succeed``
         let nodeY = NodeId.New()
         let setupY =
             { id = 1
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(nodeY, "y0")
                   Op.Replace(
@@ -600,21 +600,21 @@ let ``POST unrelated attribute edits with stale revision both succeed``
 
         let changeA =
             { id = 2
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops = [ Op.SetText(nodeY, "y0", "yA") ] }
         let! rA = postChange client testFile changeA
         Assert.Equal(HttpStatusCode.OK, rA.StatusCode)
 
         let changeB =
             { id = 2
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops = [ Op.SetText(nodeX, "x0", "xB") ] }
         let! rB = postChange client testFile changeB
         Assert.Equal(HttpStatusCode.OK, rB.StatusCode)
 
         let! postBody = rB.Content.ReadAsStringAsync()
         Assert.Equal(EventId 4, decodeSuccessRevision postBody)
-        Assert.Equal<Guid list>([ changeB.changeId ], decodeAckChangeIds postBody)
+        Assert.Equal<Guid list>([ changeB.submissionId ], decodeAckChangeIds postBody)
 
         let! json = getStateJson client testFile
         let g = decodeGraph json
@@ -636,21 +636,21 @@ let ``POST concurrent stale text Changes amend second as amb-conflict child``
 
         let changeA =
             { id = 1
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops = [ Op.SetText(nodeX, "x0", "xA") ] }
         let! rA = postChange client testFile changeA
         Assert.Equal(HttpStatusCode.OK, rA.StatusCode)
 
         let changeB =
             { id = 1
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops = [ Op.SetText(nodeX, "x0", "xB") ] }
         let! rB = postChange client testFile changeB
         Assert.Equal(HttpStatusCode.OK, rB.StatusCode)
 
         let! postBody = rB.Content.ReadAsStringAsync()
         Assert.Equal(EventId 3, decodeSuccessRevision postBody)
-        Assert.Equal<Guid list>([ changeB.changeId ], decodeAckChangeIds postBody)
+        Assert.Equal<Guid list>([ changeB.submissionId ], decodeAckChangeIds postBody)
         Assert.True(decodeSuccessExternalChanges postBody)
 
         let! json = getStateJson client testFile
@@ -670,7 +670,7 @@ let ``POST concurrent stale name Changes amend second as amb-conflict child``
         let nodeId = NodeId.New()
         let setup =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(nodeId, "body")
                   Op.SetName(nodeId, "", "alpha")
@@ -680,14 +680,14 @@ let ``POST concurrent stale name Changes amend second as amb-conflict child``
 
         let changeA =
             { id = 1
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops = [ Op.SetName(nodeId, "alpha", "nameA") ] }
         let! rA = postChange client testFile changeA
         Assert.Equal(HttpStatusCode.OK, rA.StatusCode)
 
         let changeB =
             { id = 1
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops = [ Op.SetName(nodeId, "alpha", "nameB") ] }
         let! rB = postChange client testFile changeB
         Assert.Equal(HttpStatusCode.OK, rB.StatusCode)
@@ -712,7 +712,7 @@ let ``POST concurrent stale class Changes merge set delta and succeed``
         let prior = CssClass.ofList [ "a"; "b" ]
         let setup =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(nodeId, "tagged")
                   Op.SetClasses(nodeId, CssClass.empty, prior)
@@ -722,14 +722,14 @@ let ``POST concurrent stale class Changes merge set delta and succeed``
 
         let changeA =
             { id = 1
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops = [ Op.SetClasses(nodeId, prior, CssClass.ofList [ "b" ]) ] }
         let! rA = postChange client testFile changeA
         Assert.Equal(HttpStatusCode.OK, rA.StatusCode)
 
         let changeB =
             { id = 1
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.SetClasses(nodeId, prior, CssClass.ofList [ "a"; "b"; "c" ]) ] }
         let! rB = postChange client testFile changeB
@@ -755,7 +755,7 @@ let ``POST unrelated structural edits with stale revision both succeed``
         let parentP2 = NodeId.New()
         let setupParents =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(parentP1, "p1")
                   Op.NewNode(parentP2, "p2")
@@ -766,7 +766,7 @@ let ``POST unrelated structural edits with stale revision both succeed``
         let childA = NodeId.New()
         let changeA =
             { id = 1
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(childA, "a")
                   Op.Replace(parentP1, [], ownedChild childA) ] }
@@ -776,7 +776,7 @@ let ``POST unrelated structural edits with stale revision both succeed``
         let childB = NodeId.New()
         let changeB =
             { id = 1
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(childB, "b")
                   Op.Replace(parentP2, [], ownedChild childB) ] }
@@ -785,7 +785,7 @@ let ``POST unrelated structural edits with stale revision both succeed``
 
         let! postBody = rB.Content.ReadAsStringAsync()
         Assert.Equal(EventId 3, decodeSuccessRevision postBody)
-        Assert.Equal<Guid list>([ changeB.changeId ], decodeAckChangeIds postBody)
+        Assert.Equal<Guid list>([ changeB.submissionId ], decodeAckChangeIds postBody)
 
         let! json = getStateJson client testFile
         let g = decodeGraph json
@@ -809,7 +809,7 @@ let ``POST same-parent structural collision amends and succeeds``
         let child0 = NodeId.New()
         let setup =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(parentP, "p")
                   Op.NewNode(child0, "c0")
@@ -821,7 +821,7 @@ let ``POST same-parent structural collision amends and succeeds``
         let childA = NodeId.New()
         let changeA =
             { id = 1
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(childA, "a")
                   Op.Replace(parentP, ownedChild child0, ownedChild childA) ] }
@@ -831,7 +831,7 @@ let ``POST same-parent structural collision amends and succeeds``
         let childB = NodeId.New()
         let changeB =
             { id = 1
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(childB, "b")
                   Op.Replace(parentP, ownedChild child0, ownedChild childB) ] }
@@ -850,7 +850,7 @@ let ``POST same-parent structural collision amends and succeeds``
     })
 
 [<Theory; MemberData(nameof backends)>]
-let ``POST duplicate changeId with stale revision stays idempotent``
+let ``POST duplicate submissionId with stale revision stays idempotent``
     (backend: BackendKind)
     =
     withClient backend (fun client -> task {
@@ -860,7 +860,7 @@ let ``POST duplicate changeId with stale revision stays idempotent``
         let childId = NodeId.New()
         let change =
             { id = 0
-              changeId = cid
+              submissionId = cid
               ops =
                 [ Op.NewNode(childId, "once")
                   Op.Replace(rootId, [], ownedChild childId) ] }
@@ -1072,7 +1072,7 @@ let ``DB restart does not replay log when projection is cleared`` () = task {
 }
 
 [<Fact>]
-let ``DB restart keeps duplicate changeId idempotent`` () = task {
+let ``DB restart keeps duplicate submissionId idempotent`` () = task {
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
     use client1 = createDbClient connStr
@@ -1083,14 +1083,14 @@ let ``DB restart keeps duplicate changeId idempotent`` () = task {
     Assert.Equal(HttpStatusCode.OK, r1.StatusCode)
     let! b1 = r1.Content.ReadAsStringAsync()
     Assert.Equal(EventId 1, decodeSuccessRevision b1)
-    Assert.Equal<Guid list>([ change.changeId ], decodeAckChangeIds b1)
+    Assert.Equal<Guid list>([ change.submissionId ], decodeAckChangeIds b1)
 
     use client2 = createDbClientNoReset connStr
     let! r2 = postChange client2 testFile change
     Assert.Equal(HttpStatusCode.OK, r2.StatusCode)
     let! b2 = r2.Content.ReadAsStringAsync()
     Assert.Equal(EventId 1, decodeSuccessRevision b2)
-    Assert.Equal<Guid list>([ change.changeId ], decodeAckChangeIds b2)
+    Assert.Equal<Guid list>([ change.submissionId ], decodeAckChangeIds b2)
     Assert.Equal<Ev list>(
         (decodeSuccess b1).changes,
         (decodeSuccess b2).changes)
@@ -1172,7 +1172,7 @@ let ``New server uses snapshot + log replay`` () = task {
     let rootId2 = (decodeGraph json1).root
     let root = (decodeGraph json1).nodes.[rootId2]
     let firstChildId = root.children.[0].id
-    let! _ = postChange client1 testFile { id = 1; changeId = Guid.NewGuid();
+    let! _ = postChange client1 testFile { id = 1; submissionId = Guid.NewGuid();
         ops = [ Op.SetText(firstChildId, "first", "updated") ] }
 
     use client2 = createClientForDir tempDir
@@ -1193,14 +1193,14 @@ let private addNestedWorkspaceViaPost (client: HttpClient) = task {
     let innerId = NodeId.New()
     let c0 =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops =
             [ Op.NewSpecialNode(wsId, Workspace, "home")
               Op.Replace(Graph.workspacesId, [], ownedChild wsId) ] }
     do! postChangeOk client c0
     let c1 =
         { id = 1
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops =
             [ Op.NewNode(innerId, "inside-ws")
               Op.Replace(wsId, [], ownedChild innerId) ] }

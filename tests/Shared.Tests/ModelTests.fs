@@ -1079,7 +1079,7 @@ let ``ChangeValidation.applyChange rejects Normal-owning-File moved under File``
     let withoutNormal = rootKids |> List.filter (fun c -> c.id <> normalId)
     let change =
         { id = 0
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops =
             [ Op.Replace(Graph.rootId, rootKids, withoutNormal)
               Op.Replace(outerFile, [], [ normalChild ]) ] }

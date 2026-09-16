@@ -74,7 +74,7 @@ let private stateResponse (graph: Graph) (revision: int) =
 
 let private handleForLoad
     (revision: int)
-    (events: Gambol.Shared.Ev list)
+    (events: Ev list)
     (state: State)
     : CoreChanges =
     { getState = fun () -> async.Return(Result.Ok state)

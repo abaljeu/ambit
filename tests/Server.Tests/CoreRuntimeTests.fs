@@ -19,7 +19,7 @@ let private requireOk label result =
 let private addRootChild text =
     let childId = NodeId.New()
     { id = 0
-      changeId = System.Guid.NewGuid()
+      submissionId = System.Guid.NewGuid()
       ops =
         [ Op.NewNode(childId, text)
           Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
@@ -81,7 +81,7 @@ let ``bound Browser Changes admits a live Browser cookie credential`` () = task 
         |> Async.StartAsTask
     let accepted = requireOk "browser post" result
     Assert.Equal<Guid list>(
-        [ change.changeId ],
+        [ change.submissionId ],
         accepted.events |> List.map (_.submissionId))
 }
 

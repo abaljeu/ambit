@@ -90,7 +90,7 @@ let ``Actor postChange on scheduled handle reaches persist`` () =
     let childId = NodeId.New()
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "from-actor")
               Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }

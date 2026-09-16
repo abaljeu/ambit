@@ -53,7 +53,7 @@ let private editingUnchangedAtCaret (model: VM) (line: string) (caret: int) : VM
     { model with mode = Editing (line, EditCaret.utf16ClampedToLength caret line.Length) }
 
 let private newChange (model: VM) (ops: Op list) : Change =
-    { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = ops }
+    { id = model.revision.Value; submissionId = System.Guid.NewGuid(); ops = ops }
 
 let private normalizePasteLines (pastedText: string) : string list =
     pastedText.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n')
@@ -238,7 +238,7 @@ let cutSelection (model: VM) : VM * Effect list =
                 selectedChildren.Length
         let change =
             { id = model.revision.Value
-              changeId = System.Guid.NewGuid()
+              submissionId = System.Guid.NewGuid()
               ops = [removeOp] }
         match applyAndPost "Cut" change model with
         | Ok (m, effects) ->

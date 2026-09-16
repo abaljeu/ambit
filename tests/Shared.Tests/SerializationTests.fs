@@ -223,7 +223,7 @@ let ``Op.SetUpdateTime round-trip`` () =
 let ``Change round-trip`` () =
     let change =
         { id = 5
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops =
             [ Op.NewNode(NodeId.New(), "hello")
               Op.SetText(NodeId.New(), "old", "new")
@@ -236,37 +236,37 @@ let ``Change round-trip`` () =
 let ``EventBatch round-trip`` () =
     let change =
         { id = 5
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops = [ Op.SetText(NodeId.New(), "old", "new") ] }
-    let event: Gambol.Shared.Ev =
+    let event: Ev =
         { id = Gambol.Shared.EventId 0
-          submissionId = change.changeId
+          submissionId = change.submissionId
           authority = Gambol.Shared.Authority ""
           commandName = ""
           body = Gambol.Shared.EventBody.Change change.ops }
     let batch = { events = [ event ] }
     let decoded = roundTrip EventJson.encodeEventBatch EventJson.decodeEventBatch batch
-    Assert.Equal<Gambol.Shared.Ev list>(batch.events, decoded.events)
+    Assert.Equal<Ev list>(batch.events, decoded.events)
 
 [<Fact>]
 let ``EventBatch round-trip preserves request order`` () =
     let first =
         { id = 5
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops = [ Op.SetText(NodeId.New(), "x", "y") ] }
-    let firstEvent: Gambol.Shared.Ev =
+    let firstEvent: Ev =
         { id = Gambol.Shared.EventId 0
-          submissionId = first.changeId
+          submissionId = first.submissionId
           authority = Gambol.Shared.Authority ""
           commandName = ""
           body = Gambol.Shared.EventBody.Change first.ops }
     let second =
         { id = 6
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops = [ Op.SetText(NodeId.New(), "a", "b") ] }
-    let secondEvent: Gambol.Shared.Ev =
+    let secondEvent: Ev =
         { id = Gambol.Shared.EventId 0
-          submissionId = second.changeId
+          submissionId = second.submissionId
           authority = Gambol.Shared.Authority ""
           commandName = ""
           body = Gambol.Shared.EventBody.Change second.ops }
@@ -276,7 +276,7 @@ let ``EventBatch round-trip preserves request order`` () =
     Assert.DoesNotContain("\"action\":\"redo\"", json)
     let decoded =
         roundTrip EventJson.encodeEventBatch EventJson.decodeEventBatch batch
-    Assert.Equal<Gambol.Shared.Ev list>([ firstEvent; secondEvent ], decoded.events)
+    Assert.Equal<Ev list>([ firstEvent; secondEvent ], decoded.events)
 
 [<Fact>]
 let ``EventBatch decoder rejects empty events`` () =
@@ -305,7 +305,7 @@ let ``EventBatch decoder rejects explicit Redo JSON`` () =
 let ``ChangeSuccessResponse round-trip with non-empty Changes`` () =
     let change =
         { id = 3
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops = [ Op.SetText(NodeId.New(), "old", "new") ] }
     let response: ChangeSuccessResponse =
         { revision = EventId 7
@@ -410,7 +410,7 @@ let ``LoadResponse round-trip with packages`` () =
         Node.Create(NodeId.New(), text = "ws child", owner = Graph.rootId)
     let change =
         { id = 2
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops = [ Op.SetText(node.id, "a", "b") ] }
     let response: LoadResponse =
         { revision = EventId 8

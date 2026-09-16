@@ -62,7 +62,7 @@ let pollWorkspaceDownloadJob (jobId: string) (text: string) (model: VM) : VM * E
             | ops ->
                 let change =
                     { id = model.revision.Value
-                      changeId = System.Guid.NewGuid()
+                      submissionId = System.Guid.NewGuid()
                       ops = ops }
                 match applyAndPostSync (displayName Download) change model with
                 | Error e -> failWorkspaceDownload e model

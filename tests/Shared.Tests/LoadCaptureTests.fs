@@ -145,7 +145,7 @@ let ``captureLoadResponse shares revision for changes and packages`` () =
     let graph, wsId, _, fileId = graphWithNestedWorkspace ()
     let change =
         { id = 4
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops = [ Op.SetText(fileId, "old", "new") ] }
     match
         ResidentProjection.captureLoadResponse

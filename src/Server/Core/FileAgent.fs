@@ -65,7 +65,7 @@ module FileAgent =
                 state.Value.revision
                 true
                 (confirmed
-                 |> List.map (Gambol.Shared.Ev.ofChange ""))
+                 |> List.map (Ev.ofChange ""))
                 externalChanges
                 message
 
@@ -100,13 +100,13 @@ module FileAgent =
             let step (s, confirmations, fresh, changed, externalChanges) change =
                 // Check dedup using EventLog by submissionId
                 match persistedEventLog.Value.events
-                      |> List.tryFind (fun e -> e.submissionId = change.changeId) with
+                      |> List.tryFind (fun e -> e.submissionId = change.submissionId) with
                 | Some storedEvent ->
                     // Already applied - return stored Change derived from Ev
                     let storedChange =
                         { id = s.revision.Value
-                          changeId = storedEvent.submissionId
-                          ops = Gambol.Shared.Ev.ops storedEvent |> Option.defaultValue [] }
+                          submissionId = storedEvent.submissionId
+                          ops = Ev.ops storedEvent |> Option.defaultValue [] }
                     Ok(s, storedChange :: confirmations, fresh, changed, externalChanges)
                 | None ->
                     let result, amended, applied =

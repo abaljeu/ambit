@@ -217,7 +217,7 @@ let createRuntime (initialModel: VM) =
                     retry
                     (jsonMutatingPostHeaders ())
 
-            // A timed-out POST may still commit. Retrying the same changeId is
+            // A timed-out POST may still commit. Retrying the same submissionId is
             // idempotent and recovers its authoritative ACK.
             post ()
         | ContinueWorkspacePush (scope, parseFileId) ->

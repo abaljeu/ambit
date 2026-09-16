@@ -250,7 +250,7 @@ module Api =
             | Ok ops ->
                 let change =
                     { id = state.revision.Value
-                      changeId = Guid.NewGuid()
+                      submissionId = Guid.NewGuid()
                       ops = ops }
                 match! handle.postGraphOnlyChange change with
                 | Ok _ -> return jsonResult """{"ok":true}"""

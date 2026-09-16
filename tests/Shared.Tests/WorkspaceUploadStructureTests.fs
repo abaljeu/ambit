@@ -415,7 +415,7 @@ let ``Load Unloaded stub plan must not name-conflict on resident server`` () =
             "expected a new File stub id for note.txt")
         let change =
             { id = 0
-              changeId = System.Guid.NewGuid()
+              submissionId = System.Guid.NewGuid()
               ops = ops }
         let state =
             { graph = server

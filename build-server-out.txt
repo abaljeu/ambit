@@ -1,0 +1,10 @@
+  Gambol.Shared -> d:\dev\amble\gambol\src\Shared\bin\Debug\net10.0\Gambol.Shared.dll
+  Gambol.Shared.Documents -> D:\dev\amble\gambol\src\Shared\documents\bin\Debug\net10.0\Gambol.Shared.Documents.dll
+  Gambol.Shared.DotNet -> D:\dev\amble\gambol\src\Shared\dotnet\bin\Debug\net10.0\Gambol.Shared.DotNet.dll
+  Gambol.Server -> d:\dev\amble\gambol\src\Server\bin\Debug\net10.0\Gambol.Server.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:16.00

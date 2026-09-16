@@ -19,7 +19,7 @@ let private stamp value =
 
 let private change ops =
     { id = 0
-      changeId = Guid.NewGuid()
+      submissionId = Guid.NewGuid()
       ops = ops }
 
 let private graphWithCustomNodes nodes =
@@ -263,7 +263,7 @@ let ``db bootstrap duplicate returns stored Change and rejects no-op`` () = task
 
     let accepted =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "bootstrap")
               Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
@@ -275,7 +275,7 @@ let ``db bootstrap duplicate returns stored Change and rejects no-op`` () = task
         | Ok ack -> ack
         | Error err -> failwith err
     Assert.Equal(
-        accepted.changeId,
+        accepted.submissionId,
         Assert.Single(firstAck.events).submissionId)
     let! xminAfterFirst =
         scalar<string> connStr "SELECT xmin::text FROM graph WHERE singleton = 1"
@@ -284,14 +284,14 @@ let ``db bootstrap duplicate returns stored Change and rejects no-op`` () = task
         core.postChange (encodeBatch [ accepted ]) |> Async.StartAsTask
     match duplicate with
     | Ok ack ->
-        Assert.Equal<Gambol.Shared.Ev list>(
+        Assert.Equal<Ev list>(
             firstAck.events,
             ack.events)
     | Error err -> failwith err
 
     let noOp =
         { id = 1
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops = [] }
     let! unchanged = core.postChange (encodeBatch [ noOp ]) |> Async.StartAsTask
     match unchanged with

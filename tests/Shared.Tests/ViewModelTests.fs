@@ -2958,7 +2958,7 @@ let ``MoveToTrash ops apply successfully and node lands under TRASH`` () =
     let addToTrashOp = Op.Replace(Graph.trashId, trashChildren, newTrashChildren)
 
     let change =
-        { id = 0; changeId = System.Guid.NewGuid(); ops = [ removeOp; addToTrashOp ] }
+        { id = 0; submissionId = System.Guid.NewGuid(); ops = [ removeOp; addToTrashOp ] }
 
     let result = ChangeValidation.applyChange change state0
 

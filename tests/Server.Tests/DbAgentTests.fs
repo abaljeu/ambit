@@ -19,7 +19,7 @@ let private encodeChangeBatch (changes: Change list) =
 
 let private emptyChange () =
     [ { id = 0
-        changeId = Guid.NewGuid()
+        submissionId = Guid.NewGuid()
         ops = [] } ]
 
 let private host agent = admittedHostDb agent
@@ -192,7 +192,7 @@ let ``DbAgent new process loads state from projection and changes after post`` (
 
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "reload-check")
               Op.Replace(rootId, [], [ ChildNode.owner childId ]) ] }
@@ -231,7 +231,7 @@ let ``DbAgent reload preserves node updateTime from projection`` () = task {
 
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "stamped")
               Op.Replace(rootId, [], [ ChildNode.owner childId ]) ] }
@@ -266,7 +266,7 @@ let ``DbAgent change fails and state is unchanged when DB goes away after startu
 
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "db-down")
               Op.Replace(rootId, [], [ ChildNode.owner childId ]) ] }
@@ -310,7 +310,7 @@ let ``rebuildFromDocumentFiles aligns DB with on-disk document`` () = task {
 
         let change =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(childId, "db-only")
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
@@ -378,7 +378,7 @@ let ``loadPersistedState preserves node kind`` () = task {
     let graphWithFile =
         let change =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewSpecialNode(fileId, SpecialKind.File, "file1")
                   ChildListWire.insertAt Graph.rootId g0.nodes.[Graph.rootId].children idx [ ChildNode.owner fileId ] ] }
@@ -418,7 +418,7 @@ let ``DbAgent commit hang is rejected within timeout and mailbox survives`` () =
 
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "commit-hang-check")
               Op.Replace(rootId, [], [ ChildNode.owner childId ]) ] }
@@ -470,7 +470,7 @@ let ``DbAgent postChange live-saves artifacts before ack returns`` () = task {
 
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "live-save-check")
               Op.Replace(rootId, [], [ ChildNode.owner childId ]) ] }
@@ -509,7 +509,7 @@ let ``DbAgent missing ROOT fails closed while reads stay available`` () = task {
 
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops = [ Op.NewNode(NodeId.New(), "blocked") ] }
     let! postResult =
         (admittedChanges (host agent))

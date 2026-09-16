@@ -155,7 +155,7 @@ let ``tryPeekUndoName and tryPeekRedoName skip Actor events`` () =
 let ``tryPeek finds Action under Actors after Change-shaped record`` () =
     let source =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops = [] }
     let changeOnly, _ =
         ClientHistory.clear () |> ClientHistory.record "Cut" source

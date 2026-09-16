@@ -10,7 +10,7 @@ let private changedBody () =
     let childId = NodeId.New()
     [ {
         id = 0
-        changeId = Guid.NewGuid()
+        submissionId = Guid.NewGuid()
         ops =
             [
                 Op.NewNode(childId, "failure probe")

@@ -29,7 +29,7 @@ let private decodeChangeResponse json =
 let private addRootChild revision text =
     let childId = NodeId.New()
     { id = revision
-      changeId = Guid.NewGuid()
+      submissionId = Guid.NewGuid()
       ops =
         [ Op.NewNode(childId, text)
           Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
@@ -46,7 +46,7 @@ let ``typed Normal caller publishes accepted Change to Poll`` () = task {
         let accepted = requireOk "typed post" accepted
         Assert.Equal(Revision 1, accepted.revision)
         Assert.Equal<Guid list>(
-            [ change.changeId ],
+            [ change.submissionId ],
             accepted.events |> List.map (_.submissionId))
 
         let! poll = Api.getPoll handle 10 20 0 |> Async.StartAsTask
@@ -81,7 +81,7 @@ let private produceFromSubgraph
         let childId = NodeId.New()
         let change =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(childId, "test Actor")
                   Op.Replace(

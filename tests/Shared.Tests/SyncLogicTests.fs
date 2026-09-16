@@ -11,7 +11,7 @@ open Xunit
 
 let private emptyModel = VmTestHelpers.emptyModel
 
-let private mkChange id = { id = id; changeId = System.Guid.NewGuid(); ops = [] }
+let private mkChange id = { id = id; submissionId = System.Guid.NewGuid(); ops = [] }
 
 let private mkPoll rev build page : ChangeSuccessResponse =
     { revision = EventId rev
@@ -177,7 +177,7 @@ let ``applyServerTail non-empty tail preserves History`` () =
     let withHistory = st |> withRecorded local
     let upstream =
         { id = 3
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops = [ Op.SetText(nodeId, "before", "after") ] }
     match applyTail [ upstream ] withHistory with
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
@@ -196,7 +196,7 @@ let ``applyServerTail applies graph mutations`` () =
     let st, nodeId = stateWithNode "before"
     let change =
         { id = 3
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops = [ Op.SetText(nodeId, "before", "after") ] }
     match applyTail [ change ] st with
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
@@ -210,7 +210,7 @@ let ``applyServerTail carries SetUpdateTime after SetText as poll stamp path`` (
     let stamp = System.DateTime(2026, 7, 22, 18, 0, 0, System.DateTimeKind.Utc)
     let change =
         { id = 3
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops =
               [ Op.SetText(nodeId, "before", "after")
                 Op.SetUpdateTime(nodeId, NodeUpdateTime.missing, stamp) ] }
@@ -227,7 +227,7 @@ let ``applyServerTail returns Error on first invalid change`` () =
     let st, nodeId = stateWithNode "original"
     let badChange =
         { id = 5
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops = [ Op.SetText(nodeId, "wrong-old", "new") ] }
     let goodChange = mkChange 6
     match applyTail [ badChange; goodChange ] st with
@@ -239,11 +239,11 @@ let ``applyServerTail short-circuits: state unchanged after invalid change`` () 
     let st, nodeId = stateWithNode "original"
     let badChange =
         { id = 3
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops = [ Op.SetText(nodeId, "wrong-old", "y") ] }
     let goodChange =
         { id = 4
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops = [ Op.SetText(nodeId, "original", "modified") ] }
     match applyTail [ badChange; goodChange ] st with
     | Ok _ -> failwith "Expected Error but got Ok"
@@ -256,7 +256,7 @@ let ``applyServerTail consumes Change on Absent Header without graph effect`` ()
     let absentId = NodeId.New()
     let change =
         { id = 5
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops = [ Op.SetText(absentId, "old", "new") ] }
     match applyTail [ change ] st with
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
@@ -300,7 +300,7 @@ let ``applyServerTail skips structural Replace on Unloaded parent`` () =
           eventLog = EventLog.empty }
     let change =
         { id = 4
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops =
               [ Op.Replace(wsId, [], [ ChildNode.owner childId ]) ] }
     match applyTail [ change ] st with
@@ -339,7 +339,7 @@ let ``applyServerTail applies header facts on Unloaded resident Node`` () =
           eventLog = EventLog.empty }
     let change =
         { id = 3
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops = [ Op.SetText(wsId, "before", "after") ] }
     match applyTail [ change ] st with
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
@@ -409,7 +409,7 @@ let ``applySyncResponse installs complete child list as Loaded and preserves own
         { events =
               [ Ev.ofChange ""
                     { id = 6
-                      changeId = System.Guid.NewGuid()
+                      submissionId = System.Guid.NewGuid()
                       ops = [ Op.SetText(markerId, "marker", "marker-tail") ] } ]
           packages = [ loadedWs; child; external ] }
     match SyncLogic.applySyncResponse response st with
@@ -433,11 +433,11 @@ let ``applyServerTail multi-change tail advances revision and graph`` () =
     let nodeB = state0.graph.nodes.[root.children.[1].id]
     let change1 =
         { id = 1
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops = [ Op.SetText(nodeA.id, nodeA.text, nodeA.text + "1") ] }
     let change2 =
         { id = 2
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops = [ Op.SetText(nodeB.id, nodeB.text, nodeB.text + "2") ] }
     match applyTail [ change1; change2 ] (ofState state0) with
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
@@ -511,11 +511,11 @@ let ``applyServerTail trusts server tails without ownership re-check`` () =
     let nodeC = state0.graph.nodes.[root.children.[1].id]
     let goodChange =
         { id = 1
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops = [ Op.SetText(nodeC.id, nodeC.text, "ok") ] }
     let ownershipBreakingChange =
         { id = 2
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops =
             [ Op.Replace(childB.id, originalBChildren, originalBChildren @ [ childA ]) ] }
     match applyTail [ goodChange; ownershipBreakingChange ] (ofState state0) with
@@ -533,7 +533,7 @@ let ``applyServerTail trusts server tails without ownership re-check`` () =
 
 let private textChange id nodeId oldText newText : Change =
     { id = id
-      changeId = System.Guid.NewGuid()
+      submissionId = System.Guid.NewGuid()
       ops = [ Op.SetText(nodeId, oldText, newText) ] }
 
 let private seededEditState () =
@@ -561,7 +561,7 @@ let ``consumeCatchUpPoll rewinds to baseline and preserves History`` () =
           graph = baselineGraph }
     let serverChange =
         { id = 1
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops = [ Op.SetText(nodeId, "before", "server") ] }
     match
         SyncLogic.consumeCatchUpPoll
@@ -575,7 +575,7 @@ let ``consumeCatchUpPoll rewinds to baseline and preserves History`` () =
         Assert.Equal("server", result.graph.nodes.[nodeId].text)
         Assert.Equal(EventId 1, result.revision)
         Assert.Equal(optimistic.history, result.history)
-        Assert.NotEqual(pending.change.changeId, serverChange.changeId)
+        Assert.NotEqual(pending.change.submissionId, serverChasubmissionIdissionId)
 
 [<Fact>]
 let ``applyServerTail with changes preserves History`` () =
@@ -586,7 +586,7 @@ let ``applyServerTail with changes preserves History`` () =
     let nodeA = state0.graph.nodes.[root.children.[0].id]
     let change =
         { id = 1
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops = [ Op.SetText(nodeA.id, nodeA.text, nodeA.text + "!") ] }
     let client : ClientSyncState =
         { graph = state0.graph

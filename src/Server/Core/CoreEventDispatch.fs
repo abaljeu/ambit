@@ -74,7 +74,7 @@ module internal CoreEventDispatch =
             match EventLog.tryFind target eventLog with
             | None -> Error "target Ev not found"
             | Some targetEvent ->
-                match Gambol.Shared.Ev.inverseOps targetEvent with
+                match Ev.inverseOps targetEvent with
                 | None -> Error "target Ev has no inverse Ops"
                 | Some ops ->
                     let body =
@@ -101,7 +101,7 @@ module internal CoreEventDispatch =
                 stored.submissionId = event.submissionId)
         let confirmedOps =
             confirmed
-            |> Option.bind Gambol.Shared.Ev.ops
+            |> Option.bind Ev.ops
         match confirmedOps, event.body with
         | Some ops, Gambol.Shared.EventBody.Change _ ->
             { event with
@@ -126,7 +126,7 @@ module internal CoreEventDispatch =
         completeAction context.eventLog.Value admitted
 
     let private persist (context: Context) (completed: Ev) (graphOnly: bool) =
-        match Gambol.Shared.Ev.ops completed with
+        match Ev.ops completed with
         | None -> Ok None
         | Some ops ->
             match context.persist.getRevision () with
@@ -134,7 +134,7 @@ module internal CoreEventDispatch =
             | Ok revision ->
                 let change =
                     { id = revision.Value
-                      changeId = completed.submissionId
+                      submissionId = completed.submissionId
                       ops = ops }
                 if graphOnly then
                     context.persist.postGraphOnlyChange [ change ]
@@ -182,7 +182,7 @@ module internal CoreEventDispatch =
             | Ok s when Set.contains event.submissionId knownSubmissionIds ->
                 Ok s
             | Ok s ->
-                match Gambol.Shared.Ev.apply event s with
+                match Ev.apply event s with
                 | ApplyResult.Invalid (_, msg) -> Error msg
                 | ApplyResult.Unchanged _ ->
                     Error "Unchanged submission is rejected."
