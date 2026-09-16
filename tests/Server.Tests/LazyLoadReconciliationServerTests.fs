@@ -703,7 +703,7 @@ let ``directory reconciliation POST returns failures JSON`` () =
                 { events = [ wsEvent ] })
     use wsContent = new StringContent(wsBody, Text.Encoding.UTF8, "application/json")
     let wsResp =
-        client.PostAsync("/ambit/events", wsContent)
+        client.PostAsync("/ambit/changes", wsContent)
         |> Async.AwaitTask
         |> Async.RunSynchronously
     Assert.Equal(HttpStatusCode.OK, wsResp.StatusCode)
@@ -730,7 +730,7 @@ let ``directory reconciliation POST returns failures JSON`` () =
     use docsContent =
         new StringContent(docsBody, Text.Encoding.UTF8, "application/json")
     let docsResp =
-        client.PostAsync("/ambit/events", docsContent)
+        client.PostAsync("/ambit/changes", docsContent)
         |> Async.AwaitTask
         |> Async.RunSynchronously
     Assert.Equal(HttpStatusCode.OK, docsResp.StatusCode)
@@ -765,7 +765,7 @@ let ``workspace reconciliation POST with empty path discovers root`` () =
                 { events = [ wsEvent ] })
     use wsContent = new StringContent(wsBody, Text.Encoding.UTF8, "application/json")
     let wsResp =
-        client.PostAsync("/ambit/events", wsContent)
+        client.PostAsync("/ambit/changes", wsContent)
         |> Async.AwaitTask
         |> Async.RunSynchronously
     Assert.Equal(HttpStatusCode.OK, wsResp.StatusCode)

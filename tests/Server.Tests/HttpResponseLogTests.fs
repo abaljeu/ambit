@@ -58,7 +58,7 @@ let ``successful post logs correlated begin and end with payload`` () = task {
     let logPath = HttpResponseLog.logPath dataDir
     HttpResponseLog.prepareFresh logPath
     let body = """{"events":[{"id":0}]}"""
-    let ctx = contextForPost "/ambit/events" body
+    let ctx = contextForPost "/ambit/changes" body
     do!
         runLifecycle logPath ctx (fun endpointCtx -> task {
             endpointCtx.Response.StatusCode <- 200
@@ -66,7 +66,7 @@ let ``successful post logs correlated begin and end with payload`` () = task {
         })
     let lines = lifecycleLines logPath
     Assert.Equal(2, lines.Length)
-    Assert.Contains("method=POST target=/ambit/events?rev=7", lines.[0])
+    Assert.Contains("method=POST target=/ambit/changes?rev=7", lines.[0])
     Assert.Contains("body={\"events\":[{\"id\":0}]}", lines.[0])
     Assert.Contains("status=200", lines.[1])
     Assert.Contains("elapsedMs=", lines.[1])
@@ -79,7 +79,7 @@ let ``controlled bad request logs begin and end with request body`` () = task {
     let dataDir = newTempDir ()
     let logPath = HttpResponseLog.logPath dataDir
     HttpResponseLog.prepareFresh logPath
-    let ctx = contextForPost "/ambit/events" "not valid event json"
+    let ctx = contextForPost "/ambit/changes" "not valid event json"
     do!
         runLifecycle logPath ctx (fun endpointCtx -> task {
             endpointCtx.Response.StatusCode <- 400
@@ -178,7 +178,7 @@ let ``request body reaches endpoint unchanged after begin logging`` () = task {
     let logPath = HttpResponseLog.logPath dataDir
     HttpResponseLog.prepareFresh logPath
     let expected = """{"events":[{"text":"unchanged"}]}"""
-    let ctx = contextForPost "/ambit/events" expected
+    let ctx = contextForPost "/ambit/changes" expected
     let actual = TaskCompletionSource<string>()
     do!
         runLifecycle logPath ctx (fun endpointCtx -> task {

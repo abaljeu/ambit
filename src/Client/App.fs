@@ -190,7 +190,7 @@ let createRuntime (initialModel: VM) =
             let body =
                 SyncBatch.toWireBatch model.revision.Value [ submitted ]
                 |> encodePendingBatchBody
-            let url = sprintf "/%s/events" currentFile
+            let url = sprintf "/%s/changes" currentFile
             let rec post () =
                 let retry () =
                     setTimeout post 1000 |> ignore
@@ -370,7 +370,7 @@ let createRuntime (initialModel: VM) =
             |> Option.map (fun item ->
                 item.event.submissionId.ToString("N").Substring(0, 8))
             |> Option.defaultValue "empty"
-        let url = $"/{currentFile}/events"
+        let url = $"/{currentFile}/changes"
         let postChanges = SyncBatch.toWireBatch baseRev changes
         let body = encodePendingBatchBody postChanges
         let qLen = model.syncInfo.pendingChanges.Length
