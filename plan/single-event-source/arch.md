@@ -12,7 +12,7 @@ Feature under design: leftover Change record and Revision serial out of the runn
    Sequence: expand-migrate-contract.
    1. **Expand**
       1. [x] Ev, EventLog, `postEvents`, HTTP Ev batch, Poll/Load Ev tail (from [[plan/core-creation/arch.md]] Stories **Event, EventLog, and ClientHistory** and **Caller, persist, and Poll**)
-      2. [ ] Op-list apply — `Ev.apply` / invert / `ChangeValidation` / amend / PersistStamp take `Op list` (or Ops on EventBody). They do not wrap leftover Change
+      2. [x] Op-list apply — `Ev.apply` / invert / `ChangeValidation` / amend / PersistStamp take `Op list` (or Ops on EventBody). They do not wrap leftover Change
       3. [ ] leftover Change.id is `EventId` (same type as `Ev.id`). No `Revision` stop
    2. **Migrate**
       Batches after compile may run in any order among persist and command. Serial batch may run beside them. Leftover Change still compiles until Contract.
@@ -30,7 +30,7 @@ Feature under design: leftover Change record and Revision serial out of the runn
 
 Shared segments:
 1. [ ] Admit Ev at CoreMailbox
-2. [ ] Apply Ops locally
+2. [x] Apply Ops locally
 3. [ ] Append Ev to EventLog
 
 Narrowest test seam:
@@ -45,7 +45,7 @@ Deltas only. Hello / Actor-pool modules do not change.
       1. [ ] Envelope: `id` (EventId), `submissionId`, `authority`, `commandName`, `body` (EventBody)
       2. [ ] No leftover Change record in this file
    2. Interface
-      1. [ ] `ops` / `apply` / `inverseOps` read EventBody. They take or return Op list. They do not build leftover Change
+      1. [x] `ops` / `apply` / `inverseOps` read EventBody. They take or return Op list. They do not build leftover Change
       2. [ ] No `asChange` / `ofChange`
    3. Uses
       1. [ ] Op
@@ -148,7 +148,7 @@ Deltas only. Hello / Actor-pool modules do not change.
 
 ## 3. Seams
 
-1. [ ] **Op apply** — Interface on **Ev** / **ChangeValidation**. Local Graph mutate from an Op list. Tests cross here for invert/amend.
+1. [x] **Op apply** — Interface on **Ev** / **ChangeValidation**. Local Graph mutate from an Op list. Tests cross here for invert/amend.
 2. [ ] **postEvents** — Interface on **CoreChanges**. HTTP and Browser already cross this seam.
 3. [ ] **postGraphOnly** — Interface on **CoreChanges**. Parse and lazy-load. Ev in; file persist skipped.
 4. [ ] **Persist apply** — Interface on **FileAgent** / **DbAgent**. Admit Ev, apply Ops, `appendEvent`. Narrowest test seam for this Project.

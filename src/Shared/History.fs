@@ -105,7 +105,7 @@ module Op =
     /// Node ids whose ownership facts this op can flip (Owner edges added/removed,
     /// or a newly introduced node). Replace parent is excluded: being the edit site
     /// does not change the parent's own owner-occurrence / chain; placement and
-    /// artifact-name checks for that parent run separately in validateOwnershipForChange.
+    /// artifact-name checks for that parent run separately in validateOwnershipForOps.
     let involvedNodeIds (graph: Graph) (op: Op) : NodeId list =
         match op with
         | Op.NewNode(nodeId, _)
@@ -261,6 +261,51 @@ module Op =
         else
             applyAllowed op state
 
+    let applyAll (ops: Op list) (state: State) : ApplyResult =
+        let step (accState, hasChanged) op =
+            match apply op accState with
+            | ApplyResult.Invalid _ as err -> Error err
+            | ApplyResult.Unchanged s' -> Ok(s', hasChanged)
+            | ApplyResult.Changed s' -> Ok(s', true)
+
+        let result =
+            ops
+            |> List.fold
+                (fun acc op ->
+                    match acc with
+                    | Error err -> Error err
+                    | Ok(s, changed) -> step (s, changed) op)
+                (Ok(state, false))
+
+        match result with
+        | Error(ApplyResult.Invalid(_, message)) ->
+            ApplyResult.Invalid(state, message)
+        | Error err -> err
+        | Ok(s, false) -> ApplyResult.Unchanged s
+        | Ok(s, true) -> ApplyResult.Changed s
+
+    let invert (op: Op) : Op =
+        match op with
+        | Op.NewNode(id, text) -> Op.NewNode(id, text)
+        | Op.SetText(id, old, new_) -> Op.SetText(id, new_, old)
+        | Op.SetClasses(id, old, new_) -> Op.SetClasses(id, new_, old)
+        | Op.Replace(parentId, oldChildren, newChildren) ->
+            Op.Replace(parentId, newChildren, oldChildren)
+        | Op.NewSpecialNode(id, kind, name) -> Op.NewSpecialNode(id, kind, name)
+        | Op.SetName(id, old, new_) -> Op.SetName(id, new_, old)
+        | Op.SetDocumentState(id, old, new_) ->
+            Op.SetDocumentState(id, new_, old)
+        | Op.SetUpdateTime(id, old, new_) -> Op.SetUpdateTime(id, new_, old)
+
+    let invertAll (ops: Op list) : Op list =
+        let retainReversible =
+            function
+            | Op.NewNode _
+            | Op.NewSpecialNode _ -> None
+            | op -> Some(invert op)
+
+        ops |> List.rev |> List.choose retainReversible
+
     let private undoAllowed (op: Op) (state: State) : ApplyResult =
         match op with
         | Op.NewNode(nodeId, _) ->
@@ -313,33 +358,14 @@ module Change =
     let addOp (op: Op) (change: Change) : Change =
         { change with ops = change.ops @ [ op ] }
 
-    let private invertOp =
-        function
-        | Op.NewNode(id, text) -> Op.NewNode(id, text)
-        | Op.SetText(id, old, new_) -> Op.SetText(id, new_, old)
-        | Op.SetClasses(id, old, new_) -> Op.SetClasses(id, new_, old)
-        | Op.Replace(parentId, oldChildren, newChildren) ->
-            Op.Replace(parentId, newChildren, oldChildren)
-        | Op.NewSpecialNode(id, kind, name) -> Op.NewSpecialNode(id, kind, name)
-        | Op.SetName(id, old, new_) -> Op.SetName(id, new_, old)
-        | Op.SetDocumentState(id, old, new_) ->
-            Op.SetDocumentState(id, new_, old)
-        | Op.SetUpdateTime(id, old, new_) -> Op.SetUpdateTime(id, new_, old)
-
     let inverse
         (baseRevision: Revision)
         (submissionId: System.Guid)
         (source: Change)
         : Change =
-        let retainReversibleOp =
-            function
-            | Op.NewNode _
-            | Op.NewSpecialNode _ -> None
-            | op -> Some(invertOp op)
-
         { id = baseRevision.Value
           submissionId = submissionId
-          ops = source.ops |> List.rev |> List.choose retainReversibleOp }
+          ops = Op.invertAll source.ops }
 
     /// Construct the inverse of a change: reversed op list, each op with old/new swapped.
     /// Change.undo(invert c) re-applies c's effect (valid for SetText and Replace).
@@ -348,30 +374,10 @@ module Change =
     let invert (change: Change) : Change =
         { change with
             submissionId = System.Guid.NewGuid()
-            ops = change.ops |> List.rev |> List.map invertOp }
+            ops = change.ops |> List.rev |> List.map Op.invert }
 
     let apply (change: Change) (state: State) : ApplyResult =
-        let step (accState, hasChanged) op =
-            match Op.apply op accState with
-            | ApplyResult.Invalid _ as err -> Error err
-            | ApplyResult.Unchanged s' -> Ok(s', hasChanged)
-            | ApplyResult.Changed s' -> Ok(s', true)
-
-        let result =
-            change.ops
-            |> List.fold
-                (fun acc op ->
-                    match acc with
-                    | Error err -> Error err
-                    | Ok (s, changed) -> step (s, changed) op)
-                (Ok(state, false))
-
-        match result with
-        | Error (ApplyResult.Invalid(_, message)) ->
-            ApplyResult.Invalid(state, message)
-        | Error err -> err
-        | Ok (s, false) -> ApplyResult.Unchanged s
-        | Ok (s, true) -> ApplyResult.Changed s
+        Op.applyAll change.ops state
 
     let undo (change: Change) (state: State) : ApplyResult =
         let step (accState, hasChanged) op =
@@ -422,16 +428,7 @@ module Ev =
         | EventBody.ActorStop _ -> None
 
     let inverseOps (event: Ev) : Op list option =
-        match ops event with
-        | None -> None
-        | Some opList ->
-            let source =
-                { id = 0
-                  submissionId = event.submissionId
-                  ops = opList }
-            let inverse =
-                Change.inverse Revision.Zero event.submissionId source
-            Some inverse.ops
+        ops event |> Option.map Op.invertAll
 
     let asChange (event: Ev) : Change =
         { id = event.id.Value
@@ -448,12 +445,7 @@ module Ev =
     let apply (event: Ev) (state: State) : ApplyResult =
         match ops event with
         | None -> ApplyResult.Unchanged state
-        | Some opList ->
-            Change.apply
-                { id = 0
-                  submissionId = event.submissionId
-                  ops = opList }
-                state
+        | Some opList -> Op.applyAll opList state
 
 /// Validation and apply functions for Change operations with ownership semantics.
 [<RequireQualifiedAccess>]
@@ -682,8 +674,8 @@ module ChangeValidation =
             |> List.exists (fun nc -> nc.id = oc.id && nc.ref = oc.ref)
             |> not)
 
-    let private validateOwnershipForChange (graph: Graph) (change: Change) : Result<unit, string> =
-        let shapeOps = change.ops |> List.filter opChangesGraphShape
+    let private validateOwnershipForOps (graph: Graph) (ops: Op list) : Result<unit, string> =
+        let shapeOps = ops |> List.filter opChangesGraphShape
 
         if List.isEmpty shapeOps then
             Ok ()
@@ -724,17 +716,23 @@ module ChangeValidation =
                 |> Option.map Error
                 |> Option.defaultValue (Ok ())
 
-    let applyChangeTrusted (change: Change) (state: State) : ApplyResult =
-        Change.apply change state
+    let applyOpsTrusted (ops: Op list) (state: State) : ApplyResult =
+        Op.applyAll ops state
 
-    let applyChange (change: Change) (state: State) : ApplyResult =
-        match applyChangeTrusted change state with
+    let applyOps (ops: Op list) (state: State) : ApplyResult =
+        match applyOpsTrusted ops state with
         | ApplyResult.Invalid _ as err -> err
         | ApplyResult.Unchanged s -> ApplyResult.Unchanged s
         | ApplyResult.Changed s ->
-            match validateOwnershipForChange s.graph change with
+            match validateOwnershipForOps s.graph ops with
             | Error msg -> ApplyResult.Invalid(state, msg)
             | Ok () -> ApplyResult.Changed s
+
+    let applyChangeTrusted (change: Change) (state: State) : ApplyResult =
+        applyOpsTrusted change.ops state
+
+    let applyChange (change: Change) (state: State) : ApplyResult =
+        applyOps change.ops state
 
 /// After DocumentPersistence stamps artifact roots, emit ops for the change log / poll tail.
 [<RequireQualifiedAccess>]
@@ -758,11 +756,14 @@ module PersistStamp =
                 else
                     Some(Op.SetUpdateTime(id, NodeUpdateTime.missing, newTime)))
 
+    let appendToOps (ops: Op list) (stampOps: Op list) : Op list =
+        if stampOps.IsEmpty then ops else ops @ stampOps
+
     let appendToChange (change: Change) (stampOps: Op list) : Change =
         if stampOps.IsEmpty then
             change
         else
-            { change with ops = change.ops @ stampOps }
+            { change with ops = appendToOps change.ops stampOps }
 
     let appendToLast (changes: Change list) (stampOps: Op list) : Change list =
         if stampOps.IsEmpty || changes.IsEmpty then
@@ -772,4 +773,29 @@ module PersistStamp =
             | [] -> changes
             | last :: rest ->
                 List.rev (appendToChange last stampOps :: rest)
+
+    let appendToEvent (event: Ev) (stampOps: Op list) : Ev =
+        if stampOps.IsEmpty then
+            event
+        else
+            match event.body with
+            | EventBody.Change ops ->
+                { event with body = EventBody.Change(appendToOps ops stampOps) }
+            | EventBody.Undo(target, ops) ->
+                { event with
+                    body = EventBody.Undo(target, appendToOps ops stampOps) }
+            | EventBody.Redo(target, ops) ->
+                { event with
+                    body = EventBody.Redo(target, appendToOps ops stampOps) }
+            | EventBody.ActorStart _
+            | EventBody.ActorStop _ -> event
+
+    let appendToLastEvent (events: Ev list) (stampOps: Op list) : Ev list =
+        if stampOps.IsEmpty || events.IsEmpty then
+            events
+        else
+            match List.rev events with
+            | [] -> events
+            | last :: rest ->
+                List.rev (appendToEvent last stampOps :: rest)
 

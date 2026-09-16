@@ -1,8 +1,10 @@
 # Single event source
 
-Stage: slice
+Stage: build
 Summary: Core creation is suspended. This Project creates a single Event source with one event id, then corrects [[plan/core-creation/arch.md]] to match what was created.
 Updated: 2026-09-16
+Started: 2026-09-16
+Actual: 1h30m
 
 ## Map
 
@@ -14,7 +16,7 @@ Updated: 2026-09-16
 
 ## Issues
 
-- [[plan/single-event-source/issues/05-expand-op-list-apply.md|05 — Expand Op-list apply]] — expand. Status `ready-to-implement`.
+- [[plan/single-event-source/issues/05-expand-op-list-apply.md|05 — Expand Op-list apply]] — expand. Status `coded`.
 - [[plan/single-event-source/issues/06-compile-preamble.md|06 — Compile preamble]] — migrate. Blocked by 05.
 - [[plan/single-event-source/issues/07-persist-apply.md|07 — Persist apply]] — migrate. Blocked by 05, 06.
 - [[plan/single-event-source/issues/08-core-doors.md|08 — Core doors]] — migrate. Blocked by 05, 07.
