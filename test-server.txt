@@ -1,508 +1,53 @@
   Determining projects to restore...
-  Restored D:\dev\amble\gambol\src\Shared\dotnet\Gambol.Shared.DotNet.fsproj (in 457 ms).
-  Restored D:\dev\amble\gambol\src\Shared\documents\Gambol.Shared.Documents.fsproj (in 457 ms).
-  Restored D:\dev\amble\gambol\src\Shared\Gambol.Shared.fsproj (in 457 ms).
-  Restored D:\dev\amble\gambol\src\Server\Gambol.Server.fsproj (in 457 ms).
-  Restored D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj (in 466 ms).
+  All projects are up-to-date for restore.
   Gambol.Shared -> D:\dev\amble\gambol\src\Shared\bin\Debug\net10.0\Gambol.Shared.dll
   Gambol.Shared.Documents -> D:\dev\amble\gambol\src\Shared\documents\bin\Debug\net10.0\Gambol.Shared.Documents.dll
   Gambol.Shared.DotNet -> D:\dev\amble\gambol\src\Shared\dotnet\bin\Debug\net10.0\Gambol.Shared.DotNet.dll
   Gambol.Server -> D:\dev\amble\gambol\src\Server\bin\Debug\net10.0\Gambol.Server.dll
-  Gambol.Server.Tests -> D:\dev\amble\gambol\tests\Server.Tests\bin\Debug\net10.0\Gambol.Server.Tests.dll
+D:\dev\amble\gambol\tests\Server.Tests\TestBackend.fs(122,21): error FS0039: The value or constructor 'Authority' is not defined. Maybe you want one of the following:   AuthToken [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\TestBackend.fs(335,54): error FS0039: The type 'Ev' is not defined. [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\TestBackend.fs(336,7): error FS0039: The record label 'id' is not defined. [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\TestBackend.fs(337,7): error FS0039: The record label 'submissionId' is not defined. [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\TestBackend.fs(339,7): error FS0039: The record label 'commandName' is not defined. [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\TestBackend.fs(340,7): error FS0039: The record label 'body' is not defined. [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\TestBackend.fs(336,5): error FS0764: No assignment given for field 'name' of type 'Gambol.Server.Caller' [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\LazyLoadReconciliationServerTests.fs(704,30): error FS0001: This expression was expected to have type    'Ev'    but here has type    'Caller' [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\LazyLoadReconciliationServerTests.fs(730,30): error FS0001: This expression was expected to have type    'Ev'    but here has type    'Caller' [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\LazyLoadReconciliationServerTests.fs(766,30): error FS0001: This expression was expected to have type    'Ev'    but here has type    'Caller' [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\CoreChangesTests.fs(153,30): error FS0001: This expression was expected to have type    'Ev'    but here has type    'Caller' [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\CoreChangesTests.fs(163,12): error FS0041: No overloads match for method 'Equal'.Known types of arguments: Caller list * Ev listAvailable overloads: - Assert.Equal<'T when 'T :> IEquatable<'T>>(expectedMemory: Memory<'T>, actualMemory: Memory<'T>) : unit - Assert.Equal<'T when 'T :> IEquatable<'T>>(expectedMemory: Memory<'T>, actualMemory: ReadOnlyMemory<'T>) : unit - Assert.Equal<'T when 'T :> IEquatable<'T>>(expectedMemory: ReadOnlyMemory<'T>, actualMemory: Memory<'T>) : unit - Assert.Equal<'T when 'T :> IEquatable<'T>>(expectedMemory: ReadOnlyMemory<'T>, actualMemory: ReadOnlyMemory<'T>) : unit - Assert.Equal<'T when 'T :> IEquatable<'T>>(expectedSpan: ReadOnlySpan<'T>, actualArray: 'T array) : unit - Assert.Equal<'T when 'T :> IEquatable<'T>>(expectedSpan: ReadOnlySpan<'T>, actualSpan: ReadOnlySpan<'T>) : unit - Assert.Equal<'T when 'T :> IEquatable<'T>>(expectedSpan: ReadOnlySpan<'T>, actualSpan: Span<'T>) : unit - Assert.Equal<'T when 'T :> IEquatable<'T>>(expectedSpan: Span<'T>, actualSpan: ReadOnlySpan<'T>) : unit - Assert.Equal<'T when 'T :> IEquatable<'T>>(expectedSpan: Span<'T>, actualSpan: Span<'T>) : unit - Assert.Equal<'T when 'T: unmanaged and 'T: (new: unit -> 'T) and 'T: struct and 'T :> ValueType and 'T :> IEquatable<'T>>(expected: 'T array, actual: 'T array) : unit - Assert.Equal<'T>(expected: 'T seq, actual: 'T seq) : unit // Argument 'expected' doesn't match - Assert.Equal<'T>(expected: 'T seq, actual: Collections.Generic.IAsyncEnumerable<'T>) : unit // Argument 'expected' doesn't match - Assert.Equal<'T>(expected: 'T, actual: 'T) : unit // Argument 'expected' doesn't match - Assert.Equal<'T>(expected: Collections.Generic.IAsyncEnumerable<'T>, actual: Collections.Generic.IAsyncEnumerable<'T>) : unit // Argument 'expected' doesn't match [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\CoreCredentialsTests.fs(66,72): error FS0001: This expression was expected to have type    'Ev'    but here has type    'Caller' [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\CoreCredentialsTests.fs(66,72): error FS0001: This expression was expected to have type    'Ev'    but here has type    'Caller' [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\CoreCredentialsTests.fs(87,71): error FS0001: This expression was expected to have type    'Ev'    but here has type    'Caller' [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\CoreCredentialsTests.fs(108,67): error FS0001: This expression was expected to have type    'Ev'    but here has type    'Caller' [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\CoreRuntimeTests.fs(107,38): error FS0001: This expression was expected to have type    'Ev'    but here has type    'Caller' [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\CoreRuntimeTests.fs(127,71): error FS0001: This expression was expected to have type    'Ev'    but here has type    'Caller' [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\ChangeEndpointResilienceTests.fs(124,30): error FS0001: This expression was expected to have type    'Ev'    but here has type    'Gambol.Server.Caller' [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\StateEndpointTests.fs(90,62): error FS0001: The type 'Ev' does not match the type 'Caller' [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
 
-Build succeeded.
+Build FAILED.
+
+D:\dev\amble\gambol\tests\Server.Tests\TestBackend.fs(122,21): error FS0039: The value or constructor 'Authority' is not defined. Maybe you want one of the following:   AuthToken [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\TestBackend.fs(335,54): error FS0039: The type 'Ev' is not defined. [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\TestBackend.fs(336,7): error FS0039: The record label 'id' is not defined. [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\TestBackend.fs(337,7): error FS0039: The record label 'submissionId' is not defined. [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\TestBackend.fs(339,7): error FS0039: The record label 'commandName' is not defined. [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\TestBackend.fs(340,7): error FS0039: The record label 'body' is not defined. [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\TestBackend.fs(336,5): error FS0764: No assignment given for field 'name' of type 'Gambol.Server.Caller' [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\LazyLoadReconciliationServerTests.fs(704,30): error FS0001: This expression was expected to have type    'Ev'    but here has type    'Caller' [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\LazyLoadReconciliationServerTests.fs(730,30): error FS0001: This expression was expected to have type    'Ev'    but here has type    'Caller' [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\LazyLoadReconciliationServerTests.fs(766,30): error FS0001: This expression was expected to have type    'Ev'    but here has type    'Caller' [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\CoreChangesTests.fs(153,30): error FS0001: This expression was expected to have type    'Ev'    but here has type    'Caller' [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\CoreChangesTests.fs(163,12): error FS0041: No overloads match for method 'Equal'.Known types of arguments: Caller list * Ev listAvailable overloads: - Assert.Equal<'T when 'T :> IEquatable<'T>>(expectedMemory: Memory<'T>, actualMemory: Memory<'T>) : unit - Assert.Equal<'T when 'T :> IEquatable<'T>>(expectedMemory: Memory<'T>, actualMemory: ReadOnlyMemory<'T>) : unit - Assert.Equal<'T when 'T :> IEquatable<'T>>(expectedMemory: ReadOnlyMemory<'T>, actualMemory: Memory<'T>) : unit - Assert.Equal<'T when 'T :> IEquatable<'T>>(expectedMemory: ReadOnlyMemory<'T>, actualMemory: ReadOnlyMemory<'T>) : unit - Assert.Equal<'T when 'T :> IEquatable<'T>>(expectedSpan: ReadOnlySpan<'T>, actualArray: 'T array) : unit - Assert.Equal<'T when 'T :> IEquatable<'T>>(expectedSpan: ReadOnlySpan<'T>, actualSpan: ReadOnlySpan<'T>) : unit - Assert.Equal<'T when 'T :> IEquatable<'T>>(expectedSpan: ReadOnlySpan<'T>, actualSpan: Span<'T>) : unit - Assert.Equal<'T when 'T :> IEquatable<'T>>(expectedSpan: Span<'T>, actualSpan: ReadOnlySpan<'T>) : unit - Assert.Equal<'T when 'T :> IEquatable<'T>>(expectedSpan: Span<'T>, actualSpan: Span<'T>) : unit - Assert.Equal<'T when 'T: unmanaged and 'T: (new: unit -> 'T) and 'T: struct and 'T :> ValueType and 'T :> IEquatable<'T>>(expected: 'T array, actual: 'T array) : unit - Assert.Equal<'T>(expected: 'T seq, actual: 'T seq) : unit // Argument 'expected' doesn't match - Assert.Equal<'T>(expected: 'T seq, actual: Collections.Generic.IAsyncEnumerable<'T>) : unit // Argument 'expected' doesn't match - Assert.Equal<'T>(expected: 'T, actual: 'T) : unit // Argument 'expected' doesn't match - Assert.Equal<'T>(expected: Collections.Generic.IAsyncEnumerable<'T>, actual: Collections.Generic.IAsyncEnumerable<'T>) : unit // Argument 'expected' doesn't match [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\CoreCredentialsTests.fs(66,72): error FS0001: This expression was expected to have type    'Ev'    but here has type    'Caller' [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\CoreCredentialsTests.fs(66,72): error FS0001: This expression was expected to have type    'Ev'    but here has type    'Caller' [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\CoreCredentialsTests.fs(87,71): error FS0001: This expression was expected to have type    'Ev'    but here has type    'Caller' [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\CoreCredentialsTests.fs(108,67): error FS0001: This expression was expected to have type    'Ev'    but here has type    'Caller' [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\CoreRuntimeTests.fs(107,38): error FS0001: This expression was expected to have type    'Ev'    but here has type    'Caller' [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\CoreRuntimeTests.fs(127,71): error FS0001: This expression was expected to have type    'Ev'    but here has type    'Caller' [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\ChangeEndpointResilienceTests.fs(124,30): error FS0001: This expression was expected to have type    'Ev'    but here has type    'Gambol.Server.Caller' [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
+D:\dev\amble\gambol\tests\Server.Tests\StateEndpointTests.fs(90,62): error FS0001: The type 'Ev' does not match the type 'Caller' [D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj]
     0 Warning(s)
-    0 Error(s)
+    20 Error(s)
 
-Time Elapsed 00:00:40.53
-==> Running Server tests (Debug)...
-Test run for D:\dev\amble\gambol\tests\Server.Tests\bin\Debug\net10.0\Gambol.Server.Tests.dll (.NETCoreApp,Version=v10.0)
-A total of 1 test files matched the specified pattern.
-[xUnit.net 00:00:30.82]     Gambol.Server.Tests.StateEndpointTests.POST same changeId twice is idempotent(backend: Db) [FAIL]
-  Failed Gambol.Server.Tests.StateEndpointTests.POST same changeId twice is idempotent(backend: Db) [541 ms]
-  [x] Error Message:
-   Assert.Equal() Failure: Values differ
-Expected: OK
-Actual:   BadRequest
-  Stack Trace:
-     at Gambol.Server.Tests.StateEndpointTests.POST same changeId twice is idempotent@533-5.Invoke(HttpResponseMessage _arg4) in D:\dev\amble\gambol\tests\Server.Tests\StateEndpointTests.fs:line 533
-   at Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority.cont@423-2.Invoke(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 425
-   at <StartupCode$FSharp-Core>.$Tasks.resumptionInfo@158.MoveNext(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 160
---- End of stack trace from previous location ---
-   at Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority.cont@423-2.Invoke(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 424
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 303
---- End of stack trace from previous location ---
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 299
-   at <StartupCode$FSharp-Core>.$Tasks.resumptionInfo@158.MoveNext(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 160
---- End of stack trace from previous location ---
---- End of stack trace from previous location ---
-[xUnit.net 00:00:31.12]     Gambol.Server.Tests.StateEndpointTests.DB mode without connection serves read-only file fallback [FAIL]
-  Failed Gambol.Server.Tests.StateEndpointTests.DB mode without connection serves read-only file fallback [307 ms]
-  [x] Error Message:
-   Assert.Equal() Failure: Values differ
-Expected: BadRequest
-Actual:   OK
-  Stack Trace:
-     at Gambol.Server.Tests.StateEndpointTests.DB mode without connection serves read-only file fallback@194-4.Invoke(HttpResponseMessage _arg4) in D:\dev\amble\gambol\tests\Server.Tests\StateEndpointTests.fs:line 194
-   at Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority.cont@423-2.Invoke(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 425
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 303
---- End of stack trace from previous location ---
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 299
-   at <StartupCode$FSharp-Core>.$Tasks.resumptionInfo@158.MoveNext(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 160
---- End of stack trace from previous location ---
---- End of stack trace from previous location ---
-[xUnit.net 00:00:32.67]     Gambol.Server.Tests.StateEndpointTests.DB rows persist after agent cache reset [FAIL]
-[xUnit.net 00:00:33.78]     Gambol.Server.Tests.StateEndpointTests.DB is present in db mode [FAIL]
-  Failed Gambol.Server.Tests.StateEndpointTests.DB rows persist after agent cache reset [496 ms]
-  [x] Error Message:
-   Assert.Equal() Failure: Values differ
-Expected: 1
-Actual:   0
-  Stack Trace:
-     at Gambol.Server.Tests.StateEndpointTests.DB rows persist after agent cache reset@978-5.Invoke(FSharpList`1 _arg5) in D:\dev\amble\gambol\tests\Server.Tests\StateEndpointTests.fs:line 978
-   at Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority.cont@423-2.Invoke(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 425
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 303
---- End of stack trace from previous location ---
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 299
-   at <StartupCode$FSharp-Core>.$Tasks.resumptionInfo@158.MoveNext(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 160
---- End of stack trace from previous location ---
---- End of stack trace from previous location ---
-  Failed Gambol.Server.Tests.StateEndpointTests.DB is present in db mode [509 ms]
-  [x] Error Message:
-   Assert.Equal() Failure: Values differ
-Expected: 1
-Actual:   0
-  Stack Trace:
-     at Gambol.Server.Tests.StateEndpointTests.DB is present in db mode@963-5.Invoke(FSharpList`1 _arg5) in D:\dev\amble\gambol\tests\Server.Tests\StateEndpointTests.fs:line 963
-   at Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority.cont@423-2.Invoke(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 425
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 303
---- End of stack trace from previous location ---
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 299
-   at <StartupCode$FSharp-Core>.$Tasks.resumptionInfo@158.MoveNext(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 160
---- End of stack trace from previous location ---
---- End of stack trace from previous location ---
-[xUnit.net 00:00:38.50]     Gambol.Server.Tests.StateEndpointTests.DB restart keeps inverse Change in EventLog [FAIL]
-[xUnit.net 00:00:39.22]     Gambol.Server.Tests.StateEndpointTests.DB rows survive second server startup without DB reset [FAIL]
-[xUnit.net 00:00:39.62]     Gambol.Server.Tests.StateEndpointTests.POST Change and inverse Changes return complete confirmations in request order(backend: File) [FAIL]
-  Failed Gambol.Server.Tests.StateEndpointTests.DB restart keeps inverse Change in EventLog [676 ms]
-  [x] Error Message:
-   Assert.Equal() Failure: Values differ
-Expected: 2
-Actual:   1
-  Stack Trace:
-     at Gambol.Server.Tests.StateEndpointTests.DB restart keeps inverse Change in EventLog@1150-9.Invoke(String _arg9) in D:\dev\amble\gambol\tests\Server.Tests\StateEndpointTests.fs:line 1154
-   at Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority.TaskBuilderBase-Bind@439-4.Invoke(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 460
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 303
---- End of stack trace from previous location ---
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 299
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 299
---- End of stack trace from previous location ---
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 299
-   at <StartupCode$FSharp-Core>.$Tasks.resumptionInfo@158.MoveNext(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 160
---- End of stack trace from previous location ---
---- End of stack trace from previous location ---
-  Failed Gambol.Server.Tests.StateEndpointTests.DB rows survive second server startup without DB reset [493 ms]
-  [x] Error Message:
-   Assert.Equal() Failure: Values differ
-Expected: 1
-Actual:   0
-  Stack Trace:
-     at Gambol.Server.Tests.StateEndpointTests.DB rows survive second server startup without DB reset@992-5.Invoke(FSharpList`1 _arg5) in D:\dev\amble\gambol\tests\Server.Tests\StateEndpointTests.fs:line 992
-   at Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority.cont@423-2.Invoke(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 425
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 303
---- End of stack trace from previous location ---
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 299
-   at <StartupCode$FSharp-Core>.$Tasks.resumptionInfo@158.MoveNext(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 160
---- End of stack trace from previous location ---
---- End of stack trace from previous location ---
-  Failed Gambol.Server.Tests.StateEndpointTests.POST Change and inverse Changes return complete confirmations in request order(backend: File) [404 ms]
-  [x] Error Message:
-   Assert.Equal() Failure: Collections differ
-Expected: [{ id = EventId 0
-  submissionId = fd879af8-1ea3-414a-a0b9-879ddf1c30af
-  authority = Authority ""
-  commandName = ""
-  body =
-   Change
-     [NewNode (NodeId 28df0fe9-848e-4d10-878e-c8c329dae038, "history-action");
-      Replace
-        (NodeId 00000000-0000-0000-0000-000000000000, [],
-         [{ ref = Owner
-            id = NodeId 28df0fe9-848e-4d10-878e-c8c329dae038 }])] }, { id = EventId 0
-  submissionId = 4ea98532-2d29-4728-a0cf-2666c4bec9cc
-  authority = Authority ""
-  commandName = ""
-  body =
-   Change
-     [Replace
-        (NodeId 00000000-0000-0000-0000-000000000000,
-         [{ ref = Owner
-            id = NodeId 28df0fe9-848e-4d10-878e-c8c329dae038 }], [])] }, { id = EventId 0
-  submissionId = 9968345e-af6d-4496-912e-5d4c82219283
-  authority = Authority ""
-  commandName = ""
-  body =
-   Change
-     [Replace
-        (NodeId 00000000-0000-0000-0000-000000000000, [],
-         [{ ref = Owner
-            id = NodeId 28df0fe9-848e-4d10-878e-c8c329dae038 }])] }]
-Actual:   [{ id = EventId 2
-  submissionId = 9968345e-af6d-4496-912e-5d4c82219283
-  authority = Authority "Browser"
-  commandName = ""
-  body =
-   Change
-     [Replace
-        (NodeId 00000000-0000-0000-0000-000000000000, [],
-         [{ ref = Owner
-            id = NodeId 28df0fe9-848e-4d10-878e-c8c329dae038 }]);
-      SetUpdateTime
-        (NodeId 00000000-0000-0000-0000-000000000000, 2026-09-16 1:26:18 PM,
-         2026-09-16 1:26:18 PM)] }, { id = EventId 1
-  submissionId = 4ea98532-2d29-4728-a0cf-2666c4bec9cc
-  authority = Authority "Browser"
-  commandName = ""
-  body =
-   Change
-     [Replace
-        (NodeId 00000000-0000-0000-0000-000000000000,
-         [{ ref = Owner
-            id = NodeId 28df0fe9-848e-4d10-878e-c8c329dae038 }], []);
-      SetUpdateTime
-        (NodeId 00000000-0000-0000-0000-000000000000, 2026-09-16 1:26:18 PM,
-         2026-09-16 1:26:18 PM)] }]
-  Stack Trace:
-     at Gambol.Server.Tests.StateEndpointTests.POST Change and inverse Changes return complete confirmations in request order@268-10.Invoke(String _arg6) in D:\dev\amble\gambol\tests\Server.Tests\StateEndpointTests.fs:line 277
-   at Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority.TaskBuilderBase-Bind@439-4.Invoke(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 460
-   at <StartupCode$FSharp-Core>.$Tasks.resumptionInfo@158.MoveNext(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 160
---- End of stack trace from previous location ---
-   at Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority.cont@423-2.Invoke(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 424
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 303
---- End of stack trace from previous location ---
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 299
-   at <StartupCode$FSharp-Core>.$Tasks.resumptionInfo@158.MoveNext(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 160
---- End of stack trace from previous location ---
---- End of stack trace from previous location ---
-[xUnit.net 00:00:40.11]     Gambol.Server.Tests.StateEndpointTests.POST Change and inverse Changes return complete confirmations in request order(backend: Db) [FAIL]
-  Failed Gambol.Server.Tests.StateEndpointTests.POST Change and inverse Changes return complete confirmations in request order(backend: Db) [481 ms]
-  [x] Error Message:
-   Assert.Equal() Failure: Collections differ
-Expected: [{ id = EventId 0
-  submissionId = 51925981-48a9-4574-bb7c-7d62042d303f
-  authority = Authority ""
-  commandName = ""
-  body =
-   Change
-     [NewNode (NodeId f69c2d7f-d184-42a8-9731-093d3397f47e, "history-action");
-      Replace
-        (NodeId 00000000-0000-0000-0000-000000000000, [],
-         [{ ref = Owner
-            id = NodeId f69c2d7f-d184-42a8-9731-093d3397f47e }])] }, { id = EventId 0
-  submissionId = cdb08924-21c0-484e-b1ab-634b0a979a86
-  authority = Authority ""
-  commandName = ""
-  body =
-   Change
-     [Replace
-        (NodeId 00000000-0000-0000-0000-000000000000,
-         [{ ref = Owner
-            id = NodeId f69c2d7f-d184-42a8-9731-093d3397f47e }], [])] }, { id = EventId 0
-  submissionId = 78b7c2dd-ab6f-4fa0-b88f-447d4c9e7982
-  authority = Authority ""
-  commandName = ""
-  body =
-   Change
-     [Replace
-        (NodeId 00000000-0000-0000-0000-000000000000, [],
-         [{ ref = Owner
-            id = NodeId f69c2d7f-d184-42a8-9731-093d3397f47e }])] }]
-Actual:   [{ id = EventId 2
-  submissionId = 78b7c2dd-ab6f-4fa0-b88f-447d4c9e7982
-  authority = Authority "Browser"
-  commandName = ""
-  body =
-   Change
-     [Replace
-        (NodeId 00000000-0000-0000-0000-000000000000, [],
-         [{ ref = Owner
-            id = NodeId f69c2d7f-d184-42a8-9731-093d3397f47e }]);
-      SetUpdateTime
-        (NodeId 00000000-0000-0000-0000-000000000000, 2026-09-16 1:26:18 PM,
-         2026-09-16 1:26:18 PM)] }, { id = EventId 1
-  submissionId = cdb08924-21c0-484e-b1ab-634b0a979a86
-  authority = Authority "Browser"
-  commandName = ""
-  body =
-   Change
-     [Replace
-        (NodeId 00000000-0000-0000-0000-000000000000,
-         [{ ref = Owner
-            id = NodeId f69c2d7f-d184-42a8-9731-093d3397f47e }], []);
-      SetUpdateTime
-        (NodeId 00000000-0000-0000-0000-000000000000, 2026-09-16 1:26:18 PM,
-         2026-09-16 1:26:18 PM)] }]
-  Stack Trace:
-     at Gambol.Server.Tests.StateEndpointTests.POST Change and inverse Changes return complete confirmations in request order@268-10.Invoke(String _arg6) in D:\dev\amble\gambol\tests\Server.Tests\StateEndpointTests.fs:line 277
-   at Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority.TaskBuilderBase-Bind@439-4.Invoke(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 460
-   at <StartupCode$FSharp-Core>.$Tasks.resumptionInfo@158.MoveNext(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 160
---- End of stack trace from previous location ---
-   at Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority.cont@423-2.Invoke(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 424
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 303
---- End of stack trace from previous location ---
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 299
-   at <StartupCode$FSharp-Core>.$Tasks.resumptionInfo@158.MoveNext(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 160
---- End of stack trace from previous location ---
---- End of stack trace from previous location ---
-[xUnit.net 00:00:43.03]     Gambol.Server.Tests.StateEndpointTests.POST changes batch with bad second change leaves state unchanged(backend: File) [FAIL]
-[xUnit.net 00:00:43.57]     Gambol.Server.Tests.StateEndpointTests.POST changes batch with bad second change leaves state unchanged(backend: Db) [FAIL]
-  Failed Gambol.Server.Tests.StateEndpointTests.POST changes batch with bad second change leaves state unchanged(backend: File) [290 ms]
-  [x] Error Message:
-   Assert.Equal() Failure: Values differ
-Expected: Revision 0
-Actual:   Revision 1
-  Stack Trace:
-     at Gambol.Server.Tests.StateEndpointTests.POST changes batch with bad second change leaves state unchanged@482-4.Invoke(String _arg3) in D:\dev\amble\gambol\tests\Server.Tests\StateEndpointTests.fs:line 482
-   at Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority.cont@423-2.Invoke(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 425
-   at <StartupCode$FSharp-Core>.$Tasks.resumptionInfo@158.MoveNext(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 160
---- End of stack trace from previous location ---
-   at Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority.cont@423-2.Invoke(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 424
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 303
---- End of stack trace from previous location ---
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 299
-   at <StartupCode$FSharp-Core>.$Tasks.resumptionInfo@158.MoveNext(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 160
---- End of stack trace from previous location ---
---- End of stack trace from previous location ---
-  Failed Gambol.Server.Tests.StateEndpointTests.POST changes batch with bad second change leaves state unchanged(backend: Db) [538 ms]
-  [x] Error Message:
-   Assert.Equal() Failure: Values differ
-Expected: Revision 0
-Actual:   Revision 1
-  Stack Trace:
-     at Gambol.Server.Tests.StateEndpointTests.POST changes batch with bad second change leaves state unchanged@482-4.Invoke(String _arg3) in D:\dev\amble\gambol\tests\Server.Tests\StateEndpointTests.fs:line 482
-   at Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority.cont@423-2.Invoke(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 425
-   at <StartupCode$FSharp-Core>.$Tasks.resumptionInfo@158.MoveNext(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 160
---- End of stack trace from previous location ---
-   at Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority.cont@423-2.Invoke(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 424
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 303
---- End of stack trace from previous location ---
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 299
-   at <StartupCode$FSharp-Core>.$Tasks.resumptionInfo@158.MoveNext(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 160
---- End of stack trace from previous location ---
---- End of stack trace from previous location ---
-[xUnit.net 00:00:46.51]     Gambol.Server.Tests.StateEndpointTests.file restart keeps inverse Change in EventLog [FAIL]
-  Failed Gambol.Server.Tests.StateEndpointTests.file restart keeps inverse Change in EventLog [488 ms]
-  [x] Error Message:
-   Assert.Equal() Failure: Values differ
-Expected: 2
-Actual:   1
-  Stack Trace:
-     at Gambol.Server.Tests.StateEndpointTests.file restart keeps inverse Change in EventLog@1122-8.Invoke(String _arg8) in D:\dev\amble\gambol\tests\Server.Tests\StateEndpointTests.fs:line 1126
-   at Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority.TaskBuilderBase-Bind@439-4.Invoke(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 460
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 303
---- End of stack trace from previous location ---
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 299
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 299
---- End of stack trace from previous location ---
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 299
-   at <StartupCode$FSharp-Core>.$Tasks.resumptionInfo@158.MoveNext(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 160
---- End of stack trace from previous location ---
---- End of stack trace from previous location ---
-[xUnit.net 00:00:48.87]     Gambol.Server.Tests.StateEndpointTests.POST duplicate changeId with stale revision stays idempotent(backend: Db) [FAIL]
-  Failed Gambol.Server.Tests.StateEndpointTests.POST duplicate changeId with stale revision stays idempotent(backend: Db) [664 ms]
-  [x] Error Message:
-   Assert.Equal() Failure: Values differ
-Expected: OK
-Actual:   BadRequest
-  Stack Trace:
-     at Gambol.Server.Tests.StateEndpointTests.POST duplicate changeId with stale revision stays idempotent@875-5.Invoke(HttpResponseMessage _arg4) in D:\dev\amble\gambol\tests\Server.Tests\StateEndpointTests.fs:line 875
-   at Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority.cont@423-2.Invoke(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 425
-   at <StartupCode$FSharp-Core>.$Tasks.resumptionInfo@158.MoveNext(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 160
---- End of stack trace from previous location ---
-   at Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority.cont@423-2.Invoke(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 424
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 303
---- End of stack trace from previous location ---
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 299
-   at <StartupCode$FSharp-Core>.$Tasks.resumptionInfo@158.MoveNext(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 160
---- End of stack trace from previous location ---
---- End of stack trace from previous location ---
-[xUnit.net 00:00:51.89]     Gambol.Server.Tests.StateEndpointTests.DB restart keeps duplicate changeId idempotent [FAIL]
-  Failed Gambol.Server.Tests.StateEndpointTests.DB restart keeps duplicate changeId idempotent [2 s]
-  [x] Error Message:
-   Assert.Equal() Failure: Values differ
-Expected: OK
-Actual:   BadRequest
-  Stack Trace:
-     at Gambol.Server.Tests.StateEndpointTests.DB restart keeps duplicate changeId idempotent@1089-7.Invoke(HttpResponseMessage _arg7) in D:\dev\amble\gambol\tests\Server.Tests\StateEndpointTests.fs:line 1089
-   at Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority.cont@423-2.Invoke(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 425
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 303
---- End of stack trace from previous location ---
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 299
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 299
---- End of stack trace from previous location ---
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 299
-   at <StartupCode$FSharp-Core>.$Tasks.resumptionInfo@158.MoveNext(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 160
---- End of stack trace from previous location ---
---- End of stack trace from previous location ---
-[xUnit.net 00:00:53.69]     Gambol.Server.Tests.StateEndpointTests.DB restart does not replay log when projection is cleared [FAIL]
-  Failed Gambol.Server.Tests.StateEndpointTests.DB restart does not replay log when projection is cleared [498 ms]
-  [x] Error Message:
-   Assert.Equal() Failure: Values differ
-Expected: 2
-Actual:   1
-  Stack Trace:
-     at Gambol.Server.Tests.StateEndpointTests.DB restart does not replay log when projection is cleared@1058-6.Invoke(FSharpList`1 _arg6) in D:\dev\amble\gambol\tests\Server.Tests\StateEndpointTests.fs:line 1058
-   at Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority.cont@423-2.Invoke(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 425
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 303
---- End of stack trace from previous location ---
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 299
-   at <StartupCode$FSharp-Core>.$Tasks.resumptionInfo@158.MoveNext(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 160
---- End of stack trace from previous location ---
---- End of stack trace from previous location ---
-[xUnit.net 00:01:15.19]     Gambol.Server.Tests.CoreChangesTests.HTTP Adapter passes typed Changes only after valid decode [FAIL]
-[xUnit.net 00:01:15.20]     Gambol.Server.Tests.CoreChangesTests.typed Normal caller publishes accepted Change to Poll [FAIL]
-[xUnit.net 00:01:15.23]     Gambol.Server.Tests.CoreChangesTests.test Actor posts Normal Change off apply mailbox and Poll sees it [FAIL]
-[xUnit.net 00:01:15.26]     Gambol.Server.Tests.FileAgentFailureTests.ACK returns stamped complete Change equal to EventLog [FAIL]
-  Failed Gambol.Server.Tests.CoreChangesTests.HTTP Adapter passes typed Changes only after valid decode [25 ms]
-  [ ] Error Message:
-   Assert.Single() Failure: The collection was empty
-  Stack Trace:
-     at Gambol.Server.Tests.CoreChangesTests.HTTP Adapter passes typed Changes only after valid decode@162-2.Invoke(IResult _arg2) in D:\dev\amble\gambol\tests\Server.Tests\CoreChangesTests.fs:line 162
-   at Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority.TaskBuilderBase-Bind@439-4.Invoke(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 460
-   at <StartupCode$FSharp-Core>.$Tasks.resumptionInfo@158.MoveNext(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 160
---- End of stack trace from previous location ---
---- End of stack trace from previous location ---
-  Failed Gambol.Server.Tests.CoreChangesTests.typed Normal caller publishes accepted Change to Poll [13 ms]
-  [ ] Error Message:
-   Assert.Equal() Failure: Collections differ
-Expected: [{ id = 0
-  changeId = 2a8973fb-9b6d-4515-87d8-47f32b3cc5bf
-  ops =
-   [NewNode (NodeId c3c69f75-aafe-476e-8b4d-8d975111e909, "typed caller");
-    Replace
-      (NodeId 00000000-0000-0000-0000-000000000000, [],
-       [{ ref = Owner
-          id = NodeId c3c69f75-aafe-476e-8b4d-8d975111e909 }]);
-    SetUpdateTime
-      (NodeId 00000000-0000-0000-0000-000000000000, 2026-09-16 1:26:54 PM,
-       2026-09-16 1:26:54 PM)] }]
-Actual:   []
-  Stack Trace:
-     at Gambol.Server.Tests.CoreChangesTests.typed Normal caller publishes accepted Change to Poll@53-4.Invoke(IResult _arg3) in D:\dev\amble\gambol\tests\Server.Tests\CoreChangesTests.fs:line 57
-   at Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority.TaskBuilderBase-Bind@439-4.Invoke(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 460
-   at Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority.cont@423-2.Invoke(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 425
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 303
---- End of stack trace from previous location ---
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 299
-   at <StartupCode$FSharp-Core>.$Tasks.resumptionInfo@158.MoveNext(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 160
---- End of stack trace from previous location ---
---- End of stack trace from previous location ---
-  Failed Gambol.Server.Tests.CoreChangesTests.test Actor posts Normal Change off apply mailbox and Poll sees it [23 ms]
-  [ ] Error Message:
-   Assert.Equal() Failure: Collections differ
-Expected: [{ id = 0
-  changeId = 612c8a81-2b0c-4ee2-9906-1b04c947d53a
-  ops =
-   [NewNode (NodeId 64315ccc-6bae-4bb1-9094-bff9e2ce6b16, "test Actor");
-    Replace
-      (NodeId 00000000-0000-0000-0000-000000000000,
-       [{ ref = Owner
-          id = NodeId 00000000-0000-0000-0000-000000000002 };
-        { ref = Owner
-          id = NodeId 00000000-0000-0000-0000-000000000003 };
-        { ref = Owner
-          id = NodeId 00000000-0000-0000-0000-000000000001 }],
-       [{ ref = Owner
-          id = NodeId 00000000-0000-0000-0000-000000000002 };
-        { ref = Owner
-          id = NodeId 00000000-0000-0000-0000-000000000003 };
-        { ref = Owner
-          id = NodeId 00000000-0000-0000-0000-000000000001 };
-        { ref = Owner
-          id = NodeId 64315ccc-6bae-4bb1-9094-bff9e2ce6b16 }]);
-    SetUpdateTime
-      (NodeId 00000000-0000-0000-0000-000000000000, 2026-09-16 1:26:54 PM,
-       2026-09-16 1:26:54 PM)] }]
-Actual:   []
-  Stack Trace:
-     at Gambol.Server.Tests.CoreChangesTests.test Actor posts Normal Change off apply mailbox and Poll sees it@108-4.Invoke(IResult _arg2) in D:\dev\amble\gambol\tests\Server.Tests\CoreChangesTests.fs:line 112
-   at Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority.TaskBuilderBase-Bind@439-4.Invoke(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 460
-   at Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority.cont@423-2.Invoke(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 425
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 303
---- End of stack trace from previous location ---
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 299
-   at <StartupCode$FSharp-Core>.$Tasks.resumptionInfo@158.MoveNext(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 160
---- End of stack trace from previous location ---
---- End of stack trace from previous location ---
-  Failed Gambol.Server.Tests.FileAgentFailureTests.ACK returns stamped complete Change equal to EventLog [33 ms]
-  [ ] Error Message:
-   Assert.Single() Failure: The collection was empty
-  Stack Trace:
-     at Gambol.Server.Tests.FileAgentFailureTests.ACK returns stamped complete Change equal to EventLog@263-4.Invoke(FSharpList`1 _arg2) in D:\dev\amble\gambol\tests\Server.Tests\FileAgentFailureTests.fs:line 263
-   at Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority.TaskBuilderBase-Bind@439-4.Invoke(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 460
-   at Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority.cont@423-2.Invoke(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 425
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 303
---- End of stack trace from previous location ---
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 299
-   at <StartupCode$FSharp-Core>.$Tasks.resumptionInfo@158.MoveNext(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 160
---- End of stack trace from previous location ---
---- End of stack trace from previous location ---
-[xUnit.net 00:01:15.29]     Gambol.Server.Tests.FileAgentFailureTests.trailing duplicate keeps stamps on last new Change [FAIL]
-  Failed Gambol.Server.Tests.FileAgentFailureTests.trailing duplicate keeps stamps on last new Change [34 ms]
-  [ ] Error Message:
-   Assert.Equal() Failure: Values differ
-Expected: { id = 0
-  changeId = 05b13185-88ab-4e33-afdc-4e55e95e1680
-  ops =
-   [NewNode (NodeId fb75d163-e2d0-4793-8b33-a82589792edb, "first-new");
-    Replace
-      (NodeId 00000000-0000-0000-0000-000000000000, [],
-       [{ ref = Owner
-          id = NodeId fb75d163-e2d0-4793-8b33-a82589792edb }]);
-    SetUpdateTime
-      (NodeId 00000000-0000-0000-0000-000000000002, 0001-01-01 12:00:00 AM,
-       2026-08-16 12:01:00 PM)] }
-Actual:   { id = 2
-  changeId = 05b13185-88ab-4e33-afdc-4e55e95e1680
-  ops =
-   [NewNode (NodeId fb75d163-e2d0-4793-8b33-a82589792edb, "first-new");
-    Replace
-      (NodeId 00000000-0000-0000-0000-000000000000, [],
-       [{ ref = Owner
-          id = NodeId fb75d163-e2d0-4793-8b33-a82589792edb }]);
-    SetUpdateTime
-      (NodeId 00000000-0000-0000-0000-000000000002, 0001-01-01 12:00:00 AM,
-       2026-08-16 12:01:00 PM)] }
-  Stack Trace:
-     at Gambol.Server.Tests.FileAgentFailureTests.trailing duplicate keeps stamps on last new Change@287-2.Invoke(FSharpResult`2 _arg1) in D:\dev\amble\gambol\tests\Server.Tests\FileAgentFailureTests.fs:line 301
-   at Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority.cont@423-2.Invoke(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 425
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 303
---- End of stack trace from previous location ---
-   at Microsoft.FSharp.Core.CompilerServices.ResumableCode.TryFinallyAsyncDynamic[TData,T](ResumableStateMachine`1& sm, ResumableCode`2 body, ResumableCode`2 compensation) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\resumable.fs:line 299
-   at <StartupCode$FSharp-Core>.$Tasks.resumptionInfo@158.MoveNext(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 160
---- End of stack trace from previous location ---
---- End of stack trace from previous location ---
-[xUnit.net 00:01:27.96]     Gambol.Server.Tests.HttpResponseLogTests.controlled bad request logs begin and end with request body [FAIL]
-  Failed Gambol.Server.Tests.HttpResponseLogTests.controlled bad request logs begin and end with request body [119 ms]
-  [ ] Error Message:
-   Assert.Contains() Failure: Sub-string not found
-String:    "2026-09-16T13:27:06.6832478Z BEGIN reques"···
-Not found: "body=not valid change json"
-  Stack Trace:
-     at Gambol.Server.Tests.HttpResponseLogTests.controlled bad request logs begin and end with request body@88-6.Invoke(Unit _arg2) in D:\dev\amble\gambol\tests\Server.Tests\HttpResponseLogTests.fs:line 90
-   at Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority.TaskBuilderBase-Bind@439-4.Invoke(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 460
-   at <StartupCode$FSharp-Core>.$Tasks.resumptionInfo@158.MoveNext(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 160
---- End of stack trace from previous location ---
---- End of stack trace from previous location ---
-[xUnit.net 00:01:28.70]     Gambol.Server.Tests.DatabaseProjectionContractTests.db bootstrap duplicate returns stored Change and rejects no-op [FAIL]
-  Failed Gambol.Server.Tests.DatabaseProjectionContractTests.db bootstrap duplicate returns stored Change and rejects no-op [170 ms]
-  [ ] Error Message:
-   System.Exception : Event persist error: One or more errors occurred. (23505: duplicate key value violates unique constraint "idx_events_submission_id"
-
-DETAIL: Detail redacted as it may contain sensitive data. Specify 'Include Error Detail' in the connection string to include this information.)
-  Stack Trace:
-     at Gambol.Server.Tests.DatabaseProjectionContractTests.db bootstrap duplicate returns stored Change and rejects no-op@283-4.Invoke(FSharpResult`2 _arg4) in D:\dev\amble\gambol\tests\Server.Tests\DatabaseProjectionContractTests.fs:line 286
-   at Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority.cont@423-2.Invoke(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 425
-   at <StartupCode$FSharp-Core>.$Tasks.resumptionInfo@158.MoveNext(ResumableStateMachine`1& sm) in D:\a\_work\1\s\src\fsharp\src\FSharp.Core\tasks.fs:line 160
---- End of stack trace from previous location ---
---- End of stack trace from previous location ---
+Time Elapsed 00:00:41.25

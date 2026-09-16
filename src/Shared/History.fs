@@ -91,6 +91,7 @@ module Op =
     let private reservedPathError =
         "owned artifact path contains a reserved system name"
 
+    let makeChange id submissionId ops = { id=id ; submissionId=submissionId; ops=ops }
     let private fromGraphResult (state: State) (result: Result<Graph, string>) : ApplyResult =
         match result with
         | Ok graph -> ApplyResult.Changed { state with graph = graph }
