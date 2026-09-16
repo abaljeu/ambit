@@ -275,7 +275,7 @@ _Avoid_: Action (when lifecycle Events are included), audit record, Change (for 
 
 **event id**:
 The unique ordered position of an Event in EventLog. The one serial type (`EventId`). Field, JSON key, and Core door follow this term (`eventId`, `getEventId`).
-_Avoid_: Revision, EventPosition, version, change id, Change.id, getRevision
+_Avoid_: Revision, EventPosition, version, change id, Change.id, getRevision, `EventId.next` (outside mailbox; policy: [[.agents/rules/core-api.md]] EventId serial)
 
 **Revision**:
 Retired name for **event id**. There is no separate Revision counter.
