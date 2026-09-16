@@ -11,7 +11,7 @@ let private hello (input: ActorInput) (coreChanges: CoreChanges) : Async<unit> =
         let helloNodeId = NodeId.New()
         let change =
             { id = 0
-              changeId = System.Guid.NewGuid()
+              submissionId = System.Guid.NewGuid()
               ops =
                 [ Op.NewNode(helloNodeId, "hello")
                   Op.Replace(

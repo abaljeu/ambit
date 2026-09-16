@@ -37,6 +37,7 @@ module HttpResponseLog =
     let private bodyCapturePaths =
         set [
             "/ambit/changes"
+            "/ambit/events"
             "/ambit/file/parse"
             "/ambit/file-status"
             "/ambit/save"

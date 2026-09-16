@@ -8,18 +8,28 @@ open Microsoft.AspNetCore.Mvc.Testing
 open Microsoft.Extensions.Configuration
 open Npgsql
 open Gambol.Server
+open Gambol.Shared
 open Gambol.Server.Tests.TestDbConfigTests
 
 type BackendKind = File | Db
 
 let private testConnEnv = "TEST_DB_CONNECTION_STRING"
 
-/// Development boot seed uses deriveToken("",""); request-carried cookie must match.
-let withDevelopmentCookie (client: HttpClient) =
+/// Request Cookie from AuthToken. Same helper for empty Auth and named Auth.
+let withAuthCookie username password (client: HttpClient) =
     client.DefaultRequestHeaders.Add(
         "Cookie",
-        AuthToken.cookieHeaderValue "" "")
+        AuthToken.cookieHeaderValue username password)
     client
+
+/// Development boot seed uses deriveToken("",""); request-carried cookie must match.
+let withDevelopmentCookie (client: HttpClient) =
+    withAuthCookie "" "" client
+
+/// Mailbox Browser Caller for the same AuthToken secret the cookie carries.
+let browserCallerFromAuth username password =
+    BrowserRequestCreds.callerFromSecret (
+        Credential(AuthToken.deriveToken username password))
 
 let private quoteIdentifier (identifier: string) =
     "\"" + identifier.Replace("\"", "\"\"") + "\""
@@ -109,7 +119,7 @@ let resetTestDatabase (connStr: string) : Task<unit> =
         do! conn.OpenAsync()
         use cmd = conn.CreateCommand()
         cmd.CommandText <-
-            "TRUNCATE TABLE events, changes, node_children, nodes, graph RESTART IDENTITY CASCADE;"
+            "TRUNCATE TABLE events, node_children, nodes, graph RESTART IDENTITY CASCADE;"
         let! _ = cmd.ExecuteNonQueryAsync()
         return ()
     }
@@ -330,3 +340,11 @@ let createDbModeWithoutConnectionClientForDir (tempDir: string) =
 
 let createDbModeWithoutConnectionClient () =
     createDbModeWithoutConnectionClientForDir (newTempDir ())
+
+/// Convert a Change to an Ev for wire encoding in tests.
+let eventFromChange (change: Gambol.Shared.Change) : Ev =
+    { id = Gambol.Shared.EventId 0
+      submissionId = change.submissionId
+      authority = Gambol.Shared.Authority ""
+      commandName = ""
+      body = Gambol.Shared.EventBody.Change change.ops }

@@ -57,7 +57,7 @@ let ``successful post logs correlated begin and end with payload`` () = task {
     let dataDir = newTempDir ()
     let logPath = HttpResponseLog.logPath dataDir
     HttpResponseLog.prepareFresh logPath
-    let body = """{"changes":[{"id":7}]}"""
+    let body = """{"events":[{"id":0}]}"""
     let ctx = contextForPost "/ambit/changes" body
     do!
         runLifecycle logPath ctx (fun endpointCtx -> task {
@@ -67,7 +67,7 @@ let ``successful post logs correlated begin and end with payload`` () = task {
     let lines = lifecycleLines logPath
     Assert.Equal(2, lines.Length)
     Assert.Contains("method=POST target=/ambit/changes?rev=7", lines.[0])
-    Assert.Contains("body={\"changes\":[{\"id\":7}]}", lines.[0])
+    Assert.Contains("body={\"events\":[{\"id\":0}]}", lines.[0])
     Assert.Contains("status=200", lines.[1])
     Assert.Contains("elapsedMs=", lines.[1])
     Assert.Contains("body={\"revision\":8}", lines.[1])
@@ -79,7 +79,7 @@ let ``controlled bad request logs begin and end with request body`` () = task {
     let dataDir = newTempDir ()
     let logPath = HttpResponseLog.logPath dataDir
     HttpResponseLog.prepareFresh logPath
-    let ctx = contextForPost "/ambit/changes" "not valid change json"
+    let ctx = contextForPost "/ambit/changes" "not valid event json"
     do!
         runLifecycle logPath ctx (fun endpointCtx -> task {
             endpointCtx.Response.StatusCode <- 400
@@ -128,7 +128,7 @@ let ``thrown exception logs correlated begin and exception`` () = task {
     let dataDir = newTempDir ()
     let logPath = HttpResponseLog.logPath dataDir
     HttpResponseLog.prepareFresh logPath
-    let ctx = contextForPost "/ambit/changes" """{"changes":[]}"""
+    let ctx = contextForPost "/ambit/events" """{"events":[]}"""
     let! wasRethrown =
         task {
             try
@@ -156,7 +156,7 @@ let ``pending handler is observable as unmatched begin without leaking task`` ()
     let dataDir = newTempDir ()
     let logPath = HttpResponseLog.logPath dataDir
     HttpResponseLog.prepareFresh logPath
-    let ctx = contextForPost "/ambit/changes" """{"changes":[{"pending":true}]}"""
+    let ctx = contextForPost "/ambit/events" """{"events":[{"pending":true}]}"""
     let release = TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)
     let pending = runLifecycle logPath ctx (fun _ -> release.Task)
     let deadline = DateTime.UtcNow.AddSeconds(2.0)
@@ -177,7 +177,7 @@ let ``request body reaches endpoint unchanged after begin logging`` () = task {
     let dataDir = newTempDir ()
     let logPath = HttpResponseLog.logPath dataDir
     HttpResponseLog.prepareFresh logPath
-    let expected = """{"changes":[{"text":"unchanged"}]}"""
+    let expected = """{"events":[{"text":"unchanged"}]}"""
     let ctx = contextForPost "/ambit/changes" expected
     let actual = TaskCompletionSource<string>()
     do!
@@ -195,7 +195,7 @@ let ``large request body is bounded and visibly truncated`` () = task {
     let logPath = HttpResponseLog.logPath dataDir
     HttpResponseLog.prepareFresh logPath
     let body = String.replicate 9000 "x" + "END-OF-PAYLOAD"
-    let ctx = contextForPost "/ambit/changes" body
+    let ctx = contextForPost "/ambit/events" body
     do! runLifecycle logPath ctx (fun _ -> Task.CompletedTask)
     let beginLine = lifecycleLines logPath |> Array.head
     Assert.Contains("[TRUNCATED]", beginLine)
@@ -206,7 +206,7 @@ let ``large request body is bounded and visibly truncated`` () = task {
 let ``logger write failure never breaks request`` () = task {
     let dataDir = newTempDir ()
     let impossibleLogPath = Path.Combine(dataDir, "missing", "http.log")
-    let ctx = contextForPost "/ambit/changes" "{}"
+    let ctx = contextForPost "/ambit/events" "{}"
     let reached = TaskCompletionSource()
     do!
         runLifecycle impossibleLogPath ctx (fun _ ->

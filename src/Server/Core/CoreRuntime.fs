@@ -24,23 +24,22 @@ type CoreBoot =
 module CoreRuntime =
 
     let readOnly (handle: CoreChanges) : CoreChanges =
-        let rejectPost (_: Change list) =
-            async.Return(
-                Error
-                    "Database persistence is unavailable; file fallback is read-only.")
-        let rejectGraph (_: Change) =
-            async.Return(
-                Error
-                    "Database persistence is unavailable; file fallback is read-only.")
-        let rejectActorStop (_: ActorResult) =
-            async.Return(
-                Error
-                    "Database persistence is unavailable; file fallback is read-only.")
+        let reject msg =
+            async.Return(Error msg)
+        let readOnlyMsg =
+            "Database persistence is unavailable; file fallback is read-only."
+        let rejectPost (_: Change list) = reject readOnlyMsg
+        let rejectEvents (_: Ev list) =
+            reject readOnlyMsg
+        let rejectGraph (_: Change) = reject readOnlyMsg
+        let rejectActorStop (_: ActorResult) = reject readOnlyMsg
         let rec wrap h : CoreChanges =
             { h with
                 postChange = rejectPost
+                postEvents = rejectEvents
                 postGraphOnlyChange = rejectGraph
                 actorStop = rejectActorStop
+                getEventsSince = h.getEventsSince
                 asCaller = fun caller -> wrap (h.asCaller caller) }
         wrap handle
 

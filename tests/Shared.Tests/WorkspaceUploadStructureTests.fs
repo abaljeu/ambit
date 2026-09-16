@@ -415,12 +415,12 @@ let ``Load Unloaded stub plan must not name-conflict on resident server`` () =
             "expected a new File stub id for note.txt")
         let change =
             { id = 0
-              changeId = System.Guid.NewGuid()
+              submissionId = System.Guid.NewGuid()
               ops = ops }
         let state =
             { graph = server
               revision = Revision 0 }
-        match History.applyChange change state with
+        match ChangeValidation.applyChange change state with
         | ApplyResult.Invalid(_, msg) ->
             Assert.True(
                 false,

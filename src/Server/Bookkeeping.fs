@@ -3,15 +3,13 @@ namespace Gambol.Server
 open System.IO
 open Gambol.Shared
 
-/// Paths and I/O for `SYSTEM/gambol.meta` and `SYSTEM/gambol.log`.
+/// Paths and I/O for `SYSTEM/gambol.meta`.
 [<RequireQualifiedAccess>]
 module Bookkeeping =
 
     let systemDir (dataDir: string) = Path.Combine(dataDir, "SYSTEM")
 
     let metaPath (dataDir: string) = Path.Combine(systemDir dataDir, "gambol.meta")
-
-    let logPath (dataDir: string) = Path.Combine(systemDir dataDir, "gambol.log")
 
     let private ensureSystemDir (dataDir: string) =
         Directory.CreateDirectory(systemDir dataDir) |> ignore
@@ -40,11 +38,3 @@ module Bookkeeping =
             Ok ()
         with ex ->
             Error ex.Message
-
-    let openLogStream (dataDir: string) : FileStream =
-        ensureSystemDir dataDir
-        new FileStream(
-            logPath dataDir,
-            FileMode.OpenOrCreate,
-            FileAccess.ReadWrite,
-            FileShare.ReadWrite)

@@ -46,29 +46,26 @@ module FileAgent =
             | Ok state -> state
             | Error msg -> failwith msg
 
-        let logStream = Bookkeeping.openLogStream dataDir
-
-        let offsetIndex = ChangeLog.buildIndex logStream
         let eventStream = EventLogFile.openStream dataDir
-        let eventOffsets = ChangeLog.buildIndex eventStream
+        let eventOffsets = EventLogFile.buildIndex eventStream
         let persistedEventLog =
             ref (
-                EventLogFile.readAll eventStream eventOffsets
-                |> Gambol.Shared.Events.EventLog.restorePersisted)
+                EventLogFile.readAllEvents eventStream eventOffsets
+                |> Gambol.Shared.EventLog.restorePersisted)
         let state = ref loadedState
         /// False after a soft file-write failure until process restart (meta stays behind).
         let persistClean = ref true
 
         let capturedInitialState = state.Value
 
-        logStream.Seek(0L, SeekOrigin.End) |> ignore
         eventStream.Seek(0L, SeekOrigin.End) |> ignore
 
         let accepted confirmed externalChanges message =
             CoreChanges.accepted
                 state.Value.revision
                 true
-                confirmed
+                (confirmed
+                 |> List.map (Ev.ofChange ""))
                 externalChanges
                 message
 
@@ -101,9 +98,16 @@ module FileAgent =
 
         let applyBatch (changes: Change list) =
             let step (s, confirmations, fresh, changed, externalChanges) change =
-                match ChangeLog.tryFindByChangeId logStream offsetIndex change.changeId with
-                | Some stored ->
-                    Ok(s, stored :: confirmations, fresh, changed, externalChanges)
+                // Check dedup using EventLog by submissionId
+                match persistedEventLog.Value.events
+                      |> List.tryFind (fun e -> e.submissionId = change.submissionId) with
+                | Some storedEvent ->
+                    // Already applied - return stored Change derived from Ev
+                    let storedChange =
+                        { id = s.revision.Value
+                          submissionId = storedEvent.submissionId
+                          ops = Ev.ops storedEvent |> Option.defaultValue [] }
+                    Ok(s, storedChange :: confirmations, fresh, changed, externalChanges)
                 | None ->
                     let result, amended, applied =
                         ChangeAmendment.applyChange change s
@@ -131,17 +135,6 @@ module FileAgent =
                 (Ok(state.Value, [], [], false, false))
             |> Result.map (fun (newState, confirmations, fresh, changed, externalChanges) ->
                 newState, List.rev confirmations, List.rev fresh, changed, externalChanges)
-
-        let persistLogEntries (logEntries: (int * string) list) =
-            let logStart = logStream.Length
-            logStream.Seek(0L, SeekOrigin.End) |> ignore
-            try
-                let offsets = ChangeLog.appendEntries logStream logEntries
-                Ok offsets
-            with ex ->
-                logStream.SetLength(logStart)
-                logStream.Seek(0L, SeekOrigin.End) |> ignore
-                Error $"Log error: {ex.Message}"
 
         let validatePostChange graphOnly preGraph postGraph =
             if graphOnly then
@@ -183,31 +176,22 @@ module FileAgent =
                 | None -> [], newState.graph, None
             let stampedFresh, ackChanges =
                 CoreMailboxBackend.overlayFresh confirmations fresh stampOps
-            let encodedLog =
-                stampedFresh
-                |> List.map (fun change ->
-                    change.id, ChangeLog.encodeChange change)
             let finalState =
                 match stampedOpt with
                 | Some _ -> { newState with graph = stampedGraph }
                 | None -> newState
-            finalState, ackChanges, encodedLog, persistMessage
+            finalState, ackChanges, persistMessage
 
         let commitPostChange
             finalState
             ackChanges
             externalChanges
             persistMessage
-            encodedLog
             (reply: AsyncReplyChannel<Result<CoreChangesAccepted, string>>)
             =
-            match persistLogEntries encodedLog with
-            | Error err -> reply.Reply(Error err)
-            | Ok offsets ->
-                offsets |> List.iter offsetIndex.Add
-                state.Value <- finalState
-                reply.Reply(
-                    Ok(accepted ackChanges externalChanges persistMessage))
+            state.Value <- finalState
+            reply.Reply(
+                Ok(accepted ackChanges externalChanges persistMessage))
 
         let processPostChange
             (changes: Change list)
@@ -233,47 +217,31 @@ module FileAgent =
                         with
                         | Error err -> Error err
                         | Ok stampedOpt ->
-                            let finalState, ackChanges, encodedLog, persistMessage =
+                            let finalState, ackChanges, persistMessage =
                                 preparePostChange
                                     newState
                                     confirmations
                                     fresh
                                     stampedOpt
-                            match persistLogEntries encodedLog with
-                            | Error err -> Error err
-                            | Ok offsets ->
-                                offsets |> List.iter offsetIndex.Add
-                                state.Value <- finalState
-                                Ok(accepted
-                                    ackChanges
-                                    externalChanges
-                                    persistMessage)
+                            state.Value <- finalState
+                            Ok(accepted
+                                ackChanges
+                                externalChanges
+                                persistMessage)
 
         let handlers: PersistHandlers = {
             getState = fun () -> Ok state.Value
             getRevision = fun () -> Ok state.Value.revision
-            getChangesSince = fun after ->
-                let changes =
-                    [ after.Value .. offsetIndex.Count - 1 ]
-                    |> List.choose (fun i ->
-                        let _, json =
-                            ChangeLog.readEntryAt
-                                logStream
-                                offsetIndex.[i]
-                        match ChangeLog.decodeChange json with
-                        | Ok change -> Some change
-                        | Error _ -> None)
-                Ok changes
             getEventsSince = fun after ->
                 Ok(
-                    Gambol.Shared.Events.EventLog.since after persistedEventLog.Value
+                    Gambol.Shared.EventLog.since after persistedEventLog.Value
                     |> fun log -> log.events)
             appendEvent = fun event ->
-                match EventLogFile.append eventStream eventOffsets event with
+                match EventLogFile.appendEvent eventStream eventOffsets event with
                 | Error err -> Error err
                 | Ok () ->
                     persistedEventLog.Value <-
-                        Gambol.Shared.Events.EventLog.restore
+                        Gambol.Shared.EventLog.restore
                             [ event ]
                             persistedEventLog.Value
                     Ok ()
@@ -297,8 +265,6 @@ module FileAgent =
           flushSnapshot = fun () -> async { return Ok () }
           dispose =
             fun () ->
-                logStream.Flush()
-                logStream.Dispose()
                 eventStream.Flush()
                 eventStream.Dispose()
           initialState = capturedInitialState }

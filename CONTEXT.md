@@ -250,8 +250,8 @@ A user-facing command that downloads files from the Server. Not Fetch.
 _Avoid_: Fetch (for this command), pull (as the command name)
 
 **Change**:
-A Graph modification unit: typically produced by a user command, applied by both Browser and Server to update their Graphs. A Change is multiple Ops. One kind of Action.
-_Avoid_: mutation, edit, transaction, patch (as synonyms for Change)
+An Action: `EventBody.Change` of an Op list. Not a separate record. One kind of Event.
+_Avoid_: a `{ id; submissionId; ops }` record, Change.id, mutation, edit, transaction, patch (as synonyms for Change)
 
 **Op**:
 A single Graph modification, either to a Node Header or to its Children.
@@ -270,12 +270,12 @@ An Action that re-applies after Undo, following Emacs undo semantics; numbered l
 _Avoid_: un-undo
 
 **Event**:
-One durable record in EventLog. An Event is a Change, Undo, Redo, ActorStart, or ActorStop.
-_Avoid_: Action (when lifecycle Events are included), audit record
+One durable record in EventLog. An Event is a Change, Undo, Redo, ActorStart, or ActorStop. Code name `Ev`. It carries the Command that produced it (`commandName`).
+_Avoid_: Action (when lifecycle Events are included), audit record, Change (for the record)
 
 **event id**:
-The unique ordered position of an Event in EventLog.
-_Avoid_: Revision, EventPosition, version, change id
+The unique ordered position of an Event in EventLog. The one serial type (`EventId`). Field, JSON key, and Core door follow this term (`eventId`, `getEventId`).
+_Avoid_: Revision, EventPosition, version, change id, Change.id, getRevision
 
 **Revision**:
 Retired name for **event id**. There is no separate Revision counter.
@@ -290,8 +290,8 @@ The Emacs Action view of Change, Undo, and Redo Events. Not the server Event seq
 _Avoid_: History (as a module name), EventLog (for this view), the full Event sequence, audit log
 
 **History**:
-Retired as a module name. Spoken history of the server sequence is EventLog. The Emacs Action view is ClientHistory. Ambit has no separate History or audit UI application.
-_Avoid_: History (as a destination module)
+Retired as a module name and as a sequence name. Spoken history of the server sequence is EventLog. The Emacs Action view is ClientHistory. The Shared file [[src/Shared/History.fs]] holds Event (`Ev`), EventId, Op, and EventBody. Ambit has no separate History or audit UI application.
+_Avoid_: History (as a destination module or Event sequence)
 
 **Sync**:
 Keeping Browser and Server Graphs aligned by exchanging Actions (and related residency work). Not a synonym for Load.
@@ -328,6 +328,10 @@ _Avoid_: visible (as the glossary name), context (bare, for this pack)
 **Agent**:
 An LLM-empowered worker. Ambit will have one.
 _Avoid_: Actor (for this counterpart), bot, copilot, assistant (as the glossary name), Grok (as this name)
+
+**Run**:
+A command the person invokes on Focus. It starts an Actor (ActorStart Event) or institutes a client-sourced Change Event. That Event's `commandName` is the Run command.
+_Avoid_: treating Run as only Run Agent, a third EventBody kind
 
 **Run Agent**:
 The Run command that invokes the Agent. The person types `?` plus a message on Focus, then Run. `?` is the statement spelling, not the spoken name.

@@ -1,4 +1,4 @@
-namespace Gambol.Shared.Events
+namespace Gambol.Shared
 
 open Thoth.Json.Core
 open Thoth.Json.JavaScript
@@ -6,9 +6,9 @@ open Gambol.Shared
 
 [<RequireQualifiedAccess>]
 module EventJson =
-    let private encodeEventId (EventId n) = Encode.int n
+    let encodeEventId (EventId n) = Encode.int n
 
-    let private decodeEventId: Decoder<EventId> =
+    let decodeEventId: Decoder<EventId> =
         Decode.int |> Decode.map EventId
 
     let private encodeAuthority (Authority name) = Encode.string name
@@ -114,7 +114,7 @@ module EventJson =
             | "actorStop" -> decodeActorStopBody
             | other -> Decode.fail ("Unknown event body: " + other))
 
-    let encode (event: Event) =
+    let encode (event: Ev) =
         Encode.object
             [ "id", encodeEventId event.id
               "submissionId", Encode.guid event.submissionId
@@ -122,10 +122,46 @@ module EventJson =
               "commandName", Encode.string event.commandName
               "body", encodeBody event.body ]
 
-    let decode: Decoder<Event> =
+    let decode: Decoder<Ev> =
         Decode.object (fun get ->
             { id = get.Required.Field "id" decodeEventId
               submissionId = get.Required.Field "submissionId" Decode.guid
               authority = get.Required.Field "authority" decodeAuthority
               commandName = get.Required.Field "commandName" Decode.string
               body = get.Required.Field "body" decodeBody })
+
+    let private encodePendingTransition (transition: PendingTransition) =
+        Encode.object
+            [ "recordId", Encode.int transition.recordId
+              "submittedChangeId", Encode.guid transition.submittedChangeId ]
+
+    let private decodePendingTransition: Decoder<PendingTransition> =
+        Decode.object (fun get ->
+            { recordId = get.Required.Field "recordId" Decode.int
+              submittedChangeId = get.Required.Field "submittedChangeId" Decode.guid })
+
+    let encodePendingChange (item: PendingChange) : IEncodable =
+        Encode.object (
+            [ "event", encode item.event ]
+            @ match item.transition with
+              | None -> []
+              | Some transition ->
+                  [ "transition", encodePendingTransition transition ])
+
+    let decodePendingChange: Decoder<PendingChange> =
+        Decode.object (fun get ->
+            { event = get.Required.Field "event" decode
+              transition = get.Optional.Field "transition" decodePendingTransition })
+
+    let encodeEventBatch (batch: EventBatch) : IEncodable =
+        Encode.object
+            [ "events", batch.events |> List.map encode |> Encode.list ]
+
+    let decodeEventBatch: Decoder<EventBatch> =
+        Decode.object (fun get ->
+            { events = get.Required.Field "events" (Decode.list decode) })
+        |> Decode.andThen (fun batch ->
+            if batch.events.IsEmpty then
+                Decode.fail "events must not be empty"
+            else
+                Decode.succeed batch)

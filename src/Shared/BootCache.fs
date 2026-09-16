@@ -1,6 +1,7 @@
 namespace Gambol.Shared
 
 open Thoth.Json.Core
+open Gambol.Shared
 
 [<RequireQualifiedAccess>]
 module BootCache =
@@ -120,7 +121,7 @@ module BootCache =
         let ordered = changesAfter snapshot.revision.Value delta
         let state0: State =
             { graph = snapshot.graph
-              revision = snapshot.revision }
+              revision = EventId.toRevision snapshot.revision }
         ordered
         |> List.fold
             (fun acc change ->
@@ -134,7 +135,8 @@ module BootCache =
             (Ok state0)
         |> Result.map (fun st ->
             { graph = st.graph
-              revision = Revision (clientRevision snapshot.revision.Value ordered)
+              revision =
+                EventId (clientRevision snapshot.revision.Value ordered)
               isReady = snapshot.isReady })
 
     let decideBootRead
@@ -198,16 +200,27 @@ module BootCache =
         (pollChanges: Change list)
         : Change list =
         let byId = log |> List.map (fun c -> c.id) |> Set.ofList
-        let byChangeId = log |> List.map (fun c -> c.changeId) |> Set.ofList
+        let byChangeId = log |> List.map (fun c -> c.submissionId) |> Set.ofList
         pollChanges
         |> List.filter (fun change ->
             not (Set.contains change.id byId)
-            && not (Set.contains change.changeId byChangeId))
+            && not (Set.contains change.submissionId byChangeId))
+
+    let novelEvents
+        (log: Change list)
+        (pollEvents: Ev list)
+        : Ev list =
+        let byId = log |> List.map (fun c -> c.id) |> Set.ofList
+        let byChangeId = log |> List.map (fun c -> c.submissionId) |> Set.ofList
+        pollEvents
+        |> List.filter (fun event ->
+            not (Set.contains event.id.Value byId)
+            && not (Set.contains event.submissionId byChangeId))
 
     [<RequireQualifiedAccess>]
     type BootPoll =
         | Confirmed of isReady: bool
-        | ApplyNovel of Change list * isReady: bool
+        | ApplyNovel of Ev list * isReady: bool
         | CodeOutdated
         | FallbackState of reason: string
 
@@ -234,7 +247,7 @@ module BootCache =
             | Some CodeOutdated -> BootPoll.CodeOutdated
             | Some DataOutdated
             | None ->
-                let novel = novelChanges log poll.changes
+                let novel = novelEvents log poll.events
                 let gap = poll.revision.Value - clientRev
                 if
                     novel.Length > maxNovelCount

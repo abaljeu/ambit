@@ -24,7 +24,7 @@ let private reachableIds (graph: Graph) : Set<NodeId> =
 
 let private textChange id nodeId oldText newText : Change =
     { id = id
-      changeId = Guid.NewGuid()
+      submissionId = Guid.NewGuid()
       ops = [ Op.SetText(nodeId, oldText, newText) ] }
 
 [<Fact>]
@@ -36,7 +36,7 @@ let ``ordinary inverse reverses Set ops and uses supplied identity`` () =
     let newTime = oldTime.AddMinutes(1)
     let source =
         { id = 17
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops =
             [ Op.SetText(nodeId, "before", "after")
               Op.SetClasses(nodeId, oldClasses, newClasses)
@@ -46,7 +46,7 @@ let ``ordinary inverse reverses Set ops and uses supplied identity`` () =
     let inverseId = Guid.NewGuid()
     let inverse = Change.inverse (Revision 41) inverseId source
     Assert.Equal(41, inverse.id)
-    Assert.Equal(inverseId, inverse.changeId)
+    Assert.Equal(inverseId, inverse.submissionId)
     Assert.Equal<Op list>(
         [ Op.SetUpdateTime(nodeId, newTime, oldTime)
           Op.SetDocumentState(nodeId, Unparsed, Current)
@@ -63,7 +63,7 @@ let ``ordinary inverse reverses nested Replace order`` () =
     let leaf = ChildNode.owner (NodeId.New())
     let source =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops =
             [ Op.Replace(innerId, [], [ leaf ])
               Op.Replace(outerId, [], [ outerChild ]) ] }
@@ -83,7 +83,7 @@ let private createPasteScenario () : State * Change * NodeId list =
     let rootIndex = initial.graph.nodes.[initial.graph.root].children.Length
     let source =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops =
             pasteOps
             @ [ ChildListWire.append initial.graph.root initial.graph.nodes.[initial.graph.root].children (ChildNode.owners topIds)
@@ -139,7 +139,7 @@ let ``create inverse retains detached nodes and Redo reconnects their identities
 let ``record returns a stable client record identity`` () =
     let change =
         { id = 7
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops = [] }
     let _, recordId =
         ClientHistory.clear ()
@@ -170,7 +170,7 @@ let ``Undo moves the same named record and returns an ordinary inverse`` () =
         Assert.Equal("Exact command name", commandName)
         Assert.Equal(recordId, undoRecordId)
         Assert.Equal(9, inverse.id)
-        Assert.Equal(undoId, inverse.changeId)
+        Assert.Equal(undoId, inverse.submissionId)
         Assert.Equal<Op list>(
             [ Op.SetText(nodeId, "new", "old") ],
             inverse.ops)
@@ -192,7 +192,7 @@ let ``Redo moves the same logical record and keeps its exact command name`` () =
     | Some (redo, commandName, _, _) ->
         Assert.Equal("Name kept verbatim", commandName)
         Assert.Equal(2, redo.id)
-        Assert.Equal(redoId, redo.changeId)
+        Assert.Equal(redoId, redo.submissionId)
         Assert.Equal<Op list>(source.ops, redo.ops)
 
 [<Theory>]
@@ -278,9 +278,9 @@ let ``Undo and Redo retain only their submitted local Changes`` () =
         | None -> failwith "expected Redo"
         | Some (change, _, history, _) ->
             change, history
-    Assert.Equal(undoId, undo.changeId)
+    Assert.Equal(undoId, undo.submissionId)
     Assert.Equal<Op list>([ Op.SetText(nodeId, "new", "old") ], undo.ops)
-    Assert.Equal(redoId, redo.changeId)
+    Assert.Equal(redoId, redo.submissionId)
     Assert.Equal<Op list>(source.ops, redo.ops)
     match ClientHistory.undo (Revision 3) (Guid.NewGuid()) redone with
     | None -> failwith "expected Undo"

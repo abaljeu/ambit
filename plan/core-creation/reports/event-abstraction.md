@@ -77,7 +77,7 @@ type Event =
 
 ### 3.2 EventLog
 
-Append-only, oldest-head. This is the sequence. Persistence is this same EventLog on file/DB. Today’s [[src/Server/ChangeLog.fs]] is the lagging persist name.
+Append-only, newest-head. This is the sequence. Persistence is this same EventLog on file/DB. Today’s [[src/Server/ChangeLog.fs]] is the lagging persist name.
 
 1. `empty`
 2. `append`
@@ -99,7 +99,7 @@ Emacs view of Actions only (Change/Undo/Redo). Newest-head `past`/`future`. `com
 ## 4. Doors
 
 1. **`postEvent`** — Core Changes door. Payload is Event (Change, Undo, Redo). Name-only Undo/Redo may arrive with only `target`; dispatch fills inverse Ops, then that completed Event is what EventLog stores (same `submissionId`). Browser uses `ClientHistory.undo` locally; ack/reconcile stays the pending path.
-2. **`postGraphOnlyChange`** — Event-shaped Graph work that skips EventLog.
+2. **`postGraphOnlyChange`** — Graph-only Change: same Event flow as `postChange`, skips file persistence only (not EventLog).
 3. **`startActor` / `actorStop`** — pool doors. Dispatch stores ActorStart / ActorStop Events with `authority` = the admitted Caller. Callers do not post those bodies through `postEvent`.
 
 Not every CoreMsg carries an Event: Login, GetState, SnapshotDone stay intake-only.

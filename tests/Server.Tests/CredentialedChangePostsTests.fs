@@ -18,7 +18,7 @@ let private requireOk label result =
 let private addRootChild text =
     let childId = NodeId.New()
     { id = 0
-      changeId = Guid.NewGuid()
+      submissionId = Guid.NewGuid()
       ops =
         [ Op.NewNode(childId, text)
           Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
@@ -49,10 +49,10 @@ let ``live Browser credential is admitted and Change reaches PersistHandlers``
             let accepted = requireOk "live post" result
             Assert.Equal(Revision 1, accepted.revision)
             Assert.Equal<Guid list>(
-                [ change.changeId ],
-                accepted.changes |> List.map _.changeId)
+                [ change.submissionId ],
+                accepted.events |> List.map _.submissionId)
             let! rev = handle.getRevision () |> Async.StartAsTask
-            Assert.Equal(Revision 1, rev)
+            Assert.Equal(Gambol.Shared.EventId 1, rev)
         finally
             CoreMailbox.dispose agent
     }
@@ -104,9 +104,7 @@ let ``blank Authority is the same auth refuse before PersistHandlers`` () =
 let ``request-carried cookie secret is admitted; foreign secret is refused`` () =
     task {
         let runtime = fileRuntime ()
-        let cookie =
-            Credential(AuthToken.deriveToken "alice" "secret")
-        let caller = BrowserRequestCreds.callerFromSecret cookie
+        let caller = browserCallerFromAuth "alice" "secret"
         let handle = CoreMailbox.coreChanges runtime.host caller
         let change = addRootChild "cookie-post"
         let! ok =
@@ -133,7 +131,7 @@ let ``missing cookie secret is the same auth refuse before PersistHandlers`` () 
         let handle =
             CoreMailbox.coreChanges
                 runtime.host
-                (BrowserRequestCreds.callerFromSecret cookie)
+                (browserCallerFromAuth "alice" "secret")
         match BrowserRequestCreds.trySecretFromCookieValue None with
         | Some _ -> Assert.Fail("missing cookie must not yield a secret")
         | None -> ()
@@ -172,7 +170,7 @@ let ``request cookie value is admitted without closed-over browserCredential`` (
             let! ok =
                 (CoreMailbox.coreChanges
                     runtime.host
-                    (BrowserRequestCreds.callerFromSecret secret)).postChange
+                    (browserCallerFromAuth "alice" "secret")).postChange
                     [ addRootChild "request-only" ]
                 |> Async.StartAsTask
             let accepted = requireOk "request secret" ok

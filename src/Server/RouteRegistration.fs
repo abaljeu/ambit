@@ -216,7 +216,21 @@ module RouteRegistration =
             let pageEpoch = stamps.PageBuildEpochSec ()
             return!
                 withBrowserChanges persistence req (fun handle ->
-                    Api.postChange
+                    Api.postEvents
+                        handle
+                        (stamps.DeployEpochSec ())
+                        pageEpoch
+                        body)
+                |> Async.StartAsTask
+        })) |> ignore
+        this.MapPost("/ambit/events", Func<HttpRequest, Task<IResult>>(fun req -> task {
+            bindClientHint req |> ignore
+            use reader = new StreamReader(req.Body)
+            let! body = reader.ReadToEndAsync()
+            let pageEpoch = stamps.PageBuildEpochSec ()
+            return!
+                withBrowserChanges persistence req (fun handle ->
+                    Api.postEvents
                         handle
                         (stamps.DeployEpochSec ())
                         pageEpoch
@@ -232,7 +246,12 @@ module RouteRegistration =
                 persistence.DbStatus
                 (fun () -> handle.getState ())
                 (fun () -> CoreMailbox.flushSnapshot persistence.Core.host)
-                (fun () -> CoreMailbox.getRevision persistence.Core.host)
+                (fun () ->
+                    async {
+                        let! rev =
+                            CoreMailbox.getRevision persistence.Core.host
+                        return Revision rev.Value
+                    })
                 persistence.DataDir
     }
 
@@ -338,7 +357,13 @@ module RouteRegistration =
                         (fun () ->
                             CoreMailbox.flushSnapshot persistence.Core.host)
                         (fun () ->
-                            CoreMailbox.getRevision persistence.Core.host)
+                            async {
+                                let! rev =
+                                    CoreMailbox.getRevision
+                                        persistence.Core.host
+                                return
+                                    Revision rev.Value
+                            })
                         persistence.DataDir
                 match flushResult with
                 | Ok _ -> return Ok ()

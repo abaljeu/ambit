@@ -3,18 +3,18 @@ module EventJsonTests
 open System
 open Xunit
 open Gambol.Shared
-open Gambol.Shared.Events
+open Gambol.Shared
 
 module Enc = Thoth.Json.Newtonsoft.Encode
 module Dec = Thoth.Json.Newtonsoft.Decode
 
-let private roundTrip (event: Event) : Event =
+let private roundTrip (event: Ev) : Ev =
     let json = Enc.toString 0 (EventJson.encode event)
     match Dec.fromString EventJson.decode json with
     | Ok decoded -> decoded
     | Error err -> failwith $"Decode failed: {err}"
 
-let private changeEvent : Event =
+let private changeEvent : Ev =
     let nodeId = NodeId(Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"))
     { id = EventId 3
       submissionId = Guid("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
@@ -23,12 +23,12 @@ let private changeEvent : Event =
       body = EventBody.Change [ Op.SetText(nodeId, "old", "new") ] }
 
 [<Fact>]
-let ``Event JSON round-trips a Change`` () =
+let ``Ev JSON round-trips a Change`` () =
     let decoded = roundTrip changeEvent
     Assert.Equal(changeEvent, decoded)
 
 [<Fact>]
-let ``Event JSON round-trips name-only Undo`` () =
+let ``Ev JSON round-trips name-only Undo`` () =
     let event =
         { changeEvent with
             id = EventId 4
@@ -37,7 +37,7 @@ let ``Event JSON round-trips name-only Undo`` () =
     Assert.Equal(event, roundTrip event)
 
 [<Fact>]
-let ``Event JSON round-trips ActorStart and ActorStop`` () =
+let ``Ev JSON round-trips ActorStart and ActorStop`` () =
     let zoom = NodeId(Guid("cccccccc-cccc-cccc-cccc-cccccccccccc"))
     let start =
         { zoomId = zoom

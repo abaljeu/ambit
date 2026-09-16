@@ -4,9 +4,6 @@ open Gambol.Shared
 
 type Credential = Credential of string
 
-/// Named source that submits requests to Core (Browser, Actor, …).
-type Authority = Authority of string
-
 /// Public Authority, login instance name, and secret at a Core door.
 /// `name` is this browser/session instance, not the global user name.
 type Caller =
@@ -14,26 +11,24 @@ type Caller =
       name: string
       secret: Credential }
 
-type ActorResult =
-    | ActorSucceeded
-    | ActorFailed
-
 type CoreChangesAccepted =
     { revision: Revision
-      changes: Change list
+      /// Stored Events for POST /events ACK (submission / request order).
+      events: Ev list
       externalChanges: bool
       message: string option
       isReady: bool }
 
 /// The Core Changes contract. Every Change reaches persistence through this handle.
-/// `postChange` may take a transport batch (Change list) but enqueues one Event
-/// per Change into the mailbox (postEvent door).
+/// HTTP uses `postEvents` (Ev list from wire). `postChange` is graph-apply only
+/// (Change list) — CoreEventDispatch builds Changes from Ev ops and calls postChange.
 type CoreChanges =
     { getState: unit -> Async<Result<State, string>>
-      getRevision: unit -> Async<Revision>
-      getChangesSince: Revision -> Async<Change list>
+      getRevision: unit -> Async<Gambol.Shared.EventId>
+      getEventsSince: Gambol.Shared.EventId -> Async<Ev list>
       isReady: unit -> bool
       postChange: Change list -> Async<Result<CoreChangesAccepted, string>>
+      postEvents: Ev list -> Async<Result<CoreChangesAccepted, string>>
       postGraphOnlyChange:
         Change -> Async<Result<CoreChangesAccepted, string>>
       actorStop: ActorResult -> Async<Result<unit, string>>
@@ -46,12 +41,12 @@ module CoreChanges =
     let accepted
         (revision: Revision)
         (isReady: bool)
-        (confirmed: Change list)
+        (events: Ev list)
         (externalChanges: bool)
         (message: string option)
         : CoreChangesAccepted =
         { revision = revision
-          changes = confirmed
+          events = events
           externalChanges = externalChanges
           message = message
           isReady = isReady }
@@ -61,7 +56,7 @@ module CoreChanges =
         (next: CoreChangesAccepted)
         : CoreChangesAccepted =
         { revision = next.revision
-          changes = prior.changes @ next.changes
+          events = prior.events @ next.events
           externalChanges =
             prior.externalChanges || next.externalChanges
           message = next.message |> Option.orElse prior.message

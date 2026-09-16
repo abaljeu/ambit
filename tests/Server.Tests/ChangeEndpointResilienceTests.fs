@@ -8,6 +8,7 @@ open System.Text
 open System.Threading.Tasks
 open Xunit
 open Gambol.Shared
+open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
 
 module Encode = Thoth.Json.Newtonsoft.Encode
@@ -66,7 +67,7 @@ let private exactRawBatch =
     [
       {
         "id": 1130,
-        "changeId": "93a26b25-272f-4c48-916b-4045a2ba37a1",
+        "submissionId": "93a26b25-272f-4c48-916b-4045a2ba37a1",
         "ops": [
           {
             "type": "SetText",
@@ -86,7 +87,7 @@ let ``exact raw change array is rejected and server remains responsive`` () = ta
     use content = new StringContent(exactRawBatch, Encoding.UTF8, "application/json")
     use! response = client.PostAsync("/ambit/changes", content) |> timeout
     Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode)
-    let wrapped = """{"changes":""" + exactRawBatch + "}"
+    let wrapped = """{"events":""" + exactRawBatch + "}"
     use wrappedContent = new StringContent(wrapped, Encoding.UTF8, "application/json")
     use! wrappedResponse =
         client.PostAsync("/ambit/changes", wrappedContent) |> timeout
@@ -114,12 +115,13 @@ let ``SetText persists SYSTEM user css and server remains responsive`` () = task
     let cssNodeId = graph.nodes.[fileId].children |> List.exactlyOne |> fun c -> c.id
     let change =
         { id = revision
-          changeId = Guid.Parse("93a26b25-272f-4c48-916b-4045a2ba37a1")
+          submissionId = Guid.Parse("93a26b25-272f-4c48-916b-4045a2ba37a1")
           ops = [ Op.SetText(cssNodeId, "block", "\"background\" : #fff") ] }
+    let event = eventFromChange change
     let body =
         Encode.toString 0 (
-            Serialization.encodeChangeBatch
-                { changes = [ change ] })
+            EventJson.encodeEventBatch
+                { events = [ event ] })
     use content = new StringContent(body, Encoding.UTF8, "application/json")
     use! response = client.PostAsync("/ambit/changes", content) |> timeout
     Assert.Equal(HttpStatusCode.OK, response.StatusCode)

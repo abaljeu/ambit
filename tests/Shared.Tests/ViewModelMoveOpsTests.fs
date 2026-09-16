@@ -421,7 +421,7 @@ let ``completeIndent surfaces apply error message`` () =
     Assert.Equal(Some(CmdLastResult.Error (None, applyMsg)), result.lastCmdResult)
 
 [<Fact>]
-let ``indent Directory under Normal sibling is accepted by History.applyChange`` () =
+let ``indent Directory under Normal sibling is accepted by ChangeValidation.applyChange`` () =
     let graph, normalId, dirId = folderBesideNormalGraph ()
     let model = emptyModelAt graph Graph.rootId
     let rootEntry = model.siteMap.entries.[model.siteMap.rootId]
@@ -447,12 +447,12 @@ let ``indent Directory under Normal sibling is accepted by History.applyChange``
           ChildListWire.insertAt normalId normKids plan.target.endd [ dirChild ] ]
     let change =
         { id = selected.revision.Value
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops = ops }
     let state =
         { graph = graph
           revision = selected.revision }
-    match History.applyChange change state with
+    match ChangeValidation.applyChange change state with
     | ApplyResult.Changed s ->
         Assert.True(
             s.graph.nodes.[normalId].children
@@ -510,12 +510,12 @@ let ``indent Ref Directory under Normal succeeds despite foreign name duplicates
           ChildListWire.insertAt normalId normKids plan.target.endd [ dirRef ] ]
     let change =
         { id = selected.revision.Value
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops = ops }
     let state =
         { graph = graph
           revision = selected.revision }
-    match History.applyChange change state with
+    match ChangeValidation.applyChange change state with
     | ApplyResult.Changed s ->
         Assert.True(
             s.graph.nodes.[normalId].children

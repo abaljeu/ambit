@@ -143,14 +143,14 @@ let private applySelectModeExternalPaste
 
         let change =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops = nested @ [ replaceOp ] }
 
         let state =
             { graph = graph
               revision = Revision.Zero }
 
-        match History.applyChange change state with
+        match ChangeValidation.applyChange change state with
         | ApplyResult.Changed s -> Ok s.graph
         | ApplyResult.Unchanged _ -> Error "paste applied as Unchanged"
         | ApplyResult.Invalid(_, msg) -> Error msg

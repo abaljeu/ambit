@@ -8,6 +8,7 @@ open System.Threading.Tasks
 open Xunit
 open Gambol.Server
 open Gambol.Shared
+open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
 
 let private requireOk label result =
@@ -123,7 +124,7 @@ let ``server reconciler applies planner ops through active agent`` () =
     let tempDir = newTempDir ()
     let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId, ops = FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
-    let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
+    let change = { id = 0; submissionId = Guid.NewGuid(); ops = ops }
     handle.postChange [ change ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
@@ -157,7 +158,7 @@ let ``server reconciler adds disk files outside the changed path list`` () =
     let tempDir = newTempDir ()
     let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId, ops = FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
-    let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
+    let change = { id = 0; submissionId = Guid.NewGuid(); ops = ops }
     handle.postChange [ change ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
@@ -192,7 +193,7 @@ let ``server reconciler adds missing directory and file nodes from discovered pa
     let tempDir = newTempDir ()
     let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId, ops = FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
-    let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
+    let change = { id = 0; submissionId = Guid.NewGuid(); ops = ops }
     handle.postChange [ change ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
@@ -233,7 +234,7 @@ let ``post receive rename of unparsed stub is rejected without moving disk twice
     let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId, ops =
         FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
-    let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
+    let change = { id = 0; submissionId = Guid.NewGuid(); ops = ops }
     handle.postChange [ change ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
@@ -291,7 +292,7 @@ let ``server reconciler posts good sibling when one path fails`` () =
     let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId, ops =
         FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
-    let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
+    let change = { id = 0; submissionId = Guid.NewGuid(); ops = ops }
     handle.postChange [ change ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
@@ -367,7 +368,7 @@ let ``latest diagnostics GET returns failures once then empty`` () =
 
 let private postWorkspace (fileAgent: MailboxHost) (label: string) =
     let workspaceId, ops = FileNodeOps.planCreateWorkspace (Graph.create ()) label
-    let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
+    let change = { id = 0; submissionId = Guid.NewGuid(); ops = ops }
     (admittedChanges fileAgent).postChange [ change ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
@@ -375,7 +376,7 @@ let private postWorkspace (fileAgent: MailboxHost) (label: string) =
     workspaceId
 
 let private postOps (fileAgent: MailboxHost) (revision: int) (ops: Op list) =
-    let change = { id = revision; changeId = Guid.NewGuid(); ops = ops }
+    let change = { id = revision; submissionId = Guid.NewGuid(); ops = ops }
     (admittedChanges fileAgent).postChange [ change ]
     |> Async.RunSynchronously
     |> requireOk "ops"
@@ -695,11 +696,12 @@ let ``directory reconciliation POST returns failures JSON`` () =
     let tempDir = newTempDir ()
     use client = createClientForDir tempDir
     let workspaceId, wsOps = FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
-    let wsChange = { id = 0; changeId = Guid.NewGuid(); ops = wsOps }
+    let wsChange = { id = 0; submissionId = Guid.NewGuid(); ops = wsOps }
+    let wsEvent = eventFromChange wsChange
     let wsBody =
         Thoth.Json.Newtonsoft.Encode.toString 0
-            (Serialization.encodeChangeBatch
-                { changes = [ wsChange ] })
+            (EventJson.encodeEventBatch
+                { events = [ wsEvent ] })
     use wsContent = new StringContent(wsBody, Text.Encoding.UTF8, "application/json")
     let wsResp =
         client.PostAsync("/ambit/changes", wsContent)
@@ -720,11 +722,12 @@ let ``directory reconciliation POST returns failures JSON`` () =
         |> snd
     let _, docsOps =
         FileNodeOps.planCreateOwnedDirectory graph workspaceId "docs"
-    let docsChange = { id = 1; changeId = Guid.NewGuid(); ops = docsOps }
+    let docsChange = { id = 1; submissionId = Guid.NewGuid(); ops = docsOps }
+    let docsEvent = eventFromChange docsChange
     let docsBody =
         Thoth.Json.Newtonsoft.Encode.toString 0
-            (Serialization.encodeChangeBatch
-                { changes = [ docsChange ] })
+            (EventJson.encodeEventBatch
+                { events = [ docsEvent ] })
     use docsContent =
         new StringContent(docsBody, Text.Encoding.UTF8, "application/json")
     let docsResp =
@@ -755,11 +758,12 @@ let ``workspace reconciliation POST with empty path discovers root`` () =
     let tempDir = newTempDir ()
     use client = createClientForDir tempDir
     let workspaceId, wsOps = FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
-    let wsChange = { id = 0; changeId = Guid.NewGuid(); ops = wsOps }
+    let wsChange = { id = 0; submissionId = Guid.NewGuid(); ops = wsOps }
+    let wsEvent = eventFromChange wsChange
     let wsBody =
         Thoth.Json.Newtonsoft.Encode.toString 0
-            (Serialization.encodeChangeBatch
-                { changes = [ wsChange ] })
+            (EventJson.encodeEventBatch
+                { events = [ wsEvent ] })
     use wsContent = new StringContent(wsBody, Text.Encoding.UTF8, "application/json")
     let wsResp =
         client.PostAsync("/ambit/changes", wsContent)

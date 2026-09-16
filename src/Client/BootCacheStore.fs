@@ -94,7 +94,7 @@ let private changeObj (file: string) (change: Change) : obj =
     createObj
         [ "file" ==> file
           "id" ==> change.id
-          "changeId" ==> change.changeId.ToString()
+          "submissionId" ==> change.submissionId.ToString()
           "changeJson"
           ==> Thoth.Json.JavaScript.Encode.toString
                   0
@@ -331,7 +331,7 @@ let requestIdleTruncate
                         let scoped = BootCache.truncationGraph graph zoom
                         let response =
                             { graph = scoped
-                              revision = Revision revision
+                              revision = Gambol.Shared.EventId revision
                               isReady = isReady }
                         let json =
                             Thoth.Json.JavaScript.Encode.toString

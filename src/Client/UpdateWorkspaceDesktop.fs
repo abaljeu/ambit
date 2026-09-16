@@ -9,7 +9,7 @@ open Thoth.Json.Core
 let private jsonHeaders () = jsonMutatingPostHeaders ()
 
 let httpError (status: int) (body: string) : string =
-    match decodePostChangeError body with
+    match decodePostEventError body with
     | Some err -> LogText.summarizeHttpBody 200 err
     | None ->
         "HTTP " + string status + ": " + LogText.summarizeHttpBody 200 body

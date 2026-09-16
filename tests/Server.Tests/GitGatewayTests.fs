@@ -305,10 +305,9 @@ let ``gateway rejects browser cookie alone`` () = task {
     Skip.IfNot(gitOnPath(), "git not on PATH")
     let dataDir = newTempDir ()
     seedWorkspace dataDir "home" |> ignore
-    use client = createClientForDirWithAuth dataDir "alice" "secret"
-    client.DefaultRequestHeaders.Add(
-        "Cookie",
-        AuthToken.cookieHeaderValue "alice" "secret")
+    use client =
+        createClientForDirWithAuth dataDir "alice" "secret"
+        |> withAuthCookie "alice" "secret"
     let! resp = client.GetAsync(pullInfoRefsUrl)
     Assert.Equal(HttpStatusCode.Unauthorized, resp.StatusCode)
 }
@@ -353,10 +352,9 @@ let ``git-token requires cookie when Auth enabled`` () = task {
 [<Fact>]
 let ``git-token issues PAT after cookie login`` () = task {
     let dataDir = newTempDir ()
-    use client = createClientForDirWithAuth dataDir "alice" "secret"
-    client.DefaultRequestHeaders.Add(
-        "Cookie",
-        AuthToken.cookieHeaderValue "alice" "secret")
+    use client =
+        createClientForDirWithAuth dataDir "alice" "secret"
+        |> withAuthCookie "alice" "secret"
     let! resp = client.GetAsync("/ambit/git-token")
     Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
     let! json = resp.Content.ReadAsStringAsync()

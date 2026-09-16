@@ -341,7 +341,7 @@ type SystemMsg =
     | StateLoaded of StateResponse
     | SubmitResponse of
         submitted: PendingChange list *
-        confirmed: Change list *
+        confirmed: Ev list *
         revision: Revision *
         externalChanges: bool *
         message: string option
@@ -364,7 +364,7 @@ type SystemMsg =
     | AutoDownloadTick    // debounce timer fired; update coalesces + fires auto-downloads
     | PollDone of
         SyncState option *
-        Change list *
+        Ev list *
         isReady: bool option *
         responseRevision: Revision option
     | BootGraphApplied of

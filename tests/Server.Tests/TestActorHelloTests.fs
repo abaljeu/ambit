@@ -31,7 +31,7 @@ let private waitForActorFinished host focusId timeoutMs =
                 events
                 |> List.exists (fun event ->
                     match event.body with
-                    | Gambol.Shared.Events.EventBody.ActorStop(fid, _)
+                    | Gambol.Shared.EventBody.ActorStop(fid, _)
                         when fid = focusId -> true
                     | _ -> false)
             if not found then
@@ -58,12 +58,12 @@ let private helloOutputChildren (graph: Graph) focusId commandId =
            | Some node -> node.text = "hello"
            | None -> false)
 
-let private sampleRequest focusId commandId graphIds: StartActorRequest =
+let private sampleRequest focusId commandId graphIds: Gambol.Shared.ActorStart =
     { zoomId = Graph.rootId
       focusId = focusId
       commandId = commandId
       graphIds = graphIds
-      revision = Gambol.Shared.Events.EventId 0 }
+      revision = Gambol.Shared.EventId 0 }
 
 let private actorCaller secret =
     { authority = Authority "Actor"
@@ -96,7 +96,7 @@ let ``TestActor hello posts one Owned child text hello under Focus`` () =
         let commandId = NodeId.New()
         let change =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(commandId, "hello")
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
@@ -132,7 +132,7 @@ let ``TestActor hello stops successfully with ActorSucceeded`` () =
         let commandId = NodeId.New()
         let change =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(commandId, "hello")
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
@@ -159,7 +159,7 @@ let ``TestActor hello stops successfully with ActorSucceeded`` () =
             events
             |> List.choose (fun event ->
                 match event.body with
-                | Gambol.Shared.Events.EventBody.ActorStop(focusId, _)
+                | Gambol.Shared.EventBody.ActorStop(focusId, _)
                     when focusId = request.focusId ->
                     Some focusId
                 | _ -> None)
@@ -172,7 +172,7 @@ let ``TestActor hello drops live row after successful stop`` () =
         let commandId = NodeId.New()
         let change =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(commandId, "hello")
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
@@ -203,7 +203,7 @@ let ``TestActor hello observes ActorStarted before output`` () =
         let commandId = NodeId.New()
         let change =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(commandId, "hello")
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
@@ -230,7 +230,7 @@ let ``TestActor hello observes ActorStarted before output`` () =
             events
             |> List.tryFindIndex (fun event ->
                 match event.body with
-                | Gambol.Shared.Events.EventBody.ActorStart started
+                | Gambol.Shared.EventBody.ActorStart started
                     when started.focusId = request.focusId ->
                     true
                 | _ -> false)
@@ -239,7 +239,7 @@ let ``TestActor hello observes ActorStarted before output`` () =
             events
             |> List.tryFindIndex (fun event ->
                 match event.body with
-                | Gambol.Shared.Events.EventBody.ActorStop(focusId, _)
+                | Gambol.Shared.EventBody.ActorStop(focusId, _)
                     when focusId = request.focusId ->
                     true
                 | _ -> false)
@@ -255,7 +255,7 @@ let ``TestActor hello interprets command node text`` () =
         let commandId = NodeId.New()
         let change =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(commandId, "HELLO")
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
@@ -291,7 +291,7 @@ let ``TestActor unknown command still finishes and drops live row`` () =
         let commandId = NodeId.New()
         let change =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(commandId, "unknown")
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
@@ -321,7 +321,7 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
         let commandId = NodeId.New()
         let change =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(commandId, "hello")
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
@@ -364,7 +364,7 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
             events
             |> List.tryFindIndex (fun event ->
                 match event.body with
-                | Gambol.Shared.Events.EventBody.ActorStart started
+                | Gambol.Shared.EventBody.ActorStart started
                     when started.focusId = request.focusId ->
                     true
                 | _ -> false)
@@ -373,14 +373,14 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
             events
             |> List.tryFindIndex (fun event ->
                 match event.body with
-                | Gambol.Shared.Events.EventBody.Change _ -> true
+                | Gambol.Shared.EventBody.Change _ -> true
                 | _ -> false)
         
         let actorFinishedIndex =
             events
             |> List.tryFindIndex (fun event ->
                 match event.body with
-                | Gambol.Shared.Events.EventBody.ActorStop(focusId, _)
+                | Gambol.Shared.EventBody.ActorStop(focusId, _)
                     when focusId = request.focusId ->
                     true
                 | _ -> false)
@@ -389,20 +389,20 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
             events
             |> List.filter (fun event ->
                 match event.body with
-                | Gambol.Shared.Events.EventBody.ActorStop(focusId, _)
+                | Gambol.Shared.EventBody.ActorStop(focusId, _)
                     when focusId = request.focusId ->
                     true
                 | _ -> false)
             |> List.length
         
         Assert.True(actorStartedIndex.IsSome,
-            "§7.4: ActorStarted event should be present")
+            "§7.4: Gambol.Shared.ActorStarted event should be present")
         Assert.True(actorOutputChangeIndex.IsSome,
             "§7.4: Change event (output) should be present")
         Assert.True(actorFinishedIndex.IsSome,
             "§7.4: ActorFinished event should be present")
         Assert.True(actorOutputChangeIndex.Value < actorStartedIndex.Value,
-            "§7.4: ActorStarted should appear before output Change")
+            "§7.4: Gambol.Shared.ActorStarted should appear before output Change")
         Assert.True(actorFinishedIndex.Value < actorOutputChangeIndex.Value,
             "§7.4: Output Change should appear before ActorFinished")
         Assert.Equal(1, actorFinishedCount)
@@ -414,10 +414,10 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
             events
             |> List.exists (fun event ->
                 match event.body with
-                | Gambol.Shared.Events.EventBody.ActorStart started
+                | Gambol.Shared.EventBody.ActorStart started
                     when started.focusId = request.focusId ->
                     true
-                | Gambol.Shared.Events.EventBody.ActorStop(focusId, _)
+                | Gambol.Shared.EventBody.ActorStop(focusId, _)
                     when focusId = request.focusId ->
                     true
                 | _ -> false)
@@ -432,7 +432,7 @@ let ``TestActor throw command fails gracefully and drops live row`` () =
         let commandId = NodeId.New()
         let change =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(commandId, "throw")
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])

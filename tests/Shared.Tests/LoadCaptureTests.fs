@@ -1,6 +1,7 @@
 module LoadCaptureTests
 
 open Gambol.Shared
+open Gambol.Shared
 open Xunit
 
 let private owned = ChildNode.owners
@@ -142,23 +143,25 @@ let ``packagesForTarget missing target returns empty`` () =
 [<Fact>]
 let ``captureLoadResponse shares revision for changes and packages`` () =
     let graph, wsId, _, fileId = graphWithNestedWorkspace ()
-    let change =
-        { id = 4
-          changeId = System.Guid.NewGuid()
-          ops = [ Op.SetText(fileId, "old", "new") ] }
+    let events =
+        [ Ev.ofChange
+            "fixture"
+            { id = 4
+              submissionId = System.Guid.NewGuid()
+              ops = [ Op.SetText(fileId, "old", "new") ] } ]
     match
         ResidentProjection.captureLoadResponse
             9
             100
             200
             true
-            [ change ]
+            events
             graph
             [ { targetId = fileId; includeWorkspace = true } ]
     with
     | Error _ -> failwith "expected LoadResponse"
     | Ok response ->
-        Assert.Equal(9, response.revision)
+        Assert.Equal(EventId 9, response.revision)
         Assert.Equal(100, response.buildEpochSec)
         Assert.Equal(200, response.pageBuildEpochSec)
         Assert.True(response.isReady)
@@ -170,12 +173,12 @@ let ``LoadResponse toSyncResponse preserves changes and packages`` () =
     let node =
         Node.Create(NodeId.New(), text = "n", owner = Graph.rootId)
     let load: LoadResponse =
-        { revision = 3
+        { revision = EventId 3
           buildEpochSec = 1
           pageBuildEpochSec = 2
           apiVersion = ApiVersion.current
           isReady = true
-          changes = []
+          events = []
           packages = [ node ] }
     let sync = SyncLogic.loadResponseToSync load
     Assert.Empty(sync.changes)

@@ -43,29 +43,20 @@ module CoreMailbox =
 
     let eventHistory
         (host: MailboxHost)
-        : Async<Gambol.Shared.Events.EventLog> =
+        : Async<Gambol.Shared.EventLog> =
         reply host GetEventHistory
 
-    let getRevision (host: MailboxHost) : Async<Revision> =
+    let getRevision (host: MailboxHost) : Async<Gambol.Shared.EventId> =
         async {
             let! result = reply host GetRevision
-            return unwrap result
-        }
-
-    let getChangesSince
-        (host: MailboxHost)
-        (after: Revision)
-        : Async<Change list> =
-        async {
-            let! result =
-                reply host (fun channel -> GetChangesSince(after, channel))
-            return unwrap result
+            let (Revision rev) = unwrap result
+            return Gambol.Shared.EventId rev
         }
 
     let getEventsSince
         (host: MailboxHost)
-        (after: Gambol.Shared.Events.EventId)
-        : Async<Gambol.Shared.Events.Event list> =
+        (after: Gambol.Shared.EventId)
+        : Async<Ev list> =
         async {
             let! result =
                 reply host (fun channel -> GetEventsSince(after, channel))
@@ -74,17 +65,17 @@ module CoreMailbox =
 
     let private eventFromChange
         (change: Change)
-        : Gambol.Shared.Events.Event =
-        { id = Gambol.Shared.Events.EventId 0
-          submissionId = change.changeId
-          authority = Gambol.Shared.Events.Authority ""
+        : Ev =
+        { id = Gambol.Shared.EventId 0
+          submissionId = change.submissionId
+          authority = Gambol.Shared.Authority ""
           commandName = ""
-          body = Gambol.Shared.Events.EventBody.Change change.ops }
+          body = Gambol.Shared.EventBody.Change change.ops }
 
     let private postEventAccepted
         (host: MailboxHost)
         (caller: Caller)
-        (event: Gambol.Shared.Events.Event)
+        (event: Ev)
         =
         reply host (fun channel -> PostEvent(caller, event, channel))
 
@@ -92,22 +83,23 @@ module CoreMailbox =
         (host: MailboxHost)
         (posted:
             Result<
-                Gambol.Shared.Events.Event *
+                Ev *
                 CoreChangesAccepted option,
                 string>)
         : Async<Result<CoreChangesAccepted, string>> =
         async {
             match posted with
             | Error error -> return Error error
-            | Ok (_, Some accepted) -> return Ok accepted
-            | Ok (_, None) ->
+            | Ok (stored, Some accepted) ->
+                return Ok { accepted with events = [ stored ] }
+            | Ok (stored, None) ->
                 let! revision = getRevision host
                 return
                     Ok(
                         CoreChanges.accepted
-                            revision
+                            (Revision revision.Value)
                             (MailboxHost.isReady host ())
-                            []
+                            [ stored ]
                             false
                             None)
         }
@@ -119,8 +111,56 @@ module CoreMailbox =
             return! acceptedFromPosted host posted
         }
 
+    let private previewTransportBatch
+        (host: MailboxHost)
+        (events: Ev list)
+        : Async<Result<unit, string>> =
+        async {
+            let! stateResult = tryGetState host
+            let! log = eventHistory host
+            match stateResult with
+            | Error error -> return Error error
+            | Ok state ->
+                let known =
+                    log.events
+                    |> List.map (fun e -> e.submissionId)
+                    |> Set.ofList
+                return
+                    CoreEventDispatch.previewEvents
+                        known
+                        state
+                        events
+        }
+
+    let private mergePostLoop postOne host caller first rest =
+        async {
+            let! firstAccepted = postOne host caller first
+            match firstAccepted with
+            | Error error -> return Error error
+            | Ok accepted ->
+                let folder acc item =
+                    async {
+                        match! acc with
+                        | Error error -> return Error error
+                        | Ok prior ->
+                            match! postOne host caller item with
+                            | Error error -> return Error error
+                            | Ok next ->
+                                return
+                                    Ok(
+                                        CoreChanges.mergeAccepted
+                                            prior
+                                            next)
+                    }
+                return!
+                    List.fold
+                        folder
+                        (async.Return(Ok accepted))
+                        rest
+        }
+
     /// Transport may pass a Change list; each Change becomes one PostEvent
-    /// on the mailbox queue (no multi-Event CoreMsg / postMany).
+    /// on the mailbox queue (no multi-Ev CoreMsg / postMany).
     let postChange
         (host: MailboxHost)
         (caller: Caller)
@@ -130,48 +170,65 @@ module CoreMailbox =
             match changes with
             | [] -> return Error "changes must not be empty"
             | first :: rest ->
-                let! firstAccepted = postOneChange host caller first
-                match firstAccepted with
+                let events = changes |> List.map eventFromChange
+                match! previewTransportBatch host events with
                 | Error error -> return Error error
-                | Ok accepted ->
-                    let folder acc change =
-                        async {
-                            match! acc with
-                            | Error error -> return Error error
-                            | Ok prior ->
-                                match! postOneChange host caller change with
-                                | Error error -> return Error error
-                                | Ok next ->
-                                    return
-                                        Ok(
-                                            CoreChanges.mergeAccepted
-                                                prior
-                                                next)
-                        }
+                | Ok () ->
                     return!
-                        List.fold
-                            folder
-                            (async.Return(Ok accepted))
+                        mergePostLoop
+                            postOneChange
+                            host
+                            caller
+                            first
                             rest
         }
 
     let postEvent
         (host: MailboxHost)
         (caller: Caller)
-        (event: Gambol.Shared.Events.Event)
-        : Async<Result<Gambol.Shared.Events.Event, string>> =
+        (event: Ev)
+        : Async<Result<Ev, string>> =
         async {
             let! result = postEventAccepted host caller event
             return result |> Result.map fst
         }
 
+    let private postOneEvent host caller event =
+        async {
+            let! posted = postEventAccepted host caller event
+            return! acceptedFromPosted host posted
+        }
+
+    /// Transport may pass an Ev list; each Ev becomes one PostEvent
+    /// on the mailbox queue (no multi-Ev CoreMsg / postMany).
+    let postEvents
+        (host: MailboxHost)
+        (caller: Caller)
+        (events: Ev list)
+        : Async<Result<CoreChangesAccepted, string>> =
+        async {
+            match events with
+            | [] -> return Error "events must not be empty"
+            | first :: rest ->
+                match! previewTransportBatch host events with
+                | Error error -> return Error error
+                | Ok () ->
+                    return!
+                        mergePostLoop
+                            postOneEvent
+                            host
+                            caller
+                            first
+                            rest
+        }
+
     let eventsSince
         (host: MailboxHost)
-        (after: Gambol.Shared.Events.EventId)
-        : Async<Gambol.Shared.Events.EventLog> =
+        (after: Gambol.Shared.EventId)
+        : Async<Gambol.Shared.EventLog> =
         reply host (fun channel -> EventsSince(after, channel))
 
-    /// Graph work that skips EventLog (CoreMailbox). One Change.
+    /// Graph-only Change: same Ev flow as postChange, skips file persistence only.
     let postGraphOnlyChange
         (host: MailboxHost)
         (caller: Caller)
@@ -183,7 +240,7 @@ module CoreMailbox =
     let startActor
         (host: MailboxHost)
         (caller: Caller)
-        (request: Gambol.Shared.Events.ActorStart)
+        (request: Gambol.Shared.ActorStart)
         : Async<Result<unit, string>> =
         reply host (fun channel ->
             StartActor(caller, request, channel))
@@ -226,9 +283,10 @@ module CoreMailbox =
         let rec make (c: Caller) : CoreChanges =
             { getState = fun () -> tryGetState host
               getRevision = fun () -> getRevision host
-              getChangesSince = getChangesSince host
+              getEventsSince = getEventsSince host
               isReady = MailboxHost.isReady host
               postChange = postChange host c
+              postEvents = postEvents host c
               postGraphOnlyChange =
                 fun change -> postGraphOnlyChange host c change
               actorStop = fun result -> actorStop host c result

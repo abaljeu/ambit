@@ -82,12 +82,12 @@ let ``nested file parse after upload tree build is accepted`` () =
         { graph = graph2; revision = Revision.Zero }
     let parseChange =
         { id = 0
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops =
             [ Op.SetDocumentState(file.id, Unparsed, Current)
               Op.NewNode(parsedId, "parsed")
               Op.Replace(file.id, [], [ attach ]) ] }
-    match History.applyChange parseChange state with
+    match ChangeValidation.applyChange parseChange state with
     | ApplyResult.Changed next ->
         Assert.Equal(Current, next.graph.nodes.[file.id].documentState)
         Assert.Equal(Current, next.graph.nodes.[src.id].documentState)
@@ -310,10 +310,10 @@ let ``leading-dot directory File represents containing Directory named .scratch`
 [<Fact>]
 let ``reserved gambol dot files are excluded from reconciliation`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
-    let paths = [ "gambol.log"; "nested/GAMBOL.meta"; "gambol" ]
+    let paths = [ "gambol.events"; "nested/GAMBOL.meta"; "gambol" ]
     let graph2 = requirePlan graph "home" paths |> applyOps graph
     let children = ownedNamedChildren graph2 workspaceId
-    Assert.DoesNotContain(children, fun (name, _) -> name = "gambol.log")
+    Assert.DoesNotContain(children, fun (name, _) -> name = "gambol.events")
     Assert.DoesNotContain(children, fun (name, _) -> name = "nested")
     Assert.Contains(children, fun (name, _) -> name = "gambol")
 
@@ -610,12 +610,12 @@ let ``directory amb ref to existing owned child keeps owner occurrence`` () =
         Assert.NotEmpty(report.ops)
         let change =
             { id = 0
-              changeId = System.Guid.NewGuid()
+              submissionId = System.Guid.NewGuid()
               ops = report.ops }
         let state =
             { graph = graph1
               revision = Revision.Zero }
-        match History.applyChange change state with
+        match ChangeValidation.applyChange change state with
         | ApplyResult.Invalid(_, msg) ->
             Assert.Fail($"ownership/apply failed: {msg}")
         | ApplyResult.Unchanged _ -> Assert.Fail("expected Changed")

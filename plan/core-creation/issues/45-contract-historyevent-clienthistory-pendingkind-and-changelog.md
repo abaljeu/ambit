@@ -1,11 +1,11 @@
 # 45 — Contract HistoryEvent, mailbox History, PendingKind, StartActorRequest, and ChangeLog
 
-**Status:** blocked
-**Blocked by:** [41 — Migrate Core mailbox, CoreMsg, and Pool onto Event](41-migrate-core-mailbox-coremsg-and-pool-onto-event.md), [42 — Migrate PersistHandlers restore and getEventsSince](42-migrate-persisthandlers-restore-and-geteventssince.md), [43 — Migrate HTTP Adapter onto postEvent and Event Poll](43-migrate-http-adapter-onto-postevent-and-event-poll.md), [44 — Migrate Browser Poll, History, pending, and EventId cursor](44-migrate-browser-poll-history-pending-and-eventid.md)
+**Status:** done
+**Blocked by:** ~~[41 — Migrate Core mailbox, CoreMsg, and Pool onto Event](41-migrate-core-mailbox-coremsg-and-pool-onto-event.md), [42 — Migrate PersistHandlers restore and getEventsSince](42-migrate-persisthandlers-restore-and-geteventssince.md), [43 — Migrate HTTP Adapter onto postEvent and Event Poll](43-migrate-http-adapter-onto-postevent-and-event-poll.md), [44 — Migrate Browser Poll, History, pending, and EventId cursor](44-migrate-browser-poll-history-pending-and-eventid.md)~~
 
 ## Context
 
-The migrate batches of Story **Caller, persist, and Poll** on [Core creation architecture](../arch.md) have moved callers onto Event, EventLog, ClientHistory, `postEvent`, Event Poll, and Event persist. HistoryEvent, ActorLifecycleEvent, mailbox `type History` / History name, PendingKind, the StartActorRequest name, and the ChangeLog name remain beside the new form. No caller should remain. This ticket is the contract hop: delete the old form. Do not delete ClientHistory. Field shapes: [[../reports/event-abstraction.md]]. Type inventory this replaces: [[../reports/event-abstraction.md]] section **Type inventory this replaces**.
+The migrate batches of Story **Caller, persist, and Poll** on [Core creation architecture](../arch.md) have moved callers onto Ev, EventLog, ClientHistory, `postEvent`, Event Poll, and Event persist. HistoryEvent, ActorLifecycleEvent, mailbox `type History` / History name, PendingKind, the StartActorRequest name, and the ChangeLog name remain beside the new form. No caller should remain. This ticket is the contract hop: delete the old form. Do not delete ClientHistory. Field shapes: [[../reports/event-abstraction.md]]. Type inventory this replaces: [[../reports/event-abstraction.md]] section **Type inventory this replaces**.
 
 ## What to build
 
@@ -13,25 +13,25 @@ Delete the old form once no caller remains. Delete HistoryEvent, ActorLifecycleE
 
 ### 1. Delete old Event and mailbox History types
 
-Remove the replaced Shared types. Modules **Event** and **EventLog**. ClientHistory remains.
+Remove the replaced Shared types. Modules **Ev** and **EventLog**. ClientHistory remains.
 
-- [ ] Delete HistoryEvent — no HistoryEvent (`ChangeEvent` / `ActorEvent`) remains.
-- [ ] Delete ActorLifecycleEvent — no ActorLifecycleEvent (`ActorStarted` / `ActorFinished`) remains.
-- [ ] Delete mailbox History name — no `type History` / `module History` remains. EventLog replaced that mailbox-log role. Do not plan a new History at [[src/Shared/History.fs]].
-- [ ] Delete PendingKind — no PendingKind remains. PendingChange / ChangeBatch wrap Event (or EventBody).
-- [ ] ClientHistory remains — ClientHistory stays ClientHistory (Emacs Action view). Do not delete it.
+- [x] Delete HistoryEvent — no HistoryEvent (`ChangeEvent` / `ActorEvent`) remains.
+- [x] Delete ActorLifecycleEvent — no ActorLifecycleEvent (`ActorStarted` / `ActorFinished`) remains.
+- [x] Delete mailbox History name — no `type History` / `module History` remains. EventLog replaced that mailbox-log role. Do not plan a new History at [[src/Shared/History.fs]].
+- [x] Delete PendingKind — no PendingKind remains. PendingChange / EventBatch wrap Ev (or EventBody).
+- [x] ClientHistory remains — ClientHistory stays ClientHistory (Emacs Action view). Do not delete it.
 
 ### 2. Delete StartActorRequest name
 
 Remove the old start-request name. Modules **CoreMailbox**, **CoreActorPool**, **HTTP Adapter**.
 
-- [ ] Delete StartActorRequest name — every caller says ActorStart. The name StartActorRequest is gone.
+- [x] Delete StartActorRequest name — every caller says ActorStart. The name StartActorRequest is gone.
 
 ### 3. Drop ChangeLog name
 
 Rename persist to EventLog. Module **EventLog**. Persist seam **PersistHandlers**.
 
-- [ ] Drop ChangeLog name — persist is EventLog. Payload is Event. There is no second log. Today’s [[src/Server/ChangeLog.fs]] name is gone.
+- [x] Drop ChangeLog name — persist is EventLog. Payload is Ev. There is no second log. Today’s [[src/Server/ChangeLog.fs]] name is gone.
 
 ## Out of scope
 
@@ -47,3 +47,4 @@ Rename persist to EventLog. Module **EventLog**. Persist seam **PersistHandlers*
 
 - 2026-09-15 — Filed via `/to-tickets` for Story **Caller, persist, and Poll** only. Contract hop. Blocked by every story 5 migrate batch.
 - 2026-09-15 — Contract deletes HistoryEvent, ActorLifecycleEvent, mailbox History name (replaced by EventLog), PendingKind, StartActorRequest, and the ChangeLog name. ClientHistory remains. Do not delete ClientHistory as if a History module replaced it.
+- 2026-09-16 — Completed section 3: Migrated all ChangeLog callers to EventLogFile. Deleted src/Server/ChangeLog.fs. Deleted temporary module History reexport shim. All History.* calls updated to ChangeValidation.*. Merged to staging.

@@ -40,9 +40,10 @@ module Api =
         (clientRev: int)
         : Async<IResult> = async {
         let! rev = handle.getRevision ()
-        let! changes =
-            if rev.Value > clientRev then
-                handle.getChangesSince (Revision clientRev)
+        let (Gambol.Shared.EventId revValue) = rev
+        let! events =
+            if revValue > clientRev then
+                handle.getEventsSince (Gambol.Shared.EventId clientRev)
             else async.Return []
         let poll: ChangeSuccessResponse =
             { revision = rev
@@ -50,8 +51,8 @@ module Api =
               pageBuildEpochSec = pageBuildEpochSec
               apiVersion = ApiVersion.current
               isReady = handle.isReady ()
-              externalChanges = not changes.IsEmpty
-              changes = changes
+              externalChanges = not events.IsEmpty
+              events = events
               message = None
               bootstrapHash = None }
         return changeSuccessResult poll
@@ -95,18 +96,19 @@ module Api =
                             "Load requires all selected targets in one Workspace" |})
             | Ok(Ok packages) ->
                 let! rev = handle.getRevision ()
-                let! changes =
-                    if rev.Value > request.revision then
-                        handle.getChangesSince (Revision request.revision)
+                let (Gambol.Shared.EventId revValue) = rev
+                let! events =
+                    if revValue > request.revision.Value then
+                        handle.getEventsSince request.revision
                     else
                         async.Return []
                 let load: LoadResponse =
-                    { revision = rev.Value
+                    { revision = rev
                       buildEpochSec = buildEpochSec
                       pageBuildEpochSec = pageBuildEpochSec
                       apiVersion = ApiVersion.current
                       isReady = handle.isReady ()
-                      changes = changes
+                      events = events
                       packages = packages }
                 let json =
                     Encode.toString 0 (ApiResponseSerialization.encodeLoadResponse load)
@@ -136,7 +138,7 @@ module Api =
             | Ok state ->
                 let response: StateResponse =
                     { graph = state.graph
-                      revision = state.revision
+                      revision = Gambol.Shared.EventId state.revision.Value
                       isReady = handle.isReady () }
                 let scoped =
                     ResidentProjection.bootstrapStateResponse
@@ -154,28 +156,28 @@ module Api =
                     $"Internal server error in GetState: {ex.Message}"
     }
 
-    let postChange
+    let postEvents
         (handle: CoreChanges)
         (buildEpochSec: int)
         (pageBuildEpochSec: int)
         (body: string)
         : Async<IResult> = async {
-        match Decode.fromString Serialization.decodeChangeBatch body with
+        match Decode.fromString Gambol.Shared.EventJson.decodeEventBatch body with
         | Error err ->
             return agentErrorResult $"Invalid JSON: {err}"
         | Ok batch ->
-            // Transport batch; CoreMailbox loops one PostEvent per Change.
-            match! handle.postChange batch.changes with
+            match! handle.postEvents batch.events with
             | Ok accepted ->
+                let! rev = handle.getRevision ()
                 return
                     changeSuccessResult
-                        { revision = accepted.revision
+                        { revision = rev
                           buildEpochSec = buildEpochSec
                           pageBuildEpochSec = pageBuildEpochSec
                           apiVersion = ApiVersion.current
                           isReady = accepted.isReady
                           externalChanges = accepted.externalChanges
-                          changes = accepted.changes
+                          events = accepted.events
                           message = accepted.message
                           bootstrapHash = None }
             | Error err -> return agentErrorResult err
@@ -248,7 +250,7 @@ module Api =
             | Ok ops ->
                 let change =
                     { id = state.revision.Value
-                      changeId = Guid.NewGuid()
+                      submissionId = Guid.NewGuid()
                       ops = ops }
                 match! handle.postGraphOnlyChange change with
                 | Ok _ -> return jsonResult """{"ok":true}"""

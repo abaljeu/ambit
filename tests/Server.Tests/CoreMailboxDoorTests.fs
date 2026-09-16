@@ -23,12 +23,12 @@ let private eventPast host =
         return history.events
     }
 
-let private sampleRequest: StartActorRequest =
+let private sampleRequest: Gambol.Shared.ActorStart =
     { zoomId = Graph.rootId
       focusId = Graph.rootId
       commandId = Graph.rootId
       graphIds = [ Graph.rootId ]
-      revision = Gambol.Shared.Events.EventId 0 }
+      revision = Gambol.Shared.EventId 0 }
 
 let private actorCaller secret =
     { authority = Authority "Actor"
@@ -99,7 +99,7 @@ let ``CoreMailbox.login privately admits a Browser secret`` () =
             let childId = NodeId.New()
             let change =
                 { id = 0
-                  changeId = Guid.NewGuid()
+                  submissionId = Guid.NewGuid()
                   ops =
                     [ Op.NewNode(childId, "after-login")
                       Op.Replace(
@@ -236,7 +236,7 @@ let ``CoreMailbox.startActor appends ActorStart to lifecycle events`` () =
             events
             |> List.choose (fun event ->
                 match event.body with
-                | Gambol.Shared.Events.EventBody.ActorStart request
+                | Gambol.Shared.EventBody.ActorStart request
                     when request.focusId = sampleRequest.focusId ->
                     Some request.focusId
                 | _ -> None)
@@ -287,7 +287,7 @@ let ``CoreMailbox.actorStop appends ActorStop and drops live row`` () =
                 events
                 |> List.choose (fun event ->
                     match event.body with
-                    | Gambol.Shared.Events.EventBody.ActorStop(focusId, _)
+                    | Gambol.Shared.EventBody.ActorStop(focusId, _)
                         when focusId = sampleRequest.focusId ->
                         Some focusId
                     | _ -> None)
@@ -302,7 +302,7 @@ let ``CoreActorPool.startActor uses client graphIds to build subgraph`` () =
         let childId = NodeId.New()
         let change =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(childId, "child")
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
@@ -311,12 +311,12 @@ let ``CoreActorPool.startActor uses client graphIds to build subgraph`` () =
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
-        let request: StartActorRequest =
+        let request: Gambol.Shared.ActorStart =
             { zoomId = Graph.rootId
               focusId = Graph.rootId
               commandId = Graph.rootId
               graphIds = [ Graph.rootId; childId ]
-              revision = Gambol.Shared.Events.EventId 0 }
+              revision = Gambol.Shared.EventId 0 }
         
         let! result =
             CoreMailbox.startActor host testCaller request
@@ -329,7 +329,7 @@ let ``CoreActorPool.startActor uses client graphIds to build subgraph`` () =
             history.events,
             fun event ->
                 match event.body with
-                | Gambol.Shared.Events.EventBody.ActorStart started ->
+                | Gambol.Shared.EventBody.ActorStart started ->
                     started.commandId = request.commandId
                 | _ -> false)
     })
@@ -340,7 +340,7 @@ let ``CoreActorPool.startActor selects actor from command node text`` () =
         let commandId = NodeId.New()
         let change =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(commandId, "test")
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
@@ -349,12 +349,12 @@ let ``CoreActorPool.startActor selects actor from command node text`` () =
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
-        let request: StartActorRequest =
+        let request: Gambol.Shared.ActorStart =
             { zoomId = Graph.rootId
               focusId = Graph.rootId
               commandId = commandId
               graphIds = [ Graph.rootId; commandId ]
-              revision = Gambol.Shared.Events.EventId 0 }
+              revision = Gambol.Shared.EventId 0 }
         
         let! result =
             CoreMailbox.startActor host testCaller request
@@ -367,7 +367,7 @@ let ``CoreActorPool.startActor selects actor from command node text`` () =
             history.events,
             fun event ->
                 match event.body with
-                | Gambol.Shared.Events.EventBody.ActorStart started ->
+                | Gambol.Shared.EventBody.ActorStart started ->
                     started.commandId = request.commandId
                 | _ -> false)
     })
@@ -375,12 +375,12 @@ let ``CoreActorPool.startActor selects actor from command node text`` () =
 [<Fact>]
 let ``CoreActorPool.startActor fails when graphIds is empty`` () =
     withHost (fun host _ -> task {
-        let request: StartActorRequest =
+        let request: Gambol.Shared.ActorStart =
             { zoomId = Graph.rootId
               focusId = Graph.rootId
               commandId = Graph.rootId
               graphIds = []
-              revision = Gambol.Shared.Events.EventId 0 }
+              revision = Gambol.Shared.EventId 0 }
         
         let! result =
             CoreMailbox.startActor host testCaller request
@@ -397,7 +397,7 @@ let ``CoreActorPool.startActor fails when commandId not in graphIds`` () =
         let commandId = NodeId.New()
         let change =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(commandId, "test")
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
@@ -406,12 +406,12 @@ let ``CoreActorPool.startActor fails when commandId not in graphIds`` () =
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
-        let request: StartActorRequest =
+        let request: Gambol.Shared.ActorStart =
             { zoomId = Graph.rootId
               focusId = Graph.rootId
               commandId = commandId
               graphIds = [ Graph.rootId ]  // commandId not included
-              revision = Gambol.Shared.Events.EventId 0 }
+              revision = Gambol.Shared.EventId 0 }
         
         let! result =
             CoreMailbox.startActor host testCaller request
@@ -438,7 +438,7 @@ let ``mailbox records ActorStarted before actor body runs`` () =
             events
             |> List.choose (fun event ->
                 match event.body with
-                | Gambol.Shared.Events.EventBody.ActorStart request
+                | Gambol.Shared.EventBody.ActorStart request
                     when request.focusId = sampleRequest.focusId ->
                     Some request.focusId
                 | _ -> None)
@@ -463,7 +463,7 @@ let ``Graph-only post without admitted Caller is refused`` () =
     withHost (fun host _ -> task {
         let change =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops = [ Op.NewNode(NodeId.New(), "nope") ] }
         let! result =
             CoreMailbox.postGraphOnlyChange
@@ -480,7 +480,7 @@ let ``Graph-only post with admitted Caller reaches persist`` () =
         let childId = NodeId.New()
         let change =
             { id = 0
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(childId, "graph-only")
                   Op.Replace(
@@ -511,7 +511,7 @@ let ``CoreMailbox.logout revokes the Caller at the mailbox`` () =
                 host
                 testCaller
                 [ { id = 0
-                    changeId = Guid.NewGuid()
+                    submissionId = Guid.NewGuid()
                     ops = [ Op.NewNode(NodeId.New(), "after-logout") ] } ]
             |> Async.StartAsTask
         Assert.Equal(Error CoreAuth.refuse, refused)
@@ -534,14 +534,14 @@ let ``CoreMsg is not a public type`` () =
         |> Array.exists (fun t -> t.Name = "CoreMsg")
     Assert.False(found)
 
-let private postedEvent () : Gambol.Shared.Events.Event =
+let private postedEvent () : Ev =
     let childId = NodeId.New()
-    { id = Gambol.Shared.Events.EventId 0
+    { id = Gambol.Shared.EventId 0
       submissionId = Guid.NewGuid()
-      authority = Gambol.Shared.Events.Authority "Browser"
+      authority = Gambol.Shared.Authority "Browser"
       commandName = "Set text"
       body =
-        Gambol.Shared.Events.EventBody.Change
+        Gambol.Shared.EventBody.Change
             [ Op.NewNode(childId, "posted")
               Op.Replace(
                   Graph.rootId,
@@ -549,7 +549,7 @@ let private postedEvent () : Gambol.Shared.Events.Event =
                   [ ChildNode.owner childId ]) ] }
 
 [<Fact>]
-let ``CoreMailbox.postEvent appends an Event that eventsSince returns`` () =
+let ``CoreMailbox.postEvent appends an Ev that eventsSince returns`` () =
     withHost (fun host _ -> task {
         let event = postedEvent ()
         let! posted =
@@ -559,7 +559,7 @@ let ``CoreMailbox.postEvent appends an Event that eventsSince returns`` () =
         let! tail =
             CoreMailbox.eventsSince
                 host
-                (Gambol.Shared.Events.EventId -1)
+                (Gambol.Shared.EventId -1)
             |> Async.StartAsTask
         Assert.Equal(1, tail.events.Length)
         Assert.Contains(stored, tail.events)

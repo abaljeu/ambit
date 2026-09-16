@@ -2,6 +2,7 @@ namespace Gambol.Server
 
 open System
 open Microsoft.AspNetCore.Http
+open Gambol.Shared
 
 /// Request-carried Browser secret from `gambol_auth`. No closed-over fallback.
 [<RequireQualifiedAccess>]

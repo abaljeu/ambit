@@ -13,14 +13,14 @@ let private stateWithRootChild (text: string) : State =
     let childId = NodeId.New()
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, text)
               Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
     let initial =
         { graph = Graph.create ()
           revision = Revision 0 }
-    match History.applyChange change initial with
+    match ChangeValidation.applyChange change initial with
     | ApplyResult.Changed state -> { state with revision = Revision 1 }
     | _ -> failwith "expected changed state"
 
@@ -34,12 +34,12 @@ let ``Git DB flush returns revision without rewriting disk`` () =
     let dataDir = newTempDir ()
     let state = stateWithRootChild "git-artifact"
     Directory.CreateDirectory(Bookkeeping.systemDir dataDir) |> ignore
-    File.WriteAllText(Bookkeeping.logPath dataDir, "pending")
+    File.WriteAllText(EventLogFile.eventsPath dataDir, "pending")
     File.WriteAllText(Bookkeeping.metaPath dataDir, "sentinel")
 
     use lockedLog =
         new FileStream(
-            Bookkeeping.logPath dataDir,
+            EventLogFile.eventsPath dataDir,
             FileMode.Open,
             FileAccess.ReadWrite,
             FileShare.None)
@@ -65,12 +65,12 @@ let ``Full DB sync returns revision without rewriting disk`` () =
     let dataDir = newTempDir ()
     let state = stateWithRootChild "full-backup"
     Directory.CreateDirectory(Bookkeeping.systemDir dataDir) |> ignore
-    File.WriteAllText(Bookkeeping.logPath dataDir, "pending")
+    File.WriteAllText(EventLogFile.eventsPath dataDir, "pending")
     File.WriteAllText(Bookkeeping.metaPath dataDir, "sentinel")
 
     use lockedLog =
         new FileStream(
-            Bookkeeping.logPath dataDir,
+            EventLogFile.eventsPath dataDir,
             FileMode.Open,
             FileAccess.ReadWrite,
             FileShare.None)

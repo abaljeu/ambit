@@ -16,12 +16,12 @@ let private requireOk label result =
         Assert.Fail($"{label}: {err}")
         Unchecked.defaultof<_>
 
-let private sampleRequest: StartActorRequest =
+let private sampleRequest: Gambol.Shared.ActorStart =
     { zoomId = Graph.rootId
       focusId = Graph.rootId
       commandId = Graph.rootId
       graphIds = [ Graph.rootId ]
-      revision = Gambol.Shared.Events.EventId 0 }
+      revision = Gambol.Shared.EventId 0 }
 
 let private withPersist persist body =
     task {
@@ -64,30 +64,6 @@ let ``Actor getRevision surfaces persist error instead of Revision 0`` () =
         Assert.Equal(Some "revision unavailable", observed)
     })
 
-[<Fact>]
-let ``Actor getChangesSince surfaces persist error instead of empty list`` () =
-    let persist = filePersist ()
-    let filling =
-        { persist with
-            handlers =
-                { persist.handlers with
-                    getChangesSince =
-                        fun _ -> Error "changes unavailable" } }
-    let seen = TaskCompletionSource<string option>()
-    withPersist filling (fun host pool -> task {
-        let! started =
-            startRootActor host pool (fun _ coreChanges -> async {
-                try
-                    let! _ = coreChanges.getChangesSince (Revision 0)
-                    seen.TrySetResult None |> ignore
-                with ex ->
-                    seen.TrySetResult (Some ex.Message) |> ignore
-            })
-            |> Async.StartAsTask
-        requireOk "startActor" started
-        let! observed = seen.Task.WaitAsync(TimeSpan.FromSeconds 5.0)
-        Assert.Equal(Some "changes unavailable", observed)
-    })
 
 [<Fact>]
 let ``Actor isReady uses mailbox host isReady`` () =
@@ -114,7 +90,7 @@ let ``Actor postChange on scheduled handle reaches persist`` () =
     let childId = NodeId.New()
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "from-actor")
               Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }

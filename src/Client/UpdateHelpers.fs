@@ -5,6 +5,7 @@ open Fable.Core.JsInterop
 open Gambol.Client.JsInterop
 open Gambol.Shared
 open Gambol.Shared.CommandEntry
+open Gambol.Shared
 open Gambol.Shared.ViewModel
 open Gambol.Shared.ViewModelMoveOps
 open Thoth.Json.Core
@@ -78,7 +79,7 @@ let private loadTargetIntent (graph: Graph) (targetId: NodeId) : LoadTarget =
 let tryStartLoadFetch (model: VM) : SyncInfo * Effect list =
     let targetIds = selectedLoadTargetIds model
     if List.isEmpty targetIds then
-        SyncPlanner.tryStartPoll model.revision model.syncInfo
+        SyncPlanner.tryStartPoll (EventId.ofRevision model.revision) model.syncInfo
     elif
         ResidentProjection.selectionSpansMultipleWorkspaces
             model.graph
@@ -89,7 +90,7 @@ let tryStartLoadFetch (model: VM) : SyncInfo * Effect list =
         let targets =
             targetIds |> List.map (loadTargetIntent model.graph)
         SyncPlanner.tryStartLoad
-            model.revision
+            (EventId.ofRevision model.revision)
             targets
             model.syncInfo
 
@@ -103,7 +104,8 @@ let savePendingQueue (items: PendingChange list) =
     if items.IsEmpty then localStorageRemove pendingKey
     else
         let encoded =
-            Encode.list (items |> List.map Serialization.encodePendingChange)
+            Encode.list (
+                items |> List.map Gambol.Shared.EventJson.encodePendingChange)
         let json = Thoth.Json.JavaScript.Encode.toString 0 encoded
         localStorageSet pendingKey json
 
@@ -112,7 +114,7 @@ let loadPendingQueue () : PendingChange list =
     if isNull json || json = "" then []
     else
         match Thoth.Json.JavaScript.Decode.fromString
-            (Decode.list Serialization.decodePendingChange) json with
+            (Decode.list Gambol.Shared.EventJson.decodePendingChange) json with
         | Ok items -> items
         | Error _ -> []
 
@@ -145,20 +147,25 @@ let readEditInputSelectionEnd () : int =
 /// Fires SubmitPendingBatch only when the queue was empty and no request is in-flight.
 /// Blocked states (ServerRejected / CodeOutdated / DataOutdated / WaitingToRetry) queue
 /// changes locally but do not fire a POST.
+let clientSyncState (model: VM) : ClientSyncState =
+    ClientSyncState.create
+        model.graph
+        (EventId.ofRevision model.revision)
+        model.history
+
 let applyAndPost
     (commandName: string)
     (change: Change)
     (model: VM)
     : Result<VM * Effect list, string> =
-    let clientState: ClientSyncState =
-        { graph = model.graph
-          revision = model.revision
-          history = model.history }
-    match SyncLogic.applyLocalChange commandName change clientState with
+    match SyncLogic.applyLocalChange commandName change (clientSyncState model) with
     | Error error -> Error error
     | Ok (nextState, pendingItem) ->
         let nextSyncInfo, effects =
-            SyncPlanner.enqueuePending pendingItem model.revision model.syncInfo
+            SyncPlanner.enqueuePending
+                pendingItem
+                (EventId.ofRevision model.revision)
+                model.syncInfo
         if
             effects
             |> List.exists (function
@@ -271,7 +278,7 @@ let commitTextEdit
     | ops ->
         let change: Change =
             { id = model.revision.Value
-              changeId = System.Guid.NewGuid()
+              submissionId = System.Guid.NewGuid()
               ops = ops }
         match applyAndPost (displayName EditNode) change model with
         | Ok (m, effects) -> { m with mode = Selecting }, effects
@@ -325,7 +332,7 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) : VM * Effect l
 
         let change: Change =
             { id = model.revision.Value
-              changeId = System.Guid.NewGuid()
+              submissionId = System.Guid.NewGuid()
               ops = ops }
         match applyAndPost (displayName SplitAtCursor) change model with
         | Ok (m, effects) ->

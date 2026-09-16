@@ -1,6 +1,7 @@
 module Gambol.Client.Program
 
 open Gambol.Shared
+open Gambol.Shared
 open Gambol.Shared.LogText
 open Gambol.Shared.ViewModel
 open Gambol.Client
@@ -125,24 +126,23 @@ and private fallbackState (reason: string) =
     BootCacheStore.deleteCache currentFile ignore
     loadFromState ()
 
-and private applyBootNovel (novel: Change list) (ready: bool) =
+and private applyBootNovel (novel: Ev list) (ready: bool) =
     let model = getModel ()
-    let clientState: ClientSyncState =
-        { graph = model.graph
-          revision = model.revision
-          history = model.history }
-    match SyncLogic.applyServerTail novel clientState with
+    match
+        SyncLogic.applyServerTail novel (clientSyncState model)
+    with
     | Error _ -> fallbackState "apply"
     | Ok newState ->
         dispatch (
             SysMsg (
                 BootGraphApplied (
                     newState.graph,
-                    newState.revision,
+                    EventId.toRevision newState.revision,
                     newState.history,
                     ready)))
-        BootCacheStore.appendChanges currentFile novel
-        bootLog <- bootLog @ novel
+        let novelChanges = novel |> List.map Ev.asChange
+        BootCacheStore.appendChanges currentFile novelChanges
+        bootLog <- bootLog @ novelChanges
         BootCacheStore.requestIdleTruncate
             currentFile
             bootScope
@@ -162,7 +162,12 @@ and private handleBootPoll (clientRev: int) (poll: ChangeSuccessResponse) =
     with
     | BootCache.BootPoll.Confirmed ready ->
         dispatch (
-            SysMsg (PollDone (None, [], Some ready, Some poll.revision)))
+            SysMsg (
+                PollDone (
+                    None,
+                    [],
+                    Some ready,
+                    Some (EventId.toRevision poll.revision))))
     | BootCache.BootPoll.CodeOutdated ->
         dispatch (
             SysMsg (
@@ -170,7 +175,7 @@ and private handleBootPoll (clientRev: int) (poll: ChangeSuccessResponse) =
                     Some CodeOutdated,
                     [],
                     Some poll.isReady,
-                    Some poll.revision)))
+                    Some (EventId.toRevision poll.revision))))
     | BootCache.BootPoll.ApplyNovel (novel, ready) ->
         applyBootNovel novel ready
     | BootCache.BootPoll.FallbackState reason ->

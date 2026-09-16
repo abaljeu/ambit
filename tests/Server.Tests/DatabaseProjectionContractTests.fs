@@ -19,7 +19,7 @@ let private stamp value =
 
 let private change ops =
     { id = 0
-      changeId = Guid.NewGuid()
+      submissionId = Guid.NewGuid()
       ops = ops }
 
 let private graphWithCustomNodes nodes =
@@ -263,7 +263,7 @@ let ``db bootstrap duplicate returns stored Change and rejects no-op`` () = task
 
     let accepted =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "bootstrap")
               Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
@@ -274,7 +274,9 @@ let ``db bootstrap duplicate returns stored Change and rejects no-op`` () = task
         match first with
         | Ok ack -> ack
         | Error err -> failwith err
-    Assert.Equal(accepted.changeId, Assert.Single(firstAck.changes).changeId)
+    Assert.Equal(
+        accepted.submissionId,
+        Assert.Single(firstAck.events).submissionId)
     let! xminAfterFirst =
         scalar<string> connStr "SELECT xmin::text FROM graph WHERE singleton = 1"
 
@@ -282,12 +284,14 @@ let ``db bootstrap duplicate returns stored Change and rejects no-op`` () = task
         core.postChange (encodeBatch [ accepted ]) |> Async.StartAsTask
     match duplicate with
     | Ok ack ->
-        Assert.Equal<Change list>(firstAck.changes, ack.changes)
+        Assert.Equal<Ev list>(
+            firstAck.events,
+            ack.events)
     | Error err -> failwith err
 
     let noOp =
         { id = 1
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops = [] }
     let! unchanged = core.postChange (encodeBatch [ noOp ]) |> Async.StartAsTask
     match unchanged with
@@ -296,10 +300,10 @@ let ``db bootstrap duplicate returns stored Change and rejects no-op`` () = task
 
     let! xminAfterNoWrites =
         scalar<string> connStr "SELECT xmin::text FROM graph WHERE singleton = 1"
-    let! changeCount = scalar<int64> connStr "SELECT count(*) FROM changes"
+    let! eventCount = scalar<int64> connStr "SELECT count(*) FROM events"
     let! revision = scalar<int> connStr "SELECT revision FROM graph WHERE singleton = 1"
     Assert.Equal(xminAfterFirst, xminAfterNoWrites)
-    Assert.Equal(1L, changeCount)
+    Assert.Equal(1L, eventCount)
     Assert.Equal(1, revision)
 }
 
@@ -329,14 +333,6 @@ let ``startup sweep deletes unreachable rows without rewriting reachable project
                     ChildNode.owner reachableId :: root.children }
         |> Graph.fromNodes Graph.rootId
     do! replaceProjection connStr graph 12
-
-    use conn = Database.getConnection connStr
-    do! conn.OpenAsync()
-    use tx = conn.BeginTransaction()
-    do!
-        Database.appendChangeWithTx tx 12 11 (Guid.NewGuid()) "{}"
-        |> Async.AwaitTask
-    tx.Commit()
 
     let! nodeXminBefore =
         scalarById<string> connStr
@@ -382,14 +378,12 @@ let ``startup sweep deletes unreachable rows without rewriting reachable project
             """
             reachableId.Value
     let! revision = scalar<int> connStr "SELECT revision FROM graph WHERE singleton = 1"
-    let! changeCount = scalar<int64> connStr "SELECT count(*) FROM changes"
 
     Assert.Equal(0L, orphanRows)
     Assert.Equal(0L, incidentEdges)
     Assert.Equal(nodeXminBefore, nodeXminAfter)
     Assert.Equal(edgeXminBefore, edgeXminAfter)
     Assert.Equal(12, revision)
-    Assert.Equal(1L, changeCount)
 }
 
 [<Fact>]
@@ -464,14 +458,6 @@ let ``ownership repair does not bump revision or append changes`` () = task {
         |> Graph.fromNodes Graph.rootId
     do! replaceProjection connStr graph 8
 
-    use conn = Database.getConnection connStr
-    do! conn.OpenAsync()
-    use tx = conn.BeginTransaction()
-    do!
-        Database.appendChangeWithTx tx 8 7 (Guid.NewGuid()) "{}"
-        |> Async.AwaitTask
-    tx.Commit()
-
     let! deleted = sweep connStr
     Assert.Empty(deleted)
     let! wsOwnership =
@@ -491,11 +477,9 @@ let ``ownership repair does not bump revision or append changes`` () = task {
             """
             aId.Value
     let! revision = scalar<int> connStr "SELECT revision FROM graph WHERE singleton = 1"
-    let! changeCount = scalar<int64> connStr "SELECT count(*) FROM changes"
     Assert.Equal("owner", wsOwnership)
     Assert.Equal("ref", uOwnership)
     Assert.Equal(8, revision)
-    Assert.Equal(1L, changeCount)
 }
 
 [<Fact>]

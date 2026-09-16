@@ -18,24 +18,55 @@ type Op =
     /// Server disk mtime after persist. `oldTime` is for undo; apply ignores mismatch.
     | SetUpdateTime of nodeId: NodeId * oldTime: System.DateTime * newTime: System.DateTime
 
+type EventId =
+    | EventId of int
+
+    member this.Value =
+        let (EventId value) = this
+        value
+
+[<RequireQualifiedAccess>]
+module EventId =
+    let zero = EventId 0
+    let next (EventId n) = EventId(n + 1)
+    let max (EventId a) (EventId b) = EventId(Operators.max a b)
+    let value (id: EventId) = id.Value
+    let ofRevision (rev: Revision) = EventId rev.Value
+    let toRevision (id: EventId) = Revision id.Value
+
+type Authority = Authority of string
+
+type ActorResult =
+    | ActorSucceeded
+    | ActorFailed
+
+type ActorStart =
+    { zoomId: NodeId
+      focusId: NodeId
+      commandId: NodeId
+      graphIds: NodeId list
+      revision: EventId }
+
+[<RequireQualifiedAccess>]
+type EventBody =
+    | Change of ops: Op list
+    | Undo of target: EventId * ops: Op list
+    | Redo of target: EventId * ops: Op list
+    | ActorStart of ActorStart
+    | ActorStop of focusId: NodeId * result: ActorResult
+
+type Ev =
+    { id: EventId
+      submissionId: System.Guid
+      authority: Authority
+      commandName: string
+      body: EventBody }
 
 type Change =
     { id: int
-      changeId: System.Guid   // unique per network submission; used for server-side dedup
+      submissionId: System.Guid   // unique per network submission; used for server-side dedup
       ops: Op list }
 
-type ActorLifecycleEvent =
-    | ActorStarted of focusId: NodeId * authority: string
-    | ActorFinished of focusId: NodeId
-
-type HistoryEvent =
-    | ChangeEvent of Change
-    | ActorEvent of id: int * ActorLifecycleEvent
-
-type History =
-    { past: HistoryEvent list
-      future: HistoryEvent list
-      nextId: int }
 
 
 type State =
@@ -60,6 +91,7 @@ module Op =
     let private reservedPathError =
         "owned artifact path contains a reserved system name"
 
+    let makeChange id submissionId ops = { id=id ; submissionId=submissionId; ops=ops }
     let private fromGraphResult (state: State) (result: Result<Graph, string>) : ApplyResult =
         match result with
         | Ok graph -> ApplyResult.Changed { state with graph = graph }
@@ -296,7 +328,7 @@ module Change =
 
     let inverse
         (baseRevision: Revision)
-        (changeId: System.Guid)
+        (submissionId: System.Guid)
         (source: Change)
         : Change =
         let retainReversibleOp =
@@ -306,7 +338,7 @@ module Change =
             | op -> Some(invertOp op)
 
         { id = baseRevision.Value
-          changeId = changeId
+          submissionId = submissionId
           ops = source.ops |> List.rev |> List.choose retainReversibleOp }
 
     /// Construct the inverse of a change: reversed op list, each op with old/new swapped.
@@ -315,7 +347,7 @@ module Change =
     /// for splits will return ApplyResult.Invalid and leave state unchanged.
     let invert (change: Change) : Change =
         { change with
-            changeId = System.Guid.NewGuid()
+            submissionId = System.Guid.NewGuid()
             ops = change.ops |> List.rev |> List.map invertOp }
 
     let apply (change: Change) (state: State) : ApplyResult =
@@ -365,10 +397,67 @@ module Change =
         | Ok (s, false) -> ApplyResult.Unchanged s
         | Ok (s, true) -> ApplyResult.Changed s
 
-
-
 [<RequireQualifiedAccess>]
-module History =
+module Ev =
+    let id (event: Ev) : EventId = event.id
+
+    let authority (event: Ev) : Authority = event.authority
+
+    let ops (event: Ev) : Op list option =
+        match event.body with
+        | EventBody.Change ops
+        | EventBody.Undo(_, ops)
+        | EventBody.Redo(_, ops) -> Some ops
+        | EventBody.ActorStart _
+        | EventBody.ActorStop _ -> None
+
+    let isAction (event: Ev) : bool = ops event |> Option.isSome
+
+    let target (event: Ev) : EventId option =
+        match event.body with
+        | EventBody.Undo(target, _)
+        | EventBody.Redo(target, _) -> Some target
+        | EventBody.Change _
+        | EventBody.ActorStart _
+        | EventBody.ActorStop _ -> None
+
+    let inverseOps (event: Ev) : Op list option =
+        match ops event with
+        | None -> None
+        | Some opList ->
+            let source =
+                { id = 0
+                  submissionId = event.submissionId
+                  ops = opList }
+            let inverse =
+                Change.inverse Revision.Zero event.submissionId source
+            Some inverse.ops
+
+    let asChange (event: Ev) : Change =
+        { id = event.id.Value
+          submissionId = event.submissionId
+          ops = ops event |> Option.defaultValue [] }
+
+    let ofChange (commandName: string) (change: Change) : Ev =
+        { id = EventId change.id
+          submissionId = change.submissionId
+          authority = Authority "Browser"
+          commandName = commandName
+          body = EventBody.Change change.ops }
+
+    let apply (event: Ev) (state: State) : ApplyResult =
+        match ops event with
+        | None -> ApplyResult.Unchanged state
+        | Some opList ->
+            Change.apply
+                { id = 0
+                  submissionId = event.submissionId
+                  ops = opList }
+                state
+
+/// Validation and apply functions for Change operations with ownership semantics.
+[<RequireQualifiedAccess>]
+module ChangeValidation =
     let private validateOwnershipSemantics
         (graph: Graph)
         (childIdsScope: Set<NodeId> option)
@@ -556,49 +645,6 @@ module History =
                                     $"invalid ownership semantics: duplicate name '{name}' in artifact directory",
                                     dupId)
                             | None -> Ok ()
-
-    let empty: History =
-        { past = []
-          future = []
-          nextId = 0 }
-
-    let private loggedChangeId =
-        function
-        | ChangeEvent change -> Some change.changeId
-        | ActorEvent _ -> None
-
-    /// Restore ChangeEvents from the durable Change stream. Skips changeIds
-    /// already on History so persist is not copied onto a second list.
-    let restoreChanges (logged: Change list) (history: History) : History =
-        let known =
-            history.past
-            |> List.choose loggedChangeId
-            |> Set.ofList
-        let fresh =
-            logged
-            |> List.filter (fun change ->
-                not (Set.contains change.changeId known))
-        if List.isEmpty fresh then
-            history
-        else
-            let events = fresh |> List.map ChangeEvent
-            let nextId =
-                fresh
-                |> List.fold
-                    (fun acc change -> max acc (change.id + 1))
-                    history.nextId
-            { history with
-                past = history.past @ events
-                future = []
-                nextId = nextId }
-
-    let fromChanges (changes: Change list) : History =
-        restoreChanges changes empty
-
-    let newChange (history: History) : Change =
-        { id = history.nextId
-          changeId = System.Guid.NewGuid()
-          ops = [] }
 
     let validateOwnershipLocated (graph: Graph) : Result<unit, string * NodeId> =
         validateOwnershipSemantics graph None

@@ -279,7 +279,7 @@ let ``planParseFile md reorder updates child order`` () =
     let state0 =
         { graph = graph; revision = Revision.Zero }
     let after =
-        match History.applyChange { id = 0; changeId = Guid.NewGuid(); ops = ops } state0 with
+        match ChangeValidation.applyChange { id = 0; submissionId = Guid.NewGuid(); ops = ops } state0 with
         | ApplyResult.Changed s -> s.graph
         | ApplyResult.Unchanged _ -> failwith "expected Changed"
         | ApplyResult.Invalid(_, err) -> failwith err
@@ -328,7 +328,7 @@ let ``planParseFile plain keeps id on line text edit`` () =
 
     let after = applyChange graph {
         id = 1
-        changeId = Guid.NewGuid()
+        submissionId = Guid.NewGuid()
         ops = ops
     }
 
@@ -368,7 +368,7 @@ let ``planParseFile blank input marks Unparsed file Current`` () =
 
     let after = applyChange graph {
         id = 1
-        changeId = Guid.NewGuid()
+        submissionId = Guid.NewGuid()
         ops = ops
     }
 
@@ -453,7 +453,7 @@ let ``planParseFile unparsed marks Current`` () =
 
     let after = applyChange graph {
         id = 1
-        changeId = Guid.NewGuid()
+        submissionId = Guid.NewGuid()
         ops = ops
     }
 
@@ -534,12 +534,12 @@ let ``planParseFile Unparsed with prior children warms and keeps line ids`` () =
 
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops = ops }
     let state =
         { graph = graph; revision = Revision.Zero }
 
-    match History.applyChange change state with
+    match ChangeValidation.applyChange change state with
     | ApplyResult.Invalid(_, msg) ->
         Assert.True(false, "Unparsed warm parse must apply; got: " + msg)
     | ApplyResult.Unchanged _ -> failwith "expected Changed"
@@ -631,19 +631,19 @@ let ``planParseFile Current warm plain defers matching Ref`` () =
 
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops = ops }
     let state =
         { graph = graph; revision = Revision.Zero }
 
-    match History.applyChange change state with
+    match ChangeValidation.applyChange change state with
     | ApplyResult.Invalid(_, msg) ->
         Assert.True(
             false,
             "warm plain must defer matching Ref; got: " + msg)
     | ApplyResult.Unchanged _ -> failwith "expected Changed"
     | ApplyResult.Changed after ->
-        match History.validateOwnership after.graph with
+        match ChangeValidation.validateOwnership after.graph with
         | Error msg ->
             Assert.True(false, "ownership broken after warm plain: " + msg)
         | Ok () ->
@@ -739,17 +739,17 @@ let ``planParseFile Current warm plain keeps foreign Ref`` () =
 
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops = ops }
     let state =
         { graph = graph; revision = Revision.Zero }
 
-    match History.applyChange change state with
+    match ChangeValidation.applyChange change state with
     | ApplyResult.Invalid(_, msg) ->
         Assert.True(false, "warm plain must keep foreign Ref; got: " + msg)
     | ApplyResult.Unchanged _ -> failwith "expected Changed"
     | ApplyResult.Changed after ->
-        match History.validateOwnership after.graph with
+        match ChangeValidation.validateOwnership after.graph with
         | Error msg ->
             Assert.True(false, "ownership broken after keep Ref: " + msg)
         | Ok () ->
@@ -836,19 +836,19 @@ let ``planParseFile Current warm Amb reuses foreign owner without Ref`` () =
 
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops = ops }
     let state =
         { graph = graph; revision = Revision.Zero }
 
-    match History.applyChange change state with
+    match ChangeValidation.applyChange change state with
     | ApplyResult.Invalid(_, msg) ->
         Assert.True(
             false,
             "Current warm Amb must reuse existing owner; got: " + msg)
     | ApplyResult.Unchanged _ -> failwith "expected Changed"
     | ApplyResult.Changed after ->
-        match History.validateOwnership after.graph with
+        match ChangeValidation.validateOwnership after.graph with
         | Error msg -> Assert.True(false, "ownership broken after parse: " + msg)
         | Ok () ->
             let owners =
@@ -915,8 +915,8 @@ let ``planParseFile Current warm overlay reparent does not dual-Own`` () =
         |> requireOk "seed planParseFile"
     let seeded =
         match
-            History.applyChange
-                { id = 0; changeId = Guid.NewGuid(); ops = seedOps }
+            ChangeValidation.applyChange
+                { id = 0; submissionId = Guid.NewGuid(); ops = seedOps }
                 { graph = seededGraph
                   revision = Revision.Zero }
         with
@@ -941,19 +941,19 @@ let ``planParseFile Current warm overlay reparent does not dual-Own`` () =
 
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops = ops }
     let state =
         { graph = seeded; revision = Revision.Zero }
 
-    match History.applyChange change state with
+    match ChangeValidation.applyChange change state with
     | ApplyResult.Invalid(_, msg) ->
         Assert.True(
             false,
             "Current warm overlay reparent must apply; got: " + msg)
     | ApplyResult.Unchanged _ -> failwith "expected Changed"
     | ApplyResult.Changed after ->
-        match History.validateOwnership after.graph with
+        match ChangeValidation.validateOwnership after.graph with
         | Error msg ->
             Assert.True(false, "ownership broken after warm reparent: " + msg)
         | Ok () ->
@@ -1010,8 +1010,8 @@ let ``planParseFile Current warm unmatched owned child Deletes to trash`` () =
         |> requireOk "seed planParseFile"
     let seeded =
         match
-            History.applyChange
-                { id = 0; changeId = Guid.NewGuid(); ops = seedOps }
+            ChangeValidation.applyChange
+                { id = 0; submissionId = Guid.NewGuid(); ops = seedOps }
                 { graph = seededGraph
                   revision = Revision.Zero }
         with
@@ -1030,19 +1030,19 @@ let ``planParseFile Current warm unmatched owned child Deletes to trash`` () =
 
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops = ops }
     let state =
         { graph = seeded; revision = Revision.Zero }
 
-    match History.applyChange change state with
+    match ChangeValidation.applyChange change state with
     | ApplyResult.Invalid(_, msg) ->
         Assert.True(
             false,
             "Current warm unmatched must apply; got: " + msg)
     | ApplyResult.Unchanged _ -> failwith "expected Changed"
     | ApplyResult.Changed after ->
-        match History.validateOwnership after.graph with
+        match ChangeValidation.validateOwnership after.graph with
         | Error msg ->
             Assert.True(false, "ownership broken after warm parse: " + msg)
         | Ok () ->
@@ -1107,12 +1107,12 @@ let ``planParseFile Unparsed plain upload body applies via History`` () =
 
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops = ops }
     let state =
         { graph = graph; revision = Revision.Zero }
 
-    match History.applyChange change state with
+    match ChangeValidation.applyChange change state with
     | ApplyResult.Invalid(_, msg) ->
         Assert.True(false, "plain Unparsed parse must apply; got: " + msg)
     | ApplyResult.Unchanged _
@@ -1174,7 +1174,7 @@ let private graphWithUnrelatedDualOwner () =
 [<Fact>]
 let ``planParseFile succeeds despite unrelated dual-Owner on graph`` () =
     let parseFileId, victimId, graph = graphWithUnrelatedDualOwner ()
-    match History.validateOwnershipLocated graph with
+    match ChangeValidation.validateOwnershipLocated graph with
     | Ok () -> Assert.True(false, "seed graph must be ownership-invalid")
     | Error (msg, nodeId) ->
         Assert.Contains("expected exactly one owner occurrence", msg)
@@ -1186,11 +1186,11 @@ let ``planParseFile succeeds despite unrelated dual-Owner on graph`` () =
         |> requireOk "planParseFile"
 
     let change =
-        { id = 0; changeId = Guid.NewGuid(); ops = ops }
+        { id = 0; submissionId = Guid.NewGuid(); ops = ops }
     let state =
         { graph = graph; revision = Revision.Zero }
 
-    match History.applyChange change state with
+    match ChangeValidation.applyChange change state with
     | ApplyResult.Invalid(_, msg) ->
         Assert.True(
             false,
@@ -1230,7 +1230,7 @@ let ``planParseFile succeeds when parse File itself has dual Owner`` () =
         |> Map.add fileId { file with documentState = Unparsed }
     let graph = Graph.fromNodes withOther.graph.root nodes
 
-    match History.validateOwnershipLocated graph with
+    match ChangeValidation.validateOwnershipLocated graph with
     | Ok () -> Assert.True(false, "seed must be dual-Owner invalid")
     | Error (msg, _) ->
         Assert.Contains("expected exactly one owner occurrence", msg)
@@ -1243,8 +1243,8 @@ let ``planParseFile succeeds when parse File itself has dual Owner`` () =
         |> requireOk "planParseFile"
 
     match
-        History.applyChange
-            { id = 0; changeId = Guid.NewGuid(); ops = ops }
+        ChangeValidation.applyChange
+            { id = 0; submissionId = Guid.NewGuid(); ops = ops }
             { graph = graph; revision = Revision.Zero }
     with
     | ApplyResult.Invalid(_, msg) ->
@@ -1281,7 +1281,7 @@ let ``planParseFile after Insert Ref reaches Current`` () =
             |> Map.add fileId n
             |> fun nodes -> Graph.fromNodes withRef.graph.root nodes
 
-    match History.validateOwnershipLocated graph with
+    match ChangeValidation.validateOwnershipLocated graph with
     | Error (msg, _) ->
         Assert.True(false, "Insert Ref must keep graph valid: " + msg)
     | Ok () -> ()
@@ -1294,8 +1294,8 @@ let ``planParseFile after Insert Ref reaches Current`` () =
         |> requireOk "planParseFile"
 
     match
-        History.applyChange
-            { id = 0; changeId = Guid.NewGuid(); ops = ops }
+        ChangeValidation.applyChange
+            { id = 0; submissionId = Guid.NewGuid(); ops = ops }
             { graph = graph; revision = Revision.Zero }
     with
     | ApplyResult.Invalid(_, msg) ->

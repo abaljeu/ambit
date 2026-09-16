@@ -3,6 +3,7 @@ module LargeChangeApplyTests
 open System
 open System.Diagnostics
 open Gambol.Shared
+open Gambol.Shared
 open Xunit
 
 module Enc = Thoth.Json.Newtonsoft.Encode
@@ -26,7 +27,7 @@ let private parseLikeChange (parentId: NodeId) : Change =
     let children =
         List.init nodeCount (fun _ -> ChildNode.owner (NodeId.New()))
     { id = 0
-      changeId = System.Guid.NewGuid()
+      submissionId = System.Guid.NewGuid()
       ops =
         [ for i, child in List.indexed children ->
             Op.NewNode(child.id, "line " + string i)
@@ -141,7 +142,7 @@ let private projectInverse inverse state =
     | ApplyResult.Invalid(_, message) -> failwithf "projected apply failed: %s" message
 
 let private serverApplyInverse inverse state =
-    match History.applyChange inverse state with
+    match ChangeValidation.applyChange inverse state with
     | ApplyResult.Changed _ -> ()
     | ApplyResult.Unchanged _ -> failwith "server apply did not change the graph"
     | ApplyResult.Invalid(_, message) -> failwithf "server apply failed: %s" message
@@ -183,18 +184,24 @@ let ``delivered inverse of large paste measures phases without per-created-Node 
             ViewModel.reconcileSiteMapFrom
                 projected.graph Graph.workspacesId siteMap0 nextId
             |> ignore)
+    let inverseEvent: Ev =
+        { id = Gambol.Shared.EventId 0
+          submissionId = inverse.submissionId
+          authority = Gambol.Shared.Authority ""
+          commandName = ""
+          body = Gambol.Shared.EventBody.Change inverse.ops }
     let _, encodeMs =
         time (fun () ->
-            Enc.toString 0 (Serialization.encodeChangeBatch { changes = [ inverse ] })
+            Enc.toString 0 (EventJson.encodeEventBatch { events = [ inverseEvent ] })
             |> ignore)
     let ack: ChangeSuccessResponse =
-        { revision = Revision 2
+        { revision = Gambol.Shared.EventId 2
           buildEpochSec = 0
           pageBuildEpochSec = 0
           apiVersion = ApiVersion.current
           isReady = true
           externalChanges = false
-          changes = [ inverse ]
+          events = [ inverseEvent ]
           message = None
           bootstrapHash = None }
     let _, ackMs =
@@ -216,7 +223,7 @@ let private nestedParseChange (documentRootId: NodeId) : Change =
             ChildNode.owner (NodeId.New()),
             List.init 10 (fun _ -> ChildNode.owner (NodeId.New())))
     { id = 0
-      changeId = System.Guid.NewGuid()
+      submissionId = System.Guid.NewGuid()
       ops =
         [ for branch, leaves in branches do
             yield Op.NewNode(branch.id, "branch")

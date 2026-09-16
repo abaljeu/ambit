@@ -16,7 +16,7 @@ let private applyRunPlan
     else
         let change =
             { id = model.revision.Value
-              changeId = System.Guid.NewGuid()
+              submissionId = System.Guid.NewGuid()
               ops = plan.ops }
         match applyAndPost (displayName Exec) change model with
         | Error _ -> model, commitEffects

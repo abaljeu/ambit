@@ -7,12 +7,12 @@ open Gambol.Shared
 [<RequireQualifiedAccess>]
 module internal CoreMailboxBackend =
 
-    type Event = Gambol.Shared.Events.Event
-    type EventId = Gambol.Shared.Events.EventId
-    type EventLog = Gambol.Shared.Events.EventLog
-    module Event = Gambol.Shared.Events.Event
-    module EventId = Gambol.Shared.Events.EventId
-    module EventLog = Gambol.Shared.Events.EventLog
+    type Ev = Gambol.Shared.Ev
+    type EventId = Gambol.Shared.EventId
+    type EventLog = Gambol.Shared.EventLog
+    module Ev = Gambol.Shared.Ev
+    module EventId = Gambol.Shared.EventId
+    module EventLog = Gambol.Shared.EventLog
 
     /// Bound on wall-clock time for a single change's persist step (disk write via
     /// DocumentWarm/CStyleReconcile). That reconcile path is a known-slow/hanging
@@ -43,12 +43,12 @@ module internal CoreMailboxBackend =
         let stamped = PersistStamp.appendToLast fresh stampOps
         let stampedById =
             stamped
-            |> List.map (fun change -> change.changeId, change)
+            |> List.map (fun change -> change.submissionId, change)
             |> Map.ofList
         let confirmed =
             confirmations
             |> List.map (fun change ->
-                Map.tryFind change.changeId stampedById
+                Map.tryFind change.submissionId stampedById
                 |> Option.defaultValue change)
         stamped, confirmed
 
@@ -56,8 +56,6 @@ module internal CoreMailboxBackend =
         match msg with
         | GetState _ -> "GetState", ""
         | GetRevision _ -> "GetRevision", ""
-        | GetChangesSince (after, _) ->
-            "GetChangesSince", $"after={after}"
         | GetEventsSince (after, _) ->
             "GetEventsSince", $"after={after}"
         | GetEventHistory _ -> "GetEventHistory", ""
@@ -79,7 +77,6 @@ module internal CoreMailboxBackend =
         match msg with
         | GetState reply -> reply.Reply(Error error)
         | GetRevision reply -> reply.Reply(Error error)
-        | GetChangesSince (_, reply) -> reply.Reply(Error error)
         | GetEventsSince (_, reply) -> reply.Reply(Error error)
         | GetEventHistory reply -> reply.Reply(EventLog.empty)
         | PostGraphOnlyChange (_, _, reply) -> reply.Reply(Error error)
@@ -139,7 +136,7 @@ module internal CoreMailboxBackend =
     let private dispatchStartActor
         (context: MailboxContext)
         (caller: Caller)
-        (request: Gambol.Shared.Events.ActorStart)
+        (request: Gambol.Shared.ActorStart)
         (reply: AsyncReplyChannel<Result<unit, string>>)
         : unit =
         match admitCaller context caller with
@@ -194,27 +191,44 @@ module internal CoreMailboxBackend =
             | _ ->
                 reply.Reply(Error CoreAuth.refuse)
 
-    /// Graph-only: admit then persist; skips EventLog (arch).
+    /// Graph-only: same Ev flow as postEvent, but skips file persistence.
     let private dispatchPostGraphOnlyChange
         (context: MailboxContext)
         (caller: Caller)
         (change: Change)
         (reply: AsyncReplyChannel<Result<CoreChangesAccepted, string>>)
         : unit =
-        match admitCaller context caller with
+        let event: Ev =
+            { id = EventId.zero
+              submissionId = change.submissionId
+              authority = Gambol.Shared.Authority ""
+              commandName = ""
+              body = Gambol.Shared.EventBody.Change change.ops }
+        match CoreEventDispatch.postEvent (eventDispatchContext context) caller event true with
         | Error err -> reply.Reply(Error err)
-        | Ok () ->
-            reply.Reply(context.persist.postGraphOnlyChange [ change ])
+        | Ok (_, Some accepted) -> reply.Reply(Ok accepted)
+        | Ok (_, None) ->
+            match context.persist.getRevision () with
+            | Error err -> reply.Reply(Error err)
+            | Ok revision ->
+                reply.Reply(
+                    Ok(
+                        CoreChanges.accepted
+                            revision
+                            true
+                            []
+                            false
+                            None))
 
     let private dispatchPostEvent
         (context: MailboxContext)
         (caller: Caller)
-        (event: Event)
+        (event: Ev)
         (reply:
             AsyncReplyChannel<
-                Result<Event * CoreChangesAccepted option, string>>)
+                Result<Ev * CoreChangesAccepted option, string>>)
         : unit =
-        CoreEventDispatch.postEvent (eventDispatchContext context) caller event
+        CoreEventDispatch.postEvent (eventDispatchContext context) caller event false
         |> reply.Reply
 
     let private runMsg (context: MailboxContext) (msg: CoreMsg) =
@@ -229,8 +243,6 @@ module internal CoreMailboxBackend =
                         state.graph
                 reply.Reply(Ok { state with graph = graph })
         | GetRevision reply -> reply.Reply(context.persist.getRevision ())
-        | GetChangesSince (after, reply) ->
-            reply.Reply(context.persist.getChangesSince after)
         | GetEventsSince (after, reply) ->
             reply.Reply(context.persist.getEventsSince after)
         | GetEventHistory reply ->
@@ -276,7 +288,6 @@ module internal CoreMailboxBackend =
     let private failedPersist persist error : PersistHandlers = {
         getState = persist.getState
         getRevision = persist.getRevision
-        getChangesSince = persist.getChangesSince
         getEventsSince = persist.getEventsSince
         appendEvent = fun _ -> Error error
         postChange = fun _ -> Error error
@@ -289,7 +300,7 @@ module internal CoreMailboxBackend =
             getEventsSince = fun _ -> Error error }
 
     let private seedEventLog (persist: PersistHandlers) =
-        let after = Gambol.Shared.Events.EventId(-1)
+        let after = Gambol.Shared.EventId(-1)
         try
             persist.getEventsSince after
             |> Result.map EventLog.restorePersisted
@@ -352,7 +363,6 @@ module internal CoreMailboxBackend =
                                 match msg with
                                 | GetState _
                                 | GetRevision _
-                                | GetChangesSince _
                                 | GetEventsSince _
                                 | GetEventHistory _
                                 | EventsSince _ ->

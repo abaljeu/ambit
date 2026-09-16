@@ -71,7 +71,7 @@ let ``maxOps stub creates apply well under DbAgent 8s bound`` () =
           revision = Revision.Zero }
     let change =
         { id = 0
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops = ops }
     let sw = Stopwatch.StartNew()
     match ChangeAmendment.applyChange change state with

@@ -2,6 +2,7 @@ module BootCacheTests
 
 open System
 open Gambol.Shared
+open Gambol.Shared
 open Xunit
 
 module Enc = Thoth.Json.Newtonsoft.Encode
@@ -74,7 +75,7 @@ let ``validateSnapshot rejects codec file and scope mismatches`` () =
 
 let private mkChange id =
     { id = id
-      changeId = Guid.NewGuid()
+      submissionId = Guid.NewGuid()
       ops = [] }
 
 [<Fact>]
@@ -92,20 +93,20 @@ let ``changesAfter drops the snapshot Revision itself`` () =
 [<Fact>]
 let ``acceptedForLog prefers confirmed Changes when the server assigned ids`` () =
     let confirmed = [ mkChange 9 ]
-    let submitted = [ PendingChange.ofChange (mkChange 8) ]
+    let submitted = [ PendingChange.ofEvent (Ev.ofChange "fixture" (mkChange 8)) ]
     let accepted = BootCache.acceptedForLog confirmed submitted
     Assert.Equal(9, accepted.Head.id)
 
 [<Fact>]
 let ``acceptedForLog uses submitted Changes when confirmed is empty`` () =
-    let submitted = [ PendingChange.ofChange (mkChange 8) ]
+    let submitted = [ PendingChange.ofEvent (Ev.ofChange "fixture" (mkChange 8)) ]
     let accepted = BootCache.acceptedForLog [] submitted
     Assert.Equal(8, accepted.Head.id)
 
 let private noteSnapshot () =
     let graph, noteId = Graph.newNode "hello" (Graph.create ())
     { graph = graph
-      revision = Revision 5
+      revision = EventId 5
       isReady = true },
     noteId
 
@@ -206,7 +207,7 @@ let ``foldLog applies SetText and sets Revision to the last Change id`` () =
     let snapshot, noteId = noteSnapshot ()
     let change =
         { id = 6
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops = [ Op.SetText(noteId, "hello", "world") ] }
     match BootCache.foldLog snapshot [ change ] with
     | Error err -> failwith err
@@ -229,10 +230,10 @@ let ``decideBootRead fetches /state on fold error`` () =
         Graph.create ()
         |> fun g -> Graph.fromNodes g.root (Map.add fileId fileNode g.nodes)
     let snapshot =
-        { graph = graph; revision = Revision 1; isReady = true }
+        { graph = graph; revision = EventId 1; isReady = true }
     let change =
         { id = 2
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops = [ Op.SetText(fileId, "file.txt", "changed") ] }
     let snap = recordFor snapshot
     match
@@ -252,7 +253,7 @@ let ``decideBootRead uses the folded snapshot when the cache is valid`` () =
     let snapshot, noteId = noteSnapshot ()
     let change =
         { id = 6
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops = [ Op.SetText(noteId, "hello", "world") ] }
     match
         BootCache.decideBootRead
@@ -277,7 +278,7 @@ let ``foldLog applies deletion and advances Revision`` () =
         Graph.replace graph1.root 0 [] [ ChildNode.owner noteId ] graph1
         |> ModelBuilder.requireOk "root->doomed"
     let snapshot =
-        { graph = graph2; revision = Revision 5; isReady = true }
+        { graph = graph2; revision = EventId 5; isReady = true }
     Assert.True(Map.containsKey noteId snapshot.graph.nodes)
     let removeOp = Op.Replace(graph2.root, [ ChildNode.owner noteId ], [])
     let trashChildren = graph2.nodes.[Graph.trashId].children
@@ -285,7 +286,7 @@ let ``foldLog applies deletion and advances Revision`` () =
         Op.Replace(Graph.trashId, trashChildren, trashChildren @ [ ChildNode.owner noteId ])
     let change =
         { id = 6
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops = [ removeOp; addToTrashOp ] }
     match BootCache.foldLog snapshot [ change ] with
     | Error err -> failwith err

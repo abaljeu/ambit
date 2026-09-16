@@ -2,21 +2,22 @@ module BootCachePollTests
 
 open System
 open Gambol.Shared
+open Gambol.Shared
 open Xunit
 
 let private mkChange id =
     { id = id
-      changeId = Guid.NewGuid()
+      submissionId = Guid.NewGuid()
       ops = [] }
 
 let private mkPoll rev (changes: Change list) : ChangeSuccessResponse =
-    { revision = Revision rev
+    { revision = EventId rev
       buildEpochSec = 1
       pageBuildEpochSec = 1
       apiVersion = ApiVersion.current
       isReady = true
       externalChanges = not changes.IsEmpty
-      changes = changes
+      events = changes |> List.map (Ev.ofChange "")
       message = None
       bootstrapHash = None }
 
@@ -26,16 +27,16 @@ let private decide clientRev log poll =
 [<Fact>]
 let ``novelChanges skips Poll Changes already in the log by id`` () =
     let local = mkChange 4
-    let pollDup = { local with changeId = Guid.NewGuid() }
+    let pollDup = { local with submissionId = Guid.NewGuid() }
     let novel = mkChange 5
     let kept = BootCache.novelChanges [ local ] [ pollDup; novel ]
     Assert.Equal(5, kept.Head.id)
     Assert.Equal(1, kept.Length)
 
 [<Fact>]
-let ``novelChanges skips Poll Changes already in the log by changeId`` () =
+let ``novelChanges skips Poll Changes already in the log by submissionId`` () =
     let local = mkChange 4
-    let pollDup = { mkChange 99 with changeId = local.changeId }
+    let pollDup = { mkChange 99 with submissionId = local.submissionId }
     Assert.Empty(BootCache.novelChanges [ local ] [ pollDup ])
 
 [<Fact>]
@@ -70,8 +71,8 @@ let ``decideBootPoll confirms when page stamps differ and API matches`` () =
 let ``decideBootPoll applies a novel tail`` () =
     let novel = mkChange 7
     match decide 6 [] (mkPoll 7 [ novel ]) with
-    | BootCache.BootPoll.ApplyNovel (changes, true) ->
-        Assert.Equal(7, changes.Head.id)
+    | BootCache.BootPoll.ApplyNovel (events, true) ->
+        Assert.Equal(7, events.Head.id.Value)
     | other -> failwithf "%A" other
 
 [<Fact>]
