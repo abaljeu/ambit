@@ -232,53 +232,71 @@ let ``Change round-trip`` () =
     Assert.Equal<Op list>(change.ops, decoded.ops)
 
 [<Fact>]
-let ``ChangeBatch round-trip`` () =
+let ``EventBatch round-trip`` () =
     let change =
         { id = 5
           changeId = System.Guid.NewGuid()
           ops = [ Op.SetText(NodeId.New(), "old", "new") ] }
-    let batch = { changes = [ change ] }
-    let decoded = roundTrip Serialization.encodeChangeBatch Serialization.decodeChangeBatch batch
-    Assert.Equal<Change list>(batch.changes, decoded.changes)
+    let event: Gambol.Shared.Events.Event =
+        { id = Gambol.Shared.Events.EventId 0
+          submissionId = change.changeId
+          authority = Gambol.Shared.Events.Authority ""
+          commandName = ""
+          body = Gambol.Shared.Events.EventBody.Change change.ops }
+    let batch = { events = [ event ] }
+    let decoded = roundTrip Serialization.encodeEventBatch Serialization.decodeEventBatch batch
+    Assert.Equal<Gambol.Shared.Events.Event list>(batch.events, decoded.events)
 
 [<Fact>]
-let ``ChangeBatch round-trip preserves request order`` () =
+let ``EventBatch round-trip preserves request order`` () =
     let first =
         { id = 5
           changeId = System.Guid.NewGuid()
-          ops = [ Op.SetText(NodeId.New(), "old", "new") ] }
+          ops = [ Op.SetText(NodeId.New(), "x", "y") ] }
+    let firstEvent: Gambol.Shared.Events.Event =
+        { id = Gambol.Shared.Events.EventId 0
+          submissionId = first.changeId
+          authority = Gambol.Shared.Events.Authority ""
+          commandName = ""
+          body = Gambol.Shared.Events.EventBody.Change first.ops }
     let second =
         { id = 6
           changeId = System.Guid.NewGuid()
           ops = [ Op.SetText(NodeId.New(), "a", "b") ] }
-    let batch = { changes = [ first; second ] }
-    let json = Enc.toString 0 (Serialization.encodeChangeBatch batch)
+    let secondEvent: Gambol.Shared.Events.Event =
+        { id = Gambol.Shared.Events.EventId 0
+          submissionId = second.changeId
+          authority = Gambol.Shared.Events.Authority ""
+          commandName = ""
+          body = Gambol.Shared.Events.EventBody.Change second.ops }
+    let batch = { events = [ firstEvent; secondEvent ] }
+    let json = Enc.toString 0 (Serialization.encodeEventBatch batch)
     Assert.DoesNotContain("\"action\":\"undo\"", json)
     Assert.DoesNotContain("\"action\":\"redo\"", json)
     let decoded =
-        roundTrip Serialization.encodeChangeBatch Serialization.decodeChangeBatch batch
-    Assert.Equal<Change list>([ first; second ], decoded.changes)
+        roundTrip Serialization.encodeEventBatch Serialization.decodeEventBatch batch
+    Assert.Equal<Gambol.Shared.Events.Event list>([ firstEvent; secondEvent ], decoded.events)
 
 [<Fact>]
-let ``ChangeBatch decoder rejects empty changes`` () =
-    let json = """{"changes":[]}"""
-    match Dec.fromString Serialization.decodeChangeBatch json with
+let ``EventBatch decoder rejects empty events`` () =
+    let json = """{"events":[]}"""
+    match Dec.fromString Serialization.decodeEventBatch json with
     | Ok _ -> failwith "Expected empty batch to fail decoding"
     | Error _ -> ()
 
 [<Fact>]
-let ``ChangeBatch decoder rejects explicit Undo JSON`` () =
+let ``EventBatch decoder rejects explicit Undo JSON`` () =
     let json =
-        """{"changes":[{"action":"undo","id":1,"changeId":"00000000-0000-0000-0000-000000000001"}]}"""
-    match Dec.fromString Serialization.decodeChangeBatch json with
+        """{"events":[{"id":0,"submissionId":"00000000-0000-0000-0000-000000000001","authority":"","commandName":"","body":{"Undo":{"Item1":0,"Item2":[]}}}]}"""
+    match Dec.fromString Serialization.decodeEventBatch json with
     | Ok _ -> failwith "Expected explicit Undo JSON to fail decoding"
     | Error _ -> ()
 
 [<Fact>]
-let ``ChangeBatch decoder rejects explicit Redo JSON`` () =
+let ``EventBatch decoder rejects explicit Redo JSON`` () =
     let json =
-        """{"changes":[{"action":"redo","id":1,"changeId":"00000000-0000-0000-0000-000000000001"}]}"""
-    match Dec.fromString Serialization.decodeChangeBatch json with
+        """{"events":[{"id":0,"submissionId":"00000000-0000-0000-0000-000000000001","authority":"","commandName":"","body":{"Redo":{"Item1":0,"Item2":[]}}}]}"""
+    match Dec.fromString Serialization.decodeEventBatch json with
     | Ok _ -> failwith "Expected explicit Redo JSON to fail decoding"
     | Error _ -> ()
 

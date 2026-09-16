@@ -183,19 +183,24 @@ let ``delivered inverse of large paste measures phases without per-created-Node 
             ViewModel.reconcileSiteMapFrom
                 projected.graph Graph.workspacesId siteMap0 nextId
             |> ignore)
+    let inverseEvent: Gambol.Shared.Events.Event =
+        { id = Gambol.Shared.Events.EventId 0
+          submissionId = inverse.changeId
+          authority = Gambol.Shared.Events.Authority ""
+          commandName = ""
+          body = Gambol.Shared.Events.EventBody.Change inverse.ops }
     let _, encodeMs =
         time (fun () ->
-            Enc.toString 0 (Serialization.encodeChangeBatch { changes = [ inverse ] })
+            Enc.toString 0 (Serialization.encodeEventBatch { events = [ inverseEvent ] })
             |> ignore)
     let ack: ChangeSuccessResponse =
-        { revision = Revision 2
+        { revision = Gambol.Shared.Events.EventId 2
           buildEpochSec = 0
           pageBuildEpochSec = 0
           apiVersion = ApiVersion.current
           isReady = true
           externalChanges = false
-          changes = [ inverse ]
-          events = None
+          events = [ inverseEvent ]
           message = None
           bootstrapHash = None }
     let _, ackMs =

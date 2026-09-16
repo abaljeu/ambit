@@ -38,7 +38,7 @@ let ``Browser message without a live cookie is the same auth refuse as inactive 
         let! state = client.GetAsync("/ambit/state")
         let! poll = client.GetAsync("/ambit/poll")
         use changesBody = jsonContent "{}"
-        let! changes = client.PostAsync("/ambit/changes", changesBody)
+        let! changes = client.PostAsync("/ambit/events", changesBody)
         use loadBody = jsonContent "{}"
         let! load = client.PostAsync("/ambit/load", loadBody)
         Assert.Equal(HttpStatusCode.Unauthorized, state.StatusCode)
@@ -141,7 +141,7 @@ let ``Empty Auth Browser APIs with request cookie are not refused`` () =
         Assert.Equal(HttpStatusCode.OK, state.StatusCode)
         Assert.Equal(HttpStatusCode.OK, poll.StatusCode)
         use changesBody = jsonContent "{}"
-        let! changes = client.PostAsync("/ambit/changes", changesBody)
+        let! changes = client.PostAsync("/ambit/events", changesBody)
         use loadBody = jsonContent """{"revision":0,"targets":[]}"""
         let! load = client.PostAsync("/ambit/load", loadBody)
         Assert.NotEqual(HttpStatusCode.Unauthorized, changes.StatusCode)

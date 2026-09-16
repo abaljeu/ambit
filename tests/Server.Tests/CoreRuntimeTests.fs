@@ -99,12 +99,14 @@ let ``HTTP Adapter refuses inactive Core sender with 401 and does not enqueue``
                       secret = Credential "inactive" }
                     handle
             let! before = handle.getRevision () |> Async.StartAsTask
+            let change = addRootChild "http"
+            let event = eventFromChange change
             let body =
                 Encode.toString 0 (
-                    Serialization.encodeChangeBatch
-                        { changes = [ addRootChild "http" ] })
+                    Serialization.encodeEventBatch
+                        { events = [ event ] })
             let! result =
-                Api.postChange bound 10 20 body
+                Api.postEvents bound 10 20 body
                 |> Async.StartAsTask
             let! after = handle.getRevision () |> Async.StartAsTask
             Assert.Equal("UnauthorizedHttpResult", result.GetType().Name)
@@ -119,11 +121,12 @@ let ``HTTP Adapter enqueues when Browser credential is live`` () = task {
     let agent, handle, _ = createAdmittedFileWithCredentials dataDir
     try
         let change = addRootChild "http-live"
+        let event = eventFromChange change
         let body =
             Encode.toString 0 (
-                Serialization.encodeChangeBatch { changes = [ change ] })
+                Serialization.encodeEventBatch { events = [ event ] })
         let! result =
-            Api.postChange handle 10 20 body
+            Api.postEvents handle 10 20 body
             |> Async.StartAsTask
         Assert.False(result.GetType().Name = "UnauthorizedHttpResult")
         let! rev = handle.getRevision () |> Async.StartAsTask

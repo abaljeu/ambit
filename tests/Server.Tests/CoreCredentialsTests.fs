@@ -78,11 +78,12 @@ let ``Adapter cookie fail and inactive sender are the same refuse family`` () =
         let handle =
             unusedHandle (fun _ -> async.Return(Error CoreAuth.refuse))
         let change = addRootChild "adapter"
+        let event = eventFromChange change
         let body =
             Encode.toString 0 (
-                Serialization.encodeChangeBatch { changes = [ change ] })
+                Serialization.encodeEventBatch { events = [ event ] })
         let! coreFail =
-            Api.postChange handle 10 20 body
+            Api.postEvents handle 10 20 body
             |> Async.StartAsTask
         Assert.Equal(cookieFail.GetType(), coreFail.GetType())
         Assert.Equal("UnauthorizedHttpResult", coreFail.GetType().Name)
@@ -98,11 +99,12 @@ let ``TCP or Database failure is not that auth refuse`` () = task {
     Assert.True(CoreAuth.isAuthRefuse CoreAuth.refuse)
     let handle = unusedHandle (fun _ -> async.Return(Error unavailable))
     let change = addRootChild "system"
+    let event = eventFromChange change
     let body =
         Encode.toString 0 (
-            Serialization.encodeChangeBatch { changes = [ change ] })
+            Serialization.encodeEventBatch { events = [ event ] })
     let! result =
-        Api.postChange handle 10 20 body
+        Api.postEvents handle 10 20 body
         |> Async.StartAsTask
     Assert.False(result.GetType().Name = "UnauthorizedHttpResult")
 }

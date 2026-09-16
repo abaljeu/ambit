@@ -696,13 +696,14 @@ let ``directory reconciliation POST returns failures JSON`` () =
     use client = createClientForDir tempDir
     let workspaceId, wsOps = FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
     let wsChange = { id = 0; changeId = Guid.NewGuid(); ops = wsOps }
+    let wsEvent = eventFromChange wsChange
     let wsBody =
         Thoth.Json.Newtonsoft.Encode.toString 0
-            (Serialization.encodeChangeBatch
-                { changes = [ wsChange ] })
+            (Serialization.encodeEventBatch
+                { events = [ wsEvent ] })
     use wsContent = new StringContent(wsBody, Text.Encoding.UTF8, "application/json")
     let wsResp =
-        client.PostAsync("/ambit/changes", wsContent)
+        client.PostAsync("/ambit/events", wsContent)
         |> Async.AwaitTask
         |> Async.RunSynchronously
     Assert.Equal(HttpStatusCode.OK, wsResp.StatusCode)
@@ -721,14 +722,15 @@ let ``directory reconciliation POST returns failures JSON`` () =
     let _, docsOps =
         FileNodeOps.planCreateOwnedDirectory graph workspaceId "docs"
     let docsChange = { id = 1; changeId = Guid.NewGuid(); ops = docsOps }
+    let docsEvent = eventFromChange docsChange
     let docsBody =
         Thoth.Json.Newtonsoft.Encode.toString 0
-            (Serialization.encodeChangeBatch
-                { changes = [ docsChange ] })
+            (Serialization.encodeEventBatch
+                { events = [ docsEvent ] })
     use docsContent =
         new StringContent(docsBody, Text.Encoding.UTF8, "application/json")
     let docsResp =
-        client.PostAsync("/ambit/changes", docsContent)
+        client.PostAsync("/ambit/events", docsContent)
         |> Async.AwaitTask
         |> Async.RunSynchronously
     Assert.Equal(HttpStatusCode.OK, docsResp.StatusCode)
@@ -756,13 +758,14 @@ let ``workspace reconciliation POST with empty path discovers root`` () =
     use client = createClientForDir tempDir
     let workspaceId, wsOps = FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
     let wsChange = { id = 0; changeId = Guid.NewGuid(); ops = wsOps }
+    let wsEvent = eventFromChange wsChange
     let wsBody =
         Thoth.Json.Newtonsoft.Encode.toString 0
-            (Serialization.encodeChangeBatch
-                { changes = [ wsChange ] })
+            (Serialization.encodeEventBatch
+                { events = [ wsEvent ] })
     use wsContent = new StringContent(wsBody, Text.Encoding.UTF8, "application/json")
     let wsResp =
-        client.PostAsync("/ambit/changes", wsContent)
+        client.PostAsync("/ambit/events", wsContent)
         |> Async.AwaitTask
         |> Async.RunSynchronously
     Assert.Equal(HttpStatusCode.OK, wsResp.StatusCode)

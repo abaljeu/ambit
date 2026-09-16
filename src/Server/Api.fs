@@ -156,13 +156,13 @@ module Api =
                     $"Internal server error in GetState: {ex.Message}"
     }
 
-    let postChange
+    let postEvents
         (handle: CoreChanges)
         (buildEpochSec: int)
         (pageBuildEpochSec: int)
         (body: string)
         : Async<IResult> = async {
-        match Decode.fromString Serialization.decodeChangeBatch body with
+        match Decode.fromString Serialization.decodeEventBatch body with
         | Error err ->
             return agentErrorResult $"Invalid JSON: {err}"
         | Ok batch ->

@@ -5,7 +5,7 @@ open Thoth.Json.Core
 open Thoth.Json.JavaScript
 
 
-type ChangeBatch =
+type EventBatch =
     { events: Gambol.Shared.Events.Event list }
 
 [<RequireQualifiedAccess>]
@@ -427,11 +427,11 @@ module Serialization =
             { event = get.Required.Field "event" Gambol.Shared.Events.EventJson.decode
               transition = get.Optional.Field "transition" decodePendingTransition })
 
-    let encodeChangeBatch (batch: ChangeBatch) : IEncodable =
+    let encodeEventBatch (batch: EventBatch) : IEncodable =
         Encode.object
             [ "events", batch.events |> List.map Gambol.Shared.Events.EventJson.encode |> Encode.list ]
 
-    let decodeChangeBatch: Decoder<ChangeBatch> =
+    let decodeEventBatch: Decoder<EventBatch> =
         Decode.object (fun get ->
             { events =
                 get.Required.Field

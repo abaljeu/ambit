@@ -69,7 +69,7 @@ module private SubmitChangeCallbacks =
             "[Gambol sync] GAMBOL_HTTP_ERR POST fail req=" + reqId
             + " http=" + string httpStatus + " body=" + snippet)
         let detail =
-            decodePostChangeError bodyText
+            decodePostEventError bodyText
             |> Option.map (summarizeHttpBody 400)
             |> Option.defaultValue (summarizeHttpBody 400 bodyText)
         dispatch (SysMsg (SubmitRejected detail))
@@ -370,7 +370,7 @@ let createRuntime (initialModel: VM) =
             |> Option.map (fun item ->
                 item.event.submissionId.ToString("N").Substring(0, 8))
             |> Option.defaultValue "empty"
-        let url = $"/{currentFile}/changes"
+        let url = $"/{currentFile}/events"
         let postChanges = SyncBatch.toWireBatch baseRev changes
         let body = encodePendingBatchBody postChanges
         let qLen = model.syncInfo.pendingChanges.Length

@@ -84,20 +84,21 @@ let private getStateJsonFull (client: HttpClient) (_file: string) = task {
     return! resp.Content.ReadAsStringAsync()
 }
 
-let private encodeChangeBatchBody (changes: Change list) =
-    Encode.toString 0 (Serialization.encodeChangeBatch { changes = changes })
+let private encodeEventBatchBody (changes: Change list) =
+    let events = changes |> List.map eventFromChange
+    Encode.toString 0 (Serialization.encodeEventBatch { events = events })
 
-/// POST /ambit/changes with a change and return the raw response.
+/// POST /ambit/events with a change and return the raw response.
 let private postChange (client: HttpClient) (_file: string) (change: Change) = task {
-    let body = encodeChangeBatchBody [ change ]
+    let body = encodeEventBatchBody [ change ]
     let content = new StringContent(body, Encoding.UTF8, "application/json")
-    return! client.PostAsync("/ambit/changes", content)
+    return! client.PostAsync("/ambit/events", content)
 }
 
 let private postChanges (client: HttpClient) (_file: string) (changes: Change list) = task {
-    let body = encodeChangeBatchBody changes
+    let body = encodeEventBatchBody changes
     let content = new StringContent(body, Encoding.UTF8, "application/json")
-    return! client.PostAsync("/ambit/changes", content)
+    return! client.PostAsync("/ambit/events", content)
 }
 
 let private ownedChild (id: NodeId) : ChildNode list =
@@ -235,7 +236,7 @@ let ``user css is served from canonical SYSTEM path`` () = task {
     Assert.Equal("canonical", css)
 }
 
-// ---- POST /ambit/changes tests (parameterised) ----
+// ---- POST /ambit/events tests (parameterised) ----
 
 [<Theory; MemberData(nameof backends)>]
 let ``POST Change and inverse Changes return complete confirmations in request order``
@@ -303,9 +304,9 @@ let ``file backend large paste inverse total response is measured`` () = task {
 let ``POST explicit Undo JSON is rejected`` (backend: BackendKind) =
     withClient backend (fun client -> task {
         let body =
-            """{"changes":[{"action":"undo","id":0,"changeId":"00000000-0000-0000-0000-000000000001"}]}"""
+            """{"events":[{"id":0,"submissionId":"00000000-0000-0000-0000-000000000001","authority":"","commandName":"","body":{"Change":[]}}]}"""
         use content = new StringContent(body, Encoding.UTF8, "application/json")
-        let! response = client.PostAsync("/ambit/changes", content)
+        let! response = client.PostAsync("/ambit/events", content)
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode)
         let! stateJson = getStateJson client testFile
         Assert.Equal(Revision 0, decodeRevision stateJson)
@@ -332,9 +333,9 @@ let ``POST changes accepts X-Gambol-Client header`` () = task {
     let! json0 = getStateJson client testFile
     let rootId = (decodeGraph json0).root
     let change, _ = changeAddChild rootId 0 "hinted"
-    let body = encodeChangeBatchBody [ change ]
+    let body = encodeEventBatchBody [ change ]
     use content = new StringContent(body, Encoding.UTF8, "application/json")
-    use req = new HttpRequestMessage(HttpMethod.Post, "/ambit/changes")
+    use req = new HttpRequestMessage(HttpMethod.Post, "/ambit/events")
     req.Content <- content
     req.Headers.TryAddWithoutValidation(
         ClientIdentity.HeaderName,
@@ -399,7 +400,7 @@ let ``POST changes with invalid JSON returns 400`` (backend: BackendKind) =
     withClient backend (fun client -> task {
         let! _ = getStateJson client testFile
         let content = new StringContent("not json", Encoding.UTF8, "application/json")
-        let! resp = client.PostAsync("/ambit/changes", content)
+        let! resp = client.PostAsync("/ambit/events", content)
         Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode)
     })
 

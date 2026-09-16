@@ -209,14 +209,14 @@ module RouteRegistration =
                         body)
                 |> Async.StartAsTask
         })) |> ignore
-        this.MapPost("/ambit/changes", Func<HttpRequest, Task<IResult>>(fun req -> task {
+        this.MapPost("/ambit/events", Func<HttpRequest, Task<IResult>>(fun req -> task {
             bindClientHint req |> ignore
             use reader = new StreamReader(req.Body)
             let! body = reader.ReadToEndAsync()
             let pageEpoch = stamps.PageBuildEpochSec ()
             return!
                 withBrowserChanges persistence req (fun handle ->
-                    Api.postChange
+                    Api.postEvents
                         handle
                         (stamps.DeployEpochSec ())
                         pageEpoch

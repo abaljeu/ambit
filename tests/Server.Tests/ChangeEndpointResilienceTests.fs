@@ -116,12 +116,13 @@ let ``SetText persists SYSTEM user css and server remains responsive`` () = task
         { id = revision
           changeId = Guid.Parse("93a26b25-272f-4c48-916b-4045a2ba37a1")
           ops = [ Op.SetText(cssNodeId, "block", "\"background\" : #fff") ] }
+    let event = eventFromChange change
     let body =
         Encode.toString 0 (
-            Serialization.encodeChangeBatch
-                { changes = [ change ] })
+            Serialization.encodeEventBatch
+                { events = [ event ] })
     use content = new StringContent(body, Encoding.UTF8, "application/json")
-    use! response = client.PostAsync("/ambit/changes", content) |> timeout
+    use! response = client.PostAsync("/ambit/events", content) |> timeout
     Assert.Equal(HttpStatusCode.OK, response.StatusCode)
     Assert.Equal(
         "\"background\" : #fff" + Environment.NewLine,

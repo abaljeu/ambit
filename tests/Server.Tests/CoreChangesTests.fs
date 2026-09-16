@@ -145,16 +145,17 @@ let ``HTTP Adapter passes typed Changes only after valid decode`` () = task {
     let posts = ResizeArray<Change list>()
     let handle = recordingHandle posts
     let change = addRootChild 0 "adapter"
+    let event = eventFromChange change
     let validBody =
         Encode.toString 0 (
-            Serialization.encodeChangeBatch
-                { changes = [ change ] })
+            Serialization.encodeEventBatch
+                { events = [ event ] })
 
     let! _ =
-        Api.postChange handle 10 20 validBody
+        Api.postEvents handle 10 20 validBody
         |> Async.StartAsTask
     let! _ =
-        Api.postChange handle 10 20 "not-json"
+        Api.postEvents handle 10 20 "not-json"
         |> Async.StartAsTask
 
     let posted = Assert.Single(posts)
