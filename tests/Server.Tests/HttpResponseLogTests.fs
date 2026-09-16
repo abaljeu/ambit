@@ -87,7 +87,7 @@ let ``controlled bad request logs begin and end with request body`` () = task {
         })
     let lines = lifecycleLines logPath
     Assert.Equal(2, lines.Length)
-    Assert.Contains("body=not valid change json", lines.[0])
+    Assert.Contains("body=not valid event json", lines.[0])
     Assert.Contains("status=400", lines.[1])
     Assert.Equal(requestId lines.[0], requestId lines.[1])
 }

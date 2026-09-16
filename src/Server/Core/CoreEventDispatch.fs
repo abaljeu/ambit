@@ -18,12 +18,13 @@ module internal CoreEventDispatch =
     let private eventAuthority (Authority name) =
         Gambol.Shared.Authority name
 
+    let private tryStored (context: Context) submissionId =
+        context.eventLog.Value.events
+        |> List.tryFind (fun e -> e.submissionId = submissionId)
+
     /// submissionId is Guid dedup (event-abstraction): replay returns the stored Ev.
     let private commit (context: Context) (event: Ev) =
-        match
-            context.eventLog.Value.events
-            |> List.tryFind (fun e -> e.submissionId = event.submissionId)
-        with
+        match tryStored context event.submissionId with
         | Some existing -> Ok existing
         | None ->
             let stored =
@@ -159,38 +160,15 @@ module internal CoreEventDispatch =
         match context.admit caller with
         | Error error -> Error error
         | Ok () ->
-            match prepare context caller event with
-            | Error error -> Error error
-            | Ok completed ->
-                match persist context completed graphOnly with
+            match tryStored context event.submissionId with
+            | Some existing -> Ok(existing, None)
+            | None ->
+                match prepare context caller event with
                 | Error error -> Error error
-                | Ok accepted ->
-                    match store context accepted completed with
+                | Ok completed ->
+                    match persist context completed graphOnly with
                     | Error error -> Error error
-                    | Ok stored -> Ok(stored, accepted)
-
-    /// Wire/transport batches loop singular postEvent; preview keeps
-    /// all-or-nothing Reject before any commit (arch: postEvent door).
-    let previewEvents
-        (knownSubmissionIds: Set<Guid>)
-        (state: State)
-        (events: Ev list)
-        : Result<unit, string> =
-        let step (acc: Result<State, string>) (event: Ev) =
-            match acc with
-            | Error error -> Error error
-            | Ok s when Set.contains event.submissionId knownSubmissionIds ->
-                Ok s
-            | Ok s ->
-                match Ev.apply event s with
-                | ApplyResult.Invalid (_, msg) -> Error msg
-                | ApplyResult.Unchanged _ ->
-                    Error "Unchanged submission is rejected."
-                | ApplyResult.Changed s' ->
-                    Ok {
-                        s' with
-                            revision =
-                                Revision(s.revision.Value + 1)
-                    }
-        List.fold step (Ok state) events
-        |> Result.map ignore
+                    | Ok accepted ->
+                        match store context accepted completed with
+                        | Error error -> Error error
+                        | Ok stored -> Ok(stored, accepted)

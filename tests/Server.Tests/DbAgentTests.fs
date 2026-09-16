@@ -24,13 +24,15 @@ let private emptyChange () =
 
 let private host agent = admittedHostDb agent
 
-let private getState agent = async {
-    match! CoreMailbox.getState (host agent) with
+let private getStateFrom mailbox = async {
+    match! CoreMailbox.getState mailbox with
     | Ok state -> return state
     | Error error ->
         Assert.Fail($"get state: {error}")
         return Unchecked.defaultof<_>
 }
+
+let private getState agent = getStateFrom (host agent)
 
 let private waitUntil (timeoutMs: int) (predicate: unit -> bool) : Task<bool> = task {
     let mutable elapsed = 0
@@ -120,16 +122,17 @@ let ``DbAgent serves reads while sweep buffers FIFO mutations then trims`` () = 
         release.Wait()
         Ok [ orphanId.Value ]
     let agent = DbAgent.createForTest initialState sweep
+    let mailbox = host agent
     Assert.True(entered.Wait(1000), "Expected startup sweep to begin.")
-    Assert.False(CoreMailbox.isReady (host agent))
+    Assert.False(CoreMailbox.isReady mailbox)
 
-    let stateTask = getState agent |> Async.StartAsTask
-    let revisionTask = CoreMailbox.getRevision (host agent) |> Async.StartAsTask
+    let stateTask = getStateFrom mailbox |> Async.StartAsTask
+    let revisionTask = CoreMailbox.getRevision mailbox |> Async.StartAsTask
     let firstPost =
-        (admittedChanges (host agent)).postChange (emptyChange ())
+        (admittedChanges mailbox).postChange (emptyChange ())
         |> Async.StartAsTask
     let secondPost =
-        (admittedChanges (host agent)).postChange (emptyChange ())
+        (admittedChanges mailbox).postChange (emptyChange ())
         |> Async.StartAsTask
     do! Task.Delay(100)
     Assert.True(stateTask.IsCompleted)
@@ -138,7 +141,7 @@ let ``DbAgent serves reads while sweep buffers FIFO mutations then trims`` () = 
     Assert.False(secondPost.IsCompleted)
     let! beforeState = stateTask
     let! beforeRevision = revisionTask
-    Assert.False(CoreMailbox.isReady (host agent))
+    Assert.False(CoreMailbox.isReady mailbox)
     Assert.True(beforeState.graph.nodes.ContainsKey orphanId)
     Assert.Equal(Gambol.Shared.EventId 4, beforeRevision)
     release.Set()
@@ -152,10 +155,10 @@ let ``DbAgent serves reads while sweep buffers FIFO mutations then trims`` () = 
     match secondResult with
     | Error error -> Assert.Contains("Unchanged submission is rejected.", error)
     | Ok _ -> Assert.Fail("Expected invalid buffered mutation to fail.")
-    let! afterState = getState agent |> Async.StartAsTask
-    Assert.True(CoreMailbox.isReady (host agent))
+    let! afterState = getStateFrom mailbox |> Async.StartAsTask
+    Assert.True(CoreMailbox.isReady mailbox)
     Assert.False(afterState.graph.nodes.ContainsKey orphanId)
-    Assert.True(CoreMailbox.isReady (host agent))
+    Assert.True(CoreMailbox.isReady mailbox)
 }
 
 [<Fact>]
@@ -260,7 +263,10 @@ let ``DbAgent change fails and state is unchanged when DB goes away after startu
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
     let agent = DbAgent.create connStr
-    let! state0 = getState agent |> Async.StartAsTask
+    let mailbox = host agent
+    let! ready = waitUntil 2000 (fun () -> CoreMailbox.isReady mailbox)
+    Assert.True(ready, "Expected startup sweep to complete before closing DB.")
+    let! state0 = getStateFrom mailbox |> Async.StartAsTask
     let rootId = state0.graph.root
     let childId = NodeId.New()
 
@@ -275,15 +281,15 @@ let ``DbAgent change fails and state is unchanged when DB goes away after startu
         do! setDatabaseAllowConnections connStr false
         let body = encodeChangeBatch [ change ]
         let! postResult =
-            (admittedChanges (host agent)).postChange body
+            (admittedChanges mailbox).postChange body
             |> Async.StartAsTask
 
         match postResult with
         | Ok _ -> Assert.Fail("Expected postChange to fail while DB rejects connections.")
         | Error err -> Assert.Contains("Database error:", err)
 
-        let! rev = CoreMailbox.getRevision (host agent) |> Async.StartAsTask
-        let! afterState = getState agent |> Async.StartAsTask
+        let! rev = CoreMailbox.getRevision mailbox |> Async.StartAsTask
+        let! afterState = getStateFrom mailbox |> Async.StartAsTask
         Assert.Equal(Gambol.Shared.EventId 0, rev)
         Assert.False(afterState.graph.nodes.ContainsKey childId)
     finally
@@ -412,7 +418,10 @@ let ``DbAgent commit hang is rejected within timeout and mailbox survives`` () =
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
     let agent = DbAgent.create connStr
-    let! state0 = getState agent |> Async.StartAsTask
+    let mailbox = host agent
+    let! ready = waitUntil 2000 (fun () -> CoreMailbox.isReady mailbox)
+    Assert.True(ready, "Expected startup sweep to complete before locking events.")
+    let! state0 = getStateFrom mailbox |> Async.StartAsTask
     let rootId = state0.graph.root
     let childId = NodeId.New()
 
@@ -433,7 +442,7 @@ let ``DbAgent commit hang is rejected within timeout and mailbox survives`` () =
 
     let sw = Diagnostics.Stopwatch.StartNew()
     let! postResult =
-        (admittedChanges (host agent))
+        (admittedChanges mailbox)
             .postChange (encodeChangeBatch [ change ])
         |> Async.StartAsTask
     sw.Stop()
@@ -450,8 +459,8 @@ let ``DbAgent commit hang is rejected within timeout and mailbox survives`` () =
     // let the orphaned background commit finish before reusing the connection pool
     do! Task.Delay(500)
 
-    let! rev = CoreMailbox.getRevision (host agent) |> Async.StartAsTask
-    let! state = getState agent |> Async.StartAsTask
+    let! rev = CoreMailbox.getRevision mailbox |> Async.StartAsTask
+    let! state = getStateFrom mailbox |> Async.StartAsTask
     Assert.NotNull(state)
     Assert.True(rev.Value >= 0)
 }
