@@ -8,7 +8,7 @@ open Gambol.Shared
 open Newtonsoft.Json
 open Npgsql
 
-/// PostgreSQL: append-only `changes` plus normalized `graph` / `nodes` / `node_children`.
+/// PostgreSQL: append-only `events` plus normalized `graph` / `nodes` / `node_children`.
 [<RequireQualifiedAccess>]
 module Database =
 
@@ -23,62 +23,7 @@ module Database =
 
             cmd.CommandText <- """
                 DROP TABLE IF EXISTS snapshots;
-
-                CREATE TABLE IF NOT EXISTS changes (
-                    seq_id               BIGSERIAL    PRIMARY KEY,
-                    client_base_revision INT          NOT NULL,
-                    change_uuid          UUID         NOT NULL,
-                    payload              TEXT         NOT NULL,
-                    recorded_at          TIMESTAMPTZ  DEFAULT NOW()
-                );
-
-                DO $$
-                BEGIN
-                    IF EXISTS (
-                        SELECT 1 FROM information_schema.columns
-                        WHERE table_name = 'changes' AND column_name = 'change_id'
-                    ) AND NOT EXISTS (
-                        SELECT 1 FROM information_schema.columns
-                        WHERE table_name = 'changes' AND column_name = 'client_base_revision'
-                    ) THEN
-                        ALTER TABLE changes RENAME COLUMN change_id TO client_base_revision;
-                    END IF;
-                END $$;
-
-                ALTER TABLE changes
-                    ADD COLUMN IF NOT EXISTS change_uuid UUID;
-
-                UPDATE changes
-                SET change_uuid = (payload::jsonb ->> 'changeId')::uuid
-                WHERE change_uuid IS NULL
-                  AND payload::jsonb ? 'changeId';
-
-                ALTER TABLE changes
-                    ALTER COLUMN change_uuid SET NOT NULL;
-
-                CREATE UNIQUE INDEX IF NOT EXISTS idx_changes_change_uuid
-                    ON changes (change_uuid);
-
-                CREATE INDEX IF NOT EXISTS idx_changes_client_base_revision
-                    ON changes (client_base_revision);
-
-                ALTER TABLE changes
-                    ADD COLUMN IF NOT EXISTS server_revision_after INTEGER;
-
-                UPDATE changes AS c
-                SET server_revision_after = s.rn
-                FROM (
-                    SELECT seq_id, ROW_NUMBER() OVER (ORDER BY seq_id) AS rn
-                    FROM changes
-                    WHERE server_revision_after IS NULL
-                ) AS s
-                WHERE c.seq_id = s.seq_id;
-
-                ALTER TABLE changes
-                    ALTER COLUMN server_revision_after SET NOT NULL;
-
-                CREATE INDEX IF NOT EXISTS idx_changes_server_revision_after
-                    ON changes (server_revision_after);
+                DROP TABLE IF EXISTS changes;
 
                 CREATE TABLE IF NOT EXISTS events (
                     event_id        INT          PRIMARY KEY,
@@ -147,10 +92,6 @@ module Database =
 
             do! cmd.ExecuteNonQueryAsync() :> Task
         }
-
-    type ChangeRow =
-        { client_base_revision: int
-          payload: string }
 
     type EventRow =
         { event_id: int
@@ -249,11 +190,7 @@ module Database =
                 conn.QuerySingleAsync<bool>(
                     "SELECT EXISTS (SELECT 1 FROM graph)")
 
-            let! hasChanges =
-                conn.QuerySingleAsync<bool>(
-                    "SELECT EXISTS (SELECT 1 FROM changes)")
-
-            return not hasGraph && not hasChanges
+            return not hasGraph
         }
 
     let private readNodeRows (conn: NpgsqlConnection) : Task<NodeDbRow list> =
@@ -420,18 +357,11 @@ module Database =
         }
 
     /// Truncate SQL tables and replace the projection from a pre-loaded file `State`.
-    /// `changes` is cleared; new posts repopulate the log.
     let rebuildFromDocumentFiles (connectionString: string) (fileState: State) : Task =
         task {
             use conn = getConnection connectionString
             do! conn.OpenAsync()
             use tx = conn.BeginTransaction()
-
-            do!
-                conn.ExecuteAsync(
-                    "TRUNCATE changes RESTART IDENTITY CASCADE",
-                    transaction = tx)
-                :> Task
 
             do!
                 conn.ExecuteAsync(

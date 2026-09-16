@@ -428,7 +428,7 @@ let ``DbAgent commit hang is rejected within timeout and mailbox survives`` () =
     use lockTx = lockConn.BeginTransaction()
     use lockCmd = lockConn.CreateCommand()
     lockCmd.Transaction <- lockTx
-    lockCmd.CommandText <- "LOCK TABLE changes IN ACCESS EXCLUSIVE MODE"
+    lockCmd.CommandText <- "LOCK TABLE events IN ACCESS EXCLUSIVE MODE"
     let! _ = lockCmd.ExecuteNonQueryAsync()
 
     let sw = Diagnostics.Stopwatch.StartNew()

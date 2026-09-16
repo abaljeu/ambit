@@ -3,9 +3,10 @@ namespace Gambol.Shared
 open Gambol.Shared.Events
 
 /// Shared Poll/events/load protocol marker. Bump on incompatible wire or semantics.
+/// Wire: integer (major*10 + minor); current is 11 for API version 1.1.
 [<RequireQualifiedAccess>]
 module ApiVersion =
-    let current = 1
+    let current = 11
 
 /// Bootstrap graph scope for GET /state. Production clients use RootClosure.
 /// Tests may request FullGraph via `?scope=full` on `/ambit/state`.

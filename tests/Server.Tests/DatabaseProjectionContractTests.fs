@@ -380,7 +380,6 @@ let ``startup sweep deletes unreachable rows without rewriting reachable project
     Assert.Equal(nodeXminBefore, nodeXminAfter)
     Assert.Equal(edgeXminBefore, edgeXminAfter)
     Assert.Equal(12, revision)
-    Assert.Equal(1L, changeCount)
 }
 
 [<Fact>]
