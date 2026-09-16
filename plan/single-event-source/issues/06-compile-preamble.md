@@ -1,6 +1,6 @@
 # 06 — Compile preamble
 
-**Status:** coded
+**Status:** done
 **Actual:** 1h
 **Blocked by:** None — [[05-expand-op-list-apply.md|05 — Expand Op-list apply]] is coded on staging
 

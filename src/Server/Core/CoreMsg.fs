@@ -51,6 +51,8 @@ type PersistHandlers = {
             -> Result<Ev list, string>
     appendEvent:
         Ev -> Result<unit, string>
+    applyEvent:
+        Ev -> bool -> Result<CoreChangesAccepted, string>
     postChange:
         Change list -> Result<CoreChangesAccepted, string>
     postGraphOnlyChange:

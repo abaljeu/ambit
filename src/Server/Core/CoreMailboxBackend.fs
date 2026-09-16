@@ -39,17 +39,34 @@ module internal CoreMailboxBackend =
         else
             task.GetAwaiter().GetResult()
 
-    let overlayFresh confirmations fresh stampOps =
-        let stamped = PersistStamp.appendToLast fresh stampOps
+    let withAppliedOps
+        (event: Gambol.Shared.Ev)
+        (ops: Op list)
+        : Gambol.Shared.Ev =
+        match event.body with
+        | EventBody.Change _ -> { event with body = EventBody.Change ops }
+        | EventBody.Undo(target, _) ->
+            { event with body = EventBody.Undo(target, ops) }
+        | EventBody.Redo(target, _) ->
+            { event with body = EventBody.Redo(target, ops) }
+        | EventBody.ActorStart _
+        | EventBody.ActorStop _ -> event
+
+    let overlayFreshEvents
+        (confirmations: Gambol.Shared.Ev list)
+        (fresh: Gambol.Shared.Ev list)
+        (stampOps: Op list)
+        : Gambol.Shared.Ev list * Gambol.Shared.Ev list =
+        let stamped = PersistStamp.appendToLastEvent fresh stampOps
         let stampedById =
             stamped
-            |> List.map (fun change -> change.submissionId, change)
+            |> List.map (fun event -> event.submissionId, event)
             |> Map.ofList
         let confirmed =
             confirmations
-            |> List.map (fun change ->
-                Map.tryFind change.submissionId stampedById
-                |> Option.defaultValue change)
+            |> List.map (fun event ->
+                Map.tryFind event.submissionId stampedById
+                |> Option.defaultValue event)
         stamped, confirmed
 
     let operationContext msg =
@@ -290,6 +307,7 @@ module internal CoreMailboxBackend =
         getRevision = persist.getRevision
         getEventsSince = persist.getEventsSince
         appendEvent = fun _ -> Error error
+        applyEvent = fun _ _ -> Error error
         postChange = fun _ -> Error error
         postGraphOnlyChange = fun _ -> Error error
         snapshotDone = fun _ -> ()

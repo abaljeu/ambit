@@ -19,9 +19,9 @@ type CoreChangesAccepted =
       message: string option
       isReady: bool }
 
-/// The Core Changes contract. Every Change reaches persistence through this handle.
-/// HTTP uses `postEvents` (Ev list from wire). `postChange` is graph-apply only
-/// (Change list) — CoreEventDispatch builds Changes from Ev ops and calls postChange.
+/// The Core Changes contract. HTTP uses `postEvents` (Ev list from wire).
+/// Persist apply admits Ev and applies Ops locally; leftover `postChange`
+/// still compiles until Core doors drop it.
 type CoreChanges =
     { getState: unit -> Async<Result<State, string>>
       getRevision: unit -> Async<Gambol.Shared.EventId>
