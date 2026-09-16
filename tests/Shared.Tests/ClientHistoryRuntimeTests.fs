@@ -14,11 +14,6 @@ let private clientState graph revision history : ClientSyncState =
       revision = revision
       history = history }
 
-let private pendingKind (item: PendingChange) : PendingKind =
-    match item.transition with
-    | Some transition -> transition.kind
-    | None -> failwith "Expected PendingTransition"
-
 let private unloadedWorkspace () : Graph * NodeId * Node =
     let graph0 = Graph.create ()
     let wsId = NodeId.New()
@@ -53,7 +48,6 @@ let ``applyLocalChange records the submitted Change and Normal transition`` () =
         Assert.Equal("after", next.graph.nodes.[nodeId].text)
         Assert.Equal(change.changeId, pending.change.changeId)
         Assert.Equal<Op list>(change.ops, pending.change.ops)
-        Assert.Equal(PendingKind.Normal, pendingKind pending)
         Assert.Equal(change.changeId, pending.transition.Value.submittedChangeId)
         Assert.Equal(0, pending.transition.Value.recordId)
         match ClientHistory.undo (Revision 4) (Guid.NewGuid()) next.history with
@@ -85,7 +79,6 @@ let ``applyLocalUndo projects the inverse through ResidentProjection`` () =
         | Some (Ok (afterUndo, pending)) ->
             Assert.Equal("before", afterUndo.graph.nodes.[nodeId].text)
             Assert.Equal(undoId, pending.change.changeId)
-            Assert.Equal(PendingKind.Undo, pendingKind pending)
             Assert.Equal<Op list>(
                 [ Op.SetText(nodeId, "after", "before") ],
                 pending.change.ops)
@@ -112,7 +105,6 @@ let ``applyLocalRedo projects the inverse through ResidentProjection`` () =
             | Some (Ok (afterRedo, pending)) ->
                 Assert.Equal("after", afterRedo.graph.nodes.[nodeId].text)
                 Assert.Equal(redoId, pending.change.changeId)
-                Assert.Equal(PendingKind.Redo, pendingKind pending)
         | _ -> failwith "Expected Undo before Redo"
 
 [<Fact>]

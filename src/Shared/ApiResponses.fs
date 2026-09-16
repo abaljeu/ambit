@@ -1,5 +1,7 @@
 namespace Gambol.Shared
 
+open Gambol.Shared.Events
+
 /// Shared Poll/changes/load protocol marker. Bump on incompatible wire or semantics.
 [<RequireQualifiedAccess>]
 module ApiVersion =
@@ -38,12 +40,12 @@ type LoadTarget =
 
 /// Request body for POST /ambit/load (Fetch + Poll for the full selection).
 type LoadRequest =
-    { revision: int
+    { revision: EventId
       targets: LoadTarget list }
 
 /// Response from POST /ambit/load: Poll stamp envelope plus optional Workspace subgraphs.
 type LoadResponse =
-    { revision: int
+    { revision: EventId
       buildEpochSec: int
       pageBuildEpochSec: int
       apiVersion: int

@@ -97,66 +97,6 @@ let ``Replace rejects Special path under reserved ancestor but allows Normal chi
     |> ignore
 
 [<Fact>]
-let ``fromChanges builds past ChangeEvents and nextId`` () =
-    let first =
-        { id = 2
-          changeId = Guid.NewGuid()
-          ops = [] }
-    let second =
-        { id = 5
-          changeId = Guid.NewGuid()
-          ops = [] }
-    let history = History.fromChanges [ first; second ]
-    Assert.Equal<HistoryEvent list>(
-        [ ChangeEvent first; ChangeEvent second ],
-        history.past)
-    Assert.Empty(history.future)
-    Assert.Equal(6, history.nextId)
-
-[<Fact>]
-let ``restoreChanges skips known changeIds and records new ones`` () =
-    let first =
-        { id = 0
-          changeId = Guid.NewGuid()
-          ops = [] }
-    let second =
-        { id = 1
-          changeId = Guid.NewGuid()
-          ops = [] }
-    let started = History.fromChanges [ first ]
-    let withActor =
-        { started with
-            past =
-                started.past
-                @ [ ActorEvent(10, ActorStarted(Graph.rootId, "Actor")) ]
-            nextId = 11 }
-    let restored = History.restoreChanges [ first; second ] withActor
-    match restored.past with
-    | [ ChangeEvent a; ActorEvent _; ChangeEvent b ] ->
-        Assert.Equal(first.changeId, a.changeId)
-        Assert.Equal(second.changeId, b.changeId)
-    | other -> Assert.Fail($"unexpected past {other}")
-    Assert.Empty(restored.future)
-    Assert.Equal(11, restored.nextId)
-
-[<Fact>]
-let ``NewChange uses next id and has no ops`` () =
-    let history = History.empty
-    let change: Change = History.newChange history
-    Assert.Equal(0, change.id)
-    Assert.Empty(change.ops)
-
-[<Fact>]
-let ``AddOp appends to change`` () =
-    let history = History.empty
-    let change0: Change = History.newChange history
-    let op1 = Op.SetText(NodeId.New(), "", "x")
-    let op2 = Op.SetText(NodeId.New(), "", "y")
-    let change1 = Change.addOp op1 change0
-    let change2 = Change.addOp op2 change1
-    Assert.Equal<Op>([ op1; op2 ], change2.ops)
-
-[<Fact>]
 let ``Apply change that updates f g h text`` () =
     let state0 = ModelBuilder.createState12 ()
     let nodeF = findNodeByText "f" state0
@@ -164,7 +104,9 @@ let ``Apply change that updates f g h text`` () =
     let nodeH = findNodeByText "h" state0
 
     let change =
-        History.newChange History.empty
+        { id = 0
+          changeId = Guid.NewGuid()
+          ops = []}
         |> Change.addOp (Op.SetText(nodeF.id, nodeF.text, "newf"))
         |> Change.addOp (Op.SetText(nodeG.id, nodeG.text, "newg"))
         |> Change.addOp (Op.SetText(nodeH.id, nodeH.text, "newh"))
@@ -652,7 +594,9 @@ let ``SetClasses via applyChange succeeds despite distant ownership violation`` 
         { graph = graph; revision = Revision.Zero }
     let fileB = state.graph.nodes.[fileBId]
     let change =
-        History.newChange History.empty
+        { id = 0
+          changeId = Guid.NewGuid()
+          ops = []}
         |> Change.addOp (Op.SetClasses(fileBId, fileB.cssClasses, CssClass.ofList [ "edited" ]))
     let result = History.applyChange change state |> expectChanged
     Assert.Equal(CssClass.ofList [ "edited" ], result.graph.nodes.[fileBId].cssClasses)
@@ -889,7 +833,9 @@ let ``local shape op succeeds despite distant ownership violation`` () =
         { graph = graph; revision = Revision.Zero }
     let newId = NodeId.New()
     let change =
-        History.newChange History.empty
+        { id = 0
+          changeId = Guid.NewGuid()
+          ops = []}
         |> Change.addOp (Op.NewNode(newId, "sibling"))
         |> Change.addOp (
             ChildListWire.append

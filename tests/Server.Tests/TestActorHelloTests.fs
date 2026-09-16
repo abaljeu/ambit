@@ -58,7 +58,7 @@ let private helloOutputChildren (graph: Graph) focusId commandId =
            | Some node -> node.text = "hello"
            | None -> false)
 
-let private sampleRequest focusId commandId graphIds: StartActorRequest =
+let private sampleRequest focusId commandId graphIds: ActorStart =
     { zoomId = Graph.rootId
       focusId = focusId
       commandId = commandId

@@ -17,7 +17,7 @@ let private requireOk label result =
         Assert.Fail($"{label}: {err}")
         Unchecked.defaultof<_>
 
-let private sampleRequest: StartActorRequest =
+let private sampleRequest: ActorStart =
     { zoomId = Graph.rootId
       focusId = Graph.rootId
       commandId = Graph.rootId
@@ -38,7 +38,7 @@ let private actorCaller secret =
       secret = secret }
 
 let private recordingPool () =
-    let started = TaskCompletionSource<StartActorRequest>()
+    let started = TaskCompletionSource<ActorStart>()
     let stopped = ResizeArray<Credential * ActorResult>()
     let live = ResizeArray<Credential>()
     let pool: CoreActorPool = {
@@ -84,7 +84,7 @@ let private postActorStop host caller result =
     CoreMailbox.actorStop host caller result
 
 [<Fact>]
-let ``StartActor with live credentials calls startActor with StartActorRequest`` () =
+let ``StartActor with live credentials calls startActor with ActorStart`` () =
     let started, _, _, pool = recordingPool ()
     withHost pool (fun host -> task {
         let! result =

@@ -404,31 +404,15 @@ module Serialization =
                 |> Option.defaultWith System.Guid.NewGuid
               ops = get.Required.Field "ops" (Decode.list decodeOp) })
 
-    let private encodePendingKind =
-        function
-        | PendingKind.Normal -> Encode.string "normal"
-        | PendingKind.Undo -> Encode.string "undo"
-        | PendingKind.Redo -> Encode.string "redo"
-
-    let private decodePendingKind: Decoder<PendingKind> =
-        Decode.string
-        |> Decode.andThen (function
-            | "normal" -> Decode.succeed PendingKind.Normal
-            | "undo" -> Decode.succeed PendingKind.Undo
-            | "redo" -> Decode.succeed PendingKind.Redo
-            | other -> Decode.fail ("Unknown pending kind: " + other))
-
     let private encodePendingTransition (transition: PendingTransition) : IEncodable =
         Encode.object
             [ "recordId", Encode.int transition.recordId
-              "submittedChangeId", Encode.guid transition.submittedChangeId
-              "kind", encodePendingKind transition.kind ]
+              "submittedChangeId", Encode.guid transition.submittedChangeId ]
 
     let private decodePendingTransition: Decoder<PendingTransition> =
         Decode.object (fun get ->
             { recordId = get.Required.Field "recordId" Decode.int
-              submittedChangeId = get.Required.Field "submittedChangeId" Decode.guid
-              kind = get.Required.Field "kind" decodePendingKind })
+              submittedChangeId = get.Required.Field "submittedChangeId" Decode.guid })
 
     let encodePendingChange (item: PendingChange) : IEncodable =
         Encode.object (

@@ -1,5 +1,6 @@
 namespace Gambol.Shared
 
+open Gambol.Shared.Events
 open Thoth.Json.Core
 open Thoth.Json.JavaScript
 
@@ -80,8 +81,9 @@ module ApiResponseSerialization =
                 get.Required.Field "includeWorkspace" Decode.bool })
 
     let encodeLoadRequest (request: LoadRequest) : IEncodable =
+        let (EventId rev) = request.revision
         Encode.object
-            [ "revision", Encode.int request.revision
+            [ "revision", Encode.int rev
               "targets",
                 request.targets
                 |> List.map encodeLoadTarget
@@ -89,7 +91,7 @@ module ApiResponseSerialization =
 
     let decodeLoadRequestDecoder: Decoder<LoadRequest> =
         Decode.object (fun get ->
-            { revision = get.Required.Field "revision" Decode.int
+            { revision = EventId (get.Required.Field "revision" Decode.int)
               targets =
                 get.Required.Field
                     "targets"
@@ -99,8 +101,9 @@ module ApiResponseSerialization =
         Decode.fromString decodeLoadRequestDecoder text
 
     let encodeLoadResponse (response: LoadResponse) : IEncodable =
+        let (EventId rev) = response.revision
         Encode.object
-            [ "r", Encode.int response.revision
+            [ "r", Encode.int rev
               "b", Encode.int response.buildEpochSec
               "p", Encode.int response.pageBuildEpochSec
               "v", Encode.int response.apiVersion
@@ -116,7 +119,7 @@ module ApiResponseSerialization =
 
     let decodeLoadResponseDecoder: Decoder<LoadResponse> =
         Decode.object (fun get ->
-            { revision = get.Required.Field "r" Decode.int
+            { revision = EventId (get.Required.Field "r" Decode.int)
               buildEpochSec = get.Required.Field "b" Decode.int
               pageBuildEpochSec = get.Required.Field "p" Decode.int
               apiVersion =

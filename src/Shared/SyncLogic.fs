@@ -72,7 +72,6 @@ module SyncLogic =
             (Ok state)
 
     let private pendingItem
-        (kind: PendingKind)
         (recordId: int)
         (change: Change)
         : PendingChange =
@@ -80,8 +79,7 @@ module SyncLogic =
           transition =
             Some
                 { recordId = recordId
-                  submittedChangeId = change.changeId
-                  kind = kind } }
+                  submittedChangeId = change.changeId } }
 
     /// Apply a Sync response atomically under Loaded rules.
     /// Packages install after the projected tail so authoritative snapshots at the
@@ -177,10 +175,9 @@ module SyncLogic =
                 { state with
                     graph = newState.graph
                     history = history },
-                pendingItem PendingKind.Normal recordId change)
+                pendingItem recordId change)
 
     let private applyInverse
-        (kind: PendingKind)
         (planned: (Change * string * ClientHistory * int) option)
         (state: ClientSyncState)
         : Result<ClientSyncState * PendingChange, string> option =
@@ -196,14 +193,13 @@ module SyncLogic =
                         { state with
                             graph = newState.graph
                             history = history },
-                        pendingItem kind recordId inverse))
+                        pendingItem recordId inverse))
 
     let applyLocalUndo
         (changeId: System.Guid)
         (state: ClientSyncState)
         : Result<ClientSyncState * PendingChange, string> option =
         applyInverse
-            PendingKind.Undo
             (ClientHistory.undo state.revision changeId state.history)
             state
 
@@ -212,7 +208,6 @@ module SyncLogic =
         (state: ClientSyncState)
         : Result<ClientSyncState * PendingChange, string> option =
         applyInverse
-            PendingKind.Redo
             (ClientHistory.redo state.revision changeId state.history)
             state
 

@@ -1,15 +1,10 @@
 namespace Gambol.Shared
 
-[<RequireQualifiedAccess>]
-type PendingKind =
-    | Normal
-    | Undo
-    | Redo
+open Gambol.Shared.Events
 
 type PendingTransition =
     { recordId: int
-      submittedChangeId: System.Guid
-      kind: PendingKind }
+      submittedChangeId: System.Guid }
 
 type PendingChange =
     { change: Change
@@ -25,8 +20,7 @@ module PendingChange =
           transition =
             Some
                 { recordId = recordId
-                  submittedChangeId = change.changeId
-                  kind = PendingKind.Normal } }
+                  submittedChangeId = change.changeId } }
 
 type SyncState =
     | Idle                       // all confirmed, nothing pending
