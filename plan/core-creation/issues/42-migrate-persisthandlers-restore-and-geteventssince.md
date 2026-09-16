@@ -10,7 +10,7 @@
 
 ## What to build
 
-Move PersistHandlers onto EventLog. File and Db call `EventLog.restore` on load. `getEventsSince` returns Events. ActorStart and ActorStop persist. The ChangeLog name remains until contract. HTTP Poll still uses the old Change tail until [43 — Migrate HTTP Adapter onto postEvent and Event Poll](43-migrate-http-adapter-onto-postevent-and-event-poll.md). CI stays green.
+Move PersistHandlers onto EventLog. File and Db call `EventLog.restore` on load. `getEventsSince` returns an Ev list. ActorStart and ActorStop persist. The ChangeLog name remains until contract. HTTP Poll still uses the old Change tail until [43 — Migrate HTTP Adapter onto postEvent and Event Poll](43-migrate-http-adapter-onto-postevent-and-event-poll.md). CI stays green.
 
 ### 1. persist ActorStart and ActorStop
 
@@ -28,12 +28,12 @@ Migrate load/restore on **PersistHandlers**.
 
 Migrate the Poll/Load persist tail on **PersistHandlers** and **CoreMailbox**.
 
-- [x] getEventsSince returns Events — `getEventsSince` returns an Event tail. The old Change persist read still compiles until HTTP Adapter migrates Poll.
+- [x] getEventsSince returns Events — `getEventsSince` returns an Ev tail. The old Change persist read still compiles until HTTP Adapter migrates Poll.
 
 ## Out of scope
 
 1. HTTP Adapter migrate — Change posts calling `postEvent`, Poll/Load Event tail, and command-builder still producing Change stay on [43 — Migrate HTTP Adapter onto postEvent and Event Poll](43-migrate-http-adapter-onto-postevent-and-event-poll.md).
-2. Browser migrate — Poll consume, EventId cursor, PendingChange / ChangeBatch, and ClientHistory undo stay on [44 — Migrate Browser Poll, History, pending, and EventId cursor](44-migrate-browser-poll-history-pending-and-eventid.md).
+2. Browser migrate — Poll consume, EventId cursor, PendingChange / EventBatch, and ClientHistory undo stay on [44 — Migrate Browser Poll, History, pending, and EventId cursor](44-migrate-browser-poll-history-pending-and-eventid.md).
 3. Contract deletes — Drop of the ChangeLog name stays on [45 — Contract HistoryEvent, mailbox History, PendingKind, StartActorRequest, and ChangeLog](45-contract-historyevent-clienthistory-pendingkind-and-changelog.md). ClientHistory remains.
 
 ## See also

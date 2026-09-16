@@ -51,7 +51,7 @@ module FileAgent =
         let persistedEventLog =
             ref (
                 EventLogFile.readAllEvents eventStream eventOffsets
-                |> Gambol.Shared.Events.EventLog.restorePersisted)
+                |> Gambol.Shared.EventLog.restorePersisted)
         let state = ref loadedState
         /// False after a soft file-write failure until process restart (meta stays behind).
         let persistClean = ref true
@@ -65,7 +65,7 @@ module FileAgent =
                 state.Value.revision
                 true
                 (confirmed
-                 |> List.map (Gambol.Shared.Events.Event.ofChange ""))
+                 |> List.map (Gambol.Shared.Ev.ofChange ""))
                 externalChanges
                 message
 
@@ -102,11 +102,11 @@ module FileAgent =
                 match persistedEventLog.Value.events
                       |> List.tryFind (fun e -> e.submissionId = change.changeId) with
                 | Some storedEvent ->
-                    // Already applied - return stored Change derived from Event
+                    // Already applied - return stored Change derived from Ev
                     let storedChange =
                         { id = s.revision.Value
                           changeId = storedEvent.submissionId
-                          ops = Gambol.Shared.Events.Event.ops storedEvent |> Option.defaultValue [] }
+                          ops = Gambol.Shared.Ev.ops storedEvent |> Option.defaultValue [] }
                     Ok(s, storedChange :: confirmations, fresh, changed, externalChanges)
                 | None ->
                     let result, amended, applied =
@@ -234,14 +234,14 @@ module FileAgent =
             getRevision = fun () -> Ok state.Value.revision
             getEventsSince = fun after ->
                 Ok(
-                    Gambol.Shared.Events.EventLog.since after persistedEventLog.Value
+                    Gambol.Shared.EventLog.since after persistedEventLog.Value
                     |> fun log -> log.events)
             appendEvent = fun event ->
                 match EventLogFile.appendEvent eventStream eventOffsets event with
                 | Error err -> Error err
                 | Ok () ->
                     persistedEventLog.Value <-
-                        Gambol.Shared.Events.EventLog.restore
+                        Gambol.Shared.EventLog.restore
                             [ event ]
                             persistedEventLog.Value
                     Ok ()

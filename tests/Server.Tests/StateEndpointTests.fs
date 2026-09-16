@@ -11,7 +11,7 @@ open Microsoft.Extensions.Configuration
 open Xunit
 open Gambol.Server
 open Gambol.Shared
-open Gambol.Shared.Events
+open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
 open SpecialNodeTestHelpers
 
@@ -260,7 +260,7 @@ let ``POST Change and inverse Changes return complete confirmations in request o
         Assert.Equal<Guid list>(
             [ change.changeId; undo.changeId; redo.changeId ],
             post.changes |> List.map (fun confirmed -> confirmed.submissionId))
-        List.iter2 assertExactPrefix [ change; undo; redo ] (post.changes |> List.map Event.asChange)
+        List.iter2 assertExactPrefix [ change; undo; redo ] (post.changes |> List.map Ev.asChange)
         let! stateJson = getStateJson client testFile
         Assert.Equal("history-action", (decodeGraph stateJson).nodes.[childId].text)
         let! pollResponse = client.GetAsync("/ambit/poll?rev=0")
@@ -275,7 +275,7 @@ let ``POST Change and inverse Changes return complete confirmations in request o
         Assert.True(poll.isReady)
         Assert.True(poll.externalChanges)
         // Poll is EventLog.since: newest-head. ACK keeps request order.
-        Assert.Equal<Event list>(List.rev post.changes, poll.changes)
+        Assert.Equal<Ev list>(List.rev post.changes, poll.changes)
     })
 
 [<Fact>]
@@ -536,7 +536,7 @@ let ``POST same changeId twice is idempotent`` (backend: BackendKind) =
         Assert.DoesNotContain("graph", b2, StringComparison.Ordinal)
         Assert.Equal(EventId 1, decodeSuccessRevision b2)
         Assert.Equal<Guid list>([ cid ], decodeAckChangeIds b2)
-        Assert.Equal<Event list>(
+        Assert.Equal<Ev list>(
             (decodeSuccess b1).changes,
             (decodeSuccess b2).changes)
 
@@ -1091,7 +1091,7 @@ let ``DB restart keeps duplicate changeId idempotent`` () = task {
     let! b2 = r2.Content.ReadAsStringAsync()
     Assert.Equal(EventId 1, decodeSuccessRevision b2)
     Assert.Equal<Guid list>([ change.changeId ], decodeAckChangeIds b2)
-    Assert.Equal<Event list>(
+    Assert.Equal<Ev list>(
         (decodeSuccess b1).changes,
         (decodeSuccess b2).changes)
 

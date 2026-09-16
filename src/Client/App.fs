@@ -3,7 +3,7 @@ module Gambol.Client.App
 open Browser.Dom
 open Browser.Types
 open Gambol.Shared
-open Gambol.Shared.Events
+open Gambol.Shared
 open Gambol.Shared.ViewModel
 open Gambol.Client
 open Gambol.Client.Update
@@ -53,7 +53,7 @@ module private SubmitChangeCallbacks =
                 SysMsg (
                     SubmitResponse (
                         submitted,
-                        ack.events |> List.map Event.asChange,
+                        ack.events |> List.map Ev.asChange,
                         EventId.toRevision ack.revision,
                         ack.externalChanges,
                         ack.message)))
@@ -412,7 +412,7 @@ let createRuntime (initialModel: VM) =
                     SysMsg (
                         PollDone (
                             outcome,
-                            poll.events |> List.map Event.asChange,
+                            poll.events |> List.map Ev.asChange,
                             Some poll.isReady,
                             Some (EventId.toRevision poll.revision))))
             | Error _ ->

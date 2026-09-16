@@ -3,7 +3,7 @@ namespace Gambol.Server
 open System
 open System.Threading.Tasks
 open Gambol.Shared
-open Gambol.Shared.Events
+open Gambol.Shared
 
 module Decode = Thoth.Json.Newtonsoft.Decode
 
@@ -108,7 +108,7 @@ module DbAgent =
             loaded.state.Value.revision
             loaded.ready.Task.IsCompletedSuccessfully
             (confirmed
-             |> List.map (Gambol.Shared.Events.Event.ofChange ""))
+             |> List.map (Gambol.Shared.Ev.ofChange ""))
             externalChanges
             message
 
@@ -123,11 +123,11 @@ module DbAgent =
         =
         match tryPersistedEvent loaded change.changeId with
         | Some storedEvent ->
-            // Already applied - derive Change from Event
+            // Already applied - derive Change from Ev
             let stored =
                 { id = s.revision.Value
                   changeId = storedEvent.submissionId
-                  ops = Gambol.Shared.Events.Event.ops storedEvent |> Option.defaultValue [] }
+                  ops = Gambol.Shared.Ev.ops storedEvent |> Option.defaultValue [] }
             Ok(s, stored :: confirmations, externalChanges)
         | None ->
             let result, amended, applied =
@@ -355,12 +355,12 @@ module DbAgent =
 
     let private appendPersistedEvent
         loaded
-        (persisted: Gambol.Shared.Events.Event)
+        (persisted: Gambol.Shared.Ev)
         =
         if String.IsNullOrWhiteSpace loaded.connectionString then
             Ok ()
         else
-            let (Gambol.Shared.Events.EventId n) = persisted.id
+            let (Gambol.Shared.EventId n) = persisted.id
             try
                 Database.appendEvent
                     loaded.connectionString
@@ -373,7 +373,7 @@ module DbAgent =
                     EventLog.restore [ persisted ] loaded.eventLog.Value
                 Ok ()
             with ex ->
-                Error $"Event persist error: {ex.Message}"
+                Error $"Ev persist error: {ex.Message}"
 
     let private persistHandlers loaded = {
         getState = fun () -> Ok loaded.state.Value

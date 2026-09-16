@@ -6,9 +6,9 @@ open Gambol.Shared
 [<RequireQualifiedAccess>]
 module internal CoreEventDispatch =
 
-    type Event = Gambol.Shared.Events.Event
-    type EventLog = Gambol.Shared.Events.EventLog
-    module EventLog = Gambol.Shared.Events.EventLog
+    type Ev = Gambol.Shared.Ev
+    type EventLog = Gambol.Shared.EventLog
+    module EventLog = Gambol.Shared.EventLog
 
     type Context =
         { admit: Caller -> Result<unit, string>
@@ -16,10 +16,10 @@ module internal CoreEventDispatch =
           eventLog: EventLog ref }
 
     let private eventAuthority (Authority name) =
-        Gambol.Shared.Events.Authority name
+        Gambol.Shared.Authority name
 
-    /// submissionId is Guid dedup (event-abstraction): replay returns the stored Event.
-    let private commit (context: Context) (event: Event) =
+    /// submissionId is Guid dedup (event-abstraction): replay returns the stored Ev.
+    let private commit (context: Context) (event: Ev) =
         match
             context.eventLog.Value.events
             |> List.tryFind (fun e -> e.submissionId = event.submissionId)
@@ -37,9 +37,9 @@ module internal CoreEventDispatch =
 
     let private lifecycleEvent
         (caller: Caller)
-        (body: Gambol.Shared.Events.EventBody)
-        : Event =
-        { id = Gambol.Shared.Events.EventId 0
+        (body: Gambol.Shared.EventBody)
+        : Ev =
+        { id = Gambol.Shared.EventId 0
           submissionId = Guid.NewGuid()
           authority = eventAuthority caller.authority
           commandName = ""
@@ -48,7 +48,7 @@ module internal CoreEventDispatch =
     let actorStart (context: Context) caller request =
         lifecycleEvent
             caller
-            (Gambol.Shared.Events.EventBody.ActorStart request)
+            (Gambol.Shared.EventBody.ActorStart request)
         |> commit context
         |> Result.map ignore
 
@@ -56,68 +56,68 @@ module internal CoreEventDispatch =
         let sharedResult =
             match result with
             | ActorSucceeded ->
-                Gambol.Shared.Events.ActorResult.ActorSucceeded
+                Gambol.Shared.ActorResult.ActorSucceeded
             | ActorFailed ->
-                Gambol.Shared.Events.ActorResult.ActorFailed
+                Gambol.Shared.ActorResult.ActorFailed
         lifecycleEvent
             caller
-            (Gambol.Shared.Events.EventBody.ActorStop(
+            (Gambol.Shared.EventBody.ActorStop(
                 focusId,
                 sharedResult))
         |> commit context
         |> Result.map ignore
 
-    let private completeAction (eventLog: EventLog) (event: Event) =
+    let private completeAction (eventLog: EventLog) (event: Ev) =
         match event.body with
-        | Gambol.Shared.Events.EventBody.Undo(target, [])
-        | Gambol.Shared.Events.EventBody.Redo(target, []) ->
+        | Gambol.Shared.EventBody.Undo(target, [])
+        | Gambol.Shared.EventBody.Redo(target, []) ->
             match EventLog.tryFind target eventLog with
-            | None -> Error "target Event not found"
+            | None -> Error "target Ev not found"
             | Some targetEvent ->
-                match Gambol.Shared.Events.Event.inverseOps targetEvent with
-                | None -> Error "target Event has no inverse Ops"
+                match Gambol.Shared.Ev.inverseOps targetEvent with
+                | None -> Error "target Ev has no inverse Ops"
                 | Some ops ->
                     let body =
                         match event.body with
-                        | Gambol.Shared.Events.EventBody.Undo _ ->
-                            Gambol.Shared.Events.EventBody.Undo(target, ops)
+                        | Gambol.Shared.EventBody.Undo _ ->
+                            Gambol.Shared.EventBody.Undo(target, ops)
                         | _ ->
-                            Gambol.Shared.Events.EventBody.Redo(target, ops)
+                            Gambol.Shared.EventBody.Redo(target, ops)
                     Ok { event with body = body }
-        | Gambol.Shared.Events.EventBody.Change _
-        | Gambol.Shared.Events.EventBody.Undo _
-        | Gambol.Shared.Events.EventBody.Redo _ -> Ok event
-        | Gambol.Shared.Events.EventBody.ActorStart _
-        | Gambol.Shared.Events.EventBody.ActorStop _ ->
+        | Gambol.Shared.EventBody.Change _
+        | Gambol.Shared.EventBody.Undo _
+        | Gambol.Shared.EventBody.Redo _ -> Ok event
+        | Gambol.Shared.EventBody.ActorStart _
+        | Gambol.Shared.EventBody.ActorStop _ ->
             Error "Actor lifecycle Events are mailbox-generated"
 
     let private withConfirmedOps
-        (event: Event)
+        (event: Ev)
         (accepted: CoreChangesAccepted)
-        : Event =
+        : Ev =
         let confirmed =
             accepted.events
             |> List.tryFind (fun stored ->
                 stored.submissionId = event.submissionId)
         let confirmedOps =
             confirmed
-            |> Option.bind Gambol.Shared.Events.Event.ops
+            |> Option.bind Gambol.Shared.Ev.ops
         match confirmedOps, event.body with
-        | Some ops, Gambol.Shared.Events.EventBody.Change _ ->
+        | Some ops, Gambol.Shared.EventBody.Change _ ->
             { event with
-                body = Gambol.Shared.Events.EventBody.Change ops }
-        | Some ops, Gambol.Shared.Events.EventBody.Undo(target, _) ->
+                body = Gambol.Shared.EventBody.Change ops }
+        | Some ops, Gambol.Shared.EventBody.Undo(target, _) ->
             { event with
-                body = Gambol.Shared.Events.EventBody.Undo(target, ops) }
-        | Some ops, Gambol.Shared.Events.EventBody.Redo(target, _) ->
+                body = Gambol.Shared.EventBody.Undo(target, ops) }
+        | Some ops, Gambol.Shared.EventBody.Redo(target, _) ->
             { event with
-                body = Gambol.Shared.Events.EventBody.Redo(target, ops) }
+                body = Gambol.Shared.EventBody.Redo(target, ops) }
         | _ -> event
 
     let private prepare
         (context: Context)
         (caller: Caller)
-        (event: Event)
+        (event: Ev)
         =
         let admitted =
             { event with
@@ -125,8 +125,8 @@ module internal CoreEventDispatch =
                 authority = eventAuthority caller.authority }
         completeAction context.eventLog.Value admitted
 
-    let private persist (context: Context) (completed: Event) (graphOnly: bool) =
-        match Gambol.Shared.Events.Event.ops completed with
+    let private persist (context: Context) (completed: Ev) (graphOnly: bool) =
+        match Gambol.Shared.Ev.ops completed with
         | None -> Ok None
         | Some ops ->
             match context.persist.getRevision () with
@@ -153,9 +153,9 @@ module internal CoreEventDispatch =
     let postEvent
         (context: Context)
         (caller: Caller)
-        (event: Event)
+        (event: Ev)
         (graphOnly: bool)
-        : Result<Event * CoreChangesAccepted option, string> =
+        : Result<Ev * CoreChangesAccepted option, string> =
         match context.admit caller with
         | Error error -> Error error
         | Ok () ->
@@ -174,15 +174,15 @@ module internal CoreEventDispatch =
     let previewEvents
         (knownSubmissionIds: Set<Guid>)
         (state: State)
-        (events: Event list)
+        (events: Ev list)
         : Result<unit, string> =
-        let step (acc: Result<State, string>) (event: Event) =
+        let step (acc: Result<State, string>) (event: Ev) =
             match acc with
             | Error error -> Error error
             | Ok s when Set.contains event.submissionId knownSubmissionIds ->
                 Ok s
             | Ok s ->
-                match Gambol.Shared.Events.Event.apply event s with
+                match Gambol.Shared.Ev.apply event s with
                 | ApplyResult.Invalid (_, msg) -> Error msg
                 | ApplyResult.Unchanged _ ->
                     Error "Unchanged submission is rejected."

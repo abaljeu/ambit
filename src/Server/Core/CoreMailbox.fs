@@ -43,20 +43,20 @@ module CoreMailbox =
 
     let eventHistory
         (host: MailboxHost)
-        : Async<Gambol.Shared.Events.EventLog> =
+        : Async<Gambol.Shared.EventLog> =
         reply host GetEventHistory
 
-    let getRevision (host: MailboxHost) : Async<Gambol.Shared.Events.EventId> =
+    let getRevision (host: MailboxHost) : Async<Gambol.Shared.EventId> =
         async {
             let! result = reply host GetRevision
             let (Revision rev) = unwrap result
-            return Gambol.Shared.Events.EventId rev
+            return Gambol.Shared.EventId rev
         }
 
     let getEventsSince
         (host: MailboxHost)
-        (after: Gambol.Shared.Events.EventId)
-        : Async<Gambol.Shared.Events.Event list> =
+        (after: Gambol.Shared.EventId)
+        : Async<Gambol.Shared.Ev list> =
         async {
             let! result =
                 reply host (fun channel -> GetEventsSince(after, channel))
@@ -65,17 +65,17 @@ module CoreMailbox =
 
     let private eventFromChange
         (change: Change)
-        : Gambol.Shared.Events.Event =
-        { id = Gambol.Shared.Events.EventId 0
+        : Gambol.Shared.Ev =
+        { id = Gambol.Shared.EventId 0
           submissionId = change.changeId
-          authority = Gambol.Shared.Events.Authority ""
+          authority = Gambol.Shared.Authority ""
           commandName = ""
-          body = Gambol.Shared.Events.EventBody.Change change.ops }
+          body = Gambol.Shared.EventBody.Change change.ops }
 
     let private postEventAccepted
         (host: MailboxHost)
         (caller: Caller)
-        (event: Gambol.Shared.Events.Event)
+        (event: Gambol.Shared.Ev)
         =
         reply host (fun channel -> PostEvent(caller, event, channel))
 
@@ -83,7 +83,7 @@ module CoreMailbox =
         (host: MailboxHost)
         (posted:
             Result<
-                Gambol.Shared.Events.Event *
+                Gambol.Shared.Ev *
                 CoreChangesAccepted option,
                 string>)
         : Async<Result<CoreChangesAccepted, string>> =
@@ -113,7 +113,7 @@ module CoreMailbox =
 
     let private previewTransportBatch
         (host: MailboxHost)
-        (events: Gambol.Shared.Events.Event list)
+        (events: Gambol.Shared.Ev list)
         : Async<Result<unit, string>> =
         async {
             let! stateResult = tryGetState host
@@ -160,7 +160,7 @@ module CoreMailbox =
         }
 
     /// Transport may pass a Change list; each Change becomes one PostEvent
-    /// on the mailbox queue (no multi-Event CoreMsg / postMany).
+    /// on the mailbox queue (no multi-Ev CoreMsg / postMany).
     let postChange
         (host: MailboxHost)
         (caller: Caller)
@@ -186,8 +186,8 @@ module CoreMailbox =
     let postEvent
         (host: MailboxHost)
         (caller: Caller)
-        (event: Gambol.Shared.Events.Event)
-        : Async<Result<Gambol.Shared.Events.Event, string>> =
+        (event: Gambol.Shared.Ev)
+        : Async<Result<Gambol.Shared.Ev, string>> =
         async {
             let! result = postEventAccepted host caller event
             return result |> Result.map fst
@@ -199,12 +199,12 @@ module CoreMailbox =
             return! acceptedFromPosted host posted
         }
 
-    /// Transport may pass an Event list; each Event becomes one PostEvent
-    /// on the mailbox queue (no multi-Event CoreMsg / postMany).
+    /// Transport may pass an Ev list; each Ev becomes one PostEvent
+    /// on the mailbox queue (no multi-Ev CoreMsg / postMany).
     let postEvents
         (host: MailboxHost)
         (caller: Caller)
-        (events: Gambol.Shared.Events.Event list)
+        (events: Gambol.Shared.Ev list)
         : Async<Result<CoreChangesAccepted, string>> =
         async {
             match events with
@@ -224,11 +224,11 @@ module CoreMailbox =
 
     let eventsSince
         (host: MailboxHost)
-        (after: Gambol.Shared.Events.EventId)
-        : Async<Gambol.Shared.Events.EventLog> =
+        (after: Gambol.Shared.EventId)
+        : Async<Gambol.Shared.EventLog> =
         reply host (fun channel -> EventsSince(after, channel))
 
-    /// Graph-only Change: same Event flow as postChange, skips file persistence only.
+    /// Graph-only Change: same Ev flow as postChange, skips file persistence only.
     let postGraphOnlyChange
         (host: MailboxHost)
         (caller: Caller)
@@ -240,7 +240,7 @@ module CoreMailbox =
     let startActor
         (host: MailboxHost)
         (caller: Caller)
-        (request: Gambol.Shared.Events.ActorStart)
+        (request: Gambol.Shared.ActorStart)
         : Async<Result<unit, string>> =
         reply host (fun channel ->
             StartActor(caller, request, channel))

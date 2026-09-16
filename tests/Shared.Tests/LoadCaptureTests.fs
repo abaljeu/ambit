@@ -1,7 +1,7 @@
 module LoadCaptureTests
 
 open Gambol.Shared
-open Gambol.Shared.Events
+open Gambol.Shared
 open Xunit
 
 let private owned = ChildNode.owners

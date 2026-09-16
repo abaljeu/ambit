@@ -4,7 +4,7 @@ open System
 open System.IO
 open System.Text
 open Gambol.Shared
-open Gambol.Shared.Events
+open Gambol.Shared
 
 module EventEnc = Thoth.Json.Newtonsoft.Encode
 module EventDec = Thoth.Json.Newtonsoft.Decode
@@ -83,14 +83,14 @@ module EventLogFile =
         readLine ()
         let line = Encoding.UTF8.GetString(buf.ToArray()).TrimEnd('\r')
         if line.Length < headerLength then
-            Error "Event log entry shorter than header"
+            Error "Ev log entry shorter than header"
         else
             match Int32.TryParse(line.Substring(0, headerLength)) with
             | true, id -> Ok(id, line.Substring(headerLength))
             | false, _ -> Error "Invalid event log entry header"
 
     // ------------------------------------------------------------------
-    // Event-specific operations
+    // Ev-specific operations
     // ------------------------------------------------------------------
 
     let eventsPath (dataDir: string) =
@@ -105,16 +105,16 @@ module EventLogFile =
             FileAccess.ReadWrite,
             FileShare.ReadWrite)
 
-    let encodeEvent (event: Event) : string =
+    let encodeEvent (event: Ev) : string =
         EventEnc.toString 0 (EventJson.encode event)
 
-    let decodeEvent (json: string) : Result<Event, string> =
+    let decodeEvent (json: string) : Result<Ev, string> =
         EventDec.fromString EventJson.decode json
 
     let readAllEvents
         (stream: FileStream)
         (offsets: int64 ResizeArray)
-        : Event list =
+        : Ev list =
         [ 0 .. offsets.Count - 1 ]
         |> List.choose (fun i ->
             match readEntryAt stream offsets.[i] with
@@ -127,7 +127,7 @@ module EventLogFile =
     let appendEvent
         (stream: FileStream)
         (offsets: int64 ResizeArray)
-        (event: Event)
+        (event: Ev)
         : Result<unit, string> =
         let (EventId n) = event.id
         let startLen = stream.Length
@@ -139,4 +139,4 @@ module EventLogFile =
         with ex ->
             stream.SetLength(startLen)
             stream.Seek(0L, SeekOrigin.End) |> ignore
-            Error $"Event log error: {ex.Message}"
+            Error $"Ev log error: {ex.Message}"

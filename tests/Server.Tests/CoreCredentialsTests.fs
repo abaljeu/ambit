@@ -16,10 +16,10 @@ let private requireOk label result =
         Unchecked.defaultof<_>
 
 let private unusedHandle
-    (post: Gambol.Shared.Events.Event list -> Async<Result<CoreChangesAccepted, string>>)
+    (post: Gambol.Shared.Ev list -> Async<Result<CoreChangesAccepted, string>>)
     : CoreChanges =
     { getState = fun () -> async.Return(Result.Error "unused")
-      getRevision = fun () -> async.Return(Gambol.Shared.Events.EventId 0)
+      getRevision = fun () -> async.Return(Gambol.Shared.EventId 0)
       getEventsSince = fun _ -> async.Return []
       isReady = fun () -> true
       postChange = fun _ -> async.Return(Result.Error "unused")
@@ -84,7 +84,7 @@ let ``Adapter cookie fail and inactive sender are the same refuse family`` () =
         let event = eventFromChange change
         let body =
             Encode.toString 0 (
-                Gambol.Shared.Events.EventJson.encodeEventBatch { events = [ event ] })
+                Gambol.Shared.EventJson.encodeEventBatch { events = [ event ] })
         let! coreFail =
             Api.postEvents handle 10 20 body
             |> Async.StartAsTask
@@ -105,7 +105,7 @@ let ``TCP or Database failure is not that auth refuse`` () = task {
     let event = eventFromChange change
     let body =
         Encode.toString 0 (
-            Gambol.Shared.Events.EventJson.encodeEventBatch { events = [ event ] })
+            Gambol.Shared.EventJson.encodeEventBatch { events = [ event ] })
     let! result =
         Api.postEvents handle 10 20 body
         |> Async.StartAsTask

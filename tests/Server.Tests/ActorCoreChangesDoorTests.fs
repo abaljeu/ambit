@@ -16,12 +16,12 @@ let private requireOk label result =
         Assert.Fail($"{label}: {err}")
         Unchecked.defaultof<_>
 
-let private sampleRequest: Gambol.Shared.Events.ActorStart =
+let private sampleRequest: Gambol.Shared.ActorStart =
     { zoomId = Graph.rootId
       focusId = Graph.rootId
       commandId = Graph.rootId
       graphIds = [ Graph.rootId ]
-      revision = Gambol.Shared.Events.EventId 0 }
+      revision = Gambol.Shared.EventId 0 }
 
 let private withPersist persist body =
     task {

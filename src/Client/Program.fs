@@ -1,7 +1,7 @@
 module Gambol.Client.Program
 
 open Gambol.Shared
-open Gambol.Shared.Events
+open Gambol.Shared
 open Gambol.Shared.LogText
 open Gambol.Shared.ViewModel
 open Gambol.Client
@@ -130,7 +130,7 @@ and private applyBootNovel (novel: Change list) (ready: bool) =
     let model = getModel ()
     match
         SyncLogic.applyServerTail
-            (novel |> List.map (Event.ofChange ""))
+            (novel |> List.map (Ev.ofChange ""))
             (clientSyncState model)
     with
     | Error _ -> fallbackState "apply"

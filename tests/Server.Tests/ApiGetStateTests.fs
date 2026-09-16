@@ -10,7 +10,7 @@ open Microsoft.Extensions.DependencyInjection
 open Xunit
 open Gambol.Server
 open Gambol.Shared
-open Gambol.Shared.Events
+open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
 open Thoth.Json.Newtonsoft
 
@@ -24,7 +24,7 @@ let private handleWithGetState
     (getState: unit -> Async<Result<State, string>>)
     : CoreChanges =
     { getState = getState
-      getRevision = fun () -> async.Return(Gambol.Shared.Events.EventId 0)
+      getRevision = fun () -> async.Return(Gambol.Shared.EventId 0)
       getEventsSince = fun _ -> async.Return []
       isReady = fun () -> true
       postChange = fun _ -> async.Return(Result.Error "unused")

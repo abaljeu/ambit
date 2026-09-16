@@ -8,7 +8,7 @@ open System.Text
 open System.Threading.Tasks
 open Xunit
 open Gambol.Shared
-open Gambol.Shared.Events
+open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
 
 module Encode = Thoth.Json.Newtonsoft.Encode

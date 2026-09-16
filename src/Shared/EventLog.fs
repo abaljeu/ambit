@@ -1,22 +1,22 @@
-namespace Gambol.Shared.Events
+namespace Gambol.Shared
 
 open Thoth.Json.Core
 open Thoth.Json.JavaScript
 open Gambol.Shared
 
 type EventLog =
-    { events: Event list
+    { events: Ev list
       nextId: EventId }
 
 [<RequireQualifiedAccess>]
 module EventLog =
-    // EventId retires Revision: cursor 0 is before the first Event; first id is 1.
+    // EventId retires Revision: cursor 0 is before the first Ev; first id is 1.
     let empty: EventLog = { events = []; nextId = EventId.next EventId.zero }
 
     let nextId (log: EventLog) : EventId = log.nextId
 
     // Append-only newest-head sequence (arch Module map EventLog).
-    let append (event: Event) (log: EventLog) : EventLog =
+    let append (event: Ev) (log: EventLog) : EventLog =
         { events = { event with id = log.nextId } :: log.events
           nextId = EventId.next log.nextId }
 
@@ -28,11 +28,11 @@ module EventLog =
                     let (EventId n) = event.id
                     n > after) }
 
-    let tryFind (eventId: EventId) (log: EventLog) : Event option =
+    let tryFind (eventId: EventId) (log: EventLog) : Ev option =
         log.events |> List.tryFind (fun event -> event.id = eventId)
 
     /// Merge persisted Events; cons so oldest-first persist input yields newest-head.
-    let restore (persisted: Event list) (log: EventLog) : EventLog =
+    let restore (persisted: Ev list) (log: EventLog) : EventLog =
         let known =
             log.events
             |> List.map (fun event -> event.submissionId)
@@ -46,13 +46,13 @@ module EventLog =
         { log with events = events }
 
     /// Merge persisted Events into an empty log, dedupe by `submissionId`, set `nextId` past max id.
-    let restorePersisted (persisted: Event list) : EventLog =
+    let restorePersisted (persisted: Ev list) : EventLog =
         let nextId =
             match persisted with
             | [] -> empty.nextId
             | _ ->
                 persisted
-                |> List.map Event.id
+                |> List.map Ev.id
                 |> List.reduce EventId.max
                 |> EventId.next
         restore persisted { empty with nextId = nextId }

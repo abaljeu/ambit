@@ -4,9 +4,6 @@ open Gambol.Shared
 
 type Credential = Credential of string
 
-/// Named source that submits requests to Core (Browser, Actor, …).
-type Authority = Authority of string
-
 /// Public Authority, login instance name, and secret at a Core door.
 /// `name` is this browser/session instance, not the global user name.
 type Caller =
@@ -14,28 +11,24 @@ type Caller =
       name: string
       secret: Credential }
 
-type ActorResult =
-    | ActorSucceeded
-    | ActorFailed
-
 type CoreChangesAccepted =
     { revision: Revision
       /// Stored Events for POST /events ACK (submission / request order).
-      events: Gambol.Shared.Events.Event list
+      events: Gambol.Shared.Ev list
       externalChanges: bool
       message: string option
       isReady: bool }
 
 /// The Core Changes contract. Every Change reaches persistence through this handle.
-/// HTTP uses `postEvents` (Event list from wire). `postChange` is graph-apply only
-/// (Change list) — CoreEventDispatch builds Changes from Event ops and calls postChange.
+/// HTTP uses `postEvents` (Ev list from wire). `postChange` is graph-apply only
+/// (Change list) — CoreEventDispatch builds Changes from Ev ops and calls postChange.
 type CoreChanges =
     { getState: unit -> Async<Result<State, string>>
-      getRevision: unit -> Async<Gambol.Shared.Events.EventId>
-      getEventsSince: Gambol.Shared.Events.EventId -> Async<Gambol.Shared.Events.Event list>
+      getRevision: unit -> Async<Gambol.Shared.EventId>
+      getEventsSince: Gambol.Shared.EventId -> Async<Gambol.Shared.Ev list>
       isReady: unit -> bool
       postChange: Change list -> Async<Result<CoreChangesAccepted, string>>
-      postEvents: Gambol.Shared.Events.Event list -> Async<Result<CoreChangesAccepted, string>>
+      postEvents: Gambol.Shared.Ev list -> Async<Result<CoreChangesAccepted, string>>
       postGraphOnlyChange:
         Change -> Async<Result<CoreChangesAccepted, string>>
       actorStop: ActorResult -> Async<Result<unit, string>>
@@ -48,7 +41,7 @@ module CoreChanges =
     let accepted
         (revision: Revision)
         (isReady: bool)
-        (events: Gambol.Shared.Events.Event list)
+        (events: Gambol.Shared.Ev list)
         (externalChanges: bool)
         (message: string option)
         : CoreChangesAccepted =

@@ -1,7 +1,7 @@
 namespace Gambol.Shared
 
 open Thoth.Json.Core
-open Gambol.Shared.Events
+open Gambol.Shared
 
 [<RequireQualifiedAccess>]
 module BootCache =
@@ -237,7 +237,7 @@ module BootCache =
             | Some DataOutdated
             | None ->
                 let novel =
-                    novelChanges log (poll.events |> List.map Event.asChange)
+                    novelChanges log (poll.events |> List.map Ev.asChange)
                 let gap = poll.revision.Value - clientRev
                 if
                     novel.Length > maxNovelCount

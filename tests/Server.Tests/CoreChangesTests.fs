@@ -6,7 +6,7 @@ open Microsoft.AspNetCore.Http.HttpResults
 open Xunit
 open Gambol.Server
 open Gambol.Shared
-open Gambol.Shared.Events
+open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
 
 module Encode = Thoth.Json.Newtonsoft.Encode
@@ -54,7 +54,7 @@ let ``typed Normal caller publishes accepted Change to Poll`` () = task {
         | :? ContentHttpResult as content ->
             let response = decodeChangeResponse content.ResponseContent
             Assert.Equal(accepted.revision.Value, response.revision.Value)
-            Assert.Equal<Event list>(accepted.events, response.events)
+            Assert.Equal<Ev list>(accepted.events, response.events)
         | other ->
             Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
     finally
@@ -109,7 +109,7 @@ let ``test Actor posts Normal Change off apply mailbox and Poll sees it`` () =
             | :? ContentHttpResult as content ->
                 let response = decodeChangeResponse content.ResponseContent
                 Assert.Equal(accepted.revision.Value, response.revision.Value)
-                Assert.Equal<Event list>(accepted.events, response.events)
+                Assert.Equal<Ev list>(accepted.events, response.events)
             | other ->
                 Assert.Fail(
                     $"Expected ContentHttpResult, got {other.GetType().FullName}")
@@ -117,7 +117,7 @@ let ``test Actor posts Normal Change off apply mailbox and Poll sees it`` () =
             CoreMailbox.dispose agent
     }
 
-let private recordingHandle (posts: ResizeArray<Event list>) =
+let private recordingHandle (posts: ResizeArray<Ev list>) =
     let state =
         { graph = Graph.create ()
           revision = Revision 0 }
@@ -128,7 +128,7 @@ let private recordingHandle (posts: ResizeArray<Event list>) =
           message = None
           isReady = true }
     { getState = fun () -> async.Return(Result.Ok state)
-      getRevision = fun () -> async.Return (Gambol.Shared.Events.EventId 0)
+      getRevision = fun () -> async.Return (Gambol.Shared.EventId 0)
       getEventsSince = fun _ -> async.Return []
       isReady = fun () -> true
       postChange = fun _ -> async.Return(Result.Error "unused")
@@ -143,7 +143,7 @@ let private recordingHandle (posts: ResizeArray<Event list>) =
 
 [<Fact>]
 let ``HTTP Adapter passes typed Changes only after valid decode`` () = task {
-    let posts = ResizeArray<Event list>()
+    let posts = ResizeArray<Ev list>()
     let handle = recordingHandle posts
     let change = addRootChild 0 "adapter"
     let event = eventFromChange change
@@ -160,5 +160,5 @@ let ``HTTP Adapter passes typed Changes only after valid decode`` () = task {
         |> Async.StartAsTask
 
     let posted = Assert.Single(posts)
-    Assert.Equal<Event list>([ event ], posted)
+    Assert.Equal<Ev list>([ event ], posted)
 }

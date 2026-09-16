@@ -732,7 +732,7 @@ let undoOp (model: VM) : VM * Effect list =
         let nextSyncInfo, actionEffects =
             SyncPlanner.enqueuePending
                 pendingItem
-                (Gambol.Shared.Events.EventId model'.revision.Value)
+                (Gambol.Shared.EventId model'.revision.Value)
                 model'.syncInfo
         { model' with
             graph = nextState.graph
@@ -756,7 +756,7 @@ let redoOp (model: VM) : VM * Effect list =
         let nextSyncInfo, actionEffects =
             SyncPlanner.enqueuePending
                 pendingItem
-                (Gambol.Shared.Events.EventId model'.revision.Value)
+                (Gambol.Shared.EventId model'.revision.Value)
                 model'.syncInfo
         { model' with
             graph = nextState.graph

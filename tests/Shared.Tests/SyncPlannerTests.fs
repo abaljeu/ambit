@@ -3,7 +3,7 @@ module Gambol.Shared.Tests.SyncPlannerTests
 open System
 open Xunit
 open Gambol.Shared
-open Gambol.Shared.Events
+open Gambol.Shared
 open Gambol.Shared.ViewModel
 
 let private mkChange id =
@@ -14,7 +14,7 @@ let private mkChange id =
 let private asPending change = PendingChange.ofChange change
 
 let private withKind recordId change : PendingChange =
-    { event = Event.ofChange "" change
+    { event = Ev.ofChange "" change
       transition =
         Some
             { recordId = recordId
@@ -84,7 +84,7 @@ let ``toDeltaChain rewrites stale queued ids to contiguous revisions`` () =
     let c1 = mkChange 637
     let c2 = mkChange 637
     let c3 = mkChange 637
-    let chained = Gambol.Shared.SyncBatch.toDeltaChain 637 (List.map (Event.ofChange "") [ c1; c2; c3 ])
+    let chained = Gambol.Shared.SyncBatch.toDeltaChain 637 (List.map (Ev.ofChange "") [ c1; c2; c3 ])
     Assert.Equal<int list>([ 637; 638; 639 ], chained |> List.map (fun c -> c.id.Value))
     Assert.Equal<Guid list>(
         [ c1.changeId; c2.changeId; c3.changeId ],
@@ -340,10 +340,10 @@ let ``mixed C Undo Redo delta chain preserves identities and rewrites revisions`
         [ change.changeId; undo.changeId; redo.changeId ],
         chained |> List.map (fun item -> item.change.changeId))
     let wire = SyncBatch.toWireBatch 7 items
-    Assert.Equal<Event list>(
-        [ { Event.ofChange "" change with id = EventId 7 }
-          { Event.ofChange "" undo with id = EventId 8 }
-          { Event.ofChange "" redo with id = EventId 9 } ],
+    Assert.Equal<Ev list>(
+        [ { Ev.ofChange "" change with id = EventId 7 }
+          { Ev.ofChange "" undo with id = EventId 8 }
+          { Ev.ofChange "" redo with id = EventId 9 } ],
         wire)
 
 [<Fact>]
@@ -441,7 +441,7 @@ let ``restorePending strips transition and does not record History`` () =
 [<Fact>]
 let ``workspace singleton lineage is the exact item used before the request`` () =
     let change = mkChange 12
-    let submitted = PendingChange.workspaceSingleton 5 (Event.ofChange "" change)
+    let submitted = PendingChange.workspaceSingleton 5 (Ev.ofChange "" change)
     match submitted.transition with
     | Some transition ->
         Assert.Equal(5, transition.recordId)
@@ -452,8 +452,8 @@ let ``workspace singleton lineage is the exact item used before the request`` ()
     let wire = SyncBatch.toWireBatch 12 [ submitted ]
     Assert.Equal(submitted.change.changeId, chained.Head.change.changeId)
     Assert.Equal(submitted.transition, chained.Head.transition)
-    Assert.Equal<Event list>(
-        [ { Event.ofChange "" change with id = EventId 12 } ],
+    Assert.Equal<Ev list>(
+        [ { Ev.ofChange "" change with id = EventId 12 } ],
         wire)
     let effect =
         ContinuePostUploadStructure(

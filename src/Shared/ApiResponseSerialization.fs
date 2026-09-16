@@ -1,6 +1,6 @@
 namespace Gambol.Shared
 
-open Gambol.Shared.Events
+open Gambol.Shared
 open Thoth.Json.Core
 open Thoth.Json.JavaScript
 
@@ -9,14 +9,14 @@ module ApiResponseSerialization =
 
     let encodeStateResponse (response: StateResponse) : IEncodable =
         Encode.object
-            [ "revision", Gambol.Shared.Events.EventJson.encodeEventId response.revision
+            [ "revision", Gambol.Shared.EventJson.encodeEventId response.revision
               "graph", Serialization.encodeGraph response.graph
               "ready", Encode.bool response.isReady ]
 
     let decodeStateResponseDecoder: Decoder<StateResponse> =
         Decode.object (fun get ->
             { revision =
-                get.Required.Field "revision" Gambol.Shared.Events.EventJson.decodeEventId
+                get.Required.Field "revision" Gambol.Shared.EventJson.decodeEventId
               graph = get.Required.Field "graph" Serialization.decodeGraph
               isReady =
                 get.Optional.Field "ready" Decode.bool
@@ -29,7 +29,7 @@ module ApiResponseSerialization =
         (response: ChangeSuccessResponse)
         : IEncodable =
         Encode.object (
-            [ "r", Gambol.Shared.Events.EventJson.encodeEventId response.revision
+            [ "r", Gambol.Shared.EventJson.encodeEventId response.revision
               "b", Encode.int response.buildEpochSec
               "p", Encode.int response.pageBuildEpochSec
               "v", Encode.int response.apiVersion
@@ -37,7 +37,7 @@ module ApiResponseSerialization =
               "externalChanges", Encode.bool response.externalChanges
               "c",
                 response.events
-                |> List.map Gambol.Shared.Events.EventJson.encode
+                |> List.map Gambol.Shared.EventJson.encode
                 |> Encode.list ]
             @ match response.message with
               | None -> []
@@ -49,7 +49,7 @@ module ApiResponseSerialization =
     let decodeChangeSuccessResponseDecoder: Decoder<ChangeSuccessResponse> =
         Decode.object (fun get ->
             { revision =
-                get.Required.Field "r" Gambol.Shared.Events.EventJson.decodeEventId
+                get.Required.Field "r" Gambol.Shared.EventJson.decodeEventId
               buildEpochSec = get.Required.Field "b" Decode.int
               pageBuildEpochSec = get.Required.Field "p" Decode.int
               apiVersion =
@@ -61,7 +61,7 @@ module ApiResponseSerialization =
               events =
                 get.Required.Field
                     "c"
-                    (Decode.list Gambol.Shared.Events.EventJson.decode)
+                    (Decode.list Gambol.Shared.EventJson.decode)
               message = get.Optional.Field "message" Decode.string
               bootstrapHash =
                 get.Optional.Field "bootstrapHash" Decode.string })
@@ -110,7 +110,7 @@ module ApiResponseSerialization =
               "ready", Encode.bool response.isReady
               "c",
                 response.events
-                |> List.map Gambol.Shared.Events.EventJson.encode
+                |> List.map Gambol.Shared.EventJson.encode
                 |> Encode.list
               "packages",
                 response.packages
@@ -131,7 +131,7 @@ module ApiResponseSerialization =
               events =
                 get.Optional.Field
                     "c"
-                    (Decode.list Gambol.Shared.Events.EventJson.decode)
+                    (Decode.list Gambol.Shared.EventJson.decode)
                 |> Option.defaultValue []
               packages =
                 get.Optional.Field

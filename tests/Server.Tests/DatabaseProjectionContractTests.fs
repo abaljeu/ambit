@@ -284,7 +284,7 @@ let ``db bootstrap duplicate returns stored Change and rejects no-op`` () = task
         core.postChange (encodeBatch [ accepted ]) |> Async.StartAsTask
     match duplicate with
     | Ok ack ->
-        Assert.Equal<Gambol.Shared.Events.Event list>(
+        Assert.Equal<Gambol.Shared.Ev list>(
             firstAck.events,
             ack.events)
     | Error err -> failwith err

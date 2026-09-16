@@ -38,10 +38,10 @@ let private addRootChild text =
         [ Op.NewNode(childId, text)
           Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
 
-let private wireEvent submissionId body : Gambol.Shared.Events.Event =
-    { id = Gambol.Shared.Events.EventId 99
+let private wireEvent submissionId body : Gambol.Shared.Ev =
+    { id = Gambol.Shared.EventId 99
       submissionId = submissionId
-      authority = Gambol.Shared.Events.Authority "Wire"
+      authority = Gambol.Shared.Authority "Wire"
       commandName = "test"
       body = body }
 
@@ -64,11 +64,11 @@ let ``CoreMailbox.postChange appends Change Events to EventLog`` () =
         Assert.Equal(Revision 1, accepted.revision)
         Assert.Equal(change.changeId, stored.submissionId)
         Assert.Equal(
-            Gambol.Shared.Events.Authority "Test",
+            Gambol.Shared.Authority "Test",
             stored.authority)
         Assert.Equal("door-change", state.graph.nodes.[childId].text)
         match stored.body with
-        | Gambol.Shared.Events.EventBody.Change _ -> ()
+        | Gambol.Shared.EventBody.Change _ -> ()
         | _ -> Assert.Fail("expected Change EventBody")
     })
 
@@ -94,7 +94,7 @@ let ``postGraphOnlyChange updates Graph and EventLog without file write`` () =
     })
 
 [<Fact>]
-let ``CoreChanges builds Event at postEvent and persists its Graph Ops`` () =
+let ``CoreChanges builds Ev at postEvent and persists its Graph Ops`` () =
     withHost [] (fun host _ -> task {
         let childId, change = addRootChild "through-event"
         let! accepted =
@@ -113,10 +113,10 @@ let ``CoreChanges builds Event at postEvent and persists its Graph Ops`` () =
         Assert.Equal(Revision 1, accepted.revision)
         Assert.Equal(change.changeId, stored.submissionId)
         Assert.Equal(
-            Gambol.Shared.Events.Authority "Test",
+            Gambol.Shared.Authority "Test",
             stored.authority)
         let storedOps =
-            Gambol.Shared.Events.Event.ops stored
+            Gambol.Shared.Ev.ops stored
             |> Option.defaultValue []
         Assert.Equal<Op list>(
             change.ops,
@@ -130,13 +130,13 @@ let ``postEvent stamps admitted authority instead of wire authority`` () =
         let event =
             wireEvent
                 change.changeId
-                (Gambol.Shared.Events.EventBody.Change change.ops)
+                (Gambol.Shared.EventBody.Change change.ops)
         let! result =
             CoreMailbox.postEvent host testCaller event
             |> Async.StartAsTask
         let stored = requireOk "post event" result
         Assert.Equal(
-            Gambol.Shared.Events.Authority "Test",
+            Gambol.Shared.Authority "Test",
             stored.authority)
         Assert.NotEqual(event.authority, stored.authority)
     })
@@ -148,7 +148,7 @@ let ``name-only Undo and Redo store completed Events with submission ids`` () =
         let changed =
             wireEvent
                 (Guid.NewGuid())
-                (Gambol.Shared.Events.EventBody.Change change.ops)
+                (Gambol.Shared.EventBody.Change change.ops)
         let! changedResult =
             CoreMailbox.postEvent host testCaller changed
             |> Async.StartAsTask
@@ -157,7 +157,7 @@ let ``name-only Undo and Redo store completed Events with submission ids`` () =
         let undo =
             wireEvent
                 undoId
-                (Gambol.Shared.Events.EventBody.Undo(
+                (Gambol.Shared.EventBody.Undo(
                     storedChange.id,
                     []))
         let! undoResult =
@@ -168,7 +168,7 @@ let ``name-only Undo and Redo store completed Events with submission ids`` () =
         let redo =
             wireEvent
                 redoId
-                (Gambol.Shared.Events.EventBody.Redo(
+                (Gambol.Shared.EventBody.Redo(
                     storedUndo.id,
                     []))
         let! redoResult =
@@ -182,10 +182,10 @@ let ``name-only Undo and Redo store completed Events with submission ids`` () =
         Assert.Equal(undoId, storedUndo.submissionId)
         Assert.Equal(redoId, storedRedo.submissionId)
         Assert.NotEmpty(
-            Gambol.Shared.Events.Event.ops storedUndo
+            Gambol.Shared.Ev.ops storedUndo
             |> Option.defaultValue [])
         Assert.NotEmpty(
-            Gambol.Shared.Events.Event.ops storedRedo
+            Gambol.Shared.Ev.ops storedRedo
             |> Option.defaultValue [])
         Assert.Contains(
             state.graph.nodes.[Graph.rootId].children,
@@ -210,11 +210,11 @@ let ``eventHistory returns full EventLog and eventsSince returns its tail`` () =
         let first =
             wireEvent
                 firstChange.changeId
-                (Gambol.Shared.Events.EventBody.Change firstChange.ops)
+                (Gambol.Shared.EventBody.Change firstChange.ops)
         let second =
             wireEvent
                 secondChange.changeId
-                (Gambol.Shared.Events.EventBody.Change secondChange.ops)
+                (Gambol.Shared.EventBody.Change secondChange.ops)
         let! firstResult =
             CoreMailbox.postEvent host testCaller first
             |> Async.StartAsTask
@@ -230,7 +230,7 @@ let ``eventHistory returns full EventLog and eventsSince returns its tail`` () =
             CoreMailbox.eventsSince host storedFirst.id
             |> Async.StartAsTask
         Assert.Equal(2, full.events.Length)
-        Assert.Equal<Gambol.Shared.Events.Event list>(
+        Assert.Equal<Gambol.Shared.Ev list>(
             [ storedSecond ],
             tail.events)
         Assert.Equal(full.nextId, tail.nextId)
@@ -256,12 +256,12 @@ let ``mailbox appends ActorStart and ActorStop in lifecycle order`` () =
                 (FileAgent.persist (FileAgent.create (newTempDir ())))
                 admittedCredentials
         try
-            let request: Gambol.Shared.Events.ActorStart =
+            let request: Gambol.Shared.ActorStart =
                 { zoomId = Graph.rootId
                   focusId = Graph.rootId
                   commandId = Graph.rootId
                   graphIds = [ Graph.rootId ]
-                  revision = Gambol.Shared.Events.EventId 0 }
+                  revision = Gambol.Shared.EventId 0 }
             let! started =
                 CoreMailbox.startActor host testCaller request
                 |> Async.StartAsTask
@@ -285,18 +285,18 @@ let ``mailbox appends ActorStart and ActorStop in lifecycle order`` () =
             Assert.Equal(2, ordered.Length)
             let stopEvent = ordered.[1]
             Assert.Equal(
-                Gambol.Shared.Events.Authority "Test",
+                Gambol.Shared.Authority "Test",
                 startEvent.authority)
             Assert.Equal(
-                Gambol.Shared.Events.Authority "Actor",
+                Gambol.Shared.Authority "Actor",
                 stopEvent.authority)
             Assert.Equal(
-                Gambol.Shared.Events.EventBody.ActorStart request,
+                Gambol.Shared.EventBody.ActorStart request,
                 startEvent.body)
             Assert.Equal(
-                Gambol.Shared.Events.EventBody.ActorStop(
+                Gambol.Shared.EventBody.ActorStop(
                     request.focusId,
-                    Gambol.Shared.Events.ActorResult.ActorSucceeded),
+                    Gambol.Shared.ActorResult.ActorSucceeded),
                 stopEvent.body)
         finally
             CoreMailbox.dispose host

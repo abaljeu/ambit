@@ -245,7 +245,7 @@ let ``ACK returns stamped complete Change equal to EventLog`` () = task {
         | Ok ackJson ->
             let ack = decodeAck ackJson
             let confirmed =
-                Assert.Single(ack.events) |> Gambol.Shared.Events.Event.asChange
+                Assert.Single(ack.events) |> Gambol.Shared.Ev.asChange
             Assert.Equal(change.changeId, confirmed.changeId)
             Assert.Equal<Op list>(
                 change.ops,
@@ -259,11 +259,11 @@ let ``ACK returns stamped complete Change equal to EventLog`` () = task {
                     Assert.Equal(Graph.workspacesId, nodeId)
                 | _ -> failwith "expected SetUpdateTime suffix")
             let! events =
-                CoreMailbox.getEventsSince (host agent) (Gambol.Shared.Events.EventId 0)
+                CoreMailbox.getEventsSince (host agent) (Gambol.Shared.EventId 0)
                 |> Async.StartAsTask
             Assert.Single(events) |> ignore
             let event = events.[0]
-            match Gambol.Shared.Events.Event.ops event with
+            match Gambol.Shared.Ev.ops event with
             | Some ops ->
                 Assert.Equal<Op list>(confirmed.ops, ops)
             | None ->
@@ -289,7 +289,7 @@ let ``trailing duplicate keeps stamps on last new Change`` () = task {
             match firstResult with
             | Ok json ->
                 Assert.Single((decodeAck json).events)
-                |> Gambol.Shared.Events.Event.asChange
+                |> Gambol.Shared.Ev.asChange
             | Error err -> failwith err
         let second = addChildChange 1 "second-new"
         // Multi-Change persist batch stays on PersistHandlers until 42.
@@ -300,8 +300,8 @@ let ``trailing duplicate keeps stamps on last new Change`` () = task {
         | Ok ack ->
             Assert.Equal(2, ack.events.Length)
             let secondConfirmed, trailingDup =
-                Gambol.Shared.Events.Event.asChange ack.events.[0],
-                Gambol.Shared.Events.Event.asChange ack.events.[1]
+                Gambol.Shared.Ev.asChange ack.events.[0],
+                Gambol.Shared.Ev.asChange ack.events.[1]
             Assert.Equal(firstConfirmed.changeId, trailingDup.changeId)
             Assert.Equal<Op list>(firstConfirmed.ops, trailingDup.ops)
             Assert.Equal(second.changeId, secondConfirmed.changeId)
@@ -314,12 +314,12 @@ let ``trailing duplicate keeps stamps on last new Change`` () = task {
                 suffixAfter first firstConfirmed,
                 secondSuffix)
             let! events =
-                CoreMailbox.getEventsSince (host agent) (Gambol.Shared.Events.EventId 0)
+                CoreMailbox.getEventsSince (host agent) (Gambol.Shared.EventId 0)
                 |> Async.StartAsTask
             // Direct handlers.postChange skips the postEvent door; EventLog
             // only has the mailbox-admitted first Change.
             Assert.Equal(1, events.Length)
-            match Gambol.Shared.Events.Event.ops events.[0] with
+            match Gambol.Shared.Ev.ops events.[0] with
             | Some ops1 ->
                 Assert.Equal<Op list>(firstConfirmed.ops, ops1)
             | None ->

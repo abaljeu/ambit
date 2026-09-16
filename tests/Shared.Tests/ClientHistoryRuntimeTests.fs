@@ -2,7 +2,7 @@ module ClientHistoryRuntimeTests
 
 open System
 open Gambol.Shared
-open Gambol.Shared.Events
+open Gambol.Shared
 open Xunit
 
 let private textChange id nodeId oldText newText : Change =
@@ -132,7 +132,7 @@ let ``non-empty Poll tail preserves ClientHistory before projection`` () =
         { id = 3
           changeId = Guid.NewGuid()
           ops = [ Op.SetText(nodeId, "before", "remote") ] }
-    match SyncLogic.applyServerTail [ Event.ofChange "" upstream ] state with
+    match SyncLogic.applyServerTail [ Ev.ofChange "" upstream ] state with
     | Error msg -> failwith msg
     | Ok result ->
         Assert.Equal(state.history, result.history)

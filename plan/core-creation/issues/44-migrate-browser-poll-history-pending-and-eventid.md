@@ -9,28 +9,28 @@
 
 ## What to build
 
-Move Browser Poll consume, pending submit, and Emacs undo onto Event. Poll consume reads an Event tail. The poll cursor is EventId (`State.revision`, `ClientSyncState.revision`). PendingChange / ChangeBatch wrap Event (or EventBody). Browser callers keep using ClientHistory (Event-shaped). The client holds EventLog of the same type as the server. `ClientHistory.undo` runs locally, then a name-only submit; ack/reconcile stays the pending path. ClientHistory is not persisted and is not sent on Poll. Do not migrate onto a module named History. The old types still compile until contract. CI stays green.
+Move Browser Poll consume, pending submit, and Emacs undo onto Ev. Poll consume reads an Ev tail. The poll cursor is EventId (`State.revision`, `ClientSyncState.revision`). PendingChange / EventBatch wrap Ev (or EventBody). Browser callers keep using ClientHistory (Ev-shaped). The client holds EventLog of the same type as the server. `ClientHistory.undo` runs locally, then a name-only submit; ack/reconcile stays the pending path. ClientHistory is not persisted and is not sent on Poll. Do not migrate onto a module named History. The old types still compile until contract. CI stays green.
 
 ### 1. Poll consume and EventId cursor
 
 Migrate Browser Poll consume. Seam **EventLog** (`since` is the Poll tail). The client holds EventLog of the same type.
 
-- [x] Poll consume Events — Browser Poll consume reads an Event tail (client consume).
+- [x] Poll consume Events — Browser Poll consume reads an Ev tail (client consume).
 - [x] EventId cursor — poll cursor is EventId. Today’s `State.revision` and `ClientSyncState.revision` become that EventId cursor.
 - [x] Client EventLog — client holds EventLog of the same type as the server; restores Poll/ack tails (undo optimistic Graph edits, apply server list, dedupe by submissionId).
 
-### 2. PendingChange and ChangeBatch wrap Event
+### 2. PendingChange and EventBatch wrap Ev
 
 Migrate pending submit wrappers.
 
-- [x] PendingChange wraps Event — PendingChange wraps Event (or EventBody). PendingKind remains until contract.
-- [x] ChangeBatch wraps Event — ChangeBatch wraps Event (or EventBody).
+- [x] PendingChange wraps Ev — PendingChange wraps Ev (or EventBody). PendingKind remains until contract.
+- [x] EventBatch wraps Ev — EventBatch wraps Ev (or EventBody).
 
 ### 3. ClientHistory undo and name-only submit
 
-Keep Browser Emacs undo on **ClientHistory** (Event-shaped). Do not migrate onto a module named History.
+Keep Browser Emacs undo on **ClientHistory** (Ev-shaped). Do not migrate onto a module named History.
 
-- [x] Event-shaped ClientHistory — Browser ClientHistory callers keep using ClientHistory (`record`, `undo` / `redo`, peek) with Event (Action bodies).
+- [x] Event-shaped ClientHistory — Browser ClientHistory callers keep using ClientHistory (`record`, `undo` / `redo`, peek) with Ev (Action bodies).
 - [x] ClientHistory undo then name-only submit — `ClientHistory.undo` runs locally, then a name-only submit. Ack/reconcile stays the pending path.
 
 ## Out of scope

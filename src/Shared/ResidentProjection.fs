@@ -224,14 +224,14 @@ module ResidentProjection =
         | Error refuse -> Error refuse
         | Ok packages ->
             Ok
-                { revision = Gambol.Shared.Events.EventId revision
+                { revision = Gambol.Shared.EventId revision
                   buildEpochSec = buildEpochSec
                   pageBuildEpochSec = pageBuildEpochSec
                   apiVersion = ApiVersion.current
                   isReady = isReady
                   events =
                     changes
-                    |> List.map (Gambol.Shared.Events.Event.ofChange "")
+                    |> List.map (Gambol.Shared.Ev.ofChange "")
                   packages = packages }
 
     /// Scoped resident graph for fresh-session bootstrap: complete ROOT Workspace,

@@ -8,7 +8,7 @@ open System.Threading.Tasks
 open Xunit
 open Gambol.Server
 open Gambol.Shared
-open Gambol.Shared.Events
+open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
 
 let private requireOk label result =

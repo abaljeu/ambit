@@ -7,7 +7,7 @@ open Gambol.Client.UpdateImport
 open Gambol.Client.UpdateWorkspaceDesktop
 open Gambol.Shared
 open Gambol.Shared.CommandEntry
-open Gambol.Shared.Events
+open Gambol.Shared
 open Gambol.Shared.ViewModel
 
 let private jsonHeaders () = jsonMutatingPostHeaders ()

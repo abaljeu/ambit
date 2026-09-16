@@ -1,7 +1,7 @@
 module SyncLogicTests
 
 open Gambol.Shared
-open Gambol.Shared.Events
+open Gambol.Shared
 open Gambol.Shared.ViewModel
 open Xunit
 
@@ -147,7 +147,7 @@ let private ofState (st: State) : ClientSyncState =
 
 let private applyTail changes state =
     SyncLogic.applyServerTail
-        (changes |> List.map (Event.ofChange ""))
+        (changes |> List.map (Ev.ofChange ""))
         state
 
 let private withRecorded (change: Change) (state: ClientSyncState) =
@@ -407,7 +407,7 @@ let ``applySyncResponse installs complete child list as Loaded and preserves own
     // Change touches a Loaded root child; package then installs ws at response revision.
     let response =
         { events =
-              [ Event.ofChange ""
+              [ Ev.ofChange ""
                     { id = 6
                       changeId = System.Guid.NewGuid()
                       ops = [ Op.SetText(markerId, "marker", "marker-tail") ] } ]
@@ -566,7 +566,7 @@ let ``consumeCatchUpPoll rewinds to baseline and preserves History`` () =
     match
         SyncLogic.consumeCatchUpPoll
             baseline
-            [ Event.ofChange "" serverChange ]
+            [ Ev.ofChange "" serverChange ]
             (EventId 1)
             optimistic
     with

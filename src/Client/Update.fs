@@ -1,7 +1,7 @@
 module Gambol.Client.Update
 
 open Gambol.Shared
-open Gambol.Shared.Events
+open Gambol.Shared
 open Gambol.Shared.ViewModel
 open Gambol.Client.JsInterop
 open Gambol.Client.UpdateCodec
@@ -46,7 +46,7 @@ let private applySubmitResponse
             + string revision.Value + " modelRev=" + string model.revision.Value)
         model, []
     | _ ->
-        let confirmedEvents = confirmed |> List.map (Event.ofChange "")
+        let confirmedEvents = confirmed |> List.map (Ev.ofChange "")
         let serverRev = EventId.ofRevision revision
         let useExternal =
             externalChanges
@@ -234,7 +234,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
             | Some DataOutdated
                 when not changes.IsEmpty
                     && not (isAutoSyncBlocked readyModel) ->
-                let events = changes |> List.map (Event.ofChange "")
+                let events = changes |> List.map (Ev.ofChange "")
                 match
                     SyncLogic.applyServerTail events (clientSyncState readyModel)
                 with
@@ -255,7 +255,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
             let si = SyncInfo.withSyncState Idle readyModel.syncInfo
             match readyModel.syncInfo.catchUp, changes with
             | Some baseline, _ :: _ ->
-                let events = changes |> List.map (Event.ofChange "")
+                let events = changes |> List.map (Ev.ofChange "")
                 let serverRev =
                     responseRevision
                     |> Option.map EventId.ofRevision
@@ -298,7 +298,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                     { readyModel with
                         syncInfo = SyncInfo.withSyncState DataOutdated si }, []
                 | Some DataOutdated ->
-                    let events = changes |> List.map (Event.ofChange "")
+                    let events = changes |> List.map (Ev.ofChange "")
                     match
                         SyncLogic.applyServerTail
                             events

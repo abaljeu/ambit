@@ -2,7 +2,7 @@ module BootCacheTests
 
 open System
 open Gambol.Shared
-open Gambol.Shared.Events
+open Gambol.Shared
 open Xunit
 
 module Enc = Thoth.Json.Newtonsoft.Encode

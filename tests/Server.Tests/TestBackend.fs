@@ -331,10 +331,10 @@ let createDbModeWithoutConnectionClientForDir (tempDir: string) =
 let createDbModeWithoutConnectionClient () =
     createDbModeWithoutConnectionClientForDir (newTempDir ())
 
-/// Convert a Change to an Event for wire encoding in tests.
-let eventFromChange (change: Gambol.Shared.Change) : Gambol.Shared.Events.Event =
-    { id = Gambol.Shared.Events.EventId 0
+/// Convert a Change to an Ev for wire encoding in tests.
+let eventFromChange (change: Gambol.Shared.Change) : Gambol.Shared.Ev =
+    { id = Gambol.Shared.EventId 0
       submissionId = change.changeId
-      authority = Gambol.Shared.Events.Authority ""
+      authority = Gambol.Shared.Authority ""
       commandName = ""
-      body = Gambol.Shared.Events.EventBody.Change change.ops }
+      body = Gambol.Shared.EventBody.Change change.ops }

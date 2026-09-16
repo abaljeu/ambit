@@ -1,4 +1,4 @@
-namespace Gambol.Shared.Events
+namespace Gambol.Shared
 
 open Thoth.Json.Core
 open Thoth.Json.JavaScript
@@ -114,7 +114,7 @@ module EventJson =
             | "actorStop" -> decodeActorStopBody
             | other -> Decode.fail ("Unknown event body: " + other))
 
-    let encode (event: Event) =
+    let encode (event: Ev) =
         Encode.object
             [ "id", encodeEventId event.id
               "submissionId", Encode.guid event.submissionId
@@ -122,7 +122,7 @@ module EventJson =
               "commandName", Encode.string event.commandName
               "body", encodeBody event.body ]
 
-    let decode: Decoder<Event> =
+    let decode: Decoder<Ev> =
         Decode.object (fun get ->
             { id = get.Required.Field "id" decodeEventId
               submissionId = get.Required.Field "submissionId" Decode.guid

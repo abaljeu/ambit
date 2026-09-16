@@ -1,4 +1,4 @@
-namespace Gambol.Shared.Events
+namespace Gambol.Shared
 
 open System
 open Gambol.Shared
@@ -40,7 +40,7 @@ type EventBody =
     | ActorStart of ActorStart
     | ActorStop of focusId: NodeId * result: ActorResult
 
-type Event =
+type Ev =
     { id: EventId
       submissionId: Guid
       authority: Authority
@@ -48,12 +48,12 @@ type Event =
       body: EventBody }
 
 [<RequireQualifiedAccess>]
-module Event =
-    let id (event: Event) : EventId = event.id
+module Ev =
+    let id (event: Ev) : EventId = event.id
 
-    let authority (event: Event) : Authority = event.authority
+    let authority (event: Ev) : Authority = event.authority
 
-    let ops (event: Event) : Op list option =
+    let ops (event: Ev) : Op list option =
         match event.body with
         | EventBody.Change ops
         | EventBody.Undo(_, ops)
@@ -61,9 +61,9 @@ module Event =
         | EventBody.ActorStart _
         | EventBody.ActorStop _ -> None
 
-    let isAction (event: Event) : bool = ops event |> Option.isSome
+    let isAction (event: Ev) : bool = ops event |> Option.isSome
 
-    let target (event: Event) : EventId option =
+    let target (event: Ev) : EventId option =
         match event.body with
         | EventBody.Undo(target, _)
         | EventBody.Redo(target, _) -> Some target
@@ -71,7 +71,7 @@ module Event =
         | EventBody.ActorStart _
         | EventBody.ActorStop _ -> None
 
-    let inverseOps (event: Event) : Op list option =
+    let inverseOps (event: Ev) : Op list option =
         match ops event with
         | None -> None
         | Some opList ->
@@ -83,19 +83,19 @@ module Event =
                 Change.inverse Revision.Zero event.submissionId source
             Some inverse.ops
 
-    let asChange (event: Event) : Change =
+    let asChange (event: Ev) : Change =
         { id = event.id.Value
           changeId = event.submissionId
           ops = ops event |> Option.defaultValue [] }
 
-    let ofChange (commandName: string) (change: Change) : Event =
+    let ofChange (commandName: string) (change: Change) : Ev =
         { id = EventId change.id
           submissionId = change.changeId
           authority = Authority "Browser"
           commandName = commandName
           body = EventBody.Change change.ops }
 
-    let apply (event: Event) (state: State) : ApplyResult =
+    let apply (event: Ev) (state: State) : ApplyResult =
         match ops event with
         | None -> ApplyResult.Unchanged state
         | Some opList ->

@@ -2,12 +2,12 @@ module EventTests
 
 open System
 open Gambol.Shared
-open Gambol.Shared.Events
+open Gambol.Shared
 open Xunit
 
 let private browser = Authority "Browser"
 
-let private event commandName body : Event =
+let private event commandName body : Ev =
     { id = EventId.zero
       submissionId = Guid.NewGuid()
       authority = browser
@@ -32,14 +32,14 @@ let ``append since tryFind`` () =
     let log1 = EventLog.append (event "" (EventBody.Change [])) EventLog.empty
     let log2 = EventLog.append (event "" (EventBody.Change [])) log1
     let log3 = EventLog.append (event "" (EventBody.Change [])) log2
-    Assert.Equal(EventId 3, Event.id log3.events.Head)
+    Assert.Equal(EventId 3, Ev.id log3.events.Head)
     let tail = EventLog.since EventId.zero log3
     Assert.Equal(3, tail.events.Length)
-    Assert.Equal(EventId 3, Event.id tail.events.Head)
-    Assert.Equal(EventId 1, Event.id tail.events.[2])
+    Assert.Equal(EventId 3, Ev.id tail.events.Head)
+    Assert.Equal(EventId 1, Ev.id tail.events.[2])
     match EventLog.tryFind (EventId 1) log3 with
     | None -> failwith "expected EventId 1"
-    | Some found -> Assert.Equal(EventId 1, Event.id found)
+    | Some found -> Assert.Equal(EventId 1, Ev.id found)
 
 [<Fact>]
 let ``restore dedupe`` () =
@@ -58,13 +58,13 @@ let ``restore dedupe`` () =
         { event "Second" (EventBody.Change []) with id = EventId 2 }
     let log = EventLog.restore [ first; duplicate; second ] EventLog.empty
     Assert.Equal(EventId 1, EventLog.nextId log)
-    Assert.Equal(EventId 2, Event.id log.events.Head)
+    Assert.Equal(EventId 2, Ev.id log.events.Head)
     Assert.Equal("Second", log.events.Head.commandName)
     let restored = EventLog.since (EventId -1) log
     Assert.Equal(2, restored.events.Length)
-    Assert.Equal(EventId 2, Event.id restored.events.Head)
+    Assert.Equal(EventId 2, Ev.id restored.events.Head)
     Assert.Equal("Second", restored.events.Head.commandName)
-    Assert.Equal(EventId.zero, Event.id restored.events.[1])
+    Assert.Equal(EventId.zero, Ev.id restored.events.[1])
     Assert.Equal("First", restored.events.[1].commandName)
 
 [<Fact>]
@@ -73,15 +73,15 @@ let ``restore keeps source nextId`` () =
     let log = { EventLog.empty with nextId = EventId 3 }
     let restored = EventLog.restore [ persist ] log
     Assert.Equal(EventId 3, EventLog.nextId restored)
-    Assert.Equal(EventId 9, Event.id restored.events.Head)
+    Assert.Equal(EventId 9, Ev.id restored.events.Head)
 
-let private actorStart commandName : Event =
+let private actorStart commandName : Ev =
     event commandName (EventBody.ActorStart(startRequest ()))
 
-let private actorStop commandName : Event =
+let private actorStop commandName : Ev =
     event commandName (EventBody.ActorStop(NodeId.New(), ActorSucceeded))
 
-let private changeNamed commandName eventId : Event =
+let private changeNamed commandName eventId : Ev =
     { event commandName (EventBody.Change []) with id = EventId eventId }
 
 [<Fact>]
@@ -121,7 +121,7 @@ let ``redo skips ActorStart/ActorStop and inverts the next Action`` () =
         | None -> failwith "expected Redo of the Undo Action"
         | Some pair -> pair
     match redoEvent.body with
-    | EventBody.Redo(target, _) -> Assert.Equal(Event.id undoEvent, target)
+    | EventBody.Redo(target, _) -> Assert.Equal(Ev.id undoEvent, target)
     | _ -> failwith "expected Redo body"
     Assert.Equal("Edit node", redoEvent.commandName)
     Assert.Equal(None, ClientHistory.redoEvent redone)
@@ -131,7 +131,7 @@ let ``redo skips ActorStart/ActorStop and inverts the next Action`` () =
     | Some (secondUndo, afterSecond) ->
         match secondUndo.body with
         | EventBody.Undo(target, _) ->
-            Assert.Equal(Event.id redoEvent, target)
+            Assert.Equal(Ev.id redoEvent, target)
         | _ -> failwith "expected Undo body"
         Assert.Equal(None, ClientHistory.undoEvent afterSecond)
 
@@ -224,7 +224,7 @@ let ``Undo inverse Ops`` () =
         | None -> failwith "expected Redo"
         | Some pair -> pair
     match redoEvent.body with
-    | EventBody.Redo(target, _) -> Assert.Equal(Event.id undoEvent, target)
+    | EventBody.Redo(target, _) -> Assert.Equal(Ev.id undoEvent, target)
     | _ -> failwith "expected Redo body"
 
 [<Fact>]
@@ -233,10 +233,10 @@ let ``Actor bodies do not apply`` () =
     let start = event "" (EventBody.ActorStart(startRequest ()))
     let stop =
         event "" (EventBody.ActorStop(NodeId.New(), ActorSucceeded))
-    match Event.apply start state with
+    match Ev.apply start state with
     | ApplyResult.Unchanged after -> Assert.Equal(state.graph, after.graph)
     | _ -> failwith "ActorStart must not change the Graph"
-    match Event.apply stop state with
+    match Ev.apply stop state with
     | ApplyResult.Unchanged after -> Assert.Equal(state.graph, after.graph)
     | _ -> failwith "ActorStop must not change the Graph"
 
@@ -247,17 +247,17 @@ let ``Undo Redo carried Ops`` () =
     let redoOps = [ Op.SetText(nodeId, "undone", "redone") ]
     let undoEv = event "" (EventBody.Undo(EventId 99, undoOps))
     let redoEv = event "" (EventBody.Redo(EventId 99, redoOps))
-    match Event.apply undoEv state with
+    match Ev.apply undoEv state with
     | ApplyResult.Changed afterUndo ->
         Assert.Equal("undone", afterUndo.graph.nodes.[nodeId].text)
-        match Event.apply redoEv afterUndo with
+        match Ev.apply redoEv afterUndo with
         | ApplyResult.Changed afterRedo ->
             Assert.Equal("redone", afterRedo.graph.nodes.[nodeId].text)
         | other -> failwithf "expected Redo apply Changed, got %A" other
     | other -> failwithf "expected Undo apply Changed, got %A" other
 
 [<Fact>]
-let ``Every Event carries Authority`` () =
+let ``Every Ev carries Authority`` () =
     let start = startRequest ()
     let bodies =
         [ EventBody.Change []
@@ -268,7 +268,7 @@ let ``Every Event carries Authority`` () =
     bodies
     |> List.iter (fun body ->
         let ev = event "" body
-        Assert.Equal(browser, Event.authority ev))
+        Assert.Equal(browser, Ev.authority ev))
 
 [<Fact>]
 let ``ActorStart body equals start request`` () =
@@ -289,7 +289,7 @@ let ``ActorStop carries ActorResult`` () =
     | _ -> failwith "expected ActorStop"
 
 [<Fact>]
-let ``commandName is on the Event`` () =
+let ``commandName is on the Ev`` () =
     let ev = event "Cut" (EventBody.Change [])
     Assert.Equal("Cut", ev.commandName)
     let recorded =

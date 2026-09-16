@@ -331,7 +331,7 @@ let requestIdleTruncate
                         let scoped = BootCache.truncationGraph graph zoom
                         let response =
                             { graph = scoped
-                              revision = Gambol.Shared.Events.EventId revision
+                              revision = Gambol.Shared.EventId revision
                               isReady = isReady }
                         let json =
                             Thoth.Json.JavaScript.Encode.toString

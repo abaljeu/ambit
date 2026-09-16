@@ -29,7 +29,7 @@ module CoreRuntime =
         let readOnlyMsg =
             "Database persistence is unavailable; file fallback is read-only."
         let rejectPost (_: Change list) = reject readOnlyMsg
-        let rejectEvents (_: Gambol.Shared.Events.Event list) =
+        let rejectEvents (_: Gambol.Shared.Ev list) =
             reject readOnlyMsg
         let rejectGraph (_: Change) = reject readOnlyMsg
         let rejectActorStop (_: ActorResult) = reject readOnlyMsg
