@@ -30,6 +30,7 @@ Done when `git branch --show-current` is not `dev`, `ready`, `master`, or `stagi
 
 ### 2. Commit
 
+Before you commit code changes, apply the Build / test toolchain gate in [[.agents/rules/core-agent-behavior.md]].
 Commit on the disposable branch with `git commit`. [[scripts/commit.sh]] stays on `dev`.
 
 Done when this run's files are committed on that branch (`git status --short` is empty for them).
