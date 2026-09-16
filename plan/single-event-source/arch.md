@@ -18,6 +18,7 @@ Feature under design: leftover Change record and Revision serial out of the runn
       Batches after compile may run in any order among persist and command. Serial batch may run beside them. Leftover Change still compiles until Contract.
       1. [x] Compile preamble — [[tests/Server.Tests/TestBackend.fs]] `Ev` type and `Authority` constructor in scope (`module Ev` must not shadow the type)
       2. [x] Persist apply — [[src/Server/Core/FileAgent.fs]] / [[src/Server/Core/DbAgent.fs]] / PersistStamp / [[src/Server/Core/CoreEventDispatch.fs]] admit Ev, apply Ops, `appendEvent` Ev. No Ev→Change copy for apply
+         Leftover `postChange` waits for [[issues/08-core-doors.md|08 — Core doors]]. `Ev.asChange` / `Ev.ofChange` wait for [[issues/12-contract-leftover-change-and-revision.md|12 — Contract leftover Change and Revision]].
       3. [ ] Core doors — **CoreChanges** `postEvents` and `postGraphOnly` both take Ev. `postChange` (Change list) and `PostGraphOnlyChange` of leftover Change are gone. Graph-only still skips file persist, not EventLog
       4. [ ] Command mint — Browser command builders and Parse [[src/Server/GraphOnlyChangePost.fs]] mint Ev (`EventId.zero`, `commandName`). Run is ActorStart or a Change Event with that Run command in `commandName`
       5. [ ] Boot IndexedDB — [[src/Shared/BootCache.fs]] / [[src/Client/BootCacheStore.fs]] hold Ev list, not leftover Change
@@ -91,7 +92,7 @@ Deltas only. Hello / Actor-pool modules do not change.
    1. State
       1. [ ] None
    2. Interface
-      1. [x] `postEvent` admits Ev, applies Ops, persist `appendEvent` Ev. No leftover Change copy
+      1. [x] `postEvent` admits Ev, applies Ops, persist `appendEvent` Ev. No leftover Change copy for apply
    3. Uses
       1. [ ] Ev
       2. [ ] PersistHandlers (`appendEvent`; apply Ops)
@@ -99,7 +100,7 @@ Deltas only. Hello / Actor-pool modules do not change.
    1. State
       1. [ ] Graph + EventLog (unchanged roles)
    2. Interface
-      1. [x] PersistHandlers apply Ev (Ops), then `appendEvent`. No `processPostChange` of leftover Change list
+      1. [x] PersistHandlers apply Ev (Ops), then `appendEvent`
    3. Uses
       1. [ ] Ev
       2. [ ] Op
@@ -108,7 +109,7 @@ Deltas only. Hello / Actor-pool modules do not change.
    1. State
       1. [ ] Graph + EventLog + projection (unchanged roles)
    2. Interface
-      1. [x] Same as FileAgent: apply Ev Ops, `appendEvent`. Projection still Files/Query persist, not EventLog
+      1. [x] PersistHandlers apply Ev (Ops), then `appendEvent`. Projection still Files/Query persist, not EventLog
    3. Uses
       1. [ ] Ev
       2. [ ] Op
