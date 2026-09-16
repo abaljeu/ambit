@@ -246,7 +246,12 @@ module RouteRegistration =
                 persistence.DbStatus
                 (fun () -> handle.getState ())
                 (fun () -> CoreMailbox.flushSnapshot persistence.Core.host)
-                (fun () -> CoreMailbox.getRevision persistence.Core.host)
+                (fun () ->
+                    async {
+                        let! rev =
+                            CoreMailbox.getRevision persistence.Core.host
+                        return Revision rev.Value
+                    })
                 persistence.DataDir
     }
 
@@ -352,7 +357,13 @@ module RouteRegistration =
                         (fun () ->
                             CoreMailbox.flushSnapshot persistence.Core.host)
                         (fun () ->
-                            CoreMailbox.getRevision persistence.Core.host)
+                            async {
+                                let! rev =
+                                    CoreMailbox.getRevision
+                                        persistence.Core.host
+                                return
+                                    Revision rev.Value
+                            })
                         persistence.DataDir
                 match flushResult with
                 | Ok _ -> return Ok ()

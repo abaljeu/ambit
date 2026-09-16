@@ -1,11 +1,21 @@
 namespace Gambol.Shared
 
+open Gambol.Shared.Events
+
 /// Browser graph, Revision, and ClientHistory used by local and remote apply.
 type ClientSyncState =
     { graph: Graph
-      revision: Gambol.Shared.Events.EventId
+      revision: EventId
       history: ClientHistory
-      eventLog: Gambol.Shared.Events.EventLog }
+      eventLog: EventLog }
+
+[<RequireQualifiedAccess>]
+module ClientSyncState =
+    let create graph revision history : ClientSyncState =
+        { graph = graph
+          revision = revision
+          history = history
+          eventLog = EventLog.empty }
 
 [<RequireQualifiedAccess>]
 type AckReconcile =
@@ -46,7 +56,7 @@ module SyncLogic =
 
     let private asProjectionState (state: ClientSyncState) : State =
         { graph = state.graph
-          revision = state.revision }
+          revision = EventId.toRevision state.revision }
 
     let private withProjectedGraph
         (state: ClientSyncState)
@@ -127,7 +137,7 @@ module SyncLogic =
           packages = response.packages }
 
     let loadResponseToPoll (response: LoadResponse) : ChangeSuccessResponse =
-        { revision = Gambol.Shared.Events.EventId response.revision
+        { revision = response.revision
           buildEpochSec = response.buildEpochSec
           pageBuildEpochSec = response.pageBuildEpochSec
           apiVersion = response.apiVersion
@@ -159,7 +169,7 @@ module SyncLogic =
                       ops = Gambol.Shared.Events.Event.ops item.event |> Option.defaultValue [] }
                 let inverse =
                     Change.inverse
-                        state.revision
+                        (EventId.toRevision state.revision)
                         item.event.submissionId
                         change
                 match
@@ -227,7 +237,10 @@ module SyncLogic =
         : Result<ClientSyncState * PendingChange, string> option =
         applyInverse
             EventBody.Undo
-            (ClientHistory.undo state.revision changeId state.history)
+            (ClientHistory.undo
+                (EventId.toRevision state.revision)
+                changeId
+                state.history)
             state
 
     let applyLocalRedo
@@ -236,7 +249,10 @@ module SyncLogic =
         : Result<ClientSyncState * PendingChange, string> option =
         applyInverse
             EventBody.Redo
-            (ClientHistory.redo state.revision changeId state.history)
+            (ClientHistory.redo
+                (EventId.toRevision state.revision)
+                changeId
+                state.history)
             state
 
     let private isStampOp =
@@ -256,15 +272,17 @@ module SyncLogic =
 
     let private identityError
         (submitted: PendingChange list)
-        (confirmed: Change list)
+        (confirmed: Event list)
         : string option =
         if confirmed.Length < submitted.Length then
             Some "missing confirmation"
         elif confirmed.Length > submitted.Length then
             Some "unmatched confirmation"
         else
-            let subIds = submitted |> List.map (fun item -> item.change.changeId)
-            let confIds = confirmed |> List.map (fun change -> change.changeId)
+            let subIds =
+                submitted |> List.map (fun item -> item.event.submissionId)
+            let confIds =
+                confirmed |> List.map (fun event -> event.submissionId)
             if subIds = confIds then
                 None
             else
@@ -275,13 +293,17 @@ module SyncLogic =
 
     let private collectSuffixes
         (submitted: PendingChange list)
-        (confirmed: Change list)
+        (confirmed: Event list)
         : Result<Op list, string> =
-        let rec loop acc submittedItems (confirmedItems: Change list) =
+        let rec loop acc submittedItems (confirmedItems: Event list) =
             match submittedItems, confirmedItems with
             | [], [] -> Ok (List.concat (List.rev acc))
-            | item :: items, confirmedChange :: rest ->
-                match takeSuffix item.change.ops confirmedChange.ops with
+            | (item: PendingChange) :: items, confirmedEvent :: rest ->
+                match
+                    takeSuffix
+                        item.change.ops
+                        (Event.ops confirmedEvent |> Option.defaultValue [])
+                with
                 | Error err -> Error err
                 | Ok extra -> loop (extra :: acc) items rest
             | _ -> Error "missing confirmation"
@@ -298,7 +320,7 @@ module SyncLogic =
         pending.Length >= submitted.Length
         && List.forall2 sameBody submitted (List.take submitted.Length pending)
 
-    let private isPresent pending changeId =
+    let private isPresent (pending: PendingChange list) changeId =
         pending
         |> List.exists (fun item -> item.change.changeId = changeId)
 

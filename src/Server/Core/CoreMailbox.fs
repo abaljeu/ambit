@@ -96,7 +96,7 @@ module CoreMailbox =
                 return
                     Ok(
                         CoreChanges.accepted
-                            revision
+                            (Revision revision.Value)
                             (MailboxHost.isReady host ())
                             []
                             false

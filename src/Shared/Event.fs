@@ -3,13 +3,21 @@ namespace Gambol.Shared.Events
 open System
 open Gambol.Shared
 
-type EventId = EventId of int
+type EventId =
+    | EventId of int
+
+    member this.Value =
+        let (EventId value) = this
+        value
 
 [<RequireQualifiedAccess>]
 module EventId =
     let zero = EventId 0
     let next (EventId n) = EventId(n + 1)
     let max (EventId a) (EventId b) = EventId(Operators.max a b)
+    let value (id: EventId) = id.Value
+    let ofRevision (rev: Revision) = EventId rev.Value
+    let toRevision (id: EventId) = Revision id.Value
 
 type Authority = Authority of string
 
@@ -74,6 +82,18 @@ module Event =
             let inverse =
                 Change.inverse Revision.Zero event.submissionId source
             Some inverse.ops
+
+    let asChange (event: Event) : Change =
+        { id = event.id.Value
+          changeId = event.submissionId
+          ops = ops event |> Option.defaultValue [] }
+
+    let ofChange (commandName: string) (change: Change) : Event =
+        { id = EventId change.id
+          submissionId = change.changeId
+          authority = Authority "Browser"
+          commandName = commandName
+          body = EventBody.Change change.ops }
 
     let apply (event: Event) (state: State) : ApplyResult =
         match ops event with

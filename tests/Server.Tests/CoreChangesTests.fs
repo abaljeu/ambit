@@ -6,6 +6,7 @@ open Microsoft.AspNetCore.Http.HttpResults
 open Xunit
 open Gambol.Server
 open Gambol.Shared
+open Gambol.Shared.Events
 open Gambol.Server.Tests.TestBackend
 
 module Encode = Thoth.Json.Newtonsoft.Encode
@@ -52,8 +53,8 @@ let ``typed Normal caller publishes accepted Change to Poll`` () = task {
         match box poll with
         | :? ContentHttpResult as content ->
             let response = decodeChangeResponse content.ResponseContent
-            Assert.Equal(accepted.revision, response.revision)
-            Assert.Equal<Change list>(accepted.changes, response.changes)
+            Assert.Equal(accepted.revision.Value, response.revision.Value)
+            Assert.Equal<Change list>(accepted.changes, response.changes |> List.map Event.asChange)
         | other ->
             Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
     finally
@@ -107,8 +108,8 @@ let ``test Actor posts Normal Change off apply mailbox and Poll sees it`` () =
             match box poll with
             | :? ContentHttpResult as content ->
                 let response = decodeChangeResponse content.ResponseContent
-                Assert.Equal(accepted.revision, response.revision)
-                Assert.Equal<Change list>(accepted.changes, response.changes)
+                Assert.Equal(accepted.revision.Value, response.revision.Value)
+                Assert.Equal<Change list>(accepted.changes, response.changes |> List.map Event.asChange)
             | other ->
                 Assert.Fail(
                     $"Expected ContentHttpResult, got {other.GetType().FullName}")
@@ -148,7 +149,7 @@ let ``HTTP Adapter passes typed Changes only after valid decode`` () = task {
     let event = eventFromChange change
     let validBody =
         Encode.toString 0 (
-            Serialization.encodeEventBatch
+            EventJson.encodeEventBatch
                 { events = [ event ] })
 
     let! _ =

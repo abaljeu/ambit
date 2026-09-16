@@ -129,3 +129,39 @@ module EventJson =
               authority = get.Required.Field "authority" decodeAuthority
               commandName = get.Required.Field "commandName" Decode.string
               body = get.Required.Field "body" decodeBody })
+
+    let private encodePendingTransition (transition: PendingTransition) =
+        Encode.object
+            [ "recordId", Encode.int transition.recordId
+              "submittedChangeId", Encode.guid transition.submittedChangeId ]
+
+    let private decodePendingTransition: Decoder<PendingTransition> =
+        Decode.object (fun get ->
+            { recordId = get.Required.Field "recordId" Decode.int
+              submittedChangeId = get.Required.Field "submittedChangeId" Decode.guid })
+
+    let encodePendingChange (item: PendingChange) : IEncodable =
+        Encode.object (
+            [ "event", encode item.event ]
+            @ match item.transition with
+              | None -> []
+              | Some transition ->
+                  [ "transition", encodePendingTransition transition ])
+
+    let decodePendingChange: Decoder<PendingChange> =
+        Decode.object (fun get ->
+            { event = get.Required.Field "event" decode
+              transition = get.Optional.Field "transition" decodePendingTransition })
+
+    let encodeEventBatch (batch: EventBatch) : IEncodable =
+        Encode.object
+            [ "events", batch.events |> List.map encode |> Encode.list ]
+
+    let decodeEventBatch: Decoder<EventBatch> =
+        Decode.object (fun get ->
+            { events = get.Required.Field "events" (Decode.list decode) })
+        |> Decode.andThen (fun batch ->
+            if batch.events.IsEmpty then
+                Decode.fail "events must not be empty"
+            else
+                Decode.succeed batch)

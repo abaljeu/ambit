@@ -8,6 +8,7 @@ open System.Text
 open System.Threading.Tasks
 open Xunit
 open Gambol.Shared
+open Gambol.Shared.Events
 open Gambol.Server.Tests.TestBackend
 
 module Encode = Thoth.Json.Newtonsoft.Encode
@@ -119,7 +120,7 @@ let ``SetText persists SYSTEM user css and server remains responsive`` () = task
     let event = eventFromChange change
     let body =
         Encode.toString 0 (
-            Serialization.encodeEventBatch
+            EventJson.encodeEventBatch
                 { events = [ event ] })
     use content = new StringContent(body, Encoding.UTF8, "application/json")
     use! response = client.PostAsync("/ambit/changes", content) |> timeout

@@ -10,10 +10,15 @@ type PendingChange =
     { event: Gambol.Shared.Events.Event
       transition: PendingTransition option }
 
+    member this.change = Event.asChange this.event
+
 [<RequireQualifiedAccess>]
 module PendingChange =
     let ofEvent (event: Gambol.Shared.Events.Event) : PendingChange =
         { event = event; transition = None }
+
+    let ofChange (change: Change) : PendingChange =
+        ofEvent (Event.ofChange "" change)
 
     let workspaceSingleton (recordId: int) (event: Gambol.Shared.Events.Event) : PendingChange =
         { event = event

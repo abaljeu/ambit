@@ -10,6 +10,7 @@ open Microsoft.Extensions.DependencyInjection
 open Xunit
 open Gambol.Server
 open Gambol.Shared
+open Gambol.Shared.Events
 open Gambol.Server.Tests.TestBackend
 open Thoth.Json.Newtonsoft
 
@@ -109,7 +110,7 @@ let ``getState returns JSON content when agent succeeds`` () = task {
         match decodeStateResponse content.ResponseContent with
         | Error err -> failwith err
         | Ok response ->
-            Assert.Equal(Revision 0, response.revision)
+            Assert.Equal(EventId 0, response.revision)
             Assert.True(response.isReady)
     | other ->
         Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
@@ -149,7 +150,7 @@ let ``getState zoom outside ROOT adds owning Workspace`` () = task {
         | Ok response ->
             Assert.True(response.graph.nodes.ContainsKey dirId)
             Assert.Equal(Loaded, response.graph.nodes.[wsId].childrenStatus)
-            Assert.Equal(Revision 1, response.revision)
+            Assert.Equal(EventId 1, response.revision)
     | other ->
         Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
 }

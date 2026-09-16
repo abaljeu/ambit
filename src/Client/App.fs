@@ -3,6 +3,7 @@ module Gambol.Client.App
 open Browser.Dom
 open Browser.Types
 open Gambol.Shared
+open Gambol.Shared.Events
 open Gambol.Shared.ViewModel
 open Gambol.Client
 open Gambol.Client.Update
@@ -52,8 +53,8 @@ module private SubmitChangeCallbacks =
                 SysMsg (
                     SubmitResponse (
                         submitted,
-                        ack.changes,
-                        ack.revision,
+                        ack.events |> List.map Event.asChange,
+                        EventId.toRevision ack.revision,
                         ack.externalChanges,
                         ack.message)))
         | Error err ->
@@ -115,7 +116,7 @@ let createRuntime (initialModel: VM) =
         let serverRev = restored.revision.Value
         let localState, restoredPending =
             SyncPlanner.restorePending
-                restored.revision
+                (EventId.ofRevision restored.revision)
                 saved
                 { graph = restored.graph
                   revision = restored.revision }
@@ -411,9 +412,9 @@ let createRuntime (initialModel: VM) =
                     SysMsg (
                         PollDone (
                             outcome,
-                            poll.changes,
+                            poll.events |> List.map Event.asChange,
                             Some poll.isReady,
-                            Some poll.revision)))
+                            Some (EventId.toRevision poll.revision))))
             | Error _ ->
                 dispatch (
                     SysMsg (
@@ -432,7 +433,7 @@ let createRuntime (initialModel: VM) =
         let body =
             Thoth.Json.JavaScript.Encode.toString 0 (
                 ApiResponseSerialization.encodeLoadRequest
-                    { revision = revision
+                    { revision = EventId revision
                       targets = targets })
         let onLoadOk (text: string) : unit =
             match ApiResponseSerialization.decodeLoadResponse text with
@@ -448,14 +449,14 @@ let createRuntime (initialModel: VM) =
                         LoadDone (
                             outcome,
                             SyncLogic.loadResponseToSync load,
-                            load.revision,
+                            load.revision.Value,
                             Some load.isReady)))
             | Error _ ->
                 dispatch (
                     SysMsg (
                         LoadDone (
                             None,
-                            { changes = []; packages = [] },
+                            { events = []; packages = [] },
                             model.revision.Value,
                             None)))
         let onLoadHttp (_status: int) (_body: string) : unit =
@@ -463,7 +464,7 @@ let createRuntime (initialModel: VM) =
                 SysMsg (
                     LoadDone (
                         None,
-                        { changes = []; packages = [] },
+                        { events = []; packages = [] },
                         model.revision.Value,
                         None)))
         let onLoadFail () : unit =
@@ -471,7 +472,7 @@ let createRuntime (initialModel: VM) =
                 SysMsg (
                     LoadDone (
                         None,
-                        { changes = []; packages = [] },
+                        { events = []; packages = [] },
                         model.revision.Value,
                         None)))
         postJson
@@ -722,7 +723,7 @@ let createRuntime (initialModel: VM) =
 //     buildEl.textContent <- txt
 let setupStaticDOM (dispatch: Msg -> unit) (getModel: unit -> VM) (_wakePolling: unit -> unit) : unit =
     let hiddenInput = document.getElementById "hidden-input" :?> HTMLInputElement
-    hiddenInput.addEventListener("keydown", fun (ev: Event) ->
+    hiddenInput.addEventListener("keydown", fun (ev: Browser.Types.Event) ->
         let ke = ev :?> KeyboardEvent
         if ke.key = "Tab" then ev.preventDefault()
         if (ke.ctrlKey || ke.metaKey) && ke.key = "p" && not ke.shiftKey then
@@ -736,7 +737,7 @@ let setupStaticDOM (dispatch: Msg -> unit) (getModel: unit -> VM) (_wakePolling:
     let interactiveChromeSelector =
         "button,input,a,.amb-dialog,#sync-status,#cmd-last-result"
 
-    let dismissOnBackground (ev: Event) : unit =
+    let dismissOnBackground (ev: Browser.Types.Event) : unit =
         let target = ev.target :?> HTMLElement
         match (getModel ()).mode with
         | CommandPalette _ | SearchDialog _ | FileSearchDialog _ | CssClassPrompt _ | RenamePrompt _ ->

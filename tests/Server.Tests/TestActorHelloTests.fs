@@ -58,7 +58,7 @@ let private helloOutputChildren (graph: Graph) focusId commandId =
            | Some node -> node.text = "hello"
            | None -> false)
 
-let private sampleRequest focusId commandId graphIds: ActorStart =
+let private sampleRequest focusId commandId graphIds: Gambol.Shared.Events.ActorStart =
     { zoomId = Graph.rootId
       focusId = focusId
       commandId = commandId
@@ -396,13 +396,13 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
             |> List.length
         
         Assert.True(actorStartedIndex.IsSome,
-            "§7.4: ActorStarted event should be present")
+            "§7.4: Gambol.Shared.Events.ActorStarted event should be present")
         Assert.True(actorOutputChangeIndex.IsSome,
             "§7.4: Change event (output) should be present")
         Assert.True(actorFinishedIndex.IsSome,
             "§7.4: ActorFinished event should be present")
         Assert.True(actorOutputChangeIndex.Value < actorStartedIndex.Value,
-            "§7.4: ActorStarted should appear before output Change")
+            "§7.4: Gambol.Shared.Events.ActorStarted should appear before output Change")
         Assert.True(actorFinishedIndex.Value < actorOutputChangeIndex.Value,
             "§7.4: Output Change should appear before ActorFinished")
         Assert.Equal(1, actorFinishedCount)

@@ -2,6 +2,7 @@ module BootCachePollTests
 
 open System
 open Gambol.Shared
+open Gambol.Shared.Events
 open Xunit
 
 let private mkChange id =
@@ -10,14 +11,13 @@ let private mkChange id =
       ops = [] }
 
 let private mkPoll rev (changes: Change list) : ChangeSuccessResponse =
-    { revision = Revision rev
+    { revision = EventId rev
       buildEpochSec = 1
       pageBuildEpochSec = 1
       apiVersion = ApiVersion.current
       isReady = true
       externalChanges = not changes.IsEmpty
-      changes = changes
-      events = None
+      events = changes |> List.map (Event.ofChange "")
       message = None
       bootstrapHash = None }
 

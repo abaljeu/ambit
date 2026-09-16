@@ -59,7 +59,7 @@ let ``DbAgent empty test DB has revision 0 and canonical ROOT`` () = task {
     let agent = DbAgent.create connStr
     let! rev = CoreMailbox.getRevision (host agent) |> Async.StartAsTask
     let! state = getState agent |> Async.StartAsTask
-    Assert.Equal(Revision 0, rev)
+    Assert.Equal(Gambol.Shared.Events.EventId 0, rev)
     let graph = state.graph
     let root = graph.nodes.[graph.root]
     Assert.Equal(4, graph.nodes.Count)
@@ -98,7 +98,7 @@ let ``DbAgent startup sweeps and trims unreachable persisted nodes before ready`
     let! revision = CoreMailbox.getRevision (host agent) |> Async.StartAsTask
     let loaded = state.graph
 
-    Assert.Equal(Revision 9, revision)
+    Assert.Equal(Gambol.Shared.Events.EventId 9, revision)
     Assert.False(loaded.nodes.ContainsKey orphanId)
 
     use checkConn = Database.getConnection connStr
@@ -140,7 +140,7 @@ let ``DbAgent serves reads while sweep buffers FIFO mutations then trims`` () = 
     let! beforeRevision = revisionTask
     Assert.False(CoreMailbox.isReady (host agent))
     Assert.True(beforeState.graph.nodes.ContainsKey orphanId)
-    Assert.Equal(Revision 4, beforeRevision)
+    Assert.Equal(Gambol.Shared.Events.EventId 4, beforeRevision)
     release.Set()
 
     let! secondResult = secondPost
@@ -178,7 +178,7 @@ let ``DbAgent startup sweep failure preserves reads and fails mutations closed``
     let! state = getState agent |> Async.StartAsTask
     let! revision = CoreMailbox.getRevision (host agent) |> Async.StartAsTask
     Assert.True(state.graph.nodes.ContainsKey orphanId)
-    Assert.Equal(Revision 4, revision)
+    Assert.Equal(Gambol.Shared.Events.EventId 4, revision)
 }
 
 [<Fact>]
@@ -207,7 +207,7 @@ let ``DbAgent new process loads state from projection and changes after post`` (
     let agent2 = DbAgent.create connStr
     let! rev2 = CoreMailbox.getRevision (host agent2) |> Async.StartAsTask
     let! state2 = getState agent2 |> Async.StartAsTask
-    Assert.Equal(Revision 1, rev2)
+    Assert.Equal(Gambol.Shared.Events.EventId 1, rev2)
     let graph2 = state2.graph
     Assert.Equal(Graph.rootId, graph2.root)
     let root = graph2.nodes.[graph2.root]
@@ -284,7 +284,7 @@ let ``DbAgent change fails and state is unchanged when DB goes away after startu
 
         let! rev = CoreMailbox.getRevision (host agent) |> Async.StartAsTask
         let! afterState = getState agent |> Async.StartAsTask
-        Assert.Equal(Revision 0, rev)
+        Assert.Equal(Gambol.Shared.Events.EventId 0, rev)
         Assert.False(afterState.graph.nodes.ContainsKey childId)
     finally
         setDatabaseAllowConnections connStr true
@@ -523,7 +523,7 @@ let ``DbAgent missing ROOT fails closed while reads stay available`` () = task {
     let! state = getState agent |> Async.StartAsTask
     let! revision = CoreMailbox.getRevision (host agent) |> Async.StartAsTask
     Assert.False(CoreMailbox.isReady (host agent))
-    Assert.Equal(Revision 4, revision)
+    Assert.Equal(Gambol.Shared.Events.EventId 4, revision)
 }
 
 [<Fact>]

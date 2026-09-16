@@ -48,7 +48,7 @@ module DbAgent =
             let raw =
                 rows
                 |> List.choose (fun row ->
-                    EventLogFile.decode row.payload |> Result.toOption)
+                    EventLogFile.decodeEvent row.payload |> Result.toOption)
             EventLog.restorePersisted raw
 
     let private decodeChangePayload (s: string) =
@@ -115,7 +115,11 @@ module DbAgent =
         loaded.eventLog.Value.events
         |> List.tryFind (fun e -> e.submissionId = submissionId)
 
-    let private applyOneChange loaded (s, confirmations, externalChanges) change =
+    let private applyOneChange
+        loaded
+        ((s: State), confirmations, externalChanges)
+        change
+        =
         match tryPersistedEvent loaded change.changeId with
         | Some storedEvent ->
             // Already applied - derive Change from Event
@@ -154,8 +158,7 @@ module DbAgent =
             eprintfn "DbAgent: failed to apply batch: %s" ex.Message
             Error $"Database error: {ex.Message}"
 
-    let private persistGraphProjection loaded newState
-        =
+    let private persistGraphProjection loaded (newState: State) changes =
         if List.isEmpty (Map.toList newState.graph.nodes) then
             Ok ()
         else
@@ -165,9 +168,9 @@ module DbAgent =
                 use tx = conn.BeginTransaction()
                 let patch =
                     DatabaseProjection.plan
-                        loaded.state.Value.graph
                         newState.graph
                         newState.revision.Value
+                        changes
                 (DatabaseProjection.persistWithTx tx newState.graph patch)
                     .GetAwaiter()
                     .GetResult()
@@ -269,7 +272,7 @@ module DbAgent =
         match
             CoreMailboxBackend.runBounded
                 CoreMailboxBackend.ChangeProcessingTimeoutMs
-                (fun () -> persistGraphProjection loaded stateToStore)
+                (fun () -> persistGraphProjection loaded stateToStore ackChanges)
         with
         | Error err -> Error err
         | Ok () ->
@@ -362,7 +365,7 @@ module DbAgent =
                     loaded.connectionString
                     n
                     persisted.submissionId
-                    (EventLogFile.encode persisted)
+                    (EventLogFile.encodeEvent persisted)
                 |> Async.AwaitTask
                 |> Async.RunSynchronously
                 loaded.eventLog.Value <-

@@ -8,6 +8,7 @@ open System.Threading.Tasks
 open Xunit
 open Gambol.Server
 open Gambol.Shared
+open Gambol.Shared.Events
 open Gambol.Server.Tests.TestBackend
 
 let private requireOk label result =
@@ -699,7 +700,7 @@ let ``directory reconciliation POST returns failures JSON`` () =
     let wsEvent = eventFromChange wsChange
     let wsBody =
         Thoth.Json.Newtonsoft.Encode.toString 0
-            (Serialization.encodeEventBatch
+            (EventJson.encodeEventBatch
                 { events = [ wsEvent ] })
     use wsContent = new StringContent(wsBody, Text.Encoding.UTF8, "application/json")
     let wsResp =
@@ -725,7 +726,7 @@ let ``directory reconciliation POST returns failures JSON`` () =
     let docsEvent = eventFromChange docsChange
     let docsBody =
         Thoth.Json.Newtonsoft.Encode.toString 0
-            (Serialization.encodeEventBatch
+            (EventJson.encodeEventBatch
                 { events = [ docsEvent ] })
     use docsContent =
         new StringContent(docsBody, Text.Encoding.UTF8, "application/json")
@@ -761,7 +762,7 @@ let ``workspace reconciliation POST with empty path discovers root`` () =
     let wsEvent = eventFromChange wsChange
     let wsBody =
         Thoth.Json.Newtonsoft.Encode.toString 0
-            (Serialization.encodeEventBatch
+            (EventJson.encodeEventBatch
                 { events = [ wsEvent ] })
     use wsContent = new StringContent(wsBody, Text.Encoding.UTF8, "application/json")
     let wsResp =
