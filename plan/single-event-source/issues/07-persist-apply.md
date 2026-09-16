@@ -1,7 +1,8 @@
 # 07 — Persist apply
 
-**Status:** blocked
-**Blocked by:** [05 — Expand Op-list apply](05-expand-op-list-apply.md), [06 — Compile preamble](06-compile-preamble.md)
+**Status:** coded
+**Actual:** 2h
+**Blocked by:** None — [05 — Expand Op-list apply](05-expand-op-list-apply.md) and [06 — Compile preamble](06-compile-preamble.md) are done
 
 ## Context
 
@@ -15,7 +16,7 @@ FileAgent and DbAgent admit Ev, apply Ops locally, then `appendEvent`. CoreEvent
 
 Modules **FileAgent**, **DbAgent**, **PersistStamp**, **CoreEventDispatch**. Seam **Persist apply**.
 
-- [ ] 1.2.2 Persist apply — admit Ev, apply Ops, `appendEvent` Ev. No Ev→Change copy for apply
+- [x] 1.2.2 Persist apply — admit Ev, apply Ops, `appendEvent` Ev. No Ev→Change copy for apply
 
 ## Out of scope
 
@@ -25,3 +26,7 @@ Modules **FileAgent**, **DbAgent**, **PersistStamp**, **CoreEventDispatch**. Sea
 ## See also
 
 [[../arch.md|Single event source architecture]], [[../reports/inventory-non-event-write-paths.md]]
+
+## Time
+
+- 2026-09-16 2h — FileAgent and DbAgent apply Ev Ops then CoreEventDispatch appendEvent; leftover Change still compiles (from chat)

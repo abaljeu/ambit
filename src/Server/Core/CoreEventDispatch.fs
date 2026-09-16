@@ -129,20 +129,9 @@ module internal CoreEventDispatch =
     let private persist (context: Context) (completed: Ev) (graphOnly: bool) =
         match Ev.ops completed with
         | None -> Ok None
-        | Some ops ->
-            match context.persist.getRevision () with
-            | Error error -> Error error
-            | Ok revision ->
-                let change =
-                    { id = revision.Value
-                      submissionId = completed.submissionId
-                      ops = ops }
-                if graphOnly then
-                    context.persist.postGraphOnlyChange [ change ]
-                    |> Result.map Some
-                else
-                    context.persist.postChange [ change ]
-                    |> Result.map Some
+        | Some _ ->
+            context.persist.applyEvent completed graphOnly
+            |> Result.map Some
 
     let private store context accepted completed =
         let confirmed =

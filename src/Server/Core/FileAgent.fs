@@ -64,8 +64,7 @@ module FileAgent =
             CoreChanges.accepted
                 state.Value.revision
                 true
-                (confirmed
-                 |> List.map (Ev.ofChange ""))
+                confirmed
                 externalChanges
                 message
 
@@ -96,22 +95,20 @@ module FileAgent =
                     | Error err -> Error err
                     | Ok () -> Ok stamped
 
-        let applyBatch (changes: Change list) =
-            let step (s, confirmations, fresh, changed, externalChanges) change =
-                // Check dedup using EventLog by submissionId
-                match persistedEventLog.Value.events
-                      |> List.tryFind (fun e -> e.submissionId = change.submissionId) with
-                | Some storedEvent ->
-                    // Already applied - return stored Change derived from Ev
-                    let storedChange =
-                        { id = s.revision.Value
-                          submissionId = storedEvent.submissionId
-                          ops = Ev.ops storedEvent |> Option.defaultValue [] }
-                    Ok(s, storedChange :: confirmations, fresh, changed, externalChanges)
-                | None ->
-                    let result, amended, applied =
-                        ChangeAmendment.applyChange change s
-
+        let applyOne
+            (s, confirmations, fresh, changed, externalChanges)
+            (event: Ev)
+            =
+            match persistedEventLog.Value.events
+                  |> List.tryFind (fun e -> e.submissionId = event.submissionId) with
+            | Some storedEvent ->
+                Ok(s, storedEvent :: confirmations, fresh, changed, externalChanges)
+            | None ->
+                match Ev.ops event with
+                | None -> Error "Ev has no Ops"
+                | Some ops ->
+                    let result, amended, appliedOps =
+                        ChangeAmendment.applyOps ops s
                     match result with
                     | ApplyResult.Invalid (_, errMsg) -> Error errMsg
                     | ApplyResult.Unchanged _ ->
@@ -119,6 +116,8 @@ module FileAgent =
                     | ApplyResult.Changed s' ->
                         let nextRev = s.revision.Value + 1
                         let nextState = { s' with revision = Revision nextRev }
+                        let applied =
+                            CoreMailboxBackend.withAppliedOps event appliedOps
                         Ok(
                             nextState,
                             applied :: confirmations,
@@ -126,12 +125,13 @@ module FileAgent =
                             true,
                             externalChanges || amended)
 
-            changes
+        let applyBatch (events: Ev list) =
+            events
             |> List.fold
-                (fun acc change ->
+                (fun acc event ->
                     match acc with
                     | Error err -> Error err
-                    | Ok stateAndLog -> step stateAndLog change)
+                    | Ok stateAndLog -> applyOne stateAndLog event)
                 (Ok(state.Value, [], [], false, false))
             |> Result.map (fun (newState, confirmations, fresh, changed, externalChanges) ->
                 newState, List.rev confirmations, List.rev fresh, changed, externalChanges)
@@ -151,7 +151,8 @@ module FileAgent =
             if changed && not graphOnly then
                 let ops =
                     fresh
-                    |> List.collect (fun change -> change.ops)
+                    |> List.collect (fun event ->
+                        Ev.ops event |> Option.defaultValue [])
                 syncPersistChange
                     newState.revision.Value
                     preGraph
@@ -163,8 +164,8 @@ module FileAgent =
 
         let preparePostChange
             (newState: State)
-            (confirmations: Change list)
-            (fresh: Change list)
+            (confirmations: Ev list)
+            (fresh: Ev list)
             (stampedOpt: PersistGraphOk option)
             =
             let stampOps, stampedGraph, persistMessage =
@@ -175,7 +176,10 @@ module FileAgent =
                     stamped.message
                 | None -> [], newState.graph, None
             let stampedFresh, ackChanges =
-                CoreMailboxBackend.overlayFresh confirmations fresh stampOps
+                CoreMailboxBackend.overlayFreshEvents
+                    confirmations
+                    fresh
+                    stampOps
             let finalState =
                 match stampedOpt with
                 | Some _ -> { newState with graph = stampedGraph }
@@ -193,14 +197,17 @@ module FileAgent =
             reply.Reply(
                 Ok(accepted ackChanges externalChanges persistMessage))
 
-        let processPostChange
-            (changes: Change list)
+        let leftoverEvents (changes: Change list) =
+            changes |> List.map (Ev.ofChange "")
+
+        let processPostEvents
+            (events: Ev list)
             graphOnly
             : Result<CoreChangesAccepted, string> =
-            if changes.IsEmpty then
+            if events.IsEmpty then
                 Error "changes must not be empty"
             else
-                match applyBatch changes with
+                match applyBatch events with
                 | Error err -> Error err
                 | Ok (newState, confirmations, fresh, changed, externalChanges) ->
                     let preGraph = state.Value.graph
@@ -245,10 +252,12 @@ module FileAgent =
                             [ event ]
                             persistedEventLog.Value
                     Ok ()
+            applyEvent = fun event graphOnly ->
+                processPostEvents [ event ] graphOnly
             postChange = fun changes ->
-                processPostChange changes false
+                processPostEvents (leftoverEvents changes) false
             postGraphOnlyChange = fun changes ->
-                processPostChange changes true
+                processPostEvents (leftoverEvents changes) true
             snapshotDone = fun _ -> ()
         }
 

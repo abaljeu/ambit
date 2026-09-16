@@ -107,8 +107,7 @@ module DbAgent =
         CoreChanges.accepted
             loaded.state.Value.revision
             loaded.ready.Task.IsCompletedSuccessfully
-            (confirmed
-             |> List.map (Ev.ofChange ""))
+            confirmed
             externalChanges
             message
 
@@ -116,42 +115,42 @@ module DbAgent =
         loaded.eventLog.Value.events
         |> List.tryFind (fun e -> e.submissionId = submissionId)
 
-    let private applyOneChange
+    let private applyOneEvent
         loaded
         ((s: State), confirmations, externalChanges)
-        change
+        (event: Ev)
         =
-        match tryPersistedEvent loaded change.submissionId with
+        match tryPersistedEvent loaded event.submissionId with
         | Some storedEvent ->
-            // Already applied - derive Change from Ev
-            let stored =
-                { id = s.revision.Value
-                  submissionId = storedEvent.submissionId
-                  ops = Ev.ops storedEvent |> Option.defaultValue [] }
-            Ok(s, stored :: confirmations, externalChanges)
+            Ok(s, storedEvent :: confirmations, externalChanges)
         | None ->
-            let result, amended, applied =
-                ChangeAmendment.applyChange change s
-            match result with
-            | ApplyResult.Invalid (_, errMsg) -> Error errMsg
-            | ApplyResult.Unchanged _ ->
-                Error "Unchanged submission is rejected."
-            | ApplyResult.Changed s' ->
-                let nextRev = s.revision.Value + 1
-                let nextState = { s' with revision = Revision nextRev }
-                Ok(
-                    nextState,
-                    applied :: confirmations,
-                    externalChanges || amended)
+            match Ev.ops event with
+            | None -> Error "Ev has no Ops"
+            | Some ops ->
+                let result, amended, appliedOps =
+                    ChangeAmendment.applyOps ops s
+                match result with
+                | ApplyResult.Invalid (_, errMsg) -> Error errMsg
+                | ApplyResult.Unchanged _ ->
+                    Error "Unchanged submission is rejected."
+                | ApplyResult.Changed s' ->
+                    let nextRev = s.revision.Value + 1
+                    let nextState = { s' with revision = Revision nextRev }
+                    let applied =
+                        CoreMailboxBackend.withAppliedOps event appliedOps
+                    Ok(
+                        nextState,
+                        applied :: confirmations,
+                        externalChanges || amended)
 
-    let private applyBatch loaded changes =
+    let private applyBatch loaded events =
         try
-            changes
+            events
             |> List.fold
-                (fun acc change ->
+                (fun acc event ->
                     match acc with
                     | Error err -> Error err
-                    | Ok stateAndLog -> applyOneChange loaded stateAndLog change)
+                    | Ok stateAndLog -> applyOneEvent loaded stateAndLog event)
                 (Ok(loaded.state.Value, [], false))
             |> Result.map (fun (newState, confirmations, externalChanges) ->
                 newState, List.rev confirmations, externalChanges)
@@ -159,8 +158,10 @@ module DbAgent =
             eprintfn "DbAgent: failed to apply batch: %s" ex.Message
             Error $"Database error: {ex.Message}"
 
-    let private persistGraphProjection loaded (newState: State) changes =
-        if List.isEmpty (Map.toList newState.graph.nodes) then
+    let private persistGraphProjection loaded (newState: State) events =
+        if String.IsNullOrWhiteSpace loaded.connectionString then
+            Ok ()
+        elif List.isEmpty (Map.toList newState.graph.nodes) then
             Ok ()
         else
             try
@@ -171,7 +172,7 @@ module DbAgent =
                     DatabaseProjection.plan
                         newState.graph
                         newState.revision.Value
-                        changes
+                        (events |> List.map Ev.asChange)
                 (DatabaseProjection.persistWithTx tx newState.graph patch)
                     .GetAwaiter()
                     .GetResult()
@@ -235,7 +236,8 @@ module DbAgent =
         | false, Some dataDir, _::_ ->
             let ops =
                 fresh
-                |> List.collect (fun change -> change.ops)
+                |> List.collect (fun event ->
+                    Ev.ops event |> Option.defaultValue [])
             CoreMailboxBackend.runBounded
                 CoreMailboxBackend.ChangeProcessingTimeoutMs
                 (fun () ->
@@ -258,7 +260,7 @@ module DbAgent =
                 stamped.message
             | None -> [], newState, None
         let stampedFresh, ackChanges =
-            CoreMailboxBackend.overlayFresh confirmations fresh stampOps
+            CoreMailboxBackend.overlayFreshEvents confirmations fresh stampOps
         stateToStore, ackChanges, persistMessage
 
     let private commitPostChange
@@ -317,14 +319,14 @@ module DbAgent =
                     externalChanges
                     persistMessage
 
-    let private processPostChange loaded (changes: Change list) graphOnly =
-        if changes.IsEmpty then
+    let private processPostEvents loaded (events: Ev list) graphOnly =
+        if events.IsEmpty then
             Error "changes must not be empty"
         else
             match
                 CoreMailboxBackend.runBounded
                     CoreMailboxBackend.ChangeProcessingTimeoutMs
-                    (fun () -> applyBatch loaded changes)
+                    (fun () -> applyBatch loaded events)
             with
             | Error err -> Error err
             | Ok (newState, confirmations, externalChanges) ->
@@ -332,11 +334,11 @@ module DbAgent =
                     Ok(accepted loaded confirmations externalChanges None)
                 else
                     let submittedIds =
-                        changes |> List.map (fun c -> c.submissionId) |> Set.ofList
+                        events |> List.map (fun e -> e.submissionId) |> Set.ofList
                     let fresh =
                         confirmations
-                        |> List.filter (fun c ->
-                            Set.contains c.submissionId submittedIds)
+                        |> List.filter (fun event ->
+                            Set.contains event.submissionId submittedIds)
                     finishAppliedPostChange
                         loaded
                         graphOnly
@@ -390,9 +392,12 @@ module DbAgent =
         getRevision = fun () -> Ok loaded.state.Value.revision
         getEventsSince = fun after -> Ok(eventsSince loaded after)
         appendEvent = appendPersistedEvent loaded
-        postChange = fun changes -> processPostChange loaded changes false
+        applyEvent = fun event graphOnly ->
+            processPostEvents loaded [ event ] graphOnly
+        postChange = fun changes ->
+            processPostEvents loaded (List.map (Ev.ofChange "") changes) false
         postGraphOnlyChange = fun changes ->
-            processPostChange loaded changes true
+            processPostEvents loaded (List.map (Ev.ofChange "") changes) true
         snapshotDone = handleSnapshotDone loaded
     }
 
