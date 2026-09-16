@@ -27,7 +27,7 @@ module ResidentProjection =
         | Op.NewSpecialNode _ ->
             Op.apply op state
 
-    let applyChange (change: Change) (state: State) : ApplyResult =
+    let applyOps (ops: Op list) (state: State) : ApplyResult =
         let step (accState, hasChanged) op =
             match applyOp op accState with
             | ApplyResult.Invalid _ as err -> Error err
@@ -35,7 +35,7 @@ module ResidentProjection =
             | ApplyResult.Changed s' -> Ok(s', true)
 
         let result =
-            change.ops
+            ops
             |> List.fold
                 (fun acc op ->
                     match acc with
@@ -49,6 +49,9 @@ module ResidentProjection =
         | Error err -> err
         | Ok (s, false) -> ApplyResult.Unchanged s
         | Ok (s, true) -> ApplyResult.Changed s
+
+    let applyChange (change: Change) (state: State) : ApplyResult =
+        applyOps change.ops state
 
     /// Merge authoritative package Nodes and rebuild Loaded-only indexes.
     let installPackages (packages: Node list) (graph: Graph) : Graph =

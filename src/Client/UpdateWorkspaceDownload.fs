@@ -118,13 +118,6 @@ let accumulateAutoDownloadFromOps (ops: Op list) (model: VM) : VM * Effect list 
                 pendingAutoDownloads = model.pendingAutoDownloads @ targets },
             [ Effect.ScheduleAutoDownloadTick autoDownloadDebounceMs ]
 
-/// Remote poll changes carry the same persist `SetUpdateTime` ops.
-let accumulateAutoDownloadFromChanges
-    (changes: Change list)
-    (model: VM)
-    : VM * Effect list =
-    accumulateAutoDownloadFromOps (changes |> List.collect (fun c -> c.ops)) model
-
 /// Debounce tick: coalesce pending targets per label, keep already-mapped
 /// labels, and fire-and-forget one scoped download each. No job polling and no
 /// stamp-align Change, so a stamp-only change cannot feed back into itself.

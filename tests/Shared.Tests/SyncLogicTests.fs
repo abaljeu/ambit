@@ -575,7 +575,7 @@ let ``consumeCatchUpPoll rewinds to baseline and preserves History`` () =
         Assert.Equal("server", result.graph.nodes.[nodeId].text)
         Assert.Equal(EventId 1, result.revision)
         Assert.Equal(optimistic.history, result.history)
-        Assert.NotEqual(pending.change.submissionId, serverChasubmissionIdissionId)
+        Assert.NotEqual(pending.change.submissionId, serverChange.submissionId)
 
 [<Fact>]
 let ``applyServerTail with changes preserves History`` () =

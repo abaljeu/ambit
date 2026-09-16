@@ -126,12 +126,10 @@ and private fallbackState (reason: string) =
     BootCacheStore.deleteCache currentFile ignore
     loadFromState ()
 
-and private applyBootNovel (novel: Change list) (ready: bool) =
+and private applyBootNovel (novel: Ev list) (ready: bool) =
     let model = getModel ()
     match
-        SyncLogic.applyServerTail
-            (novel |> List.map (Ev.ofChange ""))
-            (clientSyncState model)
+        SyncLogic.applyServerTail novel (clientSyncState model)
     with
     | Error _ -> fallbackState "apply"
     | Ok newState ->
@@ -142,8 +140,9 @@ and private applyBootNovel (novel: Change list) (ready: bool) =
                     EventId.toRevision newState.revision,
                     newState.history,
                     ready)))
-        BootCacheStore.appendChanges currentFile novel
-        bootLog <- bootLog @ novel
+        let novelChanges = novel |> List.map Ev.asChange
+        BootCacheStore.appendChanges currentFile novelChanges
+        bootLog <- bootLog @ novelChanges
         BootCacheStore.requestIdleTruncate
             currentFile
             bootScope

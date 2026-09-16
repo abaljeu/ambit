@@ -36,7 +36,7 @@ let ``novelChanges skips Poll Changes already in the log by id`` () =
 [<Fact>]
 let ``novelChanges skips Poll Changes already in the log by submissionId`` () =
     let local = mkChange 4
-    let pollDup = { mkChange 99 with submissionId = losubmissionIdissionId }
+    let pollDup = { mkChange 99 with submissionId = local.submissionId }
     Assert.Empty(BootCache.novelChanges [ local ] [ pollDup ])
 
 [<Fact>]
@@ -71,8 +71,8 @@ let ``decideBootPoll confirms when page stamps differ and API matches`` () =
 let ``decideBootPoll applies a novel tail`` () =
     let novel = mkChange 7
     match decide 6 [] (mkPoll 7 [ novel ]) with
-    | BootCache.BootPoll.ApplyNovel (changes, true) ->
-        Assert.Equal(7, changes.Head.id)
+    | BootCache.BootPoll.ApplyNovel (events, true) ->
+        Assert.Equal(7, events.Head.id.Value)
     | other -> failwithf "%A" other
 
 [<Fact>]

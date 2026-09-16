@@ -33,7 +33,7 @@ let private rejectPending detail (model: VM) : VM * Effect list =
 
 let private applySubmitResponse
     (submitted: PendingChange list)
-    (confirmed: Change list)
+    (confirmed: Ev list)
     (revision: Revision)
     (externalChanges: bool)
     (message: string option)
@@ -46,11 +46,10 @@ let private applySubmitResponse
             + string revision.Value + " modelRev=" + string model.revision.Value)
         model, []
     | _ ->
-        let confirmedEvents = confirmed |> List.map (Ev.ofChange "")
         let serverRev = EventId.ofRevision revision
         let useExternal =
             externalChanges
-            || not (SyncLogic.isConfirmationEcho submitted confirmedEvents)
+            || not (SyncLogic.isConfirmationEcho submitted confirmed)
         let result =
             if useExternal then
                 SyncLogic.reconcileExternalAck
@@ -58,7 +57,7 @@ let private applySubmitResponse
             else
                 SyncLogic.reconcileAck
                     submitted
-                    confirmedEvents
+                    confirmed
                     serverRev
                     (clientSyncState model)
                     model.syncInfo
@@ -214,7 +213,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
     | SysMsg AutoDownloadTick ->
         UpdateWorkspaceDownload.runAutoDownloadTick model
 
-    | SysMsg (PollDone (stateOpt, changes, readyOpt, responseRevision)) ->
+    | SysMsg (PollDone (stateOpt, events, readyOpt, responseRevision)) ->
         let readyModel =
             match readyOpt with
             | Some ready ->
@@ -226,15 +225,20 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
         // While Uploading, Parsing, or Loading: keep the busy indicator. Do not apply
         // Poll tails during Loading — a stale poll would advance Revision and cause
         // applyLoadResponse to reject package-only Load payloads.
+        let autoDownload model' =
+            UpdateWorkspaceDownload.accumulateAutoDownloadFromOps
+                (events
+                 |> List.collect (fun e ->
+                    Ev.ops e |> Option.defaultValue []))
+                model'
         match readyModel.syncInfo.syncState with
         | Loading ->
             readyModel, []
         | Uploading | Parsing as busy ->
             match stateOpt with
             | Some DataOutdated
-                when not changes.IsEmpty
+                when not events.IsEmpty
                     && not (isAutoSyncBlocked readyModel) ->
-                let events = changes |> List.map (Ev.ofChange "")
                 match
                     SyncLogic.applyServerTail events (clientSyncState readyModel)
                 with
@@ -249,13 +253,12 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                         |> adjustModeAfterServerApply readyModel.graph
                     { kept with
                         syncInfo = SyncInfo.withSyncState busy kept.syncInfo }
-                    |> UpdateWorkspaceDownload.accumulateAutoDownloadFromChanges changes
+                    |> autoDownload
             | _ -> readyModel, []
         | _ ->
             let si = SyncInfo.withSyncState Idle readyModel.syncInfo
-            match readyModel.syncInfo.catchUp, changes with
+            match readyModel.syncInfo.catchUp, events with
             | Some baseline, _ :: _ ->
-                let events = changes |> List.map (Ev.ofChange "")
                 let serverRev =
                     responseRevision
                     |> Option.map EventId.ofRevision
@@ -273,7 +276,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                 | Ok newState ->
                     consoleLog (
                         "[Gambol sync] PollDone catchUp applied="
-                        + string changes.Length
+                        + string events.Length
                         + " newRev="
                         + string newState.revision.Value)
                     let synced =
@@ -284,7 +287,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                             syncInfo = si |> SyncInfo.clearCatchUp }
                         |> withSiteMap
                         |> adjustModeAfterServerApply readyModel.graph
-                    UpdateWorkspaceDownload.accumulateAutoDownloadFromChanges changes synced
+                    autoDownload synced
             | Some _, [] ->
                 { readyModel with syncInfo = si |> SyncInfo.clearCatchUp }, []
             | _ ->
@@ -294,11 +297,10 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                     { readyModel with
                         syncInfo = SyncInfo.withSyncState CodeOutdated si }, []
                 | Some DataOutdated
-                    when changes.IsEmpty || isAutoSyncBlocked readyModel ->
+                    when events.IsEmpty || isAutoSyncBlocked readyModel ->
                     { readyModel with
                         syncInfo = SyncInfo.withSyncState DataOutdated si }, []
                 | Some DataOutdated ->
-                    let events = changes |> List.map (Ev.ofChange "")
                     match
                         SyncLogic.applyServerTail
                             events
@@ -310,7 +312,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                     | Ok newState ->
                         consoleLog (
                             "[Gambol sync] PollDone autoSync applied="
-                            + string changes.Length
+                            + string events.Length
                             + " newRev="
                             + string newState.revision.Value)
                         let synced =
@@ -321,7 +323,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                                 syncInfo = si }
                             |> withSiteMap
                             |> adjustModeAfterServerApply readyModel.graph
-                        UpdateWorkspaceDownload.accumulateAutoDownloadFromChanges changes synced
+                        autoDownload synced
                 | Some s ->
                     { readyModel with syncInfo = SyncInfo.withSyncState s si }, []
 

@@ -57,7 +57,7 @@ let ``retireSubmittedPrefix dequeues the prefix and schedules remainder`` () =
     let nextInfo, pending, effects =
         SyncPlanner.retireSubmittedPrefix 2 (EventId 3) syncInfo
     Assert.Single(pending) |> ignore
-    Assert.Equal(c3.submissionId, pending.Head.chasubmissionIdissionId)
+    Assert.Equal(c3.submissionId, pending.Head.change.submissionId)
     Assert.Equal(Sending 1, nextInfo.syncState)
     match effects with
     | [ SubmitPendingBatch (baseRevision, changes) ] ->
@@ -87,7 +87,7 @@ let ``toDeltaChain rewrites stale queued ids to contiguous revisions`` () =
     let chained = Gambol.Shared.SyncBatch.toDeltaChain 637 (List.map (Ev.ofChange "") [ c1; c2; c3 ])
     Assert.Equal<int list>([ 637; 638; 639 ], chained |> List.map (fun c -> c.id.Value))
     Assert.Equal<Guid list>(
-        [ c1.submissionId;submissionIdissiosubmissionIdsubmissionId ],
+        [ c1.submissionId; c2.submissionId; c3.submissionId ],
         chained |> List.map (fun c -> c.submissionId))
 
 [<Fact>]
@@ -337,7 +337,7 @@ let ``mixed C Undo Redo delta chain preserves identities and rewrites revisions`
         [ 7; 8; 9 ],
         chained |> List.map (fun item -> item.change.id))
     Assert.Equal<Guid list>(
-        [ change.submissionId; usubmissionIdissionIsubmissionIdsubmissionId ],
+        [ change.submissionId; undo.submissionId; redo.submissionId ],
         chained |> List.map (fun item -> item.change.submissionId))
     let wire = SyncBatch.toWireBatch 7 items
     Assert.Equal<Ev list>(
@@ -435,7 +435,7 @@ let ``restorePending strips transition and does not record History`` () =
         SyncPlanner.restorePending (EventId 1) saved snapshot
     let queued = Assert.Single(restored)
     Assert.Equal(None, queued.transition)
-    Assert.Equal(change.submissionId, queued.chasubmissionIdissionId)
+    Assert.Equal(change.submissionId, queued.change.submissionId)
     Assert.Equal("restored", next.graph.nodes.[node.id].text)
 
 [<Fact>]
@@ -450,7 +450,7 @@ let ``workspace singleton lineage is the exact item used before the request`` ()
         failwith "Expected workspace PendingTransition"
     let chained = SyncBatch.toPendingDeltaChain 12 [ submitted ]
     let wire = SyncBatch.toWireBatch 12 [ submitted ]
-    Assert.Equal(submitted.change.submissionId, chained.Head.chasubmissionIdissionId)
+    Assert.Equal(submitted.change.submissionId, chained.Head.change.submissionId)
     Assert.Equal(submitted.transition, chained.Head.transition)
     Assert.Equal<Ev list>(
         [ { Ev.ofChange "" change with id = EventId 12 } ],

@@ -45,7 +45,7 @@ let ``applyLocalChange records the submitted Change and Normal transition`` () =
     | Error msg -> failwith msg
     | Ok (next, pending) ->
         Assert.Equal("after", next.graph.nodes.[nodeId].text)
-        Assert.Equal(change.submissionId, pending.chasubmissionIdissionId)
+        Assert.Equal(change.submissionId, pending.change.submissionId)
         Assert.Equal<Op list>(change.ops, pending.change.ops)
         Assert.Equal(change.submissionId, pending.transition.Value.submittedChangeId)
         Assert.Equal(0, pending.transition.Value.recordId)

@@ -53,7 +53,7 @@ module private SubmitChangeCallbacks =
                 SysMsg (
                     SubmitResponse (
                         submitted,
-                        ack.events |> List.map Ev.asChange,
+                        ack.events,
                         EventId.toRevision ack.revision,
                         ack.externalChanges,
                         ack.message)))
@@ -412,7 +412,7 @@ let createRuntime (initialModel: VM) =
                     SysMsg (
                         PollDone (
                             outcome,
-                            poll.events |> List.map Ev.asChange,
+                            poll.events,
                             Some poll.isReady,
                             Some (EventId.toRevision poll.revision))))
             | Error _ ->
@@ -613,7 +613,9 @@ let createRuntime (initialModel: VM) =
                 if pendingDropped && not rejected then
                     BootCacheStore.appendChanges
                         currentFile
-                        (BootCache.acceptedForLog confirmed submitted)
+                        (BootCache.acceptedForLog
+                            (confirmed |> List.map Ev.asChange)
+                            submitted)
                     BootCacheStore.requestIdleTruncate
                         currentFile
                         (BootCache.scopeKey (tryReadSavedZoomId ()))

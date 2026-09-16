@@ -67,17 +67,20 @@ module SyncLogic =
             graph = projected.graph
             revision = Gambol.Shared.EventId (rev + 1) }
 
-    let private foldProjectedChanges
-        (changes: Change list)
+    let private foldProjectedEvents
+        (events: Ev list)
         (state: ClientSyncState)
         : Result<ClientSyncState, string> =
-        changes
+        events
         |> List.fold
-            (fun acc change ->
+            (fun acc event ->
                 match acc with
                 | Error _ -> acc
                 | Ok st ->
-                    match ResidentProjection.applyChange change (asProjectionState st) with
+                    let ops = Ev.ops event |> Option.defaultValue []
+                    match
+                        ResidentProjection.applyOps ops (asProjectionState st)
+                    with
                     | ApplyResult.Changed newSt
                     | ApplyResult.Unchanged newSt ->
                         Ok (withProjectedGraph st newSt)
@@ -101,11 +104,7 @@ module SyncLogic =
         (response: SyncResponse)
         (state: ClientSyncState)
         : Result<ClientSyncState, string> =
-        let changes = response.events |> List.map (fun event ->
-            { id = 0
-              submissionId = event.submissionId
-              ops = Ev.ops event |> Option.defaultValue [] })
-        match foldProjectedChanges changes state with
+        match foldProjectedEvents response.events state with
         | Error msg -> Error msg
         | Ok afterChanges ->
             let graph =
@@ -370,15 +369,11 @@ module SyncLogic =
         (serverRevision: Gambol.Shared.EventId)
         (state: ClientSyncState)
         : Result<ClientSyncState, string> =
-        let changes = events |> List.map (fun event ->
-            { id = 0
-              submissionId = event.submissionId
-              ops = Ev.ops event |> Option.defaultValue [] })
         let atBaseline =
             { state with
                 graph = baseline.graph
                 revision = baseline.revision }
-        match foldProjectedChanges changes atBaseline with
+        match foldProjectedEvents events atBaseline with
         | Error msg -> Error msg
         | Ok afterChanges ->
             Ok

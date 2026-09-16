@@ -206,10 +206,21 @@ module BootCache =
             not (Set.contains change.id byId)
             && not (Set.contains change.submissionId byChangeId))
 
+    let novelEvents
+        (log: Change list)
+        (pollEvents: Ev list)
+        : Ev list =
+        let byId = log |> List.map (fun c -> c.id) |> Set.ofList
+        let byChangeId = log |> List.map (fun c -> c.submissionId) |> Set.ofList
+        pollEvents
+        |> List.filter (fun event ->
+            not (Set.contains event.id.Value byId)
+            && not (Set.contains event.submissionId byChangeId))
+
     [<RequireQualifiedAccess>]
     type BootPoll =
         | Confirmed of isReady: bool
-        | ApplyNovel of Change list * isReady: bool
+        | ApplyNovel of Ev list * isReady: bool
         | CodeOutdated
         | FallbackState of reason: string
 
@@ -236,8 +247,7 @@ module BootCache =
             | Some CodeOutdated -> BootPoll.CodeOutdated
             | Some DataOutdated
             | None ->
-                let novel =
-                    novelChanges log (poll.events |> List.map Ev.asChange)
+                let novel = novelEvents log poll.events
                 let gap = poll.revision.Value - clientRev
                 if
                     novel.Length > maxNovelCount
