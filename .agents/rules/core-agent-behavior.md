@@ -74,6 +74,7 @@ While in plan mode, any request for a change should be interpreted as a request 
 
 ## Multitasking / SubAgent Delegation
 At startup, a subagent runs [[scripts/gitstatus.sh]] once per [[.agents/skills/git-protocol/SKILL.md]]. Run extra Git commands only when that output is not enough.
+Unless otherwise specified, always delegate to Grok 4.6.
 Use subagents to carry out tasks.
 The subagent writes the full result to `plan/<project-name>/reports/<subagent-title>.md` (create `reports/` if needed). Chat from the subagent, and from the parent after a Task returns, is a short pointer to that file plus the next step — not the report and not the Task body. If a workflow specifies another report path, use that path instead. Only the final report goes to reports/; project definition stays in the project directory.
 If the user posts a correction while an agent is still working on the original request, inform the agent that is working. Don't start a second agent with overlapping work area.
