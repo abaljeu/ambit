@@ -9,24 +9,24 @@
 
 ## What to build
 
-Move HTTP Adapter decode/encode onto Event. Change posts call `postEvent`. Poll and Load tails are Events, not a Change list. Poll returns an Event tail on the server. Keep the old Change Poll beside that Event tail so Browser consume stays green until [44 — Migrate Browser Poll, History, pending, and EventId cursor](44-migrate-browser-poll-history-pending-and-eventid.md). Command-builder still produces Change (Ops); Event is built at the `postEvent` door. The old types still compile. CI stays green.
+Move HTTP Adapter decode/encode onto Ev. Change posts call `postEvent`. Poll and Load tails are Ev lists, not a Change list. Poll returns an Ev tail on the server. Keep the old Change Poll beside that Ev tail so Browser consume stays green until [44 — Migrate Browser Poll, History, pending, and EventId cursor](44-migrate-browser-poll-history-pending-and-eventid.md). Command-builder still produces Change (Ops); Ev is built at the `postEvent` door. The old types still compile. CI stays green.
 
 ### 1. Change posts call postEvent
 
 Migrate HTTP Changes posts on **HTTP Adapter**. Seam **`postEvent` door**.
 
-- [x] Change posts call postEvent — HTTP Adapter decodes Change posts and calls CoreMailbox `postEvent`. Command-builder still produces Change (Ops). Event is built at the `postEvent` door.
+- [x] Change posts call postEvent — HTTP Adapter decodes Change posts and calls CoreMailbox `postEvent`. Command-builder still produces Change (Ops). Ev is built at the `postEvent` door.
 
 ### 2. Poll and Load Event tail
 
 Migrate Poll and Load encode on **HTTP Adapter**. Seam **EventLog** (`since` is the Poll/Load tail).
 
-- [x] Poll Event tail — Poll returns an Event tail (server return). Old Change Poll remains beside it until Browser migrate.
-- [x] Load Event tail — Load tail is Events. Old Change Load remains beside it until Browser migrate.
+- [x] Poll Event tail — Poll returns an Ev tail (server return). Old Change Poll remains beside it until Browser migrate.
+- [x] Load Event tail — Load tail is an Ev list. Old Change Load remains beside it until Browser migrate.
 
 ## Out of scope
 
-1. Browser consume — Browser Poll consume, `Revision` → EventId cursor, PendingChange / ChangeBatch wrapping Event, and ClientHistory undo stay on [44 — Migrate Browser Poll, History, pending, and EventId cursor](44-migrate-browser-poll-history-pending-and-eventid.md).
+1. Browser consume — Browser Poll consume, `Revision` → EventId cursor, PendingChange / EventBatch wrapping Ev, and ClientHistory undo stay on [44 — Migrate Browser Poll, History, pending, and EventId cursor](44-migrate-browser-poll-history-pending-and-eventid.md).
 2. Contract deletes — Delete of HistoryEvent, ActorLifecycleEvent, mailbox `type History` / History name, PendingKind, the StartActorRequest name, and the ChangeLog name stays on [45 — Contract HistoryEvent, mailbox History, PendingKind, StartActorRequest, and ChangeLog](45-contract-historyevent-clienthistory-pendingkind-and-changelog.md). ClientHistory remains.
 
 ## See also

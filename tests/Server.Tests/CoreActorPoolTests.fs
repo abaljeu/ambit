@@ -26,7 +26,7 @@ let ``Actor handle wrap refuses a different inactive credential`` () = task {
                 Unchecked.defaultof<_>
         let change =
             { id = state.revision.Value
-              changeId = Guid.NewGuid()
+              submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(NodeId.New(), "nope")
                   Op.Replace(

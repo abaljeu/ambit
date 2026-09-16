@@ -6,11 +6,11 @@ type internal CoreMsg =
     | GetState of AsyncReplyChannel<Result<State, string>>
     | GetRevision of AsyncReplyChannel<Result<Revision, string>>
     | GetEventsSince of
-        after: Gambol.Shared.Events.EventId *
+        after: Gambol.Shared.EventId *
         AsyncReplyChannel<
-            Result<Gambol.Shared.Events.Event list, string>>
+            Result<Ev list, string>>
     | GetEventHistory of
-        AsyncReplyChannel<Gambol.Shared.Events.EventLog>
+        AsyncReplyChannel<Gambol.Shared.EventLog>
     | PostGraphOnlyChange of
         caller: Caller *
         change: Change *
@@ -21,7 +21,7 @@ type internal CoreMsg =
     | SnapshotDone of graph: Graph option
     | StartActor of
         caller: Caller *
-        request: Gambol.Shared.Events.ActorStart *
+        request: Gambol.Shared.ActorStart *
         AsyncReplyChannel<Result<unit, string>>
     | ActorStop of
         caller: Caller *
@@ -33,24 +33,24 @@ type internal CoreMsg =
     | AdmitCaller of Caller * AsyncReplyChannel<bool>
     | PostEvent of
         caller: Caller *
-        event: Gambol.Shared.Events.Event *
+        event: Ev *
         AsyncReplyChannel<
             Result<
-                Gambol.Shared.Events.Event *
+                Ev *
                 CoreChangesAccepted option,
                 string>>
     | EventsSince of
-        after: Gambol.Shared.Events.EventId *
-        AsyncReplyChannel<Gambol.Shared.Events.EventLog>
+        after: Gambol.Shared.EventId *
+        AsyncReplyChannel<Gambol.Shared.EventLog>
 
 type PersistHandlers = {
     getState: unit -> Result<State, string>
     getRevision: unit -> Result<Revision, string>
     getEventsSince:
-        Gambol.Shared.Events.EventId
-            -> Result<Gambol.Shared.Events.Event list, string>
+        Gambol.Shared.EventId
+            -> Result<Ev list, string>
     appendEvent:
-        Gambol.Shared.Events.Event -> Result<unit, string>
+        Ev -> Result<unit, string>
     postChange:
         Change list -> Result<CoreChangesAccepted, string>
     postGraphOnlyChange:

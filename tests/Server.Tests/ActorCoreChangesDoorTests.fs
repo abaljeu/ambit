@@ -16,12 +16,12 @@ let private requireOk label result =
         Assert.Fail($"{label}: {err}")
         Unchecked.defaultof<_>
 
-let private sampleRequest: Gambol.Shared.Events.ActorStart =
+let private sampleRequest: Gambol.Shared.ActorStart =
     { zoomId = Graph.rootId
       focusId = Graph.rootId
       commandId = Graph.rootId
       graphIds = [ Graph.rootId ]
-      revision = Gambol.Shared.Events.EventId 0 }
+      revision = Gambol.Shared.EventId 0 }
 
 let private withPersist persist body =
     task {
@@ -90,7 +90,7 @@ let ``Actor postChange on scheduled handle reaches persist`` () =
     let childId = NodeId.New()
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "from-actor")
               Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }

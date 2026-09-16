@@ -3,7 +3,7 @@ module Gambol.Client.App
 open Browser.Dom
 open Browser.Types
 open Gambol.Shared
-open Gambol.Shared.Events
+open Gambol.Shared
 open Gambol.Shared.ViewModel
 open Gambol.Client
 open Gambol.Client.Update
@@ -53,7 +53,7 @@ module private SubmitChangeCallbacks =
                 SysMsg (
                     SubmitResponse (
                         submitted,
-                        ack.events |> List.map Event.asChange,
+                        ack.events,
                         EventId.toRevision ack.revision,
                         ack.externalChanges,
                         ack.message)))
@@ -217,7 +217,7 @@ let createRuntime (initialModel: VM) =
                     retry
                     (jsonMutatingPostHeaders ())
 
-            // A timed-out POST may still commit. Retrying the same changeId is
+            // A timed-out POST may still commit. Retrying the same submissionId is
             // idempotent and recovers its authoritative ACK.
             post ()
         | ContinueWorkspacePush (scope, parseFileId) ->
@@ -412,7 +412,7 @@ let createRuntime (initialModel: VM) =
                     SysMsg (
                         PollDone (
                             outcome,
-                            poll.events |> List.map Event.asChange,
+                            poll.events,
                             Some poll.isReady,
                             Some (EventId.toRevision poll.revision))))
             | Error _ ->
@@ -613,7 +613,9 @@ let createRuntime (initialModel: VM) =
                 if pendingDropped && not rejected then
                     BootCacheStore.appendChanges
                         currentFile
-                        (BootCache.acceptedForLog confirmed submitted)
+                        (BootCache.acceptedForLog
+                            (confirmed |> List.map Ev.asChange)
+                            submitted)
                     BootCacheStore.requestIdleTruncate
                         currentFile
                         (BootCache.scopeKey (tryReadSavedZoomId ()))

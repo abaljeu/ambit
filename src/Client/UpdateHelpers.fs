@@ -5,7 +5,7 @@ open Fable.Core.JsInterop
 open Gambol.Client.JsInterop
 open Gambol.Shared
 open Gambol.Shared.CommandEntry
-open Gambol.Shared.Events
+open Gambol.Shared
 open Gambol.Shared.ViewModel
 open Gambol.Shared.ViewModelMoveOps
 open Thoth.Json.Core
@@ -105,7 +105,7 @@ let savePendingQueue (items: PendingChange list) =
     else
         let encoded =
             Encode.list (
-                items |> List.map Gambol.Shared.Events.EventJson.encodePendingChange)
+                items |> List.map Gambol.Shared.EventJson.encodePendingChange)
         let json = Thoth.Json.JavaScript.Encode.toString 0 encoded
         localStorageSet pendingKey json
 
@@ -114,7 +114,7 @@ let loadPendingQueue () : PendingChange list =
     if isNull json || json = "" then []
     else
         match Thoth.Json.JavaScript.Decode.fromString
-            (Decode.list Gambol.Shared.Events.EventJson.decodePendingChange) json with
+            (Decode.list Gambol.Shared.EventJson.decodePendingChange) json with
         | Ok items -> items
         | Error _ -> []
 
@@ -278,7 +278,7 @@ let commitTextEdit
     | ops ->
         let change: Change =
             { id = model.revision.Value
-              changeId = System.Guid.NewGuid()
+              submissionId = System.Guid.NewGuid()
               ops = ops }
         match applyAndPost (displayName EditNode) change model with
         | Ok (m, effects) -> { m with mode = Selecting }, effects
@@ -332,7 +332,7 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) : VM * Effect l
 
         let change: Change =
             { id = model.revision.Value
-              changeId = System.Guid.NewGuid()
+              submissionId = System.Guid.NewGuid()
               ops = ops }
         match applyAndPost (displayName SplitAtCursor) change model with
         | Ok (m, effects) ->

@@ -152,7 +152,7 @@ The Browser uses `b` / `p` to detect redeploy or stale bundles ([[doc/current/sy
 ```
 
 - `changes` must be non-empty.
-- Multiple changes in one batch are applied in order; all must succeed or none are applied (`400` on failure leaves state unchanged).
+- Multiple changes in one batch are applied in order. Changes in a list are independent; a later reject does not roll back earlier items.
 
 **Response** (`200`): the same `ChangeSuccessResponse` codec as Poll.
 

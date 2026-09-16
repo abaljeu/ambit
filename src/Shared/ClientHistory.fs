@@ -1,11 +1,11 @@
 namespace Gambol.Shared
 
-open Gambol.Shared.Events
+open Gambol.Shared
 
 type ClientHistory =
     private
-        { eventPast: Event list
-          eventFuture: Event list
+        { eventPast: Ev list
+          eventFuture: Ev list
           nextEventId: EventId }
 
 [<RequireQualifiedAccess>]
@@ -16,12 +16,12 @@ module ClientHistory =
           nextEventId = EventId.zero }
 
     let private tryTakeAction
-        (stack: Event list)
-        : (Event list * Event) option =
+        (stack: Ev list)
+        : (Ev list * Ev) option =
         let rec walk skipped remaining =
             match remaining with
             | [] -> None
-            | action :: rest when Event.isAction action ->
+            | action :: rest when Ev.isAction action ->
                 let kept = List.fold (fun acc x -> x :: acc) rest skipped
                 Some(kept, action)
             | actor :: rest ->
@@ -30,20 +30,20 @@ module ClientHistory =
 
     let private invertAs
         (wrap: EventId * Op list -> EventBody)
-        (action: Event)
+        (action: Ev)
         (id: EventId)
-        : Event =
+        : Ev =
         let inverse =
-            Event.inverseOps action |> Option.defaultValue []
+            Ev.inverseOps action |> Option.defaultValue []
         { id = id
           submissionId = System.Guid.NewGuid()
           authority = action.authority
           commandName = action.commandName
-          body = wrap (Event.id action, inverse) }
+          body = wrap (Ev.id action, inverse) }
 
     let recordEvent
         (commandName: string)
-        (event: Event)
+        (event: Ev)
         (history: ClientHistory)
         : ClientHistory =
         let event = { event with commandName = commandName }
@@ -60,7 +60,7 @@ module ClientHistory =
 
     let undoEvent
         (history: ClientHistory)
-        : (Event * ClientHistory) option =
+        : (Ev * ClientHistory) option =
         match tryTakeAction history.eventPast with
         | None -> None
         | Some (remainingPast, action) ->
@@ -74,7 +74,7 @@ module ClientHistory =
 
     let redoEvent
         (history: ClientHistory)
-        : (Event * ClientHistory) option =
+        : (Ev * ClientHistory) option =
         match tryTakeAction history.eventFuture with
         | None -> None
         | Some (remainingFuture, action) ->
@@ -86,11 +86,11 @@ module ClientHistory =
                     nextEventId = EventId.next history.nextEventId }
             Some(produced, nextHistory)
 
-    let private tryPeekActionName (stack: Event list) : string option =
+    let private tryPeekActionName (stack: Ev list) : string option =
         let rec walk remaining =
             match remaining with
             | [] -> None
-            | event :: _ when Event.isAction event -> Some event.commandName
+            | event :: _ when Ev.isAction event -> Some event.commandName
             | _ :: rest -> walk rest
         walk stack
 
@@ -102,17 +102,17 @@ module ClientHistory =
 
     let private unwrap (EventId n) = n
 
-    let private callerRecordId (event: Event) : int =
-        unwrap (Event.target event |> Option.defaultValue event.id)
+    let private callerRecordId (event: Ev) : int =
+        unwrap (Ev.target event |> Option.defaultValue event.id)
 
     let private asChange
         (Revision rev)
-        (changeId: System.Guid)
-        (event: Event)
+        (submissionId: System.Guid)
+        (event: Ev)
         : Change =
         { id = rev
-          changeId = changeId
-          ops = Event.ops event |> Option.defaultValue [] }
+          submissionId = submissionId
+          ops = Ev.ops event |> Option.defaultValue [] }
 
     let record
         (commandName: string)
@@ -121,7 +121,7 @@ module ClientHistory =
         : ClientHistory * int =
         let event =
             { id = history.nextEventId
-              submissionId = change.changeId
+              submissionId = change.submissionId
               authority = Authority "Browser"
               commandName = commandName
               body = EventBody.Change change.ops }
@@ -129,28 +129,28 @@ module ClientHistory =
 
     let undo
         (baseRevision: Revision)
-        (changeId: System.Guid)
+        (submissionId: System.Guid)
         (history: ClientHistory)
         : (Change * string * ClientHistory * int) option =
         match undoEvent history with
         | None -> None
         | Some (produced, nextHistory) ->
             Some(
-                asChange baseRevision changeId produced,
+                asChange baseRevision submissionId produced,
                 produced.commandName,
                 nextHistory,
                 callerRecordId produced)
 
     let redo
         (baseRevision: Revision)
-        (changeId: System.Guid)
+        (submissionId: System.Guid)
         (history: ClientHistory)
         : (Change * string * ClientHistory * int) option =
         match redoEvent history with
         | None -> None
         | Some (produced, nextHistory) ->
             Some(
-                asChange baseRevision changeId produced,
+                asChange baseRevision submissionId produced,
                 produced.commandName,
                 nextHistory,
                 callerRecordId produced)

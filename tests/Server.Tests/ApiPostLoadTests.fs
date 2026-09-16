@@ -7,7 +7,7 @@ open Microsoft.AspNetCore.Http.HttpResults
 open Xunit
 open Gambol.Server
 open Gambol.Shared
-open Gambol.Shared.Events
+open Gambol.Shared
 open Thoth.Json.Newtonsoft
 
 module Encode = Thoth.Json.Newtonsoft.Encode
@@ -74,11 +74,11 @@ let private stateResponse (graph: Graph) (revision: int) =
 
 let private handleForLoad
     (revision: int)
-    (events: Gambol.Shared.Events.Event list)
+    (events: Ev list)
     (state: State)
     : CoreChanges =
     { getState = fun () -> async.Return(Result.Ok state)
-      getRevision = fun () -> async.Return(Gambol.Shared.Events.EventId revision)
+      getRevision = fun () -> async.Return(Gambol.Shared.EventId revision)
       getEventsSince = fun _ -> async.Return events
       isReady = fun () -> true
       postChange = fun _ -> async.Return(Result.Error "unused")
@@ -91,14 +91,14 @@ let private encodeRequest (request: LoadRequest) =
     Encode.toString 0 (ApiResponseSerialization.encodeLoadRequest request)
 
 [<Fact>]
-let ``postLoad Event-only when includeWorkspace false`` () = task {
+let ``postLoad Ev-only when includeWorkspace false`` () = task {
     let graph, wsId, _, fileId = nestedWorkspaceGraph ()
     let event =
-        { id = Gambol.Shared.Events.EventId 5
+        { id = Gambol.Shared.EventId 5
           submissionId = Guid.NewGuid()
-          authority = Gambol.Shared.Events.Authority ""
+          authority = Gambol.Shared.Authority ""
           commandName = ""
-          body = Gambol.Shared.Events.EventBody.Change [ Op.SetText(fileId, "a", "b") ] }
+          body = Gambol.Shared.EventBody.Change [ Op.SetText(fileId, "a", "b") ] }
     let handle =
         handleForLoad 5 [ event ] (stateResponse graph 5)
     let body =
@@ -153,11 +153,11 @@ let ``postLoad Workspace subgraph when includeWorkspace true`` () = task {
 let ``postLoad missing target returns events without packages`` () = task {
     let graph, _, _, _ = nestedWorkspaceGraph ()
     let event =
-        { id = Gambol.Shared.Events.EventId 4
+        { id = Gambol.Shared.EventId 4
           submissionId = Guid.NewGuid()
-          authority = Gambol.Shared.Events.Authority ""
+          authority = Gambol.Shared.Authority ""
           commandName = ""
-          body = Gambol.Shared.Events.EventBody.Change [] }
+          body = Gambol.Shared.EventBody.Change [] }
     let handle =
         handleForLoad 4 [ event ] (stateResponse graph 4)
     let body =
@@ -182,11 +182,11 @@ let ``postLoad missing target returns events without packages`` () = task {
 let ``postLoad shares one revision for events and packages`` () = task {
     let graph, wsId, _, fileId = nestedWorkspaceGraph ()
     let event =
-        { id = Gambol.Shared.Events.EventId 9
+        { id = Gambol.Shared.EventId 9
           submissionId = Guid.NewGuid()
-          authority = Gambol.Shared.Events.Authority ""
+          authority = Gambol.Shared.Authority ""
           commandName = ""
-          body = Gambol.Shared.Events.EventBody.Change [ Op.SetText(fileId, "x", "y") ] }
+          body = Gambol.Shared.EventBody.Change [ Op.SetText(fileId, "x", "y") ] }
     let handle =
         handleForLoad 9 [ event ] (stateResponse graph 9)
     let body =

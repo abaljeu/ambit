@@ -2,7 +2,7 @@
 
 Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
-Updated: 2026-09-15
+Updated: 2026-09-16
 Started: 2026-09-05
 Actual: 51h50m
 
@@ -159,6 +159,8 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - 2026-09-15 — `/to-tickets` for Story **Caller, persist, and Poll** only; published [[plan/core-creation/issues/40-expand-postevent-eventlog-and-event-json.md|40 — Expand postEvent, EventLog store, and Event JSON persist]] through [[plan/core-creation/issues/45-contract-historyevent-clienthistory-pendingkind-and-changelog.md|45 — Contract HistoryEvent, mailbox History, PendingKind, StartActorRequest, and ChangeLog]]. Numbers start at 40. Story 4 tickets unchanged. Stage `slice`.
 - 2026-09-15 — EventLog is the Event sequence and its persist. ChangeLog is a lagging code name only (`src/Server/ChangeLog.fs`).
 - 2026-09-15 — Destination module 6 and report §3.3 are ClientHistory, not History. EventLog is the sequence (today’s mailbox `type History` / `module History` is the lagging name). ClientHistory stays at [[src/Shared/ClientHistory.fs]]. No destination module named History.
-- 2026-09-15 — [[plan/core-creation/issues/37-expand-shared-event-eventlog-and-history.md|37 — Expand Shared Event, EventLog, and History]] Status `coded`. Event types in `Gambol.Shared.Events`. Stage `build`. Report: [[plan/core-creation/reports/implement-issue-37.md]].
+- 2026-09-15 — [[plan/core-creation/issues/37-expand-shared-event-eventlog-and-history.md|37 — Expand Shared Event, EventLog, and History]] Status `coded`. Event types landed under Shared (later `Ev` in `Gambol.Shared`; see 2026-09-16). Stage `build`. Report: [[plan/core-creation/reports/implement-issue-37.md]].
 - 2026-09-15 — [[plan/core-creation/issues/40-expand-postevent-eventlog-and-event-json.md|40 — Expand postEvent, EventLog store, and Event JSON persist]] Status `coded`. Did not edit EventLog / Event / ClientHistory (newest-head redesign lock). Report: [[plan/core-creation/reports/implement-issue-40.md]].
 - 2026-09-15 — [[plan/core-creation/issues/40-expand-postevent-eventlog-and-event-json.md|40 — Expand postEvent, EventLog store, and Event JSON persist]] Event JSON encode/read on EventLog. Deleted EventJson and ChangeLog Event codec. Status stays `coded`.
+- 2026-09-16 — Shared Event record and helpers are `Ev` in `Gambol.Shared`. Namespace `Gambol.Shared.Events` is gone. Related types (`EventId`, `EventBody`, `EventLog`, `EventJson`, `Authority`, `ActorStart`, `ActorResult`) stay in `Gambol.Shared`. Arch and dependents: [[plan/core-creation/reports/ev-rename-arch-docs.md]].
+- 2026-09-16 — Suspended until [[plan/single-event-source/map.md]] creates the Event-only architecture. Then [[plan/core-creation/arch.md]] is updated to match. Do not add implementation issues here for that cleanup.

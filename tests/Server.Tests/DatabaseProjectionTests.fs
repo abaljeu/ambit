@@ -32,7 +32,7 @@ let private graphFromNodes _root nodes =
 
 let private change op =
     { id = 0
-      changeId = Guid.NewGuid()
+      submissionId = Guid.NewGuid()
       ops = [ op ] }
 
 let private expectedRow node =
@@ -115,7 +115,7 @@ let ``plan collapses repeated node and parent touches`` () =
 
     let changes =
         [ { id = 0
-            changeId = Guid.NewGuid()
+            submissionId = Guid.NewGuid()
             ops =
                 [ Op.SetText(parentId, "first", "second")
                   Op.SetText(parentId, "second", "final")
@@ -174,7 +174,7 @@ let ``commands expose deterministic SQL and bind values`` () =
     let patch =
         DatabaseProjection.plan graph 7
             [ { id = 0
-                changeId = Guid.NewGuid()
+                submissionId = Guid.NewGuid()
                 ops =
                     [ Op.SetText(childId, "old", "child")
                       Op.Replace(parentId, [], [ childRef ]) ] } ]

@@ -3,22 +3,23 @@ module Gambol.Shared.Tests.SyncPlannerTests
 open System
 open Xunit
 open Gambol.Shared
-open Gambol.Shared.Events
+open Gambol.Shared
 open Gambol.Shared.ViewModel
 
 let private mkChange id =
     { id = id
-      changeId = Guid.NewGuid()
+      submissionId = Guid.NewGuid()
       ops = [] }
 
-let private asPending change = PendingChange.ofChange change
+let private asPending change =
+    PendingChange.ofEvent (Ev.ofChange "fixture" change)
 
 let private withKind recordId change : PendingChange =
-    { event = Event.ofChange "" change
+    { event = Ev.ofChange "fixture" change
       transition =
         Some
             { recordId = recordId
-              submittedChangeId = change.changeId } }
+              submittedChangeId = change.submissionId } }
 
 [<Fact>]
 let ``tryStartSubmit returns SubmitPendingBatch effect when queue is ready`` () =
@@ -57,7 +58,7 @@ let ``retireSubmittedPrefix dequeues the prefix and schedules remainder`` () =
     let nextInfo, pending, effects =
         SyncPlanner.retireSubmittedPrefix 2 (EventId 3) syncInfo
     Assert.Single(pending) |> ignore
-    Assert.Equal(c3.changeId, pending.Head.change.changeId)
+    Assert.Equal(c3.submissionId, pending.Head.change.submissionId)
     Assert.Equal(Sending 1, nextInfo.syncState)
     match effects with
     | [ SubmitPendingBatch (baseRevision, changes) ] ->
@@ -84,10 +85,10 @@ let ``toDeltaChain rewrites stale queued ids to contiguous revisions`` () =
     let c1 = mkChange 637
     let c2 = mkChange 637
     let c3 = mkChange 637
-    let chained = Gambol.Shared.SyncBatch.toDeltaChain 637 (List.map (Event.ofChange "") [ c1; c2; c3 ])
+    let chained = Gambol.Shared.SyncBatch.toDeltaChain 637 (List.map (Ev.ofChange "") [ c1; c2; c3 ])
     Assert.Equal<int list>([ 637; 638; 639 ], chained |> List.map (fun c -> c.id.Value))
     Assert.Equal<Guid list>(
-        [ c1.changeId; c2.changeId; c3.changeId ],
+        [ c1.submissionId; c2.submissionId; c3.submissionId ],
         chained |> List.map (fun c -> c.submissionId))
 
 [<Fact>]
@@ -337,13 +338,13 @@ let ``mixed C Undo Redo delta chain preserves identities and rewrites revisions`
         [ 7; 8; 9 ],
         chained |> List.map (fun item -> item.change.id))
     Assert.Equal<Guid list>(
-        [ change.changeId; undo.changeId; redo.changeId ],
-        chained |> List.map (fun item -> item.change.changeId))
+        [ change.submissionId; undo.submissionId; redo.submissionId ],
+        chained |> List.map (fun item -> item.change.submissionId))
     let wire = SyncBatch.toWireBatch 7 items
-    Assert.Equal<Event list>(
-        [ { Event.ofChange "" change with id = EventId 7 }
-          { Event.ofChange "" undo with id = EventId 8 }
-          { Event.ofChange "" redo with id = EventId 9 } ],
+    Assert.Equal<Ev list>(
+        [ { Ev.ofChange "fixture" change with id = EventId 7 }
+          { Ev.ofChange "fixture" undo with id = EventId 8 }
+          { Ev.ofChange "fixture" redo with id = EventId 9 } ],
         wire)
 
 [<Fact>]
@@ -422,12 +423,12 @@ let ``restorePending strips transition and does not record History`` () =
     let node = state0.graph.nodes.[root.children.Head.id]
     let stale =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops = [ Op.SetText(node.id, node.text, "stale") ] }
         |> asPending
     let change =
         { id = 1
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops = [ Op.SetText(node.id, node.text, "restored") ] }
     let saved = [ stale; change |> withKind 3 ]
     let snapshot = { state0 with revision = Revision 1 }
@@ -435,25 +436,25 @@ let ``restorePending strips transition and does not record History`` () =
         SyncPlanner.restorePending (EventId 1) saved snapshot
     let queued = Assert.Single(restored)
     Assert.Equal(None, queued.transition)
-    Assert.Equal(change.changeId, queued.change.changeId)
+    Assert.Equal(change.submissionId, queued.change.submissionId)
     Assert.Equal("restored", next.graph.nodes.[node.id].text)
 
 [<Fact>]
 let ``workspace singleton lineage is the exact item used before the request`` () =
     let change = mkChange 12
-    let submitted = PendingChange.workspaceSingleton 5 (Event.ofChange "" change)
+    let submitted = PendingChange.workspaceSingleton 5 (Ev.ofChange "fixture" change)
     match submitted.transition with
     | Some transition ->
         Assert.Equal(5, transition.recordId)
-        Assert.Equal(change.changeId, transition.submittedChangeId)
+        Assert.Equal(change.submissionId, transition.submittedChangeId)
     | None ->
         failwith "Expected workspace PendingTransition"
     let chained = SyncBatch.toPendingDeltaChain 12 [ submitted ]
     let wire = SyncBatch.toWireBatch 12 [ submitted ]
-    Assert.Equal(submitted.change.changeId, chained.Head.change.changeId)
+    Assert.Equal(submitted.change.submissionId, chained.Head.change.submissionId)
     Assert.Equal(submitted.transition, chained.Head.transition)
-    Assert.Equal<Event list>(
-        [ { Event.ofChange "" change with id = EventId 12 } ],
+    Assert.Equal<Ev list>(
+        [ { Ev.ofChange "fixture" change with id = EventId 12 } ],
         wire)
     let effect =
         ContinuePostUploadStructure(

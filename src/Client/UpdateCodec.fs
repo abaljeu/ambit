@@ -8,10 +8,10 @@ open Thoth.Json.Core
 // ---------------------------------------------------------------------------
 
 /// Encode a batch as compact JSON for POST /{file}/changes.
-let encodePendingBatchBody (events: Gambol.Shared.Events.Event list) : string =
+let encodePendingBatchBody (events: Ev list) : string =
     let batch: EventBatch = { events = events }
     Thoth.Json.JavaScript.Encode.toString 0 (
-        Gambol.Shared.Events.EventJson.encodeEventBatch batch)
+        Gambol.Shared.EventJson.encodeEventBatch batch)
 
 
 /// Decode the response from GET /{file}/state

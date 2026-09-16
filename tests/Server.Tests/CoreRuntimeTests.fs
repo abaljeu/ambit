@@ -19,7 +19,7 @@ let private requireOk label result =
 let private addRootChild text =
     let childId = NodeId.New()
     { id = 0
-      changeId = System.Guid.NewGuid()
+      submissionId = System.Guid.NewGuid()
       ops =
         [ Op.NewNode(childId, text)
           Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
@@ -37,18 +37,14 @@ let private fileRuntime () =
             Actors = []
         }
 
-let private browserCaller user pass =
-    BrowserRequestCreds.callerFromSecret (
-        Credential(AuthToken.deriveToken user pass))
-
 let private browserHandle runtime user pass =
-    CoreMailbox.coreChanges runtime.host (browserCaller user pass)
+    CoreMailbox.coreChanges runtime.host (browserCallerFromAuth user pass)
 
 [<Fact>]
 let ``CoreRuntime seeds Browser credential from AuthToken.deriveToken`` () =
     task {
         let runtime = fileRuntime ()
-        let expected = browserCaller "alice" "secret"
+        let expected = browserCallerFromAuth "alice" "secret"
         let! browserLive =
             CoreMailbox.isAdmitted runtime.host expected
             |> Async.StartAsTask
@@ -81,8 +77,8 @@ let ``bound Browser Changes admits a live Browser cookie credential`` () = task 
         |> Async.StartAsTask
     let accepted = requireOk "browser post" result
     Assert.Equal<Guid list>(
-        [ change.changeId ],
-        accepted.changes |> List.map (_.changeId))
+        [ change.submissionId ],
+        accepted.events |> List.map (_.submissionId))
 }
 
 [<Fact>]
@@ -103,7 +99,7 @@ let ``HTTP Adapter refuses inactive Core sender with 401 and does not enqueue``
             let event = eventFromChange change
             let body =
                 Encode.toString 0 (
-                    Gambol.Shared.Events.EventJson.encodeEventBatch
+                    Gambol.Shared.EventJson.encodeEventBatch
                         { events = [ event ] })
             let! result =
                 Api.postEvents bound 10 20 body
@@ -124,13 +120,13 @@ let ``HTTP Adapter enqueues when Browser credential is live`` () = task {
         let event = eventFromChange change
         let body =
             Encode.toString 0 (
-                Gambol.Shared.Events.EventJson.encodeEventBatch { events = [ event ] })
+                Gambol.Shared.EventJson.encodeEventBatch { events = [ event ] })
         let! result =
             Api.postEvents handle 10 20 body
             |> Async.StartAsTask
         Assert.False(result.GetType().Name = "UnauthorizedHttpResult")
         let! rev = handle.getRevision () |> Async.StartAsTask
-        Assert.Equal(Gambol.Shared.Events.EventId 1, rev)
+        Assert.Equal(Gambol.Shared.EventId 1, rev)
     finally
         CoreMailbox.dispose agent
 }
@@ -140,7 +136,7 @@ let ``callers reach changes on the mailbox Core door`` () = task {
     let runtime = fileRuntime ()
     let! rev =
         CoreMailbox.getRevision runtime.host |> Async.StartAsTask
-    Assert.Equal(Gambol.Shared.Events.EventId 0, rev)
+    Assert.Equal(Gambol.Shared.EventId 0, rev)
 }
 
 [<Fact>]
@@ -165,7 +161,7 @@ let ``Graph-only post refuses an inactive Caller`` () = task {
 let ``CoreRuntime seeds a Parse process Caller distinct from Browser cookie`` () =
     task {
         let runtime = fileRuntime ()
-        let cookie = browserCaller "alice" "secret"
+        let cookie = browserCallerFromAuth "alice" "secret"
         Assert.NotEqual(cookie.secret, runtime.parseCaller.secret)
         Assert.Equal(Authority "Parse", runtime.parseCaller.authority)
         let! parseLive =

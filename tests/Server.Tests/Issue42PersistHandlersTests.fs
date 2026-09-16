@@ -4,7 +4,7 @@ open System
 open Xunit
 open Gambol.Server
 open Gambol.Shared
-open Gambol.Shared.Events
+open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
 
 let private requireOk label result =
@@ -18,13 +18,13 @@ let private addRootChild text =
     let childId = NodeId.New()
     childId,
     { id = 0
-      changeId = Guid.NewGuid()
+      submissionId = Guid.NewGuid()
       ops =
         [ Op.NewNode(childId, text)
           Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
 
 [<Fact>]
-let ``getEventsSince returns Event after postChange`` () = task {
+let ``getEventsSince returns Ev after postChange`` () = task {
     let dir = newTempDir ()
     let host =
         CoreMailbox.createFile dir admittedCredentials
@@ -40,7 +40,7 @@ let ``getEventsSince returns Event after postChange`` () = task {
                 (EventId -1)
             |> Async.StartAsTask
         let stored = Assert.Single(events)
-        Assert.Equal(change.changeId, stored.submissionId)
+        Assert.Equal(change.submissionId, stored.submissionId)
         match stored.body with
         | EventBody.Change _ -> ()
         | _ -> Assert.Fail("expected Change EventBody")
@@ -66,8 +66,8 @@ let ``EventLog.restore seeds mailbox across File restart`` () = task {
             CoreMailbox.eventHistory second
             |> Async.StartAsTask
         let stored = Assert.Single(history.events)
-        Assert.Equal(change.changeId, stored.submissionId)
-        Assert.Equal(EventId 1, EventLog.nextId history)
+        Assert.Equal(change.submissionId, stored.submissionId)
+        Assert.Equal(EventId 2, EventLog.nextId history)
     finally
         CoreMailbox.dispose second
 }
@@ -91,8 +91,8 @@ let ``EventLog.restore seeds mailbox across Db restart`` () = task {
             CoreMailbox.eventHistory second
             |> Async.StartAsTask
         let stored = Assert.Single(history.events)
-        Assert.Equal(change.changeId, stored.submissionId)
-        Assert.Equal(EventId 1, EventLog.nextId history)
+        Assert.Equal(change.submissionId, stored.submissionId)
+        Assert.Equal(EventId 2, EventLog.nextId history)
     finally
         CoreMailbox.dispose second
 }
@@ -200,7 +200,7 @@ let ``getEventsSince Error does not seed empty EventLog as success`` () =
     })
 
 [<Fact>]
-let ``ActorStart persist Error does not keep Event in mailbox log`` () =
+let ``ActorStart persist Error does not keep Ev in mailbox log`` () =
     let persist = FileAgent.persist (FileAgent.create (newTempDir ()))
     let filling =
         { persist with

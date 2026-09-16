@@ -7,7 +7,7 @@ open Gambol.Client.UpdateImport
 open Gambol.Client.UpdateWorkspaceDesktop
 open Gambol.Shared
 open Gambol.Shared.CommandEntry
-open Gambol.Shared.Events
+open Gambol.Shared
 open Gambol.Shared.ViewModel
 
 let private jsonHeaders () = jsonMutatingPostHeaders ()
@@ -144,7 +144,7 @@ let private markServerFilesPresent
     else
         let change =
             { id = model.revision.Value
-              changeId = System.Guid.NewGuid()
+              submissionId = System.Guid.NewGuid()
               ops = ops }
         applyAndPostSync (displayName Load) change model |> Result.map withSiteMap
 
@@ -154,7 +154,7 @@ let private createWorkspaceOnServer (ops: Op list) (model: VM) : Result<VM, stri
     else
         let change =
             { id = model.revision.Value
-              changeId = System.Guid.NewGuid()
+              submissionId = System.Guid.NewGuid()
               ops = ops }
         applyAndPostSync (displayName Load) change model |> Result.map withSiteMap
 
@@ -312,7 +312,7 @@ let completeUploadInventory
         | Ok ops ->
             let change =
                 { id = model.revision.Value
-                  changeId = System.Guid.NewGuid()
+                  submissionId = System.Guid.NewGuid()
                   ops = ops }
             match applyStructureLocally (displayName Load) change model with
             | Error e -> fail (clearUploading model) e

@@ -20,7 +20,7 @@ let moveEditDownAtClientX (clientX: float) (model: VM) : VM * Effect list =
 let private applyJoin commandName ops text caret instanceId (model: VM) =
     let change =
         { id = model.revision.Value
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops = ops }
 
     match applyAndPost commandName change model with

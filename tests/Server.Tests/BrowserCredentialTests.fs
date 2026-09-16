@@ -24,11 +24,6 @@ let private requestWithCookie (cookie: string) =
 let private jsonContent body =
     new StringContent(body, Encoding.UTF8, "application/json")
 
-let private addLiveCookie (client: HttpClient) =
-    client.DefaultRequestHeaders.Add(
-        "Cookie",
-        AuthToken.cookieHeaderValue "alice" "secret")
-
 [<Fact>]
 let ``Browser message without a live cookie is the same auth refuse as inactive Actor``
     () =
@@ -51,8 +46,9 @@ let ``Browser message without a live cookie is the same auth refuse as inactive 
 [<Fact>]
 let ``Browser message with live cookie is not auth-refused`` () = task {
     let dataDir = newTempDir ()
-    use client = createClientForDirWithAuth dataDir "alice" "secret"
-    addLiveCookie client
+    use client =
+        createClientForDirWithAuth dataDir "alice" "secret"
+        |> withAuthCookie "alice" "secret"
     let! state = client.GetAsync("/ambit/state")
     let! poll = client.GetAsync("/ambit/poll")
     Assert.Equal(HttpStatusCode.OK, state.StatusCode)

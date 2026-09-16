@@ -73,14 +73,14 @@ module ImportText =
         (existingChildren: ChildNode list)
         (package: DesktopImportPackage)
         (revision: int)
-        (changeId: System.Guid)
+        (submissionId: System.Guid)
         : Change =
         let attach =
             ChildListWire.replace focusId existingChildren (ownedChildren package.topLevelIds)
         let markCurrent = markDocumentCurrentBeforeParse graph focusId
 
         { id = revision
-          changeId = changeId
+          submissionId = submissionId
           ops = markCurrent @ package.ops @ [ attach ] }
 
     /// Directory import: add only top-level entries whose names are not already children.
@@ -90,7 +90,7 @@ module ImportText =
         (existingChildren: ChildNode list)
         (package: DesktopImportPackage)
         (revision: int)
-        (changeId: System.Guid)
+        (submissionId: System.Guid)
         : Change =
         let existingNames =
             existingChildren
@@ -116,7 +116,7 @@ module ImportText =
                     | Some name -> not (Set.contains name existingNames))
 
         if filteredIds.IsEmpty then
-            { id = revision; changeId = changeId; ops = markCurrent }
+            { id = revision; submissionId = submissionId; ops = markCurrent }
         else
             let filteredIdSet = Set.ofList filteredIds
 
@@ -131,5 +131,5 @@ module ImportText =
                 ChildListWire.append focusId existingChildren (ownedChildren filteredIds)
 
             { id = revision
-              changeId = changeId
+              submissionId = submissionId
               ops = markCurrent @ filteredOps @ [ attach ] }

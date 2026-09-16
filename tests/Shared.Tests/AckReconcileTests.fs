@@ -3,7 +3,7 @@ module AckReconcileTests
 open System
 open Xunit
 open Gambol.Shared
-open Gambol.Shared.Events
+open Gambol.Shared
 open Gambol.Shared.ViewModel
 
 let private stampTime =
@@ -17,15 +17,15 @@ let private sending items =
         pendingChanges = items
         syncState = Sending 1 }
 
-let private confirm (item: PendingChange) suffix : Event =
-    Event.ofChange "" { item.change with ops = item.change.ops @ suffix }
+let private confirm (item: PendingChange) suffix : Ev =
+    Ev.ofChange "" { item.change with ops = item.change.ops @ suffix }
 
 let private stamp nodeId =
     Op.SetUpdateTime(nodeId, NodeUpdateTime.missing, stampTime)
 
 let private textChange id nodeId oldText newText : Change =
     { id = id
-      changeId = Guid.NewGuid()
+      submissionId = Guid.NewGuid()
       ops = [ Op.SetText(nodeId, oldText, newText) ] }
 
 let private seededEdit () =
@@ -154,11 +154,11 @@ let ``partial residency skips a stamp on an Absent node`` () =
 let ``retry ACK removes only the submitted prefix and resubmits the remainder`` () =
     let _, state, first = seededEdit ()
     let later =
-        { first.change with
-            id = 1
-            changeId = Guid.NewGuid()
-            ops = [ Op.SetText(NodeId.New(), "x", "y") ] }
-        |> PendingChange.ofChange
+        PendingChange.ofEvent
+            { first.event with
+                id = EventId 1
+                submissionId = Guid.NewGuid()
+                body = EventBody.Change [ Op.SetText(NodeId.New(), "x", "y") ] }
     let pending = [ first; later ]
     let result =
         SyncLogic.reconcileAck
@@ -198,7 +198,7 @@ let ``late duplicate response is ignored when identities are retired`` () =
 let ``rejected ACK leaves graph revision History and pending unchanged`` () =
     let nodeId, state, pending = seededEdit ()
     let confirmed =
-        [ Event.ofChange ""
+        [ Ev.ofChange ""
               { pending.change with
                   ops = pending.change.ops @ [ Op.SetText(nodeId, "after", "nope") ] } ]
     let syncInfo = sending [ pending ]
@@ -275,11 +275,11 @@ let ``reordered confirmation is rejected atomically`` () =
 [<Fact>]
 let ``unmatched confirmation is rejected atomically`` () =
     let _, state, pending = seededEdit ()
-    let other = { pending.change with changeId = Guid.NewGuid() }
+    let other = { pending.change with submissionId = Guid.NewGuid() }
     let result =
         SyncLogic.reconcileAck
             [ pending ]
-            [ Event.ofChange "" other ]
+            [ Ev.ofChange "" other ]
             (EventId 1)
             state
             (sending [ pending ])
@@ -289,7 +289,7 @@ let ``unmatched confirmation is rejected atomically`` () =
 let ``changed-prefix confirmation is rejected atomically`` () =
     let nodeId, state, pending = seededEdit ()
     let confirmed =
-        [ Event.ofChange "" { pending.change with ops = [ Op.SetText(nodeId, "before", "other") ] } ]
+        [ Ev.ofChange "" { pending.change with ops = [ Op.SetText(nodeId, "before", "other") ] } ]
     let result =
         SyncLogic.reconcileAck
             [ pending ]
@@ -332,7 +332,7 @@ let ``forward-Revision late response is rejected atomically`` () =
 let ``forbidden-suffix confirmation is rejected atomically`` () =
     let nodeId, state, pending = seededEdit ()
     let confirmed =
-        [ Event.ofChange ""
+        [ Ev.ofChange ""
               { pending.change with
                   ops = pending.change.ops @ [ Op.SetText(nodeId, "after", "nope") ] } ]
     let result =
@@ -368,7 +368,7 @@ let ``externalChanges ACK notes catch-up without rejecting or changing graph`` (
 let ``amended confirmation echo routes through external ACK not Reject`` () =
     let nodeId, state, pending = seededEdit ()
     let amended =
-        [ Event.ofChange ""
+        [ Ev.ofChange ""
               { pending.change with
                   ops = [ Op.SetText(nodeId, "before", "server-amended") ] } ]
     let result =

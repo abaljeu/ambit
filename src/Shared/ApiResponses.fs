@@ -1,6 +1,6 @@
 namespace Gambol.Shared
 
-open Gambol.Shared.Events
+open Gambol.Shared
 
 /// Shared Poll/events/load protocol marker. Bump on incompatible wire or semantics.
 /// Wire: integer (major*10 + minor); current is 11 for API version 1.1.
@@ -17,18 +17,18 @@ type BootstrapScope =
 /// Response from GET /{file}/state.
 type StateResponse =
     { graph: Graph
-      revision: Gambol.Shared.Events.EventId
+      revision: Gambol.Shared.EventId
       isReady: bool }
 
 /// Complete success response from POST /changes (or /events alias) and GET /poll.
 type ChangeSuccessResponse =
-    { revision: Gambol.Shared.Events.EventId
+    { revision: Gambol.Shared.EventId
       buildEpochSec: int
       pageBuildEpochSec: int
       apiVersion: int
       isReady: bool
       externalChanges: bool
-      events: Gambol.Shared.Events.Event list
+      events: Ev list
       /// File-write status when graph change succeeded but artifact save had issues.
       message: string option
       /// Optional ROOT-closure fingerprint; omitted by old Servers.
@@ -53,7 +53,7 @@ type LoadResponse =
       pageBuildEpochSec: int
       apiVersion: int
       isReady: bool
-      events: Gambol.Shared.Events.Event list
+      events: Ev list
       /// Complete Workspace subgraph Nodes at the response Revision (wire: packages).
       packages: Node list }
 
@@ -61,7 +61,7 @@ type LoadResponse =
 
 /// Authoritative Sync install: ordered Change tail plus optional resident packages.
 type SyncResponse =
-    { events: Gambol.Shared.Events.Event list
+    { events: Ev list
       /// Complete Workspace / child-list snapshots at the response revision.
       packages: Node list }
 

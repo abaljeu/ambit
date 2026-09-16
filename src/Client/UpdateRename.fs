@@ -59,7 +59,7 @@ let submitRenamePromptOp (model: VM) : VM * Effect list =
             else
                 let change =
                     { id = model.revision.Value
-                      changeId = System.Guid.NewGuid()
+                      submissionId = System.Guid.NewGuid()
                       ops = ops }
                 match applyAndPost (displayName Rename) change result with
                 | Ok (m, effects) -> withSiteMap m, effects

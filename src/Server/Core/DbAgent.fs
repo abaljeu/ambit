@@ -3,7 +3,7 @@ namespace Gambol.Server
 open System
 open System.Threading.Tasks
 open Gambol.Shared
-open Gambol.Shared.Events
+open Gambol.Shared
 
 module Decode = Thoth.Json.Newtonsoft.Decode
 
@@ -107,7 +107,8 @@ module DbAgent =
         CoreChanges.accepted
             loaded.state.Value.revision
             loaded.ready.Task.IsCompletedSuccessfully
-            confirmed
+            (confirmed
+             |> List.map (Ev.ofChange ""))
             externalChanges
             message
 
@@ -120,13 +121,13 @@ module DbAgent =
         ((s: State), confirmations, externalChanges)
         change
         =
-        match tryPersistedEvent loaded change.changeId with
+        match tryPersistedEvent loaded change.submissionId with
         | Some storedEvent ->
-            // Already applied - derive Change from Event
+            // Already applied - derive Change from Ev
             let stored =
                 { id = s.revision.Value
-                  changeId = storedEvent.submissionId
-                  ops = Gambol.Shared.Events.Event.ops storedEvent |> Option.defaultValue [] }
+                  submissionId = storedEvent.submissionId
+                  ops = Ev.ops storedEvent |> Option.defaultValue [] }
             Ok(s, stored :: confirmations, externalChanges)
         | None ->
             let result, amended, applied =
@@ -327,17 +328,22 @@ module DbAgent =
             with
             | Error err -> Error err
             | Ok (newState, confirmations, externalChanges) ->
-                // Fresh changes are ones not found in confirmations before submission
-                let submittedIds = changes |> List.map (fun c -> c.changeId) |> Set.ofList
-                let fresh = confirmations |> List.filter (fun c ->
-                    Set.contains c.changeId submittedIds)
-                finishAppliedPostChange
-                    loaded
-                    graphOnly
-                    newState
-                    confirmations
-                    fresh
-                    externalChanges
+                if newState.revision = loaded.state.Value.revision then
+                    Ok(accepted loaded confirmations externalChanges None)
+                else
+                    let submittedIds =
+                        changes |> List.map (fun c -> c.submissionId) |> Set.ofList
+                    let fresh =
+                        confirmations
+                        |> List.filter (fun c ->
+                            Set.contains c.submissionId submittedIds)
+                    finishAppliedPostChange
+                        loaded
+                        graphOnly
+                        newState
+                        confirmations
+                        fresh
+                        externalChanges
 
     let private handleSnapshotDone loaded persisted =
         match persisted with
@@ -352,27 +358,32 @@ module DbAgent =
     let private eventsSince loaded after =
         EventLog.since after loaded.eventLog.Value |> fun log -> log.events
 
+    let private writePersistedEvent loaded (persisted: Ev) =
+        let (Gambol.Shared.EventId n) = persisted.id
+        try
+            Database.appendEvent
+                loaded.connectionString
+                n
+                persisted.submissionId
+                (EventLogFile.encodeEvent persisted)
+            |> Async.AwaitTask
+            |> Async.RunSynchronously
+            loaded.eventLog.Value <-
+                EventLog.restore [ persisted ] loaded.eventLog.Value
+            Ok ()
+        with ex ->
+            Error $"Ev persist error: {ex.Message}"
+
     let private appendPersistedEvent
         loaded
-        (persisted: Gambol.Shared.Events.Event)
+        (persisted: Ev)
         =
         if String.IsNullOrWhiteSpace loaded.connectionString then
             Ok ()
         else
-            let (Gambol.Shared.Events.EventId n) = persisted.id
-            try
-                Database.appendEvent
-                    loaded.connectionString
-                    n
-                    persisted.submissionId
-                    (EventLogFile.encodeEvent persisted)
-                |> Async.AwaitTask
-                |> Async.RunSynchronously
-                loaded.eventLog.Value <-
-                    EventLog.restore [ persisted ] loaded.eventLog.Value
-                Ok ()
-            with ex ->
-                Error $"Event persist error: {ex.Message}"
+            CoreMailboxBackend.runBounded
+                CoreMailboxBackend.ChangeProcessingTimeoutMs
+                (fun () -> writePersistedEvent loaded persisted)
 
     let private persistHandlers loaded = {
         getState = fun () -> Ok loaded.state.Value

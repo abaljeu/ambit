@@ -279,7 +279,7 @@ let ``planParseFile md reorder updates child order`` () =
     let state0 =
         { graph = graph; revision = Revision.Zero }
     let after =
-        match ChangeValidation.applyChange { id = 0; changeId = Guid.NewGuid(); ops = ops } state0 with
+        match ChangeValidation.applyChange { id = 0; submissionId = Guid.NewGuid(); ops = ops } state0 with
         | ApplyResult.Changed s -> s.graph
         | ApplyResult.Unchanged _ -> failwith "expected Changed"
         | ApplyResult.Invalid(_, err) -> failwith err
@@ -328,7 +328,7 @@ let ``planParseFile plain keeps id on line text edit`` () =
 
     let after = applyChange graph {
         id = 1
-        changeId = Guid.NewGuid()
+        submissionId = Guid.NewGuid()
         ops = ops
     }
 
@@ -368,7 +368,7 @@ let ``planParseFile blank input marks Unparsed file Current`` () =
 
     let after = applyChange graph {
         id = 1
-        changeId = Guid.NewGuid()
+        submissionId = Guid.NewGuid()
         ops = ops
     }
 
@@ -453,7 +453,7 @@ let ``planParseFile unparsed marks Current`` () =
 
     let after = applyChange graph {
         id = 1
-        changeId = Guid.NewGuid()
+        submissionId = Guid.NewGuid()
         ops = ops
     }
 
@@ -534,7 +534,7 @@ let ``planParseFile Unparsed with prior children warms and keeps line ids`` () =
 
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops = ops }
     let state =
         { graph = graph; revision = Revision.Zero }
@@ -631,7 +631,7 @@ let ``planParseFile Current warm plain defers matching Ref`` () =
 
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops = ops }
     let state =
         { graph = graph; revision = Revision.Zero }
@@ -739,7 +739,7 @@ let ``planParseFile Current warm plain keeps foreign Ref`` () =
 
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops = ops }
     let state =
         { graph = graph; revision = Revision.Zero }
@@ -836,7 +836,7 @@ let ``planParseFile Current warm Amb reuses foreign owner without Ref`` () =
 
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops = ops }
     let state =
         { graph = graph; revision = Revision.Zero }
@@ -916,7 +916,7 @@ let ``planParseFile Current warm overlay reparent does not dual-Own`` () =
     let seeded =
         match
             ChangeValidation.applyChange
-                { id = 0; changeId = Guid.NewGuid(); ops = seedOps }
+                { id = 0; submissionId = Guid.NewGuid(); ops = seedOps }
                 { graph = seededGraph
                   revision = Revision.Zero }
         with
@@ -941,7 +941,7 @@ let ``planParseFile Current warm overlay reparent does not dual-Own`` () =
 
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops = ops }
     let state =
         { graph = seeded; revision = Revision.Zero }
@@ -1011,7 +1011,7 @@ let ``planParseFile Current warm unmatched owned child Deletes to trash`` () =
     let seeded =
         match
             ChangeValidation.applyChange
-                { id = 0; changeId = Guid.NewGuid(); ops = seedOps }
+                { id = 0; submissionId = Guid.NewGuid(); ops = seedOps }
                 { graph = seededGraph
                   revision = Revision.Zero }
         with
@@ -1030,7 +1030,7 @@ let ``planParseFile Current warm unmatched owned child Deletes to trash`` () =
 
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops = ops }
     let state =
         { graph = seeded; revision = Revision.Zero }
@@ -1107,7 +1107,7 @@ let ``planParseFile Unparsed plain upload body applies via History`` () =
 
     let change =
         { id = 0
-          changeId = Guid.NewGuid()
+          submissionId = Guid.NewGuid()
           ops = ops }
     let state =
         { graph = graph; revision = Revision.Zero }
@@ -1186,7 +1186,7 @@ let ``planParseFile succeeds despite unrelated dual-Owner on graph`` () =
         |> requireOk "planParseFile"
 
     let change =
-        { id = 0; changeId = Guid.NewGuid(); ops = ops }
+        { id = 0; submissionId = Guid.NewGuid(); ops = ops }
     let state =
         { graph = graph; revision = Revision.Zero }
 
@@ -1244,7 +1244,7 @@ let ``planParseFile succeeds when parse File itself has dual Owner`` () =
 
     match
         ChangeValidation.applyChange
-            { id = 0; changeId = Guid.NewGuid(); ops = ops }
+            { id = 0; submissionId = Guid.NewGuid(); ops = ops }
             { graph = graph; revision = Revision.Zero }
     with
     | ApplyResult.Invalid(_, msg) ->
@@ -1295,7 +1295,7 @@ let ``planParseFile after Insert Ref reaches Current`` () =
 
     match
         ChangeValidation.applyChange
-            { id = 0; changeId = Guid.NewGuid(); ops = ops }
+            { id = 0; submissionId = Guid.NewGuid(); ops = ops }
             { graph = graph; revision = Revision.Zero }
     with
     | ApplyResult.Invalid(_, msg) ->

@@ -18,7 +18,7 @@ type ActorFn = ActorInput -> CoreChanges -> Async<unit>
 type CoreActorPool =
     { register: ActorName -> ActorFn -> unit
       startActor:
-        Gambol.Shared.Events.ActorStart ->
+        Gambol.Shared.ActorStart ->
             (unit -> Graph) ->
             Result<Credential, string>
       schedule: Credential -> CoreChanges -> unit
@@ -89,7 +89,7 @@ module CoreActorPool =
     let private runStartActor
         (putLive: Credential -> NodeId -> PendingBody -> unit)
         (getModel: unit -> Model)
-        (request: Gambol.Shared.Events.ActorStart)
+        (request: Gambol.Shared.ActorStart)
         (getState: unit -> Graph)
         =
         let fullGraph = getState ()

@@ -82,7 +82,7 @@ let ``nested file parse after upload tree build is accepted`` () =
         { graph = graph2; revision = Revision.Zero }
     let parseChange =
         { id = 0
-          changeId = System.Guid.NewGuid()
+          submissionId = System.Guid.NewGuid()
           ops =
             [ Op.SetDocumentState(file.id, Unparsed, Current)
               Op.NewNode(parsedId, "parsed")
@@ -610,7 +610,7 @@ let ``directory amb ref to existing owned child keeps owner occurrence`` () =
         Assert.NotEmpty(report.ops)
         let change =
             { id = 0
-              changeId = System.Guid.NewGuid()
+              submissionId = System.Guid.NewGuid()
               ops = report.ops }
         let state =
             { graph = graph1

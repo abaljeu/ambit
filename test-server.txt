@@ -1,0 +1,7 @@
+  Determining projects to restore...
+  Restored D:\dev\amble\gambol\tests\Server.Tests\Gambol.Server.Tests.fsproj (in 956 ms).
+  Restored D:\dev\amble\gambol\src\Server\Gambol.Server.fsproj (in 954 ms).
+  3 of 5 projects are up-to-date for restore.
+  Gambol.Shared -> d:\dev\amble\gambol\src\Shared\bin\Debug\net10.0\Gambol.Shared.dll
+  Gambol.Shared.Documents -> D:\dev\amble\gambol\src\Shared\documents\bin\Debug\net10.0\Gambol.Shared.Documents.dll
+  Gambol.Shared.DotNet -> d:\dev\amble\gambol\src\Shared\dotnet\bin\Debug\net10.0\Gambol.Shared.DotNet.dll

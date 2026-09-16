@@ -3,7 +3,7 @@ module LargeChangeApplyTests
 open System
 open System.Diagnostics
 open Gambol.Shared
-open Gambol.Shared.Events
+open Gambol.Shared
 open Xunit
 
 module Enc = Thoth.Json.Newtonsoft.Encode
@@ -27,7 +27,7 @@ let private parseLikeChange (parentId: NodeId) : Change =
     let children =
         List.init nodeCount (fun _ -> ChildNode.owner (NodeId.New()))
     { id = 0
-      changeId = System.Guid.NewGuid()
+      submissionId = System.Guid.NewGuid()
       ops =
         [ for i, child in List.indexed children ->
             Op.NewNode(child.id, "line " + string i)
@@ -184,18 +184,18 @@ let ``delivered inverse of large paste measures phases without per-created-Node 
             ViewModel.reconcileSiteMapFrom
                 projected.graph Graph.workspacesId siteMap0 nextId
             |> ignore)
-    let inverseEvent: Gambol.Shared.Events.Event =
-        { id = Gambol.Shared.Events.EventId 0
-          submissionId = inverse.changeId
-          authority = Gambol.Shared.Events.Authority ""
+    let inverseEvent: Ev =
+        { id = Gambol.Shared.EventId 0
+          submissionId = inverse.submissionId
+          authority = Gambol.Shared.Authority ""
           commandName = ""
-          body = Gambol.Shared.Events.EventBody.Change inverse.ops }
+          body = Gambol.Shared.EventBody.Change inverse.ops }
     let _, encodeMs =
         time (fun () ->
             Enc.toString 0 (EventJson.encodeEventBatch { events = [ inverseEvent ] })
             |> ignore)
     let ack: ChangeSuccessResponse =
-        { revision = Gambol.Shared.Events.EventId 2
+        { revision = Gambol.Shared.EventId 2
           buildEpochSec = 0
           pageBuildEpochSec = 0
           apiVersion = ApiVersion.current
@@ -223,7 +223,7 @@ let private nestedParseChange (documentRootId: NodeId) : Change =
             ChildNode.owner (NodeId.New()),
             List.init 10 (fun _ -> ChildNode.owner (NodeId.New())))
     { id = 0
-      changeId = System.Guid.NewGuid()
+      submissionId = System.Guid.NewGuid()
       ops =
         [ for branch, leaves in branches do
             yield Op.NewNode(branch.id, "branch")

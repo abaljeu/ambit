@@ -8,7 +8,7 @@ open System.Text
 open System.Threading.Tasks
 open Xunit
 open Gambol.Shared
-open Gambol.Shared.Events
+open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
 
 module Encode = Thoth.Json.Newtonsoft.Encode
@@ -67,7 +67,7 @@ let private exactRawBatch =
     [
       {
         "id": 1130,
-        "changeId": "93a26b25-272f-4c48-916b-4045a2ba37a1",
+        "submissionId": "93a26b25-272f-4c48-916b-4045a2ba37a1",
         "ops": [
           {
             "type": "SetText",
@@ -115,7 +115,7 @@ let ``SetText persists SYSTEM user css and server remains responsive`` () = task
     let cssNodeId = graph.nodes.[fileId].children |> List.exactlyOne |> fun c -> c.id
     let change =
         { id = revision
-          changeId = Guid.Parse("93a26b25-272f-4c48-916b-4045a2ba37a1")
+          submissionId = Guid.Parse("93a26b25-272f-4c48-916b-4045a2ba37a1")
           ops = [ Op.SetText(cssNodeId, "block", "\"background\" : #fff") ] }
     let event = eventFromChange change
     let body =
