@@ -84,12 +84,12 @@ let ``exact raw change array is rejected and server remains responsive`` () = ta
     let _, client = createSystemCssClient ()
     use client = client
     use content = new StringContent(exactRawBatch, Encoding.UTF8, "application/json")
-    use! response = client.PostAsync("/ambit/events", content) |> timeout
+    use! response = client.PostAsync("/ambit/changes", content) |> timeout
     Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode)
     let wrapped = """{"events":""" + exactRawBatch + "}"
     use wrappedContent = new StringContent(wrapped, Encoding.UTF8, "application/json")
     use! wrappedResponse =
-        client.PostAsync("/ambit/events", wrappedContent) |> timeout
+        client.PostAsync("/ambit/changes", wrappedContent) |> timeout
     Assert.Equal(HttpStatusCode.BadRequest, wrappedResponse.StatusCode)
     use! stateResponse = client.GetAsync("/ambit/state") |> timeout
     Assert.Equal(HttpStatusCode.OK, stateResponse.StatusCode)
@@ -122,7 +122,7 @@ let ``SetText persists SYSTEM user css and server remains responsive`` () = task
             Serialization.encodeEventBatch
                 { events = [ event ] })
     use content = new StringContent(body, Encoding.UTF8, "application/json")
-    use! response = client.PostAsync("/ambit/events", content) |> timeout
+    use! response = client.PostAsync("/ambit/changes", content) |> timeout
     Assert.Equal(HttpStatusCode.OK, response.StatusCode)
     Assert.Equal(
         "\"background\" : #fff" + Environment.NewLine,

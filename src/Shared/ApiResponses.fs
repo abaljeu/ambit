@@ -19,7 +19,7 @@ type StateResponse =
       revision: Gambol.Shared.Events.EventId
       isReady: bool }
 
-/// Complete success response from POST /events and GET /poll.
+/// Complete success response from POST /changes (or /events alias) and GET /poll.
 type ChangeSuccessResponse =
     { revision: Gambol.Shared.Events.EventId
       buildEpochSec: int

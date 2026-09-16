@@ -7,7 +7,7 @@ open Thoth.Json.Core
 // Encoding / decoding helpers
 // ---------------------------------------------------------------------------
 
-/// Encode a batch as compact JSON for POST /{file}/events.
+/// Encode a batch as compact JSON for POST /{file}/changes.
 let encodePendingBatchBody (events: Gambol.Shared.Events.Event list) : string =
     let batch: EventBatch = { events = events }
     Thoth.Json.JavaScript.Encode.toString 0 (Serialization.encodeEventBatch batch)
@@ -267,7 +267,7 @@ let encodeDesktopExportRequest (request: DesktopExportRequest) : string =
 let decodeDesktopExportResponse (text: string) : Result<DesktopExportResponse, string> =
     Thoth.Json.JavaScript.Decode.fromString Serialization.decodeDesktopExportResponse text
 
-/// Decode `{ "error": "..." }` from POST /{file}/events 400 body.
+/// Decode `{ "error": "..." }` from POST /{file}/changes 400 body.
 let decodePostEventError (text: string) : string option =
     let decoder =
         Decode.object (fun get -> get.Optional.Field "error" Decode.string)
@@ -276,7 +276,7 @@ let decodePostEventError (text: string) : string option =
     | Ok None -> None
     | Error _ -> None
 
-/// Decode POST /{file}/events success body.
+/// Decode POST /{file}/changes success body.
 let decodeChangeSuccessResponse
     (text: string)
     : Result<ChangeSuccessResponse, string> =
