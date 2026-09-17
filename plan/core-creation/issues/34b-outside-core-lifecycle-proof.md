@@ -1,6 +1,6 @@
 # 34b — Outside Core lifecycle proof
 
-**Status:** coded
+**Status:** done
 **Blocked by:** None — can start immediately.
 Actual: 5h25m
 
@@ -80,6 +80,7 @@ Verify Story path **Outside Core lifecycle proof** from outside the Actor.
 
 ## Comments
 
+- 2026-09-17 — Independent review approve → Status `done`. Report: [[../reports/code-review-34b-outside-core-lifecycle-proof.md|code-review-34b-outside-core-lifecycle-proof]].
 - 2026-09-14 — This ticket implements Story path 2 **Outside Core lifecycle proof**. Story path 1 **Browser Run hello** stays on [[35b-browser-run-hello.md|35b — Browser Run hello]].
 - 2026-09-14 — Aligned to the 2026-09-14 arch correction: synchronous startActor (bookkeeping on the loop, body off-loop), mailbox-owned live table, register-then-start one host, `ActorStop ActorSucceeded` drop of live row and secret.
 - 2026-09-14 — Architectural correction: the mailbox owns Browser secrets. No CoreCredentials mailbox and no public add-credential door. Login is a mailbox message; CoreActorPool does not take CoreCredentials; CoreRuntime does not export a credentials field.
