@@ -13,7 +13,7 @@ Feature under design: leftover Change record and Revision serial out of the runn
    1. **Expand**
       1. [x] Ev, EventLog, `postEvents`, HTTP Ev batch, Poll/Load Ev tail (from [[plan/core-creation/arch.md]] Stories **Event, EventLog, and ClientHistory** and **Caller, persist, and Poll**)
       2. [x] Op-list apply — `Ev.apply` / invert / `ChangeValidation` / amend / PersistStamp take `Op list` (or Ops on EventBody). They do not wrap leftover Change
-      3. [ ] leftover Change.id is `EventId` (same type as `Ev.id`). No `Revision` stop
+      3. [ ] leftover Change.id is `EventId` (same type as `Ev.id`). No `Revision` stop. EventId has private id
    2. **Migrate**
       Batches after compile may run in any order among persist and command. Serial batch may run beside them. Leftover Change still compiles until Contract.
       1. [x] Compile preamble — [[tests/Server.Tests/TestBackend.fs]] `Ev` type and `Authority` constructor in scope (`module Ev` must not shadow the type)
@@ -22,7 +22,7 @@ Feature under design: leftover Change record and Revision serial out of the runn
       3. [x] Core doors — **CoreChanges** `postEvents` and `postGraphOnly` both take Ev. `postChange` (Change list) and `PostGraphOnlyChange` of leftover Change are gone. Graph-only still skips file persist, not EventLog
       4. [ ] Command mint — Browser command builders and Parse [[src/Server/GraphOnlyChangePost.fs]] mint Ev (`EventId.zero`, `commandName`). Run is ActorStart or a Change Event with that Run command in `commandName`
       5. [ ] Boot IndexedDB — [[src/Shared/BootCache.fs]] / [[src/Client/BootCacheStore.fs]] hold Ev list, not leftover Change
-      6. [ ] One serial — `Revision` type and `revision` fields become event id. JSON key `"eventId"`. `getEventId`. `Change.id` is already `EventId` from Expand
+      6. [ ] One serial — `Revision` type and `revision` fields become event id. JSON key `"eventId"`. `getEventId`. `Change.id` is already `EventId` from Expand. EventId.fromJson/toJson bypasses. EventId.next adds one. Ev.fromJson/toJson. Only serializing uses fromJson/toJson. Only EventLog uses EventId.next. Any event not from these sources has id 0
    3. **Contract**
       1. [ ] Delete leftover `{ id; submissionId; ops }` record, `module Change` apply wrapping, `Ev.ofChange` / `Ev.asChange`, `eventFromChange`
       2. [ ] Delete unused [[src/Shared/EventId.fs]]
@@ -45,9 +45,11 @@ Deltas only. Hello / Actor-pool modules do not change.
    1. State
       1. [ ] Envelope: `id` (EventId), `submissionId`, `authority`, `commandName`, `body` (EventBody)
       2. [ ] No leftover Change record in this file
+      3. [ ] EventId has private id. EventId.fromJson/toJson bypasses. EventId.next adds one
    2. Interface
       1. [x] `ops` / `apply` / `inverseOps` read EventBody. They take or return Op list. They do not build leftover Change
       2. [ ] No `asChange` / `ofChange`
+      3. [ ] `Ev.fromJson` / `Ev.toJson`. Only serializing uses fromJson/toJson. Events not from JSON or EventLog have id 0
    3. Uses
       1. [ ] Op
       2. [ ] EventBody
@@ -118,7 +120,7 @@ Deltas only. Hello / Actor-pool modules do not change.
    1. State
       1. [ ] `eventId: EventId` (today `revision: Revision`)
    2. Interface
-      1. [ ] One serial type EventId
+      1. [ ] One serial type EventId. Field and JSON key `"eventId"`
    3. Uses
       1. [ ] EventId
       2. [ ] Graph
@@ -153,11 +155,11 @@ Deltas only. Hello / Actor-pool modules do not change.
 2. [x] **postEvents** — Interface on **CoreChanges**. HTTP and Browser already cross this seam.
 3. [x] **postGraphOnly** — Interface on **CoreChanges**. Parse and lazy-load. Ev in; file persist skipped.
 4. [x] **Persist apply** — Interface on **FileAgent** / **DbAgent**. Admit Ev, apply Ops, `appendEvent`. Narrowest test seam for this Project.
-5. [ ] **EventId** — Interface on **State** / **Ev**. One serial. JSON key `"eventId"`. `getEventId`.
+5. [ ] **EventId** — Interface on **State** / **Ev**. One serial. JSON key `"eventId"`. `getEventId`. EventId has private id. EventId.fromJson/toJson bypasses. EventId.next adds one. Ev.fromJson/toJson. Only serializing uses fromJson/toJson. Only EventLog uses EventId.next. Any event not from these sources has id 0.
 
 ## 4. Alternative considered
 
-1. **Chosen** — Ev is the transport envelope. Ops apply locally. Leftover Change is wrapping to delete. One serial is EventId (`Change.id` becomes EventId with no Revision stop). Persist apply and command mint migrate in any order after compile preamble. Two Core doors stay, both Ev.
+1. **Chosen** — Ev is the transport envelope. Ops apply locally. Leftover Change is wrapping to delete. One serial is EventId (`Change.id` becomes EventId with no Revision stop). EventId has private id. Only EventLog uses EventId.next. Only serializing uses fromJson/toJson. Persist apply and command mint migrate in any order after compile preamble. Two Core doors stay, both Ev.
 2. **Rejected: leftover Change as command-builder product** — [[plan/core-creation/arch.md]] still locks `Ev.ofChange` / `Ev.asChange`. That is the mess. Destination is EventBody.Change of Ops, not a second record.
 3. **Rejected: persist apply takes Ev and never exposes Ops** — apply is already `Op.apply`. Hiding Ops behind Ev-only apply at FileAgent would shallow-copy the envelope through amend and PersistStamp. Ops stay the apply interface.
 4. **Rejected: Change.id : Revision first** — a second wrapper beside EventId. Skip to EventId.

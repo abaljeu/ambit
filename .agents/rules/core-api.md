@@ -6,6 +6,6 @@ Core API for this increment:
 
 ## EventId serial
 
-Only the mailbox may call `EventId.next` (or an equivalent tip bump). Mailbox here is the Core EventLog / admit path.
+Only EventLog may call `EventId.next`. EventId has private id. EventId.fromJson/toJson bypasses. Only serializing should use the fromJson/toJson functions. Any event not from these sources should have id 0.
 
-Client and Shared callers mint a draft Event with `EventId.zero`, or rebuild a received Event from the wire (`Ev.fromJson` / decode). They do not advance the serial.
+Client and Shared callers mint a draft Event with `EventId.zero`, or rebuild a received Event from the wire (`Ev.fromJson` / `Ev.toJson`). They do not advance the serial.
