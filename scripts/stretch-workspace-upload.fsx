@@ -3,6 +3,22 @@
 open System
 open Gambol.Shared
 
+let private clientHint = "stretch-workspace-upload"
+
+let private parseArgs (argv: string[]) =
+    let ambitBase =
+        if argv.Length > 0 then argv.[0]
+        else "http://127.0.0.1:5215/ambit"
+    let mappedRoot =
+        if argv.Length > 1 then argv.[1]
+        else "/tmp/ambit-stretch-upload"
+    let label =
+        if argv.Length > 2 then argv.[2] else "stretch"
+    { ambitBase = ambitBase
+      mappedRoot = mappedRoot
+      label = label
+      clientHint = clientHint }
+
 let private nodeLabels (graph: Graph) =
     graph.nodes
     |> Map.toList
@@ -16,8 +32,8 @@ let private nodeLabels (graph: Graph) =
 let private printProof (proof: WorkspaceCloudUploadProof) =
     let names = nodeLabels proof.state.graph
     printfn
-        "PASS workspace-created eventId=%d"
-        (EventId.value proof.created.eventId)
+        "PASS workspace-created eventId=%s"
+        (EventId.display proof.created.eventId)
     printfn "PASS stubs %s" proof.stubDetail
     printfn
         "PASS upload uploaded=%d detail=%s paths=%s"
@@ -25,11 +41,11 @@ let private printProof (proof: WorkspaceCloudUploadProof) =
         proof.pushed.detail
         (String.concat "," proof.pushed.uploadedPaths)
     printfn "PASS mark %s" proof.markDetail
-    printfn "PASS graph-eventId=%d" (EventId.value proof.state.eventId)
+    printfn "PASS graph-eventId=%s" (EventId.display proof.state.eventId)
     printfn "PASS nodes %s" (String.concat "," names)
 
 let private runArgv (argv: string[]) =
-    let args = WorkspaceCloudUpload.parseArgs argv
+    let args = parseArgs argv
     printfn "ambitBase=%s" args.ambitBase
     printfn "mappedRoot=%s" args.mappedRoot
     printfn "label=%s" args.label

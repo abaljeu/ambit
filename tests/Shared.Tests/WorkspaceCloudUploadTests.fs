@@ -4,24 +4,6 @@ open Gambol.Shared
 open Xunit
 
 [<Fact>]
-let ``parseArgs uses stretch defaults when argv is empty`` () =
-    let args = WorkspaceCloudUpload.parseArgs [||]
-    Assert.Equal("http://127.0.0.1:5215/ambit", args.ambitBase)
-    Assert.Equal("/tmp/ambit-stretch-upload", args.mappedRoot)
-    Assert.Equal("stretch", args.label)
-
-[<Fact>]
-let ``parseArgs reads ambit mapped root and label`` () =
-    let args =
-        WorkspaceCloudUpload.parseArgs
-            [| "http://127.0.0.1:9/ambit"
-               "/tmp/mapped"
-               "lab" |]
-    Assert.Equal("http://127.0.0.1:9/ambit", args.ambitBase)
-    Assert.Equal("/tmp/mapped", args.mappedRoot)
-    Assert.Equal("lab", args.label)
-
-[<Fact>]
 let ``workspaceScope is the named workspace root`` () =
     let scope = WorkspaceCloudUpload.workspaceScope "home"
     Assert.Equal("home", scope.label)

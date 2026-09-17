@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Drive desktop Upload minus WPF: WorkspaceCloudUpload + thin FSI.
+# Drive desktop Upload minus WPF: same WorkspaceCloudUpload as Desktop.
 set -euo pipefail
 ROOT="$(dirname "$0")/.."
 MARKER="${STRETCH_MARKER:-stretch-upload-$(date +%s)}"

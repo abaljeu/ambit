@@ -3,7 +3,6 @@ namespace Gambol.Shared
 open System
 open System.Net.Http
 open System.Text
-open Gambol.Server
 open Gambol.Shared.CommandEntry
 
 module Enc = Thoth.Json.Newtonsoft.Encode
@@ -25,7 +24,10 @@ module AmbitSession =
             new HttpClientHandler(
                 AllowAutoRedirect = false,
                 UseCookies = false)
-        new HttpClient(handler, disposeHandler = true)
+        new HttpClient(
+            handler,
+            disposeHandler = true,
+            Timeout = TimeSpan.FromMinutes 2.0)
 
     let cookieFromCredentials (creds: LoginForm.Credentials) =
         AuthToken.cookieHeaderValue creds.Username creds.Password

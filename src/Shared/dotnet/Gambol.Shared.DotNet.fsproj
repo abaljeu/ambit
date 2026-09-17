@@ -6,7 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="..\..\Server\AuthToken.fs" Link="AuthToken.fs" />
+    <Compile Include="AuthToken.fs" />
     <Compile Include="ProcessExec.fs" />
     <Compile Include="GitRun.fs" />
     <Compile Include="DesktopGit.fs" />

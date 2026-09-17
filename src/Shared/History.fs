@@ -34,6 +34,7 @@ module EventId =
     let next (EventId n) = EventId(n + 1)
     let max (EventId a) (EventId b) = EventId(Operators.max a b)
     let value (id: EventId) = id.Value
+    let display (EventId n) = string n
     let fromJson n = EventId n
     let toJson (EventId n) = n
 

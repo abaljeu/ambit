@@ -194,7 +194,7 @@ module WorkspaceSyncEndpoints =
             | Error message -> do! writeBadRequest context message
             | Ok mappedRoot ->
                 match
-                    WorkspaceFileSync.post
+                    WorkspaceCloudUpload.push
                         client
                         ambitBase
                         mappedRoot
@@ -293,7 +293,7 @@ module WorkspaceSyncEndpoints =
             | Error message -> do! writeBadRequest context message
             | Ok mappedRoot ->
                 match
-                    WorkspaceLocalInventory.listForUpload mappedRoot scope
+                    WorkspaceCloudUpload.listForUpload mappedRoot scope
                 with
                 | Error err -> do! writeBadRequest context err
                 | Ok(mode, items) ->
