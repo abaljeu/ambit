@@ -96,7 +96,7 @@ The Wayfinder map is one file with one child file per decision ticket.
 
 - **Map**: `plan/<effort>/map.md` holds Notes, Decisions so far, Not yet specified, and Out of scope. The Roadmap also lists Epics grouped by Stage, each with its current Chapter. Order inside a Stage does not matter. The Roadmap file itself has no Stage and no Status.
 - **Child decision ticket**: `plan/<effort>/issues/NN-<slug>.md`, numbered from `01`, contains the question. `**Type:**` records `research`, `prototype`, `grilling`, or `task`; `**Status:**` records a value from [[triage-labels.md]].
-- **Blocking**: `Blocked by: NN, NN` near the top. A ticket is unblocked when every listed ticket is `done`.
+- **Blocking**: `Blocked by: NN, NN` near the top. A ticket is unblocked when every listed ticket is `done`. Do not set Status to `blocked` for those links when the spec is complete — use `defined` ([[triage-labels.md]]).
 - **Frontier**: Scan the effort's `issues/` directory for unblocked tickets whose Status names the next action you were asked to do (`coded` when the ask is review). Existing tickets may still use `ready-for-agent` or `ready-for-human`; do not rewrite them. First by number wins. On the Roadmap, do not treat `epics/` as the frontier.
 - **Claim**: Do not change Status while work is in flight. When implementation finishes, set `coded` ([[triage-labels.md]]).
 - **Resolve (decision ticket)**: Append the resolution under `## Answer`, set `**Status:** done` when that answer is accepted, then append a one-line gist and link to the map's Decisions so far.

@@ -1,6 +1,6 @@
 # 11 — One serial event id
 
-**Status:** blocked
+**Status:** defined
 **Blocked by:** [05 — Expand Op-list apply](05-expand-op-list-apply.md)
 
 ## Context

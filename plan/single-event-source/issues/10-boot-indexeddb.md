@@ -1,6 +1,6 @@
 # 10 — Boot IndexedDB
 
-**Status:** blocked
+**Status:** defined
 **Blocked by:** [05 — Expand Op-list apply](05-expand-op-list-apply.md)
 
 ## Context

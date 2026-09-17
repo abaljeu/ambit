@@ -1,6 +1,6 @@
 # 12 — Contract leftover Change and Revision
 
-**Status:** blocked
+**Status:** defined
 **Blocked by:** [06 — Compile preamble](06-compile-preamble.md), [07 — Persist apply](07-persist-apply.md), [08 — Core doors](08-core-doors.md), [09 — Command mint](09-command-mint.md), [10 — Boot IndexedDB](10-boot-indexeddb.md), [11 — One serial event id](11-one-serial-event-id.md)
 
 ## Context

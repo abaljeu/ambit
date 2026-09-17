@@ -1,6 +1,6 @@
 # 09 — Command mint
 
-**Status:** blocked
+**Status:** defined
 **Blocked by:** [05 — Expand Op-list apply](05-expand-op-list-apply.md), [08 — Core doors](08-core-doors.md)
 
 ## Context
