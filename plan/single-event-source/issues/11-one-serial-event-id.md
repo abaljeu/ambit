@@ -1,7 +1,7 @@
 # 11 — One serial event id
 
 **Status:** coded
-**Actual:** 4.5h
+**Actual:** 6.5h
 **Blocked by:** [05 — Expand Op-list apply](05-expand-op-list-apply.md)
 
 ## Context
@@ -38,9 +38,11 @@ Modules **Ev**, **State**, **CoreChanges**, **EventLog**, **ClientHistory**. Sea
 
 - 2026-09-17 — Alan locked the client EventId / pending model. The client has no EventId serial. Pending events use `EventId.zero` only. Match server responses with `submissionId`, not local recordId or nextEventId. On approve, replace zero with the server-assigned id. On a server merge / revised event stream that inserts other server ops before what the client sent, rewind. Match by `submissionId`. No Interject API. Consequences: `ClientHistory.nextEventId` / local `EventId.next` go away; `record` must not return a local id; `PendingTransition` dies; `PendingChange.transition` dies (guid already on Ev); SyncInfo pending collapses to an event list. Server EventLog remains the only `EventId.next` caller (already on this ticket and [core-api.md](.agents/rules/core-api.md)).
 - 2026-09-17 — Repair: stamp History from the revised stream by `submissionId`; stamp nested Undo/Redo targets; replace `EventId.fromJson -1` with `EventId.beforeAll`; move BootCache SnapshotRecord to `eventId` / `"eventId"`. Status stays `coded`.
+- 2026-09-17 — Interactive `/ambit` loop: live client posts `eventId` 0; unfixed admit accepted non-zero. Stamp [SyncBatch.toWireBatch](src/Shared/SyncBatch.fs) and reject new non-zero at persistNew. Report: [interactive EventId-zero web repro](../reports/interactive-eventid-zero-web-repro.md). Status stays `coded`.
 
 ## Time
 
 - 2026-09-17 30m — Fold locked client pending / `submissionId` model into What to build and arch EventId / ClientHistory notes (from chat)
 - 2026-09-17 2.5h — Implement private EventId serial, leftover Change.id, client pending EventId.zero / submissionId (from chat)
 - 2026-09-17 1.5h — Repair review: merge stamp, Undo/Redo targets, beforeAll cursor, SnapshotRecord eventId (from chat)
+- 2026-09-17 2h — Interactive web EventId loop and wire-zero / admit reject (from chat)
