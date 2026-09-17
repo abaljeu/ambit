@@ -3,7 +3,9 @@ open System.Net.Http
 open System.Text
 open Gambol.Shared
 open Gambol.Shared.CommandEntry
-open Thoth.Json.JavaScript
+
+module Enc = Thoth.Json.Newtonsoft.Encode
+module Dec = Thoth.Json.Newtonsoft.Decode
 
 type Session =
     { client: HttpClient
@@ -80,7 +82,7 @@ let private login (client: HttpClient) (ambitBase: string) =
               ambitBase = ambitBase.TrimEnd('/') }
 
 let private encodeBatch (events: Ev list) =
-    Encode.toString 0 (EventJson.encodeEventBatch { events = events })
+    Enc.toString 0 (EventJson.encodeEventBatch { events = events })
 
 let private getFullState (session: Session) =
     let url = session.ambitBase + "/state?scope=full"
@@ -88,7 +90,9 @@ let private getFullState (session: Session) =
     if code < 200 || code >= 300 then
         Error("GET /state HTTP " + string code + ": " + text)
     else
-        ApiResponseSerialization.decodeStateResponse text
+        Dec.fromString
+            ApiResponseSerialization.decodeStateResponseDecoder
+            text
 
 let private postChange (session: Session) (ops: Op list) =
     let event = ClientHistory.mintChange (displayName Load) ops
@@ -98,7 +102,11 @@ let private postChange (session: Session) (ops: Op list) =
     if code < 200 || code >= 300 then
         Error("POST /changes HTTP " + string code + ": " + text)
     else
-        match ApiResponseSerialization.decodeChangeSuccessResponse text with
+        match
+            Dec.fromString
+                ApiResponseSerialization.decodeChangeSuccessResponseDecoder
+                text
+        with
         | Error e -> Error e
         | Ok ack -> Ok(event, ack)
 
