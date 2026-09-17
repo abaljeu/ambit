@@ -32,6 +32,10 @@ Delete the old form once no caller remains. Delete leftover Change, `module Chan
 
 [Single event source architecture](../arch.md), [[../map.md]]
 
+## Comments
+
+- 2026-09-17 — Redo sequence charted as tickets [13 — Revision always 0 (diagnostic)](13-revision-always-zero.md)–[19 — Delete unused EventId.fs](19-delete-unused-eventid-fs.md) ([replan](../reports/replan-11-12-smaller-increments.md)). Swap: 12a = Delete Revision aliases, 12b = Delete leftover Change wrapping, 12c = Delete unused EventId.fs. This ticket remains a historical `coded` land (no-retrofit); do not re-implement here.
+
 ## Time
 
 - 2026-09-17 2h — Migrate production leftover Change / Revision callers and delete leftover types (from chat)

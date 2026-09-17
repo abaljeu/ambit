@@ -40,6 +40,7 @@ Modules **Ev**, **State**, **CoreChanges**, **EventLog**, **ClientHistory**. Sea
 - 2026-09-17 — Repair: stamp History from the revised stream by `submissionId`; stamp nested Undo/Redo targets; replace `EventId.fromJson -1` with `EventId.beforeAll`; move BootCache SnapshotRecord to `eventId` / `"eventId"`. Status stays `coded`.
 - 2026-09-17 — Interactive `/ambit` loop: live client posts `eventId` 0; unfixed admit accepted non-zero. Stamp [SyncBatch.toWireBatch](src/Shared/SyncBatch.fs) and reject new non-zero at persistNew. Report: [interactive EventId-zero web repro](../reports/interactive-eventid-zero-web-repro.md). Status stays `coded`.
 - 2026-09-17 — ServerRejected overlay shows the server 400 string when present (`posted EventId must be zero`); short fallback only if that body is missing. Status stays `coded`.
+- 2026-09-17 — Redo sequence charted as tickets [13 — Revision always 0 (diagnostic)](13-revision-always-zero.md)–[19 — Delete unused EventId.fs](19-delete-unused-eventid-fs.md) ([replan](../reports/replan-11-12-smaller-increments.md)). This ticket remains a historical `coded` land (no-retrofit); do not re-implement here.
 
 ## Time
 
