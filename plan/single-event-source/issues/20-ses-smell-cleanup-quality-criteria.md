@@ -2,6 +2,7 @@
 
 **Type:** research
 **Status:** needs-info
+Actual: 2h
 Blocked by: none
 
 ## 1. Question
@@ -40,4 +41,12 @@ Read these reports first; extract naming and type-usage findings. Do not treat f
 
 ## Answer
 
-_(empty until research finishes)_
+Smell-cleanup accepts or rejects a change by **naming** (Ev locals `event`/`events`; leftover Revision names on EventId; KEEP `EventBody.Change` and HTTP `/changes`) and **type usage** (`fromJson`/`toJson` only at named peel; drafts `EventId.zero`; get-all `EventId.beforeAll`; in-process `EventId` not `int`; draft Authority matches the posting Caller). File length and function length are not accept bars. Do not reopen Spec for [11 — One serial event id](11-one-serial-event-id.md) or [12 — Contract leftover Change and Revision](12-contract-leftover-change-and-revision.md). Checklist: [SES smell-cleanup quality criteria](../reports/ses-smell-cleanup-quality-criteria.md).
+
+## Comments
+
+- 2026-09-17 — Research written. Status stays `needs-info` until Alan accepts.
+
+## Time
+
+- 2026-09-17 2h — researched naming and EventId type-usage criteria from rules, 11/11-repair/12/34b reviews, and current tip (from chat)

@@ -4,7 +4,7 @@ Stage: build
 Summary: Core creation is suspended. This Project creates a single Event source with one event id, then corrects [[plan/core-creation/arch.md]] to match what was created.
 Updated: 2026-09-17
 Started: 2026-09-16
-Actual: 23h
+Actual: 25h
 
 Home: [[plan/roadmap/epics/robust-outliner.md]] Required for done (Live). Chart map: [[map.md]].
 
@@ -39,6 +39,7 @@ Home: [[plan/roadmap/epics/robust-outliner.md]] Required for done (Live). Chart 
 ## Notes
 
 - 2026-09-17 — Charted [[plan/single-event-source/issues/20-ses-smell-cleanup-quality-criteria.md|20 — SES smell-cleanup quality criteria]] (research; Status `needs-info`).
+- 2026-09-17 — [20 — SES smell-cleanup quality criteria](plan/single-event-source/issues/20-ses-smell-cleanup-quality-criteria.md) Answer filled; checklist [SES smell-cleanup quality criteria](plan/single-event-source/reports/ses-smell-cleanup-quality-criteria.md). Status stays `needs-info` until Alan accepts.
 
 ## Related work
 
