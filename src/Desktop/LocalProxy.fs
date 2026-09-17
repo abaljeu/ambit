@@ -8,7 +8,6 @@ open System.Net.Http
 open System.Text
 open System.Text.Json
 open System.Threading.Tasks
-open Gambol.Server
 open Gambol.Shared
 open Thoth.Json.Newtonsoft
 open Microsoft.AspNetCore.Builder
@@ -180,13 +179,6 @@ module LocalProxy =
                     |> Seq.toArray
 
                 response.Headers[header.Key] <- StringValues(values)
-
-    let private createHttpClient () =
-        let handler =
-            new HttpClientHandler(
-                AllowAutoRedirect = false,
-                UseCookies = false)
-        new HttpClient(handler, disposeHandler = true)
 
     let private setCookieHeaders (response: HttpResponseMessage) =
         match response.Headers.TryGetValues("Set-Cookie") with
@@ -662,16 +654,14 @@ module LocalProxy =
         |> ignore
 
         let app = builder.Build()
-        let client = createHttpClient ()
+        let client = AmbitSession.createHttpClient ()
         let session = ref (AuthStore.load())
         let issuedCookie = ref None
         let downloadManager =
             WorkspaceDownloadManager.create
                 client
                 ambitBase
-                (session.Value
-                 |> Option.map (fun c ->
-                     AuthToken.cookieHeaderValue c.Username c.Password))
+                (AmbitSession.cookieHeader session.Value)
                 (fun label ->
                     match WorkspaceLocalMapping.resolvePath workspaceMap.Value label "" with
                     | Ok path -> Ok path

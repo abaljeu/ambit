@@ -35,6 +35,7 @@ let ``EventId fromJson toJson next and zero`` () =
     Assert.Equal(
         EventId.fromJson 1,
         EventId.next EventId.zero)
+    Assert.Equal("5", EventId.display (EventId.fromJson 5))
 
 [<Fact>]
 let ``append since tryFind`` () =
