@@ -18,7 +18,7 @@ let private encodeChangeBatch (changes: Change list) =
     changes
 
 let private emptyChange () =
-    [ { id = 0
+    [ { id = EventId.fromJson 0
         submissionId = Guid.NewGuid()
         ops = [] } ]
 
@@ -51,7 +51,7 @@ let private stateWithDetachedNode () =
         |> Graph.fromNodes Graph.rootId
 
     { graph = graph
-      revision = Revision 4 },
+      eventId = EventId.fromJson 4 },
     orphanId
 
 [<Fact>]
@@ -59,9 +59,9 @@ let ``DbAgent empty test DB has revision 0 and canonical ROOT`` () = task {
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
     let agent = DbAgent.create connStr
-    let! rev = CoreMailbox.getRevision (host agent) |> Async.StartAsTask
+    let! rev = CoreMailbox.getEventId (host agent) |> Async.StartAsTask
     let! state = getState agent |> Async.StartAsTask
-    Assert.Equal(Gambol.Shared.EventId 0, rev)
+    Assert.Equal(EventId.fromJson 0, rev)
     let graph = state.graph
     let root = graph.nodes.[graph.root]
     Assert.Equal(4, graph.nodes.Count)
@@ -97,10 +97,10 @@ let ``DbAgent startup sweeps and trims unreachable persisted nodes before ready`
     let! ready = waitUntil 2000 (fun () -> CoreMailbox.isReady (host agent))
     Assert.True(ready, "Expected startup sweep to enable normal queue processing.")
     let! state = getState agent |> Async.StartAsTask
-    let! revision = CoreMailbox.getRevision (host agent) |> Async.StartAsTask
+    let! revision = CoreMailbox.getEventId (host agent) |> Async.StartAsTask
     let loaded = state.graph
 
-    Assert.Equal(Gambol.Shared.EventId 9, revision)
+    Assert.Equal(EventId.fromJson 9, revision)
     Assert.False(loaded.nodes.ContainsKey orphanId)
 
     use checkConn = Database.getConnection connStr
@@ -127,7 +127,7 @@ let ``DbAgent serves reads while sweep buffers FIFO mutations then trims`` () = 
     Assert.False(CoreMailbox.isReady mailbox)
 
     let stateTask = getStateFrom mailbox |> Async.StartAsTask
-    let revisionTask = CoreMailbox.getRevision mailbox |> Async.StartAsTask
+    let revisionTask = CoreMailbox.getEventId mailbox |> Async.StartAsTask
     let firstPost =
         (admittedChanges mailbox).postEvents (toEvents (emptyChange ()))
         |> Async.StartAsTask
@@ -143,7 +143,7 @@ let ``DbAgent serves reads while sweep buffers FIFO mutations then trims`` () = 
     let! beforeRevision = revisionTask
     Assert.False(CoreMailbox.isReady mailbox)
     Assert.True(beforeState.graph.nodes.ContainsKey orphanId)
-    Assert.Equal(Gambol.Shared.EventId 4, beforeRevision)
+    Assert.Equal(EventId.fromJson 4, beforeRevision)
     release.Set()
 
     let! secondResult = secondPost
@@ -179,9 +179,9 @@ let ``DbAgent startup sweep failure preserves reads and fails mutations closed``
     | Ok _ -> Assert.Fail("Expected mutation rejection after startup sweep failure.")
 
     let! state = getState agent |> Async.StartAsTask
-    let! revision = CoreMailbox.getRevision (host agent) |> Async.StartAsTask
+    let! revision = CoreMailbox.getEventId (host agent) |> Async.StartAsTask
     Assert.True(state.graph.nodes.ContainsKey orphanId)
-    Assert.Equal(Gambol.Shared.EventId 4, revision)
+    Assert.Equal(EventId.fromJson 4, revision)
 }
 
 [<Fact>]
@@ -194,7 +194,7 @@ let ``DbAgent new process loads state from projection and changes after post`` (
     let childId = NodeId.New()
 
     let change =
-        { id = 0
+        { id = EventId.fromJson 0
           submissionId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "reload-check")
@@ -208,9 +208,9 @@ let ``DbAgent new process loads state from projection and changes after post`` (
     | Ok _ -> ()
 
     let agent2 = DbAgent.create connStr
-    let! rev2 = CoreMailbox.getRevision (host agent2) |> Async.StartAsTask
+    let! rev2 = CoreMailbox.getEventId (host agent2) |> Async.StartAsTask
     let! state2 = getState agent2 |> Async.StartAsTask
-    Assert.Equal(Gambol.Shared.EventId 1, rev2)
+    Assert.Equal(EventId.fromJson 1, rev2)
     let graph2 = state2.graph
     Assert.Equal(Graph.rootId, graph2.root)
     let root = graph2.nodes.[graph2.root]
@@ -233,7 +233,7 @@ let ``DbAgent reload preserves node updateTime from projection`` () = task {
     let childId = NodeId.New()
 
     let change =
-        { id = 0
+        { id = EventId.fromJson 0
           submissionId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "stamped")
@@ -271,7 +271,7 @@ let ``DbAgent change fails and state is unchanged when DB goes away after startu
     let childId = NodeId.New()
 
     let change =
-        { id = 0
+        { id = EventId.fromJson 0
           submissionId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "db-down")
@@ -288,9 +288,9 @@ let ``DbAgent change fails and state is unchanged when DB goes away after startu
         | Ok _ -> Assert.Fail("Expected postChange to fail while DB rejects connections.")
         | Error err -> Assert.Contains("Database error:", err)
 
-        let! rev = CoreMailbox.getRevision mailbox |> Async.StartAsTask
+        let! rev = CoreMailbox.getEventId mailbox |> Async.StartAsTask
         let! afterState = getStateFrom mailbox |> Async.StartAsTask
-        Assert.Equal(Gambol.Shared.EventId 0, rev)
+        Assert.Equal(EventId.fromJson 0, rev)
         Assert.False(afterState.graph.nodes.ContainsKey childId)
     finally
         setDatabaseAllowConnections connStr true
@@ -315,7 +315,7 @@ let ``rebuildFromDocumentFiles aligns DB with on-disk document`` () = task {
         let childId = NodeId.New()
 
         let change =
-            { id = 0
+            { id = EventId.fromJson 0
               submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(childId, "db-only")
@@ -333,7 +333,7 @@ let ``rebuildFromDocumentFiles aligns DB with on-disk document`` () = task {
 
         let differs =
             not (GraphProjection.graphEquals fileSt.graph dbBefore.graph)
-            || fileSt.revision.Value <> dbBefore.revision.Value
+            || fileSt.eventId.Value <> dbBefore.eventId.Value
 
         Assert.True(differs, "expected file and DB to differ before rebuild")
 
@@ -342,7 +342,7 @@ let ``rebuildFromDocumentFiles aligns DB with on-disk document`` () = task {
         let! dbAfter = Database.loadPersistedState connStr decodeChange |> Async.AwaitTask
 
         Assert.True(GraphProjection.graphEquals fileSt.graph dbAfter.graph)
-        Assert.Equal(fileSt.revision.Value, dbAfter.revision.Value)
+        Assert.Equal(fileSt.eventId.Value, dbAfter.eventId.Value)
     finally
         if Directory.Exists(tempRoot) then
             Directory.Delete(tempRoot, true)
@@ -383,7 +383,7 @@ let ``loadPersistedState preserves node kind`` () = task {
 
     let graphWithFile =
         let change =
-            { id = 0
+            { id = EventId.fromJson 0
               submissionId = Guid.NewGuid()
               ops =
                 [ Op.NewSpecialNode(fileId, SpecialKind.File, "file1")
@@ -392,7 +392,7 @@ let ``loadPersistedState preserves node kind`` () = task {
         match
             ChangeValidation.applyChange change
                 { graph = g0
-                  revision = Revision 0 }
+                  eventId = EventId.zero }
         with
         | ApplyResult.Changed st -> st.graph
         | _ -> failwith "expected Changed"
@@ -426,7 +426,7 @@ let ``DbAgent commit hang is rejected within timeout and mailbox survives`` () =
     let childId = NodeId.New()
 
     let change =
-        { id = 0
+        { id = EventId.fromJson 0
           submissionId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "commit-hang-check")
@@ -459,7 +459,7 @@ let ``DbAgent commit hang is rejected within timeout and mailbox survives`` () =
     // let the orphaned background commit finish before reusing the connection pool
     do! Task.Delay(500)
 
-    let! rev = CoreMailbox.getRevision mailbox |> Async.StartAsTask
+    let! rev = CoreMailbox.getEventId mailbox |> Async.StartAsTask
     let! state = getStateFrom mailbox |> Async.StartAsTask
     Assert.NotNull(state)
     Assert.True(rev.Value >= 0)
@@ -478,7 +478,7 @@ let ``DbAgent postChange live-saves artifacts before ack returns`` () = task {
     let childId = NodeId.New()
 
     let change =
-        { id = 0
+        { id = EventId.fromJson 0
           submissionId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "live-save-check")
@@ -517,7 +517,7 @@ let ``DbAgent missing ROOT fails closed while reads stay available`` () = task {
     Assert.False(CoreMailbox.isReady (host agent))
 
     let change =
-        { id = 0
+        { id = EventId.fromJson 0
           submissionId = Guid.NewGuid()
           ops = [ Op.NewNode(NodeId.New(), "blocked") ] }
     let! postResult =
@@ -530,9 +530,9 @@ let ``DbAgent missing ROOT fails closed while reads stay available`` () = task {
     | Ok _ -> Assert.Fail("Expected mutation rejection after missing ROOT.")
 
     let! state = getState agent |> Async.StartAsTask
-    let! revision = CoreMailbox.getRevision (host agent) |> Async.StartAsTask
+    let! revision = CoreMailbox.getEventId (host agent) |> Async.StartAsTask
     Assert.False(CoreMailbox.isReady (host agent))
-    Assert.Equal(Gambol.Shared.EventId 4, revision)
+    Assert.Equal(EventId.fromJson 4, revision)
 }
 
 [<Fact>]

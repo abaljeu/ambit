@@ -3,8 +3,8 @@ module BootCacheTestHelpers
 open System
 open Gambol.Shared
 
-let private mkChange id =
-    { id = id
+let private mkChange n =
+    { id = EventId.fromJson n
       submissionId = Guid.NewGuid()
       ops = [] }
 

@@ -11,7 +11,7 @@ open Gambol.Server.Tests.TestBackend
 let private changedBody () =
     let childId = NodeId.New()
     [ {
-        id = 0
+        id = EventId.zero
         submissionId = Guid.NewGuid()
         ops =
             [
@@ -47,7 +47,7 @@ let private decodeAckMessage (accepted: CoreChangesAccepted) =
 let private softFailEditBody () =
     let childId = NodeId.New()
     [ {
-        id = 0
+        id = EventId.zero
         submissionId = Guid.NewGuid()
         ops =
             [
@@ -96,7 +96,7 @@ let ``persistence exception is logged replied and mailbox survives`` () = task {
             getState agent
             |> Async.StartAsTask
             |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
-        Assert.Equal(Revision 0, state.revision)
+        Assert.Equal(EventId.fromJson 0, state.eventId)
     finally
         CoreMailbox.dispose (host agent)
 }
@@ -139,7 +139,7 @@ let ``persist step hang is rejected within timeout and mailbox survives`` () = t
             getState agent
             |> Async.StartAsTask
             |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
-        Assert.Equal(Revision 0, state.revision)
+        Assert.Equal(EventId.fromJson 0, state.eventId)
     finally
         // let the orphaned background task finish before disposing shared resources
         Thread.Sleep(hangMs)
@@ -168,7 +168,7 @@ let ``soft-fail live-save still commits graph and returns could-not-save message
         Assert.True(
             state.graph.nodes
             |> Map.exists (fun _ n -> n.text = "soft-fail-probe"))
-        Assert.Equal(Revision 1, state.revision)
+        Assert.Equal(EventId.fromJson 1, state.eventId)
     finally
         CoreMailbox.dispose (host agent)
 }
@@ -199,7 +199,7 @@ let ``soft-fail log is not replayed into FileAgent state after restart`` () = ta
         Assert.False(
             state.graph.nodes
             |> Map.exists (fun _ n -> n.text = "soft-fail-probe"))
-        Assert.Equal(Revision 0, state.revision)
+        Assert.Equal(EventId.fromJson 0, state.eventId)
     finally
         CoreMailbox.dispose (host agent2)
 }
@@ -222,7 +222,7 @@ let private incrementingStampPersist (count: int ref) =
 
 let private addChildChange rev text =
     let childId = NodeId.New()
-    { id = rev
+    { id = EventId.fromJson rev
       submissionId = Guid.NewGuid()
       ops =
         [ Op.NewNode(childId, text)
@@ -264,7 +264,7 @@ let ``ACK returns stamped complete Change equal to EventLog`` () = task {
                     Assert.Equal(Graph.workspacesId, nodeId)
                 | _ -> failwith "expected SetUpdateTime suffix")
             let! events =
-                CoreMailbox.getEventsSince (host agent) (Gambol.Shared.EventId 0)
+                CoreMailbox.getEventsSince (host agent) (EventId.fromJson 0)
                 |> Async.StartAsTask
             Assert.Single(events) |> ignore
             let event = events.[0]
@@ -320,7 +320,7 @@ let ``trailing duplicate keeps stamps on last new Change`` () = task {
                 suffixAfter first firstConfirmed,
                 secondSuffix)
             let! events =
-                CoreMailbox.getEventsSince (host agent) (Gambol.Shared.EventId 0)
+                CoreMailbox.getEventsSince (host agent) (EventId.fromJson 0)
                 |> Async.StartAsTask
             // Direct handlers.postChange skips the postEvent door; EventLog
             // only has the mailbox-admitted first Change.

@@ -5,15 +5,13 @@ open Gambol.Shared
 type ClientHistory =
     private
         { eventPast: Ev list
-          eventFuture: Ev list
-          nextEventId: EventId }
+          eventFuture: Ev list }
 
 [<RequireQualifiedAccess>]
 module ClientHistory =
     let clear () : ClientHistory =
         { eventPast = []
-          eventFuture = []
-          nextEventId = EventId.zero }
+          eventFuture = [] }
 
     let private tryTakeAction
         (stack: Ev list)
@@ -31,11 +29,10 @@ module ClientHistory =
     let private invertAs
         (wrap: EventId * Op list -> EventBody)
         (action: Ev)
-        (id: EventId)
         : Ev =
         let inverse =
             Ev.inverseOps action |> Option.defaultValue []
-        { id = id
+        { id = EventId.zero
           submissionId = System.Guid.NewGuid()
           authority = action.authority
           commandName = action.commandName
@@ -52,11 +49,8 @@ module ClientHistory =
                 (fun futureEvent past -> futureEvent :: past)
                 history.eventFuture
                 history.eventPast
-        { history with
-            eventPast = event :: foldedPast
-            eventFuture = []
-            nextEventId =
-                EventId.max history.nextEventId (EventId.next event.id) }
+        { eventPast = event :: foldedPast
+          eventFuture = [] }
 
     let undoEvent
         (history: ClientHistory)
@@ -64,12 +58,10 @@ module ClientHistory =
         match tryTakeAction history.eventPast with
         | None -> None
         | Some (remainingPast, action) ->
-            let produced = invertAs EventBody.Undo action history.nextEventId
+            let produced = invertAs EventBody.Undo action
             let nextHistory =
-                { history with
-                    eventPast = remainingPast
-                    eventFuture = produced :: history.eventFuture
-                    nextEventId = EventId.next history.nextEventId }
+                { eventPast = remainingPast
+                  eventFuture = produced :: history.eventFuture }
             Some(produced, nextHistory)
 
     let redoEvent
@@ -78,32 +70,31 @@ module ClientHistory =
         match tryTakeAction history.eventFuture with
         | None -> None
         | Some (remainingFuture, action) ->
-            let produced = invertAs EventBody.Redo action history.nextEventId
+            let produced = invertAs EventBody.Redo action
             let nextHistory =
-                { history with
-                    eventPast = produced :: history.eventPast
-                    eventFuture = remainingFuture
-                    nextEventId = EventId.next history.nextEventId }
+                { eventPast = produced :: history.eventPast
+                  eventFuture = remainingFuture }
             Some(produced, nextHistory)
 
-    let private tryPeekActionName (stack: Ev list) : string option =
+    let private tryPeekAction (stack: Ev list) : Ev option =
         let rec walk remaining =
             match remaining with
             | [] -> None
-            | event :: _ when Ev.isAction event -> Some event.commandName
+            | event :: _ when Ev.isAction event -> Some event
             | _ :: rest -> walk rest
         walk stack
 
+    let tryPeekUndoEvent (history: ClientHistory) : Ev option =
+        tryPeekAction history.eventPast
+
+    let tryPeekRedoEvent (history: ClientHistory) : Ev option =
+        tryPeekAction history.eventFuture
+
     let tryPeekUndoName (history: ClientHistory) : string option =
-        tryPeekActionName history.eventPast
+        tryPeekUndoEvent history |> Option.map (fun event -> event.commandName)
 
     let tryPeekRedoName (history: ClientHistory) : string option =
-        tryPeekActionName history.eventFuture
-
-    let private unwrap (EventId n) = n
-
-    let private callerRecordId (event: Ev) : int =
-        unwrap (Ev.target event |> Option.defaultValue event.id)
+        tryPeekRedoEvent history |> Option.map (fun event -> event.commandName)
 
     let mintChange (commandName: string) (ops: Op list) : Ev =
         { id = EventId.zero
@@ -115,25 +106,23 @@ module ClientHistory =
     let record
         (event: Ev)
         (history: ClientHistory)
-        : ClientHistory * int =
-        let stored = { event with id = history.nextEventId }
-        recordEvent event.commandName stored history, unwrap stored.id
+        : ClientHistory =
+        recordEvent event.commandName { event with id = EventId.zero } history
 
     let private yieldMinted
         (submissionId: System.Guid)
         (produced: Ev)
         (nextHistory: ClientHistory)
-        : Ev * ClientHistory * int =
+        : Ev * ClientHistory =
         { produced with
             id = EventId.zero
             submissionId = submissionId },
-        nextHistory,
-        callerRecordId produced
+        nextHistory
 
     let undo
         (submissionId: System.Guid)
         (history: ClientHistory)
-        : (Ev * ClientHistory * int) option =
+        : (Ev * ClientHistory) option =
         match undoEvent history with
         | None -> None
         | Some (produced, nextHistory) ->
@@ -142,8 +131,50 @@ module ClientHistory =
     let redo
         (submissionId: System.Guid)
         (history: ClientHistory)
-        : (Ev * ClientHistory * int) option =
+        : (Ev * ClientHistory) option =
         match redoEvent history with
         | None -> None
         | Some (produced, nextHistory) ->
             Some(yieldMinted submissionId produced nextHistory)
+
+    let private resolveTarget (confirmed: Ev list) target ops =
+        if target <> EventId.zero then
+            target
+        else
+            confirmed
+            |> List.tryFind (fun event ->
+                match Ev.inverseOps event with
+                | Some inverse -> inverse = ops
+                | None -> false)
+            |> Option.map (fun event -> event.id)
+            |> Option.defaultValue EventId.zero
+
+    let private stampBody (confirmed: Ev list) body =
+        match body with
+        | EventBody.Undo(target, ops) ->
+            EventBody.Undo(resolveTarget confirmed target ops, ops)
+        | EventBody.Redo(target, ops) ->
+            EventBody.Redo(resolveTarget confirmed target ops, ops)
+        | other -> other
+
+    let private stampEvent
+        (confirmed: Ev list)
+        (ids: Map<System.Guid, EventId>)
+        (event: Ev)
+        =
+        let event =
+            match Map.tryFind event.submissionId ids with
+            | Some eventId -> { event with id = eventId }
+            | None -> event
+        { event with body = stampBody confirmed event.body }
+
+    /// Replace EventId.zero with the server id for matching submissionId.
+    /// Also fills Undo/Redo targets written while the original id was zero.
+    let approve (confirmed: Ev list) (history: ClientHistory) : ClientHistory =
+        let ids =
+            confirmed
+            |> List.map (fun event -> event.submissionId, event.id)
+            |> Map.ofList
+        { eventPast = List.map (stampEvent confirmed ids) history.eventPast
+          eventFuture =
+            List.map (stampEvent confirmed ids) history.eventFuture }

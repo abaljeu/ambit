@@ -79,7 +79,7 @@ let private loadTargetIntent (graph: Graph) (targetId: NodeId) : LoadTarget =
 let tryStartLoadFetch (model: VM) : SyncInfo * Effect list =
     let targetIds = selectedLoadTargetIds model
     if List.isEmpty targetIds then
-        SyncPlanner.tryStartPoll (EventId.ofRevision model.revision) model.syncInfo
+        SyncPlanner.tryStartPoll (model.eventId) model.syncInfo
     elif
         ResidentProjection.selectionSpansMultipleWorkspaces
             model.graph
@@ -90,7 +90,7 @@ let tryStartLoadFetch (model: VM) : SyncInfo * Effect list =
         let targets =
             targetIds |> List.map (loadTargetIntent model.graph)
         SyncPlanner.tryStartLoad
-            (EventId.ofRevision model.revision)
+            (model.eventId)
             targets
             model.syncInfo
 
@@ -100,21 +100,21 @@ let tryStartLoadFetch (model: VM) : SyncInfo * Effect list =
 
 let private pendingKey = "gambol-pending-v1"
 
-let savePendingQueue (items: PendingChange list) =
+let savePendingQueue (items: Ev list) =
     if items.IsEmpty then localStorageRemove pendingKey
     else
         let encoded =
             Encode.list (
-                items |> List.map Gambol.Shared.EventJson.encodePendingChange)
+                items |> List.map Gambol.Shared.EventJson.encode)
         let json = Thoth.Json.JavaScript.Encode.toString 0 encoded
         localStorageSet pendingKey json
 
-let loadPendingQueue () : PendingChange list =
+let loadPendingQueue () : Ev list =
     let json = localStorageGet pendingKey
     if isNull json || json = "" then []
     else
         match Thoth.Json.JavaScript.Decode.fromString
-            (Decode.list Gambol.Shared.EventJson.decodePendingChange) json with
+            (Decode.list Gambol.Shared.EventJson.decode) json with
         | Ok items -> items
         | Error _ -> []
 
@@ -150,7 +150,7 @@ let readEditInputSelectionEnd () : int =
 let clientSyncState (model: VM) : ClientSyncState =
     ClientSyncState.create
         model.graph
-        (EventId.ofRevision model.revision)
+        (model.eventId)
         model.history
 
 let applyAndPost
@@ -159,13 +159,13 @@ let applyAndPost
     (model: VM)
     : Result<VM * Effect list, string> =
     let event = ClientHistory.mintChange commandName ops
-    match SyncLogic.applyLocalChange event (clientSyncState model) with
+    match SyncLogic.applyLocalEvent event (clientSyncState model) with
     | Error error -> Error error
     | Ok (nextState, pendingItem) ->
         let nextSyncInfo, effects =
             SyncPlanner.enqueuePending
                 pendingItem
-                (EventId.ofRevision model.revision)
+                (model.eventId)
                 model.syncInfo
         if
             effects
@@ -175,9 +175,9 @@ let applyAndPost
         then
             consoleLog (
                 "[Gambol sync] applyAndPost fireFirst modelRev="
-                + string model.revision.Value
+                + string model.eventId.Value
                 + " qLen="
-                + string nextSyncInfo.pendingChanges.Length)
+                + string nextSyncInfo.pending.Length)
         Ok
             ({ model with
                 graph = nextState.graph
@@ -224,7 +224,7 @@ let viewRootNodeId (model: VM) : NodeId =
 ///   - pending queue is non-empty (defensive; tryStartPoll already blocks this)
 ///   - mode is Editing and the live edit field differs from the graph (dirty edit)
 let isAutoSyncBlocked (model: VM) : bool =
-    if not model.syncInfo.pendingChanges.IsEmpty then
+    if not model.syncInfo.pending.IsEmpty then
         true
     else
         match model.mode with

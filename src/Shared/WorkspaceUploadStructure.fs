@@ -46,7 +46,7 @@ module WorkspaceUploadStructure =
     let private applyOps (graph: Graph) (ops: Op list) : Result<Graph, string> =
         let initial: State =
             { graph = graph
-              revision = Revision.Zero }
+              eventId = EventId.zero }
 
         ops
         |> List.fold

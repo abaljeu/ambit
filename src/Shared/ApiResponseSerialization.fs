@@ -9,14 +9,14 @@ module ApiResponseSerialization =
 
     let encodeStateResponse (response: StateResponse) : IEncodable =
         Encode.object
-            [ "revision", Gambol.Shared.EventJson.encodeEventId response.revision
+            [ "eventId", Gambol.Shared.EventJson.encodeEventId response.eventId
               "graph", Serialization.encodeGraph response.graph
               "ready", Encode.bool response.isReady ]
 
     let decodeStateResponseDecoder: Decoder<StateResponse> =
         Decode.object (fun get ->
-            { revision =
-                get.Required.Field "revision" Gambol.Shared.EventJson.decodeEventId
+            { eventId =
+                get.Required.Field "eventId" Gambol.Shared.EventJson.decodeEventId
               graph = get.Required.Field "graph" Serialization.decodeGraph
               isReady =
                 get.Optional.Field "ready" Decode.bool
@@ -29,7 +29,7 @@ module ApiResponseSerialization =
         (response: ChangeSuccessResponse)
         : IEncodable =
         Encode.object (
-            [ "r", Gambol.Shared.EventJson.encodeEventId response.revision
+            [ "r", Gambol.Shared.EventJson.encodeEventId response.eventId
               "b", Encode.int response.buildEpochSec
               "p", Encode.int response.pageBuildEpochSec
               "v", Encode.int response.apiVersion
@@ -48,7 +48,7 @@ module ApiResponseSerialization =
 
     let decodeChangeSuccessResponseDecoder: Decoder<ChangeSuccessResponse> =
         Decode.object (fun get ->
-            { revision =
+            { eventId =
                 get.Required.Field "r" Gambol.Shared.EventJson.decodeEventId
               buildEpochSec = get.Required.Field "b" Decode.int
               pageBuildEpochSec = get.Required.Field "p" Decode.int
@@ -81,9 +81,8 @@ module ApiResponseSerialization =
                 get.Required.Field "includeWorkspace" Decode.bool })
 
     let encodeLoadRequest (request: LoadRequest) : IEncodable =
-        let (EventId rev) = request.revision
         Encode.object
-            [ "revision", Encode.int rev
+            [ "eventId", Encode.int (EventId.toJson request.eventId)
               "targets",
                 request.targets
                 |> List.map encodeLoadTarget
@@ -91,7 +90,8 @@ module ApiResponseSerialization =
 
     let decodeLoadRequestDecoder: Decoder<LoadRequest> =
         Decode.object (fun get ->
-            { revision = EventId (get.Required.Field "revision" Decode.int)
+            { eventId =
+                EventId.fromJson (get.Required.Field "eventId" Decode.int)
               targets =
                 get.Required.Field
                     "targets"
@@ -101,9 +101,8 @@ module ApiResponseSerialization =
         Decode.fromString decodeLoadRequestDecoder text
 
     let encodeLoadResponse (response: LoadResponse) : IEncodable =
-        let (EventId rev) = response.revision
         Encode.object
-            [ "r", Encode.int rev
+            [ "r", Encode.int (EventId.toJson response.eventId)
               "b", Encode.int response.buildEpochSec
               "p", Encode.int response.pageBuildEpochSec
               "v", Encode.int response.apiVersion
@@ -119,7 +118,7 @@ module ApiResponseSerialization =
 
     let decodeLoadResponseDecoder: Decoder<LoadResponse> =
         Decode.object (fun get ->
-            { revision = EventId (get.Required.Field "r" Decode.int)
+            { eventId = EventId.fromJson (get.Required.Field "r" Decode.int)
               buildEpochSec = get.Required.Field "b" Decode.int
               pageBuildEpochSec = get.Required.Field "p" Decode.int
               apiVersion =

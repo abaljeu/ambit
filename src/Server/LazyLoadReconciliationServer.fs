@@ -13,15 +13,15 @@ module LazyLoadReconciliationServer =
     let decodeGraphState (json: string) : Result<int * Graph, string> =
         let decoder =
             Thoth.Json.Core.Decode.object (fun get ->
-                let revision =
+                let eventId =
                     get.Required.Field
-                        "revision"
-                        Serialization.decodeRevision
+                        "eventId"
+                        EventJson.decodeEventId
                 let graph =
                     get.Required.Field
                         "graph"
                         Serialization.decodeGraph
-                revision.Value, graph)
+                EventId.value eventId, graph)
         JsonDecode.fromString decoder json
 
     let private isDirInfoPath (path: string) =

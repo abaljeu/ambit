@@ -29,11 +29,11 @@ let private decodeGraph json =
 let private decodeRevisionAndGraph json =
     let decoder =
         Thoth.Json.Core.Decode.object (fun get ->
-            let revision =
-                get.Required.Field "revision" Serialization.decodeRevision
+            let eventId =
+                get.Required.Field "eventId" EventJson.decodeEventId
             let graph =
                 get.Required.Field "graph" Serialization.decodeGraph
-            revision.Value, graph)
+            EventId.value eventId, graph)
 
     match Decode.fromString decoder json with
     | Ok pair -> pair
@@ -114,7 +114,7 @@ let ``SetText persists SYSTEM user css and server remains responsive`` () = task
     let revision, graph = decodeRevisionAndGraph loadedJson
     let cssNodeId = graph.nodes.[fileId].children |> List.exactlyOne |> fun c -> c.id
     let change =
-        { id = revision
+        { id = EventId.fromJson revision
           submissionId = Guid.Parse("93a26b25-272f-4c48-916b-4045a2ba37a1")
           ops = [ Op.SetText(cssNodeId, "block", "\"background\" : #fff") ] }
     let event = eventFromChange change

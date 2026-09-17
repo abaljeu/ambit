@@ -20,7 +20,7 @@ let private addRootChild text =
       Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ]
 
 let private wireEvent submissionId ops : Ev =
-    { id = EventId 99
+    { id = EventId.fromJson 99
       submissionId = submissionId
       authority = Authority "Wire"
       commandName = "persist-apply"
@@ -31,9 +31,9 @@ let private eventsSince (handlers: PersistHandlers) after =
 
 let private applyThenAppend (handlers: PersistHandlers) event =
     let accepted = requireOk "applyEvent" (handlers.applyEvent event false)
-    Assert.Empty(eventsSince handlers (EventId -1))
+    Assert.Empty(eventsSince handlers (EventId.beforeAll))
     requireOk "appendEvent" (handlers.appendEvent event)
-    let stored = Assert.Single(eventsSince handlers (EventId -1))
+    let stored = Assert.Single(eventsSince handlers (EventId.beforeAll))
     Assert.Equal(event.submissionId, stored.submissionId)
     accepted
 
@@ -53,7 +53,7 @@ let ``DbAgent applyEvent applies Ev Ops without leftover Change`` () =
     let childId, ops = addRootChild "persist-apply-db"
     let event = wireEvent (Guid.NewGuid()) ops
     let initial =
-        { graph = Graph.create (); revision = Revision 0 }
+        { graph = Graph.create (); eventId = EventId.zero }
     let agent = DbAgent.createForTest initial (fun _ -> Ok [])
     let handlers = (DbAgent.persist agent).handlers
     let accepted = applyThenAppend handlers event
@@ -95,7 +95,7 @@ let ``CoreEventDispatch persist apply does not copy Ev to leftover Change`` () =
             Assert.Equal<Op list>(ops, List.take ops.Length storedOps)
         | None -> Assert.Fail("expected Change EventBody Ops")
         let logged =
-            CoreMailbox.getEventsSince host (EventId -1)
+            CoreMailbox.getEventsSince host (EventId.beforeAll)
             |> Async.RunSynchronously
         Assert.Equal(event.submissionId, Assert.Single(logged).submissionId)
     finally

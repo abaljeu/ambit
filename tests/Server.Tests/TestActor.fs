@@ -12,7 +12,7 @@ let private hello (input: ActorInput) (coreChanges: CoreChanges) : Async<unit> =
         let event =
             Ev.ofChange
                 ""
-                { id = 0
+                { id = EventId.fromJson 0
                   submissionId = System.Guid.NewGuid()
                   ops =
                     [ Op.NewNode(helloNodeId, "hello")

@@ -27,7 +27,7 @@ let ``Actor handle wrap refuses a different inactive credential`` () = task {
         let event =
             Ev.ofChange
                 ""
-                { id = state.revision.Value
+                { id = EventId.zero
                   submissionId = Guid.NewGuid()
                   ops =
                     [ Op.NewNode(NodeId.New(), "nope")

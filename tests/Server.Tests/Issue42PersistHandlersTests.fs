@@ -19,7 +19,7 @@ let private addRootChild text =
     childId,
     Ev.ofChange
         ""
-        { id = 0
+        { id = EventId.fromJson 0
           submissionId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, text)
@@ -39,7 +39,7 @@ let ``getEventsSince returns Ev after postChange`` () = task {
         let! events =
             CoreMailbox.getEventsSince
                 host
-                (EventId -1)
+                (EventId.beforeAll)
             |> Async.StartAsTask
         let stored = Assert.Single(events)
         Assert.Equal(event.submissionId, stored.submissionId)
@@ -69,7 +69,7 @@ let ``EventLog.restore seeds mailbox across File restart`` () = task {
             |> Async.StartAsTask
         let stored = Assert.Single(history.events)
         Assert.Equal(event.submissionId, stored.submissionId)
-        Assert.Equal(EventId 2, EventLog.nextId history)
+        Assert.Equal(EventId.fromJson 2, EventLog.nextId history)
     finally
         CoreMailbox.dispose second
 }
@@ -94,7 +94,7 @@ let ``EventLog.restore seeds mailbox across Db restart`` () = task {
             |> Async.StartAsTask
         let stored = Assert.Single(history.events)
         Assert.Equal(event.submissionId, stored.submissionId)
-        Assert.Equal(EventId 2, EventLog.nextId history)
+        Assert.Equal(EventId.fromJson 2, EventLog.nextId history)
     finally
         CoreMailbox.dispose second
 }
@@ -124,7 +124,7 @@ let ``ActorStart persists across File restart`` () = task {
               focusId = Graph.rootId
               commandId = Graph.rootId
               graphIds = [ Graph.rootId ]
-              revision = EventId 0 }
+              eventId = EventId.fromJson 0 }
         let! started =
             CoreMailbox.startActor first testCaller request
             |> Async.StartAsTask
@@ -134,7 +134,7 @@ let ``ActorStart persists across File restart`` () = task {
     let second = CoreMailbox.createFile dir admittedCredentials
     try
         let! events =
-            CoreMailbox.getEventsSince second (EventId -1)
+            CoreMailbox.getEventsSince second (EventId.beforeAll)
             |> Async.StartAsTask
         Assert.True(
             events
@@ -152,7 +152,7 @@ let private sampleActorStart: ActorStart =
       focusId = Graph.rootId
       commandId = Graph.rootId
       graphIds = [ Graph.rootId ]
-      revision = EventId 0 }
+      eventId = EventId.fromJson 0 }
 
 let private stubPool secret : CoreActorPool =
     { register = fun _ _ -> ()
@@ -185,7 +185,7 @@ let ``getEventsSince Error does not seed empty EventLog as success`` () =
     withFilling filling (CoreActorPool.create ()) (fun host -> task {
         try
             let! _ =
-                CoreMailbox.getEventsSince host (EventId -1)
+                CoreMailbox.getEventsSince host (EventId.beforeAll)
                 |> Async.StartAsTask
             Assert.Fail("expected persist getEventsSince Error")
         with ex ->

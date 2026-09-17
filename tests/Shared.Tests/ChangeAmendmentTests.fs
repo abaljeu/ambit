@@ -6,11 +6,11 @@ open Gambol.Shared
 let private stateWithChild (text: string) =
     let initialState =
         { graph = Graph.create ()
-          revision = Revision 0 }
+          eventId = EventId.zero }
 
     let childId = NodeId.New()
     let change =
-        { id = 0
+        { id = EventId.fromJson 0
           submissionId = System.Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, text)
@@ -24,7 +24,7 @@ let private stateWithChild (text: string) =
 let ``applyChange amends stale SetText collision`` () =
     let state, nodeId = stateWithChild "x0"
     let changeA =
-        { id = 1
+        { id = EventId.fromJson 1
           submissionId = System.Guid.NewGuid()
           ops = [ Op.SetText(nodeId, "x0", "xA") ] }
     let state =
@@ -33,7 +33,7 @@ let ``applyChange amends stale SetText collision`` () =
         | other -> failwith $"changeA: {other}"
 
     let changeB =
-        { id = 2
+        { id = EventId.fromJson 2
           submissionId = System.Guid.NewGuid()
           ops = [ Op.SetText(nodeId, "x0", "xB") ] }
     let result, amended, applied = ChangeAmendment.applyChange changeB state
@@ -50,7 +50,7 @@ let ``applyChange amends stale SetClasses with set delta`` () =
     let state, nodeId = stateWithChild "tagged"
     let prior = CssClass.ofList [ "a"; "b" ]
     let setup =
-        { id = 0
+        { id = EventId.fromJson 0
           submissionId = System.Guid.NewGuid()
           ops = [ Op.SetClasses(nodeId, CssClass.empty, prior) ] }
     let state =
@@ -59,7 +59,7 @@ let ``applyChange amends stale SetClasses with set delta`` () =
         | other -> failwith $"setup: {other}"
 
     let changeA =
-        { id = 1
+        { id = EventId.fromJson 1
           submissionId = System.Guid.NewGuid()
           ops = [ Op.SetClasses(nodeId, prior, CssClass.ofList [ "b" ]) ] }
     let state =
@@ -68,7 +68,7 @@ let ``applyChange amends stale SetClasses with set delta`` () =
         | other -> failwith $"changeA: {other}"
 
     let changeB =
-        { id = 2
+        { id = EventId.fromJson 2
           submissionId = System.Guid.NewGuid()
           ops =
             [ Op.SetClasses(nodeId, prior, CssClass.ofList [ "a"; "b"; "c" ]) ] }
@@ -84,12 +84,12 @@ let ``applyChange amends stale SetClasses with set delta`` () =
 let private stateWithParentChild (parentText: string) (childText: string) =
     let initialState =
         { graph = Graph.create ()
-          revision = Revision 0 }
+          eventId = EventId.zero }
 
     let parentId = NodeId.New()
     let childId = NodeId.New()
     let change =
-        { id = 0
+        { id = EventId.fromJson 0
           submissionId = System.Guid.NewGuid()
           ops =
             [ Op.NewNode(parentId, parentText)
@@ -106,7 +106,7 @@ let ``applyChange amends stale Replace collision`` () =
     let state, parentId, child0 = stateWithParentChild "p" "c0"
     let childA = NodeId.New()
     let changeA =
-        { id = 1
+        { id = EventId.fromJson 1
           submissionId = System.Guid.NewGuid()
           ops =
             [ Op.NewNode(childA, "a")
@@ -121,7 +121,7 @@ let ``applyChange amends stale Replace collision`` () =
 
     let childB = NodeId.New()
     let changeB =
-        { id = 2
+        { id = EventId.fromJson 2
           submissionId = System.Guid.NewGuid()
           ops =
             [ Op.NewNode(childB, "b")

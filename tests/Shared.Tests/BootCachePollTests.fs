@@ -7,7 +7,7 @@ open BootCacheTestHelpers
 open Xunit
 
 let private mkPoll rev (events: Ev list) : ChangeSuccessResponse =
-    { revision = EventId rev
+    { eventId = EventId.fromJson rev
       buildEpochSec = 1
       pageBuildEpochSec = 1
       apiVersion = ApiVersion.current
@@ -17,8 +17,8 @@ let private mkPoll rev (events: Ev list) : ChangeSuccessResponse =
       message = None
       bootstrapHash = None }
 
-let private decide clientRev log poll =
-    BootCache.decideBootPoll clientRev log poll None None
+let private decide clientEventId log poll =
+    BootCache.decideBootPoll clientEventId log poll None None
 
 [<Fact>]
 let ``novelEvents skips Poll Events already in the log by id`` () =
@@ -37,7 +37,7 @@ let ``novelEvents skips Poll Events already in the log by submissionId`` () =
 
 [<Fact>]
 let ``decideBootPoll confirms an empty tail at matching Revision`` () =
-    match decide 5 [] (mkPoll 5 []) with
+    match decide (EventId.fromJson 5) [] (mkPoll 5 []) with
     | BootCache.BootPoll.Confirmed true -> ()
     | other -> failwithf "%A" other
 
@@ -45,35 +45,35 @@ let ``decideBootPoll confirms an empty tail at matching Revision`` () =
 let ``decideBootPoll confirms when the tail is only local log duplicates`` () =
     let local = mkEvent 6
     let poll = mkPoll 6 [ local ]
-    match decide 6 [ local ] poll with
+    match decide (EventId.fromJson 6) [ local ] poll with
     | BootCache.BootPoll.Confirmed true -> ()
     | other -> failwithf "%A" other
 
 [<Fact>]
 let ``decideBootPoll reports CodeOutdated when API version mismatches`` () =
     let poll = { mkPoll 5 [] with apiVersion = ApiVersion.current + 1 }
-    match decide 5 [] poll with
+    match decide (EventId.fromJson 5) [] poll with
     | BootCache.BootPoll.CodeOutdated -> ()
     | other -> failwithf "%A" other
 
 [<Fact>]
 let ``decideBootPoll confirms when page stamps differ and API matches`` () =
     let poll = { mkPoll 5 [] with buildEpochSec = 2; pageBuildEpochSec = 99 }
-    match decide 5 [] poll with
+    match decide (EventId.fromJson 5) [] poll with
     | BootCache.BootPoll.Confirmed true -> ()
     | other -> failwithf "%A" other
 
 [<Fact>]
 let ``decideBootPoll applies a novel tail`` () =
     let novel = mkEvent 7
-    match decide 6 [] (mkPoll 7 [ novel ]) with
+    match decide (EventId.fromJson 6) [] (mkPoll 7 [ novel ]) with
     | BootCache.BootPoll.ApplyNovel (events, true) ->
         Assert.Equal(7, events.Head.id.Value)
     | other -> failwithf "%A" other
 
 [<Fact>]
 let ``decideBootPoll falls back when Poll Revision is behind the client`` () =
-    match decide 9 [] (mkPoll 4 []) with
+    match decide (EventId.fromJson 9) [] (mkPoll 4 []) with
     | BootCache.BootPoll.FallbackState "revision" -> ()
     | other -> failwithf "%A" other
 
@@ -81,13 +81,18 @@ let ``decideBootPoll falls back when Poll Revision is behind the client`` () =
 let ``decideBootPoll falls back when the novel tail is oversized`` () =
     let many =
         List.init (BootCache.maxNovelCount + 1) (fun i -> mkEvent (10 + i))
-    match decide 9 [] (mkPoll 20 many) with
+    match decide (EventId.fromJson 9) [] (mkPoll 20 many) with
     | BootCache.BootPoll.FallbackState "oversized" -> ()
     | other -> failwithf "%A" other
 
 [<Fact>]
 let ``decideBootPoll falls back when the Revision gap is oversized`` () =
-    match decide 1 [] (mkPoll (1 + BootCache.maxPollRevGap + 1) []) with
+    match
+        decide
+            (EventId.fromJson 1)
+            []
+            (mkPoll (1 + BootCache.maxPollRevGap + 1) [])
+    with
     | BootCache.BootPoll.FallbackState "oversized" -> ()
     | other -> failwithf "%A" other
 
@@ -157,7 +162,7 @@ let ``graphFingerprint is stable for the same Graph and changes when ROOT text c
 let ``decideBootPoll falls back on equal Revision hash mismatch`` () =
     match
         BootCache.decideBootPoll
-            5 [] (mkPoll 5 []) (Some "aaa") (Some "bbb")
+            (EventId.fromJson 5) [] (mkPoll 5 []) (Some "aaa") (Some "bbb")
     with
     | BootCache.BootPoll.FallbackState "hash" -> ()
     | other -> failwithf "%A" other
@@ -165,7 +170,8 @@ let ``decideBootPoll falls back on equal Revision hash mismatch`` () =
 [<Fact>]
 let ``decideBootPoll skips hash compare when Poll omits bootstrapHash`` () =
     match
-        BootCache.decideBootPoll 5 [] (mkPoll 5 []) None (Some "bbb")
+        BootCache.decideBootPoll
+            (EventId.fromJson 5) [] (mkPoll 5 []) None (Some "bbb")
     with
     | BootCache.BootPoll.Confirmed true -> ()
     | other -> failwithf "%A" other
@@ -182,7 +188,8 @@ let ``decideBootPoll confirms after /state when a client fingerprint disagrees``
     let poll = { mkPoll 5 [] with bootstrapHash = Some "server" }
     let cached = BootCache.cachedHashForBootPoll true "fable-poison"
     match
-        BootCache.decideBootPoll 5 [] poll (Some "server") cached
+        BootCache.decideBootPoll
+            (EventId.fromJson 5) [] poll (Some "server") cached
     with
     | BootCache.BootPoll.Confirmed true -> ()
     | other -> failwithf "%A" other

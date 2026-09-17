@@ -17,7 +17,7 @@ let initialGraph = Graph.create ()
 
 let initialModel: VM =
     { graph = initialGraph
-      revision = Revision.Zero
+      eventId = EventId.zero
       history = ClientHistory.clear ()
       selectedNodes = None
       mode = Selecting
@@ -137,7 +137,7 @@ and private applyBootNovel (novel: Ev list) (ready: bool) =
             SysMsg (
                 BootGraphApplied (
                     newState.graph,
-                    EventId.toRevision newState.revision,
+                    newState.eventId,
                     newState.history,
                     ready)))
         BootCacheStore.appendEvents currentFile novel
@@ -146,18 +146,18 @@ and private applyBootNovel (novel: Ev list) (ready: bool) =
             currentFile
             bootScope
             (tryReadSavedZoomId ())
-            newState.revision.Value
+            newState.eventId
             ready
             newState.graph
 
-and private handleBootPoll (clientRev: int) (poll: ChangeSuccessResponse) =
+and private handleBootPoll (clientEventId: EventId) (poll: ChangeSuccessResponse) =
     reseedDeployEpochOnServerSignal poll.buildEpochSec |> ignore
     let cached =
         BootCache.cachedHashForBootPoll justFetchedState bootHash
     justFetchedState <- false
     match
         BootCache.decideBootPoll
-            clientRev bootLog poll poll.bootstrapHash cached
+            clientEventId bootLog poll poll.bootstrapHash cached
     with
     | BootCache.BootPoll.Confirmed ready ->
         dispatch (
@@ -166,7 +166,7 @@ and private handleBootPoll (clientRev: int) (poll: ChangeSuccessResponse) =
                     None,
                     [],
                     Some ready,
-                    Some (EventId.toRevision poll.revision))))
+                    Some (poll.eventId))))
     | BootCache.BootPoll.CodeOutdated ->
         dispatch (
             SysMsg (
@@ -174,19 +174,19 @@ and private handleBootPoll (clientRev: int) (poll: ChangeSuccessResponse) =
                     Some CodeOutdated,
                     [],
                     Some poll.isReady,
-                    Some (EventId.toRevision poll.revision))))
+                    Some (poll.eventId))))
     | BootCache.BootPoll.ApplyNovel (novel, ready) ->
         applyBootNovel novel ready
     | BootCache.BootPoll.FallbackState reason ->
         fallbackState reason
 
-and private runBootPoll (clientRev: int) =
-    let url = $"/{currentFile}/poll?_={nowMs ()}&rev={clientRev}"
+and private runBootPoll (clientEventId: EventId) =
+    let url = $"/{currentFile}/poll?_={nowMs ()}&rev={EventId.value clientEventId}"
     fetchTextNoCacheWithFail
         url
         (fun text ->
             match decodeChangeSuccessResponse text with
-            | Ok poll -> handleBootPoll clientRev poll
+            | Ok poll -> handleBootPoll clientEventId poll
             | Error _ -> ())
         (fun () -> ())
 
@@ -194,12 +194,12 @@ and private finishPaint (response: StateResponse) (localLog: Ev list) =
     bootLog <- localLog
     dispatch (SysMsg (StateLoaded response))
     ensurePolling ()
-    runBootPoll response.revision.Value
+    runBootPoll response.eventId
     BootCacheStore.requestIdleTruncate
         currentFile
         bootScope
         (tryReadSavedZoomId ())
-        response.revision.Value
+        response.eventId
         response.isReady
         response.graph
 

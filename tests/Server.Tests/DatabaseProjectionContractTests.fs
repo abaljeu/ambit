@@ -18,7 +18,7 @@ let private stamp value =
     DateTime(2026, 7, 24, 12, value, 0, DateTimeKind.Utc)
 
 let private change ops =
-    { id = 0
+    { id = EventId.fromJson 0
       submissionId = Guid.NewGuid()
       ops = ops }
 
@@ -262,7 +262,7 @@ let ``db bootstrap duplicate returns stored Change and rejects no-op`` () = task
     let childId = id 70
 
     let accepted =
-        { id = 0
+        { id = EventId.fromJson 0
           submissionId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "bootstrap")
@@ -290,7 +290,7 @@ let ``db bootstrap duplicate returns stored Change and rejects no-op`` () = task
     | Error err -> failwith err
 
     let noOp =
-        { id = 1
+        { id = EventId.fromJson 1
           submissionId = Guid.NewGuid()
           ops = [] }
     let! unchanged = core.postEvents (toEvents (encodeBatch [ noOp ])) |> Async.StartAsTask

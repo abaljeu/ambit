@@ -8,7 +8,7 @@ let emptyModel (graph: Graph) : VM =
     let siteMap, nextId = buildSiteMap graph
 
     { graph = graph
-      revision = Revision.Zero
+      eventId = EventId.zero
       history = ClientHistory.clear ()
       selectedNodes = None
       mode = Selecting
@@ -32,7 +32,7 @@ let emptyModelAt (graph: Graph) (viewRoot: NodeId) : VM =
     let siteMap, nextId = buildSiteMapFrom graph viewRoot (Sid 0)
 
     { graph = graph
-      revision = Revision.Zero
+      eventId = EventId.zero
       history = ClientHistory.clear ()
       selectedNodes = None
       mode = Selecting

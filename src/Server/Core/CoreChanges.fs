@@ -12,7 +12,7 @@ type Caller =
       secret: Credential }
 
 type CoreChangesAccepted =
-    { revision: Revision
+    { eventId: EventId
       /// Stored Events for POST /events ACK (submission / request order).
       events: Ev list
       externalChanges: bool
@@ -23,7 +23,7 @@ type CoreChangesAccepted =
 /// Graph-only skips file persist, not EventLog.
 type CoreChanges =
     { getState: unit -> Async<Result<State, string>>
-      getRevision: unit -> Async<Gambol.Shared.EventId>
+      getEventId: unit -> Async<Gambol.Shared.EventId>
       getEventsSince: Gambol.Shared.EventId -> Async<Ev list>
       isReady: unit -> bool
       postEvents: Ev list -> Async<Result<CoreChangesAccepted, string>>
@@ -36,13 +36,13 @@ type CoreChanges =
 module CoreChanges =
 
     let accepted
-        (revision: Revision)
+        (eventId: EventId)
         (isReady: bool)
         (events: Ev list)
         (externalChanges: bool)
         (message: string option)
         : CoreChangesAccepted =
-        { revision = revision
+        { eventId = eventId
           events = events
           externalChanges = externalChanges
           message = message
@@ -52,7 +52,7 @@ module CoreChanges =
         (prior: CoreChangesAccepted)
         (next: CoreChangesAccepted)
         : CoreChangesAccepted =
-        { revision = next.revision
+        { eventId = next.eventId
           events = prior.events @ next.events
           externalChanges =
             prior.externalChanges || next.externalChanges

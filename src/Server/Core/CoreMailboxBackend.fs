@@ -70,7 +70,7 @@ module internal CoreMailboxBackend =
     let operationContext msg =
         match msg with
         | GetState _ -> "GetState", ""
-        | GetRevision _ -> "GetRevision", ""
+        | GetEventId _ -> "GetEventId", ""
         | GetEventsSince (after, _) ->
             "GetEventsSince", $"after={after}"
         | GetEventHistory _ -> "GetEventHistory", ""
@@ -92,7 +92,7 @@ module internal CoreMailboxBackend =
     let replyFailure error msg =
         match msg with
         | GetState reply -> reply.Reply(Error error)
-        | GetRevision reply -> reply.Reply(Error error)
+        | GetEventId reply -> reply.Reply(Error error)
         | GetEventsSince (_, reply) -> reply.Reply(Error error)
         | GetEventHistory reply -> reply.Reply(EventLog.empty)
         | PostGraphOnly (_, _, reply) -> reply.Reply(Error error)
@@ -218,13 +218,13 @@ module internal CoreMailboxBackend =
         | Error err -> reply.Reply(Error err)
         | Ok (_, Some accepted) -> reply.Reply(Ok accepted)
         | Ok (_, None) ->
-            match context.persist.getRevision () with
+            match context.persist.getEventId () with
             | Error err -> reply.Reply(Error err)
-            | Ok revision ->
+            | Ok eventId ->
                 reply.Reply(
                     Ok(
                         CoreChanges.accepted
-                            revision
+                            eventId
                             true
                             []
                             false
@@ -252,7 +252,7 @@ module internal CoreMailboxBackend =
                         (context.pool.liveFocusIds ())
                         state.graph
                 reply.Reply(Ok { state with graph = graph })
-        | GetRevision reply -> reply.Reply(context.persist.getRevision ())
+        | GetEventId reply -> reply.Reply(context.persist.getEventId ())
         | GetEventsSince (after, reply) ->
             reply.Reply(context.persist.getEventsSince after)
         | GetEventHistory reply ->
@@ -297,7 +297,7 @@ module internal CoreMailboxBackend =
 
     let private failedPersist persist error : PersistHandlers = {
         getState = persist.getState
-        getRevision = persist.getRevision
+        getEventId = persist.getEventId
         getEventsSince = persist.getEventsSince
         appendEvent = fun _ -> Error error
         applyEvent = fun _ _ -> Error error
@@ -311,9 +311,8 @@ module internal CoreMailboxBackend =
             getEventsSince = fun _ -> Error error }
 
     let private seedEventLog (persist: PersistHandlers) =
-        let after = Gambol.Shared.EventId(-1)
         try
-            persist.getEventsSince after
+            persist.getEventsSince EventId.beforeAll
             |> Result.map EventLog.restorePersisted
         with ex ->
             Error ex.Message
@@ -373,7 +372,7 @@ module internal CoreMailboxBackend =
                             (fun msg ->
                                 match msg with
                                 | GetState _
-                                | GetRevision _
+                                | GetEventId _
                                 | GetEventsSince _
                                 | GetEventHistory _
                                 | EventsSince _ ->

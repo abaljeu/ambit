@@ -343,7 +343,7 @@ let createDbModeWithoutConnectionClient () =
 
 /// Convert a Change to an Ev for wire encoding in tests.
 let eventFromChange (change: Gambol.Shared.Change) : Ev =
-    { id = Gambol.Shared.EventId 0
+    { id = EventId.fromJson 0
       submissionId = change.submissionId
       authority = Gambol.Shared.Authority ""
       commandName = ""

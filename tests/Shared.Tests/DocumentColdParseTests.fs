@@ -142,13 +142,13 @@ let private applySelectModeExternalPaste
                 insertChildren
 
         let change =
-            { id = 0
+            { id = EventId.fromJson 0
               submissionId = Guid.NewGuid()
               ops = nested @ [ replaceOp ] }
 
         let state =
             { graph = graph
-              revision = Revision.Zero }
+              eventId = EventId.zero }
 
         match ChangeValidation.applyChange change state with
         | ApplyResult.Changed s -> Ok s.graph

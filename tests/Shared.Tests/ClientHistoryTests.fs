@@ -51,7 +51,7 @@ let ``ordinary inverse reverses Set ops and uses supplied identity`` () =
     let oldTime = DateTime(2026, 8, 15, 12, 0, 0, DateTimeKind.Utc)
     let newTime = oldTime.AddMinutes(1)
     let source =
-        { id = 17
+        { id = EventId.fromJson 17
           submissionId = Guid.NewGuid()
           ops =
             [ Op.SetText(nodeId, "before", "after")
@@ -60,8 +60,8 @@ let ``ordinary inverse reverses Set ops and uses supplied identity`` () =
               Op.SetDocumentState(nodeId, Current, Unparsed)
               Op.SetUpdateTime(nodeId, oldTime, newTime) ] }
     let inverseId = Guid.NewGuid()
-    let inverse = Change.inverse (Revision 41) inverseId source
-    Assert.Equal(41, inverse.id)
+    let inverse = Change.inverse (EventId.fromJson 41) inverseId source
+    Assert.Equal(EventId.fromJson 41, inverse.id)
     Assert.Equal(inverseId, inverse.submissionId)
     Assert.Equal<Op list>(
         [ Op.SetUpdateTime(nodeId, newTime, oldTime)
@@ -78,12 +78,12 @@ let ``ordinary inverse reverses nested Replace order`` () =
     let outerChild = ChildNode.owner innerId
     let leaf = ChildNode.owner (NodeId.New())
     let source =
-        { id = 0
+        { id = EventId.fromJson 0
           submissionId = Guid.NewGuid()
           ops =
             [ Op.Replace(innerId, [], [ leaf ])
               Op.Replace(outerId, [], [ outerChild ]) ] }
-    let inverse = Change.inverse Revision.Zero (Guid.NewGuid()) source
+    let inverse = Change.inverse EventId.zero (Guid.NewGuid()) source
     Assert.Equal<Op list>(
         [ Op.Replace(outerId, [ outerChild ], [])
           Op.Replace(innerId, [ leaf ], []) ],
@@ -92,13 +92,13 @@ let ``ordinary inverse reverses nested Replace order`` () =
 let private createPasteScenario () : State * Change * NodeId list =
     let initial =
         { graph = Graph.create ()
-          revision = Revision.Zero }
+          eventId = EventId.zero }
     let topIds, pasteOps =
         Paste.buildPasteOps [ "parent", 0; "child", 1 ]
     let workspaceId = NodeId.New()
     let rootIndex = initial.graph.nodes.[initial.graph.root].children.Length
     let source =
-        { id = 0
+        { id = EventId.fromJson 0
           submissionId = Guid.NewGuid()
           ops =
             pasteOps
@@ -120,13 +120,13 @@ let private createPasteScenario () : State * Change * NodeId list =
 let ``create inverse retains detached nodes and Redo reconnects their identities`` () =
     let initial, source, createdIds = createPasteScenario ()
     let changed = applied source initial
-    let recorded, _recordId =
+    let recorded =
         ClientHistory.clear ()
         |> recordNamed "Paste" source
     let undo, afterUndo =
         match ClientHistory.undo (Guid.NewGuid()) recorded with
         | None -> failwith "expected create Undo"
-        | Some (event, history, _recordId) -> event, history
+        | Some (event, history) -> event, history
     Assert.DoesNotContain(
         eventOps undo,
         fun op ->
@@ -143,7 +143,7 @@ let ``create inverse retains detached nodes and Redo reconnects their identities
     let redo =
         match ClientHistory.redo (Guid.NewGuid()) afterUndo with
         | None -> failwith "expected create Redo"
-        | Some (event, _, _recordId) -> event
+        | Some (event, _) -> event
     let redone = applied (Ev.asChange redo) undone
     let reachableAfterRedo = reachableIds redone.graph
     createdIds
@@ -152,15 +152,59 @@ let ``create inverse retains detached nodes and Redo reconnects their identities
         Assert.Contains(nodeId, reachableAfterRedo))
 
 [<Fact>]
-let ``record returns a stable client record identity`` () =
+let ``approve stamps EventId.zero by submissionId`` () =
+    let source = textChange EventId.zero (NodeId.New()) "old" "new"
+    let recorded =
+        ClientHistory.clear ()
+        |> recordNamed "Edit node" source
+    let confirmed =
+        { Ev.ofChange "Edit node" source with
+            id = EventId.fromJson 9 }
+    let approved = ClientHistory.approve [ confirmed ] recorded
+    match ClientHistory.undoEvent approved with
+    | None -> failwith "expected Undo"
+    | Some (event, _) ->
+        match event.body with
+        | EventBody.Undo(target, _) ->
+            Assert.Equal(EventId.fromJson 9, target)
+        | _ -> failwith "expected Undo body"
+
+[<Fact>]
+let ``approve stamps Undo target written while original id was zero`` () =
+    let source = textChange EventId.zero (NodeId.New()) "old" "new"
+    let recorded =
+        ClientHistory.clear ()
+        |> recordNamed "Edit node" source
+    match ClientHistory.undo (Guid.NewGuid()) recorded with
+    | None -> failwith "expected Undo"
+    | Some (undo, undone) ->
+        match undo.body with
+        | EventBody.Undo(target, _) -> Assert.Equal(EventId.zero, target)
+        | _ -> failwith "expected Undo body"
+        let confirmed =
+            { Ev.ofChange "Edit node" source with
+                id = EventId.fromJson 9 }
+        let approved = ClientHistory.approve [ confirmed ] undone
+        match ClientHistory.tryPeekRedoEvent approved with
+        | None -> failwith "expected Redo stack Undo"
+        | Some event ->
+            match event.body with
+            | EventBody.Undo(target, _) ->
+                Assert.Equal(EventId.fromJson 9, target)
+            | _ -> failwith "expected Undo body"
+
+[<Fact>]
+let ``record keeps EventId.zero and does not mint a local id`` () =
     let change =
-        { id = 7
+        { id = EventId.fromJson 7
           submissionId = Guid.NewGuid()
           ops = [] }
-    let _, recordId =
+    let recorded =
         ClientHistory.clear ()
         |> recordNamed "Edit node" change
-    Assert.Equal(0, recordId)
+    match ClientHistory.undo (Guid.NewGuid()) recorded with
+    | None -> failwith "expected Undo"
+    | Some (event, _) -> Assert.Equal(EventId.zero, event.id)
 
 [<Fact>]
 let ``clear has explicit empty Undo and Redo behavior`` () =
@@ -175,16 +219,15 @@ let ``clear has explicit empty Undo and Redo behavior`` () =
 [<Fact>]
 let ``Undo moves the same named record and returns an ordinary inverse`` () =
     let nodeId = NodeId.New()
-    let source = textChange 0 nodeId "old" "new"
-    let history, recordId =
+    let source = textChange EventId.zero nodeId "old" "new"
+    let history =
         ClientHistory.clear ()
         |> recordNamed "Exact command name" source
     let undoId = Guid.NewGuid()
     match ClientHistory.undo undoId history with
     | None -> failwith "expected an Undo transition"
-    | Some (inverse, _, undoRecordId) ->
+    | Some (inverse, _) ->
         Assert.Equal("Exact command name", inverse.commandName)
-        Assert.Equal(recordId, undoRecordId)
         Assert.Equal(EventId.zero, inverse.id)
         Assert.Equal(undoId, inverse.submissionId)
         Assert.Equal<Op list>(
@@ -194,18 +237,18 @@ let ``Undo moves the same named record and returns an ordinary inverse`` () =
 [<Fact>]
 let ``Redo moves the same logical record and keeps its exact command name`` () =
     let nodeId = NodeId.New()
-    let source = textChange 0 nodeId "old" "new"
-    let recorded, _ =
+    let source = textChange EventId.zero nodeId "old" "new"
+    let recorded =
         ClientHistory.clear ()
         |> recordNamed "Name kept verbatim" source
     let undone =
         ClientHistory.undo (Guid.NewGuid()) recorded
-        |> Option.map (fun (_, history, _recordId) -> history)
+        |> Option.map (fun (_, history) -> history)
         |> Option.defaultWith (fun () -> failwith "expected Undo")
     let redoId = Guid.NewGuid()
     match ClientHistory.redo redoId undone with
     | None -> failwith "expected a Redo transition"
-    | Some (redo, _, _) ->
+    | Some (redo, _) ->
         Assert.Equal("Name kept verbatim", redo.commandName)
         Assert.Equal(EventId.zero, redo.id)
         Assert.Equal(redoId, redo.submissionId)
@@ -218,56 +261,56 @@ let ``Redo moves the same logical record and keeps its exact command name`` () =
 [<InlineData("Load")>]
 [<InlineData("Download")>]
 let ``record stores required command names verbatim`` (name: string) =
-    let source = textChange 0 (NodeId.New()) "old" "new"
-    let history, _ =
+    let source = textChange EventId.zero (NodeId.New()) "old" "new"
+    let history =
         ClientHistory.clear ()
         |> recordNamed name source
     match ClientHistory.undo (Guid.NewGuid()) history with
     | None -> failwith "expected an Undo transition"
-    | Some (undoEvent, undone, _) ->
+    | Some (undoEvent, undone) ->
         Assert.Equal(name, undoEvent.commandName)
         match ClientHistory.redo (Guid.NewGuid()) undone with
         | None -> failwith "expected a Redo transition"
-        | Some (redoEvent, _, _) -> Assert.Equal(name, redoEvent.commandName)
+        | Some (redoEvent, _) -> Assert.Equal(name, redoEvent.commandName)
 
 [<Fact>]
 let ``tryPeekUndoName and tryPeekRedoName follow the stacks`` () =
-    let source = textChange 0 (NodeId.New()) "old" "new"
+    let source = textChange EventId.zero (NodeId.New()) "old" "new"
     let empty = ClientHistory.clear ()
     Assert.Equal(None, ClientHistory.tryPeekUndoName empty)
     Assert.Equal(None, ClientHistory.tryPeekRedoName empty)
-    let recorded, _ = recordNamed "Cut" source empty
+    let recorded = recordNamed "Cut" source empty
     Assert.Equal(Some "Cut", ClientHistory.tryPeekUndoName recorded)
     Assert.Equal(None, ClientHistory.tryPeekRedoName recorded)
     match ClientHistory.undo (Guid.NewGuid()) recorded with
     | None -> failwith "expected Undo"
-    | Some (_, undone, _) ->
+    | Some (_, undone) ->
         Assert.Equal(None, ClientHistory.tryPeekUndoName undone)
         Assert.Equal(Some "Cut", ClientHistory.tryPeekRedoName undone)
 
 [<Fact>]
 let ``normal record folds future without duplicating logical records`` () =
-    let first = textChange 0 (NodeId.New()) "first-old" "first-new"
-    let second = textChange 1 (NodeId.New()) "second-old" "second-new"
-    let recordedFirst, _ =
+    let first = textChange EventId.zero (NodeId.New()) "first-old" "first-new"
+    let second = textChange (EventId.fromJson 1) (NodeId.New()) "second-old" "second-new"
+    let recordedFirst =
         ClientHistory.clear ()
         |> recordNamed "First" first
     let afterFirstUndo =
         ClientHistory.undo (Guid.NewGuid()) recordedFirst
-        |> Option.map (fun (_, history, _recordId) -> history)
+        |> Option.map (fun (_, history) -> history)
         |> Option.defaultWith (fun () -> failwith "expected first Undo")
-    let withSecond, _ =
+    let withSecond =
         recordNamed "Second" second afterFirstUndo
     let afterSecondUndo =
         match ClientHistory.undo (Guid.NewGuid()) withSecond with
         | None -> failwith "expected Second Undo"
-        | Some (event, history, _recordId) ->
+        | Some (event, history) ->
             Assert.Equal("Second", event.commandName)
             history
     let afterFoldedUndo =
         match ClientHistory.undo (Guid.NewGuid()) afterSecondUndo with
         | None -> failwith "expected folded First Undo"
-        | Some (event, history, _) ->
+        | Some (event, history) ->
             Assert.Equal("First", event.commandName)
             history
     Assert.True(
@@ -277,22 +320,21 @@ let ``normal record folds future without duplicating logical records`` () =
 [<Fact>]
 let ``Undo and Redo retain only their submitted local Changes`` () =
     let nodeId = NodeId.New()
-    let source = textChange 0 nodeId "old" "new"
-    let recorded, recordId =
+    let source = textChange EventId.zero nodeId "old" "new"
+    let recorded =
         ClientHistory.clear ()
         |> recordNamed "Edit node" source
     let undoId = Guid.NewGuid()
     let undo, undone =
         match ClientHistory.undo undoId recorded with
         | None -> failwith "expected Undo"
-        | Some (event, history, undoRecordId) ->
-            Assert.Equal(recordId, undoRecordId)
+        | Some (event, history) ->
             event, history
     let redoId = Guid.NewGuid()
     let redo, redone =
         match ClientHistory.redo redoId undone with
         | None -> failwith "expected Redo"
-        | Some (event, history, _) ->
+        | Some (event, history) ->
             event, history
     Assert.Equal(undoId, undo.submissionId)
     Assert.Equal<Op list>(
@@ -302,5 +344,5 @@ let ``Undo and Redo retain only their submitted local Changes`` () =
     Assert.Equal<Op list>(source.ops, eventOps redo)
     match ClientHistory.undo (Guid.NewGuid()) redone with
     | None -> failwith "expected Undo"
-    | Some (nextUndo, _, _) ->
+    | Some (nextUndo, _) ->
         Assert.Equal<Op list>(eventOps undo, eventOps nextUndo)

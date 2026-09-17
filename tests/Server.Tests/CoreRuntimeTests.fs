@@ -18,7 +18,7 @@ let private requireOk label result =
 
 let private addRootChild text =
     let childId = NodeId.New()
-    { id = 0
+    { id = EventId.fromJson 0
       submissionId = System.Guid.NewGuid()
       ops =
         [ Op.NewNode(childId, text)
@@ -59,12 +59,12 @@ let ``bound Changes refuses an inactive sender and does not enqueue`` () =
             CoreMailbox.coreChanges
                 runtime.host
                 (BrowserRequestCreds.callerFromSecret (Credential "inactive"))
-        let! before = bound.getRevision () |> Async.StartAsTask
+        let! before = bound.getEventId () |> Async.StartAsTask
         let event = Ev.ofChange "" (addRootChild "refused")
         let! result =
             bound.postEvents [ event ] 
             |> Async.StartAsTask
-        let! after = bound.getRevision () |> Async.StartAsTask
+        let! after = bound.getEventId () |> Async.StartAsTask
         Assert.Equal(Error CoreAuth.refuse, result)
         Assert.Equal(before, after)
     }
@@ -95,7 +95,7 @@ let ``HTTP Adapter refuses inactive Core sender with 401 and does not enqueue``
                       name = ""
                       secret = Credential "inactive" }
                     handle
-            let! before = handle.getRevision () |> Async.StartAsTask
+            let! before = handle.getEventId () |> Async.StartAsTask
             let change = addRootChild "http"
             let event = eventFromChange change
             let body =
@@ -105,7 +105,7 @@ let ``HTTP Adapter refuses inactive Core sender with 401 and does not enqueue``
             let! result =
                 Api.postEvents bound 10 20 body
                 |> Async.StartAsTask
-            let! after = handle.getRevision () |> Async.StartAsTask
+            let! after = handle.getEventId () |> Async.StartAsTask
             Assert.Equal("UnauthorizedHttpResult", result.GetType().Name)
             Assert.Equal(before, after)
         finally
@@ -126,8 +126,8 @@ let ``HTTP Adapter enqueues when Browser credential is live`` () = task {
             Api.postEvents handle 10 20 body
             |> Async.StartAsTask
         Assert.False(result.GetType().Name = "UnauthorizedHttpResult")
-        let! rev = handle.getRevision () |> Async.StartAsTask
-        Assert.Equal(Gambol.Shared.EventId 1, rev)
+        let! rev = handle.getEventId () |> Async.StartAsTask
+        Assert.Equal(EventId.fromJson 1, rev)
     finally
         CoreMailbox.dispose agent
 }
@@ -136,8 +136,8 @@ let ``HTTP Adapter enqueues when Browser credential is live`` () = task {
 let ``callers reach changes on the mailbox Core door`` () = task {
     let runtime = fileRuntime ()
     let! rev =
-        CoreMailbox.getRevision runtime.host |> Async.StartAsTask
-    Assert.Equal(Gambol.Shared.EventId 0, rev)
+        CoreMailbox.getEventId runtime.host |> Async.StartAsTask
+    Assert.Equal(EventId.fromJson 0, rev)
 }
 
 [<Fact>]

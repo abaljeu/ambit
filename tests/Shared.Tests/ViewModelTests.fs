@@ -2949,7 +2949,7 @@ let ``MoveToTrash ops apply successfully and node lands under TRASH`` () =
         Graph.replace graph1.root 0 [] (owned [ a ]) graph1
         |> ModelBuilder.requireOk "root->a"
     let state0 : State =
-        { graph = graph2; revision = Revision.Zero }
+        { graph = graph2; eventId = EventId.zero }
 
     let removeOp = Op.Replace(graph2.root, owned [ a ], [])
 
@@ -2958,7 +2958,9 @@ let ``MoveToTrash ops apply successfully and node lands under TRASH`` () =
     let addToTrashOp = Op.Replace(Graph.trashId, trashChildren, newTrashChildren)
 
     let change =
-        { id = 0; submissionId = System.Guid.NewGuid(); ops = [ removeOp; addToTrashOp ] }
+        { id = EventId.fromJson 0
+          submissionId = System.Guid.NewGuid()
+          ops = [ removeOp; addToTrashOp ] }
 
     let result = ChangeValidation.applyChange change state0
 

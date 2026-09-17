@@ -249,8 +249,8 @@ module RouteRegistration =
                 (fun () ->
                     async {
                         let! rev =
-                            CoreMailbox.getRevision persistence.Core.host
-                        return Revision rev.Value
+                            CoreMailbox.getEventId persistence.Core.host
+                        return EventId.toRevision rev
                     })
                 persistence.DataDir
     }
@@ -359,10 +359,10 @@ module RouteRegistration =
                         (fun () ->
                             async {
                                 let! rev =
-                                    CoreMailbox.getRevision
+                                    CoreMailbox.getEventId
                                         persistence.Core.host
                                 return
-                                    Revision rev.Value
+                                    EventId.toRevision rev
                             })
                         persistence.DataDir
                 match flushResult with

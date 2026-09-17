@@ -19,7 +19,7 @@ let private unusedHandle
     (post: Ev list -> Async<Result<CoreChangesAccepted, string>>)
     : CoreChanges =
     { getState = fun () -> async.Return(Result.Error "unused")
-      getRevision = fun () -> async.Return(Gambol.Shared.EventId 0)
+      getEventId = fun () -> async.Return(EventId.fromJson 0)
       getEventsSince = fun _ -> async.Return []
       isReady = fun () -> true
       postEvents = post
@@ -29,7 +29,7 @@ let private unusedHandle
 
 let private addRootChild text =
     let childId = NodeId.New()
-    { id = 0
+    { id = EventId.fromJson 0
       submissionId = System.Guid.NewGuid()
       ops =
         [ Op.NewNode(childId, text)
@@ -55,7 +55,7 @@ let ``inactive sender is auth-refused and is not enqueued`` () = task {
 let ``live credential is enqueued`` () = task {
     let posts = ResizeArray<Change list>()
     let accepted events : CoreChangesAccepted =
-        { revision = Revision 1
+        { eventId = EventId.fromJson 1
           events = events
           externalChanges = false
           message = None

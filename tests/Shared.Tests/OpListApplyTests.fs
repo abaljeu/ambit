@@ -16,7 +16,7 @@ let private event commandName body : Ev =
 let private textState () : State * NodeId =
     let graph, ids =
         ModelBuilder.createNodes [ "old" ] (Graph.create ())
-    { graph = graph; revision = Revision.Zero }, List.head ids
+    { graph = graph; eventId = EventId.zero }, List.head ids
 
 [<Fact>]
 let ``Ev.apply applies EventBody Change ops`` () =
@@ -45,7 +45,7 @@ let ``Ev.inverseOps inverts EventBody ops and drops NewNode`` () =
 let ``Change.apply still applies leftover Change`` () =
     let state, nodeId = textState ()
     let change =
-        { id = 0
+        { id = EventId.fromJson 0
           submissionId = Guid.NewGuid()
           ops = [ Op.SetText(nodeId, "old", "new") ] }
     match Change.apply change state with
@@ -64,7 +64,7 @@ let ``ChangeValidation.applyOps applies an Op list`` () =
 
 [<Fact>]
 let ``ChangeValidation.applyOps empty list is Unchanged`` () =
-    let state = { graph = Graph.create (); revision = Revision.Zero }
+    let state = { graph = Graph.create (); eventId = EventId.zero }
     match ChangeValidation.applyOps [] state with
     | ApplyResult.Unchanged after -> Assert.Equal(state.graph, after.graph)
     | other -> failwithf "expected Unchanged, got %A" other
@@ -111,7 +111,7 @@ let ``PersistStamp.appendToLastEvent appends stamp ops onto last Ev`` () =
 [<Fact>]
 let ``PersistStamp.appendToLast leftover Change still compiles`` () =
     let change =
-        { id = 0
+        { id = EventId.fromJson 0
           submissionId = Guid.NewGuid()
           ops = [] }
     let stamp =

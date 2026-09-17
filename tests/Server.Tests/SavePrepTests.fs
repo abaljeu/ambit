@@ -12,16 +12,16 @@ module Encode = Thoth.Json.Newtonsoft.Encode
 let private stateWithRootChild (text: string) : State =
     let childId = NodeId.New()
     let change =
-        { id = 0
+        { id = EventId.fromJson 0
           submissionId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, text)
               Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
     let initial =
         { graph = Graph.create ()
-          revision = Revision 0 }
+          eventId = EventId.zero }
     match ChangeValidation.applyChange change initial with
-    | ApplyResult.Changed state -> { state with revision = Revision 1 }
+    | ApplyResult.Changed state -> { state with eventId = EventId.fromJson 1 }
     | _ -> failwith "expected changed state"
 
 let private requireOk label result =
@@ -55,7 +55,7 @@ let ``Git DB flush returns revision without rewriting disk`` () =
         |> Async.RunSynchronously
         |> requireOk "Git flush"
 
-    Assert.Equal(state.revision.Value, revision)
+    Assert.Equal(state.eventId.Value, revision)
     Assert.False(File.Exists(Path.Combine(dataDir, ".amb")))
     Assert.Equal("sentinel", File.ReadAllText(Bookkeeping.metaPath dataDir))
     Assert.Equal(int64 "pending".Length, lockedLog.Length)
@@ -86,7 +86,7 @@ let ``Full DB sync returns revision without rewriting disk`` () =
         |> Async.RunSynchronously
         |> requireOk "full sync"
 
-    Assert.Equal(state.revision.Value, revision)
+    Assert.Equal(state.eventId.Value, revision)
     Assert.False(File.Exists(Path.Combine(dataDir, ".amb")))
     Assert.Equal("sentinel", File.ReadAllText(Bookkeeping.metaPath dataDir))
     Assert.Equal(int64 "pending".Length, lockedLog.Length)

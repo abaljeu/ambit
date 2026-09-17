@@ -46,11 +46,10 @@ module CoreMailbox =
         : Async<Gambol.Shared.EventLog> =
         reply host GetEventHistory
 
-    let getRevision (host: MailboxHost) : Async<Gambol.Shared.EventId> =
+    let getEventId (host: MailboxHost) : Async<Gambol.Shared.EventId> =
         async {
-            let! result = reply host GetRevision
-            let (Revision rev) = unwrap result
-            return Gambol.Shared.EventId rev
+            let! result = reply host GetEventId
+            return unwrap result
         }
 
     let getEventsSince
@@ -84,11 +83,11 @@ module CoreMailbox =
             | Ok (stored, Some accepted) ->
                 return Ok { accepted with events = [ stored ] }
             | Ok (stored, None) ->
-                let! revision = getRevision host
+                let! eventId = getEventId host
                 return
                     Ok(
                         CoreChanges.accepted
-                            (Revision revision.Value)
+                            eventId
                             (MailboxHost.isReady host ())
                             [ stored ]
                             false
@@ -218,7 +217,7 @@ module CoreMailbox =
         : CoreChanges =
         let rec make (c: Caller) : CoreChanges =
             { getState = fun () -> tryGetState host
-              getRevision = fun () -> getRevision host
+              getEventId = fun () -> getEventId host
               getEventsSince = getEventsSince host
               isReady = MailboxHost.isReady host
               postEvents = postEvents host c

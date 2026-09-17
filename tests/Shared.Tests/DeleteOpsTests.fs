@@ -25,7 +25,7 @@ let private buildTwoSiblings () : Graph * NodeId * NodeId =
 
 /// Build initial State from graph.
 let private stateOf (graph: Graph) : State =
-    { graph = graph; revision = Revision.Zero }
+    { graph = graph; eventId = EventId.zero }
 
 /// SiteNodeRange for root's children [start, endd).
 let private rootRange (graph: Graph) (start: int) (endd: int) : SiteNodeRange =
@@ -61,7 +61,7 @@ let ``planDeleteOps multi-sibling: change applies and both nodes land under TRAS
     let classified = ViewModelDeleteOps.classifyDeleteForSelection graph range
     Assert.Equal(2, classified.Length)
     let ops = ViewModelDeleteOps.planDeleteOps graph range classified
-    let change = { id = 0; submissionId = System.Guid.NewGuid(); ops = ops }
+    let change = { id = EventId.fromJson 0; submissionId = System.Guid.NewGuid(); ops = ops }
     let result = ChangeValidation.applyChange change (stateOf graph)
     match result with
     | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
@@ -90,7 +90,7 @@ let ``reconcileSiteMapFrom after planDeleteOps drops deleted children from paren
     Assert.Contains(b, rootChildNodeIds siteMap)
     let classified = ViewModelDeleteOps.classifyDeleteForSelection graph range
     let ops = ViewModelDeleteOps.planDeleteOps graph range classified
-    let change = { id = 0; submissionId = System.Guid.NewGuid(); ops = ops }
+    let change = { id = EventId.fromJson 0; submissionId = System.Guid.NewGuid(); ops = ops }
     match ChangeValidation.applyChange change (stateOf graph) with
     | ApplyResult.Changed s ->
         Assert.Contains(a, rootChildNodeIds siteMap)
@@ -112,7 +112,7 @@ let ``reconcileSiteMapFrom after partial planDeleteOps keeps leftover children``
         { parent = siteMap.entries.[siteMap.rootId]; start = 0; endd = 1 }
     let classified = ViewModelDeleteOps.classifyDeleteForSelection graph range
     let ops = ViewModelDeleteOps.planDeleteOps graph range classified
-    let change = { id = 0; submissionId = System.Guid.NewGuid(); ops = ops }
+    let change = { id = EventId.fromJson 0; submissionId = System.Guid.NewGuid(); ops = ops }
     match ChangeValidation.applyChange change (stateOf graph) with
     | ApplyResult.Changed s ->
         Assert.Contains(a, rootChildNodeIds siteMap)
@@ -133,7 +133,7 @@ let ``classifyDeleteForChildSpan plans delete without a SiteEntry`` () =
         ViewModelDeleteOps.classifyDeleteForChildSpan graph graph.root 0 2
     Assert.Equal(2, classified.Length)
     let ops = ViewModelDeleteOps.planDeleteChildSpan graph classified
-    let change = { id = 0; submissionId = System.Guid.NewGuid(); ops = ops }
+    let change = { id = EventId.fromJson 0; submissionId = System.Guid.NewGuid(); ops = ops }
     match ChangeValidation.applyChange change (stateOf graph) with
     | ApplyResult.Changed s ->
         let rootKids = s.graph.nodes.[s.graph.root].children
@@ -176,7 +176,7 @@ let ``planDeleteOps promotion: ref promoted to owner, original owner row removed
     Assert.Equal(1, classified.Length)
     Assert.Equal(ViewModelDeleteOps.LocalDeleteWithPromotion, classified.[0].action)
     let ops = ViewModelDeleteOps.planDeleteOps g3 range classified
-    let change = { id = 0; submissionId = System.Guid.NewGuid(); ops = ops }
+    let change = { id = EventId.fromJson 0; submissionId = System.Guid.NewGuid(); ops = ops }
     let result = ChangeValidation.applyChange change (stateOf g3)
     match result with
     | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
@@ -217,7 +217,7 @@ let ``classifyDeleteForSelection returns empty for workspace delete`` () =
     let g0 = Graph.create ()
     let g1 =
         ChangeValidation.applyChange
-            { id = 0
+            { id = EventId.fromJson 0
               submissionId = System.Guid.NewGuid()
               ops =
                 [ Op.NewSpecialNode(ws, Workspace, "home")
@@ -238,7 +238,7 @@ let ``classifyDeleteForSelection cancels whole selection when workspace is in ra
     let g0 = Graph.create ()
     let g1 =
         ChangeValidation.applyChange
-            { id = 0
+            { id = EventId.fromJson 0
               submissionId = System.Guid.NewGuid()
               ops =
                 [ Op.NewSpecialNode(ws, Workspace, "home")
@@ -269,7 +269,7 @@ let ``planDeleteOps single node MoveToTrash still works`` () =
     let classified = ViewModelDeleteOps.classifyDeleteForSelection g2 range
     Assert.Equal(1, classified.Length)
     let ops = ViewModelDeleteOps.planDeleteOps g2 range classified
-    let change = { id = 0; submissionId = System.Guid.NewGuid(); ops = ops }
+    let change = { id = EventId.fromJson 0; submissionId = System.Guid.NewGuid(); ops = ops }
     let result = ChangeValidation.applyChange change (stateOf g2)
     match result with
     | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
@@ -299,7 +299,7 @@ let ``planDeleteOps single item hard-delete from TRASH: item removed permanently
     Assert.Equal(1, classified.Length)
     Assert.Equal(ViewModelDeleteOps.HardDeleteSubtreeInTrash, classified.[0].action)
     let ops = ViewModelDeleteOps.planDeleteOps g2 range classified
-    let change = { id = 0; submissionId = System.Guid.NewGuid(); ops = ops }
+    let change = { id = EventId.fromJson 0; submissionId = System.Guid.NewGuid(); ops = ops }
     let result = ChangeValidation.applyChange change (stateOf g2)
     match result with
     | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
@@ -327,7 +327,7 @@ let ``planDeleteOps multi-item hard-delete from TRASH: both items removed perman
         classified |> List.forall (fun c -> c.action = ViewModelDeleteOps.HardDeleteSubtreeInTrash),
         "all items should be HardDeleteSubtreeInTrash")
     let ops = ViewModelDeleteOps.planDeleteOps g2 range classified
-    let change = { id = 0; submissionId = System.Guid.NewGuid(); ops = ops }
+    let change = { id = EventId.fromJson 0; submissionId = System.Guid.NewGuid(); ops = ops }
     let result = ChangeValidation.applyChange change (stateOf g2)
     match result with
     | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
@@ -396,7 +396,7 @@ let ``classifyDeleteForSelection unlinks a Ref to Workspaces`` () =
     let ops = ViewModelDeleteOps.planDeleteOps g3 range classified
     let result =
         ChangeValidation.applyChange
-            { id = 0; submissionId = System.Guid.NewGuid(); ops = ops }
+            { id = EventId.fromJson 0; submissionId = System.Guid.NewGuid(); ops = ops }
             (stateOf g3)
     match result with
     | ApplyResult.Changed s ->
@@ -420,7 +420,7 @@ let ``classifyDeleteForSelection unlinks a Ref to a Workspace Node`` () =
         |> ModelBuilder.requireOk "root->[a]"
     let g3 =
         ChangeValidation.applyChange
-            { id = 0
+            { id = EventId.fromJson 0
               submissionId = System.Guid.NewGuid()
               ops =
                 [ Op.NewSpecialNode(ws, Workspace, "home")
@@ -438,7 +438,7 @@ let ``classifyDeleteForSelection unlinks a Ref to a Workspace Node`` () =
         let ops = ViewModelDeleteOps.planDeleteOps g4 range classified
         let result =
             ChangeValidation.applyChange
-                { id = 1; submissionId = System.Guid.NewGuid(); ops = ops }
+                { id = EventId.fromJson 1; submissionId = System.Guid.NewGuid(); ops = ops }
                 (stateOf g4)
         match result with
         | ApplyResult.Changed s ->
@@ -460,7 +460,7 @@ let ``planDeleteOps Directory under workspace moves to TRASH`` () =
     Assert.Equal(1, classified.Length)
     Assert.Equal(ViewModelDeleteOps.MoveToTrash, classified.[0].action)
     let ops = ViewModelDeleteOps.planDeleteOps graph range classified
-    let change = { id = 0; submissionId = System.Guid.NewGuid(); ops = ops }
+    let change = { id = EventId.fromJson 0; submissionId = System.Guid.NewGuid(); ops = ops }
     let result = ChangeValidation.applyChange change (stateOf graph)
     match result with
     | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
@@ -484,7 +484,13 @@ let ``planDeleteOps second Directory with same name as one already in TRASH appl
             range1
             (ViewModelDeleteOps.classifyDeleteForSelection graph0 range1)
     let graph1 =
-        match ChangeValidation.applyChange { id = 0; submissionId = System.Guid.NewGuid(); ops = ops1 } (stateOf graph0) with
+        match
+            ChangeValidation.applyChange
+                { id = EventId.fromJson 0
+                  submissionId = System.Guid.NewGuid()
+                  ops = ops1 }
+                (stateOf graph0)
+        with
         | ApplyResult.Changed s -> s.graph
         | r -> failwithf "first delete failed: %A" r
     let dir2 = NodeId.New()
@@ -501,7 +507,11 @@ let ``planDeleteOps second Directory with same name as one already in TRASH appl
             range2
             (ViewModelDeleteOps.classifyDeleteForSelection graph2 range2)
     let result =
-        ChangeValidation.applyChange { id = 1; submissionId = System.Guid.NewGuid(); ops = ops2 } (stateOf graph2)
+        ChangeValidation.applyChange
+            { id = EventId.fromJson 1
+              submissionId = System.Guid.NewGuid()
+              ops = ops2 }
+            (stateOf graph2)
     match result with
     | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
     | ApplyResult.Unchanged _ -> Assert.True(false, "Expected Changed")
@@ -552,7 +562,7 @@ let ``owned Delete with self-Ref moves to TRASH and History applies`` () =
     let range = rootRange graph 0 1
     let classified = ViewModelDeleteOps.classifyDeleteForSelection graph range
     let ops = ViewModelDeleteOps.planDeleteOps graph range classified
-    let change = { id = 0; submissionId = System.Guid.NewGuid(); ops = ops }
+    let change = { id = EventId.fromJson 0; submissionId = System.Guid.NewGuid(); ops = ops }
     match ChangeValidation.applyChange change (stateOf graph) with
     | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
     | ApplyResult.Unchanged _ -> Assert.True(false, "Expected Changed")
@@ -589,7 +599,7 @@ let ``owned Delete with self-Ref and another Ref promotes the other Ref`` () =
     Assert.Equal(1, classified.Length)
     Assert.Equal(ViewModelDeleteOps.LocalDeleteWithPromotion, classified.[0].action)
     let ops = ViewModelDeleteOps.planDeleteOps graph3 range classified
-    let change = { id = 0; submissionId = System.Guid.NewGuid(); ops = ops }
+    let change = { id = EventId.fromJson 0; submissionId = System.Guid.NewGuid(); ops = ops }
     match ChangeValidation.applyChange change (stateOf graph3) with
     | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
     | ApplyResult.Unchanged _ -> Assert.True(false, "Expected Changed")

@@ -391,13 +391,13 @@ module Serialization =
 
     let encodeChange (change: Change) : IEncodable =
         Encode.object
-            [ "id", Encode.int change.id
+            [ "eventId", Encode.int (EventId.toJson change.id)
               "submissionId", Encode.guid change.submissionId
               "ops", change.ops |> List.map encodeOp |> Encode.list ]
 
     let decodeChange: Decoder<Change> =
         Decode.object (fun get ->
-            { id = get.Required.Field "id" Decode.int
+            { id = EventId.fromJson (get.Required.Field "eventId" Decode.int)
               // Optional for backward-compat with existing log entries written before this field was added.
               submissionId =
                 get.Optional.Field "submissionId" Decode.guid

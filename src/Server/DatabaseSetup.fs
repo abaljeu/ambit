@@ -65,7 +65,7 @@ module DatabaseSetup =
             eprintfn "Gambol: outline mismatch detail:%s%s" System.Environment.NewLine (Snapshot.describeOutlineMismatch ln rn)
             eprintfn "Gambol: wrote raw outlines to %s and %s" leftPath rightPath
             false
-        elif left.revision.Value <> right.revision.Value then
+        elif left.eventId <> right.eventId then
             false
         else
             true

@@ -24,7 +24,7 @@ module BootCache =
         { codecVersion: int
           file: string
           scopeKey: string
-          revision: int
+          eventId: EventId
           isReady: bool
           stateJson: string
           writtenAt: string
@@ -39,7 +39,7 @@ module BootCache =
         (file: string)
         (scope: string)
         (stateJson: string)
-        (revision: int)
+        (eventId: EventId)
         (isReady: bool)
         (writtenAt: string)
         (bootstrapHash: string)
@@ -47,7 +47,7 @@ module BootCache =
         { codecVersion = codecVersion
           file = file
           scopeKey = scope
-          revision = revision
+          eventId = eventId
           isReady = isReady
           stateJson = stateJson
           writtenAt = writtenAt
@@ -58,7 +58,7 @@ module BootCache =
             [ "codecVersion", Encode.int record.codecVersion
               "file", Encode.string record.file
               "scopeKey", Encode.string record.scopeKey
-              "revision", Encode.int record.revision
+              "eventId", EventJson.encodeEventId record.eventId
               "ready", Encode.bool record.isReady
               "stateJson", Encode.string record.stateJson
               "writtenAt", Encode.string record.writtenAt
@@ -70,7 +70,7 @@ module BootCache =
                 get.Required.Field "codecVersion" Decode.int
               file = get.Required.Field "file" Decode.string
               scopeKey = get.Required.Field "scopeKey" Decode.string
-              revision = get.Required.Field "revision" Decode.int
+              eventId = get.Required.Field "eventId" EventJson.decodeEventId
               isReady = get.Required.Field "ready" Decode.bool
               stateJson = get.Required.Field "stateJson" Decode.string
               writtenAt = get.Required.Field "writtenAt" Decode.string
@@ -92,41 +92,38 @@ module BootCache =
 
     let decodeEvent: Decoder<Ev> = EventJson.decode
 
-    let eventsAfter (snapshotRevision: int) (log: Ev list) : Ev list =
+    let eventsAfter (snapshotEventId: EventId) (log: Ev list) : Ev list =
         log
-        |> List.filter (fun event -> event.id.Value > snapshotRevision)
-        |> List.sortBy (fun event -> event.id.Value)
+        |> List.filter (fun event -> event.id > snapshotEventId)
+        |> List.sortBy (fun event -> event.id)
 
     let acceptedForLog
         (confirmed: Ev list)
-        (submitted: PendingChange list)
+        (submitted: Ev list)
         : Ev list =
-        if confirmed.IsEmpty then
-            submitted |> List.map (fun item -> item.event)
-        else
-            confirmed
+        if confirmed.IsEmpty then submitted else confirmed
 
     [<RequireQualifiedAccess>]
     type BootRead =
         | FetchState of reason: string
         | UseCache of StateResponse
 
-    let clientRevision (snapshotRevision: int) (log: Ev list) : int =
-        match eventsAfter snapshotRevision log with
-        | [] -> snapshotRevision
+    let private clientEventId (snapshotEventId: EventId) (log: Ev list) =
+        match eventsAfter snapshotEventId log with
+        | [] -> snapshotEventId
         | kept ->
-            let maxId =
-                kept |> List.map (fun event -> event.id.Value) |> List.max
-            max snapshotRevision maxId
+            kept
+            |> List.map (fun event -> event.id)
+            |> List.fold EventId.max snapshotEventId
 
     let foldLog
         (snapshot: StateResponse)
         (delta: Ev list)
         : Result<StateResponse, string> =
-        let ordered = eventsAfter snapshot.revision.Value delta
+        let ordered = eventsAfter snapshot.eventId delta
         let state0: State =
             { graph = snapshot.graph
-              revision = EventId.toRevision snapshot.revision }
+              eventId = snapshot.eventId }
         ordered
         |> List.fold
             (fun acc event ->
@@ -141,8 +138,7 @@ module BootCache =
             (Ok state0)
         |> Result.map (fun st ->
             { graph = st.graph
-              revision =
-                EventId (clientRevision snapshot.revision.Value ordered)
+              eventId = clientEventId snapshot.eventId ordered
               isReady = snapshot.isReady })
 
     let decideBootRead
@@ -230,21 +226,22 @@ module BootCache =
         else Some storedHash
 
     let decideBootPoll
-        (clientRev: int)
+        (clientEventId: EventId)
         (log: Ev list)
         (poll: ChangeSuccessResponse)
         (pollHash: string option)
         (cachedHash: string option)
         : BootPoll =
-        if poll.revision.Value < clientRev then
+        if poll.eventId < clientEventId then
             BootPoll.FallbackState "revision"
         else
-            match SyncLogic.getPollOutcome poll clientRev with
+            match SyncLogic.getPollOutcome poll clientEventId with
             | Some CodeOutdated -> BootPoll.CodeOutdated
             | Some DataOutdated
             | None ->
                 let novel = novelEvents log poll.events
-                let gap = poll.revision.Value - clientRev
+                let gap =
+                    EventId.value poll.eventId - EventId.value clientEventId
                 if
                     novel.Length > maxNovelCount
                     || gap > maxPollRevGap

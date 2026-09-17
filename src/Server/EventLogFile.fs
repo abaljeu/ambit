@@ -129,7 +129,7 @@ module EventLogFile =
         (offsets: int64 ResizeArray)
         (event: Ev)
         : Result<unit, string> =
-        let (EventId n) = event.id
+        let n = EventId.value event.id
         let startLen = stream.Length
         stream.Seek(0L, SeekOrigin.End) |> ignore
         try
