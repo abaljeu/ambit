@@ -25,8 +25,8 @@ Delete the old form once no caller remains. Delete leftover Change, `module Chan
 
 ## Out of scope
 
-1. Writing [[plan/core-creation/arch.md]] — [[04-write-core-creation-arch-md-last.md|04 — Write core-creation arch.md last]].
+1. Writing [[plan/core-creation/arch.md]] — [04 — Write core-creation arch.md last](04-write-core-creation-arch-md-last.md).
 
 ## See also
 
-[[../arch.md|Single event source architecture]], [[../map.md]]
+[Single event source architecture](../arch.md), [[../map.md]]

@@ -18,15 +18,15 @@ Home: [[plan/roadmap/epics/robust-outliner.md]] Required for done (Live). Chart 
 
 ## Issues
 
-- [[plan/single-event-source/issues/05-expand-op-list-apply.md|05 — Expand Op-list apply]] — expand. Status `done`.
-- [[plan/single-event-source/issues/06-compile-preamble.md|06 — Compile preamble]] — migrate. Status `done`.
-- [[plan/single-event-source/issues/07-persist-apply.md|07 — Persist apply]] — migrate. Status `done`.
-- [[plan/single-event-source/issues/08-core-doors.md|08 — Core doors]] — migrate. Status `coded`.
-- [[plan/single-event-source/issues/09-command-mint.md|09 — Command mint]] — migrate. Status `defined`.
-- [[plan/single-event-source/issues/10-boot-indexeddb.md|10 — Boot IndexedDB]] — migrate. Status `defined`.
-- [[plan/single-event-source/issues/11-one-serial-event-id.md|11 — One serial event id]] — migrate. Status `defined`.
-- [[plan/single-event-source/issues/12-contract-leftover-change-and-revision.md|12 — Contract leftover Change and Revision]] — contract. Status `defined`.
-- [[plan/single-event-source/issues/04-write-core-creation-arch-md-last.md|04 — Write core-creation arch.md last]] — after contract. Status `defined`.
+- [05 — Expand Op-list apply](plan/single-event-source/issues/05-expand-op-list-apply.md) — expand. Status `done`.
+- [06 — Compile preamble](plan/single-event-source/issues/06-compile-preamble.md) — migrate. Status `done`.
+- [07 — Persist apply](plan/single-event-source/issues/07-persist-apply.md) — migrate. Status `done`.
+- [08 — Core doors](plan/single-event-source/issues/08-core-doors.md) — migrate. Status `coded`.
+- [09 — Command mint](plan/single-event-source/issues/09-command-mint.md) — migrate. Status `defined`.
+- [10 — Boot IndexedDB](plan/single-event-source/issues/10-boot-indexeddb.md) — migrate. Status `defined`.
+- [11 — One serial event id](plan/single-event-source/issues/11-one-serial-event-id.md) — migrate. Status `defined`.
+- [12 — Contract leftover Change and Revision](plan/single-event-source/issues/12-contract-leftover-change-and-revision.md) — contract. Status `defined`.
+- [04 — Write core-creation arch.md last](plan/single-event-source/issues/04-write-core-creation-arch-md-last.md) — after contract. Status `defined`.
 
 ## Related work
 

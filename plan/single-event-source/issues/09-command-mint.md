@@ -19,9 +19,9 @@ Modules **GraphOnlyChangePost**, **ClientHistory**. Command builders in Browser.
 
 ## Out of scope
 
-1. Boot IndexedDB — [[10-boot-indexeddb.md|10 — Boot IndexedDB]].
-2. Contract deletes — [[12-contract-leftover-change-and-revision.md|12 — Contract leftover Change and Revision]].
+1. Boot IndexedDB — [10 — Boot IndexedDB](10-boot-indexeddb.md).
+2. Contract deletes — [12 — Contract leftover Change and Revision](12-contract-leftover-change-and-revision.md).
 
 ## See also
 
-[[../arch.md|Single event source architecture]], [[../issues/02-files-query-and-command-as-event-work.md|02 — Files, Query, and Command as Event work]]
+[Single event source architecture](../arch.md), [02 — Files, Query, and Command as Event work](../issues/02-files-query-and-command-as-event-work.md)

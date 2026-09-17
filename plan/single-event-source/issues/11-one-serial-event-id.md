@@ -20,8 +20,8 @@ Modules **Ev**, **State**, **CoreChanges**. Seam **EventId**.
 
 ## Out of scope
 
-1. Contract delete of `type Revision` — [[12-contract-leftover-change-and-revision.md|12 — Contract leftover Change and Revision]].
+1. Contract delete of `type Revision` — [12 — Contract leftover Change and Revision](12-contract-leftover-change-and-revision.md).
 
 ## See also
 
-[[../arch.md|Single event source architecture]], [[../issues/03-cleanup-seam-order.md|03 — Cleanup seam order]]
+[Single event source architecture](../arch.md), [03 — Cleanup seam order](../issues/03-cleanup-seam-order.md)

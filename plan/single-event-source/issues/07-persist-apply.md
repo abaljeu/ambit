@@ -2,7 +2,7 @@
 
 **Status:** done
 **Actual:** 3h
-**Blocked by:** None — [[05-expand-op-list-apply.md|05 — Expand Op-list apply]] and [[06-compile-preamble.md|06 — Compile preamble]] are done
+**Blocked by:** None — [05 — Expand Op-list apply](05-expand-op-list-apply.md) and [06 — Compile preamble](06-compile-preamble.md) are done
 
 ## Context
 
@@ -20,12 +20,12 @@ Modules **FileAgent**, **DbAgent**, **PersistStamp**, **CoreEventDispatch**. Sea
 
 ## Out of scope
 
-1. Core doors dropping `postChange` — [[08-core-doors.md|08 — Core doors]].
-2. Contract deletes — [[12-contract-leftover-change-and-revision.md|12 — Contract leftover Change and Revision]].
+1. Core doors dropping `postChange` — [08 — Core doors](08-core-doors.md).
+2. Contract deletes — [12 — Contract leftover Change and Revision](12-contract-leftover-change-and-revision.md).
 
 ## See also
 
-[[../arch.md|Single event source architecture]], [[../reports/inventory-non-event-write-paths.md]]
+[Single event source architecture](../arch.md), [[../reports/inventory-non-event-write-paths.md]]
 
 ## Time
 

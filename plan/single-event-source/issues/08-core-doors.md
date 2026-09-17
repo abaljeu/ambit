@@ -2,7 +2,7 @@
 
 **Status:** coded
 **Actual:** 2h
-**Blocked by:** None — [[05-expand-op-list-apply.md|05 — Expand Op-list apply]] and [[07-persist-apply.md|07 — Persist apply]] are done
+**Blocked by:** None — [05 — Expand Op-list apply](05-expand-op-list-apply.md) and [07 — Persist apply](07-persist-apply.md) are done
 
 ## Context
 
@@ -20,12 +20,12 @@ Modules **CoreChanges**, **CoreMailbox**. Seams **postEvents**, **postGraphOnly*
 
 ## Out of scope
 
-1. Command mint — [[09-command-mint.md|09 — Command mint]].
-2. Contract deletes — [[12-contract-leftover-change-and-revision.md|12 — Contract leftover Change and Revision]].
+1. Command mint — [09 — Command mint](09-command-mint.md).
+2. Contract deletes — [12 — Contract leftover Change and Revision](12-contract-leftover-change-and-revision.md).
 
 ## See also
 
-[[../arch.md|Single event source architecture]], [[../map.md]]
+[Single event source architecture](../arch.md), [[../map.md]]
 
 ## Time
 
