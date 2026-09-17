@@ -34,6 +34,11 @@ Home: [[plan/roadmap/epics/robust-outliner.md]] Required for done (Live). Chart 
 - [18 — Delete leftover Change wrapping](plan/single-event-source/issues/18-delete-leftover-change-wrapping.md) — redo 12b. Status `defined`.
 - [19 — Delete unused EventId.fs](plan/single-event-source/issues/19-delete-unused-eventid-fs.md) — redo 12c. Status `defined`.
 - [04 — Write core-creation arch.md last](plan/single-event-source/issues/04-write-core-creation-arch-md-last.md) — after contract. Status `coded`.
+- [20 — SES smell-cleanup quality criteria](plan/single-event-source/issues/20-ses-smell-cleanup-quality-criteria.md) — Type `research`. Status `needs-info`. Naming + improper type usage; file/function length out of scope except functions a follow-on cleanup touches. Sources: SES 11/11-repair/12 reviews + 34b review.
+
+## Notes
+
+- 2026-09-17 — Charted [[plan/single-event-source/issues/20-ses-smell-cleanup-quality-criteria.md|20 — SES smell-cleanup quality criteria]] (research; Status `needs-info`).
 
 ## Related work
 
