@@ -12,12 +12,18 @@ module Dec = Thoth.Json.Newtonsoft.Decode
 let private zoomId =
     NodeId(Guid.Parse "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
 
+let private emptyGraphJson =
+    "{\"root\":\"00000000-0000-0000-0000-000000000000\",\"nodes\":[]}"
+
+let private sampleStateJson =
+    "{\"eventId\":4,\"graph\":" + emptyGraphJson + ",\"ready\":true}"
+
 let private sampleSnapshot : BootCache.SnapshotRecord =
     BootCache.snapshotRecord
         "ambit"
         "root"
-        """{"eventId":4,"graph":{"root":"00000000-0000-0000-0000-000000000000","nodes":[]},"ready":true}"""
-        4
+        sampleStateJson
+        (EventId.fromJson 4)
         true
         "2026-08-27T14:00:00Z"
         ""
@@ -44,7 +50,7 @@ let ``snapshotRecord stores /state body and metadata without Graph parse`` () =
     Assert.Equal(1, sampleSnapshot.codecVersion)
     Assert.Equal("ambit", sampleSnapshot.file)
     Assert.Equal("root", sampleSnapshot.scopeKey)
-    Assert.Equal(4, sampleSnapshot.revision)
+    Assert.Equal(EventId.fromJson 4, sampleSnapshot.eventId)
     Assert.True sampleSnapshot.isReady
     Assert.Contains("\"eventId\":4", sampleSnapshot.stateJson)
     Assert.Equal("2026-08-27T14:00:00Z", sampleSnapshot.writtenAt)
@@ -127,7 +133,7 @@ let private recordFor (response: StateResponse) =
         "ambit"
         "root"
         (stateJson response)
-        response.eventId.Value
+        response.eventId
         response.isReady
         "2026-08-27T14:00:00Z"
         ""
@@ -195,7 +201,8 @@ let ``decideBootReadWait fetches /state as soon as IndexedDB reports a miss`` ()
 [<Fact>]
 let ``decideBootRead fetches /state on decode error`` () =
     let snap =
-        BootCache.snapshotRecord "ambit" "root" "not-json" 5 true "t" ""
+        BootCache.snapshotRecord
+            "ambit" "root" "not-json" (EventId.fromJson 5) true "t" ""
     match
         BootCache.decideBootRead
             true

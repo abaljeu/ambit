@@ -149,8 +149,8 @@ let createRuntime (initialModel: VM) =
         match e with
         | SubmitPendingBatch (baseRev, events) -> runSubmitPendingBatch baseRev events
         | PollServer _ -> runPollServer ()
-        | LoadServer (rev, targets) ->
-            runLoadServer rev targets
+        | LoadServer (_, targets) ->
+            runLoadServer targets
         | ScheduleRetry delayMs -> runScheduleRetry delayMs
         | RunQueuedRequest QueuedLoad -> dispatch (ApplyOp loadOp)
         | RunQueuedRequest (QueuedWorkspacePush (scope, parseFileId)) ->
@@ -188,9 +188,7 @@ let createRuntime (initialModel: VM) =
             |> ignore
         | ContinuePostUploadStructure (submitted, scope, parseFileId) ->
             // Stubs already in the model (DOM patched before effects). Async POST.
-            let body =
-                SyncBatch.toWireBatch [ submitted ]
-                |> encodePendingBatchBody
+            let body = encodePendingBatchBody [ submitted ]
             let url = sprintf "/%s/changes" currentFile
             let rec post () =
                 let retry () =
@@ -372,8 +370,7 @@ let createRuntime (initialModel: VM) =
                 item.submissionId.ToString("N").Substring(0, 8))
             |> Option.defaultValue "empty"
         let url = $"/{currentFile}/changes"
-        let postChanges = SyncBatch.toWireBatch events
-        let body = encodePendingBatchBody postChanges
+        let body = encodePendingBatchBody events
         let qLen = model.syncInfo.pending.Length
         consoleLog (
             "[Gambol sync] POST start req=" + reqId + " baseRev=" + string baseRev
@@ -426,14 +423,13 @@ let createRuntime (initialModel: VM) =
         fetchTextNoCacheWithFail url onPollOk onPollFail
 
     and runLoadServer
-        (revision: int)
         (targets: LoadTarget list)
         : unit =
         let url = $"/{currentFile}/load"
         let body =
             Thoth.Json.JavaScript.Encode.toString 0 (
                 ApiResponseSerialization.encodeLoadRequest
-                    { eventId = EventId.fromJson revision
+                    { eventId = model.eventId
                       targets = targets })
         let onLoadOk (text: string) : unit =
             match ApiResponseSerialization.decodeLoadResponse text with
@@ -618,7 +614,7 @@ let createRuntime (initialModel: VM) =
                         currentFile
                         (BootCache.scopeKey (tryReadSavedZoomId ()))
                         (tryReadSavedZoomId ())
-                        next.eventId.Value
+                        next.eventId
                         next.syncInfo.isServerReady
                         next.graph
                 next, effects

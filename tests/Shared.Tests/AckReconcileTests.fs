@@ -34,7 +34,7 @@ let private seededEdit () =
     let graph1, nodeId = Graph.newNode "before" graph0
     let change = textChange EventId.zero nodeId "before" "after"
     let state0 = clientState graph1 (EventId.fromJson 0) (ClientHistory.clear ())
-    match SyncLogic.applyLocalChange (Ev.ofChange "Edit node" change) state0 with
+    match SyncLogic.applyLocalEvent (Ev.ofChange "Edit node" change) state0 with
     | Error msg -> failwith msg
     | Ok (state, pending) -> nodeId, state, pending
 
@@ -291,7 +291,10 @@ let ``unmatched confirmation is rejected atomically`` () =
 let ``changed-prefix confirmation is rejected atomically`` () =
     let nodeId, state, pending = seededEdit ()
     let confirmed =
-        [ Ev.ofChange "" { Ev.asChange pending with ops = [ Op.SetText(nodeId, "before", "other") ] } ]
+        [ Ev.ofChange
+            ""
+            { Ev.asChange pending with
+                ops = [ Op.SetText(nodeId, "before", "other") ] } ]
     let result =
         SyncLogic.reconcileAck
             [ pending ]

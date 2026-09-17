@@ -12,7 +12,7 @@ let private recordObj (record: BootCache.SnapshotRecord) : obj =
         [ "codecVersion" ==> record.codecVersion
           "file" ==> record.file
           "scopeKey" ==> record.scopeKey
-          "revision" ==> record.revision
+          "eventId" ==> EventId.toJson record.eventId
           "isReady" ==> record.isReady
           "stateJson" ==> record.stateJson
           "writtenAt" ==> record.writtenAt
@@ -79,7 +79,7 @@ let persistAfterState
             file
             scope
             stateJson
-            response.eventId.Value
+            response.eventId
             response.isReady
             (System.DateTime.UtcNow.ToString("o"))
             ""
@@ -199,7 +199,7 @@ let deleteCache (file: string) (onDone: bool -> unit) : unit =
       codecVersion: rec.codecVersion,
       file: rec.file,
       scopeKey: rec.scopeKey,
-      revision: rec.revision,
+      eventId: rec.eventId,
       ready: rec.isReady,
       stateJson: rec.stateJson,
       writtenAt: rec.writtenAt,
@@ -274,7 +274,7 @@ let private decodeCachePayload
                 get.Required.Field "codecVersion" Decode.int,
                 get.Required.Field "file" Decode.string,
                 get.Required.Field "scopeKey" Decode.string,
-                get.Required.Field "revision" Decode.int,
+                get.Required.Field "eventId" EventJson.decodeEventId,
                 get.Required.Field "ready" Decode.bool,
                 get.Required.Field "stateJson" Decode.string,
                 get.Required.Field "writtenAt" Decode.string,
@@ -283,10 +283,10 @@ let private decodeCachePayload
                 get.Required.Field "changes" (Decode.list Decode.string))
         match Decode.fromString decoder json with
         | Error _ -> None, []
-        | Ok (codec, file, scope, rev, ready, stateJson, written, hash, eventJsons) ->
+        | Ok (codec, file, scope, eventId, ready, stateJson, written, hash, eventJsons) ->
             let snap0 =
                 BootCache.snapshotRecord
-                    file scope stateJson rev ready written hash
+                    file scope stateJson eventId ready written hash
             let snap = { snap0 with codecVersion = codec }
             let parsed =
                 eventJsons
@@ -314,7 +314,7 @@ let requestIdleTruncate
     (file: string)
     (scope: string)
     (zoom: NodeId option)
-    (revision: int)
+    (eventId: EventId)
     (isReady: bool)
     (graph: Graph)
     : unit =
@@ -327,11 +327,13 @@ let requestIdleTruncate
                     match record with
                     | Some snap when
                         BootCache.shouldTruncate
-                            log.Length snap.revision revision ->
+                            log.Length
+                            (EventId.value snap.eventId)
+                            (EventId.value eventId) ->
                         let scoped = BootCache.truncationGraph graph zoom
                         let response =
                             { graph = scoped
-                              eventId = EventId.fromJson revision
+                              eventId = eventId
                               isReady = isReady }
                         let json =
                             Thoth.Json.JavaScript.Encode.toString

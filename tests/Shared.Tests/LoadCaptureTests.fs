@@ -151,7 +151,7 @@ let ``captureLoadResponse shares revision for changes and packages`` () =
               ops = [ Op.SetText(fileId, "old", "new") ] } ]
     match
         ResidentProjection.captureLoadResponse
-            9
+            (EventId.fromJson 9)
             100
             200
             true

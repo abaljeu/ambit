@@ -4,7 +4,7 @@ Stage: build
 Summary: Core creation is suspended. This Project creates a single Event source with one event id, then corrects [[plan/core-creation/arch.md]] to match what was created.
 Updated: 2026-09-17
 Started: 2026-09-16
-Actual: 13.5h
+Actual: 15h
 
 Home: [[plan/roadmap/epics/robust-outliner.md]] Required for done (Live). Chart map: [[map.md]].
 

@@ -146,7 +146,7 @@ and private applyBootNovel (novel: Ev list) (ready: bool) =
             currentFile
             bootScope
             (tryReadSavedZoomId ())
-            newState.eventId.Value
+            newState.eventId
             ready
             newState.graph
 
@@ -199,7 +199,7 @@ and private finishPaint (response: StateResponse) (localLog: Ev list) =
         currentFile
         bootScope
         (tryReadSavedZoomId ())
-        response.eventId.Value
+        response.eventId
         response.isReady
         response.graph
 

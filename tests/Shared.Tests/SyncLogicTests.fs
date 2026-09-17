@@ -547,7 +547,7 @@ let private seededEditState () =
           eventId = EventId.fromJson 0
           history = ClientHistory.clear ()
           eventLog = EventLog.empty }
-    match SyncLogic.applyLocalChange (Ev.ofChange "Edit node" change) state0 with
+    match SyncLogic.applyLocalEvent (Ev.ofChange "Edit node" change) state0 with
     | Error msg -> failwith msg
     | Ok (state, pending) -> nodeId, state, pending, change
 
@@ -578,6 +578,38 @@ let ``consumeCatchUpPoll rewinds to baseline and preserves History`` () =
         Assert.Equal(EventId.fromJson 1, result.eventId)
         Assert.Equal(optimistic.history, result.history)
         Assert.NotEqual(pending.submissionId, serverChange.submissionId)
+
+[<Fact>]
+let ``consumeCatchUpPoll stamps History when stream matches submissionId`` () =
+    let nodeId, optimistic, pending, change = seededEditState ()
+    let baselineGraph =
+        match Graph.setText nodeId "after" "before" optimistic.graph with
+        | Ok graph -> graph
+        | Error msg -> failwith msg
+    let baseline : CatchUpBaseline =
+        { eventId = EventId.zero
+          graph = baselineGraph }
+    let stamped =
+        { Ev.ofChange "Edit node" change with id = EventId.fromJson 4 }
+    match
+        SyncLogic.consumeCatchUpPoll
+            baseline
+            [ stamped ]
+            (EventId.fromJson 4)
+            optimistic
+    with
+    | Error msg -> failwith msg
+    | Ok result ->
+        Assert.Equal("after", result.graph.nodes.[nodeId].text)
+        Assert.Equal(EventId.fromJson 4, result.eventId)
+        Assert.Equal(pending.submissionId, stamped.submissionId)
+        match ClientHistory.undoEvent result.history with
+        | None -> failwith "expected stamped Undo"
+        | Some (event, _) ->
+            match event.body with
+            | EventBody.Undo(target, _) ->
+                Assert.Equal(EventId.fromJson 4, target)
+            | _ -> failwith "expected Undo body"
 
 [<Fact>]
 let ``applyServerTail with changes preserves History`` () =

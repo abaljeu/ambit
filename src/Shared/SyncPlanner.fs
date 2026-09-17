@@ -14,7 +14,10 @@ module SyncPlanner =
         | Sending _ | Polling | Uploading | Parsing | Loading -> true
         | _ -> false
 
-    let tryStartSubmit (baseEventId: Gambol.Shared.EventId) (syncInfo: SyncInfo) : SyncInfo * Effect list =
+    let tryStartSubmit
+        (baseEventId: Gambol.Shared.EventId)
+        (syncInfo: SyncInfo)
+        : SyncInfo * Effect list =
         match syncInfo.pending with
         | [] -> syncInfo, []
         | _ when isBlocked syncInfo.syncState -> syncInfo, []
@@ -54,14 +57,11 @@ module SyncPlanner =
         (saved: Ev list)
         (state: State)
         : State * Ev list =
-        let extractChange (event: Ev) =
-            { id = EventId.zero
-              submissionId = event.submissionId
-              ops = Ev.ops event |> Option.defaultValue [] }
         saved
         |> List.fold
             (fun (state, reversed) event ->
-                match ChangeValidation.applyChange (extractChange event) state with
+                let change = Ev.asChange { event with id = EventId.zero }
+                match ChangeValidation.applyChange change state with
                 | ApplyResult.Changed next ->
                     next, event :: reversed
                 | _ ->
@@ -100,7 +100,10 @@ module SyncPlanner =
         | _ -> syncInfo, []
 
     /// Emit a PollServer effect when idle with an empty queue and not already polling.
-    let tryStartPoll (eventId: Gambol.Shared.EventId) (syncInfo: SyncInfo) : SyncInfo * Effect list =
+    let tryStartPoll
+        (eventId: Gambol.Shared.EventId)
+        (syncInfo: SyncInfo)
+        : SyncInfo * Effect list =
         match syncInfo.syncState, syncInfo.pending with
         | Idle, [] ->
             let pollEventId =

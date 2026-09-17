@@ -311,9 +311,8 @@ module internal CoreMailboxBackend =
             getEventsSince = fun _ -> Error error }
 
     let private seedEventLog (persist: PersistHandlers) =
-        let after = EventId.fromJson -1
         try
-            persist.getEventsSince after
+            persist.getEventsSince EventId.beforeAll
             |> Result.map EventLog.restorePersisted
         with ex ->
             Error ex.Message

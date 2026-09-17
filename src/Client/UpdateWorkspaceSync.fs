@@ -83,12 +83,10 @@ let private reconcileWorkspaceAck
 /// Apply + synchronous POST so server graph has the workspace before push/reconcile.
 let applyAndPostSync (commandName: string) (ops: Op list) (model: VM) : Result<VM, string> =
     let event = ClientHistory.mintChange commandName ops
-    match SyncLogic.applyLocalChange event (clientSyncState model) with
+    match SyncLogic.applyLocalEvent event (clientSyncState model) with
     | Error msg -> Error msg
     | Ok (nextState, submitted) ->
-        let body =
-            SyncBatch.toWireBatch [ submitted ]
-            |> encodePendingBatchBody
+        let body = encodePendingBatchBody [ submitted ]
         let url = sprintf "/%s/changes" currentFile
         let status, text = postJsonSync url body (jsonHeaders ())
         if status < 200 || status >= 300 then
@@ -122,7 +120,7 @@ let applyAndPostSync (commandName: string) (ops: Op list) (model: VM) : Result<V
 let private applyStructureLocally
     (commandName: string) (ops: Op list) (model: VM) : Result<VM * Ev, string> =
     let event = ClientHistory.mintChange commandName ops
-    match SyncLogic.applyLocalChange event (clientSyncState model) with
+    match SyncLogic.applyLocalEvent event (clientSyncState model) with
     | Error msg -> Error msg
     | Ok (nextState, submitted) ->
         Ok (

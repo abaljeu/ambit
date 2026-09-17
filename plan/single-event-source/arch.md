@@ -22,7 +22,7 @@ Feature under design: leftover Change record and Revision serial out of the runn
       3. [x] Core doors — **CoreChanges** `postEvents` and `postGraphOnly` both take Ev. `postChange` (Change list) and `PostGraphOnlyChange` of leftover Change are gone. Graph-only still skips file persist, not EventLog
       4. [x] Command mint — Browser command builders and Parse [[src/Server/GraphOnlyChangePost.fs]] mint Ev (`EventId.zero`, `commandName`). Run is ActorStart or a Change Event with that Run command in `commandName`
       5. [ ] Boot IndexedDB — [[src/Shared/BootCache.fs]] / [[src/Client/BootCacheStore.fs]] hold Ev list, not leftover Change
-      6. [x] One serial — `Revision` type and `revision` fields become event id. JSON key `"eventId"`. `getEventId`. `Change.id` is already `EventId` from Expand. EventId.fromJson/toJson bypasses. EventId.next adds one. Ev.fromJson/toJson. Only serializing uses fromJson/toJson. Only EventLog uses EventId.next. Any event not from these sources has id 0. The client has no EventId serial. Pending events use `EventId.zero`. Match server responses with `submissionId`. On approve, replace zero with the server-assigned id. On interject, rewind
+      6. [x] One serial — `Revision` type and `revision` fields become event id. JSON key `"eventId"`. `getEventId`. `Change.id` is already `EventId` from Expand. EventId.fromJson/toJson bypasses. EventId.next adds one. Ev.fromJson/toJson. Only serializing uses fromJson/toJson. Only EventLog uses EventId.next. Any event not from these sources has id 0. The client has no EventId serial. Pending events use `EventId.zero`. Match server responses with `submissionId`. On approve, replace zero with the server-assigned id. On a server merge / revised event stream that inserts other server ops before what the client sent, rewind and stamp zeros from matching `submissionId`
    3. **Contract**
       1. [ ] Delete leftover `{ id; submissionId; ops }` record, `module Change` apply wrapping, `Ev.ofChange` / `Ev.asChange`, `eventFromChange`
       2. [ ] Delete unused [[src/Shared/EventId.fs]]
@@ -137,7 +137,7 @@ Deltas only. Hello / Actor-pool modules do not change.
        1. [x] Ev-shaped Emacs Actions. No `nextEventId`. No client EventId serial
     2. Interface
        1. [x] `record` / `undo` / `redo` take or yield Ev / Ops. No leftover Change `asChange`
-       2. [x] `record` does not return a local id. Pending events stay `EventId.zero` until approve fills the server id. Match server responses with `submissionId`. Interject rewinds. `PendingTransition` and `PendingChange.transition` are gone. SyncInfo pending is an event list
+       2. [x] `record` does not return a local id. Pending events stay `EventId.zero` until approve fills the server id. Match server responses with `submissionId`. A server merge / revised event stream that inserts other server ops before what the client sent rewinds and stamps zeros from matching `submissionId`. `PendingTransition` and `PendingChange.transition` are gone. SyncInfo pending is an event list
     3. Uses
        1. [ ] Ev
        2. [ ] Op

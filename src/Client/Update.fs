@@ -160,7 +160,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
             + " detail=" + detail)
         rejectPending detail model
 
-    | SysMsg (SubmitNetworkError (baseRev, changes, kind)) ->
+    | SysMsg (SubmitNetworkError (baseRev, events, kind)) ->
         consoleLog (
             "[Gambol sync] SubmitNetworkError modelRev=" + string model.eventId.Value
             + " pending=" + string model.syncInfo.pending.Length
@@ -176,7 +176,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
             { model with
                 syncInfo =
                     model.syncInfo
-                    |> SyncInfo.withSyncState (WaitingToRetry (n, baseRev, changes)) },
+                    |> SyncInfo.withSyncState (WaitingToRetry (n, baseRev, events)) },
             [ ScheduleRetry delayMs ]
 
     | SysMsg (SetPollingActive active) ->

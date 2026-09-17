@@ -152,15 +152,11 @@ module SyncLogic =
         |> List.rev
         |> List.fold
             (fun graph event ->
-                let change =
-                    { id = EventId.zero
-                      submissionId = event.submissionId
-                      ops = Ev.ops event |> Option.defaultValue [] }
                 let inverse =
                     Change.inverse
                         state.eventId
                         event.submissionId
-                        change
+                        (Ev.asChange { event with id = EventId.zero })
                 match
                     ResidentProjection.applyChange
                         inverse
@@ -171,7 +167,7 @@ module SyncLogic =
                 | ApplyResult.Invalid _ -> graph)
             state.graph
 
-    let applyLocalChange
+    let applyLocalEvent
         (event: Ev)
         (state: ClientSyncState)
         : Result<ClientSyncState * Ev, string> =
@@ -309,9 +305,7 @@ module SyncLogic =
             Ok state.graph
         else
             let change =
-                { id = EventId.zero
-                  submissionId = System.Guid.Empty
-                  ops = suffixOps }
+                Op.makeChange EventId.zero System.Guid.Empty suffixOps
             match ResidentProjection.applyChange change (asProjectionState state) with
             | ApplyResult.Invalid (_, msg) -> Error msg
             | ApplyResult.Unchanged projected
@@ -345,7 +339,7 @@ module SyncLogic =
             Ok
                 { afterEvents with
                     eventId = serverEventId
-                    history = state.history }
+                    history = ClientHistory.approve events state.history }
 
     let reconcileExternalAck
         (submitted: Ev list)

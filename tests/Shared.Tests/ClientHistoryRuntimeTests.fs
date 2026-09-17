@@ -36,12 +36,12 @@ let private unloadedWorkspace () : Graph * NodeId * Node =
     Graph.fromNodes graph0.root nodes, wsId, ws
 
 [<Fact>]
-let ``applyLocalChange records the submitted Change and Normal transition`` () =
+let ``applyLocalEvent records the submitted Event and Normal transition`` () =
     let graph0 = Graph.create ()
     let graph1, nodeId = Graph.newNode "before" graph0
     let change = textChange 3 nodeId "before" "after"
     let state = clientState graph1 (EventId.fromJson 3) (ClientHistory.clear ())
-    match SyncLogic.applyLocalChange (Ev.ofChange "Edit node" change) state with
+    match SyncLogic.applyLocalEvent (Ev.ofChange "Edit node" change) state with
     | Error msg -> failwith msg
     | Ok (next, pending) ->
         Assert.Equal("after", next.graph.nodes.[nodeId].text)
@@ -64,7 +64,7 @@ let ``applyLocalUndo projects the inverse through ResidentProjection`` () =
     let graph1, nodeId = Graph.newNode "before" graph0
     let change = textChange 3 nodeId "before" "after"
     match
-        SyncLogic.applyLocalChange
+        SyncLogic.applyLocalEvent
             (Ev.ofChange "Edit node" change)
             (clientState graph1 (EventId.fromJson 3) (ClientHistory.clear ()))
     with
@@ -89,7 +89,7 @@ let ``applyLocalRedo projects the inverse through ResidentProjection`` () =
     let graph1, nodeId = Graph.newNode "before" graph0
     let change = textChange 3 nodeId "before" "after"
     match
-        SyncLogic.applyLocalChange
+        SyncLogic.applyLocalEvent
             (Ev.ofChange "Edit node" change)
             (clientState graph1 (EventId.fromJson 3) (ClientHistory.clear ()))
     with

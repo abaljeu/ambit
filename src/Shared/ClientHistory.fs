@@ -76,19 +76,25 @@ module ClientHistory =
                   eventFuture = remainingFuture }
             Some(produced, nextHistory)
 
-    let private tryPeekActionName (stack: Ev list) : string option =
+    let private tryPeekAction (stack: Ev list) : Ev option =
         let rec walk remaining =
             match remaining with
             | [] -> None
-            | event :: _ when Ev.isAction event -> Some event.commandName
+            | event :: _ when Ev.isAction event -> Some event
             | _ :: rest -> walk rest
         walk stack
 
+    let tryPeekUndoEvent (history: ClientHistory) : Ev option =
+        tryPeekAction history.eventPast
+
+    let tryPeekRedoEvent (history: ClientHistory) : Ev option =
+        tryPeekAction history.eventFuture
+
     let tryPeekUndoName (history: ClientHistory) : string option =
-        tryPeekActionName history.eventPast
+        tryPeekUndoEvent history |> Option.map (fun event -> event.commandName)
 
     let tryPeekRedoName (history: ClientHistory) : string option =
-        tryPeekActionName history.eventFuture
+        tryPeekRedoEvent history |> Option.map (fun event -> event.commandName)
 
     let mintChange (commandName: string) (ops: Op list) : Ev =
         { id = EventId.zero
@@ -131,16 +137,44 @@ module ClientHistory =
         | Some (produced, nextHistory) ->
             Some(yieldMinted submissionId produced nextHistory)
 
-    let private stampEvent (confirmed: Map<System.Guid, EventId>) (event: Ev) =
-        match Map.tryFind event.submissionId confirmed with
-        | Some eventId -> { event with id = eventId }
-        | None -> event
+    let private resolveTarget (confirmed: Ev list) target ops =
+        if target <> EventId.zero then
+            target
+        else
+            confirmed
+            |> List.tryFind (fun event ->
+                match Ev.inverseOps event with
+                | Some inverse -> inverse = ops
+                | None -> false)
+            |> Option.map (fun event -> event.id)
+            |> Option.defaultValue EventId.zero
+
+    let private stampBody (confirmed: Ev list) body =
+        match body with
+        | EventBody.Undo(target, ops) ->
+            EventBody.Undo(resolveTarget confirmed target ops, ops)
+        | EventBody.Redo(target, ops) ->
+            EventBody.Redo(resolveTarget confirmed target ops, ops)
+        | other -> other
+
+    let private stampEvent
+        (confirmed: Ev list)
+        (ids: Map<System.Guid, EventId>)
+        (event: Ev)
+        =
+        let event =
+            match Map.tryFind event.submissionId ids with
+            | Some eventId -> { event with id = eventId }
+            | None -> event
+        { event with body = stampBody confirmed event.body }
 
     /// Replace EventId.zero with the server id for matching submissionId.
+    /// Also fills Undo/Redo targets written while the original id was zero.
     let approve (confirmed: Ev list) (history: ClientHistory) : ClientHistory =
         let ids =
             confirmed
             |> List.map (fun event -> event.submissionId, event.id)
             |> Map.ofList
-        { eventPast = List.map (stampEvent ids) history.eventPast
-          eventFuture = List.map (stampEvent ids) history.eventFuture }
+        { eventPast = List.map (stampEvent confirmed ids) history.eventPast
+          eventFuture =
+            List.map (stampEvent confirmed ids) history.eventFuture }

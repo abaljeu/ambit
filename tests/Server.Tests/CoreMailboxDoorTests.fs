@@ -554,7 +554,7 @@ let ``CoreMailbox.postEvent appends an Ev that eventsSince returns`` () =
         let! tail =
             CoreMailbox.eventsSince
                 host
-                (EventId.fromJson -1)
+                EventId.beforeAll
             |> Async.StartAsTask
         Assert.Equal(1, tail.events.Length)
         Assert.Contains(stored, tail.events)

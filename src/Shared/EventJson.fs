@@ -133,10 +133,6 @@ module EventJson =
                 (get.Required.Field "commandName" Decode.string)
                 (get.Required.Field "body" decodeBody))
 
-    let encodePendingEvent (event: Ev) : IEncodable = encode event
-
-    let decodePendingEvent: Decoder<Ev> = decode
-
     let encodeEventBatch (batch: EventBatch) : IEncodable =
         Encode.object
             [ "events", batch.events |> List.map encode |> Encode.list ]

@@ -170,6 +170,30 @@ let ``approve stamps EventId.zero by submissionId`` () =
         | _ -> failwith "expected Undo body"
 
 [<Fact>]
+let ``approve stamps Undo target written while original id was zero`` () =
+    let source = textChange EventId.zero (NodeId.New()) "old" "new"
+    let recorded =
+        ClientHistory.clear ()
+        |> recordNamed "Edit node" source
+    match ClientHistory.undo (Guid.NewGuid()) recorded with
+    | None -> failwith "expected Undo"
+    | Some (undo, undone) ->
+        match undo.body with
+        | EventBody.Undo(target, _) -> Assert.Equal(EventId.zero, target)
+        | _ -> failwith "expected Undo body"
+        let confirmed =
+            { Ev.ofChange "Edit node" source with
+                id = EventId.fromJson 9 }
+        let approved = ClientHistory.approve [ confirmed ] undone
+        match ClientHistory.tryPeekRedoEvent approved with
+        | None -> failwith "expected Redo stack Undo"
+        | Some event ->
+            match event.body with
+            | EventBody.Undo(target, _) ->
+                Assert.Equal(EventId.fromJson 9, target)
+            | _ -> failwith "expected Undo body"
+
+[<Fact>]
 let ``record keeps EventId.zero and does not mint a local id`` () =
     let change =
         { id = EventId.fromJson 7

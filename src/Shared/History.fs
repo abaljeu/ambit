@@ -29,6 +29,8 @@ type EventId =
 [<RequireQualifiedAccess>]
 module EventId =
     let zero = EventId 0
+    /// Cursor before every event, including zero. Not a serialized id.
+    let beforeAll = EventId -1
     let next (EventId n) = EventId(n + 1)
     let max (EventId a) (EventId b) = EventId(Operators.max a b)
     let value (id: EventId) = id.Value

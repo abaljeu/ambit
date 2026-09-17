@@ -105,7 +105,7 @@ let savePendingQueue (items: Ev list) =
     else
         let encoded =
             Encode.list (
-                items |> List.map Gambol.Shared.EventJson.encodePendingEvent)
+                items |> List.map Gambol.Shared.EventJson.encode)
         let json = Thoth.Json.JavaScript.Encode.toString 0 encoded
         localStorageSet pendingKey json
 
@@ -114,7 +114,7 @@ let loadPendingQueue () : Ev list =
     if isNull json || json = "" then []
     else
         match Thoth.Json.JavaScript.Decode.fromString
-            (Decode.list Gambol.Shared.EventJson.decodePendingEvent) json with
+            (Decode.list Gambol.Shared.EventJson.decode) json with
         | Ok items -> items
         | Error _ -> []
 
@@ -159,7 +159,7 @@ let applyAndPost
     (model: VM)
     : Result<VM * Effect list, string> =
     let event = ClientHistory.mintChange commandName ops
-    match SyncLogic.applyLocalChange event (clientSyncState model) with
+    match SyncLogic.applyLocalEvent event (clientSyncState model) with
     | Error error -> Error error
     | Ok (nextState, pendingItem) ->
         let nextSyncInfo, effects =

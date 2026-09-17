@@ -69,7 +69,7 @@ let ``restore dedupe`` () =
     Assert.Equal(EventId.fromJson 1, EventLog.nextId log)
     Assert.Equal(EventId.fromJson 2, Ev.id log.events.Head)
     Assert.Equal("Second", log.events.Head.commandName)
-    let restored = EventLog.since (EventId.fromJson -1) log
+    let restored = EventLog.all log
     Assert.Equal(2, restored.events.Length)
     Assert.Equal(EventId.fromJson 2, Ev.id restored.events.Head)
     Assert.Equal("Second", restored.events.Head.commandName)

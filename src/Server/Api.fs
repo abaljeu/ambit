@@ -33,6 +33,9 @@ module Api =
         Thoth.Json.Core.Decode.object (fun get ->
             get.Required.Field "path" Thoth.Json.Core.Decode.string)
 
+    let private decodeQueryEventId (clientRev: int) =
+        EventId.fromJson clientRev
+
     let getPoll
         (handle: CoreChanges)
         (buildEpochSec: int)
@@ -40,10 +43,10 @@ module Api =
         (clientRev: int)
         : Async<IResult> = async {
         let! eventId = handle.getEventId ()
-        let revValue = EventId.value eventId
+        let clientEventId = decodeQueryEventId clientRev
         let! events =
-            if revValue > clientRev then
-                handle.getEventsSince (EventId.fromJson clientRev)
+            if EventId.value eventId > EventId.value clientEventId then
+                handle.getEventsSince clientEventId
             else async.Return []
         let poll: ChangeSuccessResponse =
             { eventId = eventId

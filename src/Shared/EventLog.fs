@@ -27,6 +27,8 @@ module EventLog =
                 |> List.filter (fun event ->
                     EventId.value event.id > EventId.value after) }
 
+    let all (log: EventLog) : EventLog = since EventId.beforeAll log
+
     let tryFind (eventId: EventId) (log: EventLog) : Ev option =
         log.events |> List.tryFind (fun event -> event.id = eventId)
 

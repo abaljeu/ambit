@@ -39,7 +39,7 @@ let ``getEventsSince returns Ev after postChange`` () = task {
         let! events =
             CoreMailbox.getEventsSince
                 host
-                (EventId.fromJson -1)
+                (EventId.beforeAll)
             |> Async.StartAsTask
         let stored = Assert.Single(events)
         Assert.Equal(event.submissionId, stored.submissionId)
@@ -134,7 +134,7 @@ let ``ActorStart persists across File restart`` () = task {
     let second = CoreMailbox.createFile dir admittedCredentials
     try
         let! events =
-            CoreMailbox.getEventsSince second (EventId.fromJson -1)
+            CoreMailbox.getEventsSince second (EventId.beforeAll)
             |> Async.StartAsTask
         Assert.True(
             events
@@ -185,7 +185,7 @@ let ``getEventsSince Error does not seed empty EventLog as success`` () =
     withFilling filling (CoreActorPool.create ()) (fun host -> task {
         try
             let! _ =
-                CoreMailbox.getEventsSince host (EventId.fromJson -1)
+                CoreMailbox.getEventsSince host (EventId.beforeAll)
                 |> Async.StartAsTask
             Assert.Fail("expected persist getEventsSince Error")
         with ex ->

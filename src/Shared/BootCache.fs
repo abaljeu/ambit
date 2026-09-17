@@ -24,7 +24,7 @@ module BootCache =
         { codecVersion: int
           file: string
           scopeKey: string
-          revision: int
+          eventId: EventId
           isReady: bool
           stateJson: string
           writtenAt: string
@@ -39,7 +39,7 @@ module BootCache =
         (file: string)
         (scope: string)
         (stateJson: string)
-        (revision: int)
+        (eventId: EventId)
         (isReady: bool)
         (writtenAt: string)
         (bootstrapHash: string)
@@ -47,7 +47,7 @@ module BootCache =
         { codecVersion = codecVersion
           file = file
           scopeKey = scope
-          revision = revision
+          eventId = eventId
           isReady = isReady
           stateJson = stateJson
           writtenAt = writtenAt
@@ -58,7 +58,7 @@ module BootCache =
             [ "codecVersion", Encode.int record.codecVersion
               "file", Encode.string record.file
               "scopeKey", Encode.string record.scopeKey
-              "revision", Encode.int record.revision
+              "eventId", EventJson.encodeEventId record.eventId
               "ready", Encode.bool record.isReady
               "stateJson", Encode.string record.stateJson
               "writtenAt", Encode.string record.writtenAt
@@ -70,7 +70,7 @@ module BootCache =
                 get.Required.Field "codecVersion" Decode.int
               file = get.Required.Field "file" Decode.string
               scopeKey = get.Required.Field "scopeKey" Decode.string
-              revision = get.Required.Field "revision" Decode.int
+              eventId = get.Required.Field "eventId" EventJson.decodeEventId
               isReady = get.Required.Field "ready" Decode.bool
               stateJson = get.Required.Field "stateJson" Decode.string
               writtenAt = get.Required.Field "writtenAt" Decode.string
@@ -116,6 +116,14 @@ module BootCache =
                 kept |> List.map (fun event -> event.id.Value) |> List.max
             max snapshotRevision maxId
 
+    let private clientEventId (snapshotEventId: EventId) (log: Ev list) =
+        match eventsAfter (EventId.value snapshotEventId) log with
+        | [] -> snapshotEventId
+        | kept ->
+            kept
+            |> List.map (fun event -> event.id)
+            |> List.fold EventId.max snapshotEventId
+
     let foldLog
         (snapshot: StateResponse)
         (delta: Ev list)
@@ -138,9 +146,7 @@ module BootCache =
             (Ok state0)
         |> Result.map (fun st ->
             { graph = st.graph
-              eventId =
-                EventId.fromJson
-                    (clientRevision (EventId.value snapshot.eventId) ordered)
+              eventId = clientEventId snapshot.eventId ordered
               isReady = snapshot.isReady })
 
     let decideBootRead

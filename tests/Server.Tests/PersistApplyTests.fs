@@ -31,9 +31,9 @@ let private eventsSince (handlers: PersistHandlers) after =
 
 let private applyThenAppend (handlers: PersistHandlers) event =
     let accepted = requireOk "applyEvent" (handlers.applyEvent event false)
-    Assert.Empty(eventsSince handlers (EventId.fromJson -1))
+    Assert.Empty(eventsSince handlers (EventId.beforeAll))
     requireOk "appendEvent" (handlers.appendEvent event)
-    let stored = Assert.Single(eventsSince handlers (EventId.fromJson -1))
+    let stored = Assert.Single(eventsSince handlers (EventId.beforeAll))
     Assert.Equal(event.submissionId, stored.submissionId)
     accepted
 
@@ -95,7 +95,7 @@ let ``CoreEventDispatch persist apply does not copy Ev to leftover Change`` () =
             Assert.Equal<Op list>(ops, List.take ops.Length storedOps)
         | None -> Assert.Fail("expected Change EventBody Ops")
         let logged =
-            CoreMailbox.getEventsSince host (EventId.fromJson -1)
+            CoreMailbox.getEventsSince host (EventId.beforeAll)
             |> Async.RunSynchronously
         Assert.Equal(event.submissionId, Assert.Single(logged).submissionId)
     finally
