@@ -4,7 +4,7 @@ Stage: build
 Summary: Core creation is suspended. This Project creates a single Event source with one event id, then corrects [[plan/core-creation/arch.md]] to match what was created.
 Updated: 2026-09-17
 Started: 2026-09-16
-Actual: 19.5h
+Actual: 21h
 
 Home: [[plan/roadmap/epics/robust-outliner.md]] Required for done (Live). Chart map: [[map.md]].
 
@@ -26,7 +26,7 @@ Home: [[plan/roadmap/epics/robust-outliner.md]] Required for done (Live). Chart 
 - [10 — Boot IndexedDB](plan/single-event-source/issues/10-boot-indexeddb.md) — migrate. Status `done`.
 - [11 — One serial event id](plan/single-event-source/issues/11-one-serial-event-id.md) — migrate. Status `coded`.
 - [12 — Contract leftover Change and Revision](plan/single-event-source/issues/12-contract-leftover-change-and-revision.md) — contract. Status `coded`.
-- [04 — Write core-creation arch.md last](plan/single-event-source/issues/04-write-core-creation-arch-md-last.md) — after contract. Status `defined`.
+- [04 — Write core-creation arch.md last](plan/single-event-source/issues/04-write-core-creation-arch-md-last.md) — after contract. Status `coded`.
 
 ## Related work
 

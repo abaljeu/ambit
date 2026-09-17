@@ -4,7 +4,7 @@ Spec: [[map.md]]
 Updated: 2026-09-17
 Sequence: expand-contract
 
-Feature under design: leftover Change record and Revision serial out of the running code. Ev is transported. Ops are not. Apply, validation, invert, amend, and PersistStamp take an Op list locally. Decisions: [[map.md]]. Inventory: [[reports/inventory-non-event-write-paths.md]]. Do not edit [[plan/core-creation/arch.md]] until [04 — Write core-creation arch.md last](issues/04-write-core-creation-arch-md-last.md). Prefer existing seams. Do not open Wayfinder map tickets for items under Unsettled.
+Feature under design: leftover Change record and Revision serial out of the running code. Ev is transported. Ops are not. Apply, validation, invert, amend, and PersistStamp take an Op list locally. Decisions: [[map.md]]. Inventory: [[reports/inventory-non-event-write-paths.md]]. [04 — Write core-creation arch.md last](issues/04-write-core-creation-arch-md-last.md) writes [[plan/core-creation/arch.md]] last to match what this Project created. Prefer existing seams. Do not open Wayfinder map tickets for items under Unsettled.
 
 ## 1. Story paths
 
@@ -27,7 +27,7 @@ Feature under design: leftover Change record and Revision serial out of the runn
       1. [x] Delete leftover `{ id; submissionId; ops }` record, `module Change` apply wrapping, `Ev.ofChange` / `Ev.asChange`, `eventFromChange`
       2. [x] Delete unused [[src/Shared/EventId.fs]]
       3. [x] Delete `type Revision` and `EventId.ofRevision` / `toRevision`
-      4. [ ] [04 — Write core-creation arch.md last](issues/04-write-core-creation-arch-md-last.md) — [[plan/core-creation/arch.md]] matches what this Project created
+      4. [x] [04 — Write core-creation arch.md last](issues/04-write-core-creation-arch-md-last.md) — [[plan/core-creation/arch.md]] matches what this Project created
 
 Shared segments:
 1. [x] Admit Ev at CoreMailbox

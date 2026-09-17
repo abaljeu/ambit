@@ -1,13 +1,13 @@
 # Core creation architecture
 
-Spec: [[issues/Implementation Planning and Record.md]] (Phase 2 Spec); hello stories from [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]], [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]], and [[issues/29-prove-testactor-hello.md|Prove TestActor hello]]. No Project `spec.md` yet.
-Updated: 2026-09-16
+Spec: [[issues/Implementation Planning and Record.md]] (Phase 2 Spec); hello stories from [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]], [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]], and [Prove TestActor hello](issues/29-prove-testactor-hello.md). No Project `spec.md` yet.
+Updated: 2026-09-17
 Sequence: tracer-cut
 Event stories Sequence: expand-migrate-contract
 
-Feature under design: the hello slice of the one-mailbox Actor program locked by [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]], plus the Event destination locked in [[reports/event-abstraction.md]]. Prefer existing seams. Do not open Wayfinder map tickets for items under Unsettled. Story hops name modules and doors; State / Interface / Uses live only under Module map (thin hops / fat map). Field shapes for Ev, EventLog, ClientHistory, and `postEvent` live in [[reports/event-abstraction.md]]. ClientHistory is the Emacs Action view; EventLog is the sequence. Ev types (`EventId`, `Authority`, `ActorResult`, `ActorStart`, `EventBody`, `Ev`) live in `Gambol.Shared` with `Op`/`Change` in [[src/Shared/History.fs]] so Change call sites can see `Ev`. The Ev module (including helpers that call `Change.apply` / `Change.inverse`) is in the same file after `module Change`, because F# does not allow a type and a same-named module in two files. `EventLog`, `EventJson` stay in their files. There is no `Gambol.Shared.Events` namespace.
+Feature under design: the hello slice of the one-mailbox Actor program locked by [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]], plus the Event destination locked in [[reports/event-abstraction.md]] and created by [[plan/single-event-source/arch.md]]. Prefer existing seams. Do not open Wayfinder map tickets for items under Unsettled. Story hops name modules and doors; State / Interface / Uses live only under Module map (thin hops / fat map). Field shapes for Ev, EventLog, ClientHistory, and `postEvent` live in [[reports/event-abstraction.md]]. ClientHistory is the Emacs Action view; EventLog is the sequence. Ev types (`EventId`, `Authority`, `ActorResult`, `ActorStart`, `EventBody`, `Ev`) live in `Gambol.Shared` with `Op` in [[src/Shared/History.fs]]. Change is `EventBody.Change` of an Op list, not a leftover `{ id; submissionId; ops }` record. There is no `type Change` or `module Change`. The Ev module (`apply` / `inverseOps` via Op-list apply) is in the same file after `module Op`. `ChangeValidation` stays in that file; `ChangeAmendment` is its own file. `EventLog`, `EventJson` stay in their files. There is no `Gambol.Shared.Events` namespace. One serial is EventId (`eventId`, `getEventId`).
 
-Implementation status for this cut: Point 0 loop code is shared ([[issues/30-reshape-coreactorpool-synchronized-table.md]], [[issues/31-one-coremsg-loop-parameterized-persist.md]], [[issues/32-move-persist-agents-under-coremailbox.md]]). Register-then-start one host. Mailbox-owned live table (no lock). Story path **Outside Core lifecycle proof** is implemented ([[issues/34b-outside-core-lifecycle-proof.md|34b — Outside Core lifecycle proof]]). Story path **Browser Run hello** is not. [[issues/29-prove-testactor-hello.md|Prove TestActor hello]] remaining Browser sections stay on [[issues/35b-browser-run-hello.md|35b — Browser Run hello]]. Stories **Event, EventLog, and ClientHistory** and **Caller, persist, and Poll** sequence the Event destination as expand-migrate-contract.
+Implementation status for this cut: Point 0 loop code is shared ([[issues/30-reshape-coreactorpool-synchronized-table.md]], [[issues/31-one-coremsg-loop-parameterized-persist.md]], [[issues/32-move-persist-agents-under-coremailbox.md]]). Register-then-start one host. Mailbox-owned live table (no lock). Story path **Outside Core lifecycle proof** is implemented ([34b — Outside Core lifecycle proof](issues/34b-outside-core-lifecycle-proof.md)). Story path **Browser Run hello** is not. [Prove TestActor hello](issues/29-prove-testactor-hello.md) remaining Browser sections stay on [35b — Browser Run hello](issues/35b-browser-run-hello.md). Stories **Event, EventLog, and ClientHistory** and **Caller, persist, and Poll** sequence the Event destination as expand-migrate-contract.
 
 ## 1. Story paths
 
@@ -18,7 +18,7 @@ Implementation status for this cut: Point 0 loop code is shared ([[issues/30-res
    4. [ ] CoreMsg / CoreMailboxBackend validates the caller, calls startActor synchronously, and replies with that result
    5. [ ] CoreActorPool.startActor (expand, select `test`, create live row); mailbox records ActorStarted in-loop; pool.schedule fires the body only
    6. [ ] TestActor interprets command Node → `hello`
-   7. [ ] CoreMsg admit-before-`PostChange`
+   7. [ ] CoreMsg admit-before-`PostEvent`
    8. [ ] CoreMsg `ActorStop` of `ActorSucceeded`
    9. [ ] EventLog appends ActorStop Ev
    10. [ ] universal response when that path is exercised
@@ -31,7 +31,7 @@ Implementation status for this cut: Point 0 loop code is shared ([[issues/30-res
    2. [x] Enter at CoreActorPool.startActor or at TestActor body input
    3. [x] When at Pool: expand, select `test`, create, pass body input
    4. [x] When at Actor: TestActor interprets → `hello`
-   5. [x] Full lifecycle still uses CoreMailbox / CoreMsg for admit-before-`PostChange` and `ActorStop`
+   5. [x] Full lifecycle still uses CoreMailbox / CoreMsg for admit-before-`PostEvent` and `ActorStop`
    6. [x] CoreActorPool live table; mailbox History
    7. [x] Outer asserts Graph, ActorStarted, one ActorFinished, dropped live row, revoked secret (when full lifecycle)
    8. [x] TestActor does not assert
@@ -39,13 +39,13 @@ Implementation status for this cut: Point 0 loop code is shared ([[issues/30-res
 3. **Browser Change posts**
    1. [x] Browser Change submit
    2. [x] HTTP Adapter encodes Change + credentials
-   3. [x] CoreMailbox `postChange`
+   3. [x] CoreMailbox `postEvents`
    4. [x] CoreMsg validates Browser credentials before PersistHandlers
 4. **Event, EventLog, and ClientHistory**
    Sequence: expand-migrate-contract. Locked interface: [[reports/event-abstraction.md]]. Shared slice only.
    1. **Expand**
       1. [x] Additive Shared `EventId`, `ActorStart`, `EventBody`, `Ev` in `Gambol.Shared`
-      2. [x] Ev module: `id`, `authority`, `ops`, `isAction`, `target`, `apply`, `inverseOps`, `asChange`, `ofChange`
+      2. [x] Ev module: `id`, `authority`, `ops`, `isAction`, `target`, `apply`, `inverseOps`, `fromJson`, `toJson`. No leftover Change record. No `asChange` / `ofChange`
       3. [x] EventLog module: `empty`, `append`, `nextId`, `since`, `tryFind`, `restore`
       4. [x] ClientHistory: Emacs Actions only — `record`, `undo` / `redo`, `tryPeekUndoName` / `tryPeekRedoName`
       5. [x] `Authority`, `ActorStart`, and `ActorResult` live in `Gambol.Shared` with Ev
@@ -58,17 +58,17 @@ Implementation status for this cut: Point 0 loop code is shared ([[issues/30-res
 5. **Caller, persist, and Poll**
    Sequence: expand-migrate-contract. Follows **Event, EventLog, and ClientHistory**.
    1. **Expand**
-      1. [x] `postEvent` door on CoreMailbox; payload is Ev
+      1. [x] `postEvent` / `postEvents` doors on CoreMailbox; payload is Ev
       2. [x] mailbox store is `EventLog ref`
       3. [x] persist EventLog as Event JSON via EventLogFile (`gambol.events` file) and `events` table (DB)
    2. **Migrate**
-      1. [x] HTTP Adapter ([[src/Server/Api.fs]]) decode/encode: Change posts call `postEvent`; Poll/Load tail is an Ev list (not a Change list)
-      2. [x] Changes callers use `postEvent`; name-only Undo/Redo may carry only `target`; dispatch fills inverse Ops (same `submissionId`)
-      3. [x] command-builder still produces Change (Ops); Ev is built at the `postEvent` door (`Ev.ofChange` / `Ev.asChange` are the Change bridge)
+      1. [x] HTTP Adapter ([[src/Server/Api.fs]]) decode/encode: Change posts call `postEvents`; Poll/Load tail is an Ev list
+      2. [x] Changes callers use `postEvents` (or `postEvent` for one Ev); name-only Undo/Redo may carry only `target`; dispatch fills inverse Ops (same `submissionId`)
+      3. [x] command builders mint Ev (`EventId.zero`, `commandName`, `EventBody.Change` of Ops). Run is ActorStart or a Change Event with that Run command in `commandName`. No leftover Change record and no `Ev.ofChange` / `Ev.asChange`
       4. [x] `GetEventHistory` returns the log or `since`, not a two-stack
       5. [x] Poll returns an Ev tail (server return and client consume)
-      6. [x] Browser Poll consume; `Revision` → EventId cursor (`State.revision`, `ClientSyncState.revision`)
-      7. [x] PendingChange / EventBatch wrap Ev (or EventBody)
+      6. [x] Browser Poll consume; EventId cursor (`State.eventId`, `ClientSyncState.eventId`); `getEventId`
+      7. [x] EventBatch wraps Ev list; SyncInfo pending is an Ev list. No leftover PendingChange record
       8. [x] Browser callers keep using ClientHistory (Ev-shaped); client holds EventLog of the same type. Do not migrate onto a module named History. `ClientHistory.undo` locally then name-only submit; ack/reconcile stays the pending path
       9. [x] CoreMsg / CoreActorPool: mailbox appends ActorStart / ActorStop Ev records; callers do not `postEvent` those bodies
       10. [x] persist ActorStart / ActorStop
@@ -89,11 +89,11 @@ Shared segments across 1 and 2:
 4. [x] CoreMailbox / CoreMsg when full lifecycle
 5. [x] CoreActorPool live table
 6. [x] History for Actor lifecycle
-7. [x] admit-before-`PostChange`
+7. [x] admit-before-`PostEvent`
 8. [x] `ActorStop`
 
 Shared segment with path 3:
-1. [x] Credentialed `PostChange` through CoreMsg
+1. [x] Credentialed `PostEvent` through CoreMsg
 
 Narrowest shared test seam:
 1. [x] CoreActorPool start and/or TestActor body input — not HTTP encoding, not PersistHandlers, not TestActor private helpers
@@ -102,7 +102,7 @@ Narrowest test seam for Story **Event, EventLog, and ClientHistory**:
 1. [x] Shared Ev / EventLog / ClientHistory functions
 
 Narrowest test seam for Story **Caller, persist, and Poll**:
-1. [x] CoreMailbox `postEvent` and EventLog `since`
+1. [x] CoreMailbox `postEvent` / `postEvents` and EventLog `since`
 
 ## 2. Module map
 
@@ -128,10 +128,10 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. ClientH
    1. [x] State: none beyond MailboxHost
    - Interface:
      1. [x] public door on MailboxHost — `startActor` with `zoomId`, `focusId`, `commandId`, `graphIds`; `actorStop`; `login` (mailbox privately adds the Browser secret); `isAdmitted` (query). No public add-credential door.
-     2. [x] `postEvent` is the Changes door. Payload is Ev (Change, Undo, Redo). Name-only Undo/Redo may arrive with only `target`
-     3. [x] `postGraphOnlyChange` — Same Ev flow as postChange, skips file persistence only (not EventLog)
+     2. [x] `postEvents` is the Changes door. Payload is Ev list (`EventBody.Change` of Ops, Undo, Redo). `postEvent` posts one Ev. Name-only Undo/Redo may arrive with only `target`
+     3. [x] `postGraphOnly` — Same Ev flow as `postEvents`, skips file persistence only (not EventLog)
      4. [x] `eventHistory` is EventLog (the log or `since`), not a two-stack
-     5. [x] getState / getRevision / createFile / createDb
+     5. [x] getState / getEventId / createFile / createDb
      6. [x] `getEventsSince` returns an Ev tail
    - Uses:
      1. [ ] MailboxHost
@@ -155,18 +155,18 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. ClientH
      10. [x] launch / query are gone; `withLocks` / `lockedIds` leave the CoreRuntime wrap
    - Uses:
      1. [ ] `ActorFn` (injected; Core does not own Actor bodies). Pool does not Use EventLog or CoreCredentials. Live row is Actor liveness.
-4. **Ev** — types after `Op` and module after `Change` in [[src/Shared/History.fs]] (`Gambol.Shared`; no `Gambol.Shared.Events` namespace)
+4. **Ev** — types after `Op`; `module Ev` after `module Op` in [[src/Shared/History.fs]] (`Gambol.Shared`; no `Gambol.Shared.Events` namespace)
    Field shapes: [[reports/event-abstraction.md]].
    1. [x] State: `Ev` record (`id`, `submissionId`, `authority`, `commandName`, `body`); `EventBody` is Change / Undo / Redo / ActorStart / ActorStop; `EventId` is the log position; `commandName` lives on Ev
    - Interface:
      1. [x] `id`, `authority`, `ops` (none for Actor bodies), `isAction`, `target` (none except Undo/Redo)
      2. [x] `apply` — Graph apply via those Ops; Actor bodies do not touch the Graph
      3. [x] `inverseOps` — used when building Undo/Redo from a target Ev
-     4. [x] `asChange` / `ofChange` — Change remains the command-builder product (Ops); these are the bridge
+     4. [x] `fromJson` / `toJson` — only serializing uses these. No leftover Change record. No `asChange` / `ofChange`
      5. [x] `ActorStart` is the start request (zoom, focus, command, graphIds, basis EventId)
      6. [x] `ActorStop` is `focusId` plus `ActorResult`
      7. [x] every Ev carries `Authority`; Core stamps it from the admitted Caller; the wire does not supply it
-     8. [x] Change is the command-builder product (Ops)
+     8. [x] Command builders mint Ev (`EventId.zero`, `commandName`, `EventBody.Change` of Ops)
    - Uses:
      1. [ ] Op, Graph, `Authority`, `ActorResult`
 5. **EventLog** — planned [[src/Shared/EventLog.fs]]
@@ -198,7 +198,7 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. ClientH
      1. [x] `ActorFn` for Actor name `test`
      2. [x] input is Graph plus named `zoomId`, `focusId`, `commandId` and the Actor secret (Pool expands ids; does not invent further payload fields)
      3. [x] interpret the command Node and switch on case text
-     4. [x] this slice has only `hello` (post one Owned child text `hello` under Focus through admitted `PostChange`, then queue `ActorStop ActorSucceeded`)
+     4. [x] this slice has only `hello` (post one Owned child text `hello` under Focus through admitted `postEvents`, then queue `ActorStop ActorSucceeded`)
    - Uses:
      1. [ ] CoreChanges (bound through the mailbox)
      2. [ ] Graph
@@ -231,7 +231,7 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. ClientH
      1. [ ] decode Browser Command / Change / Poll
      2. [ ] Command / StartActor transport fields are `zoomId`, `focusId`, `commandId`, `graphIds` — same shape as the Core door and CoreActorPool.startActor
      3. [x] Change posts carry credentials
-     4. [x] Changes posts call CoreMailbox `postEvent`
+     4. [x] Changes posts call CoreMailbox `postEvents`
      5. [x] Poll returns an Ev tail
      6. [ ] call Core through CoreMailbox or CoreRuntime-bound members
      7. [ ] encode universal `{ nodes; events; latestId }` for Command when that path is exercised (spec lock; not critical path for the hello outside proof)
@@ -249,7 +249,7 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. ClientH
 12. **PersistHandlers** — [[src/Server/Core/FileAgent.fs]], [[src/Server/Core/DbAgent.fs]]
    1. [x] State: File or Db persist implementation behind the loop
    - Interface:
-     1. [x] getState, getRevision, postGraphOnlyChange, snapshotDone
+     1. [x] getState, getEventId, applyEvent, snapshotDone
      2. [x] getEventsSince / persist EventLog
      3. [x] Actor cases are not on this parameter
    - Uses:
@@ -264,21 +264,21 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. ClientH
 4. [x] **Ev** — Shared Ev type and functions in `Gambol.Shared`. Interface on **Ev**. Field shapes: [[reports/event-abstraction.md]].
 5. [x] **EventLog** — Mailbox store after intake; persist is this same EventLog on file/DB. Interface on **EventLog**. `since` is the Poll/Load tail.
 6. [x] **ClientHistory** — Emacs Action view. Interface on **ClientHistory**. Not persisted. Not sent on Poll.
-7. [x] **`postEvent` door** — Changes door. Interface on **CoreMailbox**. Payload is Ev.
+7. [x] **`postEvents` door** — Changes door. Interface on **CoreMailbox**. Payload is Ev. `postEvent` posts one Ev. `postGraphOnly` is graph-only Ev.
 8. [x] **ActorFn / TestActor input** — Definition and body-input seam. Interface on **TestActor** (outside Core). Callers pass ActorFn into **CoreActorPool.register** / **CoreRuntime.create**. Core does not embed Actor bodies.
-9. [x] **PersistHandlers** — Persist seam already landed by [[issues/31-one-coremsg-loop-parameterized-persist.md|One CoreMsg loop parameterized persist]] and [[issues/32-move-persist-agents-under-coremailbox.md|Move persist agents under CoreMailbox]]. Hello does not widen it. Actor cases stay off this parameter. File and Db are not Actor mailboxes. Interface on **PersistHandlers**.
+9. [x] **PersistHandlers** — Persist seam already landed by [One CoreMsg loop parameterized persist](issues/31-one-coremsg-loop-parameterized-persist.md) and [Move persist agents under CoreMailbox](issues/32-move-persist-agents-under-coremailbox.md). Hello does not widen it. Actor cases stay off this parameter. File and Db are not Actor mailboxes. Interface on **PersistHandlers**.
 10. [x] **Credentialed Change posts** — Browser and Actor posts validate via **CoreMsg** before PersistHandlers; Actor also admits on the live table. Story path 3 is Browser Change posts only.
 11. [ ] **Included descendant id list — Shared Zoom-rooted Included id walk (unfolded context). Interface on **Included descendant id list**. Browser Command `graphIds` and Actor reuse call the same function.
 12. [x] **Test seam for this tracer** — Story path 2: harness at CoreActorPool or TestActor. Outer facts assert Graph and lifecycle; TestActor does not assert. HTTP universal-response encoding is not on the outside-proof critical path.
 
 ## 4. Alternative considered
 
-1. **Chosen** — One CoreMsg loop owns fast messages (`StartActor`, credentialed admit-before-`PostChange`, `ActorStop`) and live-table access. CoreActorPool.startActor is synchronous prepare (validate, live row, secret) and returns `Result<Credential, string>`; the mailbox writes the ActorStart Ev on EventLog, then pool.schedule fires the body. The mailbox does not wait for the body. CoreActorPool owns the table data, defs, selection, and runner; it does not Use EventLog. Persist mode chooses File or Db handlers; there is no File-with-Db-mirror. Browser Command `graphIds` come from Shared **Included descendant id list** (unfolded context; flat ids; ownership ignored; reusable by Actors). TestActor (outside Core) owns command-Node interpretation (hello) and is passed in as ActorFn. Production callers use the CoreMailbox door; outside proofs may call Pool or Actor at those seams. Matches [[doc/Decisions/0004-core-mailbox-messages-clear-fast.md]], Point 0 loop code (tickets 30–32), and Alan’s lock that the live registry is CoreActorPool’s data.
+1. **Chosen** — One CoreMsg loop owns fast messages (`StartActor`, credentialed admit-before-`PostEvent`, `ActorStop`) and live-table access. CoreActorPool.startActor is synchronous prepare (validate, live row, secret) and returns `Result<Credential, string>`; the mailbox writes the ActorStart Ev on EventLog, then pool.schedule fires the body. The mailbox does not wait for the body. CoreActorPool owns the table data, defs, selection, and runner; it does not Use EventLog. Persist mode chooses File or Db handlers; there is no File-with-Db-mirror. Browser Command `graphIds` come from Shared **Included descendant id list** (unfolded context; flat ids; ownership ignored; reusable by Actors). TestActor (outside Core) owns command-Node interpretation (hello) and is passed in as ActorFn. Production callers use the CoreMailbox door; outside proofs may call Pool or Actor at those seams. Matches [[doc/Decisions/0004-core-mailbox-messages-clear-fast.md]], Point 0 loop code (tickets 30–32), and Alan’s lock that the live registry is CoreActorPool’s data.
 2. **Rejected: mailbox-held second registry** — Keep live rows only in mailbox-loop state and treat the pool as a dumb Task runner. Loses the table as the single live registry; duplicates identity/secret/Focus beside CoreActorPool. Mailbox ownership of access is not a second copy of identity/secret/Focus beside the pool.
 3. **Rejected: nested ActorMsg pump / FileAgent twin mailbox** — Restore a second mailbox or per-agent Actor cases (shape in the stashed [[reports/implement-issue-29-testactor-hello.md]]). File and Db must not start Actor-capable processors. Twin queues for Actor work stay rejected. Violates one-mailbox ordering from [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] and the CoreMailbox-only door from ticket 32.
 4. **Rejected: Actor event sequence outside the mailbox** — A second Actor-only sequence beside CoreMailbox. EventLog is the mailbox store after intake, not a second sequence.
 5. **Deferred past hello** — Cancel, live query, host-stop, post-twice, duplicate terminal, and Interrupted restart stay out of the hello stories. `ActorFailed` is in this slice: same drop as success; TestActor exceptions stop as `ActorFailed`. Record only; do not ticket from Unsettled.
-6. **Chosen Event destination** — One Ev type in `Gambol.Shared`. Mailbox is intake; EventLog is the store; ClientHistory is the Emacs Action view; persistence is the persisted EventLog. `postEvent` is the Changes door. `ActorStart` is the start request; pool `startActor` returns `Result<Credential, string>`. `authority` is on every Ev, stamped from the admitted Caller. Poll returns an Ev tail. There is no destination module named History; [[src/Shared/History.fs]] holds Op, Ev types, Change, ChangeValidation, and the Ev module; the former mailbox History type is now EventLog. Change remains the command-builder product; `Ev.ofChange` / `Ev.asChange` bridge Change and Ev.
+6. **Chosen Event destination** — One Ev type in `Gambol.Shared`. Mailbox is intake; EventLog is the store; ClientHistory is the Emacs Action view; persistence is the persisted EventLog. `postEvents` is the Changes door (Ev list); `postGraphOnly` is graph-only Ev (skips file persist, not EventLog); `postEvent` posts one Ev. `ActorStart` is the start request; pool `startActor` returns `Result<Credential, string>`. `authority` is on every Ev, stamped from the admitted Caller. Poll returns an Ev tail. There is no destination module named History; [[src/Shared/History.fs]] holds Op, Ev types, EventBody, ChangeValidation, and the Ev module; `ChangeAmendment` is its own file; the former mailbox History type is now EventLog. Command builders mint Ev (`EventId.zero`, `commandName`, `EventBody.Change` of Ops). There is no leftover Change record and no `Ev.ofChange` / `Ev.asChange`. One serial is EventId (`eventId`, `getEventId`).
 
 ## 5. Unsettled
 
