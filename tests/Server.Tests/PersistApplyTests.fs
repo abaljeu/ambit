@@ -20,7 +20,7 @@ let private addRootChild text =
       Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ]
 
 let private wireEvent submissionId ops : Ev =
-    { id = EventId.zero
+    { id = EventId.fromJson 99
       submissionId = submissionId
       authority = Authority "Wire"
       commandName = "persist-apply"
@@ -64,7 +64,7 @@ let ``DbAgent applyEvent applies Ev Ops without leftover Change`` () =
 [<Fact>]
 let ``CoreEventDispatch persist apply does not copy Ev to leftover Change`` () =
     let childId, ops = addRootChild "no-change-copy"
-    let event = wireEvent (Guid.NewGuid()) ops
+    let event = { wireEvent (Guid.NewGuid()) ops with id = EventId.zero }
     let persist = FileAgent.persist (FileAgent.create (newTempDir ()))
     let host =
         CoreMailbox.host

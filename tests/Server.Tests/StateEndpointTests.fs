@@ -248,8 +248,8 @@ let ``POST Change and inverse Changes return complete confirmations in request o
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let change, childId = changeAddChild rootId 0 "history-action"
-        let undo = inverseEvent (EventId.fromJson 1) (Guid.NewGuid()) change
-        let redo = inverseEvent (EventId.fromJson 2) (Guid.NewGuid()) undo
+        let undo = inverseEvent EventId.zero (Guid.NewGuid()) change
+        let redo = inverseEvent EventId.zero (Guid.NewGuid()) undo
         let! response = postChanges client testFile [ change; undo; redo ]
         Assert.Equal(HttpStatusCode.OK, response.StatusCode)
         let! ackJson = response.Content.ReadAsStringAsync()
@@ -296,7 +296,7 @@ let ``file backend large paste inverse total response is measured`` () = task {
               yield Op.Replace(Graph.workspacesId, [], children) ] }
     let! pasteResp = postChange client testFile paste
     Assert.Equal(HttpStatusCode.OK, pasteResp.StatusCode)
-    let inverse = inverseEvent (EventId.fromJson 1) (Guid.NewGuid()) paste
+    let inverse = inverseEvent EventId.zero (Guid.NewGuid()) paste
     let sw = System.Diagnostics.Stopwatch.StartNew()
     let! inverseResp = postChange client testFile inverse
     sw.Stop()
@@ -1197,7 +1197,7 @@ let ``file restart keeps inverse Change in EventLog`` () = task {
     let change, _ = changeAddChild rootId 0 "restart-inverse"
     let! createResp = postChange client1 testFile change
     Assert.Equal(HttpStatusCode.OK, createResp.StatusCode)
-    let undo = inverseEvent (EventId.fromJson 1) (Guid.NewGuid()) change
+    let undo = inverseEvent EventId.zero (Guid.NewGuid()) change
     let! undoResp = postChange client1 testFile undo
     Assert.Equal(HttpStatusCode.OK, undoResp.StatusCode)
     let! undoAck = undoResp.Content.ReadAsStringAsync()
@@ -1225,7 +1225,7 @@ let ``DB restart keeps inverse Change in EventLog`` () = task {
     let change, _ = changeAddChild rootId 0 "restart-inverse"
     let! createResp = postChange client1 testFile change
     Assert.Equal(HttpStatusCode.OK, createResp.StatusCode)
-    let undo = inverseEvent (EventId.fromJson 1) (Guid.NewGuid()) change
+    let undo = inverseEvent EventId.zero (Guid.NewGuid()) change
     let! undoResp = postChange client1 testFile undo
     Assert.Equal(HttpStatusCode.OK, undoResp.StatusCode)
     let! undoAck = undoResp.Content.ReadAsStringAsync()
@@ -1259,7 +1259,7 @@ let ``New server uses snapshot + log replay`` () = task {
     let firstChildId = root.children.[0].id
     let ops = [ Op.SetText(firstChildId, "first", "updated") ]
     let change =
-        SpecialNodeTestHelpers.changeEvent "" (EventId.fromJson 1) (Guid.NewGuid()) ops
+        SpecialNodeTestHelpers.changeEvent "" EventId.zero (Guid.NewGuid()) ops
     let! _ = postChange client1 testFile change
 
     use client2 = createClientForDir tempDir

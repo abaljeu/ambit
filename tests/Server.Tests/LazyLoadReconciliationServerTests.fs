@@ -758,7 +758,7 @@ let ``directory reconciliation POST returns failures JSON`` () =
     let _, docsOps =
         FileNodeOps.planCreateOwnedDirectory graph workspaceId "docs"
     let docsChange =
-        SpecialNodeTestHelpers.changeEvent "" (EventId.fromJson 1) (Guid.NewGuid()) docsOps
+        SpecialNodeTestHelpers.changeEvent "" EventId.zero (Guid.NewGuid()) docsOps
     let docsEvent = docsChange
     let docsBody =
         Thoth.Json.Newtonsoft.Encode.toString 0
