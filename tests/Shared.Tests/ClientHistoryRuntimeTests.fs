@@ -5,10 +5,12 @@ open Gambol.Shared
 open Gambol.Shared
 open Xunit
 
-let private textChange n nodeId oldText newText : Change =
+let private textChange n nodeId oldText newText : Ev =
     { id = EventId.fromJson n
       submissionId = Guid.NewGuid()
-      ops = [ Op.SetText(nodeId, oldText, newText) ] }
+      authority = Authority "Browser"
+      commandName = ""
+      body = EventBody.Change [ Op.SetText(nodeId, oldText, newText) ] }
 
 let private clientState graph revision history : ClientSyncState =
     ClientSyncState.create graph revision history
@@ -41,14 +43,16 @@ let ``applyLocalEvent records the submitted Event and Normal transition`` () =
     let graph1, nodeId = Graph.newNode "before" graph0
     let change = textChange 3 nodeId "before" "after"
     let state = clientState graph1 (EventId.fromJson 3) (ClientHistory.clear ())
-    match SyncLogic.applyLocalEvent (Ev.ofChange "Edit node" change) state with
+    match SyncLogic.applyLocalEvent { change with commandName = "Edit node" } state with
     | Error msg -> failwith msg
     | Ok (next, pending) ->
         Assert.Equal("after", next.graph.nodes.[nodeId].text)
         Assert.Equal(EventId.zero, pending.id)
         Assert.Equal("Edit node", pending.commandName)
         Assert.Equal(change.submissionId, pending.submissionId)
-        Assert.Equal<Op list>(change.ops, Ev.ops pending |> Option.defaultValue [])
+        Assert.Equal<Op list>(
+            Ev.ops change |> Option.defaultValue [],
+            Ev.ops pending |> Option.defaultValue [])
         match ClientHistory.undo (Guid.NewGuid()) next.history with
         | None -> failwith "Expected recorded History"
         | Some (inverse, _) ->
@@ -65,7 +69,7 @@ let ``applyLocalUndo projects the inverse through ResidentProjection`` () =
     let change = textChange 3 nodeId "before" "after"
     match
         SyncLogic.applyLocalEvent
-            (Ev.ofChange "Edit node" change)
+            { change with commandName = "Edit node" }
             (clientState graph1 (EventId.fromJson 3) (ClientHistory.clear ()))
     with
     | Error msg -> failwith msg
@@ -90,7 +94,7 @@ let ``applyLocalRedo projects the inverse through ResidentProjection`` () =
     let change = textChange 3 nodeId "before" "after"
     match
         SyncLogic.applyLocalEvent
-            (Ev.ofChange "Edit node" change)
+            { change with commandName = "Edit node" }
             (clientState graph1 (EventId.fromJson 3) (ClientHistory.clear ()))
     with
     | Error msg -> failwith msg
@@ -115,7 +119,7 @@ let ``empty Poll tail preserves ClientHistory`` () =
     let change = textChange 0 nodeId "before" "after"
     let history =
         ClientHistory.clear ()
-        |> ClientHistory.record (Ev.ofChange "Edit node" change)
+        |> ClientHistory.record { change with commandName = "Edit node" }
     let state = clientState graph1 (EventId.fromJson 3) history
     match SyncLogic.applyServerTail [] state with
     | Error msg -> failwith msg
@@ -130,13 +134,15 @@ let ``non-empty Poll tail preserves ClientHistory before projection`` () =
     let change = textChange 0 nodeId "before" "after"
     let history =
         ClientHistory.clear ()
-        |> ClientHistory.record (Ev.ofChange "Edit node" change)
+        |> ClientHistory.record { change with commandName = "Edit node" }
     let state = clientState graph1 (EventId.fromJson 3) history
     let upstream =
         { id = EventId.fromJson 3
           submissionId = Guid.NewGuid()
-          ops = [ Op.SetText(nodeId, "before", "remote") ] }
-    match SyncLogic.applyServerTail [ Ev.ofChange "" upstream ] state with
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [ Op.SetText(nodeId, "before", "remote") ] }
+    match SyncLogic.applyServerTail [ upstream ] state with
     | Error msg -> failwith msg
     | Ok result ->
         Assert.Equal(state.history, result.history)
@@ -149,7 +155,7 @@ let ``package-only Load preserves ClientHistory at the same settled Revision`` (
     let change = textChange 2 (NodeId.New()) "x" "y"
     let history =
         ClientHistory.clear ()
-        |> ClientHistory.record (Ev.ofChange "Edit node" change)
+        |> ClientHistory.record { change with commandName = "Edit node" }
     let state: ClientSyncState =
         ClientSyncState.create graph (EventId.fromJson 4) history
     let loadedEmpty = { ws with children = []; childrenStatus = Loaded }

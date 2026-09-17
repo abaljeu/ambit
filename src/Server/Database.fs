@@ -344,7 +344,6 @@ module Database =
 
     let loadPersistedState
         (connectionString: string)
-        (_decodeChange: string -> Result<Change, string>)
         : Task<State> =
         task {
             let! proj = tryLoadGraphFromProjection connectionString |> Async.AwaitTask

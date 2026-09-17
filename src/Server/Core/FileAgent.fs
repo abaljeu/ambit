@@ -194,9 +194,6 @@ module FileAgent =
         reply.Reply(
             Ok(accepted loaded ackChanges externalChanges persistMessage))
 
-    let private leftoverEvents (changes: Change list) =
-        changes |> List.map (Ev.ofChange "")
-
     let private processPostEvents
         loaded
         (events: Ev list)
@@ -257,10 +254,6 @@ module FileAgent =
                 Ok ()
         applyEvent = fun event graphOnly ->
             processPostEvents loaded [ event ] graphOnly
-        postChange = fun changes ->
-            processPostEvents loaded (leftoverEvents changes) false
-        postGraphOnlyChange = fun changes ->
-            processPostEvents loaded (leftoverEvents changes) true
         snapshotDone = fun _ -> ()
     }
 

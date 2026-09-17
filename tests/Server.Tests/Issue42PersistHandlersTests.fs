@@ -14,16 +14,7 @@ let private requireOk label result =
         Assert.Fail($"{label}: {error}")
         Unchecked.defaultof<_>
 
-let private addRootChild text =
-    let childId = NodeId.New()
-    childId,
-    Ev.ofChange
-        ""
-        { id = EventId.fromJson 0
-          submissionId = Guid.NewGuid()
-          ops =
-            [ Op.NewNode(childId, text)
-              Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
+let private addRootChild text = addRootChildEvent text
 
 [<Fact>]
 let ``getEventsSince returns Ev after postChange`` () = task {

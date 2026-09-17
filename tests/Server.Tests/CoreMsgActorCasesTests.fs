@@ -24,13 +24,7 @@ let private sampleRequest: Gambol.Shared.ActorStart =
       graphIds = [ Graph.rootId ]
       eventId = EventId.fromJson 0 }
 
-let private addRootChild text =
-    let childId = NodeId.New()
-    { id = EventId.fromJson 0
-      submissionId = Guid.NewGuid()
-      ops =
-        [ Op.NewNode(childId, text)
-          Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
+let private addRootChild text = addRootChildEvent text |> snd
 
 let private actorCaller secret =
     { authority = Authority "Actor"
@@ -168,7 +162,7 @@ let ``Actor PostChange with live row reaches PersistHandlers`` () =
     let actorSecret = Credential "actor-live"
     live.Add actorSecret
     withHost pool (fun host -> task {
-        let event = Ev.ofChange "" (addRootChild "actor-hello")
+        let event = addRootChild "actor-hello"
         let! result =
             CoreMailbox.postEvents
                 host
@@ -190,7 +184,7 @@ let ``Actor PostChange without live row is refused before persist`` () =
             CoreMailbox.postEvents
                 host
                 (actorCaller actorSecret)
-                [ Ev.ofChange "" (addRootChild "nope") ]
+                [ addRootChild "nope" ]
             |> Async.StartAsTask
         let! after = handle.getEventId () |> Async.StartAsTask
         Assert.Equal(Error CoreAuth.refuse, result)
@@ -205,7 +199,7 @@ let ``Browser PostChange does not require a live row`` () =
             CoreMailbox.postEvents
                 host
                 testCaller
-                [ Ev.ofChange "" (addRootChild "browser") ]
+                [ addRootChild "browser" ]
             |> Async.StartAsTask
         let accepted = requireOk "Browser post" result
         Assert.Equal(EventId.fromJson 1, accepted.eventId)

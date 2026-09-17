@@ -20,12 +20,6 @@ let ``NodeId round-trip`` () =
     Assert.Equal(nodeId, decoded)
 
 [<Fact>]
-let ``Revision round-trip`` () =
-    let rev = Revision 42
-    let decoded = roundTrip Serialization.encodeRevision Serialization.decodeRevision rev
-    Assert.Equal(rev, decoded)
-
-[<Fact>]
 let ``Node round-trip with Ok name`` () =
     let node =
         Node.Create(
@@ -220,30 +214,19 @@ let ``Op.SetUpdateTime round-trip`` () =
     Assert.Equal(op, decoded)
 
 [<Fact>]
-let ``Change round-trip`` () =
-    let change =
-        { id = EventId.fromJson 5
-          submissionId = System.Guid.NewGuid()
-          ops =
-            [ Op.NewNode(NodeId.New(), "hello")
-              Op.SetText(NodeId.New(), "old", "new")
-              Op.Replace(NodeId.New(), [], [ ChildNode.New() ]) ] }
-    let decoded = roundTrip Serialization.encodeChange Serialization.decodeChange change
-    Assert.Equal(change.id, decoded.id)
-    Assert.Equal<Op list>(change.ops, decoded.ops)
-
-[<Fact>]
 let ``EventBatch round-trip`` () =
     let change =
         { id = EventId.fromJson 5
           submissionId = System.Guid.NewGuid()
-          ops = [ Op.SetText(NodeId.New(), "old", "new") ] }
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [ Op.SetText(NodeId.New(), "old", "new") ] }
     let event: Ev =
         { id = EventId.fromJson 0
           submissionId = change.submissionId
           authority = Gambol.Shared.Authority ""
           commandName = ""
-          body = Gambol.Shared.EventBody.Change change.ops }
+          body = change.body }
     let batch = { events = [ event ] }
     let decoded = roundTrip EventJson.encodeEventBatch EventJson.decodeEventBatch batch
     Assert.Equal<Ev list>(batch.events, decoded.events)
@@ -253,23 +236,27 @@ let ``EventBatch round-trip preserves request order`` () =
     let first =
         { id = EventId.fromJson 5
           submissionId = System.Guid.NewGuid()
-          ops = [ Op.SetText(NodeId.New(), "x", "y") ] }
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [ Op.SetText(NodeId.New(), "x", "y") ] }
     let firstEvent: Ev =
         { id = EventId.fromJson 0
           submissionId = first.submissionId
           authority = Gambol.Shared.Authority ""
           commandName = ""
-          body = Gambol.Shared.EventBody.Change first.ops }
+          body = first.body }
     let second =
         { id = EventId.fromJson 6
           submissionId = System.Guid.NewGuid()
-          ops = [ Op.SetText(NodeId.New(), "a", "b") ] }
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [ Op.SetText(NodeId.New(), "a", "b") ] }
     let secondEvent: Ev =
         { id = EventId.fromJson 0
           submissionId = second.submissionId
           authority = Gambol.Shared.Authority ""
           commandName = ""
-          body = Gambol.Shared.EventBody.Change second.ops }
+          body = second.body }
     let batch = { events = [ firstEvent; secondEvent ] }
     let json = Enc.toString 0 (EventJson.encodeEventBatch batch)
     Assert.DoesNotContain("\"action\":\"undo\"", json)
@@ -306,7 +293,9 @@ let ``ChangeSuccessResponse round-trip with non-empty Changes`` () =
     let change =
         { id = EventId.fromJson 3
           submissionId = System.Guid.NewGuid()
-          ops = [ Op.SetText(NodeId.New(), "old", "new") ] }
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [ Op.SetText(NodeId.New(), "old", "new") ] }
     let response: ChangeSuccessResponse =
         { eventId = EventId.fromJson 7
           buildEpochSec = 100
@@ -314,7 +303,7 @@ let ``ChangeSuccessResponse round-trip with non-empty Changes`` () =
           apiVersion = ApiVersion.current
           isReady = false
           externalChanges = true
-          events = [ Ev.ofChange "" change ]
+          events = [ change ]
           message = Some "stable file update failed"
           bootstrapHash = None }
     let decoded =
@@ -330,7 +319,9 @@ let ``ChangeSuccessResponse round-trip with non-empty Changes`` () =
     Assert.True(decoded.externalChanges)
     Assert.Equal(1, decoded.changes.Length)
     Assert.Equal(change.id, decoded.events.[0].id)
-    Assert.Equal<Op list>(change.ops, Ev.ops decoded.events.[0] |> Option.defaultValue [])
+    Assert.Equal<Op list>(
+        SpecialNodeTestHelpers.eventOps change,
+        Ev.ops decoded.events.[0] |> Option.defaultValue [])
     Assert.Equal(response.message, decoded.message)
 
 [<Fact>]
@@ -411,14 +402,16 @@ let ``LoadResponse round-trip with packages`` () =
     let change =
         { id = EventId.fromJson 2
           submissionId = System.Guid.NewGuid()
-          ops = [ Op.SetText(node.id, "a", "b") ] }
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [ Op.SetText(node.id, "a", "b") ] }
     let response: LoadResponse =
         { eventId = EventId.fromJson 8
           buildEpochSec = 10
           pageBuildEpochSec = 20
           apiVersion = ApiVersion.current
           isReady = false
-          events = [ Ev.ofChange "" change ]
+          events = [ change ]
           packages = [ node ] }
     let decoded =
         roundTrip

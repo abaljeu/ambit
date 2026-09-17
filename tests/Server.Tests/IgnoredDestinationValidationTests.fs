@@ -153,7 +153,7 @@ let ``many new destinations reject ignored and keep gitignore`` () =
 
 let private encodeChange graph parentId name =
     let _, ops = FileNodeOps.planCreateOwnedFile graph parentId name
-    [ { id = EventId.fromJson 0; submissionId = Guid.NewGuid(); ops = ops } ]
+    [ SpecialNodeTestHelpers.changeEventZero "" ops ]
 
 [<SkippableFact>]
 let ``file persist rejects ignored graph state before acceptance`` () =
@@ -163,7 +163,7 @@ let ``file persist rejects ignored graph state before acceptance`` () =
     let agent, _ = createAdmittedFile dataDir
     let body = encodeChange (Graph.create ()) Graph.rootId "blocked.txt"
     let result =
-        (admittedChanges agent).postEvents (List.map (Ev.ofChange "") body)
+        (admittedChanges agent).postEvents (body)
         |> Async.RunSynchronously
     Assert.True(Result.isError result)
     Assert.Equal(EventId.fromJson 0, CoreMailbox.getEventId agent |> Async.RunSynchronously)
@@ -183,7 +183,7 @@ let ``db persist rejects ignored graph state before acceptance`` () = task {
             admittedCredentials
     let body = encodeChange (Graph.create ()) Graph.rootId "blocked.txt"
     let! result =
-        (admittedChanges agent).postEvents (List.map (Ev.ofChange "") body)
+        (admittedChanges agent).postEvents (body)
         |> Async.StartAsTask
     Assert.True(Result.isError result)
     let! revision = CoreMailbox.getEventId agent |> Async.StartAsTask

@@ -50,9 +50,6 @@ module ResidentProjection =
         | Ok (s, false) -> ApplyResult.Unchanged s
         | Ok (s, true) -> ApplyResult.Changed s
 
-    let applyChange (change: Change) (state: State) : ApplyResult =
-        applyOps change.ops state
-
     /// Merge authoritative package Nodes and rebuild Loaded-only indexes.
     let installPackages (packages: Node list) (graph: Graph) : Graph =
         if List.isEmpty packages then

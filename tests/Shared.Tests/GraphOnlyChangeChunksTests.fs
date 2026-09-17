@@ -69,12 +69,8 @@ let ``maxOps stub creates apply well under DbAgent 8s bound`` () =
     let state =
         { graph = graph
           eventId = EventId.zero }
-    let change =
-        { id = EventId.fromJson 0
-          submissionId = System.Guid.NewGuid()
-          ops = ops }
     let sw = Stopwatch.StartNew()
-    match ChangeAmendment.applyChange change state with
+    match ChangeAmendment.applyOps ops state with
     | ApplyResult.Invalid(_, msg), _, _ -> failwith msg
     | _, _, _ -> ()
     sw.Stop()

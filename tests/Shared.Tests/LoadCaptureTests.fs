@@ -144,11 +144,11 @@ let ``packagesForTarget missing target returns empty`` () =
 let ``captureLoadResponse shares revision for changes and packages`` () =
     let graph, wsId, _, fileId = graphWithNestedWorkspace ()
     let events =
-        [ Ev.ofChange
-            "fixture"
-            { id = EventId.fromJson 4
-              submissionId = System.Guid.NewGuid()
-              ops = [ Op.SetText(fileId, "old", "new") ] } ]
+        [ { id = EventId.fromJson 4
+            submissionId = System.Guid.NewGuid()
+            authority = Authority "Browser"
+            commandName = "fixture"
+            body = EventBody.Change [ Op.SetText(fileId, "old", "new") ] } ]
     match
         ResidentProjection.captureLoadResponse
             (EventId.fromJson 9)

@@ -29,16 +29,7 @@ let private withHost actors body =
             CoreMailbox.dispose host
     }
 
-let private addRootChild text =
-    let childId = NodeId.New()
-    childId,
-    Ev.ofChange
-        ""
-        { id = EventId.fromJson 0
-          submissionId = Guid.NewGuid()
-          ops =
-            [ Op.NewNode(childId, text)
-              Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
+let private addRootChild text = addRootChildEvent text
 
 let private wireEvent submissionId body : Ev =
     { id = EventId.fromJson 99
@@ -191,11 +182,11 @@ let ``eventHistory returns full EventLog and eventsSince returns its tail`` () =
         let firstChildId, firstEvent = addRootChild "first"
         let secondChildId = NodeId.New()
         let secondEvent =
-            Ev.ofChange
-                ""
-                { id = EventId.fromJson 0
-                  submissionId = Guid.NewGuid()
-                  ops =
+            { id = EventId.fromJson 0
+              submissionId = Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change
                     [ Op.NewNode(secondChildId, "second")
                       Op.Replace(
                           Graph.rootId,

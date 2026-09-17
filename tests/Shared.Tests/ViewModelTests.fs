@@ -2960,9 +2960,11 @@ let ``MoveToTrash ops apply successfully and node lands under TRASH`` () =
     let change =
         { id = EventId.fromJson 0
           submissionId = System.Guid.NewGuid()
-          ops = [ removeOp; addToTrashOp ] }
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [ removeOp; addToTrashOp ] }
 
-    let result = ChangeValidation.applyChange change state0
+    let result = SpecialNodeTestHelpers.applyChange change state0
 
     match result with
     | ApplyResult.Invalid(_, msg) ->

@@ -83,11 +83,13 @@ let ``nested file parse after upload tree build is accepted`` () =
     let parseChange =
         { id = EventId.fromJson 0
           submissionId = System.Guid.NewGuid()
-          ops =
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change
             [ Op.SetDocumentState(file.id, Unparsed, Current)
               Op.NewNode(parsedId, "parsed")
               Op.Replace(file.id, [], [ attach ]) ] }
-    match ChangeValidation.applyChange parseChange state with
+    match SpecialNodeTestHelpers.applyChange parseChange state with
     | ApplyResult.Changed next ->
         Assert.Equal(Current, next.graph.nodes.[file.id].documentState)
         Assert.Equal(Current, next.graph.nodes.[src.id].documentState)
@@ -611,11 +613,13 @@ let ``directory amb ref to existing owned child keeps owner occurrence`` () =
         let change =
             { id = EventId.fromJson 0
               submissionId = System.Guid.NewGuid()
-              ops = report.ops }
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change report.ops }
         let state =
             { graph = graph1
               eventId = EventId.zero }
-        match ChangeValidation.applyChange change state with
+        match SpecialNodeTestHelpers.applyChange change state with
         | ApplyResult.Invalid(_, msg) ->
             Assert.Fail($"ownership/apply failed: {msg}")
         | ApplyResult.Unchanged _ -> Assert.Fail("expected Changed")

@@ -421,7 +421,7 @@ let ``completeIndent surfaces apply error message`` () =
     Assert.Equal(Some(CmdLastResult.Error (None, applyMsg)), result.lastCmdResult)
 
 [<Fact>]
-let ``indent Directory under Normal sibling is accepted by ChangeValidation.applyChange`` () =
+let ``indent Directory under Normal sibling is accepted by SpecialNodeTestHelpers.applyChange`` () =
     let graph, normalId, dirId = folderBesideNormalGraph ()
     let model = emptyModelAt graph Graph.rootId
     let rootEntry = model.siteMap.entries.[model.siteMap.rootId]
@@ -448,11 +448,13 @@ let ``indent Directory under Normal sibling is accepted by ChangeValidation.appl
     let change =
         { id = selected.eventId
           submissionId = System.Guid.NewGuid()
-          ops = ops }
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change ops }
     let state =
         { graph = graph
           eventId = selected.eventId }
-    match ChangeValidation.applyChange change state with
+    match SpecialNodeTestHelpers.applyChange change state with
     | ApplyResult.Changed s ->
         Assert.True(
             s.graph.nodes.[normalId].children
@@ -511,11 +513,13 @@ let ``indent Ref Directory under Normal succeeds despite foreign name duplicates
     let change =
         { id = selected.eventId
           submissionId = System.Guid.NewGuid()
-          ops = ops }
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change ops }
     let state =
         { graph = graph
           eventId = selected.eventId }
-    match ChangeValidation.applyChange change state with
+    match SpecialNodeTestHelpers.applyChange change state with
     | ApplyResult.Changed s ->
         Assert.True(
             s.graph.nodes.[normalId].children

@@ -4,10 +4,10 @@ open System
 open Gambol.Shared
 open Xunit
 
-let private applied (change: Change) (state: State) : State =
-    match Change.apply change state with
+let private applied (event: Ev) (state: State) : State =
+    match Ev.apply event state with
     | ApplyResult.Changed next -> next
-    | ApplyResult.Unchanged _ -> failwith "expected Change to alter the Graph"
+    | ApplyResult.Unchanged _ -> failwith "expected event to alter the Graph"
     | ApplyResult.Invalid(_, message) -> failwith message
 
 let private reachableIds (graph: Graph) : Set<NodeId> =
@@ -22,13 +22,15 @@ let private reachableIds (graph: Graph) : Set<NodeId> =
 
     walk Set.empty graph.root
 
-let private textChange id nodeId oldText newText : Change =
-    { id = id
-      submissionId = Guid.NewGuid()
-      ops = [ Op.SetText(nodeId, oldText, newText) ] }
+let private textChange id nodeId oldText newText : Ev =
+    SpecialNodeTestHelpers.changeEvent
+        "Edit node"
+        id
+        (Guid.NewGuid())
+        [ Op.SetText(nodeId, oldText, newText) ]
 
-let private recordNamed name change history =
-    ClientHistory.record (Ev.ofChange name change) history
+let private recordNamed name event history =
+    ClientHistory.record { event with commandName = name } history
 
 let private eventOps (event: Ev) =
     Ev.ops event |> Option.defaultValue []
@@ -51,25 +53,23 @@ let ``ordinary inverse reverses Set ops and uses supplied identity`` () =
     let oldTime = DateTime(2026, 8, 15, 12, 0, 0, DateTimeKind.Utc)
     let newTime = oldTime.AddMinutes(1)
     let source =
-        { id = EventId.fromJson 17
-          submissionId = Guid.NewGuid()
-          ops =
+        SpecialNodeTestHelpers.changeEvent
+            "Edit node"
+            (EventId.fromJson 17)
+            (Guid.NewGuid())
             [ Op.SetText(nodeId, "before", "after")
               Op.SetClasses(nodeId, oldClasses, newClasses)
               Op.SetName(nodeId, "old.txt", "new.txt")
               Op.SetDocumentState(nodeId, Current, Unparsed)
-              Op.SetUpdateTime(nodeId, oldTime, newTime) ] }
-    let inverseId = Guid.NewGuid()
-    let inverse = Change.inverse (EventId.fromJson 41) inverseId source
-    Assert.Equal(EventId.fromJson 41, inverse.id)
-    Assert.Equal(inverseId, inverse.submissionId)
+              Op.SetUpdateTime(nodeId, oldTime, newTime) ]
+    let inverse = Op.invertAll (eventOps source)
     Assert.Equal<Op list>(
         [ Op.SetUpdateTime(nodeId, newTime, oldTime)
           Op.SetDocumentState(nodeId, Unparsed, Current)
           Op.SetName(nodeId, "new.txt", "old.txt")
           Op.SetClasses(nodeId, newClasses, oldClasses)
           Op.SetText(nodeId, "after", "before") ],
-        inverse.ops)
+        inverse)
 
 [<Fact>]
 let ``ordinary inverse reverses nested Replace order`` () =
@@ -78,18 +78,17 @@ let ``ordinary inverse reverses nested Replace order`` () =
     let outerChild = ChildNode.owner innerId
     let leaf = ChildNode.owner (NodeId.New())
     let source =
-        { id = EventId.fromJson 0
-          submissionId = Guid.NewGuid()
-          ops =
+        SpecialNodeTestHelpers.changeEventZero
+            "Edit node"
             [ Op.Replace(innerId, [], [ leaf ])
-              Op.Replace(outerId, [], [ outerChild ]) ] }
-    let inverse = Change.inverse EventId.zero (Guid.NewGuid()) source
+              Op.Replace(outerId, [], [ outerChild ]) ]
+    let inverse = Op.invertAll (eventOps source)
     Assert.Equal<Op list>(
         [ Op.Replace(outerId, [ outerChild ], [])
           Op.Replace(innerId, [ leaf ], []) ],
-        inverse.ops)
+        inverse)
 
-let private createPasteScenario () : State * Change * NodeId list =
+let private createPasteScenario () : State * Ev * NodeId list =
     let initial =
         { graph = Graph.create ()
           eventId = EventId.zero }
@@ -97,19 +96,22 @@ let private createPasteScenario () : State * Change * NodeId list =
         Paste.buildPasteOps [ "parent", 0; "child", 1 ]
     let workspaceId = NodeId.New()
     let rootIndex = initial.graph.nodes.[initial.graph.root].children.Length
+    let rootChildren = initial.graph.nodes.[initial.graph.root].children
     let source =
-        { id = EventId.fromJson 0
-          submissionId = Guid.NewGuid()
-          ops =
-            pasteOps
-            @ [ ChildListWire.append initial.graph.root initial.graph.nodes.[initial.graph.root].children (ChildNode.owners topIds)
-                Op.NewSpecialNode(workspaceId, Workspace, "retained")
-                Op.Replace(
-                    Graph.workspacesId,
-                    [],
-                    [ ChildNode.owner workspaceId ]) ] }
+        SpecialNodeTestHelpers.changeEventZero
+            "Paste"
+            (pasteOps
+             @ [ ChildListWire.append
+                    initial.graph.root
+                    rootChildren
+                    (ChildNode.owners topIds)
+                 Op.NewSpecialNode(workspaceId, Workspace, "retained")
+                 Op.Replace(
+                     Graph.workspacesId,
+                     [],
+                     [ ChildNode.owner workspaceId ]) ])
     let createdIds =
-        source.ops
+        eventOps source
         |> List.choose (function
             | Op.NewNode(nodeId, _)
             | Op.NewSpecialNode(nodeId, _, _) -> Some nodeId
@@ -133,7 +135,7 @@ let ``create inverse retains detached nodes and Redo reconnects their identities
             match op with
             | Op.NewNode _ | Op.NewSpecialNode _ -> true
             | _ -> false)
-    let undone = applied (Ev.asChange undo) changed
+    let undone = applied undo changed
     let reachableAfterUndo = reachableIds undone.graph
     createdIds
     |> List.iter (fun nodeId ->
@@ -144,7 +146,7 @@ let ``create inverse retains detached nodes and Redo reconnects their identities
         match ClientHistory.redo (Guid.NewGuid()) afterUndo with
         | None -> failwith "expected create Redo"
         | Some (event, _) -> event
-    let redone = applied (Ev.asChange redo) undone
+    let redone = applied redo undone
     let reachableAfterRedo = reachableIds redone.graph
     createdIds
     |> List.iter (fun nodeId ->
@@ -158,7 +160,8 @@ let ``approve stamps EventId.zero by submissionId`` () =
         ClientHistory.clear ()
         |> recordNamed "Edit node" source
     let confirmed =
-        { Ev.ofChange "Edit node" source with
+        { source with
+            commandName = "Edit node"
             id = EventId.fromJson 9 }
     let approved = ClientHistory.approve [ confirmed ] recorded
     match ClientHistory.undoEvent approved with
@@ -182,7 +185,8 @@ let ``approve stamps Undo target written while original id was zero`` () =
         | EventBody.Undo(target, _) -> Assert.Equal(EventId.zero, target)
         | _ -> failwith "expected Undo body"
         let confirmed =
-            { Ev.ofChange "Edit node" source with
+            { source with
+                commandName = "Edit node"
                 id = EventId.fromJson 9 }
         let approved = ClientHistory.approve [ confirmed ] undone
         match ClientHistory.tryPeekRedoEvent approved with
@@ -196,9 +200,11 @@ let ``approve stamps Undo target written while original id was zero`` () =
 [<Fact>]
 let ``record keeps EventId.zero and does not mint a local id`` () =
     let change =
-        { id = EventId.fromJson 7
-          submissionId = Guid.NewGuid()
-          ops = [] }
+        SpecialNodeTestHelpers.changeEvent
+            "Edit node"
+            (EventId.fromJson 7)
+            (Guid.NewGuid())
+            []
     let recorded =
         ClientHistory.clear ()
         |> recordNamed "Edit node" change
@@ -252,7 +258,7 @@ let ``Redo moves the same logical record and keeps its exact command name`` () =
         Assert.Equal("Name kept verbatim", redo.commandName)
         Assert.Equal(EventId.zero, redo.id)
         Assert.Equal(redoId, redo.submissionId)
-        Assert.Equal<Op list>(source.ops, eventOps redo)
+        Assert.Equal<Op list>(eventOps source, eventOps redo)
 
 [<Theory>]
 [<InlineData("Edit node")>]
@@ -341,7 +347,7 @@ let ``Undo and Redo retain only their submitted local Changes`` () =
         [ Op.SetText(nodeId, "new", "old") ],
         eventOps undo)
     Assert.Equal(redoId, redo.submissionId)
-    Assert.Equal<Op list>(source.ops, eventOps redo)
+    Assert.Equal<Op list>(eventOps source, eventOps redo)
     match ClientHistory.undo (Guid.NewGuid()) redone with
     | None -> failwith "expected Undo"
     | Some (nextUndo, _) ->

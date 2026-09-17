@@ -1,6 +1,31 @@
 module SpecialNodeTestHelpers
 
+open System
 open Gambol.Shared
+
+let eventOps (event: Ev) =
+    Ev.ops event |> Option.defaultValue []
+
+let changeEvent commandName (id: EventId) submissionId ops : Ev =
+    { id = id
+      submissionId = submissionId
+      authority = Authority "Browser"
+      commandName = commandName
+      body = EventBody.Change ops }
+
+let changeEventZero commandName ops =
+    changeEvent commandName EventId.zero (Guid.NewGuid()) ops
+
+let applyChange (event: Ev) (state: State) =
+    ChangeValidation.applyOps (eventOps event) state
+
+let inverseEvent (id: EventId) submissionId (event: Ev) : Ev =
+    { event with
+        id = id
+        submissionId = submissionId
+        body =
+            EventBody.Change(
+                Ev.inverseOps event |> Option.defaultValue []) }
 
 /// Predicate: true for nodes that are not special (i.e. Normal).
 let isUserNode (node: Node) =

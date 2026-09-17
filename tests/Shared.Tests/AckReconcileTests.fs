@@ -18,23 +18,25 @@ let private sending items =
         syncState = Sending 1 }
 
 let private confirm (item: Ev) suffix : Ev =
-    let change = Ev.asChange item
-    Ev.ofChange "" { change with ops = change.ops @ suffix }
+    { item with
+        body = EventBody.Change (SpecialNodeTestHelpers.eventOps item @ suffix) }
 
 let private stamp nodeId =
     Op.SetUpdateTime(nodeId, NodeUpdateTime.missing, stampTime)
 
-let private textChange id nodeId oldText newText : Change =
+let private textChange id nodeId oldText newText : Ev =
     { id = id
       submissionId = Guid.NewGuid()
-      ops = [ Op.SetText(nodeId, oldText, newText) ] }
+      authority = Authority "Browser"
+      commandName = ""
+      body = EventBody.Change [ Op.SetText(nodeId, oldText, newText) ] }
 
 let private seededEdit () =
     let graph0 = Graph.create ()
     let graph1, nodeId = Graph.newNode "before" graph0
     let change = textChange EventId.zero nodeId "before" "after"
     let state0 = clientState graph1 (EventId.fromJson 0) (ClientHistory.clear ())
-    match SyncLogic.applyLocalEvent (Ev.ofChange "Edit node" change) state0 with
+    match SyncLogic.applyLocalEvent { change with commandName = "Edit node" } state0 with
     | Error msg -> failwith msg
     | Ok (state, pending) -> nodeId, state, pending
 
@@ -198,11 +200,11 @@ let ``late duplicate response is ignored when identities are retired`` () =
 let ``rejected ACK leaves graph revision History and pending unchanged`` () =
     let nodeId, state, pending = seededEdit ()
     let confirmed =
-        [ Ev.ofChange ""
-              { Ev.asChange pending with
-                  ops =
-                      (Ev.asChange pending).ops
-                      @ [ Op.SetText(nodeId, "after", "nope") ] } ]
+        [ { pending with
+              body =
+                EventBody.Change
+                    (SpecialNodeTestHelpers.eventOps pending
+                     @ [ Op.SetText(nodeId, "after", "nope") ]) } ]
     let syncInfo = sending [ pending ]
     let result =
         SyncLogic.reconcileAck [ pending ] confirmed (EventId.fromJson 1) state syncInfo
@@ -277,11 +279,11 @@ let ``reordered confirmation is rejected atomically`` () =
 [<Fact>]
 let ``unmatched confirmation is rejected atomically`` () =
     let _, state, pending = seededEdit ()
-    let other = { Ev.asChange pending with submissionId = Guid.NewGuid() }
+    let other = { pending with submissionId = Guid.NewGuid() }
     let result =
         SyncLogic.reconcileAck
             [ pending ]
-            [ Ev.ofChange "" other ]
+            [ other ]
             (EventId.fromJson 1)
             state
             (sending [ pending ])
@@ -291,10 +293,8 @@ let ``unmatched confirmation is rejected atomically`` () =
 let ``changed-prefix confirmation is rejected atomically`` () =
     let nodeId, state, pending = seededEdit ()
     let confirmed =
-        [ Ev.ofChange
-            ""
-            { Ev.asChange pending with
-                ops = [ Op.SetText(nodeId, "before", "other") ] } ]
+        [ { pending with
+              body = EventBody.Change [ Op.SetText(nodeId, "before", "other") ] } ]
     let result =
         SyncLogic.reconcileAck
             [ pending ]
@@ -337,11 +337,11 @@ let ``forward-Revision late response is rejected atomically`` () =
 let ``forbidden-suffix confirmation is rejected atomically`` () =
     let nodeId, state, pending = seededEdit ()
     let confirmed =
-        [ Ev.ofChange ""
-              { Ev.asChange pending with
-                  ops =
-                      (Ev.asChange pending).ops
-                      @ [ Op.SetText(nodeId, "after", "nope") ] } ]
+        [ { pending with
+              body =
+                EventBody.Change
+                    (SpecialNodeTestHelpers.eventOps pending
+                     @ [ Op.SetText(nodeId, "after", "nope") ]) } ]
     let result =
         SyncLogic.reconcileAck
             [ pending ]
@@ -375,9 +375,9 @@ let ``externalChanges ACK notes catch-up without rejecting or changing graph`` (
 let ``amended confirmation echo routes through external ACK not Reject`` () =
     let nodeId, state, pending = seededEdit ()
     let amended =
-        [ Ev.ofChange ""
-              { Ev.asChange pending with
-                  ops = [ Op.SetText(nodeId, "before", "server-amended") ] } ]
+        [ { pending with
+              body =
+                EventBody.Change [ Op.SetText(nodeId, "before", "server-amended") ] } ]
     let result =
         SyncLogic.reconcileExternalAck
             [ pending ]

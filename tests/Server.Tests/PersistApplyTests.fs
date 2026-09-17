@@ -66,18 +66,10 @@ let ``CoreEventDispatch persist apply does not copy Ev to leftover Change`` () =
     let childId, ops = addRootChild "no-change-copy"
     let event = wireEvent (Guid.NewGuid()) ops
     let persist = FileAgent.persist (FileAgent.create (newTempDir ()))
-    let filling =
-        { persist with
-            handlers =
-                { persist.handlers with
-                    postChange =
-                        fun _ -> Error "leftover Change apply must not run"
-                    postGraphOnlyChange =
-                        fun _ -> Error "leftover Change apply must not run" } }
     let host =
         CoreMailbox.host
             (CoreActorPool.create ())
-            filling
+            persist
             admittedCredentials
     try
         let stored =

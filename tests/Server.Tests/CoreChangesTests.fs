@@ -27,19 +27,15 @@ let private decodeChangeResponse json =
     |> requireOk "decode response"
 
 let private addRootChild revision text =
-    let childId = NodeId.New()
-    { id = EventId.fromJson revision
-      submissionId = Guid.NewGuid()
-      ops =
-        [ Op.NewNode(childId, text)
-          Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
+    let _, event = addRootChildEvent text
+    { event with id = EventId.fromJson revision }
 
 [<Fact>]
 let ``typed Normal caller publishes accepted Change to Poll`` () = task {
     let dataDir = newTempDir ()
     let agent, handle = createAdmittedFile dataDir
     try
-        let event = Ev.ofChange "" (addRootChild 0 "typed caller")
+        let event = addRootChild 0 "typed caller"
         let! accepted =
             handle.postEvents [ event ]
             |> Async.StartAsTask
@@ -80,16 +76,15 @@ let private produceFromSubgraph
             | None -> []
         let childId = NodeId.New()
         let event =
-            Ev.ofChange
+            changeEvent
                 ""
-                { id = EventId.fromJson 0
-                  submissionId = Guid.NewGuid()
-                  ops =
-                    [ Op.NewNode(childId, "test Actor")
-                      Op.Replace(
-                          Graph.rootId,
-                          priorChildren,
-                          priorChildren @ [ ChildNode.owner childId ]) ] }
+                EventId.zero
+                (Guid.NewGuid())
+                [ Op.NewNode(childId, "test Actor")
+                  Op.Replace(
+                      Graph.rootId,
+                      priorChildren,
+                      priorChildren @ [ ChildNode.owner childId ]) ]
         return! handle.postEvents [ event ]
     }
 
@@ -146,8 +141,7 @@ let private recordingHandle (posts: ResizeArray<Ev list>) =
 let ``HTTP Adapter passes typed Changes only after valid decode`` () = task {
     let posts = ResizeArray<Ev list>()
     let handle = recordingHandle posts
-    let change = addRootChild 0 "adapter"
-    let event = eventFromChange change
+    let event = addRootChild 0 "adapter"
     let validBody =
         Encode.toString 0 (
             EventJson.encodeEventBatch

@@ -16,13 +16,7 @@ let private requireOk label result =
         Assert.Fail($"{label}: {err}")
         Unchecked.defaultof<_>
 
-let private addRootChild text =
-    let childId = NodeId.New()
-    { id = EventId.fromJson 0
-      submissionId = System.Guid.NewGuid()
-      ops =
-        [ Op.NewNode(childId, text)
-          Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
+let private addRootChild text = addRootChildEvent text |> snd
 
 let private fileRuntime () =
     let dataDir = newTempDir ()
@@ -60,7 +54,7 @@ let ``bound Changes refuses an inactive sender and does not enqueue`` () =
                 runtime.host
                 (BrowserRequestCreds.callerFromSecret (Credential "inactive"))
         let! before = bound.getEventId () |> Async.StartAsTask
-        let event = Ev.ofChange "" (addRootChild "refused")
+        let event = addRootChild "refused"
         let! result =
             bound.postEvents [ event ] 
             |> Async.StartAsTask
@@ -72,7 +66,7 @@ let ``bound Changes refuses an inactive sender and does not enqueue`` () =
 [<Fact>]
 let ``bound Browser Changes admits a live Browser cookie credential`` () = task {
     let runtime = fileRuntime ()
-    let event = Ev.ofChange "" (addRootChild "admitted")
+    let event = addRootChild "admitted"
     let! result =
         (browserHandle runtime "alice" "secret").postEvents [ event ]
         |> Async.StartAsTask
@@ -96,8 +90,7 @@ let ``HTTP Adapter refuses inactive Core sender with 401 and does not enqueue``
                       secret = Credential "inactive" }
                     handle
             let! before = handle.getEventId () |> Async.StartAsTask
-            let change = addRootChild "http"
-            let event = eventFromChange change
+            let event = addRootChild "http"
             let body =
                 Encode.toString 0 (
                     Gambol.Shared.EventJson.encodeEventBatch
@@ -117,8 +110,7 @@ let ``HTTP Adapter enqueues when Browser credential is live`` () = task {
     let dataDir = newTempDir ()
     let agent, handle, _ = createAdmittedFileWithCredentials dataDir
     try
-        let change = addRootChild "http-live"
-        let event = eventFromChange change
+        let event = addRootChild "http-live"
         let body =
             Encode.toString 0 (
                 Gambol.Shared.EventJson.encodeEventBatch { events = [ event ] })
@@ -168,7 +160,7 @@ let ``CoreRuntime seeds a Parse process Caller distinct from Browser cookie`` ()
         let! parseLive =
             CoreMailbox.isAdmitted runtime.host runtime.parseCaller
             |> Async.StartAsTask
-        let event = Ev.ofChange "" (addRootChild "parse-process")
+        let event = addRootChild "parse-process"
         let! posted =
             CoreMailbox.postGraphOnly
                 runtime.host

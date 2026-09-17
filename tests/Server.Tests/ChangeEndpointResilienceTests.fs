@@ -116,8 +116,10 @@ let ``SetText persists SYSTEM user css and server remains responsive`` () = task
     let change =
         { id = EventId.fromJson revision
           submissionId = Guid.Parse("93a26b25-272f-4c48-916b-4045a2ba37a1")
-          ops = [ Op.SetText(cssNodeId, "block", "\"background\" : #fff") ] }
-    let event = eventFromChange change
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [ Op.SetText(cssNodeId, "block", "\"background\" : #fff") ] }
+    let event = change
     let body =
         Encode.toString 0 (
             EventJson.encodeEventBatch

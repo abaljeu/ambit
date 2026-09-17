@@ -85,18 +85,18 @@ let private getStateJsonFull (client: HttpClient) (_file: string) = task {
     return! resp.Content.ReadAsStringAsync()
 }
 
-let private encodeEventBatchBody (changes: Change list) =
-    let events = changes |> List.map eventFromChange
+let private encodeEventBatchBody (changes: Ev list) =
+    let events = changes 
     Encode.toString 0 (EventJson.encodeEventBatch { events = events })
 
 /// POST /ambit/events with a change and return the raw response.
-let private postChange (client: HttpClient) (_file: string) (change: Change) = task {
+let private postChange (client: HttpClient) (_file: string) (change: Ev) = task {
     let body = encodeEventBatchBody [ change ]
     let content = new StringContent(body, Encoding.UTF8, "application/json")
     return! client.PostAsync("/ambit/events", content)
 }
 
-let private postChanges (client: HttpClient) (_file: string) (changes: Change list) = task {
+let private postChanges (client: HttpClient) (_file: string) (changes: Ev list) = task {
     let body = encodeEventBatchBody changes
     let content = new StringContent(body, Encoding.UTF8, "application/json")
     return! client.PostAsync("/ambit/events", content)
@@ -105,28 +105,30 @@ let private postChanges (client: HttpClient) (_file: string) (changes: Change li
 let private ownedChild (id: NodeId) : ChildNode list =
     ChildNode.owners [ id ]
 
-let private assertExactPrefix (submitted: Change) (confirmed: Change) =
+let private assertExactPrefix (submitted: Ev) (confirmed: Ev) =
     Assert.Equal(submitted.submissionId, confirmed.submissionId)
     Assert.True(
-        confirmed.ops.Length >= submitted.ops.Length,
+        (eventOps confirmed).Length >= (eventOps submitted).Length,
         "confirmation must keep submitted ops as a prefix")
     Assert.Equal<Op list>(
-        submitted.ops,
-        List.take submitted.ops.Length confirmed.ops)
-    confirmed.ops
-    |> List.skip submitted.ops.Length
+        (eventOps submitted),
+        List.take (eventOps submitted).Length (eventOps confirmed))
+    (eventOps confirmed)
+    |> List.skip (eventOps submitted).Length
     |> List.iter (fun op ->
         match op with
         | Op.SetUpdateTime _ -> ()
         | _ -> failwith "stamp enrichment must be SetUpdateTime-only")
 
 /// Build a change (base revision `rev`) that adds one child under root; returns change + child id.
-let private changeAddChild (rootId: NodeId) (rev: int) (childText: string) : Change * NodeId =
+let private changeAddChild (rootId: NodeId) (rev: int) (childText: string) : Ev * NodeId =
     let childId = NodeId.New()
     let c =
         { id = EventId.fromJson rev
           submissionId = Guid.NewGuid()
-          ops =
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change
             [ Op.NewNode(childId, childText)
               Op.Replace(rootId, [], ownedChild childId) ] }
     c, childId
@@ -154,7 +156,7 @@ let private stateWithChild (text: string) =
 
     let change, _ = changeAddChild Graph.rootId 0 text
 
-    match ChangeValidation.applyChange change initialState with
+    match applyChange change initialState with
     | ApplyResult.Changed st -> { st with eventId = EventId.fromJson 1 }
     | ApplyResult.Unchanged _ -> failwith "Expected file bootstrap change to apply"
     | ApplyResult.Invalid (_, err) -> failwith $"Expected valid bootstrap change: {err}"
@@ -246,8 +248,8 @@ let ``POST Change and inverse Changes return complete confirmations in request o
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let change, childId = changeAddChild rootId 0 "history-action"
-        let undo = Change.inverse (EventId.fromJson 1) (Guid.NewGuid()) change
-        let redo = Change.inverse (EventId.fromJson 2) (Guid.NewGuid()) undo
+        let undo = inverseEvent (EventId.fromJson 1) (Guid.NewGuid()) change
+        let redo = inverseEvent (EventId.fromJson 2) (Guid.NewGuid()) undo
         let! response = postChanges client testFile [ change; undo; redo ]
         Assert.Equal(HttpStatusCode.OK, response.StatusCode)
         let! ackJson = response.Content.ReadAsStringAsync()
@@ -260,7 +262,7 @@ let ``POST Change and inverse Changes return complete confirmations in request o
         Assert.Equal<Guid list>(
             [ change.submissionId; undo.submissionId; redo.submissionId ],
             post.changes |> List.map (fun confirmed -> confirmed.submissionId))
-        List.iter2 assertExactPrefix [ change; undo; redo ] (post.changes |> List.map Ev.asChange)
+        List.iter2 assertExactPrefix [ change; undo; redo ] (post.changes )
         let! stateJson = getStateJson client testFile
         Assert.Equal("history-action", (decodeGraph stateJson).nodes.[childId].text)
         let! pollResponse = client.GetAsync("/ambit/poll?rev=0")
@@ -286,13 +288,15 @@ let ``file backend large paste inverse total response is measured`` () = task {
     let paste =
         { id = EventId.fromJson 0
           submissionId = Guid.NewGuid()
-          ops =
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change
             [ for i, child in List.indexed children ->
                 Op.NewNode(child.id, "line " + string i)
               yield Op.Replace(Graph.workspacesId, [], children) ] }
     let! pasteResp = postChange client testFile paste
     Assert.Equal(HttpStatusCode.OK, pasteResp.StatusCode)
-    let inverse = Change.inverse (EventId.fromJson 1) (Guid.NewGuid()) paste
+    let inverse = inverseEvent (EventId.fromJson 1) (Guid.NewGuid()) paste
     let sw = System.Diagnostics.Stopwatch.StartNew()
     let! inverseResp = postChange client testFile inverse
     sw.Stop()
@@ -320,7 +324,9 @@ let ``POST unchanged submission is rejected`` (backend: BackendKind) =
         let noOp =
             { id = EventId.fromJson 0
               submissionId = Guid.NewGuid()
-              ops = [] }
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change [] }
         let! response = postChange client testFile noOp
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode)
         let! body = response.Content.ReadAsStringAsync()
@@ -359,7 +365,9 @@ let ``POST changes SetText changes child text and bumps revision`` (backend: Bac
         let change =
             { id = EventId.fromJson 1
               submissionId = Guid.NewGuid()
-              ops = [ Op.SetText(childId, "", "hello") ] }
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change [ Op.SetText(childId, "", "hello") ] }
         let! resp = postChange client testFile change
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
 
@@ -382,7 +390,9 @@ let ``POST changes NewNode+Replace adds child to root`` (backend: BackendKind) =
         let change =
             { id = EventId.fromJson 0
               submissionId = Guid.NewGuid()
-              ops =
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change
                 [ Op.NewNode(childId, "child")
                   Op.Replace(rootId, [], [ ChildNode.owner childId ]) ] }
 
@@ -417,7 +427,9 @@ let ``POST changes with bad op returns 400`` (backend: BackendKind) =
         let change =
             { id = EventId.fromJson 0
               submissionId = Guid.NewGuid()
-              ops = [ Op.SetText(bogusId, "wrong", "new") ] }
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change [ Op.SetText(bogusId, "wrong", "new") ] }
         let! resp = postChange client testFile change
         Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode)
         let! body = resp.Content.ReadAsStringAsync()
@@ -437,7 +449,9 @@ let ``POST changes twice bumps revision to 2`` (backend: BackendKind) =
         let change2 =
             { id = EventId.fromJson 1
               submissionId = Guid.NewGuid()
-              ops = [ Op.SetText(childId, "first", "second") ] }
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change [ Op.SetText(childId, "first", "second") ] }
         let! resp2 = postChange client testFile change2
         Assert.Equal(HttpStatusCode.OK, resp2.StatusCode)
 
@@ -458,7 +472,9 @@ let ``POST changes batch with two changes bumps revision to 2`` (backend: Backen
         let change2 =
             { id = EventId.fromJson 1
               submissionId = Guid.NewGuid()
-              ops = [ Op.SetText(childId, "first", "second") ] }
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change [ Op.SetText(childId, "first", "second") ] }
 
         let! resp = postChanges client testFile [ change1; change2 ]
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
@@ -485,7 +501,9 @@ let ``POST changes batch with bad second change keeps earlier items``
         let bad =
             { id = EventId.fromJson 1
               submissionId = Guid.NewGuid()
-              ops = [ Op.SetText(NodeId.New(), "old", "new") ] }
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change [ Op.SetText(NodeId.New(), "old", "new") ] }
 
         let! resp = postChanges client testFile [ change1; bad ]
         Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode)
@@ -517,7 +535,9 @@ let ``POST changes persists in GET state`` (backend: BackendKind) =
             postChange client testFile
                 { id = EventId.fromJson 1
                   submissionId = Guid.NewGuid()
-                  ops = [ Op.SetText(childId, "", "persisted") ] }
+                  authority = Authority "Browser"
+                  commandName = ""
+                  body = EventBody.Change [ Op.SetText(childId, "", "persisted") ] }
 
         let! json = getStateJson client testFile
         Assert.Equal(EventId.fromJson 2, decodeRevision json)
@@ -535,7 +555,9 @@ let ``POST same submissionId twice is idempotent`` (backend: BackendKind) =
         let change =
             { id = EventId.fromJson 0
               submissionId = cid
-              ops =
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change
                 [ Op.NewNode(childId, "once")
                   Op.Replace(rootId, [], ownedChild childId) ] }
 
@@ -573,7 +595,9 @@ let ``POST with stale base revision and valid SetText succeeds`` (backend: Backe
         let stale =
             { id = EventId.fromJson 5
               submissionId = Guid.NewGuid()
-              ops = [ Op.SetText(childId, "", "x") ] }
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change [ Op.SetText(childId, "", "x") ] }
         let! resp = postChange client testFile stale
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
 
@@ -603,7 +627,9 @@ let ``POST unrelated attribute edits with stale revision both succeed``
         let setupY =
             { id = EventId.fromJson 1
               submissionId = Guid.NewGuid()
-              ops =
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change
                 [ Op.NewNode(nodeY, "y0")
                   Op.Replace(
                       rootId,
@@ -617,14 +643,18 @@ let ``POST unrelated attribute edits with stale revision both succeed``
         let changeA =
             { id = EventId.fromJson 2
               submissionId = Guid.NewGuid()
-              ops = [ Op.SetText(nodeY, "y0", "yA") ] }
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change [ Op.SetText(nodeY, "y0", "yA") ] }
         let! rA = postChange client testFile changeA
         Assert.Equal(HttpStatusCode.OK, rA.StatusCode)
 
         let changeB =
             { id = EventId.fromJson 2
               submissionId = Guid.NewGuid()
-              ops = [ Op.SetText(nodeX, "x0", "xB") ] }
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change [ Op.SetText(nodeX, "x0", "xB") ] }
         let! rB = postChange client testFile changeB
         Assert.Equal(HttpStatusCode.OK, rB.StatusCode)
 
@@ -653,14 +683,18 @@ let ``POST concurrent stale text Changes amend second as amb-conflict child``
         let changeA =
             { id = EventId.fromJson 1
               submissionId = Guid.NewGuid()
-              ops = [ Op.SetText(nodeX, "x0", "xA") ] }
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change [ Op.SetText(nodeX, "x0", "xA") ] }
         let! rA = postChange client testFile changeA
         Assert.Equal(HttpStatusCode.OK, rA.StatusCode)
 
         let changeB =
             { id = EventId.fromJson 1
               submissionId = Guid.NewGuid()
-              ops = [ Op.SetText(nodeX, "x0", "xB") ] }
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change [ Op.SetText(nodeX, "x0", "xB") ] }
         let! rB = postChange client testFile changeB
         Assert.Equal(HttpStatusCode.OK, rB.StatusCode)
 
@@ -687,7 +721,9 @@ let ``POST concurrent stale name Changes amend second as amb-conflict child``
         let setup =
             { id = EventId.fromJson 0
               submissionId = Guid.NewGuid()
-              ops =
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change
                 [ Op.NewNode(nodeId, "body")
                   Op.SetName(nodeId, "", "alpha")
                   Op.Replace(rootId, [], ownedChild nodeId) ] }
@@ -697,14 +733,18 @@ let ``POST concurrent stale name Changes amend second as amb-conflict child``
         let changeA =
             { id = EventId.fromJson 1
               submissionId = Guid.NewGuid()
-              ops = [ Op.SetName(nodeId, "alpha", "nameA") ] }
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change [ Op.SetName(nodeId, "alpha", "nameA") ] }
         let! rA = postChange client testFile changeA
         Assert.Equal(HttpStatusCode.OK, rA.StatusCode)
 
         let changeB =
             { id = EventId.fromJson 1
               submissionId = Guid.NewGuid()
-              ops = [ Op.SetName(nodeId, "alpha", "nameB") ] }
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change [ Op.SetName(nodeId, "alpha", "nameB") ] }
         let! rB = postChange client testFile changeB
         Assert.Equal(HttpStatusCode.OK, rB.StatusCode)
 
@@ -729,7 +769,9 @@ let ``POST concurrent stale class Changes merge set delta and succeed``
         let setup =
             { id = EventId.fromJson 0
               submissionId = Guid.NewGuid()
-              ops =
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change
                 [ Op.NewNode(nodeId, "tagged")
                   Op.SetClasses(nodeId, CssClass.empty, prior)
                   Op.Replace(rootId, [], ownedChild nodeId) ] }
@@ -739,14 +781,18 @@ let ``POST concurrent stale class Changes merge set delta and succeed``
         let changeA =
             { id = EventId.fromJson 1
               submissionId = Guid.NewGuid()
-              ops = [ Op.SetClasses(nodeId, prior, CssClass.ofList [ "b" ]) ] }
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change [ Op.SetClasses(nodeId, prior, CssClass.ofList [ "b" ]) ] }
         let! rA = postChange client testFile changeA
         Assert.Equal(HttpStatusCode.OK, rA.StatusCode)
 
         let changeB =
             { id = EventId.fromJson 1
               submissionId = Guid.NewGuid()
-              ops =
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change
                 [ Op.SetClasses(nodeId, prior, CssClass.ofList [ "a"; "b"; "c" ]) ] }
         let! rB = postChange client testFile changeB
         Assert.Equal(HttpStatusCode.OK, rB.StatusCode)
@@ -772,7 +818,9 @@ let ``POST unrelated structural edits with stale revision both succeed``
         let setupParents =
             { id = EventId.fromJson 0
               submissionId = Guid.NewGuid()
-              ops =
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change
                 [ Op.NewNode(parentP1, "p1")
                   Op.NewNode(parentP2, "p2")
                   Op.Replace(rootId, [], [ ChildNode.owner parentP1; ChildNode.owner parentP2 ]) ] }
@@ -783,7 +831,9 @@ let ``POST unrelated structural edits with stale revision both succeed``
         let changeA =
             { id = EventId.fromJson 1
               submissionId = Guid.NewGuid()
-              ops =
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change
                 [ Op.NewNode(childA, "a")
                   Op.Replace(parentP1, [], ownedChild childA) ] }
         let! rA = postChange client testFile changeA
@@ -793,7 +843,9 @@ let ``POST unrelated structural edits with stale revision both succeed``
         let changeB =
             { id = EventId.fromJson 1
               submissionId = Guid.NewGuid()
-              ops =
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change
                 [ Op.NewNode(childB, "b")
                   Op.Replace(parentP2, [], ownedChild childB) ] }
         let! rB = postChange client testFile changeB
@@ -826,7 +878,9 @@ let ``POST same-parent structural collision amends and succeeds``
         let setup =
             { id = EventId.fromJson 0
               submissionId = Guid.NewGuid()
-              ops =
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change
                 [ Op.NewNode(parentP, "p")
                   Op.NewNode(child0, "c0")
                   Op.Replace(rootId, [], ownedChild parentP)
@@ -838,7 +892,9 @@ let ``POST same-parent structural collision amends and succeeds``
         let changeA =
             { id = EventId.fromJson 1
               submissionId = Guid.NewGuid()
-              ops =
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change
                 [ Op.NewNode(childA, "a")
                   Op.Replace(parentP, ownedChild child0, ownedChild childA) ] }
         let! rA = postChange client testFile changeA
@@ -848,7 +904,9 @@ let ``POST same-parent structural collision amends and succeeds``
         let changeB =
             { id = EventId.fromJson 1
               submissionId = Guid.NewGuid()
-              ops =
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change
                 [ Op.NewNode(childB, "b")
                   Op.Replace(parentP, ownedChild child0, ownedChild childB) ] }
         let! rB = postChange client testFile changeB
@@ -877,7 +935,9 @@ let ``POST duplicate submissionId with stale revision stays idempotent``
         let change =
             { id = EventId.fromJson 0
               submissionId = cid
-              ops =
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change
                 [ Op.NewNode(childId, "once")
                   Op.Replace(rootId, [], ownedChild childId) ] }
 
@@ -904,12 +964,19 @@ let ``POST duplicate submissionId with stale revision stays idempotent``
 // ---- Change log + persistence tests (file backend only) ----
 
 /// Submit a NewNode+Replace that adds a child with the given text under root.
-let private addChild (client: HttpClient) (file: string) (rootId: NodeId) (rev: Revision) (text: string) = task {
-    let change, childId = changeAddChild rootId rev.Value text
-    let! resp = postChange client file change
-    Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
-    return childId
-}
+let private addChild
+    (client: HttpClient)
+    (file: string)
+    (rootId: NodeId)
+    (rev: EventId)
+    (text: string)
+    =
+    task {
+        let change, childId = changeAddChild rootId rev.Value text
+        let! resp = postChange client file change
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
+        return childId
+    }
 
 [<Fact>]
 let ``POST changes creates log file`` () = task {
@@ -918,7 +985,7 @@ let ``POST changes creates log file`` () = task {
     let! json0 = getStateJson client testFile
     let rootId = (decodeGraph json0).root
 
-    let! _ = addChild client testFile rootId (Revision 0) "logged"
+    let! _ = addChild client testFile rootId (EventId.fromJson 0) "logged"
 
     let logPath = EventLogFile.eventsPath tempDir
     Assert.True(File.Exists(logPath), "Events file should exist after first change")
@@ -933,7 +1000,7 @@ let ``Snapshot writes amb artifacts asynchronously after change`` () = task {
     let! json0 = getStateJson client testFile
     let rootId = (decodeGraph json0).root
 
-    let! _ = addChild client testFile rootId (Revision 0) "snapped"
+    let! _ = addChild client testFile rootId (EventId.fromJson 0) "snapped"
 
     do! Task.Delay(500)
 
@@ -955,7 +1022,7 @@ let ``Log contains valid change data after POST`` () = task {
     let! json0 = getStateJson client testFile
     let rootId = (decodeGraph json0).root
 
-    let! _ = addChild client testFile rootId (Revision 0) "logged-entry"
+    let! _ = addChild client testFile rootId (EventId.fromJson 0) "logged-entry"
 
     let logPath = EventLogFile.eventsPath tempDir
     Assert.True(File.Exists(logPath))
@@ -1130,7 +1197,7 @@ let ``file restart keeps inverse Change in EventLog`` () = task {
     let change, _ = changeAddChild rootId 0 "restart-inverse"
     let! createResp = postChange client1 testFile change
     Assert.Equal(HttpStatusCode.OK, createResp.StatusCode)
-    let undo = Change.inverse (EventId.fromJson 1) (Guid.NewGuid()) change
+    let undo = inverseEvent (EventId.fromJson 1) (Guid.NewGuid()) change
     let! undoResp = postChange client1 testFile undo
     Assert.Equal(HttpStatusCode.OK, undoResp.StatusCode)
     let! undoAck = undoResp.Content.ReadAsStringAsync()
@@ -1158,7 +1225,7 @@ let ``DB restart keeps inverse Change in EventLog`` () = task {
     let change, _ = changeAddChild rootId 0 "restart-inverse"
     let! createResp = postChange client1 testFile change
     Assert.Equal(HttpStatusCode.OK, createResp.StatusCode)
-    let undo = Change.inverse (EventId.fromJson 1) (Guid.NewGuid()) change
+    let undo = inverseEvent (EventId.fromJson 1) (Guid.NewGuid()) change
     let! undoResp = postChange client1 testFile undo
     Assert.Equal(HttpStatusCode.OK, undoResp.StatusCode)
     let! undoAck = undoResp.Content.ReadAsStringAsync()
@@ -1183,15 +1250,17 @@ let ``New server uses snapshot + log replay`` () = task {
     let! json0 = getStateJson client1 testFile
     let rootId = (decodeGraph json0).root
 
-    let! _ = addChild client1 testFile rootId (Revision 0) "first"
+    let! _ = addChild client1 testFile rootId (EventId.fromJson 0) "first"
     do! Task.Delay(500)
 
     let! json1 = getStateJson client1 testFile
     let rootId2 = (decodeGraph json1).root
     let root = (decodeGraph json1).nodes.[rootId2]
     let firstChildId = root.children.[0].id
-    let! _ = postChange client1 testFile { id = EventId.fromJson 1; submissionId = Guid.NewGuid();
-        ops = [ Op.SetText(firstChildId, "first", "updated") ] }
+    let ops = [ Op.SetText(firstChildId, "first", "updated") ]
+    let change =
+        SpecialNodeTestHelpers.changeEvent "" (EventId.fromJson 1) (Guid.NewGuid()) ops
+    let! _ = postChange client1 testFile change
 
     use client2 = createClientForDir tempDir
     let! json = getStateJson client2 testFile
@@ -1201,7 +1270,7 @@ let ``New server uses snapshot + log replay`` () = task {
     Assert.Equal(EventId.fromJson 2, decodeRevision json)
 }
 
-let private postChangeOk (client: HttpClient) (change: Change) = task {
+let private postChangeOk (client: HttpClient) (change: Ev) = task {
     let! resp = postChange client testFile change
     Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
 }
@@ -1212,14 +1281,18 @@ let private addNestedWorkspaceViaPost (client: HttpClient) = task {
     let c0 =
         { id = EventId.fromJson 0
           submissionId = Guid.NewGuid()
-          ops =
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change
             [ Op.NewSpecialNode(wsId, Workspace, "home")
               Op.Replace(Graph.workspacesId, [], ownedChild wsId) ] }
     do! postChangeOk client c0
     let c1 =
         { id = EventId.fromJson 1
           submissionId = Guid.NewGuid()
-          ops =
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change
             [ Op.NewNode(innerId, "inside-ws")
               Op.Replace(wsId, [], ownedChild innerId) ] }
     do! postChangeOk client c1

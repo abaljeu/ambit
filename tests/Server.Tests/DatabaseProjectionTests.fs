@@ -33,7 +33,9 @@ let private graphFromNodes _root nodes =
 let private change op =
     { id = EventId.fromJson 0
       submissionId = Guid.NewGuid()
-      ops = [ op ] }
+      authority = Authority "Browser"
+      commandName = ""
+      body = EventBody.Change [ op ] }
 
 let private expectedRow node =
     { id = node.id.Value
@@ -116,7 +118,9 @@ let ``plan collapses repeated node and parent touches`` () =
     let changes =
         [ { id = EventId.fromJson 0
             submissionId = Guid.NewGuid()
-            ops =
+            authority = Authority "Browser"
+            commandName = ""
+            body = EventBody.Change
                 [ Op.SetText(parentId, "first", "second")
                   Op.SetText(parentId, "second", "final")
                   Op.Replace(parentId, [], [ childRef ])
@@ -175,7 +179,9 @@ let ``commands expose deterministic SQL and bind values`` () =
         DatabaseProjection.plan graph 7
             [ { id = EventId.fromJson 0
                 submissionId = Guid.NewGuid()
-                ops =
+                authority = Authority "Browser"
+                commandName = ""
+                body = EventBody.Change
                     [ Op.SetText(childId, "old", "child")
                       Op.Replace(parentId, [], [ childRef ]) ] } ]
 

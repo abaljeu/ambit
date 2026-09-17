@@ -219,11 +219,11 @@ let ``decideBootRead fetches /state on decode error`` () =
 let ``foldLog applies SetText and sets Revision to the last Change id`` () =
     let snapshot, noteId = noteSnapshot ()
     let event =
-        Ev.ofChange
-            "fixture"
-            { id = EventId.fromJson 6
-              submissionId = Guid.NewGuid()
-              ops = [ Op.SetText(noteId, "hello", "world") ] }
+        { id = EventId.fromJson 6
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [ Op.SetText(noteId, "hello", "world") ] }
     match BootCache.foldLog snapshot [ event ] with
     | Error err -> failwith err
     | Ok folded ->
@@ -247,11 +247,11 @@ let ``decideBootRead fetches /state on fold error`` () =
     let snapshot =
         { graph = graph; eventId = EventId.fromJson 1; isReady = true }
     let event =
-        Ev.ofChange
-            "fixture"
-            { id = EventId.fromJson 2
-              submissionId = Guid.NewGuid()
-              ops = [ Op.SetText(fileId, "file.txt", "changed") ] }
+        { id = EventId.fromJson 2
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [ Op.SetText(fileId, "file.txt", "changed") ] }
     let snap = recordFor snapshot
     match
         BootCache.decideBootRead
@@ -269,11 +269,11 @@ let ``decideBootRead fetches /state on fold error`` () =
 let ``decideBootRead uses the folded snapshot when the cache is valid`` () =
     let snapshot, noteId = noteSnapshot ()
     let event =
-        Ev.ofChange
-            "fixture"
-            { id = EventId.fromJson 6
-              submissionId = Guid.NewGuid()
-              ops = [ Op.SetText(noteId, "hello", "world") ] }
+        { id = EventId.fromJson 6
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [ Op.SetText(noteId, "hello", "world") ] }
     match
         BootCache.decideBootRead
             true
@@ -304,11 +304,11 @@ let ``foldLog applies deletion and advances Revision`` () =
     let addToTrashOp =
         Op.Replace(Graph.trashId, trashChildren, trashChildren @ [ ChildNode.owner noteId ])
     let event =
-        Ev.ofChange
-            "fixture"
-            { id = EventId.fromJson 6
-              submissionId = Guid.NewGuid()
-              ops = [ removeOp; addToTrashOp ] }
+        { id = EventId.fromJson 6
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [ removeOp; addToTrashOp ] }
     match BootCache.foldLog snapshot [ event ] with
     | Error err -> failwith err
     | Ok folded ->

@@ -7,15 +7,12 @@ open Gambol.Shared
 open Gambol.Shared.ViewModel
 
 let private mkChange _n =
-    { id = EventId.zero
-      submissionId = Guid.NewGuid()
-      ops = [] }
+    SpecialNodeTestHelpers.changeEventZero "fixture" []
 
-let private asPending change =
-    Ev.ofChange "fixture" change
+let private asPending event = event
 
-let private withKind _recordId change : Ev =
-    asPending change
+let private withKind _recordId event : Ev =
+    event
 
 [<Fact>]
 let ``tryStartSubmit returns SubmitPendingBatch effect when queue is ready`` () =
@@ -415,7 +412,9 @@ let ``restorePending strips transition and does not record History`` () =
     let change =
         { id = EventId.zero
           submissionId = Guid.NewGuid()
-          ops = [ Op.SetText(node.id, node.text, "restored") ] }
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [ Op.SetText(node.id, node.text, "restored") ] }
     let saved = [ asPending change ]
     let snapshot = { state0 with eventId = EventId.fromJson 1 }
     let next, restored =
@@ -428,7 +427,7 @@ let ``restorePending strips transition and does not record History`` () =
 [<Fact>]
 let ``workspace pending item is the exact Ev used before the request`` () =
     let change = mkChange 12
-    let submitted = Ev.ofChange "fixture" change
+    let submitted = change
     let wire = SyncBatch.toWireBatch [ submitted ]
     Assert.Equal(submitted.submissionId, wire.Head.submissionId)
     Assert.Equal(EventId.zero, wire.Head.id)

@@ -60,8 +60,8 @@ module SyncPlanner =
         saved
         |> List.fold
             (fun (state, reversed) event ->
-                let change = Ev.asChange { event with id = EventId.zero }
-                match ChangeValidation.applyChange change state with
+                let ops = Ev.ops event |> Option.defaultValue []
+                match ChangeValidation.applyOps ops state with
                 | ApplyResult.Changed next ->
                     next, event :: reversed
                 | _ ->

@@ -150,14 +150,10 @@ module SyncLogic =
         |> List.rev
         |> List.fold
             (fun graph event ->
-                let inverse =
-                    Change.inverse
-                        state.eventId
-                        event.submissionId
-                        (Ev.asChange { event with id = EventId.zero })
+                let inverseOps = Ev.inverseOps event |> Option.defaultValue []
                 match
-                    ResidentProjection.applyChange
-                        inverse
+                    ResidentProjection.applyOps
+                        inverseOps
                         (asProjectionState { state with graph = graph })
                 with
                 | ApplyResult.Changed projected
@@ -302,9 +298,7 @@ module SyncLogic =
         if suffixOps.IsEmpty then
             Ok state.graph
         else
-            let change =
-                Op.makeChange EventId.zero System.Guid.Empty suffixOps
-            match ResidentProjection.applyChange change (asProjectionState state) with
+            match ResidentProjection.applyOps suffixOps (asProjectionState state) with
             | ApplyResult.Invalid (_, msg) -> Error msg
             | ApplyResult.Unchanged projected
             | ApplyResult.Changed projected -> Ok projected.graph

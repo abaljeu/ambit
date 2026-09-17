@@ -301,8 +301,6 @@ module internal CoreMailboxBackend =
         getEventsSince = persist.getEventsSince
         appendEvent = fun _ -> Error error
         applyEvent = fun _ _ -> Error error
-        postChange = fun _ -> Error error
-        postGraphOnlyChange = fun _ -> Error error
         snapshotDone = fun _ -> ()
     }
 

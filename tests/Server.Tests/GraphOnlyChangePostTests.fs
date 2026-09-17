@@ -38,7 +38,12 @@ let ``postChunks mints Ev with EventId.zero and commandName`` () =
 
 let private postWorkspace (fileAgent: MailboxHost) (label: string) =
     let workspaceId, ops = FileNodeOps.planCreateWorkspace (Graph.create ()) label
-    let event = Ev.ofChange "" { id = EventId.fromJson 0; submissionId = Guid.NewGuid(); ops = ops }
+    let event =
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change ops }
     (admittedChanges fileAgent).postEvents [ event ]
     |> Async.RunSynchronously
     |> requireOk "workspace"

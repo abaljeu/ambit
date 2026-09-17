@@ -42,18 +42,6 @@ let ``Ev.inverseOps inverts EventBody ops and drops NewNode`` () =
     | None -> failwith "expected inverse ops"
 
 [<Fact>]
-let ``Change.apply still applies leftover Change`` () =
-    let state, nodeId = textState ()
-    let change =
-        { id = EventId.fromJson 0
-          submissionId = Guid.NewGuid()
-          ops = [ Op.SetText(nodeId, "old", "new") ] }
-    match Change.apply change state with
-    | ApplyResult.Changed after ->
-        Assert.Equal("new", after.graph.nodes.[nodeId].text)
-    | other -> failwithf "expected Changed, got %A" other
-
-[<Fact>]
 let ``ChangeValidation.applyOps applies an Op list`` () =
     let state, nodeId = textState ()
     let ops = [ Op.SetText(nodeId, "old", "new") ]
@@ -107,15 +95,3 @@ let ``PersistStamp.appendToLastEvent appends stamp ops onto last Ev`` () =
                 ops)
         | other -> failwithf "expected Change body, got %A" other
     | other -> failwithf "expected two events, got %A" other
-
-[<Fact>]
-let ``PersistStamp.appendToLast leftover Change still compiles`` () =
-    let change =
-        { id = EventId.fromJson 0
-          submissionId = Guid.NewGuid()
-          ops = [] }
-    let stamp =
-        [ Op.SetUpdateTime(NodeId.New(), DateTime.MinValue, DateTime.UtcNow) ]
-    match PersistStamp.appendToLast [ change ] stamp with
-    | [ stamped ] -> Assert.Equal(1, stamped.ops.Length)
-    | other -> failwithf "expected one change, got %A" other

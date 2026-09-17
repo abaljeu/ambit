@@ -165,10 +165,12 @@ let ``tryPeek finds Action under Actors after Change-shaped record`` () =
     let source =
         { id = EventId.fromJson 0
           submissionId = Guid.NewGuid()
-          ops = [] }
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [] }
     let changeOnly =
         ClientHistory.clear ()
-        |> ClientHistory.record (Ev.ofChange "Cut" source)
+        |> ClientHistory.record { source with commandName = "Cut" }
     Assert.Equal(Some "Cut", ClientHistory.tryPeekUndoName changeOnly)
     let actorsOnly =
         changeOnly
@@ -177,7 +179,7 @@ let ``tryPeek finds Action under Actors after Change-shaped record`` () =
     Assert.Equal(Some "Cut", ClientHistory.tryPeekUndoName actorsOnly)
     let withCut =
         ClientHistory.clear ()
-        |> ClientHistory.record (Ev.ofChange "Cut" source)
+        |> ClientHistory.record { source with commandName = "Cut" }
     let actionUnderActors =
         withCut
         |> ClientHistory.recordEvent "Edit node" (changeNamed "Edit node" 5)

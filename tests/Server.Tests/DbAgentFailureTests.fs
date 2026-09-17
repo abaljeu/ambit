@@ -11,7 +11,9 @@ let private changedBody () =
     [ {
         id = EventId.zero
         submissionId = Guid.NewGuid()
-        ops =
+        authority = Authority "Browser"
+        commandName = ""
+        body = EventBody.Change
             [
                 Op.NewNode(childId, "failure probe")
                 Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ])
@@ -53,7 +55,7 @@ let ``persistence exception is logged replied and mailbox survives`` () = task {
             (fun _ -> Ok [])
     let! postResult =
         (admittedChanges (host agent)).postEvents
-            (List.map (Ev.ofChange "") (changedBody ()))
+            ((changedBody ()))
         |> Async.StartAsTask
         |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
     match postResult with

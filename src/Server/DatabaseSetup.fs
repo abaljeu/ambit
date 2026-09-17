@@ -37,9 +37,6 @@ module DatabaseSetup =
                 $"Unknown Persistence:Mode '{raw}'. " +
                 "Use 'db' or 'file'.")
 
-    let private decodeChangePayload (s: string) =
-        Thoth.Json.Newtonsoft.Decode.fromString Serialization.decodeChange s
-
     let statusFromMatches (matchesBeforeRebuild: bool) (matchesAfterRebuild: bool) : DbStatus =
         if matchesBeforeRebuild then
             DbStatus.Ok
@@ -83,7 +80,7 @@ module DatabaseSetup =
             |> Async.RunSynchronously
 
     let private loadPersistedDbState (connStr: string) : State =
-        Database.loadPersistedState connStr decodeChangePayload
+        Database.loadPersistedState connStr
         |> Async.AwaitTask
         |> Async.RunSynchronously
 

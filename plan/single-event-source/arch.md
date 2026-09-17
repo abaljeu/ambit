@@ -18,15 +18,15 @@ Feature under design: leftover Change record and Revision serial out of the runn
       Batches after compile may run in any order among persist and command. Serial batch may run beside them. Leftover Change still compiles until Contract.
       1. [x] Compile preamble — [[tests/Server.Tests/TestBackend.fs]] `Ev` type and `Authority` constructor in scope (`module Ev` must not shadow the type)
       2. [x] Persist apply — [[src/Server/Core/FileAgent.fs]] / [[src/Server/Core/DbAgent.fs]] / PersistStamp / [[src/Server/Core/CoreEventDispatch.fs]] admit Ev, apply Ops, `appendEvent` Ev. No Ev→Change copy for apply
-         Leftover `postChange` waits for [08 — Core doors](issues/08-core-doors.md). `Ev.asChange` / `Ev.ofChange` wait for [12 — Contract leftover Change and Revision](issues/12-contract-leftover-change-and-revision.md).
+         Leftover `postChange` is gone ([08 — Core doors](issues/08-core-doors.md)). `Ev.asChange` / `Ev.ofChange` are gone ([12 — Contract leftover Change and Revision](issues/12-contract-leftover-change-and-revision.md)).
       3. [x] Core doors — **CoreChanges** `postEvents` and `postGraphOnly` both take Ev. `postChange` (Change list) and `PostGraphOnlyChange` of leftover Change are gone. Graph-only still skips file persist, not EventLog
       4. [x] Command mint — Browser command builders and Parse [[src/Server/GraphOnlyChangePost.fs]] mint Ev (`EventId.zero`, `commandName`). Run is ActorStart or a Change Event with that Run command in `commandName`
       5. [ ] Boot IndexedDB — [[src/Shared/BootCache.fs]] / [[src/Client/BootCacheStore.fs]] hold Ev list, not leftover Change
       6. [x] One serial — `Revision` type and `revision` fields become event id. JSON key `"eventId"`. `getEventId`. `Change.id` is already `EventId` from Expand. EventId.fromJson/toJson bypasses. EventId.next adds one. Ev.fromJson/toJson. Only serializing uses fromJson/toJson. Only EventLog uses EventId.next. Any event not from these sources has id 0. The client has no EventId serial. Pending events use `EventId.zero`. Match server responses with `submissionId`. On approve, replace zero with the server-assigned id. On a server merge / revised event stream that inserts other server ops before what the client sent, rewind and stamp zeros from matching `submissionId`
    3. **Contract**
-      1. [ ] Delete leftover `{ id; submissionId; ops }` record, `module Change` apply wrapping, `Ev.ofChange` / `Ev.asChange`, `eventFromChange`
-      2. [ ] Delete unused [[src/Shared/EventId.fs]]
-      3. [ ] Delete `type Revision` and `EventId.ofRevision` / `toRevision`
+      1. [x] Delete leftover `{ id; submissionId; ops }` record, `module Change` apply wrapping, `Ev.ofChange` / `Ev.asChange`, `eventFromChange`
+      2. [x] Delete unused [[src/Shared/EventId.fs]]
+      3. [x] Delete `type Revision` and `EventId.ofRevision` / `toRevision`
       4. [ ] [04 — Write core-creation arch.md last](issues/04-write-core-creation-arch-md-last.md) — [[plan/core-creation/arch.md]] matches what this Project created
 
 Shared segments:
@@ -44,11 +44,11 @@ Deltas only. Hello / Actor-pool modules do not change.
 1. **Ev** — [[src/Shared/History.fs]] (`type Ev` and `module Ev`)
    1. State
       1. [x] Envelope: `id` (EventId), `submissionId`, `authority`, `commandName`, `body` (EventBody)
-      2. [ ] No leftover Change record in this file
+      2. [x] No leftover Change record in this file
       3. [x] EventId has private id. EventId.fromJson/toJson bypasses. EventId.next adds one
    2. Interface
       1. [x] `ops` / `apply` / `inverseOps` read EventBody. They take or return Op list. They do not build leftover Change
-      2. [ ] No `asChange` / `ofChange`
+      2. [x] No `asChange` / `ofChange`
       3. [x] `Ev.fromJson` / `Ev.toJson`. Only serializing uses fromJson/toJson. Events not from JSON or EventLog have id 0
    3. Uses
       1. [ ] Op

@@ -5,8 +5,6 @@ open System.Threading.Tasks
 open Gambol.Shared
 open Gambol.Shared
 
-module Decode = Thoth.Json.Newtonsoft.Decode
-
 /// PostgreSQL-backed persist filling. Does not start a mailbox.
 type DbAgent = private {
     handlers: PersistHandlers
@@ -51,11 +49,8 @@ module DbAgent =
                     EventLogFile.decodeEvent row.payload |> Result.toOption)
             EventLog.restorePersisted raw
 
-    let private decodeChangePayload (s: string) =
-        Decode.fromString Serialization.decodeChange s
-
     let private loadInitialState (connectionString: string) : Async<State> =
-        Database.loadPersistedState connectionString decodeChangePayload
+        Database.loadPersistedState connectionString
         |> Async.AwaitTask
 
     let private makeLoaded
@@ -171,7 +166,7 @@ module DbAgent =
                     DatabaseProjection.plan
                         newState.graph
                         (EventId.value newState.eventId)
-                        (events |> List.map Ev.asChange)
+                        events
                 (DatabaseProjection.persistWithTx tx newState.graph patch)
                     .GetAwaiter()
                     .GetResult()
@@ -397,10 +392,6 @@ module DbAgent =
         appendEvent = appendPersistedEvent loaded
         applyEvent = fun event graphOnly ->
             processPostEvents loaded [ event ] graphOnly
-        postChange = fun changes ->
-            processPostEvents loaded (List.map (Ev.ofChange "") changes) false
-        postGraphOnlyChange = fun changes ->
-            processPostEvents loaded (List.map (Ev.ofChange "") changes) true
         snapshotDone = handleSnapshotDone loaded
     }
 

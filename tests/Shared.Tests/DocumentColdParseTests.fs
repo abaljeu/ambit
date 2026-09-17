@@ -144,13 +144,15 @@ let private applySelectModeExternalPaste
         let change =
             { id = EventId.fromJson 0
               submissionId = Guid.NewGuid()
-              ops = nested @ [ replaceOp ] }
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change (nested @ [ replaceOp ]) }
 
         let state =
             { graph = graph
               eventId = EventId.zero }
 
-        match ChangeValidation.applyChange change state with
+        match SpecialNodeTestHelpers.applyChange change state with
         | ApplyResult.Changed s -> Ok s.graph
         | ApplyResult.Unchanged _ -> Error "paste applied as Unchanged"
         | ApplyResult.Invalid(_, msg) -> Error msg

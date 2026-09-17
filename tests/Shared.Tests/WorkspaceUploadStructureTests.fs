@@ -416,11 +416,13 @@ let ``Load Unloaded stub plan must not name-conflict on resident server`` () =
         let change =
             { id = EventId.fromJson 0
               submissionId = System.Guid.NewGuid()
-              ops = ops }
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change ops }
         let state =
             { graph = server
               eventId = EventId.zero }
-        match ChangeValidation.applyChange change state with
+        match SpecialNodeTestHelpers.applyChange change state with
         | ApplyResult.Invalid(_, msg) ->
             Assert.True(
                 false,

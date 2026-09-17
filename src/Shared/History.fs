@@ -36,8 +36,6 @@ module EventId =
     let value (id: EventId) = id.Value
     let fromJson n = EventId n
     let toJson (EventId n) = n
-    let ofRevision (rev: Revision) = EventId rev.Value
-    let toRevision (id: EventId) = Revision id.Value
 
 type Authority = Authority of string
 
@@ -67,11 +65,6 @@ type Ev =
       commandName: string
       body: EventBody }
 
-type Change =
-    { id: EventId
-      submissionId: System.Guid   // unique per network submission; used for server-side dedup
-      ops: Op list }
-
 type State =
     { graph: Graph
       eventId: EventId }
@@ -94,7 +87,6 @@ module Op =
     let private reservedPathError =
         "owned artifact path contains a reserved system name"
 
-    let makeChange id submissionId ops = { id=id ; submissionId=submissionId; ops=ops }
     let private fromGraphResult (state: State) (result: Result<Graph, string>) : ApplyResult =
         match result with
         | Ok graph -> ApplyResult.Changed { state with graph = graph }
@@ -355,57 +347,6 @@ module Op =
         else
             undoAllowed op state
 
-
-[<RequireQualifiedAccess>]
-module Change =
-    let addOp (op: Op) (change: Change) : Change =
-        { change with ops = change.ops @ [ op ] }
-
-    let inverse
-        (baseEventId: EventId)
-        (submissionId: System.Guid)
-        (source: Change)
-        : Change =
-        { id = baseEventId
-          submissionId = submissionId
-          ops = Op.invertAll source.ops }
-
-    /// Construct the inverse of a change: reversed op list, each op with old/new swapped.
-    /// Change.undo(invert c) re-applies c's effect (valid for SetText and Replace).
-    /// NewNode has no DeleteNode counterpart, so its inversion is imperfect; undo-of-undo
-    /// for splits will return ApplyResult.Invalid and leave state unchanged.
-    let invert (change: Change) : Change =
-        { change with
-            submissionId = System.Guid.NewGuid()
-            ops = change.ops |> List.rev |> List.map Op.invert }
-
-    let apply (change: Change) (state: State) : ApplyResult =
-        Op.applyAll change.ops state
-
-    let undo (change: Change) (state: State) : ApplyResult =
-        let step (accState, hasChanged) op =
-            match Op.undo op accState with
-            | ApplyResult.Invalid _ as err -> Error err
-            | ApplyResult.Unchanged s' -> Ok(s', hasChanged)
-            | ApplyResult.Changed s' -> Ok(s', true)
-
-        let result =
-            change.ops
-            |> List.rev
-            |> List.fold
-                (fun acc op ->
-                    match acc with
-                    | Error err -> Error err
-                    | Ok (s, changed) -> step (s, changed) op)
-                (Ok(state, false))
-
-        match result with
-        | Error (ApplyResult.Invalid(_, message)) ->
-            ApplyResult.Invalid(state, message)
-        | Error err -> err
-        | Ok (s, false) -> ApplyResult.Unchanged s
-        | Ok (s, true) -> ApplyResult.Changed s
-
 [<RequireQualifiedAccess>]
 module Ev =
     let id (event: Ev) : EventId = event.id
@@ -432,18 +373,6 @@ module Ev =
 
     let inverseOps (event: Ev) : Op list option =
         ops event |> Option.map Op.invertAll
-
-    let asChange (event: Ev) : Change =
-        { id = event.id
-          submissionId = event.submissionId
-          ops = ops event |> Option.defaultValue [] }
-
-    let ofChange (commandName: string) (change: Change) : Ev =
-        { id = change.id
-          submissionId = change.submissionId
-          authority = Authority "Browser"
-          commandName = commandName
-          body = EventBody.Change change.ops }
 
     let fromJson
         eventId
@@ -751,12 +680,6 @@ module ChangeValidation =
             | Error msg -> ApplyResult.Invalid(state, msg)
             | Ok () -> ApplyResult.Changed s
 
-    let applyChangeTrusted (change: Change) (state: State) : ApplyResult =
-        applyOpsTrusted change.ops state
-
-    let applyChange (change: Change) (state: State) : ApplyResult =
-        applyOps change.ops state
-
 /// After DocumentPersistence stamps artifact roots, emit ops for the change log / poll tail.
 [<RequireQualifiedAccess>]
 module PersistStamp =
@@ -781,21 +704,6 @@ module PersistStamp =
 
     let appendToOps (ops: Op list) (stampOps: Op list) : Op list =
         if stampOps.IsEmpty then ops else ops @ stampOps
-
-    let appendToChange (change: Change) (stampOps: Op list) : Change =
-        if stampOps.IsEmpty then
-            change
-        else
-            { change with ops = appendToOps change.ops stampOps }
-
-    let appendToLast (changes: Change list) (stampOps: Op list) : Change list =
-        if stampOps.IsEmpty || changes.IsEmpty then
-            changes
-        else
-            match List.rev changes with
-            | [] -> changes
-            | last :: rest ->
-                List.rev (appendToChange last stampOps :: rest)
 
     let appendToEvent (event: Ev) (stampOps: Op list) : Ev =
         if stampOps.IsEmpty then

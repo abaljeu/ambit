@@ -20,7 +20,9 @@ let private stamp value =
 let private change ops =
     { id = EventId.fromJson 0
       submissionId = Guid.NewGuid()
-      ops = ops }
+      authority = Authority "Browser"
+      commandName = ""
+      body = EventBody.Change ops }
 
 let private graphWithCustomNodes nodes =
     let customNodes = nodes |> List.map (fun (node: Node) -> node.id, node)
@@ -75,7 +77,7 @@ let private scalar<'a> connStr sql = task {
     return unbox<'a> result
 }
 
-let private encodeBatch (changes: Change list) = changes
+let private encodeBatch (changes: Ev list) = changes
 
 let private exec connStr sql (parameters: (string * obj) list) = task {
     use conn = Database.getConnection connStr
@@ -264,12 +266,14 @@ let ``db bootstrap duplicate returns stored Change and rejects no-op`` () = task
     let accepted =
         { id = EventId.fromJson 0
           submissionId = Guid.NewGuid()
-          ops =
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change
             [ Op.NewNode(childId, "bootstrap")
               Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
 
     let core = admittedChanges agent
-    let! first = core.postEvents (toEvents (encodeBatch [ accepted ])) |> Async.StartAsTask
+    let! first = core.postEvents ((encodeBatch [ accepted ])) |> Async.StartAsTask
     let firstAck =
         match first with
         | Ok ack -> ack
@@ -281,7 +285,7 @@ let ``db bootstrap duplicate returns stored Change and rejects no-op`` () = task
         scalar<string> connStr "SELECT xmin::text FROM graph WHERE singleton = 1"
 
     let! duplicate =
-        core.postEvents (toEvents (encodeBatch [ accepted ])) |> Async.StartAsTask
+        core.postEvents ((encodeBatch [ accepted ])) |> Async.StartAsTask
     match duplicate with
     | Ok ack ->
         Assert.Equal<Ev list>(
@@ -292,8 +296,10 @@ let ``db bootstrap duplicate returns stored Change and rejects no-op`` () = task
     let noOp =
         { id = EventId.fromJson 1
           submissionId = Guid.NewGuid()
-          ops = [] }
-    let! unchanged = core.postEvents (toEvents (encodeBatch [ noOp ])) |> Async.StartAsTask
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [] }
+    let! unchanged = core.postEvents ((encodeBatch [ noOp ])) |> Async.StartAsTask
     match unchanged with
     | Ok _ -> Assert.Fail("unchanged submission must be rejected")
     | Error err -> Assert.Contains("Unchanged", err)

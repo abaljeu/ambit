@@ -179,8 +179,3 @@ module ChangeAmendment =
                 | ApplyResult.Changed _ as changed -> changed, true, amended
         | ApplyResult.Invalid _ as err ->
             err, false, ops
-
-    /// Apply a Change, amending recoverable field CAS failures instead of rejecting.
-    let applyChange (change: Change) (state: State) : ApplyResult * bool * Change =
-        let result, amended, ops = applyOps change.ops state
-        result, amended, { change with ops = ops }

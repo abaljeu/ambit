@@ -344,9 +344,12 @@ let ``SetName apply then undo round-trips name`` () =
 [<Fact>]
 let ``Invert SetName swaps old and new`` () =
     let op = Op.SetName(NodeId.New(), "old", "new")
-    let change = { id = EventId.fromJson 0; submissionId = System.Guid.NewGuid(); ops = [ op ] }
-    let inv = Change.invert change
-    match inv.ops with
+    let change = SpecialNodeTestHelpers.changeEventZero "" [ op ]
+    let invOps =
+        SpecialNodeTestHelpers.eventOps change
+        |> List.rev
+        |> List.map Op.invert
+    match invOps with
     | [ Op.SetName(_, invOld, invNew) ] ->
         Assert.Equal("new", invOld)
         Assert.Equal("old", invNew)
@@ -356,9 +359,12 @@ let ``Invert SetName swaps old and new`` () =
 let ``Invert NewSpecialNode is identity`` () =
     let id = NodeId.New()
     let op = Op.NewSpecialNode(id, Workspace, "ws-name")
-    let change = { id = EventId.fromJson 0; submissionId = System.Guid.NewGuid(); ops = [ op ] }
-    let inv = Change.invert change
-    match inv.ops with
+    let change = SpecialNodeTestHelpers.changeEventZero "" [ op ]
+    let invOps =
+        SpecialNodeTestHelpers.eventOps change
+        |> List.rev
+        |> List.map Op.invert
+    match invOps with
     | [ Op.NewSpecialNode(invId, invKind, invName) ] ->
         Assert.Equal(id, invId)
         Assert.Equal(Workspace, invKind)

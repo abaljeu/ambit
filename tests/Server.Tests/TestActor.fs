@@ -10,11 +10,12 @@ let private hello (input: ActorInput) (coreChanges: CoreChanges) : Async<unit> =
     async {
         let helloNodeId = NodeId.New()
         let event =
-            Ev.ofChange
-                ""
-                { id = EventId.fromJson 0
-                  submissionId = System.Guid.NewGuid()
-                  ops =
+            { id = EventId.zero
+              submissionId = System.Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body =
+                EventBody.Change
                     [ Op.NewNode(helloNodeId, "hello")
                       Op.Replace(
                           input.focusId,

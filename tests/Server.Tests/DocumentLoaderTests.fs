@@ -24,7 +24,9 @@ let private stateWithRootChild (text: string) : State =
     let change =
         { id = EventId.fromJson 0
           submissionId = Guid.NewGuid()
-          ops =
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change
             [ Op.NewNode(childId, text)
               Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
 
@@ -32,7 +34,7 @@ let private stateWithRootChild (text: string) : State =
         { graph = Graph.create ()
           eventId = EventId.zero }
 
-    match ChangeValidation.applyChange change initial with
+    match applyChange change initial with
     | ApplyResult.Changed st -> { st with eventId = EventId.fromJson 1 }
     | _ -> failwith "expected changed state"
 

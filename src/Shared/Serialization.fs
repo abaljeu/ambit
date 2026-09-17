@@ -105,14 +105,6 @@ module Serialization =
     let decodeNodeId: Decoder<NodeId> =
         Decode.guid |> Decode.map NodeId
 
-    // ---- Revision ----
-
-    let encodeRevision (rev: Revision) : IEncodable =
-        Encode.int rev.Value
-
-    let decodeRevision: Decoder<Revision> =
-        Decode.int |> Decode.map Revision
-
     // ---- Node ----
 
     let encodeNode (node: Node) : IEncodable =
@@ -386,22 +378,5 @@ module Serialization =
               sourceModifiedUtc =
                   get.Optional.Field "sourceModifiedUtc" Decode.int64
                   |> Option.map (fun ticks -> System.DateTime(ticks, System.DateTimeKind.Utc)) })
-
-    // ---- Change ----
-
-    let encodeChange (change: Change) : IEncodable =
-        Encode.object
-            [ "eventId", Encode.int (EventId.toJson change.id)
-              "submissionId", Encode.guid change.submissionId
-              "ops", change.ops |> List.map encodeOp |> Encode.list ]
-
-    let decodeChange: Decoder<Change> =
-        Decode.object (fun get ->
-            { id = EventId.fromJson (get.Required.Field "eventId" Decode.int)
-              // Optional for backward-compat with existing log entries written before this field was added.
-              submissionId =
-                get.Optional.Field "submissionId" Decode.guid
-                |> Option.defaultWith System.Guid.NewGuid
-              ops = get.Required.Field "ops" (Decode.list decodeOp) })
 
 

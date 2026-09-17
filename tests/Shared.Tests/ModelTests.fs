@@ -1050,7 +1050,7 @@ let ``Graph.replace rejects same-named Files under different Normals of one Dire
     | Error msg -> Assert.Contains("name conflict", msg)
 
 [<Fact>]
-let ``ChangeValidation.applyChange rejects Normal-owning-File moved under File`` () =
+let ``SpecialNodeTestHelpers.applyChange rejects Normal-owning-File moved under File`` () =
     let graph0 = Graph.create ()
     let outerFile = NodeId.New()
     let graph1 = addSpecialNode outerFile File "outer.txt" graph0
@@ -1077,16 +1077,13 @@ let ``ChangeValidation.applyChange rejects Normal-owning-File moved under File``
         |> List.findIndex (fun c -> c.id = normalId)
     let rootKids = graph6.nodes.[Graph.rootId].children
     let withoutNormal = rootKids |> List.filter (fun c -> c.id <> normalId)
-    let change =
-        { id = EventId.fromJson 0
-          submissionId = System.Guid.NewGuid()
-          ops =
-            [ Op.Replace(Graph.rootId, rootKids, withoutNormal)
-              Op.Replace(outerFile, [], [ normalChild ]) ] }
+    let ops =
+        [ Op.Replace(Graph.rootId, rootKids, withoutNormal)
+          Op.Replace(outerFile, [], [ normalChild ]) ]
     let state =
         { graph = graph6
           eventId = EventId.zero }
-    match ChangeValidation.applyChange change state with
+    match ChangeValidation.applyOps ops state with
     | ApplyResult.Invalid(_, msg) ->
         Assert.Contains("File and Directory", msg)
     | _ -> Assert.True(false, "expected Invalid when Normal-owning-File moves under File")

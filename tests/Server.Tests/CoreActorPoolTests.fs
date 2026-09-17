@@ -25,16 +25,15 @@ let ``Actor handle wrap refuses a different inactive credential`` () = task {
                 Assert.Fail($"state: {err}")
                 Unchecked.defaultof<_>
         let event =
-            Ev.ofChange
+            changeEvent
                 ""
-                { id = EventId.zero
-                  submissionId = Guid.NewGuid()
-                  ops =
-                    [ Op.NewNode(NodeId.New(), "nope")
-                      Op.Replace(
-                          Graph.rootId,
-                          [],
-                          [ ChildNode.owner (NodeId.New()) ]) ] }
+                EventId.zero
+                (Guid.NewGuid())
+                [ Op.NewNode(NodeId.New(), "nope")
+                  Op.Replace(
+                      Graph.rootId,
+                      [],
+                      [ ChildNode.owner (NodeId.New()) ]) ]
         let! result =
             bound.postEvents [ event ]
             |> Async.StartAsTask
