@@ -38,6 +38,8 @@ Browser (manual): open `/ambit?debug=1`; select `stretch`; Load; ArrowRight.
 
 Harness stdout: `PASS workspace-created eventId=1`; `PASS stubs stub eventId=2`; `PASS upload uploaded=1 … paths=hello.md`; `PASS nodes … file:hello.md,workspace:stretch`. After mark, `GET /state?scope=full` `eventId=3`.
 
+Reshape run (thin FSI, same Shared.dotnet path, label `stretch-reshape`): `PASS workspace-created eventId=1`; `PASS stubs stub eventId=2`; `PASS upload uploaded=1 … paths=hello.md`; `PASS mark marked Unparsed: hello.md`; `PASS nodes … file:hello.md,workspace:stretch-reshape`. Server file `data/stretch-reshape/hello.md` holds `stretch-reshape-proof`.
+
 CDP row dump after unfold: Workspaces; Workspace `stretch`; File `hello.md` class `amb-row-sync-unparsed`.
 
 ## Blockers (none fatal)
