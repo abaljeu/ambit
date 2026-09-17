@@ -111,10 +111,10 @@ let ``SetText persists SYSTEM user css and server remains responsive`` () = task
     Assert.Equal(HttpStatusCode.OK, parseResponse.StatusCode)
     use! loadedResponse = client.GetAsync("/ambit/state?scope=full") |> timeout
     let! loadedJson = loadedResponse.Content.ReadAsStringAsync() |> timeout
-    let revision, graph = decodeRevisionAndGraph loadedJson
+    let _, graph = decodeRevisionAndGraph loadedJson
     let cssNodeId = graph.nodes.[fileId].children |> List.exactlyOne |> fun c -> c.id
     let change =
-        { id = EventId.fromJson revision
+        { id = EventId.zero
           submissionId = Guid.Parse("93a26b25-272f-4c48-916b-4045a2ba37a1")
           authority = Authority "Browser"
           commandName = ""
@@ -132,4 +132,31 @@ let ``SetText persists SYSTEM user css and server remains responsive`` () = task
         File.ReadAllText(Path.Combine(dataDir, "SYSTEM", "user.css")))
     use! stateResponse = client.GetAsync("/ambit/state") |> timeout
     Assert.Equal(HttpStatusCode.OK, stateResponse.StatusCode)
+}
+
+[<Fact>]
+let ``changes POST rejects non-zero EventId and admits zero`` () = task {
+    let dataDir = newTempDir ()
+    use client = createClientForDir dataDir
+    let _, zeroEvent = addRootChildEvent "zero-ok"
+    let zeroBody =
+        Encode.toString 0 (
+            EventJson.encodeEventBatch { events = [ zeroEvent ] })
+    use zeroContent =
+        new StringContent(zeroBody, Encoding.UTF8, "application/json")
+    use! zeroResponse =
+        client.PostAsync("/ambit/changes", zeroContent) |> timeout
+    Assert.Equal(HttpStatusCode.OK, zeroResponse.StatusCode)
+    let _, dirtyEvent = addRootChildEvent "nonzero"
+    let dirty = { dirtyEvent with id = EventId.fromJson 4 }
+    let dirtyBody =
+        Encode.toString 0 (
+            EventJson.encodeEventBatch { events = [ dirty ] })
+    use dirtyContent =
+        new StringContent(dirtyBody, Encoding.UTF8, "application/json")
+    use! dirtyResponse =
+        client.PostAsync("/ambit/changes", dirtyContent) |> timeout
+    Assert.Equal(HttpStatusCode.BadRequest, dirtyResponse.StatusCode)
+    let! dirtyJson = dirtyResponse.Content.ReadAsStringAsync() |> timeout
+    Assert.Contains("posted EventId must be zero", dirtyJson)
 }

@@ -405,9 +405,9 @@ let private postWorkspace (fileAgent: MailboxHost) (label: string) =
     |> ignore
     workspaceId
 
-let private postOps (fileAgent: MailboxHost) (revision: int) (ops: Op list) =
+let private postOps (fileAgent: MailboxHost) (_revision: int) (ops: Op list) =
     let event =
-        { id = EventId.fromJson revision
+        { id = EventId.zero
           submissionId = Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
@@ -758,7 +758,7 @@ let ``directory reconciliation POST returns failures JSON`` () =
     let _, docsOps =
         FileNodeOps.planCreateOwnedDirectory graph workspaceId "docs"
     let docsChange =
-        SpecialNodeTestHelpers.changeEvent "" (EventId.fromJson 1) (Guid.NewGuid()) docsOps
+        SpecialNodeTestHelpers.changeEvent "" EventId.zero (Guid.NewGuid()) docsOps
     let docsEvent = docsChange
     let docsBody =
         Thoth.Json.Newtonsoft.Encode.toString 0

@@ -64,7 +64,7 @@ let ``DbAgent applyEvent applies Ev Ops without leftover Change`` () =
 [<Fact>]
 let ``CoreEventDispatch persist apply does not copy Ev to leftover Change`` () =
     let childId, ops = addRootChild "no-change-copy"
-    let event = wireEvent (Guid.NewGuid()) ops
+    let event = { wireEvent (Guid.NewGuid()) ops with id = EventId.zero }
     let persist = FileAgent.persist (FileAgent.create (newTempDir ()))
     let host =
         CoreMailbox.host

@@ -140,6 +140,25 @@ module internal CoreEventDispatch =
             | Some result -> withConfirmedOps completed result
         commit context confirmed
 
+    let private persistNew
+        (context: Context)
+        (caller: Caller)
+        (event: Ev)
+        (graphOnly: bool)
+        =
+        if event.id <> EventId.zero then
+            Error "posted EventId must be zero"
+        else
+            match prepare context caller event with
+            | Error error -> Error error
+            | Ok completed ->
+                match persist context completed graphOnly with
+                | Error error -> Error error
+                | Ok accepted ->
+                    match store context accepted completed with
+                    | Error error -> Error error
+                    | Ok stored -> Ok(stored, accepted)
+
     let postEvent
         (context: Context)
         (caller: Caller)
@@ -151,13 +170,4 @@ module internal CoreEventDispatch =
         | Ok () ->
             match tryStored context event.submissionId with
             | Some existing -> Ok(existing, None)
-            | None ->
-                match prepare context caller event with
-                | Error error -> Error error
-                | Ok completed ->
-                    match persist context completed graphOnly with
-                    | Error error -> Error error
-                    | Ok accepted ->
-                        match store context accepted completed with
-                        | Error error -> Error error
-                        | Ok stored -> Ok(stored, accepted)
+            | None -> persistNew context caller event graphOnly

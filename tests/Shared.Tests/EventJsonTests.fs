@@ -61,3 +61,22 @@ let ``Ev JSON round-trips ActorStart and ActorStop`` () =
             body = EventBody.ActorStop(start.focusId, ActorSucceeded) }
     Assert.Equal(started, roundTrip started)
     Assert.Equal(stopped, roundTrip stopped)
+
+[<Fact>]
+let ``mintChange encodes eventId 0 on the wire`` () =
+    let event = ClientHistory.mintChange "Edit node" []
+    Assert.Equal(EventId.zero, event.id)
+    let json = Enc.toString 0 (EventJson.encode event)
+    Assert.Contains("\"eventId\":0", json)
+
+[<Fact>]
+let ``toWireBatch forces EventId.zero on a dirty new client Event`` () =
+    let minted = ClientHistory.mintChange "Edit node" []
+    let dirty = { minted with id = EventId.fromJson 7 }
+    let wire = SyncBatch.toWireBatch [ dirty ]
+    Assert.Equal(EventId.zero, wire.Head.id)
+    Assert.Equal(minted.submissionId, wire.Head.submissionId)
+    let json =
+        Enc.toString 0 (EventJson.encodeEventBatch { events = wire })
+    Assert.Contains("\"eventId\":0", json)
+    Assert.DoesNotContain("\"eventId\":7", json)

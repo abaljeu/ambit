@@ -294,7 +294,7 @@ let ``db bootstrap duplicate returns stored Change and rejects no-op`` () = task
     | Error err -> failwith err
 
     let noOp =
-        { id = EventId.fromJson 1
+        { id = EventId.zero
           submissionId = Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
