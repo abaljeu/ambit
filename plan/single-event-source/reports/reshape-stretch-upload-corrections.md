@@ -16,4 +16,4 @@ Date: 2026-09-17. Implements the major findings in [code-review-reshape-stretch-
 
 ## Proof
 
-`scripts/stretch-workspace-upload.sh` against local `:5215` still PASSes create + upload. See the run log on this branch after the live harness.
+`scripts/stretch-workspace-upload.sh` against local `:5215` PASSed create + upload. Label `stretch-corr-6269`. `graph-eventId=3` is the post-mark GET (`create=1`, `stubs posted`, `mark` → event 3). Nodes include `workspace:stretch-corr-6269` and `file:hello.md`.
