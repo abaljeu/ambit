@@ -24,17 +24,19 @@ let ``Actor handle wrap refuses a different inactive credential`` () = task {
             | Error err ->
                 Assert.Fail($"state: {err}")
                 Unchecked.defaultof<_>
-        let change =
-            { id = state.revision.Value
-              submissionId = Guid.NewGuid()
-              ops =
-                [ Op.NewNode(NodeId.New(), "nope")
-                  Op.Replace(
-                      Graph.rootId,
-                      [],
-                      [ ChildNode.owner (NodeId.New()) ]) ] }
+        let event =
+            Ev.ofChange
+                ""
+                { id = state.revision.Value
+                  submissionId = Guid.NewGuid()
+                  ops =
+                    [ Op.NewNode(NodeId.New(), "nope")
+                      Op.Replace(
+                          Graph.rootId,
+                          [],
+                          [ ChildNode.owner (NodeId.New()) ]) ] }
         let! result =
-            bound.postEvents [ Ev.ofChange "" change ]
+            bound.postEvents [ event ]
             |> Async.StartAsTask
         Assert.Equal(Error CoreAuth.refuse, result)
     finally

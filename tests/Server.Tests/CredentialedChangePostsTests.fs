@@ -42,17 +42,14 @@ let ``live Browser credential is admitted and Change reaches PersistHandlers``
         let dataDir = newTempDir ()
         let agent, handle, _ = createAdmittedFileWithCredentials dataDir
         try
-            let change = addRootChild "live"
+            let event = Ev.ofChange "" (addRootChild "live")
             let! result =
-                CoreMailbox.postEvents
-                    agent
-                    testCaller
-                    [ Ev.ofChange "" change ]
+                CoreMailbox.postEvents agent testCaller [ event ]
                 |> Async.StartAsTask
             let accepted = requireOk "live post" result
             Assert.Equal(Revision 1, accepted.revision)
             Assert.Equal<Guid list>(
-                [ change.submissionId ],
+                [ event.submissionId ],
                 accepted.events |> List.map _.submissionId)
             let! rev = handle.getRevision () |> Async.StartAsTask
             Assert.Equal(Gambol.Shared.EventId 1, rev)
@@ -109,9 +106,9 @@ let ``request-carried cookie secret is admitted; foreign secret is refused`` () 
         let runtime = fileRuntime ()
         let caller = browserCallerFromAuth "alice" "secret"
         let handle = CoreMailbox.coreChanges runtime.host caller
-        let change = addRootChild "cookie-post"
+        let event = Ev.ofChange "" (addRootChild "cookie-post")
         let! ok =
-            handle.postEvents [ Ev.ofChange "" change ]
+            handle.postEvents [ event ]
             |> Async.StartAsTask
         let accepted = requireOk "cookie post" ok
         Assert.Equal(Revision 1, accepted.revision)

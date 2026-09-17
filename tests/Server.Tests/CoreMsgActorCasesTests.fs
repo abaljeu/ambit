@@ -168,12 +168,12 @@ let ``Actor PostChange with live row reaches PersistHandlers`` () =
     let actorSecret = Credential "actor-live"
     live.Add actorSecret
     withHost pool (fun host -> task {
-        let change = addRootChild "actor-hello"
+        let event = Ev.ofChange "" (addRootChild "actor-hello")
         let! result =
             CoreMailbox.postEvents
                 host
                 (actorCaller actorSecret)
-                [ Ev.ofChange "" change ]
+                [ event ]
             |> Async.StartAsTask
         let accepted = requireOk "Actor post" result
         Assert.Equal(Revision 1, accepted.revision)

@@ -60,8 +60,9 @@ let ``bound Changes refuses an inactive sender and does not enqueue`` () =
                 runtime.host
                 (BrowserRequestCreds.callerFromSecret (Credential "inactive"))
         let! before = bound.getRevision () |> Async.StartAsTask
+        let event = Ev.ofChange "" (addRootChild "refused")
         let! result =
-            bound.postEvents [ Ev.ofChange "" (addRootChild "refused") ] 
+            bound.postEvents [ event ] 
             |> Async.StartAsTask
         let! after = bound.getRevision () |> Async.StartAsTask
         Assert.Equal(Error CoreAuth.refuse, result)
@@ -71,14 +72,13 @@ let ``bound Changes refuses an inactive sender and does not enqueue`` () =
 [<Fact>]
 let ``bound Browser Changes admits a live Browser cookie credential`` () = task {
     let runtime = fileRuntime ()
-    let change = addRootChild "admitted"
+    let event = Ev.ofChange "" (addRootChild "admitted")
     let! result =
-        (browserHandle runtime "alice" "secret").postEvents
-            [ Ev.ofChange "" change ]
+        (browserHandle runtime "alice" "secret").postEvents [ event ]
         |> Async.StartAsTask
     let accepted = requireOk "browser post" result
     Assert.Equal<Guid list>(
-        [ change.submissionId ],
+        [ event.submissionId ],
         accepted.events |> List.map (_.submissionId))
 }
 
@@ -149,7 +149,9 @@ let ``Graph-only post refuses an inactive Caller`` () = task {
             (BrowserRequestCreds.callerFromSecret (Credential "inactive"))
     let! result =
         GraphOnlyChangePost.postChunks
-            (fun change -> bound.postGraphOnly (Ev.ofChange "" change))
+            (fun change ->
+                let event = Ev.ofChange "" change
+                bound.postGraphOnly event)
             (Revision 0)
             [ [ Op.NewNode(NodeId.New(), "x") ] ]
         |> Async.StartAsTask
@@ -168,12 +170,12 @@ let ``CoreRuntime seeds a Parse process Caller distinct from Browser cookie`` ()
         let! parseLive =
             CoreMailbox.isAdmitted runtime.host runtime.parseCaller
             |> Async.StartAsTask
-        let change = addRootChild "parse-process"
+        let event = Ev.ofChange "" (addRootChild "parse-process")
         let! posted =
             CoreMailbox.postGraphOnly
                 runtime.host
                 runtime.parseCaller
-                (Ev.ofChange "" change)
+                event
             |> Async.StartAsTask
         requireOk "parse Graph-only" posted |> ignore
         Assert.True(parseLive)

@@ -14,8 +14,8 @@ let private requireOk label result =
 
 let private postWorkspace (fileAgent: MailboxHost) (label: string) =
     let workspaceId, ops = FileNodeOps.planCreateWorkspace (Graph.create ()) label
-    let change = { id = 0; submissionId = Guid.NewGuid(); ops = ops }
-    (admittedChanges fileAgent).postEvents [ Ev.ofChange "" change ]
+    let event = Ev.ofChange "" { id = 0; submissionId = Guid.NewGuid(); ops = ops }
+    (admittedChanges fileAgent).postEvents [ event ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore

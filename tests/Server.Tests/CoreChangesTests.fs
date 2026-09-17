@@ -39,14 +39,14 @@ let ``typed Normal caller publishes accepted Change to Poll`` () = task {
     let dataDir = newTempDir ()
     let agent, handle = createAdmittedFile dataDir
     try
-        let change = addRootChild 0 "typed caller"
+        let event = Ev.ofChange "" (addRootChild 0 "typed caller")
         let! accepted =
-            handle.postEvents [ Ev.ofChange "" change ]
+            handle.postEvents [ event ]
             |> Async.StartAsTask
         let accepted = requireOk "typed post" accepted
         Assert.Equal(Revision 1, accepted.revision)
         Assert.Equal<Guid list>(
-            [ change.submissionId ],
+            [ event.submissionId ],
             accepted.events |> List.map (_.submissionId))
 
         let! poll = Api.getPoll handle 10 20 0 |> Async.StartAsTask
@@ -79,16 +79,18 @@ let private produceFromSubgraph
             | Some node -> node.children
             | None -> []
         let childId = NodeId.New()
-        let change =
-            { id = 0
-              submissionId = Guid.NewGuid()
-              ops =
-                [ Op.NewNode(childId, "test Actor")
-                  Op.Replace(
-                      Graph.rootId,
-                      priorChildren,
-                      priorChildren @ [ ChildNode.owner childId ]) ] }
-        return! handle.postEvents [ Ev.ofChange "" change ]
+        let event =
+            Ev.ofChange
+                ""
+                { id = 0
+                  submissionId = Guid.NewGuid()
+                  ops =
+                    [ Op.NewNode(childId, "test Actor")
+                      Op.Replace(
+                          Graph.rootId,
+                          priorChildren,
+                          priorChildren @ [ ChildNode.owner childId ]) ] }
+        return! handle.postEvents [ event ]
     }
 
 [<Fact>]

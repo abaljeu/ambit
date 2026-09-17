@@ -17,11 +17,13 @@ let private requireOk label result =
 let private addRootChild text =
     let childId = NodeId.New()
     childId,
-    { id = 0
-      submissionId = Guid.NewGuid()
-      ops =
-        [ Op.NewNode(childId, text)
-          Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
+    Ev.ofChange
+        ""
+        { id = 0
+          submissionId = Guid.NewGuid()
+          ops =
+            [ Op.NewNode(childId, text)
+              Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
 
 [<Fact>]
 let ``getEventsSince returns Ev after postChange`` () = task {
@@ -29,9 +31,9 @@ let ``getEventsSince returns Ev after postChange`` () = task {
     let host =
         CoreMailbox.createFile dir admittedCredentials
     try
-        let _, change = addRootChild "persist-event"
+        let _, event = addRootChild "persist-event"
         let! accepted =
-            CoreMailbox.postEvents host testCaller [ Ev.ofChange "" change ]
+            CoreMailbox.postEvents host testCaller [ event ]
             |> Async.StartAsTask
         requireOk "postChange" accepted |> ignore
         let! events =
@@ -40,7 +42,7 @@ let ``getEventsSince returns Ev after postChange`` () = task {
                 (EventId -1)
             |> Async.StartAsTask
         let stored = Assert.Single(events)
-        Assert.Equal(change.submissionId, stored.submissionId)
+        Assert.Equal(event.submissionId, stored.submissionId)
         match stored.body with
         | EventBody.Change _ -> ()
         | _ -> Assert.Fail("expected Change EventBody")
@@ -51,11 +53,11 @@ let ``getEventsSince returns Ev after postChange`` () = task {
 [<Fact>]
 let ``EventLog.restore seeds mailbox across File restart`` () = task {
     let dir = newTempDir ()
-    let _, change = addRootChild "restore-seed"
+    let _, event = addRootChild "restore-seed"
     let first = CoreMailbox.createFile dir admittedCredentials
     try
         let! accepted =
-            CoreMailbox.postEvents first testCaller [ Ev.ofChange "" change ]
+            CoreMailbox.postEvents first testCaller [ event ]
             |> Async.StartAsTask
         requireOk "postChange" accepted |> ignore
     finally
@@ -66,7 +68,7 @@ let ``EventLog.restore seeds mailbox across File restart`` () = task {
             CoreMailbox.eventHistory second
             |> Async.StartAsTask
         let stored = Assert.Single(history.events)
-        Assert.Equal(change.submissionId, stored.submissionId)
+        Assert.Equal(event.submissionId, stored.submissionId)
         Assert.Equal(EventId 2, EventLog.nextId history)
     finally
         CoreMailbox.dispose second
@@ -76,11 +78,11 @@ let ``EventLog.restore seeds mailbox across File restart`` () = task {
 let ``EventLog.restore seeds mailbox across Db restart`` () = task {
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
-    let _, change = addRootChild "db-restore-seed"
+    let _, event = addRootChild "db-restore-seed"
     let first = admittedHostDb (DbAgent.create connStr)
     try
         let! accepted =
-            CoreMailbox.postEvents first testCaller [ Ev.ofChange "" change ]
+            CoreMailbox.postEvents first testCaller [ event ]
             |> Async.StartAsTask
         requireOk "postChange" accepted |> ignore
     finally
@@ -91,7 +93,7 @@ let ``EventLog.restore seeds mailbox across Db restart`` () = task {
             CoreMailbox.eventHistory second
             |> Async.StartAsTask
         let stored = Assert.Single(history.events)
-        Assert.Equal(change.submissionId, stored.submissionId)
+        Assert.Equal(event.submissionId, stored.submissionId)
         Assert.Equal(EventId 2, EventLog.nextId history)
     finally
         CoreMailbox.dispose second
@@ -188,9 +190,9 @@ let ``getEventsSince Error does not seed empty EventLog as success`` () =
             Assert.Fail("expected persist getEventsSince Error")
         with ex ->
             Assert.Contains("events unavailable", ex.Message)
-        let _, change = addRootChild "seed-fail"
+        let _, event = addRootChild "seed-fail"
         let! posted =
-            CoreMailbox.postEvents host testCaller [ Ev.ofChange "" change ]
+            CoreMailbox.postEvents host testCaller [ event ]
             |> Async.StartAsTask
         match posted with
         | Ok _ ->

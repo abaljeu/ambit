@@ -88,17 +88,18 @@ let ``Actor postChange on scheduled handle reaches persist`` () =
     let persist = filePersist ()
     let seen = TaskCompletionSource<Result<CoreChangesAccepted, string>>()
     let childId = NodeId.New()
-    let change =
-        { id = 0
-          submissionId = Guid.NewGuid()
-          ops =
-            [ Op.NewNode(childId, "from-actor")
-              Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
+    let event =
+        Ev.ofChange
+            ""
+            { id = 0
+              submissionId = Guid.NewGuid()
+              ops =
+                [ Op.NewNode(childId, "from-actor")
+                  Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
     withPersist persist (fun host pool -> task {
         let! started =
             startRootActor host pool (fun _ coreChanges -> async {
-                let! result =
-                    coreChanges.postEvents [ Ev.ofChange "" change ]
+                let! result = coreChanges.postEvents [ event ]
                 seen.TrySetResult result |> ignore
             })
             |> Async.StartAsTask

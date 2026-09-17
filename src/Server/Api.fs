@@ -248,11 +248,13 @@ module Api =
             | Ok [] ->
                 return jsonResult """{"ok":true}"""
             | Ok ops ->
-                let change =
-                    { id = state.revision.Value
-                      submissionId = Guid.NewGuid()
-                      ops = ops }
-                match! handle.postGraphOnly (Ev.ofChange "" change) with
+                let event =
+                    Ev.ofChange
+                        ""
+                        { id = state.revision.Value
+                          submissionId = Guid.NewGuid()
+                          ops = ops }
+                match! handle.postGraphOnly event with
                 | Ok _ -> return jsonResult """{"ok":true}"""
                 | Error err -> return agentErrorResult err
         }
