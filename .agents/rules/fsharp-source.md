@@ -19,6 +19,8 @@ Indentation is equally important as it is in python or Haskell.
 
 Follow language norms. Match existing style.
 
+When you change code so it operates on Event (`Ev`) instead of Change, rename local variables so the names match the type. Prefer `event` and `events`. If the file already uses `ev` and `evs`, keep that style. Bind `Ev` values to Event-named locals. Do not leave Change names such as `change` or `changes` on those bindings.
+
 Graphs may be millions of nodes. In hot paths, avoid O(nodes) full-graph scans (e.g. `Map.toList graph.nodes`). Prefer owner-subtree or other local walks (see `GraphQuery.ownedArtifactsInDirectory`).
 
 Never rebuild a whole structure once per item. Ops are applied in long batches (a parse tail or history replay is thousands in a row), so a per-item full rebuild or full scan is quadratic overall even when each call looks cheap. Watch for: calling `Graph.fromNodes` or any re-index/re-sort inside a per-op path; growing a list with `@` or `List.append` in a fold; `List.length`/`List.last`/`List.item` inside a loop over the same list. Instead update the index incrementally (see `GraphBuild.addDetachedNode` and `GraphBuild.appendChildren`), accumulate with `::` and reverse once, or rebuild once after the batch. When adding or changing a mutation op, cost it for a batch of 10,000, not for one call.
