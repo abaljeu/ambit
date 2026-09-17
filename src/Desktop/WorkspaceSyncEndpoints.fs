@@ -5,7 +5,6 @@ open System.IO
 open System.Net.Http
 open System.Text.Json
 open System.Threading.Tasks
-open Gambol.Server
 open Gambol.Shared
 open Microsoft.AspNetCore.Http
 
@@ -106,9 +105,7 @@ module WorkspaceSyncEndpoints =
     let private cookieHeader
         (creds: LoginForm.Credentials option)
         : string option =
-        creds
-        |> Option.map (fun c ->
-            AuthToken.cookieHeaderValue c.Username c.Password)
+        AmbitSession.cookieHeader creds
 
     let private okSync (r: WorkspaceFileSync.SyncResult) =
         let skippedJson =

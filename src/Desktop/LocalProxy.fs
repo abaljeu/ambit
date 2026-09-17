@@ -182,11 +182,7 @@ module LocalProxy =
                 response.Headers[header.Key] <- StringValues(values)
 
     let private createHttpClient () =
-        let handler =
-            new HttpClientHandler(
-                AllowAutoRedirect = false,
-                UseCookies = false)
-        new HttpClient(handler, disposeHandler = true)
+        AmbitSession.createHttpClient ()
 
     let private setCookieHeaders (response: HttpResponseMessage) =
         match response.Headers.TryGetValues("Set-Cookie") with
@@ -669,9 +665,7 @@ module LocalProxy =
             WorkspaceDownloadManager.create
                 client
                 ambitBase
-                (session.Value
-                 |> Option.map (fun c ->
-                     AuthToken.cookieHeaderValue c.Username c.Password))
+                (AmbitSession.cookieHeader session.Value)
                 (fun label ->
                     match WorkspaceLocalMapping.resolvePath workspaceMap.Value label "" with
                     | Ok path -> Ok path

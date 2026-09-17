@@ -1,8 +1,12 @@
 # Stretch: desktop workspace upload without WPF
 
-Date: 2026-09-17. Question: can Shared.dotnet Upload land a named Workspace and one File on a local server, then show both in a headed Browser, with no WPF host? Result: **pass**.
+Date: 2026-09-17. Question: can Shared.dotnet Upload land a named Workspace and one File on a local server, then show both in a headed Browser, with no WPF host? Result: **pass**. Reshape: one Shared.dotnet implementation; stretch entry is thin FSI.
 
-Related: [[doc/current/desktop-local-files.md]], [[doc/roadmap/workspace-file-sync.md]], [[src/Shared/dotnet/WorkspaceFileSync.fs]], [[src/Desktop/WorkspaceSyncEndpoints.fs]], [[src/Server/WorkspaceWebDav.fs]]. Harness: [[scripts/stretch-workspace-upload.sh]].
+Related: [[doc/current/desktop-local-files.md]], [[doc/roadmap/workspace-file-sync.md]], [[src/Shared/dotnet/WorkspaceCloudUpload.fs]], [[src/Shared/dotnet/AmbitSession.fs]], [[src/Shared/dotnet/WorkspaceFileSync.fs]], [[src/Desktop/WorkspaceSyncEndpoints.fs]], [[src/Server/WorkspaceWebDav.fs]]. Harness: [[scripts/stretch-workspace-upload.sh]] + [[scripts/stretch-workspace-upload.fsx]].
+
+## Shape
+
+Desktop non-UI and the stretch script call the same modules. [AmbitSession.fs](src/Shared/dotnet/AmbitSession.fs) owns HttpClient construction, `gambol_auth` from [AuthToken.fs](src/Server/AuthToken.fs) (compiled into Shared.dotnet), GET `/state?scope=full`, and POST `/changes`. [WorkspaceCloudUpload.fs](src/Shared/dotnet/WorkspaceCloudUpload.fs) owns create (`FileNodeOps.planCreateWorkspace`), inventory (`WorkspaceLocalInventory.listForUpload`), stubs (`WorkspaceUploadStructure.planStubOps`), WebDAV push (`WorkspaceFileSync.post`, same as `/_desktop/workspace-push`), and Unparsed mark (`planServerFilePresentOps`). [WorkspaceSyncEndpoints.fs](src/Desktop/WorkspaceSyncEndpoints.fs) and [LocalProxy.fs](src/Desktop/LocalProxy.fs) call `AmbitSession.cookieHeader` / `createHttpClient`. [stretch-workspace-upload.fsx](scripts/stretch-workspace-upload.fsx) only parses argv and prints PASS lines. No WPF, folder picker, or WebView2.
 
 ## Verdict
 
@@ -18,18 +22,17 @@ Related: [[doc/current/desktop-local-files.md]], [[doc/roadmap/workspace-file-sy
 Local-only: set [[src/Server/appsettings.Development.json]] `DB_CONNECTION_STRING` to `Host=localhost;Database=gambol;Username=gambol;Password=gambol_dev`. Do not commit that file. `addAppSettings` loads Development json after environment variables, so `postgres`/`postgres` would win and writes become read-only.
 
 ```
-bash scripts/client.sh build
+scripts/client.sh build
 ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://127.0.0.1:5215 \
   DB_CONNECTION_STRING='Host=localhost;Database=gambol;Username=gambol;Password=gambol_dev' \
   dotnet run --project src/Server --no-launch-profile
 printf 'stretch-upload-1789649487-4850\n' > /tmp/ambit-stretch-upload/hello.md
-dotnet run --project scripts/stretch-workspace-upload -- \
-  http://127.0.0.1:5215/ambit /tmp/ambit-stretch-upload stretch
+scripts/stretch-workspace-upload.sh
 ```
 
-Harness steps (no WPF, no folder picker): GET `/ambit` for `gambol_auth` (empty Development Auth + mailbox login); GET `/ambit/state?scope=full`; mint Change (`eventId` 0, authority `Browser`, command `Load`); POST stubs from `WorkspaceLocalInventory.listForUpload` + `WorkspaceUploadStructure.planStubOps`; `WorkspaceFileSync.post`; `planServerFilePresentOps` Unparsed.
+`stretch-workspace-upload.sh` writes the fixture, builds Shared.dotnet, then `dotnet fsi` on [stretch-workspace-upload.fsx](scripts/stretch-workspace-upload.fsx). The script calls `WorkspaceCloudUpload.run` (login GET `/ambit` for `gambol_auth`; GET `/state`; create; stubs; `WorkspaceFileSync.post`; mark Unparsed).
 
-Browser: open `/ambit?debug=1`; select `stretch`; Load; ArrowRight.
+Browser (manual): open `/ambit?debug=1`; select `stretch`; Load; ArrowRight.
 
 ## Evidence
 
@@ -40,8 +43,8 @@ CDP row dump after unfold: Workspaces; Workspace `stretch`; File `hello.md` clas
 ## Blockers (none fatal)
 
 - Development json reconnects to `postgres`/`postgres` after env load. Local override only.
-- `Thoth.Json.JavaScript` is Fable dummy on .NET. Harness encodes with `Thoth.Json.Newtonsoft` (same as Shared.Tests).
+- `Thoth.Json.JavaScript` is Fable dummy on .NET. Shared.dotnet encodes `/changes` and `/state` with `Thoth.Json.Newtonsoft` (same as Shared.Tests).
 - `git` not on PATH. Upload still ran; detail said `.gitignore filter skipped (git unavailable)`.
 - RootClosure boot shows the named Workspace as a header. File children need Load, then unfold.
-- Cookie is `Secure`. Chrome on `localhost` HTTP accepted it. The harness sends `Cookie` on each request (does not use a Secure cookie jar).
+- Cookie is `Secure`. Chrome on `localhost` HTTP accepted it. `AmbitSession` sends `Cookie` on each request (does not use a Secure cookie jar).
 - Cursor `computerUse` did not start (model usage). Headed Chrome + CDP on `DISPLAY=:1` is the Browser proof.
