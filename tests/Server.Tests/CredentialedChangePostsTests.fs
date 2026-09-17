@@ -17,7 +17,7 @@ let private requireOk label result =
 
 let private addRootChild text =
     let childId = NodeId.New()
-    { id = 0
+    { id = EventId.fromJson 0
       submissionId = Guid.NewGuid()
       ops =
         [ Op.NewNode(childId, text)
@@ -47,12 +47,12 @@ let ``live Browser credential is admitted and Change reaches PersistHandlers``
                 CoreMailbox.postEvents agent testCaller [ event ]
                 |> Async.StartAsTask
             let accepted = requireOk "live post" result
-            Assert.Equal(Revision 1, accepted.revision)
+            Assert.Equal(EventId.fromJson 1, accepted.eventId)
             Assert.Equal<Guid list>(
                 [ event.submissionId ],
                 accepted.events |> List.map _.submissionId)
-            let! rev = handle.getRevision () |> Async.StartAsTask
-            Assert.Equal(Gambol.Shared.EventId 1, rev)
+            let! rev = handle.getEventId () |> Async.StartAsTask
+            Assert.Equal(EventId.fromJson 1, rev)
         finally
             CoreMailbox.dispose agent
     }
@@ -62,7 +62,7 @@ let ``inactive credential is auth-refused before PersistHandlers`` () = task {
     let dataDir = newTempDir ()
     let agent, handle, _ = createAdmittedFileWithCredentials dataDir
     try
-        let! before = handle.getRevision () |> Async.StartAsTask
+        let! before = handle.getEventId () |> Async.StartAsTask
         let! result =
             CoreMailbox.postEvents
                 agent
@@ -71,7 +71,7 @@ let ``inactive credential is auth-refused before PersistHandlers`` () = task {
                   secret = Credential "inactive" }
                 [ Ev.ofChange "" (addRootChild "nope") ]
             |> Async.StartAsTask
-        let! after = handle.getRevision () |> Async.StartAsTask
+        let! after = handle.getEventId () |> Async.StartAsTask
         Assert.Equal(Error CoreAuth.refuse, result)
         Assert.Equal(before, after)
     finally
@@ -84,7 +84,7 @@ let ``blank Authority is the same auth refuse before PersistHandlers`` () =
         let dataDir = newTempDir ()
         let agent, handle, _ = createAdmittedFileWithCredentials dataDir
         try
-            let! before = handle.getRevision () |> Async.StartAsTask
+            let! before = handle.getEventId () |> Async.StartAsTask
             let! result =
                 CoreMailbox.postEvents
                     agent
@@ -93,7 +93,7 @@ let ``blank Authority is the same auth refuse before PersistHandlers`` () =
                       secret = testSecret }
                     [ Ev.ofChange "" (addRootChild "blank-auth") ]
                 |> Async.StartAsTask
-            let! after = handle.getRevision () |> Async.StartAsTask
+            let! after = handle.getEventId () |> Async.StartAsTask
             Assert.Equal(Error CoreAuth.refuse, result)
             Assert.Equal(before, after)
         finally
@@ -111,7 +111,7 @@ let ``request-carried cookie secret is admitted; foreign secret is refused`` () 
             handle.postEvents [ event ]
             |> Async.StartAsTask
         let accepted = requireOk "cookie post" ok
-        Assert.Equal(Revision 1, accepted.revision)
+        Assert.Equal(EventId.fromJson 1, accepted.eventId)
         let! refused =
             (CoreMailbox.coreChanges
                 runtime.host
@@ -141,14 +141,14 @@ let ``missing cookie secret is the same auth refuse before PersistHandlers`` () 
         match BrowserRequestCreds.trySecretFromCookieValue (Some "  ") with
         | Some _ -> Assert.Fail("whitespace cookie must not yield a secret")
         | None -> ()
-        let! before = handle.getRevision () |> Async.StartAsTask
+        let! before = handle.getEventId () |> Async.StartAsTask
         let! refused =
             (CoreMailbox.coreChanges
                 runtime.host
                 (BrowserRequestCreds.callerFromSecret (Credential ""))).postEvents
                 [ Ev.ofChange "" (addRootChild "missing-cookie") ]
             |> Async.StartAsTask
-        let! after = handle.getRevision () |> Async.StartAsTask
+        let! after = handle.getEventId () |> Async.StartAsTask
         Assert.Equal(Error CoreAuth.refuse, refused)
         Assert.Equal(before, after)
         Assert.NotEqual(Credential "", cookie)
@@ -174,5 +174,5 @@ let ``request cookie value is admitted without closed-over browserCredential`` (
                     [ Ev.ofChange "" (addRootChild "request-only") ]
                 |> Async.StartAsTask
             let accepted = requireOk "request secret" ok
-            Assert.Equal(Revision 1, accepted.revision)
+            Assert.Equal(EventId.fromJson 1, accepted.eventId)
     }

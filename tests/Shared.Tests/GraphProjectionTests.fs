@@ -8,11 +8,11 @@ let private owned = ChildNode.owners
 
 let private applyChange (ops: Op list) (graph: Graph) : Graph =
     let change =
-        { id = 0
+        { id = EventId.fromJson 0
           submissionId = Guid.NewGuid()
           ops = ops }
 
-    match ChangeValidation.applyChange change { graph = graph; revision = Revision 0 } with
+    match ChangeValidation.applyChange change { graph = graph; eventId = EventId.zero } with
     | ApplyResult.Changed st -> st.graph
     | _ -> failwith "expected Changed"
 
@@ -104,13 +104,13 @@ let ``graphRoundTrip preserves graph with child`` () =
     let childId = NodeId.New()
 
     let change =
-        { id = 0
+        { id = EventId.fromJson 0
           submissionId = System.Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "x")
               Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
 
-    match ChangeValidation.applyChange change { graph = g0; revision = Revision 0 } with
+    match ChangeValidation.applyChange change { graph = g0; eventId = EventId.zero } with
     | ApplyResult.Changed st ->
         match GraphProjection.graphRoundTrip st.graph with
         | Error e -> Assert.Fail(e)
@@ -135,13 +135,13 @@ let ``graphRoundTrip preserves updateTime`` () =
     let childId = NodeId.New()
 
     let change =
-        { id = 0
+        { id = EventId.fromJson 0
           submissionId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "stamped")
               Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
 
-    match ChangeValidation.applyChange change { graph = g0; revision = Revision 0 } with
+    match ChangeValidation.applyChange change { graph = g0; eventId = EventId.zero } with
     | ApplyResult.Changed st ->
         let stamped =
             { st.graph with
@@ -160,13 +160,13 @@ let ``graphEquals is false when text differs`` () =
     let childId = NodeId.New()
 
     let change =
-        { id = 0
+        { id = EventId.fromJson 0
           submissionId = System.Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "alpha")
               Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
 
-    match ChangeValidation.applyChange change { graph = g0; revision = Revision 0 } with
+    match ChangeValidation.applyChange change { graph = g0; eventId = EventId.zero } with
     | ApplyResult.Changed st ->
         match Graph.setText childId "alpha" "beta" st.graph with
         | Ok g1 -> Assert.False(GraphProjection.graphEquals st.graph g1)

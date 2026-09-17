@@ -1,7 +1,7 @@
 # 11 — One serial event id
 
-**Status:** defined
-**Actual:** 30m
+**Status:** coded
+**Actual:** 3h
 **Blocked by:** [05 — Expand Op-list apply](05-expand-op-list-apply.md)
 
 ## Context
@@ -22,9 +22,9 @@ The client has no EventId serial. Pending events use `EventId.zero` only. The cl
 
 Modules **Ev**, **State**, **CoreChanges**, **EventLog**, **ClientHistory**. Seam **EventId**. [History.fs](src/Shared/History.fs), [ClientHistory.fs](src/Shared/ClientHistory.fs), and [ViewModelSync.fs](src/Shared/ViewModelSync.fs) change on this ticket.
 
-- [ ] 1.1.3 leftover Change.id is EventId
-- [ ] 1.2.6 One serial — `Revision` type and `revision` fields become event id. JSON key `"eventId"`. `getEventId`. EventId has private id. EventId.fromJson/toJson bypasses. EventId.next adds one. Ev.fromJson/toJson. Only serializing uses fromJson/toJson. Only EventLog uses EventId.next. Any event not from these sources has id 0
-- [ ] 1.2.6 client pending — Client has no EventId serial. Pending events use `EventId.zero`. Match server responses with `submissionId`. On approve, replace zero with the server-assigned id. On interject, rewind. Drop `ClientHistory.nextEventId`, local `EventId.next`, `record` local id, `PendingTransition`, and `PendingChange.transition`. SyncInfo pending is an event list
+- [x] 1.1.3 leftover Change.id is EventId
+- [x] 1.2.6 One serial — `Revision` type and `revision` fields become event id. JSON key `"eventId"`. `getEventId`. EventId has private id. EventId.fromJson/toJson bypasses. EventId.next adds one. Ev.fromJson/toJson. Only serializing uses fromJson/toJson. Only EventLog uses EventId.next. Any event not from these sources has id 0
+- [x] 1.2.6 client pending — Client has no EventId serial. Pending events use `EventId.zero`. Match server responses with `submissionId`. On approve, replace zero with the server-assigned id. On interject, rewind. Drop `ClientHistory.nextEventId`, local `EventId.next`, `record` local id, `PendingTransition`, and `PendingChange.transition`. SyncInfo pending is an event list
 
 ## Out of scope
 
@@ -41,3 +41,4 @@ Modules **Ev**, **State**, **CoreChanges**, **EventLog**, **ClientHistory**. Sea
 ## Time
 
 - 2026-09-17 30m — Fold locked client pending / `submissionId` model into What to build and arch EventId / ClientHistory notes (from chat)
+- 2026-09-17 2.5h — Implement private EventId serial, leftover Change.id, client pending EventId.zero / submissionId (from chat)

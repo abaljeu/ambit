@@ -51,17 +51,17 @@ let private inventoryToStubItems (items: DesktopInventoryItem list) : WorkspaceU
           isDirectory = i.isDirectory })
 
 let private reconcileWorkspaceAck
-    (submitted: PendingChange)
+    (submitted: Ev)
     (ack: ChangeSuccessResponse)
     (graph: Graph)
     (history: ClientHistory)
-    (revision: Revision)
+    (eventId: EventId)
     : AckReconcile =
     let state =
-        ClientSyncState.create graph (EventId.ofRevision revision) history
+        ClientSyncState.create graph eventId history
     let syncInfo =
         { SyncInfo.initial with
-            pendingChanges = [ submitted ]
+            pending = [ submitted ]
             syncState = Sending 1 }
     if
         ack.externalChanges
@@ -69,14 +69,14 @@ let private reconcileWorkspaceAck
     then
         SyncLogic.reconcileExternalAck
             [ submitted ]
-            ack.revision
+            ack.eventId
             state
             syncInfo
     else
         SyncLogic.reconcileAck
             [ submitted ]
             ack.events
-            ack.revision
+            ack.eventId
             state
             syncInfo
 
@@ -87,7 +87,7 @@ let applyAndPostSync (commandName: string) (ops: Op list) (model: VM) : Result<V
     | Error msg -> Error msg
     | Ok (nextState, submitted) ->
         let body =
-            SyncBatch.toWireBatch model.revision.Value [ submitted ]
+            SyncBatch.toWireBatch [ submitted ]
             |> encodePendingBatchBody
         let url = sprintf "/%s/changes" currentFile
         let status, text = postJsonSync url body (jsonHeaders ())
@@ -103,14 +103,14 @@ let applyAndPostSync (commandName: string) (ops: Op list) (model: VM) : Result<V
                         ack
                         nextState.graph
                         nextState.history
-                        model.revision
+                        model.eventId
                 with
                 | AckReconcile.Applied (st, _, _, _) ->
                     Ok
                         { model with
                             graph = st.graph
                             history = st.history
-                            revision = EventId.toRevision st.revision }
+                            eventId = st.eventId }
                 | AckReconcile.Ignored ->
                     Ok
                         { model with
@@ -120,7 +120,7 @@ let applyAndPostSync (commandName: string) (ops: Op list) (model: VM) : Result<V
 
 /// Local graph only — stubs paint before structure POST / body push.
 let private applyStructureLocally
-    (commandName: string) (ops: Op list) (model: VM) : Result<VM * PendingChange, string> =
+    (commandName: string) (ops: Op list) (model: VM) : Result<VM * Ev, string> =
     let event = ClientHistory.mintChange commandName ops
     match SyncLogic.applyLocalChange event (clientSyncState model) with
     | Error msg -> Error msg
@@ -312,7 +312,7 @@ let completeUploadInventory
 
 /// Structure Change ACK: stamp + revision, then body push.
 let completeUploadStructurePost
-    (submitted: PendingChange)
+    (submitted: Ev)
     (scope: WorkspaceSyncScope)
     (parseFileId: NodeId option)
     (text: string)
@@ -327,13 +327,13 @@ let completeUploadStructurePost
                 ack
                 model.graph
                 model.history
-                model.revision
+                model.eventId
         with
         | AckReconcile.Applied (st, _, _, _) ->
             let model' =
                 { model with
                     graph = st.graph
-                    revision = EventId.toRevision st.revision }
+                    eventId = st.eventId }
                 |> withSiteMap
                 |> keepUploading
             model', [ Effect.ContinueWorkspacePush (scope, parseFileId) ]

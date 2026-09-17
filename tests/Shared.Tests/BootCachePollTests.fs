@@ -7,7 +7,7 @@ open BootCacheTestHelpers
 open Xunit
 
 let private mkPoll rev (events: Ev list) : ChangeSuccessResponse =
-    { revision = EventId rev
+    { eventId = EventId.fromJson rev
       buildEpochSec = 1
       pageBuildEpochSec = 1
       apiVersion = ApiVersion.current

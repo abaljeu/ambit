@@ -6,10 +6,10 @@ open Gambol.Shared
 
 [<RequireQualifiedAccess>]
 module EventJson =
-    let encodeEventId (EventId n) = Encode.int n
+    let encodeEventId eventId = Encode.int (EventId.toJson eventId)
 
     let decodeEventId: Decoder<EventId> =
-        Decode.int |> Decode.map EventId
+        Decode.int |> Decode.map EventId.fromJson
 
     let private encodeAuthority (Authority name) = Encode.string name
 
@@ -43,7 +43,7 @@ module EventJson =
               start.graphIds
               |> List.map Serialization.encodeNodeId
               |> Encode.list
-              "revision", encodeEventId start.revision ]
+              "eventId", encodeEventId start.eventId ]
 
     let private decodeActorStart: Decoder<ActorStart> =
         Decode.object (fun get ->
@@ -55,7 +55,7 @@ module EventJson =
                 get.Required.Field
                     "graphIds"
                     (Decode.list Serialization.decodeNodeId)
-              revision = get.Required.Field "revision" decodeEventId })
+              eventId = get.Required.Field "eventId" decodeEventId })
 
     let private encodeBody (body: EventBody) =
         match body with
@@ -115,43 +115,27 @@ module EventJson =
             | other -> Decode.fail ("Unknown event body: " + other))
 
     let encode (event: Ev) =
+        let eventId, submissionId, authority, commandName, body =
+            Ev.toJson event
         Encode.object
-            [ "id", encodeEventId event.id
-              "submissionId", Encode.guid event.submissionId
-              "authority", encodeAuthority event.authority
-              "commandName", Encode.string event.commandName
-              "body", encodeBody event.body ]
+            [ "eventId", Encode.int eventId
+              "submissionId", Encode.guid submissionId
+              "authority", encodeAuthority authority
+              "commandName", Encode.string commandName
+              "body", encodeBody body ]
 
     let decode: Decoder<Ev> =
         Decode.object (fun get ->
-            { id = get.Required.Field "id" decodeEventId
-              submissionId = get.Required.Field "submissionId" Decode.guid
-              authority = get.Required.Field "authority" decodeAuthority
-              commandName = get.Required.Field "commandName" Decode.string
-              body = get.Required.Field "body" decodeBody })
+            Ev.fromJson
+                (get.Required.Field "eventId" Decode.int)
+                (get.Required.Field "submissionId" Decode.guid)
+                (get.Required.Field "authority" decodeAuthority)
+                (get.Required.Field "commandName" Decode.string)
+                (get.Required.Field "body" decodeBody))
 
-    let private encodePendingTransition (transition: PendingTransition) =
-        Encode.object
-            [ "recordId", Encode.int transition.recordId
-              "submittedChangeId", Encode.guid transition.submittedChangeId ]
+    let encodePendingEvent (event: Ev) : IEncodable = encode event
 
-    let private decodePendingTransition: Decoder<PendingTransition> =
-        Decode.object (fun get ->
-            { recordId = get.Required.Field "recordId" Decode.int
-              submittedChangeId = get.Required.Field "submittedChangeId" Decode.guid })
-
-    let encodePendingChange (item: PendingChange) : IEncodable =
-        Encode.object (
-            [ "event", encode item.event ]
-            @ match item.transition with
-              | None -> []
-              | Some transition ->
-                  [ "transition", encodePendingTransition transition ])
-
-    let decodePendingChange: Decoder<PendingChange> =
-        Decode.object (fun get ->
-            { event = get.Required.Field "event" decode
-              transition = get.Optional.Field "transition" decodePendingTransition })
+    let decodePendingEvent: Decoder<Ev> = decode
 
     let encodeEventBatch (batch: EventBatch) : IEncodable =
         Encode.object

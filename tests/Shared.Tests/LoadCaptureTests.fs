@@ -146,7 +146,7 @@ let ``captureLoadResponse shares revision for changes and packages`` () =
     let events =
         [ Ev.ofChange
             "fixture"
-            { id = 4
+            { id = EventId.fromJson 4
               submissionId = System.Guid.NewGuid()
               ops = [ Op.SetText(fileId, "old", "new") ] } ]
     match
@@ -161,7 +161,7 @@ let ``captureLoadResponse shares revision for changes and packages`` () =
     with
     | Error _ -> failwith "expected LoadResponse"
     | Ok response ->
-        Assert.Equal(EventId 9, response.revision)
+        Assert.Equal(EventId.fromJson 9, response.eventId)
         Assert.Equal(100, response.buildEpochSec)
         Assert.Equal(200, response.pageBuildEpochSec)
         Assert.True(response.isReady)
@@ -173,7 +173,7 @@ let ``LoadResponse toSyncResponse preserves changes and packages`` () =
     let node =
         Node.Create(NodeId.New(), text = "n", owner = Graph.rootId)
     let load: LoadResponse =
-        { revision = EventId 3
+        { eventId = EventId.fromJson 3
           buildEpochSec = 1
           pageBuildEpochSec = 2
           apiVersion = ApiVersion.current

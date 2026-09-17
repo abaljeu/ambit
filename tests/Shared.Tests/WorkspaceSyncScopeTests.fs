@@ -125,7 +125,7 @@ let ``tryFromFocus file under SYSTEM uses SYSTEM label`` () =
                 | ApplyResult.Unchanged next -> next
                 | ApplyResult.Invalid(_, msg) -> failwith msg)
             { graph = graph0
-              revision = Revision.Zero }
+              eventId = EventId.zero }
         |> fun s -> s.graph
     match WorkspaceSyncScope.tryFromFocus graph fileId with
     | Error e -> Assert.Fail(e)

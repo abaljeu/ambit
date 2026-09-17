@@ -37,7 +37,7 @@ module private SubmitChangeCallbacks =
     let onPostOk
         (timeoutId: float)
         (reqId: string)
-        (submitted: PendingChange list)
+        (submitted: Ev list)
         (dispatch: Msg -> unit)
         (text: string)
         : unit =
@@ -47,14 +47,14 @@ module private SubmitChangeCallbacks =
         | Ok ack ->
             consoleLog (
                 "[Gambol sync] POST 200 req=" + reqId
-                + " ackRev=" + string ack.revision.Value
+                + " ackRev=" + string ack.eventId.Value
                 + " bodyLen=" + string n)
             dispatch (
                 SysMsg (
                     SubmitResponse (
                         submitted,
                         ack.events,
-                        EventId.toRevision ack.revision,
+                        ack.eventId,
                         ack.externalChanges,
                         ack.message)))
         | Error err ->
@@ -79,7 +79,7 @@ module private SubmitChangeCallbacks =
         (timeoutId: float)
         (reqId: string)
         (baseRev: int)
-        (changes: PendingChange list)
+        (events: Ev list)
         (dispatch: Msg -> unit)
         ()
         : unit =
@@ -89,7 +89,7 @@ module private SubmitChangeCallbacks =
             SysMsg (
                 SubmitNetworkError (
                     baseRev,
-                    changes,
+                    events,
                     SubmitNetworkErrorKind.FetchFailed)))
 
 // Idle/pause remote polling after a period of no user interaction (battery-friendly).
@@ -113,13 +113,13 @@ let createRuntime (initialModel: VM) =
     let mergePendingAfterLoad (restored: VM) : VM * Effect list =
         lastActivityMs <- nowMs ()
         let saved = loadPendingQueue ()
-        let serverRev = restored.revision.Value
+        let serverRev = restored.eventId.Value
         let localState, restoredPending =
             SyncPlanner.restorePending
-                (EventId.ofRevision restored.revision)
+                (restored.eventId)
                 saved
                 { graph = restored.graph
-                  revision = restored.revision }
+                  eventId = restored.eventId }
         savePendingQueue restoredPending
         if restoredPending.IsEmpty then
             { restored with
@@ -134,7 +134,7 @@ let createRuntime (initialModel: VM) =
                 graph = localState.graph
                 syncInfo =
                     restored.syncInfo
-                    |> SyncInfo.withPendingChanges restoredPending
+                    |> SyncInfo.withPending restoredPending
                     |> SyncInfo.withSyncState (Sending 1) },
             submitEffects
 
@@ -147,7 +147,7 @@ let createRuntime (initialModel: VM) =
 
     and runEffect (e: Effect) : unit =
         match e with
-        | SubmitPendingBatch (baseRev, changes) -> runSubmitPendingBatch baseRev changes
+        | SubmitPendingBatch (baseRev, events) -> runSubmitPendingBatch baseRev events
         | PollServer _ -> runPollServer ()
         | LoadServer (rev, targets) ->
             runLoadServer rev targets
@@ -189,7 +189,7 @@ let createRuntime (initialModel: VM) =
         | ContinuePostUploadStructure (submitted, scope, parseFileId) ->
             // Stubs already in the model (DOM patched before effects). Async POST.
             let body =
-                SyncBatch.toWireBatch model.revision.Value [ submitted ]
+                SyncBatch.toWireBatch [ submitted ]
                 |> encodePendingBatchBody
             let url = sprintf "/%s/changes" currentFile
             let rec post () =
@@ -364,20 +364,20 @@ let createRuntime (initialModel: VM) =
             50
         |> ignore
 
-    and runSubmitPendingBatch (baseRev: int) (changes: PendingChange list) : unit =
+    and runSubmitPendingBatch (baseRev: int) (events: Ev list) : unit =
         let reqId =
-            changes
+            events
             |> List.tryHead
             |> Option.map (fun item ->
-                item.event.submissionId.ToString("N").Substring(0, 8))
+                item.submissionId.ToString("N").Substring(0, 8))
             |> Option.defaultValue "empty"
         let url = $"/{currentFile}/changes"
-        let postChanges = SyncBatch.toWireBatch baseRev changes
+        let postChanges = SyncBatch.toWireBatch events
         let body = encodePendingBatchBody postChanges
-        let qLen = model.syncInfo.pendingChanges.Length
+        let qLen = model.syncInfo.pending.Length
         consoleLog (
             "[Gambol sync] POST start req=" + reqId + " baseRev=" + string baseRev
-            + " batchLen=" + string changes.Length + " qLen=" + string qLen)
+            + " batchLen=" + string events.Length + " qLen=" + string qLen)
         let timeoutId =
             setTimeout
                 (fun () ->
@@ -388,33 +388,33 @@ let createRuntime (initialModel: VM) =
                     dispatch (
                         SysMsg (
                             SubmitNetworkError (
-                                baseRev, changes, SubmitNetworkErrorKind.ClientTimeout))))
+                                baseRev, events, SubmitNetworkErrorKind.ClientTimeout))))
                 SyncRetry.postTimeoutMs
         postJson
             url
             body
-            (SubmitChangeCallbacks.onPostOk timeoutId reqId changes dispatch)
+            (SubmitChangeCallbacks.onPostOk timeoutId reqId events dispatch)
             (SubmitChangeCallbacks.onPostHttp timeoutId reqId dispatch)
-            (SubmitChangeCallbacks.onPostFetchFail timeoutId reqId baseRev changes dispatch)
+            (SubmitChangeCallbacks.onPostFetchFail timeoutId reqId baseRev events dispatch)
             (jsonMutatingPostHeaders ())
 
     and runPollServer () : unit =
         let url =
-            $"/{currentFile}/poll?_={nowMs ()}&rev={model.revision.Value}"
+            $"/{currentFile}/poll?_={nowMs ()}&rev={model.eventId.Value}"
         let onPollOk (text: string) : unit =
             match ApiResponseSerialization.decodeChangeSuccessResponse text with
             | Ok poll ->
                 reseedDeployEpochOnServerSignal poll.buildEpochSec
                 |> ignore
                 let outcome =
-                    SyncLogic.getPollOutcome poll model.revision.Value
+                    SyncLogic.getPollOutcome poll model.eventId.Value
                 dispatch (
                     SysMsg (
                         PollDone (
                             outcome,
                             poll.events,
                             Some poll.isReady,
-                            Some (EventId.toRevision poll.revision))))
+                            Some (poll.eventId))))
             | Error _ ->
                 dispatch (
                     SysMsg (
@@ -433,7 +433,7 @@ let createRuntime (initialModel: VM) =
         let body =
             Thoth.Json.JavaScript.Encode.toString 0 (
                 ApiResponseSerialization.encodeLoadRequest
-                    { revision = EventId revision
+                    { eventId = EventId.fromJson revision
                       targets = targets })
         let onLoadOk (text: string) : unit =
             match ApiResponseSerialization.decodeLoadResponse text with
@@ -443,13 +443,13 @@ let createRuntime (initialModel: VM) =
                 let outcome =
                     SyncLogic.getPollOutcome
                         (SyncLogic.loadResponseToPoll load)
-                        model.revision.Value
+                        model.eventId.Value
                 dispatch (
                     SysMsg (
                         LoadDone (
                             outcome,
                             SyncLogic.loadResponseToSync load,
-                            load.revision.Value,
+                            load.eventId.Value,
                             Some load.isReady)))
             | Error _ ->
                 dispatch (
@@ -457,7 +457,7 @@ let createRuntime (initialModel: VM) =
                         LoadDone (
                             None,
                             { events = []; packages = [] },
-                            model.revision.Value,
+                            model.eventId.Value,
                             None)))
         let onLoadHttp (_status: int) (_body: string) : unit =
             dispatch (
@@ -465,7 +465,7 @@ let createRuntime (initialModel: VM) =
                     LoadDone (
                         None,
                         { events = []; packages = [] },
-                        model.revision.Value,
+                        model.eventId.Value,
                         None)))
         let onLoadFail () : unit =
             dispatch (
@@ -473,7 +473,7 @@ let createRuntime (initialModel: VM) =
                     LoadDone (
                         None,
                         { events = []; packages = [] },
-                        model.revision.Value,
+                        model.eventId.Value,
                         None)))
         postJson
             url
@@ -493,7 +493,7 @@ let createRuntime (initialModel: VM) =
                         dispatch (SysMsg RetrySubmit))
                     delayMs)
 
-    and runSavePendingQueue (q: PendingChange list) : unit =
+    and runSavePendingQueue (q: Ev list) : unit =
         savePendingQueue q
 
     and runDesktopFileStatus (nodeId: NodeId) (path: string) : unit =
@@ -603,8 +603,8 @@ let createRuntime (initialModel: VM) =
             | SysMsg (SubmitResponse (submitted, confirmed, _, _, _)) ->
                 clearRetryTimer ()
                 let next, effects = update msg prev
-                let pendingLen = prev.syncInfo.pendingChanges.Length
-                let nextLen = next.syncInfo.pendingChanges.Length
+                let pendingLen = prev.syncInfo.pending.Length
+                let nextLen = next.syncInfo.pending.Length
                 let pendingDropped = pendingLen > nextLen
                 let rejected =
                     match next.syncInfo.syncState with
@@ -618,7 +618,7 @@ let createRuntime (initialModel: VM) =
                         currentFile
                         (BootCache.scopeKey (tryReadSavedZoomId ()))
                         (tryReadSavedZoomId ())
-                        next.revision.Value
+                        next.eventId.Value
                         next.syncInfo.isServerReady
                         next.graph
                 next, effects

@@ -14,65 +14,56 @@ module SyncPlanner =
         | Sending _ | Polling | Uploading | Parsing | Loading -> true
         | _ -> false
 
-    let tryStartSubmit (baseRevision: Gambol.Shared.EventId) (syncInfo: SyncInfo) : SyncInfo * Effect list =
-        match syncInfo.pendingChanges with
+    let tryStartSubmit (baseEventId: Gambol.Shared.EventId) (syncInfo: SyncInfo) : SyncInfo * Effect list =
+        match syncInfo.pending with
         | [] -> syncInfo, []
         | _ when isBlocked syncInfo.syncState -> syncInfo, []
         | _ when isBusy syncInfo.syncState -> syncInfo, []
-        | changes ->
+        | events ->
             let nextInfo = syncInfo |> SyncInfo.withSyncState (Sending 1)
-            let (Gambol.Shared.EventId baseRev) = baseRevision
-            nextInfo, [ SubmitPendingBatch (baseRev, changes) ]
+            nextInfo, [ SubmitPendingBatch (EventId.value baseEventId, events) ]
 
     let enqueuePending
-        (item: PendingChange)
-        (revision: Gambol.Shared.EventId)
+        (event: Ev)
+        (eventId: Gambol.Shared.EventId)
         (syncInfo: SyncInfo)
         : SyncInfo * Effect list =
-        let pending = syncInfo.pendingChanges @ [ item ]
+        let pending = syncInfo.pending @ [ event ]
         let nextSyncInfo, submitEffects =
-            { syncInfo with pendingChanges = pending }
-            |> tryStartSubmit revision
+            { syncInfo with pending = pending }
+            |> tryStartSubmit eventId
         nextSyncInfo, SavePendingQueue pending :: submitEffects
 
     let retireSubmittedPrefix
         (submittedCount: int)
-        (revision: Gambol.Shared.EventId)
+        (eventId: Gambol.Shared.EventId)
         (syncInfo: SyncInfo)
-        : SyncInfo * PendingChange list * Effect list =
-        let pending = List.skip submittedCount syncInfo.pendingChanges
-        let baseInfo = syncInfo |> SyncInfo.withPendingChanges pending
-        let (Gambol.Shared.EventId rev) = revision
+        : SyncInfo * Ev list * Effect list =
+        let pending = List.skip submittedCount syncInfo.pending
+        let baseInfo = syncInfo |> SyncInfo.withPending pending
         match pending with
         | [] ->
             baseInfo |> SyncInfo.withSyncState Idle, pending, []
-        | changes ->
+        | events ->
             baseInfo |> SyncInfo.withSyncState (Sending 1),
             pending,
-            [ SubmitPendingBatch (rev, changes) ]
+            [ SubmitPendingBatch (EventId.value eventId, events) ]
 
     let restorePending
-        (serverRevision: Gambol.Shared.EventId)
-        (saved: PendingChange list)
+        (_serverEventId: Gambol.Shared.EventId)
+        (saved: Ev list)
         (state: State)
-        : State * PendingChange list =
-        let (Gambol.Shared.EventId serverRev) = serverRevision
-        let prepared =
-            saved
-            |> List.filter (fun item ->
-                let (Gambol.Shared.EventId itemId) = item.event.id
-                itemId >= serverRev)
-            |> List.map (fun item -> { item with transition = None })
+        : State * Ev list =
         let extractChange (event: Ev) =
-            { id = 0
+            { id = EventId.zero
               submissionId = event.submissionId
               ops = Ev.ops event |> Option.defaultValue [] }
-        prepared
+        saved
         |> List.fold
-            (fun (state, reversed) item ->
-                match ChangeValidation.applyChange (extractChange item.event) state with
+            (fun (state, reversed) event ->
+                match ChangeValidation.applyChange (extractChange event) state with
                 | ApplyResult.Changed next ->
-                    next, item :: reversed
+                    next, event :: reversed
                 | _ ->
                     state, reversed)
             (state, [])
@@ -82,17 +73,17 @@ module SyncPlanner =
         (resetCount: bool)
         (syncInfo: SyncInfo)
         : SyncInfo * Effect list =
-        match syncInfo.syncState, syncInfo.pendingChanges with
+        match syncInfo.syncState, syncInfo.pending with
         | ServerRejected, _
         | CodeOutdated, _
         | DataOutdated, _ ->
             syncInfo, []
         | _, [] ->
             syncInfo |> SyncInfo.withSyncState Idle, []
-        | WaitingToRetry (n, baseRev, changes), _ ->
+        | WaitingToRetry (n, baseEventId, events), _ ->
             let nextAttempt = if resetCount then 1 else n + 1
             syncInfo |> SyncInfo.withSyncState (Sending nextAttempt),
-            [ SubmitPendingBatch (baseRev, changes) ]
+            [ SubmitPendingBatch (baseEventId, events) ]
         | Sending _, _ -> syncInfo, []
         | _ -> syncInfo, []
 
@@ -103,32 +94,31 @@ module SyncPlanner =
         match syncInfo.queuedRequests with
         | [] -> syncInfo, []
         | request :: remaining when
-            syncInfo.pendingChanges.IsEmpty && syncInfo.syncState = Idle ->
+            syncInfo.pending.IsEmpty && syncInfo.syncState = Idle ->
             { syncInfo with queuedRequests = remaining },
             [ RunQueuedRequest request ]
         | _ -> syncInfo, []
 
     /// Emit a PollServer effect when idle with an empty queue and not already polling.
-    let tryStartPoll (revision: Gambol.Shared.EventId) (syncInfo: SyncInfo) : SyncInfo * Effect list =
-        match syncInfo.syncState, syncInfo.pendingChanges with
+    let tryStartPoll (eventId: Gambol.Shared.EventId) (syncInfo: SyncInfo) : SyncInfo * Effect list =
+        match syncInfo.syncState, syncInfo.pending with
         | Idle, [] ->
-            let (Gambol.Shared.EventId pollRevision) =
+            let pollEventId =
                 match syncInfo.catchUp with
-                | Some baseline -> baseline.revision
-                | None -> revision
+                | Some baseline -> baseline.eventId
+                | None -> eventId
             syncInfo |> SyncInfo.withSyncState Polling,
-            [ PollServer pollRevision ]
+            [ PollServer (EventId.value pollEventId) ]
         | _ -> syncInfo, []
 
     /// Emit a LoadServer effect (Fetch + Poll) when idle with an empty pending queue.
     let tryStartLoad
-        (revision: Gambol.Shared.EventId)
+        (eventId: Gambol.Shared.EventId)
         (targets: LoadTarget list)
         (syncInfo: SyncInfo)
         : SyncInfo * Effect list =
-        match syncInfo.syncState, syncInfo.pendingChanges with
+        match syncInfo.syncState, syncInfo.pending with
         | Idle, [] ->
-            let (Gambol.Shared.EventId rev) = revision
             syncInfo |> SyncInfo.withSyncState Loading,
-            [ LoadServer(rev, targets) ]
+            [ LoadServer(EventId.value eventId, targets) ]
         | _ -> syncInfo, []

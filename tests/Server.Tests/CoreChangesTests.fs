@@ -28,7 +28,7 @@ let private decodeChangeResponse json =
 
 let private addRootChild revision text =
     let childId = NodeId.New()
-    { id = revision
+    { id = EventId.fromJson revision
       submissionId = Guid.NewGuid()
       ops =
         [ Op.NewNode(childId, text)
@@ -44,7 +44,7 @@ let ``typed Normal caller publishes accepted Change to Poll`` () = task {
             handle.postEvents [ event ]
             |> Async.StartAsTask
         let accepted = requireOk "typed post" accepted
-        Assert.Equal(Revision 1, accepted.revision)
+        Assert.Equal(EventId.fromJson 1, accepted.eventId)
         Assert.Equal<Guid list>(
             [ event.submissionId ],
             accepted.events |> List.map (_.submissionId))
@@ -53,7 +53,7 @@ let ``typed Normal caller publishes accepted Change to Poll`` () = task {
         match box poll with
         | :? ContentHttpResult as content ->
             let response = decodeChangeResponse content.ResponseContent
-            Assert.Equal(accepted.revision.Value, response.revision.Value)
+            Assert.Equal(accepted.eventId.Value, response.eventId.Value)
             Assert.Equal<Ev list>(accepted.events, response.events)
         | other ->
             Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
@@ -82,7 +82,7 @@ let private produceFromSubgraph
         let event =
             Ev.ofChange
                 ""
-                { id = 0
+                { id = EventId.fromJson 0
                   submissionId = Guid.NewGuid()
                   ops =
                     [ Op.NewNode(childId, "test Actor")
@@ -103,14 +103,14 @@ let ``test Actor posts Normal Change off apply mailbox and Poll sees it`` () =
             let! accepted =
                 runActor subgraph handle produceFromSubgraph
             let accepted = requireOk "actor post" accepted
-            Assert.Equal(Revision 1, accepted.revision)
+            Assert.Equal(EventId.fromJson 1, accepted.eventId)
             Assert.NotEmpty(accepted.events)
 
             let! poll = Api.getPoll handle 10 20 0 |> Async.StartAsTask
             match box poll with
             | :? ContentHttpResult as content ->
                 let response = decodeChangeResponse content.ResponseContent
-                Assert.Equal(accepted.revision.Value, response.revision.Value)
+                Assert.Equal(accepted.eventId.Value, response.eventId.Value)
                 Assert.Equal<Ev list>(accepted.events, response.events)
             | other ->
                 Assert.Fail(
@@ -122,15 +122,15 @@ let ``test Actor posts Normal Change off apply mailbox and Poll sees it`` () =
 let private recordingHandle (posts: ResizeArray<Ev list>) =
     let state =
         { graph = Graph.create ()
-          revision = Revision 0 }
+          eventId = EventId.zero }
     let accepted events : CoreChangesAccepted =
-        { revision = Revision 1
+        { eventId = EventId.fromJson 1
           events = events
           externalChanges = false
           message = None
           isReady = true }
     { getState = fun () -> async.Return(Result.Ok state)
-      getRevision = fun () -> async.Return (Gambol.Shared.EventId 0)
+      getEventId = fun () -> async.Return (EventId.fromJson 0)
       getEventsSince = fun _ -> async.Return []
       isReady = fun () -> true
       postEvents =

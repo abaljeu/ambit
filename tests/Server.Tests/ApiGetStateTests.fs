@@ -24,7 +24,7 @@ let private handleWithGetState
     (getState: unit -> Async<Result<State, string>>)
     : CoreChanges =
     { getState = getState
-      getRevision = fun () -> async.Return(Gambol.Shared.EventId 0)
+      getEventId = fun () -> async.Return(EventId.fromJson 0)
       getEventsSince = fun _ -> async.Return []
       isReady = fun () -> true
       postEvents = fun _ -> async.Return(Result.Error "unused")
@@ -37,7 +37,7 @@ let private defaultStateRequest () =
 
 let private minimalStateResponse () =
     { graph = Graph.create ()
-      revision = Revision 0
+      eventId = EventId.zero
     }
 
 /// Nested named Workspace with one Directory child (canonical full graph).
@@ -76,7 +76,7 @@ let private nestedWorkspaceStateResponse () =
             | Ok g -> g
             | Error err -> failwith err
     { graph = graph2
-      revision = Revision 1
+      eventId = EventId.fromJson 1
     },
     wsId,
     dirId
@@ -109,7 +109,7 @@ let ``getState returns JSON content when agent succeeds`` () = task {
         match decodeStateResponse content.ResponseContent with
         | Error err -> failwith err
         | Ok response ->
-            Assert.Equal(EventId 0, response.revision)
+            Assert.Equal(EventId.fromJson 0, response.eventId)
             Assert.True(response.isReady)
     | other ->
         Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
@@ -149,7 +149,7 @@ let ``getState zoom outside ROOT adds owning Workspace`` () = task {
         | Ok response ->
             Assert.True(response.graph.nodes.ContainsKey dirId)
             Assert.Equal(Loaded, response.graph.nodes.[wsId].childrenStatus)
-            Assert.Equal(EventId 1, response.revision)
+            Assert.Equal(EventId.fromJson 1, response.eventId)
     | other ->
         Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
 }

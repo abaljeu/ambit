@@ -34,14 +34,14 @@ let private addRootChild text =
     childId,
     Ev.ofChange
         ""
-        { id = 0
+        { id = EventId.fromJson 0
           submissionId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, text)
               Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
 
 let private wireEvent submissionId body : Ev =
-    { id = Gambol.Shared.EventId 99
+    { id = EventId.fromJson 99
       submissionId = submissionId
       authority = Gambol.Shared.Authority "Wire"
       commandName = "test"
@@ -63,7 +63,7 @@ let ``CoreMailbox.postEvents appends Change Events to EventLog`` () =
             CoreMailbox.getState host
             |> Async.StartAsTask
         let state = requireOk "get state" state
-        Assert.Equal(Revision 1, accepted.revision)
+        Assert.Equal(EventId.fromJson 1, accepted.eventId)
         Assert.Equal(event.submissionId, stored.submissionId)
         Assert.Equal(
             Gambol.Shared.Authority "Test",
@@ -89,7 +89,7 @@ let ``postGraphOnly updates Graph and EventLog without file write`` () =
             CoreMailbox.getState host
             |> Async.StartAsTask
         let state = requireOk "get state" state
-        Assert.Equal(Revision 1, accepted.revision)
+        Assert.Equal(EventId.fromJson 1, accepted.eventId)
         let stored = Assert.Single(history.events)
         Assert.Equal(event.submissionId, stored.submissionId)
         Assert.Equal("graph-only", state.graph.nodes.[childId].text)
@@ -112,7 +112,7 @@ let ``CoreChanges builds Ev at postEvent and persists its Graph Ops`` () =
             |> Async.StartAsTask
         let stored = Assert.Single(history.events)
         Assert.Equal("through-event", state.graph.nodes.[childId].text)
-        Assert.Equal(Revision 1, accepted.revision)
+        Assert.Equal(EventId.fromJson 1, accepted.eventId)
         Assert.Equal(event.submissionId, stored.submissionId)
         Assert.Equal(
             Gambol.Shared.Authority "Test",
@@ -193,7 +193,7 @@ let ``eventHistory returns full EventLog and eventsSince returns its tail`` () =
         let secondEvent =
             Ev.ofChange
                 ""
-                { id = 0
+                { id = EventId.fromJson 0
                   submissionId = Guid.NewGuid()
                   ops =
                     [ Op.NewNode(secondChildId, "second")
@@ -248,7 +248,7 @@ let ``mailbox appends ActorStart and ActorStop in lifecycle order`` () =
                   focusId = Graph.rootId
                   commandId = Graph.rootId
                   graphIds = [ Graph.rootId ]
-                  revision = Gambol.Shared.EventId 0 }
+                  eventId = EventId.fromJson 0 }
             let! started =
                 CoreMailbox.startActor host testCaller request
                 |> Async.StartAsTask

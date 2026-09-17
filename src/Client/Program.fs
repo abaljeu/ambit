@@ -17,7 +17,7 @@ let initialGraph = Graph.create ()
 
 let initialModel: VM =
     { graph = initialGraph
-      revision = Revision.Zero
+      eventId = EventId.zero
       history = ClientHistory.clear ()
       selectedNodes = None
       mode = Selecting
@@ -137,7 +137,7 @@ and private applyBootNovel (novel: Ev list) (ready: bool) =
             SysMsg (
                 BootGraphApplied (
                     newState.graph,
-                    EventId.toRevision newState.revision,
+                    newState.eventId,
                     newState.history,
                     ready)))
         BootCacheStore.appendEvents currentFile novel
@@ -146,7 +146,7 @@ and private applyBootNovel (novel: Ev list) (ready: bool) =
             currentFile
             bootScope
             (tryReadSavedZoomId ())
-            newState.revision.Value
+            newState.eventId.Value
             ready
             newState.graph
 
@@ -166,7 +166,7 @@ and private handleBootPoll (clientRev: int) (poll: ChangeSuccessResponse) =
                     None,
                     [],
                     Some ready,
-                    Some (EventId.toRevision poll.revision))))
+                    Some (poll.eventId))))
     | BootCache.BootPoll.CodeOutdated ->
         dispatch (
             SysMsg (
@@ -174,7 +174,7 @@ and private handleBootPoll (clientRev: int) (poll: ChangeSuccessResponse) =
                     Some CodeOutdated,
                     [],
                     Some poll.isReady,
-                    Some (EventId.toRevision poll.revision))))
+                    Some (poll.eventId))))
     | BootCache.BootPoll.ApplyNovel (novel, ready) ->
         applyBootNovel novel ready
     | BootCache.BootPoll.FallbackState reason ->
@@ -194,12 +194,12 @@ and private finishPaint (response: StateResponse) (localLog: Ev list) =
     bootLog <- localLog
     dispatch (SysMsg (StateLoaded response))
     ensurePolling ()
-    runBootPoll response.revision.Value
+    runBootPoll response.eventId.Value
     BootCacheStore.requestIdleTruncate
         currentFile
         bootScope
         (tryReadSavedZoomId ())
-        response.revision.Value
+        response.eventId.Value
         response.isReady
         response.graph
 

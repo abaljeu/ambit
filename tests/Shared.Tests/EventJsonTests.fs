@@ -16,11 +16,17 @@ let private roundTrip (event: Ev) : Ev =
 
 let private changeEvent : Ev =
     let nodeId = NodeId(Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"))
-    { id = EventId 3
+    { id = EventId.fromJson 3
       submissionId = Guid("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
       authority = Authority "Browser"
       commandName = "Set text"
       body = EventBody.Change [ Op.SetText(nodeId, "old", "new") ] }
+
+[<Fact>]
+let ``Ev JSON uses eventId key`` () =
+    let json = Enc.toString 0 (EventJson.encode changeEvent)
+    Assert.Contains("\"eventId\":3", json)
+    Assert.DoesNotContain("\"revision\"", json)
 
 [<Fact>]
 let ``Ev JSON round-trips a Change`` () =
@@ -31,9 +37,9 @@ let ``Ev JSON round-trips a Change`` () =
 let ``Ev JSON round-trips name-only Undo`` () =
     let event =
         { changeEvent with
-            id = EventId 4
+            id = EventId.fromJson 4
             commandName = "Undo"
-            body = EventBody.Undo(EventId 3, []) }
+            body = EventBody.Undo(EventId.fromJson 3, []) }
     Assert.Equal(event, roundTrip event)
 
 [<Fact>]
@@ -44,7 +50,7 @@ let ``Ev JSON round-trips ActorStart and ActorStop`` () =
           focusId = NodeId(Guid("dddddddd-dddd-dddd-dddd-dddddddddddd"))
           commandId = NodeId(Guid("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"))
           graphIds = [ zoom ]
-          revision = EventId 4 }
+          eventId = EventId.fromJson 4 }
     let started =
         { changeEvent with
             commandName = ""

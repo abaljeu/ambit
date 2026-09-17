@@ -23,7 +23,7 @@ let private requireInvalid (r: ApplyResult) : State * string =
     | ApplyResult.Unchanged _ -> failwith "expected Invalid, got Unchanged"
 
 let private makeState (graph: Graph) : State =
-    { graph = graph; revision = Revision.Zero }
+    { graph = graph; eventId = EventId.zero }
 
 let private freshState () = makeState (Graph.create ())
 
@@ -344,7 +344,7 @@ let ``SetName apply then undo round-trips name`` () =
 [<Fact>]
 let ``Invert SetName swaps old and new`` () =
     let op = Op.SetName(NodeId.New(), "old", "new")
-    let change = { id = 0; submissionId = System.Guid.NewGuid(); ops = [ op ] }
+    let change = { id = EventId.fromJson 0; submissionId = System.Guid.NewGuid(); ops = [ op ] }
     let inv = Change.invert change
     match inv.ops with
     | [ Op.SetName(_, invOld, invNew) ] ->
@@ -356,7 +356,7 @@ let ``Invert SetName swaps old and new`` () =
 let ``Invert NewSpecialNode is identity`` () =
     let id = NodeId.New()
     let op = Op.NewSpecialNode(id, Workspace, "ws-name")
-    let change = { id = 0; submissionId = System.Guid.NewGuid(); ops = [ op ] }
+    let change = { id = EventId.fromJson 0; submissionId = System.Guid.NewGuid(); ops = [ op ] }
     let inv = Change.invert change
     match inv.ops with
     | [ Op.NewSpecialNode(invId, invKind, invName) ] ->

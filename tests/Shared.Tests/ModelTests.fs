@@ -538,7 +538,7 @@ let ``Graph.replace allows Upload-style File stub under SYSTEM`` () =
     let fileId, ops = FileNodeOps.planCreateOwnedFile graph0 Graph.systemId "x.amb"
     let state0 =
         { graph = graph0
-          revision = Revision.Zero }
+          eventId = EventId.zero }
     let state1 =
         ops
         |> List.fold
@@ -560,7 +560,7 @@ let ``Graph.replace allows Upload-style Directory stub under SYSTEM`` () =
         FileNodeOps.planCreateOwnedDirectory graph0 Graph.systemId "cfg"
     let state0 =
         { graph = graph0
-          revision = Revision.Zero }
+          eventId = EventId.zero }
     let state1 =
         ops
         |> List.fold
@@ -599,7 +599,7 @@ let ``Graph.replace rejects moving existing owned node under SYSTEM`` () =
     let fileId, ops = FileNodeOps.planCreateOwnedFile graph2 parent "x.amb"
     let state0 =
         { graph = graph2
-          revision = Revision.Zero }
+          eventId = EventId.zero }
     let state1 =
         ops
         |> List.fold
@@ -1078,14 +1078,14 @@ let ``ChangeValidation.applyChange rejects Normal-owning-File moved under File``
     let rootKids = graph6.nodes.[Graph.rootId].children
     let withoutNormal = rootKids |> List.filter (fun c -> c.id <> normalId)
     let change =
-        { id = 0
+        { id = EventId.fromJson 0
           submissionId = System.Guid.NewGuid()
           ops =
             [ Op.Replace(Graph.rootId, rootKids, withoutNormal)
               Op.Replace(outerFile, [], [ normalChild ]) ] }
     let state =
         { graph = graph6
-          revision = Revision.Zero }
+          eventId = EventId.zero }
     match ChangeValidation.applyChange change state with
     | ApplyResult.Invalid(_, msg) ->
         Assert.Contains("File and Directory", msg)

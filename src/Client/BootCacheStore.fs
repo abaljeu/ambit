@@ -79,7 +79,7 @@ let persistAfterState
             file
             scope
             stateJson
-            response.revision.Value
+            response.eventId.Value
             response.isReady
             (System.DateTime.UtcNow.ToString("o"))
             ""
@@ -331,7 +331,7 @@ let requestIdleTruncate
                         let scoped = BootCache.truncationGraph graph zoom
                         let response =
                             { graph = scoped
-                              revision = Gambol.Shared.EventId revision
+                              eventId = EventId.fromJson revision
                               isReady = isReady }
                         let json =
                             Thoth.Json.JavaScript.Encode.toString

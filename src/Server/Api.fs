@@ -39,14 +39,14 @@ module Api =
         (pageBuildEpochSec: int)
         (clientRev: int)
         : Async<IResult> = async {
-        let! rev = handle.getRevision ()
-        let (Gambol.Shared.EventId revValue) = rev
+        let! eventId = handle.getEventId ()
+        let revValue = EventId.value eventId
         let! events =
             if revValue > clientRev then
-                handle.getEventsSince (Gambol.Shared.EventId clientRev)
+                handle.getEventsSince (EventId.fromJson clientRev)
             else async.Return []
         let poll: ChangeSuccessResponse =
-            { revision = rev
+            { eventId = eventId
               buildEpochSec = buildEpochSec
               pageBuildEpochSec = pageBuildEpochSec
               apiVersion = ApiVersion.current
@@ -95,15 +95,15 @@ module Api =
                         {| error =
                             "Load requires all selected targets in one Workspace" |})
             | Ok(Ok packages) ->
-                let! rev = handle.getRevision ()
-                let (Gambol.Shared.EventId revValue) = rev
+                let! eventId = handle.getEventId ()
+                let revValue = EventId.value eventId
                 let! events =
-                    if revValue > request.revision.Value then
-                        handle.getEventsSince request.revision
+                    if revValue > EventId.value request.eventId then
+                        handle.getEventsSince request.eventId
                     else
                         async.Return []
                 let load: LoadResponse =
-                    { revision = rev
+                    { eventId = eventId
                       buildEpochSec = buildEpochSec
                       pageBuildEpochSec = pageBuildEpochSec
                       apiVersion = ApiVersion.current
@@ -138,7 +138,7 @@ module Api =
             | Ok state ->
                 let response: StateResponse =
                     { graph = state.graph
-                      revision = Gambol.Shared.EventId state.revision.Value
+                      eventId = state.eventId
                       isReady = handle.isReady () }
                 let scoped =
                     ResidentProjection.bootstrapStateResponse
@@ -168,10 +168,10 @@ module Api =
         | Ok batch ->
             match! handle.postEvents batch.events with
             | Ok accepted ->
-                let! rev = handle.getRevision ()
+                let! eventId = handle.getEventId ()
                 return
                     changeSuccessResult
-                        { revision = rev
+                        { eventId = eventId
                           buildEpochSec = buildEpochSec
                           pageBuildEpochSec = pageBuildEpochSec
                           apiVersion = ApiVersion.current

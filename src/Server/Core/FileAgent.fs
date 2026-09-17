@@ -49,7 +49,7 @@ module FileAgent =
 
     let private accepted loaded confirmed externalChanges message =
         CoreChanges.accepted
-            loaded.state.Value.revision
+            loaded.state.Value.eventId
             true
             confirmed
             externalChanges
@@ -107,8 +107,7 @@ module FileAgent =
                 | ApplyResult.Unchanged _ ->
                     Error "Unchanged submission is rejected."
                 | ApplyResult.Changed s' ->
-                    let nextRev = s.revision.Value + 1
-                    let nextState = { s' with revision = Revision nextRev }
+                    let nextState = { s' with eventId = event.id }
                     let applied =
                         CoreMailboxBackend.withAppliedOps event appliedOps
                     Ok(
@@ -151,7 +150,7 @@ module FileAgent =
                     Ev.ops event |> Option.defaultValue [])
             syncPersistChange
                 loaded
-                newState.revision.Value
+                (EventId.value newState.eventId)
                 preGraph
                 newState.graph
                 ops
@@ -239,7 +238,7 @@ module FileAgent =
 
     let private persistHandlers loaded : PersistHandlers = {
         getState = fun () -> Ok loaded.state.Value
-        getRevision = fun () -> Ok loaded.state.Value.revision
+        getEventId = fun () -> Ok loaded.state.Value.eventId
         getEventsSince = fun after ->
             Ok(
                 EventLog.since after loaded.persistedEventLog.Value

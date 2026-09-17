@@ -99,12 +99,9 @@ module BootCache =
 
     let acceptedForLog
         (confirmed: Ev list)
-        (submitted: PendingChange list)
+        (submitted: Ev list)
         : Ev list =
-        if confirmed.IsEmpty then
-            submitted |> List.map (fun item -> item.event)
-        else
-            confirmed
+        if confirmed.IsEmpty then submitted else confirmed
 
     [<RequireQualifiedAccess>]
     type BootRead =
@@ -123,10 +120,10 @@ module BootCache =
         (snapshot: StateResponse)
         (delta: Ev list)
         : Result<StateResponse, string> =
-        let ordered = eventsAfter snapshot.revision.Value delta
+        let ordered = eventsAfter (EventId.value snapshot.eventId) delta
         let state0: State =
             { graph = snapshot.graph
-              revision = EventId.toRevision snapshot.revision }
+              eventId = snapshot.eventId }
         ordered
         |> List.fold
             (fun acc event ->
@@ -141,8 +138,9 @@ module BootCache =
             (Ok state0)
         |> Result.map (fun st ->
             { graph = st.graph
-              revision =
-                EventId (clientRevision snapshot.revision.Value ordered)
+              eventId =
+                EventId.fromJson
+                    (clientRevision (EventId.value snapshot.eventId) ordered)
               isReady = snapshot.isReady })
 
     let decideBootRead
@@ -236,7 +234,7 @@ module BootCache =
         (pollHash: string option)
         (cachedHash: string option)
         : BootPoll =
-        if poll.revision.Value < clientRev then
+        if EventId.value poll.eventId < clientRev then
             BootPoll.FallbackState "revision"
         else
             match SyncLogic.getPollOutcome poll clientRev with
@@ -244,7 +242,7 @@ module BootCache =
             | Some DataOutdated
             | None ->
                 let novel = novelEvents log poll.events
-                let gap = poll.revision.Value - clientRev
+                let gap = EventId.value poll.eventId - clientRev
                 if
                     novel.Length > maxNovelCount
                     || gap > maxPollRevGap

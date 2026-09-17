@@ -19,6 +19,7 @@ type Op =
     | SetUpdateTime of nodeId: NodeId * oldTime: System.DateTime * newTime: System.DateTime
 
 type EventId =
+    private
     | EventId of int
 
     member this.Value =
@@ -31,6 +32,8 @@ module EventId =
     let next (EventId n) = EventId(n + 1)
     let max (EventId a) (EventId b) = EventId(Operators.max a b)
     let value (id: EventId) = id.Value
+    let fromJson n = EventId n
+    let toJson (EventId n) = n
     let ofRevision (rev: Revision) = EventId rev.Value
     let toRevision (id: EventId) = Revision id.Value
 
@@ -45,7 +48,7 @@ type ActorStart =
       focusId: NodeId
       commandId: NodeId
       graphIds: NodeId list
-      revision: EventId }
+      eventId: EventId }
 
 [<RequireQualifiedAccess>]
 type EventBody =
@@ -63,15 +66,13 @@ type Ev =
       body: EventBody }
 
 type Change =
-    { id: int
+    { id: EventId
       submissionId: System.Guid   // unique per network submission; used for server-side dedup
       ops: Op list }
 
-
-
 type State =
     { graph: Graph
-      revision: Revision }
+      eventId: EventId }
 
 
 [<RequireQualifiedAccess>]
@@ -359,11 +360,11 @@ module Change =
         { change with ops = change.ops @ [ op ] }
 
     let inverse
-        (baseRevision: Revision)
+        (baseEventId: EventId)
         (submissionId: System.Guid)
         (source: Change)
         : Change =
-        { id = baseRevision.Value
+        { id = baseEventId
           submissionId = submissionId
           ops = Op.invertAll source.ops }
 
@@ -431,16 +432,36 @@ module Ev =
         ops event |> Option.map Op.invertAll
 
     let asChange (event: Ev) : Change =
-        { id = event.id.Value
+        { id = event.id
           submissionId = event.submissionId
           ops = ops event |> Option.defaultValue [] }
 
     let ofChange (commandName: string) (change: Change) : Ev =
-        { id = EventId change.id
+        { id = change.id
           submissionId = change.submissionId
           authority = Authority "Browser"
           commandName = commandName
           body = EventBody.Change change.ops }
+
+    let fromJson
+        eventId
+        submissionId
+        authority
+        commandName
+        body
+        : Ev =
+        { id = EventId.fromJson eventId
+          submissionId = submissionId
+          authority = authority
+          commandName = commandName
+          body = body }
+
+    let toJson (event: Ev) =
+        EventId.toJson event.id,
+        event.submissionId,
+        event.authority,
+        event.commandName,
+        event.body
 
     let apply (event: Ev) (state: State) : ApplyResult =
         match ops event with

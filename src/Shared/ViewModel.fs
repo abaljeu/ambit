@@ -305,7 +305,7 @@ and FileSearchDialogState =
 // Server `State` is in `FileAgent`, and mainly the graph.
 and VM = // the client state
     { graph: Graph // the core data
-      revision: Revision
+      eventId: EventId
       history: ClientHistory
       selectedNodes: Selection option
       mode: Mode
@@ -340,14 +340,14 @@ type SubmitNetworkErrorKind =
 type SystemMsg =
     | StateLoaded of StateResponse
     | SubmitResponse of
-        submitted: PendingChange list *
+        submitted: Ev list *
         confirmed: Ev list *
-        revision: Revision *
+        eventId: EventId *
         externalChanges: bool *
         message: string option
     | SubmitRejected of detail: string // server HTTP error (decoded `error` or short body snippet)
     | SubmitNetworkError of
-        baseRevision: int * changes: PendingChange list * kind: SubmitNetworkErrorKind
+        baseEventId: int * events: Ev list * kind: SubmitNetworkErrorKind
     | DesktopCapabilitiesDetected of DesktopCapabilities option
     | ServerCapabilitiesDetected of ServerCapabilities option
     | DesktopFileStatusReceived of
@@ -366,14 +366,14 @@ type SystemMsg =
         SyncState option *
         Ev list *
         isReady: bool option *
-        responseRevision: Revision option
+        responseEventId: EventId option
     | BootGraphApplied of
         graph: Graph *
-        revision: Revision *
+        eventId: EventId *
         history: ClientHistory *
         isReady: bool
     | LoadDone of
-        SyncState option * SyncResponse * responseRevision: int * isReady: bool option
+        SyncState option * SyncResponse * responseEventId: int * isReady: bool option
     | RetrySubmit         // retry timer fired; update resends the stored batch snapshot
 
 type Msg =

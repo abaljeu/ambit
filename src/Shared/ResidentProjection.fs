@@ -227,7 +227,7 @@ module ResidentProjection =
         | Error refuse -> Error refuse
         | Ok packages ->
             Ok
-                { revision = Gambol.Shared.EventId revision
+                { eventId = EventId.fromJson revision
                   buildEpochSec = buildEpochSec
                   pageBuildEpochSec = pageBuildEpochSec
                   apiVersion = ApiVersion.current

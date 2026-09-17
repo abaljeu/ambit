@@ -21,12 +21,12 @@ let private baseState () : State =
     let nodes =
         filler |> List.fold (fun acc node -> Map.add node.id node acc) graph0.nodes
     { graph = Graph.fromNodes graph0.root nodes
-      revision = Revision.Zero }
+      eventId = EventId.zero }
 
 let private parseLikeChange (parentId: NodeId) : Change =
     let children =
         List.init nodeCount (fun _ -> ChildNode.owner (NodeId.New()))
-    { id = 0
+    { id = EventId.fromJson 0
       submissionId = System.Guid.NewGuid()
       ops =
         [ for i, child in List.indexed children ->
@@ -90,7 +90,7 @@ let ``ordinary inverse of large paste detaches but retains created nodes`` () =
     let change = parseLikeChange Graph.workspacesId
     let changed = applied state change
     let inverse =
-        Change.inverse (Revision 1) (System.Guid.NewGuid()) change
+        Change.inverse (EventId.fromJson 1) (System.Guid.NewGuid()) change
     Assert.DoesNotContain(
         inverse.ops,
         fun op ->
@@ -132,7 +132,7 @@ let private time f =
 
 let private undoInverse history =
     match ClientHistory.undo (Guid.NewGuid()) history with
-    | Some (inverse, _, _) -> Ev.asChange inverse
+    | Some (inverse, _) -> Ev.asChange inverse
     | None -> failwith "Undo had no inverse Change"
 
 let private projectInverse inverse state =
@@ -161,7 +161,7 @@ let ``delivered inverse of large paste measures phases without per-created-Node 
     let state = baseState ()
     let change = parseLikeChange Graph.workspacesId
     let changed = applied state change
-    let history0, _ =
+    let history0 =
         ClientHistory.record (Ev.ofChange "Paste" change) (ClientHistory.clear ())
     let before = reachableStructure state.graph
     let after = reachableStructure changed.graph
@@ -169,7 +169,7 @@ let ``delivered inverse of large paste measures phases without per-created-Node 
     assertNoCreateOps inverse
     let projected, projectedMs = time (fun () -> projectInverse inverse changed)
     Assert.True((before = reachableStructure projected.graph))
-    let redo = Change.inverse (Revision inverse.id) (Guid.NewGuid()) inverse
+    let redo = Change.inverse inverse.id (Guid.NewGuid()) inverse
     Assert.True((after = reachableStructure (applied projected redo).graph))
     projected.graph.nodes
     |> Map.iter (fun nodeId _ ->
@@ -186,7 +186,7 @@ let ``delivered inverse of large paste measures phases without per-created-Node 
                 projected.graph Graph.workspacesId siteMap0 nextId
             |> ignore)
     let inverseEvent: Ev =
-        { id = Gambol.Shared.EventId 0
+        { id = EventId.fromJson 0
           submissionId = inverse.submissionId
           authority = Gambol.Shared.Authority ""
           commandName = ""
@@ -196,7 +196,7 @@ let ``delivered inverse of large paste measures phases without per-created-Node 
             Enc.toString 0 (EventJson.encodeEventBatch { events = [ inverseEvent ] })
             |> ignore)
     let ack: ChangeSuccessResponse =
-        { revision = Gambol.Shared.EventId 2
+        { eventId = EventId.fromJson 2
           buildEpochSec = 0
           pageBuildEpochSec = 0
           apiVersion = ApiVersion.current
@@ -223,7 +223,7 @@ let private nestedParseChange (documentRootId: NodeId) : Change =
         List.init 200 (fun _ ->
             ChildNode.owner (NodeId.New()),
             List.init 10 (fun _ -> ChildNode.owner (NodeId.New())))
-    { id = 0
+    { id = EventId.fromJson 0
       submissionId = System.Guid.NewGuid()
       ops =
         [ for branch, leaves in branches do

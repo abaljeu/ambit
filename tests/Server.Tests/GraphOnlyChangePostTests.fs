@@ -16,7 +16,7 @@ let private requireOk label result =
 let ``postChunks mints Ev with EventId.zero and commandName`` () =
     let posts = ResizeArray<Ev>()
     let accepted =
-        CoreChanges.accepted (Revision 1) true [] false None
+        CoreChanges.accepted (EventId.fromJson 1) true [] false None
     let post event =
         posts.Add event
         async.Return(Ok accepted)
@@ -38,7 +38,7 @@ let ``postChunks mints Ev with EventId.zero and commandName`` () =
 
 let private postWorkspace (fileAgent: MailboxHost) (label: string) =
     let workspaceId, ops = FileNodeOps.planCreateWorkspace (Graph.create ()) label
-    let event = Ev.ofChange "" { id = 0; submissionId = Guid.NewGuid(); ops = ops }
+    let event = Ev.ofChange "" { id = EventId.fromJson 0; submissionId = Guid.NewGuid(); ops = ops }
     (admittedChanges fileAgent).postEvents [ event ]
     |> Async.RunSynchronously
     |> requireOk "workspace"

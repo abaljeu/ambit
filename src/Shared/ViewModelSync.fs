@@ -2,27 +2,6 @@ namespace Gambol.Shared
 
 open Gambol.Shared
 
-type PendingTransition =
-    { recordId: int
-      submittedChangeId: System.Guid }
-
-type PendingChange =
-    { event: Ev
-      transition: PendingTransition option }
-
-    member this.change = Ev.asChange this.event
-
-[<RequireQualifiedAccess>]
-module PendingChange =
-    let ofEvent (event: Ev) : PendingChange =
-        { event = event; transition = None }
-    let workspaceSingleton (recordId: int) (event: Ev) : PendingChange =
-        { event = event
-          transition =
-            Some
-                { recordId = recordId
-                  submittedChangeId = event.submissionId } }
-
 type SyncState =
     | Idle                       // all confirmed, nothing pending
     | Sending of attempt: int    // POST in-flight; attempt = 1-based send count
@@ -30,7 +9,7 @@ type SyncState =
     | Uploading                  // workspace file push in progress (blocks poll)
     | Parsing                    // server disk parse/reconcile in progress (blocks poll)
     | Loading                    // Load Fetch+Poll in-flight (blocks poll/submit)
-    | WaitingToRetry of attempt: int * baseRevision: int * changes: PendingChange list
+    | WaitingToRetry of attempt: int * baseEventId: int * events: Ev list
     | ServerRejected  // server returned 400 — change cannot be applied; reload required
     | CodeOutdated    // Poll apiVersion differs from ApiVersion.current — reload required
     | DataOutdated    // server has newer data with no local pending — reload required
@@ -42,15 +21,15 @@ type QueuedRequest =
     /// Preserve a desktop target while another workspace push is in flight.
     | QueuedWorkspacePush of WorkspaceSyncScope * parseFileId: NodeId option
 
-/// Optimistic graph at the last server revision before catch-up replay.
+/// Optimistic graph at the last server event id before catch-up replay.
 type CatchUpBaseline =
-    { revision: Gambol.Shared.EventId
+    { eventId: Gambol.Shared.EventId
       graph: Graph }
 
 type SyncInfo =
     { syncState: SyncState
-      pendingChanges: PendingChange list
-      /// Requests parked behind `pendingChanges` (see `SyncPlanner.tryReleaseQueued`).
+      pending: Ev list
+      /// Requests parked behind `pending` (see `SyncPlanner.tryReleaseQueued`).
       queuedRequests: QueuedRequest list
       /// Baseline noted from a Post external-changes signal until Poll replay completes.
       catchUp: CatchUpBaseline option
@@ -62,15 +41,15 @@ type SyncInfo =
 module SyncInfo =
     let initial: SyncInfo =
         { syncState = Idle
-          pendingChanges = []
+          pending = []
           queuedRequests = []
           catchUp = None
           isPollingActive = false
           isServerReady = false
           syncRiskAcknowledged = false }
 
-    let withPendingChanges (pending: PendingChange list) (si: SyncInfo) : SyncInfo =
-        { si with pendingChanges = pending }
+    let withPending (pending: Ev list) (si: SyncInfo) : SyncInfo =
+        { si with pending = pending }
 
     /// Park a request behind the change-ops queue. Pressing the command again while
     /// it waits is not a second request.
@@ -99,13 +78,13 @@ module SyncInfo =
         else { si with syncState = newState; syncRiskAcknowledged = false }
 
 type Effect =
-    | SubmitPendingBatch of baseRevision: int * changes: PendingChange list
-    | PollServer of revision: int
-    | LoadServer of revision: int * targets: LoadTarget list
+    | SubmitPendingBatch of baseEventId: int * events: Ev list
+    | PollServer of eventId: int
+    | LoadServer of eventId: int * targets: LoadTarget list
     | ScheduleRetry of delayMs: int
     /// The change-ops queue settled: run a request that was parked behind it.
     | RunQueuedRequest of QueuedRequest
-    | SavePendingQueue of PendingChange list
+    | SavePendingQueue of Ev list
     | RequestDesktopFileStatus of nodeId: NodeId * path: string
     | RequestServerFileStatus of nodeId: NodeId * path: string
     /// Desktop: refresh mapped labels + sync-ledger facts for path-status UI.
@@ -114,7 +93,7 @@ type Effect =
     | ContinueWorkspaceStubsThenPush of WorkspaceSyncScope * parseFileId: NodeId option
     /// After local stubs painted: async structure Change POST, then workspace-push.
     | ContinuePostUploadStructure of
-        PendingChange * WorkspaceSyncScope * parseFileId: NodeId option
+        Ev * WorkspaceSyncScope * parseFileId: NodeId option
     /// Deferred async workspace-push (`postJson`); Some fileId → parse after push.
     | ContinueWorkspacePush of WorkspaceSyncScope * parseFileId: NodeId option
     /// Poll `GET /_desktop/workspace-download?id=` until job completes or fails.

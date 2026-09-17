@@ -353,7 +353,7 @@ module Database =
 
             return
                 { graph = graph
-                  revision = Revision revision }
+                  eventId = EventId.fromJson revision }
         }
 
     /// Truncate SQL tables and replace the projection from a pre-loaded file `State`.
@@ -371,6 +371,6 @@ module Database =
 
             do! conn.ExecuteAsync("DELETE FROM graph", transaction = tx) :> Task
 
-            do! replaceGraphProjectionWithTx tx fileState.graph fileState.revision.Value |> Async.AwaitTask
+            do! replaceGraphProjectionWithTx tx fileState.graph (EventId.value fileState.eventId) |> Async.AwaitTask
             tx.Commit()
         }

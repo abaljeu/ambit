@@ -21,7 +21,7 @@ module SavePrep =
                 | Error err -> return Error err
                 | Ok state ->
                     // Live-save already materialized artifacts; sync only needs revision.
-                    return Ok state.revision.Value
+                    return Ok (EventId.value state.eventId)
             | _ ->
                 let! flushResult = flushFileSnapshot ()
                 match flushResult with

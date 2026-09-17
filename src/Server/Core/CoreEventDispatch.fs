@@ -40,7 +40,7 @@ module internal CoreEventDispatch =
         (caller: Caller)
         (body: Gambol.Shared.EventBody)
         : Ev =
-        { id = Gambol.Shared.EventId 0
+        { id = EventId.zero
           submissionId = Guid.NewGuid()
           authority = eventAuthority caller.authority
           commandName = ""

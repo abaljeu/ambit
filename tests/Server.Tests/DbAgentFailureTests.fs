@@ -9,7 +9,7 @@ open Gambol.Server.Tests.TestBackend
 let private changedBody () =
     let childId = NodeId.New()
     [ {
-        id = 0
+        id = EventId.zero
         submissionId = Guid.NewGuid()
         ops =
             [
@@ -20,7 +20,7 @@ let private changedBody () =
 
 let private freshState () : State =
     { graph = Graph.create ()
-      revision = Revision 0 }
+      eventId = EventId.zero }
 
 let private host agent = admittedHostDb agent
 
@@ -72,5 +72,5 @@ let ``persistence exception is logged replied and mailbox survives`` () = task {
         getState agent
         |> Async.StartAsTask
         |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
-    Assert.Equal(Revision 0, state.revision)
+    Assert.Equal(EventId.fromJson 0, state.eventId)
 }

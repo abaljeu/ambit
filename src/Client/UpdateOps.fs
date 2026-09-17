@@ -699,10 +699,10 @@ let findRootOp (model: VM) : VM * Effect list =
 /// resetCount=true (manual click) restarts the attempt counter from 1.
 let retryPendingOp (resetCount: bool) (model: VM) : VM * Effect list =
     match model.syncInfo.syncState with
-    | WaitingToRetry _ when not model.syncInfo.pendingChanges.IsEmpty ->
+    | WaitingToRetry _ when not model.syncInfo.pending.IsEmpty ->
         consoleLog (
-            "[Gambol sync] retryPendingOp modelRev=" + string model.revision.Value
-            + " qLen=" + string model.syncInfo.pendingChanges.Length)
+            "[Gambol sync] retryPendingOp modelRev=" + string model.eventId.Value
+            + " qLen=" + string model.syncInfo.pending.Length)
     | _ -> ()
     let nextSyncInfo, effects = SyncPlanner.retryWaiting resetCount model.syncInfo
     { model with syncInfo = nextSyncInfo }, effects
@@ -720,7 +720,7 @@ let undoOp (model: VM) : VM * Effect list =
         let nextSyncInfo, actionEffects =
             SyncPlanner.enqueuePending
                 pendingItem
-                (Gambol.Shared.EventId model'.revision.Value)
+                (model'.eventId)
                 model'.syncInfo
         { model' with
             graph = nextState.graph
@@ -744,7 +744,7 @@ let redoOp (model: VM) : VM * Effect list =
         let nextSyncInfo, actionEffects =
             SyncPlanner.enqueuePending
                 pendingItem
-                (Gambol.Shared.EventId model'.revision.Value)
+                (model'.eventId)
                 model'.syncInfo
         { model' with
             graph = nextState.graph

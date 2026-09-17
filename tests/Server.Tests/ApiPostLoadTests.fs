@@ -69,7 +69,7 @@ let private nestedWorkspaceGraph () : Graph * NodeId * NodeId * NodeId =
 
 let private stateResponse (graph: Graph) (revision: int) =
     { graph = graph
-      revision = Revision revision
+      eventId = EventId.fromJson revision
     }
 
 let private handleForLoad
@@ -78,7 +78,7 @@ let private handleForLoad
     (state: State)
     : CoreChanges =
     { getState = fun () -> async.Return(Result.Ok state)
-      getRevision = fun () -> async.Return(Gambol.Shared.EventId revision)
+      getEventId = fun () -> async.Return(EventId.fromJson revision)
       getEventsSince = fun _ -> async.Return events
       isReady = fun () -> true
       postEvents = fun _ -> async.Return(Result.Error "unused")
@@ -93,7 +93,7 @@ let private encodeRequest (request: LoadRequest) =
 let ``postLoad Ev-only when includeWorkspace false`` () = task {
     let graph, wsId, _, fileId = nestedWorkspaceGraph ()
     let event =
-        { id = Gambol.Shared.EventId 5
+        { id = EventId.fromJson 5
           submissionId = Guid.NewGuid()
           authority = Gambol.Shared.Authority ""
           commandName = ""
@@ -102,7 +102,7 @@ let ``postLoad Ev-only when includeWorkspace false`` () = task {
         handleForLoad 5 [ event ] (stateResponse graph 5)
     let body =
         encodeRequest
-            { revision = EventId 2
+            { eventId = EventId.fromJson 2
               targets =
                 [ { targetId = fileId; includeWorkspace = false } ] }
     let! result = Api.postLoad handle 100 200 body |> Async.StartAsTask
@@ -111,7 +111,7 @@ let ``postLoad Ev-only when includeWorkspace false`` () = task {
         match decodeLoadResponse content.ResponseContent with
         | Error err -> failwith err
         | Ok (response: LoadResponse) ->
-            Assert.Equal(EventId 5, response.revision)
+            Assert.Equal(EventId.fromJson 5, response.eventId)
             Assert.Equal(100, response.buildEpochSec)
             Assert.Equal(200, response.pageBuildEpochSec)
             Assert.Equal(1, response.events.Length)
@@ -128,7 +128,7 @@ let ``postLoad Workspace subgraph when includeWorkspace true`` () = task {
         handleForLoad 7 [] (stateResponse graph 7)
     let body =
         encodeRequest
-            { revision = EventId 7
+            { eventId = EventId.fromJson 7
               targets =
                 [ { targetId = fileId; includeWorkspace = true } ] }
     let! result = Api.postLoad handle 1 2 body |> Async.StartAsTask
@@ -137,7 +137,7 @@ let ``postLoad Workspace subgraph when includeWorkspace true`` () = task {
         match decodeLoadResponse content.ResponseContent with
         | Error err -> failwith err
         | Ok (response: LoadResponse) ->
-            Assert.Equal(EventId 7, response.revision)
+            Assert.Equal(EventId.fromJson 7, response.eventId)
             Assert.Empty(response.events)
             let byId = response.packages |> List.map (fun n -> n.id, n) |> Map.ofList
             Assert.True(byId.ContainsKey wsId)
@@ -152,7 +152,7 @@ let ``postLoad Workspace subgraph when includeWorkspace true`` () = task {
 let ``postLoad missing target returns events without packages`` () = task {
     let graph, _, _, _ = nestedWorkspaceGraph ()
     let event =
-        { id = Gambol.Shared.EventId 4
+        { id = EventId.fromJson 4
           submissionId = Guid.NewGuid()
           authority = Gambol.Shared.Authority ""
           commandName = ""
@@ -161,7 +161,7 @@ let ``postLoad missing target returns events without packages`` () = task {
         handleForLoad 4 [ event ] (stateResponse graph 4)
     let body =
         encodeRequest
-            { revision = EventId 0
+            { eventId = EventId.fromJson 0
               targets =
                 [ { targetId = NodeId.New(); includeWorkspace = true } ] }
     let! result = Api.postLoad handle 0 0 body |> Async.StartAsTask
@@ -170,7 +170,7 @@ let ``postLoad missing target returns events without packages`` () = task {
         match decodeLoadResponse content.ResponseContent with
         | Error err -> failwith err
         | Ok (response: LoadResponse) ->
-            Assert.Equal(EventId 4, response.revision)
+            Assert.Equal(EventId.fromJson 4, response.eventId)
             Assert.Equal(1, response.events.Length)
             Assert.Empty(response.packages)
     | other ->
@@ -181,7 +181,7 @@ let ``postLoad missing target returns events without packages`` () = task {
 let ``postLoad shares one revision for events and packages`` () = task {
     let graph, wsId, _, fileId = nestedWorkspaceGraph ()
     let event =
-        { id = Gambol.Shared.EventId 9
+        { id = EventId.fromJson 9
           submissionId = Guid.NewGuid()
           authority = Gambol.Shared.Authority ""
           commandName = ""
@@ -190,7 +190,7 @@ let ``postLoad shares one revision for events and packages`` () = task {
         handleForLoad 9 [ event ] (stateResponse graph 9)
     let body =
         encodeRequest
-            { revision = EventId 3
+            { eventId = EventId.fromJson 3
               targets =
                 [ { targetId = fileId; includeWorkspace = true } ] }
     let! result = Api.postLoad handle 10 20 body |> Async.StartAsTask
@@ -199,7 +199,7 @@ let ``postLoad shares one revision for events and packages`` () = task {
         match decodeLoadResponse content.ResponseContent with
         | Error err -> failwith err
         | Ok (response: LoadResponse) ->
-            Assert.Equal(EventId 9, response.revision)
+            Assert.Equal(EventId.fromJson 9, response.eventId)
             Assert.Equal(1, response.events.Length)
             Assert.True(response.packages |> List.exists (fun n -> n.id = wsId))
     | other ->
@@ -213,7 +213,7 @@ let ``postLoad same Workspace multi-target dedupes one package`` () = task {
         handleForLoad 8 [] (stateResponse graph 8)
     let body =
         encodeRequest
-            { revision = EventId 8
+            { eventId = EventId.fromJson 8
               targets =
                 [ { targetId = dirId; includeWorkspace = true }
                   { targetId = fileId; includeWorkspace = true } ] }
@@ -291,7 +291,7 @@ let ``postLoad refuses selection spanning two Workspaces`` () = task {
         handleForLoad 3 [] (stateResponse graph3 3)
     let body =
         encodeRequest
-            { revision = EventId 3
+            { eventId = EventId.fromJson 3
               targets =
                 [ { targetId = fileA; includeWorkspace = true }
                   { targetId = fileB; includeWorkspace = true } ] }

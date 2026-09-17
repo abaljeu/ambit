@@ -95,7 +95,7 @@ let ``buildImportChange single line attaches to focus`` () =
             1
             (System.Guid.NewGuid())
 
-    Assert.Equal(1, change.id)
+    Assert.Equal(EventId.zero, change.id)
     Assert.Equal<Op list>(
         package.ops
         @ [ Op.Replace(focusId, existing, owned package.topLevelIds) ],

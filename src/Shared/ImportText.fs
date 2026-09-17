@@ -79,7 +79,7 @@ module ImportText =
             ChildListWire.replace focusId existingChildren (ownedChildren package.topLevelIds)
         let markCurrent = markDocumentCurrentBeforeParse graph focusId
 
-        { id = revision
+        { id = EventId.zero
           submissionId = submissionId
           ops = markCurrent @ package.ops @ [ attach ] }
 
@@ -116,7 +116,7 @@ module ImportText =
                     | Some name -> not (Set.contains name existingNames))
 
         if filteredIds.IsEmpty then
-            { id = revision; submissionId = submissionId; ops = markCurrent }
+            { id = EventId.zero; submissionId = submissionId; ops = markCurrent }
         else
             let filteredIdSet = Set.ofList filteredIds
 
@@ -130,6 +130,6 @@ module ImportText =
             let attach =
                 ChildListWire.append focusId existingChildren (ownedChildren filteredIds)
 
-            { id = revision
+            { id = EventId.zero
               submissionId = submissionId
               ops = markCurrent @ filteredOps @ [ attach ] }

@@ -446,12 +446,12 @@ let ``indent Directory under Normal sibling is accepted by ChangeValidation.appl
         [ Op.Replace(Graph.rootId, rootKids, List.filter ((<>) dirChild) rootKids)
           ChildListWire.insertAt normalId normKids plan.target.endd [ dirChild ] ]
     let change =
-        { id = selected.revision.Value
+        { id = selected.eventId
           submissionId = System.Guid.NewGuid()
           ops = ops }
     let state =
         { graph = graph
-          revision = selected.revision }
+          eventId = selected.eventId }
     match ChangeValidation.applyChange change state with
     | ApplyResult.Changed s ->
         Assert.True(
@@ -509,12 +509,12 @@ let ``indent Ref Directory under Normal succeeds despite foreign name duplicates
         [ Op.Replace(Graph.rootId, rootKids, List.filter ((<>) dirRef) rootKids)
           ChildListWire.insertAt normalId normKids plan.target.endd [ dirRef ] ]
     let change =
-        { id = selected.revision.Value
+        { id = selected.eventId
           submissionId = System.Guid.NewGuid()
           ops = ops }
     let state =
         { graph = graph
-          revision = selected.revision }
+          eventId = selected.eventId }
     match ChangeValidation.applyChange change state with
     | ApplyResult.Changed s ->
         Assert.True(

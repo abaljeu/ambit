@@ -16,7 +16,7 @@ let private sampleSnapshot : BootCache.SnapshotRecord =
     BootCache.snapshotRecord
         "ambit"
         "root"
-        """{"revision":4,"graph":{"root":"00000000-0000-0000-0000-000000000000","nodes":[]},"ready":true}"""
+        """{"eventId":4,"graph":{"root":"00000000-0000-0000-0000-000000000000","nodes":[]},"ready":true}"""
         4
         true
         "2026-08-27T14:00:00Z"
@@ -46,7 +46,7 @@ let ``snapshotRecord stores /state body and metadata without Graph parse`` () =
     Assert.Equal("root", sampleSnapshot.scopeKey)
     Assert.Equal(4, sampleSnapshot.revision)
     Assert.True sampleSnapshot.isReady
-    Assert.Contains("\"revision\":4", sampleSnapshot.stateJson)
+    Assert.Contains("\"eventId\":4", sampleSnapshot.stateJson)
     Assert.Equal("2026-08-27T14:00:00Z", sampleSnapshot.writtenAt)
 
 [<Fact>]
@@ -99,20 +99,20 @@ let ``eventsAfter drops the snapshot Revision itself`` () =
 [<Fact>]
 let ``acceptedForLog prefers confirmed Events when the server assigned ids`` () =
     let confirmed = [ mkEvent 9 ]
-    let submitted = [ PendingChange.ofEvent (mkEvent 8) ]
+    let submitted = [ (mkEvent 8) ]
     let accepted = BootCache.acceptedForLog confirmed submitted
     Assert.Equal(9, accepted.Head.id.Value)
 
 [<Fact>]
 let ``acceptedForLog uses submitted Events when confirmed is empty`` () =
-    let submitted = [ PendingChange.ofEvent (mkEvent 8) ]
+    let submitted = [ (mkEvent 8) ]
     let accepted = BootCache.acceptedForLog [] submitted
     Assert.Equal(8, accepted.Head.id.Value)
 
 let private noteSnapshot () =
     let graph, noteId = Graph.newNode "hello" (Graph.create ())
     { graph = graph
-      revision = EventId 5
+      eventId = EventId.fromJson 5
       isReady = true },
     noteId
 
@@ -127,7 +127,7 @@ let private recordFor (response: StateResponse) =
         "ambit"
         "root"
         (stateJson response)
-        response.revision.Value
+        response.eventId.Value
         response.isReady
         "2026-08-27T14:00:00Z"
         ""
@@ -214,14 +214,14 @@ let ``foldLog applies SetText and sets Revision to the last Change id`` () =
     let event =
         Ev.ofChange
             "fixture"
-            { id = 6
+            { id = EventId.fromJson 6
               submissionId = Guid.NewGuid()
               ops = [ Op.SetText(noteId, "hello", "world") ] }
     match BootCache.foldLog snapshot [ event ] with
     | Error err -> failwith err
     | Ok folded ->
         Assert.Equal("world", folded.graph.nodes.[noteId].text)
-        Assert.Equal(6, folded.revision.Value)
+        Assert.Equal(6, folded.eventId.Value)
 
 [<Fact>]
 let ``decideBootRead fetches /state on fold error`` () =
@@ -238,11 +238,11 @@ let ``decideBootRead fetches /state on fold error`` () =
         Graph.create ()
         |> fun g -> Graph.fromNodes g.root (Map.add fileId fileNode g.nodes)
     let snapshot =
-        { graph = graph; revision = EventId 1; isReady = true }
+        { graph = graph; eventId = EventId.fromJson 1; isReady = true }
     let event =
         Ev.ofChange
             "fixture"
-            { id = 2
+            { id = EventId.fromJson 2
               submissionId = Guid.NewGuid()
               ops = [ Op.SetText(fileId, "file.txt", "changed") ] }
     let snap = recordFor snapshot
@@ -264,7 +264,7 @@ let ``decideBootRead uses the folded snapshot when the cache is valid`` () =
     let event =
         Ev.ofChange
             "fixture"
-            { id = 6
+            { id = EventId.fromJson 6
               submissionId = Guid.NewGuid()
               ops = [ Op.SetText(noteId, "hello", "world") ] }
     match
@@ -278,7 +278,7 @@ let ``decideBootRead uses the folded snapshot when the cache is valid`` () =
     with
     | BootCache.BootRead.UseCache folded ->
         Assert.Equal("world", folded.graph.nodes.[noteId].text)
-        Assert.Equal(6, folded.revision.Value)
+        Assert.Equal(6, folded.eventId.Value)
     | other -> failwithf "%A" other
 
 [<Fact>]
@@ -290,7 +290,7 @@ let ``foldLog applies deletion and advances Revision`` () =
         Graph.replace graph1.root 0 [] [ ChildNode.owner noteId ] graph1
         |> ModelBuilder.requireOk "root->doomed"
     let snapshot =
-        { graph = graph2; revision = EventId 5; isReady = true }
+        { graph = graph2; eventId = EventId.fromJson 5; isReady = true }
     Assert.True(Map.containsKey noteId snapshot.graph.nodes)
     let removeOp = Op.Replace(graph2.root, [ ChildNode.owner noteId ], [])
     let trashChildren = graph2.nodes.[Graph.trashId].children
@@ -299,13 +299,13 @@ let ``foldLog applies deletion and advances Revision`` () =
     let event =
         Ev.ofChange
             "fixture"
-            { id = 6
+            { id = EventId.fromJson 6
               submissionId = Guid.NewGuid()
               ops = [ removeOp; addToTrashOp ] }
     match BootCache.foldLog snapshot [ event ] with
     | Error err -> failwith err
     | Ok folded ->
-        Assert.Equal(6, folded.revision.Value)
+        Assert.Equal(6, folded.eventId.Value)
         let underRoot =
             folded.graph.nodes.[folded.graph.root].children
             |> List.exists (fun c -> c.id = noteId)

@@ -105,7 +105,7 @@ module DbAgent =
 
     let private accepted loaded confirmed externalChanges message =
         CoreChanges.accepted
-            loaded.state.Value.revision
+            loaded.state.Value.eventId
             loaded.ready.Task.IsCompletedSuccessfully
             confirmed
             externalChanges
@@ -134,8 +134,7 @@ module DbAgent =
                 | ApplyResult.Unchanged _ ->
                     Error "Unchanged submission is rejected."
                 | ApplyResult.Changed s' ->
-                    let nextRev = s.revision.Value + 1
-                    let nextState = { s' with revision = Revision nextRev }
+                    let nextState = { s' with eventId = event.id }
                     let applied =
                         CoreMailboxBackend.withAppliedOps event appliedOps
                     Ok(
@@ -171,7 +170,7 @@ module DbAgent =
                 let patch =
                     DatabaseProjection.plan
                         newState.graph
-                        newState.revision.Value
+                        (EventId.value newState.eventId)
                         (events |> List.map Ev.asChange)
                 (DatabaseProjection.persistWithTx tx newState.graph patch)
                     .GetAwaiter()
@@ -330,7 +329,7 @@ module DbAgent =
             with
             | Error err -> Error err
             | Ok (newState, confirmations, externalChanges) ->
-                if newState.revision = loaded.state.Value.revision then
+                if newState.eventId = loaded.state.Value.eventId then
                     Ok(accepted loaded confirmations externalChanges None)
                 else
                     let submittedIds =
@@ -365,7 +364,7 @@ module DbAgent =
             EventLog.restore [ persisted ] loaded.eventLog.Value
 
     let private writePersistedEvent loaded (persisted: Ev) =
-        let (Gambol.Shared.EventId n) = persisted.id
+        let n = EventId.value persisted.id
         try
             Database.appendEvent
                 loaded.connectionString
@@ -393,7 +392,7 @@ module DbAgent =
 
     let private persistHandlers loaded = {
         getState = fun () -> Ok loaded.state.Value
-        getRevision = fun () -> Ok loaded.state.Value.revision
+        getEventId = fun () -> Ok loaded.state.Value.eventId
         getEventsSince = fun after -> Ok(eventsSince loaded after)
         appendEvent = appendPersistedEvent loaded
         applyEvent = fun event graphOnly ->
