@@ -52,7 +52,8 @@ let ``persistence exception is logged replied and mailbox survives`` () = task {
             throwingPersist
             (fun _ -> Ok [])
     let! postResult =
-        (admittedChanges (host agent)).postChange (changedBody ())
+        (admittedChanges (host agent)).postEvents
+            (List.map (Ev.ofChange "") (changedBody ()))
         |> Async.StartAsTask
         |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
     match postResult with

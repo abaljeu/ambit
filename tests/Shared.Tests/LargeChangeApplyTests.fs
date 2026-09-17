@@ -131,8 +131,8 @@ let private time f =
     value, sw.Elapsed.TotalMilliseconds
 
 let private undoInverse history =
-    match ClientHistory.undo (Revision 1) (Guid.NewGuid()) history with
-    | Some (inverse, _, _, _) -> inverse
+    match ClientHistory.undo (Guid.NewGuid()) history with
+    | Some (inverse, _, _) -> Ev.asChange inverse
     | None -> failwith "Undo had no inverse Change"
 
 let private projectInverse inverse state =
@@ -161,7 +161,8 @@ let ``delivered inverse of large paste measures phases without per-created-Node 
     let state = baseState ()
     let change = parseLikeChange Graph.workspacesId
     let changed = applied state change
-    let history0, _ = ClientHistory.record "Paste" change (ClientHistory.clear ())
+    let history0, _ =
+        ClientHistory.record (Ev.ofChange "Paste" change) (ClientHistory.clear ())
     let before = reachableStructure state.graph
     let after = reachableStructure changed.graph
     let inverse, planMs = time (fun () -> undoInverse history0)

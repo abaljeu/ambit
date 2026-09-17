@@ -182,77 +182,53 @@ module SyncLogic =
             state.graph
 
     let applyLocalChange
-        (commandName: string)
-        (change: Change)
+        (event: Ev)
         (state: ClientSyncState)
         : Result<ClientSyncState * PendingChange, string> =
-        match ResidentProjection.applyChange change (asProjectionState state) with
+        let ops = Ev.ops event |> Option.defaultValue []
+        match ResidentProjection.applyOps ops (asProjectionState state) with
         | ApplyResult.Invalid (_, msg) -> Error msg
         | ApplyResult.Unchanged _ -> Error "Change did not change state"
         | ApplyResult.Changed newState ->
-            let history, recordId =
-                ClientHistory.record commandName change state.history
-            let event =
-                { id = Gambol.Shared.EventId recordId
-                  submissionId = change.submissionId
-                  authority = Gambol.Shared.Authority "Browser"
-                  commandName = commandName
-                  body = Gambol.Shared.EventBody.Change change.ops }
+            let history, recordId = ClientHistory.record event state.history
+            let posted = { event with id = EventId.zero }
             Ok(
                 { state with
                     graph = newState.graph
                     history = history },
-                pendingItem recordId event)
+                pendingItem recordId posted)
 
     let private applyInverse
-        (createBody: EventId * Op list -> EventBody)
-        (planned: (Change * string * ClientHistory * int) option)
+        (planned: (Ev * ClientHistory * int) option)
         (state: ClientSyncState)
         : Result<ClientSyncState * PendingChange, string> option =
         match planned with
         | None -> None
-        | Some (inverse, commandName, history, recordId) ->
-            match ResidentProjection.applyChange inverse (asProjectionState state) with
+        | Some (inverse, history, recordId) ->
+            let ops = Ev.ops inverse |> Option.defaultValue []
+            match ResidentProjection.applyOps ops (asProjectionState state) with
             | ApplyResult.Invalid (_, msg) -> Some (Error msg)
             | ApplyResult.Unchanged newState
             | ApplyResult.Changed newState ->
-                let bodyKind = createBody (Gambol.Shared.EventId recordId, inverse.ops)
-                let event =
-                    { id = Gambol.Shared.EventId recordId
-                      submissionId = inverse.submissionId
-                      authority = Gambol.Shared.Authority "Browser"
-                      commandName = commandName
-                      body = bodyKind }
+                let posted = { inverse with id = EventId.zero }
                 Some(
                     Ok(
                         { state with
                             graph = newState.graph
                             history = history },
-                        pendingItem recordId event))
+                        pendingItem recordId posted))
 
     let applyLocalUndo
         (submissionId: System.Guid)
         (state: ClientSyncState)
         : Result<ClientSyncState * PendingChange, string> option =
-        applyInverse
-            EventBody.Undo
-            (ClientHistory.undo
-                (EventId.toRevision state.revision)
-                submissionId
-                state.history)
-            state
+        applyInverse (ClientHistory.undo submissionId state.history) state
 
     let applyLocalRedo
         (submissionId: System.Guid)
         (state: ClientSyncState)
         : Result<ClientSyncState * PendingChange, string> option =
-        applyInverse
-            EventBody.Redo
-            (ClientHistory.redo
-                (EventId.toRevision state.revision)
-                submissionId
-                state.history)
-            state
+        applyInverse (ClientHistory.redo submissionId state.history) state
 
     let private isStampOp =
         function

@@ -1,7 +1,7 @@
 # 04 — Write core-creation arch.md last
 
 **Type:** task
-**Status:** blocked
+**Status:** defined
 Blocked by: [12 — Contract leftover Change and Revision](12-contract-leftover-change-and-revision.md)
 
 ## 1. Question

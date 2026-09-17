@@ -1,6 +1,6 @@
 # 10 — Boot IndexedDB
 
-**Status:** blocked
+**Status:** defined
 **Blocked by:** [05 — Expand Op-list apply](05-expand-op-list-apply.md)
 
 ## Context
@@ -19,8 +19,8 @@ Module **BootCache**.
 
 ## Out of scope
 
-1. Contract deletes — [[12-contract-leftover-change-and-revision.md|12 — Contract leftover Change and Revision]].
+1. Contract deletes — [12 — Contract leftover Change and Revision](12-contract-leftover-change-and-revision.md).
 
 ## See also
 
-[[../arch.md|Single event source architecture]], [[../reports/inventory-non-event-write-paths.md]]
+[Single event source architecture](../arch.md), [[../reports/inventory-non-event-write-paths.md]]

@@ -189,7 +189,6 @@ module LazyLoadReconciliationServer =
             match stateResult with
             | Error err -> return Error err
             | Ok stateResponse ->
-                let revision = stateResponse.revision
                 let graph = stateResponse.graph
                 match discoveredAddedPaths dataDir workspaceLabel discoveryDirRel with
                     | Error err -> return Error err
@@ -216,8 +215,8 @@ module LazyLoadReconciliationServer =
                             | ops ->
                                 let! result =
                                     GraphOnlyChangePost.postChunks
-                                        handle.postGraphOnlyChange
-                                        revision
+                                        handle.postGraphOnly
+                                        "Parse"
                                         (GraphOnlyChangeChunks.split ops)
                                 return
                                     result

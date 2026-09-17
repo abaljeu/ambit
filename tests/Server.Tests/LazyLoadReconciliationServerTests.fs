@@ -124,8 +124,8 @@ let ``server reconciler applies planner ops through active agent`` () =
     let tempDir = newTempDir ()
     let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId, ops = FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
-    let change = { id = 0; submissionId = Guid.NewGuid(); ops = ops }
-    handle.postChange [ change ]
+    let event = Ev.ofChange "" { id = 0; submissionId = Guid.NewGuid(); ops = ops }
+    handle.postEvents [ event ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
@@ -158,8 +158,8 @@ let ``server reconciler adds disk files outside the changed path list`` () =
     let tempDir = newTempDir ()
     let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId, ops = FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
-    let change = { id = 0; submissionId = Guid.NewGuid(); ops = ops }
-    handle.postChange [ change ]
+    let event = Ev.ofChange "" { id = 0; submissionId = Guid.NewGuid(); ops = ops }
+    handle.postEvents [ event ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
@@ -193,8 +193,8 @@ let ``server reconciler adds missing directory and file nodes from discovered pa
     let tempDir = newTempDir ()
     let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId, ops = FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
-    let change = { id = 0; submissionId = Guid.NewGuid(); ops = ops }
-    handle.postChange [ change ]
+    let event = Ev.ofChange "" { id = 0; submissionId = Guid.NewGuid(); ops = ops }
+    handle.postEvents [ event ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
@@ -234,8 +234,8 @@ let ``post receive rename of unparsed stub is rejected without moving disk twice
     let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId, ops =
         FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
-    let change = { id = 0; submissionId = Guid.NewGuid(); ops = ops }
-    handle.postChange [ change ]
+    let event = Ev.ofChange "" { id = 0; submissionId = Guid.NewGuid(); ops = ops }
+    handle.postEvents [ event ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
@@ -292,8 +292,8 @@ let ``server reconciler posts good sibling when one path fails`` () =
     let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId, ops =
         FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
-    let change = { id = 0; submissionId = Guid.NewGuid(); ops = ops }
-    handle.postChange [ change ]
+    let event = Ev.ofChange "" { id = 0; submissionId = Guid.NewGuid(); ops = ops }
+    handle.postEvents [ event ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
@@ -368,16 +368,16 @@ let ``latest diagnostics GET returns failures once then empty`` () =
 
 let private postWorkspace (fileAgent: MailboxHost) (label: string) =
     let workspaceId, ops = FileNodeOps.planCreateWorkspace (Graph.create ()) label
-    let change = { id = 0; submissionId = Guid.NewGuid(); ops = ops }
-    (admittedChanges fileAgent).postChange [ change ]
+    let event = Ev.ofChange "" { id = 0; submissionId = Guid.NewGuid(); ops = ops }
+    (admittedChanges fileAgent).postEvents [ event ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
     workspaceId
 
 let private postOps (fileAgent: MailboxHost) (revision: int) (ops: Op list) =
-    let change = { id = revision; submissionId = Guid.NewGuid(); ops = ops }
-    (admittedChanges fileAgent).postChange [ change ]
+    let event = Ev.ofChange "" { id = revision; submissionId = Guid.NewGuid(); ops = ops }
+    (admittedChanges fileAgent).postEvents [ event ]
     |> Async.RunSynchronously
     |> requireOk "ops"
     |> ignore

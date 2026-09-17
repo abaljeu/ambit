@@ -41,22 +41,25 @@ let ``applyLocalChange records the submitted Change and Normal transition`` () =
     let graph1, nodeId = Graph.newNode "before" graph0
     let change = textChange 3 nodeId "before" "after"
     let state = clientState graph1 (EventId 3) (ClientHistory.clear ())
-    match SyncLogic.applyLocalChange "Edit node" change state with
+    match SyncLogic.applyLocalChange (Ev.ofChange "Edit node" change) state with
     | Error msg -> failwith msg
     | Ok (next, pending) ->
         Assert.Equal("after", next.graph.nodes.[nodeId].text)
+        Assert.Equal(EventId.zero, pending.event.id)
+        Assert.Equal("Edit node", pending.event.commandName)
         Assert.Equal(change.submissionId, pending.change.submissionId)
         Assert.Equal<Op list>(change.ops, pending.change.ops)
         Assert.Equal(change.submissionId, pending.transition.Value.submittedChangeId)
         Assert.Equal(0, pending.transition.Value.recordId)
-        match ClientHistory.undo (Revision 4) (Guid.NewGuid()) next.history with
+        match ClientHistory.undo (Guid.NewGuid()) next.history with
         | None -> failwith "Expected recorded History"
-        | Some (inverse, commandName, _, recordId) ->
-            Assert.Equal("Edit node", commandName)
+        | Some (inverse, _, recordId) ->
+            Assert.Equal("Edit node", inverse.commandName)
+            Assert.Equal(EventId.zero, inverse.id)
             Assert.Equal(0, recordId)
             Assert.Equal<Op list>(
                 [ Op.SetText(nodeId, "after", "before") ],
-                inverse.ops)
+                Ev.ops inverse |> Option.defaultValue [])
 
 [<Fact>]
 let ``applyLocalUndo projects the inverse through ResidentProjection`` () =
@@ -65,8 +68,7 @@ let ``applyLocalUndo projects the inverse through ResidentProjection`` () =
     let change = textChange 3 nodeId "before" "after"
     match
         SyncLogic.applyLocalChange
-            "Edit node"
-            change
+            (Ev.ofChange "Edit node" change)
             (clientState graph1 (EventId 3) (ClientHistory.clear ()))
     with
     | Error msg -> failwith msg
@@ -77,6 +79,8 @@ let ``applyLocalUndo projects the inverse through ResidentProjection`` () =
         | Some (Error msg) -> failwith msg
         | Some (Ok (afterUndo, pending)) ->
             Assert.Equal("before", afterUndo.graph.nodes.[nodeId].text)
+            Assert.Equal(EventId.zero, pending.event.id)
+            Assert.Equal("Edit node", pending.event.commandName)
             Assert.Equal(undoId, pending.change.submissionId)
             Assert.Equal<Op list>(
                 [ Op.SetText(nodeId, "after", "before") ],
@@ -89,8 +93,7 @@ let ``applyLocalRedo projects the inverse through ResidentProjection`` () =
     let change = textChange 3 nodeId "before" "after"
     match
         SyncLogic.applyLocalChange
-            "Edit node"
-            change
+            (Ev.ofChange "Edit node" change)
             (clientState graph1 (EventId 3) (ClientHistory.clear ()))
     with
     | Error msg -> failwith msg
@@ -103,6 +106,8 @@ let ``applyLocalRedo projects the inverse through ResidentProjection`` () =
             | Some (Error msg) -> failwith msg
             | Some (Ok (afterRedo, pending)) ->
                 Assert.Equal("after", afterRedo.graph.nodes.[nodeId].text)
+                Assert.Equal(EventId.zero, pending.event.id)
+                Assert.Equal("Edit node", pending.event.commandName)
                 Assert.Equal(redoId, pending.change.submissionId)
         | _ -> failwith "Expected Undo before Redo"
 
@@ -112,7 +117,8 @@ let ``empty Poll tail preserves ClientHistory`` () =
     let graph1, nodeId = Graph.newNode "before" graph0
     let change = textChange 0 nodeId "before" "after"
     let history, _ =
-        ClientHistory.clear () |> ClientHistory.record "Edit node" change
+        ClientHistory.clear ()
+        |> ClientHistory.record (Ev.ofChange "Edit node" change)
     let state = clientState graph1 (EventId 3) history
     match SyncLogic.applyServerTail [] state with
     | Error msg -> failwith msg
@@ -126,7 +132,8 @@ let ``non-empty Poll tail preserves ClientHistory before projection`` () =
     let graph1, nodeId = Graph.newNode "before" graph0
     let change = textChange 0 nodeId "before" "after"
     let history, _ =
-        ClientHistory.clear () |> ClientHistory.record "Edit node" change
+        ClientHistory.clear ()
+        |> ClientHistory.record (Ev.ofChange "Edit node" change)
     let state = clientState graph1 (EventId 3) history
     let upstream =
         { id = 3
@@ -144,7 +151,8 @@ let ``package-only Load preserves ClientHistory at the same settled Revision`` (
     let graph, wsId, ws = unloadedWorkspace ()
     let change = textChange 2 (NodeId.New()) "x" "y"
     let history, _ =
-        ClientHistory.clear () |> ClientHistory.record "Edit node" change
+        ClientHistory.clear ()
+        |> ClientHistory.record (Ev.ofChange "Edit node" change)
     let state: ClientSyncState =
         ClientSyncState.create graph (EventId 4) history
     let loadedEmpty = { ws with children = []; childrenStatus = Loaded }

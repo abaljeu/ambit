@@ -162,7 +162,9 @@ let ``file persist rejects ignored graph state before acceptance`` () =
     writeIgnore dataDir "blocked.txt\n"
     let agent, _ = createAdmittedFile dataDir
     let body = encodeChange (Graph.create ()) Graph.rootId "blocked.txt"
-    let result = (admittedChanges agent).postChange body |> Async.RunSynchronously
+    let result =
+        (admittedChanges agent).postEvents (List.map (Ev.ofChange "") body)
+        |> Async.RunSynchronously
     Assert.True(Result.isError result)
     Assert.Equal(Gambol.Shared.EventId 0, CoreMailbox.getRevision agent |> Async.RunSynchronously)
     CoreMailbox.dispose agent
@@ -180,7 +182,9 @@ let ``db persist rejects ignored graph state before acceptance`` () = task {
             dataDir
             admittedCredentials
     let body = encodeChange (Graph.create ()) Graph.rootId "blocked.txt"
-    let! result = (admittedChanges agent).postChange body |> Async.StartAsTask
+    let! result =
+        (admittedChanges agent).postEvents (List.map (Ev.ofChange "") body)
+        |> Async.StartAsTask
     Assert.True(Result.isError result)
     let! revision = CoreMailbox.getRevision agent |> Async.StartAsTask
     Assert.Equal(Gambol.Shared.EventId 0, revision)

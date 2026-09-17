@@ -158,7 +158,8 @@ let ``tryPeek finds Action under Actors after Change-shaped record`` () =
           submissionId = Guid.NewGuid()
           ops = [] }
     let changeOnly, _ =
-        ClientHistory.clear () |> ClientHistory.record "Cut" source
+        ClientHistory.clear ()
+        |> ClientHistory.record (Ev.ofChange "Cut" source)
     Assert.Equal(Some "Cut", ClientHistory.tryPeekUndoName changeOnly)
     let actorsOnly =
         changeOnly
@@ -166,15 +167,16 @@ let ``tryPeek finds Action under Actors after Change-shaped record`` () =
         |> ClientHistory.recordEvent "Stop" (actorStop "Stop")
     Assert.Equal(Some "Cut", ClientHistory.tryPeekUndoName actorsOnly)
     let withCut, _ =
-        ClientHistory.clear () |> ClientHistory.record "Cut" source
+        ClientHistory.clear ()
+        |> ClientHistory.record (Ev.ofChange "Cut" source)
     let actionUnderActors =
         withCut
         |> ClientHistory.recordEvent "Edit node" (changeNamed "Edit node" 5)
         |> ClientHistory.recordEvent "Start" (actorStart "Start")
     Assert.Equal(Some "Edit node", ClientHistory.tryPeekUndoName actionUnderActors)
-    match ClientHistory.undo (Revision 1) (Guid.NewGuid()) changeOnly with
+    match ClientHistory.undo (Guid.NewGuid()) changeOnly with
     | None -> failwith "expected Change Undo"
-    | Some (_, _, undoneChange, _) ->
+    | Some (_, undoneChange, _) ->
         Assert.Equal(None, ClientHistory.tryPeekUndoName undoneChange)
         Assert.Equal(Some "Cut", ClientHistory.tryPeekRedoName undoneChange)
 

@@ -105,52 +105,45 @@ module ClientHistory =
     let private callerRecordId (event: Ev) : int =
         unwrap (Ev.target event |> Option.defaultValue event.id)
 
-    let private asChange
-        (Revision rev)
-        (submissionId: System.Guid)
-        (event: Ev)
-        : Change =
-        { id = rev
-          submissionId = submissionId
-          ops = Ev.ops event |> Option.defaultValue [] }
+    let mintChange (commandName: string) (ops: Op list) : Ev =
+        { id = EventId.zero
+          submissionId = System.Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = commandName
+          body = EventBody.Change ops }
 
     let record
-        (commandName: string)
-        (change: Change)
+        (event: Ev)
         (history: ClientHistory)
         : ClientHistory * int =
-        let event =
-            { id = history.nextEventId
-              submissionId = change.submissionId
-              authority = Authority "Browser"
-              commandName = commandName
-              body = EventBody.Change change.ops }
-        recordEvent commandName event history, unwrap event.id
+        let stored = { event with id = history.nextEventId }
+        recordEvent event.commandName stored history, unwrap stored.id
+
+    let private yieldMinted
+        (submissionId: System.Guid)
+        (produced: Ev)
+        (nextHistory: ClientHistory)
+        : Ev * ClientHistory * int =
+        { produced with
+            id = EventId.zero
+            submissionId = submissionId },
+        nextHistory,
+        callerRecordId produced
 
     let undo
-        (baseRevision: Revision)
         (submissionId: System.Guid)
         (history: ClientHistory)
-        : (Change * string * ClientHistory * int) option =
+        : (Ev * ClientHistory * int) option =
         match undoEvent history with
         | None -> None
         | Some (produced, nextHistory) ->
-            Some(
-                asChange baseRevision submissionId produced,
-                produced.commandName,
-                nextHistory,
-                callerRecordId produced)
+            Some(yieldMinted submissionId produced nextHistory)
 
     let redo
-        (baseRevision: Revision)
         (submissionId: System.Guid)
         (history: ClientHistory)
-        : (Change * string * ClientHistory * int) option =
+        : (Ev * ClientHistory * int) option =
         match redoEvent history with
         | None -> None
         | Some (produced, nextHistory) ->
-            Some(
-                asChange baseRevision submissionId produced,
-                produced.commandName,
-                nextHistory,
-                callerRecordId produced)
+            Some(yieldMinted submissionId produced nextHistory)

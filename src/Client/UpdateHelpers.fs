@@ -155,10 +155,11 @@ let clientSyncState (model: VM) : ClientSyncState =
 
 let applyAndPost
     (commandName: string)
-    (change: Change)
+    (ops: Op list)
     (model: VM)
     : Result<VM * Effect list, string> =
-    match SyncLogic.applyLocalChange commandName change (clientSyncState model) with
+    let event = ClientHistory.mintChange commandName ops
+    match SyncLogic.applyLocalChange event (clientSyncState model) with
     | Error error -> Error error
     | Ok (nextState, pendingItem) ->
         let nextSyncInfo, effects =
@@ -276,11 +277,7 @@ let commitTextEdit
     match tryTextCommitOps nodeId _originalText newText model.graph with
     | [] -> { model with mode = Selecting }, []
     | ops ->
-        let change: Change =
-            { id = model.revision.Value
-              submissionId = System.Guid.NewGuid()
-              ops = ops }
-        match applyAndPost (displayName EditNode) change model with
+        match applyAndPost (displayName EditNode) ops model with
         | Ok (m, effects) -> { m with mode = Selecting }, effects
         | Error msg -> withMoveError msg { model with mode = Selecting }, []
 
@@ -330,11 +327,7 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) : VM * Effect l
               if updatedText <> modelText then
                   yield Op.SetText(focusedId, modelText, updatedText) ]
 
-        let change: Change =
-            { id = model.revision.Value
-              submissionId = System.Guid.NewGuid()
-              ops = ops }
-        match applyAndPost (displayName SplitAtCursor) change model with
+        match applyAndPost (displayName SplitAtCursor) ops model with
         | Ok (m, effects) ->
             let effRoot = m.zoomRoot
             let siteMap, nextId =

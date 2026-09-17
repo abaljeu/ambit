@@ -12,23 +12,47 @@ let private requireOk label result =
     | Ok value -> value
     | Error err -> failwith $"{label}: {err}"
 
+[<Fact>]
+let ``postChunks mints Ev with EventId.zero and commandName`` () =
+    let posts = ResizeArray<Ev>()
+    let accepted =
+        CoreChanges.accepted (Revision 1) true [] false None
+    let post event =
+        posts.Add event
+        async.Return(Ok accepted)
+    GraphOnlyChangePost.postChunks
+        post
+        "Parse"
+        [ [ Op.NewNode(NodeId.New(), "a") ]
+          [ Op.NewNode(NodeId.New(), "b") ] ]
+    |> Async.RunSynchronously
+    |> requireOk "chunks"
+    |> ignore
+    Assert.Equal(2, posts.Count)
+    for event in posts do
+        Assert.Equal(EventId.zero, event.id)
+        Assert.Equal("Parse", event.commandName)
+        match event.body with
+        | EventBody.Change ops -> Assert.True(ops.Length > 0)
+        | _ -> failwith "expected Change Event"
+
 let private postWorkspace (fileAgent: MailboxHost) (label: string) =
     let workspaceId, ops = FileNodeOps.planCreateWorkspace (Graph.create ()) label
-    let change = { id = 0; submissionId = Guid.NewGuid(); ops = ops }
-    (admittedChanges fileAgent).postChange [ change ]
+    let event = Ev.ofChange "" { id = 0; submissionId = Guid.NewGuid(); ops = ops }
+    (admittedChanges fileAgent).postEvents [ event ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
     workspaceId
 
 let private recordingHandle (inner: CoreChanges) =
-    let posts = ResizeArray<Change>()
+    let posts = ResizeArray<Ev>()
     let handle =
         { inner with
-            postGraphOnlyChange =
-                fun change ->
-                    posts.Add(change)
-                    inner.postGraphOnlyChange change }
+            postGraphOnly =
+                fun event ->
+                    posts.Add(event)
+                    inner.postGraphOnly event }
     handle, posts
 
 [<Fact>]
@@ -50,8 +74,8 @@ let ``reconcile posts graph-only chunks at or under maxOps`` () =
     Assert.True(
         posts.Count >= 2,
         sprintf "expected multiple posts, got %d" posts.Count)
-    for change in posts do
-        let n = change.ops.Length
+    for event in posts do
+        let n = Ev.ops event |> Option.defaultValue [] |> List.length
         Assert.True(
             n <= GraphOnlyChangeChunks.maxOps,
             sprintf "chunk had %d ops" n)

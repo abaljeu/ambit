@@ -39,14 +39,14 @@ let ``typed Normal caller publishes accepted Change to Poll`` () = task {
     let dataDir = newTempDir ()
     let agent, handle = createAdmittedFile dataDir
     try
-        let change = addRootChild 0 "typed caller"
+        let event = Ev.ofChange "" (addRootChild 0 "typed caller")
         let! accepted =
-            handle.postChange [ change ]
+            handle.postEvents [ event ]
             |> Async.StartAsTask
         let accepted = requireOk "typed post" accepted
         Assert.Equal(Revision 1, accepted.revision)
         Assert.Equal<Guid list>(
-            [ change.submissionId ],
+            [ event.submissionId ],
             accepted.events |> List.map (_.submissionId))
 
         let! poll = Api.getPoll handle 10 20 0 |> Async.StartAsTask
@@ -79,16 +79,18 @@ let private produceFromSubgraph
             | Some node -> node.children
             | None -> []
         let childId = NodeId.New()
-        let change =
-            { id = 0
-              submissionId = Guid.NewGuid()
-              ops =
-                [ Op.NewNode(childId, "test Actor")
-                  Op.Replace(
-                      Graph.rootId,
-                      priorChildren,
-                      priorChildren @ [ ChildNode.owner childId ]) ] }
-        return! handle.postChange [ change ]
+        let event =
+            Ev.ofChange
+                ""
+                { id = 0
+                  submissionId = Guid.NewGuid()
+                  ops =
+                    [ Op.NewNode(childId, "test Actor")
+                      Op.Replace(
+                          Graph.rootId,
+                          priorChildren,
+                          priorChildren @ [ ChildNode.owner childId ]) ] }
+        return! handle.postEvents [ event ]
     }
 
 [<Fact>]
@@ -131,12 +133,11 @@ let private recordingHandle (posts: ResizeArray<Ev list>) =
       getRevision = fun () -> async.Return (Gambol.Shared.EventId 0)
       getEventsSince = fun _ -> async.Return []
       isReady = fun () -> true
-      postChange = fun _ -> async.Return(Result.Error "unused")
       postEvents =
         fun events ->
             posts.Add(events)
             async.Return(Result.Ok(accepted events))
-      postGraphOnlyChange = fun _ -> async.Return(Result.Error "unused")
+      postGraphOnly = fun _ -> async.Return(Result.Error "unused")
       actorStop = fun _ -> async.Return(Result.Error "unused")
       asCaller = fun _ -> Unchecked.defaultof<CoreChanges> }
     : CoreChanges

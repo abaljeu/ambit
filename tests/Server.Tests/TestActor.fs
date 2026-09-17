@@ -9,21 +9,23 @@ open Gambol.Server
 let private hello (input: ActorInput) (coreChanges: CoreChanges) : Async<unit> =
     async {
         let helloNodeId = NodeId.New()
-        let change =
-            { id = 0
-              submissionId = System.Guid.NewGuid()
-              ops =
-                [ Op.NewNode(helloNodeId, "hello")
-                  Op.Replace(
-                      input.focusId,
-                      [],
-                      [ ChildNode.owner helloNodeId ]) ] }
+        let event =
+            Ev.ofChange
+                ""
+                { id = 0
+                  submissionId = System.Guid.NewGuid()
+                  ops =
+                    [ Op.NewNode(helloNodeId, "hello")
+                      Op.Replace(
+                          input.focusId,
+                          [],
+                          [ ChildNode.owner helloNodeId ]) ] }
         let caller =
             { authority = Authority "Actor"
               name = ""
               secret = input.secret }
         let! _ =
-            coreChanges.asCaller(caller).postChange [ change ]
+            coreChanges.asCaller(caller).postEvents [ event ]
         return ()
     }
 

@@ -33,7 +33,7 @@ let private seededEdit () =
     let graph1, nodeId = Graph.newNode "before" graph0
     let change = textChange 0 nodeId "before" "after"
     let state0 = clientState graph1 (EventId 0) (ClientHistory.clear ())
-    match SyncLogic.applyLocalChange "Edit node" change state0 with
+    match SyncLogic.applyLocalChange (Ev.ofChange "Edit node" change) state0 with
     | Error msg -> failwith msg
     | Ok (state, pending) -> nodeId, state, pending
 

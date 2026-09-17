@@ -81,8 +81,9 @@ let private reconcileWorkspaceAck
             syncInfo
 
 /// Apply + synchronous POST so server graph has the workspace before push/reconcile.
-let applyAndPostSync (commandName: string) (change: Change) (model: VM) : Result<VM, string> =
-    match SyncLogic.applyLocalChange commandName change (clientSyncState model) with
+let applyAndPostSync (commandName: string) (ops: Op list) (model: VM) : Result<VM, string> =
+    let event = ClientHistory.mintChange commandName ops
+    match SyncLogic.applyLocalChange event (clientSyncState model) with
     | Error msg -> Error msg
     | Ok (nextState, submitted) ->
         let body =
@@ -119,8 +120,9 @@ let applyAndPostSync (commandName: string) (change: Change) (model: VM) : Result
 
 /// Local graph only — stubs paint before structure POST / body push.
 let private applyStructureLocally
-    (commandName: string) (change: Change) (model: VM) : Result<VM * PendingChange, string> =
-    match SyncLogic.applyLocalChange commandName change (clientSyncState model) with
+    (commandName: string) (ops: Op list) (model: VM) : Result<VM * PendingChange, string> =
+    let event = ClientHistory.mintChange commandName ops
+    match SyncLogic.applyLocalChange event (clientSyncState model) with
     | Error msg -> Error msg
     | Ok (nextState, submitted) ->
         Ok (
@@ -142,21 +144,13 @@ let private markServerFilesPresent
     if ops.IsEmpty then
         Ok model
     else
-        let change =
-            { id = model.revision.Value
-              submissionId = System.Guid.NewGuid()
-              ops = ops }
-        applyAndPostSync (displayName Load) change model |> Result.map withSiteMap
+        applyAndPostSync (displayName Load) ops model |> Result.map withSiteMap
 
 let private createWorkspaceOnServer (ops: Op list) (model: VM) : Result<VM, string> =
     if ops.IsEmpty then
         Error "could not create workspace"
     else
-        let change =
-            { id = model.revision.Value
-              submissionId = System.Guid.NewGuid()
-              ops = ops }
-        applyAndPostSync (displayName Load) change model |> Result.map withSiteMap
+        applyAndPostSync (displayName Load) ops model |> Result.map withSiteMap
 
 /// Empty selection means the view root is the focus (same as edit/jump).
 let private effectiveFocusId (model: VM) : NodeId =
@@ -310,11 +304,7 @@ let completeUploadInventory
             keepUploading model,
             [ Effect.ContinueWorkspacePush (scope, parseFileId) ]
         | Ok ops ->
-            let change =
-                { id = model.revision.Value
-                  submissionId = System.Guid.NewGuid()
-                  ops = ops }
-            match applyStructureLocally (displayName Load) change model with
+            match applyStructureLocally (displayName Load) ops model with
             | Error e -> fail (clearUploading model) e
             | Ok (model', submitted) ->
                 keepUploading (withSiteMap model'),

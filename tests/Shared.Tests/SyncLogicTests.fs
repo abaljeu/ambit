@@ -151,7 +151,7 @@ let private applyTail changes state =
         state
 
 let private withRecorded (change: Change) (state: ClientSyncState) =
-    let history, _ = ClientHistory.record "test" change state.history
+    let history, _ = ClientHistory.record (Ev.ofChange "test" change) state.history
     { state with history = history }
 
 let private stateWithNode text : ClientSyncState * NodeId =
@@ -385,7 +385,7 @@ let ``applySyncResponse installs complete child list as Loaded and preserves own
     let st: ClientSyncState =
         { graph = Graph.fromNodes graph0.root nodes0
           history =
-            ClientHistory.record "test" (mkChange 1) (ClientHistory.clear ())
+            ClientHistory.record (Ev.ofChange "test" (mkChange 1)) (ClientHistory.clear ())
             |> fst
           revision = EventId 5
           eventLog = EventLog.empty }
@@ -482,7 +482,7 @@ let ``applySyncResponse empty Loaded child list marks Loaded without History cle
     let st: ClientSyncState =
         { graph = Graph.fromNodes graph0.root nodes
           history =
-            ClientHistory.record "test" past (ClientHistory.clear ()) |> fst
+            ClientHistory.record (Ev.ofChange "test" past) (ClientHistory.clear ()) |> fst
           revision = EventId 4
           eventLog = EventLog.empty }
     let loadedEmpty = { ws with children = []; childrenStatus = Loaded }
@@ -545,7 +545,7 @@ let private seededEditState () =
           revision = EventId 0
           history = ClientHistory.clear ()
           eventLog = EventLog.empty }
-    match SyncLogic.applyLocalChange "Edit node" change state0 with
+    match SyncLogic.applyLocalChange (Ev.ofChange "Edit node" change) state0 with
     | Error msg -> failwith msg
     | Ok (state, pending) -> nodeId, state, pending, change
 

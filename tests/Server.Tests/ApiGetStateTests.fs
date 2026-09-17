@@ -27,9 +27,8 @@ let private handleWithGetState
       getRevision = fun () -> async.Return(Gambol.Shared.EventId 0)
       getEventsSince = fun _ -> async.Return []
       isReady = fun () -> true
-      postChange = fun _ -> async.Return(Result.Error "unused")
       postEvents = fun _ -> async.Return(Result.Error "unused")
-      postGraphOnlyChange = fun _ -> async.Return(Result.Error "unused")
+      postGraphOnly = fun _ -> async.Return(Result.Error "unused")
       actorStop = fun _ -> async.Return(Result.Error "unused")
       asCaller = fun _ -> Unchecked.defaultof<CoreChanges> }
 

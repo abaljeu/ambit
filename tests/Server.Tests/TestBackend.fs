@@ -348,3 +348,8 @@ let eventFromChange (change: Gambol.Shared.Change) : Ev =
       authority = Gambol.Shared.Authority ""
       commandName = ""
       body = Gambol.Shared.EventBody.Change change.ops }
+
+/// Leftover Change at a Core door until command mint.
+let toEvent (change: Change) = Ev.ofChange "" change
+
+let toEvents (changes: Change list) = List.map toEvent changes
