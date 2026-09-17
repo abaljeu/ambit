@@ -23,7 +23,10 @@ module ApiResponseSerialization =
                 |> Option.defaultValue true })
 
     let decodeStateResponse text =
-        Decode.fromString decodeStateResponseDecoder text
+        try
+            Decode.fromString decodeStateResponseDecoder text
+        with ex ->
+            Error ("state decode exception: " + ex.Message)
 
     let encodeChangeSuccessResponse
         (response: ChangeSuccessResponse)

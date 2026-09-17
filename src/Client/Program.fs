@@ -89,30 +89,33 @@ let rec private loadFromState () =
     fetchGet
         stateUrl
         (fun text ->
-            if looksCompressed text then
-                showBootError
-                    "state response is compressed but not decompressed (Content-Encoding?)"
-            else
-                let decodeStart = perfNowMs ()
-                match decodeStateResponse text with
-                | Ok response ->
-                    let decodeMs = int (perfNowMs () - decodeStart)
-                    let nodeCount = Map.count response.graph.nodes
-                    consoleLog (
-                        $"[Gambol boot] decodeStateResponse: {decodeMs}ms, "
-                        + $"{text.Length} chars, {nodeCount} nodes")
-                    finishPaint response []
-                    setTimeout
-                        (fun () ->
-                            BootCacheStore.persistAfterState
-                                currentFile
-                                bootScope
-                                text
-                                response)
-                        0
-                    |> ignore
-                | Error err ->
-                    showBootError err)
+            try
+                if looksCompressed text then
+                    showBootError
+                        "state response is compressed but not decompressed (Content-Encoding?)"
+                else
+                    let decodeStart = perfNowMs ()
+                    match decodeStateResponse text with
+                    | Ok response ->
+                        let decodeMs = int (perfNowMs () - decodeStart)
+                        let nodeCount = Map.count response.graph.nodes
+                        consoleLog (
+                            $"[Gambol boot] decodeStateResponse: {decodeMs}ms, "
+                            + $"{text.Length} chars, {nodeCount} nodes")
+                        finishPaint response []
+                        setTimeout
+                            (fun () ->
+                                BootCacheStore.persistAfterState
+                                    currentFile
+                                    bootScope
+                                    text
+                                    response)
+                            0
+                        |> ignore
+                    | Error err ->
+                        showBootError ("failed to decode /state: " + err)
+            with ex ->
+                showBootError ("failed to apply /state: " + ex.Message))
         (fun status body ->
             let snippet = summarizeHttpBody 400 body
             let detail =

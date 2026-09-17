@@ -94,6 +94,100 @@ let ``Node decode without documentState defaults to current`` () =
     | Error err -> failwith $"Decode failed: {err}"
     | Ok decoded -> Assert.Equal(Current, decoded.documentState)
 
+let private alanSpecialDirectoryJson =
+    "{"
+    + "\"id\":\"fde5ee56-f6d5-44e0-bff5-75c19924afa4\","
+    + "\"text\":\"Example\",\"name\":\"Example\","
+    + "\"children\":[{\"ref\":\"ref\","
+    + "\"id\":\"f456d9ef-7bab-4fd6-b2fa-af19724c6141\"}],"
+    + "\"childrenStatus\":\"loaded\",\"cssClasses\":[],"
+    + "\"kind\":{\"type\":\"special\",\"kind\":\"directory\"},"
+    + "\"documentState\":\"current\","
+    + "\"updateTime\":\"639204537026026480\"}"
+
+let private alanNormalNullNameJson =
+    "{"
+    + "\"id\":\"ffab5839-cc99-4036-a967-0ae70a779969\","
+    + "\"text\":\"            HttpMethods.IsPost context.Request.Method\","
+    + "\"name\":null,\"children\":[],"
+    + "\"childrenStatus\":\"loaded\",\"cssClasses\":[],"
+    + "\"kind\":\"normal\",\"documentState\":\"current\","
+    + "\"updateTime\":\"0\"}"
+
+let private decodeNodeOrFail json =
+    match Dec.fromString Serialization.decodeNode json with
+    | Error err -> failwith $"Decode failed: {err}"
+    | Ok node -> node
+
+[<Fact>]
+let ``Node decode accepts mixed kind null name and string updateTime`` () =
+    let special = decodeNodeOrFail alanSpecialDirectoryJson
+    Assert.Equal(
+        System.Guid.Parse "fde5ee56-f6d5-44e0-bff5-75c19924afa4",
+        special.id.Value)
+    Assert.Equal(Special Directory, special.kind)
+    Assert.Equal(Filename.create "Example", special.name)
+    Assert.Equal(1, special.children.Length)
+    Assert.Equal(Ownership.Ref, special.children.Head.ref)
+    Assert.Equal(
+        System.DateTime(639204537026026480L, System.DateTimeKind.Utc),
+        special.updateTime)
+
+    let normal = decodeNodeOrFail alanNormalNullNameJson
+    Assert.Equal(Normal, normal.kind)
+    Assert.Equal(Filename.Empty, normal.name)
+    Assert.Equal(NodeUpdateTime.missing, normal.updateTime)
+
+[<Fact>]
+let ``StateResponse decode accepts Alan sample node shapes`` () =
+    let rootId = Graph.rootId.Value.ToString()
+    let rootJson =
+        "{"
+        + $"\"id\":\"{rootId}\",\"text\":\"ROOT\",\"name\":null,"
+        + "\"children\":[],\"childrenStatus\":\"loaded\","
+        + "\"cssClasses\":[],"
+        + "\"kind\":{\"type\":\"special\",\"kind\":\"workspace\"},"
+        + "\"documentState\":\"current\",\"updateTime\":\"0\"}"
+    let json =
+        "{\"eventId\":1,\"ready\":true,\"graph\":{"
+        + $"\"root\":\"{rootId}\",\"nodes\":["
+        + rootJson
+        + ","
+        + alanSpecialDirectoryJson
+        + ","
+        + alanNormalNullNameJson
+        + "]}}"
+    match Dec.fromString ApiResponseSerialization.decodeStateResponseDecoder json with
+    | Error err -> failwith $"Decode failed: {err}"
+    | Ok response ->
+        Assert.Equal(EventId.fromJson 1, response.eventId)
+        let specialId =
+            NodeId(System.Guid.Parse "fde5ee56-f6d5-44e0-bff5-75c19924afa4")
+        let normalId =
+            NodeId(System.Guid.Parse "ffab5839-cc99-4036-a967-0ae70a779969")
+        Assert.True(Map.containsKey specialId response.graph.nodes)
+        Assert.True(Map.containsKey normalId response.graph.nodes)
+
+[<Fact>]
+let ``Graph decode missing root is an Error not a throw`` () =
+    let rootId = Graph.rootId.Value.ToString()
+    let json =
+        "{\"root\":\""
+        + rootId
+        + "\",\"nodes\":["
+        + alanSpecialDirectoryJson
+        + ","
+        + alanNormalNullNameJson
+        + "]}"
+    let result =
+        try
+            Dec.fromString Serialization.decodeGraph json
+        with ex ->
+            failwith $"decode threw: {ex.Message}"
+    match result with
+    | Ok _ -> failwith "expected decode failure"
+    | Error err -> Assert.Contains("missing canonical root", err)
+
 [<Fact>]
 let ``Unparsed node round-trip`` () =
     let node =

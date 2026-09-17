@@ -1132,6 +1132,24 @@ let ``resolveZoomRoot falls back to first Graph child when preferred is absent``
     Assert.True(Map.containsKey expected graph.nodes)
 
 [<Fact>]
+let ``firstGraphChild skips Root children missing from the Graph`` () =
+    let missing = NodeId.New()
+    let present = NodeId.New()
+    let presentNode = Node.Create(present, text = "kept")
+    let root =
+        { Graph.rootPlaceholder with
+            children =
+                [ ChildNode.reference missing
+                  ChildNode.owner present ] }
+    let graph =
+        Graph.fromExtracted
+            Graph.rootId
+            (Map.ofList
+                [ Graph.rootId, root
+                  present, presentNode ])
+    Assert.Equal(present, firstGraphChild graph)
+
+[<Fact>]
 let ``retargetZoomIfMissing rebuilds SiteMap when preferred Zoom is deleted`` () =
     let graphWith, cont, _ = buildFlat [ "a"; "b" ]
     let siteMap, nextId = buildSiteMapFrom graphWith cont (Sid 0)

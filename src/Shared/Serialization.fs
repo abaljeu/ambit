@@ -67,13 +67,14 @@ module Serialization =
               |> Decode.andThen (function
                   | "normal" -> Decode.succeed Normal
                   | other -> Decode.fail $"Unknown node kind: {other}")
-              Decode.object (fun get ->
-                  match get.Required.Field "type" Decode.string with
+              Decode.field "type" Decode.string
+              |> Decode.andThen (function
                   | "special" ->
-                      let sk = get.Required.Field "kind" decodeSpecialKind
-                      Special sk
+                      Decode.object (fun get ->
+                          Special (get.Required.Field "kind" decodeSpecialKind))
                   | other ->
-                      failwithf "Unknown node kind type discriminator: %s" other) ]
+                      Decode.fail
+                          $"Unknown node kind type discriminator: {other}") ]
     let private encodeOwnership (ownership: Ownership) : IEncodable =
         match ownership with
         | Ownership.Ref -> Encode.string "ref"
@@ -179,27 +180,35 @@ module Serialization =
             [ "root", encodeNodeId graph.root
               "nodes", Encode.list nodeList ]
 
+    let private graphFromDecodedNodes
+        (root: NodeId)
+        (nodes: Map<NodeId, Node>)
+        : Decoder<Graph> =
+        if root <> Graph.rootId then
+            Decode.fail "graph root id must be canonical"
+        elif not (Map.containsKey Graph.rootId nodes) then
+            Decode.fail "graph missing canonical root node"
+        else
+            let g = Graph.fromNodes root nodes
+            let n = g.nodes.[Graph.rootId]
+            if n.id <> Graph.rootId || n.text <> "ROOT"
+               || n.name <> Filename.Empty
+               || n.cssClasses <> CssClass.empty then
+                Decode.fail "canonical root node has wrong shape"
+            else
+                Decode.succeed g
+
     let decodeGraph: Decoder<Graph> =
         Decode.object (fun get ->
             let root = get.Required.Field "root" decodeNodeId
-            let nodeArray = get.Required.Field "nodes" (Decode.resizeArray decodeNode)
-            let nodes =
-                nodeArray
-                |> Seq.map (fun n -> n.id, n)
-                |> Map.ofSeq
-            Graph.fromNodes root nodes)
-        |> Decode.andThen (fun g ->
-            if g.root <> Graph.rootId then
-                Decode.fail "graph root id must be canonical"
-            elif not (Map.containsKey Graph.rootId g.nodes) then
-                Decode.fail "graph missing canonical root node"
-            else
-                let n = g.nodes.[Graph.rootId]
-                if n.id <> Graph.rootId || n.text <> "ROOT" || n.name <> Filename.Empty
-                   || n.cssClasses <> CssClass.empty then
-                    Decode.fail "canonical root node has wrong shape"
-                else
-                    Decode.succeed g)
+            let nodeArray =
+                get.Required.Field "nodes" (Decode.resizeArray decodeNode)
+            root, nodeArray)
+        |> Decode.andThen (fun (root, nodeArray) ->
+            nodeArray
+            |> Seq.map (fun n -> n.id, n)
+            |> Map.ofSeq
+            |> graphFromDecodedNodes root)
 
     // ---- Op ----
 
