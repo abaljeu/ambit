@@ -3,21 +3,17 @@ module BootCachePollTests
 open System
 open Gambol.Shared
 open Gambol.Shared
+open BootCacheTestHelpers
 open Xunit
 
-let private mkChange id =
-    { id = id
-      submissionId = Guid.NewGuid()
-      ops = [] }
-
-let private mkPoll rev (changes: Change list) : ChangeSuccessResponse =
+let private mkPoll rev (events: Ev list) : ChangeSuccessResponse =
     { revision = EventId rev
       buildEpochSec = 1
       pageBuildEpochSec = 1
       apiVersion = ApiVersion.current
       isReady = true
-      externalChanges = not changes.IsEmpty
-      events = changes |> List.map (Ev.ofChange "")
+      externalChanges = not events.IsEmpty
+      events = events
       message = None
       bootstrapHash = None }
 
@@ -25,19 +21,19 @@ let private decide clientRev log poll =
     BootCache.decideBootPoll clientRev log poll None None
 
 [<Fact>]
-let ``novelChanges skips Poll Changes already in the log by id`` () =
-    let local = mkChange 4
+let ``novelEvents skips Poll Events already in the log by id`` () =
+    let local = mkEvent 4
     let pollDup = { local with submissionId = Guid.NewGuid() }
-    let novel = mkChange 5
-    let kept = BootCache.novelChanges [ local ] [ pollDup; novel ]
-    Assert.Equal(5, kept.Head.id)
+    let novel = mkEvent 5
+    let kept = BootCache.novelEvents [ local ] [ pollDup; novel ]
+    Assert.Equal(5, kept.Head.id.Value)
     Assert.Equal(1, kept.Length)
 
 [<Fact>]
-let ``novelChanges skips Poll Changes already in the log by submissionId`` () =
-    let local = mkChange 4
-    let pollDup = { mkChange 99 with submissionId = local.submissionId }
-    Assert.Empty(BootCache.novelChanges [ local ] [ pollDup ])
+let ``novelEvents skips Poll Events already in the log by submissionId`` () =
+    let local = mkEvent 4
+    let pollDup = { mkEvent 99 with submissionId = local.submissionId }
+    Assert.Empty(BootCache.novelEvents [ local ] [ pollDup ])
 
 [<Fact>]
 let ``decideBootPoll confirms an empty tail at matching Revision`` () =
@@ -47,8 +43,8 @@ let ``decideBootPoll confirms an empty tail at matching Revision`` () =
 
 [<Fact>]
 let ``decideBootPoll confirms when the tail is only local log duplicates`` () =
-    let local = mkChange 6
-    let poll = mkPoll 6 [ { local with ops = [] } ]
+    let local = mkEvent 6
+    let poll = mkPoll 6 [ local ]
     match decide 6 [ local ] poll with
     | BootCache.BootPoll.Confirmed true -> ()
     | other -> failwithf "%A" other
@@ -69,7 +65,7 @@ let ``decideBootPoll confirms when page stamps differ and API matches`` () =
 
 [<Fact>]
 let ``decideBootPoll applies a novel tail`` () =
-    let novel = mkChange 7
+    let novel = mkEvent 7
     match decide 6 [] (mkPoll 7 [ novel ]) with
     | BootCache.BootPoll.ApplyNovel (events, true) ->
         Assert.Equal(7, events.Head.id.Value)
@@ -84,7 +80,7 @@ let ``decideBootPoll falls back when Poll Revision is behind the client`` () =
 [<Fact>]
 let ``decideBootPoll falls back when the novel tail is oversized`` () =
     let many =
-        List.init (BootCache.maxNovelCount + 1) (fun i -> mkChange (10 + i))
+        List.init (BootCache.maxNovelCount + 1) (fun i -> mkEvent (10 + i))
     match decide 9 [] (mkPoll 20 many) with
     | BootCache.BootPoll.FallbackState "oversized" -> ()
     | other -> failwithf "%A" other

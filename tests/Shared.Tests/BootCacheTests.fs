@@ -3,6 +3,7 @@ module BootCacheTests
 open System
 open Gambol.Shared
 open Gambol.Shared
+open BootCacheTestHelpers
 open Xunit
 
 module Enc = Thoth.Json.Newtonsoft.Encode
@@ -73,35 +74,40 @@ let ``validateSnapshot rejects codec file and scope mismatches`` () =
     Assert.Equal(Error "file", file)
     Assert.Equal(Error "scope", scope)
 
-let private mkChange id =
-    { id = id
-      submissionId = Guid.NewGuid()
-      ops = [] }
+[<Fact>]
+let ``event log item round-trips through Ev JSON`` () =
+    let event = mkEvent 4
+    let json = Enc.toString 0 (BootCache.encodeEvent event)
+    match Dec.fromString BootCache.decodeEvent json with
+    | Error err -> failwith err
+    | Ok decoded -> Assert.Equal(event, decoded)
 
 [<Fact>]
-let ``changesAfter keeps ids greater than snapshot Revision and sorts`` () =
-    let c2 = mkChange 2
-    let c4 = mkChange 4
-    let c5 = mkChange 5
-    let kept = BootCache.changesAfter 3 [ c5; c2; c4 ]
-    Assert.Equal<int list>([ 4; 5 ], kept |> List.map (fun c -> c.id))
+let ``eventsAfter keeps ids greater than snapshot Revision and sorts`` () =
+    let e2 = mkEvent 2
+    let e4 = mkEvent 4
+    let e5 = mkEvent 5
+    let kept = BootCache.eventsAfter 3 [ e5; e2; e4 ]
+    Assert.Equal<int list>(
+        [ 4; 5 ],
+        kept |> List.map (fun event -> event.id.Value))
 
 [<Fact>]
-let ``changesAfter drops the snapshot Revision itself`` () =
-    Assert.Empty(BootCache.changesAfter 3 [ mkChange 3 ])
+let ``eventsAfter drops the snapshot Revision itself`` () =
+    Assert.Empty(BootCache.eventsAfter 3 [ mkEvent 3 ])
 
 [<Fact>]
-let ``acceptedForLog prefers confirmed Changes when the server assigned ids`` () =
-    let confirmed = [ mkChange 9 ]
-    let submitted = [ PendingChange.ofEvent (Ev.ofChange "fixture" (mkChange 8)) ]
+let ``acceptedForLog prefers confirmed Events when the server assigned ids`` () =
+    let confirmed = [ mkEvent 9 ]
+    let submitted = [ PendingChange.ofEvent (mkEvent 8) ]
     let accepted = BootCache.acceptedForLog confirmed submitted
-    Assert.Equal(9, accepted.Head.id)
+    Assert.Equal(9, accepted.Head.id.Value)
 
 [<Fact>]
-let ``acceptedForLog uses submitted Changes when confirmed is empty`` () =
-    let submitted = [ PendingChange.ofEvent (Ev.ofChange "fixture" (mkChange 8)) ]
+let ``acceptedForLog uses submitted Events when confirmed is empty`` () =
+    let submitted = [ PendingChange.ofEvent (mkEvent 8) ]
     let accepted = BootCache.acceptedForLog [] submitted
-    Assert.Equal(8, accepted.Head.id)
+    Assert.Equal(8, accepted.Head.id.Value)
 
 let private noteSnapshot () =
     let graph, noteId = Graph.newNode "hello" (Graph.create ())
@@ -205,11 +211,13 @@ let ``decideBootRead fetches /state on decode error`` () =
 [<Fact>]
 let ``foldLog applies SetText and sets Revision to the last Change id`` () =
     let snapshot, noteId = noteSnapshot ()
-    let change =
-        { id = 6
-          submissionId = Guid.NewGuid()
-          ops = [ Op.SetText(noteId, "hello", "world") ] }
-    match BootCache.foldLog snapshot [ change ] with
+    let event =
+        Ev.ofChange
+            "fixture"
+            { id = 6
+              submissionId = Guid.NewGuid()
+              ops = [ Op.SetText(noteId, "hello", "world") ] }
+    match BootCache.foldLog snapshot [ event ] with
     | Error err -> failwith err
     | Ok folded ->
         Assert.Equal("world", folded.graph.nodes.[noteId].text)
@@ -231,10 +239,12 @@ let ``decideBootRead fetches /state on fold error`` () =
         |> fun g -> Graph.fromNodes g.root (Map.add fileId fileNode g.nodes)
     let snapshot =
         { graph = graph; revision = EventId 1; isReady = true }
-    let change =
-        { id = 2
-          submissionId = Guid.NewGuid()
-          ops = [ Op.SetText(fileId, "file.txt", "changed") ] }
+    let event =
+        Ev.ofChange
+            "fixture"
+            { id = 2
+              submissionId = Guid.NewGuid()
+              ops = [ Op.SetText(fileId, "file.txt", "changed") ] }
     let snap = recordFor snapshot
     match
         BootCache.decideBootRead
@@ -242,7 +252,7 @@ let ``decideBootRead fetches /state on fold error`` () =
             "ambit"
             "root"
             (Some snap)
-            [ change ]
+            [ event ]
             decodeState
     with
     | BootCache.BootRead.FetchState "fold" -> ()
@@ -251,17 +261,19 @@ let ``decideBootRead fetches /state on fold error`` () =
 [<Fact>]
 let ``decideBootRead uses the folded snapshot when the cache is valid`` () =
     let snapshot, noteId = noteSnapshot ()
-    let change =
-        { id = 6
-          submissionId = Guid.NewGuid()
-          ops = [ Op.SetText(noteId, "hello", "world") ] }
+    let event =
+        Ev.ofChange
+            "fixture"
+            { id = 6
+              submissionId = Guid.NewGuid()
+              ops = [ Op.SetText(noteId, "hello", "world") ] }
     match
         BootCache.decideBootRead
             true
             "ambit"
             "root"
             (Some (recordFor snapshot))
-            [ change ]
+            [ event ]
             decodeState
     with
     | BootCache.BootRead.UseCache folded ->
@@ -284,11 +296,13 @@ let ``foldLog applies deletion and advances Revision`` () =
     let trashChildren = graph2.nodes.[Graph.trashId].children
     let addToTrashOp =
         Op.Replace(Graph.trashId, trashChildren, trashChildren @ [ ChildNode.owner noteId ])
-    let change =
-        { id = 6
-          submissionId = Guid.NewGuid()
-          ops = [ removeOp; addToTrashOp ] }
-    match BootCache.foldLog snapshot [ change ] with
+    let event =
+        Ev.ofChange
+            "fixture"
+            { id = 6
+              submissionId = Guid.NewGuid()
+              ops = [ removeOp; addToTrashOp ] }
+    match BootCache.foldLog snapshot [ event ] with
     | Error err -> failwith err
     | Ok folded ->
         Assert.Equal(6, folded.revision.Value)

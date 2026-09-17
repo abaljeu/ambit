@@ -74,7 +74,7 @@ let private stateUrl =
 
 let private bootScope = BootCache.scopeKey (tryReadSavedZoomId ())
 
-let mutable bootLog: Change list = []
+let mutable bootLog: Ev list = []
 let mutable pollingStarted = false
 let mutable bootHash = ""
 let mutable justFetchedState = false
@@ -140,9 +140,8 @@ and private applyBootNovel (novel: Ev list) (ready: bool) =
                     EventId.toRevision newState.revision,
                     newState.history,
                     ready)))
-        let novelChanges = novel |> List.map Ev.asChange
-        BootCacheStore.appendChanges currentFile novelChanges
-        bootLog <- bootLog @ novelChanges
+        BootCacheStore.appendEvents currentFile novel
+        bootLog <- bootLog @ novel
         BootCacheStore.requestIdleTruncate
             currentFile
             bootScope
@@ -191,7 +190,7 @@ and private runBootPoll (clientRev: int) =
             | Error _ -> ())
         (fun () -> ())
 
-and private finishPaint (response: StateResponse) (localLog: Change list) =
+and private finishPaint (response: StateResponse) (localLog: Ev list) =
     bootLog <- localLog
     dispatch (SysMsg (StateLoaded response))
     ensurePolling ()

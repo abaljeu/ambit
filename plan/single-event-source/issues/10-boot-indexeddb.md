@@ -1,6 +1,7 @@
 # 10 — Boot IndexedDB
 
-**Status:** defined
+**Status:** done
+**Actual:** 1h30m
 **Blocked by:** [05 — Expand Op-list apply](05-expand-op-list-apply.md)
 
 ## Context
@@ -15,7 +16,7 @@ BootCache and BootCacheStore hold an Ev list. Codec is Ev, not leftover Change J
 
 Module **BootCache**.
 
-- [ ] 1.2.5 Boot IndexedDB — BootCache / BootCacheStore hold Ev list, not leftover Change
+- [x] 1.2.5 Boot IndexedDB — BootCache / BootCacheStore hold Ev list, not leftover Change
 
 ## Out of scope
 
@@ -23,4 +24,8 @@ Module **BootCache**.
 
 ## See also
 
-[Single event source architecture](../arch.md), [[../reports/inventory-non-event-write-paths.md]]
+[Single event source architecture](../arch.md), [Inventory of non-event write paths](../reports/inventory-non-event-write-paths.md)
+
+## Time
+
+- 1. Boot IndexedDB — 2026-09-17 1h30m — BootCache / BootCacheStore hold Ev list; codec is EventJson (from chat)

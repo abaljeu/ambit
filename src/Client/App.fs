@@ -611,11 +611,9 @@ let createRuntime (initialModel: VM) =
                     | ServerRejected -> true
                     | _ -> false
                 if pendingDropped && not rejected then
-                    BootCacheStore.appendChanges
+                    BootCacheStore.appendEvents
                         currentFile
-                        (BootCache.acceptedForLog
-                            (confirmed |> List.map Ev.asChange)
-                            submitted)
+                        (BootCache.acceptedForLog confirmed submitted)
                     BootCacheStore.requestIdleTruncate
                         currentFile
                         (BootCache.scopeKey (tryReadSavedZoomId ()))
