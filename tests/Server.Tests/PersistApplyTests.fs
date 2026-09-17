@@ -20,7 +20,7 @@ let private addRootChild text =
       Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ]
 
 let private wireEvent submissionId ops : Ev =
-    { id = EventId.fromJson 99
+    { id = EventId.zero
       submissionId = submissionId
       authority = Authority "Wire"
       commandName = "persist-apply"

@@ -121,10 +121,10 @@ let private assertExactPrefix (submitted: Ev) (confirmed: Ev) =
         | _ -> failwith "stamp enrichment must be SetUpdateTime-only")
 
 /// Build a change (base revision `rev`) that adds one child under root; returns change + child id.
-let private changeAddChild (rootId: NodeId) (rev: int) (childText: string) : Ev * NodeId =
+let private changeAddChild (rootId: NodeId) (_rev: int) (childText: string) : Ev * NodeId =
     let childId = NodeId.New()
     let c =
-        { id = EventId.fromJson rev
+        { id = EventId.zero
           submissionId = Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
@@ -363,7 +363,7 @@ let ``POST changes SetText changes child text and bumps revision`` (backend: Bac
         Assert.Equal(HttpStatusCode.OK, r0.StatusCode)
 
         let change =
-            { id = EventId.fromJson 1
+            { id = EventId.zero
               submissionId = Guid.NewGuid()
               authority = Authority "Browser"
               commandName = ""
@@ -447,7 +447,7 @@ let ``POST changes twice bumps revision to 2`` (backend: BackendKind) =
         Assert.Equal(HttpStatusCode.OK, resp1.StatusCode)
 
         let change2 =
-            { id = EventId.fromJson 1
+            { id = EventId.zero
               submissionId = Guid.NewGuid()
               authority = Authority "Browser"
               commandName = ""
@@ -470,7 +470,7 @@ let ``POST changes batch with two changes bumps revision to 2`` (backend: Backen
         let rootId = (decodeGraph json0).root
         let change1, childId = changeAddChild rootId 0 "first"
         let change2 =
-            { id = EventId.fromJson 1
+            { id = EventId.zero
               submissionId = Guid.NewGuid()
               authority = Authority "Browser"
               commandName = ""
@@ -499,7 +499,7 @@ let ``POST changes batch with bad second change keeps earlier items``
         let rootId = (decodeGraph json0).root
         let change1, childId = changeAddChild rootId 0 "first"
         let bad =
-            { id = EventId.fromJson 1
+            { id = EventId.zero
               submissionId = Guid.NewGuid()
               authority = Authority "Browser"
               commandName = ""
@@ -533,7 +533,7 @@ let ``POST changes persists in GET state`` (backend: BackendKind) =
         let! _ = postChange client testFile c0
         let! _ =
             postChange client testFile
-                { id = EventId.fromJson 1
+                { id = EventId.zero
                   submissionId = Guid.NewGuid()
                   authority = Authority "Browser"
                   commandName = ""
@@ -593,7 +593,7 @@ let ``POST with stale base revision and valid SetText succeeds`` (backend: Backe
         Assert.Equal(HttpStatusCode.OK, r0.StatusCode)
 
         let stale =
-            { id = EventId.fromJson 5
+            { id = EventId.zero
               submissionId = Guid.NewGuid()
               authority = Authority "Browser"
               commandName = ""
@@ -625,7 +625,7 @@ let ``POST unrelated attribute edits with stale revision both succeed``
         let rootChildren = (decodeGraph json1).nodes.[rootId].children
         let nodeY = NodeId.New()
         let setupY =
-            { id = EventId.fromJson 1
+            { id = EventId.zero
               submissionId = Guid.NewGuid()
               authority = Authority "Browser"
               commandName = ""
@@ -641,7 +641,7 @@ let ``POST unrelated attribute edits with stale revision both succeed``
         Assert.Equal(HttpStatusCode.OK, rY.StatusCode)
 
         let changeA =
-            { id = EventId.fromJson 2
+            { id = EventId.zero
               submissionId = Guid.NewGuid()
               authority = Authority "Browser"
               commandName = ""
@@ -650,7 +650,7 @@ let ``POST unrelated attribute edits with stale revision both succeed``
         Assert.Equal(HttpStatusCode.OK, rA.StatusCode)
 
         let changeB =
-            { id = EventId.fromJson 2
+            { id = EventId.zero
               submissionId = Guid.NewGuid()
               authority = Authority "Browser"
               commandName = ""
@@ -681,7 +681,7 @@ let ``POST concurrent stale text Changes amend second as amb-conflict child``
         Assert.Equal(HttpStatusCode.OK, r0.StatusCode)
 
         let changeA =
-            { id = EventId.fromJson 1
+            { id = EventId.zero
               submissionId = Guid.NewGuid()
               authority = Authority "Browser"
               commandName = ""
@@ -690,7 +690,7 @@ let ``POST concurrent stale text Changes amend second as amb-conflict child``
         Assert.Equal(HttpStatusCode.OK, rA.StatusCode)
 
         let changeB =
-            { id = EventId.fromJson 1
+            { id = EventId.zero
               submissionId = Guid.NewGuid()
               authority = Authority "Browser"
               commandName = ""
@@ -731,7 +731,7 @@ let ``POST concurrent stale name Changes amend second as amb-conflict child``
         Assert.Equal(HttpStatusCode.OK, r0.StatusCode)
 
         let changeA =
-            { id = EventId.fromJson 1
+            { id = EventId.zero
               submissionId = Guid.NewGuid()
               authority = Authority "Browser"
               commandName = ""
@@ -740,7 +740,7 @@ let ``POST concurrent stale name Changes amend second as amb-conflict child``
         Assert.Equal(HttpStatusCode.OK, rA.StatusCode)
 
         let changeB =
-            { id = EventId.fromJson 1
+            { id = EventId.zero
               submissionId = Guid.NewGuid()
               authority = Authority "Browser"
               commandName = ""
@@ -779,7 +779,7 @@ let ``POST concurrent stale class Changes merge set delta and succeed``
         Assert.Equal(HttpStatusCode.OK, r0.StatusCode)
 
         let changeA =
-            { id = EventId.fromJson 1
+            { id = EventId.zero
               submissionId = Guid.NewGuid()
               authority = Authority "Browser"
               commandName = ""
@@ -788,7 +788,7 @@ let ``POST concurrent stale class Changes merge set delta and succeed``
         Assert.Equal(HttpStatusCode.OK, rA.StatusCode)
 
         let changeB =
-            { id = EventId.fromJson 1
+            { id = EventId.zero
               submissionId = Guid.NewGuid()
               authority = Authority "Browser"
               commandName = ""
@@ -829,7 +829,7 @@ let ``POST unrelated structural edits with stale revision both succeed``
 
         let childA = NodeId.New()
         let changeA =
-            { id = EventId.fromJson 1
+            { id = EventId.zero
               submissionId = Guid.NewGuid()
               authority = Authority "Browser"
               commandName = ""
@@ -841,7 +841,7 @@ let ``POST unrelated structural edits with stale revision both succeed``
 
         let childB = NodeId.New()
         let changeB =
-            { id = EventId.fromJson 1
+            { id = EventId.zero
               submissionId = Guid.NewGuid()
               authority = Authority "Browser"
               commandName = ""
@@ -890,7 +890,7 @@ let ``POST same-parent structural collision amends and succeeds``
 
         let childA = NodeId.New()
         let changeA =
-            { id = EventId.fromJson 1
+            { id = EventId.zero
               submissionId = Guid.NewGuid()
               authority = Authority "Browser"
               commandName = ""
@@ -902,7 +902,7 @@ let ``POST same-parent structural collision amends and succeeds``
 
         let childB = NodeId.New()
         let changeB =
-            { id = EventId.fromJson 1
+            { id = EventId.zero
               submissionId = Guid.NewGuid()
               authority = Authority "Browser"
               commandName = ""
@@ -1288,7 +1288,7 @@ let private addNestedWorkspaceViaPost (client: HttpClient) = task {
               Op.Replace(Graph.workspacesId, [], ownedChild wsId) ] }
     do! postChangeOk client c0
     let c1 =
-        { id = EventId.fromJson 1
+        { id = EventId.zero
           submissionId = Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""

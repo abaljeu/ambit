@@ -405,9 +405,9 @@ let private postWorkspace (fileAgent: MailboxHost) (label: string) =
     |> ignore
     workspaceId
 
-let private postOps (fileAgent: MailboxHost) (revision: int) (ops: Op list) =
+let private postOps (fileAgent: MailboxHost) (_revision: int) (ops: Op list) =
     let event =
-        { id = EventId.fromJson revision
+        { id = EventId.zero
           submissionId = Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""

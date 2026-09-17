@@ -32,7 +32,7 @@ let private withHost actors body =
 let private addRootChild text = addRootChildEvent text
 
 let private wireEvent submissionId body : Ev =
-    { id = EventId.fromJson 99
+    { id = EventId.zero
       submissionId = submissionId
       authority = Gambol.Shared.Authority "Wire"
       commandName = "test"
@@ -279,3 +279,42 @@ let ``mailbox appends ActorStart and ActorStop in lifecycle order`` () =
         finally
             CoreMailbox.dispose host
     }
+
+[<Fact>]
+let ``postEvent rejects a non-zero EventId on a new client Event`` () =
+    withHost [] (fun host _ -> task {
+        let _, event = addRootChild "nonzero"
+        let dirty = { event with id = EventId.fromJson 99 }
+        let! result =
+            CoreMailbox.postEvent host testCaller dirty
+            |> Async.StartAsTask
+        match result with
+        | Error msg -> Assert.Equal("posted EventId must be zero", msg)
+        | Ok _ -> Assert.Fail("expected posted EventId must be zero")
+    })
+
+[<Fact>]
+let ``two live client edits with EventId.zero are admitted`` () =
+    withHost [] (fun host _ -> task {
+        let childId, createEvent = addRootChild "before"
+        let! created =
+            CoreMailbox.postEvent host testCaller createEvent
+            |> Async.StartAsTask
+        let storedCreate = requireOk "create" created
+        Assert.Equal(EventId.fromJson 1, storedCreate.id)
+        let edit =
+            ClientHistory.mintChange
+                "Edit node"
+                [ Op.SetText(childId, "before", "after") ]
+        Assert.Equal(EventId.zero, edit.id)
+        let! edited =
+            CoreMailbox.postEvent host testCaller edit
+            |> Async.StartAsTask
+        let storedEdit = requireOk "edit" edited
+        Assert.Equal(EventId.fromJson 2, storedEdit.id)
+        let! state =
+            CoreMailbox.getState host
+            |> Async.StartAsTask
+        let state = requireOk "state after edit" state
+        Assert.Equal("after", state.graph.nodes.[childId].text)
+    })

@@ -224,9 +224,9 @@ let private incrementingStampPersist (count: int ref) =
                         postGraph.nodes }
         Ok { graph = graph; message = None }
 
-let private addChildChange rev text =
+let private addChildChange _rev text =
     let childId = NodeId.New()
-    { id = EventId.fromJson rev
+    { id = EventId.zero
       submissionId = Guid.NewGuid()
       authority = Authority "Browser"
       commandName = ""

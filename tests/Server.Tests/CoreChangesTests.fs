@@ -26,9 +26,9 @@ let private decodeChangeResponse json =
         json
     |> requireOk "decode response"
 
-let private addRootChild revision text =
+let private addRootChild _revision text =
     let _, event = addRootChildEvent text
-    { event with id = EventId.fromJson revision }
+    { event with id = EventId.zero }
 
 [<Fact>]
 let ``typed Normal caller publishes accepted Change to Poll`` () = task {
