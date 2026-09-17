@@ -269,7 +269,7 @@ let ``db bootstrap duplicate returns stored Change and rejects no-op`` () = task
               Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
 
     let core = admittedChanges agent
-    let! first = core.postChange (encodeBatch [ accepted ]) |> Async.StartAsTask
+    let! first = core.postEvents (toEvents (encodeBatch [ accepted ])) |> Async.StartAsTask
     let firstAck =
         match first with
         | Ok ack -> ack
@@ -281,7 +281,7 @@ let ``db bootstrap duplicate returns stored Change and rejects no-op`` () = task
         scalar<string> connStr "SELECT xmin::text FROM graph WHERE singleton = 1"
 
     let! duplicate =
-        core.postChange (encodeBatch [ accepted ]) |> Async.StartAsTask
+        core.postEvents (toEvents (encodeBatch [ accepted ])) |> Async.StartAsTask
     match duplicate with
     | Ok ack ->
         Assert.Equal<Ev list>(
@@ -293,7 +293,7 @@ let ``db bootstrap duplicate returns stored Change and rejects no-op`` () = task
         { id = 1
           submissionId = Guid.NewGuid()
           ops = [] }
-    let! unchanged = core.postChange (encodeBatch [ noOp ]) |> Async.StartAsTask
+    let! unchanged = core.postEvents (toEvents (encodeBatch [ noOp ])) |> Async.StartAsTask
     match unchanged with
     | Ok _ -> Assert.Fail("unchanged submission must be rejected")
     | Error err -> Assert.Contains("Unchanged", err)

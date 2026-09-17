@@ -170,8 +170,10 @@ let ``Actor PostChange with live row reaches PersistHandlers`` () =
     withHost pool (fun host -> task {
         let change = addRootChild "actor-hello"
         let! result =
-            CoreMailbox.postChange
-                host (actorCaller actorSecret) [ change ]
+            CoreMailbox.postEvents
+                host
+                (actorCaller actorSecret)
+                [ Ev.ofChange "" change ]
             |> Async.StartAsTask
         let accepted = requireOk "Actor post" result
         Assert.Equal(Revision 1, accepted.revision)
@@ -185,10 +187,10 @@ let ``Actor PostChange without live row is refused before persist`` () =
         let handle = CoreMailbox.coreChanges host testCaller
         let! before = handle.getRevision () |> Async.StartAsTask
         let! result =
-            CoreMailbox.postChange
+            CoreMailbox.postEvents
                 host
                 (actorCaller actorSecret)
-                [ addRootChild "nope" ]
+                [ Ev.ofChange "" (addRootChild "nope") ]
             |> Async.StartAsTask
         let! after = handle.getRevision () |> Async.StartAsTask
         Assert.Equal(Error CoreAuth.refuse, result)
@@ -200,10 +202,10 @@ let ``Browser PostChange does not require a live row`` () =
     let _, _, _, pool = recordingPool ()
     withHost pool (fun host -> task {
         let! result =
-            CoreMailbox.postChange
+            CoreMailbox.postEvents
                 host
                 testCaller
-                [ addRootChild "browser" ]
+                [ Ev.ofChange "" (addRootChild "browser") ]
             |> Async.StartAsTask
         let accepted = requireOk "Browser post" result
         Assert.Equal(Revision 1, accepted.revision)

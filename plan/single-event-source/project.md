@@ -2,9 +2,9 @@
 
 Stage: build
 Summary: Core creation is suspended. This Project creates a single Event source with one event id, then corrects [[plan/core-creation/arch.md]] to match what was created.
-Updated: 2026-09-16
+Updated: 2026-09-17
 Started: 2026-09-16
-Actual: 5h30m
+Actual: 7h30m
 
 Home: [[plan/roadmap/epics/robust-outliner.md]] Required for done (Live). Chart map: [[map.md]].
 
@@ -20,8 +20,8 @@ Home: [[plan/roadmap/epics/robust-outliner.md]] Required for done (Live). Chart 
 
 - [[plan/single-event-source/issues/05-expand-op-list-apply.md|05 — Expand Op-list apply]] — expand. Status `done`.
 - [[plan/single-event-source/issues/06-compile-preamble.md|06 — Compile preamble]] — migrate. Status `done`.
-- [[plan/single-event-source/issues/07-persist-apply.md|07 — Persist apply]] — migrate. Status `coded`.
-- [[plan/single-event-source/issues/08-core-doors.md|08 — Core doors]] — migrate. Blocked by 05, 07.
+- [[plan/single-event-source/issues/07-persist-apply.md|07 — Persist apply]] — migrate. Status `done`.
+- [[plan/single-event-source/issues/08-core-doors.md|08 — Core doors]] — migrate. Status `coded`.
 - [[plan/single-event-source/issues/09-command-mint.md|09 — Command mint]] — migrate. Blocked by 05, 08.
 - [[plan/single-event-source/issues/10-boot-indexeddb.md|10 — Boot IndexedDB]] — migrate. Blocked by 05.
 - [[plan/single-event-source/issues/11-one-serial-event-id.md|11 — One serial event id]] — migrate. Blocked by 05.

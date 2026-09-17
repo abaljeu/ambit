@@ -216,7 +216,9 @@ module LazyLoadReconciliationServer =
                             | ops ->
                                 let! result =
                                     GraphOnlyChangePost.postChunks
-                                        handle.postGraphOnlyChange
+                                        (fun change ->
+                                            handle.postGraphOnly
+                                                (Ev.ofChange "" change))
                                         revision
                                         (GraphOnlyChangeChunks.split ops)
                                 return

@@ -11,9 +11,9 @@ type internal CoreMsg =
             Result<Ev list, string>>
     | GetEventHistory of
         AsyncReplyChannel<Gambol.Shared.EventLog>
-    | PostGraphOnlyChange of
+    | PostGraphOnly of
         caller: Caller *
-        change: Change *
+        event: Ev *
         AsyncReplyChannel<Result<CoreChangesAccepted, string>>
     | Logout of
         Caller *

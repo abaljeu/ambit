@@ -8,10 +8,8 @@ open Gambol.Shared
 module internal CoreMailboxBackend =
 
     type Ev = Gambol.Shared.Ev
-    type EventId = Gambol.Shared.EventId
     type EventLog = Gambol.Shared.EventLog
     module Ev = Gambol.Shared.Ev
-    module EventId = Gambol.Shared.EventId
     module EventLog = Gambol.Shared.EventLog
 
     /// Bound on wall-clock time for a single change's persist step (disk write via
@@ -76,8 +74,9 @@ module internal CoreMailboxBackend =
         | GetEventsSince (after, _) ->
             "GetEventsSince", $"after={after}"
         | GetEventHistory _ -> "GetEventHistory", ""
-        | PostGraphOnlyChange (_, change, _) ->
-            "PostGraphOnlyChange", $"ops={change.ops.Length}"
+        | PostGraphOnly (_, event, _) ->
+            let n = Ev.ops event |> Option.defaultValue [] |> List.length
+            "PostGraphOnly", $"ops={n}"
         | SnapshotDone _ -> "SnapshotDone", ""
         | StartActor _ -> "StartActor", ""
         | ActorStop (_, result, _) ->
@@ -96,7 +95,7 @@ module internal CoreMailboxBackend =
         | GetRevision reply -> reply.Reply(Error error)
         | GetEventsSince (_, reply) -> reply.Reply(Error error)
         | GetEventHistory reply -> reply.Reply(EventLog.empty)
-        | PostGraphOnlyChange (_, _, reply) -> reply.Reply(Error error)
+        | PostGraphOnly (_, _, reply) -> reply.Reply(Error error)
         | SnapshotDone _ -> ()
         | StartActor (_, _, reply) -> reply.Reply(Error error)
         | ActorStop (_, _, reply) -> reply.Reply(Error error)
@@ -209,18 +208,12 @@ module internal CoreMailboxBackend =
                 reply.Reply(Error CoreAuth.refuse)
 
     /// Graph-only: same Ev flow as postEvent, but skips file persistence.
-    let private dispatchPostGraphOnlyChange
+    let private dispatchPostGraphOnly
         (context: MailboxContext)
         (caller: Caller)
-        (change: Change)
+        (event: Ev)
         (reply: AsyncReplyChannel<Result<CoreChangesAccepted, string>>)
         : unit =
-        let event: Ev =
-            { id = EventId.zero
-              submissionId = change.submissionId
-              authority = Gambol.Shared.Authority ""
-              commandName = ""
-              body = Gambol.Shared.EventBody.Change change.ops }
         match CoreEventDispatch.postEvent (eventDispatchContext context) caller event true with
         | Error err -> reply.Reply(Error err)
         | Ok (_, Some accepted) -> reply.Reply(Ok accepted)
@@ -264,11 +257,11 @@ module internal CoreMailboxBackend =
             reply.Reply(context.persist.getEventsSince after)
         | GetEventHistory reply ->
             reply.Reply(context.eventLog.Value)
-        | PostGraphOnlyChange (caller, change, reply) ->
-            dispatchPostGraphOnlyChange
+        | PostGraphOnly (caller, event, reply) ->
+            dispatchPostGraphOnly
                 context
                 caller
-                change
+                event
                 reply
         | SnapshotDone graph -> context.persist.snapshotDone graph
         | StartActor (caller, request, reply) ->

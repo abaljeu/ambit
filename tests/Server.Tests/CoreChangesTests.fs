@@ -41,7 +41,7 @@ let ``typed Normal caller publishes accepted Change to Poll`` () = task {
     try
         let change = addRootChild 0 "typed caller"
         let! accepted =
-            handle.postChange [ change ]
+            handle.postEvents [ Ev.ofChange "" change ]
             |> Async.StartAsTask
         let accepted = requireOk "typed post" accepted
         Assert.Equal(Revision 1, accepted.revision)
@@ -88,7 +88,7 @@ let private produceFromSubgraph
                       Graph.rootId,
                       priorChildren,
                       priorChildren @ [ ChildNode.owner childId ]) ] }
-        return! handle.postChange [ change ]
+        return! handle.postEvents [ Ev.ofChange "" change ]
     }
 
 [<Fact>]
@@ -131,12 +131,11 @@ let private recordingHandle (posts: ResizeArray<Ev list>) =
       getRevision = fun () -> async.Return (Gambol.Shared.EventId 0)
       getEventsSince = fun _ -> async.Return []
       isReady = fun () -> true
-      postChange = fun _ -> async.Return(Result.Error "unused")
       postEvents =
         fun events ->
             posts.Add(events)
             async.Return(Result.Ok(accepted events))
-      postGraphOnlyChange = fun _ -> async.Return(Result.Error "unused")
+      postGraphOnly = fun _ -> async.Return(Result.Error "unused")
       actorStop = fun _ -> async.Return(Result.Error "unused")
       asCaller = fun _ -> Unchecked.defaultof<CoreChanges> }
     : CoreChanges

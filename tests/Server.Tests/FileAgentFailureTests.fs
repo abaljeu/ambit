@@ -76,7 +76,8 @@ let ``persistence exception is logged replied and mailbox survives`` () = task {
     let agent = FileAgent.createWithDependencies dependencies dataDir
     try
         let! postResult =
-            (admittedChanges (host agent)).postChange (changedBody ())
+            (admittedChanges (host agent)).postEvents
+                (List.map (Ev.ofChange "") (changedBody ()))
             |> Async.StartAsTask
             |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
         match postResult with
@@ -121,7 +122,8 @@ let ``persist step hang is rejected within timeout and mailbox survives`` () = t
     try
         let sw = Diagnostics.Stopwatch.StartNew()
         let! postResult =
-            (admittedChanges (host agent)).postChange (changedBody ())
+            (admittedChanges (host agent)).postEvents
+                (List.map (Ev.ofChange "") (changedBody ()))
             |> Async.StartAsTask
             |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
         sw.Stop()
@@ -152,7 +154,8 @@ let ``soft-fail live-save still commits graph and returns could-not-save message
     let agent = FileAgent.createWithDependencies dependencies dataDir
     try
         let! postResult =
-            (admittedChanges (host agent)).postChange (softFailEditBody ())
+            (admittedChanges (host agent)).postEvents
+                (List.map (Ev.ofChange "") (softFailEditBody ()))
             |> Async.StartAsTask
         match postResult with
         | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")
@@ -178,7 +181,8 @@ let ``soft-fail log is not replayed into FileAgent state after restart`` () = ta
     let agent1 = FileAgent.createWithDependencies dependencies dataDir
     try
         let! postResult =
-            (admittedChanges (host agent1)).postChange (softFailEditBody ())
+            (admittedChanges (host agent1)).postEvents
+                (List.map (Ev.ofChange "") (softFailEditBody ()))
             |> Async.StartAsTask
         match postResult with
         | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")
@@ -238,7 +242,8 @@ let ``ACK returns stamped complete Change equal to EventLog`` () = task {
     try
         let change = addChildChange 0 "stamp-prefix"
         let! postResult =
-            (admittedChanges (host agent)).postChange [ change ]
+            (admittedChanges (host agent)).postEvents
+                [ Ev.ofChange "" change ]
             |> Async.StartAsTask
         match postResult with
         | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")
@@ -283,7 +288,8 @@ let ``trailing duplicate keeps stamps on last new Change`` () = task {
     try
         let first = addChildChange 0 "first-new"
         let! firstResult =
-            (admittedChanges (host agent)).postChange [ first ]
+            (admittedChanges (host agent)).postEvents
+                [ Ev.ofChange "" first ]
             |> Async.StartAsTask
         let firstConfirmed =
             match firstResult with

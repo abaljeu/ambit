@@ -15,20 +15,20 @@ let private requireOk label result =
 let private postWorkspace (fileAgent: MailboxHost) (label: string) =
     let workspaceId, ops = FileNodeOps.planCreateWorkspace (Graph.create ()) label
     let change = { id = 0; submissionId = Guid.NewGuid(); ops = ops }
-    (admittedChanges fileAgent).postChange [ change ]
+    (admittedChanges fileAgent).postEvents [ Ev.ofChange "" change ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
     workspaceId
 
 let private recordingHandle (inner: CoreChanges) =
-    let posts = ResizeArray<Change>()
+    let posts = ResizeArray<Ev>()
     let handle =
         { inner with
-            postGraphOnlyChange =
-                fun change ->
-                    posts.Add(change)
-                    inner.postGraphOnlyChange change }
+            postGraphOnly =
+                fun event ->
+                    posts.Add(event)
+                    inner.postGraphOnly event }
     handle, posts
 
 [<Fact>]
@@ -50,8 +50,8 @@ let ``reconcile posts graph-only chunks at or under maxOps`` () =
     Assert.True(
         posts.Count >= 2,
         sprintf "expected multiple posts, got %d" posts.Count)
-    for change in posts do
-        let n = change.ops.Length
+    for event in posts do
+        let n = Ev.ops event |> Option.defaultValue [] |> List.length
         Assert.True(
             n <= GraphOnlyChangeChunks.maxOps,
             sprintf "chunk had %d ops" n)

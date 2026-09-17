@@ -102,7 +102,7 @@ let ``TestActor hello posts one Owned child text hello under Focus`` () =
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host testCaller change
+            CoreMailbox.postGraphOnly host testCaller (Ev.ofChange "" change)
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
@@ -138,7 +138,7 @@ let ``TestActor hello stops successfully with ActorSucceeded`` () =
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host testCaller change
+            CoreMailbox.postGraphOnly host testCaller (Ev.ofChange "" change)
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
@@ -178,7 +178,7 @@ let ``TestActor hello drops live row after successful stop`` () =
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host testCaller change
+            CoreMailbox.postGraphOnly host testCaller (Ev.ofChange "" change)
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
@@ -209,7 +209,7 @@ let ``TestActor hello observes ActorStarted before output`` () =
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host testCaller change
+            CoreMailbox.postGraphOnly host testCaller (Ev.ofChange "" change)
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
@@ -261,7 +261,7 @@ let ``TestActor hello interprets command node text`` () =
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host testCaller change
+            CoreMailbox.postGraphOnly host testCaller (Ev.ofChange "" change)
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
@@ -297,7 +297,7 @@ let ``TestActor unknown command still finishes and drops live row`` () =
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host testCaller change
+            CoreMailbox.postGraphOnly host testCaller (Ev.ofChange "" change)
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
@@ -327,7 +327,7 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host testCaller change
+            CoreMailbox.postGraphOnly host testCaller (Ev.ofChange "" change)
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
@@ -438,7 +438,7 @@ let ``TestActor throw command fails gracefully and drops live row`` () =
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host testCaller change
+            CoreMailbox.postGraphOnly host testCaller (Ev.ofChange "" change)
             |> Async.StartAsTask
         let _ = requireOk "postChange" postResult
         

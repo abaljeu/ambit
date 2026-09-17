@@ -33,7 +33,9 @@ let ``Actor handle wrap refuses a different inactive credential`` () = task {
                       Graph.rootId,
                       [],
                       [ ChildNode.owner (NodeId.New()) ]) ] }
-        let! result = bound.postChange [ change ] |> Async.StartAsTask
+        let! result =
+            bound.postEvents [ Ev.ofChange "" change ]
+            |> Async.StartAsTask
         Assert.Equal(Error CoreAuth.refuse, result)
     finally
         CoreMailbox.dispose agent

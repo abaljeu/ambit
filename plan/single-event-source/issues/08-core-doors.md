@@ -1,7 +1,8 @@
 # 08 — Core doors
 
-**Status:** blocked
-**Blocked by:** [05 — Expand Op-list apply](05-expand-op-list-apply.md), [07 — Persist apply](07-persist-apply.md)
+**Status:** coded
+**Actual:** 2h
+**Blocked by:** None — [[05-expand-op-list-apply.md|05 — Expand Op-list apply]] and [[07-persist-apply.md|07 — Persist apply]] are done
 
 ## Context
 
@@ -15,7 +16,7 @@
 
 Modules **CoreChanges**, **CoreMailbox**. Seams **postEvents**, **postGraphOnly**.
 
-- [ ] 1.2.3 Core doors — `postEvents` and `postGraphOnly` both take Ev. `postChange` (Change list) and `PostGraphOnlyChange` of leftover Change are gone
+- [x] 1.2.3 Core doors — `postEvents` and `postGraphOnly` both take Ev. `postChange` (Change list) and `PostGraphOnlyChange` of leftover Change are gone
 
 ## Out of scope
 
@@ -25,3 +26,7 @@ Modules **CoreChanges**, **CoreMailbox**. Seams **postEvents**, **postGraphOnly*
 ## See also
 
 [[../arch.md|Single event source architecture]], [[../map.md]]
+
+## Time
+
+- 1. Core doors — 2026-09-17 2h — CoreChanges and CoreMailbox take Ev only; leftover Change converts at command mint call sites (from chat)

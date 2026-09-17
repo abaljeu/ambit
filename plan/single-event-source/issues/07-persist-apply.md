@@ -1,6 +1,6 @@
 # 07 — Persist apply
 
-**Status:** coded
+**Status:** done
 **Actual:** 3h
 **Blocked by:** None — [[05-expand-op-list-apply.md|05 — Expand Op-list apply]] and [[06-compile-preamble.md|06 — Compile preamble]] are done
 

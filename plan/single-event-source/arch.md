@@ -1,7 +1,7 @@
 # Single event source architecture
 
 Spec: [[map.md]]
-Updated: 2026-09-16
+Updated: 2026-09-17
 Sequence: expand-contract
 
 Feature under design: leftover Change record and Revision serial out of the running code. Ev is transported. Ops are not. Apply, validation, invert, amend, and PersistStamp take an Op list locally. Decisions: [[map.md]]. Inventory: [[reports/inventory-non-event-write-paths.md]]. Do not edit [[plan/core-creation/arch.md]] until [[issues/04-write-core-creation-arch-md-last.md|04 — Write core-creation arch.md last]]. Prefer existing seams. Do not open Wayfinder map tickets for items under Unsettled.
@@ -19,7 +19,7 @@ Feature under design: leftover Change record and Revision serial out of the runn
       1. [x] Compile preamble — [[tests/Server.Tests/TestBackend.fs]] `Ev` type and `Authority` constructor in scope (`module Ev` must not shadow the type)
       2. [x] Persist apply — [[src/Server/Core/FileAgent.fs]] / [[src/Server/Core/DbAgent.fs]] / PersistStamp / [[src/Server/Core/CoreEventDispatch.fs]] admit Ev, apply Ops, `appendEvent` Ev. No Ev→Change copy for apply
          Leftover `postChange` waits for [[issues/08-core-doors.md|08 — Core doors]]. `Ev.asChange` / `Ev.ofChange` wait for [[issues/12-contract-leftover-change-and-revision.md|12 — Contract leftover Change and Revision]].
-      3. [ ] Core doors — **CoreChanges** `postEvents` and `postGraphOnly` both take Ev. `postChange` (Change list) and `PostGraphOnlyChange` of leftover Change are gone. Graph-only still skips file persist, not EventLog
+      3. [x] Core doors — **CoreChanges** `postEvents` and `postGraphOnly` both take Ev. `postChange` (Change list) and `PostGraphOnlyChange` of leftover Change are gone. Graph-only still skips file persist, not EventLog
       4. [ ] Command mint — Browser command builders and Parse [[src/Server/GraphOnlyChangePost.fs]] mint Ev (`EventId.zero`, `commandName`). Run is ActorStart or a Change Event with that Run command in `commandName`
       5. [ ] Boot IndexedDB — [[src/Shared/BootCache.fs]] / [[src/Client/BootCacheStore.fs]] hold Ev list, not leftover Change
       6. [ ] One serial — `Revision` type and `revision` fields become event id. JSON key `"eventId"`. `getEventId`. `Change.id` is already `EventId` from Expand
@@ -30,7 +30,7 @@ Feature under design: leftover Change record and Revision serial out of the runn
       4. [ ] [[issues/04-write-core-creation-arch-md-last.md|04 — Write core-creation arch.md last]] — [[plan/core-creation/arch.md]] matches what this Project created
 
 Shared segments:
-1. [ ] Admit Ev at CoreMailbox
+1. [x] Admit Ev at CoreMailbox
 2. [x] Apply Ops locally
 3. [x] Append Ev to EventLog
 
@@ -71,9 +71,9 @@ Deltas only. Hello / Actor-pool modules do not change.
    1. State
       1. [ ] `CoreChangesAccepted.eventId` is EventId (today `revision: Revision`)
    2. Interface
-      1. [ ] `postEvents: Ev list -> ...`
-      2. [ ] `postGraphOnly: Ev -> ...` (today `postGraphOnlyChange: Change`)
-      3. [ ] No `postChange: Change list`
+      1. [x] `postEvents: Ev list -> ...`
+      2. [x] `postGraphOnly: Ev -> ...` (today `postGraphOnlyChange: Change`)
+      3. [x] No `postChange: Change list`
       4. [ ] `getEventId` returns EventId (today `getRevision`)
    3. Uses
       1. [ ] Ev
@@ -82,9 +82,9 @@ Deltas only. Hello / Actor-pool modules do not change.
    1. State
       1. [ ] EventLog ref (unchanged)
    2. Interface
-      1. [ ] `PostEvent` of Ev
-      2. [ ] Graph-only is Ev (`graphOnly`), not leftover Change
-      3. [ ] No `eventFromChange`
+      1. [x] `PostEvent` of Ev
+      2. [x] Graph-only is Ev (`graphOnly`), not leftover Change
+      3. [x] No `eventFromChange`
    3. Uses
       1. [ ] Ev
       2. [ ] CoreEventDispatch
@@ -150,8 +150,8 @@ Deltas only. Hello / Actor-pool modules do not change.
 ## 3. Seams
 
 1. [x] **Op apply** — Interface on **Ev** / **ChangeValidation**. Local Graph mutate from an Op list. Tests cross here for invert/amend.
-2. [ ] **postEvents** — Interface on **CoreChanges**. HTTP and Browser already cross this seam.
-3. [ ] **postGraphOnly** — Interface on **CoreChanges**. Parse and lazy-load. Ev in; file persist skipped.
+2. [x] **postEvents** — Interface on **CoreChanges**. HTTP and Browser already cross this seam.
+3. [x] **postGraphOnly** — Interface on **CoreChanges**. Parse and lazy-load. Ev in; file persist skipped.
 4. [x] **Persist apply** — Interface on **FileAgent** / **DbAgent**. Admit Ev, apply Ops, `appendEvent`. Narrowest test seam for this Project.
 5. [ ] **EventId** — Interface on **State** / **Ev**. One serial. JSON key `"eventId"`. `getEventId`.
 

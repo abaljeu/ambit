@@ -107,7 +107,7 @@ let ``CoreMailbox.login privately admits a Browser secret`` () =
                           [],
                           [ ChildNode.owner childId ]) ] }
             let! refused =
-                CoreMailbox.postChange host caller [ change ]
+                CoreMailbox.postEvents host caller [ toEvent change ]
                 |> Async.StartAsTask
             Assert.Equal(Error CoreAuth.refuse, refused)
             let! before =
@@ -123,7 +123,7 @@ let ``CoreMailbox.login privately admits a Browser secret`` () =
                 |> Async.StartAsTask
             Assert.True(after)
             let! posted =
-                CoreMailbox.postChange host caller [ change ]
+                CoreMailbox.postEvents host caller [ toEvent change ]
                 |> Async.StartAsTask
             requireOk "post after login" posted |> ignore
         finally
@@ -307,7 +307,7 @@ let ``CoreActorPool.startActor uses client graphIds to build subgraph`` () =
                 [ Op.NewNode(childId, "child")
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host testCaller change
+            CoreMailbox.postGraphOnly host testCaller (toEvent change)
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
@@ -345,7 +345,7 @@ let ``CoreActorPool.startActor selects actor from command node text`` () =
                 [ Op.NewNode(commandId, "test")
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host testCaller change
+            CoreMailbox.postGraphOnly host testCaller (toEvent change)
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
@@ -402,7 +402,7 @@ let ``CoreActorPool.startActor fails when commandId not in graphIds`` () =
                 [ Op.NewNode(commandId, "test")
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host testCaller change
+            CoreMailbox.postGraphOnly host testCaller (toEvent change)
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
@@ -466,10 +466,10 @@ let ``Graph-only post without admitted Caller is refused`` () =
               submissionId = Guid.NewGuid()
               ops = [ Op.NewNode(NodeId.New(), "nope") ] }
         let! result =
-            CoreMailbox.postGraphOnlyChange
+            CoreMailbox.postGraphOnly
                 host
                 { testCaller with secret = Credential "inactive" }
-                change
+                (toEvent change)
             |> Async.StartAsTask
         Assert.Equal(Error CoreAuth.refuse, result)
     })
@@ -488,7 +488,7 @@ let ``Graph-only post with admitted Caller reaches persist`` () =
                       [],
                       [ ChildNode.owner childId ]) ] }
         let! result =
-            CoreMailbox.postGraphOnlyChange host testCaller change
+            CoreMailbox.postGraphOnly host testCaller (toEvent change)
             |> Async.StartAsTask
         let accepted = requireOk "graph-only admitted" result
         Assert.Equal(Revision 1, accepted.revision)
@@ -507,12 +507,12 @@ let ``CoreMailbox.logout revokes the Caller at the mailbox`` () =
             CoreMailbox.isAdmitted host testCaller |> Async.StartAsTask
         Assert.False(after)
         let! refused =
-            CoreMailbox.postChange
+            CoreMailbox.postEvents
                 host
                 testCaller
-                [ { id = 0
-                    submissionId = Guid.NewGuid()
-                    ops = [ Op.NewNode(NodeId.New(), "after-logout") ] } ]
+                [ toEvent { id = 0
+                            submissionId = Guid.NewGuid()
+                            ops = [ Op.NewNode(NodeId.New(), "after-logout") ] } ]
             |> Async.StartAsTask
         Assert.Equal(Error CoreAuth.refuse, refused)
     })

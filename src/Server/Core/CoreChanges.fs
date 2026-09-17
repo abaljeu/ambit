@@ -19,18 +19,15 @@ type CoreChangesAccepted =
       message: string option
       isReady: bool }
 
-/// The Core Changes contract. HTTP uses `postEvents` (Ev list from wire).
-/// Persist apply admits Ev and applies Ops locally; leftover `postChange`
-/// still compiles until Core doors drop it.
+/// The Core Changes contract. Both doors take Ev.
+/// Graph-only skips file persist, not EventLog.
 type CoreChanges =
     { getState: unit -> Async<Result<State, string>>
       getRevision: unit -> Async<Gambol.Shared.EventId>
       getEventsSince: Gambol.Shared.EventId -> Async<Ev list>
       isReady: unit -> bool
-      postChange: Change list -> Async<Result<CoreChangesAccepted, string>>
       postEvents: Ev list -> Async<Result<CoreChangesAccepted, string>>
-      postGraphOnlyChange:
-        Change -> Async<Result<CoreChangesAccepted, string>>
+      postGraphOnly: Ev -> Async<Result<CoreChangesAccepted, string>>
       actorStop: ActorResult -> Async<Result<unit, string>>
       /// Rebind posts to another Caller on the same mailbox door.
       asCaller: Caller -> CoreChanges }

@@ -129,10 +129,10 @@ let ``DbAgent serves reads while sweep buffers FIFO mutations then trims`` () = 
     let stateTask = getStateFrom mailbox |> Async.StartAsTask
     let revisionTask = CoreMailbox.getRevision mailbox |> Async.StartAsTask
     let firstPost =
-        (admittedChanges mailbox).postChange (emptyChange ())
+        (admittedChanges mailbox).postEvents (toEvents (emptyChange ()))
         |> Async.StartAsTask
     let secondPost =
-        (admittedChanges mailbox).postChange (emptyChange ())
+        (admittedChanges mailbox).postEvents (toEvents (emptyChange ()))
         |> Async.StartAsTask
     do! Task.Delay(100)
     Assert.True(stateTask.IsCompleted)
@@ -171,7 +171,7 @@ let ``DbAgent startup sweep failure preserves reads and fails mutations closed``
     Assert.False(CoreMailbox.isReady (host agent))
 
     let! postResult =
-        (admittedChanges (host agent)).postChange (emptyChange ())
+        (admittedChanges (host agent)).postEvents (toEvents (emptyChange ()))
         |> Async.StartAsTask
 
     match postResult with
@@ -201,9 +201,9 @@ let ``DbAgent new process loads state from projection and changes after post`` (
               Op.Replace(rootId, [], [ ChildNode.owner childId ]) ] }
 
     let body = encodeChangeBatch [ change ]
-    let! postResult = (admittedChanges (host agent1)).postChange body |> Async.StartAsTask
+    let! posted = (admittedChanges (host agent1)).postEvents (toEvents body) |> Async.StartAsTask
 
-    match postResult with
+    match posted with
     | Error e -> Assert.Fail($"postChange: {e}")
     | Ok _ -> ()
 
@@ -241,7 +241,7 @@ let ``DbAgent reload preserves node updateTime from projection`` () = task {
 
     let! postResult =
         (admittedChanges (host agent1))
-            .postChange (encodeChangeBatch [ change ])
+            .postEvents (toEvents (encodeChangeBatch [ change ]))
         |> Async.StartAsTask
 
     match postResult with
@@ -281,7 +281,7 @@ let ``DbAgent change fails and state is unchanged when DB goes away after startu
         do! setDatabaseAllowConnections connStr false
         let body = encodeChangeBatch [ change ]
         let! postResult =
-            (admittedChanges mailbox).postChange body
+            (admittedChanges mailbox).postEvents (toEvents body)
             |> Async.StartAsTask
 
         match postResult with
@@ -322,7 +322,7 @@ let ``rebuildFromDocumentFiles aligns DB with on-disk document`` () = task {
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
 
         let body = encodeChangeBatch [ change ]
-        let! postR = (admittedChanges (host agent)).postChange body |> Async.StartAsTask
+        let! postR = (admittedChanges (host agent)).postEvents (toEvents body) |> Async.StartAsTask
 
         match postR with
         | Error e -> Assert.Fail($"postChange: {e}")
@@ -443,7 +443,7 @@ let ``DbAgent commit hang is rejected within timeout and mailbox survives`` () =
     let sw = Diagnostics.Stopwatch.StartNew()
     let! postResult =
         (admittedChanges mailbox)
-            .postChange (encodeChangeBatch [ change ])
+            .postEvents (toEvents (encodeChangeBatch [ change ]))
         |> Async.StartAsTask
     sw.Stop()
 
@@ -486,7 +486,7 @@ let ``DbAgent postChange live-saves artifacts before ack returns`` () = task {
 
     let! postResult =
         (admittedChanges (host agent))
-            .postChange (encodeChangeBatch [ change ])
+            .postEvents (toEvents (encodeChangeBatch [ change ]))
         |> Async.StartAsTask
 
     match postResult with
@@ -522,7 +522,7 @@ let ``DbAgent missing ROOT fails closed while reads stay available`` () = task {
           ops = [ Op.NewNode(NodeId.New(), "blocked") ] }
     let! postResult =
         (admittedChanges (host agent))
-            .postChange (encodeChangeBatch [ change ])
+            .postEvents (toEvents (encodeChangeBatch [ change ]))
         |> Async.StartAsTask
     match postResult with
     | Error error ->

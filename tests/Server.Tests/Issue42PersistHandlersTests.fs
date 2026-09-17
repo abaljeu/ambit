@@ -31,7 +31,7 @@ let ``getEventsSince returns Ev after postChange`` () = task {
     try
         let _, change = addRootChild "persist-event"
         let! accepted =
-            CoreMailbox.postChange host testCaller [ change ]
+            CoreMailbox.postEvents host testCaller [ Ev.ofChange "" change ]
             |> Async.StartAsTask
         requireOk "postChange" accepted |> ignore
         let! events =
@@ -55,7 +55,7 @@ let ``EventLog.restore seeds mailbox across File restart`` () = task {
     let first = CoreMailbox.createFile dir admittedCredentials
     try
         let! accepted =
-            CoreMailbox.postChange first testCaller [ change ]
+            CoreMailbox.postEvents first testCaller [ Ev.ofChange "" change ]
             |> Async.StartAsTask
         requireOk "postChange" accepted |> ignore
     finally
@@ -80,7 +80,7 @@ let ``EventLog.restore seeds mailbox across Db restart`` () = task {
     let first = admittedHostDb (DbAgent.create connStr)
     try
         let! accepted =
-            CoreMailbox.postChange first testCaller [ change ]
+            CoreMailbox.postEvents first testCaller [ Ev.ofChange "" change ]
             |> Async.StartAsTask
         requireOk "postChange" accepted |> ignore
     finally
@@ -190,7 +190,7 @@ let ``getEventsSince Error does not seed empty EventLog as success`` () =
             Assert.Contains("events unavailable", ex.Message)
         let _, change = addRootChild "seed-fail"
         let! posted =
-            CoreMailbox.postChange host testCaller [ change ]
+            CoreMailbox.postEvents host testCaller [ Ev.ofChange "" change ]
             |> Async.StartAsTask
         match posted with
         | Ok _ ->

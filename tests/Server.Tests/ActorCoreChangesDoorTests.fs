@@ -97,7 +97,8 @@ let ``Actor postChange on scheduled handle reaches persist`` () =
     withPersist persist (fun host pool -> task {
         let! started =
             startRootActor host pool (fun _ coreChanges -> async {
-                let! result = coreChanges.postChange [ change ]
+                let! result =
+                    coreChanges.postEvents [ Ev.ofChange "" change ]
                 seen.TrySetResult result |> ignore
             })
             |> Async.StartAsTask

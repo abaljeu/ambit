@@ -252,7 +252,7 @@ module Api =
                     { id = state.revision.Value
                       submissionId = Guid.NewGuid()
                       ops = ops }
-                match! handle.postGraphOnlyChange change with
+                match! handle.postGraphOnly (Ev.ofChange "" change) with
                 | Ok _ -> return jsonResult """{"ok":true}"""
                 | Error err -> return agentErrorResult err
         }

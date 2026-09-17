@@ -46,13 +46,16 @@ let private wireEvent submissionId body : Ev =
       body = body }
 
 [<Fact>]
-let ``CoreMailbox.postChange appends Change Events to EventLog`` () =
+let ``CoreMailbox.postEvents appends Change Events to EventLog`` () =
     withHost [] (fun host _ -> task {
         let childId, change = addRootChild "door-change"
         let! accepted =
-            CoreMailbox.postChange host testCaller [ change ]
+            CoreMailbox.postEvents
+                host
+                testCaller
+                [ Ev.ofChange "" change ]
             |> Async.StartAsTask
-        let accepted = requireOk "postChange" accepted
+        let accepted = requireOk "postEvents" accepted
         let! history =
             CoreMailbox.eventHistory host
             |> Async.StartAsTask
@@ -73,11 +76,14 @@ let ``CoreMailbox.postChange appends Change Events to EventLog`` () =
     })
 
 [<Fact>]
-let ``postGraphOnlyChange updates Graph and EventLog without file write`` () =
+let ``postGraphOnly updates Graph and EventLog without file write`` () =
     withHost [] (fun host _ -> task {
         let childId, change = addRootChild "graph-only"
         let! accepted =
-            CoreMailbox.postGraphOnlyChange host testCaller change
+            CoreMailbox.postGraphOnly
+                host
+                testCaller
+                (Ev.ofChange "" change)
             |> Async.StartAsTask
         let accepted = requireOk "graph-only" accepted
         let! history =
@@ -98,7 +104,8 @@ let ``CoreChanges builds Ev at postEvent and persists its Graph Ops`` () =
     withHost [] (fun host _ -> task {
         let childId, change = addRootChild "through-event"
         let! accepted =
-            (CoreMailbox.coreChanges host testCaller).postChange [ change ]
+            (CoreMailbox.coreChanges host testCaller).postEvents
+                [ Ev.ofChange "" change ]
             |> Async.StartAsTask
         let accepted = requireOk "post change" accepted
         let! state =

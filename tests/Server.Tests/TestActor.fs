@@ -23,7 +23,8 @@ let private hello (input: ActorInput) (coreChanges: CoreChanges) : Async<unit> =
               name = ""
               secret = input.secret }
         let! _ =
-            coreChanges.asCaller(caller).postChange [ change ]
+            coreChanges.asCaller(caller).postEvents
+                [ Ev.ofChange "" change ]
         return ()
     }
 
