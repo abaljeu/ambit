@@ -21,7 +21,7 @@ Home: [[plan/roadmap/epics/robust-outliner.md]] Required for done (Live). Chart 
 - [05 — Expand Op-list apply](plan/single-event-source/issues/05-expand-op-list-apply.md) — expand. Status `done`.
 - [06 — Compile preamble](plan/single-event-source/issues/06-compile-preamble.md) — migrate. Status `done`.
 - [07 — Persist apply](plan/single-event-source/issues/07-persist-apply.md) — migrate. Status `done`.
-- [08 — Core doors](plan/single-event-source/issues/08-core-doors.md) — migrate. Status `coded`.
+- [08 — Core doors](plan/single-event-source/issues/08-core-doors.md) — migrate. Status `done`.
 - [09 — Command mint](plan/single-event-source/issues/09-command-mint.md) — migrate. Status `defined`.
 - [10 — Boot IndexedDB](plan/single-event-source/issues/10-boot-indexeddb.md) — migrate. Status `defined`.
 - [11 — One serial event id](plan/single-event-source/issues/11-one-serial-event-id.md) — migrate. Status `defined`.

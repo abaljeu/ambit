@@ -1,6 +1,6 @@
 # Code review — 08 Core doors
 
-Independent review. Not approval. Ticket [08 — Core doors](plan/single-event-source/issues/08-core-doors.md) stays **Status:** `coded`.
+Independent review. Alan approved (Spec 0 findings). Ticket [08 — Core doors](plan/single-event-source/issues/08-core-doors.md) is **Status:** `done`. Alan waived the markdown-link Standards hard findings; labeled-link paths stay.
 
 Range: `origin/staging...origin/cursor/08-core-doors-eaa1` (three-dot). Tip `38e4bd01`. Base `49acd736`. Non-empty. 47 files. 7 commits. [History.fs](src/Shared/History.fs) is not in the range (no incidental edit; no [11 — One serial event id](plan/single-event-source/issues/11-one-serial-event-id.md) EventId type work).
 

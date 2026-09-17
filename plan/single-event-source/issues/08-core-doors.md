@@ -1,6 +1,6 @@
 # 08 — Core doors
 
-**Status:** coded
+**Status:** done
 **Actual:** 2h
 **Blocked by:** None — [05 — Expand Op-list apply](05-expand-op-list-apply.md) and [07 — Persist apply](07-persist-apply.md) are done
 
