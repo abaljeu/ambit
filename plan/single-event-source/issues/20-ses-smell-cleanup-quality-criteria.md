@@ -1,7 +1,7 @@
 # 20 — SES smell-cleanup quality criteria
 
 **Type:** research
-**Status:** needs-info
+**Status:** done
 Actual: 2h
 Blocked by: none
 

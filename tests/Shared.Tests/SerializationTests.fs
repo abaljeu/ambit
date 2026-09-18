@@ -316,7 +316,7 @@ let ``EventBatch round-trip`` () =
           commandName = ""
           body = EventBody.Change [ Op.SetText(NodeId.New(), "old", "new") ] }
     let event: Ev =
-        { id = EventId.fromJson 0
+        { id = EventId.zero
           submissionId = change.submissionId
           authority = Gambol.Shared.Authority ""
           commandName = ""
@@ -334,7 +334,7 @@ let ``EventBatch round-trip preserves request order`` () =
           commandName = ""
           body = EventBody.Change [ Op.SetText(NodeId.New(), "x", "y") ] }
     let firstEvent: Ev =
-        { id = EventId.fromJson 0
+        { id = EventId.zero
           submissionId = first.submissionId
           authority = Gambol.Shared.Authority ""
           commandName = ""
@@ -346,7 +346,7 @@ let ``EventBatch round-trip preserves request order`` () =
           commandName = ""
           body = EventBody.Change [ Op.SetText(NodeId.New(), "a", "b") ] }
     let secondEvent: Ev =
-        { id = EventId.fromJson 0
+        { id = EventId.zero
           submissionId = second.submissionId
           authority = Gambol.Shared.Authority ""
           commandName = ""
@@ -411,7 +411,7 @@ let ``ChangeSuccessResponse round-trip with non-empty Changes`` () =
     Assert.Equal(response.apiVersion, decoded.apiVersion)
     Assert.False(decoded.isReady)
     Assert.True(decoded.externalChanges)
-    Assert.Equal(1, decoded.changes.Length)
+    Assert.Equal(1, decoded.events.Length)
     Assert.Equal(change.id, decoded.events.[0].id)
     Assert.Equal<Op list>(
         SpecialNodeTestHelpers.eventOps change,
@@ -517,7 +517,7 @@ let ``LoadResponse round-trip with packages`` () =
     Assert.Equal(response.pageBuildEpochSec, decoded.pageBuildEpochSec)
     Assert.Equal(response.apiVersion, decoded.apiVersion)
     Assert.False(decoded.isReady)
-    Assert.Equal(1, decoded.changes.Length)
+    Assert.Equal(1, decoded.events.Length)
     Assert.Equal(1, decoded.packages.Length)
     Assert.Equal(node.id, decoded.packages.[0].id)
 

@@ -18,7 +18,7 @@ let private stamp value =
     DateTime(2026, 7, 24, 12, value, 0, DateTimeKind.Utc)
 
 let private change ops =
-    { id = EventId.fromJson 0
+    { id = EventId.zero
       submissionId = Guid.NewGuid()
       authority = Authority "Browser"
       commandName = ""
@@ -41,11 +41,11 @@ let private replaceProjection connStr graph revision = task {
     tx.Commit()
 }
 
-let private persistPatch connStr graph revision changes = task {
+let private persistPatch connStr graph eventId changes = task {
     use conn = Database.getConnection connStr
     do! conn.OpenAsync()
     use tx = conn.BeginTransaction()
-    let patch = DatabaseProjection.plan graph revision changes
+    let patch = DatabaseProjection.plan graph eventId changes
     do! DatabaseProjection.persistWithTx tx graph patch |> Async.AwaitTask
     tx.Commit()
 }
@@ -140,7 +140,7 @@ let ``writer upserts complete nodes children revision and reloads`` () = task {
           Op.NewNode(firstId, "first")
           Op.NewNode(secondId, "second")
           Op.Replace(parentId, [], initial.children) ]
-    do! persistPatch connStr initialGraph 1 [ change createOps ]
+    do! persistPatch connStr initialGraph (EventId.fromJson 1) [ change createOps ]
 
     let final =
         { initial with
@@ -157,7 +157,7 @@ let ``writer upserts complete nodes children revision and reloads`` () = task {
           Op.SetDocumentState(parentId, Current, Unparsed)
           Op.SetUpdateTime(parentId, stamp 2, stamp 4)
           Op.Replace(parentId, initial.children, final.children) ]
-    do! persistPatch connStr finalGraph 2 [ change updateOps ]
+    do! persistPatch connStr finalGraph (EventId.fromJson 2) [ change updateOps ]
 
     use conn = new NpgsqlConnection(connStr)
     do! conn.OpenAsync()
@@ -189,8 +189,8 @@ let ``writer upserts complete nodes children revision and reloads`` () = task {
     let! loaded = Database.tryLoadGraphFromProjection connStr |> Async.AwaitTask
     match loaded with
     | Error error -> Assert.Fail(error)
-    | Ok (graph, loadedRevision) ->
-        Assert.Equal(2, loadedRevision)
+    | Ok (graph, loadedEventId) ->
+        Assert.Equal(EventId.fromJson 2, loadedEventId)
         Assert.True(GraphProjection.graphEquals finalGraph graph)
 }
 
@@ -222,7 +222,7 @@ let ``writer clears one parent without rewriting unrelated rows and rolls back``
     let ops =
         [ Op.SetText(parentAId, "before", "after")
           Op.Replace(parentAId, [ edgeA ], []) ]
-    do! persistPatch connStr final 6 [ change ops ]
+    do! persistPatch connStr final (EventId.fromJson 6) [ change ops ]
 
     let! remaining =
         scalarById<int64> connStr
@@ -244,7 +244,7 @@ let ``writer clears one parent without rewriting unrelated rows and rolls back``
     let rolledBack =
         graphWithCustomNodes [ { clearedA with text = "rolled-back" }; parentB; childA; childB ]
     let patch =
-        DatabaseProjection.plan rolledBack 7
+        DatabaseProjection.plan rolledBack (EventId.fromJson 7)
             [ change [ Op.SetText(parentAId, "after", "rolled-back") ] ]
     do! DatabaseProjection.persistWithTx tx rolledBack patch |> Async.AwaitTask
     tx.Rollback()
@@ -264,7 +264,7 @@ let ``db bootstrap duplicate returns stored Change and rejects no-op`` () = task
     let childId = id 70
 
     let accepted =
-        { id = EventId.fromJson 0
+        { id = EventId.zero
           submissionId = Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""

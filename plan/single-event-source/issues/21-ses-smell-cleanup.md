@@ -1,6 +1,7 @@
 # 21 — SES smell-cleanup
 
-**Status:** defined
+**Status:** coded
+**Actual:** 1.5h
 **Blocked by:** [19 — Delete unused EventId.fs](19-delete-unused-eventid-fs.md), [20 — SES smell-cleanup quality criteria](20-ses-smell-cleanup-quality-criteria.md)
 
 ## Context
@@ -15,23 +16,23 @@ Apply the named bars in [SES smell-cleanup quality criteria](../reports/ses-smel
 
 ### 1. Naming
 
-1. [ ] 1.1 Ev bindings after leftover Change remap — Ev / Ev list locals, parameters, and fields are `event` / `events` (or `ev` / `evs` only if that file already uses them); no `change` / `changes` bound to Ev unless KEEP [1.2](../reports/ses-smell-cleanup-quality-criteria.md#12-keep-names-that-mean-eventbodychange-or-http)
-2. [ ] 1.2 KEEP EventBody.Change and HTTP — `mintChange`, HTTP `/changes`, and names that mean `EventBody.Change` of an Op list stay
-3. [ ] 1.3 Mysterious leftover Revision names on EventId — EventId APIs say event id (`readEventId`, `writeEventId`, `getFileEventId`); the value stays `EventId`
-4. [ ] 1.4 Comment or log strings — spoken and API text say event id, not Revision, for an EventId value (SQL column `graph.revision` may stay)
+1. [x] 1.1 Ev bindings after leftover Change remap — Ev / Ev list locals, parameters, and fields are `event` / `events` (or `ev` / `evs` only if that file already uses them); no `change` / `changes` bound to Ev unless KEEP [1.2](../reports/ses-smell-cleanup-quality-criteria.md#12-keep-names-that-mean-eventbodychange-or-http)
+2. [x] 1.2 KEEP EventBody.Change and HTTP — `mintChange`, HTTP `/changes`, and names that mean `EventBody.Change` of an Op list stay
+3. [x] 1.3 Mysterious leftover Revision names on EventId — EventId APIs say event id (`readEventId`, `writeEventId`, `getFileEventId`); the value stays `EventId`
+4. [x] 1.4 Comment or log strings — spoken and API text say event id, not Revision, for an EventId value (SQL column `graph.revision` may stay)
 
 ### 2. EventId peel vs mint
 
-1. [ ] 2.1 fromJson / toJson only at named peel — no production `EventId.fromJson` / `toJson` outside a named serialize, HTTP, SQL, file, or IndexedDB peel
-2. [ ] 2.2 Drafts use EventId.zero — unpublished Ev and draft `ActorStart.eventId` use `EventId.zero`, not `fromJson 0`
-3. [ ] 2.3 Get-all cursor is EventId.beforeAll — no `fromJson -1` or bare `-1` cursor in Core; peel to int only at SQL
-4. [ ] 2.4 EventId.next only in EventLog — production `next` stays only in [EventLog.fs](src/Shared/EventLog.fs)
+1. [x] 2.1 fromJson / toJson only at named peel — no production `EventId.fromJson` / `toJson` outside a named serialize, HTTP, SQL, file, or IndexedDB peel
+2. [x] 2.2 Drafts use EventId.zero — unpublished Ev and draft `ActorStart.eventId` use `EventId.zero`, not `fromJson 0`
+3. [x] 2.3 Get-all cursor is EventId.beforeAll — no `fromJson -1` or bare `-1` cursor in Core; peel to int only at SQL
+4. [x] 2.4 EventId.next only in EventLog — production `next` stays only in [EventLog.fs](src/Shared/EventLog.fs)
 
 ### 3. Primitive Obsession and Authority
 
-1. [ ] 3.1 In-process event id is EventId — in-process fields and parameters whose meaning is event id are `EventId`, not `int`
-2. [ ] 3.2 Int stays at the peel only — JSON / query / SQL / file `int` does not leak past the named peel
-3. [ ] 4.1 Draft Authority matches the posting Caller — minted `event.authority` matches the `Caller.authority` that posts it
+1. [x] 3.1 In-process event id is EventId — in-process fields and parameters whose meaning is event id are `EventId`, not `int`
+2. [x] 3.2 Int stays at the peel only — JSON / query / SQL / file `int` does not leak past the named peel
+3. [x] 4.1 Draft Authority matches the posting Caller — minted `event.authority` matches the `Caller.authority` that posts it
 
 ## Out of scope
 
@@ -48,5 +49,8 @@ Apply the named bars in [SES smell-cleanup quality criteria](../reports/ses-smel
 ## Comments
 
 - 2026-09-18 — Charted after Alan accepted [20 — SES smell-cleanup quality criteria](20-ses-smell-cleanup-quality-criteria.md). Hold until [19 — Delete unused EventId.fs](19-delete-unused-eventid-fs.md); frontier stays [13 — Revision always 0 (diagnostic)](13-revision-always-zero.md).
+- 2026-09-18 — Applied named bars: `ackEvents`; drop `.changes` aliases; `shouldTruncate` / `plan` / projection load take `EventId`; get-all uses `EventId.beforeAll`; drafts `EventId.zero`; TestActor hello `Authority "Actor"`. SQL column `graph.revision` and HTTP `/changes` stay.
 
 ## Time
+
+- 2026-09-18 1.5h — Apply SES smell-cleanup bars on named leftover Change/Revision and EventId peel sites

@@ -31,7 +31,7 @@ let private graphFromNodes _root nodes =
     |> Graph.fromNodes Graph.rootId
 
 let private change op =
-    { id = EventId.fromJson 0
+    { id = EventId.zero
       submissionId = Guid.NewGuid()
       authority = Authority "Browser"
       commandName = ""
@@ -70,7 +70,7 @@ let ``plan selects complete final node rows for every current op`` () =
           Op.SetUpdateTime(ids.[7], stamp 0, stamp 1) ]
         |> List.map change
 
-    let patch = DatabaseProjection.plan graph 23 changes
+    let patch = DatabaseProjection.plan graph (EventId.fromJson 23) changes
 
     Assert.Equal(23, patch.graph.revision)
     Assert.Equal(graph.root.Value, patch.graph.rootId)
@@ -97,7 +97,7 @@ let ``plan uses final special rename text update time and generated defaults`` (
         [ change (Op.NewNode(normalId, "created"))
           change (Op.SetName(specialId, "old.amb", "renamed.amb")) ]
 
-    let patch = DatabaseProjection.plan graph 1 changes
+    let patch = DatabaseProjection.plan graph (EventId.fromJson 1) changes
 
     Assert.Equal<GraphProjection.NodePersistenceRow list>(
         [ expectedRow normal; expectedRow special ],
@@ -116,7 +116,7 @@ let ``plan collapses repeated node and parent touches`` () =
     let graph = graphFromNodes parentId [ parent; child ]
 
     let changes =
-        [ { id = EventId.fromJson 0
+        [ { id = EventId.zero
             submissionId = Guid.NewGuid()
             authority = Authority "Browser"
             commandName = ""
@@ -126,7 +126,7 @@ let ``plan collapses repeated node and parent touches`` () =
                   Op.Replace(parentId, [], [ childRef ])
                   Op.Replace(parentId, [ childRef ], [ childRef ]) ] } ]
 
-    let patch = DatabaseProjection.plan graph 1 changes
+    let patch = DatabaseProjection.plan graph (EventId.fromJson 1) changes
 
     Assert.Single(patch.nodeUpserts) |> ignore
     Assert.Single(patch.childReplacements) |> ignore
@@ -153,7 +153,7 @@ let ``plan replaces children from final ordering including an empty list`` () =
         [ change (Op.Replace(filledId, [], finalChildren))
           change (Op.Replace(emptyId, finalChildren, [])) ]
 
-    let patch = DatabaseProjection.plan graph 5 changes
+    let patch = DatabaseProjection.plan graph (EventId.fromJson 5) changes
 
     Assert.Equal(2, patch.childReplacements.Length)
     Assert.Equal<(Guid * Ownership) list>(
@@ -176,8 +176,8 @@ let ``commands expose deterministic SQL and bind values`` () =
     let graph = graphFromNodes parentId [ parent; child ]
 
     let patch =
-        DatabaseProjection.plan graph 7
-            [ { id = EventId.fromJson 0
+        DatabaseProjection.plan graph (EventId.fromJson 7)
+            [ { id = EventId.zero
                 submissionId = Guid.NewGuid()
                 authority = Authority "Browser"
                 commandName = ""

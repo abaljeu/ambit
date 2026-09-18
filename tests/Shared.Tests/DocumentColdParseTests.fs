@@ -142,7 +142,7 @@ let private applySelectModeExternalPaste
                 insertChildren
 
         let change =
-            { id = EventId.fromJson 0
+            { id = EventId.zero
               submissionId = Guid.NewGuid()
               authority = Authority "Browser"
               commandName = ""

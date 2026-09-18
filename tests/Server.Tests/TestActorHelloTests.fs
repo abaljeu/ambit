@@ -63,7 +63,7 @@ let private sampleRequest focusId commandId graphIds: Gambol.Shared.ActorStart =
       focusId = focusId
       commandId = commandId
       graphIds = graphIds
-      eventId = EventId.fromJson 0 }
+      eventId = EventId.zero }
 
 let private actorCaller secret =
     { authority = Authority "Actor"
@@ -94,7 +94,7 @@ let private withHost body =
 let ``TestActor hello posts one Owned child text hello under Focus`` () =
     withHost (fun host _ -> task {
         let commandId = NodeId.New()
-        let event = { id = EventId.fromJson 0
+        let event = { id = EventId.zero
                       submissionId = Guid.NewGuid()
                       authority = Authority "Browser"
                       commandName = ""
@@ -131,7 +131,7 @@ let ``TestActor hello posts one Owned child text hello under Focus`` () =
 let ``TestActor hello stops successfully with ActorSucceeded`` () =
     withHost (fun host _ -> task {
         let commandId = NodeId.New()
-        let event = { id = EventId.fromJson 0
+        let event = { id = EventId.zero
                       submissionId = Guid.NewGuid()
                       authority = Authority "Browser"
                       commandName = ""
@@ -172,7 +172,7 @@ let ``TestActor hello stops successfully with ActorSucceeded`` () =
 let ``TestActor hello drops live row after successful stop`` () =
     withHost (fun host pool -> task {
         let commandId = NodeId.New()
-        let event = { id = EventId.fromJson 0
+        let event = { id = EventId.zero
                       submissionId = Guid.NewGuid()
                       authority = Authority "Browser"
                       commandName = ""
@@ -204,7 +204,7 @@ let ``TestActor hello drops live row after successful stop`` () =
 let ``TestActor hello observes ActorStarted before output`` () =
     withHost (fun host _ -> task {
         let commandId = NodeId.New()
-        let event = { id = EventId.fromJson 0
+        let event = { id = EventId.zero
                       submissionId = Guid.NewGuid()
                       authority = Authority "Browser"
                       commandName = ""
@@ -257,7 +257,7 @@ let ``TestActor hello observes ActorStarted before output`` () =
 let ``TestActor hello interprets command node text`` () =
     withHost (fun host _ -> task {
         let commandId = NodeId.New()
-        let event = { id = EventId.fromJson 0
+        let event = { id = EventId.zero
                       submissionId = Guid.NewGuid()
                       authority = Authority "Browser"
                       commandName = ""
@@ -294,7 +294,7 @@ let ``TestActor hello interprets command node text`` () =
 let ``TestActor unknown command still finishes and drops live row`` () =
     withHost (fun host pool -> task {
         let commandId = NodeId.New()
-        let event = { id = EventId.fromJson 0
+        let event = { id = EventId.zero
                       submissionId = Guid.NewGuid()
                       authority = Authority "Browser"
                       commandName = ""
@@ -325,7 +325,7 @@ let ``TestActor unknown command still finishes and drops live row`` () =
 let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
     withHost (fun host pool -> task {
         let commandId = NodeId.New()
-        let event = { id = EventId.fromJson 0
+        let event = { id = EventId.zero
                       submissionId = Guid.NewGuid()
                       authority = Authority "Browser"
                       commandName = ""
@@ -437,7 +437,7 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
 let ``TestActor throw command fails gracefully and drops live row`` () =
     withHost (fun host pool -> task {
         let commandId = NodeId.New()
-        let event = { id = EventId.fromJson 0
+        let event = { id = EventId.zero
                       submissionId = Guid.NewGuid()
                       authority = Authority "Browser"
                       commandName = ""

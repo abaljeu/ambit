@@ -12,7 +12,7 @@ let private hello (input: ActorInput) (coreChanges: CoreChanges) : Async<unit> =
         let event =
             { id = EventId.zero
               submissionId = System.Guid.NewGuid()
-              authority = Authority "Browser"
+              authority = Authority "Actor"
               commandName = ""
               body =
                 EventBody.Change

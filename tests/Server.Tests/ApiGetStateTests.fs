@@ -24,7 +24,7 @@ let private handleWithGetState
     (getState: unit -> Async<Result<State, string>>)
     : CoreChanges =
     { getState = getState
-      getEventId = fun () -> async.Return(EventId.fromJson 0)
+      getEventId = fun () -> async.Return(EventId.zero)
       getEventsSince = fun _ -> async.Return []
       isReady = fun () -> true
       postEvents = fun _ -> async.Return(Result.Error "unused")
@@ -109,7 +109,7 @@ let ``getState returns JSON content when agent succeeds`` () = task {
         match decodeStateResponse content.ResponseContent with
         | Error err -> failwith err
         | Ok response ->
-            Assert.Equal(EventId.fromJson 0, response.eventId)
+            Assert.Equal(EventId.zero, response.eventId)
             Assert.True(response.isReady)
     | other ->
         Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")

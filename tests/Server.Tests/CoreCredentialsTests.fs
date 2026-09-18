@@ -19,7 +19,7 @@ let private unusedHandle
     (post: Ev list -> Async<Result<CoreChangesAccepted, string>>)
     : CoreChanges =
     { getState = fun () -> async.Return(Result.Error "unused")
-      getEventId = fun () -> async.Return(EventId.fromJson 0)
+      getEventId = fun () -> async.Return(EventId.zero)
       getEventsSince = fun _ -> async.Return []
       isReady = fun () -> true
       postEvents = post

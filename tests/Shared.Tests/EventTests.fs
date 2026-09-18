@@ -164,7 +164,7 @@ let ``tryPeekUndoName and tryPeekRedoName skip Actor events`` () =
 [<Fact>]
 let ``tryPeek finds Action under Actors after Change-shaped record`` () =
     let source =
-        { id = EventId.fromJson 0
+        { id = EventId.zero
           submissionId = Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""

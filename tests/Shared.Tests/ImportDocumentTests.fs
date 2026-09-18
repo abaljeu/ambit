@@ -281,7 +281,7 @@ let ``planParseFile md reorder updates child order`` () =
     let after =
         match
             SpecialNodeTestHelpers.applyChange
-                { id = EventId.fromJson 0
+                { id = EventId.zero
                   submissionId = Guid.NewGuid()
                   authority = Authority "Browser"
                   commandName = ""
@@ -547,7 +547,7 @@ let ``planParseFile Unparsed with prior children warms and keeps line ids`` () =
         "Unparsed → Current must lead the batch")
 
     let change =
-        { id = EventId.fromJson 0
+        { id = EventId.zero
           submissionId = Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
@@ -646,7 +646,7 @@ let ``planParseFile Current warm plain defers matching Ref`` () =
         |> requireOk "planParseFile"
 
     let change =
-        { id = EventId.fromJson 0
+        { id = EventId.zero
           submissionId = Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
@@ -756,7 +756,7 @@ let ``planParseFile Current warm plain keeps foreign Ref`` () =
         |> requireOk "planParseFile"
 
     let change =
-        { id = EventId.fromJson 0
+        { id = EventId.zero
           submissionId = Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
@@ -855,7 +855,7 @@ let ``planParseFile Current warm Amb reuses foreign owner without Ref`` () =
         |> requireOk "planParseFile"
 
     let change =
-        { id = EventId.fromJson 0
+        { id = EventId.zero
           submissionId = Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
@@ -962,7 +962,7 @@ let ``planParseFile Current warm overlay reparent does not dual-Own`` () =
         |> requireOk "planParseFile"
 
     let change =
-        { id = EventId.fromJson 0
+        { id = EventId.zero
           submissionId = Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
@@ -1053,7 +1053,7 @@ let ``planParseFile Current warm unmatched owned child Deletes to trash`` () =
         |> requireOk "planParseFile"
 
     let change =
-        { id = EventId.fromJson 0
+        { id = EventId.zero
           submissionId = Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
@@ -1132,7 +1132,7 @@ let ``planParseFile Unparsed plain upload body applies via History`` () =
         |> requireOk "planParseFile"
 
     let change =
-        { id = EventId.fromJson 0
+        { id = EventId.zero
           submissionId = Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""

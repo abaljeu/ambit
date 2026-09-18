@@ -100,7 +100,7 @@ let ``persistence exception is logged replied and mailbox survives`` () = task {
             getState agent
             |> Async.StartAsTask
             |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
-        Assert.Equal(EventId.fromJson 0, state.eventId)
+        Assert.Equal(EventId.zero, state.eventId)
     finally
         CoreMailbox.dispose (host agent)
 }
@@ -143,7 +143,7 @@ let ``persist step hang is rejected within timeout and mailbox survives`` () = t
             getState agent
             |> Async.StartAsTask
             |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
-        Assert.Equal(EventId.fromJson 0, state.eventId)
+        Assert.Equal(EventId.zero, state.eventId)
     finally
         // let the orphaned background task finish before disposing shared resources
         Thread.Sleep(hangMs)
@@ -195,7 +195,7 @@ let ``soft-fail log is not replayed into FileAgent state after restart`` () = ta
         CoreMailbox.dispose (host agent1)
 
     // Meta checkpoint stays behind after soft-fail; restart trusts that checkpoint.
-    Assert.Equal(EventId.fromJson 0, Bookkeeping.readEventId dataDir)
+    Assert.Equal(EventId.zero, Bookkeeping.readEventId dataDir)
     let agent2 = FileAgent.createWithDependencies dependencies dataDir
     try
         let! state =
@@ -203,7 +203,7 @@ let ``soft-fail log is not replayed into FileAgent state after restart`` () = ta
         Assert.False(
             state.graph.nodes
             |> Map.exists (fun _ n -> n.text = "soft-fail-probe"))
-        Assert.Equal(EventId.fromJson 0, state.eventId)
+        Assert.Equal(EventId.zero, state.eventId)
     finally
         CoreMailbox.dispose (host agent2)
 }
@@ -270,7 +270,7 @@ let ``ACK returns stamped complete Change equal to EventLog`` () = task {
                     Assert.Equal(Graph.workspacesId, nodeId)
                 | _ -> failwith "expected SetUpdateTime suffix")
             let! events =
-                CoreMailbox.getEventsSince (host agent) (EventId.fromJson 0)
+                CoreMailbox.getEventsSince (host agent) (EventId.zero)
                 |> Async.StartAsTask
             Assert.Single(events) |> ignore
             let event = events.[0]

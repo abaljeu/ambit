@@ -26,7 +26,7 @@ let private decodeGraph json =
     | Ok graph -> graph
     | Error err -> failwith err
 
-let private decodeRevisionAndGraph json =
+let private decodeEventIdAndGraph json =
     let decoder =
         Thoth.Json.Core.Decode.object (fun get ->
             let eventId =
@@ -111,7 +111,7 @@ let ``SetText persists SYSTEM user css and server remains responsive`` () = task
     Assert.Equal(HttpStatusCode.OK, parseResponse.StatusCode)
     use! loadedResponse = client.GetAsync("/ambit/state?scope=full") |> timeout
     let! loadedJson = loadedResponse.Content.ReadAsStringAsync() |> timeout
-    let _, graph = decodeRevisionAndGraph loadedJson
+    let _, graph = decodeEventIdAndGraph loadedJson
     let cssNodeId = graph.nodes.[fileId].children |> List.exactlyOne |> fun c -> c.id
     let change =
         { id = EventId.zero

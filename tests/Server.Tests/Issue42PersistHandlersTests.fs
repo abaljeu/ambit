@@ -115,7 +115,7 @@ let ``ActorStart persists across File restart`` () = task {
               focusId = Graph.rootId
               commandId = Graph.rootId
               graphIds = [ Graph.rootId ]
-              eventId = EventId.fromJson 0 }
+              eventId = EventId.zero }
         let! started =
             CoreMailbox.startActor first testCaller request
             |> Async.StartAsTask
@@ -143,7 +143,7 @@ let private sampleActorStart: ActorStart =
       focusId = Graph.rootId
       commandId = Graph.rootId
       graphIds = [ Graph.rootId ]
-      eventId = EventId.fromJson 0 }
+      eventId = EventId.zero }
 
 let private stubPool secret : CoreActorPool =
     { register = fun _ _ -> ()

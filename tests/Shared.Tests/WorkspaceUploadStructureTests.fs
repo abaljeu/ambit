@@ -414,7 +414,7 @@ let ``Load Unloaded stub plan must not name-conflict on resident server`` () =
                 name = "note.txt" && id <> serverFileId),
             "expected a new File stub id for note.txt")
         let change =
-            { id = EventId.fromJson 0
+            { id = EventId.zero
               submissionId = System.Guid.NewGuid()
               authority = Authority "Browser"
               commandName = ""

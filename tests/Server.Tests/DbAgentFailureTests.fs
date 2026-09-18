@@ -74,5 +74,5 @@ let ``persistence exception is logged replied and mailbox survives`` () = task {
         getState agent
         |> Async.StartAsTask
         |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
-    Assert.Equal(EventId.fromJson 0, state.eventId)
+    Assert.Equal(EventId.zero, state.eventId)
 }

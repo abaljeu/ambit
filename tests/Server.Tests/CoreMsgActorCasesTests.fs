@@ -22,7 +22,7 @@ let private sampleRequest: Gambol.Shared.ActorStart =
       focusId = Graph.rootId
       commandId = Graph.rootId
       graphIds = [ Graph.rootId ]
-      eventId = EventId.fromJson 0 }
+      eventId = EventId.zero }
 
 let private addRootChild text = addRootChildEvent text |> snd
 

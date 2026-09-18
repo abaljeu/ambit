@@ -328,8 +328,8 @@ let requestIdleTruncate
                     | Some snap when
                         BootCache.shouldTruncate
                             log.Length
-                            (EventId.value snap.eventId)
-                            (EventId.value eventId) ->
+                            snap.eventId
+                            eventId ->
                         let scoped = BootCache.truncationGraph graph zoom
                         let response =
                             { graph = scoped

@@ -1,5 +1,14 @@
 Windows 10. GIT Bash shell. Use it.
+Cloud environment is Linux.
 
+## Shells
+Bash is default.  Never run `bash`, just type your command.
+
+Powershell is `pwsh.exe`, not `powershell.exe`
+Cmd if needed, never run `cmd /c`.  
+To avoid trouble with escaping, with pwsh and cmd, prefer making a **short** .ps1 or .cmd script file and just running that directly in bash.  Bash will invoke the shell.
+
+## Paths
 Your working directory is the project root. Do not use `cd`. Do not change directories.
 Use relative paths such as ./src. Do not use absolute paths.
 

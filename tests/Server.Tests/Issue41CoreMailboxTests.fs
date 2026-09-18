@@ -182,7 +182,7 @@ let ``eventHistory returns full EventLog and eventsSince returns its tail`` () =
         let firstChildId, firstEvent = addRootChild "first"
         let secondChildId = NodeId.New()
         let secondEvent =
-            { id = EventId.fromJson 0
+            { id = EventId.zero
               submissionId = Guid.NewGuid()
               authority = Authority "Browser"
               commandName = ""
@@ -239,7 +239,7 @@ let ``mailbox appends ActorStart and ActorStop in lifecycle order`` () =
                   focusId = Graph.rootId
                   commandId = Graph.rootId
                   graphIds = [ Graph.rootId ]
-                  eventId = EventId.fromJson 0 }
+                  eventId = EventId.zero }
             let! started =
                 CoreMailbox.startActor host testCaller request
                 |> Async.StartAsTask

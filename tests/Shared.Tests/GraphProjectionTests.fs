@@ -99,7 +99,7 @@ let ``graphRoundTrip preserves graph with child`` () =
     let childId = NodeId.New()
 
     let change =
-        { id = EventId.fromJson 0
+        { id = EventId.zero
           submissionId = System.Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
@@ -132,7 +132,7 @@ let ``graphRoundTrip preserves updateTime`` () =
     let childId = NodeId.New()
 
     let change =
-        { id = EventId.fromJson 0
+        { id = EventId.zero
           submissionId = Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
@@ -159,7 +159,7 @@ let ``graphEquals is false when text differs`` () =
     let childId = NodeId.New()
 
     let change =
-        { id = EventId.fromJson 0
+        { id = EventId.zero
           submissionId = System.Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""

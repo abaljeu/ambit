@@ -373,7 +373,7 @@ let createRuntime (initialModel: VM) =
         let body = encodePendingBatchBody events
         let qLen = model.syncInfo.pending.Length
         consoleLog (
-            "[Gambol sync] POST start req=" + reqId + " baseRev=" + string baseEventId.Value
+            "[Gambol sync] POST start req=" + reqId + " baseEventId=" + string baseEventId.Value
             + " batchLen=" + string events.Length + " qLen=" + string qLen)
         let timeoutId =
             setTimeout

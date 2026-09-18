@@ -35,7 +35,7 @@ let private seededEdit () =
     let graph0 = Graph.create ()
     let graph1, nodeId = Graph.newNode "before" graph0
     let change = textChange EventId.zero nodeId "before" "after"
-    let state0 = clientState graph1 (EventId.fromJson 0) (ClientHistory.clear ())
+    let state0 = clientState graph1 (EventId.zero) (ClientHistory.clear ())
     match SyncLogic.applyLocalEvent { change with commandName = "Edit node" } state0 with
     | Error msg -> failwith msg
     | Ok (state, pending) -> nodeId, state, pending
@@ -209,7 +209,7 @@ let ``rejected ACK leaves graph revision History and pending unchanged`` () =
     let result =
         SyncLogic.reconcileAck [ pending ] confirmed (EventId.fromJson 1) state syncInfo
     expectRejected "forbidden-suffix" result
-    Assert.Equal(EventId.fromJson 0, state.eventId)
+    Assert.Equal(EventId.zero, state.eventId)
     Assert.Equal("after", state.graph.nodes.[nodeId].text)
     Assert.Equal<Ev list>([ pending ], syncInfo.pending)
 

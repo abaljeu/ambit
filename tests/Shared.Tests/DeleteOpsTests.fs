@@ -217,7 +217,7 @@ let ``classifyDeleteForSelection returns empty for workspace delete`` () =
     let g0 = Graph.create ()
     let g1 =
         SpecialNodeTestHelpers.applyChange
-            { id = EventId.fromJson 0
+            { id = EventId.zero
               submissionId = System.Guid.NewGuid()
               authority = Authority "Browser"
               commandName = ""
@@ -240,7 +240,7 @@ let ``classifyDeleteForSelection cancels whole selection when workspace is in ra
     let g0 = Graph.create ()
     let g1 =
         SpecialNodeTestHelpers.applyChange
-            { id = EventId.fromJson 0
+            { id = EventId.zero
               submissionId = System.Guid.NewGuid()
               authority = Authority "Browser"
               commandName = ""
@@ -424,7 +424,7 @@ let ``classifyDeleteForSelection unlinks a Ref to a Workspace Node`` () =
         |> ModelBuilder.requireOk "root->[a]"
     let g3 =
         SpecialNodeTestHelpers.applyChange
-            { id = EventId.fromJson 0
+            { id = EventId.zero
               submissionId = System.Guid.NewGuid()
               authority = Authority "Browser"
               commandName = ""
@@ -492,7 +492,7 @@ let ``planDeleteOps second Directory with same name as one already in TRASH appl
     let graph1 =
         match
             SpecialNodeTestHelpers.applyChange
-                { id = EventId.fromJson 0
+                { id = EventId.zero
                   submissionId = System.Guid.NewGuid()
                   authority = Authority "Browser"
                   commandName = ""

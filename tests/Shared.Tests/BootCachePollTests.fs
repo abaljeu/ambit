@@ -72,9 +72,9 @@ let ``decideBootPoll applies a novel tail`` () =
     | other -> failwithf "%A" other
 
 [<Fact>]
-let ``decideBootPoll falls back when Poll Revision is behind the client`` () =
+let ``decideBootPoll falls back when Poll event id is behind the client`` () =
     match decide (EventId.fromJson 9) [] (mkPoll 4 []) with
-    | BootCache.BootPoll.FallbackState "revision" -> ()
+    | BootCache.BootPoll.FallbackState "eventId" -> ()
     | other -> failwithf "%A" other
 
 [<Fact>]
@@ -86,25 +86,36 @@ let ``decideBootPoll falls back when the novel tail is oversized`` () =
     | other -> failwithf "%A" other
 
 [<Fact>]
-let ``decideBootPoll falls back when the Revision gap is oversized`` () =
+let ``decideBootPoll falls back when the event id gap is oversized`` () =
     match
         decide
             (EventId.fromJson 1)
             []
-            (mkPoll (1 + BootCache.maxPollRevGap + 1) [])
+            (mkPoll (1 + BootCache.maxPollEventIdGap + 1) [])
     with
     | BootCache.BootPoll.FallbackState "oversized" -> ()
     | other -> failwithf "%A" other
 
 [<Fact>]
 let ``shouldTruncate is true when the log is longer than the bound`` () =
-    Assert.True(BootCache.shouldTruncate (BootCache.maxLogLength + 1) 1 2)
-    Assert.False(BootCache.shouldTruncate 1 10 11)
+    Assert.True(
+        BootCache.shouldTruncate
+            (BootCache.maxLogLength + 1)
+            (EventId.fromJson 1)
+            (EventId.fromJson 2))
+    Assert.False(
+        BootCache.shouldTruncate
+            1
+            (EventId.fromJson 10)
+            (EventId.fromJson 11))
 
 [<Fact>]
 let ``shouldTruncate is true when the EventId gap exceeds the bound`` () =
     Assert.True(
-        BootCache.shouldTruncate 1 1 (1 + BootCache.maxRevGap + 1))
+        BootCache.shouldTruncate
+            1
+            (EventId.fromJson 1)
+            (EventId.fromJson (1 + BootCache.maxEventIdGap + 1)))
 
 [<Fact>]
 let ``truncationGraph drops Load-only nested Workspace children`` () =

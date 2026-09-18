@@ -349,7 +349,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
             | None -> model
         let si = SyncInfo.withSyncState Idle readyModel.syncInfo
         let hasPayload =
-            not (List.isEmpty syncResponse.changes)
+            not (List.isEmpty syncResponse.events)
             || not (List.isEmpty syncResponse.packages)
         let hasPendingLocal =
             not readyModel.syncInfo.pending.IsEmpty
@@ -382,8 +382,8 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                     syncInfo = SyncInfo.withSyncState DataOutdated si }, []
             | Ok newState ->
                 consoleLog (
-                    "[Gambol sync] LoadDone applied changes="
-                    + string syncResponse.changes.Length
+                    "[Gambol sync] LoadDone applied events="
+                    + string syncResponse.events.Length
                     + " packages="
                     + string syncResponse.packages.Length
                     + " newRev="

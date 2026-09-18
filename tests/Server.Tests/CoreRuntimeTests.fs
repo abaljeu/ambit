@@ -129,7 +129,7 @@ let ``callers reach changes on the mailbox Core door`` () = task {
     let runtime = fileRuntime ()
     let! rev =
         CoreMailbox.getEventId runtime.host |> Async.StartAsTask
-    Assert.Equal(EventId.fromJson 0, rev)
+    Assert.Equal(EventId.zero, rev)
 }
 
 [<Fact>]

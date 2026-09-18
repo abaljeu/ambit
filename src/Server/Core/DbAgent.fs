@@ -40,7 +40,7 @@ module DbAgent =
             EventLog.empty
         else
             let rows =
-                Database.getEventsAfter connectionString (-1)
+                Database.getEvents connectionString
                 |> Async.AwaitTask
                 |> Async.RunSynchronously
             let raw =
@@ -165,7 +165,7 @@ module DbAgent =
                 let patch =
                     DatabaseProjection.plan
                         newState.graph
-                        (EventId.value newState.eventId)
+                        newState.eventId
                         events
                 (DatabaseProjection.persistWithTx tx newState.graph patch)
                     .GetAwaiter()
@@ -253,23 +253,23 @@ module DbAgent =
                 { newState with graph = stamped.graph },
                 stamped.message
             | None -> [], newState, None
-        let stampedFresh, ackChanges =
+        let stampedFresh, ackEvents =
             CoreMailboxBackend.overlayFreshEvents confirmations fresh stampOps
-        stateToStore, ackChanges, persistMessage
+        stateToStore, ackEvents, persistMessage
 
     let private commitPostChange
         loaded
         graphOnly
         fresh
         stateToStore
-        ackChanges
+        ackEvents
         externalChanges
         persistMessage
         =
         match
             CoreMailboxBackend.runBounded
                 CoreMailboxBackend.ChangeProcessingTimeoutMs
-                (fun () -> persistGraphProjection loaded stateToStore ackChanges)
+                (fun () -> persistGraphProjection loaded stateToStore ackEvents)
         with
         | Error err -> Error err
         | Ok () ->
@@ -282,7 +282,7 @@ module DbAgent =
                     loaded.snapshotNeeded.Value <- true
                 else
                     requestSnapshot loaded
-            Ok(accepted loaded ackChanges externalChanges persistMessage)
+            Ok(accepted loaded ackEvents externalChanges persistMessage)
 
     let private finishAppliedPostChange
         loaded
@@ -301,7 +301,7 @@ module DbAgent =
             with
             | Error err -> Error err
             | Ok stampedOpt ->
-                let stateToStore, ackChanges, persistMessage =
+                let stateToStore, ackEvents, persistMessage =
                     preparePostChange
                         newState confirmations fresh stampedOpt
                 commitPostChange
@@ -309,7 +309,7 @@ module DbAgent =
                     graphOnly
                     fresh
                     stateToStore
-                    ackChanges
+                    ackEvents
                     externalChanges
                     persistMessage
 

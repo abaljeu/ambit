@@ -193,9 +193,9 @@ module BootCache =
             BootReadWait.KeepWaiting
 
     let maxNovelCount = 64
-    let maxPollRevGap = 64
+    let maxPollEventIdGap = 64
     let maxLogLength = 32
-    let maxRevGap = 32
+    let maxEventIdGap = 32
 
     let novelEvents
         (log: Ev list)
@@ -233,7 +233,7 @@ module BootCache =
         (cachedHash: string option)
         : BootPoll =
         if poll.eventId < clientEventId then
-            BootPoll.FallbackState "revision"
+            BootPoll.FallbackState "eventId"
         else
             match SyncLogic.getPollOutcome poll clientEventId with
             | Some CodeOutdated -> BootPoll.CodeOutdated
@@ -244,7 +244,7 @@ module BootCache =
                     EventId.value poll.eventId - EventId.value clientEventId
                 if
                     novel.Length > maxNovelCount
-                    || gap > maxPollRevGap
+                    || gap > maxPollEventIdGap
                 then
                     BootPoll.FallbackState "oversized"
                 elif novel.IsEmpty then
@@ -258,11 +258,12 @@ module BootCache =
 
     let shouldTruncate
         (logLength: int)
-        (snapshotEventId: int)
-        (clientEventId: int)
+        (snapshotEventId: EventId)
+        (clientEventId: EventId)
         : bool =
         logLength > maxLogLength
-        || (clientEventId - snapshotEventId) > maxRevGap
+        || (EventId.value clientEventId - EventId.value snapshotEventId)
+            > maxEventIdGap
 
     let truncationGraph
         (graph: Graph)

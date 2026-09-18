@@ -165,7 +165,7 @@ let ``captureLoadResponse shares revision for changes and packages`` () =
         Assert.Equal(100, response.buildEpochSec)
         Assert.Equal(200, response.pageBuildEpochSec)
         Assert.True(response.isReady)
-        Assert.Equal(1, response.changes.Length)
+        Assert.Equal(1, response.events.Length)
         Assert.True(response.packages |> List.exists (fun n -> n.id = wsId))
 
 [<Fact>]
@@ -181,7 +181,7 @@ let ``LoadResponse toSyncResponse preserves changes and packages`` () =
           events = []
           packages = [ node ] }
     let sync = SyncLogic.loadResponseToSync load
-    Assert.Empty(sync.changes)
+    Assert.Empty(sync.events)
     Assert.Equal(1, sync.packages.Length)
     Assert.Equal(node.id, sync.packages.[0].id)
 

@@ -171,7 +171,7 @@ module FileAgent =
                 stamped.graph,
                 stamped.message
             | None -> [], newState.graph, None
-        let stampedFresh, ackChanges =
+        let stampedFresh, ackEvents =
             CoreMailboxBackend.overlayFreshEvents
                 confirmations
                 fresh
@@ -180,19 +180,19 @@ module FileAgent =
             match stampedOpt with
             | Some _ -> { newState with graph = stampedGraph }
             | None -> newState
-        finalState, ackChanges, persistMessage
+        finalState, ackEvents, persistMessage
 
     let private commitPostChange
         loaded
         finalState
-        ackChanges
+        ackEvents
         externalChanges
         persistMessage
         (reply: AsyncReplyChannel<Result<CoreChangesAccepted, string>>)
         =
         loaded.state.Value <- finalState
         reply.Reply(
-            Ok(accepted loaded ackChanges externalChanges persistMessage))
+            Ok(accepted loaded ackEvents externalChanges persistMessage))
 
     let private processPostEvents
         loaded
@@ -220,7 +220,7 @@ module FileAgent =
                     with
                     | Error err -> Error err
                     | Ok stampedOpt ->
-                        let finalState, ackChanges, persistMessage =
+                        let finalState, ackEvents, persistMessage =
                             preparePostChange
                                 newState
                                 confirmations
@@ -229,7 +229,7 @@ module FileAgent =
                         loaded.state.Value <- finalState
                         Ok(accepted
                             loaded
-                            ackChanges
+                            ackEvents
                             externalChanges
                             persistMessage)
 

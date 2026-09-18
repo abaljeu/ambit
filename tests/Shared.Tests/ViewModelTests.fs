@@ -2976,7 +2976,7 @@ let ``MoveToTrash ops apply successfully and node lands under TRASH`` () =
     let addToTrashOp = Op.Replace(Graph.trashId, trashChildren, newTrashChildren)
 
     let change =
-        { id = EventId.fromJson 0
+        { id = EventId.zero
           submissionId = System.Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""

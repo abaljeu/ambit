@@ -15,7 +15,7 @@ let private encodeChangeBatch (changes: Ev list) =
     changes
 
 let private emptyChange () =
-    [ { id = EventId.fromJson 0
+    [ { id = EventId.zero
         submissionId = Guid.NewGuid()
         authority = Authority "Browser"
         commandName = ""
@@ -60,7 +60,7 @@ let ``DbAgent empty test DB has revision 0 and canonical ROOT`` () = task {
     let agent = DbAgent.create connStr
     let! rev = CoreMailbox.getEventId (host agent) |> Async.StartAsTask
     let! state = getState agent |> Async.StartAsTask
-    Assert.Equal(EventId.fromJson 0, rev)
+    Assert.Equal(EventId.zero, rev)
     let graph = state.graph
     let root = graph.nodes.[graph.root]
     Assert.Equal(4, graph.nodes.Count)
@@ -193,7 +193,7 @@ let ``DbAgent new process loads state from projection and changes after post`` (
     let childId = NodeId.New()
 
     let change =
-        { id = EventId.fromJson 0
+        { id = EventId.zero
           submissionId = Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
@@ -234,7 +234,7 @@ let ``DbAgent reload preserves node updateTime from projection`` () = task {
     let childId = NodeId.New()
 
     let change =
-        { id = EventId.fromJson 0
+        { id = EventId.zero
           submissionId = Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
@@ -274,7 +274,7 @@ let ``DbAgent change fails and state is unchanged when DB goes away after startu
     let childId = NodeId.New()
 
     let change =
-        { id = EventId.fromJson 0
+        { id = EventId.zero
           submissionId = Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
@@ -295,7 +295,7 @@ let ``DbAgent change fails and state is unchanged when DB goes away after startu
 
         let! rev = CoreMailbox.getEventId mailbox |> Async.StartAsTask
         let! afterState = getStateFrom mailbox |> Async.StartAsTask
-        Assert.Equal(EventId.fromJson 0, rev)
+        Assert.Equal(EventId.zero, rev)
         Assert.False(afterState.graph.nodes.ContainsKey childId)
     finally
         setDatabaseAllowConnections connStr true
@@ -320,7 +320,7 @@ let ``rebuildFromDocumentFiles aligns DB with on-disk document`` () = task {
         let childId = NodeId.New()
 
         let change =
-            { id = EventId.fromJson 0
+            { id = EventId.zero
               submissionId = Guid.NewGuid()
               authority = Authority "Browser"
               commandName = ""
@@ -390,7 +390,7 @@ let ``loadPersistedState preserves node kind`` () = task {
 
     let graphWithFile =
         let change =
-            { id = EventId.fromJson 0
+            { id = EventId.zero
               submissionId = Guid.NewGuid()
               authority = Authority "Browser"
               commandName = ""
@@ -435,7 +435,7 @@ let ``DbAgent commit hang is rejected within timeout and mailbox survives`` () =
     let childId = NodeId.New()
 
     let change =
-        { id = EventId.fromJson 0
+        { id = EventId.zero
           submissionId = Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
@@ -489,7 +489,7 @@ let ``DbAgent postChange live-saves artifacts before ack returns`` () = task {
     let childId = NodeId.New()
 
     let change =
-        { id = EventId.fromJson 0
+        { id = EventId.zero
           submissionId = Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
@@ -530,7 +530,7 @@ let ``DbAgent missing ROOT fails closed while reads stay available`` () = task {
     Assert.False(CoreMailbox.isReady (host agent))
 
     let change =
-        { id = EventId.fromJson 0
+        { id = EventId.zero
           submissionId = Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
@@ -587,8 +587,8 @@ let ``DbAgent dual-owned repair reloads ready graph from projection`` () = task 
     let! loaded = Database.tryLoadGraphFromProjection connStr |> Async.AwaitTask
     match loaded with
     | Error e -> Assert.Fail(e)
-    | Ok (projected, revision) ->
-        Assert.Equal(6, revision)
+    | Ok (projected, eventId) ->
+        Assert.Equal(EventId.fromJson 6, eventId)
         Assert.True(GraphProjection.graphEquals readyGraph projected)
         Assert.Equal(
             Some Graph.workspacesId,

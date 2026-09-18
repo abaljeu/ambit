@@ -1,6 +1,7 @@
 # 18 — Delete leftover Change wrapping
 
-**Status:** defined
+**Status:** done
+**Actual:** 15m
 **Blocked by:** [17 — Delete Revision aliases](17-delete-revision-aliases.md)
 
 ## Context
@@ -25,5 +26,8 @@ Delete leftover `{ id; submissionId; ops }` Change record, `module Change` apply
 ## Comments
 
 - 2026-09-17 — Maps to replan **12b** (swapped: leftover Change wrapping after Revision aliases). Redo path; does not replace the historical land of [12 — Contract leftover Change and Revision](12-contract-leftover-change-and-revision.md).
+- 2026-09-18 — Leftover `{ id; submissionId; ops }` Change record, `module Change` apply wrapping, `Ev.ofChange` / `Ev.asChange`, and `eventFromChange` were already gone from the historical [12 — Contract leftover Change and Revision](12-contract-leftover-change-and-revision.md) land. Green bar: production + tests compile with no `asChange`/`ofChange`. `EventBody.Change` stays.
 
 ## Time
+
+- 2026-09-18 15m — Confirm leftover Change wrapping already deleted; no asChange/ofChange to delete

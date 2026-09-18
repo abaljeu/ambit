@@ -127,12 +127,12 @@ module DatabaseProjection =
                 { parentId = parentId.Value
                   rows = GraphProjection.childRowsFromNode graph node }))
 
-    let plan (graph: Graph) (revision: int) (events: Ev list) : ProjectionPatch =
+    let plan (graph: Graph) (eventId: EventId) (events: Ev list) : ProjectionPatch =
         { nodeUpserts = nodeRows graph events
           childReplacements = childReplacements graph events
           graph =
             { rootId = graph.root.Value
-              revision = revision } }
+              revision = EventId.value eventId } }
 
     let commands (patch: ProjectionPatch) : ProjectionCommand list =
         let childParents = patch.childReplacements |> List.map _.parentId

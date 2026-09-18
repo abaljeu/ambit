@@ -168,6 +168,18 @@ module Database =
             return rows |> Seq.toList
         }
 
+    let getEvents (connectionString: string) : Task<EventRow list> =
+        task {
+            use conn = getConnection connectionString
+            do! conn.OpenAsync()
+            let! rows =
+                conn.QueryAsync<EventRow>(
+                    """
+                    SELECT event_id, payload FROM events
+                    ORDER BY event_id ASC
+                    """)
+            return rows |> Seq.toList
+        }
 
     let tryGetGraphSingleton (connectionString: string) : Task<GraphSingletonRow option> =
         task {
@@ -213,10 +225,10 @@ module Database =
             return rows |> Seq.toList
         }
 
-    let private decodeProjectionEventId (revision: int) =
-        EventId.fromJson revision
+    let private decodeProjectionEventId (eventId: int) =
+        EventId.fromJson eventId
 
-    let tryLoadGraphFromProjection (connectionString: string) : Task<Result<Graph * int, string>> =
+    let tryLoadGraphFromProjection (connectionString: string) : Task<Result<Graph * EventId, string>> =
         task {
             use conn = getConnection connectionString
             do! conn.OpenAsync()
@@ -231,13 +243,13 @@ module Database =
                 else
                     Some singleton
             with
-            | None -> return Ok(Graph.create (), 0)
+            | None -> return Ok(Graph.create (), EventId.zero)
             | Some gRow ->
                 let! nRows = readNodeRows conn |> Async.AwaitTask
                 let! cRows = readChildRows conn |> Async.AwaitTask
 
                 if List.isEmpty nRows then
-                    return Ok(Graph.create (), gRow.revision)
+                    return Ok(Graph.create (), decodeProjectionEventId gRow.revision)
                 else
 
                 let nPersist =
@@ -273,7 +285,7 @@ module Database =
 
                 return
                     match GraphProjection.graphFromPersistence rootId nPersist cPersist with
-                    | Ok g -> Ok(g, gRow.revision)
+                    | Ok g -> Ok(g, decodeProjectionEventId gRow.revision)
                     | Error e -> Error e
         }
 
@@ -348,14 +360,14 @@ module Database =
         task {
             let! proj = tryLoadGraphFromProjection connectionString |> Async.AwaitTask
 
-            let graph, revision =
+            let graph, eventId =
                 match proj with
-                | Ok (g, r) -> g, r
-                | Error _ -> Graph.create (), 0
+                | Ok (g, id) -> g, id
+                | Error _ -> Graph.create (), EventId.zero
 
             return
                 { graph = graph
-                  eventId = decodeProjectionEventId revision }
+                  eventId = eventId }
         }
 
     /// Truncate SQL tables and replace the projection from a pre-loaded file `State`.

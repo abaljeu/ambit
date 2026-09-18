@@ -166,7 +166,7 @@ let ``file persist rejects ignored graph state before acceptance`` () =
         (admittedChanges agent).postEvents (body)
         |> Async.RunSynchronously
     Assert.True(Result.isError result)
-    Assert.Equal(EventId.fromJson 0, CoreMailbox.getEventId agent |> Async.RunSynchronously)
+    Assert.Equal(EventId.zero, CoreMailbox.getEventId agent |> Async.RunSynchronously)
     CoreMailbox.dispose agent
 
 [<SkippableFact>]
@@ -187,5 +187,5 @@ let ``db persist rejects ignored graph state before acceptance`` () = task {
         |> Async.StartAsTask
     Assert.True(Result.isError result)
     let! revision = CoreMailbox.getEventId agent |> Async.StartAsTask
-    Assert.Equal(EventId.fromJson 0, revision)
+    Assert.Equal(EventId.zero, revision)
 }

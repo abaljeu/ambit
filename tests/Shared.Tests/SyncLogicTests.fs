@@ -574,7 +574,7 @@ let private seededEditState () =
     let change = textChange EventId.zero nodeId "before" "after"
     let state0 : ClientSyncState =
         { graph = graph1
-          eventId = EventId.fromJson 0
+          eventId = EventId.zero
           history = ClientHistory.clear ()
           eventLog = EventLog.empty }
     match SyncLogic.applyLocalEvent change state0 with
@@ -589,7 +589,7 @@ let ``consumeCatchUpPoll rewinds to baseline and preserves History`` () =
         | Ok graph -> graph
         | Error msg -> failwith msg
     let baseline : CatchUpBaseline =
-        { eventId = EventId.fromJson 0
+        { eventId = EventId.zero
           graph = baselineGraph }
     let serverChange =
         SpecialNodeTestHelpers.changeEvent

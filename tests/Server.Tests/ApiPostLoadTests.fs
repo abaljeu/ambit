@@ -161,7 +161,7 @@ let ``postLoad missing target returns events without packages`` () = task {
         handleForLoad 4 [ event ] (stateResponse graph 4)
     let body =
         encodeRequest
-            { eventId = EventId.fromJson 0
+            { eventId = EventId.zero
               targets =
                 [ { targetId = NodeId.New(); includeWorkspace = true } ] }
     let! result = Api.postLoad handle 0 0 body |> Async.StartAsTask

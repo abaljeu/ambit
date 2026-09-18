@@ -14,7 +14,7 @@ type SyncState =
     | CodeOutdated    // Poll apiVersion differs from ApiVersion.current — reload required
     | DataOutdated    // server has newer data with no local pending — reload required
 
-/// A multi-phase request that must start from a settled revision, so it rides the
+/// A multi-phase request that must start from a settled event id, so it rides the
 /// change-ops queue instead of running while a submit or poll is in flight.
 type QueuedRequest =
     | QueuedLoad

@@ -26,7 +26,7 @@ let private baseState () : State =
 let private parseLikeChange (parentId: NodeId) : Ev =
     let children =
         List.init nodeCount (fun _ -> ChildNode.owner (NodeId.New()))
-    { id = EventId.fromJson 0
+    { id = EventId.zero
       submissionId = System.Guid.NewGuid()
       authority = Authority "Browser"
       commandName = ""
@@ -219,7 +219,7 @@ let ``delivered inverse of large paste measures phases without per-created-Node 
                 projected.graph Graph.workspacesId siteMap0 nextId
             |> ignore)
     let inverseEvent: Ev =
-        { id = EventId.fromJson 0
+        { id = EventId.zero
           submissionId = inverse.submissionId
           authority = Gambol.Shared.Authority ""
           commandName = ""
@@ -256,7 +256,7 @@ let private nestedParseChange (documentRootId: NodeId) : Ev =
         List.init 200 (fun _ ->
             ChildNode.owner (NodeId.New()),
             List.init 10 (fun _ -> ChildNode.owner (NodeId.New())))
-    { id = EventId.fromJson 0
+    { id = EventId.zero
       submissionId = System.Guid.NewGuid()
       authority = Authority "Browser"
       commandName = ""

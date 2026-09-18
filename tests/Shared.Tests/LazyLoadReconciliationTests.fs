@@ -81,7 +81,7 @@ let ``nested file parse after upload tree build is accepted`` () =
     let state =
         { graph = graph2; eventId = EventId.zero }
     let parseChange =
-        { id = EventId.fromJson 0
+        { id = EventId.zero
           submissionId = System.Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
@@ -611,7 +611,7 @@ let ``directory amb ref to existing owned child keeps owner occurrence`` () =
         Assert.Empty(report.failures)
         Assert.NotEmpty(report.ops)
         let change =
-            { id = EventId.fromJson 0
+            { id = EventId.zero
               submissionId = System.Guid.NewGuid()
               authority = Authority "Browser"
               commandName = ""
