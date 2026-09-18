@@ -15,13 +15,13 @@ Toolchain and Postgres connection strings: [[.agents/rules/environment.md]] (Cur
 
 If this run **downloads staging**, follow [[LAND.md]] only: pull `origin/staging` onto local `staging`. `dev` never pulls from cloud.
 
-**staging** is a published long-lived branch on `origin`. It is the drop for finished cloud-agent work after explicit publish approval. It is not a workplace. Desktop holds a local `staging` that tracks `origin/staging`.
+**staging** is a published long-lived branch on `origin`. It is the drop for finished cloud-agent work. It is not a workplace. Desktop holds a local `staging` that tracks `origin/staging`.
 
-The CloudAgents library still returns the vendor branch and PR URL. A draft PR toward `staging` is the review vehicle, not the drop. Publishing onto GitHub `ready`, `master`, or `staging` requires explicit publish approval. This skill is the authority for that rule; [[.agents/skills/git-protocol/SKILL.md]] and [[LAND.md]] point here.
+The CloudAgents library still returns the vendor branch and PR URL. That is not the drop. Send to `staging` is this protocol.
 
 ## Work
 
-Git: [[.agents/skills/git-protocol/SKILL.md]] Status.
+You are free to work outside of github on your own branch.  Pull on ready.  Squash onto staging then push.
 
 ### 1. Disposable branch
 
