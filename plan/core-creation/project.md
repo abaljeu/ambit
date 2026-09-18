@@ -126,6 +126,7 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/reports/cancel-poll-eventhistory-undo.md]] — Cancelled poll-carried eventHistory / ClientHistory replacement; increment reverted.
 - [[plan/core-creation/reports/event-abstraction.md]] — Locked Event / EventLog / ClientHistory / `postEvent` destination.
 - [[plan/core-creation/reports/implement-issue-40.md]] — [[plan/core-creation/issues/40-expand-postevent-eventlog-and-event-json.md|40 — Expand postEvent, EventLog store, and Event JSON persist]].
+- [[plan/core-creation/reports/35b-slice1-graphids.md]] — [35b — Browser Run hello](plan/core-creation/issues/35b-browser-run-hello.md) slice 1 Shared `graphIds` Fold walk.
 
 ## Comments
 
