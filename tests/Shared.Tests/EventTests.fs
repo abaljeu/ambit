@@ -67,7 +67,7 @@ let ``restore dedupe`` () =
     let second =
         { event "Second" (EventBody.Change []) with id = EventId.fromJson 2 }
     let log = EventLog.restore [ first; duplicate; second ] EventLog.empty
-    Assert.Equal(EventId.fromJson 1, EventLog.nextId log)
+    Assert.Equal(EventId.fromJson 3, EventLog.nextId log)
     Assert.Equal(EventId.fromJson 2, Ev.id log.events.Head)
     Assert.Equal("Second", log.events.Head.commandName)
     let restored = EventLog.all log
@@ -78,12 +78,19 @@ let ``restore dedupe`` () =
     Assert.Equal("First", restored.events.[1].commandName)
 
 [<Fact>]
-let ``restore keeps source nextId`` () =
+let ``restore advances nextId past persisted Event ids`` () =
     let persist = { event "P" (EventBody.Change []) with id = EventId.fromJson 9 }
     let log = { EventLog.empty with nextId = EventId.fromJson 3 }
     let restored = EventLog.restore [ persist ] log
-    Assert.Equal(EventId.fromJson 3, EventLog.nextId restored)
+    Assert.Equal(EventId.fromJson 10, EventLog.nextId restored)
     Assert.Equal(EventId.fromJson 9, Ev.id restored.events.Head)
+
+[<Fact>]
+let ``advancePast raises nextId past the given Event id`` () =
+    let log = EventLog.advancePast (EventId.fromJson 7) EventLog.empty
+    Assert.Equal(EventId.fromJson 8, EventLog.nextId log)
+    let caughtUp = EventLog.advancePast (EventId.fromJson 3) log
+    Assert.Equal(EventId.fromJson 8, EventLog.nextId caughtUp)
 
 let private actorStart commandName : Ev =
     event commandName (EventBody.ActorStart(startRequest ()))

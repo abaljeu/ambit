@@ -98,7 +98,7 @@ module FileAgent =
             Ok(s, storedEvent :: confirmations, fresh, changed, externalChanges)
         | None ->
             match Ev.ops event with
-            | None -> Error "Ev has no Ops"
+            | None -> Error "Event has no Ops"
             | Some ops ->
                 let result, amended, appliedOps =
                     ChangeAmendment.applyOps ops s
@@ -240,6 +240,7 @@ module FileAgent =
             Ok(
                 EventLog.since after loaded.persistedEventLog.Value
                 |> fun log -> log.events)
+        getEventLog = fun () -> Ok loaded.persistedEventLog.Value
         appendEvent = fun event ->
             match
                 EventLogFile.appendEvent

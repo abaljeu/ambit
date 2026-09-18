@@ -213,3 +213,29 @@ let ``ActorStart persist Error does not keep Ev in mailbox log`` () =
             CoreMailbox.eventHistory host |> Async.StartAsTask
         Assert.Empty(history.events)
     })
+
+[<Fact>]
+let ``post Change uses Event id past Database row when payload does not decode`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    use conn = Database.getConnection connStr
+    do! conn.OpenAsync()
+    use cmd = conn.CreateCommand()
+    cmd.CommandText <-
+        "INSERT INTO events (event_id, submission_id, payload) "
+        + $"VALUES (1, '{Guid.NewGuid()}', 'not-json')"
+    let! _ = cmd.ExecuteNonQueryAsync()
+    let host = admittedHostDb (DbAgent.create connStr)
+    try
+        let _, event = addRootChild "after-stale-row"
+        let! posted =
+            CoreMailbox.postEvents host testCaller [ event ]
+            |> Async.StartAsTask
+        match posted with
+        | Error error -> Assert.Fail($"postChange: {error}")
+        | Ok accepted ->
+            let stored = Assert.Single(accepted.events)
+            Assert.Equal(EventId.fromJson 2, stored.id)
+    finally
+        CoreMailbox.dispose host
+}
