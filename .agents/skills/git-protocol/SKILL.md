@@ -1,6 +1,6 @@
 ---
 name: git-protocol
-description: "Gambol git procedure: three named places (dev, ready, master), commits on dev, merge --no-ff into ready. First git step is scripts/gitstatus.sh. Wrong workplace: abort and tell Alan. Do not research git history unless Alan asked. Use when committing, merging, branching, tagging, agent-done, implement, or any other git instruction."
+description: "Gambol git procedure: four named places (dev, ready, master, staging), commits, merge only when Alan asks, merge --no-ff into ready. First git step is scripts/gitstatus.sh. Wrong workplace: abort and tell Alan. Do not research git history unless Alan asked. Use when committing, merging, branching, tagging, implement, or any other git instruction."
 ---
 
 # Git protocol
@@ -27,15 +27,17 @@ A hotfix is born on the oldest place that must contain it, then merged toward `d
 
 ## Commits
 
-Ordinary commits on `dev` go through [[scripts/commit.sh]] `"<message>"` `[files...]` (Cursor manual approval) or the human runs `git commit` in the CLI. The script refuses when HEAD is not `dev`, stages `.` (or only the given files), and commits with the message.
-Wait for approval before committing to any of (dev, staging, ready, master).
+Desktop commits on `dev` only when Alan asks to commit. Then run [[scripts/commit.sh]] `"<message>"` `[files...]` or the human runs `git commit` in the CLI. The script refuses when HEAD is not `dev`, stages `.` (or only the given files), and commits with the message. A tool approval card is not that ask. Done when Alan asked and that commit exists, or when Alan did not ask and no commit ran.
+
+Do not commit on `dev`, `ready`, `staging`, or `master` unless Alan asked. Cloud agents commit freely on a disposable local branch: [[.agents/skills/cloud-agent-git/SKILL.md]].
+
 Commit AFTER writing any report files, not before.
 
 ## Merges
 
-The Desktop agent does not run `git merge` or squash. Those moves go through [[scripts/gitready.sh]], [[scripts/gitmaster.sh]], and [[scripts/gitdev.sh]] (Cursor manual approval) or the human types them in the CLI. Land downloaded `staging` into `dev` is [[.agents/skills/cloud-agent-git/SKILL.md]]. `gitready.sh` with no argument lists dev commits not on `ready`. `gitmaster.sh` with no argument lists `ready` commits not on `master`. `gitready.sh "<msg>"` brings `dev` into `ready` (`--no-ff`); `gitdev.sh` brings a hotfix from `master` toward `dev` with a stock forward message. The merge scripts refuse a dirty tree, and refuse a local `ready` that is behind `origin/ready`.
+The Desktop agent does not run `git merge` or squash. Those moves go through [[scripts/gitready.sh]], [[scripts/gitmaster.sh]], and [[scripts/gitdev.sh]] or the human types them in the CLI. Run a merge script only when Alan asked. Land downloaded `staging` into `dev` is [[.agents/skills/cloud-agent-git/SKILL.md]]. `gitready.sh` with no argument lists dev commits not on `ready`. `gitmaster.sh` with no argument lists `ready` commits not on `master`. `gitready.sh "<msg>"` brings `dev` into `ready` (`--no-ff`); `gitdev.sh` brings a hotfix from `master` toward `dev` with a stock forward message. The merge scripts refuse a dirty tree, and refuse a local `ready` that is behind `origin/ready`.
 
-**agent-done** is tests green, `/code-review`, and a commit on `dev` via [[scripts/commit.sh]] `"<message>"` or human `git commit`. Then ask the human to run `gitready.sh` (or type the merge) to put that work on `ready`. Git agent-done is not ticket `**Status:** done` ([[doc/agents/triage-labels.md]]).
+
 
 ## Bisect
 

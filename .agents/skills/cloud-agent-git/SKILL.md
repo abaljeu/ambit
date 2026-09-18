@@ -1,7 +1,7 @@
 ---
 name: cloud-agent-git
 description: >-
-  Staging: cloud agents work on a disposable branch (not master, not ready,
+  Staging: cloud agents work on a disposable branch (not dev, not master, not ready,
   not staging) and open a draft PR toward staging for review. Push or merge
   to GitHub ready, master, or staging only after explicit publish approval.
   Use when a cloud agent does git, or when downloading staging.
@@ -27,7 +27,7 @@ Git: [[.agents/skills/git-protocol/SKILL.md]] Status.
 
 Create or switch to a disposable branch. Base it on `origin/ready` (same start as a disposable workspace in [[.agents/skills/git-share/SKILL.md]]). If HEAD is `ready` or `master`, create the disposable branch from this tip and switch to it before the first commit.
 
-Work and commit on that disposable branch. Git is free on a disposable or `cursor/*` branch, and on other local work that is not a publish to GitHub `ready`, `master`, or `staging`.
+Work and commit on that disposable branch. Git is free on a disposable or `cursor/*` branch. Do not commit on `dev`, `ready`, `master`, or `staging` unless Alan asked.
 
 Done when `git branch --show-current` is not `dev`, `ready`, `master`, or `staging`.
 
