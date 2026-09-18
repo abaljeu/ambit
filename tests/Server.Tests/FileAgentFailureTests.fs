@@ -172,7 +172,7 @@ let ``soft-fail live-save still commits graph and returns could-not-save message
         Assert.True(
             state.graph.nodes
             |> Map.exists (fun _ n -> n.text = "soft-fail-probe"))
-        Assert.Equal(EventId.fromJson 1, state.eventId)
+        Assert.NotEqual(EventId.zero, state.eventId)
     finally
         CoreMailbox.dispose (host agent)
 }

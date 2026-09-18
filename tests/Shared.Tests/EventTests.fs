@@ -27,29 +27,65 @@ let private textState () : State * NodeId =
         ModelBuilder.createNodes [ "old" ] (Graph.create ())
     { graph = graph; eventId = EventId.zero }, List.head ids
 
+let private assertStored (id: EventId) =
+    Assert.NotEqual(EventId.zero, id)
+
+let private assertPast stored candidate =
+    Assert.True(
+        EventId.value candidate > EventId.value stored)
+
 [<Fact>]
-let ``EventId fromJson toJson next and zero`` () =
+let ``EventId Zero is the draft id`` () =
+    Assert.Equal(EventId.zero, EventId.fromJson 0)
     Assert.Equal(0, EventId.value EventId.zero)
+    Assert.Equal(0, EventId.toJson EventId.zero)
+    Assert.Equal("0", EventId.display EventId.zero)
+
+[<Fact>]
+let ``EventId stored Int is a positive Int`` () =
     Assert.Equal(5, EventId.value (EventId.fromJson 5))
     Assert.Equal(5, EventId.toJson (EventId.fromJson 5))
-    Assert.Equal(
-        EventId.fromJson 1,
-        EventId.next EventId.zero)
     Assert.Equal("5", EventId.display (EventId.fromJson 5))
+    Assert.NotEqual(EventId.zero, EventId.fromJson 5)
+
+[<Fact>]
+let ``EventId next of Zero is Zero`` () =
+    Assert.Equal(EventId.zero, EventId.next EventId.zero)
+
+[<Fact>]
+let ``EventId next of a stored Int is the next positive Int`` () =
+    Assert.Equal(EventId.fromJson 6, EventId.next (EventId.fromJson 5))
+
+[<Fact>]
+let ``EventId fromJson round-trips a stored Int`` () =
+    Assert.Equal(
+        EventId.fromJson 7,
+        EventId.fromJson (EventId.toJson (EventId.fromJson 7)))
+
+[<Fact>]
+let ``empty nextId is a stored Int not next of Zero`` () =
+    assertStored EventLog.empty.nextId
+    Assert.NotEqual(EventId.next EventId.zero, EventLog.empty.nextId)
 
 [<Fact>]
 let ``append since tryFind`` () =
     let log1 = EventLog.append (event "" (EventBody.Change [])) EventLog.empty
+    let firstId = Ev.id log1.events.Head
+    assertStored firstId
+    Assert.Equal(EventLog.empty.nextId, firstId)
+    Assert.NotEqual(firstId, log1.nextId)
     let log2 = EventLog.append (event "" (EventBody.Change [])) log1
     let log3 = EventLog.append (event "" (EventBody.Change [])) log2
-    Assert.Equal(EventId.fromJson 3, Ev.id log3.events.Head)
+    let ids = log3.events |> List.map Ev.id
+    Assert.Equal(3, ids |> List.distinct |> List.length)
+    ids |> List.iter assertStored
+    ids |> List.iter (fun id -> Assert.NotEqual(id, log3.nextId))
     let tail = EventLog.since EventId.zero log3
     Assert.Equal(3, tail.events.Length)
-    Assert.Equal(EventId.fromJson 3, Ev.id tail.events.Head)
-    Assert.Equal(EventId.fromJson 1, Ev.id tail.events.[2])
-    match EventLog.tryFind (EventId.fromJson 1) log3 with
-    | None -> failwith "expected EventId.fromJson 1"
-    | Some found -> Assert.Equal(EventId.fromJson 1, Ev.id found)
+    Assert.True((ids = (tail.events |> List.map Ev.id)))
+    match EventLog.tryFind firstId log3 with
+    | None -> failwith "expected stamped Event"
+    | Some found -> Assert.Equal(firstId, Ev.id found)
 
 [<Fact>]
 let ``restore dedupe`` () =
@@ -62,35 +98,59 @@ let ``restore dedupe`` () =
           body = EventBody.Change [] }
     let duplicate =
         { first with
-            id = EventId.fromJson 1
+            id = EventLog.empty.nextId
             commandName = "Dup" }
+    let assigned =
+        EventLog.empty
+        |> EventLog.append (event "x" (EventBody.Change []))
+        |> EventLog.append (event "y" (EventBody.Change []))
     let second =
-        { event "Second" (EventBody.Change []) with id = EventId.fromJson 2 }
+        { event "Second" (EventBody.Change []) with
+            id = Ev.id assigned.events.Head }
     let log = EventLog.restore [ first; duplicate; second ] EventLog.empty
-    Assert.Equal(EventId.fromJson 3, EventLog.nextId log)
-    Assert.Equal(EventId.fromJson 2, Ev.id log.events.Head)
     Assert.Equal("Second", log.events.Head.commandName)
-    let restored = EventLog.all log
-    Assert.Equal(2, restored.events.Length)
-    Assert.Equal(EventId.fromJson 2, Ev.id restored.events.Head)
-    Assert.Equal("Second", restored.events.Head.commandName)
-    Assert.Equal(EventId.zero, Ev.id restored.events.[1])
-    Assert.Equal("First", restored.events.[1].commandName)
+    Assert.Equal(Ev.id second, Ev.id log.events.Head)
+    Assert.Equal(2, log.events.Length)
+    Assert.Equal(EventId.zero, Ev.id log.events.[1])
+    Assert.Equal("First", log.events.[1].commandName)
+    let stored = EventLog.all log
+    Assert.Equal(1, stored.events.Length)
+    Assert.Equal(Ev.id second, Ev.id stored.events.Head)
+    stored.events
+    |> List.map Ev.id
+    |> List.iter (fun id ->
+        assertStored id
+        assertPast id (EventLog.nextId log))
 
 [<Fact>]
 let ``restore advances nextId past persisted Event ids`` () =
-    let persist = { event "P" (EventBody.Change []) with id = EventId.fromJson 9 }
-    let log = { EventLog.empty with nextId = EventId.fromJson 3 }
+    let one =
+        EventLog.append (event "a" (EventBody.Change [])) EventLog.empty
+    let ahead =
+        one
+        |> EventLog.append (event "b" (EventBody.Change []))
+        |> EventLog.append (event "c" (EventBody.Change []))
+    let persist =
+        { event "P" (EventBody.Change []) with
+            id = Ev.id ahead.events.Head }
+    let log = { EventLog.empty with nextId = one.nextId }
     let restored = EventLog.restore [ persist ] log
-    Assert.Equal(EventId.fromJson 10, EventLog.nextId restored)
-    Assert.Equal(EventId.fromJson 9, Ev.id restored.events.Head)
+    Assert.Equal(persist.id, Ev.id restored.events.Head)
+    assertPast persist.id (EventLog.nextId restored)
 
 [<Fact>]
 let ``advancePast raises nextId past the given Event id`` () =
-    let log = EventLog.advancePast (EventId.fromJson 7) EventLog.empty
-    Assert.Equal(EventId.fromJson 8, EventLog.nextId log)
-    let caughtUp = EventLog.advancePast (EventId.fromJson 3) log
-    Assert.Equal(EventId.fromJson 8, EventLog.nextId caughtUp)
+    let ahead =
+        EventLog.empty
+        |> EventLog.append (event "a" (EventBody.Change []))
+        |> EventLog.append (event "b" (EventBody.Change []))
+        |> EventLog.append (event "c" (EventBody.Change []))
+    let stored = Ev.id ahead.events.Head
+    let log = EventLog.advancePast stored EventLog.empty
+    assertPast stored log.nextId
+    let earlier = EventLog.empty.nextId
+    let caughtUp = EventLog.advancePast earlier log
+    Assert.Equal(log.nextId, caughtUp.nextId)
 
 let private actorStart commandName : Ev =
     event commandName (EventBody.ActorStart(startRequest ()))
@@ -114,7 +174,7 @@ let ``undo skips ActorStart/ActorStop and inverts the next Action`` () =
         | None -> failwith "expected Undo of Edit node"
         | Some pair -> pair
     match undoEvent.body with
-    | EventBody.Undo(target, _) -> Assert.Equal(EventId.fromJson 5, target)
+    | EventBody.Undo(target, _) -> Assert.Equal(Ev.id changeEv, target)
     | _ -> failwith "expected Undo body"
     Assert.Equal("Edit node", undoEvent.commandName)
     Assert.Equal(None, ClientHistory.undoEvent undone)
@@ -237,7 +297,7 @@ let ``Undo inverse Ops`` () =
         | Some pair -> pair
     match undoEvent.body with
     | EventBody.Undo(target, inverseOps) ->
-        Assert.Equal(EventId.fromJson 5, target)
+        Assert.Equal(changeEvent.id, target)
         Assert.Equal<Op list>([ Op.SetText(nodeId, "new", "old") ], inverseOps)
     | _ -> failwith "expected Undo body"
     let redoEvent, _ =

@@ -8,7 +8,7 @@ An **Event** is one durable record in **EventLog**. A **Change** is the Action b
 
 ## 2. Intended Browser Change path
 
-The person edits in the App. The Browser applies the Ops locally, queues a Change Event (event id zero), and posts it. Core admits the Authority, applies the Ops to the Graph, assigns the next event id from EventLog, and persists the Event. A later Poll returns Events since the Browser cursor. On success the App stays in Sync. On HTTP reject with pending work, the App enters ServerRejected.
+The person edits in the App. The Browser applies the Ops locally, queues a Change Event (event id zero), and posts it. Core admits the Authority, applies the Ops to the Graph, assigns the next event id from EventLog, and persists the Event. A later Poll returns Events since the Browser EventId basis. On success the App stays in Sync. On HTTP reject with pending work, the App enters ServerRejected.
 
 ## 3. User-facing boundary
 
@@ -18,7 +18,7 @@ The person sees a blocking overlay: **Server rejected change**, then the Server 
 
 This is Database EventLog persist (constraint `events_pkey` on event id), not the file EventLog. The Server assigned an event id that EventLog already holds. Plausible adjacent seams, not ranked:
 
-1. **EventLog restore after Load / Parse.** Load’s Parse stage posts graph-only Change Events that still persist EventLog. Restore merges by submission id and can keep the next-id cursor unchanged. If Core’s next event id sits behind already-persisted Events, the next Browser Change collides.
+1. **EventLog restore after Load / Parse.** Load’s Parse stage posts graph-only Change Events that still persist EventLog. Restore merges by submission id and can keep nextId unchanged. If Core’s next event id sits behind already-persisted Events, the next Browser Change collides.
 2. **Dual persist copies.** File mode and Database mode are separate persist fillings. Production writes Database EventLog. Core also holds an in-memory EventLog for minting. If that in-memory log does not contain Events already in the Database, minting repeats an event id.
 3. **event-id minting.** Drafts stay at event id zero. Only EventLog advances the serial. A retry that already inserted the row, or a restore that omitted persisted Events, can mint a colliding event id.
 

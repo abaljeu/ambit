@@ -19,5 +19,5 @@ Date: 2026-09-15. Ticket: [[../issues/42-migrate-persisthandlers-restore-and-get
 ## 3. Non-goals left for later tickets
 
 1. Api Poll/Load Event tail — [[../issues/43-migrate-http-adapter-onto-postevent-and-event-poll.md|43 — Migrate HTTP Adapter onto postEvent and Event Poll]]
-2. Browser cursor / pending — [[../issues/44-migrate-browser-poll-history-pending-and-eventid.md|44 — Migrate Browser Poll, History, pending, and EventId cursor]]
+2. Browser EventId basis / pending — [[../issues/44-migrate-browser-poll-history-pending-and-eventid.md|44 — Migrate Browser Poll, History, pending, and EventId basis]]
 3. Drop ChangeLog name — [[../issues/45-contract-historyevent-clienthistory-pendingkind-and-changelog.md|45 — Contract HistoryEvent, mailbox History, PendingKind, StartActorRequest, and ChangeLog]]

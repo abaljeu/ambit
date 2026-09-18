@@ -10,8 +10,8 @@ type EventLog =
 
 [<RequireQualifiedAccess>]
 module EventLog =
-    // EventId retires Revision: cursor 0 is before the first Ev; first id is 1.
-    let empty: EventLog = { events = []; nextId = EventId.next EventId.zero }
+    // Empty nextId is the first assignable stored Int, not next of Zero.
+    let empty: EventLog = { events = []; nextId = EventId.fromJson 1 }
 
     let nextId (log: EventLog) : EventId = log.nextId
 
@@ -27,7 +27,7 @@ module EventLog =
                 |> List.filter (fun event ->
                     EventId.value event.id > EventId.value after) }
 
-    let all (log: EventLog) : EventLog = since EventId.beforeAll log
+    let all (log: EventLog) : EventLog = since EventId.zero log
 
     let tryFind (eventId: EventId) (log: EventLog) : Ev option =
         log.events |> List.tryFind (fun event -> event.id = eventId)

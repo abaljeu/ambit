@@ -160,7 +160,7 @@ Goal: ticket items **persist ActorStart and ActorStop**, **EventLog.restore**, *
 ### 6.6 Explicit non-goals (stay on later tickets)
 
 1. **Api.getPoll / postLoad Event tail** — [43 — Migrate HTTP Adapter onto postEvent and Event Poll](../issues/43-migrate-http-adapter-onto-postevent-and-event-poll.md)
-2. **Browser EventId cursor / PendingChange** — [44 — Migrate Browser Poll, History, pending, and EventId cursor](../issues/44-migrate-browser-poll-history-pending-and-eventid.md)
+2. **Browser EventId basis / PendingChange** — [44 — Migrate Browser Poll, History, pending, and EventId basis](../issues/44-migrate-browser-poll-history-pending-and-eventid.md)
 3. **Drop ChangeLog name / History types** — [45 — Contract HistoryEvent, mailbox History, PendingKind, StartActorRequest, and ChangeLog](../issues/45-contract-historyevent-clienthistory-pendingkind-and-changelog.md)
 
 ## 7. Biggest surprises (summary)

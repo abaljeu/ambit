@@ -6,6 +6,6 @@ Core API for this increment:
 
 ## EventId serial
 
-Only EventLog may call `EventId.next`. EventId has private id. EventId.fromJson/toJson bypasses. Only serializing should use the fromJson/toJson functions. Any event not from these sources should have id 0. `EventId.beforeAll` is the get-all cursor; it is not a serialized id and is not `fromJson`.
+EventId is Zero or a positive Int. `EventId.next` of Zero is Zero. EventLog assigns stored serials. Get-all and drafts use `EventId.zero`. There is no stored event id 0, so `since` of Zero is every stored Int. Wire 0 is Zero. A positive wire int is that stored Int. Shape: [Core creation architecture](plan/core-creation/arch.md) Module **Ev** and Module **EventLog**.
 
-Client and Shared callers mint a draft Event with `EventId.zero`, or rebuild a received Event from the wire (`Ev.fromJson` / `Ev.toJson`). They do not advance the serial.
+Client and Shared mint a draft Event with `EventId.zero`, or rebuild a received Event from the wire. They do not assign stored serials.

@@ -20,23 +20,30 @@ type Op =
 
 type EventId =
     private
-    | EventId of int
+    | Zero // the Ev is a draft
+    | Int of int // The Ev is an event; accepted, uniquely numbered, 
+        // and has been stored, and applied in the system
 
     member this.Value =
-        let (EventId value) = this
-        value
+        match this with
+        | Zero -> 0
+        | Int n -> n
 
 [<RequireQualifiedAccess>]
 module EventId =
-    let zero = EventId 0
-    /// Cursor before every event, including zero. Not a serialized id.
-    let beforeAll = EventId -1
-    let next (EventId n) = EventId(n + 1)
-    let max (EventId a) (EventId b) = EventId(Operators.max a b)
+    let zero = Zero
+    let next (id: EventId) =
+        match id with
+        | Int n -> Int(n + 1)
+        | Zero -> Zero
+    let max (a: EventId) (b: EventId) =
+        if a.Value >= b.Value then a else b
     let value (id: EventId) = id.Value
-    let display (EventId n) = string n
-    let fromJson n = EventId n
-    let toJson (EventId n) = n
+    let display (id: EventId) = string id.Value
+    let fromJson n =
+        if n > 0 then Int n
+        else Zero
+    let toJson (id: EventId) = id.Value
 
 type Authority = Authority of string
 

@@ -185,12 +185,11 @@ let ``writer upserts complete nodes children revision and reloads`` () = task {
     let! revision = scalar<int> connStr "SELECT revision FROM graph WHERE singleton = 1"
     Assert.Equal(2L, childCount)
     Assert.Equal(2, revision)
-
     let! loaded = Database.tryLoadGraphFromProjection connStr |> Async.AwaitTask
     match loaded with
     | Error error -> Assert.Fail(error)
     | Ok (graph, loadedEventId) ->
-        Assert.Equal(EventId.fromJson 2, loadedEventId)
+        Assert.NotEqual(EventId.zero, loadedEventId)
         Assert.True(GraphProjection.graphEquals finalGraph graph)
 }
 

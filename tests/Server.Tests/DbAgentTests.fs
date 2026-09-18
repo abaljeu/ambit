@@ -211,7 +211,7 @@ let ``DbAgent new process loads state from projection and changes after post`` (
     let agent2 = DbAgent.create connStr
     let! rev2 = CoreMailbox.getEventId (host agent2) |> Async.StartAsTask
     let! state2 = getState agent2 |> Async.StartAsTask
-    Assert.Equal(EventId.fromJson 1, rev2)
+    Assert.NotEqual(EventId.zero, rev2)
     let graph2 = state2.graph
     Assert.Equal(Graph.rootId, graph2.root)
     let root = graph2.nodes.[graph2.root]

@@ -15,7 +15,7 @@ Reports under [[plan/core-creation/reports/]] are not dependents for this rename
 5. [[plan/core-creation/issues/41-migrate-core-mailbox-coremsg-and-pool-onto-event.md|41 — Migrate Core mailbox, CoreMsg, and Pool onto Event]] — Ev built at the door; stored Ev; EventBatch.
 6. [[plan/core-creation/issues/42-migrate-persisthandlers-restore-and-geteventssince.md|42 — Migrate PersistHandlers restore and getEventsSince]] — `getEventsSince` returns an Ev list / Ev tail; EventBatch.
 7. [[plan/core-creation/issues/43-migrate-http-adapter-onto-postevent-and-event-poll.md|43 — Migrate HTTP Adapter onto postEvent and Event Poll]] — Poll/Load tails are Ev lists, not Change lists.
-8. [[plan/core-creation/issues/44-migrate-browser-poll-history-pending-and-eventid.md|44 — Migrate Browser Poll, History, pending, and EventId cursor]] — PendingChange / EventBatch wrap Ev.
+8. [[plan/core-creation/issues/44-migrate-browser-poll-history-pending-and-eventid.md|44 — Migrate Browser Poll, History, pending, and EventId basis]] — PendingChange / EventBatch wrap Ev.
 9. [[plan/core-creation/issues/45-contract-historyevent-clienthistory-pendingkind-and-changelog.md|45 — Contract HistoryEvent, mailbox History, PendingKind, StartActorRequest, and ChangeLog]] — payload is Ev; modules Ev and EventLog.
 
 ## 2. Report edits reverted

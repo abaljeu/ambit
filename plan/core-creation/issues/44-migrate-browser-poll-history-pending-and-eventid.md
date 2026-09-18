@@ -1,22 +1,22 @@
-# 44 — Migrate Browser Poll, History, pending, and EventId cursor
+# 44 — Migrate Browser Poll, History, pending, and EventId basis
 
 **Status:** done
 **Blocked by:** ~~[40 — Expand postEvent, EventLog store, and Event JSON persist](40-expand-postevent-eventlog-and-event-json.md), [41 — Migrate Core mailbox, CoreMsg, and Pool onto Event](41-migrate-core-mailbox-coremsg-and-pool-onto-event.md), [43 — Migrate HTTP Adapter onto postEvent and Event Poll](43-migrate-http-adapter-onto-postevent-and-event-poll.md)~~ (completed)
 
 ## Context
 
-[43 — Migrate HTTP Adapter onto postEvent and Event Poll](43-migrate-http-adapter-onto-postevent-and-event-poll.md) returns an Event tail on Poll/Load and sends Change posts through `postEvent`. [41 — Migrate Core mailbox, CoreMsg, and Pool onto Event](41-migrate-core-mailbox-coremsg-and-pool-onto-event.md) fills name-only Undo/Redo on the server. Browser still consumes a Change list on Poll, holds a Revision cursor (`State.revision`, `ClientSyncState.revision`), wraps pending work as Change plus PendingKind, and uses Change-shaped ClientHistory for Emacs undo. Story **Caller, persist, and Poll** on [Core creation architecture](../arch.md) migrates the Browser next. Field shapes: [[../reports/event-abstraction.md]]. ClientHistory module: [Core creation architecture](../arch.md) Module **ClientHistory**. There is no destination module named History.
+[43 — Migrate HTTP Adapter onto postEvent and Event Poll](43-migrate-http-adapter-onto-postevent-and-event-poll.md) returns an Event tail on Poll/Load and sends Change posts through `postEvent`. [41 — Migrate Core mailbox, CoreMsg, and Pool onto Event](41-migrate-core-mailbox-coremsg-and-pool-onto-event.md) fills name-only Undo/Redo on the server. Browser still consumes a Change list on Poll, holds a Revision basis (`State.revision`, `ClientSyncState.revision`), wraps pending work as Change plus PendingKind, and uses Change-shaped ClientHistory for Emacs undo. Story **Caller, persist, and Poll** on [Core creation architecture](../arch.md) migrates the Browser next. Field shapes: [[../reports/event-abstraction.md]]. ClientHistory module: [Core creation architecture](../arch.md) Module **ClientHistory**. There is no destination module named History.
 
 ## What to build
 
-Move Browser Poll consume, pending submit, and Emacs undo onto Ev. Poll consume reads an Ev tail. The poll cursor is EventId (`State.revision`, `ClientSyncState.revision`). PendingChange / EventBatch wrap Ev (or EventBody). Browser callers keep using ClientHistory (Ev-shaped). The client holds EventLog of the same type as the server. `ClientHistory.undo` runs locally, then a name-only submit; ack/reconcile stays the pending path. ClientHistory is not persisted and is not sent on Poll. Do not migrate onto a module named History. The old types still compile until contract. CI stays green.
+Move Browser Poll consume, pending submit, and Emacs undo onto Ev. Poll consume reads an Ev tail. The Poll basis is EventId (`State.revision`, `ClientSyncState.revision`). PendingChange / EventBatch wrap Ev (or EventBody). Browser callers keep using ClientHistory (Ev-shaped). The client holds EventLog of the same type as the server. `ClientHistory.undo` runs locally, then a name-only submit; ack/reconcile stays the pending path. ClientHistory is not persisted and is not sent on Poll. Do not migrate onto a module named History. The old types still compile until contract. CI stays green.
 
-### 1. Poll consume and EventId cursor
+### 1. Poll consume and EventId basis
 
 Migrate Browser Poll consume. Seam **EventLog** (`since` is the Poll tail). The client holds EventLog of the same type.
 
 - [x] Poll consume Events — Browser Poll consume reads an Ev tail (client consume).
-- [x] EventId cursor — poll cursor is EventId. Today’s `State.revision` and `ClientSyncState.revision` become that EventId cursor.
+- [x] EventId basis — Poll basis is EventId. Today’s `State.revision` and `ClientSyncState.revision` become that EventId basis.
 - [x] Client EventLog — client holds EventLog of the same type as the server; restores Poll/ack tails (undo optimistic Graph edits, apply server list, dedupe by submissionId).
 
 ### 2. PendingChange and EventBatch wrap Ev
@@ -45,4 +45,4 @@ Keep Browser Emacs undo on **ClientHistory** (Ev-shaped). Do not migrate onto a 
 
 - 2026-09-15 — Filed via `/to-tickets` for Story **Caller, persist, and Poll** only. Browser migrate batch. Blocked by Core name-only Undo/Redo and HTTP Adapter Event Poll.
 - 2026-09-15 — ClientHistory callers stay on Event-shaped ClientHistory; client holds EventLog of the same type. Do not migrate onto a module named History.
-- 2026-09-15 — **COMPLETED**: All Browser Poll, pending, and EventId cursors migrated to Event. Merged into staging after resolving conflicts with [43 — Migrate HTTP Adapter onto postEvent and Event Poll](43-migrate-http-adapter-onto-postevent-and-event-poll.md). ClientHistory uses Event internally, client holds EventLog, API responses use Event tails.
+- 2026-09-15 — **COMPLETED**: All Browser Poll, pending, and EventId basis migrated to Event. Merged into staging after resolving conflicts with [43 — Migrate HTTP Adapter onto postEvent and Event Poll](43-migrate-http-adapter-onto-postevent-and-event-poll.md). ClientHistory uses Event internally, client holds EventLog, API responses use Event tails.

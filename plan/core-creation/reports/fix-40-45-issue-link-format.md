@@ -20,7 +20,7 @@ No working `[display](path)` links existed in this project before this change. S
 | [41 — Migrate Core mailbox, CoreMsg, and Pool onto Event](../issues/41-migrate-core-mailbox-coremsg-and-pool-onto-event.md) | 11 | 2 |
 | [42 — Migrate PersistHandlers restore and getEventsSince](../issues/42-migrate-persisthandlers-restore-and-geteventssince.md) | 11 | 1 |
 | [43 — Migrate HTTP Adapter onto postEvent and Event Poll](../issues/43-migrate-http-adapter-onto-postevent-and-event-poll.md) | 13 | 2 |
-| [44 — Migrate Browser Poll, History, pending, and EventId cursor](../issues/44-migrate-browser-poll-history-pending-and-eventid.md) | 10 | 1 |
+| [44 — Migrate Browser Poll, History, pending, and EventId basis](../issues/44-migrate-browser-poll-history-pending-and-eventid.md) | 10 | 1 |
 | [45 — Contract HistoryEvent, mailbox History, PendingKind, StartActorRequest, and ChangeLog](../issues/45-contract-historyevent-clienthistory-pendingkind-and-changelog.md) | 9 | 4 |
 | Total | 64 | 14 |
 

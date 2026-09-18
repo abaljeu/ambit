@@ -33,7 +33,7 @@ Migrate the Poll/Load persist tail on **PersistHandlers** and **CoreMailbox**.
 ## Out of scope
 
 1. HTTP Adapter migrate — Change posts calling `postEvent`, Poll/Load Event tail, and command-builder still producing Change stay on [43 — Migrate HTTP Adapter onto postEvent and Event Poll](43-migrate-http-adapter-onto-postevent-and-event-poll.md).
-2. Browser migrate — Poll consume, EventId cursor, PendingChange / EventBatch, and ClientHistory undo stay on [44 — Migrate Browser Poll, History, pending, and EventId cursor](44-migrate-browser-poll-history-pending-and-eventid.md).
+2. Browser migrate — Poll consume, EventId basis, PendingChange / EventBatch, and ClientHistory undo stay on [44 — Migrate Browser Poll, History, pending, and EventId basis](44-migrate-browser-poll-history-pending-and-eventid.md).
 3. Contract deletes — Drop of the ChangeLog name stays on [45 — Contract HistoryEvent, mailbox History, PendingKind, StartActorRequest, and ChangeLog](45-contract-historyevent-clienthistory-pendingkind-and-changelog.md). ClientHistory remains.
 
 ## See also

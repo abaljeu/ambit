@@ -63,10 +63,11 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/issues/41-migrate-core-mailbox-coremsg-and-pool-onto-event.md|41 — Migrate Core mailbox, CoreMsg, and Pool onto Event]] — Story **Caller, persist, and Poll** Core migrate batch. Status `coded`.
 - [[plan/core-creation/issues/42-migrate-persisthandlers-restore-and-geteventssince.md|42 — Migrate PersistHandlers restore and getEventsSince]] — Story **Caller, persist, and Poll** persist migrate batch. Status `coded`.
 - [[plan/core-creation/issues/43-migrate-http-adapter-onto-postevent-and-event-poll.md|43 — Migrate HTTP Adapter onto postEvent and Event Poll]] — Story **Caller, persist, and Poll** HTTP Adapter migrate batch. Status `blocked`.
-- [[plan/core-creation/issues/44-migrate-browser-poll-history-pending-and-eventid.md|44 — Migrate Browser Poll, History, pending, and EventId cursor]] — Story **Caller, persist, and Poll** Browser migrate batch. Status `blocked`.
+- [[plan/core-creation/issues/44-migrate-browser-poll-history-pending-and-eventid.md|44 — Migrate Browser Poll, History, pending, and EventId basis]] — Story **Caller, persist, and Poll** Browser migrate batch. Status `blocked`.
 - [[plan/core-creation/issues/45-contract-historyevent-clienthistory-pendingkind-and-changelog.md|45 — Contract HistoryEvent, mailbox History, PendingKind, StartActorRequest, and ChangeLog]] — Story **Caller, persist, and Poll** contract. Deletes HistoryEvent, ActorLifecycleEvent, mailbox History name (replaced by EventLog), PendingKind, StartActorRequest, and the ChangeLog name. ClientHistory remains. Status `blocked`.
 - [46 — Workspace Load prepare-push 401](plan/core-creation/issues/46-workspace-run-prepare-push-401.md) — Desktop Load on a mapped Workspace Node fails with prepare-push HTTP 401. Status `done`.
-- [47 — Server rejected Change: duplicate event id](plan/core-creation/issues/47-server-rejected-change-duplicate-event-id.md) — After Load, a Browser Change is rejected: Event persist duplicate `events_pkey`. Status `coded`.
+- [47 — Server rejected Change: duplicate event id](plan/core-creation/issues/47-server-rejected-change-duplicate-event-id.md) — After Load, a Browser Change is rejected: Event persist duplicate `events_pkey`. Status `done`.
+- [48 — EventId Zero and positive Int](plan/core-creation/issues/48-eventid-zero-and-positive-int.md) — Retool EventId to Zero or positive Int; next of Zero is Zero; other tests do not lock stored serials. Status `defined`.
 
 ## Decision tickets
 
@@ -171,3 +172,4 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - 2026-09-18 — [46 — Workspace Load prepare-push 401](plan/core-creation/issues/46-workspace-run-prepare-push-401.md) Status `coded`. Report: [implement-46-workspace-load-prepare-push-401](plan/core-creation/reports/implement-46-workspace-load-prepare-push-401.md).
 - 2026-09-18 — [47 — Server rejected Change: duplicate event id](plan/core-creation/issues/47-server-rejected-change-duplicate-event-id.md) filed from QA. Status `defined`.
 - 2026-09-18 — [47 — Server rejected Change: duplicate event id](plan/core-creation/issues/47-server-rejected-change-duplicate-event-id.md) Status `coded`. EventLog nextId catch-up from persisted event_id; persist messages say Event.
+- 2026-09-18 — [48 — EventId Zero and positive Int](plan/core-creation/issues/48-eventid-zero-and-positive-int.md) filed. Status `defined`. Follow-on to [47 — Server rejected Change: duplicate event id](plan/core-creation/issues/47-server-rejected-change-duplicate-event-id.md): Zero or positive Int; next of Zero is Zero; tests check event id numbers only in EventId builder tests.

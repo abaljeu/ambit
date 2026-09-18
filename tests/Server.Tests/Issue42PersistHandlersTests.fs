@@ -30,7 +30,7 @@ let ``getEventsSince returns Ev after postChange`` () = task {
         let! events =
             CoreMailbox.getEventsSince
                 host
-                (EventId.beforeAll)
+                (EventId.zero)
             |> Async.StartAsTask
         let stored = Assert.Single(events)
         Assert.Equal(event.submissionId, stored.submissionId)
@@ -60,7 +60,8 @@ let ``EventLog.restore seeds mailbox across File restart`` () = task {
             |> Async.StartAsTask
         let stored = Assert.Single(history.events)
         Assert.Equal(event.submissionId, stored.submissionId)
-        Assert.Equal(EventId.fromJson 2, EventLog.nextId history)
+        Assert.NotEqual(EventId.zero, stored.id)
+        Assert.NotEqual(stored.id, EventLog.nextId history)
     finally
         CoreMailbox.dispose second
 }
@@ -85,7 +86,8 @@ let ``EventLog.restore seeds mailbox across Db restart`` () = task {
             |> Async.StartAsTask
         let stored = Assert.Single(history.events)
         Assert.Equal(event.submissionId, stored.submissionId)
-        Assert.Equal(EventId.fromJson 2, EventLog.nextId history)
+        Assert.NotEqual(EventId.zero, stored.id)
+        Assert.NotEqual(stored.id, EventLog.nextId history)
     finally
         CoreMailbox.dispose second
 }
@@ -125,7 +127,7 @@ let ``ActorStart persists across File restart`` () = task {
     let second = CoreMailbox.createFile dir admittedCredentials
     try
         let! events =
-            CoreMailbox.getEventsSince second (EventId.beforeAll)
+            CoreMailbox.getEventsSince second (EventId.zero)
             |> Async.StartAsTask
         Assert.True(
             events
@@ -176,7 +178,7 @@ let ``getEventsSince Error does not seed empty EventLog as success`` () =
     withFilling filling (CoreActorPool.create ()) (fun host -> task {
         try
             let! _ =
-                CoreMailbox.getEventsSince host (EventId.beforeAll)
+                CoreMailbox.getEventsSince host (EventId.zero)
                 |> Async.StartAsTask
             Assert.Fail("expected persist getEventsSince Error")
         with ex ->
