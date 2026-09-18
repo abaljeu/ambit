@@ -64,6 +64,7 @@
     <Compile Include="ViewModelSync.fs" />
     <Compile Include="ViewModel.fs" />
     <Compile Include="IncludedDescendantIds.fs" />
+    <Compile Include="CommandRequest.fs" />
     <Compile Include="SyncRiskAlert.fs" />
     <Compile Include="ViewModelSiteMap.fs" />
     <Compile Include="ViewModelOccurrence.fs" />

@@ -186,6 +186,50 @@ module Api =
             | Error err -> return agentErrorResult err
     }
 
+    let private nodesForRequest (graph: Graph) (graphIds: NodeId list) =
+        graphIds
+        |> List.choose (fun id -> Map.tryFind id graph.nodes)
+
+    let private commandSuccessResult (response: UniversalResponse) =
+        response
+        |> ApiResponseSerialization.encodeUniversalResponse
+        |> Encode.toString 0
+        |> jsonResult
+
+    /// Decode ActorStart ids, call startActor, encode `{ nodes; events; latestId }`.
+    let postCommand
+        (startActor: ActorStart -> Async<Result<unit, string>>)
+        (handle: CoreChanges)
+        (body: string)
+        : Async<IResult> =
+        async {
+            match Decode.fromString EventJson.decodeStartRequest body with
+            | Error err ->
+                return agentErrorResult $"Invalid JSON: {err}"
+            | Ok request ->
+                match! startActor request with
+                | Error err -> return agentErrorResult err
+                | Ok () ->
+                    match! handle.getState () with
+                    | Error err -> return agentErrorResult err
+                    | Ok state ->
+                        let! events =
+                            handle.getEventsSince request.eventId
+                        let! persistId = handle.getEventId ()
+                        let latestId =
+                            events
+                            |> List.map (fun e -> e.id)
+                            |> List.fold EventId.max persistId
+                        return
+                            commandSuccessResult
+                                { nodes =
+                                    nodesForRequest
+                                        state.graph
+                                        request.graphIds
+                                  events = events
+                                  latestId = latestId }
+        }
+
     let getCapabilities (dataDir: string) : IResult =
         let capabilities =
             { canGitSave = GitSave.isRepo dataDir
