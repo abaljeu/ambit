@@ -538,7 +538,7 @@ let ``Graph.replace allows Upload-style File stub under SYSTEM`` () =
     let fileId, ops = FileNodeOps.planCreateOwnedFile graph0 Graph.systemId "x.amb"
     let state0 =
         { graph = graph0
-          revision = Revision.Zero }
+          eventId = EventId.zero }
     let state1 =
         ops
         |> List.fold
@@ -560,7 +560,7 @@ let ``Graph.replace allows Upload-style Directory stub under SYSTEM`` () =
         FileNodeOps.planCreateOwnedDirectory graph0 Graph.systemId "cfg"
     let state0 =
         { graph = graph0
-          revision = Revision.Zero }
+          eventId = EventId.zero }
     let state1 =
         ops
         |> List.fold
@@ -599,7 +599,7 @@ let ``Graph.replace rejects moving existing owned node under SYSTEM`` () =
     let fileId, ops = FileNodeOps.planCreateOwnedFile graph2 parent "x.amb"
     let state0 =
         { graph = graph2
-          revision = Revision.Zero }
+          eventId = EventId.zero }
     let state1 =
         ops
         |> List.fold
@@ -1050,7 +1050,7 @@ let ``Graph.replace rejects same-named Files under different Normals of one Dire
     | Error msg -> Assert.Contains("name conflict", msg)
 
 [<Fact>]
-let ``ChangeValidation.applyChange rejects Normal-owning-File moved under File`` () =
+let ``SpecialNodeTestHelpers.applyChange rejects Normal-owning-File moved under File`` () =
     let graph0 = Graph.create ()
     let outerFile = NodeId.New()
     let graph1 = addSpecialNode outerFile File "outer.txt" graph0
@@ -1077,16 +1077,13 @@ let ``ChangeValidation.applyChange rejects Normal-owning-File moved under File``
         |> List.findIndex (fun c -> c.id = normalId)
     let rootKids = graph6.nodes.[Graph.rootId].children
     let withoutNormal = rootKids |> List.filter (fun c -> c.id <> normalId)
-    let change =
-        { id = 0
-          submissionId = System.Guid.NewGuid()
-          ops =
-            [ Op.Replace(Graph.rootId, rootKids, withoutNormal)
-              Op.Replace(outerFile, [], [ normalChild ]) ] }
+    let ops =
+        [ Op.Replace(Graph.rootId, rootKids, withoutNormal)
+          Op.Replace(outerFile, [], [ normalChild ]) ]
     let state =
         { graph = graph6
-          revision = Revision.Zero }
-    match ChangeValidation.applyChange change state with
+          eventId = EventId.zero }
+    match ChangeValidation.applyOps ops state with
     | ApplyResult.Invalid(_, msg) ->
         Assert.Contains("File and Directory", msg)
     | _ -> Assert.True(false, "expected Invalid when Normal-owning-File moves under File")

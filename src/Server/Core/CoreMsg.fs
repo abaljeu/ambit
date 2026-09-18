@@ -4,16 +4,16 @@ open Gambol.Shared
 
 type internal CoreMsg =
     | GetState of AsyncReplyChannel<Result<State, string>>
-    | GetRevision of AsyncReplyChannel<Result<Revision, string>>
+    | GetEventId of AsyncReplyChannel<Result<EventId, string>>
     | GetEventsSince of
         after: Gambol.Shared.EventId *
         AsyncReplyChannel<
             Result<Ev list, string>>
     | GetEventHistory of
         AsyncReplyChannel<Gambol.Shared.EventLog>
-    | PostGraphOnlyChange of
+    | PostGraphOnly of
         caller: Caller *
-        change: Change *
+        event: Ev *
         AsyncReplyChannel<Result<CoreChangesAccepted, string>>
     | Logout of
         Caller *
@@ -45,15 +45,13 @@ type internal CoreMsg =
 
 type PersistHandlers = {
     getState: unit -> Result<State, string>
-    getRevision: unit -> Result<Revision, string>
+    getEventId: unit -> Result<EventId, string>
     getEventsSince:
         Gambol.Shared.EventId
             -> Result<Ev list, string>
     appendEvent:
         Ev -> Result<unit, string>
-    postChange:
-        Change list -> Result<CoreChangesAccepted, string>
-    postGraphOnlyChange:
-        Change list -> Result<CoreChangesAccepted, string>
+    applyEvent:
+        Ev -> bool -> Result<CoreChangesAccepted, string>
     snapshotDone: Graph option -> unit
 }

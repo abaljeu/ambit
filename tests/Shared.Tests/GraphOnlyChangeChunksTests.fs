@@ -12,7 +12,7 @@ let private dummyOps (count: int) : Op list =
 let private applyOps (graph: Graph) (ops: Op list) : Graph =
     let state =
         { graph = graph
-          revision = Revision.Zero }
+          eventId = EventId.zero }
     ops
     |> List.fold
         (fun s op ->
@@ -68,13 +68,9 @@ let ``maxOps stub creates apply well under DbAgent 8s bound`` () =
     Assert.True(ops.Length > 0)
     let state =
         { graph = graph
-          revision = Revision.Zero }
-    let change =
-        { id = 0
-          submissionId = System.Guid.NewGuid()
-          ops = ops }
+          eventId = EventId.zero }
     let sw = Stopwatch.StartNew()
-    match ChangeAmendment.applyChange change state with
+    match ChangeAmendment.applyOps ops state with
     | ApplyResult.Invalid(_, msg), _, _ -> failwith msg
     | _, _, _ -> ()
     sw.Stop()

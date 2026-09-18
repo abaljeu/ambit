@@ -1,6 +1,6 @@
 # 35b — Browser Run hello
 
-**Status:** blocked
+**Status:** defined
 **Blocked by:** [[34b-outside-core-lifecycle-proof.md|34b — Outside Core lifecycle proof]].
 
 ## Context

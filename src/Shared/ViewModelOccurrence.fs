@@ -229,9 +229,13 @@ module ViewModelOccurrence =
         match Map.tryFind graph.root graph.nodes with
         | None -> graph.root
         | Some node ->
-            match List.tryHead node.children with
-            | Some child -> child.id
-            | None -> graph.root
+            node.children
+            |> List.tryPick (fun child ->
+                if Map.containsKey child.id graph.nodes then
+                    Some child.id
+                else
+                    None)
+            |> Option.defaultValue graph.root
 
     /// Keep preferred Zoom when Resident; otherwise the StateLoaded default.
     let resolveZoomRoot (graph: Graph) (preferred: NodeId) : NodeId =

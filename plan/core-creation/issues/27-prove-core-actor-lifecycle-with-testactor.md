@@ -1,7 +1,7 @@
 # 27 — Prove Core Actor lifecycle with TestActor
 
 **Type:** task
-**Status:** blocked
+**Status:** defined
 **Blocked by:** [[plan/core-creation/issues/17-cancel-a-job.md]]
 Actual: 15m
 

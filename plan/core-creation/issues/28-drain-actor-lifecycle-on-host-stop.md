@@ -1,7 +1,7 @@
 # 28 — Drain Actor lifecycle on host stop
 
 **Type:** task
-**Status:** blocked
+**Status:** defined
 **Blocked by:** [[plan/core-creation/issues/27-prove-core-actor-lifecycle-with-testactor.md]]
 Actual: 10m
 

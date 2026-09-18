@@ -1,6 +1,6 @@
 # 14 — Server tracks credentials
 
-**Status:** blocked
+**Status:** defined
 **Blocked by:** [[plan/core-creation/issues/02-core-actor-pool.md]]
 **Actual:** 55m
 

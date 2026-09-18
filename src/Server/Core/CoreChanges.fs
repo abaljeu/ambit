@@ -12,25 +12,22 @@ type Caller =
       secret: Credential }
 
 type CoreChangesAccepted =
-    { revision: Revision
+    { eventId: EventId
       /// Stored Events for POST /events ACK (submission / request order).
       events: Ev list
       externalChanges: bool
       message: string option
       isReady: bool }
 
-/// The Core Changes contract. Every Change reaches persistence through this handle.
-/// HTTP uses `postEvents` (Ev list from wire). `postChange` is graph-apply only
-/// (Change list) — CoreEventDispatch builds Changes from Ev ops and calls postChange.
+/// The Core Changes contract. Both doors take Ev.
+/// Graph-only skips file persist, not EventLog.
 type CoreChanges =
     { getState: unit -> Async<Result<State, string>>
-      getRevision: unit -> Async<Gambol.Shared.EventId>
+      getEventId: unit -> Async<Gambol.Shared.EventId>
       getEventsSince: Gambol.Shared.EventId -> Async<Ev list>
       isReady: unit -> bool
-      postChange: Change list -> Async<Result<CoreChangesAccepted, string>>
       postEvents: Ev list -> Async<Result<CoreChangesAccepted, string>>
-      postGraphOnlyChange:
-        Change -> Async<Result<CoreChangesAccepted, string>>
+      postGraphOnly: Ev -> Async<Result<CoreChangesAccepted, string>>
       actorStop: ActorResult -> Async<Result<unit, string>>
       /// Rebind posts to another Caller on the same mailbox door.
       asCaller: Caller -> CoreChanges }
@@ -39,13 +36,13 @@ type CoreChanges =
 module CoreChanges =
 
     let accepted
-        (revision: Revision)
+        (eventId: EventId)
         (isReady: bool)
         (events: Ev list)
         (externalChanges: bool)
         (message: string option)
         : CoreChangesAccepted =
-        { revision = revision
+        { eventId = eventId
           events = events
           externalChanges = externalChanges
           message = message
@@ -55,7 +52,7 @@ module CoreChanges =
         (prior: CoreChangesAccepted)
         (next: CoreChangesAccepted)
         : CoreChangesAccepted =
-        { revision = next.revision
+        { eventId = next.eventId
           events = prior.events @ next.events
           externalChanges =
             prior.externalChanges || next.externalChanges

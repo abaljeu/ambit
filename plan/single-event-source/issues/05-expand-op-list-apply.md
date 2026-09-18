@@ -1,6 +1,7 @@
 # 05 — Expand Op-list apply
 
-**Status:** ready-to-implement
+**Status:** done
+**Actual:** 1h30m
 **Blocked by:** None — can start immediately
 
 ## Context
@@ -15,7 +16,7 @@ Add Op-list apply, invert, amend, and PersistStamp beside leftover Change wrappi
 
 Modules **Ev**, **ChangeValidation**, **PersistStamp**. Seam **Op apply**. State / Interface / Uses: [[../arch.md|Single event source architecture]].
 
-- [ ] 1.1.2 Op-list apply — `Ev.apply` / invert / ChangeValidation / amend / PersistStamp take `Op list` (or Ops on EventBody). They do not wrap leftover Change. `Change.apply` still compiles.
+- [x] 1.1.2 Op-list apply — `Ev.apply` / invert / ChangeValidation / amend / PersistStamp take `Op list` (or Ops on EventBody). They do not wrap leftover Change. `Change.apply` still compiles.
 
 ## Out of scope
 
@@ -26,3 +27,7 @@ Modules **Ev**, **ChangeValidation**, **PersistStamp**. Seam **Op apply**. State
 ## See also
 
 [[../arch.md|Single event source architecture]], [[../map.md]]
+
+## Time
+
+- 2026-09-16 1h30m — Op-list apply, invert, ChangeValidation, amend, PersistStamp beside leftover Change (from chat)

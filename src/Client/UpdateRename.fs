@@ -57,11 +57,7 @@ let submitRenamePromptOp (model: VM) : VM * Effect list =
             if ops.IsEmpty then
                 result, []
             else
-                let change =
-                    { id = model.revision.Value
-                      submissionId = System.Guid.NewGuid()
-                      ops = ops }
-                match applyAndPost (displayName Rename) change result with
+                match applyAndPost (displayName Rename) ops result with
                 | Ok (m, effects) -> withSiteMap m, effects
                 | Error msg ->
                     { result with lastCmdResult = Some (CmdLastResult.Error (None, msg)) }, []

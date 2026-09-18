@@ -6,8 +6,12 @@ open Xunit
 
 [<Fact>]
 let ``normalize ensures trailing directory separator`` () =
-    let withSep = Path.Combine("c:", "data") + string Path.DirectorySeparatorChar
-    let withoutSep = Path.Combine("c:", "data")
+    let withoutSep =
+        Path.Combine(Path.GetTempPath(), "gambol-datadir-normalize")
+        |> Path.GetFullPath
+        |> fun p ->
+            p.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+    let withSep = withoutSep + string Path.DirectorySeparatorChar
     Assert.Equal(withSep, DataDir.normalize withoutSep)
     Assert.Equal(withSep, DataDir.normalize withSep)
 

@@ -8,8 +8,8 @@ open Gambol.Shared
 /// - startActor: Start an Actor with ActorStart (includes revision).
 ///   Returns startActor bookkeeping result; does not wait for Actor body.
 /// - actorStop: Stop an Actor with ActorResult.
-/// - postChange / coreChanges: Credentialed Actor Changes use the same mailbox
-///   as Browser Changes; no second Actor mailbox.
+/// - postEvents / coreChanges: Credentialed Actor Events use the same mailbox
+///   as Browser Events; no second Actor mailbox.
 ///
 /// Secrets:
 /// - The mailbox owns one CoreCredentials set of Caller on the loop.
@@ -46,11 +46,10 @@ module CoreMailbox =
         : Async<Gambol.Shared.EventLog> =
         reply host GetEventHistory
 
-    let getRevision (host: MailboxHost) : Async<Gambol.Shared.EventId> =
+    let getEventId (host: MailboxHost) : Async<Gambol.Shared.EventId> =
         async {
-            let! result = reply host GetRevision
-            let (Revision rev) = unwrap result
-            return Gambol.Shared.EventId rev
+            let! result = reply host GetEventId
+            return unwrap result
         }
 
     let getEventsSince
@@ -62,15 +61,6 @@ module CoreMailbox =
                 reply host (fun channel -> GetEventsSince(after, channel))
             return unwrap result
         }
-
-    let private eventFromChange
-        (change: Change)
-        : Ev =
-        { id = Gambol.Shared.EventId 0
-          submissionId = change.submissionId
-          authority = Gambol.Shared.Authority ""
-          commandName = ""
-          body = Gambol.Shared.EventBody.Change change.ops }
 
     let private postEventAccepted
         (host: MailboxHost)
@@ -93,22 +83,15 @@ module CoreMailbox =
             | Ok (stored, Some accepted) ->
                 return Ok { accepted with events = [ stored ] }
             | Ok (stored, None) ->
-                let! revision = getRevision host
+                let! eventId = getEventId host
                 return
                     Ok(
                         CoreChanges.accepted
-                            (Revision revision.Value)
+                            eventId
                             (MailboxHost.isReady host ())
                             [ stored ]
                             false
                             None)
-        }
-
-    let private postOneChange host caller change =
-        async {
-            let! posted =
-                postEventAccepted host caller (eventFromChange change)
-            return! acceptedFromPosted host posted
         }
 
     let private mergePostLoop postOne host caller first rest =
@@ -135,26 +118,6 @@ module CoreMailbox =
                     List.fold
                         folder
                         (async.Return(Ok accepted))
-                        rest
-        }
-
-    /// Transport may pass a Change list; each Change becomes one PostEvent
-    /// on the mailbox queue (no multi-Ev CoreMsg / postMany).
-    let postChange
-        (host: MailboxHost)
-        (caller: Caller)
-        (changes: Change list)
-        : Async<Result<CoreChangesAccepted, string>> =
-        async {
-            match changes with
-            | [] -> return Error "changes must not be empty"
-            | first :: rest ->
-                return!
-                    mergePostLoop
-                        postOneChange
-                        host
-                        caller
-                        first
                         rest
         }
 
@@ -200,14 +163,14 @@ module CoreMailbox =
         : Async<Gambol.Shared.EventLog> =
         reply host (fun channel -> EventsSince(after, channel))
 
-    /// Graph-only Change: same Ev flow as postChange, skips file persistence only.
-    let postGraphOnlyChange
+    /// Graph-only Ev: same flow as postEvents, skips file persist only.
+    let postGraphOnly
         (host: MailboxHost)
         (caller: Caller)
-        (change: Change)
+        (event: Ev)
         : Async<Result<CoreChangesAccepted, string>> =
         reply host (fun channel ->
-            PostGraphOnlyChange(caller, change, channel))
+            PostGraphOnly(caller, event, channel))
 
     let startActor
         (host: MailboxHost)
@@ -254,13 +217,11 @@ module CoreMailbox =
         : CoreChanges =
         let rec make (c: Caller) : CoreChanges =
             { getState = fun () -> tryGetState host
-              getRevision = fun () -> getRevision host
+              getEventId = fun () -> getEventId host
               getEventsSince = getEventsSince host
               isReady = MailboxHost.isReady host
-              postChange = postChange host c
               postEvents = postEvents host c
-              postGraphOnlyChange =
-                fun change -> postGraphOnlyChange host c change
+              postGraphOnly = fun event -> postGraphOnly host c event
               actorStop = fun result -> actorStop host c result
               asCaller = make }
         make caller

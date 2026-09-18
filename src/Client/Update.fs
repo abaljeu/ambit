@@ -20,21 +20,21 @@ let firstGraphChild = ViewModel.firstGraphChild
 
 let private rejectPending detail (model: VM) : VM * Effect list =
     let err = Some (CmdLastResult.Error (None, detail))
-    if model.syncInfo.pendingChanges.IsEmpty then
+    if model.syncInfo.pending.IsEmpty then
         { model with lastCmdResult = err }, []
     else
         { model with
             lastCmdResult = err
             syncInfo =
                 model.syncInfo
-                |> SyncInfo.withPendingChanges []
+                |> SyncInfo.withPending []
                 |> SyncInfo.withSyncState ServerRejected },
         [ SavePendingQueue [] ]
 
 let private applySubmitResponse
-    (submitted: PendingChange list)
+    (submitted: Ev list)
     (confirmed: Ev list)
-    (revision: Revision)
+    (eventId: EventId)
     (externalChanges: bool)
     (message: string option)
     (model: VM)
@@ -43,10 +43,10 @@ let private applySubmitResponse
     | ServerRejected | CodeOutdated | DataOutdated ->
         consoleLog (
             "[Gambol sync] SubmitResponse IGNORED blocked-risk serverAck="
-            + string revision.Value + " modelRev=" + string model.revision.Value)
+            + string eventId.Value + " modelRev=" + string model.eventId.Value)
         model, []
     | _ ->
-        let serverRev = EventId.ofRevision revision
+        let serverRev = eventId
         let useExternal =
             externalChanges
             || not (SyncLogic.isConfirmationEcho submitted confirmed)
@@ -67,14 +67,14 @@ let private applySubmitResponse
         | AckReconcile.Applied (nextState, nextSync, submitEffects, suffixOps) ->
             consoleLog (
                 "[Gambol sync] SubmitResponse apply prevRev="
-                + string model.revision.Value
-                + " serverAck=" + string revision.Value
-                + " pendingNext=" + string nextSync.pendingChanges.Length
+                + string model.eventId.Value
+                + " serverAck=" + string eventId.Value
+                + " pendingNext=" + string nextSync.pending.Length
                 + " external=" + string useExternal)
             let updated =
                 { model with
                     graph = nextState.graph
-                    revision = EventId.toRevision nextState.revision
+                    eventId = nextState.eventId
                     history = nextState.history
                     syncInfo = nextSync
                     lastCmdResult =
@@ -86,16 +86,16 @@ let private applySubmitResponse
             let nextSync', pollEffects =
                 if
                     useExternal
-                    && nextSync.pendingChanges.IsEmpty
+                    && nextSync.pending.IsEmpty
                     && nextSync.catchUp.IsSome
                 then
                     SyncPlanner.tryStartPoll
-                        (EventId.ofRevision model.revision)
+                        (model.eventId)
                         nextSync
                 else
                     nextSync, []
             { updated' with syncInfo = nextSync' },
-            (SavePendingQueue nextSync'.pendingChanges)
+            (SavePendingQueue nextSync'.pending)
             :: submitEffects
             @ pollEffects
             @ autoEffects
@@ -126,7 +126,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
         let siteMap, nextId =
             ViewModel.buildSiteMapFrom graph zoomRoot (Sid 0)
         { graph = graph
-          revision = EventId.toRevision response.revision
+          eventId = response.eventId
           history = ClientHistory.clear ()
           selectedNodes = None
           mode = Selecting
@@ -150,22 +150,22 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
     | AckSyncRisk ->
         { model with syncInfo = { model.syncInfo with syncRiskAcknowledged = true } }, []
 
-    | SysMsg (SubmitResponse (submitted, confirmed, revision, externalChanges, message)) ->
-        applySubmitResponse submitted confirmed revision externalChanges message model
+    | SysMsg (SubmitResponse (submitted, confirmed, eventId, externalChanges, message)) ->
+        applySubmitResponse submitted confirmed eventId externalChanges message model
 
     | SysMsg (SubmitRejected detail) ->
         consoleLog (
-            "[Gambol sync] SubmitRejected modelRev=" + string model.revision.Value
-            + " pending=" + string model.syncInfo.pendingChanges.Length
+            "[Gambol sync] SubmitRejected modelRev=" + string model.eventId.Value
+            + " pending=" + string model.syncInfo.pending.Length
             + " detail=" + detail)
         rejectPending detail model
 
-    | SysMsg (SubmitNetworkError (baseRev, changes, kind)) ->
+    | SysMsg (SubmitNetworkError (baseEventId, events, kind)) ->
         consoleLog (
-            "[Gambol sync] SubmitNetworkError modelRev=" + string model.revision.Value
-            + " pending=" + string model.syncInfo.pendingChanges.Length
+            "[Gambol sync] SubmitNetworkError modelRev=" + string model.eventId.Value
+            + " pending=" + string model.syncInfo.pending.Length
             + " kind=" + string kind)
-        if model.syncInfo.pendingChanges.IsEmpty then model, []
+        if model.syncInfo.pending.IsEmpty then model, []
         else
             let n =
                 match model.syncInfo.syncState with
@@ -176,7 +176,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
             { model with
                 syncInfo =
                     model.syncInfo
-                    |> SyncInfo.withSyncState (WaitingToRetry (n, baseRev, changes)) },
+                    |> SyncInfo.withSyncState (WaitingToRetry (n, baseEventId, events)) },
             [ ScheduleRetry delayMs ]
 
     | SysMsg (SetPollingActive active) ->
@@ -206,7 +206,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
     | SysMsg PollTick ->
         let si, effects =
             SyncPlanner.tryStartPoll
-                (EventId.ofRevision model.revision)
+                (model.eventId)
                 model.syncInfo
         { model with syncInfo = si }, effects
 
@@ -248,7 +248,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                         { readyModel with
                             graph = newState.graph
                             history = newState.history
-                            revision = EventId.toRevision newState.revision }
+                            eventId = newState.eventId }
                         |> withSiteMap
                         |> adjustModeAfterServerApply readyModel.graph
                     { kept with
@@ -261,8 +261,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
             | Some baseline, _ :: _ ->
                 let serverRev =
                     responseRevision
-                    |> Option.map EventId.ofRevision
-                    |> Option.defaultValue baseline.revision
+                    |> Option.defaultValue baseline.eventId
                 match
                     SyncLogic.consumeCatchUpPoll
                         baseline
@@ -278,12 +277,12 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                         "[Gambol sync] PollDone catchUp applied="
                         + string events.Length
                         + " newRev="
-                        + string newState.revision.Value)
+                        + string newState.eventId.Value)
                     let synced =
                         { readyModel with
                             graph = newState.graph
                             history = newState.history
-                            revision = EventId.toRevision newState.revision
+                            eventId = newState.eventId
                             syncInfo = si |> SyncInfo.clearCatchUp }
                         |> withSiteMap
                         |> adjustModeAfterServerApply readyModel.graph
@@ -314,12 +313,12 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                             "[Gambol sync] PollDone autoSync applied="
                             + string events.Length
                             + " newRev="
-                            + string newState.revision.Value)
+                            + string newState.eventId.Value)
                         let synced =
                             { readyModel with
                                 graph = newState.graph
                                 history = newState.history
-                                revision = EventId.toRevision newState.revision
+                                eventId = newState.eventId
                                 syncInfo = si }
                             |> withSiteMap
                             |> adjustModeAfterServerApply readyModel.graph
@@ -327,10 +326,10 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                 | Some s ->
                     { readyModel with syncInfo = SyncInfo.withSyncState s si }, []
 
-    | SysMsg (BootGraphApplied (graph, revision, history, ready)) ->
+    | SysMsg (BootGraphApplied (graph, eventId, history, ready)) ->
         { model with
             graph = graph
-            revision = revision
+            eventId = eventId
             history = history
             syncInfo =
                 model.syncInfo
@@ -350,10 +349,10 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
             | None -> model
         let si = SyncInfo.withSyncState Idle readyModel.syncInfo
         let hasPayload =
-            not (List.isEmpty syncResponse.changes)
+            not (List.isEmpty syncResponse.events)
             || not (List.isEmpty syncResponse.packages)
         let hasPendingLocal =
-            not readyModel.syncInfo.pendingChanges.IsEmpty
+            not readyModel.syncInfo.pending.IsEmpty
             || match readyModel.syncInfo.syncState with
                | Sending _ | WaitingToRetry _ -> true
                | _ -> false
@@ -383,17 +382,17 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                     syncInfo = SyncInfo.withSyncState DataOutdated si }, []
             | Ok newState ->
                 consoleLog (
-                    "[Gambol sync] LoadDone applied changes="
-                    + string syncResponse.changes.Length
+                    "[Gambol sync] LoadDone applied events="
+                    + string syncResponse.events.Length
                     + " packages="
                     + string syncResponse.packages.Length
                     + " newRev="
-                    + string newState.revision.Value)
+                    + string newState.eventId.Value)
                 let synced =
                     { readyModel with
                         graph = newState.graph
                         history = newState.history
-                        revision = EventId.toRevision newState.revision
+                        eventId = newState.eventId
                         syncInfo = si }
                     |> withSiteMap
                     |> adjustModeAfterServerApply readyModel.graph

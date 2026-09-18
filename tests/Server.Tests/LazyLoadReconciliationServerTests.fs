@@ -124,8 +124,13 @@ let ``server reconciler applies planner ops through active agent`` () =
     let tempDir = newTempDir ()
     let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId, ops = FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
-    let change = { id = 0; submissionId = Guid.NewGuid(); ops = ops }
-    handle.postChange [ change ]
+    let event =
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change ops }
+    handle.postEvents [ event ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
@@ -158,8 +163,13 @@ let ``server reconciler adds disk files outside the changed path list`` () =
     let tempDir = newTempDir ()
     let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId, ops = FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
-    let change = { id = 0; submissionId = Guid.NewGuid(); ops = ops }
-    handle.postChange [ change ]
+    let event =
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change ops }
+    handle.postEvents [ event ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
@@ -193,8 +203,13 @@ let ``server reconciler adds missing directory and file nodes from discovered pa
     let tempDir = newTempDir ()
     let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId, ops = FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
-    let change = { id = 0; submissionId = Guid.NewGuid(); ops = ops }
-    handle.postChange [ change ]
+    let event =
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change ops }
+    handle.postEvents [ event ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
@@ -234,8 +249,13 @@ let ``post receive rename of unparsed stub is rejected without moving disk twice
     let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId, ops =
         FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
-    let change = { id = 0; submissionId = Guid.NewGuid(); ops = ops }
-    handle.postChange [ change ]
+    let event =
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change ops }
+    handle.postEvents [ event ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
@@ -292,8 +312,13 @@ let ``server reconciler posts good sibling when one path fails`` () =
     let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId, ops =
         FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
-    let change = { id = 0; submissionId = Guid.NewGuid(); ops = ops }
-    handle.postChange [ change ]
+    let event =
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change ops }
+    handle.postEvents [ event ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
@@ -368,16 +393,26 @@ let ``latest diagnostics GET returns failures once then empty`` () =
 
 let private postWorkspace (fileAgent: MailboxHost) (label: string) =
     let workspaceId, ops = FileNodeOps.planCreateWorkspace (Graph.create ()) label
-    let change = { id = 0; submissionId = Guid.NewGuid(); ops = ops }
-    (admittedChanges fileAgent).postChange [ change ]
+    let event =
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change ops }
+    (admittedChanges fileAgent).postEvents [ event ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
     workspaceId
 
-let private postOps (fileAgent: MailboxHost) (revision: int) (ops: Op list) =
-    let change = { id = revision; submissionId = Guid.NewGuid(); ops = ops }
-    (admittedChanges fileAgent).postChange [ change ]
+let private postOps (fileAgent: MailboxHost) (_revision: int) (ops: Op list) =
+    let event =
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change ops }
+    (admittedChanges fileAgent).postEvents [ event ]
     |> Async.RunSynchronously
     |> requireOk "ops"
     |> ignore
@@ -696,8 +731,8 @@ let ``directory reconciliation POST returns failures JSON`` () =
     let tempDir = newTempDir ()
     use client = createClientForDir tempDir
     let workspaceId, wsOps = FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
-    let wsChange = { id = 0; submissionId = Guid.NewGuid(); ops = wsOps }
-    let wsEvent = eventFromChange wsChange
+    let wsChange = SpecialNodeTestHelpers.changeEventZero "" wsOps
+    let wsEvent = wsChange
     let wsBody =
         Thoth.Json.Newtonsoft.Encode.toString 0
             (EventJson.encodeEventBatch
@@ -722,8 +757,9 @@ let ``directory reconciliation POST returns failures JSON`` () =
         |> snd
     let _, docsOps =
         FileNodeOps.planCreateOwnedDirectory graph workspaceId "docs"
-    let docsChange = { id = 1; submissionId = Guid.NewGuid(); ops = docsOps }
-    let docsEvent = eventFromChange docsChange
+    let docsChange =
+        SpecialNodeTestHelpers.changeEvent "" EventId.zero (Guid.NewGuid()) docsOps
+    let docsEvent = docsChange
     let docsBody =
         Thoth.Json.Newtonsoft.Encode.toString 0
             (EventJson.encodeEventBatch
@@ -758,8 +794,8 @@ let ``workspace reconciliation POST with empty path discovers root`` () =
     let tempDir = newTempDir ()
     use client = createClientForDir tempDir
     let workspaceId, wsOps = FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
-    let wsChange = { id = 0; submissionId = Guid.NewGuid(); ops = wsOps }
-    let wsEvent = eventFromChange wsChange
+    let wsChange = SpecialNodeTestHelpers.changeEventZero "" wsOps
+    let wsEvent = wsChange
     let wsBody =
         Thoth.Json.Newtonsoft.Encode.toString 0
             (EventJson.encodeEventBatch

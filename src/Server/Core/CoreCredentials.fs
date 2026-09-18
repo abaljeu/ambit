@@ -50,13 +50,13 @@ module CoreAuth =
     let post
         (live: bool)
         (enqueue:
-            Change list -> Async<Result<CoreChangesAccepted, string>>)
-        (changes: Change list)
+            Ev list -> Async<Result<CoreChangesAccepted, string>>)
+        (events: Ev list)
         : Async<Result<CoreChangesAccepted, string>> =
         async {
             match admit live with
             | Error err -> return Error(CoreAdmissionError.text err)
-            | Ok () -> return! enqueue changes
+            | Ok () -> return! enqueue events
         }
 
     /// Stamp Caller onto posts; mailbox CoreMsg validates before persist.

@@ -17,12 +17,12 @@ type BootstrapScope =
 /// Response from GET /{file}/state.
 type StateResponse =
     { graph: Graph
-      revision: Gambol.Shared.EventId
+      eventId: Gambol.Shared.EventId
       isReady: bool }
 
 /// Complete success response from POST /changes (or /events alias) and GET /poll.
 type ChangeSuccessResponse =
-    { revision: Gambol.Shared.EventId
+    { eventId: Gambol.Shared.EventId
       buildEpochSec: int
       pageBuildEpochSec: int
       apiVersion: int
@@ -34,8 +34,6 @@ type ChangeSuccessResponse =
       /// Optional ROOT-closure fingerprint; omitted by old Servers.
       bootstrapHash: string option }
 
-    member this.changes = this.events
-
 /// One selected Load target and whether its owning Workspace package is needed.
 type LoadTarget =
     { targetId: NodeId
@@ -43,26 +41,22 @@ type LoadTarget =
 
 /// Request body for POST /ambit/load (Fetch + Poll for the full selection).
 type LoadRequest =
-    { revision: EventId
+    { eventId: EventId
       targets: LoadTarget list }
 
 /// Response from POST /ambit/load: Poll stamp envelope plus optional Workspace subgraphs.
 type LoadResponse =
-    { revision: EventId
+    { eventId: EventId
       buildEpochSec: int
       pageBuildEpochSec: int
       apiVersion: int
       isReady: bool
       events: Ev list
-      /// Complete Workspace subgraph Nodes at the response Revision (wire: packages).
+      /// Complete Workspace subgraph Nodes at the response event id (wire: packages).
       packages: Node list }
-
-    member this.changes = this.events
 
 /// Authoritative Sync install: ordered Change tail plus optional resident packages.
 type SyncResponse =
     { events: Ev list
-      /// Complete Workspace / child-list snapshots at the response revision.
+      /// Complete Workspace / child-list snapshots at the response event id.
       packages: Node list }
-
-    member this.changes = this.events

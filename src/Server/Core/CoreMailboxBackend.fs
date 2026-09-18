@@ -8,10 +8,8 @@ open Gambol.Shared
 module internal CoreMailboxBackend =
 
     type Ev = Gambol.Shared.Ev
-    type EventId = Gambol.Shared.EventId
     type EventLog = Gambol.Shared.EventLog
     module Ev = Gambol.Shared.Ev
-    module EventId = Gambol.Shared.EventId
     module EventLog = Gambol.Shared.EventLog
 
     /// Bound on wall-clock time for a single change's persist step (disk write via
@@ -39,28 +37,46 @@ module internal CoreMailboxBackend =
         else
             task.GetAwaiter().GetResult()
 
-    let overlayFresh confirmations fresh stampOps =
-        let stamped = PersistStamp.appendToLast fresh stampOps
+    let withAppliedOps
+        (event: Gambol.Shared.Ev)
+        (ops: Op list)
+        : Gambol.Shared.Ev =
+        match event.body with
+        | EventBody.Change _ -> { event with body = EventBody.Change ops }
+        | EventBody.Undo(target, _) ->
+            { event with body = EventBody.Undo(target, ops) }
+        | EventBody.Redo(target, _) ->
+            { event with body = EventBody.Redo(target, ops) }
+        | EventBody.ActorStart _
+        | EventBody.ActorStop _ -> event
+
+    let overlayFreshEvents
+        (confirmations: Gambol.Shared.Ev list)
+        (fresh: Gambol.Shared.Ev list)
+        (stampOps: Op list)
+        : Gambol.Shared.Ev list * Gambol.Shared.Ev list =
+        let stamped = PersistStamp.appendToLastEvent fresh stampOps
         let stampedById =
             stamped
-            |> List.map (fun change -> change.submissionId, change)
+            |> List.map (fun event -> event.submissionId, event)
             |> Map.ofList
         let confirmed =
             confirmations
-            |> List.map (fun change ->
-                Map.tryFind change.submissionId stampedById
-                |> Option.defaultValue change)
+            |> List.map (fun event ->
+                Map.tryFind event.submissionId stampedById
+                |> Option.defaultValue event)
         stamped, confirmed
 
     let operationContext msg =
         match msg with
         | GetState _ -> "GetState", ""
-        | GetRevision _ -> "GetRevision", ""
+        | GetEventId _ -> "GetEventId", ""
         | GetEventsSince (after, _) ->
             "GetEventsSince", $"after={after}"
         | GetEventHistory _ -> "GetEventHistory", ""
-        | PostGraphOnlyChange (_, change, _) ->
-            "PostGraphOnlyChange", $"ops={change.ops.Length}"
+        | PostGraphOnly (_, event, _) ->
+            let n = Ev.ops event |> Option.defaultValue [] |> List.length
+            "PostGraphOnly", $"ops={n}"
         | SnapshotDone _ -> "SnapshotDone", ""
         | StartActor _ -> "StartActor", ""
         | ActorStop (_, result, _) ->
@@ -76,10 +92,10 @@ module internal CoreMailboxBackend =
     let replyFailure error msg =
         match msg with
         | GetState reply -> reply.Reply(Error error)
-        | GetRevision reply -> reply.Reply(Error error)
+        | GetEventId reply -> reply.Reply(Error error)
         | GetEventsSince (_, reply) -> reply.Reply(Error error)
         | GetEventHistory reply -> reply.Reply(EventLog.empty)
-        | PostGraphOnlyChange (_, _, reply) -> reply.Reply(Error error)
+        | PostGraphOnly (_, _, reply) -> reply.Reply(Error error)
         | SnapshotDone _ -> ()
         | StartActor (_, _, reply) -> reply.Reply(Error error)
         | ActorStop (_, _, reply) -> reply.Reply(Error error)
@@ -192,29 +208,23 @@ module internal CoreMailboxBackend =
                 reply.Reply(Error CoreAuth.refuse)
 
     /// Graph-only: same Ev flow as postEvent, but skips file persistence.
-    let private dispatchPostGraphOnlyChange
+    let private dispatchPostGraphOnly
         (context: MailboxContext)
         (caller: Caller)
-        (change: Change)
+        (event: Ev)
         (reply: AsyncReplyChannel<Result<CoreChangesAccepted, string>>)
         : unit =
-        let event: Ev =
-            { id = EventId.zero
-              submissionId = change.submissionId
-              authority = Gambol.Shared.Authority ""
-              commandName = ""
-              body = Gambol.Shared.EventBody.Change change.ops }
         match CoreEventDispatch.postEvent (eventDispatchContext context) caller event true with
         | Error err -> reply.Reply(Error err)
         | Ok (_, Some accepted) -> reply.Reply(Ok accepted)
         | Ok (_, None) ->
-            match context.persist.getRevision () with
+            match context.persist.getEventId () with
             | Error err -> reply.Reply(Error err)
-            | Ok revision ->
+            | Ok eventId ->
                 reply.Reply(
                     Ok(
                         CoreChanges.accepted
-                            revision
+                            eventId
                             true
                             []
                             false
@@ -242,16 +252,16 @@ module internal CoreMailboxBackend =
                         (context.pool.liveFocusIds ())
                         state.graph
                 reply.Reply(Ok { state with graph = graph })
-        | GetRevision reply -> reply.Reply(context.persist.getRevision ())
+        | GetEventId reply -> reply.Reply(context.persist.getEventId ())
         | GetEventsSince (after, reply) ->
             reply.Reply(context.persist.getEventsSince after)
         | GetEventHistory reply ->
             reply.Reply(context.eventLog.Value)
-        | PostGraphOnlyChange (caller, change, reply) ->
-            dispatchPostGraphOnlyChange
+        | PostGraphOnly (caller, event, reply) ->
+            dispatchPostGraphOnly
                 context
                 caller
-                change
+                event
                 reply
         | SnapshotDone graph -> context.persist.snapshotDone graph
         | StartActor (caller, request, reply) ->
@@ -287,11 +297,10 @@ module internal CoreMailboxBackend =
 
     let private failedPersist persist error : PersistHandlers = {
         getState = persist.getState
-        getRevision = persist.getRevision
+        getEventId = persist.getEventId
         getEventsSince = persist.getEventsSince
         appendEvent = fun _ -> Error error
-        postChange = fun _ -> Error error
-        postGraphOnlyChange = fun _ -> Error error
+        applyEvent = fun _ _ -> Error error
         snapshotDone = fun _ -> ()
     }
 
@@ -300,9 +309,8 @@ module internal CoreMailboxBackend =
             getEventsSince = fun _ -> Error error }
 
     let private seedEventLog (persist: PersistHandlers) =
-        let after = Gambol.Shared.EventId(-1)
         try
-            persist.getEventsSince after
+            persist.getEventsSince EventId.beforeAll
             |> Result.map EventLog.restorePersisted
         with ex ->
             Error ex.Message
@@ -362,7 +370,7 @@ module internal CoreMailboxBackend =
                             (fun msg ->
                                 match msg with
                                 | GetState _
-                                | GetRevision _
+                                | GetEventId _
                                 | GetEventsSince _
                                 | GetEventHistory _
                                 | EventsSince _ ->

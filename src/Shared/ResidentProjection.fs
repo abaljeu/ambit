@@ -50,9 +50,6 @@ module ResidentProjection =
         | Ok (s, false) -> ApplyResult.Unchanged s
         | Ok (s, true) -> ApplyResult.Changed s
 
-    let applyChange (change: Change) (state: State) : ApplyResult =
-        applyOps change.ops state
-
     /// Merge authoritative package Nodes and rebuild Loaded-only indexes.
     let installPackages (packages: Node list) (graph: Graph) : Graph =
         if List.isEmpty packages then
@@ -213,13 +210,13 @@ module ResidentProjection =
             | [ wsId ] -> Ok(workspaceSubgraphNodes graph wsId)
             | _ -> Ok []
 
-    /// Capture LoadResponse fields at one Revision (changes + optional subgraph).
+    /// Capture LoadResponse fields at one EventId (events + optional subgraph).
     let captureLoadResponse
-        (revision: int)
+        (eventId: EventId)
         (buildEpochSec: int)
         (pageBuildEpochSec: int)
         (isReady: bool)
-        (changes: Ev list)
+        (events: Ev list)
         (graph: Graph)
         (targets: LoadTarget list)
         : Result<LoadResponse, LoadRefuse> =
@@ -227,12 +224,12 @@ module ResidentProjection =
         | Error refuse -> Error refuse
         | Ok packages ->
             Ok
-                { revision = Gambol.Shared.EventId revision
+                { eventId = eventId
                   buildEpochSec = buildEpochSec
                   pageBuildEpochSec = pageBuildEpochSec
                   apiVersion = ApiVersion.current
                   isReady = isReady
-                  events = changes
+                  events = events
                   packages = packages }
 
     /// Scoped resident graph for fresh-session bootstrap: complete ROOT Workspace,

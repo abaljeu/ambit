@@ -341,10 +341,32 @@ let createDbModeWithoutConnectionClientForDir (tempDir: string) =
 let createDbModeWithoutConnectionClient () =
     createDbModeWithoutConnectionClientForDir (newTempDir ())
 
-/// Convert a Change to an Ev for wire encoding in tests.
-let eventFromChange (change: Gambol.Shared.Change) : Ev =
-    { id = Gambol.Shared.EventId 0
-      submissionId = change.submissionId
-      authority = Gambol.Shared.Authority ""
+let eventOps (event: Ev) =
+    Ev.ops event |> Option.defaultValue []
+
+let changeEvent commandName (id: EventId) submissionId ops : Ev =
+    { id = id
+      submissionId = submissionId
+      authority = Authority "Browser"
+      commandName = commandName
+      body = EventBody.Change ops }
+
+let wireEvent submissionId ops : Ev =
+    { id = EventId.zero
+      submissionId = submissionId
+      authority = Authority ""
       commandName = ""
-      body = Gambol.Shared.EventBody.Change change.ops }
+      body = EventBody.Change ops }
+
+let applyChange (event: Ev) (state: State) =
+    ChangeValidation.applyOps (eventOps event) state
+
+let addRootChildEvent text : NodeId * Ev =
+    let childId = NodeId.New()
+    childId,
+    changeEvent
+        ""
+        EventId.zero
+        (Guid.NewGuid())
+        [ Op.NewNode(childId, text)
+          Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ]

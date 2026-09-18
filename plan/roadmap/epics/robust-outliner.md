@@ -46,6 +46,7 @@ The Epic is not done until each item is done (or the named part). Chapter checkl
 Live:
 
 - [ ] [[plan/event-sourced-ops/project.md]] — remainder beyond the Parse definition in [[chapters/actors-supported.md]], including advisory soft-lock behavior
+- [ ] [[plan/single-event-source/project.md]] — Event as the sole durable source of truth for Graph history and apply
 - [ ] [[plan/architecture/map.md]] — remainder of the architecture wiki; portions about other Epics gate those Epics
 - [ ] [[plan/debug-reload/project.md]] — architecture documentation: debug modules and esbuild hard-reload
 - [ ] [[plan/end-user-wiki/map.md]] — portion for this Epic (not yet filed)

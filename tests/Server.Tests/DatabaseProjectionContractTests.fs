@@ -18,9 +18,11 @@ let private stamp value =
     DateTime(2026, 7, 24, 12, value, 0, DateTimeKind.Utc)
 
 let private change ops =
-    { id = 0
+    { id = EventId.zero
       submissionId = Guid.NewGuid()
-      ops = ops }
+      authority = Authority "Browser"
+      commandName = ""
+      body = EventBody.Change ops }
 
 let private graphWithCustomNodes nodes =
     let customNodes = nodes |> List.map (fun (node: Node) -> node.id, node)
@@ -39,11 +41,11 @@ let private replaceProjection connStr graph revision = task {
     tx.Commit()
 }
 
-let private persistPatch connStr graph revision changes = task {
+let private persistPatch connStr graph eventId changes = task {
     use conn = Database.getConnection connStr
     do! conn.OpenAsync()
     use tx = conn.BeginTransaction()
-    let patch = DatabaseProjection.plan graph revision changes
+    let patch = DatabaseProjection.plan graph eventId changes
     do! DatabaseProjection.persistWithTx tx graph patch |> Async.AwaitTask
     tx.Commit()
 }
@@ -75,7 +77,7 @@ let private scalar<'a> connStr sql = task {
     return unbox<'a> result
 }
 
-let private encodeBatch (changes: Change list) = changes
+let private encodeBatch (changes: Ev list) = changes
 
 let private exec connStr sql (parameters: (string * obj) list) = task {
     use conn = Database.getConnection connStr
@@ -138,7 +140,7 @@ let ``writer upserts complete nodes children revision and reloads`` () = task {
           Op.NewNode(firstId, "first")
           Op.NewNode(secondId, "second")
           Op.Replace(parentId, [], initial.children) ]
-    do! persistPatch connStr initialGraph 1 [ change createOps ]
+    do! persistPatch connStr initialGraph (EventId.fromJson 1) [ change createOps ]
 
     let final =
         { initial with
@@ -155,7 +157,7 @@ let ``writer upserts complete nodes children revision and reloads`` () = task {
           Op.SetDocumentState(parentId, Current, Unparsed)
           Op.SetUpdateTime(parentId, stamp 2, stamp 4)
           Op.Replace(parentId, initial.children, final.children) ]
-    do! persistPatch connStr finalGraph 2 [ change updateOps ]
+    do! persistPatch connStr finalGraph (EventId.fromJson 2) [ change updateOps ]
 
     use conn = new NpgsqlConnection(connStr)
     do! conn.OpenAsync()
@@ -187,8 +189,8 @@ let ``writer upserts complete nodes children revision and reloads`` () = task {
     let! loaded = Database.tryLoadGraphFromProjection connStr |> Async.AwaitTask
     match loaded with
     | Error error -> Assert.Fail(error)
-    | Ok (graph, loadedRevision) ->
-        Assert.Equal(2, loadedRevision)
+    | Ok (graph, loadedEventId) ->
+        Assert.Equal(EventId.fromJson 2, loadedEventId)
         Assert.True(GraphProjection.graphEquals finalGraph graph)
 }
 
@@ -220,7 +222,7 @@ let ``writer clears one parent without rewriting unrelated rows and rolls back``
     let ops =
         [ Op.SetText(parentAId, "before", "after")
           Op.Replace(parentAId, [ edgeA ], []) ]
-    do! persistPatch connStr final 6 [ change ops ]
+    do! persistPatch connStr final (EventId.fromJson 6) [ change ops ]
 
     let! remaining =
         scalarById<int64> connStr
@@ -242,7 +244,7 @@ let ``writer clears one parent without rewriting unrelated rows and rolls back``
     let rolledBack =
         graphWithCustomNodes [ { clearedA with text = "rolled-back" }; parentB; childA; childB ]
     let patch =
-        DatabaseProjection.plan rolledBack 7
+        DatabaseProjection.plan rolledBack (EventId.fromJson 7)
             [ change [ Op.SetText(parentAId, "after", "rolled-back") ] ]
     do! DatabaseProjection.persistWithTx tx rolledBack patch |> Async.AwaitTask
     tx.Rollback()
@@ -262,14 +264,16 @@ let ``db bootstrap duplicate returns stored Change and rejects no-op`` () = task
     let childId = id 70
 
     let accepted =
-        { id = 0
+        { id = EventId.zero
           submissionId = Guid.NewGuid()
-          ops =
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change
             [ Op.NewNode(childId, "bootstrap")
               Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
 
     let core = admittedChanges agent
-    let! first = core.postChange (encodeBatch [ accepted ]) |> Async.StartAsTask
+    let! first = core.postEvents ((encodeBatch [ accepted ])) |> Async.StartAsTask
     let firstAck =
         match first with
         | Ok ack -> ack
@@ -281,7 +285,7 @@ let ``db bootstrap duplicate returns stored Change and rejects no-op`` () = task
         scalar<string> connStr "SELECT xmin::text FROM graph WHERE singleton = 1"
 
     let! duplicate =
-        core.postChange (encodeBatch [ accepted ]) |> Async.StartAsTask
+        core.postEvents ((encodeBatch [ accepted ])) |> Async.StartAsTask
     match duplicate with
     | Ok ack ->
         Assert.Equal<Ev list>(
@@ -290,10 +294,12 @@ let ``db bootstrap duplicate returns stored Change and rejects no-op`` () = task
     | Error err -> failwith err
 
     let noOp =
-        { id = 1
+        { id = EventId.zero
           submissionId = Guid.NewGuid()
-          ops = [] }
-    let! unchanged = core.postChange (encodeBatch [ noOp ]) |> Async.StartAsTask
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [] }
+    let! unchanged = core.postEvents ((encodeBatch [ noOp ])) |> Async.StartAsTask
     match unchanged with
     | Ok _ -> Assert.Fail("unchanged submission must be rejected")
     | Error err -> Assert.Contains("Unchanged", err)

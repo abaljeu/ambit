@@ -18,7 +18,6 @@
   <ItemGroup>
     <Compile Include="DataDir.fs" />
     <Compile Include="Types.fs" />
-    <Compile Include="AuthToken.fs" />
     <Compile Include="AmbitApp.fs" />
     <Compile Include="HttpResponseLog.fs" />
     <Compile Include="GitSave.fs" />
@@ -47,8 +46,8 @@
     <Compile Include="DatabaseSetup.fs" />
     <Compile Include="SavePrep.fs" />
     <Compile Include="Core\CoreRuntime.fs" />
-    <Compile Include="Api.fs" />
     <Compile Include="GraphOnlyChangePost.fs" />
+    <Compile Include="Api.fs" />
     <Compile Include="LazyLoadReconciliationServer.fs" />
     <Compile Include="HeadPresence.fs" />
     <Compile Include="BrowserRequestCreds.fs" />

@@ -3,9 +3,13 @@
 Category: Development
 See also: [[doc/arch.md]], [[.vscode/launch.json]], [[.vscode/tasks.json]]
 
+## Local app URL
+
+The local app is `http://localhost:5215/ambit`. Open `http://localhost:5215/ambit?debug=1` for unbundled Fable modules and source maps. Other docs name this URL by linking here; they do not copy host, port, path, or query.
+
 ## Two Server starters
 
-Gambol has two alternate ways to start the Server on `:5215`. They are mutually exclusive: only one can own the port.
+Gambol has two alternate ways to start the Server on that port. They are mutually exclusive: only one can own the port.
 
 | Starter | How | Debugger |
 |---------|-----|----------|

@@ -4,10 +4,6 @@ Concise glossary for this repo. Prefer these words; do not invent synonyms.  If 
 
 ## About Working
 
-**Agent-done**:
-Finished work: tests green, `/code-review` passed, and a commit on `dev` via [[scripts/commit.sh]] or human CLI. Then the human runs [[scripts/gitready.sh]] (or types the merge) to put that work on `ready`. Tickets do not record commit SHAs. Procedure: [[.agents/skills/git-protocol/SKILL.md]].
-_Avoid_: done, finished, shipped, complete
-
 **dev**:
 Desktop workplace. Ordinary commits happen here. Local-only. Procedure: [[.agents/skills/git-protocol/SKILL.md]].
 _Avoid_: original branch, project branch, `w/` (for this place)
@@ -26,18 +22,6 @@ _Avoid_: PR (as the drop), cloud branch (as the drop)
 **Original branch**:
 Retired. Use **dev**, **ready**, **master**, and **staging**. See [[.agents/skills/git-protocol/SKILL.md]].
 _Avoid_: original branch, base branch, long-lived branch
-
-**Project branch**:
-Retired. Do not create `w/` branches. See [[.agents/skills/git-protocol/SKILL.md]].
-_Avoid_: project branch, work branch, agent branch, `w/`
-
-**Git bookkeeping**:
-Retired. Do not add `plan/<feature>/git.md` for branch names. Existing files are history.
-_Avoid_: branch notes, git status file, branch tracker
-
-**Manual approval**:
-A direct user request (or tool approval card) that authorizes a named git operation. **Code pushes of `ready` are approval-gated** ([[.agents/skills/git-share/SKILL.md]]). Squash onto `master` and tags stay human-only ([[.agents/skills/git-master/SKILL.md]]). Merge goes through [[scripts/gitready.sh]] or the human CLI per [[.agents/skills/git-protocol/SKILL.md]]. Land downloaded `staging` into `dev` is [[.agents/skills/cloud-agent-git/SKILL.md]]. Pull/fetch of `ready` and `staging` needs no approval.
-_Avoid_: permission, override, allowlist exception
 
 **Issue tracker**:
 Local Markdown under `plan/` for specs and issues; see [[doc/agents/issue-tracker.md]]. Not GitHub or GitLab issues. Issues may carry optional `Estimate:` / `Actual:` and a `## Time` log. Projects carry `Started:` / `Finished:` / `Actual:` filled from chat handoffs and commits when missing.
@@ -275,7 +259,7 @@ _Avoid_: Action (when lifecycle Events are included), audit record, Change (for 
 
 **event id**:
 The unique ordered position of an Event in EventLog. The one serial type (`EventId`). Field, JSON key, and Core door follow this term (`eventId`, `getEventId`).
-_Avoid_: Revision, EventPosition, version, change id, Change.id, getRevision
+_Avoid_: Revision, EventPosition, version, change id, Change.id, getRevision, `EventId.next` (outside EventLog; policy: [[.agents/rules/core-api.md]] EventId serial)
 
 **Revision**:
 Retired name for **event id**. There is no separate Revision counter.

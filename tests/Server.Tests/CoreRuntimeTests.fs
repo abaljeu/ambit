@@ -16,13 +16,7 @@ let private requireOk label result =
         Assert.Fail($"{label}: {err}")
         Unchecked.defaultof<_>
 
-let private addRootChild text =
-    let childId = NodeId.New()
-    { id = 0
-      submissionId = System.Guid.NewGuid()
-      ops =
-        [ Op.NewNode(childId, text)
-          Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
+let private addRootChild text = addRootChildEvent text |> snd
 
 let private fileRuntime () =
     let dataDir = newTempDir ()
@@ -59,11 +53,12 @@ let ``bound Changes refuses an inactive sender and does not enqueue`` () =
             CoreMailbox.coreChanges
                 runtime.host
                 (BrowserRequestCreds.callerFromSecret (Credential "inactive"))
-        let! before = bound.getRevision () |> Async.StartAsTask
+        let! before = bound.getEventId () |> Async.StartAsTask
+        let event = addRootChild "refused"
         let! result =
-            bound.postChange [ addRootChild "refused" ] 
+            bound.postEvents [ event ] 
             |> Async.StartAsTask
-        let! after = bound.getRevision () |> Async.StartAsTask
+        let! after = bound.getEventId () |> Async.StartAsTask
         Assert.Equal(Error CoreAuth.refuse, result)
         Assert.Equal(before, after)
     }
@@ -71,13 +66,13 @@ let ``bound Changes refuses an inactive sender and does not enqueue`` () =
 [<Fact>]
 let ``bound Browser Changes admits a live Browser cookie credential`` () = task {
     let runtime = fileRuntime ()
-    let change = addRootChild "admitted"
+    let event = addRootChild "admitted"
     let! result =
-        (browserHandle runtime "alice" "secret").postChange [ change ]
+        (browserHandle runtime "alice" "secret").postEvents [ event ]
         |> Async.StartAsTask
     let accepted = requireOk "browser post" result
     Assert.Equal<Guid list>(
-        [ change.submissionId ],
+        [ event.submissionId ],
         accepted.events |> List.map (_.submissionId))
 }
 
@@ -94,9 +89,8 @@ let ``HTTP Adapter refuses inactive Core sender with 401 and does not enqueue``
                       name = ""
                       secret = Credential "inactive" }
                     handle
-            let! before = handle.getRevision () |> Async.StartAsTask
-            let change = addRootChild "http"
-            let event = eventFromChange change
+            let! before = handle.getEventId () |> Async.StartAsTask
+            let event = addRootChild "http"
             let body =
                 Encode.toString 0 (
                     Gambol.Shared.EventJson.encodeEventBatch
@@ -104,7 +98,7 @@ let ``HTTP Adapter refuses inactive Core sender with 401 and does not enqueue``
             let! result =
                 Api.postEvents bound 10 20 body
                 |> Async.StartAsTask
-            let! after = handle.getRevision () |> Async.StartAsTask
+            let! after = handle.getEventId () |> Async.StartAsTask
             Assert.Equal("UnauthorizedHttpResult", result.GetType().Name)
             Assert.Equal(before, after)
         finally
@@ -116,8 +110,7 @@ let ``HTTP Adapter enqueues when Browser credential is live`` () = task {
     let dataDir = newTempDir ()
     let agent, handle, _ = createAdmittedFileWithCredentials dataDir
     try
-        let change = addRootChild "http-live"
-        let event = eventFromChange change
+        let event = addRootChild "http-live"
         let body =
             Encode.toString 0 (
                 Gambol.Shared.EventJson.encodeEventBatch { events = [ event ] })
@@ -125,8 +118,8 @@ let ``HTTP Adapter enqueues when Browser credential is live`` () = task {
             Api.postEvents handle 10 20 body
             |> Async.StartAsTask
         Assert.False(result.GetType().Name = "UnauthorizedHttpResult")
-        let! rev = handle.getRevision () |> Async.StartAsTask
-        Assert.Equal(Gambol.Shared.EventId 1, rev)
+        let! rev = handle.getEventId () |> Async.StartAsTask
+        Assert.Equal(EventId.fromJson 1, rev)
     finally
         CoreMailbox.dispose agent
 }
@@ -135,8 +128,8 @@ let ``HTTP Adapter enqueues when Browser credential is live`` () = task {
 let ``callers reach changes on the mailbox Core door`` () = task {
     let runtime = fileRuntime ()
     let! rev =
-        CoreMailbox.getRevision runtime.host |> Async.StartAsTask
-    Assert.Equal(Gambol.Shared.EventId 0, rev)
+        CoreMailbox.getEventId runtime.host |> Async.StartAsTask
+    Assert.Equal(EventId.zero, rev)
 }
 
 [<Fact>]
@@ -148,8 +141,8 @@ let ``Graph-only post refuses an inactive Caller`` () = task {
             (BrowserRequestCreds.callerFromSecret (Credential "inactive"))
     let! result =
         GraphOnlyChangePost.postChunks
-            bound.postGraphOnlyChange
-            (Revision 0)
+            bound.postGraphOnly
+            "Parse"
             [ [ Op.NewNode(NodeId.New(), "x") ] ]
         |> Async.StartAsTask
     match result with
@@ -167,12 +160,12 @@ let ``CoreRuntime seeds a Parse process Caller distinct from Browser cookie`` ()
         let! parseLive =
             CoreMailbox.isAdmitted runtime.host runtime.parseCaller
             |> Async.StartAsTask
-        let change = addRootChild "parse-process"
+        let event = addRootChild "parse-process"
         let! posted =
-            CoreMailbox.postGraphOnlyChange
+            CoreMailbox.postGraphOnly
                 runtime.host
                 runtime.parseCaller
-                change
+                event
             |> Async.StartAsTask
         requireOk "parse Graph-only" posted |> ignore
         Assert.True(parseLive)

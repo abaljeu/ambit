@@ -144,14 +144,14 @@ let ``packagesForTarget missing target returns empty`` () =
 let ``captureLoadResponse shares revision for changes and packages`` () =
     let graph, wsId, _, fileId = graphWithNestedWorkspace ()
     let events =
-        [ Ev.ofChange
-            "fixture"
-            { id = 4
-              submissionId = System.Guid.NewGuid()
-              ops = [ Op.SetText(fileId, "old", "new") ] } ]
+        [ { id = EventId.fromJson 4
+            submissionId = System.Guid.NewGuid()
+            authority = Authority "Browser"
+            commandName = "fixture"
+            body = EventBody.Change [ Op.SetText(fileId, "old", "new") ] } ]
     match
         ResidentProjection.captureLoadResponse
-            9
+            (EventId.fromJson 9)
             100
             200
             true
@@ -161,11 +161,11 @@ let ``captureLoadResponse shares revision for changes and packages`` () =
     with
     | Error _ -> failwith "expected LoadResponse"
     | Ok response ->
-        Assert.Equal(EventId 9, response.revision)
+        Assert.Equal(EventId.fromJson 9, response.eventId)
         Assert.Equal(100, response.buildEpochSec)
         Assert.Equal(200, response.pageBuildEpochSec)
         Assert.True(response.isReady)
-        Assert.Equal(1, response.changes.Length)
+        Assert.Equal(1, response.events.Length)
         Assert.True(response.packages |> List.exists (fun n -> n.id = wsId))
 
 [<Fact>]
@@ -173,7 +173,7 @@ let ``LoadResponse toSyncResponse preserves changes and packages`` () =
     let node =
         Node.Create(NodeId.New(), text = "n", owner = Graph.rootId)
     let load: LoadResponse =
-        { revision = EventId 3
+        { eventId = EventId.fromJson 3
           buildEpochSec = 1
           pageBuildEpochSec = 2
           apiVersion = ApiVersion.current
@@ -181,7 +181,7 @@ let ``LoadResponse toSyncResponse preserves changes and packages`` () =
           events = []
           packages = [ node ] }
     let sync = SyncLogic.loadResponseToSync load
-    Assert.Empty(sync.changes)
+    Assert.Empty(sync.events)
     Assert.Equal(1, sync.packages.Length)
     Assert.Equal(node.id, sync.packages.[0].id)
 

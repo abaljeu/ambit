@@ -18,26 +18,26 @@ Prefer a ticket under `plan/<slug>/issues/`. Fetch the path or number the user n
 
 If `plan/<slug>/arch.md` exists, read it. Respect its Module map names, Seams (especially the test seam), and Sequence when building. When `arch.md` is absent, build from the ticket alone — old Projects need no migration. Leave existing specs as written, including Implementation Decisions still on old specs. Done: either arch constraints are in hand, or you confirmed there is no `arch.md`.
 
-### 3. Build
+### 3. Code
 
 Git: follow [[.agents/skills/git-protocol/SKILL.md]].
 
 F# layout, targeted tests, and the Client compile gate: [[.agents/skills/implement-fsharp-feature/SKILL.md]]. Shared.Tests coverage: [[.agents/skills/add-shared-test/SKILL.md]].
 
+On first implement for this Project, set `Stage: build`.
+
 What a good test is, seams, and red-green: [[.agents/skills/tdd/SKILL.md]]. Use tdd at the test seam from arch when present, else at pre-agreed seams. Do not copy that loop here.
 
-Run typechecking and the tests the F# skill names as you go. Run the full suite once at the end as a background task. Do not start the full suite before coding is complete. While you wait, use /code-review.
+Run typechecking and the directly relevant tests as you go. 
 
-On first implement for this Project, set `Stage: build` and `Updated:` on `project.md` per [[doc/agents/project-status.md]].
+### 4. Check
+
+Run the full suite once at the end as a background task. Do not start the full suite before coding is complete. While you wait, use [[.agents/skills/code-review/SKILL.md]].
 
 Anything you write on tickets or under `reports/` — number and name every section and list item per [[.agents/rules/refer-by-name.md]].
 
-Set ticket `**Status:** coded`. Do not set `done`. `done` is review approval only ([[doc/agents/triage-labels.md]]).
-
-Done: the ticket's What to build is implemented and verified; Stage is `build` if this was the first implement; Status is `coded`.
 
 ### 4. Log time and finish
+Done: the ticket's What to build is implemented and verified; Set ticket `**Status:** coded`. Do not set `done`. `done` is review approval only ([[doc/agents/triage-labels.md]]).
 
 Time: on issues you touched, append `## Time` and keep `Actual:`; on the project set/keep `Started:` / `Finished:` / `Actual:` per [[doc/agents/issue-tracker.md]] (Time tracking). Backfill from this chat and commits when a session was not logged.
-
-Finish as **agent-done** per [[.agents/skills/git-protocol/SKILL.md]]. Git agent-done is not ticket `done`. Done: time is logged, work is agent-done, and Status is `coded`.

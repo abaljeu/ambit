@@ -20,13 +20,14 @@ module EventLog =
         { events = { event with id = log.nextId } :: log.events
           nextId = EventId.next log.nextId }
 
-    let since (EventId after) (log: EventLog) : EventLog =
+    let since after (log: EventLog) : EventLog =
         { log with
             events =
                 log.events
                 |> List.filter (fun event ->
-                    let (EventId n) = event.id
-                    n > after) }
+                    EventId.value event.id > EventId.value after) }
+
+    let all (log: EventLog) : EventLog = since EventId.beforeAll log
 
     let tryFind (eventId: EventId) (log: EventLog) : Ev option =
         log.events |> List.tryFind (fun event -> event.id = eventId)

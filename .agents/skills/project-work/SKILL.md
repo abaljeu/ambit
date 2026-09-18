@@ -27,4 +27,4 @@ Edit the project's files. Specs, issues, maps, and reports live under `plan/<slu
 
 ## 4. Finish
 
-Commit only the changes the user approved, as **agent-done** per [[.agents/skills/git-protocol/SKILL.md]].
+Finish as **done**.

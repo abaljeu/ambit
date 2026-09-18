@@ -5,7 +5,6 @@ open System.IO
 open System.Net.Http
 open System.Text.Json
 open System.Threading.Tasks
-open Gambol.Server
 open Gambol.Shared
 open Microsoft.AspNetCore.Http
 
@@ -106,9 +105,7 @@ module WorkspaceSyncEndpoints =
     let private cookieHeader
         (creds: LoginForm.Credentials option)
         : string option =
-        creds
-        |> Option.map (fun c ->
-            AuthToken.cookieHeaderValue c.Username c.Password)
+        AmbitSession.cookieHeader creds
 
     let private okSync (r: WorkspaceFileSync.SyncResult) =
         let skippedJson =
@@ -197,7 +194,7 @@ module WorkspaceSyncEndpoints =
             | Error message -> do! writeBadRequest context message
             | Ok mappedRoot ->
                 match
-                    WorkspaceFileSync.post
+                    WorkspaceCloudUpload.push
                         client
                         ambitBase
                         mappedRoot
@@ -296,7 +293,7 @@ module WorkspaceSyncEndpoints =
             | Error message -> do! writeBadRequest context message
             | Ok mappedRoot ->
                 match
-                    WorkspaceLocalInventory.listForUpload mappedRoot scope
+                    WorkspaceCloudUpload.listForUpload mappedRoot scope
                 with
                 | Error err -> do! writeBadRequest context err
                 | Ok(mode, items) ->

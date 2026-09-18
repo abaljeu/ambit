@@ -1,6 +1,6 @@
 # 18 — Finish and drop
 
-**Status:** blocked
+**Status:** defined
 **Blocked by:** [[plan/core-creation/issues/16-track-running-job.md]]
 Actual: 1h35m
 

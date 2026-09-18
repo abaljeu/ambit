@@ -12,7 +12,7 @@ let private recordObj (record: BootCache.SnapshotRecord) : obj =
         [ "codecVersion" ==> record.codecVersion
           "file" ==> record.file
           "scopeKey" ==> record.scopeKey
-          "revision" ==> record.revision
+          "eventId" ==> EventId.toJson record.eventId
           "isReady" ==> record.isReady
           "stateJson" ==> record.stateJson
           "writtenAt" ==> record.writtenAt
@@ -79,7 +79,7 @@ let persistAfterState
             file
             scope
             stateJson
-            response.revision.Value
+            response.eventId
             response.isReady
             (System.DateTime.UtcNow.ToString("o"))
             ""
@@ -90,15 +90,15 @@ let persistAfterState
             + (if ok then "oncomplete" else "error")
             + $": {ms}ms, {stateJson.Length} chars"))
 
-let private changeObj (file: string) (change: Change) : obj =
+let private eventObj (file: string) (event: Ev) : obj =
     createObj
         [ "file" ==> file
-          "id" ==> change.id
-          "submissionId" ==> change.submissionId.ToString()
-          "changeJson"
+          "id" ==> event.id.Value
+          "submissionId" ==> event.submissionId.ToString()
+          "eventJson"
           ==> Thoth.Json.JavaScript.Encode.toString
                   0
-                  (Serialization.encodeChange change) ]
+                  (BootCache.encodeEvent event) ]
 
 [<Emit("""
 (function(dbName, chStore, recs, onDone){
@@ -125,24 +125,24 @@ let private changeObj (file: string) (change: Change) : obj =
   } catch (err) { onDone(false); }
 })($0,$1,$2,$3)
 """)>]
-let private appendChangesJs
+let private appendEventsJs
     (dbName: string)
     (chStore: string)
     (records: obj array)
     (onDone: bool -> unit)
     : unit = jsNative
 
-let appendChanges (file: string) (changes: Change list) : unit =
-    if changes.IsEmpty then
+let appendEvents (file: string) (events: Ev list) : unit =
+    if events.IsEmpty then
         ()
     else
-        appendChangesJs
+        appendEventsJs
             BootCache.databaseName
             BootCache.changeStore
-            (changes |> List.map (changeObj file) |> List.toArray)
+            (events |> List.map (eventObj file) |> List.toArray)
             (fun ok ->
                 if not ok then
-                    consoleLog "[Gambol boot] IndexedDB change append error")
+                    consoleLog "[Gambol boot] IndexedDB event append error")
 
 [<Emit("""
 (function(dbName, snapStore, chStore, file, onDone){
@@ -199,7 +199,7 @@ let deleteCache (file: string) (onDone: bool -> unit) : unit =
       codecVersion: rec.codecVersion,
       file: rec.file,
       scopeKey: rec.scopeKey,
-      revision: rec.revision,
+      eventId: rec.eventId,
       ready: rec.isReady,
       stateJson: rec.stateJson,
       writtenAt: rec.writtenAt,
@@ -240,7 +240,7 @@ let deleteCache (file: string) (onDone: bool -> unit) : unit =
                 .openCursor(IDBKeyRange.only(file)).onsuccess = function(ev){
                   var cursor = ev.target.result;
                   if(cursor){
-                    changes.push(cursor.value.changeJson);
+                    changes.push(cursor.value.eventJson);
                     cursor.continue();
                   }
                 };
@@ -265,7 +265,7 @@ let private readCacheJs
 
 let private decodeCachePayload
     (json: string)
-    : BootCache.SnapshotRecord option * Change list =
+    : BootCache.SnapshotRecord option * Ev list =
     if json = "" then
         None, []
     else
@@ -274,7 +274,7 @@ let private decodeCachePayload
                 get.Required.Field "codecVersion" Decode.int,
                 get.Required.Field "file" Decode.string,
                 get.Required.Field "scopeKey" Decode.string,
-                get.Required.Field "revision" Decode.int,
+                get.Required.Field "eventId" EventJson.decodeEventId,
                 get.Required.Field "ready" Decode.bool,
                 get.Required.Field "stateJson" Decode.string,
                 get.Required.Field "writtenAt" Decode.string,
@@ -283,23 +283,23 @@ let private decodeCachePayload
                 get.Required.Field "changes" (Decode.list Decode.string))
         match Decode.fromString decoder json with
         | Error _ -> None, []
-        | Ok (codec, file, scope, rev, ready, stateJson, written, hash, changeJsons) ->
+        | Ok (codec, file, scope, eventId, ready, stateJson, written, hash, eventJsons) ->
             let snap0 =
                 BootCache.snapshotRecord
-                    file scope stateJson rev ready written hash
+                    file scope stateJson eventId ready written hash
             let snap = { snap0 with codecVersion = codec }
             let parsed =
-                changeJsons
+                eventJsons
                 |> List.choose (fun body ->
-                    match Decode.fromString Serialization.decodeChange body with
-                    | Ok change -> Some change
+                    match Decode.fromString BootCache.decodeEvent body with
+                    | Ok event -> Some event
                     | Error _ -> None)
-            if parsed.Length <> changeJsons.Length then None, []
+            if parsed.Length <> eventJsons.Length then None, []
             else Some snap, parsed
 
 let readSnapshotAndLog
     (file: string)
-    (onDone: BootCache.SnapshotRecord option -> Change list -> unit)
+    (onDone: BootCache.SnapshotRecord option -> Ev list -> unit)
     : unit =
     readCacheJs
         BootCache.databaseName
@@ -314,7 +314,7 @@ let requestIdleTruncate
     (file: string)
     (scope: string)
     (zoom: NodeId option)
-    (revision: int)
+    (eventId: EventId)
     (isReady: bool)
     (graph: Graph)
     : unit =
@@ -327,11 +327,13 @@ let requestIdleTruncate
                     match record with
                     | Some snap when
                         BootCache.shouldTruncate
-                            log.Length snap.revision revision ->
+                            log.Length
+                            snap.eventId
+                            eventId ->
                         let scoped = BootCache.truncationGraph graph zoom
                         let response =
                             { graph = scoped
-                              revision = Gambol.Shared.EventId revision
+                              eventId = eventId
                               isReady = isReady }
                         let json =
                             Thoth.Json.JavaScript.Encode.toString

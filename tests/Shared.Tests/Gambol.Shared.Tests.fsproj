@@ -20,6 +20,7 @@
     <Compile Include="HistoryTests.fs" />
     <Compile Include="ClientHistoryTests.fs" />
     <Compile Include="EventTests.fs" />
+    <Compile Include="OpListApplyTests.fs" />
     <Compile Include="EventJsonTests.fs" />
     <Compile Include="ChangeAmendmentTests.fs" />
     <Compile Include="ChildListMergeTests.fs" />
@@ -98,6 +99,7 @@
     <Compile Include="ViewModelTests.fs" />
     <Compile Include="DeleteOpsTests.fs" />
     <Compile Include="SyncLogicTests.fs" />
+    <Compile Include="BootCacheTestHelpers.fs" />
     <Compile Include="BootCacheTests.fs" />
     <Compile Include="BootCachePollTests.fs" />
     <Compile Include="ClientHistoryRuntimeTests.fs" />
@@ -112,6 +114,7 @@
     <Compile Include="CommandEntryTests.fs" />
     <Compile Include="WorkspaceUploadTests.fs" />
     <Compile Include="WorkspaceUploadStructureTests.fs" />
+    <Compile Include="WorkspaceCloudUploadTests.fs" />
     <Compile Include="CommandIconsTests.fs" />
   </ItemGroup>
 

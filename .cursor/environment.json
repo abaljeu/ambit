@@ -1,0 +1,10 @@
+{
+  // Cloud agents start from the Build that ran install (.NET 10 SDK, Fable via dotnet tool restore, Postgres 17 packages + cluster). start launches Postgres on each agent boot — processes do not survive the Build snapshot.
+  // If dotnet is missing mid-run, or 127.0.0.1:5432 refuses connections, the Build is missing/stale or start failed — stop and report. See .agents/rules/environment.md.
+  // Credentials match the compose snippet in doc/reference/postgres-environments.md (user gambol, password gambol_dev), not the desktop postgres/postgres note.
+  // TEST_DB_CONNECTION_STRING=Host=localhost;Database=gambol_test;Username=gambol;Password=gambol_dev
+  // DB_CONNECTION_STRING=Host=localhost;Database=gambol;Username=gambol;Password=gambol_dev
+  "name": "Ambit",
+  "install": "./.cursor/install.sh",
+  "start": "./.cursor/start.sh"
+}

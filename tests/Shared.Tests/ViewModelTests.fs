@@ -1132,6 +1132,24 @@ let ``resolveZoomRoot falls back to first Graph child when preferred is absent``
     Assert.True(Map.containsKey expected graph.nodes)
 
 [<Fact>]
+let ``firstGraphChild skips Root children missing from the Graph`` () =
+    let missing = NodeId.New()
+    let present = NodeId.New()
+    let presentNode = Node.Create(present, text = "kept")
+    let root =
+        { Graph.rootPlaceholder with
+            children =
+                [ ChildNode.reference missing
+                  ChildNode.owner present ] }
+    let graph =
+        Graph.fromExtracted
+            Graph.rootId
+            (Map.ofList
+                [ Graph.rootId, root
+                  present, presentNode ])
+    Assert.Equal(present, firstGraphChild graph)
+
+[<Fact>]
 let ``retargetZoomIfMissing rebuilds SiteMap when preferred Zoom is deleted`` () =
     let graphWith, cont, _ = buildFlat [ "a"; "b" ]
     let siteMap, nextId = buildSiteMapFrom graphWith cont (Sid 0)
@@ -2949,7 +2967,7 @@ let ``MoveToTrash ops apply successfully and node lands under TRASH`` () =
         Graph.replace graph1.root 0 [] (owned [ a ]) graph1
         |> ModelBuilder.requireOk "root->a"
     let state0 : State =
-        { graph = graph2; revision = Revision.Zero }
+        { graph = graph2; eventId = EventId.zero }
 
     let removeOp = Op.Replace(graph2.root, owned [ a ], [])
 
@@ -2958,9 +2976,13 @@ let ``MoveToTrash ops apply successfully and node lands under TRASH`` () =
     let addToTrashOp = Op.Replace(Graph.trashId, trashChildren, newTrashChildren)
 
     let change =
-        { id = 0; submissionId = System.Guid.NewGuid(); ops = [ removeOp; addToTrashOp ] }
+        { id = EventId.zero
+          submissionId = System.Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [ removeOp; addToTrashOp ] }
 
-    let result = ChangeValidation.applyChange change state0
+    let result = SpecialNodeTestHelpers.applyChange change state0
 
     match result with
     | ApplyResult.Invalid(_, msg) ->

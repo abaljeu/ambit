@@ -88,3 +88,29 @@ let ``toDisplay Redo empty is nothing to redo`` () =
     Assert.Equal(
         "Redo: nothing to redo",
         CmdLastResult.toDisplay (CmdLastResult.redoResult None))
+
+[<Fact>]
+let ``serverRejectedAlertText surfaces posted EventId must be zero`` () =
+    let last =
+        Some (CmdLastResult.Error (None, "posted EventId must be zero"))
+    let text = SyncRiskAlert.serverRejectedAlertText last
+    Assert.Contains("posted EventId must be zero", text)
+    Assert.DoesNotContain("revision mismatch or invalid op", text)
+
+[<Fact>]
+let ``serverRejectedAlertText falls back when error is missing`` () =
+    let text = SyncRiskAlert.serverRejectedAlertText None
+    Assert.StartsWith("The server rejected the change.", text)
+    Assert.DoesNotContain("revision mismatch or invalid op", text)
+
+[<Fact>]
+let ``usableErrorMessage ignores blank Error bodies`` () =
+    Assert.Equal(None, SyncRiskAlert.usableErrorMessage None)
+    Assert.Equal(
+        None,
+        SyncRiskAlert.usableErrorMessage
+            (Some (CmdLastResult.Error (None, "   "))))
+    Assert.Equal(
+        Some "posted EventId must be zero",
+        SyncRiskAlert.usableErrorMessage
+            (Some (CmdLastResult.Error (None, "posted EventId must be zero"))))

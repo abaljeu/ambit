@@ -37,9 +37,6 @@ module DatabaseSetup =
                 $"Unknown Persistence:Mode '{raw}'. " +
                 "Use 'db' or 'file'.")
 
-    let private decodeChangePayload (s: string) =
-        Thoth.Json.Newtonsoft.Decode.fromString Serialization.decodeChange s
-
     let statusFromMatches (matchesBeforeRebuild: bool) (matchesAfterRebuild: bool) : DbStatus =
         if matchesBeforeRebuild then
             DbStatus.Ok
@@ -65,7 +62,7 @@ module DatabaseSetup =
             eprintfn "Gambol: outline mismatch detail:%s%s" System.Environment.NewLine (Snapshot.describeOutlineMismatch ln rn)
             eprintfn "Gambol: wrote raw outlines to %s and %s" leftPath rightPath
             false
-        elif left.revision.Value <> right.revision.Value then
+        elif left.eventId <> right.eventId then
             false
         else
             true
@@ -83,7 +80,7 @@ module DatabaseSetup =
             |> Async.RunSynchronously
 
     let private loadPersistedDbState (connStr: string) : State =
-        Database.loadPersistedState connStr decodeChangePayload
+        Database.loadPersistedState connStr
         |> Async.AwaitTask
         |> Async.RunSynchronously
 

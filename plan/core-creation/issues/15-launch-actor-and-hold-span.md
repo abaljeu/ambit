@@ -1,6 +1,6 @@
 # 15 — Launch an Actor and hold the span
 
-**Status:** blocked
+**Status:** defined
 **Blocked by:** [[plan/core-creation/issues/14-server-tracks-credentials.md]]
 **Actual:** 1h40m
 

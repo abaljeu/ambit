@@ -1,6 +1,6 @@
 # 19 — Database down and probe
 
-**Status:** blocked
+**Status:** defined
 **Blocked by:** [[plan/core-creation/issues/13-delete-runtime-mirror-and-remove-production-persistence-mode.md]]
 
 ## Context

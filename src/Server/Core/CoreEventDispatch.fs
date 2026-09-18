@@ -40,7 +40,7 @@ module internal CoreEventDispatch =
         (caller: Caller)
         (body: Gambol.Shared.EventBody)
         : Ev =
-        { id = Gambol.Shared.EventId 0
+        { id = EventId.zero
           submissionId = Guid.NewGuid()
           authority = eventAuthority caller.authority
           commandName = ""
@@ -129,20 +129,9 @@ module internal CoreEventDispatch =
     let private persist (context: Context) (completed: Ev) (graphOnly: bool) =
         match Ev.ops completed with
         | None -> Ok None
-        | Some ops ->
-            match context.persist.getRevision () with
-            | Error error -> Error error
-            | Ok revision ->
-                let change =
-                    { id = revision.Value
-                      submissionId = completed.submissionId
-                      ops = ops }
-                if graphOnly then
-                    context.persist.postGraphOnlyChange [ change ]
-                    |> Result.map Some
-                else
-                    context.persist.postChange [ change ]
-                    |> Result.map Some
+        | Some _ ->
+            context.persist.applyEvent completed graphOnly
+            |> Result.map Some
 
     let private store context accepted completed =
         let confirmed =
@@ -150,6 +139,25 @@ module internal CoreEventDispatch =
             | None -> completed
             | Some result -> withConfirmedOps completed result
         commit context confirmed
+
+    let private persistNew
+        (context: Context)
+        (caller: Caller)
+        (event: Ev)
+        (graphOnly: bool)
+        =
+        if event.id <> EventId.zero then
+            Error "posted EventId must be zero"
+        else
+            match prepare context caller event with
+            | Error error -> Error error
+            | Ok completed ->
+                match persist context completed graphOnly with
+                | Error error -> Error error
+                | Ok accepted ->
+                    match store context accepted completed with
+                    | Error error -> Error error
+                    | Ok stored -> Ok(stored, accepted)
 
     let postEvent
         (context: Context)
@@ -162,13 +170,4 @@ module internal CoreEventDispatch =
         | Ok () ->
             match tryStored context event.submissionId with
             | Some existing -> Ok(existing, None)
-            | None ->
-                match prepare context caller event with
-                | Error error -> Error error
-                | Ok completed ->
-                    match persist context completed graphOnly with
-                    | Error error -> Error error
-                    | Ok accepted ->
-                        match store context accepted completed with
-                        | Error error -> Error error
-                        | Ok stored -> Ok(stored, accepted)
+            | None -> persistNew context caller event graphOnly

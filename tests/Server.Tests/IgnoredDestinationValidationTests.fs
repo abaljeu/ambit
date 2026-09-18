@@ -153,7 +153,7 @@ let ``many new destinations reject ignored and keep gitignore`` () =
 
 let private encodeChange graph parentId name =
     let _, ops = FileNodeOps.planCreateOwnedFile graph parentId name
-    [ { id = 0; submissionId = Guid.NewGuid(); ops = ops } ]
+    [ SpecialNodeTestHelpers.changeEventZero "" ops ]
 
 [<SkippableFact>]
 let ``file persist rejects ignored graph state before acceptance`` () =
@@ -162,9 +162,11 @@ let ``file persist rejects ignored graph state before acceptance`` () =
     writeIgnore dataDir "blocked.txt\n"
     let agent, _ = createAdmittedFile dataDir
     let body = encodeChange (Graph.create ()) Graph.rootId "blocked.txt"
-    let result = (admittedChanges agent).postChange body |> Async.RunSynchronously
+    let result =
+        (admittedChanges agent).postEvents (body)
+        |> Async.RunSynchronously
     Assert.True(Result.isError result)
-    Assert.Equal(Gambol.Shared.EventId 0, CoreMailbox.getRevision agent |> Async.RunSynchronously)
+    Assert.Equal(EventId.zero, CoreMailbox.getEventId agent |> Async.RunSynchronously)
     CoreMailbox.dispose agent
 
 [<SkippableFact>]
@@ -180,8 +182,10 @@ let ``db persist rejects ignored graph state before acceptance`` () = task {
             dataDir
             admittedCredentials
     let body = encodeChange (Graph.create ()) Graph.rootId "blocked.txt"
-    let! result = (admittedChanges agent).postChange body |> Async.StartAsTask
+    let! result =
+        (admittedChanges agent).postEvents (body)
+        |> Async.StartAsTask
     Assert.True(Result.isError result)
-    let! revision = CoreMailbox.getRevision agent |> Async.StartAsTask
-    Assert.Equal(Gambol.Shared.EventId 0, revision)
+    let! revision = CoreMailbox.getEventId agent |> Async.StartAsTask
+    Assert.Equal(EventId.zero, revision)
 }

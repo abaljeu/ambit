@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="AuthToken.fs" />
     <Compile Include="ProcessExec.fs" />
     <Compile Include="GitRun.fs" />
     <Compile Include="DesktopGit.fs" />
@@ -16,6 +17,8 @@
     <Compile Include="WorkspaceDavClient.fs" />
     <Compile Include="WorkspaceSyncLedger.fs" />
     <Compile Include="WorkspaceFileSync.fs" />
+    <Compile Include="AmbitSession.fs" />
+    <Compile Include="WorkspaceCloudUpload.fs" />
     <Compile Include="OutlineLcs.fs" />
     <Compile Include="DocumentParseOps.fs" />
     <Compile Include="ImportDocument.fs" />
@@ -33,6 +36,7 @@
 
   <ItemGroup>
     <PackageReference Include="DiffPlex" Version="1.7.2" />
+    <PackageReference Include="Thoth.Json.Newtonsoft" Version="0.3.3" />
   </ItemGroup>
 
 </Project>
