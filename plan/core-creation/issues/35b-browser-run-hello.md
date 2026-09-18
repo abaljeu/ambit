@@ -1,7 +1,7 @@
 # 35b — Browser Run hello
 
-**Status:** blocked
-**Blocked by:** [[34b-outside-core-lifecycle-proof.md|34b — Outside Core lifecycle proof]].
+**Status:** ready-for-agent
+**Blocked by:** None — [[34b-outside-core-lifecycle-proof.md|34b — Outside Core lifecycle proof]] is `done`.
 
 ## Context
 
