@@ -4,7 +4,7 @@ Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
 Updated: 2026-09-19
 Started: 2026-09-05
-Actual: 56h05m
+Actual: 57h20m
 
 ## Map
 
@@ -56,7 +56,7 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/issues/29-prove-testactor-hello.md]] — current cut: section 1 mailbox foundation on `dev`; remaining hello sections open. Redo: land [[plan/core-creation/arch.md]] before further hello implement — [[plan/core-creation/reports/redo-29-architecture-before-proceed.md]].
 - [[plan/core-creation/issues/33-credentialed-browser-change-posts.md]] — Story path Browser Change posts: cookie-as-credential, boot seed, CoreMailbox admit only; Status `coded`. `auth.Disabled` skip removed; development cookie is auto-issued and still required.
 - [[plan/core-creation/issues/34b-outside-core-lifecycle-proof.md|34b — Outside Core lifecycle proof]] — Story path Outside Core lifecycle proof: TestActor hello from Pool/Actor seam without HTTP. Status `done` (independent review approve; report [[plan/core-creation/reports/code-review-34b-outside-core-lifecycle-proof.md]]).
-- [[plan/core-creation/issues/35b-browser-run-hello.md|35b — Browser Run hello]] — Story path Browser Run hello: `?` one-Node Command through HTTP to Owned child `hello`; Status `ready-for-agent` (34b `done`). §6 durability → [[plan/core-creation/issues/49-mailbox-history-durability.md|49]]; §7 proof does not need 49.
+- [[plan/core-creation/issues/35b-browser-run-hello.md|35b — Browser Run hello]] — Story path Browser Run hello: `?` one-Node Command through HTTP to Owned child `hello`; Status `coded` (slices 4+5+7). §6 durability → [[plan/core-creation/issues/49-mailbox-history-durability.md|49]]; §7 proof does not need 49.
 - [[plan/core-creation/issues/49-mailbox-history-durability.md|49 — Mailbox History durability]] — Split from 35b §6: mailbox History survives restart. Status `defined`. Blocked by [[plan/core-creation/issues/35b-browser-run-hello.md|35b — Browser Run hello]]. Not required for 35b §7 Browser proof.
 - [[plan/core-creation/issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]] — Collapse extra Core entrances onto CoreMailbox; Status `coded`. Report: [[plan/core-creation/reports/mailbox-single-door.md]].
 - [[plan/core-creation/issues/37-expand-shared-event-eventlog-and-history.md|37 — Expand Shared Event, EventLog, and History]] — Story **Event, EventLog, and ClientHistory** Shared expand beside HistoryEvent; Event-shaped ClientHistory beside the Change-shaped API. No new History module. Status `coded`.
@@ -134,6 +134,8 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [qa-47-event-persist-duplicate-key](plan/core-creation/reports/qa-47-event-persist-duplicate-key.md) — QA context for [47 — Server rejected Change: duplicate event id](plan/core-creation/issues/47-server-rejected-change-duplicate-event-id.md).
 - [[plan/core-creation/reports/35b-slice1-graphids.md]] — [35b — Browser Run hello](plan/core-creation/issues/35b-browser-run-hello.md) slice 1 Shared `graphIds` Fold walk.
 - [[plan/core-creation/reports/35b-slice2-3-http-browser-run.md]] — [35b — Browser Run hello](plan/core-creation/issues/35b-browser-run-hello.md) slices 2–3 HTTP Adapter and Browser Run.
+- [[plan/core-creation/reports/35b-slice4-5-7-core-testactor-browser-proof.md]] — [35b — Browser Run hello](plan/core-creation/issues/35b-browser-run-hello.md) slices 4+5+7 Core TestActor and Browser proof.
+- [35b slices 4+5+7 standards and Spec corrections](plan/core-creation/reports/35b-slice4-5-7-standards-spec-corrections.md) — [35b — Browser Run hello](plan/core-creation/issues/35b-browser-run-hello.md) Origin Spec review: unregistered Actor name and non-hello command fail.
 
 ## Comments
 

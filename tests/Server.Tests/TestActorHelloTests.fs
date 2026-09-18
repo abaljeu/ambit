@@ -128,6 +128,43 @@ let ``TestActor hello posts one Owned child text hello under Focus`` () =
     })
 
 [<Fact>]
+let ``TestActor hello interprets ?test hello without actor CSS`` () =
+    withHost (fun host _ -> task {
+        let commandId = NodeId.New()
+        let event =
+            { id = EventId.zero
+              submissionId = Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body =
+                EventBody.Change
+                    [ Op.NewNode(commandId, "?test hello")
+                      Op.Replace(
+                          Graph.rootId,
+                          [],
+                          [ ChildNode.owner commandId ]) ] }
+        let! postResult =
+            CoreMailbox.postGraphOnly host testCaller event
+            |> Async.StartAsTask
+        requireOk "postChange" postResult |> ignore
+        let request =
+            sampleRequest commandId commandId [ Graph.rootId; commandId ]
+        let! result =
+            CoreMailbox.startActor host testCaller request
+            |> Async.StartAsTask
+        requireOk "startActor" result
+        let! finished = waitForActorFinished host request.focusId 1000
+        Assert.True(finished, "ActorFinished not received within timeout")
+        let! state =
+            CoreMailbox.getState host
+            |> Async.StartAsTask
+        let state = requireOk "getState" state
+        let helloChildren =
+            helloOutputChildren state.graph commandId commandId
+        Assert.Equal(1, helloChildren.Length)
+    })
+
+[<Fact>]
 let ``TestActor hello stops successfully with ActorSucceeded`` () =
     withHost (fun host _ -> task {
         let commandId = NodeId.New()
@@ -291,7 +328,7 @@ let ``TestActor hello interprets command node text`` () =
     })
 
 [<Fact>]
-let ``TestActor unknown command still finishes and drops live row`` () =
+let ``TestActor unknown command is ActorFailed with no hello child`` () =
     withHost (fun host pool -> task {
         let commandId = NodeId.New()
         let event = { id = EventId.zero
@@ -306,19 +343,29 @@ let ``TestActor unknown command still finishes and drops live row`` () =
             CoreMailbox.postGraphOnly host testCaller event
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
-        
         let request = sampleRequest Graph.rootId commandId [ Graph.rootId; commandId ]
-        
         let! result =
             CoreMailbox.startActor host testCaller request
             |> Async.StartAsTask
         requireOk "startActor" result
-        
         let! finished = waitForActorFinished host request.focusId 1000
         Assert.True(finished, "ActorFinished not received within timeout")
-        
         let! dropped = waitForLiveRowDrop pool request.focusId 1000
         Assert.True(dropped, "Live row not dropped within timeout")
+        let! events = eventPast host |> Async.StartAsTask
+        let stopResult =
+            events
+            |> List.tryPick (fun event ->
+                match event.body with
+                | EventBody.ActorStop(fid, result)
+                    when fid = request.focusId ->
+                    Some result
+                | _ -> None)
+        Assert.Equal(Some ActorFailed, stopResult)
+        let! state =
+            CoreMailbox.getState host |> Async.StartAsTask
+        let state = requireOk "getState" state
+        Assert.Empty(helloOutputChildren state.graph Graph.rootId commandId)
     })
 
 [<Fact>]
@@ -431,40 +478,4 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
         
         Assert.True(actorEventsPresent,
             "§7.5: Public Actor identity (ActorStarted, ActorFinished) should remain on History")
-    })
-
-[<Fact>]
-let ``TestActor throw command fails gracefully and drops live row`` () =
-    withHost (fun host pool -> task {
-        let commandId = NodeId.New()
-        let event = { id = EventId.zero
-                      submissionId = Guid.NewGuid()
-                      authority = Authority "Browser"
-                      commandName = ""
-                      body = EventBody.Change
-                [ Op.NewNode(commandId, "throw")
-                  Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
-                  Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
-        let! postResult =
-            CoreMailbox.postGraphOnly host testCaller event
-            |> Async.StartAsTask
-        let _ = requireOk "postChange" postResult
-        
-        let request = sampleRequest Graph.rootId commandId [ Graph.rootId; commandId ]
-        
-        let! result =
-            CoreMailbox.startActor host testCaller request
-            |> Async.StartAsTask
-        requireOk "startActor" result
-        
-        let! finished =
-            waitForActorFinished host request.focusId 5000
-        Assert.True(finished, "Actor should finish within timeout")
-        
-        let! dropped =
-            waitForLiveRowDrop pool request.focusId 5000
-        Assert.True(dropped, "Live row should be dropped after fail")
-        
-        Assert.False(Set.contains request.focusId (pool.liveFocusIds ()),
-            "Live row should be gone after exception")
     })

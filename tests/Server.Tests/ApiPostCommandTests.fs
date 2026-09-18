@@ -283,3 +283,108 @@ let ``postCommand startActor can produce hello child`` () =
         finally
             CoreMailbox.dispose host
     }
+
+let private decodeStateGraph json =
+    let decoder =
+        Thoth.Json.Core.Decode.object (fun get ->
+            let eventId =
+                get.Required.Field "eventId" EventJson.decodeEventId
+            let graph =
+                get.Required.Field "graph" Serialization.decodeGraph
+            eventId, graph)
+    match Decode.fromString decoder json with
+    | Ok pair -> pair
+    | Error err -> failwith err
+
+let private jsonPost body =
+    new StringContent(body, Encoding.UTF8, "application/json")
+
+let private getFullState (client: HttpClient) = task {
+    let! resp = client.GetAsync("/ambit/state?scope=full")
+    Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
+    let! json = resp.Content.ReadAsStringAsync()
+    return decodeStateGraph json
+}
+
+let private postEventsHttp (client: HttpClient) (events: Ev list) = task {
+    let body =
+        Encode.toString 0 (EventJson.encodeEventBatch { events = events })
+    use content = jsonPost body
+    return! client.PostAsync("/ambit/changes", content)
+}
+
+let private seedQuestionTest (client: HttpClient) rootId commandId = task {
+    let seed =
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body =
+            EventBody.Change
+                [ Op.NewNode(commandId, "?test hello")
+                  Op.Replace(
+                      rootId,
+                      [],
+                      [ ChildNode.owner commandId ]) ] }
+    let! seedResp = postEventsHttp client [ seed ]
+    Assert.Equal(HttpStatusCode.OK, seedResp.StatusCode)
+}
+
+let private waitStateHello
+    (client: HttpClient)
+    (focusId: NodeId)
+    timeoutMs
+    =
+    task {
+        let mutable found = false
+        let startTime = DateTime.UtcNow
+        while not found
+              && (DateTime.UtcNow - startTime).TotalMilliseconds
+                 < float timeoutMs do
+            let! resp = client.GetAsync("/ambit/state?scope=full")
+            let! json = resp.Content.ReadAsStringAsync()
+            if resp.StatusCode = HttpStatusCode.OK then
+                let _, graph = decodeStateGraph json
+                found <-
+                    match Map.tryFind focusId graph.nodes with
+                    | None -> false
+                    | Some node ->
+                        node.children
+                        |> List.exists (fun child ->
+                            child.ref = Ownership.Owner
+                            && match Map.tryFind child.id graph.nodes with
+                               | Some n -> n.text = "hello"
+                               | None -> false)
+            if not found then do! Task.Delay 20
+        return found
+    }
+
+[<Fact>]
+let ``production boot Run of ?test hello posts Owned hello child`` () =
+    task {
+        use client = createClientForDir (newTempDir ())
+        let! _, graph = getFullState client
+        let commandId = NodeId.New()
+        do! seedQuestionTest client graph.root commandId
+        let! afterId, _ = getFullState client
+        let request: ActorStart =
+            { zoomId = commandId
+              focusId = commandId
+              commandId = commandId
+              graphIds = [ commandId ]
+              eventId = afterId }
+        use commandBody = jsonPost (encodeRequest request)
+        let! commandResp =
+            client.PostAsync("/ambit/command", commandBody)
+        let! commandJson = commandResp.Content.ReadAsStringAsync()
+        Assert.True(
+            commandResp.StatusCode = HttpStatusCode.OK,
+            $"command {commandResp.StatusCode}: {commandJson}")
+        match decodeUniversal commandJson with
+        | Error err -> failwith err
+        | Ok _ -> ()
+        let! hello = waitStateHello client commandId 2000
+        Assert.True(
+            hello,
+            "production Actor test did not post hello under Focus")
+    }

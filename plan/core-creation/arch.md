@@ -192,13 +192,13 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. ClientH
      3. [x] `tryPeekUndoName` / `tryPeekRedoName`
    - Uses:
      1. [ ] Ev (Change / Undo / Redo bodies)
-7. **TestActor** (injected proof Actor; not a Core module) — [[tests/Server.Tests/TestActor.fs]]
+7. **TestActor** (injected proof Actor; not a Core module) — [[src/Server/TestActor.fs]]
    1. [x] State: none. The test host registers this ActorFn on CoreActorPool before the mailbox starts.
    - Interface:
      1. [x] `ActorFn` for Actor name `test`
      2. [x] input is Graph plus named `zoomId`, `focusId`, `commandId` and the Actor secret (Pool expands ids; does not invent further payload fields)
      3. [x] interpret the command Node and switch on case text
-     4. [x] this slice has only `hello` (post one Owned child text `hello` under Focus through admitted `postEvents`, then queue `ActorStop ActorSucceeded`)
+     4. [x] this slice has only `hello` (post one Owned child text `hello` under Focus through admitted `postEvents`, then queue `ActorStop ActorSucceeded`). Any other command text is `ActorFailed` with no Owned child. No exception path.
    - Uses:
      1. [ ] CoreChanges (bound through the mailbox)
      2. [ ] Graph
@@ -277,7 +277,7 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. ClientH
 2. **Rejected: mailbox-held second registry** — Keep live rows only in mailbox-loop state and treat the pool as a dumb Task runner. Loses the table as the single live registry; duplicates identity/secret/Focus beside CoreActorPool. Mailbox ownership of access is not a second copy of identity/secret/Focus beside the pool.
 3. **Rejected: nested ActorMsg pump / FileAgent twin mailbox** — Restore a second mailbox or per-agent Actor cases (shape in the stashed [[reports/implement-issue-29-testactor-hello.md]]). File and Db must not start Actor-capable processors. Twin queues for Actor work stay rejected. Violates one-mailbox ordering from [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] and the CoreMailbox-only door from ticket 32.
 4. **Rejected: Actor event sequence outside the mailbox** — A second Actor-only sequence beside CoreMailbox. EventLog is the mailbox store after intake, not a second sequence.
-5. **Deferred past hello** — Cancel, live query, host-stop, post-twice, duplicate terminal, and Interrupted restart stay out of the hello stories. `ActorFailed` is in this slice: same drop as success; TestActor exceptions stop as `ActorFailed`. Record only; do not ticket from Unsettled.
+5. **Deferred past hello** — Cancel, live query, host-stop, post-twice, duplicate terminal, and Interrupted restart stay out of the hello stories. `ActorFailed` is in this slice: same drop as success; unregistered Actor name fails start; TestActor non-hello command stops as `ActorFailed` (no exception path). Record only; do not ticket from Unsettled.
 6. **Chosen Event destination** — One Ev type in `Gambol.Shared`. Mailbox is intake; EventLog is the store; ClientHistory is the Emacs Action view; persistence is the persisted EventLog. `postEvents` is the Changes door (Ev list); `postGraphOnly` is graph-only Ev (skips file persist, not EventLog); `postEvent` posts one Ev. `ActorStart` is the start request; pool `startActor` returns `Result<Credential, string>`. `authority` is on every Ev, stamped from the admitted Caller. Poll returns an Ev tail. There is no destination module named History; [[src/Shared/History.fs]] holds Op, Ev types, EventBody, ChangeValidation, and the Ev module; `ChangeAmendment` is its own file; the former mailbox History type is now EventLog. Command builders mint Ev (`EventId.zero`, `commandName`, `EventBody.Change` of Ops). There is no leftover Change record and no `Ev.ofChange` / `Ev.asChange`. One serial is EventId (`eventId`, `getEventId`): Zero or a positive stored Int; EventLog assigns stored serials; next of Zero is Zero.
 
 ## 5. Unsettled
