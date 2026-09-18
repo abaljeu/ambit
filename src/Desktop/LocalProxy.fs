@@ -118,12 +118,7 @@ module LocalProxy =
         (tryAdd: string -> string array -> bool)
         =
         let cookie =
-            AuthToken.proxyCookieHeader
-                { storedUsername =
-                    credentials |> Option.map (fun c -> c.Username)
-                  storedPassword =
-                    credentials |> Option.map (fun c -> c.Password)
-                  serverIssuedValue = serverIssued }
+            AmbitSession.requestCookieHeader credentials serverIssued
         tryAdd "Cookie" [| cookie |] |> ignore
 
     let private createProxyRequest
@@ -499,6 +494,7 @@ module LocalProxy =
         (ambitBase: string)
         (canGit: bool)
         (session: ref<LoginForm.Credentials option>)
+        (issuedCookie: ref<string option>)
         (downloadManager: WorkspaceDownloadManager.Manager)
         (context: HttpContext)
         = task {
@@ -535,6 +531,7 @@ module LocalProxy =
                         client
                         ambitBase
                         session.Value
+                        issuedCookie.Value
                         downloadManager
                         context
                 if handledSync then
@@ -657,11 +654,13 @@ module LocalProxy =
         let client = AmbitSession.createHttpClient ()
         let session = ref (AuthStore.load())
         let issuedCookie = ref None
+        let liveCookie () =
+            Some(AmbitSession.requestCookieHeader session.Value issuedCookie.Value)
         let downloadManager =
             WorkspaceDownloadManager.create
                 client
                 ambitBase
-                (AmbitSession.cookieHeader session.Value)
+                liveCookie
                 (fun label ->
                     match WorkspaceLocalMapping.resolvePath workspaceMap.Value label "" with
                     | Ok path -> Ok path
@@ -676,6 +675,7 @@ module LocalProxy =
                     ambitBase
                     canGit
                     session
+                    issuedCookie
                     downloadManager
                     context
             else

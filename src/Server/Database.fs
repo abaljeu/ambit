@@ -228,7 +228,8 @@ module Database =
     let private decodeProjectionEventId (eventId: int) =
         EventId.fromJson eventId
 
-    let tryLoadGraphFromProjection (connectionString: string) : Task<Result<Graph * EventId, string>> =
+    let tryLoadGraphFromProjection (connectionString: string) 
+            : Task<Result<Graph * EventId, string>> =
         task {
             use conn = getConnection connectionString
             do! conn.OpenAsync()

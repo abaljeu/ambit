@@ -2,9 +2,9 @@
 
 Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
-Updated: 2026-09-16
+Updated: 2026-09-18
 Started: 2026-09-05
-Actual: 51h50m
+Actual: 52h50m
 
 ## Map
 
@@ -65,6 +65,7 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/issues/43-migrate-http-adapter-onto-postevent-and-event-poll.md|43 — Migrate HTTP Adapter onto postEvent and Event Poll]] — Story **Caller, persist, and Poll** HTTP Adapter migrate batch. Status `blocked`.
 - [[plan/core-creation/issues/44-migrate-browser-poll-history-pending-and-eventid.md|44 — Migrate Browser Poll, History, pending, and EventId cursor]] — Story **Caller, persist, and Poll** Browser migrate batch. Status `blocked`.
 - [[plan/core-creation/issues/45-contract-historyevent-clienthistory-pendingkind-and-changelog.md|45 — Contract HistoryEvent, mailbox History, PendingKind, StartActorRequest, and ChangeLog]] — Story **Caller, persist, and Poll** contract. Deletes HistoryEvent, ActorLifecycleEvent, mailbox History name (replaced by EventLog), PendingKind, StartActorRequest, and the ChangeLog name. ClientHistory remains. Status `blocked`.
+- [46 — Workspace Load prepare-push 401](plan/core-creation/issues/46-workspace-run-prepare-push-401.md) — Desktop Load on a mapped Workspace Node fails with prepare-push HTTP 401. Status `coded`.
 
 ## Decision tickets
 
@@ -126,6 +127,7 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/reports/cancel-poll-eventhistory-undo.md]] — Cancelled poll-carried eventHistory / ClientHistory replacement; increment reverted.
 - [[plan/core-creation/reports/event-abstraction.md]] — Locked Event / EventLog / ClientHistory / `postEvent` destination.
 - [[plan/core-creation/reports/implement-issue-40.md]] — [[plan/core-creation/issues/40-expand-postevent-eventlog-and-event-json.md|40 — Expand postEvent, EventLog store, and Event JSON persist]].
+- [implement-46-workspace-load-prepare-push-401](plan/core-creation/reports/implement-46-workspace-load-prepare-push-401.md) — [46 — Workspace Load prepare-push 401](plan/core-creation/issues/46-workspace-run-prepare-push-401.md).
 
 ## Comments
 
@@ -164,3 +166,4 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - 2026-09-15 — [[plan/core-creation/issues/40-expand-postevent-eventlog-and-event-json.md|40 — Expand postEvent, EventLog store, and Event JSON persist]] Event JSON encode/read on EventLog. Deleted EventJson and ChangeLog Event codec. Status stays `coded`.
 - 2026-09-16 — Shared Event record and helpers are `Ev` in `Gambol.Shared`. Namespace `Gambol.Shared.Events` is gone. Related types (`EventId`, `EventBody`, `EventLog`, `EventJson`, `Authority`, `ActorStart`, `ActorResult`) stay in `Gambol.Shared`. Arch and dependents: [[plan/core-creation/reports/ev-rename-arch-docs.md]].
 - 2026-09-16 — Suspended until [[plan/single-event-source/map.md]] creates the Event-only architecture. Then [[plan/core-creation/arch.md]] is updated to match. Do not add implementation issues here for that cleanup.
+- 2026-09-18 — [46 — Workspace Load prepare-push 401](plan/core-creation/issues/46-workspace-run-prepare-push-401.md) Status `coded`. Report: [implement-46-workspace-load-prepare-push-401](plan/core-creation/reports/implement-46-workspace-load-prepare-push-401.md).

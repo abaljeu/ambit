@@ -35,6 +35,21 @@ module AmbitSession =
     let cookieHeader (creds: LoginForm.Credentials option) =
         creds |> Option.map cookieFromCredentials
 
+    let private proxyCookieInput
+        (creds: LoginForm.Credentials option)
+        (serverIssuedValue: string option)
+        : AuthToken.ProxyCookieInput =
+        { storedUsername = creds |> Option.map (fun c -> c.Username)
+          storedPassword = creds |> Option.map (fun c -> c.Password)
+          serverIssuedValue = serverIssuedValue }
+
+    /// Same cookie family as Desktop LocalProxy Graph traffic.
+    let requestCookieHeader
+        (creds: LoginForm.Credentials option)
+        (serverIssuedValue: string option)
+        =
+        AuthToken.proxyCookieHeader (proxyCookieInput creds serverIssuedValue)
+
     let cookieFromSetCookie (headers: string seq) =
         AuthToken.applySetCookieHeaders None headers
         |> Option.map (fun value ->

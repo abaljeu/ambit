@@ -32,3 +32,25 @@ let ``cookieFromSetCookie reads gambol_auth value`` () =
 [<Fact>]
 let ``cookieHeader is None when credentials are missing`` () =
     Assert.Equal(None, AmbitSession.cookieHeader None)
+
+[<Fact>]
+let ``Desktop host cookie is development token when creds are absent`` () =
+    let header = AmbitSession.requestCookieHeader None None
+    Assert.Equal(AuthToken.cookieHeaderValue "" "", header)
+
+[<Fact>]
+let ``Desktop host cookie uses stored creds when no server-issued cookie`` () =
+    let creds =
+        { LoginForm.Username = "alice"
+          LoginForm.Password = "secret" }
+    let header = AmbitSession.requestCookieHeader (Some creds) None
+    Assert.Equal(AuthToken.cookieHeaderValue "alice" "secret", header)
+
+[<Fact>]
+let ``Desktop host cookie prefers server-issued over stored creds`` () =
+    let creds =
+        { LoginForm.Username = "alice"
+          LoginForm.Password = "secret" }
+    let issued = AuthToken.deriveToken "" ""
+    let header = AmbitSession.requestCookieHeader (Some creds) (Some issued)
+    Assert.Equal("gambol_auth=" + issued, header)

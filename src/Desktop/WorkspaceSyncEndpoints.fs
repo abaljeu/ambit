@@ -102,11 +102,6 @@ module WorkspaceSyncEndpoints =
         | Error _ ->
             Error(WorkspaceLocalMapping.missingMappingMessage label)
 
-    let private cookieHeader
-        (creds: LoginForm.Credentials option)
-        : string option =
-        AmbitSession.cookieHeader creds
-
     let private okSync (r: WorkspaceFileSync.SyncResult) =
         let skippedJson =
             r.skippedPaths
@@ -183,7 +178,7 @@ module WorkspaceSyncEndpoints =
         (workspaceMap: Map<string, WorkspaceMapping>)
         (client: HttpClient)
         (ambitBase: string)
-        (creds: LoginForm.Credentials option)
+        (cookie: string option)
         (context: HttpContext)
         = task {
         let! body = readBody context
@@ -199,7 +194,7 @@ module WorkspaceSyncEndpoints =
                         ambitBase
                         mappedRoot
                         scope
-                        (cookieHeader creds)
+                        cookie
                         (clientHint context)
                 with
                 | Error err ->
@@ -216,7 +211,7 @@ module WorkspaceSyncEndpoints =
         (workspaceMap: Map<string, WorkspaceMapping>)
         (client: HttpClient)
         (ambitBase: string)
-        (creds: LoginForm.Credentials option)
+        (cookie: string option)
         (context: HttpContext)
         = task {
         let! body = readBody context
@@ -232,7 +227,7 @@ module WorkspaceSyncEndpoints =
                         ambitBase
                         mappedRoot
                         scope
-                        (cookieHeader creds)
+                        cookie
                 with
                 | Error err ->
                     eprintfn
@@ -388,11 +383,14 @@ module WorkspaceSyncEndpoints =
         (client: HttpClient)
         (ambitBase: string)
         (creds: LoginForm.Credentials option)
+        (serverIssued: string option)
         (manager: WorkspaceDownloadManager.Manager)
         (context: HttpContext)
         : Task<bool> =
         task {
             let path = context.Request.Path
+            let cookie =
+                Some(AmbitSession.requestCookieHeader creds serverIssued)
             if path.Equals(PathString "/_desktop/workspace-download") then
                 if HttpMethods.IsPost context.Request.Method then
                     do!
@@ -414,7 +412,7 @@ module WorkspaceSyncEndpoints =
                         workspaceMap
                         client
                         ambitBase
-                        creds
+                        cookie
                         context
                 return true
             elif path.Equals(PathString "/_desktop/workspace-pull") then
@@ -423,7 +421,7 @@ module WorkspaceSyncEndpoints =
                         workspaceMap
                         client
                         ambitBase
-                        creds
+                        cookie
                         context
                 return true
             elif path.Equals(PathString "/_desktop/workspace-inventory") then
