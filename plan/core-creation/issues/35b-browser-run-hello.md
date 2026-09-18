@@ -2,6 +2,7 @@
 
 **Status:** ready-for-agent
 **Blocked by:** None — [[34b-outside-core-lifecycle-proof.md|34b — Outside Core lifecycle proof]] is `done`.
+Actual: 1h30m
 
 ## Context
 
@@ -17,11 +18,11 @@ Make the existing Browser Run action complete one successful `?test hello` path.
 
 Provide the shared id list used by Browser Command requests. The Client supplies `graphIds` from the unfolded Included context (Zoom + unfolded children), not a server-side Zoom-expand or Fold-walk. Follow module **Loaded descendant id list** in [[plan/core-creation/arch.md|Core creation architecture]].
 
-1. [ ] Include Zoom root — return a flat NodeId list that starts with the requested Zoom root.
-2. [ ] Walk unfolded children — recurse through unfolded child lists (Included context) and include every child id.
-3. [ ] Stop at folded children — do not descend through folded child lists.
-4. [ ] Ignore ownership — do not filter or branch on child ownership.
-5. [ ] Return ids only — return no Graph, edge, or ownership data.
+1. [x] Include Zoom root — return a flat NodeId list that starts with the requested Zoom root.
+2. [x] Walk unfolded children — recurse through unfolded child lists (Included context) and include every child id.
+3. [x] Stop at folded children — do not descend through folded child lists.
+4. [x] Ignore ownership — do not filter or branch on child ownership.
+5. [x] Return ids only — return no Graph, edge, or ownership data.
 
 ### 2. Browser Run
 
@@ -86,3 +87,9 @@ Verify the complete Story path from the user-visible boundary.
 
 - 2026-09-14 — Updated to align with Alan's locks: Client supplies `graphIds` from unfolded Included context (Fold); server does not Zoom-expand or Fold-walk. The walk is **unfolded vs folded** (Included context / Fold), **not** loaded vs unloaded residency. Actor select `test` is distinct from interpreting `hello` from command text. Register-then-start; Core owns pool; Actors injected at startup. getState / State = Graph; Events via lifecycle/History. Arch module still named "Loaded descendant id list" — rename debt to "Unfolded Included context id list" or similar when arch is next edited for this Project.
 - 2026-09-14 — Added §6 History durability (persist/load mailbox History for restart survival); moved off 34b where mailbox History was process-lifetime only.
+- 2026-09-18 — Slice 1 coded. [§1 Unfolded Included context id list](plan/core-creation/issues/35b-browser-run-hello.md) is implemented in [IncludedDescendantIds](src/Shared/IncludedDescendantIds.fs): `expand` walks SiteMap Fold (not `childrenStatus` residency). Shared.Tests green. Whole ticket Status stays `ready-for-agent`. Report: [35b slice 1 graphIds](plan/core-creation/reports/35b-slice1-graphids.md).
+
+## Time
+
+- 2026-09-18 1h30m — Slice 1 Shared `graphIds` Fold walk + Shared.Tests (from chat)
+- Actual: 1h30m
