@@ -1,7 +1,7 @@
 # Core creation architecture
 
 Spec: [[issues/Implementation Planning and Record.md]] (Phase 2 Spec); hello stories from [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]], [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]], and [Prove TestActor hello](issues/29-prove-testactor-hello.md). No Project `spec.md` yet.
-Updated: 2026-09-17
+Updated: 2026-09-18
 Sequence: tracer-cut
 Event stories Sequence: expand-migrate-contract
 
@@ -67,7 +67,7 @@ Implementation status for this cut: Point 0 loop code is shared ([[issues/30-res
       3. [x] command builders mint Ev (`EventId.zero`, `commandName`, `EventBody.Change` of Ops). Run is ActorStart or a Change Event with that Run command in `commandName`. No leftover Change record and no `Ev.ofChange` / `Ev.asChange`
       4. [x] `GetEventHistory` returns the log or `since`, not a two-stack
       5. [x] Poll returns an Ev tail (server return and client consume)
-      6. [x] Browser Poll consume; EventId cursor (`State.eventId`, `ClientSyncState.eventId`); `getEventId`
+      6. [x] Browser Poll consume; EventId basis (`State.eventId`, `ClientSyncState.eventId`); `getEventId`
       7. [x] EventBatch wraps Ev list; SyncInfo pending is an Ev list. No leftover PendingChange record
       8. [x] Browser callers keep using ClientHistory (Ev-shaped); client holds EventLog of the same type. Do not migrate onto a module named History. `ClientHistory.undo` locally then name-only submit; ack/reconcile stays the pending path
       9. [x] CoreMsg / CoreActorPool: mailbox appends ActorStart / ActorStop Ev records; callers do not `postEvent` those bodies
@@ -157,7 +157,7 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. ClientH
      1. [ ] `ActorFn` (injected; Core does not own Actor bodies). Pool does not Use EventLog or CoreCredentials. Live row is Actor liveness.
 4. **Ev** — types after `Op`; `module Ev` after `module Op` in [[src/Shared/History.fs]] (`Gambol.Shared`; no `Gambol.Shared.Events` namespace)
    Field shapes: [[reports/event-abstraction.md]].
-   1. [x] State: `Ev` record (`id`, `submissionId`, `authority`, `commandName`, `body`); `EventBody` is Change / Undo / Redo / ActorStart / ActorStop; `EventId` is the log position; `commandName` lives on Ev
+   1. [x] EventLog stores that Change as an Event with a unique event id greater than zero. Until EventLog stores it, the Event’s event id is zero. Poll with event id zero returns every stored Event. Only EventLog assigns stored event ids. Event id zero stays zero; it does not count up to one.
    - Interface:
      1. [x] `id`, `authority`, `ops` (none for Actor bodies), `isAction`, `target` (none except Undo/Redo)
      2. [x] `apply` — Graph apply via those Ops; Actor bodies do not touch the Graph
@@ -173,10 +173,10 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. ClientH
    Field shapes: [[reports/event-abstraction.md]].
    1. [x] State: append-only newest-head Ev sequence; mailbox store after intake. Persistence is this same EventLog on file/DB via EventLogFile (`gambol.events` file) and `events` table (DB). Not a second log.
    - Interface:
-     1. [x] `empty`, `append`, `nextId`
-     2. [x] `since eventId` — Poll/Load tail (self-contained Ev records)
+     1. [x] `empty`, `append`, `nextId` — empty `nextId` is the first assignable stored Int, not next of Zero; append stamps a unique positive Int and advances `nextId`; EventLog is the only assigner of stored event ids
+     2. [x] `since eventId` — Poll/Load tail (self-contained Ev records). `since` of Zero is every stored Int
      3. [x] `tryFind` — Core name-only Undo/Redo
-     4. [x] `restore` — merge persisted Ev records; dedupe by `submissionId`
+     4. [x] `restore` — merge persisted Ev records; dedupe by `submissionId`; `nextId` stays past every merged stored Int
      5. [x] CoreMailboxBackend is the only writer of the mailbox store. State has no `history` field. getState stays Graph-only
      6. [x] no second Actor-only event log beside CoreMailbox
      7. [x] encode and read Event JSON [[src/Shared/EventJson.fs]] (`EventJson` in `Gambol.Shared`)
@@ -278,7 +278,7 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. ClientH
 3. **Rejected: nested ActorMsg pump / FileAgent twin mailbox** — Restore a second mailbox or per-agent Actor cases (shape in the stashed [[reports/implement-issue-29-testactor-hello.md]]). File and Db must not start Actor-capable processors. Twin queues for Actor work stay rejected. Violates one-mailbox ordering from [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] and the CoreMailbox-only door from ticket 32.
 4. **Rejected: Actor event sequence outside the mailbox** — A second Actor-only sequence beside CoreMailbox. EventLog is the mailbox store after intake, not a second sequence.
 5. **Deferred past hello** — Cancel, live query, host-stop, post-twice, duplicate terminal, and Interrupted restart stay out of the hello stories. `ActorFailed` is in this slice: same drop as success; TestActor exceptions stop as `ActorFailed`. Record only; do not ticket from Unsettled.
-6. **Chosen Event destination** — One Ev type in `Gambol.Shared`. Mailbox is intake; EventLog is the store; ClientHistory is the Emacs Action view; persistence is the persisted EventLog. `postEvents` is the Changes door (Ev list); `postGraphOnly` is graph-only Ev (skips file persist, not EventLog); `postEvent` posts one Ev. `ActorStart` is the start request; pool `startActor` returns `Result<Credential, string>`. `authority` is on every Ev, stamped from the admitted Caller. Poll returns an Ev tail. There is no destination module named History; [[src/Shared/History.fs]] holds Op, Ev types, EventBody, ChangeValidation, and the Ev module; `ChangeAmendment` is its own file; the former mailbox History type is now EventLog. Command builders mint Ev (`EventId.zero`, `commandName`, `EventBody.Change` of Ops). There is no leftover Change record and no `Ev.ofChange` / `Ev.asChange`. One serial is EventId (`eventId`, `getEventId`).
+6. **Chosen Event destination** — One Ev type in `Gambol.Shared`. Mailbox is intake; EventLog is the store; ClientHistory is the Emacs Action view; persistence is the persisted EventLog. `postEvents` is the Changes door (Ev list); `postGraphOnly` is graph-only Ev (skips file persist, not EventLog); `postEvent` posts one Ev. `ActorStart` is the start request; pool `startActor` returns `Result<Credential, string>`. `authority` is on every Ev, stamped from the admitted Caller. Poll returns an Ev tail. There is no destination module named History; [[src/Shared/History.fs]] holds Op, Ev types, EventBody, ChangeValidation, and the Ev module; `ChangeAmendment` is its own file; the former mailbox History type is now EventLog. Command builders mint Ev (`EventId.zero`, `commandName`, `EventBody.Change` of Ops). There is no leftover Change record and no `Ev.ofChange` / `Ev.asChange`. One serial is EventId (`eventId`, `getEventId`): Zero or a positive stored Int; EventLog assigns stored serials; next of Zero is Zero.
 
 ## 5. Unsettled
 

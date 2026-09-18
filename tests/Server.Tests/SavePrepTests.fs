@@ -23,7 +23,7 @@ let private stateWithRootChild (text: string) : State =
         { graph = Graph.create ()
           eventId = EventId.zero }
     match applyChange change initial with
-    | ApplyResult.Changed state -> { state with eventId = EventId.fromJson 1 }
+    | ApplyResult.Changed state -> { state with eventId = EventIdFixtures.storedId 1 }
     | _ -> failwith "expected changed state"
 
 let private requireOk label result =

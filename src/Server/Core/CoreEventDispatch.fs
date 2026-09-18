@@ -22,8 +22,19 @@ module internal CoreEventDispatch =
         context.eventLog.Value.events
         |> List.tryFind (fun e -> e.submissionId = submissionId)
 
+    let private catchUpNextId (context: Context) =
+        match context.persist.getEventLog () with
+        | Error _ -> ()
+        | Ok persistLog ->
+            let mailbox = context.eventLog.Value
+            context.eventLog.Value <-
+                { mailbox with
+                    nextId =
+                        EventId.max mailbox.nextId persistLog.nextId }
+
     /// submissionId is Guid dedup (event-abstraction): replay returns the stored Ev.
     let private commit (context: Context) (event: Ev) =
+        catchUpNextId context
         match tryStored context event.submissionId with
         | Some existing -> Ok existing
         | None ->
@@ -73,10 +84,10 @@ module internal CoreEventDispatch =
         | Gambol.Shared.EventBody.Undo(target, [])
         | Gambol.Shared.EventBody.Redo(target, []) ->
             match EventLog.tryFind target eventLog with
-            | None -> Error "target Ev not found"
+            | None -> Error "target Event not found"
             | Some targetEvent ->
                 match Ev.inverseOps targetEvent with
-                | None -> Error "target Ev has no inverse Ops"
+                | None -> Error "target Event has no inverse Ops"
                 | Some ops ->
                     let body =
                         match event.body with
@@ -149,6 +160,7 @@ module internal CoreEventDispatch =
         if event.id <> EventId.zero then
             Error "posted EventId must be zero"
         else
+            catchUpNextId context
             match prepare context caller event with
             | Error error -> Error error
             | Ok completed ->

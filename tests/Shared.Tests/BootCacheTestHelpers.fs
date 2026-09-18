@@ -6,6 +6,6 @@ open Gambol.Shared
 let mkEvent id =
     SpecialNodeTestHelpers.changeEvent
         "fixture"
-        (EventId.fromJson id)
+        (EventIdFixtures.storedId id)
         (Guid.NewGuid())
         []

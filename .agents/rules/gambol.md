@@ -62,6 +62,7 @@ Workflow skills in [[.agents/skills/]]:
 - [[.agents/skills/git-share/SKILL.md]] — pull `ready`, catch up; push `ready` only with Alan's approval
 - [[.agents/skills/cloud-agent-git/SKILL.md]] — staging: cloud agents send done work there; Desktop pulls `staging` locally, then lands onto `dev`
 - [[.agents/skills/project-work/SKILL.md]] — `plan` project files and Stage
+- [[.agents/skills/plan-or-doc-change/SKILL.md]] — layered change across map, spec, architecture, ticket, and code
 - [[.agents/skills/plan-roadmap-change/SKILL.md]] — roadmap and plan doc changes
 - [[.agents/skills/investigate-fable-client/SKILL.md]] — Fable client investigation
 - [[.agents/skills/maintain-doc-currency/SKILL.md]] — doc placement and currency

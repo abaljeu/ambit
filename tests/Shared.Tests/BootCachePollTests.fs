@@ -7,7 +7,7 @@ open BootCacheTestHelpers
 open Xunit
 
 let private mkPoll rev (events: Ev list) : ChangeSuccessResponse =
-    { eventId = EventId.fromJson rev
+    { eventId = EventIdFixtures.storedId rev
       buildEpochSec = 1
       pageBuildEpochSec = 1
       apiVersion = ApiVersion.current
@@ -26,7 +26,7 @@ let ``novelEvents skips Poll Events already in the log by id`` () =
     let pollDup = { local with submissionId = Guid.NewGuid() }
     let novel = mkEvent 5
     let kept = BootCache.novelEvents [ local ] [ pollDup; novel ]
-    Assert.Equal(5, kept.Head.id.Value)
+    Assert.Equal(novel.id, kept.Head.id)
     Assert.Equal(1, kept.Length)
 
 [<Fact>]
@@ -37,7 +37,7 @@ let ``novelEvents skips Poll Events already in the log by submissionId`` () =
 
 [<Fact>]
 let ``decideBootPoll confirms an empty tail at matching Revision`` () =
-    match decide (EventId.fromJson 5) [] (mkPoll 5 []) with
+    match decide (EventIdFixtures.storedId 5) [] (mkPoll 5 []) with
     | BootCache.BootPoll.Confirmed true -> ()
     | other -> failwithf "%A" other
 
@@ -45,35 +45,35 @@ let ``decideBootPoll confirms an empty tail at matching Revision`` () =
 let ``decideBootPoll confirms when the tail is only local log duplicates`` () =
     let local = mkEvent 6
     let poll = mkPoll 6 [ local ]
-    match decide (EventId.fromJson 6) [ local ] poll with
+    match decide (EventIdFixtures.storedId 6) [ local ] poll with
     | BootCache.BootPoll.Confirmed true -> ()
     | other -> failwithf "%A" other
 
 [<Fact>]
 let ``decideBootPoll reports CodeOutdated when API version mismatches`` () =
     let poll = { mkPoll 5 [] with apiVersion = ApiVersion.current + 1 }
-    match decide (EventId.fromJson 5) [] poll with
+    match decide (EventIdFixtures.storedId 5) [] poll with
     | BootCache.BootPoll.CodeOutdated -> ()
     | other -> failwithf "%A" other
 
 [<Fact>]
 let ``decideBootPoll confirms when page stamps differ and API matches`` () =
     let poll = { mkPoll 5 [] with buildEpochSec = 2; pageBuildEpochSec = 99 }
-    match decide (EventId.fromJson 5) [] poll with
+    match decide (EventIdFixtures.storedId 5) [] poll with
     | BootCache.BootPoll.Confirmed true -> ()
     | other -> failwithf "%A" other
 
 [<Fact>]
 let ``decideBootPoll applies a novel tail`` () =
     let novel = mkEvent 7
-    match decide (EventId.fromJson 6) [] (mkPoll 7 [ novel ]) with
+    match decide (EventIdFixtures.storedId 6) [] (mkPoll 7 [ novel ]) with
     | BootCache.BootPoll.ApplyNovel (events, true) ->
-        Assert.Equal(7, events.Head.id.Value)
+        Assert.Equal(novel.id, events.Head.id)
     | other -> failwithf "%A" other
 
 [<Fact>]
 let ``decideBootPoll falls back when Poll event id is behind the client`` () =
-    match decide (EventId.fromJson 9) [] (mkPoll 4 []) with
+    match decide (EventIdFixtures.storedId 9) [] (mkPoll 4 []) with
     | BootCache.BootPoll.FallbackState "eventId" -> ()
     | other -> failwithf "%A" other
 
@@ -81,7 +81,7 @@ let ``decideBootPoll falls back when Poll event id is behind the client`` () =
 let ``decideBootPoll falls back when the novel tail is oversized`` () =
     let many =
         List.init (BootCache.maxNovelCount + 1) (fun i -> mkEvent (10 + i))
-    match decide (EventId.fromJson 9) [] (mkPoll 20 many) with
+    match decide (EventIdFixtures.storedId 9) [] (mkPoll 20 many) with
     | BootCache.BootPoll.FallbackState "oversized" -> ()
     | other -> failwithf "%A" other
 
@@ -89,7 +89,7 @@ let ``decideBootPoll falls back when the novel tail is oversized`` () =
 let ``decideBootPoll falls back when the event id gap is oversized`` () =
     match
         decide
-            (EventId.fromJson 1)
+            (EventIdFixtures.storedId 1)
             []
             (mkPoll (1 + BootCache.maxPollEventIdGap + 1) [])
     with
@@ -101,21 +101,21 @@ let ``shouldTruncate is true when the log is longer than the bound`` () =
     Assert.True(
         BootCache.shouldTruncate
             (BootCache.maxLogLength + 1)
-            (EventId.fromJson 1)
-            (EventId.fromJson 2))
+            (EventIdFixtures.storedId 1)
+            (EventIdFixtures.storedId 2))
     Assert.False(
         BootCache.shouldTruncate
             1
-            (EventId.fromJson 10)
-            (EventId.fromJson 11))
+            (EventIdFixtures.storedId 10)
+            (EventIdFixtures.storedId 11))
 
 [<Fact>]
 let ``shouldTruncate is true when the EventId gap exceeds the bound`` () =
     Assert.True(
         BootCache.shouldTruncate
             1
-            (EventId.fromJson 1)
-            (EventId.fromJson (1 + BootCache.maxEventIdGap + 1)))
+            (EventIdFixtures.storedId 1)
+            (EventIdFixtures.storedId (1 + BootCache.maxEventIdGap + 1)))
 
 [<Fact>]
 let ``truncationGraph drops Load-only nested Workspace children`` () =
@@ -173,7 +173,7 @@ let ``graphFingerprint is stable for the same Graph and changes when ROOT text c
 let ``decideBootPoll falls back on equal Revision hash mismatch`` () =
     match
         BootCache.decideBootPoll
-            (EventId.fromJson 5) [] (mkPoll 5 []) (Some "aaa") (Some "bbb")
+            (EventIdFixtures.storedId 5) [] (mkPoll 5 []) (Some "aaa") (Some "bbb")
     with
     | BootCache.BootPoll.FallbackState "hash" -> ()
     | other -> failwithf "%A" other
@@ -182,7 +182,7 @@ let ``decideBootPoll falls back on equal Revision hash mismatch`` () =
 let ``decideBootPoll skips hash compare when Poll omits bootstrapHash`` () =
     match
         BootCache.decideBootPoll
-            (EventId.fromJson 5) [] (mkPoll 5 []) None (Some "bbb")
+            (EventIdFixtures.storedId 5) [] (mkPoll 5 []) None (Some "bbb")
     with
     | BootCache.BootPoll.Confirmed true -> ()
     | other -> failwithf "%A" other
@@ -200,7 +200,7 @@ let ``decideBootPoll confirms after /state when a client fingerprint disagrees``
     let cached = BootCache.cachedHashForBootPoll true "fable-poison"
     match
         BootCache.decideBootPoll
-            (EventId.fromJson 5) [] poll (Some "server") cached
+            (EventIdFixtures.storedId 5) [] poll (Some "server") cached
     with
     | BootCache.BootPoll.Confirmed true -> ()
     | other -> failwithf "%A" other

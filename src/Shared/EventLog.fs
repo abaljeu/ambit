@@ -10,8 +10,8 @@ type EventLog =
 
 [<RequireQualifiedAccess>]
 module EventLog =
-    // EventId retires Revision: cursor 0 is before the first Ev; first id is 1.
-    let empty: EventLog = { events = []; nextId = EventId.next EventId.zero }
+    // Empty nextId is the first assignable stored Int, not next of Zero.
+    let empty: EventLog = { events = []; nextId = EventId.fromJson 1 }
 
     let nextId (log: EventLog) : EventId = log.nextId
 
@@ -27,12 +27,13 @@ module EventLog =
                 |> List.filter (fun event ->
                     EventId.value event.id > EventId.value after) }
 
-    let all (log: EventLog) : EventLog = since EventId.beforeAll log
+    let all (log: EventLog) : EventLog = since EventId.zero log
 
     let tryFind (eventId: EventId) (log: EventLog) : Ev option =
         log.events |> List.tryFind (fun event -> event.id = eventId)
 
     /// Merge persisted Events; cons so oldest-first persist input yields newest-head.
+    /// nextId is past max of the source nextId and every merged Event id.
     let restore (persisted: Ev list) (log: EventLog) : EventLog =
         let known =
             log.events
@@ -44,16 +45,17 @@ module EventLog =
             else
                 event :: events, Set.add event.submissionId seen
         let events, _ = List.fold folder (log.events, known) persisted
-        { log with events = events }
-
-    /// Merge persisted Events into an empty log, dedupe by `submissionId`, set `nextId` past max id.
-    let restorePersisted (persisted: Ev list) : EventLog =
         let nextId =
-            match persisted with
-            | [] -> empty.nextId
-            | _ ->
-                persisted
-                |> List.map Ev.id
-                |> List.reduce EventId.max
-                |> EventId.next
-        restore persisted { empty with nextId = nextId }
+            match events |> List.map Ev.id with
+            | [] -> log.nextId
+            | ids ->
+                EventId.max log.nextId (EventId.next (List.reduce EventId.max ids))
+        { events = events; nextId = nextId }
+
+    /// Merge persisted Events into an empty log, dedupe by `submissionId`.
+    let restorePersisted (persisted: Ev list) : EventLog =
+        restore persisted empty
+
+    /// Raise nextId past eventId when that id is already stored.
+    let advancePast (eventId: EventId) (log: EventLog) : EventLog =
+        { log with nextId = EventId.max log.nextId (EventId.next eventId) }

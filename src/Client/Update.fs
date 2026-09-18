@@ -213,7 +213,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
     | SysMsg AutoDownloadTick ->
         UpdateWorkspaceDownload.runAutoDownloadTick model
 
-    | SysMsg (PollDone (stateOpt, events, readyOpt, responseRevision)) ->
+    | SysMsg (PollDone (stateOpt, events, readyOpt, responseEventId)) ->
         let readyModel =
             match readyOpt with
             | Some ready ->
@@ -223,7 +223,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                         |> SyncInfo.withServerReady ready }
             | None -> model
         // While Uploading, Parsing, or Loading: keep the busy indicator. Do not apply
-        // Poll tails during Loading — a stale poll would advance Revision and cause
+        // Poll tails during Loading — a stale poll would advance revision and cause
         // applyLoadResponse to reject package-only Load payloads.
         let autoDownload model' =
             UpdateWorkspaceDownload.accumulateAutoDownloadFromOps
@@ -260,7 +260,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
             match readyModel.syncInfo.catchUp, events with
             | Some baseline, _ :: _ ->
                 let serverRev =
-                    responseRevision
+                    responseEventId
                     |> Option.defaultValue baseline.eventId
                 match
                     SyncLogic.consumeCatchUpPoll

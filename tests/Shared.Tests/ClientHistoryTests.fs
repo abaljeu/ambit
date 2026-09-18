@@ -55,7 +55,7 @@ let ``ordinary inverse reverses Set ops and uses supplied identity`` () =
     let source =
         SpecialNodeTestHelpers.changeEvent
             "Edit node"
-            (EventId.fromJson 17)
+            (EventIdFixtures.storedId 17)
             (Guid.NewGuid())
             [ Op.SetText(nodeId, "before", "after")
               Op.SetClasses(nodeId, oldClasses, newClasses)
@@ -162,14 +162,14 @@ let ``approve stamps EventId.zero by submissionId`` () =
     let confirmed =
         { source with
             commandName = "Edit node"
-            id = EventId.fromJson 9 }
+            id = EventIdFixtures.storedId 9 }
     let approved = ClientHistory.approve [ confirmed ] recorded
     match ClientHistory.undoEvent approved with
     | None -> failwith "expected Undo"
     | Some (event, _) ->
         match event.body with
         | EventBody.Undo(target, _) ->
-            Assert.Equal(EventId.fromJson 9, target)
+            Assert.Equal(EventIdFixtures.storedId 9, target)
         | _ -> failwith "expected Undo body"
 
 [<Fact>]
@@ -187,14 +187,14 @@ let ``approve stamps Undo target written while original id was zero`` () =
         let confirmed =
             { source with
                 commandName = "Edit node"
-                id = EventId.fromJson 9 }
+                id = EventIdFixtures.storedId 9 }
         let approved = ClientHistory.approve [ confirmed ] undone
         match ClientHistory.tryPeekRedoEvent approved with
         | None -> failwith "expected Redo stack Undo"
         | Some event ->
             match event.body with
             | EventBody.Undo(target, _) ->
-                Assert.Equal(EventId.fromJson 9, target)
+                Assert.Equal(EventIdFixtures.storedId 9, target)
             | _ -> failwith "expected Undo body"
 
 [<Fact>]
@@ -202,7 +202,7 @@ let ``record keeps EventId.zero and does not mint a local id`` () =
     let change =
         SpecialNodeTestHelpers.changeEvent
             "Edit node"
-            (EventId.fromJson 7)
+            (EventIdFixtures.storedId 7)
             (Guid.NewGuid())
             []
     let recorded =
@@ -297,7 +297,7 @@ let ``tryPeekUndoName and tryPeekRedoName follow the stacks`` () =
 [<Fact>]
 let ``normal record folds future without duplicating logical records`` () =
     let first = textChange EventId.zero (NodeId.New()) "first-old" "first-new"
-    let second = textChange (EventId.fromJson 1) (NodeId.New()) "second-old" "second-new"
+    let second = textChange (EventIdFixtures.storedId 1) (NodeId.New()) "second-old" "second-new"
     let recordedFirst =
         ClientHistory.clear ()
         |> recordNamed "First" first

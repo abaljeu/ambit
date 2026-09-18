@@ -49,6 +49,7 @@ type PersistHandlers = {
     getEventsSince:
         Gambol.Shared.EventId
             -> Result<Ev list, string>
+    getEventLog: unit -> Result<EventLog, string>
     appendEvent:
         Ev -> Result<unit, string>
     applyEvent:

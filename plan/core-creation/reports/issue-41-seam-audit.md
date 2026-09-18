@@ -8,7 +8,7 @@ Date: 2026-09-15. Ticket: [[../issues/41-migrate-core-mailbox-coremsg-and-pool-o
 2. **GetEventHistory** — `eventHistory` / `GetEventHistory` returns **EventLog** (full log or `since`), not the **History** two-stack (`past` / `future`).
 3. **ActorStart and ActorStop on EventLog** — On the mailbox thread: append `EventBody.ActorStart` / `EventBody.ActorStop` to `eventLog`. Callers do not `postEvent` those bodies. Order for start: live row → ActorStart Event → `pool.schedule` ([[../arch.md|Core creation architecture]] Module **CoreActorPool** Interface: On the mailbox thread: live row → ActorStart Event on EventLog → pool.schedule).
 4. **Authority stamp** — Core overwrites `Event.authority` from the admitted `Caller` on every stored Event; wire payload authority is ignored.
-5. **Compatibility** — `PostChange`, `History`, `HistoryEvent`, `StartActorRequest`, and ChangeLog persist name stay compilable until [[../issues/45-contract-historyevent-clienthistory-pendingkind-and-changelog.md|45 — Contract HistoryEvent, mailbox History, PendingKind, StartActorRequest, and ChangeLog]]. HTTP Adapter, PersistHandlers Event restore, and Browser Poll stay on [[../issues/42-migrate-persisthandlers-restore-and-geteventssince.md|42 — Migrate PersistHandlers restore and getEventsSince]], [[../issues/43-migrate-http-adapter-onto-postevent-and-event-poll.md|43 — Migrate HTTP Adapter onto postEvent and Event Poll]], and [[../issues/44-migrate-browser-poll-history-pending-and-eventid.md|44 — Migrate Browser Poll, History, pending, and EventId cursor]].
+5. **Compatibility** — `PostChange`, `History`, `HistoryEvent`, `StartActorRequest`, and ChangeLog persist name stay compilable until [[../issues/45-contract-historyevent-clienthistory-pendingkind-and-changelog.md|45 — Contract HistoryEvent, mailbox History, PendingKind, StartActorRequest, and ChangeLog]]. HTTP Adapter, PersistHandlers Event restore, and Browser Poll stay on [[../issues/42-migrate-persisthandlers-restore-and-geteventssince.md|42 — Migrate PersistHandlers restore and getEventsSince]], [[../issues/43-migrate-http-adapter-onto-postevent-and-event-poll.md|43 — Migrate HTTP Adapter onto postEvent and Event Poll]], and [[../issues/44-migrate-browser-poll-history-pending-and-eventid.md|44 — Migrate Browser Poll, History, pending, and EventId basis]].
 
 ## 2. Current implementation (gap vs destination)
 
@@ -100,7 +100,7 @@ New private helpers likely needed (names illustrative): **`stampAuthority`**, **
 ### 3.6 Out of scope (must not break)
 
 1. **`PersistHandlers`** in [[src/Server/Core/FileAgent.fs]], [[src/Server/Core/DbAgent.fs]] — Still `Change list` / `getChangesSince : Revision -> Change list` until 42.
-2. **`Api.postChange`**, Poll, Client — [[../issues/43-migrate-http-adapter-onto-postevent-and-event-poll.md|43 — Migrate HTTP Adapter onto postEvent and Event Poll]] and [[../issues/44-migrate-browser-poll-history-pending-and-eventid.md|44 — Migrate Browser Poll, History, pending, and EventId cursor]].
+2. **`Api.postChange`**, Poll, Client — [[../issues/43-migrate-http-adapter-onto-postevent-and-event-poll.md|43 — Migrate HTTP Adapter onto postEvent and Event Poll]] and [[../issues/44-migrate-browser-poll-history-pending-and-eventid.md|44 — Migrate Browser Poll, History, pending, and EventId basis]].
 3. **Delete** `History`, `HistoryEvent`, `StartActorRequest` — [[../issues/45-contract-historyevent-clienthistory-pendingkind-and-changelog.md|45 — Contract HistoryEvent, mailbox History, PendingKind, StartActorRequest, and ChangeLog]].
 
 ## 4. Compatibility constraints

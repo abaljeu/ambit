@@ -1,6 +1,6 @@
 # 33 — Credentialed Browser Change posts
 
-**Status:** coded
+**Status:** done
 **Blocked by:** None — can start immediately. Point 0 ([[30-reshape-coreactorpool-synchronized-table.md]], [[31-one-coremsg-loop-parameterized-persist.md]], [[32-move-persist-agents-under-coremailbox.md]]) is done. Not blocked by [[29-prove-testactor-hello.md|Prove TestActor hello]].
 Estimate: 2h
 Actual: 7h30m

@@ -299,6 +299,7 @@ module internal CoreMailboxBackend =
         getState = persist.getState
         getEventId = persist.getEventId
         getEventsSince = persist.getEventsSince
+        getEventLog = persist.getEventLog
         appendEvent = fun _ -> Error error
         applyEvent = fun _ _ -> Error error
         snapshotDone = fun _ -> ()
@@ -310,8 +311,7 @@ module internal CoreMailboxBackend =
 
     let private seedEventLog (persist: PersistHandlers) =
         try
-            persist.getEventsSince EventId.beforeAll
-            |> Result.map EventLog.restorePersisted
+            persist.getEventLog ()
         with ex ->
             Error ex.Message
 

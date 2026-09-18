@@ -35,6 +35,18 @@ module DbAgent =
             string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, string>
     }
 
+    let private overlayRowId (row: Database.EventRow) (event: Ev) : Ev =
+        { event with id = EventId.fromJson row.event_id }
+
+    let private advancePastRowIds (rows: Database.EventRow list) log =
+        match rows with
+        | [] -> log
+        | _ ->
+            rows
+            |> List.map (fun row -> EventId.fromJson row.event_id)
+            |> List.reduce EventId.max
+            |> fun maxId -> EventLog.advancePast maxId log
+
     let private loadRestoredEventLog (connectionString: string) : EventLog =
         if String.IsNullOrWhiteSpace connectionString then
             EventLog.empty
@@ -43,11 +55,13 @@ module DbAgent =
                 Database.getEvents connectionString
                 |> Async.AwaitTask
                 |> Async.RunSynchronously
-            let raw =
+            let decoded =
                 rows
                 |> List.choose (fun row ->
-                    EventLogFile.decodeEvent row.payload |> Result.toOption)
-            EventLog.restorePersisted raw
+                    EventLogFile.decodeEvent row.payload
+                    |> Result.toOption
+                    |> Option.map (overlayRowId row))
+            advancePastRowIds rows (EventLog.restorePersisted decoded)
 
     let private loadInitialState (connectionString: string) : Async<State> =
         Database.loadPersistedState connectionString
@@ -120,7 +134,7 @@ module DbAgent =
             Ok(s, storedEvent :: confirmations, externalChanges)
         | None ->
             match Ev.ops event with
-            | None -> Error "Ev has no Ops"
+            | None -> Error "Event has no Ops"
             | Some ops ->
                 let result, amended, appliedOps =
                     ChangeAmendment.applyOps ops s
@@ -371,7 +385,7 @@ module DbAgent =
             recordPersistedEvent loaded persisted
             Ok ()
         with ex ->
-            Error $"Ev persist error: {ex.Message}"
+            Error $"Event persist error: {ex.Message}"
 
     let private appendPersistedEvent
         loaded
@@ -389,6 +403,7 @@ module DbAgent =
         getState = fun () -> Ok loaded.state.Value
         getEventId = fun () -> Ok loaded.state.Value.eventId
         getEventsSince = fun after -> Ok(eventsSince loaded after)
+        getEventLog = fun () -> Ok loaded.eventLog.Value
         appendEvent = appendPersistedEvent loaded
         applyEvent = fun event graphOnly ->
             processPostEvents loaded [ event ] graphOnly

@@ -35,14 +35,14 @@ let private stateWithRootChild (text: string) : State =
           eventId = EventId.zero }
 
     match applyChange change initial with
-    | ApplyResult.Changed st -> { st with eventId = EventId.fromJson 1 }
+    | ApplyResult.Changed st -> { st with eventId = EventIdFixtures.storedId 1 }
     | _ -> failwith "expected changed state"
 
 [<Fact>]
 let ``tryLoadState empty dataDir returns empty graph`` () =
     let dataDir = newTempDir ()
     let loaded = DocumentLoader.tryLoadState dataDir |> requireOk "load"
-    Assert.Equal(0, loaded.eventId.Value)
+    Assert.Equal(EventId.zero, loaded.eventId)
     Assert.Equal(0, userNodeCount loaded.graph)
 
 [<Fact>]
@@ -51,7 +51,7 @@ let ``tryLoadState reads amb network`` () =
     let state = stateWithRootChild "from-amb"
     writeAmbFiles dataDir state
     let loaded = DocumentLoader.tryLoadState dataDir |> requireOk "load"
-    Assert.Equal(0, loaded.eventId.Value)
+    Assert.Equal(EventId.zero, loaded.eventId)
     Assert.True(loaded.graph.nodes.Values |> Seq.exists (fun n -> n.text = "from-amb"))
 
 [<Fact>]

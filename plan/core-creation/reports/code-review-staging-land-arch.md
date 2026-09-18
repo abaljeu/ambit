@@ -9,7 +9,7 @@ Fixed point: current `dev` tip before land (`persist handlers`).
 ### Hard violations
 
 **[[.agents/rules/refer-by-name.md]]** — bare id  
-- [44 — Migrate Browser Poll, History, pending, and EventId cursor](../issues/44-migrate-browser-poll-history-pending-and-eventid.md):48 — was “conflicts with issue 43” (no name); **fixed** to name [43 — Migrate HTTP Adapter onto postEvent and Event Poll](../issues/43-migrate-http-adapter-onto-postevent-and-event-poll.md).
+- [44 — Migrate Browser Poll, History, pending, and EventId basis](../issues/44-migrate-browser-poll-history-pending-and-eventid.md):48 — was “conflicts with issue 43” (no name); **fixed** to name [43 — Migrate HTTP Adapter onto postEvent and Event Poll](../issues/43-migrate-http-adapter-onto-postevent-and-event-poll.md).
 
 **[[.agents/rules/fsharp-source.md]] — Don’t use mutable**  
 - [EventLogFile.fs](../../../src/Server/EventLogFile.fs):62 `let mutable totalRead = 0`  
@@ -53,7 +53,7 @@ Bindings measured ≤40 lines — no hit. No core-api Adapter/Core boundary brea
 
 - **§1 Story Caller, persist, and Poll → Migrate 8** — “client holds EventLog of the same type… Do not migrate onto a module named History.” `ClientSyncState.eventLog` is added but never restored/updated from Poll/ack (`SyncLogic` only declares the field; no `EventLog.restore` on consume). Client constructors in `Update.fs` / `Program.fs` are outside this diff and do not wire `eventLog`.
 - **Same hop** — “`ClientHistory.undo` locally then name-only submit.” Local undo rebuilds `Undo`/`Redo` with full inverse `ops` and posts them (`SyncLogic.applyInverse`); wire JSON requires `ops` (`EventJson.decodeUndoBody`). Server can fill empty ops (`CoreEventDispatch.completeAction`), but the Browser path does not submit name-only.
-- **§1 Migrate 6** — “`Revision` → EventId cursor (`State.revision`, `ClientSyncState.revision`).” Shared `State`/`ClientSyncState` move to `EventId`, but `VM.revision` stays `Revision` and most client sync call sites are unchanged in this tree.
+- **§1 Migrate 6** — “`Revision` → EventId basis (`State.revision`, `ClientSyncState.revision`).” Shared `State`/`ClientSyncState` move to `EventId`, but `VM.revision` stays `Revision` and most client sync call sites are unchanged in this tree.
 - **§2 Module ClientHistory Interface 1–2** — “`record commandName event`”; “`undo` / `redo` … produce the Undo/Redo Event.” Production path still uses Change-shaped `ClientHistory.record` / `undo` / `redo`; Event APIs are `recordEvent` / `undoEvent` / `redoEvent` only.
 
 ### (b) Scope creep
@@ -65,7 +65,7 @@ Bindings measured ≤40 lines — no hit. No core-api Adapter/Core boundary brea
 ### (c) Implemented but wrong vs arch
 
 - **§1 Migrate 1 / §2 HTTP Adapter Interface 4–5** — Change posts call `postEvents`, Poll/Load return `events`, but post ack sets `events = batch.events` (request echo). `CoreChangesAccepted` still carries `changes: Change list`, so ack is not the stored/completed Event (stamped `authority`, filled Undo ops, assigned `id`).
-- **§1 Migrate 6 / Chosen Event destination** — “poll cursor is EventId”; `State.revision` is `EventId`, yet `FileAgent` still does `revision = Revision nextRev` / `.Value` (Revision stamp into an EventId field).
+- **§1 Migrate 6 / Chosen Event destination** — “poll basis is EventId”; `State.revision` is `EventId`, yet `FileAgent` still does `revision = Revision nextRev` / `.Value` (Revision stamp into an EventId field).
 - **§4 Chosen Event destination** — “`postEvent` is the Changes door. Payload is Event.” HTTP is on Events, but `CoreChanges` keeps a parallel Change-list `postChange` door used by persist/dispatch and Actor paths.
 
 ## Summary

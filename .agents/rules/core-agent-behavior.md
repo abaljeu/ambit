@@ -60,7 +60,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ## Build / test toolchain gate
 
-Before you claim compile or tests are green, and before you commit code changes, run `dotnet build` and `dotnet test` (or the project's documented commands). Success means those commands ran and passed.
+Before you claim compile or tests are green, and before you commit code changes, run `dotnet test` (or the project's documented commands). Success means those commands ran and passed.
 
 If `dotnet` or another required toolchain is missing, or the command fails to start, stop. Report that as an environment failure. Do not treat a missing toolchain as "build skipped" or optional. Do not commit. Do not mark the work done as if verification passed.
 

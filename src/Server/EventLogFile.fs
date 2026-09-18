@@ -83,7 +83,7 @@ module EventLogFile =
         readLine ()
         let line = Encoding.UTF8.GetString(buf.ToArray()).TrimEnd('\r')
         if line.Length < headerLength then
-            Error "Ev log entry shorter than header"
+            Error "Event log entry shorter than header"
         else
             match Int32.TryParse(line.Substring(0, headerLength)) with
             | true, id -> Ok(id, line.Substring(headerLength))
@@ -139,4 +139,4 @@ module EventLogFile =
         with ex ->
             stream.SetLength(startLen)
             stream.Seek(0L, SeekOrigin.End) |> ignore
-            Error $"Ev log error: {ex.Message}"
+            Error $"Event log error: {ex.Message}"

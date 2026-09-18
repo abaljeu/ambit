@@ -107,7 +107,7 @@ Not every CoreMsg carries an Event: Login, GetState, SnapshotDone stay intake-on
 ## 5. What is not the type
 
 1. **PendingChange / ChangeBatch** — transport wrappers around the same Event that `postEvent` takes.
-2. **State** — Graph only; poll cursor is an EventId the caller holds, not a History field (today’s `State.revision`).
+2. **State** — Graph only; the EventId basis is an EventId the caller holds, not a History field (today’s `State.revision`).
 3. **Mailbox store** — `EventLog ref`. `GetEventHistory` returns the log or `since`, not a two-stack.
 
 ## 6. Type inventory this replaces

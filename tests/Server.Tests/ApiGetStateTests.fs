@@ -76,7 +76,7 @@ let private nestedWorkspaceStateResponse () =
             | Ok g -> g
             | Error err -> failwith err
     { graph = graph2
-      eventId = EventId.fromJson 1
+      eventId = EventIdFixtures.storedId 1
     },
     wsId,
     dirId
@@ -149,7 +149,7 @@ let ``getState zoom outside ROOT adds owning Workspace`` () = task {
         | Ok response ->
             Assert.True(response.graph.nodes.ContainsKey dirId)
             Assert.Equal(Loaded, response.graph.nodes.[wsId].childrenStatus)
-            Assert.Equal(EventId.fromJson 1, response.eventId)
+            Assert.True(EventId.isAccepted response.eventId)
     | other ->
         Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
 }

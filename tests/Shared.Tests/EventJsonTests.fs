@@ -16,7 +16,7 @@ let private roundTrip (event: Ev) : Ev =
 
 let private changeEvent : Ev =
     let nodeId = NodeId(Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"))
-    { id = EventId.fromJson 3
+    { id = EventIdFixtures.storedId 3
       submissionId = Guid("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
       authority = Authority "Browser"
       commandName = "Set text"
@@ -25,7 +25,7 @@ let private changeEvent : Ev =
 [<Fact>]
 let ``Ev JSON uses eventId key`` () =
     let json = Enc.toString 0 (EventJson.encode changeEvent)
-    Assert.Contains("\"eventId\":3", json)
+    Assert.Contains($"\"eventId\":{EventId.toJson changeEvent.id}", json)
     Assert.DoesNotContain("\"revision\"", json)
 
 [<Fact>]
@@ -37,9 +37,9 @@ let ``Ev JSON round-trips a Change`` () =
 let ``Ev JSON round-trips name-only Undo`` () =
     let event =
         { changeEvent with
-            id = EventId.fromJson 4
+            id = EventIdFixtures.storedId 4
             commandName = "Undo"
-            body = EventBody.Undo(EventId.fromJson 3, []) }
+            body = EventBody.Undo(EventIdFixtures.storedId 3, []) }
     Assert.Equal(event, roundTrip event)
 
 [<Fact>]
@@ -50,7 +50,7 @@ let ``Ev JSON round-trips ActorStart and ActorStop`` () =
           focusId = NodeId(Guid("dddddddd-dddd-dddd-dddd-dddddddddddd"))
           commandId = NodeId(Guid("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"))
           graphIds = [ zoom ]
-          eventId = EventId.fromJson 4 }
+          eventId = EventIdFixtures.storedId 4 }
     let started =
         { changeEvent with
             commandName = ""
@@ -72,11 +72,11 @@ let ``mintChange encodes eventId 0 on the wire`` () =
 [<Fact>]
 let ``toWireBatch forces EventId.zero on a dirty new client Event`` () =
     let minted = ClientHistory.mintChange "Edit node" []
-    let dirty = { minted with id = EventId.fromJson 7 }
+    let dirty = { minted with id = EventIdFixtures.storedId 7 }
     let wire = SyncBatch.toWireBatch [ dirty ]
     Assert.Equal(EventId.zero, wire.Head.id)
     Assert.Equal(minted.submissionId, wire.Head.submissionId)
     let json =
         Enc.toString 0 (EventJson.encodeEventBatch { events = wire })
     Assert.Contains("\"eventId\":0", json)
-    Assert.DoesNotContain("\"eventId\":7", json)
+    Assert.DoesNotContain($"\"eventId\":{EventId.toJson dirty.id}", json)

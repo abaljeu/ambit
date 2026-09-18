@@ -23,7 +23,7 @@ let private sampleSnapshot : BootCache.SnapshotRecord =
         "ambit"
         "root"
         sampleStateJson
-        (EventId.fromJson 4)
+        (EventIdFixtures.storedId 4)
         true
         "2026-08-27T14:00:00Z"
         ""
@@ -50,7 +50,7 @@ let ``snapshotRecord stores /state body and metadata without Graph parse`` () =
     Assert.Equal(1, sampleSnapshot.codecVersion)
     Assert.Equal("ambit", sampleSnapshot.file)
     Assert.Equal("root", sampleSnapshot.scopeKey)
-    Assert.Equal(EventId.fromJson 4, sampleSnapshot.eventId)
+    Assert.Equal(EventIdFixtures.storedId 4, sampleSnapshot.eventId)
     Assert.True sampleSnapshot.isReady
     Assert.Contains("\"eventId\":4", sampleSnapshot.stateJson)
     Assert.Equal("2026-08-27T14:00:00Z", sampleSnapshot.writtenAt)
@@ -93,32 +93,32 @@ let ``eventsAfter keeps ids greater than snapshot Revision and sorts`` () =
     let e2 = mkEvent 2
     let e4 = mkEvent 4
     let e5 = mkEvent 5
-    let kept = BootCache.eventsAfter (EventId.fromJson 3) [ e5; e2; e4 ]
-    Assert.Equal<int list>(
-        [ 4; 5 ],
-        kept |> List.map (fun event -> event.id.Value))
+    let kept = BootCache.eventsAfter (EventIdFixtures.storedId 3) [ e5; e2; e4 ]
+    Assert.Equal<EventId list>(
+        [ e4.id; e5.id ],
+        kept |> List.map (fun event -> event.id))
 
 [<Fact>]
 let ``eventsAfter drops the snapshot Revision itself`` () =
-    Assert.Empty(BootCache.eventsAfter (EventId.fromJson 3) [ mkEvent 3 ])
+    Assert.Empty(BootCache.eventsAfter (EventIdFixtures.storedId 3) [ mkEvent 3 ])
 
 [<Fact>]
 let ``acceptedForLog prefers confirmed Events when the server assigned ids`` () =
     let confirmed = [ mkEvent 9 ]
     let submitted = [ (mkEvent 8) ]
     let accepted = BootCache.acceptedForLog confirmed submitted
-    Assert.Equal(9, accepted.Head.id.Value)
+    Assert.Equal(confirmed.Head.id, accepted.Head.id)
 
 [<Fact>]
 let ``acceptedForLog uses submitted Events when confirmed is empty`` () =
     let submitted = [ (mkEvent 8) ]
     let accepted = BootCache.acceptedForLog [] submitted
-    Assert.Equal(8, accepted.Head.id.Value)
+    Assert.Equal(submitted.Head.id, accepted.Head.id)
 
 let private noteSnapshot () =
     let graph, noteId = Graph.newNode "hello" (Graph.create ())
     { graph = graph
-      eventId = EventId.fromJson 5
+      eventId = EventIdFixtures.storedId 5
       isReady = true },
     noteId
 
@@ -202,7 +202,7 @@ let ``decideBootReadWait fetches /state as soon as IndexedDB reports a miss`` ()
 let ``decideBootRead fetches /state on decode error`` () =
     let snap =
         BootCache.snapshotRecord
-            "ambit" "root" "not-json" (EventId.fromJson 5) true "t" ""
+            "ambit" "root" "not-json" (EventIdFixtures.storedId 5) true "t" ""
     match
         BootCache.decideBootRead
             true
@@ -219,7 +219,7 @@ let ``decideBootRead fetches /state on decode error`` () =
 let ``foldLog applies SetText and sets Revision to the last Change id`` () =
     let snapshot, noteId = noteSnapshot ()
     let event =
-        { id = EventId.fromJson 6
+        { id = EventIdFixtures.storedId 6
           submissionId = Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
@@ -228,7 +228,7 @@ let ``foldLog applies SetText and sets Revision to the last Change id`` () =
     | Error err -> failwith err
     | Ok folded ->
         Assert.Equal("world", folded.graph.nodes.[noteId].text)
-        Assert.Equal(6, folded.eventId.Value)
+        Assert.Equal(event.id, folded.eventId)
 
 [<Fact>]
 let ``decideBootRead fetches /state on fold error`` () =
@@ -245,9 +245,9 @@ let ``decideBootRead fetches /state on fold error`` () =
         Graph.create ()
         |> fun g -> Graph.fromNodes g.root (Map.add fileId fileNode g.nodes)
     let snapshot =
-        { graph = graph; eventId = EventId.fromJson 1; isReady = true }
+        { graph = graph; eventId = EventIdFixtures.storedId 1; isReady = true }
     let event =
-        { id = EventId.fromJson 2
+        { id = EventIdFixtures.storedId 2
           submissionId = Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
@@ -269,7 +269,7 @@ let ``decideBootRead fetches /state on fold error`` () =
 let ``decideBootRead uses the folded snapshot when the cache is valid`` () =
     let snapshot, noteId = noteSnapshot ()
     let event =
-        { id = EventId.fromJson 6
+        { id = EventIdFixtures.storedId 6
           submissionId = Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
@@ -285,7 +285,7 @@ let ``decideBootRead uses the folded snapshot when the cache is valid`` () =
     with
     | BootCache.BootRead.UseCache folded ->
         Assert.Equal("world", folded.graph.nodes.[noteId].text)
-        Assert.Equal(6, folded.eventId.Value)
+        Assert.Equal(event.id, folded.eventId)
     | other -> failwithf "%A" other
 
 [<Fact>]
@@ -297,14 +297,14 @@ let ``foldLog applies deletion and advances Revision`` () =
         Graph.replace graph1.root 0 [] [ ChildNode.owner noteId ] graph1
         |> ModelBuilder.requireOk "root->doomed"
     let snapshot =
-        { graph = graph2; eventId = EventId.fromJson 5; isReady = true }
+        { graph = graph2; eventId = EventIdFixtures.storedId 5; isReady = true }
     Assert.True(Map.containsKey noteId snapshot.graph.nodes)
     let removeOp = Op.Replace(graph2.root, [ ChildNode.owner noteId ], [])
     let trashChildren = graph2.nodes.[Graph.trashId].children
     let addToTrashOp =
         Op.Replace(Graph.trashId, trashChildren, trashChildren @ [ ChildNode.owner noteId ])
     let event =
-        { id = EventId.fromJson 6
+        { id = EventIdFixtures.storedId 6
           submissionId = Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
@@ -312,7 +312,7 @@ let ``foldLog applies deletion and advances Revision`` () =
     match BootCache.foldLog snapshot [ event ] with
     | Error err -> failwith err
     | Ok folded ->
-        Assert.Equal(6, folded.eventId.Value)
+        Assert.Equal(event.id, folded.eventId)
         let underRoot =
             folded.graph.nodes.[folded.graph.root].children
             |> List.exists (fun c -> c.id = noteId)

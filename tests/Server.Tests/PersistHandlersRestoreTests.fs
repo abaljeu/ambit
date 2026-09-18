@@ -30,7 +30,7 @@ let ``getEventsSince returns Ev after postChange`` () = task {
         let! events =
             CoreMailbox.getEventsSince
                 host
-                (EventId.beforeAll)
+                (EventId.zero)
             |> Async.StartAsTask
         let stored = Assert.Single(events)
         Assert.Equal(event.submissionId, stored.submissionId)
@@ -60,7 +60,8 @@ let ``EventLog.restore seeds mailbox across File restart`` () = task {
             |> Async.StartAsTask
         let stored = Assert.Single(history.events)
         Assert.Equal(event.submissionId, stored.submissionId)
-        Assert.Equal(EventId.fromJson 2, EventLog.nextId history)
+        Assert.True(EventId.isAccepted stored.id)
+        Assert.NotEqual(stored.id, EventLog.nextId history)
     finally
         CoreMailbox.dispose second
 }
@@ -85,7 +86,8 @@ let ``EventLog.restore seeds mailbox across Db restart`` () = task {
             |> Async.StartAsTask
         let stored = Assert.Single(history.events)
         Assert.Equal(event.submissionId, stored.submissionId)
-        Assert.Equal(EventId.fromJson 2, EventLog.nextId history)
+        Assert.True(EventId.isAccepted stored.id)
+        Assert.NotEqual(stored.id, EventLog.nextId history)
     finally
         CoreMailbox.dispose second
 }
@@ -125,7 +127,7 @@ let ``ActorStart persists across File restart`` () = task {
     let second = CoreMailbox.createFile dir admittedCredentials
     try
         let! events =
-            CoreMailbox.getEventsSince second (EventId.beforeAll)
+            CoreMailbox.getEventsSince second (EventId.zero)
             |> Async.StartAsTask
         Assert.True(
             events
@@ -176,7 +178,7 @@ let ``getEventsSince Error does not seed empty EventLog as success`` () =
     withFilling filling (CoreActorPool.create ()) (fun host -> task {
         try
             let! _ =
-                CoreMailbox.getEventsSince host (EventId.beforeAll)
+                CoreMailbox.getEventsSince host (EventId.zero)
                 |> Async.StartAsTask
             Assert.Fail("expected persist getEventsSince Error")
         with ex ->
@@ -213,3 +215,31 @@ let ``ActorStart persist Error does not keep Ev in mailbox log`` () =
             CoreMailbox.eventHistory host |> Async.StartAsTask
         Assert.Empty(history.events)
     })
+
+[<Fact>]
+let ``post Change uses Event id past Database row when payload does not decode`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    use conn = Database.getConnection connStr
+    do! conn.OpenAsync()
+    use cmd = conn.CreateCommand()
+    let occupied = EventLog.empty.nextId
+    cmd.CommandText <-
+        "INSERT INTO events (event_id, submission_id, payload) "
+        + $"VALUES ({EventId.toJson occupied}, '{Guid.NewGuid()}', 'not-json')"
+    let! _ = cmd.ExecuteNonQueryAsync()
+    let host = admittedHostDb (DbAgent.create connStr)
+    try
+        let _, event = addRootChild "after-stale-row"
+        let! posted =
+            CoreMailbox.postEvents host testCaller [ event ]
+            |> Async.StartAsTask
+        match posted with
+        | Error error -> Assert.Fail($"postChange: {error}")
+        | Ok accepted ->
+            let stored = Assert.Single(accepted.events)
+            Assert.True(EventId.isAccepted stored.id)
+            Assert.NotEqual(occupied, stored.id)
+    finally
+        CoreMailbox.dispose host
+}

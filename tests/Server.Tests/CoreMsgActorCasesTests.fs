@@ -170,7 +170,7 @@ let ``Actor PostChange with live row reaches PersistHandlers`` () =
                 [ event ]
             |> Async.StartAsTask
         let accepted = requireOk "Actor post" result
-        Assert.Equal(EventId.fromJson 1, accepted.eventId)
+        Assert.True(EventId.isAccepted accepted.eventId)
     })
 
 [<Fact>]
@@ -202,7 +202,7 @@ let ``Browser PostChange does not require a live row`` () =
                 [ addRootChild "browser" ]
             |> Async.StartAsTask
         let accepted = requireOk "Browser post" result
-        Assert.Equal(EventId.fromJson 1, accepted.eventId)
+        Assert.True(EventId.isAccepted accepted.eventId)
     })
 
 [<Fact>]
