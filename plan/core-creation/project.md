@@ -4,7 +4,7 @@ Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
 Updated: 2026-09-18
 Started: 2026-09-05
-Actual: 57h20m
+Actual: 59h50m
 
 ## Map
 
@@ -57,7 +57,7 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/issues/33-credentialed-browser-change-posts.md]] — Story path Browser Change posts: cookie-as-credential, boot seed, CoreMailbox admit only; Status `coded`. `auth.Disabled` skip removed; development cookie is auto-issued and still required.
 - [[plan/core-creation/issues/34b-outside-core-lifecycle-proof.md|34b — Outside Core lifecycle proof]] — Story path Outside Core lifecycle proof: TestActor hello from Pool/Actor seam without HTTP. Status `done` (independent review approve; report [[plan/core-creation/reports/code-review-34b-outside-core-lifecycle-proof.md]]).
 - [[plan/core-creation/issues/35b-browser-run-hello.md|35b — Browser Run hello]] — Story path Browser Run hello: `?` one-Node Command through HTTP to Owned child `hello`; Status `coded` (slices 4+5+7). §6 durability → [[plan/core-creation/issues/46-mailbox-history-durability.md|46]]; §7 proof does not need 46.
-- [[plan/core-creation/issues/46-mailbox-history-durability.md|46 — Mailbox History durability]] — Split from 35b §6: mailbox History survives restart. Status `defined`. Blocked by [[plan/core-creation/issues/35b-browser-run-hello.md|35b — Browser Run hello]]. Not required for 35b §7 Browser proof.
+- [46 — Mailbox History durability](issues/46-mailbox-history-durability.md) — EventLog-authoritative durability: persist/load the audit sequence, re-execute Ops `Ev` records when Graph lagged, one serial (`getEventId` / `latestId` = EventLog tip). Status `defined`. Blocked by [35b — Browser Run hello](issues/35b-browser-run-hello.md). Not required for 35b §7 Browser proof. Plan: [46 mailbox History durability explore](reports/46-mailbox-history-durability-explore.md).
 - [[plan/core-creation/issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]] — Collapse extra Core entrances onto CoreMailbox; Status `coded`. Report: [[plan/core-creation/reports/mailbox-single-door.md]].
 - [[plan/core-creation/issues/37-expand-shared-event-eventlog-and-history.md|37 — Expand Shared Event, EventLog, and History]] — Story **Event, EventLog, and ClientHistory** Shared expand beside HistoryEvent; Event-shaped ClientHistory beside the Change-shaped API. No new History module. Status `coded`.
 - [[plan/core-creation/issues/40-expand-postevent-eventlog-and-event-json.md|40 — Expand postEvent, EventLog store, and Event JSON persist]] — Story **Caller, persist, and Poll** expand: `postEvent`, EventLog store, Event JSON beside ChangeLog. Status `coded`.
@@ -169,6 +169,7 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - 2026-09-15 — [[plan/core-creation/issues/40-expand-postevent-eventlog-and-event-json.md|40 — Expand postEvent, EventLog store, and Event JSON persist]] Event JSON encode/read on EventLog. Deleted EventJson and ChangeLog Event codec. Status stays `coded`.
 - 2026-09-16 — Shared Event record and helpers are `Ev` in `Gambol.Shared`. Namespace `Gambol.Shared.Events` is gone. Related types (`EventId`, `EventBody`, `EventLog`, `EventJson`, `Authority`, `ActorStart`, `ActorResult`) stay in `Gambol.Shared`. Arch and dependents: [[plan/core-creation/reports/ev-rename-arch-docs.md]].
 - 2026-09-16 — Suspended until [[plan/single-event-source/map.md]] creates the Event-only architecture. Then [[plan/core-creation/arch.md]] is updated to match. Do not add implementation issues here for that cleanup.
-- 2026-09-18 — Split 35b §6 to [[plan/core-creation/issues/46-mailbox-history-durability.md|46 — Mailbox History durability]]; §7 Browser proof does not depend on 46.
+- 2026-09-18 — Split 35b §6 to [46 — Mailbox History durability](issues/46-mailbox-history-durability.md); §7 Browser proof does not depend on 46.
+- 2026-09-18 — Widened [46 — Mailbox History durability](issues/46-mailbox-history-durability.md): EventLog authoritative, Ops `Ev` replay when Graph lagged, one serial for `getEventId` / `latestId`. Status stays `defined`. Plan: [46 mailbox History durability explore](reports/46-mailbox-history-durability-explore.md).
 - 2026-09-17 — Marked [[plan/core-creation/issues/34b-outside-core-lifecycle-proof.md|34b — Outside Core lifecycle proof]] `done` after independent review approve. Unblocked [[plan/core-creation/issues/35b-browser-run-hello.md|35b — Browser Run hello]] → `ready-for-agent`.
 - 2026-09-17 — Resume after SES Event-only repair on staging. Story **Caller, persist, and Poll** migrate/contract (43–45) is `done`. Next open Story path: **Browser Run hello** ([[plan/core-creation/issues/35b-browser-run-hello.md|35b — Browser Run hello]]), blocked only by review of [[plan/core-creation/issues/34b-outside-core-lifecycle-proof.md|34b — Outside Core lifecycle proof]] (`coded`).
