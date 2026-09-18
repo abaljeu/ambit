@@ -4,7 +4,7 @@ Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
 Updated: 2026-09-18
 Started: 2026-09-05
-Actual: 55h50m
+Actual: 57h20m
 
 ## Map
 
@@ -130,6 +130,7 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/reports/35b-slice1-graphids.md]] — [35b — Browser Run hello](plan/core-creation/issues/35b-browser-run-hello.md) slice 1 Shared `graphIds` Fold walk.
 - [[plan/core-creation/reports/35b-slice2-3-http-browser-run.md]] — [35b — Browser Run hello](plan/core-creation/issues/35b-browser-run-hello.md) slices 2–3 HTTP Adapter and Browser Run.
 - [[plan/core-creation/reports/35b-slice4-5-7-core-testactor-browser-proof.md]] — [35b — Browser Run hello](plan/core-creation/issues/35b-browser-run-hello.md) slices 4+5+7 Core TestActor and Browser proof.
+- [35b slices 4+5+7 standards and Spec corrections](plan/core-creation/reports/35b-slice4-5-7-standards-spec-corrections.md) — [35b — Browser Run hello](plan/core-creation/issues/35b-browser-run-hello.md) Origin Spec review: unregistered Actor name and non-hello command fail.
 
 ## Comments
 

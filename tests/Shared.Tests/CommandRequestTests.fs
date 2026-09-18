@@ -78,3 +78,13 @@ let ``behaviorFromText interprets hello from ?test hello`` () =
     Assert.Equal("hello", CommandRequest.behaviorFromText "hello")
     Assert.Equal("hello", CommandRequest.behaviorFromText "HELLO")
     Assert.Equal("", CommandRequest.behaviorFromText "?test")
+
+[<Fact>]
+let ``actorNameFromText extracts any first token after ?`` () =
+    Assert.Equal(Some "unknown", CommandRequest.actorNameFromText "?unknown")
+    Assert.Equal(Some "nope", CommandRequest.actorNameFromText "?nope hello")
+
+[<Fact>]
+let ``behaviorFromText extracts any command text after the Actor name`` () =
+    Assert.Equal("unknown", CommandRequest.behaviorFromText "?test unknown")
+    Assert.Equal("nope", CommandRequest.behaviorFromText "?test nope")

@@ -31,28 +31,23 @@ module TestActor =
             return ()
         }
 
-    /// Dispatch by command behavior. Always queues ActorStop.
+    /// Hello-only. Any other command text is ActorFailed. No exception path.
     let private dispatch (input: ActorInput) (coreChanges: CoreChanges) =
         async {
             let! result =
-                async {
-                    try
-                        match Map.tryFind input.commandId input.graph.nodes with
-                        | None -> return ActorSucceeded
-                        | Some commandNode ->
-                            match
-                                CommandRequest.behaviorFromText
-                                    commandNode.text
-                                with
-                            | "hello" ->
-                                do! hello input coreChanges
-                                return ActorSucceeded
-                            | "throw" ->
-                                return failwith "test exception"
-                            | _ -> return ActorSucceeded
-                    with
-                    | _ -> return ActorFailed
-                }
+                match Map.tryFind input.commandId input.graph.nodes with
+                | None -> async.Return ActorFailed
+                | Some commandNode ->
+                    match
+                        CommandRequest.behaviorFromText
+                            commandNode.text
+                        with
+                    | "hello" ->
+                        async {
+                            do! hello input coreChanges
+                            return ActorSucceeded
+                        }
+                    | _ -> async.Return ActorFailed
             let caller =
                 { authority = Authority "Actor"
                   name = ""
