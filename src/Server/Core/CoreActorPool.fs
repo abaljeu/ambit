@@ -69,22 +69,26 @@ module CoreActorPool =
             Ok ()
 
     let private actorNameFrom (commandNode: Node) =
-        CssClass.toList commandNode.cssClasses
-        |> List.tryPick (fun cls ->
-            if cls.StartsWith("actor-") && cls.Length > 6 then
-                Some (cls.Substring(6))
-            else
-                None)
-        |> Option.defaultValue (commandNode.text.Trim().ToLowerInvariant())
+        match CommandRequest.actorNameFromText commandNode.text with
+        | Some name -> name
+        | None ->
+            CssClass.toList commandNode.cssClasses
+            |> List.tryPick (fun cls ->
+                if cls.StartsWith("actor-") && cls.Length > 6 then
+                    Some (cls.Substring(6))
+                else
+                    None)
+            |> Option.defaultValue (
+                commandNode.text.Trim().ToLowerInvariant())
 
-    let private actorGraphFrom (fullGraph: Graph) graphIds =
+    let private actorGraphFrom (fullGraph: Graph) (request: ActorStart) =
         let actorNodes =
-            graphIds
+            request.graphIds
             |> List.choose (fun id ->
                 Map.tryFind id fullGraph.nodes
                 |> Option.map (fun n -> id, n))
             |> Map.ofList
-        Graph.fromNodes fullGraph.root actorNodes
+        Graph.fromExtracted request.zoomId actorNodes
 
     let private runStartActor
         (putLive: Credential -> NodeId -> PendingBody -> unit)
@@ -97,7 +101,7 @@ module CoreActorPool =
             Error
                 "graphIds required: client must provide Included context (SiteMap under Zoom, honoring Fold)"
         else
-            let actorGraph = actorGraphFrom fullGraph request.graphIds
+            let actorGraph = actorGraphFrom fullGraph request
             match Map.tryFind request.commandId actorGraph.nodes with
             | None -> Error "command node not found in provided graphIds"
             | Some commandNode ->
