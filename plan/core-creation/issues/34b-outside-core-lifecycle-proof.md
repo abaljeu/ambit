@@ -1,6 +1,6 @@
 # 34b — Outside Core lifecycle proof
 
-**Status:** coded
+**Status:** done
 **Blocked by:** None — can start immediately.
 Actual: 5h25m
 

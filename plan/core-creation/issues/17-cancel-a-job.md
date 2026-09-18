@@ -1,6 +1,6 @@
 # 17 — Cancel a job
 
-**Status:** blocked
+**Status:** defined
 **Blocked by:** [[plan/core-creation/issues/18-finish-and-drop.md]]
 
 ## Context

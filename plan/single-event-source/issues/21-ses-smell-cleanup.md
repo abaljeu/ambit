@@ -1,6 +1,6 @@
 # 21 — SES smell-cleanup
 
-**Status:** coded
+**Status:** done
 **Actual:** 1.5h
 **Blocked by:** [19 — Delete unused EventId.fs](19-delete-unused-eventid-fs.md), [20 — SES smell-cleanup quality criteria](20-ses-smell-cleanup-quality-criteria.md)
 

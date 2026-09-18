@@ -1,6 +1,6 @@
 # 16 — Track running job
 
-**Status:** blocked
+**Status:** defined
 **Blocked by:** [[plan/core-creation/issues/15-launch-actor-and-hold-span.md]]
 **Actual:** 50m
 

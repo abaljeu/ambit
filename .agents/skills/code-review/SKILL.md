@@ -18,7 +18,7 @@ When pinning the range, run the mechanical Standards scan in step 2. Optional F#
 
 ### 1. Pin the review range
 
-**Default**: uncommitted changes vs `HEAD` (`git diff HEAD` and `git status`). Do not invent a base SHA.
+**Default**: uncommitted changes vs `HEAD` (`gitstatus.sh`). Do not invent a base SHA.
 
 If the tree is clean (everything committed), the tip under review is `HEAD`. When the user names an older fixed point (commit, branch, tag, `HEAD~N`), use that; otherwise do not ask for one just to bookkeep SHAs.
 
