@@ -357,6 +357,8 @@ module DbAgent =
     let private recordPersistedEvent loaded (persisted: Ev) =
         loaded.eventLog.Value <-
             EventLog.restore [ persisted ] loaded.eventLog.Value
+        loaded.state.Value <-
+            { loaded.state.Value with eventId = persisted.id }
 
     let private writePersistedEvent loaded (persisted: Ev) =
         let n = EventId.value persisted.id
@@ -453,6 +455,8 @@ module DbAgent =
                 liveSaveDataDir
                 persistGraphOps
         loaded.eventLog.Value <- loadRestoredEventLog connectionString
+        loaded.state.Value <-
+            EventLog.recoverState loaded.state.Value loaded.eventLog.Value
         { handlers = persistHandlers loaded
           onError = logUnhandledException loaded.liveSaveDataDir
           formatError = formatError loaded.liveSaveDataDir

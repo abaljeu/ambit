@@ -251,6 +251,8 @@ module FileAgent =
             | Ok () ->
                 loaded.persistedEventLog.Value <-
                     EventLog.restore [ event ] loaded.persistedEventLog.Value
+                loaded.state.Value <-
+                    { loaded.state.Value with eventId = event.id }
                 Ok ()
         applyEvent = fun event graphOnly ->
             processPostEvents loaded [ event ] graphOnly
@@ -280,6 +282,10 @@ module FileAgent =
                     |> EventLog.restorePersisted)
               state = ref loadedState
               persistClean = ref true }
+        loaded.state.Value <-
+            EventLog.recoverState
+                loaded.state.Value
+                loaded.persistedEventLog.Value
         let capturedInitialState = loaded.state.Value
         eventStream.Seek(0L, SeekOrigin.End) |> ignore
         let onError operation context ex =

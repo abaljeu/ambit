@@ -1,8 +1,8 @@
 # 46 — Mailbox History durability
 
-**Status:** defined
+**Status:** coded
 **Blocked by:** [35b — Browser Run hello](35b-browser-run-hello.md).
-Actual: 2h30m
+Actual: 4h30m
 
 ## Context
 
@@ -14,20 +14,20 @@ Follow modules named in [Core creation architecture](../arch.md) for EventLog pe
 
 ### 1. Persist and load mailbox EventLog
 
-1. [ ] Persist Change and Actor Events — write Change / ActorStart / ActorStop bodies (post-SES `Ev`) so the audit sequence survives restart.
-2. [ ] Load EventLog on startup — restore the mailbox EventLog sequence (newest-head; not a past/future stack).
-3. [ ] Undo stays Change-only — Actor lifecycle Events are not Undo targets.
+1. [x] Persist Change and Actor Events — write Change / ActorStart / ActorStop bodies (post-SES `Ev`) so the audit sequence survives restart.
+2. [x] Load EventLog on startup — restore the mailbox EventLog sequence (newest-head; not a past/future stack).
+3. [x] Undo stays Change-only — Actor lifecycle Events are not Undo targets.
 
 ### 2. EventLog-authoritative Graph catch-up
 
-1. [ ] EventLog is the authority — File `SYSTEM/gambol.events` and Db `events` win when Graph or projection disagree.
-2. [ ] Re-execute Ops Evs — on restart/recover, apply Change/Undo/Redo `Ev` records that are in the log and not yet on Graph.
-3. [ ] Actor bodies stay log-only — ActorStart / ActorStop restore into EventLog; they have no Ops and do not apply to Graph.
+1. [x] EventLog is the authority — File `SYSTEM/gambol.events` and Db `events` win when Graph or projection disagree.
+2. [x] Re-execute Ops Evs — on restart/recover, apply Change/Undo/Redo `Ev` records that are in the log and not yet on Graph.
+3. [x] Actor bodies stay log-only — ActorStart / ActorStop restore into EventLog; they have no Ops and do not apply to Graph.
 
 ### 3. One serial
 
-1. [ ] One EventId — after hello and after restart, `getEventId` / `State.eventId` / HTTP `latestId` / Poll equal the EventLog tip (not an Action-only lag).
-2. [ ] No second cursor type — Graph checkpoint (`gambol.meta` / projection `revision`) stays recover-only for which Ops `Ev` ids to replay.
+1. [x] One EventId — after hello and after restart, `getEventId` / `State.eventId` / HTTP `latestId` / Poll equal the EventLog tip (not an Action-only lag).
+2. [x] No second cursor type — Graph checkpoint (`gambol.meta` / projection `revision`) stays recover-only for which Ops `Ev` ids to replay.
 
 ## Out of scope
 
@@ -40,9 +40,11 @@ Follow modules named in [Core creation architecture](../arch.md) for EventLog pe
 
 - 2026-09-18 — Alan widened: EventLog authoritative; replay Ops Evs when Graph lagged; one serial (`getEventId` / `latestId` = EventLog tip); same-txn not in this ticket. Plan: [46 mailbox History durability explore](../reports/46-mailbox-history-durability-explore.md). Status stays `defined`.
 - 2026-09-18 — Explore plan: [46 mailbox History durability explore](../reports/46-mailbox-history-durability-explore.md). Persist write/load already exists from [42 — Migrate PersistHandlers restore and getEventsSince](42-migrate-persisthandlers-restore-and-geteventssince.md); implement should prove the mixed audit sequence across restart and fix mailbox seed order. Status stays `defined`.
+- 2026-09-18 — Implement: seed adopt-newest-head, File/Db recover via `Ev.apply`, `appendEvent` bumps `State.eventId`. Status `coded`. Report: [46 mailbox History durability](../reports/46-mailbox-history-durability.md).
 - 2026-09-18 — Split from 35b §6. Alan: §7 Browser proof can test without this ticket.
 
 ## Time
 
 - 2026-09-18 1h — Widen plan: EventLog authority, Ops replay, one serial (from chat)
 - 2026-09-18 1h30m — Explore EventLog / persist / seed; write report (from chat)
+- 2026-09-18 2h — Implement seed, recover, one serial (from chat)

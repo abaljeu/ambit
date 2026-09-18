@@ -85,6 +85,42 @@ let ``restore keeps source nextId`` () =
     Assert.Equal(EventId.fromJson 3, EventLog.nextId restored)
     Assert.Equal(EventId.fromJson 9, Ev.id restored.events.Head)
 
+[<Fact>]
+let ``adoptNewestHead keeps newest-head and nextId past max`` () =
+    let newest =
+        { event "Stop" (EventBody.ActorStop(NodeId.New(), ActorSucceeded))
+            with id = EventId.fromJson 3 }
+    let middle =
+        { event "Edit" (EventBody.Change []) with id = EventId.fromJson 2 }
+    let oldest =
+        { event "Start" (EventBody.ActorStart(startRequest ()))
+            with id = EventId.fromJson 1 }
+    let log = EventLog.adoptNewestHead [ newest; middle; oldest ]
+    Assert.Equal(EventId.fromJson 3, Ev.id log.events.Head)
+    Assert.Equal("Stop", log.events.Head.commandName)
+    Assert.Equal(EventId.fromJson 4, EventLog.nextId log)
+    Assert.Equal(EventId.fromJson 3, EventLog.tip log)
+
+[<Fact>]
+let ``recoverState applies Ops ahead and sets tip past ActorStop`` () =
+    let childId = NodeId.New()
+    let ops =
+        [ Op.NewNode(childId, "recovered")
+          Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ]
+    let start =
+        { event "" (EventBody.ActorStart(startRequest ()))
+            with id = EventId.fromJson 1 }
+    let change =
+        { event "" (EventBody.Change ops) with id = EventId.fromJson 2 }
+    let stop =
+        { event "" (EventBody.ActorStop(NodeId.New(), ActorSucceeded))
+            with id = EventId.fromJson 3 }
+    let log = EventLog.adoptNewestHead [ stop; change; start ]
+    let before = { graph = Graph.create (); eventId = EventId.zero }
+    let recovered = EventLog.recoverState before log
+    Assert.Equal("recovered", recovered.graph.nodes.[childId].text)
+    Assert.Equal(EventId.fromJson 3, recovered.eventId)
+
 let private actorStart commandName : Ev =
     event commandName (EventBody.ActorStart(startRequest ()))
 

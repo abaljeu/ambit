@@ -181,7 +181,7 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. ClientH
      6. [x] no second Actor-only event log beside CoreMailbox
      7. [x] encode and read Event JSON [[src/Shared/EventJson.fs]] (`EventJson` in `Gambol.Shared`)
      8. [x] persist ActorStart / ActorStop
-     9. [ ] EventLog persist is authoritative. Restart re-executes Ops `Ev` records onto Graph when Graph/projection lagged; ActorStart/ActorStop restore into EventLog only. `getEventId` / `State.eventId` / HTTP `latestId` are the EventLog tip. [46 — Mailbox History durability](issues/46-mailbox-history-durability.md)
+     9. [x] EventLog persist is authoritative. Restart re-executes Ops `Ev` records onto Graph when Graph/projection lagged; ActorStart/ActorStop restore into EventLog only. `getEventId` / `State.eventId` / HTTP `latestId` are the EventLog tip. [46 — Mailbox History durability](issues/46-mailbox-history-durability.md)
    - Uses:
      1. [ ] Ev
 6. **ClientHistory** — [[src/Shared/ClientHistory.fs]]
@@ -253,7 +253,7 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. ClientH
      1. [x] getState, getEventId, applyEvent, snapshotDone
      2. [x] getEventsSince / persist EventLog
      3. [x] Actor cases are not on this parameter
-     4. [ ] On create, replay Ops `Ev` records from the persisted EventLog onto Graph when the Graph checkpoint lags; then `getEventId` is the EventLog tip. Actor bodies do not apply. [46 — Mailbox History durability](issues/46-mailbox-history-durability.md)
+     4. [x] On create, replay Ops `Ev` records from the persisted EventLog onto Graph when the Graph checkpoint lags; then `getEventId` is the EventLog tip. Actor bodies do not apply. [46 — Mailbox History durability](issues/46-mailbox-history-durability.md)
    - Uses:
      1. [ ] FileAgent / DbAgent fill persist only (handlers, flush, ready, dispose); they do not dispatch Actor cases and are not Actor mailboxes
      2. [ ] EventLog

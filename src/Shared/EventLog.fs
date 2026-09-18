@@ -57,3 +57,40 @@ module EventLog =
                 |> List.reduce EventId.max
                 |> EventId.next
         restore persisted { empty with nextId = nextId }
+
+    /// Max restored Ev.id, or EventId.zero when the log is empty.
+    let tip (log: EventLog) : EventId =
+        match log.events with
+        | [] -> EventId.zero
+        | events -> events |> List.map Ev.id |> List.reduce EventId.max
+
+    /// Adopt a newest-head Ev list without a second cons-fold.
+    let adoptNewestHead (events: Ev list) : EventLog =
+        { events = events
+          nextId =
+            match events with
+            | [] -> empty.nextId
+            | _ ->
+                events
+                |> List.map Ev.id
+                |> List.reduce EventId.max
+                |> EventId.next }
+
+    let private applyRecover event state =
+        match Ev.apply event state with
+        | ApplyResult.Changed next -> next
+        | ApplyResult.Unchanged next -> next
+        | ApplyResult.Invalid (next, _) -> next
+
+    /// Replay Ops Evs ahead of the Graph checkpoint; set eventId to the log tip.
+    let recoverState (state: State) (log: EventLog) : State =
+        let checkpoint = EventId.value state.eventId
+        let ahead =
+            log.events
+            |> List.rev
+            |> List.filter (fun event ->
+                Ev.isAction event
+                && EventId.value event.id > checkpoint)
+        let replayed =
+            List.fold (fun current event -> applyRecover event current) state ahead
+        { replayed with eventId = tip log }
