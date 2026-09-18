@@ -1,6 +1,6 @@
 # 15 — Client pending = zero + submissionId
 
-**Status:** coded
+**Status:** done
 **Actual:** 45m
 **Blocked by:** [14 — EventId serial on Shared + Server](14-eventid-serial-shared-server.md)
 

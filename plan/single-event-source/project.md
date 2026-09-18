@@ -4,7 +4,7 @@ Stage: build
 Summary: Core creation is suspended. This Project creates a single Event source with one event id, then corrects [[plan/core-creation/arch.md]] to match what was created.
 Updated: 2026-09-18
 Started: 2026-09-16
-Actual: 26h30m
+Actual: 27h15m
 
 Home: [[plan/roadmap/epics/robust-outliner.md]] Required for done (Live). Chart map: [[map.md]].
 
@@ -28,8 +28,8 @@ Home: [[plan/roadmap/epics/robust-outliner.md]] Required for done (Live). Chart 
 - [12 — Contract leftover Change and Revision](plan/single-event-source/issues/12-contract-leftover-change-and-revision.md) — contract. Status `coded`. Historical land; redo is 13–19.
 - [13 — Revision always 0 (diagnostic)](plan/single-event-source/issues/13-revision-always-zero.md) — redo 11z. Status `done`.
 - [14 — EventId serial on Shared + Server](plan/single-event-source/issues/14-eventid-serial-shared-server.md) — redo 11a. Status `coded`.
-- [15 — Client pending = zero + submissionId](plan/single-event-source/issues/15-client-pending-zero-submissionid.md) — redo 11b. Status `coded`.
-- [16 — Approve / merge stamp + beforeAll](plan/single-event-source/issues/16-approve-merge-stamp-beforeall.md) — redo 11c. Status `defined`.
+- [15 — Client pending = zero + submissionId](plan/single-event-source/issues/15-client-pending-zero-submissionid.md) — redo 11b. Status `done`.
+- [16 — Approve / merge stamp + beforeAll](plan/single-event-source/issues/16-approve-merge-stamp-beforeall.md) — redo 11c. Status `coded`.
 - [17 — Delete Revision aliases](plan/single-event-source/issues/17-delete-revision-aliases.md) — redo 12a. Status `defined`.
 - [18 — Delete leftover Change wrapping](plan/single-event-source/issues/18-delete-leftover-change-wrapping.md) — redo 12b. Status `defined`.
 - [19 — Delete unused EventId.fs](plan/single-event-source/issues/19-delete-unused-eventid-fs.md) — redo 12c. Status `defined`.

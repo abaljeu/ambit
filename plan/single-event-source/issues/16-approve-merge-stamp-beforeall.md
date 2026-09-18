@@ -1,6 +1,7 @@
 # 16 — Approve / merge stamp + beforeAll
 
-**Status:** defined
+**Status:** coded
+**Actual:** 45m
 **Blocked by:** [15 — Client pending = zero + submissionId](15-client-pending-zero-submissionid.md)
 
 ## Context
@@ -27,5 +28,8 @@ On approve, replace zero with server id. On revised stream (server ops inserted 
 ## Comments
 
 - 2026-09-17 — Maps to replan **11c** / repair `75738008`. Redo path; does not replace the historical land of [11 — One serial event id](11-one-serial-event-id.md).
+- 2026-09-18 — Approve/stamp, `EventId.beforeAll`, and BootCache SnapshotRecord `eventId` were already on Shared + Client from the historical [11 — One serial event id](11-one-serial-event-id.md) repair. This land adds merge-ahead and Redo-target tests at [ClientHistory.approve](src/Shared/ClientHistory.fs).
 
 ## Time
+
+- 2026-09-18 45m — Confirm approve/stamp already on Shared; add merge-ahead and Redo stamp tests

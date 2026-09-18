@@ -189,6 +189,53 @@ let ``package-only Load refuses a raced pending local transition`` () =
     | Error msg -> Assert.Contains("raced", msg)
 
 [<Fact>]
+let ``approve stamps matching zero when a foreign event leads the stream`` () =
+    let source = textChange 0 (NodeId.New()) "old" "new"
+    let recorded =
+        ClientHistory.clear ()
+        |> ClientHistory.record { source with commandName = "Edit node" }
+    let foreign = textChange 8 (NodeId.New()) "a" "b"
+    let confirmed =
+        { source with
+            commandName = "Edit node"
+            id = EventId.fromJson 9 }
+    let approved = ClientHistory.approve [ foreign; confirmed ] recorded
+    match ClientHistory.undoEvent approved with
+    | None -> failwith "expected Undo"
+    | Some (event, _) ->
+        match event.body with
+        | EventBody.Undo(target, _) ->
+            Assert.Equal(EventId.fromJson 9, target)
+        | _ -> failwith "expected Undo body"
+
+[<Fact>]
+let ``approve stamps Redo target written while undo id was zero`` () =
+    let source = textChange 0 (NodeId.New()) "old" "new"
+    let recorded =
+        ClientHistory.clear ()
+        |> ClientHistory.record { source with commandName = "Edit node" }
+    match ClientHistory.undo (Guid.NewGuid()) recorded with
+    | None -> failwith "expected Undo"
+    | Some (undo, undone) ->
+        match ClientHistory.redo (Guid.NewGuid()) undone with
+        | None -> failwith "expected Redo"
+        | Some (_, redone) ->
+            let confirmedOriginal =
+                { source with
+                    commandName = "Edit node"
+                    id = EventId.fromJson 9 }
+            let confirmedUndo = { undo with id = EventId.fromJson 10 }
+            let approved =
+                ClientHistory.approve [ confirmedOriginal; confirmedUndo ] redone
+            match ClientHistory.tryPeekUndoEvent approved with
+            | None -> failwith "expected Redo on past"
+            | Some event ->
+                match event.body with
+                | EventBody.Redo(target, _) ->
+                    Assert.Equal(EventId.fromJson 10, target)
+                | _ -> failwith "expected Redo body"
+
+[<Fact>]
 let ``package-only Load refuses a revision mismatch`` () =
     let graph, _, ws = unloadedWorkspace ()
     let state: ClientSyncState =
