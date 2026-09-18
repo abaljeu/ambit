@@ -5,6 +5,7 @@ open Fable.Core.JsInterop
 open Gambol.Client.JsInterop
 open Gambol.Shared
 open Gambol.Shared.CommandEntry
+open Gambol.Shared
 open Gambol.Shared.ViewModel
 open Gambol.Shared.ViewModelMoveOps
 open Thoth.Json.Core
@@ -16,6 +17,20 @@ open Thoth.Json.Core
 let currentFile =
     let path = Browser.Dom.window.location.pathname
     if path.StartsWith("/") then path.Substring(1) else path
+
+/// DeployEpochSec restart signal / initial-load establish — no new chrome.
+let reseedDeployEpochOnServerSignal (serverBuildEpochSec: int) : bool =
+    let webpageTime = readBuildEpochSec ()
+    if SyncLogic.serverProcessRestarted webpageTime serverBuildEpochSec then
+        writeBuildEpochSec serverBuildEpochSec
+        consoleLog (
+            "[Gambol sync] server restart signal — reseed deploy epoch")
+        true
+    elif webpageTime <= 0 && serverBuildEpochSec > 0 then
+        writeBuildEpochSec serverBuildEpochSec
+        true
+    else
+        false
 
 // ---------------------------------------------------------------------------
 // Mutating POST headers (X-Gambol-Client from getClientHint)
@@ -64,7 +79,7 @@ let private loadTargetIntent (graph: Graph) (targetId: NodeId) : LoadTarget =
 let tryStartLoadFetch (model: VM) : SyncInfo * Effect list =
     let targetIds = selectedLoadTargetIds model
     if List.isEmpty targetIds then
-        SyncPlanner.tryStartPoll model.revision model.syncInfo
+        SyncPlanner.tryStartPoll (model.eventId) model.syncInfo
     elif
         ResidentProjection.selectionSpansMultipleWorkspaces
             model.graph
@@ -75,7 +90,7 @@ let tryStartLoadFetch (model: VM) : SyncInfo * Effect list =
         let targets =
             targetIds |> List.map (loadTargetIntent model.graph)
         SyncPlanner.tryStartLoad
-            model.revision
+            (model.eventId)
             targets
             model.syncInfo
 
@@ -85,20 +100,21 @@ let tryStartLoadFetch (model: VM) : SyncInfo * Effect list =
 
 let private pendingKey = "gambol-pending-v1"
 
-let savePendingQueue (items: PendingChange list) =
+let savePendingQueue (items: Ev list) =
     if items.IsEmpty then localStorageRemove pendingKey
     else
         let encoded =
-            Encode.list (items |> List.map Serialization.encodePendingChange)
+            Encode.list (
+                items |> List.map Gambol.Shared.EventJson.encode)
         let json = Thoth.Json.JavaScript.Encode.toString 0 encoded
         localStorageSet pendingKey json
 
-let loadPendingQueue () : PendingChange list =
+let loadPendingQueue () : Ev list =
     let json = localStorageGet pendingKey
     if isNull json || json = "" then []
     else
         match Thoth.Json.JavaScript.Decode.fromString
-            (Decode.list Serialization.decodePendingChange) json with
+            (Decode.list Gambol.Shared.EventJson.decode) json with
         | Ok items -> items
         | Error _ -> []
 
@@ -131,20 +147,26 @@ let readEditInputSelectionEnd () : int =
 /// Fires SubmitPendingBatch only when the queue was empty and no request is in-flight.
 /// Blocked states (ServerRejected / CodeOutdated / DataOutdated / WaitingToRetry) queue
 /// changes locally but do not fire a POST.
+let clientSyncState (model: VM) : ClientSyncState =
+    ClientSyncState.create
+        model.graph
+        (model.eventId)
+        model.history
+
 let applyAndPost
     (commandName: string)
-    (change: Change)
+    (ops: Op list)
     (model: VM)
     : Result<VM * Effect list, string> =
-    let clientState: ClientSyncState =
-        { graph = model.graph
-          revision = model.revision
-          history = model.history }
-    match SyncLogic.applyLocalChange commandName change clientState with
+    let event = ClientHistory.mintChange commandName ops
+    match SyncLogic.applyLocalEvent event (clientSyncState model) with
     | Error error -> Error error
     | Ok (nextState, pendingItem) ->
         let nextSyncInfo, effects =
-            SyncPlanner.enqueuePending pendingItem model.revision model.syncInfo
+            SyncPlanner.enqueuePending
+                pendingItem
+                (model.eventId)
+                model.syncInfo
         if
             effects
             |> List.exists (function
@@ -153,9 +175,9 @@ let applyAndPost
         then
             consoleLog (
                 "[Gambol sync] applyAndPost fireFirst modelRev="
-                + string model.revision.Value
+                + string model.eventId.Value
                 + " qLen="
-                + string nextSyncInfo.pendingChanges.Length)
+                + string nextSyncInfo.pending.Length)
         Ok
             ({ model with
                 graph = nextState.graph
@@ -202,7 +224,7 @@ let viewRootNodeId (model: VM) : NodeId =
 ///   - pending queue is non-empty (defensive; tryStartPoll already blocks this)
 ///   - mode is Editing and the live edit field differs from the graph (dirty edit)
 let isAutoSyncBlocked (model: VM) : bool =
-    if not model.syncInfo.pendingChanges.IsEmpty then
+    if not model.syncInfo.pending.IsEmpty then
         true
     else
         match model.mode with
@@ -255,11 +277,7 @@ let commitTextEdit
     match tryTextCommitOps nodeId _originalText newText model.graph with
     | [] -> { model with mode = Selecting }, []
     | ops ->
-        let change: Change =
-            { id = model.revision.Value
-              changeId = System.Guid.NewGuid()
-              ops = ops }
-        match applyAndPost (displayName EditNode) change model with
+        match applyAndPost (displayName EditNode) ops model with
         | Ok (m, effects) -> { m with mode = Selecting }, effects
         | Error msg -> withMoveError msg { model with mode = Selecting }, []
 
@@ -309,11 +327,7 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) : VM * Effect l
               if updatedText <> modelText then
                   yield Op.SetText(focusedId, modelText, updatedText) ]
 
-        let change: Change =
-            { id = model.revision.Value
-              changeId = System.Guid.NewGuid()
-              ops = ops }
-        match applyAndPost (displayName SplitAtCursor) change model with
+        match applyAndPost (displayName SplitAtCursor) ops model with
         | Ok (m, effects) ->
             let effRoot = m.zoomRoot
             let siteMap, nextId =

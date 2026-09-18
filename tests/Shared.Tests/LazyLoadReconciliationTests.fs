@@ -7,7 +7,7 @@ open Xunit
 type ExclusiveTimingCollection() = class end
 
 let private applyOps (graph: Graph) (ops: Op list) : Graph =
-    let state = { graph = graph; history = History.empty; revision = Revision.Zero }
+    let state = { graph = graph; eventId = EventId.zero }
     ops
     |> List.fold (fun s op ->
         match Op.apply op s with
@@ -79,15 +79,17 @@ let ``nested file parse after upload tree build is accepted`` () =
     let parsedId = NodeId.New()
     let attach = ChildNode.owner parsedId
     let state =
-        { graph = graph2; history = History.empty; revision = Revision.Zero }
+        { graph = graph2; eventId = EventId.zero }
     let parseChange =
-        { id = 0
-          changeId = System.Guid.NewGuid()
-          ops =
+        { id = EventId.zero
+          submissionId = System.Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change
             [ Op.SetDocumentState(file.id, Unparsed, Current)
               Op.NewNode(parsedId, "parsed")
               Op.Replace(file.id, [], [ attach ]) ] }
-    match History.applyChange parseChange state with
+    match SpecialNodeTestHelpers.applyChange parseChange state with
     | ApplyResult.Changed next ->
         Assert.Equal(Current, next.graph.nodes.[file.id].documentState)
         Assert.Equal(Current, next.graph.nodes.[src.id].documentState)
@@ -310,10 +312,10 @@ let ``leading-dot directory File represents containing Directory named .scratch`
 [<Fact>]
 let ``reserved gambol dot files are excluded from reconciliation`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
-    let paths = [ "gambol.log"; "nested/GAMBOL.meta"; "gambol" ]
+    let paths = [ "gambol.events"; "nested/GAMBOL.meta"; "gambol" ]
     let graph2 = requirePlan graph "home" paths |> applyOps graph
     let children = ownedNamedChildren graph2 workspaceId
-    Assert.DoesNotContain(children, fun (name, _) -> name = "gambol.log")
+    Assert.DoesNotContain(children, fun (name, _) -> name = "gambol.events")
     Assert.DoesNotContain(children, fun (name, _) -> name = "nested")
     Assert.Contains(children, fun (name, _) -> name = "gambol")
 
@@ -609,14 +611,15 @@ let ``directory amb ref to existing owned child keeps owner occurrence`` () =
         Assert.Empty(report.failures)
         Assert.NotEmpty(report.ops)
         let change =
-            { id = 0
-              changeId = System.Guid.NewGuid()
-              ops = report.ops }
+            { id = EventId.zero
+              submissionId = System.Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change report.ops }
         let state =
             { graph = graph1
-              history = History.empty
-              revision = Revision.Zero }
-        match History.applyChange change state with
+              eventId = EventId.zero }
+        match SpecialNodeTestHelpers.applyChange change state with
         | ApplyResult.Invalid(_, msg) ->
             Assert.Fail($"ownership/apply failed: {msg}")
         | ApplyResult.Unchanged _ -> Assert.Fail("expected Changed")

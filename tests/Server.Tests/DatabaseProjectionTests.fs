@@ -31,9 +31,11 @@ let private graphFromNodes _root nodes =
     |> Graph.fromNodes Graph.rootId
 
 let private change op =
-    { id = 0
-      changeId = Guid.NewGuid()
-      ops = [ op ] }
+    { id = EventId.zero
+      submissionId = Guid.NewGuid()
+      authority = Authority "Browser"
+      commandName = ""
+      body = EventBody.Change [ op ] }
 
 let private expectedRow node =
     { id = node.id.Value
@@ -68,9 +70,10 @@ let ``plan selects complete final node rows for every current op`` () =
           Op.SetUpdateTime(ids.[7], stamp 0, stamp 1) ]
         |> List.map change
 
-    let patch = DatabaseProjection.plan graph 23 changes
+    let eventId = EventIdFixtures.storedId 23
+    let patch = DatabaseProjection.plan graph eventId changes
 
-    Assert.Equal(23, patch.graph.revision)
+    Assert.Equal(EventId.toJson eventId, patch.graph.revision)
     Assert.Equal(graph.root.Value, patch.graph.rootId)
     Assert.Equal<GraphProjection.NodePersistenceRow list>(
         nodes |> List.map expectedRow,
@@ -95,7 +98,7 @@ let ``plan uses final special rename text update time and generated defaults`` (
         [ change (Op.NewNode(normalId, "created"))
           change (Op.SetName(specialId, "old.amb", "renamed.amb")) ]
 
-    let patch = DatabaseProjection.plan graph 1 changes
+    let patch = DatabaseProjection.plan graph (EventIdFixtures.storedId 1) changes
 
     Assert.Equal<GraphProjection.NodePersistenceRow list>(
         [ expectedRow normal; expectedRow special ],
@@ -114,15 +117,17 @@ let ``plan collapses repeated node and parent touches`` () =
     let graph = graphFromNodes parentId [ parent; child ]
 
     let changes =
-        [ { id = 0
-            changeId = Guid.NewGuid()
-            ops =
+        [ { id = EventId.zero
+            submissionId = Guid.NewGuid()
+            authority = Authority "Browser"
+            commandName = ""
+            body = EventBody.Change
                 [ Op.SetText(parentId, "first", "second")
                   Op.SetText(parentId, "second", "final")
                   Op.Replace(parentId, [], [ childRef ])
                   Op.Replace(parentId, [ childRef ], [ childRef ]) ] } ]
 
-    let patch = DatabaseProjection.plan graph 1 changes
+    let patch = DatabaseProjection.plan graph (EventIdFixtures.storedId 1) changes
 
     Assert.Single(patch.nodeUpserts) |> ignore
     Assert.Single(patch.childReplacements) |> ignore
@@ -149,7 +154,7 @@ let ``plan replaces children from final ordering including an empty list`` () =
         [ change (Op.Replace(filledId, [], finalChildren))
           change (Op.Replace(emptyId, finalChildren, [])) ]
 
-    let patch = DatabaseProjection.plan graph 5 changes
+    let patch = DatabaseProjection.plan graph (EventIdFixtures.storedId 5) changes
 
     Assert.Equal(2, patch.childReplacements.Length)
     Assert.Equal<(Guid * Ownership) list>(
@@ -171,11 +176,14 @@ let ``commands expose deterministic SQL and bind values`` () =
     let child = completeNode childId "child"
     let graph = graphFromNodes parentId [ parent; child ]
 
+    let eventId = EventIdFixtures.storedId 7
     let patch =
-        DatabaseProjection.plan graph 7
-            [ { id = 0
-                changeId = Guid.NewGuid()
-                ops =
+        DatabaseProjection.plan graph eventId
+            [ { id = EventId.zero
+                submissionId = Guid.NewGuid()
+                authority = Authority "Browser"
+                commandName = ""
+                body = EventBody.Change
                     [ Op.SetText(childId, "old", "child")
                       Op.Replace(parentId, [], [ childRef ]) ] } ]
 
@@ -231,13 +239,13 @@ let ``commands expose deterministic SQL and bind values`` () =
     match bindings.[3] |> List.map _.value with
     | [ DatabaseProjection.GuidValue root; DatabaseProjection.IntValue revision ] ->
         Assert.Equal(Graph.rootId.Value, root)
-        Assert.Equal(7, revision)
+        Assert.Equal(EventId.toJson eventId, revision)
     | values -> Assert.Fail($"expected graph scalar values, got {values}")
 
     match commands.[3] with
     | DatabaseProjection.UpsertGraph graphPatch ->
         Assert.Equal(Graph.rootId.Value, graphPatch.rootId)
-        Assert.Equal(7, graphPatch.revision)
+        Assert.Equal(EventId.toJson eventId, graphPatch.revision)
     | command -> Assert.Fail($"expected UpsertGraph, got {command}")
 
 [<Fact>]

@@ -3,98 +3,33 @@ namespace Gambol.Server
 open System
 open System.IO
 open System.Threading.Tasks
-open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Http
-open Microsoft.Extensions.Configuration
 open Gambol.Shared
 
 [<RequireQualifiedAccess>]
 module RouteRegistration =
 
-    type Authentication =
-        {
-            ExpectedUser: string
-            ExpectedPass: string
-            Disabled: bool
-            GitToken: string
-            IsAuthenticated: HttpRequest -> bool
-            /// Smart HTTP only: Basic username + git PAT (not browser cookie).
-            IsGitAuthenticated: HttpRequest -> bool
-            SetCookie: HttpResponse -> unit
-            ClearCookie: HttpResponse -> unit
-        }
-
-    type PersistenceContext =
-        {
-            DataDir: string
-            Mode: DatabaseSetup.PersistenceMode
-            DbStatus: DatabaseSetup.DbStatus
-            Core: CoreRuntime
-        }
-
-    type RouteAssets =
-        {
-            GambolHtml: string
-            DefaultUserCss: string
-            CommandDockSvg: string
-        }
-
-    type BuildStamps =
-        {
-            DeployStamp: unit -> string
-            PageBuildStamp: unit -> string
-            PageBuildEpochSec: unit -> int
-            DeployEpochSec: unit -> int
-            InlineCommandDockSprite: unit -> string
-        }
-
-    let createAuthentication (config: IConfiguration) =
-        let expectedUser = config.["Auth:Username"] |> Option.ofObj |> Option.defaultValue ""
-        let expectedPass = config.["Auth:Password"] |> Option.ofObj |> Option.defaultValue ""
-        let validToken = AuthToken.deriveToken expectedUser expectedPass
-        let gitToken = AuthToken.deriveGitToken expectedUser expectedPass
-        let authDisabled = expectedUser = "" && expectedPass = ""
-        let isAuthenticated (req: HttpRequest) =
-            if authDisabled then true
-            else
-                match req.Cookies.TryGetValue(AuthToken.cookieName) with
-                | true, cookie -> cookie = validToken
-                | _ -> false
-        let isGitAuthenticated (req: HttpRequest) =
-            if authDisabled then true
-            else
-                match req.Headers.TryGetValue("Authorization") with
-                | true, values ->
-                    match AuthToken.tryParseBasicAuth (string values.[0]) with
-                    | Some(user, pass) ->
-                        user = expectedUser && pass = gitToken
-                    | None -> false
-                | _ -> false
-        let setAuthCookie (resp: HttpResponse) =
-            let opts =
-                CookieOptions(
-                    HttpOnly = true,
-                    Secure = true,
-                    SameSite = SameSiteMode.Lax,
-                    Expires = Nullable(DateTimeOffset.UtcNow.AddYears(10)))
-            resp.Cookies.Append(AuthToken.cookieName, validToken, opts)
-        let clearAuthCookie (resp: HttpResponse) =
-            let opts =
-                CookieOptions(
-                    HttpOnly = true,
-                    Secure = true,
-                    SameSite = SameSiteMode.Lax)
-            resp.Cookies.Delete(AuthToken.cookieName, opts)
-        {
-            ExpectedUser = expectedUser
-            ExpectedPass = expectedPass
-            Disabled = authDisabled
-            GitToken = gitToken
-            IsAuthenticated = isAuthenticated
-            IsGitAuthenticated = isGitAuthenticated
-            SetCookie = setAuthCookie
-            ClearCookie = clearAuthCookie
-        }
+    type AmbitApp with
+        member this.CreateBoot persistenceMode : CoreBoot =
+            let dataDir = this.DataDir
+            let dbConnString =
+                this.Config.["DB_CONNECTION_STRING"]
+                |> Option.ofObj
+                |> Option.defaultValue ""
+            let dbStatus =
+                DatabaseSetup.resolveDbConnection
+                    persistenceMode
+                    dbConnString
+                    dataDir
+            {
+                PersistenceMode = persistenceMode
+                DbStatus = dbStatus
+                DbConnectionString = dbConnString
+                DataDir = dataDir
+                AuthUser = this.Auth.ExpectedUser
+                AuthPass = this.Auth.ExpectedPass
+                Actors = []
+            }
 
     let private errorTemplate (message: string) =
         sprintf """<!DOCTYPE html>
@@ -105,149 +40,113 @@ module RouteRegistration =
 <pre>%s</pre>
 </body></html>""" message
 
-    let private registerStartupError (app: WebApplication) (message: string) =
+    let private registerStartupError (this: AmbitApp) (message: string) =
         let errorHtml = errorTemplate message
         let writeError (ctx: HttpContext) =
             ctx.Response.StatusCode <- 500
             ctx.Response.ContentType <- "text/html; charset=utf-8"
             ctx.Response.WriteAsync(errorHtml)
-        app.Use(fun ctx (_next: RequestDelegate) -> writeError ctx) |> ignore
-        app.MapFallback(fun (ctx: HttpContext) -> writeError ctx) |> ignore
+        this.Use(fun ctx (_next: RequestDelegate) -> writeError ctx) |> ignore
+        this.MapFallback(fun (ctx: HttpContext) -> writeError ctx) |> ignore
+
+    let private registerErrorReportRoute (routes: AppShellContext) =
+        HttpResponseLog.registerErrorReportRoute routes.AmbitApp
 
     let private createPersistenceContext
-        (config: IConfiguration)
-        (dataDir: string)
-        (persistenceMode: DatabaseSetup.PersistenceMode)
+        (this: AmbitApp)
+        persistenceMode
         =
-        let dbConnString = config.["DB_CONNECTION_STRING"] |> Option.ofObj |> Option.defaultValue ""
-        let dbStatus = DatabaseSetup.resolveDbConnection persistenceMode dbConnString dataDir
-        let runtime =
-            CoreRuntime.create
-                persistenceMode
-                dbStatus
-                dbConnString
-                dataDir
+        let boot = this.CreateBoot persistenceMode
         {
-            DataDir = dataDir
-            Mode = persistenceMode
-            DbStatus = dbStatus
-            Core = runtime
+            DataDir = boot.DataDir
+            Mode = boot.PersistenceMode
+            DbStatus = boot.DbStatus
+            Core = CoreRuntime.create boot
         }
 
-    let private coreChanges (persistence: PersistenceContext) =
-        persistence.Core.changes ()
+    let private isWritable (persistence: PersistenceContext) =
+        persistence.Mode <> DatabaseSetup.PersistenceMode.Db
+        || persistence.DbStatus = DatabaseSetup.DbStatus.Ok
+
+    let private boundChanges
+        (persistence: PersistenceContext)
+        (caller: Caller)
+        : CoreChanges =
+        let raw = CoreMailbox.coreChanges persistence.Core.host caller
+        if isWritable persistence then raw
+        else CoreRuntime.readOnly raw
 
     let private parseBound (persistence: PersistenceContext) =
-        let core = persistence.Core
-        CoreAuth.bindHandle
-            core.credentials
-            core.parseCredential
-            (core.changes ())
+        boundChanges persistence persistence.Core.parseCaller
 
-    let private changesBound (persistence: PersistenceContext) =
-        persistence.Core.browserChanges ()
+    /// Missing cookie is 401 without Core. Present cookie uses mailbox admit.
+    let private withBrowserChanges
+        (persistence: PersistenceContext)
+        (req: HttpRequest)
+        (cont: CoreChanges -> Async<IResult>)
+        : Async<IResult> =
+        match BrowserRequestCreds.tryCookieCaller req with
+        | None -> async.Return(Results.Unauthorized())
+        | Some caller ->
+            async {
+                let! live =
+                    CoreMailbox.isAdmitted persistence.Core.host caller
+                if live then return! cont (boundChanges persistence caller)
+                else return Results.Unauthorized()
+            }
 
-    let private stripXmlDeclaration (text: string) =
-        if text.StartsWith("<?xml") then
-            match text.IndexOf("?>") with
-            | -1 -> text
-            | i -> text.Substring(i + 2).TrimStart()
-        else text
-
-    let private createRouteAssets (webRoot: string) : RouteAssets =
-        {
-            GambolHtml = Path.Combine(webRoot, "gambol.template.html")
-            DefaultUserCss = Path.Combine(webRoot, "user.css")
-            CommandDockSvg = Path.Combine(webRoot, "command-dock.svg")
-        }
-
-    let private pageArtifactUtc (webRoot: string) (assets: RouteAssets) =
-        let fileWriteUtc path =
-            if File.Exists path then File.GetLastWriteTimeUtc path else DateTime.MinValue
-        [
-            assets.GambolHtml
-            Path.Combine(webRoot, "Program.js")
-            Path.Combine(webRoot, "Program.bundle.js")
-            Path.Combine(webRoot, "Update.js")
-            Path.Combine(webRoot, "style.css")
-            assets.DefaultUserCss
-            assets.CommandDockSvg
-        ]
-        |> List.map fileWriteUtc
-        |> List.max
-
-    let private createBuildStamps (app: WebApplication) : RouteAssets * BuildStamps =
-        let webRoot = app.Environment.WebRootPath
-        let assets = createRouteAssets webRoot
-        let readPageArtifactUtc () = pageArtifactUtc webRoot assets
-        let serverAssemblyPath = System.Reflection.Assembly.GetExecutingAssembly().Location
-        if String.IsNullOrWhiteSpace serverAssemblyPath then
-            failwith "Could not determine server assembly path for build timestamp."
-        if not (File.Exists serverAssemblyPath) then
-            failwithf "Could not read server assembly timestamp: missing file at '%s'." serverAssemblyPath
-        // Deploy stamps freeze at startup; page stamps re-read wwwroot mtimes (Fable watch).
-        let deployUtc = max (File.GetLastWriteTimeUtc(serverAssemblyPath)) (readPageArtifactUtc ())
-        let processStartUtc = DateTime.UtcNow
-        let torontoTz = TimeZoneInfo.FindSystemTimeZoneById("America/Toronto")
-        let formatStamp (utc: DateTime) =
-            TimeZoneInfo.ConvertTimeFromUtc(utc, torontoTz).ToString("yyyy-MM-dd HH:mm:ss") + " ET"
-        let pageUtc () =
-            let artifactUtc = readPageArtifactUtc ()
-            if artifactUtc > DateTime.MinValue then artifactUtc else deployUtc
-        let epochSec (utc: DateTime) =
-            int (utc.Subtract(DateTime.UnixEpoch).TotalSeconds)
-        let inlineCommandDockSprite () =
-            if not (File.Exists assets.CommandDockSvg) then ""
-            else stripXmlDeclaration (File.ReadAllText assets.CommandDockSvg)
-        assets,
-        {
-            DeployStamp = fun () -> formatStamp deployUtc
-            PageBuildStamp =
-                fun () ->
-                    let artifactUtc = readPageArtifactUtc ()
-                    if artifactUtc > DateTime.MinValue then formatStamp artifactUtc
-                    else "unknown"
-            PageBuildEpochSec = fun () -> pageUtc () |> epochSec
-            DeployEpochSec = fun () -> epochSec processStartUtc
-            InlineCommandDockSprite = inlineCommandDockSprite
-        }
-
-    let private registerAuthRoutes (app: WebApplication) (auth: Authentication) =
-        let loginHtml = Path.Combine(app.Environment.WebRootPath, "login.html")
-        app.MapGet("/ambit/login", Func<IResult>(fun () ->
+    let private registerAuthRoutes (routes: AppShellContext) =
+        let this = routes.AmbitApp
+        let persistence = routes.Persistence
+        let loginHtml = Path.Combine(this.WebRootPath, "login.html")
+        this.MapGet("/ambit/login", Func<IResult>(fun () ->
             Results.File(loginHtml, "text/html")
         )) |> ignore
-        app.MapPost("/ambit/login", Func<HttpRequest, Task<IResult>>(fun req -> task {
+        this.MapPost("/ambit/login", Func<HttpRequest, Task<IResult>>(fun req -> task {
             let! form = req.ReadFormAsync()
             let username = string form.["username"]
             let password = string form.["password"]
-            if username = auth.ExpectedUser && password = auth.ExpectedPass && username <> "" then
-                auth.SetCookie req.HttpContext.Response
-                return Results.Redirect("/ambit")
+            if username = this.Auth.ExpectedUser
+               && password = this.Auth.ExpectedPass then
+                let! loginResult =
+                    RouteAuthentication.loginThenSetCookie
+                        persistence.Core.host
+                        this.Auth
+                        req.HttpContext.Response
+                    |> Async.StartAsTask
+                match loginResult with
+                | Error _ -> return Results.Redirect("/ambit/login?error=1")
+                | Ok () -> return Results.Redirect("/ambit")
             else
                 return Results.Redirect("/ambit/login?error=1")
         })) |> ignore
-        app.MapGet("/ambit/logout", Func<HttpResponse, IResult>(fun resp ->
-            auth.ClearCookie resp
+        this.MapGet("/ambit/logout", Func<HttpContext, IResult>(fun ctx ->
+            match BrowserRequestCreds.tryCookieCaller ctx.Request with
+            | Some caller ->
+                CoreMailbox.logout persistence.Core.host caller
+                |> Async.RunSynchronously
+                |> ignore
+            | None -> ()
+            this.Auth.ClearCookie ctx.Response
             Results.Redirect("/ambit/login")
         )) |> ignore
         // Git PAT for smart HTTP (cookie session required; not the cookie itself).
-        app.MapGet("/ambit/git-token", Func<HttpRequest, IResult>(fun req ->
-            if auth.Disabled then
+        this.MapGet("/ambit/git-token", Func<HttpRequest, IResult>(fun req ->
+            if this.Auth.ExpectedUser = "" && this.Auth.ExpectedPass = "" then
                 Results.Json(
                     {| disabled = true; message = "Auth disabled; git gateway is open" |})
-            elif not (auth.IsAuthenticated req) then
+            elif not (this.Auth.IsAuthenticated req) then
                 Results.Unauthorized()
             else
                 Results.Json(
-                    {| username = auth.ExpectedUser; token = auth.GitToken |})
+                    {| username = this.Auth.ExpectedUser; token = this.Auth.GitToken |})
         )) |> ignore
 
-    let private parseClientRev (req: HttpRequest) =
+    let private parseClientEventId (req: HttpRequest) =
         match req.Query.TryGetValue "rev" with
         | true, value ->
             match Int32.TryParse(string value) with
-            | true, revision -> revision
+            | true, eventId -> eventId
             | _ -> 0
         | _ -> 0
 
@@ -263,101 +162,113 @@ module RouteRegistration =
             | None -> None
         | _ -> None
 
-    let private registerStateRoutes
-        (app: WebApplication)
-        (auth: Authentication)
-        (persistence: PersistenceContext)
-        (stamps: BuildStamps)
-        =
-        app.MapGet("/ambit/state", Func<HttpRequest, Task<IResult>>(fun req -> task {
-            if not (auth.IsAuthenticated req) then
-                return Results.Unauthorized()
-            else
-                try
-                    let handle = coreChanges persistence
-                    return! Api.getState handle req |> Async.StartAsTask
-                with ex ->
-                    let detail =
-                        $"Internal server error loading state (dataDir={persistence.DataDir}): {ex.Message}"
-                    return
-                        Results.Content(
-                            detail,
-                            "text/plain; charset=utf-8",
-                            statusCode = 500)
-        })) |> ignore
-        app.MapGet("/ambit/poll", Func<HttpRequest, Task<IResult>>(fun req -> task {
-            if not (auth.IsAuthenticated req) then
-                return Results.Unauthorized()
-            else
-                let handle = coreChanges persistence
-                let pageEpoch = stamps.PageBuildEpochSec ()
-                let clientRev = parseClientRev req
+    let private registerStateRoutes (routes: AppShellContext) =
+        let this = routes.AmbitApp
+        let persistence = routes.Persistence
+        let stamps = routes.Stamps
+        this.MapGet("/ambit/state", Func<HttpRequest, Task<IResult>>(fun req -> task {
+            try
                 return!
-                    Api.getPoll handle (stamps.DeployEpochSec ()) pageEpoch clientRev
+                    withBrowserChanges persistence req (fun handle ->
+                        Api.getState handle req)
                     |> Async.StartAsTask
+            with ex ->
+                let detail =
+                    "Internal server error loading state (dataDir="
+                    + persistence.DataDir
+                    + "): "
+                    + ex.Message
+                return
+                    Results.Content(
+                        detail,
+                        "text/plain; charset=utf-8",
+                        statusCode = 500)
         })) |> ignore
-        app.MapPost("/ambit/load", Func<HttpRequest, Task<IResult>>(fun req -> task {
-            if not (auth.IsAuthenticated req) then
-                return Results.Unauthorized()
-            else
-                use reader = new StreamReader(req.Body)
-                let! body = reader.ReadToEndAsync()
-                let handle = coreChanges persistence
-                let pageEpoch = stamps.PageBuildEpochSec ()
-                return!
-                    Api.postLoad handle (stamps.DeployEpochSec ()) pageEpoch body
-                    |> Async.StartAsTask
-        })) |> ignore
-        app.MapPost("/ambit/changes", Func<HttpRequest, Task<IResult>>(fun req -> task {
-            if not (auth.IsAuthenticated req) then
-                return Results.Unauthorized()
-            else
-                bindClientHint req |> ignore
-                use reader = new StreamReader(req.Body)
-                let! body = reader.ReadToEndAsync()
-                let pageEpoch = stamps.PageBuildEpochSec ()
-                return!
-                    Api.postChange
-                        (changesBound persistence)
+        this.MapGet("/ambit/poll", Func<HttpRequest, Task<IResult>>(fun req -> task {
+            let pageEpoch = stamps.PageBuildEpochSec ()
+            let clientEventId = parseClientEventId req
+            return!
+                withBrowserChanges persistence req (fun handle ->
+                    Api.getPoll
+                        handle
                         (stamps.DeployEpochSec ())
                         pageEpoch
-                        body
-                    |> Async.StartAsTask
+                        clientEventId)
+                |> Async.StartAsTask
+        })) |> ignore
+        this.MapPost("/ambit/load", Func<HttpRequest, Task<IResult>>(fun req -> task {
+            use reader = new StreamReader(req.Body)
+            let! body = reader.ReadToEndAsync()
+            let pageEpoch = stamps.PageBuildEpochSec ()
+            return!
+                withBrowserChanges persistence req (fun handle ->
+                    Api.postLoad
+                        handle
+                        (stamps.DeployEpochSec ())
+                        pageEpoch
+                        body)
+                |> Async.StartAsTask
+        })) |> ignore
+        this.MapPost("/ambit/changes", Func<HttpRequest, Task<IResult>>(fun req -> task {
+            bindClientHint req |> ignore
+            use reader = new StreamReader(req.Body)
+            let! body = reader.ReadToEndAsync()
+            let pageEpoch = stamps.PageBuildEpochSec ()
+            return!
+                withBrowserChanges persistence req (fun handle ->
+                    Api.postEvents
+                        handle
+                        (stamps.DeployEpochSec ())
+                        pageEpoch
+                        body)
+                |> Async.StartAsTask
+        })) |> ignore
+        this.MapPost("/ambit/events", Func<HttpRequest, Task<IResult>>(fun req -> task {
+            bindClientHint req |> ignore
+            use reader = new StreamReader(req.Body)
+            let! body = reader.ReadToEndAsync()
+            let pageEpoch = stamps.PageBuildEpochSec ()
+            return!
+                withBrowserChanges persistence req (fun handle ->
+                    Api.postEvents
+                        handle
+                        (stamps.DeployEpochSec ())
+                        pageEpoch
+                        body)
+                |> Async.StartAsTask
         })) |> ignore
 
     let private prepareGitSave (persistence: PersistenceContext) () = async {
-        let handle = coreChanges persistence
+        let handle = parseBound persistence
         return!
             SavePrep.syncDataDir
                 persistence.Mode
                 persistence.DbStatus
                 (fun () -> handle.getState ())
-                persistence.Core.flushFileSnapshot
-                persistence.Core.getFileRevision
+                (fun () -> CoreMailbox.flushSnapshot persistence.Core.host)
+                (fun () -> CoreMailbox.getEventId persistence.Core.host)
                 persistence.DataDir
     }
 
-    let private registerSaveRoutes
-        (app: WebApplication)
-        (auth: Authentication)
-        (persistence: PersistenceContext)
-        =
-        app.MapGet("/ambit/capabilities", Func<HttpRequest, IResult>(fun req ->
-            if auth.Disabled || auth.IsAuthenticated req then
+    let private registerSaveRoutes (routes: AppShellContext) =
+        let this = routes.AmbitApp
+        let persistence = routes.Persistence
+        this.MapGet("/ambit/capabilities", Func<HttpRequest, IResult>(fun req ->
+            if this.Auth.IsAuthenticated req then
                 Api.getCapabilities persistence.DataDir
             else
                 Results.Unauthorized()
         )) |> ignore
-        app.MapPost("/ambit/file-status", Func<HttpRequest, Task<IResult>>(fun req -> task {
-            if not (auth.IsAuthenticated req) then
+        this.MapPost("/ambit/file-status", Func<HttpRequest, Task<IResult>>(fun req -> task {
+            if not (this.Auth.IsAuthenticated req) then
                 return Results.Unauthorized()
             else
                 use reader = new StreamReader(req.Body)
                 let! body = reader.ReadToEndAsync()
                 return Api.postFileStatus persistence.DataDir body
         })) |> ignore
-        app.MapGet("/ambit/file", Func<HttpRequest, Task<IResult>>(fun req -> task {
-            if not (auth.IsAuthenticated req) then
+        this.MapGet("/ambit/file", Func<HttpRequest, Task<IResult>>(fun req -> task {
+            if not (this.Auth.IsAuthenticated req) then
                 return Results.Unauthorized()
             else
                 match req.Query.TryGetValue("path") with
@@ -365,24 +276,21 @@ module RouteRegistration =
                 | true, value ->
                     return Api.getImportFile persistence.DataDir (string value)
         })) |> ignore
-        app.MapPost("/ambit/file/parse", Func<HttpRequest, Task<IResult>>(fun req -> task {
-            if not (auth.IsAuthenticated req) then
+        this.MapPost("/ambit/file/parse", Func<HttpRequest, Task<IResult>>(fun req -> task {
+            if not (this.Auth.IsAuthenticated req) then
                 return Results.Unauthorized()
             else
                 use reader = new StreamReader(req.Body)
                 let! body = reader.ReadToEndAsync()
-                let core = persistence.Core
                 return!
                     Api.postParseFile
-                        (core.changes ())
-                        core.credentials
-                        core.parseCredential
+                        (parseBound persistence)
                         persistence.DataDir
                         body
                     |> Async.StartAsTask
         })) |> ignore
-        app.MapPost("/ambit/save", Func<HttpRequest, Task<IResult>>(fun req -> task {
-            if not (auth.IsAuthenticated req) then
+        this.MapPost("/ambit/save", Func<HttpRequest, Task<IResult>>(fun req -> task {
+            if not (this.Auth.IsAuthenticated req) then
                 return Results.Unauthorized()
             else
                 let clientHint = bindClientHint req
@@ -392,135 +300,59 @@ module RouteRegistration =
                     |> Async.StartAsTask
         })) |> ignore
 
-    let private dbStatusText (status: DatabaseSetup.DbStatus) =
-        match status with
-        | DatabaseSetup.DbStatus.Ok -> "ok"
-        | DatabaseSetup.DbStatus.Mismatch1 -> "mismatch1"
-        | DatabaseSetup.DbStatus.Mismatch2 -> "mismatch2"
-        | DatabaseSetup.DbStatus.Absent -> "absent"
+    let private mailboxIsAuthenticated persistence req =
+        match BrowserRequestCreds.tryCookieCaller req with
+        | None -> false
+        | Some caller ->
+            CoreMailbox.isAdmitted
+                persistence.Core.host
+                caller
+            |> Async.RunSynchronously
 
-    let private serveUserCss (dataDir: string) (defaultUserCss: string) =
-        let userPath = Path.Combine(Bookkeeping.systemDir dataDir, "user.css")
-        let path = if File.Exists(userPath) then userPath else defaultUserCss
-        if File.Exists(path) then Results.File(path, "text/css")
-        else Results.NoContent()
-
-    let private renderGambolHtml
-        (publicAssetBaseOpt: string option)
-        (programFile: string)
-        (assets: RouteAssets)
-        (stamps: BuildStamps)
-        (dbStatus: DatabaseSetup.DbStatus)
-        =
-        let raw = File.ReadAllText(assets.GambolHtml)
-        let pageEpoch = stamps.PageBuildEpochSec ()
-        let basePrefix = match publicAssetBaseOpt with None -> "" | Some url -> url
-        let styleHref = sprintf "%s/ambit/style.css?v=%d" basePrefix pageEpoch
-        let userHref = sprintf "%s/ambit/user.css?v=%d" basePrefix pageEpoch
-        let script =
-            "    <script>window.__BUILD__ = \"" + stamps.DeployStamp ()
-            + "\"; window.__PAGE_BUILD__ = \"" + stamps.PageBuildStamp ()
-            + "\"; window.__BUILD_TS__ = " + string (stamps.DeployEpochSec ())
-            + "; window.__PAGE_BUILD_TS__ = " + string pageEpoch
-            + "; window.__DB_PRESENT__ = \"" + dbStatusText dbStatus
-            + "\";</script>\n</head>"
-        let programSrc =
-            match publicAssetBaseOpt with
-            | None -> sprintf "/ambit/%s?v=%d" programFile pageEpoch
-            | Some baseUrl ->
-                sprintf "%s/ambit/%s?v=%d" baseUrl programFile pageEpoch
-        raw
-            .Replace("href=\"/ambit/style.css\"", sprintf "href=\"%s\"" styleHref)
-            .Replace("href=\"/ambit/user.css\"", sprintf "href=\"%s\"" userHref)
-            .Replace("</head>", script)
-            .Replace("<!-- command-dock-sprite -->", stamps.InlineCommandDockSprite ())
-            .Replace("src=\"/ambit/Program.js\"", sprintf "src=\"%s\"" programSrc)
-
-    let private registerAppShellRoute
-        (app: WebApplication)
-        (auth: Authentication)
-        (publicAssetBaseOpt: string option)
-        (assets: RouteAssets)
-        (stamps: BuildStamps)
-        (persistence: PersistenceContext)
-        =
-        let serveAmbitApp (ctx: HttpContext) : IResult =
-            if auth.IsAuthenticated ctx.Request then
-                ctx.Response.Headers.CacheControl <- "no-cache, no-store, must-revalidate"
-                ctx.Response.Headers.Pragma <- "no-cache"
-                ctx.Response.Headers.Expires <- "0"
-                let programFile =
-                    match ctx.Request.Query.TryGetValue("debug") with
-                    | true, value when value.ToString() = "1" -> "Program.js"
-                    | _ -> "Program.bundle.js"
-                let html =
-                    renderGambolHtml
-                        publicAssetBaseOpt
-                        programFile
-                        assets
-                        stamps
-                        persistence.DbStatus
-                Results.Content(html, "text/html")
-            else
-                Results.Redirect("/ambit/login")
-        app.MapGet("/ambit", Func<HttpContext, IResult>(serveAmbitApp)) |> ignore
-
-    let private registerCssAndShellRoutes
-        (app: WebApplication)
-        (auth: Authentication)
-        (publicAssetBaseOpt: string option)
-        (assets: RouteAssets)
-        (stamps: BuildStamps)
-        (persistence: PersistenceContext)
-        =
-        app.MapGet("/ambit/user.css", Func<IResult>(fun () ->
-            serveUserCss persistence.DataDir assets.DefaultUserCss
-        )) |> ignore
-        registerAppShellRoute app auth publicAssetBaseOpt assets stamps persistence
-
-    let private registerDailyGitSave
-        (app: WebApplication)
-        (persistence: PersistenceContext)
-        =
-        DailyGitSave.register app.Lifetime persistence.DataDir
-
-    let registerPersistenceAndRoutes
-        (config: IConfiguration)
-        (auth: Authentication)
-        (publicAssetBaseOpt: string option)
-        (dataDirResult: Result<string, exn>)
-        (app: WebApplication)
-        (httpResponseLogFile: string)
-        =
+    let private withMailboxAdmit (this: AmbitApp) (persistence: PersistenceContext) =
+        { this with
+            Auth =
+                { this.Auth with
+                    IsAuthenticated = mailboxIsAuthenticated persistence } }
+    let registerPersistenceAndRoutes (this: AmbitApp) : AmbitApp =
         let persistenceModeResult =
-            config.["Persistence:Mode"]
+            this.Config.["Persistence:Mode"]
             |> Option.ofObj
             |> Option.defaultValue ""
             |> DatabaseSetup.resolvePersistenceMode
-        match dataDirResult, persistenceModeResult with
+        match this.DataDirResult, persistenceModeResult with
         | Error ex, _ ->
-            registerStartupError app (ex.ToString())
+            registerStartupError this (ex.ToString())
+            this
         | _, Error err ->
-            registerStartupError app err
-        | Ok dataDir, Ok persistenceMode ->
-            let persistence = createPersistenceContext config dataDir persistenceMode
-            let assets, stamps = createBuildStamps app
-            registerAuthRoutes app auth
-            registerStateRoutes app auth persistence stamps
-            registerSaveRoutes app auth persistence
-            HttpResponseLog.registerErrorReportRoute
-                app
-                auth.IsAuthenticated
-                httpResponseLogFile
+            registerStartupError this err
+            this
+        | Ok _, Ok persistenceMode ->
+            let persistence = createPersistenceContext this persistenceMode
+            let this = withMailboxAdmit this persistence
+            let assets, stamps = RouteAppShell.createBuildStamps this
+            let routes =
+                {
+                    AmbitApp = this
+                    Assets = assets
+                    Stamps = stamps
+                    Persistence = persistence
+                }
+            registerAuthRoutes routes
+            registerStateRoutes routes
+            registerSaveRoutes routes
+            registerErrorReportRoute routes
             let flushForGit () = async {
-                let handle = coreChanges persistence
+                let handle = parseBound persistence
                 let! flushResult =
                     SavePrep.syncGitArtifacts
                         persistence.Mode
                         persistence.DbStatus
                         (fun () -> handle.getState ())
-                        persistence.Core.flushFileSnapshot
-                        persistence.Core.getFileRevision
+                        (fun () ->
+                            CoreMailbox.flushSnapshot persistence.Core.host)
+                        (fun () ->
+                            CoreMailbox.getEventId persistence.Core.host)
                         persistence.DataDir
                 match flushResult with
                 | Ok _ -> return Ok ()
@@ -533,32 +365,18 @@ module RouteRegistration =
                     label
                     changedPaths
             GitGateway.registerRoutes
-                app
-                auth.IsGitAuthenticated
-                persistence.DataDir
-                flushForGit
-                reconcileGitPush
-            LazyLoadReconciliationDiagnostics.registerRoute
-                app
-                auth.IsAuthenticated
-            GitGatewayDiagnostics.registerRoute
-                app
-                auth.IsAuthenticated
+                { shell = routes
+                  flush = flushForGit
+                  reconcile = reconcileGitPush }
+            LazyLoadReconciliationDiagnostics.registerRoute this
+            GitGatewayDiagnostics.registerRoute this
             LazyLoadReconciliationServer.registerDirectoryRoute
-                app
-                auth.IsAuthenticated
-                persistence.DataDir
+                this
                 (fun () -> parseBound persistence)
             LazyLoadReconciliationServer.registerAddedRoute
-                app
-                auth.IsAuthenticated
-                persistence.DataDir
+                this
                 (fun () -> parseBound persistence)
-            WorkspaceWebDav.registerRoutes
-                app
-                auth.IsAuthenticated
-                persistence.DataDir
-                auth.ExpectedUser
-                auth.ExpectedPass
-            registerCssAndShellRoutes app auth publicAssetBaseOpt assets stamps persistence
-            registerDailyGitSave app persistence
+            WorkspaceWebDav.registerRoutes this
+            RouteAppShell.registerCssAndShellRoutes routes
+            DailyGitSave.register this
+            this

@@ -8,6 +8,7 @@ open System.Threading.Tasks
 open Xunit
 open Gambol.Server
 open Gambol.Shared
+open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
 
 let private requireOk label result =
@@ -121,17 +122,21 @@ let ``reconciliation failure preserves successful receive response`` () =
 [<Fact>]
 let ``server reconciler applies planner ops through active agent`` () =
     let tempDir = newTempDir ()
-    let fileAgent = FileAgent.create tempDir
-    let handle = FileAgent.coreChanges fileAgent
+    let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId, ops = FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
-    let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
-    (FileAgent.coreChanges fileAgent).postChange [ change ]
+    let event =
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change ops }
+    handle.postEvents [ event ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
     Assert.True(File.Exists(Path.Combine(tempDir, "home", ".amb")))
     Assert.Equal("1", File.ReadAllText(Bookkeeping.metaPath tempDir))
-    FileAgent.flushSnapshot fileAgent |> Async.RunSynchronously |> requireOk "workspace persist"
+    CoreMailbox.flushSnapshot fileAgent |> Async.RunSynchronously |> requireOk "workspace persist"
     let sourcePath = Path.Combine(tempDir, "home", "src", "main.fs")
     Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)) |> ignore
     File.WriteAllText(sourcePath, "module Main")
@@ -139,8 +144,11 @@ let ``server reconciler applies planner ops through active agent`` () =
     |> Async.RunSynchronously
     |> requireOk "reconcile"
     |> ignore
-    FileAgent.flushSnapshot fileAgent |> Async.RunSynchronously |> requireOk "reconcile persist"
-    let state = FileAgent.getState fileAgent |> Async.RunSynchronously
+    CoreMailbox.flushSnapshot fileAgent |> Async.RunSynchronously |> requireOk "reconcile persist"
+    let state =
+        CoreMailbox.getState fileAgent
+        |> Async.RunSynchronously
+        |> requireOk "state"
     let graph = state.graph
     let srcId = graph.nodes.[workspaceId].children |> List.exactlyOne |> fun child -> child.id
     let fileId = graph.nodes.[srcId].children |> List.exactlyOne |> fun child -> child.id
@@ -148,16 +156,20 @@ let ``server reconciler applies planner ops through active agent`` () =
     Assert.Equal(Special SpecialKind.File, graph.nodes.[fileId].kind)
     Assert.Empty(graph.nodes.[fileId].children)
     Assert.Equal("module Main", File.ReadAllText(sourcePath))
-    FileAgent.dispose fileAgent
+    CoreMailbox.dispose fileAgent
 
 [<Fact>]
 let ``server reconciler adds disk files outside the changed path list`` () =
     let tempDir = newTempDir ()
-    let fileAgent = FileAgent.create tempDir
-    let handle = FileAgent.coreChanges fileAgent
+    let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId, ops = FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
-    let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
-    (FileAgent.coreChanges fileAgent).postChange [ change ]
+    let event =
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change ops }
+    handle.postEvents [ event ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
@@ -174,23 +186,30 @@ let ``server reconciler adds disk files outside the changed path list`` () =
     |> Async.RunSynchronously
     |> requireOk "reconcile"
     |> ignore
-    let state = FileAgent.getState fileAgent |> Async.RunSynchronously
+    let state =
+        CoreMailbox.getState fileAgent
+        |> Async.RunSynchronously
+        |> requireOk "state"
     let graph = state.graph
     let childNames =
         graph.nodes.[workspaceId].children
         |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
         |> List.sort
     Assert.Equal<string list>([ "existing.txt"; "updated.txt" ], childNames)
-    FileAgent.dispose fileAgent
+    CoreMailbox.dispose fileAgent
 
 [<Fact>]
 let ``server reconciler adds missing directory and file nodes from discovered paths`` () =
     let tempDir = newTempDir ()
-    let fileAgent = FileAgent.create tempDir
-    let handle = FileAgent.coreChanges fileAgent
+    let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId, ops = FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
-    let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
-    (FileAgent.coreChanges fileAgent).postChange [ change ]
+    let event =
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change ops }
+    handle.postEvents [ event ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
@@ -205,7 +224,10 @@ let ``server reconciler adds missing directory and file nodes from discovered pa
     |> Async.RunSynchronously
     |> requireOk "reconcile"
     |> ignore
-    let state = FileAgent.getState fileAgent |> Async.RunSynchronously
+    let state =
+        CoreMailbox.getState fileAgent
+        |> Async.RunSynchronously
+        |> requireOk "state"
     let graph = state.graph
     let docsId =
         graph.nodes.[workspaceId].children
@@ -219,17 +241,21 @@ let ``server reconciler adds missing directory and file nodes from discovered pa
         |> fun child -> child.id
     Assert.Equal(Special SpecialKind.Directory, graph.nodes.[docsId].kind)
     Assert.Equal(Special SpecialKind.File, graph.nodes.[notesId].kind)
-    FileAgent.dispose fileAgent
+    CoreMailbox.dispose fileAgent
 
 [<Fact>]
 let ``post receive rename of unparsed stub is rejected without moving disk twice`` () =
     let tempDir = newTempDir ()
-    let fileAgent = FileAgent.create tempDir
-    let handle = FileAgent.coreChanges fileAgent
+    let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId, ops =
         FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
-    let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
-    (FileAgent.coreChanges fileAgent).postChange [ change ]
+    let event =
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change ops }
+    handle.postEvents [ event ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
@@ -260,10 +286,13 @@ let ``post receive rename of unparsed stub is rejected without moving disk twice
         Assert.Contains(
             failures,
             fun f -> f.message.Contains("unparsed document"))
-    FileAgent.flushSnapshot fileAgent
+    CoreMailbox.flushSnapshot fileAgent
     |> Async.RunSynchronously
     |> requireOk "flush"
-    let state = FileAgent.getState fileAgent |> Async.RunSynchronously
+    let state =
+        CoreMailbox.getState fileAgent
+        |> Async.RunSynchronously
+        |> requireOk "state"
     let graph = state.graph
     let fileId =
         graph.nodes.[workspaceId].children
@@ -275,17 +304,21 @@ let ``post receive rename of unparsed stub is rejected without moving disk twice
         graph.nodes.[fileId].kind)
     Assert.False(File.Exists(oldPath))
     Assert.Equal("received content", File.ReadAllText(newPath))
-    FileAgent.dispose fileAgent
+    CoreMailbox.dispose fileAgent
 
 [<Fact>]
 let ``server reconciler posts good sibling when one path fails`` () =
     let tempDir = newTempDir ()
-    let fileAgent = FileAgent.create tempDir
-    let handle = FileAgent.coreChanges fileAgent
+    let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId, ops =
         FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
-    let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
-    (FileAgent.coreChanges fileAgent).postChange [ change ]
+    let event =
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change ops }
+    handle.postEvents [ event ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
@@ -317,14 +350,17 @@ let ``server reconciler posts good sibling when one path fails`` () =
         fun f ->
             f.path = "bad.txt"
             && f.message.Contains("unparsed document"))
-    let state = FileAgent.getState fileAgent |> Async.RunSynchronously
+    let state =
+        CoreMailbox.getState fileAgent
+        |> Async.RunSynchronously
+        |> requireOk "state"
     let graph = state.graph
     let names =
         graph.nodes.[workspaceId].children
         |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
         |> List.sort
     Assert.Equal<string list>([ "bad.txt"; "good.txt" ], names)
-    FileAgent.dispose fileAgent
+    CoreMailbox.dispose fileAgent
 
 [<Fact>]
 let ``latest diagnostics GET returns failures once then empty`` () =
@@ -355,30 +391,42 @@ let ``latest diagnostics GET returns failures once then empty`` () =
         |> Async.RunSynchronously
     Assert.Equal("""{"failures":[]}""", secondBody)
 
-let private postWorkspace (fileAgent: FileAgent) (label: string) =
+let private postWorkspace (fileAgent: MailboxHost) (label: string) =
     let workspaceId, ops = FileNodeOps.planCreateWorkspace (Graph.create ()) label
-    let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
-    (FileAgent.coreChanges fileAgent).postChange [ change ]
+    let event =
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change ops }
+    (admittedChanges fileAgent).postEvents [ event ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
     workspaceId
 
-let private postOps (fileAgent: FileAgent) (revision: int) (ops: Op list) =
-    let change = { id = revision; changeId = Guid.NewGuid(); ops = ops }
-    (FileAgent.coreChanges fileAgent).postChange [ change ]
+let private postOps (fileAgent: MailboxHost) (_revision: int) (ops: Op list) =
+    let event =
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change ops }
+    (admittedChanges fileAgent).postEvents [ event ]
     |> Async.RunSynchronously
     |> requireOk "ops"
     |> ignore
 
-let private readGraph (fileAgent: FileAgent) =
-    (FileAgent.getState fileAgent |> Async.RunSynchronously).graph
+let private readGraph (fileAgent: MailboxHost) =
+    CoreMailbox.getState fileAgent
+    |> Async.RunSynchronously
+    |> requireOk "state"
+    |> fun state -> state.graph
 
 [<Fact>]
 let ``directory reconcile discovers only under directory prefix`` () =
     let tempDir = newTempDir ()
-    let fileAgent = FileAgent.create tempDir
-    let handle = FileAgent.coreChanges fileAgent
+    let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId = postWorkspace fileAgent "home"
     let graph1 = readGraph fileAgent
     let docsId, docsOps =
@@ -404,13 +452,12 @@ let ``directory reconcile discovers only under directory prefix`` () =
         |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
         |> List.sort
     Assert.Equal<string list>([ "docs" ], workspaceNames)
-    FileAgent.dispose fileAgent
+    CoreMailbox.dispose fileAgent
 
 [<Fact>]
 let ``workspace reconcile discovers under workspace root`` () =
     let tempDir = newTempDir ()
-    let fileAgent = FileAgent.create tempDir
-    let handle = FileAgent.coreChanges fileAgent
+    let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId = postWorkspace fileAgent "home"
     let outsidePath = Path.Combine(tempDir, "home", "outside.txt")
     let insidePath = Path.Combine(tempDir, "home", "docs", "inside.txt")
@@ -438,13 +485,12 @@ let ``workspace reconcile discovers under workspace root`` () =
         |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
         |> List.sort
     Assert.Equal<string list>([ "inside.txt" ], docsChildren)
-    FileAgent.dispose fileAgent
+    CoreMailbox.dispose fileAgent
 
 [<Fact>]
 let ``workspace reconcile creates Directory for empty leading-dot dir`` () =
     let tempDir = newTempDir ()
-    let fileAgent = FileAgent.create tempDir
-    let handle = FileAgent.coreChanges fileAgent
+    let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId = postWorkspace fileAgent "home"
     let scratch = Path.Combine(tempDir, "home", ".scratch")
     Directory.CreateDirectory scratch |> ignore
@@ -461,13 +507,12 @@ let ``workspace reconcile creates Directory for empty leading-dot dir`` () =
             | _ -> None)
     Assert.Equal(Special SpecialKind.Directory, scratchNode.kind)
     Assert.Equal(Loaded, scratchNode.childrenStatus)
-    FileAgent.dispose fileAgent
+    CoreMailbox.dispose fileAgent
 
 [<Fact>]
 let ``directory reconcile keeps .agents Loaded with discovered children`` () =
     let tempDir = newTempDir ()
-    let fileAgent = FileAgent.create tempDir
-    let handle = FileAgent.coreChanges fileAgent
+    let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId = postWorkspace fileAgent "home"
     let graph1 = readGraph fileAgent
     let agentsId, agentsOps =
@@ -494,13 +539,12 @@ let ``directory reconcile keeps .agents Loaded with discovered children`` () =
         |> List.choose (fun child ->
             Filename.tryValue graph.nodes.[child.id].name)
     Assert.Contains("skill.md", childNames)
-    FileAgent.dispose fileAgent
+    CoreMailbox.dispose fileAgent
 
 [<Fact>]
 let ``SYSTEM workspace reconcile creates File stubs under systemId`` () =
     let tempDir = newTempDir ()
-    let fileAgent = FileAgent.create tempDir
-    let handle = FileAgent.coreChanges fileAgent
+    let fileAgent, handle = createAdmittedFile tempDir
     let systemDir = Path.Combine(tempDir, "SYSTEM")
     Directory.CreateDirectory(systemDir) |> ignore
     File.WriteAllText(Path.Combine(systemDir, "user.css"), "body{}")
@@ -530,13 +574,12 @@ let ``SYSTEM workspace reconcile creates File stubs under systemId`` () =
                 c.ref = Ownership.Owner
                 && Filename.tryValue graph.nodes.[c.id].name = Some name
                 && Graph.isSpecialSystemDirectoryMember graph c.id)))
-    FileAgent.dispose fileAgent
+    CoreMailbox.dispose fileAgent
 
 [<Fact>]
 let ``directory reconcile does not duplicate Normal-owned present file`` () =
     let tempDir = newTempDir ()
-    let fileAgent = FileAgent.create tempDir
-    let handle = FileAgent.coreChanges fileAgent
+    let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId = postWorkspace fileAgent "home"
     let graph1 = readGraph fileAgent
     let docsId, docsOps =
@@ -568,13 +611,12 @@ let ``directory reconcile does not duplicate Normal-owned present file`` () =
             |> Option.map (fun _ -> nodeId))
     Assert.Equal(1, matches.Length)
     Assert.Equal(fileId, matches.Head)
-    FileAgent.dispose fileAgent
+    CoreMailbox.dispose fileAgent
 
 [<Fact>]
 let ``directory reconcile creates missing sibling under directory`` () =
     let tempDir = newTempDir ()
-    let fileAgent = FileAgent.create tempDir
-    let handle = FileAgent.coreChanges fileAgent
+    let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId = postWorkspace fileAgent "home"
     let graph1 = readGraph fileAgent
     let docsId, docsOps =
@@ -593,13 +635,12 @@ let ``directory reconcile creates missing sibling under directory`` () =
         |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
         |> List.sort
     Assert.Equal<string list>([ "missing.txt" ], names)
-    FileAgent.dispose fileAgent
+    CoreMailbox.dispose fileAgent
 
 [<Fact>]
 let ``directory reconcile with amb outline and missing file posts without ownership error`` () =
     let tempDir = newTempDir ()
-    let fileAgent = FileAgent.create tempDir
-    let handle = FileAgent.coreChanges fileAgent
+    let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId = postWorkspace fileAgent "home"
     let graph1 = readGraph fileAgent
     let tasksId, tasksOps =
@@ -638,13 +679,12 @@ let ``directory reconcile with amb outline and missing file posts without owners
             |> List.filter (fun c -> c.id = activeId)
         Assert.Equal(1, occurrences.Length)
         Assert.Equal(Ownership.Owner, occurrences.Head.ref)
-    FileAgent.dispose fileAgent
+    CoreMailbox.dispose fileAgent
 
 [<Fact>]
 let ``directory reconcile returns resilient failures and posts good sibling`` () =
     let tempDir = newTempDir ()
-    let fileAgent = FileAgent.create tempDir
-    let handle = FileAgent.coreChanges fileAgent
+    let fileAgent, handle = createAdmittedFile tempDir
     let workspaceId = postWorkspace fileAgent "home"
     let graph1 = readGraph fileAgent
     let docsId, docsOps =
@@ -684,18 +724,19 @@ let ``directory reconcile returns resilient failures and posts good sibling`` ()
         |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
         |> List.sort
     Assert.Equal<string list>([ "bad.txt"; "good.txt" ], names)
-    FileAgent.dispose fileAgent
+    CoreMailbox.dispose fileAgent
 
 [<Fact>]
 let ``directory reconciliation POST returns failures JSON`` () =
     let tempDir = newTempDir ()
     use client = createClientForDir tempDir
     let workspaceId, wsOps = FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
-    let wsChange = { id = 0; changeId = Guid.NewGuid(); ops = wsOps }
+    let wsChange = SpecialNodeTestHelpers.changeEventZero "" wsOps
+    let wsEvent = wsChange
     let wsBody =
         Thoth.Json.Newtonsoft.Encode.toString 0
-            (Serialization.encodeChangeBatch
-                { changes = [ wsChange ] })
+            (EventJson.encodeEventBatch
+                { events = [ wsEvent ] })
     use wsContent = new StringContent(wsBody, Text.Encoding.UTF8, "application/json")
     let wsResp =
         client.PostAsync("/ambit/changes", wsContent)
@@ -716,11 +757,13 @@ let ``directory reconciliation POST returns failures JSON`` () =
         |> snd
     let _, docsOps =
         FileNodeOps.planCreateOwnedDirectory graph workspaceId "docs"
-    let docsChange = { id = 1; changeId = Guid.NewGuid(); ops = docsOps }
+    let docsChange =
+        SpecialNodeTestHelpers.changeEvent "" EventId.zero (Guid.NewGuid()) docsOps
+    let docsEvent = docsChange
     let docsBody =
         Thoth.Json.Newtonsoft.Encode.toString 0
-            (Serialization.encodeChangeBatch
-                { changes = [ docsChange ] })
+            (EventJson.encodeEventBatch
+                { events = [ docsEvent ] })
     use docsContent =
         new StringContent(docsBody, Text.Encoding.UTF8, "application/json")
     let docsResp =
@@ -751,11 +794,12 @@ let ``workspace reconciliation POST with empty path discovers root`` () =
     let tempDir = newTempDir ()
     use client = createClientForDir tempDir
     let workspaceId, wsOps = FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
-    let wsChange = { id = 0; changeId = Guid.NewGuid(); ops = wsOps }
+    let wsChange = SpecialNodeTestHelpers.changeEventZero "" wsOps
+    let wsEvent = wsChange
     let wsBody =
         Thoth.Json.Newtonsoft.Encode.toString 0
-            (Serialization.encodeChangeBatch
-                { changes = [ wsChange ] })
+            (EventJson.encodeEventBatch
+                { events = [ wsEvent ] })
     use wsContent = new StringContent(wsBody, Text.Encoding.UTF8, "application/json")
     let wsResp =
         client.PostAsync("/ambit/changes", wsContent)

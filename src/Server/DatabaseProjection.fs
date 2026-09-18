@@ -98,23 +98,27 @@ module DatabaseProjection =
         | Op.Replace(parentId, _, _) -> Some parentId
         | _ -> None
 
-    let private distinctIds select (changes: Change list) =
-        changes
-        |> List.collect _.ops
+    let private eventOps (events: Ev list) =
+        events
+        |> List.collect (fun event ->
+            Ev.ops event |> Option.defaultValue [])
+
+    let private distinctIds select (events: Ev list) =
+        eventOps events
         |> List.choose select
         |> Set.ofList
         |> Set.toList
 
-    let private nodeRows (graph: Graph) (changes: Change list) =
-        changes
+    let private nodeRows (graph: Graph) (events: Ev list) =
+        events
         |> distinctIds (nodeIdFromOp >> Some)
         |> List.choose (fun nodeId ->
             graph.nodes
             |> Map.tryFind nodeId
             |> Option.map GraphProjection.nodeRowFromNode)
 
-    let private childReplacements (graph: Graph) (changes: Change list) =
-        changes
+    let private childReplacements (graph: Graph) (events: Ev list) =
+        events
         |> distinctIds replacedParentFromOp
         |> List.choose (fun parentId ->
             graph.nodes
@@ -123,12 +127,12 @@ module DatabaseProjection =
                 { parentId = parentId.Value
                   rows = GraphProjection.childRowsFromNode graph node }))
 
-    let plan (graph: Graph) (revision: int) (changes: Change list) : ProjectionPatch =
-        { nodeUpserts = nodeRows graph changes
-          childReplacements = childReplacements graph changes
+    let plan (graph: Graph) (eventId: EventId) (events: Ev list) : ProjectionPatch =
+        { nodeUpserts = nodeRows graph events
+          childReplacements = childReplacements graph events
           graph =
             { rootId = graph.root.Value
-              revision = revision } }
+              revision = EventId.value eventId } }
 
     let commands (patch: ProjectionPatch) : ProjectionCommand list =
         let childParents = patch.childReplacements |> List.map _.parentId

@@ -6,40 +6,30 @@ open Gambol.Shared
 let private stateWithChild (text: string) =
     let initialState =
         { graph = Graph.create ()
-          history = History.empty
-          revision = Revision 0 }
+          eventId = EventId.zero }
 
     let childId = NodeId.New()
-    let change =
-        { id = 0
-          changeId = System.Guid.NewGuid()
-          ops =
-            [ Op.NewNode(childId, text)
-              Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
+    let ops =
+        [ Op.NewNode(childId, text)
+          Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ]
 
-    match History.applyChange change initialState with
+    match ChangeValidation.applyOps ops initialState with
     | ApplyResult.Changed st -> st, childId
     | _ -> failwith "bootstrap failed"
 
 [<Fact>]
-let ``applyChange amends stale SetText collision`` () =
+let ``applyOps amends stale SetText collision`` () =
     let state, nodeId = stateWithChild "x0"
-    let changeA =
-        { id = 1
-          changeId = System.Guid.NewGuid()
-          ops = [ Op.SetText(nodeId, "x0", "xA") ] }
+    let opsA = [ Op.SetText(nodeId, "x0", "xA") ]
     let state =
-        match ChangeAmendment.applyChange changeA state with
+        match ChangeAmendment.applyOps opsA state with
         | ApplyResult.Changed st, false, _ -> st
         | other -> failwith $"changeA: {other}"
 
-    let changeB =
-        { id = 2
-          changeId = System.Guid.NewGuid()
-          ops = [ Op.SetText(nodeId, "x0", "xB") ] }
-    let result, amended, applied = ChangeAmendment.applyChange changeB state
+    let opsB = [ Op.SetText(nodeId, "x0", "xB") ]
+    let result, amended, applied = ChangeAmendment.applyOps opsB state
     Assert.True(amended)
-    Assert.NotEqual<Op list>(changeB.ops, applied.ops)
+    Assert.NotEqual<Op list>(opsB, applied)
     match result with
     | ApplyResult.Changed st ->
         Assert.Equal("xA", st.graph.nodes.[nodeId].text)
@@ -47,35 +37,26 @@ let ``applyChange amends stale SetText collision`` () =
     | _ -> failwith $"changeB result: {result}"
 
 [<Fact>]
-let ``applyChange amends stale SetClasses with set delta`` () =
+let ``applyOps amends stale SetClasses with set delta`` () =
     let state, nodeId = stateWithChild "tagged"
     let prior = CssClass.ofList [ "a"; "b" ]
-    let setup =
-        { id = 0
-          changeId = System.Guid.NewGuid()
-          ops = [ Op.SetClasses(nodeId, CssClass.empty, prior) ] }
+    let setup = [ Op.SetClasses(nodeId, CssClass.empty, prior) ]
     let state =
-        match ChangeAmendment.applyChange setup state with
+        match ChangeAmendment.applyOps setup state with
         | ApplyResult.Changed st, false, _ -> st
         | other -> failwith $"setup: {other}"
 
-    let changeA =
-        { id = 1
-          changeId = System.Guid.NewGuid()
-          ops = [ Op.SetClasses(nodeId, prior, CssClass.ofList [ "b" ]) ] }
+    let opsA = [ Op.SetClasses(nodeId, prior, CssClass.ofList [ "b" ]) ]
     let state =
-        match ChangeAmendment.applyChange changeA state with
+        match ChangeAmendment.applyOps opsA state with
         | ApplyResult.Changed st, false, _ -> st
         | other -> failwith $"changeA: {other}"
 
-    let changeB =
-        { id = 2
-          changeId = System.Guid.NewGuid()
-          ops =
-            [ Op.SetClasses(nodeId, prior, CssClass.ofList [ "a"; "b"; "c" ]) ] }
-    let result, amended, applied = ChangeAmendment.applyChange changeB state
+    let opsB =
+        [ Op.SetClasses(nodeId, prior, CssClass.ofList [ "a"; "b"; "c" ]) ]
+    let result, amended, applied = ChangeAmendment.applyOps opsB state
     Assert.True(amended)
-    Assert.NotEqual<Op list>(changeB.ops, applied.ops)
+    Assert.NotEqual<Op list>(opsB, applied)
     match result with
     | ApplyResult.Changed st ->
         let classes = st.graph.nodes.[nodeId].cssClasses |> CssClass.toList |> Set.ofList
@@ -85,55 +66,45 @@ let ``applyChange amends stale SetClasses with set delta`` () =
 let private stateWithParentChild (parentText: string) (childText: string) =
     let initialState =
         { graph = Graph.create ()
-          history = History.empty
-          revision = Revision 0 }
+          eventId = EventId.zero }
 
     let parentId = NodeId.New()
     let childId = NodeId.New()
-    let change =
-        { id = 0
-          changeId = System.Guid.NewGuid()
-          ops =
-            [ Op.NewNode(parentId, parentText)
-              Op.NewNode(childId, childText)
-              Op.Replace(Graph.rootId, [], [ ChildNode.owner parentId ])
-              Op.Replace(parentId, [], [ ChildNode.owner childId ]) ] }
+    let ops =
+        [ Op.NewNode(parentId, parentText)
+          Op.NewNode(childId, childText)
+          Op.Replace(Graph.rootId, [], [ ChildNode.owner parentId ])
+          Op.Replace(parentId, [], [ ChildNode.owner childId ]) ]
 
-    match History.applyChange change initialState with
+    match ChangeValidation.applyOps ops initialState with
     | ApplyResult.Changed st -> st, parentId, childId
     | _ -> failwith "bootstrap failed"
 
 [<Fact>]
-let ``applyChange amends stale Replace collision`` () =
+let ``applyOps amends stale Replace collision`` () =
     let state, parentId, child0 = stateWithParentChild "p" "c0"
     let childA = NodeId.New()
-    let changeA =
-        { id = 1
-          changeId = System.Guid.NewGuid()
-          ops =
-            [ Op.NewNode(childA, "a")
-              Op.Replace(
-                  parentId,
-                  [ ChildNode.owner child0 ],
-                  [ ChildNode.owner childA ]) ] }
+    let opsA =
+        [ Op.NewNode(childA, "a")
+          Op.Replace(
+              parentId,
+              [ ChildNode.owner child0 ],
+              [ ChildNode.owner childA ]) ]
     let state =
-        match ChangeAmendment.applyChange changeA state with
+        match ChangeAmendment.applyOps opsA state with
         | ApplyResult.Changed st, false, _ -> st
         | other -> failwith $"changeA: {other}"
 
     let childB = NodeId.New()
-    let changeB =
-        { id = 2
-          changeId = System.Guid.NewGuid()
-          ops =
-            [ Op.NewNode(childB, "b")
-              Op.Replace(
-                  parentId,
-                  [ ChildNode.owner child0 ],
-                  [ ChildNode.owner childB ]) ] }
-    let result, amended, applied = ChangeAmendment.applyChange changeB state
+    let opsB =
+        [ Op.NewNode(childB, "b")
+          Op.Replace(
+              parentId,
+              [ ChildNode.owner child0 ],
+              [ ChildNode.owner childB ]) ]
+    let result, amended, applied = ChangeAmendment.applyOps opsB state
     Assert.True(amended)
-    Assert.NotEqual<Op list>(changeB.ops, applied.ops)
+    Assert.NotEqual<Op list>(opsB, applied)
     match result with
     | ApplyResult.Changed st ->
         let children = st.graph.nodes.[parentId].children

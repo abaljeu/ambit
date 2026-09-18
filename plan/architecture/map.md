@@ -13,6 +13,10 @@ A browsable description of how Gambol is coded and how it runs: processes, layer
 - Sister Projects: [[plan/end-user-wiki/map.md]] (what the software is for users), [[plan/marketing-wiki/map.md]] (uses).
 - Related: [[plan/debug-reload/project.md]] -- how a person on watch loads debug modules and picks up an esbuild rebuild (Browser hard-reload). Homed on [[plan/roadmap/epics/robust-outliner.md]].
 
+## Pages
+
+1. **Browser and App auth** — [[browser-and-app-auth.md]] — how the Browser and the App present `gambol_auth` to Core, and how a Server restart keeps the same derived token.
+
 ## Decisions so far
 
 - Goal is how it is coded and how it runs, not user how-to and not use-case marketing.

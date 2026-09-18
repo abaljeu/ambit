@@ -5,7 +5,7 @@ open Gambol.Shared.ViewModel
 
 /// Validate ownership on the client graph; focus a failing node on Error.
 let validateGraphOp (model: VM) : VM * Effect list =
-    match History.validateOwnershipLocated model.graph with
+    match ChangeValidation.validateOwnershipLocated model.graph with
     | Ok () ->
         { model with lastCmdResult = Some (CmdLastResult.Detail (None, "valid")) }, []
     | Error (msg, nodeId) ->

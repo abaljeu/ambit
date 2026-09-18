@@ -10,7 +10,7 @@ module SavePrep =
         (dbStatus: DatabaseSetup.DbStatus)
         (getState: unit -> Async<Result<State, string>>)
         (flushFileSnapshot: unit -> Async<Result<unit, string>>)
-        (getFileRevision: unit -> Async<Revision>)
+        (getFileEventId: unit -> Async<EventId>)
         (dataDir: string)
         : Async<Result<int, string>> =
         async {
@@ -20,15 +20,15 @@ module SavePrep =
                 match stateResult with
                 | Error err -> return Error err
                 | Ok state ->
-                    // Live-save already materialized artifacts; sync only needs revision.
-                    return Ok state.revision.Value
+                    // Live-save already materialized artifacts; sync only needs eventId.
+                    return Ok (EventId.value state.eventId)
             | _ ->
                 let! flushResult = flushFileSnapshot ()
                 match flushResult with
                 | Error err -> return Error err
                 | Ok () ->
-                    let! rev = getFileRevision ()
-                    return Ok rev.Value
+                    let! eventId = getFileEventId ()
+                    return Ok (EventId.value eventId)
         }
 
     let syncGitArtifacts
@@ -36,7 +36,7 @@ module SavePrep =
         (dbStatus: DatabaseSetup.DbStatus)
         (getState: unit -> Async<Result<State, string>>)
         (flushFileSnapshot: unit -> Async<Result<unit, string>>)
-        (getFileRevision: unit -> Async<Revision>)
+        (getFileEventId: unit -> Async<EventId>)
         (dataDir: string)
         : Async<Result<int, string>> =
         syncDataDir
@@ -44,5 +44,5 @@ module SavePrep =
             dbStatus
             getState
             flushFileSnapshot
-            getFileRevision
+            getFileEventId
             dataDir

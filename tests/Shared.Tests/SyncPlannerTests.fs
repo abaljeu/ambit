@@ -3,35 +3,24 @@ module Gambol.Shared.Tests.SyncPlannerTests
 open System
 open Xunit
 open Gambol.Shared
+open Gambol.Shared
 open Gambol.Shared.ViewModel
 
-let private mkChange id =
-    { id = id
-      changeId = Guid.NewGuid()
-      ops = [] }
-
-let private asPending change = PendingChange.ofChange change
-
-let private withKind recordId kind change : PendingChange =
-    { change = change
-      transition =
-        Some
-            { recordId = recordId
-              submittedChangeId = change.changeId
-              kind = kind } }
+let private mkChange _n =
+    SpecialNodeTestHelpers.changeEventZero "fixture" []
 
 [<Fact>]
 let ``tryStartSubmit returns SubmitPendingBatch effect when queue is ready`` () =
     let c = mkChange 7
     let syncInfo =
         { SyncInfo.initial with
-            pendingChanges = [ asPending c ] }
-    let nextInfo, effects = SyncPlanner.tryStartSubmit (Revision 9) syncInfo
+            pending = [ c ] }
+    let nextInfo, effects = SyncPlanner.tryStartSubmit (EventIdFixtures.storedId 9) syncInfo
     Assert.Equal(Sending 1, nextInfo.syncState)
     match effects with
-    | [ SubmitPendingBatch (baseRevision, changes) ] ->
-        Assert.Equal(9, baseRevision)
-        Assert.Equal<PendingChange list>([ asPending c ], changes)
+    | [ SubmitPendingBatch (baseEventId, events) ] ->
+        Assert.Equal(EventIdFixtures.storedId 9, baseEventId)
+        Assert.Equal<Ev list>([ c ], events)
     | _ ->
         failwith "Expected single SubmitPendingBatch effect"
 
@@ -39,9 +28,9 @@ let ``tryStartSubmit returns SubmitPendingBatch effect when queue is ready`` () 
 let ``tryStartSubmit returns no effects when already sending`` () =
     let syncInfo =
         { SyncInfo.initial with
-            pendingChanges = [ mkChange 1 |> asPending ]
+            pending = [ mkChange 1 ]
             syncState = Sending 1 }
-    let nextInfo, effects = SyncPlanner.tryStartSubmit (Revision 1) syncInfo
+    let nextInfo, effects = SyncPlanner.tryStartSubmit (EventIdFixtures.storedId 1) syncInfo
     Assert.Equal(Sending 1, nextInfo.syncState)
     Assert.Empty(effects)
 
@@ -52,17 +41,17 @@ let ``retireSubmittedPrefix dequeues the prefix and schedules remainder`` () =
     let c3 = mkChange 0
     let syncInfo =
         { SyncInfo.initial with
-            pendingChanges = [ c1; c2; c3 ] |> List.map asPending
+            pending = [ c1; c2; c3 ]
             syncState = Sending 1 }
     let nextInfo, pending, effects =
-        SyncPlanner.retireSubmittedPrefix 2 (Revision 3) syncInfo
+        SyncPlanner.retireSubmittedPrefix 2 (EventIdFixtures.storedId 3) syncInfo
     Assert.Single(pending) |> ignore
-    Assert.Equal(c3.changeId, pending.Head.change.changeId)
+    Assert.Equal(c3.submissionId, pending.Head.submissionId)
     Assert.Equal(Sending 1, nextInfo.syncState)
     match effects with
-    | [ SubmitPendingBatch (baseRevision, changes) ] ->
-        Assert.Equal(3, baseRevision)
-        Assert.Equal<PendingChange list>([ asPending c3 ], changes)
+    | [ SubmitPendingBatch (baseEventId, events) ] ->
+        Assert.Equal(EventIdFixtures.storedId 3, baseEventId)
+        Assert.Equal<Ev list>([ c3 ], events)
     | _ ->
         failwith "Expected single SubmitPendingBatch effect for remaining queue"
 
@@ -71,29 +60,30 @@ let ``retireSubmittedPrefix of the full queue returns Idle and no effects`` () =
     let c = mkChange 0
     let syncInfo =
         { SyncInfo.initial with
-            pendingChanges = [ asPending c ]
+            pending = [ c ]
             syncState = Sending 1 }
     let nextInfo, pending, effects =
-        SyncPlanner.retireSubmittedPrefix 1 (Revision 1) syncInfo
+        SyncPlanner.retireSubmittedPrefix 1 (EventIdFixtures.storedId 1) syncInfo
     Assert.Empty(pending)
     Assert.Equal(Idle, nextInfo.syncState)
     Assert.Empty(effects)
 
 [<Fact>]
-let ``toDeltaChain rewrites stale queued ids to contiguous revisions`` () =
+let ``toWireBatch keeps pending EventId.zero and submissionId`` () =
     let c1 = mkChange 637
     let c2 = mkChange 637
-    let c3 = mkChange 637
-    let chained = Gambol.Shared.SyncBatch.toDeltaChain 637 [ c1; c2; c3 ]
-    Assert.Equal<int list>([ 637; 638; 639 ], chained |> List.map (fun c -> c.id))
+    let events = [ c1; c2 ]
+    let wire = SyncBatch.toWireBatch events
+    Assert.Equal<EventId list>(
+        [ EventId.zero; EventId.zero ],
+        wire |> List.map (fun event -> event.id))
     Assert.Equal<Guid list>(
-        [ c1.changeId; c2.changeId; c3.changeId ],
-        chained |> List.map (fun c -> c.changeId))
+        [ c1.submissionId; c2.submissionId ],
+        wire |> List.map (fun event -> event.submissionId))
 
 [<Fact>]
-let ``toDeltaChain keeps empty batch empty`` () =
-    let chained = Gambol.Shared.SyncBatch.toDeltaChain 12 []
-    Assert.Empty(chained)
+let ``toWireBatch keeps empty batch empty`` () =
+    Assert.Empty(SyncBatch.toWireBatch [])
 
 [<Fact>]
 let ``tryStartPoll uses catch-up baseline revision`` () =
@@ -102,27 +92,27 @@ let ``tryStartPoll uses catch-up baseline revision`` () =
         { SyncInfo.initial with
             catchUp =
                 Some
-                    { revision = Revision 3
+                    { eventId = EventIdFixtures.storedId 3
                       graph = graph0 } }
-    let si, effects = SyncPlanner.tryStartPoll (Revision 9) syncInfo
+    let si, effects = SyncPlanner.tryStartPoll (EventIdFixtures.storedId 9) syncInfo
     Assert.Equal(Polling, si.syncState)
     match effects with
-    | [ PollServer rev ] -> Assert.Equal(3, rev)
+    | [ PollServer eventId ] -> Assert.Equal(EventIdFixtures.storedId 3, eventId)
     | _ -> failwith "Expected PollServer from catch-up baseline"
 
 [<Fact>]
 let ``tryStartPoll emits PollServer when idle with empty queue`` () =
-    let si, effects = SyncPlanner.tryStartPoll (Revision 5) SyncInfo.initial
+    let si, effects = SyncPlanner.tryStartPoll (EventIdFixtures.storedId 5) SyncInfo.initial
     Assert.Equal(Polling, si.syncState)
     match effects with
-    | [ PollServer rev ] -> Assert.Equal(5, rev)
+    | [ PollServer eventId ] -> Assert.Equal(EventIdFixtures.storedId 5, eventId)
     | _ -> failwith "Expected single PollServer effect"
 
 [<Fact>]
 let ``tryStartPoll returns no effects when queue is non-empty`` () =
     let syncInfo =
-        { SyncInfo.initial with pendingChanges = [ mkChange 0 |> asPending ] }
-    let si, effects = SyncPlanner.tryStartPoll (Revision 5) syncInfo
+        { SyncInfo.initial with pending = [ mkChange 0 ] }
+    let si, effects = SyncPlanner.tryStartPoll (EventIdFixtures.storedId 5) syncInfo
     Assert.Equal(Idle, si.syncState)
     Assert.Empty(effects)
 
@@ -130,7 +120,7 @@ let ``tryStartPoll returns no effects when queue is non-empty`` () =
 let ``tryStartPoll returns no effects when already sending`` () =
     let syncInfo =
         { SyncInfo.initial with syncState = Sending 1 }
-    let si, effects = SyncPlanner.tryStartPoll (Revision 5) syncInfo
+    let si, effects = SyncPlanner.tryStartPoll (EventIdFixtures.storedId 5) syncInfo
     Assert.Equal(Sending 1, si.syncState)
     Assert.Empty(effects)
 
@@ -138,7 +128,7 @@ let ``tryStartPoll returns no effects when already sending`` () =
 let ``tryStartPoll returns no effects when uploading`` () =
     let syncInfo =
         { SyncInfo.initial with syncState = Uploading }
-    let si, effects = SyncPlanner.tryStartPoll (Revision 5) syncInfo
+    let si, effects = SyncPlanner.tryStartPoll (EventIdFixtures.storedId 5) syncInfo
     Assert.Equal(Uploading, si.syncState)
     Assert.Empty(effects)
 
@@ -147,11 +137,11 @@ let ``tryStartLoad emits LoadServer when idle with empty queue`` () =
     let targetId = NodeId.New()
     let targets = [ { targetId = targetId; includeWorkspace = true } ]
     let si, effects =
-        SyncPlanner.tryStartLoad (Revision 5) targets SyncInfo.initial
+        SyncPlanner.tryStartLoad (EventIdFixtures.storedId 5) targets SyncInfo.initial
     Assert.Equal(Loading, si.syncState)
     match effects with
-    | [ LoadServer (rev, loadTargets) ] ->
-        Assert.Equal(5, rev)
+    | [ LoadServer (eventId, loadTargets) ] ->
+        Assert.Equal(EventIdFixtures.storedId 5, eventId)
         Assert.Equal(1, loadTargets.Length)
         Assert.Equal(targetId, loadTargets.[0].targetId)
         Assert.True(loadTargets.[0].includeWorkspace)
@@ -164,7 +154,7 @@ let ``tryStartLoad returns no effects when already loading`` () =
     let targets =
         [ { targetId = NodeId.New(); includeWorkspace = false } ]
     let si, effects =
-        SyncPlanner.tryStartLoad (Revision 5) targets syncInfo
+        SyncPlanner.tryStartLoad (EventIdFixtures.storedId 5) targets syncInfo
     Assert.Equal(Loading, si.syncState)
     Assert.Empty(effects)
 
@@ -172,7 +162,7 @@ let ``tryStartLoad returns no effects when already loading`` () =
 let ``tryStartPoll returns no effects when loading`` () =
     let syncInfo =
         { SyncInfo.initial with syncState = Loading }
-    let si, effects = SyncPlanner.tryStartPoll (Revision 5) syncInfo
+    let si, effects = SyncPlanner.tryStartPoll (EventIdFixtures.storedId 5) syncInfo
     Assert.Equal(Loading, si.syncState)
     Assert.Empty(effects)
 
@@ -180,9 +170,9 @@ let ``tryStartPoll returns no effects when loading`` () =
 let ``tryStartSubmit returns no effects when loading`` () =
     let syncInfo =
         { SyncInfo.initial with
-            pendingChanges = [ mkChange 1 |> asPending ]
+            pending = [ mkChange 1 ]
             syncState = Loading }
-    let nextInfo, effects = SyncPlanner.tryStartSubmit (Revision 1) syncInfo
+    let nextInfo, effects = SyncPlanner.tryStartSubmit (EventIdFixtures.storedId 1) syncInfo
     Assert.Equal(Loading, nextInfo.syncState)
     Assert.Empty(effects)
 
@@ -195,7 +185,7 @@ let ``queued workspace Upload waits while a change submit is in flight`` () =
     let request = QueuedWorkspacePush(scope, Some(NodeId.New()))
     let syncInfo =
         { SyncInfo.initial with
-            pendingChanges = [ mkChange 14706 |> asPending ]
+            pending = [ mkChange 14706 ]
             syncState = Sending 1 }
         |> SyncInfo.queueRequest request
     let si, effects = SyncPlanner.tryReleaseQueued syncInfo
@@ -213,10 +203,10 @@ let ``queued file Upload preserves its scope until the change queue drains`` () 
             Some(NodeId.New()))
     let queued =
         { SyncInfo.initial with
-            pendingChanges = [ asPending c ]
+            pending = [ c ]
             syncState = Sending 1 }
         |> SyncInfo.queueRequest request
-    let acked, _, _ = SyncPlanner.retireSubmittedPrefix 1 (Revision 14707) queued
+    let acked, _, _ = SyncPlanner.retireSubmittedPrefix 1 (EventIdFixtures.storedId 14707) queued
     let si, effects = SyncPlanner.tryReleaseQueued acked
     Assert.Empty(si.queuedRequests)
     Assert.Equal<Effect list>([ RunQueuedRequest request ], effects)
@@ -288,9 +278,9 @@ let ``tryReleaseQueued is inert with nothing queued`` () =
 let ``tryStartSubmit returns no effects when uploading`` () =
     let syncInfo =
         { SyncInfo.initial with
-            pendingChanges = [ mkChange 1 |> asPending ]
+            pending = [ mkChange 1 ]
             syncState = Uploading }
-    let nextInfo, effects = SyncPlanner.tryStartSubmit (Revision 1) syncInfo
+    let nextInfo, effects = SyncPlanner.tryStartSubmit (EventIdFixtures.storedId 1) syncInfo
     Assert.Equal(Uploading, nextInfo.syncState)
     Assert.Empty(effects)
 
@@ -298,7 +288,7 @@ let ``tryStartSubmit returns no effects when uploading`` () =
 let ``tryStartPoll returns no effects when parsing`` () =
     let syncInfo =
         { SyncInfo.initial with syncState = Parsing }
-    let si, effects = SyncPlanner.tryStartPoll (Revision 5) syncInfo
+    let si, effects = SyncPlanner.tryStartPoll (EventIdFixtures.storedId 5) syncInfo
     Assert.Equal(Parsing, si.syncState)
     Assert.Empty(effects)
 
@@ -306,9 +296,9 @@ let ``tryStartPoll returns no effects when parsing`` () =
 let ``tryStartSubmit returns no effects when parsing`` () =
     let syncInfo =
         { SyncInfo.initial with
-            pendingChanges = [ mkChange 1 |> asPending ]
+            pending = [ mkChange 1 ]
             syncState = Parsing }
-    let nextInfo, effects = SyncPlanner.tryStartSubmit (Revision 1) syncInfo
+    let nextInfo, effects = SyncPlanner.tryStartSubmit (EventIdFixtures.storedId 1) syncInfo
     Assert.Equal(Parsing, nextInfo.syncState)
     Assert.Empty(effects)
 
@@ -319,152 +309,115 @@ let ``tryStartLoad returns no effects when parsing`` () =
     let targets =
         [ { targetId = NodeId.New(); includeWorkspace = false } ]
     let si, effects =
-        SyncPlanner.tryStartLoad (Revision 5) targets syncInfo
+        SyncPlanner.tryStartLoad (EventIdFixtures.storedId 5) targets syncInfo
     Assert.Equal(Parsing, si.syncState)
     Assert.Empty(effects)
 
 [<Fact>]
-let ``mixed C Undo Redo delta chain preserves identities and rewrites revisions`` () =
+let ``mixed C Undo Redo wire batch keeps submissionId and EventId.zero`` () =
     let change = mkChange 99
     let undo = mkChange 99
     let redo = mkChange 99
-    let items =
-        [ withKind 4 PendingKind.Normal change
-          withKind 4 PendingKind.Undo undo
-          withKind 4 PendingKind.Redo redo ]
-    let chained = SyncBatch.toPendingDeltaChain 7 items
-    Assert.Equal<int list>(
-        [ 7; 8; 9 ],
-        chained |> List.map (fun item -> item.change.id))
+    let items = [ change; undo; redo ]
+    let wire = SyncBatch.toWireBatch items
+    Assert.Equal<EventId list>(
+        [ EventId.zero; EventId.zero; EventId.zero ],
+        wire |> List.map (fun event -> event.id))
     Assert.Equal<Guid list>(
-        [ change.changeId; undo.changeId; redo.changeId ],
-        chained |> List.map (fun item -> item.change.changeId))
-    Assert.Equal<PendingKind option list>(
-        [ Some PendingKind.Normal; Some PendingKind.Undo; Some PendingKind.Redo ],
-        chained
-        |> List.map (fun item ->
-            item.transition |> Option.map (fun t -> t.kind)))
-    let wire = SyncBatch.toWireBatch 7 items
-    Assert.Equal<Change list>(
-        [ { change with id = 7 }
-          { undo with id = 8 }
-          { redo with id = 9 } ],
-        wire)
+        [ change.submissionId; undo.submissionId; redo.submissionId ],
+        wire |> List.map (fun event -> event.submissionId))
 
 [<Fact>]
 let ``later queued actions do not alter the SubmitPendingBatch list`` () =
-    let first = mkChange 1 |> asPending
-    let later = mkChange 2 |> asPending
+    let first = mkChange 1
+    let later = mkChange 2
     let syncInfo =
-        { SyncInfo.initial with pendingChanges = [ first ] }
-    let sending, effects = SyncPlanner.tryStartSubmit (Revision 4) syncInfo
+        { SyncInfo.initial with pending = [ first ] }
+    let sending, effects = SyncPlanner.tryStartSubmit (EventIdFixtures.storedId 4) syncInfo
     match effects with
     | [ SubmitPendingBatch (_, submitted) ] ->
         let grown =
-            { sending with pendingChanges = sending.pendingChanges @ [ later ] }
-        Assert.Equal<PendingChange list>([ first ], submitted)
-        Assert.Equal<PendingChange list>([ first; later ], grown.pendingChanges)
-        let _, laterEffects = SyncPlanner.tryStartSubmit (Revision 4) grown
+            { sending with pending = sending.pending @ [ later ] }
+        Assert.Equal<Ev list>([ first ], submitted)
+        Assert.Equal<Ev list>([ first; later ], grown.pending)
+        let _, laterEffects = SyncPlanner.tryStartSubmit (EventIdFixtures.storedId 4) grown
         Assert.Empty(laterEffects)
     | _ ->
         failwith "Expected single SubmitPendingBatch effect"
 
 [<Fact>]
 let ``retry list stays the submitted snapshot after later actions append`` () =
-    let submitted = [ mkChange 1 |> asPending ]
-    let later = mkChange 2 |> asPending
+    let submitted = [ mkChange 1 ]
+    let later = mkChange 2
     let syncInfo =
         { SyncInfo.initial with
-            pendingChanges = submitted @ [ later ]
-            syncState = WaitingToRetry(1, 4, submitted) }
+            pending = submitted @ [ later ]
+            syncState = WaitingToRetry(1, EventIdFixtures.storedId 4, submitted) }
     let nextInfo, effects = SyncPlanner.retryWaiting false syncInfo
     Assert.Equal(Sending 2, nextInfo.syncState)
     match effects with
-    | [ SubmitPendingBatch (baseRevision, retryList) ] ->
-        Assert.Equal(4, baseRevision)
-        Assert.Equal<PendingChange list>(submitted, retryList)
-        Assert.NotEqual<PendingChange list>(syncInfo.pendingChanges, retryList)
+    | [ SubmitPendingBatch (baseEventId, retryList) ] ->
+        Assert.Equal(EventIdFixtures.storedId 4, baseEventId)
+        Assert.Equal<Ev list>(submitted, retryList)
+        Assert.NotEqual<Ev list>(syncInfo.pending, retryList)
     | _ ->
         failwith "Expected retry of the WaitingToRetry snapshot"
 
 [<Fact>]
-let ``same recordId C Undo Redo remain one SubmitPendingBatch`` () =
-    let items =
-        [ mkChange 0 |> withKind 7 PendingKind.Normal
-          mkChange 0 |> withKind 7 PendingKind.Undo
-          mkChange 0 |> withKind 7 PendingKind.Redo ]
-    let syncInfo = { SyncInfo.initial with pendingChanges = items }
-    let _, effects = SyncPlanner.tryStartSubmit (Revision 3) syncInfo
+let ``C Undo Redo remain one SubmitPendingBatch`` () =
+    let items = [ mkChange 0; mkChange 0; mkChange 0 ]
+    let syncInfo = { SyncInfo.initial with pending = items }
+    let _, effects = SyncPlanner.tryStartSubmit (EventIdFixtures.storedId 3) syncInfo
     match effects with
     | [ SubmitPendingBatch (_, submitted) ] ->
-        Assert.Equal<PendingChange list>(items, submitted)
+        Assert.Equal<Ev list>(items, submitted)
     | _ ->
-        failwith "Expected the full same-recordId batch"
+        failwith "Expected the full pending batch"
 
 [<Fact>]
-let ``retireSubmittedPrefix remainder with the same recordId still submits together`` () =
-    let first = mkChange 0 |> withKind 7 PendingKind.Normal
-    let remainder =
-        [ mkChange 0 |> withKind 7 PendingKind.Undo
-          mkChange 0 |> withKind 7 PendingKind.Redo ]
+let ``retireSubmittedPrefix remainder still submits together`` () =
+    let first = mkChange 0
+    let remainder = [ mkChange 0; mkChange 0 ]
     let syncInfo =
         { SyncInfo.initial with
-            pendingChanges = first :: remainder
+            pending = first :: remainder
             syncState = Sending 1 }
     let _, pending, effects =
-        SyncPlanner.retireSubmittedPrefix 1 (Revision 1) syncInfo
-    Assert.Equal<PendingChange list>(remainder, pending)
+        SyncPlanner.retireSubmittedPrefix 1 (EventIdFixtures.storedId 1) syncInfo
+    Assert.Equal<Ev list>(remainder, pending)
     match effects with
     | [ SubmitPendingBatch (_, submitted) ] ->
-        Assert.Equal<PendingChange list>(remainder, submitted)
+        Assert.Equal<Ev list>(remainder, submitted)
     | _ ->
-        failwith "Expected remainder batch with the same recordId"
+        failwith "Expected remainder batch"
 
 [<Fact>]
-let ``restorePending strips transition and does not record History`` () =
+let ``restorePending keeps EventId.zero and does not record History`` () =
     let state0 = ModelBuilder.createState12 ()
     let root = state0.graph.nodes.[state0.graph.root]
     let node = state0.graph.nodes.[root.children.Head.id]
-    let stale =
-        { id = 0
-          changeId = Guid.NewGuid()
-          ops = [ Op.SetText(node.id, node.text, "stale") ] }
-        |> asPending
     let change =
-        { id = 1
-          changeId = Guid.NewGuid()
-          ops = [ Op.SetText(node.id, node.text, "restored") ] }
-    let saved = [ stale; change |> withKind 3 PendingKind.Undo ]
-    let snapshot =
-        { state0 with
-            history = History.empty
-            revision = Revision 1 }
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [ Op.SetText(node.id, node.text, "restored") ] }
+    let saved = [ change ]
+    let snapshot = { state0 with eventId = EventIdFixtures.storedId 1 }
     let next, restored =
-        SyncPlanner.restorePending (Revision 1) saved snapshot
+        SyncPlanner.restorePending (EventIdFixtures.storedId 1) saved snapshot
     let queued = Assert.Single(restored)
-    Assert.Equal(None, queued.transition)
-    Assert.Equal(change.changeId, queued.change.changeId)
+    Assert.Equal(EventId.zero, queued.id)
+    Assert.Equal(change.submissionId, queued.submissionId)
     Assert.Equal("restored", next.graph.nodes.[node.id].text)
-    Assert.Equal(History.empty, next.history)
 
 [<Fact>]
-let ``workspace singleton lineage is the exact item used before the request`` () =
+let ``workspace pending item is the exact Ev used before the request`` () =
     let change = mkChange 12
-    let submitted = PendingChange.workspaceSingleton 5 change
-    match submitted.transition with
-    | Some transition ->
-        Assert.Equal(5, transition.recordId)
-        Assert.Equal(change.changeId, transition.submittedChangeId)
-        Assert.Equal(PendingKind.Normal, transition.kind)
-    | None ->
-        failwith "Expected workspace PendingTransition"
-    let chained = SyncBatch.toPendingDeltaChain 12 [ submitted ]
-    let wire = SyncBatch.toWireBatch 12 [ submitted ]
-    Assert.Equal(submitted.change.changeId, chained.Head.change.changeId)
-    Assert.Equal(submitted.transition, chained.Head.transition)
-    Assert.Equal<Change list>(
-        [ { change with id = 12 } ],
-        wire)
+    let submitted = change
+    let wire = SyncBatch.toWireBatch [ submitted ]
+    Assert.Equal(submitted.submissionId, wire.Head.submissionId)
+    Assert.Equal(EventId.zero, wire.Head.id)
     let effect =
         ContinuePostUploadStructure(
             submitted,

@@ -7,6 +7,7 @@ open Gambol.Client.UpdateImport
 open Gambol.Client.UpdateWorkspaceDesktop
 open Gambol.Shared
 open Gambol.Shared.CommandEntry
+open Gambol.Shared
 open Gambol.Shared.ViewModel
 
 let private jsonHeaders () = jsonMutatingPostHeaders ()
@@ -50,49 +51,42 @@ let private inventoryToStubItems (items: DesktopInventoryItem list) : WorkspaceU
           isDirectory = i.isDirectory })
 
 let private reconcileWorkspaceAck
-    (submitted: PendingChange)
+    (submitted: Ev)
     (ack: ChangeSuccessResponse)
     (graph: Graph)
     (history: ClientHistory)
-    (revision: Revision)
+    (eventId: EventId)
     : AckReconcile =
-    let state: ClientSyncState =
-        { graph = graph
-          history = history
-          revision = revision }
+    let state =
+        ClientSyncState.create graph eventId history
     let syncInfo =
         { SyncInfo.initial with
-            pendingChanges = [ submitted ]
+            pending = [ submitted ]
             syncState = Sending 1 }
     if
         ack.externalChanges
-        || not (SyncLogic.isConfirmationEcho [ submitted ] ack.changes)
+        || not (SyncLogic.isConfirmationEcho [ submitted ] ack.events)
     then
         SyncLogic.reconcileExternalAck
             [ submitted ]
-            ack.revision
+            ack.eventId
             state
             syncInfo
     else
         SyncLogic.reconcileAck
             [ submitted ]
-            ack.changes
-            ack.revision
+            ack.events
+            ack.eventId
             state
             syncInfo
 
 /// Apply + synchronous POST so server graph has the workspace before push/reconcile.
-let applyAndPostSync (commandName: string) (change: Change) (model: VM) : Result<VM, string> =
-    let clientState: ClientSyncState =
-        { graph = model.graph
-          revision = model.revision
-          history = model.history }
-    match SyncLogic.applyLocalChange commandName change clientState with
+let applyAndPostSync (commandName: string) (ops: Op list) (model: VM) : Result<VM, string> =
+    let event = ClientHistory.mintChange commandName ops
+    match SyncLogic.applyLocalEvent event (clientSyncState model) with
     | Error msg -> Error msg
     | Ok (nextState, submitted) ->
-        let body =
-            SyncBatch.toWireBatch model.revision.Value [ submitted ]
-            |> encodePendingBatchBody
+        let body = encodePendingBatchBody [ submitted ]
         let url = sprintf "/%s/changes" currentFile
         let status, text = postJsonSync url body (jsonHeaders ())
         if status < 200 || status >= 300 then
@@ -107,14 +101,14 @@ let applyAndPostSync (commandName: string) (change: Change) (model: VM) : Result
                         ack
                         nextState.graph
                         nextState.history
-                        model.revision
+                        model.eventId
                 with
                 | AckReconcile.Applied (st, _, _, _) ->
                     Ok
                         { model with
                             graph = st.graph
                             history = st.history
-                            revision = st.revision }
+                            eventId = st.eventId }
                 | AckReconcile.Ignored ->
                     Ok
                         { model with
@@ -124,12 +118,9 @@ let applyAndPostSync (commandName: string) (change: Change) (model: VM) : Result
 
 /// Local graph only — stubs paint before structure POST / body push.
 let private applyStructureLocally
-    (commandName: string) (change: Change) (model: VM) : Result<VM * PendingChange, string> =
-    let clientState: ClientSyncState =
-        { graph = model.graph
-          revision = model.revision
-          history = model.history }
-    match SyncLogic.applyLocalChange commandName change clientState with
+    (commandName: string) (ops: Op list) (model: VM) : Result<VM * Ev, string> =
+    let event = ClientHistory.mintChange commandName ops
+    match SyncLogic.applyLocalEvent event (clientSyncState model) with
     | Error msg -> Error msg
     | Ok (nextState, submitted) ->
         Ok (
@@ -151,21 +142,13 @@ let private markServerFilesPresent
     if ops.IsEmpty then
         Ok model
     else
-        let change =
-            { id = model.revision.Value
-              changeId = System.Guid.NewGuid()
-              ops = ops }
-        applyAndPostSync (displayName Load) change model |> Result.map withSiteMap
+        applyAndPostSync (displayName Load) ops model |> Result.map withSiteMap
 
 let private createWorkspaceOnServer (ops: Op list) (model: VM) : Result<VM, string> =
     if ops.IsEmpty then
         Error "could not create workspace"
     else
-        let change =
-            { id = model.revision.Value
-              changeId = System.Guid.NewGuid()
-              ops = ops }
-        applyAndPostSync (displayName Load) change model |> Result.map withSiteMap
+        applyAndPostSync (displayName Load) ops model |> Result.map withSiteMap
 
 /// Empty selection means the view root is the focus (same as edit/jump).
 let private effectiveFocusId (model: VM) : NodeId =
@@ -284,11 +267,7 @@ let encodeWorkspaceInventoryBody (scope: WorkspaceSyncScope) : string =
 
 /// Undo local stubs if structure POST fails after optimistic apply.
 let private undoLocalStructure (model: VM) : VM =
-    let clientState: ClientSyncState =
-        { graph = model.graph
-          history = model.history
-          revision = model.revision }
-    match SyncLogic.applyLocalUndo (System.Guid.NewGuid()) clientState with
+    match SyncLogic.applyLocalUndo (System.Guid.NewGuid()) (clientSyncState model) with
     | Some (Ok (nextState, _)) ->
         { model with
             graph = nextState.graph
@@ -323,11 +302,7 @@ let completeUploadInventory
             keepUploading model,
             [ Effect.ContinueWorkspacePush (scope, parseFileId) ]
         | Ok ops ->
-            let change =
-                { id = model.revision.Value
-                  changeId = System.Guid.NewGuid()
-                  ops = ops }
-            match applyStructureLocally (displayName Load) change model with
+            match applyStructureLocally (displayName Load) ops model with
             | Error e -> fail (clearUploading model) e
             | Ok (model', submitted) ->
                 keepUploading (withSiteMap model'),
@@ -335,7 +310,7 @@ let completeUploadInventory
 
 /// Structure Change ACK: stamp + revision, then body push.
 let completeUploadStructurePost
-    (submitted: PendingChange)
+    (submitted: Ev)
     (scope: WorkspaceSyncScope)
     (parseFileId: NodeId option)
     (text: string)
@@ -350,13 +325,13 @@ let completeUploadStructurePost
                 ack
                 model.graph
                 model.history
-                model.revision
+                model.eventId
         with
         | AckReconcile.Applied (st, _, _, _) ->
             let model' =
                 { model with
                     graph = st.graph
-                    revision = st.revision }
+                    eventId = st.eventId }
                 |> withSiteMap
                 |> keepUploading
             model', [ Effect.ContinueWorkspacePush (scope, parseFileId) ]

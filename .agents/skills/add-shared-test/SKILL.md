@@ -11,7 +11,7 @@ Augments [[.agents/skills/implement/SKILL.md]] for Shared.Tests coverage. Follow
 
 - Location: `tests/Shared.Tests/` — references `src/Shared/` only.
 - Register new files in [[tests/Shared.Tests/Gambol.Shared.Tests.fsproj]] `<Compile Include="..."/>` in dependency order.
-- Database, HTTP, or FileAgent behavior → `tests/Server.Tests/`, not here.
+- Server behavior → `tests/Server.Tests/`
 
 ## Reuse fixtures
 

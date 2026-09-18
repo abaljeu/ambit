@@ -20,18 +20,18 @@ module WorkspaceUpload =
 
     /// Desktop multi-phase Upload must start from Idle with no pending ops.
     let canStart (syncInfo: SyncInfo) =
-        syncInfo.syncState = Idle && syncInfo.pendingChanges.IsEmpty
+        syncInfo.syncState = Idle && syncInfo.pending.IsEmpty
 
     /// Web parse/reconcile: empty pending is enough; Polling must not block.
     let canStartWeb (syncInfo: SyncInfo) =
-        syncInfo.pendingChanges.IsEmpty
+        syncInfo.pending.IsEmpty
         && match syncInfo.syncState with
            | Idle | Polling -> true
            | _ -> false
 
     /// Detail when Load is parked; distinguish pending ops from sync busy.
     let queueBlockedDetail (syncInfo: SyncInfo) =
-        if not syncInfo.pendingChanges.IsEmpty then
+        if not syncInfo.pending.IsEmpty then
             "load queued behind pending changes"
         else
             match syncInfo.syncState with

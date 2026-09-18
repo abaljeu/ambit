@@ -92,14 +92,13 @@ let ``buildImportChange single line attaches to focus`` () =
             focusId
             existing
             package
-            1
             (System.Guid.NewGuid())
 
-    Assert.Equal(1, change.id)
+    Assert.Equal(EventId.zero, change.id)
     Assert.Equal<Op list>(
         package.ops
         @ [ Op.Replace(focusId, existing, owned package.topLevelIds) ],
-        change.ops)
+        SpecialNodeTestHelpers.eventOps change)
 
 [<Fact>]
 let ``buildImportChange nested package attaches top level only`` () =
@@ -111,12 +110,11 @@ let ``buildImportChange nested package attaches top level only`` () =
             focusId
             []
             package
-            2
             (System.Guid.NewGuid())
 
     Assert.Equal<Op list>(
         package.ops @ [ Op.Replace(focusId, [], owned package.topLevelIds) ],
-        change.ops)
+        SpecialNodeTestHelpers.eventOps change)
 
 [<Fact>]
 let ``DesktopImportPackage serializes round-trip`` () =
@@ -182,13 +180,13 @@ let ``build import marks unparsed file current before tree operations`` () =
         |> Map.add focusId file
         |> Graph.fromNodes graph0.root
     let change =
-        ImportText.buildImportChange graph focusId [] package 1 (System.Guid.NewGuid())
+        ImportText.buildImportChange graph focusId [] package (System.Guid.NewGuid())
     Assert.Equal(
         Op.SetDocumentState(focusId, Unparsed, Current),
-        change.ops.Head)
+        (SpecialNodeTestHelpers.eventOps change).Head)
     Assert.Equal(
         Op.Replace(focusId, [], owned package.topLevelIds),
-        change.ops |> List.last)
+        SpecialNodeTestHelpers.eventOps change |> List.last)
 
 [<Fact>]
 let ``buildDirectoryMergeChange with empty existing adds all entries`` () =
@@ -197,13 +195,13 @@ let ``buildDirectoryMergeChange with empty existing adds all entries`` () =
     let graph = graphWithFocus focusId [] []
 
     let change =
-        ImportText.buildDirectoryMergeChange graph focusId [] package 1 (System.Guid.NewGuid())
+        ImportText.buildDirectoryMergeChange graph focusId [] package (System.Guid.NewGuid())
 
     Assert.Equal(2, package.topLevelIds.Length)
 
     Assert.Equal<Op list>(
         [ Op.Replace(focusId, [], owned package.topLevelIds) ],
-        replaceOps change.ops)
+        replaceOps (SpecialNodeTestHelpers.eventOps change))
 
 [<Fact>]
 let ``buildDirectoryMergeChange skips existing Normal child by file reference`` () =
@@ -216,13 +214,13 @@ let ``buildDirectoryMergeChange skips existing Normal child by file reference`` 
             [ normalNode existingId "[[readme.md]] ts" [] ]
 
     let change =
-        ImportText.buildDirectoryMergeChange graph focusId existing package 1 (System.Guid.NewGuid())
+        ImportText.buildDirectoryMergeChange graph focusId existing package (System.Guid.NewGuid())
 
     let betaId = List.last package.topLevelIds
 
     Assert.Equal<Op list>(
         [ Op.Replace(focusId, existing, existing @ owned [ betaId ]) ],
-        replaceOps change.ops)
+        replaceOps (SpecialNodeTestHelpers.eventOps change))
 
 [<Fact>]
 let ``buildDirectoryMergeChange skips existing Special File child by name`` () =
@@ -235,13 +233,13 @@ let ``buildDirectoryMergeChange skips existing Special File child by name`` () =
             [ specialFileNode existingId "script.sh" focusId ]
 
     let change =
-        ImportText.buildDirectoryMergeChange graph focusId existing package 1 (System.Guid.NewGuid())
+        ImportText.buildDirectoryMergeChange graph focusId existing package (System.Guid.NewGuid())
 
     let betaId = List.last package.topLevelIds
 
     Assert.Equal<Op list>(
         [ Op.Replace(focusId, existing, existing @ owned [ betaId ]) ],
-        replaceOps change.ops)
+        replaceOps (SpecialNodeTestHelpers.eventOps change))
 
 [<Fact>]
 let ``buildDirectoryMergeChange appends only new entries at end`` () =
@@ -254,13 +252,13 @@ let ``buildDirectoryMergeChange appends only new entries at end`` () =
             [ normalNode existingId "[[alpha.txt]] ts" [] ]
 
     let change =
-        ImportText.buildDirectoryMergeChange graph focusId existing package 1 (System.Guid.NewGuid())
+        ImportText.buildDirectoryMergeChange graph focusId existing package (System.Guid.NewGuid())
 
     let betaId = List.last package.topLevelIds
 
     Assert.Equal<Op list>(
         [ Op.Replace(focusId, existing, existing @ owned [ betaId ]) ],
-        replaceOps change.ops)
+        replaceOps (SpecialNodeTestHelpers.eventOps change))
 
 [<Fact>]
 let ``DesktopFileStatusResponse serializes round-trip`` () =

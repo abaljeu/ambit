@@ -4,10 +4,6 @@ Concise glossary for this repo. Prefer these words; do not invent synonyms.  If 
 
 ## About Working
 
-**Agent-done**:
-Finished work: tests green, `/code-review` passed, and a commit on `dev` via [[scripts/commit.sh]] or human CLI. Then the human runs [[scripts/gitready.sh]] (or types the merge) to put that work on `ready`. Tickets do not record commit SHAs. Procedure: [[.agents/skills/git-protocol/SKILL.md]].
-_Avoid_: done, finished, shipped, complete
-
 **dev**:
 Desktop workplace. Ordinary commits happen here. Local-only. Procedure: [[.agents/skills/git-protocol/SKILL.md]].
 _Avoid_: original branch, project branch, `w/` (for this place)
@@ -19,21 +15,13 @@ _Avoid_: original branch (for this place)
 **master**:
 The place squashed merges from `ready` land, one commit each. Procedure: [[.agents/skills/git-master/SKILL.md]].
 
+**staging**:
+Published drop for finished cloud-agent work. Not a workplace. Procedure: [[.agents/skills/cloud-agent-git/SKILL.md]].
+_Avoid_: PR (as the drop), cloud branch (as the drop)
+
 **Original branch**:
-Retired. Use **dev**, **ready**, and **master**. See [[.agents/skills/git-protocol/SKILL.md]].
+Retired. Use **dev**, **ready**, **master**, and **staging**. See [[.agents/skills/git-protocol/SKILL.md]].
 _Avoid_: original branch, base branch, long-lived branch
-
-**Project branch**:
-Retired. Do not create `w/` branches. See [[.agents/skills/git-protocol/SKILL.md]].
-_Avoid_: project branch, work branch, agent branch, `w/`
-
-**Git bookkeeping**:
-Retired. Do not add `plan/<feature>/git.md` for branch names. Existing files are history.
-_Avoid_: branch notes, git status file, branch tracker
-
-**Manual approval**:
-A direct user request (or tool approval card) that authorizes a named git operation. **Code pushes of `ready` are approval-gated** ([[.agents/skills/git-share/SKILL.md]]). Squash onto `master` and tags stay human-only ([[.agents/skills/git-master/SKILL.md]]). Merge goes through [[scripts/gitready.sh]] or the human CLI per [[.agents/skills/git-protocol/SKILL.md]]. Pull/fetch of `ready` needs no approval.
-_Avoid_: permission, override, allowlist exception
 
 **Issue tracker**:
 Local Markdown under `plan/` for specs and issues; see [[doc/agents/issue-tracker.md]]. Not GitHub or GitLab issues. Issues may carry optional `Estimate:` / `Actual:` and a `## Time` log. Projects carry `Started:` / `Finished:` / `Actual:` filled from chat handoffs and commits when missing.
@@ -45,7 +33,7 @@ _Avoid_: Status (for this field), grilling (as a Stage), steering (as a Stage), 
 
 **Status**:
 The next-action field (`**Status:**`) on a ticket. The value list is [[doc/agents/triage-labels.md]]. A Project, Epic, Chapter, and the Roadmap do not carry Status.
-_Avoid_: Stage (for this field), needs-triage, wontfix, open, resolved, claimed, closed, agent-done, in-progress (as ticket Status)
+_Avoid_: Stage (for this field), needs-triage, wontfix, open, resolved, claimed, closed, agent-done, in-progress, ready-for-agent, ready-for-human (as ticket Status on new work)
 
 **Grilling**:
 An interview method that refines a concept that is already clear. Not a Stage and not a Status. Use it at any live Stage when a slice is sharp. When the destination is still fog, use Wayfinder.
@@ -202,12 +190,24 @@ Projects (`Shared` and `Shared/dotnet`) whose code is shared across modules and 
 _Avoid_: common, core (as a name for Shared), lib
 
 **Core**:
-The Module that owns persistent state (durable Graph and History facts; file bytes and git of those files) and that manages the Actor pool. Persist algorithms stay outside and persist via Core API; Core owns open and write of the file. In file mode it owns persist and does not write bytes. In db mode it writes (bytes, git, projection). It does not own advanced logic (Parse algorithms, Graph↔document persist algorithms). Not the Solid core bar on [[plan/roadmap/epics/robust-outliner.md]].
+The Module that owns persistent state (durable Graph and EventLog facts; file bytes and git of those files) and that manages the Actor pool. Persist algorithms stay outside and persist via Core API; Core owns open and write of the file. In file mode it owns persist and does not write bytes. In db mode it writes (bytes, git, projection). It does not own advanced logic (Parse algorithms, Graph↔document persist algorithms). Not the Solid core bar on [[plan/roadmap/epics/robust-outliner.md]].
 _Avoid_: kernel (for this Module), apply Module (as the name)
 
 **Core API**:
 The four-call Interface of Core: Files, Changes, Query, Command. Files is send, get, and git of file bytes; Core owns the open and write. Persist algorithms do not open the file themselves. In file mode Files does not write. inner apply is the Changes path that applies a Change. Advanced logic and Actor definitions work to this Interface. Not the web API.
 _Avoid_: web API, REST, `/ambit` (those are HTTP Adapters that may call Core API)
+
+**State**:
+The Graph data Core exposes (what people mean by the `/state` / getState graph payload, the StateResponse). Reserved for this Graph-data meaning; do not use State for Events, History, Actor lifecycle, or code type nicknames unless that Graph-data meaning.
+_Avoid_: mapState, treating History or ActorStart/ActorStop as State, using State as a synonym for Event or the full server record
+
+**Authority**:
+A named source that submits requests to Core and is recorded on accepted Events. Browser identities, Actors, Cursor, Zapier, and Amble are Authorities.
+_Avoid_: sender, user (when the source may not be a person)
+
+**Actor**:
+A Core-managed execution of long-running work. Its public identity is durable, while its secret identity exists only while it is live.
+_Avoid_: Agent, job, task
 
 **Document**:
 The project that reads and writes documents between Graph and file.
@@ -234,16 +234,16 @@ A user-facing command that downloads files from the Server. Not Fetch.
 _Avoid_: Fetch (for this command), pull (as the command name)
 
 **Change**:
-A Graph modification unit: typically produced by a user command, applied by both Browser and Server to update their Graphs. A Change is multiple Ops. One kind of Action.
-_Avoid_: mutation, edit, transaction, patch (as synonyms for Change)
+An Action: `EventBody.Change` of an Op list. Not a separate record. One kind of Event.
+_Avoid_: a `{ id; submissionId; ops }` record, Change.id, mutation, edit, transaction, patch (as synonyms for Change)
 
 **Op**:
 A single Graph modification, either to a Node Header or to its Children.
 _Avoid_: operation (casually for Change), mutation, edit
 
 **Action**:
-A History entry: a Change, an Undo, or a Redo.
-_Avoid_: operation, event (as synonyms for Action)
+A Graph-changing Event: a Change, an Undo, or a Redo.
+_Avoid_: operation, lifecycle Event
 
 **Undo**:
 An Action that reverses a prior Change, following Emacs undo semantics; numbered like other Actions.
@@ -253,20 +253,36 @@ _Avoid_: revert, rollback
 An Action that re-applies after Undo, following Emacs undo semantics; numbered like other Actions.
 _Avoid_: un-undo
 
+**Event**:
+One durable record in EventLog. An Event is a Change, Undo, Redo, ActorStart, or ActorStop. Code name `Ev`. It carries the Command that produced it (`commandName`).
+_Avoid_: Action (when lifecycle Events are included), audit record, Change (for the record)
+
+**event id**:
+The unique ordered position of an Event in EventLog. The one serial type (`EventId`). Field, JSON key, and Core door follow this term (`eventId`, `getEventId`).
+_Avoid_: Revision, EventPosition, version, change id, Change.id, getRevision
+
 **Revision**:
-The number of an Action (Change, Undo, or Redo).
-_Avoid_: version, sequence number, change id (for this integer)
+Retired name for **event id**. There is no separate Revision counter.
+_Avoid_: Revision
+
+**EventLog**:
+The server's Event sequence. Same type on client and server.
+_Avoid_: ChangeLog, History (for this sequence)
+
+**ClientHistory**:
+The Emacs Action view of Change, Undo, and Redo Events. Not the server Event sequence.
+_Avoid_: History (as a module name), EventLog (for this view), the full Event sequence, audit log
 
 **History**:
-A log of Actions.
-_Avoid_: undo stack, change log (as a synonym for History)
+Retired as a module name and as a sequence name. Spoken history of the server sequence is EventLog. The Emacs Action view is ClientHistory. The Shared file [[src/Shared/History.fs]] holds Event (`Ev`), EventId, Op, and EventBody. Ambit has no separate History or audit UI application.
+_Avoid_: History (as a destination module or Event sequence)
 
 **Sync**:
 Keeping Browser and Server Graphs aligned by exchanging Actions (and related residency work). Not a synonym for Load.
 _Avoid_: Load (for this meaning), reconcile (as a synonym for Sync)
 
 **Poll**:
-A Browser request for Actions since a known Revision in History; used in Sync and also as part of Load's final stage with Fetch.
+A Browser request for Events since a known event id; used in Sync and lifecycle projection and also as part of Load's final stage with Fetch.
 _Avoid_: sync (as a synonym for Poll), fetch (for this meaning)
 
 **Expression**:
@@ -297,6 +313,10 @@ _Avoid_: visible (as the glossary name), context (bare, for this pack)
 An LLM-empowered worker. Ambit will have one.
 _Avoid_: Actor (for this counterpart), bot, copilot, assistant (as the glossary name), Grok (as this name)
 
+**Run**:
+A command the person invokes on Focus. It starts an Actor (ActorStart Event) or institutes a client-sourced Change Event. That Event's `commandName` is the Run command.
+_Avoid_: treating Run as only Run Agent, a third EventBody kind
+
 **Run Agent**:
 The Run command that invokes the Agent. The person types `?` plus a message on Focus, then Run. `?` is the statement spelling, not the spoken name.
 _Avoid_: Ask (as this command name), `?` (as this command name)
@@ -312,7 +332,6 @@ These terms are permitted with standard definition:
 - **SiteMap**: the client's derived view index over the resident Graph.
 - **ChangeRequest**: the client's pending-queue and submit-payload unit (Change, Undo, or Redo).
 - **StateResponse**: the `/state` endpoint's response payload.
-- **ChangeLog**: the server's durable ordered log of Changes.
 - **Session**: one webpage lifetime from load to refresh or close.
 - **Selection**: the set of Nodes a user has currently selected.  It will always be a range of children of a node.
 - **Focus**: the active node.  It will always be the first or last of selection.

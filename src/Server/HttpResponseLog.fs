@@ -37,6 +37,7 @@ module HttpResponseLog =
     let private bodyCapturePaths =
         set [
             "/ambit/changes"
+            "/ambit/events"
             "/ambit/file/parse"
             "/ambit/file-status"
             "/ambit/save"
@@ -363,22 +364,22 @@ module HttpResponseLog =
     }
 
     /// POST /ambit/upload-error-report — append ERROR-REPORT to same logfile.
-    let registerErrorReportRoute
-        (app: WebApplication)
-        (isAuthenticated: HttpRequest -> bool)
-        (logFile: string)
-        =
-        app.MapPost(
+    let registerErrorReportRoute (this: AmbitApp) =
+        this.MapPost(
             "/ambit/upload-error-report",
             Func<HttpRequest, Task<IResult>>(fun req ->
                 task {
-                    if not (isAuthenticated req) then
+                    if not (this.Auth.IsAuthenticated req) then
                         return Results.Unauthorized()
                     else
                         match! tryReadReport req with
                         | Error e -> return Results.BadRequest(e)
                         | Ok(relative, status, message) ->
-                            appendErrorReport logFile relative status message
+                            appendErrorReport
+                                this.HttpLogFile
+                                relative
+                                status
+                                message
                             return Results.NoContent()
                 })
         )

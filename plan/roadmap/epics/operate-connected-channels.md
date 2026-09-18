@@ -20,7 +20,7 @@ Live:
 ## Notes
 
 - This Epic is connected channels. It is not a hub of all tools. Do not swallow [[agent-chat-managed-context.md]], [[work-with-text-files-from-anywhere.md]], or [[operate-a-pkm.md]]. Chat stays on agent-chat. Files from any device stay on documents-from-anywhere. Find stays on PKM.
-- Near-term inbound for the roadmap strategy is **agent messages into the outline** (Grok Bot motivating example), not mail. See [[../map.md]] Current strategy.
+- Near-term agent path on the roadmap is **Run Agent → Cursor Cloud Agents** (see llm-connector). Mail and generic agent-message channels stay later. See [[../map.md]] Current strategy.
 - Mail remains a natural first **channel** in this Epic's framing, but it is **after** that agent-message inbound in the near-term strategy order. Mail is not the Epic title. Later channels use the same connect-and-operate pattern.
 - Connect plus operate is the action set. Review and commit to an outside system may be a later Chapter. Do not collapse this Epic into one mail-connector slice or into [[plan/transport-layer/project.md]]. Transport-layer stays the inbound / outbound / examine-before-commit Project.
 - Scaling is [[organize-huge-outlines.md]]; first use does not wait on it. [[plan/webview2-azure-origin/project.md]] stays on that Developer Epic.

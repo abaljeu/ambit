@@ -1,20 +1,37 @@
 # 18 — Finish and drop
 
-**Status:** ready-for-agent
-**Blocked by:** [[15-launch-actor-and-hold-span.md|15 Launch an Actor and hold the span]]
+**Status:** defined
+**Blocked by:** [[plan/core-creation/issues/16-track-running-job.md]]
+Actual: 1h35m
 
 ## Context
 
-When an Actor stops, Core must drop the job so later query fails and lock-present goes off. Earlier Posts from that sender must still apply.
+When an Actor reaches a terminal outcome, Core must append the durable result and drop the live Actor without reversing earlier accepted output. The 2026-09-07 delivery used a second pool mailbox, had no durable terminal Event, and did not drop on failed stop. That product was rewound. Rebuild from [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]]. Do not wrap-patch a pool mailbox.
 
 ## What to build
 
-Any Actor stop causes Core to enqueue a Core-only delete-actor mailbox item. It is not a Change. FIFO applies that sender's Posts first. Then Core drops the public number, removes the credential, and writes lock off.
+Establish terminal, failure, and drop on the pool in [[02-core-actor-pool.md]]. Mailbox order and durable ActorFinished are [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]]. See [[doc/Decisions/0004-core-mailbox-messages-clear-fast.md]].
 
-- [ ] Any Actor stop enqueues a Core-only delete-actor item that is not a Change.
-- [ ] delete-actor applies after that sender's earlier Posts (FIFO).
-- [ ] After delete-actor, the public number is gone, the credential is out of the set, and lock-present is off.
+Succeeded, Failed, and Cancelled are Core-only terminal messages. The first terminal message appends exactly one ActorFinished (safe error when Failed; none when Cancelled). A duplicate terminal is ignored. Then drop the live registry and secret and terminate without waiting. Restart appends ActorFinished Interrupted for unmatched ActorStarted.
+
+- [ ] Succeeded, Failed, and Cancelled queue Core-only terminal messages that are not Changes.
+- [ ] The first terminal message runs after earlier queued Changes and appends exactly one ActorFinished.
+- [ ] After ActorFinished, the live registry and secret are gone while public Actor identity remains durable.
+- [ ] Drop async-terminates only if the task is still running; terminate is a no-op if it has already stopped.
+- [ ] Restart appends ActorFinished Interrupted for unmatched ActorStarted Events.
 
 ## See also
 
-[[11-define-actor-finish-and-failure-behavior.md]], [[02-core-actor-pool.md]]
+[[plan/core-creation/issues/11-define-actor-finish-and-failure-behavior.md]], [[plan/core-creation/issues/02-core-actor-pool.md]], [[plan/core-creation/reports/actor-pool-rewind-review.md]]
+
+## Comments
+
+- 2026-09-11 — Review of the first delivery: failed stop does not enqueue delete-actor; pool is a second mailbox. Do not patch in place. Product rewound. Notes: [[../reports/actor-pool-rewind-review.md]].
+- 2026-09-11 — [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] replaced delete-only finish and no-result assumptions with durable ActorFinished, safe failure, Interrupted recovery, and terminal-before-drop order. Proof belongs to [[plan/core-creation/issues/27-prove-core-actor-lifecycle-with-testactor.md]].
+- 2026-09-11 — Status is `blocked` by the preceding live-identity registry contract in [[plan/core-creation/issues/16-track-running-job.md]].
+
+## Time
+
+- 2026-09-07 ~1h — implemented finish-and-drop with tests
+- 2026-09-11 30m — rewind set 1 product; tighten this spec (from chat)
+- 2026-09-11 5m — drop restated mailbox and TaskPool; keep unique finish and drop (from chat)

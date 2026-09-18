@@ -146,7 +146,7 @@ let ``context command reconciles named workspace and ignores ref occurrence`` ()
 [<Fact>]
 let ``context command reconciles owned directory under named workspace`` () =
     let applyOps (graph: Graph) (ops: Op list) =
-        let state = { graph = graph; history = History.empty; revision = Revision.Zero }
+        let state = { graph = graph; eventId = EventId.zero }
         ops
         |> List.fold (fun s op ->
             match Op.apply op s with
@@ -204,7 +204,7 @@ let ``context command reconciles SYSTEM directory`` () =
 [<Fact>]
 let ``context command reconciles owned directory under SYSTEM`` () =
     let applyOps (graph: Graph) (ops: Op list) =
-        let state = { graph = graph; history = History.empty; revision = Revision.Zero }
+        let state = { graph = graph; eventId = EventId.zero }
         ops
         |> List.fold (fun s op ->
             match Op.apply op s with

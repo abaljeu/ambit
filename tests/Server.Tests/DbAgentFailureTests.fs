@@ -8,22 +8,31 @@ open Gambol.Server.Tests.TestBackend
 
 let private changedBody () =
     let childId = NodeId.New()
-    let change =
-        {
-            id = 0
-            changeId = Guid.NewGuid()
-            ops =
-                [
-                    Op.NewNode(childId, "failure probe")
-                    Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ])
-                ]
-        }
-    [ change ]
+    [ {
+        id = EventId.zero
+        submissionId = Guid.NewGuid()
+        authority = Authority "Browser"
+        commandName = ""
+        body = EventBody.Change
+            [
+                Op.NewNode(childId, "failure probe")
+                Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ])
+            ]
+    } ]
 
 let private freshState () : State =
     { graph = Graph.create ()
-      history = History.empty
-      revision = Revision 0 }
+      eventId = EventId.zero }
+
+let private host agent = admittedHostDb agent
+
+let private getState agent = async {
+    match! CoreMailbox.getState (host agent) with
+    | Ok state -> return state
+    | Error error ->
+        Assert.Fail($"get state: {error}")
+        return Unchecked.defaultof<_>
+}
 
 /// Reproduces the wedged-mailbox bug: an uncaught exception thrown from the live-persist
 /// step (e.g. the real IndexOutOfRangeException surfaced via DocumentPersistence.persistGraphOps
@@ -45,25 +54,25 @@ let ``persistence exception is logged replied and mailbox survives`` () = task {
             throwingPersist
             (fun _ -> Ok [])
     let! postResult =
-        (DbAgent.coreChanges agent).postChange (changedBody ())
+        (admittedChanges (host agent)).postEvents
+            ((changedBody ()))
         |> Async.StartAsTask
         |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
     match postResult with
     | Ok _ -> Assert.Fail("Expected persistence failure.")
     | Error error ->
-        Assert.Contains("Internal server error in DbAgent PostChange", error)
+        Assert.Contains("Internal server error in DbAgent PostEvent", error)
         Assert.Contains($"(dataDir={dataDir})", error)
 
     let log = IO.File.ReadAllText logPath
-    Assert.Contains("EXCEPTION source=DbAgent operation=PostChange", log)
-    Assert.Contains("context=changeCount=", log)
+    Assert.Contains("EXCEPTION source=DbAgent operation=PostEvent", log)
     Assert.Contains("type=System.InvalidOperationException", log)
     Assert.Contains("message=injected persistence failure", log)
     Assert.Contains("stack=", log)
 
     let! state =
-        DbAgent.getState agent
+        getState agent
         |> Async.StartAsTask
         |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
-    Assert.Equal(Revision 0, state.revision)
+    Assert.Equal(EventId.zero, state.eventId)
 }

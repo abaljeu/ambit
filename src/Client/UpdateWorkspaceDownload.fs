@@ -60,11 +60,7 @@ let pollWorkspaceDownloadJob (jobId: string) (text: string) (model: VM) : VM * E
             | [] ->
                 okDetail model job.detail |> withPathSyncRefresh
             | ops ->
-                let change =
-                    { id = model.revision.Value
-                      changeId = System.Guid.NewGuid()
-                      ops = ops }
-                match applyAndPostSync (displayName Download) change model with
+                match applyAndPostSync (displayName Download) ops model with
                 | Error e -> failWorkspaceDownload e model
                 | Ok model' ->
                     okDetail (withSiteMap model') job.detail
@@ -117,13 +113,6 @@ let accumulateAutoDownloadFromOps (ops: Op list) (model: VM) : VM * Effect list 
             { model with
                 pendingAutoDownloads = model.pendingAutoDownloads @ targets },
             [ Effect.ScheduleAutoDownloadTick autoDownloadDebounceMs ]
-
-/// Remote poll changes carry the same persist `SetUpdateTime` ops.
-let accumulateAutoDownloadFromChanges
-    (changes: Change list)
-    (model: VM)
-    : VM * Effect list =
-    accumulateAutoDownloadFromOps (changes |> List.collect (fun c -> c.ops)) model
 
 /// Debounce tick: coalesce pending targets per label, keep already-mapped
 /// labels, and fire-and-forget one scoped download each. No job polling and no

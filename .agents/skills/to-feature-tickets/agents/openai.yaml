@@ -1,5 +1,5 @@
 interface:
-  display_name: "To Feature Tickets"
-  short_description: "Split a plan into cohesive testable tickets"
+  display_name: "To Feature Tickets (retired)"
+  short_description: "Retired — use /to-tickets with Sequence module-build"
 policy:
   allow_implicit_invocation: false

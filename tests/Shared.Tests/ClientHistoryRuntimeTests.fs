@@ -2,22 +2,18 @@ module ClientHistoryRuntimeTests
 
 open System
 open Gambol.Shared
+open Gambol.Shared
 open Xunit
 
-let private textChange id nodeId oldText newText : Change =
-    { id = id
-      changeId = Guid.NewGuid()
-      ops = [ Op.SetText(nodeId, oldText, newText) ] }
+let private textChange n nodeId oldText newText : Ev =
+    { id = EventIdFixtures.storedId n
+      submissionId = Guid.NewGuid()
+      authority = Authority "Browser"
+      commandName = ""
+      body = EventBody.Change [ Op.SetText(nodeId, oldText, newText) ] }
 
 let private clientState graph revision history : ClientSyncState =
-    { graph = graph
-      revision = revision
-      history = history }
-
-let private pendingKind (item: PendingChange) : PendingKind =
-    match item.transition with
-    | Some transition -> transition.kind
-    | None -> failwith "Expected PendingTransition"
+    ClientSyncState.create graph revision history
 
 let private unloadedWorkspace () : Graph * NodeId * Node =
     let graph0 = Graph.create ()
@@ -42,28 +38,29 @@ let private unloadedWorkspace () : Graph * NodeId * Node =
     Graph.fromNodes graph0.root nodes, wsId, ws
 
 [<Fact>]
-let ``applyLocalChange records the submitted Change and Normal transition`` () =
+let ``applyLocalEvent records the submitted Event at EventId.zero`` () =
     let graph0 = Graph.create ()
     let graph1, nodeId = Graph.newNode "before" graph0
     let change = textChange 3 nodeId "before" "after"
-    let state = clientState graph1 (Revision 3) (ClientHistory.clear ())
-    match SyncLogic.applyLocalChange "Edit node" change state with
+    let state = clientState graph1 (EventIdFixtures.storedId 3) (ClientHistory.clear ())
+    match SyncLogic.applyLocalEvent { change with commandName = "Edit node" } state with
     | Error msg -> failwith msg
     | Ok (next, pending) ->
         Assert.Equal("after", next.graph.nodes.[nodeId].text)
-        Assert.Equal(change.changeId, pending.change.changeId)
-        Assert.Equal<Op list>(change.ops, pending.change.ops)
-        Assert.Equal(PendingKind.Normal, pendingKind pending)
-        Assert.Equal(change.changeId, pending.transition.Value.submittedChangeId)
-        Assert.Equal(0, pending.transition.Value.recordId)
-        match ClientHistory.undo (Revision 4) (Guid.NewGuid()) next.history with
+        Assert.Equal(EventId.zero, pending.id)
+        Assert.Equal("Edit node", pending.commandName)
+        Assert.Equal(change.submissionId, pending.submissionId)
+        Assert.Equal<Op list>(
+            Ev.ops change |> Option.defaultValue [],
+            Ev.ops pending |> Option.defaultValue [])
+        match ClientHistory.undo (Guid.NewGuid()) next.history with
         | None -> failwith "Expected recorded History"
-        | Some (inverse, commandName, _, recordId) ->
-            Assert.Equal("Edit node", commandName)
-            Assert.Equal(0, recordId)
+        | Some (inverse, _) ->
+            Assert.Equal("Edit node", inverse.commandName)
+            Assert.Equal(EventId.zero, inverse.id)
             Assert.Equal<Op list>(
                 [ Op.SetText(nodeId, "after", "before") ],
-                inverse.ops)
+                Ev.ops inverse |> Option.defaultValue [])
 
 [<Fact>]
 let ``applyLocalUndo projects the inverse through ResidentProjection`` () =
@@ -71,10 +68,9 @@ let ``applyLocalUndo projects the inverse through ResidentProjection`` () =
     let graph1, nodeId = Graph.newNode "before" graph0
     let change = textChange 3 nodeId "before" "after"
     match
-        SyncLogic.applyLocalChange
-            "Edit node"
-            change
-            (clientState graph1 (Revision 3) (ClientHistory.clear ()))
+        SyncLogic.applyLocalEvent
+            { change with commandName = "Edit node" }
+            (clientState graph1 (EventIdFixtures.storedId 3) (ClientHistory.clear ()))
     with
     | Error msg -> failwith msg
     | Ok (afterEdit, _) ->
@@ -84,11 +80,12 @@ let ``applyLocalUndo projects the inverse through ResidentProjection`` () =
         | Some (Error msg) -> failwith msg
         | Some (Ok (afterUndo, pending)) ->
             Assert.Equal("before", afterUndo.graph.nodes.[nodeId].text)
-            Assert.Equal(undoId, pending.change.changeId)
-            Assert.Equal(PendingKind.Undo, pendingKind pending)
+            Assert.Equal(EventId.zero, pending.id)
+            Assert.Equal("Edit node", pending.commandName)
+            Assert.Equal(undoId, pending.submissionId)
             Assert.Equal<Op list>(
                 [ Op.SetText(nodeId, "after", "before") ],
-                pending.change.ops)
+                Ev.ops pending |> Option.defaultValue [])
 
 [<Fact>]
 let ``applyLocalRedo projects the inverse through ResidentProjection`` () =
@@ -96,10 +93,9 @@ let ``applyLocalRedo projects the inverse through ResidentProjection`` () =
     let graph1, nodeId = Graph.newNode "before" graph0
     let change = textChange 3 nodeId "before" "after"
     match
-        SyncLogic.applyLocalChange
-            "Edit node"
-            change
-            (clientState graph1 (Revision 3) (ClientHistory.clear ()))
+        SyncLogic.applyLocalEvent
+            { change with commandName = "Edit node" }
+            (clientState graph1 (EventIdFixtures.storedId 3) (ClientHistory.clear ()))
     with
     | Error msg -> failwith msg
     | Ok (afterEdit, _) ->
@@ -111,8 +107,9 @@ let ``applyLocalRedo projects the inverse through ResidentProjection`` () =
             | Some (Error msg) -> failwith msg
             | Some (Ok (afterRedo, pending)) ->
                 Assert.Equal("after", afterRedo.graph.nodes.[nodeId].text)
-                Assert.Equal(redoId, pending.change.changeId)
-                Assert.Equal(PendingKind.Redo, pendingKind pending)
+                Assert.Equal(EventId.zero, pending.id)
+                Assert.Equal("Edit node", pending.commandName)
+                Assert.Equal(redoId, pending.submissionId)
         | _ -> failwith "Expected Undo before Redo"
 
 [<Fact>]
@@ -120,13 +117,14 @@ let ``empty Poll tail preserves ClientHistory`` () =
     let graph0 = Graph.create ()
     let graph1, nodeId = Graph.newNode "before" graph0
     let change = textChange 0 nodeId "before" "after"
-    let history, _ =
-        ClientHistory.clear () |> ClientHistory.record "Edit node" change
-    let state = clientState graph1 (Revision 3) history
+    let history =
+        ClientHistory.clear ()
+        |> ClientHistory.record { change with commandName = "Edit node" }
+    let state = clientState graph1 (EventIdFixtures.storedId 3) history
     match SyncLogic.applyServerTail [] state with
     | Error msg -> failwith msg
     | Ok result ->
-        Assert.Equal(state.revision, result.revision)
+        Assert.Equal(state.eventId, result.eventId)
         Assert.Equal(state.history, result.history)
 
 [<Fact>]
@@ -134,75 +132,120 @@ let ``non-empty Poll tail preserves ClientHistory before projection`` () =
     let graph0 = Graph.create ()
     let graph1, nodeId = Graph.newNode "before" graph0
     let change = textChange 0 nodeId "before" "after"
-    let history, _ =
-        ClientHistory.clear () |> ClientHistory.record "Edit node" change
-    let state = clientState graph1 (Revision 3) history
+    let history =
+        ClientHistory.clear ()
+        |> ClientHistory.record { change with commandName = "Edit node" }
+    let state = clientState graph1 (EventIdFixtures.storedId 3) history
     let upstream =
-        { id = 3
-          changeId = Guid.NewGuid()
-          ops = [ Op.SetText(nodeId, "before", "remote") ] }
+        { id = EventIdFixtures.storedId 3
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [ Op.SetText(nodeId, "before", "remote") ] }
     match SyncLogic.applyServerTail [ upstream ] state with
     | Error msg -> failwith msg
     | Ok result ->
         Assert.Equal(state.history, result.history)
         Assert.Equal("remote", result.graph.nodes.[nodeId].text)
-        Assert.Equal(Revision 4, result.revision)
+        Assert.Equal(EventIdFixtures.storedId 3, result.eventId)
 
 [<Fact>]
 let ``package-only Load preserves ClientHistory at the same settled Revision`` () =
     let graph, wsId, ws = unloadedWorkspace ()
     let change = textChange 2 (NodeId.New()) "x" "y"
-    let history, _ =
-        ClientHistory.clear () |> ClientHistory.record "Edit node" change
+    let history =
+        ClientHistory.clear ()
+        |> ClientHistory.record { change with commandName = "Edit node" }
     let state: ClientSyncState =
-        { graph = graph
-          history = history
-          revision = Revision 4 }
+        ClientSyncState.create graph (EventIdFixtures.storedId 4) history
     let loadedEmpty = { ws with children = []; childrenStatus = Loaded }
     match
         SyncLogic.applyLoadResponse
-            4
+            (EventIdFixtures.storedId 4)
             false
-            { changes = []; packages = [ loadedEmpty ] }
+            { events = []; packages = [ loadedEmpty ] }
             state
     with
     | Error msg -> failwith msg
     | Ok result ->
         Assert.Equal(history, result.history)
-        Assert.Equal(Revision 4, result.revision)
+        Assert.Equal(EventIdFixtures.storedId 4, result.eventId)
         Assert.Equal(Loaded, result.graph.nodes.[wsId].childrenStatus)
 
 [<Fact>]
 let ``package-only Load refuses a raced pending local transition`` () =
     let graph, _, ws = unloadedWorkspace ()
     let state: ClientSyncState =
-        { graph = graph
-          history = ClientHistory.clear ()
-          revision = Revision 4 }
+        ClientSyncState.create graph (EventIdFixtures.storedId 4) (ClientHistory.clear ())
     let loadedEmpty = { ws with children = []; childrenStatus = Loaded }
     match
         SyncLogic.applyLoadResponse
-            4
+            (EventIdFixtures.storedId 4)
             true
-            { changes = []; packages = [ loadedEmpty ] }
+            { events = []; packages = [ loadedEmpty ] }
             state
     with
     | Ok _ -> failwith "Expected raced package refusal"
     | Error msg -> Assert.Contains("raced", msg)
 
 [<Fact>]
+let ``approve stamps matching zero when a foreign event leads the stream`` () =
+    let source = textChange 0 (NodeId.New()) "old" "new"
+    let recorded =
+        ClientHistory.clear ()
+        |> ClientHistory.record { source with commandName = "Edit node" }
+    let foreign = textChange 8 (NodeId.New()) "a" "b"
+    let confirmed =
+        { source with
+            commandName = "Edit node"
+            id = EventIdFixtures.storedId 9 }
+    let approved = ClientHistory.approve [ foreign; confirmed ] recorded
+    match ClientHistory.undoEvent approved with
+    | None -> failwith "expected Undo"
+    | Some (event, _) ->
+        match event.body with
+        | EventBody.Undo(target, _) ->
+            Assert.Equal(EventIdFixtures.storedId 9, target)
+        | _ -> failwith "expected Undo body"
+
+[<Fact>]
+let ``approve stamps Redo target written while undo id was zero`` () =
+    let source = textChange 0 (NodeId.New()) "old" "new"
+    let recorded =
+        ClientHistory.clear ()
+        |> ClientHistory.record { source with commandName = "Edit node" }
+    match ClientHistory.undo (Guid.NewGuid()) recorded with
+    | None -> failwith "expected Undo"
+    | Some (undo, undone) ->
+        match ClientHistory.redo (Guid.NewGuid()) undone with
+        | None -> failwith "expected Redo"
+        | Some (_, redone) ->
+            let confirmedOriginal =
+                { source with
+                    commandName = "Edit node"
+                    id = EventIdFixtures.storedId 9 }
+            let confirmedUndo = { undo with id = EventIdFixtures.storedId 10 }
+            let approved =
+                ClientHistory.approve [ confirmedOriginal; confirmedUndo ] redone
+            match ClientHistory.tryPeekUndoEvent approved with
+            | None -> failwith "expected Redo on past"
+            | Some event ->
+                match event.body with
+                | EventBody.Redo(target, _) ->
+                    Assert.Equal(EventIdFixtures.storedId 10, target)
+                | _ -> failwith "expected Redo body"
+
+[<Fact>]
 let ``package-only Load refuses a revision mismatch`` () =
     let graph, _, ws = unloadedWorkspace ()
     let state: ClientSyncState =
-        { graph = graph
-          history = ClientHistory.clear ()
-          revision = Revision 4 }
+        ClientSyncState.create graph (EventIdFixtures.storedId 4) (ClientHistory.clear ())
     let loadedEmpty = { ws with children = []; childrenStatus = Loaded }
     match
         SyncLogic.applyLoadResponse
-            5
+            (EventIdFixtures.storedId 5)
             false
-            { changes = []; packages = [ loadedEmpty ] }
+            { events = []; packages = [ loadedEmpty ] }
             state
     with
     | Ok _ -> failwith "Expected raced package refusal"

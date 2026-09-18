@@ -8,7 +8,7 @@ open Gambol.Shared
 open Newtonsoft.Json
 open Npgsql
 
-/// PostgreSQL: append-only `changes` plus normalized `graph` / `nodes` / `node_children`.
+/// PostgreSQL: append-only `events` plus normalized `graph` / `nodes` / `node_children`.
 [<RequireQualifiedAccess>]
 module Database =
 
@@ -23,62 +23,17 @@ module Database =
 
             cmd.CommandText <- """
                 DROP TABLE IF EXISTS snapshots;
+                DROP TABLE IF EXISTS changes;
 
-                CREATE TABLE IF NOT EXISTS changes (
-                    seq_id               BIGSERIAL    PRIMARY KEY,
-                    client_base_revision INT          NOT NULL,
-                    change_uuid          UUID         NOT NULL,
-                    payload              TEXT         NOT NULL,
-                    recorded_at          TIMESTAMPTZ  DEFAULT NOW()
+                CREATE TABLE IF NOT EXISTS events (
+                    event_id        INT          PRIMARY KEY,
+                    submission_id   UUID         NOT NULL,
+                    payload         TEXT         NOT NULL,
+                    recorded_at     TIMESTAMPTZ  DEFAULT NOW()
                 );
 
-                DO $$
-                BEGIN
-                    IF EXISTS (
-                        SELECT 1 FROM information_schema.columns
-                        WHERE table_name = 'changes' AND column_name = 'change_id'
-                    ) AND NOT EXISTS (
-                        SELECT 1 FROM information_schema.columns
-                        WHERE table_name = 'changes' AND column_name = 'client_base_revision'
-                    ) THEN
-                        ALTER TABLE changes RENAME COLUMN change_id TO client_base_revision;
-                    END IF;
-                END $$;
-
-                ALTER TABLE changes
-                    ADD COLUMN IF NOT EXISTS change_uuid UUID;
-
-                UPDATE changes
-                SET change_uuid = (payload::jsonb ->> 'changeId')::uuid
-                WHERE change_uuid IS NULL
-                  AND payload::jsonb ? 'changeId';
-
-                ALTER TABLE changes
-                    ALTER COLUMN change_uuid SET NOT NULL;
-
-                CREATE UNIQUE INDEX IF NOT EXISTS idx_changes_change_uuid
-                    ON changes (change_uuid);
-
-                CREATE INDEX IF NOT EXISTS idx_changes_client_base_revision
-                    ON changes (client_base_revision);
-
-                ALTER TABLE changes
-                    ADD COLUMN IF NOT EXISTS server_revision_after INTEGER;
-
-                UPDATE changes AS c
-                SET server_revision_after = s.rn
-                FROM (
-                    SELECT seq_id, ROW_NUMBER() OVER (ORDER BY seq_id) AS rn
-                    FROM changes
-                    WHERE server_revision_after IS NULL
-                ) AS s
-                WHERE c.seq_id = s.seq_id;
-
-                ALTER TABLE changes
-                    ALTER COLUMN server_revision_after SET NOT NULL;
-
-                CREATE INDEX IF NOT EXISTS idx_changes_server_revision_after
-                    ON changes (server_revision_after);
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_events_submission_id
+                    ON events (submission_id);
 
                 CREATE TABLE IF NOT EXISTS graph (
                     singleton   SMALLINT PRIMARY KEY DEFAULT 1 CHECK (singleton = 1),
@@ -138,8 +93,8 @@ module Database =
             do! cmd.ExecuteNonQueryAsync() :> Task
         }
 
-    type ChangeRow =
-        { client_base_revision: int
+    type EventRow =
+        { event_id: int
           payload: string }
 
     type GraphSingletonRow =
@@ -173,89 +128,57 @@ module Database =
             with _ ->
                 CssClass.empty
 
-    let appendChangeWithTx
-        (tx: IDbTransaction)
-        (serverRevisionAfter: int)
-        (clientBaseRevision: int)
-        (clientChangeId: Guid)
-        (json: string)
-        : Task =
-        tx.Connection.ExecuteAsync(
-            """
-            INSERT INTO changes (
-                client_base_revision,
-                change_uuid,
-                server_revision_after,
-                payload
-            )
-            VALUES (
-                @client_base_revision,
-                @change_uuid,
-                @server_revision_after,
-                @payload
-            )
-            """,
-            {| client_base_revision = clientBaseRevision
-               change_uuid = clientChangeId
-               server_revision_after = serverRevisionAfter
-               payload = json |},
-            tx)
-        :> Task
 
-    let appendChange
+    let appendEvent
         (connectionString: string)
-        (serverRevisionAfter: int)
-        (clientBaseRevision: int)
-        (clientChangeId: Guid)
+        (eventId: int)
+        (submissionId: Guid)
         (json: string)
         : Task =
         task {
             use conn = getConnection connectionString
             do! conn.OpenAsync()
-            use tx = conn.BeginTransaction()
-
-            do!
-                appendChangeWithTx tx serverRevisionAfter clientBaseRevision clientChangeId json
-
-            tx.Commit()
+            let! _ =
+                conn.ExecuteAsync(
+                    """
+                    INSERT INTO events (event_id, submission_id, payload)
+                    VALUES (@event_id, @submission_id, @payload)
+                    """,
+                    {| event_id = eventId
+                       submission_id = submissionId
+                       payload = json |})
+            return ()
         }
 
-    let getChangesAfterCheckpointRevision
+    let getEventsAfter
         (connectionString: string)
-        (checkpointRevision: int)
-        : Task<ChangeRow list> =
+        (afterEventId: int)
+        : Task<EventRow list> =
         task {
             use conn = getConnection connectionString
             do! conn.OpenAsync()
-
             let! rows =
-                conn.QueryAsync<ChangeRow>(
+                conn.QueryAsync<EventRow>(
                     """
-                    SELECT client_base_revision, payload FROM changes
-                    WHERE server_revision_after > @rev
-                    ORDER BY server_revision_after ASC
+                    SELECT event_id, payload FROM events
+                    WHERE event_id > @after
+                    ORDER BY event_id ASC
                     """,
-                    {| rev = checkpointRevision |})
-
+                    {| after = afterEventId |})
             return rows |> Seq.toList
         }
 
-    let tryGetPersistedPayload
-        (connectionString: string)
-        (changeId: Guid)
-        : Task<string option> =
+    let getEvents (connectionString: string) : Task<EventRow list> =
         task {
             use conn = getConnection connectionString
             do! conn.OpenAsync()
-
-            let! payload =
-                conn.QueryFirstOrDefaultAsync<string>(
+            let! rows =
+                conn.QueryAsync<EventRow>(
                     """
-                    SELECT payload FROM changes WHERE change_uuid = @change_uuid
-                    """,
-                    {| change_uuid = changeId |})
-
-            return if isNull payload then None else Some payload
+                    SELECT event_id, payload FROM events
+                    ORDER BY event_id ASC
+                    """)
+            return rows |> Seq.toList
         }
 
     let tryGetGraphSingleton (connectionString: string) : Task<GraphSingletonRow option> =
@@ -279,11 +202,7 @@ module Database =
                 conn.QuerySingleAsync<bool>(
                     "SELECT EXISTS (SELECT 1 FROM graph)")
 
-            let! hasChanges =
-                conn.QuerySingleAsync<bool>(
-                    "SELECT EXISTS (SELECT 1 FROM changes)")
-
-            return not hasGraph && not hasChanges
+            return not hasGraph
         }
 
     let private readNodeRows (conn: NpgsqlConnection) : Task<NodeDbRow list> =
@@ -306,7 +225,11 @@ module Database =
             return rows |> Seq.toList
         }
 
-    let tryLoadGraphFromProjection (connectionString: string) : Task<Result<Graph * int, string>> =
+    let private decodeProjectionEventId (eventId: int) =
+        EventId.fromJson eventId
+
+    let tryLoadGraphFromProjection (connectionString: string) 
+            : Task<Result<Graph * EventId, string>> =
         task {
             use conn = getConnection connectionString
             do! conn.OpenAsync()
@@ -321,13 +244,13 @@ module Database =
                 else
                     Some singleton
             with
-            | None -> return Ok(Graph.create (), 0)
+            | None -> return Ok(Graph.create (), EventId.zero)
             | Some gRow ->
                 let! nRows = readNodeRows conn |> Async.AwaitTask
                 let! cRows = readChildRows conn |> Async.AwaitTask
 
                 if List.isEmpty nRows then
-                    return Ok(Graph.create (), gRow.revision)
+                    return Ok(Graph.create (), decodeProjectionEventId gRow.revision)
                 else
 
                 let nPersist =
@@ -363,7 +286,7 @@ module Database =
 
                 return
                     match GraphProjection.graphFromPersistence rootId nPersist cPersist with
-                    | Ok g -> Ok(g, gRow.revision)
+                    | Ok g -> Ok(g, decodeProjectionEventId gRow.revision)
                     | Error e -> Error e
         }
 
@@ -434,35 +357,26 @@ module Database =
 
     let loadPersistedState
         (connectionString: string)
-        (_decodeChange: string -> Result<Change, string>)
         : Task<State> =
         task {
             let! proj = tryLoadGraphFromProjection connectionString |> Async.AwaitTask
 
-            let graph, revision =
+            let graph, eventId =
                 match proj with
-                | Ok (g, r) -> g, r
-                | Error _ -> Graph.create (), 0
+                | Ok (g, id) -> g, id
+                | Error _ -> Graph.create (), EventId.zero
 
             return
                 { graph = graph
-                  history = History.empty
-                  revision = Revision revision }
+                  eventId = eventId }
         }
 
     /// Truncate SQL tables and replace the projection from a pre-loaded file `State`.
-    /// `changes` is cleared; new posts repopulate the log.
     let rebuildFromDocumentFiles (connectionString: string) (fileState: State) : Task =
         task {
             use conn = getConnection connectionString
             do! conn.OpenAsync()
             use tx = conn.BeginTransaction()
-
-            do!
-                conn.ExecuteAsync(
-                    "TRUNCATE changes RESTART IDENTITY CASCADE",
-                    transaction = tx)
-                :> Task
 
             do!
                 conn.ExecuteAsync(
@@ -472,6 +386,11 @@ module Database =
 
             do! conn.ExecuteAsync("DELETE FROM graph", transaction = tx) :> Task
 
-            do! replaceGraphProjectionWithTx tx fileState.graph fileState.revision.Value |> Async.AwaitTask
+            do!
+                replaceGraphProjectionWithTx
+                    tx
+                    fileState.graph
+                    (EventId.value fileState.eventId)
+                |> Async.AwaitTask
             tx.Commit()
         }

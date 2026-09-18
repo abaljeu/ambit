@@ -411,6 +411,9 @@ let perfNowMs () : float = jsNative
 [<Emit("(typeof window.__BUILD_TS__ !== 'undefined' ? window.__BUILD_TS__ : 0)")>]
 let readBuildEpochSec () : int = jsNative
 
+[<Emit("window.__BUILD_TS__ = $0")>]
+let writeBuildEpochSec (epochSec: int) : unit = jsNative
+
 [<Emit("(function(epochSec){
     var d = new Date(epochSec*1000);
     var parts = new Intl.DateTimeFormat('en-CA', {

@@ -18,23 +18,66 @@ type Op =
     /// Server disk mtime after persist. `oldTime` is for undo; apply ignores mismatch.
     | SetUpdateTime of nodeId: NodeId * oldTime: System.DateTime * newTime: System.DateTime
 
+type EventId =
+    private
+    | Zero // the Ev is a draft
+    | Int of int // The Ev is an event; accepted, uniquely numbered, 
+        // and has been stored, and applied in the system
 
-type Change =
-    { id: int
-      changeId: System.Guid   // unique per network submission; used for server-side dedup
-      ops: Op list }
+    member this.Value =
+        match this with
+        | Zero -> 0
+        | Int n -> n
 
+[<RequireQualifiedAccess>]
+module EventId =
+    let zero = Zero
+    let next (id: EventId) =
+        match id with
+        | Int n -> Int(n + 1)
+        | Zero -> Zero
+    let max (a: EventId) (b: EventId) =
+        if a.Value >= b.Value then a else b
+    let value (id: EventId) = id.Value
+    let display (id: EventId) = string id.Value
+    let isAccepted id =
+        id <> EventId.Zero
+    let fromJson n =
+        if n > 0 then Int n
+        else Zero
+    let toJson (id: EventId) = id.Value
 
-type History =
-    { past: Change list
-      future: Change list
-      nextId: int }
+type Authority = Authority of string
 
+type ActorResult =
+    | ActorSucceeded
+    | ActorFailed
+
+type ActorStart =
+    { zoomId: NodeId
+      focusId: NodeId
+      commandId: NodeId
+      graphIds: NodeId list
+      eventId: EventId }
+
+[<RequireQualifiedAccess>]
+type EventBody =
+    | Change of ops: Op list
+    | Undo of target: EventId * ops: Op list
+    | Redo of target: EventId * ops: Op list
+    | ActorStart of ActorStart
+    | ActorStop of focusId: NodeId * result: ActorResult
+
+type Ev =
+    { id: EventId
+      submissionId: System.Guid
+      authority: Authority
+      commandName: string
+      body: EventBody }
 
 type State =
     { graph: Graph
-      history: History
-      revision: Revision }
+      eventId: EventId }
 
 
 [<RequireQualifiedAccess>]
@@ -67,7 +110,7 @@ module Op =
     /// Node ids whose ownership facts this op can flip (Owner edges added/removed,
     /// or a newly introduced node). Replace parent is excluded: being the edit site
     /// does not change the parent's own owner-occurrence / chain; placement and
-    /// artifact-name checks for that parent run separately in validateOwnershipForChange.
+    /// artifact-name checks for that parent run separately in validateOwnershipForOps.
     let involvedNodeIds (graph: Graph) (op: Op) : NodeId list =
         match op with
         | Op.NewNode(nodeId, _)
@@ -223,6 +266,51 @@ module Op =
         else
             applyAllowed op state
 
+    let applyAll (ops: Op list) (state: State) : ApplyResult =
+        let step (accState, hasChanged) op =
+            match apply op accState with
+            | ApplyResult.Invalid _ as err -> Error err
+            | ApplyResult.Unchanged s' -> Ok(s', hasChanged)
+            | ApplyResult.Changed s' -> Ok(s', true)
+
+        let result =
+            ops
+            |> List.fold
+                (fun acc op ->
+                    match acc with
+                    | Error err -> Error err
+                    | Ok(s, changed) -> step (s, changed) op)
+                (Ok(state, false))
+
+        match result with
+        | Error(ApplyResult.Invalid(_, message)) ->
+            ApplyResult.Invalid(state, message)
+        | Error err -> err
+        | Ok(s, false) -> ApplyResult.Unchanged s
+        | Ok(s, true) -> ApplyResult.Changed s
+
+    let invert (op: Op) : Op =
+        match op with
+        | Op.NewNode(id, text) -> Op.NewNode(id, text)
+        | Op.SetText(id, old, new_) -> Op.SetText(id, new_, old)
+        | Op.SetClasses(id, old, new_) -> Op.SetClasses(id, new_, old)
+        | Op.Replace(parentId, oldChildren, newChildren) ->
+            Op.Replace(parentId, newChildren, oldChildren)
+        | Op.NewSpecialNode(id, kind, name) -> Op.NewSpecialNode(id, kind, name)
+        | Op.SetName(id, old, new_) -> Op.SetName(id, new_, old)
+        | Op.SetDocumentState(id, old, new_) ->
+            Op.SetDocumentState(id, new_, old)
+        | Op.SetUpdateTime(id, old, new_) -> Op.SetUpdateTime(id, new_, old)
+
+    let invertAll (ops: Op list) : Op list =
+        let retainReversible =
+            function
+            | Op.NewNode _
+            | Op.NewSpecialNode _ -> None
+            | op -> Some(invert op)
+
+        ops |> List.rev |> List.choose retainReversible
+
     let private undoAllowed (op: Op) (state: State) : ApplyResult =
         match op with
         | Op.NewNode(nodeId, _) ->
@@ -269,100 +357,61 @@ module Op =
         else
             undoAllowed op state
 
-
 [<RequireQualifiedAccess>]
-module Change =
-    let addOp (op: Op) (change: Change) : Change =
-        { change with ops = change.ops @ [ op ] }
+module Ev =
+    let id (event: Ev) : EventId = event.id
 
-    let private invertOp =
-        function
-        | Op.NewNode(id, text) -> Op.NewNode(id, text)
-        | Op.SetText(id, old, new_) -> Op.SetText(id, new_, old)
-        | Op.SetClasses(id, old, new_) -> Op.SetClasses(id, new_, old)
-        | Op.Replace(parentId, oldChildren, newChildren) ->
-            Op.Replace(parentId, newChildren, oldChildren)
-        | Op.NewSpecialNode(id, kind, name) -> Op.NewSpecialNode(id, kind, name)
-        | Op.SetName(id, old, new_) -> Op.SetName(id, new_, old)
-        | Op.SetDocumentState(id, old, new_) ->
-            Op.SetDocumentState(id, new_, old)
-        | Op.SetUpdateTime(id, old, new_) -> Op.SetUpdateTime(id, new_, old)
+    let authority (event: Ev) : Authority = event.authority
 
-    let inverse
-        (baseRevision: Revision)
-        (changeId: System.Guid)
-        (source: Change)
-        : Change =
-        let retainReversibleOp =
-            function
-            | Op.NewNode _
-            | Op.NewSpecialNode _ -> None
-            | op -> Some(invertOp op)
+    let ops (event: Ev) : Op list option =
+        match event.body with
+        | EventBody.Change ops
+        | EventBody.Undo(_, ops)
+        | EventBody.Redo(_, ops) -> Some ops
+        | EventBody.ActorStart _
+        | EventBody.ActorStop _ -> None
 
-        { id = baseRevision.Value
-          changeId = changeId
-          ops = source.ops |> List.rev |> List.choose retainReversibleOp }
+    let isAction (event: Ev) : bool = ops event |> Option.isSome
 
-    /// Construct the inverse of a change: reversed op list, each op with old/new swapped.
-    /// Change.undo(invert c) re-applies c's effect (valid for SetText and Replace).
-    /// NewNode has no DeleteNode counterpart, so its inversion is imperfect; undo-of-undo
-    /// for splits will return ApplyResult.Invalid and leave state unchanged.
-    let invert (change: Change) : Change =
-        { change with
-            changeId = System.Guid.NewGuid()
-            ops = change.ops |> List.rev |> List.map invertOp }
+    let target (event: Ev) : EventId option =
+        match event.body with
+        | EventBody.Undo(target, _)
+        | EventBody.Redo(target, _) -> Some target
+        | EventBody.Change _
+        | EventBody.ActorStart _
+        | EventBody.ActorStop _ -> None
 
-    let apply (change: Change) (state: State) : ApplyResult =
-        let step (accState, hasChanged) op =
-            match Op.apply op accState with
-            | ApplyResult.Invalid _ as err -> Error err
-            | ApplyResult.Unchanged s' -> Ok(s', hasChanged)
-            | ApplyResult.Changed s' -> Ok(s', true)
+    let inverseOps (event: Ev) : Op list option =
+        ops event |> Option.map Op.invertAll
 
-        let result =
-            change.ops
-            |> List.fold
-                (fun acc op ->
-                    match acc with
-                    | Error err -> Error err
-                    | Ok (s, changed) -> step (s, changed) op)
-                (Ok(state, false))
+    let fromJson
+        eventId
+        submissionId
+        authority
+        commandName
+        body
+        : Ev =
+        { id = EventId.fromJson eventId
+          submissionId = submissionId
+          authority = authority
+          commandName = commandName
+          body = body }
 
-        match result with
-        | Error (ApplyResult.Invalid(_, message)) ->
-            ApplyResult.Invalid(state, message)
-        | Error err -> err
-        | Ok (s, false) -> ApplyResult.Unchanged s
-        | Ok (s, true) -> ApplyResult.Changed s
+    let toJson (event: Ev) =
+        EventId.toJson event.id,
+        event.submissionId,
+        event.authority,
+        event.commandName,
+        event.body
 
-    let undo (change: Change) (state: State) : ApplyResult =
-        let step (accState, hasChanged) op =
-            match Op.undo op accState with
-            | ApplyResult.Invalid _ as err -> Error err
-            | ApplyResult.Unchanged s' -> Ok(s', hasChanged)
-            | ApplyResult.Changed s' -> Ok(s', true)
+    let apply (event: Ev) (state: State) : ApplyResult =
+        match ops event with
+        | None -> ApplyResult.Unchanged state
+        | Some opList -> Op.applyAll opList state
 
-        let result =
-            change.ops
-            |> List.rev
-            |> List.fold
-                (fun acc op ->
-                    match acc with
-                    | Error err -> Error err
-                    | Ok (s, changed) -> step (s, changed) op)
-                (Ok(state, false))
-
-        match result with
-        | Error (ApplyResult.Invalid(_, message)) ->
-            ApplyResult.Invalid(state, message)
-        | Error err -> err
-        | Ok (s, false) -> ApplyResult.Unchanged s
-        | Ok (s, true) -> ApplyResult.Changed s
-
-
-
+/// Validation and apply functions for Change operations with ownership semantics.
 [<RequireQualifiedAccess>]
-module History =
+module ChangeValidation =
     let private validateOwnershipSemantics
         (graph: Graph)
         (childIdsScope: Set<NodeId> option)
@@ -551,16 +600,6 @@ module History =
                                     dupId)
                             | None -> Ok ()
 
-    let empty: History =
-        { past = []
-          future = []
-          nextId = 0 }
-
-    let newChange (history: History) : Change =
-        { id = history.nextId
-          changeId = System.Guid.NewGuid()
-          ops = [] }
-
     let validateOwnershipLocated (graph: Graph) : Result<unit, string * NodeId> =
         validateOwnershipSemantics graph None
 
@@ -597,8 +636,8 @@ module History =
             |> List.exists (fun nc -> nc.id = oc.id && nc.ref = oc.ref)
             |> not)
 
-    let private validateOwnershipForChange (graph: Graph) (change: Change) : Result<unit, string> =
-        let shapeOps = change.ops |> List.filter opChangesGraphShape
+    let private validateOwnershipForOps (graph: Graph) (ops: Op list) : Result<unit, string> =
+        let shapeOps = ops |> List.filter opChangesGraphShape
 
         if List.isEmpty shapeOps then
             Ok ()
@@ -639,15 +678,15 @@ module History =
                 |> Option.map Error
                 |> Option.defaultValue (Ok ())
 
-    let applyChangeTrusted (change: Change) (state: State) : ApplyResult =
-        Change.apply change state
+    let applyOpsTrusted (ops: Op list) (state: State) : ApplyResult =
+        Op.applyAll ops state
 
-    let applyChange (change: Change) (state: State) : ApplyResult =
-        match applyChangeTrusted change state with
+    let applyOps (ops: Op list) (state: State) : ApplyResult =
+        match applyOpsTrusted ops state with
         | ApplyResult.Invalid _ as err -> err
         | ApplyResult.Unchanged s -> ApplyResult.Unchanged s
         | ApplyResult.Changed s ->
-            match validateOwnershipForChange s.graph change with
+            match validateOwnershipForOps s.graph ops with
             | Error msg -> ApplyResult.Invalid(state, msg)
             | Ok () -> ApplyResult.Changed s
 
@@ -673,18 +712,31 @@ module PersistStamp =
                 else
                     Some(Op.SetUpdateTime(id, NodeUpdateTime.missing, newTime)))
 
-    let appendToChange (change: Change) (stampOps: Op list) : Change =
-        if stampOps.IsEmpty then
-            change
-        else
-            { change with ops = change.ops @ stampOps }
+    let appendToOps (ops: Op list) (stampOps: Op list) : Op list =
+        if stampOps.IsEmpty then ops else ops @ stampOps
 
-    let appendToLast (changes: Change list) (stampOps: Op list) : Change list =
-        if stampOps.IsEmpty || changes.IsEmpty then
-            changes
+    let appendToEvent (event: Ev) (stampOps: Op list) : Ev =
+        if stampOps.IsEmpty then
+            event
         else
-            match List.rev changes with
-            | [] -> changes
+            match event.body with
+            | EventBody.Change ops ->
+                { event with body = EventBody.Change(appendToOps ops stampOps) }
+            | EventBody.Undo(target, ops) ->
+                { event with
+                    body = EventBody.Undo(target, appendToOps ops stampOps) }
+            | EventBody.Redo(target, ops) ->
+                { event with
+                    body = EventBody.Redo(target, appendToOps ops stampOps) }
+            | EventBody.ActorStart _
+            | EventBody.ActorStop _ -> event
+
+    let appendToLastEvent (events: Ev list) (stampOps: Op list) : Ev list =
+        if stampOps.IsEmpty || events.IsEmpty then
+            events
+        else
+            match List.rev events with
+            | [] -> events
             | last :: rest ->
-                List.rev (appendToChange last stampOps :: rest)
+                List.rev (appendToEvent last stampOps :: rest)
 

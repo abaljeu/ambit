@@ -421,7 +421,7 @@ let ``completeIndent surfaces apply error message`` () =
     Assert.Equal(Some(CmdLastResult.Error (None, applyMsg)), result.lastCmdResult)
 
 [<Fact>]
-let ``indent Directory under Normal sibling is accepted by History.applyChange`` () =
+let ``indent Directory under Normal sibling is accepted by SpecialNodeTestHelpers.applyChange`` () =
     let graph, normalId, dirId = folderBesideNormalGraph ()
     let model = emptyModelAt graph Graph.rootId
     let rootEntry = model.siteMap.entries.[model.siteMap.rootId]
@@ -446,14 +446,15 @@ let ``indent Directory under Normal sibling is accepted by History.applyChange``
         [ Op.Replace(Graph.rootId, rootKids, List.filter ((<>) dirChild) rootKids)
           ChildListWire.insertAt normalId normKids plan.target.endd [ dirChild ] ]
     let change =
-        { id = selected.revision.Value
-          changeId = System.Guid.NewGuid()
-          ops = ops }
+        { id = selected.eventId
+          submissionId = System.Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change ops }
     let state =
         { graph = graph
-          history = History.empty
-          revision = selected.revision }
-    match History.applyChange change state with
+          eventId = selected.eventId }
+    match SpecialNodeTestHelpers.applyChange change state with
     | ApplyResult.Changed s ->
         Assert.True(
             s.graph.nodes.[normalId].children
@@ -510,14 +511,15 @@ let ``indent Ref Directory under Normal succeeds despite foreign name duplicates
         [ Op.Replace(Graph.rootId, rootKids, List.filter ((<>) dirRef) rootKids)
           ChildListWire.insertAt normalId normKids plan.target.endd [ dirRef ] ]
     let change =
-        { id = selected.revision.Value
-          changeId = System.Guid.NewGuid()
-          ops = ops }
+        { id = selected.eventId
+          submissionId = System.Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change ops }
     let state =
         { graph = graph
-          history = History.empty
-          revision = selected.revision }
-    match History.applyChange change state with
+          eventId = selected.eventId }
+    match SpecialNodeTestHelpers.applyChange change state with
     | ApplyResult.Changed s ->
         Assert.True(
             s.graph.nodes.[normalId].children

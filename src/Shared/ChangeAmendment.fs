@@ -135,7 +135,7 @@ module ChangeAmendment =
             tryAmendReplace graph parentId anchor newList message
         | _ -> Error message
 
-    let private buildAmendedOps (change: Change) (state: State) : Result<Op list, string> =
+    let private buildAmendedOps (ops: Op list) (state: State) : Result<Op list, string> =
         let rec applyReplacement replacement current acc rest =
             match replacement with
             | [] -> foldOps rest current acc
@@ -159,24 +159,23 @@ module ChangeAmendment =
                 | ApplyResult.Unchanged next -> foldOps rest next (acc @ [ op ])
                 | ApplyResult.Changed next -> foldOps rest next (acc @ [ op ])
 
-        foldOps change.ops state []
+        foldOps ops state []
 
-    /// Apply a Change, amending recoverable field CAS failures instead of rejecting.
-    let applyChange (change: Change) (state: State) : ApplyResult * bool * Change =
-        match History.applyChange change state with
+    /// Apply Ops, amending recoverable field CAS failures instead of rejecting.
+    let applyOps (ops: Op list) (state: State) : ApplyResult * bool * Op list =
+        match ChangeValidation.applyOps ops state with
         | (ApplyResult.Changed _ | ApplyResult.Unchanged _) as ok ->
-            ok, false, change
+            ok, false, ops
         | ApplyResult.Invalid (_, msg) when isRecoverableCas msg ->
-            match buildAmendedOps change state with
-            | Error err -> ApplyResult.Invalid(state, err), false, change
-            | Ok ops when ops = change.ops ->
-                ApplyResult.Invalid(state, msg), false, change
-            | Ok ops ->
-                let amendedChange = { change with ops = ops }
-
-                match History.applyChange amendedChange state with
-                | ApplyResult.Invalid _ as err -> err, false, change
-                | ApplyResult.Unchanged _ as unchanged -> unchanged, true, amendedChange
-                | ApplyResult.Changed _ as changed -> changed, true, amendedChange
+            match buildAmendedOps ops state with
+            | Error err -> ApplyResult.Invalid(state, err), false, ops
+            | Ok amended when amended = ops ->
+                ApplyResult.Invalid(state, msg), false, ops
+            | Ok amended ->
+                match ChangeValidation.applyOps amended state with
+                | ApplyResult.Invalid _ as err -> err, false, ops
+                | ApplyResult.Unchanged _ as unchanged ->
+                    unchanged, true, amended
+                | ApplyResult.Changed _ as changed -> changed, true, amended
         | ApplyResult.Invalid _ as err ->
-            err, false, change
+            err, false, ops

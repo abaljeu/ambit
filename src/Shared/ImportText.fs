@@ -66,22 +66,23 @@ module ImportText =
                 | _ -> None
             | _ -> None
 
-    /// One change: package paste ops plus replace-all-children on the focus node.
+    /// One EventBody.Change: package paste ops plus replace-all-children.
     let buildImportChange
         (graph: Graph)
         (focusId: NodeId)
         (existingChildren: ChildNode list)
         (package: DesktopImportPackage)
-        (revision: int)
-        (changeId: System.Guid)
-        : Change =
+        (submissionId: System.Guid)
+        : Ev =
         let attach =
             ChildListWire.replace focusId existingChildren (ownedChildren package.topLevelIds)
         let markCurrent = markDocumentCurrentBeforeParse graph focusId
 
-        { id = revision
-          changeId = changeId
-          ops = markCurrent @ package.ops @ [ attach ] }
+        { id = EventId.zero
+          submissionId = submissionId
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change(markCurrent @ package.ops @ [ attach ]) }
 
     /// Directory import: add only top-level entries whose names are not already children.
     let buildDirectoryMergeChange
@@ -89,9 +90,8 @@ module ImportText =
         (focusId: NodeId)
         (existingChildren: ChildNode list)
         (package: DesktopImportPackage)
-        (revision: int)
-        (changeId: System.Guid)
-        : Change =
+        (submissionId: System.Guid)
+        : Ev =
         let existingNames =
             existingChildren
             |> List.choose (existingChildName graph)
@@ -116,7 +116,11 @@ module ImportText =
                     | Some name -> not (Set.contains name existingNames))
 
         if filteredIds.IsEmpty then
-            { id = revision; changeId = changeId; ops = markCurrent }
+            { id = EventId.zero
+              submissionId = submissionId
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change markCurrent }
         else
             let filteredIdSet = Set.ofList filteredIds
 
@@ -130,6 +134,8 @@ module ImportText =
             let attach =
                 ChildListWire.append focusId existingChildren (ownedChildren filteredIds)
 
-            { id = revision
-              changeId = changeId
-              ops = markCurrent @ filteredOps @ [ attach ] }
+            { id = EventId.zero
+              submissionId = submissionId
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change(markCurrent @ filteredOps @ [ attach ]) }

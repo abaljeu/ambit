@@ -5,200 +5,174 @@ open Gambol.Shared
 
 type ActorName = ActorName of string
 
-type PublicNumber = PublicNumber of int
+/// Actor input: Graph plus named ids and Actor secret.
+type ActorInput =
+    { graph: Graph
+      zoomId: NodeId
+      focusId: NodeId
+      commandId: NodeId
+      secret: Credential }
 
-type LaunchRequest =
-    { name: ActorName
-      revision: Revision
-      span: NodeRange }
-
-type ActorFn = Graph -> Credential -> CoreChanges -> Async<unit>
+type ActorFn = ActorInput -> CoreChanges -> Async<unit>
 
 type CoreActorPool =
     { register: ActorName -> ActorFn -> unit
-      launch:
-        CoreChanges -> LaunchRequest -> Async<Result<PublicNumber, string>>
-      query: PublicNumber -> Async<Result<LaunchRequest, string>>
-      lockedIds: unit -> Async<Set<NodeId>>
-      withLocks: CoreChanges -> CoreChanges }
+      startActor:
+        Gambol.Shared.ActorStart ->
+            (unit -> Graph) ->
+            Result<Credential, string>
+      schedule: Credential -> CoreChanges -> unit
+      isLive: Credential -> bool
+      admit: Credential -> Result<unit, string>
+      drop: Credential -> unit
+      finish: Credential -> ActorResult -> Result<unit, string>
+      liveFocusIds: unit -> Set<NodeId>
+      getFocusId: Credential -> NodeId option }
 
 [<RequireQualifiedAccess>]
 module CoreActorPool =
 
-    let unknownActor = CoreAdmissionError.text UnknownActor
+    type private PendingBody =
+        { actorFn: ActorFn
+          input: ActorInput }
 
-    let unknownJob = CoreAdmissionError.text UnknownJob
-
-    let overlap = CoreAdmissionError.text Overlap
-
-    type private Job =
-        { credential: Credential
-          span: NodeRange
-          spanIds: Set<NodeId>
-          revision: Revision
-          name: ActorName }
+    type private LiveRow =
+        { focusId: NodeId
+          cancel: System.Threading.CancellationTokenSource
+          pending: PendingBody option }
 
     type private Model =
-        { next: int
-          defs: Map<string, ActorFn>
-          jobs: Map<int, Job>
-          locked: Set<NodeId> }
+        { defs: Map<string, ActorFn>
+          live: Map<Credential, LiveRow> }
 
-    type private LaunchPlan =
-        { number: int
-          actor: ActorFn
-          subgraph: Graph
-          credential: Credential
-          job: Job }
+    let private liveFocusIds (model: Model) =
+        model.live
+        |> Map.toList
+        |> List.map (fun (_, row) -> row.focusId)
+        |> Set.ofList
 
-    type private Msg =
-        | Register of ActorName * ActorFn * AsyncReplyChannel<unit>
-        | TryLaunch of
-            Graph *
-            LaunchRequest *
-            AsyncReplyChannel<Result<LaunchPlan, string>>
-        | Query of int * AsyncReplyChannel<LaunchRequest option>
-        | GetLocked of AsyncReplyChannel<Set<NodeId>>
+    let private runAdmit isLive secret =
+        match CoreAuth.admit (isLive secret) with
+        | Error err -> Error(CoreAdmissionError.text err)
+        | Ok () -> Ok ()
 
-    let private tracked (job: Job) : LaunchRequest =
-        { name = job.name
-          revision = job.revision
-          span = job.span }
+    let private runDrop takeLive secret =
+        match takeLive secret with
+        | None -> ()
+        | Some row -> row.cancel.Cancel()
 
-    let private nameKey (ActorName name) = name
+    let private runFinish takeLive secret result =
+        match result with
+        | ActorSucceeded
+        | ActorFailed ->
+            runDrop takeLive secret
+            Ok ()
 
-    let private planLaunch
-        (model: Model)
-        (graph: Graph)
-        (request: LaunchRequest)
-        : Result<LaunchPlan, string> =
-        match Map.tryFind (nameKey request.name) model.defs with
-        | None -> Error unknownActor
-        | Some actor ->
-            match GraphSpan.spanIds graph request.span with
-            | Error err -> Error err
-            | Ok ids when not (Set.isEmpty (Set.intersect ids model.locked)) ->
-                Error overlap
-            | Ok ids ->
-                match GraphSpan.extract graph request.span with
-                | Error err -> Error err
-                | Ok subgraph ->
-                    let cred =
-                        Credential(Guid.NewGuid().ToString("N"))
-                    Ok
-                        { number = model.next
-                          actor = actor
-                          subgraph = subgraph
-                          credential = cred
-                          job =
-                            { credential = cred
-                              span = request.span
-                              spanIds = ids
-                              revision = request.revision
-                              name = request.name } }
+    let private actorNameFrom (commandNode: Node) =
+        CssClass.toList commandNode.cssClasses
+        |> List.tryPick (fun cls ->
+            if cls.StartsWith("actor-") && cls.Length > 6 then
+                Some (cls.Substring(6))
+            else
+                None)
+        |> Option.defaultValue (commandNode.text.Trim().ToLowerInvariant())
 
-    let private applyPlan (model: Model) (plan: LaunchPlan) : Model =
-        { next = model.next + 1
-          defs = model.defs
-          jobs = Map.add plan.number plan.job model.jobs
-          locked = Set.union model.locked plan.job.spanIds }
+    let private actorGraphFrom (fullGraph: Graph) graphIds =
+        let actorNodes =
+            graphIds
+            |> List.choose (fun id ->
+                Map.tryFind id fullGraph.nodes
+                |> Option.map (fun n -> id, n))
+            |> Map.ofList
+        Graph.fromNodes fullGraph.root actorNodes
 
-    let private startMailbox () =
-        MailboxProcessor.Start(fun inbox ->
-            let rec loop model = async {
-                let! msg = inbox.Receive()
-                match msg with
-                | Register(ActorName name, actor, reply) ->
-                    reply.Reply()
-                    return!
-                        loop { model with defs = Map.add name actor model.defs }
-                | GetLocked reply ->
-                    reply.Reply model.locked
-                    return! loop model
-                | Query(number, reply) ->
-                    reply.Reply(
-                        Map.tryFind number model.jobs |> Option.map tracked)
-                    return! loop model
-                | TryLaunch(graph, request, reply) ->
-                    match planLaunch model graph request with
-                    | Error err ->
-                        reply.Reply(Error err)
-                        return! loop model
-                    | Ok plan ->
-                        reply.Reply(Ok plan)
-                        return! loop (applyPlan model plan)
-            }
-            loop
-                { next = 1
-                  defs = Map.empty
-                  jobs = Map.empty
-                  locked = Set.empty })
+    let private runStartActor
+        (putLive: Credential -> NodeId -> PendingBody -> unit)
+        (getModel: unit -> Model)
+        (request: Gambol.Shared.ActorStart)
+        (getState: unit -> Graph)
+        =
+        let fullGraph = getState ()
+        if request.graphIds.IsEmpty then
+            Error
+                "graphIds required: client must provide Included context (SiteMap under Zoom, honoring Fold)"
+        else
+            let actorGraph = actorGraphFrom fullGraph request.graphIds
+            match Map.tryFind request.commandId actorGraph.nodes with
+            | None -> Error "command node not found in provided graphIds"
+            | Some commandNode ->
+                let actorName = actorNameFrom commandNode
+                match Map.tryFind actorName (getModel ()).defs with
+                | None -> Error $"actor '{actorName}' not registered"
+                | Some actorFn ->
+                    let secret = Credential(Guid.NewGuid().ToString("N"))
+                    let input: ActorInput =
+                        { graph = actorGraph
+                          zoomId = request.zoomId
+                          focusId = request.focusId
+                          commandId = request.commandId
+                          secret = secret }
+                    putLive
+                        secret
+                        request.focusId
+                        { actorFn = actorFn; input = input }
+                    Ok secret
 
-    let private overlayLocks
-        (lockedIds: unit -> Async<Set<NodeId>>)
-        (handle: CoreChanges)
-        : CoreChanges =
-        { handle with
-            getState =
-                fun () -> async {
-                    let! state = handle.getState ()
-                    match state with
-                    | Error err -> return Error err
-                    | Ok s ->
-                        let! ids = lockedIds ()
-                        let graph = GraphSpan.withLockPresent ids s.graph
-                        return Ok { s with graph = graph }
-                } }
+    let private takePending (model: Model) secret =
+        match Map.tryFind secret model.live with
+        | None -> model, None
+        | Some row ->
+            match row.pending with
+            | None -> model, None
+            | Some pending ->
+                let live =
+                    Map.add secret { row with pending = None } model.live
+                { model with live = live }, Some (pending, row)
 
-    let private runLaunch
-        (mailbox: MailboxProcessor<Msg>)
-        (credentials: CoreCredentials)
-        (handle: CoreChanges)
-        (request: LaunchRequest)
-        : Async<Result<PublicNumber, string>> =
-        async {
-            let! state = handle.getState ()
-            match state with
-            | Error err -> return Error err
-            | Ok s ->
-                let! planned =
-                    mailbox.PostAndAsyncReply(fun reply ->
-                        TryLaunch(s.graph, request, reply))
-                match planned with
-                | Error err -> return Error err
-                | Ok plan ->
-                    do! credentials.add plan.credential
-                    let bound =
-                        CoreAuth.bindHandle
-                            credentials
-                            plan.credential
-                            handle
-                    Async.Start(
-                        plan.actor plan.subgraph plan.credential bound)
-                    return Ok(PublicNumber plan.number)
-        }
+    let private runSchedule
+        (takePendingBody: Credential -> (PendingBody * LiveRow) option)
+        (secret: Credential)
+        (coreChanges: CoreChanges)
+        =
+        match takePendingBody secret with
+        | None -> ()
+        | Some (pending, row) ->
+            Async.Start(
+                pending.actorFn pending.input coreChanges,
+                row.cancel.Token)
 
-    let private runQuery
-        (mailbox: MailboxProcessor<Msg>)
-        (PublicNumber number)
-        : Async<Result<LaunchRequest, string>> =
-        async {
-            let! found =
-                mailbox.PostAndAsyncReply(fun reply -> Query(number, reply))
-            match found with
-            | Some job -> return Ok job
-            | None -> return Error unknownJob
-        }
-
-    let create (credentials: CoreCredentials) : CoreActorPool =
-        let mailbox = startMailbox ()
-        let lockedIds () = mailbox.PostAndAsyncReply GetLocked
+    let create () : CoreActorPool =
+        let mutable model =
+            { defs = Map.empty
+              live = Map.empty }
+        let getModel () = model
+        let putLive secret focusId pending =
+            let row =
+                { focusId = focusId
+                  cancel = new System.Threading.CancellationTokenSource()
+                  pending = Some pending }
+            model <- { model with live = Map.add secret row model.live }
+        let takeLive secret =
+            match Map.tryFind secret model.live with
+            | None -> None
+            | Some row ->
+                model <- { model with live = Map.remove secret model.live }
+                Some row
+        let takePendingBody secret =
+            let next, pending = takePending model secret
+            model <- next
+            pending
         { register =
-            fun name actor ->
-                mailbox.PostAndAsyncReply(fun reply ->
-                    Register(name, actor, reply))
-                |> Async.RunSynchronously
-          lockedIds = lockedIds
-          withLocks = overlayLocks lockedIds
-          launch = runLaunch mailbox credentials
-          query = runQuery mailbox }
+            fun (ActorName name) actor ->
+                model <- { model with defs = Map.add name actor model.defs }
+          startActor = runStartActor putLive getModel
+          schedule = runSchedule takePendingBody
+          isLive = fun secret -> Map.containsKey secret model.live
+          admit = runAdmit (fun secret -> Map.containsKey secret model.live)
+          drop = runDrop takeLive
+          finish = runFinish takeLive
+          liveFocusIds = fun () -> liveFocusIds model
+          getFocusId =
+            fun secret ->
+                Map.tryFind secret model.live
+                |> Option.map (fun row -> row.focusId) }

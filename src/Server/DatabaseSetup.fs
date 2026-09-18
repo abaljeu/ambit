@@ -37,25 +37,6 @@ module DatabaseSetup =
                 $"Unknown Persistence:Mode '{raw}'. " +
                 "Use 'db' or 'file'.")
 
-    let private decodeChangePayload (s: string) =
-        Thoth.Json.Newtonsoft.Decode.fromString Serialization.decodeChange s
-
-    // DB agent is a single shared instance (one database per dataDir).
-    let private dbAgentCache: (string * DbAgent) option ref = ref None
-    let private dbAgentLock = obj ()
-
-    /// Hands back the Core Changes contract only; the raw agent stays in the cache.
-    let getOrCreateDbAgent (connStr: string) (dataDir: string) : CoreChanges =
-        lock dbAgentLock (fun () ->
-            match !dbAgentCache with
-            | Some (dir, agent) when dir = dataDir -> agent
-            | _ ->
-                let agent = DbAgent.createWithDataDir connStr dataDir
-                dbAgentCache.Value <- Some (dataDir, agent)
-                agent
-        )
-        |> DbAgent.coreChanges
-
     let statusFromMatches (matchesBeforeRebuild: bool) (matchesAfterRebuild: bool) : DbStatus =
         if matchesBeforeRebuild then
             DbStatus.Ok
@@ -81,7 +62,7 @@ module DatabaseSetup =
             eprintfn "Gambol: outline mismatch detail:%s%s" System.Environment.NewLine (Snapshot.describeOutlineMismatch ln rn)
             eprintfn "Gambol: wrote raw outlines to %s and %s" leftPath rightPath
             false
-        elif left.revision.Value <> right.revision.Value then
+        elif left.eventId <> right.eventId then
             false
         else
             true
@@ -99,7 +80,7 @@ module DatabaseSetup =
             |> Async.RunSynchronously
 
     let private loadPersistedDbState (connStr: string) : State =
-        Database.loadPersistedState connStr decodeChangePayload
+        Database.loadPersistedState connStr
         |> Async.AwaitTask
         |> Async.RunSynchronously
 
@@ -148,12 +129,10 @@ module DatabaseSetup =
                     else
                         DbStatus.Ok
 
-                getOrCreateDbAgent connStr dataDir |> ignore
                 status
             with ex ->
                 eprintfn "Gambol: DB connection failed - falling back to file store. %s" ex.Message
                 DbStatus.Absent
 
-    /// For test use only: clears the DB agent cache so the next startup creates a fresh instance.
-    let resetAgentCacheForTest () =
-        lock dbAgentLock (fun () -> dbAgentCache.Value <- None)
+    /// Former two-host Db cache. CoreRuntime starts one host; tests still call this.
+    let resetAgentCacheForTest () = ()

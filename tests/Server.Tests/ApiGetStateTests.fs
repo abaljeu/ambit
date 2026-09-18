@@ -10,6 +10,7 @@ open Microsoft.Extensions.DependencyInjection
 open Xunit
 open Gambol.Server
 open Gambol.Shared
+open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
 open Thoth.Json.Newtonsoft
 
@@ -23,19 +24,20 @@ let private handleWithGetState
     (getState: unit -> Async<Result<State, string>>)
     : CoreChanges =
     { getState = getState
-      getRevision = fun () -> async.Return(Revision 0)
-      getChangesSince = fun _ -> async.Return []
+      getEventId = fun () -> async.Return(EventId.zero)
+      getEventsSince = fun _ -> async.Return []
       isReady = fun () -> true
-      postChange = fun _ -> async.Return(Result.Error "unused")
-      postGraphOnlyChange = fun _ -> async.Return(Result.Error "unused") }
+      postEvents = fun _ -> async.Return(Result.Error "unused")
+      postGraphOnly = fun _ -> async.Return(Result.Error "unused")
+      actorStop = fun _ -> async.Return(Result.Error "unused")
+      asCaller = fun _ -> Unchecked.defaultof<CoreChanges> }
 
 let private defaultStateRequest () =
     DefaultHttpContext().Request
 
 let private minimalStateResponse () =
     { graph = Graph.create ()
-      history = History.empty
-      revision = Revision 0
+      eventId = EventId.zero
     }
 
 /// Nested named Workspace with one Directory child (canonical full graph).
@@ -74,8 +76,7 @@ let private nestedWorkspaceStateResponse () =
             | Ok g -> g
             | Error err -> failwith err
     { graph = graph2
-      history = History.empty
-      revision = Revision 1
+      eventId = EventIdFixtures.storedId 1
     },
     wsId,
     dirId
@@ -108,7 +109,7 @@ let ``getState returns JSON content when agent succeeds`` () = task {
         match decodeStateResponse content.ResponseContent with
         | Error err -> failwith err
         | Ok response ->
-            Assert.Equal(Revision 0, response.revision)
+            Assert.Equal(EventId.zero, response.eventId)
             Assert.True(response.isReady)
     | other ->
         Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
@@ -148,7 +149,7 @@ let ``getState zoom outside ROOT adds owning Workspace`` () = task {
         | Ok response ->
             Assert.True(response.graph.nodes.ContainsKey dirId)
             Assert.Equal(Loaded, response.graph.nodes.[wsId].childrenStatus)
-            Assert.Equal(Revision 1, response.revision)
+            Assert.True(EventId.isAccepted response.eventId)
     | other ->
         Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
 }

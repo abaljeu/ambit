@@ -3,6 +3,7 @@ module Gambol.Client.App
 open Browser.Dom
 open Browser.Types
 open Gambol.Shared
+open Gambol.Shared
 open Gambol.Shared.ViewModel
 open Gambol.Client
 open Gambol.Client.Update
@@ -36,7 +37,7 @@ module private SubmitChangeCallbacks =
     let onPostOk
         (timeoutId: float)
         (reqId: string)
-        (submitted: PendingChange list)
+        (submitted: Ev list)
         (dispatch: Msg -> unit)
         (text: string)
         : unit =
@@ -46,14 +47,14 @@ module private SubmitChangeCallbacks =
         | Ok ack ->
             consoleLog (
                 "[Gambol sync] POST 200 req=" + reqId
-                + " ackRev=" + string ack.revision.Value
+                + " ackRev=" + string ack.eventId.Value
                 + " bodyLen=" + string n)
             dispatch (
                 SysMsg (
                     SubmitResponse (
                         submitted,
-                        ack.changes,
-                        ack.revision,
+                        ack.events,
+                        ack.eventId,
                         ack.externalChanges,
                         ack.message)))
         | Error err ->
@@ -69,7 +70,7 @@ module private SubmitChangeCallbacks =
             "[Gambol sync] GAMBOL_HTTP_ERR POST fail req=" + reqId
             + " http=" + string httpStatus + " body=" + snippet)
         let detail =
-            decodePostChangeError bodyText
+            decodePostEventError bodyText
             |> Option.map (summarizeHttpBody 400)
             |> Option.defaultValue (summarizeHttpBody 400 bodyText)
         dispatch (SysMsg (SubmitRejected detail))
@@ -77,8 +78,8 @@ module private SubmitChangeCallbacks =
     let onPostFetchFail
         (timeoutId: float)
         (reqId: string)
-        (baseRev: int)
-        (changes: PendingChange list)
+        (baseEventId: EventId)
+        (events: Ev list)
         (dispatch: Msg -> unit)
         ()
         : unit =
@@ -87,8 +88,8 @@ module private SubmitChangeCallbacks =
         dispatch (
             SysMsg (
                 SubmitNetworkError (
-                    baseRev,
-                    changes,
+                    baseEventId,
+                    events,
                     SubmitNetworkErrorKind.FetchFailed)))
 
 // Idle/pause remote polling after a period of no user interaction (battery-friendly).
@@ -112,29 +113,28 @@ let createRuntime (initialModel: VM) =
     let mergePendingAfterLoad (restored: VM) : VM * Effect list =
         lastActivityMs <- nowMs ()
         let saved = loadPendingQueue ()
-        let serverRev = restored.revision.Value
+        let serverEventId = restored.eventId
         let localState, restoredPending =
             SyncPlanner.restorePending
-                restored.revision
+                serverEventId
                 saved
                 { graph = restored.graph
-                  history = History.empty
-                  revision = restored.revision }
+                  eventId = serverEventId }
         savePendingQueue restoredPending
         if restoredPending.IsEmpty then
             { restored with
                 graph = localState.graph }, []
         else
             consoleLog (
-                "[Gambol sync] StateLoaded firePending serverRev=" + string serverRev
+                "[Gambol sync] StateLoaded firePending serverRev=" + string serverEventId.Value
                 + " restoredQLen=" + string restoredPending.Length)
             let submitEffects =
-                [ SubmitPendingBatch (serverRev, restoredPending) ]
+                [ SubmitPendingBatch (serverEventId, restoredPending) ]
             { restored with
                 graph = localState.graph
                 syncInfo =
                     restored.syncInfo
-                    |> SyncInfo.withPendingChanges restoredPending
+                    |> SyncInfo.withPending restoredPending
                     |> SyncInfo.withSyncState (Sending 1) },
             submitEffects
 
@@ -147,10 +147,10 @@ let createRuntime (initialModel: VM) =
 
     and runEffect (e: Effect) : unit =
         match e with
-        | SubmitPendingBatch (baseRev, changes) -> runSubmitPendingBatch baseRev changes
+        | SubmitPendingBatch (baseEventId, events) -> runSubmitPendingBatch baseEventId events
         | PollServer _ -> runPollServer ()
-        | LoadServer (rev, targets) ->
-            runLoadServer rev targets
+        | LoadServer (_, targets) ->
+            runLoadServer targets
         | ScheduleRetry delayMs -> runScheduleRetry delayMs
         | RunQueuedRequest QueuedLoad -> dispatch (ApplyOp loadOp)
         | RunQueuedRequest (QueuedWorkspacePush (scope, parseFileId)) ->
@@ -188,9 +188,7 @@ let createRuntime (initialModel: VM) =
             |> ignore
         | ContinuePostUploadStructure (submitted, scope, parseFileId) ->
             // Stubs already in the model (DOM patched before effects). Async POST.
-            let body =
-                SyncBatch.toWireBatch model.revision.Value [ submitted ]
-                |> encodePendingBatchBody
+            let body = encodePendingBatchBody [ submitted ]
             let url = sprintf "/%s/changes" currentFile
             let rec post () =
                 let retry () =
@@ -217,7 +215,7 @@ let createRuntime (initialModel: VM) =
                     retry
                     (jsonMutatingPostHeaders ())
 
-            // A timed-out POST may still commit. Retrying the same changeId is
+            // A timed-out POST may still commit. Retrying the same submissionId is
             // idempotent and recovers its authoritative ACK.
             post ()
         | ContinueWorkspacePush (scope, parseFileId) ->
@@ -364,20 +362,19 @@ let createRuntime (initialModel: VM) =
             50
         |> ignore
 
-    and runSubmitPendingBatch (baseRev: int) (changes: PendingChange list) : unit =
+    and runSubmitPendingBatch (baseEventId: EventId) (events: Ev list) : unit =
         let reqId =
-            changes
+            events
             |> List.tryHead
             |> Option.map (fun item ->
-                item.change.changeId.ToString("N").Substring(0, 8))
+                item.submissionId.ToString("N").Substring(0, 8))
             |> Option.defaultValue "empty"
         let url = $"/{currentFile}/changes"
-        let postChanges = SyncBatch.toWireBatch baseRev changes
-        let body = encodePendingBatchBody postChanges
-        let qLen = model.syncInfo.pendingChanges.Length
+        let body = encodePendingBatchBody events
+        let qLen = model.syncInfo.pending.Length
         consoleLog (
-            "[Gambol sync] POST start req=" + reqId + " baseRev=" + string baseRev
-            + " batchLen=" + string changes.Length + " qLen=" + string qLen)
+            "[Gambol sync] POST start req=" + reqId + " baseEventId=" + string baseEventId.Value
+            + " batchLen=" + string events.Length + " qLen=" + string qLen)
         let timeoutId =
             setTimeout
                 (fun () ->
@@ -388,31 +385,33 @@ let createRuntime (initialModel: VM) =
                     dispatch (
                         SysMsg (
                             SubmitNetworkError (
-                                baseRev, changes, SubmitNetworkErrorKind.ClientTimeout))))
+                                baseEventId, events, SubmitNetworkErrorKind.ClientTimeout))))
                 SyncRetry.postTimeoutMs
         postJson
             url
             body
-            (SubmitChangeCallbacks.onPostOk timeoutId reqId changes dispatch)
+            (SubmitChangeCallbacks.onPostOk timeoutId reqId events dispatch)
             (SubmitChangeCallbacks.onPostHttp timeoutId reqId dispatch)
-            (SubmitChangeCallbacks.onPostFetchFail timeoutId reqId baseRev changes dispatch)
+            (SubmitChangeCallbacks.onPostFetchFail timeoutId reqId baseEventId events dispatch)
             (jsonMutatingPostHeaders ())
 
     and runPollServer () : unit =
         let url =
-            $"/{currentFile}/poll?_={nowMs ()}&rev={model.revision.Value}"
+            $"/{currentFile}/poll?_={nowMs ()}&rev={model.eventId.Value}"
         let onPollOk (text: string) : unit =
             match ApiResponseSerialization.decodeChangeSuccessResponse text with
             | Ok poll ->
+                reseedDeployEpochOnServerSignal poll.buildEpochSec
+                |> ignore
                 let outcome =
-                    SyncLogic.getPollOutcome poll model.revision.Value
+                    SyncLogic.getPollOutcome poll model.eventId
                 dispatch (
                     SysMsg (
                         PollDone (
                             outcome,
-                            poll.changes,
+                            poll.events,
                             Some poll.isReady,
-                            Some poll.revision)))
+                            Some (poll.eventId))))
             | Error _ ->
                 dispatch (
                     SysMsg (
@@ -424,52 +423,53 @@ let createRuntime (initialModel: VM) =
         fetchTextNoCacheWithFail url onPollOk onPollFail
 
     and runLoadServer
-        (revision: int)
         (targets: LoadTarget list)
         : unit =
         let url = $"/{currentFile}/load"
         let body =
             Thoth.Json.JavaScript.Encode.toString 0 (
                 ApiResponseSerialization.encodeLoadRequest
-                    { revision = revision
+                    { eventId = model.eventId
                       targets = targets })
         let onLoadOk (text: string) : unit =
             match ApiResponseSerialization.decodeLoadResponse text with
             | Ok load ->
+                reseedDeployEpochOnServerSignal load.buildEpochSec
+                |> ignore
                 let outcome =
                     SyncLogic.getPollOutcome
                         (SyncLogic.loadResponseToPoll load)
-                        model.revision.Value
+                        model.eventId
                 dispatch (
                     SysMsg (
                         LoadDone (
                             outcome,
                             SyncLogic.loadResponseToSync load,
-                            load.revision,
+                            load.eventId,
                             Some load.isReady)))
             | Error _ ->
                 dispatch (
                     SysMsg (
                         LoadDone (
                             None,
-                            { changes = []; packages = [] },
-                            model.revision.Value,
+                            { events = []; packages = [] },
+                            model.eventId,
                             None)))
         let onLoadHttp (_status: int) (_body: string) : unit =
             dispatch (
                 SysMsg (
                     LoadDone (
                         None,
-                        { changes = []; packages = [] },
-                        model.revision.Value,
+                        { events = []; packages = [] },
+                        model.eventId,
                         None)))
         let onLoadFail () : unit =
             dispatch (
                 SysMsg (
                     LoadDone (
                         None,
-                        { changes = []; packages = [] },
-                        model.revision.Value,
+                        { events = []; packages = [] },
+                        model.eventId,
                         None)))
         postJson
             url
@@ -489,7 +489,7 @@ let createRuntime (initialModel: VM) =
                         dispatch (SysMsg RetrySubmit))
                     delayMs)
 
-    and runSavePendingQueue (q: PendingChange list) : unit =
+    and runSavePendingQueue (q: Ev list) : unit =
         savePendingQueue q
 
     and runDesktopFileStatus (nodeId: NodeId) (path: string) : unit =
@@ -599,22 +599,22 @@ let createRuntime (initialModel: VM) =
             | SysMsg (SubmitResponse (submitted, confirmed, _, _, _)) ->
                 clearRetryTimer ()
                 let next, effects = update msg prev
-                let pendingLen = prev.syncInfo.pendingChanges.Length
-                let nextLen = next.syncInfo.pendingChanges.Length
+                let pendingLen = prev.syncInfo.pending.Length
+                let nextLen = next.syncInfo.pending.Length
                 let pendingDropped = pendingLen > nextLen
                 let rejected =
                     match next.syncInfo.syncState with
                     | ServerRejected -> true
                     | _ -> false
                 if pendingDropped && not rejected then
-                    BootCacheStore.appendChanges
+                    BootCacheStore.appendEvents
                         currentFile
                         (BootCache.acceptedForLog confirmed submitted)
                     BootCacheStore.requestIdleTruncate
                         currentFile
                         (BootCache.scopeKey (tryReadSavedZoomId ()))
                         (tryReadSavedZoomId ())
-                        next.revision.Value
+                        next.eventId
                         next.syncInfo.isServerReady
                         next.graph
                 next, effects
@@ -719,7 +719,7 @@ let createRuntime (initialModel: VM) =
 //     buildEl.textContent <- txt
 let setupStaticDOM (dispatch: Msg -> unit) (getModel: unit -> VM) (_wakePolling: unit -> unit) : unit =
     let hiddenInput = document.getElementById "hidden-input" :?> HTMLInputElement
-    hiddenInput.addEventListener("keydown", fun (ev: Event) ->
+    hiddenInput.addEventListener("keydown", fun (ev: Browser.Types.Event) ->
         let ke = ev :?> KeyboardEvent
         if ke.key = "Tab" then ev.preventDefault()
         if (ke.ctrlKey || ke.metaKey) && ke.key = "p" && not ke.shiftKey then
@@ -733,7 +733,7 @@ let setupStaticDOM (dispatch: Msg -> unit) (getModel: unit -> VM) (_wakePolling:
     let interactiveChromeSelector =
         "button,input,a,.amb-dialog,#sync-status,#cmd-last-result"
 
-    let dismissOnBackground (ev: Event) : unit =
+    let dismissOnBackground (ev: Browser.Types.Event) : unit =
         let target = ev.target :?> HTMLElement
         match (getModel ()).mode with
         | CommandPalette _ | SearchDialog _ | FileSearchDialog _ | CssClassPrompt _ | RenamePrompt _ ->

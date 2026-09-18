@@ -27,7 +27,7 @@ module ResidentProjection =
         | Op.NewSpecialNode _ ->
             Op.apply op state
 
-    let applyChange (change: Change) (state: State) : ApplyResult =
+    let applyOps (ops: Op list) (state: State) : ApplyResult =
         let step (accState, hasChanged) op =
             match applyOp op accState with
             | ApplyResult.Invalid _ as err -> Error err
@@ -35,7 +35,7 @@ module ResidentProjection =
             | ApplyResult.Changed s' -> Ok(s', true)
 
         let result =
-            change.ops
+            ops
             |> List.fold
                 (fun acc op ->
                     match acc with
@@ -210,13 +210,13 @@ module ResidentProjection =
             | [ wsId ] -> Ok(workspaceSubgraphNodes graph wsId)
             | _ -> Ok []
 
-    /// Capture LoadResponse fields at one Revision (changes + optional subgraph).
+    /// Capture LoadResponse fields at one EventId (events + optional subgraph).
     let captureLoadResponse
-        (revision: int)
+        (eventId: EventId)
         (buildEpochSec: int)
         (pageBuildEpochSec: int)
         (isReady: bool)
-        (changes: Change list)
+        (events: Ev list)
         (graph: Graph)
         (targets: LoadTarget list)
         : Result<LoadResponse, LoadRefuse> =
@@ -224,12 +224,12 @@ module ResidentProjection =
         | Error refuse -> Error refuse
         | Ok packages ->
             Ok
-                { revision = revision
+                { eventId = eventId
                   buildEpochSec = buildEpochSec
                   pageBuildEpochSec = pageBuildEpochSec
                   apiVersion = ApiVersion.current
                   isReady = isReady
-                  changes = changes
+                  events = events
                   packages = packages }
 
     /// Scoped resident graph for fresh-session bootstrap: complete ROOT Workspace,

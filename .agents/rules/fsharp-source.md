@@ -4,16 +4,22 @@ Don't use Exceptions. Use Error types.
 Don't embed anything more than tiny amounts of html, CSS, JS or SQL in F# code.
 If you are looking for browser access functions, look at ./other/fable.browser.dom.fs.
 
-Use CRLF endings.
 100 characters or less per line on source code.
 
 40 lines or less per function.
+
+Group related function parameters into a named, reused type (record or DU). When adding a parameter that belongs with existing ones, extend that type instead of lengthening the argument list. Reuse a type that already exists. Do not invent a one-off tuple or a mega-record of unrelated values; split by cohesion.
+
 400 lines or less per file. If a file is already longer, only restructure to split up the code if your changes would increase it.
+
+Public function names must be either more than one word, or explicitly require context to be called.
 
 TABs are not allowed in F#. Always indent 4 spaces.
 Indentation is equally important as it is in python or Haskell.
 
 Follow language norms. Match existing style.
+
+When a binding's type becomes Ev instead of leftover Change, rename the local to `event` / `events`. Keep `ev` / `evs` only when that file already uses them. Do not leave `change` / `changes` bound to Ev.
 
 Graphs may be millions of nodes. In hot paths, avoid O(nodes) full-graph scans (e.g. `Map.toList graph.nodes`). Prefer owner-subtree or other local walks (see `GraphQuery.ownedArtifactsInDirectory`).
 

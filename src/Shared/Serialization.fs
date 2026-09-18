@@ -5,8 +5,8 @@ open Thoth.Json.Core
 open Thoth.Json.JavaScript
 
 
-type ChangeBatch =
-    { changes: Change list }
+type EventBatch =
+    { events: Ev list }
 
 [<RequireQualifiedAccess>]
 module Serialization =
@@ -67,13 +67,14 @@ module Serialization =
               |> Decode.andThen (function
                   | "normal" -> Decode.succeed Normal
                   | other -> Decode.fail $"Unknown node kind: {other}")
-              Decode.object (fun get ->
-                  match get.Required.Field "type" Decode.string with
+              Decode.field "type" Decode.string
+              |> Decode.andThen (function
                   | "special" ->
-                      let sk = get.Required.Field "kind" decodeSpecialKind
-                      Special sk
+                      Decode.object (fun get ->
+                          Special (get.Required.Field "kind" decodeSpecialKind))
                   | other ->
-                      failwithf "Unknown node kind type discriminator: %s" other) ]
+                      Decode.fail
+                          $"Unknown node kind type discriminator: {other}") ]
     let private encodeOwnership (ownership: Ownership) : IEncodable =
         match ownership with
         | Ownership.Ref -> Encode.string "ref"
@@ -104,14 +105,6 @@ module Serialization =
 
     let decodeNodeId: Decoder<NodeId> =
         Decode.guid |> Decode.map NodeId
-
-    // ---- Revision ----
-
-    let encodeRevision (rev: Revision) : IEncodable =
-        Encode.int rev.Value
-
-    let decodeRevision: Decoder<Revision> =
-        Decode.int |> Decode.map Revision
 
     // ---- Node ----
 
@@ -187,27 +180,35 @@ module Serialization =
             [ "root", encodeNodeId graph.root
               "nodes", Encode.list nodeList ]
 
+    let private graphFromDecodedNodes
+        (root: NodeId)
+        (nodes: Map<NodeId, Node>)
+        : Decoder<Graph> =
+        if root <> Graph.rootId then
+            Decode.fail "graph root id must be canonical"
+        elif not (Map.containsKey Graph.rootId nodes) then
+            Decode.fail "graph missing canonical root node"
+        else
+            let g = Graph.fromNodes root nodes
+            let n = g.nodes.[Graph.rootId]
+            if n.id <> Graph.rootId || n.text <> "ROOT"
+               || n.name <> Filename.Empty
+               || n.cssClasses <> CssClass.empty then
+                Decode.fail "canonical root node has wrong shape"
+            else
+                Decode.succeed g
+
     let decodeGraph: Decoder<Graph> =
         Decode.object (fun get ->
             let root = get.Required.Field "root" decodeNodeId
-            let nodeArray = get.Required.Field "nodes" (Decode.resizeArray decodeNode)
-            let nodes =
-                nodeArray
-                |> Seq.map (fun n -> n.id, n)
-                |> Map.ofSeq
-            Graph.fromNodes root nodes)
-        |> Decode.andThen (fun g ->
-            if g.root <> Graph.rootId then
-                Decode.fail "graph root id must be canonical"
-            elif not (Map.containsKey Graph.rootId g.nodes) then
-                Decode.fail "graph missing canonical root node"
-            else
-                let n = g.nodes.[Graph.rootId]
-                if n.id <> Graph.rootId || n.text <> "ROOT" || n.name <> Filename.Empty
-                   || n.cssClasses <> CssClass.empty then
-                    Decode.fail "canonical root node has wrong shape"
-                else
-                    Decode.succeed g)
+            let nodeArray =
+                get.Required.Field "nodes" (Decode.resizeArray decodeNode)
+            root, nodeArray)
+        |> Decode.andThen (fun (root, nodeArray) ->
+            nodeArray
+            |> Seq.map (fun n -> n.id, n)
+            |> Map.ofSeq
+            |> graphFromDecodedNodes root)
 
     // ---- Op ----
 
@@ -387,73 +388,4 @@ module Serialization =
                   get.Optional.Field "sourceModifiedUtc" Decode.int64
                   |> Option.map (fun ticks -> System.DateTime(ticks, System.DateTimeKind.Utc)) })
 
-    // ---- Change ----
-
-    let encodeChange (change: Change) : IEncodable =
-        Encode.object
-            [ "id", Encode.int change.id
-              "changeId", Encode.guid change.changeId
-              "ops", change.ops |> List.map encodeOp |> Encode.list ]
-
-    let decodeChange: Decoder<Change> =
-        Decode.object (fun get ->
-            { id = get.Required.Field "id" Decode.int
-              // Optional for backward-compat with existing log entries written before this field was added.
-              changeId =
-                get.Optional.Field "changeId" Decode.guid
-                |> Option.defaultWith System.Guid.NewGuid
-              ops = get.Required.Field "ops" (Decode.list decodeOp) })
-
-    let private encodePendingKind =
-        function
-        | PendingKind.Normal -> Encode.string "normal"
-        | PendingKind.Undo -> Encode.string "undo"
-        | PendingKind.Redo -> Encode.string "redo"
-
-    let private decodePendingKind: Decoder<PendingKind> =
-        Decode.string
-        |> Decode.andThen (function
-            | "normal" -> Decode.succeed PendingKind.Normal
-            | "undo" -> Decode.succeed PendingKind.Undo
-            | "redo" -> Decode.succeed PendingKind.Redo
-            | other -> Decode.fail ("Unknown pending kind: " + other))
-
-    let private encodePendingTransition (transition: PendingTransition) : IEncodable =
-        Encode.object
-            [ "recordId", Encode.int transition.recordId
-              "submittedChangeId", Encode.guid transition.submittedChangeId
-              "kind", encodePendingKind transition.kind ]
-
-    let private decodePendingTransition: Decoder<PendingTransition> =
-        Decode.object (fun get ->
-            { recordId = get.Required.Field "recordId" Decode.int
-              submittedChangeId = get.Required.Field "submittedChangeId" Decode.guid
-              kind = get.Required.Field "kind" decodePendingKind })
-
-    let encodePendingChange (item: PendingChange) : IEncodable =
-        Encode.object (
-            [ "change", encodeChange item.change ]
-            @ match item.transition with
-              | None -> []
-              | Some transition ->
-                  [ "transition", encodePendingTransition transition ])
-
-    let decodePendingChange: Decoder<PendingChange> =
-        Decode.object (fun get ->
-            { change = get.Required.Field "change" decodeChange
-              transition = get.Optional.Field "transition" decodePendingTransition })
-
-    let encodeChangeBatch (batch: ChangeBatch) : IEncodable =
-        Encode.object
-            [ "changes", batch.changes |> List.map encodeChange |> Encode.list ]
-
-    let decodeChangeBatch: Decoder<ChangeBatch> =
-        Decode.object (fun get ->
-            { changes =
-                get.Required.Field
-                    "changes"
-                    (Decode.list decodeChange) })
-        |> Decode.andThen (fun batch ->
-            if batch.changes.IsEmpty then Decode.fail "changes must not be empty"
-            else Decode.succeed batch)
 

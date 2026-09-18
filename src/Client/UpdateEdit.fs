@@ -18,12 +18,7 @@ let moveEditDownAtClientX (clientX: float) (model: VM) : VM * Effect list =
     moveEditImpl 1 (MoveEditNextFirstLineX clientX) model
 
 let private applyJoin commandName ops text caret instanceId (model: VM) =
-    let change =
-        { id = model.revision.Value
-          changeId = System.Guid.NewGuid()
-          ops = ops }
-
-    match applyAndPost commandName change model with
+    match applyAndPost commandName ops model with
     | Error msg -> withMoveError msg model, []
     | Ok (m, effects) ->
         let result = withSiteMap m

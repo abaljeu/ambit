@@ -269,7 +269,7 @@ let ``upload structure persistence preserves existing file mtime`` () =
                 | ApplyResult.Changed next
                 | ApplyResult.Unchanged next -> next
                 | ApplyResult.Invalid(_, error) -> failwith error)
-            { graph = graph; history = History.empty; revision = Revision.Zero }
+            { graph = graph; eventId = EventId.zero }
         |> fun state -> state.graph
     let filePath = artifactFullPath dataDir graph fileId
     let original = DateTime(2024, 1, 2, 3, 4, 5, DateTimeKind.Utc)
@@ -500,7 +500,7 @@ let ``planParseFile DataDir warm keeps line NodeId on text edit`` () =
     Assert.False(List.isEmpty ops)
 
     let state0 =
-        { graph = graph; history = History.empty; revision = Revision.Zero }
+        { graph = graph; eventId = EventId.zero }
     let after =
         ops
         |> List.fold
@@ -571,7 +571,7 @@ let ``planParseFile uses body text over DataDir`` () =
         |> requireOk "planParseFile body"
 
     let state0 =
-        { graph = graph; history = History.empty; revision = Revision.Zero }
+        { graph = graph; eventId = EventId.zero }
     let after =
         ops
         |> List.fold
@@ -788,14 +788,14 @@ let ``discoverArtifactRelatives excludes reserved gambol dot files`` () =
     let dataDir = newTempDir ()
     let nested = Path.Combine(dataDir, "nested")
     Directory.CreateDirectory(nested) |> ignore
-    File.WriteAllText(Path.Combine(dataDir, "gambol.log"), "bookkeeping")
+    File.WriteAllText(Path.Combine(dataDir, "gambol.events"), "bookkeeping")
     File.WriteAllText(Path.Combine(dataDir, "fetch.log"), "ordinary artifact")
     File.WriteAllText(Path.Combine(nested, "GAMBOL.meta"), "bookkeeping")
     File.WriteAllText(Path.Combine(dataDir, "gambolish"), "ordinary artifact")
     let relatives =
         DocumentPersistence.discoverArtifactRelatives dataDir
         |> requireOk "discover"
-    Assert.DoesNotContain("gambol.log", relatives)
+    Assert.DoesNotContain("gambol.events", relatives)
     Assert.DoesNotContain("nested/GAMBOL.meta", relatives)
     Assert.Contains("fetch.log", relatives)
     Assert.Contains("gambolish", relatives)

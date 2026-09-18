@@ -5,7 +5,6 @@ open System.IO
 open System.Net.Http
 open System.Text.Json
 open System.Threading.Tasks
-open Gambol.Server
 open Gambol.Shared
 open Microsoft.AspNetCore.Http
 
@@ -103,13 +102,6 @@ module WorkspaceSyncEndpoints =
         | Error _ ->
             Error(WorkspaceLocalMapping.missingMappingMessage label)
 
-    let private cookieHeader
-        (creds: LoginForm.Credentials option)
-        : string option =
-        creds
-        |> Option.map (fun c ->
-            AuthToken.cookieHeaderValue c.Username c.Password)
-
     let private okSync (r: WorkspaceFileSync.SyncResult) =
         let skippedJson =
             r.skippedPaths
@@ -186,7 +178,7 @@ module WorkspaceSyncEndpoints =
         (workspaceMap: Map<string, WorkspaceMapping>)
         (client: HttpClient)
         (ambitBase: string)
-        (creds: LoginForm.Credentials option)
+        (cookie: string option)
         (context: HttpContext)
         = task {
         let! body = readBody context
@@ -197,12 +189,12 @@ module WorkspaceSyncEndpoints =
             | Error message -> do! writeBadRequest context message
             | Ok mappedRoot ->
                 match
-                    WorkspaceFileSync.post
+                    WorkspaceCloudUpload.push
                         client
                         ambitBase
                         mappedRoot
                         scope
-                        (cookieHeader creds)
+                        cookie
                         (clientHint context)
                 with
                 | Error err ->
@@ -219,7 +211,7 @@ module WorkspaceSyncEndpoints =
         (workspaceMap: Map<string, WorkspaceMapping>)
         (client: HttpClient)
         (ambitBase: string)
-        (creds: LoginForm.Credentials option)
+        (cookie: string option)
         (context: HttpContext)
         = task {
         let! body = readBody context
@@ -235,7 +227,7 @@ module WorkspaceSyncEndpoints =
                         ambitBase
                         mappedRoot
                         scope
-                        (cookieHeader creds)
+                        cookie
                 with
                 | Error err ->
                     eprintfn
@@ -296,7 +288,7 @@ module WorkspaceSyncEndpoints =
             | Error message -> do! writeBadRequest context message
             | Ok mappedRoot ->
                 match
-                    WorkspaceLocalInventory.listForUpload mappedRoot scope
+                    WorkspaceCloudUpload.listForUpload mappedRoot scope
                 with
                 | Error err -> do! writeBadRequest context err
                 | Ok(mode, items) ->
@@ -391,11 +383,14 @@ module WorkspaceSyncEndpoints =
         (client: HttpClient)
         (ambitBase: string)
         (creds: LoginForm.Credentials option)
+        (serverIssued: string option)
         (manager: WorkspaceDownloadManager.Manager)
         (context: HttpContext)
         : Task<bool> =
         task {
             let path = context.Request.Path
+            let cookie =
+                Some(AmbitSession.requestCookieHeader creds serverIssued)
             if path.Equals(PathString "/_desktop/workspace-download") then
                 if HttpMethods.IsPost context.Request.Method then
                     do!
@@ -417,7 +412,7 @@ module WorkspaceSyncEndpoints =
                         workspaceMap
                         client
                         ambitBase
-                        creds
+                        cookie
                         context
                 return true
             elif path.Equals(PathString "/_desktop/workspace-pull") then
@@ -426,7 +421,7 @@ module WorkspaceSyncEndpoints =
                         workspaceMap
                         client
                         ambitBase
-                        creds
+                        cookie
                         context
                 return true
             elif path.Equals(PathString "/_desktop/workspace-inventory") then

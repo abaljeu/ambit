@@ -1,6 +1,8 @@
+If the IDE reports that a file became 1 line, ignore the false report; don't investigate.
+
 Canonical project rules are split across [[.agents/rules/]]. Cursor attaches them through thin stubs in [[.cursor/rules/]] (`alwaysApply` or `globs`).
 
-- [[.agents/rules/core-agent-behavior.md]] — interaction, planning mindset, surgical changes
+- [[.agents/rules/core-agent-behavior.md]] — YOU MUST READ AND FOLLOW THIS.
 - [[.agents/rules/project-values.md]] — project aims and stack
 - [[.agents/rules/environment.md]] — shell, paths, tooling
 - [[.agents/rules/fsharp-source.md]] — F# conventions (scoped to *.fs)
@@ -8,6 +10,8 @@ Canonical project rules are split across [[.agents/rules/]]. Cursor attaches the
 - [[.agents/rules/markdown-writing.md]] — markdown conventions (scoped to *.md)
 - [[.agents/rules/planning-docs.md]] — roadmap/plan documents (scoped to doc/)
 - [[.agents/rules/project-stage.md]] — keep each `plan/` project's `Stage:` current
+- [[.agents/rules/no-retrofit.md]] — skill or rule change; old work stays
+- [[.agents/rules/refer-by-name.md]] — number and name projects, issues, sections, list items; title wraps the link
 
 Shared runtime state:
 
@@ -25,14 +29,14 @@ Ask-Matt is the human advisor: [[.agents/skills/ask-matt/SKILL.md]]. This file i
 
 Workflow skills in [[.agents/skills/]]:
 
-## Idea to ship
+## From idea to ship
 
 - [[.agents/skills/grill-me/SKILL.md]] — default grill (`/grill-me`)
 - [[.agents/skills/prototype/SKILL.md]] — throwaway code that answers one design question; capture on `dev`
-- [[.agents/skills/to-spec/SKILL.md]] — publish spec.md on the Project
-- [[.agents/skills/to-tickets/SKILL.md]] — tracer-bullet vertical slices
-- [[.agents/skills/to-feature-tickets/SKILL.md]] — cohesive testable capabilities
-- [[.agents/skills/implement/SKILL.md]] — ticket-build entry (`/implement`)
+- [[.agents/skills/to-spec/SKILL.md]] — front-half spec.md (problem, solution, stories, out of scope)
+- [[.agents/skills/to-arch/SKILL.md]] — publish arch.md on the Project
+- [[.agents/skills/to-tickets/SKILL.md]] — implementation tickets from arch.md Sequence (tracer-cut Story paths, module-build Module map, or expand-contract)
+- [[.agents/skills/implement/SKILL.md]] — ticket-build entry (`/implement`); consumes arch.md when present
 - [[.agents/skills/tdd/SKILL.md]] — red-green at pre-agreed seams; augments `/implement`
 - [[.agents/skills/implement-fsharp-feature/SKILL.md]] — F# layout and Client compile gate; augments `/implement`
 - [[.agents/skills/add-shared-test/SKILL.md]] — Shared.Tests coverage; augments `/implement`
@@ -56,7 +60,9 @@ Workflow skills in [[.agents/skills/]]:
 - [[.agents/skills/git-protocol/SKILL.md]] — git procedure (`dev`, `ready`, `master`)
 - [[.agents/skills/git-master/SKILL.md]] — squash and publish `master`; explicit invocation only
 - [[.agents/skills/git-share/SKILL.md]] — pull `ready`, catch up; push `ready` only with Alan's approval
+- [[.agents/skills/cloud-agent-git/SKILL.md]] — staging: cloud agents send done work there; Desktop pulls `staging` locally, then lands onto `dev`
 - [[.agents/skills/project-work/SKILL.md]] — `plan` project files and Stage
+- [[.agents/skills/plan-or-doc-change/SKILL.md]] — layered change across map, spec, architecture, ticket, and code
 - [[.agents/skills/plan-roadmap-change/SKILL.md]] — roadmap and plan doc changes
 - [[.agents/skills/investigate-fable-client/SKILL.md]] — Fable client investigation
 - [[.agents/skills/maintain-doc-currency/SKILL.md]] — doc placement and currency

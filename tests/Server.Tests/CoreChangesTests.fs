@@ -6,6 +6,7 @@ open Microsoft.AspNetCore.Http.HttpResults
 open Xunit
 open Gambol.Server
 open Gambol.Shared
+open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
 
 module Encode = Thoth.Json.Newtonsoft.Encode
@@ -25,40 +26,35 @@ let private decodeChangeResponse json =
         json
     |> requireOk "decode response"
 
-let private addRootChild revision text =
-    let childId = NodeId.New()
-    { id = revision
-      changeId = Guid.NewGuid()
-      ops =
-        [ Op.NewNode(childId, text)
-          Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
+let private addRootChild _revision text =
+    let _, event = addRootChildEvent text
+    { event with id = EventId.zero }
 
 [<Fact>]
 let ``typed Normal caller publishes accepted Change to Poll`` () = task {
     let dataDir = newTempDir ()
-    let agent = FileAgent.create dataDir
+    let agent, handle = createAdmittedFile dataDir
     try
-        let handle = FileAgent.coreChanges agent
-        let change = addRootChild 0 "typed caller"
+        let event = addRootChild 0 "typed caller"
         let! accepted =
-            handle.postChange [ change ]
+            handle.postEvents [ event ]
             |> Async.StartAsTask
         let accepted = requireOk "typed post" accepted
-        Assert.Equal(Revision 1, accepted.revision)
+        Assert.True(EventId.isAccepted accepted.eventId)
         Assert.Equal<Guid list>(
-            [ change.changeId ],
-            accepted.changes |> List.map (_.changeId))
+            [ event.submissionId ],
+            accepted.events |> List.map (_.submissionId))
 
         let! poll = Api.getPoll handle 10 20 0 |> Async.StartAsTask
         match box poll with
         | :? ContentHttpResult as content ->
             let response = decodeChangeResponse content.ResponseContent
-            Assert.Equal(accepted.revision, response.revision)
-            Assert.Equal<Change list>(accepted.changes, response.changes)
+            Assert.Equal(accepted.eventId.Value, response.eventId.Value)
+            Assert.Equal<Ev list>(accepted.events, response.events)
         | other ->
             Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
     finally
-        FileAgent.dispose agent
+        CoreMailbox.dispose agent
 }
 
 /// Thread-pool Actor: Local Graph plus full CoreChanges, off the apply mailbox.
@@ -79,84 +75,85 @@ let private produceFromSubgraph
             | Some node -> node.children
             | None -> []
         let childId = NodeId.New()
-        let change =
-            { id = 0
-              changeId = Guid.NewGuid()
-              ops =
+        let event =
+            changeEvent
+                ""
+                EventId.zero
+                (Guid.NewGuid())
                 [ Op.NewNode(childId, "test Actor")
                   Op.Replace(
                       Graph.rootId,
                       priorChildren,
-                      priorChildren @ [ ChildNode.owner childId ]) ] }
-        return! handle.postChange [ change ]
+                      priorChildren @ [ ChildNode.owner childId ]) ]
+        return! handle.postEvents [ event ]
     }
 
 [<Fact>]
 let ``test Actor posts Normal Change off apply mailbox and Poll sees it`` () =
     task {
         let dataDir = newTempDir ()
-        let agent = FileAgent.create dataDir
+        let agent, handle = createAdmittedFile dataDir
         try
-            let handle = FileAgent.coreChanges agent
             let subgraph = Graph.create ()
             let! accepted =
                 runActor subgraph handle produceFromSubgraph
             let accepted = requireOk "actor post" accepted
-            Assert.Equal(Revision 1, accepted.revision)
-            Assert.NotEmpty(accepted.changes)
+            Assert.True(EventId.isAccepted accepted.eventId)
+            Assert.NotEmpty(accepted.events)
 
             let! poll = Api.getPoll handle 10 20 0 |> Async.StartAsTask
             match box poll with
             | :? ContentHttpResult as content ->
                 let response = decodeChangeResponse content.ResponseContent
-                Assert.Equal(accepted.revision, response.revision)
-                Assert.Equal<Change list>(accepted.changes, response.changes)
+                Assert.Equal(accepted.eventId.Value, response.eventId.Value)
+                Assert.Equal<Ev list>(accepted.events, response.events)
             | other ->
                 Assert.Fail(
                     $"Expected ContentHttpResult, got {other.GetType().FullName}")
         finally
-            FileAgent.dispose agent
+            CoreMailbox.dispose agent
     }
 
-let private recordingHandle (posts: ResizeArray<Change list>) =
+let private recordingHandle (posts: ResizeArray<Ev list>) =
     let state =
         { graph = Graph.create ()
-          history = History.empty
-          revision = Revision 0 }
-    let accepted changes : CoreChangesAccepted =
-        { revision = Revision 1
-          changes = changes
+          eventId = EventId.zero }
+    let accepted events : CoreChangesAccepted =
+        { eventId = EventIdFixtures.storedId 1
+          events = events
           externalChanges = false
           message = None
           isReady = true }
     { getState = fun () -> async.Return(Result.Ok state)
-      getRevision = fun () -> async.Return state.revision
-      getChangesSince = fun _ -> async.Return []
+      getEventId = fun () -> async.Return (EventId.zero)
+      getEventsSince = fun _ -> async.Return []
       isReady = fun () -> true
-      postChange =
-        fun changes ->
-            posts.Add(changes)
-            async.Return(Result.Ok(accepted changes))
-      postGraphOnlyChange = fun _ -> async.Return(Result.Error "unused") }
+      postEvents =
+        fun events ->
+            posts.Add(events)
+            async.Return(Result.Ok(accepted events))
+      postGraphOnly = fun _ -> async.Return(Result.Error "unused")
+      actorStop = fun _ -> async.Return(Result.Error "unused")
+      asCaller = fun _ -> Unchecked.defaultof<CoreChanges> }
     : CoreChanges
 
 [<Fact>]
 let ``HTTP Adapter passes typed Changes only after valid decode`` () = task {
-    let posts = ResizeArray<Change list>()
+    let posts = ResizeArray<Ev list>()
     let handle = recordingHandle posts
-    let change = addRootChild 0 "adapter"
+    let event = addRootChild 0 "adapter"
     let validBody =
         Encode.toString 0 (
-            Serialization.encodeChangeBatch
-                { changes = [ change ] })
+            EventJson.encodeEventBatch
+                { events = [ event ] })
 
     let! _ =
-        Api.postChange handle 10 20 validBody
+        Api.postEvents handle 10 20 validBody
         |> Async.StartAsTask
     let! _ =
-        Api.postChange handle 10 20 "not-json"
+        Api.postEvents handle 10 20 "not-json"
         |> Async.StartAsTask
 
     let posted = Assert.Single(posts)
-    Assert.Equal<Change list>([ change ], posted)
+    Assert.Equal<Ev list>([ event ], posted)
 }

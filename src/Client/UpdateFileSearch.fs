@@ -24,11 +24,7 @@ let private applyOpsChange (ops: Op list) (model: VM) : VM * Effect list =
     if ops.IsEmpty then
         model, []
     else
-        let change =
-            { id = model.revision.Value
-              changeId = System.Guid.NewGuid()
-              ops = ops }
-        match applyAndPost (displayName InsertFile) change model with
+        match applyAndPost (displayName InsertFile) ops model with
         | Error _ -> withCmdError "could not apply" model
         | Ok (m, effects) -> withSiteMap m, effects
 

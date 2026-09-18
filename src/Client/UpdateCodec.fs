@@ -8,9 +8,10 @@ open Thoth.Json.Core
 // ---------------------------------------------------------------------------
 
 /// Encode a batch as compact JSON for POST /{file}/changes.
-let encodePendingBatchBody (changes: Change list) : string =
-    let batch: ChangeBatch = { changes = changes }
-    Thoth.Json.JavaScript.Encode.toString 0 (Serialization.encodeChangeBatch batch)
+let encodePendingBatchBody (events: Ev list) : string =
+    let batch: EventBatch = { events = SyncBatch.toWireBatch events }
+    Thoth.Json.JavaScript.Encode.toString 0 (
+        Gambol.Shared.EventJson.encodeEventBatch batch)
 
 
 /// Decode the response from GET /{file}/state
@@ -268,7 +269,7 @@ let decodeDesktopExportResponse (text: string) : Result<DesktopExportResponse, s
     Thoth.Json.JavaScript.Decode.fromString Serialization.decodeDesktopExportResponse text
 
 /// Decode `{ "error": "..." }` from POST /{file}/changes 400 body.
-let decodePostChangeError (text: string) : string option =
+let decodePostEventError (text: string) : string option =
     let decoder =
         Decode.object (fun get -> get.Optional.Field "error" Decode.string)
     match Thoth.Json.JavaScript.Decode.fromString decoder text with

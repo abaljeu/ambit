@@ -1,6 +1,7 @@
 module Gambol.Client.Program
 
 open Gambol.Shared
+open Gambol.Shared
 open Gambol.Shared.LogText
 open Gambol.Shared.ViewModel
 open Gambol.Client
@@ -8,6 +9,7 @@ open Gambol.Client.App
 open Gambol.Client.SessionState
 open Gambol.Client.Update
 open Gambol.Client.UpdateCodec
+open Gambol.Client.UpdateHelpers
 open Gambol.Client.Controller
 open Gambol.Client.JsInterop
 
@@ -15,7 +17,7 @@ let initialGraph = Graph.create ()
 
 let initialModel: VM =
     { graph = initialGraph
-      revision = Revision.Zero
+      eventId = EventId.zero
       history = ClientHistory.clear ()
       selectedNodes = None
       mode = Selecting
@@ -72,7 +74,7 @@ let private stateUrl =
 
 let private bootScope = BootCache.scopeKey (tryReadSavedZoomId ())
 
-let mutable bootLog: Change list = []
+let mutable bootLog: Ev list = []
 let mutable pollingStarted = false
 let mutable bootHash = ""
 let mutable justFetchedState = false
@@ -87,30 +89,33 @@ let rec private loadFromState () =
     fetchGet
         stateUrl
         (fun text ->
-            if looksCompressed text then
-                showBootError
-                    "state response is compressed but not decompressed (Content-Encoding?)"
-            else
-                let decodeStart = perfNowMs ()
-                match decodeStateResponse text with
-                | Ok response ->
-                    let decodeMs = int (perfNowMs () - decodeStart)
-                    let nodeCount = Map.count response.graph.nodes
-                    consoleLog (
-                        $"[Gambol boot] decodeStateResponse: {decodeMs}ms, "
-                        + $"{text.Length} chars, {nodeCount} nodes")
-                    finishPaint response []
-                    setTimeout
-                        (fun () ->
-                            BootCacheStore.persistAfterState
-                                currentFile
-                                bootScope
-                                text
-                                response)
-                        0
-                    |> ignore
-                | Error err ->
-                    showBootError err)
+            try
+                if looksCompressed text then
+                    showBootError
+                        "state response is compressed but not decompressed (Content-Encoding?)"
+                else
+                    let decodeStart = perfNowMs ()
+                    match decodeStateResponse text with
+                    | Ok response ->
+                        let decodeMs = int (perfNowMs () - decodeStart)
+                        let nodeCount = Map.count response.graph.nodes
+                        consoleLog (
+                            $"[Gambol boot] decodeStateResponse: {decodeMs}ms, "
+                            + $"{text.Length} chars, {nodeCount} nodes")
+                        finishPaint response []
+                        setTimeout
+                            (fun () ->
+                                BootCacheStore.persistAfterState
+                                    currentFile
+                                    bootScope
+                                    text
+                                    response)
+                            0
+                        |> ignore
+                    | Error err ->
+                        showBootError ("failed to decode /state: " + err)
+            with ex ->
+                showBootError ("failed to apply /state: " + ex.Message))
         (fun status body ->
             let snippet = summarizeHttpBody 400 body
             let detail =
@@ -124,43 +129,47 @@ and private fallbackState (reason: string) =
     BootCacheStore.deleteCache currentFile ignore
     loadFromState ()
 
-and private applyBootNovel (novel: Change list) (ready: bool) =
+and private applyBootNovel (novel: Ev list) (ready: bool) =
     let model = getModel ()
-    let clientState: ClientSyncState =
-        { graph = model.graph
-          revision = model.revision
-          history = model.history }
-    match SyncLogic.applyServerTail novel clientState with
+    match
+        SyncLogic.applyServerTail novel (clientSyncState model)
+    with
     | Error _ -> fallbackState "apply"
     | Ok newState ->
         dispatch (
             SysMsg (
                 BootGraphApplied (
                     newState.graph,
-                    newState.revision,
+                    newState.eventId,
                     newState.history,
                     ready)))
-        BootCacheStore.appendChanges currentFile novel
+        BootCacheStore.appendEvents currentFile novel
         bootLog <- bootLog @ novel
         BootCacheStore.requestIdleTruncate
             currentFile
             bootScope
             (tryReadSavedZoomId ())
-            newState.revision.Value
+            newState.eventId
             ready
             newState.graph
 
-and private handleBootPoll (clientRev: int) (poll: ChangeSuccessResponse) =
+and private handleBootPoll (clientEventId: EventId) (poll: ChangeSuccessResponse) =
+    reseedDeployEpochOnServerSignal poll.buildEpochSec |> ignore
     let cached =
         BootCache.cachedHashForBootPoll justFetchedState bootHash
     justFetchedState <- false
     match
         BootCache.decideBootPoll
-            clientRev bootLog poll poll.bootstrapHash cached
+            clientEventId bootLog poll poll.bootstrapHash cached
     with
     | BootCache.BootPoll.Confirmed ready ->
         dispatch (
-            SysMsg (PollDone (None, [], Some ready, Some poll.revision)))
+            SysMsg (
+                PollDone (
+                    None,
+                    [],
+                    Some ready,
+                    Some (poll.eventId))))
     | BootCache.BootPoll.CodeOutdated ->
         dispatch (
             SysMsg (
@@ -168,32 +177,32 @@ and private handleBootPoll (clientRev: int) (poll: ChangeSuccessResponse) =
                     Some CodeOutdated,
                     [],
                     Some poll.isReady,
-                    Some poll.revision)))
+                    Some (poll.eventId))))
     | BootCache.BootPoll.ApplyNovel (novel, ready) ->
         applyBootNovel novel ready
     | BootCache.BootPoll.FallbackState reason ->
         fallbackState reason
 
-and private runBootPoll (clientRev: int) =
-    let url = $"/{currentFile}/poll?_={nowMs ()}&rev={clientRev}"
+and private runBootPoll (clientEventId: EventId) =
+    let url = $"/{currentFile}/poll?_={nowMs ()}&rev={EventId.value clientEventId}"
     fetchTextNoCacheWithFail
         url
         (fun text ->
             match decodeChangeSuccessResponse text with
-            | Ok poll -> handleBootPoll clientRev poll
+            | Ok poll -> handleBootPoll clientEventId poll
             | Error _ -> ())
         (fun () -> ())
 
-and private finishPaint (response: StateResponse) (localLog: Change list) =
+and private finishPaint (response: StateResponse) (localLog: Ev list) =
     bootLog <- localLog
     dispatch (SysMsg (StateLoaded response))
     ensurePolling ()
-    runBootPoll response.revision.Value
+    runBootPoll response.eventId
     BootCacheStore.requestIdleTruncate
         currentFile
         bootScope
         (tryReadSavedZoomId ())
-        response.revision.Value
+        response.eventId
         response.isReady
         response.graph
 

@@ -12,7 +12,7 @@ module WorkspaceDownloadManager =
     type Manager =
         { client: HttpClient
           ambitBase: string
-          cookieHeader: string option
+          getCookieHeader: unit -> string option
           resolveMappedRoot: string -> Result<string, string>
           mutable queue: WorkspaceDownloadQueue.QueueState
           lockObj: obj }
@@ -20,12 +20,12 @@ module WorkspaceDownloadManager =
     let create
         (client: HttpClient)
         (ambitBase: string)
-        (cookieHeader: string option)
+        (getCookieHeader: unit -> string option)
         (resolveMappedRoot: string -> Result<string, string>)
         : Manager =
         { client = client
           ambitBase = ambitBase
-          cookieHeader = cookieHeader
+          getCookieHeader = getCookieHeader
           resolveMappedRoot = resolveMappedRoot
           queue = WorkspaceDownloadQueue.empty
           lockObj = obj() }
@@ -60,7 +60,7 @@ module WorkspaceDownloadManager =
                     mgr.ambitBase
                     mappedRoot
                     job.scope
-                    mgr.cookieHeader
+                    (mgr.getCookieHeader())
                     job.id
             match result with
             | Ok r -> finishJob mgr true r.detail r.pathStamps

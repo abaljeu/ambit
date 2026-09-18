@@ -12,7 +12,7 @@ The Epic is not done until each item is done (or the named part).
 
 Live:
 
-_(none)_
+- [ ] [[plan/planning-skills/project.md]] — new planning-code skills; keep Wayfinder and the plan/ layout; to-feature-tickets retired into to-tickets Sequence modes; finish remaining to-spec / to-tickets transition polish
 
 Done:
 

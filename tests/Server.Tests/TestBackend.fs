@@ -2,16 +2,34 @@ module Gambol.Server.Tests.TestBackend
 
 open System
 open System.IO
+open System.Net.Http
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Mvc.Testing
 open Microsoft.Extensions.Configuration
 open Npgsql
 open Gambol.Server
+open Gambol.Shared
 open Gambol.Server.Tests.TestDbConfigTests
 
 type BackendKind = File | Db
 
 let private testConnEnv = "TEST_DB_CONNECTION_STRING"
+
+/// Request Cookie from AuthToken. Same helper for empty Auth and named Auth.
+let withAuthCookie username password (client: HttpClient) =
+    client.DefaultRequestHeaders.Add(
+        "Cookie",
+        AuthToken.cookieHeaderValue username password)
+    client
+
+/// Development boot seed uses deriveToken("",""); request-carried cookie must match.
+let withDevelopmentCookie (client: HttpClient) =
+    withAuthCookie "" "" client
+
+/// Mailbox Browser Caller for the same AuthToken secret the cookie carries.
+let browserCallerFromAuth username password =
+    BrowserRequestCreds.callerFromSecret (
+        Credential(AuthToken.deriveToken username password))
 
 let private quoteIdentifier (identifier: string) =
     "\"" + identifier.Replace("\"", "\"\"") + "\""
@@ -101,7 +119,7 @@ let resetTestDatabase (connStr: string) : Task<unit> =
         do! conn.OpenAsync()
         use cmd = conn.CreateCommand()
         cmd.CommandText <-
-            "TRUNCATE TABLE changes, node_children, nodes, graph RESTART IDENTITY CASCADE;"
+            "TRUNCATE TABLE events, node_children, nodes, graph RESTART IDENTITY CASCADE;"
         let! _ = cmd.ExecuteNonQueryAsync()
         return ()
     }
@@ -111,15 +129,53 @@ let newTempDir () =
     Directory.CreateDirectory(dir) |> ignore
     dir
 
+let testAuthority = Authority "Test"
+
+let testSecret = Credential "test-secret"
+
+let testCaller =
+    { authority = testAuthority
+      name = "test"
+      secret = testSecret }
+
+/// Admitted Callers the mailbox holds at host start (no public add).
+let admittedCredentials =
+    CoreCredentials.ofCallers (Set.singleton testCaller)
+
+let admittedHostFile (file: FileAgent) =
+    CoreMailbox.host
+        (CoreActorPool.create ())
+        (FileAgent.persist file)
+        admittedCredentials
+
+let admittedHostDb (db: DbAgent) =
+    CoreMailbox.host
+        (CoreActorPool.create ())
+        (DbAgent.persist db)
+        admittedCredentials
+
+let createAdmittedFile (dataDir: string) =
+    let host = CoreMailbox.createFile dataDir admittedCredentials
+    let handle = CoreMailbox.coreChanges host testCaller
+    host, handle
+
+/// Same as createAdmittedFile. Third value is the admitted Browser secret.
+let createAdmittedFileWithCredentials (dataDir: string) =
+    let host = CoreMailbox.createFile dataDir admittedCredentials
+    let handle = CoreMailbox.coreChanges host testCaller
+    host, handle, testSecret
+
+let admittedChanges (host: MailboxHost) =
+    CoreMailbox.coreChanges host testCaller
+
 let private suppressDailyGitSave (dataDir: string) =
     DailyGitSave.writeStamp
         dataDir
         (DailyGitSave.formatUtcDay DateTime.UtcNow)
     |> ignore
 
-/// Create a test client pointing at the given data directory (file backend, no DB).
-/// GET `/ambit/state` returns the scoped ROOT bootstrap graph; use `?scope=full` for total-load tests.
-let createClientForDir (tempDir: string) =
+/// Auth-disabled factory without cookie — for refuse-without-cookie facts.
+let createClientForDirWithoutCookie (tempDir: string) =
     suppressDailyGitSave tempDir
     let priorDb = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
     try
@@ -145,6 +201,13 @@ let createClientForDir (tempDir: string) =
             Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
         else
             Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", priorDb)
+
+/// Create a test client pointing at the given data directory (file backend, no DB).
+/// GET `/ambit/state` returns the scoped ROOT bootstrap graph;
+/// use `?scope=full` for total-load tests.
+/// Carries the development `gambol_auth` cookie (request-carried; no closed-over fallback).
+let createClientForDir (tempDir: string) =
+    createClientForDirWithoutCookie tempDir |> withDevelopmentCookie
 
 /// File-backend client with Auth:Username / Auth:Password set (cookie + git PAT).
 let createClientForDirWithAuth
@@ -202,7 +265,7 @@ let createDbClientForDir (connStr: string) (tempDir: string) =
                         ) |> ignore
                     ) |> ignore
                 )
-        factory.CreateClient()
+        factory.CreateClient() |> withDevelopmentCookie
     finally
         if isNull priorDb then
             Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
@@ -230,7 +293,7 @@ let createFileModeWithDbClientForDir (connStr: string) (tempDir: string) =
                         ) |> ignore
                     ) |> ignore
                 )
-        factory.CreateClient()
+        factory.CreateClient() |> withDevelopmentCookie
     finally
         if isNull priorDb then
             Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
@@ -268,7 +331,7 @@ let createDbModeWithoutConnectionClientForDir (tempDir: string) =
                         ) |> ignore
                     ) |> ignore
                 )
-        factory.CreateClient()
+        factory.CreateClient() |> withDevelopmentCookie
     finally
         if isNull priorDb then
             Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
@@ -277,3 +340,33 @@ let createDbModeWithoutConnectionClientForDir (tempDir: string) =
 
 let createDbModeWithoutConnectionClient () =
     createDbModeWithoutConnectionClientForDir (newTempDir ())
+
+let eventOps (event: Ev) =
+    Ev.ops event |> Option.defaultValue []
+
+let changeEvent commandName (id: EventId) submissionId ops : Ev =
+    { id = id
+      submissionId = submissionId
+      authority = Authority "Browser"
+      commandName = commandName
+      body = EventBody.Change ops }
+
+let wireEvent submissionId ops : Ev =
+    { id = EventId.zero
+      submissionId = submissionId
+      authority = Authority ""
+      commandName = ""
+      body = EventBody.Change ops }
+
+let applyChange (event: Ev) (state: State) =
+    ChangeValidation.applyOps (eventOps event) state
+
+let addRootChildEvent text : NodeId * Ev =
+    let childId = NodeId.New()
+    childId,
+    changeEvent
+        ""
+        EventId.zero
+        (Guid.NewGuid())
+        [ Op.NewNode(childId, text)
+          Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ]

@@ -30,7 +30,7 @@ let private applyOps graph ops =
             | ApplyResult.Changed next
             | ApplyResult.Unchanged next -> next
             | ApplyResult.Invalid(_, error) -> failwith error)
-        { graph = graph; history = History.empty; revision = Revision.Zero }
+        { graph = graph; eventId = EventId.zero }
     |> _.graph
 
 let private graphWithDocuments () =

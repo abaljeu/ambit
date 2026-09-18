@@ -434,11 +434,7 @@ let duplicateSelectionOp (model: VM) : VM * Effect list =
                 |> List.map (fun child -> { child with ref = Ownership.Ref })
             let insertOp =
                 ChildListWire.insertAt parentId parentChildren sel.range.endd duplicatedRefs
-            let change =
-                { id = model.revision.Value
-                  changeId = System.Guid.NewGuid()
-                  ops = [ insertOp ] }
-            match applyAndPost (displayName DupNodes) change model with
+            match applyAndPost (displayName DupNodes) [ insertOp ] model with
             | Error msg ->
                 { model with
                     lastCmdResult = Some(CmdLastResult.Error(None, msg)) },
@@ -474,11 +470,7 @@ let deleteChildSpan
         if allOps.IsEmpty then
             model, []
         else
-            let change =
-                { id = model.revision.Value
-                  changeId = System.Guid.NewGuid()
-                  ops = allOps }
-            match applyAndPost (displayName Delete) change model with
+            match applyAndPost (displayName Delete) allOps model with
             | Error msg ->
                 { model with
                     lastCmdResult = Some(CmdLastResult.Error(None, msg)) },
@@ -597,11 +589,7 @@ let submitCssClassPromptOp (model: VM) : VM * Effect list =
                 else Some (Op.SetClasses(nid, oldClasses, newClasses)))
         if ops.IsEmpty then result, []
         else
-            let change =
-                { id = model.revision.Value
-                  changeId = System.Guid.NewGuid()
-                  ops = ops }
-            match applyAndPost (displayName EditClasses) change result with
+            match applyAndPost (displayName EditClasses) ops result with
             | Ok (m, effects) -> m, effects
             | Error msg ->
                 consoleLog msg
@@ -711,10 +699,10 @@ let findRootOp (model: VM) : VM * Effect list =
 /// resetCount=true (manual click) restarts the attempt counter from 1.
 let retryPendingOp (resetCount: bool) (model: VM) : VM * Effect list =
     match model.syncInfo.syncState with
-    | WaitingToRetry _ when not model.syncInfo.pendingChanges.IsEmpty ->
+    | WaitingToRetry _ when not model.syncInfo.pending.IsEmpty ->
         consoleLog (
-            "[Gambol sync] retryPendingOp modelRev=" + string model.revision.Value
-            + " qLen=" + string model.syncInfo.pendingChanges.Length)
+            "[Gambol sync] retryPendingOp modelRev=" + string model.eventId.Value
+            + " qLen=" + string model.syncInfo.pending.Length)
     | _ -> ()
     let nextSyncInfo, effects = SyncPlanner.retryWaiting resetCount model.syncInfo
     { model with syncInfo = nextSyncInfo }, effects
@@ -722,19 +710,18 @@ let retryPendingOp (resetCount: bool) (model: VM) : VM * Effect list =
 /// Op: Undo the last change, committing any in-progress edit first.
 let undoOp (model: VM) : VM * Effect list =
     let model', commitEffects = commitIfEditing model
-    let clientState: ClientSyncState =
-        { graph = model'.graph
-          revision = model'.revision
-          history = model'.history }
     let commandName = ClientHistory.tryPeekUndoName model'.history
-    match SyncLogic.applyLocalUndo (System.Guid.NewGuid()) clientState with
+    match SyncLogic.applyLocalUndo (System.Guid.NewGuid()) (clientSyncState model') with
     | None ->
         { model' with lastCmdResult = Some (CmdLastResult.undoResult None) },
         commitEffects
     | Some (Error _) -> model', commitEffects
     | Some (Ok (nextState, pendingItem)) ->
         let nextSyncInfo, actionEffects =
-            SyncPlanner.enqueuePending pendingItem model'.revision model'.syncInfo
+            SyncPlanner.enqueuePending
+                pendingItem
+                (model'.eventId)
+                model'.syncInfo
         { model' with
             graph = nextState.graph
             history = nextState.history
@@ -747,19 +734,18 @@ let undoOp (model: VM) : VM * Effect list =
 /// Op: Redo the last undone change, committing any in-progress edit first.
 let redoOp (model: VM) : VM * Effect list =
     let model', commitEffects = commitIfEditing model
-    let clientState: ClientSyncState =
-        { graph = model'.graph
-          revision = model'.revision
-          history = model'.history }
     let commandName = ClientHistory.tryPeekRedoName model'.history
-    match SyncLogic.applyLocalRedo (System.Guid.NewGuid()) clientState with
+    match SyncLogic.applyLocalRedo (System.Guid.NewGuid()) (clientSyncState model') with
     | None ->
         { model' with lastCmdResult = Some (CmdLastResult.redoResult None) },
         commitEffects
     | Some (Error _) -> model', commitEffects
     | Some (Ok (nextState, pendingItem)) ->
         let nextSyncInfo, actionEffects =
-            SyncPlanner.enqueuePending pendingItem model'.revision model'.syncInfo
+            SyncPlanner.enqueuePending
+                pendingItem
+                (model'.eventId)
+                model'.syncInfo
         { model' with
             graph = nextState.graph
             history = nextState.history

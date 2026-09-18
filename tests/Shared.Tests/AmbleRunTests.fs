@@ -148,7 +148,7 @@ let ``run name-equals updates graph name`` () =
     let ops =
         requireOk "run" (AmbleRun.run focusId t.graph
             "todo=root descendant named \"blue\"")
-    let state = { graph = t.graph; history = History.empty; revision = Revision.Zero }
+    let state = { graph = t.graph; eventId = EventId.zero }
     let graph2 =
         ops
         |> List.fold (fun s op ->
@@ -183,7 +183,7 @@ let private requirePlan label r =
     | Error e -> failwith $"{label}: {e}"
 
 let private applyOps graph ops =
-    let state = { graph = graph; history = History.empty; revision = Revision.Zero }
+    let state = { graph = graph; eventId = EventId.zero }
     ops
     |> List.fold
         (fun s op ->

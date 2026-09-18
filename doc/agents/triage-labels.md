@@ -6,11 +6,12 @@ This file is the single source of truth for the **Status** list on every ticket.
 
 | Status | Meaning |
 | --- | --- |
-| `ready-for-agent` | Fully specified and ready for an AFK agent |
-| `ready-for-human` | Human implementation or judgment is required |
-| `needs-info` | Waiting for more information |
-| `blocked` | Waiting on a named dependency |
-| `done` | Work on this ticket is delivered |
+| `needs-info` | Get more information |
+| `defined` | Spec complete; implement when every Blocked-by ticket is `done`, or hold for those deps without Status `blocked` |
+| `defined` | Implement this unblocked, fully specified ticket |
+| `blocked` | Wait on an external or non-ticket dependency |
+| `coded` | Review the implementation |
+| `done` | Review approved this ticket |
 | `cancelled` | Reject or abandon this ticket |
 
-Takeable tickets are `ready-for-agent` or `ready-for-human`. Closed is `done` only. In-flight work keeps a takeable value until `done`. `cancelled` is reject or abandon of a ticket, not Stage `dead`. Keep `blocked` even when no live ticket uses it. Do not use `needs-triage`, `wontfix`, `open`, `resolved`, `claimed`, `closed`, `agent-done`, or `in-progress`. Do not use `dead` on a ticket; `dead` is a Stage.
+Each value names the next action, or a closed end. Use `defined` when the spec is complete. Do not use `blocked` when the only delay is linked `Blocked by:` tickets; hold for those deps with Status `defined`. `Blocked by:` is dependency order; Status is spec readiness. Use `defined` when a ticket has no blockers and needs no more information. Closed is `done` only. Implement writes `coded`. Review approval writes `done`. Git **agent-done** is not `coded` and not `done`. Do not write `ready-for-agent` or `ready-for-human` on new tickets. Existing tickets may still carry those values; do not rewrite them. `cancelled` is reject or abandon of a ticket, not Stage `dead`. Keep `blocked` even when no live ticket uses it. Do not use `needs-triage`, `wontfix`, `open`, `resolved`, `claimed`, `closed`, `agent-done`, or `in-progress`. Do not use `dead` on a ticket; `dead` is a Stage.

@@ -8,6 +8,7 @@ open System.Text
 open System.Threading.Tasks
 open Xunit
 open Gambol.Shared
+open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
 
 module Encode = Thoth.Json.Newtonsoft.Encode
@@ -25,14 +26,14 @@ let private decodeGraph json =
     | Ok graph -> graph
     | Error err -> failwith err
 
-let private decodeRevisionAndGraph json =
+let private decodeEventIdAndGraph json =
     let decoder =
         Thoth.Json.Core.Decode.object (fun get ->
-            let revision =
-                get.Required.Field "revision" Serialization.decodeRevision
+            let eventId =
+                get.Required.Field "eventId" EventJson.decodeEventId
             let graph =
                 get.Required.Field "graph" Serialization.decodeGraph
-            revision.Value, graph)
+            EventId.value eventId, graph)
 
     match Decode.fromString decoder json with
     | Ok pair -> pair
@@ -66,7 +67,7 @@ let private exactRawBatch =
     [
       {
         "id": 1130,
-        "changeId": "93a26b25-272f-4c48-916b-4045a2ba37a1",
+        "submissionId": "93a26b25-272f-4c48-916b-4045a2ba37a1",
         "ops": [
           {
             "type": "SetText",
@@ -86,7 +87,7 @@ let ``exact raw change array is rejected and server remains responsive`` () = ta
     use content = new StringContent(exactRawBatch, Encoding.UTF8, "application/json")
     use! response = client.PostAsync("/ambit/changes", content) |> timeout
     Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode)
-    let wrapped = """{"changes":""" + exactRawBatch + "}"
+    let wrapped = """{"events":""" + exactRawBatch + "}"
     use wrappedContent = new StringContent(wrapped, Encoding.UTF8, "application/json")
     use! wrappedResponse =
         client.PostAsync("/ambit/changes", wrappedContent) |> timeout
@@ -110,16 +111,19 @@ let ``SetText persists SYSTEM user css and server remains responsive`` () = task
     Assert.Equal(HttpStatusCode.OK, parseResponse.StatusCode)
     use! loadedResponse = client.GetAsync("/ambit/state?scope=full") |> timeout
     let! loadedJson = loadedResponse.Content.ReadAsStringAsync() |> timeout
-    let revision, graph = decodeRevisionAndGraph loadedJson
+    let _, graph = decodeEventIdAndGraph loadedJson
     let cssNodeId = graph.nodes.[fileId].children |> List.exactlyOne |> fun c -> c.id
     let change =
-        { id = revision
-          changeId = Guid.Parse("93a26b25-272f-4c48-916b-4045a2ba37a1")
-          ops = [ Op.SetText(cssNodeId, "block", "\"background\" : #fff") ] }
+        { id = EventId.zero
+          submissionId = Guid.Parse("93a26b25-272f-4c48-916b-4045a2ba37a1")
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [ Op.SetText(cssNodeId, "block", "\"background\" : #fff") ] }
+    let event = change
     let body =
         Encode.toString 0 (
-            Serialization.encodeChangeBatch
-                { changes = [ change ] })
+            EventJson.encodeEventBatch
+                { events = [ event ] })
     use content = new StringContent(body, Encoding.UTF8, "application/json")
     use! response = client.PostAsync("/ambit/changes", content) |> timeout
     Assert.Equal(HttpStatusCode.OK, response.StatusCode)
@@ -128,4 +132,31 @@ let ``SetText persists SYSTEM user css and server remains responsive`` () = task
         File.ReadAllText(Path.Combine(dataDir, "SYSTEM", "user.css")))
     use! stateResponse = client.GetAsync("/ambit/state") |> timeout
     Assert.Equal(HttpStatusCode.OK, stateResponse.StatusCode)
+}
+
+[<Fact>]
+let ``changes POST rejects non-zero EventId and admits zero`` () = task {
+    let dataDir = newTempDir ()
+    use client = createClientForDir dataDir
+    let _, zeroEvent = addRootChildEvent "zero-ok"
+    let zeroBody =
+        Encode.toString 0 (
+            EventJson.encodeEventBatch { events = [ zeroEvent ] })
+    use zeroContent =
+        new StringContent(zeroBody, Encoding.UTF8, "application/json")
+    use! zeroResponse =
+        client.PostAsync("/ambit/changes", zeroContent) |> timeout
+    Assert.Equal(HttpStatusCode.OK, zeroResponse.StatusCode)
+    let _, dirtyEvent = addRootChildEvent "nonzero"
+    let dirty = { dirtyEvent with id = EventIdFixtures.storedId 4 }
+    let dirtyBody =
+        Encode.toString 0 (
+            EventJson.encodeEventBatch { events = [ dirty ] })
+    use dirtyContent =
+        new StringContent(dirtyBody, Encoding.UTF8, "application/json")
+    use! dirtyResponse =
+        client.PostAsync("/ambit/changes", dirtyContent) |> timeout
+    Assert.Equal(HttpStatusCode.BadRequest, dirtyResponse.StatusCode)
+    let! dirtyJson = dirtyResponse.Content.ReadAsStringAsync() |> timeout
+    Assert.Contains("posted EventId must be zero", dirtyJson)
 }

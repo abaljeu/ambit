@@ -9,11 +9,13 @@
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="AuthTokenTests.fs" />
     <Compile Include="..\Shared.Tests\SpecialNodeTestHelpers.fs" Link="SpecialNodeTestHelpers.fs" />
+    <Compile Include="..\Shared.Tests\EventIdFixtures.fs" Link="EventIdFixtures.fs" />
     <Compile Include="HeadPresenceTests.fs" />
     <Compile Include="DataDirTests.fs" />
     <Compile Include="TestDbConfigTests.fs" />
     <Compile Include="DatabaseSetupTests.fs" />
     <Compile Include="TestBackend.fs" />
+    <Compile Include="TestActor.fs" />
     <Compile Include="DocumentPersistenceTests.fs" />
     <Compile Include="DocumentOpPersistenceTests.fs" />
     <Compile Include="DocumentPathMoveExecutionTests.fs" />
@@ -28,9 +30,17 @@
     <Compile Include="GraphOnlyChangePostTests.fs" />
     <Compile Include="CoreChangesTests.fs" />
     <Compile Include="CoreCredentialsTests.fs" />
+    <Compile Include="CredentialedChangePostsTests.fs" />
+    <Compile Include="CoreMsgActorCasesTests.fs" />
+    <Compile Include="CoreMailboxDoorTests.fs" />
+    <Compile Include="Issue41CoreMailboxTests.fs" />
+    <Compile Include="PersistApplyTests.fs" />
+    <Compile Include="PersistHandlersRestoreTests.fs" />
+    <Compile Include="ActorCoreChangesDoorTests.fs" />
     <Compile Include="CoreRuntimeTests.fs" />
     <Compile Include="BrowserCredentialTests.fs" />
     <Compile Include="CoreActorPoolTests.fs" />
+    <Compile Include="TestActorHelloTests.fs" />
     <Compile Include="GitSaveEndpointTests.fs" />
     <Compile Include="WorkspaceWebDavTests.fs" />
     <Compile Include="HttpResponseLogTests.fs" />

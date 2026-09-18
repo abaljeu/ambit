@@ -11,6 +11,7 @@ open Microsoft.Extensions.Configuration
 open Xunit
 open Gambol.Server
 open Gambol.Shared
+open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
 open SpecialNodeTestHelpers
 
@@ -24,9 +25,9 @@ let private decode decoder json =
     | Ok v -> v
     | Error err -> failwith $"Decode failed: {err}"
 
-let private decodeRevision json =
+let private decodeEventId json =
     Thoth.Json.Core.Decode.object (fun get ->
-        get.Required.Field "revision" Serialization.decodeRevision)
+        get.Required.Field "eventId" EventJson.decodeEventId)
     |> decode <| json
 
 let private decodeSuccess json =
@@ -41,10 +42,10 @@ let private decodeSuccess json =
 let private decodeAckChangeIds json =
     decodeSuccess json
     |> fun response ->
-        response.changes |> List.map (fun change -> change.changeId)
+        response.events |> List.map (fun change -> change.submissionId)
 
 let private decodeSuccessRevision json =
-    (decodeSuccess json).revision
+    (decodeSuccess json).eventId
 
 let private decodeSuccessExternalChanges json =
     (decodeSuccess json).externalChanges
@@ -84,47 +85,50 @@ let private getStateJsonFull (client: HttpClient) (_file: string) = task {
     return! resp.Content.ReadAsStringAsync()
 }
 
-let private encodeChangeBatchBody (changes: Change list) =
-    Encode.toString 0 (Serialization.encodeChangeBatch { changes = changes })
+let private encodeEventBatchBody (changes: Ev list) =
+    let events = changes 
+    Encode.toString 0 (EventJson.encodeEventBatch { events = events })
 
-/// POST /ambit/changes with a change and return the raw response.
-let private postChange (client: HttpClient) (_file: string) (change: Change) = task {
-    let body = encodeChangeBatchBody [ change ]
+/// POST /ambit/events with a change and return the raw response.
+let private postChange (client: HttpClient) (_file: string) (change: Ev) = task {
+    let body = encodeEventBatchBody [ change ]
     let content = new StringContent(body, Encoding.UTF8, "application/json")
-    return! client.PostAsync("/ambit/changes", content)
+    return! client.PostAsync("/ambit/events", content)
 }
 
-let private postChanges (client: HttpClient) (_file: string) (changes: Change list) = task {
-    let body = encodeChangeBatchBody changes
+let private postChanges (client: HttpClient) (_file: string) (changes: Ev list) = task {
+    let body = encodeEventBatchBody changes
     let content = new StringContent(body, Encoding.UTF8, "application/json")
-    return! client.PostAsync("/ambit/changes", content)
+    return! client.PostAsync("/ambit/events", content)
 }
 
 let private ownedChild (id: NodeId) : ChildNode list =
     ChildNode.owners [ id ]
 
-let private assertExactPrefix (submitted: Change) (confirmed: Change) =
-    Assert.Equal(submitted.changeId, confirmed.changeId)
+let private assertExactPrefix (submitted: Ev) (confirmed: Ev) =
+    Assert.Equal(submitted.submissionId, confirmed.submissionId)
     Assert.True(
-        confirmed.ops.Length >= submitted.ops.Length,
+        (eventOps confirmed).Length >= (eventOps submitted).Length,
         "confirmation must keep submitted ops as a prefix")
     Assert.Equal<Op list>(
-        submitted.ops,
-        List.take submitted.ops.Length confirmed.ops)
-    confirmed.ops
-    |> List.skip submitted.ops.Length
+        (eventOps submitted),
+        List.take (eventOps submitted).Length (eventOps confirmed))
+    (eventOps confirmed)
+    |> List.skip (eventOps submitted).Length
     |> List.iter (fun op ->
         match op with
         | Op.SetUpdateTime _ -> ()
         | _ -> failwith "stamp enrichment must be SetUpdateTime-only")
 
 /// Build a change (base revision `rev`) that adds one child under root; returns change + child id.
-let private changeAddChild (rootId: NodeId) (rev: int) (childText: string) : Change * NodeId =
+let private changeAddChild (rootId: NodeId) (_rev: int) (childText: string) : Ev * NodeId =
     let childId = NodeId.New()
     let c =
-        { id = rev
-          changeId = Guid.NewGuid()
-          ops =
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change
             [ Op.NewNode(childId, childText)
               Op.Replace(rootId, [], ownedChild childId) ] }
     c, childId
@@ -140,21 +144,20 @@ let private writeDocumentFiles (tempDir: string) (state: State) =
     |> function
         | Ok _ -> ()
         | Error err -> failwith err
-    match Bookkeeping.writeRevision tempDir state.revision.Value with
+    match Bookkeeping.writeEventId tempDir state.eventId with
     | Ok () -> ()
     | Error err -> failwith err
-    File.WriteAllText(Bookkeeping.logPath tempDir, "")
+    File.WriteAllText(EventLogFile.eventsPath tempDir, "")
 
 let private stateWithChild (text: string) =
     let initialState =
         { graph = Graph.create ()
-          history = History.empty
-          revision = Revision 0 }
+          eventId = EventId.zero }
 
     let change, _ = changeAddChild Graph.rootId 0 text
 
-    match History.applyChange change initialState with
-    | ApplyResult.Changed st -> { st with revision = Revision 1 }
+    match applyChange change initialState with
+    | ApplyResult.Changed st -> { st with eventId = EventIdFixtures.storedId 1 }
     | ApplyResult.Unchanged _ -> failwith "Expected file bootstrap change to apply"
     | ApplyResult.Invalid (_, err) -> failwith $"Expected valid bootstrap change: {err}"
 
@@ -185,7 +188,7 @@ let ``DB mode without connection serves read-only file fallback`` () = task {
     Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
 
     let! body = resp.Content.ReadAsStringAsync()
-    Assert.Equal(Revision 0, decodeRevision body)
+    Assert.Equal(EventId.zero, decodeEventId body)
 
     let rootId = (decodeGraph body).root
     let change, _ = changeAddChild rootId 0 "startup-file-fallback"
@@ -206,7 +209,7 @@ let ``DB mode without connection serves read-only file fallback`` () = task {
 let ``GET state returns revision 0 for fresh server`` (backend: BackendKind) =
     withClient backend (fun client -> task {
         let! json = getStateJson client testFile
-        Assert.Equal(Revision 0, decodeRevision json)
+        Assert.Equal(EventId.zero, decodeEventId json)
     })
 
 [<Theory; MemberData(nameof backends)>]
@@ -236,7 +239,7 @@ let ``user css is served from canonical SYSTEM path`` () = task {
     Assert.Equal("canonical", css)
 }
 
-// ---- POST /ambit/changes tests (parameterised) ----
+// ---- POST /ambit/events tests (parameterised) ----
 
 [<Theory; MemberData(nameof backends)>]
 let ``POST Change and inverse Changes return complete confirmations in request order``
@@ -245,21 +248,21 @@ let ``POST Change and inverse Changes return complete confirmations in request o
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let change, childId = changeAddChild rootId 0 "history-action"
-        let undo = Change.inverse (Revision 1) (Guid.NewGuid()) change
-        let redo = Change.inverse (Revision 2) (Guid.NewGuid()) undo
+        let undo = inverseEvent EventId.zero (Guid.NewGuid()) change
+        let redo = inverseEvent EventId.zero (Guid.NewGuid()) undo
         let! response = postChanges client testFile [ change; undo; redo ]
         Assert.Equal(HttpStatusCode.OK, response.StatusCode)
         let! ackJson = response.Content.ReadAsStringAsync()
         let post = decodeSuccess ackJson
-        Assert.Equal(Revision 3, post.revision)
+        Assert.True(EventId.isAccepted post.eventId)
         Assert.True(post.buildEpochSec > 0)
         Assert.True(post.pageBuildEpochSec > 0)
         Assert.True(post.isReady)
         Assert.False(post.externalChanges)
         Assert.Equal<Guid list>(
-            [ change.changeId; undo.changeId; redo.changeId ],
-            post.changes |> List.map (fun confirmed -> confirmed.changeId))
-        List.iter2 assertExactPrefix [ change; undo; redo ] post.changes
+            [ change.submissionId; undo.submissionId; redo.submissionId ],
+            post.events |> List.map (fun confirmed -> confirmed.submissionId))
+        List.iter2 assertExactPrefix [ change; undo; redo ] (post.events )
         let! stateJson = getStateJson client testFile
         Assert.Equal("history-action", (decodeGraph stateJson).nodes.[childId].text)
         let! pollResponse = client.GetAsync("/ambit/poll?rev=0")
@@ -268,12 +271,13 @@ let ``POST Change and inverse Changes return complete confirmations in request o
             decode
                 ApiResponseSerialization.decodeChangeSuccessResponseDecoder
                 pollJson
-        Assert.Equal(Revision 3, poll.revision)
+        Assert.Equal(post.eventId, poll.eventId)
         Assert.True(poll.buildEpochSec > 0)
         Assert.True(poll.pageBuildEpochSec > 0)
         Assert.True(poll.isReady)
         Assert.True(poll.externalChanges)
-        Assert.Equal<Change list>(post.changes, poll.changes)
+        // Poll is EventLog.since: newest-head. ACK keeps request order.
+        Assert.Equal<Ev list>(List.rev post.events, poll.events)
     })
 
 [<Fact>]
@@ -282,15 +286,17 @@ let ``file backend large paste inverse total response is measured`` () = task {
     let children =
         List.init 2000 (fun _ -> ChildNode.owner (NodeId.New()))
     let paste =
-        { id = 0
-          changeId = Guid.NewGuid()
-          ops =
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change
             [ for i, child in List.indexed children ->
                 Op.NewNode(child.id, "line " + string i)
               yield Op.Replace(Graph.workspacesId, [], children) ] }
     let! pasteResp = postChange client testFile paste
     Assert.Equal(HttpStatusCode.OK, pasteResp.StatusCode)
-    let inverse = Change.inverse (Revision 1) (Guid.NewGuid()) paste
+    let inverse = inverseEvent EventId.zero (Guid.NewGuid()) paste
     let sw = System.Diagnostics.Stopwatch.StartNew()
     let! inverseResp = postChange client testFile inverse
     sw.Stop()
@@ -304,27 +310,29 @@ let ``file backend large paste inverse total response is measured`` () = task {
 let ``POST explicit Undo JSON is rejected`` (backend: BackendKind) =
     withClient backend (fun client -> task {
         let body =
-            """{"changes":[{"action":"undo","id":0,"changeId":"00000000-0000-0000-0000-000000000001"}]}"""
+            """{"events":[{"id":0,"submissionId":"00000000-0000-0000-0000-000000000001","authority":"","commandName":"","body":{"Change":[]}}]}"""
         use content = new StringContent(body, Encoding.UTF8, "application/json")
-        let! response = client.PostAsync("/ambit/changes", content)
+        let! response = client.PostAsync("/ambit/events", content)
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode)
         let! stateJson = getStateJson client testFile
-        Assert.Equal(Revision 0, decodeRevision stateJson)
+        Assert.Equal(EventId.zero, decodeEventId stateJson)
     })
 
 [<Theory; MemberData(nameof backends)>]
 let ``POST unchanged submission is rejected`` (backend: BackendKind) =
     withClient backend (fun client -> task {
         let noOp =
-            { id = 0
-              changeId = Guid.NewGuid()
-              ops = [] }
+            { id = EventId.zero
+              submissionId = Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change [] }
         let! response = postChange client testFile noOp
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode)
         let! body = response.Content.ReadAsStringAsync()
         Assert.Contains("Unchanged", body)
         let! stateJson = getStateJson client testFile
-        Assert.Equal(Revision 0, decodeRevision stateJson)
+        Assert.Equal(EventId.zero, decodeEventId stateJson)
     })
 
 [<Fact>]
@@ -333,9 +341,9 @@ let ``POST changes accepts X-Gambol-Client header`` () = task {
     let! json0 = getStateJson client testFile
     let rootId = (decodeGraph json0).root
     let change, _ = changeAddChild rootId 0 "hinted"
-    let body = encodeChangeBatchBody [ change ]
+    let body = encodeEventBatchBody [ change ]
     use content = new StringContent(body, Encoding.UTF8, "application/json")
-    use req = new HttpRequestMessage(HttpMethod.Post, "/ambit/changes")
+    use req = new HttpRequestMessage(HttpMethod.Post, "/ambit/events")
     req.Content <- content
     req.Headers.TryAddWithoutValidation(
         ClientIdentity.HeaderName,
@@ -354,13 +362,18 @@ let ``POST changes SetText changes child text and bumps revision`` (backend: Bac
         let! r0 = postChange client testFile change0
         Assert.Equal(HttpStatusCode.OK, r0.StatusCode)
 
-        let change = { id = 1; changeId = Guid.NewGuid(); ops = [ Op.SetText(childId, "", "hello") ] }
+        let change =
+            { id = EventId.zero
+              submissionId = Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change [ Op.SetText(childId, "", "hello") ] }
         let! resp = postChange client testFile change
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
 
         let! postBody = resp.Content.ReadAsStringAsync()
-        Assert.Equal(Revision 2, decodeSuccessRevision postBody)
-        Assert.Equal<Guid list>([ change.changeId ], decodeAckChangeIds postBody)
+        Assert.True(EventId.isAccepted (decodeSuccessRevision postBody))
+        Assert.Equal<Guid list>([ change.submissionId ], decodeAckChangeIds postBody)
 
         let! json = getStateJson client testFile
         let graph = decodeGraph json
@@ -375,9 +388,11 @@ let ``POST changes NewNode+Replace adds child to root`` (backend: BackendKind) =
         let childId = NodeId.New()
 
         let change =
-            { id = 0
-              changeId = Guid.NewGuid()
-              ops =
+            { id = EventId.zero
+              submissionId = Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change
                 [ Op.NewNode(childId, "child")
                   Op.Replace(rootId, [], [ ChildNode.owner childId ]) ] }
 
@@ -385,8 +400,8 @@ let ``POST changes NewNode+Replace adds child to root`` (backend: BackendKind) =
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
 
         let! postBody = resp.Content.ReadAsStringAsync()
-        Assert.Equal(Revision 1, decodeSuccessRevision postBody)
-        Assert.Equal<Guid list>([ change.changeId ], decodeAckChangeIds postBody)
+        Assert.True(EventId.isAccepted (decodeSuccessRevision postBody))
+        Assert.Equal<Guid list>([ change.submissionId ], decodeAckChangeIds postBody)
 
         let! json = getStateJson client testFile
         let graph = decodeGraph json
@@ -400,7 +415,7 @@ let ``POST changes with invalid JSON returns 400`` (backend: BackendKind) =
     withClient backend (fun client -> task {
         let! _ = getStateJson client testFile
         let content = new StringContent("not json", Encoding.UTF8, "application/json")
-        let! resp = client.PostAsync("/ambit/changes", content)
+        let! resp = client.PostAsync("/ambit/events", content)
         Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode)
     })
 
@@ -409,7 +424,12 @@ let ``POST changes with bad op returns 400`` (backend: BackendKind) =
     withClient backend (fun client -> task {
         let! _ = getStateJson client testFile
         let bogusId = NodeId.New()
-        let change = { id = 0; changeId = Guid.NewGuid(); ops = [ Op.SetText(bogusId, "wrong", "new") ] }
+        let change =
+            { id = EventId.zero
+              submissionId = Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change [ Op.SetText(bogusId, "wrong", "new") ] }
         let! resp = postChange client testFile change
         Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode)
         let! body = resp.Content.ReadAsStringAsync()
@@ -426,12 +446,17 @@ let ``POST changes twice bumps revision to 2`` (backend: BackendKind) =
         let! resp1 = postChange client testFile change1
         Assert.Equal(HttpStatusCode.OK, resp1.StatusCode)
 
-        let change2 = { id = 1; changeId = Guid.NewGuid(); ops = [ Op.SetText(childId, "first", "second") ] }
+        let change2 =
+            { id = EventId.zero
+              submissionId = Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change [ Op.SetText(childId, "first", "second") ] }
         let! resp2 = postChange client testFile change2
         Assert.Equal(HttpStatusCode.OK, resp2.StatusCode)
 
         let! postBody2 = resp2.Content.ReadAsStringAsync()
-        Assert.Equal(Revision 2, decodeSuccessRevision postBody2)
+        Assert.True(EventId.isAccepted (decodeSuccessRevision postBody2))
 
         let! json = getStateJson client testFile
         let g = decodeGraph json
@@ -445,17 +470,19 @@ let ``POST changes batch with two changes bumps revision to 2`` (backend: Backen
         let rootId = (decodeGraph json0).root
         let change1, childId = changeAddChild rootId 0 "first"
         let change2 =
-            { id = 1
-              changeId = Guid.NewGuid()
-              ops = [ Op.SetText(childId, "first", "second") ] }
+            { id = EventId.zero
+              submissionId = Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change [ Op.SetText(childId, "first", "second") ] }
 
         let! resp = postChanges client testFile [ change1; change2 ]
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
 
         let! postBody = resp.Content.ReadAsStringAsync()
-        Assert.Equal(Revision 2, decodeSuccessRevision postBody)
+        Assert.True(EventId.isAccepted (decodeSuccessRevision postBody))
         Assert.Equal<Guid list>(
-            [ change1.changeId; change2.changeId ],
+            [ change1.submissionId; change2.submissionId ],
             decodeAckChangeIds postBody)
 
         let! json = getStateJson client testFile
@@ -464,30 +491,37 @@ let ``POST changes batch with two changes bumps revision to 2`` (backend: Backen
     })
 
 [<Theory; MemberData(nameof backends)>]
-let ``POST changes batch with bad second change leaves state unchanged`` (backend: BackendKind) =
+let ``POST changes batch with bad second change keeps earlier items``
+    (backend: BackendKind)
+    =
     withClient backend (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let change1, childId = changeAddChild rootId 0 "first"
         let bad =
-            { id = 1
-              changeId = Guid.NewGuid()
-              ops = [ Op.SetText(NodeId.New(), "old", "new") ] }
+            { id = EventId.zero
+              submissionId = Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change [ Op.SetText(NodeId.New(), "old", "new") ] }
 
         let! resp = postChanges client testFile [ change1; bad ]
         Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode)
 
         let! json = getStateJson client testFile
-        Assert.Equal(Revision 0, decodeRevision json)
-        Assert.False((decodeGraph json).nodes.ContainsKey childId)
+        Assert.True(EventId.isAccepted (decodeEventId json))
+        Assert.True((decodeGraph json).nodes.ContainsKey childId)
+        Assert.Equal("first", (decodeGraph json).nodes.[childId].text)
         let! pollResponse = client.GetAsync("/ambit/poll?rev=0")
         let! pollJson = pollResponse.Content.ReadAsStringAsync()
         let poll =
             decode
                 ApiResponseSerialization.decodeChangeSuccessResponseDecoder
                 pollJson
-        Assert.False(poll.externalChanges)
-        Assert.Empty(poll.changes)
+        Assert.True(poll.externalChanges)
+        Assert.Equal<Guid list>(
+            [ change1.submissionId ],
+            poll.events |> List.map (fun change -> change.submissionId))
     })
 
 [<Theory; MemberData(nameof backends)>]
@@ -499,25 +533,31 @@ let ``POST changes persists in GET state`` (backend: BackendKind) =
         let! _ = postChange client testFile c0
         let! _ =
             postChange client testFile
-                { id = 1; changeId = Guid.NewGuid(); ops = [ Op.SetText(childId, "", "persisted") ] }
+                { id = EventId.zero
+                  submissionId = Guid.NewGuid()
+                  authority = Authority "Browser"
+                  commandName = ""
+                  body = EventBody.Change [ Op.SetText(childId, "", "persisted") ] }
 
         let! json = getStateJson client testFile
-        Assert.Equal(Revision 2, decodeRevision json)
+        Assert.True(EventId.isAccepted (decodeEventId json))
         let g = decodeGraph json
         Assert.Equal("persisted", g.nodes.[childId].text)
     })
 
 [<Theory; MemberData(nameof backends)>]
-let ``POST same changeId twice is idempotent`` (backend: BackendKind) =
+let ``POST same submissionId twice is idempotent`` (backend: BackendKind) =
     withClient backend (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let cid = Guid.NewGuid()
         let childId = NodeId.New()
         let change =
-            { id = 0
-              changeId = cid
-              ops =
+            { id = EventId.zero
+              submissionId = cid
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change
                 [ Op.NewNode(childId, "once")
                   Op.Replace(rootId, [], ownedChild childId) ] }
 
@@ -525,21 +565,21 @@ let ``POST same changeId twice is idempotent`` (backend: BackendKind) =
         Assert.Equal(HttpStatusCode.OK, r1.StatusCode)
         let! b1 = r1.Content.ReadAsStringAsync()
         Assert.DoesNotContain("graph", b1, StringComparison.Ordinal)
-        Assert.Equal(Revision 1, decodeSuccessRevision b1)
+        Assert.True(EventId.isAccepted (decodeSuccessRevision b1))
         Assert.Equal<Guid list>([ cid ], decodeAckChangeIds b1)
 
         let! r2 = postChange client testFile change
         Assert.Equal(HttpStatusCode.OK, r2.StatusCode)
         let! b2 = r2.Content.ReadAsStringAsync()
         Assert.DoesNotContain("graph", b2, StringComparison.Ordinal)
-        Assert.Equal(Revision 1, decodeSuccessRevision b2)
+        Assert.True(EventId.isAccepted (decodeSuccessRevision b2))
         Assert.Equal<Guid list>([ cid ], decodeAckChangeIds b2)
-        Assert.Equal<Change list>(
-            (decodeSuccess b1).changes,
-            (decodeSuccess b2).changes)
+        Assert.Equal<Ev list>(
+            (decodeSuccess b1).events,
+            (decodeSuccess b2).events)
 
         let! json = getStateJson client testFile
-        Assert.Equal(Revision 1, decodeRevision json)
+        Assert.True(EventId.isAccepted (decodeEventId json))
         Assert.Equal("once", (decodeGraph json).nodes.[childId].text)
     })
 
@@ -553,18 +593,20 @@ let ``POST with stale base revision and valid SetText succeeds`` (backend: Backe
         Assert.Equal(HttpStatusCode.OK, r0.StatusCode)
 
         let stale =
-            { id = 5
-              changeId = Guid.NewGuid()
-              ops = [ Op.SetText(childId, "", "x") ] }
+            { id = EventId.zero
+              submissionId = Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change [ Op.SetText(childId, "", "x") ] }
         let! resp = postChange client testFile stale
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
 
         let! postBody = resp.Content.ReadAsStringAsync()
-        Assert.Equal(Revision 2, decodeSuccessRevision postBody)
-        Assert.Equal<Guid list>([ stale.changeId ], decodeAckChangeIds postBody)
+        Assert.True(EventId.isAccepted (decodeSuccessRevision postBody))
+        Assert.Equal<Guid list>([ stale.submissionId ], decodeAckChangeIds postBody)
 
         let! json = getStateJson client testFile
-        Assert.Equal(Revision 2, decodeRevision json)
+        Assert.True(EventId.isAccepted (decodeEventId json))
         Assert.Equal("x", (decodeGraph json).nodes.[childId].text)
     })
 
@@ -583,9 +625,11 @@ let ``POST unrelated attribute edits with stale revision both succeed``
         let rootChildren = (decodeGraph json1).nodes.[rootId].children
         let nodeY = NodeId.New()
         let setupY =
-            { id = 1
-              changeId = Guid.NewGuid()
-              ops =
+            { id = EventId.zero
+              submissionId = Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change
                 [ Op.NewNode(nodeY, "y0")
                   Op.Replace(
                       rootId,
@@ -597,26 +641,30 @@ let ``POST unrelated attribute edits with stale revision both succeed``
         Assert.Equal(HttpStatusCode.OK, rY.StatusCode)
 
         let changeA =
-            { id = 2
-              changeId = Guid.NewGuid()
-              ops = [ Op.SetText(nodeY, "y0", "yA") ] }
+            { id = EventId.zero
+              submissionId = Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change [ Op.SetText(nodeY, "y0", "yA") ] }
         let! rA = postChange client testFile changeA
         Assert.Equal(HttpStatusCode.OK, rA.StatusCode)
 
         let changeB =
-            { id = 2
-              changeId = Guid.NewGuid()
-              ops = [ Op.SetText(nodeX, "x0", "xB") ] }
+            { id = EventId.zero
+              submissionId = Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change [ Op.SetText(nodeX, "x0", "xB") ] }
         let! rB = postChange client testFile changeB
         Assert.Equal(HttpStatusCode.OK, rB.StatusCode)
 
         let! postBody = rB.Content.ReadAsStringAsync()
-        Assert.Equal(Revision 4, decodeSuccessRevision postBody)
-        Assert.Equal<Guid list>([ changeB.changeId ], decodeAckChangeIds postBody)
+        Assert.True(EventId.isAccepted (decodeSuccessRevision postBody))
+        Assert.Equal<Guid list>([ changeB.submissionId ], decodeAckChangeIds postBody)
 
         let! json = getStateJson client testFile
         let g = decodeGraph json
-        Assert.Equal(Revision 4, decodeRevision json)
+        Assert.True(EventId.isAccepted (decodeEventId json))
         Assert.Equal("xB", g.nodes.[nodeX].text)
         Assert.Equal("yA", g.nodes.[nodeY].text)
     })
@@ -633,27 +681,31 @@ let ``POST concurrent stale text Changes amend second as amb-conflict child``
         Assert.Equal(HttpStatusCode.OK, r0.StatusCode)
 
         let changeA =
-            { id = 1
-              changeId = Guid.NewGuid()
-              ops = [ Op.SetText(nodeX, "x0", "xA") ] }
+            { id = EventId.zero
+              submissionId = Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change [ Op.SetText(nodeX, "x0", "xA") ] }
         let! rA = postChange client testFile changeA
         Assert.Equal(HttpStatusCode.OK, rA.StatusCode)
 
         let changeB =
-            { id = 1
-              changeId = Guid.NewGuid()
-              ops = [ Op.SetText(nodeX, "x0", "xB") ] }
+            { id = EventId.zero
+              submissionId = Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change [ Op.SetText(nodeX, "x0", "xB") ] }
         let! rB = postChange client testFile changeB
         Assert.Equal(HttpStatusCode.OK, rB.StatusCode)
 
         let! postBody = rB.Content.ReadAsStringAsync()
-        Assert.Equal(Revision 3, decodeSuccessRevision postBody)
-        Assert.Equal<Guid list>([ changeB.changeId ], decodeAckChangeIds postBody)
+        Assert.True(EventId.isAccepted (decodeSuccessRevision postBody))
+        Assert.Equal<Guid list>([ changeB.submissionId ], decodeAckChangeIds postBody)
         Assert.True(decodeSuccessExternalChanges postBody)
 
         let! json = getStateJson client testFile
         let g = decodeGraph json
-        Assert.Equal(Revision 3, decodeRevision json)
+        Assert.True(EventId.isAccepted (decodeEventId json))
         Assert.Equal("xA", g.nodes.[nodeX].text)
         assertAmbConflictFirstChild g nodeX "xB"
     })
@@ -667,9 +719,11 @@ let ``POST concurrent stale name Changes amend second as amb-conflict child``
         let rootId = (decodeGraph json0).root
         let nodeId = NodeId.New()
         let setup =
-            { id = 0
-              changeId = Guid.NewGuid()
-              ops =
+            { id = EventId.zero
+              submissionId = Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change
                 [ Op.NewNode(nodeId, "body")
                   Op.SetName(nodeId, "", "alpha")
                   Op.Replace(rootId, [], ownedChild nodeId) ] }
@@ -677,16 +731,20 @@ let ``POST concurrent stale name Changes amend second as amb-conflict child``
         Assert.Equal(HttpStatusCode.OK, r0.StatusCode)
 
         let changeA =
-            { id = 1
-              changeId = Guid.NewGuid()
-              ops = [ Op.SetName(nodeId, "alpha", "nameA") ] }
+            { id = EventId.zero
+              submissionId = Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change [ Op.SetName(nodeId, "alpha", "nameA") ] }
         let! rA = postChange client testFile changeA
         Assert.Equal(HttpStatusCode.OK, rA.StatusCode)
 
         let changeB =
-            { id = 1
-              changeId = Guid.NewGuid()
-              ops = [ Op.SetName(nodeId, "alpha", "nameB") ] }
+            { id = EventId.zero
+              submissionId = Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change [ Op.SetName(nodeId, "alpha", "nameB") ] }
         let! rB = postChange client testFile changeB
         Assert.Equal(HttpStatusCode.OK, rB.StatusCode)
 
@@ -709,9 +767,11 @@ let ``POST concurrent stale class Changes merge set delta and succeed``
         let nodeId = NodeId.New()
         let prior = CssClass.ofList [ "a"; "b" ]
         let setup =
-            { id = 0
-              changeId = Guid.NewGuid()
-              ops =
+            { id = EventId.zero
+              submissionId = Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change
                 [ Op.NewNode(nodeId, "tagged")
                   Op.SetClasses(nodeId, CssClass.empty, prior)
                   Op.Replace(rootId, [], ownedChild nodeId) ] }
@@ -719,16 +779,20 @@ let ``POST concurrent stale class Changes merge set delta and succeed``
         Assert.Equal(HttpStatusCode.OK, r0.StatusCode)
 
         let changeA =
-            { id = 1
-              changeId = Guid.NewGuid()
-              ops = [ Op.SetClasses(nodeId, prior, CssClass.ofList [ "b" ]) ] }
+            { id = EventId.zero
+              submissionId = Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change [ Op.SetClasses(nodeId, prior, CssClass.ofList [ "b" ]) ] }
         let! rA = postChange client testFile changeA
         Assert.Equal(HttpStatusCode.OK, rA.StatusCode)
 
         let changeB =
-            { id = 1
-              changeId = Guid.NewGuid()
-              ops =
+            { id = EventId.zero
+              submissionId = Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change
                 [ Op.SetClasses(nodeId, prior, CssClass.ofList [ "a"; "b"; "c" ]) ] }
         let! rB = postChange client testFile changeB
         Assert.Equal(HttpStatusCode.OK, rB.StatusCode)
@@ -752,9 +816,11 @@ let ``POST unrelated structural edits with stale revision both succeed``
         let parentP1 = NodeId.New()
         let parentP2 = NodeId.New()
         let setupParents =
-            { id = 0
-              changeId = Guid.NewGuid()
-              ops =
+            { id = EventId.zero
+              submissionId = Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change
                 [ Op.NewNode(parentP1, "p1")
                   Op.NewNode(parentP2, "p2")
                   Op.Replace(rootId, [], [ ChildNode.owner parentP1; ChildNode.owner parentP2 ]) ] }
@@ -763,9 +829,11 @@ let ``POST unrelated structural edits with stale revision both succeed``
 
         let childA = NodeId.New()
         let changeA =
-            { id = 1
-              changeId = Guid.NewGuid()
-              ops =
+            { id = EventId.zero
+              submissionId = Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change
                 [ Op.NewNode(childA, "a")
                   Op.Replace(parentP1, [], ownedChild childA) ] }
         let! rA = postChange client testFile changeA
@@ -773,21 +841,23 @@ let ``POST unrelated structural edits with stale revision both succeed``
 
         let childB = NodeId.New()
         let changeB =
-            { id = 1
-              changeId = Guid.NewGuid()
-              ops =
+            { id = EventId.zero
+              submissionId = Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change
                 [ Op.NewNode(childB, "b")
                   Op.Replace(parentP2, [], ownedChild childB) ] }
         let! rB = postChange client testFile changeB
         Assert.Equal(HttpStatusCode.OK, rB.StatusCode)
 
         let! postBody = rB.Content.ReadAsStringAsync()
-        Assert.Equal(Revision 3, decodeSuccessRevision postBody)
-        Assert.Equal<Guid list>([ changeB.changeId ], decodeAckChangeIds postBody)
+        Assert.True(EventId.isAccepted (decodeSuccessRevision postBody))
+        Assert.Equal<Guid list>([ changeB.submissionId ], decodeAckChangeIds postBody)
 
         let! json = getStateJson client testFile
         let g = decodeGraph json
-        Assert.Equal(Revision 3, decodeRevision json)
+        Assert.True(EventId.isAccepted (decodeEventId json))
         Assert.Equal<ChildNode list>(
             ownedChild childA,
             g.nodes.[parentP1].children)
@@ -806,9 +876,11 @@ let ``POST same-parent structural collision amends and succeeds``
         let parentP = NodeId.New()
         let child0 = NodeId.New()
         let setup =
-            { id = 0
-              changeId = Guid.NewGuid()
-              ops =
+            { id = EventId.zero
+              submissionId = Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change
                 [ Op.NewNode(parentP, "p")
                   Op.NewNode(child0, "c0")
                   Op.Replace(rootId, [], ownedChild parentP)
@@ -818,9 +890,11 @@ let ``POST same-parent structural collision amends and succeeds``
 
         let childA = NodeId.New()
         let changeA =
-            { id = 1
-              changeId = Guid.NewGuid()
-              ops =
+            { id = EventId.zero
+              submissionId = Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change
                 [ Op.NewNode(childA, "a")
                   Op.Replace(parentP, ownedChild child0, ownedChild childA) ] }
         let! rA = postChange client testFile changeA
@@ -828,9 +902,11 @@ let ``POST same-parent structural collision amends and succeeds``
 
         let childB = NodeId.New()
         let changeB =
-            { id = 1
-              changeId = Guid.NewGuid()
-              ops =
+            { id = EventId.zero
+              submissionId = Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change
                 [ Op.NewNode(childB, "b")
                   Op.Replace(parentP, ownedChild child0, ownedChild childB) ] }
         let! rB = postChange client testFile changeB
@@ -840,7 +916,7 @@ let ``POST same-parent structural collision amends and succeeds``
 
         let! json = getStateJson client testFile
         let g = decodeGraph json
-        Assert.Equal(Revision 3, decodeRevision json)
+        Assert.True(EventId.isAccepted (decodeEventId json))
         let children = g.nodes.[parentP].children
         Assert.Equal(2, children.Length)
         Assert.Contains(ownedChild childA |> List.head, children)
@@ -848,7 +924,7 @@ let ``POST same-parent structural collision amends and succeeds``
     })
 
 [<Theory; MemberData(nameof backends)>]
-let ``POST duplicate changeId with stale revision stays idempotent``
+let ``POST duplicate submissionId with stale revision stays idempotent``
     (backend: BackendKind)
     =
     withClient backend (fun client -> task {
@@ -857,9 +933,11 @@ let ``POST duplicate changeId with stale revision stays idempotent``
         let cid = Guid.NewGuid()
         let childId = NodeId.New()
         let change =
-            { id = 0
-              changeId = cid
-              ops =
+            { id = EventId.zero
+              submissionId = cid
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change
                 [ Op.NewNode(childId, "once")
                   Op.Replace(rootId, [], ownedChild childId) ] }
 
@@ -873,12 +951,12 @@ let ``POST duplicate changeId with stale revision stays idempotent``
         let! r2 = postChange client testFile change
         Assert.Equal(HttpStatusCode.OK, r2.StatusCode)
         let! b2 = r2.Content.ReadAsStringAsync()
-        Assert.Equal(Revision 2, decodeSuccessRevision b2)
+        Assert.True(EventId.isAccepted (decodeSuccessRevision b2))
         Assert.Equal<Guid list>([ cid ], decodeAckChangeIds b2)
 
         let! json = getStateJson client testFile
         let g = decodeGraph json
-        Assert.Equal(Revision 2, decodeRevision json)
+        Assert.True(EventId.isAccepted (decodeEventId json))
         Assert.Equal("once", g.nodes.[childId].text)
         Assert.Equal("other", g.nodes.[otherId].text)
     })
@@ -886,12 +964,19 @@ let ``POST duplicate changeId with stale revision stays idempotent``
 // ---- Change log + persistence tests (file backend only) ----
 
 /// Submit a NewNode+Replace that adds a child with the given text under root.
-let private addChild (client: HttpClient) (file: string) (rootId: NodeId) (rev: Revision) (text: string) = task {
-    let change, childId = changeAddChild rootId rev.Value text
-    let! resp = postChange client file change
-    Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
-    return childId
-}
+let private addChild
+    (client: HttpClient)
+    (file: string)
+    (rootId: NodeId)
+    (rev: EventId)
+    (text: string)
+    =
+    task {
+        let change, childId = changeAddChild rootId rev.Value text
+        let! resp = postChange client file change
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
+        return childId
+    }
 
 [<Fact>]
 let ``POST changes creates log file`` () = task {
@@ -900,10 +985,10 @@ let ``POST changes creates log file`` () = task {
     let! json0 = getStateJson client testFile
     let rootId = (decodeGraph json0).root
 
-    let! _ = addChild client testFile rootId (Revision 0) "logged"
+    let! _ = addChild client testFile rootId (EventId.zero) "logged"
 
-    let logPath = Bookkeeping.logPath tempDir
-    Assert.True(File.Exists(logPath), "Log file should exist after first change")
+    let logPath = EventLogFile.eventsPath tempDir
+    Assert.True(File.Exists(logPath), "Events file should exist after first change")
     let content = readFileShared logPath
     Assert.Contains("logged", content)
 }
@@ -915,7 +1000,7 @@ let ``Snapshot writes amb artifacts asynchronously after change`` () = task {
     let! json0 = getStateJson client testFile
     let rootId = (decodeGraph json0).root
 
-    let! _ = addChild client testFile rootId (Revision 0) "snapped"
+    let! _ = addChild client testFile rootId (EventId.zero) "snapped"
 
     do! Task.Delay(500)
 
@@ -937,13 +1022,15 @@ let ``Log contains valid change data after POST`` () = task {
     let! json0 = getStateJson client testFile
     let rootId = (decodeGraph json0).root
 
-    let! _ = addChild client testFile rootId (Revision 0) "logged-entry"
+    let! _ = addChild client testFile rootId (EventId.zero) "logged-entry"
 
-    let logPath = Bookkeeping.logPath tempDir
+    let logPath = EventLogFile.eventsPath tempDir
     Assert.True(File.Exists(logPath))
     let content = readFileShared logPath
     Assert.Contains("logged-entry", content)
-    Assert.True(content.StartsWith("00000000"), "Log entry should have 8-digit padded change id prefix")
+    Assert.True(
+        content.StartsWith("00000001"),
+        "Log entry should have 8-digit padded id prefix")
 }
 
 // ---- DB restart tests (DB backend only) ----
@@ -958,7 +1045,7 @@ let ``DB is present in db mode`` () = task {
     let change, _ = changeAddChild rootId 0 "probe"
     let! r1 = postChange client1 testFile change
     Assert.Equal(HttpStatusCode.OK, r1.StatusCode)
-    let! rows = Database.getChangesAfterCheckpointRevision connStr 0 |> Async.AwaitTask
+    let! rows = Database.getEventsAfter connStr 0 |> Async.AwaitTask
     Assert.Equal(1, rows.Length)
 }
 
@@ -973,7 +1060,7 @@ let ``DB rows persist after agent cache reset`` () = task {
     let! r1 = postChange client1 testFile change
     Assert.Equal(HttpStatusCode.OK, r1.StatusCode)
     DatabaseSetup.resetAgentCacheForTest ()
-    let! rows = Database.getChangesAfterCheckpointRevision connStr 0 |> Async.AwaitTask
+    let! rows = Database.getEventsAfter connStr 0 |> Async.AwaitTask
     Assert.Equal(1, rows.Length)
 }
 
@@ -987,10 +1074,10 @@ let ``DB rows survive second server startup without DB reset`` () = task {
     let change, _ = changeAddChild rootId 0 "probe"
     let! r1 = postChange client1 testFile change
     Assert.Equal(HttpStatusCode.OK, r1.StatusCode)
-    let! rowsBefore = Database.getChangesAfterCheckpointRevision connStr 0 |> Async.AwaitTask
+    let! rowsBefore = Database.getEventsAfter connStr 0 |> Async.AwaitTask
     Assert.Equal(1, rowsBefore.Length)
     use client2 = createDbClientNoReset connStr
-    let! rowsAfter = Database.getChangesAfterCheckpointRevision connStr 0 |> Async.AwaitTask
+    let! rowsAfter = Database.getEventsAfter connStr 0 |> Async.AwaitTask
     Assert.Equal(1, rowsAfter.Length)
 }
 
@@ -1004,7 +1091,7 @@ let ``DB authority does not import files when database is empty`` () = task {
 
     use client = createDbClientForDir connStr tempDir
     let! json = getStateJson client testFile
-    Assert.Equal(Revision 0, decodeRevision json)
+    Assert.Equal(EventId.zero, decodeEventId json)
     Assert.DoesNotContain((0, "from-file-bootstrap"), userTreeShape (decodeGraph json))
 }
 
@@ -1018,7 +1105,7 @@ let ``file mode startup imports files when database is empty`` () = task {
 
     use client = createFileModeWithDbClientForDir connStr tempDir
     let! json = getStateJson client testFile
-    Assert.Equal(Revision 1, decodeRevision json)
+    Assert.True(EventId.isAccepted (decodeEventId json))
     Assert.Contains((0, "from-file-bootstrap"), userTreeShape (decodeGraph json))
 }
 
@@ -1035,7 +1122,7 @@ let ``DB restart preserves NodeIds`` () = task {
     use client2 = createDbClientNoReset connStr
     let! json2 = getStateJson client2 testFile
     let graph2 = decodeGraph json2
-    Assert.Equal(Revision 1, decodeRevision json2)
+    Assert.True(EventId.isAccepted (decodeEventId json2))
     Assert.True(graph2.nodes.ContainsKey childId, "NodeId must survive restart")
     Assert.Equal("db-restart-child", graph2.nodes.[childId].text)
 }
@@ -1053,7 +1140,7 @@ let ``DB restart does not replay log when projection is cleared`` () = task {
     let change2, childId2 = changeAddChild rootId 1 "second"
     let! r2 = postChange client1 testFile change2
     Assert.Equal(HttpStatusCode.OK, r2.StatusCode)
-    let! logRows = Database.getChangesAfterCheckpointRevision connStr 0 |> Async.AwaitTask
+    let! logRows = Database.getEventsAfter connStr 0 |> Async.AwaitTask
     Assert.Equal(2, logRows.Length)
     // Wipe projection tables only; the Change log is not a startup journal.
     use conn = new Npgsql.NpgsqlConnection(connStr)
@@ -1063,14 +1150,14 @@ let ``DB restart does not replay log when projection is cleared`` () = task {
     let! _ = cmd.ExecuteNonQueryAsync()
     use client2 = createDbClientNoReset connStr
     let! json2 = getStateJson client2 testFile
-    Assert.Equal(Revision 0, decodeRevision json2)
+    Assert.Equal(EventId.zero, decodeEventId json2)
     let graph2 = decodeGraph json2
     Assert.False(graph2.nodes.ContainsKey childId1)
     Assert.False(graph2.nodes.ContainsKey childId2)
 }
 
 [<Fact>]
-let ``DB restart keeps duplicate changeId idempotent`` () = task {
+let ``DB restart keeps duplicate submissionId idempotent`` () = task {
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
     use client1 = createDbClient connStr
@@ -1080,21 +1167,21 @@ let ``DB restart keeps duplicate changeId idempotent`` () = task {
     let! r1 = postChange client1 testFile change
     Assert.Equal(HttpStatusCode.OK, r1.StatusCode)
     let! b1 = r1.Content.ReadAsStringAsync()
-    Assert.Equal(Revision 1, decodeSuccessRevision b1)
-    Assert.Equal<Guid list>([ change.changeId ], decodeAckChangeIds b1)
+    Assert.True(EventId.isAccepted (decodeSuccessRevision b1))
+    Assert.Equal<Guid list>([ change.submissionId ], decodeAckChangeIds b1)
 
     use client2 = createDbClientNoReset connStr
     let! r2 = postChange client2 testFile change
     Assert.Equal(HttpStatusCode.OK, r2.StatusCode)
     let! b2 = r2.Content.ReadAsStringAsync()
-    Assert.Equal(Revision 1, decodeSuccessRevision b2)
-    Assert.Equal<Guid list>([ change.changeId ], decodeAckChangeIds b2)
-    Assert.Equal<Change list>(
-        (decodeSuccess b1).changes,
-        (decodeSuccess b2).changes)
+    Assert.True(EventId.isAccepted (decodeSuccessRevision b2))
+    Assert.Equal<Guid list>([ change.submissionId ], decodeAckChangeIds b2)
+    Assert.Equal<Ev list>(
+        (decodeSuccess b1).events,
+        (decodeSuccess b2).events)
 
     let! json2 = getStateJson client2 testFile
-    Assert.Equal(Revision 1, decodeRevision json2)
+    Assert.True(EventId.isAccepted (decodeEventId json2))
     let graph2 = decodeGraph json2
     Assert.True(graph2.nodes.ContainsKey childId, "duplicate change must not create a new node")
     Assert.Equal("once-after-restart", graph2.nodes.[childId].text)
@@ -1102,7 +1189,7 @@ let ``DB restart keeps duplicate changeId idempotent`` () = task {
 }
 
 [<Fact>]
-let ``file restart keeps inverse Change in ChangeLog`` () = task {
+let ``file restart keeps inverse Change in EventLog`` () = task {
     let tempDir = newTempDir ()
     use client1 = createClientForDir tempDir
     let! json0 = getStateJson client1 testFile
@@ -1110,11 +1197,11 @@ let ``file restart keeps inverse Change in ChangeLog`` () = task {
     let change, _ = changeAddChild rootId 0 "restart-inverse"
     let! createResp = postChange client1 testFile change
     Assert.Equal(HttpStatusCode.OK, createResp.StatusCode)
-    let undo = Change.inverse (Revision 1) (Guid.NewGuid()) change
+    let undo = inverseEvent EventId.zero (Guid.NewGuid()) change
     let! undoResp = postChange client1 testFile undo
     Assert.Equal(HttpStatusCode.OK, undoResp.StatusCode)
     let! undoAck = undoResp.Content.ReadAsStringAsync()
-    let confirmedUndo = Assert.Single((decodeSuccess undoAck).changes)
+    let confirmedUndo = Assert.Single((decodeSuccess undoAck).events)
     use client2 = createClientForDir tempDir
     let! pollResponse = client2.GetAsync("/ambit/poll?rev=0")
     let! pollJson = pollResponse.Content.ReadAsStringAsync()
@@ -1122,14 +1209,14 @@ let ``file restart keeps inverse Change in ChangeLog`` () = task {
         decode
             ApiResponseSerialization.decodeChangeSuccessResponseDecoder
             pollJson
-    Assert.Equal(2, poll.changes.Length)
-    Assert.Equal(confirmedUndo, poll.changes.[1])
+    Assert.Equal(2, poll.events.Length)
+    Assert.Equal(confirmedUndo, poll.events.[0])
     let! stateJson = getStateJson client2 testFile
-    Assert.Equal(Revision 2, decodeRevision stateJson)
+    Assert.True(EventId.isAccepted (decodeEventId stateJson))
 }
 
 [<Fact>]
-let ``DB restart keeps inverse Change in ChangeLog`` () = task {
+let ``DB restart keeps inverse Change in EventLog`` () = task {
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
     use client1 = createDbClient connStr
@@ -1138,11 +1225,11 @@ let ``DB restart keeps inverse Change in ChangeLog`` () = task {
     let change, _ = changeAddChild rootId 0 "restart-inverse"
     let! createResp = postChange client1 testFile change
     Assert.Equal(HttpStatusCode.OK, createResp.StatusCode)
-    let undo = Change.inverse (Revision 1) (Guid.NewGuid()) change
+    let undo = inverseEvent EventId.zero (Guid.NewGuid()) change
     let! undoResp = postChange client1 testFile undo
     Assert.Equal(HttpStatusCode.OK, undoResp.StatusCode)
     let! undoAck = undoResp.Content.ReadAsStringAsync()
-    let confirmedUndo = Assert.Single((decodeSuccess undoAck).changes)
+    let confirmedUndo = Assert.Single((decodeSuccess undoAck).events)
     use client2 = createDbClientNoReset connStr
     let! pollResponse = client2.GetAsync("/ambit/poll?rev=0")
     let! pollJson = pollResponse.Content.ReadAsStringAsync()
@@ -1150,10 +1237,10 @@ let ``DB restart keeps inverse Change in ChangeLog`` () = task {
         decode
             ApiResponseSerialization.decodeChangeSuccessResponseDecoder
             pollJson
-    Assert.Equal(2, poll.changes.Length)
-    Assert.Equal(confirmedUndo, poll.changes.[1])
+    Assert.Equal(2, poll.events.Length)
+    Assert.Equal(confirmedUndo, poll.events.[0])
     let! stateJson = getStateJson client2 testFile
-    Assert.Equal(Revision 2, decodeRevision stateJson)
+    Assert.True(EventId.isAccepted (decodeEventId stateJson))
 }
 
 [<Fact>]
@@ -1163,25 +1250,27 @@ let ``New server uses snapshot + log replay`` () = task {
     let! json0 = getStateJson client1 testFile
     let rootId = (decodeGraph json0).root
 
-    let! _ = addChild client1 testFile rootId (Revision 0) "first"
+    let! _ = addChild client1 testFile rootId (EventId.zero) "first"
     do! Task.Delay(500)
 
     let! json1 = getStateJson client1 testFile
     let rootId2 = (decodeGraph json1).root
     let root = (decodeGraph json1).nodes.[rootId2]
     let firstChildId = root.children.[0].id
-    let! _ = postChange client1 testFile { id = 1; changeId = Guid.NewGuid();
-        ops = [ Op.SetText(firstChildId, "first", "updated") ] }
+    let ops = [ Op.SetText(firstChildId, "first", "updated") ]
+    let change =
+        SpecialNodeTestHelpers.changeEvent "" EventId.zero (Guid.NewGuid()) ops
+    let! _ = postChange client1 testFile change
 
     use client2 = createClientForDir tempDir
     let! json = getStateJson client2 testFile
     let graph = decodeGraph json
     let child = graph.nodes |> Map.toSeq |> Seq.map snd |> Seq.find (fun n -> n.text = "updated")
     Assert.Equal("updated", child.text)
-    Assert.Equal(Revision 2, decodeRevision json)
+    Assert.True(EventId.isAccepted (decodeEventId json))
 }
 
-let private postChangeOk (client: HttpClient) (change: Change) = task {
+let private postChangeOk (client: HttpClient) (change: Ev) = task {
     let! resp = postChange client testFile change
     Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
 }
@@ -1190,16 +1279,20 @@ let private addNestedWorkspaceViaPost (client: HttpClient) = task {
     let wsId = NodeId.New()
     let innerId = NodeId.New()
     let c0 =
-        { id = 0
-          changeId = Guid.NewGuid()
-          ops =
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change
             [ Op.NewSpecialNode(wsId, Workspace, "home")
               Op.Replace(Graph.workspacesId, [], ownedChild wsId) ] }
     do! postChangeOk client c0
     let c1 =
-        { id = 1
-          changeId = Guid.NewGuid()
-          ops =
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change
             [ Op.NewNode(innerId, "inside-ws")
               Op.Replace(wsId, [], ownedChild innerId) ] }
     do! postChangeOk client c1

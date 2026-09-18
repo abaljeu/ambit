@@ -59,11 +59,7 @@ let private trySaveContext (mode: Mode) : InlineEditContext option =
 
 
 let private tryApplyOps (commandName: string) (ops: Op list) (model: VM) =
-    let change =
-        { id = model.revision.Value
-          changeId = System.Guid.NewGuid()
-          ops = ops }
-    match applyAndPost commandName change model with
+    match applyAndPost commandName ops model with
     | Ok (m, effects) -> Ok (m, effects)
     | Error err -> Error err
 

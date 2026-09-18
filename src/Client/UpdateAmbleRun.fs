@@ -14,11 +14,7 @@ let private applyRunPlan
     if plan.ops.IsEmpty then
         model, commitEffects
     else
-        let change =
-            { id = model.revision.Value
-              changeId = System.Guid.NewGuid()
-              ops = plan.ops }
-        match applyAndPost (displayName Exec) change model with
+        match applyAndPost (displayName Exec) plan.ops model with
         | Error _ -> model, commitEffects
         | Ok (m, effects) ->
             let m = withSiteMap m

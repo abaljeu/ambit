@@ -6,8 +6,7 @@ open Xunit
 let private applyOps (graph: Graph) (ops: Op list) : Graph =
     let state =
         { graph = graph
-          history = History.empty
-          revision = Revision.Zero }
+          eventId = EventId.zero }
 
     ops
     |> List.fold
@@ -415,14 +414,15 @@ let ``Load Unloaded stub plan must not name-conflict on resident server`` () =
                 name = "note.txt" && id <> serverFileId),
             "expected a new File stub id for note.txt")
         let change =
-            { id = 0
-              changeId = System.Guid.NewGuid()
-              ops = ops }
+            { id = EventId.zero
+              submissionId = System.Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change ops }
         let state =
             { graph = server
-              history = History.empty
-              revision = Revision 0 }
-        match History.applyChange change state with
+              eventId = EventId.zero }
+        match SpecialNodeTestHelpers.applyChange change state with
         | ApplyResult.Invalid(_, msg) ->
             Assert.True(
                 false,

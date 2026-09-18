@@ -142,16 +142,17 @@ let private applySelectModeExternalPaste
                 insertChildren
 
         let change =
-            { id = 0
-              changeId = Guid.NewGuid()
-              ops = nested @ [ replaceOp ] }
+            { id = EventId.zero
+              submissionId = Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change (nested @ [ replaceOp ]) }
 
         let state =
             { graph = graph
-              history = History.empty
-              revision = Revision.Zero }
+              eventId = EventId.zero }
 
-        match History.applyChange change state with
+        match SpecialNodeTestHelpers.applyChange change state with
         | ApplyResult.Changed s -> Ok s.graph
         | ApplyResult.Unchanged _ -> Error "paste applied as Unchanged"
         | ApplyResult.Invalid(_, msg) -> Error msg

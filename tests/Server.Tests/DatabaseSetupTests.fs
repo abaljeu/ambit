@@ -29,13 +29,11 @@ let ``documentStatesMatch treats two outline reads as same when revision matches
 
     let st1 =
         { graph = g1
-          history = History.empty
-          revision = Revision 0 }
+          eventId = EventId.zero }
 
     let st2 =
         { graph = g2
-          history = History.empty
-          revision = Revision 0 }
+          eventId = EventId.zero }
 
     Assert.True(DatabaseSetup.documentStatesMatch st1 st2)
 

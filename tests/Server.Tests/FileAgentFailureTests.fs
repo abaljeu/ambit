@@ -10,17 +10,27 @@ open Gambol.Server.Tests.TestBackend
 
 let private changedBody () =
     let childId = NodeId.New()
-    let change =
-        {
-            id = 0
-            changeId = Guid.NewGuid()
-            ops =
-                [
-                    Op.NewNode(childId, "failure probe")
-                    Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ])
-                ]
-        }
-    [ change ]
+    [ {
+        id = EventId.zero
+        submissionId = Guid.NewGuid()
+        authority = Authority "Browser"
+        commandName = ""
+        body = EventBody.Change
+            [
+                Op.NewNode(childId, "failure probe")
+                Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ])
+            ]
+    } ]
+
+let private host agent = admittedHostFile agent
+
+let private getState agent = async {
+    match! CoreMailbox.getState (host agent) with
+    | Ok state -> return state
+    | Error error ->
+        Assert.Fail($"get state: {error}")
+        return Unchecked.defaultof<_>
+}
 
 let private softFailPersist : string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, string> =
     fun _ _ postGraph _ ->
@@ -38,17 +48,17 @@ let private decodeAckMessage (accepted: CoreChangesAccepted) =
 /// Insert a normal child at ROOT index 0 (old span [] = insert).
 let private softFailEditBody () =
     let childId = NodeId.New()
-    let change =
-        {
-            id = 0
-            changeId = Guid.NewGuid()
-            ops =
-                [
-                    Op.NewNode(childId, "soft-fail-probe")
-                    Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ])
-                ]
-        }
-    [ change ]
+    [ {
+        id = EventId.zero
+        submissionId = Guid.NewGuid()
+        authority = Authority "Browser"
+        commandName = ""
+        body = EventBody.Change
+            [
+                Op.NewNode(childId, "soft-fail-probe")
+                Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ])
+            ]
+    } ]
 
 [<Fact>]
 let ``persistence exception is logged replied and mailbox survives`` () = task {
@@ -70,29 +80,29 @@ let ``persistence exception is logged replied and mailbox survives`` () = task {
     let agent = FileAgent.createWithDependencies dependencies dataDir
     try
         let! postResult =
-            (FileAgent.coreChanges agent).postChange (changedBody ())
+            (admittedChanges (host agent)).postEvents
+                ((changedBody ()))
             |> Async.StartAsTask
             |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
         match postResult with
         | Ok _ -> Assert.Fail("Expected persistence failure.")
         | Error error ->
-            Assert.Contains("Internal server error in FileAgent PostChange", error)
+            Assert.Contains("Internal server error in FileAgent PostEvent", error)
             Assert.Contains($"(dataDir={dataDir})", error)
 
         let log = File.ReadAllText logPath
-        Assert.Contains("EXCEPTION source=FileAgent operation=PostChange", log)
-        Assert.Contains("context=changeCount=", log)
+        Assert.Contains("EXCEPTION source=FileAgent operation=PostEvent", log)
         Assert.Contains("type=System.InvalidOperationException", log)
         Assert.Contains("message=injected persistence failure", log)
         Assert.Contains("stack=", log)
 
         let! state =
-            FileAgent.getState agent
+            getState agent
             |> Async.StartAsTask
             |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
-        Assert.Equal(Revision 0, state.revision)
+        Assert.Equal(EventId.zero, state.eventId)
     finally
-        FileAgent.dispose agent
+        CoreMailbox.dispose (host agent)
 }
 
 /// A hang (not an exception) in the persist step must not wedge the mailbox forever:
@@ -116,7 +126,8 @@ let ``persist step hang is rejected within timeout and mailbox survives`` () = t
     try
         let sw = Diagnostics.Stopwatch.StartNew()
         let! postResult =
-            (FileAgent.coreChanges agent).postChange (changedBody ())
+            (admittedChanges (host agent)).postEvents
+                ((changedBody ()))
             |> Async.StartAsTask
             |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
         sw.Stop()
@@ -129,14 +140,14 @@ let ``persist step hang is rejected within timeout and mailbox survives`` () = t
             $"Expected reject before the {hangMs}ms hang completed, took {sw.ElapsedMilliseconds}ms.")
 
         let! state =
-            FileAgent.getState agent
+            getState agent
             |> Async.StartAsTask
             |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
-        Assert.Equal(Revision 0, state.revision)
+        Assert.Equal(EventId.zero, state.eventId)
     finally
         // let the orphaned background task finish before disposing shared resources
         Thread.Sleep(hangMs)
-        FileAgent.dispose agent
+        CoreMailbox.dispose (host agent)
 }
 
 [<Fact>]
@@ -147,7 +158,8 @@ let ``soft-fail live-save still commits graph and returns could-not-save message
     let agent = FileAgent.createWithDependencies dependencies dataDir
     try
         let! postResult =
-            (FileAgent.coreChanges agent).postChange (softFailEditBody ())
+            (admittedChanges (host agent)).postEvents
+                ((softFailEditBody ()))
             |> Async.StartAsTask
         match postResult with
         | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")
@@ -156,13 +168,13 @@ let ``soft-fail live-save still commits graph and returns could-not-save message
                 Some(DocumentPersistence.fileCouldNotSave "SYSTEM/secret.txt"),
                 decodeAckMessage ackJson)
         let! state =
-            FileAgent.getState agent |> Async.StartAsTask
+            getState agent |> Async.StartAsTask
         Assert.True(
             state.graph.nodes
             |> Map.exists (fun _ n -> n.text = "soft-fail-probe"))
-        Assert.Equal(Revision 1, state.revision)
+        Assert.True(EventId.isAccepted state.eventId)
     finally
-        FileAgent.dispose agent
+        CoreMailbox.dispose (host agent)
 }
 
 [<Fact>]
@@ -173,28 +185,27 @@ let ``soft-fail log is not replayed into FileAgent state after restart`` () = ta
     let agent1 = FileAgent.createWithDependencies dependencies dataDir
     try
         let! postResult =
-            (FileAgent.coreChanges agent1).postChange (softFailEditBody ())
+            (admittedChanges (host agent1)).postEvents
+                ((softFailEditBody ()))
             |> Async.StartAsTask
         match postResult with
         | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")
         | Ok _ -> ()
     finally
-        FileAgent.dispose agent1
+        CoreMailbox.dispose (host agent1)
 
     // Meta checkpoint stays behind after soft-fail; restart trusts that checkpoint.
-    Assert.Equal(Revision 0, Bookkeeping.readRevision dataDir)
+    Assert.Equal(EventId.zero, Bookkeeping.readEventId dataDir)
     let agent2 = FileAgent.createWithDependencies dependencies dataDir
     try
         let! state =
-            FileAgent.getState agent2 |> Async.StartAsTask
+            getState agent2 |> Async.StartAsTask
         Assert.False(
             state.graph.nodes
             |> Map.exists (fun _ n -> n.text = "soft-fail-probe"))
-        Assert.Equal(Revision 0, state.revision)
-        Assert.Empty((FileAgent.initialState agent2).history.past)
-        Assert.Empty((FileAgent.initialState agent2).history.future)
+        Assert.Equal(EventId.zero, state.eventId)
     finally
-        FileAgent.dispose agent2
+        CoreMailbox.dispose (host agent2)
 }
 
 let private stampBase = DateTime(2026, 8, 16, 12, 0, 0, DateTimeKind.Utc)
@@ -213,21 +224,21 @@ let private incrementingStampPersist (count: int ref) =
                         postGraph.nodes }
         Ok { graph = graph; message = None }
 
-let private encodeBatch (changes: Change list) = changes
-
-let private addChildChange rev text =
+let private addChildChange _rev text =
     let childId = NodeId.New()
-    { id = rev
-      changeId = Guid.NewGuid()
-      ops =
+    { id = EventId.zero
+      submissionId = Guid.NewGuid()
+      authority = Authority "Browser"
+      commandName = ""
+      body = EventBody.Change
         [ Op.NewNode(childId, text)
           Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
 
-let private suffixAfter (submitted: Change) (confirmed: Change) =
-    List.skip submitted.ops.Length confirmed.ops
+let private suffixAfter (submitted: Ev) (confirmed: Ev) =
+    List.skip (eventOps submitted).Length (eventOps confirmed)
 
 [<Fact>]
-let ``ACK returns stamped complete Change equal to ChangeLog`` () = task {
+let ``ACK returns stamped complete Change equal to EventLog`` () = task {
     let dataDir = newTempDir ()
     let count = ref 0
     let defaults = FileAgent.defaultDependencies dataDir
@@ -237,17 +248,19 @@ let ``ACK returns stamped complete Change equal to ChangeLog`` () = task {
     try
         let change = addChildChange 0 "stamp-prefix"
         let! postResult =
-            (FileAgent.coreChanges agent).postChange (encodeBatch [ change ])
+            (admittedChanges (host agent)).postEvents
+                [ change ]
             |> Async.StartAsTask
         match postResult with
         | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")
         | Ok ackJson ->
             let ack = decodeAck ackJson
-            let confirmed = Assert.Single(ack.changes)
-            Assert.Equal(change.changeId, confirmed.changeId)
+            let confirmed =
+                Assert.Single(ack.events) 
+            Assert.Equal(change.submissionId, confirmed.submissionId)
             Assert.Equal<Op list>(
-                change.ops,
-                List.take change.ops.Length confirmed.ops)
+                (eventOps change),
+                List.take (eventOps change).Length (eventOps confirmed))
             let suffix = suffixAfter change confirmed
             Assert.NotEmpty(suffix)
             suffix
@@ -256,55 +269,17 @@ let ``ACK returns stamped complete Change equal to ChangeLog`` () = task {
                 | Op.SetUpdateTime(nodeId, _, _) ->
                     Assert.Equal(Graph.workspacesId, nodeId)
                 | _ -> failwith "expected SetUpdateTime suffix")
-            let! logged =
-                FileAgent.getChangesSince agent 0 |> Async.StartAsTask
-            Assert.Equal<Change list>([ confirmed ], logged)
+            let! events =
+                CoreMailbox.getEventsSince (host agent) (EventId.zero)
+                |> Async.StartAsTask
+            Assert.Single(events) |> ignore
+            let event = events.[0]
+            match Ev.ops event with
+            | Some ops ->
+                Assert.Equal<Op list>((eventOps confirmed), ops)
+            | None ->
+                Assert.Fail("Expected Change event")
     finally
-        FileAgent.dispose agent
+        CoreMailbox.dispose (host agent)
 }
 
-[<Fact>]
-let ``trailing duplicate keeps stamps on last new Change`` () = task {
-    let dataDir = newTempDir ()
-    let count = ref 0
-    let defaults = FileAgent.defaultDependencies dataDir
-    let dependencies =
-        { defaults with persistGraphOps = incrementingStampPersist count }
-    let agent = FileAgent.createWithDependencies dependencies dataDir
-    try
-        let first = addChildChange 0 "first-new"
-        let! firstResult =
-            (FileAgent.coreChanges agent).postChange (encodeBatch [ first ])
-            |> Async.StartAsTask
-        let firstConfirmed =
-            match firstResult with
-            | Ok json -> Assert.Single((decodeAck json).changes)
-            | Error err -> failwith err
-        let second = addChildChange 1 "second-new"
-        let! batchResult =
-            (FileAgent.coreChanges agent).postChange (encodeBatch [ second; first ])
-            |> Async.StartAsTask
-        match batchResult with
-        | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")
-        | Ok ackJson ->
-            let ack = decodeAck ackJson
-            Assert.Equal(2, ack.changes.Length)
-            let secondConfirmed, trailingDup = ack.changes.[0], ack.changes.[1]
-            Assert.Equal(firstConfirmed, trailingDup)
-            Assert.Equal(second.changeId, secondConfirmed.changeId)
-            Assert.Equal<Op list>(
-                second.ops,
-                List.take second.ops.Length secondConfirmed.ops)
-            let secondSuffix = suffixAfter second secondConfirmed
-            Assert.NotEmpty(secondSuffix)
-            Assert.NotEqual<Op list>(
-                suffixAfter first firstConfirmed,
-                secondSuffix)
-            let! logged =
-                FileAgent.getChangesSince agent 0 |> Async.StartAsTask
-            Assert.Equal<Change list>(
-                [ firstConfirmed; secondConfirmed ],
-                logged)
-    finally
-        FileAgent.dispose agent
-}

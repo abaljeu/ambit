@@ -15,10 +15,10 @@ let private replaceOps (ops: Op list) : Op list =
         | Op.Replace _ as op -> Some op
         | _ -> None)
 
-let private applyChange (graph: Graph) (change: Change) : Graph =
-    let state = { graph = graph; history = History.empty; revision = Revision.Zero }
+let private applyChange (graph: Graph) (event: Ev) : Graph =
+    let state = { graph = graph; eventId = EventId.zero }
 
-    change.ops
+    SpecialNodeTestHelpers.eventOps event
     |> List.fold
         (fun acc op ->
             match acc with
@@ -117,7 +117,7 @@ let ``buildFilePackage integrates with buildImportChange for md`` () =
         |> fun nodes -> Graph.fromNodes graph0.root nodes
 
     let change =
-        ImportText.buildImportChange graph focusId [] package 1 (Guid.NewGuid())
+        ImportText.buildImportChange graph focusId [] package (Guid.NewGuid())
 
     let after = applyChange graph change
     let sectionId = after.nodes.[focusId].children.Head.id
@@ -167,7 +167,7 @@ let ``buildFilePackage md heading applies md-head and md-list classes`` () =
         |> fun nodes -> Graph.fromNodes graph0.root nodes
 
     let change =
-        ImportText.buildImportChange graph focusId [] package 1 (Guid.NewGuid())
+        ImportText.buildImportChange graph focusId [] package (Guid.NewGuid())
 
     let after = applyChange graph change
     let sectionId = after.nodes.[focusId].children.Head.id
@@ -277,9 +277,17 @@ let ``planParseFile md reorder updates child order`` () =
     Assert.False(List.isEmpty ops, "reorder must produce ops")
 
     let state0 =
-        { graph = graph; history = History.empty; revision = Revision.Zero }
+        { graph = graph; eventId = EventId.zero }
     let after =
-        match History.applyChange { id = 0; changeId = Guid.NewGuid(); ops = ops } state0 with
+        match
+            SpecialNodeTestHelpers.applyChange
+                { id = EventId.zero
+                  submissionId = Guid.NewGuid()
+                  authority = Authority "Browser"
+                  commandName = ""
+                  body = EventBody.Change ops }
+                state0
+        with
         | ApplyResult.Changed s -> s.graph
         | ApplyResult.Unchanged _ -> failwith "expected Changed"
         | ApplyResult.Invalid(_, err) -> failwith err
@@ -327,9 +335,11 @@ let ``planParseFile plain keeps id on line text edit`` () =
     Assert.False(List.isEmpty ops)
 
     let after = applyChange graph {
-        id = 1
-        changeId = Guid.NewGuid()
-        ops = ops
+        id = EventId.zero
+        submissionId = Guid.NewGuid()
+        authority = Authority "Browser"
+        commandName = ""
+        body = EventBody.Change ops
     }
 
     Assert.Equal(aId, after.nodes.[fileId].children.Head.id)
@@ -367,9 +377,11 @@ let ``planParseFile blank input marks Unparsed file Current`` () =
             | _ -> false))
 
     let after = applyChange graph {
-        id = 1
-        changeId = Guid.NewGuid()
-        ops = ops
+        id = EventId.zero
+        submissionId = Guid.NewGuid()
+        authority = Authority "Browser"
+        commandName = ""
+        body = EventBody.Change ops
     }
 
     Assert.Equal(Current, after.nodes.[fileId].documentState)
@@ -452,9 +464,11 @@ let ``planParseFile unparsed marks Current`` () =
             | _ -> false))
 
     let after = applyChange graph {
-        id = 1
-        changeId = Guid.NewGuid()
-        ops = ops
+        id = EventId.zero
+        submissionId = Guid.NewGuid()
+        authority = Authority "Browser"
+        commandName = ""
+        body = EventBody.Change ops
     }
 
     Assert.Equal(Current, after.nodes.[fileId].documentState)
@@ -533,13 +547,15 @@ let ``planParseFile Unparsed with prior children warms and keeps line ids`` () =
         "Unparsed → Current must lead the batch")
 
     let change =
-        { id = 0
-          changeId = Guid.NewGuid()
-          ops = ops }
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change ops }
     let state =
-        { graph = graph; history = History.empty; revision = Revision.Zero }
+        { graph = graph; eventId = EventId.zero }
 
-    match History.applyChange change state with
+    match SpecialNodeTestHelpers.applyChange change state with
     | ApplyResult.Invalid(_, msg) ->
         Assert.True(false, "Unparsed warm parse must apply; got: " + msg)
     | ApplyResult.Unchanged _ -> failwith "expected Changed"
@@ -558,7 +574,7 @@ let ``planParseFile Current warm plain defers matching Ref`` () =
     let graph0 = Graph.create ()
     let workspaceId, wsOps = FileNodeOps.planCreateWorkspace graph0 "home"
     let state0 =
-        { graph = graph0; history = History.empty; revision = Revision.Zero }
+        { graph = graph0; eventId = EventId.zero }
     let withWs =
         wsOps
         |> List.fold
@@ -630,20 +646,22 @@ let ``planParseFile Current warm plain defers matching Ref`` () =
         |> requireOk "planParseFile"
 
     let change =
-        { id = 0
-          changeId = Guid.NewGuid()
-          ops = ops }
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change ops }
     let state =
-        { graph = graph; history = History.empty; revision = Revision.Zero }
+        { graph = graph; eventId = EventId.zero }
 
-    match History.applyChange change state with
+    match SpecialNodeTestHelpers.applyChange change state with
     | ApplyResult.Invalid(_, msg) ->
         Assert.True(
             false,
             "warm plain must defer matching Ref; got: " + msg)
     | ApplyResult.Unchanged _ -> failwith "expected Changed"
     | ApplyResult.Changed after ->
-        match History.validateOwnership after.graph with
+        match ChangeValidation.validateOwnership after.graph with
         | Error msg ->
             Assert.True(false, "ownership broken after warm plain: " + msg)
         | Ok () ->
@@ -670,7 +688,7 @@ let ``planParseFile Current warm plain keeps foreign Ref`` () =
     let graph0 = Graph.create ()
     let workspaceId, wsOps = FileNodeOps.planCreateWorkspace graph0 "home"
     let state0 =
-        { graph = graph0; history = History.empty; revision = Revision.Zero }
+        { graph = graph0; eventId = EventId.zero }
     let withWs =
         wsOps
         |> List.fold
@@ -738,18 +756,20 @@ let ``planParseFile Current warm plain keeps foreign Ref`` () =
         |> requireOk "planParseFile"
 
     let change =
-        { id = 0
-          changeId = Guid.NewGuid()
-          ops = ops }
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change ops }
     let state =
-        { graph = graph; history = History.empty; revision = Revision.Zero }
+        { graph = graph; eventId = EventId.zero }
 
-    match History.applyChange change state with
+    match SpecialNodeTestHelpers.applyChange change state with
     | ApplyResult.Invalid(_, msg) ->
         Assert.True(false, "warm plain must keep foreign Ref; got: " + msg)
     | ApplyResult.Unchanged _ -> failwith "expected Changed"
     | ApplyResult.Changed after ->
-        match History.validateOwnership after.graph with
+        match ChangeValidation.validateOwnership after.graph with
         | Error msg ->
             Assert.True(false, "ownership broken after keep Ref: " + msg)
         | Ok () ->
@@ -770,7 +790,7 @@ let ``planParseFile Current warm Amb reuses foreign owner without Ref`` () =
     let graph0 = Graph.create ()
     let workspaceId, wsOps = FileNodeOps.planCreateWorkspace graph0 "home"
     let state0 =
-        { graph = graph0; history = History.empty; revision = Revision.Zero }
+        { graph = graph0; eventId = EventId.zero }
     let withWs =
         wsOps
         |> List.fold
@@ -835,20 +855,22 @@ let ``planParseFile Current warm Amb reuses foreign owner without Ref`` () =
         |> requireOk "planParseFile"
 
     let change =
-        { id = 0
-          changeId = Guid.NewGuid()
-          ops = ops }
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change ops }
     let state =
-        { graph = graph; history = History.empty; revision = Revision.Zero }
+        { graph = graph; eventId = EventId.zero }
 
-    match History.applyChange change state with
+    match SpecialNodeTestHelpers.applyChange change state with
     | ApplyResult.Invalid(_, msg) ->
         Assert.True(
             false,
             "Current warm Amb must reuse existing owner; got: " + msg)
     | ApplyResult.Unchanged _ -> failwith "expected Changed"
     | ApplyResult.Changed after ->
-        match History.validateOwnership after.graph with
+        match ChangeValidation.validateOwnership after.graph with
         | Error msg -> Assert.True(false, "ownership broken after parse: " + msg)
         | Ok () ->
             let owners =
@@ -880,7 +902,7 @@ let ``planParseFile Current warm overlay reparent does not dual-Own`` () =
     let graph0 = Graph.create ()
     let workspaceId, wsOps = FileNodeOps.planCreateWorkspace graph0 "life"
     let state0 =
-        { graph = graph0; history = History.empty; revision = Revision.Zero }
+        { graph = graph0; eventId = EventId.zero }
     let applyOps (s: State) ops =
         ops
         |> List.fold
@@ -915,11 +937,10 @@ let ``planParseFile Current warm overlay reparent does not dual-Own`` () =
         |> requireOk "seed planParseFile"
     let seeded =
         match
-            History.applyChange
-                { id = 0; changeId = Guid.NewGuid(); ops = seedOps }
+            SpecialNodeTestHelpers.applyChange
+                (SpecialNodeTestHelpers.changeEventZero "" seedOps)
                 { graph = seededGraph
-                  history = History.empty
-                  revision = Revision.Zero }
+                  eventId = EventId.zero }
         with
         | ApplyResult.Changed s -> s.graph
         | ApplyResult.Unchanged s -> s.graph
@@ -941,20 +962,22 @@ let ``planParseFile Current warm overlay reparent does not dual-Own`` () =
         |> requireOk "planParseFile"
 
     let change =
-        { id = 0
-          changeId = Guid.NewGuid()
-          ops = ops }
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change ops }
     let state =
-        { graph = seeded; history = History.empty; revision = Revision.Zero }
+        { graph = seeded; eventId = EventId.zero }
 
-    match History.applyChange change state with
+    match SpecialNodeTestHelpers.applyChange change state with
     | ApplyResult.Invalid(_, msg) ->
         Assert.True(
             false,
             "Current warm overlay reparent must apply; got: " + msg)
     | ApplyResult.Unchanged _ -> failwith "expected Changed"
     | ApplyResult.Changed after ->
-        match History.validateOwnership after.graph with
+        match ChangeValidation.validateOwnership after.graph with
         | Error msg ->
             Assert.True(false, "ownership broken after warm reparent: " + msg)
         | Ok () ->
@@ -977,7 +1000,7 @@ let ``planParseFile Current warm unmatched owned child Deletes to trash`` () =
     let graph0 = Graph.create ()
     let workspaceId, wsOps = FileNodeOps.planCreateWorkspace graph0 "life"
     let state0 =
-        { graph = graph0; history = History.empty; revision = Revision.Zero }
+        { graph = graph0; eventId = EventId.zero }
     let applyOps (s: State) ops =
         ops
         |> List.fold
@@ -1011,11 +1034,10 @@ let ``planParseFile Current warm unmatched owned child Deletes to trash`` () =
         |> requireOk "seed planParseFile"
     let seeded =
         match
-            History.applyChange
-                { id = 0; changeId = Guid.NewGuid(); ops = seedOps }
+            SpecialNodeTestHelpers.applyChange
+                (SpecialNodeTestHelpers.changeEventZero "" seedOps)
                 { graph = seededGraph
-                  history = History.empty
-                  revision = Revision.Zero }
+                  eventId = EventId.zero }
         with
         | ApplyResult.Changed s -> s.graph
         | ApplyResult.Unchanged s -> s.graph
@@ -1031,20 +1053,22 @@ let ``planParseFile Current warm unmatched owned child Deletes to trash`` () =
         |> requireOk "planParseFile"
 
     let change =
-        { id = 0
-          changeId = Guid.NewGuid()
-          ops = ops }
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change ops }
     let state =
-        { graph = seeded; history = History.empty; revision = Revision.Zero }
+        { graph = seeded; eventId = EventId.zero }
 
-    match History.applyChange change state with
+    match SpecialNodeTestHelpers.applyChange change state with
     | ApplyResult.Invalid(_, msg) ->
         Assert.True(
             false,
             "Current warm unmatched must apply; got: " + msg)
     | ApplyResult.Unchanged _ -> failwith "expected Changed"
     | ApplyResult.Changed after ->
-        match History.validateOwnership after.graph with
+        match ChangeValidation.validateOwnership after.graph with
         | Error msg ->
             Assert.True(false, "ownership broken after warm parse: " + msg)
         | Ok () ->
@@ -1075,7 +1099,7 @@ let ``planParseFile Unparsed plain upload body applies via History`` () =
     let graph0 = Graph.create ()
     let workspaceId, wsOps = FileNodeOps.planCreateWorkspace graph0 "home"
     let state0 =
-        { graph = graph0; history = History.empty; revision = Revision.Zero }
+        { graph = graph0; eventId = EventId.zero }
     let withWs =
         wsOps
         |> List.fold
@@ -1108,13 +1132,15 @@ let ``planParseFile Unparsed plain upload body applies via History`` () =
         |> requireOk "planParseFile"
 
     let change =
-        { id = 0
-          changeId = Guid.NewGuid()
-          ops = ops }
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change ops }
     let state =
-        { graph = graph; history = History.empty; revision = Revision.Zero }
+        { graph = graph; eventId = EventId.zero }
 
-    match History.applyChange change state with
+    match SpecialNodeTestHelpers.applyChange change state with
     | ApplyResult.Invalid(_, msg) ->
         Assert.True(false, "plain Unparsed parse must apply; got: " + msg)
     | ApplyResult.Unchanged _
@@ -1137,7 +1163,7 @@ let private graphWithUnrelatedDualOwner () =
     let workspaceId, wsOps = FileNodeOps.planCreateWorkspace graph0 "home"
     let withWs =
         applyOpsState
-            { graph = graph0; history = History.empty; revision = Revision.Zero }
+            { graph = graph0; eventId = EventId.zero }
             wsOps
     let parseFileId, parseOps =
         FileNodeOps.planCreateOwnedFile withWs.graph workspaceId "target.txt"
@@ -1176,7 +1202,7 @@ let private graphWithUnrelatedDualOwner () =
 [<Fact>]
 let ``planParseFile succeeds despite unrelated dual-Owner on graph`` () =
     let parseFileId, victimId, graph = graphWithUnrelatedDualOwner ()
-    match History.validateOwnershipLocated graph with
+    match ChangeValidation.validateOwnershipLocated graph with
     | Ok () -> Assert.True(false, "seed graph must be ownership-invalid")
     | Error (msg, nodeId) ->
         Assert.Contains("expected exactly one owner occurrence", msg)
@@ -1187,12 +1213,11 @@ let ``planParseFile succeeds despite unrelated dual-Owner on graph`` () =
         ImportDocument.planParseFile graph parseFileId body
         |> requireOk "planParseFile"
 
-    let change =
-        { id = 0; changeId = Guid.NewGuid(); ops = ops }
+    let change = SpecialNodeTestHelpers.changeEventZero "" ops
     let state =
-        { graph = graph; history = History.empty; revision = Revision.Zero }
+        { graph = graph; eventId = EventId.zero }
 
-    match History.applyChange change state with
+    match SpecialNodeTestHelpers.applyChange change state with
     | ApplyResult.Invalid(_, msg) ->
         Assert.True(
             false,
@@ -1210,7 +1235,7 @@ let ``planParseFile succeeds when parse File itself has dual Owner`` () =
     let workspaceId, wsOps = FileNodeOps.planCreateWorkspace graph0 "home"
     let withWs =
         applyOpsState
-            { graph = graph0; history = History.empty; revision = Revision.Zero }
+            { graph = graph0; eventId = EventId.zero }
             wsOps
     let fileId, fileOps =
         FileNodeOps.planCreateOwnedFile withWs.graph workspaceId "dual.txt"
@@ -1232,7 +1257,7 @@ let ``planParseFile succeeds when parse File itself has dual Owner`` () =
         |> Map.add fileId { file with documentState = Unparsed }
     let graph = Graph.fromNodes withOther.graph.root nodes
 
-    match History.validateOwnershipLocated graph with
+    match ChangeValidation.validateOwnershipLocated graph with
     | Ok () -> Assert.True(false, "seed must be dual-Owner invalid")
     | Error (msg, _) ->
         Assert.Contains("expected exactly one owner occurrence", msg)
@@ -1245,9 +1270,9 @@ let ``planParseFile succeeds when parse File itself has dual Owner`` () =
         |> requireOk "planParseFile"
 
     match
-        History.applyChange
-            { id = 0; changeId = Guid.NewGuid(); ops = ops }
-            { graph = graph; history = History.empty; revision = Revision.Zero }
+        SpecialNodeTestHelpers.applyChange
+            (SpecialNodeTestHelpers.changeEventZero "" ops)
+            { graph = graph; eventId = EventId.zero }
     with
     | ApplyResult.Invalid(_, msg) ->
         Assert.True(false, $"parse must not be blocked by File dual-Owner: {msg}")
@@ -1262,7 +1287,7 @@ let ``planParseFile after Insert Ref reaches Current`` () =
     let workspaceId, wsOps = FileNodeOps.planCreateWorkspace graph0 "home"
     let withWs =
         applyOpsState
-            { graph = graph0; history = History.empty; revision = Revision.Zero }
+            { graph = graph0; eventId = EventId.zero }
             wsOps
     let fileId, fileOps =
         FileNodeOps.planCreateOwnedFile withWs.graph workspaceId "refed.txt"
@@ -1283,7 +1308,7 @@ let ``planParseFile after Insert Ref reaches Current`` () =
             |> Map.add fileId n
             |> fun nodes -> Graph.fromNodes withRef.graph.root nodes
 
-    match History.validateOwnershipLocated graph with
+    match ChangeValidation.validateOwnershipLocated graph with
     | Error (msg, _) ->
         Assert.True(false, "Insert Ref must keep graph valid: " + msg)
     | Ok () -> ()
@@ -1296,9 +1321,9 @@ let ``planParseFile after Insert Ref reaches Current`` () =
         |> requireOk "planParseFile"
 
     match
-        History.applyChange
-            { id = 0; changeId = Guid.NewGuid(); ops = ops }
-            { graph = graph; history = History.empty; revision = Revision.Zero }
+        SpecialNodeTestHelpers.applyChange
+            (SpecialNodeTestHelpers.changeEventZero "" ops)
+            { graph = graph; eventId = EventId.zero }
     with
     | ApplyResult.Invalid(_, msg) ->
         Assert.True(false, "parse after Insert Ref must apply; got: " + msg)

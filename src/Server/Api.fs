@@ -33,25 +33,29 @@ module Api =
         Thoth.Json.Core.Decode.object (fun get ->
             get.Required.Field "path" Thoth.Json.Core.Decode.string)
 
+    let private decodeQueryEventId (clientEventId: int) =
+        EventId.fromJson clientEventId
+
     let getPoll
         (handle: CoreChanges)
         (buildEpochSec: int)
         (pageBuildEpochSec: int)
-        (clientRev: int)
+        (clientEventId: int)
         : Async<IResult> = async {
-        let! rev = handle.getRevision ()
-        let! changes =
-            if rev.Value > clientRev then
-                handle.getChangesSince (Revision clientRev)
+        let! eventId = handle.getEventId ()
+        let queryEventId = decodeQueryEventId clientEventId
+        let! events =
+            if EventId.value eventId > EventId.value queryEventId then
+                handle.getEventsSince queryEventId
             else async.Return []
         let poll: ChangeSuccessResponse =
-            { revision = rev
+            { eventId = eventId
               buildEpochSec = buildEpochSec
               pageBuildEpochSec = pageBuildEpochSec
               apiVersion = ApiVersion.current
               isReady = handle.isReady ()
-              externalChanges = not changes.IsEmpty
-              changes = changes
+              externalChanges = not events.IsEmpty
+              events = events
               message = None
               bootstrapHash = None }
         return changeSuccessResult poll
@@ -94,19 +98,20 @@ module Api =
                         {| error =
                             "Load requires all selected targets in one Workspace" |})
             | Ok(Ok packages) ->
-                let! rev = handle.getRevision ()
-                let! changes =
-                    if rev.Value > request.revision then
-                        handle.getChangesSince (Revision request.revision)
+                let! eventId = handle.getEventId ()
+                let revValue = EventId.value eventId
+                let! events =
+                    if revValue > EventId.value request.eventId then
+                        handle.getEventsSince request.eventId
                     else
                         async.Return []
                 let load: LoadResponse =
-                    { revision = rev.Value
+                    { eventId = eventId
                       buildEpochSec = buildEpochSec
                       pageBuildEpochSec = pageBuildEpochSec
                       apiVersion = ApiVersion.current
                       isReady = handle.isReady ()
-                      changes = changes
+                      events = events
                       packages = packages }
                 let json =
                     Encode.toString 0 (ApiResponseSerialization.encodeLoadResponse load)
@@ -136,7 +141,7 @@ module Api =
             | Ok state ->
                 let response: StateResponse =
                     { graph = state.graph
-                      revision = state.revision
+                      eventId = state.eventId
                       isReady = handle.isReady () }
                 let scoped =
                     ResidentProjection.bootstrapStateResponse
@@ -154,27 +159,28 @@ module Api =
                     $"Internal server error in GetState: {ex.Message}"
     }
 
-    let postChange
+    let postEvents
         (handle: CoreChanges)
         (buildEpochSec: int)
         (pageBuildEpochSec: int)
         (body: string)
         : Async<IResult> = async {
-        match Decode.fromString Serialization.decodeChangeBatch body with
+        match Decode.fromString Gambol.Shared.EventJson.decodeEventBatch body with
         | Error err ->
             return agentErrorResult $"Invalid JSON: {err}"
         | Ok batch ->
-            match! handle.postChange batch.changes with
+            match! handle.postEvents batch.events with
             | Ok accepted ->
+                let! eventId = handle.getEventId ()
                 return
                     changeSuccessResult
-                        { revision = accepted.revision
+                        { eventId = eventId
                           buildEpochSec = buildEpochSec
                           pageBuildEpochSec = pageBuildEpochSec
                           apiVersion = ApiVersion.current
                           isReady = accepted.isReady
                           externalChanges = accepted.externalChanges
-                          changes = accepted.changes
+                          events = accepted.events
                           message = accepted.message
                           bootstrapHash = None }
             | Error err -> return agentErrorResult err
@@ -227,8 +233,6 @@ module Api =
 
     let private applyParseFile
         (handle: CoreChanges)
-        (credentials: CoreCredentials)
-        (sender: Credential)
         (dataDir: string)
         (fileId: NodeId)
         (text: string option)
@@ -247,17 +251,8 @@ module Api =
             | Ok [] ->
                 return jsonResult """{"ok":true}"""
             | Ok ops ->
-                let change =
-                    { id = state.revision.Value
-                      changeId = Guid.NewGuid()
-                      ops = ops }
-                match!
-                    CoreAuth.post
-                        credentials
-                        sender
-                        handle.postGraphOnlyChange
-                        [ change ]
-                with
+                let event = GraphOnlyChangePost.mint "Parse" ops
+                match! handle.postGraphOnly event with
                 | Ok _ -> return jsonResult """{"ok":true}"""
                 | Error err -> return agentErrorResult err
         }
@@ -265,8 +260,6 @@ module Api =
     /// ParseFile command: optional body text or DataDir read → apply on agent graph.
     let postParseFile
         (handle: CoreChanges)
-        (credentials: CoreCredentials)
-        (sender: Credential)
         (dataDir: string)
         (body: string)
         : Async<IResult> =
@@ -286,8 +279,6 @@ module Api =
                         return!
                             applyParseFile
                                 handle
-                                credentials
-                                sender
                                 dataDir
                                 fileId
                                 payload.text

@@ -1,103 +1,90 @@
 namespace Gambol.Server
 
-open System
 open Gambol.Shared
 
+/// Composition result: mailbox door plus in-process Parse Caller.
+/// Not a second admission API. HTTP builds Browser Caller from the cookie.
 type CoreRuntime =
-    { changes: unit -> CoreChanges
-      bindChanges: Credential -> CoreChanges
-      browserChanges: unit -> CoreChanges
-      credentials: CoreCredentials
-      command: CoreActorPool
-      browserCredential: Credential
-      parseCredential: Credential
-      flushFileSnapshot: unit -> Async<Result<unit, string>>
-      getFileRevision: unit -> Async<Revision> }
+    { host: MailboxHost
+      parseCaller: Caller }
+
+/// Persist choice, auth seed, and optional actors to boot a CoreRuntime.
+type CoreBoot =
+    {
+        PersistenceMode: DatabaseSetup.PersistenceMode
+        DbStatus: DatabaseSetup.DbStatus
+        DbConnectionString: string
+        DataDir: string
+        AuthUser: string
+        AuthPass: string
+        Actors: (ActorName * ActorFn) list
+    }
 
 [<RequireQualifiedAccess>]
 module CoreRuntime =
 
     let readOnly (handle: CoreChanges) : CoreChanges =
-        let rejectWrite (_: Change list) =
-            async.Return(
-                Error
-                    "Database persistence is unavailable; file fallback is read-only.")
-        { handle with
-            postChange = rejectWrite
-            postGraphOnlyChange = rejectWrite }
+        let reject msg =
+            async.Return(Error msg)
+        let readOnlyMsg =
+            "Database persistence is unavailable; file fallback is read-only."
+        let rejectEvents (_: Ev list) =
+            reject readOnlyMsg
+        let rejectGraph (_: Ev) = reject readOnlyMsg
+        let rejectActorStop (_: ActorResult) = reject readOnlyMsg
+        let rec wrap h : CoreChanges =
+            { h with
+                postEvents = rejectEvents
+                postGraphOnly = rejectGraph
+                actorStop = rejectActorStop
+                getEventsSince = h.getEventsSince
+                asCaller = fun caller -> wrap (h.asCaller caller) }
+        wrap handle
 
-    let ofFileWithDbMirror
-        (file: CoreChanges)
-        (db: CoreChanges option)
-        : CoreChanges =
-        let mirror logFailure postFile postDb changes = async {
-            let! fileResult = postFile changes
-            match fileResult, db with
-            | Ok accepted, Some dbHandle ->
-                let! dbResult = postDb dbHandle changes
-                match dbResult with
-                | Error err -> logFailure err
-                | Ok _ -> ()
-                return Ok accepted
-            | Ok accepted, None -> return Ok accepted
-            | Error err, _ -> return Error err
-        }
-        { file with
-            postChange =
-                mirror
-                    (eprintfn
-                        "[Core] Secondary DB write failed after file persist: %s")
-                    file.postChange
-                    (fun handle -> handle.postChange)
-            postGraphOnlyChange =
-                mirror
-                    (eprintfn
-                        "[Core] Secondary DB graph-only write failed: %s")
-                    file.postGraphOnlyChange
-                    (fun handle -> handle.postGraphOnlyChange) }
+    let private startHost
+        (boot: CoreBoot)
+        (pool: CoreActorPool)
+        (credentials: CoreCredentials)
+        : MailboxHost =
+        match boot.PersistenceMode, boot.DbStatus with
+        | DatabaseSetup.PersistenceMode.Db, DatabaseSetup.DbStatus.Ok ->
+            CoreMailbox.host
+                pool
+                (DbAgent.persist
+                    (DbAgent.createWithDataDir
+                        boot.DbConnectionString
+                        boot.DataDir))
+                credentials
+        | _ ->
+            CoreMailbox.host
+                pool
+                (FileAgent.persist (FileAgent.create boot.DataDir))
+                credentials
 
-    let private addLifetimeCredentials (credentials: CoreCredentials) =
-        let browser = Credential(Guid.NewGuid().ToString("N"))
-        let parse = Credential(Guid.NewGuid().ToString("N"))
-        credentials.add browser |> Async.RunSynchronously
-        credentials.add parse |> Async.RunSynchronously
-        browser, parse
+    let private bootCallers (boot: CoreBoot) =
+        let browserSecret =
+            Credential(AuthToken.deriveToken boot.AuthUser boot.AuthPass)
+        let browserCaller =
+            { authority = Authority "Browser"
+              name = ""
+              secret = browserSecret }
+        let parseSecret =
+            "parse:" + AuthToken.deriveToken boot.AuthUser boot.AuthPass
+        let parseCaller =
+            { authority = Authority "Parse"
+              name = "process"
+              secret = Credential parseSecret }
+        browserCaller, parseCaller
 
-    let create
-        (persistenceMode: DatabaseSetup.PersistenceMode)
-        (dbStatus: DatabaseSetup.DbStatus)
-        (dbConnectionString: string)
-        (dataDir: string)
-        : CoreRuntime =
-        let fileAgent = lazy (FileAgent.create dataDir)
-        let getFile () = fileAgent.Value |> FileAgent.coreChanges
-        let rawHandle () =
-            match persistenceMode, dbStatus with
-            | DatabaseSetup.PersistenceMode.Db, DatabaseSetup.DbStatus.Ok ->
-                DatabaseSetup.getOrCreateDbAgent dbConnectionString dataDir
-            | DatabaseSetup.PersistenceMode.File, DatabaseSetup.DbStatus.Ok ->
-                let db =
-                    DatabaseSetup.getOrCreateDbAgent dbConnectionString dataDir
-                ofFileWithDbMirror (getFile ()) (Some db)
-            | DatabaseSetup.PersistenceMode.Db, _ ->
-                getFile () |> readOnly
-            | DatabaseSetup.PersistenceMode.File, _ ->
-                getFile ()
-        let credentials = CoreCredentials.create ()
-        let browserCredential, parseCredential =
-            addLifetimeCredentials credentials
-        let pool = CoreActorPool.create credentials
-        let changes () = pool.withLocks (rawHandle ())
-        let bindChanges sender =
-            CoreAuth.bindHandle credentials sender (changes ())
-        { changes = changes
-          bindChanges = bindChanges
-          browserChanges = fun () -> bindChanges browserCredential
-          credentials = credentials
-          command = pool
-          browserCredential = browserCredential
-          parseCredential = parseCredential
-          flushFileSnapshot =
-            fun () -> fileAgent.Value |> FileAgent.flushSnapshot
-          getFileRevision =
-            fun () -> fileAgent.Value |> FileAgent.getRevision }
+    let create (boot: CoreBoot) : CoreRuntime =
+        let browserCaller, parseCaller = bootCallers boot
+        let pool = CoreActorPool.create ()
+        boot.Actors
+        |> List.iter (fun (name, actorFn) -> pool.register name actorFn)
+        let host =
+            startHost
+                boot
+                pool
+                (CoreCredentials.ofCallers (
+                    Set.ofList [ browserCaller; parseCaller ]))
+        { host = host; parseCaller = parseCaller }
