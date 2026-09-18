@@ -128,6 +128,43 @@ let ``TestActor hello posts one Owned child text hello under Focus`` () =
     })
 
 [<Fact>]
+let ``TestActor hello interprets ?test hello without actor CSS`` () =
+    withHost (fun host _ -> task {
+        let commandId = NodeId.New()
+        let event =
+            { id = EventId.fromJson 0
+              submissionId = Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body =
+                EventBody.Change
+                    [ Op.NewNode(commandId, "?test hello")
+                      Op.Replace(
+                          Graph.rootId,
+                          [],
+                          [ ChildNode.owner commandId ]) ] }
+        let! postResult =
+            CoreMailbox.postGraphOnly host testCaller event
+            |> Async.StartAsTask
+        requireOk "postChange" postResult |> ignore
+        let request =
+            sampleRequest commandId commandId [ Graph.rootId; commandId ]
+        let! result =
+            CoreMailbox.startActor host testCaller request
+            |> Async.StartAsTask
+        requireOk "startActor" result
+        let! finished = waitForActorFinished host request.focusId 1000
+        Assert.True(finished, "ActorFinished not received within timeout")
+        let! state =
+            CoreMailbox.getState host
+            |> Async.StartAsTask
+        let state = requireOk "getState" state
+        let helloChildren =
+            helloOutputChildren state.graph commandId commandId
+        Assert.Equal(1, helloChildren.Length)
+    })
+
+[<Fact>]
 let ``TestActor hello stops successfully with ActorSucceeded`` () =
     withHost (fun host _ -> task {
         let commandId = NodeId.New()

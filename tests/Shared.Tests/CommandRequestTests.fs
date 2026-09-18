@@ -56,3 +56,25 @@ let ``oneNodeStart graphIds are the unfolded Included descendant ids`` () =
     let expected = IncludedDescendantIds.expand graph siteMap nodeId
     Assert.Equal<NodeId list>(expected, request.graphIds)
     Assert.Equal<NodeId list>([ nodeId; childIds.[0]; childIds.[1] ], request.graphIds)
+
+[<Fact>]
+let ``actorNameFromText selects test from ?test hello`` () =
+    Assert.Equal(Some "test", CommandRequest.actorNameFromText "?test hello")
+    Assert.Equal(Some "test", CommandRequest.actorNameFromText "?TEST hello")
+    Assert.Equal(Some "ai", CommandRequest.actorNameFromText "?ai later")
+    Assert.Equal(Some "test", CommandRequest.actorNameFromText "?test")
+
+[<Fact>]
+let ``actorNameFromText is none when text is not a ? Command`` () =
+    Assert.Equal(None, CommandRequest.actorNameFromText "hello")
+    Assert.Equal(None, CommandRequest.actorNameFromText "test")
+    Assert.Equal(None, CommandRequest.actorNameFromText "")
+    Assert.Equal(None, CommandRequest.actorNameFromText "?")
+
+[<Fact>]
+let ``behaviorFromText interprets hello from ?test hello`` () =
+    Assert.Equal("hello", CommandRequest.behaviorFromText "?test hello")
+    Assert.Equal("hello", CommandRequest.behaviorFromText "?TEST HELLO")
+    Assert.Equal("hello", CommandRequest.behaviorFromText "hello")
+    Assert.Equal("hello", CommandRequest.behaviorFromText "HELLO")
+    Assert.Equal("", CommandRequest.behaviorFromText "?test")

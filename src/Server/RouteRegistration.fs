@@ -28,7 +28,7 @@ module RouteRegistration =
                 DataDir = dataDir
                 AuthUser = this.Auth.ExpectedUser
                 AuthPass = this.Auth.ExpectedPass
-                Actors = []
+                Actors = [ ActorName "test", TestActor.actorFn ]
             }
 
     let private errorTemplate (message: string) =

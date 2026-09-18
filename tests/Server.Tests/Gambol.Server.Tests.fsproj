@@ -14,7 +14,6 @@
     <Compile Include="TestDbConfigTests.fs" />
     <Compile Include="DatabaseSetupTests.fs" />
     <Compile Include="TestBackend.fs" />
-    <Compile Include="TestActor.fs" />
     <Compile Include="DocumentPersistenceTests.fs" />
     <Compile Include="DocumentOpPersistenceTests.fs" />
     <Compile Include="DocumentPathMoveExecutionTests.fs" />
