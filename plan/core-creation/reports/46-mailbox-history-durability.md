@@ -22,7 +22,8 @@ This is a report, not authority.
 
 1. Server door — `CoreMailbox.eventHistory`, `getEventsSince`, `getEventId`, `getState`, `postEvent`. Not HTTP Browser restart (35b §7 already runs without 46).
 2. File hello restart does not assert the Graph child. `persistGraphOps` does not write a non-artifact root child, and a successful Change still checkpoints `gambol.meta`, so recover will not replay that id. Graph catch-up is the File/Db recover facts (Change in the log, checkpoint behind).
-3. Shared facts — `adoptNewestHead keeps newest-head and nextId past max`; `recoverState applies Ops ahead and sets tip past ActorStop`. Existing `restore dedupe`, `restore keeps source nextId`, and ClientHistory Actor skip stay.
+3. Shared facts — `adoptNewestHead keeps newest-head and nextId past max`; `recoverState applies Ops ahead and sets tip past ActorStop`; empty log keeps the Graph checkpoint EventId (`createForTest` / file import). Existing `restore dedupe`, `restore keeps source nextId`, and ClientHistory Actor skip stay.
+4. Old “do not replay” facts now match EventLog authority: [FileAgentFailureTests](../../../tests/Server.Tests/FileAgentFailureTests.fs) soft-fail restart replays; [StateEndpointTests](../../../tests/Server.Tests/StateEndpointTests.fs) cleared projection replays the `events` table.
 
 ## 4. Out of scope (held)
 

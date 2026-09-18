@@ -83,14 +83,21 @@ module EventLog =
         | ApplyResult.Invalid (next, _) -> next
 
     /// Replay Ops Evs ahead of the Graph checkpoint; set eventId to the log tip.
+    /// Empty log leaves the Graph checkpoint EventId in place.
     let recoverState (state: State) (log: EventLog) : State =
-        let checkpoint = EventId.value state.eventId
-        let ahead =
-            log.events
-            |> List.rev
-            |> List.filter (fun event ->
-                Ev.isAction event
-                && EventId.value event.id > checkpoint)
-        let replayed =
-            List.fold (fun current event -> applyRecover event current) state ahead
-        { replayed with eventId = tip log }
+        match log.events with
+        | [] -> state
+        | _ ->
+            let checkpoint = EventId.value state.eventId
+            let ahead =
+                log.events
+                |> List.rev
+                |> List.filter (fun event ->
+                    Ev.isAction event
+                    && EventId.value event.id > checkpoint)
+            let replayed =
+                List.fold
+                    (fun current event -> applyRecover event current)
+                    state
+                    ahead
+            { replayed with eventId = tip log }
