@@ -90,7 +90,7 @@ let ``Upload available on web for file and directory`` () =
 [<Fact>]
 let ``Upload cannot start from revision 14706 while its prior submit is in flight`` () =
     let pending =
-        { id = EventId.fromJson 14706
+        { id = EventIdFixtures.storedId 14706
           submissionId = System.Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""

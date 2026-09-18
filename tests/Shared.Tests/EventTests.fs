@@ -20,7 +20,7 @@ let private startRequest () : ActorStart =
       focusId = NodeId.New()
       commandId = NodeId.New()
       graphIds = [ zoom ]
-      eventId = EventId.fromJson 4 }
+      eventId = EventIdFixtures.storedId 4 }
 
 let private textState () : State * NodeId =
     let graph, ids =
@@ -159,7 +159,8 @@ let private actorStop commandName : Ev =
     event commandName (EventBody.ActorStop(NodeId.New(), ActorSucceeded))
 
 let private changeNamed commandName eventId : Ev =
-    { event commandName (EventBody.Change []) with id = EventId.fromJson eventId }
+    { event commandName (EventBody.Change []) with
+        id = EventIdFixtures.storedId eventId }
 
 [<Fact>]
 let ``undo skips ActorStart/ActorStop and inverts the next Action`` () =
@@ -287,7 +288,8 @@ let ``Undo inverse Ops`` () =
     let nodeId = NodeId.New()
     let ops = [ Op.SetText(nodeId, "old", "new") ]
     let changeEvent =
-        { event "Edit node" (EventBody.Change ops) with id = EventId.fromJson 5 }
+        { event "Edit node" (EventBody.Change ops) with
+            id = EventIdFixtures.storedId 5 }
     let recorded =
         ClientHistory.clear ()
         |> ClientHistory.recordEvent "Edit node" changeEvent
@@ -326,8 +328,10 @@ let ``Undo Redo carried Ops`` () =
     let state, nodeId = textState ()
     let undoOps = [ Op.SetText(nodeId, "old", "undone") ]
     let redoOps = [ Op.SetText(nodeId, "undone", "redone") ]
-    let undoEv = event "" (EventBody.Undo(EventId.fromJson 99, undoOps))
-    let redoEv = event "" (EventBody.Redo(EventId.fromJson 99, redoOps))
+    let undoEv =
+        event "" (EventBody.Undo(EventIdFixtures.storedId 99, undoOps))
+    let redoEv =
+        event "" (EventBody.Redo(EventIdFixtures.storedId 99, redoOps))
     match Ev.apply undoEv state with
     | ApplyResult.Changed afterUndo ->
         Assert.Equal("undone", afterUndo.graph.nodes.[nodeId].text)
@@ -342,8 +346,8 @@ let ``Every Ev carries Authority`` () =
     let start = startRequest ()
     let bodies =
         [ EventBody.Change []
-          EventBody.Undo(EventId.fromJson 1, [])
-          EventBody.Redo(EventId.fromJson 1, [])
+          EventBody.Undo(EventIdFixtures.storedId 1, [])
+          EventBody.Redo(EventIdFixtures.storedId 1, [])
           EventBody.ActorStart start
           EventBody.ActorStop(start.focusId, ActorFailed) ]
     bodies

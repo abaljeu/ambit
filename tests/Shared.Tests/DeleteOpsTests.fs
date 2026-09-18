@@ -516,7 +516,7 @@ let ``planDeleteOps second Directory with same name as one already in TRASH appl
             (ViewModelDeleteOps.classifyDeleteForSelection graph2 range2)
     let result =
         SpecialNodeTestHelpers.applyChange
-            { id = EventId.fromJson 1
+            { id = EventIdFixtures.storedId 1
               submissionId = System.Guid.NewGuid()
               authority = Authority "Browser"
               commandName = ""

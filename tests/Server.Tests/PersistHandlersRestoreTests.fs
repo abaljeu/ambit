@@ -223,9 +223,10 @@ let ``post Change uses Event id past Database row when payload does not decode``
     use conn = Database.getConnection connStr
     do! conn.OpenAsync()
     use cmd = conn.CreateCommand()
+    let occupied = EventLog.empty.nextId
     cmd.CommandText <-
         "INSERT INTO events (event_id, submission_id, payload) "
-        + $"VALUES (1, '{Guid.NewGuid()}', 'not-json')"
+        + $"VALUES ({EventId.toJson occupied}, '{Guid.NewGuid()}', 'not-json')"
     let! _ = cmd.ExecuteNonQueryAsync()
     let host = admittedHostDb (DbAgent.create connStr)
     try
@@ -238,7 +239,7 @@ let ``post Change uses Event id past Database row when payload does not decode``
         | Ok accepted ->
             let stored = Assert.Single(accepted.events)
             Assert.True(EventId.isAccepted stored.id)
-            Assert.NotEqual(EventId.fromJson 1, stored.id)
+            Assert.NotEqual(occupied, stored.id)
     finally
         CoreMailbox.dispose host
 }

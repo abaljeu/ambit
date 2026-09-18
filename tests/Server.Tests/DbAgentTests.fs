@@ -50,7 +50,7 @@ let private stateWithDetachedNode () =
         |> Graph.fromNodes Graph.rootId
 
     { graph = graph
-      eventId = EventId.fromJson 4 },
+      eventId = EventIdFixtures.storedId 4 },
     orphanId
 
 [<Fact>]
@@ -89,7 +89,9 @@ let ``DbAgent startup sweeps and trims unreachable persisted nodes before ready`
     use conn = Database.getConnection connStr
     do! conn.OpenAsync()
     use tx = conn.BeginTransaction()
-    do! Database.replaceGraphProjectionWithTx tx graph 9 |> Async.AwaitTask
+    do! Database.replaceGraphProjectionWithTx tx graph
+            (EventId.toJson (EventIdFixtures.storedId 9))
+        |> Async.AwaitTask
     tx.Commit()
 
     let agent = DbAgent.create connStr
@@ -99,7 +101,7 @@ let ``DbAgent startup sweeps and trims unreachable persisted nodes before ready`
     let! revision = CoreMailbox.getEventId (host agent) |> Async.StartAsTask
     let loaded = state.graph
 
-    Assert.Equal(EventId.fromJson 9, revision)
+    Assert.Equal(EventIdFixtures.storedId 9, revision)
     Assert.False(loaded.nodes.ContainsKey orphanId)
 
     use checkConn = Database.getConnection connStr
@@ -142,7 +144,7 @@ let ``DbAgent serves reads while sweep buffers FIFO mutations then trims`` () = 
     let! beforeRevision = revisionTask
     Assert.False(CoreMailbox.isReady mailbox)
     Assert.True(beforeState.graph.nodes.ContainsKey orphanId)
-    Assert.Equal(EventId.fromJson 4, beforeRevision)
+    Assert.Equal(EventIdFixtures.storedId 4, beforeRevision)
     release.Set()
 
     let! secondResult = secondPost
@@ -180,7 +182,7 @@ let ``DbAgent startup sweep failure preserves reads and fails mutations closed``
     let! state = getState agent |> Async.StartAsTask
     let! revision = CoreMailbox.getEventId (host agent) |> Async.StartAsTask
     Assert.True(state.graph.nodes.ContainsKey orphanId)
-    Assert.Equal(EventId.fromJson 4, revision)
+    Assert.Equal(EventIdFixtures.storedId 4, revision)
 }
 
 [<Fact>]
@@ -519,9 +521,10 @@ let ``DbAgent missing ROOT fails closed while reads stay available`` () = task {
     do! conn.OpenAsync()
     use command = conn.CreateCommand()
     command.CommandText <-
-        """
+        $"""
         INSERT INTO graph (singleton, root_id, revision)
-        VALUES (1, '00000000-0000-0000-0000-000000000000', 4)
+        VALUES (1, '00000000-0000-0000-0000-000000000000',
+            {EventId.toJson (EventIdFixtures.storedId 4)})
         """
     let! _ = command.ExecuteNonQueryAsync()
 
@@ -547,7 +550,7 @@ let ``DbAgent missing ROOT fails closed while reads stay available`` () = task {
     let! state = getState agent |> Async.StartAsTask
     let! revision = CoreMailbox.getEventId (host agent) |> Async.StartAsTask
     Assert.False(CoreMailbox.isReady (host agent))
-    Assert.Equal(EventId.fromJson 4, revision)
+    Assert.Equal(EventIdFixtures.storedId 4, revision)
 }
 
 [<Fact>]
@@ -576,7 +579,9 @@ let ``DbAgent dual-owned repair reloads ready graph from projection`` () = task 
     use conn = Database.getConnection connStr
     do! conn.OpenAsync()
     use tx = conn.BeginTransaction()
-    do! Database.replaceGraphProjectionWithTx tx graph 6 |> Async.AwaitTask
+    do! Database.replaceGraphProjectionWithTx tx graph
+            (EventId.toJson (EventIdFixtures.storedId 6))
+        |> Async.AwaitTask
     tx.Commit()
 
     let agent = DbAgent.create connStr
@@ -588,7 +593,7 @@ let ``DbAgent dual-owned repair reloads ready graph from projection`` () = task 
     match loaded with
     | Error e -> Assert.Fail(e)
     | Ok (projected, eventId) ->
-        Assert.Equal(EventId.fromJson 6, eventId)
+        Assert.Equal(EventIdFixtures.storedId 6, eventId)
         Assert.True(GraphProjection.graphEquals readyGraph projected)
         Assert.Equal(
             Some Graph.workspacesId,

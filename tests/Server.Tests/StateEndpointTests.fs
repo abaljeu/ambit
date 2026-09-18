@@ -157,7 +157,7 @@ let private stateWithChild (text: string) =
     let change, _ = changeAddChild Graph.rootId 0 text
 
     match applyChange change initialState with
-    | ApplyResult.Changed st -> { st with eventId = EventId.fromJson 1 }
+    | ApplyResult.Changed st -> { st with eventId = EventIdFixtures.storedId 1 }
     | ApplyResult.Unchanged _ -> failwith "Expected file bootstrap change to apply"
     | ApplyResult.Invalid (_, err) -> failwith $"Expected valid bootstrap change: {err}"
 

@@ -62,12 +62,12 @@ let ``Normal ACK projects SetUpdateTime suffix and does not change History`` () 
         SyncLogic.reconcileAck
             [ pending ]
             confirmed
-            (EventId.fromJson 1)
+            (EventIdFixtures.storedId 1)
             state
             (sending [ pending ])
     let next, syncInfo, effects, suffixOps = expectApplied result
     Assert.Equal(state.history, next.history)
-    Assert.Equal(EventId.fromJson 1, next.eventId)
+    Assert.Equal(EventIdFixtures.storedId 1, next.eventId)
     Assert.Equal(stampTime, next.graph.nodes.[nodeId].updateTime)
     Assert.Equal("after", next.graph.nodes.[nodeId].text)
     Assert.Empty(syncInfo.pending)
@@ -84,7 +84,7 @@ let ``Undo ACK retires the Undo transition without changing History`` () =
             SyncLogic.reconcileAck
                 [ pending ]
                 [ confirm pending [] ]
-                (EventId.fromJson 1)
+                (EventIdFixtures.storedId 1)
                 afterUndo
                 (sending [ pending ])
         let next, syncInfo, _, _ = expectApplied result
@@ -104,7 +104,7 @@ let ``Redo ACK retires the Redo transition without changing History`` () =
                 SyncLogic.reconcileAck
                     [ pending ]
                     [ confirm pending [] ]
-                    (EventId.fromJson 1)
+                    (EventIdFixtures.storedId 1)
                     afterRedo
                     (sending [ pending ])
             let next, _, _, _ = expectApplied result
@@ -126,7 +126,7 @@ let ``same-batch C Undo Redo ACK retires the prefix together`` () =
                 SyncLogic.reconcileAck
                     submitted
                     confirmed
-                    (EventId.fromJson 3)
+                    (EventIdFixtures.storedId 3)
                     afterRedo
                     (sending submitted)
             let next, syncInfo, _, _ = expectApplied result
@@ -145,7 +145,7 @@ let ``partial residency skips a stamp on an Absent node`` () =
         SyncLogic.reconcileAck
             [ pending ]
             [ confirm pending suffix ]
-            (EventId.fromJson 1)
+            (EventIdFixtures.storedId 1)
             state
             (sending [ pending ])
     let next, _, _, suffixOps = expectApplied result
@@ -166,7 +166,7 @@ let ``retry ACK removes only the submitted prefix and resubmits the remainder`` 
         SyncLogic.reconcileAck
             [ first ]
             [ confirm first [] ]
-            (EventId.fromJson 1)
+            (EventIdFixtures.storedId 1)
             state
             (sending pending)
     let _, syncInfo, effects, _ = expectApplied result
@@ -174,7 +174,7 @@ let ``retry ACK removes only the submitted prefix and resubmits the remainder`` 
     Assert.Equal(Sending 1, syncInfo.syncState)
     match effects with
     | [ SubmitPendingBatch (baseEventId, events) ] ->
-        Assert.Equal(EventId.fromJson 1, baseEventId)
+        Assert.Equal(EventIdFixtures.storedId 1, baseEventId)
         Assert.Equal<Ev list>([ later ], events)
     | _ -> failwith "expected remainder SubmitPendingBatch"
 
@@ -182,17 +182,17 @@ let ``retry ACK removes only the submitted prefix and resubmits the remainder`` 
 let ``late duplicate response is ignored when identities are retired`` () =
     let _, state, pending = seededEdit ()
     let acked =
-        { state with eventId = EventId.fromJson 1 }
+        { state with eventId = EventIdFixtures.storedId 1 }
     let result =
         SyncLogic.reconcileAck
             [ pending ]
             [ confirm pending [ stamp (NodeId.New()) ] ]
-            (EventId.fromJson 1)
+            (EventIdFixtures.storedId 1)
             acked
             SyncInfo.initial
     match result with
     | AckReconcile.Ignored ->
-        Assert.Equal(EventId.fromJson 1, acked.eventId)
+        Assert.Equal(EventIdFixtures.storedId 1, acked.eventId)
         Assert.Equal(state.history, acked.history)
     | other -> failwithf "expected Ignored, got %A" other
 
@@ -207,7 +207,7 @@ let ``rejected ACK leaves graph revision History and pending unchanged`` () =
                      @ [ Op.SetText(nodeId, "after", "nope") ]) } ]
     let syncInfo = sending [ pending ]
     let result =
-        SyncLogic.reconcileAck [ pending ] confirmed (EventId.fromJson 1) state syncInfo
+        SyncLogic.reconcileAck [ pending ] confirmed (EventIdFixtures.storedId 1) state syncInfo
     expectRejected "forbidden-suffix" result
     Assert.Equal(EventId.zero, state.eventId)
     Assert.Equal("after", state.graph.nodes.[nodeId].text)
@@ -221,7 +221,7 @@ let ``workspace singleton ACK uses the same seam as the queue`` () =
         SyncLogic.reconcileAck
             [ submitted ]
             [ confirm submitted [ stamp nodeId ] ]
-            (EventId.fromJson 1)
+            (EventIdFixtures.storedId 1)
             state
             (sending [ submitted ])
     let next, syncInfo, _, _ = expectApplied result
@@ -237,7 +237,7 @@ let ``async workspace late duplicate is ignored without applying suffixes twice`
         SyncLogic.reconcileAck
             [ submitted ]
             [ confirm submitted [ stamp nodeId ] ]
-            (EventId.fromJson 1)
+            (EventIdFixtures.storedId 1)
             state
             (sending [ submitted ])
     let after, _, _, _ = expectApplied first
@@ -245,7 +245,7 @@ let ``async workspace late duplicate is ignored without applying suffixes twice`
         SyncLogic.reconcileAck
             [ submitted ]
             [ confirm submitted [ stamp nodeId ] ]
-            (EventId.fromJson 1)
+            (EventIdFixtures.storedId 1)
             after
             SyncInfo.initial
     match duplicate with
@@ -256,7 +256,12 @@ let ``async workspace late duplicate is ignored without applying suffixes twice`
 let ``missing confirmation is rejected atomically`` () =
     let _, state, pending = seededEdit ()
     let result =
-        SyncLogic.reconcileAck [ pending ] [] (EventId.fromJson 1) state (sending [ pending ])
+        SyncLogic.reconcileAck
+            [ pending ]
+            []
+            (EventIdFixtures.storedId 1)
+            state
+            (sending [ pending ])
     expectRejected "missing" result
 
 [<Fact>]
@@ -270,7 +275,7 @@ let ``reordered confirmation is rejected atomically`` () =
             SyncLogic.reconcileAck
                 submitted
                 confirmed
-                (EventId.fromJson 2)
+                (EventIdFixtures.storedId 2)
                 afterUndo
                 (sending submitted)
         expectRejected "reordered" result
@@ -284,7 +289,7 @@ let ``unmatched confirmation is rejected atomically`` () =
         SyncLogic.reconcileAck
             [ pending ]
             [ other ]
-            (EventId.fromJson 1)
+            (EventIdFixtures.storedId 1)
             state
             (sending [ pending ])
     expectRejected "unmatched" result
@@ -299,7 +304,7 @@ let ``changed-prefix confirmation is rejected atomically`` () =
         SyncLogic.reconcileAck
             [ pending ]
             confirmed
-            (EventId.fromJson 1)
+            (EventIdFixtures.storedId 1)
             state
             (sending [ pending ])
     expectRejected "changed-prefix" result
@@ -314,7 +319,7 @@ let ``partial-overlap confirmation is rejected atomically`` () =
             SyncLogic.reconcileAck
                 submitted
                 (submitted |> List.map (fun item -> confirm item []))
-                (EventId.fromJson 2)
+                (EventIdFixtures.storedId 2)
                 afterUndo
                 (sending [ second ])
         expectRejected "partial-overlap" result
@@ -323,12 +328,12 @@ let ``partial-overlap confirmation is rejected atomically`` () =
 [<Fact>]
 let ``forward-Revision late response is rejected atomically`` () =
     let _, state, pending = seededEdit ()
-    let acked = { state with eventId = EventId.fromJson 1 }
+    let acked = { state with eventId = EventIdFixtures.storedId 1 }
     let result =
         SyncLogic.reconcileAck
             [ pending ]
             [ confirm pending [] ]
-            (EventId.fromJson 4)
+            (EventIdFixtures.storedId 4)
             acked
             SyncInfo.initial
     expectRejected "forward-event" result
@@ -346,7 +351,7 @@ let ``forbidden-suffix confirmation is rejected atomically`` () =
         SyncLogic.reconcileAck
             [ pending ]
             confirmed
-            (EventId.fromJson 1)
+            (EventIdFixtures.storedId 1)
             state
             (sending [ pending ])
     expectRejected "forbidden-suffix" result
@@ -358,7 +363,7 @@ let ``externalChanges ACK notes catch-up without rejecting or changing graph`` (
     let result =
         SyncLogic.reconcileExternalAck
             [ pending ]
-            (EventId.fromJson 1)
+            (EventIdFixtures.storedId 1)
             state
             syncInfo
     let next, nextSync, effects, suffixOps = expectApplied result
@@ -381,7 +386,7 @@ let ``amended confirmation echo routes through external ACK not Reject`` () =
     let result =
         SyncLogic.reconcileExternalAck
             [ pending ]
-            (EventId.fromJson 1)
+            (EventIdFixtures.storedId 1)
             state
             (sending [ pending ])
     match result with

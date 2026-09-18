@@ -33,11 +33,12 @@ let private graphWithCustomNodes nodes =
     |> Map.ofList
     |> Graph.fromNodes Graph.rootId
 
-let private replaceProjection connStr graph revision = task {
+let private replaceProjection connStr graph eventId = task {
     use conn = Database.getConnection connStr
     do! conn.OpenAsync()
     use tx = conn.BeginTransaction()
-    do! Database.replaceGraphProjectionWithTx tx graph revision |> Async.AwaitTask
+    do! Database.replaceGraphProjectionWithTx tx graph (EventId.toJson eventId)
+        |> Async.AwaitTask
     tx.Commit()
 }
 
@@ -117,7 +118,7 @@ let private readRootChildren connStr = task {
 let ``writer upserts complete nodes children revision and reloads`` () = task {
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
-    do! replaceProjection connStr (Graph.create ()) 0
+    do! replaceProjection connStr (Graph.create ()) EventId.zero
 
     let parentId, firstId, secondId = id 50, id 51, id 52
     let first = Node.Create(firstId, text = "first")
@@ -140,7 +141,7 @@ let ``writer upserts complete nodes children revision and reloads`` () = task {
           Op.NewNode(firstId, "first")
           Op.NewNode(secondId, "second")
           Op.Replace(parentId, [], initial.children) ]
-    do! persistPatch connStr initialGraph (EventId.fromJson 1) [ change createOps ]
+    do! persistPatch connStr initialGraph (EventIdFixtures.storedId 1) [ change createOps ]
 
     let final =
         { initial with
@@ -157,7 +158,7 @@ let ``writer upserts complete nodes children revision and reloads`` () = task {
           Op.SetDocumentState(parentId, Current, Unparsed)
           Op.SetUpdateTime(parentId, stamp 2, stamp 4)
           Op.Replace(parentId, initial.children, final.children) ]
-    do! persistPatch connStr finalGraph (EventId.fromJson 2) [ change updateOps ]
+    do! persistPatch connStr finalGraph (EventIdFixtures.storedId 2) [ change updateOps ]
 
     use conn = new NpgsqlConnection(connStr)
     do! conn.OpenAsync()
@@ -184,7 +185,7 @@ let ``writer upserts complete nodes children revision and reloads`` () = task {
             parentId.Value
     let! revision = scalar<int> connStr "SELECT revision FROM graph WHERE singleton = 1"
     Assert.Equal(2L, childCount)
-    Assert.Equal(2, revision)
+    Assert.Equal(EventId.toJson (EventIdFixtures.storedId 2), revision)
     let! loaded = Database.tryLoadGraphFromProjection connStr |> Async.AwaitTask
     match loaded with
     | Error error -> Assert.Fail(error)
@@ -205,7 +206,7 @@ let ``writer clears one parent without rewriting unrelated rows and rolls back``
     let parentA = Node.Create(parentAId, text = "before", children = [ edgeA ])
     let parentB = Node.Create(parentBId, text = "unrelated", children = [ edgeB ])
     let initial = graphWithCustomNodes [ parentA; parentB; childA; childB ]
-    do! replaceProjection connStr initial 5
+    do! replaceProjection connStr initial (EventIdFixtures.storedId 5)
 
     let xminSql table whereClause =
         $"SELECT xmin::text FROM {table} WHERE {whereClause}"
@@ -221,7 +222,7 @@ let ``writer clears one parent without rewriting unrelated rows and rolls back``
     let ops =
         [ Op.SetText(parentAId, "before", "after")
           Op.Replace(parentAId, [ edgeA ], []) ]
-    do! persistPatch connStr final (EventId.fromJson 6) [ change ops ]
+    do! persistPatch connStr final (EventIdFixtures.storedId 6) [ change ops ]
 
     let! remaining =
         scalarById<int64> connStr
@@ -243,7 +244,7 @@ let ``writer clears one parent without rewriting unrelated rows and rolls back``
     let rolledBack =
         graphWithCustomNodes [ { clearedA with text = "rolled-back" }; parentB; childA; childB ]
     let patch =
-        DatabaseProjection.plan rolledBack (EventId.fromJson 7)
+        DatabaseProjection.plan rolledBack (EventIdFixtures.storedId 7)
             [ change [ Op.SetText(parentAId, "after", "rolled-back") ] ]
     do! DatabaseProjection.persistWithTx tx rolledBack patch |> Async.AwaitTask
     tx.Rollback()
@@ -252,7 +253,7 @@ let ``writer clears one parent without rewriting unrelated rows and rolls back``
         scalarById<string> connStr "SELECT text FROM nodes WHERE id = @id" parentAId.Value
     let! revision = scalar<int> connStr "SELECT revision FROM graph WHERE singleton = 1"
     Assert.Equal("after", storedText)
-    Assert.Equal(6, revision)
+    Assert.Equal(EventId.toJson (EventIdFixtures.storedId 6), revision)
 }
 
 [<Fact>]
@@ -309,7 +310,7 @@ let ``db bootstrap duplicate returns stored Change and rejects no-op`` () = task
     let! revision = scalar<int> connStr "SELECT revision FROM graph WHERE singleton = 1"
     Assert.Equal(xminAfterFirst, xminAfterNoWrites)
     Assert.Equal(1L, eventCount)
-    Assert.Equal(1, revision)
+    Assert.Equal(EventId.toJson (EventIdFixtures.storedId 1), revision)
 }
 
 [<Fact>]
@@ -337,7 +338,7 @@ let ``startup sweep deletes unreachable rows without rewriting reachable project
                 children =
                     ChildNode.owner reachableId :: root.children }
         |> Graph.fromNodes Graph.rootId
-    do! replaceProjection connStr graph 12
+    do! replaceProjection connStr graph (EventIdFixtures.storedId 12)
 
     let! nodeXminBefore =
         scalarById<string> connStr
@@ -388,7 +389,7 @@ let ``startup sweep deletes unreachable rows without rewriting reachable project
     Assert.Equal(0L, incidentEdges)
     Assert.Equal(nodeXminBefore, nodeXminAfter)
     Assert.Equal(edgeXminBefore, edgeXminAfter)
-    Assert.Equal(12, revision)
+    Assert.Equal(EventId.toJson (EventIdFixtures.storedId 12), revision)
 }
 
 [<Fact>]
@@ -399,7 +400,7 @@ let ``startup sweep is a no-op without graph singleton or orphans`` () = task {
     Assert.Empty(emptyDeleted)
 
     let graph = Graph.create ()
-    do! replaceProjection connStr graph 3
+    do! replaceProjection connStr graph (EventIdFixtures.storedId 3)
     let! graphXminBefore =
         scalar<string> connStr "SELECT xmin::text FROM graph WHERE singleton = 1"
     let! noOrphansDeleted = sweep connStr
@@ -425,7 +426,7 @@ let ``startup sweep preserves persisted reachable nodes absent from loaded subse
                 children =
                     ChildNode.owner persistedId :: root.children }
         |> Graph.fromNodes Graph.rootId
-    do! replaceProjection connStr persistedGraph 5
+    do! replaceProjection connStr persistedGraph (EventIdFixtures.storedId 5)
 
     let loadedSubset = Graph.create ()
     Assert.False(loadedSubset.nodes.ContainsKey persistedId)
@@ -461,7 +462,7 @@ let ``ownership repair does not bump revision or append changes`` () = task {
         |> Map.add Graph.rootId
             { root with children = ChildNode.owner uId :: root.children }
         |> Graph.fromNodes Graph.rootId
-    do! replaceProjection connStr graph 8
+    do! replaceProjection connStr graph (EventIdFixtures.storedId 8)
 
     let! deleted = sweep connStr
     Assert.Empty(deleted)
@@ -484,7 +485,7 @@ let ``ownership repair does not bump revision or append changes`` () = task {
     let! revision = scalar<int> connStr "SELECT revision FROM graph WHERE singleton = 1"
     Assert.Equal("owner", wsOwnership)
     Assert.Equal("ref", uOwnership)
-    Assert.Equal(8, revision)
+    Assert.Equal(EventId.toJson (EventIdFixtures.storedId 8), revision)
 }
 
 [<Fact>]
@@ -504,7 +505,7 @@ let ``ownership repair inserts canonicals without node_children_pkey clash`` () 
                     root.children
                     @ [ ChildNode.owner u1Id; ChildNode.owner u2Id ] }
         |> Graph.fromNodes Graph.rootId
-    do! replaceProjection connStr graph 9
+    do! replaceProjection connStr graph (EventIdFixtures.storedId 9)
 
     do!
         exec connStr
@@ -571,7 +572,7 @@ let ``ownership repair shifts root with owner-and-ref sibling without pkey clash
                 { root with
                     children = root.children @ [ ChildNode.owner u1Id ] }
             |> Graph.fromNodes Graph.rootId
-        do! replaceProjection connStr graph 9
+        do! replaceProjection connStr graph (EventIdFixtures.storedId 9)
         do!
             exec connStr
                 """

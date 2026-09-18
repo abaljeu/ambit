@@ -16,7 +16,7 @@ let private requireOk label result =
 let ``postChunks mints Ev with EventId.zero and commandName`` () =
     let posts = ResizeArray<Ev>()
     let accepted =
-        CoreChanges.accepted (EventId.fromJson 1) true [] false None
+        CoreChanges.accepted (EventIdFixtures.storedId 1) true [] false None
     let post event =
         posts.Add event
         async.Return(Ok accepted)

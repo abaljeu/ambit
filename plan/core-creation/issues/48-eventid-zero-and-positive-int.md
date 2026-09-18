@@ -1,6 +1,7 @@
 # 48 — EventId Zero and positive Int
 
-**Status:** defined
+**Status:** done
+**Actual:** 2h
 **Blocked by:** None — can start immediately. Follows [47 — Server rejected Change: duplicate event id](47-server-rejected-change-duplicate-event-id.md) (Status `done`).
 
 ## 1. Context
@@ -50,7 +51,7 @@ Client and Shared mint drafts. They do not assign stored serials.
 Prove the builders. Other tests do not lock stored serial values.
 
 1. [x] EventId builder tests — The EventId builder tests in the program check Zero, positive Int, `next` of Zero, `next` of a stored Int, wire 0, a positive wire int, and display. Those tests may check event id numbers.
-2. [ ] Other tests do not lock serials — Tests that are not EventId builder tests may require `EventId.zero` on a draft, uniqueness, restore/append order, and `since` tails. They obtain stored ids from EventLog. They do not lock 1, 2, 3, or another stored serial.
+2. [x] Other tests do not lock serials — Tests that are not EventId builder tests may require `EventId.zero` on a draft, uniqueness, restore/append order, and `since` tails. They obtain stored ids from EventLog. They do not lock 1, 2, 3, or another stored serial.
 
 ### 5. Unique persist
 
@@ -73,3 +74,9 @@ The [47 — Server rejected Change: duplicate event id](47-server-rejected-chang
 - 2026-09-18 — Filed as a follow-on to [47 — Server rejected Change: duplicate event id](47-server-rejected-change-duplicate-event-id.md). Locked type: Zero or positive Int; `EventId.next EventId.zero` equals `EventId.zero`. Tests check event id numbers only in EventId builder tests.
 - 2026-09-18 — Alan: BeforeAll is not necessary. Zero is the get-all basis because a stored event id is a positive Int.
 - 2026-09-18 — Plan-or-doc-change: EventId serial lives on [Core creation architecture](../arch.md) Module **Ev** / **EventLog** and [EventId serial](.agents/rules/core-api.md). This ticket consumes that shape. Caller bans (`EventId.next` / `fromJson` as constructors) and “do not check event id numbers” were stripped from architecture and thinned here. Other tests do not lock stored serials; they obtain stored ids from EventLog.
+- 2026-09-18 — Implement: EventId `Zero | Int` was already in Shared. Remaining work was 4.2 Other tests do not lock serials. Non-builder tests now take stored ids from EventLog via [EventIdFixtures](tests/Shared.Tests/EventIdFixtures.fs). EventId builder tests still use `fromJson`. Status `coded`.
+- 2026-09-18 — Alan approved the 4.2 review ([code-review-48-other-tests-do-not-lock-serials](plan/core-creation/reports/code-review-48-other-tests-do-not-lock-serials.md)). SerializationTests wire 3/4 and DbAgentTests growth accepted as-is. Status `done`.
+
+## Time
+
+- 2026-09-18 2h — 4.2 Other tests do not lock serials: EventIdFixtures and non-builder serial unlock (from chat)

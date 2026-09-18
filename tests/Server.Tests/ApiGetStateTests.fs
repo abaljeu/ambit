@@ -76,7 +76,7 @@ let private nestedWorkspaceStateResponse () =
             | Ok g -> g
             | Error err -> failwith err
     { graph = graph2
-      eventId = EventId.fromJson 1
+      eventId = EventIdFixtures.storedId 1
     },
     wsId,
     dirId

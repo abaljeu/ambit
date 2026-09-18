@@ -123,7 +123,7 @@ let ``ordinary inverse of large paste detaches but retains created nodes`` () =
     let change = parseLikeChange Graph.workspacesId
     let changed = applied state change
     let inverse =
-        invertEvent (EventId.fromJson 1) (System.Guid.NewGuid()) change
+        invertEvent (EventIdFixtures.storedId 1) (System.Guid.NewGuid()) change
     Assert.DoesNotContain(
         eventOps inverse,
         fun op ->
@@ -229,7 +229,7 @@ let ``delivered inverse of large paste measures phases without per-created-Node 
             Enc.toString 0 (EventJson.encodeEventBatch { events = [ inverseEvent ] })
             |> ignore)
     let ack: ChangeSuccessResponse =
-        { eventId = EventId.fromJson 2
+        { eventId = EventIdFixtures.storedId 2
           buildEpochSec = 0
           pageBuildEpochSec = 0
           apiVersion = ApiVersion.current

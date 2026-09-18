@@ -4,7 +4,7 @@ Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
 Updated: 2026-09-18
 Started: 2026-09-05
-Actual: 54h05m
+Actual: 56h05m
 
 ## Map
 
@@ -67,7 +67,7 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/issues/45-contract-historyevent-clienthistory-pendingkind-and-changelog.md|45 — Contract HistoryEvent, mailbox History, PendingKind, StartActorRequest, and ChangeLog]] — Story **Caller, persist, and Poll** contract. Deletes HistoryEvent, ActorLifecycleEvent, mailbox History name (replaced by EventLog), PendingKind, StartActorRequest, and the ChangeLog name. ClientHistory remains. Status `blocked`.
 - [46 — Workspace Load prepare-push 401](plan/core-creation/issues/46-workspace-run-prepare-push-401.md) — Desktop Load on a mapped Workspace Node fails with prepare-push HTTP 401. Status `done`.
 - [47 — Server rejected Change: duplicate event id](plan/core-creation/issues/47-server-rejected-change-duplicate-event-id.md) — After Load, a Browser Change is rejected: Event persist duplicate `events_pkey`. Status `done`.
-- [48 — EventId Zero and positive Int](plan/core-creation/issues/48-eventid-zero-and-positive-int.md) — Retool EventId to Zero or positive Int; next of Zero is Zero; other tests do not lock stored serials. Status `defined`.
+- [48 — EventId Zero and positive Int](plan/core-creation/issues/48-eventid-zero-and-positive-int.md) — Retool EventId to Zero or positive Int; next of Zero is Zero; other tests do not lock stored serials. Status `done`.
 
 ## Decision tickets
 
@@ -173,3 +173,4 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - 2026-09-18 — [47 — Server rejected Change: duplicate event id](plan/core-creation/issues/47-server-rejected-change-duplicate-event-id.md) filed from QA. Status `defined`.
 - 2026-09-18 — [47 — Server rejected Change: duplicate event id](plan/core-creation/issues/47-server-rejected-change-duplicate-event-id.md) Status `coded`. EventLog nextId catch-up from persisted event_id; persist messages say Event.
 - 2026-09-18 — [48 — EventId Zero and positive Int](plan/core-creation/issues/48-eventid-zero-and-positive-int.md) filed. Status `defined`. Follow-on to [47 — Server rejected Change: duplicate event id](plan/core-creation/issues/47-server-rejected-change-duplicate-event-id.md): Zero or positive Int; next of Zero is Zero; tests check event id numbers only in EventId builder tests.
+- 2026-09-18 — [48 — EventId Zero and positive Int](plan/core-creation/issues/48-eventid-zero-and-positive-int.md) Status `done`. Alan approved the 4.2 review ([code-review-48-other-tests-do-not-lock-serials](plan/core-creation/reports/code-review-48-other-tests-do-not-lock-serials.md)); SerializationTests wire 3/4 and DbAgentTests growth accepted. Stage stays `build`.

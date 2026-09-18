@@ -284,7 +284,7 @@ let ``mailbox appends ActorStart and ActorStop in lifecycle order`` () =
 let ``postEvent rejects a non-zero EventId on a new client Event`` () =
     withHost [] (fun host _ -> task {
         let _, event = addRootChild "nonzero"
-        let dirty = { event with id = EventId.fromJson 99 }
+        let dirty = { event with id = EventIdFixtures.storedId 99 }
         let! result =
             CoreMailbox.postEvent host testCaller dirty
             |> Async.StartAsTask

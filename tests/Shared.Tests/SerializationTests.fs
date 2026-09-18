@@ -160,7 +160,7 @@ let ``StateResponse decode accepts Alan sample node shapes`` () =
     match Dec.fromString ApiResponseSerialization.decodeStateResponseDecoder json with
     | Error err -> failwith $"Decode failed: {err}"
     | Ok response ->
-        Assert.Equal(EventId.fromJson 1, response.eventId)
+        Assert.Equal(EventIdFixtures.storedId 1, response.eventId)
         let specialId =
             NodeId(System.Guid.Parse "fde5ee56-f6d5-44e0-bff5-75c19924afa4")
         let normalId =
@@ -310,7 +310,7 @@ let ``Op.SetUpdateTime round-trip`` () =
 [<Fact>]
 let ``EventBatch round-trip`` () =
     let change =
-        { id = EventId.fromJson 5
+        { id = EventIdFixtures.storedId 5
           submissionId = System.Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
@@ -328,7 +328,7 @@ let ``EventBatch round-trip`` () =
 [<Fact>]
 let ``EventBatch round-trip preserves request order`` () =
     let first =
-        { id = EventId.fromJson 5
+        { id = EventIdFixtures.storedId 5
           submissionId = System.Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
@@ -340,7 +340,7 @@ let ``EventBatch round-trip preserves request order`` () =
           commandName = ""
           body = first.body }
     let second =
-        { id = EventId.fromJson 6
+        { id = EventIdFixtures.storedId 6
           submissionId = System.Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
@@ -385,13 +385,13 @@ let ``EventBatch decoder rejects explicit Redo JSON`` () =
 [<Fact>]
 let ``ChangeSuccessResponse round-trip with non-empty Changes`` () =
     let change =
-        { id = EventId.fromJson 3
+        { id = EventIdFixtures.storedId 3
           submissionId = System.Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
           body = EventBody.Change [ Op.SetText(NodeId.New(), "old", "new") ] }
     let response: ChangeSuccessResponse =
-        { eventId = EventId.fromJson 7
+        { eventId = EventIdFixtures.storedId 7
           buildEpochSec = 100
           pageBuildEpochSec = 200
           apiVersion = ApiVersion.current
@@ -421,7 +421,7 @@ let ``ChangeSuccessResponse round-trip with non-empty Changes`` () =
 [<Fact>]
 let ``ChangeSuccessResponse round-trip with empty Changes`` () =
     let response: ChangeSuccessResponse =
-        { eventId = EventId.fromJson 5
+        { eventId = EventIdFixtures.storedId 5
           buildEpochSec = 0
           pageBuildEpochSec = 0
           apiVersion = ApiVersion.current
@@ -448,14 +448,14 @@ let ``ChangeSuccessResponse omits bootstrapHash and still decodes`` () =
     match Dec.fromString ApiResponseSerialization.decodeChangeSuccessResponseDecoder json with
     | Error err -> failwith err
     | Ok decoded ->
-        Assert.Equal(3, decoded.eventId.Value)
+        Assert.Equal(EventIdFixtures.storedId 3, decoded.eventId)
         Assert.Equal(0, decoded.apiVersion)
         Assert.Equal(None, decoded.bootstrapHash)
 
 [<Fact>]
 let ``ChangeSuccessResponse round-trip with bootstrapHash`` () =
     let response: ChangeSuccessResponse =
-        { eventId = EventId.fromJson 3
+        { eventId = EventIdFixtures.storedId 3
           buildEpochSec = 0
           pageBuildEpochSec = 0
           apiVersion = ApiVersion.current
@@ -474,7 +474,7 @@ let ``ChangeSuccessResponse round-trip with bootstrapHash`` () =
 [<Fact>]
 let ``LoadRequest round-trip`` () =
     let request: LoadRequest =
-        { eventId = EventId.fromJson 11
+        { eventId = EventIdFixtures.storedId 11
           targets =
             [ { targetId = NodeId.New(); includeWorkspace = true }
               { targetId = NodeId.New(); includeWorkspace = false } ] }
@@ -494,13 +494,13 @@ let ``LoadResponse round-trip with packages`` () =
     let node =
         Node.Create(NodeId.New(), text = "ws child", owner = Graph.rootId)
     let change =
-        { id = EventId.fromJson 2
+        { id = EventIdFixtures.storedId 2
           submissionId = System.Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
           body = EventBody.Change [ Op.SetText(node.id, "a", "b") ] }
     let response: LoadResponse =
-        { eventId = EventId.fromJson 8
+        { eventId = EventIdFixtures.storedId 8
           buildEpochSec = 10
           pageBuildEpochSec = 20
           apiVersion = ApiVersion.current
@@ -527,14 +527,14 @@ let ``LoadResponse decoder tolerates missing packages`` () =
     match Dec.fromString ApiResponseSerialization.decodeLoadResponseDecoder json with
     | Error err -> failwith $"Decode failed: {err}"
     | Ok (decoded: LoadResponse) ->
-        Assert.Equal(EventId.fromJson 4, decoded.eventId)
+        Assert.Equal(EventIdFixtures.storedId 4, decoded.eventId)
         Assert.Empty(decoded.packages)
 
 [<Fact>]
 let ``StateResponse round-trip preserves startup readiness`` () =
     let response =
         { graph = Graph.create ()
-          eventId = EventId.fromJson 3
+          eventId = EventIdFixtures.storedId 3
           isReady = false }
         : StateResponse
     let decoded =

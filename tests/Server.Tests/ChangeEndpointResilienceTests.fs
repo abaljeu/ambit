@@ -148,7 +148,7 @@ let ``changes POST rejects non-zero EventId and admits zero`` () = task {
         client.PostAsync("/ambit/changes", zeroContent) |> timeout
     Assert.Equal(HttpStatusCode.OK, zeroResponse.StatusCode)
     let _, dirtyEvent = addRootChildEvent "nonzero"
-    let dirty = { dirtyEvent with id = EventId.fromJson 4 }
+    let dirty = { dirtyEvent with id = EventIdFixtures.storedId 4 }
     let dirtyBody =
         Encode.toString 0 (
             EventJson.encodeEventBatch { events = [ dirty ] })

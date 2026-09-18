@@ -1,31 +1,44 @@
-# 1. Standards review — 48 EventId Zero and positive Int
+# Standards review — 48 EventId Zero and positive Int
 
-Range: uncommitted vs `HEAD` (`git diff HEAD`). This axis does not score Spec. This review did not edit product code. The mechanical scan printed findings.
+## 1. Range
 
-## 2. Mechanical scan
+Uncommitted vs HEAD (`git diff HEAD`), plus untracked [EventIdFixtures](tests/Shared.Tests/EventIdFixtures.fs). [core-agent-behavior.md](.agents/rules/core-agent-behavior.md) in the tree is out of this ticket.
 
-Stdout treated as documented-standard hits:
+## 2. Hard violations
 
-1. File growth — `src/Shared/History.fs` `FILE 733->741` already over 400 or new file over 400; change increased it. Rule: [fsharp-source.md](.agents/rules/fsharp-source.md) 400 lines or less per file; if a file is already longer, only restructure to split if the change would increase it.
+### 1. File over 400 lines — DatabaseProjectionContractTests
 
-## 3. Hard violations
+[fsharp-source.md](.agents/rules/fsharp-source.md): 400 lines or less per file. If a file is already longer, only restructure to split up the code if your changes would increase it. Scan: [DatabaseProjectionContractTests](tests/Server.Tests/DatabaseProjectionContractTests.fs) FILE 624->625. The wrap added a line:
 
-1. File growth on History.fs — Same scan hit. [History.fs](src/Shared/History.fs) EventId grew from one private int case to `Zero | Int`, plus `next` / `fromJson` matches. The file was already over 400 lines. The change increased it and did not split. Cite [fsharp-source.md](.agents/rules/fsharp-source.md) 400 lines or less per file.
+```
+do! Database.replaceGraphProjectionWithTx tx graph (EventId.toJson eventId)
+    |> Async.AwaitTask
+```
 
-2. EventId.next on a stored Int outside EventLog — [core-api.md](.agents/rules/core-api.md) EventId serial: only EventLog may call `EventId.next` on a stored Int. [EventTests.fs](tests/Shared.Tests/EventTests.fs) restore and advancePast mint persist ids with `EventId.next EventLog.empty.nextId` and `EventId.next (EventId.next EventLog.empty.nextId)`. Production `src/` next stays in EventLog. Builder tests that call `EventId.next` to prove next itself are not this finding.
+### 2. File over 400 lines — DbAgentTests
 
-3. fromJson used as a constructor in a non-codec test — [core-api.md](.agents/rules/core-api.md) EventId serial: only serializing uses fromJson/toJson. [PersistHandlersRestoreTests.fs](tests/Server.Tests/PersistHandlersRestoreTests.fs): `Assert.NotEqual(EventId.fromJson 1, stored.id)`.
+Same rule. [DbAgentTests](tests/Server.Tests/DbAgentTests.fs) FILE 597->602. Line wraps for `storedId` and SQL interpolation increased the file, for example:
 
-## 4. Judgement smells
+```
+do! Database.replaceGraphProjectionWithTx tx graph
+        (EventId.toJson (EventIdFixtures.storedId 9))
+    |> Async.AwaitTask
+```
 
-Per [SMELLS.md](.agents/skills/code-review/SMELLS.md), smells are heuristics, not hard violations.
+### 3. Labeled link not project-root relative
 
-1. Shotgun Surgery — One EventId retool plus “do not assert serial numbers” lands in sixteen Server test files plus Shared EventTests. Same swap: `Assert.Equal(EventId.fromJson N, …)` to `Assert.NotEqual(EventId.zero, …)`.
+[markdown-writing.md](.agents/rules/markdown-writing.md): other local files use a path relative to the project root. New comment on [48 — EventId Zero and positive Int](plan/core-creation/issues/48-eventid-zero-and-positive-int.md) uses `[EventIdFixtures](../../../tests/Shared.Tests/EventIdFixtures.fs)` instead of `tests/Shared.Tests/EventIdFixtures.fs`.
 
-2. Duplicated Code — That NotEqual-zero shape repeats. EventTests extracted `assertStored`; the Server files did not share it.
+## 3. Judgement calls
 
-## 5. Checks without findings
+### 1. Shotgun Surgery
 
-New EventId bindings stay under 40 lines and 100 columns. `firstStored` is two words. Get-all and drafts use `EventId.zero`. [CoreMailboxBackend.fs](src/Server/Core/CoreMailboxBackend.fs) seed uses `getEventLog`. Plan links for [48 — EventId Zero and positive Int](plan/core-creation/issues/48-eventid-zero-and-positive-int.md) use `[label](path)` and name [47 — Server rejected Change: duplicate event id](plan/core-creation/issues/47-server-rejected-change-duplicate-event-id.md). Ignored: [gambol.md](.agents/rules/gambol.md) plan-or-doc-change line and untracked skill noise.
+One serial unlock edits many test files ([SMELLS.md](.agents/skills/code-review/SMELLS.md)). Typical hunk: `EventId.fromJson 4` replaced by `EventIdFixtures.storedId 4`. The fixture gathers the walk; the scatter is the ticket surface.
 
-Worst hard issue: History.fs growth (scan) plus EventTests advancing stored serials with `EventId.next`.
+### 2. Duplicated Code
+
+Wire asserts repeat `EventId.toJson (EventIdFixtures.storedId n)`, for example in [DatabaseProjectionContractTests](tests/Server.Tests/DatabaseProjectionContractTests.fs): `Assert.Equal(EventId.toJson (EventIdFixtures.storedId 2), revision)`.
+
+## 4. Clear in this range
+
+[EventIdFixtures.storedId](tests/Shared.Tests/EventIdFixtures.fs) starts at `EventLog.empty.nextId` and walks with `EventId.next`. EventId builder tests in [EventTests](tests/Shared.Tests/EventTests.fs) still use `fromJson`. No added F# line over 100 characters. No product Shared or Server source in this range. [core-api.md](.agents/rules/core-api.md) mint and assign rules apply to Client and Shared product code, not this test helper. [refer-by-name.md](.agents/rules/refer-by-name.md) holds on the Status `coded` list item that names the issue.
