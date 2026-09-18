@@ -38,7 +38,7 @@ let private unloadedWorkspace () : Graph * NodeId * Node =
     Graph.fromNodes graph0.root nodes, wsId, ws
 
 [<Fact>]
-let ``applyLocalEvent records the submitted Event and Normal transition`` () =
+let ``applyLocalEvent records the submitted Event at EventId.zero`` () =
     let graph0 = Graph.create ()
     let graph1, nodeId = Graph.newNode "before" graph0
     let change = textChange 3 nodeId "before" "after"

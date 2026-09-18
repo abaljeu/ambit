@@ -126,7 +126,9 @@ module AmbitSession =
             Error ex.Message
 
     let private encodeBatch (events: Ev list) =
-        Enc.toString 0 (EventJson.encodeEventBatch { events = events })
+        Enc.toString 0 (
+            EventJson.encodeEventBatch
+                { events = SyncBatch.toWireBatch events })
 
     let getFullState (session: AmbitSession) =
         let url = session.ambitBase + "/state?scope=full"

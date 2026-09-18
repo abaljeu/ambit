@@ -1,6 +1,7 @@
 # 15 — Client pending = zero + submissionId
 
-**Status:** defined
+**Status:** coded
+**Actual:** 45m
 **Blocked by:** [14 — EventId serial on Shared + Server](14-eventid-serial-shared-server.md)
 
 ## Context
@@ -27,5 +28,8 @@ Client has no EventId serial. Pending events are Ev with `EventId.zero`. Match/a
 ## Comments
 
 - 2026-09-17 — Maps to replan **11b**. Redo path; does not replace the historical land of [11 — One serial event id](11-one-serial-event-id.md).
+- 2026-09-18 — Client pending EventId.zero / submissionId was already on Shared + Client from historical [11 — One serial event id](11-one-serial-event-id.md). This land dropped leftover test adapters (`asPending`, `withKind`, `recordId` names) and stamped [AmbitSession.fs](src/Shared/dotnet/AmbitSession.fs) encodeBatch through `toWireBatch`.
 
 ## Time
+
+- 2026-09-18 45m — Drop leftover pending adapters; stamp AmbitSession wire batch

@@ -9,23 +9,18 @@ open Gambol.Shared.ViewModel
 let private mkChange _n =
     SpecialNodeTestHelpers.changeEventZero "fixture" []
 
-let private asPending event = event
-
-let private withKind _recordId event : Ev =
-    event
-
 [<Fact>]
 let ``tryStartSubmit returns SubmitPendingBatch effect when queue is ready`` () =
     let c = mkChange 7
     let syncInfo =
         { SyncInfo.initial with
-            pending = [ asPending c ] }
+            pending = [ c ] }
     let nextInfo, effects = SyncPlanner.tryStartSubmit (EventId.fromJson 9) syncInfo
     Assert.Equal(Sending 1, nextInfo.syncState)
     match effects with
     | [ SubmitPendingBatch (baseEventId, events) ] ->
         Assert.Equal(EventId.fromJson 9, baseEventId)
-        Assert.Equal<Ev list>([ asPending c ], events)
+        Assert.Equal<Ev list>([ c ], events)
     | _ ->
         failwith "Expected single SubmitPendingBatch effect"
 
@@ -33,7 +28,7 @@ let ``tryStartSubmit returns SubmitPendingBatch effect when queue is ready`` () 
 let ``tryStartSubmit returns no effects when already sending`` () =
     let syncInfo =
         { SyncInfo.initial with
-            pending = [ mkChange 1 |> asPending ]
+            pending = [ mkChange 1 ]
             syncState = Sending 1 }
     let nextInfo, effects = SyncPlanner.tryStartSubmit (EventId.fromJson 1) syncInfo
     Assert.Equal(Sending 1, nextInfo.syncState)
@@ -46,7 +41,7 @@ let ``retireSubmittedPrefix dequeues the prefix and schedules remainder`` () =
     let c3 = mkChange 0
     let syncInfo =
         { SyncInfo.initial with
-            pending = [ c1; c2; c3 ] |> List.map asPending
+            pending = [ c1; c2; c3 ]
             syncState = Sending 1 }
     let nextInfo, pending, effects =
         SyncPlanner.retireSubmittedPrefix 2 (EventId.fromJson 3) syncInfo
@@ -56,7 +51,7 @@ let ``retireSubmittedPrefix dequeues the prefix and schedules remainder`` () =
     match effects with
     | [ SubmitPendingBatch (baseEventId, events) ] ->
         Assert.Equal(EventId.fromJson 3, baseEventId)
-        Assert.Equal<Ev list>([ asPending c3 ], events)
+        Assert.Equal<Ev list>([ c3 ], events)
     | _ ->
         failwith "Expected single SubmitPendingBatch effect for remaining queue"
 
@@ -65,7 +60,7 @@ let ``retireSubmittedPrefix of the full queue returns Idle and no effects`` () =
     let c = mkChange 0
     let syncInfo =
         { SyncInfo.initial with
-            pending = [ asPending c ]
+            pending = [ c ]
             syncState = Sending 1 }
     let nextInfo, pending, effects =
         SyncPlanner.retireSubmittedPrefix 1 (EventId.fromJson 1) syncInfo
@@ -77,7 +72,7 @@ let ``retireSubmittedPrefix of the full queue returns Idle and no effects`` () =
 let ``toWireBatch keeps pending EventId.zero and submissionId`` () =
     let c1 = mkChange 637
     let c2 = mkChange 637
-    let events = List.map asPending [ c1; c2 ]
+    let events = [ c1; c2 ]
     let wire = SyncBatch.toWireBatch events
     Assert.Equal<EventId list>(
         [ EventId.zero; EventId.zero ],
@@ -116,7 +111,7 @@ let ``tryStartPoll emits PollServer when idle with empty queue`` () =
 [<Fact>]
 let ``tryStartPoll returns no effects when queue is non-empty`` () =
     let syncInfo =
-        { SyncInfo.initial with pending = [ mkChange 0 |> asPending ] }
+        { SyncInfo.initial with pending = [ mkChange 0 ] }
     let si, effects = SyncPlanner.tryStartPoll (EventId.fromJson 5) syncInfo
     Assert.Equal(Idle, si.syncState)
     Assert.Empty(effects)
@@ -175,7 +170,7 @@ let ``tryStartPoll returns no effects when loading`` () =
 let ``tryStartSubmit returns no effects when loading`` () =
     let syncInfo =
         { SyncInfo.initial with
-            pending = [ mkChange 1 |> asPending ]
+            pending = [ mkChange 1 ]
             syncState = Loading }
     let nextInfo, effects = SyncPlanner.tryStartSubmit (EventId.fromJson 1) syncInfo
     Assert.Equal(Loading, nextInfo.syncState)
@@ -190,7 +185,7 @@ let ``queued workspace Upload waits while a change submit is in flight`` () =
     let request = QueuedWorkspacePush(scope, Some(NodeId.New()))
     let syncInfo =
         { SyncInfo.initial with
-            pending = [ mkChange 14706 |> asPending ]
+            pending = [ mkChange 14706 ]
             syncState = Sending 1 }
         |> SyncInfo.queueRequest request
     let si, effects = SyncPlanner.tryReleaseQueued syncInfo
@@ -208,7 +203,7 @@ let ``queued file Upload preserves its scope until the change queue drains`` () 
             Some(NodeId.New()))
     let queued =
         { SyncInfo.initial with
-            pending = [ asPending c ]
+            pending = [ c ]
             syncState = Sending 1 }
         |> SyncInfo.queueRequest request
     let acked, _, _ = SyncPlanner.retireSubmittedPrefix 1 (EventId.fromJson 14707) queued
@@ -283,7 +278,7 @@ let ``tryReleaseQueued is inert with nothing queued`` () =
 let ``tryStartSubmit returns no effects when uploading`` () =
     let syncInfo =
         { SyncInfo.initial with
-            pending = [ mkChange 1 |> asPending ]
+            pending = [ mkChange 1 ]
             syncState = Uploading }
     let nextInfo, effects = SyncPlanner.tryStartSubmit (EventId.fromJson 1) syncInfo
     Assert.Equal(Uploading, nextInfo.syncState)
@@ -301,7 +296,7 @@ let ``tryStartPoll returns no effects when parsing`` () =
 let ``tryStartSubmit returns no effects when parsing`` () =
     let syncInfo =
         { SyncInfo.initial with
-            pending = [ mkChange 1 |> asPending ]
+            pending = [ mkChange 1 ]
             syncState = Parsing }
     let nextInfo, effects = SyncPlanner.tryStartSubmit (EventId.fromJson 1) syncInfo
     Assert.Equal(Parsing, nextInfo.syncState)
@@ -323,10 +318,7 @@ let ``mixed C Undo Redo wire batch keeps submissionId and EventId.zero`` () =
     let change = mkChange 99
     let undo = mkChange 99
     let redo = mkChange 99
-    let items =
-        [ withKind 4 change
-          withKind 4 undo
-          withKind 4 redo ]
+    let items = [ change; undo; redo ]
     let wire = SyncBatch.toWireBatch items
     Assert.Equal<EventId list>(
         [ EventId.zero; EventId.zero; EventId.zero ],
@@ -337,8 +329,8 @@ let ``mixed C Undo Redo wire batch keeps submissionId and EventId.zero`` () =
 
 [<Fact>]
 let ``later queued actions do not alter the SubmitPendingBatch list`` () =
-    let first = mkChange 1 |> asPending
-    let later = mkChange 2 |> asPending
+    let first = mkChange 1
+    let later = mkChange 2
     let syncInfo =
         { SyncInfo.initial with pending = [ first ] }
     let sending, effects = SyncPlanner.tryStartSubmit (EventId.fromJson 4) syncInfo
@@ -355,8 +347,8 @@ let ``later queued actions do not alter the SubmitPendingBatch list`` () =
 
 [<Fact>]
 let ``retry list stays the submitted snapshot after later actions append`` () =
-    let submitted = [ mkChange 1 |> asPending ]
-    let later = mkChange 2 |> asPending
+    let submitted = [ mkChange 1 ]
+    let later = mkChange 2
     let syncInfo =
         { SyncInfo.initial with
             pending = submitted @ [ later ]
@@ -372,25 +364,20 @@ let ``retry list stays the submitted snapshot after later actions append`` () =
         failwith "Expected retry of the WaitingToRetry snapshot"
 
 [<Fact>]
-let ``same recordId C Undo Redo remain one SubmitPendingBatch`` () =
-    let items =
-        [ mkChange 0 |> withKind 7
-          mkChange 0 |> withKind 7
-          mkChange 0 |> withKind 7 ]
+let ``C Undo Redo remain one SubmitPendingBatch`` () =
+    let items = [ mkChange 0; mkChange 0; mkChange 0 ]
     let syncInfo = { SyncInfo.initial with pending = items }
     let _, effects = SyncPlanner.tryStartSubmit (EventId.fromJson 3) syncInfo
     match effects with
     | [ SubmitPendingBatch (_, submitted) ] ->
         Assert.Equal<Ev list>(items, submitted)
     | _ ->
-        failwith "Expected the full same-recordId batch"
+        failwith "Expected the full pending batch"
 
 [<Fact>]
-let ``retireSubmittedPrefix remainder with the same recordId still submits together`` () =
-    let first = mkChange 0 |> withKind 7
-    let remainder =
-        [ mkChange 0 |> withKind 7
-          mkChange 0 |> withKind 7 ]
+let ``retireSubmittedPrefix remainder still submits together`` () =
+    let first = mkChange 0
+    let remainder = [ mkChange 0; mkChange 0 ]
     let syncInfo =
         { SyncInfo.initial with
             pending = first :: remainder
@@ -402,10 +389,10 @@ let ``retireSubmittedPrefix remainder with the same recordId still submits toget
     | [ SubmitPendingBatch (_, submitted) ] ->
         Assert.Equal<Ev list>(remainder, submitted)
     | _ ->
-        failwith "Expected remainder batch with the same recordId"
+        failwith "Expected remainder batch"
 
 [<Fact>]
-let ``restorePending strips transition and does not record History`` () =
+let ``restorePending keeps EventId.zero and does not record History`` () =
     let state0 = ModelBuilder.createState12 ()
     let root = state0.graph.nodes.[state0.graph.root]
     let node = state0.graph.nodes.[root.children.Head.id]
@@ -415,7 +402,7 @@ let ``restorePending strips transition and does not record History`` () =
           authority = Authority "Browser"
           commandName = ""
           body = EventBody.Change [ Op.SetText(node.id, node.text, "restored") ] }
-    let saved = [ asPending change ]
+    let saved = [ change ]
     let snapshot = { state0 with eventId = EventId.fromJson 1 }
     let next, restored =
         SyncPlanner.restorePending (EventId.fromJson 1) saved snapshot
