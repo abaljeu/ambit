@@ -195,7 +195,7 @@ let ``soft-fail log is not replayed into FileAgent state after restart`` () = ta
         CoreMailbox.dispose (host agent1)
 
     // Meta checkpoint stays behind after soft-fail; restart trusts that checkpoint.
-    Assert.Equal(EventId.fromJson 0, Bookkeeping.readRevision dataDir)
+    Assert.Equal(EventId.fromJson 0, Bookkeeping.readEventId dataDir)
     let agent2 = FileAgent.createWithDependencies dependencies dataDir
     try
         let! state =

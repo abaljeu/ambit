@@ -2,9 +2,9 @@
 
 Stage: build
 Summary: Core creation is suspended. This Project creates a single Event source with one event id, then corrects [[plan/core-creation/arch.md]] to match what was created.
-Updated: 2026-09-17
+Updated: 2026-09-18
 Started: 2026-09-16
-Actual: 25h
+Actual: 25h45m
 
 Home: [[plan/roadmap/epics/robust-outliner.md]] Required for done (Live). Chart map: [[map.md]].
 
@@ -26,8 +26,8 @@ Home: [[plan/roadmap/epics/robust-outliner.md]] Required for done (Live). Chart 
 - [10 — Boot IndexedDB](plan/single-event-source/issues/10-boot-indexeddb.md) — migrate. Status `done`.
 - [11 — One serial event id](plan/single-event-source/issues/11-one-serial-event-id.md) — migrate. Status `coded`. Historical land; redo is 13–19.
 - [12 — Contract leftover Change and Revision](plan/single-event-source/issues/12-contract-leftover-change-and-revision.md) — contract. Status `coded`. Historical land; redo is 13–19.
-- [13 — Revision always 0 (diagnostic)](plan/single-event-source/issues/13-revision-always-zero.md) — redo 11z. Status `defined`.
-- [14 — EventId serial on Shared + Server](plan/single-event-source/issues/14-eventid-serial-shared-server.md) — redo 11a. Status `defined`.
+- [13 — Revision always 0 (diagnostic)](plan/single-event-source/issues/13-revision-always-zero.md) — redo 11z. Status `done`.
+- [14 — EventId serial on Shared + Server](plan/single-event-source/issues/14-eventid-serial-shared-server.md) — redo 11a. Status `coded`.
 - [15 — Client pending = zero + submissionId](plan/single-event-source/issues/15-client-pending-zero-submissionid.md) — redo 11b. Status `defined`.
 - [16 — Approve / merge stamp + beforeAll](plan/single-event-source/issues/16-approve-merge-stamp-beforeall.md) — redo 11c. Status `defined`.
 - [17 — Delete Revision aliases](plan/single-event-source/issues/17-delete-revision-aliases.md) — redo 12a. Status `defined`.

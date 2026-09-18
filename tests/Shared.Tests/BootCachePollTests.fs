@@ -102,7 +102,7 @@ let ``shouldTruncate is true when the log is longer than the bound`` () =
     Assert.False(BootCache.shouldTruncate 1 10 11)
 
 [<Fact>]
-let ``shouldTruncate is true when the Revision gap exceeds the bound`` () =
+let ``shouldTruncate is true when the EventId gap exceeds the bound`` () =
     Assert.True(
         BootCache.shouldTruncate 1 1 (1 + BootCache.maxRevGap + 1))
 

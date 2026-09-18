@@ -57,7 +57,7 @@ module FileAgent =
 
     let private syncPersistChange
         (loaded: LoadedFile)
-        (rev: int)
+        (eventId: EventId)
         (preGraph: Graph)
         (postGraph: Graph)
         (ops: Op list)
@@ -83,7 +83,7 @@ module FileAgent =
             if not shouldCheckpoint then
                 Ok stamped
             else
-                match Bookkeeping.writeRevision loaded.dataDir rev with
+                match Bookkeeping.writeEventId loaded.dataDir eventId with
                 | Error err -> Error err
                 | Ok () -> Ok stamped
 
@@ -150,7 +150,7 @@ module FileAgent =
                     Ev.ops event |> Option.defaultValue [])
             syncPersistChange
                 loaded
-                (EventId.value newState.eventId)
+                newState.eventId
                 preGraph
                 newState.graph
                 ops

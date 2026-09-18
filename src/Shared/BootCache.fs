@@ -258,11 +258,11 @@ module BootCache =
 
     let shouldTruncate
         (logLength: int)
-        (snapshotRevision: int)
-        (clientRev: int)
+        (snapshotEventId: int)
+        (clientEventId: int)
         : bool =
         logLength > maxLogLength
-        || (clientRev - snapshotRevision) > maxRevGap
+        || (clientEventId - snapshotEventId) > maxRevGap
 
     let truncationGraph
         (graph: Graph)

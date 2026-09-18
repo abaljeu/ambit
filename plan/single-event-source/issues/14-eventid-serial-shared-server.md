@@ -1,6 +1,7 @@
 # 14 — EventId serial on Shared + Server
 
-**Status:** defined
+**Status:** coded
+**Actual:** 45m
 **Blocked by:** [13 — Revision always 0 (diagnostic)](13-revision-always-zero.md)
 
 ## Context
@@ -27,5 +28,8 @@ One serial id type everywhere wire/API/State already talks revision; EventId pri
 ## Comments
 
 - 2026-09-17 — Maps to replan **11a**. Redo path; does not replace the historical land of [11 — One serial event id](11-one-serial-event-id.md).
+- 2026-09-18 — Serial EventId was already on Shared + Server from historical [11 — One serial event id](11-one-serial-event-id.md). This land renamed remaining F# peels (`Bookkeeping.readEventId` / `writeEventId`, `SavePrep.getFileEventId`, BootCache truncate args, `parseClientEventId`). Query key `rev` and PostgreSQL `graph.revision` stay; those are wire/schema names, not the EventId type.
 
 ## Time
+
+- 2026-09-18 45m — Rename leftover Shared/Server Revision peels to EventId; SQL column unchanged

@@ -32,7 +32,7 @@ let private requireOk label result =
     | Error err -> failwith $"{label}: {err}"
 
 [<Fact>]
-let ``Git DB flush returns revision without rewriting disk`` () =
+let ``Git DB flush returns eventId without rewriting disk`` () =
     let dataDir = newTempDir ()
     let state = stateWithRootChild "git-artifact"
     Directory.CreateDirectory(Bookkeeping.systemDir dataDir) |> ignore
@@ -46,24 +46,24 @@ let ``Git DB flush returns revision without rewriting disk`` () =
             FileAccess.ReadWrite,
             FileShare.None)
 
-    let revision =
+    let eventId =
         SavePrep.syncGitArtifacts
             DatabaseSetup.PersistenceMode.Db
             DatabaseSetup.DbStatus.Ok
             (fun () -> async { return Ok state })
             (fun () -> async { return failwith "file flush should not run" })
-            (fun () -> async { return failwith "file revision should not be read" })
+            (fun () -> async { return failwith "file eventId should not be read" })
             dataDir
         |> Async.RunSynchronously
         |> requireOk "Git flush"
 
-    Assert.Equal(state.eventId.Value, revision)
+    Assert.Equal(state.eventId.Value, eventId)
     Assert.False(File.Exists(Path.Combine(dataDir, ".amb")))
     Assert.Equal("sentinel", File.ReadAllText(Bookkeeping.metaPath dataDir))
     Assert.Equal(int64 "pending".Length, lockedLog.Length)
 
 [<Fact>]
-let ``Full DB sync returns revision without rewriting disk`` () =
+let ``Full DB sync returns eventId without rewriting disk`` () =
     let dataDir = newTempDir ()
     let state = stateWithRootChild "full-backup"
     Directory.CreateDirectory(Bookkeeping.systemDir dataDir) |> ignore
@@ -77,18 +77,18 @@ let ``Full DB sync returns revision without rewriting disk`` () =
             FileAccess.ReadWrite,
             FileShare.None)
 
-    let revision =
+    let eventId =
         SavePrep.syncDataDir
             DatabaseSetup.PersistenceMode.Db
             DatabaseSetup.DbStatus.Ok
             (fun () -> async { return Ok state })
             (fun () -> async { return failwith "file flush should not run" })
-            (fun () -> async { return failwith "file revision should not be read" })
+            (fun () -> async { return failwith "file eventId should not be read" })
             dataDir
         |> Async.RunSynchronously
         |> requireOk "full sync"
 
-    Assert.Equal(state.eventId.Value, revision)
+    Assert.Equal(state.eventId.Value, eventId)
     Assert.False(File.Exists(Path.Combine(dataDir, ".amb")))
     Assert.Equal("sentinel", File.ReadAllText(Bookkeeping.metaPath dataDir))
     Assert.Equal(int64 "pending".Length, lockedLog.Length)

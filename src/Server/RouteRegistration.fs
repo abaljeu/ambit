@@ -142,11 +142,11 @@ module RouteRegistration =
                     {| username = this.Auth.ExpectedUser; token = this.Auth.GitToken |})
         )) |> ignore
 
-    let private parseClientRev (req: HttpRequest) =
+    let private parseClientEventId (req: HttpRequest) =
         match req.Query.TryGetValue "rev" with
         | true, value ->
             match Int32.TryParse(string value) with
-            | true, revision -> revision
+            | true, eventId -> eventId
             | _ -> 0
         | _ -> 0
 
@@ -186,14 +186,14 @@ module RouteRegistration =
         })) |> ignore
         this.MapGet("/ambit/poll", Func<HttpRequest, Task<IResult>>(fun req -> task {
             let pageEpoch = stamps.PageBuildEpochSec ()
-            let clientRev = parseClientRev req
+            let clientEventId = parseClientEventId req
             return!
                 withBrowserChanges persistence req (fun handle ->
                     Api.getPoll
                         handle
                         (stamps.DeployEpochSec ())
                         pageEpoch
-                        clientRev)
+                        clientEventId)
                 |> Async.StartAsTask
         })) |> ignore
         this.MapPost("/ambit/load", Func<HttpRequest, Task<IResult>>(fun req -> task {
