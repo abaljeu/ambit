@@ -2,6 +2,7 @@
 
 **Status:** defined
 **Blocked by:** [[35b-browser-run-hello.md|35b — Browser Run hello]].
+Actual: 1h30m
 
 ## Context
 
@@ -26,4 +27,9 @@ Follow Story path / modules named in [[../arch.md|Core creation architecture]] f
 
 ## Comments
 
+- 2026-09-18 — Explore plan: [46 mailbox History durability explore](../reports/46-mailbox-history-durability-explore.md). Persist write/load already exists from [42 — Migrate PersistHandlers restore and getEventsSince](42-migrate-persisthandlers-restore-and-geteventssince.md); implement should prove the mixed audit sequence across restart and fix mailbox seed order. Status stays `defined`.
 - 2026-09-18 — Split from 35b §6. Alan: §7 Browser proof can test without this ticket.
+
+## Time
+
+- 2026-09-18 1h30m — Explore EventLog / persist / seed; write report (from chat)
