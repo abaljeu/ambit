@@ -1,6 +1,6 @@
 # 41 — Migrate Core mailbox, CoreMsg, and Pool onto Event
 
-**Status:** coded
+**Status:** done
 **Blocked by:** None — [40 — Expand postEvent, EventLog store, and Event JSON persist](40-expand-postevent-eventlog-and-event-json.md) is Status `coded`.
 
 ## Context

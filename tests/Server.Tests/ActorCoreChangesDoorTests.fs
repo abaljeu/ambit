@@ -105,5 +105,5 @@ let ``Actor postChange on scheduled handle reaches persist`` () =
         requireOk "startActor" started
         let! posted = seen.Task.WaitAsync(TimeSpan.FromSeconds 5.0)
         let accepted = requireOk "actor post" posted
-        Assert.NotEqual(EventId.zero, accepted.eventId)
+        Assert.True(EventId.isAccepted accepted.eventId)
     })

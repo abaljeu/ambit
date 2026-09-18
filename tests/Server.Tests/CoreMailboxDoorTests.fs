@@ -498,7 +498,7 @@ let ``Graph-only post with admitted Caller reaches persist`` () =
             CoreMailbox.postGraphOnly host testCaller event
             |> Async.StartAsTask
         let accepted = requireOk "graph-only admitted" result
-        Assert.NotEqual(EventId.zero, accepted.eventId)
+        Assert.True(EventId.isAccepted accepted.eventId)
     })
 
 [<Fact>]

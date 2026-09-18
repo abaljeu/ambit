@@ -40,7 +40,7 @@ let ``typed Normal caller publishes accepted Change to Poll`` () = task {
             handle.postEvents [ event ]
             |> Async.StartAsTask
         let accepted = requireOk "typed post" accepted
-        Assert.NotEqual(EventId.zero, accepted.eventId)
+        Assert.True(EventId.isAccepted accepted.eventId)
         Assert.Equal<Guid list>(
             [ event.submissionId ],
             accepted.events |> List.map (_.submissionId))
@@ -98,7 +98,7 @@ let ``test Actor posts Normal Change off apply mailbox and Poll sees it`` () =
             let! accepted =
                 runActor subgraph handle produceFromSubgraph
             let accepted = requireOk "actor post" accepted
-            Assert.NotEqual(EventId.zero, accepted.eventId)
+            Assert.True(EventId.isAccepted accepted.eventId)
             Assert.NotEmpty(accepted.events)
 
             let! poll = Api.getPoll handle 10 20 0 |> Async.StartAsTask

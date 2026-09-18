@@ -60,7 +60,7 @@ let ``EventLog.restore seeds mailbox across File restart`` () = task {
             |> Async.StartAsTask
         let stored = Assert.Single(history.events)
         Assert.Equal(event.submissionId, stored.submissionId)
-        Assert.NotEqual(EventId.zero, stored.id)
+        Assert.True(EventId.isAccepted stored.id)
         Assert.NotEqual(stored.id, EventLog.nextId history)
     finally
         CoreMailbox.dispose second
@@ -86,7 +86,7 @@ let ``EventLog.restore seeds mailbox across Db restart`` () = task {
             |> Async.StartAsTask
         let stored = Assert.Single(history.events)
         Assert.Equal(event.submissionId, stored.submissionId)
-        Assert.NotEqual(EventId.zero, stored.id)
+        Assert.True(EventId.isAccepted stored.id)
         Assert.NotEqual(stored.id, EventLog.nextId history)
     finally
         CoreMailbox.dispose second

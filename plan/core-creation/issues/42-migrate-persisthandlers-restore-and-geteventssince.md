@@ -1,6 +1,6 @@
 # 42 — Migrate PersistHandlers restore and getEventsSince
 
-**Status:** coded
+**Status:** done
 
 **Blocked by:** None — [40 — Expand postEvent, EventLog store, and Event JSON persist](40-expand-postevent-eventlog-and-event-json.md) and [41 — Migrate Core mailbox, CoreMsg, and Pool onto Event](41-migrate-core-mailbox-coremsg-and-pool-onto-event.md) are Status `coded`.
 

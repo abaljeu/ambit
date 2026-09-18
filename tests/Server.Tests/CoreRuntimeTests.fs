@@ -119,7 +119,7 @@ let ``HTTP Adapter enqueues when Browser credential is live`` () = task {
             |> Async.StartAsTask
         Assert.False(result.GetType().Name = "UnauthorizedHttpResult")
         let! rev = handle.getEventId () |> Async.StartAsTask
-        Assert.NotEqual(EventId.zero, rev)
+        Assert.True(EventId.isAccepted rev)
     finally
         CoreMailbox.dispose agent
 }

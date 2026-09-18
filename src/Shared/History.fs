@@ -40,6 +40,8 @@ module EventId =
         if a.Value >= b.Value then a else b
     let value (id: EventId) = id.Value
     let display (id: EventId) = string id.Value
+    let isAccepted id =
+        id <> EventId.Zero
     let fromJson n =
         if n > 0 then Int n
         else Zero

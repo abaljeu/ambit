@@ -54,7 +54,7 @@ let ``CoreMailbox.postEvents appends Change Events to EventLog`` () =
             CoreMailbox.getState host
             |> Async.StartAsTask
         let state = requireOk "get state" state
-        Assert.NotEqual(EventId.zero, accepted.eventId)
+        Assert.True(EventId.isAccepted accepted.eventId)
         Assert.Equal(event.submissionId, stored.submissionId)
         Assert.Equal(
             Gambol.Shared.Authority "Test",
@@ -80,7 +80,7 @@ let ``postGraphOnly updates Graph and EventLog without file write`` () =
             CoreMailbox.getState host
             |> Async.StartAsTask
         let state = requireOk "get state" state
-        Assert.NotEqual(EventId.zero, accepted.eventId)
+        Assert.True(EventId.isAccepted accepted.eventId)
         let stored = Assert.Single(history.events)
         Assert.Equal(event.submissionId, stored.submissionId)
         Assert.Equal("graph-only", state.graph.nodes.[childId].text)
@@ -103,7 +103,7 @@ let ``CoreChanges builds Ev at postEvent and persists its Graph Ops`` () =
             |> Async.StartAsTask
         let stored = Assert.Single(history.events)
         Assert.Equal("through-event", state.graph.nodes.[childId].text)
-        Assert.NotEqual(EventId.zero, accepted.eventId)
+        Assert.True(EventId.isAccepted accepted.eventId)
         Assert.Equal(event.submissionId, stored.submissionId)
         Assert.Equal(
             Gambol.Shared.Authority "Test",
@@ -301,7 +301,7 @@ let ``two live client edits with EventId.zero are admitted`` () =
             CoreMailbox.postEvent host testCaller createEvent
             |> Async.StartAsTask
         let storedCreate = requireOk "create" created
-        Assert.NotEqual(EventId.zero, storedCreate.id)
+        Assert.True(EventId.isAccepted storedCreate.id)
         let edit =
             ClientHistory.mintChange
                 "Edit node"
@@ -311,7 +311,7 @@ let ``two live client edits with EventId.zero are admitted`` () =
             CoreMailbox.postEvent host testCaller edit
             |> Async.StartAsTask
         let storedEdit = requireOk "edit" edited
-        Assert.NotEqual(EventId.zero, storedEdit.id)
+        Assert.True(EventId.isAccepted storedEdit.id)
         Assert.NotEqual(storedCreate.id, storedEdit.id)
         let! state =
             CoreMailbox.getState host

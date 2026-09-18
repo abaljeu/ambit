@@ -1,6 +1,6 @@
 # 36 — Mailbox is the only Core door
 
-**Status:** coded
+**Status:** done
 **Blocked by:** None — can start immediately. Builds on the Caller-set remake in [[../reports/corecredentials-caller-set.md]]. Does not rewrite [[33-credentialed-browser-change-posts.md|33 — Credentialed Browser Change posts]].
 Estimate: 2h
 Actual: 9h

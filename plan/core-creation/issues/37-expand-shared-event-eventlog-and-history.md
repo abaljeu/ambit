@@ -1,6 +1,6 @@
 # 37 — Expand Shared Event, EventLog, and History
 
-**Status:** coded
+**Status:** done
 Actual: 2h30m
 **Blocked by:** None — can start immediately.
 

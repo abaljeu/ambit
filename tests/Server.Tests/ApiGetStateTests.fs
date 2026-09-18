@@ -149,7 +149,7 @@ let ``getState zoom outside ROOT adds owning Workspace`` () = task {
         | Ok response ->
             Assert.True(response.graph.nodes.ContainsKey dirId)
             Assert.Equal(Loaded, response.graph.nodes.[wsId].childrenStatus)
-            Assert.NotEqual(EventId.zero, response.eventId)
+            Assert.True(EventId.isAccepted response.eventId)
     | other ->
         Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
 }

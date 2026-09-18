@@ -1,6 +1,6 @@
 # 40 — Expand postEvent, EventLog store, and Event JSON persist
 
-**Status:** coded
+**Status:** done
 Actual: 2h15m
 **Blocked by:** None — [[37-expand-shared-event-eventlog-and-history.md|37 — Expand Shared Event, EventLog, and History]] is Status `coded`.
 

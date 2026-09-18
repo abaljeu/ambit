@@ -189,7 +189,7 @@ let ``writer upserts complete nodes children revision and reloads`` () = task {
     match loaded with
     | Error error -> Assert.Fail(error)
     | Ok (graph, loadedEventId) ->
-        Assert.NotEqual(EventId.zero, loadedEventId)
+        Assert.True(EventId.isAccepted loadedEventId)
         Assert.True(GraphProjection.graphEquals finalGraph graph)
 }
 

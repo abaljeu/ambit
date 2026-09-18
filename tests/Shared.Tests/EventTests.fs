@@ -28,7 +28,7 @@ let private textState () : State * NodeId =
     { graph = graph; eventId = EventId.zero }, List.head ids
 
 let private assertStored (id: EventId) =
-    Assert.NotEqual(EventId.zero, id)
+    Assert.True(EventId.isAccepted id)
 
 let private assertPast stored candidate =
     Assert.True(
@@ -46,7 +46,7 @@ let ``EventId stored Int is a positive Int`` () =
     Assert.Equal(5, EventId.value (EventId.fromJson 5))
     Assert.Equal(5, EventId.toJson (EventId.fromJson 5))
     Assert.Equal("5", EventId.display (EventId.fromJson 5))
-    Assert.NotEqual(EventId.zero, EventId.fromJson 5)
+    Assert.True(EventId.isAccepted (EventId.fromJson 5))
 
 [<Fact>]
 let ``EventId next of Zero is Zero`` () =

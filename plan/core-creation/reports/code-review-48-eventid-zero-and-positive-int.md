@@ -14,9 +14,8 @@ Stdout treated as documented-standard hits:
 
 ### 2. Hard violations
 
-1. File growth on History.fs — Same scan hit. [History.fs](src/Shared/History.fs) EventId grew from one private int case to `Zero | Int`, plus `next` / `fromJson` matches. The file was already over 400 lines. The change increased it and did not split. Cite [fsharp-source.md](.agents/rules/fsharp-source.md) 400 lines or less per file.
 2. EventId.next on a stored Int outside EventLog — [core-api.md](.agents/rules/core-api.md) EventId serial: only EventLog may call `EventId.next` on a stored Int. [EventTests.fs](tests/Shared.Tests/EventTests.fs) restore and advancePast mint persist ids with `EventId.next EventLog.empty.nextId` and `EventId.next (EventId.next EventLog.empty.nextId)`. Production `src/` next stays in EventLog. Builder tests that call `EventId.next` to prove next itself are not this finding.
-3. fromJson used as a constructor in a non-codec test — [core-api.md](.agents/rules/core-api.md) EventId serial: only serializing uses fromJson/toJson. [PersistHandlersRestoreTests.fs](tests/Server.Tests/PersistHandlersRestoreTests.fs): `Assert.NotEqual(EventId.fromJson 1, stored.id)`.
+3. fromJson used as a constructor in a non-codec test — [core-api.md](.agents/rules/core-api.md) EventId serial: only serializing uses fromJson/toJson. [PersistHandlersRestoreTests.fs](../../../tests/Server.Tests/PersistHandlersRestoreTests.fs): `Assert.NotEqual(EventId.fromJson 1, stored.id)`.
 
 ### 3. Judgement smells
 
