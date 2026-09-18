@@ -28,7 +28,7 @@ Origin review report files `code-review-35b-slice4-5-*.md` were not in this work
 
 ## 3. Verification
 
-Focused Shared `CommandRequestTests` plus Server `TestActorCommandErrorTests` and `TestActorHelloTests`. Client was not edited; no Client compile gate.
+Focused Shared `CommandRequestTests` — 9 passed, including extract of any first token (`unknown`, `nope`) and any command text after the name. Server `TestActorCommandErrorTests` plus `TestActorHelloTests` — 15 passed: unregistered start fail for `?unknown` and `?nope`; production Command of those names is HTTP BadRequest; `?test unknown` and `?test nope` are `ActorFailed` with no Owned child; `?test hello` still posts Owned `hello` and `ActorSucceeded`. Client was not edited; no Client compile gate.
 
 ## 4. Files
 
