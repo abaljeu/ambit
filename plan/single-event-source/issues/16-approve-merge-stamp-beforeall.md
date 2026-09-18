@@ -1,6 +1,6 @@
 # 16 — Approve / merge stamp + beforeAll
 
-**Status:** coded
+**Status:** done
 **Actual:** 45m
 **Blocked by:** [15 — Client pending = zero + submissionId](15-client-pending-zero-submissionid.md)
 

@@ -1,6 +1,7 @@
 # 17 — Delete Revision aliases
 
-**Status:** defined
+**Status:** coded
+**Actual:** 20m
 **Blocked by:** [16 — Approve / merge stamp + beforeAll](16-approve-merge-stamp-beforeall.md)
 
 ## Context
@@ -26,5 +27,8 @@ Delete `type Revision` and `EventId.ofRevision` / `toRevision`.
 ## Comments
 
 - 2026-09-17 — Maps to replan **12a** (swapped: Revision aliases before leftover Change wrapping). Redo path; does not replace the historical land of [12 — Contract leftover Change and Revision](12-contract-leftover-change-and-revision.md).
+- 2026-09-18 — `type Revision` and `EventId.ofRevision` / `toRevision` were already gone from the historical [12 — Contract leftover Change and Revision](12-contract-leftover-change-and-revision.md) land. Green bar: no Revision type in `src/` or `tests/`. Leftover Revision *names* on EventId stay for [21 — SES smell-cleanup](21-ses-smell-cleanup.md).
 
 ## Time
+
+- 2026-09-18 20m — Confirm Revision aliases already deleted; no F# type or alias to delete
