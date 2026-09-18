@@ -131,6 +131,7 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/reports/implement-issue-40.md]] — [[plan/core-creation/issues/40-expand-postevent-eventlog-and-event-json.md|40 — Expand postEvent, EventLog store, and Event JSON persist]].
 - [implement-46-workspace-load-prepare-push-401](plan/core-creation/reports/implement-46-workspace-load-prepare-push-401.md) — [46 — Workspace Load prepare-push 401](plan/core-creation/issues/46-workspace-run-prepare-push-401.md).
 - [qa-47-event-persist-duplicate-key](plan/core-creation/reports/qa-47-event-persist-duplicate-key.md) — QA context for [47 — Server rejected Change: duplicate event id](plan/core-creation/issues/47-server-rejected-change-duplicate-event-id.md).
+- [[plan/core-creation/reports/35b-slice1-graphids.md]] — [35b — Browser Run hello](plan/core-creation/issues/35b-browser-run-hello.md) slice 1 Shared `graphIds` Fold walk.
 
 ## Comments
 
