@@ -60,18 +60,13 @@ Produce `hello`, record the lifecycle, and compose the registered Actor. Follow 
 4. [ ] Stop successfully — queue `ActorStop ActorSucceeded` after the Change.
 5. [ ] Record completion — append one ActorFinished and remove the live row and secret (Events via lifecycle/History; getState / State returns Graph, not Events).
 
-### 6. History durability
+### 6. History durability — moved
 
-Make mailbox-owned History survive process restart.
-
-1. [ ] Persist mailbox History — save Change and Actor Events (ChangeEvent, ActorStarted, ActorFinished) so the audit sequence survives restart.
-2. [ ] Load mailbox History — restore the past/future sequence on mailbox startup.
-3. [ ] Graph/EventLog durability separate — Graph and EventLog persist stays distinct; this slice covers mailbox History only.
-4. [ ] Undo stays Change-only — do not make Actor lifecycle Events Undo targets; only Changes are undoable.
+Moved to [[49-mailbox-history-durability.md|46 — Mailbox History durability]]. Not required for §7 Browser proof.
 
 ### 7. Browser proof
 
-Verify the complete Story path from the user-visible boundary.
+Verify the complete Story path from the user-visible boundary. Does **not** require [[49-mailbox-history-durability.md|46 — Mailbox History durability]].
 
 1. [ ] Run hello — use existing Browser Run on a current Node with text `?test hello`.
 2. [ ] Show one result — show one Owned child with text `hello` under the current Focus.
@@ -85,6 +80,7 @@ Verify the complete Story path from the user-visible boundary.
 
 ## Comments
 
+- 2026-09-18 — §6 History durability split to [[49-mailbox-history-durability.md|46 — Mailbox History durability]]. §7 Browser proof can run without 46.
 - 2026-09-14 — Updated to align with Alan's locks: Client supplies `graphIds` from unfolded Included context (Fold); server does not Zoom-expand or Fold-walk. The walk is **unfolded vs folded** (Included context / Fold), **not** loaded vs unloaded residency. Actor select `test` is distinct from interpreting `hello` from command text. Register-then-start; Core owns pool; Actors injected at startup. getState / State = Graph; Events via lifecycle/History. Arch module still named "Loaded descendant id list" — rename debt to "Unfolded Included context id list" or similar when arch is next edited for this Project.
 - 2026-09-14 — Added §6 History durability (persist/load mailbox History for restart survival); moved off 34b where mailbox History was process-lifetime only.
 - 2026-09-18 — Slice 1 coded. [§1 Unfolded Included context id list](plan/core-creation/issues/35b-browser-run-hello.md) is implemented in [IncludedDescendantIds](src/Shared/IncludedDescendantIds.fs): `expand` walks SiteMap Fold (not `childrenStatus` residency). Shared.Tests green. Whole ticket Status stays `ready-for-agent`. Report: [35b slice 1 graphIds](plan/core-creation/reports/35b-slice1-graphids.md).
