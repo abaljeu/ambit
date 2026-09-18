@@ -148,6 +148,7 @@ let createRuntime (initialModel: VM) =
     and runEffect (e: Effect) : unit =
         match e with
         | SubmitPendingBatch (baseEventId, events) -> runSubmitPendingBatch baseEventId events
+        | SubmitCommand request -> runSubmitCommand request
         | PollServer _ -> runPollServer ()
         | LoadServer (_, targets) ->
             runLoadServer targets
@@ -393,6 +394,29 @@ let createRuntime (initialModel: VM) =
             (SubmitChangeCallbacks.onPostOk timeoutId reqId events dispatch)
             (SubmitChangeCallbacks.onPostHttp timeoutId reqId dispatch)
             (SubmitChangeCallbacks.onPostFetchFail timeoutId reqId baseEventId events dispatch)
+            (jsonMutatingPostHeaders ())
+
+    and runSubmitCommand (request: ActorStart) : unit =
+        let url = $"/{currentFile}/command"
+        let body = encodeCommandRequest request
+        consoleLog (
+            "[Gambol command] POST start commandId="
+            + string request.commandId)
+        postJson
+            url
+            body
+            (fun text ->
+                consoleLog (
+                    "[Gambol command] POST 200 bodyLen="
+                    + string text.Length))
+            (fun status text ->
+                consoleLog (
+                    "[Gambol command] POST fail http="
+                    + string status
+                    + " body="
+                    + LogText.summarizeHttpBody 400 text))
+            (fun () ->
+                consoleLog "[Gambol command] POST fetch failed")
             (jsonMutatingPostHeaders ())
 
     and runPollServer () : unit =

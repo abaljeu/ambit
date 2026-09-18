@@ -49,24 +49,34 @@ let private execRunOp (model: VM) : VM * Effect list =
     | None -> committed, commitEffects
     | Some sel ->
         let focusId = focusedNodeId committed.graph sel
-        if not (AmbleRun.shouldExec committed.graph focusId) then
-            committed, commitEffects
-        else
-            let afterDelete, delEffects =
-                match Map.tryFind focusId committed.graph.nodes with
-                | Some node when node.children.Length > 0 ->
-                    deleteChildSpan
-                        focusId 0 node.children.Length committed
-                | _ -> committed, []
-            let kidsLeft =
-                match Map.tryFind focusId afterDelete.graph.nodes with
-                | Some node -> node.children.Length > 0
-                | None -> false
-            if kidsLeft then
-                afterDelete, commitEffects @ delEffects
+        match Map.tryFind focusId committed.graph.nodes with
+        | Some node when CommandRequest.isCommandText node.text ->
+            let request =
+                CommandRequest.oneNodeStart
+                    committed.graph
+                    committed.siteMap
+                    focusId
+                    committed.eventId
+            committed, commitEffects @ [ SubmitCommand request ]
+        | _ ->
+            if not (AmbleRun.shouldExec committed.graph focusId) then
+                committed, commitEffects
             else
-                let ran, runEffects = runAmbleOp afterDelete
-                ran, commitEffects @ delEffects @ runEffects
+                let afterDelete, delEffects =
+                    match Map.tryFind focusId committed.graph.nodes with
+                    | Some node when node.children.Length > 0 ->
+                        deleteChildSpan
+                            focusId 0 node.children.Length committed
+                    | _ -> committed, []
+                let kidsLeft =
+                    match Map.tryFind focusId afterDelete.graph.nodes with
+                    | Some node -> node.children.Length > 0
+                    | None -> false
+                if kidsLeft then
+                    afterDelete, commitEffects @ delEffects
+                else
+                    let ran, runEffects = runAmbleOp afterDelete
+                    ran, commitEffects @ delEffects @ runEffects
 
 let private splitAtCursor () : Updater option =
     let text = readEditInputValue ()

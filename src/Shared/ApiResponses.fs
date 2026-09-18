@@ -59,6 +59,12 @@ type LoadResponse =
 
     member this.changes = this.events
 
+/// Universal Command response. Either collection may be empty.
+type UniversalResponse =
+    { nodes: Node list
+      events: Ev list
+      latestId: EventId }
+
 /// Authoritative Sync install: ordered Change tail plus optional resident packages.
 type SyncResponse =
     { events: Ev list

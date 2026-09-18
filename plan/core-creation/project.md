@@ -4,7 +4,7 @@ Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
 Updated: 2026-09-18
 Started: 2026-09-05
-Actual: 51h50m
+Actual: 53h50m
 
 ## Map
 
@@ -128,6 +128,7 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/reports/event-abstraction.md]] — Locked Event / EventLog / ClientHistory / `postEvent` destination.
 - [[plan/core-creation/reports/implement-issue-40.md]] — [[plan/core-creation/issues/40-expand-postevent-eventlog-and-event-json.md|40 — Expand postEvent, EventLog store, and Event JSON persist]].
 - [[plan/core-creation/reports/35b-slice1-graphids.md]] — [35b — Browser Run hello](plan/core-creation/issues/35b-browser-run-hello.md) slice 1 Shared `graphIds` Fold walk.
+- [[plan/core-creation/reports/35b-slice2-3-http-browser-run.md]] — [35b — Browser Run hello](plan/core-creation/issues/35b-browser-run-hello.md) slices 2–3 HTTP Adapter and Browser Run.
 
 ## Comments
 

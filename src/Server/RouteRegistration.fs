@@ -237,6 +237,30 @@ module RouteRegistration =
                         body)
                 |> Async.StartAsTask
         })) |> ignore
+        this.MapPost("/ambit/command", Func<HttpRequest, Task<IResult>>(fun req -> task {
+            bindClientHint req |> ignore
+            use reader = new StreamReader(req.Body)
+            let! body = reader.ReadToEndAsync()
+            match BrowserRequestCreds.tryCookieCaller req with
+            | None -> return Results.Unauthorized()
+            | Some caller ->
+                let! live =
+                    CoreMailbox.isAdmitted persistence.Core.host caller
+                    |> Async.StartAsTask
+                if not live then
+                    return Results.Unauthorized()
+                else
+                    return!
+                        Api.postCommand
+                            (fun request ->
+                                CoreMailbox.startActor
+                                    persistence.Core.host
+                                    caller
+                                    request)
+                            (boundChanges persistence caller)
+                            body
+                        |> Async.StartAsTask
+        })) |> ignore
 
     let private prepareGitSave (persistence: PersistenceContext) () = async {
         let handle = parseBound persistence
