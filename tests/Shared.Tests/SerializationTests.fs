@@ -546,3 +546,46 @@ let ``StateResponse round-trip preserves startup readiness`` () =
     Assert.Equal(response.eventId, decoded.eventId)
     Assert.False(decoded.isReady)
     Assert.True(GraphProjection.graphEquals response.graph decoded.graph)
+
+[<Fact>]
+let ``ActorStart Command request round-trips named Core ids`` () =
+    let zoom = NodeId.New()
+    let start: ActorStart =
+        { zoomId = zoom
+          focusId = zoom
+          commandId = zoom
+          graphIds = [ zoom ]
+          eventId = EventId.fromJson 4 }
+    let decoded =
+        roundTrip EventJson.encodeStartRequest EventJson.decodeStartRequest start
+    Assert.Equal(start, decoded)
+    let json = Enc.toString 0 (EventJson.encodeStartRequest start)
+    Assert.Contains("\"zoomId\"", json)
+    Assert.Contains("\"focusId\"", json)
+    Assert.Contains("\"commandId\"", json)
+    Assert.Contains("\"graphIds\"", json)
+    Assert.DoesNotContain("\"kind\"", json)
+
+[<Fact>]
+let ``UniversalResponse round-trips nodes events and latestId`` () =
+    let node = Graph.create().nodes.[Graph.rootId]
+    let event =
+        { id = EventId.fromJson 2
+          submissionId = System.Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = "Exec"
+          body = EventBody.Change [] }
+    let response: UniversalResponse =
+        { nodes = [ node ]
+          events = [ event ]
+          latestId = EventId.fromJson 2 }
+    let decoded =
+        roundTrip
+            ApiResponseSerialization.encodeUniversalResponse
+            ApiResponseSerialization.decodeUniversalResponseDecoder
+            response
+    Assert.Equal(response.latestId, decoded.latestId)
+    Assert.Equal(1, decoded.nodes.Length)
+    Assert.Equal(node.id, decoded.nodes.[0].id)
+    Assert.Equal(1, decoded.events.Length)
+    Assert.Equal(event.id, decoded.events.[0].id)

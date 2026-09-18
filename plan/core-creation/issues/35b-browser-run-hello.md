@@ -1,8 +1,8 @@
 # 35b — Browser Run hello
 
 **Status:** ready-for-agent
-**Blocked by:** None — [[34b-outside-core-lifecycle-proof.md|34b — Outside Core lifecycle proof]] is `done`.
-Actual: 1h30m
+**Blocked by:** None — [34b — Outside Core lifecycle proof](plan/core-creation/issues/34b-outside-core-lifecycle-proof.md) is `done`.
+Actual: 3h30m
 
 ## Context
 
@@ -28,18 +28,18 @@ Provide the shared id list used by Browser Command requests. The Client supplies
 
 Turn the existing Run action into the Browser entry point for a Command. Follow module **Browser Run** in [[plan/core-creation/arch.md|Core creation architecture]].
 
-1. [ ] Detect Command text — when the current Node text starts with literal `?`, use the Command path.
-2. [ ] Use one Node — use the current Node as Command, Zoom root, and Focus.
-3. [ ] Send the request — include caller credentials, `zoomId`, `focusId`, `commandId`, and the unfolded Included context `graphIds` (Client supplies this; server does not Zoom-expand or Fold-walk).
-4. [ ] Preserve AmbleRun — keep existing behavior for text that does not start with `?`.
+1. [x] Detect Command text — when the current Node text starts with literal `?`, use the Command path.
+2. [x] Use one Node — use the current Node as Command, Zoom root, and Focus.
+3. [x] Send the request — include caller credentials, `zoomId`, `focusId`, `commandId`, and the unfolded Included context `graphIds` (Client supplies this; server does not Zoom-expand or Fold-walk).
+4. [x] Preserve AmbleRun — keep existing behavior for text that does not start with `?`.
 
 ### 3. HTTP Adapter
 
 Carry the Command request across the transport boundary. Follow module **HTTP Adapter** in [[plan/core-creation/arch.md|Core creation architecture]].
 
-1. [ ] Decode Command and credentials — accept the Browser request with the same named ids used by Core.
-2. [ ] Call CoreMailbox — submit the request through `startActor`.
-3. [ ] Encode the universal response — return `{ nodes; events; latestId }` when this Command path runs.
+1. [x] Decode Command and credentials — accept the Browser request with the same named ids used by Core.
+2. [x] Call CoreMailbox — submit the request through `startActor`.
+3. [x] Encode the universal response — return `{ nodes; events; latestId }` when this Command path runs.
 
 ### 4. CoreMailbox / CoreMsg / CoreActorPool
 
@@ -88,8 +88,10 @@ Verify the complete Story path from the user-visible boundary.
 - 2026-09-14 — Updated to align with Alan's locks: Client supplies `graphIds` from unfolded Included context (Fold); server does not Zoom-expand or Fold-walk. The walk is **unfolded vs folded** (Included context / Fold), **not** loaded vs unloaded residency. Actor select `test` is distinct from interpreting `hello` from command text. Register-then-start; Core owns pool; Actors injected at startup. getState / State = Graph; Events via lifecycle/History. Arch module still named "Loaded descendant id list" — rename debt to "Unfolded Included context id list" or similar when arch is next edited for this Project.
 - 2026-09-14 — Added §6 History durability (persist/load mailbox History for restart survival); moved off 34b where mailbox History was process-lifetime only.
 - 2026-09-18 — Slice 1 coded. [§1 Unfolded Included context id list](plan/core-creation/issues/35b-browser-run-hello.md) is implemented in [IncludedDescendantIds](src/Shared/IncludedDescendantIds.fs): `expand` walks SiteMap Fold (not `childrenStatus` residency). Shared.Tests green. Whole ticket Status stays `ready-for-agent`. Report: [35b slice 1 graphIds](plan/core-creation/reports/35b-slice1-graphids.md).
+- 2026-09-18 — Slices 2–3 coded. [§2 Browser Run](plan/core-creation/issues/35b-browser-run-hello.md) and [§3 HTTP Adapter](plan/core-creation/issues/35b-browser-run-hello.md) are implemented: `?` Run builds one-Node [ActorStart](src/Shared/History.fs) with [IncludedDescendantIds](src/Shared/IncludedDescendantIds.fs) `graphIds`; POST `/ambit/command` decodes cookie Caller + named ids, calls [CoreMailbox.startActor](src/Server/Core/CoreMailbox.fs), returns `{ nodes; events; latestId }`. Did not register TestActor at production boot. Did not implement [§4 CoreMailbox / CoreMsg / CoreActorPool](plan/core-creation/issues/35b-browser-run-hello.md), [§5 TestActor / History / CoreRuntime](plan/core-creation/issues/35b-browser-run-hello.md), [§6 History durability](plan/core-creation/issues/35b-browser-run-hello.md), or headed [§7 Browser proof](plan/core-creation/issues/35b-browser-run-hello.md). Whole ticket Status stays `ready-for-agent`. Report: [35b slices 2–3 HTTP and Browser Run](plan/core-creation/reports/35b-slice2-3-http-browser-run.md).
 
 ## Time
 
 - 2026-09-18 1h30m — Slice 1 Shared `graphIds` Fold walk + Shared.Tests (from chat)
-- Actual: 1h30m
+- 2026-09-18 2h — Slices 2–3 HTTP Adapter + Browser Run Command path (from chat)
+- Actual: 3h30m
