@@ -1,8 +1,8 @@
 # 20 — SES smell-cleanup quality criteria
 
 **Type:** research
-**Status:** done
-Actual: 2h5m
+**Status:** needs-info
+Actual: 2h
 Blocked by: none
 
 ## 1. Question
@@ -46,9 +46,7 @@ Smell-cleanup accepts or rejects a change by **naming** (Ev locals `event`/`even
 ## Comments
 
 - 2026-09-17 — Research written. Status stays `needs-info` until Alan accepts.
-- 2026-09-18 — Alan accepted the Answer. Status `done`. Implement ticket: [21 — SES smell-cleanup](21-ses-smell-cleanup.md).
 
 ## Time
 
 - 2026-09-17 2h — researched naming and EventId type-usage criteria from rules, 11/11-repair/12/34b reviews, and current tip (from chat)
-- 2026-09-18 5m — Alan accepted Answer; Status `done`

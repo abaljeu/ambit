@@ -20,26 +20,36 @@ let private startRequest () : ActorStart =
       focusId = NodeId.New()
       commandId = NodeId.New()
       graphIds = [ zoom ]
-      revision = EventId 4 }
+      eventId = EventId.fromJson 4 }
 
 let private textState () : State * NodeId =
     let graph, ids =
         ModelBuilder.createNodes [ "old" ] (Graph.create ())
-    { graph = graph; revision = Revision.Zero }, List.head ids
+    { graph = graph; eventId = EventId.zero }, List.head ids
+
+[<Fact>]
+let ``EventId fromJson toJson next and zero`` () =
+    Assert.Equal(0, EventId.value EventId.zero)
+    Assert.Equal(5, EventId.value (EventId.fromJson 5))
+    Assert.Equal(5, EventId.toJson (EventId.fromJson 5))
+    Assert.Equal(
+        EventId.fromJson 1,
+        EventId.next EventId.zero)
+    Assert.Equal("5", EventId.display (EventId.fromJson 5))
 
 [<Fact>]
 let ``append since tryFind`` () =
     let log1 = EventLog.append (event "" (EventBody.Change [])) EventLog.empty
     let log2 = EventLog.append (event "" (EventBody.Change [])) log1
     let log3 = EventLog.append (event "" (EventBody.Change [])) log2
-    Assert.Equal(EventId 3, Ev.id log3.events.Head)
+    Assert.Equal(EventId.fromJson 3, Ev.id log3.events.Head)
     let tail = EventLog.since EventId.zero log3
     Assert.Equal(3, tail.events.Length)
-    Assert.Equal(EventId 3, Ev.id tail.events.Head)
-    Assert.Equal(EventId 1, Ev.id tail.events.[2])
-    match EventLog.tryFind (EventId 1) log3 with
-    | None -> failwith "expected EventId 1"
-    | Some found -> Assert.Equal(EventId 1, Ev.id found)
+    Assert.Equal(EventId.fromJson 3, Ev.id tail.events.Head)
+    Assert.Equal(EventId.fromJson 1, Ev.id tail.events.[2])
+    match EventLog.tryFind (EventId.fromJson 1) log3 with
+    | None -> failwith "expected EventId.fromJson 1"
+    | Some found -> Assert.Equal(EventId.fromJson 1, Ev.id found)
 
 [<Fact>]
 let ``restore dedupe`` () =
@@ -52,28 +62,28 @@ let ``restore dedupe`` () =
           body = EventBody.Change [] }
     let duplicate =
         { first with
-            id = EventId 1
+            id = EventId.fromJson 1
             commandName = "Dup" }
     let second =
-        { event "Second" (EventBody.Change []) with id = EventId 2 }
+        { event "Second" (EventBody.Change []) with id = EventId.fromJson 2 }
     let log = EventLog.restore [ first; duplicate; second ] EventLog.empty
-    Assert.Equal(EventId 1, EventLog.nextId log)
-    Assert.Equal(EventId 2, Ev.id log.events.Head)
+    Assert.Equal(EventId.fromJson 1, EventLog.nextId log)
+    Assert.Equal(EventId.fromJson 2, Ev.id log.events.Head)
     Assert.Equal("Second", log.events.Head.commandName)
-    let restored = EventLog.since (EventId -1) log
+    let restored = EventLog.all log
     Assert.Equal(2, restored.events.Length)
-    Assert.Equal(EventId 2, Ev.id restored.events.Head)
+    Assert.Equal(EventId.fromJson 2, Ev.id restored.events.Head)
     Assert.Equal("Second", restored.events.Head.commandName)
     Assert.Equal(EventId.zero, Ev.id restored.events.[1])
     Assert.Equal("First", restored.events.[1].commandName)
 
 [<Fact>]
 let ``restore keeps source nextId`` () =
-    let persist = { event "P" (EventBody.Change []) with id = EventId 9 }
-    let log = { EventLog.empty with nextId = EventId 3 }
+    let persist = { event "P" (EventBody.Change []) with id = EventId.fromJson 9 }
+    let log = { EventLog.empty with nextId = EventId.fromJson 3 }
     let restored = EventLog.restore [ persist ] log
-    Assert.Equal(EventId 3, EventLog.nextId restored)
-    Assert.Equal(EventId 9, Ev.id restored.events.Head)
+    Assert.Equal(EventId.fromJson 3, EventLog.nextId restored)
+    Assert.Equal(EventId.fromJson 9, Ev.id restored.events.Head)
 
 let private actorStart commandName : Ev =
     event commandName (EventBody.ActorStart(startRequest ()))
@@ -82,7 +92,7 @@ let private actorStop commandName : Ev =
     event commandName (EventBody.ActorStop(NodeId.New(), ActorSucceeded))
 
 let private changeNamed commandName eventId : Ev =
-    { event commandName (EventBody.Change []) with id = EventId eventId }
+    { event commandName (EventBody.Change []) with id = EventId.fromJson eventId }
 
 [<Fact>]
 let ``undo skips ActorStart/ActorStop and inverts the next Action`` () =
@@ -97,7 +107,7 @@ let ``undo skips ActorStart/ActorStop and inverts the next Action`` () =
         | None -> failwith "expected Undo of Edit node"
         | Some pair -> pair
     match undoEvent.body with
-    | EventBody.Undo(target, _) -> Assert.Equal(EventId 5, target)
+    | EventBody.Undo(target, _) -> Assert.Equal(EventId.fromJson 5, target)
     | _ -> failwith "expected Undo body"
     Assert.Equal("Edit node", undoEvent.commandName)
     Assert.Equal(None, ClientHistory.undoEvent undone)
@@ -154,27 +164,31 @@ let ``tryPeekUndoName and tryPeekRedoName skip Actor events`` () =
 [<Fact>]
 let ``tryPeek finds Action under Actors after Change-shaped record`` () =
     let source =
-        { id = 0
+        { id = EventId.fromJson 0
           submissionId = Guid.NewGuid()
-          ops = [] }
-    let changeOnly, _ =
-        ClientHistory.clear () |> ClientHistory.record "Cut" source
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [] }
+    let changeOnly =
+        ClientHistory.clear ()
+        |> ClientHistory.record { source with commandName = "Cut" }
     Assert.Equal(Some "Cut", ClientHistory.tryPeekUndoName changeOnly)
     let actorsOnly =
         changeOnly
         |> ClientHistory.recordEvent "Start" (actorStart "Start")
         |> ClientHistory.recordEvent "Stop" (actorStop "Stop")
     Assert.Equal(Some "Cut", ClientHistory.tryPeekUndoName actorsOnly)
-    let withCut, _ =
-        ClientHistory.clear () |> ClientHistory.record "Cut" source
+    let withCut =
+        ClientHistory.clear ()
+        |> ClientHistory.record { source with commandName = "Cut" }
     let actionUnderActors =
         withCut
         |> ClientHistory.recordEvent "Edit node" (changeNamed "Edit node" 5)
         |> ClientHistory.recordEvent "Start" (actorStart "Start")
     Assert.Equal(Some "Edit node", ClientHistory.tryPeekUndoName actionUnderActors)
-    match ClientHistory.undo (Revision 1) (Guid.NewGuid()) changeOnly with
+    match ClientHistory.undo (Guid.NewGuid()) changeOnly with
     | None -> failwith "expected Change Undo"
-    | Some (_, _, undoneChange, _) ->
+    | Some (_, undoneChange) ->
         Assert.Equal(None, ClientHistory.tryPeekUndoName undoneChange)
         Assert.Equal(Some "Cut", ClientHistory.tryPeekRedoName undoneChange)
 
@@ -206,7 +220,7 @@ let ``Undo inverse Ops`` () =
     let nodeId = NodeId.New()
     let ops = [ Op.SetText(nodeId, "old", "new") ]
     let changeEvent =
-        { event "Edit node" (EventBody.Change ops) with id = EventId 5 }
+        { event "Edit node" (EventBody.Change ops) with id = EventId.fromJson 5 }
     let recorded =
         ClientHistory.clear ()
         |> ClientHistory.recordEvent "Edit node" changeEvent
@@ -216,7 +230,7 @@ let ``Undo inverse Ops`` () =
         | Some pair -> pair
     match undoEvent.body with
     | EventBody.Undo(target, inverseOps) ->
-        Assert.Equal(EventId 5, target)
+        Assert.Equal(EventId.fromJson 5, target)
         Assert.Equal<Op list>([ Op.SetText(nodeId, "new", "old") ], inverseOps)
     | _ -> failwith "expected Undo body"
     let redoEvent, _ =
@@ -229,7 +243,7 @@ let ``Undo inverse Ops`` () =
 
 [<Fact>]
 let ``Actor bodies do not apply`` () =
-    let state = { graph = Graph.create (); revision = Revision.Zero }
+    let state = { graph = Graph.create (); eventId = EventId.zero }
     let start = event "" (EventBody.ActorStart(startRequest ()))
     let stop =
         event "" (EventBody.ActorStop(NodeId.New(), ActorSucceeded))
@@ -245,8 +259,8 @@ let ``Undo Redo carried Ops`` () =
     let state, nodeId = textState ()
     let undoOps = [ Op.SetText(nodeId, "old", "undone") ]
     let redoOps = [ Op.SetText(nodeId, "undone", "redone") ]
-    let undoEv = event "" (EventBody.Undo(EventId 99, undoOps))
-    let redoEv = event "" (EventBody.Redo(EventId 99, redoOps))
+    let undoEv = event "" (EventBody.Undo(EventId.fromJson 99, undoOps))
+    let redoEv = event "" (EventBody.Redo(EventId.fromJson 99, redoOps))
     match Ev.apply undoEv state with
     | ApplyResult.Changed afterUndo ->
         Assert.Equal("undone", afterUndo.graph.nodes.[nodeId].text)
@@ -261,8 +275,8 @@ let ``Every Ev carries Authority`` () =
     let start = startRequest ()
     let bodies =
         [ EventBody.Change []
-          EventBody.Undo(EventId 1, [])
-          EventBody.Redo(EventId 1, [])
+          EventBody.Undo(EventId.fromJson 1, [])
+          EventBody.Redo(EventId.fromJson 1, [])
           EventBody.ActorStart start
           EventBody.ActorStop(start.focusId, ActorFailed) ]
     bodies

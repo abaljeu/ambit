@@ -29,30 +29,23 @@ let private withHost actors body =
             CoreMailbox.dispose host
     }
 
-let private addRootChild text =
-    let childId = NodeId.New()
-    childId,
-    { id = 0
-      submissionId = Guid.NewGuid()
-      ops =
-        [ Op.NewNode(childId, text)
-          Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
+let private addRootChild text = addRootChildEvent text
 
 let private wireEvent submissionId body : Ev =
-    { id = Gambol.Shared.EventId 99
+    { id = EventId.zero
       submissionId = submissionId
       authority = Gambol.Shared.Authority "Wire"
       commandName = "test"
       body = body }
 
 [<Fact>]
-let ``CoreMailbox.postChange appends Change Events to EventLog`` () =
+let ``CoreMailbox.postEvents appends Change Events to EventLog`` () =
     withHost [] (fun host _ -> task {
-        let childId, change = addRootChild "door-change"
+        let childId, event = addRootChild "door-change"
         let! accepted =
-            CoreMailbox.postChange host testCaller [ change ]
+            CoreMailbox.postEvents host testCaller [ event ]
             |> Async.StartAsTask
-        let accepted = requireOk "postChange" accepted
+        let accepted = requireOk "postEvents" accepted
         let! history =
             CoreMailbox.eventHistory host
             |> Async.StartAsTask
@@ -61,8 +54,8 @@ let ``CoreMailbox.postChange appends Change Events to EventLog`` () =
             CoreMailbox.getState host
             |> Async.StartAsTask
         let state = requireOk "get state" state
-        Assert.Equal(Revision 1, accepted.revision)
-        Assert.Equal(change.submissionId, stored.submissionId)
+        Assert.Equal(EventId.fromJson 1, accepted.eventId)
+        Assert.Equal(event.submissionId, stored.submissionId)
         Assert.Equal(
             Gambol.Shared.Authority "Test",
             stored.authority)
@@ -73,11 +66,11 @@ let ``CoreMailbox.postChange appends Change Events to EventLog`` () =
     })
 
 [<Fact>]
-let ``postGraphOnlyChange updates Graph and EventLog without file write`` () =
+let ``postGraphOnly updates Graph and EventLog without file write`` () =
     withHost [] (fun host _ -> task {
-        let childId, change = addRootChild "graph-only"
+        let childId, event = addRootChild "graph-only"
         let! accepted =
-            CoreMailbox.postGraphOnlyChange host testCaller change
+            CoreMailbox.postGraphOnly host testCaller event
             |> Async.StartAsTask
         let accepted = requireOk "graph-only" accepted
         let! history =
@@ -87,18 +80,18 @@ let ``postGraphOnlyChange updates Graph and EventLog without file write`` () =
             CoreMailbox.getState host
             |> Async.StartAsTask
         let state = requireOk "get state" state
-        Assert.Equal(Revision 1, accepted.revision)
+        Assert.Equal(EventId.fromJson 1, accepted.eventId)
         let stored = Assert.Single(history.events)
-        Assert.Equal(change.submissionId, stored.submissionId)
+        Assert.Equal(event.submissionId, stored.submissionId)
         Assert.Equal("graph-only", state.graph.nodes.[childId].text)
     })
 
 [<Fact>]
 let ``CoreChanges builds Ev at postEvent and persists its Graph Ops`` () =
     withHost [] (fun host _ -> task {
-        let childId, change = addRootChild "through-event"
+        let childId, event = addRootChild "through-event"
         let! accepted =
-            (CoreMailbox.coreChanges host testCaller).postChange [ change ]
+            (CoreMailbox.coreChanges host testCaller).postEvents [ event ]
             |> Async.StartAsTask
         let accepted = requireOk "post change" accepted
         let! state =
@@ -110,27 +103,22 @@ let ``CoreChanges builds Ev at postEvent and persists its Graph Ops`` () =
             |> Async.StartAsTask
         let stored = Assert.Single(history.events)
         Assert.Equal("through-event", state.graph.nodes.[childId].text)
-        Assert.Equal(Revision 1, accepted.revision)
-        Assert.Equal(change.submissionId, stored.submissionId)
+        Assert.Equal(EventId.fromJson 1, accepted.eventId)
+        Assert.Equal(event.submissionId, stored.submissionId)
         Assert.Equal(
             Gambol.Shared.Authority "Test",
             stored.authority)
-        let storedOps =
-            Ev.ops stored
-            |> Option.defaultValue []
+        let postedOps = Ev.ops event |> Option.defaultValue []
+        let storedOps = Ev.ops stored |> Option.defaultValue []
         Assert.Equal<Op list>(
-            change.ops,
-            storedOps |> List.take change.ops.Length)
+            postedOps,
+            storedOps |> List.take postedOps.Length)
     })
 
 [<Fact>]
 let ``postEvent stamps admitted authority instead of wire authority`` () =
     withHost [] (fun host _ -> task {
-        let _, change = addRootChild "authority"
-        let event =
-            wireEvent
-                change.submissionId
-                (Gambol.Shared.EventBody.Change change.ops)
+        let _, event = addRootChild "authority"
         let! result =
             CoreMailbox.postEvent host testCaller event
             |> Async.StartAsTask
@@ -144,21 +132,17 @@ let ``postEvent stamps admitted authority instead of wire authority`` () =
 [<Fact>]
 let ``name-only Undo and Redo store completed Events with submission ids`` () =
     withHost [] (fun host _ -> task {
-        let childId, change = addRootChild "changed"
-        let changed =
-            wireEvent
-                (Guid.NewGuid())
-                (Gambol.Shared.EventBody.Change change.ops)
+        let childId, event = addRootChild "changed"
         let! changedResult =
-            CoreMailbox.postEvent host testCaller changed
+            CoreMailbox.postEvent host testCaller event
             |> Async.StartAsTask
-        let storedChange = requireOk "change" changedResult
+        let storedEvent = requireOk "change" changedResult
         let undoId = Guid.NewGuid()
         let undo =
             wireEvent
                 undoId
                 (Gambol.Shared.EventBody.Undo(
-                    storedChange.id,
+                    storedEvent.id,
                     []))
         let! undoResult =
             CoreMailbox.postEvent host testCaller undo
@@ -195,32 +179,26 @@ let ``name-only Undo and Redo store completed Events with submission ids`` () =
 [<Fact>]
 let ``eventHistory returns full EventLog and eventsSince returns its tail`` () =
     withHost [] (fun host _ -> task {
-        let firstChildId, firstChange = addRootChild "first"
+        let firstChildId, firstEvent = addRootChild "first"
         let secondChildId = NodeId.New()
-        let secondChange =
-            { id = 0
+        let secondEvent =
+            { id = EventId.fromJson 0
               submissionId = Guid.NewGuid()
-              ops =
-                [ Op.NewNode(secondChildId, "second")
-                  Op.Replace(
-                      Graph.rootId,
-                      [ ChildNode.owner firstChildId ],
-                      [ ChildNode.owner firstChildId
-                        ChildNode.owner secondChildId ]) ] }
-        let first =
-            wireEvent
-                firstChange.submissionId
-                (Gambol.Shared.EventBody.Change firstChange.ops)
-        let second =
-            wireEvent
-                secondChange.submissionId
-                (Gambol.Shared.EventBody.Change secondChange.ops)
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change
+                    [ Op.NewNode(secondChildId, "second")
+                      Op.Replace(
+                          Graph.rootId,
+                          [ ChildNode.owner firstChildId ],
+                          [ ChildNode.owner firstChildId
+                            ChildNode.owner secondChildId ]) ] }
         let! firstResult =
-            CoreMailbox.postEvent host testCaller first
+            CoreMailbox.postEvent host testCaller firstEvent
             |> Async.StartAsTask
         let storedFirst = requireOk "first" firstResult
         let! secondResult =
-            CoreMailbox.postEvent host testCaller second
+            CoreMailbox.postEvent host testCaller secondEvent
             |> Async.StartAsTask
         let storedSecond = requireOk "second" secondResult
         let! full =
@@ -261,7 +239,7 @@ let ``mailbox appends ActorStart and ActorStop in lifecycle order`` () =
                   focusId = Graph.rootId
                   commandId = Graph.rootId
                   graphIds = [ Graph.rootId ]
-                  revision = Gambol.Shared.EventId 0 }
+                  eventId = EventId.fromJson 0 }
             let! started =
                 CoreMailbox.startActor host testCaller request
                 |> Async.StartAsTask
@@ -301,3 +279,42 @@ let ``mailbox appends ActorStart and ActorStop in lifecycle order`` () =
         finally
             CoreMailbox.dispose host
     }
+
+[<Fact>]
+let ``postEvent rejects a non-zero EventId on a new client Event`` () =
+    withHost [] (fun host _ -> task {
+        let _, event = addRootChild "nonzero"
+        let dirty = { event with id = EventId.fromJson 99 }
+        let! result =
+            CoreMailbox.postEvent host testCaller dirty
+            |> Async.StartAsTask
+        match result with
+        | Error msg -> Assert.Equal("posted EventId must be zero", msg)
+        | Ok _ -> Assert.Fail("expected posted EventId must be zero")
+    })
+
+[<Fact>]
+let ``two live client edits with EventId.zero are admitted`` () =
+    withHost [] (fun host _ -> task {
+        let childId, createEvent = addRootChild "before"
+        let! created =
+            CoreMailbox.postEvent host testCaller createEvent
+            |> Async.StartAsTask
+        let storedCreate = requireOk "create" created
+        Assert.Equal(EventId.fromJson 1, storedCreate.id)
+        let edit =
+            ClientHistory.mintChange
+                "Edit node"
+                [ Op.SetText(childId, "before", "after") ]
+        Assert.Equal(EventId.zero, edit.id)
+        let! edited =
+            CoreMailbox.postEvent host testCaller edit
+            |> Async.StartAsTask
+        let storedEdit = requireOk "edit" edited
+        Assert.Equal(EventId.fromJson 2, storedEdit.id)
+        let! state =
+            CoreMailbox.getState host
+            |> Async.StartAsTask
+        let state = requireOk "state after edit" state
+        Assert.Equal("after", state.graph.nodes.[childId].text)
+    })

@@ -7,6 +7,7 @@ open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.Configuration
 open Xunit
 open Gambol.Server
+open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
 
 let private authFromMemory (pairs: (string * string) list) =

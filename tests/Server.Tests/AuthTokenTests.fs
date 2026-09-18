@@ -1,7 +1,7 @@
 module AuthTokenTests
 
 open System
-open Gambol.Server
+open Gambol.Shared
 open Xunit
 
 [<Fact>]

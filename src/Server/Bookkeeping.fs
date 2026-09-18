@@ -14,18 +14,18 @@ module Bookkeeping =
     let private ensureSystemDir (dataDir: string) =
         Directory.CreateDirectory(systemDir dataDir) |> ignore
 
-    let readRevision (dataDir: string) : Revision =
+    let readRevision (dataDir: string) : EventId =
         let path = metaPath dataDir
 
         try
             if File.Exists path then
                 match System.Int32.TryParse(File.ReadAllText(path).Trim()) with
-                | true, rev -> Revision rev
-                | _ -> Revision 0
+                | true, rev -> EventId.fromJson rev
+                | _ -> EventId.zero
             else
-                Revision 0
+                EventId.zero
         with _ ->
-            Revision 0
+            EventId.zero
 
     let writeRevision (dataDir: string) (rev: int) : Result<unit, string> =
         let path = metaPath dataDir

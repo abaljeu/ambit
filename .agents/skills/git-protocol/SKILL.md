@@ -1,6 +1,6 @@
 ---
 name: git-protocol
-description: "Gambol git procedure: three named places (dev, ready, master), commits on dev, merge --no-ff into ready. First git step is scripts/gitstatus.sh. Use when committing, merging, branching, tagging, agent-done, implement, or any other git instruction."
+description: "Gambol git procedure: three named places (dev, ready, master), commits on dev, merge --no-ff into ready. First git step is scripts/gitstatus.sh. Wrong workplace: abort and tell Alan. Do not research git history unless Alan asked. Use when committing, merging, branching, tagging, agent-done, implement, or any other git instruction."
 ---
 
 # Git protocol
@@ -9,7 +9,9 @@ Canonical git procedure for this repo. Other rules and skills point here; they d
 
 ## Status
 
-At the outset, from the project root, run `scripts/gitstatus.sh` (NOT `bash scripts/gitstatus.sh`.  Never explicitly invoke bash.) with no arguments. This is the first git step. Use extra git commands only when that output is not enough.
+1. From the project root, run `scripts/gitstatus.sh` with no arguments. Do not write `bash` in front of the command. This is the first git step. Done when the script printed the current branch and short status.
+2. Read that output. Proceed only when the workplace is right for this run. On Desktop, a right workplace has HEAD `dev`, and the tree is not dirty in a way that blocks this work. If the workplace is wrong, abort. Tell Alan what the script showed. Stop the task. Done when the workplace is right, or when you stopped and told Alan.
+3. Extra git after a right workplace is only for a current-task fact that `scripts/gitstatus.sh` did not print (paths for [[scripts/commit.sh]], a working-tree diff of files this task will change). Historical research is opt-in: run `git log`, merge-base, ancestor checks, `cat-file`, `git show` of old SHAs, or reconstruct history only when Alan asked for that research. Done when you proceed from the status output with extra git only for the current task, or you abort.
 
 ## Places
 

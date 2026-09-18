@@ -1,4 +1,4 @@
-namespace Gambol.Server
+namespace Gambol.Shared
 
 open System
 open System.Security.Cryptography

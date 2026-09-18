@@ -22,25 +22,27 @@ let private writeAmbFiles (dataDir: string) (state: State) =
 let private stateWithRootChild (text: string) : State =
     let childId = NodeId.New()
     let change =
-        { id = 0
+        { id = EventId.fromJson 0
           submissionId = Guid.NewGuid()
-          ops =
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change
             [ Op.NewNode(childId, text)
               Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
 
     let initial =
         { graph = Graph.create ()
-          revision = Revision 0 }
+          eventId = EventId.zero }
 
-    match ChangeValidation.applyChange change initial with
-    | ApplyResult.Changed st -> { st with revision = Revision 1 }
+    match applyChange change initial with
+    | ApplyResult.Changed st -> { st with eventId = EventId.fromJson 1 }
     | _ -> failwith "expected changed state"
 
 [<Fact>]
 let ``tryLoadState empty dataDir returns empty graph`` () =
     let dataDir = newTempDir ()
     let loaded = DocumentLoader.tryLoadState dataDir |> requireOk "load"
-    Assert.Equal(0, loaded.revision.Value)
+    Assert.Equal(0, loaded.eventId.Value)
     Assert.Equal(0, userNodeCount loaded.graph)
 
 [<Fact>]
@@ -49,7 +51,7 @@ let ``tryLoadState reads amb network`` () =
     let state = stateWithRootChild "from-amb"
     writeAmbFiles dataDir state
     let loaded = DocumentLoader.tryLoadState dataDir |> requireOk "load"
-    Assert.Equal(0, loaded.revision.Value)
+    Assert.Equal(0, loaded.eventId.Value)
     Assert.True(loaded.graph.nodes.Values |> Seq.exists (fun n -> n.text = "from-amb"))
 
 [<Fact>]
@@ -73,7 +75,7 @@ let ``resolveDbConnection file mode matching amb network returns Ok`` () = task 
     DatabaseSetup.resetAgentCacheForTest ()
     let state = stateWithRootChild "aligned"
     writeAmbFiles dataDir state
-    do! Database.rebuildFromDocumentFiles connStr { state with revision = Revision 0 }
+    do! Database.rebuildFromDocumentFiles connStr { state with eventId = EventId.zero }
         |> Async.AwaitTask
     let status = DatabaseSetup.resolveDbConnection DatabaseSetup.PersistenceMode.File connStr dataDir
     Assert.Equal(DatabaseSetup.DbStatus.Ok, status)

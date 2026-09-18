@@ -17,17 +17,6 @@ type NodeId =
 
     static member New() = NodeId(Guid.NewGuid())
 
-
-[<Struct>]
-type Revision =
-    | Revision of int
-
-    member this.Value =
-        let (Revision value) = this
-        value
-
-    static member Zero = Revision 0
-
 type Ownership =
     | Ref
     | Owner

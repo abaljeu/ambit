@@ -1,7 +1,8 @@
 # 07 — Persist apply
 
-**Status:** blocked
-**Blocked by:** [05 — Expand Op-list apply](05-expand-op-list-apply.md), [06 — Compile preamble](06-compile-preamble.md)
+**Status:** done
+**Actual:** 3h
+**Blocked by:** None — [05 — Expand Op-list apply](05-expand-op-list-apply.md) and [06 — Compile preamble](06-compile-preamble.md) are done
 
 ## Context
 
@@ -15,13 +16,18 @@ FileAgent and DbAgent admit Ev, apply Ops locally, then `appendEvent`. CoreEvent
 
 Modules **FileAgent**, **DbAgent**, **PersistStamp**, **CoreEventDispatch**. Seam **Persist apply**.
 
-- [ ] 1.2.2 Persist apply — admit Ev, apply Ops, `appendEvent` Ev. No Ev→Change copy for apply
+- [x] 1.2.2 Persist apply — admit Ev, apply Ops, `appendEvent` Ev. No Ev→Change copy for apply
 
 ## Out of scope
 
-1. Core doors dropping `postChange` — [[08-core-doors.md|08 — Core doors]].
-2. Contract deletes — [[12-contract-leftover-change-and-revision.md|12 — Contract leftover Change and Revision]].
+1. Core doors dropping `postChange` — [08 — Core doors](08-core-doors.md).
+2. Contract deletes — [12 — Contract leftover Change and Revision](12-contract-leftover-change-and-revision.md).
 
 ## See also
 
-[[../arch.md|Single event source architecture]], [[../reports/inventory-non-event-write-paths.md]]
+[Single event source architecture](../arch.md), [[../reports/inventory-non-event-write-paths.md]]
+
+## Time
+
+- 1. Persist apply — 2026-09-16 2h — FileAgent and DbAgent apply Ev Ops then CoreEventDispatch appendEvent; leftover Change still compiles (from chat)
+- 2. Persist apply follow-up — 2026-09-16 1h — FileAgent createWithDependencies helpers extracted; PersistApplyTests assert appendEvent (from chat)

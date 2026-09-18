@@ -21,7 +21,7 @@ let private sampleRequest: Gambol.Shared.ActorStart =
       focusId = Graph.rootId
       commandId = Graph.rootId
       graphIds = [ Graph.rootId ]
-      revision = Gambol.Shared.EventId 0 }
+      eventId = EventId.fromJson 0 }
 
 let private withPersist persist body =
     task {
@@ -41,19 +41,19 @@ let private startRootActor host pool actorFn =
     CoreMailbox.startActor host testCaller sampleRequest
 
 [<Fact>]
-let ``Actor getRevision surfaces persist error instead of Revision 0`` () =
+let ``Actor getEventId surfaces persist error instead of Revision 0`` () =
     let persist = filePersist ()
     let filling =
         { persist with
             handlers =
                 { persist.handlers with
-                    getRevision = fun () -> Error "revision unavailable" } }
+                    getEventId = fun () -> Error "revision unavailable" } }
     let seen = TaskCompletionSource<string option>()
     withPersist filling (fun host pool -> task {
         let! started =
             startRootActor host pool (fun _ coreChanges -> async {
                 try
-                    let! _ = coreChanges.getRevision ()
+                    let! _ = coreChanges.getEventId ()
                     seen.TrySetResult None |> ignore
                 with ex ->
                     seen.TrySetResult (Some ex.Message) |> ignore
@@ -88,21 +88,22 @@ let ``Actor postChange on scheduled handle reaches persist`` () =
     let persist = filePersist ()
     let seen = TaskCompletionSource<Result<CoreChangesAccepted, string>>()
     let childId = NodeId.New()
-    let change =
-        { id = 0
-          submissionId = Guid.NewGuid()
-          ops =
+    let event =
+        changeEvent
+            ""
+            EventId.zero
+            (Guid.NewGuid())
             [ Op.NewNode(childId, "from-actor")
-              Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
+              Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ]
     withPersist persist (fun host pool -> task {
         let! started =
             startRootActor host pool (fun _ coreChanges -> async {
-                let! result = coreChanges.postChange [ change ]
+                let! result = coreChanges.postEvents [ event ]
                 seen.TrySetResult result |> ignore
             })
             |> Async.StartAsTask
         requireOk "startActor" started
         let! posted = seen.Task.WaitAsync(TimeSpan.FromSeconds 5.0)
         let accepted = requireOk "actor post" posted
-        Assert.Equal(Revision 1, accepted.revision)
+        Assert.Equal(EventId.fromJson 2, accepted.eventId)
     })

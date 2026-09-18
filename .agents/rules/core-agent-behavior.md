@@ -72,7 +72,7 @@ Subagents that run focused tests still need a working toolchain. If the tools ar
 
 Include me in your work. Tell me what you're thinking about.
 OBLIGAGTORY: Before any nontrivial tool call emit a clause stating the goal of that call.
-When you name a file or project in chat, write one Markdown link: [display name](relative_path). The display name is the name you are talking about, for example [fast reboot](plan/client-start-time/reports/cache-first-boot-via-poll.md). Put the path in that same link. Never emit like `**fast reboot** ([client-start-time](plan/client-start-time/project.md))`. In files use [[relative_path]] wikilinks instead. When you name an issue, follow [[.agents/rules/refer-by-name.md]].
+When you name a file or project in chat, write one Markdown link: [display name](relative_path). The display name is the name you are talking about, for example [fast reboot](plan/client-start-time/reports/cache-first-boot-via-poll.md). Put the path in that same link. Never emit like `**fast reboot** ([client-start-time](plan/client-start-time/project.md))`. In files, labeled links are `[label](path)` per [[.agents/rules/markdown-writing.md]]. When you name an issue, follow [[.agents/rules/refer-by-name.md]].
 
 NEVER call on bash.  It's already the shell.
 
@@ -85,7 +85,7 @@ Do not websearch. Tell me if you lack information.
 While in plan mode, any request for a change should be interpreted as a request to plan for the change; do not write detailed code then.
 
 ## Multitasking / SubAgent Delegation
-At startup, a subagent runs [[scripts/gitstatus.sh]] once per [[.agents/skills/git-protocol/SKILL.md]]. Run extra Git commands only when that output is not enough.
+At startup, a subagent follows [[.agents/skills/git-protocol/SKILL.md]] Status.
 Unless otherwise specified, always delegate to Grok 4.6.
 Use subagents to carry out tasks.
 The subagent writes the full result to `plan/<project-name>/reports/<subagent-title>.md` (create `reports/` if needed). Chat from the subagent, and from the parent after a Task returns, is a short pointer to that file plus the next step — not the report and not the Task body. If a workflow specifies another report path, use that path instead. Only the final report goes to reports/; project definition stays in the project directory.

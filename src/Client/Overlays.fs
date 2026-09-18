@@ -185,8 +185,7 @@ let renderSyncRiskAlert (model: VM) (dispatch: Msg -> unit) : unit =
             | ServerRejected ->
                 titleEl.textContent <- "Server rejected change"
                 msgEl.textContent <-
-                    "The server could not apply your change (revision mismatch or invalid op). "
-                    + "Reload the page to resync. Your unsaved changes will be lost."
+                    SyncRiskAlert.serverRejectedAlertText model.lastCmdResult
             | CodeOutdated ->
                 titleEl.textContent <- "New version available"
                 msgEl.textContent <-

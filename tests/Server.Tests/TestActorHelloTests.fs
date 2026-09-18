@@ -63,7 +63,7 @@ let private sampleRequest focusId commandId graphIds: Gambol.Shared.ActorStart =
       focusId = focusId
       commandId = commandId
       graphIds = graphIds
-      revision = Gambol.Shared.EventId 0 }
+      eventId = EventId.fromJson 0 }
 
 let private actorCaller secret =
     { authority = Authority "Actor"
@@ -94,15 +94,16 @@ let private withHost body =
 let ``TestActor hello posts one Owned child text hello under Focus`` () =
     withHost (fun host _ -> task {
         let commandId = NodeId.New()
-        let change =
-            { id = 0
-              submissionId = Guid.NewGuid()
-              ops =
+        let event = { id = EventId.fromJson 0
+                      submissionId = Guid.NewGuid()
+                      authority = Authority "Browser"
+                      commandName = ""
+                      body = EventBody.Change
                 [ Op.NewNode(commandId, "hello")
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host testCaller change
+            CoreMailbox.postGraphOnly host testCaller event
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
@@ -130,15 +131,16 @@ let ``TestActor hello posts one Owned child text hello under Focus`` () =
 let ``TestActor hello stops successfully with ActorSucceeded`` () =
     withHost (fun host _ -> task {
         let commandId = NodeId.New()
-        let change =
-            { id = 0
-              submissionId = Guid.NewGuid()
-              ops =
+        let event = { id = EventId.fromJson 0
+                      submissionId = Guid.NewGuid()
+                      authority = Authority "Browser"
+                      commandName = ""
+                      body = EventBody.Change
                 [ Op.NewNode(commandId, "hello")
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host testCaller change
+            CoreMailbox.postGraphOnly host testCaller event
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
@@ -170,15 +172,16 @@ let ``TestActor hello stops successfully with ActorSucceeded`` () =
 let ``TestActor hello drops live row after successful stop`` () =
     withHost (fun host pool -> task {
         let commandId = NodeId.New()
-        let change =
-            { id = 0
-              submissionId = Guid.NewGuid()
-              ops =
+        let event = { id = EventId.fromJson 0
+                      submissionId = Guid.NewGuid()
+                      authority = Authority "Browser"
+                      commandName = ""
+                      body = EventBody.Change
                 [ Op.NewNode(commandId, "hello")
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host testCaller change
+            CoreMailbox.postGraphOnly host testCaller event
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
@@ -201,15 +204,16 @@ let ``TestActor hello drops live row after successful stop`` () =
 let ``TestActor hello observes ActorStarted before output`` () =
     withHost (fun host _ -> task {
         let commandId = NodeId.New()
-        let change =
-            { id = 0
-              submissionId = Guid.NewGuid()
-              ops =
+        let event = { id = EventId.fromJson 0
+                      submissionId = Guid.NewGuid()
+                      authority = Authority "Browser"
+                      commandName = ""
+                      body = EventBody.Change
                 [ Op.NewNode(commandId, "hello")
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host testCaller change
+            CoreMailbox.postGraphOnly host testCaller event
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
@@ -253,15 +257,16 @@ let ``TestActor hello observes ActorStarted before output`` () =
 let ``TestActor hello interprets command node text`` () =
     withHost (fun host _ -> task {
         let commandId = NodeId.New()
-        let change =
-            { id = 0
-              submissionId = Guid.NewGuid()
-              ops =
+        let event = { id = EventId.fromJson 0
+                      submissionId = Guid.NewGuid()
+                      authority = Authority "Browser"
+                      commandName = ""
+                      body = EventBody.Change
                 [ Op.NewNode(commandId, "HELLO")
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host testCaller change
+            CoreMailbox.postGraphOnly host testCaller event
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
@@ -289,15 +294,16 @@ let ``TestActor hello interprets command node text`` () =
 let ``TestActor unknown command still finishes and drops live row`` () =
     withHost (fun host pool -> task {
         let commandId = NodeId.New()
-        let change =
-            { id = 0
-              submissionId = Guid.NewGuid()
-              ops =
+        let event = { id = EventId.fromJson 0
+                      submissionId = Guid.NewGuid()
+                      authority = Authority "Browser"
+                      commandName = ""
+                      body = EventBody.Change
                 [ Op.NewNode(commandId, "unknown")
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host testCaller change
+            CoreMailbox.postGraphOnly host testCaller event
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
@@ -319,15 +325,16 @@ let ``TestActor unknown command still finishes and drops live row`` () =
 let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
     withHost (fun host pool -> task {
         let commandId = NodeId.New()
-        let change =
-            { id = 0
-              submissionId = Guid.NewGuid()
-              ops =
+        let event = { id = EventId.fromJson 0
+                      submissionId = Guid.NewGuid()
+                      authority = Authority "Browser"
+                      commandName = ""
+                      body = EventBody.Change
                 [ Op.NewNode(commandId, "hello")
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host testCaller change
+            CoreMailbox.postGraphOnly host testCaller event
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
@@ -430,15 +437,16 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
 let ``TestActor throw command fails gracefully and drops live row`` () =
     withHost (fun host pool -> task {
         let commandId = NodeId.New()
-        let change =
-            { id = 0
-              submissionId = Guid.NewGuid()
-              ops =
+        let event = { id = EventId.fromJson 0
+                      submissionId = Guid.NewGuid()
+                      authority = Authority "Browser"
+                      commandName = ""
+                      body = EventBody.Change
                 [ Op.NewNode(commandId, "throw")
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnlyChange host testCaller change
+            CoreMailbox.postGraphOnly host testCaller event
             |> Async.StartAsTask
         let _ = requireOk "postChange" postResult
         

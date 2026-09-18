@@ -22,15 +22,9 @@ let private sampleRequest: Gambol.Shared.ActorStart =
       focusId = Graph.rootId
       commandId = Graph.rootId
       graphIds = [ Graph.rootId ]
-      revision = Gambol.Shared.EventId 0 }
+      eventId = EventId.fromJson 0 }
 
-let private addRootChild text =
-    let childId = NodeId.New()
-    { id = 0
-      submissionId = Guid.NewGuid()
-      ops =
-        [ Op.NewNode(childId, text)
-          Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
+let private addRootChild text = addRootChildEvent text |> snd
 
 let private actorCaller secret =
     { authority = Authority "Actor"
@@ -96,7 +90,7 @@ let ``StartActor with live credentials calls startActor with ActorStart`` () =
         Assert.Equal(sampleRequest.focusId, handed.focusId)
         Assert.Equal(sampleRequest.commandId, handed.commandId)
         Assert.Equal<NodeId list>(sampleRequest.graphIds, handed.graphIds)
-        Assert.Equal(sampleRequest.revision, handed.revision)
+        Assert.Equal(sampleRequest.eventId, handed.eventId)
     })
 
 [<Fact>]
@@ -168,13 +162,15 @@ let ``Actor PostChange with live row reaches PersistHandlers`` () =
     let actorSecret = Credential "actor-live"
     live.Add actorSecret
     withHost pool (fun host -> task {
-        let change = addRootChild "actor-hello"
+        let event = addRootChild "actor-hello"
         let! result =
-            CoreMailbox.postChange
-                host (actorCaller actorSecret) [ change ]
+            CoreMailbox.postEvents
+                host
+                (actorCaller actorSecret)
+                [ event ]
             |> Async.StartAsTask
         let accepted = requireOk "Actor post" result
-        Assert.Equal(Revision 1, accepted.revision)
+        Assert.Equal(EventId.fromJson 1, accepted.eventId)
     })
 
 [<Fact>]
@@ -183,14 +179,14 @@ let ``Actor PostChange without live row is refused before persist`` () =
     let actorSecret = Credential "actor-not-live"
     withHost pool (fun host -> task {
         let handle = CoreMailbox.coreChanges host testCaller
-        let! before = handle.getRevision () |> Async.StartAsTask
+        let! before = handle.getEventId () |> Async.StartAsTask
         let! result =
-            CoreMailbox.postChange
+            CoreMailbox.postEvents
                 host
                 (actorCaller actorSecret)
                 [ addRootChild "nope" ]
             |> Async.StartAsTask
-        let! after = handle.getRevision () |> Async.StartAsTask
+        let! after = handle.getEventId () |> Async.StartAsTask
         Assert.Equal(Error CoreAuth.refuse, result)
         Assert.Equal(before, after)
     })
@@ -200,13 +196,13 @@ let ``Browser PostChange does not require a live row`` () =
     let _, _, _, pool = recordingPool ()
     withHost pool (fun host -> task {
         let! result =
-            CoreMailbox.postChange
+            CoreMailbox.postEvents
                 host
                 testCaller
                 [ addRootChild "browser" ]
             |> Async.StartAsTask
         let accepted = requireOk "Browser post" result
-        Assert.Equal(Revision 1, accepted.revision)
+        Assert.Equal(EventId.fromJson 1, accepted.eventId)
     })
 
 [<Fact>]

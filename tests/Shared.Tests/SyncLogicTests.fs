@@ -11,10 +11,15 @@ open Xunit
 
 let private emptyModel = VmTestHelpers.emptyModel
 
-let private mkChange id = { id = id; submissionId = System.Guid.NewGuid(); ops = [] }
+let private mkChange n =
+    SpecialNodeTestHelpers.changeEvent
+        "fixture"
+        (EventId.fromJson n)
+        (System.Guid.NewGuid())
+        []
 
 let private mkPoll rev build page : ChangeSuccessResponse =
-    { revision = EventId rev
+    { eventId = EventId.fromJson rev
       buildEpochSec = build
       pageBuildEpochSec = page
       apiVersion = ApiVersion.current
@@ -31,12 +36,12 @@ let private mkPoll rev build page : ChangeSuccessResponse =
 [<Fact>]
 let ``getPollOutcome returns DataOutdated when server revision is ahead`` () =
     let poll = mkPoll 6 1 1
-    Assert.Equal(Some DataOutdated, SyncLogic.getPollOutcome poll 5)
+    Assert.Equal(Some DataOutdated, SyncLogic.getPollOutcome poll (EventId.fromJson 5))
 
 [<Fact>]
 let ``getPollOutcome returns None when server revision equals client`` () =
     let poll = mkPoll 5 1 1
-    Assert.Equal(None, SyncLogic.getPollOutcome poll 5)
+    Assert.Equal(None, SyncLogic.getPollOutcome poll (EventId.fromJson 5))
 
 // ---------------------------------------------------------------------------
 // getPollOutcome — API version, not process/page stamps
@@ -48,7 +53,7 @@ let ``getPollOutcome does not CodeOutdated an existing page after server restart
     let restartedProcessStart = pageProcessStart + 1
     let pageBuild = 1_699_999_000
     let poll = mkPoll 5 restartedProcessStart pageBuild
-    Assert.Equal(None, SyncLogic.getPollOutcome poll 5)
+    Assert.Equal(None, SyncLogic.getPollOutcome poll (EventId.fromJson 5))
 
 [<Fact>]
 let ``serverProcessRestarted detects DeployEpochSec change without CodeOutdated`` () =
@@ -57,7 +62,7 @@ let ``serverProcessRestarted detects DeployEpochSec change without CodeOutdated`
     let poll = mkPoll 5 restarted 1_699_999_000
     Assert.True(
         SyncLogic.serverProcessRestarted pageProcessStart poll.buildEpochSec)
-    Assert.Equal(None, SyncLogic.getPollOutcome poll 5)
+    Assert.Equal(None, SyncLogic.getPollOutcome poll (EventId.fromJson 5))
     Assert.False(
         SyncLogic.serverProcessRestarted restarted poll.buildEpochSec)
     Assert.False(SyncLogic.serverProcessRestarted 0 poll.buildEpochSec)
@@ -67,22 +72,22 @@ let ``serverProcessRestarted detects DeployEpochSec change without CodeOutdated`
 let ``getPollOutcome returns DataOutdated after server restart when revision is ahead`` () =
     let pageProcessStart = 1_700_000_000
     let poll = mkPoll 6 (pageProcessStart + 1) 1_699_999_000
-    Assert.Equal(Some DataOutdated, SyncLogic.getPollOutcome poll 5)
+    Assert.Equal(Some DataOutdated, SyncLogic.getPollOutcome poll (EventId.fromJson 5))
 
 [<Fact>]
 let ``getPollOutcome does not treat page stamp drift as CodeOutdated`` () =
     let poll = mkPoll 5 1 99
-    Assert.Equal(None, SyncLogic.getPollOutcome poll 5)
+    Assert.Equal(None, SyncLogic.getPollOutcome poll (EventId.fromJson 5))
 
 [<Fact>]
 let ``getPollOutcome returns CodeOutdated when API version mismatches`` () =
     let poll = { mkPoll 5 1 1 with apiVersion = ApiVersion.current + 1 }
-    Assert.Equal(Some CodeOutdated, SyncLogic.getPollOutcome poll 5)
+    Assert.Equal(Some CodeOutdated, SyncLogic.getPollOutcome poll (EventId.fromJson 5))
 
 [<Fact>]
 let ``getPollOutcome returns CodeOutdated when both API and data are outdated`` () =
     let poll = { mkPoll 6 1 1 with apiVersion = ApiVersion.current + 1 }
-    Assert.Equal(Some CodeOutdated, SyncLogic.getPollOutcome poll 5)
+    Assert.Equal(Some CodeOutdated, SyncLogic.getPollOutcome poll (EventId.fromJson 5))
 
 // ---------------------------------------------------------------------------
 // SyncInfo helpers
@@ -99,11 +104,11 @@ let ``SyncInfo readiness follows state and poll responses`` () =
     Assert.False(startingAgain.isServerReady)
 
 [<Fact>]
-let ``SyncInfo withPendingChanges replaces pending list`` () =
-    let pending = [ PendingChange.ofEvent (Ev.ofChange "fixture" (mkChange 0)) ]
+let ``SyncInfo withPending replaces pending list`` () =
+    let pending = [ mkChange 0 ]
     let si = SyncInfo.initial
-    let si2 = SyncInfo.withPendingChanges pending si
-    Assert.Equal(1, si2.pendingChanges.Length)
+    let si2 = SyncInfo.withPending pending si
+    Assert.Equal(1, si2.pending.Length)
 
 [<Fact>]
 let ``SyncInfo withSyncState clears ack when entering risk state`` () =
@@ -126,7 +131,7 @@ let ``SyncInfo withSyncState clears ack when leaving risk state`` () =
 [<Fact>]
 let ``SyncInfo withSyncState keeps ack within non-risk states`` () =
     let si = { SyncInfo.initial with syncState = Sending 1; syncRiskAcknowledged = true }
-    let si2 = SyncInfo.withSyncState (WaitingToRetry (1, 0, [])) si
+    let si2 = SyncInfo.withSyncState (WaitingToRetry (1, EventId.zero, [])) si
     Assert.True(si2.syncRiskAcknowledged)
 
 // ---------------------------------------------------------------------------
@@ -136,28 +141,27 @@ let ``SyncInfo withSyncState keeps ack within non-risk states`` () =
 let private emptyState () : ClientSyncState =
     ClientSyncState.create
         (Graph.create ())
-        (EventId 5)
+        (EventId.fromJson 5)
         (ClientHistory.clear ())
 
 let private ofState (st: State) : ClientSyncState =
     ClientSyncState.create
         st.graph
-        (EventId st.revision.Value)
+        st.eventId
         (ClientHistory.clear ())
 
-let private applyTail changes state =
-    SyncLogic.applyServerTail
-        (changes |> List.map (Ev.ofChange ""))
-        state
+let private applyTail events state =
+    SyncLogic.applyServerTail events state
 
-let private withRecorded (change: Change) (state: ClientSyncState) =
-    let history, _ = ClientHistory.record "test" change state.history
+let private withRecorded (event: Ev) (state: ClientSyncState) =
+    let history =
+        ClientHistory.record { event with commandName = "test" } state.history
     { state with history = history }
 
 let private stateWithNode text : ClientSyncState * NodeId =
     let graph0 = Graph.create ()
     let graph1, nodeId = Graph.newNode text graph0
-    { emptyState() with graph = graph1; revision = EventId 3 }, nodeId
+    { emptyState() with graph = graph1; eventId = EventId.fromJson 3 }, nodeId
 
 [<Fact>]
 let ``applyServerTail empty list returns Ok with state unchanged`` () =
@@ -166,7 +170,7 @@ let ``applyServerTail empty list returns Ok with state unchanged`` () =
     match applyTail [] st with
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
     | Ok result ->
-        Assert.Equal(st.revision, result.revision)
+        Assert.Equal(st.eventId, result.eventId)
         Assert.Equal(st.graph.root, result.graph.root)
         Assert.Equal(st.history, result.history)
 
@@ -176,42 +180,48 @@ let ``applyServerTail non-empty tail preserves History`` () =
     let local = mkChange 2
     let withHistory = st |> withRecorded local
     let upstream =
-        { id = 3
-          submissionId = System.Guid.NewGuid()
-          ops = [ Op.SetText(nodeId, "before", "after") ] }
+        SpecialNodeTestHelpers.changeEvent
+            ""
+            (EventId.fromJson 3)
+            (System.Guid.NewGuid())
+            [ Op.SetText(nodeId, "before", "after") ]
     match applyTail [ upstream ] withHistory with
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
     | Ok result ->
         Assert.Equal(withHistory.history, result.history)
         Assert.Equal("after", result.graph.nodes.[nodeId].text)
-        Assert.Equal(EventId 4, result.revision)
+        Assert.Equal(EventId.fromJson 3, result.eventId)
     let st = emptyState ()
     let changes = [ mkChange 5; mkChange 6; mkChange 7 ]
     match applyTail changes st with
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
-    | Ok result -> Assert.Equal(EventId 8, result.revision)
+    | Ok result -> Assert.Equal(EventId.fromJson 7, result.eventId)
 
 [<Fact>]
 let ``applyServerTail applies graph mutations`` () =
     let st, nodeId = stateWithNode "before"
     let change =
-        { id = 3
+        { id = EventId.fromJson 3
           submissionId = System.Guid.NewGuid()
-          ops = [ Op.SetText(nodeId, "before", "after") ] }
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [ Op.SetText(nodeId, "before", "after") ] }
     match applyTail [ change ] st with
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
     | Ok result ->
         Assert.Equal("after", result.graph.nodes.[nodeId].text)
-        Assert.Equal(EventId 4, result.revision)
+        Assert.Equal(EventId.fromJson 3, result.eventId)
 
 [<Fact>]
 let ``applyServerTail carries SetUpdateTime after SetText as poll stamp path`` () =
     let st, nodeId = stateWithNode "before"
     let stamp = System.DateTime(2026, 7, 22, 18, 0, 0, System.DateTimeKind.Utc)
     let change =
-        { id = 3
+        { id = EventId.fromJson 3
           submissionId = System.Guid.NewGuid()
-          ops =
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change
               [ Op.SetText(nodeId, "before", "after")
                 Op.SetUpdateTime(nodeId, NodeUpdateTime.missing, stamp) ] }
     match applyTail [ change ] st with
@@ -226,9 +236,11 @@ let ``applyServerTail carries SetUpdateTime after SetText as poll stamp path`` (
 let ``applyServerTail returns Error on first invalid change`` () =
     let st, nodeId = stateWithNode "original"
     let badChange =
-        { id = 5
+        { id = EventId.fromJson 5
           submissionId = System.Guid.NewGuid()
-          ops = [ Op.SetText(nodeId, "wrong-old", "new") ] }
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [ Op.SetText(nodeId, "wrong-old", "new") ] }
     let goodChange = mkChange 6
     match applyTail [ badChange; goodChange ] st with
     | Ok _ -> failwith "Expected Error but got Ok"
@@ -238,13 +250,17 @@ let ``applyServerTail returns Error on first invalid change`` () =
 let ``applyServerTail short-circuits: state unchanged after invalid change`` () =
     let st, nodeId = stateWithNode "original"
     let badChange =
-        { id = 3
+        { id = EventId.fromJson 3
           submissionId = System.Guid.NewGuid()
-          ops = [ Op.SetText(nodeId, "wrong-old", "y") ] }
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [ Op.SetText(nodeId, "wrong-old", "y") ] }
     let goodChange =
-        { id = 4
+        { id = EventId.fromJson 4
           submissionId = System.Guid.NewGuid()
-          ops = [ Op.SetText(nodeId, "original", "modified") ] }
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [ Op.SetText(nodeId, "original", "modified") ] }
     match applyTail [ badChange; goodChange ] st with
     | Ok _ -> failwith "Expected Error but got Ok"
     | Error _ ->
@@ -255,13 +271,15 @@ let ``applyServerTail consumes Change on Absent Header without graph effect`` ()
     let st = emptyState ()
     let absentId = NodeId.New()
     let change =
-        { id = 5
+        { id = EventId.fromJson 5
           submissionId = System.Guid.NewGuid()
-          ops = [ Op.SetText(absentId, "old", "new") ] }
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [ Op.SetText(absentId, "old", "new") ] }
     match applyTail [ change ] st with
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
     | Ok result ->
-        Assert.Equal(EventId 6, result.revision)
+        Assert.Equal(EventId.fromJson 5, result.eventId)
         Assert.False(result.graph.nodes.ContainsKey absentId)
         Assert.Equal(ClientHistory.clear (), result.history)
 
@@ -296,17 +314,19 @@ let ``applyServerTail skips structural Replace on Unloaded parent`` () =
     let st: ClientSyncState =
         { graph = graph
           history = ClientHistory.clear ()
-          revision = EventId 3
+          eventId = EventId.fromJson 3
           eventLog = EventLog.empty }
     let change =
-        { id = 4
+        { id = EventId.fromJson 4
           submissionId = System.Guid.NewGuid()
-          ops =
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change
               [ Op.Replace(wsId, [], [ ChildNode.owner childId ]) ] }
     match applyTail [ change ] st with
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
     | Ok result ->
-        Assert.Equal(EventId 4, result.revision)
+        Assert.Equal(EventId.fromJson 4, result.eventId)
         Assert.Equal(Unloaded, result.graph.nodes.[wsId].childrenStatus)
         Assert.Equal<ChildNode list>([], result.graph.nodes.[wsId].children)
 
@@ -335,12 +355,14 @@ let ``applyServerTail applies header facts on Unloaded resident Node`` () =
     let st: ClientSyncState =
         { graph = Graph.fromNodes graph0.root nodes
           history = ClientHistory.clear ()
-          revision = EventId 2
+          eventId = EventId.fromJson 2
           eventLog = EventLog.empty }
     let change =
-        { id = 3
+        { id = EventId.fromJson 3
           submissionId = System.Guid.NewGuid()
-          ops = [ Op.SetText(wsId, "before", "after") ] }
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [ Op.SetText(wsId, "before", "after") ] }
     match applyTail [ change ] st with
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
     | Ok result ->
@@ -385,9 +407,8 @@ let ``applySyncResponse installs complete child list as Loaded and preserves own
     let st: ClientSyncState =
         { graph = Graph.fromNodes graph0.root nodes0
           history =
-            ClientHistory.record "test" (mkChange 1) (ClientHistory.clear ())
-            |> fst
-          revision = EventId 5
+            ClientHistory.record { mkChange 1 with commandName = "test" } (ClientHistory.clear ())
+          eventId = EventId.fromJson 5
           eventLog = EventLog.empty }
     let child =
         Node.Create(childId, text = "leaf", owner = wsId)
@@ -407,16 +428,17 @@ let ``applySyncResponse installs complete child list as Loaded and preserves own
     // Change touches a Loaded root child; package then installs ws at response revision.
     let response =
         { events =
-              [ Ev.ofChange ""
-                    { id = 6
-                      submissionId = System.Guid.NewGuid()
-                      ops = [ Op.SetText(markerId, "marker", "marker-tail") ] } ]
+              [ SpecialNodeTestHelpers.changeEvent
+                    ""
+                    (EventId.fromJson 6)
+                    (System.Guid.NewGuid())
+                    [ Op.SetText(markerId, "marker", "marker-tail") ] ]
           packages = [ loadedWs; child; external ] }
     match SyncLogic.applySyncResponse response st with
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
     | Ok result ->
         Assert.Equal(st.history, result.history)
-        Assert.Equal(EventId 6, result.revision)
+        Assert.Equal(EventId.fromJson 6, result.eventId)
         Assert.Equal(Loaded, result.graph.nodes.[wsId].childrenStatus)
         Assert.Equal(1, result.graph.nodes.[wsId].children.Length)
         Assert.Equal("marker-tail", result.graph.nodes.[markerId].text)
@@ -427,22 +449,26 @@ let ``applySyncResponse installs complete child list as Loaded and preserves own
 [<Fact>]
 let ``applyServerTail multi-change tail advances revision and graph`` () =
     let state0 =
-        { ModelBuilder.createState12 () with revision = Revision 10 }
+        { ModelBuilder.createState12 () with eventId = EventId.fromJson 10 }
     let root = state0.graph.nodes.[state0.graph.root]
     let nodeA = state0.graph.nodes.[root.children.[0].id]
     let nodeB = state0.graph.nodes.[root.children.[1].id]
     let change1 =
-        { id = 1
+        { id = EventId.fromJson 1
           submissionId = System.Guid.NewGuid()
-          ops = [ Op.SetText(nodeA.id, nodeA.text, nodeA.text + "1") ] }
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [ Op.SetText(nodeA.id, nodeA.text, nodeA.text + "1") ] }
     let change2 =
-        { id = 2
+        { id = EventId.fromJson 2
           submissionId = System.Guid.NewGuid()
-          ops = [ Op.SetText(nodeB.id, nodeB.text, nodeB.text + "2") ] }
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [ Op.SetText(nodeB.id, nodeB.text, nodeB.text + "2") ] }
     match applyTail [ change1; change2 ] (ofState state0) with
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
     | Ok result ->
-        Assert.Equal(EventId 12, result.revision)
+        Assert.Equal(EventId.fromJson 2, result.eventId)
         Assert.Equal(nodeA.text + "1", result.graph.nodes.[nodeA.id].text)
         Assert.Equal(nodeB.text + "2", result.graph.nodes.[nodeB.id].text)
 
@@ -454,7 +480,7 @@ let ``applySyncResponse empty packages and empty changes preserves History`` () 
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
     | Ok result ->
         Assert.Equal(st.history, result.history)
-        Assert.Equal(st.revision, result.revision)
+        Assert.Equal(st.eventId, result.eventId)
 
 [<Fact>]
 let ``applySyncResponse empty Loaded child list marks Loaded without History clear`` () =
@@ -482,8 +508,8 @@ let ``applySyncResponse empty Loaded child list marks Loaded without History cle
     let st: ClientSyncState =
         { graph = Graph.fromNodes graph0.root nodes
           history =
-            ClientHistory.record "test" past (ClientHistory.clear ()) |> fst
-          revision = EventId 4
+            ClientHistory.record { past with commandName = "test" } (ClientHistory.clear ())
+          eventId = EventId.fromJson 4
           eventLog = EventLog.empty }
     let loadedEmpty = { ws with children = []; childrenStatus = Loaded }
     match
@@ -494,7 +520,7 @@ let ``applySyncResponse empty Loaded child list marks Loaded without History cle
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
     | Ok result ->
         Assert.Equal(st.history, result.history)
-        Assert.Equal(EventId 4, result.revision)
+        Assert.Equal(EventId.fromJson 4, result.eventId)
         Assert.Equal(Loaded, result.graph.nodes.[wsId].childrenStatus)
         Assert.Equal<ChildNode list>([], result.graph.nodes.[wsId].children)
 
@@ -510,18 +536,22 @@ let ``applyServerTail trusts server tails without ownership re-check`` () =
     let originalBChildren = state0.graph.nodes.[childB.id].children
     let nodeC = state0.graph.nodes.[root.children.[1].id]
     let goodChange =
-        { id = 1
+        { id = EventId.fromJson 1
           submissionId = System.Guid.NewGuid()
-          ops = [ Op.SetText(nodeC.id, nodeC.text, "ok") ] }
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [ Op.SetText(nodeC.id, nodeC.text, "ok") ] }
     let ownershipBreakingChange =
-        { id = 2
+        { id = EventId.fromJson 2
           submissionId = System.Guid.NewGuid()
-          ops =
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change
             [ Op.Replace(childB.id, originalBChildren, originalBChildren @ [ childA ]) ] }
     match applyTail [ goodChange; ownershipBreakingChange ] (ofState state0) with
     | Error msg -> failwith $"Expected Ok (no ownership re-check), got Error: {msg}"
     | Ok result ->
-        Assert.Equal(EventId (state0.revision.Value + 2), result.revision)
+        Assert.Equal(EventId.fromJson 2, result.eventId)
         Assert.Equal("ok", result.graph.nodes.[nodeC.id].text)
         match ChangeValidation.validateOwnership result.graph with
         | Ok () -> failwith "Expected ownership to fail on result (proves check was skipped)"
@@ -531,21 +561,23 @@ let ``applyServerTail trusts server tails without ownership re-check`` () =
 // External-changes consume — rewind and replay
 // ---------------------------------------------------------------------------
 
-let private textChange id nodeId oldText newText : Change =
-    { id = id
-      submissionId = System.Guid.NewGuid()
-      ops = [ Op.SetText(nodeId, oldText, newText) ] }
+let private textChange id nodeId oldText newText : Ev =
+    SpecialNodeTestHelpers.changeEvent
+        "Edit node"
+        id
+        (System.Guid.NewGuid())
+        [ Op.SetText(nodeId, oldText, newText) ]
 
 let private seededEditState () =
     let graph0 = Graph.create ()
     let graph1, nodeId = Graph.newNode "before" graph0
-    let change = textChange 0 nodeId "before" "after"
+    let change = textChange EventId.zero nodeId "before" "after"
     let state0 : ClientSyncState =
         { graph = graph1
-          revision = EventId 0
+          eventId = EventId.fromJson 0
           history = ClientHistory.clear ()
           eventLog = EventLog.empty }
-    match SyncLogic.applyLocalChange "Edit node" change state0 with
+    match SyncLogic.applyLocalEvent change state0 with
     | Error msg -> failwith msg
     | Ok (state, pending) -> nodeId, state, pending, change
 
@@ -557,25 +589,59 @@ let ``consumeCatchUpPoll rewinds to baseline and preserves History`` () =
         | Ok graph -> graph
         | Error msg -> failwith msg
     let baseline : CatchUpBaseline =
-        { revision = EventId 0
+        { eventId = EventId.fromJson 0
           graph = baselineGraph }
     let serverChange =
-        { id = 1
-          submissionId = System.Guid.NewGuid()
-          ops = [ Op.SetText(nodeId, "before", "server") ] }
+        SpecialNodeTestHelpers.changeEvent
+            ""
+            (EventId.fromJson 1)
+            (System.Guid.NewGuid())
+            [ Op.SetText(nodeId, "before", "server") ]
     match
         SyncLogic.consumeCatchUpPoll
             baseline
-            [ Ev.ofChange "" serverChange ]
-            (EventId 1)
+            [ serverChange ]
+            (EventId.fromJson 1)
             optimistic
     with
     | Error msg -> failwith msg
     | Ok result ->
         Assert.Equal("server", result.graph.nodes.[nodeId].text)
-        Assert.Equal(EventId 1, result.revision)
+        Assert.Equal(EventId.fromJson 1, result.eventId)
         Assert.Equal(optimistic.history, result.history)
-        Assert.NotEqual(pending.change.submissionId, serverChange.submissionId)
+        Assert.NotEqual(pending.submissionId, serverChange.submissionId)
+
+[<Fact>]
+let ``consumeCatchUpPoll stamps History when stream matches submissionId`` () =
+    let nodeId, optimistic, pending, change = seededEditState ()
+    let baselineGraph =
+        match Graph.setText nodeId "after" "before" optimistic.graph with
+        | Ok graph -> graph
+        | Error msg -> failwith msg
+    let baseline : CatchUpBaseline =
+        { eventId = EventId.zero
+          graph = baselineGraph }
+    let stamped =
+        { change with id = EventId.fromJson 4 }
+    match
+        SyncLogic.consumeCatchUpPoll
+            baseline
+            [ stamped ]
+            (EventId.fromJson 4)
+            optimistic
+    with
+    | Error msg -> failwith msg
+    | Ok result ->
+        Assert.Equal("after", result.graph.nodes.[nodeId].text)
+        Assert.Equal(EventId.fromJson 4, result.eventId)
+        Assert.Equal(pending.submissionId, stamped.submissionId)
+        match ClientHistory.undoEvent result.history with
+        | None -> failwith "expected stamped Undo"
+        | Some (event, _) ->
+            match event.body with
+            | EventBody.Undo(target, _) ->
+                Assert.Equal(EventId.fromJson 4, target)
+            | _ -> failwith "expected Undo body"
 
 [<Fact>]
 let ``applyServerTail with changes preserves History`` () =
@@ -585,12 +651,14 @@ let ``applyServerTail with changes preserves History`` () =
     let root = state0.graph.nodes.[state0.graph.root]
     let nodeA = state0.graph.nodes.[root.children.[0].id]
     let change =
-        { id = 1
+        { id = EventId.fromJson 1
           submissionId = System.Guid.NewGuid()
-          ops = [ Op.SetText(nodeA.id, nodeA.text, nodeA.text + "!") ] }
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [ Op.SetText(nodeA.id, nodeA.text, nodeA.text + "!") ] }
     let client : ClientSyncState =
         { graph = state0.graph
-          revision = EventId state0.revision.Value
+          eventId = EventId.fromJson state0.eventId.Value
           history = st.history
           eventLog = EventLog.empty }
     match applyTail [ change ] client with

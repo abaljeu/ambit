@@ -24,7 +24,7 @@ module BootCache =
         { codecVersion: int
           file: string
           scopeKey: string
-          revision: int
+          eventId: EventId
           isReady: bool
           stateJson: string
           writtenAt: string
@@ -39,7 +39,7 @@ module BootCache =
         (file: string)
         (scope: string)
         (stateJson: string)
-        (revision: int)
+        (eventId: EventId)
         (isReady: bool)
         (writtenAt: string)
         (bootstrapHash: string)
@@ -47,7 +47,7 @@ module BootCache =
         { codecVersion = codecVersion
           file = file
           scopeKey = scope
-          revision = revision
+          eventId = eventId
           isReady = isReady
           stateJson = stateJson
           writtenAt = writtenAt
@@ -58,7 +58,7 @@ module BootCache =
             [ "codecVersion", Encode.int record.codecVersion
               "file", Encode.string record.file
               "scopeKey", Encode.string record.scopeKey
-              "revision", Encode.int record.revision
+              "eventId", EventJson.encodeEventId record.eventId
               "ready", Encode.bool record.isReady
               "stateJson", Encode.string record.stateJson
               "writtenAt", Encode.string record.writtenAt
@@ -70,7 +70,7 @@ module BootCache =
                 get.Required.Field "codecVersion" Decode.int
               file = get.Required.Field "file" Decode.string
               scopeKey = get.Required.Field "scopeKey" Decode.string
-              revision = get.Required.Field "revision" Decode.int
+              eventId = get.Required.Field "eventId" EventJson.decodeEventId
               isReady = get.Required.Field "ready" Decode.bool
               stateJson = get.Required.Field "stateJson" Decode.string
               writtenAt = get.Required.Field "writtenAt" Decode.string
@@ -88,55 +88,57 @@ module BootCache =
         elif record.scopeKey <> currentScope then Error "scope"
         else Ok ()
 
-    let changesAfter (snapshotRevision: int) (log: Change list) : Change list =
+    let encodeEvent (event: Ev) : IEncodable = EventJson.encode event
+
+    let decodeEvent: Decoder<Ev> = EventJson.decode
+
+    let eventsAfter (snapshotEventId: EventId) (log: Ev list) : Ev list =
         log
-        |> List.filter (fun change -> change.id > snapshotRevision)
-        |> List.sortBy (fun change -> change.id)
+        |> List.filter (fun event -> event.id > snapshotEventId)
+        |> List.sortBy (fun event -> event.id)
 
     let acceptedForLog
-        (confirmed: Change list)
-        (submitted: PendingChange list)
-        : Change list =
-        if confirmed.IsEmpty then
-            submitted |> List.map (fun item -> item.change)
-        else
-            confirmed
+        (confirmed: Ev list)
+        (submitted: Ev list)
+        : Ev list =
+        if confirmed.IsEmpty then submitted else confirmed
 
     [<RequireQualifiedAccess>]
     type BootRead =
         | FetchState of reason: string
         | UseCache of StateResponse
 
-    let clientRevision (snapshotRevision: int) (log: Change list) : int =
-        match changesAfter snapshotRevision log with
-        | [] -> snapshotRevision
+    let private clientEventId (snapshotEventId: EventId) (log: Ev list) =
+        match eventsAfter snapshotEventId log with
+        | [] -> snapshotEventId
         | kept ->
-            let maxId = kept |> List.map (fun c -> c.id) |> List.max
-            max snapshotRevision maxId
+            kept
+            |> List.map (fun event -> event.id)
+            |> List.fold EventId.max snapshotEventId
 
     let foldLog
         (snapshot: StateResponse)
-        (delta: Change list)
+        (delta: Ev list)
         : Result<StateResponse, string> =
-        let ordered = changesAfter snapshot.revision.Value delta
+        let ordered = eventsAfter snapshot.eventId delta
         let state0: State =
             { graph = snapshot.graph
-              revision = EventId.toRevision snapshot.revision }
+              eventId = snapshot.eventId }
         ordered
         |> List.fold
-            (fun acc change ->
+            (fun acc event ->
                 match acc with
                 | Error _ -> acc
                 | Ok st ->
-                    match ResidentProjection.applyChange change st with
+                    let ops = Ev.ops event |> Option.defaultValue []
+                    match ResidentProjection.applyOps ops st with
                     | ApplyResult.Invalid (_, msg) -> Error msg
                     | ApplyResult.Changed next
                     | ApplyResult.Unchanged next -> Ok next)
             (Ok state0)
         |> Result.map (fun st ->
             { graph = st.graph
-              revision =
-                EventId (clientRevision snapshot.revision.Value ordered)
+              eventId = clientEventId snapshot.eventId ordered
               isReady = snapshot.isReady })
 
     let decideBootRead
@@ -144,7 +146,7 @@ module BootCache =
         (currentFile: string)
         (currentScope: string)
         (record: SnapshotRecord option)
-        (log: Change list)
+        (log: Ev list)
         (decode: string -> Result<StateResponse, string>)
         : BootRead =
         if not flagOn then
@@ -178,7 +180,7 @@ module BootCache =
         (currentFile: string)
         (currentScope: string)
         (record: SnapshotRecord option)
-        (log: Change list)
+        (log: Ev list)
         (decode: string -> Result<StateResponse, string>)
         : BootReadWait =
         if cacheReturned then
@@ -195,27 +197,17 @@ module BootCache =
     let maxLogLength = 32
     let maxRevGap = 32
 
-    let novelChanges
-        (log: Change list)
-        (pollChanges: Change list)
-        : Change list =
-        let byId = log |> List.map (fun c -> c.id) |> Set.ofList
-        let byChangeId = log |> List.map (fun c -> c.submissionId) |> Set.ofList
-        pollChanges
-        |> List.filter (fun change ->
-            not (Set.contains change.id byId)
-            && not (Set.contains change.submissionId byChangeId))
-
     let novelEvents
-        (log: Change list)
+        (log: Ev list)
         (pollEvents: Ev list)
         : Ev list =
-        let byId = log |> List.map (fun c -> c.id) |> Set.ofList
-        let byChangeId = log |> List.map (fun c -> c.submissionId) |> Set.ofList
+        let byId = log |> List.map (fun event -> event.id) |> Set.ofList
+        let bySubmission =
+            log |> List.map (fun event -> event.submissionId) |> Set.ofList
         pollEvents
         |> List.filter (fun event ->
-            not (Set.contains event.id.Value byId)
-            && not (Set.contains event.submissionId byChangeId))
+            not (Set.contains event.id byId)
+            && not (Set.contains event.submissionId bySubmission))
 
     [<RequireQualifiedAccess>]
     type BootPoll =
@@ -234,21 +226,22 @@ module BootCache =
         else Some storedHash
 
     let decideBootPoll
-        (clientRev: int)
-        (log: Change list)
+        (clientEventId: EventId)
+        (log: Ev list)
         (poll: ChangeSuccessResponse)
         (pollHash: string option)
         (cachedHash: string option)
         : BootPoll =
-        if poll.revision.Value < clientRev then
+        if poll.eventId < clientEventId then
             BootPoll.FallbackState "revision"
         else
-            match SyncLogic.getPollOutcome poll clientRev with
+            match SyncLogic.getPollOutcome poll clientEventId with
             | Some CodeOutdated -> BootPoll.CodeOutdated
             | Some DataOutdated
             | None ->
                 let novel = novelEvents log poll.events
-                let gap = poll.revision.Value - clientRev
+                let gap =
+                    EventId.value poll.eventId - EventId.value clientEventId
                 if
                     novel.Length > maxNovelCount
                     || gap > maxPollRevGap

@@ -21,23 +21,56 @@ let private baseState () : State =
     let nodes =
         filler |> List.fold (fun acc node -> Map.add node.id node acc) graph0.nodes
     { graph = Graph.fromNodes graph0.root nodes
-      revision = Revision.Zero }
+      eventId = EventId.zero }
 
-let private parseLikeChange (parentId: NodeId) : Change =
+let private parseLikeChange (parentId: NodeId) : Ev =
     let children =
         List.init nodeCount (fun _ -> ChildNode.owner (NodeId.New()))
-    { id = 0
+    { id = EventId.fromJson 0
       submissionId = System.Guid.NewGuid()
-      ops =
+      authority = Authority "Browser"
+      commandName = ""
+      body = EventBody.Change
         [ for i, child in List.indexed children ->
             Op.NewNode(child.id, "line " + string i)
           yield Op.Replace(parentId, [], children) ] }
 
-let private applied (state: State) (change: Change) : State =
-    match Change.apply change state with
+let private eventOps = SpecialNodeTestHelpers.eventOps
+
+let private applied (state: State) (event: Ev) : State =
+    match Ev.apply event state with
     | ApplyResult.Changed s -> s
     | ApplyResult.Unchanged s -> s
     | ApplyResult.Invalid(_, msg) -> failwithf "apply failed: %s" msg
+
+let private undoEvent (event: Ev) (state: State) : ApplyResult =
+    let ops = eventOps event
+    let step (accState, hasChanged) op =
+        match Op.undo op accState with
+        | ApplyResult.Invalid _ as err -> Error err
+        | ApplyResult.Unchanged s' -> Ok(s', hasChanged)
+        | ApplyResult.Changed s' -> Ok(s', true)
+    let result =
+        ops
+        |> List.rev
+        |> List.fold
+            (fun acc op ->
+                match acc with
+                | Error err -> Error err
+                | Ok (s, changed) -> step (s, changed) op)
+            (Ok(state, false))
+    match result with
+    | Error (ApplyResult.Invalid(_, message)) ->
+        ApplyResult.Invalid(state, message)
+    | Error err -> err
+    | Ok (s, false) -> ApplyResult.Unchanged s
+    | Ok (s, true) -> ApplyResult.Changed s
+
+let private invertEvent eventId submissionId (event: Ev) : Ev =
+    { event with
+        id = eventId
+        submissionId = submissionId
+        body = EventBody.Change (Op.invertAll (eventOps event)) }
 
 [<Fact>]
 let ``bulk NewNode apply keeps the parent indexes consistent with a full rebuild`` () =
@@ -65,7 +98,7 @@ let ``paste-shaped Undo records one rebuild opportunity per create Op`` () =
     let state = baseState ()
     let change = parseLikeChange Graph.workspacesId
     let createOpCount =
-        change.ops
+        eventOps change
         |> List.sumBy (function
             | Op.NewNode _ | Op.NewSpecialNode _ -> 1
             | _ -> 0)
@@ -73,7 +106,7 @@ let ``paste-shaped Undo records one rebuild opportunity per create Op`` () =
     let changed = applied state change
     let sw = Stopwatch.StartNew()
     let undone =
-        match Change.undo change changed with
+        match undoEvent change changed with
         | ApplyResult.Changed result -> result
         | ApplyResult.Unchanged _ -> failwith "Undo did not change the graph"
         | ApplyResult.Invalid(_, message) -> failwithf "Undo failed: %s" message
@@ -90,9 +123,9 @@ let ``ordinary inverse of large paste detaches but retains created nodes`` () =
     let change = parseLikeChange Graph.workspacesId
     let changed = applied state change
     let inverse =
-        Change.inverse (Revision 1) (System.Guid.NewGuid()) change
+        invertEvent (EventId.fromJson 1) (System.Guid.NewGuid()) change
     Assert.DoesNotContain(
-        inverse.ops,
+        eventOps inverse,
         fun op ->
             match op with
             | Op.NewNode _ | Op.NewSpecialNode _ -> true
@@ -101,7 +134,7 @@ let ``ordinary inverse of large paste detaches but retains created nodes`` () =
     Assert.Equal<ChildNode list>(
         state.graph.nodes.[Graph.workspacesId].children,
         undone.graph.nodes.[Graph.workspacesId].children)
-    change.ops
+    eventOps change
     |> List.iter (function
         | Op.NewNode(nodeId, _)
         | Op.NewSpecialNode(nodeId, _, _) ->
@@ -131,26 +164,26 @@ let private time f =
     value, sw.Elapsed.TotalMilliseconds
 
 let private undoInverse history =
-    match ClientHistory.undo (Revision 1) (Guid.NewGuid()) history with
-    | Some (inverse, _, _, _) -> inverse
+    match ClientHistory.undo (Guid.NewGuid()) history with
+    | Some (inverse, _) -> inverse
     | None -> failwith "Undo had no inverse Change"
 
 let private projectInverse inverse state =
-    match ResidentProjection.applyChange inverse state with
+    match ResidentProjection.applyOps (eventOps inverse) state with
     | ApplyResult.Changed result -> result
     | ApplyResult.Unchanged _ -> failwith "projected apply did not change the graph"
     | ApplyResult.Invalid(_, message) -> failwithf "projected apply failed: %s" message
 
 let private serverApplyInverse inverse state =
-    match ChangeValidation.applyChange inverse state with
+    match SpecialNodeTestHelpers.applyChange inverse state with
     | ApplyResult.Changed _ -> ()
     | ApplyResult.Unchanged _ -> failwith "server apply did not change the graph"
     | ApplyResult.Invalid(_, message) -> failwithf "server apply failed: %s" message
 
-let private assertNoCreateOps (change: Change) =
-    Assert.Equal(1, change.ops.Length)
+let private assertNoCreateOps (event: Ev) =
+    Assert.Equal(1, (eventOps event).Length)
     Assert.DoesNotContain(
-        change.ops,
+        eventOps event,
         fun op ->
             match op with
             | Op.NewNode _ | Op.NewSpecialNode _ -> true
@@ -161,14 +194,15 @@ let ``delivered inverse of large paste measures phases without per-created-Node 
     let state = baseState ()
     let change = parseLikeChange Graph.workspacesId
     let changed = applied state change
-    let history0, _ = ClientHistory.record "Paste" change (ClientHistory.clear ())
+    let history0 =
+        ClientHistory.record { change with commandName = "Paste" } (ClientHistory.clear ())
     let before = reachableStructure state.graph
     let after = reachableStructure changed.graph
     let inverse, planMs = time (fun () -> undoInverse history0)
     assertNoCreateOps inverse
     let projected, projectedMs = time (fun () -> projectInverse inverse changed)
     Assert.True((before = reachableStructure projected.graph))
-    let redo = Change.inverse (Revision inverse.id) (Guid.NewGuid()) inverse
+    let redo = invertEvent inverse.id (Guid.NewGuid()) inverse
     Assert.True((after = reachableStructure (applied projected redo).graph))
     projected.graph.nodes
     |> Map.iter (fun nodeId _ ->
@@ -185,17 +219,17 @@ let ``delivered inverse of large paste measures phases without per-created-Node 
                 projected.graph Graph.workspacesId siteMap0 nextId
             |> ignore)
     let inverseEvent: Ev =
-        { id = Gambol.Shared.EventId 0
+        { id = EventId.fromJson 0
           submissionId = inverse.submissionId
           authority = Gambol.Shared.Authority ""
           commandName = ""
-          body = Gambol.Shared.EventBody.Change inverse.ops }
+          body = inverse.body }
     let _, encodeMs =
         time (fun () ->
             Enc.toString 0 (EventJson.encodeEventBatch { events = [ inverseEvent ] })
             |> ignore)
     let ack: ChangeSuccessResponse =
-        { revision = Gambol.Shared.EventId 2
+        { eventId = EventId.fromJson 2
           buildEpochSec = 0
           pageBuildEpochSec = 0
           apiVersion = ApiVersion.current
@@ -214,17 +248,19 @@ let ``delivered inverse of large paste measures phases without per-created-Node 
         planMs projectedMs
     printfn
         "server-apply=%.3f ms sitemap=%.3f ms encode=%.3f ms ack-encode=%.3f ms ops=%d"
-        serverMs siteMs encodeMs ackMs inverse.ops.Length
+        serverMs siteMs encodeMs ackMs (eventOps inverse).Length
 
 /// A nested document parses into one Replace per parent whose children changed.
-let private nestedParseChange (documentRootId: NodeId) : Change =
+let private nestedParseChange (documentRootId: NodeId) : Ev =
     let branches =
         List.init 200 (fun _ ->
             ChildNode.owner (NodeId.New()),
             List.init 10 (fun _ -> ChildNode.owner (NodeId.New())))
-    { id = 0
+    { id = EventId.fromJson 0
       submissionId = System.Guid.NewGuid()
-      ops =
+      authority = Authority "Browser"
+      commandName = ""
+      body = EventBody.Change
         [ for branch, leaves in branches do
             yield Op.NewNode(branch.id, "branch")
             for leaf in leaves -> Op.NewNode(leaf.id, "leaf")
