@@ -42,6 +42,7 @@
     <Compile Include="WorkspaceSyncScope.fs" />
     <Compile Include="DocumentArtifactPath.fs" />
     <Compile Include="DocumentPartition.fs" />
+    <Compile Include="DocumentNestedTag.fs" />
     <Compile Include="History.fs" />
     <Compile Include="ExprRun.fs" />
     <Compile Include="ChildListWire.fs" />
