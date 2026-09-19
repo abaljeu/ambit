@@ -24,10 +24,10 @@ Run an Agent from a Zoom-rooted mixed-format Graph extract, mark Focus in the ou
 
 ## Implementation
 
-1. [13 — Vertical proof: Browser Ask from what I see](issues/13-vertical-proof-browser-ask.md) — Status `coded`.
+1. [13 — Vertical proof: Browser Ask from what I see](issues/13-vertical-proof-browser-ask.md) — Status `done`.
 2. [11 — Pack extract with Amb (supplied-fragment walk)](issues/11-simple-extract-format.md) — Status `done`.
 3. [08 — Agent ask from what I see](issues/08-agent-ask-from-what-i-see.md) — Status `done`.
-4. [09 — Agent failure preserves children](issues/09-agent-failure-preserves-children.md) — Status `coded` (AI-Actor Failed preserve proof).
+4. [09 — Agent failure preserves children](issues/09-agent-failure-preserves-children.md) — Status `done`.
 5. [10 — Cancel by Focus](issues/10-cancel-by-focus.md) — Status `done`.
 
 ## Not yet specified
