@@ -311,7 +311,11 @@ module internal CoreMailboxBackend =
 
     let private seedEventLog (persist: PersistHandlers) =
         try
-            persist.getEventLog ()
+            // getEventsSince must be healthy before we trust getEventLog for seed;
+            // otherwise a broken Poll door would leave writes open.
+            match persist.getEventsSince EventId.zero with
+            | Error error -> Error error
+            | Ok _ -> persist.getEventLog ()
         with ex ->
             Error ex.Message
 
