@@ -1,13 +1,15 @@
 # llm-connector
 
-Stage: build
+Stage: done
 Summary: Run an Agent from a Zoom-rooted mixed-format extract and replace Focus Children through ordinary Core Changes.
 Updated: 2026-09-19
 Started: 2026-09-19
+Finished: 2026-09-19
 Actual: 17h
 
 ## Notes
 
+- 2026-09-19 — Stage `done`: first Agent vertical (08–11, 13) delivered on staging.
 - 2026-09-19 — Landed [13 — Vertical proof: Browser Ask from what I see](issues/13-vertical-proof-browser-ask.md) on staging (Good). Status `done`.
 - 2026-09-19 — Coded [13 — Vertical proof: Browser Ask from what I see](issues/13-vertical-proof-browser-ask.md): Browser-shaped `?ai` harness, `setFake` Finished, Poll Focus Children, lifecycle drop. Status `coded`.
 - 2026-09-19 — Filed [13 — Vertical proof: Browser Ask from what I see](issues/13-vertical-proof-browser-ask.md) (Status `defined`; frontier). Client encode already shared with `?test`.
