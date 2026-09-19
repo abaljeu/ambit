@@ -1,8 +1,8 @@
 # 40 — Expand postEvent, EventLog store, and Event JSON persist
 
 **Status:** done
-Actual: 2h15m
-**Blocked by:** None — [[37-expand-shared-event-eventlog-and-history.md|37 — Expand Shared Event, EventLog, and History]] is Status `coded`.
+Actual: 2h45m
+**Blocked by:** None — [[37-expand-shared-event-eventlog-and-history.md|37 — Expand Shared Event, EventLog, and History]] is Status `done`.
 
 ## Context
 
@@ -52,9 +52,11 @@ Prove CoreMailbox `postEvent` and EventLog `since`.
 
 - 2026-09-15 1h30m — expand postEvent, EventLog ref via public API, Event JSON in EventJson (from chat)
 - 2026-09-15 45m — move Event JSON encode/read onto EventLog; drop EventJson and ChangeLog codec (from chat)
+- 2026-09-19 30m — Independent Spec review (from chat)
 
 ## Comments
 
 - 2026-09-15 — Filed via `/to-tickets` for Story **Caller, persist, and Poll** only (expand–contract). Sequence expand-migrate-contract on that story is skill `expand-contract`. First expand ticket. Blocked by story 4 expand [[37-expand-shared-event-eventlog-and-history.md|37 — Expand Shared Event, EventLog, and History]].
 - 2026-09-15 — Did not edit [[src/Shared/EventLog.fs]], [[src/Shared/Event.fs]], or [[src/Shared/ClientHistory.fs]]. Alan locked newest-head EventLog and skip-non-change ClientHistory undo. Event JSON is [[src/Shared/EventJson.fs]]. Mailbox store calls `EventLog.append` / `EventLog.since` only. Report: [[../reports/implement-issue-40.md]].
 - 2026-09-15 — Event JSON encode/read moved onto [[src/Shared/EventLog.fs]]. Deleted EventJson sidecar and ChangeLog Event codec. Did not revert newest-head EventLog or ClientHistory locks. Report: [[../reports/implement-issue-40.md]].
+- 2026-09-19 — Independent Spec review approve. `postEvent`, mailbox `EventLog ref`, and Event JSON persist match What to build and Arch Story **Caller, persist, and Poll** expand. Later migrate/contract ([41 — Migrate Core mailbox, CoreMsg, and Pool onto Event](41-migrate-core-mailbox-coremsg-and-pool-onto-event.md) through [45 — Contract HistoryEvent, mailbox History, PendingKind, StartActorRequest, and ChangeLog](45-contract-historyevent-clienthistory-pendingkind-and-changelog.md)) moved callers and dropped the ChangeLog name; that is not a 40 gap. Encode/read lives in [[src/Shared/EventJson.fs]]; file/DB persist is EventLogFile / `events`. Report: [spec-review-37-40](../reports/spec-review-37-40.md).
