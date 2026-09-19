@@ -52,6 +52,7 @@ let private recordingPool () =
                 Ok ()
         liveFocusIds = fun () -> Set.empty
         getFocusId = fun _ -> None
+        trySecretForFocus = fun _ -> None
     }
     started, stopped, live, pool
 
@@ -268,6 +269,7 @@ let ``ActorStop consults isLive once for a live Actor`` () =
                 Ok ()
         liveFocusIds = fun () -> Set.empty
         getFocusId = fun _ -> None
+        trySecretForFocus = fun _ -> None
     }
     withHost pool (fun host -> task {
         let! result =

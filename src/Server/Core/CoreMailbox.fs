@@ -188,6 +188,14 @@ module CoreMailbox =
         reply host (fun channel ->
             ActorStop(caller, result, channel))
 
+    let cancelByFocus
+        (host: MailboxHost)
+        (caller: Caller)
+        (focusId: NodeId)
+        : Async<Result<unit, string>> =
+        reply host (fun channel ->
+            CancelActor(caller, focusId, channel))
+
     let login
         (host: MailboxHost)
         (name: string)

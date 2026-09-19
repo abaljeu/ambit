@@ -37,9 +37,9 @@ Sources: [[issues/06-define-command-run-agent-redesign.md|06 — Define the revi
 
 4. **Cancel by Focus**
    1. [ ] Browser cancel by Focus NodeId
-   2. [ ] Core mailbox orders Cancelled vs Change (Change-before-Cancel applies; Cancel-before-Change rejects)
-   3. [ ] CloudAgents cancel; ActorFinished without Error or Change; drop live
-   4. [ ] Focus Children preserved except earlier accepted Changes
+   2. [x] Core mailbox orders Cancelled vs Change (Change-before-Cancel applies; Cancel-before-Change rejects)
+   3. [x] CloudAgents cancel; ActorFinished without Error or Change; drop live
+   4. [x] Focus Children preserved except earlier accepted Changes
    5. [ ] Browser live projection clears (no Graph lock-present field) — chrome on core-creation 21/22; first Agent vertical may prove cancel without UI
 
 5. **Credentialed Change while Agent runs**
@@ -91,7 +91,7 @@ Narrowest shared test seam:
       2. [x] Focus exclusivity for live Actors
    2. Interface
       1. [x] StartActor / postEvents / ActorStop; Authority validation
-      2. [ ] Cancelled terminal by Focus
+      2. [x] Cancelled terminal by Focus
       3. [x] ActorName resolve from Command text (`test` hello path)
       4. [x] ActorName resolve for Agent Command form
    3. Uses
@@ -110,10 +110,10 @@ Narrowest shared test seam:
 5. **Run Agent Actor**
    File: new Server Actor module (outside Core; composition-registered). Not a revival of cancelled Create/Md paste Actor.
    1. State
-      1. [ ] Job memory: CloudAgents agentId / runId for poll and cancel
+      1. [x] Job memory: CloudAgents agentId / runId for poll and cancel
    2. Interface
       1. [x] Orchestrate Document Amb extract-walk serialize → CloudAgents complete → Document inject → Core Change
-      2. [ ] On cancel token: request CloudAgents cancel and stop
+      2. [x] On cancel token: request CloudAgents cancel and stop
       3. [x] Never turn pack or provider errors into a second Agent call; never write raw provider text as Graph Error
    3. Uses
       1. [x] Document Amb extract-walk serialize / Reference-Paste inject

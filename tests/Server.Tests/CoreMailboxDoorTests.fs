@@ -186,6 +186,7 @@ let ``CoreMailbox.actorStop with valid credential drops live row`` () =
                 Ok ()
         liveFocusIds = fun () -> Set.empty
         getFocusId = fun _ -> None
+        trySecretForFocus = fun _ -> None
     }
     task {
         let dataDir = newTempDir ()
@@ -264,6 +265,7 @@ let ``CoreMailbox.actorStop appends ActorStop and drops live row`` () =
                 Ok ()
         liveFocusIds = fun () -> Set.empty
         getFocusId = fun _ -> Some sampleRequest.focusId
+        trySecretForFocus = fun _ -> None
     }
     task {
         let dataDir = newTempDir ()

@@ -61,6 +61,11 @@ let ``Ev JSON round-trips ActorStart and ActorStop`` () =
             body = EventBody.ActorStop(start.focusId, ActorSucceeded) }
     Assert.Equal(started, roundTrip started)
     Assert.Equal(stopped, roundTrip stopped)
+    let cancelled =
+        { changeEvent with
+            commandName = ""
+            body = EventBody.ActorStop(start.focusId, ActorCancelled) }
+    Assert.Equal(cancelled, roundTrip cancelled)
 
 [<Fact>]
 let ``mintChange encodes eventId 0 on the wire`` () =

@@ -20,12 +20,14 @@ module EventJson =
         function
         | ActorSucceeded -> Encode.string "succeeded"
         | ActorFailed -> Encode.string "failed"
+        | ActorCancelled -> Encode.string "cancelled"
 
     let private decodeActorResult: Decoder<ActorResult> =
         Decode.string
         |> Decode.andThen (function
             | "succeeded" -> Decode.succeed ActorSucceeded
             | "failed" -> Decode.succeed ActorFailed
+            | "cancelled" -> Decode.succeed ActorCancelled
             | other -> Decode.fail ("Unknown actor result: " + other))
 
     let private encodeOps ops =
