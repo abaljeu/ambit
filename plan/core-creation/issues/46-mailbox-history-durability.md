@@ -8,7 +8,7 @@ Actual: 7h30m
 
 Split from [35b — Browser Run hello](35b-browser-run-hello.md) [§6 History durability](35b-browser-run-hello.md). The Browser Run hello path can prove Owned child `hello` without EventLog surviving process restart. This ticket makes the mailbox EventLog durable: persist and load the audit sequence (Change and Actor lifecycle `Ev` records), then on load reconcile Graph load EventId (meta / projection) with EventLog tip. Graph id > Log id drops the invalid log. Equal is noop. Log id > Graph id applies events until Graph is concurrent with the log. EventId moves only via apply, not by assigning a tip. Empty or missing log with a Graph checkpoint leaves Graph as sole authority (empty is fine).
 
-Follow modules named in [Core creation architecture](../arch.md) for EventLog persist and recover. Process-lifetime EventLog from [34b — Outside Core lifecycle proof](34b-outside-core-lifecycle-proof.md) / [35b — Browser Run hello](35b-browser-run-hello.md) stays until this lands. Grounded plan: [46 mailbox History durability explore](../reports/46-mailbox-history-durability-explore.md).
+Follow modules named in [Core creation architecture](../arch.md) for EventLog persist and recover. This ticket owns Feature recover prose, Implementation status for EventLog reconcile, module **EventLog** Interface 9, module **PersistHandlers** Interface 4, and Alternative **Chosen Event destination** recover wording. Process-lifetime EventLog from [34b — Outside Core lifecycle proof](34b-outside-core-lifecycle-proof.md) / [35b — Browser Run hello](35b-browser-run-hello.md) stays until this lands. Grounded plan: [46 mailbox History durability explore](../reports/46-mailbox-history-durability-explore.md).
 
 ## What to build
 
@@ -38,6 +38,7 @@ Follow modules named in [Core creation architecture](../arch.md) for EventLog pe
 
 ## Comments
 
+- 2026-09-19 — [Core creation architecture](../arch.md) now records this ticket as landed: Feature recover prose, Implementation status, module **EventLog** Interface 9, module **PersistHandlers** Interface 4, and Alternative **Chosen Event destination** use drop / noop / apply until concurrent. Those items stay `[x]`.
 - 2026-09-18 — Independent review approve → Status `done`. Report: [[../reports/code-review-46-mailbox-history-durability-reconcile.md|code-review-46-mailbox-history-durability-reconcile]].
 - 2026-09-18 — Alan widened: EventLog authoritative; replay Ops Evs when Graph lagged; one serial (`getEventId` / `latestId` = EventLog tip); same-txn not in this ticket. Plan: [46 mailbox History durability explore](../reports/46-mailbox-history-durability-explore.md). Status stays `defined`.
 - 2026-09-18 — Explore plan: [46 mailbox History durability explore](../reports/46-mailbox-history-durability-explore.md). Persist write/load already exists from [42 — Migrate PersistHandlers restore and getEventsSince](42-migrate-persisthandlers-restore-and-geteventssince.md); implement should prove the mixed audit sequence across restart and fix mailbox seed order. Status stays `defined`.
