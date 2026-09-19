@@ -11,7 +11,12 @@ module ApiResponseSerialization =
         Encode.object
             [ "eventId", Gambol.Shared.EventJson.encodeEventId response.eventId
               "graph", Serialization.encodeGraph response.graph
-              "ready", Encode.bool response.isReady ]
+              "ready", Encode.bool response.isReady
+              "liveFocusIds",
+              response.seedLiveFocusIds
+              |> Set.toList
+              |> List.map Serialization.encodeNodeId
+              |> Encode.list ]
 
     let decodeStateResponseDecoder: Decoder<StateResponse> =
         Decode.object (fun get ->
@@ -20,7 +25,13 @@ module ApiResponseSerialization =
               graph = get.Required.Field "graph" Serialization.decodeGraph
               isReady =
                 get.Optional.Field "ready" Decode.bool
-                |> Option.defaultValue true })
+                |> Option.defaultValue true
+              seedLiveFocusIds =
+                get.Optional.Field
+                    "liveFocusIds"
+                    (Decode.list Serialization.decodeNodeId
+                     |> Decode.map Set.ofList)
+                |> Option.defaultValue Set.empty })
 
     let decodeStateResponse text =
         try

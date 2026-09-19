@@ -97,6 +97,7 @@
     <Compile Include="SyncPlanner.fs" />
     <Compile Include="SyncRetry.fs" />
     <Compile Include="ResidentProjection.fs" />
+    <Compile Include="ActorLive.fs" />
     <Compile Include="SyncLogic.fs" />
     <Compile Include="BootCache.fs" />
     <Compile Include="ModelBuilder.fs" />

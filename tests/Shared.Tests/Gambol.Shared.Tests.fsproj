@@ -104,6 +104,7 @@
     <Compile Include="ViewModelCmdLastResultTests.fs" />
     <Compile Include="ViewModelTests.fs" />
     <Compile Include="DeleteOpsTests.fs" />
+    <Compile Include="ActorLiveTests.fs" />
     <Compile Include="SyncLogicTests.fs" />
     <Compile Include="BootCacheTestHelpers.fs" />
     <Compile Include="BootCacheTests.fs" />

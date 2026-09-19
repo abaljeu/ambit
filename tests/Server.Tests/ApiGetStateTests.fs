@@ -111,6 +111,30 @@ let ``getState returns JSON content when agent succeeds`` () = task {
         | Ok response ->
             Assert.Equal(EventId.zero, response.eventId)
             Assert.True(response.isReady)
+            Assert.True(Set.isEmpty response.seedLiveFocusIds)
+    | other ->
+        Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
+}
+
+[<Fact>]
+let ``getState seeds liveFocusIds from lockPresent overlay`` () = task {
+    let focusId = NodeId.New()
+    let graph0 = Graph.create ()
+    let node = Node.Create(focusId, text = "focus", lockPresent = true)
+    let graph =
+        Graph.fromNodes graph0.root (Map.add focusId node graph0.nodes)
+    let handle =
+        handleWithGetState (fun () ->
+            async.Return(
+                Result.Ok { graph = graph; eventId = EventId.zero }))
+    let! result =
+        Api.getState handle (defaultStateRequest()) |> Async.StartAsTask
+    match box result with
+    | :? ContentHttpResult as content ->
+        match decodeStateResponse content.ResponseContent with
+        | Error err -> failwith err
+        | Ok response ->
+            Assert.True(Set.contains focusId response.seedLiveFocusIds)
     | other ->
         Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
 }

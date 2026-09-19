@@ -4,12 +4,13 @@ Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
 Updated: 2026-09-19
 Started: 2026-09-05
-Actual: 66h50m
+Actual: 70h50m
 
 ## Notes
 
+- 2026-09-19 — Landed [[issues/21-client-shows-lock-present.md|21 Client shows live Actor]] on staging (Good). Status `done`.
 - 2026-09-19 — Chrome tickets expanded: [[plan/core-creation/issues/21-client-shows-lock-present.md|21 Client shows live Actor]] owns start result (“Run: AI started.”), Command/Poll Event apply, chrome, boot live set, Poll stop/error conveyance; [[plan/core-creation/issues/22-client-cancels-a-job.md|22 Client cancels a job]] owns cancel control on live chrome. DLL provider error naming is a separate ticket.
-- 2026-09-19 — Next frontier: active Actor chrome — [[issues/21-client-shows-lock-present.md|21 Client shows live Actor]]. Then [[issues/22-client-cancels-a-job.md|22]]. Reconciled 21: Status `defined`; stale pool/credential blockers cleared.
+- 2026-09-19 — Next frontier: [[issues/22-client-cancels-a-job.md|22 Client cancels a job]].
 
 ## Map
 
@@ -28,7 +29,7 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - Callers hold the Core object ([[doc/Decisions/0003-core-is-a-container-of-subobjects.md]]). Browser HTTP is an adapter. Callers do not unpack [[src/Server/Core/CoreRuntime.fs]] into a flattened HTTP context.
 - Dispatch is [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]]. Boundaries, launch membership, Event sequence, universal response, and mailbox lifecycle are [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]].
 - Files stay [[plan/core-creation/issues/07-define-core-files-contract.md]]. General Query stays [[plan/core-creation/issues/08-define-core-query-contract.md]]. Live Actor query stays [[plan/core-creation/issues/16-track-running-job.md]].
-- Active Actor chrome is [[plan/core-creation/issues/21-client-shows-lock-present.md|21]] then [[plan/core-creation/issues/22-client-cancels-a-job.md|22]] (Browser lifecycle UI). Earlier note that parked 21 on event-sourced-ops is superseded.
+- Active Actor chrome is [21 — Client shows live Actor](plan/core-creation/issues/21-client-shows-lock-present.md) then [22 — Client cancels a job](plan/core-creation/issues/22-client-cancels-a-job.md) (Browser lifecycle UI). Earlier note that parked 21 on event-sourced-ops is superseded.
 - Locked code plan: [[plan/core-creation/mitigations.md]].
 
 ## Implementation plan

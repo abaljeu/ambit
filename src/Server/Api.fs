@@ -142,7 +142,9 @@ module Api =
                 let response: StateResponse =
                     { graph = state.graph
                       eventId = state.eventId
-                      isReady = handle.isReady () }
+                      isReady = handle.isReady ()
+                      seedLiveFocusIds =
+                        ActorLive.focusIdsFromLockPresent state.graph }
                 let scoped =
                     ResidentProjection.bootstrapStateResponse
                         scope
