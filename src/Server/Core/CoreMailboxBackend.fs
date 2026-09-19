@@ -313,8 +313,9 @@ module internal CoreMailboxBackend =
             match persist.getEventsSince EventId.beforeAll with
             | Error error -> Error error
             | Ok [] ->
-                persist.getEventId ()
-                |> Result.map EventLog.afterCheckpoint
+                match persist.getEventId () with
+                | Ok graphId -> Ok (EventLog.afterCheckpoint graphId)
+                | Error _ -> Ok EventLog.empty
             | Ok events -> Ok (EventLog.adoptNewestHead events)
         with ex ->
             Error ex.Message
