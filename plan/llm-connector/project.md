@@ -9,6 +9,7 @@ Actual: 17h
 
 ## Notes
 
+- 2026-09-19 — Locked AI keys: `AiKeys` section in Server `appsettings*.json` (Production gitignored); `?ai` keyname selects; not DataDir/Graph/cookie.
 - 2026-09-19 — Stage `done`: first Agent vertical (08–11, 13) delivered on staging.
 - 2026-09-19 — Landed [13 — Vertical proof: Browser Ask from what I see](issues/13-vertical-proof-browser-ask.md) on staging (Good). Status `done`.
 - 2026-09-19 — Coded [13 — Vertical proof: Browser Ask from what I see](issues/13-vertical-proof-browser-ask.md): Browser-shaped `?ai` harness, `setFake` Finished, Poll Focus Children, lifecycle drop. Status `coded`.
