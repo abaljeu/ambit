@@ -8,6 +8,7 @@ Actual: 14h
 
 ## Notes
 
+- 2026-09-19 — Cancelled [12 — Replace Focus Children from reply](issues/12-replace-focus-children-from-reply.md): replace landed on 08; nested-tag path abandoned.
 - 2026-09-19 — Landed [10 — Cancel by Focus](issues/10-cancel-by-focus.md) on staging (Good). Status `done`.
 - 2026-09-19 — Coded [10 — Cancel by Focus](issues/10-cancel-by-focus.md): CoreMailbox `cancelByFocus`, hanging `setFake`, Run Agent cancel token. Status `coded`.
 - 2026-09-19 — Landed [08 — Agent ask from what I see](issues/08-agent-ask-from-what-i-see.md) on staging (Good). Status `done`.
@@ -29,7 +30,7 @@ Actual: 14h
 
 - [[issues/11-simple-extract-format.md|11 — Pack extract with Amb (supplied-fragment walk)]] — Status `done`.
 - [[issues/08-agent-ask-from-what-i-see.md|08 — Agent ask from what I see]] — Status `done`.
-- [[issues/12-replace-focus-children-from-reply.md|12 — Replace Focus Children from reply]] — Status `defined`; Amb replace delivered on 08 (nested-tag stale).
+- [[issues/12-replace-focus-children-from-reply.md|12 — Replace Focus Children from reply]] — Status `cancelled` (Amb replace on 08; nested-tag abandoned).
 - [[issues/09-agent-failure-preserves-children.md|09 — Agent failure preserves children]] — Status `done` (framework via TestActor / `?test`); AI-Actor erase deferred until 08 and 12. Report: [[reports/framework-failure-preserves-children.md]]; review: [[reports/code-review-framework-failure-preserves-children.md]].
 - [[issues/10-cancel-by-focus.md|10 — Cancel by Focus]] — Status `done`.
 

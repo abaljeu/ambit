@@ -1,7 +1,7 @@
 # 12 — Replace Focus Children from reply
 
-**Status:** defined
-**Blocked by:** [[08-agent-ask-from-what-i-see.md|08 — Run Agent Actor calls CloudAgents]], [[11-simple-extract-format.md|11 — Simple extract format]]
+**Status:** cancelled
+**Blocked by:** None — ticket cancelled.
 **Type:** task
 
 ## Context
@@ -40,4 +40,5 @@ Graph + Poll only; no live-Actor chrome.
 
 ## Comments
 
+- 2026-09-19 — Status `cancelled`: Amb Focus-child replace delivered on [08 — Agent ask from what I see](08-agent-ask-from-what-i-see.md). Nested-tag pack abandoned; this ticket is stale leftover.
 - 2026-09-19 — Replace for Amb moved into [08 — Agent ask from what I see](08-agent-ask-from-what-i-see.md). This ticket's nested-tag pack is stale; do not implement 12 separately.
