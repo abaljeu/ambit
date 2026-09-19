@@ -361,7 +361,7 @@ let ``TestActor unknown command is ActorFailed with no hello child`` () =
                     when fid = request.focusId ->
                     Some result
                 | _ -> None)
-        Assert.Equal(Some ActorFailed, stopResult)
+        Assert.Equal(Some (ActorFailed ""), stopResult)
         let! state =
             CoreMailbox.getState host |> Async.StartAsTask
         let state = requireOk "getState" state

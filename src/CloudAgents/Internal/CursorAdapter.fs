@@ -1,5 +1,6 @@
 namespace Gambol.CloudAgents.Internal
 
+open System
 open Gambol.CloudAgents
 
 module CursorAdapter =
@@ -27,11 +28,23 @@ module CursorAdapter =
             let git = mapGitResult status.git
             Finished { Text = text; Git = git }
         | "CANCELLED" -> Cancelled
-        | "ERROR" ->
-            let msg = status.result |> Option.defaultValue "Unknown error"
-            Failed msg
-        | "EXPIRED" -> Failed "Run expired"
-        | other -> Failed $"Unknown status: {other}"
+        | "ERROR" -> Failed "error"
+        | "EXPIRED" -> Failed "expired"
+        | _ -> Failed "unknown status"
+
+    let private providerName = "Cursor"
+
+    let private authFailed reason =
+        AuthenticationFailed(
+            AgentMessage.couldNotSend providerName reason)
+
+    let private fromHttpError apiKey httpError =
+        if String.IsNullOrWhiteSpace apiKey then
+            authFailed "missing key"
+        elif httpError = "unauthorized" then
+            authFailed "unauthorized"
+        else
+            NetworkError httpError
 
     let startAgent
         (config: RunnerConfig)
@@ -40,23 +53,24 @@ module CursorAdapter =
         (options: AgentOptions)
         : Result<string * string, AgentError> =
 
-        let cursorRepos =
-            repos
-            |> Option.map (fun rs ->
-                rs
-                |> List.map (fun r ->
-                    { CursorTypes.CursorRepo.url = r.Url
-                      CursorTypes.CursorRepo.startingRef =
-                          r.StartingRef }))
-
-        let request: CursorTypes.CursorCreateRequest =
-            { prompt = { text = prompt }
-              name = options.DisplayName
-              repos = cursorRepos }
-
-        match CursorHttp.createAgent config.ApiKey request with
-        | Error msg -> Error(NetworkError msg)
-        | Ok response -> Ok(response.agent.id, response.run.id)
+        if String.IsNullOrWhiteSpace config.ApiKey then
+            Error (authFailed "missing key")
+        else
+            let cursorRepos =
+                repos
+                |> Option.map (fun rs ->
+                    rs
+                    |> List.map (fun r ->
+                        { CursorTypes.CursorRepo.url = r.Url
+                          CursorTypes.CursorRepo.startingRef =
+                              r.StartingRef }))
+            let request: CursorTypes.CursorCreateRequest =
+                { prompt = { text = prompt }
+                  name = options.DisplayName
+                  repos = cursorRepos }
+            match CursorHttp.createAgent config.ApiKey request with
+            | Error msg -> Error(fromHttpError config.ApiKey msg)
+            | Ok response -> Ok(response.agent.id, response.run.id)
 
     let pollStatus
         (config: RunnerConfig)
@@ -64,9 +78,12 @@ module CursorAdapter =
         (runId: string)
         : Result<AgentStatus, AgentError> =
 
-        match CursorHttp.getRunStatus config.ApiKey agentId runId with
-        | Error msg -> Error(NetworkError msg)
-        | Ok status -> Ok(mapStatus status)
+        if String.IsNullOrWhiteSpace config.ApiKey then
+            Error (authFailed "missing key")
+        else
+            match CursorHttp.getRunStatus config.ApiKey agentId runId with
+            | Error msg -> Error(fromHttpError config.ApiKey msg)
+            | Ok status -> Ok(mapStatus status)
 
     let cancelRun
         (config: RunnerConfig)

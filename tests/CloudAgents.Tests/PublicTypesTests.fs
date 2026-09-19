@@ -77,3 +77,12 @@ let ``AgentStatus can represent all states`` () =
         | Finished _ -> true
         | _ -> false
     )
+
+[<Fact>]
+let ``AgentMessage names the provider and short reason`` () =
+    Assert.Equal(
+        "Could not send message to Cursor: unauthorized",
+        AgentMessage.couldNotSend "Cursor" "unauthorized")
+    Assert.Equal(
+        "Could not send message to Cursor: missing key",
+        AgentMessage.couldNotSend "Cursor" "missing key")

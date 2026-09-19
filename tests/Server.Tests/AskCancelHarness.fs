@@ -328,8 +328,29 @@ let expectActorSucceeded host pool focusId =
 
 let expectActorFailed host pool focusId =
     task {
-        do! expectActorStop ActorFailed host focusId
+        let! stop = waitForActorStop host focusId 2000
+        match stop with
+        | Some (ActorFailed _) -> ()
+        | other -> Assert.Fail($"expected ActorFailed, got {other}")
         expectLiveGone pool focusId
+    }
+
+let expectActorFailedMessage host pool focusId message =
+    task {
+        do! expectActorStop (ActorFailed message) host focusId
+        expectLiveGone pool focusId
+    }
+
+let lastActorStopEvent host focusId =
+    task {
+        let! events = eventPast host |> Async.StartAsTask
+        return
+            events
+            |> List.tryFind (fun event ->
+                match event.body with
+                | EventBody.ActorStop(fid, _) when fid = focusId ->
+                    true
+                | _ -> false)
     }
 
 let expectOwnedTexts host focusId expected =

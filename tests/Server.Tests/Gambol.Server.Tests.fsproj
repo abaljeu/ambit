@@ -46,6 +46,7 @@
     <Compile Include="AgentAskTests.fs" />
     <Compile Include="BrowserAskProofTests.fs" />
     <Compile Include="AgentFailurePreserveTests.fs" />
+    <Compile Include="AgentAuthErrorTests.fs" />
     <Compile Include="CancelByFocusTests.fs" />
     <Compile Include="GitSaveEndpointTests.fs" />
     <Compile Include="WorkspaceWebDavTests.fs" />

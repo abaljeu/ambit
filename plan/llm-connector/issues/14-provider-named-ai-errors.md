@@ -1,10 +1,10 @@
 # 14 — Provider-named AI errors
 
-**Status:** defined
+**Status:** coded
 **Blocked by:** None — [09 — Agent failure preserves children](09-agent-failure-preserves-children.md), [13 — Vertical proof: Browser Ask from what I see](13-vertical-proof-browser-ask.md), and core-creation [21 — Client shows live Actor](../../core-creation/issues/21-client-shows-lock-present.md) / [22 — Client cancels a job](../../core-creation/issues/22-client-cancels-a-job.md) are `done`.
 **Type:** task
 Estimate: 2h
-Actual: 0m
+Actual: 2h
 
 ## Context
 
@@ -16,24 +16,24 @@ Locked wording example: `Could not send message to Cursor: unauthorized` — pro
 
 ### 1. CloudAgents named auth failure
 
-1. [ ] Auth map — CloudAgents maps missing-key and unauthorized start failures to a safe `Failed` / `AuthenticationFailed` message that names the provider (Cursor for the current adapter).
-2. [ ] Fake auth — `setFake` can simulate Unauthorized / auth failure so proof does not need a live key.
+1. [x] Auth map — CloudAgents maps missing-key and unauthorized start failures to a safe `Failed` / `AuthenticationFailed` message that names the provider (Cursor for the current adapter).
+2. [x] Fake auth — `setFake` can simulate Unauthorized / auth failure so proof does not need a live key.
 
 ### 2. Actor stop carries the safe message
 
-1. [ ] ActorFailed payload — `ActorResult.ActorFailed` carries a safe client string (`ActorFailed of string`; empty means generic). Event JSON encode/decode and Core paths pass it through.
-2. [ ] Run Agent Actor — start/auth failure becomes that named string on Actor stop, not a dropped unit Failed.
+1. [x] ActorFailed payload — `ActorResult.ActorFailed` carries a safe client string (`ActorFailed of string`; empty means generic). Event JSON encode/decode and Core paths pass it through.
+2. [x] Run Agent Actor — start/auth failure becomes that named string on Actor stop, not a dropped unit Failed.
 
 ### 3. Client conveyance
 
-1. [ ] ActorFailed result — `ActorLive.lastCmdResult` on `ActorFailed` shows that message as Error; command label is **AI**, not Ask.
-2. [ ] Ask scrub — remaining Ask labels on ActorSucceeded / ActorCancelled in `ActorLive.lastCmdResult` become AI.
+1. [x] ActorFailed result — `ActorLive.lastCmdResult` on `ActorFailed` shows that message as Error; command label is **AI**, not Ask.
+2. [x] Ask scrub — remaining Ask labels on ActorSucceeded / ActorCancelled in `ActorLive.lastCmdResult` become AI.
 
 ### 4. Non-goals
 
-1. [ ] AiKeys registry / `?ai keyname` parsing.
-2. [ ] Graph Error outline text.
-3. [ ] Raw provider dumps in Graph (09 lock stays).
+1. AiKeys registry / `?ai keyname` parsing.
+2. Graph Error outline text.
+3. Raw provider dumps in Graph (09 lock stays).
 
 ## See also
 
@@ -42,3 +42,8 @@ Locked wording example: `Could not send message to Cursor: unauthorized` — pro
 ## Comments
 
 - 2026-09-19 — Filed as a follow-up on the done first Agent vertical. Chrome tickets convey stop results; this ticket names the provider on auth/start failure.
+- 2026-09-19 — Coded: `ActorFailed of string` (empty = generic); CloudAgents names Cursor on missing key / unauthorized; `setFake` Failed carries that string through Event JSON to Client Error labeled AI. Status `coded`.
+
+## Time
+
+- 2026-09-19 2h — Ticket, ActorFailed payload, CloudAgents named auth, ActorLive AI conveyance, focused tests (from chat)

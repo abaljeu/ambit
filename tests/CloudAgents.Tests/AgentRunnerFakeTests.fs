@@ -96,8 +96,28 @@ type AgentRunnerFakeTests() =
                 None
                 emptyOptions
         match result with
-        | Error _ -> ()
-        | Ok _ -> Assert.Fail("expected live call reject")
+        | Error(AuthenticationFailed msg) ->
+            Assert.Equal(
+                AgentMessage.couldNotSend "Cursor" "missing key",
+                msg)
+        | other -> Assert.Fail($"expected missing-key auth, {other}")
+
+    [<Fact>]
+    member _.``setFake yields Failed unauthorized named Cursor``() =
+        let named =
+            AgentMessage.couldNotSend "Cursor" "unauthorized"
+        withFake
+            (fun _ -> Failed named)
+            (fun () ->
+                let started =
+                    AgentRunner.start
+                        unusedConfig "pack" None emptyOptions
+                match started with
+                | Error err -> Assert.Fail($"start: {err}")
+                | Ok(agentId, runId) ->
+                    match waitFailed agentId runId 2000 with
+                    | None -> Assert.Fail("poll did not fail")
+                    | Some msg -> Assert.Equal(named, msg))
 
     [<Fact>]
     member _.``setFake refuses while a handler is in flight``() =

@@ -47,3 +47,9 @@ type AgentError =
     | ApiError of code: string * message: string
     | InvalidResponse of string
     | Timeout
+
+/// Safe client text: names the connector, not raw provider dumps.
+[<RequireQualifiedAccess>]
+module AgentMessage =
+    let couldNotSend (provider: string) (reason: string) =
+        $"Could not send message to {provider}: {reason}"

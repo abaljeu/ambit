@@ -71,7 +71,7 @@ module CoreActorPool =
     let private runFinish takeLive secret result =
         match result with
         | ActorSucceeded
-        | ActorFailed
+        | ActorFailed _
         | ActorCancelled ->
             runDrop takeLive secret
             Ok ()

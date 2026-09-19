@@ -226,7 +226,7 @@ let ``TestActor non-hello command fails without Owned child`` (text: string) =
         requireOk "startActor" result
         let! stop = waitForActorStop host request.focusId 1000
         match stop with
-        | Some ActorFailed -> ()
+        | Some (ActorFailed _) -> ()
         | other -> Assert.Fail($"expected ActorFailed, got {other}")
         Assert.False(Set.contains request.focusId (pool.liveFocusIds ()))
         let! state =
@@ -256,7 +256,7 @@ let ``TestActor non-hello preserves Focus Children and posts no Change`` () =
         requireOk "startActor" start
         let! stop = waitForActorStop host request.focusId 1000
         match stop with
-        | Some ActorFailed -> ()
+        | Some (ActorFailed _) -> ()
         | other -> Assert.Fail($"expected ActorFailed, got {other}")
         Assert.False(Set.contains request.focusId (pool.liveFocusIds ()))
         let! afterState =
@@ -275,7 +275,7 @@ let ``TestActor non-hello preserves Focus Children and posts no Change`` () =
         | [ stopEvent ] ->
             Assert.Equal("", stopEvent.commandName)
             match stopEvent.body with
-            | EventBody.ActorStop(fid, ActorFailed) ->
+            | EventBody.ActorStop(fid, ActorFailed _) ->
                 Assert.Equal(request.focusId, fid)
             | other ->
                 Assert.Fail($"expected ActorStop ActorFailed, got {other}")

@@ -36,7 +36,7 @@ module TestActor =
         async {
             let! result =
                 match Map.tryFind input.commandId input.graph.nodes with
-                | None -> async.Return ActorFailed
+                | None -> async.Return (ActorFailed "")
                 | Some commandNode ->
                     match
                         CommandRequest.behaviorFromText
@@ -47,7 +47,7 @@ module TestActor =
                             do! hello input coreChanges
                             return ActorSucceeded
                         }
-                    | _ -> async.Return ActorFailed
+                    | _ -> async.Return (ActorFailed "")
             let caller =
                 { authority = Authority "Actor"
                   name = ""
