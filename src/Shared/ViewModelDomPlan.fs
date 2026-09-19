@@ -61,7 +61,9 @@ module ViewModelDomPlan =
         |> CssClass.addIf isRoot "amb-view-root"
         |> CssClass.addIf sel "amb-selected"
         |> CssClass.addIf foc "amb-focused"
-        |> CssClass.addIf (Set.contains entry.nodeId model.actorLiveFocusIds) "actor-live"
+        |> CssClass.addIf
+            (Set.contains entry.nodeId model.actorLiveFocusIds)
+            "amb-actor-live"
 
     let private selectionClassPatches (oldModel: VM) (newModel: VM) (instId: SiteId) : RowPatch list =
         match Map.tryFind instId newModel.siteMap.entries with

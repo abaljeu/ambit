@@ -1,7 +1,7 @@
 # 21 — Client shows live Actor (active chrome)
 
 **Status:** coded
-**Actual:** 2h
+**Actual:** 3.5h
 **Blocked by:** None — Server lifecycle Events and Browser Run (`?test` / `?ai`) are delivered. Credentialed Browser posts are `done` ([[20-client-presents-credential.md|20]]). Historical blockers [[02-core-actor-pool.md|02]] and Graph lock-present are superseded.
 
 ## Context
@@ -24,7 +24,9 @@ Server already emits `ActorStart` / `ActorStop` on the EventLog; Poll carries th
 
 - 2026-09-19 — Reconciled as active Actor chrome frontier after llm-connector vertical done. Cleared stale Blocked by (pool / credential). Status `defined`.
 - 2026-09-19 — Implemented live Focus projection on Poll / response Event apply and `actor-live` row chrome. Status `coded`.
+- 2026-09-19 — Review fix: Command POST applies Events (`Run: AI started.`); `/state` seeds `liveFocusIds` from GetState lockPresent overlay (mailbox live table, not a Graph persist field); ActorFailed/Cancelled set lastCmdResult Error; `amb-actor-live`; `AppliedBrowserGraph`. Status stays `coded`.
 
 ## Time
 
 - 2026-09-19 2h — Client live Actor projection and Focus row chrome (from chat)
+- 2026-09-19 1.5h — Command apply, boot live seed, lastCmdResult, module split (from chat)

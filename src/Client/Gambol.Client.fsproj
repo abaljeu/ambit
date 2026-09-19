@@ -28,6 +28,7 @@
     <Compile Include="UpdateWorkspaceDownload.fs" />
     <Compile Include="UpdateWorkspaceLoad.fs" />
     <Compile Include="UpdateOps.fs" />
+    <Compile Include="UpdateActorLive.fs" />
     <Compile Include="Update.fs" />
     <Compile Include="Commands.fs" />
     <Compile Include="Controller.fs" />

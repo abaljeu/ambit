@@ -150,7 +150,7 @@ module Layout =
         if isEntrySelected model siteEntry then row.classList.add "amb-selected"
         if isEntryFocused  model siteEntry then row.classList.add "amb-focused"
         if Set.contains nodeId model.actorLiveFocusIds then
-            row.classList.add "actor-live"
+            row.classList.add ActorLive.liveRowClass
         match ViewModel.specialKindRowClass node.id node.kind with
         | Some cls -> row.classList.add cls
         | None -> ()

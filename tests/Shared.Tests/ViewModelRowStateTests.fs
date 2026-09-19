@@ -802,10 +802,10 @@ let ``planPatchDOM live Actor adds actor-live and clears it`` () =
         |> List.tryHead
     match classAfter idle live with
     | None -> failwith "expected class patch when Actor becomes live"
-    | Some className -> Assert.Contains("actor-live", className)
+    | Some className -> Assert.Contains("amb-actor-live", className)
     match classAfter live idle with
     | None -> failwith "expected class patch when Actor leaves live set"
-    | Some className -> Assert.DoesNotContain("actor-live", className)
+    | Some className -> Assert.DoesNotContain("amb-actor-live", className)
 
 [<Fact>]
 let ``bulletTip renders update time via the injected formatter verbatim`` () =

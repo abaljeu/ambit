@@ -139,7 +139,9 @@ module BootCache =
         |> Result.map (fun st ->
             { graph = st.graph
               eventId = clientEventId snapshot.eventId ordered
-              isReady = snapshot.isReady })
+              isReady = snapshot.isReady
+              seedLiveFocusIds =
+                ActorLive.applyEvents ordered snapshot.seedLiveFocusIds })
 
     let decideBootRead
         (flagOn: bool)

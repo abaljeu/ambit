@@ -23,6 +23,9 @@ let encodeCommandRequest (request: ActorStart) : string =
 let decodeStateResponse (text: string) : Result<StateResponse, string> =
     ApiResponseSerialization.decodeStateResponse text
 
+let decodeUniversalResponse (text: string) : Result<UniversalResponse, string> =
+    ApiResponseSerialization.decodeUniversalResponse text
+
 /// Decode the response from GET /{file}/capabilities.
 let decodeServerCapabilities (text: string) : Result<ServerCapabilities, string> =
     Thoth.Json.JavaScript.Decode.fromString ServerCapabilities.decoder text

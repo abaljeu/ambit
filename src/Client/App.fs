@@ -406,17 +406,23 @@ let createRuntime (initialModel: VM) =
             url
             body
             (fun text ->
-                consoleLog (
-                    "[Gambol command] POST 200 bodyLen="
-                    + string text.Length))
+                match decodeUniversalResponse text with
+                | Ok response ->
+                    consoleLog (
+                        "[Gambol command] POST 200 events="
+                        + string response.events.Length)
+                    dispatch (SysMsg (CommandDone response.events))
+                | Error err ->
+                    dispatch (SysMsg (CommandFailed err)))
             (fun status text ->
-                consoleLog (
-                    "[Gambol command] POST fail http="
+                let detail =
+                    "HTTP "
                     + string status
-                    + " body="
-                    + LogText.summarizeHttpBody 400 text))
+                    + " "
+                    + LogText.summarizeHttpBody 400 text
+                dispatch (SysMsg (CommandFailed detail)))
             (fun () ->
-                consoleLog "[Gambol command] POST fetch failed")
+                dispatch (SysMsg (CommandFailed "fetch failed")))
             (jsonMutatingPostHeaders ())
 
     and runPollServer () : unit =

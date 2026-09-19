@@ -4,11 +4,11 @@ Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
 Updated: 2026-09-19
 Started: 2026-09-05
-Actual: 68h50m
+Actual: 70h20m
 
 ## Notes
 
-- 2026-09-19 — Next frontier: [22 — Client cancels a job](issues/22-client-cancels-a-job.md). [21 — Client shows live Actor](issues/21-client-shows-lock-present.md) Status `coded` (Poll Event live Focus set + `actor-live` chrome).
+- 2026-09-19 — Next frontier: [22 — Client cancels a job](plan/core-creation/issues/22-client-cancels-a-job.md). [21 — Client shows live Actor](plan/core-creation/issues/21-client-shows-lock-present.md) Status `coded` (Command+Poll live Focus set + `amb-actor-live` chrome).
 
 ## Map
 
@@ -27,7 +27,7 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - Callers hold the Core object ([[doc/Decisions/0003-core-is-a-container-of-subobjects.md]]). Browser HTTP is an adapter. Callers do not unpack [[src/Server/Core/CoreRuntime.fs]] into a flattened HTTP context.
 - Dispatch is [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]]. Boundaries, launch membership, Event sequence, universal response, and mailbox lifecycle are [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]].
 - Files stay [[plan/core-creation/issues/07-define-core-files-contract.md]]. General Query stays [[plan/core-creation/issues/08-define-core-query-contract.md]]. Live Actor query stays [[plan/core-creation/issues/16-track-running-job.md]].
-- Active Actor chrome is [[plan/core-creation/issues/21-client-shows-lock-present.md|21]] then [[plan/core-creation/issues/22-client-cancels-a-job.md|22]] (Browser lifecycle UI). Earlier note that parked 21 on event-sourced-ops is superseded.
+- Active Actor chrome is [21 — Client shows live Actor](plan/core-creation/issues/21-client-shows-lock-present.md) then [22 — Client cancels a job](plan/core-creation/issues/22-client-cancels-a-job.md) (Browser lifecycle UI). Earlier note that parked 21 on event-sourced-ops is superseded.
 - Locked code plan: [[plan/core-creation/mitigations.md]].
 
 ## Implementation plan

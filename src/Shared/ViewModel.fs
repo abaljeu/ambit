@@ -331,6 +331,13 @@ and VM = // the client state
       syncInfo: SyncInfo
       lastCmdResult: CmdLastResult option }
 
+/// Graph + History + live Focus set after Poll / Command / boot apply.
+type AppliedBrowserGraph =
+    { projectedGraph: Graph
+      projectedEventId: EventId
+      projectedHistory: ClientHistory
+      projectedLiveFocusIds: Set<NodeId> }
+
 /// Self-contained pure model transformation for the client update loop (see `Msg.ApplyOp`).
 type Updater = VM -> VM * Effect list
 
@@ -369,12 +376,9 @@ type SystemMsg =
         Ev list *
         isReady: bool option *
         responseEventId: EventId option
-    | BootGraphApplied of
-        graph: Graph *
-        eventId: EventId *
-        history: ClientHistory *
-        actorLiveFocusIds: Set<NodeId> *
-        isReady: bool
+    | BootGraphApplied of AppliedBrowserGraph * isReady: bool
+    | CommandDone of events: Ev list
+    | CommandFailed of detail: string
     | LoadDone of
         SyncState option * SyncResponse * responseEventId: EventId * isReady: bool option
     | RetrySubmit         // retry timer fired; update resends the stored batch snapshot

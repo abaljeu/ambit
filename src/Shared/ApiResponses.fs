@@ -18,7 +18,9 @@ type BootstrapScope =
 type StateResponse =
     { graph: Graph
       eventId: Gambol.Shared.EventId
-      isReady: bool }
+      isReady: bool
+      /// GetState lockPresent overlay (mailbox live table). Not a Graph field.
+      seedLiveFocusIds: Set<NodeId> }
 
 /// Complete success response from POST /changes (or /events alias) and GET /poll.
 type ChangeSuccessResponse =

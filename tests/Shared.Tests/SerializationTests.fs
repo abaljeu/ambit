@@ -535,7 +535,8 @@ let ``StateResponse round-trip preserves startup readiness`` () =
     let response =
         { graph = Graph.create ()
           eventId = EventIdFixtures.storedId 3
-          isReady = false }
+          isReady = false
+          seedLiveFocusIds = Set.empty }
         : StateResponse
     let decoded =
         roundTrip
@@ -545,7 +546,23 @@ let ``StateResponse round-trip preserves startup readiness`` () =
 
     Assert.Equal(response.eventId, decoded.eventId)
     Assert.False(decoded.isReady)
+    Assert.True(Set.isEmpty decoded.seedLiveFocusIds)
     Assert.True(GraphProjection.graphEquals response.graph decoded.graph)
+
+[<Fact>]
+let ``StateResponse round-trip preserves liveFocusIds overlay seed`` () =
+    let focusId = NodeId.New()
+    let response =
+        { graph = Graph.create ()
+          eventId = EventIdFixtures.storedId 3
+          isReady = true
+          seedLiveFocusIds = Set.singleton focusId }
+    let decoded =
+        roundTrip
+            ApiResponseSerialization.encodeStateResponse
+            ApiResponseSerialization.decodeStateResponseDecoder
+            response
+    Assert.True(Set.contains focusId decoded.seedLiveFocusIds)
 
 [<Fact>]
 let ``ActorStart Command request round-trips named Core ids`` () =

@@ -2,23 +2,6 @@ namespace Gambol.Shared
 
 open Gambol.Shared
 
-/// Browser graph, EventId, and ClientHistory used by local and remote apply.
-type ClientSyncState =
-    { graph: Graph
-      eventId: EventId
-      history: ClientHistory
-      eventLog: EventLog
-      actorLiveFocusIds: Set<NodeId> }
-
-[<RequireQualifiedAccess>]
-module ClientSyncState =
-    let create graph eventId history : ClientSyncState =
-        { graph = graph
-          eventId = eventId
-          history = history
-          eventLog = EventLog.empty
-          actorLiveFocusIds = Set.empty }
-
 [<RequireQualifiedAccess>]
 type AckReconcile =
     | Applied of ClientSyncState * SyncInfo * Effect list * Op list
@@ -59,14 +42,6 @@ module SyncLogic =
         { graph = state.graph
           eventId = state.eventId }
 
-    let private applyActorLive (event: Ev) (live: Set<NodeId>) : Set<NodeId> =
-        match event.body with
-        | EventBody.ActorStart start -> Set.add start.focusId live
-        | EventBody.ActorStop(focusId, _) -> Set.remove focusId live
-        | EventBody.Change _
-        | EventBody.Undo _
-        | EventBody.Redo _ -> live
-
     let private withProjectedGraph
         (event: Ev)
         (state: ClientSyncState)
@@ -75,7 +50,8 @@ module SyncLogic =
         { state with
             graph = projected.graph
             eventId = event.id
-            actorLiveFocusIds = applyActorLive event state.actorLiveFocusIds }
+            actorLiveFocusIds =
+                ActorLive.applyEvent event state.actorLiveFocusIds }
 
     let private foldProjectedEvents
         (events: Ev list)

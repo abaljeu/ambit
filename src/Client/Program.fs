@@ -139,12 +139,7 @@ and private applyBootNovel (novel: Ev list) (ready: bool) =
     | Ok newState ->
         dispatch (
             SysMsg (
-                BootGraphApplied (
-                    newState.graph,
-                    newState.eventId,
-                    newState.history,
-                    newState.actorLiveFocusIds,
-                    ready)))
+                BootGraphApplied (ActorLive.toApplied newState, ready)))
         BootCacheStore.appendEvents currentFile novel
         bootLog <- bootLog @ novel
         BootCacheStore.requestIdleTruncate

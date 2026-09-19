@@ -447,7 +447,7 @@ body {
 .amb-row.amb-focused {
     background: #aac9;
 }
-.amb-row.actor-live {
+.amb-row.amb-actor-live {
     box-shadow: inset 3px 0 0 #1a8;
 }
 .amb-text {
