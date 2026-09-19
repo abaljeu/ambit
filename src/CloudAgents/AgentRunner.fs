@@ -7,8 +7,8 @@ module AgentRunner =
 
     module private Fake =
         let handler =
-            ref (None: (StartArgs -> AgentResult) option)
-        let results = ref Map.empty<string * string, AgentResult>
+            ref (None: (StartArgs -> AgentStatus) option)
+        let results = ref Map.empty<string * string, AgentStatus>
         let cancelled = ref Set.empty<string * string>
         let cancelCount = ref 0
         let inFlight = ref 0
@@ -66,7 +66,7 @@ module AgentRunner =
             lock gate (fun () -> !cancelCount)
 
     let setFake
-        (handler: (StartArgs -> AgentResult) option)
+        (handler: (StartArgs -> AgentStatus) option)
         : bool =
         Fake.trySet handler
 
@@ -112,7 +112,7 @@ module AgentRunner =
             Ok Cancelled
         else
             match Fake.tryGet ids with
-            | Some result -> Ok(Finished result)
+            | Some status -> Ok status
             | None -> Ok Running
 
     let poll
