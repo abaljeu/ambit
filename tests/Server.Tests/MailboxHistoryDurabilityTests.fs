@@ -1,4 +1,4 @@
-module Gambol.Server.Tests.Issue49MailboxHistoryDurabilityTests
+module Gambol.Server.Tests.MailboxHistoryDurabilityTests
 
 open System
 open Xunit
@@ -126,7 +126,7 @@ let private nameOnlyUndo target : Ev =
 let private assertRestartLog host = task {
     let! history = CoreMailbox.eventHistory host |> Async.StartAsTask
     let! since =
-        CoreMailbox.getEventsSince host EventId.beforeAll
+        CoreMailbox.getEventsSince host EventId.zero
         |> Async.StartAsTask
     assertBodiesMatch history since
     do! assertTipEquals host history
@@ -141,7 +141,7 @@ let private assertRestartGraph host childId text = task {
 [<Fact>]
 let ``File mixed hello survives dispose create`` () = task {
     let dir = newTempDir ()
-    let secret = Credential "issue-49-file-hello"
+    let secret = Credential "mailbox-history-file-hello"
     let first = hostFile dir secret
     let! _ =
         task {
@@ -161,7 +161,7 @@ let ``File mixed hello survives dispose create`` () = task {
 let ``Db mixed hello survives dispose create`` () = task {
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
-    let secret = Credential "issue-49-db-hello"
+    let secret = Credential "mailbox-history-db-hello"
     let first = hostDb connStr secret
     let! childId =
         task {
@@ -170,7 +170,7 @@ let ``Db mixed hello survives dispose create`` () = task {
             finally
                 CoreMailbox.dispose first
         }
-    let second = hostDb connStr (Credential "issue-49-db-hello-2")
+    let second = hostDb connStr (Credential "mailbox-history-db-hello-2")
     try
         do! assertRestartGraph second childId "db-hello"
     finally
@@ -233,7 +233,7 @@ let ``Db recover applies Ops Ev ahead of projection revision`` () = task {
 [<Fact>]
 let ``Undo after File restart fills Change and rejects ActorStart`` () = task {
     let dir = newTempDir ()
-    let secret = Credential "issue-49-undo"
+    let secret = Credential "mailbox-history-undo"
     let first = hostFile dir secret
     try
         let! _ = runMixedHello first secret "undo-hello"
@@ -270,7 +270,7 @@ let ``Undo after File restart fills Change and rejects ActorStart`` () = task {
 [<Fact>]
 let ``File empty EventLog recover exposes getEventId Graph checkpoint`` () = task {
     let dir = newTempDir ()
-    Bookkeeping.writeRevision dir 4 |> requireOk "writeRevision"
+    Bookkeeping.writeEventId dir (EventId.fromJson 4) |> requireOk "writeEventId"
     let host = CoreMailbox.createFile dir admittedCredentials
     try
         let! eventId = CoreMailbox.getEventId host |> Async.StartAsTask
@@ -287,7 +287,7 @@ let ``File Graph greater than Log drops persist EventLog`` () =
         persist.handlers
         [ lifecycle 1 (EventBody.ActorStart sampleActorStart)
           lifecycle 2 (EventBody.ActorStop(Graph.rootId, ActorSucceeded)) ]
-    Bookkeeping.writeRevision dir 5 |> requireOk "writeRevision"
+    Bookkeeping.writeEventId dir (EventId.fromJson 5) |> requireOk "writeEventId"
     persist.dispose ()
     let host = CoreMailbox.createFile dir admittedCredentials
     try
@@ -306,7 +306,7 @@ let ``File equal Log and Graph keeps EventLog`` () =
         persist.handlers
         [ lifecycle 1 (EventBody.ActorStart sampleActorStart)
           lifecycle 2 (EventBody.ActorStop(Graph.rootId, ActorSucceeded)) ]
-    Bookkeeping.writeRevision dir 2 |> requireOk "writeRevision"
+    Bookkeeping.writeEventId dir (EventId.fromJson 2) |> requireOk "writeEventId"
     persist.dispose ()
     let host = CoreMailbox.createFile dir admittedCredentials
     try
@@ -344,8 +344,8 @@ let ``Db Graph greater than Log drops persist EventLog`` () = task {
 [<Fact>]
 let ``File empty Graph checkpoint live append continues past Graph`` () = task {
     let dir = newTempDir ()
-    Bookkeeping.writeRevision dir 5 |> requireOk "writeRevision"
-    let host = hostFile dir (Credential "issue-49-continue")
+    Bookkeeping.writeEventId dir (EventId.fromJson 5) |> requireOk "writeEventId"
+    let host = hostFile dir (Credential "mailbox-history-continue")
     try
         let! started =
             CoreMailbox.startActor host testCaller sampleActorStart
@@ -362,7 +362,7 @@ let ``File empty Graph checkpoint live append continues past Graph`` () = task {
 [<Fact>]
 let ``getEventId is ActorStop after in-process hello`` () = task {
     let dir = newTempDir ()
-    let secret = Credential "issue-49-live-serial"
+    let secret = Credential "mailbox-history-live-serial"
     let host = hostFile dir secret
     try
         let! _ = runMixedHello host secret "live-serial"

@@ -142,7 +142,7 @@ let private writeDocumentFiles (tempDir: string) (state: State) =
     |> function
         | Ok _ -> ()
         | Error err -> failwith err
-    match Bookkeeping.writeRevision tempDir state.eventId.Value with
+    match Bookkeeping.writeEventId tempDir state.eventId with
     | Ok () -> ()
     | Error err -> failwith err
     File.WriteAllText(EventLogFile.eventsPath tempDir, "")

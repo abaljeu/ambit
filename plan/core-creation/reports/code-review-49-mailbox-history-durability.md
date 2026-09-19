@@ -11,7 +11,7 @@ Commits (`origin/staging..` tip):
 - `437b3ab2` Widen 46 plan: EventLog authority, replay, one serial.
 - `bf293df9` Explore 46 mailbox History durability.
 
-Focused tests (green): [Issue49MailboxHistoryDurabilityTests](tests/Server.Tests/Issue49MailboxHistoryDurabilityTests.fs), [Issue42PersistHandlersTests](tests/Server.Tests/Issue42PersistHandlersTests.fs), [PersistHandlersRestoreTests](tests/Server.Tests/PersistHandlersRestoreTests.fs), [FileAgentFailureTests](tests/Server.Tests/FileAgentFailureTests.fs), [StateEndpointTests](tests/Server.Tests/StateEndpointTests.fs) — 83 passed. [EventTests](tests/Shared.Tests/EventTests.fs) — 19 passed.
+Focused tests (green): [MailboxHistoryDurabilityTests](tests/Server.Tests/MailboxHistoryDurabilityTests.fs), [Issue42PersistHandlersTests](tests/Server.Tests/Issue42PersistHandlersTests.fs), [PersistHandlersRestoreTests](tests/Server.Tests/PersistHandlersRestoreTests.fs), [FileAgentFailureTests](tests/Server.Tests/FileAgentFailureTests.fs), [StateEndpointTests](tests/Server.Tests/StateEndpointTests.fs) — 83 passed. [EventTests](tests/Shared.Tests/EventTests.fs) — 19 passed.
 
 ## Standards
 
@@ -38,7 +38,7 @@ loaded.state.Value <-
     { loaded.state.Value with eventId = event.id }
 ```
 
-[FileAgent.fs](src/Server/Core/FileAgent.fs) append vs [DbAgent.fs](src/Server/Core/DbAgent.fs) `recordPersistedEvent`. `tip` and `adoptNewestHead` repeat `List.map Ev.id |> List.reduce EventId.max`. File and Db recover facts in [Issue49MailboxHistoryDurabilityTests.fs](tests/Server.Tests/Issue49MailboxHistoryDurabilityTests.fs) share one shape.
+[FileAgent.fs](src/Server/Core/FileAgent.fs) append vs [DbAgent.fs](src/Server/Core/DbAgent.fs) `recordPersistedEvent`. `tip` and `adoptNewestHead` repeat `List.map Ev.id |> List.reduce EventId.max`. File and Db recover facts in [MailboxHistoryDurabilityTests.fs](tests/Server.Tests/MailboxHistoryDurabilityTests.fs) share one shape.
 
 - **Divergent Change** / **Feature Envy** — [EventLog.fs](src/Shared/EventLog.fs) `recoverState` applies Graph `State` through `Ev.apply`, not only EventLog structure. Explore asked for this helper; that module still gains a second reason to change.
 
@@ -54,7 +54,7 @@ Spec: ticket What to build + Out of scope; [46 mailbox History durability explor
 
 ### (a) Missing or partial
 
-1. File mixed hello does not prove Graph child. Explore §4: "Graph showing the hello child even when documents or projection were behind that Change." [Issue49MailboxHistoryDurabilityTests](tests/Server.Tests/Issue49MailboxHistoryDurabilityTests.fs) `File mixed hello survives dispose create` calls `assertRestartLog` only. Db mixed hello asserts Graph. File recover uses `appendEvent` with lag, not mixed hello.
+1. File mixed hello does not prove Graph child. Explore §4: "Graph showing the hello child even when documents or projection were behind that Change." [MailboxHistoryDurabilityTests](tests/Server.Tests/MailboxHistoryDurabilityTests.fs) `File mixed hello survives dispose create` calls `assertRestartLog` only. Db mixed hello asserts Graph. File recover uses `appendEvent` with lag, not mixed hello.
 
 ### (b) Scope creep
 
@@ -70,7 +70,7 @@ Spec: ticket What to build + Out of scope; [46 mailbox History durability explor
 
 Standards: 2 hard, 2 judgement. Worst: [DbAgent.fs](src/Server/Core/DbAgent.fs) 561→565 against [fsharp-source.md](.agents/rules/fsharp-source.md) 400-line file rule.
 
-Spec: 1 missing/partial, 1 creep, 2 wrong (axis). Worst: empty EventLog leaves Graph checkpoint as `getEventId`. Independent check: axis (c)2 follows [46 mailbox History durability explore](49-mailbox-history-durability-explore.md) §3 and [Core creation architecture](plan/core-creation/arch.md) PersistHandlers item 4 (checkpoint chooses which Ops `Ev` ids to replay; File soft-fail keeps `gambol.meta` behind so recover can run). That is not a product defect. File mixed-hello Graph assert is a proof gap; [File recover applies Ops Ev ahead of Graph checkpoint](tests/Server.Tests/Issue49MailboxHistoryDurabilityTests.fs) already covers File catch-up when the checkpoint lags.
+Spec: 1 missing/partial, 1 creep, 2 wrong (axis). Worst: empty EventLog leaves Graph checkpoint as `getEventId`. Independent check: axis (c)2 follows [46 mailbox History durability explore](49-mailbox-history-durability-explore.md) §3 and [Core creation architecture](plan/core-creation/arch.md) PersistHandlers item 4 (checkpoint chooses which Ops `Ev` ids to replay; File soft-fail keeps `gambol.meta` behind so recover can run). That is not a product defect. File mixed-hello Graph assert is a proof gap; [File recover applies Ops Ev ahead of Graph checkpoint](tests/Server.Tests/MailboxHistoryDurabilityTests.fs) already covers File catch-up when the checkpoint lags.
 
 Locks that hold on the hello/restart path: EventLog persist load; `seedEventLog` `adoptNewestHead`; Ops re-execute when the checkpoint lags; Actor bodies log-only; live and restart `getEventId` = ActorStop tip; Undo Change-only; same-txn write not added.
 

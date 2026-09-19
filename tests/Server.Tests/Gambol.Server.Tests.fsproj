@@ -35,7 +35,7 @@
     <Compile Include="Issue41CoreMailboxTests.fs" />
     <Compile Include="PersistApplyTests.fs" />
     <Compile Include="PersistHandlersRestoreTests.fs" />
-    <Compile Include="Issue49MailboxHistoryDurabilityTests.fs" />
+    <Compile Include="MailboxHistoryDurabilityTests.fs" />
     <Compile Include="ActorCoreChangesDoorTests.fs" />
     <Compile Include="CoreRuntimeTests.fs" />
     <Compile Include="BrowserCredentialTests.fs" />

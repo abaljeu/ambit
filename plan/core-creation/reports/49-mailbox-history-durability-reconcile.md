@@ -24,6 +24,6 @@ Empty or missing log with a Graph checkpoint: Graph is sole authority; empty is 
 2. [recover equal Log and Graph is noop](../../../tests/Shared.Tests/EventTests.fs) — state and log stay.
 3. [recover Log greater than Graph applies until concurrent](../../../tests/Shared.Tests/EventTests.fs) — Ops apply; EventId is the last applied `Ev`.
 4. [recover moves EventId only by apply](../../../tests/Shared.Tests/EventTests.fs) — Graph-ahead does not assign; catch-up id moves with the applied Change.
-5. [File Graph greater than Log drops persist EventLog](../../../tests/Server.Tests/Issue49MailboxHistoryDurabilityTests.fs) and the Db twin — persist log gone; `getEventId` is Graph.
-6. [File equal Log and Graph keeps EventLog](../../../tests/Server.Tests/Issue49MailboxHistoryDurabilityTests.fs) — log stays.
-7. [File empty Graph checkpoint live append continues past Graph](../../../tests/Server.Tests/Issue49MailboxHistoryDurabilityTests.fs) — next mint is past Graph; no max bandage.
+5. [File Graph greater than Log drops persist EventLog](../../../tests/Server.Tests/MailboxHistoryDurabilityTests.fs) and the Db twin — persist log gone; `getEventId` is Graph.
+6. [File equal Log and Graph keeps EventLog](../../../tests/Server.Tests/MailboxHistoryDurabilityTests.fs) — log stays.
+7. [File empty Graph checkpoint live append continues past Graph](../../../tests/Server.Tests/MailboxHistoryDurabilityTests.fs) — next mint is past Graph; no max bandage.

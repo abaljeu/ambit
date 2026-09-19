@@ -13,7 +13,7 @@ This is a report, not authority.
 
 ## 2. Sequence
 
-1. Red [Issue49MailboxHistoryDurabilityTests](../../../tests/Server.Tests/Issue49MailboxHistoryDurabilityTests.fs): File+Db mixed hello dispose/create; File+Db recover with Graph/projection behind the Change; File restart Undo; live `getEventId` is ActorStop.
+1. Red [MailboxHistoryDurabilityTests](../../../tests/Server.Tests/MailboxHistoryDurabilityTests.fs): File+Db mixed hello dispose/create; File+Db recover with Graph/projection behind the Change; File restart Undo; live `getEventId` is ActorStop.
 2. Green Shared: [EventLog.adoptNewestHead](../../../src/Shared/EventLog.fs), `tip`, `recoverState`.
 3. Green mailbox: [seedEventLog](../../../src/Server/Core/CoreMailboxBackend.fs) uses `adoptNewestHead` (no second cons-fold on `restore`).
 4. Green persist: [FileAgent.create](../../../src/Server/Core/FileAgent.fs) and [DbAgent.create](../../../src/Server/Core/DbAgent.fs) call `recoverState`; `appendEvent` bumps `State.eventId`.
