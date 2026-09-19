@@ -43,7 +43,7 @@ Amb extract-walk serialize (from 11) and Reference-Paste-style replace. State / 
 Keep the DLL public API. State / Interface / Uses: [[arch.md]] module **CloudAgents**.
 
 1. [x] Fit locked inputs — Ambit-side mapping into existing `start` / `poll` / `cancel` (no library reshape).
-2. [x] `setFake` on the DLL — `setFake: (StartArgs -> AgentResult) option -> bool`. `Some f` makes start/poll/wait use `f` (no HTTP); `None` restores CursorAdapter. Returns false if refused. Process-local; clear in test finally.
+2. [x] `setFake` on the DLL — `setFake: (StartArgs -> AgentStatus) option -> bool`. `Some f` makes start/poll/wait use `f` (no HTTP); `None` restores CursorAdapter. Returns false if refused. Process-local; clear in test finally.
 3. [x] Fake success path — Run Agent Actor tests install `setFake (Some …)` and prove Ask through ordinary Core Change (narrowest shared test seam). Live Cursor optional; until a real API key exists, live facts only cover call-reject.
 
 ### 5. Browser / Poll proof
@@ -61,7 +61,7 @@ Graph + Poll only; no live-Actor chrome.
 
 - 2026-09-19 — Landed on staging after Good (setFake Ask path; Approve with nits accepted).
 - 2026-09-19 — Coded: CloudAgents `setFake`; `?ai` launches Run Agent Actor; Amb extract-walk pack; Focus-child replace through ordinary Core Change; fake Ask proof; live call-reject until API key.
-- 2026-09-19 — Locked: CloudAgents fake/real via DLL `setFake: (StartArgs -> AgentResult) option -> bool` (arch). Not an Ambit/Core switch.
+- 2026-09-19 — Locked: CloudAgents fake/real via DLL `setFake: (StartArgs -> AgentStatus) option -> bool` (arch). Not an Ambit/Core switch.
 - 2026-09-19 — 11 Amb extract-walk landed on staging; pack dependency satisfied.
 - 2026-09-19 — Charted from arch Story path **Agent ask from what I see**. Vertical proof ticket waits until this and sibling implement tickets are `defined` (arch lock).
 - 2026-09-19 — Pack is [11 — Pack extract with Amb (supplied-fragment walk)](11-simple-extract-format.md). This ticket is blocked by 11. Mixed-format owning-codec stays tabled.

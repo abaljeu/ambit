@@ -47,13 +47,23 @@ type AgentRunnerFakeTests() =
             | _ -> None
         spin remainingMs
 
+    let waitFailed agentId runId remainingMs =
+        let rec spin left =
+            match AgentRunner.poll unusedConfig agentId runId with
+            | Ok(Failed msg) -> Some msg
+            | Ok Running when left > 0 ->
+                Thread.Sleep 10
+                spin (left - 10)
+            | _ -> None
+        spin remainingMs
+
     [<Fact>]
     member _.``setFake Some routes start poll and wait without HTTP``() =
         let seen = ref None
         withFake
             (fun args ->
                 seen := Some args.Prompt
-                sampleResult "fake-reply")
+                Finished(sampleResult "fake-reply"))
             (fun () ->
                 let started =
                     AgentRunner.start
@@ -95,7 +105,7 @@ type AgentRunnerFakeTests() =
         withFake
             (fun _ ->
                 refused := not (AgentRunner.setFake None)
-                sampleResult "during")
+                Finished(sampleResult "during"))
             (fun () ->
                 let started =
                     AgentRunner.start
@@ -114,7 +124,7 @@ type AgentRunnerFakeTests() =
         withFake
             (fun _ ->
                 AgentRunner.waitForCancel 8000 |> ignore
-                sampleResult "late")
+                Finished(sampleResult "late"))
             (fun () ->
                 let started =
                     AgentRunner.start
@@ -142,3 +152,28 @@ type AgentRunnerFakeTests() =
                     | Error(ApiError("cancelled", _)) -> ()
                     | other ->
                         Assert.Fail($"expected cancelled wait, {other}"))
+
+    [<Fact>]
+    member _.``setFake handler yields Failed not Finished``() =
+        withFake
+            (fun _ -> Failed "provider-boom")
+            (fun () ->
+                let started =
+                    AgentRunner.start
+                        unusedConfig "pack" None emptyOptions
+                match started with
+                | Error err -> Assert.Fail($"start: {err}")
+                | Ok(agentId, runId) ->
+                    match waitFailed agentId runId 2000 with
+                    | None -> Assert.Fail("poll did not fail")
+                    | Some msg ->
+                        Assert.Equal("provider-boom", msg)
+                    match
+                        AgentRunner.waitUntilComplete
+                            unusedConfig agentId runId 10 None
+                    with
+                    | Error(ApiError("failed", msg)) ->
+                        Assert.Equal("provider-boom", msg)
+                    | other ->
+                        Assert.Fail($"expected failed wait, {other}"))
+
