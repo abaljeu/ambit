@@ -1,7 +1,7 @@
 # 37 — Expand Shared Event, EventLog, and History
 
-**Status:** coded
-Actual: 2h30m
+**Status:** done
+Actual: 3h
 **Blocked by:** None — can start immediately.
 
 ## Context
@@ -70,8 +70,10 @@ Keep the old form. Expand does not replace it.
 - 2026-09-15 — Shared expand coded. Event types live in `Gambol.Shared`. The Event record and helpers are `Ev`. Event-shaped ClientHistory API is recordEvent / undoEvent / redoEvent beside the Change API. No destination History module. No `Gambol.Shared.Events` namespace.
 - 2026-09-16 — Names match landed code: `Ev` / module `Ev` in `Gambol.Shared`. Related types stay in `Gambol.Shared`. Arch: [[../arch.md|Core creation architecture]].
 - 2026-09-15 — Alan review lock: ClientHistory undo/redo/peek skip ActorStart/ActorStop (leave them on the stack; invert the next Action only). ClientHistory.nextEventId is EventId. EventLog is newest-head throughout with no List.rev: append cons, since filters to EventLog (not Event list), restore conses oldest-first persist. CoreMailbox.eventsSince returns EventLog.
+- 2026-09-19 — Independent Spec review approve. Shared Ev / EventLog / ClientHistory expand matches What to build and Arch Story **Event, EventLog, and ClientHistory** expand. Later [45 — Contract HistoryEvent, mailbox History, PendingKind, StartActorRequest, and ChangeLog](45-contract-historyevent-clienthistory-pendingkind-and-changelog.md) deleted HistoryEvent; that is not a 37 gap. `ClientHistory.nextEventId` is gone (later SES); EventId stays the log serial. Report: [spec-review-37-40](../reports/spec-review-37-40.md).
 
 ## Time
 
 - 2026-09-15 1h30m — Shared Event / EventLog / ClientHistory expand (from chat)
 - 2026-09-15 1h — Review lock: skip-non-change undo, newest-head EventLog, since returns EventLog (from chat)
+- 2026-09-19 30m — Independent Spec review (from chat)
