@@ -3,10 +3,11 @@
 Stage: slice
 Summary: Run an Agent from a Zoom-rooted mixed-format extract and replace Focus Children through ordinary Core Changes.
 Updated: 2026-09-19
-Actual: 6h55m
+Actual: 7h40m
 
 ## Notes
 
+- 2026-09-19 — Replan [11 — Pack extract with Amb (supplied-fragment walk)](issues/11-simple-extract-format.md): Amb extract-walk write; nested-tag abandoned; Fable.SimpleXml rejected. Status `defined`.
 - 2026-09-19 — 09 lock: on failure Actor framework does not cause Changes; AI Actor does not erase data (future agentic extensions out of scope).
 - 2026-09-19 — `/to-tickets` (tracer-cut): [[issues/08-agent-ask-from-what-i-see.md|08 — Agent ask from what I see]] (frontier), [[issues/09-agent-failure-preserves-children.md|09 — Agent failure preserves children]], [[issues/10-cancel-by-focus.md|10 — Cancel by Focus]]. Stage `slice`.
 - 2026-09-19 — Arch grill closed: Agent Command `?ai` + args; vertical proof after first implement tickets `defined`; Focus mark spelling deferred to Document ticket; keep CloudAgents DLL; live-Actor chrome on core-creation 21/22 (first Agent vertical = Graph+Poll only).
@@ -15,7 +16,8 @@ Actual: 6h55m
 
 ## Implementation tickets
 
-- [[issues/08-agent-ask-from-what-i-see.md|08 — Agent ask from what I see]] — Status `defined`; frontier.
+- [[issues/11-simple-extract-format.md|11 — Pack extract with Amb (supplied-fragment walk)]] — Status `defined`; frontier.
+- [[issues/08-agent-ask-from-what-i-see.md|08 — Agent ask from what I see]] — Status `defined`; blocked by 11.
 - [[issues/09-agent-failure-preserves-children.md|09 — Agent failure preserves children]] — Status `defined`; blocked by 08.
 - [[issues/10-cancel-by-focus.md|10 — Cancel by Focus]] — Status `defined`; blocked by 08.
 

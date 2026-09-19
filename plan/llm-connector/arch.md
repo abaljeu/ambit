@@ -21,7 +21,7 @@ Sources: [[issues/06-define-command-run-agent-redesign.md|06 — Define the revi
    2. [x] Core validates Browser Authority (hello path)
    3. [ ] Resolve ActorName from Agent Command text (`?ai` + args); construct authoritative extract; Focus exclusivity admit
    4. [ ] Register Run Agent Actor, append ActorStarted, schedule body
-   5. [ ] Run Agent Actor → Document mixed-format serialize with Focus marked
+   5. [ ] Run Agent Actor → Document Amb extract-walk serialize (Focus on extract Graph)
    6. [ ] Run Agent Actor → CloudAgents complete (system prompt + document + cancel token)
    7. [ ] Document structural parse of complete response; else Plain indentation; never partial structural
    8. [ ] Document Reference-Paste-style plan: replace every Focus Child (empty success clears all)
@@ -51,7 +51,7 @@ Shared segments (Agent paths 2–4):
 1. [x] CoreMailbox one-loop launch / Change / terminal / drop
 2. [x] CoreActorPool live registry + TaskPool outside mailbox
 3. [x] EventLog ActorStarted / ActorFinished
-4. [ ] Document serialize + Reference-Paste replace
+4. [ ] Document Amb extract-walk serialize + Reference-Paste replace
 5. [ ] CloudAgents vendor-neutral complete / fail / cancel
 6. [ ] Run Agent Actor orchestration
 
@@ -116,18 +116,21 @@ Narrowest shared test seam:
       2. [ ] On cancel token: request CloudAgents cancel and stop
       3. [ ] Never turn pack or provider errors into a second Agent call; never write raw provider text as Graph Error
    3. Uses
-      1. [ ] Document serialize / Reference-Paste inject
+      1. [ ] Document Amb extract-walk serialize / Reference-Paste inject
       2. [ ] CloudAgents
       3. [ ] CoreMailbox postEvents
 
-6. **Document (mixed-format + Reference Paste)**
-   Files: Shared / Server Document codec surfaces (existing Reference Paste facts: [[reports/reference-paste-and-change-post-facts.md]]).
+6. **Document (Amb pack + Reference Paste)**
+   Files: Shared Document codec surfaces (existing Reference Paste facts: [[reports/reference-paste-and-change-post-facts.md]]). First pack reuses Amb (`AmbDocument`) with one extract-walk write option. Existing Md artifact write does not change.
    1. State
-      1. [x] Owning codecs per document
+      1. [x] Owning codecs per document (unused by the first pack)
+      2. [ ] Extract-pack Focus is `Graph.focus` on the extract copy (`withFocus`; JSON and History omit)
    2. Interface
-      1. [ ] Serialize Graph extract to mixed-format document with one Focus mark (transport-only wrapper; exact sentinel deferred)
-      2. [ ] Complete-response structural parse; atomic fallback to Plain indentation
-      3. [ ] Plan Ops replacing every current Focus Child (empty success removes all)
+      1. [ ] Amb-write the supplied extract: follow child lists as given (Owned and Ref recurse into Nodes present in the extract); do not stop at nested document or File Node boundaries; do not persist a file; do not use owning-document partition
+      2. Parse of this increment is default Amb parse. No new parse mode.
+      3. [ ] Tabled: serialize Graph extract to mixed-format document with owning codecs and Focus marked
+      4. [ ] Complete-response structural parse; atomic fallback to Plain indentation
+      5. [ ] Plan Ops replacing every current Focus Child (empty success removes all)
    3. Uses
       1. [x] Op / Ev Change construction helpers
 
@@ -157,7 +160,7 @@ Narrowest shared test seam:
 1. [x] **Browser ↔ HTTP Adapter** — typed launch / Change / Poll encoding
 2. [x] **HTTP Adapter ↔ CoreMailbox** — sole Core door
 3. [x] **CoreActorPool ↔ Actor definitions** — register TestActor / Run Agent Actor at composition
-4. [ ] **Run Agent Actor ↔ Document** — serialize and Reference-Paste inject (generic, not Agent-only APIs)
+4. [ ] **Run Agent Actor ↔ Document** — Amb extract-walk serialize and Reference-Paste inject (generic, not Agent-only APIs)
 5. [ ] **Run Agent Actor ↔ CloudAgents** — vendor-neutral complete / fail / cancel
 6. [ ] **CloudAgents ↔ Cursor adapter** — Internal only; vendor contract tests
 7. [x] **CoreMsg admit ↔ postEvents** — Actor Changes while registered
@@ -168,15 +171,18 @@ Narrowest shared test seam:
 1. **Fat Create vertical (issue 05 / PR #4)** — POST `/ambit/actors` with Md paste-replace under Focus-only lock. Rejected: missed Focus replace semantics, pack-error→Agent calls, and proof gaps; closed unmerged. Do not restore.
 2. **Core owns CloudAgents** — Would reverse dependency direction. Rejected: CloudAgents stays standalone; Core and Browser do not reference it.
 3. **Span soft-lock as Graph field** — Superseded by durable ActorStarted / ActorFinished and Focus exclusivity in [[issues/07-lock-run-agent-architecture.md|07]].
+4. **Nested-tag `<div>` / `<focus>` pack** — Abandoned 2026-09-19: the Zoom extract is already a Graph fragment; do not invent a nested-tag format.
+5. **Fable.SimpleXml as Shared pack** — Rejected 2026-09-19: parse is JS/Parsimmon and throws on .NET Server.
 
 ## 5. Locked during arch (2026-09-19)
 
 1. **Agent Command spelling** — `?ai` plus optional args. That text invokes the Run Agent Actor. Args are ignored for now (reserved).
 2. **Vertical proof timing** — Define the full Browser → Run Agent → Focus-children proof after the first CloudAgents / Run Agent implement tickets are `defined` (not now; not inside the first end-to-end ticket alone).
-3. **Focus mark spelling** — Arch stays “Focus marked.” Exact sentinel spelling and escaping lock on the first Document serialize implement ticket.
-4. **CloudAgents DLL interface** — Keep the existing public CloudAgents API (`start` / `poll` / `cancel` and related types). Do not reshape it for Ambit. The Run Agent Actor (Ambit side) fits system prompt + document + cancellation into that form. Cursor stays Internal; Core never references CloudAgents.
-5. **Failure: no framework Changes, no erase** — On Failed, the Actor framework does not post Changes; the AI Actor does not erase Focus Children. Future agentic extensions that might mutate on failure are out of scope.
-6. **Live Actor chrome** — Browser “Actor live for Focus” UI belongs on [[plan/core-creation/issues/21-client-shows-lock-present.md|21 — Client shows lock-present]] and [[plan/core-creation/issues/22-client-cancels-a-job.md|22 — Client cancels a job]]. This Project’s first Agent vertical proves Graph + Poll only (no live-Actor chrome).
+3. **Focus on extract Graph** — Extract-pack Focus is `Graph.focus` on the extract copy (`withFocus`). The Amb pack string has no Focus sentinel. Mixed-format sentinel spelling stays tabled with owning-codec serialize.
+4. **First pack is Amb extract-walk** — Reuse `AmbDocument`. One write option walks the supplied Zoom extract (Owned and Ref into present Nodes; no file persist; no owning-document partition). Parse stays default Amb. Mixed-format owning-codec and Md extract write stay tabled. Existing Md artifact write does not change.
+5. **CloudAgents DLL interface** — Keep the existing public CloudAgents API (`start` / `poll` / `cancel` and related types). Do not reshape it for Ambit. The Run Agent Actor (Ambit side) fits system prompt + document + cancellation into that form. Cursor stays Internal; Core never references CloudAgents.
+6. **Failure: no framework Changes, no erase** — On Failed, the Actor framework does not post Changes; the AI Actor does not erase Focus Children. Future agentic extensions that might mutate on failure are out of scope.
+7. **Live Actor chrome** — Browser “Actor live for Focus” UI belongs on [[plan/core-creation/issues/21-client-shows-lock-present.md|21 — Client shows lock-present]] and [[plan/core-creation/issues/22-client-cancels-a-job.md|22 — Client cancels a job]]. This Project’s first Agent vertical proves Graph + Poll only (no live-Actor chrome).
 
 ## 6. Unsettled
 
