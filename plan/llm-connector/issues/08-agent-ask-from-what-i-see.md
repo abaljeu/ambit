@@ -43,6 +43,7 @@ Keep the DLL public API. State / Interface / Uses: [[arch.md]] module **CloudAge
 
 ## Comments
 
+- 2026-09-19 — Alan: next phases need a Cursor API key. Until a key is available, live-provider tests only cover call **reject** (missing/invalid key). Success path stays on fake CloudAgents.
 - 2026-09-19 — Charted from arch Story path **Agent ask from what I see**. Vertical proof ticket waits until this and sibling implement tickets are `defined` (arch lock).
 - 2026-09-19 — Split: this ticket is Actor + DLL with Focus text only. Pack format and Focus-child replace moved to [11 — Simple extract format](11-simple-extract-format.md) and [12 — Replace Focus Children from reply](12-replace-focus-children-from-reply.md). Md pack cancelled. Stronger serialization tabled.
 

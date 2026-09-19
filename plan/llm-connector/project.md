@@ -8,6 +8,8 @@ Actual: 7h30m
 ## Notes
 
 - 2026-09-19 — Split Story path **Agent ask from what I see**: [08 — Run Agent Actor calls CloudAgents](issues/08-agent-ask-from-what-i-see.md) (Focus text, no Graph write), [11 — Simple extract format](issues/11-simple-extract-format.md) (`<div>` / `<focus>`), [12 — Replace Focus Children from reply](issues/12-replace-focus-children-from-reply.md). Md pack cancelled. Mixed-format tabled.
+- 2026-09-19 — Live CloudAgents / API key: until a key exists, only prove call reject; success stays on fake ([[issues/08-agent-ask-from-what-i-see.md|08 — Run Agent Actor calls CloudAgents]]).
+- 2026-09-19 — [[issues/09-agent-failure-preserves-children.md|09 — Agent failure preserves children]] framework half `done` (TestActor preserve proof). AI-Actor erase still open.
 - 2026-09-19 — Drop observation: live Focus ids, not secrets ([[issues/09-agent-failure-preserves-children.md|09 — Agent failure preserves children]]).
 - 2026-09-19 — [[issues/09-agent-failure-preserves-children.md|09 — Agent failure preserves children]]: unblock for TestActor / `?test` framework proof; AI-Actor erase stays after [[issues/08-agent-ask-from-what-i-see.md|08]] and [[issues/12-replace-focus-children-from-reply.md|12]].
 - 2026-09-19 — 09 lock: on failure Actor framework does not cause Changes; AI Actor does not erase data (future agentic extensions out of scope).
@@ -21,7 +23,7 @@ Actual: 7h30m
 - [[issues/08-agent-ask-from-what-i-see.md|08 — Run Agent Actor calls CloudAgents]] — Status `defined`; frontier.
 - [[issues/11-simple-extract-format.md|11 — Simple extract format]] — Status `defined`; frontier.
 - [[issues/12-replace-focus-children-from-reply.md|12 — Replace Focus Children from reply]] — Status `defined`; blocked by 08 and 11.
-- [[issues/09-agent-failure-preserves-children.md|09 — Agent failure preserves children]] — Status `defined`; frontier (framework via TestActor / `?test`); AI-Actor erase deferred until 08 and 12.
+- [[issues/09-agent-failure-preserves-children.md|09 — Agent failure preserves children]] — Status `done` (framework via TestActor / `?test`); AI-Actor erase deferred until 08 and 12. Report: [[reports/framework-failure-preserves-children.md]]; review: [[reports/code-review-framework-failure-preserves-children.md]].
 - [[issues/10-cancel-by-focus.md|10 — Cancel by Focus]] — Status `defined`; blocked by 08.
 
 ## Locked Restart
