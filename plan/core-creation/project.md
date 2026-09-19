@@ -2,9 +2,9 @@
 
 Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
-Updated: 2026-09-18
+Updated: 2026-09-19
 Started: 2026-09-05
-Actual: 64h50m
+Actual: 66h20m
 
 ## Map
 
@@ -54,11 +54,11 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/issues/31-one-coremsg-loop-parameterized-persist.md]] — Point 0 (done): one CoreMsg loop, parameterized persist.
 - [[plan/core-creation/issues/32-move-persist-agents-under-coremailbox.md]] — Point 0 (done): persist agents under Core; generic CoreMailbox door.
 - [[plan/core-creation/issues/29-prove-testactor-hello.md]] — current cut: section 1 mailbox foundation on `dev`; remaining hello sections open. Redo: land [[plan/core-creation/arch.md]] before further hello implement — [[plan/core-creation/reports/redo-29-architecture-before-proceed.md]].
-- [[plan/core-creation/issues/33-credentialed-browser-change-posts.md]] — Story path Browser Change posts: cookie-as-credential, boot seed, CoreMailbox admit only; Status `coded`. `auth.Disabled` skip removed; development cookie is auto-issued and still required.
+- [33 — Credentialed Browser Change posts](issues/33-credentialed-browser-change-posts.md) — Story path Browser Change posts: cookie-as-credential, boot seed, CoreMailbox admit only; Status `done` (independent Spec review approve; report [spec-review-33-36](reports/spec-review-33-36.md)). `auth.Disabled` skip removed; development cookie is auto-issued and still required.
 - [[plan/core-creation/issues/34b-outside-core-lifecycle-proof.md|34b — Outside Core lifecycle proof]] — Story path Outside Core lifecycle proof: TestActor hello from Pool/Actor seam without HTTP. Status `done` (independent review approve; report [[plan/core-creation/reports/code-review-34b-outside-core-lifecycle-proof.md]]).
 - [[plan/core-creation/issues/35b-browser-run-hello.md|35b — Browser Run hello]] — Story path Browser Run hello: `?` one-Node Command through HTTP to Owned child `hello`; Status `coded` (slices 4+5+7). §6 durability → [[plan/core-creation/issues/46-mailbox-history-durability.md|46]]; §7 proof does not need 46.
 - [46 — Mailbox History durability](issues/46-mailbox-history-durability.md) — persist/load the audit sequence; load reconcile Graph id vs EventLog tip (drop / noop / apply until concurrent). Status `coded`. Blocked by [35b — Browser Run hello](issues/35b-browser-run-hello.md). Not required for 35b §7 Browser proof. Plan: [46 mailbox History durability explore](reports/46-mailbox-history-durability-explore.md). Reconcile: [46 mailbox History durability reconcile](reports/46-mailbox-history-durability-reconcile.md).
-- [[plan/core-creation/issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]] — Collapse extra Core entrances onto CoreMailbox; Status `coded`. Report: [[plan/core-creation/reports/mailbox-single-door.md]].
+- [36 — Mailbox is the only Core door](issues/36-mailbox-is-the-only-core-door.md) — Collapse extra Core entrances onto CoreMailbox; Status `done` (independent Spec review approve; report [spec-review-33-36](reports/spec-review-33-36.md)). Report: [[reports/mailbox-single-door.md]].
 - [[plan/core-creation/issues/37-expand-shared-event-eventlog-and-history.md|37 — Expand Shared Event, EventLog, and History]] — Story **Event, EventLog, and ClientHistory** Shared expand beside HistoryEvent; Event-shaped ClientHistory beside the Change-shaped API. No new History module. Status `coded`.
 - [[plan/core-creation/issues/40-expand-postevent-eventlog-and-event-json.md|40 — Expand postEvent, EventLog store, and Event JSON persist]] — Story **Caller, persist, and Poll** expand: `postEvent`, EventLog store, Event JSON beside ChangeLog. Status `coded`.
 - [[plan/core-creation/issues/41-migrate-core-mailbox-coremsg-and-pool-onto-event.md|41 — Migrate Core mailbox, CoreMsg, and Pool onto Event]] — Story **Caller, persist, and Poll** Core migrate batch. Status `coded`.
@@ -119,6 +119,7 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/reports/sync-startactor-one-mailbox.md]] — Sync startActor, one CoreMsg host, mailbox-owned live table, File or Db persist, mirror deleted.
 - [[plan/core-creation/reports/corecredentials-caller-set.md]] — CoreCredentials is a mailbox-owned Set of Caller; login maps name+secret.
 - [[plan/core-creation/reports/mailbox-single-door.md]] — Mailbox is the only Core door: one admission, thinned CoreRuntime, credentialed Graph-only, hidden CoreMsg.
+- [spec-review-33-36](reports/spec-review-33-36.md) — Independent Spec review of [33 — Credentialed Browser Change posts](issues/33-credentialed-browser-change-posts.md) and [36 — Mailbox is the only Core door](issues/36-mailbox-is-the-only-core-door.md).
 - [[plan/core-creation/reports/36-review-corrections.md]] — Review corrections for [[plan/core-creation/issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]].
 - [[plan/core-creation/reports/ambitapp-record.md]] — AmbitApp record for the six-arg route clump leftover from [[plan/core-creation/issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]].
 - [[plan/core-creation/reports/gitgateway-routes-type.md]] — GitGateway.Routes for the shell/flush/reconcile clump leftover from [[plan/core-creation/issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]].
@@ -179,3 +180,4 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - 2026-09-18 — Widened [46 — Mailbox History durability](issues/46-mailbox-history-durability.md): EventLog authoritative, Ops `Ev` replay when Graph lagged, one serial for `getEventId` / `latestId`. Status stays `defined`. Plan: [46 mailbox History durability explore](reports/46-mailbox-history-durability-explore.md).
 - 2026-09-17 — Marked [[plan/core-creation/issues/34b-outside-core-lifecycle-proof.md|34b — Outside Core lifecycle proof]] `done` after independent review approve. Unblocked [[plan/core-creation/issues/35b-browser-run-hello.md|35b — Browser Run hello]] → `ready-for-agent`.
 - 2026-09-17 — Resume after SES Event-only repair on staging. Story **Caller, persist, and Poll** migrate/contract (43–45) is `done`. Next open Story path: **Browser Run hello** ([[plan/core-creation/issues/35b-browser-run-hello.md|35b — Browser Run hello]]), blocked only by review of [[plan/core-creation/issues/34b-outside-core-lifecycle-proof.md|34b — Outside Core lifecycle proof]] (`coded`).
+- 2026-09-19 — Independent Spec review approve of [33 — Credentialed Browser Change posts](issues/33-credentialed-browser-change-posts.md) and [36 — Mailbox is the only Core door](issues/36-mailbox-is-the-only-core-door.md). Status `done`. Report: [spec-review-33-36](reports/spec-review-33-36.md).
