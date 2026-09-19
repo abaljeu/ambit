@@ -14,7 +14,7 @@ module RunAgentActor =
         | CompleteCancelled
 
     let private askOptions =
-        { AgentOptions.DisplayName = Some "Ask"
+        { AgentOptions.DisplayName = Some "AI"
           ModelHint = None }
 
     let private actorCaller (input: ActorInput) : Caller =
@@ -22,15 +22,28 @@ module RunAgentActor =
           name = ""
           secret = input.secret }
 
-    let private focusText (input: ActorInput) =
-        match Map.tryFind input.focusId input.graph.nodes with
-        | Some node -> node.text
-        | None -> ""
-
-    let private systemPrompt (input: ActorInput) =
-        "Return outline text that replaces every child of Focus. Focus: "
-        + focusText input
-        + ". Use Amb outline when possible. Outline only."
+    let private systemPrompt =
+        "You are Ambit AI. You edit outline children under Focus "
+        + "in a Zoom-rooted extract."
+        + Environment.NewLine
+        + Environment.NewLine
+        + "The Focus node is your prompt. The next message is that extract "
+        + "(mixed Amb / codec text) with Focus marked."
+        + Environment.NewLine
+        + Environment.NewLine
+        + "Return ONLY outline text that replaces every child of Focus."
+        + Environment.NewLine
+        + "- One sentence per node."
+        + Environment.NewLine
+        + "- Use outlining for structure (parent/child), not paragraphs "
+        + "or prose blocks."
+        + Environment.NewLine
+        + "- Prefer Amb outline shape when the extract uses Amb."
+        + Environment.NewLine
+        + "- No preamble, no markdown fences, no explanation outside "
+        + "the outline."
+        + Environment.NewLine
+        + "- Do not rewrite Focus itself."
 
     let private packExtract (input: ActorInput) =
         let extract = Graph.withFocus (Some input.focusId) input.graph
@@ -74,11 +87,11 @@ module RunAgentActor =
             return! loop ()
         }
 
-    let private complete (input: ActorInput) (document: string) =
+    let private complete (document: string) =
         async {
             let config = runnerConfig ()
             let prompt =
-                systemPrompt input
+                systemPrompt
                 + Environment.NewLine
                 + Environment.NewLine
                 + document
@@ -137,7 +150,7 @@ module RunAgentActor =
             match packExtract input with
             | Error _ -> return ActorFailed
             | Ok document ->
-                match! complete input document with
+                match! complete document with
                 | CompleteCancelled -> return ActorCancelled
                 | CompleteFailed -> return ActorFailed
                 | TextReady text ->
