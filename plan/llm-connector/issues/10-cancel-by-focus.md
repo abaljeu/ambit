@@ -3,7 +3,7 @@
 **Status:** coded
 **Blocked by:** [[08-agent-ask-from-what-i-see.md|08 — Run Agent Actor calls CloudAgents]]
 **Type:** task
-Actual: 2h
+Actual: 2h35m
 
 ## Context
 
@@ -33,6 +33,11 @@ While a Run Agent Actor is live for a Focus, cancel by Focus NodeId. Core orders
 
 [[arch.md|llm-connector architecture]], [[08-agent-ask-from-what-i-see.md|08 — Agent ask from what I see]], [[plan/core-creation/issues/21-client-shows-lock-present.md|21]], [[plan/core-creation/issues/22-client-cancels-a-job.md|22]], [[06-define-command-run-agent-redesign.md|06]], [[07-lock-run-agent-architecture.md|07]]
 
+## Comments
+
+- 2026-09-19 — Long fact **Change before Cancel keeps the accepted children** now uses [AskCancelHarness](../../../tests/Server.Tests/AskCancelHarness.fs). Shared Ask/Cancel helpers are public only when a fact calls them; wait/filter/spin wiring is private. `postChildThenWait` is the reusable probe (one Focus-child Change, then wait on the cancel token).
+
 ## Time
 
 - 2026-09-19 2h — CoreMailbox cancelByFocus, hanging setFake, Run Agent cancel token, CancelByFocusTests (from chat)
+- 2026-09-19 35m — Split Ask/Cancel facts onto AskCancelHarness; slim Change-before-Cancel (from chat)

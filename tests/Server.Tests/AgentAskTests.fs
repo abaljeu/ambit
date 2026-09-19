@@ -1,13 +1,12 @@
 module Gambol.Server.Tests.AgentAskTests
 
-open System
 open System.Threading
 open System.Threading.Tasks
 open Xunit
 open Gambol.Server
 open Gambol.Shared
-open Gambol.CloudAgents
 open Gambol.Server.Tests.TestBackend
+open Gambol.Server.Tests.AskCancelHarness
 
 [<CollectionDefinition("Agent ask runner", DisableParallelization = true)>]
 type AgentAskRunnerCollection() =
@@ -17,159 +16,6 @@ type AgentAskRunnerCollection() =
 [<Collection("Agent ask runner")>]
 type AgentAskTests() =
 
-    let requireOk label result =
-        match result with
-        | Ok value -> value
-        | Error err ->
-            Assert.Fail($"{label}: {err}")
-            Unchecked.defaultof<_>
-
-    let eventPast host =
-        async {
-            let! history = CoreMailbox.eventHistory host
-            return history.events
-        }
-
-    let rec waitUntil remainingMs (check: unit -> Task<bool>) =
-        task {
-            let! ok = check ()
-            if ok then
-                return true
-            elif remainingMs <= 0 then
-                return false
-            else
-                do! Task.Delay 10
-                return! waitUntil (remainingMs - 10) check
-        }
-
-    let tryActorStop host focusId =
-        task {
-            let! events = eventPast host |> Async.StartAsTask
-            return
-                events
-                |> List.tryPick (fun event ->
-                    match event.body with
-                    | EventBody.ActorStop(fid, result) when fid = focusId ->
-                        Some result
-                    | _ -> None)
-        }
-
-    let waitForActorStop host focusId timeoutMs =
-        task {
-            let! found =
-                waitUntil timeoutMs (fun () -> task {
-                    let! result = tryActorStop host focusId
-                    return result.IsSome
-                })
-            if found then
-                return! tryActorStop host focusId
-            else
-                return None
-        }
-
-    let createHost () =
-        let dataDir = newTempDir ()
-        let pool = CoreActorPool.create ()
-        pool.register (ActorName "test") TestActor.actorFn
-        pool.register (ActorName "ai") RunAgentActor.actorFn
-        let host =
-            CoreMailbox.host
-                pool
-                (FileAgent.persist (FileAgent.create dataDir))
-                admittedCredentials
-        host, pool
-
-    let withHost body =
-        task {
-            let host, pool = createHost ()
-            try
-                do! body host pool
-            finally
-                CoreMailbox.dispose host
-        }
-
-    let clearFake () =
-        let deadline = DateTime.UtcNow.AddSeconds 2.0
-        let rec spin () =
-            if AgentRunner.setFake None then
-                true
-            elif DateTime.UtcNow > deadline then
-                false
-            else
-                Thread.Sleep 10
-                spin ()
-        Assert.True(spin ())
-
-    let withFake handler body =
-        task {
-            Assert.True(AgentRunner.setFake (Some handler))
-            try
-                do! body ()
-            finally
-                clearFake ()
-        }
-
-    let sampleResult text =
-        { AgentResult.Text = text
-          Git = [] }
-
-    let sampleRequest zoomId focusId commandId graphIds : ActorStart =
-        { zoomId = zoomId
-          focusId = focusId
-          commandId = commandId
-          graphIds = graphIds
-          eventId = EventId.zero }
-
-    let ownedTexts (graph: Graph) focusId =
-        graph.nodes.[focusId].children
-        |> List.filter (fun child -> child.ref = Ownership.Owner)
-        |> List.map (fun child -> graph.nodes.[child.id].text)
-
-    let seedAskTree host commandText =
-        task {
-            let zoomId = NodeId.New()
-            let commandId = NodeId.New()
-            let noteId = NodeId.New()
-            let ops =
-                [ Op.NewNode(zoomId, "zoom")
-                  Op.NewNode(commandId, commandText)
-                  Op.NewNode(noteId, "visible-context")
-                  Op.Replace(
-                      Graph.rootId,
-                      [],
-                      [ ChildNode.owner zoomId ])
-                  Op.Replace(
-                      zoomId,
-                      [],
-                      [ ChildNode.owner commandId
-                        ChildNode.owner noteId ]) ]
-            let event =
-                { id = EventId.zero
-                  submissionId = Guid.NewGuid()
-                  authority = Authority "Browser"
-                  commandName = ""
-                  body = EventBody.Change ops }
-            let! posted =
-                CoreMailbox.postGraphOnly host testCaller event
-                |> Async.StartAsTask
-            requireOk "seed" posted |> ignore
-            return
-                zoomId,
-                commandId,
-                [ zoomId; commandId; noteId ]
-        }
-
-    let startAsk host zoomId commandId graphIds =
-        task {
-            let request =
-                sampleRequest zoomId zoomId commandId graphIds
-            let! result =
-                CoreMailbox.startActor host testCaller request
-                |> Async.StartAsTask
-            requireOk "startActor" result
-            return request
-        }
-
     [<Fact>]
     member _.``Ask with fake completion replaces Focus Children through Core Change``
         ()
@@ -177,85 +23,50 @@ type AgentAskTests() =
         withFake
             (fun args ->
                 Assert.Contains("visible-context", args.Prompt)
-                sampleResult "from-agent")
+                fakeReply "from-agent")
             (fun () ->
                 withHost (fun host pool -> task {
-                    let! zoomId, commandId, graphIds =
-                        seedAskTree host "?ai"
-                    let! request =
-                        startAsk host zoomId commandId graphIds
-                    let! stop =
-                        waitForActorStop host request.focusId 2000
-                    match stop with
-                    | Some ActorSucceeded -> ()
-                    | other ->
-                        Assert.Fail($"expected ActorSucceeded, got {other}")
-                    Assert.False(
-                        Set.contains
+                    let! seeded = seedAskTree host "?ai"
+                    let! request = startAsk host seeded
+                    do! expectActorSucceeded
+                            host pool request.focusId
+                    do! expectOwnedTexts
+                            host
                             request.focusId
-                            (pool.liveFocusIds ()))
-                    let! state =
-                        CoreMailbox.getState host |> Async.StartAsTask
-                    let state = requireOk "getState" state
-                    Assert.Equal<string list>(
-                        [ "from-agent" ],
-                        ownedTexts state.graph request.focusId)
-                    let! events =
-                        eventPast host |> Async.StartAsTask
-                    let started =
-                        events
-                        |> List.exists (fun event ->
-                            match event.body with
-                            | EventBody.ActorStart started ->
-                                started.focusId = request.focusId
-                            | _ -> false)
+                            [ "from-agent" ]
+                    let! started =
+                        hasActorStart host request.focusId
                     Assert.True(started)
                 }))
 
     [<Fact>]
     member _.``Ask ignores Command args and still replaces Focus Children``() =
         withFake
-            (fun _ -> sampleResult "ignored-args-reply")
+            (fun _ -> fakeReply "ignored-args-reply")
             (fun () ->
-                withHost (fun host _ -> task {
-                    let! zoomId, commandId, graphIds =
+                withHost (fun host pool -> task {
+                    let! seeded =
                         seedAskTree host "?ai later please"
-                    let! request =
-                        startAsk host zoomId commandId graphIds
-                    let! stop =
-                        waitForActorStop host request.focusId 2000
-                    match stop with
-                    | Some ActorSucceeded -> ()
-                    | other ->
-                        Assert.Fail($"expected ActorSucceeded, got {other}")
-                    let! state =
-                        CoreMailbox.getState host |> Async.StartAsTask
-                    let state = requireOk "getState" state
-                    Assert.Equal<string list>(
-                        [ "ignored-args-reply" ],
-                        ownedTexts state.graph request.focusId)
+                    let! request = startAsk host seeded
+                    do! expectActorSucceeded
+                            host pool request.focusId
+                    do! expectOwnedTexts
+                            host
+                            request.focusId
+                            [ "ignored-args-reply" ]
                 }))
 
     [<Fact>]
     member _.``Ask empty success clears every Focus Child``() =
         withFake
-            (fun _ -> sampleResult "")
+            (fun _ -> fakeReply "")
             (fun () ->
-                withHost (fun host _ -> task {
-                    let! zoomId, commandId, graphIds =
-                        seedAskTree host "?ai"
-                    let! request =
-                        startAsk host zoomId commandId graphIds
-                    let! stop =
-                        waitForActorStop host request.focusId 2000
-                    match stop with
-                    | Some ActorSucceeded -> ()
-                    | other ->
-                        Assert.Fail($"expected ActorSucceeded, got {other}")
-                    let! state =
-                        CoreMailbox.getState host |> Async.StartAsTask
-                    let state = requireOk "getState" state
-                    Assert.Empty(ownedTexts state.graph request.focusId)
+                withHost (fun host pool -> task {
+                    let! seeded = seedAskTree host "?ai"
+                    let! request = startAsk host seeded
+                    do! expectActorSucceeded
+                            host pool request.focusId
+                    do! expectOwnedTexts host request.focusId []
                 }))
 
     [<Fact>]
@@ -275,35 +86,10 @@ type AgentAskTests() =
                     return ()
                 }
         withHost (fun host pool -> task {
-            pool.register (ActorName "probe") probe
-            let commandId = NodeId.New()
-            let event =
-                { id = EventId.zero
-                  submissionId = Guid.NewGuid()
-                  authority = Authority "Browser"
-                  commandName = ""
-                  body =
-                    EventBody.Change
-                        [ Op.NewNode(commandId, "?probe")
-                          Op.Replace(
-                              Graph.rootId,
-                              [],
-                              [ ChildNode.owner commandId ]) ] }
-            let! posted =
-                CoreMailbox.postGraphOnly host testCaller event
-                |> Async.StartAsTask
-            requireOk "seed probe" posted |> ignore
-            let request =
-                sampleRequest
-                    commandId commandId commandId [ commandId ]
-            let! result =
-                CoreMailbox.startActor host testCaller request
-                |> Async.StartAsTask
-            requireOk "start probe" result
-            let! stop = waitForActorStop host request.focusId 2000
-            match stop with
-            | Some ActorSucceeded -> ()
-            | other -> Assert.Fail($"probe stop {other}")
+            registerActor pool "probe" probe
+            let! commandId = seedCommand host "?probe"
+            let! request = startOnCommand host commandId
+            do! expectActorSucceeded host pool request.focusId
             Assert.Equal(Some commandId, !seen)
         })
 
@@ -312,19 +98,19 @@ type AgentAskTests() =
         withFake
             (fun _ ->
                 Thread.Sleep 300
-                sampleResult "slow")
+                fakeReply "slow")
             (fun () ->
                 withHost (fun host _ -> task {
-                    let! zoomId, commandId, graphIds =
-                        seedAskTree host "?ai"
-                    let request =
-                        sampleRequest
-                            zoomId zoomId commandId graphIds
+                    let! seeded = seedAskTree host "?ai"
+                    let request = askRequest seeded
                     let! first =
                         CoreMailbox.startActor
                             host testCaller request
                         |> Async.StartAsTask
-                    requireOk "first start" first
+                    match first with
+                    | Ok () -> ()
+                    | Error err ->
+                        Assert.Fail($"first start: {err}")
                     let! second =
                         CoreMailbox.startActor
                             host testCaller request
@@ -344,35 +130,13 @@ type AgentAskTests() =
         withFake
             (fun _ ->
                 Thread.Sleep 200
-                sampleResult "from-agent")
+                fakeReply "from-agent")
             (fun () ->
-                withHost (fun host _ -> task {
-                    let! zoomId, commandId, graphIds =
-                        seedAskTree host "?ai"
-                    let! request =
-                        startAsk host zoomId commandId graphIds
-                    let editId = NodeId.New()
-                    let edit =
-                        { id = EventId.zero
-                          submissionId = Guid.NewGuid()
-                          authority = Authority "Browser"
-                          commandName = ""
-                          body =
-                            EventBody.Change
-                                [ Op.NewNode(editId, "browser-edit")
-                                  Op.Replace(
-                                      request.focusId,
-                                      [],
-                                      [ ChildNode.owner editId ]) ] }
-                    let! posted =
-                        CoreMailbox.postEvents
-                            host testCaller [ edit ]
-                        |> Async.StartAsTask
-                    requireOk "concurrent edit" posted |> ignore
-                    let! stop =
-                        waitForActorStop host request.focusId 2000
-                    match stop with
-                    | Some ActorSucceeded -> ()
-                    | other ->
-                        Assert.Fail($"expected ActorSucceeded, got {other}")
+                withHost (fun host pool -> task {
+                    let! seeded = seedAskTree host "?ai"
+                    let! request = startAsk host seeded
+                    do! postOwnedChild
+                            host request.focusId "browser-edit"
+                    do! expectActorSucceeded
+                            host pool request.focusId
                 }))
