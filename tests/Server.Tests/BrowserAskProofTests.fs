@@ -1,7 +1,6 @@
 module Gambol.Server.Tests.BrowserAskProofTests
 
 open Xunit
-open Gambol.Server
 open Gambol.Shared
 open Gambol.Server.Tests.AskCancelHarness
 
@@ -22,6 +21,21 @@ let private lifecycleIndexes (events: Ev list) focusId =
             | _ -> false)
     started, finished
 
+let private applyPollChanges graph eventId events =
+    let chrono = List.rev events
+    let start = { graph = graph; eventId = eventId }
+    let folder state event =
+        match event.body with
+        | EventBody.Change _ ->
+            match Ev.apply event state with
+            | ApplyResult.Changed next
+            | ApplyResult.Unchanged next -> next
+            | ApplyResult.Invalid (_, err) ->
+                Assert.Fail($"poll Change: {err}")
+                state
+        | _ -> state
+    (List.fold folder start chrono).graph
+
 [<Collection("Agent ask runner")>]
 type BrowserAskProofTests() =
 
@@ -35,20 +49,15 @@ type BrowserAskProofTests() =
                 fakeReply "from-agent")
             (fun () ->
                 withHost (fun host pool -> task {
-                    let! before =
-                        CoreMailbox.getEventId host
-                        |> Async.StartAsTask
-                    let! request = launchBrowserAsk host "?ai"
-                    expectOneNodeStart request
+                    let! launched = launchBrowserAsk host "?ai"
+                    expectOneNodeStart launched.request
                     do! expectActorSucceeded
-                            host pool request.focusId
-                    do! expectOwnedTexts
-                            host
-                            request.focusId
-                            [ "from-agent" ]
-                    let! poll = pollEventsSince host before
+                            host pool launched.request.focusId
+                    let! poll =
+                        pollEventsSince host launched.pollAfter
                     let started, finished =
-                        lifecycleIndexes poll request.focusId
+                        lifecycleIndexes
+                            poll launched.request.focusId
                     match started, finished with
                     | Some startIdx, Some stopIdx
                         when startIdx < stopIdx ->
@@ -56,11 +65,17 @@ type BrowserAskProofTests() =
                     | other ->
                         Assert.Fail(
                             $"expected ActorStarted then ActorFinished, got {other}")
-                    let hasReplace =
-                        poll
-                        |> List.exists (fun event ->
-                            match event.body with
-                            | EventBody.Change _ -> true
-                            | _ -> false)
-                    Assert.True(hasReplace)
+                    let fromPoll =
+                        applyPollChanges
+                            launched.graphAfterSeed
+                            launched.pollAfter
+                            poll
+                    Assert.Equal<string list>(
+                        [ "from-agent" ],
+                        ownedTexts
+                            fromPoll launched.request.focusId)
+                    do! expectOwnedTexts
+                            host
+                            launched.request.focusId
+                            [ "from-agent" ]
                 }))

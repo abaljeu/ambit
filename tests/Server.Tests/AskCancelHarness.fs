@@ -459,10 +459,20 @@ let private startBrowserAsk host commandId =
         return request
     }
 
+type BrowserAskLaunch =
+    { request: ActorStart
+      pollAfter: EventId
+      graphAfterSeed: Graph }
+
 let launchBrowserAsk host commandText =
     task {
         let! commandId = seedBrowserCommand host commandText
-        return! startBrowserAsk host commandId
+        let! state = graphState host
+        let! request = startBrowserAsk host commandId
+        return
+            { request = request
+              pollAfter = state.eventId
+              graphAfterSeed = state.graph }
     }
 
 let pollEventsSince host afterId =
