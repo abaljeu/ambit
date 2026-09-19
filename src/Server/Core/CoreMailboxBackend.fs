@@ -310,8 +310,13 @@ module internal CoreMailboxBackend =
 
     let private seedEventLog (persist: PersistHandlers) =
         try
-            persist.getEventsSince EventId.beforeAll
-            |> Result.map EventLog.adoptNewestHead
+            match persist.getEventsSince EventId.beforeAll with
+            | Error error -> Error error
+            | Ok [] ->
+                match persist.getEventId () with
+                | Ok graphId -> Ok (EventLog.afterCheckpoint graphId)
+                | Error _ -> Ok EventLog.empty
+            | Ok events -> Ok (EventLog.adoptNewestHead events)
         with ex ->
             Error ex.Message
 

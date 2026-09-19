@@ -101,48 +101,85 @@ let ``adoptNewestHead keeps newest-head and nextId past max`` () =
     Assert.Equal(EventId.fromJson 4, EventLog.nextId log)
     Assert.Equal(EventId.fromJson 3, EventLog.tip log)
 
-[<Fact>]
-let ``recoverState applies Ops ahead and sets tip past ActorStop`` () =
+let private recoverChange childText eventId : Ev * NodeId =
     let childId = NodeId.New()
     let ops =
-        [ Op.NewNode(childId, "recovered")
+        [ Op.NewNode(childId, childText)
           Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ]
+    { event "" (EventBody.Change ops) with
+        id = EventId.fromJson eventId },
+    childId
+
+[<Fact>]
+let ``recover Log greater than Graph applies until concurrent`` () =
+    let change, childId = recoverChange "recovered" 2
     let start =
         { event "" (EventBody.ActorStart(startRequest ()))
             with id = EventId.fromJson 1 }
-    let change =
-        { event "" (EventBody.Change ops) with id = EventId.fromJson 2 }
     let stop =
         { event "" (EventBody.ActorStop(NodeId.New(), ActorSucceeded))
             with id = EventId.fromJson 3 }
     let log = EventLog.adoptNewestHead [ stop; change; start ]
     let before = { graph = Graph.create (); eventId = EventId.zero }
-    let recovered = EventLog.recoverState before log
+    let recovered, kept = EventLog.recover before log
     Assert.Equal("recovered", recovered.graph.nodes.[childId].text)
     Assert.Equal(EventId.fromJson 3, recovered.eventId)
+    Assert.Equal(log.events.Length, kept.events.Length)
 
 [<Fact>]
-let ``recoverState empty EventLog keeps Graph checkpoint EventId`` () =
+let ``recover empty EventLog keeps Graph checkpoint EventId`` () =
     let graph, _ =
         ModelBuilder.createNodes [ "kept" ] (Graph.create ())
     let before =
         { graph = graph; eventId = EventId.fromJson 4 }
-    let recovered = EventLog.recoverState before EventLog.empty
+    let recovered, dropped = EventLog.recover before EventLog.empty
     Assert.Equal(EventId.fromJson 4, recovered.eventId)
     Assert.Equal(before.graph, recovered.graph)
+    Assert.Empty(dropped.events)
+    Assert.Equal(EventId.fromJson 5, dropped.nextId)
 
 [<Fact>]
-let ``recoverState Graph-ahead of EventLog keeps Graph EventId`` () =
-    let change =
-        { event "" (EventBody.Change []) with id = EventId.fromJson 2 }
+let ``recover Graph greater than Log drops log and keeps Graph EventId`` () =
+    let change, _ = recoverChange "lag" 2
     let log = EventLog.adoptNewestHead [ change ]
     let graph, _ =
         ModelBuilder.createNodes [ "ahead" ] (Graph.create ())
     let before =
         { graph = graph; eventId = EventId.fromJson 5 }
-    let recovered = EventLog.recoverState before log
+    let recovered, dropped = EventLog.recover before log
     Assert.Equal(EventId.fromJson 5, recovered.eventId)
     Assert.Equal(before.graph, recovered.graph)
+    Assert.Empty(dropped.events)
+    Assert.Equal(EventId.fromJson 6, dropped.nextId)
+
+[<Fact>]
+let ``recover equal Log and Graph is noop`` () =
+    let change, childId = recoverChange "same" 2
+    let log = EventLog.adoptNewestHead [ change ]
+    let applied, _ =
+        EventLog.recover
+            { graph = Graph.create (); eventId = EventId.zero }
+            log
+    let recovered, kept = EventLog.recover applied log
+    Assert.Equal(applied, recovered)
+    Assert.Equal<Ev list>(log.events, kept.events)
+    Assert.Equal("same", recovered.graph.nodes.[childId].text)
+    Assert.Equal(EventId.fromJson 2, recovered.eventId)
+
+[<Fact>]
+let ``recover moves EventId only by apply`` () =
+    let change, childId = recoverChange "applied" 2
+    let log = EventLog.adoptNewestHead [ change ]
+    let graph, _ =
+        ModelBuilder.createNodes [ "ahead" ] (Graph.create ())
+    let ahead =
+        { graph = graph; eventId = EventId.fromJson 5 }
+    let droppedState, _ = EventLog.recover ahead log
+    Assert.Equal(ahead.eventId, droppedState.eventId)
+    let behind = { graph = Graph.create (); eventId = EventId.zero }
+    let applied, _ = EventLog.recover behind log
+    Assert.Equal(EventId.fromJson 2, applied.eventId)
+    Assert.Equal("applied", applied.graph.nodes.[childId].text)
 
 let private actorStart commandName : Ev =
     event commandName (EventBody.ActorStart(startRequest ()))

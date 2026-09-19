@@ -124,6 +124,14 @@ module EventLogFile =
                 | Error _ -> None
             | Error _ -> None)
 
+    let truncate
+        (stream: FileStream)
+        (offsets: int64 ResizeArray)
+        : unit =
+        stream.SetLength 0L
+        stream.Seek(0L, SeekOrigin.Begin) |> ignore
+        offsets.Clear()
+
     let appendEvent
         (stream: FileStream)
         (offsets: int64 ResizeArray)

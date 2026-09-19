@@ -280,6 +280,86 @@ let ``File empty EventLog recover exposes getEventId Graph checkpoint`` () = tas
 }
 
 [<Fact>]
+let ``File Graph greater than Log drops persist EventLog`` () =
+    let dir = newTempDir ()
+    let persist = FileAgent.persist (FileAgent.create dir)
+    appendOnly
+        persist.handlers
+        [ lifecycle 1 (EventBody.ActorStart sampleActorStart)
+          lifecycle 2 (EventBody.ActorStop(Graph.rootId, ActorSucceeded)) ]
+    Bookkeeping.writeRevision dir 5 |> requireOk "writeRevision"
+    persist.dispose ()
+    let host = CoreMailbox.createFile dir admittedCredentials
+    try
+        let history = CoreMailbox.eventHistory host |> Async.RunSynchronously
+        let eventId = CoreMailbox.getEventId host |> Async.RunSynchronously
+        Assert.Empty(history.events)
+        Assert.Equal(EventId.fromJson 5, eventId)
+    finally
+        CoreMailbox.dispose host
+
+[<Fact>]
+let ``File equal Log and Graph keeps EventLog`` () =
+    let dir = newTempDir ()
+    let persist = FileAgent.persist (FileAgent.create dir)
+    appendOnly
+        persist.handlers
+        [ lifecycle 1 (EventBody.ActorStart sampleActorStart)
+          lifecycle 2 (EventBody.ActorStop(Graph.rootId, ActorSucceeded)) ]
+    Bookkeeping.writeRevision dir 2 |> requireOk "writeRevision"
+    persist.dispose ()
+    let host = CoreMailbox.createFile dir admittedCredentials
+    try
+        let history = CoreMailbox.eventHistory host |> Async.RunSynchronously
+        let eventId = CoreMailbox.getEventId host |> Async.RunSynchronously
+        Assert.Equal(2, history.events.Length)
+        Assert.Equal(EventId.fromJson 2, eventId)
+    finally
+        CoreMailbox.dispose host
+
+[<Fact>]
+let ``Db Graph greater than Log drops persist EventLog`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    let persist = DbAgent.persist (DbAgent.create connStr)
+    appendOnly
+        persist.handlers
+        [ lifecycle 1 (EventBody.ActorStart sampleActorStart)
+          lifecycle 2 (EventBody.ActorStop(Graph.rootId, ActorSucceeded)) ]
+    persist.dispose ()
+    do!
+        Database.rebuildFromDocumentFiles
+            connStr
+            { graph = Graph.create (); eventId = EventId.fromJson 5 }
+    let host = admittedHostDb (DbAgent.create connStr)
+    try
+        let history = CoreMailbox.eventHistory host |> Async.RunSynchronously
+        let eventId = CoreMailbox.getEventId host |> Async.RunSynchronously
+        Assert.Empty(history.events)
+        Assert.Equal(EventId.fromJson 5, eventId)
+    finally
+        CoreMailbox.dispose host
+}
+
+[<Fact>]
+let ``File empty Graph checkpoint live append continues past Graph`` () = task {
+    let dir = newTempDir ()
+    Bookkeeping.writeRevision dir 5 |> requireOk "writeRevision"
+    let host = hostFile dir (Credential "issue-46-continue")
+    try
+        let! started =
+            CoreMailbox.startActor host testCaller sampleActorStart
+            |> Async.StartAsTask
+        requireOk "startActor" started
+        let! history = CoreMailbox.eventHistory host |> Async.StartAsTask
+        let! eventId = CoreMailbox.getEventId host |> Async.StartAsTask
+        Assert.Equal(EventId.fromJson 6, history.events.Head.id)
+        Assert.Equal(EventId.fromJson 6, eventId)
+    finally
+        CoreMailbox.dispose host
+}
+
+[<Fact>]
 let ``getEventId is ActorStop after in-process hello`` () = task {
     let dir = newTempDir ()
     let secret = Credential "issue-46-live-serial"

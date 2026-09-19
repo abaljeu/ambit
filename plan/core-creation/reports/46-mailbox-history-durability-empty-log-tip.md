@@ -2,6 +2,8 @@
 
 Date: 2026-09-19. Ticket: [46 — Mailbox History durability](../issues/46-mailbox-history-durability.md). Status stays `coded`.
 
+Superseded by [46 mailbox History durability reconcile](46-mailbox-history-durability-reconcile.md). Empty→zero is not the door rule. Graph-ahead does not keep a lagging log or max tips.
+
 This is a correction note, not authority. Alan overruled [code-review-46-mailbox-history-durability](code-review-46-mailbox-history-durability.md) Spec (c)1 (empty EventLog → `EventId.zero`).
 
 ## 1. Ruling
