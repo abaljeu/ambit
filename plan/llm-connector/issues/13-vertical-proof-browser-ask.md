@@ -1,8 +1,9 @@
 # 13 — Vertical proof: Browser Ask from what I see
 
-**Status:** defined
+**Status:** coded
 **Blocked by:** None — [[08-agent-ask-from-what-i-see.md|08]], [[09-agent-failure-preserves-children.md|09]], [[10-cancel-by-focus.md|10]], and [[11-simple-extract-format.md|11]] are `done`.
 **Type:** task
+Actual: 1h
 
 ## Context
 
@@ -16,10 +17,10 @@ A person (or Browser-shaped harness) Runs Command text `?ai` under Zoom/Focus wi
 
 ### 1. Proof path
 
-1. [ ] Launch — Browser or harness submits `ActorStart` for `?ai` (same Client encode as `?test`); Server starts the Run Agent Actor.
-2. [ ] Complete — CloudAgents finishes via `setFake` (deterministic Finished text); live Cursor optional extra.
-3. [ ] Poll Focus Children — after success, Poll / Graph shows the new Focus Children under Focus.
-4. [ ] Lifecycle — ActorStarted and ActorFinished on the EventLog; Focus id gone from `liveFocusIds` (secrets are not an observation surface).
+1. [x] Launch — Browser or harness submits `ActorStart` for `?ai` (same Client encode as `?test`); Server starts the Run Agent Actor.
+2. [x] Complete — CloudAgents finishes via `setFake` (deterministic Finished text); live Cursor optional extra.
+3. [x] Poll Focus Children — after success, Poll / Graph shows the new Focus Children under Focus.
+4. [x] Lifecycle — ActorStarted and ActorFinished on the EventLog; Focus id gone from `liveFocusIds` (secrets are not an observation surface).
 
 ### 2. Non-goals
 
@@ -35,3 +36,7 @@ A person (or Browser-shaped harness) Runs Command text `?ai` under Zoom/Focus wi
 ## Comments
 
 - 2026-09-19 — Filed after implement slice 08–11 done. Alan: Client call shape already matches `?test hello`; vertical proof is launch → complete → Poll Focus Children, not a new encode.
+
+## Time
+
+- 2026-09-19 1h — Browser-shaped `?ai` launch via `CommandRequest.oneNodeStart`, `setFake` Finished, Poll Focus Children, ActorStarted then ActorFinished, `liveFocusIds` drop (from chat)
