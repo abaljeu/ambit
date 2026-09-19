@@ -226,7 +226,8 @@ let ``mailbox appends ActorStart and ActorStop in lifecycle order`` () =
           drop = fun _ -> ()
           finish = fun _ _ -> Ok ()
           liveFocusIds = fun () -> Set.empty
-          getFocusId = fun _ -> Some Graph.rootId }
+          getFocusId = fun _ -> Some Graph.rootId
+          trySecretForFocus = fun _ -> None }
     task {
         let host =
             CoreMailbox.host

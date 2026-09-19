@@ -8,6 +8,11 @@ open Gambol.CloudAgents
 [<RequireQualifiedAccess>]
 module RunAgentActor =
 
+    type private CompleteOutcome =
+        | TextReady of string
+        | CompleteFailed
+        | CompleteCancelled
+
     let private askOptions =
         { AgentOptions.DisplayName = Some "Ask"
           ModelHint = None }
@@ -40,22 +45,48 @@ module RunAgentActor =
         | "" -> { RunnerConfig.ApiKey = "" }
         | value -> { RunnerConfig.ApiKey = value }
 
+    let private requestCancel config agentId runId =
+        AgentRunner.cancel config agentId runId |> ignore
+
+    let private pollUntilDone config agentId runId =
+        async {
+            use! _cancel =
+                Async.OnCancel(fun () ->
+                    requestCancel config agentId runId)
+            let! ct = Async.CancellationToken
+            let rec loop () =
+                async {
+                    if ct.IsCancellationRequested then
+                        requestCancel config agentId runId
+                        return CompleteCancelled
+                    else
+                        match AgentRunner.poll config agentId runId with
+                        | Error _ -> return CompleteFailed
+                        | Ok(Finished result) ->
+                            return TextReady result.Text
+                        | Ok(Failed _) -> return CompleteFailed
+                        | Ok Cancelled -> return CompleteCancelled
+                        | Ok Creating
+                        | Ok Running ->
+                            do! Async.Sleep 50
+                            return! loop ()
+                }
+            return! loop ()
+        }
+
     let private complete (input: ActorInput) (document: string) =
-        let config = runnerConfig ()
-        let prompt =
-            systemPrompt input
-            + Environment.NewLine
-            + Environment.NewLine
-            + document
-        match AgentRunner.start config prompt None askOptions with
-        | Error _ -> Error "agent start failed"
-        | Ok(agentId, runId) ->
-            match
-                AgentRunner.waitUntilComplete
-                    config agentId runId 500 None
-            with
-            | Ok result -> Ok result.Text
-            | Error _ -> Error "agent complete failed"
+        async {
+            let config = runnerConfig ()
+            let prompt =
+                systemPrompt input
+                + Environment.NewLine
+                + Environment.NewLine
+                + document
+            match AgentRunner.start config prompt None askOptions with
+            | Error _ -> return CompleteFailed
+            | Ok(agentId, runId) ->
+                return! pollUntilDone config agentId runId
+        }
 
     let private postReplace
         (input: ActorInput)
@@ -106,9 +137,10 @@ module RunAgentActor =
             match packExtract input with
             | Error _ -> return ActorFailed
             | Ok document ->
-                match complete input document with
-                | Error _ -> return ActorFailed
-                | Ok text ->
+                match! complete input document with
+                | CompleteCancelled -> return ActorCancelled
+                | CompleteFailed -> return ActorFailed
+                | TextReady text ->
                     let! planned = planOnCurrent input coreChanges text
                     match planned with
                     | Error _ -> return ActorFailed

@@ -1,6 +1,7 @@
 module Gambol.CloudAgents.Tests.AgentRunnerFakeTests
 
 open System
+open System.Threading
 open Xunit
 open Gambol.CloudAgents
 
@@ -17,12 +18,34 @@ type AgentRunnerFakeTests() =
         { AgentResult.Text = text
           Git = [] }
 
+    let clearFake () =
+        let deadline = DateTime.UtcNow.AddSeconds 2.0
+        let rec spin () =
+            if AgentRunner.setFake None then
+                true
+            elif DateTime.UtcNow > deadline then
+                false
+            else
+                Thread.Sleep 10
+                spin ()
+        Assert.True(spin ())
+
     let withFake handler body =
         Assert.True(AgentRunner.setFake (Some handler))
         try
             body ()
         finally
-            Assert.True(AgentRunner.setFake None)
+            clearFake ()
+
+    let waitFinished agentId runId remainingMs =
+        let rec spin left =
+            match AgentRunner.poll unusedConfig agentId runId with
+            | Ok(Finished result) -> Some result
+            | Ok Running when left > 0 ->
+                Thread.Sleep 10
+                spin (left - 10)
+            | _ -> None
+        spin remainingMs
 
     [<Fact>]
     member _.``setFake Some routes start poll and wait without HTTP``() =
@@ -40,11 +63,11 @@ type AgentRunnerFakeTests() =
                 | Ok(agentId, runId) ->
                     Assert.False(String.IsNullOrEmpty agentId)
                     Assert.False(String.IsNullOrEmpty runId)
-                    Assert.Equal(Some "pack-body", !seen)
-                    match AgentRunner.poll unusedConfig agentId runId with
-                    | Ok(Finished result) ->
+                    match waitFinished agentId runId 2000 with
+                    | None -> Assert.Fail("poll did not finish")
+                    | Some result ->
                         Assert.Equal("fake-reply", result.Text)
-                    | other -> Assert.Fail($"poll: {other}")
+                    Assert.Equal(Some "pack-body", !seen)
                     match
                         AgentRunner.waitUntilComplete
                             unusedConfig agentId runId 10 None
@@ -78,5 +101,44 @@ type AgentRunnerFakeTests() =
                     AgentRunner.start
                         unusedConfig "x" None emptyOptions
                 match started with
-                | Ok _ -> Assert.True(!refused)
-                | Error err -> Assert.Fail($"start: {err}"))
+                | Error err -> Assert.Fail($"start: {err}")
+                | Ok(agentId, runId) ->
+                    let deadline = DateTime.UtcNow.AddSeconds 2.0
+                    while not !refused && DateTime.UtcNow < deadline do
+                        Thread.Sleep 10
+                    Assert.True(!refused)
+                    waitFinished agentId runId 2000 |> ignore)
+
+    [<Fact>]
+    member _.``hanging fake stays Running until cancel``() =
+        withFake
+            (fun _ ->
+                AgentRunner.waitForCancel 8000 |> ignore
+                sampleResult "late")
+            (fun () ->
+                let started =
+                    AgentRunner.start
+                        unusedConfig "hang" None emptyOptions
+                match started with
+                | Error err -> Assert.Fail($"start: {err}")
+                | Ok(agentId, runId) ->
+                    match AgentRunner.poll unusedConfig agentId runId with
+                    | Ok Running -> ()
+                    | other -> Assert.Fail($"expected Running, {other}")
+                    match
+                        AgentRunner.cancel unusedConfig agentId runId
+                    with
+                    | Ok() -> ()
+                    | Error err -> Assert.Fail($"cancel: {err}")
+                    match AgentRunner.poll unusedConfig agentId runId with
+                    | Ok Cancelled -> ()
+                    | other ->
+                        Assert.Fail($"expected Cancelled, {other}")
+                    Assert.True(AgentRunner.fakeCancelCount() >= 1)
+                    match
+                        AgentRunner.waitUntilComplete
+                            unusedConfig agentId runId 10 (Some 500)
+                    with
+                    | Error(ApiError("cancelled", _)) -> ()
+                    | other ->
+                        Assert.Fail($"expected cancelled wait, {other}"))

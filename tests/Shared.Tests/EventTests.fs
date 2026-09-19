@@ -470,6 +470,16 @@ let ``ActorStop carries ActorResult`` () =
     | _ -> failwith "expected ActorStop"
 
 [<Fact>]
+let ``ActorStop carries ActorCancelled`` () =
+    let focusId = NodeId.New()
+    let ev = event "" (EventBody.ActorStop(focusId, ActorCancelled))
+    match ev.body with
+    | EventBody.ActorStop(id, result) ->
+        Assert.Equal(focusId, id)
+        Assert.Equal(ActorCancelled, result)
+    | _ -> failwith "expected ActorStop"
+
+[<Fact>]
 let ``commandName is on the Ev`` () =
     let ev = event "Cut" (EventBody.Change [])
     Assert.Equal("Cut", ev.commandName)

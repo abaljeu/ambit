@@ -71,6 +71,8 @@ module internal CoreEventDispatch =
                 Gambol.Shared.ActorResult.ActorSucceeded
             | ActorFailed ->
                 Gambol.Shared.ActorResult.ActorFailed
+            | ActorCancelled ->
+                Gambol.Shared.ActorResult.ActorCancelled
         lifecycleEvent
             caller
             (Gambol.Shared.EventBody.ActorStop(

@@ -52,6 +52,7 @@ type Authority = Authority of string
 type ActorResult =
     | ActorSucceeded
     | ActorFailed
+    | ActorCancelled
 
 type ActorStart =
     { zoomId: NodeId

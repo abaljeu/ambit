@@ -88,13 +88,25 @@ type AgentAskTests() =
                 CoreMailbox.dispose host
         }
 
+    let clearFake () =
+        let deadline = DateTime.UtcNow.AddSeconds 2.0
+        let rec spin () =
+            if AgentRunner.setFake None then
+                true
+            elif DateTime.UtcNow > deadline then
+                false
+            else
+                Thread.Sleep 10
+                spin ()
+        Assert.True(spin ())
+
     let withFake handler body =
         task {
             Assert.True(AgentRunner.setFake (Some handler))
             try
                 do! body ()
             finally
-                Assert.True(AgentRunner.setFake None)
+                clearFake ()
         }
 
     let sampleResult text =

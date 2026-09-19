@@ -9,8 +9,11 @@ module AgentRunner =
         let handler =
             ref (None: (StartArgs -> AgentResult) option)
         let results = ref Map.empty<string * string, AgentResult>
+        let cancelled = ref Set.empty<string * string>
+        let cancelCount = ref 0
         let inFlight = ref 0
         let gate = obj ()
+        let cancelPulse = new ManualResetEvent(false)
 
         let withFlight work =
             lock gate (fun () -> inFlight := !inFlight + 1)
@@ -21,11 +24,17 @@ module AgentRunner =
 
         let trySet next =
             lock gate (fun () ->
+                match next with
+                | None -> cancelPulse.Set() |> ignore
+                | Some _ -> ()
                 if !inFlight > 0 then
                     false
                 else
                     handler := next
                     results := Map.empty
+                    cancelled := Set.empty
+                    cancelCount := 0
+                    cancelPulse.Reset() |> ignore
                     true)
 
         let current () =
@@ -33,15 +42,39 @@ module AgentRunner =
 
         let store ids result =
             lock gate (fun () ->
-                results := Map.add ids result !results)
+                if Set.contains ids !cancelled then
+                    ()
+                else
+                    results := Map.add ids result !results)
 
         let tryGet ids =
             lock gate (fun () -> Map.tryFind ids !results)
+
+        let markCancelled ids =
+            lock gate (fun () ->
+                cancelled := Set.add ids !cancelled
+                cancelCount := !cancelCount + 1
+                cancelPulse.Set() |> ignore)
+
+        let isCancelled ids =
+            lock gate (fun () -> Set.contains ids !cancelled)
+
+        let waitForCancel (timeoutMs: int) =
+            cancelPulse.WaitOne(timeoutMs)
+
+        let requestedCancels () =
+            lock gate (fun () -> !cancelCount)
 
     let setFake
         (handler: (StartArgs -> AgentResult) option)
         : bool =
         Fake.trySet handler
+
+    /// Block a setFake handler until cancel, or until timeoutMs.
+    let waitForCancel (timeoutMs: int) : bool =
+        Fake.waitForCancel timeoutMs
+
+    let fakeCancelCount () = Fake.requestedCancels ()
 
     let private toStartArgs config prompt repos options : StartArgs =
         { Config = config
@@ -50,13 +83,15 @@ module AgentRunner =
           Options = options }
 
     let private startFake f config prompt repos options =
-        Fake.withFlight (fun () ->
-            let result =
-                f (toStartArgs config prompt repos options)
-            let agentId = Guid.NewGuid().ToString("N")
-            let runId = Guid.NewGuid().ToString("N")
-            Fake.store (agentId, runId) result
-            Ok(agentId, runId))
+        let agentId = Guid.NewGuid().ToString("N")
+        let runId = Guid.NewGuid().ToString("N")
+        ThreadPool.QueueUserWorkItem(fun _ ->
+            Fake.withFlight (fun () ->
+                let result =
+                    f (toStartArgs config prompt repos options)
+                Fake.store (agentId, runId) result))
+        |> ignore
+        Ok(agentId, runId)
 
     let start
         (config: RunnerConfig)
@@ -72,10 +107,13 @@ module AgentRunner =
                     config prompt repos options)
 
     let private pollFake agentId runId =
-        match Fake.tryGet (agentId, runId) with
-        | Some result -> Ok(Finished result)
-        | None ->
-            Error(ApiError("not-found", "fake agent result missing"))
+        let ids = agentId, runId
+        if Fake.isCancelled ids then
+            Ok Cancelled
+        else
+            match Fake.tryGet ids with
+            | Some result -> Ok(Finished result)
+            | None -> Ok Running
 
     let poll
         (config: RunnerConfig)
@@ -95,15 +133,11 @@ module AgentRunner =
         (runId: string)
         : Result<unit, AgentError> =
         match Fake.current () with
-        | Some _ -> Ok()
+        | Some _ ->
+            Fake.markCancelled (agentId, runId)
+            Ok()
         | None ->
             Internal.CursorAdapter.cancelRun config agentId runId
-
-    let private waitFake agentId runId =
-        match Fake.tryGet (agentId, runId) with
-        | Some result -> Ok result
-        | None ->
-            Error(ApiError("not-found", "fake agent result missing"))
 
     let private waitLive
         config
@@ -151,7 +185,9 @@ module AgentRunner =
         (maxWaitMs: int option)
         : Result<AgentResult, AgentError> =
         match Fake.current () with
-        | Some _ -> waitFake agentId runId
+        | Some _ ->
+            waitLive
+                config agentId runId pollIntervalMs maxWaitMs
         | None ->
             Fake.withFlight (fun () ->
                 waitLive
