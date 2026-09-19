@@ -1105,7 +1105,7 @@ let ``file mode startup imports files when database is empty`` () = task {
 
     use client = createFileModeWithDbClientForDir connStr tempDir
     let! json = getStateJson client testFile
-    Assert.Equal(EventId.fromJson 1, decodeRevision json)
+    Assert.Equal(EventId.zero, decodeRevision json)
     Assert.Contains((0, "from-file-bootstrap"), userTreeShape (decodeGraph json))
 }
 

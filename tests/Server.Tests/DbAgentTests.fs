@@ -99,7 +99,7 @@ let ``DbAgent startup sweeps and trims unreachable persisted nodes before ready`
     let! revision = CoreMailbox.getEventId (host agent) |> Async.StartAsTask
     let loaded = state.graph
 
-    Assert.Equal(EventId.fromJson 9, revision)
+    Assert.Equal(EventId.zero, revision)
     Assert.False(loaded.nodes.ContainsKey orphanId)
 
     use checkConn = Database.getConnection connStr
@@ -142,7 +142,7 @@ let ``DbAgent serves reads while sweep buffers FIFO mutations then trims`` () = 
     let! beforeRevision = revisionTask
     Assert.False(CoreMailbox.isReady mailbox)
     Assert.True(beforeState.graph.nodes.ContainsKey orphanId)
-    Assert.Equal(EventId.fromJson 4, beforeRevision)
+    Assert.Equal(EventId.zero, beforeRevision)
     release.Set()
 
     let! secondResult = secondPost
@@ -180,7 +180,7 @@ let ``DbAgent startup sweep failure preserves reads and fails mutations closed``
     let! state = getState agent |> Async.StartAsTask
     let! revision = CoreMailbox.getEventId (host agent) |> Async.StartAsTask
     Assert.True(state.graph.nodes.ContainsKey orphanId)
-    Assert.Equal(EventId.fromJson 4, revision)
+    Assert.Equal(EventId.zero, revision)
 }
 
 [<Fact>]
@@ -547,7 +547,7 @@ let ``DbAgent missing ROOT fails closed while reads stay available`` () = task {
     let! state = getState agent |> Async.StartAsTask
     let! revision = CoreMailbox.getEventId (host agent) |> Async.StartAsTask
     Assert.False(CoreMailbox.isReady (host agent))
-    Assert.Equal(EventId.fromJson 4, revision)
+    Assert.Equal(EventId.zero, revision)
 }
 
 [<Fact>]

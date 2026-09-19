@@ -2,7 +2,7 @@
 
 **Status:** coded
 **Blocked by:** [35b — Browser Run hello](35b-browser-run-hello.md).
-Actual: 4h30m
+Actual: 5h15m
 
 ## Context
 
@@ -42,9 +42,11 @@ Follow modules named in [Core creation architecture](../arch.md) for EventLog pe
 - 2026-09-18 — Explore plan: [46 mailbox History durability explore](../reports/46-mailbox-history-durability-explore.md). Persist write/load already exists from [42 — Migrate PersistHandlers restore and getEventsSince](42-migrate-persisthandlers-restore-and-geteventssince.md); implement should prove the mixed audit sequence across restart and fix mailbox seed order. Status stays `defined`.
 - 2026-09-18 — Implement: seed adopt-newest-head, File/Db recover via `Ev.apply`, `appendEvent` bumps `State.eventId`. Status `coded`. Report: [46 mailbox History durability](../reports/46-mailbox-history-durability.md).
 - 2026-09-18 — Split from 35b §6. Alan: §7 Browser proof can test without this ticket.
+- 2026-09-19 — Empty EventLog recover sets `getEventId` / `State.eventId` to `EventId.zero`. Checkpoint stays recover-only. Status stays `coded`. Note: [46 mailbox History durability empty-log tip](../reports/46-mailbox-history-durability-empty-log-tip.md).
 
 ## Time
 
 - 2026-09-18 1h — Widen plan: EventLog authority, Ops replay, one serial (from chat)
 - 2026-09-18 1h30m — Explore EventLog / persist / seed; write report (from chat)
 - 2026-09-18 2h — Implement seed, recover, one serial (from chat)
+- 2026-09-19 45m — Empty EventLog tip is EventId.zero (from chat)

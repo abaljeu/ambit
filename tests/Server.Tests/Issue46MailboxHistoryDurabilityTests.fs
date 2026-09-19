@@ -268,6 +268,18 @@ let ``Undo after File restart fills Change and rejects ActorStart`` () = task {
 }
 
 [<Fact>]
+let ``File empty EventLog recover exposes getEventId zero`` () = task {
+    let dir = newTempDir ()
+    Bookkeeping.writeRevision dir 4 |> requireOk "writeRevision"
+    let host = CoreMailbox.createFile dir admittedCredentials
+    try
+        let! eventId = CoreMailbox.getEventId host |> Async.StartAsTask
+        Assert.Equal(EventId.zero, eventId)
+    finally
+        CoreMailbox.dispose host
+}
+
+[<Fact>]
 let ``getEventId is ActorStop after in-process hello`` () = task {
     let dir = newTempDir ()
     let secret = Credential "issue-46-live-serial"
