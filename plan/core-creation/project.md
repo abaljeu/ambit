@@ -4,7 +4,7 @@ Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
 Updated: 2026-09-19
 Started: 2026-09-05
-Actual: 64h50m
+Actual: 66h50m
 
 ## Map
 
@@ -34,7 +34,7 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 
 - [[plan/core-creation/issues/01-generalized-server-actor-produce-path.md]] — establish the shared Core Changes path.
 - [[plan/core-creation/issues/02-core-actor-pool.md]] — establish Core-owned Actor pool machinery. Status `ready-for-agent` after rewind named the mailbox/TaskPool shape.
-- [[plan/core-creation/issues/13-delete-runtime-mirror-and-remove-production-persistence-mode.md]] — use Database persistence when available and reject Changes when unavailable.
+- [[plan/core-creation/issues/13-delete-runtime-mirror-and-remove-production-persistence-mode.md]] — use Database persistence when available and reject Changes when unavailable. Status `done`.
 - [[plan/core-creation/issues/14-server-tracks-credentials.md]] — public/secret Authority admission and durable readable Authority; Status `blocked` by the Actor pool baseline.
 - [[plan/core-creation/issues/15-launch-actor-and-hold-span.md]] — historical span delivery superseded by typed launch and ActorStarted; Status `blocked`.
 - [[plan/core-creation/issues/16-track-running-job.md]] — live public-identity query plus durable lifecycle Events; Status `blocked`.
@@ -85,6 +85,7 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 
 ## Reports
 
+- [13 — Delete runtime mirror Persistence:Mode](reports/13-delete-runtime-mirror-persistence-mode.md) — production persist choice is DbStatus; leftover Persistence:Mode is ignored.
 - [[plan/core-creation/reports/kernel-fsproj.md]] — Core boundary and module shape.
 - [[plan/core-creation/reports/solid-core-module-fit.md]] — fit with the existing modules.
 - [[plan/core-creation/reports/current-edit-core-reconciliation.md]] — current edit path and planned authority sequence.
@@ -141,6 +142,8 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 
 ## Comments
 
+- 2026-09-19 — Squash-landed [[plan/core-creation/issues/13-delete-runtime-mirror-and-remove-production-persistence-mode.md|13 — Delete runtime mirror / Persistence:Mode]]. Status `done`.
+- 2026-09-19 — Implemented [13 — Delete runtime mirror and remove production Persistence:Mode](issues/13-delete-runtime-mirror-and-remove-production-persistence-mode.md). Status `done`. Report: [13 — Delete runtime mirror Persistence:Mode](reports/13-delete-runtime-mirror-persistence-mode.md).
 - 2026-09-19 — Reconciled [Core creation architecture](arch.md) to landed [35b — Browser Run hello](issues/35b-browser-run-hello.md) (`done`) and [46 — Mailbox History durability](issues/46-mailbox-history-durability.md) (`done`). Hello-cut checkboxes are `[x]`. Remaining unchecked: none. Report: [Arch reconcile 35b and 46 landed](reports/arch-reconcile-35b-46-landed.md).
 - 2026-09-11 — Added [[plan/core-creation/issues/29-prove-testactor-hello.md]].
 - 2026-09-11 — One-home DRY of Phase 2 issues and locked 06/07. Command text `?test hello` is owned by [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]].

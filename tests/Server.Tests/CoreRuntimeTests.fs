@@ -22,7 +22,6 @@ let private fileRuntime () =
     let dataDir = newTempDir ()
     CoreRuntime.create
         {
-            PersistenceMode = DatabaseSetup.PersistenceMode.File
             DbStatus = DatabaseSetup.DbStatus.Absent
             DbConnectionString = ""
             DataDir = dataDir

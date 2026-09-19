@@ -48,7 +48,6 @@ let ``Git DB flush returns eventId without rewriting disk`` () =
 
     let eventId =
         SavePrep.syncGitArtifacts
-            DatabaseSetup.PersistenceMode.Db
             DatabaseSetup.DbStatus.Ok
             (fun () -> async { return Ok state })
             (fun () -> async { return failwith "file flush should not run" })
@@ -79,7 +78,6 @@ let ``Full DB sync returns eventId without rewriting disk`` () =
 
     let eventId =
         SavePrep.syncDataDir
-            DatabaseSetup.PersistenceMode.Db
             DatabaseSetup.DbStatus.Ok
             (fun () -> async { return Ok state })
             (fun () -> async { return failwith "file flush should not run" })
