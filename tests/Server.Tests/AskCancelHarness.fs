@@ -409,3 +409,78 @@ let postOwnedChild host focusId text =
             |> Async.StartAsTask
         requireOk "postOwnedChild" posted |> ignore
     }
+
+let private seedBrowserCommand host commandText =
+    task {
+        let commandId = NodeId.New()
+        let noteId = NodeId.New()
+        let ops =
+            [ Op.NewNode(commandId, commandText)
+              Op.NewNode(noteId, "visible-context")
+              Op.Replace(
+                  Graph.rootId,
+                  [],
+                  [ ChildNode.owner commandId ])
+              Op.Replace(
+                  commandId,
+                  [],
+                  [ ChildNode.owner noteId ]) ]
+        let event =
+            { id = EventId.zero
+              submissionId = Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change ops }
+        let! posted =
+            CoreMailbox.postGraphOnly host testCaller event
+            |> Async.StartAsTask
+        requireOk "seed Browser Command" posted |> ignore
+        return commandId
+    }
+
+let private startBrowserAsk host commandId =
+    task {
+        let! state = graphState host
+        let siteMap, _ =
+            ViewModel.buildSiteMapFrom
+                state.graph
+                commandId
+                (Sid 0)
+        let request =
+            CommandRequest.oneNodeStart
+                state.graph
+                siteMap
+                commandId
+                state.eventId
+        let! result =
+            CoreMailbox.startActor host testCaller request
+            |> Async.StartAsTask
+        requireOk "startActor" result
+        return request
+    }
+
+type BrowserAskLaunch =
+    { request: ActorStart
+      pollAfter: EventId
+      graphAfterSeed: Graph }
+
+let launchBrowserAsk host commandText =
+    task {
+        let! commandId = seedBrowserCommand host commandText
+        let! state = graphState host
+        let! request = startBrowserAsk host commandId
+        return
+            { request = request
+              pollAfter = state.eventId
+              graphAfterSeed = state.graph }
+    }
+
+let pollEventsSince host afterId =
+    CoreMailbox.getEventsSince host afterId
+    |> Async.StartAsTask
+
+let expectOneNodeStart (request: ActorStart) =
+    Assert.Equal(request.commandId, request.zoomId)
+    Assert.Equal(request.commandId, request.focusId)
+    Assert.Contains(request.commandId, request.graphIds)
+

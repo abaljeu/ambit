@@ -22,10 +22,17 @@ Run an Agent from a Zoom-rooted mixed-format Graph extract, mark Focus in the ou
 - [[plan/llm-connector/issues/05-create-cloud-agent-posts-reply-under-focus.md]] and its Create payload, Md paste-replace implementation, and vertical proof remain cancelled.
 - 2026-09-19 — First pack is Amb extract-walk of the supplied Zoom extract. Nested-tag `<div>` / `<focus>` abandoned. Fable.SimpleXml rejected. Mixed-format owning-codec stays tabled. [[issues/11-simple-extract-format.md|11 — Pack extract with Amb (supplied-fragment walk)]].
 
+## Implementation
+
+1. [13 — Vertical proof: Browser Ask from what I see](issues/13-vertical-proof-browser-ask.md) — Status `coded`.
+2. [11 — Pack extract with Amb (supplied-fragment walk)](issues/11-simple-extract-format.md) — Status `done`.
+3. [08 — Agent ask from what I see](issues/08-agent-ask-from-what-i-see.md) — Status `done`.
+4. [09 — Agent failure preserves children](issues/09-agent-failure-preserves-children.md) — Status `coded` (AI-Actor Failed preserve proof).
+5. [10 — Cancel by Focus](issues/10-cancel-by-focus.md) — Status `done`.
+
 ## Not yet specified
 
-- Implementation tickets: [11 — Pack extract with Amb (supplied-fragment walk)](issues/11-simple-extract-format.md) (Status `done`), [08 — Agent ask from what I see](issues/08-agent-ask-from-what-i-see.md) (Status `done`), [09 — Agent failure preserves children](issues/09-agent-failure-preserves-children.md) (Status `coded`, AI erase proof), [10 — Cancel by Focus](issues/10-cancel-by-focus.md) (Status `done`).
-- Vertical proof filed: [[issues/13-vertical-proof-browser-ask.md|13 — Vertical proof: Browser Ask from what I see]] (Status `defined`).
+None — arch grill closed. Mixed-format owning-codec pack stays tabled under Decisions. Live-Actor chrome is owned by core-creation, not this map.
 
 ## Out of scope
 

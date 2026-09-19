@@ -4,10 +4,12 @@ Stage: build
 Summary: Run an Agent from a Zoom-rooted mixed-format extract and replace Focus Children through ordinary Core Changes.
 Updated: 2026-09-19
 Started: 2026-09-19
-Actual: 15h15m
+Actual: 17h
 
 ## Notes
 
+- 2026-09-19 — Landed [13 — Vertical proof: Browser Ask from what I see](issues/13-vertical-proof-browser-ask.md) on staging (Good). Status `done`.
+- 2026-09-19 — Coded [13 — Vertical proof: Browser Ask from what I see](issues/13-vertical-proof-browser-ask.md): Browser-shaped `?ai` harness, `setFake` Finished, Poll Focus Children, lifecycle drop. Status `coded`.
 - 2026-09-19 — Filed [13 — Vertical proof: Browser Ask from what I see](issues/13-vertical-proof-browser-ask.md) (Status `defined`; frontier). Client encode already shared with `?test`.
 - 2026-09-19 — Landed AI-Actor Failed preserve ([09](issues/09-agent-failure-preserves-children.md)) on staging (Good). Status `done`.
 - 2026-09-19 — Coded [09 — Agent failure preserves children](issues/09-agent-failure-preserves-children.md) AI-Actor erase proof: `setFake` yields Failed; Focus Children preserved; no Error Graph text. Status `coded`.
@@ -32,7 +34,7 @@ Actual: 15h15m
 
 ## Implementation tickets
 
-- [[issues/13-vertical-proof-browser-ask.md|13 — Vertical proof: Browser Ask from what I see]] — Status `defined`; frontier.
+- [13 — Vertical proof: Browser Ask from what I see](issues/13-vertical-proof-browser-ask.md) — Status `done`.
 - [[issues/11-simple-extract-format.md|11 — Pack extract with Amb (supplied-fragment walk)]] — Status `done`.
 - [[issues/08-agent-ask-from-what-i-see.md|08 — Agent ask from what I see]] — Status `done`.
 - [[issues/12-replace-focus-children-from-reply.md|12 — Replace Focus Children from reply]] — Status `cancelled` (Amb replace on 08; nested-tag abandoned).
