@@ -3,10 +3,11 @@
 Stage: slice
 Summary: Run an Agent from a Zoom-rooted mixed-format extract and replace Focus Children through ordinary Core Changes.
 Updated: 2026-09-19
-Actual: 6h55m
+Actual: 7h10m
 
 ## Notes
 
+- 2026-09-19 — First Agent vertical packs with Md strings of the supplied extract. Existing Md artifact write stays owned-subgraph → file. Mixed-format owning-codec serialize and Focus mark stay later.
 - 2026-09-19 — 09 lock: on failure Actor framework does not cause Changes; AI Actor does not erase data (future agentic extensions out of scope).
 - 2026-09-19 — `/to-tickets` (tracer-cut): [[issues/08-agent-ask-from-what-i-see.md|08 — Agent ask from what I see]] (frontier), [[issues/09-agent-failure-preserves-children.md|09 — Agent failure preserves children]], [[issues/10-cancel-by-focus.md|10 — Cancel by Focus]]. Stage `slice`.
 - 2026-09-19 — Arch grill closed: Agent Command `?ai` + args; vertical proof after first implement tickets `defined`; Focus mark spelling deferred to Document ticket; keep CloudAgents DLL; live-Actor chrome on core-creation 21/22 (first Agent vertical = Graph+Poll only).

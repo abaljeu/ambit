@@ -21,7 +21,7 @@ Sources: [[issues/06-define-command-run-agent-redesign.md|06 — Define the revi
    2. [x] Core validates Browser Authority (hello path)
    3. [ ] Resolve ActorName from Agent Command text (`?ai` + args); construct authoritative extract; Focus exclusivity admit
    4. [ ] Register Run Agent Actor, append ActorStarted, schedule body
-   5. [ ] Run Agent Actor → Document mixed-format serialize with Focus marked
+   5. [ ] Run Agent Actor → Document Md strings of the supplied extract (not owned-subgraph file write; mixed-format + Focus mark later)
    6. [ ] Run Agent Actor → CloudAgents complete (system prompt + document + cancel token)
    7. [ ] Document structural parse of complete response; else Plain indentation; never partial structural
    8. [ ] Document Reference-Paste-style plan: replace every Focus Child (empty success clears all)
@@ -51,7 +51,7 @@ Shared segments (Agent paths 2–4):
 1. [x] CoreMailbox one-loop launch / Change / terminal / drop
 2. [x] CoreActorPool live registry + TaskPool outside mailbox
 3. [x] EventLog ActorStarted / ActorFinished
-4. [ ] Document serialize + Reference-Paste replace
+4. [ ] Document Md supplied-subgraph strings + Reference-Paste replace; mixed-format later
 5. [ ] CloudAgents vendor-neutral complete / fail / cancel
 6. [ ] Run Agent Actor orchestration
 
@@ -125,9 +125,10 @@ Narrowest shared test seam:
    1. State
       1. [x] Owning codecs per document
    2. Interface
-      1. [ ] Serialize Graph extract to mixed-format document with one Focus mark (transport-only wrapper; exact sentinel deferred)
-      2. [ ] Complete-response structural parse; atomic fallback to Plain indentation
-      3. [ ] Plan Ops replacing every current Focus Child (empty success removes all)
+      1. [ ] Write the supplied extract to Md strings (not a file). Walk the extract as given. Existing owned-subgraph Md artifact write does not change.
+      2. [ ] Later: serialize Graph extract to mixed-format document with one Focus mark (transport-only wrapper; exact sentinel deferred)
+      3. [ ] Complete-response structural parse; atomic fallback to Plain indentation
+      4. [ ] Plan Ops replacing every current Focus Child (empty success removes all)
    3. Uses
       1. [x] Op / Ev Change construction helpers
 
@@ -173,7 +174,7 @@ Narrowest shared test seam:
 
 1. **Agent Command spelling** — `?ai` plus optional args. That text invokes the Run Agent Actor. Args are ignored for now (reserved).
 2. **Vertical proof timing** — Define the full Browser → Run Agent → Focus-children proof after the first CloudAgents / Run Agent implement tickets are `defined` (not now; not inside the first end-to-end ticket alone).
-3. **Focus mark spelling** — Arch stays “Focus marked.” Exact sentinel spelling and escaping lock on the first Document serialize implement ticket.
+3. **Focus mark spelling** — Arch stays “Focus marked.” Exact sentinel spelling and escaping lock on the mixed-format Document serialize ticket, not on the first Md supplied-subgraph strings call.
 4. **CloudAgents DLL interface** — Keep the existing public CloudAgents API (`start` / `poll` / `cancel` and related types). Do not reshape it for Ambit. The Run Agent Actor (Ambit side) fits system prompt + document + cancellation into that form. Cursor stays Internal; Core never references CloudAgents.
 5. **Failure: no framework Changes, no erase** — On Failed, the Actor framework does not post Changes; the AI Actor does not erase Focus Children. Future agentic extensions that might mutate on failure are out of scope.
 6. **Live Actor chrome** — Browser “Actor live for Focus” UI belongs on [[plan/core-creation/issues/21-client-shows-lock-present.md|21 — Client shows lock-present]] and [[plan/core-creation/issues/22-client-cancels-a-job.md|22 — Client cancels a job]]. This Project’s first Agent vertical proves Graph + Poll only (no live-Actor chrome).
