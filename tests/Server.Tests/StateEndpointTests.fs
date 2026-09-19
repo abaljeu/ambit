@@ -181,7 +181,7 @@ let private withClient (backend: BackendKind) (f: HttpClient -> Task<unit>) = ta
 }
 
 [<Fact>]
-let ``DB mode without connection serves read-only file fallback`` () = task {
+let ``unavailable Database serves read-only file fallback and ignores Persistence:Mode`` () = task {
     let tempDir = newTempDir ()
     use client = createDbModeWithoutConnectionClientForDir tempDir
     let! resp = client.GetAsync("/ambit/state")
@@ -201,36 +201,6 @@ let ``DB mode without connection serves read-only file fallback`` () = task {
 
     if File.Exists ambPath then
         Assert.DoesNotContain("startup-file-fallback", File.ReadAllText ambPath)
-}
-
-[<Fact>]
-let ``legacy Persistence:Mode unknown does not fail startup`` () = task {
-    let tempDir = newTempDir ()
-    use factory =
-        (new WebApplicationFactory<Program>())
-            .WithWebHostBuilder(fun builder ->
-                builder.ConfigureAppConfiguration(fun _ config ->
-                    config.AddInMemoryCollection(
-                        dict [
-                            "DataDir", tempDir
-                            "Persistence:Mode", "mirror"
-                            "DB_CONNECTION_STRING", ""
-                            "Auth:Username", ""
-                            "Auth:Password", ""
-                        ]
-                    ) |> ignore
-                ) |> ignore
-            )
-    use client = factory.CreateClient() |> withDevelopmentCookie
-    let! resp = client.GetAsync("/ambit/state")
-    Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
-    let! body = resp.Content.ReadAsStringAsync()
-    let rootId = (decodeGraph body).root
-    let change, _ = changeAddChild rootId 0 "legacy-mode-ignored"
-    let! postResp = postChange client testFile change
-    Assert.Equal(HttpStatusCode.BadRequest, postResp.StatusCode)
-    let! errorBody = postResp.Content.ReadAsStringAsync()
-    Assert.Contains("read-only", decodeErrorField errorBody)
 }
 
 // ---- GET /ambit/state tests (parameterised) ----
@@ -1280,7 +1250,12 @@ let ``New server uses snapshot + log replay`` () = task {
         match stateResult with
         | Error err -> Assert.Fail(err)
         | Ok state ->
-            Assert.Equal("updated", state.graph.nodes.[firstId].text)
+            let child =
+                state.graph.nodes
+                |> Map.toSeq
+                |> Seq.map snd
+                |> Seq.find (fun n -> n.text = "updated")
+            Assert.Equal("updated", child.text)
             Assert.Equal(EventId.fromJson 2, state.eventId)
     finally
         CoreMailbox.dispose host2

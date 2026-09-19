@@ -329,7 +329,7 @@ let createDbModeWithoutConnectionClientForDir (tempDir: string) =
                         config.AddInMemoryCollection(
                             dict [
                                 "DataDir", tempDir
-                                "Persistence:Mode", "Db"
+                                "Persistence:Mode", "mirror"
                                 "DB_CONNECTION_STRING", ""
                                 "Auth:Username", ""
                                 "Auth:Password", ""
