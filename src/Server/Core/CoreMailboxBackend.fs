@@ -82,7 +82,7 @@ module internal CoreMailboxBackend =
         | ActorStop (_, result, _) ->
             match result with
             | ActorSucceeded -> "ActorStop", "ActorSucceeded"
-            | ActorFailed -> "ActorStop", "ActorFailed"
+            | ActorFailed _ -> "ActorStop", "ActorFailed"
             | ActorCancelled -> "ActorStop", "ActorCancelled"
         | CancelActor _ -> "CancelActor", ""
         | Login _ -> "Login", ""

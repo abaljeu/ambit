@@ -32,7 +32,8 @@ let ``ActorStart adds and ActorStop removes a live Focus`` () =
     let live = ActorLive.applyEvents [ started ] Set.empty
     Assert.True(Set.contains focusId live)
     let stopped =
-        actorStopEvent (EventIdFixtures.storedId 2) focusId ActorSucceeded
+        actorStopEvent
+            (EventIdFixtures.storedId 2) focusId ActorSucceeded
     Assert.False(
         Set.contains focusId (ActorLive.applyEvents [ stopped ] live))
 
@@ -54,26 +55,38 @@ let ``command response ActorStart is live after applyServerTail`` () =
             ActorLive.lastCmdResult [ started ])
 
 [<Fact>]
-let ``ActorStop ActorFailed sets Ask Actor failed lastCmdResult`` () =
+let ``ActorStop ActorFailed sets AI Actor failed lastCmdResult`` () =
     let focusId = NodeId.New()
     let events =
         [ actorStartEvent (EventIdFixtures.storedId 1) focusId
           actorStopEvent
-            (EventIdFixtures.storedId 2) focusId ActorFailed ]
+            (EventIdFixtures.storedId 2) focusId (ActorFailed "") ]
     Assert.Equal(
-        Some (CmdLastResult.Error (Some "Ask", "Actor failed.")),
+        Some (CmdLastResult.Error (Some "AI", "Actor failed.")),
         ActorLive.lastCmdResult events)
+    let named =
+        [ actorStopEvent
+            (EventIdFixtures.storedId 5)
+            focusId
+            (ActorFailed
+                "Could not send message to Cursor: unauthorized") ]
+    Assert.Equal(
+        Some (
+            CmdLastResult.Error (
+                Some "AI",
+                "Could not send message to Cursor: unauthorized")),
+        ActorLive.lastCmdResult named)
     let succeeded =
         [ actorStopEvent
             (EventIdFixtures.storedId 3) focusId ActorSucceeded ]
     Assert.Equal(
-        Some (CmdLastResult.Detail (Some "Ask", "Actor succeeded.")),
+        Some (CmdLastResult.Detail (Some "AI", "Actor succeeded.")),
         ActorLive.lastCmdResult succeeded)
     let cancelled =
         [ actorStopEvent
             (EventIdFixtures.storedId 4) focusId ActorCancelled ]
     Assert.Equal(
-        Some (CmdLastResult.Error (Some "Ask", "Actor cancelled.")),
+        Some (CmdLastResult.Error (Some "AI", "Actor cancelled.")),
         ActorLive.lastCmdResult cancelled)
     Assert.Equal(
         "Run: AI started.",

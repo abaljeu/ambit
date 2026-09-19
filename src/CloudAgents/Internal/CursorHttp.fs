@@ -1,6 +1,7 @@
 namespace Gambol.CloudAgents.Internal
 
 open System
+open System.Net
 open System.Net.Http
 open System.Text
 open FSharp.Data
@@ -63,7 +64,9 @@ module CursorHttp =
                 |> Async.AwaitTask
                 |> Async.RunSynchronously
 
-            if not response.IsSuccessStatusCode then
+            if response.StatusCode = HttpStatusCode.Unauthorized then
+                Error "unauthorized"
+            elif not response.IsSuccessStatusCode then
                 let body =
                     response.Content.ReadAsStringAsync()
                     |> Async.AwaitTask
@@ -109,7 +112,9 @@ module CursorHttp =
                 |> Async.AwaitTask
                 |> Async.RunSynchronously
 
-            if not response.IsSuccessStatusCode then
+            if response.StatusCode = HttpStatusCode.Unauthorized then
+                Error "unauthorized"
+            elif not response.IsSuccessStatusCode then
                 let body =
                     response.Content.ReadAsStringAsync()
                     |> Async.AwaitTask

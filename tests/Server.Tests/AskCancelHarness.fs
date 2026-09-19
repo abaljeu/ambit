@@ -328,7 +328,10 @@ let expectActorSucceeded host pool focusId =
 
 let expectActorFailed host pool focusId =
     task {
-        do! expectActorStop ActorFailed host focusId
+        let! stop = waitForActorStop host focusId 2000
+        match stop with
+        | Some (ActorFailed _) -> ()
+        | other -> Assert.Fail($"expected ActorFailed, got {other}")
         expectLiveGone pool focusId
     }
 

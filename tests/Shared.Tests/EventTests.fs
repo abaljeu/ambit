@@ -445,7 +445,7 @@ let ``Every Ev carries Authority`` () =
           EventBody.Undo(EventIdFixtures.storedId 1, [])
           EventBody.Redo(EventIdFixtures.storedId 1, [])
           EventBody.ActorStart start
-          EventBody.ActorStop(start.focusId, ActorFailed) ]
+          EventBody.ActorStop(start.focusId, ActorFailed "") ]
     bodies
     |> List.iter (fun body ->
         let ev = event "" body

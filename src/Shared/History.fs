@@ -51,7 +51,7 @@ type Authority = Authority of string
 
 type ActorResult =
     | ActorSucceeded
-    | ActorFailed
+    | ActorFailed of string
     | ActorCancelled
 
 type ActorStart =

@@ -10,8 +10,13 @@ module RunAgentActor =
 
     type private CompleteOutcome =
         | TextReady of string
-        | CompleteFailed
+        | CompleteFailed of string
         | CompleteCancelled
+
+    let private failedFromError =
+        function
+        | AuthenticationFailed msg -> CompleteFailed msg
+        | _ -> CompleteFailed ""
 
     let private askOptions =
         { AgentOptions.DisplayName = Some "AI"
@@ -74,10 +79,10 @@ module RunAgentActor =
                         return CompleteCancelled
                     else
                         match AgentRunner.poll config agentId runId with
-                        | Error _ -> return CompleteFailed
+                        | Error err -> return failedFromError err
                         | Ok(Finished result) ->
                             return TextReady result.Text
-                        | Ok(Failed _) -> return CompleteFailed
+                        | Ok(Failed msg) -> return CompleteFailed msg
                         | Ok Cancelled -> return CompleteCancelled
                         | Ok Creating
                         | Ok Running ->
@@ -96,7 +101,7 @@ module RunAgentActor =
                 + Environment.NewLine
                 + document
             match AgentRunner.start config prompt None askOptions with
-            | Error _ -> return CompleteFailed
+            | Error err -> return failedFromError err
             | Ok(agentId, runId) ->
                 return! pollUntilDone config agentId runId
         }
@@ -148,15 +153,15 @@ module RunAgentActor =
     let private runBody (input: ActorInput) coreChanges =
         async {
             match packExtract input with
-            | Error _ -> return ActorFailed
+            | Error _ -> return ActorFailed ""
             | Ok document ->
                 match! complete document with
                 | CompleteCancelled -> return ActorCancelled
-                | CompleteFailed -> return ActorFailed
+                | CompleteFailed msg -> return ActorFailed msg
                 | TextReady text ->
                     let! planned = planOnCurrent input coreChanges text
                     match planned with
-                    | Error _ -> return ActorFailed
+                    | Error _ -> return ActorFailed ""
                     | Ok ops ->
                         do! postReplace input coreChanges ops
                         return ActorSucceeded

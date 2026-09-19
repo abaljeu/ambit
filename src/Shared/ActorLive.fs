@@ -60,6 +60,11 @@ module ActorLive =
           projectedHistory = state.history
           projectedLiveFocusIds = state.actorLiveFocusIds }
 
+    let private actorCmd = Some "AI"
+
+    let private failedText message =
+        if message = "" then "Actor failed." else message
+
     let lastCmdResult (events: Ev list) : CmdLastResult option =
         events
         |> List.fold
@@ -68,10 +73,10 @@ module ActorLive =
                 | EventBody.ActorStart _ ->
                     Some (CmdLastResult.Detail (Some "Run", "AI started."))
                 | EventBody.ActorStop (_, ActorSucceeded) ->
-                    Some (CmdLastResult.Detail (Some "Ask", "Actor succeeded."))
-                | EventBody.ActorStop (_, ActorFailed) ->
-                    Some (CmdLastResult.Error (Some "Ask", "Actor failed."))
+                    Some (CmdLastResult.Detail (actorCmd, "Actor succeeded."))
+                | EventBody.ActorStop (_, ActorFailed message) ->
+                    Some (CmdLastResult.Error (actorCmd, failedText message))
                 | EventBody.ActorStop (_, ActorCancelled) ->
-                    Some (CmdLastResult.Error (Some "Ask", "Actor cancelled."))
+                    Some (CmdLastResult.Error (actorCmd, "Actor cancelled."))
                 | _ -> acc)
             None
