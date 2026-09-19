@@ -1,53 +1,62 @@
-# 08 — Run Agent Actor calls CloudAgents
+# 08 — Agent ask from what I see
 
 **Status:** defined
-**Blocked by:** None — can start immediately.
+**Blocked by:** [[11-simple-extract-format.md|11 — Pack extract with Amb (supplied-fragment walk)]]
 **Type:** task
-Actual: 35m
 
 ## Context
 
-Story path **TestActor hello** is already delivered. This ticket starts Story path **Agent ask from what I see** in [[arch.md|llm-connector architecture]]. Command text `?ai` (optional args ignored) launches the Run Agent Actor. The Actor ignores the Graph extract. It passes Focus Node text into the existing CloudAgents DLL and receives Completed text or a Failed / Cancelled outcome. No Focus-child write, no pack format, no live-Actor chrome (core-creation 21/22). Not a revival of cancelled [[05-create-cloud-agent-posts-reply-under-focus.md|05]].
+Story path **TestActor hello** is already delivered. This ticket implements Story path **Agent ask from what I see** in [[arch.md|llm-connector architecture]]. A person Runs Command text `?ai` with optional args (args ignored). Core launches the Run Agent Actor, which packs the extract with [11 — Pack extract with Amb (supplied-fragment walk)](11-simple-extract-format.md), completes through the existing CloudAgents DLL, replaces Focus Children from the complete response, and finishes through ordinary Core Changes. No live-Actor chrome (core-creation 21/22). Not a revival of cancelled [[05-create-cloud-agent-posts-reply-under-focus.md|05]].
 
 ## What to build
 
-One successful `?ai` launch: the Run Agent Actor starts, calls CloudAgents with Focus text, observes Completed text or a mapped error, then ActorStarted and ActorFinished appear on the EventLog and the live Actor is dropped. Prove with a fake CloudAgents completion. Do not post a Graph Change from this Actor on this ticket.
+One successful Ask from what I see: Browser (or harness) Runs `?ai` (+ optional ignored args), Poll shows new Focus Children from the Agent reply, ActorStarted then ActorFinished appear on the EventLog, and the live Actor is dropped. Prove with a fake CloudAgents completion where possible; live Cursor is optional extra. Concurrent Browser Changes under Focus use ordinary merge only — no Agent-specific stale rules.
 
 ### 1. CoreMailbox / CoreMsg / CoreActorPool
 
 Resolve and launch the Agent Actor on the existing one-mailbox path. State / Interface / Uses: [[arch.md]] module **CoreMailbox / CoreMsg / CoreActorPool**.
 
 1. [ ] Resolve Agent Command — Command text `?ai` with optional args selects the Run Agent Actor; args are ignored.
-2. [ ] Start lifecycle — register, append ActorStarted, schedule the Run Agent Actor body; Focus exclusivity admit.
-3. [ ] Ignore extract — do not serialize or walk included membership for the CloudAgents call.
+2. [ ] Authoritative extract — Core builds the extract from included membership; Focus exclusivity admit.
+3. [ ] Start lifecycle — register, append ActorStarted, schedule the Run Agent Actor body.
 
 ### 2. Run Agent Actor
 
-Call CloudAgents and stop. State / Interface / Uses: [[arch.md]] module **Run Agent Actor**.
+Orchestrate pack → complete → inject → Change. State / Interface / Uses: [[arch.md]] module **Run Agent Actor**.
 
-1. [ ] Pass Focus text — send the Focus Node's current text as the document; system prompt may be a fixed string.
-2. [ ] Map outcome — Completed text, Failed safe error, or Cancelled from existing `start` / `poll` / `cancel`.
-3. [ ] No Graph write — do not replace Focus Children and do not write provider text as Graph Error.
-4. [ ] No error amplification — never turn a pack or provider error into a second Agent call.
+1. [ ] Serialize — ask Document for the Amb extract-walk pack from [11 — Pack extract with Amb (supplied-fragment walk)](11-simple-extract-format.md).
+2. [ ] Complete — fit system prompt + document + cancel into existing CloudAgents `start` / `poll` / `cancel`; map outcomes to Completed | Failed | Cancelled.
+3. [ ] Inject and post — Document plans Focus-child replacement; submit ordinary Core Change; queue Succeeded.
+4. [ ] No error amplification — never turn pack or provider errors into a second Agent call; never write raw provider text as Graph Error.
 
-### 3. CloudAgents (Ambit fit)
+### 3. Document
+
+Amb extract-walk serialize (from 11) and Reference-Paste-style replace. State / Interface / Uses: [[arch.md]] module **Document**. Focus is on the extract Graph (`Graph.focus`).
+
+1. [ ] Use Amb extract-walk pack — consume [11 — Pack extract with Amb (supplied-fragment walk)](11-simple-extract-format.md); do not invent a second format.
+2. [ ] Complete parse — structural parse of the complete response; else Plain indentation; never keep a partial structural parse.
+3. [ ] Replace Focus Children — plan Ops that delete every current Focus Child and create from the response; empty success clears all children.
+
+### 4. CloudAgents (Ambit fit)
 
 Keep the DLL public API. State / Interface / Uses: [[arch.md]] module **CloudAgents**.
 
 1. [ ] Fit locked inputs — Ambit-side mapping into existing `start` / `poll` / `cancel` (no library reshape).
-2. [ ] Fake for tests — Actor tests use fake CloudAgents (narrowest shared test seam).
+2. [ ] Fake for tests — Run Agent Actor tests use fake CloudAgents through ordinary Core Change (narrowest shared test seam).
+
+### 5. Browser / Poll proof
+
+Graph + Poll only; no live-Actor chrome.
+
+1. [ ] Poll Focus Children — after success, Poll / Graph shows the new Focus Children.
+2. [ ] Concurrent edit — a credentialed Change under Focus while the Actor runs reconciles with ordinary merge only (Story path **Credentialed Change while Agent runs** open hop).
 
 ## See also
 
-[[arch.md]], [[spec.md]], [[06-define-command-run-agent-redesign.md]], [[07-lock-run-agent-architecture.md]], [[11-simple-extract-format.md]], [[12-replace-focus-children-from-reply.md]]
+[[arch.md|llm-connector architecture]], [[spec.md]], [[11-simple-extract-format.md|11 — Pack extract with Amb (supplied-fragment walk)]], [[06-define-command-run-agent-redesign.md|06 — Define the revised Command + Run Agent seam]], [[07-lock-run-agent-architecture.md|07 — Lock the Run Agent architecture]]
 
 ## Comments
 
-- 2026-09-19 — Alan: next phases need a Cursor API key. Until a key is available, live-provider tests only cover call **reject** (missing/invalid key). Success path stays on fake CloudAgents.
+- 2026-09-19 — 11 Amb extract-walk landed on staging; pack dependency satisfied.
 - 2026-09-19 — Charted from arch Story path **Agent ask from what I see**. Vertical proof ticket waits until this and sibling implement tickets are `defined` (arch lock).
-- 2026-09-19 — Split: this ticket is Actor + DLL with Focus text only. Pack format and Focus-child replace moved to [11 — Simple extract format](11-simple-extract-format.md) and [12 — Replace Focus Children from reply](12-replace-focus-children-from-reply.md). Md pack cancelled. Stronger serialization tabled.
-
-## Time
-
-- 2026-09-19 15m — lock Md supplied-subgraph strings vs owned-subgraph file write (from chat)
-- 2026-09-19 20m — split Actor+DLL from pack and replace; drop Md (from chat)
+- 2026-09-19 — Pack is [11 — Pack extract with Amb (supplied-fragment walk)](11-simple-extract-format.md). This ticket is blocked by 11. Mixed-format owning-codec stays tabled.

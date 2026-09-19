@@ -9,6 +9,12 @@ type AmbDocumentReadResult = {
     nodes: Map<NodeId, Node>
 }
 
+/// How Amb write walks children of the supplied root.
+[<RequireQualifiedAccess>]
+type AmbWriteWalk =
+    | OwningDocument
+    | SuppliedExtract
+
 [<RequireQualifiedAccess>]
 module AmbDocument =
 
@@ -181,6 +187,87 @@ module AmbDocument =
             let content = line.Substring depth
             depth, content, tryHardKey content)
 
+    let private childOccurrenceCount (graph: Graph) : Map<NodeId, int> =
+        graph.nodes
+        |> Map.toSeq
+        |> Seq.collect (fun (_, node) ->
+            node.children |> Seq.map (fun child -> child.id))
+        |> Seq.groupBy id
+        |> Seq.map (fun (nodeId, xs) -> nodeId, Seq.length xs)
+        |> Map.ofSeq
+
+    let private renderLines (lines: SerializedLine list) : string =
+        let sb = Text.StringBuilder()
+        for line in lines do
+            sb.Append(String.replicate line.depth "\t")
+                .Append(line.content)
+                .Append(nl)
+            |> ignore
+        sb.ToString()
+
+    let private extractNodeLine
+        (occurrenceCount: Map<NodeId, int>)
+        (refTargets: Set<NodeId>)
+        (nodeId: NodeId)
+        (node: Node)
+        : string =
+        let isShared =
+            (occurrenceCount
+             |> Map.tryFind nodeId
+             |> Option.defaultValue 0) > 1
+        let body = node.text
+        let plain = plainLineContent node body
+        let ambiguousPlain =
+            plain.StartsWith("^") || plain.StartsWith("-> ")
+        if isShared
+           || Set.contains nodeId refTargets
+           || ambiguousPlain then
+            ownerLineContent nodeId node body
+        else
+            plain
+
+    let private serializeExtractLines
+        (graph: Graph)
+        (documentRootId: NodeId)
+        : Result<SerializedLine list, string> =
+        match Map.tryFind documentRootId graph.nodes with
+        | None -> Error "document root not found"
+        | Some rootNode ->
+            let refTargets = refTargetIds graph
+            let occurrenceCount = childOccurrenceCount graph
+            let rec writePresent
+                (depth: int)
+                (path: Set<NodeId>)
+                (acc: SerializedLine list)
+                (child: ChildNode)
+                : SerializedLine list =
+                let nodeId = child.id
+                match Map.tryFind nodeId graph.nodes with
+                | None -> acc
+                | Some node ->
+                    let content =
+                        extractNodeLine
+                            occurrenceCount refTargets nodeId node
+                    let line = {
+                        depth = depth
+                        content = content
+                        nodeId = Some nodeId
+                    }
+                    let acc' = line :: acc
+                    if Set.contains nodeId path then
+                        acc'
+                    else
+                        let path' = Set.add nodeId path
+                        node.children
+                        |> List.fold
+                            (writePresent (depth + 1) path')
+                            acc'
+
+            let lines =
+                rootNode.children
+                |> List.fold (writePresent 0 Set.empty) []
+            Ok(List.rev lines)
+
     let serializeLines
         (graph: Graph)
         (documentRootId: NodeId)
@@ -191,14 +278,7 @@ module AmbDocument =
             let documentMembers =
                 DocumentPartition.memberNodeIds graph documentRootId
             let refTargets = refTargetIds graph
-            let occurrenceCount =
-                graph.nodes
-                |> Map.toSeq
-                |> Seq.collect (fun (_, node) ->
-                    node.children |> Seq.map (fun child -> child.id))
-                |> Seq.groupBy id
-                |> Seq.map (fun (nodeId, xs) -> nodeId, Seq.length xs)
-                |> Map.ofSeq
+            let occurrenceCount = childOccurrenceCount graph
 
             let rec writeChild
                 (parentId: NodeId)
@@ -281,17 +361,30 @@ module AmbDocument =
 
             Ok(List.rev lines)
 
+    let serializeLinesWith
+        (walk: AmbWriteWalk)
+        (graph: Graph)
+        (documentRootId: NodeId)
+        : Result<SerializedLine list, string> =
+        match walk with
+        | AmbWriteWalk.OwningDocument ->
+            serializeLines graph documentRootId
+        | AmbWriteWalk.SuppliedExtract ->
+            serializeExtractLines graph documentRootId
+
     /// Serialize one document subtree. The document root is implicit; its children are depth 0.
     let write (graph: Graph) (documentRootId: NodeId) : Result<string, string> =
         serializeLines graph documentRootId
-        |> Result.map (fun lines ->
-            let sb = Text.StringBuilder()
-            for line in lines do
-                sb.Append(String.replicate line.depth "\t")
-                    .Append(line.content)
-                    .Append(nl)
-                |> ignore
-            sb.ToString())
+        |> Result.map renderLines
+
+    /// Serialize with an explicit child walk (owning document vs supplied extract).
+    let writeWith
+        (walk: AmbWriteWalk)
+        (graph: Graph)
+        (documentRootId: NodeId)
+        : Result<string, string> =
+        serializeLinesWith walk graph documentRootId
+        |> Result.map renderLines
 
     /// Previous file lines paired with node ids from the current graph projection.
     let mappedPrevious

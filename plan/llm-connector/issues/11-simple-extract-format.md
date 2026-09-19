@@ -1,33 +1,48 @@
-# 11 — Simple extract format
+# 11 — Pack extract with Amb (supplied-fragment walk)
 
-**Status:** defined
+**Status:** done
 **Blocked by:** None — can start immediately.
 **Type:** task
+Actual: 1h45m
 
 ## Context
 
-Story path **Agent ask from what I see** needs a pack string for the supplied Zoom extract. Owning-codec mixed-format and Md serialize are tabled. This ticket adds a temporary nested-tag format so the Actor can send the extract later without a document codec. Existing Md artifact write (owned subgraph → file) does not change.
+Story path **Agent ask from what I see** needs a pack string for the supplied Zoom extract. The Graph fragment is already given. Reuse the Amb (Ambit `.amb` / `AmbDocument`) codec. Do not invent a nested `<div>` / `<focus>` format. Owning-codec mixed-format and Md extract serialize stay tabled. Existing Md artifact write (owned subgraph → file) does not change.
 
 ## What to build
 
-A Document call that writes the supplied subgraph to a string. Each Node is a `<div>` whose body is the Node text, then nested child tags, then the close tag. A Node with no children is a single line `<div>Text</div>`. The Focus Node uses `<focus>` in place of `<div>`. Walk the extract as given — not Owner-only, not an owning-document partition, not a file write.
+A Document write option that serializes the supplied extract to an Amb string. Walk child lists as given: recurse through Owned and Ref appearances into Nodes present in the extract. Do not stop at nested document or File Node boundaries. Do not persist a file. Do not use owning-document partition. Focus lives on the extract Graph (`Graph.focus` / `withFocus`), not as an Amb-native mark. Parse stays default Amb parse.
 
 ### 1. Document
 
 State / Interface / Uses: [[arch.md]] module **Document**.
 
-1. [ ] Leaf form — a Node with no children serializes as `<div>Text</div>` (or `<focus>Text</focus>` when it is Focus).
-2. [ ] Nested form — a Node with children serializes as `<div>Text` then the child strings then `</div>` (Focus uses `<focus>` / `</focus>`).
-3. [ ] Supplied walk — walk the given extract child lists as supplied; do not bound by Owner edges or document-root ownership.
-4. [ ] Round-trip parse — parse this format back to a child tree; reject a partial parse (no residue).
-5. [ ] No codec / file write — do not call Md or other artifact writers; do not persist.
+1. [x] Amb extract-walk write — serialize the supplied extract with `AmbDocument` using one walk option that follows the extract child lists as given.
+2. [x] Supplied child walk — recurse Owned and Ref appearances into Nodes present in the extract; omit a child id that is missing from the extract.
+3. [x] No document-file bound — do not stop at nested document or File Node boundaries; do not use owning-document partition.
+4. [x] No file write — do not persist; do not call Md or other artifact writers.
+5. [x] Focus on extract Graph — `Graph.withFocus` sets `Graph.focus` on the extract copy; JSON and History omit `focus`. Amb text has no Focus sentinel.
 
-Escaping Node text that contains these tags is out of scope. Stronger serialization stays tabled.
+## Non-goals
+
+- New Amb parse mode. Parse stays default `AmbDocument` / DocumentFormat Amb parse.
+- Nested `<div>` / `<focus>` format. Abandoned.
+- Fable.SimpleXml pack. Rejected: parse is JS/Parsimmon and throws on .NET Server.
+- Mixed-format owning-codec serialize. Tabled.
+- Existing Md artifact write. Unchanged.
 
 ## See also
 
-[[arch.md]], [[08-agent-ask-from-what-i-see.md]], [[12-replace-focus-children-from-reply.md]], [[06-define-command-run-agent-redesign.md]], [[07-lock-run-agent-architecture.md]]
+[[arch.md|llm-connector architecture]], [[08-agent-ask-from-what-i-see.md|08 — Agent ask from what I see]], [[06-define-command-run-agent-redesign.md|06 — Define the revised Command + Run Agent seam]], [[07-lock-run-agent-architecture.md|07 — Lock the Run Agent architecture]]
 
 ## Comments
 
-- 2026-09-19 — Temporary pack: nested `<div>` / `<focus>` strings. Md and mixed-format owning-codec serialize tabled.
+- 2026-09-19 — Landed on staging after Good (Amb extract-walk; Approve with nits accepted).
+- 2026-09-19 — Replan: reuse Amb extract-walk. Nested-tag pack abandoned. Fable.SimpleXml rejected (parse is JS/Parsimmon; throws on .NET Server). GitHub PRs #53 and #54 close without land.
+- 2026-09-19 — Focus seam: ephemeral `Graph.focus` / `withFocus` on the extract copy (already discussed on the abandoned nested-tag increment). Not an Amb-native Focus mark.
+- 2026-09-19 — Coded: `AmbWriteWalk.SuppliedExtract` on `AmbDocument.writeWith`; `Graph.focus` / `withFocus`; JSON and History omit focus.
+
+## Time
+
+- 2026-09-19 45m — replan ticket 11 to Amb extract-walk (from chat)
+- 2026-09-19 1h — Amb extract-walk write and Graph.focus seam (from chat)
