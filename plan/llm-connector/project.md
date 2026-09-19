@@ -1,9 +1,23 @@
 # llm-connector
 
-Stage: spec
+Stage: slice
 Summary: Run an Agent from a Zoom-rooted mixed-format extract and replace Focus Children through ordinary Core Changes.
-Updated: 2026-09-11
+Updated: 2026-09-19
 Actual: 6h55m
+
+## Notes
+
+- 2026-09-19 — 09 lock: on failure Actor framework does not cause Changes; AI Actor does not erase data (future agentic extensions out of scope).
+- 2026-09-19 — `/to-tickets` (tracer-cut): [[issues/08-agent-ask-from-what-i-see.md|08 — Agent ask from what I see]] (frontier), [[issues/09-agent-failure-preserves-children.md|09 — Agent failure preserves children]], [[issues/10-cancel-by-focus.md|10 — Cancel by Focus]]. Stage `slice`.
+- 2026-09-19 — Arch grill closed: Agent Command `?ai` + args; vertical proof after first implement tickets `defined`; Focus mark spelling deferred to Document ticket; keep CloudAgents DLL; live-Actor chrome on core-creation 21/22 (first Agent vertical = Graph+Poll only).
+- 2026-09-19 — Locked Agent Command spelling: `?ai` + optional args invokes Run Agent Actor; args ignored for now.
+- 2026-09-19 — Published [[spec.md]] then [[arch.md]] from locked [[issues/06-define-command-run-agent-redesign.md|06]] / [[issues/07-lock-run-agent-architecture.md|07]] (checkboxes for delivered vs open). Stage `arch`.
+
+## Implementation tickets
+
+- [[issues/08-agent-ask-from-what-i-see.md|08 — Agent ask from what I see]] — Status `defined`; frontier.
+- [[issues/09-agent-failure-preserves-children.md|09 — Agent failure preserves children]] — Status `defined`; blocked by 08.
+- [[issues/10-cancel-by-focus.md|10 — Cancel by Focus]] — Status `defined`; blocked by 08.
 
 ## Locked Restart
 
@@ -13,4 +27,4 @@ Draft PR #4 (cloud-agent Create slice / POST `/ambit/actors` / Md reply under Fo
 
 [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]] locks the replacement Agent behavior, including Command-text dispatch and command text `?test hello`. [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] locks the typed boundaries, Event sequence, Authority identities, mailbox lifecycle, recovery, and test seams. The Run Agent Actor orchestrates Document, CloudAgents, and ordinary Core Changes.
 
-The Phase 1 and Phase 1b gates are complete. The Project remains at `spec`; no Agent implementation issue or vertical-proof issue exists yet. The next serial executable work is the provider-neutral Core lifecycle in [[plan/core-creation/issues/Implementation Planning and Record.md]]. After that lifecycle is rebuilt, specify the smallest vendor-neutral CloudAgents implementation increment from the locked behavior and architecture.
+The Phase 1 and Phase 1b gates are complete. The Project is at `arch` after publishing spec.md and arch.md; no Agent implementation issue or vertical-proof issue exists yet. The next serial executable work is the provider-neutral Core lifecycle in [[plan/core-creation/issues/Implementation Planning and Record.md]]. After that lifecycle is rebuilt, specify the smallest vendor-neutral CloudAgents implementation increment from the locked behavior and architecture.

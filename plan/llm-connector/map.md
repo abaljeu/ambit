@@ -23,8 +23,8 @@ Run an Agent from a Zoom-rooted mixed-format Graph extract, mark Focus in the ou
 
 ## Not yet specified
 
-- Convert [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]] and [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] into the smallest vendor-neutral CloudAgents implementation issue after the provider-neutral Core lifecycle is rebuilt.
-- Define the replacement vertical proof after the Core lifecycle and Agent implementation contracts are executable.
+- Implementation tickets charted: [[issues/08-agent-ask-from-what-i-see.md|08]], [[issues/09-agent-failure-preserves-children.md|09]], [[issues/10-cancel-by-focus.md|10]]. Frontier: 08.
+- Define the replacement vertical proof after the first CloudAgents / Run Agent implement tickets are `defined` (arch lock).
 
 ## Out of scope
 
