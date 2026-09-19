@@ -195,6 +195,20 @@ let ownedChildren host focusId =
                 child.id, text)
     }
 
+let private postBrowserChange host label ops =
+    task {
+        let event =
+            { id = EventId.zero
+              submissionId = Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change ops }
+        let! posted =
+            CoreMailbox.postGraphOnly host testCaller event
+            |> Async.StartAsTask
+        requireOk label posted |> ignore
+    }
+
 let seedAskTree host commandText =
     task {
         let zoomId = NodeId.New()
@@ -213,16 +227,7 @@ let seedAskTree host commandText =
                   [],
                   [ ChildNode.owner commandId
                     ChildNode.owner noteId ]) ]
-        let event =
-            { id = EventId.zero
-              submissionId = Guid.NewGuid()
-              authority = Authority "Browser"
-              commandName = ""
-              body = EventBody.Change ops }
-        let! posted =
-            CoreMailbox.postGraphOnly host testCaller event
-            |> Async.StartAsTask
-        requireOk "seed" posted |> ignore
+        do! postBrowserChange host "seed" ops
         return
             { zoomId = zoomId
               commandId = commandId
@@ -256,22 +261,13 @@ let startLiveAsk host pool commandText =
 let seedCommand host text =
     task {
         let commandId = NodeId.New()
-        let event =
-            { id = EventId.zero
-              submissionId = Guid.NewGuid()
-              authority = Authority "Browser"
-              commandName = ""
-              body =
-                EventBody.Change
-                    [ Op.NewNode(commandId, text)
-                      Op.Replace(
-                          Graph.rootId,
-                          [],
-                          [ ChildNode.owner commandId ]) ] }
-        let! posted =
-            CoreMailbox.postGraphOnly host testCaller event
-            |> Async.StartAsTask
-        requireOk "seed command" posted |> ignore
+        let ops =
+            [ Op.NewNode(commandId, text)
+              Op.Replace(
+                  Graph.rootId,
+                  [],
+                  [ ChildNode.owner commandId ]) ]
+        do! postBrowserChange host "seed command" ops
         return commandId
     }
 
@@ -425,16 +421,7 @@ let private seedBrowserCommand host commandText =
                   commandId,
                   [],
                   [ ChildNode.owner noteId ]) ]
-        let event =
-            { id = EventId.zero
-              submissionId = Guid.NewGuid()
-              authority = Authority "Browser"
-              commandName = ""
-              body = EventBody.Change ops }
-        let! posted =
-            CoreMailbox.postGraphOnly host testCaller event
-            |> Async.StartAsTask
-        requireOk "seed Browser Command" posted |> ignore
+        do! postBrowserChange host "seed Browser Command" ops
         return commandId
     }
 
