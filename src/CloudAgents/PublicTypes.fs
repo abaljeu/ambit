@@ -33,6 +33,13 @@ type AgentStatus =
 type RunnerConfig =
     { ApiKey: string }
 
+/// Arguments passed to `AgentRunner.start` and to a `setFake` handler.
+type StartArgs =
+    { Config: RunnerConfig
+      Prompt: string
+      Repos: RepoConfig list option
+      Options: AgentOptions }
+
 /// Errors that can occur during agent operations
 type AgentError =
     | AuthenticationFailed of string

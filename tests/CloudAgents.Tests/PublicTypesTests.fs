@@ -13,6 +13,18 @@ let ``RepoConfig should hold URL and optional ref`` () =
     Assert.Equal(Some "main", config.StartingRef)
 
 [<Fact>]
+let ``StartArgs groups start config prompt repos and options`` () =
+    let args =
+        { StartArgs.Config = { RunnerConfig.ApiKey = "k" }
+          Prompt = "pack"
+          Repos = None
+          Options =
+            { AgentOptions.DisplayName = None
+              ModelHint = None } }
+    Assert.Equal("pack", args.Prompt)
+    Assert.Equal("k", args.Config.ApiKey)
+
+[<Fact>]
 let ``AgentOptions can be empty`` () =
     let options =
         { AgentOptions.DisplayName = None

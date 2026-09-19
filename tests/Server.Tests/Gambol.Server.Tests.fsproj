@@ -42,6 +42,7 @@
     <Compile Include="CoreActorPoolTests.fs" />
     <Compile Include="TestActorHelloTests.fs" />
     <Compile Include="TestActorCommandErrorTests.fs" />
+    <Compile Include="AgentAskTests.fs" />
     <Compile Include="GitSaveEndpointTests.fs" />
     <Compile Include="WorkspaceWebDavTests.fs" />
     <Compile Include="HttpResponseLogTests.fs" />
@@ -60,6 +61,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Server\Gambol.Server.fsproj" />
+    <ProjectReference Include="..\..\src\CloudAgents\Gambol.CloudAgents.fsproj" />
     <ProjectReference Include="..\..\src\Shared\Gambol.Shared.fsproj" />
     <ProjectReference Include="..\..\src\Shared\dotnet\Gambol.Shared.DotNet.fsproj" />
     <ProjectReference Include="..\..\src\Shared\documents\Gambol.Shared.Documents.fsproj" />

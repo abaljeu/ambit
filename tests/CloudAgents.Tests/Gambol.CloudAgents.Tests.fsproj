@@ -3,11 +3,14 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <IsPackable>false</IsPackable>
+    <XunitMaxParallelThreads>1</XunitMaxParallelThreads>
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="CloudAgentsRunnerCollection.fs" />
     <Compile Include="PublicTypesTests.fs" />
     <Compile Include="AgentRunnerTests.fs" />
+    <Compile Include="AgentRunnerFakeTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

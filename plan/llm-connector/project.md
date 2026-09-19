@@ -4,10 +4,12 @@ Stage: build
 Summary: Run an Agent from a Zoom-rooted mixed-format extract and replace Focus Children through ordinary Core Changes.
 Updated: 2026-09-19
 Started: 2026-09-19
-Actual: 8h40m
+Actual: 11h25m
 
 ## Notes
 
+- 2026-09-19 — Landed [08 — Agent ask from what I see](issues/08-agent-ask-from-what-i-see.md) on staging (Good). Status `done`.
+- 2026-09-19 — Coded [08 — Agent ask from what I see](issues/08-agent-ask-from-what-i-see.md): `setFake`, Run Agent Actor, Amb pack, Focus-child replace. Status `done`.
 - 2026-09-19 — Locked CloudAgents `setFake` on the DLL (`(StartArgs -> AgentResult) option -> bool`); success tests use fake; live call-reject until API key.
 - 2026-09-19 — Landed [11 — Pack extract with Amb (supplied-fragment walk)](issues/11-simple-extract-format.md) on staging (Good). Status `done`.
 - 2026-09-19 — Live CloudAgents / API key: until a key exists, only prove call reject; success stays on fake ([[issues/08-agent-ask-from-what-i-see.md|08 — Agent ask from what I see]]).
@@ -24,10 +26,10 @@ Actual: 8h40m
 ## Implementation tickets
 
 - [[issues/11-simple-extract-format.md|11 — Pack extract with Amb (supplied-fragment walk)]] — Status `done`.
-- [[issues/08-agent-ask-from-what-i-see.md|08 — Agent ask from what I see]] — Status `defined`; frontier.
-- [[issues/12-replace-focus-children-from-reply.md|12 — Replace Focus Children from reply]] — Status `defined`; blocked by 08 and 11.
+- [[issues/08-agent-ask-from-what-i-see.md|08 — Agent ask from what I see]] — Status `done`.
+- [[issues/12-replace-focus-children-from-reply.md|12 — Replace Focus Children from reply]] — Status `defined`; Amb replace delivered on 08 (nested-tag stale).
 - [[issues/09-agent-failure-preserves-children.md|09 — Agent failure preserves children]] — Status `done` (framework via TestActor / `?test`); AI-Actor erase deferred until 08 and 12. Report: [[reports/framework-failure-preserves-children.md]]; review: [[reports/code-review-framework-failure-preserves-children.md]].
-- [[issues/10-cancel-by-focus.md|10 — Cancel by Focus]] — Status `defined`; blocked by 08.
+- [[issues/10-cancel-by-focus.md|10 — Cancel by Focus]] — Status `defined`; frontier (08 done).
 
 ## Locked Restart
 
