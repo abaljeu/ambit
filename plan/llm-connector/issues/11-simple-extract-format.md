@@ -33,7 +33,7 @@ State / Interface / Uses: [[arch.md]] module **Document**.
 
 ## See also
 
-[[arch.md]], [[08-agent-ask-from-what-i-see.md]], [[06-define-command-run-agent-redesign.md]], [[07-lock-run-agent-architecture.md]]
+[[arch.md|llm-connector architecture]], [[08-agent-ask-from-what-i-see.md|08 — Agent ask from what I see]], [[06-define-command-run-agent-redesign.md|06 — Define the revised Command + Run Agent seam]], [[07-lock-run-agent-architecture.md|07 — Lock the Run Agent architecture]]
 
 ## Comments
 

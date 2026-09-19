@@ -112,7 +112,7 @@ Narrowest shared test seam:
    1. State
       1. [ ] Job memory: CloudAgents agentId / runId for poll and cancel
    2. Interface
-      1. [ ] Orchestrate Document serialize → CloudAgents complete → Document inject → Core Change
+      1. [ ] Orchestrate Document Amb extract-walk serialize → CloudAgents complete → Document inject → Core Change
       2. [ ] On cancel token: request CloudAgents cancel and stop
       3. [ ] Never turn pack or provider errors into a second Agent call; never write raw provider text as Graph Error
    3. Uses
