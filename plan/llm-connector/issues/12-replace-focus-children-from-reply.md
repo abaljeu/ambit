@@ -37,3 +37,7 @@ Graph + Poll only; no live-Actor chrome.
 ## See also
 
 [[arch.md]], [[spec.md]], [[08-agent-ask-from-what-i-see.md]], [[11-simple-extract-format.md]], [[06-define-command-run-agent-redesign.md]], [[07-lock-run-agent-architecture.md]]
+
+## Comments
+
+- 2026-09-19 — Replace for Amb moved into [08 — Agent ask from what I see](08-agent-ask-from-what-i-see.md). This ticket's nested-tag pack is stale; do not implement 12 separately.

@@ -19,15 +19,15 @@ Sources: [[issues/06-define-command-run-agent-redesign.md|06 — Define the revi
 2. **Agent ask from what I see**
    1. [x] Browser names Command Node; typed launch membership (Zoom, Focus, Command, included ids, event id)
    2. [x] Core validates Browser Authority (hello path)
-   3. [ ] Resolve ActorName from Agent Command text (`?ai` + args); construct authoritative extract; Focus exclusivity admit
-   4. [ ] Register Run Agent Actor, append ActorStarted, schedule body
-   5. [ ] Run Agent Actor → Document Amb extract-walk serialize (Focus on extract Graph)
-   6. [ ] Run Agent Actor → CloudAgents complete (system prompt + document + cancel token)
-   7. [ ] Document structural parse of complete response; else Plain indentation; never partial structural
-   8. [ ] Document Reference-Paste-style plan: replace every Focus Child (empty success clears all)
-   9. [ ] Run Agent Actor submits ordinary Core Change; await optional for newer basis
-   10. [ ] Succeeded → ActorFinished; drop live row and secret
-   11. [ ] Browser Poll shows new Focus Children
+   3. [x] Resolve ActorName from Agent Command text (`?ai` + args); construct authoritative extract; Focus exclusivity admit
+   4. [x] Register Run Agent Actor, append ActorStarted, schedule body
+   5. [x] Run Agent Actor → Document Amb extract-walk serialize (Focus on extract Graph)
+   6. [x] Run Agent Actor → CloudAgents complete (system prompt + document + cancel token)
+   7. [x] Document structural parse of complete response; else Plain indentation; never partial structural
+   8. [x] Document Reference-Paste-style plan: replace every Focus Child (empty success clears all)
+   9. [x] Run Agent Actor submits ordinary Core Change; await optional for newer basis
+   10. [x] Succeeded → ActorFinished; drop live row and secret
+   11. [x] Browser Poll shows new Focus Children
 
 3. **Agent failure preserves children**
    Rule: on failure the Actor framework does not cause Changes; the AI Actor does not erase data (future agentic extensions out of scope).
@@ -45,18 +45,18 @@ Sources: [[issues/06-define-command-run-agent-redesign.md|06 — Define the revi
 5. **Credentialed Change while Agent runs**
    1. [x] Browser Change posts through CoreMailbox
    2. [x] Ordinary merge / amendment; lifecycle Events ignored by merge
-   3. [ ] Concurrent edit under Focus reconciles without Agent-specific stale rules
+   3. [x] Concurrent edit under Focus reconciles without Agent-specific stale rules
 
 Shared segments (Agent paths 2–4):
 1. [x] CoreMailbox one-loop launch / Change / terminal / drop
 2. [x] CoreActorPool live registry + TaskPool outside mailbox
 3. [x] EventLog ActorStarted / ActorFinished
-4. [ ] Document Amb extract-walk serialize + Reference-Paste replace
-5. [ ] CloudAgents vendor-neutral complete / fail / cancel
-6. [ ] Run Agent Actor orchestration
+4. [x] Document Amb extract-walk serialize + Reference-Paste replace
+5. [x] CloudAgents vendor-neutral complete / fail / cancel
+6. [x] Run Agent Actor orchestration
 
 Narrowest shared test seam:
-1. [ ] Run Agent Actor with CloudAgents `setFake` installed (DLL-side fake; not live Cursor HTTP), through ordinary Core Change
+1. [x] Run Agent Actor with CloudAgents `setFake` installed (DLL-side fake; not live Cursor HTTP), through ordinary Core Change
 2. [x] Public Core lifecycle with TestActor (already proven)
 
 ## 2. Module map
@@ -93,7 +93,7 @@ Narrowest shared test seam:
       1. [x] StartActor / postEvents / ActorStop; Authority validation
       2. [ ] Cancelled terminal by Focus
       3. [x] ActorName resolve from Command text (`test` hello path)
-      4. [ ] ActorName resolve for Agent Command form
+      4. [x] ActorName resolve for Agent Command form
    3. Uses
       1. [x] PersistHandlers / EventLog
       2. [x] Registered Actor definitions (composition)
@@ -112,13 +112,13 @@ Narrowest shared test seam:
    1. State
       1. [ ] Job memory: CloudAgents agentId / runId for poll and cancel
    2. Interface
-      1. [ ] Orchestrate Document Amb extract-walk serialize → CloudAgents complete → Document inject → Core Change
+      1. [x] Orchestrate Document Amb extract-walk serialize → CloudAgents complete → Document inject → Core Change
       2. [ ] On cancel token: request CloudAgents cancel and stop
-      3. [ ] Never turn pack or provider errors into a second Agent call; never write raw provider text as Graph Error
+      3. [x] Never turn pack or provider errors into a second Agent call; never write raw provider text as Graph Error
    3. Uses
-      1. [ ] Document Amb extract-walk serialize / Reference-Paste inject
-      2. [ ] CloudAgents
-      3. [ ] CoreMailbox postEvents
+      1. [x] Document Amb extract-walk serialize / Reference-Paste inject
+      2. [x] CloudAgents
+      3. [x] CoreMailbox postEvents
 
 6. **Document (Amb pack + Reference Paste)**
    Files: Shared Document codec surfaces (existing Reference Paste facts: [[reports/reference-paste-and-change-post-facts.md]]). First pack reuses Amb (`AmbDocument`) with one extract-walk write option. Existing Md artifact write does not change.
@@ -129,8 +129,8 @@ Narrowest shared test seam:
       1. [x] Amb-write the supplied extract: follow child lists as given (Owned and Ref recurse into Nodes present in the extract); do not stop at nested document or File Node boundaries; do not persist a file; do not use owning-document partition
       2. Parse of this increment is default Amb parse. No new parse mode.
       3. [ ] Tabled: serialize Graph extract to mixed-format document with owning codecs and Focus marked
-      4. [ ] Complete-response structural parse; atomic fallback to Plain indentation
-      5. [ ] Plan Ops replacing every current Focus Child (empty success removes all)
+      4. [x] Complete-response structural parse; atomic fallback to Plain indentation
+      5. [x] Plan Ops replacing every current Focus Child (empty success removes all)
    3. Uses
       1. [x] Op / Ev Change construction helpers
 
@@ -140,8 +140,8 @@ Narrowest shared test seam:
       1. [x] RunnerConfig (API key); no Ambit/Core references
    2. Interface
       1. [x] Existing public API: start / poll / cancel / waitUntilComplete (keep; do not reshape for Ambit)
-      2. [ ] `setFake: (StartArgs -> AgentResult) option -> bool` — `Some f` routes start/poll/wait through `f` (no HTTP); `None` restores CursorAdapter. Returns false if refused (e.g. live work in flight). Process-local; tests clear in finally.
-      3. [ ] Ambit Run Agent Actor fits system prompt + document + cancel into that API and maps statuses to Completed | Failed | Cancelled outcomes
+      2. [x] `setFake: (StartArgs -> AgentResult) option -> bool` — `Some f` routes start/poll/wait through `f` (no HTTP); `None` restores CursorAdapter. Returns false if refused (e.g. live work in flight). Process-local; tests clear in finally.
+      3. [x] Ambit Run Agent Actor fits system prompt + document + cancel into that API and maps statuses to Completed | Failed | Cancelled outcomes
       4. [x] Provider selection and Cursor protocol stay inside composition / Internal
    3. Uses
       1. [x] Cursor HTTP only behind Internal adapter
@@ -161,8 +161,8 @@ Narrowest shared test seam:
 1. [x] **Browser ↔ HTTP Adapter** — typed launch / Change / Poll encoding
 2. [x] **HTTP Adapter ↔ CoreMailbox** — sole Core door
 3. [x] **CoreActorPool ↔ Actor definitions** — register TestActor / Run Agent Actor at composition
-4. [ ] **Run Agent Actor ↔ Document** — Amb extract-walk serialize and Reference-Paste inject (generic, not Agent-only APIs)
-5. [ ] **Run Agent Actor ↔ CloudAgents** — vendor-neutral complete / fail / cancel
+4. [x] **Run Agent Actor ↔ Document** — Amb extract-walk serialize and Reference-Paste inject (generic, not Agent-only APIs)
+5. [x] **Run Agent Actor ↔ CloudAgents** — vendor-neutral complete / fail / cancel
 6. [ ] **CloudAgents ↔ Cursor adapter** — Internal only; vendor contract tests
 7. [x] **CoreMsg admit ↔ postEvents** — Actor Changes while registered
 8. [ ] **Browser cancel ↔ Core Cancelled** — Focus NodeId terminal
