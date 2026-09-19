@@ -19,7 +19,7 @@ let initialModel: VM =
     { graph = initialGraph
       eventId = EventId.zero
       history = ClientHistory.clear ()
-      liveFocusIds = Set.empty
+      actorLiveFocusIds = Set.empty
       selectedNodes = None
       mode = Selecting
       siteMap = ViewModel.emptySiteMap
@@ -143,7 +143,7 @@ and private applyBootNovel (novel: Ev list) (ready: bool) =
                     newState.graph,
                     newState.eventId,
                     newState.history,
-                    newState.liveFocusIds,
+                    newState.actorLiveFocusIds,
                     ready)))
         BootCacheStore.appendEvents currentFile novel
         bootLog <- bootLog @ novel

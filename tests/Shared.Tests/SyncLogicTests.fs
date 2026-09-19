@@ -240,12 +240,12 @@ let ``applyServerTail ActorStart adds and ActorStop removes a live Focus`` () =
     match applyTail [ started ] st with
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
     | Ok afterStart ->
-        Assert.True(Set.contains focusId afterStart.liveFocusIds)
+        Assert.True(Set.contains focusId afterStart.actorLiveFocusIds)
         let stopped = actorStopEvent (EventIdFixtures.storedId 7) focusId
         match applyTail [ stopped ] afterStart with
         | Error msg -> failwith $"Expected Ok, got Error: {msg}"
         | Ok afterStop ->
-            Assert.False(Set.contains focusId afterStop.liveFocusIds)
+            Assert.False(Set.contains focusId afterStop.actorLiveFocusIds)
 
 [<Fact>]
 let ``applyServerTail carries SetUpdateTime after SetText as poll stamp path`` () =
@@ -351,7 +351,7 @@ let ``applyServerTail skips structural Replace on Unloaded parent`` () =
           history = ClientHistory.clear ()
           eventId = EventIdFixtures.storedId 3
           eventLog = EventLog.empty
-          liveFocusIds = Set.empty }
+          actorLiveFocusIds = Set.empty }
     let change =
         { id = EventIdFixtures.storedId 4
           submissionId = System.Guid.NewGuid()
@@ -393,7 +393,7 @@ let ``applyServerTail applies header facts on Unloaded resident Node`` () =
           history = ClientHistory.clear ()
           eventId = EventIdFixtures.storedId 2
           eventLog = EventLog.empty
-          liveFocusIds = Set.empty }
+          actorLiveFocusIds = Set.empty }
     let change =
         { id = EventIdFixtures.storedId 3
           submissionId = System.Guid.NewGuid()
@@ -447,7 +447,7 @@ let ``applySyncResponse installs complete child list as Loaded and preserves own
             ClientHistory.record { mkChange 1 with commandName = "test" } (ClientHistory.clear ())
           eventId = EventIdFixtures.storedId 5
           eventLog = EventLog.empty
-          liveFocusIds = Set.empty }
+          actorLiveFocusIds = Set.empty }
     let child =
         Node.Create(childId, text = "leaf", owner = wsId)
     let loadedWs =
@@ -549,7 +549,7 @@ let ``applySyncResponse empty Loaded child list marks Loaded without History cle
             ClientHistory.record { past with commandName = "test" } (ClientHistory.clear ())
           eventId = EventIdFixtures.storedId 4
           eventLog = EventLog.empty
-          liveFocusIds = Set.empty }
+          actorLiveFocusIds = Set.empty }
     let loadedEmpty = { ws with children = []; childrenStatus = Loaded }
     match
         SyncLogic.applySyncResponse
@@ -616,7 +616,7 @@ let private seededEditState () =
           eventId = EventId.zero
           history = ClientHistory.clear ()
           eventLog = EventLog.empty
-          liveFocusIds = Set.empty }
+          actorLiveFocusIds = Set.empty }
     match SyncLogic.applyLocalEvent change state0 with
     | Error msg -> failwith msg
     | Ok (state, pending) -> nodeId, state, pending, change
@@ -701,7 +701,7 @@ let ``applyServerTail with changes preserves History`` () =
           eventId = state0.eventId
           history = st.history
           eventLog = EventLog.empty
-          liveFocusIds = Set.empty }
+          actorLiveFocusIds = Set.empty }
     match applyTail [ change ] client with
     | Error msg -> failwith msg
     | Ok result -> Assert.Equal(st.history, result.history)

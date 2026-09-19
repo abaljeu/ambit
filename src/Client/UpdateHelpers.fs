@@ -150,7 +150,7 @@ let readEditInputSelectionEnd () : int =
 let clientSyncState (model: VM) : ClientSyncState =
     let state =
         ClientSyncState.create model.graph model.eventId model.history
-    { state with liveFocusIds = model.liveFocusIds }
+    { state with actorLiveFocusIds = model.actorLiveFocusIds }
 
 let applyAndPost
     (commandName: string)

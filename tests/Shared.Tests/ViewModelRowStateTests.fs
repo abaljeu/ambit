@@ -784,7 +784,7 @@ let ``planPatchDOM live Actor adds actor-live and clears it`` () =
     let focusId = List.head ids
     let graph = addChild Graph.rootId focusId graph0
     let idle = emptyModel graph
-    let live = { idle with liveFocusIds = Set.singleton focusId }
+    let live = { idle with actorLiveFocusIds = Set.singleton focusId }
     let cached = getVisibleInstanceIds idle.siteMap |> Set.ofList
     let classAfter start finish =
         planPatchDOM start finish cached

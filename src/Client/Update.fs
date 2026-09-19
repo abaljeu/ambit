@@ -128,7 +128,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
         { graph = graph
           eventId = response.eventId
           history = ClientHistory.clear ()
-          liveFocusIds = Set.empty
+          actorLiveFocusIds = Set.empty
           selectedNodes = None
           mode = Selecting
           siteMap = siteMap
@@ -250,7 +250,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                             graph = newState.graph
                             history = newState.history
                             eventId = newState.eventId
-                            liveFocusIds = newState.liveFocusIds }
+                            actorLiveFocusIds = newState.actorLiveFocusIds }
                         |> withSiteMap
                         |> adjustModeAfterServerApply readyModel.graph
                     { kept with
@@ -285,7 +285,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                             graph = newState.graph
                             history = newState.history
                             eventId = newState.eventId
-                            liveFocusIds = newState.liveFocusIds
+                            actorLiveFocusIds = newState.actorLiveFocusIds
                             syncInfo = si |> SyncInfo.clearCatchUp }
                         |> withSiteMap
                         |> adjustModeAfterServerApply readyModel.graph
@@ -322,7 +322,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                                 graph = newState.graph
                                 history = newState.history
                                 eventId = newState.eventId
-                                liveFocusIds = newState.liveFocusIds
+                                actorLiveFocusIds = newState.actorLiveFocusIds
                                 syncInfo = si }
                             |> withSiteMap
                             |> adjustModeAfterServerApply readyModel.graph
@@ -330,12 +330,12 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                 | Some s ->
                     { readyModel with syncInfo = SyncInfo.withSyncState s si }, []
 
-    | SysMsg (BootGraphApplied (graph, eventId, history, liveFocusIds, ready)) ->
+    | SysMsg (BootGraphApplied (graph, eventId, history, actorLiveFocusIds, ready)) ->
         { model with
             graph = graph
             eventId = eventId
             history = history
-            liveFocusIds = liveFocusIds
+            actorLiveFocusIds = actorLiveFocusIds
             syncInfo =
                 model.syncInfo
                 |> SyncInfo.withServerReady ready
@@ -398,7 +398,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                         graph = newState.graph
                         history = newState.history
                         eventId = newState.eventId
-                        liveFocusIds = newState.liveFocusIds
+                        actorLiveFocusIds = newState.actorLiveFocusIds
                         syncInfo = si }
                     |> withSiteMap
                     |> adjustModeAfterServerApply readyModel.graph

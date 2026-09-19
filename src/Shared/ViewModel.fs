@@ -308,7 +308,7 @@ and VM = // the client state
       eventId: EventId
       history: ClientHistory
       /// Focus NodeIds with a live Actor, projected from ActorStart / ActorStop.
-      liveFocusIds: Set<NodeId>
+      actorLiveFocusIds: Set<NodeId>
       selectedNodes: Selection option
       mode: Mode
       siteMap: SiteMap
@@ -373,7 +373,7 @@ type SystemMsg =
         graph: Graph *
         eventId: EventId *
         history: ClientHistory *
-        liveFocusIds: Set<NodeId> *
+        actorLiveFocusIds: Set<NodeId> *
         isReady: bool
     | LoadDone of
         SyncState option * SyncResponse * responseEventId: EventId * isReady: bool option
