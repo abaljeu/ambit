@@ -2,7 +2,7 @@
 
 **Status:** coded
 **Blocked by:** [35b — Browser Run hello](35b-browser-run-hello.md).
-Actual: 7h30m
+Actual: 8h15m
 
 ## Context
 
@@ -45,6 +45,7 @@ Follow modules named in [Core creation architecture](../arch.md) for EventLog pe
 - 2026-09-19 — Alan overruled empty EventLog → `EventId.zero`. Graph is the tip when the log is empty/missing or Graph is ahead. EventLog remains authority for Ops replay when the log has those Evs. Status stays `coded`. Note: [46 mailbox History durability empty-log tip](../reports/46-mailbox-history-durability-empty-log-tip.md).
 - 2026-09-19 — Alan + [code-review-46-mailbox-history-durability-rereview](../reports/code-review-46-mailbox-history-durability-rereview.md) Spec (c): live `appendEvent` must not drop a Graph-ahead serial. File/Db use `EventId.max` of Graph / `State.eventId` and `Ev.id`. Status stays `coded`. Note: [46 mailbox History durability live-append tip](../reports/46-mailbox-history-durability-live-append-tip.md).
 - 2026-09-19 — Alan overruled max-tip and empty→zero door patches. Load reconcile is Graph id vs EventLog tip: drop lagging log, equal noop, apply until concurrent. EventId moves only via apply. Status stays `coded`. Note: [46 mailbox History durability reconcile](../reports/46-mailbox-history-durability-reconcile.md).
+- 2026-09-19 — Independent `/code-review` after three-way reconcile: [code-review-46-mailbox-history-durability-reconcile](../reports/code-review-46-mailbox-history-durability-reconcile.md). Status stays `coded`.
 
 ## Time
 
@@ -55,3 +56,4 @@ Follow modules named in [Core creation architecture](../arch.md) for EventLog pe
 - 2026-09-19 30m — Alan: Graph tip when EventLog empty or Graph ahead (from chat)
 - 2026-09-19 45m — Live appendEvent keeps Graph-ahead tip via EventId.max (from chat)
 - 2026-09-19 1h — Load reconcile: drop / noop / apply until concurrent (from chat)
+- 2026-09-19 45m — Independent code-review of three-way reconcile (from chat)
