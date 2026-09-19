@@ -4,10 +4,12 @@ Stage: build
 Summary: Run an Agent from a Zoom-rooted mixed-format extract and replace Focus Children through ordinary Core Changes.
 Updated: 2026-09-19
 Started: 2026-09-19
-Actual: 14h
+Actual: 15h15m
 
 ## Notes
 
+- 2026-09-19 — Coded [09 — Agent failure preserves children](issues/09-agent-failure-preserves-children.md) AI-Actor erase proof: `setFake` yields Failed; Focus Children preserved; no Error Graph text. Status `coded`.
+- 2026-09-19 — CloudAgents `setFake` handler yields `AgentStatus` (`Finished` or `Failed`).
 - 2026-09-19 — Cancelled [12 — Replace Focus Children from reply](issues/12-replace-focus-children-from-reply.md): replace landed on 08; nested-tag path abandoned.
 - 2026-09-19 — Landed [10 — Cancel by Focus](issues/10-cancel-by-focus.md) on staging (Good). Status `done`.
 - 2026-09-19 — Coded [10 — Cancel by Focus](issues/10-cancel-by-focus.md): CoreMailbox `cancelByFocus`, hanging `setFake`, Run Agent cancel token. Status `coded`.
@@ -16,7 +18,7 @@ Actual: 14h
 - 2026-09-19 — Locked CloudAgents `setFake` on the DLL (`(StartArgs -> AgentResult) option -> bool`); success tests use fake; live call-reject until API key.
 - 2026-09-19 — Landed [11 — Pack extract with Amb (supplied-fragment walk)](issues/11-simple-extract-format.md) on staging (Good). Status `done`.
 - 2026-09-19 — Live CloudAgents / API key: until a key exists, only prove call reject; success stays on fake ([[issues/08-agent-ask-from-what-i-see.md|08 — Agent ask from what I see]]).
-- 2026-09-19 — [[issues/09-agent-failure-preserves-children.md|09 — Agent failure preserves children]] framework half `done` (TestActor preserve proof). AI-Actor erase still open.
+- 2026-09-19 — [09 — Agent failure preserves children](issues/09-agent-failure-preserves-children.md) framework half `done` (TestActor preserve proof). AI-Actor erase proof coded.
 - 2026-09-19 — Drop observation: live Focus ids, not secrets ([[issues/09-agent-failure-preserves-children.md|09 — Agent failure preserves children]]).
 - 2026-09-19 — Coded [11 — Pack extract with Amb (supplied-fragment walk)](issues/11-simple-extract-format.md): Amb extract-walk write and `Graph.focus`. Status `done`. Stage `build`.
 - 2026-09-19 — Replan [11 — Pack extract with Amb (supplied-fragment walk)](issues/11-simple-extract-format.md): Amb extract-walk write; nested-tag abandoned; Fable.SimpleXml rejected. Status `defined`.
@@ -31,7 +33,7 @@ Actual: 14h
 - [[issues/11-simple-extract-format.md|11 — Pack extract with Amb (supplied-fragment walk)]] — Status `done`.
 - [[issues/08-agent-ask-from-what-i-see.md|08 — Agent ask from what I see]] — Status `done`.
 - [[issues/12-replace-focus-children-from-reply.md|12 — Replace Focus Children from reply]] — Status `cancelled` (Amb replace on 08; nested-tag abandoned).
-- [[issues/09-agent-failure-preserves-children.md|09 — Agent failure preserves children]] — Status `done` (framework via TestActor / `?test`); AI-Actor erase deferred until 08 and 12. Report: [[reports/framework-failure-preserves-children.md]]; review: [[reports/code-review-framework-failure-preserves-children.md]].
+- [09 — Agent failure preserves children](issues/09-agent-failure-preserves-children.md) — Status `coded` (AI-Actor Failed preserve proof). Framework half already `done`. Report: [framework-failure-preserves-children](reports/framework-failure-preserves-children.md); review: [code-review-framework-failure-preserves-children](reports/code-review-framework-failure-preserves-children.md).
 - [[issues/10-cancel-by-focus.md|10 — Cancel by Focus]] — Status `done`.
 
 ## Locked Restart

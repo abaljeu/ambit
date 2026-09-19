@@ -24,7 +24,7 @@ Run an Agent from a Zoom-rooted mixed-format Graph extract, mark Focus in the ou
 
 ## Not yet specified
 
-- Implementation tickets: [[issues/11-simple-extract-format.md|11 — Pack extract with Amb (supplied-fragment walk)]] (Status `done`), [[issues/08-agent-ask-from-what-i-see.md|08 — Agent ask from what I see]] (Status `done`), [[issues/09-agent-failure-preserves-children.md|09]] (Status `done`, framework), [[issues/10-cancel-by-focus.md|10 — Cancel by Focus]] (Status `coded`).
+- Implementation tickets: [11 — Pack extract with Amb (supplied-fragment walk)](issues/11-simple-extract-format.md) (Status `done`), [08 — Agent ask from what I see](issues/08-agent-ask-from-what-i-see.md) (Status `done`), [09 — Agent failure preserves children](issues/09-agent-failure-preserves-children.md) (Status `coded`, AI erase proof), [10 — Cancel by Focus](issues/10-cancel-by-focus.md) (Status `done`).
 - Define the replacement vertical proof after the first CloudAgents / Run Agent implement tickets are `defined` (arch lock).
 
 ## Out of scope
