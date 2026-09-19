@@ -40,7 +40,7 @@ let private decodeSuccess json =
 let private decodeAckChangeIds json =
     decodeSuccess json
     |> fun response ->
-        response.changes |> List.map (fun change -> change.submissionId)
+        response.events |> List.map (fun event -> event.submissionId)
 
 let private decodeSuccessRevision json =
     (decodeSuccess json).eventId
@@ -248,8 +248,8 @@ let ``POST Change and inverse Changes return complete confirmations in request o
         Assert.False(post.externalChanges)
         Assert.Equal<Guid list>(
             [ change.submissionId; undo.submissionId; redo.submissionId ],
-            post.changes |> List.map (fun confirmed -> confirmed.submissionId))
-        List.iter2 assertExactPrefix [ change; undo; redo ] (post.changes )
+            post.events |> List.map (fun confirmed -> confirmed.submissionId))
+        List.iter2 assertExactPrefix [ change; undo; redo ] post.events
         let! stateJson = getStateJson client testFile
         Assert.Equal("history-action", (decodeGraph stateJson).nodes.[childId].text)
         let! pollResponse = client.GetAsync("/ambit/poll?rev=0")
@@ -264,7 +264,7 @@ let ``POST Change and inverse Changes return complete confirmations in request o
         Assert.True(poll.isReady)
         Assert.True(poll.externalChanges)
         // Poll is EventLog.since: newest-head. ACK keeps request order.
-        Assert.Equal<Ev list>(List.rev post.changes, poll.changes)
+        Assert.Equal<Ev list>(List.rev post.events, poll.events)
     })
 
 [<Fact>]
@@ -511,7 +511,7 @@ let ``POST changes batch with bad second change keeps earlier items``
         Assert.True(poll.externalChanges)
         Assert.Equal<Guid list>(
             [ change1.submissionId ],
-            poll.changes |> List.map (fun change -> change.submissionId))
+            poll.events |> List.map (fun event -> event.submissionId))
     })
 
 [<Fact>]
@@ -565,8 +565,8 @@ let ``POST same submissionId twice is idempotent`` () =
         Assert.Equal(EventId.fromJson 1, decodeSuccessRevision b2)
         Assert.Equal<Guid list>([ cid ], decodeAckChangeIds b2)
         Assert.Equal<Ev list>(
-            (decodeSuccess b1).changes,
-            (decodeSuccess b2).changes)
+            (decodeSuccess b1).events,
+            (decodeSuccess b2).events)
 
         let! json = getStateJson client testFile
         Assert.Equal(EventId.fromJson 1, decodeEventId json)
@@ -1160,8 +1160,8 @@ let ``DB restart keeps duplicate submissionId idempotent`` () = task {
     Assert.Equal(EventId.fromJson 1, decodeSuccessRevision b2)
     Assert.Equal<Guid list>([ change.submissionId ], decodeAckChangeIds b2)
     Assert.Equal<Ev list>(
-        (decodeSuccess b1).changes,
-        (decodeSuccess b2).changes)
+        (decodeSuccess b1).events,
+        (decodeSuccess b2).events)
 
     let! json2 = getStateJson client2 testFile
     Assert.Equal(EventId.fromJson 1, decodeEventId json2)
@@ -1185,7 +1185,7 @@ let ``DB restart keeps inverse Change in EventLog`` () = task {
     let! undoResp = postChange client1 testFile undo
     Assert.Equal(HttpStatusCode.OK, undoResp.StatusCode)
     let! undoAck = undoResp.Content.ReadAsStringAsync()
-    let confirmedUndo = Assert.Single((decodeSuccess undoAck).changes)
+    let confirmedUndo = Assert.Single((decodeSuccess undoAck).events)
     use client2 = createDbClientNoReset connStr
     let! pollResponse = client2.GetAsync("/ambit/poll?rev=0")
     let! pollJson = pollResponse.Content.ReadAsStringAsync()
@@ -1193,8 +1193,8 @@ let ``DB restart keeps inverse Change in EventLog`` () = task {
         decode
             ApiResponseSerialization.decodeChangeSuccessResponseDecoder
             pollJson
-    Assert.Equal(2, poll.changes.Length)
-    Assert.Equal(confirmedUndo, poll.changes.[0])
+    Assert.Equal(2, poll.events.Length)
+    Assert.Equal(confirmedUndo, poll.events.[0])
     let! stateJson = getStateJson client2 testFile
     Assert.Equal(EventId.fromJson 2, decodeEventId stateJson)
 }
