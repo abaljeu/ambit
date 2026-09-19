@@ -134,8 +134,11 @@ let private expectLiveGone pool focusId =
     Assert.False(Set.contains focusId (pool.liveFocusIds ()))
 
 let fakeReply text =
-    { AgentResult.Text = text
-      Git = [] }
+    Finished
+        { AgentResult.Text = text
+          Git = [] }
+
+let fakeFailed message = Failed message
 
 let withHost body =
     task {
@@ -177,6 +180,20 @@ let ownedTexts (graph: Graph) focusId =
     graph.nodes.[focusId].children
     |> List.filter (fun child -> child.ref = Ownership.Owner)
     |> List.map (fun child -> graph.nodes.[child.id].text)
+
+let ownedChildren host focusId =
+    task {
+        let! state = graphState host
+        return
+            state.graph.nodes.[focusId].children
+            |> List.filter (fun child -> child.ref = Ownership.Owner)
+            |> List.map (fun child ->
+                let text =
+                    match Map.tryFind child.id state.graph.nodes with
+                    | Some node -> node.text
+                    | None -> ""
+                child.id, text)
+    }
 
 let seedAskTree host commandText =
     task {
@@ -313,12 +330,28 @@ let expectActorSucceeded host pool focusId =
         expectLiveGone pool focusId
     }
 
+let expectActorFailed host pool focusId =
+    task {
+        do! expectActorStop ActorFailed host focusId
+        expectLiveGone pool focusId
+    }
+
 let expectOwnedTexts host focusId expected =
     task {
         let! state = graphState host
         Assert.Equal<string list>(
             expected,
             ownedTexts state.graph focusId)
+    }
+
+let expectNoNodeText host fragment =
+    task {
+        let! state = graphState host
+        let texts =
+            state.graph.nodes
+            |> Map.toList
+            |> List.map (fun (_, node) -> node.text)
+        Assert.DoesNotContain(fragment, texts)
     }
 
 let waitFakeCancelled timeoutMs =
