@@ -38,7 +38,7 @@ Actual: 17h
 - [[issues/11-simple-extract-format.md|11 — Pack extract with Amb (supplied-fragment walk)]] — Status `done`.
 - [[issues/08-agent-ask-from-what-i-see.md|08 — Agent ask from what I see]] — Status `done`.
 - [[issues/12-replace-focus-children-from-reply.md|12 — Replace Focus Children from reply]] — Status `cancelled` (Amb replace on 08; nested-tag abandoned).
-- [09 — Agent failure preserves children](issues/09-agent-failure-preserves-children.md) — Status `coded` (AI-Actor Failed preserve proof). Framework half already `done`. Report: [framework-failure-preserves-children](reports/framework-failure-preserves-children.md); review: [code-review-framework-failure-preserves-children](reports/code-review-framework-failure-preserves-children.md).
+- [09 — Agent failure preserves children](issues/09-agent-failure-preserves-children.md) — Status `done`. Report: [framework-failure-preserves-children](reports/framework-failure-preserves-children.md); review: [code-review-framework-failure-preserves-children](reports/code-review-framework-failure-preserves-children.md).
 - [[issues/10-cancel-by-focus.md|10 — Cancel by Focus]] — Status `done`.
 
 ## Locked Restart
