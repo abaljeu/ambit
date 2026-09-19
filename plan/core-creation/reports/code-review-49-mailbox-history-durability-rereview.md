@@ -15,7 +15,7 @@ Commits (`origin/staging..` tip):
 
 Superseded: [code-review-49-mailbox-history-durability](code-review-49-mailbox-history-durability.md) Spec (c)1 empty EventLog → `EventId.zero`. Alan locks in the ticket and [46 mailbox History durability empty-log tip](49-mailbox-history-durability-empty-log-tip.md) are the door rule.
 
-Focused tests (green): [Issue46MailboxHistoryDurabilityTests](tests/Server.Tests/Issue46MailboxHistoryDurabilityTests.fs) — 7 passed. [EventTests](tests/Shared.Tests/EventTests.fs) — 20 passed.
+Focused tests (green): [Issue49MailboxHistoryDurabilityTests](tests/Server.Tests/Issue49MailboxHistoryDurabilityTests.fs) — 7 passed. [EventTests](tests/Shared.Tests/EventTests.fs) — 20 passed.
 
 ## Standards
 
@@ -37,7 +37,7 @@ measure-fs-size: [EventLog.fs](src/Shared/EventLog.fs) `tip` 5, `adoptNewestHead
 
 1. **File length** — [fsharp-source.md](.agents/rules/fsharp-source.md): do not grow a file already over 400 lines. Scan: [DbAgent.fs](src/Server/Core/DbAgent.fs) 561→565 (`eventId` bump plus `recoverState`).
 2. **Refer by name** — [refer-by-name.md](.agents/rules/refer-by-name.md): never refer by only the id. Scan BARE_ID on [code-review-49-mailbox-history-durability.md](code-review-49-mailbox-history-durability.md) lines 53 (`item 9`, `item 4`), 67 (`item 4`), 73 (`item 4`). Added prose still uses bare `35b` / `46` / `34b` / `42` in [project.md](plan/core-creation/project.md) (“Not required for 35b §7”, “does not depend on 46”), [46 mailbox History durability](49-mailbox-history-durability.md) (“without 46”), and [46 mailbox History durability explore](49-mailbox-history-durability-explore.md) (“Old 34b names”, “Single-event 42 tests”, “without 46”).
-3. **`change` bound to Ev** — [fsharp-source.md](.agents/rules/fsharp-source.md): use `event` / `events`, not `change`. [Issue46MailboxHistoryDurabilityTests.fs](tests/Server.Tests/Issue46MailboxHistoryDurabilityTests.fs) `stop :: change :: start` and `let childId, change`. [EventTests.fs](tests/Shared.Tests/EventTests.fs) new recover facts use `let change =` (older tests use `changeEv`).
+3. **`change` bound to Ev** — [fsharp-source.md](.agents/rules/fsharp-source.md): use `event` / `events`, not `change`. [Issue49MailboxHistoryDurabilityTests.fs](tests/Server.Tests/Issue49MailboxHistoryDurabilityTests.fs) `stop :: change :: start` and `let childId, change`. [EventTests.fs](tests/Shared.Tests/EventTests.fs) new recover facts use `let change =` (older tests use `changeEv`).
 
 ### Judgement calls ([SMELLS.md](.agents/skills/code-review/SMELLS.md))
 
@@ -48,7 +48,7 @@ loaded.state.Value <-
     { loaded.state.Value with eventId = event.id }
 ```
 
-[FileAgent.fs](src/Server/Core/FileAgent.fs) append vs [DbAgent.fs](src/Server/Core/DbAgent.fs) `recordPersistedEvent`. `tip`, `adoptNewestHead`, and `restorePersisted` repeat `List.map Ev.id |> List.reduce EventId.max`. File and Db recover facts in [Issue46MailboxHistoryDurabilityTests.fs](tests/Server.Tests/Issue46MailboxHistoryDurabilityTests.fs) share one shape.
+[FileAgent.fs](src/Server/Core/FileAgent.fs) append vs [DbAgent.fs](src/Server/Core/DbAgent.fs) `recordPersistedEvent`. `tip`, `adoptNewestHead`, and `restorePersisted` repeat `List.map Ev.id |> List.reduce EventId.max`. File and Db recover facts in [Issue49MailboxHistoryDurabilityTests.fs](tests/Server.Tests/Issue49MailboxHistoryDurabilityTests.fs) share one shape.
 
 - **Divergent Change** / **Feature Envy** — [EventLog.fs](src/Shared/EventLog.fs) `recoverState` applies Graph `State` through `Ev.apply`. Explore asked for the helper; EventLog still gains a second reason to change.
 - **Speculative Generality** — `applyRecover` keeps Graph on `ApplyResult.Invalid`. Explore did not ask recover to ignore Invalid.

@@ -136,7 +136,7 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/reports/35b-slice2-3-http-browser-run.md]] — [35b — Browser Run hello](plan/core-creation/issues/35b-browser-run-hello.md) slices 2–3 HTTP Adapter and Browser Run.
 - [[plan/core-creation/reports/35b-slice4-5-7-core-testactor-browser-proof.md]] — [35b — Browser Run hello](plan/core-creation/issues/35b-browser-run-hello.md) slices 4+5+7 Core TestActor and Browser proof.
 - [35b slices 4+5+7 standards and Spec corrections](plan/core-creation/reports/35b-slice4-5-7-standards-spec-corrections.md) — [35b — Browser Run hello](plan/core-creation/issues/35b-browser-run-hello.md) Origin Spec review: unregistered Actor name and non-hello command fail.
-- [46 mailbox History durability](plan/core-creation/reports/49-mailbox-history-durability.md) — [49 — Mailbox History durability](issues/49-mailbox-history-durability.md) implement: seed order, File+Db recover, one serial.
+- [49 mailbox History durability](plan/core-creation/reports/49-mailbox-history-durability.md) — [49 — Mailbox History durability](issues/49-mailbox-history-durability.md) implement: seed order, File+Db recover, one serial.
 
 ## Comments
 
@@ -182,4 +182,4 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - 2026-09-18 — [48 — EventId Zero and positive Int](plan/core-creation/issues/48-eventid-zero-and-positive-int.md) Status `done`. Alan approved the 4.2 review ([code-review-48-other-tests-do-not-lock-serials](plan/core-creation/reports/code-review-48-other-tests-do-not-lock-serials.md)); SerializationTests wire 3/4 and DbAgentTests growth accepted. Stage stays `build`.
 - 2026-09-19 — Rebuild onto ready: marked [[plan/core-creation/issues/34b-outside-core-lifecycle-proof.md|34b — Outside Core lifecycle proof]] `done` after independent review; unblocked [[plan/core-creation/issues/35b-browser-run-hello.md|35b — Browser Run hello]] (`defined`, no Blocked-by).
 - 2026-09-19 — Rebuild: split 35b History durability to [49 — Mailbox History durability](issues/49-mailbox-history-durability.md) (ready already used 46 for workspace prepare-push).
-- 2026-09-19 — Rebuild: marked [[plan/core-creation/issues/49-mailbox-history-durability.md|49 — Mailbox History durability]] `coded` (EventLog tip reconcile + recover) after replaying former staging land `fce22cf7`.
+- 2026-09-19 — Rebuild: marked [[plan/core-creation/issues/49-mailbox-history-durability.md|49 — Mailbox History durability]] `done` (EventLog tip reconcile + recover) after replaying former staging land `fce22cf7`.

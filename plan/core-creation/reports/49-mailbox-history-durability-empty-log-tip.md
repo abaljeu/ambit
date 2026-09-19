@@ -22,4 +22,4 @@ This is a correction note, not authority. Alan overruled [code-review-49-mailbox
 
 1. [recoverState empty EventLog keeps Graph checkpoint EventId](../../../tests/Shared.Tests/EventTests.fs) — Graph kept; `eventId` stays 4.
 2. [recoverState Graph-ahead of EventLog keeps Graph EventId](../../../tests/Shared.Tests/EventTests.fs) — log tip 2, Graph 5; recover keeps 5.
-3. [File empty EventLog recover exposes getEventId Graph checkpoint](../../../tests/Server.Tests/Issue46MailboxHistoryDurabilityTests.fs) — `gambol.meta` 4, empty EventLog, `getEventId` is 4.
+3. [File empty EventLog recover exposes getEventId Graph checkpoint](../../../tests/Server.Tests/Issue49MailboxHistoryDurabilityTests.fs) — `gambol.meta` 4, empty EventLog, `getEventId` is 4.
