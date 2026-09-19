@@ -6,8 +6,6 @@ open System.Net
 open System.Net.Http
 open System.Text
 open System.Threading.Tasks
-open Microsoft.AspNetCore.Mvc.Testing
-open Microsoft.Extensions.Configuration
 open Xunit
 open Gambol.Server
 open Gambol.Shared
@@ -161,23 +159,12 @@ let private stateWithChild (text: string) =
     | ApplyResult.Unchanged _ -> failwith "Expected file bootstrap change to apply"
     | ApplyResult.Invalid (_, err) -> failwith $"Expected valid bootstrap change: {err}"
 
-// ---- Backend parameterisation ----
-
-/// Production writable path is Database-only. MemberData stays public.
-let backends : obj[][] = [| [| box BackendKind.Db |] |]
-
-/// Run a test body against a fresh client for the given backend.
-/// For Db: resets the test database before creating the client.
-let private withClient (backend: BackendKind) (f: HttpClient -> Task<unit>) = task {
-    match backend with
-    | BackendKind.File ->
-        use client = createFileClient ()
-        return! f client
-    | BackendKind.Db ->
-        let connStr = requireDbConnStr ()
-        do! resetTestDatabase connStr
-        use client = createDbClient connStr
-        return! f client
+/// Fresh Database HTTP client for state and Change facts.
+let private withClient (f: HttpClient -> Task<unit>) = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    use client = createDbClient connStr
+    return! f client
 }
 
 [<Fact>]
@@ -205,16 +192,16 @@ let ``unavailable Database serves read-only file fallback and ignores Persistenc
 
 // ---- GET /ambit/state tests (parameterised) ----
 
-[<Theory; MemberData(nameof backends)>]
-let ``GET state returns revision 0 for fresh server`` (backend: BackendKind) =
-    withClient backend (fun client -> task {
+[<Fact>]
+let ``GET state returns revision 0 for fresh server`` () =
+    withClient (fun client -> task {
         let! json = getStateJson client testFile
         Assert.Equal(EventId.fromJson 0, decodeRevision json)
     })
 
-[<Theory; MemberData(nameof backends)>]
-let ``GET state returns valid graph with root node`` (backend: BackendKind) =
-    withClient backend (fun client -> task {
+[<Fact>]
+let ``GET state returns valid graph with root node`` () =
+    withClient (fun client -> task {
         let! json = getStateJson client testFile
         let graph = decodeGraph json
         Assert.Equal(0, userNodeCount graph)
@@ -241,10 +228,10 @@ let ``user css is served from canonical SYSTEM path`` () = task {
 
 // ---- POST /ambit/events tests (parameterised) ----
 
-[<Theory; MemberData(nameof backends)>]
+[<Fact>]
 let ``POST Change and inverse Changes return complete confirmations in request order``
-    (backend: BackendKind) =
-    withClient backend (fun client -> task {
+    () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let change, childId = changeAddChild rootId 0 "history-action"
@@ -281,7 +268,7 @@ let ``POST Change and inverse Changes return complete confirmations in request o
     })
 
 [<Fact>]
-let ``file backend large paste inverse total response is measured`` () = task {
+let ``large paste inverse total response is measured`` () = task {
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
     use client = createDbClient connStr
@@ -304,13 +291,13 @@ let ``file backend large paste inverse total response is measured`` () = task {
     sw.Stop()
     Assert.Equal(HttpStatusCode.OK, inverseResp.StatusCode)
     printfn
-        "2,000-Node paste inverse File-backend total response: %.3f ms"
+        "2,000-Node paste inverse total response: %.3f ms"
         sw.Elapsed.TotalMilliseconds
 }
 
-[<Theory; MemberData(nameof backends)>]
-let ``POST explicit Undo JSON is rejected`` (backend: BackendKind) =
-    withClient backend (fun client -> task {
+[<Fact>]
+let ``POST explicit Undo JSON is rejected`` () =
+    withClient (fun client -> task {
         let body =
             """{"events":[{"id":0,"submissionId":"00000000-0000-0000-0000-000000000001","authority":"","commandName":"","body":{"Change":[]}}]}"""
         use content = new StringContent(body, Encoding.UTF8, "application/json")
@@ -320,9 +307,9 @@ let ``POST explicit Undo JSON is rejected`` (backend: BackendKind) =
         Assert.Equal(EventId.fromJson 0, decodeRevision stateJson)
     })
 
-[<Theory; MemberData(nameof backends)>]
-let ``POST unchanged submission is rejected`` (backend: BackendKind) =
-    withClient backend (fun client -> task {
+[<Fact>]
+let ``POST unchanged submission is rejected`` () =
+    withClient (fun client -> task {
         let noOp =
             { id = EventId.fromJson 0
               submissionId = Guid.NewGuid()
@@ -357,9 +344,9 @@ let ``POST changes accepts X-Gambol-Client header`` () = task {
     Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
 }
 
-[<Theory; MemberData(nameof backends)>]
-let ``POST changes SetText changes child text and bumps revision`` (backend: BackendKind) =
-    withClient backend (fun client -> task {
+[<Fact>]
+let ``POST changes SetText changes child text and bumps revision`` () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let change0, childId = changeAddChild rootId 0 ""
@@ -384,9 +371,9 @@ let ``POST changes SetText changes child text and bumps revision`` (backend: Bac
         Assert.Equal("hello", graph.nodes.[childId].text)
     })
 
-[<Theory; MemberData(nameof backends)>]
-let ``POST changes NewNode+Replace adds child to root`` (backend: BackendKind) =
-    withClient backend (fun client -> task {
+[<Fact>]
+let ``POST changes NewNode+Replace adds child to root`` () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let childId = NodeId.New()
@@ -414,18 +401,18 @@ let ``POST changes NewNode+Replace adds child to root`` (backend: BackendKind) =
         Assert.Equal("child", graph.nodes.[childId].text)
     })
 
-[<Theory; MemberData(nameof backends)>]
-let ``POST changes with invalid JSON returns 400`` (backend: BackendKind) =
-    withClient backend (fun client -> task {
+[<Fact>]
+let ``POST changes with invalid JSON returns 400`` () =
+    withClient (fun client -> task {
         let! _ = getStateJson client testFile
         let content = new StringContent("not json", Encoding.UTF8, "application/json")
         let! resp = client.PostAsync("/ambit/events", content)
         Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode)
     })
 
-[<Theory; MemberData(nameof backends)>]
-let ``POST changes with bad op returns 400`` (backend: BackendKind) =
-    withClient backend (fun client -> task {
+[<Fact>]
+let ``POST changes with bad op returns 400`` () =
+    withClient (fun client -> task {
         let! _ = getStateJson client testFile
         let bogusId = NodeId.New()
         let change =
@@ -441,9 +428,9 @@ let ``POST changes with bad op returns 400`` (backend: BackendKind) =
         Assert.False(String.IsNullOrWhiteSpace err)
     })
 
-[<Theory; MemberData(nameof backends)>]
-let ``POST changes twice bumps revision to 2`` (backend: BackendKind) =
-    withClient backend (fun client -> task {
+[<Fact>]
+let ``POST changes twice bumps revision to 2`` () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let change1, childId = changeAddChild rootId 0 "first"
@@ -467,9 +454,9 @@ let ``POST changes twice bumps revision to 2`` (backend: BackendKind) =
         Assert.Equal("second", g.nodes.[childId].text)
     })
 
-[<Theory; MemberData(nameof backends)>]
-let ``POST changes batch with two changes bumps revision to 2`` (backend: BackendKind) =
-    withClient backend (fun client -> task {
+[<Fact>]
+let ``POST changes batch with two changes bumps revision to 2`` () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let change1, childId = changeAddChild rootId 0 "first"
@@ -494,11 +481,10 @@ let ``POST changes batch with two changes bumps revision to 2`` (backend: Backen
         Assert.Equal("second", g.nodes.[childId].text)
     })
 
-[<Theory; MemberData(nameof backends)>]
+[<Fact>]
 let ``POST changes batch with bad second change keeps earlier items``
-    (backend: BackendKind)
-    =
-    withClient backend (fun client -> task {
+    () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let change1, childId = changeAddChild rootId 0 "first"
@@ -528,9 +514,9 @@ let ``POST changes batch with bad second change keeps earlier items``
             poll.changes |> List.map (fun change -> change.submissionId))
     })
 
-[<Theory; MemberData(nameof backends)>]
-let ``POST changes persists in GET state`` (backend: BackendKind) =
-    withClient backend (fun client -> task {
+[<Fact>]
+let ``POST changes persists in GET state`` () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let c0, childId = changeAddChild rootId 0 ""
@@ -549,9 +535,9 @@ let ``POST changes persists in GET state`` (backend: BackendKind) =
         Assert.Equal("persisted", g.nodes.[childId].text)
     })
 
-[<Theory; MemberData(nameof backends)>]
-let ``POST same submissionId twice is idempotent`` (backend: BackendKind) =
-    withClient backend (fun client -> task {
+[<Fact>]
+let ``POST same submissionId twice is idempotent`` () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let cid = Guid.NewGuid()
@@ -587,9 +573,9 @@ let ``POST same submissionId twice is idempotent`` (backend: BackendKind) =
         Assert.Equal("once", (decodeGraph json).nodes.[childId].text)
     })
 
-[<Theory; MemberData(nameof backends)>]
-let ``POST with stale base revision and valid SetText succeeds`` (backend: BackendKind) =
-    withClient backend (fun client -> task {
+[<Fact>]
+let ``POST with stale base revision and valid SetText succeeds`` () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let setup, childId = changeAddChild rootId 0 ""
@@ -614,11 +600,10 @@ let ``POST with stale base revision and valid SetText succeeds`` (backend: Backe
         Assert.Equal("x", (decodeGraph json).nodes.[childId].text)
     })
 
-[<Theory; MemberData(nameof backends)>]
+[<Fact>]
 let ``POST unrelated attribute edits with stale revision both succeed``
-    (backend: BackendKind)
-    =
-    withClient backend (fun client -> task {
+    () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let setupX, nodeX = changeAddChild rootId 0 "x0"
@@ -673,11 +658,10 @@ let ``POST unrelated attribute edits with stale revision both succeed``
         Assert.Equal("yA", g.nodes.[nodeY].text)
     })
 
-[<Theory; MemberData(nameof backends)>]
+[<Fact>]
 let ``POST concurrent stale text Changes amend second as amb-conflict child``
-    (backend: BackendKind)
-    =
-    withClient backend (fun client -> task {
+    () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let setup, nodeX = changeAddChild rootId 0 "x0"
@@ -714,11 +698,10 @@ let ``POST concurrent stale text Changes amend second as amb-conflict child``
         assertAmbConflictFirstChild g nodeX "xB"
     })
 
-[<Theory; MemberData(nameof backends)>]
+[<Fact>]
 let ``POST concurrent stale name Changes amend second as amb-conflict child``
-    (backend: BackendKind)
-    =
-    withClient backend (fun client -> task {
+    () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let nodeId = NodeId.New()
@@ -761,11 +744,10 @@ let ``POST concurrent stale name Changes amend second as amb-conflict child``
         assertAmbConflictFirstChild g nodeId "nameB"
     })
 
-[<Theory; MemberData(nameof backends)>]
+[<Fact>]
 let ``POST concurrent stale class Changes merge set delta and succeed``
-    (backend: BackendKind)
-    =
-    withClient backend (fun client -> task {
+    () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let nodeId = NodeId.New()
@@ -810,11 +792,10 @@ let ``POST concurrent stale class Changes merge set delta and succeed``
         Assert.Equal<Set<string>>(Set.ofList [ "b"; "c" ], classes)
     })
 
-[<Theory; MemberData(nameof backends)>]
+[<Fact>]
 let ``POST unrelated structural edits with stale revision both succeed``
-    (backend: BackendKind)
-    =
-    withClient backend (fun client -> task {
+    () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let parentP1 = NodeId.New()
@@ -870,11 +851,10 @@ let ``POST unrelated structural edits with stale revision both succeed``
             g.nodes.[parentP2].children)
     })
 
-[<Theory; MemberData(nameof backends)>]
+[<Fact>]
 let ``POST same-parent structural collision amends and succeeds``
-    (backend: BackendKind)
-    =
-    withClient backend (fun client -> task {
+    () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let parentP = NodeId.New()
@@ -927,11 +907,10 @@ let ``POST same-parent structural collision amends and succeeds``
         Assert.Contains(ownedChild childB |> List.head, children)
     })
 
-[<Theory; MemberData(nameof backends)>]
+[<Fact>]
 let ``POST duplicate submissionId with stale revision stays idempotent``
-    (backend: BackendKind)
-    =
-    withClient backend (fun client -> task {
+    () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let cid = Guid.NewGuid()
@@ -1290,9 +1269,9 @@ let private addNestedWorkspaceViaPost (client: HttpClient) = task {
     return wsId, innerId
 }
 
-[<Theory; MemberData(nameof backends)>]
-let ``GET state default returns ROOT closure excluding nested workspace contents`` (backend: BackendKind) =
-    withClient backend (fun client -> task {
+[<Fact>]
+let ``GET state default returns ROOT closure excluding nested workspace contents`` () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let! wsId, innerId = addNestedWorkspaceViaPost client
@@ -1303,9 +1282,9 @@ let ``GET state default returns ROOT closure excluding nested workspace contents
         Assert.False(graph.nodes.ContainsKey innerId)
     })
 
-[<Theory; MemberData(nameof backends)>]
-let ``GET state scope full returns canonical graph for tests`` (backend: BackendKind) =
-    withClient backend (fun client -> task {
+[<Fact>]
+let ``GET state scope full returns canonical graph for tests`` () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let! wsId, innerId = addNestedWorkspaceViaPost client

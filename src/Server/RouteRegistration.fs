@@ -22,7 +22,6 @@ module RouteRegistration =
                     dbConnString
                     dataDir
             {
-                PersistenceMode = DatabaseSetup.PersistenceMode.Db
                 DbStatus = dbStatus
                 DbConnectionString = dbConnString
                 DataDir = dataDir

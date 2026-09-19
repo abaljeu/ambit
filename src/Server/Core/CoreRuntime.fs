@@ -11,7 +11,6 @@ type CoreRuntime =
 /// Persist choice, auth seed, and optional actors to boot a CoreRuntime.
 type CoreBoot =
     {
-        PersistenceMode: DatabaseSetup.PersistenceMode
         DbStatus: DatabaseSetup.DbStatus
         DbConnectionString: string
         DataDir: string

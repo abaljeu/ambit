@@ -23,3 +23,9 @@
 ## 3. Out of this ticket
 
 1. **[19 — Database down and host stop](../issues/19-database-down-and-host-stop.md)** — live probe and host-stop stay later. This ticket only sets the startup and fallback boundary.
+
+## 4. Review cleanup
+
+1. **CoreBoot** — unused `PersistenceMode` field deleted. [RouteRegistration](../../../src/Server/RouteRegistration.fs) no longer writes it.
+2. **HTTP helpers** — `createFileClient` deleted. [TestBackend](../../../tests/Server.Tests/TestBackend.fs) `createClientForDir` is a Database data-dir client, not a File backend.
+3. **withClient** — File arm and `BackendKind` deleted. State HTTP facts use one Database client.
