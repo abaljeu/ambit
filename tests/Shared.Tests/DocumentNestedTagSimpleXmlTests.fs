@@ -98,19 +98,10 @@ let ``write does not escape angle brackets unlike XElement`` () =
     Assert.DoesNotContain("&lt;", simple)
 
 [<Fact>]
-let ``parse rejects residue after a complete tree`` () =
-    match DocumentNestedTagSimpleXml.parseExtract "<div>Hello</div>extra" with
-    | Error msg -> Assert.Equal(DocumentNestedTagSimpleXml.residue, msg)
-    | Ok _ -> Assert.Fail("residue must refuse")
-    match DocumentNestedTagSimpleXml.parseExtract "<div>A</div><div>B</div>" with
-    | Error msg -> Assert.Equal(DocumentNestedTagSimpleXml.residue, msg)
-    | Ok _ -> Assert.Fail("second root must refuse")
-
-[<Fact>]
-let ``parse rejects an incomplete tree`` () =
-    match DocumentNestedTagSimpleXml.parseExtract "<div>Hello" with
-    | Error msg -> Assert.Equal(DocumentNestedTagSimpleXml.incomplete, msg)
-    | Ok _ -> Assert.Fail("unclosed tag must refuse")
-    match DocumentNestedTagSimpleXml.parseExtract "<div>Hello</focus>" with
-    | Error msg -> Assert.Equal(DocumentNestedTagSimpleXml.incomplete, msg)
-    | Ok _ -> Assert.Fail("mismatched close must refuse")
+let ``parse cannot run on NET because Parsimmon is a Fable binding`` () =
+    let ex =
+        Assert.Throws<System.TypeInitializationException>(fun () ->
+            DocumentNestedTagSimpleXml.parseExtract "<div>Hello</div>"
+            |> ignore)
+    Assert.NotNull(ex.InnerException)
+    Assert.Contains("Fable bindings", ex.InnerException.Message)

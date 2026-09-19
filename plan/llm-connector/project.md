@@ -4,10 +4,11 @@ Stage: build
 Summary: Run an Agent from a Zoom-rooted mixed-format extract and replace Focus Children through ordinary Core Changes.
 Updated: 2026-09-19
 Started: 2026-09-19
-Actual: 10h45m
+Actual: 12h15m
 
 ## Notes
 
+- 2026-09-19 — Spike [Fable.SimpleXml for nested-tag pack](reports/spike-fable-simplexml.md): reject for Shared. Parse is Fable-only.
 - 2026-09-19 — [11 — Simple extract format](issues/11-simple-extract-format.md) pack on Shared.DotNet via `System.Xml.Linq`.
 - 2026-09-19 — [11 — Simple extract format](issues/11-simple-extract-format.md) reshape: pack Focus is `Graph.focus` (`withFocus`); tag name from the Node.
 - 2026-09-19 — First implement: [11 — Simple extract format](issues/11-simple-extract-format.md). Stage `build`.
