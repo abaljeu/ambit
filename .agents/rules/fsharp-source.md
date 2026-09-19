@@ -10,7 +10,11 @@ If you are looking for browser access functions, look at ./other/fable.browser.d
 
 Group related function parameters into a named, reused type (record or DU). When adding a parameter that belongs with existing ones, extend that type instead of lengthening the argument list. Reuse a type that already exists. Do not invent a one-off tuple or a mega-record of unrelated values; split by cohesion.
 
-400 lines or less per file. If a file is already longer, only restructure to split up the code if your changes would increase it.
+800 lines or less per file. To minimize churn, when this occurs, split the file into three pieces each under 400 lines.  If a file is already longer, only restructure to split up the code if your changes would increase it.
+
+This rule does not apply to tests.  Tests should split to match the source files.
+
+Splitting should be a standalone operation, executed after the project edits are posted.  This operation will only have commits whose role is to restructure code.  Avoid creating a forwarding module in favor of updating the users to point to the right new file.
 
 Public function names must be either more than one word, or explicitly require context to be called.
 
@@ -18,8 +22,6 @@ TABs are not allowed in F#. Always indent 4 spaces.
 Indentation is equally important as it is in python or Haskell.
 
 Follow language norms. Match existing style.
-
-When a binding's type becomes Ev instead of leftover Change, rename the local to `event` / `events`. Keep `ev` / `evs` only when that file already uses them. Do not leave `change` / `changes` bound to Ev.
 
 Graphs may be millions of nodes. In hot paths, avoid O(nodes) full-graph scans (e.g. `Map.toList graph.nodes`). Prefer owner-subtree or other local walks (see `GraphQuery.ownedArtifactsInDirectory`).
 
