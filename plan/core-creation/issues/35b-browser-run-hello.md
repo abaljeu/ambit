@@ -1,6 +1,6 @@
 # 35b — Browser Run hello
 
-**Status:** coded
+**Status:** done
 **Blocked by:** None — [34b — Outside Core lifecycle proof](34b-outside-core-lifecycle-proof.md) is `done`.
 Actual: 7h
 
@@ -8,7 +8,9 @@ Actual: 7h
 
 The outside-Core proof establishes the TestActor `hello` lifecycle without Browser HTTP. This ticket connects that lifecycle to the existing Browser Run action. When the current Node text starts with `?`, Run sends a one-Node Command through HTTP and Core. The Browser then shows one Owned child with text `hello` under the current Focus.
 
-This ticket follows Story path **Browser Run hello** in [Core creation architecture](plan/core-creation/arch.md). The architecture Module map owns State, Interface, and Uses details. Client supplies `graphIds` for the unfolded Included context; server does not Zoom-expand or Fold-walk for Actor start.
+This ticket follows Story path **Browser Run hello** in [Core creation architecture](../arch.md). The architecture Module map owns State, Interface, and Uses details. Client supplies `graphIds` for the unfolded Included context; server does not Zoom-expand or Fold-walk for Actor start.
+
+This ticket completes these [Core creation architecture](../arch.md) items: Story path **Browser Run hello** hops 1–11; shared segment **StartActor through HTTP / Core / Pool**; module **Included descendant id list** State, Interface, and Uses; module **Browser Run** State, Interface 1–3, and Uses; module **HTTP Adapter** State, Interface 1–2 and 6–7, and Uses; Seam **Included descendant id list**.
 
 ## What to build
 
@@ -82,6 +84,7 @@ Verify the complete Story path from the user-visible boundary. Does **not** requ
 
 ## Comments
 
+- 2026-09-19 — Review approve. Status `done`. Completes [Core creation architecture](../arch.md) Story path **Browser Run hello** hops 1–11, shared segment **StartActor through HTTP / Core / Pool**, module **Included descendant id list**, module **Browser Run**, module **HTTP Adapter** Command items, and Seam **Included descendant id list**.
 - 2026-09-18 — [§6 History durability](35b-browser-run-hello.md) split to [46 — Mailbox History durability](46-mailbox-history-durability.md). [§7 Browser proof](35b-browser-run-hello.md) can run without 46.
 - 2026-09-14 — Updated to align with Alan's locks: Client supplies `graphIds` from unfolded Included context (Fold); server does not Zoom-expand or Fold-walk. The walk is **unfolded vs folded** (Included context / Fold), **not** loaded vs unloaded residency. Actor select `test` is distinct from interpreting `hello` from command text. Register-then-start; Core owns pool; Actors injected at startup. getState / State = Graph; Events via lifecycle/History. Arch module still named "Loaded descendant id list" — rename debt to "Unfolded Included context id list" or similar when arch is next edited for this Project.
 - 2026-09-14 — Added §6 History durability (persist/load mailbox History for restart survival); moved off 34b where mailbox History was process-lifetime only.

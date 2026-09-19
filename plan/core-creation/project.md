@@ -2,7 +2,7 @@
 
 Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
-Updated: 2026-09-18
+Updated: 2026-09-19
 Started: 2026-09-05
 Actual: 64h50m
 
@@ -56,8 +56,8 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/issues/29-prove-testactor-hello.md]] — current cut: section 1 mailbox foundation on `dev`; remaining hello sections open. Redo: land [[plan/core-creation/arch.md]] before further hello implement — [[plan/core-creation/reports/redo-29-architecture-before-proceed.md]].
 - [[plan/core-creation/issues/33-credentialed-browser-change-posts.md]] — Story path Browser Change posts: cookie-as-credential, boot seed, CoreMailbox admit only; Status `coded`. `auth.Disabled` skip removed; development cookie is auto-issued and still required.
 - [[plan/core-creation/issues/34b-outside-core-lifecycle-proof.md|34b — Outside Core lifecycle proof]] — Story path Outside Core lifecycle proof: TestActor hello from Pool/Actor seam without HTTP. Status `done` (independent review approve; report [[plan/core-creation/reports/code-review-34b-outside-core-lifecycle-proof.md]]).
-- [[plan/core-creation/issues/35b-browser-run-hello.md|35b — Browser Run hello]] — Story path Browser Run hello: `?` one-Node Command through HTTP to Owned child `hello`; Status `coded` (slices 4+5+7). §6 durability → [[plan/core-creation/issues/46-mailbox-history-durability.md|46]]; §7 proof does not need 46.
-- [46 — Mailbox History durability](issues/46-mailbox-history-durability.md) — persist/load the audit sequence; load reconcile Graph id vs EventLog tip (drop / noop / apply until concurrent). Status `coded`. Blocked by [35b — Browser Run hello](issues/35b-browser-run-hello.md). Not required for 35b §7 Browser proof. Plan: [46 mailbox History durability explore](reports/46-mailbox-history-durability-explore.md). Reconcile: [46 mailbox History durability reconcile](reports/46-mailbox-history-durability-reconcile.md).
+- [35b — Browser Run hello](issues/35b-browser-run-hello.md) — Story path **Browser Run hello**: `?` one-Node Command through HTTP to Owned child `hello`. Status `done`.
+- [46 — Mailbox History durability](issues/46-mailbox-history-durability.md) — persist/load the audit sequence; load reconcile Graph id vs EventLog tip (drop / noop / apply until concurrent). Status `done`.
 - [[plan/core-creation/issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]] — Collapse extra Core entrances onto CoreMailbox; Status `coded`. Report: [[plan/core-creation/reports/mailbox-single-door.md]].
 - [[plan/core-creation/issues/37-expand-shared-event-eventlog-and-history.md|37 — Expand Shared Event, EventLog, and History]] — Story **Event, EventLog, and ClientHistory** Shared expand beside HistoryEvent; Event-shaped ClientHistory beside the Change-shaped API. No new History module. Status `coded`.
 - [[plan/core-creation/issues/40-expand-postevent-eventlog-and-event-json.md|40 — Expand postEvent, EventLog store, and Event JSON persist]] — Story **Caller, persist, and Poll** expand: `postEvent`, EventLog store, Event JSON beside ChangeLog. Status `coded`.
@@ -132,9 +132,11 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/reports/35b-slice4-5-7-core-testactor-browser-proof.md]] — [35b — Browser Run hello](plan/core-creation/issues/35b-browser-run-hello.md) slices 4+5+7 Core TestActor and Browser proof.
 - [35b slices 4+5+7 standards and Spec corrections](plan/core-creation/reports/35b-slice4-5-7-standards-spec-corrections.md) — [35b — Browser Run hello](plan/core-creation/issues/35b-browser-run-hello.md) Origin Spec review: unregistered Actor name and non-hello command fail.
 - [46 mailbox History durability](plan/core-creation/reports/46-mailbox-history-durability.md) — [46 — Mailbox History durability](issues/46-mailbox-history-durability.md) implement: seed order, File+Db recover, one serial.
+- [Arch reconcile 35b and 46 landed](reports/arch-reconcile-35b-46-landed.md) — [Core creation architecture](arch.md) checkboxes after [35b — Browser Run hello](issues/35b-browser-run-hello.md) and [46 — Mailbox History durability](issues/46-mailbox-history-durability.md). Remaining unchecked → covering ticket.
 
 ## Comments
 
+- 2026-09-19 — Reconciled [Core creation architecture](arch.md) to landed [35b — Browser Run hello](issues/35b-browser-run-hello.md) (`done`) and [46 — Mailbox History durability](issues/46-mailbox-history-durability.md) (`done`). Hello-cut checkboxes are `[x]`. Remaining unchecked: none. Report: [Arch reconcile 35b and 46 landed](reports/arch-reconcile-35b-46-landed.md).
 - 2026-09-11 — Added [[plan/core-creation/issues/29-prove-testactor-hello.md]].
 - 2026-09-11 — One-home DRY of Phase 2 issues and locked 06/07. Command text `?test hello` is owned by [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]].
 - 2026-09-12 — Reviews of the TestActor hello increment failed. Code was stashed. Yesterday's issue checkboxes and implementation logs for that increment were cleared.
