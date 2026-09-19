@@ -124,9 +124,9 @@ Narrowest shared test seam:
    Files: Shared Document codec surfaces (existing Reference Paste facts: [[reports/reference-paste-and-change-post-facts.md]]). First pack reuses Amb (`AmbDocument`) with one extract-walk write option. Existing Md artifact write does not change.
    1. State
       1. [x] Owning codecs per document (unused by the first pack)
-      2. [ ] Extract-pack Focus is `Graph.focus` on the extract copy (`withFocus`; JSON and History omit)
+      2. [x] Extract-pack Focus is `Graph.focus` on the extract copy (`withFocus`; JSON and History omit)
    2. Interface
-      1. [ ] Amb-write the supplied extract: follow child lists as given (Owned and Ref recurse into Nodes present in the extract); do not stop at nested document or File Node boundaries; do not persist a file; do not use owning-document partition
+      1. [x] Amb-write the supplied extract: follow child lists as given (Owned and Ref recurse into Nodes present in the extract); do not stop at nested document or File Node boundaries; do not persist a file; do not use owning-document partition
       2. Parse of this increment is default Amb parse. No new parse mode.
       3. [ ] Tabled: serialize Graph extract to mixed-format document with owning codecs and Focus marked
       4. [ ] Complete-response structural parse; atomic fallback to Plain indentation

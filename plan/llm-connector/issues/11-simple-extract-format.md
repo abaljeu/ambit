@@ -1,9 +1,9 @@
 # 11 — Pack extract with Amb (supplied-fragment walk)
 
-**Status:** defined
+**Status:** coded
 **Blocked by:** None — can start immediately.
 **Type:** task
-Actual: 45m
+Actual: 1h45m
 
 ## Context
 
@@ -17,11 +17,11 @@ A Document write option that serializes the supplied extract to an Amb string. W
 
 State / Interface / Uses: [[arch.md]] module **Document**.
 
-1. [ ] Amb extract-walk write — serialize the supplied extract with `AmbDocument` using one walk option that follows the extract child lists as given.
-2. [ ] Supplied child walk — recurse Owned and Ref appearances into Nodes present in the extract; omit a child id that is missing from the extract.
-3. [ ] No document-file bound — do not stop at nested document or File Node boundaries; do not use owning-document partition.
-4. [ ] No file write — do not persist; do not call Md or other artifact writers.
-5. [ ] Focus on extract Graph — `Graph.withFocus` sets `Graph.focus` on the extract copy; JSON and History omit `focus`. Amb text has no Focus sentinel.
+1. [x] Amb extract-walk write — serialize the supplied extract with `AmbDocument` using one walk option that follows the extract child lists as given.
+2. [x] Supplied child walk — recurse Owned and Ref appearances into Nodes present in the extract; omit a child id that is missing from the extract.
+3. [x] No document-file bound — do not stop at nested document or File Node boundaries; do not use owning-document partition.
+4. [x] No file write — do not persist; do not call Md or other artifact writers.
+5. [x] Focus on extract Graph — `Graph.withFocus` sets `Graph.focus` on the extract copy; JSON and History omit `focus`. Amb text has no Focus sentinel.
 
 ## Non-goals
 
@@ -39,7 +39,9 @@ State / Interface / Uses: [[arch.md]] module **Document**.
 
 - 2026-09-19 — Replan: reuse Amb extract-walk. Nested-tag pack abandoned. Fable.SimpleXml rejected (parse is JS/Parsimmon; throws on .NET Server). GitHub PRs #53 and #54 close without land.
 - 2026-09-19 — Focus seam: ephemeral `Graph.focus` / `withFocus` on the extract copy (already discussed on the abandoned nested-tag increment). Not an Amb-native Focus mark.
+- 2026-09-19 — Coded: `AmbWriteWalk.SuppliedExtract` on `AmbDocument.writeWith`; `Graph.focus` / `withFocus`; JSON and History omit focus.
 
 ## Time
 
 - 2026-09-19 45m — replan ticket 11 to Amb extract-walk (from chat)
+- 2026-09-19 1h — Amb extract-walk write and Graph.focus seam (from chat)
