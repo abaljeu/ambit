@@ -172,6 +172,7 @@ module Serialization =
 
     // ---- Graph ----
 
+    /// Root + nodes only. `Graph.focus` is in-memory and omitted.
     let encodeGraph (graph: Graph) : IEncodable =
         let nodeList =
             graph.nodes |> Map.toList |> List.map (snd >> encodeNode)

@@ -3,15 +3,15 @@ namespace Gambol.Shared
 /// Nested-tag extract pack. Not a file codec.
 ///
 /// extract = node
-/// node    = "<div>" text node* "</div>"
-///         | "<focus>" text node* "</focus>"
+/// node    = "<" tag ">" text node* "</" tag ">"
+/// tag     = letter+
 /// text    = characters until the next open or close tag
 [<RequireQualifiedAccess>]
 module DocumentNestedTag =
 
     type NestedTagNode =
-        { text: string
-          isFocus: bool
+        { tag: string
+          text: string
           children: NestedTagNode list }
 
     [<Literal>]
@@ -23,18 +23,21 @@ module DocumentNestedTag =
     [<Literal>]
     let residue = "residue after extract"
 
-    let private tagName isFocus =
-        if isFocus then "focus" else "div"
+    let tagName (_node: Node) = "div"
+
+    let private writeTag (graph: Graph) (node: Node) =
+        match graph.focus with
+        | Some id when id = node.id -> "focus"
+        | _ -> tagName node
 
     let rec private writeNode
         (graph: Graph)
-        (focusId: NodeId)
         (ancestors: Set<NodeId>)
         (node: Node)
         : string =
-        let isFocus = node.id = focusId
-        let openTag = "<" + tagName isFocus + ">"
-        let closeTag = "</" + tagName isFocus + ">"
+        let tag = writeTag graph node
+        let openTag = "<" + tag + ">"
+        let closeTag = "</" + tag + ">"
         let nextAncestors = Set.add node.id ancestors
         let childStrings =
             node.children
@@ -43,29 +46,46 @@ module DocumentNestedTag =
                     None
                 else
                     Map.tryFind child.id graph.nodes
-                    |> Option.map (writeNode graph focusId nextAncestors))
+                    |> Option.map (writeNode graph nextAncestors))
         openTag + node.text + String.concat "" childStrings + closeTag
 
-    let writeExtract (graph: Graph) (focusId: NodeId) : Result<string, string> =
+    let writeExtract (graph: Graph) : Result<string, string> =
         match Map.tryFind graph.root graph.nodes with
         | None -> Error missingRoot
-        | Some root -> Ok (writeNode graph focusId Set.empty root)
+        | Some root -> Ok (writeNode graph Set.empty root)
 
-    type private Tag =
-        | OpenDiv
-        | OpenFocus
-        | CloseDiv
-        | CloseFocus
+    type private Mark =
+        | Open of string
+        | Close of string
 
-    let private tagAt (source: string) (i: int) : (Tag * int) option =
-        let isToken (token: string) =
-            i + token.Length <= source.Length
-            && source.Substring(i, token.Length) = token
-        if isToken "<div>" then Some(OpenDiv, 5)
-        elif isToken "<focus>" then Some(OpenFocus, 7)
-        elif isToken "</div>" then Some(CloseDiv, 6)
-        elif isToken "</focus>" then Some(CloseFocus, 8)
+    let private isNameChar (c: char) =
+        (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+
+    let private readName (source: string) (i: int) =
+        let rec loop j =
+            if j < source.Length && isNameChar source.[j] then
+                loop (j + 1)
+            else
+                j
+        let j = loop i
+        if j > i then Some(source.Substring(i, j - i), j)
         else None
+
+    let private tagAt (source: string) (i: int) : (Mark * int) option =
+        if i >= source.Length || source.[i] <> '<' then
+            None
+        elif i + 1 < source.Length && source.[i + 1] = '/' then
+            match readName source (i + 2) with
+            | Some(name, after) when after < source.Length
+                && source.[after] = '>' ->
+                Some(Close name, after + 1 - i)
+            | _ -> None
+        else
+            match readName source (i + 1) with
+            | Some(name, after) when after < source.Length
+                && source.[after] = '>' ->
+                Some(Open name, after + 1 - i)
+            | _ -> None
 
     let rec private nextTag (source: string) (i: int) =
         if i >= source.Length then
@@ -75,20 +95,13 @@ module DocumentNestedTag =
             | Some found -> Some(found, i)
             | None -> nextTag source (i + 1)
 
-    let private matchingClose openTag closeTag =
-        match openTag, closeTag with
-        | OpenDiv, CloseDiv -> true
-        | OpenFocus, CloseFocus -> true
-        | _ -> false
-
     let rec private parseNodes
         (source: string)
         (i: int)
         (acc: NestedTagNode list)
         : Result<NestedTagNode list * int, string> =
         match tagAt source i with
-        | Some(OpenDiv, _)
-        | Some(OpenFocus, _) ->
+        | Some(Open _, _) ->
             match parseNode source i with
             | Error err -> Error err
             | Ok(node, after) -> parseNodes source after (node :: acc)
@@ -99,15 +112,13 @@ module DocumentNestedTag =
         (i: int)
         : Result<NestedTagNode * int, string> =
         match tagAt source i with
-        | Some(OpenDiv, len) -> parseOpened source (i + len) false OpenDiv
-        | Some(OpenFocus, len) -> parseOpened source (i + len) true OpenFocus
+        | Some(Open name, len) -> parseOpened source (i + len) name
         | _ -> Error incomplete
 
     and private parseOpened
         (source: string)
         (i: int)
-        (isFocus: bool)
-        (openTag: Tag)
+        (tag: string)
         : Result<NestedTagNode * int, string> =
         let textEnd =
             match nextTag source i with
@@ -118,10 +129,10 @@ module DocumentNestedTag =
         | Error err -> Error err
         | Ok(children, afterChildren) ->
             match tagAt source afterChildren with
-            | Some(closeTag, len) when matchingClose openTag closeTag ->
+            | Some(Close closeName, len) when closeName = tag ->
                 let node =
-                    { text = nodeText
-                      isFocus = isFocus
+                    { tag = tag
+                      text = nodeText
                       children = children }
                 Ok(node, afterChildren + len)
             | _ -> Error incomplete

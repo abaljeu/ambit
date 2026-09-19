@@ -179,7 +179,9 @@ type Graph =
       /// Child id -> structural parent and index (min parent NodeId wins when shared).
       parentByChild: Map<NodeId, NodeId * int>
       /// Child id -> graph parent along the single Ownership.Owner edge.
-      ownerParentByChild: Map<NodeId, NodeId> }
+      ownerParentByChild: Map<NodeId, NodeId>
+      /// Extract-pack Focus. History and JSON omit this field.
+      focus: NodeId option }
 
 /// Carries a fixed `Graph` and current `NodeId`; steps compose like `SiteNav`.
 type NodeNav = NodeNav of Graph * NodeId option

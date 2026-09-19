@@ -126,8 +126,9 @@ Narrowest shared test seam:
    Files: Shared / Server Document codec surfaces (existing Reference Paste facts: [[reports/reference-paste-and-change-post-facts.md]]).
    1. State
       1. [x] Owning codecs per document (unused by the temporary pack)
+      2. [x] Extract-pack Focus is `Graph.focus` on the extract copy (`withFocus`; JSON omits)
    2. Interface
-      1. [x] Write and parse the supplied extract as nested `<div>` / `<focus>` strings (not a file; not Owner-bounded). Existing Md artifact write does not change.
+      1. [x] Write and parse the supplied extract as nested `<div>` / `<focus>` strings (not a file; not Owner-bounded). Tag name comes from the Node (today `div`); Focus id on the extract copy writes `<focus>`. Existing Md artifact write does not change.
       2. [ ] Tabled: serialize Graph extract to mixed-format document with owning codecs and Focus marked
       3. [ ] Plan Ops replacing every current Focus Child (empty success removes all)
    3. Uses

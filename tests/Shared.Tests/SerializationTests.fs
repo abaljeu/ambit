@@ -222,6 +222,16 @@ let ``Graph round-trip`` () =
     Assert.Equal<Map<NodeId, Node>>(graph.nodes, decoded.nodes)
 
 [<Fact>]
+let ``Graph JSON omits focus`` () =
+    let graph = ModelBuilder.createDag12 ()
+    let marked = Graph.withFocus graph.root graph
+    let json = Enc.toString 0 (Serialization.encodeGraph marked)
+    Assert.DoesNotContain("\"focus\"", json)
+    let decoded =
+        roundTrip Serialization.encodeGraph Serialization.decodeGraph marked
+    Assert.Equal(None, decoded.focus)
+
+[<Fact>]
 let ``Desktop capabilities disabled round-trip`` () =
     let decoded =
         roundTrip

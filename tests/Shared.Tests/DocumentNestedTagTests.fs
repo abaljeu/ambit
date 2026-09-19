@@ -20,18 +20,16 @@ let ``leaf node writes a single div line`` () =
     let id = NodeId.New()
     let node = Node.Create(id, text = "Hello")
     let graph = extracted [ node ] id
-    let packed =
-        DocumentNestedTag.writeExtract graph (NodeId.New())
-        |> requireOk "write"
+    Assert.Equal(None, graph.focus)
+    let packed = DocumentNestedTag.writeExtract graph |> requireOk "write"
     Assert.Equal("<div>Hello</div>", packed)
 
 [<Fact>]
 let ``leaf Focus writes a single focus line`` () =
     let id = NodeId.New()
     let node = Node.Create(id, text = "Ask")
-    let graph = extracted [ node ] id
-    let packed =
-        DocumentNestedTag.writeExtract graph id |> requireOk "write"
+    let graph = Graph.withFocus id (extracted [ node ] id)
+    let packed = DocumentNestedTag.writeExtract graph |> requireOk "write"
     Assert.Equal("<focus>Ask</focus>", packed)
 
 [<Fact>]
@@ -45,9 +43,7 @@ let ``nested node writes text then child tags`` () =
             text = "Parent",
             children = [ ChildNode.owner childId ])
     let graph = extracted [ parent; child ] parentId
-    let packed =
-        DocumentNestedTag.writeExtract graph (NodeId.New())
-        |> requireOk "write"
+    let packed = DocumentNestedTag.writeExtract graph |> requireOk "write"
     Assert.Equal("<div>Parent<div>Child</div></div>", packed)
 
 [<Fact>]
@@ -60,10 +56,9 @@ let ``nested Focus wraps children in focus tags`` () =
             parentId,
             text = "Parent",
             children = [ ChildNode.owner childId ])
-    let graph = extracted [ parent; child ] parentId
-    let packed =
-        DocumentNestedTag.writeExtract graph parentId
-        |> requireOk "write"
+    let graph =
+        Graph.withFocus parentId (extracted [ parent; child ] parentId)
+    let packed = DocumentNestedTag.writeExtract graph |> requireOk "write"
     Assert.Equal("<focus>Parent<div>Child</div></focus>", packed)
 
 [<Fact>]
@@ -81,9 +76,7 @@ let ``write walks Ref children supplied in the extract`` () =
                 [ ChildNode.owner ownedId
                   ChildNode.reference refId ])
     let graph = extracted [ parent; owned; referred ] parentId
-    let packed =
-        DocumentNestedTag.writeExtract graph (NodeId.New())
-        |> requireOk "write"
+    let packed = DocumentNestedTag.writeExtract graph |> requireOk "write"
     Assert.Equal("<div>Zoom<div>Owned</div><div>Referred</div></div>", packed)
 
 [<Fact>]
@@ -96,9 +89,7 @@ let ``write omits a child id missing from the extract`` () =
             text = "Zoom",
             children = [ ChildNode.reference missingId ])
     let graph = extracted [ parent ] parentId
-    let packed =
-        DocumentNestedTag.writeExtract graph (NodeId.New())
-        |> requireOk "write"
+    let packed = DocumentNestedTag.writeExtract graph |> requireOk "write"
     Assert.Equal("<div>Zoom</div>", packed)
 
 [<Fact>]
@@ -111,20 +102,19 @@ let ``round-trip parse recovers the child tree`` () =
             parentId,
             text = "Parent",
             children = [ ChildNode.owner childId ])
-    let graph = extracted [ parent; child ] parentId
-    let packed =
-        DocumentNestedTag.writeExtract graph childId
-        |> requireOk "write"
+    let graph =
+        Graph.withFocus childId (extracted [ parent; child ] parentId)
+    let packed = DocumentNestedTag.writeExtract graph |> requireOk "write"
     Assert.Equal("<div>Parent<focus>Child</focus></div>", packed)
     let tree =
         DocumentNestedTag.parseExtract packed |> requireOk "parse"
     let childTree: DocumentNestedTag.NestedTagNode =
-        { text = "Child"
-          isFocus = true
+        { tag = "focus"
+          text = "Child"
           children = [] }
     let expected: DocumentNestedTag.NestedTagNode =
-        { text = "Parent"
-          isFocus = false
+        { tag = "div"
+          text = "Parent"
           children = [ childTree ] }
     Assert.Equal(expected, tree)
 
