@@ -59,6 +59,7 @@ Graph + Poll only; no live-Actor chrome.
 
 ## Comments
 
+- 2026-09-19 — Follow-up: `systemPrompt` is a fixed rules string (no Focus text splice). CloudAgents `DisplayName` is `AI`.
 - 2026-09-19 — Landed on staging after Good (setFake Ask path; Approve with nits accepted).
 - 2026-09-19 — Coded: CloudAgents `setFake`; `?ai` launches Run Agent Actor; Amb extract-walk pack; Focus-child replace through ordinary Core Change; fake Ask proof; live call-reject until API key.
 - 2026-09-19 — Locked: CloudAgents fake/real via DLL `setFake: (StartArgs -> AgentStatus) option -> bool` (arch). Not an Ambit/Core switch.

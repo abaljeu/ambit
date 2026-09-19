@@ -9,6 +9,7 @@ Actual: 17h
 
 ## Notes
 
+- 2026-09-19 — Run Agent Actor `systemPrompt` is a fixed rules string; Focus in the packed extract is the prompt. CloudAgents `DisplayName` is `AI`.
 - 2026-09-19 — Locked AI keys: `AiKeys` section in Server `appsettings*.json` (Production gitignored); `?ai` keyname selects; not DataDir/Graph/cookie.
 - 2026-09-19 — Stage `done`: first Agent vertical (08–11, 13) delivered on staging.
 - 2026-09-19 — Landed [13 — Vertical proof: Browser Ask from what I see](issues/13-vertical-proof-browser-ask.md) on staging (Good). Status `done`.
