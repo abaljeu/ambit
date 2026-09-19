@@ -20,10 +20,11 @@ Run an Agent from a Zoom-rooted mixed-format Graph extract, mark Focus in the ou
 - [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] — typed boundaries, launch membership, Event sequence, mailbox lifecycle, recovery, test seams.
 - CloudAgents remains the standalone vendor-neutral project and API. Cursor is an ordinary adapter. Provider selection is not a domain decision in this Project.
 - [[plan/llm-connector/issues/05-create-cloud-agent-posts-reply-under-focus.md]] and its Create payload, Md paste-replace implementation, and vertical proof remain cancelled.
+- 2026-09-19 — First pack is Amb extract-walk of the supplied Zoom extract. Nested-tag `<div>` / `<focus>` abandoned. Fable.SimpleXml rejected. Mixed-format owning-codec stays tabled. [[issues/11-simple-extract-format.md|11 — Pack extract with Amb (supplied-fragment walk)]].
 
 ## Not yet specified
 
-- Implementation tickets charted: [[issues/08-agent-ask-from-what-i-see.md|08]], [[issues/09-agent-failure-preserves-children.md|09]], [[issues/10-cancel-by-focus.md|10]]. Frontier: 08.
+- Implementation tickets: [[issues/11-simple-extract-format.md|11 — Pack extract with Amb (supplied-fragment walk)]], [[issues/08-agent-ask-from-what-i-see.md|08 — Agent ask from what I see]], [[issues/09-agent-failure-preserves-children.md|09]], [[issues/10-cancel-by-focus.md|10]]. Frontier: [11 — Pack extract with Amb (supplied-fragment walk)](issues/11-simple-extract-format.md).
 - Define the replacement vertical proof after the first CloudAgents / Run Agent implement tickets are `defined` (arch lock).
 
 ## Out of scope
