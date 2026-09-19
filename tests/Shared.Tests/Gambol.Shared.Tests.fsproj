@@ -52,6 +52,7 @@
     <Compile Include="DocumentPathMoveTests.fs" />
     <Compile Include="DocumentPartitionTests.fs" />
     <Compile Include="DocumentNestedTagTests.fs" />
+    <Compile Include="DocumentNestedTagSimpleXmlTests.fs" />
     <Compile Include="DocumentOpImpactTests.fs" />
     <Compile Include="DocumentAssemblyTests.fs" />
     <Compile Include="DocumentAssemblyWorkspaceMarkerTests.fs" />

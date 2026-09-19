@@ -18,6 +18,7 @@
     <Compile Include="GraphSpan.fs" />
     <Compile Include="GraphMutate.fs" />
     <Compile Include="GraphOps.fs" />
+    <Compile Include="DocumentNestedTagSimpleXml.fs" />
     <Compile Include="RefExprTypes.fs" />
     <Compile Include="RefExprParse.fs" />
     <Compile Include="RefExprMatch.fs" />
@@ -110,6 +111,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Fable.Parsimmon" Version="4.1.0" />
+    <PackageReference Include="Fable.SimpleXml" Version="3.4.0" />
     <PackageReference Include="Thoth.Json.Core" Version="0.7.1" />
     <PackageReference Include="Thoth.Json.JavaScript" Version="0.4.1" />
   </ItemGroup>
