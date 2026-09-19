@@ -1,7 +1,7 @@
 # 10 — Cancel by Focus
 
 **Status:** defined
-**Blocked by:** [[08-agent-ask-from-what-i-see.md|08 — Agent ask from what I see]]
+**Blocked by:** [[08-agent-ask-from-what-i-see.md|08 — Run Agent Actor calls CloudAgents]]
 **Type:** task
 
 ## Context

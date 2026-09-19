@@ -1,7 +1,7 @@
 # 09 — Agent failure preserves children
 
 **Status:** defined
-**Blocked by:** [[08-agent-ask-from-what-i-see.md|08 — Agent ask from what I see]]
+**Blocked by:** [[08-agent-ask-from-what-i-see.md|08 — Run Agent Actor calls CloudAgents]], [[12-replace-focus-children-from-reply.md|12 — Replace Focus Children from reply]]
 **Type:** task
 
 ## Context
