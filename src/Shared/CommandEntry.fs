@@ -60,6 +60,7 @@ type CommandId =
     | InsertFile
     | Rename
     | Exec
+    | Cancel
     | CheckGraph
 
 type CommandEntry = {
@@ -269,6 +270,9 @@ let allCommands : CommandEntry list =
         { id = Exec; name = "Run"
           keys = [ "Ctrl+Enter" ]; keyScope = SelectionOrEditing
           iconId = Some "amb-icon-run" }
+        { id = Cancel; name = "Cancel"
+          keys = [ "Ctrl+Shift+Enter" ]; keyScope = SelectionOrEditing
+          iconId = None }
         { id = CheckGraph; name = "Check graph"
           keys = []; keyScope = SelectionOrEditing
           iconId = None }

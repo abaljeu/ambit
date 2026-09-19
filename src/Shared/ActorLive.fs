@@ -27,6 +27,15 @@ module ActorLive =
 
     let liveRowClass = "amb-actor-live"
 
+    let cancelControlClass = "amb-actor-cancel"
+
+    let offersCancel (focusId: NodeId) (live: Set<NodeId>) =
+        Set.contains focusId live
+
+    let cancelEffect (focusId: NodeId) (live: Set<NodeId>) : Effect option =
+        if offersCancel focusId live then Some (SubmitCancel focusId)
+        else None
+
     let applyEvent (event: Ev) (live: Set<NodeId>) : Set<NodeId> =
         match event.body with
         | EventBody.ActorStart start -> Set.add start.focusId live

@@ -26,6 +26,11 @@ let withAppliedResult
         withAppliedSync state model |> withActorCmdResult events
     { next with syncInfo = syncInfo }
 
+let cancelFocusOp (focusId: NodeId) (model: VM) : VM * Effect list =
+    match ActorLive.cancelEffect focusId model.actorLiveFocusIds with
+    | Some effect -> model, [ effect ]
+    | None -> model, []
+
 let applyCommandEvents (events: Ev list) (model: VM) : VM * Effect list =
     match SyncLogic.applyServerTail events (clientSyncState model) with
     | Error msg ->

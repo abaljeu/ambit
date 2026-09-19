@@ -36,11 +36,11 @@ Sources: [[issues/06-define-command-run-agent-redesign.md|06 — Define the revi
    3. [x] Focus Children unchanged (AI Actor does not erase)
 
 4. **Cancel by Focus**
-   1. [ ] Browser cancel by Focus NodeId
+   1. [x] Browser cancel by Focus NodeId
    2. [x] Core mailbox orders Cancelled vs Change (Change-before-Cancel applies; Cancel-before-Change rejects)
    3. [x] CloudAgents cancel; ActorFinished without Error or Change; drop live
    4. [x] Focus Children preserved except earlier accepted Changes
-   5. [ ] Browser live projection clears (no Graph lock-present field) — chrome on core-creation 21/22; first Agent vertical may prove cancel without UI
+   5. [x] Browser live projection clears (no Graph lock-present field) — chrome on core-creation 21/22; first Agent vertical may prove cancel without UI
 
 5. **Credentialed Change while Agent runs**
    1. [x] Browser Change posts through CoreMailbox
@@ -65,10 +65,10 @@ Narrowest shared test seam:
    File: Client Run and Poll surfaces (existing Browser Command path).
    1. State
       1. [x] Session cookie / credential
-      2. [ ] Live Actor projection by Focus from Poll Events — owned by core-creation 21/22, not first Agent vertical
+      2. [x] Live Actor projection by Focus from Poll Events — owned by core-creation 21/22, not first Agent vertical
    2. Interface
       1. [x] Typed launch: included NodeIds, Zoom, Focus, Command, event id
-      2. [ ] Cancel by Focus NodeId — owned by core-creation 22; first Agent vertical may omit Browser cancel chrome
+      2. [x] Cancel by Focus NodeId — owned by core-creation 22; first Agent vertical may omit Browser cancel chrome
       3. [x] Poll consume Ev tail
    3. Uses
       1. [x] HTTP Adapter
@@ -80,7 +80,7 @@ Narrowest shared test seam:
       1. [x] None beyond request decode
    2. Interface
       1. [x] Decode launch / Change / Poll; encode universal `{ nodes; events; latestId }`
-      2. [ ] Decode cancel-by-Focus when exposed
+      2. [x] Decode cancel-by-Focus when exposed
    3. Uses
       1. [x] CoreMailbox doors only
 

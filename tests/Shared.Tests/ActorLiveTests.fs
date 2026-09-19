@@ -81,6 +81,19 @@ let ``ActorStop ActorFailed sets Ask Actor failed lastCmdResult`` () =
             (CmdLastResult.Detail (Some "Run", "AI started.")))
 
 [<Fact>]
+let ``cancelEffect sends SubmitCancel only while the Focus is live`` () =
+    let focusId = NodeId.New()
+    let otherId = NodeId.New()
+    let live = Set.singleton focusId
+    Assert.True(ActorLive.offersCancel focusId live)
+    Assert.False(ActorLive.offersCancel otherId live)
+    Assert.Equal(
+        Some (SubmitCancel focusId),
+        ActorLive.cancelEffect focusId live)
+    Assert.Equal(None, ActorLive.cancelEffect otherId live)
+    Assert.Equal(None, ActorLive.cancelEffect focusId Set.empty)
+
+[<Fact>]
 let ``focusIdsFromLockPresent reads GetState overlay`` () =
     let focusId = NodeId.New()
     let graph0 = Graph.create ()

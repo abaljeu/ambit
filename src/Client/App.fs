@@ -149,6 +149,7 @@ let createRuntime (initialModel: VM) =
         match e with
         | SubmitPendingBatch (baseEventId, events) -> runSubmitPendingBatch baseEventId events
         | SubmitCommand request -> runSubmitCommand request
+        | SubmitCancel focusId -> runSubmitCancel focusId
         | PollServer _ -> runPollServer ()
         | LoadServer (_, targets) ->
             runLoadServer targets
@@ -394,6 +395,27 @@ let createRuntime (initialModel: VM) =
             (SubmitChangeCallbacks.onPostOk timeoutId reqId events dispatch)
             (SubmitChangeCallbacks.onPostHttp timeoutId reqId dispatch)
             (SubmitChangeCallbacks.onPostFetchFail timeoutId reqId baseEventId events dispatch)
+            (jsonMutatingPostHeaders ())
+
+    and runSubmitCancel (focusId: NodeId) : unit =
+        let url = $"/{currentFile}/cancel"
+        let body = encodeCancelRequest focusId
+        consoleLog (
+            "[Gambol cancel] POST focusId="
+            + string focusId)
+        postJson
+            url
+            body
+            (fun _ -> ())
+            (fun status text ->
+                let detail =
+                    "HTTP "
+                    + string status
+                    + " "
+                    + LogText.summarizeHttpBody 400 text
+                dispatch (SysMsg (CommandFailed detail)))
+            (fun () ->
+                dispatch (SysMsg (CommandFailed "fetch failed")))
             (jsonMutatingPostHeaders ())
 
     and runSubmitCommand (request: ActorStart) : unit =
