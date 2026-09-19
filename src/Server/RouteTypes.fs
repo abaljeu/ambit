@@ -3,7 +3,6 @@ namespace Gambol.Server
 type PersistenceContext =
     {
         DataDir: string
-        Mode: DatabaseSetup.PersistenceMode
         DbStatus: DatabaseSetup.DbStatus
         Core: CoreRuntime
     }

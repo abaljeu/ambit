@@ -1,7 +1,8 @@
 # Delete runtime mirror and remove production Persistence:Mode
 
 **Type:** task
-**Status:** ready-for-agent
+**Status:** done
+Actual: 2h
 Blocked by:
 
 ## What to build
@@ -18,12 +19,18 @@ This issue is independent and does not block [[01-generalized-server-actor-produ
 
 ## Acceptance criteria
 
-- [ ] With a database available, production startup selects DbAgent for writable Changes regardless of `Persistence:Mode`.
-- [ ] With no database available, the Server Rejects Changes while existing Graph-data and file queries still work.
-- [ ] The runtime mirror path is deleted and production behavior does not read `Persistence:Mode`.
-- [ ] Existing initialization, repair, reconciliation, secondary-file, and test-only FileAgent behavior remains unchanged.
-- [ ] Reuse or adjust focused startup and fallback tests; do not add duplicate behavior matrices.
+- [x] With a database available, production startup selects DbAgent for writable Changes regardless of `Persistence:Mode`.
+- [x] With no database available, the Server Rejects Changes while existing Graph-data and file queries still work.
+- [x] The runtime mirror path is deleted and production behavior does not read `Persistence:Mode`.
+- [x] Existing initialization, repair, reconciliation, secondary-file, and test-only FileAgent behavior remains unchanged.
+- [x] Reuse or adjust focused startup and fallback tests; do not add duplicate behavior matrices.
 
 ## Comments
 
+- 2026-09-19 — Squash-landed onto staging as one commit (Good after dead-code cleanup).
+- 2026-09-19 — Implemented. Production startup selects DbAgent from DbStatus. Leftover Persistence:Mode is ignored and does not fail startup. Report: [13 — Delete runtime mirror Persistence:Mode](../reports/13-delete-runtime-mirror-persistence-mode.md).
 - 2026-09-11 — Reconciled after the Actor rewind and Agent redesign. This remains independent persistence work. Database-down state and the mutating Post/launch probe belong with this persistence boundary through [[19-database-down-and-host-stop.md]]; host-stop Actor drain does not.
+
+## Time
+
+- 2026-09-19 2h — delete production persist-mode decision; adjust startup and fallback tests (from chat)

@@ -6,8 +6,6 @@ open System.Net
 open System.Net.Http
 open System.Text
 open System.Threading.Tasks
-open Microsoft.AspNetCore.Mvc.Testing
-open Microsoft.Extensions.Configuration
 open Xunit
 open Gambol.Server
 open Gambol.Shared
@@ -161,27 +159,16 @@ let private stateWithChild (text: string) =
     | ApplyResult.Unchanged _ -> failwith "Expected file bootstrap change to apply"
     | ApplyResult.Invalid (_, err) -> failwith $"Expected valid bootstrap change: {err}"
 
-// ---- Backend parameterisation ----
-
-/// Both backends under test. MemberData requires this to be public.
-let backends : obj[][] = [| [| box BackendKind.File |]; [| box BackendKind.Db |] |]
-
-/// Run a test body against a fresh client for the given backend.
-/// For Db: resets the test database before creating the client.
-let private withClient (backend: BackendKind) (f: HttpClient -> Task<unit>) = task {
-    match backend with
-    | BackendKind.File ->
-        use client = createFileClient ()
-        return! f client
-    | BackendKind.Db ->
-        let connStr = requireDbConnStr ()
-        do! resetTestDatabase connStr
-        use client = createDbClient connStr
-        return! f client
+/// Fresh Database HTTP client for state and Change facts.
+let private withClient (f: HttpClient -> Task<unit>) = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    use client = createDbClient connStr
+    return! f client
 }
 
 [<Fact>]
-let ``DB mode without connection serves read-only file fallback`` () = task {
+let ``unavailable Database serves read-only file fallback and ignores Persistence:Mode`` () = task {
     let tempDir = newTempDir ()
     use client = createDbModeWithoutConnectionClientForDir tempDir
     let! resp = client.GetAsync("/ambit/state")
@@ -205,16 +192,16 @@ let ``DB mode without connection serves read-only file fallback`` () = task {
 
 // ---- GET /ambit/state tests (parameterised) ----
 
-[<Theory; MemberData(nameof backends)>]
-let ``GET state returns revision 0 for fresh server`` (backend: BackendKind) =
-    withClient backend (fun client -> task {
+[<Fact>]
+let ``GET state returns revision 0 for fresh server`` () =
+    withClient (fun client -> task {
         let! json = getStateJson client testFile
         Assert.Equal(EventId.fromJson 0, decodeRevision json)
     })
 
-[<Theory; MemberData(nameof backends)>]
-let ``GET state returns valid graph with root node`` (backend: BackendKind) =
-    withClient backend (fun client -> task {
+[<Fact>]
+let ``GET state returns valid graph with root node`` () =
+    withClient (fun client -> task {
         let! json = getStateJson client testFile
         let graph = decodeGraph json
         Assert.Equal(0, userNodeCount graph)
@@ -241,10 +228,10 @@ let ``user css is served from canonical SYSTEM path`` () = task {
 
 // ---- POST /ambit/events tests (parameterised) ----
 
-[<Theory; MemberData(nameof backends)>]
+[<Fact>]
 let ``POST Change and inverse Changes return complete confirmations in request order``
-    (backend: BackendKind) =
-    withClient backend (fun client -> task {
+    () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let change, childId = changeAddChild rootId 0 "history-action"
@@ -281,8 +268,10 @@ let ``POST Change and inverse Changes return complete confirmations in request o
     })
 
 [<Fact>]
-let ``file backend large paste inverse total response is measured`` () = task {
-    use client = createFileClient ()
+let ``large paste inverse total response is measured`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    use client = createDbClient connStr
     let children =
         List.init 2000 (fun _ -> ChildNode.owner (NodeId.New()))
     let paste =
@@ -302,13 +291,13 @@ let ``file backend large paste inverse total response is measured`` () = task {
     sw.Stop()
     Assert.Equal(HttpStatusCode.OK, inverseResp.StatusCode)
     printfn
-        "2,000-Node paste inverse File-backend total response: %.3f ms"
+        "2,000-Node paste inverse total response: %.3f ms"
         sw.Elapsed.TotalMilliseconds
 }
 
-[<Theory; MemberData(nameof backends)>]
-let ``POST explicit Undo JSON is rejected`` (backend: BackendKind) =
-    withClient backend (fun client -> task {
+[<Fact>]
+let ``POST explicit Undo JSON is rejected`` () =
+    withClient (fun client -> task {
         let body =
             """{"events":[{"id":0,"submissionId":"00000000-0000-0000-0000-000000000001","authority":"","commandName":"","body":{"Change":[]}}]}"""
         use content = new StringContent(body, Encoding.UTF8, "application/json")
@@ -318,9 +307,9 @@ let ``POST explicit Undo JSON is rejected`` (backend: BackendKind) =
         Assert.Equal(EventId.fromJson 0, decodeRevision stateJson)
     })
 
-[<Theory; MemberData(nameof backends)>]
-let ``POST unchanged submission is rejected`` (backend: BackendKind) =
-    withClient backend (fun client -> task {
+[<Fact>]
+let ``POST unchanged submission is rejected`` () =
+    withClient (fun client -> task {
         let noOp =
             { id = EventId.fromJson 0
               submissionId = Guid.NewGuid()
@@ -337,7 +326,9 @@ let ``POST unchanged submission is rejected`` (backend: BackendKind) =
 
 [<Fact>]
 let ``POST changes accepts X-Gambol-Client header`` () = task {
-    use client = createFileClient ()
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    use client = createDbClient connStr
     let! json0 = getStateJson client testFile
     let rootId = (decodeGraph json0).root
     let change, _ = changeAddChild rootId 0 "hinted"
@@ -353,9 +344,9 @@ let ``POST changes accepts X-Gambol-Client header`` () = task {
     Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
 }
 
-[<Theory; MemberData(nameof backends)>]
-let ``POST changes SetText changes child text and bumps revision`` (backend: BackendKind) =
-    withClient backend (fun client -> task {
+[<Fact>]
+let ``POST changes SetText changes child text and bumps revision`` () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let change0, childId = changeAddChild rootId 0 ""
@@ -380,9 +371,9 @@ let ``POST changes SetText changes child text and bumps revision`` (backend: Bac
         Assert.Equal("hello", graph.nodes.[childId].text)
     })
 
-[<Theory; MemberData(nameof backends)>]
-let ``POST changes NewNode+Replace adds child to root`` (backend: BackendKind) =
-    withClient backend (fun client -> task {
+[<Fact>]
+let ``POST changes NewNode+Replace adds child to root`` () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let childId = NodeId.New()
@@ -410,18 +401,18 @@ let ``POST changes NewNode+Replace adds child to root`` (backend: BackendKind) =
         Assert.Equal("child", graph.nodes.[childId].text)
     })
 
-[<Theory; MemberData(nameof backends)>]
-let ``POST changes with invalid JSON returns 400`` (backend: BackendKind) =
-    withClient backend (fun client -> task {
+[<Fact>]
+let ``POST changes with invalid JSON returns 400`` () =
+    withClient (fun client -> task {
         let! _ = getStateJson client testFile
         let content = new StringContent("not json", Encoding.UTF8, "application/json")
         let! resp = client.PostAsync("/ambit/events", content)
         Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode)
     })
 
-[<Theory; MemberData(nameof backends)>]
-let ``POST changes with bad op returns 400`` (backend: BackendKind) =
-    withClient backend (fun client -> task {
+[<Fact>]
+let ``POST changes with bad op returns 400`` () =
+    withClient (fun client -> task {
         let! _ = getStateJson client testFile
         let bogusId = NodeId.New()
         let change =
@@ -437,9 +428,9 @@ let ``POST changes with bad op returns 400`` (backend: BackendKind) =
         Assert.False(String.IsNullOrWhiteSpace err)
     })
 
-[<Theory; MemberData(nameof backends)>]
-let ``POST changes twice bumps revision to 2`` (backend: BackendKind) =
-    withClient backend (fun client -> task {
+[<Fact>]
+let ``POST changes twice bumps revision to 2`` () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let change1, childId = changeAddChild rootId 0 "first"
@@ -463,9 +454,9 @@ let ``POST changes twice bumps revision to 2`` (backend: BackendKind) =
         Assert.Equal("second", g.nodes.[childId].text)
     })
 
-[<Theory; MemberData(nameof backends)>]
-let ``POST changes batch with two changes bumps revision to 2`` (backend: BackendKind) =
-    withClient backend (fun client -> task {
+[<Fact>]
+let ``POST changes batch with two changes bumps revision to 2`` () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let change1, childId = changeAddChild rootId 0 "first"
@@ -490,11 +481,10 @@ let ``POST changes batch with two changes bumps revision to 2`` (backend: Backen
         Assert.Equal("second", g.nodes.[childId].text)
     })
 
-[<Theory; MemberData(nameof backends)>]
+[<Fact>]
 let ``POST changes batch with bad second change keeps earlier items``
-    (backend: BackendKind)
-    =
-    withClient backend (fun client -> task {
+    () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let change1, childId = changeAddChild rootId 0 "first"
@@ -524,9 +514,9 @@ let ``POST changes batch with bad second change keeps earlier items``
             poll.changes |> List.map (fun change -> change.submissionId))
     })
 
-[<Theory; MemberData(nameof backends)>]
-let ``POST changes persists in GET state`` (backend: BackendKind) =
-    withClient backend (fun client -> task {
+[<Fact>]
+let ``POST changes persists in GET state`` () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let c0, childId = changeAddChild rootId 0 ""
@@ -545,9 +535,9 @@ let ``POST changes persists in GET state`` (backend: BackendKind) =
         Assert.Equal("persisted", g.nodes.[childId].text)
     })
 
-[<Theory; MemberData(nameof backends)>]
-let ``POST same submissionId twice is idempotent`` (backend: BackendKind) =
-    withClient backend (fun client -> task {
+[<Fact>]
+let ``POST same submissionId twice is idempotent`` () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let cid = Guid.NewGuid()
@@ -583,9 +573,9 @@ let ``POST same submissionId twice is idempotent`` (backend: BackendKind) =
         Assert.Equal("once", (decodeGraph json).nodes.[childId].text)
     })
 
-[<Theory; MemberData(nameof backends)>]
-let ``POST with stale base revision and valid SetText succeeds`` (backend: BackendKind) =
-    withClient backend (fun client -> task {
+[<Fact>]
+let ``POST with stale base revision and valid SetText succeeds`` () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let setup, childId = changeAddChild rootId 0 ""
@@ -610,11 +600,10 @@ let ``POST with stale base revision and valid SetText succeeds`` (backend: Backe
         Assert.Equal("x", (decodeGraph json).nodes.[childId].text)
     })
 
-[<Theory; MemberData(nameof backends)>]
+[<Fact>]
 let ``POST unrelated attribute edits with stale revision both succeed``
-    (backend: BackendKind)
-    =
-    withClient backend (fun client -> task {
+    () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let setupX, nodeX = changeAddChild rootId 0 "x0"
@@ -669,11 +658,10 @@ let ``POST unrelated attribute edits with stale revision both succeed``
         Assert.Equal("yA", g.nodes.[nodeY].text)
     })
 
-[<Theory; MemberData(nameof backends)>]
+[<Fact>]
 let ``POST concurrent stale text Changes amend second as amb-conflict child``
-    (backend: BackendKind)
-    =
-    withClient backend (fun client -> task {
+    () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let setup, nodeX = changeAddChild rootId 0 "x0"
@@ -710,11 +698,10 @@ let ``POST concurrent stale text Changes amend second as amb-conflict child``
         assertAmbConflictFirstChild g nodeX "xB"
     })
 
-[<Theory; MemberData(nameof backends)>]
+[<Fact>]
 let ``POST concurrent stale name Changes amend second as amb-conflict child``
-    (backend: BackendKind)
-    =
-    withClient backend (fun client -> task {
+    () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let nodeId = NodeId.New()
@@ -757,11 +744,10 @@ let ``POST concurrent stale name Changes amend second as amb-conflict child``
         assertAmbConflictFirstChild g nodeId "nameB"
     })
 
-[<Theory; MemberData(nameof backends)>]
+[<Fact>]
 let ``POST concurrent stale class Changes merge set delta and succeed``
-    (backend: BackendKind)
-    =
-    withClient backend (fun client -> task {
+    () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let nodeId = NodeId.New()
@@ -806,11 +792,10 @@ let ``POST concurrent stale class Changes merge set delta and succeed``
         Assert.Equal<Set<string>>(Set.ofList [ "b"; "c" ], classes)
     })
 
-[<Theory; MemberData(nameof backends)>]
+[<Fact>]
 let ``POST unrelated structural edits with stale revision both succeed``
-    (backend: BackendKind)
-    =
-    withClient backend (fun client -> task {
+    () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let parentP1 = NodeId.New()
@@ -866,11 +851,10 @@ let ``POST unrelated structural edits with stale revision both succeed``
             g.nodes.[parentP2].children)
     })
 
-[<Theory; MemberData(nameof backends)>]
+[<Fact>]
 let ``POST same-parent structural collision amends and succeeds``
-    (backend: BackendKind)
-    =
-    withClient backend (fun client -> task {
+    () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let parentP = NodeId.New()
@@ -923,11 +907,10 @@ let ``POST same-parent structural collision amends and succeeds``
         Assert.Contains(ownedChild childB |> List.head, children)
     })
 
-[<Theory; MemberData(nameof backends)>]
+[<Fact>]
 let ``POST duplicate submissionId with stale revision stays idempotent``
-    (backend: BackendKind)
-    =
-    withClient backend (fun client -> task {
+    () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let cid = Guid.NewGuid()
@@ -963,74 +946,68 @@ let ``POST duplicate submissionId with stale revision stays idempotent``
 
 // ---- Change log + persistence tests (file backend only) ----
 
-/// Submit a NewNode+Replace that adds a child with the given text under root.
-let private addChild
-    (client: HttpClient)
-    (file: string)
-    (rootId: NodeId)
-    (rev: EventId)
-    (text: string)
-    =
-    task {
-        let change, childId = changeAddChild rootId rev.Value text
-        let! resp = postChange client file change
-        Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
-        return childId
-    }
-
 [<Fact>]
 let ``POST changes creates log file`` () = task {
     let tempDir = newTempDir ()
-    use client = createClientForDir tempDir
-    let! json0 = getStateJson client testFile
-    let rootId = (decodeGraph json0).root
-
-    let! _ = addChild client testFile rootId (EventId.fromJson 0) "logged"
-
-    let logPath = EventLogFile.eventsPath tempDir
-    Assert.True(File.Exists(logPath), "Events file should exist after first change")
-    let content = readFileShared logPath
-    Assert.Contains("logged", content)
+    let host, handle = createAdmittedFile tempDir
+    try
+        let change, _ = changeAddChild Graph.rootId 0 "logged"
+        let! result = handle.postEvents [ change ] |> Async.StartAsTask
+        match result with
+        | Error err -> Assert.Fail(err)
+        | Ok _ -> ()
+        let logPath = EventLogFile.eventsPath tempDir
+        Assert.True(
+            File.Exists(logPath),
+            "Events file should exist after first change")
+        let content = readFileShared logPath
+        Assert.Contains("logged", content)
+    finally
+        CoreMailbox.dispose host
 }
 
 [<Fact>]
 let ``Snapshot writes amb artifacts asynchronously after change`` () = task {
     let tempDir = newTempDir ()
-    use client = createClientForDir tempDir
-    let! json0 = getStateJson client testFile
-    let rootId = (decodeGraph json0).root
-
-    let! _ = addChild client testFile rootId (EventId.fromJson 0) "snapped"
-
-    do! Task.Delay(500)
-
-    let ambPath = Path.Combine(tempDir, ".amb")
-    Assert.True(File.Exists ambPath, ".amb snapshot should exist")
-    let content = File.ReadAllText ambPath
-    Assert.Contains("snapped", content)
-
-    let metaPath = Bookkeeping.metaPath tempDir
-    Assert.True(File.Exists metaPath, "Meta file should exist")
-    let rev = Int32.Parse(File.ReadAllText(metaPath).Trim())
-    Assert.Equal(1, rev)
+    let host, handle = createAdmittedFile tempDir
+    try
+        let change, _ = changeAddChild Graph.rootId 0 "snapped"
+        let! result = handle.postEvents [ change ] |> Async.StartAsTask
+        match result with
+        | Error err -> Assert.Fail(err)
+        | Ok _ -> ()
+        do! Task.Delay(500)
+        let ambPath = Path.Combine(tempDir, ".amb")
+        Assert.True(File.Exists ambPath, ".amb snapshot should exist")
+        let content = File.ReadAllText ambPath
+        Assert.Contains("snapped", content)
+        let metaPath = Bookkeeping.metaPath tempDir
+        Assert.True(File.Exists metaPath, "Meta file should exist")
+        let rev = Int32.Parse(File.ReadAllText(metaPath).Trim())
+        Assert.Equal(1, rev)
+    finally
+        CoreMailbox.dispose host
 }
 
 [<Fact>]
 let ``Log contains valid change data after POST`` () = task {
     let tempDir = newTempDir ()
-    use client = createClientForDir tempDir
-    let! json0 = getStateJson client testFile
-    let rootId = (decodeGraph json0).root
-
-    let! _ = addChild client testFile rootId (EventId.fromJson 0) "logged-entry"
-
-    let logPath = EventLogFile.eventsPath tempDir
-    Assert.True(File.Exists(logPath))
-    let content = readFileShared logPath
-    Assert.Contains("logged-entry", content)
-    Assert.True(
-        content.StartsWith("00000001"),
-        "Log entry should have 8-digit padded id prefix")
+    let host, handle = createAdmittedFile tempDir
+    try
+        let change, _ = changeAddChild Graph.rootId 0 "logged-entry"
+        let! result = handle.postEvents [ change ] |> Async.StartAsTask
+        match result with
+        | Error err -> Assert.Fail(err)
+        | Ok _ -> ()
+        let logPath = EventLogFile.eventsPath tempDir
+        Assert.True(File.Exists(logPath))
+        let content = readFileShared logPath
+        Assert.Contains("logged-entry", content)
+        Assert.True(
+            content.StartsWith("00000001"),
+            "Log entry should have 8-digit padded id prefix")
+    finally
+        CoreMailbox.dispose host
 }
 
 // ---- DB restart tests (DB backend only) ----
@@ -1096,7 +1073,7 @@ let ``DB authority does not import files when database is empty`` () = task {
 }
 
 [<Fact>]
-let ``file mode startup imports files when database is empty`` () = task {
+let ``legacy Persistence:Mode file still uses Database persistence`` () = task {
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
     let tempDir = newTempDir ()
@@ -1105,8 +1082,14 @@ let ``file mode startup imports files when database is empty`` () = task {
 
     use client = createFileModeWithDbClientForDir connStr tempDir
     let! json = getStateJson client testFile
-    Assert.Equal(EventId.fromJson 1, decodeRevision json)
-    Assert.Contains((0, "from-file-bootstrap"), userTreeShape (decodeGraph json))
+    Assert.Equal(EventId.fromJson 0, decodeRevision json)
+    Assert.DoesNotContain(
+        (0, "from-file-bootstrap"),
+        userTreeShape (decodeGraph json))
+    let rootId = (decodeGraph json).root
+    let change, _ = changeAddChild rootId 0 "legacy-mode-ignored"
+    let! postResp = postChange client testFile change
+    Assert.Equal(HttpStatusCode.OK, postResp.StatusCode)
 }
 
 [<Fact>]
@@ -1189,33 +1172,6 @@ let ``DB restart keeps duplicate submissionId idempotent`` () = task {
 }
 
 [<Fact>]
-let ``file restart keeps inverse Change in EventLog`` () = task {
-    let tempDir = newTempDir ()
-    use client1 = createClientForDir tempDir
-    let! json0 = getStateJson client1 testFile
-    let rootId = (decodeGraph json0).root
-    let change, _ = changeAddChild rootId 0 "restart-inverse"
-    let! createResp = postChange client1 testFile change
-    Assert.Equal(HttpStatusCode.OK, createResp.StatusCode)
-    let undo = inverseEvent EventId.zero (Guid.NewGuid()) change
-    let! undoResp = postChange client1 testFile undo
-    Assert.Equal(HttpStatusCode.OK, undoResp.StatusCode)
-    let! undoAck = undoResp.Content.ReadAsStringAsync()
-    let confirmedUndo = Assert.Single((decodeSuccess undoAck).changes)
-    use client2 = createClientForDir tempDir
-    let! pollResponse = client2.GetAsync("/ambit/poll?rev=0")
-    let! pollJson = pollResponse.Content.ReadAsStringAsync()
-    let poll =
-        decode
-            ApiResponseSerialization.decodeChangeSuccessResponseDecoder
-            pollJson
-    Assert.Equal(2, poll.changes.Length)
-    Assert.Equal(confirmedUndo, poll.changes.[0])
-    let! stateJson = getStateJson client2 testFile
-    Assert.Equal(EventId.fromJson 2, decodeRevision stateJson)
-}
-
-[<Fact>]
 let ``DB restart keeps inverse Change in EventLog`` () = task {
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
@@ -1246,28 +1202,42 @@ let ``DB restart keeps inverse Change in EventLog`` () = task {
 [<Fact>]
 let ``New server uses snapshot + log replay`` () = task {
     let tempDir = newTempDir ()
-    use client1 = createClientForDir tempDir
-    let! json0 = getStateJson client1 testFile
-    let rootId = (decodeGraph json0).root
-
-    let! _ = addChild client1 testFile rootId (EventId.fromJson 0) "first"
-    do! Task.Delay(500)
-
-    let! json1 = getStateJson client1 testFile
-    let rootId2 = (decodeGraph json1).root
-    let root = (decodeGraph json1).nodes.[rootId2]
-    let firstChildId = root.children.[0].id
-    let ops = [ Op.SetText(firstChildId, "first", "updated") ]
-    let change =
-        SpecialNodeTestHelpers.changeEvent "" EventId.zero (Guid.NewGuid()) ops
-    let! _ = postChange client1 testFile change
-
-    use client2 = createClientForDir tempDir
-    let! json = getStateJson client2 testFile
-    let graph = decodeGraph json
-    let child = graph.nodes |> Map.toSeq |> Seq.map snd |> Seq.find (fun n -> n.text = "updated")
-    Assert.Equal("updated", child.text)
-    Assert.Equal(EventId.fromJson 2, decodeRevision json)
+    let change, firstId = changeAddChild Graph.rootId 0 "first"
+    let host1, handle1 = createAdmittedFile tempDir
+    try
+        let! first = handle1.postEvents [ change ] |> Async.StartAsTask
+        match first with
+        | Error err -> Assert.Fail(err)
+        | Ok _ -> ()
+        do! Task.Delay(500)
+        let ops = [ Op.SetText(firstId, "first", "updated") ]
+        let update =
+            SpecialNodeTestHelpers.changeEvent
+                ""
+                EventId.zero
+                (Guid.NewGuid())
+                ops
+        let! second = handle1.postEvents [ update ] |> Async.StartAsTask
+        match second with
+        | Error err -> Assert.Fail(err)
+        | Ok _ -> ()
+    finally
+        CoreMailbox.dispose host1
+    let host2, handle2 = createAdmittedFile tempDir
+    try
+        let! stateResult = handle2.getState () |> Async.StartAsTask
+        match stateResult with
+        | Error err -> Assert.Fail(err)
+        | Ok state ->
+            let child =
+                state.graph.nodes
+                |> Map.toSeq
+                |> Seq.map snd
+                |> Seq.find (fun n -> n.text = "updated")
+            Assert.Equal("updated", child.text)
+            Assert.Equal(EventId.fromJson 2, state.eventId)
+    finally
+        CoreMailbox.dispose host2
 }
 
 let private postChangeOk (client: HttpClient) (change: Ev) = task {
@@ -1299,9 +1269,9 @@ let private addNestedWorkspaceViaPost (client: HttpClient) = task {
     return wsId, innerId
 }
 
-[<Theory; MemberData(nameof backends)>]
-let ``GET state default returns ROOT closure excluding nested workspace contents`` (backend: BackendKind) =
-    withClient backend (fun client -> task {
+[<Fact>]
+let ``GET state default returns ROOT closure excluding nested workspace contents`` () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let! wsId, innerId = addNestedWorkspaceViaPost client
@@ -1312,9 +1282,9 @@ let ``GET state default returns ROOT closure excluding nested workspace contents
         Assert.False(graph.nodes.ContainsKey innerId)
     })
 
-[<Theory; MemberData(nameof backends)>]
-let ``GET state scope full returns canonical graph for tests`` (backend: BackendKind) =
-    withClient backend (fun client -> task {
+[<Fact>]
+let ``GET state scope full returns canonical graph for tests`` () =
+    withClient (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
         let! wsId, innerId = addNestedWorkspaceViaPost client

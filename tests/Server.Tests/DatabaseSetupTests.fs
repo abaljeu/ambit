@@ -38,28 +38,6 @@ let ``documentStatesMatch treats two outline reads as same when revision matches
     Assert.True(DatabaseSetup.documentStatesMatch st1 st2)
 
 [<Fact>]
-let ``resolvePersistenceMode defaults to DB authority`` () =
-    let result = DatabaseSetup.resolvePersistenceMode ""
-    Assert.Equal(Ok DatabaseSetup.PersistenceMode.Db, result)
-
-[<Fact>]
-let ``resolvePersistenceMode accepts file rollback mode`` () =
-    let result = DatabaseSetup.resolvePersistenceMode "file"
-    Assert.Equal(Ok DatabaseSetup.PersistenceMode.File, result)
-
-[<Fact>]
-let ``resolvePersistenceMode accepts file mode casing`` () =
-    let result = DatabaseSetup.resolvePersistenceMode "File"
-    Assert.Equal(Ok DatabaseSetup.PersistenceMode.File, result)
-
-[<Fact>]
-let ``resolvePersistenceMode rejects unknown mode`` () =
-    let result = DatabaseSetup.resolvePersistenceMode "mirror"
-    match result with
-    | Error err -> Assert.Contains("Use 'db' or 'file'", err)
-    | Ok mode -> failwith $"Expected invalid persistence mode, got {mode}."
-
-[<Fact>]
 let ``resolveConnectionString prefers TEST_DB_CONNECTION_STRING`` () =
     let priorTest = Environment.GetEnvironmentVariable("TEST_DB_CONNECTION_STRING")
     let priorMain = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
