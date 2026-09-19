@@ -19,6 +19,7 @@ open Gambol.Client.UpdateWorkspaceLoad
 open Gambol.Client.UpdateFileSearch
 open Gambol.Client.UpdateRename
 open Gambol.Client.UpdateAmbleRun
+open Gambol.Client.UpdateActorLive
 open Gambol.Client.UpdateValidateGraph
 open Gambol.Shared.CommandDockLayout
 open Gambol.Shared.CommandEntry
@@ -42,6 +43,21 @@ let private cmd (id: CommandId) (run: CommandOp) : CommandEntry2 =
 // ---------------------------------------------------------------------------
 
 let private keyAlways (updater: Updater) : CommandOp = fun () -> Some updater
+
+let private focusedSelectionId (model: VM) : NodeId option =
+    model.selectedNodes
+    |> Option.bind (tryFocusedNodeId model.graph)
+
+let private cancelAvailable (model: VM) =
+    match focusedSelectionId model with
+    | None -> false
+    | Some focusId ->
+        ActorLive.offersCancel focusId model.actorLiveFocusIds
+
+let private execCancelOp (model: VM) : VM * Effect list =
+    match focusedSelectionId model with
+    | None -> model, []
+    | Some focusId -> cancelFocusOp focusId model
 
 let private execRunOp (model: VM) : VM * Effect list =
     let committed, commitEffects = commitIfEditing model
@@ -215,6 +231,7 @@ let commandRegistry : CommandEntry2 list =
       cmd EditNode (keyAlways startEditOp)
       cmd Rename (keyAlways openRenamePromptOp)
       cmd Exec (keyAlways execRunOp)
+      cmd Cancel (keyAlways execCancelOp)
       cmd SplitAtCursor splitAtCursor
       cmd Delete (keyAlways deleteSelectionOp)
       cmd JoinWithPrevious handleBackspace
@@ -299,7 +316,8 @@ let commandsForPalette (model: VM) (returnTo: Mode) : CommandEntry2 list =
         | Some e ->
             inKeyScope sel e.keyScope
             && (c.id <> Load || loadAvailable model)
-            && (c.id <> Download || downloadAvailable model))
+            && (c.id <> Download || downloadAvailable model)
+            && (c.id <> Cancel || cancelAvailable model))
 
 let filteredCommands (model: VM) (returnTo: Mode) (query: string) : CommandEntry2 list =
     let baseList = commandsForPalette model returnTo

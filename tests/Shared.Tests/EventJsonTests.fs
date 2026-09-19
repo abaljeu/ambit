@@ -68,6 +68,16 @@ let ``Ev JSON round-trips ActorStart and ActorStop`` () =
     Assert.Equal(cancelled, roundTrip cancelled)
 
 [<Fact>]
+let ``cancel request JSON round-trips a Focus NodeId`` () =
+    let focusId =
+        NodeId(Guid("ffffffff-ffff-ffff-ffff-ffffffffffff"))
+    let json = Enc.toString 0 (EventJson.encodeCancelRequest focusId)
+    Assert.Contains(focusId.Value.ToString(), json)
+    match Dec.fromString EventJson.decodeCancelRequest json with
+    | Error err -> failwith err
+    | Ok decoded -> Assert.Equal(focusId, decoded)
+
+[<Fact>]
 let ``mintChange encodes eventId 0 on the wire`` () =
     let event = ClientHistory.mintChange "Edit node" []
     Assert.Equal(EventId.zero, event.id)

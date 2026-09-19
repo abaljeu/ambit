@@ -65,6 +65,14 @@ module EventJson =
                     (Decode.list Serialization.decodeNodeId)
               eventId = get.Required.Field "eventId" decodeEventId })
 
+    let encodeCancelRequest (focusId: NodeId) =
+        Encode.object
+            [ "focusId", Serialization.encodeNodeId focusId ]
+
+    let decodeCancelRequest: Decoder<NodeId> =
+        Decode.object (fun get ->
+            get.Required.Field "focusId" Serialization.decodeNodeId)
+
     let private encodeBody (body: EventBody) =
         match body with
         | EventBody.Change ops ->

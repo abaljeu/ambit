@@ -450,6 +450,16 @@ body {
 .amb-row.amb-actor-live {
     box-shadow: inset 3px 0 0 #1a8;
 }
+.amb-actor-cancel {
+    display: none;
+    margin-left: 8px;
+    padding: 0 6px;
+    font: inherit;
+    cursor: pointer;
+}
+.amb-row.amb-actor-live .amb-actor-cancel {
+    display: inline-block;
+}
 .amb-text {
     background: transparent;
     border: 1px transparent;
