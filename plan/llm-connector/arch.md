@@ -123,7 +123,7 @@ Narrowest shared test seam:
       3. [ ] CoreMailbox postEvents
 
 6. **Document (pack + Reference Paste)**
-   Files: Shared / Server Document codec surfaces (existing Reference Paste facts: [[reports/reference-paste-and-change-post-facts.md]]).
+   Files: Shared / Server Document codec surfaces (existing Reference Paste facts: [[reports/reference-paste-and-change-post-facts.md]]). Nested-tag pack: [[src/Shared/dotnet/DocumentNestedTag.fs]] (`System.Xml.Linq`; not Fable).
    1. State
       1. [x] Owning codecs per document (unused by the temporary pack)
       2. [x] Extract-pack Focus is `Graph.focus` on the extract copy (`withFocus`; JSON omits)

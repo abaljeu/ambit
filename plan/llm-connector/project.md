@@ -4,10 +4,11 @@ Stage: build
 Summary: Run an Agent from a Zoom-rooted mixed-format extract and replace Focus Children through ordinary Core Changes.
 Updated: 2026-09-19
 Started: 2026-09-19
-Actual: 10h
+Actual: 10h45m
 
 ## Notes
 
+- 2026-09-19 — [11 — Simple extract format](issues/11-simple-extract-format.md) pack on Shared.DotNet via `System.Xml.Linq`.
 - 2026-09-19 — [11 — Simple extract format](issues/11-simple-extract-format.md) reshape: pack Focus is `Graph.focus` (`withFocus`); tag name from the Node.
 - 2026-09-19 — First implement: [11 — Simple extract format](issues/11-simple-extract-format.md). Stage `build`.
 - 2026-09-19 — Split Story path **Agent ask from what I see**: [08 — Run Agent Actor calls CloudAgents](issues/08-agent-ask-from-what-i-see.md) (Focus text, no Graph write), [11 — Simple extract format](issues/11-simple-extract-format.md) (`<div>` / `<focus>`), [12 — Replace Focus Children from reply](issues/12-replace-focus-children-from-reply.md). Md pack cancelled. Mixed-format tabled.

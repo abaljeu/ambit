@@ -119,6 +119,19 @@ let ``round-trip parse recovers the child tree`` () =
     Assert.Equal(expected, tree)
 
 [<Fact>]
+let ``round-trip escapes Node text that contains tags`` () =
+    let id = NodeId.New()
+    let node = Node.Create(id, text = "A <div>B")
+    let graph = extracted [ node ] id
+    let packed = DocumentNestedTag.writeExtract graph |> requireOk "write"
+    Assert.Contains("&lt;", packed)
+    let tree =
+        DocumentNestedTag.parseExtract packed |> requireOk "parse"
+    Assert.Equal("div", tree.tag)
+    Assert.Equal("A <div>B", tree.text)
+    Assert.Equal<DocumentNestedTag.NestedTagNode list>([], tree.children)
+
+[<Fact>]
 let ``parse rejects residue after a complete tree`` () =
     match DocumentNestedTag.parseExtract "<div>Hello</div>extra" with
     | Error msg -> Assert.Equal(DocumentNestedTag.residue, msg)

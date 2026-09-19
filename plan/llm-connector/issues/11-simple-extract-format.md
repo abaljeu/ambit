@@ -3,7 +3,7 @@
 **Status:** coded
 **Blocked by:** None — can start immediately.
 **Type:** task
-Actual: 2h30m
+Actual: 3h15m
 
 ## Context
 
@@ -34,8 +34,10 @@ Escaping Node text that contains these tags is out of scope. Stronger serializat
 - 2026-09-19 — Temporary pack: nested `<div>` / `<focus>` strings. Md and mixed-format owning-codec serialize tabled.
 - 2026-09-19 — Shared `DocumentNestedTag.writeExtract` / `parseExtract` writes and parses the supplied extract. Status `coded`.
 - 2026-09-19 — Reshape: pack Focus lives on the extract Graph (`Graph.withFocus`); `writeExtract` takes only that Graph. Tag name is `tagName` of the Node (today `div`); Focus id on the copy writes `<focus>`. Parse carries the tag string, not an `isFocus` bool. Status stays `coded`.
+- 2026-09-19 — Pack lives on Shared.DotNet and uses `System.Xml.Linq` (`XElement`). Not Fable. Status stays `coded`.
 
 ## Time
 
 - 2026-09-19 1h45m — Shared nested-tag write/parse and tests (from chat)
 - 2026-09-19 45m — Graph.focus + tagName reshape (from chat)
+- 2026-09-19 45m — Move pack to Shared.DotNet; XElement write/parse (from chat)

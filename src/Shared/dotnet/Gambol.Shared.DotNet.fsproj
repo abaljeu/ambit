@@ -21,6 +21,7 @@
     <Compile Include="WorkspaceCloudUpload.fs" />
     <Compile Include="OutlineLcs.fs" />
     <Compile Include="DocumentParseOps.fs" />
+    <Compile Include="DocumentNestedTag.fs" />
     <Compile Include="ImportDocument.fs" />
     <Compile Include="DocumentAssembly.fs" />
     <Compile Include="LazyLoadReconciliationPath.fs" />
