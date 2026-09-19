@@ -26,12 +26,12 @@ Sources: [[issues/06-define-command-run-agent-redesign.md|06 — Define the revi
    7. [ ] Pack supplied extract as nested `<div>` / `<focus>` strings (not Md; not owning-codec)
    8. [ ] Parse complete reply in that format; replace every Focus Child (empty success clears all)
    9. [ ] Run Agent Actor submits ordinary Core Change; await optional for newer basis
-   10. [ ] Succeeded → ActorFinished; drop live row and secret
+   10. [ ] Succeeded → ActorFinished; drop live Actor row (observe via live Focus ids; secrets are not an observation surface)
    11. [ ] Browser Poll shows new Focus Children
 
 3. **Agent failure preserves children**
    Rule: on failure the Actor framework does not cause Changes; the AI Actor does not erase data (future agentic extensions out of scope).
-   1. [ ] Framework Failed via TestActor / `?test` → ActorFinished; framework posts no Change; Focus Children unchanged
+   1. [ ] Framework Failed via TestActor / `?test` → ActorFinished; framework posts no Change; Focus Children unchanged; live Focus id gone from the pool (`liveFocusIds`)
    2. [ ] Safe domain error only on the terminal (no raw provider payload in Graph Events)
    3. [ ] AI Actor erase-on-Failed (CloudAgents) deferred until [[issues/08-agent-ask-from-what-i-see.md|08 — Run Agent Actor calls CloudAgents]] and [[issues/12-replace-focus-children-from-reply.md|12 — Replace Focus Children from reply]]
 

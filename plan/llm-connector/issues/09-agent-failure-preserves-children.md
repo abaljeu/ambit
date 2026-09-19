@@ -16,7 +16,7 @@ This ticket proves the framework rule with TestActor: seed Focus Children, Run a
 
 ### 1. Framework does not cause Changes
 
-1. [ ] Terminal Failed only — queue Failed → ActorFinished and drop live row/secret; do not post any Change from the framework on this path.
+1. [ ] Terminal Failed only — queue Failed → ActorFinished and drop the live Actor row; do not post any Change from the framework on this path. Observe drop via live Focus ids (`liveFocusIds`); secrets are not an observation surface.
 2. [ ] Safe error only — ActorFinished records a safe domain error; no raw provider payload in Graph Events.
 
 ### 2. Proof (TestActor / `?test`)
@@ -25,7 +25,7 @@ This ticket proves the framework rule with TestActor: seed Focus Children, Run a
 2. [ ] Fail with `?test` — Run Command text that selects TestActor and ends ActorFailed (e.g. `?test unknown`); fake CloudAgents not required.
 3. [ ] Preserve children — Focus Children match the pre-failure set.
 4. [ ] No failure Changes — EventLog / Graph show no erase or response Change from the failed run.
-5. [ ] Observe ActorFinished — safe failure terminal present; live row gone.
+5. [ ] Observe ActorFinished — safe failure terminal present; Focus id gone from `liveFocusIds` (not a secret check).
 
 ### 3. Out of scope here (after Agent ask)
 
@@ -42,3 +42,4 @@ Leave for a follow-on once [[08-agent-ask-from-what-i-see.md|08 — Run Agent Ac
 
 - 2026-09-19 — Alan: Actor framework shall not cause Changes on failure; AI Actor will not erase data (barring future agentic extensions not defined now).
 - 2026-09-19 — Alan: use `?test` to implement the framework proof first; do not fold AI-Actor erase into this ticket (that waits on Agent ask / replace).
+- 2026-09-19 — Alan: secrets are not observable; drop is proved via live Focus ids, not Credential/`isLive`.
