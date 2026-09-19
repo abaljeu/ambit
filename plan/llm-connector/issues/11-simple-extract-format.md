@@ -1,8 +1,9 @@
 # 11 — Simple extract format
 
-**Status:** defined
+**Status:** coded
 **Blocked by:** None — can start immediately.
 **Type:** task
+Actual: 1h45m
 
 ## Context
 
@@ -16,11 +17,11 @@ A Document call that writes the supplied subgraph to a string. Each Node is a `<
 
 State / Interface / Uses: [[arch.md]] module **Document**.
 
-1. [ ] Leaf form — a Node with no children serializes as `<div>Text</div>` (or `<focus>Text</focus>` when it is Focus).
-2. [ ] Nested form — a Node with children serializes as `<div>Text` then the child strings then `</div>` (Focus uses `<focus>` / `</focus>`).
-3. [ ] Supplied walk — walk the given extract child lists as supplied; do not bound by Owner edges or document-root ownership.
-4. [ ] Round-trip parse — parse this format back to a child tree; reject a partial parse (no residue).
-5. [ ] No codec / file write — do not call Md or other artifact writers; do not persist.
+1. [x] Leaf form — a Node with no children serializes as `<div>Text</div>` (or `<focus>Text</focus>` when it is Focus).
+2. [x] Nested form — a Node with children serializes as `<div>Text` then the child strings then `</div>` (Focus uses `<focus>` / `</focus>`).
+3. [x] Supplied walk — walk the given extract child lists as supplied; do not bound by Owner edges or document-root ownership.
+4. [x] Round-trip parse — parse this format back to a child tree; reject a partial parse (no residue).
+5. [x] No codec / file write — do not call Md or other artifact writers; do not persist.
 
 Escaping Node text that contains these tags is out of scope. Stronger serialization stays tabled.
 
@@ -31,3 +32,8 @@ Escaping Node text that contains these tags is out of scope. Stronger serializat
 ## Comments
 
 - 2026-09-19 — Temporary pack: nested `<div>` / `<focus>` strings. Md and mixed-format owning-codec serialize tabled.
+- 2026-09-19 — Shared `DocumentNestedTag.writeExtract` / `parseExtract` writes and parses the supplied extract. Status `coded`.
+
+## Time
+
+- 2026-09-19 1h45m — Shared nested-tag write/parse and tests (from chat)

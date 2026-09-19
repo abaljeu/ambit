@@ -23,7 +23,7 @@ Run an Agent from a Zoom-rooted mixed-format Graph extract, mark Focus in the ou
 
 ## Not yet specified
 
-- Implementation tickets: [[issues/08-agent-ask-from-what-i-see.md|08 — Run Agent Actor calls CloudAgents]], [[issues/11-simple-extract-format.md|11 — Simple extract format]], [[issues/12-replace-focus-children-from-reply.md|12 — Replace Focus Children from reply]], [[issues/09-agent-failure-preserves-children.md|09]], [[issues/10-cancel-by-focus.md|10]]. Frontier: 08 and 11.
+- Implementation tickets: [[issues/08-agent-ask-from-what-i-see.md|08 — Run Agent Actor calls CloudAgents]], [[issues/11-simple-extract-format.md|11 — Simple extract format]], [[issues/12-replace-focus-children-from-reply.md|12 — Replace Focus Children from reply]], [[issues/09-agent-failure-preserves-children.md|09]], [[issues/10-cancel-by-focus.md|10]]. Frontier: [08 — Run Agent Actor calls CloudAgents](issues/08-agent-ask-from-what-i-see.md). [11 — Simple extract format](issues/11-simple-extract-format.md) is `coded`.
 
 ## Out of scope
 
