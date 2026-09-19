@@ -8,6 +8,7 @@ Actual: 7h30m
 ## Notes
 
 - 2026-09-19 — Split Story path **Agent ask from what I see**: [08 — Run Agent Actor calls CloudAgents](issues/08-agent-ask-from-what-i-see.md) (Focus text, no Graph write), [11 — Simple extract format](issues/11-simple-extract-format.md) (`<div>` / `<focus>`), [12 — Replace Focus Children from reply](issues/12-replace-focus-children-from-reply.md). Md pack cancelled. Mixed-format tabled.
+- 2026-09-19 — [[issues/09-agent-failure-preserves-children.md|09 — Agent failure preserves children]]: unblock for TestActor / `?test` framework proof; AI-Actor erase stays after [[issues/08-agent-ask-from-what-i-see.md|08]] and [[issues/12-replace-focus-children-from-reply.md|12]].
 - 2026-09-19 — 09 lock: on failure Actor framework does not cause Changes; AI Actor does not erase data (future agentic extensions out of scope).
 - 2026-09-19 — `/to-tickets` (tracer-cut): [[issues/08-agent-ask-from-what-i-see.md|08 — Agent ask from what I see]] (frontier), [[issues/09-agent-failure-preserves-children.md|09 — Agent failure preserves children]], [[issues/10-cancel-by-focus.md|10 — Cancel by Focus]]. Stage `slice`.
 - 2026-09-19 — Arch grill closed: Agent Command `?ai` + args; vertical proof after first implement tickets `defined`; Focus mark spelling deferred to Document ticket; keep CloudAgents DLL; live-Actor chrome on core-creation 21/22 (first Agent vertical = Graph+Poll only).
@@ -19,7 +20,7 @@ Actual: 7h30m
 - [[issues/08-agent-ask-from-what-i-see.md|08 — Run Agent Actor calls CloudAgents]] — Status `defined`; frontier.
 - [[issues/11-simple-extract-format.md|11 — Simple extract format]] — Status `defined`; frontier.
 - [[issues/12-replace-focus-children-from-reply.md|12 — Replace Focus Children from reply]] — Status `defined`; blocked by 08 and 11.
-- [[issues/09-agent-failure-preserves-children.md|09 — Agent failure preserves children]] — Status `defined`; blocked by 08 and 12.
+- [[issues/09-agent-failure-preserves-children.md|09 — Agent failure preserves children]] — Status `defined`; frontier (framework via TestActor / `?test`); AI-Actor erase deferred until 08 and 12.
 - [[issues/10-cancel-by-focus.md|10 — Cancel by Focus]] — Status `defined`; blocked by 08.
 
 ## Locked Restart

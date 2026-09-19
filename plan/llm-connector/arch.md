@@ -31,9 +31,9 @@ Sources: [[issues/06-define-command-run-agent-redesign.md|06 — Define the revi
 
 3. **Agent failure preserves children**
    Rule: on failure the Actor framework does not cause Changes; the AI Actor does not erase data (future agentic extensions out of scope).
-   1. [ ] CloudAgents Failed → safe domain error only
-   2. [ ] Queue Failed; ActorFinished with safe error; framework posts no Change
-   3. [ ] Focus Children unchanged (AI Actor does not erase)
+   1. [ ] Framework Failed via TestActor / `?test` → ActorFinished; framework posts no Change; Focus Children unchanged
+   2. [ ] Safe domain error only on the terminal (no raw provider payload in Graph Events)
+   3. [ ] AI Actor erase-on-Failed (CloudAgents) deferred until [[issues/08-agent-ask-from-what-i-see.md|08 — Run Agent Actor calls CloudAgents]] and [[issues/12-replace-focus-children-from-reply.md|12 — Replace Focus Children from reply]]
 
 4. **Cancel by Focus**
    1. [ ] Browser cancel by Focus NodeId
