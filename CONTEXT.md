@@ -310,20 +310,24 @@ The Nodes shown in the current SiteMap under Zoom, honoring Fold. Not the pixel 
 _Avoid_: visible (as the glossary name), context (bare, for this pack)
 
 **Agent**:
-An LLM-empowered worker. Ambit will have one.
-_Avoid_: Actor (for this counterpart), bot, copilot, assistant (as the glossary name), Grok (as this name)
+An external LLM-empowered worker a connector talks to (for example Cursor Cloud Agents). Not an Ambit Actor.
+_Avoid_: Actor (for this counterpart), AI (as this name — AI is the Ambit Actor), Ask, bot, copilot, assistant (as the glossary name), Grok (as this name)
+
+**AI**:
+The Ambit Actor that invokes an LLM Agent. Command spelling is `?ai` plus optional keyname and options. Spoken and UI wording use AI (for example "Run: AI started."). It is not named Ask.
+_Avoid_: Ask (as this Actor or command name), Agent (as this Actor's name), Run Ask
 
 **Run**:
 A command the person invokes on Focus. It starts an Actor (ActorStart Event) or institutes a client-sourced Change Event. That Event's `commandName` is the Run command.
-_Avoid_: treating Run as only Run Agent, a third EventBody kind
+_Avoid_: treating Run as only Run AI, a third EventBody kind
 
-**Run Agent**:
-The Run command that invokes the Agent. The person types `?` plus a message on Focus, then Run. `?` is the statement spelling, not the spoken name.
-_Avoid_: Ask (as this command name), `?` (as this command name)
+**Run AI**:
+The Run command that starts the AI Actor. The person types `?ai` (optional keyname and options) on Focus, then Run. `?ai` is the statement spelling.
+_Avoid_: Ask, Run Ask, Run Agent (as the spoken name — prefer Run AI), `?` alone (as this command name)
 
 **Agentic**:
-Pertaining to an Agent.
-_Avoid_: using Agentic for Sync, Upload, or a long-running job
+Pertaining to an Agent (the external LLM worker) or to AI Actor work that uses one.
+_Avoid_: using Agentic for Sync, Upload, or a long-running job; Ask
 
 ## Additional approved terms
 These terms are permitted with standard definition:
