@@ -1,8 +1,8 @@
 # 42 — Migrate PersistHandlers restore and getEventsSince
 
-**Status:** coded
-
-**Blocked by:** None — [40 — Expand postEvent, EventLog store, and Event JSON persist](40-expand-postevent-eventlog-and-event-json.md) and [41 — Migrate Core mailbox, CoreMsg, and Pool onto Event](41-migrate-core-mailbox-coremsg-and-pool-onto-event.md) are Status `coded`.
+**Status:** done
+**Blocked by:** None — [40 — Expand postEvent, EventLog store, and Event JSON persist](40-expand-postevent-eventlog-and-event-json.md) is Status `coded`. [41 — Migrate Core mailbox, CoreMsg, and Pool onto Event](41-migrate-core-mailbox-coremsg-and-pool-onto-event.md) is Status `done`.
+Actual: 2h30m
 
 ## Context
 
@@ -43,9 +43,10 @@ Migrate the Poll/Load persist tail on **PersistHandlers** and **CoreMailbox**.
 ## Comments
 
 - 2026-09-15 — Filed via `/to-tickets` for Story **Caller, persist, and Poll** only. PersistHandlers migrate batch. Blocked by the story 5 expand and the Core migrate batch so ActorStart / ActorStop exist to persist.
+- 2026-09-19 — Independent Spec review approve → Status `done`. Report: [spec-review-41-42](../reports/spec-review-41-42.md). [46 — Mailbox History durability](46-mailbox-history-durability.md) three-way drop/apply is not a 42 gap. Compiled restore proof is [PersistHandlersRestoreTests](tests/Server.Tests/PersistHandlersRestoreTests.fs); [Issue42PersistHandlersTests](tests/Server.Tests/Issue42PersistHandlersTests.fs) is a duplicate and is not in the Server.Tests fsproj.
 
 ## Time
 
 - 2026-09-15 1h30m — PersistHandlers Event append/getEventsSince, File/Db EventLog restore, CoreMailbox door (from chat)
 - 2026-09-15 15m — Db Event persist/restore test + report; filter Pass 4/4. Notes: [[../reports/issue-42-db-restore-test.md]].
-- Actual: 1h45m
+- 2026-09-19 45m — Independent Spec review (from chat)
