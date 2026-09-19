@@ -1,7 +1,7 @@
 # 08 — Agent ask from what I see
 
 **Status:** defined
-**Blocked by:** [[11-simple-extract-format.md|11 — Pack extract with Amb (supplied-fragment walk)]]
+**Blocked by:** None — 11 Amb extract-walk is landed.
 **Type:** task
 
 ## Context
@@ -42,7 +42,8 @@ Amb extract-walk serialize (from 11) and Reference-Paste-style replace. State / 
 Keep the DLL public API. State / Interface / Uses: [[arch.md]] module **CloudAgents**.
 
 1. [ ] Fit locked inputs — Ambit-side mapping into existing `start` / `poll` / `cancel` (no library reshape).
-2. [ ] Fake for tests — Run Agent Actor tests use fake CloudAgents through ordinary Core Change (narrowest shared test seam).
+2. [ ] `setFake` on the DLL — `setFake: (StartArgs -> AgentResult) option -> bool`. `Some f` makes start/poll/wait use `f` (no HTTP); `None` restores CursorAdapter. Returns false if refused. Process-local; clear in test finally.
+3. [ ] Fake success path — Run Agent Actor tests install `setFake (Some …)` and prove Ask through ordinary Core Change (narrowest shared test seam). Live Cursor optional; until a real API key exists, live facts only cover call-reject.
 
 ### 5. Browser / Poll proof
 
@@ -57,6 +58,7 @@ Graph + Poll only; no live-Actor chrome.
 
 ## Comments
 
+- 2026-09-19 — Locked: CloudAgents fake/real via DLL `setFake: (StartArgs -> AgentResult) option -> bool` (arch). Not an Ambit/Core switch.
 - 2026-09-19 — 11 Amb extract-walk landed on staging; pack dependency satisfied.
 - 2026-09-19 — Charted from arch Story path **Agent ask from what I see**. Vertical proof ticket waits until this and sibling implement tickets are `defined` (arch lock).
 - 2026-09-19 — Pack is [11 — Pack extract with Amb (supplied-fragment walk)](11-simple-extract-format.md). This ticket is blocked by 11. Mixed-format owning-codec stays tabled.

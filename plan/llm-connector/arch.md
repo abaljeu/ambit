@@ -56,7 +56,7 @@ Shared segments (Agent paths 2–4):
 6. [ ] Run Agent Actor orchestration
 
 Narrowest shared test seam:
-1. [ ] Run Agent Actor with fake CloudAgents through ordinary Core Change (not live Cursor HTTP)
+1. [ ] Run Agent Actor with CloudAgents `setFake` installed (DLL-side fake; not live Cursor HTTP), through ordinary Core Change
 2. [x] Public Core lifecycle with TestActor (already proven)
 
 ## 2. Module map
@@ -140,8 +140,9 @@ Narrowest shared test seam:
       1. [x] RunnerConfig (API key); no Ambit/Core references
    2. Interface
       1. [x] Existing public API: start / poll / cancel / waitUntilComplete (keep; do not reshape for Ambit)
-      2. [ ] Ambit Run Agent Actor fits system prompt + document + cancel into that API and maps statuses to Completed | Failed | Cancelled outcomes
-      3. [x] Provider selection and Cursor protocol stay inside composition / Internal
+      2. [ ] `setFake: (StartArgs -> AgentResult) option -> bool` — `Some f` routes start/poll/wait through `f` (no HTTP); `None` restores CursorAdapter. Returns false if refused (e.g. live work in flight). Process-local; tests clear in finally.
+      3. [ ] Ambit Run Agent Actor fits system prompt + document + cancel into that API and maps statuses to Completed | Failed | Cancelled outcomes
+      4. [x] Provider selection and Cursor protocol stay inside composition / Internal
    3. Uses
       1. [x] Cursor HTTP only behind Internal adapter
 
@@ -180,9 +181,10 @@ Narrowest shared test seam:
 2. **Vertical proof timing** — Define the full Browser → Run Agent → Focus-children proof after the first CloudAgents / Run Agent implement tickets are `defined` (not now; not inside the first end-to-end ticket alone).
 3. **Focus on extract Graph** — Extract-pack Focus is `Graph.focus` on the extract copy (`withFocus`). The Amb pack string has no Focus sentinel. Mixed-format sentinel spelling stays tabled with owning-codec serialize.
 4. **First pack is Amb extract-walk** — Reuse `AmbDocument`. One write option walks the supplied Zoom extract (Owned and Ref into present Nodes; no file persist; no owning-document partition). Parse stays default Amb. Mixed-format owning-codec and Md extract write stay tabled. Existing Md artifact write does not change.
-5. **CloudAgents DLL interface** — Keep the existing public CloudAgents API (`start` / `poll` / `cancel` and related types). Do not reshape it for Ambit. The Run Agent Actor (Ambit side) fits system prompt + document + cancellation into that form. Cursor stays Internal; Core never references CloudAgents.
-6. **Failure: no framework Changes, no erase** — On Failed, the Actor framework does not post Changes; the AI Actor does not erase Focus Children. Future agentic extensions that might mutate on failure are out of scope.
-7. **Live Actor chrome** — Browser “Actor live for Focus” UI belongs on [[plan/core-creation/issues/21-client-shows-lock-present.md|21 — Client shows lock-present]] and [[plan/core-creation/issues/22-client-cancels-a-job.md|22 — Client cancels a job]]. This Project’s first Agent vertical proves Graph + Poll only (no live-Actor chrome).
+5. **CloudAgents DLL interface** — Keep the existing public CloudAgents API (`start` / `poll` / `cancel` / `waitUntilComplete`). Do not reshape those for Ambit. Fake/real switch lives on the DLL: `setFake: (StartArgs -> AgentResult) option -> bool` (`Some` = deterministic fake, `None` = CursorAdapter). Cursor stays Internal; Core never references CloudAgents. The Run Agent Actor fits system prompt + document + cancellation into that form.
+6. **CloudAgents setFake** — Locked 2026-09-19: install/clear fake on the DLL (`option` handler). Success-path tests use `setFake (Some …)`; live Cursor optional and call-reject-only until a real API key exists. Clear with `None` after each test. Do not put the fake switch on Ambit/Core.
+7. **Failure: no framework Changes, no erase** — On Failed, the Actor framework does not post Changes; the AI Actor does not erase Focus Children. Future agentic extensions that might mutate on failure are out of scope.
+8. **Live Actor chrome** — Browser “Actor live for Focus” UI belongs on [[plan/core-creation/issues/21-client-shows-lock-present.md|21 — Client shows lock-present]] and [[plan/core-creation/issues/22-client-cancels-a-job.md|22 — Client cancels a job]]. This Project’s first Agent vertical proves Graph + Poll only (no live-Actor chrome).
 
 ## 6. Unsettled
 
