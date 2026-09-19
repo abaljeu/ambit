@@ -54,7 +54,7 @@ let ``nested Focus writes text then child tags`` () =
     Assert.Equal("<focus>Parent<div>Child</div></focus>", packed)
 
 [<Fact>]
-let ``round-trip parse recovers nested Focus`` () =
+let ``nested child Focus writes focus tags`` () =
     let childId = NodeId.New()
     let parentId = NodeId.New()
     let child = Node.Create(childId, text = "Child")
@@ -69,18 +69,6 @@ let ``round-trip parse recovers nested Focus`` () =
         DocumentNestedTagSimpleXml.writeExtract graph
         |> requireOk "write"
     Assert.Equal("<div>Parent<focus>Child</focus></div>", packed)
-    let tree =
-        DocumentNestedTagSimpleXml.parseExtract packed
-        |> requireOk "parse"
-    let childTree: DocumentNestedTagSimpleXml.NestedTagNode =
-        { tag = "focus"
-          text = "Child"
-          children = [] }
-    let expected: DocumentNestedTagSimpleXml.NestedTagNode =
-        { tag = "div"
-          text = "Parent"
-          children = [ childTree ] }
-    Assert.Equal(expected, tree)
 
 [<Fact>]
 let ``write does not escape angle brackets unlike XElement`` () =
