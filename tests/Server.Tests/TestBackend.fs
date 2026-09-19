@@ -177,9 +177,12 @@ let private suppressDailyGitSave (dataDir: string) =
 /// Auth-disabled factory without cookie — for refuse-without-cookie facts.
 let createClientForDirWithoutCookie (tempDir: string) =
     suppressDailyGitSave tempDir
+    let connStr = requireDbConnStr ()
+    resetTestDatabase connStr |> fun t -> t.GetAwaiter().GetResult()
+    DatabaseSetup.resetAgentCacheForTest ()
     let priorDb = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
     try
-        Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
+        Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", connStr)
         let factory =
             (new WebApplicationFactory<Program>())
                 .WithWebHostBuilder(fun builder ->
@@ -188,7 +191,7 @@ let createClientForDirWithoutCookie (tempDir: string) =
                             dict [
                                 "DataDir", tempDir
                                 "Persistence:Mode", "file"
-                                "DB_CONNECTION_STRING", ""
+                                "DB_CONNECTION_STRING", connStr
                                 "Auth:Username", ""
                                 "Auth:Password", ""
                             ]
@@ -216,9 +219,12 @@ let createClientForDirWithAuth
     (password: string)
     =
     suppressDailyGitSave tempDir
+    let connStr = requireDbConnStr ()
+    resetTestDatabase connStr |> fun t -> t.GetAwaiter().GetResult()
+    DatabaseSetup.resetAgentCacheForTest ()
     let priorDb = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
     try
-        Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
+        Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", connStr)
         let factory =
             (new WebApplicationFactory<Program>())
                 .WithWebHostBuilder(fun builder ->
@@ -227,7 +233,7 @@ let createClientForDirWithAuth
                             dict [
                                 "DataDir", tempDir
                                 "Persistence:Mode", "file"
-                                "DB_CONNECTION_STRING", ""
+                                "DB_CONNECTION_STRING", connStr
                                 "Auth:Username", username
                                 "Auth:Password", password
                             ]

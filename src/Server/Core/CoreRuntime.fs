@@ -46,8 +46,8 @@ module CoreRuntime =
         (pool: CoreActorPool)
         (credentials: CoreCredentials)
         : MailboxHost =
-        match boot.PersistenceMode, boot.DbStatus with
-        | DatabaseSetup.PersistenceMode.Db, DatabaseSetup.DbStatus.Ok ->
+        match boot.DbStatus with
+        | DatabaseSetup.DbStatus.Ok ->
             CoreMailbox.host
                 pool
                 (DbAgent.persist

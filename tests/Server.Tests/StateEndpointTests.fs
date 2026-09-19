@@ -163,8 +163,8 @@ let private stateWithChild (text: string) =
 
 // ---- Backend parameterisation ----
 
-/// Both backends under test. MemberData requires this to be public.
-let backends : obj[][] = [| [| box BackendKind.File |]; [| box BackendKind.Db |] |]
+/// Production writable path is Database-only. MemberData stays public.
+let backends : obj[][] = [| [| box BackendKind.Db |] |]
 
 /// Run a test body against a fresh client for the given backend.
 /// For Db: resets the test database before creating the client.
@@ -201,6 +201,36 @@ let ``DB mode without connection serves read-only file fallback`` () = task {
 
     if File.Exists ambPath then
         Assert.DoesNotContain("startup-file-fallback", File.ReadAllText ambPath)
+}
+
+[<Fact>]
+let ``legacy Persistence:Mode unknown does not fail startup`` () = task {
+    let tempDir = newTempDir ()
+    use factory =
+        (new WebApplicationFactory<Program>())
+            .WithWebHostBuilder(fun builder ->
+                builder.ConfigureAppConfiguration(fun _ config ->
+                    config.AddInMemoryCollection(
+                        dict [
+                            "DataDir", tempDir
+                            "Persistence:Mode", "mirror"
+                            "DB_CONNECTION_STRING", ""
+                            "Auth:Username", ""
+                            "Auth:Password", ""
+                        ]
+                    ) |> ignore
+                ) |> ignore
+            )
+    use client = factory.CreateClient() |> withDevelopmentCookie
+    let! resp = client.GetAsync("/ambit/state")
+    Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
+    let! body = resp.Content.ReadAsStringAsync()
+    let rootId = (decodeGraph body).root
+    let change, _ = changeAddChild rootId 0 "legacy-mode-ignored"
+    let! postResp = postChange client testFile change
+    Assert.Equal(HttpStatusCode.BadRequest, postResp.StatusCode)
+    let! errorBody = postResp.Content.ReadAsStringAsync()
+    Assert.Contains("read-only", decodeErrorField errorBody)
 }
 
 // ---- GET /ambit/state tests (parameterised) ----
@@ -282,7 +312,9 @@ let ``POST Change and inverse Changes return complete confirmations in request o
 
 [<Fact>]
 let ``file backend large paste inverse total response is measured`` () = task {
-    use client = createFileClient ()
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    use client = createDbClient connStr
     let children =
         List.init 2000 (fun _ -> ChildNode.owner (NodeId.New()))
     let paste =
@@ -337,7 +369,9 @@ let ``POST unchanged submission is rejected`` (backend: BackendKind) =
 
 [<Fact>]
 let ``POST changes accepts X-Gambol-Client header`` () = task {
-    use client = createFileClient ()
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    use client = createDbClient connStr
     let! json0 = getStateJson client testFile
     let rootId = (decodeGraph json0).root
     let change, _ = changeAddChild rootId 0 "hinted"
@@ -963,74 +997,68 @@ let ``POST duplicate submissionId with stale revision stays idempotent``
 
 // ---- Change log + persistence tests (file backend only) ----
 
-/// Submit a NewNode+Replace that adds a child with the given text under root.
-let private addChild
-    (client: HttpClient)
-    (file: string)
-    (rootId: NodeId)
-    (rev: EventId)
-    (text: string)
-    =
-    task {
-        let change, childId = changeAddChild rootId rev.Value text
-        let! resp = postChange client file change
-        Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
-        return childId
-    }
-
 [<Fact>]
 let ``POST changes creates log file`` () = task {
     let tempDir = newTempDir ()
-    use client = createClientForDir tempDir
-    let! json0 = getStateJson client testFile
-    let rootId = (decodeGraph json0).root
-
-    let! _ = addChild client testFile rootId (EventId.fromJson 0) "logged"
-
-    let logPath = EventLogFile.eventsPath tempDir
-    Assert.True(File.Exists(logPath), "Events file should exist after first change")
-    let content = readFileShared logPath
-    Assert.Contains("logged", content)
+    let host, handle = createAdmittedFile tempDir
+    try
+        let change, _ = changeAddChild Graph.rootId 0 "logged"
+        let! result = handle.postEvents [ change ] |> Async.StartAsTask
+        match result with
+        | Error err -> Assert.Fail(err)
+        | Ok _ -> ()
+        let logPath = EventLogFile.eventsPath tempDir
+        Assert.True(
+            File.Exists(logPath),
+            "Events file should exist after first change")
+        let content = readFileShared logPath
+        Assert.Contains("logged", content)
+    finally
+        CoreMailbox.dispose host
 }
 
 [<Fact>]
 let ``Snapshot writes amb artifacts asynchronously after change`` () = task {
     let tempDir = newTempDir ()
-    use client = createClientForDir tempDir
-    let! json0 = getStateJson client testFile
-    let rootId = (decodeGraph json0).root
-
-    let! _ = addChild client testFile rootId (EventId.fromJson 0) "snapped"
-
-    do! Task.Delay(500)
-
-    let ambPath = Path.Combine(tempDir, ".amb")
-    Assert.True(File.Exists ambPath, ".amb snapshot should exist")
-    let content = File.ReadAllText ambPath
-    Assert.Contains("snapped", content)
-
-    let metaPath = Bookkeeping.metaPath tempDir
-    Assert.True(File.Exists metaPath, "Meta file should exist")
-    let rev = Int32.Parse(File.ReadAllText(metaPath).Trim())
-    Assert.Equal(1, rev)
+    let host, handle = createAdmittedFile tempDir
+    try
+        let change, _ = changeAddChild Graph.rootId 0 "snapped"
+        let! result = handle.postEvents [ change ] |> Async.StartAsTask
+        match result with
+        | Error err -> Assert.Fail(err)
+        | Ok _ -> ()
+        do! Task.Delay(500)
+        let ambPath = Path.Combine(tempDir, ".amb")
+        Assert.True(File.Exists ambPath, ".amb snapshot should exist")
+        let content = File.ReadAllText ambPath
+        Assert.Contains("snapped", content)
+        let metaPath = Bookkeeping.metaPath tempDir
+        Assert.True(File.Exists metaPath, "Meta file should exist")
+        let rev = Int32.Parse(File.ReadAllText(metaPath).Trim())
+        Assert.Equal(1, rev)
+    finally
+        CoreMailbox.dispose host
 }
 
 [<Fact>]
 let ``Log contains valid change data after POST`` () = task {
     let tempDir = newTempDir ()
-    use client = createClientForDir tempDir
-    let! json0 = getStateJson client testFile
-    let rootId = (decodeGraph json0).root
-
-    let! _ = addChild client testFile rootId (EventId.fromJson 0) "logged-entry"
-
-    let logPath = EventLogFile.eventsPath tempDir
-    Assert.True(File.Exists(logPath))
-    let content = readFileShared logPath
-    Assert.Contains("logged-entry", content)
-    Assert.True(
-        content.StartsWith("00000001"),
-        "Log entry should have 8-digit padded id prefix")
+    let host, handle = createAdmittedFile tempDir
+    try
+        let change, _ = changeAddChild Graph.rootId 0 "logged-entry"
+        let! result = handle.postEvents [ change ] |> Async.StartAsTask
+        match result with
+        | Error err -> Assert.Fail(err)
+        | Ok _ -> ()
+        let logPath = EventLogFile.eventsPath tempDir
+        Assert.True(File.Exists(logPath))
+        let content = readFileShared logPath
+        Assert.Contains("logged-entry", content)
+        Assert.True(
+            content.StartsWith("00000001"),
+            "Log entry should have 8-digit padded id prefix")
+    finally
+        CoreMailbox.dispose host
 }
 
 // ---- DB restart tests (DB backend only) ----
@@ -1096,7 +1124,7 @@ let ``DB authority does not import files when database is empty`` () = task {
 }
 
 [<Fact>]
-let ``file mode startup imports files when database is empty`` () = task {
+let ``legacy Persistence:Mode file still uses Database persistence`` () = task {
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
     let tempDir = newTempDir ()
@@ -1105,8 +1133,14 @@ let ``file mode startup imports files when database is empty`` () = task {
 
     use client = createFileModeWithDbClientForDir connStr tempDir
     let! json = getStateJson client testFile
-    Assert.Equal(EventId.fromJson 1, decodeRevision json)
-    Assert.Contains((0, "from-file-bootstrap"), userTreeShape (decodeGraph json))
+    Assert.Equal(EventId.fromJson 0, decodeRevision json)
+    Assert.DoesNotContain(
+        (0, "from-file-bootstrap"),
+        userTreeShape (decodeGraph json))
+    let rootId = (decodeGraph json).root
+    let change, _ = changeAddChild rootId 0 "legacy-mode-ignored"
+    let! postResp = postChange client testFile change
+    Assert.Equal(HttpStatusCode.OK, postResp.StatusCode)
 }
 
 [<Fact>]
@@ -1189,33 +1223,6 @@ let ``DB restart keeps duplicate submissionId idempotent`` () = task {
 }
 
 [<Fact>]
-let ``file restart keeps inverse Change in EventLog`` () = task {
-    let tempDir = newTempDir ()
-    use client1 = createClientForDir tempDir
-    let! json0 = getStateJson client1 testFile
-    let rootId = (decodeGraph json0).root
-    let change, _ = changeAddChild rootId 0 "restart-inverse"
-    let! createResp = postChange client1 testFile change
-    Assert.Equal(HttpStatusCode.OK, createResp.StatusCode)
-    let undo = inverseEvent EventId.zero (Guid.NewGuid()) change
-    let! undoResp = postChange client1 testFile undo
-    Assert.Equal(HttpStatusCode.OK, undoResp.StatusCode)
-    let! undoAck = undoResp.Content.ReadAsStringAsync()
-    let confirmedUndo = Assert.Single((decodeSuccess undoAck).changes)
-    use client2 = createClientForDir tempDir
-    let! pollResponse = client2.GetAsync("/ambit/poll?rev=0")
-    let! pollJson = pollResponse.Content.ReadAsStringAsync()
-    let poll =
-        decode
-            ApiResponseSerialization.decodeChangeSuccessResponseDecoder
-            pollJson
-    Assert.Equal(2, poll.changes.Length)
-    Assert.Equal(confirmedUndo, poll.changes.[0])
-    let! stateJson = getStateJson client2 testFile
-    Assert.Equal(EventId.fromJson 2, decodeRevision stateJson)
-}
-
-[<Fact>]
 let ``DB restart keeps inverse Change in EventLog`` () = task {
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
@@ -1246,28 +1253,37 @@ let ``DB restart keeps inverse Change in EventLog`` () = task {
 [<Fact>]
 let ``New server uses snapshot + log replay`` () = task {
     let tempDir = newTempDir ()
-    use client1 = createClientForDir tempDir
-    let! json0 = getStateJson client1 testFile
-    let rootId = (decodeGraph json0).root
-
-    let! _ = addChild client1 testFile rootId (EventId.fromJson 0) "first"
-    do! Task.Delay(500)
-
-    let! json1 = getStateJson client1 testFile
-    let rootId2 = (decodeGraph json1).root
-    let root = (decodeGraph json1).nodes.[rootId2]
-    let firstChildId = root.children.[0].id
-    let ops = [ Op.SetText(firstChildId, "first", "updated") ]
-    let change =
-        SpecialNodeTestHelpers.changeEvent "" EventId.zero (Guid.NewGuid()) ops
-    let! _ = postChange client1 testFile change
-
-    use client2 = createClientForDir tempDir
-    let! json = getStateJson client2 testFile
-    let graph = decodeGraph json
-    let child = graph.nodes |> Map.toSeq |> Seq.map snd |> Seq.find (fun n -> n.text = "updated")
-    Assert.Equal("updated", child.text)
-    Assert.Equal(EventId.fromJson 2, decodeRevision json)
+    let change, firstId = changeAddChild Graph.rootId 0 "first"
+    let host1, handle1 = createAdmittedFile tempDir
+    try
+        let! first = handle1.postEvents [ change ] |> Async.StartAsTask
+        match first with
+        | Error err -> Assert.Fail(err)
+        | Ok _ -> ()
+        do! Task.Delay(500)
+        let ops = [ Op.SetText(firstId, "first", "updated") ]
+        let update =
+            SpecialNodeTestHelpers.changeEvent
+                ""
+                EventId.zero
+                (Guid.NewGuid())
+                ops
+        let! second = handle1.postEvents [ update ] |> Async.StartAsTask
+        match second with
+        | Error err -> Assert.Fail(err)
+        | Ok _ -> ()
+    finally
+        CoreMailbox.dispose host1
+    let host2, handle2 = createAdmittedFile tempDir
+    try
+        let! stateResult = handle2.getState () |> Async.StartAsTask
+        match stateResult with
+        | Error err -> Assert.Fail(err)
+        | Ok state ->
+            Assert.Equal("updated", state.graph.nodes.[firstId].text)
+            Assert.Equal(EventId.fromJson 2, state.eventId)
+    finally
+        CoreMailbox.dispose host2
 }
 
 let private postChangeOk (client: HttpClient) (change: Ev) = task {
