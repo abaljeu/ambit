@@ -150,6 +150,13 @@ module Database =
             return ()
         }
 
+    let clearEvents (connectionString: string) : Task =
+        task {
+            use conn = getConnection connectionString
+            do! conn.OpenAsync()
+            do! conn.ExecuteAsync("DELETE FROM events") :> Task
+        }
+
     let getEventsAfter
         (connectionString: string)
         (afterEventId: int)

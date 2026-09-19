@@ -47,21 +47,35 @@ module DbAgent =
             |> List.reduce EventId.max
             |> fun maxId -> EventLog.advancePast maxId log
 
-    let private loadRestoredEventLog (connectionString: string) : EventLog =
-        if String.IsNullOrWhiteSpace connectionString then
-            EventLog.empty
-        else
-            let rows =
-                Database.getEvents connectionString
-                |> Async.AwaitTask
-                |> Async.RunSynchronously
-            let decoded =
-                rows
-                |> List.choose (fun row ->
-                    EventLogFile.decodeEvent row.payload
-                    |> Result.toOption
-                    |> Option.map (overlayRowId row))
-            advancePastRowIds rows (EventLog.restorePersisted decoded)
+    let private loadReconciled
+        (connectionString: string)
+        (state: State)
+        : State * EventLog =
+        let log =
+            if String.IsNullOrWhiteSpace connectionString then
+                EventLog.empty
+            else
+                let rows =
+                    Database.getEvents connectionString
+                    |> Async.AwaitTask
+                    |> Async.RunSynchronously
+                let decoded =
+                    rows
+                    |> List.choose (fun row ->
+                        EventLogFile.decodeEvent row.payload
+                        |> Result.toOption
+                        |> Option.map (overlayRowId row))
+                advancePastRowIds rows (EventLog.restorePersisted decoded)
+        let recovered = EventLog.recover state log
+        if
+            not (String.IsNullOrWhiteSpace connectionString)
+            && not (List.isEmpty log.events)
+            && List.isEmpty (snd recovered).events
+        then
+            Database.clearEvents connectionString
+            |> Async.AwaitTask
+            |> Async.RunSynchronously
+        recovered
 
     let private loadInitialState (connectionString: string) : Async<State> =
         Database.loadPersistedState connectionString
@@ -371,6 +385,8 @@ module DbAgent =
     let private recordPersistedEvent loaded (persisted: Ev) =
         loaded.eventLog.Value <-
             EventLog.restore [ persisted ] loaded.eventLog.Value
+        loaded.state.Value <-
+            { loaded.state.Value with eventId = persisted.id }
 
     let private writePersistedEvent loaded (persisted: Ev) =
         let n = EventId.value persisted.id
@@ -467,7 +483,9 @@ module DbAgent =
                 connectionString
                 liveSaveDataDir
                 persistGraphOps
-        loaded.eventLog.Value <- loadRestoredEventLog connectionString
+        let recovered = loadReconciled connectionString initialState
+        loaded.eventLog.Value <- snd recovered
+        loaded.state.Value <- fst recovered
         { handlers = persistHandlers loaded
           onError = logUnhandledException loaded.liveSaveDataDir
           formatError = formatError loaded.liveSaveDataDir

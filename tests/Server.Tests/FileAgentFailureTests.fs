@@ -178,7 +178,7 @@ let ``soft-fail live-save still commits graph and returns could-not-save message
 }
 
 [<Fact>]
-let ``soft-fail log is not replayed into FileAgent state after restart`` () = task {
+let ``soft-fail log is replayed into FileAgent state after restart`` () = task {
     let dataDir = newTempDir ()
     let defaults = FileAgent.defaultDependencies dataDir
     let dependencies = { defaults with persistGraphOps = softFailPersist }
@@ -194,16 +194,16 @@ let ``soft-fail log is not replayed into FileAgent state after restart`` () = ta
     finally
         CoreMailbox.dispose (host agent1)
 
-    // Meta checkpoint stays behind after soft-fail; restart trusts that checkpoint.
+    // Meta stays behind after soft-fail; EventLog is authority and recover replays.
     Assert.Equal(EventId.zero, Bookkeeping.readEventId dataDir)
     let agent2 = FileAgent.createWithDependencies dependencies dataDir
     try
         let! state =
             getState agent2 |> Async.StartAsTask
-        Assert.False(
+        Assert.True(
             state.graph.nodes
             |> Map.exists (fun _ n -> n.text = "soft-fail-probe"))
-        Assert.Equal(EventId.zero, state.eventId)
+        Assert.Equal(EventId.fromJson 1, state.eventId)
     finally
         CoreMailbox.dispose (host agent2)
 }
