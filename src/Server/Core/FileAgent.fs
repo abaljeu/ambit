@@ -251,6 +251,8 @@ module FileAgent =
             | Ok () ->
                 loaded.persistedEventLog.Value <-
                     EventLog.restore [ event ] loaded.persistedEventLog.Value
+                loaded.state.Value <-
+                    { loaded.state.Value with eventId = event.id }
                 Ok ()
         applyEvent = fun event graphOnly ->
             processPostEvents loaded [ event ] graphOnly
@@ -261,6 +263,21 @@ module FileAgent =
         match DocumentLoader.tryLoadState dataDir with
         | Ok state -> state
         | Error msg -> failwith msg
+
+    let private reconcileLoaded loaded =
+        let recovered =
+            EventLog.recover
+                loaded.state.Value
+                loaded.persistedEventLog.Value
+        if
+            not (List.isEmpty loaded.persistedEventLog.Value.events)
+            && List.isEmpty (snd recovered).events
+        then
+            EventLogFile.truncate
+                loaded.eventStream
+                loaded.eventOffsets
+        loaded.state.Value <- fst recovered
+        loaded.persistedEventLog.Value <- snd recovered
 
     let createWithDependencies
         (dependencies: FileAgentDependencies)
@@ -280,6 +297,7 @@ module FileAgent =
                     |> EventLog.restorePersisted)
               state = ref loadedState
               persistClean = ref true }
+        reconcileLoaded loaded
         let capturedInitialState = loaded.state.Value
         eventStream.Seek(0L, SeekOrigin.End) |> ignore
         let onError operation context ex =

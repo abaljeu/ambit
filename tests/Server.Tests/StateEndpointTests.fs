@@ -1128,7 +1128,7 @@ let ``DB restart preserves NodeIds`` () = task {
 }
 
 [<Fact>]
-let ``DB restart does not replay log when projection is cleared`` () = task {
+let ``DB restart replays log when projection is cleared`` () = task {
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
     use client1 = createDbClient connStr
@@ -1142,7 +1142,7 @@ let ``DB restart does not replay log when projection is cleared`` () = task {
     Assert.Equal(HttpStatusCode.OK, r2.StatusCode)
     let! logRows = Database.getEventsAfter connStr 0 |> Async.AwaitTask
     Assert.Equal(2, logRows.Length)
-    // Wipe projection tables only; the Change log is not a startup journal.
+    // Wipe projection only; EventLog persist is the restart authority.
     use conn = new Npgsql.NpgsqlConnection(connStr)
     do! conn.OpenAsync()
     use cmd = conn.CreateCommand()
@@ -1150,10 +1150,10 @@ let ``DB restart does not replay log when projection is cleared`` () = task {
     let! _ = cmd.ExecuteNonQueryAsync()
     use client2 = createDbClientNoReset connStr
     let! json2 = getStateJson client2 testFile
-    Assert.Equal(EventId.fromJson 0, decodeRevision json2)
+    Assert.Equal(EventId.fromJson 2, decodeRevision json2)
     let graph2 = decodeGraph json2
-    Assert.False(graph2.nodes.ContainsKey childId1)
-    Assert.False(graph2.nodes.ContainsKey childId2)
+    Assert.True(graph2.nodes.ContainsKey childId1)
+    Assert.True(graph2.nodes.ContainsKey childId2)
 }
 
 [<Fact>]
