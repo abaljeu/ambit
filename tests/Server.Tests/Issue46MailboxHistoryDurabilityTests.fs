@@ -268,13 +268,13 @@ let ``Undo after File restart fills Change and rejects ActorStart`` () = task {
 }
 
 [<Fact>]
-let ``File empty EventLog recover exposes getEventId zero`` () = task {
+let ``File empty EventLog recover exposes getEventId Graph checkpoint`` () = task {
     let dir = newTempDir ()
     Bookkeeping.writeRevision dir 4 |> requireOk "writeRevision"
     let host = CoreMailbox.createFile dir admittedCredentials
     try
         let! eventId = CoreMailbox.getEventId host |> Async.StartAsTask
-        Assert.Equal(EventId.zero, eventId)
+        Assert.Equal(EventId.fromJson 4, eventId)
     finally
         CoreMailbox.dispose host
 }

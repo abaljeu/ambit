@@ -2,11 +2,11 @@
 
 **Status:** coded
 **Blocked by:** [35b — Browser Run hello](35b-browser-run-hello.md).
-Actual: 5h15m
+Actual: 5h45m
 
 ## Context
 
-Split from [35b — Browser Run hello](35b-browser-run-hello.md) [§6 History durability](35b-browser-run-hello.md). The Browser Run hello path can prove Owned child `hello` without EventLog surviving process restart. This ticket makes the mailbox EventLog durable and authoritative: persist and load the audit sequence (Change and Actor lifecycle `Ev` records), re-execute Ops `Ev` records onto Graph when documents or projection lagged the log, and keep one EventId — `getEventId` / `State.eventId` / HTTP `latestId` / Poll — equal to the EventLog tip.
+Split from [35b — Browser Run hello](35b-browser-run-hello.md) [§6 History durability](35b-browser-run-hello.md). The Browser Run hello path can prove Owned child `hello` without EventLog surviving process restart. This ticket makes the mailbox EventLog durable and authoritative: persist and load the audit sequence (Change and Actor lifecycle `Ev` records), re-execute Ops `Ev` records onto Graph when documents or projection lagged the log, and keep one EventId — `getEventId` / `State.eventId` / HTTP `latestId` / Poll. That number is the EventLog tip when the log is non-empty and at or ahead of Graph. When EventLog is empty/missing or Graph is ahead by eventId, Graph is the sole available authority and that number is the Graph checkpoint.
 
 Follow modules named in [Core creation architecture](../arch.md) for EventLog persist and recover. Process-lifetime EventLog from [34b — Outside Core lifecycle proof](34b-outside-core-lifecycle-proof.md) / [35b — Browser Run hello](35b-browser-run-hello.md) stays until this lands. Grounded plan: [46 mailbox History durability explore](../reports/46-mailbox-history-durability-explore.md).
 
@@ -26,8 +26,8 @@ Follow modules named in [Core creation architecture](../arch.md) for EventLog pe
 
 ### 3. One serial
 
-1. [x] One EventId — after hello and after restart, `getEventId` / `State.eventId` / HTTP `latestId` / Poll equal the EventLog tip (not an Action-only lag).
-2. [x] No second cursor type — Graph checkpoint (`gambol.meta` / projection `revision`) stays recover-only for which Ops `Ev` ids to replay.
+1. [x] One EventId — after hello and after restart, `getEventId` / `State.eventId` / HTTP `latestId` / Poll equal the EventLog tip when the log is non-empty and at or ahead of Graph (not an Action-only lag). When EventLog is empty/missing or Graph is ahead by eventId, they equal the Graph checkpoint.
+2. [x] Checkpoint for replay and empty/ahead tip — Graph checkpoint (`gambol.meta` / projection `revision`) chooses which Ops `Ev` ids to replay. It is also the tip when the log is empty/missing or Graph is ahead.
 
 ## Out of scope
 
@@ -42,7 +42,7 @@ Follow modules named in [Core creation architecture](../arch.md) for EventLog pe
 - 2026-09-18 — Explore plan: [46 mailbox History durability explore](../reports/46-mailbox-history-durability-explore.md). Persist write/load already exists from [42 — Migrate PersistHandlers restore and getEventsSince](42-migrate-persisthandlers-restore-and-geteventssince.md); implement should prove the mixed audit sequence across restart and fix mailbox seed order. Status stays `defined`.
 - 2026-09-18 — Implement: seed adopt-newest-head, File/Db recover via `Ev.apply`, `appendEvent` bumps `State.eventId`. Status `coded`. Report: [46 mailbox History durability](../reports/46-mailbox-history-durability.md).
 - 2026-09-18 — Split from 35b §6. Alan: §7 Browser proof can test without this ticket.
-- 2026-09-19 — Empty EventLog recover sets `getEventId` / `State.eventId` to `EventId.zero`. Checkpoint stays recover-only. Status stays `coded`. Note: [46 mailbox History durability empty-log tip](../reports/46-mailbox-history-durability-empty-log-tip.md).
+- 2026-09-19 — Alan overruled empty EventLog → `EventId.zero`. Graph is the tip when the log is empty/missing or Graph is ahead. EventLog remains authority for Ops replay when the log has those Evs. Status stays `coded`. Note: [46 mailbox History durability empty-log tip](../reports/46-mailbox-history-durability-empty-log-tip.md).
 
 ## Time
 
@@ -50,3 +50,4 @@ Follow modules named in [Core creation architecture](../arch.md) for EventLog pe
 - 2026-09-18 1h30m — Explore EventLog / persist / seed; write report (from chat)
 - 2026-09-18 2h — Implement seed, recover, one serial (from chat)
 - 2026-09-19 45m — Empty EventLog tip is EventId.zero (from chat)
+- 2026-09-19 30m — Alan: Graph tip when EventLog empty or Graph ahead (from chat)

@@ -1,25 +1,23 @@
 # 46 — Mailbox History durability empty-log tip
 
-Date: 2026-09-19. Ticket: [46 — Mailbox History durability](../issues/46-mailbox-history-durability.md). Status stays `coded`. Spec: [code-review-46-mailbox-history-durability](code-review-46-mailbox-history-durability.md) Spec (c)1 and [46 mailbox History durability explore](46-mailbox-history-durability-explore.md) §3.
+Date: 2026-09-19. Ticket: [46 — Mailbox History durability](../issues/46-mailbox-history-durability.md). Status stays `coded`.
 
-This is a correction note, not authority.
+This is a correction note, not authority. Alan overruled [code-review-46-mailbox-history-durability](code-review-46-mailbox-history-durability.md) Spec (c)1 (empty EventLog → `EventId.zero`).
 
-## 1. Miss
+## 1. Ruling
 
-[EventLog.recoverState](../../../src/Shared/EventLog.fs) on `[]` kept Graph `State.eventId`. [CoreMailbox.getEventId](../../../src/Server/Core/CoreMailbox.fs) then returned a Graph checkpoint (`gambol.meta` / projection `revision`). That is a second serial. Ticket [§3.2 No second cursor type](../issues/46-mailbox-history-durability.md) says the checkpoint is recover-only. Explore §3: EventLog tip is `EventId.zero` when there are no events.
+1. Empty or missing EventLog — Graph is the sole available authority. `getEventId` / `State.eventId` take the Graph checkpoint (`gambol.meta` / projection `revision`), not `EventId.zero`.
+2. Graph ahead of the log by eventId — Graph supplies the tip until the log catches up. Do not invent a zero tip. Do not rewrite EventLog from Graph.
+3. Non-empty EventLog at or ahead of Graph — EventLog remains authority for audit and Ops replay. `getEventId` follows [EventLog.tip](../../../src/Shared/EventLog.fs) after append/recover.
 
-## 2. Fix
+[EventLog.tip](../../../src/Shared/EventLog.fs) on `[]` is still `EventId.zero`. That is the log fact. It is not the door value when Graph has a checkpoint.
 
-Empty EventLog recover sets `State.eventId` to `EventId.zero`. Graph bytes stay. A non-empty log still uses the checkpoint only to choose which Ops `Ev` ids to replay, then sets `eventId` to [EventLog.tip](../../../src/Shared/EventLog.fs).
+## 2. Code
 
-## 3. createForTest and file import
+[EventLog.recoverState](../../../src/Shared/EventLog.fs) on `[]` returns Graph `State` unchanged (same direction as keep-checkpoint). A non-empty log still replays Ops `Ev` ids ahead of the checkpoint, then sets `eventId` to `EventId.max` of log tip and Graph checkpoint so Graph-ahead does not drop the Graph serial.
 
-[DbAgent.createForTest](../../../src/Server/Core/DbAgent.fs) is not a durability seam ([explore](46-mailbox-history-durability-explore.md) §5). It goes through the same `recoverState`. Injected Graph `eventId` is not a Poll cursor when the log is empty.
+## 3. Proof
 
-File import of documents with empty `SYSTEM/gambol.events` keeps the Graph. `getEventId` is `EventId.zero`. That is Spec-compatible. A seam that kept the meta/projection number would restore two serials. Next `EventLog.append` already mints id 1 from empty `nextId`. No extra seam.
-
-## 4. Proof
-
-1. [recoverState empty EventLog exposes EventId.zero](../../../tests/Shared.Tests/EventTests.fs) — Graph kept; `eventId` is `EventId.zero`.
-2. [File empty EventLog recover exposes getEventId zero](../../../tests/Server.Tests/Issue46MailboxHistoryDurabilityTests.fs) — `gambol.meta` 4, empty EventLog, `getEventId` is `EventId.zero`.
-3. File-mode document import and Db createForTest / empty-log projection facts now expect the EventLog tip, not the checkpoint.
+1. [recoverState empty EventLog keeps Graph checkpoint EventId](../../../tests/Shared.Tests/EventTests.fs) — Graph kept; `eventId` stays 4.
+2. [recoverState Graph-ahead of EventLog keeps Graph EventId](../../../tests/Shared.Tests/EventTests.fs) — log tip 2, Graph 5; recover keeps 5.
+3. [File empty EventLog recover exposes getEventId Graph checkpoint](../../../tests/Server.Tests/Issue46MailboxHistoryDurabilityTests.fs) — `gambol.meta` 4, empty EventLog, `getEventId` is 4.

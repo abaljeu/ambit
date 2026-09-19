@@ -122,13 +122,26 @@ let ``recoverState applies Ops ahead and sets tip past ActorStop`` () =
     Assert.Equal(EventId.fromJson 3, recovered.eventId)
 
 [<Fact>]
-let ``recoverState empty EventLog exposes EventId.zero`` () =
+let ``recoverState empty EventLog keeps Graph checkpoint EventId`` () =
     let graph, _ =
         ModelBuilder.createNodes [ "kept" ] (Graph.create ())
     let before =
         { graph = graph; eventId = EventId.fromJson 4 }
     let recovered = EventLog.recoverState before EventLog.empty
-    Assert.Equal(EventId.zero, recovered.eventId)
+    Assert.Equal(EventId.fromJson 4, recovered.eventId)
+    Assert.Equal(before.graph, recovered.graph)
+
+[<Fact>]
+let ``recoverState Graph-ahead of EventLog keeps Graph EventId`` () =
+    let change =
+        { event "" (EventBody.Change []) with id = EventId.fromJson 2 }
+    let log = EventLog.adoptNewestHead [ change ]
+    let graph, _ =
+        ModelBuilder.createNodes [ "ahead" ] (Graph.create ())
+    let before =
+        { graph = graph; eventId = EventId.fromJson 5 }
+    let recovered = EventLog.recoverState before log
+    Assert.Equal(EventId.fromJson 5, recovered.eventId)
     Assert.Equal(before.graph, recovered.graph)
 
 let private actorStart commandName : Ev =

@@ -4,7 +4,7 @@ Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
 Updated: 2026-09-19
 Started: 2026-09-05
-Actual: 62h35m
+Actual: 63h05m
 
 ## Map
 
@@ -172,7 +172,7 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - 2026-09-16 — Suspended until [[plan/single-event-source/map.md]] creates the Event-only architecture. Then [[plan/core-creation/arch.md]] is updated to match. Do not add implementation issues here for that cleanup.
 - 2026-09-18 — Split 35b §6 to [46 — Mailbox History durability](issues/46-mailbox-history-durability.md); §7 Browser proof does not depend on 46.
 - 2026-09-18 — Implemented [46 — Mailbox History durability](issues/46-mailbox-history-durability.md). Status `coded`. Report: [46 mailbox History durability](reports/46-mailbox-history-durability.md).
-- 2026-09-19 — Empty EventLog tip correction on [46 — Mailbox History durability](issues/46-mailbox-history-durability.md). Status stays `coded`. Note: [46 mailbox History durability empty-log tip](reports/46-mailbox-history-durability-empty-log-tip.md).
+- 2026-09-19 — Alan overruled empty EventLog → `EventId.zero` on [46 — Mailbox History durability](issues/46-mailbox-history-durability.md). Graph is the tip when the log is empty/missing or Graph is ahead. Status stays `coded`. Note: [46 mailbox History durability empty-log tip](reports/46-mailbox-history-durability-empty-log-tip.md).
 - 2026-09-18 — Widened [46 — Mailbox History durability](issues/46-mailbox-history-durability.md): EventLog authoritative, Ops `Ev` replay when Graph lagged, one serial for `getEventId` / `latestId`. Status stays `defined`. Plan: [46 mailbox History durability explore](reports/46-mailbox-history-durability-explore.md).
 - 2026-09-17 — Marked [[plan/core-creation/issues/34b-outside-core-lifecycle-proof.md|34b — Outside Core lifecycle proof]] `done` after independent review approve. Unblocked [[plan/core-creation/issues/35b-browser-run-hello.md|35b — Browser Run hello]] → `ready-for-agent`.
 - 2026-09-17 — Resume after SES Event-only repair on staging. Story **Caller, persist, and Poll** migrate/contract (43–45) is `done`. Next open Story path: **Browser Run hello** ([[plan/core-creation/issues/35b-browser-run-hello.md|35b — Browser Run hello]]), blocked only by review of [[plan/core-creation/issues/34b-outside-core-lifecycle-proof.md|34b — Outside Core lifecycle proof]] (`coded`).
