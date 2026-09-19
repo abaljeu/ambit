@@ -358,7 +358,7 @@ module DbAgent =
         loaded.eventLog.Value <-
             EventLog.restore [ persisted ] loaded.eventLog.Value
         loaded.state.Value <-
-            { loaded.state.Value with eventId = persisted.id }
+            EventLog.advanceEventId loaded.state.Value persisted.id
 
     let private writePersistedEvent loaded (persisted: Ev) =
         let n = EventId.value persisted.id

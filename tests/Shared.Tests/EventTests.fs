@@ -144,6 +144,16 @@ let ``recoverState Graph-ahead of EventLog keeps Graph EventId`` () =
     Assert.Equal(EventId.fromJson 5, recovered.eventId)
     Assert.Equal(before.graph, recovered.graph)
 
+[<Fact>]
+let ``advanceEventId Graph-ahead keeps Graph EventId`` () =
+    let graph, _ =
+        ModelBuilder.createNodes [ "ahead" ] (Graph.create ())
+    let before =
+        { graph = graph; eventId = EventId.fromJson 5 }
+    let after = EventLog.advanceEventId before (EventId.fromJson 3)
+    Assert.Equal(EventId.fromJson 5, after.eventId)
+    Assert.Equal(before.graph, after.graph)
+
 let private actorStart commandName : Ev =
     event commandName (EventBody.ActorStart(startRequest ()))
 

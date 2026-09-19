@@ -280,6 +280,39 @@ let ``File empty EventLog recover exposes getEventId Graph checkpoint`` () = tas
 }
 
 [<Fact>]
+let ``File Graph-ahead append keeps getEventId Graph tip`` () =
+    let dir = newTempDir ()
+    Bookkeeping.writeRevision dir 5 |> requireOk "writeRevision"
+    let persist = FileAgent.persist (FileAgent.create dir)
+    try
+        appendOnly
+            persist.handlers
+            [ lifecycle 2 (EventBody.ActorStart sampleActorStart) ]
+        let eventId = persist.handlers.getEventId () |> requireOk "getEventId"
+        Assert.Equal(EventId.fromJson 5, eventId)
+    finally
+        persist.dispose ()
+
+[<Fact>]
+let ``Db Graph-ahead append keeps getEventId Graph tip`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    do!
+        Database.rebuildFromDocumentFiles
+            connStr
+            { graph = Graph.create (); eventId = EventId.fromJson 5 }
+    let persist = DbAgent.persist (DbAgent.create connStr)
+    try
+        appendOnly
+            persist.handlers
+            [ lifecycle 2 (EventBody.ActorStart sampleActorStart) ]
+        let eventId = persist.handlers.getEventId () |> requireOk "getEventId"
+        Assert.Equal(EventId.fromJson 5, eventId)
+    finally
+        persist.dispose ()
+}
+
+[<Fact>]
 let ``getEventId is ActorStop after in-process hello`` () = task {
     let dir = newTempDir ()
     let secret = Credential "issue-46-live-serial"

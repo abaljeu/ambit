@@ -101,3 +101,7 @@ module EventLog =
                     state
                     ahead
             { replayed with eventId = EventId.max (tip log) state.eventId }
+
+    /// Keep Graph-ahead tip; raise State.eventId only when Ev.id is larger.
+    let advanceEventId (state: State) (eventId: EventId) : State =
+        { state with eventId = EventId.max state.eventId eventId }

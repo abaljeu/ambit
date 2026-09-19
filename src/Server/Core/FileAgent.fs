@@ -252,7 +252,7 @@ module FileAgent =
                 loaded.persistedEventLog.Value <-
                     EventLog.restore [ event ] loaded.persistedEventLog.Value
                 loaded.state.Value <-
-                    { loaded.state.Value with eventId = event.id }
+                    EventLog.advanceEventId loaded.state.Value event.id
                 Ok ()
         applyEvent = fun event graphOnly ->
             processPostEvents loaded [ event ] graphOnly

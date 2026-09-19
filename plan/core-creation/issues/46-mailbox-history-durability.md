@@ -2,7 +2,7 @@
 
 **Status:** coded
 **Blocked by:** [35b — Browser Run hello](35b-browser-run-hello.md).
-Actual: 5h45m
+Actual: 6h30m
 
 ## Context
 
@@ -43,6 +43,7 @@ Follow modules named in [Core creation architecture](../arch.md) for EventLog pe
 - 2026-09-18 — Implement: seed adopt-newest-head, File/Db recover via `Ev.apply`, `appendEvent` bumps `State.eventId`. Status `coded`. Report: [46 mailbox History durability](../reports/46-mailbox-history-durability.md).
 - 2026-09-18 — Split from 35b §6. Alan: §7 Browser proof can test without this ticket.
 - 2026-09-19 — Alan overruled empty EventLog → `EventId.zero`. Graph is the tip when the log is empty/missing or Graph is ahead. EventLog remains authority for Ops replay when the log has those Evs. Status stays `coded`. Note: [46 mailbox History durability empty-log tip](../reports/46-mailbox-history-durability-empty-log-tip.md).
+- 2026-09-19 — Alan + [code-review-46-mailbox-history-durability-rereview](../reports/code-review-46-mailbox-history-durability-rereview.md) Spec (c): live `appendEvent` must not drop a Graph-ahead serial. File/Db use `EventId.max` of Graph / `State.eventId` and `Ev.id`. Status stays `coded`. Note: [46 mailbox History durability live-append tip](../reports/46-mailbox-history-durability-live-append-tip.md).
 
 ## Time
 
@@ -51,3 +52,4 @@ Follow modules named in [Core creation architecture](../arch.md) for EventLog pe
 - 2026-09-18 2h — Implement seed, recover, one serial (from chat)
 - 2026-09-19 45m — Empty EventLog tip is EventId.zero (from chat)
 - 2026-09-19 30m — Alan: Graph tip when EventLog empty or Graph ahead (from chat)
+- 2026-09-19 45m — Live appendEvent keeps Graph-ahead tip via EventId.max (from chat)
