@@ -148,10 +148,9 @@ let readEditInputSelectionEnd () : int =
 /// Blocked states (ServerRejected / CodeOutdated / DataOutdated / WaitingToRetry) queue
 /// changes locally but do not fire a POST.
 let clientSyncState (model: VM) : ClientSyncState =
-    ClientSyncState.create
-        model.graph
-        (model.eventId)
-        model.history
+    let state =
+        ClientSyncState.create model.graph model.eventId model.history
+    { state with liveFocusIds = model.liveFocusIds }
 
 let applyAndPost
     (commandName: string)

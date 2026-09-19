@@ -4,11 +4,11 @@ Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
 Updated: 2026-09-19
 Started: 2026-09-05
-Actual: 66h50m
+Actual: 68h50m
 
 ## Notes
 
-- 2026-09-19 — Next frontier: active Actor chrome — [[issues/21-client-shows-lock-present.md|21 Client shows live Actor]]. Then [[issues/22-client-cancels-a-job.md|22]]. Reconciled 21: Status `defined`; stale pool/credential blockers cleared.
+- 2026-09-19 — Next frontier: [22 — Client cancels a job](issues/22-client-cancels-a-job.md). [21 — Client shows live Actor](issues/21-client-shows-lock-present.md) Status `coded` (Poll Event live Focus set + `actor-live` chrome).
 
 ## Map
 

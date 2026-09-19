@@ -1,6 +1,7 @@
 # 21 — Client shows live Actor (active chrome)
 
-**Status:** defined
+**Status:** coded
+**Actual:** 2h
 **Blocked by:** None — Server lifecycle Events and Browser Run (`?test` / `?ai`) are delivered. Credentialed Browser posts are `done` ([[20-client-presents-credential.md|20]]). Historical blockers [[02-core-actor-pool.md|02]] and Graph lock-present are superseded.
 
 ## Context
@@ -11,9 +12,9 @@ Server already emits `ActorStart` / `ActorStop` on the EventLog; Poll carries th
 
 ## What to build
 
-1. [ ] **Projection** — Client tracks live Focus ids from `EventBody.ActorStart` / `EventBody.ActorStop` applied through normal Poll / response Event apply (same path as Graph Changes). After `ActorStart` for a Focus, that Focus is live; after `ActorStop` for that Focus, it is not.
-2. [ ] **Chrome** — While a Focus is live, the Browser shows a clear active-Actor indicator on that Focus (row / outline). Indicator clears when the Focus leaves the live set.
-3. [ ] **Non-goals** — No Graph lock-present field; no span lock; no separate History/audit UI; no Cancel UI ([[22-client-cancels-a-job.md|22]]); no live registry Poll beyond Events already on the wire.
+1. [x] **Projection** — Client tracks live Focus ids from `EventBody.ActorStart` / `EventBody.ActorStop` applied through normal Poll / response Event apply (same path as Graph Changes). After `ActorStart` for a Focus, that Focus is live; after `ActorStop` for that Focus, it is not.
+2. [x] **Chrome** — While a Focus is live, the Browser shows a clear active-Actor indicator on that Focus (row / outline). Indicator clears when the Focus leaves the live set.
+3. [x] **Non-goals** — No Graph lock-present field; no span lock; no separate History/audit UI; no Cancel UI ([[22-client-cancels-a-job.md|22]]); no live registry Poll beyond Events already on the wire.
 
 ## See also
 
@@ -22,3 +23,8 @@ Server already emits `ActorStart` / `ActorStop` on the EventLog; Poll carries th
 ## Comments
 
 - 2026-09-19 — Reconciled as active Actor chrome frontier after llm-connector vertical done. Cleared stale Blocked by (pool / credential). Status `defined`.
+- 2026-09-19 — Implemented live Focus projection on Poll / response Event apply and `actor-live` row chrome. Status `coded`.
+
+## Time
+
+- 2026-09-19 2h — Client live Actor projection and Focus row chrome (from chat)

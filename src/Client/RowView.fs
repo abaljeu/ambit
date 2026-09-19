@@ -103,7 +103,12 @@ module Layout =
 
         for patch in patches do
             match patch with
-            | SetClassName cls -> el.className <- cls
+            | SetClassName cls ->
+                el.className <- cls
+                if el.classList.contains "actor-live" then
+                    el.setAttribute("aria-busy", "true")
+                else
+                    el.removeAttribute "aria-busy"
             | SetText txt ->
                 let textDiv = el.querySelector ".amb-text"
                 if not (isNull textDiv) then
@@ -149,6 +154,9 @@ module Layout =
         if siteEntry.parentInstanceId = None then row.classList.add "amb-view-root"
         if isEntrySelected model siteEntry then row.classList.add "amb-selected"
         if isEntryFocused  model siteEntry then row.classList.add "amb-focused"
+        if Set.contains nodeId model.liveFocusIds then
+            row.classList.add "actor-live"
+            row.setAttribute("aria-busy", "true")
         match ViewModel.specialKindRowClass node.id node.kind with
         | Some cls -> row.classList.add cls
         | None -> ()

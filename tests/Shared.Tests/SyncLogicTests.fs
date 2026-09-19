@@ -212,6 +212,41 @@ let ``applyServerTail applies graph mutations`` () =
         Assert.Equal("after", result.graph.nodes.[nodeId].text)
         Assert.Equal(EventIdFixtures.storedId 3, result.eventId)
 
+let private actorStartEvent eventId focusId : Ev =
+    { id = eventId
+      submissionId = System.Guid.NewGuid()
+      authority = Authority "Browser"
+      commandName = "Start"
+      body =
+        EventBody.ActorStart
+            { zoomId = focusId
+              focusId = focusId
+              commandId = NodeId.New()
+              graphIds = [ focusId ]
+              eventId = eventId } }
+
+let private actorStopEvent eventId focusId : Ev =
+    { id = eventId
+      submissionId = System.Guid.NewGuid()
+      authority = Authority "Browser"
+      commandName = "Stop"
+      body = EventBody.ActorStop(focusId, ActorSucceeded) }
+
+[<Fact>]
+let ``applyServerTail ActorStart adds and ActorStop removes a live Focus`` () =
+    let focusId = NodeId.New()
+    let st = emptyState ()
+    let started = actorStartEvent (EventIdFixtures.storedId 6) focusId
+    match applyTail [ started ] st with
+    | Error msg -> failwith $"Expected Ok, got Error: {msg}"
+    | Ok afterStart ->
+        Assert.True(Set.contains focusId afterStart.liveFocusIds)
+        let stopped = actorStopEvent (EventIdFixtures.storedId 7) focusId
+        match applyTail [ stopped ] afterStart with
+        | Error msg -> failwith $"Expected Ok, got Error: {msg}"
+        | Ok afterStop ->
+            Assert.False(Set.contains focusId afterStop.liveFocusIds)
+
 [<Fact>]
 let ``applyServerTail carries SetUpdateTime after SetText as poll stamp path`` () =
     let st, nodeId = stateWithNode "before"
@@ -315,7 +350,8 @@ let ``applyServerTail skips structural Replace on Unloaded parent`` () =
         { graph = graph
           history = ClientHistory.clear ()
           eventId = EventIdFixtures.storedId 3
-          eventLog = EventLog.empty }
+          eventLog = EventLog.empty
+          liveFocusIds = Set.empty }
     let change =
         { id = EventIdFixtures.storedId 4
           submissionId = System.Guid.NewGuid()
@@ -356,7 +392,8 @@ let ``applyServerTail applies header facts on Unloaded resident Node`` () =
         { graph = Graph.fromNodes graph0.root nodes
           history = ClientHistory.clear ()
           eventId = EventIdFixtures.storedId 2
-          eventLog = EventLog.empty }
+          eventLog = EventLog.empty
+          liveFocusIds = Set.empty }
     let change =
         { id = EventIdFixtures.storedId 3
           submissionId = System.Guid.NewGuid()
@@ -409,7 +446,8 @@ let ``applySyncResponse installs complete child list as Loaded and preserves own
           history =
             ClientHistory.record { mkChange 1 with commandName = "test" } (ClientHistory.clear ())
           eventId = EventIdFixtures.storedId 5
-          eventLog = EventLog.empty }
+          eventLog = EventLog.empty
+          liveFocusIds = Set.empty }
     let child =
         Node.Create(childId, text = "leaf", owner = wsId)
     let loadedWs =
@@ -510,7 +548,8 @@ let ``applySyncResponse empty Loaded child list marks Loaded without History cle
           history =
             ClientHistory.record { past with commandName = "test" } (ClientHistory.clear ())
           eventId = EventIdFixtures.storedId 4
-          eventLog = EventLog.empty }
+          eventLog = EventLog.empty
+          liveFocusIds = Set.empty }
     let loadedEmpty = { ws with children = []; childrenStatus = Loaded }
     match
         SyncLogic.applySyncResponse
@@ -576,7 +615,8 @@ let private seededEditState () =
         { graph = graph1
           eventId = EventId.zero
           history = ClientHistory.clear ()
-          eventLog = EventLog.empty }
+          eventLog = EventLog.empty
+          liveFocusIds = Set.empty }
     match SyncLogic.applyLocalEvent change state0 with
     | Error msg -> failwith msg
     | Ok (state, pending) -> nodeId, state, pending, change
@@ -660,7 +700,8 @@ let ``applyServerTail with changes preserves History`` () =
         { graph = state0.graph
           eventId = state0.eventId
           history = st.history
-          eventLog = EventLog.empty }
+          eventLog = EventLog.empty
+          liveFocusIds = Set.empty }
     match applyTail [ change ] client with
     | Error msg -> failwith msg
     | Ok result -> Assert.Equal(st.history, result.history)
