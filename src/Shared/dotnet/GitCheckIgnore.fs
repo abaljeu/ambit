@@ -73,8 +73,14 @@ module GitCheckIgnore =
         if isUsableGitDir gitDir then Ok gitDir
         else reinitSharedGitDir gitDir
 
-    let private ensureEmptyGitDir () =
-        lock sharedGitDirLock ensureEmptyGitDirUnlocked
+    /// Hold the lock for ensure plus the git that uses that GIT_DIR.
+    let private withSharedGitDir
+        (action: string -> Result<'a, string>)
+        : Result<'a, string> =
+        lock sharedGitDirLock (fun () ->
+            match ensureEmptyGitDirUnlocked () with
+            | Error e -> Error e
+            | Ok gitDir -> action gitDir)
 
     /// Tests: incomplete shared `.git`, then reinit, still holding the lock.
     let rebuildIncompleteSharedGitDir () =
@@ -120,9 +126,7 @@ module GitCheckIgnore =
         if String.IsNullOrWhiteSpace rel then
             Ok false
         else
-            match ensureEmptyGitDir () with
-            | Error e -> Error e
-            | Ok gitDir ->
+            withSharedGitDir (fun gitDir ->
                 Directory.CreateDirectory workTree |> ignore
                 let configure (psi: ProcessStartInfo) =
                     baseConfigure gitDir workTree false psi
@@ -136,7 +140,8 @@ module GitCheckIgnore =
                 | Error e -> Error e
                 | Ok(0, _, _) -> Ok true
                 | Ok(1, _, _) -> Ok false
-                | Ok(_, stdout, stderr) -> Error(ignoreError stdout stderr)
+                | Ok(_, stdout, stderr) ->
+                    Error(ignoreError stdout stderr))
 
     /// Like `isIgnored`, but `.gitignore` paths are never treated as ignored.
     let isEffectivelyIgnored
@@ -168,9 +173,7 @@ module GitCheckIgnore =
         if paths.IsEmpty then
             Ok []
         else
-            match ensureEmptyGitDir () with
-            | Error e -> Error e
-            | Ok gitDir ->
+            withSharedGitDir (fun gitDir ->
                 Directory.CreateDirectory workTree |> ignore
                 let configure (psi: ProcessStartInfo) =
                     baseConfigure gitDir workTree true psi
@@ -191,7 +194,8 @@ module GitCheckIgnore =
                     paths
                     |> List.map (fun p -> p, Set.contains p ignored)
                     |> Ok
-                | Ok(_, stdout, stderr) -> Error(ignoreError stdout stderr)
+                | Ok(_, stdout, stderr) ->
+                    Error(ignoreError stdout stderr))
 
     let private fullUnderWorkTree (workTree: string) (relative: string) =
         let n = normalizeRel relative
@@ -256,9 +260,7 @@ module GitCheckIgnore =
         : Result<string list, string> =
         let under = normalizeRel underRelative
 
-        match ensureEmptyGitDir () with
-        | Error e -> Error e
-        | Ok gitDir ->
+        withSharedGitDir (fun gitDir ->
             Directory.CreateDirectory workTree |> ignore
             let configure (psi: ProcessStartInfo) =
                 baseConfigure gitDir workTree false psi
@@ -280,7 +282,8 @@ module GitCheckIgnore =
                     |> Array.map normalizeRel
                     |> Array.toList
                 Ok(withEffectiveGitignores workTree under files)
-            | Ok(_, stdout, stderr) -> Error(ignoreError stdout stderr)
+            | Ok(_, stdout, stderr) ->
+                Error(ignoreError stdout stderr))
 
     /// Whether `relativePath` is kept given a `listIncluded` file set.
     /// Directories stay if any included file is under them.
