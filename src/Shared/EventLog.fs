@@ -76,32 +76,30 @@ module EventLog =
                 |> List.reduce EventId.max
                 |> EventId.next }
 
-    let private applyRecover event state =
-        match Ev.apply event state with
-        | ApplyResult.Changed next -> next
-        | ApplyResult.Unchanged next -> next
-        | ApplyResult.Invalid (next, _) -> next
+    /// Empty log whose next assignable id is past a Graph checkpoint.
+    let afterCheckpoint (eventId: EventId) : EventLog =
+        { empty with nextId = EventId.next eventId }
 
-    /// Replay Ops Evs ahead of the Graph checkpoint.
-    /// Tip is EventLog when the log is at or ahead of Graph; else Graph.
-    let recoverState (state: State) (log: EventLog) : State =
-        match log.events with
-        | [] -> state
-        | _ ->
-            let checkpoint = EventId.value state.eventId
+    let private applyRecover event state =
+        let next =
+            match Ev.apply event state with
+            | ApplyResult.Changed next -> next
+            | ApplyResult.Unchanged next -> next
+            | ApplyResult.Invalid (next, _) -> next
+        { next with eventId = event.id }
+
+    /// Load reconcile: Graph id vs EventLog tip. Ids move only via apply.
+    let recover (state: State) (log: EventLog) : State * EventLog =
+        let graphId = EventId.value state.eventId
+        let logId = EventId.value (tip log)
+        if graphId > logId then
+            state, afterCheckpoint state.eventId
+        elif graphId = logId then
+            state, log
+        else
             let ahead =
                 log.events
                 |> List.rev
                 |> List.filter (fun event ->
-                    Ev.isAction event
-                    && EventId.value event.id > checkpoint)
-            let replayed =
-                List.fold
-                    (fun current event -> applyRecover event current)
-                    state
-                    ahead
-            { replayed with eventId = EventId.max (tip log) state.eventId }
-
-    /// Keep Graph-ahead tip; raise State.eventId only when Ev.id is larger.
-    let advanceEventId (state: State) (eventId: EventId) : State =
-        { state with eventId = EventId.max state.eventId eventId }
+                    EventId.value event.id > graphId)
+            List.fold applyRecover state ahead, log

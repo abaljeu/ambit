@@ -2,11 +2,11 @@
 
 **Status:** coded
 **Blocked by:** [35b — Browser Run hello](35b-browser-run-hello.md).
-Actual: 6h30m
+Actual: 7h30m
 
 ## Context
 
-Split from [35b — Browser Run hello](35b-browser-run-hello.md) [§6 History durability](35b-browser-run-hello.md). The Browser Run hello path can prove Owned child `hello` without EventLog surviving process restart. This ticket makes the mailbox EventLog durable and authoritative: persist and load the audit sequence (Change and Actor lifecycle `Ev` records), re-execute Ops `Ev` records onto Graph when documents or projection lagged the log, and keep one EventId — `getEventId` / `State.eventId` / HTTP `latestId` / Poll. That number is the EventLog tip when the log is non-empty and at or ahead of Graph. When EventLog is empty/missing or Graph is ahead by eventId, Graph is the sole available authority and that number is the Graph checkpoint.
+Split from [35b — Browser Run hello](35b-browser-run-hello.md) [§6 History durability](35b-browser-run-hello.md). The Browser Run hello path can prove Owned child `hello` without EventLog surviving process restart. This ticket makes the mailbox EventLog durable: persist and load the audit sequence (Change and Actor lifecycle `Ev` records), then on load reconcile Graph load EventId (meta / projection) with EventLog tip. Graph id > Log id drops the invalid log. Equal is noop. Log id > Graph id applies events until Graph is concurrent with the log. EventId moves only via apply, not by assigning a tip. Empty or missing log with a Graph checkpoint leaves Graph as sole authority (empty is fine).
 
 Follow modules named in [Core creation architecture](../arch.md) for EventLog persist and recover. Process-lifetime EventLog from [34b — Outside Core lifecycle proof](34b-outside-core-lifecycle-proof.md) / [35b — Browser Run hello](35b-browser-run-hello.md) stays until this lands. Grounded plan: [46 mailbox History durability explore](../reports/46-mailbox-history-durability-explore.md).
 
@@ -20,14 +20,14 @@ Follow modules named in [Core creation architecture](../arch.md) for EventLog pe
 
 ### 2. EventLog-authoritative Graph catch-up
 
-1. [x] EventLog is the authority — File `SYSTEM/gambol.events` and Db `events` win when Graph or projection disagree.
-2. [x] Re-execute Ops Evs — on restart/recover, apply Change/Undo/Redo `Ev` records that are in the log and not yet on Graph.
-3. [x] Actor bodies stay log-only — ActorStart / ActorStop restore into EventLog; they have no Ops and do not apply to Graph.
+1. [x] Three-way load compare — Graph load EventId versus EventLog tip. Graph id > Log id drops the lagging log. Equal is noop. Log id > Graph id applies events until concurrent.
+2. [x] Re-execute Ops Evs — when Log id > Graph id, apply Change/Undo/Redo `Ev` records via `Ev.apply` until Graph is concurrent. Applying updates EventId; do not assign a tip.
+3. [x] Actor bodies stay log-only for Ops — ActorStart / ActorStop have no Ops and do not change Graph; they still participate in log tip ordering as the apply walk advances EventId.
 
 ### 3. One serial
 
-1. [x] One EventId — after hello and after restart, `getEventId` / `State.eventId` / HTTP `latestId` / Poll equal the EventLog tip when the log is non-empty and at or ahead of Graph (not an Action-only lag). When EventLog is empty/missing or Graph is ahead by eventId, they equal the Graph checkpoint.
-2. [x] Checkpoint for replay and empty/ahead tip — Graph checkpoint (`gambol.meta` / projection `revision`) chooses which Ops `Ev` ids to replay. It is also the tip when the log is empty/missing or Graph is ahead.
+1. [x] One EventId — `getEventId` / `State.eventId` / HTTP `latestId` / Poll read `State.eventId`. Load reconcile does not assign that field from Graph or from EventLog tip. Apply moves it. Live `appendEvent` writes the stored `Ev.id` after mailbox mint.
+2. [x] Graph load EventId for compare — `gambol.meta` / projection `revision` is the Graph side of the three-way compare, not a max-tip patch and not an empty→zero door.
 
 ## Out of scope
 
@@ -44,6 +44,7 @@ Follow modules named in [Core creation architecture](../arch.md) for EventLog pe
 - 2026-09-18 — Split from 35b §6. Alan: §7 Browser proof can test without this ticket.
 - 2026-09-19 — Alan overruled empty EventLog → `EventId.zero`. Graph is the tip when the log is empty/missing or Graph is ahead. EventLog remains authority for Ops replay when the log has those Evs. Status stays `coded`. Note: [46 mailbox History durability empty-log tip](../reports/46-mailbox-history-durability-empty-log-tip.md).
 - 2026-09-19 — Alan + [code-review-46-mailbox-history-durability-rereview](../reports/code-review-46-mailbox-history-durability-rereview.md) Spec (c): live `appendEvent` must not drop a Graph-ahead serial. File/Db use `EventId.max` of Graph / `State.eventId` and `Ev.id`. Status stays `coded`. Note: [46 mailbox History durability live-append tip](../reports/46-mailbox-history-durability-live-append-tip.md).
+- 2026-09-19 — Alan overruled max-tip and empty→zero door patches. Load reconcile is Graph id vs EventLog tip: drop lagging log, equal noop, apply until concurrent. EventId moves only via apply. Status stays `coded`. Note: [46 mailbox History durability reconcile](../reports/46-mailbox-history-durability-reconcile.md).
 
 ## Time
 
@@ -53,3 +54,4 @@ Follow modules named in [Core creation architecture](../arch.md) for EventLog pe
 - 2026-09-19 45m — Empty EventLog tip is EventId.zero (from chat)
 - 2026-09-19 30m — Alan: Graph tip when EventLog empty or Graph ahead (from chat)
 - 2026-09-19 45m — Live appendEvent keeps Graph-ahead tip via EventId.max (from chat)
+- 2026-09-19 1h — Load reconcile: drop / noop / apply until concurrent (from chat)
