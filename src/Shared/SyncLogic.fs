@@ -7,7 +7,8 @@ type ClientSyncState =
     { graph: Graph
       eventId: EventId
       history: ClientHistory
-      eventLog: EventLog }
+      eventLog: EventLog
+      actorLiveFocusIds: Set<NodeId> }
 
 [<RequireQualifiedAccess>]
 module ClientSyncState =
@@ -15,7 +16,8 @@ module ClientSyncState =
         { graph = graph
           eventId = eventId
           history = history
-          eventLog = EventLog.empty }
+          eventLog = EventLog.empty
+          actorLiveFocusIds = Set.empty }
 
 [<RequireQualifiedAccess>]
 type AckReconcile =
@@ -57,6 +59,14 @@ module SyncLogic =
         { graph = state.graph
           eventId = state.eventId }
 
+    let private applyActorLive (event: Ev) (live: Set<NodeId>) : Set<NodeId> =
+        match event.body with
+        | EventBody.ActorStart start -> Set.add start.focusId live
+        | EventBody.ActorStop(focusId, _) -> Set.remove focusId live
+        | EventBody.Change _
+        | EventBody.Undo _
+        | EventBody.Redo _ -> live
+
     let private withProjectedGraph
         (event: Ev)
         (state: ClientSyncState)
@@ -64,7 +74,8 @@ module SyncLogic =
         : ClientSyncState =
         { state with
             graph = projected.graph
-            eventId = event.id }
+            eventId = event.id
+            actorLiveFocusIds = applyActorLive event state.actorLiveFocusIds }
 
     let private foldProjectedEvents
         (events: Ev list)

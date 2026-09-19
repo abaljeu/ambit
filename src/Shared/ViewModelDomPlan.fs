@@ -61,6 +61,7 @@ module ViewModelDomPlan =
         |> CssClass.addIf isRoot "amb-view-root"
         |> CssClass.addIf sel "amb-selected"
         |> CssClass.addIf foc "amb-focused"
+        |> CssClass.addIf (Set.contains entry.nodeId model.actorLiveFocusIds) "actor-live"
 
     let private selectionClassPatches (oldModel: VM) (newModel: VM) (instId: SiteId) : RowPatch list =
         match Map.tryFind instId newModel.siteMap.entries with
@@ -105,6 +106,7 @@ module ViewModelDomPlan =
         && oldModel.workspaceRoots = newModel.workspaceRoots
         && oldModel.desktopCapabilities = newModel.desktopCapabilities
         && oldModel.serverCapabilities = newModel.serverCapabilities
+        && oldModel.actorLiveFocusIds = newModel.actorLiveFocusIds
 
     let private tryPlanSelectionOnly (oldModel: VM) (newModel: VM) : RowMutation list option =
         if not (canUseSelectionFastPath oldModel newModel) then None

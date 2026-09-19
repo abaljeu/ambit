@@ -779,6 +779,35 @@ let ``bulletTip keeps line order stable across chevron and leaf nodes`` () =
     Assert.Equal<string[]>(orderOf chevron, orderOf leaf)
 
 [<Fact>]
+let ``planPatchDOM live Actor adds actor-live and clears it`` () =
+    let graph0, ids = ModelBuilder.createNodes [ "focus" ] (Graph.create ())
+    let focusId = List.head ids
+    let graph = addChild Graph.rootId focusId graph0
+    let idle = emptyModel graph
+    let live = { idle with actorLiveFocusIds = Set.singleton focusId }
+    let cached = getVisibleInstanceIds idle.siteMap |> Set.ofList
+    let classAfter start finish =
+        planPatchDOM start finish cached
+        |> List.choose (function
+            | PatchRow (instanceId, patches) ->
+                let entry = finish.siteMap.entries.[instanceId]
+                if entry.nodeId <> focusId then
+                    None
+                else
+                    patches
+                    |> List.tryPick (function
+                        | SetClassName className -> Some className
+                        | _ -> None)
+            | _ -> None)
+        |> List.tryHead
+    match classAfter idle live with
+    | None -> failwith "expected class patch when Actor becomes live"
+    | Some className -> Assert.Contains("actor-live", className)
+    match classAfter live idle with
+    | None -> failwith "expected class patch when Actor leaves live set"
+    | Some className -> Assert.DoesNotContain("actor-live", className)
+
+[<Fact>]
 let ``bulletTip renders update time via the injected formatter verbatim`` () =
     let t = System.DateTime(2027, 5, 6, 7, 8, 0, System.DateTimeKind.Utc)
     let node = Node.Create(NodeId.New(), text = "leaf", updateTime = t)
