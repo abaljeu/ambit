@@ -4,10 +4,11 @@ Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
 Updated: 2026-09-19
 Started: 2026-09-05
-Actual: 70h20m
+Actual: 70h50m
 
 ## Notes
 
+- 2026-09-19 — Chrome tickets expanded: [21 — Client shows live Actor](plan/core-creation/issues/21-client-shows-lock-present.md) owns start result (“Run: AI started.”), Command/Poll Event apply, chrome, boot live set, Poll stop/error conveyance; [22 — Client cancels a job](plan/core-creation/issues/22-client-cancels-a-job.md) owns cancel control on live chrome. DLL provider error naming is a separate ticket.
 - 2026-09-19 — Next frontier: [22 — Client cancels a job](plan/core-creation/issues/22-client-cancels-a-job.md). [21 — Client shows live Actor](plan/core-creation/issues/21-client-shows-lock-present.md) Status `coded` (Command+Poll live Focus set + `amb-actor-live` chrome).
 
 ## Map

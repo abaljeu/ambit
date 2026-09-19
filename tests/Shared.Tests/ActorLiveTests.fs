@@ -63,9 +63,15 @@ let ``ActorStop ActorFailed sets Ask Actor failed lastCmdResult`` () =
     Assert.Equal(
         Some (CmdLastResult.Error (Some "Ask", "Actor failed.")),
         ActorLive.lastCmdResult events)
+    let succeeded =
+        [ actorStopEvent
+            (EventIdFixtures.storedId 3) focusId ActorSucceeded ]
+    Assert.Equal(
+        Some (CmdLastResult.Detail (Some "Ask", "Actor succeeded.")),
+        ActorLive.lastCmdResult succeeded)
     let cancelled =
         [ actorStopEvent
-            (EventIdFixtures.storedId 3) focusId ActorCancelled ]
+            (EventIdFixtures.storedId 4) focusId ActorCancelled ]
     Assert.Equal(
         Some (CmdLastResult.Error (Some "Ask", "Actor cancelled.")),
         ActorLive.lastCmdResult cancelled)

@@ -58,6 +58,8 @@ module ActorLive =
                 match event.body with
                 | EventBody.ActorStart _ ->
                     Some (CmdLastResult.Detail (Some "Run", "AI started."))
+                | EventBody.ActorStop (_, ActorSucceeded) ->
+                    Some (CmdLastResult.Detail (Some "Ask", "Actor succeeded."))
                 | EventBody.ActorStop (_, ActorFailed) ->
                     Some (CmdLastResult.Error (Some "Ask", "Actor failed."))
                 | EventBody.ActorStop (_, ActorCancelled) ->
