@@ -21,23 +21,71 @@ module GitCheckIgnore =
     let private sharedRepoRoot =
         Path.Combine(Path.GetTempPath(), "gambol-check-ignore-git")
 
+    let private sharedGitDirLock = obj ()
+
+    let private sharedGitDir () =
+        Path.Combine(sharedRepoRoot, ".git")
+
     let private isUsableGitDir (gitDir: string) =
         File.Exists(Path.Combine(gitDir, "HEAD"))
 
-    /// Shared empty GIT_DIR; reinit if missing or incomplete (no HEAD).
-    let private ensureEmptyGitDir () : Result<string, string> =
-        Directory.CreateDirectory sharedRepoRoot |> ignore
-        let gitDir = Path.Combine(sharedRepoRoot, ".git")
+    let private removePath (path: string) : Result<unit, string> =
+        try
+            if Directory.Exists path then
+                Directory.Delete(path, true)
+            elif File.Exists path then
+                File.Delete path
+            Ok()
+        with ex ->
+            Error ex.Message
 
-        if isUsableGitDir gitDir then
-            Ok gitDir
-        else
-            match GitRun.gitExec sharedRepoRoot "init -q" with
-            | Ok _ when isUsableGitDir gitDir -> Ok gitDir
-            | Ok _ ->
-                Error
-                    "git init did not produce a usable check-ignore repository"
+    let private initErrorIsRetryable (detail: string) =
+        let d = if isNull detail then "" else detail
+        d.IndexOf("File exists", StringComparison.OrdinalIgnoreCase) >= 0
+        || d.IndexOf(
+            "not a git repository",
+            StringComparison.OrdinalIgnoreCase) >= 0
+
+    let private initSharedGitDir (gitDir: string) =
+        match GitRun.gitExec sharedRepoRoot "init -q" with
+        | Ok _ when isUsableGitDir gitDir -> Ok gitDir
+        | Ok _ ->
+            Error
+                "git init did not produce a usable check-ignore repository"
+        | Error e -> Error e
+
+    let private reinitSharedGitDir (gitDir: string) =
+        match removePath gitDir with
+        | Error e -> Error e
+        | Ok() ->
+            match initSharedGitDir gitDir with
+            | Ok dir -> Ok dir
+            | Error e when initErrorIsRetryable e ->
+                match removePath gitDir with
+                | Error re -> Error re
+                | Ok() -> initSharedGitDir gitDir
             | Error e -> Error e
+
+    /// Shared empty GIT_DIR; reinit if missing or incomplete (no HEAD).
+    let private ensureEmptyGitDirUnlocked () : Result<string, string> =
+        Directory.CreateDirectory sharedRepoRoot |> ignore
+        let gitDir = sharedGitDir ()
+        if isUsableGitDir gitDir then Ok gitDir
+        else reinitSharedGitDir gitDir
+
+    let private ensureEmptyGitDir () =
+        lock sharedGitDirLock ensureEmptyGitDirUnlocked
+
+    /// Tests: incomplete shared `.git`, then reinit, still holding the lock.
+    let rebuildIncompleteSharedGitDir () =
+        lock sharedGitDirLock (fun () ->
+            Directory.CreateDirectory sharedRepoRoot |> ignore
+            let gitDir = sharedGitDir ()
+            match removePath gitDir with
+            | Error e -> Error e
+            | Ok() ->
+                Directory.CreateDirectory gitDir |> ignore
+                ensureEmptyGitDirUnlocked ())
 
     let private failureDetail (stdout: string) (stderr: string) =
         if String.IsNullOrWhiteSpace stderr then stdout
