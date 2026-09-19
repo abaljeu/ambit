@@ -35,6 +35,7 @@
     <Compile Include="Core\CoreCredentials.fs" />
     <Compile Include="Core\CoreActorPool.fs" />
     <Compile Include="TestActor.fs" />
+    <Compile Include="RunAgentActor.fs" />
     <Compile Include="Core\CoreMsg.fs" />
     <Compile Include="Core\CoreEventDispatch.fs" />
     <Compile Include="Core\CoreMailboxBackend.fs" />
@@ -63,6 +64,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Shared\Gambol.Shared.fsproj" />
     <ProjectReference Include="..\Shared\dotnet\Gambol.Shared.DotNet.fsproj" />
+    <ProjectReference Include="..\CloudAgents\Gambol.CloudAgents.fsproj" />
   </ItemGroup>
 
   <ItemGroup>

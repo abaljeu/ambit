@@ -89,6 +89,7 @@ module CoreActorPool =
                 |> Option.map (fun n -> id, n))
             |> Map.ofList
         Graph.fromExtracted request.zoomId actorNodes
+        |> Graph.withFocus (Some request.focusId)
 
     let private runStartActor
         (putLive: Credential -> NodeId -> PendingBody -> unit)
@@ -100,6 +101,8 @@ module CoreActorPool =
         if request.graphIds.IsEmpty then
             Error
                 "graphIds required: client must provide Included context (SiteMap under Zoom, honoring Fold)"
+        elif Set.contains request.focusId (liveFocusIds (getModel ())) then
+            Error "focus already has a live Actor"
         else
             let actorGraph = actorGraphFrom fullGraph request
             match Map.tryFind request.commandId actorGraph.nodes with
