@@ -50,6 +50,7 @@ Grouped by Stage. Order inside a Stage does not matter.
 
 ## Decisions so far
 
+- 2026-09-19: Workspace sync redesign (FETCH → ORGANIZE → UPDATE Actors) folds into Chapter [[epics/chapters/automatic-upload-and-download.md]] on [[epics/work-with-text-files-from-anywhere.md]]; [[plan/transport-layer/project.md]] owns the redesign chart. Recorded here; no Roadmap issue file.
 - [Inventory live Projects and roadmap remainder](plan/roadmap/issues/02-inventory-live-projects-and-roadmap-remainder.md) — [[plan/roadmap/reports/live-projects-and-roadmap-remainder.md]]: 16 non-done feature-set Projects (includes End-user wiki, Architecture, Marketing wiki); postgres-roadmap §0–2 done, §3–7 still open.
 - [Name and order the first Epics](plan/roadmap/issues/01-name-and-order-first-epics.md) — five User Epics grouped by Stage (all charting); outline capture already met; wiki folders stay Projects.
 - [Retire index Development Sequence](plan/roadmap/issues/03-retire-index-development-sequence.md) — [[doc/index.md]] is the Feature index; leftovers went to existing Projects plus [[plan/document-formats/map.md]]; desktop mapping is Current.

@@ -39,6 +39,7 @@ Done:
 
 ## Notes
 
+- 2026-09-19 — Chapter [[chapters/automatic-upload-and-download.md]] folds Workspace sync redesign (FETCH/UPDATE Actors) into that beat; [[plan/transport-layer/project.md]] owns the chart.
 - [[plan/transport-layer/project.md]] cross-cutting pattern — disk Upload/Download is one transport instance (Parse/Persist); Google (Drive/Docs, example) is another inbound and likely later round-trip channel on the same contract (plan from Local Graph, Parse/Persist, emit Changes via ESO Actor). See [[plan/transport-layer/overview.md]], [[plan/transport-layer/map.md]].
 - Scaling is [[organize-huge-outlines.md]]; first use does not wait on it.
 - Outline capture (“get it out of my head”) is already met; this Epic is documents from anywhere.
