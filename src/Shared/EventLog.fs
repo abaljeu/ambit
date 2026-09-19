@@ -80,7 +80,7 @@ module EventLog =
     let afterCheckpoint (eventId: EventId) : EventLog =
         { empty with nextId = EventId.next eventId }
 
-    let private applyRecover event state =
+    let private applyRecover state event =
         let next =
             match Ev.apply event state with
             | ApplyResult.Changed next -> next

@@ -162,7 +162,7 @@ let ``recover equal Log and Graph is noop`` () =
             log
     let recovered, kept = EventLog.recover applied log
     Assert.Equal(applied, recovered)
-    Assert.Equal(log.events, kept.events)
+    Assert.Equal<Ev list>(log.events, kept.events)
     Assert.Equal("same", recovered.graph.nodes.[childId].text)
     Assert.Equal(EventId.fromJson 2, recovered.eventId)
 
