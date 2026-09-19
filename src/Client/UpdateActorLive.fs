@@ -16,6 +16,16 @@ let withActorCmdResult (events: Ev list) (model: VM) : VM =
     | None -> model
     | Some result -> { model with lastCmdResult = Some result }
 
+let withAppliedResult
+    (events: Ev list)
+    (state: ClientSyncState)
+    (syncInfo: SyncInfo)
+    (model: VM)
+    : VM =
+    let next =
+        withAppliedSync state model |> withActorCmdResult events
+    { next with syncInfo = syncInfo }
+
 let applyCommandEvents (events: Ev list) (model: VM) : VM * Effect list =
     match SyncLogic.applyServerTail events (clientSyncState model) with
     | Error msg ->

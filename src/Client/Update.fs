@@ -279,9 +279,11 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                         + " newRev="
                         + string newState.eventId.Value)
                     let synced =
-                        { withAppliedSync newState readyModel
-                            |> withActorCmdResult events with
-                            syncInfo = si |> SyncInfo.clearCatchUp }
+                        withAppliedResult
+                            events
+                            newState
+                            (si |> SyncInfo.clearCatchUp)
+                            readyModel
                         |> withSiteMap
                         |> adjustModeAfterServerApply readyModel.graph
                     autoDownload synced
@@ -313,9 +315,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                             + " newRev="
                             + string newState.eventId.Value)
                         let synced =
-                            { withAppliedSync newState readyModel
-                                |> withActorCmdResult events with
-                                syncInfo = si }
+                            withAppliedResult events newState si readyModel
                             |> withSiteMap
                             |> adjustModeAfterServerApply readyModel.graph
                         autoDownload synced
@@ -386,9 +386,8 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                     + " newRev="
                     + string newState.eventId.Value)
                 let synced =
-                    { withAppliedSync newState readyModel
-                        |> withActorCmdResult syncResponse.events with
-                        syncInfo = si }
+                    withAppliedResult
+                        syncResponse.events newState si readyModel
                     |> withSiteMap
                     |> adjustModeAfterServerApply readyModel.graph
                 synced, []
