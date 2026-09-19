@@ -5,7 +5,7 @@ Independent Spec review. Not a Standards review.
 **Spec:** [33 — Credentialed Browser Change posts](../issues/33-credentialed-browser-change-posts.md); [36 — Mailbox is the only Core door](../issues/36-mailbox-is-the-only-core-door.md). Aids: arch Story path **Browser Change posts**, shared segment **Credentialed `PostEvent` through CoreMsg**, seam **CoreMailbox door**, seam **Credentialed Change posts** on [Core creation architecture](../arch.md).
 **Standards:** deferred (Alan: Spec only).
 **Mechanical scan:** not run.
-**Focused tests:** `dotnet test tests/Server.Tests --filter` CredentialedChangePosts / BrowserCredential / CoreMailboxDoor / CoreRuntimeTests / ActorCoreChangesDoor / GraphOnlyChangePost / CoreCredentialsTests.
+**Focused tests:** `dotnet test tests/Server.Tests --filter` CredentialedChangePosts / BrowserCredential / CoreMailboxDoor / CoreRuntimeTests / ActorCoreChangesDoor / GraphOnlyChangePost / CoreCredentialsTests / AuthTokenTests — 69 passed, 0 failed.
 
 ## Standards
 
