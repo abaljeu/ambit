@@ -2,9 +2,9 @@
 
 Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
-Updated: 2026-09-18
+Updated: 2026-09-19
 Started: 2026-09-05
-Actual: 64h50m
+Actual: 66h20m
 
 ## Map
 
@@ -61,8 +61,8 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]] — Collapse extra Core entrances onto CoreMailbox; Status `coded`. Report: [[plan/core-creation/reports/mailbox-single-door.md]].
 - [[plan/core-creation/issues/37-expand-shared-event-eventlog-and-history.md|37 — Expand Shared Event, EventLog, and History]] — Story **Event, EventLog, and ClientHistory** Shared expand beside HistoryEvent; Event-shaped ClientHistory beside the Change-shaped API. No new History module. Status `coded`.
 - [[plan/core-creation/issues/40-expand-postevent-eventlog-and-event-json.md|40 — Expand postEvent, EventLog store, and Event JSON persist]] — Story **Caller, persist, and Poll** expand: `postEvent`, EventLog store, Event JSON beside ChangeLog. Status `coded`.
-- [[plan/core-creation/issues/41-migrate-core-mailbox-coremsg-and-pool-onto-event.md|41 — Migrate Core mailbox, CoreMsg, and Pool onto Event]] — Story **Caller, persist, and Poll** Core migrate batch. Status `coded`.
-- [[plan/core-creation/issues/42-migrate-persisthandlers-restore-and-geteventssince.md|42 — Migrate PersistHandlers restore and getEventsSince]] — Story **Caller, persist, and Poll** persist migrate batch. Status `coded`.
+- [41 — Migrate Core mailbox, CoreMsg, and Pool onto Event](issues/41-migrate-core-mailbox-coremsg-and-pool-onto-event.md) — Story **Caller, persist, and Poll** Core migrate batch. Status `done`.
+- [42 — Migrate PersistHandlers restore and getEventsSince](issues/42-migrate-persisthandlers-restore-and-geteventssince.md) — Story **Caller, persist, and Poll** persist migrate batch. Status `done`.
 - [[plan/core-creation/issues/43-migrate-http-adapter-onto-postevent-and-event-poll.md|43 — Migrate HTTP Adapter onto postEvent and Event Poll]] — Story **Caller, persist, and Poll** HTTP Adapter migrate batch. Status `done` (SES Event-only repair completed this path).
 - [[plan/core-creation/issues/44-migrate-browser-poll-history-pending-and-eventid.md|44 — Migrate Browser Poll, History, pending, and EventId cursor]] — Story **Caller, persist, and Poll** Browser migrate batch. Status `done` (SES Event-only repair completed this path).
 - [[plan/core-creation/issues/45-contract-historyevent-clienthistory-pendingkind-and-changelog.md|45 — Contract HistoryEvent, mailbox History, PendingKind, StartActorRequest, and ChangeLog]] — Story **Caller, persist, and Poll** contract. Status `done` (SES Event-only repair completed this path).
@@ -132,6 +132,7 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/reports/35b-slice4-5-7-core-testactor-browser-proof.md]] — [35b — Browser Run hello](plan/core-creation/issues/35b-browser-run-hello.md) slices 4+5+7 Core TestActor and Browser proof.
 - [35b slices 4+5+7 standards and Spec corrections](plan/core-creation/reports/35b-slice4-5-7-standards-spec-corrections.md) — [35b — Browser Run hello](plan/core-creation/issues/35b-browser-run-hello.md) Origin Spec review: unregistered Actor name and non-hello command fail.
 - [46 mailbox History durability](plan/core-creation/reports/46-mailbox-history-durability.md) — [46 — Mailbox History durability](issues/46-mailbox-history-durability.md) implement: seed order, File+Db recover, one serial.
+- [spec-review-41-42](plan/core-creation/reports/spec-review-41-42.md) — Independent Spec review of [41 — Migrate Core mailbox, CoreMsg, and Pool onto Event](issues/41-migrate-core-mailbox-coremsg-and-pool-onto-event.md) and [42 — Migrate PersistHandlers restore and getEventsSince](issues/42-migrate-persisthandlers-restore-and-geteventssince.md). Both `done`.
 
 ## Comments
 
@@ -170,6 +171,7 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - 2026-09-15 — [[plan/core-creation/issues/40-expand-postevent-eventlog-and-event-json.md|40 — Expand postEvent, EventLog store, and Event JSON persist]] Event JSON encode/read on EventLog. Deleted EventJson and ChangeLog Event codec. Status stays `coded`.
 - 2026-09-16 — Shared Event record and helpers are `Ev` in `Gambol.Shared`. Namespace `Gambol.Shared.Events` is gone. Related types (`EventId`, `EventBody`, `EventLog`, `EventJson`, `Authority`, `ActorStart`, `ActorResult`) stay in `Gambol.Shared`. Arch and dependents: [[plan/core-creation/reports/ev-rename-arch-docs.md]].
 - 2026-09-16 — Suspended until [[plan/single-event-source/map.md]] creates the Event-only architecture. Then [[plan/core-creation/arch.md]] is updated to match. Do not add implementation issues here for that cleanup.
+- 2026-09-19 — Independent Spec review approve of [41 — Migrate Core mailbox, CoreMsg, and Pool onto Event](issues/41-migrate-core-mailbox-coremsg-and-pool-onto-event.md) and [42 — Migrate PersistHandlers restore and getEventsSince](issues/42-migrate-persisthandlers-restore-and-geteventssince.md). Both Status `done`. Report: [spec-review-41-42](reports/spec-review-41-42.md).
 - 2026-09-18 — Marked [[plan/core-creation/issues/46-mailbox-history-durability.md|46 — Mailbox History durability]] `done` after independent reconcile review approve.
 - 2026-09-18 — Split 35b §6 to [46 — Mailbox History durability](issues/46-mailbox-history-durability.md); §7 Browser proof does not depend on 46.
 - 2026-09-18 — Implemented [46 — Mailbox History durability](issues/46-mailbox-history-durability.md). Status `coded`. Report: [46 mailbox History durability](reports/46-mailbox-history-durability.md).
