@@ -67,3 +67,7 @@ Two findings. Worst: Poll Change may be the seed.
 ## Summary
 
 Standards: 1 hard, 3 smells, 1 scan exemption — worst: [map.md](plan/llm-connector/map.md) **Not yet specified** lists coded work. Spec: 2 findings — worst: `hasReplace` can pass on the seed Change.
+
+## Re-review (`dfb4b7de`)
+
+Both prior Needs-work items are **fixed**. Full write-up: [code-review-browser-ask-vertical-proof-rereview](code-review-browser-ask-vertical-proof-rereview.md). Verdict on that tip: **Good**. Ticket Status stays `coded`.
