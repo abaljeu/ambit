@@ -33,19 +33,25 @@ module EventJson =
 
     let private decodeOps = Decode.list Serialization.decodeOp
 
-    let private encodeActorStart (start: ActorStart) =
-        Encode.object
-            [ "kind", Encode.string "actorStart"
-              "zoomId", Serialization.encodeNodeId start.zoomId
-              "focusId", Serialization.encodeNodeId start.focusId
-              "commandId", Serialization.encodeNodeId start.commandId
-              "graphIds",
-              start.graphIds
-              |> List.map Serialization.encodeNodeId
-              |> Encode.list
-              "eventId", encodeEventId start.eventId ]
+    let private startRequestFields (start: ActorStart) =
+        [ "zoomId", Serialization.encodeNodeId start.zoomId
+          "focusId", Serialization.encodeNodeId start.focusId
+          "commandId", Serialization.encodeNodeId start.commandId
+          "graphIds",
+          start.graphIds
+          |> List.map Serialization.encodeNodeId
+          |> Encode.list
+          "eventId", encodeEventId start.eventId ]
 
-    let private decodeActorStart: Decoder<ActorStart> =
+    let encodeStartRequest (start: ActorStart) =
+        Encode.object (startRequestFields start)
+
+    let private encodeActorStart (start: ActorStart) =
+        Encode.object (
+            ("kind", Encode.string "actorStart")
+            :: startRequestFields start)
+
+    let decodeStartRequest: Decoder<ActorStart> =
         Decode.object (fun get ->
             { zoomId = get.Required.Field "zoomId" Serialization.decodeNodeId
               focusId = get.Required.Field "focusId" Serialization.decodeNodeId
@@ -110,7 +116,7 @@ module EventJson =
             | "undo" -> decodeUndoBody
             | "redo" -> decodeRedoBody
             | "actorStart" ->
-                decodeActorStart |> Decode.map EventBody.ActorStart
+                decodeStartRequest |> Decode.map EventBody.ActorStart
             | "actorStop" -> decodeActorStopBody
             | other -> Decode.fail ("Unknown event body: " + other))
 

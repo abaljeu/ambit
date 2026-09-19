@@ -18,7 +18,6 @@
     <Compile Include="GraphSpan.fs" />
     <Compile Include="GraphMutate.fs" />
     <Compile Include="GraphOps.fs" />
-    <Compile Include="IncludedDescendantIds.fs" />
     <Compile Include="RefExprTypes.fs" />
     <Compile Include="RefExprParse.fs" />
     <Compile Include="RefExprMatch.fs" />
@@ -64,6 +63,8 @@
     <Compile Include="RedirectRewrite.fs" />
     <Compile Include="ViewModelSync.fs" />
     <Compile Include="ViewModel.fs" />
+    <Compile Include="IncludedDescendantIds.fs" />
+    <Compile Include="CommandRequest.fs" />
     <Compile Include="SyncRiskAlert.fs" />
     <Compile Include="ViewModelSiteMap.fs" />
     <Compile Include="ViewModelOccurrence.fs" />

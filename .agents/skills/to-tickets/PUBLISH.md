@@ -12,7 +12,7 @@ Existing tickets stay in their current shape. See [[.agents/rules/no-retrofit.md
 
 # <NN> — <Ticket title>
 
-**Status:** `defined` when fully specified and unblocked; `needs-info` when information is missing; `blocked` when a named dependency gates it; or later `coded`. Never `ready-for-agent` or `ready-for-human`.
+**Status:** `defined` when fully specified (implement when Blocked-by is clear); `needs-info` when information is missing; `blocked` when an external or non-ticket dependency gates it; or later `coded`. Never `ready-for-agent`, `ready-for-human`, or `ready-to-implement`.
 **Blocked by:** the numbers and names of the tickets that gate this one, or "None — can start immediately".
 
 ## Context

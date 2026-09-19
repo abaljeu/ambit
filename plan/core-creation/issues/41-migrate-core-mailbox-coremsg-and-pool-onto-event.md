@@ -2,6 +2,7 @@
 
 **Status:** done
 **Blocked by:** None — [40 — Expand postEvent, EventLog store, and Event JSON persist](40-expand-postevent-eventlog-and-event-json.md) is Status `coded`.
+Actual: 45m
 
 ## Context
 
@@ -53,3 +54,8 @@ Stamp authority on **CoreMsg / CoreMailboxBackend**.
 
 - 2026-09-15 — Filed via `/to-tickets` for Story **Caller, persist, and Poll** only. Core-layer migrate batch. Blocked by the story 5 expand.
 - 2026-09-15 — Status corrected to `coded` (implementation already landed; ticket state lagged).
+- 2026-09-19 — Independent Spec review approve → Status `done`. Report: [spec-review-41-42](../reports/spec-review-41-42.md). Later 43–45 contract leftover names are not 41 gaps.
+
+## Time
+
+- 2026-09-19 45m — Independent Spec review (from chat)

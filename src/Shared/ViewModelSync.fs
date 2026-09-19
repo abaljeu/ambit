@@ -79,6 +79,7 @@ module SyncInfo =
 
 type Effect =
     | SubmitPendingBatch of baseEventId: EventId * events: Ev list
+    | SubmitCommand of ActorStart
     | PollServer of eventId: EventId
     | LoadServer of eventId: EventId * targets: LoadTarget list
     | ScheduleRetry of delayMs: int

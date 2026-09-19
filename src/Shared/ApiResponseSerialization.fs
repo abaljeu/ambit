@@ -143,3 +143,34 @@ module ApiResponseSerialization =
 
     let decodeLoadResponse text =
         Decode.fromString decodeLoadResponseDecoder text
+
+    let encodeUniversalResponse (response: UniversalResponse) : IEncodable =
+        Encode.object
+            [ "nodes",
+              response.nodes
+              |> List.map Serialization.encodeNode
+              |> Encode.list
+              "events",
+              response.events
+              |> List.map Gambol.Shared.EventJson.encode
+              |> Encode.list
+              "latestId",
+              Gambol.Shared.EventJson.encodeEventId response.latestId ]
+
+    let decodeUniversalResponseDecoder: Decoder<UniversalResponse> =
+        Decode.object (fun get ->
+            { nodes =
+                get.Required.Field
+                    "nodes"
+                    (Decode.list Serialization.decodeNode)
+              events =
+                get.Required.Field
+                    "events"
+                    (Decode.list Gambol.Shared.EventJson.decode)
+              latestId =
+                get.Required.Field
+                    "latestId"
+                    Gambol.Shared.EventJson.decodeEventId })
+
+    let decodeUniversalResponse text =
+        Decode.fromString decodeUniversalResponseDecoder text

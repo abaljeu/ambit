@@ -1,35 +1,45 @@
 namespace Gambol.Shared
 
-/// Included descendant id list — expand from a Node to the Included context under it.
-/// Included context = Nodes shown in SiteMap under Zoom, honoring Fold (CONTEXT.md).
-/// Browser/Client produces Command/Actor graphIds by walking SiteMap fold state.
-/// This Shared module provides the walk structure; when Client is built, it should
-/// walk SiteMap.expanded (fold state), not Graph.childrenStatus (residency).
+/// Included descendant id list — Zoom-rooted Included context, honoring Fold.
+/// Client produces Command graphIds with this walk. Server does not Zoom-expand.
 [<RequireQualifiedAccess>]
 module IncludedDescendantIds =
 
-    /// Given a Graph and a start NodeId, return a flat NodeId list.
-    /// - Include the start Node
-    /// - Recurse only through unfolded (expanded) child lists
-    /// - Add every child id found there
-    /// - Do not descend into folded children
-    /// - Do not filter or branch on ownership (Owner vs other child kinds); walk unfolded children only
-    /// - Result is ids only — not a Graph, not edges, not ownership facts
-    /// 
-    /// NOTE: This implementation walks Graph.childrenStatus (Loaded/Unloaded residency)
-    /// as a temporary stand-in. When Browser Command graphIds is built, it should walk
-    /// SiteMap.expanded (Fold state) instead, which is the Included context definition.
-    let expand (graph: Graph) (startId: NodeId) : NodeId list =
-        let rec loop (acc: NodeId list) (stack: NodeId list) : NodeId list =
-            match stack with
-            | [] -> List.rev acc
-            | nodeId :: rest ->
+    let private startSite (siteMap: SiteMap) (startId: NodeId) : SiteId option =
+        match Map.tryFind siteMap.rootId siteMap.entries with
+        | Some root when root.nodeId = startId -> Some siteMap.rootId
+        | _ ->
+            siteMap.entries
+            |> Map.tryPick (fun sid e ->
+                if e.nodeId = startId then Some sid else None)
+
+    /// Flat NodeId list starting at Zoom root. Recurse unfolded child lists;
+    /// stop at folded children; do not filter ownership; ids only.
+    let expand
+        (graph: Graph)
+        (siteMap: SiteMap)
+        (startId: NodeId)
+        : NodeId list =
+        let rec walk (acc: NodeId list) (nodeId: NodeId) (siteId: SiteId) =
+            let acc = nodeId :: acc
+            match Map.tryFind siteId siteMap.entries with
+            | Some entry when entry.expanded ->
                 match Map.tryFind nodeId graph.nodes with
-                | None -> loop acc rest
+                | None -> acc
                 | Some node ->
-                    match node.childrenStatus with
-                    | Unloaded -> loop (nodeId :: acc) rest
-                    | Loaded ->
-                        let childIds = node.children |> List.map (fun c -> c.id)
-                        loop (nodeId :: acc) (childIds @ rest)
-        loop [] [ startId ]
+                    let rec addChildren
+                        (acc: NodeId list)
+                        (children: ChildNode list)
+                        (siteIds: SiteId list)
+                        =
+                        match children, siteIds with
+                        | [], _ -> acc
+                        | child :: rest, sid :: sids ->
+                            addChildren (walk acc child.id sid) rest sids
+                        | child :: rest, [] ->
+                            addChildren (child.id :: acc) rest []
+                    addChildren acc node.children entry.children
+            | _ -> acc
+        match startSite siteMap startId with
+        | None -> [ startId ]
+        | Some sid -> List.rev (walk [] startId sid)

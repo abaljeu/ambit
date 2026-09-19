@@ -13,6 +13,11 @@ let encodePendingBatchBody (events: Ev list) : string =
     Thoth.Json.JavaScript.Encode.toString 0 (
         Gambol.Shared.EventJson.encodeEventBatch batch)
 
+/// Encode ActorStart for POST /{file}/command.
+let encodeCommandRequest (request: ActorStart) : string =
+    Thoth.Json.JavaScript.Encode.toString 0 (
+        Gambol.Shared.EventJson.encodeStartRequest request)
+
 
 /// Decode the response from GET /{file}/state
 let decodeStateResponse (text: string) : Result<StateResponse, string> =

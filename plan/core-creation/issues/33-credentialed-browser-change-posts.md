@@ -3,15 +3,15 @@
 **Status:** done
 **Blocked by:** None — can start immediately. Point 0 ([[30-reshape-coreactorpool-synchronized-table.md]], [[31-one-coremsg-loop-parameterized-persist.md]], [[32-move-persist-agents-under-coremailbox.md]]) is done. Not blocked by [[29-prove-testactor-hello.md|Prove TestActor hello]].
 Estimate: 2h
-Actual: 7h30m
+Actual: 8h15m
 
 ## 1. Context
 
-A live Browser already posts Changes and presents the Login.html session cookie `gambol_auth` ([[20-client-presents-credential.md]], [[23-close-core-object-seam.md]], [[25-bind-changes-at-core-seam.md]]). Architecture locks credentialed Change posts on the CoreMailbox door with CoreMsg validating Authority and secret before PersistHandlers — Story path **Browser Change posts** and shared segment **Credentialed `PostChange` through CoreMsg** on [[plan/core-creation/arch.md|Core creation architecture]].
+A live Browser already posts Changes and presents the Login.html session cookie `gambol_auth` ([[20-client-presents-credential.md]], [[23-close-core-object-seam.md]], [[25-bind-changes-at-core-seam.md]]). Architecture locks credentialed Change posts on the CoreMailbox door with CoreMsg validating Authority and secret before PersistHandlers — Story path **Browser Change posts** and shared segment **Credentialed `PostChange` through CoreMsg** on [Core creation architecture](plan/core-creation/arch.md).
 
 An earlier implement on this ticket partially moved admission into CoreMsg but also pushed credentials into FileAgent / DbAgent / DatabaseSetup and closed a boot-minted GUID into `browserChanges` / `addBoundCredentials`. That is not the target. Treat the current tree as partial/wrong; this ticket describes target behavior and remaining work. Acceptance below is unchecked until the target holds.
 
-Architecture (Story paths, Module map, Seams): [[plan/core-creation/arch.md|Core creation architecture]]. This ticket holds acceptance for that Browser path; do not restate Module map Interface here.
+Architecture (Story paths, Module map, Seams): [Core creation architecture](plan/core-creation/arch.md). This ticket holds acceptance for that Browser path; do not restate Module map Interface here.
 
 ## 2. What to build
 
@@ -104,20 +104,21 @@ Boot seed for Browser credential. Contracts on arch **CoreRuntime**.
 
 ## 4. See also
 
-[[plan/architecture/browser-and-app-auth.md|Browser and App auth]] (durable runtime auth), [[plan/core-creation/arch.md|Core creation architecture]], [[doc/Decisions/0004-core-mailbox-messages-clear-fast.md]], [[20-client-presents-credential.md]], [[23-close-core-object-seam.md]], [[25-bind-changes-at-core-seam.md]], [[32-move-persist-agents-under-coremailbox.md]], [[29-prove-testactor-hello.md]], [[Implementation Planning and Record.md]], [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]], [[src/Server/AuthToken.fs]]
+[Browser and App auth](plan/architecture/browser-and-app-auth.md) (durable runtime auth), [Core creation architecture](plan/core-creation/arch.md), [[doc/Decisions/0004-core-mailbox-messages-clear-fast.md]], [[20-client-presents-credential.md]], [[23-close-core-object-seam.md]], [[25-bind-changes-at-core-seam.md]], [[32-move-persist-agents-under-coremailbox.md]], [[29-prove-testactor-hello.md]], [[Implementation Planning and Record.md]], [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]], [[src/Server/AuthToken.fs]]
 
 ## 5. Comments
 
 - 2026-09-13 — Filed via `/to-tickets` narrowed to Story path **Browser Change posts** only (tracer-cut). Paths 1–2 not ticketed here.
 - 2026-09-13 — Partial implement: `PostChange` carries Authority + secret; CoreMsg admits before PersistHandlers; CoreMailbox credentialed door; Browser path stamped via `browserChanges` / `Authority "Browser"`. Seam tests in CredentialedChangePostsTests. Also wrongly threaded credentials into File/Db/DatabaseSetup and closed a boot GUID into `browserChanges` / `addBoundCredentials`.
-- 2026-09-13 — Redesign locked: cookie `gambol_auth` is the credential; seed at boot with `AuthToken.deriveToken(Auth config)`; request-carried creds validate at CoreMailbox only; undo File/Db/CoreActor/CoreActorPool/GUID deltas. Status returned to `ready-for-agent`; acceptance unchecked until target holds. Arch Story path **Browser Change posts** still shows `[x]` — align [[plan/core-creation/arch.md|Core creation architecture]] when reconciling (prefer this ticket as source of truth for remaining work).
+- 2026-09-13 — Redesign locked: cookie `gambol_auth` is the credential; seed at boot with `AuthToken.deriveToken(Auth config)`; request-carried creds validate at CoreMailbox only; undo File/Db/CoreActor/CoreActorPool/GUID deltas. Status returned to `ready-for-agent`; acceptance unchecked until target holds. Arch Story path **Browser Change posts** still shows `[x]` — align [Core creation architecture](plan/core-creation/arch.md) when reconciling (prefer this ticket as source of truth for remaining work).
 - 2026-09-13 — Re-implement against redesign: File/Db take MailboxStarter (no CoreCredentials); createFile/createDb take starter; boot seeds `deriveToken`; Change posts carry request cookie; login `credentials.add`; request path reseeds cookie into the set.
 - 2026-09-14 — Spec-gap fix after review of `4008e8d`: state/poll/load use request cookie; missing cookie refuses (no closed-over fallback); client reacts to DeployEpochSec restart/initial-load; boot+login `credentials.add` only.
-- 2026-09-14 — Durable runtime auth description: [[plan/architecture/browser-and-app-auth.md|Browser and App auth]].
+- 2026-09-14 — Durable runtime auth description: [Browser and App auth](plan/architecture/browser-and-app-auth.md).
 - 2026-09-14 — Wording correction: client “reseed / re-establish” is epoch / `__BUILD_TS__` only, not cookie re-issue. Credential identity stays boot-seeded `gambol_auth` = `deriveToken`; durable cookie still admits after restart. Desktop Cookie-header attach (vs this wording) is [[plan/core-creation/reports/desktop-app-401.md]].
 - 2026-09-14 — Status returned to `ready-for-agent`: coded, not review-approved. `done` waits for review approval (no coded Status).
-- 2026-09-14 — Spec aligned to [[plan/core-creation/reports/code-review-33-spec-gap-tip.md|Code review — 33 Spec-gap tip]]: Adapter missing-cookie HTTP 401 without CoreMailbox is accepted; client DeployEpochSec stays epoch / `__BUILD_TS__` only; auth-disabled app-serve `SetCookie` is rejected and remaining.
+- 2026-09-14 — Spec aligned to [Code review — 33 Spec-gap tip](plan/core-creation/reports/code-review-33-spec-gap-tip.md): Adapter missing-cookie HTTP 401 without CoreMailbox is accepted; client DeployEpochSec stays epoch / `__BUILD_TS__` only; auth-disabled app-serve `SetCookie` is rejected and remaining.
 - 2026-09-14 — Removed `auth.Disabled` skip. Empty Auth is a development credential (`deriveToken("", "")`). GET `/ambit` auto-issues that real cookie. Browser APIs and `IsAuthenticated` require the cookie. Git PAT `GitAuthDisabled` stays the empty-Auth git-gateway path. Status `coded`. Report: [[plan/core-creation/reports/remove-auth-disabled-bypass.md]].
+- 2026-09-19 — Independent Spec review approve → Status `done`. Report: [spec-review-33-36](plan/core-creation/reports/spec-review-33-36.md).
 
 ## Time
 
@@ -127,3 +128,4 @@ Boot seed for Browser credential. Contracts on arch **CoreRuntime**.
 - 2026-09-14 15m — Correct restart/seed wording: DeployEpochSec is epoch, not credential re-establish (from chat)
 - 2026-09-14 15m — Align spec to review findings; reject auth-disabled app-serve SetCookie (from chat)
 - 2026-09-14 1h30m — Remove `auth.Disabled` skip; development auto-issue of real cookie (from chat)
+- 2026-09-19 45m — Independent Spec review vs `fce22cf7` (from chat)

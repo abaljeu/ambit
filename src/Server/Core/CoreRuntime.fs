@@ -11,7 +11,6 @@ type CoreRuntime =
 /// Persist choice, auth seed, and optional actors to boot a CoreRuntime.
 type CoreBoot =
     {
-        PersistenceMode: DatabaseSetup.PersistenceMode
         DbStatus: DatabaseSetup.DbStatus
         DbConnectionString: string
         DataDir: string
@@ -46,8 +45,8 @@ module CoreRuntime =
         (pool: CoreActorPool)
         (credentials: CoreCredentials)
         : MailboxHost =
-        match boot.PersistenceMode, boot.DbStatus with
-        | DatabaseSetup.PersistenceMode.Db, DatabaseSetup.DbStatus.Ok ->
+        match boot.DbStatus with
+        | DatabaseSetup.DbStatus.Ok ->
             CoreMailbox.host
                 pool
                 (DbAgent.persist
