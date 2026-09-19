@@ -20,7 +20,6 @@ let private addRootChild text = addRootChildEvent text |> snd
 let private fileRuntime () =
     CoreRuntime.create
         {
-            PersistenceMode = DatabaseSetup.PersistenceMode.File
             DbStatus = DatabaseSetup.DbStatus.Absent
             DbConnectionString = ""
             DataDir = newTempDir ()

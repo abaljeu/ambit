@@ -10,7 +10,7 @@ open Gambol.Shared
 module RouteRegistration =
 
     type AmbitApp with
-        member this.CreateBoot persistenceMode : CoreBoot =
+        member this.CreateBoot () : CoreBoot =
             let dataDir = this.DataDir
             let dbConnString =
                 this.Config.["DB_CONNECTION_STRING"]
@@ -18,11 +18,10 @@ module RouteRegistration =
                 |> Option.defaultValue ""
             let dbStatus =
                 DatabaseSetup.resolveDbConnection
-                    persistenceMode
+                    DatabaseSetup.PersistenceMode.Db
                     dbConnString
                     dataDir
             {
-                PersistenceMode = persistenceMode
                 DbStatus = dbStatus
                 DbConnectionString = dbConnString
                 DataDir = dataDir
@@ -52,21 +51,16 @@ module RouteRegistration =
     let private registerErrorReportRoute (routes: AppShellContext) =
         HttpResponseLog.registerErrorReportRoute routes.AmbitApp
 
-    let private createPersistenceContext
-        (this: AmbitApp)
-        persistenceMode
-        =
-        let boot = this.CreateBoot persistenceMode
+    let private createPersistenceContext (this: AmbitApp) =
+        let boot = this.CreateBoot ()
         {
             DataDir = boot.DataDir
-            Mode = boot.PersistenceMode
             DbStatus = boot.DbStatus
             Core = CoreRuntime.create boot
         }
 
     let private isWritable (persistence: PersistenceContext) =
-        persistence.Mode <> DatabaseSetup.PersistenceMode.Db
-        || persistence.DbStatus = DatabaseSetup.DbStatus.Ok
+        persistence.DbStatus = DatabaseSetup.DbStatus.Ok
 
     let private boundChanges
         (persistence: PersistenceContext)
@@ -266,7 +260,6 @@ module RouteRegistration =
         let handle = parseBound persistence
         return!
             SavePrep.syncDataDir
-                persistence.Mode
                 persistence.DbStatus
                 (fun () -> handle.getState ())
                 (fun () -> CoreMailbox.flushSnapshot persistence.Core.host)
@@ -339,20 +332,12 @@ module RouteRegistration =
                 { this.Auth with
                     IsAuthenticated = mailboxIsAuthenticated persistence } }
     let registerPersistenceAndRoutes (this: AmbitApp) : AmbitApp =
-        let persistenceModeResult =
-            this.Config.["Persistence:Mode"]
-            |> Option.ofObj
-            |> Option.defaultValue ""
-            |> DatabaseSetup.resolvePersistenceMode
-        match this.DataDirResult, persistenceModeResult with
-        | Error ex, _ ->
+        match this.DataDirResult with
+        | Error ex ->
             registerStartupError this (ex.ToString())
             this
-        | _, Error err ->
-            registerStartupError this err
-            this
-        | Ok _, Ok persistenceMode ->
-            let persistence = createPersistenceContext this persistenceMode
+        | Ok _ ->
+            let persistence = createPersistenceContext this
             let this = withMailboxAdmit this persistence
             let assets, stamps = RouteAppShell.createBuildStamps this
             let routes =
@@ -370,7 +355,6 @@ module RouteRegistration =
                 let handle = parseBound persistence
                 let! flushResult =
                     SavePrep.syncGitArtifacts
-                        persistence.Mode
                         persistence.DbStatus
                         (fun () -> handle.getState ())
                         (fun () ->

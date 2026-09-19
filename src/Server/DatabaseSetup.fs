@@ -24,19 +24,6 @@ module DatabaseSetup =
         | Db
         | File
 
-    let resolvePersistenceMode (raw: string) : Result<PersistenceMode, string> =
-        let normalized =
-            if isNull raw then ""
-            else raw.Trim().ToLowerInvariant()
-
-        match normalized with
-        | "" | "db" -> Microsoft.FSharp.Core.Ok PersistenceMode.Db
-        | "file" -> Microsoft.FSharp.Core.Ok PersistenceMode.File
-        | _ ->
-            Microsoft.FSharp.Core.Error (
-                $"Unknown Persistence:Mode '{raw}'. " +
-                "Use 'db' or 'file'.")
-
     let statusFromMatches (matchesBeforeRebuild: bool) (matchesAfterRebuild: bool) : DbStatus =
         if matchesBeforeRebuild then
             DbStatus.Ok
@@ -102,7 +89,7 @@ module DatabaseSetup =
         let matchesAfter = documentStatesMatch fileState dbAfter
         statusFromMatches matchesBefore matchesAfter
 
-    /// Initialise schema and create the DB agent. `file` mode may seed an empty DB from files.
+    /// Initialise schema. `file` mode may seed an empty DB from files.
     let resolveDbConnection
         (persistenceMode: PersistenceMode)
         (connStr: string)

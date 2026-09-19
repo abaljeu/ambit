@@ -7,6 +7,7 @@ open System.Net.Http
 open System.Text
 open System.Threading.Tasks
 open Xunit
+open Gambol.Server
 open Gambol.Shared
 open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
@@ -49,7 +50,14 @@ let private createSystemCssClient () =
         Path.Combine(systemDir, ".amb"),
         "^6556583f-322d-4183-bc42-284a81044a0f user.css\tuser.css")
     File.WriteAllText(Path.Combine(systemDir, "user.css"), "block")
-    dataDir, createClientForDir dataDir
+    let connStr = requireDbConnStr ()
+    resetTestDatabase connStr |> fun t -> t.GetAwaiter().GetResult()
+    match DocumentLoader.tryLoadState dataDir with
+    | Error msg -> failwith msg
+    | Ok state ->
+        Database.rebuildFromDocumentFiles connStr state
+        |> fun t -> t.GetAwaiter().GetResult()
+    dataDir, createDbClientForDir connStr dataDir
 
 let private findOwnedChildNamed (graph: Graph) (parentId: NodeId) (name: string) =
     graph.nodes.[parentId].children

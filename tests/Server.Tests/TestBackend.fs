@@ -11,8 +11,6 @@ open Gambol.Server
 open Gambol.Shared
 open Gambol.Server.Tests.TestDbConfigTests
 
-type BackendKind = File | Db
-
 let private testConnEnv = "TEST_DB_CONNECTION_STRING"
 
 /// Request Cookie from AuthToken. Same helper for empty Auth and named Auth.
@@ -177,9 +175,12 @@ let private suppressDailyGitSave (dataDir: string) =
 /// Auth-disabled factory without cookie — for refuse-without-cookie facts.
 let createClientForDirWithoutCookie (tempDir: string) =
     suppressDailyGitSave tempDir
+    let connStr = requireDbConnStr ()
+    resetTestDatabase connStr |> fun t -> t.GetAwaiter().GetResult()
+    DatabaseSetup.resetAgentCacheForTest ()
     let priorDb = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
     try
-        Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
+        Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", connStr)
         let factory =
             (new WebApplicationFactory<Program>())
                 .WithWebHostBuilder(fun builder ->
@@ -187,8 +188,7 @@ let createClientForDirWithoutCookie (tempDir: string) =
                         config.AddInMemoryCollection(
                             dict [
                                 "DataDir", tempDir
-                                "Persistence:Mode", "file"
-                                "DB_CONNECTION_STRING", ""
+                                "DB_CONNECTION_STRING", connStr
                                 "Auth:Username", ""
                                 "Auth:Password", ""
                             ]
@@ -202,23 +202,26 @@ let createClientForDirWithoutCookie (tempDir: string) =
         else
             Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", priorDb)
 
-/// Create a test client pointing at the given data directory (file backend, no DB).
+/// HTTP client for a data directory on the test Database.
 /// GET `/ambit/state` returns the scoped ROOT bootstrap graph;
 /// use `?scope=full` for total-load tests.
 /// Carries the development `gambol_auth` cookie (request-carried; no closed-over fallback).
 let createClientForDir (tempDir: string) =
     createClientForDirWithoutCookie tempDir |> withDevelopmentCookie
 
-/// File-backend client with Auth:Username / Auth:Password set (cookie + git PAT).
+/// HTTP client for a data directory with Auth:Username / Auth:Password (cookie + git PAT).
 let createClientForDirWithAuth
     (tempDir: string)
     (username: string)
     (password: string)
     =
     suppressDailyGitSave tempDir
+    let connStr = requireDbConnStr ()
+    resetTestDatabase connStr |> fun t -> t.GetAwaiter().GetResult()
+    DatabaseSetup.resetAgentCacheForTest ()
     let priorDb = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
     try
-        Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
+        Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", connStr)
         let factory =
             (new WebApplicationFactory<Program>())
                 .WithWebHostBuilder(fun builder ->
@@ -226,8 +229,7 @@ let createClientForDirWithAuth
                         config.AddInMemoryCollection(
                             dict [
                                 "DataDir", tempDir
-                                "Persistence:Mode", "file"
-                                "DB_CONNECTION_STRING", ""
+                                "DB_CONNECTION_STRING", connStr
                                 "Auth:Username", username
                                 "Auth:Password", password
                             ]
@@ -240,9 +242,6 @@ let createClientForDirWithAuth
             Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
         else
             Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", priorDb)
-
-/// Create a test client with a fresh empty temp dir (file backend).
-let createFileClient () = newTempDir () |> createClientForDir
 
 let createDbClientForDir (connStr: string) (tempDir: string) =
     suppressDailyGitSave tempDir
@@ -323,7 +322,7 @@ let createDbModeWithoutConnectionClientForDir (tempDir: string) =
                         config.AddInMemoryCollection(
                             dict [
                                 "DataDir", tempDir
-                                "Persistence:Mode", "Db"
+                                "Persistence:Mode", "mirror"
                                 "DB_CONNECTION_STRING", ""
                                 "Auth:Username", ""
                                 "Auth:Password", ""

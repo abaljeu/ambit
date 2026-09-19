@@ -6,7 +6,6 @@ open Gambol.Shared
 module SavePrep =
 
     let syncDataDir
-        (persistenceMode: DatabaseSetup.PersistenceMode)
         (dbStatus: DatabaseSetup.DbStatus)
         (getState: unit -> Async<Result<State, string>>)
         (flushFileSnapshot: unit -> Async<Result<unit, string>>)
@@ -14,8 +13,8 @@ module SavePrep =
         (dataDir: string)
         : Async<Result<int, string>> =
         async {
-            match persistenceMode, dbStatus with
-            | DatabaseSetup.PersistenceMode.Db, DatabaseSetup.DbStatus.Ok ->
+            match dbStatus with
+            | DatabaseSetup.DbStatus.Ok ->
                 let! stateResult = getState ()
                 match stateResult with
                 | Error err -> return Error err
@@ -32,7 +31,6 @@ module SavePrep =
         }
 
     let syncGitArtifacts
-        (persistenceMode: DatabaseSetup.PersistenceMode)
         (dbStatus: DatabaseSetup.DbStatus)
         (getState: unit -> Async<Result<State, string>>)
         (flushFileSnapshot: unit -> Async<Result<unit, string>>)
@@ -40,7 +38,6 @@ module SavePrep =
         (dataDir: string)
         : Async<Result<int, string>> =
         syncDataDir
-            persistenceMode
             dbStatus
             getState
             flushFileSnapshot
