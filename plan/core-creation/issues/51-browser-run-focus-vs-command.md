@@ -4,7 +4,7 @@
 **Blocked by:** None — [35b — Browser Run hello](35b-browser-run-hello.md) one-Node proof is `done`. AI Actor replace-under-Focus is delivered (llm-connector 08).
 **Type:** coding
 Estimate: 2h
-Actual: 2h
+Actual: 2h45m
 
 ## Context
 
@@ -43,9 +43,11 @@ Architecture: [core-creation arch](../arch.md) **Browser Run** product item; [ll
 - 2026-09-20 — Coded: Client Run uses [CommandRequest](../../../src/Shared/CommandRequest.fs) `tryStart`; Focus is selection, Command is first runnable owner (`?` or `=`), Zoom is Included extract root. No Command and not Amble → Run Error. One-Node hello remains when Focus is the Command. Status `coded`.
 - 2026-09-20 — Type `coding` (implementation), not Wayfinder task.
 - 2026-09-20 — Amendment: lines containing `=` are also runnable; owner-scan must not skip past them.
+- 2026-09-20 — Independent review report [independent-review-51-focus-vs-command](../reports/independent-review-51-focus-vs-command.md). Standards Approve with nits. Spec Needs work (`=` Command ActorStart vs Amble Run). Status stays `coded`.
 - 2026-09-20 — Filed from chat: Run with Focus on `?ai cursor` and child `What time is it?` replaced the question; intent is Focus on the question so the time is a Child. plan-or-doc-change placed Focus vs Command in architecture. Status `defined`.
 
 ## Time
 
 - 2026-09-20 — Ticket (from chat)
 - 2026-09-20 2h — Product Run encode and Focus vs Command proof (from chat)
+- 2026-09-20 45m — Independent Standards/Spec review (from chat)
