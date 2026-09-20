@@ -10,6 +10,7 @@ open Gambol.Client.JsInterop
 open Gambol.Client.Update
 open Gambol.Client.UpdateEdit
 open Gambol.Client.UpdateHelpers
+open Gambol.Client.RunLaunch
 open Gambol.Client.UpdateOps
 open Gambol.Client.UpdatePaste
 open Gambol.Client.UpdateSave
@@ -84,32 +85,32 @@ let private execAmbleRunOp
             ran, commitEffects @ delEffects @ runEffects
 
 let private execRunOp (model: VM) : VM * Effect list =
-    let committed, commitEffects = commitIfEditing model
-    match committed.selectedNodes with
-    | None -> committed, commitEffects
-    | Some sel ->
-        let focusId = focusedNodeId committed.graph sel
-        let zoomId = committed.zoomRoot
-        if CommandRequest.isAmbleScanStop committed.graph focusId zoomId then
-            execAmbleRunOp committed commitEffects focusId
-        else
-            match
-                CommandRequest.tryStart
-                    committed.graph
-                    committed.siteMap
-                    zoomId
-                    focusId
-                    committed.eventId with
-            | Ok request ->
-                committed, commitEffects @ [ SubmitCommand request ]
-            | Error msg ->
-                if AmbleRun.shouldExec committed.graph focusId then
-                    execAmbleRunOp committed commitEffects focusId
-                else
-                    { committed with
-                        lastCmdResult =
-                            Some (CmdLastResult.Error (Some "Run", msg)) },
-                    commitEffects
+    afterEditCommit model (fun committed commitEffects ->
+        match committed.selectedNodes with
+        | None -> committed, commitEffects
+        | Some sel ->
+            let focusId = focusedNodeId committed.graph sel
+            let zoomId = committed.zoomRoot
+            if CommandRequest.isAmbleScanStop committed.graph focusId zoomId then
+                execAmbleRunOp committed commitEffects focusId
+            else
+                match
+                    CommandRequest.tryStart
+                        committed.graph
+                        committed.siteMap
+                        zoomId
+                        focusId
+                        committed.eventId with
+                | Ok request ->
+                    committed, commitEffects @ [ SubmitCommand request ]
+                | Error msg ->
+                    if AmbleRun.shouldExec committed.graph focusId then
+                        execAmbleRunOp committed commitEffects focusId
+                    else
+                        { committed with
+                            lastCmdResult =
+                                Some (CmdLastResult.Error (Some "Run", msg)) },
+                        commitEffects)
 
 let private splitAtCursor () : Updater option =
     let text = readEditInputValue ()

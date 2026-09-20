@@ -172,6 +172,16 @@ let ``tryStart encodes distinct Focus Command and Zoom from owner-scan`` () =
             request.graphIds)
 
 [<Fact>]
+let ``oneNodeStart is actorStart with zoom focus and command equal`` () =
+    let graph, siteMap, nodeId, _ = zoomWithChildren [ "a" ]
+    let viaOne =
+        CommandRequest.oneNodeStart graph siteMap nodeId EventId.zero
+    let viaFactory =
+        CommandRequest.actorStart
+            graph siteMap nodeId nodeId nodeId EventId.zero
+    Assert.Equal(viaFactory, viaOne)
+
+[<Fact>]
 let ``tryStart one-Node when Focus is the Command`` () =
     let graph, siteMap, nodeId, _ = zoomWithChildren [ "a" ]
     match
