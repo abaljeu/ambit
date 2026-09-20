@@ -4,7 +4,7 @@
 **Type:** bug-fixing
 **Blocked by:** None — [51 — Browser Run Focus vs Command](51-browser-run-focus-vs-command.md) is `done`.
 Estimate: 2h
-Actual: 5h15m
+Actual: 6h
 
 ## Context
 
@@ -52,6 +52,7 @@ Alan: Run while editing showed `Run: old text does not match.` Retry after commi
 - 2026-09-20 — Review findings addressed: `commitIfEditingForRun` / `execRunOp` in Shared; UpdateHelpers and CoreMailboxBackend no longer grow; CAS-fail Run proof calls `execRunOp`; abort shape shared; `commandSubmitEffects` dropped. Status stays `coded`.
 - 2026-09-20 — Alan item 9 (Divergent Change / edit-commit-in-execRunOp): Editing commit left Shared CommandRequest. Client [RunLaunch.fs](src/Client/RunLaunch.fs) owns `commitIfEditingForRun` / `mayLaunchAfterEditCommit` via Client `commitIfEditing`. CommandRequest is ActorStart factory / scan / `tryStart` / `oneNodeStart`. CAS-fail proof uses a Shared-free helper that mirrors `afterEditCommit` + `tryStart`. Status stays `coded`.
 - 2026-09-20 — Re-review Spec: abort keyed off lastCmdResult identity (same Error after failed Editing SetText still launched). Successful `commitTextEdit` sets lastCmdResult Ok. Shared [RunEditCommit.fs](src/Shared/RunEditCommit.fs) `mayLaunchAfterEditCommit` is false when Editing and after is Error. Client [RunLaunch.fs](src/Client/RunLaunch.fs) wraps Client `commitIfEditing`. Proof: same prior Error + failing SetText → no SubmitCommand. No Client test project; tests call the Shared gate. Status stays `coded`.
+- 2026-09-20 — Independent re-review after same-Error abort: Standards Needs changes (refer-by-name, markdown, surgical format); Spec nits (Shared SubmitCommand proof, not POST). Prior identity abort is gone. Status stays `coded`. Report: [code-review-52-rereview-same-error-abort](../reports/code-review-52-rereview-same-error-abort.md).
 
 ## Time
 
@@ -61,3 +62,4 @@ Alan: Run while editing showed `Run: old text does not match.` Retry after commi
 - 2026-09-20 1h — Review findings: file length, Run proof, abort helper (from chat)
 - 2026-09-20 45m — Alan item 9 (Divergent Change / edit-commit-in-execRunOp): Editing commit in Client RunLaunch; ActorStart factory (from chat)
 - 2026-09-20 45m — Re-review: lastCmdResult identity abort; Shared RunEditCommit gate; same-Error proof (from chat)
+- 2026-09-20 45m — Independent re-review after same-Error abort (from chat)

@@ -4,10 +4,11 @@ Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
 Updated: 2026-09-20
 Started: 2026-09-05
-Actual: 81h50m
+Actual: 82h35m
 
 ## Notes
 
+- 2026-09-20 — Independent re-review after same-Error abort for [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md): Standards Needs changes; Spec nits. Prior identity abort is gone. Status stays `coded`. Report: [code-review-52-rereview-same-error-abort](reports/code-review-52-rereview-same-error-abort.md).
 - 2026-09-20 — Alan item 9 (Divergent Change / edit-commit-in-execRunOp) for [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md): Editing commit in Client RunLaunch; CommandRequest ActorStart factory. Status stays `coded`.
 - 2026-09-20 — Re-review Spec for [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md): lastCmdResult identity abort; Shared RunEditCommit gate; same-Error proof. Status stays `coded`.
 - 2026-09-20 — Review findings for [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md): Shared `execRunOp` proof; UpdateHelpers and CoreMailboxBackend length restored. Status stays `coded`.
@@ -160,6 +161,7 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [35b slices 4+5+7 standards and Spec corrections](plan/core-creation/reports/35b-slice4-5-7-standards-spec-corrections.md) — [35b — Browser Run hello](plan/core-creation/issues/35b-browser-run-hello.md) Origin Spec review: unregistered Actor name and non-hello command fail.
 - [Independent review — 52 Run abort when commit fails](reports/code-review-52-run-abort-when-commit-fails.md) — [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md). Status stays `coded`.
 - [Re-review — 52 Client RunLaunch](reports/code-review-52-rereview-client-runlaunch.md) — [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md). Status stays `coded`.
+- [Re-review — 52 same-Error abort](reports/code-review-52-rereview-same-error-abort.md) — [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md). Status stays `coded`.
 - [Independent review — 51 Focus vs Command](reports/independent-review-51-focus-vs-command.md) — [51 — Browser Run: Focus reply parent, Command is runnable ancestor](issues/51-browser-run-focus-vs-command.md). Status stays `coded`.
 - [Independent re-review — 51 Focus vs Command](reports/independent-review-51-focus-vs-command-rereview.md) — after Amble lock. Standards Approve with nits; Spec Approve. Status stays `coded`.
 - [49 mailbox History durability](plan/core-creation/reports/49-mailbox-history-durability.md) — [49 — Mailbox History durability](issues/49-mailbox-history-durability.md) implement: seed order, File+Db recover, one serial.
