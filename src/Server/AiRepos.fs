@@ -2,17 +2,12 @@ namespace Gambol.Server
 
 open System
 open Microsoft.Extensions.Configuration
-open Gambol.Shared
 open Gambol.CloudAgents
 
 type AiRepo =
     { Name: string
       Url: string
       StartingRef: string }
-
-type AiAskArgs =
-    { Keyname: string option
-      Reponame: string option }
 
 /// Binds AiRepos from IConfiguration. CloudAgents stays settings-blind.
 [<RequireQualifiedAccess>]
@@ -55,30 +50,3 @@ module AiRepos =
                 repo.Name.Equals(
                     name, StringComparison.OrdinalIgnoreCase))
             |> Option.map (fun repo -> [ toRepoConfig repo ])
-
-[<RequireQualifiedAccess>]
-module AiAskArgs =
-
-    let private hasName (names: string list) (token: string) =
-        names
-        |> List.exists (fun name ->
-            name.Equals(token, StringComparison.OrdinalIgnoreCase))
-
-    let fromText
-        (keys: AiKey list)
-        (repos: AiRepo list)
-        (text: string)
-        : AiAskArgs =
-        let keyNames = keys |> List.map (fun key -> key.Name)
-        let repoNames = repos |> List.map (fun repo -> repo.Name)
-        match AiKeys.tokensFromText text with
-        | [] -> { Keyname = None; Reponame = None }
-        | [ one ] ->
-            if hasName keyNames one then
-                { Keyname = Some one; Reponame = None }
-            elif hasName repoNames one then
-                { Keyname = None; Reponame = Some one }
-            else
-                { Keyname = Some one; Reponame = None }
-        | first :: second :: _ ->
-            { Keyname = Some first; Reponame = Some second }

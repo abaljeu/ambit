@@ -60,7 +60,7 @@ module RunAgentActor =
     let private commandArgs keys repos (input: ActorInput) =
         match Map.tryFind input.commandId input.graph.nodes with
         | None -> { Keyname = None; Reponame = None }
-        | Some node -> AiAskArgs.fromText keys repos node.text
+        | Some node -> AiCommandArgs.fromText keys repos node.text
 
     let private requestCancel config agentId runId =
         AgentRunner.cancel config agentId runId |> ignore
@@ -91,18 +91,24 @@ module RunAgentActor =
             return! loop ()
         }
 
-    let private complete apiKey repos (document: string) =
+    let private toStartArgs keys repos (args: AiCommandArgs) document : StartArgs =
+        { Config =
+            { RunnerConfig.ApiKey = AiKeys.resolve keys args.Keyname }
+          Prompt =
+            systemPrompt
+            + Environment.NewLine
+            + Environment.NewLine
+            + document
+          Repos = AiRepos.resolve repos args.Reponame
+          Options = askOptions }
+
+    let private complete (args: StartArgs) =
         async {
-            let config = { RunnerConfig.ApiKey = apiKey }
-            let prompt =
-                systemPrompt
-                + Environment.NewLine
-                + Environment.NewLine
-                + document
-            match AgentRunner.start config prompt repos askOptions with
+            match AgentRunner.start
+                args.Config args.Prompt args.Repos args.Options with
             | Error err -> return failedFromError err
             | Ok(agentId, runId) ->
-                return! pollUntilDone config agentId runId
+                return! pollUntilDone args.Config agentId runId
         }
 
     let private postReplace
@@ -152,12 +158,10 @@ module RunAgentActor =
     let private runBody keys repos (input: ActorInput) coreChanges =
         async {
             let args = commandArgs keys repos input
-            let apiKey = AiKeys.resolve keys args.Keyname
-            let startRepos = AiRepos.resolve repos args.Reponame
             match packExtract input with
             | Error _ -> return ActorFailed ""
             | Ok document ->
-                match! complete apiKey startRepos document with
+                match! complete (toStartArgs keys repos args document) with
                 | CompleteCancelled -> return ActorCancelled
                 | CompleteFailed msg -> return ActorFailed msg
                 | TextReady text ->

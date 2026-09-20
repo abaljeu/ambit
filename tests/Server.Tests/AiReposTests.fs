@@ -73,60 +73,11 @@ let ``resolve empty StartingRef is None`` () =
         Some [ notesConfig ],
         AiRepos.resolve [ notesRepo ] (Some "notes"))
 
-[<Fact>]
-let ``fromText with no token is default key and no repo`` () =
-    Assert.Equal(
-        { Keyname = None; Reponame = None },
-        AiAskArgs.fromText [ cursorKey ] [ lifeRepo ] "?ai")
-
-[<Fact>]
-let ``fromText first token is keyname`` () =
-    Assert.Equal(
-        { Keyname = Some "cursor"; Reponame = None },
-        AiAskArgs.fromText [ cursorKey ] [ lifeRepo ] "?ai cursor")
-
-[<Fact>]
-let ``fromText second token is reponame`` () =
-    Assert.Equal(
-        { Keyname = Some "cursor"; Reponame = Some "life" },
-        AiAskArgs.fromText
-            [ cursorKey ]
-            [ lifeRepo ]
-            "?ai cursor life extra")
-
-[<Fact>]
-let ``fromText one token matching only a repo is reponame`` () =
-    Assert.Equal(
-        { Keyname = None; Reponame = Some "life" },
-        AiAskArgs.fromText [ cursorKey ] [ lifeRepo ] "?ai life")
-
-[<Fact>]
-let ``fromText one token matching a key is keyname`` () =
-    let lifeKey = { Name = "life"; ApiKey = "life-secret" }
-    Assert.Equal(
-        { Keyname = Some "life"; Reponame = None },
-        AiAskArgs.fromText [ lifeKey ] [ lifeRepo ] "?ai life")
-
-[<Fact>]
-let ``fromText unknown single token is keyname`` () =
-    Assert.Equal(
-        { Keyname = Some "missing"; Reponame = None },
-        AiAskArgs.fromText [ cursorKey ] [ lifeRepo ] "?ai missing")
-
-[<Fact>]
-let ``fromText two tokens stay key then repo even if first is a repo`` () =
-    Assert.Equal(
-        { Keyname = Some "life"; Reponame = Some "cursor" },
-        AiAskArgs.fromText
-            [ cursorKey ]
-            [ lifeRepo ]
-            "?ai life cursor")
-
 [<Collection("Agent ask runner")>]
 type AiReposActorTests() =
 
     [<Fact>]
-    member _.``Ask without reponame sends no repos``() =
+    member _.``AI without reponame sends no repos``() =
         withFake
             (fun args ->
                 Assert.Equal(None, args.Repos)
@@ -144,7 +95,7 @@ type AiReposActorTests() =
                     }))
 
     [<Fact>]
-    member _.``Ask keyname and reponame sends that repo``() =
+    member _.``AI keyname and reponame sends that repo``() =
         withFake
             (fun args ->
                 Assert.Equal(Some [ lifeConfig ], args.Repos)
@@ -163,7 +114,7 @@ type AiReposActorTests() =
                     }))
 
     [<Fact>]
-    member _.``Ask repo-only token sends default key and that repo``() =
+    member _.``AI repo-only token sends default key and that repo``() =
         withFake
             (fun args ->
                 Assert.Equal(Some [ lifeConfig ], args.Repos)
