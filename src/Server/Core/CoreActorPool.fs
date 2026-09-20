@@ -156,6 +156,15 @@ module CoreActorPool =
                 pending.actorFn pending.input coreChanges,
                 row.cancel.Token)
 
+    let dropAndReply
+        (pool: CoreActorPool)
+        (secret: Credential)
+        (reply: AsyncReplyChannel<Result<unit, string>>)
+        (err: string)
+        =
+        pool.drop secret
+        reply.Reply(Error err)
+
     let create () : CoreActorPool =
         let mutable model =
             { defs = Map.empty

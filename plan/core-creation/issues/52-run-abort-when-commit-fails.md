@@ -4,7 +4,7 @@
 **Type:** bug-fixing
 **Blocked by:** None — [51 — Browser Run Focus vs Command](51-browser-run-focus-vs-command.md) is `done`.
 Estimate: 2h
-Actual: 2h45m
+Actual: 3h45m
 
 ## Context
 
@@ -47,9 +47,11 @@ Alan: Run while editing showed `Run: old text does not match.` Retry after commi
 - 2026-09-20 — Implement: abort Run after failed edit commit; drop live row when ActorStart persist fails. Status `coded`.
 - 2026-09-20 — Server keeps mailbox order live row then ActorStart Ev; persist Error drops the live row. Did not putLive after Event.
 - 2026-09-20 — Independent review: Standards Needs changes (2 hard file-length, 2 judgement); Spec Needs changes (1 partial Client proof). Status stays `coded`. Report: [code-review-52-run-abort-when-commit-fails](../reports/code-review-52-run-abort-when-commit-fails.md).
+- 2026-09-20 — Review findings addressed: `commitIfEditingForRun` / `execRunOp` in Shared; UpdateHelpers and CoreMailboxBackend no longer grow; CAS-fail Run proof calls `execRunOp`; abort shape shared; `commandSubmitEffects` dropped. Status stays `coded`.
 
 ## Time
 
 - 2026-09-20 — Ticket (from chat)
 - 2026-09-20 2h — Client abort + Server drop + proofs (from chat)
 - 2026-09-20 45m — Independent review (from chat)
+- 2026-09-20 1h — Review findings: file length, Run proof, abort helper (from chat)

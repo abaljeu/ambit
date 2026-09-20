@@ -10,6 +10,7 @@ open Gambol.Client.JsInterop
 open Gambol.Client.Update
 open Gambol.Client.UpdateEdit
 open Gambol.Client.UpdateHelpers
+open Gambol.Client.RunLaunch
 open Gambol.Client.UpdateOps
 open Gambol.Client.UpdatePaste
 open Gambol.Client.UpdateSave
@@ -84,10 +85,7 @@ let private execAmbleRunOp
             ran, commitEffects @ delEffects @ runEffects
 
 let private execRunOp (model: VM) : VM * Effect list =
-    let committed, commitEffects, mayLaunch = commitIfEditingForRun model
-    if not mayLaunch then
-        committed, commitEffects
-    else
+    afterEditCommit model (fun committed commitEffects ->
         match committed.selectedNodes with
         | None -> committed, commitEffects
         | Some sel ->
@@ -104,10 +102,7 @@ let private execRunOp (model: VM) : VM * Effect list =
                         focusId
                         committed.eventId with
                 | Ok request ->
-                    committed,
-                    commitEffects
-                    @ CommandRequest.commandSubmitEffects
-                        mayLaunch (Ok request)
+                    committed, commitEffects @ [ SubmitCommand request ]
                 | Error msg ->
                     if AmbleRun.shouldExec committed.graph focusId then
                         execAmbleRunOp committed commitEffects focusId
@@ -115,7 +110,7 @@ let private execRunOp (model: VM) : VM * Effect list =
                         { committed with
                             lastCmdResult =
                                 Some (CmdLastResult.Error (Some "Run", msg)) },
-                        commitEffects
+                        commitEffects)
 
 let private splitAtCursor () : Updater option =
     let text = readEditInputValue ()

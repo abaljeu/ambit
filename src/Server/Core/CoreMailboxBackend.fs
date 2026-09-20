@@ -178,8 +178,8 @@ module internal CoreMailboxBackend =
                             request
                     with
                     | Error err ->
-                        context.pool.drop secret
-                        reply.Reply(Error err)
+                        CoreActorPool.dropAndReply
+                            context.pool secret reply err
                     | Ok () ->
                         context.pool.schedule secret (make caller)
                         reply.Reply(Ok ())
@@ -287,11 +287,7 @@ module internal CoreMailboxBackend =
         | GetEventHistory reply ->
             reply.Reply(context.eventLog.Value)
         | PostGraphOnly (caller, event, reply) ->
-            dispatchPostGraphOnly
-                context
-                caller
-                event
-                reply
+            dispatchPostGraphOnly context caller event reply
         | SnapshotDone graph -> context.persist.snapshotDone graph
         | StartActor (caller, request, reply) ->
             dispatchStartActor context caller request reply

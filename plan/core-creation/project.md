@@ -4,10 +4,11 @@ Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
 Updated: 2026-09-20
 Started: 2026-09-05
-Actual: 79h20m
+Actual: 80h20m
 
 ## Notes
 
+- 2026-09-20 — Review findings for [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md): Shared `execRunOp` proof; UpdateHelpers and CoreMailboxBackend length restored. Status stays `coded`.
 - 2026-09-20 — Independent review of [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md): Standards Needs changes; Spec Needs changes. Status stays `coded`. Report: [code-review-52-run-abort-when-commit-fails](reports/code-review-52-run-abort-when-commit-fails.md).
 - 2026-09-20 — Implemented [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md): no SubmitCommand/Amble after failed edit commit; drop live after ActorStart persist Error. Status `coded`.
 - 2026-09-20 — Filed [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md): Run must not launch after failed edit commit; no orphan live without chrome. Status `defined`.

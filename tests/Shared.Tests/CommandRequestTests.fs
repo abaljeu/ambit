@@ -2,6 +2,7 @@ module CommandRequestTests
 
 open Gambol.Shared
 open Gambol.Shared.ViewModel
+open VmTestHelpers
 open Xunit
 
 let private owned = ChildNode.owners
@@ -223,27 +224,49 @@ let ``Focus under count equals takes Amble path not ActorStart`` () =
     | Ok _ -> failwith "equals ancestor must not ActorStart"
     | Error _ -> ()
 
+let private editingCommandModel () : VM * NodeId =
+    let graph, _, ids = ownerChain [ "?test hello" ]
+    let focusId = ids.[0]
+    let model = emptyModel graph
+    match ViewModelSelection.singleSelection graph model.siteMap focusId with
+    | None -> failwith "expected command selection"
+    | Some sel ->
+        { model with
+            selectedNodes = Some sel
+            zoomRoot = focusId
+            mode = Editing ("old", EditCaret.Utf16Index 0) },
+        focusId
+
+/// Same Error path as Client `commitTextEdit` after SetText CAS fail.
+let private commitFailingSetTextCas (model: VM) : VM * Effect list =
+    match model.mode, model.selectedNodes with
+    | Editing (originalText, _), Some sel ->
+        let editingId =
+            ViewModelSelection.focusedNodeId model.graph sel
+        match
+            GraphMutate.setText
+                editingId originalText "?test hello X" model.graph with
+        | Ok _ -> failwith "expected old text does not match"
+        | Error msg ->
+            ViewModelMoveOps.withMoveError
+                msg { model with mode = Selecting }, []
+    | _ -> failwith "expected Editing selection"
+
 [<Fact>]
 let ``failed Editing SetText CAS does not SubmitCommand`` () =
-    let graph, siteMap, ids =
-        ownerChain [ "?test hello" ]
-    let focusId = ids.[0]
-    match
-        GraphMutate.setText focusId "old" "?test hello X" graph with
-    | Ok _ -> failwith "expected old text does not match"
-    | Error msg ->
+    let model, _ = editingCommandModel ()
+    let ran, effects =
+        CommandRequest.execRunOp commitFailingSetTextCas model
+    Assert.Empty(effects)
+    Assert.False(
+        effects
+        |> List.exists (function
+            | SubmitCommand _ -> true
+            | _ -> false))
+    match ran.lastCmdResult with
+    | Some (CmdLastResult.Error (None, msg)) ->
         Assert.Equal("old text does not match", msg)
-        let after = Some (CmdLastResult.Error (None, msg))
-        let mayLaunch =
-            CommandRequest.mayLaunchAfterEditCommit true None after
-        Assert.False(mayLaunch)
-        match
-            CommandRequest.tryStart
-                graph siteMap focusId focusId EventId.zero with
-        | Error err -> failwith err
-        | Ok request ->
-            Assert.Empty(
-                CommandRequest.commandSubmitEffects mayLaunch (Ok request))
+    | other -> failwith $"expected commit Error, got %A{other}"
 
 [<Fact>]
 let ``Selecting may launch after a stale Error`` () =

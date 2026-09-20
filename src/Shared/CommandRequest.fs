@@ -146,11 +146,55 @@ module CommandRequest =
             false
         | _ -> true
 
-    /// SubmitCommand only when launch after edit commit is allowed.
-    let commandSubmitEffects
-        (mayLaunch: bool)
-        (request: Result<ActorStart, string>)
-        : Effect list =
-        match mayLaunch, request with
-        | true, Ok req -> [ SubmitCommand req ]
-        | _ -> []
+    /// Commit when Editing. Third value is false when that commit failed.
+    let commitIfEditingForRun
+        (commit: VM -> VM * Effect list)
+        (model: VM)
+        : VM * Effect list * bool =
+        let wasEditing =
+            match model.mode with
+            | Editing _ -> true
+            | _ -> false
+        let before = model.lastCmdResult
+        let committed, effects = commit model
+        let mayLaunch =
+            mayLaunchAfterEditCommit
+                wasEditing before committed.lastCmdResult
+        committed, effects, mayLaunch
+
+    let private actorStartEffects
+        (committed: VM)
+        (commitEffects: Effect list)
+        : VM * Effect list =
+        match committed.selectedNodes with
+        | None -> committed, commitEffects
+        | Some sel ->
+            let parentId = sel.range.parent.nodeId
+            let focusId =
+                committed.graph.nodes.[parentId].children.[sel.focus].id
+            match
+                tryStart
+                    committed.graph
+                    committed.siteMap
+                    committed.zoomRoot
+                    focusId
+                    committed.eventId with
+            | Ok request ->
+                committed, commitEffects @ [ SubmitCommand request ]
+            | Error msg ->
+                { committed with
+                    lastCmdResult =
+                        Some (CmdLastResult.Error (Some "Run", msg)) },
+                commitEffects
+
+    /// Run after edit commit. No SubmitCommand when that commit failed.
+    let execRunOp
+        (commit: VM -> VM * Effect list)
+        (model: VM)
+        : VM * Effect list =
+        let committed, commitEffects, mayLaunch =
+            commitIfEditingForRun commit model
+        if not mayLaunch then
+            committed, commitEffects
+        else
+            actorStartEffects committed commitEffects
