@@ -104,6 +104,21 @@ module CommandRequest =
         Option.isSome (scanStopOnOwnerPath graph focusId zoomId)
         && Option.isNone (commandOnOwnerPath graph focusId zoomId)
 
+    /// ActorStart. graphIds are the Included expand of Zoom.
+    let actorStart
+        (graph: Graph)
+        (siteMap: SiteMap)
+        (zoomId: NodeId)
+        (focusId: NodeId)
+        (commandId: NodeId)
+        (eventId: EventId)
+        : ActorStart =
+        { zoomId = zoomId
+          focusId = focusId
+          commandId = commandId
+          graphIds = IncludedDescendantIds.expand graph siteMap zoomId
+          eventId = eventId }
+
     /// Product ActorStart. Zoom is the Included extract root. `=` is not Actor.
     let tryStart
         (graph: Graph)
@@ -116,11 +131,8 @@ module CommandRequest =
         | None -> Error noRunnableCommand
         | Some commandId ->
             Ok
-                { zoomId = zoomId
-                  focusId = focusId
-                  commandId = commandId
-                  graphIds = IncludedDescendantIds.expand graph siteMap zoomId
-                  eventId = eventId }
+                (actorStart
+                    graph siteMap zoomId focusId commandId eventId)
 
     /// One-Node ActorStart. Client supplies unfolded Included `graphIds`.
     let oneNodeStart
@@ -129,8 +141,4 @@ module CommandRequest =
         (nodeId: NodeId)
         (eventId: EventId)
         : ActorStart =
-        { zoomId = nodeId
-          focusId = nodeId
-          commandId = nodeId
-          graphIds = IncludedDescendantIds.expand graph siteMap nodeId
-          eventId = eventId }
+        actorStart graph siteMap nodeId nodeId nodeId eventId

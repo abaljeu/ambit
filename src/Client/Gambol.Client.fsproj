@@ -11,6 +11,7 @@
     <Compile Include="JsInterop.fs" />
     <Compile Include="CommandPalette.fs" />
     <Compile Include="UpdateHelpers.fs" />
+    <Compile Include="RunLaunch.fs" />
     <Compile Include="UpdateCodec.fs" />
     <Compile Include="UpdateEdit.fs" />
     <Compile Include="UpdateMove.fs" />

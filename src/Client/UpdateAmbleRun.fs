@@ -1,6 +1,7 @@
 module Gambol.Client.UpdateAmbleRun
 
 open Gambol.Client.UpdateHelpers
+open Gambol.Client.RunLaunch
 open Gambol.Shared
 open Gambol.Shared.CommandEntry
 open Gambol.Shared.ViewModel
@@ -29,12 +30,13 @@ let private applyRunPlan
 
 /// Search and materialise. Caller Deletes existing Children first when needed.
 let runAmbleOp (model: VM) : VM * Effect list =
-    let committed, commitEffects = commitIfEditing model
-    match committed.selectedNodes with
-    | None -> committed, commitEffects
-    | Some sel ->
-        let focusId = focusedNodeId committed.graph sel
-        match AmbleRun.runPlanOnNode focusId committed.graph with
-        | Error _ -> committed, commitEffects
-        | Ok plan ->
-            applyRunPlan (focusedInstanceId sel) plan commitEffects committed
+    afterEditCommit model (fun committed commitEffects ->
+        match committed.selectedNodes with
+        | None -> committed, commitEffects
+        | Some sel ->
+            let focusId = focusedNodeId committed.graph sel
+            match AmbleRun.runPlanOnNode focusId committed.graph with
+            | Error _ -> committed, commitEffects
+            | Ok plan ->
+                applyRunPlan
+                    (focusedInstanceId sel) plan commitEffects committed)

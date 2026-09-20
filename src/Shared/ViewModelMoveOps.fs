@@ -74,6 +74,9 @@ module ViewModelMoveOps =
         { model with
             lastCmdResult = Some(CmdLastResult.Error (None, message)) }
 
+    let withLastCmdOk (model: VM) : VM =
+        { model with lastCmdResult = Some (CmdLastResult.Ok None) }
+
     let withInvalidMoveTarget (model: VM) : VM =
         withMoveError invalidMoveTargetMessage model
 
