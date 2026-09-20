@@ -30,7 +30,7 @@ Command text tokens after `?ai` (from [CommandRequest.behaviorFromText](../../..
 2. Two or more tokens — first is keyname, second is reponame. Extra tokens stay unused.
 3. One token that matches an `AiKeys` Name — keyname, no repo. A Name that exists on both lists is a keyname.
 4. One token that matches an `AiRepos` Name but not an `AiKeys` Name — reponame with the default key.
-5. One token that matches neither — keyname (unknown key → empty `ApiKey`, same as ticket 15).
+5. One token that matches neither — keyname (unknown key → empty `ApiKey`, same as [15 — AiKeys from appsettings](15-aikeys-from-appsettings.md)).
 
 Documented order is **keyname then reponame**. `?ai life` is a repo only when `life` is not also a key Name.
 
