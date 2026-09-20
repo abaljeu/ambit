@@ -13,7 +13,8 @@ This does not supersede [[doc/current/sync-mvp]] for live graph editing over HTT
 1. **Upload** — ensure a local folder mapping for the focused named workspace (pick-folder + Put when unmapped), create client-first Directory/File stubs, then scoped WebDAV body push, server JIT-commit before the batch, and finish-commit after. New File stubs show `∅` until PUT or mtime skip confirms a server body, then `…` until Parse. There is no post-upload reconcile on the Desktop path; disk→graph reconcile remains for web / repair ([[workspace-upload-client-structure]]). On **Workspaces** focus: pick folder → create named workspace from folder basename → map → push. On **File** focus: push file scope then Parse.
 2. **Download** — ensure mapping, then enqueue a desktop download job (`POST /_desktop/workspace-download`); the manager pulls every non-ignored path in the selected server scope, stages under `.gambol-dl-tmp/`, promotes atomically, and preserves file mtimes from PROPFIND. Named Workspace / Directory / File only (not ROOT or Workspaces). Client does not wait or reconcile.
 3. Never transfer `.git/` or ignored paths (for example `.venv`).
-4. **Removed from command surface:** standalone Map workspace, Connect, Clone, pack Push, Status.
+4. **External git framework** (when used for push/pull against a mapped repo remote): also never transfer Directory File / Ambit note `.amb` — hard skip like `.git/`. Does not change WebDAV Upload/Download of `.amb` for Ambit DataDir. See [[plan/roadmap/epics/chapters/ambit-keeps-consistency-with-desktop-repo-for-agentic-work.md]].
+5. **Removed from command surface:** standalone Map workspace, Connect, Clone, pack Push, Status.
 
 ## Inventory (defined)
 
@@ -24,7 +25,7 @@ This does not supersede [[doc/current/sync-mvp]] for live graph editing over HTT
 | **Upload (push)** | Local walk/select under the mapped scope (workspace, subdirectory, or file) | Apply `.gitignore` → remaining paths are uploaded |
 | **Download (pull)** | Server `PROPFIND` under `/ambit/dav/{label}/…` for the same scope | Apply `.gitignore` to that listing → remaining paths are downloaded |
 
-So ignore reduces candidates on **both** directions. For Download, the inventory source is the **server**; ignore rules then reduce it. Always skip `.git/` regardless of ignore rules.
+So ignore reduces candidates on **both** directions. For Download, the inventory source is the **server**; ignore rules then reduce it. Always skip `.git/` regardless of ignore rules. External git framework push/pull also always skips `.amb` (Directory File / Ambit notes); WebDAV Upload/Download of `.amb` is unchanged.
 
 ## Desktop sync functions
 
