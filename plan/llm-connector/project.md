@@ -9,7 +9,8 @@ Actual: 23h
 
 ## Notes
 
-- 2026-09-20 — Locked **Focus vs Command on Run** in arch: Focus reply parent may differ from `?` Command; one-Node is hello-only. Client encode: core-creation [51](../core-creation/issues/51-browser-run-focus-vs-command.md).
+- 2026-09-20 — Filed [17 — CloudAgents Console stream](issues/17-cloudagents-console-stream.md) then [18 — AI Actor stream](issues/18-ai-actor-stream.md): SSE on DLL/Console first; Actor pending-buffer incremental Focus writes second. Status `defined`. Stage stays `done` for the first vertical; these are follow-ups.
+- 2026-09-20 — Locked **Focus vs Command on Run** in arch: Focus reply parent may differ from `?` Command; one-Node is hello-only. Client encode: core-creation [51 — Browser Run Focus vs Command](../core-creation/issues/51-browser-run-focus-vs-command.md).
 - 2026-09-20 — Follow-up on [16 — AiRepos](issues/16-airepos-from-appsettings.md): `StartArgs` into complete; `AiCommandArgs` for `?ai` parse; AI not Ask in actor facts. Status stays `done`.
 - 2026-09-20 — Landed [16 — AiRepos from appsettings](issues/16-airepos-from-appsettings.md) on staging (Good): Server `AiRepos` bind/resolve; `?ai` keyname then optional reponame; no first-repo default; CloudAgents stays settings-blind. Status `coded`. Stage stays `done`.
 - 2026-09-20 — Landed [15 — AiKeys from appsettings](issues/15-aikeys-from-appsettings.md) on staging (Good): `AiKeys` bind/resolve; first entry default; `?ai` keyname; `CURSOR_API_KEY` removed. Status `done`. Stage stays `done`.
