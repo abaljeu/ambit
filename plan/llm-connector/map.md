@@ -15,6 +15,7 @@ Run an Agent from a Zoom-rooted mixed-format Graph extract, mark Focus in the ou
 
 ## Decisions so far
 
+- 2026-09-20 — Stream follow-ups: [17 — CloudAgents Console stream](issues/17-cloudagents-console-stream.md) (SSE DLL + Console), then [18 — AI Actor stream](issues/18-ai-actor-stream.md) (pending-buffer `addChild` for `<>` fragment). Not follow-up turns.
 - 2026-09-11 redesign: Ambit is an info hub. Actor data formats and protocols vary; the adaptive-update process is common. [[reports/agent-redesign-locked-2026-09.md]]
 - [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]] — Command-text dispatch, command text `?test hello`, Zoom-rooted extract, Focus replacement, Focus exclusivity, preserve-children, ordinary merge.
 - [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] — typed boundaries, launch membership, Event sequence, mailbox lifecycle, recovery, test seams.
@@ -27,18 +28,20 @@ Run an Agent from a Zoom-rooted mixed-format Graph extract, mark Focus in the ou
 
 ## Implementation
 
-1. [16 — AiRepos from appsettings](issues/16-airepos-from-appsettings.md) — Status `done`. Server `AiRepos` → `AgentRunner.start` repos; no first-repo default.
-2. [15 — AiKeys from appsettings](issues/15-aikeys-from-appsettings.md) — Status `done`. Server `AiKeys` → `RunnerConfig.ApiKey`; no `CURSOR_API_KEY` in Run Agent Actor.
-3. [14 — Provider-named AI errors](issues/14-provider-named-ai-errors.md) — Status `done`.
-4. [13 — Vertical proof: Browser Ask from what I see](issues/13-vertical-proof-browser-ask.md) — Status `done`.
-5. [11 — Pack extract with Amb (supplied-fragment walk)](issues/11-simple-extract-format.md) — Status `done`.
-6. [08 — Agent ask from what I see](issues/08-agent-ask-from-what-i-see.md) — Status `done`.
-7. [09 — Agent failure preserves children](issues/09-agent-failure-preserves-children.md) — Status `done`.
-8. [10 — Cancel by Focus](issues/10-cancel-by-focus.md) — Status `done`.
+1. [18 — AI Actor stream](issues/18-ai-actor-stream.md) — Status `defined`. Blocked by 17.
+2. [17 — CloudAgents Console stream](issues/17-cloudagents-console-stream.md) — Status `defined`.
+3. [16 — AiRepos from appsettings](issues/16-airepos-from-appsettings.md) — Status `done`.
+4. [15 — AiKeys from appsettings](issues/15-aikeys-from-appsettings.md) — Status `done`.
+5. [14 — Provider-named AI errors](issues/14-provider-named-ai-errors.md) — Status `done`.
+6. [13 — Vertical proof: Browser Ask from what I see](issues/13-vertical-proof-browser-ask.md) — Status `done`.
+7. [11 — Pack extract with Amb (supplied-fragment walk)](issues/11-simple-extract-format.md) — Status `done`.
+8. [08 — Agent ask from what I see](issues/08-agent-ask-from-what-i-see.md) — Status `done`.
+9. [09 — Agent failure preserves children](issues/09-agent-failure-preserves-children.md) — Status `done`.
+10. [10 — Cancel by Focus](issues/10-cancel-by-focus.md) — Status `done`.
 
 ## Not yet specified
 
-None — arch grill closed. Mixed-format owning-codec pack stays tabled under Decisions. Live-Actor chrome is owned by core-creation, not this map.
+None for the first Agent vertical. Stream follow-ups are [17](issues/17-cloudagents-console-stream.md) / [18](issues/18-ai-actor-stream.md) under Implementation. Mixed-format owning-codec pack stays tabled under Decisions. Live-Actor chrome is owned by core-creation, not this map. Mixed-format owning-codec pack stays tabled under Decisions. Live-Actor chrome is owned by core-creation, not this map.
 
 ## Out of scope
 
