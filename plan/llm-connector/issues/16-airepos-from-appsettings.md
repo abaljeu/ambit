@@ -4,7 +4,7 @@
 **Blocked by:** None — [15 — AiKeys from appsettings](15-aikeys-from-appsettings.md) is `done`.
 **Type:** task
 Estimate: 2h
-Actual: 2h
+Actual: 2h 15m
 
 ## Context
 
@@ -65,7 +65,9 @@ Documented order is **keyname then reponame**. `?ai life` is a repo only when `l
 ## Comments
 
 - 2026-09-20 — Filed and coded: `AiRepos.fromConfig` / `resolve`; `?ai` keyname then reponame; one-token repo-only UX; Actor injects resolved repos; CloudAgents stays settings-blind. Status `coded`.
+- 2026-09-20 — `complete` takes existing CloudAgents `StartArgs`. Host `AiKeys` / `AiRepos` lists stay separate (no existing type). Status stays `coded`.
 
 ## Time
 
 - 2026-09-20 2h — Ticket, AiRepos bind/resolve, `?ai` parse, Actor injection, placeholder JSON, focused tests (from chat)
+- 2026-09-20 15m — Group `complete` args as `StartArgs` (from chat)
