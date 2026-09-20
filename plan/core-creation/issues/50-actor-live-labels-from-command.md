@@ -47,6 +47,7 @@ Actor select for wording: [`CommandRequest.actorNameFromText`](../../../src/Shar
 
 ## Comments
 
+- 2026-09-20 — plan-or-doc-change: new ticket was the wrong owning layer; invariant belongs in architecture + 21 rework. Remains `cancelled`.
 - 2026-09-20 — Cancelled: folded into [21](21-client-shows-lock-present.md) failed-review rework. Locked scan-up rule stays on 21 Comments.
 - 2026-09-20 — Filed from live bug: `?test hello` labeled AI. No failed ticket; 21 done with hardcoded AI. Command id = scan up from Focus to zoom root for `text` first char `?`. Status `defined`.
 
