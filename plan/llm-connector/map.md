@@ -21,16 +21,18 @@ Run an Agent from a Zoom-rooted mixed-format Graph extract, mark Focus in the ou
 - CloudAgents remains the standalone vendor-neutral project and API. Cursor is an ordinary adapter. Provider selection is not a domain decision in this Project.
 - [[plan/llm-connector/issues/05-create-cloud-agent-posts-reply-under-focus.md]] and its Create payload, Md paste-replace implementation, and vertical proof remain cancelled.
 - 2026-09-19 — First pack is Amb extract-walk of the supplied Zoom extract. Nested-tag `<div>` / `<focus>` abandoned. Fable.SimpleXml rejected. Mixed-format owning-codec stays tabled. [[issues/11-simple-extract-format.md|11 — Pack extract with Amb (supplied-fragment walk)]].
+- 2026-09-20 — Follow-up [15 — AiKeys from appsettings](issues/15-aikeys-from-appsettings.md): Server binds `AiKeys` (`Name` + `ApiKey`); `?ai` keyname or first entry; CloudAgents stays settings-blind.
 - 2026-09-19 — Follow-up [14 — Provider-named AI errors](issues/14-provider-named-ai-errors.md): auth/start failure names the provider on Client Error (not Ask); no Graph Error dumps.
 
 ## Implementation
 
-1. [14 — Provider-named AI errors](issues/14-provider-named-ai-errors.md) — Status `done`.
-2. [13 — Vertical proof: Browser Ask from what I see](issues/13-vertical-proof-browser-ask.md) — Status `done`.
-3. [11 — Pack extract with Amb (supplied-fragment walk)](issues/11-simple-extract-format.md) — Status `done`.
-4. [08 — Agent ask from what I see](issues/08-agent-ask-from-what-i-see.md) — Status `done`.
-5. [09 — Agent failure preserves children](issues/09-agent-failure-preserves-children.md) — Status `done`.
-6. [10 — Cancel by Focus](issues/10-cancel-by-focus.md) — Status `done`.
+1. [15 — AiKeys from appsettings](issues/15-aikeys-from-appsettings.md) — Status `coded`. Server `AiKeys` → `RunnerConfig.ApiKey`; no `CURSOR_API_KEY` in Run Agent Actor.
+2. [14 — Provider-named AI errors](issues/14-provider-named-ai-errors.md) — Status `done`.
+3. [13 — Vertical proof: Browser Ask from what I see](issues/13-vertical-proof-browser-ask.md) — Status `done`.
+4. [11 — Pack extract with Amb (supplied-fragment walk)](issues/11-simple-extract-format.md) — Status `done`.
+5. [08 — Agent ask from what I see](issues/08-agent-ask-from-what-i-see.md) — Status `done`.
+6. [09 — Agent failure preserves children](issues/09-agent-failure-preserves-children.md) — Status `done`.
+7. [10 — Cancel by Focus](issues/10-cancel-by-focus.md) — Status `done`.
 
 ## Not yet specified
 
