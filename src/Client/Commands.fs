@@ -89,23 +89,27 @@ let private execRunOp (model: VM) : VM * Effect list =
     | None -> committed, commitEffects
     | Some sel ->
         let focusId = focusedNodeId committed.graph sel
-        match
-            CommandRequest.tryStart
-                committed.graph
-                committed.siteMap
-                committed.zoomRoot
-                focusId
-                committed.eventId with
-        | Ok request ->
-            committed, commitEffects @ [ SubmitCommand request ]
-        | Error msg ->
-            if AmbleRun.shouldExec committed.graph focusId then
-                execAmbleRunOp committed commitEffects focusId
-            else
-                { committed with
-                    lastCmdResult =
-                        Some (CmdLastResult.Error (Some "Run", msg)) },
-                commitEffects
+        let zoomId = committed.zoomRoot
+        if CommandRequest.isAmbleScanStop committed.graph focusId zoomId then
+            execAmbleRunOp committed commitEffects focusId
+        else
+            match
+                CommandRequest.tryStart
+                    committed.graph
+                    committed.siteMap
+                    zoomId
+                    focusId
+                    committed.eventId with
+            | Ok request ->
+                committed, commitEffects @ [ SubmitCommand request ]
+            | Error msg ->
+                if AmbleRun.shouldExec committed.graph focusId then
+                    execAmbleRunOp committed commitEffects focusId
+                else
+                    { committed with
+                        lastCmdResult =
+                            Some (CmdLastResult.Error (Some "Run", msg)) },
+                    commitEffects
 
 let private splitAtCursor () : Updater option =
     let text = readEditInputValue ()

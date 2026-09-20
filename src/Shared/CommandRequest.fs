@@ -8,8 +8,8 @@ module CommandRequest =
     let isCommandText (text: string) =
         text.StartsWith("?")
 
-    /// Runnable Command: `?` prefix or a `=` in the text.
-    let isRunnableText (text: string) =
+    /// Owner-scan stop: `?` Actor Command or an Amble `=` line.
+    let isScanStopText (text: string) =
         isCommandText text || text.Contains("=")
 
     let private afterQuestion (text: string) =
@@ -63,23 +63,48 @@ module CommandRequest =
 
         collect [] focusId Set.empty
 
-    let private firstRunnable (graph: Graph) (path: NodeId list) =
+    let private firstScanStop (graph: Graph) (path: NodeId list) =
         path
         |> List.tryFind (fun id ->
             match Map.tryFind id graph.nodes with
-            | Some node -> isRunnableText node.text
+            | Some node -> isScanStopText node.text
             | None -> false)
 
-    /// First runnable owner from Focus toward Zoom, inclusive of both.
-    let commandOnOwnerPath
+    let private nodeText (graph: Graph) (id: NodeId) =
+        Map.tryFind id graph.nodes |> Option.map (fun node -> node.text)
+
+    /// First `?` or `=` owner from Focus toward Zoom, inclusive of both.
+    let scanStopOnOwnerPath
         (graph: Graph)
         (focusId: NodeId)
         (zoomId: NodeId)
         : NodeId option =
         ownerPathToZoom graph focusId zoomId
-        |> Option.bind (firstRunnable graph)
+        |> Option.bind (firstScanStop graph)
 
-    /// Product ActorStart. Zoom is the Included extract root.
+    /// Actor Command id: scan-stop whose text starts with `?`. `=` is not one.
+    let commandOnOwnerPath
+        (graph: Graph)
+        (focusId: NodeId)
+        (zoomId: NodeId)
+        : NodeId option =
+        match scanStopOnOwnerPath graph focusId zoomId with
+        | Some id ->
+            match nodeText graph id with
+            | Some text when isCommandText text -> Some id
+            | _ -> None
+        | None -> None
+
+    /// Scan-stop is an Amble `=` line, not a `?` Actor Command.
+    let isAmbleScanStop
+        (graph: Graph)
+        (focusId: NodeId)
+        (zoomId: NodeId)
+        : bool =
+        Option.isSome (scanStopOnOwnerPath graph focusId zoomId)
+        && Option.isNone (commandOnOwnerPath graph focusId zoomId)
+
+    /// Product ActorStart. Zoom is the Included extract root. `=` is not Actor.
     let tryStart
         (graph: Graph)
         (siteMap: SiteMap)

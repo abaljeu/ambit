@@ -110,14 +110,15 @@ let ``behaviorFromText extracts any command text after the Actor name`` () =
     Assert.Equal("nope", CommandRequest.behaviorFromText "?test nope")
 
 [<Fact>]
-let ``isRunnableText is true for ? prefix or equals in text`` () =
-    Assert.True(CommandRequest.isRunnableText "?ai cursor")
-    Assert.True(CommandRequest.isRunnableText "?test hello")
-    Assert.True(CommandRequest.isRunnableText "x = 1")
-    Assert.True(CommandRequest.isRunnableText "=")
-    Assert.False(CommandRequest.isRunnableText "What time is it?")
-    Assert.False(CommandRequest.isRunnableText "hello")
-    Assert.False(CommandRequest.isRunnableText "")
+let ``isScanStopText is true for ? prefix or equals in text`` () =
+    Assert.True(CommandRequest.isScanStopText "?ai cursor")
+    Assert.True(CommandRequest.isScanStopText "?test hello")
+    Assert.True(CommandRequest.isScanStopText "count=1+2")
+    Assert.True(CommandRequest.isScanStopText "x = 1")
+    Assert.True(CommandRequest.isScanStopText "=")
+    Assert.False(CommandRequest.isScanStopText "What time is it?")
+    Assert.False(CommandRequest.isScanStopText "hello")
+    Assert.False(CommandRequest.isScanStopText "")
 
 [<Fact>]
 let ``commandOnOwnerPath finds ? ancestor and keeps Focus distinct`` () =
@@ -132,13 +133,17 @@ let ``commandOnOwnerPath finds ? ancestor and keeps Focus distinct`` () =
         CommandRequest.commandOnOwnerPath graph commandId commandId)
 
 [<Fact>]
-let ``commandOnOwnerPath stops at first equals and does not skip to ?`` () =
+let ``scan stops at first equals and does not skip to ?`` () =
     let graph, _, ids =
-        ownerChain [ "?ai cursor"; "x = 1"; "What time is it?" ]
+        ownerChain [ "?ai cursor"; "count=1+2"; "What time is it?" ]
     let question = ids.[2]
     Assert.Equal(
         Some ids.[1],
+        CommandRequest.scanStopOnOwnerPath graph question ids.[0])
+    Assert.Equal(
+        None,
         CommandRequest.commandOnOwnerPath graph question ids.[0])
+    Assert.True(CommandRequest.isAmbleScanStop graph question ids.[0])
 
 [<Fact>]
 let ``commandOnOwnerPath is none when Zoom is below the Command`` () =
@@ -191,3 +196,29 @@ let ``tryStart errors when no runnable Command is on the path`` () =
     | Ok _ -> failwith "expected Error"
     | Error msg ->
         Assert.Equal("no runnable Command on Focus to Zoom path", msg)
+
+[<Fact>]
+let ``count equals Amble stop does not ActorStart`` () =
+    let graph, siteMap, ids =
+        ownerChain [ "count=1+2" ]
+    let focusId = ids.[0]
+    Assert.True(CommandRequest.isAmbleScanStop graph focusId focusId)
+    Assert.Equal(None, CommandRequest.commandOnOwnerPath graph focusId focusId)
+    match
+        CommandRequest.tryStart
+            graph siteMap focusId focusId EventId.zero with
+    | Ok _ -> failwith "equals line must not ActorStart"
+    | Error _ -> ()
+
+[<Fact>]
+let ``Focus under count equals takes Amble path not ActorStart`` () =
+    let graph, siteMap, ids =
+        ownerChain [ "count=1+2"; "child" ]
+    let zoomId, focusId = ids.[0], ids.[1]
+    Assert.True(CommandRequest.isAmbleScanStop graph focusId zoomId)
+    Assert.Equal(None, CommandRequest.commandOnOwnerPath graph focusId zoomId)
+    match
+        CommandRequest.tryStart
+            graph siteMap zoomId focusId EventId.zero with
+    | Ok _ -> failwith "equals ancestor must not ActorStart"
+    | Error _ -> ()
