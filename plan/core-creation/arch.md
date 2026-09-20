@@ -230,9 +230,9 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. ClientH
 9a. **Actor live labels** — [[src/Shared/ActorLive.fs]] (Client result conveyance)
    1. State: none beyond the live Focus set already projected from ActorStart / ActorStop
    - Interface:
-     1. [ ] Command chip and start/stop wording for live Actor results resolve from the Command node, not a fixed product name
-     2. [ ] Command node: from Focus, scan owner-parents toward zoom root (inclusive of both); first node whose text starts with literal `?`
-     3. [ ] Display label: TitleCase of the actor name token from that text (same token rule as CommandRequest actor select). Missing `?` on the path → generic label (not a product name)
+     1. [x] Command chip and start/stop wording for live Actor results resolve from the Command node, not a fixed product name
+     2. [x] Command node: from Focus, scan owner-parents toward zoom root (inclusive of both); first node whose text starts with literal `?`
+     3. [x] Display label: TitleCase of the actor name token from that text (same token rule as CommandRequest actor select). Missing `?` on the path → generic label (not a product name)
    - Uses:
      1. [ ] Graph / owner path
      2. [ ] ActorStart / ActorStop Focus (and ActorStart zoomId when present); Client zoom root on stop
@@ -276,7 +276,7 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. ClientH
 4. [x] **Ev** — Shared Ev type and functions in `Gambol.Shared`. Interface on **Ev**. Field shapes: [[reports/event-abstraction.md]].
 5. [x] **EventLog** — Mailbox store after intake; persist is this same EventLog on file/DB. Interface on **EventLog**. `since` is the Poll/Load tail.
 6. [x] **ClientHistory** — Emacs Action view. Interface on **ClientHistory**. Not persisted. Not sent on Poll.
-6a. [ ] **Actor live labels** — Client start/stop result chips from Command text via Focus→zoom owner scan and TitleCase actor token. Interface on **Actor live labels**.
+6a. [x] **Actor live labels** — Client start/stop result chips from Command text via Focus→zoom owner scan and TitleCase actor token. Interface on **Actor live labels**.
 7. [x] **`postEvents` door** — Changes door. Interface on **CoreMailbox**. Payload is Ev. `postEvent` posts one Ev. `postGraphOnly` is graph-only Ev.
 8. [x] **ActorFn / TestActor input** — Definition and body-input seam. Interface on **TestActor** (outside Core). Callers pass ActorFn into **CoreActorPool.register** / **CoreRuntime.create**. Core does not embed Actor bodies.
 9. [x] **PersistHandlers** — Persist seam already landed by [One CoreMsg loop parameterized persist](issues/31-one-coremsg-loop-parameterized-persist.md) and [Move persist agents under CoreMailbox](issues/32-move-persist-agents-under-coremailbox.md). Hello does not widen it. Actor cases stay off this parameter. File and Db are not Actor mailboxes. Interface on **PersistHandlers**.
