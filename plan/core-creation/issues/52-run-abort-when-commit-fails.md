@@ -1,7 +1,7 @@
 # 52 — Run must not launch when edit commit fails; no orphan live
 
 **Status:** defined
-**Type:** coding
+**Type:** bug-fixing
 **Blocked by:** None — [51 — Browser Run Focus vs Command](51-browser-run-focus-vs-command.md) is `done`.
 Estimate: 2h
 
