@@ -42,22 +42,21 @@ Alan: Run while editing showed `Run: old text does not match.` Retry after commi
 [21 — Client shows live Actor](21-client-shows-lock-present.md), [Commands.fs](../../../src/Client/Commands.fs) `execRunOp`, [CoreMailboxBackend.fs](../../../src/Server/Core/CoreMailboxBackend.fs) `dispatchStartActor`
 
 ## Comments
+- 2026-09-20 — Re-review after same-Error abort: Spec nits only (Shared SubmitCommand proof, not POST; ActorStart factory Alan asked for). Standards live refer-by-name on ticket/project cleared (no bare item 9). Status stays `coded`. Report: [code-review-52-rereview-same-error-abort](../reports/code-review-52-rereview-same-error-abort.md).
 
 - 2026-09-20: Re-review Spec Good; Standards hard hit was Non-goals bare `51 done` — renamed to full issue title link.
-
 - 2026-09-20 — Filed from chat repro: Run while editing → old text; retry → live without chrome. Status `defined`.
 - 2026-09-20 — Implement: abort Run after failed edit commit; drop live row when ActorStart persist fails. Status `coded`.
 - 2026-09-20 — Server keeps mailbox order live row then ActorStart Ev; persist Error drops the live row. Did not putLive after Event.
 - 2026-09-20 — Independent review: Standards Needs changes (2 hard file-length, 2 judgement); Spec Needs changes (1 partial Client proof). Status stays `coded`. Report: [code-review-52-run-abort-when-commit-fails](../reports/code-review-52-run-abort-when-commit-fails.md).
 - 2026-09-20 — Review findings addressed: `commitIfEditingForRun` / `execRunOp` in Shared; UpdateHelpers and CoreMailboxBackend no longer grow; CAS-fail Run proof calls `execRunOp`; abort shape shared; `commandSubmitEffects` dropped. Status stays `coded`.
-- 2026-09-20 — Alan item 9 (Divergent Change / edit-commit-in-execRunOp): Editing commit left Shared CommandRequest. Client [RunLaunch.fs](src/Client/RunLaunch.fs) owns `commitIfEditingForRun` / `mayLaunchAfterEditCommit` via Client `commitIfEditing`. CommandRequest is ActorStart factory / scan / `tryStart` / `oneNodeStart`. CAS-fail proof uses a Shared-free helper that mirrors `afterEditCommit` + `tryStart`. Status stays `coded`.
+- 2026-09-20 — Alan Standards finding Divergent Change (edit commit belongs in execRunOp): Editing commit left Shared CommandRequest. Client [RunLaunch.fs](src/Client/RunLaunch.fs) owns `commitIfEditingForRun` / `mayLaunchAfterEditCommit` via Client `commitIfEditing`. CommandRequest is ActorStart factory / scan / `tryStart` / `oneNodeStart`. CAS-fail proof uses a Shared-free helper that mirrors `afterEditCommit` + `tryStart`. Status stays `coded`.
 - 2026-09-20 — Re-review Spec: abort keyed off lastCmdResult identity (same Error after failed Editing SetText still launched). Successful `commitTextEdit` sets lastCmdResult Ok. Shared [RunEditCommit.fs](src/Shared/RunEditCommit.fs) `mayLaunchAfterEditCommit` is false when Editing and after is Error. Client [RunLaunch.fs](src/Client/RunLaunch.fs) wraps Client `commitIfEditing`. Proof: same prior Error + failing SetText → no SubmitCommand. No Client test project; tests call the Shared gate. Status stays `coded`.
-
 ## Time
 
 - 2026-09-20 — Ticket (from chat)
 - 2026-09-20 2h — Client abort + Server drop + proofs (from chat)
 - 2026-09-20 45m — Independent review (from chat)
 - 2026-09-20 1h — Review findings: file length, Run proof, abort helper (from chat)
-- 2026-09-20 45m — Alan item 9 (Divergent Change / edit-commit-in-execRunOp): Editing commit in Client RunLaunch; ActorStart factory (from chat)
+- 2026-09-20 45m — Alan Standards finding Divergent Change (edit commit belongs in execRunOp): Editing commit in Client RunLaunch; ActorStart factory (from chat)
 - 2026-09-20 45m — Re-review: lastCmdResult identity abort; Shared RunEditCommit gate; same-Error proof (from chat)

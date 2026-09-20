@@ -8,7 +8,7 @@ Actual: 81h50m
 
 ## Notes
 
-- 2026-09-20 — Alan item 9 (Divergent Change / edit-commit-in-execRunOp) for [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md): Editing commit in Client RunLaunch; CommandRequest ActorStart factory. Status stays `coded`.
+- 2026-09-20 — Alan Standards finding Divergent Change (edit commit belongs in execRunOp) for [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md): Editing commit in Client RunLaunch; CommandRequest ActorStart factory. Status stays `coded`.
 - 2026-09-20 — Re-review Spec for [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md): lastCmdResult identity abort; Shared RunEditCommit gate; same-Error proof. Status stays `coded`.
 - 2026-09-20 — Review findings for [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md): Shared `execRunOp` proof; UpdateHelpers and CoreMailboxBackend length restored. Status stays `coded`.
 - 2026-09-20 — Independent review of [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md): Standards Needs changes; Spec Needs changes. Status stays `coded`. Report: [code-review-52-run-abort-when-commit-fails](reports/code-review-52-run-abort-when-commit-fails.md).
