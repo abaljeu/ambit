@@ -12,7 +12,7 @@ let withAppliedSync (state: ClientSyncState) (model: VM) : VM =
         actorLiveFocusIds = state.actorLiveFocusIds }
 
 let withActorCmdResult (events: Ev list) (model: VM) : VM =
-    match ActorLive.lastCmdResult events with
+    match ActorLive.lastCmdResult model.graph model.zoomRoot events with
     | None -> model
     | Some result -> { model with lastCmdResult = Some result }
 

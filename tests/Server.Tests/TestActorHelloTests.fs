@@ -165,6 +165,63 @@ let ``TestActor hello interprets ?test hello without actor CSS`` () =
     })
 
 [<Fact>]
+let ``TestActor hello reply sits under question Focus not Command`` () =
+    withHost (fun host _ -> task {
+        let commandId = NodeId.New()
+        let focusId = NodeId.New()
+        let event =
+            { id = EventId.zero
+              submissionId = Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body =
+                EventBody.Change
+                    [ Op.NewNode(commandId, "?test hello")
+                      Op.NewNode(focusId, "What time is it?")
+                      Op.Replace(
+                          Graph.rootId,
+                          [],
+                          [ ChildNode.owner commandId ])
+                      Op.Replace(
+                          commandId,
+                          [],
+                          [ ChildNode.owner focusId ]) ] }
+        let! postResult =
+            CoreMailbox.postGraphOnly host testCaller event
+            |> Async.StartAsTask
+        requireOk "postChange" postResult |> ignore
+        let request =
+            let baseReq =
+                sampleRequest
+                    focusId
+                    commandId
+                    [ Graph.rootId; commandId; focusId ]
+            { baseReq with zoomId = commandId }
+        Assert.NotEqual(request.commandId, request.focusId)
+        let! result =
+            CoreMailbox.startActor host testCaller request
+            |> Async.StartAsTask
+        requireOk "startActor" result
+        let! finished = waitForActorFinished host request.focusId 1000
+        Assert.True(finished, "ActorFinished not received within timeout")
+        let! state =
+            CoreMailbox.getState host
+            |> Async.StartAsTask
+        let state = requireOk "getState" state
+        Assert.Equal("What time is it?", state.graph.nodes.[focusId].text)
+        let helloChildren =
+            helloOutputChildren state.graph focusId commandId
+        Assert.Equal(1, helloChildren.Length)
+        let commandKids =
+            state.graph.nodes.[commandId].children
+            |> List.map (fun child -> child.id)
+        Assert.Contains(focusId, commandKids)
+        Assert.DoesNotContain(
+            helloChildren.[0].id,
+            commandKids)
+    })
+
+[<Fact>]
 let ``TestActor hello stops successfully with ActorSucceeded`` () =
     withHost (fun host _ -> task {
         let commandId = NodeId.New()

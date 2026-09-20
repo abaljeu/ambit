@@ -2,12 +2,17 @@
 
 Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
-Updated: 2026-09-19
+Updated: 2026-09-20
 Started: 2026-09-05
-Actual: 73h20m
+Actual: 76h35m
 
 ## Notes
 
+- 2026-09-20 — Landed [[issues/51-browser-run-focus-vs-command.md|51]] and [[issues/21-client-shows-lock-present.md|21]] live-label rework on staging (Alan accept). Status `done`.
+- 2026-09-20 — [51 — Browser Run: Focus reply parent, Command is runnable ancestor](issues/51-browser-run-focus-vs-command.md) Status `coded`. `?` ActorStart; `=` Amble; scan-stop unchanged.
+- 2026-09-20 — [[issues/21-client-shows-lock-present.md|21]] failed review (hardcoded AI on `?test`); Status `coded`. [[issues/50-actor-live-labels-from-command.md|50]] cancelled (folded into 21).
+- 2026-09-20 — Filed [[issues/50-actor-live-labels-from-command.md|50 Actor live result labels from Command node]]: done as Wayfinder task; coding on 21 / PR #80.
+- 2026-09-20 — Filed [[issues/51-browser-run-focus-vs-command.md|51 Browser Run Focus vs Command]]: Focus = reply parent; Command = runnable ancestor (`?` or contains `=`); one-Node stays hello-only. Status `defined`.
 - 2026-09-19 — Landed [[issues/22-client-cancels-a-job.md|22 Client cancels a job]] on staging (Good). Status `done`.
 - 2026-09-19 — Landed [[issues/21-client-shows-lock-present.md|21 Client shows live Actor]] on staging (Good). Status `done`.
 - 2026-09-19 — Chrome tickets expanded: [[plan/core-creation/issues/21-client-shows-lock-present.md|21 Client shows live Actor]] owns start result (“Run: AI started.”), Command/Poll Event apply, chrome, boot live set, Poll stop/error conveyance; [[plan/core-creation/issues/22-client-cancels-a-job.md|22 Client cancels a job]] owns cancel control on live chrome. DLL provider error naming is a separate ticket.
@@ -65,6 +70,8 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/issues/34b-outside-core-lifecycle-proof.md|34b — Outside Core lifecycle proof]] — Story path Outside Core lifecycle proof: TestActor hello from Pool/Actor seam without HTTP. Status `done` (independent review approve; report [[plan/core-creation/reports/code-review-34b-outside-core-lifecycle-proof.md]]).
 - [[plan/core-creation/issues/35b-browser-run-hello.md|35b — Browser Run hello]] — Story path Browser Run hello: `?` one-Node Command through HTTP to Owned child `hello`; Status `done`. §6 durability → [[plan/core-creation/issues/49-mailbox-history-durability.md|49]]; §7 proof does not need 49.
 - [[plan/core-creation/issues/49-mailbox-history-durability.md|49 — Mailbox History durability]] — persist/load the audit sequence; load reconcile Graph id vs EventLog tip (drop / noop / apply until concurrent). Status `done`. Blocked by [[plan/core-creation/issues/35b-browser-run-hello.md|35b — Browser Run hello]]. Not required for 35b §7 Browser proof. Plan: [[plan/core-creation/reports/49-mailbox-history-durability-explore.md|49 mailbox History durability explore]]. Reconcile: [[plan/core-creation/reports/49-mailbox-history-durability-reconcile.md|49 mailbox History durability reconcile]].
+- [50 — Actor live result labels from Command node](plan/core-creation/issues/50-actor-live-labels-from-command.md) — Cancelled — folded into 21. Status `done` (Wayfinder task).
+- [51 — Browser Run: Focus reply parent, Command is runnable ancestor](plan/core-creation/issues/51-browser-run-focus-vs-command.md) — Product Run distinct focusId/commandId; `?` ActorStart, `=` Amble; Status `coded`.
 - [[plan/core-creation/issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]] — Collapse extra Core entrances onto CoreMailbox; Status `done`. Report: [[plan/core-creation/reports/mailbox-single-door.md]].
 - [[plan/core-creation/issues/37-expand-shared-event-eventlog-and-history.md|37 — Expand Shared Event, EventLog, and History]] — Story **Event, EventLog, and ClientHistory** Shared expand beside HistoryEvent; Event-shaped ClientHistory beside the Change-shaped API. No new History module. Status `done`.
 - [[plan/core-creation/issues/40-expand-postevent-eventlog-and-event-json.md|40 — Expand postEvent, EventLog store, and Event JSON persist]] — Story **Caller, persist, and Poll** expand: `postEvent`, EventLog store, Event JSON beside ChangeLog. Status `done`.
@@ -144,6 +151,8 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/reports/35b-slice2-3-http-browser-run.md]] — [35b — Browser Run hello](plan/core-creation/issues/35b-browser-run-hello.md) slices 2–3 HTTP Adapter and Browser Run.
 - [[plan/core-creation/reports/35b-slice4-5-7-core-testactor-browser-proof.md]] — [35b — Browser Run hello](plan/core-creation/issues/35b-browser-run-hello.md) slices 4+5+7 Core TestActor and Browser proof.
 - [35b slices 4+5+7 standards and Spec corrections](plan/core-creation/reports/35b-slice4-5-7-standards-spec-corrections.md) — [35b — Browser Run hello](plan/core-creation/issues/35b-browser-run-hello.md) Origin Spec review: unregistered Actor name and non-hello command fail.
+- [Independent review — 51 Focus vs Command](reports/independent-review-51-focus-vs-command.md) — [51 — Browser Run: Focus reply parent, Command is runnable ancestor](issues/51-browser-run-focus-vs-command.md). Status stays `coded`.
+- [Independent re-review — 51 Focus vs Command](reports/independent-review-51-focus-vs-command-rereview.md) — after Amble lock. Standards Approve with nits; Spec Approve. Status stays `coded`.
 - [49 mailbox History durability](plan/core-creation/reports/49-mailbox-history-durability.md) — [49 — Mailbox History durability](issues/49-mailbox-history-durability.md) implement: seed order, File+Db recover, one serial.
 - [Arch reconcile 35b and 49 landed](reports/arch-reconcile-35b-46-landed.md) — [Core creation architecture](arch.md) checkboxes after [35b — Browser Run hello](issues/35b-browser-run-hello.md) and [49 — Mailbox History durability](issues/49-mailbox-history-durability.md). Remaining unchecked → covering ticket.
 
