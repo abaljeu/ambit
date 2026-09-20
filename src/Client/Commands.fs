@@ -59,40 +59,53 @@ let private execCancelOp (model: VM) : VM * Effect list =
     | None -> model, []
     | Some focusId -> cancelFocusOp focusId model
 
+let private execAmbleRunOp
+    (committed: VM)
+    (commitEffects: Effect list)
+    (focusId: NodeId)
+    : VM * Effect list =
+    if not (AmbleRun.shouldExec committed.graph focusId) then
+        committed, commitEffects
+    else
+        let afterDelete, delEffects =
+            match Map.tryFind focusId committed.graph.nodes with
+            | Some node when node.children.Length > 0 ->
+                deleteChildSpan
+                    focusId 0 node.children.Length committed
+            | _ -> committed, []
+        let kidsLeft =
+            match Map.tryFind focusId afterDelete.graph.nodes with
+            | Some node -> node.children.Length > 0
+            | None -> false
+        if kidsLeft then
+            afterDelete, commitEffects @ delEffects
+        else
+            let ran, runEffects = runAmbleOp afterDelete
+            ran, commitEffects @ delEffects @ runEffects
+
 let private execRunOp (model: VM) : VM * Effect list =
     let committed, commitEffects = commitIfEditing model
     match committed.selectedNodes with
     | None -> committed, commitEffects
     | Some sel ->
         let focusId = focusedNodeId committed.graph sel
-        match Map.tryFind focusId committed.graph.nodes with
-        | Some node when CommandRequest.isCommandText node.text ->
-            let request =
-                CommandRequest.oneNodeStart
-                    committed.graph
-                    committed.siteMap
-                    focusId
-                    committed.eventId
+        match
+            CommandRequest.tryStart
+                committed.graph
+                committed.siteMap
+                committed.zoomRoot
+                focusId
+                committed.eventId with
+        | Ok request ->
             committed, commitEffects @ [ SubmitCommand request ]
-        | _ ->
-            if not (AmbleRun.shouldExec committed.graph focusId) then
-                committed, commitEffects
+        | Error msg ->
+            if AmbleRun.shouldExec committed.graph focusId then
+                execAmbleRunOp committed commitEffects focusId
             else
-                let afterDelete, delEffects =
-                    match Map.tryFind focusId committed.graph.nodes with
-                    | Some node when node.children.Length > 0 ->
-                        deleteChildSpan
-                            focusId 0 node.children.Length committed
-                    | _ -> committed, []
-                let kidsLeft =
-                    match Map.tryFind focusId afterDelete.graph.nodes with
-                    | Some node -> node.children.Length > 0
-                    | None -> false
-                if kidsLeft then
-                    afterDelete, commitEffects @ delEffects
-                else
-                    let ran, runEffects = runAmbleOp afterDelete
-                    ran, commitEffects @ delEffects @ runEffects
+                { committed with
+                    lastCmdResult =
+                        Some (CmdLastResult.Error (Some "Run", msg)) },
+                commitEffects
 
 let private splitAtCursor () : Updater option =
     let text = readEditInputValue ()

@@ -1,12 +1,16 @@
 namespace Gambol.Shared
 
-/// Browser Run Command request. One Node is Command, Zoom root, and Focus.
+/// Browser Run Command request. Product Focus / Command / Zoom may differ.
 [<RequireQualifiedAccess>]
 module CommandRequest =
 
-    /// Literal `?` at the start of current Node text selects the Command path.
+    /// Literal `?` at the start of text selects an Actor by name.
     let isCommandText (text: string) =
         text.StartsWith("?")
+
+    /// Runnable Command: `?` prefix or a `=` in the text.
+    let isRunnableText (text: string) =
+        isCommandText text || text.Contains("=")
 
     let private afterQuestion (text: string) =
         if text.Length <= 1 then ""
@@ -37,6 +41,61 @@ module CommandRequest =
         else
             afterFirstToken (afterQuestion text)
             |> fun rest -> rest.ToLowerInvariant()
+
+    let private noRunnableCommand =
+        "no runnable Command on Focus to Zoom path"
+
+    let private ownerPathToZoom
+        (graph: Graph)
+        (focusId: NodeId)
+        (zoomId: NodeId)
+        : NodeId list option =
+        let rec collect acc current visited =
+            if Set.contains current visited then
+                None
+            elif current = zoomId then
+                Some (List.rev (current :: acc))
+            else
+                match Map.tryFind current graph.ownerParentByChild with
+                | None -> None
+                | Some parentId ->
+                    collect (current :: acc) parentId (Set.add current visited)
+
+        collect [] focusId Set.empty
+
+    let private firstRunnable (graph: Graph) (path: NodeId list) =
+        path
+        |> List.tryFind (fun id ->
+            match Map.tryFind id graph.nodes with
+            | Some node -> isRunnableText node.text
+            | None -> false)
+
+    /// First runnable owner from Focus toward Zoom, inclusive of both.
+    let commandOnOwnerPath
+        (graph: Graph)
+        (focusId: NodeId)
+        (zoomId: NodeId)
+        : NodeId option =
+        ownerPathToZoom graph focusId zoomId
+        |> Option.bind (firstRunnable graph)
+
+    /// Product ActorStart. Zoom is the Included extract root.
+    let tryStart
+        (graph: Graph)
+        (siteMap: SiteMap)
+        (zoomId: NodeId)
+        (focusId: NodeId)
+        (eventId: EventId)
+        : Result<ActorStart, string> =
+        match commandOnOwnerPath graph focusId zoomId with
+        | None -> Error noRunnableCommand
+        | Some commandId ->
+            Ok
+                { zoomId = zoomId
+                  focusId = focusId
+                  commandId = commandId
+                  graphIds = IncludedDescendantIds.expand graph siteMap zoomId
+                  eventId = eventId }
 
     /// One-Node ActorStart. Client supplies unfolded Included `graphIds`.
     let oneNodeStart

@@ -1,9 +1,10 @@
 # 51 — Browser Run: Focus reply parent, Command is runnable ancestor
 
-**Status:** defined
+**Status:** coded
 **Blocked by:** None — [35b — Browser Run hello](35b-browser-run-hello.md) one-Node proof is `done`. AI Actor replace-under-Focus is delivered (llm-connector 08).
 **Type:** coding
 Estimate: 2h
+Actual: 2h
 
 ## Context
 
@@ -17,15 +18,15 @@ Architecture: [core-creation arch](../arch.md) **Browser Run** product item; [ll
 
 ### 1. Client encode
 
-1. [ ] On Run of a runnable selection path, set `focusId` from selection Focus (reply parent), not forced equal to Command.
-2. [ ] Set `commandId` from the first runnable node on owner-scan Focus → zoom root (`?` prefix **or** contains `=`; do not skip `=`).
-3. [ ] Set `zoomId` to the Included extract zoom root (existing Included descendant list at that root).
-4. [ ] Refuse or surface a clear Error when no runnable Command exists on that path.
+1. [x] On Run of a runnable selection path, set `focusId` from selection Focus (reply parent), not forced equal to Command.
+2. [x] Set `commandId` from the first runnable node on owner-scan Focus → zoom root (`?` prefix **or** contains `=`; do not skip `=`).
+3. [x] Set `zoomId` to the Included extract zoom root (existing Included descendant list at that root).
+4. [x] Refuse or surface a clear Error when no runnable Command exists on that path.
 
 ### 2. Proof
 
-1. [ ] Shared or Server fact: Graph with Command `?ai …` (or `?test hello`), Focus = child question node; start carries distinct `commandId` / `focusId`; after success, reply Owned child(ren) sit under the question Focus, and the question text remains.
-2. [ ] One-Node hello path still works when Focus is the Command node itself (TestActor / 35b shape).
+1. [x] Shared or Server fact: Graph with Command `?ai …` (or `?test hello`), Focus = child question node; start carries distinct `commandId` / `focusId`; after success, reply Owned child(ren) sit under the question Focus, and the question text remains.
+2. [x] One-Node hello path still works when Focus is the Command node itself (TestActor / 35b shape).
 
 ### 3. Non-goals
 
@@ -39,6 +40,7 @@ Architecture: [core-creation arch](../arch.md) **Browser Run** product item; [ll
 
 ## Comments
 
+- 2026-09-20 — Coded: Client Run uses [CommandRequest](../../../src/Shared/CommandRequest.fs) `tryStart`; Focus is selection, Command is first runnable owner (`?` or `=`), Zoom is Included extract root. No Command and not Amble → Run Error. One-Node hello remains when Focus is the Command. Status `coded`.
 - 2026-09-20 — Type `coding` (implementation), not Wayfinder task.
 - 2026-09-20 — Amendment: lines containing `=` are also runnable; owner-scan must not skip past them.
 - 2026-09-20 — Filed from chat: Run with Focus on `?ai cursor` and child `What time is it?` replaced the question; intent is Focus on the question so the time is a Child. plan-or-doc-change placed Focus vs Command in architecture. Status `defined`.
@@ -46,3 +48,4 @@ Architecture: [core-creation arch](../arch.md) **Browser Run** product item; [ll
 ## Time
 
 - 2026-09-20 — Ticket (from chat)
+- 2026-09-20 2h — Product Run encode and Focus vs Command proof (from chat)
