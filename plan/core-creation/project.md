@@ -7,6 +7,7 @@ Started: 2026-09-05
 Actual: 81h50m
 
 ## Notes
+- 2026-09-20 — Landed [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md) on staging (Alan accept). Status `done`.
 
 - 2026-09-20 — Alan Standards finding Divergent Change (edit commit belongs in execRunOp) for [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md): Editing commit in Client RunLaunch; CommandRequest ActorStart factory. Status stays `coded`.
 - 2026-09-20 — Re-review Spec for [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md): lastCmdResult identity abort; Shared RunEditCommit gate; same-Error proof. Status stays `coded`.
@@ -15,7 +16,7 @@ Actual: 81h50m
 - 2026-09-20 — Implemented [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md): no SubmitCommand/Amble after failed edit commit; drop live after ActorStart persist Error. Status `coded`.
 - 2026-09-20 — Filed [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md): Run must not launch after failed edit commit; no orphan live without chrome. Status `defined`.
 - 2026-09-20 — Landed [[issues/51-browser-run-focus-vs-command.md|51]] and [[issues/21-client-shows-lock-present.md|21]] live-label rework on staging (Alan accept). Status `done`.
-- [52 — Run must not launch when edit commit fails](plan/core-creation/issues/52-run-abort-when-commit-fails.md) — No SubmitCommand after failed commit; no orphan live. Status `coded`.
+- [52 — Run must not launch when edit commit fails](plan/core-creation/issues/52-run-abort-when-commit-fails.md) — No SubmitCommand after failed commit; no orphan live. Status `done`.
 - 2026-09-20 — [51 — Browser Run: Focus reply parent, Command is runnable ancestor](issues/51-browser-run-focus-vs-command.md) Status `coded`. `?` ActorStart; `=` Amble; scan-stop unchanged.
 - 2026-09-20 — [[issues/21-client-shows-lock-present.md|21]] failed review (hardcoded AI on `?test`); Status `coded`. [[issues/50-actor-live-labels-from-command.md|50]] cancelled (folded into 21).
 - 2026-09-20 — Filed [[issues/50-actor-live-labels-from-command.md|50 Actor live result labels from Command node]]: done as Wayfinder task; coding on 21 / PR #80.

@@ -1,6 +1,6 @@
 # 52 — Run must not launch when edit commit fails; no orphan live
 
-**Status:** coded
+**Status:** done
 **Type:** bug-fixing
 **Blocked by:** None — [51 — Browser Run Focus vs Command](51-browser-run-focus-vs-command.md) is `done`.
 Estimate: 2h
@@ -42,6 +42,7 @@ Alan: Run while editing showed `Run: old text does not match.` Retry after commi
 [21 — Client shows live Actor](21-client-shows-lock-present.md), [Commands.fs](../../../src/Client/Commands.fs) `execRunOp`, [CoreMailboxBackend.fs](../../../src/Server/Core/CoreMailboxBackend.fs) `dispatchStartActor`
 
 ## Comments
+- 2026-09-20 — Alan accept; squash-land onto staging. Status `done`.
 - 2026-09-20 — Re-review after same-Error abort: Spec nits only (Shared SubmitCommand proof, not POST; ActorStart factory Alan asked for). Standards live refer-by-name on ticket/project cleared (no bare list-item id). Status stays `coded`. Report: [code-review-52-rereview-same-error-abort](../reports/code-review-52-rereview-same-error-abort.md).
 
 - 2026-09-20: Re-review Spec Good; Standards hard hit was Non-goals bare `51 done` — renamed to full issue title link.
