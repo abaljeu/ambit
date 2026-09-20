@@ -5,10 +5,11 @@ Summary: Run an Agent from a Zoom-rooted mixed-format extract and replace Focus 
 Updated: 2026-09-20
 Started: 2026-09-19
 Finished: 2026-09-19
-Actual: 23h 15m
+Actual: 23h 30m
 
 ## Notes
 
+- 2026-09-20 — [16 — AiRepos from appsettings](issues/16-airepos-from-appsettings.md): `AiCommandArgs.fromText` owns `?ai` parse. Status stays `coded`. Stage stays `done`.
 - 2026-09-20 — [16 — AiRepos from appsettings](issues/16-airepos-from-appsettings.md): `complete` takes CloudAgents `StartArgs`. Status stays `coded`. Stage stays `done`.
 - 2026-09-20 — Coded [16 — AiRepos from appsettings](issues/16-airepos-from-appsettings.md): Server `AiRepos` bind/resolve; `?ai` keyname then optional reponame; no first-repo default; CloudAgents stays settings-blind. Status `coded`. Stage stays `done`.
 - 2026-09-20 — Landed [15 — AiKeys from appsettings](issues/15-aikeys-from-appsettings.md) on staging (Good): `AiKeys` bind/resolve; first entry default; `?ai` keyname; `CURSOR_API_KEY` removed. Status `done`. Stage stays `done`.

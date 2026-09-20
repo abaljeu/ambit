@@ -60,7 +60,7 @@ module RunAgentActor =
     let private commandArgs keys repos (input: ActorInput) =
         match Map.tryFind input.commandId input.graph.nodes with
         | None -> { Keyname = None; Reponame = None }
-        | Some node -> AiAskArgs.fromText keys repos node.text
+        | Some node -> AiCommandArgs.fromText keys repos node.text
 
     let private requestCancel config agentId runId =
         AgentRunner.cancel config agentId runId |> ignore
@@ -91,7 +91,7 @@ module RunAgentActor =
             return! loop ()
         }
 
-    let private toStartArgs keys repos (args: AiAskArgs) document : StartArgs =
+    let private toStartArgs keys repos (args: AiCommandArgs) document : StartArgs =
         { Config =
             { RunnerConfig.ApiKey = AiKeys.resolve keys args.Keyname }
           Prompt =
