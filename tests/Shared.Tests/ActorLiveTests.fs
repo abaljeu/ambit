@@ -5,18 +5,28 @@ open Gambol.Shared
 open Gambol.Shared.ViewModel
 open Xunit
 
-let private actorStartEvent eventId focusId : Ev =
+let private owned = ChildNode.owners
+
+let private requireOk label result =
+    match result with
+    | Ok value -> value
+    | Error err -> failwith $"{label}: {err}"
+
+let private actorStartAt eventId focusId zoomId : Ev =
     { id = eventId
       submissionId = Guid.NewGuid()
       authority = Authority "Browser"
       commandName = "Start"
       body =
         EventBody.ActorStart
-            { zoomId = focusId
+            { zoomId = zoomId
               focusId = focusId
               commandId = NodeId.New()
               graphIds = [ focusId ]
               eventId = eventId } }
+
+let private actorStartEvent eventId focusId : Ev =
+    actorStartAt eventId focusId focusId
 
 let private actorStopEvent eventId focusId result : Ev =
     { id = eventId
@@ -51,19 +61,19 @@ let ``command response ActorStart is live after applyServerTail`` () =
     | Ok after ->
         Assert.True(Set.contains focusId after.actorLiveFocusIds)
         Assert.Equal(
-            Some (CmdLastResult.Detail (Some "Run", "AI started.")),
-            ActorLive.lastCmdResult [ started ])
+            Some (CmdLastResult.Detail (Some "Run", "Actor started.")),
+            ActorLive.lastCmdResult (Graph.create ()) focusId [ started ])
 
 [<Fact>]
-let ``ActorStop ActorFailed sets AI Actor failed lastCmdResult`` () =
+let ``ActorStop without Command uses generic lastCmdResult`` () =
     let focusId = NodeId.New()
     let events =
         [ actorStartEvent (EventIdFixtures.storedId 1) focusId
           actorStopEvent
             (EventIdFixtures.storedId 2) focusId (ActorFailed "") ]
     Assert.Equal(
-        Some (CmdLastResult.Error (Some "AI", "Actor failed.")),
-        ActorLive.lastCmdResult events)
+        Some (CmdLastResult.Error (None, "Actor failed.")),
+        ActorLive.lastCmdResult (Graph.create ()) focusId events)
     let named =
         [ actorStopEvent
             (EventIdFixtures.storedId 5)
@@ -73,25 +83,25 @@ let ``ActorStop ActorFailed sets AI Actor failed lastCmdResult`` () =
     Assert.Equal(
         Some (
             CmdLastResult.Error (
-                Some "AI",
+                None,
                 "Could not send message to Cursor: unauthorized")),
-        ActorLive.lastCmdResult named)
+        ActorLive.lastCmdResult (Graph.create ()) focusId named)
     let succeeded =
         [ actorStopEvent
             (EventIdFixtures.storedId 3) focusId ActorSucceeded ]
     Assert.Equal(
-        Some (CmdLastResult.Detail (Some "AI", "Actor succeeded.")),
-        ActorLive.lastCmdResult succeeded)
+        Some (CmdLastResult.Detail (None, "Actor succeeded.")),
+        ActorLive.lastCmdResult (Graph.create ()) focusId succeeded)
     let cancelled =
         [ actorStopEvent
             (EventIdFixtures.storedId 4) focusId ActorCancelled ]
     Assert.Equal(
-        Some (CmdLastResult.Error (Some "AI", "Actor cancelled.")),
-        ActorLive.lastCmdResult cancelled)
+        Some (CmdLastResult.Error (None, "Actor cancelled.")),
+        ActorLive.lastCmdResult (Graph.create ()) focusId cancelled)
     Assert.Equal(
-        "Run: AI started.",
+        "Run: Actor started.",
         CmdLastResult.toDisplay
-            (CmdLastResult.Detail (Some "Run", "AI started.")))
+            (CmdLastResult.Detail (Some "Run", "Actor started.")))
 
 [<Fact>]
 let ``cancelEffect sends SubmitCancel only while the Focus is live`` () =
@@ -116,3 +126,114 @@ let ``focusIdsFromLockPresent reads GetState overlay`` () =
     Assert.True(
         Set.contains focusId (ActorLive.focusIdsFromLockPresent graph))
     Assert.True(Set.isEmpty (ActorLive.focusIdsFromLockPresent graph0))
+
+let private graphWithCommand (commandText: string) : Graph * NodeId =
+    let g0 = Graph.create ()
+    let g1, ids = ModelBuilder.createNodes [ commandText ] g0
+    let commandId = ids.[0]
+    let graph =
+        Graph.replace g1.root 0 [] (owned [ commandId ]) g1
+        |> requireOk "graphWithCommand.root"
+    graph, commandId
+
+let private graphWithCommandChild
+    (commandText: string)
+    (childText: string)
+    : Graph * NodeId * NodeId =
+    let g0 = Graph.create ()
+    let g1, commandIds = ModelBuilder.createNodes [ commandText ] g0
+    let commandId = commandIds.[0]
+    let g2, childIds = ModelBuilder.createNodes [ childText ] g1
+    let childId = childIds.[0]
+    let g3 =
+        Graph.replace g2.root 0 [] (owned [ commandId ]) g2
+        |> requireOk "graphWithCommandChild.root"
+    let graph =
+        Graph.replace commandId 0 [] (owned [ childId ]) g3
+        |> requireOk "graphWithCommandChild.command"
+    graph, commandId, childId
+
+[<Fact>]
+let ``?test start and stop use TitleCase Test not AI`` () =
+    let graph, commandId = graphWithCommand "?test hello"
+    let started =
+        actorStartAt (EventIdFixtures.storedId 1) commandId commandId
+    let startResult =
+        ActorLive.lastCmdResult graph commandId [ started ]
+    Assert.Equal(
+        Some (CmdLastResult.Detail (Some "Run", "Test started.")),
+        startResult)
+    Assert.Equal(
+        "Run: Test started.",
+        CmdLastResult.toDisplay
+            (CmdLastResult.Detail (Some "Run", "Test started.")))
+    let stopped =
+        actorStopEvent
+            (EventIdFixtures.storedId 2) commandId ActorSucceeded
+    Assert.Equal(
+        Some (CmdLastResult.Detail (Some "Test", "Actor succeeded.")),
+        ActorLive.lastCmdResult graph commandId [ stopped ])
+    let failed =
+        actorStopEvent
+            (EventIdFixtures.storedId 3) commandId (ActorFailed "")
+    Assert.Equal(
+        Some (CmdLastResult.Error (Some "Test", "Actor failed.")),
+        ActorLive.lastCmdResult graph commandId [ failed ])
+    let cancelled =
+        actorStopEvent
+            (EventIdFixtures.storedId 4) commandId ActorCancelled
+    Assert.Equal(
+        Some (CmdLastResult.Error (Some "Test", "Actor cancelled.")),
+        ActorLive.lastCmdResult graph commandId [ cancelled ])
+
+[<Fact>]
+let ``?test ancestor Command labels Focus child start and stop`` () =
+    let graph, commandId, childId =
+        graphWithCommandChild "?test hello" "note"
+    let started =
+        actorStartAt (EventIdFixtures.storedId 7) childId commandId
+    Assert.Equal(
+        Some (CmdLastResult.Detail (Some "Run", "Test started.")),
+        ActorLive.lastCmdResult graph commandId [ started ])
+    let stopped =
+        actorStopEvent
+            (EventIdFixtures.storedId 8) childId ActorSucceeded
+    Assert.Equal(
+        Some (CmdLastResult.Detail (Some "Test", "Actor succeeded.")),
+        ActorLive.lastCmdResult graph commandId [ stopped ])
+
+[<Fact>]
+let ``?ai start and stop use TitleCase Ai not hardcoded AI`` () =
+    let graph, commandId = graphWithCommand "?ai later"
+    let started =
+        actorStartAt (EventIdFixtures.storedId 9) commandId commandId
+    Assert.Equal(
+        Some (CmdLastResult.Detail (Some "Run", "Ai started.")),
+        ActorLive.lastCmdResult graph commandId [ started ])
+    let stopped =
+        actorStopEvent
+            (EventIdFixtures.storedId 10) commandId ActorSucceeded
+    Assert.Equal(
+        Some (CmdLastResult.Detail (Some "Ai", "Actor succeeded.")),
+        ActorLive.lastCmdResult graph commandId [ stopped ])
+
+[<Fact>]
+let ``no Command on owner path uses generic wording not AI`` () =
+    let graph, nodeId = graphWithCommand "hello"
+    let started =
+        actorStartAt (EventIdFixtures.storedId 11) nodeId nodeId
+    Assert.Equal(
+        Some (CmdLastResult.Detail (Some "Run", "Actor started.")),
+        ActorLive.lastCmdResult graph nodeId [ started ])
+    let stopped =
+        actorStopEvent
+            (EventIdFixtures.storedId 12) nodeId ActorSucceeded
+    Assert.Equal(
+        Some (CmdLastResult.Detail (None, "Actor succeeded.")),
+        ActorLive.lastCmdResult graph nodeId [ stopped ])
+    let failed =
+        actorStopEvent
+            (EventIdFixtures.storedId 13) nodeId (ActorFailed "")
+    Assert.Equal(
+        Some (CmdLastResult.Error (None, "Actor failed.")),
+        ActorLive.lastCmdResult graph nodeId [ failed ])

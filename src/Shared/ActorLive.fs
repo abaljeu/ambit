@@ -1,5 +1,6 @@
 namespace Gambol.Shared
 
+open System
 open Gambol.Shared.ViewModel
 
 /// Browser graph, EventId, and ClientHistory used by local and remote apply.
@@ -60,23 +61,81 @@ module ActorLive =
           projectedHistory = state.history
           projectedLiveFocusIds = state.actorLiveFocusIds }
 
-    let private actorCmd = Some "AI"
-
     let private failedText message =
         if message = "" then "Actor failed." else message
 
-    let lastCmdResult (events: Ev list) : CmdLastResult option =
+    let private titleCaseName (token: string) =
+        if token = "" then token
+        else
+            string (Char.ToUpperInvariant token[0])
+            + token.Substring(1)
+
+    /// First `?` Command text from Focus up the owner path to zoom.
+    let private commandTextOnPath
+        (graph: Graph)
+        (focusId: NodeId)
+        (zoomRoot: NodeId)
+        : string option =
+        let atBoundOrCommand (node: Node) =
+            CommandRequest.isCommandText node.text
+            || node.id = zoomRoot
+        GraphQuery.enclosing graph atBoundOrCommand focusId
+        |> Option.bind (fun id -> Map.tryFind id graph.nodes)
+        |> Option.bind (fun node ->
+            if CommandRequest.isCommandText node.text then
+                Some node.text
+            else
+                None)
+
+    let private displayLabel
+        (graph: Graph)
+        (focusId: NodeId)
+        (zoomRoot: NodeId)
+        : string option =
+        commandTextOnPath graph focusId zoomRoot
+        |> Option.bind CommandRequest.actorNameFromText
+        |> Option.map titleCaseName
+
+    let private startResult
+        (graph: Graph)
+        (focusId: NodeId)
+        (zoomRoot: NodeId)
+        : CmdLastResult =
+        let label =
+            displayLabel graph focusId zoomRoot
+            |> Option.defaultValue "Actor"
+        CmdLastResult.Detail (Some "Run", $"{label} started.")
+
+    let private resultOf
+        (graph: Graph)
+        (zoomRoot: NodeId)
+        (event: Ev)
+        : CmdLastResult option =
+        match event.body with
+        | EventBody.ActorStart start ->
+            Some (startResult graph start.focusId start.zoomId)
+        | EventBody.ActorStop(focusId, result) ->
+            let chip = displayLabel graph focusId zoomRoot
+            match result with
+            | ActorSucceeded ->
+                Some (CmdLastResult.Detail (chip, "Actor succeeded."))
+            | ActorFailed message ->
+                Some (CmdLastResult.Error (chip, failedText message))
+            | ActorCancelled ->
+                Some (CmdLastResult.Error (chip, "Actor cancelled."))
+        | EventBody.Change _
+        | EventBody.Undo _
+        | EventBody.Redo _ -> None
+
+    let lastCmdResult
+        (graph: Graph)
+        (zoomRoot: NodeId)
+        (events: Ev list)
+        : CmdLastResult option =
         events
         |> List.fold
             (fun acc event ->
-                match event.body with
-                | EventBody.ActorStart _ ->
-                    Some (CmdLastResult.Detail (Some "Run", "AI started."))
-                | EventBody.ActorStop (_, ActorSucceeded) ->
-                    Some (CmdLastResult.Detail (actorCmd, "Actor succeeded."))
-                | EventBody.ActorStop (_, ActorFailed message) ->
-                    Some (CmdLastResult.Error (actorCmd, failedText message))
-                | EventBody.ActorStop (_, ActorCancelled) ->
-                    Some (CmdLastResult.Error (actorCmd, "Actor cancelled."))
-                | _ -> acc)
+                match resultOf graph zoomRoot event with
+                | Some result -> Some result
+                | None -> acc)
             None
