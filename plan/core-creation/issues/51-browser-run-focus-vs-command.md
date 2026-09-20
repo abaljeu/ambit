@@ -1,4 +1,4 @@
-# 51 — Browser Run: Focus reply parent, Command is `?` ancestor
+# 51 — Browser Run: Focus reply parent, Command is runnable ancestor
 
 **Status:** defined
 **Blocked by:** None — [35b — Browser Run hello](35b-browser-run-hello.md) one-Node proof is `done`. AI Actor replace-under-Focus is delivered (llm-connector 08).
@@ -9,18 +9,18 @@ Estimate: 2h
 
 llm-connector locks **Focus** as the reply parent (Children replace/stream boundary). Hello/TestActor proof used **one-Node** Run: current Node is Command, Zoom, and Focus together. That is wrong for product AI: if Focus is the `?ai …` Command and the question is a Child, complete replace wipes the question.
 
-**Intent (locked):** Focus = question (e.g. `What time is it?`); Command = owner-ancestor whose text starts with `?` (e.g. `?ai cursor`); reply becomes a **Child of Focus**. Zoom root remains the Included extract root (may equal Command or an ancestor).
+**Intent (locked):** Focus = question (e.g. `What time is it?`); Command = nearest runnable owner-ancestor (text starts with `?` **or** contains `=`, e.g. `?ai cursor`); reply becomes a **Child of Focus**. Zoom root remains the Included extract root (may equal Command or an ancestor). Scan stops at the first runnable node — do not skip `=` lines looking for a `?` above.
 
-Architecture: [core-creation arch](../arch.md) **Browser Run** product item; [llm-connector arch](../../llm-connector/arch.md) **Focus vs Command on Run**. Command find rule matches **Actor live labels** (owner-scan Focus → zoom root for text starting with `?`).
+Architecture: [core-creation arch](../arch.md) **Browser Run** product item; [llm-connector arch](../../llm-connector/arch.md) **Focus vs Command on Run**. Runnable = text starts with `?` or contains `=`.
 
 ## What to build
 
 ### 1. Client encode
 
-1. [ ] On `?` Run, set `focusId` from selection Focus (reply parent), not forced equal to Command.
-2. [ ] Set `commandId` from the Command node found by owner-scan Focus → zoom root for text starting with `?`.
+1. [ ] On Run of a runnable selection path, set `focusId` from selection Focus (reply parent), not forced equal to Command.
+2. [ ] Set `commandId` from the first runnable node on owner-scan Focus → zoom root (`?` prefix **or** contains `=`; do not skip `=`).
 3. [ ] Set `zoomId` to the Included extract zoom root (existing Included descendant list at that root).
-4. [ ] Refuse or surface a clear Error when no `?` Command exists on that path.
+4. [ ] Refuse or surface a clear Error when no runnable Command exists on that path.
 
 ### 2. Proof
 
@@ -39,6 +39,7 @@ Architecture: [core-creation arch](../arch.md) **Browser Run** product item; [ll
 
 ## Comments
 
+- 2026-09-20 — Amendment: lines containing `=` are also runnable; owner-scan must not skip past them.
 - 2026-09-20 — Filed from chat: Run with Focus on `?ai cursor` and child `What time is it?` replaced the question; intent is Focus on the question so the time is a Child. plan-or-doc-change placed Focus vs Command in architecture. Status `defined`.
 
 ## Time

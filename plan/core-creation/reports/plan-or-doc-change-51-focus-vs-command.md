@@ -42,3 +42,7 @@ Architecture gained one Locked clause and one Browser Run product item. Hello pa
 ## 7. Outcome
 
 Edited architecture (both Projects) and filed ticket 51. Code untouched.
+
+## 8. Amendment 2026-09-20
+
+Alan: lines containing `=` are also runnable; do not skip past those on the Focus → zoom owner-scan. Architecture and ticket 51 updated: runnable = starts with `?` **or** contains `=`; scan stops at the first.
