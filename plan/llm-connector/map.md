@@ -41,7 +41,7 @@ Run an Agent from a Zoom-rooted mixed-format Graph extract, mark Focus in the ou
 
 ## Not yet specified
 
-None for the first Agent vertical. Stream follow-ups are [17](issues/17-cloudagents-console-stream.md) / [18](issues/18-ai-actor-stream.md) under Implementation. Mixed-format owning-codec pack stays tabled under Decisions. Live-Actor chrome is owned by core-creation, not this map. Mixed-format owning-codec pack stays tabled under Decisions. Live-Actor chrome is owned by core-creation, not this map.
+None for the first Agent vertical. Stream follow-ups are [17](issues/17-cloudagents-console-stream.md) / [18](issues/18-ai-actor-stream.md) under Implementation. Mixed-format owning-codec pack stays tabled under Decisions. Live-Actor chrome is owned by core-creation, not this map.
 
 ## Out of scope
 
