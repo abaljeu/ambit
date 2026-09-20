@@ -29,12 +29,16 @@ let private applyRunPlan
 
 /// Search and materialise. Caller Deletes existing Children first when needed.
 let runAmbleOp (model: VM) : VM * Effect list =
-    let committed, commitEffects = commitIfEditing model
-    match committed.selectedNodes with
-    | None -> committed, commitEffects
-    | Some sel ->
-        let focusId = focusedNodeId committed.graph sel
-        match AmbleRun.runPlanOnNode focusId committed.graph with
-        | Error _ -> committed, commitEffects
-        | Ok plan ->
-            applyRunPlan (focusedInstanceId sel) plan commitEffects committed
+    let committed, commitEffects, mayLaunch = commitIfEditingForRun model
+    if not mayLaunch then
+        committed, commitEffects
+    else
+        match committed.selectedNodes with
+        | None -> committed, commitEffects
+        | Some sel ->
+            let focusId = focusedNodeId committed.graph sel
+            match AmbleRun.runPlanOnNode focusId committed.graph with
+            | Error _ -> committed, commitEffects
+            | Ok plan ->
+                applyRunPlan
+                    (focusedInstanceId sel) plan commitEffects committed

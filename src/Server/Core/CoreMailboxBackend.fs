@@ -177,7 +177,9 @@ module internal CoreMailboxBackend =
                             caller
                             request
                     with
-                    | Error err -> reply.Reply(Error err)
+                    | Error err ->
+                        context.pool.drop secret
+                        reply.Reply(Error err)
                     | Ok () ->
                         context.pool.schedule secret (make caller)
                         reply.Reply(Ok ())

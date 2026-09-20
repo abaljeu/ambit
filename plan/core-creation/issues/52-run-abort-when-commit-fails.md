@@ -1,9 +1,10 @@
 # 52 — Run must not launch when edit commit fails; no orphan live
 
-**Status:** defined
+**Status:** coded
 **Type:** bug-fixing
 **Blocked by:** None — [51 — Browser Run Focus vs Command](51-browser-run-focus-vs-command.md) is `done`.
 Estimate: 2h
+Actual: 2h
 
 ## Context
 
@@ -21,14 +22,14 @@ Alan: Run while editing showed `Run: old text does not match.` Retry after commi
 
 ### 1. Client Run
 
-1. [ ] If `commitIfEditing` was required (mode was Editing) and commit failed (error result / no successful text apply when text needed commit), **do not** `SubmitCommand` / Amble Run. Keep the commit error visible.
-2. [ ] Proof: Run while Editing with a SetText that fails CAS does not POST `/command`.
+1. [x] If `commitIfEditing` was required (mode was Editing) and commit failed (error result / no successful text apply when text needed commit), **do not** `SubmitCommand` / Amble Run. Keep the commit error visible.
+2. [x] Proof: Run while Editing with a SetText that fails CAS does not POST `/command`.
 
 ### 2. Server start
 
-1. [ ] If `putLive` succeeds and durable `ActorStart` (or schedule) fails, **drop** the live row (same as failed start — no live Focus). Reply Error.
-2. [ ] Prefer: do not putLive until ActorStart Event is durable, or transactional admit — whichever matches existing mailbox style with least risk.
-3. [ ] Proof: forced ActorStart Event failure leaves Focus out of `liveFocusIds`.
+1. [x] If `putLive` succeeds and durable `ActorStart` (or schedule) fails, **drop** the live row (same as failed start — no live Focus). Reply Error.
+2. [x] Prefer: do not putLive until ActorStart Event is durable, or transactional admit — whichever matches existing mailbox style with least risk.
+3. [x] Proof: forced ActorStart Event failure leaves Focus out of `liveFocusIds`.
 
 ### 3. Non-goals
 
@@ -43,7 +44,10 @@ Alan: Run while editing showed `Run: old text does not match.` Retry after commi
 ## Comments
 
 - 2026-09-20 — Filed from chat repro: Run while editing → old text; retry → live without chrome. Status `defined`.
+- 2026-09-20 — Implement: abort Run after failed edit commit; drop live row when ActorStart persist fails. Status `coded`.
+- 2026-09-20 — Server keeps mailbox order live row then ActorStart Ev; persist Error drops the live row. Did not putLive after Event.
 
 ## Time
 
 - 2026-09-20 — Ticket (from chat)
+- 2026-09-20 2h — Client abort + Server drop + proofs (from chat)

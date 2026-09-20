@@ -222,3 +222,38 @@ let ``Focus under count equals takes Amble path not ActorStart`` () =
             graph siteMap zoomId focusId EventId.zero with
     | Ok _ -> failwith "equals ancestor must not ActorStart"
     | Error _ -> ()
+
+[<Fact>]
+let ``failed Editing SetText CAS does not SubmitCommand`` () =
+    let graph, siteMap, ids =
+        ownerChain [ "?test hello" ]
+    let focusId = ids.[0]
+    match
+        GraphMutate.setText focusId "old" "?test hello X" graph with
+    | Ok _ -> failwith "expected old text does not match"
+    | Error msg ->
+        Assert.Equal("old text does not match", msg)
+        let after = Some (CmdLastResult.Error (None, msg))
+        let mayLaunch =
+            CommandRequest.mayLaunchAfterEditCommit true None after
+        Assert.False(mayLaunch)
+        match
+            CommandRequest.tryStart
+                graph siteMap focusId focusId EventId.zero with
+        | Error err -> failwith err
+        | Ok request ->
+            Assert.Empty(
+                CommandRequest.commandSubmitEffects mayLaunch (Ok request))
+
+[<Fact>]
+let ``Selecting may launch after a stale Error`` () =
+    let after =
+        Some (CmdLastResult.Error (None, "old text does not match"))
+    Assert.True(
+        CommandRequest.mayLaunchAfterEditCommit false None after)
+
+[<Fact>]
+let ``successful Editing commit may SubmitCommand`` () =
+    Assert.True(
+        CommandRequest.mayLaunchAfterEditCommit
+            true None (Some (CmdLastResult.Ok (Some "Edit node"))))

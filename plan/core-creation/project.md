@@ -4,13 +4,14 @@ Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
 Updated: 2026-09-20
 Started: 2026-09-05
-Actual: 76h35m
+Actual: 78h35m
 
 ## Notes
 
-- 2026-09-20 — Filed [[issues/52-run-abort-when-commit-fails.md|52]]: Run must not launch after failed edit commit; no orphan live without chrome. Status `defined`.
+- 2026-09-20 — Implemented [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md): no SubmitCommand/Amble after failed edit commit; drop live after ActorStart persist Error. Status `coded`.
+- 2026-09-20 — Filed [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md): Run must not launch after failed edit commit; no orphan live without chrome. Status `defined`.
 - 2026-09-20 — Landed [[issues/51-browser-run-focus-vs-command.md|51]] and [[issues/21-client-shows-lock-present.md|21]] live-label rework on staging (Alan accept). Status `done`.
-- [52 — Run must not launch when edit commit fails](plan/core-creation/issues/52-run-abort-when-commit-fails.md) — No SubmitCommand after failed commit; no orphan live. Status `defined`.
+- [52 — Run must not launch when edit commit fails](plan/core-creation/issues/52-run-abort-when-commit-fails.md) — No SubmitCommand after failed commit; no orphan live. Status `coded`.
 - 2026-09-20 — [51 — Browser Run: Focus reply parent, Command is runnable ancestor](issues/51-browser-run-focus-vs-command.md) Status `coded`. `?` ActorStart; `=` Amble; scan-stop unchanged.
 - 2026-09-20 — [[issues/21-client-shows-lock-present.md|21]] failed review (hardcoded AI on `?test`); Status `coded`. [[issues/50-actor-live-labels-from-command.md|50]] cancelled (folded into 21).
 - 2026-09-20 — Filed [[issues/50-actor-live-labels-from-command.md|50 Actor live result labels from Command node]]: done as Wayfinder task; coding on 21 / PR #80.

@@ -134,3 +134,23 @@ module CommandRequest =
           commandId = nodeId
           graphIds = IncludedDescendantIds.expand graph siteMap nodeId
           eventId = eventId }
+
+    /// Editing commit wrote a new Error: do not ActorStart or Amble.
+    let mayLaunchAfterEditCommit
+        (wasEditing: bool)
+        (before: CmdLastResult option)
+        (after: CmdLastResult option)
+        : bool =
+        match wasEditing, after with
+        | true, Some (CmdLastResult.Error _) when after <> before ->
+            false
+        | _ -> true
+
+    /// SubmitCommand only when launch after edit commit is allowed.
+    let commandSubmitEffects
+        (mayLaunch: bool)
+        (request: Result<ActorStart, string>)
+        : Effect list =
+        match mayLaunch, request with
+        | true, Ok req -> [ SubmitCommand req ]
+        | _ -> []

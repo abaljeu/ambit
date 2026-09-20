@@ -366,6 +366,19 @@ let commitIfEditing (model: VM) : VM * Effect list =
         commitTextEdit editingId originalText (readEditInputValue ()) model
     | _ -> model, []
 
+/// Commit when Editing. Third value is false when that commit failed.
+let commitIfEditingForRun (model: VM) : VM * Effect list * bool =
+    let wasEditing =
+        match model.mode with
+        | Editing _ -> true
+        | _ -> false
+    let before = model.lastCmdResult
+    let committed, effects = commitIfEditing model
+    let mayLaunch =
+        CommandRequest.mayLaunchAfterEditCommit
+            wasEditing before committed.lastCmdResult
+    committed, effects, mayLaunch
+
 /// Rebuild the site map after a graph mutation, preserving fold states.
 /// Normalizes zoomRoot against the current Graph first (stale Zoom after
 /// cache replay or remote delete). When Zoom falls back, rebuilds SiteMap
