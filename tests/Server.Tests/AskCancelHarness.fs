@@ -51,11 +51,11 @@ let private actorStops host focusId =
                 | _ -> None)
     }
 
-let private createHost keys =
+let private createHost keys repos =
     let dataDir = newTempDir ()
     let pool = CoreActorPool.create ()
     pool.register (ActorName "test") TestActor.actorFn
-    pool.register (ActorName "ai") (RunAgentActor.actorFn keys)
+    pool.register (ActorName "ai") (RunAgentActor.actorFn keys repos)
     let host =
         CoreMailbox.host
             pool
@@ -140,14 +140,16 @@ let fakeReply text =
 
 let fakeFailed message = Failed message
 
-let withHostKeys keys body =
+let withHostKeysRepos keys repos body =
     task {
-        let host, pool = createHost keys
+        let host, pool = createHost keys repos
         try
             do! body host pool
         finally
             CoreMailbox.dispose host
     }
+
+let withHostKeys keys body = withHostKeysRepos keys [] body
 
 let withHost body = withHostKeys [] body
 

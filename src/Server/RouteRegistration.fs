@@ -31,7 +31,8 @@ module RouteRegistration =
                     [ ActorName "test", TestActor.actorFn
                       ActorName "ai",
                         RunAgentActor.actorFn
-                            (AiKeys.fromConfig this.Config) ]
+                            (AiKeys.fromConfig this.Config)
+                            (AiRepos.fromConfig this.Config) ]
             }
 
     let private errorTemplate (message: string) =

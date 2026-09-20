@@ -39,13 +39,14 @@ module AiKeys =
             |> Option.map (fun key -> key.ApiKey)
             |> Option.defaultValue ""
 
-    let keynameFromText (text: string) : string option =
+    let tokensFromText (text: string) : string list =
         match CommandRequest.behaviorFromText text with
-        | "" -> None
+        | "" -> []
         | rest ->
-            let space = rest.IndexOf(' ')
-            let token =
-                if space < 0 then rest
-                else rest.Substring(0, space)
-            if token = "" then None
-            else Some token
+            rest.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            |> Array.toList
+
+    let keynameFromText (text: string) : string option =
+        match tokensFromText text with
+        | [] -> None
+        | token :: _ -> Some token

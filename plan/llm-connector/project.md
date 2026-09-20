@@ -5,10 +5,11 @@ Summary: Run an Agent from a Zoom-rooted mixed-format extract and replace Focus 
 Updated: 2026-09-20
 Started: 2026-09-19
 Finished: 2026-09-19
-Actual: 21h
+Actual: 23h
 
 ## Notes
 
+- 2026-09-20 — Coded [16 — AiRepos from appsettings](issues/16-airepos-from-appsettings.md): Server `AiRepos` bind/resolve; `?ai` keyname then optional reponame; no first-repo default; CloudAgents stays settings-blind. Status `coded`. Stage stays `done`.
 - 2026-09-20 — Landed [15 — AiKeys from appsettings](issues/15-aikeys-from-appsettings.md) on staging (Good): `AiKeys` bind/resolve; first entry default; `?ai` keyname; `CURSOR_API_KEY` removed. Status `done`. Stage stays `done`.
 - 2026-09-19 — Coded [14 — Provider-named AI errors](issues/14-provider-named-ai-errors.md): `ActorFailed of string`; Cursor-named auth message; Client Error labeled AI. Status `done`. Stage stays `done`.
 - 2026-09-19 — Filed [14 — Provider-named AI errors](issues/14-provider-named-ai-errors.md) as a follow-up on the done first Agent vertical (Stage stays `done`). Chrome tickets already convey stop results; this ticket names the provider on auth/start failure.
@@ -41,6 +42,7 @@ Actual: 21h
 
 ## Implementation tickets
 
+- [16 — AiRepos from appsettings](issues/16-airepos-from-appsettings.md) — Status `coded`. Follow-up: Server `AiRepos` from appsettings → `AgentRunner.start` repos; no first-repo default.
 - [15 — AiKeys from appsettings](issues/15-aikeys-from-appsettings.md) — Status `done`. Follow-up: Server `AiKeys` from appsettings → `RunnerConfig.ApiKey`; remove `CURSOR_API_KEY` from Run Agent Actor.
 - [14 — Provider-named AI errors](issues/14-provider-named-ai-errors.md) — Status `done`. Follow-up: CloudAgents + Actor emit a safe provider-named auth message; Client shows it as Error labeled AI.
 - [13 — Vertical proof: Browser Ask from what I see](issues/13-vertical-proof-browser-ask.md) — Status `done`.
