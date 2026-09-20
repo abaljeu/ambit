@@ -42,7 +42,7 @@ Alan: Run while editing showed `Run: old text does not match.` Retry after commi
 [21 — Client shows live Actor](21-client-shows-lock-present.md), [Commands.fs](../../../src/Client/Commands.fs) `execRunOp`, [CoreMailboxBackend.fs](../../../src/Server/Core/CoreMailboxBackend.fs) `dispatchStartActor`
 
 ## Comments
-- 2026-09-20 — Re-review after same-Error abort: Spec nits only (Shared SubmitCommand proof, not POST; ActorStart factory Alan asked for). Standards live refer-by-name on ticket/project cleared (no bare item 9). Status stays `coded`. Report: [code-review-52-rereview-same-error-abort](../reports/code-review-52-rereview-same-error-abort.md).
+- 2026-09-20 — Re-review after same-Error abort: Spec nits only (Shared SubmitCommand proof, not POST; ActorStart factory Alan asked for). Standards live refer-by-name on ticket/project cleared (no bare list-item id). Status stays `coded`. Report: [code-review-52-rereview-same-error-abort](../reports/code-review-52-rereview-same-error-abort.md).
 
 - 2026-09-20: Re-review Spec Good; Standards hard hit was Non-goals bare `51 done` — renamed to full issue title link.
 - 2026-09-20 — Filed from chat repro: Run while editing → old text; retry → live without chrome. Status `defined`.
