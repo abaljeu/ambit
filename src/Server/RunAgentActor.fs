@@ -57,11 +57,13 @@ module RunAgentActor =
             extract
             input.zoomId
 
-    let private runnerConfig () =
-        match Environment.GetEnvironmentVariable "CURSOR_API_KEY" with
-        | null
-        | "" -> { RunnerConfig.ApiKey = "" }
-        | value -> { RunnerConfig.ApiKey = value }
+    let private commandKeyname (input: ActorInput) =
+        match Map.tryFind input.commandId input.graph.nodes with
+        | None -> None
+        | Some node -> AiKeys.keynameFromText node.text
+
+    let private apiKeyFor keys (input: ActorInput) =
+        AiKeys.resolve keys (commandKeyname input)
 
     let private requestCancel config agentId runId =
         AgentRunner.cancel config agentId runId |> ignore
@@ -92,9 +94,9 @@ module RunAgentActor =
             return! loop ()
         }
 
-    let private complete (document: string) =
+    let private complete apiKey (document: string) =
         async {
-            let config = runnerConfig ()
+            let config = { RunnerConfig.ApiKey = apiKey }
             let prompt =
                 systemPrompt
                 + Environment.NewLine
@@ -150,12 +152,12 @@ module RunAgentActor =
             return FocusChildrenReplace.plan graph input.focusId text
         }
 
-    let private runBody (input: ActorInput) coreChanges =
+    let private runBody keys (input: ActorInput) coreChanges =
         async {
             match packExtract input with
             | Error _ -> return ActorFailed ""
             | Ok document ->
-                match! complete document with
+                match! complete (apiKeyFor keys input) document with
                 | CompleteCancelled -> return ActorCancelled
                 | CompleteFailed msg -> return ActorFailed msg
                 | TextReady text ->
@@ -168,9 +170,9 @@ module RunAgentActor =
         }
 
     /// ActorFn for Actor name `ai`. Selection is CoreActorPool's job.
-    let actorFn: ActorFn =
+    let actorFn (keys: AiKey list) : ActorFn =
         fun input coreChanges ->
             async {
-                let! result = runBody input coreChanges
+                let! result = runBody keys input coreChanges
                 do! stop input coreChanges result
             }

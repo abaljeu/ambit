@@ -1,7 +1,7 @@
 # llm-connector architecture
 
 Spec: [[spec.md]]
-Updated: 2026-09-19
+Updated: 2026-09-20
 Sequence: tracer-cut
 
 Sources: [[issues/06-define-command-run-agent-redesign.md|06 — Define the revised Command + Run Agent seam]], [[issues/07-lock-run-agent-architecture.md|07 — Lock the Run Agent architecture]], [[plan/core-creation/arch.md|Core creation architecture]] (hello lifecycle already delivered). Checklist: `[x]` delivered; `[ ]` still to build for this Project.
@@ -19,7 +19,7 @@ Sources: [[issues/06-define-command-run-agent-redesign.md|06 — Define the revi
 2. **Agent ask from what I see**
    1. [x] Browser names Command Node; typed launch membership (Zoom, Focus, Command, included ids, event id)
    2. [x] Core validates Browser Authority (hello path)
-   3. [x] Resolve ActorName from Agent Command text (`?ai` + args); construct authoritative extract; Focus exclusivity admit
+   3. [x] Resolve ActorName from Agent Command text (`?ai` + optional keyname); construct authoritative extract; Focus exclusivity admit
    4. [x] Register Run Agent Actor, append ActorStarted, schedule body
    5. [x] Run Agent Actor → Document Amb extract-walk serialize (Focus on extract Graph)
    6. [x] Run Agent Actor → CloudAgents complete (system prompt + document + cancel token)
@@ -115,6 +115,7 @@ Narrowest shared test seam:
       1. [x] Orchestrate Document Amb extract-walk serialize → CloudAgents complete → Document inject → Core Change
       2. [x] On cancel token: request CloudAgents cancel and stop
       3. [x] Never turn pack or provider errors into a second Agent call; never write raw provider text as Graph Error
+      4. [x] Use injected `AiKeys` for `RunnerConfig.ApiKey` (not environment; CloudAgents stays settings-blind)
    3. Uses
       1. [x] Document Amb extract-walk serialize / Reference-Paste inject
       2. [x] CloudAgents
@@ -177,7 +178,7 @@ Narrowest shared test seam:
 
 ## 5. Locked during arch (2026-09-19)
 
-1. **Agent Command spelling** — `?ai` plus optional args. That text invokes the Run Agent Actor. Args are ignored for now (reserved).
+1. **Agent Command spelling** — `?ai` plus optional keyname then unused extra args. That text invokes the Run Agent Actor. Keyname selects an `AiKeys` entry (`Name` + `ApiKey` in Server `appsettings*.json`). Omitted keyname uses the first entry. Missing or empty `ApiKey` stays the provider-named missing-key path. Extra args stay unused.
 2. **Vertical proof timing** — Define the full Browser → Run Agent → Focus-children proof after the first CloudAgents / Run Agent implement tickets are `defined` (not now; not inside the first end-to-end ticket alone). Filed as [[issues/13-vertical-proof-browser-ask.md|13 — Vertical proof: Browser Ask from what I see]] once 08–11 were `done`.
 3. **Focus on extract Graph** — Extract-pack Focus is `Graph.focus` on the extract copy (`withFocus`). The Amb pack string has no Focus sentinel. Mixed-format sentinel spelling stays tabled with owning-codec serialize.
 4. **First pack is Amb extract-walk** — Reuse `AmbDocument`. One write option walks the supplied Zoom extract (Owned and Ref into present Nodes; no file persist; no owning-document partition). Parse stays default Amb. Mixed-format owning-codec and Md extract write stay tabled. Existing Md artifact write does not change.

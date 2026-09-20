@@ -55,3 +55,29 @@ type AgentAuthErrorTests() =
                                     Some "AI", named)),
                             ActorLive.lastCmdResult [ event ])
                 }))
+
+    [<Fact>]
+    member _.``empty AiKeys names Cursor missing key on ActorStop``() =
+        Assert.True(AgentRunner.setFake None)
+        let named =
+            AgentMessage.couldNotSend "Cursor" "missing key"
+        withHost (fun host pool -> task {
+            let! seeded = seedAskTree host "?ai"
+            let! request = startAsk host seeded
+            do! expectActorFailed host pool request.focusId
+            let! stopEvent =
+                lastActorStopEvent host request.focusId
+            match stopEvent with
+            | None -> Assert.Fail("missing ActorStop")
+            | Some event ->
+                match event.body with
+                | EventBody.ActorStop(_, ActorFailed msg) ->
+                    Assert.Equal(named, msg)
+                | other ->
+                    Assert.Fail($"bad stop, {other}")
+                Assert.Equal(
+                    Some (
+                        CmdLastResult.Error (
+                            Some "AI", named)),
+                    ActorLive.lastCmdResult [ event ])
+        })
