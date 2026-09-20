@@ -5,43 +5,13 @@ open Gambol.Shared.ViewModel
 open VmTestHelpers
 open Xunit
 
-/// Mirrors Client `RunLaunch.mayLaunchAfterEditCommit`.
-let private mayLaunchAfterEditCommit
-    (wasEditing: bool)
-    (before: CmdLastResult option)
-    (after: CmdLastResult option)
-    : bool =
-    match wasEditing, after with
-    | true, Some (CmdLastResult.Error _) when after <> before ->
-        false
-    | _ -> true
-
-/// Mirrors Client `RunLaunch.commitIfEditingForRun` with an injected commit.
-let private commitIfEditingForRun
-    (commit: VM -> VM * Effect list)
-    (model: VM)
-    : VM * Effect list * bool =
-    let wasEditing =
-        match model.mode with
-        | Editing _ -> true
-        | _ -> false
-    let before = model.lastCmdResult
-    let committed, effects = commit model
-    let mayLaunch =
-        mayLaunchAfterEditCommit
-            wasEditing before committed.lastCmdResult
-    committed, effects, mayLaunch
-
-/// Mirrors Client `afterEditCommit` then `Commands.execRunOp` tryStart arm.
+/// Shared `afterEditCommit` then Commands.execRunOp tryStart arm.
+/// No Client test project. execRunOp must call this Shared gate.
 let private afterEditCommitThenTryStart
     (commit: VM -> VM * Effect list)
     (model: VM)
     : VM * Effect list =
-    let committed, commitEffects, mayLaunch =
-        commitIfEditingForRun commit model
-    if not mayLaunch then
-        committed, commitEffects
-    else
+    RunEditCommit.afterEditCommit commit model (fun committed commitEffects ->
         match committed.selectedNodes with
         | None -> committed, commitEffects
         | Some sel ->
@@ -60,7 +30,7 @@ let private afterEditCommitThenTryStart
                 { committed with
                     lastCmdResult =
                         Some (CmdLastResult.Error (Some "Run", msg)) },
-                commitEffects
+                commitEffects)
 
 let private owned = ChildNode.owners
 
@@ -132,13 +102,31 @@ let ``failed Editing SetText CAS does not SubmitCommand`` () =
     | other -> failwith $"expected commit Error, got %A{other}"
 
 [<Fact>]
+let ``failed Editing SetText with same prior Error does not SubmitCommand`` () =
+    let stale =
+        Some (CmdLastResult.Error (None, "old text does not match"))
+    let model = { editingCommandModel () with lastCmdResult = stale }
+    let ran, effects =
+        afterEditCommitThenTryStart commitFailingSetTextCas model
+    Assert.Empty(effects)
+    Assert.False(
+        effects
+        |> List.exists (function
+            | SubmitCommand _ -> true
+            | _ -> false))
+    match ran.lastCmdResult with
+    | Some (CmdLastResult.Error (None, msg)) ->
+        Assert.Equal("old text does not match", msg)
+    | other -> failwith $"expected commit Error, got %A{other}"
+
+[<Fact>]
 let ``Selecting may launch after a stale Error`` () =
     let after =
         Some (CmdLastResult.Error (None, "old text does not match"))
-    Assert.True(mayLaunchAfterEditCommit false None after)
+    Assert.True(RunEditCommit.mayLaunchAfterEditCommit false after)
 
 [<Fact>]
 let ``successful Editing commit may SubmitCommand`` () =
     Assert.True(
-        mayLaunchAfterEditCommit
-            true None (Some (CmdLastResult.Ok (Some "Edit node"))))
+        RunEditCommit.mayLaunchAfterEditCommit
+            true (Some (CmdLastResult.Ok (Some "Edit node"))))
