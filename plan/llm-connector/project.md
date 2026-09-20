@@ -9,7 +9,7 @@ Actual: 19h
 
 ## Notes
 
-- 2026-09-19 — Coded [14 — Provider-named AI errors](issues/14-provider-named-ai-errors.md): `ActorFailed of string`; Cursor-named auth message; Client Error labeled AI. Status `coded`. Stage stays `done`.
+- 2026-09-19 — Coded [14 — Provider-named AI errors](issues/14-provider-named-ai-errors.md): `ActorFailed of string`; Cursor-named auth message; Client Error labeled AI. Status `done`. Stage stays `done`.
 - 2026-09-19 — Filed [14 — Provider-named AI errors](issues/14-provider-named-ai-errors.md) as a follow-up on the done first Agent vertical (Stage stays `done`). Chrome tickets already convey stop results; this ticket names the provider on auth/start failure.
 - 2026-09-19 — Run Agent Actor `systemPrompt` is a fixed rules string; Focus in the packed extract is the prompt. CloudAgents `DisplayName` is `AI`.
 - 2026-09-19 — Locked AI keys: `AiKeys` section in Server `appsettings*.json` (Production gitignored); `?ai` keyname selects; not DataDir/Graph/cookie.
@@ -40,7 +40,7 @@ Actual: 19h
 
 ## Implementation tickets
 
-- [14 — Provider-named AI errors](issues/14-provider-named-ai-errors.md) — Status `coded`. Follow-up: CloudAgents + Actor emit a safe provider-named auth message; Client shows it as Error labeled AI.
+- [14 — Provider-named AI errors](issues/14-provider-named-ai-errors.md) — Status `done`. Follow-up: CloudAgents + Actor emit a safe provider-named auth message; Client shows it as Error labeled AI.
 - [13 — Vertical proof: Browser Ask from what I see](issues/13-vertical-proof-browser-ask.md) — Status `done`.
 - [[issues/11-simple-extract-format.md|11 — Pack extract with Amb (supplied-fragment walk)]] — Status `done`.
 - [[issues/08-agent-ask-from-what-i-see.md|08 — Agent ask from what I see]] — Status `done`.

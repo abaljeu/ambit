@@ -11,7 +11,7 @@ Actual: 73h20m
 - 2026-09-19 — Landed [[issues/22-client-cancels-a-job.md|22 Client cancels a job]] on staging (Good). Status `done`.
 - 2026-09-19 — Landed [[issues/21-client-shows-lock-present.md|21 Client shows live Actor]] on staging (Good). Status `done`.
 - 2026-09-19 — Chrome tickets expanded: [[plan/core-creation/issues/21-client-shows-lock-present.md|21 Client shows live Actor]] owns start result (“Run: AI started.”), Command/Poll Event apply, chrome, boot live set, Poll stop/error conveyance; [[plan/core-creation/issues/22-client-cancels-a-job.md|22 Client cancels a job]] owns cancel control on live chrome. DLL provider error naming is a separate ticket.
-- 2026-09-19 — Coded [22 — Client cancels a job](issues/22-client-cancels-a-job.md): live-row Cancel control, Browser POST `/ambit/cancel` by Focus NodeId. Status `coded`. Frontier is review of 22.
+- 2026-09-19 — Status catch-up: [[issues/16-track-running-job.md|16]] and [[issues/17-cancel-a-job.md|17]] → `done` (delivered under Event lifecycle / llm-connector 10 + Client 22). [[issues/18-finish-and-drop.md|18]] stays `defined` (Interrupted restart unchecked).
 
 ## Map
 
@@ -44,8 +44,8 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/issues/13-delete-runtime-mirror-and-remove-production-persistence-mode.md]] — use Database persistence when available and reject Changes when unavailable. Status `done`.
 - [[plan/core-creation/issues/14-server-tracks-credentials.md]] — public/secret Authority admission and durable readable Authority; Status `blocked` by the Actor pool baseline.
 - [[plan/core-creation/issues/15-launch-actor-and-hold-span.md]] — historical span delivery superseded by typed launch and ActorStarted; Status `blocked`.
-- [[plan/core-creation/issues/16-track-running-job.md]] — live public-identity query plus durable lifecycle Events; Status `blocked`.
-- [[plan/core-creation/issues/17-cancel-a-job.md]] — terminal Cancelled by Focus NodeId without Undo; Status `blocked`.
+- [[plan/core-creation/issues/16-track-running-job.md]] — live public-identity query plus durable lifecycle Events; Status `done`.
+- [[plan/core-creation/issues/17-cancel-a-job.md]] — terminal Cancelled by Focus NodeId without Undo; Status `done`.
 - [[plan/core-creation/issues/18-finish-and-drop.md]] — durable ActorFinished, synchronous registry removal, non-blocking termination, and Interrupted restart reconciliation; Status `blocked`.
 - [[plan/core-creation/issues/19-database-down-and-host-stop.md]] — Database-down state and mutating Post/launch probe; blocked by [[plan/core-creation/issues/13-delete-runtime-mirror-and-remove-production-persistence-mode.md]].
 - [[plan/core-creation/issues/20-client-presents-credential.md]] — live Browser presents a credential on every message.

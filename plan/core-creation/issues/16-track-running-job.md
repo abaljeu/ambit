@@ -1,7 +1,7 @@
 # 16 — Track running job
 
-**Status:** defined
-**Blocked by:** [[plan/core-creation/issues/15-launch-actor-and-hold-span.md]]
+**Status:** done
+**Blocked by:** None — live public query delivered earlier; durable lifecycle Events (`ActorStart` / `ActorStop`) delivered with the Event mailbox rebuild and chrome [[21-client-shows-lock-present.md|21]].
 **Actual:** 50m
 
 ## Context
@@ -13,7 +13,7 @@ This issue records historical query-by-public-number delivery. The claim that th
 Query the registered Actor by public identity while it is live. Durable lifecycle after drop is [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] and [[18-finish-and-drop.md]]. Cancel by Focus is [[17-cancel-a-job.md]].
 
 - [x] Query by the public number identifies the Actor while it is registered.
-- [ ] After live-registry query ends, lifecycle remains an Event projection.
+- [x] After live-registry query ends, lifecycle remains an Event projection.
 
 ## See also
 
@@ -21,6 +21,7 @@ Query the registered Actor by public identity while it is live. Durable lifecycl
 
 ## Comments
 
+- 2026-09-19 — Status catch-up: live Focus projection and lifecycle Events are on staging (llm-connector vertical + core-creation [[21-client-shows-lock-present.md|21]]). Second What-to-build checkbox closed. Status `done`.
 - 2026-09-06 — Implementation started on `dev`.
 - 2026-09-06 — Delivered Core pool query by public number. Lookup returns the retained launch identity (name, Revision, span) while the Actor is registered. It does not return a job result, job Error, or send credential. An unknown number fails. HTTP Command query stays later. The number lasts until delete-actor ([[18-finish-and-drop.md]]). See [[plan/core-creation/reports/implement-issue-16.md]].
 - 2026-09-11 — [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] keeps live public-identity query and adds durable terminal lifecycle Events. Its replacement contract directs the live-query part of the provider-neutral rebuild.

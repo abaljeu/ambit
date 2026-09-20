@@ -25,7 +25,7 @@ Run an Agent from a Zoom-rooted mixed-format Graph extract, mark Focus in the ou
 
 ## Implementation
 
-1. [14 — Provider-named AI errors](issues/14-provider-named-ai-errors.md) — Status `coded`.
+1. [14 — Provider-named AI errors](issues/14-provider-named-ai-errors.md) — Status `done`.
 2. [13 — Vertical proof: Browser Ask from what I see](issues/13-vertical-proof-browser-ask.md) — Status `done`.
 3. [11 — Pack extract with Amb (supplied-fragment walk)](issues/11-simple-extract-format.md) — Status `done`.
 4. [08 — Agent ask from what I see](issues/08-agent-ask-from-what-i-see.md) — Status `done`.

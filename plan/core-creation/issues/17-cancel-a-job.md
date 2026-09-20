@@ -1,7 +1,7 @@
 # 17 — Cancel a job
 
-**Status:** defined
-**Blocked by:** [[plan/core-creation/issues/18-finish-and-drop.md]]
+**Status:** done
+**Blocked by:** None — Server cancel delivered on llm-connector [[plan/llm-connector/issues/10-cancel-by-focus.md|10]]; Client cancel chrome on [[22-client-cancels-a-job.md|22]]. Terminal drop path remains [[18-finish-and-drop.md|18]].
 
 ## Context
 
@@ -11,9 +11,9 @@ A person stops further Actor work by Focus NodeId. Lookup is unique because Focu
 
 Cancel the unique live Actor by Focus NodeId. Terminal and drop are [[18-finish-and-drop.md]]. Preserve earlier accepted Changes, reject later output through normal Authority admission, and do not Undo. Do not restore span membership or Graph lock-present.
 
-- [ ] Cancel identifies the unique live job by Focus NodeId.
-- [ ] Cancel does not Undo merged Changes.
-- [ ] Later output after Cancelled is refused through normal Authority admission.
+- [x] Cancel identifies the unique live job by Focus NodeId.
+- [x] Cancel does not Undo merged Changes.
+- [x] Later output after Cancelled is refused through normal Authority admission.
 
 ## See also
 
@@ -21,6 +21,7 @@ Cancel the unique live Actor by Focus NodeId. Terminal and drop are [[18-finish-
 
 ## Comments
 
+- 2026-09-19 — Status catch-up: Server Cancel-by-Focus landed under llm-connector [[plan/llm-connector/issues/10-cancel-by-focus.md|10]] (Good); Browser cancel under [[22-client-cancels-a-job.md|22]] (Good). This ticket’s What to build is satisfied. Status `done`.
 - 2026-09-06 — Blocked by [[plan/core-creation/issues/23-close-core-object-seam.md]]. Cancel needs sender-at-Post; production Changes still post with no Credential.
 - 2026-09-11 — Reconciled with [[plan/llm-connector/reports/agent-redesign-locked-2026-09.md]]. CancellationToken, normal credential admission, FIFO, and no Undo remain locked. Span membership was superseded and cancellation lookup remained pending.
 - 2026-09-11 — [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] locked Cancelled as a durable terminal Event, synchronous registry and credential removal, non-blocking termination, strict Change/Cancel order, and duplicate-completion ignore. Status is `blocked` by the shared terminal path in [[plan/core-creation/issues/18-finish-and-drop.md]].
