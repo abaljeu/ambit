@@ -34,7 +34,7 @@ Alan: Run while editing showed `Run: old text does not match.` Retry after commi
 ### 3. Non-goals
 
 1. Fixing root causes of `old text does not match` while editing (separate).
-2. Stream / Focus≠Command encode (51 done).
+2. Stream / Focus≠Command encode ([51 — Browser Run Focus vs Command](51-browser-run-focus-vs-command.md) is `done`).
 3. Undo/global history.
 
 ## See also
@@ -42,6 +42,8 @@ Alan: Run while editing showed `Run: old text does not match.` Retry after commi
 [21 — Client shows live Actor](21-client-shows-lock-present.md), [Commands.fs](../../../src/Client/Commands.fs) `execRunOp`, [CoreMailboxBackend.fs](../../../src/Server/Core/CoreMailboxBackend.fs) `dispatchStartActor`
 
 ## Comments
+
+- 2026-09-20: Re-review Spec Good; Standards hard hit was Non-goals bare `51 done` — renamed to full issue title link.
 
 - 2026-09-20 — Filed from chat repro: Run while editing → old text; retry → live without chrome. Status `defined`.
 - 2026-09-20 — Implement: abort Run after failed edit commit; drop live row when ActorStart persist fails. Status `coded`.
