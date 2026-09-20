@@ -4,7 +4,7 @@
 **Blocked by:** None — [35b — Browser Run hello](35b-browser-run-hello.md) one-Node proof is `done`. AI Actor replace-under-Focus is delivered (llm-connector 08).
 **Type:** coding
 Estimate: 2h
-Actual: 3h15m
+Actual: 4h
 
 ## Context
 
@@ -42,6 +42,7 @@ Architecture: [core-creation arch](../arch.md) **Browser Run** product item; [ll
 
 ## Comments
 
+- 2026-09-20 — Re-review after Amble lock: Standards Approve with nits; Spec Approve. Status stays `coded`. Report [independent-review-51-focus-vs-command-rereview](../reports/independent-review-51-focus-vs-command-rereview.md).
 - 2026-09-20 — Review fix: `=` scan-stop is Amble, not ActorStart. `?` remains Actor Command. Scan-stop rule unchanged. Status `coded`.
 - 2026-09-20 — Coded: Client Run uses [CommandRequest](../../../src/Shared/CommandRequest.fs) `tryStart`; Focus is selection, Command is first `?` owner, Zoom is Included extract root. No Command and not Amble → Run Error. One-Node hello remains when Focus is the Command. Status `coded`.
 - 2026-09-20 — Type `coding` (implementation), not Wayfinder task.
@@ -55,3 +56,4 @@ Architecture: [core-creation arch](../arch.md) **Browser Run** product item; [ll
 - 2026-09-20 2h — Product Run encode and Focus vs Command proof (from chat)
 - 2026-09-20 45m — Independent Standards/Spec review (from chat)
 - 2026-09-20 30m — Review fix: `=` is Amble, not ActorStart (from chat)
+- 2026-09-20 45m — Independent re-review after Amble lock (from chat)
