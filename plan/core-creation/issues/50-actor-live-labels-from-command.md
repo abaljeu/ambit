@@ -1,6 +1,6 @@
 # 50 — Actor live result labels from Command node
 
-**Status:** defined
+**Status:** cancelled
 **Blocked by:** None — [21 — Client shows live Actor](21-client-shows-lock-present.md) and [22 — Client cancels a job](22-client-cancels-a-job.md) are `done`.
 **Type:** bug
 Estimate: 1h 30m
@@ -47,6 +47,7 @@ Actor select for wording: [`CommandRequest.actorNameFromText`](../../../src/Shar
 
 ## Comments
 
+- 2026-09-20 — Cancelled: folded into [21](21-client-shows-lock-present.md) failed-review rework. Locked scan-up rule stays on 21 Comments.
 - 2026-09-20 — Filed from live bug: `?test hello` labeled AI. No failed ticket; 21 done with hardcoded AI. Command id = scan up from Focus to zoom root for `text` first char `?`. Status `defined`.
 
 ## Time
