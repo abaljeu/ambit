@@ -2,7 +2,7 @@
 
 **Status:** defined
 **Blocked by:** None — [35b — Browser Run hello](35b-browser-run-hello.md) one-Node proof is `done`. AI Actor replace-under-Focus is delivered (llm-connector 08).
-**Type:** task
+**Type:** coding
 Estimate: 2h
 
 ## Context
@@ -39,6 +39,7 @@ Architecture: [core-creation arch](../arch.md) **Browser Run** product item; [ll
 
 ## Comments
 
+- 2026-09-20 — Type `coding` (implementation), not Wayfinder task.
 - 2026-09-20 — Amendment: lines containing `=` are also runnable; owner-scan must not skip past them.
 - 2026-09-20 — Filed from chat: Run with Focus on `?ai cursor` and child `What time is it?` replaced the question; intent is Focus on the question so the time is a Child. plan-or-doc-change placed Focus vs Command in architecture. Status `defined`.
 
