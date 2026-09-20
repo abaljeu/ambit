@@ -219,9 +219,10 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. ClientH
    1. [x] State: Client selection and current Node text
    - Interface:
      1. [x] existing Exec / Run command
-     2. [x] when text starts with literal `?`, send one-Node Command (current Node is Command, Zoom root, and Focus) with caller credentials as `zoomId`, `focusId`, `commandId`, and `graphIds` from **Included descendant id list** at that Zoom root
-     3. [x] otherwise AmbleRun (not part of Story path 3)
-     4. [x] Browser-originated Change posts supply Authority and secret (Story path 3)
+     2. [x] Hello / TestActor proof: when the current Node text starts with literal `?`, send one-Node Command (that Node is Command, Zoom root, and Focus) with `zoomId`, `focusId`, `commandId`, and `graphIds` from **Included descendant id list** at that Zoom root
+     3. [ ] Product Run (AI and later Actors): Focus is the selection reply parent (may differ from Command). Command is the owner-ancestor whose text starts with `?` (scan Focus → zoom root; same rule as **Actor live labels**). Zoom root stays the Included extract root. Send distinct `focusId`, `commandId`, and `zoomId`. Actor writes under Focus (replace or stream children per llm-connector).
+     4. [x] otherwise AmbleRun (not part of Story path 3)
+     5. [x] Browser-originated Change posts supply Authority and secret (Story path 3)
    - Uses:
      1. [x] HTTP Adapter
      2. [x] AmbleRun
