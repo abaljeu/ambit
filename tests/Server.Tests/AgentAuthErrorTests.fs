@@ -52,8 +52,11 @@ type AgentAuthErrorTests() =
                         Assert.Equal(
                             Some (
                                 CmdLastResult.Error (
-                                    Some "AI", named)),
-                            ActorLive.lastCmdResult [ event ])
+                                    None, named)),
+                            ActorLive.lastCmdResult
+                                (Graph.create ())
+                                request.focusId
+                                [ event ])
                 }))
 
     [<Fact>]
@@ -78,6 +81,9 @@ type AgentAuthErrorTests() =
                 Assert.Equal(
                     Some (
                         CmdLastResult.Error (
-                            Some "AI", named)),
-                    ActorLive.lastCmdResult [ event ])
+                            None, named)),
+                    ActorLive.lastCmdResult
+                        (Graph.create ())
+                        request.focusId
+                        [ event ])
         })

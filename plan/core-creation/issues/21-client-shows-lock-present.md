@@ -1,6 +1,7 @@
 # 21 — Client shows live Actor (active chrome)
 
-**Status:** coded
+**Status:** done
+**Type:** coding
 **Actual:** 4h
 **Blocked by:** None — Server lifecycle Events and Browser Run (`?test` / `?ai`) are delivered. Credentialed Browser posts are `done` ([[20-client-presents-credential.md|20]]). Historical blockers [[02-core-actor-pool.md|02]] and Graph lock-present are superseded.
 
@@ -20,8 +21,8 @@ Sequence (locked 2026-09-19):
 
 1. [x] **Projection** — Client tracks live Focus ids from `EventBody.ActorStart` / `EventBody.ActorStop` applied through the same Event-apply path as Graph Changes for **Command response**, **Poll**, and **Load** tails. After `ActorStart` for a Focus, that Focus is live; after `ActorStop` (Succeeded, Failed, or Cancelled), it is not.
 2. [x] **Chrome** — While a Focus is live, the Browser shows a clear active-Actor indicator on that Focus (row / outline). Indicator clears when the Focus leaves the live set.
-3. [ ] **Start result** — When Command admits an Actor and the response includes `ActorStart`, Client `lastCmdResult` (or equivalent) shows **“Run: <Label> started.”** where Label follows architecture **Actor live labels** (TitleCase actor token from Command on the Focus→zoom owner path).
-4. [ ] **Stop / error result** — When Poll (or Command response) applies `ActorStop`, Client shows a result message with the same Label rule as Start (architecture **Actor live labels**): success detail if useful; on `ActorFailed` / `ActorCancelled`, an Error (or clear status) from the stop. Conveyance only — do not invent provider error strings here.
+3. [x] **Start result** — When Command admits an Actor and the response includes `ActorStart`, Client `lastCmdResult` (or equivalent) shows **“Run: <Label> started.”** where Label follows architecture **Actor live labels** (TitleCase actor token from Command on the Focus→zoom owner path).
+4. [x] **Stop / error result** — When Poll (or Command response) applies `ActorStop`, Client shows a result message with the same Label rule as Start (architecture **Actor live labels**): success detail if useful; on `ActorFailed` / `ActorCancelled`, an Error (or clear status) from the stop. Conveyance only — do not invent provider error strings here.
 5. [x] **Boot** — After `/state` (or equivalent boot), a still-live Actor still shows chrome. Prefer an existing Server surface if live Focus ids are already available; no Graph lock-present field and no new live-registry product Poll.
 6. [x] **Non-goals** — No Graph lock-present field; no span lock; no separate History/audit UI; no Cancel UI ([[22-client-cancels-a-job.md|22]]); no CloudAgents DLL error naming / `setFake` Unauthorized catalog (separate ticket); no `?ai keyname options` registry.
 
@@ -31,6 +32,7 @@ Sequence (locked 2026-09-19):
 
 ## Comments
 
+- 2026-09-20 — Alan accept after Approve with nits; squash-landed on staging. Status `done`.
 - 2026-09-20 — plan-or-doc-change: owning layer architecture **Actor live labels**; ticket consumes it. Failed review on hardcoded AI chip; Status stays `coded`.
 - 2026-09-19 — Reconciled as active Actor chrome frontier after llm-connector vertical done. Cleared stale Blocked by (pool / credential). Status `defined`.
 - 2026-09-19 — Expanded What to build: Command-response Event apply, start result “Run: AI started.”, Poll stop/error result conveyance, boot live chrome. DLL provider error naming stays out of this ticket.
