@@ -48,6 +48,7 @@ Alan: Run while editing showed `Run: old text does not match.` Retry after commi
 - 2026-09-20 — Server keeps mailbox order live row then ActorStart Ev; persist Error drops the live row. Did not putLive after Event.
 - 2026-09-20 — Independent review: Standards Needs changes (2 hard file-length, 2 judgement); Spec Needs changes (1 partial Client proof). Status stays `coded`. Report: [code-review-52-run-abort-when-commit-fails](../reports/code-review-52-run-abort-when-commit-fails.md).
 - 2026-09-20 — Review findings addressed: `commitIfEditingForRun` / `execRunOp` in Shared; UpdateHelpers and CoreMailboxBackend no longer grow; CAS-fail Run proof calls `execRunOp`; abort shape shared; `commandSubmitEffects` dropped. Status stays `coded`.
+- 2026-09-20 — Independent re-review after review fixes: Standards Needs changes (1 hard refer-by-name on ticket Non-goals); Spec Good. Status stays `coded`. Report: [code-review-52-rereview-run-abort-when-commit-fails](../reports/code-review-52-rereview-run-abort-when-commit-fails.md).
 
 ## Time
 
@@ -55,3 +56,4 @@ Alan: Run while editing showed `Run: old text does not match.` Retry after commi
 - 2026-09-20 2h — Client abort + Server drop + proofs (from chat)
 - 2026-09-20 45m — Independent review (from chat)
 - 2026-09-20 1h — Review findings: file length, Run proof, abort helper (from chat)
+- 2026-09-20 — Independent re-review after review fixes (from chat)

@@ -8,6 +8,7 @@ Actual: 80h20m
 
 ## Notes
 
+- 2026-09-20 — Independent re-review of [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md): Standards Needs changes; Spec Good. Status stays `coded`. Report: [code-review-52-rereview-run-abort-when-commit-fails](reports/code-review-52-rereview-run-abort-when-commit-fails.md).
 - 2026-09-20 — Review findings for [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md): Shared `execRunOp` proof; UpdateHelpers and CoreMailboxBackend length restored. Status stays `coded`.
 - 2026-09-20 — Independent review of [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md): Standards Needs changes; Spec Needs changes. Status stays `coded`. Report: [code-review-52-run-abort-when-commit-fails](reports/code-review-52-run-abort-when-commit-fails.md).
 - 2026-09-20 — Implemented [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md): no SubmitCommand/Amble after failed edit commit; drop live after ActorStart persist Error. Status `coded`.
