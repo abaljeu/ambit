@@ -29,8 +29,7 @@ module RouteRegistration =
                 AuthPass = this.Auth.ExpectedPass
                 Actors =
                     [ ActorName "test", TestActor.actorFn
-                      ActorName "ai",
-                        RunAgentActor.actorFn
+                      ActorName "ai", RunAgentActor.actorFn
                             (AiKeys.fromConfig this.Config)
                             (AiRepos.fromConfig this.Config) ]
             }
