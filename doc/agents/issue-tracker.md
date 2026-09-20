@@ -27,7 +27,28 @@ Use **issue tracker**, not “backlog backend” or “backlog manager.” Use *
 - The architecture is `plan/<feature-slug>/arch.md`.
 - Implementation issues are separate files at `plan/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01`.
 - A `**Status:**` line records a ticket's triage role from [[triage-labels.md]]. Tickets do not carry `Stage:`. Grilling is a method, not a Status or a Stage.
+- A `**Type:**` line is **required** on every issue (going forward). See [Ticket Type](#ticket-type).
 - Append comments and conversation under `## Comments`.
+
+
+## Ticket Type
+
+Every issue carries `**Type:**` near the top (with `**Status:**`).
+
+**Wayfinder types** (decision tickets on a map — [[.agents/skills/wayfinder/SKILL.md]]):
+
+- `research`
+- `prototype`
+- `grilling`
+- `task`
+
+**Coding type** (implementation tickets — build, fix, or prove code against a defined ticket):
+
+- `coding`
+
+`coding` is not a Wayfinder decision type. Wayfinder maps still chart with the four types above; when the map hands off to implement, or when filing a bugfix that will be coded, use `**Type:** coding`. Status triage is unchanged (`defined` → implement sets `coded` → review accept sets `done`).
+
+Do not invent other Type values without updating this section. Older tickets may omit Type; when you touch one, add Type.
 
 ## Time tracking
 
@@ -95,7 +116,7 @@ When a skill says “fetch the relevant issue,” read the referenced file. The 
 The Wayfinder map is one file with one child file per decision ticket.
 
 - **Map**: `plan/<effort>/map.md` holds Notes, Decisions so far, Not yet specified, and Out of scope. The Roadmap also lists Epics grouped by Stage, each with its current Chapter. Order inside a Stage does not matter. The Roadmap file itself has no Stage and no Status.
-- **Child decision ticket**: `plan/<effort>/issues/NN-<slug>.md`, numbered from `01`, contains the question. `**Type:**` records `research`, `prototype`, `grilling`, or `task`; `**Status:**` records a value from [[triage-labels.md]].
+- **Child decision ticket**: `plan/<effort>/issues/NN-<slug>.md`, numbered from `01`, contains the question. `**Type:**` records a [Ticket Type](#ticket-type) (`research`, `prototype`, `grilling`, `task` on Wayfinder maps; `coding` on implementation tickets); `**Status:**` records a value from [[triage-labels.md]].
 - **Blocking**: `Blocked by: NN, NN` near the top. A ticket is unblocked when every listed ticket is `done`. Do not set Status to `blocked` merely because Blocked-by lists open tickets. Use `defined` when the spec is complete ([[triage-labels.md]]).
 - **Frontier**: Scan the effort's `issues/` directory for tickets whose Blocked-by list is clear (every listed ticket is `done`, or None) and whose Status names the next action you were asked to do (`defined` when the ask is implement and Blocked-by is clear; `coded` when the ask is review). A `defined` ticket with open Blocked-by links is not the frontier. Do not require Status `blocked` for linked deps. Existing tickets may still use `ready-for-agent` or `ready-for-human`; do not rewrite them. First by number wins. On the Roadmap, do not treat `epics/` as the frontier.
 - **Claim**: Do not change Status while work is in flight. Do not set `blocked` because Blocked-by still lists open tickets. When implementation finishes, set `coded` ([[triage-labels.md]]).
