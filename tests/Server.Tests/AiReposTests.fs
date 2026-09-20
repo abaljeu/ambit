@@ -126,7 +126,7 @@ let ``fromText two tokens stay key then repo even if first is a repo`` () =
 type AiReposActorTests() =
 
     [<Fact>]
-    member _.``Ask without reponame sends no repos``() =
+    member _.``AI without reponame sends no repos``() =
         withFake
             (fun args ->
                 Assert.Equal(None, args.Repos)
@@ -144,7 +144,7 @@ type AiReposActorTests() =
                     }))
 
     [<Fact>]
-    member _.``Ask keyname and reponame sends that repo``() =
+    member _.``AI keyname and reponame sends that repo``() =
         withFake
             (fun args ->
                 Assert.Equal(Some [ lifeConfig ], args.Repos)
@@ -163,7 +163,7 @@ type AiReposActorTests() =
                     }))
 
     [<Fact>]
-    member _.``Ask repo-only token sends default key and that repo``() =
+    member _.``AI repo-only token sends default key and that repo``() =
         withFake
             (fun args ->
                 Assert.Equal(Some [ lifeConfig ], args.Repos)
