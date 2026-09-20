@@ -237,3 +237,78 @@ let ``no Command on owner path uses generic wording not AI`` () =
     Assert.Equal(
         Some (CmdLastResult.Error (None, "Actor failed.")),
         ActorLive.lastCmdResult graph nodeId [ failed ])
+
+let private graphWithCommandMidChild
+    (commandText: string)
+    (midText: string)
+    (childText: string)
+    : Graph * NodeId * NodeId * NodeId =
+    let g0 = Graph.create ()
+    let g1, commandIds = ModelBuilder.createNodes [ commandText ] g0
+    let commandId = commandIds.[0]
+    let g2, midIds = ModelBuilder.createNodes [ midText ] g1
+    let midId = midIds.[0]
+    let g3, childIds = ModelBuilder.createNodes [ childText ] g2
+    let childId = childIds.[0]
+    let g4 =
+        Graph.replace g3.root 0 [] (owned [ commandId ]) g3
+        |> requireOk "graphWithCommandMidChild.root"
+    let g5 =
+        Graph.replace commandId 0 [] (owned [ midId ]) g4
+        |> requireOk "graphWithCommandMidChild.command"
+    let graph =
+        Graph.replace midId 0 [] (owned [ childId ]) g5
+        |> requireOk "graphWithCommandMidChild.mid"
+    graph, commandId, midId, childId
+
+[<Fact>]
+let ``equals Command uses TitleCase name token not a product name`` () =
+    let graph, nodeId = graphWithCommand "count=1+2"
+    let started =
+        actorStartAt (EventIdFixtures.storedId 19) nodeId nodeId
+    Assert.Equal(
+        Some (CmdLastResult.Detail (Some "Run", "Count started.")),
+        ActorLive.lastCmdResult graph nodeId [ started ])
+    let stopped =
+        actorStopEvent
+            (EventIdFixtures.storedId 20) nodeId ActorSucceeded
+    Assert.Equal(
+        Some (CmdLastResult.Detail (Some "Count", "Actor succeeded.")),
+        ActorLive.lastCmdResult graph nodeId [ stopped ])
+
+[<Fact>]
+let ``equals ancestor stops scan and does not use ? above`` () =
+    let graph, commandId, equalsId, childId =
+        graphWithCommandMidChild "?test hello" "count=1+2" "note"
+    let started =
+        actorStartAt (EventIdFixtures.storedId 14) childId commandId
+    Assert.Equal(
+        Some (CmdLastResult.Detail (Some "Run", "Count started.")),
+        ActorLive.lastCmdResult graph commandId [ started ])
+    let stopped =
+        actorStopEvent
+            (EventIdFixtures.storedId 15) childId ActorSucceeded
+    Assert.Equal(
+        Some (CmdLastResult.Detail (Some "Count", "Actor succeeded.")),
+        ActorLive.lastCmdResult graph commandId [ stopped ])
+    let onEquals =
+        actorStartAt (EventIdFixtures.storedId 16) equalsId commandId
+    Assert.Equal(
+        Some (CmdLastResult.Detail (Some "Run", "Count started.")),
+        ActorLive.lastCmdResult graph commandId [ onEquals ])
+
+[<Fact>]
+let ``equals form with no name token uses generic not ? ancestor`` () =
+    let graph, commandId, _, childId =
+        graphWithCommandMidChild "?ai later" "=1+2" "note"
+    let started =
+        actorStartAt (EventIdFixtures.storedId 17) childId commandId
+    Assert.Equal(
+        Some (CmdLastResult.Detail (Some "Run", "Actor started.")),
+        ActorLive.lastCmdResult graph commandId [ started ])
+    let stopped =
+        actorStopEvent
+            (EventIdFixtures.storedId 18) childId ActorSucceeded
+    Assert.Equal(
+        Some (CmdLastResult.Detail (None, "Actor succeeded.")),
+        ActorLive.lastCmdResult graph commandId [ stopped ])

@@ -70,31 +70,54 @@ module ActorLive =
             string (Char.ToUpperInvariant token[0])
             + token.Substring(1)
 
-    /// First `?` Command text from Focus up the owner path to zoom.
-    let private commandTextOnPath
+    let private isRunnableText (text: string) =
+        CommandRequest.isCommandText text || text.Contains("=")
+
+    let private firstToken (text: string) =
+        let trimmed = text.Trim()
+        let space = trimmed.IndexOf(' ')
+        if space < 0 then trimmed
+        else trimmed.Substring(0, space)
+
+    let private equalsNameLabel (text: string) =
+        let trimmed = text.Trim()
+        match trimmed.IndexOf('=') with
+        | i when i > 0 ->
+            let token = firstToken (trimmed.Substring(0, i))
+            if token = "" then None
+            else Some (titleCaseName (token.ToLowerInvariant()))
+        | _ -> None
+
+    let private labelFromText (text: string) =
+        if CommandRequest.isCommandText text then
+            CommandRequest.actorNameFromText text
+            |> Option.map titleCaseName
+        elif text.Contains("=") then
+            equalsNameLabel text
+        else
+            None
+
+    /// First runnable text from Focus up the owner path to zoom.
+    let private runnableTextOnPath
         (graph: Graph)
         (focusId: NodeId)
         (zoomRoot: NodeId)
         : string option =
-        let atBoundOrCommand (node: Node) =
-            CommandRequest.isCommandText node.text
-            || node.id = zoomRoot
-        GraphQuery.enclosing graph atBoundOrCommand focusId
+        let atBoundOrRunnable (node: Node) =
+            isRunnableText node.text || node.id = zoomRoot
+        GraphQuery.enclosing graph atBoundOrRunnable focusId
         |> Option.bind (fun id -> Map.tryFind id graph.nodes)
         |> Option.bind (fun node ->
-            if CommandRequest.isCommandText node.text then
-                Some node.text
-            else
-                None)
+            if isRunnableText node.text then Some node.text
+            else None)
 
     let private displayLabel
         (graph: Graph)
         (focusId: NodeId)
         (zoomRoot: NodeId)
         : string option =
-        commandTextOnPath graph focusId zoomRoot
-        |> Option.bind CommandRequest.actorNameFromText
-        |> Option.map titleCaseName
+        runnableTextOnPath graph focusId zoomRoot
+        |> Option.bind labelFromText
 
     let private startResult
         (graph: Graph)
