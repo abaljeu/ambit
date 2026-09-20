@@ -48,6 +48,7 @@
     <Compile Include="AgentFailurePreserveTests.fs" />
     <Compile Include="AgentAuthErrorTests.fs" />
     <Compile Include="AiKeysTests.fs" />
+    <Compile Include="AiReposTests.fs" />
     <Compile Include="CancelByFocusTests.fs" />
     <Compile Include="GitSaveEndpointTests.fs" />
     <Compile Include="WorkspaceWebDavTests.fs" />

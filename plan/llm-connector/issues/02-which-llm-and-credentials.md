@@ -23,6 +23,7 @@ The Grok Bot API key is a Server process secret for the current one-user Server 
 
 ## Comments
 
+- 2026-09-20 — Implement lock: [16 — AiRepos from appsettings](16-airepos-from-appsettings.md) (`Name` + `Url` + optional `StartingRef`; no first-repo default).
 - 2026-09-20 — Implement lock: [15 — AiKeys from appsettings](15-aikeys-from-appsettings.md) (`Name` + `ApiKey`; first entry default).
 - 2026-09-19 — Locked placement: `AiKeys` in `appsettings*.json` (Production gitignored). Glossary: AI Actor, not Ask.
 - 2026-09-02: Filed unclaimed from WORK.md. Map: [[../map.md]].

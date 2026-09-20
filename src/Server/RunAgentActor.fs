@@ -57,13 +57,10 @@ module RunAgentActor =
             extract
             input.zoomId
 
-    let private commandKeyname (input: ActorInput) =
+    let private commandArgs keys repos (input: ActorInput) =
         match Map.tryFind input.commandId input.graph.nodes with
-        | None -> None
-        | Some node -> AiKeys.keynameFromText node.text
-
-    let private apiKeyFor keys (input: ActorInput) =
-        AiKeys.resolve keys (commandKeyname input)
+        | None -> { Keyname = None; Reponame = None }
+        | Some node -> AiAskArgs.fromText keys repos node.text
 
     let private requestCancel config agentId runId =
         AgentRunner.cancel config agentId runId |> ignore
@@ -94,7 +91,7 @@ module RunAgentActor =
             return! loop ()
         }
 
-    let private complete apiKey (document: string) =
+    let private complete apiKey repos (document: string) =
         async {
             let config = { RunnerConfig.ApiKey = apiKey }
             let prompt =
@@ -102,7 +99,7 @@ module RunAgentActor =
                 + Environment.NewLine
                 + Environment.NewLine
                 + document
-            match AgentRunner.start config prompt None askOptions with
+            match AgentRunner.start config prompt repos askOptions with
             | Error err -> return failedFromError err
             | Ok(agentId, runId) ->
                 return! pollUntilDone config agentId runId
@@ -152,12 +149,15 @@ module RunAgentActor =
             return FocusChildrenReplace.plan graph input.focusId text
         }
 
-    let private runBody keys (input: ActorInput) coreChanges =
+    let private runBody keys repos (input: ActorInput) coreChanges =
         async {
+            let args = commandArgs keys repos input
+            let apiKey = AiKeys.resolve keys args.Keyname
+            let startRepos = AiRepos.resolve repos args.Reponame
             match packExtract input with
             | Error _ -> return ActorFailed ""
             | Ok document ->
-                match! complete (apiKeyFor keys input) document with
+                match! complete apiKey startRepos document with
                 | CompleteCancelled -> return ActorCancelled
                 | CompleteFailed msg -> return ActorFailed msg
                 | TextReady text ->
@@ -170,9 +170,9 @@ module RunAgentActor =
         }
 
     /// ActorFn for Actor name `ai`. Selection is CoreActorPool's job.
-    let actorFn (keys: AiKey list) : ActorFn =
+    let actorFn (keys: AiKey list) (repos: AiRepo list) : ActorFn =
         fun input coreChanges ->
             async {
-                let! result = runBody keys input coreChanges
+                let! result = runBody keys repos input coreChanges
                 do! stop input coreChanges result
             }

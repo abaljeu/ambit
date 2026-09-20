@@ -116,6 +116,7 @@ Narrowest shared test seam:
       2. [x] On cancel token: request CloudAgents cancel and stop
       3. [x] Never turn pack or provider errors into a second Agent call; never write raw provider text as Graph Error
       4. [x] Use injected `AiKeys` for `RunnerConfig.ApiKey` (not environment; CloudAgents stays settings-blind)
+      5. [x] Use injected `AiRepos` for `AgentRunner.start` repos (omit when no reponame; CloudAgents stays settings-blind)
    3. Uses
       1. [x] Document Amb extract-walk serialize / Reference-Paste inject
       2. [x] CloudAgents
@@ -178,7 +179,7 @@ Narrowest shared test seam:
 
 ## 5. Locked during arch (2026-09-19)
 
-1. **Agent Command spelling** — `?ai` plus optional keyname then unused extra args. That text invokes the Run Agent Actor. Keyname selects an `AiKeys` entry (`Name` + `ApiKey` in Server `appsettings*.json`). Omitted keyname uses the first entry. Missing or empty `ApiKey` stays the provider-named missing-key path. Extra args stay unused.
+1. **Agent Command spelling** — `?ai` plus optional keyname then optional reponame. That text invokes the Run Agent Actor. Keyname selects an `AiKeys` entry (`Name` + `ApiKey` in Server `appsettings*.json`). Omitted keyname uses the first entry. Reponame selects an `AiRepos` entry (`Name` + `Url` + optional `StartingRef`). Omitted reponame attaches no repo. Single-token ambiguity and extra tokens are on [16 — AiRepos from appsettings](issues/16-airepos-from-appsettings.md). Missing or empty `ApiKey` stays the provider-named missing-key path.
 2. **Vertical proof timing** — Define the full Browser → Run Agent → Focus-children proof after the first CloudAgents / Run Agent implement tickets are `defined` (not now; not inside the first end-to-end ticket alone). Filed as [[issues/13-vertical-proof-browser-ask.md|13 — Vertical proof: Browser Ask from what I see]] once 08–11 were `done`.
 3. **Focus on extract Graph** — Extract-pack Focus is `Graph.focus` on the extract copy (`withFocus`). The Amb pack string has no Focus sentinel. Mixed-format sentinel spelling stays tabled with owning-codec serialize.
 4. **First pack is Amb extract-walk** — Reuse `AmbDocument`. One write option walks the supplied Zoom extract (Owned and Ref into present Nodes; no file persist; no owning-document partition). Parse stays default Amb. Mixed-format owning-codec and Md extract write stay tabled. Existing Md artifact write does not change.
