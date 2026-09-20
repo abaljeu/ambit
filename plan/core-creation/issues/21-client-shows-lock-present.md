@@ -31,6 +31,7 @@ Sequence (locked 2026-09-19):
 
 ## Comments
 
+- 2026-09-20 — Display label is **TitleCase** of the Command actor name token (`test` → `Test`, `ai` → `Ai`), not a hardcoded AI chip and not a special-case map.
 - 2026-09-20 — Failed review: `ActorLive.lastCmdResult` hardcodes AI; `?test hello` shows “AI: …” / “AI: Actor succeeded.” instead of Actor-appropriate wording. Rework: scan owner-up from Focus to zoom root for text starting with `?`; label from that Command. Status `coded`.
 - 2026-09-19 — Reconciled as active Actor chrome frontier after llm-connector vertical done. Cleared stale Blocked by (pool / credential). Status `defined`.
 - 2026-09-19 — Expanded What to build: Command-response Event apply, start result “Run: AI started.”, Poll stop/error result conveyance, boot live chrome. DLL provider error naming stays out of this ticket.
