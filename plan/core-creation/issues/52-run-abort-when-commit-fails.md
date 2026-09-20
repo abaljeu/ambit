@@ -4,7 +4,7 @@
 **Type:** bug-fixing
 **Blocked by:** None — [51 — Browser Run Focus vs Command](51-browser-run-focus-vs-command.md) is `done`.
 Estimate: 2h
-Actual: 3h45m
+Actual: 4h30m
 
 ## Context
 
@@ -50,6 +50,7 @@ Alan: Run while editing showed `Run: old text does not match.` Retry after commi
 - 2026-09-20 — Server keeps mailbox order live row then ActorStart Ev; persist Error drops the live row. Did not putLive after Event.
 - 2026-09-20 — Independent review: Standards Needs changes (2 hard file-length, 2 judgement); Spec Needs changes (1 partial Client proof). Status stays `coded`. Report: [code-review-52-run-abort-when-commit-fails](../reports/code-review-52-run-abort-when-commit-fails.md).
 - 2026-09-20 — Review findings addressed: `commitIfEditingForRun` / `execRunOp` in Shared; UpdateHelpers and CoreMailboxBackend no longer grow; CAS-fail Run proof calls `execRunOp`; abort shape shared; `commandSubmitEffects` dropped. Status stays `coded`.
+- 2026-09-20 — Alan item 9 (Divergent Change): Editing commit left Shared CommandRequest. Client [RunLaunch.fs](src/Client/RunLaunch.fs) owns `commitIfEditingForRun` / `mayLaunchAfterEditCommit` via Client `commitIfEditing`. CommandRequest is ActorStart factory / scan / `tryStart` / `oneNodeStart`. CAS-fail proof uses a Shared-free helper that mirrors `afterEditCommit` + `tryStart`. Status stays `coded`.
 
 ## Time
 
@@ -57,3 +58,4 @@ Alan: Run while editing showed `Run: old text does not match.` Retry after commi
 - 2026-09-20 2h — Client abort + Server drop + proofs (from chat)
 - 2026-09-20 45m — Independent review (from chat)
 - 2026-09-20 1h — Review findings: file length, Run proof, abort helper (from chat)
+- 2026-09-20 45m — Alan item 9: Editing commit in Client RunLaunch; ActorStart factory (from chat)

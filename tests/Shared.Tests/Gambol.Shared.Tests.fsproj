@@ -18,6 +18,7 @@
     <Compile Include="GraphQueryTests.fs" />
     <Compile Include="IncludedDescendantIdsTests.fs" />
     <Compile Include="CommandRequestTests.fs" />
+    <Compile Include="RunEditCommitTests.fs" />
     <Compile Include="GraphSpanTests.fs" />
     <Compile Include="GraphFocusTests.fs" />
     <Compile Include="ModelBuilderTests.fs" />

@@ -104,6 +104,21 @@ module CommandRequest =
         Option.isSome (scanStopOnOwnerPath graph focusId zoomId)
         && Option.isNone (commandOnOwnerPath graph focusId zoomId)
 
+    /// ActorStart. graphIds are the Included expand of Zoom.
+    let actorStart
+        (graph: Graph)
+        (siteMap: SiteMap)
+        (zoomId: NodeId)
+        (focusId: NodeId)
+        (commandId: NodeId)
+        (eventId: EventId)
+        : ActorStart =
+        { zoomId = zoomId
+          focusId = focusId
+          commandId = commandId
+          graphIds = IncludedDescendantIds.expand graph siteMap zoomId
+          eventId = eventId }
+
     /// Product ActorStart. Zoom is the Included extract root. `=` is not Actor.
     let tryStart
         (graph: Graph)
@@ -116,11 +131,8 @@ module CommandRequest =
         | None -> Error noRunnableCommand
         | Some commandId ->
             Ok
-                { zoomId = zoomId
-                  focusId = focusId
-                  commandId = commandId
-                  graphIds = IncludedDescendantIds.expand graph siteMap zoomId
-                  eventId = eventId }
+                (actorStart
+                    graph siteMap zoomId focusId commandId eventId)
 
     /// One-Node ActorStart. Client supplies unfolded Included `graphIds`.
     let oneNodeStart
@@ -129,72 +141,4 @@ module CommandRequest =
         (nodeId: NodeId)
         (eventId: EventId)
         : ActorStart =
-        { zoomId = nodeId
-          focusId = nodeId
-          commandId = nodeId
-          graphIds = IncludedDescendantIds.expand graph siteMap nodeId
-          eventId = eventId }
-
-    /// Editing commit wrote a new Error: do not ActorStart or Amble.
-    let mayLaunchAfterEditCommit
-        (wasEditing: bool)
-        (before: CmdLastResult option)
-        (after: CmdLastResult option)
-        : bool =
-        match wasEditing, after with
-        | true, Some (CmdLastResult.Error _) when after <> before ->
-            false
-        | _ -> true
-
-    /// Commit when Editing. Third value is false when that commit failed.
-    let commitIfEditingForRun
-        (commit: VM -> VM * Effect list)
-        (model: VM)
-        : VM * Effect list * bool =
-        let wasEditing =
-            match model.mode with
-            | Editing _ -> true
-            | _ -> false
-        let before = model.lastCmdResult
-        let committed, effects = commit model
-        let mayLaunch =
-            mayLaunchAfterEditCommit
-                wasEditing before committed.lastCmdResult
-        committed, effects, mayLaunch
-
-    let private actorStartEffects
-        (committed: VM)
-        (commitEffects: Effect list)
-        : VM * Effect list =
-        match committed.selectedNodes with
-        | None -> committed, commitEffects
-        | Some sel ->
-            let parentId = sel.range.parent.nodeId
-            let focusId =
-                committed.graph.nodes.[parentId].children.[sel.focus].id
-            match
-                tryStart
-                    committed.graph
-                    committed.siteMap
-                    committed.zoomRoot
-                    focusId
-                    committed.eventId with
-            | Ok request ->
-                committed, commitEffects @ [ SubmitCommand request ]
-            | Error msg ->
-                { committed with
-                    lastCmdResult =
-                        Some (CmdLastResult.Error (Some "Run", msg)) },
-                commitEffects
-
-    /// Run after edit commit. No SubmitCommand when that commit failed.
-    let execRunOp
-        (commit: VM -> VM * Effect list)
-        (model: VM)
-        : VM * Effect list =
-        let committed, commitEffects, mayLaunch =
-            commitIfEditingForRun commit model
-        if not mayLaunch then
-            committed, commitEffects
-        else
-            actorStartEffects committed commitEffects
+        actorStart graph siteMap nodeId nodeId nodeId eventId
