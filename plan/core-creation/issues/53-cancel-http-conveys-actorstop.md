@@ -1,9 +1,10 @@
 # 53 — Cancel HTTP conveys ActorStop
 
-**Status:** defined
+**Status:** coded
 **Type:** bug-fixing
 **Blocked by:** None — [22 — Client cancels a job](22-client-cancels-a-job.md) and [21 — Client shows live Actor](21-client-shows-lock-present.md) are `done`.
 Estimate: 2h
+Actual: 2h
 
 ## Context
 
@@ -25,14 +26,14 @@ After cancel `finish` drops the live row, the Actor body still calls `actorStop`
 
 ### 1. Cancel HTTP Events
 
-1. [ ] Cancel HTTP success carries Events the same way Command carries `ActorStart`: at least the Cancelled `ActorStop` for that Focus, encoded as universal `{ nodes; events; latestId }`.
-2. [ ] Client applies those Events (`applyCommandEvents` / equivalent) so `actorLiveFocusIds` drops and chrome + Cancelled (or Error) result update without waiting on Poll.
-3. [ ] Proof: Cancel while live → chrome off and Cancelled (or Error) result from the Cancel response Events. Server still cancels CTS / refuses later Actor output.
+1. [x] Cancel HTTP success carries Events the same way Command carries `ActorStart`: at least the Cancelled `ActorStop` for that Focus, encoded as universal `{ nodes; events; latestId }`.
+2. [x] Client applies those Events (`applyCommandEvents` / equivalent) so `actorLiveFocusIds` drops and chrome + Cancelled (or Error) result update without waiting on Poll.
+3. [x] Proof: Cancel while live → chrome off and Cancelled (or Error) result from the Cancel response Events. Server still cancels CTS / refuses later Actor output.
 
 ### 2. No wrong Focus stop
 
-1. [ ] After cancel `finish` drops the live row, a later Actor-body `actorStop` does not emit `ActorStop` for `Graph.rootId` or any other Focus that was not live.
-2. [ ] Proof: cancel then body stop → one Cancelled `ActorStop` for the Focus; no root stop.
+1. [x] After cancel `finish` drops the live row, a later Actor-body `actorStop` does not emit `ActorStop` for `Graph.rootId` or any other Focus that was not live.
+2. [x] Proof: cancel then body stop → one Cancelled `ActorStop` for the Focus; no root stop.
 
 ### 3. Non-goals
 
@@ -47,7 +48,9 @@ After cancel `finish` drops the live row, the Actor body still calls `actorStop`
 ## Comments
 
 - 2026-09-21 — Filed from Alan repro: Cancel stops the Agent; `amb-actor-live` stays on. Status `defined`.
+- 2026-09-21 — Implemented Cancel universal Events; Client `CommandDone` apply; no root Focus stop after finish. Actor admit-on-live already blocked the second stop; `getFocusId` no longer defaults to `Graph.rootId`. Status `coded`.
 
 ## Time
 
 - 2026-09-21 — Ticket (from chat)
+- 2026-09-21 2h — Cancel HTTP Events, Client apply, focused proofs (from chat)

@@ -198,7 +198,7 @@ module Api =
         |> Encode.toString 0
         |> jsonResult
 
-    let private latestEventId events persistId =
+    let private latestEventId (events: Ev list) persistId =
         events
         |> List.map (fun e -> e.id)
         |> List.fold EventId.max persistId
