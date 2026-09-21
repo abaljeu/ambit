@@ -49,8 +49,10 @@ After cancel `finish` drops the live row, the Actor body still calls `actorStop`
 
 - 2026-09-21 — Filed from Alan repro: Cancel stops the Agent; `amb-actor-live` stays on. Status `defined`.
 - 2026-09-21 — Implemented Cancel universal Events; Client `CommandDone` apply; no root Focus stop after finish. Actor admit-on-live already blocked the second stop; `getFocusId` no longer defaults to `Graph.rootId`. Status `coded`.
+- 2026-09-21 — Review must-fix: restore Development `AiKeys[0].ApiKey` to empty (match staging); drop unrelated code-review skill wording and directional-links report. App.fs / RouteRegistration FILE growth left as nit. Status stays `coded`.
 
 ## Time
 
 - 2026-09-21 — Ticket (from chat)
 - 2026-09-21 2h — Cancel HTTP Events, Client apply, focused proofs (from chat)
+- 2026-09-21 15m — Review must-fix: empty Development ApiKey, drop unrelated PR files (from chat)
