@@ -198,6 +198,26 @@ module Api =
         |> Encode.toString 0
         |> jsonResult
 
+    let private latestEventId (events: Ev list) persistId =
+        events
+        |> List.map (fun e -> e.id)
+        |> List.fold EventId.max persistId
+
+    let private universalFromHandle
+        (handle: CoreChanges)
+        (after: EventId)
+        (nodes: Node list)
+        : Async<IResult> =
+        async {
+            let! events = handle.getEventsSince after
+            let! persistId = handle.getEventId ()
+            return
+                commandSuccessResult
+                    { nodes = nodes
+                      events = events
+                      latestId = latestEventId events persistId }
+        }
+
     /// Decode ActorStart ids, call startActor, encode `{ nodes; events; latestId }`.
     let postCommand
         (startActor: ActorStart -> Async<Result<unit, string>>)
@@ -215,36 +235,30 @@ module Api =
                     match! handle.getState () with
                     | Error err -> return agentErrorResult err
                     | Ok state ->
-                        let! events =
-                            handle.getEventsSince request.eventId
-                        let! persistId = handle.getEventId ()
-                        let latestId =
-                            events
-                            |> List.map (fun e -> e.id)
-                            |> List.fold EventId.max persistId
-                        return
-                            commandSuccessResult
-                                { nodes =
-                                    nodesForRequest
-                                        state.graph
-                                        request.graphIds
-                                  events = events
-                                  latestId = latestId }
+                        return!
+                            universalFromHandle
+                                handle
+                                request.eventId
+                                (nodesForRequest
+                                    state.graph
+                                    request.graphIds)
         }
 
-    /// Decode Focus NodeId, call cancelByFocus, acknowledge without Events.
+    /// Decode CancelRequest, call cancelByFocus, encode Events like Command.
     let postCancel
         (cancelByFocus: NodeId -> Async<Result<unit, string>>)
+        (handle: CoreChanges)
         (body: string)
         : Async<IResult> =
         async {
             match Decode.fromString EventJson.decodeCancelRequest body with
             | Error err ->
                 return agentErrorResult $"Invalid JSON: {err}"
-            | Ok focusId ->
-                match! cancelByFocus focusId with
+            | Ok request ->
+                match! cancelByFocus request.focusId with
                 | Error err -> return agentErrorResult err
-                | Ok () -> return jsonResult """{"ok":true}"""
+                | Ok () ->
+                    return! universalFromHandle handle request.eventId []
         }
 
     let getCapabilities (dataDir: string) : IResult =

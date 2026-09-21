@@ -279,6 +279,7 @@ module RouteRegistration =
                                     persistence.Core.host
                                     caller
                                     focusId)
+                            (boundChanges persistence caller)
                             body
                         |> Async.StartAsTask
         })) |> ignore
