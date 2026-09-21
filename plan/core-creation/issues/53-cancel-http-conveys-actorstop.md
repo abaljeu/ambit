@@ -4,7 +4,7 @@
 **Type:** bug-fixing
 **Blocked by:** None — [22 — Client cancels a job](22-client-cancels-a-job.md) and [21 — Client shows live Actor](21-client-shows-lock-present.md) are `done`.
 Estimate: 2h
-Actual: 2h
+Actual: 2h15m
 
 ## Context
 
