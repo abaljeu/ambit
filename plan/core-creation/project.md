@@ -7,6 +7,7 @@ Started: 2026-09-05
 Actual: 83h50m
 
 ## Notes
+- 2026-09-21 — Independent review of [53 — Cancel HTTP conveys ActorStop](issues/53-cancel-http-conveys-actorstop.md): Standards Needs changes; Spec Approve with nits. Status stays `coded`. Report: [independent-review-53-cancel-http-conveys-actorstop](reports/independent-review-53-cancel-http-conveys-actorstop.md).
 - 2026-09-21 — Implemented [53 — Cancel HTTP conveys ActorStop](issues/53-cancel-http-conveys-actorstop.md): Cancel HTTP success carries Cancelled `ActorStop` Events; Client applies them so `amb-actor-live` clears without waiting on Poll. Status `coded`.
 - 2026-09-21 — Filed [53 — Cancel HTTP conveys ActorStop](issues/53-cancel-http-conveys-actorstop.md): Cancel HTTP success carries Cancelled `ActorStop` Events; Client applies them so `amb-actor-live` clears without waiting on Poll. Status `defined`.
 - 2026-09-20 — Landed [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md) on staging (Alan accept). Status `done`.
@@ -162,6 +163,7 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/reports/35b-slice2-3-http-browser-run.md]] — [35b — Browser Run hello](plan/core-creation/issues/35b-browser-run-hello.md) slices 2–3 HTTP Adapter and Browser Run.
 - [[plan/core-creation/reports/35b-slice4-5-7-core-testactor-browser-proof.md]] — [35b — Browser Run hello](plan/core-creation/issues/35b-browser-run-hello.md) slices 4+5+7 Core TestActor and Browser proof.
 - [35b slices 4+5+7 standards and Spec corrections](plan/core-creation/reports/35b-slice4-5-7-standards-spec-corrections.md) — [35b — Browser Run hello](plan/core-creation/issues/35b-browser-run-hello.md) Origin Spec review: unregistered Actor name and non-hello command fail.
+- [Independent review — 53 Cancel HTTP conveys ActorStop](reports/independent-review-53-cancel-http-conveys-actorstop.md) — [53 — Cancel HTTP conveys ActorStop](issues/53-cancel-http-conveys-actorstop.md). Status stays `coded`.
 - [Independent review — 52 Run abort when commit fails](reports/code-review-52-run-abort-when-commit-fails.md) — [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md). Status stays `coded`.
 - [Re-review — 52 Client RunLaunch](reports/code-review-52-rereview-client-runlaunch.md) — [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md). Status stays `coded`.
 - [Independent review — 51 Focus vs Command](reports/independent-review-51-focus-vs-command.md) — [51 — Browser Run: Focus reply parent, Command is runnable ancestor](issues/51-browser-run-focus-vs-command.md). Status stays `coded`.

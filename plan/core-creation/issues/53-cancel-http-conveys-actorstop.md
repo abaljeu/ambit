@@ -48,6 +48,7 @@ After cancel `finish` drops the live row, the Actor body still calls `actorStop`
 ## Comments
 
 - 2026-09-21 — Filed from Alan repro: Cancel stops the Agent; `amb-actor-live` stays on. Status `defined`.
+- 2026-09-21 — Independent review: Standards Needs changes; Spec Approve with nits. Status stays `coded`. Report: [independent-review-53-cancel-http-conveys-actorstop](../reports/independent-review-53-cancel-http-conveys-actorstop.md).
 - 2026-09-21 — Implemented Cancel universal Events; Client `CommandDone` apply; no root Focus stop after finish. Actor admit-on-live already blocked the second stop; `getFocusId` no longer defaults to `Graph.rootId`. Status `coded`.
 
 ## Time
