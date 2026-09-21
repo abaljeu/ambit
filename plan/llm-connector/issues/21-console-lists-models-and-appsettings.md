@@ -71,6 +71,7 @@ CLI wins over file. File wins over env. CloudAgents still receives only `RunnerC
 
 ## Comments
 
+- 2026-09-21 — Independent re-review after `ModelHint` revert: Good (with nits). Report [independent-review-21-console-lists-models-and-appsettings](../reports/independent-review-21-console-lists-models-and-appsettings.md). Status stays `coded`.
 - 2026-09-21 — Coded: `listModels` + create `model` object; Console CLI > file > env; catalog print then start. Status `coded`.
 - 2026-09-21 — Filed from chat: list models at Console start; fill CLI gaps from `appsettings.<level>.json`; create `model` is `{ id, params? }`. Status `defined`.
 
