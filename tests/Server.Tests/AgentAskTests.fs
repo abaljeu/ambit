@@ -23,6 +23,10 @@ type AgentAskTests() =
         withFake
             (fun args ->
                 Assert.Contains("visible-context", args.Prompt)
+                Assert.Contains("<node", args.Prompt)
+                Assert.Contains("class=\"focus\"", args.Prompt)
+                Assert.Contains("extract as XML", args.Prompt)
+                Assert.DoesNotContain("mixed Amb", args.Prompt)
                 fakeReply "from-agent")
             (fun () ->
                 withHost (fun host pool -> task {
@@ -37,6 +41,17 @@ type AgentAskTests() =
                     let! started =
                         hasActorStart host request.focusId
                     Assert.True(started)
+                    let! state =
+                        CoreMailbox.getState host
+                        |> Async.StartAsTask
+                    match state with
+                    | Error err -> Assert.Fail(err)
+                    | Ok s ->
+                        let node = s.graph.nodes.[request.focusId]
+                        Assert.False(
+                            CssClass.contains
+                                AiExtractPack.FocusClass
+                                node.cssClasses)
                 }))
 
     [<Fact>]

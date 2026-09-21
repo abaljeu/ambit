@@ -2,13 +2,14 @@
 
 Stage: done
 Summary: Run an Agent from a Zoom-rooted mixed-format extract and replace Focus Children through ordinary Core Changes.
-Updated: 2026-09-20
+Updated: 2026-09-21
 Started: 2026-09-19
 Finished: 2026-09-19
 Actual: 23h
 
 ## Notes
 
+- 2026-09-21 — Filed [19 — AI extract pack is XML with Focus cssClass](issues/19-ai-xml-pack-focus-css.md): CloudAgents document is write-only XML; Focus is css class `focus` on the extract copy. Status `defined`. Stage stays `done`; this is a follow-up bug-fix.
 - 2026-09-20 — Filed [17 — CloudAgents Console stream](issues/17-cloudagents-console-stream.md) then [18 — AI Actor stream](issues/18-ai-actor-stream.md): SSE on DLL/Console first; Actor pending-buffer incremental Focus writes second. Status `defined`. Stage stays `done` for the first vertical; these are follow-ups.
 - 2026-09-20 — Locked **Focus vs Command on Run** in arch: Focus reply parent may differ from `?` Command; one-Node is hello-only. Client encode: core-creation [51 — Browser Run Focus vs Command](../core-creation/issues/51-browser-run-focus-vs-command.md).
 - 2026-09-20 — Follow-up on [16 — AiRepos](issues/16-airepos-from-appsettings.md): `StartArgs` into complete; `AiCommandArgs` for `?ai` parse; AI not Ask in actor facts. Status stays `done`.
@@ -45,6 +46,7 @@ Actual: 23h
 
 ## Implementation tickets
 
+- [19 — AI extract pack is XML with Focus cssClass](issues/19-ai-xml-pack-focus-css.md) — Status `defined`. Follow-up: write-only XML CloudAgents document; Focus css class on the extract copy.
 - [16 — AiRepos from appsettings](issues/16-airepos-from-appsettings.md) — Status `done`. Follow-up: Server `AiRepos` from appsettings → `AgentRunner.start` repos; no first-repo default.
 - [15 — AiKeys from appsettings](issues/15-aikeys-from-appsettings.md) — Status `done`. Follow-up: Server `AiKeys` from appsettings → `RunnerConfig.ApiKey`; remove `CURSOR_API_KEY` from Run Agent Actor.
 - [14 — Provider-named AI errors](issues/14-provider-named-ai-errors.md) — Status `done`. Follow-up: CloudAgents + Actor emit a safe provider-named auth message; Client shows it as Error labeled AI.

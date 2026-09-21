@@ -32,8 +32,8 @@ module RunAgentActor =
         + "in a Zoom-rooted extract."
         + Environment.NewLine
         + Environment.NewLine
-        + "The Focus node is your prompt. The next message is that extract "
-        + "(mixed Amb / codec text) with Focus marked."
+        + "The Focus node is your prompt. The next message is that "
+        + "extract as XML. Focus is the node with css class focus."
         + Environment.NewLine
         + Environment.NewLine
         + "Return ONLY outline text that replaces every child of Focus."
@@ -43,7 +43,7 @@ module RunAgentActor =
         + "- Use outlining for structure (parent/child), not paragraphs "
         + "or prose blocks."
         + Environment.NewLine
-        + "- Prefer Amb outline shape when the extract uses Amb."
+        + "- Prefer Amb outline shape for the reply."
         + Environment.NewLine
         + "- No preamble, no markdown fences, no explanation outside "
         + "the outline."
@@ -51,11 +51,10 @@ module RunAgentActor =
         + "- Do not rewrite Focus itself."
 
     let private packExtract (input: ActorInput) =
-        let extract = Graph.withFocus (Some input.focusId) input.graph
-        AmbDocument.writeWith
-            AmbWriteWalk.SuppliedExtract
-            extract
+        AiExtractPack.packExtract
+            input.graph
             input.zoomId
+            input.focusId
 
     let private commandArgs keys repos (input: ActorInput) =
         match Map.tryFind input.commandId input.graph.nodes with

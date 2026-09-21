@@ -50,6 +50,7 @@
     <Compile Include="AiKeysTests.fs" />
     <Compile Include="AiReposTests.fs" />
     <Compile Include="AiCommandArgsTests.fs" />
+    <Compile Include="AiExtractPackTests.fs" />
     <Compile Include="CancelByFocusTests.fs" />
     <Compile Include="GitSaveEndpointTests.fs" />
     <Compile Include="WorkspaceWebDavTests.fs" />

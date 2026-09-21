@@ -8,6 +8,7 @@ Run an Agent from a Zoom-rooted mixed-format Graph extract, mark Focus in the ou
 
 ## Notes
 
+- 2026-09-21 — Bug-fix [19 — AI extract pack is XML with Focus cssClass](issues/19-ai-xml-pack-focus-css.md): CloudAgents document is write-only XML; Focus is css class `focus` on the extract copy only. Amb extract-walk and reply apply stay.
 - Enables [[plan/roadmap/epics/agent-chat-managed-context.md]] Chapter **Ask from what I see**.
 - This Project owns document extraction, the vendor-neutral CloudAgents call, and response write-back. [[plan/expression-language/issues/33-recognize-ask-run-statement.md]] only recognizes `?` as a Run statement.
 - Spoken name is Run Agent. Glossary: [[CONTEXT.md]] Run Agent, Included context, Agent. Do not say Agent for the Actor.
@@ -21,23 +22,25 @@ Run an Agent from a Zoom-rooted mixed-format Graph extract, mark Focus in the ou
 - [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] — typed boundaries, launch membership, Event sequence, mailbox lifecycle, recovery, test seams.
 - CloudAgents remains the standalone vendor-neutral project and API. Cursor is an ordinary adapter. Provider selection is not a domain decision in this Project.
 - [[plan/llm-connector/issues/05-create-cloud-agent-posts-reply-under-focus.md]] and its Create payload, Md paste-replace implementation, and vertical proof remain cancelled.
-- 2026-09-19 — First pack is Amb extract-walk of the supplied Zoom extract. Nested-tag `<div>` / `<focus>` abandoned. Fable.SimpleXml rejected. Mixed-format owning-codec stays tabled. [[issues/11-simple-extract-format.md|11 — Pack extract with Amb (supplied-fragment walk)]].
+- 2026-09-21 — AI pack is write-only XML. Focus is css class `focus` on the in-memory extract copy. Amb persist/extract-walk still has no Focus sentinel. Nested-tag and Fable.SimpleXml stay rejected. Mixed-format owning-codec stays tabled. [19 — AI extract pack is XML with Focus cssClass](issues/19-ai-xml-pack-focus-css.md).
+- 2026-09-19 — First pack was Amb extract-walk of the supplied Zoom extract. Nested-tag `<div>` / `<focus>` abandoned. Fable.SimpleXml rejected. Mixed-format owning-codec stays tabled. Superseded for the CloudAgents document by [19 — AI extract pack is XML with Focus cssClass](issues/19-ai-xml-pack-focus-css.md). Amb walk remains for Amb persist. [11 — Pack extract with Amb (supplied-fragment walk)](issues/11-simple-extract-format.md).
 - 2026-09-20 — Follow-up [16 — AiRepos from appsettings](issues/16-airepos-from-appsettings.md): Server binds `AiRepos` (`Name` + `Url` + optional `StartingRef`); `?ai` keyname then optional reponame; omitted reponame attaches no repo; CloudAgents stays settings-blind.
 - 2026-09-20 — Follow-up [15 — AiKeys from appsettings](issues/15-aikeys-from-appsettings.md): Server binds `AiKeys` (`Name` + `ApiKey`); `?ai` keyname or first entry; CloudAgents stays settings-blind.
 - 2026-09-19 — Follow-up [14 — Provider-named AI errors](issues/14-provider-named-ai-errors.md): auth/start failure names the provider on Client Error (not Ask); no Graph Error dumps.
 
 ## Implementation
 
-1. [18 — AI Actor stream](issues/18-ai-actor-stream.md) — Status `defined`. Blocked by 17.
-2. [17 — CloudAgents Console stream](issues/17-cloudagents-console-stream.md) — Status `defined`.
-3. [16 — AiRepos from appsettings](issues/16-airepos-from-appsettings.md) — Status `done`.
-4. [15 — AiKeys from appsettings](issues/15-aikeys-from-appsettings.md) — Status `done`.
-5. [14 — Provider-named AI errors](issues/14-provider-named-ai-errors.md) — Status `done`.
-6. [13 — Vertical proof: Browser Ask from what I see](issues/13-vertical-proof-browser-ask.md) — Status `done`.
-7. [11 — Pack extract with Amb (supplied-fragment walk)](issues/11-simple-extract-format.md) — Status `done`.
-8. [08 — Agent ask from what I see](issues/08-agent-ask-from-what-i-see.md) — Status `done`.
-9. [09 — Agent failure preserves children](issues/09-agent-failure-preserves-children.md) — Status `done`.
-10. [10 — Cancel by Focus](issues/10-cancel-by-focus.md) — Status `done`.
+1. [19 — AI extract pack is XML with Focus cssClass](issues/19-ai-xml-pack-focus-css.md) — Status `defined`.
+2. [18 — AI Actor stream](issues/18-ai-actor-stream.md) — Status `defined`. Blocked by 17.
+3. [17 — CloudAgents Console stream](issues/17-cloudagents-console-stream.md) — Status `defined`.
+4. [16 — AiRepos from appsettings](issues/16-airepos-from-appsettings.md) — Status `done`.
+5. [15 — AiKeys from appsettings](issues/15-aikeys-from-appsettings.md) — Status `done`.
+6. [14 — Provider-named AI errors](issues/14-provider-named-ai-errors.md) — Status `done`.
+7. [13 — Vertical proof: Browser Ask from what I see](issues/13-vertical-proof-browser-ask.md) — Status `done`.
+8. [11 — Pack extract with Amb (supplied-fragment walk)](issues/11-simple-extract-format.md) — Status `done`.
+9. [08 — Agent ask from what I see](issues/08-agent-ask-from-what-i-see.md) — Status `done`.
+10. [09 — Agent failure preserves children](issues/09-agent-failure-preserves-children.md) — Status `done`.
+11. [10 — Cancel by Focus](issues/10-cancel-by-focus.md) — Status `done`.
 
 ## Not yet specified
 
