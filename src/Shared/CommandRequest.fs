@@ -43,7 +43,7 @@ module CommandRequest =
             |> fun rest -> rest.ToLowerInvariant()
 
     let private noRunnableCommand =
-        "no runnable Command on Focus to Zoom path"
+        "No command found"
 
     let private ownerPathToZoom
         (graph: Graph)
