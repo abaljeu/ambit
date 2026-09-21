@@ -2,11 +2,12 @@
 
 Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
-Updated: 2026-09-20
+Updated: 2026-09-21
 Started: 2026-09-05
 Actual: 81h50m
 
 ## Notes
+- 2026-09-21 — Filed [53 — Cancel HTTP conveys ActorStop](issues/53-cancel-http-conveys-actorstop.md): Cancel HTTP success carries Cancelled `ActorStop` Events; Client applies them so `amb-actor-live` clears without waiting on Poll. Status `defined`.
 - 2026-09-20 — Landed [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md) on staging (Alan accept). Status `done`.
 
 - 2026-09-20 — Alan Standards finding Divergent Change (edit commit belongs in execRunOp) for [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md): Editing commit in Client RunLaunch; CommandRequest ActorStart factory. Status stays `coded`.
@@ -80,6 +81,7 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/issues/49-mailbox-history-durability.md|49 — Mailbox History durability]] — persist/load the audit sequence; load reconcile Graph id vs EventLog tip (drop / noop / apply until concurrent). Status `done`. Blocked by [[plan/core-creation/issues/35b-browser-run-hello.md|35b — Browser Run hello]]. Not required for 35b §7 Browser proof. Plan: [[plan/core-creation/reports/49-mailbox-history-durability-explore.md|49 mailbox History durability explore]]. Reconcile: [[plan/core-creation/reports/49-mailbox-history-durability-reconcile.md|49 mailbox History durability reconcile]].
 - [50 — Actor live result labels from Command node](plan/core-creation/issues/50-actor-live-labels-from-command.md) — Cancelled — folded into 21. Status `done` (Wayfinder task).
 - [51 — Browser Run: Focus reply parent, Command is runnable ancestor](plan/core-creation/issues/51-browser-run-focus-vs-command.md) — Product Run distinct focusId/commandId; `?` ActorStart, `=` Amble; Status `coded`.
+- [53 — Cancel HTTP conveys ActorStop](plan/core-creation/issues/53-cancel-http-conveys-actorstop.md) — Cancel HTTP success carries Cancelled `ActorStop` Events; Client applies them; no wrong-Focus stop after finish. Status `defined`.
 - [[plan/core-creation/issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]] — Collapse extra Core entrances onto CoreMailbox; Status `done`. Report: [[plan/core-creation/reports/mailbox-single-door.md]].
 - [[plan/core-creation/issues/37-expand-shared-event-eventlog-and-history.md|37 — Expand Shared Event, EventLog, and History]] — Story **Event, EventLog, and ClientHistory** Shared expand beside HistoryEvent; Event-shaped ClientHistory beside the Change-shaped API. No new History module. Status `done`.
 - [[plan/core-creation/issues/40-expand-postevent-eventlog-and-event-json.md|40 — Expand postEvent, EventLog store, and Event JSON persist]] — Story **Caller, persist, and Poll** expand: `postEvent`, EventLog store, Event JSON beside ChangeLog. Status `done`.

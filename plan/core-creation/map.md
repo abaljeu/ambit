@@ -8,6 +8,7 @@ Define an implementation-ready initial Core increment that extracts the full cur
 
 ## Notes
 
+- 2026-09-21 — [53 — Cancel HTTP conveys ActorStop](issues/53-cancel-http-conveys-actorstop.md): Cancel HTTP success carries Events (Cancelled `ActorStop`) the same way Command carries `ActorStart`, so live chrome clears without waiting on Poll.
 - The initial increment provides typed current State, the Event tail through getChangesSince, readiness, normal Post Change, and Parse-originated Graph-only Post Change through GraphAgentHandle. The Actor rebuild extends this into the one global sequence locked by [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] without adding a second Revision counter.
 - Core gets no new fsproj. Shared keeps the Browser-compatible apply implementation, and Server owns the typed produce path.
 - Preserve current HTTP, database, file-authority, acknowledgement, timeout, and mirror behavior during extraction. Database authority and view-only file mode remain later work under [[plan/roadmap/epics/chapters/acid-apply.md]].

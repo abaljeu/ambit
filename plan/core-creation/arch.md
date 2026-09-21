@@ -246,6 +246,7 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. ClientH
      5. [x] Poll returns an Ev tail
      6. [x] call Core through CoreMailbox or CoreRuntime-bound members
      7. [x] encode universal `{ nodes; events; latestId }` for Command when that path is exercised (spec lock; not critical path for the hello outside proof)
+     8. [ ] Cancel success encodes the same universal `{ nodes; events; latestId }` as Command (includes the Cancelled ActorStop for that Focus). [53 — Cancel HTTP conveys ActorStop](issues/53-cancel-http-conveys-actorstop.md)
    - Uses:
      1. [x] CoreMailbox / CoreRuntime
 11. **CoreRuntime** — [[src/Server/Core/CoreRuntime.fs]]
