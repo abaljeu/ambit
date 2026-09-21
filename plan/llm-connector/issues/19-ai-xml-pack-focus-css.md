@@ -1,9 +1,10 @@
 # 19 — AI extract pack is XML with Focus cssClass
 
-**Status:** defined
+**Status:** coded
 **Blocked by:** None — [11 — Pack extract with Amb (supplied-fragment walk)](11-simple-extract-format.md) Amb extract-walk stays; this ticket changes only the CloudAgents document.
 **Type:** bug-fixing
 Estimate: 2h
+Actual: 2h
 
 ## Context
 
@@ -15,24 +16,24 @@ Amb `.amb` outline is opaque to models. The document the model sees must be XML 
 
 ### 1. XML pack of the Zoom extract
 
-1. [ ] `packExtract` (or a small helper it calls) starts from the extract Graph with `withFocus`.
-2. [ ] On that copy only, merge css class `focus` onto the Focus Node (`CssClass.toggle` / list merge; keep existing classes).
-3. [ ] Serialize the Zoom-rooted extract to write-only XML for the CloudAgents prompt document. Server `System.Xml.Linq` (or equivalent write-only helper). No Shared parse dependency.
-4. [ ] Tree mirrors the outline: one `node` element per present Node; text content is Node text (escaped); `class` is space-separated `CssClass` names (Focus has `focus`); Children nest under the parent.
-5. [ ] Walk the same as `AmbWriteWalk.SuppliedExtract`: Owned and Ref into Nodes present in the extract; omit missing ids; no file persist; no owning-document partition.
+1. [x] `packExtract` (or a small helper it calls) starts from the extract Graph with `withFocus`.
+2. [x] On that copy only, merge css class `focus` onto the Focus Node (`CssClass.toggle` / list merge; keep existing classes).
+3. [x] Serialize the Zoom-rooted extract to write-only XML for the CloudAgents prompt document. Server `System.Xml.Linq` (or equivalent write-only helper). No Shared parse dependency.
+4. [x] Tree mirrors the outline: one `node` element per present Node; text content is Node text (escaped); `class` is space-separated `CssClass` names (Focus has `focus`); Children nest under the parent.
+5. [x] Walk the same as `AmbWriteWalk.SuppliedExtract`: Owned and Ref into Nodes present in the extract; omit missing ids; no file persist; no owning-document partition.
 
 ### 2. System prompt
 
-1. [ ] Say the next message is an **XML** extract. Focus is the Node with css class `focus`.
-2. [ ] Do not say “mixed Amb / codec text with Focus marked.”
-3. [ ] Return rules stay outline text that replaces Focus Children (reply path unchanged: Amb/Plain tidy via FocusChildrenReplace).
+1. [x] Say the next message is an **XML** extract. Focus is the Node with css class `focus`.
+2. [x] Do not say “mixed Amb / codec text with Focus marked.”
+3. [x] Return rules stay outline text that replaces Focus Children (reply path unchanged: Amb/Plain tidy via FocusChildrenReplace).
 
 ### 3. Proofs
 
-1. [ ] Pack string is XML.
-2. [ ] Focus Node element carries `focus` class.
-3. [ ] Original Graph Node `cssClasses` unchanged.
-4. [ ] [11 — Pack extract with Amb (supplied-fragment walk)](11-simple-extract-format.md) “no Focus sentinel” Amb extract-walk tests stay valid.
+1. [x] Pack string is XML.
+2. [x] Focus Node element carries `focus` class.
+3. [x] Original Graph Node `cssClasses` unchanged.
+4. [x] [11 — Pack extract with Amb (supplied-fragment walk)](11-simple-extract-format.md) “no Focus sentinel” Amb extract-walk tests stay valid.
 
 ## Non-goals
 
@@ -47,6 +48,9 @@ Amb `.amb` outline is opaque to models. The document the model sees must be XML 
 
 ## Comments
 
+- 2026-09-21 — Coded: Server write-only XML pack; Focus css class on extract copy; system prompt says XML; proofs green. Status `coded`.
 - 2026-09-21 — Filed from Alan lock: XML AI pack; Focus = css class `focus` on the extract copy only.
 
 ## Time
+
+- 2026-09-21 2h — Ticket, XML pack, Focus cssClass, proofs (from chat)

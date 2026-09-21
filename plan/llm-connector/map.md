@@ -30,7 +30,7 @@ Run an Agent from a Zoom-rooted mixed-format Graph extract, mark Focus in the ou
 
 ## Implementation
 
-1. [19 — AI extract pack is XML with Focus cssClass](issues/19-ai-xml-pack-focus-css.md) — Status `defined`.
+1. [19 — AI extract pack is XML with Focus cssClass](issues/19-ai-xml-pack-focus-css.md) — Status `coded`.
 2. [18 — AI Actor stream](issues/18-ai-actor-stream.md) — Status `defined`. Blocked by 17.
 3. [17 — CloudAgents Console stream](issues/17-cloudagents-console-stream.md) — Status `defined`.
 4. [16 — AiRepos from appsettings](issues/16-airepos-from-appsettings.md) — Status `done`.
