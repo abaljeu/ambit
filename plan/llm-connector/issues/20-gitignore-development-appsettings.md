@@ -20,7 +20,7 @@ Actual: 30m
 
 ### 2. Docs
 
-1. [x] Ticket 15 comments, architecture, and map Notes say Development is gitignored like Production; base `appsettings.json` holds empty placeholders.
+1. [x] [15 — AiKeys from appsettings](15-aikeys-from-appsettings.md) comments, architecture, and map Notes say Development is gitignored like Production; base `appsettings.json` holds empty placeholders.
 
 ### 3. Non-goals
 

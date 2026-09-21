@@ -31,7 +31,7 @@ Run an Agent from a Zoom-rooted mixed-format Graph extract, mark Focus in the ou
 ## Implementation
 
 1. [20 — Gitignore Development appsettings](issues/20-gitignore-development-appsettings.md) — Status `coded`.
-2. [18 — AI Actor stream](issues/18-ai-actor-stream.md) — Status `defined`. Blocked by 17.
+2. [18 — AI Actor stream](issues/18-ai-actor-stream.md) — Status `defined`. Blocked by [17 — CloudAgents Console stream](issues/17-cloudagents-console-stream.md).
 3. [17 — CloudAgents Console stream](issues/17-cloudagents-console-stream.md) — Status `defined`.
 4. [16 — AiRepos from appsettings](issues/16-airepos-from-appsettings.md) — Status `done`.
 5. [15 — AiKeys from appsettings](issues/15-aikeys-from-appsettings.md) — Status `done`.
