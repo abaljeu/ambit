@@ -65,6 +65,11 @@ type UniversalResponse =
       events: Ev list
       latestId: EventId }
 
+/// Cancel request: Focus to cancel and Client EventId cursor for the Event tail.
+type CancelRequest =
+    { focusId: NodeId
+      eventId: EventId }
+
 /// Authoritative Sync install: ordered Change tail plus optional resident packages.
 type SyncResponse =
     { events: Ev list

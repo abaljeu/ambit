@@ -195,20 +195,20 @@ module internal CoreMailboxBackend =
         | Ok () ->
             match caller.authority with
             | Authority "Actor" ->
-                let focusId =
-                    context.pool.getFocusId caller.secret
-                    |> Option.defaultValue Graph.rootId
-                match
-                    CoreEventDispatch.actorStop
-                        (eventDispatchContext context)
-                        caller
-                        focusId
-                        result
-                with
-                | Error err -> reply.Reply(Error err)
-                | Ok () ->
-                    reply.Reply(
-                        context.pool.finish caller.secret result)
+                match context.pool.getFocusId caller.secret with
+                | None -> reply.Reply(Ok ())
+                | Some focusId ->
+                    match
+                        CoreEventDispatch.actorStop
+                            (eventDispatchContext context)
+                            caller
+                            focusId
+                            result
+                    with
+                    | Error err -> reply.Reply(Error err)
+                    | Ok () ->
+                        reply.Reply(
+                            context.pool.finish caller.secret result)
             | _ ->
                 reply.Reply(Error CoreAuth.refuse)
 

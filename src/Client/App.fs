@@ -399,14 +399,22 @@ let createRuntime (initialModel: VM) =
 
     and runSubmitCancel (focusId: NodeId) : unit =
         let url = $"/{currentFile}/cancel"
-        let body = encodeCancelRequest focusId
+        let body = encodeCancelRequest focusId model.eventId
         consoleLog (
             "[Gambol cancel] POST focusId="
             + string focusId)
         postJson
             url
             body
-            (fun _ -> ())
+            (fun text ->
+                match decodeUniversalResponse text with
+                | Ok response ->
+                    consoleLog (
+                        "[Gambol cancel] POST 200 events="
+                        + string response.events.Length)
+                    dispatch (SysMsg (CommandDone response.events))
+                | Error err ->
+                    dispatch (SysMsg (CommandFailed err)))
             (fun status text ->
                 let detail =
                     "HTTP "
