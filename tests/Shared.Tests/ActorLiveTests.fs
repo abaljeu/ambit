@@ -48,6 +48,31 @@ let ``ActorStart adds and ActorStop removes a live Focus`` () =
         Set.contains focusId (ActorLive.applyEvents [ stopped ] live))
 
 [<Fact>]
+let ``cancel response ActorStop Cancelled drops live after applyServerTail`` () =
+    let focusId = NodeId.New()
+    let started = actorStartEvent (EventIdFixtures.storedId 6) focusId
+    let state =
+        ClientSyncState.create
+            (Graph.create ())
+            (EventIdFixtures.storedId 5)
+            (ClientHistory.clear ())
+    match SyncLogic.applyServerTail [ started ] state with
+    | Error msg -> failwith $"Expected Ok, got Error: {msg}"
+    | Ok live ->
+        Assert.True(Set.contains focusId live.actorLiveFocusIds)
+        let cancelled =
+            actorStopEvent
+                (EventIdFixtures.storedId 7) focusId ActorCancelled
+        match SyncLogic.applyServerTail [ cancelled ] live with
+        | Error msg -> failwith $"Expected Ok, got Error: {msg}"
+        | Ok after ->
+            Assert.False(Set.contains focusId after.actorLiveFocusIds)
+            Assert.Equal(
+                Some (CmdLastResult.Error (None, "Actor cancelled.")),
+                ActorLive.lastCmdResult
+                    (Graph.create ()) focusId [ cancelled ])
+
+[<Fact>]
 let ``command response ActorStart is live after applyServerTail`` () =
     let focusId = NodeId.New()
     let started = actorStartEvent (EventIdFixtures.storedId 6) focusId

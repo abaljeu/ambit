@@ -11,9 +11,44 @@ open Gambol.Server.Tests.TestBackend
 open Thoth.Json.Newtonsoft
 
 module Encode = Thoth.Json.Newtonsoft.Encode
+module Decode = Thoth.Json.Newtonsoft.Decode
 
 let private encodeCancel (focusId: NodeId) =
-    Encode.toString 0 (EventJson.encodeCancelRequest focusId)
+    Encode.toString 0 (
+        EventJson.encodeCancelRequest
+            { focusId = focusId; eventId = EventId.zero })
+
+let private unusedHandle
+    (state: State)
+    (events: Ev list)
+    (latestId: EventId)
+    : CoreChanges =
+    { getState = fun () -> async.Return(Result.Ok state)
+      getEventId = fun () -> async.Return latestId
+      getEventsSince = fun _ -> async.Return events
+      isReady = fun () -> true
+      postEvents = fun _ -> async.Return(Result.Error "unused")
+      postGraphOnly = fun _ -> async.Return(Result.Error "unused")
+      actorStop = fun _ -> async.Return(Result.Error "unused")
+      asCaller = fun _ -> Unchecked.defaultof<CoreChanges> }
+
+let private emptyHandle =
+    unusedHandle
+        { graph = Graph.create (); eventId = EventId.zero }
+        []
+        EventId.zero
+
+let private decodeUniversal json =
+    Decode.fromString
+        ApiResponseSerialization.decodeUniversalResponseDecoder
+        json
+
+let private cancelledStop focusId : Ev =
+    { id = EventId.fromJson 2
+      submissionId = System.Guid.NewGuid()
+      authority = Authority "Browser"
+      commandName = ""
+      body = EventBody.ActorStop(focusId, ActorCancelled) }
 
 let private jsonContent body =
     new StringContent(body, Encoding.UTF8, "application/json")
@@ -26,12 +61,43 @@ let ``postCancel decodes Focus NodeId and calls cancelByFocus`` () = task {
         seen.Add received
         async.Return(Result.Ok())
     let! result =
-        Api.postCancel cancelByFocus (encodeCancel focusId)
+        Api.postCancel cancelByFocus emptyHandle (encodeCancel focusId)
         |> Async.StartAsTask
     Assert.Equal<NodeId list>([ focusId ], List.ofSeq seen)
     match box result with
     | :? ContentHttpResult as content ->
-        Assert.Contains("\"ok\":true", content.ResponseContent)
+        match decodeUniversal content.ResponseContent with
+        | Error err -> failwith err
+        | Ok (response: UniversalResponse) ->
+            Assert.Empty(response.events)
+    | other ->
+        failwith $"expected JSON content, got {other.GetType().Name}"
+}
+
+[<Fact>]
+let ``postCancel success encodes Cancelled ActorStop Events`` () = task {
+    let focusId = NodeId.New()
+    let stop = cancelledStop focusId
+    let handle =
+        unusedHandle
+            { graph = Graph.create (); eventId = EventId.fromJson 2 }
+            [ stop ]
+            (EventId.fromJson 2)
+    let cancelByFocus _ = async.Return(Result.Ok())
+    let! result =
+        Api.postCancel cancelByFocus handle (encodeCancel focusId)
+        |> Async.StartAsTask
+    match box result with
+    | :? ContentHttpResult as content ->
+        match decodeUniversal content.ResponseContent with
+        | Error err -> failwith err
+        | Ok (response: UniversalResponse) ->
+            Assert.Equal(EventId.fromJson 2, response.latestId)
+            Assert.Equal(1, response.events.Length)
+            match response.events.[0].body with
+            | EventBody.ActorStop(stoppedId, ActorCancelled) ->
+                Assert.Equal(focusId, stoppedId)
+            | other -> failwith $"expected ActorStop Cancelled, {other}"
     | other ->
         failwith $"expected JSON content, got {other.GetType().Name}"
 }
@@ -43,7 +109,7 @@ let ``postCancel invalid JSON does not call cancelByFocus`` () = task {
         seen.Add received
         async.Return(Result.Ok())
     let! result =
-        Api.postCancel cancelByFocus "{}"
+        Api.postCancel cancelByFocus emptyHandle "{}"
         |> Async.StartAsTask
     Assert.Empty(seen)
     match box result with
@@ -57,7 +123,7 @@ let ``postCancel cancelByFocus Error is not ok`` () = task {
     let focusId = NodeId.New()
     let cancelByFocus _ = async.Return(Result.Error "not live")
     let! result =
-        Api.postCancel cancelByFocus (encodeCancel focusId)
+        Api.postCancel cancelByFocus emptyHandle (encodeCancel focusId)
         |> Async.StartAsTask
     match box result with
     | :? BadRequest<obj> -> ()

@@ -67,6 +67,7 @@ module CursorAdapter =
             let request: CursorTypes.CursorCreateRequest =
                 { prompt = { text = prompt }
                   name = options.DisplayName
+                  model = options.ModelHint
                   repos = cursorRepos }
             match CursorHttp.createAgent config.ApiKey request with
             | Error msg -> Error(fromHttpError config.ApiKey msg)

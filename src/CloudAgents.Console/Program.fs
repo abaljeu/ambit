@@ -64,7 +64,7 @@ let main argv =
 
             let options =
                 { AgentOptions.DisplayName = displayName
-                  ModelHint = None }
+                  ModelHint = Some "cursor-grok-4.7-low-fast" }
 
             printfn "Starting agent..."
             printfn "Prompt: %s" promptText

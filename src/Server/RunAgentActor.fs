@@ -20,7 +20,7 @@ module RunAgentActor =
 
     let private askOptions =
         { AgentOptions.DisplayName = Some "AI"
-          ModelHint = None }
+          ModelHint = Some "cursor-grok-4.7-high" }
 
     let private actorCaller (input: ActorInput) : Caller =
         { authority = Authority "Actor"
@@ -28,12 +28,11 @@ module RunAgentActor =
           secret = input.secret }
 
     let private systemPrompt =
-        "You are Ambit AI. You edit outline children under Focus "
-        + "in a Zoom-rooted extract."
+        "You are Ambit AI. You edit outline children under Focus."
         + Environment.NewLine
         + Environment.NewLine
-        + "The Focus node is your prompt. The next message is that extract "
-        + "(mixed Amb / codec text) with Focus marked."
+        + "The next message is the XML Zoom-rooted extract. "
+        + "The Focus / prompt node is the one with css class prompt."
         + Environment.NewLine
         + Environment.NewLine
         + "Return ONLY outline text that replaces every child of Focus."
@@ -43,7 +42,8 @@ module RunAgentActor =
         + "- Use outlining for structure (parent/child), not paragraphs "
         + "or prose blocks."
         + Environment.NewLine
-        + "- Prefer Amb outline shape when the extract uses Amb."
+        + "- Prefer Amb outline shape for the reply; else plain "
+        + "indentation."
         + Environment.NewLine
         + "- No preamble, no markdown fences, no explanation outside "
         + "the outline."
@@ -51,11 +51,10 @@ module RunAgentActor =
         + "- Do not rewrite Focus itself."
 
     let private packExtract (input: ActorInput) =
-        let extract = Graph.withFocus (Some input.focusId) input.graph
-        AmbDocument.writeWith
-            AmbWriteWalk.SuppliedExtract
-            extract
+        AiExtractPack.packExtract
+            input.graph
             input.zoomId
+            input.focusId
 
     let private commandArgs keys repos (input: ActorInput) =
         match Map.tryFind input.commandId input.graph.nodes with

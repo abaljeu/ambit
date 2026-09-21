@@ -109,14 +109,20 @@ let ``ActorStop failed without message decodes as empty`` () =
         | other -> failwith $"expected empty ActorFailed, {other}"
 
 [<Fact>]
-let ``cancel request JSON round-trips a Focus NodeId`` () =
+let ``cancel request JSON round-trips Focus NodeId and EventId`` () =
     let focusId =
         NodeId(Guid("ffffffff-ffff-ffff-ffff-ffffffffffff"))
-    let json = Enc.toString 0 (EventJson.encodeCancelRequest focusId)
+    let request =
+        { focusId = focusId
+          eventId = EventIdFixtures.storedId 4 }
+    let json = Enc.toString 0 (EventJson.encodeCancelRequest request)
     Assert.Contains(focusId.Value.ToString(), json)
+    Assert.Contains("\"eventId\":4", json)
     match Dec.fromString EventJson.decodeCancelRequest json with
     | Error err -> failwith err
-    | Ok decoded -> Assert.Equal(focusId, decoded)
+    | Ok decoded ->
+        Assert.Equal(focusId, decoded.focusId)
+        Assert.Equal(request.eventId, decoded.eventId)
 
 [<Fact>]
 let ``mintChange encodes eventId 0 on the wire`` () =
