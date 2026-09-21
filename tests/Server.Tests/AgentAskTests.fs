@@ -25,8 +25,13 @@ type AgentAskTests() =
                 Assert.Contains("visible-context", args.Prompt)
                 Assert.Contains("<node", args.Prompt)
                 Assert.Contains("class=\"prompt\"", args.Prompt)
-                Assert.Contains("extract as XML", args.Prompt)
+                Assert.Contains(
+                    "XML Zoom-rooted extract", args.Prompt)
+                Assert.Contains("css class prompt", args.Prompt)
                 Assert.DoesNotContain("mixed Amb", args.Prompt)
+                Assert.DoesNotContain("Focus marked", args.Prompt)
+                Assert.DoesNotContain("codec text", args.Prompt)
+                Assert.DoesNotContain("owning-codec", args.Prompt)
                 fakeReply "from-agent")
             (fun () ->
                 withHost (fun host pool -> task {

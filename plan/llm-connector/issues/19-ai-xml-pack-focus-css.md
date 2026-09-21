@@ -24,8 +24,8 @@ Amb `.amb` outline is opaque to models. The document the model sees must be XML 
 
 ### 2. System prompt
 
-1. [x] Say the next message is an **XML** extract. Focus is the Node with css class `prompt`.
-2. [x] Do not say “mixed Amb / codec text with Focus marked.”
+1. [x] Say the next message is the **XML** Zoom-rooted extract. The Focus / prompt node is the one with css class `prompt`.
+2. [x] Do not say “mixed Amb / codec text with Focus marked.” Do not claim Amb marking or mixed-format owning-codecs.
 3. [x] Return rules stay outline text that replaces Focus Children (reply path unchanged: Amb/Plain tidy via FocusChildrenReplace).
 
 ### 3. Proofs
@@ -48,6 +48,7 @@ Amb `.amb` outline is opaque to models. The document the model sees must be XML 
 
 ## Comments
 
+- 2026-09-21 — Alan: `systemPrompt` must match the XML pack (Zoom-rooted extract; css class `prompt`; no Amb/mixed-format claims). Status stays `coded`.
 - 2026-09-21 — Alan: Focus mark css class token is `prompt` (not `focus`). Status stays `coded`.
 - 2026-09-21 — Coded: Server write-only XML pack; Focus css class `prompt` on extract copy; system prompt says XML; proofs green. Status `coded`.
 - 2026-09-21 — Filed from Alan lock: XML AI pack; Focus = css class on the extract copy only.

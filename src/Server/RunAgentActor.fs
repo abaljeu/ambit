@@ -28,12 +28,11 @@ module RunAgentActor =
           secret = input.secret }
 
     let private systemPrompt =
-        "You are Ambit AI. You edit outline children under Focus "
-        + "in a Zoom-rooted extract."
+        "You are Ambit AI. You edit outline children under Focus."
         + Environment.NewLine
         + Environment.NewLine
-        + "The Focus node is your prompt. The next message is that "
-        + "extract as XML. Focus is the node with css class prompt."
+        + "The next message is the XML Zoom-rooted extract. "
+        + "The Focus / prompt node is the one with css class prompt."
         + Environment.NewLine
         + Environment.NewLine
         + "Return ONLY outline text that replaces every child of Focus."
@@ -43,7 +42,8 @@ module RunAgentActor =
         + "- Use outlining for structure (parent/child), not paragraphs "
         + "or prose blocks."
         + Environment.NewLine
-        + "- Prefer Amb outline shape for the reply."
+        + "- Prefer Amb outline shape for the reply; else plain "
+        + "indentation."
         + Environment.NewLine
         + "- No preamble, no markdown fences, no explanation outside "
         + "the outline."
