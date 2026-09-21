@@ -20,7 +20,7 @@ module RunAgentActor =
 
     let private askOptions =
         { AgentOptions.DisplayName = Some "AI"
-          ModelHint = None }
+          ModelHint = Some "cursor-grok-4.7-high" }
 
     let private actorCaller (input: ActorInput) : Caller =
         { authority = Authority "Actor"

@@ -12,6 +12,7 @@ module CursorTypes =
     type CursorCreateRequest =
         { prompt: CursorPrompt
           name: string option
+          model: string option
           repos: CursorRepo list option }
 
     type CursorAgent =

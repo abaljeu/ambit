@@ -35,6 +35,9 @@ module CursorHttp =
                     match request.name with
                     | Some name -> "name", JsonValue.String name
                     | None -> ()
+                    match request.model with
+                    | Some model -> "model", JsonValue.String model
+                    | None -> ()
                     match request.repos with
                     | Some repos ->
                         "repos",
