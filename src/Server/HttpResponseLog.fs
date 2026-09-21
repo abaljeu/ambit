@@ -39,6 +39,7 @@ module HttpResponseLog =
             "/ambit/changes"
             "/ambit/events"
             "/ambit/command"
+            "/ambit/cancel"
             "/ambit/file/parse"
             "/ambit/file-status"
             "/ambit/save"

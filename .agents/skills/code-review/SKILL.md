@@ -73,7 +73,7 @@ If the spec is missing, skip the Spec sub-agent and note this in the final repor
 
 ### 6. Aggregate
 
-Make a report file.  Present the two reports under `## Standards` and `## Spec` headings, verbatim or lightly cleaned. Keep the axes separate: do not merge or rerank findings, and do not pick a single winner across axes.
+Make a report file.  Present the two reports under `## Standards` and `## Spec` headings, verbatim or lightly cleaned. Markdown lists.  Keep the axes separate: do not merge or rerank findings, and do not pick a single winner across axes.
 
 End with a one-line summary: total findings per axis, and the worst issue _within each axis_ (if any).
 

@@ -42,18 +42,14 @@ let ``isIgnored detects ignored and allowed paths`` () =
     | Ok ignored -> Assert.True(ignored)
 
 /// Shared TEMP check-ignore .git can exist without HEAD/config; must reinit.
+/// Corruption stays under the product lock so parallel facts never see
+/// a half-inited `.git`.
 [<SkippableFact>]
 let ``isIgnored recovers from incomplete shared check-ignore git dir`` () =
     Skip.IfNot(gitOnPath (), "git unavailable")
-    let sharedRoot =
-        Path.Combine(Path.GetTempPath(), "gambol-check-ignore-git")
-    let sharedGit = Path.Combine(sharedRoot, ".git")
-    if Directory.Exists sharedGit then
-        Directory.Delete(sharedGit, true)
-    elif File.Exists sharedGit then
-        File.Delete sharedGit
-    Directory.CreateDirectory sharedGit |> ignore
-    Assert.False(File.Exists(Path.Combine(sharedGit, "HEAD")))
+    match GitCheckIgnore.rebuildIncompleteSharedGitDir () with
+    | Error e -> Assert.Fail(e)
+    | Ok _ -> ()
     let root = newTempDir ()
     writeIgnore root "blocked.txt\n"
     match GitCheckIgnore.isIgnored root "notes.txt" with
@@ -62,6 +58,31 @@ let ``isIgnored recovers from incomplete shared check-ignore git dir`` () =
     match GitCheckIgnore.isIgnored root "blocked.txt" with
     | Error e -> Assert.Fail(e)
     | Ok ignored -> Assert.True(ignored)
+
+/// Same shared TEMP GIT_DIR: rebuild must not race other isIgnored callers.
+[<SkippableFact>]
+let ``parallel isIgnored survives incomplete shared git dir rebuild`` () =
+    Skip.IfNot(gitOnPath (), "git unavailable")
+    let root = newTempDir ()
+    writeIgnore root "blocked.txt\n"
+    let work i =
+        async {
+            if i % 5 = 0 then
+                match GitCheckIgnore.rebuildIncompleteSharedGitDir () with
+                | Error e -> return Error e
+                | Ok _ -> return Ok false
+            else
+                return GitCheckIgnore.isIgnored root "notes.txt"
+        }
+    let results =
+        [ 1 .. 30 ]
+        |> List.map work
+        |> Async.Parallel
+        |> Async.RunSynchronously
+    for r in results do
+        match r with
+        | Error e -> Assert.Fail(e)
+        | Ok _ -> ()
 
 [<SkippableFact>]
 let ``isEffectivelyIgnored never blocks gitignore file`` () =

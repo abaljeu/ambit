@@ -13,6 +13,18 @@ let ``RepoConfig should hold URL and optional ref`` () =
     Assert.Equal(Some "main", config.StartingRef)
 
 [<Fact>]
+let ``StartArgs groups start config prompt repos and options`` () =
+    let args =
+        { StartArgs.Config = { RunnerConfig.ApiKey = "k" }
+          Prompt = "pack"
+          Repos = None
+          Options =
+            { AgentOptions.DisplayName = None
+              ModelHint = None } }
+    Assert.Equal("pack", args.Prompt)
+    Assert.Equal("k", args.Config.ApiKey)
+
+[<Fact>]
 let ``AgentOptions can be empty`` () =
     let options =
         { AgentOptions.DisplayName = None
@@ -65,3 +77,12 @@ let ``AgentStatus can represent all states`` () =
         | Finished _ -> true
         | _ -> false
     )
+
+[<Fact>]
+let ``AgentMessage names the provider and short reason`` () =
+    Assert.Equal(
+        "Could not send message to Cursor: unauthorized",
+        AgentMessage.couldNotSend "Cursor" "unauthorized")
+    Assert.Equal(
+        "Could not send message to Cursor: missing key",
+        AgentMessage.couldNotSend "Cursor" "missing key")

@@ -118,6 +118,73 @@ let private seedCommand host text =
         return commandId
     }
 
+let private seedCommandWithChildren host text childTexts =
+    task {
+        let commandId = NodeId.New()
+        let childIds = childTexts |> List.map (fun _ -> NodeId.New())
+        let newChildOps =
+            List.zip childIds childTexts
+            |> List.map (fun (id, childText) ->
+                Op.NewNode(id, childText))
+        let childEdges = childIds |> List.map ChildNode.owner
+        let ops =
+            Op.NewNode(commandId, text)
+            :: newChildOps
+            @ [ Op.Replace(
+                    Graph.rootId,
+                    [],
+                    [ ChildNode.owner commandId ])
+                Op.Replace(commandId, [], childEdges) ]
+        let event =
+            { id = EventId.zero
+              submissionId = Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = ""
+              body = EventBody.Change ops }
+        let! posted =
+            CoreMailbox.postGraphOnly host testCaller event
+            |> Async.StartAsTask
+        requireOk "postChange" posted |> ignore
+        return commandId
+    }
+
+let private ownedChildFacts (graph: Graph) focusId =
+    graph.nodes.[focusId].children
+    |> List.filter (fun child -> child.ref = Ownership.Owner)
+    |> List.map (fun child ->
+        let text =
+            match Map.tryFind child.id graph.nodes with
+            | Some node -> node.text
+            | None -> ""
+        child.id, child.ref, text)
+
+let private nodeTexts (graph: Graph) =
+    graph.nodes
+    |> Map.toList
+    |> List.map (fun (id, node) -> id, node.text)
+
+let private changeEvents (events: Ev list) =
+    events
+    |> List.filter (fun event ->
+        match event.body with
+        | EventBody.Change _ -> true
+        | _ -> false)
+
+let private eventsAfterStart (events: Ev list) focusId =
+    let chronological =
+        events
+        |> List.sortBy (fun event -> EventId.value event.id)
+    let rec skip remaining =
+        match remaining with
+        | [] -> []
+        | event :: rest ->
+            match event.body with
+            | EventBody.ActorStart started
+                when started.focusId = focusId ->
+                rest
+            | _ -> skip rest
+    skip chronological
+
 [<Theory>]
 [<InlineData("?unknown", "unknown")>]
 [<InlineData("?nope", "nope")>]
@@ -159,13 +226,61 @@ let ``TestActor non-hello command fails without Owned child`` (text: string) =
         requireOk "startActor" result
         let! stop = waitForActorStop host request.focusId 1000
         match stop with
-        | Some ActorFailed -> ()
+        | Some (ActorFailed _) -> ()
         | other -> Assert.Fail($"expected ActorFailed, got {other}")
         Assert.False(Set.contains request.focusId (pool.liveFocusIds ()))
         let! state =
             CoreMailbox.getState host |> Async.StartAsTask
         let state = requireOk "getState" state
         Assert.Empty(helloChildren state.graph commandId commandId)
+    })
+
+[<Fact>]
+let ``TestActor non-hello preserves Focus Children and posts no Change`` () =
+    withHost (fun host pool -> task {
+        let! commandId =
+            seedCommandWithChildren
+                host
+                "?test unknown"
+                [ "keep-me"; "also-keep" ]
+        let request = sampleRequest commandId commandId
+        let! beforeState =
+            CoreMailbox.getState host |> Async.StartAsTask
+        let before = requireOk "getState before" beforeState
+        let beforeChildren = ownedChildFacts before.graph commandId
+        let beforeTexts = nodeTexts before.graph
+        Assert.Equal(2, beforeChildren.Length)
+        let! start =
+            CoreMailbox.startActor host testCaller request
+            |> Async.StartAsTask
+        requireOk "startActor" start
+        let! stop = waitForActorStop host request.focusId 1000
+        match stop with
+        | Some (ActorFailed _) -> ()
+        | other -> Assert.Fail($"expected ActorFailed, got {other}")
+        Assert.False(Set.contains request.focusId (pool.liveFocusIds ()))
+        let! afterState =
+            CoreMailbox.getState host |> Async.StartAsTask
+        let after = requireOk "getState after" afterState
+        Assert.Equal<(NodeId * Ownership * string) list>(
+            beforeChildren,
+            ownedChildFacts after.graph commandId)
+        Assert.Equal<(NodeId * string) list>(
+            beforeTexts,
+            nodeTexts after.graph)
+        let! events = eventPast host |> Async.StartAsTask
+        Assert.Equal(1, changeEvents events |> List.length)
+        let afterStart = eventsAfterStart events request.focusId
+        match afterStart with
+        | [ stopEvent ] ->
+            Assert.Equal("", stopEvent.commandName)
+            match stopEvent.body with
+            | EventBody.ActorStop(fid, ActorFailed _) ->
+                Assert.Equal(request.focusId, fid)
+            | other ->
+                Assert.Fail($"expected ActorStop ActorFailed, got {other}")
+        | other ->
+            Assert.Fail($"expected one ActorStop after start, got {other}")
     })
 
 [<Fact>]

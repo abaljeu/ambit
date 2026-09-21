@@ -53,6 +53,12 @@ let ``displayName matches metadata name`` () =
         Assert.Equal(e.name, name)
 
 [<Fact>]
+let ``run owns Ctrl Enter and Alt Enter`` () =
+    let entry = commandFor Exec |> Option.get
+    Assert.Equal("Run", entry.name)
+    Assert.Equal<string list>([ "Ctrl+Enter"; "Alt+Enter" ], entry.keys)
+
+[<Fact>]
 let ``load owns Ctrl Shift greater-than`` () =
     let entry = commandFor Load |> Option.get
     Assert.Equal("Load", entry.name)

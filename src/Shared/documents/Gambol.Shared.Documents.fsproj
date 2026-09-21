@@ -19,6 +19,7 @@
     <Compile Include="DocumentBinary.fs" />
     <Compile Include="DocumentFormat.fs" />
     <Compile Include="DocumentColdParse.fs" />
+    <Compile Include="FocusChildrenReplace.fs" />
     <Compile Include="PlainTextReconcile.fs" />
     <Compile Include="CStyleReconcile.fs" />
     <Compile Include="MdReconcile.fs" />

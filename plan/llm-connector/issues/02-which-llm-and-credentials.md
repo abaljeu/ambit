@@ -11,6 +11,8 @@ Which Agent does the first agent-invoking Actor call, and where do credentials l
 
 ## Answer
 
+**Amend (2026-09-19):** Keys live under **`AiKeys`** in Server `appsettings*.json` (not DataDir, not Graph, not cookie). Real secrets go in gitignored `appsettings.Production.json`; Development may hold empty/local entries. `?ai` keyname selects an entry. Still Actor-owned at send time; Core never sees keys. Supersedes Q5 "env or host secret only" for v1 placement (env override still fine if the host injects config).
+
 **Amend (2026-09-07):** First Agent is **Cursor Cloud Agents API**, not Grok Bot desktop agents and not a raw xAI chat key for v1. Secret is a Cursor Dashboard API key (process/env). Primary work repo is `life`. Full lock: [[../reports/first-agent-cursor-cloud-agents.md]]. Historical Answer below kept for grill trail; treat the amend + report as authoritative for implement.
 
 The first agent-invoking Actor calls Grok Bot. Get API key is for outbound send. Cursor Cloud Agent is not the first target. The user action that launches the Actor is postponed. Pipeline: that action launches the Actor; the Agent receives context; the Actor receives the response; the Actor posts to the Graph (`postChange`). Operate on a connected channel is log in, fetch, and send — not receive-only posts.
@@ -21,6 +23,9 @@ The Grok Bot API key is a Server process secret for the current one-user Server 
 
 ## Comments
 
+- 2026-09-20 — Implement lock: [16 — AiRepos from appsettings](16-airepos-from-appsettings.md) (`Name` + `Url` + optional `StartingRef`; no first-repo default).
+- 2026-09-20 — Implement lock: [15 — AiKeys from appsettings](15-aikeys-from-appsettings.md) (`Name` + `ApiKey`; first entry default).
+- 2026-09-19 — Locked placement: `AiKeys` in `appsettings*.json` (Production gitignored). Glossary: AI Actor, not Ask.
 - 2026-09-02: Filed unclaimed from WORK.md. Map: [[../map.md]].
 - 2026-09-06: Grilling started from chat. Launch is not committed to `?` ([[03-seam-after-ask-recognition.md]], [[plan/expression-language/issues/33-recognize-ask-run-statement.md]]).
 - Fact: Gambol has no Grok Bot or Cloud Agent connector code. Ultra only means those products exist as targets.

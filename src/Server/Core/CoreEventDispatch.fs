@@ -69,8 +69,10 @@ module internal CoreEventDispatch =
             match result with
             | ActorSucceeded ->
                 Gambol.Shared.ActorResult.ActorSucceeded
-            | ActorFailed ->
-                Gambol.Shared.ActorResult.ActorFailed
+            | ActorFailed message ->
+                Gambol.Shared.ActorResult.ActorFailed message
+            | ActorCancelled ->
+                Gambol.Shared.ActorResult.ActorCancelled
         lifecycleEvent
             caller
             (Gambol.Shared.EventBody.ActorStop(

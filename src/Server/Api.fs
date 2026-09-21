@@ -142,7 +142,9 @@ module Api =
                 let response: StateResponse =
                     { graph = state.graph
                       eventId = state.eventId
-                      isReady = handle.isReady () }
+                      isReady = handle.isReady ()
+                      seedLiveFocusIds =
+                        ActorLive.focusIdsFromLockPresent state.graph }
                 let scoped =
                     ResidentProjection.bootstrapStateResponse
                         scope
@@ -228,6 +230,21 @@ module Api =
                                         request.graphIds
                                   events = events
                                   latestId = latestId }
+        }
+
+    /// Decode Focus NodeId, call cancelByFocus, acknowledge without Events.
+    let postCancel
+        (cancelByFocus: NodeId -> Async<Result<unit, string>>)
+        (body: string)
+        : Async<IResult> =
+        async {
+            match Decode.fromString EventJson.decodeCancelRequest body with
+            | Error err ->
+                return agentErrorResult $"Invalid JSON: {err}"
+            | Ok focusId ->
+                match! cancelByFocus focusId with
+                | Error err -> return agentErrorResult err
+                | Ok () -> return jsonResult """{"ok":true}"""
         }
 
     let getCapabilities (dataDir: string) : IResult =

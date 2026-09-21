@@ -27,7 +27,11 @@ module RouteRegistration =
                 DataDir = dataDir
                 AuthUser = this.Auth.ExpectedUser
                 AuthPass = this.Auth.ExpectedPass
-                Actors = [ ActorName "test", TestActor.actorFn ]
+                Actors =
+                    [ ActorName "test", TestActor.actorFn
+                      ActorName "ai", RunAgentActor.actorFn
+                            (AiKeys.fromConfig this.Config)
+                            (AiRepos.fromConfig this.Config) ]
             }
 
     let private errorTemplate (message: string) =
@@ -252,6 +256,29 @@ module RouteRegistration =
                                     caller
                                     request)
                             (boundChanges persistence caller)
+                            body
+                        |> Async.StartAsTask
+        })) |> ignore
+        this.MapPost("/ambit/cancel", Func<HttpRequest, Task<IResult>>(fun req -> task {
+            bindClientHint req |> ignore
+            use reader = new StreamReader(req.Body)
+            let! body = reader.ReadToEndAsync()
+            match BrowserRequestCreds.tryCookieCaller req with
+            | None -> return Results.Unauthorized()
+            | Some caller ->
+                let! live =
+                    CoreMailbox.isAdmitted persistence.Core.host caller
+                    |> Async.StartAsTask
+                if not live then
+                    return Results.Unauthorized()
+                else
+                    return!
+                        Api.postCancel
+                            (fun focusId ->
+                                CoreMailbox.cancelByFocus
+                                    persistence.Core.host
+                                    caller
+                                    focusId)
                             body
                         |> Async.StartAsTask
         })) |> ignore

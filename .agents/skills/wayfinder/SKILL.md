@@ -64,7 +64,7 @@ Each ticket is a child of the map. Its body is the question, sized to one 100K t
 <the decision or investigation this ticket resolves>
 ```
 
-Choose a **Type** — `research`, `prototype`, `grilling`, or `task` (see [Ticket Types](#ticket-types)). Type is a Type axis. Status is a different field, on the tracker.
+Choose a **Type** — `research`, `prototype`, `grilling`, or `task` (see [Ticket Types](#ticket-types)). Type is a Type axis. Status is a different field, on the tracker. Implementation tickets use `coding` or `bug-fixing` — see [[doc/agents/issue-tracker.md]] Ticket Type; those are not Wayfinder decision tickets.
 
 The answer is recorded on resolution (see [Work through the map](#work-through-the-map)). Assets created while resolving a ticket are linked from the issue, not pasted in.
 
@@ -76,6 +76,8 @@ Every ticket is either **HITL** — human in the loop, worked _with_ a human who
 - **Prototype** (HITL): Raise the fidelity of the discussion by making a cheap, rough, concrete artifact to react to — an outline, a rough take, a stub, or UI/logic code via the /prototype skill. Links the prototype as an asset. Use when "how should it look" or "how should it behave" is the key question.
 - **Grilling** (HITL): Conversation. The default case. Always invoke the /grilling and /domain-modeling skills.
 - **Task** (HITL or AFK): Manual work that must happen before a _decision_ can be made — nothing to decide, prototype, or research, but the discussion is blocked until it's done. Signing up for a service so its API can be judged, provisioning access, moving data so its shape can be seen. This is the one type that _does_ rather than decides — and it earns its place by unblocking a decision, not by delivering the destination. The agent drives it alone where it can (AFK); otherwise it hands the human a precise checklist (HITL). Resolved when the work is done; the answer records what was done and any resulting facts (credentials location, new URLs, row counts) later tickets depend on.
+
+**Not Wayfinder types — coding / bug-fixing:** feature build/prove → `**Type:** coding`; defect fix → `**Type:** bug-fixing` per [[doc/agents/issue-tracker.md]]. Do not put those on the map as decision tickets; hand off when the way is clear.
 
 ## Fog of war
 

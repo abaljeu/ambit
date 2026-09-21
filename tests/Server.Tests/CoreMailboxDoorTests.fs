@@ -186,6 +186,7 @@ let ``CoreMailbox.actorStop with valid credential drops live row`` () =
                 Ok ()
         liveFocusIds = fun () -> Set.empty
         getFocusId = fun _ -> None
+        trySecretForFocus = fun _ -> None
     }
     task {
         let dataDir = newTempDir ()
@@ -264,6 +265,7 @@ let ``CoreMailbox.actorStop appends ActorStop and drops live row`` () =
                 Ok ()
         liveFocusIds = fun () -> Set.empty
         getFocusId = fun _ -> Some sampleRequest.focusId
+        trySecretForFocus = fun _ -> None
     }
     task {
         let dataDir = newTempDir ()
@@ -590,3 +592,36 @@ let ``CoreMailbox.postEvent without admitted Caller is refused`` () =
             |> Async.StartAsTask
         Assert.Equal(Error CoreAuth.refuse, result)
     })
+
+[<Fact>]
+let ``ActorStart persist Error leaves Focus out of liveFocusIds`` () =
+    let persist = FileAgent.persist (FileAgent.create (newTempDir ()))
+    let filling =
+        { persist with
+            handlers =
+                { persist.handlers with
+                    appendEvent =
+                        fun event ->
+                            match event.body with
+                            | EventBody.ActorStart _ ->
+                                Error "actor start persist failed"
+                            | _ -> persist.handlers.appendEvent event } }
+    let pool = CoreActorPool.create ()
+    pool.register (ActorName "root") (fun _ _ -> async.Return ())
+    pool.register (ActorName "test") TestActor.actorFn
+    let host =
+        CoreMailbox.host pool filling admittedCredentials
+    task {
+        try
+            let! started =
+                CoreMailbox.startActor host testCaller sampleRequest
+                |> Async.StartAsTask
+            match started with
+            | Ok _ -> Assert.Fail("expected ActorStart persist Error")
+            | Error error ->
+                Assert.Contains("actor start persist failed", error)
+            Assert.False(
+                Set.contains sampleRequest.focusId (pool.liveFocusIds ()))
+        finally
+            CoreMailbox.dispose host
+    }

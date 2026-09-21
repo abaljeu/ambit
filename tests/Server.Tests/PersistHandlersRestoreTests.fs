@@ -105,7 +105,8 @@ let ``ActorStart persists across File restart`` () = task {
           drop = fun _ -> ()
           finish = fun _ _ -> Ok ()
           liveFocusIds = fun () -> Set.empty
-          getFocusId = fun _ -> Some Graph.rootId }
+          getFocusId = fun _ -> Some Graph.rootId
+          trySecretForFocus = fun _ -> None }
     let first =
         CoreMailbox.host
             pool
@@ -156,7 +157,8 @@ let private stubPool secret : CoreActorPool =
       drop = fun _ -> ()
       finish = fun _ _ -> Ok ()
       liveFocusIds = fun () -> Set.empty
-      getFocusId = fun _ -> Some Graph.rootId }
+      getFocusId = fun _ -> Some Graph.rootId
+      trySecretForFocus = fun _ -> None }
 
 let private withFilling filling pool body = task {
     let host = CoreMailbox.host pool filling admittedCredentials

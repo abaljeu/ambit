@@ -52,6 +52,7 @@ let private recordingPool () =
                 Ok ()
         liveFocusIds = fun () -> Set.empty
         getFocusId = fun _ -> None
+        trySecretForFocus = fun _ -> None
     }
     started, stopped, live, pool
 
@@ -235,12 +236,12 @@ let ``ActorStop ActorFailed drops live row and records terminal`` () =
     withHost pool (fun host -> task {
         let! result =
             postActorStop
-                host (actorCaller actorSecret) ActorFailed
+                host (actorCaller actorSecret) (ActorFailed "")
             |> Async.StartAsTask
         requireOk "ActorStop fail" result
         Assert.Equal(1, stopped.Count)
         Assert.Equal(actorSecret, fst stopped.[0])
-        Assert.Equal(ActorFailed, snd stopped.[0])
+        Assert.Equal(ActorFailed "", snd stopped.[0])
         Assert.False(live.Contains actorSecret)
     })
 
@@ -268,6 +269,7 @@ let ``ActorStop consults isLive once for a live Actor`` () =
                 Ok ()
         liveFocusIds = fun () -> Set.empty
         getFocusId = fun _ -> None
+        trySecretForFocus = fun _ -> None
     }
     withHost pool (fun host -> task {
         let! result =

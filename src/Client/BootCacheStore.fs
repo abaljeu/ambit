@@ -334,7 +334,8 @@ let requestIdleTruncate
                         let response =
                             { graph = scoped
                               eventId = eventId
-                              isReady = isReady }
+                              isReady = isReady
+                              seedLiveFocusIds = Set.empty }
                         let json =
                             Thoth.Json.JavaScript.Encode.toString
                                 0

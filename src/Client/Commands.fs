@@ -10,6 +10,7 @@ open Gambol.Client.JsInterop
 open Gambol.Client.Update
 open Gambol.Client.UpdateEdit
 open Gambol.Client.UpdateHelpers
+open Gambol.Client.RunLaunch
 open Gambol.Client.UpdateOps
 open Gambol.Client.UpdatePaste
 open Gambol.Client.UpdateSave
@@ -19,6 +20,7 @@ open Gambol.Client.UpdateWorkspaceLoad
 open Gambol.Client.UpdateFileSearch
 open Gambol.Client.UpdateRename
 open Gambol.Client.UpdateAmbleRun
+open Gambol.Client.UpdateActorLive
 open Gambol.Client.UpdateValidateGraph
 open Gambol.Shared.CommandDockLayout
 open Gambol.Shared.CommandEntry
@@ -43,40 +45,72 @@ let private cmd (id: CommandId) (run: CommandOp) : CommandEntry2 =
 
 let private keyAlways (updater: Updater) : CommandOp = fun () -> Some updater
 
+let private focusedSelectionId (model: VM) : NodeId option =
+    model.selectedNodes
+    |> Option.bind (tryFocusedNodeId model.graph)
+
+let private cancelAvailable (model: VM) =
+    match focusedSelectionId model with
+    | None -> false
+    | Some focusId ->
+        ActorLive.offersCancel focusId model.actorLiveFocusIds
+
+let private execCancelOp (model: VM) : VM * Effect list =
+    match focusedSelectionId model with
+    | None -> model, []
+    | Some focusId -> cancelFocusOp focusId model
+
+let private execAmbleRunOp
+    (committed: VM)
+    (commitEffects: Effect list)
+    (focusId: NodeId)
+    : VM * Effect list =
+    if not (AmbleRun.shouldExec committed.graph focusId) then
+        committed, commitEffects
+    else
+        let afterDelete, delEffects =
+            match Map.tryFind focusId committed.graph.nodes with
+            | Some node when node.children.Length > 0 ->
+                deleteChildSpan
+                    focusId 0 node.children.Length committed
+            | _ -> committed, []
+        let kidsLeft =
+            match Map.tryFind focusId afterDelete.graph.nodes with
+            | Some node -> node.children.Length > 0
+            | None -> false
+        if kidsLeft then
+            afterDelete, commitEffects @ delEffects
+        else
+            let ran, runEffects = runAmbleOp afterDelete
+            ran, commitEffects @ delEffects @ runEffects
+
 let private execRunOp (model: VM) : VM * Effect list =
-    let committed, commitEffects = commitIfEditing model
-    match committed.selectedNodes with
-    | None -> committed, commitEffects
-    | Some sel ->
-        let focusId = focusedNodeId committed.graph sel
-        match Map.tryFind focusId committed.graph.nodes with
-        | Some node when CommandRequest.isCommandText node.text ->
-            let request =
-                CommandRequest.oneNodeStart
-                    committed.graph
-                    committed.siteMap
-                    focusId
-                    committed.eventId
-            committed, commitEffects @ [ SubmitCommand request ]
-        | _ ->
-            if not (AmbleRun.shouldExec committed.graph focusId) then
-                committed, commitEffects
+    afterEditCommit model (fun committed commitEffects ->
+        match committed.selectedNodes with
+        | None -> committed, commitEffects
+        | Some sel ->
+            let focusId = focusedNodeId committed.graph sel
+            let zoomId = committed.zoomRoot
+            if CommandRequest.isAmbleScanStop committed.graph focusId zoomId then
+                execAmbleRunOp committed commitEffects focusId
             else
-                let afterDelete, delEffects =
-                    match Map.tryFind focusId committed.graph.nodes with
-                    | Some node when node.children.Length > 0 ->
-                        deleteChildSpan
-                            focusId 0 node.children.Length committed
-                    | _ -> committed, []
-                let kidsLeft =
-                    match Map.tryFind focusId afterDelete.graph.nodes with
-                    | Some node -> node.children.Length > 0
-                    | None -> false
-                if kidsLeft then
-                    afterDelete, commitEffects @ delEffects
-                else
-                    let ran, runEffects = runAmbleOp afterDelete
-                    ran, commitEffects @ delEffects @ runEffects
+                match
+                    CommandRequest.tryStart
+                        committed.graph
+                        committed.siteMap
+                        zoomId
+                        focusId
+                        committed.eventId with
+                | Ok request ->
+                    committed, commitEffects @ [ SubmitCommand request ]
+                | Error msg ->
+                    if AmbleRun.shouldExec committed.graph focusId then
+                        execAmbleRunOp committed commitEffects focusId
+                    else
+                        { committed with
+                            lastCmdResult =
+                                Some (CmdLastResult.Error (Some "Run", msg)) },
+                        commitEffects)
 
 let private splitAtCursor () : Updater option =
     let text = readEditInputValue ()
@@ -215,6 +249,7 @@ let commandRegistry : CommandEntry2 list =
       cmd EditNode (keyAlways startEditOp)
       cmd Rename (keyAlways openRenamePromptOp)
       cmd Exec (keyAlways execRunOp)
+      cmd Cancel (keyAlways execCancelOp)
       cmd SplitAtCursor splitAtCursor
       cmd Delete (keyAlways deleteSelectionOp)
       cmd JoinWithPrevious handleBackspace
@@ -299,7 +334,8 @@ let commandsForPalette (model: VM) (returnTo: Mode) : CommandEntry2 list =
         | Some e ->
             inKeyScope sel e.keyScope
             && (c.id <> Load || loadAvailable model)
-            && (c.id <> Download || downloadAvailable model))
+            && (c.id <> Download || downloadAvailable model)
+            && (c.id <> Cancel || cancelAvailable model))
 
 let filteredCommands (model: VM) (returnTo: Mode) (query: string) : CommandEntry2 list =
     let baseList = commandsForPalette model returnTo

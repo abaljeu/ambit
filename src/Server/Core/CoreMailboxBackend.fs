@@ -82,7 +82,9 @@ module internal CoreMailboxBackend =
         | ActorStop (_, result, _) ->
             match result with
             | ActorSucceeded -> "ActorStop", "ActorSucceeded"
-            | ActorFailed -> "ActorStop", "ActorFailed"
+            | ActorFailed _ -> "ActorStop", "ActorFailed"
+            | ActorCancelled -> "ActorStop", "ActorCancelled"
+        | CancelActor _ -> "CancelActor", ""
         | Login _ -> "Login", ""
         | Logout _ -> "Logout", ""
         | AdmitCaller _ -> "AdmitCaller", ""
@@ -99,6 +101,7 @@ module internal CoreMailboxBackend =
         | SnapshotDone _ -> ()
         | StartActor (_, _, reply) -> reply.Reply(Error error)
         | ActorStop (_, _, reply) -> reply.Reply(Error error)
+        | CancelActor (_, _, reply) -> reply.Reply(Error error)
         | Login (_, reply) -> reply.Reply(Error error)
         | Logout (_, reply) -> reply.Reply(Error error)
         | AdmitCaller (_, reply) -> reply.Reply(false)
@@ -174,7 +177,9 @@ module internal CoreMailboxBackend =
                             caller
                             request
                     with
-                    | Error err -> reply.Reply(Error err)
+                    | Error err ->
+                        CoreActorPool.dropAndReply
+                            context.pool secret reply err
                     | Ok () ->
                         context.pool.schedule secret (make caller)
                         reply.Reply(Ok ())
@@ -206,6 +211,30 @@ module internal CoreMailboxBackend =
                         context.pool.finish caller.secret result)
             | _ ->
                 reply.Reply(Error CoreAuth.refuse)
+
+    let private dispatchCancelActor
+        (context: MailboxContext)
+        (caller: Caller)
+        (focusId: NodeId)
+        (reply: AsyncReplyChannel<Result<unit, string>>)
+        : unit =
+        match admitCaller context caller with
+        | Error err -> reply.Reply(Error err)
+        | Ok () ->
+            match context.pool.trySecretForFocus focusId with
+            | None -> reply.Reply(Ok ())
+            | Some secret ->
+                match
+                    CoreEventDispatch.actorStop
+                        (eventDispatchContext context)
+                        caller
+                        focusId
+                        ActorCancelled
+                with
+                | Error err -> reply.Reply(Error err)
+                | Ok () ->
+                    reply.Reply(
+                        context.pool.finish secret ActorCancelled)
 
     /// Graph-only: same Ev flow as postEvent, but skips file persistence.
     let private dispatchPostGraphOnly
@@ -258,16 +287,14 @@ module internal CoreMailboxBackend =
         | GetEventHistory reply ->
             reply.Reply(context.eventLog.Value)
         | PostGraphOnly (caller, event, reply) ->
-            dispatchPostGraphOnly
-                context
-                caller
-                event
-                reply
+            dispatchPostGraphOnly context caller event reply
         | SnapshotDone graph -> context.persist.snapshotDone graph
         | StartActor (caller, request, reply) ->
             dispatchStartActor context caller request reply
         | ActorStop (caller, result, reply) ->
             dispatchActorStop context caller result reply
+        | CancelActor (caller, focusId, reply) ->
+            dispatchCancelActor context caller focusId reply
         | Login (caller, reply) ->
             addCaller context caller
             reply.Reply(Ok ())

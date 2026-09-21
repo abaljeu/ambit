@@ -18,7 +18,9 @@
     <Compile Include="GraphQueryTests.fs" />
     <Compile Include="IncludedDescendantIdsTests.fs" />
     <Compile Include="CommandRequestTests.fs" />
+    <Compile Include="RunEditCommitTests.fs" />
     <Compile Include="GraphSpanTests.fs" />
+    <Compile Include="GraphFocusTests.fs" />
     <Compile Include="ModelBuilderTests.fs" />
     <Compile Include="HistoryTests.fs" />
     <Compile Include="ClientHistoryTests.fs" />
@@ -57,6 +59,7 @@
     <Compile Include="LogTextTests.fs" />
     <Compile Include="SnapshotTests.fs" />
     <Compile Include="AmbDocumentTests.fs" />
+    <Compile Include="AmbExtractWalkTests.fs" />
     <Compile Include="AmbDocumentWorkspaceMarkerTests.fs" />
     <Compile Include="PlainTextDocumentTests.fs" />
     <Compile Include="CStyleDocumentTests.fs" />
@@ -90,6 +93,7 @@
     <Compile Include="ImportTextTests.fs" />
     <Compile Include="ImportDocumentTests.fs" />
     <Compile Include="DocumentColdParseTests.fs" />
+    <Compile Include="FocusChildrenReplaceTests.fs" />
     <Compile Include="ExportTextTests.fs" />
     <Compile Include="NodeDesktopPathTests.fs" />
     <Compile Include="SearchTests.fs" />
@@ -101,6 +105,7 @@
     <Compile Include="ViewModelCmdLastResultTests.fs" />
     <Compile Include="ViewModelTests.fs" />
     <Compile Include="DeleteOpsTests.fs" />
+    <Compile Include="ActorLiveTests.fs" />
     <Compile Include="SyncLogicTests.fs" />
     <Compile Include="BootCacheTestHelpers.fs" />
     <Compile Include="BootCacheTests.fs" />

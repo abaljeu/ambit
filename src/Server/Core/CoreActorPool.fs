@@ -27,7 +27,8 @@ type CoreActorPool =
       drop: Credential -> unit
       finish: Credential -> ActorResult -> Result<unit, string>
       liveFocusIds: unit -> Set<NodeId>
-      getFocusId: Credential -> NodeId option }
+      getFocusId: Credential -> NodeId option
+      trySecretForFocus: NodeId -> Credential option }
 
 [<RequireQualifiedAccess>]
 module CoreActorPool =
@@ -51,6 +52,12 @@ module CoreActorPool =
         |> List.map (fun (_, row) -> row.focusId)
         |> Set.ofList
 
+    let private trySecretForFocus (model: Model) focusId =
+        model.live
+        |> Map.tryPick (fun secret row ->
+            if row.focusId = focusId then Some secret
+            else None)
+
     let private runAdmit isLive secret =
         match CoreAuth.admit (isLive secret) with
         | Error err -> Error(CoreAdmissionError.text err)
@@ -64,7 +71,8 @@ module CoreActorPool =
     let private runFinish takeLive secret result =
         match result with
         | ActorSucceeded
-        | ActorFailed ->
+        | ActorFailed _
+        | ActorCancelled ->
             runDrop takeLive secret
             Ok ()
 
@@ -89,6 +97,7 @@ module CoreActorPool =
                 |> Option.map (fun n -> id, n))
             |> Map.ofList
         Graph.fromExtracted request.zoomId actorNodes
+        |> Graph.withFocus (Some request.focusId)
 
     let private runStartActor
         (putLive: Credential -> NodeId -> PendingBody -> unit)
@@ -100,6 +109,8 @@ module CoreActorPool =
         if request.graphIds.IsEmpty then
             Error
                 "graphIds required: client must provide Included context (SiteMap under Zoom, honoring Fold)"
+        elif Set.contains request.focusId (liveFocusIds (getModel ())) then
+            Error "focus already has a live Actor"
         else
             let actorGraph = actorGraphFrom fullGraph request
             match Map.tryFind request.commandId actorGraph.nodes with
@@ -145,6 +156,15 @@ module CoreActorPool =
                 pending.actorFn pending.input coreChanges,
                 row.cancel.Token)
 
+    let dropAndReply
+        (pool: CoreActorPool)
+        (secret: Credential)
+        (reply: AsyncReplyChannel<Result<unit, string>>)
+        (err: string)
+        =
+        pool.drop secret
+        reply.Reply(Error err)
+
     let create () : CoreActorPool =
         let mutable model =
             { defs = Map.empty
@@ -179,4 +199,6 @@ module CoreActorPool =
           getFocusId =
             fun secret ->
                 Map.tryFind secret model.live
-                |> Option.map (fun row -> row.focusId) }
+                |> Option.map (fun row -> row.focusId)
+          trySecretForFocus =
+            fun focusId -> trySecretForFocus model focusId }

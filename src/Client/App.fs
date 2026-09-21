@@ -149,6 +149,7 @@ let createRuntime (initialModel: VM) =
         match e with
         | SubmitPendingBatch (baseEventId, events) -> runSubmitPendingBatch baseEventId events
         | SubmitCommand request -> runSubmitCommand request
+        | SubmitCancel focusId -> runSubmitCancel focusId
         | PollServer _ -> runPollServer ()
         | LoadServer (_, targets) ->
             runLoadServer targets
@@ -396,6 +397,27 @@ let createRuntime (initialModel: VM) =
             (SubmitChangeCallbacks.onPostFetchFail timeoutId reqId baseEventId events dispatch)
             (jsonMutatingPostHeaders ())
 
+    and runSubmitCancel (focusId: NodeId) : unit =
+        let url = $"/{currentFile}/cancel"
+        let body = encodeCancelRequest focusId
+        consoleLog (
+            "[Gambol cancel] POST focusId="
+            + string focusId)
+        postJson
+            url
+            body
+            (fun _ -> ())
+            (fun status text ->
+                let detail =
+                    "HTTP "
+                    + string status
+                    + " "
+                    + LogText.summarizeHttpBody 400 text
+                dispatch (SysMsg (CommandFailed detail)))
+            (fun () ->
+                dispatch (SysMsg (CommandFailed "fetch failed")))
+            (jsonMutatingPostHeaders ())
+
     and runSubmitCommand (request: ActorStart) : unit =
         let url = $"/{currentFile}/command"
         let body = encodeCommandRequest request
@@ -406,17 +428,23 @@ let createRuntime (initialModel: VM) =
             url
             body
             (fun text ->
-                consoleLog (
-                    "[Gambol command] POST 200 bodyLen="
-                    + string text.Length))
+                match decodeUniversalResponse text with
+                | Ok response ->
+                    consoleLog (
+                        "[Gambol command] POST 200 events="
+                        + string response.events.Length)
+                    dispatch (SysMsg (CommandDone response.events))
+                | Error err ->
+                    dispatch (SysMsg (CommandFailed err)))
             (fun status text ->
-                consoleLog (
-                    "[Gambol command] POST fail http="
+                let detail =
+                    "HTTP "
                     + string status
-                    + " body="
-                    + LogText.summarizeHttpBody 400 text))
+                    + " "
+                    + LogText.summarizeHttpBody 400 text
+                dispatch (SysMsg (CommandFailed detail)))
             (fun () ->
-                consoleLog "[Gambol command] POST fetch failed")
+                dispatch (SysMsg (CommandFailed "fetch failed")))
             (jsonMutatingPostHeaders ())
 
     and runPollServer () : unit =

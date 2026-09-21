@@ -61,6 +61,62 @@ let ``Ev JSON round-trips ActorStart and ActorStop`` () =
             body = EventBody.ActorStop(start.focusId, ActorSucceeded) }
     Assert.Equal(started, roundTrip started)
     Assert.Equal(stopped, roundTrip stopped)
+    let cancelled =
+        { changeEvent with
+            commandName = ""
+            body = EventBody.ActorStop(start.focusId, ActorCancelled) }
+    Assert.Equal(cancelled, roundTrip cancelled)
+    let failed =
+        { changeEvent with
+            commandName = ""
+            body =
+                EventBody.ActorStop(
+                    start.focusId,
+                    ActorFailed
+                        "Could not send message to Cursor: unauthorized") }
+    Assert.Equal(failed, roundTrip failed)
+    let json = Enc.toString 0 (EventJson.encode failed)
+    Assert.Contains("\"result\":\"failed\"", json)
+    Assert.Contains(
+        "Could not send message to Cursor: unauthorized", json)
+    let genericFailed =
+        { changeEvent with
+            commandName = ""
+            body = EventBody.ActorStop(start.focusId, ActorFailed "") }
+    Assert.Equal(genericFailed, roundTrip genericFailed)
+    let genericJson =
+        Enc.toString 0 (EventJson.encode genericFailed)
+    Assert.DoesNotContain("\"message\"", genericJson)
+
+[<Fact>]
+let ``ActorStop failed without message decodes as empty`` () =
+    let focusId = NodeId(Guid("dddddddd-dddd-dddd-dddd-dddddddddddd"))
+    let legacy =
+        String.concat
+            ""
+            [ "{\"eventId\":3,"
+              "\"submissionId\":\"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\","
+              "\"authority\":\"Browser\","
+              "\"commandName\":\"\","
+              "\"body\":{\"kind\":\"actorStop\",\"focusId\":\""
+              focusId.Value.ToString()
+              "\",\"result\":\"failed\"}}" ]
+    match Dec.fromString EventJson.decode legacy with
+    | Error err -> failwith err
+    | Ok decoded ->
+        match decoded.body with
+        | EventBody.ActorStop(_, ActorFailed "") -> ()
+        | other -> failwith $"expected empty ActorFailed, {other}"
+
+[<Fact>]
+let ``cancel request JSON round-trips a Focus NodeId`` () =
+    let focusId =
+        NodeId(Guid("ffffffff-ffff-ffff-ffff-ffffffffffff"))
+    let json = Enc.toString 0 (EventJson.encodeCancelRequest focusId)
+    Assert.Contains(focusId.Value.ToString(), json)
+    match Dec.fromString EventJson.decodeCancelRequest json with
+    | Error err -> failwith err
+    | Ok decoded -> Assert.Equal(focusId, decoded)
 
 [<Fact>]
 let ``mintChange encodes eventId 0 on the wire`` () =

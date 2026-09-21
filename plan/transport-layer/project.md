@@ -2,7 +2,7 @@
 
 Stage: chart
 Summary: Cross-cutting transport layer — inbound, outbound, and round-trip patterns for moving information between outside sources and the Graph while Graph stays authority; Parse/Persist as the shared text-processing unit; module contract for connector Actors; `plan` until promoted to `doc/`.
-Updated: 2026-08-31
+Updated: 2026-09-19
 
 ## Objective
 
@@ -23,6 +23,7 @@ Chart how arbitrary outside sources connect to Gambol: materialize external data
 
 ## Notes
 
+- 2026-09-19 — **Owns** the Workspace file-channel redesign chart: FETCH (Start Actor → pull → Parse → Changes → done) and UPDATE (Start Actor → Persist → push → done); ORGANIZE stays Graph authority. Roadmap home: Chapter [[plan/roadmap/epics/chapters/automatic-upload-and-download.md]] on [[plan/roadmap/epics/work-with-text-files-from-anywhere.md]]. Implementation stays on file-channel Projects (auto-download, future auto-upload, Parse File / ESO). Do not invent a Client-only sync path that bypasses ActorStart/Stop.
 - Start at [[overview.md]] — what transport-layer is and the three flows.
 - Map of legs and future connectors: [[map.md]].
 - Parse/Persist primitive: [[details/parse-persist.md]].

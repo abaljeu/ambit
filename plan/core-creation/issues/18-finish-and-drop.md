@@ -26,6 +26,7 @@ Succeeded, Failed, and Cancelled are Core-only terminal messages. The first term
 
 ## Comments
 
+- 2026-09-19 — Housekeeping pass: Succeeded/Failed/Cancelled + drop are in use on staging, but **Restart Interrupted** for unmatched ActorStarted is not verified here. Status stays `defined` until that checkbox is proven or explicitly waived.
 - 2026-09-11 — Review of the first delivery: failed stop does not enqueue delete-actor; pool is a second mailbox. Do not patch in place. Product rewound. Notes: [[../reports/actor-pool-rewind-review.md]].
 - 2026-09-11 — [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] replaced delete-only finish and no-result assumptions with durable ActorFinished, safe failure, Interrupted recovery, and terminal-before-drop order. Proof belongs to [[plan/core-creation/issues/27-prove-core-actor-lifecycle-with-testactor.md]].
 - 2026-09-11 — Status is `blocked` by the preceding live-identity registry contract in [[plan/core-creation/issues/16-track-running-job.md]].

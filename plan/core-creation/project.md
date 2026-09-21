@@ -2,9 +2,29 @@
 
 Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
-Updated: 2026-09-19
+Updated: 2026-09-20
 Started: 2026-09-05
-Actual: 66h50m
+Actual: 81h50m
+
+## Notes
+- 2026-09-20 — Landed [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md) on staging (Alan accept). Status `done`.
+
+- 2026-09-20 — Alan Standards finding Divergent Change (edit commit belongs in execRunOp) for [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md): Editing commit in Client RunLaunch; CommandRequest ActorStart factory. Status stays `coded`.
+- 2026-09-20 — Re-review Spec for [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md): lastCmdResult identity abort; Shared RunEditCommit gate; same-Error proof. Status stays `coded`.
+- 2026-09-20 — Review findings for [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md): Shared `execRunOp` proof; UpdateHelpers and CoreMailboxBackend length restored. Status stays `coded`.
+- 2026-09-20 — Independent review of [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md): Standards Needs changes; Spec Needs changes. Status stays `coded`. Report: [code-review-52-run-abort-when-commit-fails](reports/code-review-52-run-abort-when-commit-fails.md).
+- 2026-09-20 — Implemented [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md): no SubmitCommand/Amble after failed edit commit; drop live after ActorStart persist Error. Status `coded`.
+- 2026-09-20 — Filed [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md): Run must not launch after failed edit commit; no orphan live without chrome. Status `defined`.
+- 2026-09-20 — Landed [[issues/51-browser-run-focus-vs-command.md|51]] and [[issues/21-client-shows-lock-present.md|21]] live-label rework on staging (Alan accept). Status `done`.
+- [52 — Run must not launch when edit commit fails](plan/core-creation/issues/52-run-abort-when-commit-fails.md) — No SubmitCommand after failed commit; no orphan live. Status `done`.
+- 2026-09-20 — [51 — Browser Run: Focus reply parent, Command is runnable ancestor](issues/51-browser-run-focus-vs-command.md) Status `coded`. `?` ActorStart; `=` Amble; scan-stop unchanged.
+- 2026-09-20 — [[issues/21-client-shows-lock-present.md|21]] failed review (hardcoded AI on `?test`); Status `coded`. [[issues/50-actor-live-labels-from-command.md|50]] cancelled (folded into 21).
+- 2026-09-20 — Filed [[issues/50-actor-live-labels-from-command.md|50 Actor live result labels from Command node]]: done as Wayfinder task; coding on 21 / PR #80.
+- 2026-09-20 — Filed [[issues/51-browser-run-focus-vs-command.md|51 Browser Run Focus vs Command]]: Focus = reply parent; Command = runnable ancestor (`?` or contains `=`); one-Node stays hello-only. Status `defined`.
+- 2026-09-19 — Landed [[issues/22-client-cancels-a-job.md|22 Client cancels a job]] on staging (Good). Status `done`.
+- 2026-09-19 — Landed [[issues/21-client-shows-lock-present.md|21 Client shows live Actor]] on staging (Good). Status `done`.
+- 2026-09-19 — Chrome tickets expanded: [[plan/core-creation/issues/21-client-shows-lock-present.md|21 Client shows live Actor]] owns start result (“Run: AI started.”), Command/Poll Event apply, chrome, boot live set, Poll stop/error conveyance; [[plan/core-creation/issues/22-client-cancels-a-job.md|22 Client cancels a job]] owns cancel control on live chrome. DLL provider error naming is a separate ticket.
+- 2026-09-19 — Status catch-up: [[issues/16-track-running-job.md|16]] and [[issues/17-cancel-a-job.md|17]] → `done` (delivered under Event lifecycle / llm-connector 10 + Client 22). [[issues/18-finish-and-drop.md|18]] stays `defined` (Interrupted restart unchecked).
 
 ## Map
 
@@ -23,7 +43,7 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - Callers hold the Core object ([[doc/Decisions/0003-core-is-a-container-of-subobjects.md]]). Browser HTTP is an adapter. Callers do not unpack [[src/Server/Core/CoreRuntime.fs]] into a flattened HTTP context.
 - Dispatch is [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]]. Boundaries, launch membership, Event sequence, universal response, and mailbox lifecycle are [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]].
 - Files stay [[plan/core-creation/issues/07-define-core-files-contract.md]]. General Query stays [[plan/core-creation/issues/08-define-core-query-contract.md]]. Live Actor query stays [[plan/core-creation/issues/16-track-running-job.md]].
-- This increment does not add Browser lifecycle UI. [[plan/core-creation/issues/21-client-shows-lock-present.md]] belongs with [[plan/event-sourced-ops/project.md]].
+- Active Actor chrome is [21 — Client shows live Actor](plan/core-creation/issues/21-client-shows-lock-present.md) then [22 — Client cancels a job](plan/core-creation/issues/22-client-cancels-a-job.md) (Browser lifecycle UI). Earlier note that parked 21 on event-sourced-ops is superseded.
 - Locked code plan: [[plan/core-creation/mitigations.md]].
 
 ## Implementation plan
@@ -37,8 +57,8 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/issues/13-delete-runtime-mirror-and-remove-production-persistence-mode.md]] — use Database persistence when available and reject Changes when unavailable. Status `done`.
 - [[plan/core-creation/issues/14-server-tracks-credentials.md]] — public/secret Authority admission and durable readable Authority; Status `blocked` by the Actor pool baseline.
 - [[plan/core-creation/issues/15-launch-actor-and-hold-span.md]] — historical span delivery superseded by typed launch and ActorStarted; Status `blocked`.
-- [[plan/core-creation/issues/16-track-running-job.md]] — live public-identity query plus durable lifecycle Events; Status `blocked`.
-- [[plan/core-creation/issues/17-cancel-a-job.md]] — terminal Cancelled by Focus NodeId without Undo; Status `blocked`.
+- [[plan/core-creation/issues/16-track-running-job.md]] — live public-identity query plus durable lifecycle Events; Status `done`.
+- [[plan/core-creation/issues/17-cancel-a-job.md]] — terminal Cancelled by Focus NodeId without Undo; Status `done`.
 - [[plan/core-creation/issues/18-finish-and-drop.md]] — durable ActorFinished, synchronous registry removal, non-blocking termination, and Interrupted restart reconciliation; Status `blocked`.
 - [[plan/core-creation/issues/19-database-down-and-host-stop.md]] — Database-down state and mutating Post/launch probe; blocked by [[plan/core-creation/issues/13-delete-runtime-mirror-and-remove-production-persistence-mode.md]].
 - [[plan/core-creation/issues/20-client-presents-credential.md]] — live Browser presents a credential on every message.
@@ -58,6 +78,8 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/issues/34b-outside-core-lifecycle-proof.md|34b — Outside Core lifecycle proof]] — Story path Outside Core lifecycle proof: TestActor hello from Pool/Actor seam without HTTP. Status `done` (independent review approve; report [[plan/core-creation/reports/code-review-34b-outside-core-lifecycle-proof.md]]).
 - [[plan/core-creation/issues/35b-browser-run-hello.md|35b — Browser Run hello]] — Story path Browser Run hello: `?` one-Node Command through HTTP to Owned child `hello`; Status `done`. §6 durability → [[plan/core-creation/issues/49-mailbox-history-durability.md|49]]; §7 proof does not need 49.
 - [[plan/core-creation/issues/49-mailbox-history-durability.md|49 — Mailbox History durability]] — persist/load the audit sequence; load reconcile Graph id vs EventLog tip (drop / noop / apply until concurrent). Status `done`. Blocked by [[plan/core-creation/issues/35b-browser-run-hello.md|35b — Browser Run hello]]. Not required for 35b §7 Browser proof. Plan: [[plan/core-creation/reports/49-mailbox-history-durability-explore.md|49 mailbox History durability explore]]. Reconcile: [[plan/core-creation/reports/49-mailbox-history-durability-reconcile.md|49 mailbox History durability reconcile]].
+- [50 — Actor live result labels from Command node](plan/core-creation/issues/50-actor-live-labels-from-command.md) — Cancelled — folded into 21. Status `done` (Wayfinder task).
+- [51 — Browser Run: Focus reply parent, Command is runnable ancestor](plan/core-creation/issues/51-browser-run-focus-vs-command.md) — Product Run distinct focusId/commandId; `?` ActorStart, `=` Amble; Status `coded`.
 - [[plan/core-creation/issues/36-mailbox-is-the-only-core-door.md|36 — Mailbox is the only Core door]] — Collapse extra Core entrances onto CoreMailbox; Status `done`. Report: [[plan/core-creation/reports/mailbox-single-door.md]].
 - [[plan/core-creation/issues/37-expand-shared-event-eventlog-and-history.md|37 — Expand Shared Event, EventLog, and History]] — Story **Event, EventLog, and ClientHistory** Shared expand beside HistoryEvent; Event-shaped ClientHistory beside the Change-shaped API. No new History module. Status `done`.
 - [[plan/core-creation/issues/40-expand-postevent-eventlog-and-event-json.md|40 — Expand postEvent, EventLog store, and Event JSON persist]] — Story **Caller, persist, and Poll** expand: `postEvent`, EventLog store, Event JSON beside ChangeLog. Status `done`.
@@ -137,6 +159,10 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/reports/35b-slice2-3-http-browser-run.md]] — [35b — Browser Run hello](plan/core-creation/issues/35b-browser-run-hello.md) slices 2–3 HTTP Adapter and Browser Run.
 - [[plan/core-creation/reports/35b-slice4-5-7-core-testactor-browser-proof.md]] — [35b — Browser Run hello](plan/core-creation/issues/35b-browser-run-hello.md) slices 4+5+7 Core TestActor and Browser proof.
 - [35b slices 4+5+7 standards and Spec corrections](plan/core-creation/reports/35b-slice4-5-7-standards-spec-corrections.md) — [35b — Browser Run hello](plan/core-creation/issues/35b-browser-run-hello.md) Origin Spec review: unregistered Actor name and non-hello command fail.
+- [Independent review — 52 Run abort when commit fails](reports/code-review-52-run-abort-when-commit-fails.md) — [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md). Status stays `coded`.
+- [Re-review — 52 Client RunLaunch](reports/code-review-52-rereview-client-runlaunch.md) — [52 — Run must not launch when edit commit fails](issues/52-run-abort-when-commit-fails.md). Status stays `coded`.
+- [Independent review — 51 Focus vs Command](reports/independent-review-51-focus-vs-command.md) — [51 — Browser Run: Focus reply parent, Command is runnable ancestor](issues/51-browser-run-focus-vs-command.md). Status stays `coded`.
+- [Independent re-review — 51 Focus vs Command](reports/independent-review-51-focus-vs-command-rereview.md) — after Amble lock. Standards Approve with nits; Spec Approve. Status stays `coded`.
 - [49 mailbox History durability](plan/core-creation/reports/49-mailbox-history-durability.md) — [49 — Mailbox History durability](issues/49-mailbox-history-durability.md) implement: seed order, File+Db recover, one serial.
 - [Arch reconcile 35b and 49 landed](reports/arch-reconcile-35b-46-landed.md) — [Core creation architecture](arch.md) checkboxes after [35b — Browser Run hello](issues/35b-browser-run-hello.md) and [49 — Mailbox History durability](issues/49-mailbox-history-durability.md). Remaining unchecked → covering ticket.
 

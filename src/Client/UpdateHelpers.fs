@@ -148,10 +148,9 @@ let readEditInputSelectionEnd () : int =
 /// Blocked states (ServerRejected / CodeOutdated / DataOutdated / WaitingToRetry) queue
 /// changes locally but do not fire a POST.
 let clientSyncState (model: VM) : ClientSyncState =
-    ClientSyncState.create
-        model.graph
-        (model.eventId)
-        model.history
+    let state =
+        ClientSyncState.create model.graph model.eventId model.history
+    { state with actorLiveFocusIds = model.actorLiveFocusIds }
 
 let applyAndPost
     (commandName: string)
@@ -275,10 +274,10 @@ let commitTextEdit
     (model: VM)
     : VM * Effect list =
     match tryTextCommitOps nodeId _originalText newText model.graph with
-    | [] -> { model with mode = Selecting }, []
+    | [] -> withLastCmdOk { model with mode = Selecting }, []
     | ops ->
         match applyAndPost (displayName EditNode) ops model with
-        | Ok (m, effects) -> { m with mode = Selecting }, effects
+        | Ok (m, effects) -> withLastCmdOk { m with mode = Selecting }, effects
         | Error msg -> withMoveError msg { model with mode = Selecting }, []
 
 /// Split the currently-edited node at the cursor position.

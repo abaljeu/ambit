@@ -8,6 +8,7 @@ open Gambol.Shared.LogText
 open Gambol.Client.Controller
 open Gambol.Client.JsInterop
 open Gambol.Client.Update
+open Gambol.Client.UpdateActorLive
 open Gambol.Client.UpdateOps
 
 /// Physical row / zoom-path DOM: structure, classes, text, indicators. No listeners.
@@ -149,6 +150,8 @@ module Layout =
         if siteEntry.parentInstanceId = None then row.classList.add "amb-view-root"
         if isEntrySelected model siteEntry then row.classList.add "amb-selected"
         if isEntryFocused  model siteEntry then row.classList.add "amb-focused"
+        if Set.contains nodeId model.actorLiveFocusIds then
+            row.classList.add ActorLive.liveRowClass
         match ViewModel.specialKindRowClass node.id node.kind with
         | Some cls -> row.classList.add cls
         | None -> ()
@@ -225,6 +228,14 @@ module Layout =
         | Some t -> fileIndicator.setAttribute("title", t)
         | None -> fileIndicator.removeAttribute "title"
         row.appendChild fileIndicator |> ignore
+
+        let cancelBtn = document.createElement "button"
+        cancelBtn.classList.add ActorLive.cancelControlClass
+        cancelBtn.setAttribute("type", "button")
+        cancelBtn.setAttribute("aria-label", "Cancel")
+        cancelBtn.title <- "Cancel"
+        cancelBtn.textContent <- "Cancel"
+        row.appendChild cancelBtn |> ignore
         row, textDiv, nodeBullet, hasChildren, childrenIndicator
 
 /// Listeners, scroll-defer / fold-toggle timers, dispatch wiring.
@@ -351,6 +362,19 @@ module Behavior =
             nodeBullet.addEventListener("mousedown", activateRow)
             nodeBullet.addEventListener("dblclick", doubleClickRow)
 
+    let internal wireCancelControl
+        (dispatch: Msg -> unit) (focusId: NodeId) (row: HTMLElement) : unit =
+        let btn = row.querySelector ("." + ActorLive.cancelControlClass)
+        if isNull btn then ()
+        else
+            btn.addEventListener("mousedown", fun (ev: Event) ->
+                ev.preventDefault()
+                ev.stopPropagation())
+            btn.addEventListener("click", fun (ev: Event) ->
+                ev.preventDefault()
+                ev.stopPropagation()
+                dispatch (ApplyOp (cancelFocusOp focusId)))
+
     /// Attach row listeners and scroll-defer flag writes to a layout-built row.
     let internal wireRow
         (model: VM) (dispatch: Msg -> unit) (siteEntry: SiteEntry)
@@ -390,6 +414,7 @@ let internal makeRowElement
     let row, textDiv, nodeBullet, hasChildren, childrenIndicator =
         Layout.buildRowElement model depth siteEntry
     Behavior.wireRow model dispatch siteEntry textDiv nodeBullet hasChildren childrenIndicator
+    Behavior.wireCancelControl dispatch siteEntry.nodeId row
     row
 
 /// Resolve the row element for an instance: create, recreate, or patch as dictated by the upsert index.

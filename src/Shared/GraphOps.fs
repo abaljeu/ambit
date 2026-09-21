@@ -28,6 +28,7 @@ module GraphOps =
         static member contains nodeId graph = GraphBuild.contains nodeId graph
         static member newNode text graph = GraphBuild.newNode text graph
         static member create () = GraphBuild.create ()
+        static member withFocus focus graph = { graph with focus = focus }
 
         static member fileTreeInsertIndex graph parentId =
             GraphQuery.fileTreeInsertIndex graph parentId

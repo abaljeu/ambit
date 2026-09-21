@@ -119,7 +119,8 @@ let private noteSnapshot () =
     let graph, noteId = Graph.newNode "hello" (Graph.create ())
     { graph = graph
       eventId = EventIdFixtures.storedId 5
-      isReady = true },
+      isReady = true
+      seedLiveFocusIds = Set.empty },
     noteId
 
 let private decodeState text =
@@ -245,7 +246,10 @@ let ``decideBootRead fetches /state on fold error`` () =
         Graph.create ()
         |> fun g -> Graph.fromNodes g.root (Map.add fileId fileNode g.nodes)
     let snapshot =
-        { graph = graph; eventId = EventIdFixtures.storedId 1; isReady = true }
+        { graph = graph
+          eventId = EventIdFixtures.storedId 1
+          isReady = true
+          seedLiveFocusIds = Set.empty }
     let event =
         { id = EventIdFixtures.storedId 2
           submissionId = Guid.NewGuid()
@@ -297,7 +301,10 @@ let ``foldLog applies deletion and advances Revision`` () =
         Graph.replace graph1.root 0 [] [ ChildNode.owner noteId ] graph1
         |> ModelBuilder.requireOk "root->doomed"
     let snapshot =
-        { graph = graph2; eventId = EventIdFixtures.storedId 5; isReady = true }
+        { graph = graph2
+          eventId = EventIdFixtures.storedId 5
+          isReady = true
+          seedLiveFocusIds = Set.empty }
     Assert.True(Map.containsKey noteId snapshot.graph.nodes)
     let removeOp = Op.Replace(graph2.root, [ ChildNode.owner noteId ], [])
     let trashChildren = graph2.nodes.[Graph.trashId].children

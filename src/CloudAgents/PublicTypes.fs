@@ -33,6 +33,13 @@ type AgentStatus =
 type RunnerConfig =
     { ApiKey: string }
 
+/// Arguments passed to `AgentRunner.start` and to a `setFake` handler.
+type StartArgs =
+    { Config: RunnerConfig
+      Prompt: string
+      Repos: RepoConfig list option
+      Options: AgentOptions }
+
 /// Errors that can occur during agent operations
 type AgentError =
     | AuthenticationFailed of string
@@ -40,3 +47,9 @@ type AgentError =
     | ApiError of code: string * message: string
     | InvalidResponse of string
     | Timeout
+
+/// Safe client text: names the connector, not raw provider dumps.
+[<RequireQualifiedAccess>]
+module AgentMessage =
+    let couldNotSend (provider: string) (reason: string) =
+        $"Could not send message to {provider}: {reason}"

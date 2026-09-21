@@ -12,4 +12,5 @@ Recommended: extend or sibling the auto-download Project. HITL resume of auto-do
 
 ## Comments
 
+- 2026-09-19 — Actor-shaped Workspace sync redesign chart is owned by [[plan/transport-layer/project.md]]; this ticket still charts the auto-upload implementation Project pointer for the Chapter.
 - 2026-09-02: Parked from WORK.md. Chart auto-upload (and remaining pointers) for [[plan/roadmap/epics/work-with-text-files-from-anywhere.md]] current Chapter.

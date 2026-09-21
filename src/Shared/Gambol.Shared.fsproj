@@ -65,6 +65,7 @@
     <Compile Include="ViewModel.fs" />
     <Compile Include="IncludedDescendantIds.fs" />
     <Compile Include="CommandRequest.fs" />
+    <Compile Include="RunEditCommit.fs" />
     <Compile Include="SyncRiskAlert.fs" />
     <Compile Include="ViewModelSiteMap.fs" />
     <Compile Include="ViewModelOccurrence.fs" />
@@ -97,6 +98,7 @@
     <Compile Include="SyncPlanner.fs" />
     <Compile Include="SyncRetry.fs" />
     <Compile Include="ResidentProjection.fs" />
+    <Compile Include="ActorLive.fs" />
     <Compile Include="SyncLogic.fs" />
     <Compile Include="BootCache.fs" />
     <Compile Include="ModelBuilder.fs" />

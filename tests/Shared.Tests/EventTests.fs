@@ -445,7 +445,7 @@ let ``Every Ev carries Authority`` () =
           EventBody.Undo(EventIdFixtures.storedId 1, [])
           EventBody.Redo(EventIdFixtures.storedId 1, [])
           EventBody.ActorStart start
-          EventBody.ActorStop(start.focusId, ActorFailed) ]
+          EventBody.ActorStop(start.focusId, ActorFailed "") ]
     bodies
     |> List.iter (fun body ->
         let ev = event "" body
@@ -467,6 +467,16 @@ let ``ActorStop carries ActorResult`` () =
     | EventBody.ActorStop(id, result) ->
         Assert.Equal(focusId, id)
         Assert.Equal(ActorSucceeded, result)
+    | _ -> failwith "expected ActorStop"
+
+[<Fact>]
+let ``ActorStop carries ActorCancelled`` () =
+    let focusId = NodeId.New()
+    let ev = event "" (EventBody.ActorStop(focusId, ActorCancelled))
+    match ev.body with
+    | EventBody.ActorStop(id, result) ->
+        Assert.Equal(focusId, id)
+        Assert.Equal(ActorCancelled, result)
     | _ -> failwith "expected ActorStop"
 
 [<Fact>]

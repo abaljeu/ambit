@@ -1,12 +1,42 @@
 # llm-connector
 
-Stage: slice
+Stage: done
 Summary: Run an Agent from a Zoom-rooted mixed-format extract and replace Focus Children through ordinary Core Changes.
-Updated: 2026-09-19
-Actual: 6h55m
+Updated: 2026-09-20
+Started: 2026-09-19
+Finished: 2026-09-19
+Actual: 23h
 
 ## Notes
 
+- 2026-09-20 — Filed [17 — CloudAgents Console stream](issues/17-cloudagents-console-stream.md) then [18 — AI Actor stream](issues/18-ai-actor-stream.md): SSE on DLL/Console first; Actor pending-buffer incremental Focus writes second. Status `defined`. Stage stays `done` for the first vertical; these are follow-ups.
+- 2026-09-20 — Locked **Focus vs Command on Run** in arch: Focus reply parent may differ from `?` Command; one-Node is hello-only. Client encode: core-creation [51 — Browser Run Focus vs Command](../core-creation/issues/51-browser-run-focus-vs-command.md).
+- 2026-09-20 — Follow-up on [16 — AiRepos](issues/16-airepos-from-appsettings.md): `StartArgs` into complete; `AiCommandArgs` for `?ai` parse; AI not Ask in actor facts. Status stays `done`.
+- 2026-09-20 — Landed [16 — AiRepos from appsettings](issues/16-airepos-from-appsettings.md) on staging (Good): Server `AiRepos` bind/resolve; `?ai` keyname then optional reponame; no first-repo default; CloudAgents stays settings-blind. Status `coded`. Stage stays `done`.
+- 2026-09-20 — Landed [15 — AiKeys from appsettings](issues/15-aikeys-from-appsettings.md) on staging (Good): `AiKeys` bind/resolve; first entry default; `?ai` keyname; `CURSOR_API_KEY` removed. Status `done`. Stage stays `done`.
+- 2026-09-19 — Coded [14 — Provider-named AI errors](issues/14-provider-named-ai-errors.md): `ActorFailed of string`; Cursor-named auth message; Client Error labeled AI. Status `done`. Stage stays `done`.
+- 2026-09-19 — Filed [14 — Provider-named AI errors](issues/14-provider-named-ai-errors.md) as a follow-up on the done first Agent vertical (Stage stays `done`). Chrome tickets already convey stop results; this ticket names the provider on auth/start failure.
+- 2026-09-19 — Run Agent Actor `systemPrompt` is a fixed rules string; Focus in the packed extract is the prompt. CloudAgents `DisplayName` is `AI`.
+- 2026-09-19 — Locked AI keys: `AiKeys` section in Server `appsettings*.json` (Production gitignored); `?ai` keyname selects; not DataDir/Graph/cookie.
+- 2026-09-19 — Stage `done`: first Agent vertical (08–11, 13) delivered on staging.
+- 2026-09-19 — Landed [13 — Vertical proof: Browser Ask from what I see](issues/13-vertical-proof-browser-ask.md) on staging (Good). Status `done`.
+- 2026-09-19 — Coded [13 — Vertical proof: Browser Ask from what I see](issues/13-vertical-proof-browser-ask.md): Browser-shaped `?ai` harness, `setFake` Finished, Poll Focus Children, lifecycle drop. Status `coded`.
+- 2026-09-19 — Filed [13 — Vertical proof: Browser Ask from what I see](issues/13-vertical-proof-browser-ask.md) (Status `defined`; frontier). Client encode already shared with `?test`.
+- 2026-09-19 — Landed AI-Actor Failed preserve ([09](issues/09-agent-failure-preserves-children.md)) on staging (Good). Status `done`.
+- 2026-09-19 — Coded [09 — Agent failure preserves children](issues/09-agent-failure-preserves-children.md) AI-Actor erase proof: `setFake` yields Failed; Focus Children preserved; no Error Graph text. Status `coded`.
+- 2026-09-19 — CloudAgents `setFake` handler yields `AgentStatus` (`Finished` or `Failed`).
+- 2026-09-19 — Cancelled [12 — Replace Focus Children from reply](issues/12-replace-focus-children-from-reply.md): replace landed on 08; nested-tag path abandoned.
+- 2026-09-19 — Landed [10 — Cancel by Focus](issues/10-cancel-by-focus.md) on staging (Good). Status `done`.
+- 2026-09-19 — Coded [10 — Cancel by Focus](issues/10-cancel-by-focus.md): CoreMailbox `cancelByFocus`, hanging `setFake`, Run Agent cancel token. Status `coded`.
+- 2026-09-19 — Landed [08 — Agent ask from what I see](issues/08-agent-ask-from-what-i-see.md) on staging (Good). Status `done`.
+- 2026-09-19 — Coded [08 — Agent ask from what I see](issues/08-agent-ask-from-what-i-see.md): `setFake`, Run Agent Actor, Amb pack, Focus-child replace. Status `done`.
+- 2026-09-19 — Locked CloudAgents `setFake` on the DLL (`(StartArgs -> AgentStatus) option -> bool`); success tests use fake; live call-reject until API key.
+- 2026-09-19 — Landed [11 — Pack extract with Amb (supplied-fragment walk)](issues/11-simple-extract-format.md) on staging (Good). Status `done`.
+- 2026-09-19 — Live CloudAgents / API key: until a key exists, only prove call reject; success stays on fake ([[issues/08-agent-ask-from-what-i-see.md|08 — Agent ask from what I see]]).
+- 2026-09-19 — [09 — Agent failure preserves children](issues/09-agent-failure-preserves-children.md) framework half `done` (TestActor preserve proof). AI-Actor erase proof coded.
+- 2026-09-19 — Drop observation: live Focus ids, not secrets ([[issues/09-agent-failure-preserves-children.md|09 — Agent failure preserves children]]).
+- 2026-09-19 — Coded [11 — Pack extract with Amb (supplied-fragment walk)](issues/11-simple-extract-format.md): Amb extract-walk write and `Graph.focus`. Status `done`. Stage `build`.
+- 2026-09-19 — Replan [11 — Pack extract with Amb (supplied-fragment walk)](issues/11-simple-extract-format.md): Amb extract-walk write; nested-tag abandoned; Fable.SimpleXml rejected. Status `defined`.
 - 2026-09-19 — 09 lock: on failure Actor framework does not cause Changes; AI Actor does not erase data (future agentic extensions out of scope).
 - 2026-09-19 — `/to-tickets` (tracer-cut): [[issues/08-agent-ask-from-what-i-see.md|08 — Agent ask from what I see]] (frontier), [[issues/09-agent-failure-preserves-children.md|09 — Agent failure preserves children]], [[issues/10-cancel-by-focus.md|10 — Cancel by Focus]]. Stage `slice`.
 - 2026-09-19 — Arch grill closed: Agent Command `?ai` + args; vertical proof after first implement tickets `defined`; Focus mark spelling deferred to Document ticket; keep CloudAgents DLL; live-Actor chrome on core-creation 21/22 (first Agent vertical = Graph+Poll only).
@@ -15,9 +45,15 @@ Actual: 6h55m
 
 ## Implementation tickets
 
-- [[issues/08-agent-ask-from-what-i-see.md|08 — Agent ask from what I see]] — Status `defined`; frontier.
-- [[issues/09-agent-failure-preserves-children.md|09 — Agent failure preserves children]] — Status `defined`; blocked by 08.
-- [[issues/10-cancel-by-focus.md|10 — Cancel by Focus]] — Status `defined`; blocked by 08.
+- [16 — AiRepos from appsettings](issues/16-airepos-from-appsettings.md) — Status `done`. Follow-up: Server `AiRepos` from appsettings → `AgentRunner.start` repos; no first-repo default.
+- [15 — AiKeys from appsettings](issues/15-aikeys-from-appsettings.md) — Status `done`. Follow-up: Server `AiKeys` from appsettings → `RunnerConfig.ApiKey`; remove `CURSOR_API_KEY` from Run Agent Actor.
+- [14 — Provider-named AI errors](issues/14-provider-named-ai-errors.md) — Status `done`. Follow-up: CloudAgents + Actor emit a safe provider-named auth message; Client shows it as Error labeled AI.
+- [13 — Vertical proof: Browser Ask from what I see](issues/13-vertical-proof-browser-ask.md) — Status `done`.
+- [[issues/11-simple-extract-format.md|11 — Pack extract with Amb (supplied-fragment walk)]] — Status `done`.
+- [[issues/08-agent-ask-from-what-i-see.md|08 — Agent ask from what I see]] — Status `done`.
+- [[issues/12-replace-focus-children-from-reply.md|12 — Replace Focus Children from reply]] — Status `cancelled` (Amb replace on 08; nested-tag abandoned).
+- [09 — Agent failure preserves children](issues/09-agent-failure-preserves-children.md) — Status `done`. Report: [framework-failure-preserves-children](reports/framework-failure-preserves-children.md); review: [code-review-framework-failure-preserves-children](reports/code-review-framework-failure-preserves-children.md).
+- [[issues/10-cancel-by-focus.md|10 — Cancel by Focus]] — Status `done`.
 
 ## Locked Restart
 

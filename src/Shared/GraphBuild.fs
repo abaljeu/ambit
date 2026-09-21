@@ -287,7 +287,8 @@ module GraphBuild =
         { root = root
           nodes = nodesWithOwner
           parentByChild = pbc
-          ownerParentByChild = opc }
+          ownerParentByChild = opc
+          focus = None }
 
     /// Build a Graph from an extracted node set without injecting canonical folders.
     let fromExtracted (root: NodeId) (nodes: Map<NodeId, Node>) : Graph =
@@ -297,7 +298,8 @@ module GraphBuild =
         { root = root
           nodes = nodesWithOwner
           parentByChild = pbc
-          ownerParentByChild = opc }
+          ownerParentByChild = opc
+          focus = None }
 
     /// Insert a fresh, childless, not-yet-attached node. Such a node contributes no
     /// parent edges, so the indexes are unchanged and bulk inserts (a parse tail is
@@ -357,7 +359,8 @@ module GraphBuild =
         { root = graph.root
           nodes = nodes
           parentByChild = parentByChild
-          ownerParentByChild = ownerParentByChild }
+          ownerParentByChild = ownerParentByChild
+          focus = graph.focus }
 
     let nodeCount (graph: Graph) =
         graph.nodes.Count

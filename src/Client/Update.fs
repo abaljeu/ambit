@@ -7,6 +7,7 @@ open Gambol.Client.JsInterop
 open Gambol.Client.UpdateCodec
 open Gambol.Client.UpdateHelpers
 open Gambol.Client.UpdateOps
+open Gambol.Client.UpdateActorLive
 
 let encodePendingBatchBody = UpdateCodec.encodePendingBatchBody
 let decodeStateResponse = UpdateCodec.decodeStateResponse
@@ -128,6 +129,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
         { graph = graph
           eventId = response.eventId
           history = ClientHistory.clear ()
+          actorLiveFocusIds = response.seedLiveFocusIds
           selectedNodes = None
           mode = Selecting
           siteMap = siteMap
@@ -245,10 +247,8 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                 | Error _ -> readyModel, []
                 | Ok newState ->
                     let kept =
-                        { readyModel with
-                            graph = newState.graph
-                            history = newState.history
-                            eventId = newState.eventId }
+                        withAppliedSync newState readyModel
+                        |> withActorCmdResult events
                         |> withSiteMap
                         |> adjustModeAfterServerApply readyModel.graph
                     { kept with
@@ -279,11 +279,11 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                         + " newRev="
                         + string newState.eventId.Value)
                     let synced =
-                        { readyModel with
-                            graph = newState.graph
-                            history = newState.history
-                            eventId = newState.eventId
-                            syncInfo = si |> SyncInfo.clearCatchUp }
+                        withAppliedResult
+                            events
+                            newState
+                            (si |> SyncInfo.clearCatchUp)
+                            readyModel
                         |> withSiteMap
                         |> adjustModeAfterServerApply readyModel.graph
                     autoDownload synced
@@ -315,22 +315,19 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                             + " newRev="
                             + string newState.eventId.Value)
                         let synced =
-                            { readyModel with
-                                graph = newState.graph
-                                history = newState.history
-                                eventId = newState.eventId
-                                syncInfo = si }
+                            withAppliedResult events newState si readyModel
                             |> withSiteMap
                             |> adjustModeAfterServerApply readyModel.graph
                         autoDownload synced
                 | Some s ->
                     { readyModel with syncInfo = SyncInfo.withSyncState s si }, []
 
-    | SysMsg (BootGraphApplied (graph, eventId, history, ready)) ->
+    | SysMsg (BootGraphApplied (applied, ready)) ->
         { model with
-            graph = graph
-            eventId = eventId
-            history = history
+            graph = applied.projectedGraph
+            eventId = applied.projectedEventId
+            history = applied.projectedHistory
+            actorLiveFocusIds = applied.projectedLiveFocusIds
             syncInfo =
                 model.syncInfo
                 |> SyncInfo.withServerReady ready
@@ -389,16 +386,21 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                     + " newRev="
                     + string newState.eventId.Value)
                 let synced =
-                    { readyModel with
-                        graph = newState.graph
-                        history = newState.history
-                        eventId = newState.eventId
-                        syncInfo = si }
+                    withAppliedResult
+                        syncResponse.events newState si readyModel
                     |> withSiteMap
                     |> adjustModeAfterServerApply readyModel.graph
                 synced, []
         | Some s ->
             { readyModel with syncInfo = SyncInfo.withSyncState s si }, []
+
+    | SysMsg (CommandDone events) ->
+        applyCommandEvents events model
+
+    | SysMsg (CommandFailed detail) ->
+        { model with
+            lastCmdResult = Some (CmdLastResult.Error (Some "Run", detail)) },
+        []
 
     | SysMsg RetrySubmit ->
         let m, effs = UpdateOps.retryPendingOp false model
