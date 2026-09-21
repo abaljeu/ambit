@@ -19,7 +19,7 @@ Section name **`AiKeys`**. Array of objects:
 
 Default when `?ai` has no keyname: the **first** array entry. A missing Name, an empty list, or an empty `ApiKey` yields `""` (CloudAgents names Cursor). Extra tokens after the keyname stay unused. Cursor Grok/High/Fast options are not in this ticket.
 
-Load order is existing `addAppSettings`: base `appsettings.json`, then `appsettings.Development.json` or gitignored `appsettings.Production.json`.
+Load order is existing `addAppSettings`: base `appsettings.json`, then gitignored `appsettings.Development.json` or gitignored `appsettings.Production.json`.
 
 ## What to build
 
@@ -37,7 +37,7 @@ Load order is existing `addAppSettings`: base `appsettings.json`, then `appsetti
 
 ### 3. Placeholder JSON
 
-1. [x] `appsettings.json` and `appsettings.Development.json` hold an empty-`ApiKey` example. No real secret. Production stays gitignored.
+1. [x] Base `appsettings.json` holds an empty-`ApiKey` example. No real secret. Development is gitignored like Production.
 
 ### 4. Non-goals
 
@@ -51,6 +51,7 @@ Load order is existing `addAppSettings`: base `appsettings.json`, then `appsetti
 
 ## Comments
 
+- 2026-09-21 — Amend: Development is gitignored like Production; empty placeholders stay in base `appsettings.json` only. See [19 — Gitignore Development appsettings](19-gitignore-development-appsettings.md).
 - 2026-09-19 — Independent review Good; squash-landed on staging. Status `done`.
 - 2026-09-20 — Filed from locked AiKeys placement. Default is first entry. Fields are `Name` + `ApiKey`.
 - 2026-09-20 — Coded: `AiKeys.fromConfig` / `resolve`; `?ai` keyname from Command text; composition injects into Run Agent Actor; `CURSOR_API_KEY` removed. Status `coded`.

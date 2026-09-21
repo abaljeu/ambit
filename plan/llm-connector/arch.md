@@ -1,7 +1,7 @@
 # llm-connector architecture
 
 Spec: [[spec.md]]
-Updated: 2026-09-20
+Updated: 2026-09-21
 Sequence: tracer-cut
 
 Sources: [[issues/06-define-command-run-agent-redesign.md|06 — Define the revised Command + Run Agent seam]], [[issues/07-lock-run-agent-architecture.md|07 — Lock the Run Agent architecture]], [[plan/core-creation/arch.md|Core creation architecture]] (hello lifecycle already delivered). Checklist: `[x]` delivered; `[ ]` still to build for this Project.
@@ -179,7 +179,7 @@ Narrowest shared test seam:
 
 ## 5. Locked during arch (2026-09-19)
 
-1. **Agent Command spelling** — `?ai` plus optional keyname then optional reponame. That text invokes the Run Agent Actor. Keyname selects an `AiKeys` entry (`Name` + `ApiKey` in Server `appsettings*.json`). Omitted keyname uses the first entry. Reponame selects an `AiRepos` entry (`Name` + `Url` + optional `StartingRef`). Omitted reponame attaches no repo. Single-token ambiguity and extra tokens are on [16 — AiRepos from appsettings](issues/16-airepos-from-appsettings.md). Missing or empty `ApiKey` stays the provider-named missing-key path.
+1. **Agent Command spelling** — `?ai` plus optional keyname then optional reponame. That text invokes the Run Agent Actor. Keyname selects an `AiKeys` entry (`Name` + `ApiKey` in Server `appsettings*.json`). Omitted keyname uses the first entry. Reponame selects an `AiRepos` entry (`Name` + `Url` + optional `StartingRef`). Omitted reponame attaches no repo. Single-token ambiguity and extra tokens are on [16 — AiRepos from appsettings](issues/16-airepos-from-appsettings.md). Missing or empty `ApiKey` stays the provider-named missing-key path. `appsettings.Development.json` is gitignored like Production. Base `appsettings.json` holds empty placeholders. `addAppSettings` load order is unchanged.
 2. **Vertical proof timing** — Define the full Browser → Run Agent → Focus-children proof after the first CloudAgents / Run Agent implement tickets are `defined` (not now; not inside the first end-to-end ticket alone). Filed as [[issues/13-vertical-proof-browser-ask.md|13 — Vertical proof: Browser Ask from what I see]] once 08–11 were `done`.
 3. **Focus on extract Graph** — Extract-pack Focus is `Graph.focus` on the extract copy (`withFocus`). The Amb pack string has no Focus sentinel. Mixed-format sentinel spelling stays tabled with owning-codec serialize.
 4. **First pack is Amb extract-walk** — Reuse `AmbDocument`. One write option walks the supplied Zoom extract (Owned and Ref into present Nodes; no file persist; no owning-document partition). Parse stays default Amb. Mixed-format owning-codec and Md extract write stay tabled. Existing Md artifact write does not change.
