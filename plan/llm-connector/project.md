@@ -10,7 +10,7 @@ Actual: 25h
 ## Notes
 
 - 2026-09-21 — Coded [19 — AI extract pack is XML with Focus cssClass](issues/19-ai-xml-pack-focus-css.md): write-only XML CloudAgents document; Focus css class on the extract copy. Status `coded`. Stage stays `done`.
-- 2026-09-21 — Filed [19 — AI extract pack is XML with Focus cssClass](issues/19-ai-xml-pack-focus-css.md): CloudAgents document is write-only XML; Focus is css class `focus` on the extract copy. Status `defined`. Stage stays `done`; this is a follow-up bug-fix.
+- 2026-09-21 — Filed [19 — AI extract pack is XML with Focus cssClass](issues/19-ai-xml-pack-focus-css.md): CloudAgents document is write-only XML; Focus is css class `prompt` on the extract copy. Status `defined`. Stage stays `done`; this is a follow-up bug-fix.
 - 2026-09-20 — Filed [17 — CloudAgents Console stream](issues/17-cloudagents-console-stream.md) then [18 — AI Actor stream](issues/18-ai-actor-stream.md): SSE on DLL/Console first; Actor pending-buffer incremental Focus writes second. Status `defined`. Stage stays `done` for the first vertical; these are follow-ups.
 - 2026-09-20 — Locked **Focus vs Command on Run** in arch: Focus reply parent may differ from `?` Command; one-Node is hello-only. Client encode: core-creation [51 — Browser Run Focus vs Command](../core-creation/issues/51-browser-run-focus-vs-command.md).
 - 2026-09-20 — Follow-up on [16 — AiRepos](issues/16-airepos-from-appsettings.md): `StartArgs` into complete; `AiCommandArgs` for `?ai` parse; AI not Ask in actor facts. Status stays `done`.

@@ -24,7 +24,7 @@ type AgentAskTests() =
             (fun args ->
                 Assert.Contains("visible-context", args.Prompt)
                 Assert.Contains("<node", args.Prompt)
-                Assert.Contains("class=\"focus\"", args.Prompt)
+                Assert.Contains("class=\"prompt\"", args.Prompt)
                 Assert.Contains("extract as XML", args.Prompt)
                 Assert.DoesNotContain("mixed Amb", args.Prompt)
                 fakeReply "from-agent")
@@ -50,7 +50,7 @@ type AgentAskTests() =
                         let node = s.graph.nodes.[request.focusId]
                         Assert.False(
                             CssClass.contains
-                                AiExtractPack.FocusClass
+                                AiExtractPack.PromptClass
                                 node.cssClasses)
                 }))
 

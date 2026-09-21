@@ -9,16 +9,16 @@ open Gambol.Shared
 module AiExtractPack =
 
     [<Literal>]
-    let FocusClass = "focus"
+    let PromptClass = "prompt"
 
     let private nodeName = XName.Get "node"
     let private className = XName.Get "class"
 
-    let private withFocusClass (classes: CssClasses) =
-        if CssClass.contains FocusClass classes then
+    let private withPromptClass (classes: CssClasses) =
+        if CssClass.contains PromptClass classes then
             classes
         else
-            CssClass.toggle FocusClass classes
+            CssClass.toggle PromptClass classes
 
     let markFocus (graph: Graph) : Graph =
         match graph.focus with
@@ -29,7 +29,7 @@ module AiExtractPack =
             | Some node ->
                 let marked =
                     { node with
-                        cssClasses = withFocusClass node.cssClasses }
+                        cssClasses = withPromptClass node.cssClasses }
                 { graph with
                     nodes = graph.nodes |> Map.add focusId marked }
 

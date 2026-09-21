@@ -33,7 +33,7 @@ module RunAgentActor =
         + Environment.NewLine
         + Environment.NewLine
         + "The Focus node is your prompt. The next message is that "
-        + "extract as XML. Focus is the node with css class focus."
+        + "extract as XML. Focus is the node with css class prompt."
         + Environment.NewLine
         + Environment.NewLine
         + "Return ONLY outline text that replaces every child of Focus."

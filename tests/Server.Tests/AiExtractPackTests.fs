@@ -65,7 +65,7 @@ let ``pack string is XML with node elements`` () =
     Assert.Contains("visible", text)
 
 [<Fact>]
-let ``Focus node element carries focus class`` () =
+let ``Focus node element carries prompt class`` () =
     let graph, zoomId, childId = zoomWithChild "visible"
     let text =
         AiExtractPack.packExtract graph zoomId childId
@@ -73,8 +73,8 @@ let ``Focus node element carries focus class`` () =
     let root = parseXml text
     let focusEl = findByOwnText root "visible"
     Assert.True(focusEl.IsSome)
-    Assert.Contains(AiExtractPack.FocusClass, classList focusEl.Value)
-    Assert.DoesNotContain(AiExtractPack.FocusClass, classList root)
+    Assert.Contains(AiExtractPack.PromptClass, classList focusEl.Value)
+    Assert.DoesNotContain(AiExtractPack.PromptClass, classList root)
 
 [<Fact>]
 let ``Zoom Focus marks the Zoom root element`` () =
@@ -83,7 +83,7 @@ let ``Zoom Focus marks the Zoom root element`` () =
         AiExtractPack.packExtract graph zoomId zoomId
         |> requireOk "pack"
     let root = parseXml text
-    Assert.Contains(AiExtractPack.FocusClass, classList root)
+    Assert.Contains(AiExtractPack.PromptClass, classList root)
 
 [<Fact>]
 let ``existing cssClasses stay on the Focus copy`` () =
@@ -111,10 +111,10 @@ let ``existing cssClasses stay on the Focus copy`` () =
     let focusEl = findByOwnText (parseXml text) "prompt"
     Assert.True(focusEl.IsSome)
     Assert.Contains("h1", classList focusEl.Value)
-    Assert.Contains(AiExtractPack.FocusClass, classList focusEl.Value)
+    Assert.Contains(AiExtractPack.PromptClass, classList focusEl.Value)
     Assert.Equal(prior, graph.nodes.[focusId].cssClasses)
     Assert.False(
-        CssClass.contains AiExtractPack.FocusClass
+        CssClass.contains AiExtractPack.PromptClass
             graph.nodes.[focusId].cssClasses)
 
 [<Fact>]
@@ -130,10 +130,10 @@ let ``original graph node cssClasses stay unchanged`` () =
     |> ignore
     Assert.Equal(before, graph.nodes.[childId].cssClasses)
     Assert.False(
-        CssClass.contains AiExtractPack.FocusClass
+        CssClass.contains AiExtractPack.PromptClass
             graph.nodes.[childId].cssClasses)
     Assert.True(
-        CssClass.contains AiExtractPack.FocusClass
+        CssClass.contains AiExtractPack.PromptClass
             marked.nodes.[childId].cssClasses)
 
 [<Fact>]

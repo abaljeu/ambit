@@ -10,28 +10,28 @@ Actual: 2h
 
 [08 — Agent ask from what I see](08-agent-ask-from-what-i-see.md) packs the Zoom extract with [11 — Pack extract with Amb (supplied-fragment walk)](11-simple-extract-format.md). `RunAgentActor.packExtract` sets `Graph.focus` then Amb-writes. Amb serialize never reads `graph.focus` (ticket 11 lock: no Focus sentinel). The system prompt says “with Focus marked.” The model cannot tell which Node is Focus. That is worse when Focus is not the `?` Command.
 
-Amb `.amb` outline is opaque to models. The document the model sees must be XML so structure is clear. Focus is a css class on the Focus Node of the in-memory extract copy only. Persist nothing. Do not rewrite Focus `text` with a `[Focus]` prefix. Do not restore Fable.SimpleXml.
+Amb `.amb` outline is opaque to models. The document the model sees must be XML so structure is clear. Focus is css class `prompt` on the Focus Node of the in-memory extract copy only. Persist nothing. Do not rewrite Focus `text` with a `[Focus]` prefix. Do not restore Fable.SimpleXml.
 
 ## What to build
 
 ### 1. XML pack of the Zoom extract
 
 1. [x] `packExtract` (or a small helper it calls) starts from the extract Graph with `withFocus`.
-2. [x] On that copy only, merge css class `focus` onto the Focus Node (`CssClass.toggle` / list merge; keep existing classes).
+2. [x] On that copy only, merge css class `prompt` onto the Focus Node (`CssClass.toggle` / list merge; keep existing classes).
 3. [x] Serialize the Zoom-rooted extract to write-only XML for the CloudAgents prompt document. Server `System.Xml.Linq` (or equivalent write-only helper). No Shared parse dependency.
-4. [x] Tree mirrors the outline: one `node` element per present Node; text content is Node text (escaped); `class` is space-separated `CssClass` names (Focus has `focus`); Children nest under the parent.
+4. [x] Tree mirrors the outline: one `node` element per present Node; text content is Node text (escaped); `class` is space-separated `CssClass` names (Focus has `prompt`); Children nest under the parent.
 5. [x] Walk the same as `AmbWriteWalk.SuppliedExtract`: Owned and Ref into Nodes present in the extract; omit missing ids; no file persist; no owning-document partition.
 
 ### 2. System prompt
 
-1. [x] Say the next message is an **XML** extract. Focus is the Node with css class `focus`.
+1. [x] Say the next message is an **XML** extract. Focus is the Node with css class `prompt`.
 2. [x] Do not say “mixed Amb / codec text with Focus marked.”
 3. [x] Return rules stay outline text that replaces Focus Children (reply path unchanged: Amb/Plain tidy via FocusChildrenReplace).
 
 ### 3. Proofs
 
 1. [x] Pack string is XML.
-2. [x] Focus Node element carries `focus` class.
+2. [x] Focus Node element carries `prompt` class.
 3. [x] Original Graph Node `cssClasses` unchanged.
 4. [x] [11 — Pack extract with Amb (supplied-fragment walk)](11-simple-extract-format.md) “no Focus sentinel” Amb extract-walk tests stay valid.
 
@@ -48,8 +48,9 @@ Amb `.amb` outline is opaque to models. The document the model sees must be XML 
 
 ## Comments
 
-- 2026-09-21 — Coded: Server write-only XML pack; Focus css class on extract copy; system prompt says XML; proofs green. Status `coded`.
-- 2026-09-21 — Filed from Alan lock: XML AI pack; Focus = css class `focus` on the extract copy only.
+- 2026-09-21 — Alan: Focus mark css class token is `prompt` (not `focus`). Status stays `coded`.
+- 2026-09-21 — Coded: Server write-only XML pack; Focus css class `prompt` on extract copy; system prompt says XML; proofs green. Status `coded`.
+- 2026-09-21 — Filed from Alan lock: XML AI pack; Focus = css class on the extract copy only.
 
 ## Time
 
