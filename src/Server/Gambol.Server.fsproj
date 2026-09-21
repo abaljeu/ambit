@@ -38,6 +38,7 @@
     <Compile Include="AiRepos.fs" />
     <Compile Include="AiCommandArgs.fs" />
     <Compile Include="TestActor.fs" />
+    <Compile Include="AiExtractPack.fs" />
     <Compile Include="RunAgentActor.fs" />
     <Compile Include="Core\CoreMsg.fs" />
     <Compile Include="Core\CoreEventDispatch.fs" />

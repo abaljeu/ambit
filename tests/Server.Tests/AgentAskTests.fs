@@ -23,6 +23,15 @@ type AgentAskTests() =
         withFake
             (fun args ->
                 Assert.Contains("visible-context", args.Prompt)
+                Assert.Contains("<node", args.Prompt)
+                Assert.Contains("class=\"prompt\"", args.Prompt)
+                Assert.Contains(
+                    "XML Zoom-rooted extract", args.Prompt)
+                Assert.Contains("css class prompt", args.Prompt)
+                Assert.DoesNotContain("mixed Amb", args.Prompt)
+                Assert.DoesNotContain("Focus marked", args.Prompt)
+                Assert.DoesNotContain("codec text", args.Prompt)
+                Assert.DoesNotContain("owning-codec", args.Prompt)
                 fakeReply "from-agent")
             (fun () ->
                 withHost (fun host pool -> task {
@@ -37,6 +46,17 @@ type AgentAskTests() =
                     let! started =
                         hasActorStart host request.focusId
                     Assert.True(started)
+                    let! state =
+                        CoreMailbox.getState host
+                        |> Async.StartAsTask
+                    match state with
+                    | Error err -> Assert.Fail(err)
+                    | Ok s ->
+                        let node = s.graph.nodes.[request.focusId]
+                        Assert.False(
+                            CssClass.contains
+                                AiExtractPack.PromptClass
+                                node.cssClasses)
                 }))
 
     [<Fact>]
