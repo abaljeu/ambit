@@ -9,7 +9,7 @@ Actual: 23h 30m
 
 ## Notes
 
-- 2026-09-21 — Coded [19 — Gitignore Development appsettings](issues/19-gitignore-development-appsettings.md): Development gitignored like Production; empty placeholders stay in base `appsettings.json`. Status `coded`. Stage stays `done`.
+- 2026-09-21 — Coded [20 — Gitignore Development appsettings](issues/20-gitignore-development-appsettings.md): Development gitignored like Production; empty placeholders stay in base `appsettings.json`. Status `coded`. Stage stays `done`.
 - 2026-09-20 — Filed [17 — CloudAgents Console stream](issues/17-cloudagents-console-stream.md) then [18 — AI Actor stream](issues/18-ai-actor-stream.md): SSE on DLL/Console first; Actor pending-buffer incremental Focus writes second. Status `defined`. Stage stays `done` for the first vertical; these are follow-ups.
 - 2026-09-20 — Locked **Focus vs Command on Run** in arch: Focus reply parent may differ from `?` Command; one-Node is hello-only. Client encode: core-creation [51 — Browser Run Focus vs Command](../core-creation/issues/51-browser-run-focus-vs-command.md).
 - 2026-09-20 — Follow-up on [16 — AiRepos](issues/16-airepos-from-appsettings.md): `StartArgs` into complete; `AiCommandArgs` for `?ai` parse; AI not Ask in actor facts. Status stays `done`.
@@ -46,7 +46,7 @@ Actual: 23h 30m
 
 ## Implementation tickets
 
-- [19 — Gitignore Development appsettings](issues/19-gitignore-development-appsettings.md) — Status `coded`. Follow-up: stop tracking Development so live `AiKeys` stay local.
+- [20 — Gitignore Development appsettings](issues/20-gitignore-development-appsettings.md) — Status `coded`. Follow-up: stop tracking Development so live `AiKeys` stay local.
 - [16 — AiRepos from appsettings](issues/16-airepos-from-appsettings.md) — Status `done`. Follow-up: Server `AiRepos` from appsettings → `AgentRunner.start` repos; no first-repo default.
 - [15 — AiKeys from appsettings](issues/15-aikeys-from-appsettings.md) — Status `done`. Follow-up: Server `AiKeys` from appsettings → `RunnerConfig.ApiKey`; remove `CURSOR_API_KEY` from Run Agent Actor.
 - [14 — Provider-named AI errors](issues/14-provider-named-ai-errors.md) — Status `done`. Follow-up: CloudAgents + Actor emit a safe provider-named auth message; Client shows it as Error labeled AI.

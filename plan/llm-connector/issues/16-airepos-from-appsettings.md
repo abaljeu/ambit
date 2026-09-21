@@ -64,7 +64,7 @@ Documented order is **keyname then reponame**. `?ai life` is a repo only when `l
 
 ## Comments
 
-- 2026-09-21 — Amend: Development is gitignored like Production; tracked examples stay in base `appsettings.json` only. See [19 — Gitignore Development appsettings](19-gitignore-development-appsettings.md).
+- 2026-09-21 — Amend: Development is gitignored like Production; tracked examples stay in base `appsettings.json` only. See [20 — Gitignore Development appsettings](20-gitignore-development-appsettings.md).
 - 2026-09-20 — Follow-up: `complete` takes CloudAgents `StartArgs`; `?ai` parse in `AiCommandArgs`; actor facts named AI not Ask. Landed on staging.
 - 2026-09-20 — Independent review Good; squash-landed on staging. Status `done`.
 - 2026-09-20 — Filed and coded: `AiRepos.fromConfig` / `resolve`; `?ai` keyname then reponame; one-token repo-only UX; Actor injects resolved repos; CloudAgents stays settings-blind. Status `coded`.

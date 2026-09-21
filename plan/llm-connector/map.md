@@ -16,7 +16,7 @@ Run an Agent from a Zoom-rooted mixed-format Graph extract, mark Focus in the ou
 
 ## Decisions so far
 
-- 2026-09-21 — [19 — Gitignore Development appsettings](issues/19-gitignore-development-appsettings.md): Development is gitignored like Production; tracked empty placeholders stay in base `appsettings.json` only.
+- 2026-09-21 — [20 — Gitignore Development appsettings](issues/20-gitignore-development-appsettings.md): Development is gitignored like Production; tracked empty placeholders stay in base `appsettings.json` only.
 - 2026-09-20 — Stream follow-ups: [17 — CloudAgents Console stream](issues/17-cloudagents-console-stream.md) (SSE DLL + Console), then [18 — AI Actor stream](issues/18-ai-actor-stream.md) (pending-buffer `addChild` for `<>` fragment). Not follow-up turns.
 - 2026-09-11 redesign: Ambit is an info hub. Actor data formats and protocols vary; the adaptive-update process is common. [[reports/agent-redesign-locked-2026-09.md]]
 - [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]] — Command-text dispatch, command text `?test hello`, Zoom-rooted extract, Focus replacement, Focus exclusivity, preserve-children, ordinary merge.
@@ -30,7 +30,7 @@ Run an Agent from a Zoom-rooted mixed-format Graph extract, mark Focus in the ou
 
 ## Implementation
 
-1. [19 — Gitignore Development appsettings](issues/19-gitignore-development-appsettings.md) — Status `coded`.
+1. [20 — Gitignore Development appsettings](issues/20-gitignore-development-appsettings.md) — Status `coded`.
 2. [18 — AI Actor stream](issues/18-ai-actor-stream.md) — Status `defined`. Blocked by 17.
 3. [17 — CloudAgents Console stream](issues/17-cloudagents-console-stream.md) — Status `defined`.
 4. [16 — AiRepos from appsettings](issues/16-airepos-from-appsettings.md) — Status `done`.

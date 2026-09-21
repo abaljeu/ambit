@@ -1,4 +1,4 @@
-# 19 — Gitignore Development appsettings
+# 20 — Gitignore Development appsettings
 
 **Status:** coded
 **Blocked by:** None — [15 — AiKeys from appsettings](15-aikeys-from-appsettings.md) and [16 — AiRepos from appsettings](16-airepos-from-appsettings.md) are `done`.
@@ -33,6 +33,7 @@ Actual: 30m
 
 ## Comments
 
+- 2026-09-21 — Renumbered from 19. 19 is [19 — AI extract pack is XML with Focus cssClass](19-ai-xml-pack-focus-css.md). Status stays `coded`.
 - 2026-09-21 — Coded: gitignore Development; untracked from the tree; placeholders remain in base `appsettings.json`. Status `coded`.
 
 ## Time

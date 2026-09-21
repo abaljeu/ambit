@@ -51,7 +51,7 @@ Load order is existing `addAppSettings`: base `appsettings.json`, then gitignore
 
 ## Comments
 
-- 2026-09-21 — Amend: Development is gitignored like Production; empty placeholders stay in base `appsettings.json` only. See [19 — Gitignore Development appsettings](19-gitignore-development-appsettings.md).
+- 2026-09-21 — Amend: Development is gitignored like Production; empty placeholders stay in base `appsettings.json` only. See [20 — Gitignore Development appsettings](20-gitignore-development-appsettings.md).
 - 2026-09-19 — Independent review Good; squash-landed on staging. Status `done`.
 - 2026-09-20 — Filed from locked AiKeys placement. Default is first entry. Fields are `Name` + `ApiKey`.
 - 2026-09-20 — Coded: `AiKeys.fromConfig` / `resolve`; `?ai` keyname from Command text; composition injects into Run Agent Actor; `CURSOR_API_KEY` removed. Status `coded`.
