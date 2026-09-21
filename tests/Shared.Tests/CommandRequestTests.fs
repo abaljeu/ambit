@@ -205,7 +205,7 @@ let ``tryStart errors when no runnable Command is on the path`` () =
             graph siteMap ids.[0] ids.[1] EventId.zero with
     | Ok _ -> failwith "expected Error"
     | Error msg ->
-        Assert.Equal("no runnable Command on Focus to Zoom path", msg)
+        Assert.Equal("No command found", msg)
 
 [<Fact>]
 let ``count equals Amble stop does not ActorStart`` () =

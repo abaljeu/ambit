@@ -268,7 +268,7 @@ let allCommands : CommandEntry list =
           keys = [ "F2" ]; keyScope = SelectionOnly
           iconId = Some "amb-icon-rename" }
         { id = Exec; name = "Run"
-          keys = [ "Ctrl+Enter" ]; keyScope = SelectionOrEditing
+          keys = [ "Ctrl+Enter"; "Alt+Enter" ]; keyScope = SelectionOrEditing
           iconId = Some "amb-icon-run" }
         { id = Cancel; name = "Cancel"
           keys = [ "Ctrl+Shift+Enter" ]; keyScope = SelectionOrEditing
