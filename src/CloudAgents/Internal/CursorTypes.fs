@@ -9,9 +9,22 @@ module CursorTypes =
         { url: string
           startingRef: string option }
 
+    type CursorModelVariant =
+        { id: string
+          displayName: string option }
+
+    type CursorModel =
+        { id: string
+          displayName: string
+          description: string option
+          aliases: string list
+          parameters: string option
+          variants: CursorModelVariant list }
+
     type CursorCreateRequest =
         { prompt: CursorPrompt
           name: string option
+          model: string option
           repos: CursorRepo list option }
 
     type CursorAgent =

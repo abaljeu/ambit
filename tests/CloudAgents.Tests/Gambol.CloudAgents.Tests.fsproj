@@ -7,13 +7,17 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\..\src\CloudAgents.Console\Config.fs" />
     <Compile Include="CloudAgentsRunnerCollection.fs" />
     <Compile Include="PublicTypesTests.fs" />
+    <Compile Include="CursorHttpJsonTests.fs" />
+    <Compile Include="ConsoleConfigTests.fs" />
     <Compile Include="AgentRunnerTests.fs" />
     <Compile Include="AgentRunnerFakeTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="FSharp.Data" Version="6.4.0" />
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
