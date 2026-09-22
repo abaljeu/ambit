@@ -8,6 +8,8 @@ tmp
 src/Server/appsettings.Production.json
 # local secrets; do not commit
 src/Server/appsettings.Development.json
+src/CloudAgents.Console/appsettings.Development.json
+src/CloudAgents.Console/appsettings.Production.json
 
 # User-specific files
 *.rsuser
