@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Gambol.CloudAgents.Console": {
+      "commandName": "Project",
+      "workingDirectory": "D:\\dev\\amble\\gambol\\src\\Server"
+    }
+  }
+}

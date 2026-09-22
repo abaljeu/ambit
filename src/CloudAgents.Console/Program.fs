@@ -119,23 +119,25 @@ let main argv =
     let cli =
         ConsoleConfig.parseArgs (Array.toList argv) ConsoleConfig.emptyCli
     let file = ConsoleConfig.loadFiles ()
+    if cli.ApiKey <> None then Console.WriteLine(cli.ApiKey.ToString())
+    if file.ApiKey <> None then Console.WriteLine(file.ApiKey.ToString())
     let envKey =
         Environment.GetEnvironmentVariable "CURSOR_API_KEY"
         |> Option.ofObj
     let settings = ConsoleConfig.resolve cli file envKey
-    match settings.Prompt with
+    match settings.ApiKey with
     | None ->
-        printUsage ()
+        printfn "Error: no API key"
+        printfn "Set --api-key, appsettings ApiKey, or CURSOR_API_KEY"
+        printfn "Get a key from: https://cursor.com/settings"
         1
-    | Some promptText ->
-        match settings.ApiKey with
+    | Some apiKey ->
+        printCatalog apiKey
+        match settings.Prompt with
         | None ->
-            printfn "Error: no API key"
-            printfn "Set --api-key, appsettings ApiKey, or CURSOR_API_KEY"
-            printfn "Get a key from: https://cursor.com/settings"
+            printUsage ()
             1
-        | Some apiKey ->
-            printCatalog apiKey
+        | Some promptText ->
             let repos = startRepos settings.Repo settings.Ref
             let options =
                 { AgentOptions.DisplayName = settings.Name

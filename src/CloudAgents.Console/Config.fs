@@ -78,12 +78,25 @@ let private readString (root: JsonElement) (name: string) =
         nonEmpty (Some(el.GetString()))
     | _ -> None
 
+let private readFirstArrayString (root: JsonElement) (arrayName: string) (prop: string) =
+    match root.TryGetProperty arrayName with
+    | true, el when el.ValueKind = JsonValueKind.Array && el.GetArrayLength() > 0 ->
+        let first = el.[0]
+        match first.TryGetProperty prop with
+        | true, v when v.ValueKind = JsonValueKind.String -> nonEmpty (Some(v.GetString()))
+        | _ -> None
+    | _ -> None
+
 let private fromElement (root: JsonElement) : FileSettings =
-    { ApiKey = readString root "ApiKey"
+    let apiFromAiKeys = readFirstArrayString root "AiKeys" "ApiKey"
+    let repoFromAiRepos = readFirstArrayString root "AiRepos" "Url"
+    let nameFromAiRepos = readFirstArrayString root "AiRepos" "Name"
+    let refFromAiRepos = readFirstArrayString root "AiRepos" "StartingRef"
+    { ApiKey = readString root "ApiKey" |> Option.orElse apiFromAiKeys
       Model = readString root "Model"
-      Repo = readString root "Repo"
-      Ref = readString root "Ref"
-      Name = readString root "Name" }
+      Repo = readString root "Repo" |> Option.orElse repoFromAiRepos
+      Ref = readString root "Ref" |> Option.orElse refFromAiRepos
+      Name = readString root "Name" |> Option.orElse nameFromAiRepos }
 
 let tryLoad path =
     if File.Exists path then
@@ -103,22 +116,46 @@ let overlay (baseSettings: FileSettings) (over: FileSettings) =
 let settingsDirectory () =
     let cwd = Directory.GetCurrentDirectory()
     let exe = AppContext.BaseDirectory
-    let hasBase dir =
-        File.Exists(Path.Combine(dir, "appsettings.json"))
-    if hasBase cwd then cwd
-    elif hasBase exe then exe
-    else cwd
+    let env = environmentName()
+
+    // Walk upward from a starting directory looking for either appsettings.json or appsettings.{env}.json
+    let filenames = [ sprintf "appsettings.%s.json" env; "appsettings.json" ]
+    let rec findUp (dir: string) : string option =
+        let found = filenames |> List.exists (fun f -> File.Exists(Path.Combine(dir, f)))
+        if found then Some dir
+        else
+            let di = DirectoryInfo(dir)
+            if isNull di.Parent then None else findUp di.Parent.FullName
+
+    match findUp cwd with
+    | Some d -> d
+    | None ->
+        match findUp exe with
+        | Some d -> d
+        | None -> cwd
 
 let loadFiles () =
     let dir = settingsDirectory ()
     let env = environmentName ()
     let basePath = Path.Combine(dir, "appsettings.json")
     let envPath = Path.Combine(dir, $"appsettings.{env}.json")
-    match tryLoad basePath, tryLoad envPath with
-    | Some baseFile, Some envFile -> overlay baseFile envFile
-    | Some baseFile, None -> baseFile
-    | None, Some envFile -> envFile
-    | None, None -> emptyFile
+    Console.WriteLine(envPath)
+    let baseFile =tryLoad basePath
+    let envFile = tryLoad envPath
+    match baseFile, envFile with
+    | Some baseFile, Some envFile -> 
+        Console.WriteLine("1here")
+
+        overlay baseFile envFile
+    | Some baseFile, None -> 
+        Console.WriteLine("2here")
+        baseFile
+    | None, Some envFile -> 
+        Console.WriteLine("here")
+        envFile
+    | None, None -> 
+        Console.WriteLine("not here")
+        emptyFile
 
 let resolve cli file envApiKey =
     { Prompt = nonEmpty cli.Prompt
