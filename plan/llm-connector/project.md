@@ -2,13 +2,14 @@
 
 Stage: done
 Summary: Run an Agent from a Zoom-rooted mixed-format extract and replace Focus Children through ordinary Core Changes.
-Updated: 2026-09-22
+Updated: 2026-09-23
 Started: 2026-09-19
 Finished: 2026-09-19
 Actual: 29h 30m
 
 ## Notes
 
+- 2026-09-23 — Coded [17 — CloudAgents Console stream](issues/17-cloudagents-console-stream.md): DLL `streamUntilComplete` / `setFakeStream`, Cursor SSE, Console deltas. Synthesis [stream-response-switch](reports/stream-response-switch.md). [18 — AI Actor stream](issues/18-ai-actor-stream.md) still `defined`. Status `coded`. Stage stays `done`.
 - 2026-09-22 — Closed [22 — Checked-in cursor-models catalog and Console model/params selection](issues/22-cursor-models-catalog-file.md): catalog file + Console `--param` / create `model.params` both landed; synthesis [model-params-parallel-synthesis](reports/model-params-parallel-synthesis.md). Status `coded`. Stage stays `done`.
 - 2026-09-22 — Coded catalog half of [22 — Checked-in cursor-models catalog and Console model/params selection](issues/22-cursor-models-catalog-file.md): seeded [cursor-models.json](../../src/CloudAgents/cursor-models.json), fsproj Content copy, removed Development `Models` array. Console selection is sibling-owned. Status `coded`. Stage stays `done`.
 - 2026-09-22 — Filed [22 — Checked-in cursor-models catalog and Console model/params selection](issues/22-cursor-models-catalog-file.md): checked-in Cursor models catalog + Console runtime model id / params selection. Status `defined`. Stage stays `done`.
