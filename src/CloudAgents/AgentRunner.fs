@@ -8,6 +8,10 @@ module AgentRunner =
     module private Fake =
         let handler =
             ref (None: (StartArgs -> AgentStatus) option)
+        let streamHandler =
+            ref (None: (StartArgs -> AgentStreamEvent list) option)
+        let streamEvents =
+            ref Map.empty<string * string, AgentStreamEvent list>
         let results = ref Map.empty<string * string, AgentStatus>
         let cancelled = ref Set.empty<string * string>
         let cancelCount = ref 0
@@ -31,6 +35,8 @@ module AgentRunner =
                     false
                 else
                     handler := next
+                    streamHandler := None
+                    streamEvents := Map.empty
                     results := Map.empty
                     cancelled := Set.empty
                     cancelCount := 0
@@ -39,6 +45,37 @@ module AgentRunner =
 
         let current () =
             lock gate (fun () -> !handler)
+
+        let currentStream () =
+            lock gate (fun () -> !streamHandler)
+
+        let trySetStream next =
+            lock gate (fun () ->
+                if !inFlight > 0 then
+                    false
+                else
+                    streamHandler := next
+                    streamEvents := Map.empty
+                    true)
+
+        let storeStream ids events =
+            lock gate (fun () ->
+                streamEvents := Map.add ids events !streamEvents
+                events
+                |> List.tryPick (function
+                    | RunFinished result ->
+                        Some(Finished result)
+                    | RunFailed msg -> Some(Failed msg)
+                    | RunCancelled -> Some Cancelled
+                    | _ -> None)
+                |> Option.iter (fun status ->
+                    if Set.contains ids !cancelled then
+                        ()
+                    else
+                        results := Map.add ids status !results))
+
+        let tryGetStream ids =
+            lock gate (fun () -> Map.tryFind ids !streamEvents)
 
         let store ids result =
             lock gate (fun () ->
@@ -70,6 +107,12 @@ module AgentRunner =
         : bool =
         Fake.trySet handler
 
+    /// Optional fake stream sequence (requires setFake Some).
+    let setFakeStream
+        (handler: (StartArgs -> AgentStreamEvent list) option)
+        : bool =
+        Fake.trySetStream handler
+
     /// Block a setFake handler until cancel, or until timeoutMs.
     let waitForCancel (timeoutMs: int) : bool =
         Fake.waitForCancel timeoutMs
@@ -87,8 +130,11 @@ module AgentRunner =
         let runId = Guid.NewGuid().ToString("N")
         ThreadPool.QueueUserWorkItem(fun _ ->
             Fake.withFlight (fun () ->
-                let result =
-                    f (toStartArgs config prompt repos options)
+                let args = toStartArgs config prompt repos options
+                match Fake.currentStream () with
+                | Some streamF -> Fake.storeStream (agentId, runId) (streamF args)
+                | None -> ()
+                let result = f args
                 Fake.store (agentId, runId) result))
         |> ignore
         Ok(agentId, runId)
@@ -139,6 +185,17 @@ module AgentRunner =
         | None ->
             Internal.CursorAdapter.cancelRun config agentId runId
 
+    let private cancelledStream () =
+        Error(ApiError("cancelled", "Agent run was cancelled"))
+
+    let private pastDeadline (started: DateTime) maxWaitMs =
+        match maxWaitMs with
+        | None -> false
+        | Some max ->
+            let elapsed =
+                (DateTime.UtcNow - started).TotalMilliseconds
+            elapsed > float max
+
     let private waitLive
         config
         agentId
@@ -149,15 +206,10 @@ module AgentRunner =
         let started = DateTime.UtcNow
 
         let rec loop () =
-            match maxWaitMs with
-            | Some max ->
-                let elapsed =
-                    (DateTime.UtcNow - started).TotalMilliseconds
-                if elapsed > float max then
-                    Error AgentError.Timeout
-                else
-                    pollOnce ()
-            | None -> pollOnce ()
+            if pastDeadline started maxWaitMs then
+                Error AgentError.Timeout
+            else
+                pollOnce ()
 
         and pollOnce () =
             match poll config agentId runId with
@@ -165,10 +217,7 @@ module AgentRunner =
             | Ok status ->
                 match status with
                 | Finished result -> Ok result
-                | Cancelled ->
-                    Error(
-                        ApiError("cancelled", "Agent run was cancelled")
-                    )
+                | Cancelled -> cancelledStream ()
                 | Failed msg -> Error(ApiError("failed", msg))
                 | Creating
                 | Running ->
@@ -192,3 +241,98 @@ module AgentRunner =
             Fake.withFlight (fun () ->
                 waitLive
                     config agentId runId pollIntervalMs maxWaitMs)
+
+    let private synthesizeStream (result: AgentResult) =
+        if String.IsNullOrEmpty result.Text then
+            [ RunFinished result ]
+        else
+            let half = result.Text.Length / 2
+            let first = result.Text.Substring(0, half)
+            let second = result.Text.Substring(half)
+            [ AssistantText first
+              AssistantText second
+              RunFinished result ]
+
+    let private streamFromStored ids =
+        if Fake.isCancelled ids then
+            Some(cancelledStream ())
+        else
+            match Fake.tryGetStream ids with
+            | Some events -> Some(Ok events)
+            | None ->
+                match Fake.tryGet ids with
+                | Some(Finished result) ->
+                    Some(Ok(synthesizeStream result))
+                | Some Cancelled -> Some(cancelledStream ())
+                | Some(Failed msg) ->
+                    Some(Error(ApiError("failed", msg)))
+                | Some Creating
+                | Some Running
+                | None -> None
+
+    let private waitFakeStream
+        agentId
+        runId
+        (pollIntervalMs: int)
+        maxWaitMs
+        =
+        let ids = agentId, runId
+        let started = DateTime.UtcNow
+
+        let rec waitForEvents () =
+            if pastDeadline started maxWaitMs then
+                Error AgentError.Timeout
+            else
+                match streamFromStored ids with
+                | Some ready -> ready
+                | None ->
+                    Thread.Sleep pollIntervalMs
+                    waitForEvents ()
+
+        waitForEvents ()
+
+    let private emitFakeStream
+        events
+        (onEvent: AgentStreamEvent -> unit)
+        =
+        let missing =
+            Error(ApiError("failed", "stream missing terminal event"))
+
+        (missing, events)
+        ||> List.fold (fun acc ev ->
+            onEvent ev
+            match ev with
+            | RunFinished result -> Ok result
+            | RunFailed msg -> Error(ApiError("failed", msg))
+            | RunCancelled -> cancelledStream ()
+            | AssistantText _ -> acc)
+
+    let private streamFake
+        agentId
+        runId
+        pollIntervalMs
+        maxWaitMs
+        onEvent
+        =
+        match waitFakeStream agentId runId pollIntervalMs maxWaitMs with
+        | Error err -> Error err
+        | Ok events -> emitFakeStream events onEvent
+
+    let streamUntilComplete
+        (config: RunnerConfig)
+        (agentId: string)
+        (runId: string)
+        (pollIntervalMs: int)
+        (maxWaitMs: int option)
+        (onEvent: AgentStreamEvent -> unit)
+        : Result<AgentResult, AgentError> =
+        match Fake.current () with
+        | Some _ ->
+            streamFake agentId runId pollIntervalMs maxWaitMs onEvent
+        | None ->
+            Fake.withFlight (fun () ->
+                Internal.CursorAdapter.streamRun
+                    config
+                    agentId
+                    runId
+                    onEvent)

@@ -175,6 +175,42 @@ type AgentRunnerFakeTests() =
                         Assert.Fail($"expected cancelled wait, {other}"))
 
     [<Fact>]
+    member _.``streamUntilComplete emits fake stream events``() =
+        let deltas = ref []
+        withFake
+            (fun _ -> Finished(sampleResult "ignored"))
+            (fun () ->
+                Assert.True(
+                    AgentRunner.setFakeStream (Some (fun _ ->
+                        [ AssistantText "hel"
+                          AssistantText "lo"
+                          RunFinished(sampleResult "hello") ]))
+                )
+                let started =
+                    AgentRunner.start
+                        unusedConfig "pack" None emptyOptions
+                match started with
+                | Error err -> Assert.Fail($"start: {err}")
+                | Ok(agentId, runId) ->
+                    match
+                        AgentRunner.streamUntilComplete
+                            unusedConfig
+                            agentId
+                            runId
+                            10
+                            None
+                            (fun ev -> deltas := ev :: !deltas)
+                    with
+                    | Ok result ->
+                        Assert.Equal("hello", result.Text)
+                        let expected =
+                            [ AssistantText "hel"
+                              AssistantText "lo"
+                              RunFinished(sampleResult "hello") ]
+                        Assert.Equal<AgentStreamEvent list>(expected, List.rev !deltas)
+                    | Error err -> Assert.Fail($"stream: {err}"))
+
+    [<Fact>]
     member _.``setFake handler yields Failed not Finished``() =
         withFake
             (fun _ -> Failed "provider-boom")

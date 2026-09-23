@@ -80,7 +80,7 @@ let printCatalog (apiKey: string) =
     | Ok models ->
         let source =
             if fromFile then "cursor-models.json" else "live API"
-        printModels models source
+        //printModels models source
         Ok models
 
 let findModel
@@ -153,25 +153,49 @@ let printGitChanges (git: GitResult list) =
             | None -> ()
             printfn ""
 
-let waitForResult apiKey agentId runId =
+let private printFinished wroteText (result: AgentResult) =
+    if not wroteText && not (String.IsNullOrEmpty result.Text) then
+        printfn "%s" result.Text
+    printfn ""
+    printfn "=== Result ==="
+    if wroteText && not (String.IsNullOrEmpty result.Text) then
+        printfn "%s" result.Text
+    elif not wroteText then
+        printfn "(empty)"
+    printfn ""
+    printGitChanges result.Git
+
+let streamForResult apiKey agentId runId =
+    printfn "Streaming response..."
+    let wroteText = ref false
+    let onEvent ev =
+        match ev with
+        | AgentStreamEvent.AssistantText text ->
+            wroteText := true
+            stdout.Write text
+            stdout.Flush()
+        | AgentStreamEvent.RunFinished result ->
+            printFinished !wroteText result
+        | AgentStreamEvent.RunFailed msg ->
+            printfn ""
+            printfn "Agent failed: %s" msg
+        | AgentStreamEvent.RunCancelled ->
+            printfn ""
+            printfn "Agent cancelled"
+
     match
-        AgentRunner.waitUntilComplete
+        AgentRunner.streamUntilComplete
             { RunnerConfig.ApiKey = apiKey }
             agentId
             runId
-            5000
+            50
             None
+            onEvent
     with
     | Error err ->
         printfn "Agent failed: %A" err
         1
-    | Ok result ->
-        printfn ""
-        printfn "=== Result ==="
-        printfn "%s" result.Text
-        printfn ""
-        printGitChanges result.Git
-        0
+    | Ok _ -> 0
 
 let runAgent promptText apiKey repos options =
     printfn "Starting agent..."
@@ -201,8 +225,7 @@ let runAgent promptText apiKey repos options =
         printfn "Agent ID: %s" agentId
         printfn "Run ID: %s" runId
         printfn ""
-        printfn "Waiting for completion..."
-        waitForResult apiKey agentId runId
+        streamForResult apiKey agentId runId
 
 [<EntryPoint>]
 let main argv =

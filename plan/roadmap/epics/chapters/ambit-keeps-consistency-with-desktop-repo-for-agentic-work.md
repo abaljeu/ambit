@@ -23,7 +23,7 @@ Upload and Download stay on [[plan/roadmap/epics/work-with-text-files-from-anywh
 
 ## Locked — external git framework (2026-09-20)
 
-When connecting a Workspace to an **external** git repo for push/pull (workspace / git framework), **always exclude** Directory File / Ambit note paths named `.amb` — same hard skip class as `.git/`. Most remotes must not receive Ambit notes; that leaves free local notes without cluttering sync.
+When connecting a Workspace to an **external** git repo for push/pull (workspace / git framework), **default exclude** Directory File / Ambit note paths named `.amb` — same hard skip class as `.git/`. Most remotes must not receive Ambit notes; that leaves free local notes without cluttering sync.
 
 **Offsite backup is required separately.** Skipping `.amb` on the repo remote removes that path as backup. Ambit must still keep those notes offsite — via Ambit Server DataDir (WebDAV Upload/Download + Server git / daily save), not via the mapped repo remote. Do not treat “exclude from repo sync” as “notes are desk-local only.”
 

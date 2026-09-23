@@ -69,6 +69,71 @@ let ``browser default grok create JSON sends model params`` () =
     Assert.Equal("true", ps.[2].["value"].AsString())
 
 [<Fact>]
+let ``interpretSseDocument returns assistant text then result`` () =
+    let seen = ref []
+    let body =
+        "event: assistant\n"
+        + "data: {\"text\":\"ab\"}\n"
+        + "\n"
+        + "event: result\n"
+        + "data: {\"result\":\"ab\"}\n"
+        + "\n"
+    match
+        CursorHttp.interpretSseDocument
+            body
+            (fun text -> seen := text :: !seen)
+    with
+    | Error msg -> failwith msg
+    | Ok parsed ->
+        Assert.Equal("ab", parsed.text)
+        Assert.Equal<string list>([ "ab" ], List.rev !seen)
+
+[<Fact>]
+let ``interpretSseDocument fails when the document has no terminal`` () =
+    let body =
+        "event: assistant\n"
+        + "data: {\"text\":\"hi\"}\n"
+        + "\n"
+    match CursorHttp.interpretSseDocument body ignore with
+    | Error "stream ended without terminal event" -> ()
+    | other -> failwith $"{other}"
+
+[<Fact>]
+let ``interpretSseDocument stops on the first error event`` () =
+    let body =
+        "event: error\n"
+        + "data: {\"message\":\"nope\"}\n"
+        + "\n"
+        + "event: result\n"
+        + "data: {\"result\":\"later\"}\n"
+        + "\n"
+    match CursorHttp.interpretSseDocument body ignore with
+    | Error "nope" -> ()
+    | other -> failwith $"{other}"
+
+[<Fact>]
+let ``interpretSseDocument flushes a result that has no blank line`` () =
+    let body = "event: result\ndata: {\"result\":\"z\"}"
+    match CursorHttp.interpretSseDocument body ignore with
+    | Ok parsed -> Assert.Equal("z", parsed.text)
+    | Error msg -> failwith msg
+
+[<Fact>]
+let ``parseSseDocument reads event and data blocks`` () =
+    let body =
+        "event: assistant\n"
+        + "data: {\"text\":\"hi\"}\n"
+        + "\n"
+        + "event: result\n"
+        + "data: {\"result\":\"done\"}\n"
+        + "\n"
+    let messages = CursorHttp.parseSseDocument body
+    Assert.Equal(2, messages.Length)
+    Assert.Equal("assistant", messages.[0].eventType)
+    Assert.Equal("{\"text\":\"hi\"}", messages.[0].data)
+    Assert.Equal("result", messages.[1].eventType)
+
+[<Fact>]
 let ``create JSON omits model when none`` () =
     let json = CursorHttp.createRequestJson (sampleRequest None)
     Assert.True(json.TryGetProperty("model").IsNone)

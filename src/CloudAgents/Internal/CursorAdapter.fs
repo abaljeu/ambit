@@ -109,3 +109,33 @@ module CursorAdapter =
         match CursorHttp.cancelRun config.ApiKey agentId runId with
         | Error msg -> Error(NetworkError msg)
         | Ok() -> Ok()
+
+    let private fromStreamBody (body: CursorHttp.StreamBody) =
+        { Text = body.text
+          Git = mapGitResult body.git }
+
+    let streamRun
+        (config: RunnerConfig)
+        (agentId: string)
+        (runId: string)
+        (onEvent: AgentStreamEvent -> unit)
+        : Result<AgentResult, AgentError> =
+
+        if String.IsNullOrWhiteSpace config.ApiKey then
+            Error (authFailed "missing key")
+        else
+            let onAssistant text =
+                onEvent(AgentStreamEvent.AssistantText text)
+
+            match
+                CursorHttp.streamRun
+                    config.ApiKey
+                    agentId
+                    runId
+                    onAssistant
+            with
+            | Error msg -> Error(fromHttpError config.ApiKey msg)
+            | Ok body ->
+                let result = fromStreamBody body
+                onEvent(AgentStreamEvent.RunFinished result)
+                Ok result

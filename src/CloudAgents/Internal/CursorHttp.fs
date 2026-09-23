@@ -355,37 +355,52 @@ module CursorHttp =
 
     type SseMessage = { eventType: string; data: string }
 
+    type private SseAccum =
+        { eventType: string option
+          dataLines: string list }
+
+    let private emptySse =
+        { eventType = None; dataLines = [] }
+
+    type private SseStep =
+        | SseKeep of SseAccum
+        | SseEmit of SseMessage * SseAccum
+
+    let private sseData (lines: string list) =
+        lines |> List.rev |> String.concat "\n"
+
+    let private stepSseLine (acc: SseAccum) (line: string) =
+        if line = "" then
+            match acc.eventType with
+            | None -> SseKeep emptySse
+            | Some ev ->
+                let msg =
+                    { eventType = ev
+                      data = sseData acc.dataLines }
+                SseEmit(msg, emptySse)
+        elif line.StartsWith("event:", StringComparison.Ordinal) then
+            let ev = line.Substring(6).Trim()
+            SseKeep { eventType = Some ev; dataLines = [] }
+        elif line.StartsWith("data:", StringComparison.Ordinal) then
+            let chunk = line.Substring(5).TrimStart()
+            SseKeep { acc with dataLines = chunk :: acc.dataLines }
+        else
+            SseKeep acc
+
+    let private foldSseLine (pending, acc) line =
+        match stepSseLine acc line with
+        | SseKeep next -> pending, next
+        | SseEmit(msg, next) -> msg :: pending, next
+
     let parseSseDocument (body: string) : SseMessage list =
         let lines =
             body.Replace("\r\n", "\n").Split('\n')
             |> Array.toList
-
-        let flush pending eventType dataLines =
-            match eventType with
-            | None -> pending
-            | Some ev ->
-                let data =
-                    dataLines
-                    |> List.rev
-                    |> String.concat "\n"
-                { eventType = ev; data = data } :: pending
-
-        let folder (pending, eventType, dataLines) line =
-            if line = "" then
-                flush pending eventType dataLines, None, []
-            elif line.StartsWith("event:", StringComparison.Ordinal) then
-                let ev = line.Substring(6).Trim()
-                pending, Some ev, []
-            elif line.StartsWith("data:", StringComparison.Ordinal) then
-                let chunk = line.Substring(5).TrimStart()
-                pending, eventType, chunk :: dataLines
-            else
-                pending, eventType, dataLines
-
-        let pending, eventType, dataLines =
-            List.fold folder ([], None, []) lines
-
-        flush pending eventType dataLines |> List.rev
+        let pending, acc =
+            List.fold foldSseLine ([], emptySse) lines
+        match stepSseLine acc "" with
+        | SseEmit(msg, _) -> List.rev (msg :: pending)
+        | SseKeep _ -> List.rev pending
 
     let private parseGit (gitObj: JsonValue) =
         let branches =
@@ -424,69 +439,150 @@ module CursorHttp =
         with ex ->
             Error $"Invalid stream result: {ex.Message}"
 
-    type StreamDispatch =
+    type StreamBody =
+        { text: string
+          git: CursorTypes.CursorGit option }
+
+    type private StreamDispatch =
         | Continue
-        | Terminal of Gambol.CloudAgents.AgentResult
+        | Terminal of StreamBody
         | Failed of string
-        | Cancelled
+
+    let private assistantText (data: string) =
+        match JsonValue.TryParse data with
+        | Some parsed ->
+            match parsed.TryGetProperty "text" with
+            | Some(JsonValue.String text) -> Some text
+            | _ -> None
+        | None -> None
+
+    let private errorText (data: string) =
+        match JsonValue.TryParse data with
+        | Some parsed ->
+            parsed.TryGetProperty("message")
+            |> Option.map (fun v -> v.AsString())
+            |> Option.defaultValue data
+        | None -> data
 
     let private dispatchStreamMessage
         (msg: SseMessage)
         (onAssistant: string -> unit)
         : StreamDispatch =
-        let ev = msg.eventType.ToLowerInvariant()
-        match ev with
+        match msg.eventType.ToLowerInvariant() with
         | "assistant" ->
-            match JsonValue.TryParse msg.data with
-            | Some parsed ->
-                match parsed.TryGetProperty "text" with
-                | Some(JsonValue.String text) ->
-                    onAssistant text
-                    Continue
-                | _ -> Continue
+            match assistantText msg.data with
+            | Some text ->
+                onAssistant text
+                Continue
             | None -> Continue
         | "result" ->
             match parseStreamResult msg.data with
-            | Error msg -> Failed msg
-            | Ok(text, git) ->
-                let gitResults =
-                    git
-                    |> Option.map (fun g ->
-                        g.branches
-                        |> List.map (fun b ->
-                            { Gambol.CloudAgents.GitResult.RepoUrl =
-                                b.repoUrl
-                              Gambol.CloudAgents.GitResult.Branch =
-                                  b.branch
-                              Gambol.CloudAgents.GitResult.PullRequestUrl =
-                                  b.prUrl }))
-                    |> Option.defaultValue []
-                Terminal
-                    { Gambol.CloudAgents.AgentResult.Text = text
-                      Gambol.CloudAgents.AgentResult.Git = gitResults }
-        | "error" ->
-            let message =
-                match JsonValue.TryParse msg.data with
-                | Some parsed ->
-                    parsed.TryGetProperty("message")
-                    |> Option.map (fun v -> v.AsString())
-                    |> Option.defaultValue msg.data
-                | None -> msg.data
-            Failed message
-        | "done" -> Cancelled
+            | Error err -> Failed err
+            | Ok(text, git) -> Terminal { text = text; git = git }
+        | "error" -> Failed(errorText msg.data)
+        | "done" -> Terminal { text = ""; git = None }
         | _ -> Continue
+
+    type private StreamReadOutcome =
+        | StreamIncomplete
+        | StreamComplete of StreamBody
+        | StreamStop of string
+
+    let private applyStreamMessage onAssistant (msg: SseMessage) =
+        match dispatchStreamMessage msg onAssistant with
+        | Continue -> StreamIncomplete
+        | Terminal body -> StreamComplete body
+        | Failed msg -> StreamStop msg
+
+    type private SseAdvance =
+        | SseContinue of SseAccum
+        | SseDone of StreamReadOutcome
+
+    let private advanceSse onAssistant acc line =
+        match stepSseLine acc line with
+        | SseKeep next -> SseContinue next
+        | SseEmit(msg, next) ->
+            match applyStreamMessage onAssistant msg with
+            | StreamIncomplete -> SseContinue next
+            | other -> SseDone other
+
+    let private finishSse onAssistant acc =
+        match stepSseLine acc "" with
+        | SseEmit(msg, _) -> applyStreamMessage onAssistant msg
+        | SseKeep _ -> StreamIncomplete
+
+    let private outcomeResult outcome =
+        match outcome with
+        | StreamComplete body -> Ok body
+        | StreamStop msg -> Error msg
+        | StreamIncomplete ->
+            Error "stream ended without terminal event"
+
+    let interpretSseDocument
+        (body: string)
+        (onAssistant: string -> unit)
+        : Result<StreamBody, string> =
+        let lines =
+            body.Replace("\r\n", "\n").Split('\n')
+            |> Array.toList
+
+        let rec loop acc rest =
+            match rest with
+            | [] -> finishSse onAssistant acc
+            | line :: tail ->
+                match advanceSse onAssistant acc line with
+                | SseContinue next -> loop next tail
+                | SseDone outcome -> outcome
+
+        loop emptySse lines |> outcomeResult
+
+    let private readSse
+        (reader: StreamReader)
+        (onAssistant: string -> unit)
+        =
+        let rec loop acc =
+            match reader.ReadLine() with
+            | null -> finishSse onAssistant acc
+            | line ->
+                match advanceSse onAssistant acc line with
+                | SseContinue next -> loop next
+                | SseDone outcome -> outcome
+
+        loop emptySse
+
+    let private responseError (response: HttpResponseMessage) =
+        if response.StatusCode = HttpStatusCode.Unauthorized then
+            Some "unauthorized"
+        elif response.IsSuccessStatusCode then
+            None
+        else
+            let body =
+                response.Content.ReadAsStringAsync()
+                |> Async.AwaitTask
+                |> Async.RunSynchronously
+            Some $"HTTP {int response.StatusCode}: {body}"
+
+    let private readSuccessBody
+        (response: HttpResponseMessage)
+        onAssistant
+        =
+        use stream =
+            response.Content.ReadAsStreamAsync()
+            |> Async.AwaitTask
+            |> Async.RunSynchronously
+        use reader = new StreamReader(stream)
+        readSse reader onAssistant |> outcomeResult
 
     let streamRun
         (apiKey: string)
         (agentId: string)
         (runId: string)
         (onAssistant: string -> unit)
-        : Result<Gambol.CloudAgents.AgentResult, string> =
+        : Result<StreamBody, string> =
         try
             use client = createClient apiKey
             let url =
                 $"{baseUrl}/agents/{agentId}/runs/{runId}/stream"
-
             let response =
                 client.GetAsync(
                     url,
@@ -494,62 +590,9 @@ module CursorHttp =
                 )
                 |> Async.AwaitTask
                 |> Async.RunSynchronously
-
-            if response.StatusCode = HttpStatusCode.Unauthorized then
-                Error "unauthorized"
-            elif not response.IsSuccessStatusCode then
-                let body =
-                    response.Content.ReadAsStringAsync()
-                    |> Async.AwaitTask
-                    |> Async.RunSynchronously
-                Error $"HTTP {int response.StatusCode}: {body}"
-            else
-                use stream =
-                    response.Content.ReadAsStreamAsync()
-                    |> Async.AwaitTask
-                    |> Async.RunSynchronously
-
-                use reader = new StreamReader(stream)
-                let buffer = StringBuilder()
-
-                let rec consume pending eventType dataLines =
-                    match reader.ReadLine() with
-                    | null ->
-                        let doc = buffer.ToString()
-                        buffer.Clear() |> ignore
-                        let messages =
-                            if doc = "" then []
-                            else parseSseDocument doc
-                        List.fold folder pending messages
-                    | line ->
-                        if line = "" then
-                            let doc = buffer.ToString()
-                            buffer.Clear() |> ignore
-                            let messages =
-                                if doc = "" then []
-                                else parseSseDocument doc
-                            consume (List.fold folder pending messages) None []
-                        else
-                            buffer.AppendLine(line) |> ignore
-                            consume pending eventType dataLines
-
-                and folder pending (msg: SseMessage) =
-                    match dispatchStreamMessage msg onAssistant with
-                    | Continue -> pending
-                    | Terminal result -> Error result
-                    | Failed msg -> Error(Failed msg)
-                    | Cancelled -> Error Cancelled
-
-                let outcome = consume [] None []
-
-                match outcome with
-                | Ok result -> Ok result
-                | Error(Choice1Of2 result) -> Ok result
-                | Error(Choice2Of2 tag) ->
-                    match tag with
-                    | Failed msg -> Error msg
-                    | Cancelled ->
-                        Error "cancelled"
+            match responseError response with
+            | Some msg -> Error msg
+            | None -> readSuccessBody response onAssistant
         with ex ->
             Error $"Request failed: {ex.Message}"
 

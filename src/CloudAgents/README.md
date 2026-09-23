@@ -13,7 +13,7 @@ The library provides a vendor-neutral public API.
   `GitResult`, `RepoConfig`, `AgentOptions`, `ModelParam`,
   `RunnerConfig`
 - **Runner** (`AgentRunner.fs`): `start`, `poll`, `cancel`,
-  `waitUntilComplete`
+  `waitUntilComplete`, `streamUntilComplete`, `setFakeStream`
 - **Catalog** (`cursor-models.json`): checked-in model ids,
   parameters, and allowed values; loaded via
   `Internal/CursorModelsFile.fs`

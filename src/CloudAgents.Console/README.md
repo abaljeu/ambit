@@ -53,7 +53,7 @@ Get your API key from: https://cursor.com/settings
 dotnet run --project src/CloudAgents.Console -- "Explain how async/await works in F#"
 ```
 
-After the key is known, Console prints the Cursor model catalog (`id`, displayName, variants), then starts and waits.
+After the key is known, Console prints the Cursor model catalog (`id`, displayName, variants), then starts the run and **streams** assistant text over SSE (falls back to synthesized chunks under `setFake`).
 
 ### Override model on the CLI
 
@@ -76,5 +76,5 @@ The console prints:
 
 - Cursor model catalog
 - Agent ID and Run ID
-- Final result text
-- Git branch and PR information (if a repository was provided and the agent made changes)
+- Assistant text as it arrives (SSE stream)
+- Final result summary and git branch / PR information (if a repository was provided and the agent made changes)
