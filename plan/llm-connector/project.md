@@ -5,10 +5,13 @@ Summary: Run an Agent from a Zoom-rooted mixed-format extract and replace Focus 
 Updated: 2026-09-22
 Started: 2026-09-19
 Finished: 2026-09-19
-Actual: 27h 30m
+Actual: 29h 30m
 
 ## Notes
 
+- 2026-09-22 — Closed [22 — Checked-in cursor-models catalog and Console model/params selection](issues/22-cursor-models-catalog-file.md): catalog file + Console `--param` / create `model.params` both landed; synthesis [model-params-parallel-synthesis](reports/model-params-parallel-synthesis.md). Status `coded`. Stage stays `done`.
+- 2026-09-22 — Coded catalog half of [22 — Checked-in cursor-models catalog and Console model/params selection](issues/22-cursor-models-catalog-file.md): seeded [cursor-models.json](../../src/CloudAgents/cursor-models.json), fsproj Content copy, removed Development `Models` array. Console selection is sibling-owned. Status `coded`. Stage stays `done`.
+- 2026-09-22 — Filed [22 — Checked-in cursor-models catalog and Console model/params selection](issues/22-cursor-models-catalog-file.md): checked-in Cursor models catalog + Console runtime model id / params selection. Status `defined`. Stage stays `done`.
 - 2026-09-22 — Landed [21 — Console lists models and fills CLI gaps from appsettings](issues/21-console-lists-models-and-appsettings.md) on staging (Good): Console prints the Cursor catalog at start and fills omitted CLI fields from `appsettings.<level>.json`. Status `done`. Stage stays `done`.
 - 2026-09-21 — Coded [21 — Console lists models and fills CLI gaps from appsettings](issues/21-console-lists-models-and-appsettings.md): Console prints the Cursor catalog at start and fills omitted CLI fields from `appsettings.<level>.json`. Status `coded`. Stage stays `done`.
 - 2026-09-21 — Filed [21 — Console lists models and fills CLI gaps from appsettings](issues/21-console-lists-models-and-appsettings.md): Console prints the Cursor catalog at start and fills omitted CLI fields from `appsettings.<level>.json`. Status `defined`. Stage stays `done`.
@@ -53,6 +56,7 @@ Actual: 27h 30m
 
 ## Implementation tickets
 
+- [22 — Checked-in cursor-models catalog and Console model/params selection](issues/22-cursor-models-catalog-file.md) — Status `coded`. Follow-up: checked-in `cursor-models.json`; Console loads catalog, validates model/params, emits create `model.params`.
 - [21 — Console lists models and fills CLI gaps from appsettings](issues/21-console-lists-models-and-appsettings.md) — Status `done`. Follow-up: Console lists Cursor models at start; CLI gaps from appsettings.
 - [20 — Gitignore Development appsettings](issues/20-gitignore-development-appsettings.md) — Status `done`. Follow-up: stop tracking Development so live `AiKeys` stay local.
 - [19 — AI extract pack is XML with Focus cssClass](issues/19-ai-xml-pack-focus-css.md) — Status `done`. Follow-up: write-only XML CloudAgents document; Focus css class on the extract copy.

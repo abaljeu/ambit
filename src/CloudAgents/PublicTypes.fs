@@ -35,6 +35,13 @@ type AgentStatus =
     | Cancelled
     | Failed of string
 
+/// Incremental events while a run is open (vendor-neutral).
+type AgentStreamEvent =
+    | AssistantText of string
+    | RunFinished of AgentResult
+    | RunFailed of string
+    | RunCancelled
+
 /// Vendor-neutral runner configuration
 type RunnerConfig =
     { ApiKey: string }

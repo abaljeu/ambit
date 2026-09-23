@@ -1,6 +1,7 @@
 namespace Gambol.CloudAgents.Internal
 
 open System
+open System.IO
 open System.Net
 open System.Net.Http
 open System.Text
@@ -349,6 +350,206 @@ module CursorHttp =
                       CursorTypes.CursorRunStatus.result = resultText
                       CursorTypes.CursorRunStatus.durationMs = durationMs
                       CursorTypes.CursorRunStatus.git = git }
+        with ex ->
+            Error $"Request failed: {ex.Message}"
+
+    type SseMessage = { eventType: string; data: string }
+
+    let parseSseDocument (body: string) : SseMessage list =
+        let lines =
+            body.Replace("\r\n", "\n").Split('\n')
+            |> Array.toList
+
+        let flush pending eventType dataLines =
+            match eventType with
+            | None -> pending
+            | Some ev ->
+                let data =
+                    dataLines
+                    |> List.rev
+                    |> String.concat "\n"
+                { eventType = ev; data = data } :: pending
+
+        let folder (pending, eventType, dataLines) line =
+            if line = "" then
+                flush pending eventType dataLines, None, []
+            elif line.StartsWith("event:", StringComparison.Ordinal) then
+                let ev = line.Substring(6).Trim()
+                pending, Some ev, []
+            elif line.StartsWith("data:", StringComparison.Ordinal) then
+                let chunk = line.Substring(5).TrimStart()
+                pending, eventType, chunk :: dataLines
+            else
+                pending, eventType, dataLines
+
+        let pending, eventType, dataLines =
+            List.fold folder ([], None, []) lines
+
+        flush pending eventType dataLines |> List.rev
+
+    let private parseGit (gitObj: JsonValue) =
+        let branches =
+            match gitObj.TryGetProperty "branches" with
+            | Some(JsonValue.Array arr) ->
+                arr
+                |> Array.choose (fun b ->
+                    match b with
+                    | JsonValue.Record _ ->
+                        Some
+                            { CursorTypes.CursorGitBranch.repoUrl =
+                                b.["repoUrl"].AsString()
+                              CursorTypes.CursorGitBranch.branch =
+                                  b.TryGetProperty("branch")
+                                  |> Option.map (fun v -> v.AsString())
+                              CursorTypes.CursorGitBranch.prUrl =
+                                  b.TryGetProperty("prUrl")
+                                  |> Option.map (fun v -> v.AsString()) }
+                    | _ -> None)
+                |> Array.toList
+            | _ -> []
+
+        { CursorTypes.CursorGit.branches = branches }
+
+    let private parseStreamResult (data: string) =
+        try
+            let parsed = JsonValue.Parse data
+            let text =
+                parsed.TryGetProperty("result")
+                |> Option.map (fun v -> v.AsString())
+                |> Option.defaultValue ""
+            let git =
+                parsed.TryGetProperty("git")
+                |> Option.map parseGit
+            Ok(text, git)
+        with ex ->
+            Error $"Invalid stream result: {ex.Message}"
+
+    type StreamDispatch =
+        | Continue
+        | Terminal of Gambol.CloudAgents.AgentResult
+        | Failed of string
+        | Cancelled
+
+    let private dispatchStreamMessage
+        (msg: SseMessage)
+        (onAssistant: string -> unit)
+        : StreamDispatch =
+        let ev = msg.eventType.ToLowerInvariant()
+        match ev with
+        | "assistant" ->
+            match JsonValue.TryParse msg.data with
+            | Some parsed ->
+                match parsed.TryGetProperty "text" with
+                | Some(JsonValue.String text) ->
+                    onAssistant text
+                    Continue
+                | _ -> Continue
+            | None -> Continue
+        | "result" ->
+            match parseStreamResult msg.data with
+            | Error msg -> Failed msg
+            | Ok(text, git) ->
+                let gitResults =
+                    git
+                    |> Option.map (fun g ->
+                        g.branches
+                        |> List.map (fun b ->
+                            { Gambol.CloudAgents.GitResult.RepoUrl =
+                                b.repoUrl
+                              Gambol.CloudAgents.GitResult.Branch =
+                                  b.branch
+                              Gambol.CloudAgents.GitResult.PullRequestUrl =
+                                  b.prUrl }))
+                    |> Option.defaultValue []
+                Terminal
+                    { Gambol.CloudAgents.AgentResult.Text = text
+                      Gambol.CloudAgents.AgentResult.Git = gitResults }
+        | "error" ->
+            let message =
+                match JsonValue.TryParse msg.data with
+                | Some parsed ->
+                    parsed.TryGetProperty("message")
+                    |> Option.map (fun v -> v.AsString())
+                    |> Option.defaultValue msg.data
+                | None -> msg.data
+            Failed message
+        | "done" -> Cancelled
+        | _ -> Continue
+
+    let streamRun
+        (apiKey: string)
+        (agentId: string)
+        (runId: string)
+        (onAssistant: string -> unit)
+        : Result<Gambol.CloudAgents.AgentResult, string> =
+        try
+            use client = createClient apiKey
+            let url =
+                $"{baseUrl}/agents/{agentId}/runs/{runId}/stream"
+
+            let response =
+                client.GetAsync(
+                    url,
+                    HttpCompletionOption.ResponseHeadersRead
+                )
+                |> Async.AwaitTask
+                |> Async.RunSynchronously
+
+            if response.StatusCode = HttpStatusCode.Unauthorized then
+                Error "unauthorized"
+            elif not response.IsSuccessStatusCode then
+                let body =
+                    response.Content.ReadAsStringAsync()
+                    |> Async.AwaitTask
+                    |> Async.RunSynchronously
+                Error $"HTTP {int response.StatusCode}: {body}"
+            else
+                use stream =
+                    response.Content.ReadAsStreamAsync()
+                    |> Async.AwaitTask
+                    |> Async.RunSynchronously
+
+                use reader = new StreamReader(stream)
+                let buffer = StringBuilder()
+
+                let rec consume pending eventType dataLines =
+                    match reader.ReadLine() with
+                    | null ->
+                        let doc = buffer.ToString()
+                        buffer.Clear() |> ignore
+                        let messages =
+                            if doc = "" then []
+                            else parseSseDocument doc
+                        List.fold folder pending messages
+                    | line ->
+                        if line = "" then
+                            let doc = buffer.ToString()
+                            buffer.Clear() |> ignore
+                            let messages =
+                                if doc = "" then []
+                                else parseSseDocument doc
+                            consume (List.fold folder pending messages) None []
+                        else
+                            buffer.AppendLine(line) |> ignore
+                            consume pending eventType dataLines
+
+                and folder pending (msg: SseMessage) =
+                    match dispatchStreamMessage msg onAssistant with
+                    | Continue -> pending
+                    | Terminal result -> Error result
+                    | Failed msg -> Error(Failed msg)
+                    | Cancelled -> Error Cancelled
+
+                let outcome = consume [] None []
+
+                match outcome with
+                | Ok result -> Ok result
+                | Error(Choice1Of2 result) -> Ok result
+                | Error(Choice2Of2 tag) ->
+                    match tag with
+                    | Failed msg -> Error msg
+                    | Cancelled ->
+                        Error "cancelled"
         with ex ->
             Error $"Request failed: {ex.Message}"
 
