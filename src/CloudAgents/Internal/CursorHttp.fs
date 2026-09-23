@@ -42,6 +42,25 @@ module CursorHttp =
             |> Array.toList
         | _ -> []
 
+    let private parseParamAssignment (json: JsonValue) =
+        match optString json "id" with
+        | None -> None
+        | Some id ->
+            match optString json "value" with
+            | None -> None
+            | Some value ->
+                Some
+                    { CursorTypes.CursorParamAssignment.id = id
+                      CursorTypes.CursorParamAssignment.value = value }
+
+    let private parseParamAssignments (json: JsonValue) =
+        match json.TryGetProperty "params" with
+        | Some(JsonValue.Array arr) ->
+            arr
+            |> Array.choose parseParamAssignment
+            |> Array.toList
+        | _ -> []
+
     let private parseVariant (json: JsonValue) =
         match optString json "id" with
         | None -> None
@@ -49,13 +68,49 @@ module CursorHttp =
             Some
                 { CursorTypes.CursorModelVariant.id = id
                   CursorTypes.CursorModelVariant.displayName =
-                      optString2 json "displayName" "display_name" }
+                      optString2 json "displayName" "display_name"
+                  CursorTypes.CursorModelVariant.``params`` =
+                      parseParamAssignments json }
 
     let private parseVariants (json: JsonValue) =
         match json.TryGetProperty "variants" with
         | Some(JsonValue.Array arr) ->
             arr
             |> Array.choose parseVariant
+            |> Array.toList
+        | _ -> []
+
+    let private parseParamValue (json: JsonValue) =
+        match optString json "value" with
+        | None -> None
+        | Some value ->
+            Some
+                { CursorTypes.CursorParamValue.value = value
+                  CursorTypes.CursorParamValue.displayName =
+                      optString2 json "displayName" "display_name" }
+
+    let private parseParameter (json: JsonValue) =
+        match optString json "id" with
+        | None -> None
+        | Some id ->
+            let values =
+                match json.TryGetProperty "values" with
+                | Some(JsonValue.Array arr) ->
+                    arr
+                    |> Array.choose parseParamValue
+                    |> Array.toList
+                | _ -> []
+            Some
+                { CursorTypes.CursorModelParameter.id = id
+                  CursorTypes.CursorModelParameter.displayName =
+                      optString2 json "displayName" "display_name"
+                  CursorTypes.CursorModelParameter.values = values }
+
+    let private parseParameters (json: JsonValue) =
+        match json.TryGetProperty "parameters" with
+        | Some(JsonValue.Array arr) ->
+            arr
+            |> Array.choose parseParameter
             |> Array.toList
         | _ -> []
 
@@ -73,8 +128,7 @@ module CursorHttp =
                   CursorTypes.CursorModel.aliases =
                       stringList json "aliases"
                   CursorTypes.CursorModel.parameters =
-                      json.TryGetProperty "parameters"
-                      |> Option.map (fun v -> v.ToString())
+                      parseParameters json
                   CursorTypes.CursorModel.variants =
                       parseVariants json }
 
@@ -107,8 +161,21 @@ module CursorHttp =
             | None -> ()
         |]
 
-    let private modelJson (modelId: string) =
-        JsonValue.Record [| "id", JsonValue.String modelId |]
+    let private paramJson (p: CursorTypes.CursorParamAssignment) =
+        JsonValue.Record [|
+            "id", JsonValue.String p.id
+            "value", JsonValue.String p.value
+        |]
+
+    let private modelJson (model: CursorTypes.CursorModelRef) =
+        JsonValue.Record [|
+            "id", JsonValue.String model.id
+            match model.``params`` with
+            | [] -> ()
+            | ps ->
+                "params",
+                JsonValue.Array [| for p in ps -> paramJson p |]
+        |]
 
     let createRequestJson
         (request: CursorTypes.CursorCreateRequest)

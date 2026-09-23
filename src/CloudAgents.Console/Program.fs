@@ -10,42 +10,127 @@ let printUsage () =
     printfn "  --ref <ref>          Starting branch or commit"
     printfn "  --name <name>        Display name for the agent"
     printfn "  --model <id>         Cursor model id"
+    printfn "  --param id=value     Model param (repeatable)"
     printfn "  --api-key <key>      Cursor API key"
     printfn ""
     printfn "Config (CLI wins, then appsettings.<level>.json):"
-    printfn "  ApiKey, Model, Repo, Ref, Name"
+    printfn "  ApiKey, Model, ModelParams, Repo, Ref, Name"
     printfn "  Level: ASPNETCORE_ENVIRONMENT or DOTNET_ENVIRONMENT"
     printfn "  CURSOR_API_KEY fills ApiKey when CLI and file omit it"
+    printfn "  Catalog: cursor-models.json beside CloudAgents"
     printfn ""
     printfn "Example:"
     printfn
-        "  CloudAgents.Console \"Add README\" --repo https://github.com/user/repo --ref main"
+        "  CloudAgents.Console \"Add README\" --repo https://github.com/user/repo"
+    printfn "    --ref main --param context=256k"
 
-let printModels (models: CursorTypes.CursorModel list) =
-    printfn "=== Cursor models ==="
+let private formatParamValues
+    (p: CursorTypes.CursorModelParameter)
+    =
+    p.values
+    |> List.map (fun v -> v.value)
+    |> String.concat ", "
+
+let private formatVariantParams
+    (ps: CursorTypes.CursorParamAssignment list)
+    =
+    ps
+    |> List.map (fun p -> $"{p.id}={p.value}")
+    |> String.concat ", "
+
+let printModels (models: CursorTypes.CursorModel list) (source: string) =
+    printfn "=== Cursor models (%s) ===" source
     if List.isEmpty models then
         printfn "(none)"
     else
         for m in models do
             printfn "  %s  %s" m.id m.displayName
-            match m.description with
-            | Some d when d <> "" -> printfn "    %s" d
-            | _ -> ()
             if not (List.isEmpty m.aliases) then
                 printfn
                     "    aliases: %s"
                     (String.concat ", " m.aliases)
+            for p in m.parameters do
+                let allowed = formatParamValues p
+                if allowed = "" then
+                    printfn "    param %s" p.id
+                else
+                    printfn "    param %s: %s" p.id allowed
             for v in m.variants do
                 let label = v.displayName |> Option.defaultValue ""
-                printfn "    variant %s %s" v.id label
+                let paramText = formatVariantParams v.``params``
+                if paramText = "" then
+                    printfn "    variant %s %s" v.id label
+                else
+                    printfn
+                        "    variant %s %s (%s)"
+                        v.id
+                        label
+                        paramText
     printfn ""
 
-let printCatalog apiKey =
-    match CursorHttp.listModels apiKey with
+let printCatalog (apiKey: string) =
+    let fromFile = CursorModelsFile.tryFindPath () |> Option.isSome
+    match CursorModelsFile.loadStartCatalog apiKey with
     | Error msg ->
-        printfn "Could not list models: %s" msg
+        let label =
+            if fromFile then "cursor-models.json" else "live API"
+        printfn "Could not load model catalog (%s): %s" label msg
         printfn ""
-    | Ok models -> printModels models
+        Error msg
+    | Ok models ->
+        let source =
+            if fromFile then "cursor-models.json" else "live API"
+        printModels models source
+        Ok models
+
+let findModel
+    (models: CursorTypes.CursorModel list)
+    (hint: string)
+    =
+    models
+    |> List.tryFind (fun m ->
+        m.id = hint || List.contains hint m.aliases)
+
+let private validateParam
+    (model: CursorTypes.CursorModel)
+    (p: ModelParam)
+    =
+    match
+        model.parameters
+        |> List.tryFind (fun mp -> mp.id = p.Id)
+    with
+    | None ->
+        Error $"Unknown param '{p.Id}' for model '{model.id}'"
+    | Some def ->
+        let allowed =
+            def.values |> List.map (fun v -> v.value)
+        if List.isEmpty allowed then Ok()
+        elif List.contains p.Value allowed then Ok()
+        else
+            let allowedText = String.concat ", " allowed
+            Error
+                $"Invalid value '{p.Value}' for param '{p.Id}' (allowed: {allowedText})"
+
+let validateSelection
+    (models: CursorTypes.CursorModel list)
+    (modelId: string option)
+    (parameters: ModelParam list)
+    =
+    match modelId with
+    | None ->
+        if List.isEmpty parameters then Ok()
+        else Error "Model params require --model"
+    | Some hint ->
+        match findModel models hint with
+        | None -> Error $"Unknown model id '{hint}'"
+        | Some model ->
+            parameters
+            |> List.fold
+                (fun acc p ->
+                    match acc with
+                    | Error _ -> acc
+                    | Ok() -> validateParam model p)
+                (Ok())
 
 let startRepos repoUrl startingRef =
     match repoUrl with
@@ -94,6 +179,11 @@ let runAgent promptText apiKey repos options =
     match options.ModelHint with
     | Some model -> printfn "Model: %s" model
     | None -> printfn "Model: (Cursor default)"
+    if not (List.isEmpty options.ModelParams) then
+        let parts =
+            options.ModelParams
+            |> List.map (fun p -> $"{p.Id}={p.Value}")
+        printfn "Params: %s" (String.concat ", " parts)
     match repos with
     | Some(r :: _) -> printfn "Repo: %s" r.Url
     | _ -> printfn "No repository (agent will run standalone)"
@@ -119,8 +209,6 @@ let main argv =
     let cli =
         ConsoleConfig.parseArgs (Array.toList argv) ConsoleConfig.emptyCli
     let file = ConsoleConfig.loadFiles ()
-    if cli.ApiKey <> None then Console.WriteLine(cli.ApiKey.ToString())
-    if file.ApiKey <> None then Console.WriteLine(file.ApiKey.ToString())
     let envKey =
         Environment.GetEnvironmentVariable "CURSOR_API_KEY"
         |> Option.ofObj
@@ -132,14 +220,28 @@ let main argv =
         printfn "Get a key from: https://cursor.com/settings"
         1
     | Some apiKey ->
-        printCatalog apiKey
-        match settings.Prompt with
-        | None ->
-            printUsage ()
-            1
-        | Some promptText ->
-            let repos = startRepos settings.Repo settings.Ref
-            let options =
-                { AgentOptions.DisplayName = settings.Name
-                  ModelHint = settings.Model }
-            runAgent promptText apiKey repos options
+        match printCatalog apiKey with
+        | Error _ -> 1
+        | Ok models ->
+            match
+                validateSelection
+                    models
+                    settings.Model
+                    settings.ModelParams
+            with
+            | Error msg ->
+                printfn "Error: %s" msg
+                1
+            | Ok() ->
+                match settings.Prompt with
+                | None ->
+                    printUsage ()
+                    1
+                | Some promptText ->
+                    let repos =
+                        startRepos settings.Repo settings.Ref
+                    let options =
+                        { AgentOptions.DisplayName = settings.Name
+                          ModelHint = settings.Model
+                          ModelParams = settings.ModelParams }
+                    runAgent promptText apiKey repos options

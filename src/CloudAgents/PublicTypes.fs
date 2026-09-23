@@ -5,10 +5,16 @@ type RepoConfig =
     { Url: string
       StartingRef: string option }
 
+/// Selected model parameter for create requests
+type ModelParam =
+    { Id: string
+      Value: string }
+
 /// Vendor-neutral agent options
 type AgentOptions =
     { DisplayName: string option
-      ModelHint: string option }
+      ModelHint: string option
+      ModelParams: ModelParam list }
 
 /// Vendor-neutral git result
 type GitResult =

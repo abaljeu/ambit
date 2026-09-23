@@ -64,10 +64,24 @@ module CursorAdapter =
                         { CursorTypes.CursorRepo.url = r.Url
                           CursorTypes.CursorRepo.startingRef =
                               r.StartingRef }))
+            let modelRef =
+                match options.ModelHint with
+                | None -> None
+                | Some id ->
+                    let ps =
+                        options.ModelParams
+                        |> List.map (fun p ->
+                            { CursorTypes.CursorParamAssignment.id =
+                                p.Id
+                              CursorTypes.CursorParamAssignment.value =
+                                  p.Value })
+                    Some
+                        { CursorTypes.CursorModelRef.id = id
+                          CursorTypes.CursorModelRef.``params`` = ps }
             let request: CursorTypes.CursorCreateRequest =
                 { prompt = { text = prompt }
                   name = options.DisplayName
-                  model = options.ModelHint
+                  model = modelRef
                   repos = cursorRepos }
             match CursorHttp.createAgent config.ApiKey request with
             | Error msg -> Error(fromHttpError config.ApiKey msg)
