@@ -16,6 +16,7 @@ Chart how existing Projects and Epics implement transport instances or dependenc
 | **Web publish (outbound)** | Generate HTML and send attachments and CSS (Graph / HTML File content → visitor-facing site; not HTML File body only) | [[plan/roadmap/epics/create-and-publish-web-pages.md]] |
 | **Wiki publish (outbound)** | Public URL: Graph / `.md` File content → HTML for visitors; not HTML File pages | [[plan/roadmap/epics/build-or-explore-a-wiki.md]] (Public URL chapter) |
 | **Agent Actor** | Long-running inbound (LLM reply as Owned children) | [[plan/llm-connector/project.md]]; [[plan/roadmap/epics/agent-chat-managed-context.md]] |
+| **Bot DM channel** | Ambit ↔ Grok Bot webhook wake + write/event reply | [[plan/bot-channel/project.md]]; [[plan/roadmap/epics/operate-connected-channels.md]] |
 | **Load / residency** | Fetch subgraph, Unloaded/Loaded boundaries for inbound materialization | [[plan/selective-client-loading/project.md]] |
 | **ESO spine** | Actor produce path, merge, job identity, soft-lock | [[plan/event-sourced-ops/project.md]] |
 | **PKM consumer** | Find and navigate material already in the Graph | [[plan/roadmap/epics/operate-a-pkm.md]] — depends on transport-layer, does not implement it |
@@ -50,6 +51,8 @@ flowchart BT
 ## Future connector Projects (pointer checklist)
 
 Chart a new feature-set Project per source or protocol when work appears. Each should state:
+
+Charted: [[plan/bot-channel/project.md]] (Grok Bot DM; wake webhook + reply API).
 
 - [ ] Channel — inbound, outbound, or round-trip (which flows).
 - [ ] Wire — how bytes or text arrive (file path, HTTP, paste buffer, MCP, etc.).
