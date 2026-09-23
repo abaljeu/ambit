@@ -10,7 +10,8 @@ type AgentRunnerFakeTests() =
 
     let emptyOptions =
         { AgentOptions.DisplayName = None
-          ModelHint = None }
+          ModelHint = None
+          ModelParams = [] }
 
     let unusedConfig = { RunnerConfig.ApiKey = "unused" }
 

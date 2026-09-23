@@ -20,7 +20,8 @@ let ``StartArgs groups start config prompt repos and options`` () =
           Repos = None
           Options =
             { AgentOptions.DisplayName = None
-              ModelHint = None } }
+              ModelHint = None
+              ModelParams = [] } }
     Assert.Equal("pack", args.Prompt)
     Assert.Equal("k", args.Config.ApiKey)
 
@@ -28,10 +29,12 @@ let ``StartArgs groups start config prompt repos and options`` () =
 let ``AgentOptions can be empty`` () =
     let options =
         { AgentOptions.DisplayName = None
-          ModelHint = None }
+          ModelHint = None
+          ModelParams = [] }
 
     Assert.Equal(None, options.DisplayName)
     Assert.Equal(None, options.ModelHint)
+    Assert.Equal(0, options.ModelParams.Length)
 
 [<Fact>]
 let ``AgentResult contains text and git info`` () =
