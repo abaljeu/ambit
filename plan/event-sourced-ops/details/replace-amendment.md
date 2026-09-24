@@ -146,7 +146,7 @@ Amendment order is fixed in [[merge-invariant.md]]: common prior → other accep
 
 ## 6. Producer rule
 
-Planners send **full lists** for `oldList` and `newList` on the wire. Prefer **one Replace per parent per Change**; compose multiple edits on one parent at plan time.
+Planners send **full lists** for `oldList` and `newList` on the wire. Prefer **one Replace per parent per Change**; compose multiple edits on one parent at plan time. Mailbox Append expands to this full-list Replace at execute; History stores Replace only, with initiating command Append on `Ev.commandName` ([[../issues/16-append-op-expands-to-replace.md]]).
 
 Any producer that still builds span or partial Replace ops (non-zero `index`, or lists shorter than the parent's full children) is **migration debt** — tracked in [[../issues/13-migrate-producers-full-list-replace-wire.md]]. Catalogue of current span emitters: [[plan/relaxed-concurrency/replace-span-cas-feasibility.md]], [[../reports/wire-full-list-replace-contract.md]]. Implementation of that migration is **not** issue 05.
 
@@ -256,4 +256,4 @@ Two migrations were in flight; **(2) is now implemented** (2026-08-22, issue [[.
 
 ## See also
 
-[[conflict-resolution.md]], [[merge-invariant.md]], [[../issues/05-child-list-accept-both.md]], [[../issues/10-child-list-approximation-polish.md]], [[../issues/13-migrate-producers-full-list-replace-wire.md]], [[../issues/14-drop-replace-index-wire-migration.md]], [[as-implemented-facts.md]], [[plan/relaxed-concurrency/replace-span-cas-feasibility.md]]
+[[conflict-resolution.md]], [[merge-invariant.md]], [[../issues/05-child-list-accept-both.md]], [[../issues/10-child-list-approximation-polish.md]], [[../issues/13-migrate-producers-full-list-replace-wire.md]], [[../issues/14-drop-replace-index-wire-migration.md]], [[../issues/16-append-op-expands-to-replace.md]], [[as-implemented-facts.md]], [[plan/relaxed-concurrency/replace-span-cas-feasibility.md]]
