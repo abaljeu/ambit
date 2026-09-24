@@ -100,13 +100,6 @@ module RunAgentActor =
         | ApiError("failed", msg) -> CompleteFailed msg
         | _ -> CompleteFailed ""
 
-    let private streamArgs config agentId runId : StreamArgs =
-        { Config = config
-          AgentId = agentId
-          RunId = runId
-          PollIntervalMs = 50
-          MaxWaitMs = None }
-
     let private parentChildren (graph: Graph) parentId =
         match Map.tryFind parentId graph.nodes with
         | Some node -> node.children
@@ -238,22 +231,20 @@ module RunAgentActor =
     let private streamUntilDone
         (input: ActorInput)
         coreChanges
-        config
-        agentId
-        runId
+        (args: StreamArgs)
         =
         async {
             use! _cancel =
                 Async.OnCancel(fun () ->
-                    requestCancel config agentId runId)
+                    requestCancel args.Config args.AgentId args.RunId)
             let! ct = Async.CancellationToken
             if ct.IsCancellationRequested then
-                requestCancel config agentId runId
+                requestCancel args.Config args.AgentId args.RunId
                 return CompleteCancelled
             else
                 let outcome =
                     AgentRunner.streamUntilComplete
-                        (streamArgs config agentId runId)
+                        args
                         (streamFold input coreChanges)
                 if ct.IsCancellationRequested then
                     return CompleteCancelled
@@ -288,13 +279,14 @@ module RunAgentActor =
                 args.Config args.Prompt args.Repos args.Options with
             | Error err -> return failedFromError err
             | Ok(agentId, runId) ->
+                let stream =
+                    { Config = args.Config
+                      AgentId = agentId
+                      RunId = runId
+                      PollIntervalMs = 50
+                      MaxWaitMs = None }
                 return!
-                    streamUntilDone
-                        input
-                        coreChanges
-                        args.Config
-                        agentId
-                        runId
+                    streamUntilDone input coreChanges stream
         }
 
     let private stop
