@@ -64,10 +64,24 @@ module CursorAdapter =
                         { CursorTypes.CursorRepo.url = r.Url
                           CursorTypes.CursorRepo.startingRef =
                               r.StartingRef }))
+            let modelRef =
+                match options.ModelHint with
+                | None -> None
+                | Some id ->
+                    let ps =
+                        options.ModelParams
+                        |> List.map (fun p ->
+                            { CursorTypes.CursorParamAssignment.id =
+                                p.Id
+                              CursorTypes.CursorParamAssignment.value =
+                                  p.Value })
+                    Some
+                        { CursorTypes.CursorModelRef.id = id
+                          CursorTypes.CursorModelRef.``params`` = ps }
             let request: CursorTypes.CursorCreateRequest =
                 { prompt = { text = prompt }
                   name = options.DisplayName
-                  model = options.ModelHint
+                  model = modelRef
                   repos = cursorRepos }
             match CursorHttp.createAgent config.ApiKey request with
             | Error msg -> Error(fromHttpError config.ApiKey msg)
@@ -95,3 +109,34 @@ module CursorAdapter =
         match CursorHttp.cancelRun config.ApiKey agentId runId with
         | Error msg -> Error(NetworkError msg)
         | Ok() -> Ok()
+
+    let private fromStreamBody (body: CursorHttp.StreamBody) =
+        { Text = body.text
+          Git = mapGitResult body.git }
+
+    let streamRun (args: StreamArgs) (fold: StreamFold<'a>) =
+        if String.IsNullOrWhiteSpace args.Config.ApiKey then
+            Error(authFailed "missing key")
+        else
+            let onAssistant text state =
+                fold.OnEvent
+                    state
+                    (AgentStreamEvent.AssistantText text)
+
+            match
+                CursorHttp.streamRun
+                    args.Config.ApiKey
+                    args.AgentId
+                    args.RunId
+                    onAssistant
+                    fold.Seed
+            with
+            | Error msg, _ ->
+                Error(fromHttpError args.Config.ApiKey msg)
+            | Ok body, state ->
+                let result = fromStreamBody body
+                let finished =
+                    fold.OnEvent
+                        state
+                        (AgentStreamEvent.RunFinished result)
+                Ok(result, finished)

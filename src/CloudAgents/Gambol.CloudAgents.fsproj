@@ -9,8 +9,16 @@
     <Compile Include="PublicTypes.fs" />
     <Compile Include="Internal/CursorTypes.fs" />
     <Compile Include="Internal/CursorHttp.fs" />
+    <Compile Include="Internal/CursorModelsFile.fs" />
     <Compile Include="Internal/CursorAdapter.fs" />
+    <Compile Include="AgentRunnerFake.fs" />
     <Compile Include="AgentRunner.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="cursor-models.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>

@@ -10,7 +10,8 @@ type AgentRunnerFakeTests() =
 
     let emptyOptions =
         { AgentOptions.DisplayName = None
-          ModelHint = None }
+          ModelHint = None
+          ModelParams = [] }
 
     let unusedConfig = { RunnerConfig.ApiKey = "unused" }
 
@@ -172,6 +173,43 @@ type AgentRunnerFakeTests() =
                     | Error(ApiError("cancelled", _)) -> ()
                     | other ->
                         Assert.Fail($"expected cancelled wait, {other}"))
+
+    [<Fact>]
+    member _.``streamUntilComplete emits fake stream events``() =
+        withFake
+            (fun _ -> Finished(sampleResult "ignored"))
+            (fun () ->
+                Assert.True(
+                    AgentRunner.setFakeStream (Some (fun _ ->
+                        [ AssistantText "hel"
+                          AssistantText "lo"
+                          RunFinished(sampleResult "hello") ]))
+                )
+                let started =
+                    AgentRunner.start
+                        unusedConfig "pack" None emptyOptions
+                match started with
+                | Error err -> Assert.Fail($"start: {err}")
+                | Ok(agentId, runId) ->
+                    match
+                        AgentRunner.streamUntilComplete
+                            { Config = unusedConfig
+                              AgentId = agentId
+                              RunId = runId
+                              PollIntervalMs = 10
+                              MaxWaitMs = None }
+                            { Seed = []
+                              OnEvent = fun seen ev -> ev :: seen }
+                    with
+                    | Ok(result, seen) ->
+                        Assert.Equal("hello", result.Text)
+                        let expected =
+                            [ AssistantText "hel"
+                              AssistantText "lo"
+                              RunFinished(sampleResult "hello") ]
+                        Assert.Equal<AgentStreamEvent list>(
+                            expected, List.rev seen)
+                    | Error err -> Assert.Fail($"stream: {err}"))
 
     [<Fact>]
     member _.``setFake handler yields Failed not Finished``() =

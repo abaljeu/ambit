@@ -9,22 +9,40 @@ module CursorTypes =
         { url: string
           startingRef: string option }
 
+    type CursorParamValue =
+        { value: string
+          displayName: string option }
+
+    type CursorParamAssignment =
+        { id: string
+          value: string }
+
     type CursorModelVariant =
         { id: string
-          displayName: string option }
+          displayName: string option
+          ``params``: CursorParamAssignment list }
+
+    type CursorModelParameter =
+        { id: string
+          displayName: string option
+          values: CursorParamValue list }
 
     type CursorModel =
         { id: string
           displayName: string
           description: string option
           aliases: string list
-          parameters: string option
+          parameters: CursorModelParameter list
           variants: CursorModelVariant list }
+
+    type CursorModelRef =
+        { id: string
+          ``params``: CursorParamAssignment list }
 
     type CursorCreateRequest =
         { prompt: CursorPrompt
           name: string option
-          model: string option
+          model: CursorModelRef option
           repos: CursorRepo list option }
 
     type CursorAgent =

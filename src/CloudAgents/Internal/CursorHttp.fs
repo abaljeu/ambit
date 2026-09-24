@@ -1,6 +1,7 @@
 namespace Gambol.CloudAgents.Internal
 
 open System
+open System.IO
 open System.Net
 open System.Net.Http
 open System.Text
@@ -42,6 +43,25 @@ module CursorHttp =
             |> Array.toList
         | _ -> []
 
+    let private parseParamAssignment (json: JsonValue) =
+        match optString json "id" with
+        | None -> None
+        | Some id ->
+            match optString json "value" with
+            | None -> None
+            | Some value ->
+                Some
+                    { CursorTypes.CursorParamAssignment.id = id
+                      CursorTypes.CursorParamAssignment.value = value }
+
+    let private parseParamAssignments (json: JsonValue) =
+        match json.TryGetProperty "params" with
+        | Some(JsonValue.Array arr) ->
+            arr
+            |> Array.choose parseParamAssignment
+            |> Array.toList
+        | _ -> []
+
     let private parseVariant (json: JsonValue) =
         match optString json "id" with
         | None -> None
@@ -49,13 +69,49 @@ module CursorHttp =
             Some
                 { CursorTypes.CursorModelVariant.id = id
                   CursorTypes.CursorModelVariant.displayName =
-                      optString2 json "displayName" "display_name" }
+                      optString2 json "displayName" "display_name"
+                  CursorTypes.CursorModelVariant.``params`` =
+                      parseParamAssignments json }
 
     let private parseVariants (json: JsonValue) =
         match json.TryGetProperty "variants" with
         | Some(JsonValue.Array arr) ->
             arr
             |> Array.choose parseVariant
+            |> Array.toList
+        | _ -> []
+
+    let private parseParamValue (json: JsonValue) =
+        match optString json "value" with
+        | None -> None
+        | Some value ->
+            Some
+                { CursorTypes.CursorParamValue.value = value
+                  CursorTypes.CursorParamValue.displayName =
+                      optString2 json "displayName" "display_name" }
+
+    let private parseParameter (json: JsonValue) =
+        match optString json "id" with
+        | None -> None
+        | Some id ->
+            let values =
+                match json.TryGetProperty "values" with
+                | Some(JsonValue.Array arr) ->
+                    arr
+                    |> Array.choose parseParamValue
+                    |> Array.toList
+                | _ -> []
+            Some
+                { CursorTypes.CursorModelParameter.id = id
+                  CursorTypes.CursorModelParameter.displayName =
+                      optString2 json "displayName" "display_name"
+                  CursorTypes.CursorModelParameter.values = values }
+
+    let private parseParameters (json: JsonValue) =
+        match json.TryGetProperty "parameters" with
+        | Some(JsonValue.Array arr) ->
+            arr
+            |> Array.choose parseParameter
             |> Array.toList
         | _ -> []
 
@@ -73,8 +129,7 @@ module CursorHttp =
                   CursorTypes.CursorModel.aliases =
                       stringList json "aliases"
                   CursorTypes.CursorModel.parameters =
-                      json.TryGetProperty "parameters"
-                      |> Option.map (fun v -> v.ToString())
+                      parseParameters json
                   CursorTypes.CursorModel.variants =
                       parseVariants json }
 
@@ -107,8 +162,21 @@ module CursorHttp =
             | None -> ()
         |]
 
-    let private modelJson (modelId: string) =
-        JsonValue.Record [| "id", JsonValue.String modelId |]
+    let private paramJson (p: CursorTypes.CursorParamAssignment) =
+        JsonValue.Record [|
+            "id", JsonValue.String p.id
+            "value", JsonValue.String p.value
+        |]
+
+    let private modelJson (model: CursorTypes.CursorModelRef) =
+        JsonValue.Record [|
+            "id", JsonValue.String model.id
+            match model.``params`` with
+            | [] -> ()
+            | ps ->
+                "params",
+                JsonValue.Array [| for p in ps -> paramJson p |]
+        |]
 
     let createRequestJson
         (request: CursorTypes.CursorCreateRequest)
@@ -284,6 +352,250 @@ module CursorHttp =
                       CursorTypes.CursorRunStatus.git = git }
         with ex ->
             Error $"Request failed: {ex.Message}"
+
+    type SseMessage = { eventType: string; data: string }
+
+    type private SseAccum =
+        { eventType: string option
+          dataLines: string list }
+
+    let private emptySse =
+        { eventType = None; dataLines = [] }
+
+    type private SseStep =
+        | SseKeep of SseAccum
+        | SseEmit of SseMessage * SseAccum
+
+    let private sseData (lines: string list) =
+        lines |> List.rev |> String.concat "\n"
+
+    let private stepSseLine (acc: SseAccum) (line: string) =
+        if line = "" then
+            match acc.eventType with
+            | None -> SseKeep emptySse
+            | Some ev ->
+                let msg =
+                    { eventType = ev
+                      data = sseData acc.dataLines }
+                SseEmit(msg, emptySse)
+        elif line.StartsWith("event:", StringComparison.Ordinal) then
+            let ev = line.Substring(6).Trim()
+            SseKeep { eventType = Some ev; dataLines = [] }
+        elif line.StartsWith("data:", StringComparison.Ordinal) then
+            let chunk = line.Substring(5).TrimStart()
+            SseKeep { acc with dataLines = chunk :: acc.dataLines }
+        else
+            SseKeep acc
+
+    let private foldSseLine (pending, acc) line =
+        match stepSseLine acc line with
+        | SseKeep next -> pending, next
+        | SseEmit(msg, next) -> msg :: pending, next
+
+    let parseSseDocument (body: string) : SseMessage list =
+        let lines =
+            body.Replace("\r\n", "\n").Split('\n')
+            |> Array.toList
+        let pending, acc =
+            List.fold foldSseLine ([], emptySse) lines
+        match stepSseLine acc "" with
+        | SseEmit(msg, _) -> List.rev (msg :: pending)
+        | SseKeep _ -> List.rev pending
+
+    let private parseGit (gitObj: JsonValue) =
+        let branches =
+            match gitObj.TryGetProperty "branches" with
+            | Some(JsonValue.Array arr) ->
+                arr
+                |> Array.choose (fun b ->
+                    match b with
+                    | JsonValue.Record _ ->
+                        Some
+                            { CursorTypes.CursorGitBranch.repoUrl =
+                                b.["repoUrl"].AsString()
+                              CursorTypes.CursorGitBranch.branch =
+                                  b.TryGetProperty("branch")
+                                  |> Option.map (fun v -> v.AsString())
+                              CursorTypes.CursorGitBranch.prUrl =
+                                  b.TryGetProperty("prUrl")
+                                  |> Option.map (fun v -> v.AsString()) }
+                    | _ -> None)
+                |> Array.toList
+            | _ -> []
+
+        { CursorTypes.CursorGit.branches = branches }
+
+    let private parseStreamResult (data: string) =
+        try
+            let parsed = JsonValue.Parse data
+            let text =
+                parsed.TryGetProperty("result")
+                |> Option.map (fun v -> v.AsString())
+                |> Option.defaultValue ""
+            let git =
+                parsed.TryGetProperty("git")
+                |> Option.map parseGit
+            Ok(text, git)
+        with ex ->
+            Error $"Invalid stream result: {ex.Message}"
+
+    type StreamBody =
+        { text: string
+          git: CursorTypes.CursorGit option }
+
+    type private StreamDispatch =
+        | Continue
+        | Assistant of string
+        | Terminal of StreamBody
+        | Failed of string
+
+    let private assistantText (data: string) =
+        match JsonValue.TryParse data with
+        | Some parsed ->
+            match parsed.TryGetProperty "text" with
+            | Some(JsonValue.String text) -> Some text
+            | _ -> None
+        | None -> None
+
+    let private errorText (data: string) =
+        match JsonValue.TryParse data with
+        | Some parsed ->
+            parsed.TryGetProperty("message")
+            |> Option.map (fun v -> v.AsString())
+            |> Option.defaultValue data
+        | None -> data
+
+    let private dispatchStreamMessage (msg: SseMessage) =
+        match msg.eventType.ToLowerInvariant() with
+        | "assistant" ->
+            match assistantText msg.data with
+            | Some text -> Assistant text
+            | None -> Continue
+        | "result" ->
+            match parseStreamResult msg.data with
+            | Error err -> Failed err
+            | Ok(text, git) ->
+                Terminal { text = text; git = git }
+        | "error" -> Failed(errorText msg.data)
+        | "done" -> Terminal { text = ""; git = None }
+        | _ -> Continue
+
+    type private StreamReadOutcome =
+        | StreamIncomplete
+        | StreamComplete of StreamBody
+        | StreamStop of string
+
+    let private applyStreamMessage onAssistant state msg =
+        match dispatchStreamMessage msg with
+        | Continue -> StreamIncomplete, state
+        | Assistant text ->
+            StreamIncomplete, onAssistant text state
+        | Terminal body -> StreamComplete body, state
+        | Failed reason -> StreamStop reason, state
+
+    type private SseAdvance<'s> =
+        | SseContinue of SseAccum * 's
+        | SseDone of StreamReadOutcome * 's
+
+    let private advanceSse onAssistant state acc line =
+        match stepSseLine acc line with
+        | SseKeep next -> SseContinue(next, state)
+        | SseEmit(msg, next) ->
+            match applyStreamMessage onAssistant state msg with
+            | StreamIncomplete, nextState ->
+                SseContinue(next, nextState)
+            | other, nextState ->
+                SseDone(other, nextState)
+
+    let private finishSse onAssistant state acc =
+        match stepSseLine acc "" with
+        | SseEmit(msg, _) ->
+            applyStreamMessage onAssistant state msg
+        | SseKeep _ -> StreamIncomplete, state
+
+    let private outcomeResult outcome =
+        match outcome with
+        | StreamComplete body -> Ok body
+        | StreamStop msg -> Error msg
+        | StreamIncomplete ->
+            Error "stream ended without terminal event"
+
+    let private nextSseList lines =
+        match lines with
+        | [] -> None
+        | line :: tail -> Some(line, tail)
+
+    let private nextSseReader (reader: StreamReader) =
+        match reader.ReadLine() with
+        | null -> None
+        | line -> Some(line, reader)
+
+    let private readSseLines next source onAssistant state =
+        let rec loop acc state source =
+            match next source with
+            | None -> finishSse onAssistant state acc
+            | Some(line, rest) ->
+                match advanceSse onAssistant state acc line with
+                | SseContinue(nextAcc, nextState) ->
+                    loop nextAcc nextState rest
+                | SseDone(outcome, doneState) ->
+                    outcome, doneState
+
+        loop emptySse state source
+
+    let interpretSseDocument
+        (body: string)
+        (onAssistant: string -> unit)
+        : Result<StreamBody, string> =
+        let lines =
+            body.Replace("\r\n", "\n").Split('\n')
+            |> Array.toList
+
+        let notify text () = onAssistant text
+        let outcome, _ =
+            readSseLines nextSseList lines notify ()
+        outcomeResult outcome
+
+    let private responseError (response: HttpResponseMessage) =
+        if response.StatusCode = HttpStatusCode.Unauthorized then
+            Some "unauthorized"
+        elif response.IsSuccessStatusCode then
+            None
+        else
+            let body =
+                response.Content.ReadAsStringAsync()
+                |> Async.AwaitTask
+                |> Async.RunSynchronously
+            Some $"HTTP {int response.StatusCode}: {body}"
+
+    let private readSuccessBody (response: HttpResponseMessage) onAssistant state =
+        use stream =
+            response.Content.ReadAsStreamAsync()
+            |> Async.AwaitTask
+            |> Async.RunSynchronously
+        use reader = new StreamReader(stream)
+        let outcome, state =
+            readSseLines nextSseReader reader onAssistant state
+        outcomeResult outcome, state
+
+    let streamRun apiKey agentId runId onAssistant state =
+        try
+            use client = createClient apiKey
+            let url =
+                $"{baseUrl}/agents/{agentId}/runs/{runId}/stream"
+            let response =
+                client.GetAsync(
+                    url,
+                    HttpCompletionOption.ResponseHeadersRead
+                )
+                |> Async.AwaitTask
+                |> Async.RunSynchronously
+            match responseError response with
+            | Some msg -> Error msg, state
+            | None ->
+                readSuccessBody response onAssistant state
+        with ex ->
+            Error $"Request failed: {ex.Message}", state
 
     let cancelRun
         (apiKey: string)
