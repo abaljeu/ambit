@@ -33,7 +33,18 @@
             "console": "internalConsole",
             "justMyCode": false
         },
-        {
+              {
+                "name": "CloudAgents.Console",
+                "type": "coreclr",
+                "request": "launch",
+                "preLaunchTask": "cloudAgent: Build",
+                "program": "${workspaceFolder}/src/CloudAgents.Console/bin/Debug/net10.0/Gambol.CloudAgents.Console.dll",
+                "args": [],
+                "cwd": "${workspaceFolder}/src/CloudAgents.Console",
+                "stopAtEntry": false,
+                "console": "integratedTerminal"
+              },
+                  {
             "name": "(Desktop App for Local Server)",
             "type": "coreclr",
             "request": "launch",

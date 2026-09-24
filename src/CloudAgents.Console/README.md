@@ -5,42 +5,66 @@ Standalone command-line interface for running Cursor Cloud Agents.
 ## Usage
 
 ```bash
-CloudAgents.Console "<prompt>" [options]
+dotnet run --project src/CloudAgents.Console -- "<prompt>" [options]
 ```
+
+Prompt is required on the CLI. Other create fields may come from `appsettings.<level>.json`.
 
 ## Options
 
-- `--repo <url>` - (Optional) Repository URL to work on
-- `--ref <ref>` - Starting branch or commit (default: repository default)
-- `--name <name>` - Display name for the agent
+- `--repo <url>` — Repository URL
+- `--ref <ref>` — Starting branch or commit
+- `--name <name>` — Display name for the agent
+- `--model <id>` — Cursor model id from the printed catalog
+- `--api-key <key>` — Cursor API key
+
+## Config files
+
+Level is `ASPNETCORE_ENVIRONMENT` or `DOTNET_ENVIRONMENT` (default `Development`).
+
+Load order: tracked `appsettings.json`, then `appsettings.<level>.json`. Search the current directory, then the exe directory.
+
+CLI wins over file. File wins over `CURSOR_API_KEY` for the key.
+
+Tracked `appsettings.json` holds empty placeholders. Put secrets in gitignored `appsettings.Development.json` or `appsettings.Production.json`.
+
+```json
+{
+  "ApiKey": "",
+  "Model": "",
+  "Repo": "",
+  "Ref": "",
+  "Name": ""
+}
+```
 
 ## Environment Variables
 
-- `CURSOR_API_KEY` (required) - Your Cursor Dashboard API key
+- `CURSOR_API_KEY` — fills `ApiKey` when CLI and file omit it
+- `ASPNETCORE_ENVIRONMENT` / `DOTNET_ENVIRONMENT` — config level
 
 Get your API key from: https://cursor.com/settings
 
 ## Examples
 
-### No-repo agent (primary use case)
+### Prompt only (rest from appsettings)
 
 ```bash
-export CURSOR_API_KEY=your_key_here
-CloudAgents.Console "Explain how async/await works in F#"
+dotnet run --project src/CloudAgents.Console -- "Explain how async/await works in F#"
 ```
 
-### Another no-repo example
+After the key is known, Console prints the Cursor model catalog (`id`, displayName, variants), then starts the run and **streams** assistant text over SSE (falls back to synthesized chunks under `setFake`).
+
+### Override model on the CLI
 
 ```bash
-export CURSOR_API_KEY=your_key_here
-CloudAgents.Console "What are the trade-offs between actor model and CSP?"
+dotnet run --project src/CloudAgents.Console -- "What are F# options?" --model cursor-grok-4.7-low-fast
 ```
 
-### With repository (optional)
+### With repository
 
 ```bash
-export CURSOR_API_KEY=your_key_here
-CloudAgents.Console "Add a README with setup instructions" \
+dotnet run --project src/CloudAgents.Console -- "Add a README with setup instructions" \
   --repo https://github.com/your-org/your-repo \
   --ref main \
   --name "Add README"
@@ -49,7 +73,8 @@ CloudAgents.Console "Add a README with setup instructions" \
 ## Output
 
 The console prints:
+
+- Cursor model catalog
 - Agent ID and Run ID
-- Progress updates
-- Final result text
-- Git branch and PR information (if repository was provided and agent made changes)
+- Assistant text as it arrives (SSE stream)
+- Final result summary and git branch / PR information (if a repository was provided and the agent made changes)

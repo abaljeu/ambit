@@ -13,6 +13,17 @@
 			"problemMatcher": "$msCompile"
 		},
 		{
+			"label": "cloudAgent: Build",
+			"type": "shell",
+			"command": "dotnet build src/CloudAgent.Console/Gambol.CloudAgents.Console.fsproj",
+			"group": "build",
+			"presentation": {
+				"reveal": "silent",
+				"panel": "shared"
+			},
+			"problemMatcher": "$msCompile"
+		},
+		{
 			"label": "desktop: Run (cloud)",
 			"type": "shell",
 			"command": "scripts/desktop.sh run --cloud",

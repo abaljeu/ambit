@@ -20,7 +20,14 @@ module RunAgentActor =
 
     let private askOptions =
         { AgentOptions.DisplayName = Some "AI"
-          ModelHint = Some "cursor-grok-4.7-high" }
+          ModelHint = Some "grok-4.7"
+          ModelParams =
+            [ { ModelParam.Id = "context"
+                ModelParam.Value = "256k" }
+              { ModelParam.Id = "reasoning_effort"
+                ModelParam.Value = "low" }
+              { ModelParam.Id = "fast"
+                ModelParam.Value = "true" } ] }
 
     let private actorCaller (input: ActorInput) : Caller =
         { authority = Authority "Actor"

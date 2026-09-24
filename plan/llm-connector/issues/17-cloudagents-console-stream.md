@@ -1,6 +1,6 @@
 # 17 — CloudAgents Console stream
 
-**Status:** defined
+**Status:** coded
 **Blocked by:** None — [16 — AiRepos from appsettings](16-airepos-from-appsettings.md) is `done`. Poll path remains.
 **Type:** task
 Estimate: 3h
@@ -15,16 +15,16 @@ This ticket adds a **vendor-neutral stream** on the CloudAgents DLL and proves i
 
 ### 1. CloudAgents DLL stream face
 
-1. [ ] Public stream API beside `start` / `poll` / `cancel` / `waitUntilComplete` (name freely; keep settings-blind).
-2. [ ] Cursor adapter consumes SSE; map at least: `assistant` `{ text }` deltas, terminal `result` / `done` / `error`. Other event types may be ignored or forwarded as opaque progress.
-3. [ ] `setFake` can simulate a short delta sequence then terminal (no live key required for proof).
-4. [ ] Poll path stays working; do not break existing callers.
+1. [x] Public stream API beside `start` / `poll` / `cancel` / `waitUntilComplete` (name freely; keep settings-blind).
+2. [x] Cursor adapter consumes SSE; map at least: `assistant` `{ text }` deltas, terminal `result` / `done` / `error`. Other event types may be ignored or forwarded as opaque progress.
+3. [x] `setFake` can simulate a short delta sequence then terminal (no live key required for proof).
+4. [x] Poll path stays working; do not break existing callers.
 
 ### 2. Console proof
 
-1. [ ] Console prefers stream when available: print assistant deltas as they arrive; print terminal summary (and git if present) on `result` / `done`.
-2. [ ] Still reads `CURSOR_API_KEY` from env (Console does not read AiKeys).
-3. [ ] Document usage in [CloudAgents.Console README](../../../src/CloudAgents.Console/README.md).
+1. [x] Console prefers stream when available: print assistant deltas as they arrive; print terminal summary (and git if present) on `result` / `done`.
+2. [x] Still reads `CURSOR_API_KEY` from env (Console does not read AiKeys).
+3. [x] Document usage in [CloudAgents.Console README](../../../src/CloudAgents.Console/README.md).
 
 ### 3. Non-goals
 
@@ -40,3 +40,4 @@ This ticket adds a **vendor-neutral stream** on the CloudAgents DLL and proves i
 ## Comments
 
 - 2026-09-20 — Filed from chat: split stream work into Console/DLL first, Actor second. Status `defined`.
+- 2026-09-23 — Coded slice 1: `AgentStreamEvent`, `streamUntilComplete`, `setFakeStream`, SSE in `CursorHttp`/`CursorAdapter`, Console stream path. Report [stream-response-switch](../reports/stream-response-switch.md). CloudAgents.Tests 33 passed. Status `coded`.

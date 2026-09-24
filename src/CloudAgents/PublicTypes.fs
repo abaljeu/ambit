@@ -5,10 +5,16 @@ type RepoConfig =
     { Url: string
       StartingRef: string option }
 
+/// Selected model parameter for create requests
+type ModelParam =
+    { Id: string
+      Value: string }
+
 /// Vendor-neutral agent options
 type AgentOptions =
     { DisplayName: string option
-      ModelHint: string option }
+      ModelHint: string option
+      ModelParams: ModelParam list }
 
 /// Vendor-neutral git result
 type GitResult =
@@ -29,6 +35,13 @@ type AgentStatus =
     | Cancelled
     | Failed of string
 
+/// Incremental events while a run is open (vendor-neutral).
+type AgentStreamEvent =
+    | AssistantText of string
+    | RunFinished of AgentResult
+    | RunFailed of string
+    | RunCancelled
+
 /// Vendor-neutral runner configuration
 type RunnerConfig =
     { ApiKey: string }
@@ -39,6 +52,19 @@ type StartArgs =
       Prompt: string
       Repos: RepoConfig list option
       Options: AgentOptions }
+
+/// Which run to stream, and how long to wait for it.
+type StreamArgs =
+    { Config: RunnerConfig
+      AgentId: string
+      RunId: string
+      PollIntervalMs: int
+      MaxWaitMs: int option }
+
+/// Accumulator stepped once per stream event.
+type StreamFold<'a> =
+    { Seed: 'a
+      OnEvent: 'a -> AgentStreamEvent -> 'a }
 
 /// Errors that can occur during agent operations
 type AgentError =

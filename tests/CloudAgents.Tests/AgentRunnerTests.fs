@@ -10,7 +10,8 @@ let ``start requires valid config`` () =
 
     let options =
         { AgentOptions.DisplayName = Some "Test Agent"
-          ModelHint = None }
+          ModelHint = None
+          ModelParams = [] }
 
     let result =
         AgentRunner.start config "test prompt" None options

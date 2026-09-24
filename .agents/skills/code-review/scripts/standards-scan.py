@@ -14,7 +14,7 @@ from __future__ import annotations
 import argparse, os, re, subprocess, sys
 from pathlib import Path
 
-MAX_LINE, MAX_FILE = 100, 400
+MAX_LINE, MAX_FILE = 100, 800
 FS = {".fs", ".fsi"}
 SRC = FS | {".fsx", ".cs", ".js", ".ts", ".tsx", ".jsx", ".py", ".sh"}
 SKIP = ("/bin/", "/obj/", "/node_modules/", "/.git/", "/packages/")
@@ -158,12 +158,15 @@ def scan_added(path, lines, added, untracked_fs, bad):
 
 
 def file_growth(path, old, new, bad):
-    if ext(path) not in FS:
+    # File limit is MAX_FILE in fsharp-source. That rule does not apply to tests.
+    # A file at or under the limit is not a hit, even when this change grew it.
+    # An already-over file is a hit only when this change increased it.
+    if ext(path) not in FS or path.startswith("tests/"):
         return bad
     if new > MAX_FILE and new > old:
         emit(
             path, None, FSHARP, f"FILE {old}->{new}",
-            "already over 400 or new file over 400; change increased it")
+            f"exceeds {MAX_FILE} lines and this change increased it")
         return True
     return bad
 

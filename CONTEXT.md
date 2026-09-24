@@ -177,6 +177,10 @@ Antonym: **Absent**. _Avoid_: materialized, present, cached (for this meaning)
 The server project and the server process it runs.
 _Avoid_: backend, API host (as casual synonyms)
 
+**Linux setup**:
+The machine and the setup the Server needs.
+_Avoid_: Server (for this machine)
+
 **Browser**:
 Spoken name for the Client project: the browser-side code. Both the App and a web browser are clients of the Server, so do not say Client for this project.
 _Avoid_: Client (in speech), frontend, web app

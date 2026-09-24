@@ -10,9 +10,13 @@ The library provides a vendor-neutral public API.
 ### Public API
 
 - **Types** (`PublicTypes.fs`): `AgentStatus`, `AgentResult`,
-  `GitResult`, `RepoConfig`, `AgentOptions`, `RunnerConfig`
+  `GitResult`, `RepoConfig`, `AgentOptions`, `ModelParam`,
+  `RunnerConfig`
 - **Runner** (`AgentRunner.fs`): `start`, `poll`, `cancel`,
-  `waitUntilComplete`
+  `waitUntilComplete`, `streamUntilComplete`, `setFakeStream`
+- **Catalog** (`cursor-models.json`): checked-in model ids,
+  parameters, and allowed values; loaded via
+  `Internal/CursorModelsFile.fs`
 
 ### Internal Implementation
 
@@ -33,7 +37,8 @@ let config = { RunnerConfig.ApiKey = "your-cursor-api-key" }
 
 let options =
     { AgentOptions.DisplayName = Some "Research Agent"
-      ModelHint = None }
+      ModelHint = None
+      ModelParams = [] }
 
 match AgentRunner.start config "Explain F# computation expressions" None options with
 | Error err -> printfn "Failed: %A" err
@@ -54,7 +59,8 @@ let config = { RunnerConfig.ApiKey = "your-cursor-api-key" }
 
 let options =
     { AgentOptions.DisplayName = Some "Add Tests"
-      ModelHint = None }
+      ModelHint = None
+      ModelParams = [] }
 
 let repos =
     Some [ { RepoConfig.Url = "https://github.com/org/repo"
