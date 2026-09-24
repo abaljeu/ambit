@@ -44,6 +44,7 @@
     <Compile Include="TestActorCommandErrorTests.fs" />
     <Compile Include="AskCancelHarness.fs" />
     <Compile Include="AgentAskTests.fs" />
+    <Compile Include="AgentActorStreamTests.fs" />
     <Compile Include="BrowserAskProofTests.fs" />
     <Compile Include="AgentFailurePreserveTests.fs" />
     <Compile Include="AgentAuthErrorTests.fs" />

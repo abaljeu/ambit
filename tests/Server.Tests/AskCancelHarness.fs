@@ -162,6 +162,23 @@ let withFake handler body =
             clearFake ()
     }
 
+let withFakeStream statusHandler streamHandler body =
+    withFake statusHandler (fun () ->
+        Assert.True(AgentRunner.setFakeStream (Some streamHandler))
+        body ())
+
+let actorChangeOps host =
+    task {
+        let! events = eventPast host |> Async.StartAsTask
+        return
+            events
+            |> List.collect (fun event ->
+                match event.authority, event.body with
+                | Authority "Actor", EventBody.Change ops ->
+                    ops
+                | _ -> [])
+    }
+
 let hangUntilCancel () =
     let started = TaskCompletionSource<unit>()
     let handler (_: StartArgs) =
@@ -184,6 +201,15 @@ let ownedTexts (graph: Graph) focusId =
     graph.nodes.[focusId].children
     |> List.filter (fun child -> child.ref = Ownership.Owner)
     |> List.map (fun child -> graph.nodes.[child.id].text)
+
+let waitOwnedText host focusId expected timeoutMs =
+    waitUntil timeoutMs (fun () -> task {
+        let! state = graphState host
+        return
+            List.contains
+                expected
+                (ownedTexts state.graph focusId)
+    })
 
 let ownedChildren host focusId =
     task {

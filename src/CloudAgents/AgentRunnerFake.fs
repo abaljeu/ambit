@@ -214,27 +214,59 @@ module internal AgentRunnerFake =
         let state = fold.OnEvent state ev
         let outcome =
             match ev with
-            | RunFinished result -> Ok result
-            | RunFailed msg -> Error(ApiError("failed", msg))
-            | RunCancelled -> cancelledRun ()
+            | RunFinished result -> Some(Ok result)
+            | RunFailed msg -> Some(Error(ApiError("failed", msg)))
+            | RunCancelled -> Some(cancelledRun ())
             | AssistantText _ -> outcome
         outcome, state
 
-    let private emitFakeStream events (fold: StreamFold<'a>) =
-        let missing =
-            Error(ApiError("failed", "stream missing terminal event"))
+    let private foldEvents ids fold events =
+        let rec loop remaining outcome state =
+            match remaining with
+            | [] -> outcome, state
+            | _ :: _ when isCancelled ids ->
+                Some(cancelledRun ()), state
+            | ev :: rest ->
+                let outcome, state =
+                    stepFakeEvent (outcome, state) fold ev
+                loop rest outcome state
+        loop events None fold.Seed
 
-        let outcome, state =
-            List.fold
-                (fun acc ev -> stepFakeEvent acc fold ev)
-                (missing, fold.Seed)
-                events
+    let private waitForTerminal args fold state =
+        let ids = args.AgentId, args.RunId
+        let started = DateTime.UtcNow
+        let rec loop state =
+            if pastDeadline started args.MaxWaitMs then
+                Error AgentError.Timeout
+            elif isCancelled ids then
+                cancelledRun ()
+            else
+                match tryGet ids with
+                | Some(Finished result) ->
+                    let state =
+                        fold.OnEvent
+                            state
+                            (RunFinished result)
+                    Ok(result, state)
+                | Some(Failed msg) ->
+                    Error(ApiError("failed", msg))
+                | Some Cancelled -> cancelledRun ()
+                | Some Creating
+                | Some Running
+                | None ->
+                    Thread.Sleep args.PollIntervalMs
+                    loop state
+        loop state
 
+    let private emitFakeStream args (fold: StreamFold<'a>) events =
+        let ids = args.AgentId, args.RunId
+        let outcome, state = foldEvents ids fold events
         match outcome with
-        | Error err -> Error err
-        | Ok result -> Ok(result, state)
+        | Some(Ok result) -> Ok(result, state)
+        | Some(Error err) -> Error err
+        | None -> waitForTerminal args fold state
 
     let internal streamFake (args: StreamArgs) (fold: StreamFold<'a>) =
         match waitFakeStream args with
         | Error err -> Error err
-        | Ok events -> emitFakeStream events fold
+        | Ok events -> emitFakeStream args fold events

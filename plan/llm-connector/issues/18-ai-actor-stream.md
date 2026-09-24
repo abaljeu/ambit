@@ -1,9 +1,10 @@
 # 18 — AI Actor stream
 
-**Status:** defined
+**Status:** coded
 **Blocked by:** None — [17 — CloudAgents Console stream](17-cloudagents-console-stream.md) is `coded`.
 **Type:** task
 Estimate: 4h
+Actual: 3h
 
 ## Context
 
@@ -23,21 +24,21 @@ Amends “complete parse only / never keep partial structural parse” for **str
 
 ### 1. Actor consumes stream
 
-1. [ ] Run Agent Actor uses CloudAgents stream (from 17) instead of sleep-poll for the live path when stream is available.
-2. [ ] Cancel still stops the run (token / cancel API).
-3. [ ] Missing key / auth failures still use [14 — Provider-named AI errors](14-provider-named-ai-errors.md).
+1. [x] Run Agent Actor uses CloudAgents stream (from 17) instead of sleep-poll for the live path when stream is available.
+2. [x] Cancel still stops the run (token / cancel API).
+3. [x] Missing key / auth failures still use [14 — Provider-named AI errors](14-provider-named-ai-errors.md).
 
 ### 2. Incremental Focus write
 
-1. [ ] Implement pending-buffer → single `addChild` at tag boundary (pseudocode locked in Comments / design note).
-2. [ ] Direct text under an open element is not Graph-edited after `addChild`.
-3. [ ] On terminal `result` / `done`: flush pending if required; optional complete parse replace of Focus children (document choice in Comments when coding).
-4. [ ] Client sees growth via existing Poll / chrome ([core-creation 21](../../core-creation/issues/21-client-shows-lock-present.md)) — no new chrome ticket required unless gaps appear.
+1. [x] Implement pending-buffer → single `addChild` at tag boundary (pseudocode locked in Comments / design note).
+2. [x] Direct text under an open element is not Graph-edited after `addChild`.
+3. [x] On terminal `result` / `done`: flush pending if required; optional complete parse replace of Focus children (document choice in Comments when coding).
+4. [x] Client sees growth via existing Poll / chrome ([core-creation 21](../../core-creation/issues/21-client-shows-lock-present.md)) — no new chrome ticket required unless gaps appear.
 
 ### 3. Proof
 
-1. [ ] Fake stream (from 17) drives Actor: multiple deltas → intermediate Focus children without text-edit ops after add.
-2. [ ] Cancel mid-stream still drops live chrome and preserves earlier accepted Changes ([09](09-agent-failure-preserves-children.md) / [10](10-cancel-by-focus.md) spirit).
+1. [x] Fake stream (from 17) drives Actor: multiple deltas → intermediate Focus children without text-edit ops after add.
+2. [x] Cancel mid-stream still drops live chrome and preserves earlier accepted Changes ([09](09-agent-failure-preserves-children.md) / [10](10-cancel-by-focus.md) spirit).
 
 ### 4. Non-goals
 
@@ -71,3 +72,8 @@ Tag tokenizer waits for `>` on tags; text takes bytes up to next `<` into `pendi
 ## Comments
 
 - 2026-09-20 — Filed from chat after SSE discovery and pending-buffer lock (commit on `<`/`>` boundary, no add-then-edit). Blocked by 17. Status `defined`.
+- 2026-09-24 — Coded: [RunAgentActor](../../../src/Server/RunAgentActor.fs) uses `streamUntilComplete` after start; [FocusXmlStream](../../../src/Shared/documents/FocusXmlStream.fs) holds pending text off-graph and commits one `NewNode` + child-list replace at each tag boundary. **Final replace vs stream-only:** stream-only after the first committed Focus child (flush pending on terminal). Complete Amb/Plain tidy replace of Focus children runs only when the stream committed no element (plain-text / empty success). Cancel and Failed do not tidy-replace. Poll remains on CloudAgents for other callers. Proofs in [AgentActorStreamTests](../../../tests/Server.Tests/AgentActorStreamTests.fs). Status `coded`.
+
+## Time
+
+- 2026-09-24 3h — Actor stream + pending-buffer Focus writes; fake-stream proofs (from chat)

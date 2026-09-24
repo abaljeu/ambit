@@ -212,6 +212,57 @@ type AgentRunnerFakeTests() =
                     | Error err -> Assert.Fail($"stream: {err}"))
 
     [<Fact>]
+    member _.``partial fake stream waits until cancel``() =
+        withFake
+            (fun _ ->
+                AgentRunner.waitForCancel 8000 |> ignore
+                Finished(sampleResult "late"))
+            (fun () ->
+                Assert.True(
+                    AgentRunner.setFakeStream (Some (fun _ ->
+                        [ AssistantText "kept" ]))
+                )
+                let started =
+                    AgentRunner.start
+                        unusedConfig "pack" None emptyOptions
+                match started with
+                | Error err -> Assert.Fail($"start: {err}")
+                | Ok(agentId, runId) ->
+                    let sawText = new ManualResetEvent(false)
+                    let seen = ref "none"
+                    let worker =
+                        Thread(fun () ->
+                            match
+                                AgentRunner.streamUntilComplete
+                                    { Config = unusedConfig
+                                      AgentId = agentId
+                                      RunId = runId
+                                      PollIntervalMs = 10
+                                      MaxWaitMs = None }
+                                    { Seed = ()
+                                      OnEvent =
+                                        fun () ev ->
+                                            match ev with
+                                            | AssistantText _ ->
+                                                sawText.Set()
+                                                |> ignore
+                                            | _ -> () }
+                            with
+                            | Error(ApiError("cancelled", _)) ->
+                                seen := "cancelled"
+                            | _ -> seen := "other")
+                    worker.Start()
+                    Assert.True(sawText.WaitOne 2000)
+                    match
+                        AgentRunner.cancel
+                            unusedConfig agentId runId
+                    with
+                    | Ok() -> ()
+                    | Error err -> Assert.Fail($"cancel: {err}")
+                    Assert.True(worker.Join 2000)
+                    Assert.Equal("cancelled", !seen))
+
+    [<Fact>]
     member _.``setFake handler yields Failed not Finished``() =
         withFake
             (fun _ -> Failed "provider-boom")
