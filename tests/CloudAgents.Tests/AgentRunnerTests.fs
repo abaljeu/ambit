@@ -46,7 +46,7 @@ let ``cancel sends cancel request`` () =
 
     match result with
     | Error _ -> ()
-    | Ok() -> Assert.True(true)
+    | Ok _ -> Assert.True(true)
 
 [<Fact>]
 let ``waitUntilComplete polls until terminal`` () =

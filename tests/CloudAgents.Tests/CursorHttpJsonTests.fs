@@ -112,6 +112,45 @@ let ``interpretSseDocument stops on the first error event`` () =
     | other -> failwith $"{other}"
 
 [<Fact>]
+let ``interpretSseDocument stops cancelled on a CANCELLED status`` () =
+    let body =
+        "event: assistant\n"
+        + "data: {\"text\":\"hi\"}\n"
+        + "\n"
+        + "event: status\n"
+        + "data: {\"status\":\"CANCELLED\"}\n"
+        + "\n"
+        + "event: done\n"
+        + "data: {}\n"
+        + "\n"
+    match CursorHttp.interpretSseDocument body ignore with
+    | Error "cancelled" -> ()
+    | other -> failwith $"{other}"
+
+[<Fact>]
+let ``interpretSseDocument stops cancelled on a CANCELLED result`` () =
+    let body =
+        "event: result\n"
+        + "data: {\"status\":\"CANCELLED\",\"result\":\"\"}\n"
+        + "\n"
+    match CursorHttp.interpretSseDocument body ignore with
+    | Error "cancelled" -> ()
+    | other -> failwith $"{other}"
+
+[<Fact>]
+let ``interpretSseDocument ignores a RUNNING status`` () =
+    let body =
+        "event: status\n"
+        + "data: {\"status\":\"RUNNING\"}\n"
+        + "\n"
+        + "event: result\n"
+        + "data: {\"status\":\"FINISHED\",\"result\":\"ok\"}\n"
+        + "\n"
+    match CursorHttp.interpretSseDocument body ignore with
+    | Ok parsed -> Assert.Equal("ok", parsed.text)
+    | Error msg -> failwith msg
+
+[<Fact>]
 let ``interpretSseDocument flushes a result that has no blank line`` () =
     let body = "event: result\ndata: {\"result\":\"z\"}"
     match CursorHttp.interpretSseDocument body ignore with

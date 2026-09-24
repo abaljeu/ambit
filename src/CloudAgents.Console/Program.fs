@@ -153,29 +153,32 @@ let printGitChanges (git: GitResult list) =
             | None -> ()
             printfn ""
 
-let private printFinished (result: AgentResult) =
+let private printFinished wroteText (result: AgentResult) =
     printfn ""
     printfn "=== Result ==="
-    if String.IsNullOrEmpty result.Text then
-        printfn "(empty)"
-    else
-        printfn "%s" result.Text
+    if wroteText then ()
+    elif String.IsNullOrEmpty result.Text then printfn "(empty)"
+    else printfn "%s" result.Text
     printfn ""
     printGitChanges result.Git
 
-let private applyPrinted _ ev =
+let private applyPrinted wroteText ev =
     match ev with
     | AgentStreamEvent.AssistantText text ->
         stdout.Write text
         stdout.Flush()
+        true
     | AgentStreamEvent.RunFinished result ->
-        printFinished result
+        printFinished wroteText result
+        wroteText
     | AgentStreamEvent.RunFailed msg ->
         printfn ""
         printfn "Agent failed: %s" msg
+        wroteText
     | AgentStreamEvent.RunCancelled ->
         printfn ""
         printfn "Agent cancelled"
+        wroteText
 
 let streamForResult apiKey agentId runId =
     printfn "Streaming response..."
@@ -183,9 +186,8 @@ let streamForResult apiKey agentId runId =
         { Config = { RunnerConfig.ApiKey = apiKey }
           AgentId = agentId
           RunId = runId
-          PollIntervalMs = 50
           MaxWaitMs = None }
-    let fold = { Seed = (); OnEvent = applyPrinted }
+    let fold = { Seed = false; OnEvent = applyPrinted }
     match AgentRunner.streamUntilComplete args fold with
     | Error err ->
         printfn "Agent failed: %A" err

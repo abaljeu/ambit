@@ -42,6 +42,12 @@ type AgentStreamEvent =
     | RunFailed of string
     | RunCancelled
 
+/// Result of a cancel request the provider answered.
+type CancelOutcome =
+    | CancelRequested
+    /// Run already terminal or never active; nothing left to cancel.
+    | NotCancellable
+
 /// Vendor-neutral runner configuration
 type RunnerConfig =
     { ApiKey: string }
@@ -58,7 +64,6 @@ type StreamArgs =
     { Config: RunnerConfig
       AgentId: string
       RunId: string
-      PollIntervalMs: int
       MaxWaitMs: int option }
 
 /// Accumulator stepped once per stream event.
