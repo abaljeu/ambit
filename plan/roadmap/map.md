@@ -11,7 +11,7 @@ A standing Roadmap that answers “what should I work on next.” Completing it 
 
 (Mutable section. Replace this section when the near-term aim changes; do not append.)
 
-Solid product core via [[epics/robust-outliner.md]], with detailed Core work in [[plan/core-creation/project.md]]. Grow by pull in / organize / send out. First inbound example: **Agent messages into the outline** (not a generic chat UI). Mail and other connected channels come **after** that near-term Agent inbound (see [[epics/operate-connected-channels.md]]).
+Solid product core via [[epics/robust-outliner.md]], with detailed Core work in [[plan/core-creation/project.md]]. Grow by pull in / organize / send out. First inbound example: **Agent messages into the outline** (not a generic chat UI) via [[plan/llm-connector/project.md]]. Connected-channel first Chapter: **Ambit as bot DM channel** ([[epics/operate-connected-channels.md]], [[plan/bot-channel/project.md]]); mail stays later.
 
 ## Notes
 
@@ -70,7 +70,7 @@ Grouped by Stage. Order inside a Stage does not matter.
 
 ## Not yet specified
 
-- Chart Chapters for [[epics/operate-connected-channels.md]] (mail first in framing). Place connector Projects when they exist. [[plan/transport-layer/project.md]] stays the Project pattern; PKM still lists it as a dependency.
+- Further Chapters for [[epics/operate-connected-channels.md]] after [[epics/chapters/ambit-as-bot-dm-channel.md]] (mail still later in framing). [[plan/transport-layer/project.md]] stays the Project pattern; PKM still lists it as a dependency.
 - Pointer charting for Public URL, Published-page CSS, and In-app styling (web pages) and for wiki Public URL (no owning Project yet).
 - Pointer charting for Status and Date on [[epics/manage-a-project.md]] (no owning Project yet).
 - Cherry-pick Undo (invert a chosen ChangeEvent; skip Actor Events).

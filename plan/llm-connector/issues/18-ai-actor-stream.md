@@ -1,7 +1,7 @@
 # 18 — AI Actor stream
 
 **Status:** defined
-**Blocked by:** None — [17 — CloudAgents Console stream](17-cloudagents-console-stream.md) is `coded`.
+**Blocked by:** None — [17 — CloudAgents Console stream](17-cloudagents-console-stream.md) is `done`.
 **Type:** task
 Estimate: 4h
 

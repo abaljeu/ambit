@@ -1,6 +1,6 @@
 # 17 — CloudAgents Console stream
 
-**Status:** coded
+**Status:** done
 **Blocked by:** None — [16 — AiRepos from appsettings](16-airepos-from-appsettings.md) is `done`. Poll path remains.
 **Type:** task
 Estimate: 3h
@@ -41,3 +41,4 @@ This ticket adds a **vendor-neutral stream** on the CloudAgents DLL and proves i
 
 - 2026-09-20 — Filed from chat: split stream work into Console/DLL first, Actor second. Status `defined`.
 - 2026-09-23 — Coded slice 1: `AgentStreamEvent`, `streamUntilComplete`, `setFakeStream`, SSE in `CursorHttp`/`CursorAdapter`, Console stream path. Report [stream-response-switch](../reports/stream-response-switch.md). CloudAgents.Tests 33 passed. Status `coded`.
+- 2026-09-24 — Alan approved staging publish of `origin/ready` (`46f6edb4`). Status `done`.
