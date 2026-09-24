@@ -6,8 +6,15 @@ open Gambol.CloudAgents
 open Gambol.Server
 open Gambol.Server.Tests.AskCancelHarness
 
-let private cursorKey = { Name = "cursor"; ApiKey = "first-secret" }
-let private workKey = { Name = "work"; ApiKey = "work-secret" }
+let private desktopKeys =
+    { DefaultAiKey = "desktop"
+      Keys = Map.ofList [ "desktop", "desk-secret" ] }
+let private workKeys =
+    { DefaultAiKey = "desktop"
+      Keys =
+        Map.ofList
+            [ "desktop", "desk-secret"
+              "work", "work-secret" ] }
 let private lifeRepo =
     { Name = "life"
       Url = "https://origin.cursor.com/alanbaljeu/life.git"
@@ -81,11 +88,11 @@ type AiReposActorTests() =
         withFake
             (fun args ->
                 Assert.Equal(None, args.Repos)
-                Assert.Equal("first-secret", args.Config.ApiKey)
+                Assert.Equal("desk-secret", args.Config.ApiKey)
                 fakeReply "from-default")
             (fun () ->
                 withHostKeysRepos
-                    [ cursorKey ]
+                    desktopKeys
                     [ lifeRepo ]
                     (fun host pool -> task {
                         let! seeded = seedAskTree host "?ai"
@@ -103,7 +110,7 @@ type AiReposActorTests() =
                 fakeReply "from-named-repo")
             (fun () ->
                 withHostKeysRepos
-                    [ cursorKey; workKey ]
+                    workKeys
                     [ lifeRepo ]
                     (fun host pool -> task {
                         let! seeded =
@@ -118,11 +125,11 @@ type AiReposActorTests() =
         withFake
             (fun args ->
                 Assert.Equal(Some [ lifeConfig ], args.Repos)
-                Assert.Equal("first-secret", args.Config.ApiKey)
+                Assert.Equal("desk-secret", args.Config.ApiKey)
                 fakeReply "from-repo-only")
             (fun () ->
                 withHostKeysRepos
-                    [ cursorKey ]
+                    desktopKeys
                     [ lifeRepo ]
                     (fun host pool -> task {
                         let! seeded = seedAskTree host "?ai life"

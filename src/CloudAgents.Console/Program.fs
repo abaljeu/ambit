@@ -1,4 +1,5 @@
 open System
+open Microsoft.Extensions.Configuration
 open Gambol.CloudAgents
 open Gambol.CloudAgents.Internal
 
@@ -14,9 +15,10 @@ let printUsage () =
     printfn "  --api-key <key>      Cursor API key"
     printfn ""
     printfn "Config (CLI wins, then appsettings.<level>.json):"
-    printfn "  ApiKey, Model, ModelParams, Repo, Ref, Name"
+    printfn "  Model, ModelParams, Repo, Ref, Name"
     printfn "  Level: ASPNETCORE_ENVIRONMENT or DOTNET_ENVIRONMENT"
-    printfn "  CURSOR_API_KEY fills ApiKey when CLI and file omit it"
+    printfn "  ApiKey: --api-key, user-secrets, then CURSOR_API_KEY"
+    printfn "  Secrets: DefaultAiKey selects AiKeys:desktop"
     printfn "  Catalog: cursor-models.json beside CloudAgents"
     printfn ""
     printfn "Example:"
@@ -224,19 +226,36 @@ let runAgent promptText apiKey repos options =
         printfn ""
         streamForResult apiKey agentId runId
 
-[<EntryPoint>]
-let main argv =
+let private loadUserSecretApiKey () =
+    let config =
+        ConfigurationBuilder()
+            .AddUserSecrets(
+                System.Reflection.Assembly.GetExecutingAssembly(),
+                optional = true)
+            .Build()
+    ConsoleConfig.apiKeyFromSecrets
+        (config.["DefaultAiKey"] |> Option.ofObj)
+        (fun name -> config.[$"AiKeys:{name}"] |> Option.ofObj)
+
+let private resolveSettings argv =
     let cli =
-        ConsoleConfig.parseArgs (Array.toList argv) ConsoleConfig.emptyCli
+        ConsoleConfig.parseArgs
+            (Array.toList argv)
+            ConsoleConfig.emptyCli
     let file = ConsoleConfig.loadFiles ()
+    let secretKey = loadUserSecretApiKey ()
     let envKey =
         Environment.GetEnvironmentVariable "CURSOR_API_KEY"
         |> Option.ofObj
-    let settings = ConsoleConfig.resolve cli file envKey
+    ConsoleConfig.resolve cli file secretKey envKey
+
+[<EntryPoint>]
+let main argv =
+    let settings = resolveSettings argv
     match settings.ApiKey with
     | None ->
         printfn "Error: no API key"
-        printfn "Set --api-key, appsettings ApiKey, or CURSOR_API_KEY"
+        printfn "Set --api-key, user-secrets AiKeys:desktop, or CURSOR_API_KEY"
         printfn "Get a key from: https://cursor.com/settings"
         1
     | Some apiKey ->

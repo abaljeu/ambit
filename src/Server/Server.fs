@@ -11,6 +11,7 @@ open Microsoft.AspNetCore.Server.Kestrel.Core
 open Microsoft.AspNetCore.StaticFiles
 open Microsoft.Extensions.Configuration
 open Microsoft.Extensions.DependencyInjection
+open Microsoft.Extensions.Hosting
 open Gambol.Shared
 
 
@@ -91,6 +92,18 @@ module Main =
             if location.OnAzure then Path.Combine(location.HomeDir, envFile)
             else envFile
         builder.Configuration.AddJsonFile(envFilePath, optional = true)
+            |> ignore
+
+    /// Later JSON sits after CreateBuilder. Load Development user secrets
+    /// again so an empty or old ApiKey in that JSON does not replace them.
+    let addDevelopmentUserSecrets (builder: WebApplicationBuilder) =
+        if builder.Environment.IsDevelopment() then
+            let assembly =
+                System.Reflection.Assembly.GetExecutingAssembly()
+            builder.Configuration.AddUserSecrets(
+                assembly,
+                optional = true,
+                reloadOnChange = true)
             |> ignore
 
     let bindConfiguredPort port (app: WebApplication) =
@@ -269,6 +282,7 @@ module Main =
         let builder = createBuilder args location
 
         addAppSettings location builder
+        addDevelopmentUserSecrets builder
         configureKestrelLimits builder
         configureResponseCompression builder
 

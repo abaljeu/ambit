@@ -42,4 +42,5 @@ Reference (`reference/`):
 
 - [[reference/postgres-environments.md]] — dev/prod PostgreSQL setup
 - [[reference/deploy-azure.md]] — Azure App Service deploy
+- [[reference/secrets.md]] — secret names, environments, and stores
 - [[reference/cpanel-transparent-proxy.md]] — custom domain forwarding via cPanel and [[proxy.php]]

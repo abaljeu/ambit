@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+    <UserSecretsId>a6b5ead7-8f2d-4482-acb0-0232585d7c6e</UserSecretsId>
   </PropertyGroup>
 
   <!-- Run Fable before publish so deployed wwwroot always has the latest client -->

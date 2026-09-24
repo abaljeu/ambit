@@ -192,7 +192,7 @@ module RunAgentActor =
         }
 
     /// ActorFn for Actor name `ai`. Selection is CoreActorPool's job.
-    let actorFn (keys: AiKey list) (repos: AiRepo list) : ActorFn =
+    let actorFn (keys: AiKeySet) (repos: AiRepo list) : ActorFn =
         fun input coreChanges ->
             async {
                 let! result = runBody keys repos input coreChanges
