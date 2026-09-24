@@ -47,6 +47,7 @@ Sources: [[map.md]] Decisions so far (grill locked 2026-09-24; arch locks 2026-0
 22. **Browser Run unchanged shape** — As a person, I want Browser Run on `?ai gbot` to use the same ActorStart path as today (typed launch membership, Zoom, Focus, Command), so that gbot does not invent a second launch door.
 23. **Files stay on Origin** — As a person, I want files and docs to remain on Origin/git while bot cognition stays in the Graph under Focus, so that Ambit is the channel and git stays the file backend.
 24. **Inbound secret in Server config** — As composition, I want the inbound shared secret in Ambit Server User Secrets (`grokbot:InboundSecret`), so that channel auth is not a Graph field.
+25. **Deterministic gbot TestActor case** — As a builder, I want Command text `?test gbot` to grow Focus Children from canned texts the way inbound deliver plus FocusXmlStream would, so that Server and Browser proofs do not need the Admiral hub or a live Grok Bot.
 
 ## 4. Out of Scope
 
@@ -70,4 +71,5 @@ Sources: [[map.md]] Decisions so far (grill locked 2026-09-24; arch locks 2026-0
 2. **Indicative wake payload** — `source`, `kind: message`, `sentAt`, `commandId`, `focusId`, `sessionId`, `text`, `payload` as in [[map.md]]; wake auth header name follows the hub contract (confirm at wire time).
 3. **Unsettled for wire / packaging** — Hub wake header exact name (confirm when wiring Ambit adapter); Azure Key Vault vs User Secrets packaging details if any. Settled: inbound path, body shape, close policy, User Secrets key names.
 4. **Spoken name** — Run Agent / AI Actor for the Ambit side; Grok Bot for the webhook counterpart. Do not call the Ambit Actor an Agent ([[CONTEXT.md]]).
-5. **Architecture** — [[arch.md]]; Sequence `module-build`; three coding tickets under [[map.md]] Implementation.
+5. **Architecture** — [[arch.md]]; Sequence `module-build`; coding tickets under [[map.md]] Implementation (01–03 product modules; 04 TestActor `?test gbot` simulation).
+6. **TestActor lock (2026-09-24)** — Alan accepted the architecture. `?test` gains a gbot-simulation behavior on existing TestActor (Actor name `test`). Optional HTTP StubOrProofBot stays; `?test gbot` is the primary deterministic seam. Not a second product path.

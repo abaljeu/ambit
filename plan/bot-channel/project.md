@@ -26,6 +26,7 @@ Make Ambit the durable messaging surface for talking to Grok Bots. Cognition sta
 
 ## Notes
 
+- 2026-09-24 — Alan accepted [[arch.md]] as shared understanding and locked a deterministic `?test gbot` case on TestActor (ticket [[issues/04-testactor-gbot-simulation.md|04 — TestActor gbot simulation]]). Stage stays `slice`. Frontier unchanged: 01 and 02 (`defined`); 03 `blocked` by 01, 02, and llm-connector 18; 04 `defined` (Blocked-by 01 and 18).
 - 2026-09-24 — Arch published ([[arch.md]], Sequence `module-build`); tickets 01–03 filed; Stage `slice`. Frontier: 01 and 02 (`defined`); 03 `blocked` by 01, 02, and llm-connector 18.
 - 2026-09-24 — Spec published ([[spec.md]]); Stage was `spec`. Grill locks in [[map.md]].
 - 2026-09-24 — Grill closed; locks in [[map.md]] Decisions.

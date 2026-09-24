@@ -4,7 +4,7 @@ Spec: [[spec.md]]
 Updated: 2026-09-24
 Sequence: module-build
 
-Sources: [[map.md]] Decisions (arch grill 2026-09-24); form example [[plan/llm-connector/arch.md]]; Focus stream helpers from [[plan/llm-connector/issues/18-ai-actor-stream.md|18 — AI Actor stream]] / `FocusXmlStream`. Checklist: `[x]` already true of the codebase shape; `[ ]` still to build for this Project.
+Sources: [[map.md]] Decisions (arch grill 2026-09-24; Alan accepted arch 2026-09-24 and locked `?test` gbot simulation); form example [[plan/llm-connector/arch.md]]; Focus stream helpers from [[plan/llm-connector/issues/18-ai-actor-stream.md|18 — AI Actor stream]] / `FocusXmlStream`. Checklist: `[x]` already true of the codebase shape; `[ ]` still to build for this Project.
 
 ## 1. Story paths
 
@@ -42,6 +42,14 @@ Sources: [[map.md]] Decisions (arch grill 2026-09-24); form example [[plan/llm-c
 6. **Stub or proof bot**
    1. [ ] Optional proof under tests/proofs POSTs `{ sessionId, text }` through the inbound door and observes Focus growth
 
+7. **Simulate gbot via TestActor**
+   1. [ ] Browser Run Command text `?test gbot` (optional extra tokens are extra canned texts) on the existing typed ActorStart path; Actor name `test`
+   2. [ ] TestActor selects gbot-simulation behavior; `?test hello` unchanged
+   3. [ ] Canned inbound `text` values enqueue via CoreActorPool `deliver` (no HTTP inbound door; no WakeHttp)
+   4. [ ] Each canned text drives FocusXmlStream pending-buffer → ordinary Core Changes under Focus (reuse 18 helpers — same write path as gbot)
+   5. [ ] Browser Poll shows Focus Children grow
+   6. [ ] Actor may Finish after canned texts; this is not a live hub session
+
 Shared segments (paths 1–4):
 1. [ ] CoreActorPool live registry with `sessionId` index + `deliver`
 2. [ ] Run Agent Actor gbot function (wake + inbox loop)
@@ -52,6 +60,7 @@ Narrowest shared test seam:
 1. [ ] CoreActorPool `deliver` + live-row `sessionId` / `commandId` exclusivity (no HTTP)
 2. [ ] Inbound door → `deliver` with secret header (harness or test host)
 3. [ ] gbot inbox → FocusXmlStream adds under Focus (fake inbound; Blocked-by 18)
+4. [ ] TestActor `?test gbot` canned texts → `deliver` + FocusXmlStream (no hub; Blocked-by 01 and 18)
 
 ## 2. Module map
 
@@ -147,6 +156,22 @@ Narrowest shared test seam:
    3. Uses
       1. [ ] Inbound door; test host or live Server
 
+8. **TestActor**
+   File: [[src/Server/TestActor.fs]] (existing; Actor name `test`). Not a second product Actor and not a Shared module.
+   1. State
+      1. [x] None durable (hello path)
+      2. [ ] gbot-sim: canned inbound texts consumed through the live-row inbox until applied
+   2. Interface
+      1. [x] Interpret `?test hello` → post one Owned child `hello` then ActorStop
+      2. [ ] First behavior token `gbot` selects simulation; further tokens are extra canned texts; with no extra tokens use a short fixed canned sequence
+      3. [ ] Simulated: no WakeHttp, no Admiral hub, no live Grok Bot, no inbound HTTP
+      4. [ ] Real: enqueue canned texts via CoreActorPool `deliver` (01); consume inbox through FocusXmlStream pending-buffer (18); ordinary Core Changes under Focus
+      5. [ ] Unknown `?test` behaviors stay ActorFailed; hello path unchanged
+   3. Uses
+      1. [x] CoreMailbox postEvents / actorStop
+      2. [ ] CoreActorPool `deliver` + inbox (via 01)
+      3. [ ] FocusXmlStream / pending-buffer from [[plan/llm-connector/issues/18-ai-actor-stream.md|18 — AI Actor stream]]
+
 ## 3. Seams
 
 1. [x] **Browser ↔ RouteRegistration** — existing typed launch / Cancel / Poll (`/ambit/*`)
@@ -156,6 +181,7 @@ Narrowest shared test seam:
 5. [ ] **CoreActorPool ↔ Run Agent Actor** — start/schedule/drop plus inbox deliver; gbot opts in to inbox
 6. [ ] **gbot function ↔ FocusXmlStream** — Interface on **Run Agent Actor — gbot function**; reuses 18 helpers
 7. [x] **CoreActorPool ↔ Focus exclusivity** — existing admit; this Project adds `commandId` exclusivity beside it
+8. [ ] **TestActor ↔ deliver + FocusXmlStream** — Interface on **TestActor**; primary deterministic seam (no hub)
 
 ## 4. Alternative considered
 
@@ -164,6 +190,7 @@ Narrowest shared test seam:
 3. **Direct Graph write API for the bot** — Rejected: would bypass Actor-mediated Changes, Poll, Cancel, and History; map Non-goal and spec Problem 3.
 4. **Invent Ambit-only wake auth header** — Rejected: wake must match the existing Admiral hub / bot webhook contract so Alan’s hub panel credentials work; confirm exact header name at wire time (Unsettled).
 5. **Bot `kind: close` in first slice** — Deferred: Cancel/drop only; bot learns via 404.
+6. **New command or second Actor for gbot proof** — Rejected: extend existing TestActor / `?test` behavior token `gbot`; do not invent a second product path.
 
 ## 5. Unsettled
 

@@ -90,13 +90,14 @@ Out of first slice: later outbound turns, close-notify, bot `kind: close`, MCP, 
 
 ## Decisions so far
 
+- 2026-09-24 — Alan accepted [[arch.md]] as shared understanding. Locked: `?test` gains a deterministic gbot-simulation case on existing TestActor (Actor name `test`). Canned texts grow Focus the way inbound deliver + FocusXmlStream would, so Server/Browser proofs do not need the Admiral hub or a live Grok Bot. Optional StubOrProofBot HTTP proof stays; `?test` is the primary deterministic seam. Do not invent a second product command or Actor name.
 - 2026-09-24 — Arch grill locks (Alan confirmed shared understanding for first slice):
   - **Secrets:** .NET User Secrets for localhost and Azure alike; provisional keys `grokbot:WakeUrl`, `grokbot:WakeSecret`, `grokbot:InboundSecret`; values may be empty until Alan loads them.
   - **Close:** Cancel/drop only; no bot `kind: close` in the first slice.
   - **Inbound:** `POST /ambit/actors/deliver` + header `X-Ambit-Inbound-Secret`; body exactly `sessionId` + `text` (no optional `commandId`).
   - **Wake auth:** match Admiral hub / bot webhook contract (Ambit adapter); do not invent an Ambit wake header name.
   - **Focus writes:** coding tickets Blocked-by llm-connector [[plan/llm-connector/issues/18-ai-actor-stream.md|18 — AI Actor stream]]; reuse pending-buffer / FocusXmlStream helpers — no second Focus-write path.
-  - **Three-ticket cut (module-build):** (1) pool `sessionId` + deliver + `commandId` exclusivity; (2) inbound door + secret + config bind; (3) gbot Actor wake + inbox → Focus.
+  - **Three-ticket cut (module-build):** (1) pool `sessionId` + deliver + `commandId` exclusivity; (2) inbound door + secret + config bind; (3) gbot Actor wake + inbox → Focus. Ticket 04 (TestActor gbot simulation) is a later lock on the same arch — not a fourth product module.
 - 2026-09-24 — Grill locked (Alan confirmed shared understanding):
   - Command `?ai gbot`; gbot = separate function inside Run Agent Actor with shared cursor helpers.
   - `commandId` / `focusId` / `sessionId` split; deliver by `sessionId`; reject second start while `commandId` live.
@@ -113,6 +114,7 @@ Architecture: [[arch.md]]. Sequence `module-build`. Tickets:
 1. [[issues/01-coreactorpool-sessionid-deliver.md|01 — CoreActorPool sessionId + deliver + commandId exclusivity]] — Status `defined` (frontier)
 2. [[issues/02-inbound-actors-deliver-door.md|02 — Inbound POST /ambit/actors/deliver + secret + GrokbotConfig]] — Status `defined` (frontier)
 3. [[issues/03-gbot-wake-inbox-focus.md|03 — gbot Run Agent: wake + inbox → Focus stream]] — Status `blocked` (by 01, 02, and llm-connector 18)
+4. [[issues/04-testactor-gbot-simulation.md|04 — TestActor gbot simulation]] — Status `defined` (Blocked-by 01 and llm-connector 18)
 
 ## Not yet specified
 
