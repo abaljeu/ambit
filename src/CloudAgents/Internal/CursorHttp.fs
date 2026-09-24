@@ -445,6 +445,7 @@ module CursorHttp =
 
     type private StreamDispatch =
         | Continue
+        | Assistant of string
         | Terminal of StreamBody
         | Failed of string
 
@@ -464,21 +465,17 @@ module CursorHttp =
             |> Option.defaultValue data
         | None -> data
 
-    let private dispatchStreamMessage
-        (msg: SseMessage)
-        (onAssistant: string -> unit)
-        : StreamDispatch =
+    let private dispatchStreamMessage (msg: SseMessage) =
         match msg.eventType.ToLowerInvariant() with
         | "assistant" ->
             match assistantText msg.data with
-            | Some text ->
-                onAssistant text
-                Continue
+            | Some text -> Assistant text
             | None -> Continue
         | "result" ->
             match parseStreamResult msg.data with
             | Error err -> Failed err
-            | Ok(text, git) -> Terminal { text = text; git = git }
+            | Ok(text, git) ->
+                Terminal { text = text; git = git }
         | "error" -> Failed(errorText msg.data)
         | "done" -> Terminal { text = ""; git = None }
         | _ -> Continue
@@ -488,28 +485,33 @@ module CursorHttp =
         | StreamComplete of StreamBody
         | StreamStop of string
 
-    let private applyStreamMessage onAssistant (msg: SseMessage) =
-        match dispatchStreamMessage msg onAssistant with
-        | Continue -> StreamIncomplete
-        | Terminal body -> StreamComplete body
-        | Failed msg -> StreamStop msg
+    let private applyStreamMessage onAssistant state msg =
+        match dispatchStreamMessage msg with
+        | Continue -> StreamIncomplete, state
+        | Assistant text ->
+            StreamIncomplete, onAssistant text state
+        | Terminal body -> StreamComplete body, state
+        | Failed reason -> StreamStop reason, state
 
-    type private SseAdvance =
-        | SseContinue of SseAccum
-        | SseDone of StreamReadOutcome
+    type private SseAdvance<'s> =
+        | SseContinue of SseAccum * 's
+        | SseDone of StreamReadOutcome * 's
 
-    let private advanceSse onAssistant acc line =
+    let private advanceSse onAssistant state acc line =
         match stepSseLine acc line with
-        | SseKeep next -> SseContinue next
+        | SseKeep next -> SseContinue(next, state)
         | SseEmit(msg, next) ->
-            match applyStreamMessage onAssistant msg with
-            | StreamIncomplete -> SseContinue next
-            | other -> SseDone other
+            match applyStreamMessage onAssistant state msg with
+            | StreamIncomplete, nextState ->
+                SseContinue(next, nextState)
+            | other, nextState ->
+                SseDone(other, nextState)
 
-    let private finishSse onAssistant acc =
+    let private finishSse onAssistant state acc =
         match stepSseLine acc "" with
-        | SseEmit(msg, _) -> applyStreamMessage onAssistant msg
-        | SseKeep _ -> StreamIncomplete
+        | SseEmit(msg, _) ->
+            applyStreamMessage onAssistant state msg
+        | SseKeep _ -> StreamIncomplete, state
 
     let private outcomeResult outcome =
         match outcome with
@@ -517,6 +519,29 @@ module CursorHttp =
         | StreamStop msg -> Error msg
         | StreamIncomplete ->
             Error "stream ended without terminal event"
+
+    let private nextSseList lines =
+        match lines with
+        | [] -> None
+        | line :: tail -> Some(line, tail)
+
+    let private nextSseReader (reader: StreamReader) =
+        match reader.ReadLine() with
+        | null -> None
+        | line -> Some(line, reader)
+
+    let private readSseLines next source onAssistant state =
+        let rec loop acc state source =
+            match next source with
+            | None -> finishSse onAssistant state acc
+            | Some(line, rest) ->
+                match advanceSse onAssistant state acc line with
+                | SseContinue(nextAcc, nextState) ->
+                    loop nextAcc nextState rest
+                | SseDone(outcome, doneState) ->
+                    outcome, doneState
+
+        loop emptySse state source
 
     let interpretSseDocument
         (body: string)
@@ -526,29 +551,10 @@ module CursorHttp =
             body.Replace("\r\n", "\n").Split('\n')
             |> Array.toList
 
-        let rec loop acc rest =
-            match rest with
-            | [] -> finishSse onAssistant acc
-            | line :: tail ->
-                match advanceSse onAssistant acc line with
-                | SseContinue next -> loop next tail
-                | SseDone outcome -> outcome
-
-        loop emptySse lines |> outcomeResult
-
-    let private readSse
-        (reader: StreamReader)
-        (onAssistant: string -> unit)
-        =
-        let rec loop acc =
-            match reader.ReadLine() with
-            | null -> finishSse onAssistant acc
-            | line ->
-                match advanceSse onAssistant acc line with
-                | SseContinue next -> loop next
-                | SseDone outcome -> outcome
-
-        loop emptySse
+        let notify text () = onAssistant text
+        let outcome, _ =
+            readSseLines nextSseList lines notify ()
+        outcomeResult outcome
 
     let private responseError (response: HttpResponseMessage) =
         if response.StatusCode = HttpStatusCode.Unauthorized then
@@ -562,23 +568,17 @@ module CursorHttp =
                 |> Async.RunSynchronously
             Some $"HTTP {int response.StatusCode}: {body}"
 
-    let private readSuccessBody
-        (response: HttpResponseMessage)
-        onAssistant
-        =
+    let private readSuccessBody (response: HttpResponseMessage) onAssistant state =
         use stream =
             response.Content.ReadAsStreamAsync()
             |> Async.AwaitTask
             |> Async.RunSynchronously
         use reader = new StreamReader(stream)
-        readSse reader onAssistant |> outcomeResult
+        let outcome, state =
+            readSseLines nextSseReader reader onAssistant state
+        outcomeResult outcome, state
 
-    let streamRun
-        (apiKey: string)
-        (agentId: string)
-        (runId: string)
-        (onAssistant: string -> unit)
-        : Result<StreamBody, string> =
+    let streamRun apiKey agentId runId onAssistant state =
         try
             use client = createClient apiKey
             let url =
@@ -591,10 +591,11 @@ module CursorHttp =
                 |> Async.AwaitTask
                 |> Async.RunSynchronously
             match responseError response with
-            | Some msg -> Error msg
-            | None -> readSuccessBody response onAssistant
+            | Some msg -> Error msg, state
+            | None ->
+                readSuccessBody response onAssistant state
         with ex ->
-            Error $"Request failed: {ex.Message}"
+            Error $"Request failed: {ex.Message}", state
 
     let cancelRun
         (apiKey: string)

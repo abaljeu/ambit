@@ -176,7 +176,6 @@ type AgentRunnerFakeTests() =
 
     [<Fact>]
     member _.``streamUntilComplete emits fake stream events``() =
-        let deltas = ref []
         withFake
             (fun _ -> Finished(sampleResult "ignored"))
             (fun () ->
@@ -194,20 +193,22 @@ type AgentRunnerFakeTests() =
                 | Ok(agentId, runId) ->
                     match
                         AgentRunner.streamUntilComplete
-                            unusedConfig
-                            agentId
-                            runId
-                            10
-                            None
-                            (fun ev -> deltas := ev :: !deltas)
+                            { Config = unusedConfig
+                              AgentId = agentId
+                              RunId = runId
+                              PollIntervalMs = 10
+                              MaxWaitMs = None }
+                            { Seed = []
+                              OnEvent = fun seen ev -> ev :: seen }
                     with
-                    | Ok result ->
+                    | Ok(result, seen) ->
                         Assert.Equal("hello", result.Text)
                         let expected =
                             [ AssistantText "hel"
                               AssistantText "lo"
                               RunFinished(sampleResult "hello") ]
-                        Assert.Equal<AgentStreamEvent list>(expected, List.rev !deltas)
+                        Assert.Equal<AgentStreamEvent list>(
+                            expected, List.rev seen)
                     | Error err -> Assert.Fail($"stream: {err}"))
 
     [<Fact>]

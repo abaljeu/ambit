@@ -153,49 +153,44 @@ let printGitChanges (git: GitResult list) =
             | None -> ()
             printfn ""
 
-let private printFinished wroteText (result: AgentResult) =
-    if not wroteText && not (String.IsNullOrEmpty result.Text) then
-        printfn "%s" result.Text
+let private printFinished (result: AgentResult) =
     printfn ""
     printfn "=== Result ==="
-    if wroteText && not (String.IsNullOrEmpty result.Text) then
-        printfn "%s" result.Text
-    elif not wroteText then
+    if String.IsNullOrEmpty result.Text then
         printfn "(empty)"
+    else
+        printfn "%s" result.Text
     printfn ""
     printGitChanges result.Git
 
+let private applyPrinted _ ev =
+    match ev with
+    | AgentStreamEvent.AssistantText text ->
+        stdout.Write text
+        stdout.Flush()
+    | AgentStreamEvent.RunFinished result ->
+        printFinished result
+    | AgentStreamEvent.RunFailed msg ->
+        printfn ""
+        printfn "Agent failed: %s" msg
+    | AgentStreamEvent.RunCancelled ->
+        printfn ""
+        printfn "Agent cancelled"
+
 let streamForResult apiKey agentId runId =
     printfn "Streaming response..."
-    let wroteText = ref false
-    let onEvent ev =
-        match ev with
-        | AgentStreamEvent.AssistantText text ->
-            wroteText := true
-            stdout.Write text
-            stdout.Flush()
-        | AgentStreamEvent.RunFinished result ->
-            printFinished !wroteText result
-        | AgentStreamEvent.RunFailed msg ->
-            printfn ""
-            printfn "Agent failed: %s" msg
-        | AgentStreamEvent.RunCancelled ->
-            printfn ""
-            printfn "Agent cancelled"
-
-    match
-        AgentRunner.streamUntilComplete
-            { RunnerConfig.ApiKey = apiKey }
-            agentId
-            runId
-            50
-            None
-            onEvent
-    with
+    let args =
+        { Config = { RunnerConfig.ApiKey = apiKey }
+          AgentId = agentId
+          RunId = runId
+          PollIntervalMs = 50
+          MaxWaitMs = None }
+    let fold = { Seed = (); OnEvent = applyPrinted }
+    match AgentRunner.streamUntilComplete args fold with
     | Error err ->
         printfn "Agent failed: %A" err
         1
-    | Ok _ -> 0
+    | Ok(_, _) -> 0
 
 let runAgent promptText apiKey repos options =
     printfn "Starting agent..."

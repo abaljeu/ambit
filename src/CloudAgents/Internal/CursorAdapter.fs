@@ -114,28 +114,29 @@ module CursorAdapter =
         { Text = body.text
           Git = mapGitResult body.git }
 
-    let streamRun
-        (config: RunnerConfig)
-        (agentId: string)
-        (runId: string)
-        (onEvent: AgentStreamEvent -> unit)
-        : Result<AgentResult, AgentError> =
-
-        if String.IsNullOrWhiteSpace config.ApiKey then
-            Error (authFailed "missing key")
+    let streamRun (args: StreamArgs) (fold: StreamFold<'a>) =
+        if String.IsNullOrWhiteSpace args.Config.ApiKey then
+            Error(authFailed "missing key")
         else
-            let onAssistant text =
-                onEvent(AgentStreamEvent.AssistantText text)
+            let onAssistant text state =
+                fold.OnEvent
+                    state
+                    (AgentStreamEvent.AssistantText text)
 
             match
                 CursorHttp.streamRun
-                    config.ApiKey
-                    agentId
-                    runId
+                    args.Config.ApiKey
+                    args.AgentId
+                    args.RunId
                     onAssistant
+                    fold.Seed
             with
-            | Error msg -> Error(fromHttpError config.ApiKey msg)
-            | Ok body ->
+            | Error msg, _ ->
+                Error(fromHttpError args.Config.ApiKey msg)
+            | Ok body, state ->
                 let result = fromStreamBody body
-                onEvent(AgentStreamEvent.RunFinished result)
-                Ok result
+                let finished =
+                    fold.OnEvent
+                        state
+                        (AgentStreamEvent.RunFinished result)
+                Ok(result, finished)

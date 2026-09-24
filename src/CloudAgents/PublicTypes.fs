@@ -53,6 +53,19 @@ type StartArgs =
       Repos: RepoConfig list option
       Options: AgentOptions }
 
+/// Which run to stream, and how long to wait for it.
+type StreamArgs =
+    { Config: RunnerConfig
+      AgentId: string
+      RunId: string
+      PollIntervalMs: int
+      MaxWaitMs: int option }
+
+/// Accumulator stepped once per stream event.
+type StreamFold<'a> =
+    { Seed: 'a
+      OnEvent: 'a -> AgentStreamEvent -> 'a }
+
 /// Errors that can occur during agent operations
 type AgentError =
     | AuthenticationFailed of string

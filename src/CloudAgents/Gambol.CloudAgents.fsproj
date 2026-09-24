@@ -11,6 +11,7 @@
     <Compile Include="Internal/CursorHttp.fs" />
     <Compile Include="Internal/CursorModelsFile.fs" />
     <Compile Include="Internal/CursorAdapter.fs" />
+    <Compile Include="AgentRunnerFake.fs" />
     <Compile Include="AgentRunner.fs" />
   </ItemGroup>
 
