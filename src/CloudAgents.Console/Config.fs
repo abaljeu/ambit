@@ -15,8 +15,7 @@ type CliArgs =
       Name: string option }
 
 type FileSettings =
-    { ApiKey: string option
-      Model: string option
+    { Model: string option
       ModelParams: ModelParam list
       Repo: string option
       Ref: string option
@@ -32,8 +31,7 @@ let emptyCli =
       Name = None }
 
 let emptyFile =
-    { ApiKey = None
-      Model = None
+    { Model = None
       ModelParams = []
       Repo = None
       Ref = None
@@ -138,12 +136,10 @@ let private readFirstArrayString
     | _ -> None
 
 let private fromElement (root: JsonElement) : FileSettings =
-    let apiFromAiKeys = readFirstArrayString root "AiKeys" "ApiKey"
     let repoFromAiRepos = readFirstArrayString root "AiRepos" "Url"
     let nameFromAiRepos = readFirstArrayString root "AiRepos" "Name"
     let refFromAiRepos = readFirstArrayString root "AiRepos" "StartingRef"
-    { ApiKey = readString root "ApiKey" |> Option.orElse apiFromAiKeys
-      Model = readString root "Model"
+    { Model = readString root "Model"
       ModelParams = readModelParams root
       Repo = readString root "Repo" |> Option.orElse repoFromAiRepos
       Ref = readString root "Ref" |> Option.orElse refFromAiRepos
@@ -158,8 +154,7 @@ let tryLoad path =
         None
 
 let overlay (baseSettings: FileSettings) (over: FileSettings) =
-    { ApiKey = pick over.ApiKey baseSettings.ApiKey None
-      Model = pick over.Model baseSettings.Model None
+    { Model = pick over.Model baseSettings.Model None
       ModelParams =
           pickParams over.ModelParams baseSettings.ModelParams
       Repo = pick over.Repo baseSettings.Repo None
@@ -219,13 +214,23 @@ type ResolvedSettings =
       Ref: string option
       Name: string option }
 
+/// DefaultAiKey selects AiKeys:<name>. A missing name or empty value is None.
+let apiKeyFromSecrets
+    (defaultName: string option)
+    (lookup: string -> string option)
+    =
+    match nonEmpty defaultName with
+    | None -> None
+    | Some name -> nonEmpty (lookup name)
+
 let resolve
     (cli: CliArgs)
     (file: FileSettings)
+    secretApiKey
     envApiKey
     : ResolvedSettings =
     { Prompt = nonEmpty cli.Prompt
-      ApiKey = pick cli.ApiKey file.ApiKey envApiKey
+      ApiKey = pick cli.ApiKey secretApiKey envApiKey
       Model = pick cli.Model file.Model None
       ModelParams = pickParams cli.Params file.ModelParams
       Repo = pick cli.Repo file.Repo None

@@ -8,7 +8,7 @@ Standalone command-line interface for running Cursor Cloud Agents.
 dotnet run --project src/CloudAgents.Console -- "<prompt>" [options]
 ```
 
-Prompt is required on the CLI. Other create fields may come from `appsettings.<level>.json`.
+Prompt is required on the CLI. Model, Repo, Ref, and Name may come from `appsettings.<level>.json`.
 
 ## Options
 
@@ -24,13 +24,12 @@ Level is `ASPNETCORE_ENVIRONMENT` or `DOTNET_ENVIRONMENT` (default `Development`
 
 Load order: tracked `appsettings.json`, then `appsettings.<level>.json`. Search the current directory, then the exe directory.
 
-CLI wins over file. File wins over `CURSOR_API_KEY` for the key.
+CLI wins over the file for Model, ModelParams, Repo, Ref, and Name.
 
-Tracked `appsettings.json` holds empty placeholders. Put secrets in gitignored `appsettings.Development.json` or `appsettings.Production.json`.
+The API key comes from `--api-key`, then the shared user-secrets store (`DefaultAiKey` and `AiKeys:desktop`), then `CURSOR_API_KEY`. Development sets `DefaultAiKey` to `desktop`. Production sets `DefaultAiKey` on its own.
 
 ```json
 {
-  "ApiKey": "",
   "Model": "",
   "Repo": "",
   "Ref": "",
@@ -40,7 +39,7 @@ Tracked `appsettings.json` holds empty placeholders. Put secrets in gitignored `
 
 ## Environment Variables
 
-- `CURSOR_API_KEY` — fills `ApiKey` when CLI and file omit it
+- `CURSOR_API_KEY` — fills the API key when `--api-key` and user-secrets omit it
 - `ASPNETCORE_ENVIRONMENT` / `DOTNET_ENVIRONMENT` — config level
 
 Get your API key from: https://cursor.com/settings

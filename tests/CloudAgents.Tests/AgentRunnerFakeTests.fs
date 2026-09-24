@@ -58,6 +58,26 @@ type AgentRunnerFakeTests() =
             | _ -> None
         spin remainingMs
 
+    let withFakeStream events body =
+        withFake
+            (fun _ -> Finished(sampleResult "ignored"))
+            (fun () ->
+                Assert.True(AgentRunner.setFakeStream (Some(fun _ -> events)))
+                match
+                    AgentRunner.start unusedConfig "pack" None emptyOptions
+                with
+                | Error err -> Assert.Fail($"start: {err}")
+                | Ok(agentId, runId) -> body agentId runId)
+
+    let streamArgs agentId runId maxWaitMs =
+        { Config = unusedConfig
+          AgentId = agentId
+          RunId = runId
+          MaxWaitMs = maxWaitMs }
+
+    let deltas count =
+        [ for i in 1..count -> AssistantText(string i) ]
+
     [<Fact>]
     member _.``setFake Some routes start poll and wait without HTTP``() =
         let seen = ref None
@@ -159,8 +179,8 @@ type AgentRunnerFakeTests() =
                     match
                         AgentRunner.cancel unusedConfig agentId runId
                     with
-                    | Ok() -> ()
-                    | Error err -> Assert.Fail($"cancel: {err}")
+                    | Ok CancelRequested -> ()
+                    | other -> Assert.Fail($"cancel: {other}")
                     match AgentRunner.poll unusedConfig agentId runId with
                     | Ok Cancelled -> ()
                     | other ->
@@ -196,7 +216,6 @@ type AgentRunnerFakeTests() =
                             { Config = unusedConfig
                               AgentId = agentId
                               RunId = runId
-                              PollIntervalMs = 10
                               MaxWaitMs = None }
                             { Seed = []
                               OnEvent = fun seen ev -> ev :: seen }
@@ -210,6 +229,151 @@ type AgentRunnerFakeTests() =
                         Assert.Equal<AgentStreamEvent list>(
                             expected, List.rev seen)
                     | Error err -> Assert.Fail($"stream: {err}"))
+
+    [<Fact>]
+    member _.``fake stream delivers deltas one at a time``() =
+        let events = deltas 3 @ [ RunFinished(sampleResult "123") ]
+        withFakeStream events (fun agentId runId ->
+            let seen = ref []
+            let firstDelta = new ManualResetEventSlim(false)
+            let fold =
+                { Seed = ()
+                  OnEvent =
+                    fun () ev ->
+                        lock seen (fun () -> seen := ev :: !seen)
+                        firstDelta.Set() }
+            let streaming =
+                Tasks.Task.Run(fun () ->
+                    AgentRunner.streamUntilComplete
+                        (streamArgs agentId runId None)
+                        fold)
+            Assert.True(firstDelta.Wait 2000)
+            let midStream = lock seen (fun () -> List.rev !seen)
+            Assert.Equal<AgentStreamEvent list>(
+                [ AssistantText "1" ], midStream)
+            match streaming.Result with
+            | Ok(result, ()) -> Assert.Equal("123", result.Text)
+            | Error err -> Assert.Fail($"stream: {err}")
+            Assert.Equal<AgentStreamEvent list>(events, List.rev !seen))
+
+    [<Fact>]
+    member _.``fake stream error delivers RunFailed to the fold``() =
+        let events = [ AssistantText "part"; RunFailed "boom" ]
+        withFakeStream events (fun agentId runId ->
+            let seen = ref []
+            let fold =
+                { Seed = ()
+                  OnEvent = fun () ev -> seen := ev :: !seen }
+            match
+                AgentRunner.streamUntilComplete
+                    (streamArgs agentId runId None)
+                    fold
+            with
+            | Error(ApiError("failed", "boom")) -> ()
+            | other -> Assert.Fail($"expected failed stream, {other}")
+            Assert.Equal<AgentStreamEvent list>(events, List.rev !seen))
+
+    [<Fact>]
+    member _.``fake stream cancel mid-stream delivers RunCancelled``() =
+        let events = deltas 5 @ [ RunFinished(sampleResult "12345") ]
+        withFakeStream events (fun agentId runId ->
+            let seen = ref []
+            let fold =
+                { Seed = ()
+                  OnEvent =
+                    fun () ev ->
+                        seen := ev :: !seen
+                        AgentRunner.cancel unusedConfig agentId runId
+                        |> ignore }
+            match
+                AgentRunner.streamUntilComplete
+                    (streamArgs agentId runId None)
+                    fold
+            with
+            | Error(ApiError("cancelled", _)) -> ()
+            | other -> Assert.Fail($"expected cancelled stream, {other}")
+            Assert.Equal<AgentStreamEvent list>(
+                [ AssistantText "1"; RunCancelled ], List.rev !seen))
+
+    [<Fact>]
+    member _.``fake cancel mid-stream is requested once then not cancellable``() =
+        let events = deltas 5 @ [ RunFinished(sampleResult "12345") ]
+        withFakeStream events (fun agentId runId ->
+            let outcomes = ref []
+            let fold =
+                { Seed = []
+                  OnEvent =
+                    fun seen ev ->
+                        let outcome =
+                            AgentRunner.cancel unusedConfig agentId runId
+                        outcomes := outcome :: !outcomes
+                        ev :: seen }
+            match
+                AgentRunner.streamUntilComplete
+                    (streamArgs agentId runId None)
+                    fold
+            with
+            | Error(ApiError("cancelled", _)) -> ()
+            | other -> Assert.Fail($"expected cancelled stream, {other}")
+            let expected: Result<CancelOutcome, AgentError> list =
+                [ Ok CancelRequested; Ok NotCancellable ]
+            Assert.Equal<Result<CancelOutcome, AgentError> list>(
+                expected, List.rev !outcomes))
+
+    [<Fact>]
+    member _.``fake cancel after stream finished is not cancellable``() =
+        let events = [ AssistantText "a"; RunFinished(sampleResult "a") ]
+        withFakeStream events (fun agentId runId ->
+            let fold = { Seed = (); OnEvent = fun () _ -> () }
+            match
+                AgentRunner.streamUntilComplete
+                    (streamArgs agentId runId None)
+                    fold
+            with
+            | Ok _ -> ()
+            | Error err -> Assert.Fail($"stream: {err}")
+            match AgentRunner.cancel unusedConfig agentId runId with
+            | Ok NotCancellable -> ()
+            | other -> Assert.Fail($"expected NotCancellable, {other}")
+            Assert.Equal(0, AgentRunner.fakeCancelCount ()))
+
+    [<Fact>]
+    member _.``fake cancel after poll Finished is not cancellable``() =
+        withFake
+            (fun _ -> Finished(sampleResult "done"))
+            (fun () ->
+                match AgentRunner.start unusedConfig "pack" None emptyOptions with
+                | Error err -> Assert.Fail($"start: {err}")
+                | Ok(agentId, runId) ->
+                    Assert.True((waitFinished agentId runId 2000).IsSome)
+                    match AgentRunner.cancel unusedConfig agentId runId with
+                    | Ok NotCancellable -> ()
+                    | other ->
+                        Assert.Fail($"expected NotCancellable, {other}")
+                    match AgentRunner.poll unusedConfig agentId runId with
+                    | Ok(Finished _) -> ()
+                    | other -> Assert.Fail($"expected Finished, {other}"))
+
+    [<Fact>]
+    member _.``fake stream honors MaxWaitMs with RunFailed timeout``() =
+        let events = deltas 50 @ [ RunFinished(sampleResult "late") ]
+        withFakeStream events (fun agentId runId ->
+            let seen = ref []
+            let fold =
+                { Seed = ()
+                  OnEvent = fun () ev -> seen := ev :: !seen }
+            match
+                AgentRunner.streamUntilComplete
+                    (streamArgs agentId runId (Some 100))
+                    fold
+            with
+            | Error AgentError.Timeout -> ()
+            | other -> Assert.Fail($"expected timeout, {other}")
+            match !seen with
+            | RunFailed "timeout" :: earlier ->
+                Assert.NotEmpty(earlier)
+                Assert.True(List.length earlier < 50)
+            | other -> Assert.Fail($"expected RunFailed timeout, {other}"))
 
     [<Fact>]
     member _.``setFake handler yields Failed not Finished``() =

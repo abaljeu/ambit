@@ -151,7 +151,7 @@ let withHostKeysRepos keys repos body =
 
 let withHostKeys keys body = withHostKeysRepos keys [] body
 
-let withHost body = withHostKeys [] body
+let withHost body = withHostKeys AiKeys.empty body
 
 let withFake handler body =
     task {

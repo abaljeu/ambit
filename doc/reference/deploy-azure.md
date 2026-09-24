@@ -11,8 +11,21 @@
    - `WEBSITES_ENABLE_APP_SERVICE_STORAGE` = `true`
    - `Persistence__Mode` = `db` (production default; use `file` only for rollback/testing)
    - `DB_CONNECTION_STRING` = PostgreSQL connection string (see [[doc/reference/postgres-environments.md]])
+   - `DefaultAiKey` = `server`
+   - `AiKeys:server` = the production Cursor API key
+   - `grokbot:WakeUrl` = the grokbot wake URL
+   - `grokbot:WakeSecret` = the grokbot wake secret
+   - `grokbot:InboundSecret` = the Ambit inbound secret
 
-4. Place **`appsettings.Production.json`** on the persistent **`/home`** mount (not only in the deployed zip) so config survives redeploys. The server loads it from `/home/appsettings.Production.json` on App Service ([[src/Server/Server.fs]]).
+   An Azure App Setting writes a colon as a double underscore (`AiKeys:server` is set as `AiKeys__server`).
+
+   Put the production Cursor key in the App Setting `AiKeys:server`. That setting is an environment variable. [[src/Server/AiKeys.fs]] binds `AiKeys` as a name-keyed map. The production name is `server`. `DefaultAiKey` selects that name. The server key and the desktop key are different keys. Development user-secrets use the same colon names: `AiKeys:desktop`, `grokbot:WakeUrl`, `grokbot:WakeSecret`, `grokbot:InboundSecret`, and `DefaultAiKey`.
+
+   This secrets strategy owns `grokbot:WakeUrl` and `grokbot:WakeSecret`. `grokbot:InboundSecret` is Ambit Server config. For the first slice, store `grokbot:InboundSecret` in the same App Settings. Secret names, environments, and stores are in [[doc/reference/secrets.md]].
+
+4. Place **`appsettings.Production.json`** on the persistent **`/home`** mount (not only in the deployed zip) so config survives redeploys. The server loads it from `/home/appsettings.Production.json` on App Service ([[src/Server/Server.fs]]). Keep non-secret settings in that file. Do not put `AiKeys`, `DefaultAiKey`, or `grokbot` in that file. The server loads the file after environment variables. A value in the file replaces the App Setting with the same name.
+
+   Add Azure Key Vault references later, when there are many secrets. Do not add Key Vault references in this setup.
 
 ## Build and deploy
 

@@ -16,11 +16,11 @@ module AiCommandArgs =
             name.Equals(token, StringComparison.OrdinalIgnoreCase))
 
     let fromText
-        (keys: AiKey list)
+        (keys: AiKeySet)
         (repos: AiRepo list)
         (text: string)
         : AiCommandArgs =
-        let keyNames = keys |> List.map (fun key -> key.Name)
+        let keyNames = keys.Keys |> Map.toList |> List.map fst
         let repoNames = repos |> List.map (fun repo -> repo.Name)
         match AiKeys.tokensFromText text with
         | [] -> { Keyname = None; Reponame = None }

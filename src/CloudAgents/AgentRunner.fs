@@ -48,11 +48,12 @@ module AgentRunner =
                 Internal.CursorAdapter.pollStatus
                     config agentId runId)
 
+    /// Terminal on the provider. NotCancellable when the run already ended.
     let cancel
         (config: RunnerConfig)
         (agentId: string)
         (runId: string)
-        : Result<unit, AgentError> =
+        : Result<CancelOutcome, AgentError> =
         match AgentRunnerFake.statusHandler () with
         | Some _ -> AgentRunnerFake.cancelFake agentId runId
         | None ->

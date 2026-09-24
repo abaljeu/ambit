@@ -26,7 +26,7 @@ let ``resolve fills omitted CLI from file then env`` () =
             ModelParams =
                 [ { ModelParam.Id = "context"; Value = "256k" } ]
             Repo = Some "https://example.com/repo.git" }
-    let got = ConsoleConfig.resolve cli file (Some "env-key")
+    let got = ConsoleConfig.resolve cli file None (Some "env-key")
     Assert.Equal(Some "ask", got.Prompt)
     Assert.Equal(Some "env-key", got.ApiKey)
     Assert.Equal(Some "grok", got.Model)
@@ -79,15 +79,61 @@ let ``resolve CLI wins over file`` () =
                 [ { ModelParam.Id = "fast"; Value = "true" } ] }
     let file =
         { ConsoleConfig.emptyFile with
-            ApiKey = Some "file-key"
             Model = Some "file-model"
             ModelParams =
                 [ { ModelParam.Id = "context"; Value = "256k" } ] }
-    let got = ConsoleConfig.resolve cli file (Some "env-key")
+    let got =
+        ConsoleConfig.resolve
+            cli
+            file
+            (Some "secret-key")
+            (Some "env-key")
     Assert.Equal(Some "cli-key", got.ApiKey)
     Assert.Equal(Some "cli-model", got.Model)
     Assert.Equal(1, got.ModelParams.Length)
     Assert.Equal("fast", got.ModelParams.[0].Id)
+
+[<Fact>]
+let ``resolve api key prefers CLI then user secret then env`` () =
+    let cli =
+        { ConsoleConfig.emptyCli with Prompt = Some "ask" }
+    let file = ConsoleConfig.emptyFile
+    let secretWins =
+        ConsoleConfig.resolve cli file (Some "secret") (Some "env")
+    Assert.Equal(Some "secret", secretWins.ApiKey)
+    let envWins =
+        ConsoleConfig.resolve cli file None (Some "env")
+    Assert.Equal(Some "env", envWins.ApiKey)
+    let blankSecret =
+        ConsoleConfig.resolve cli file (Some "  ") (Some "env")
+    Assert.Equal(Some "env", blankSecret.ApiKey)
+    let cliWins =
+        ConsoleConfig.resolve
+            { cli with ApiKey = Some "cli" }
+            file
+            (Some "secret")
+            (Some "env")
+    Assert.Equal(Some "cli", cliWins.ApiKey)
+
+[<Fact>]
+let ``apiKeyFromSecrets uses DefaultAiKey not a list index`` () =
+    let lookup name =
+        match name with
+        | "desktop" -> Some "desk-secret"
+        | "server" -> Some "srv-secret"
+        | _ -> None
+    Assert.Equal(
+        Some "desk-secret",
+        ConsoleConfig.apiKeyFromSecrets (Some "desktop") lookup)
+    Assert.Equal(
+        None,
+        ConsoleConfig.apiKeyFromSecrets None lookup)
+    Assert.Equal(
+        None,
+        ConsoleConfig.apiKeyFromSecrets (Some "missing") lookup)
+    Assert.Equal(
+        None,
+        ConsoleConfig.apiKeyFromSecrets (Some "desktop") (fun _ -> Some "  "))
 
 [<Fact>]
 let ``pickParams prefers non-empty CLI list`` () =

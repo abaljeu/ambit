@@ -68,8 +68,17 @@ module RunAgentActor =
         | None -> { Keyname = None; Reponame = None }
         | Some node -> AiCommandArgs.fromText keys repos node.text
 
+    let private logCancel runId outcome =
+        match outcome with
+        | Ok CancelRequested
+        | Ok NotCancellable -> ()
+        | Error err ->
+            eprintfn "RunAgentActor: cancel run %s failed: %A" runId err
+
+    /// Off-thread: the pool fires the token inside the Core mailbox.
     let private requestCancel config agentId runId =
-        AgentRunner.cancel config agentId runId |> ignore
+        async { AgentRunner.cancel config agentId runId |> logCancel runId }
+        |> Async.Start
 
     let private pollUntilDone config agentId runId =
         async {
@@ -80,7 +89,6 @@ module RunAgentActor =
             let rec loop () =
                 async {
                     if ct.IsCancellationRequested then
-                        requestCancel config agentId runId
                         return CompleteCancelled
                     else
                         match AgentRunner.poll config agentId runId with
@@ -110,9 +118,13 @@ module RunAgentActor =
 
     let private complete (args: StartArgs) =
         async {
+            let! ct = Async.CancellationToken
             match AgentRunner.start
                 args.Config args.Prompt args.Repos args.Options with
             | Error err -> return failedFromError err
+            | Ok(agentId, runId) when ct.IsCancellationRequested ->
+                requestCancel args.Config agentId runId
+                return CompleteCancelled
             | Ok(agentId, runId) ->
                 return! pollUntilDone args.Config agentId runId
         }
@@ -180,7 +192,7 @@ module RunAgentActor =
         }
 
     /// ActorFn for Actor name `ai`. Selection is CoreActorPool's job.
-    let actorFn (keys: AiKey list) (repos: AiRepo list) : ActorFn =
+    let actorFn (keys: AiKeySet) (repos: AiRepo list) : ActorFn =
         fun input coreChanges ->
             async {
                 let! result = runBody keys repos input coreChanges
