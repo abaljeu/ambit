@@ -142,15 +142,6 @@ module internal AgentRunnerFake =
         |> ignore
         Ok(agentId, runId)
 
-    let internal pollFake agentId runId =
-        let ids = agentId, runId
-        if isCancelled ids then
-            Ok Cancelled
-        else
-            match tryGet ids with
-            | Some status -> Ok status
-            | None -> Ok Running
-
     let internal cancelFake agentId runId =
         markCancelled (agentId, runId)
         Ok()
@@ -194,21 +185,21 @@ module internal AgentRunnerFake =
                 | Some Running
                 | None -> None
 
-    let private waitFakeStream (args: StreamArgs) =
+    let private waitUntil (args: StreamArgs) tryReady =
         let ids = args.AgentId, args.RunId
         let started = DateTime.UtcNow
-
-        let rec waitForEvents () =
+        let rec loop () =
             if pastDeadline started args.MaxWaitMs then
                 Error AgentError.Timeout
+            elif isCancelled ids then
+                cancelledRun ()
             else
-                match streamFromStored ids with
+                match tryReady () with
                 | Some ready -> ready
                 | None ->
                     Thread.Sleep args.PollIntervalMs
-                    waitForEvents ()
-
-        waitForEvents ()
+                    loop ()
+        loop ()
 
     let private stepFakeEvent (outcome, state) fold ev =
         let state = fold.OnEvent state ev
@@ -232,41 +223,27 @@ module internal AgentRunnerFake =
                 loop rest outcome state
         loop events None fold.Seed
 
-    let private waitForTerminal args fold state =
+    let internal streamFake args (fold: StreamFold<'a>) =
         let ids = args.AgentId, args.RunId
-        let started = DateTime.UtcNow
-        let rec loop state =
-            if pastDeadline started args.MaxWaitMs then
-                Error AgentError.Timeout
-            elif isCancelled ids then
-                cancelledRun ()
-            else
-                match tryGet ids with
-                | Some(Finished result) ->
-                    let state =
-                        fold.OnEvent
-                            state
-                            (RunFinished result)
-                    Ok(result, state)
-                | Some(Failed msg) ->
-                    Error(ApiError("failed", msg))
-                | Some Cancelled -> cancelledRun ()
-                | Some Creating
-                | Some Running
-                | None ->
-                    Thread.Sleep args.PollIntervalMs
-                    loop state
-        loop state
-
-    let private emitFakeStream args (fold: StreamFold<'a>) events =
-        let ids = args.AgentId, args.RunId
-        let outcome, state = foldEvents ids fold events
-        match outcome with
-        | Some(Ok result) -> Ok(result, state)
-        | Some(Error err) -> Error err
-        | None -> waitForTerminal args fold state
-
-    let internal streamFake (args: StreamArgs) (fold: StreamFold<'a>) =
-        match waitFakeStream args with
+        match waitUntil args (fun () -> streamFromStored ids) with
         | Error err -> Error err
-        | Ok events -> emitFakeStream args fold events
+        | Ok events ->
+            let outcome, state = foldEvents ids fold events
+            match outcome with
+            | Some(Ok result) -> Ok(result, state)
+            | Some(Error err) -> Error err
+            | None ->
+                waitUntil args (fun () ->
+                    match tryGet ids with
+                    | Some(Finished result) ->
+                        let state =
+                            fold.OnEvent
+                                state
+                                (RunFinished result)
+                        Some(Ok(result, state))
+                    | Some(Failed msg) ->
+                        Some(Error(ApiError("failed", msg)))
+                    | Some Cancelled -> Some(cancelledRun ())
+                    | Some Creating
+                    | Some Running
+                    | None -> None)

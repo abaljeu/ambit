@@ -72,7 +72,8 @@ Tag tokenizer waits for `>` on tags; text takes bytes up to next `<` into `pendi
 ## Comments
 
 - 2026-09-20 — Filed from chat after SSE discovery and pending-buffer lock (commit on `<`/`>` boundary, no add-then-edit). Blocked by 17. Status `defined`.
-- 2026-09-24 — Coded: [RunAgentActor](../../../src/Server/RunAgentActor.fs) uses `streamUntilComplete` after start; [FocusXmlStream](../../../src/Shared/documents/FocusXmlStream.fs) holds pending text off-graph and commits one `NewNode` + child-list replace at each tag boundary. **Final replace vs stream-only:** stream-only after the first committed Focus child (flush pending on terminal). Complete Amb/Plain tidy replace of Focus children runs only when the stream committed no element (plain-text / empty success). Cancel and Failed do not tidy-replace. Poll remains on CloudAgents for other callers. Proofs in [AgentActorStreamTests](../../../tests/Server.Tests/AgentActorStreamTests.fs). Status `coded`.
+- 2026-09-24 — Coded: [RunAgentActor](../../../src/Server/RunAgentActor.fs) uses `streamUntilComplete` after start; [FocusXmlStream](../../../src/Shared/documents/FocusXmlStream.fs) holds pending text off-graph and commits one `NewNode` + child-list replace at each tag boundary. **Final replace vs stream-only:** stream-only after the first committed Focus child (flush pending on terminal). Complete Amb/Plain tidy replace of Focus children runs only when the stream committed no element (plain-text / empty success). Cancel and Failed do not tidy-replace. Proofs in [AgentActorStreamTests](../../../tests/Server.Tests/AgentActorStreamTests.fs). Status `coded`.
+- 2026-09-24 — Alan: no poll client. Removed CloudAgents `poll` / `waitUntilComplete` and Cursor GET-run-status. Fake wait is one stream processor. Console and Actor already use `streamUntilComplete`. Status `coded`.
 
 ## Time
 

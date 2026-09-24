@@ -17,21 +17,6 @@ module CursorAdapter =
                   Branch = b.branch
                   PullRequestUrl = b.prUrl })
 
-    let private mapStatus
-        (status: CursorTypes.CursorRunStatus)
-        : AgentStatus =
-        match status.status.ToUpperInvariant() with
-        | "CREATING" -> Creating
-        | "RUNNING" -> Running
-        | "FINISHED" ->
-            let text = status.result |> Option.defaultValue ""
-            let git = mapGitResult status.git
-            Finished { Text = text; Git = git }
-        | "CANCELLED" -> Cancelled
-        | "ERROR" -> Failed "error"
-        | "EXPIRED" -> Failed "expired"
-        | _ -> Failed "unknown status"
-
     let private providerName = "Cursor"
 
     let private authFailed reason =
@@ -86,19 +71,6 @@ module CursorAdapter =
             match CursorHttp.createAgent config.ApiKey request with
             | Error msg -> Error(fromHttpError config.ApiKey msg)
             | Ok response -> Ok(response.agent.id, response.run.id)
-
-    let pollStatus
-        (config: RunnerConfig)
-        (agentId: string)
-        (runId: string)
-        : Result<AgentStatus, AgentError> =
-
-        if String.IsNullOrWhiteSpace config.ApiKey then
-            Error (authFailed "missing key")
-        else
-            match CursorHttp.getRunStatus config.ApiKey agentId runId with
-            | Error msg -> Error(fromHttpError config.ApiKey msg)
-            | Ok status -> Ok(mapStatus status)
 
     let cancelRun
         (config: RunnerConfig)
