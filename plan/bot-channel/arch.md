@@ -26,7 +26,7 @@ Sources: [[map.md]] Decisions (arch grill 2026-09-24; Alan accepted arch 2026-09
 
 3. **Focus stream from inbox**
    1. [ ] gbot Actor consumes inbox messages while live
-   2. [ ] Each text chunk drives FocusXmlStream pending-buffer → ordinary Core Changes under Focus (reuse 18 helpers — no second Focus-write path)
+   2. [ ] Each text chunk drives FocusXmlStream pending-buffer → ordinary Core Changes under Focus (reuse 18 helpers — no second Focus-write path). Those Changes may post Append (event-sourced-ops mailbox op; `commandName` Append; end of Children only; expands to Replace in History) when that op exists — preferred over a hand-built full-list Replace for end-append. Do not wait on Append if 18 ships Replace-based FocusXmlStream.
    3. [ ] Browser Poll shows Focus Children grow
 
 4. **Cancel drops the wire**
@@ -136,7 +136,7 @@ Narrowest shared test seam:
    2. Interface
       1. [ ] Parse Command behavior: first token `gbot` selects gbot function; further tokens ignored in first slice; other behaviors keep cursor path
       2. [ ] On start: pack Focus extract (`AiExtractPack` shared with cursor); POST wake via WakeHttp with three ids; stay live
-      3. [ ] Loop: take inbox texts → FocusXmlStream pending-buffer → post ordinary Core Changes under Focus (helpers from 18 — no second write stack)
+      3. [ ] Loop: take inbox texts → FocusXmlStream pending-buffer → post ordinary Core Changes under Focus (helpers from 18 — no second write stack). May post Append when that mailbox op exists (preferred for end-append); first slice may keep 18 Replace-based writes
       4. [ ] On Cancel token / drop: stop loop; no close-notify wake; framework drop invalidates `sessionId`
       5. [ ] Never expose a bot Graph write API; never Finish solely because wake acked
    3. Uses

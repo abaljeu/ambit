@@ -90,6 +90,7 @@ Out of first slice: later outbound turns, close-notify, bot `kind: close`, MCP, 
 
 ## Decisions so far
 
+- 2026-09-24 — Streaming Actors including gbot **may** use mailbox Change op **Append** (from [[plan/event-sourced-ops/project.md|event-sourced-ops]]: expands to Replace in History; `commandName` Append; end of Children only). Preferred over a hand-built full-list Replace for end-append when that op exists. First-slice tickets are not blocked on Append if llm-connector [[plan/llm-connector/issues/18-ai-actor-stream.md|18 — AI Actor stream]] ships Replace-based FocusXmlStream.
 - 2026-09-24 — Alan accepted [[arch.md]] as shared understanding. Locked: `?test` gains a deterministic gbot-simulation case on existing TestActor (Actor name `test`). Canned texts grow Focus the way inbound deliver + FocusXmlStream would, so Server/Browser proofs do not need the Admiral hub or a live Grok Bot. Optional StubOrProofBot HTTP proof stays; `?test` is the primary deterministic seam. Do not invent a second product command or Actor name.
 - 2026-09-24 — Arch grill locks (Alan confirmed shared understanding for first slice):
   - **Secrets:** .NET User Secrets for localhost and Azure alike; provisional keys `grokbot:WakeUrl`, `grokbot:WakeSecret`, `grokbot:InboundSecret`; values may be empty until Alan loads them.

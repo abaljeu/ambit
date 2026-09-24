@@ -10,7 +10,7 @@ With pool deliver and the inbound door in place, the person still needs `?ai gbo
 
 ## What to build
 
-Command behavior `gbot` selects the gbot function (Actor name still `ai`). On start: pack Focus extract like cursor, wake via WakeHttp (hub auth contract), stay live. Consume inbox texts into Focus Children via FocusXmlStream. Cancel/drop ends the wire with no close-notify. Optional stub/proof bot may POST through the inbound door.
+Command behavior `gbot` selects the gbot function (Actor name still `ai`). On start: pack Focus extract like cursor, wake via WakeHttp (hub auth contract), stay live. Consume inbox texts into Focus Children via FocusXmlStream. Focus writes may post mailbox Append (event-sourced-ops; `commandName` Append; end of Children only; expands to Replace in History) when that op exists — preferred over a hand-built full-list Replace for end-append. This ticket is not blocked on Append if 18 ships Replace-based FocusXmlStream. Cancel/drop ends the wire with no close-notify. Optional stub/proof bot may POST through the inbound door.
 
 ### 1. WakeHttp
 
@@ -26,7 +26,7 @@ Per [[arch.md|bot-channel architecture]] module **Run Agent Actor — gbot funct
 
 1. [ ] 2.6.2.1 Select gbot — first behavior token `gbot` selects gbot; further tokens ignored; other behaviors keep cursor path
 2. [ ] 2.6.2.2 Wake on start — pack via shared `AiExtractPack`; POST wake with `commandId`, `focusId`, `sessionId`; stay live (do not Finish on wake ack)
-3. [ ] 2.6.2.3 Inbox → FocusXmlStream — consume inbox texts; pending-buffer → ordinary Core Changes under Focus using 18 helpers only
+3. [ ] 2.6.2.3 Inbox → FocusXmlStream — consume inbox texts; pending-buffer → ordinary Core Changes under Focus using 18 helpers only. May post Append when that mailbox op exists (preferred for end-append); do not wait on Append if 18 ships Replace-based writes
 4. [ ] 2.6.2.4 Cancel/drop — stop loop on Cancel token / drop; no close-notify wake
 5. [ ] 2.6.2.5 Actor-mediated only — no bot Graph write API
 
@@ -42,4 +42,4 @@ Per [[arch.md|bot-channel architecture]] module **StubOrProofBot**.
 
 ## See also
 
-[[../arch.md|bot-channel architecture]] modules **WakeHttp**, **Run Agent Actor — gbot function**, [[../../llm-connector/issues/18-ai-actor-stream.md|18 — AI Actor stream]], [[../spec.md]] User Stories **Run gbot Command**, **Wake ack-only POST**, **Streaming incremental-append**, [[../map.md]] Decisions (wake auth + FocusXmlStream reuse)
+[[../arch.md|bot-channel architecture]] modules **WakeHttp**, **Run Agent Actor — gbot function**, story path **Focus stream from inbox**, [[../../llm-connector/issues/18-ai-actor-stream.md|18 — AI Actor stream]], [[../../event-sourced-ops/project.md|event-sourced-ops]] mailbox Append, [[../spec.md]] User Stories **Run gbot Command**, **Wake ack-only POST**, **Streaming incremental-append**, [[../map.md]] Decisions (wake auth + FocusXmlStream reuse; Append may-use)
