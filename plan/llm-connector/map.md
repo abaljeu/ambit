@@ -34,7 +34,7 @@ Run an Agent from a Zoom-rooted mixed-format Graph extract, mark Focus in the ou
 
 ## Implementation
 
-1. [23 — Focus stream commit on next <](issues/23-focus-stream-commit-on-next-open.md) — Status `coded`.
+1. [23 — Focus stream commit on next <](issues/23-focus-stream-commit-on-next-open.md) — Status `done`.
 2. [21 — Console lists models and fills CLI gaps from appsettings](issues/21-console-lists-models-and-appsettings.md) — Status `done`.
 3. [20 — Gitignore Development appsettings](issues/20-gitignore-development-appsettings.md) — Status `done`.
 4. [19 — AI extract pack is XML with Focus cssClass](issues/19-ai-xml-pack-focus-css.md) — Status `done`.
@@ -51,7 +51,7 @@ Run an Agent from a Zoom-rooted mixed-format Graph extract, mark Focus in the ou
 
 ## Not yet specified
 
-None for the first Agent vertical. [23 — Focus stream commit on next <](issues/23-focus-stream-commit-on-next-open.md) is `coded` under Implementation. [17 — CloudAgents Console stream](issues/17-cloudagents-console-stream.md) and [18 — AI Actor stream](issues/18-ai-actor-stream.md) are `done`. Mixed-format owning-codec pack stays tabled under Decisions. Live-Actor chrome is owned by core-creation, not this map.
+None for the first Agent vertical. [23 — Focus stream commit on next <](issues/23-focus-stream-commit-on-next-open.md), [17 — CloudAgents Console stream](issues/17-cloudagents-console-stream.md), and [18 — AI Actor stream](issues/18-ai-actor-stream.md) are `done` under Implementation. Mixed-format owning-codec pack stays tabled under Decisions. Live-Actor chrome is owned by core-creation, not this map.
 
 ## Out of scope
 

@@ -1,6 +1,6 @@
 # 23 — Focus stream commit on next <
 
-**Status:** coded
+**Status:** done
 Actual: 1h
 **Blocked by:** None — [18 — AI Actor stream](18-ai-actor-stream.md) is `done`.
 **Type:** task
@@ -53,6 +53,7 @@ Tokenizer still waits for `>` before emitting `Start` / `End` / `Empty`. Text st
 
 - 2026-09-25 — Filed: Alan lock 2026-09-24/25 — `<tag>Text<` is enough to generate a node; commit pending on the next `<`. Status `defined`.
 - 2026-09-25 — Coded: tokenizer still waits for `>` on tags and emits `Text` up to the next `<`. `apply` calls `commitIfNextOpen` when leftover `hold` starts with `<`, so pending becomes one PlannedAdd before the next tag’s `>`. Incomplete `<di` stays in `hold`. Proofs: [FocusXmlStreamTests](../../../tests/Shared.Tests/FocusXmlStreamTests.fs) (`leading angle of next tag commits pending text` and siblings) and [AgentActorStreamTests](../../../tests/Server.Tests/AgentActorStreamTests.fs) (`next open angle commits Focus child before next tag closes`). Status `coded`.
+- 2026-09-25 — Alan accepted as-is; squash-landed on staging. Status `done`.
 
 ## Time
 
