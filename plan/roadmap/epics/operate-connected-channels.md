@@ -6,7 +6,9 @@ A person connects an outside channel and operates it from Ambit with an Agent.
 
 ## Chapters
 
-None yet.
+Current chapter: [[chapters/ambit-as-bot-dm-channel.md]]
+
+- [[chapters/ambit-as-bot-dm-channel.md]]
 
 ## Required for done
 
@@ -14,13 +16,14 @@ The Epic is not done until each item is done (or the named part).
 
 Live:
 
+- [ ] [[plan/bot-channel/project.md]] — Ambit as bot DM channel (Chapter [[chapters/ambit-as-bot-dm-channel.md]])
 - [ ] [[plan/end-user-wiki/map.md]] — portion for this Epic (not yet filed)
 - [ ] [[plan/marketing-wiki/map.md]] — portion for this Epic (not yet filed)
 
 ## Notes
 
 - This Epic is connected channels. It is not a hub of all tools. Do not swallow [[agent-chat-managed-context.md]], [[work-with-text-files-from-anywhere.md]], or [[operate-a-pkm.md]]. Chat stays on agent-chat. Files from any device stay on documents-from-anywhere. Find stays on PKM.
-- Near-term agent path on the roadmap is **Run Agent → Cursor Cloud Agents** (see llm-connector). Mail and generic agent-message channels stay later. See [[../map.md]] Current strategy.
+- Near-term agent path on the roadmap is **Run Agent → Cursor Cloud Agents** (see llm-connector). **Ambit as bot DM channel** is the first Chapter on this Epic ([[chapters/ambit-as-bot-dm-channel.md]], [[plan/bot-channel/project.md]]); mail stays later. See [[../map.md]] Current strategy.
 - Mail remains a natural first **channel** in this Epic's framing, but it is **after** that agent-message inbound in the near-term strategy order. Mail is not the Epic title. Later channels use the same connect-and-operate pattern.
 - Connect plus operate is the action set. Review and commit to an outside system may be a later Chapter. Do not collapse this Epic into one mail-connector slice or into [[plan/transport-layer/project.md]]. Transport-layer stays the inbound / outbound / examine-before-commit Project.
 - Scaling is [[organize-huge-outlines.md]]; first use does not wait on it. [[plan/webview2-azure-origin/project.md]] stays on that Developer Epic.

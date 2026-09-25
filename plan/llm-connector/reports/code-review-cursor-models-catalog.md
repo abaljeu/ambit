@@ -1,4 +1,4 @@
-# Code review — ticket 22 (model params / catalog)
+# Code review — cursor models catalog
 
 **Range:** uncommitted vs `HEAD` (`git diff HEAD`)  
 **Spec:** [22 — Checked-in cursor-models catalog and Console model/params selection](../issues/22-cursor-models-catalog-file.md)  
@@ -9,7 +9,7 @@
 ### Hard (documented)
 
 **`.agents/rules/refer-by-name.md` — name with id**
-- [model-params-parallel-synthesis.md](model-params-parallel-synthesis.md):25 — `Ticket 22 Status` (BARE_ID). Line 5 already names it correctly.
+- [model-params-parallel-synthesis.md](model-params-parallel-synthesis.md):25 — bare Status wording without the ticket name (BARE_ID). Line 5 already names it correctly.
 
 **`.agents/rules/fsharp-source.md` — ≤100 chars/line**
 - [Program.fs](../../../src/CloudAgents.Console/Program.fs):24 — LONG (114): usage example string.

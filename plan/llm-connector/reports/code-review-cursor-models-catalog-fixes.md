@@ -1,7 +1,7 @@
-# Code review 22 — fixes applied
+# Code review — cursor models catalog fixes
 
 **Date:** 2026-09-22  
-**Review:** [code-review-22-model-params](code-review-22-model-params.md)  
+**Review:** [code-review-cursor-models-catalog](code-review-cursor-models-catalog.md)  
 **Ticket:** [22 — Checked-in cursor-models catalog and Console model/params selection](../issues/22-cursor-models-catalog-file.md) — Status unchanged `coded`  
 **Tests:** `dotnet test tests/CloudAgents.Tests/Gambol.CloudAgents.Tests.fsproj -o tests/CloudAgents.Tests/_testout` — 30 passed  
 **Console build:** `dotnet build src/CloudAgents.Console/Gambol.CloudAgents.Console.fsproj -o src/CloudAgents.Console/_buildout` — succeeded  
@@ -11,7 +11,7 @@
 
 | Finding | Fix |
 | --- | --- |
-| BARE_ID in [model-params-parallel-synthesis](model-params-parallel-synthesis.md) | Table row now links ticket [22](../issues/22-cursor-models-catalog-file.md) by name + id. |
+| BARE_ID in [model-params-parallel-synthesis](model-params-parallel-synthesis.md) | Table row now links [22 — Checked-in cursor-models catalog and Console model/params selection](../issues/22-cursor-models-catalog-file.md) by name + id. |
 | `Program.fs` usage example LONG line | Split example across two `printfn` lines (≤100 chars). |
 | `Config.fs` `fromElement` / `settingsDirectory` over 40 lines | Restored `readFirstArrayString`; extracted `findSettingsDir` / `settingsFilenames`; both bindings now ≤12 lines (measurer verified). |
 | `readParam` Id/id duplication (soft, actionable) | `readJsonString` + `readParamField` shared helper. |

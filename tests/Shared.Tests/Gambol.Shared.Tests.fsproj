@@ -94,6 +94,7 @@
     <Compile Include="ImportDocumentTests.fs" />
     <Compile Include="DocumentColdParseTests.fs" />
     <Compile Include="FocusChildrenReplaceTests.fs" />
+    <Compile Include="FocusXmlStreamTests.fs" />
     <Compile Include="ExportTextTests.fs" />
     <Compile Include="NodeDesktopPathTests.fs" />
     <Compile Include="SearchTests.fs" />

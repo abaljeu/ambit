@@ -1,6 +1,6 @@
 # 22 — Checked-in cursor-models catalog and Console model/params selection
 
-**Status:** coded
+**Status:** done
 **Blocked by:** None — [21 — Console lists models and fills CLI gaps from appsettings](21-console-lists-models-and-appsettings.md) is `done`.
 **Type:** coding
 Estimate: 2h
@@ -40,6 +40,7 @@ This ticket checks in a seed catalog at [cursor-models.json](../../../src/CloudA
 
 ## Comments
 
+- 2026-09-24 — Already on `origin/ready` tip; included in staging publish. Status `done`.
 - 2026-09-22 — Both workstreams closed: catalog + Console runtime selection integrated; synthesis [model-params-parallel-synthesis](../reports/model-params-parallel-synthesis.md). Status `coded`. Spot-check: CloudAgents.Tests 29 passed.
 - 2026-09-22 — Catalog workstream coded: seeded 40 models into `cursor-models.json`, fsproj Content copy, removed Development `Models` array. Console selection left for sibling. Status `coded` for this workstream's deliverables.
 - 2026-09-22 — Filed: checked-in catalog + Console model id / params selection. Status `defined`.

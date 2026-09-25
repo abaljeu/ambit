@@ -11,8 +11,12 @@
     <Compile Include="Internal/CursorHttp.fs" />
     <Compile Include="Internal/CursorModelsFile.fs" />
     <Compile Include="Internal/CursorAdapter.fs" />
+    <Compile Include="Internal/GrokBotHttp.fs" />
+    <Compile Include="Internal/GrokBotAdapter.fs" />
     <Compile Include="AgentRunnerFake.fs" />
+    <Compile Include="GrokBotFake.fs" />
     <Compile Include="AgentRunner.fs" />
+    <Compile Include="GrokBotRunner.fs" />
   </ItemGroup>
 
   <ItemGroup>

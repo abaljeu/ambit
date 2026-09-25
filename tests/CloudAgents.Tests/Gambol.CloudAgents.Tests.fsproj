@@ -9,11 +9,13 @@
   <ItemGroup>
     <Compile Include="..\..\src\CloudAgents.Console\Config.fs" />
     <Compile Include="CloudAgentsRunnerCollection.fs" />
+    <Compile Include="GrokBotCollection.fs" />
     <Compile Include="PublicTypesTests.fs" />
     <Compile Include="CursorHttpJsonTests.fs" />
     <Compile Include="ConsoleConfigTests.fs" />
     <Compile Include="AgentRunnerTests.fs" />
     <Compile Include="AgentRunnerFakeTests.fs" />
+    <Compile Include="GrokBotOneshotTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
