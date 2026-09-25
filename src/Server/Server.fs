@@ -94,17 +94,14 @@ module Main =
         builder.Configuration.AddJsonFile(envFilePath, optional = true)
             |> ignore
 
-    /// Later JSON sits after CreateBuilder. Load Development user secrets
-    /// again so an empty or old ApiKey in that JSON does not replace them.
-    let addDevelopmentUserSecrets (builder: WebApplicationBuilder) =
-        if builder.Environment.IsDevelopment() then
-            let assembly =
-                System.Reflection.Assembly.GetExecutingAssembly()
-            builder.Configuration.AddUserSecrets(
-                assembly,
-                optional = true,
-                reloadOnChange = true)
-            |> ignore
+    /// Later JSON sits after CreateBuilder. Reload Development user secrets
+    /// and environment so empty named AiKeys in that JSON do not replace them.
+    let addOverridesAfterJson (builder: WebApplicationBuilder) =
+        ConfigurationOrder.addOverridesAfterJson
+            (builder.Environment.IsDevelopment())
+            (System.Reflection.Assembly.GetExecutingAssembly())
+            builder.Configuration
+        |> ignore
 
     let bindConfiguredPort port (app: WebApplication) =
         port |> Option.iter (fun p -> app.Urls.Add(sprintf "http://0.0.0.0:%s" p))
@@ -282,7 +279,7 @@ module Main =
         let builder = createBuilder args location
 
         addAppSettings location builder
-        addDevelopmentUserSecrets builder
+        addOverridesAfterJson builder
         configureKestrelLimits builder
         configureResponseCompression builder
 

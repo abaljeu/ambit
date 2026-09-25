@@ -1,20 +1,15 @@
 module Gambol.Server.Tests.AiKeysTests
 
+open System
+open System.IO
 open Microsoft.Extensions.Configuration
 open Xunit
 open Gambol.Server
 open Gambol.Server.Tests.AskCancelHarness
 
-let private bothKeys =
-    { DefaultAiKey = "server"
-      Keys =
-        Map.ofList
-            [ "desktop", "desk-secret"
-              "server", "srv-secret" ] }
-
-let private desktopOnly =
-    { DefaultAiKey = "desktop"
-      Keys = Map.ofList [ "desktop", "desk-secret" ] }
+let private cursorKeys =
+    { DefaultAiKey = "cursor"
+      Keys = Map.ofList [ "cursor", "cursor-secret" ] }
 
 let private configFrom pairs =
     ConfigurationBuilder()
@@ -25,13 +20,11 @@ let private configFrom pairs =
 let ``fromConfig binds name-keyed values and DefaultAiKey`` () =
     let config =
         configFrom
-            [ "DefaultAiKey", "desktop"
-              "AiKeys:server", "srv-secret"
-              "AiKeys:desktop", "desk-secret" ]
+            [ "DefaultAiKey", "cursor"
+              "AiKeys:cursor", "cursor-secret" ]
     let got = AiKeys.fromConfig config
-    Assert.Equal("desktop", got.DefaultAiKey)
-    Assert.Equal(Some "desk-secret", Map.tryFind "desktop" got.Keys)
-    Assert.Equal(Some "srv-secret", Map.tryFind "server" got.Keys)
+    Assert.Equal("cursor", got.DefaultAiKey)
+    Assert.Equal(Some "cursor-secret", Map.tryFind "cursor" got.Keys)
 
 [<Fact>]
 let ``fromConfig is empty when AiKeys is missing`` () =
@@ -53,36 +46,87 @@ let ``fromConfig ignores the old list path`` () =
 [<Fact>]
 let ``resolve uses the named entry`` () =
     Assert.Equal(
-        "desk-secret",
-        AiKeys.resolve bothKeys (Some "desktop"))
+        "cursor-secret",
+        AiKeys.resolve cursorKeys (Some "cursor"))
 
 [<Fact>]
 let ``resolve named entry is case-insensitive`` () =
     Assert.Equal(
-        "srv-secret",
-        AiKeys.resolve bothKeys (Some "SERVER"))
+        "cursor-secret",
+        AiKeys.resolve cursorKeys (Some "CURSOR"))
 
 [<Fact>]
 let ``resolve default is DefaultAiKey`` () =
-    Assert.Equal("srv-secret", AiKeys.resolve bothKeys None)
+    Assert.Equal("cursor-secret", AiKeys.resolve cursorKeys None)
 
 [<Fact>]
 let ``resolve missing name is empty`` () =
     Assert.Equal(
         "",
-        AiKeys.resolve desktopOnly (Some "missing"))
+        AiKeys.resolve cursorKeys (Some "missing"))
 
 [<Fact>]
 let ``resolve missing default or empty value is empty`` () =
     let missingDefault =
-        { bothKeys with DefaultAiKey = "" }
+        { cursorKeys with DefaultAiKey = "" }
     let emptyValue =
-        { DefaultAiKey = "desktop"
-          Keys = Map.ofList [ "desktop", "" ] }
+        { DefaultAiKey = "cursor"
+          Keys = Map.ofList [ "cursor", "" ] }
     Assert.Equal("", AiKeys.resolve missingDefault None)
     Assert.Equal("", AiKeys.resolve emptyValue None)
     Assert.Equal("", AiKeys.resolve AiKeys.empty None)
-    Assert.Equal("", AiKeys.resolve AiKeys.empty (Some "desktop"))
+    Assert.Equal("", AiKeys.resolve AiKeys.empty (Some "cursor"))
+
+let private withEnvPairs
+    (pairs: (string * string) list)
+    (action: unit -> unit)
+    =
+    let previous =
+        pairs
+        |> List.map (fun (name, _) ->
+            name, Environment.GetEnvironmentVariable name)
+    for name, value in pairs do
+        Environment.SetEnvironmentVariable(name, value)
+    try
+        action ()
+    finally
+        for name, prev in previous do
+            Environment.SetEnvironmentVariable(name, prev)
+
+let private withLaterEmptyAiKeysJson (action: string -> unit) =
+    let dir =
+        Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"))
+    Directory.CreateDirectory dir |> ignore
+    let path = Path.Combine(dir, "later.json")
+    File.WriteAllText(
+        path,
+        """{"DefaultAiKey":"","AiKeys":{"cursor":""}}""")
+    try
+        action path
+    finally
+        Directory.Delete(dir, true)
+
+[<Fact>]
+let ``later empty JSON does not replace environment named AiKeys`` () =
+    let envKey = "gambol-test-env-cursor-key"
+    withEnvPairs
+        [ "DefaultAiKey", "cursor"
+          "AiKeys__cursor", envKey ]
+        (fun () ->
+            withLaterEmptyAiKeysJson (fun jsonPath ->
+                let config =
+                    ConfigurationBuilder()
+                        .AddEnvironmentVariables()
+                        .AddJsonFile(jsonPath, optional = false)
+                    |> fun builder ->
+                        ConfigurationOrder.addOverridesAfterJson
+                            false
+                            typeof<AiKeySet>.Assembly
+                            builder
+                    |> fun builder -> builder.Build()
+                let got = AiKeys.fromConfig config
+                Assert.Equal("cursor", got.DefaultAiKey)
+                Assert.Equal(envKey, AiKeys.resolve got None)))
 
 [<Fact>]
 let ``keynameFromText reads the first token after ?ai`` () =
@@ -100,11 +144,11 @@ type AiKeysActorTests() =
     member _.``Ask without keyname sends DefaultAiKey``() =
         withFake
             (fun args ->
-                Assert.Equal("srv-secret", args.Config.ApiKey)
+                Assert.Equal("cursor-secret", args.Config.ApiKey)
                 fakeReply "from-default")
             (fun () ->
                 withHostKeys
-                    bothKeys
+                    cursorKeys
                     (fun host pool -> task {
                         let! seeded = seedAskTree host "?ai"
                         let! request = startAsk host seeded
@@ -116,14 +160,14 @@ type AiKeysActorTests() =
     member _.``Ask keyname sends that entry ApiKey``() =
         withFake
             (fun args ->
-                Assert.Equal("desk-secret", args.Config.ApiKey)
+                Assert.Equal("cursor-secret", args.Config.ApiKey)
                 fakeReply "from-named")
             (fun () ->
                 withHostKeys
-                    bothKeys
+                    cursorKeys
                     (fun host pool -> task {
                         let! seeded =
-                            seedAskTree host "?ai desktop extra"
+                            seedAskTree host "?ai cursor extra"
                         let! request = startAsk host seeded
                         do! expectActorSucceeded
                                 host pool request.focusId
@@ -137,7 +181,7 @@ type AiKeysActorTests() =
                 fakeReply "from-missing")
             (fun () ->
                 withHostKeys
-                    desktopOnly
+                    cursorKeys
                     (fun host pool -> task {
                         let! seeded = seedAskTree host "?ai missing"
                         let! request = startAsk host seeded

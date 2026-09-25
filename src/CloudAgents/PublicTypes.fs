@@ -48,7 +48,8 @@ type CancelOutcome =
     /// Run already terminal or never active; nothing left to cancel.
     | NotCancellable
 
-/// Vendor-neutral runner configuration
+/// Cursor runner config. Caller binds `AiKeys` from User Secrets or Azure App Settings
+/// and resolves the selected value into `ApiKey`. Library stays settings-blind.
 type RunnerConfig =
     { ApiKey: string }
 

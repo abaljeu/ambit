@@ -214,7 +214,7 @@ type ResolvedSettings =
       Ref: string option
       Name: string option }
 
-/// DefaultAiKey selects AiKeys:<name>. A missing name or empty value is None.
+/// DefaultAiKey selects AiKeys:cursor. A missing name or empty value is None.
 let apiKeyFromSecrets
     (defaultName: string option)
     (lookup: string -> string option)
