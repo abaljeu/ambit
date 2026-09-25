@@ -75,6 +75,21 @@ module RunAgentActor =
     let private requestCancel config agentId runId =
         AgentRunner.cancel config agentId runId |> ignore
 
+    let private requestGrokCancel config sessionId =
+        GrokBotRunner.cancel config sessionId |> ignore
+
+    let private firstBehaviorToken (input: ActorInput) =
+        match Map.tryFind input.commandId input.graph.nodes with
+        | None -> ""
+        | Some node ->
+            match AiKeys.tokensFromText node.text with
+            | token :: _ -> token.ToLowerInvariant()
+            | [] -> ""
+
+    let private isGrokBot input = firstBehaviorToken input = "gbot"
+
+    let private nodeGuid (NodeId value) = value.ToString()
+
     let private postReplace
         (input: ActorInput)
         (coreChanges: CoreChanges)
@@ -228,35 +243,49 @@ module RunAgentActor =
               lists = Map.empty }
           OnEvent = onStreamEvent input coreChanges }
 
+    let private streamOutcome
+        (input: ActorInput)
+        (outcome: Result<AgentResult * LiveDraft, AgentError>)
+        =
+        match outcome with
+        | Error err -> failedFromStream err
+        | Ok(_, live) when Map.containsKey input.focusId live.lists ->
+            StreamedOk
+        | Ok(result, _) -> TextReady result.Text
+
+    let private runStream
+        (input: ActorInput)
+        coreChanges
+        (onCancel: unit -> unit)
+        (stream:
+            StreamFold<LiveDraft> ->
+                Result<AgentResult * LiveDraft, AgentError>)
+        =
+        async {
+            use! _cancel = Async.OnCancel onCancel
+            let! ct = Async.CancellationToken
+            if ct.IsCancellationRequested then
+                onCancel ()
+                return CompleteCancelled
+            else
+                let outcome = stream (streamFold input coreChanges)
+                if ct.IsCancellationRequested then
+                    return CompleteCancelled
+                else
+                    return streamOutcome input outcome
+        }
+
     let private streamUntilDone
         (input: ActorInput)
         coreChanges
         (args: StreamArgs)
         =
-        async {
-            use! _cancel =
-                Async.OnCancel(fun () ->
-                    requestCancel args.Config args.AgentId args.RunId)
-            let! ct = Async.CancellationToken
-            if ct.IsCancellationRequested then
-                requestCancel args.Config args.AgentId args.RunId
-                return CompleteCancelled
-            else
-                let outcome =
-                    AgentRunner.streamUntilComplete
-                        args
-                        (streamFold input coreChanges)
-                if ct.IsCancellationRequested then
-                    return CompleteCancelled
-                else
-                    match outcome with
-                    | Error err -> return failedFromStream err
-                    | Ok(_, live)
-                        when Map.containsKey input.focusId live.lists ->
-                        return StreamedOk
-                    | Ok(result, _) ->
-                        return TextReady result.Text
-        }
+        runStream
+            input
+            coreChanges
+            (fun () ->
+                requestCancel args.Config args.AgentId args.RunId)
+            (fun fold -> AgentRunner.streamUntilComplete args fold)
 
     let private toStartArgs keys repos (args: AiCommandArgs) document : StartArgs =
         { Config =
@@ -289,6 +318,39 @@ module RunAgentActor =
                     streamUntilDone input coreChanges stream
         }
 
+    let private completeGrok
+        (grok: GrokBotConfig)
+        (input: ActorInput)
+        coreChanges
+        document
+        =
+        async {
+            let sessionId = Guid.NewGuid().ToString()
+            let wakeArgs =
+                { Config = grok
+                  Text = document
+                  CommandId = nodeGuid input.commandId
+                  FocusId = nodeGuid input.focusId
+                  SessionId = sessionId }
+            match GrokBotRunner.wake wakeArgs with
+            | Error err -> return failedFromError err
+            | Ok() ->
+                let stream =
+                    { Config = grok
+                      SessionId = sessionId
+                      PollIntervalMs = 50
+                      MaxWaitMs = None }
+                return!
+                    runStream
+                        input
+                        coreChanges
+                        (fun () -> requestGrokCancel grok sessionId)
+                        (fun fold ->
+                            GrokBotRunner.streamUntilComplete
+                                stream
+                                fold)
+        }
+
     let private stop
         (input: ActorInput)
         (coreChanges: CoreChanges)
@@ -315,13 +377,24 @@ module RunAgentActor =
             return FocusChildrenReplace.plan graph input.focusId text
         }
 
-    let private runBody keys repos (input: ActorInput) coreChanges =
-        async {
+    let private runComplete keys repos grok input coreChanges document =
+        if isGrokBot input then
+            completeGrok grok input coreChanges document
+        else
             let args = commandArgs keys repos input
+            complete
+                input
+                coreChanges
+                (toStartArgs keys repos args document)
+
+    let private runBody keys repos grok (input: ActorInput) coreChanges =
+        async {
             match packExtract input with
             | Error _ -> return ActorFailed ""
             | Ok document ->
-                match! complete input coreChanges (toStartArgs keys repos args document) with
+                match!
+                    runComplete
+                        keys repos grok input coreChanges document with
                 | CompleteCancelled -> return ActorCancelled
                 | CompleteFailed msg -> return ActorFailed msg
                 | StreamedOk -> return ActorSucceeded
@@ -335,9 +408,13 @@ module RunAgentActor =
         }
 
     /// ActorFn for Actor name `ai`. Selection is CoreActorPool's job.
-    let actorFn (keys: AiKey list) (repos: AiRepo list) : ActorFn =
+    let actorFn
+        (keys: AiKey list)
+        (repos: AiRepo list)
+        (grok: GrokBotConfig)
+        : ActorFn =
         fun input coreChanges ->
             async {
-                let! result = runBody keys repos input coreChanges
+                let! result = runBody keys repos grok input coreChanges
                 do! stop input coreChanges result
             }

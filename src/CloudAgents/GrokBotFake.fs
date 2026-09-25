@@ -159,21 +159,22 @@ module internal GrokBotFake =
               RunFinished result ]
 
     let private streamFromStored sessionId =
-        if isCancelled sessionId then
-            Some(cancelledRun ())
-        else
-            match tryGetStream sessionId with
-            | Some events -> Some(Ok events)
-            | None ->
-                match tryGet sessionId with
-                | Some(Finished result) ->
-                    Some(Ok(synthesizeStream result))
-                | Some Cancelled -> Some(cancelledRun ())
-                | Some(Failed msg) ->
-                    Some(Error(ApiError("failed", msg)))
-                | Some Creating
-                | Some Running
-                | None -> None
+        lock gate (fun () ->
+            if Set.contains sessionId !cancelled then
+                Some(cancelledRun ())
+            else
+                match Map.tryFind sessionId (!handler).Events with
+                | Some events -> Some(Ok events)
+                | None ->
+                    match Map.tryFind sessionId !results with
+                    | Some(Finished result) ->
+                        Some(Ok(synthesizeStream result))
+                    | Some Cancelled -> Some(cancelledRun ())
+                    | Some(Failed msg) ->
+                        Some(Error(ApiError("failed", msg)))
+                    | Some Creating
+                    | Some Running
+                    | None -> None)
 
     let private waitUntil (args: GrokBotStreamArgs) tryReady =
         let started = DateTime.UtcNow
