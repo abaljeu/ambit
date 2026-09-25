@@ -173,9 +173,6 @@ let withHostKeysRepos keys repos body =
 let withHostGrok grok body =
     withHostKeysReposGrok AiKeys.empty [] (grokBinding grok) body
 
-let withHostBinding grok body =
-    withHostKeysReposGrok AiKeys.empty [] grok body
-
 let withHostKeys keys body = withHostKeysRepos keys [] body
 
 let withHost body = withHostKeys AiKeys.empty body

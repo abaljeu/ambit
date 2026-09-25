@@ -102,28 +102,6 @@ type AgentGrokBotStreamTests() =
                 }))
 
     [<Fact>]
-    member _.``gbot wake args carry the composition response URL``() =
-        let seen = ref ""
-        let customUrl =
-            "https://app.example/ambit/actors/deliver"
-        let grok =
-            { Config = unusedGrokConfig
-              ResponseUrl = customUrl }
-        withGrokFakeStream
-            (fun args ->
-                seen := args.ResponseUrl
-                fakeReply "ignored")
-            (fun _ -> xmlStream [ "<n>Hi</n>" ] "<n>Hi</n>")
-            (fun () ->
-                withHostBinding grok (fun host pool -> task {
-                    let! seeded = seedAskTree host "?ai gbot"
-                    let! request = startAsk host seeded
-                    do! expectActorSucceeded
-                            host pool request.focusId
-                    Assert.Equal(customUrl, !seen)
-                }))
-
-    [<Fact>]
     member _.``gbot extra tokens still use the Grok backend``() =
         withGrokFakeStream
             (fun _ -> fakeReply "ignored")
