@@ -74,6 +74,30 @@ type AgentError =
     | InvalidResponse of string
     | Timeout
 
+/// Grok Bot oneshot config. Caller binds User Secrets
+/// grokbot:WakeUrl, grokbot:WakeSecret, grokbot:InboundSecret.
+/// Library stays settings-blind. InboundSecret is unused here
+/// (Server deliver door is out of scope).
+type GrokBotConfig =
+    { WakeUrl: string
+      WakeSecret: string
+      InboundSecret: string }
+
+/// One wake POST (ack-only). Next query is a new oneshot.
+type GrokBotWakeArgs =
+    { Config: GrokBotConfig
+      Text: string
+      CommandId: string
+      FocusId: string
+      SessionId: string }
+
+/// Which oneshot to stream, and how long to wait.
+type GrokBotStreamArgs =
+    { Config: GrokBotConfig
+      SessionId: string
+      PollIntervalMs: int
+      MaxWaitMs: int option }
+
 /// Safe client text: names the connector, not raw provider dumps.
 [<RequireQualifiedAccess>]
 module AgentMessage =
