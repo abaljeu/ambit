@@ -4,7 +4,7 @@ Stage: build
 Summary: Ambit is a Slack-like direct-message channel to Grok Bots. First slice is oneshot library [24 — CloudAgents Grok Bot oneshot stream](../llm-connector/issues/24-cloudagents-grokbot-oneshot.md) plus Actor wiring [05 — Run Agent Actor Grok Bot oneshot](issues/05-run-agent-grokbot-oneshot.md). Next: [06 — Wake response URL](issues/06-wake-response-url.md) so Azure oneshot replies can POST back to `/ambit/actors/deliver`. Eventual [01 — CoreActorPool sessionId + deliver + commandId exclusivity](issues/01-coreactorpool-sessionid-deliver.md)–[03 — gbot Run Agent: wake + inbox → Focus stream](issues/03-gbot-wake-inbox-focus.md) keep the pool/inbox channel. Destination keep-alive wire stays planned.
 Updated: 2026-09-25
 Started: 2026-09-25
-Actual: 5h 15m
+Actual: 5h 25m
 
 ## Objective
 

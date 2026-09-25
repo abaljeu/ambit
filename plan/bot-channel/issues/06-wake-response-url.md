@@ -26,7 +26,7 @@ Ambit-repo scope is the wake `responseUrl` plus any missing Ambit wiring so the 
 
 ### 1. Absolute response URL on outbound wake
 
-1. [ ] Add an absolute deliver URL on the outbound wake JSON. Recommended field name: `responseUrl`. The Admiral hub must learn this field.
+1. [ ] Add an absolute deliver URL on the outbound wake JSON. Recommended field name: `responseUrl`. `sessionId` is already on wake. The Admiral hub must learn `responseUrl`.
 2. [ ] Value is the existing door `{origin}/ambit/actors/deliver`. Production example: `https://collaborative-systems.org/ambit/actors/deliver` (or the equivalent PublicAssetBase / Azure host).
 3. [ ] Construct the origin from `PublicAssetBase` when set; otherwise the production host. Server composition owns the origin. The library stays settings-blind.
 4. [ ] Pass the URL into the existing wake path (`GrokBotWakeArgs` / `GrokBotHttp.wakeRequestJson`). Do not put `InboundSecret` on the wake body.
@@ -34,9 +34,13 @@ Ambit-repo scope is the wake `responseUrl` plus any missing Ambit wiring so the 
 
 ### 2. Proof
 
+Ambit-repo evidence (necessary, not Done):
+
 1. [ ] Wake JSON in unit/library tests includes the absolute `responseUrl`.
 2. [ ] Empty `WakeUrl` still fails safely (no send; no secrets in the error).
 3. [ ] Bearer wake auth is unchanged (no `X-Ambit-*` on wake; no `InboundSecret` in the body).
+
+Ticket Done is the Definition of done above: Azure `?ai gbot` → Focus nodes via deliver → CloudAgents grokbot handlers → Actor Changes. Hub/bot POST is an ops dependency, not Ambit-repo code.
 
 ## Non-goals
 
@@ -66,3 +70,4 @@ Ambit-repo scope is the wake `responseUrl` plus any missing Ambit wiring so the 
 
 - 2026-09-25 45m — File wake response-URL ticket; remap plan pointers; settle empty-text Done (from chat)
 - 2026-09-25 10m — Add Alan Definition of done (from chat)
+- 2026-09-25 10m — Proof: Azure Focus growth is Done; unit tests are Ambit-repo evidence only (from chat)
