@@ -72,11 +72,26 @@ module RunAgentActor =
         | None -> { Keyname = None; Reponame = None }
         | Some node -> AiCommandArgs.fromText keys repos node.text
 
+    let private logCancel runId outcome =
+        match outcome with
+        | Ok CancelRequested
+        | Ok NotCancellable -> ()
+        | Error err ->
+            eprintfn "RunAgentActor: cancel run %s failed: %A" runId err
+
+    /// Off-thread: the pool fires the token inside the Core mailbox.
     let private requestCancel config agentId runId =
-        AgentRunner.cancel config agentId runId |> ignore
+        async { AgentRunner.cancel config agentId runId |> logCancel runId }
+        |> Async.Start
 
     let private requestGrokCancel config sessionId =
-        GrokBotRunner.cancel config sessionId |> ignore
+        match GrokBotRunner.cancel config sessionId with
+        | Ok() -> ()
+        | Error err ->
+            eprintfn
+                "RunAgentActor: cancel grok %s failed: %A"
+                sessionId
+                err
 
     let private firstBehaviorToken (input: ActorInput) =
         match Map.tryFind input.commandId input.graph.nodes with
@@ -312,7 +327,6 @@ module RunAgentActor =
                     { Config = args.Config
                       AgentId = agentId
                       RunId = runId
-                      PollIntervalMs = 50
                       MaxWaitMs = None }
                 return!
                     streamUntilDone input coreChanges stream
@@ -325,7 +339,7 @@ module RunAgentActor =
         document
         =
         async {
-            let sessionId = Guid.NewGuid().ToString()
+            let sessionId = input.sessionId
             let wakeArgs =
                 { Config = grok
                   Text = document
@@ -409,7 +423,7 @@ module RunAgentActor =
 
     /// ActorFn for Actor name `ai`. Selection is CoreActorPool's job.
     let actorFn
-        (keys: AiKey list)
+        (keys: AiKeySet)
         (repos: AiRepo list)
         (grok: GrokBotConfig)
         : ActorFn =

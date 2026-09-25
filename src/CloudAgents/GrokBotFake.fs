@@ -81,9 +81,29 @@ module internal GrokBotFake =
                 else
                     results := Map.add sessionId status !results))
 
-    let private tryGetStream sessionId =
+    let internal deliverFake sessionId text =
         lock gate (fun () ->
-            Map.tryFind sessionId (!handler).Events)
+            let ev =
+                if String.IsNullOrEmpty text then
+                    RunFinished { AgentResult.Text = ""; Git = [] }
+                else
+                    AssistantText text
+            let seam = !handler
+            let prior =
+                Map.tryFind sessionId seam.Events
+                |> Option.defaultValue []
+            let events = prior @ [ ev ]
+            handler :=
+                { seam with
+                    Events = Map.add sessionId events seam.Events }
+            match ev with
+            | RunFinished result ->
+                if Set.contains sessionId !cancelled then
+                    ()
+                else
+                    results := Map.add sessionId (Finished result) !results
+            | _ -> ())
+        Ok()
 
     let private store sessionId result =
         lock gate (fun () ->
@@ -147,35 +167,6 @@ module internal GrokBotFake =
                 (DateTime.UtcNow - started).TotalMilliseconds
             elapsed > float max
 
-    let private synthesizeStream (result: AgentResult) =
-        if String.IsNullOrEmpty result.Text then
-            [ RunFinished result ]
-        else
-            let half = result.Text.Length / 2
-            let first = result.Text.Substring(0, half)
-            let second = result.Text.Substring(half)
-            [ AssistantText first
-              AssistantText second
-              RunFinished result ]
-
-    let private streamFromStored sessionId =
-        lock gate (fun () ->
-            if Set.contains sessionId !cancelled then
-                Some(cancelledRun ())
-            else
-                match Map.tryFind sessionId (!handler).Events with
-                | Some events -> Some(Ok events)
-                | None ->
-                    match Map.tryFind sessionId !results with
-                    | Some(Finished result) ->
-                        Some(Ok(synthesizeStream result))
-                    | Some Cancelled -> Some(cancelledRun ())
-                    | Some(Failed msg) ->
-                        Some(Error(ApiError("failed", msg)))
-                    | Some Creating
-                    | Some Running
-                    | None -> None)
-
     let private waitUntil (args: GrokBotStreamArgs) tryReady =
         let started = DateTime.UtcNow
         let rec loop () =
@@ -201,18 +192,6 @@ module internal GrokBotFake =
             | AssistantText _ -> outcome
         outcome, state
 
-    let private foldEvents sessionId fold events =
-        let rec loop remaining outcome state =
-            match remaining with
-            | [] -> outcome, state
-            | _ :: _ when isCancelled sessionId ->
-                Some(cancelledRun ()), state
-            | ev :: rest ->
-                let outcome, state =
-                    stepFakeEvent (outcome, state) fold ev
-                loop rest outcome state
-        loop events None fold.Seed
-
     let private finishFromStatus args state fold =
         waitUntil args (fun () ->
             match tryGet args.SessionId with
@@ -227,19 +206,49 @@ module internal GrokBotFake =
             | Some Running
             | None -> None)
 
+    let private eventAt sessionId index =
+        lock gate (fun () ->
+            if Set.contains sessionId !cancelled then
+                Some(Choice1Of2(cancelledRun ()))
+            else
+                match Map.tryFind sessionId (!handler).Events with
+                | Some events when index < events.Length ->
+                    Some(Choice2Of2 events.[index])
+                | _ ->
+                    match Map.tryFind sessionId !results with
+                    | Some Cancelled ->
+                        Some(Choice1Of2(cancelledRun ()))
+                    | Some(Failed msg) ->
+                        Some(
+                            Choice1Of2(
+                                Error(ApiError("failed", msg))))
+                    | _ -> None)
+
     let internal streamFake
         (args: GrokBotStreamArgs)
         (fold: StreamFold<'a>)
         =
-        match
-            waitUntil args (fun () ->
-                streamFromStored args.SessionId)
-        with
-        | Error err -> Error err
-        | Ok events ->
-            let outcome, state =
-                foldEvents args.SessionId fold events
-            match outcome with
-            | Some(Ok result) -> Ok(result, state)
-            | Some(Error err) -> Error err
-            | None -> finishFromStatus args state fold
+        let started = DateTime.UtcNow
+        let rec loop index outcome state =
+            if pastDeadline started args.MaxWaitMs then
+                Error AgentError.Timeout
+            elif isCancelled args.SessionId then
+                cancelledRun ()
+            else
+                match eventAt args.SessionId index with
+                | Some(Choice1Of2 err) -> err
+                | Some(Choice2Of2 ev) ->
+                    let outcome, state =
+                        stepFakeEvent (outcome, state) fold ev
+                    match outcome with
+                    | Some(Ok result) -> Ok(result, state)
+                    | Some(Error err) -> Error err
+                    | None -> loop (index + 1) outcome state
+                | None ->
+                    match tryGet args.SessionId with
+                    | Some(Finished result) ->
+                        finishFromStatus args state fold
+                    | _ ->
+                        Thread.Sleep args.PollIntervalMs
+                        loop index outcome state
+        loop 0 None fold.Seed

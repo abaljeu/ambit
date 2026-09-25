@@ -42,6 +42,12 @@ type AgentStreamEvent =
     | RunFailed of string
     | RunCancelled
 
+/// Result of a cancel request the provider answered.
+type CancelOutcome =
+    | CancelRequested
+    /// Run already terminal or never active; nothing left to cancel.
+    | NotCancellable
+
 /// Vendor-neutral runner configuration
 type RunnerConfig =
     { ApiKey: string }
@@ -58,7 +64,6 @@ type StreamArgs =
     { Config: RunnerConfig
       AgentId: string
       RunId: string
-      PollIntervalMs: int
       MaxWaitMs: int option }
 
 /// Accumulator stepped once per stream event.
@@ -76,8 +81,8 @@ type AgentError =
 
 /// Grok Bot oneshot config. Caller binds User Secrets
 /// grokbot:WakeUrl, grokbot:WakeSecret, grokbot:InboundSecret.
-/// Library stays settings-blind. InboundSecret is unused here
-/// (Server deliver door is out of scope).
+/// Library stays settings-blind. InboundSecret is Server door
+/// auth; this library consumes deliver(sessionId, text).
 type GrokBotConfig =
     { WakeUrl: string
       WakeSecret: string

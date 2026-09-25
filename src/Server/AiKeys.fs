@@ -4,40 +4,51 @@ open System
 open Microsoft.Extensions.Configuration
 open Gambol.Shared
 
-type AiKey =
-    { Name: string
-      ApiKey: string }
+/// Name-keyed API keys plus the default name. CloudAgents stays settings-blind.
+type AiKeySet =
+    { DefaultAiKey: string
+      Keys: Map<string, string> }
 
-/// Binds AiKeys from IConfiguration. CloudAgents stays settings-blind.
 [<RequireQualifiedAccess>]
 module AiKeys =
 
-    let fromConfig (config: IConfiguration) : AiKey list =
-        config.GetSection("AiKeys").GetChildren()
-        |> Seq.map (fun section ->
-            { Name =
-                section.["Name"]
-                |> Option.ofObj
-                |> Option.defaultValue ""
-              ApiKey =
-                section.["ApiKey"]
-                |> Option.ofObj
-                |> Option.defaultValue "" })
-        |> List.ofSeq
+    let empty =
+        { DefaultAiKey = ""
+          Keys = Map.empty }
 
-    let resolve (keys: AiKey list) (keyname: string option) : string =
-        match keyname with
-        | None ->
-            match keys with
-            | first :: _ -> first.ApiKey
-            | [] -> ""
-        | Some name ->
-            keys
-            |> List.tryFind (fun key ->
-                key.Name.Equals(
-                    name, StringComparison.OrdinalIgnoreCase))
-            |> Option.map (fun key -> key.ApiKey)
+    let private sectionValue (section: IConfigurationSection) =
+        section.Value |> Option.ofObj |> Option.defaultValue ""
+
+    let fromConfig (config: IConfiguration) : AiKeySet =
+        let keys =
+            config.GetSection("AiKeys").GetChildren()
+            |> Seq.map (fun section -> section.Key, sectionValue section)
+            |> Map.ofSeq
+        let defaultName =
+            config.["DefaultAiKey"]
+            |> Option.ofObj
             |> Option.defaultValue ""
+        { DefaultAiKey = defaultName
+          Keys = keys }
+
+    let private sameName (name: string) (key: string) =
+        key.Equals(name, StringComparison.OrdinalIgnoreCase)
+
+    let private valueFor (keys: Map<string, string>) (name: string) =
+        if String.IsNullOrEmpty name then
+            ""
+        else
+            keys
+            |> Map.tryPick (fun key value ->
+                if sameName name key then Some value else None)
+            |> Option.defaultValue ""
+
+    let resolve (store: AiKeySet) (keyname: string option) : string =
+        let name =
+            match keyname with
+            | None -> store.DefaultAiKey
+            | Some given -> given
+        valueFor store.Keys name
 
     let tokensFromText (text: string) : string list =
         match CommandRequest.behaviorFromText text with

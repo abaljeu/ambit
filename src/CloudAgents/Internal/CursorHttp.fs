@@ -5,6 +5,7 @@ open System.IO
 open System.Net
 open System.Net.Http
 open System.Text
+open System.Threading
 open FSharp.Data
 
 module CursorHttp =
@@ -282,6 +283,77 @@ module CursorHttp =
         with ex ->
             Error $"Request failed: {ex.Message}"
 
+    let getRunStatus
+        (apiKey: string)
+        (agentId: string)
+        (runId: string)
+        : Result<CursorTypes.CursorRunStatus, string> =
+        try
+            use client = createClient apiKey
+            let url = $"{baseUrl}/agents/{agentId}/runs/{runId}"
+
+            let response =
+                client.GetAsync(url)
+                |> Async.AwaitTask
+                |> Async.RunSynchronously
+
+            if response.StatusCode = HttpStatusCode.Unauthorized then
+                Error "unauthorized"
+            elif not response.IsSuccessStatusCode then
+                let body =
+                    response.Content.ReadAsStringAsync()
+                    |> Async.AwaitTask
+                    |> Async.RunSynchronously
+                Error $"HTTP {int response.StatusCode}: {body}"
+            else
+                let body =
+                    response.Content.ReadAsStringAsync()
+                    |> Async.AwaitTask
+                    |> Async.RunSynchronously
+
+                let parsed = JsonValue.Parse body
+
+                let resultText =
+                    parsed.TryGetProperty("result")
+                    |> Option.map (fun v -> v.AsString())
+
+                let durationMs =
+                    parsed.TryGetProperty("durationMs")
+                    |> Option.map (fun v -> v.AsInteger())
+
+                let git =
+                    parsed.TryGetProperty("git")
+                    |> Option.map (fun gitObj ->
+                        let branches =
+                            gitObj.["branches"].AsArray()
+                            |> Array.map (fun b ->
+                                { CursorTypes.CursorGitBranch.repoUrl =
+                                    b.["repoUrl"].AsString()
+                                  CursorTypes.CursorGitBranch.branch =
+                                      b.TryGetProperty("branch")
+                                      |> Option.map (fun v ->
+                                          v.AsString())
+                                  CursorTypes.CursorGitBranch.prUrl =
+                                      b.TryGetProperty("prUrl")
+                                      |> Option.map (fun v ->
+                                          v.AsString()) })
+                            |> Array.toList
+
+                        { CursorTypes.CursorGit.branches = branches })
+
+                Ok
+                    { CursorTypes.CursorRunStatus.id =
+                        parsed.["id"].AsString()
+                      CursorTypes.CursorRunStatus.agentId =
+                          parsed.["agentId"].AsString()
+                      CursorTypes.CursorRunStatus.status =
+                          parsed.["status"].AsString()
+                      CursorTypes.CursorRunStatus.result = resultText
+                      CursorTypes.CursorRunStatus.durationMs = durationMs
+                      CursorTypes.CursorRunStatus.git = git }
+        with ex ->
+            Error $"Request failed: {ex.Message}"
+
     type SseMessage = { eventType: string; data: string }
 
     type private SseAccum =
@@ -377,6 +449,16 @@ module CursorHttp =
         | Assistant of string
         | Terminal of StreamBody
         | Failed of string
+        | CancelledRun
+
+    let private isCancelledStatus (data: string) =
+        match JsonValue.TryParse data with
+        | Some parsed ->
+            match optString parsed "status" with
+            | Some status ->
+                status.ToUpperInvariant() = "CANCELLED"
+            | None -> false
+        | None -> false
 
     let private assistantText (data: string) =
         match JsonValue.TryParse data with
@@ -396,6 +478,9 @@ module CursorHttp =
 
     let private dispatchStreamMessage (msg: SseMessage) =
         match msg.eventType.ToLowerInvariant() with
+        | "status"
+        | "result"
+        | "done" when isCancelledStatus msg.data -> CancelledRun
         | "assistant" ->
             match assistantText msg.data with
             | Some text -> Assistant text
@@ -421,6 +506,7 @@ module CursorHttp =
             StreamIncomplete, onAssistant text state
         | Terminal body -> StreamComplete body, state
         | Failed reason -> StreamStop reason, state
+        | CancelledRun -> StreamStop "cancelled", state
 
     type private SseAdvance<'s> =
         | SseContinue of SseAccum * 's
@@ -454,10 +540,16 @@ module CursorHttp =
         | [] -> None
         | line :: tail -> Some(line, tail)
 
-    let private nextSseReader (reader: StreamReader) =
-        match reader.ReadLine() with
+    let private nextSseReader
+        (reader: StreamReader, token: CancellationToken)
+        =
+        let line =
+            reader.ReadLineAsync(token).AsTask()
+            |> Async.AwaitTask
+            |> Async.RunSynchronously
+        match line with
         | null -> None
-        | line -> Some(line, reader)
+        | line -> Some(line, (reader, token))
 
     let private readSseLines next source onAssistant state =
         let rec loop acc state source =
@@ -497,35 +589,57 @@ module CursorHttp =
                 |> Async.RunSynchronously
             Some $"HTTP {int response.StatusCode}: {body}"
 
-    let private readSuccessBody (response: HttpResponseMessage) onAssistant state =
+    let private readSuccessBody
+        (response: HttpResponseMessage)
+        (token: CancellationToken)
+        onAssistant
+        state
+        =
         use stream =
-            response.Content.ReadAsStreamAsync()
+            response.Content.ReadAsStreamAsync(token)
             |> Async.AwaitTask
             |> Async.RunSynchronously
         use reader = new StreamReader(stream)
         let outcome, state =
-            readSseLines nextSseReader reader onAssistant state
+            readSseLines nextSseReader (reader, token) onAssistant state
         outcomeResult outcome, state
 
-    let streamRun apiKey agentId runId onAssistant state =
+    let private deadlineSource (maxWaitMs: int option) =
+        let source = new CancellationTokenSource()
+        maxWaitMs |> Option.iter (fun ms -> source.CancelAfter ms)
+        source
+
+    /// Error "timeout" when args.MaxWaitMs elapses before a terminal event.
+    /// Error "cancelled" when a status / result / done event says CANCELLED.
+    let streamRun
+        (args: Gambol.CloudAgents.StreamArgs)
+        onAssistant
+        state
+        =
+        use deadline = deadlineSource args.MaxWaitMs
         try
-            use client = createClient apiKey
+            use client = createClient args.Config.ApiKey
             let url =
-                $"{baseUrl}/agents/{agentId}/runs/{runId}/stream"
+                $"{baseUrl}/agents/{args.AgentId}/runs/{args.RunId}/stream"
             let response =
                 client.GetAsync(
                     url,
-                    HttpCompletionOption.ResponseHeadersRead
+                    HttpCompletionOption.ResponseHeadersRead,
+                    deadline.Token
                 )
                 |> Async.AwaitTask
                 |> Async.RunSynchronously
             match responseError response with
             | Some msg -> Error msg, state
             | None ->
-                readSuccessBody response onAssistant state
+                readSuccessBody response deadline.Token onAssistant state
         with ex ->
-            Error $"Request failed: {ex.Message}", state
+            if deadline.IsCancellationRequested then
+                Error "timeout", state
+            else
+                Error $"Request failed: {ex.Message}", state
 
+    /// Error "run_not_cancellable" on 409: the run is terminal or never ran.
     let cancelRun
         (apiKey: string)
         (agentId: string)
@@ -543,13 +657,11 @@ module CursorHttp =
                 |> Async.AwaitTask
                 |> Async.RunSynchronously
 
-            if not response.IsSuccessStatusCode then
-                let body =
-                    response.Content.ReadAsStringAsync()
-                    |> Async.AwaitTask
-                    |> Async.RunSynchronously
-                Error $"HTTP {int response.StatusCode}: {body}"
+            if response.StatusCode = HttpStatusCode.Conflict then
+                Error "run_not_cancellable"
             else
-                Ok()
+                match responseError response with
+                | Some msg -> Error msg
+                | None -> Ok()
         with ex ->
             Error $"Request failed: {ex.Message}"

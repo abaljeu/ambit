@@ -1,7 +1,8 @@
 # 02 — Inbound POST /ambit/actors/deliver + secret + GrokbotConfig
 
-**Status:** defined
-**Blocked by:** None — eventual / deferred; do not implement now
+**Status:** coded
+Actual: 45m
+**Blocked by:** None
 **Type:** coding
 
 **Eventual / deferred from the oneshot first slice.** Keep as the eventual inbound door. First slice binds `GrokBotConfig` at composition for [05 — Run Agent Actor Grok Bot oneshot](05-run-agent-grokbot-oneshot.md) only — do not invent inbound body fields in Server now. Library oneshot is [04 — CloudAgents Grok Bot oneshot library](04-cloudagents-grokbot-oneshot.md) / [24 — CloudAgents Grok Bot oneshot stream](../../llm-connector/issues/24-cloudagents-grokbot-oneshot.md). Do not delete this ticket. Do not implement it in the oneshot slice.
@@ -18,22 +19,30 @@ Composition binds GrokbotConfig from User Secrets. RouteRegistration exposes `PO
 
 Per [bot-channel architecture](../arch.md) module **GrokbotConfig**.
 
-1. [ ] 2.2.2.1 fromConfig — bind `grokbot:WakeUrl`, `grokbot:WakeSecret`, `grokbot:InboundSecret` (strings; may be empty until Alan loads them)
-2. [ ] 2.2.2.2 No Graph secrets — secrets never persist into Graph Nodes
+1. [x] 2.2.2.1 fromConfig — bind `grokbot:WakeUrl`, `grokbot:WakeSecret`, `grokbot:InboundSecret` (strings; may be empty until Alan loads them)
+2. [x] 2.2.2.2 No Graph secrets — secrets never persist into Graph Nodes
 
 ### 2. InboundAuth + ActorsDeliverDoor
 
 Per [bot-channel architecture](../arch.md) module **InboundAuth + ActorsDeliverDoor** on [[src/Server/RouteRegistration.fs]].
 
-1. [ ] 2.4.2.1 Secret header — require `X-Ambit-Inbound-Secret` equal to configured `InboundSecret`; missing/wrong rejected; empty configured secret fails closed
-2. [ ] 2.4.2.2 Body shape — JSON body exactly `sessionId` + `text` (no optional `commandId`)
-3. [ ] 2.4.2.3 deliver + 404 — call `pool.deliver(sessionId, text)`; unknown / not live → HTTP 404; success → ack
-4. [ ] 2.4.2.4 Door stays thin — door does not write Graph and does not Finish Actors
+1. [x] 2.4.2.1 Secret header — require `X-Ambit-Inbound-Secret` equal to configured `InboundSecret`; missing/wrong rejected; empty configured secret fails closed
+2. [x] 2.4.2.2 Body shape — JSON body exactly `sessionId` + `text` (no optional `commandId`)
+3. [x] 2.4.2.3 deliver + 404 — call `pool.deliver(sessionId, text)`; unknown / not live → HTTP 404; success → ack
+4. [x] 2.4.2.4 Door stays thin — door does not write Graph and does not Finish Actors
 
 ### 3. Proof
 
-1. [ ] 1.2 Inbound seam — harness or test host: wrong secret rejected; good secret + unknown sessionId → 404; with a live row from [01 — CoreActorPool sessionId + deliver + commandId exclusivity](01-coreactorpool-sessionid-deliver.md) (or test double) → deliver enqueues
+1. [x] 1.2 Inbound seam — harness: wrong secret rejected; good secret + unknown sessionId → 404; good secret enqueues and feeds `GrokBotRunner.deliver`
 
 ## See also
 
 [bot-channel architecture](../arch.md) modules **GrokbotConfig**, **InboundAuth + ActorsDeliverDoor**, [[../spec.md]] User Stories **Inbound shared-secret header**, **Secrets from User Secrets**, [[../map.md]] Decisions (inbound path + User Secrets)
+
+## Comments
+
+- 2026-09-25 — Coded `POST /ambit/actors/deliver` + `X-Ambit-Inbound-Secret`. Status `coded`.
+
+## Time
+
+- 2026-09-25 45m — inbound door + Api proofs (from chat)

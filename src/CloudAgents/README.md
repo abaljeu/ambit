@@ -124,9 +124,9 @@ keys `grokbot:WakeUrl`, `grokbot:WakeSecret`, and
 `grokbot:InboundSecret` into `GrokBotConfig`. `InboundSecret` is
 unused here (Server deliver door).
 
-Wake auth header: Unsettled — the Admiral hub / bot webhook
-contract is not in this repo. `GrokBotHttp.applyWakeAuth` is the
-adapter seam. Do not invent an Ambit-only wake header.
+Wake auth header is `X-Ambit-Wake-Secret` with the configured
+`WakeSecret` value. Empty `WakeSecret` fails closed without
+sending (same class as empty `WakeUrl`).
 
 Wake JSON follows the bot-channel map payload: `source`,
 `kind: message`, `sentAt`, `commandId`, `focusId`, `sessionId`,

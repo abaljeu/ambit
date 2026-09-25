@@ -35,7 +35,9 @@ let private stubPool secret : CoreActorPool =
       finish = fun _ _ -> Ok ()
       liveFocusIds = fun () -> Set.empty
       getFocusId = fun _ -> Some Graph.rootId
-      trySecretForFocus = fun _ -> None }
+      trySecretForFocus = fun _ -> None
+      deliver = fun _ -> Error "not live"
+      takeInbox = fun _ -> Error "not live" }
 
 let private hostFile dir secret =
     CoreMailbox.host

@@ -3,6 +3,7 @@ namespace Gambol.Server
 open System
 open Microsoft.AspNetCore.Http
 open Gambol.Shared
+open Gambol.CloudAgents
 open Thoth.Json.Newtonsoft
 
 module Api =
@@ -393,3 +394,52 @@ module Api =
                         { ok = false; detail = ""; error = Some err }
                     return Results.BadRequest(Encode.toString 0 (GitSaveResponse.encode response))
     }
+
+    [<Literal>]
+    let inboundSecretHeader = "X-Ambit-Inbound-Secret"
+
+    let checkInboundSecret configured provided =
+        if String.IsNullOrEmpty configured then
+            Error "closed"
+        elif provided <> configured then
+            Error "unauthorized"
+        else
+            Ok()
+
+    let private decodeDeliverBody body =
+        let decoder =
+            Thoth.Json.Core.Decode.object (fun get ->
+                {| sessionId =
+                    get.Required.Field
+                        "sessionId"
+                        Thoth.Json.Core.Decode.string
+                   text =
+                    get.Required.Field
+                        "text"
+                        Thoth.Json.Core.Decode.string |})
+        Decode.fromString decoder body
+
+    let postActorsDeliver
+        (configuredSecret: string)
+        (providedSecret: string)
+        (deliver: string * string -> Result<unit, string>)
+        (body: string)
+        : IResult =
+        match checkInboundSecret configuredSecret providedSecret with
+        | Error _ -> Results.Unauthorized()
+        | Ok() ->
+            match decodeDeliverBody body with
+            | Error _ ->
+                Results.BadRequest({| error = "invalid deliver body" |})
+            | Ok parsed ->
+                match deliver (parsed.sessionId, parsed.text) with
+                | Error _ -> Results.NotFound()
+                | Ok() ->
+                    match
+                        GrokBotRunner.deliver
+                            parsed.sessionId
+                            parsed.text
+                    with
+                    | Error _ ->
+                        Results.StatusCode 500
+                    | Ok() -> Results.Ok()

@@ -17,6 +17,21 @@ module CursorAdapter =
                   Branch = b.branch
                   PullRequestUrl = b.prUrl })
 
+    let private mapStatus
+        (status: CursorTypes.CursorRunStatus)
+        : AgentStatus =
+        match status.status.ToUpperInvariant() with
+        | "CREATING" -> Creating
+        | "RUNNING" -> Running
+        | "FINISHED" ->
+            let text = status.result |> Option.defaultValue ""
+            let git = mapGitResult status.git
+            Finished { Text = text; Git = git }
+        | "CANCELLED" -> Cancelled
+        | "ERROR" -> Failed "error"
+        | "EXPIRED" -> Failed "expired"
+        | _ -> Failed "unknown status"
+
     let private providerName = "Cursor"
 
     let private authFailed reason =
@@ -28,6 +43,8 @@ module CursorAdapter =
             authFailed "missing key"
         elif httpError = "unauthorized" then
             authFailed "unauthorized"
+        elif httpError = "timeout" then
+            AgentError.Timeout
         else
             NetworkError httpError
 
@@ -72,19 +89,62 @@ module CursorAdapter =
             | Error msg -> Error(fromHttpError config.ApiKey msg)
             | Ok response -> Ok(response.agent.id, response.run.id)
 
+    let pollStatus
+        (config: RunnerConfig)
+        (agentId: string)
+        (runId: string)
+        : Result<AgentStatus, AgentError> =
+
+        if String.IsNullOrWhiteSpace config.ApiKey then
+            Error (authFailed "missing key")
+        else
+            match CursorHttp.getRunStatus config.ApiKey agentId runId with
+            | Error msg -> Error(fromHttpError config.ApiKey msg)
+            | Ok status -> Ok(mapStatus status)
+
     let cancelRun
         (config: RunnerConfig)
         (agentId: string)
         (runId: string)
-        : Result<unit, AgentError> =
+        : Result<CancelOutcome, AgentError> =
 
-        match CursorHttp.cancelRun config.ApiKey agentId runId with
-        | Error msg -> Error(NetworkError msg)
-        | Ok() -> Ok()
+        if String.IsNullOrWhiteSpace config.ApiKey then
+            Error (authFailed "missing key")
+        else
+            match CursorHttp.cancelRun config.ApiKey agentId runId with
+            | Error "run_not_cancellable" -> Ok NotCancellable
+            | Error msg -> Error(fromHttpError config.ApiKey msg)
+            | Ok() -> Ok CancelRequested
 
     let private fromStreamBody (body: CursorHttp.StreamBody) =
         { Text = body.text
           Git = mapGitResult body.git }
+
+    let private cancelledRun =
+        ApiError("cancelled", "Agent run was cancelled")
+
+    let private endedCancelled (args: StreamArgs) msg =
+        match msg with
+        | "cancelled" -> true
+        | "unauthorized"
+        | "timeout" -> false
+        | _ ->
+            match pollStatus args.Config args.AgentId args.RunId with
+            | Ok Cancelled -> true
+            | _ -> false
+
+    let private streamStopped
+        (args: StreamArgs)
+        (fold: StreamFold<'a>)
+        state
+        msg
+        =
+        if endedCancelled args msg then
+            fold.OnEvent state AgentStreamEvent.RunCancelled |> ignore
+            Error cancelledRun
+        else
+            fold.OnEvent state (AgentStreamEvent.RunFailed msg) |> ignore
+            Error(fromHttpError args.Config.ApiKey msg)
 
     let streamRun (args: StreamArgs) (fold: StreamFold<'a>) =
         if String.IsNullOrWhiteSpace args.Config.ApiKey then
@@ -95,16 +155,8 @@ module CursorAdapter =
                     state
                     (AgentStreamEvent.AssistantText text)
 
-            match
-                CursorHttp.streamRun
-                    args.Config.ApiKey
-                    args.AgentId
-                    args.RunId
-                    onAssistant
-                    fold.Seed
-            with
-            | Error msg, _ ->
-                Error(fromHttpError args.Config.ApiKey msg)
+            match CursorHttp.streamRun args onAssistant fold.Seed with
+            | Error msg, state -> streamStopped args fold state msg
             | Ok body, state ->
                 let result = fromStreamBody body
                 let finished =

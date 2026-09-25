@@ -29,7 +29,7 @@ let ``cancel sends cancel request`` () =
 
     match result with
     | Error _ -> ()
-    | Ok() -> Assert.True(true)
+    | Ok _ -> Assert.True(true)
 
 [<Fact>]
 let ``streamUntilComplete is the completion path`` () =
@@ -37,7 +37,6 @@ let ``streamUntilComplete is the completion path`` () =
         { Config = { RunnerConfig.ApiKey = "fake-key" }
           AgentId = "fake-agent"
           RunId = "fake-run"
-          PollIntervalMs = 100
           MaxWaitMs = Some 500 }
     let fold = { Seed = (); OnEvent = fun s _ -> s }
     let result = AgentRunner.streamUntilComplete args fold

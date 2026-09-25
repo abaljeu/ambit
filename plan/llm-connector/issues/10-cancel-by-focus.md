@@ -37,6 +37,7 @@ While a Run Agent Actor is live for a Focus, cancel by Focus NodeId. Core orders
 
 - 2026-09-19 — Landed on staging after Good (AskCancelHarness refactor accepted).
 - 2026-09-19 — Long fact **Change before Cancel keeps the accepted children** now uses [AskCancelHarness](../../../tests/Server.Tests/AskCancelHarness.fs). Shared Ask/Cancel helpers are public only when a fact calls them; wait/filter/spin wiring is private. `postChildThenWait` is the reusable probe (one Focus-child Change, then wait on the cancel token).
+- 2026-09-24 — `RunAgentActor.requestCancel` now sends the Cursor cancel off-thread (`Async.Start`), so the mailbox's `CancellationTokenSource.Cancel()` no longer waits on HTTP. It logs errors and ignores `NotCancellable`. The poll loop no longer sends a second cancel. `complete` also cancels when the token fired during `start`. Server.Tests: 502 passed. 4 `actorStop` facts in CoreMsgActorCasesTests / CoreMailboxDoorTests fail with and without this change.
 
 ## Time
 
