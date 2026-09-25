@@ -125,7 +125,7 @@ Architecture: [arch.md](arch.md). Sequence `module-build`. Tickets:
 3. [03 — gbot Run Agent: wake + inbox → Focus stream](issues/03-gbot-wake-inbox-focus.md) — Status `defined` (eventual / deferred; Blocked-by [01 — CoreActorPool sessionId + deliver + commandId exclusivity](issues/01-coreactorpool-sessionid-deliver.md) and [02 — Inbound POST /ambit/actors/deliver + secret + GrokbotConfig](issues/02-inbound-actors-deliver-door.md))
 4. [04 — CloudAgents Grok Bot oneshot library](issues/04-cloudagents-grokbot-oneshot.md) — Status `done` (pointer to [24 — CloudAgents Grok Bot oneshot stream](../llm-connector/issues/24-cloudagents-grokbot-oneshot.md))
 5. [05 — Run Agent Actor Grok Bot oneshot](issues/05-run-agent-grokbot-oneshot.md) — Status `done`
-6. [06 — Wake response URL](issues/06-wake-response-url.md) — Status `defined` (coding; absolute `responseUrl` on outbound wake)
+6. [06 — Wake response URL](issues/06-wake-response-url.md) — Status `coded` (absolute `responseUrl` on outbound wake)
 7. [25 — Grok Bot wake auth Bearer](../llm-connector/issues/25-grokbot-wake-auth-bearer.md) — Status `coded`. Settles wake auth as `Authorization: Bearer {WakeSecret}`.
 
 ## Not yet specified

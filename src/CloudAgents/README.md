@@ -122,7 +122,8 @@ Empty `WakeUrl` fails without sending and without writing secrets.
 The library stays settings-blind. The caller binds User Secrets
 keys `grokbot:WakeUrl`, `grokbot:WakeSecret`, and
 `grokbot:InboundSecret` into `GrokBotConfig`. `InboundSecret` is
-unused here (Server deliver door).
+unused here (Server deliver door). The caller also supplies
+absolute `ResponseUrl` on `GrokBotWakeArgs` (the deliver door).
 
 Wake auth is `Authorization: Bearer <WakeSecret>`. Empty
 `WakeSecret` fails closed without sending (same class as empty
@@ -161,7 +162,9 @@ let args =
       Text = "Focus extract"
       CommandId = "cmd"
       FocusId = "focus"
-      SessionId = "session" }
+      SessionId = "session"
+      ResponseUrl =
+        "https://collaborative-systems.org/ambit/actors/deliver" }
 
 let fold = { Seed = []; OnEvent = fun seen ev -> ev :: seen }
 

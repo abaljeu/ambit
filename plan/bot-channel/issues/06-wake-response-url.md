@@ -1,6 +1,7 @@
 # 06 — Wake response URL
 
-**Status:** defined
+**Status:** coded
+Actual: 2h 20m
 **Blocked by:** None — [05 — Run Agent Actor Grok Bot oneshot](05-run-agent-grokbot-oneshot.md) is `done`. Eventual [03 — gbot Run Agent: wake + inbox → Focus stream](03-gbot-wake-inbox-focus.md) stays deferred.
 **Type:** coding
 
@@ -26,19 +27,19 @@ Ambit-repo scope is the wake `responseUrl` plus any missing Ambit wiring so the 
 
 ### 1. Absolute response URL on outbound wake
 
-1. [ ] Add an absolute deliver URL on the outbound wake JSON. Recommended field name: `responseUrl`. `sessionId` is already on wake. The Admiral hub must learn `responseUrl`.
-2. [ ] Value is the existing door `{origin}/ambit/actors/deliver`. Production example: `https://collaborative-systems.org/ambit/actors/deliver` (or the equivalent PublicAssetBase / Azure host).
-3. [ ] Construct the origin from `PublicAssetBase` when set; otherwise the production host. Server composition owns the origin. The library stays settings-blind.
-4. [ ] Pass the URL into the existing wake path (`GrokBotWakeArgs` / `GrokBotHttp.wakeRequestJson`). Do not put `InboundSecret` on the wake body.
-5. [ ] Bearer wake auth stays `Authorization: Bearer {WakeSecret}` ([25 — Grok Bot wake auth Bearer](../../llm-connector/issues/25-grokbot-wake-auth-bearer.md)). Empty `WakeUrl` still fails safely without writing secrets.
+1. [x] Add an absolute deliver URL on the outbound wake JSON. Recommended field name: `responseUrl`. `sessionId` is already on wake. The Admiral hub must learn `responseUrl`.
+2. [x] Value is the existing door `{origin}/ambit/actors/deliver`. Production example: `https://collaborative-systems.org/ambit/actors/deliver` (or the equivalent PublicAssetBase / Azure host).
+3. [x] Construct the origin from `PublicAssetBase` when set; otherwise the production host. Server composition owns the origin. The library stays settings-blind.
+4. [x] Pass the URL into the existing wake path (`GrokBotWakeArgs` / `GrokBotHttp.wakeRequestJson`). Do not put `InboundSecret` on the wake body.
+5. [x] Bearer wake auth stays `Authorization: Bearer {WakeSecret}` ([25 — Grok Bot wake auth Bearer](../../llm-connector/issues/25-grokbot-wake-auth-bearer.md)). Empty `WakeUrl` still fails safely without writing secrets.
 
 ### 2. Proof
 
 Ambit-repo evidence (necessary, not Done):
 
-1. [ ] Wake JSON in unit/library tests includes the absolute `responseUrl`.
-2. [ ] Empty `WakeUrl` still fails safely (no send; no secrets in the error).
-3. [ ] Bearer wake auth is unchanged (no `X-Ambit-*` on wake; no `InboundSecret` in the body).
+1. [x] Wake JSON in unit/library tests includes the absolute `responseUrl`.
+2. [x] Empty `WakeUrl` still fails safely (no send; no secrets in the error).
+3. [x] Bearer wake auth is unchanged (no `X-Ambit-*` on wake; no `InboundSecret` in the body).
 
 Ticket Done is the Definition of done above: Azure `?ai gbot` → Focus nodes via deliver → CloudAgents grokbot handlers → Actor Changes. Hub/bot POST is an ops dependency, not Ambit-repo code.
 
@@ -65,9 +66,11 @@ Ticket Done is the Definition of done above: Azure `?ai gbot` → Focus nodes vi
 
 - 2026-09-25 — Filed. Alan lock: oneshot `?ai gbot` replies under Focus when Ambit runs on Azure. Outbound wake carries an absolute response URL so the hub can POST to `/ambit/actors/deliver`. Prior Done-seam research ticket superseded (empty-text Done is live). Status `defined`.
 - 2026-09-25 — Alan locked Definition of done: Azure `?ai gbot` → grokbot has deliver info → Focus nodes via `/deliver` → CloudAgents grokbot handlers → Actor Changes. Hub POST is an ops dependency. [04 — CloudAgents Grok Bot oneshot library](04-cloudagents-grokbot-oneshot.md) and [05 — Run Agent Actor Grok Bot oneshot](05-run-agent-grokbot-oneshot.md) stay `done`. Leave [03 — gbot Run Agent: wake + inbox → Focus stream](03-gbot-wake-inbox-focus.md) alone.
+- 2026-09-25 — Coded absolute wake `responseUrl`. Server origin from `PublicAssetBase` or `https://collaborative-systems.org`. Library stays settings-blind. Status `coded`. Live Azure Done stays ops / hub POST.
 
 ## Time
 
 - 2026-09-25 45m — File wake response-URL ticket; remap plan pointers; settle empty-text Done (from chat)
 - 2026-09-25 10m — Add Alan Definition of done (from chat)
 - 2026-09-25 10m — Proof: Azure Focus growth is Done; unit tests are Ambit-repo evidence only (from chat)
+- 2026-09-25 1h 15m — Implement wake `responseUrl` + Server origin bind (from chat)

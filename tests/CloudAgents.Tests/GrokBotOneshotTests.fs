@@ -23,12 +23,16 @@ type GrokBotOneshotTests() =
         { AgentResult.Text = text
           Git = [] }
 
+    let sampleResponseUrl =
+        "https://collaborative-systems.org/ambit/actors/deliver"
+
     let wakeArgs config sessionId text : GrokBotWakeArgs =
         { Config = config
           Text = text
           CommandId = "cmd-1"
           FocusId = "focus-1"
-          SessionId = sessionId }
+          SessionId = sessionId
+          ResponseUrl = sampleResponseUrl }
 
     let streamArgs sessionId : GrokBotStreamArgs =
         { Config = unusedConfig
@@ -130,10 +134,17 @@ type GrokBotOneshotTests() =
         Assert.Equal("focus-1", json.["focusId"].AsString())
         Assert.Equal("sess-1", json.["sessionId"].AsString())
         Assert.Equal("extract pack", json.["text"].AsString())
+        Assert.Equal(sampleResponseUrl, json.["responseUrl"].AsString())
         match json.["payload"] with
         | JsonValue.Record fields ->
             Assert.Empty(fields)
         | other -> Assert.Fail($"payload: {other}")
+        match json with
+        | JsonValue.Record fields ->
+            let names = fields |> Array.map fst
+            Assert.DoesNotContain("inboundSecret", names)
+            Assert.DoesNotContain("InboundSecret", names)
+        | other -> Assert.Fail($"record: {other}")
         let raw = json.ToString()
         Assert.DoesNotContain("wake-secret-value", raw)
         Assert.DoesNotContain("inbound-secret-value", raw)

@@ -56,6 +56,17 @@ let unusedGrokConfig =
       WakeSecret = "unused-wake-secret"
       InboundSecret = "unused-inbound-secret" }
 
+let unusedResponseUrl =
+    "https://collaborative-systems.org/ambit/actors/deliver"
+
+let unusedGrokBinding =
+    { Config = unusedGrokConfig
+      ResponseUrl = unusedResponseUrl }
+
+let private grokBinding config =
+    { Config = config
+      ResponseUrl = unusedResponseUrl }
+
 let private createHost keys repos grok =
     let dataDir = newTempDir ()
     let pool = CoreActorPool.create ()
@@ -157,9 +168,12 @@ let withHostKeysReposGrok keys repos grok body =
     }
 
 let withHostKeysRepos keys repos body =
-    withHostKeysReposGrok keys repos unusedGrokConfig body
+    withHostKeysReposGrok keys repos unusedGrokBinding body
 
 let withHostGrok grok body =
+    withHostKeysReposGrok AiKeys.empty [] (grokBinding grok) body
+
+let withHostBinding grok body =
     withHostKeysReposGrok AiKeys.empty [] grok body
 
 let withHostKeys keys body = withHostKeysRepos keys [] body

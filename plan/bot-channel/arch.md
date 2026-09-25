@@ -46,7 +46,7 @@ Sources: [map.md](map.md) Decisions (arch grill 2026-09-24; Alan lock 2026-09-24
    4. [ ] Finish on `RunFinished` (same class of terminus as cursor); Cancel mid-stream via `GrokBotRunner.cancel`
    5. [ ] Empty `WakeUrl` fails safely without writing secrets
    6. [x] Empty inbound `text` is oneshot Done — already coded on `GrokBotRunner.deliver`; do not redesign
-   7. [ ] Wake JSON includes absolute `responseUrl` for `/ambit/actors/deliver` ([06 — Wake response URL](issues/06-wake-response-url.md))
+   7. [x] Wake JSON includes absolute `responseUrl` for `/ambit/actors/deliver` ([06 — Wake response URL](issues/06-wake-response-url.md))
    8. [ ] Later destination (not this slice): keep-alive until Cancel/drop; inbox deliver; subsequent outbound wakes; fuller-channel `kind: close` / close-notify
 
 6. **Secrets bind (first slice composition)**
