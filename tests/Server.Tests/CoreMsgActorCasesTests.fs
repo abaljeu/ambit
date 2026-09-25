@@ -53,6 +53,8 @@ let private recordingPool () =
         liveFocusIds = fun () -> Set.empty
         getFocusId = fun _ -> None
         trySecretForFocus = fun _ -> None
+        deliver = fun _ -> Error "not live"
+        takeInbox = fun _ -> Error "not live"
     }
     started, stopped, live, pool
 
@@ -270,6 +272,8 @@ let ``ActorStop consults isLive once for a live Actor`` () =
         liveFocusIds = fun () -> Set.empty
         getFocusId = fun _ -> None
         trySecretForFocus = fun _ -> None
+        deliver = fun _ -> Error "not live"
+        takeInbox = fun _ -> Error "not live"
     }
     withHost pool (fun host -> task {
         let! result =

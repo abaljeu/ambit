@@ -258,9 +258,21 @@ module internal AgentRunnerFake =
         match events, interruption run with
         | _, Some stop -> stopWith run fold state stop
         | [], None ->
-            let missing = "stream missing terminal event"
-            let stop = RunFailed missing, ApiError("failed", missing)
-            stopWith run fold state stop
+            match tryGet run.Ids with
+            | Some(Finished result) ->
+                markStreamEnded run.Ids
+                let ev = RunFinished result
+                Ok(result, fold.OnEvent state ev)
+            | Some(Failed msg) ->
+                stopWith
+                    run fold state (RunFailed msg, ApiError("failed", msg))
+            | Some Cancelled ->
+                stopWith run fold state (RunCancelled, cancelledError)
+            | Some Creating
+            | Some Running
+            | None ->
+                Thread.Sleep fakePollMs
+                emitFakeStream run fold state events
         | ev :: rest, None ->
             if (terminalOutcome ev).IsSome then markStreamEnded run.Ids
             let state = fold.OnEvent state ev

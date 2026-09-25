@@ -22,5 +22,5 @@ No Console or picker changes.
 
 ## Not done
 
-- Ticket 22 status unchanged
+- [22 — Checked-in cursor-models catalog and Console model/params selection](../issues/22-cursor-models-catalog-file.md) Status unchanged
 - No commit

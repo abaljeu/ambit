@@ -40,10 +40,15 @@
     <Compile Include="CoreRuntimeTests.fs" />
     <Compile Include="BrowserCredentialTests.fs" />
     <Compile Include="CoreActorPoolTests.fs" />
+    <Compile Include="CoreActorPoolDeliverTests.fs" />
+    <Compile Include="ActorsDeliverDoorTests.fs" />
     <Compile Include="TestActorHelloTests.fs" />
     <Compile Include="TestActorCommandErrorTests.fs" />
     <Compile Include="AskCancelHarness.fs" />
     <Compile Include="AgentAskTests.fs" />
+    <Compile Include="AgentActorStreamTests.fs" />
+    <Compile Include="AgentGrokBotStreamTests.fs" />
+    <Compile Include="GrokBotSettingsTests.fs" />
     <Compile Include="BrowserAskProofTests.fs" />
     <Compile Include="AgentFailurePreserveTests.fs" />
     <Compile Include="AgentAuthErrorTests.fs" />

@@ -38,6 +38,7 @@
     <Compile Include="AiKeys.fs" />
     <Compile Include="AiRepos.fs" />
     <Compile Include="AiCommandArgs.fs" />
+    <Compile Include="GrokBotSettings.fs" />
     <Compile Include="TestActor.fs" />
     <Compile Include="AiExtractPack.fs" />
     <Compile Include="RunAgentActor.fs" />

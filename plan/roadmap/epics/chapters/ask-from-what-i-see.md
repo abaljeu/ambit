@@ -19,4 +19,4 @@ Run `?` with a message and included context. The reply is Owned children of the 
 - [ ] [[plan/core-creation/issues/02-core-actor-pool.md]]
 
 ## Notes
-Might be implemented through [[plan\roadmap\epics\operate-connected-channels.md]], making a channel for sending messages to an Agent API.  Agent may asynchronously send info to Ambit.
+Related channel lane (distinct Project): [[plan/bot-channel/project.md]] on [[plan/roadmap/epics/operate-connected-channels.md]] Chapter [[plan/roadmap/epics/chapters/ambit-as-bot-dm-channel.md]] — Ambit ↔ Grok Bot webhook messaging. This Chapter stays `?ai` / CloudAgents via [[plan/llm-connector/project.md]].

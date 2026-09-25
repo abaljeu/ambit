@@ -23,23 +23,6 @@ let ``start requires valid config`` () =
         Assert.False(System.String.IsNullOrEmpty runId)
 
 [<Fact>]
-let ``poll returns status`` () =
-    let config = { RunnerConfig.ApiKey = "test-key" }
-    let result = AgentRunner.poll config "agent-id" "run-id"
-
-    match result with
-    | Error _ -> ()
-    | Ok status ->
-        Assert.True(
-            match status with
-            | Creating
-            | Running
-            | Finished _
-            | Cancelled
-            | Failed _ -> true
-        )
-
-[<Fact>]
 let ``cancel sends cancel request`` () =
     let config = { RunnerConfig.ApiKey = "test-key" }
     let result = AgentRunner.cancel config "agent-id" "run-id"
@@ -49,17 +32,14 @@ let ``cancel sends cancel request`` () =
     | Ok _ -> Assert.True(true)
 
 [<Fact>]
-let ``waitUntilComplete polls until terminal`` () =
-    let config = { RunnerConfig.ApiKey = "fake-key" }
-
-    let result =
-        AgentRunner.waitUntilComplete
-            config
-            "fake-agent"
-            "fake-run"
-            100
-            (Some 500)
-
+let ``streamUntilComplete is the completion path`` () =
+    let args =
+        { Config = { RunnerConfig.ApiKey = "fake-key" }
+          AgentId = "fake-agent"
+          RunId = "fake-run"
+          MaxWaitMs = Some 500 }
+    let fold = { Seed = (); OnEvent = fun s _ -> s }
+    let result = AgentRunner.streamUntilComplete args fold
     match result with
     | Error Timeout -> Assert.True(true)
     | Error _ -> Assert.True(true)
