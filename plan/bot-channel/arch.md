@@ -66,9 +66,9 @@ Sources: [map.md](map.md) Decisions (arch grill 2026-09-24; Alan lock 2026-09-24
 Shared segments (first slice):
 1. [x] FocusXmlStream / pending-buffer Focus writes from 18 (`done`)
 2. [x] CloudAgents `GrokBotRunner` oneshot ([24 — CloudAgents Grok Bot oneshot stream](../llm-connector/issues/24-cloudagents-grokbot-oneshot.md) `done`)
-3. [ ] Run Agent Actor gbot backend on the existing runner (wake + shared fold + Finish + Cancel)
-4. [ ] Existing Cancel / drop / Focus exclusivity
-5. [ ] Actor Finish when `RunFinished` arrives (cursor class of terminus)
+3. [x] Run Agent Actor gbot backend on the existing runner (wake + shared fold + Finish + Cancel)
+4. [x] Existing Cancel / drop / Focus exclusivity
+5. [x] Actor Finish when `RunFinished` arrives (cursor class of terminus)
 
 Narrowest shared test seam:
 1. [ ] CoreActorPool `deliver` + live-row `sessionId` / `commandId` exclusivity (no HTTP)

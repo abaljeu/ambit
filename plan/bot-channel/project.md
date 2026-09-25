@@ -4,6 +4,7 @@ Stage: build
 Summary: Ambit is a Slack-like direct-message channel to Grok Bots. First slice is oneshot library [24 — CloudAgents Grok Bot oneshot stream](../llm-connector/issues/24-cloudagents-grokbot-oneshot.md) plus Actor wiring [05 — Run Agent Actor Grok Bot oneshot](issues/05-run-agent-grokbot-oneshot.md). Eventual 01–03 keep the pool/inbox channel. Destination keep-alive wire stays planned.
 Updated: 2026-09-25
 Started: 2026-09-25
+Actual: 2h
 
 ## Objective
 
@@ -29,6 +30,7 @@ Make Ambit the durable messaging surface for talking to Grok Bots. Cognition sta
 
 ## Notes
 
+- 2026-09-25 — [05 — Run Agent Actor Grok Bot oneshot](issues/05-run-agent-grokbot-oneshot.md) Status `coded`. Fake Grok stream / Cancel / empty WakeUrl proofs on existing Run Agent Actor.
 - 2026-09-25 — Alan lock: remap tickets. 01–03 eventual / deferred (do not implement now). 04 = CloudAgents oneshot library (`done`, pointer to [24 — CloudAgents Grok Bot oneshot stream](../llm-connector/issues/24-cloudagents-grokbot-oneshot.md)). 05 implement now on existing RunAgentActor. 06 Done seam stays Unsettled under the Grok adapter. Stage `build`.
 - 2026-09-25 — Filed first-slice variant tickets (later remapped). Old 05 Finish-on-response-end / old 04 TestActor simulation superseded by the 2026-09-24/25 lock.
 - 2026-09-25 — Alan locked an intermediate first slice: gbot wake/webhook is functionally like Cursor Cloud. Destination keep-alive chat wire stays planned.

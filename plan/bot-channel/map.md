@@ -121,7 +121,7 @@ Architecture: [arch.md](arch.md). Sequence `module-build`. Tickets:
 2. [02 — Inbound POST /ambit/actors/deliver + secret + GrokbotConfig](issues/02-inbound-actors-deliver-door.md) — Status `defined` (eventual / deferred)
 3. [03 — gbot Run Agent: wake + inbox → Focus stream](issues/03-gbot-wake-inbox-focus.md) — Status `defined` (eventual / deferred; Blocked-by 01 and 02)
 4. [04 — CloudAgents Grok Bot oneshot library](issues/04-cloudagents-grokbot-oneshot.md) — Status `done` (pointer to [24 — CloudAgents Grok Bot oneshot stream](../llm-connector/issues/24-cloudagents-grokbot-oneshot.md))
-5. [05 — Run Agent Actor Grok Bot oneshot](issues/05-run-agent-grokbot-oneshot.md) — Status `defined` (implement now; frontier)
+5. [05 — Run Agent Actor Grok Bot oneshot](issues/05-run-agent-grokbot-oneshot.md) — Status `coded`
 6. [06 — Done seam for response concluded](issues/06-done-seam-response-concluded.md) — Status `defined` (research; Unsettled under the Grok adapter)
 
 ## Not yet specified
