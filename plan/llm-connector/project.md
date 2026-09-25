@@ -9,6 +9,7 @@ Actual: 32h 30m
 
 ## Notes
 
+- 2026-09-25 — Filed [23 — Focus stream commit on next <](issues/23-focus-stream-commit-on-next-open.md): `<tag>Text<` commits pending (Alan lock 2026-09-24/25). Status `defined`. Stage stays `done`.
 - 2026-09-25 — Landed [18 — AI Actor stream](issues/18-ai-actor-stream.md) on staging: Actor consumes CloudAgents stream; pending-buffer `addChild` for `<>` fragments. Status `done`. Stage stays `done`.
 - 2026-09-25 — Housekeeping: [17 — CloudAgents Console stream](issues/17-cloudagents-console-stream.md) and [22 — Checked-in cursor-models catalog and Console model/params selection](issues/22-cursor-models-catalog-file.md) already `done` on staging.
 - 2026-09-24 — Coded [18 — AI Actor stream](issues/18-ai-actor-stream.md): Actor consumes CloudAgents stream; pending-buffer `addChild` for `<>` fragments; tidy Amb/Plain replace only when no element was committed. Status `coded`. Stage stays `done`.
@@ -60,6 +61,7 @@ Actual: 32h 30m
 
 ## Implementation tickets
 
+- [23 — Focus stream commit on next <](issues/23-focus-stream-commit-on-next-open.md) — Status `defined`. Follow-up: commit pending when the next `<` arrives; incomplete tag bytes stay in `hold`.
 - [18 — AI Actor stream](issues/18-ai-actor-stream.md) — Status `done`. Follow-up: Actor consumes CloudAgents stream; pending-buffer incremental Focus children; tidy replace only when no element was committed.
 - [17 — CloudAgents Console stream](issues/17-cloudagents-console-stream.md) — Status `done`. Follow-up: DLL `streamUntilComplete` / `setFakeStream`, Cursor SSE, Console deltas.
 - [22 — Checked-in cursor-models catalog and Console model/params selection](issues/22-cursor-models-catalog-file.md) — Status `done`. Follow-up: checked-in `cursor-models.json`; Console loads catalog, validates model/params, emits create `model.params`.

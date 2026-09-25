@@ -19,6 +19,7 @@ Run an Agent from a Zoom-rooted mixed-format Graph extract, mark Focus in the ou
 
 - 2026-09-21 — [21 — Console lists models and fills CLI gaps from appsettings](issues/21-console-lists-models-and-appsettings.md): Console prints the Cursor model catalog at start; CLI > `appsettings.<level>.json` > `CURSOR_API_KEY` for the key. Create JSON `model` is `{ id, params? }`. CloudAgents stays settings-blind. Not a Browser UI.
 - 2026-09-21 — [20 — Gitignore Development appsettings](issues/20-gitignore-development-appsettings.md): Development is gitignored like Production; tracked empty placeholders stay in base `appsettings.json` only.
+- 2026-09-25 — [23 — Focus stream commit on next <](issues/23-focus-stream-commit-on-next-open.md): pending commits when the next `<` arrives (`<tag>Text<` is enough). Incomplete tag bytes stay in `hold`. Amends [18 — AI Actor stream](issues/18-ai-actor-stream.md) commit trigger only.
 - 2026-09-20 — Stream follow-ups: [17 — CloudAgents Console stream](issues/17-cloudagents-console-stream.md) (SSE DLL + Console), then [18 — AI Actor stream](issues/18-ai-actor-stream.md) (pending-buffer `addChild` for `<>` fragment). Not follow-up turns.
 - 2026-09-11 redesign: Ambit is an info hub. Actor data formats and protocols vary; the adaptive-update process is common. [[reports/agent-redesign-locked-2026-09.md]]
 - [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]] — Command-text dispatch, command text `?test hello`, Zoom-rooted extract, Focus replacement, Focus exclusivity, preserve-children, ordinary merge.
@@ -33,23 +34,24 @@ Run an Agent from a Zoom-rooted mixed-format Graph extract, mark Focus in the ou
 
 ## Implementation
 
-1. [21 — Console lists models and fills CLI gaps from appsettings](issues/21-console-lists-models-and-appsettings.md) — Status `done`.
-2. [20 — Gitignore Development appsettings](issues/20-gitignore-development-appsettings.md) — Status `done`.
-3. [19 — AI extract pack is XML with Focus cssClass](issues/19-ai-xml-pack-focus-css.md) — Status `done`.
-4. [18 — AI Actor stream](issues/18-ai-actor-stream.md) — Status `done`.
-5. [17 — CloudAgents Console stream](issues/17-cloudagents-console-stream.md) — Status `done`.
-6. [16 — AiRepos from appsettings](issues/16-airepos-from-appsettings.md) — Status `done`.
-7. [15 — AiKeys from appsettings](issues/15-aikeys-from-appsettings.md) — Status `done`.
-8. [14 — Provider-named AI errors](issues/14-provider-named-ai-errors.md) — Status `done`.
-9. [13 — Vertical proof: Browser Ask from what I see](issues/13-vertical-proof-browser-ask.md) — Status `done`.
-10. [11 — Pack extract with Amb (supplied-fragment walk)](issues/11-simple-extract-format.md) — Status `done`.
-11. [08 — Agent ask from what I see](issues/08-agent-ask-from-what-i-see.md) — Status `done`.
-12. [09 — Agent failure preserves children](issues/09-agent-failure-preserves-children.md) — Status `done`.
-13. [10 — Cancel by Focus](issues/10-cancel-by-focus.md) — Status `done`.
+1. [23 — Focus stream commit on next <](issues/23-focus-stream-commit-on-next-open.md) — Status `defined`.
+2. [21 — Console lists models and fills CLI gaps from appsettings](issues/21-console-lists-models-and-appsettings.md) — Status `done`.
+3. [20 — Gitignore Development appsettings](issues/20-gitignore-development-appsettings.md) — Status `done`.
+4. [19 — AI extract pack is XML with Focus cssClass](issues/19-ai-xml-pack-focus-css.md) — Status `done`.
+5. [18 — AI Actor stream](issues/18-ai-actor-stream.md) — Status `done`.
+6. [17 — CloudAgents Console stream](issues/17-cloudagents-console-stream.md) — Status `done`.
+7. [16 — AiRepos from appsettings](issues/16-airepos-from-appsettings.md) — Status `done`.
+8. [15 — AiKeys from appsettings](issues/15-aikeys-from-appsettings.md) — Status `done`.
+9. [14 — Provider-named AI errors](issues/14-provider-named-ai-errors.md) — Status `done`.
+10. [13 — Vertical proof: Browser Ask from what I see](issues/13-vertical-proof-browser-ask.md) — Status `done`.
+11. [11 — Pack extract with Amb (supplied-fragment walk)](issues/11-simple-extract-format.md) — Status `done`.
+12. [08 — Agent ask from what I see](issues/08-agent-ask-from-what-i-see.md) — Status `done`.
+13. [09 — Agent failure preserves children](issues/09-agent-failure-preserves-children.md) — Status `done`.
+14. [10 — Cancel by Focus](issues/10-cancel-by-focus.md) — Status `done`.
 
 ## Not yet specified
 
-None for the first Agent vertical. [17 — CloudAgents Console stream](issues/17-cloudagents-console-stream.md) and [18 — AI Actor stream](issues/18-ai-actor-stream.md) are `done` under Implementation. Mixed-format owning-codec pack stays tabled under Decisions. Live-Actor chrome is owned by core-creation, not this map.
+None for the first Agent vertical. [23 — Focus stream commit on next <](issues/23-focus-stream-commit-on-next-open.md) is the live stream follow-up. [17 — CloudAgents Console stream](issues/17-cloudagents-console-stream.md) and [18 — AI Actor stream](issues/18-ai-actor-stream.md) are `done` under Implementation. Mixed-format owning-codec pack stays tabled under Decisions. Live-Actor chrome is owned by core-creation, not this map.
 
 ## Out of scope
 
