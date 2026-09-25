@@ -9,6 +9,7 @@ Actual: 35h
 
 ## Notes
 
+- 2026-09-25 — Landed [25 — Grok Bot wake auth Bearer](issues/25-grokbot-wake-auth-bearer.md): `applyWakeAuth` sends `Authorization: Bearer {WakeSecret}`. Status `done`. Stage stays `done`.
 - 2026-09-25 — Coded [25 — Grok Bot wake auth Bearer](issues/25-grokbot-wake-auth-bearer.md): `applyWakeAuth` sends `Authorization: Bearer {WakeSecret}`. Status `coded`. Stage stays `done`.
 - 2026-09-25 — Filed [25 — Grok Bot wake auth Bearer](issues/25-grokbot-wake-auth-bearer.md): lock Ambit → hub wake as `Authorization: Bearer {WakeSecret}`. Settles Unsettled wake-auth on [24 — CloudAgents Grok Bot oneshot stream](issues/24-cloudagents-grokbot-oneshot.md). Status `defined`. Stage stays `done`.
 - 2026-09-25 — Landed [24 — CloudAgents Grok Bot oneshot stream](issues/24-cloudagents-grokbot-oneshot.md): sibling `GrokBotRunner` wake + fake stream-until-`RunFinished` + cancel. Cursor `AgentRunner` unchanged. Status `done`. Stage stays `done`.
@@ -67,7 +68,7 @@ Actual: 35h
 
 ## Implementation tickets
 
-- [25 — Grok Bot wake auth Bearer](issues/25-grokbot-wake-auth-bearer.md) — Status `coded`. Follow-up: lock wake auth as `Authorization: Bearer {WakeSecret}`; replace invented `X-Ambit-Wake-Secret`.
+- [25 — Grok Bot wake auth Bearer](issues/25-grokbot-wake-auth-bearer.md) — Status `done`. Follow-up: lock wake auth as `Authorization: Bearer {WakeSecret}`; replace invented `X-Ambit-Wake-Secret`.
 - [24 — CloudAgents Grok Bot oneshot stream](issues/24-cloudagents-grokbot-oneshot.md) — Status `done`. Follow-up: sibling oneshot `GrokBotRunner` (wake ack-only, fake Done, cancel). Wake auth settled on [25 — Grok Bot wake auth Bearer](issues/25-grokbot-wake-auth-bearer.md). Server Actor gbot wiring out of scope.
 - [23 — Focus stream commit on next <](issues/23-focus-stream-commit-on-next-open.md) — Status `done`. Follow-up: commit pending when the next `<` arrives; incomplete tag bytes stay in `hold`.
 - [18 — AI Actor stream](issues/18-ai-actor-stream.md) — Status `done`. Follow-up: Actor consumes CloudAgents stream; pending-buffer incremental Focus children; tidy replace only when no element was committed.
