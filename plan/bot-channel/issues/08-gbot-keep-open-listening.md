@@ -1,6 +1,7 @@
 # 08 — gbot keep-open listening
 
-**Status:** defined
+**Status:** coded
+Actual: 1h 45m
 **Blocked by:** None — [04 — CloudAgents Grok Bot oneshot library](04-cloudagents-grokbot-oneshot.md) and [05 — Run Agent Actor Grok Bot oneshot](05-run-agent-grokbot-oneshot.md) are `done`. Eventual [01 — CoreActorPool sessionId + deliver + commandId exclusivity](01-coreactorpool-sessionid-deliver.md)–[03 — gbot Run Agent: wake + inbox → Focus stream](03-gbot-wake-inbox-focus.md) stay deferred.
 **Type:** coding
 
@@ -20,18 +21,18 @@ Finish only on Cancel / Actor drop (existing), or other already-locked close pat
 
 ### 1. Keep listening after empty Done
 
-1. [ ] Empty-text deliver does not complete `GrokBotRunner.streamUntilComplete` (live adapter and fake deliver)
-2. [ ] Empty-text deliver still acks (`Ok` / HTTP 200) and does not 404
-3. [ ] Empty-text `RunFinished` still folds (Focus flush) without `actorStop` / pool `finish`
-4. [ ] A later non-empty `POST /ambit/actors/deliver` (or `GrokBotRunner.deliver`) for the same `sessionId` is accepted and grows Focus children
-5. [ ] Cancel / drop still clears the session so later deliver is 404 / `not live`
+1. [x] Empty-text deliver does not complete `GrokBotRunner.streamUntilComplete` (live adapter and fake deliver)
+2. [x] Empty-text deliver still acks (`Ok` / HTTP 200) and does not 404
+3. [x] Empty-text `RunFinished` still folds (Focus flush) without `actorStop` / pool `finish`
+4. [x] A later non-empty `POST /ambit/actors/deliver` (or `GrokBotRunner.deliver`) for the same `sessionId` is accepted and grows Focus children
+5. [x] Cancel / drop still clears the session so later deliver is 404 / `not live`
 
 ### 2. Proof
 
-1. [ ] CloudAgents: empty Done does not complete the stream; a later inbound chunk still folds; cancel still aborts
-2. [ ] Run Agent Actor: after first reply + empty Done the Actor/`sessionId` stays live; second deliver grows Focus; Cancel then late deliver fails
-3. [ ] Pool: empty deliver keeps the live row; second deliver enqueues; drop still clears
-4. [ ] Cursor Cloud path unchanged
+1. [x] CloudAgents: empty Done does not complete the stream; a later inbound chunk still folds; cancel still aborts
+2. [x] Run Agent Actor: after first reply + empty Done the Actor/`sessionId` stays live; second deliver grows Focus; Cancel then late deliver fails
+3. [x] Pool: empty deliver keeps the live row; second deliver enqueues; drop still clears
+4. [x] Cursor Cloud path unchanged
 
 ## Non-goals
 
@@ -49,3 +50,8 @@ Finish only on Cancel / Actor drop (existing), or other already-locked close pat
 ## Comments
 
 - 2026-09-25 — Filed. Alan lock: after the first reply, do not Finish the gbot Actor on empty-text oneshot Done. Same `sessionId` stays live and later deliver texts fold into Focus until Cancel or drop. Status `defined`.
+- 2026-09-25 — Coded keep-listening on empty-text `RunFinished` in `GrokBotAdapter.streamRun` and `GrokBotFake` (flush, do not complete / do not mark `Finished`). Run Agent Actor stays in `runStream`. Status `coded`.
+
+## Time
+
+- 2026-09-25 1h 45m — File ticket 08, keep-open seam, CloudAgents / Run Agent / pool proofs (from chat)

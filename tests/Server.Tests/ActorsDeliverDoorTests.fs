@@ -86,10 +86,9 @@ let ``good secret delivers chunk then empty Done`` () =
             { Config = unusedConfig
               SessionId = "sess-door"
               PollIntervalMs = 10
-              MaxWaitMs = Some 2000 }
+              MaxWaitMs = Some 200 }
             fold
     with
-    | Ok(result, events) ->
-        Assert.Equal("<n>Hi</n>", result.Text)
-        Assert.Equal(2, List.length events)
-    | Error err -> Assert.Fail($"stream: {err}")
+    | Error AgentError.Timeout -> ()
+    | other ->
+        Assert.Fail($"expected keep-open Timeout, {other}")

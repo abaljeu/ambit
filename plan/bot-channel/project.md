@@ -4,7 +4,7 @@ Stage: build
 Summary: Ambit is a Slack-like direct-message channel to Grok Bots. Oneshot library [24 — CloudAgents Grok Bot oneshot stream](../llm-connector/issues/24-cloudagents-grokbot-oneshot.md) plus Actor wiring [05 — Run Agent Actor Grok Bot oneshot](issues/05-run-agent-grokbot-oneshot.md) and [06 — Wake response URL](issues/06-wake-response-url.md) are `done`. Frontier is [08 — gbot keep-open listening](issues/08-gbot-keep-open-listening.md): stay live after first reply; empty-text Done does not Finish. Eventual [01 — CoreActorPool sessionId + deliver + commandId exclusivity](issues/01-coreactorpool-sessionid-deliver.md)–[03 — gbot Run Agent: wake + inbox → Focus stream](issues/03-gbot-wake-inbox-focus.md) keep the fuller pool/inbox channel.
 Updated: 2026-09-25
 Started: 2026-09-25
-Actual: 6h 50m
+Actual: 8h 35m
 
 ## Objective
 
@@ -30,6 +30,7 @@ Make Ambit the durable messaging surface for talking to Grok Bots. Cognition sta
 
 ## Notes
 
+- 2026-09-25 — Coded [08 — gbot keep-open listening](issues/08-gbot-keep-open-listening.md): empty-text `RunFinished` flushes and keeps `streamUntilComplete` listening. Same `sessionId` stays live. Status `coded`. Stage stays `build`.
 - 2026-09-25 — Filed [08 — gbot keep-open listening](issues/08-gbot-keep-open-listening.md): after first reply, empty-text Done does not Finish; same `sessionId` stays live. Status `defined`. Stage stays `build`.
 - 2026-09-25 — [06 — Wake response URL](issues/06-wake-response-url.md) Status `done`. Alan accepted; squash-landed. Wake JSON carries absolute `responseUrl` (`{origin}/ambit/actors/deliver`). Origin from `PublicAssetBase` when set, else `https://collaborative-systems.org`. Stage stays `build`.
 - 2026-09-25 — Coded [06 — Wake response URL](issues/06-wake-response-url.md): outbound wake JSON carries absolute `responseUrl` (`{origin}/ambit/actors/deliver`). Origin from `PublicAssetBase` when set, else `https://collaborative-systems.org`. Library stays settings-blind. Status `coded`. Stage stays `build`.

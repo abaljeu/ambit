@@ -106,11 +106,10 @@ module GrokBotAdapter =
         match ev with
         | AssistantText chunk ->
             outcome, state, acc + chunk
+        | RunFinished result when String.IsNullOrEmpty result.Text ->
+            outcome, state, acc
         | RunFinished result ->
-            let text =
-                if String.IsNullOrEmpty result.Text then acc
-                else result.Text
-            Some(Ok { result with Text = text }), state, acc
+            Some(Ok result), state, acc
         | RunFailed msg ->
             Some(Error(ApiError("failed", msg))), state, acc
         | RunCancelled ->

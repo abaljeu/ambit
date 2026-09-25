@@ -97,11 +97,14 @@ module internal GrokBotFake =
                 { seam with
                     Events = Map.add sessionId events seam.Events }
             match ev with
+            | RunFinished result when String.IsNullOrEmpty result.Text ->
+                ()
             | RunFinished result ->
                 if Set.contains sessionId !cancelled then
                     ()
                 else
-                    results := Map.add sessionId (Finished result) !results
+                    results :=
+                        Map.add sessionId (Finished result) !results
             | _ -> ())
         Ok()
 
@@ -186,6 +189,8 @@ module internal GrokBotFake =
         let state = fold.OnEvent state ev
         let outcome =
             match ev with
+            | RunFinished result when String.IsNullOrEmpty result.Text ->
+                outcome
             | RunFinished result -> Some(Ok result)
             | RunFailed msg -> Some(Error(ApiError("failed", msg)))
             | RunCancelled -> Some(cancelledRun ())

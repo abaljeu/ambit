@@ -129,7 +129,7 @@ Architecture: [arch.md](arch.md). Sequence `module-build`. Tickets:
 5. [05 — Run Agent Actor Grok Bot oneshot](issues/05-run-agent-grokbot-oneshot.md) — Status `done`
 6. [06 — Wake response URL](issues/06-wake-response-url.md) — Status `done` (absolute `responseUrl` on outbound wake)
 7. [25 — Grok Bot wake auth Bearer](../llm-connector/issues/25-grokbot-wake-auth-bearer.md) — Status `coded`. Settles wake auth as `Authorization: Bearer {WakeSecret}`.
-8. [08 — gbot keep-open listening](issues/08-gbot-keep-open-listening.md) — Status `defined`. After first reply, empty-text Done does not Finish; same `sessionId` stays live.
+8. [08 — gbot keep-open listening](issues/08-gbot-keep-open-listening.md) — Status `coded`. After first reply, empty-text Done does not Finish; same `sessionId` stays live.
 
 ## Not yet specified
 
