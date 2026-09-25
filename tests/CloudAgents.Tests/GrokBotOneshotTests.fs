@@ -139,24 +139,31 @@ type GrokBotOneshotTests() =
         Assert.DoesNotContain("inbound-secret-value", raw)
 
     [<Fact>]
-    member _.``applyWakeAuth sends X-Ambit-Wake-Secret``() =
+    member _.``applyWakeAuth sends Authorization Bearer``() =
         use req = new HttpRequestMessage()
         let got =
             GrokBotHttp.applyWakeAuth req "wake-secret-value"
-        Assert.True(got.Headers.Contains(GrokBotHttp.wakeSecretHeader))
-        let values =
-            got.Headers.GetValues(GrokBotHttp.wakeSecretHeader)
-            |> Seq.toList
-        Assert.Equal<string list>([ "wake-secret-value" ], values)
+        Assert.NotNull(got.Headers.Authorization)
+        Assert.Equal("Bearer", got.Headers.Authorization.Scheme)
+        Assert.Equal(
+            "wake-secret-value",
+            got.Headers.Authorization.Parameter)
+        Assert.False(
+            got.Headers.Contains("X-Ambit-Wake-Secret"))
         Assert.False(
             got.Headers.Contains("X-Ambit-Inbound-Secret"))
-        Assert.Null(got.Headers.Authorization)
 
-    [<Fact>]
-    member _.``applyWakeAuth skips header when secret is empty``() =
+    [<Theory>]
+    [<InlineData("")>]
+    [<InlineData(" ")>]
+    member _.``applyWakeAuth skips header when secret is blank``
+        (secret: string)
+        =
         use req = new HttpRequestMessage()
-        let got = GrokBotHttp.applyWakeAuth req ""
-        Assert.False(got.Headers.Contains(GrokBotHttp.wakeSecretHeader))
+        let got = GrokBotHttp.applyWakeAuth req secret
+        Assert.Null(got.Headers.Authorization)
+        Assert.False(
+            got.Headers.Contains("X-Ambit-Wake-Secret"))
         Assert.Empty(got.Headers)
 
     [<Fact>]

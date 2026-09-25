@@ -124,9 +124,9 @@ keys `grokbot:WakeUrl`, `grokbot:WakeSecret`, and
 `grokbot:InboundSecret` into `GrokBotConfig`. `InboundSecret` is
 unused here (Server deliver door).
 
-Wake auth header is `X-Ambit-Wake-Secret` with the configured
-`WakeSecret` value. Empty `WakeSecret` fails closed without
-sending (same class as empty `WakeUrl`).
+Wake auth is `Authorization: Bearer <WakeSecret>`. Empty
+`WakeSecret` fails closed without sending (same class as empty
+`WakeUrl`). Do not send `X-Ambit-*` on wake.
 
 Wake JSON follows the bot-channel map payload: `source`,
 `kind: message`, `sentAt`, `commandId`, `focusId`, `sessionId`,
