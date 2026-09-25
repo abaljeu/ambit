@@ -4,7 +4,7 @@ Stage: build
 Summary: Ambit is a Slack-like direct-message channel to Grok Bots. First slice is oneshot library [24 — CloudAgents Grok Bot oneshot stream](../llm-connector/issues/24-cloudagents-grokbot-oneshot.md) plus Actor wiring [05 — Run Agent Actor Grok Bot oneshot](issues/05-run-agent-grokbot-oneshot.md). Next: [06 — Wake response URL](issues/06-wake-response-url.md) so Azure oneshot replies can POST back to `/ambit/actors/deliver`. Eventual [01 — CoreActorPool sessionId + deliver + commandId exclusivity](issues/01-coreactorpool-sessionid-deliver.md)–[03 — gbot Run Agent: wake + inbox → Focus stream](issues/03-gbot-wake-inbox-focus.md) keep the pool/inbox channel. Destination keep-alive wire stays planned.
 Updated: 2026-09-25
 Started: 2026-09-25
-Actual: 5h 5m
+Actual: 5h 15m
 
 ## Objective
 
@@ -30,7 +30,7 @@ Make Ambit the durable messaging surface for talking to Grok Bots. Cognition sta
 
 ## Notes
 
-- 2026-09-25 — Alan lock: remap [06 — Wake response URL](issues/06-wake-response-url.md) to outbound wake `responseUrl` (absolute `/ambit/actors/deliver`) so oneshot `?ai gbot` replies work when Ambit runs on Azure. Prior research ticket **06 — Done seam for response concluded** is superseded. Empty `text` on deliver is the live oneshot Done terminus. Do not put `InboundSecret` on the wake body. Do not expand [03 — gbot Run Agent: wake + inbox → Focus stream](issues/03-gbot-wake-inbox-focus.md). Stage stays `build`.
+- 2026-09-25 — Alan lock: remap [06 — Wake response URL](issues/06-wake-response-url.md) to outbound wake `responseUrl` (absolute `/ambit/actors/deliver`) so oneshot `?ai gbot` replies work when Ambit runs on Azure. Prior research ticket **06 — Done seam for response concluded** is superseded. Empty `text` on deliver is the live oneshot Done terminus. Do not put `InboundSecret` on the wake body. Do not expand [03 — gbot Run Agent: wake + inbox → Focus stream](issues/03-gbot-wake-inbox-focus.md). Definition of done: Azure `?ai gbot` → grokbot can POST deliver → Focus nodes via `/deliver` → CloudAgents grokbot handlers → Actor Changes. Hub POST is an ops dependency. Stage stays `build`.
 - 2026-09-25 — Coded [25 — Grok Bot wake auth Bearer](../llm-connector/issues/25-grokbot-wake-auth-bearer.md): wake auth is `Authorization: Bearer {WakeSecret}`. Status `coded`. Stage stays `build`.
 - 2026-09-25 — Filed [25 — Grok Bot wake auth Bearer](../llm-connector/issues/25-grokbot-wake-auth-bearer.md): wake auth is `Authorization: Bearer {WakeSecret}`. Hub header Unsettled is settled. Status `defined`. Stage stays `build`.
 - 2026-09-25 — Live Grokbot corrections: [01 — CoreActorPool sessionId + deliver + commandId exclusivity](issues/01-coreactorpool-sessionid-deliver.md)–[03 — gbot Run Agent: wake + inbox → Focus stream](issues/03-gbot-wake-inbox-focus.md) Status `coded`. Wake hub header later settled on [25 — Grok Bot wake auth Bearer](../llm-connector/issues/25-grokbot-wake-auth-bearer.md). Report [live-grokbot-corrections.md](reports/live-grokbot-corrections.md).

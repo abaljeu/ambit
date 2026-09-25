@@ -14,7 +14,13 @@ Azure is the reachable Ambit. A localhost hub → Ambit deliver does not work wi
 
 Today outbound wake JSON is `source`, `kind`, `sentAt`, `commandId`, `focusId`, `sessionId`, `text`, `payload` ([GrokBotHttp.wakeRequestJson](../../../src/CloudAgents/Internal/GrokBotHttp.fs)). The hub has no absolute URL for the deliver door.
 
-The prior research ticket **06 — Done seam for response concluded** is superseded. Empty `text` on deliver is the live oneshot terminus. Do not reopen that research.
+The prior research ticket **06 — Done seam for response concluded** is superseded. Empty `text` on deliver is the live oneshot terminus. [04 — CloudAgents Grok Bot oneshot library](04-cloudagents-grokbot-oneshot.md) and [05 — Run Agent Actor Grok Bot oneshot](05-run-agent-grokbot-oneshot.md) are `done`. Do not expand [03 — gbot Run Agent: wake + inbox → Focus stream](03-gbot-wake-inbox-focus.md). Do not reopen Done-seam research.
+
+## Definition of done
+
+A build running on Azure can post a `?ai gbot` message, and grokbot has the info to send messages to deliver, which — because [04 — CloudAgents Grok Bot oneshot library](04-cloudagents-grokbot-oneshot.md) and [05 — Run Agent Actor Grok Bot oneshot](05-run-agent-grokbot-oneshot.md) are complete — results in nodes being created under Focus. Architecturally, this happens by `/deliver` calling into the CloudAgents project (grokbot handlers), which then posts Change ops with its held Actor secret.
+
+Ambit-repo scope is the wake `responseUrl` plus any missing Ambit wiring so the hub can POST deliver. Hub/bot reading that URL and POSTing is required for live Done, but hub implementation stays outside this repo (ops / dependency). Live Done is Azure Focus growth via deliver → CloudAgents → Actor Changes.
 
 ## What to build
 
@@ -54,7 +60,9 @@ The prior research ticket **06 — Done seam for response concluded** is superse
 ## Comments
 
 - 2026-09-25 — Filed. Alan lock: oneshot `?ai gbot` replies under Focus when Ambit runs on Azure. Outbound wake carries an absolute response URL so the hub can POST to `/ambit/actors/deliver`. Prior Done-seam research ticket superseded (empty-text Done is live). Status `defined`.
+- 2026-09-25 — Alan locked Definition of done: Azure `?ai gbot` → grokbot has deliver info → Focus nodes via `/deliver` → CloudAgents grokbot handlers → Actor Changes. Hub POST is an ops dependency. [04 — CloudAgents Grok Bot oneshot library](04-cloudagents-grokbot-oneshot.md) and [05 — Run Agent Actor Grok Bot oneshot](05-run-agent-grokbot-oneshot.md) stay `done`. Leave [03 — gbot Run Agent: wake + inbox → Focus stream](03-gbot-wake-inbox-focus.md) alone.
 
 ## Time
 
 - 2026-09-25 45m — File wake response-URL ticket; remap plan pointers; settle empty-text Done (from chat)
+- 2026-09-25 10m — Add Alan Definition of done (from chat)
