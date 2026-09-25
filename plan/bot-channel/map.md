@@ -124,7 +124,7 @@ Architecture: [arch.md](arch.md). Sequence `module-build`. Tickets:
 4. [04 — CloudAgents Grok Bot oneshot library](issues/04-cloudagents-grokbot-oneshot.md) — Status `done` (pointer to [24 — CloudAgents Grok Bot oneshot stream](../llm-connector/issues/24-cloudagents-grokbot-oneshot.md))
 5. [05 — Run Agent Actor Grok Bot oneshot](issues/05-run-agent-grokbot-oneshot.md) — Status `done`
 6. [06 — Done seam for response concluded](issues/06-done-seam-response-concluded.md) — Status `defined` (research; Unsettled under the Grok adapter)
-7. [25 — Grok Bot wake auth Bearer](../llm-connector/issues/25-grokbot-wake-auth-bearer.md) — Status `defined`. Settles wake auth as `Authorization: Bearer {WakeSecret}`.
+7. [25 — Grok Bot wake auth Bearer](../llm-connector/issues/25-grokbot-wake-auth-bearer.md) — Status `coded`. Settles wake auth as `Authorization: Bearer {WakeSecret}`.
 
 ## Not yet specified
 

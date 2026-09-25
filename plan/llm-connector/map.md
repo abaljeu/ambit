@@ -36,7 +36,7 @@ Run an Agent from a Zoom-rooted mixed-format Graph extract, mark Focus in the ou
 
 ## Implementation
 
-1. [25 — Grok Bot wake auth Bearer](issues/25-grokbot-wake-auth-bearer.md) — Status `defined`. Follow-up: lock wake auth as `Authorization: Bearer {WakeSecret}`.
+1. [25 — Grok Bot wake auth Bearer](issues/25-grokbot-wake-auth-bearer.md) — Status `coded`. Follow-up: lock wake auth as `Authorization: Bearer {WakeSecret}`.
 2. [24 — CloudAgents Grok Bot oneshot stream](issues/24-cloudagents-grokbot-oneshot.md) — Status `done`. Follow-up: sibling oneshot `GrokBotRunner` (wake ack-only, fake Done, cancel). Wake auth settled on [25 — Grok Bot wake auth Bearer](issues/25-grokbot-wake-auth-bearer.md).
 3. [23 — Focus stream commit on next <](issues/23-focus-stream-commit-on-next-open.md) — Status `done`.
 4. [21 — Console lists models and fills CLI gaps from appsettings](issues/21-console-lists-models-and-appsettings.md) — Status `done`.
@@ -55,7 +55,7 @@ Run an Agent from a Zoom-rooted mixed-format Graph extract, mark Focus in the ou
 
 ## Not yet specified
 
-None for the first Agent vertical. [25 — Grok Bot wake auth Bearer](issues/25-grokbot-wake-auth-bearer.md) is the open follow-up under Implementation. [23 — Focus stream commit on next <](issues/23-focus-stream-commit-on-next-open.md), [17 — CloudAgents Console stream](issues/17-cloudagents-console-stream.md), and [18 — AI Actor stream](issues/18-ai-actor-stream.md) are `done` under Implementation. Mixed-format owning-codec pack stays tabled under Decisions. Live-Actor chrome is owned by core-creation, not this map.
+None for the first Agent vertical. [25 — Grok Bot wake auth Bearer](issues/25-grokbot-wake-auth-bearer.md) is `coded` under Implementation. [23 — Focus stream commit on next <](issues/23-focus-stream-commit-on-next-open.md), [17 — CloudAgents Console stream](issues/17-cloudagents-console-stream.md), and [18 — AI Actor stream](issues/18-ai-actor-stream.md) are `done` under Implementation. Mixed-format owning-codec pack stays tabled under Decisions. Live-Actor chrome is owned by core-creation, not this map.
 
 ## Out of scope
 

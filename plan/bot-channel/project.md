@@ -30,6 +30,7 @@ Make Ambit the durable messaging surface for talking to Grok Bots. Cognition sta
 
 ## Notes
 
+- 2026-09-25 — Coded [25 — Grok Bot wake auth Bearer](../llm-connector/issues/25-grokbot-wake-auth-bearer.md): wake auth is `Authorization: Bearer {WakeSecret}`. Status `coded`. Stage stays `build`.
 - 2026-09-25 — Filed [25 — Grok Bot wake auth Bearer](../llm-connector/issues/25-grokbot-wake-auth-bearer.md): wake auth is `Authorization: Bearer {WakeSecret}`. Hub header Unsettled is settled. Status `defined`. Stage stays `build`.
 - 2026-09-25 — Live Grokbot corrections: [01 — CoreActorPool sessionId + deliver + commandId exclusivity](issues/01-coreactorpool-sessionid-deliver.md)–[03 — gbot Run Agent: wake + inbox → Focus stream](issues/03-gbot-wake-inbox-focus.md) Status `coded`. Wake hub header later settled on [25 — Grok Bot wake auth Bearer](../llm-connector/issues/25-grokbot-wake-auth-bearer.md). Report [live-grokbot-corrections.md](reports/live-grokbot-corrections.md).
 - 2026-09-25 — [05 — Run Agent Actor Grok Bot oneshot](issues/05-run-agent-grokbot-oneshot.md) Status `done`. Alan accepted; squash-landed. Fake Grok stream / Cancel / empty WakeUrl proofs on existing Run Agent Actor.

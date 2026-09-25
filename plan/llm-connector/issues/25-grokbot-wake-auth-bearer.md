@@ -1,6 +1,7 @@
 # 25 — Grok Bot wake auth Bearer
 
-**Status:** defined
+**Status:** coded
+Actual: 1h 30m
 **Blocked by:** None — [24 — CloudAgents Grok Bot oneshot stream](24-cloudagents-grokbot-oneshot.md) is `done`.
 **Type:** coding
 
@@ -12,20 +13,20 @@
 
 ### 1. Plan lock
 
-1. [ ] Record wake auth as `Authorization: Bearer {WakeSecret}` on [24 — CloudAgents Grok Bot oneshot stream](24-cloudagents-grokbot-oneshot.md) and [bot-channel](../../bot-channel/map.md) map / spec / arch so they agree. Do not leave hub header name Unsettled.
-2. [ ] Name-and-link issue ids with `[label](path)` links.
+1. [x] Record wake auth as `Authorization: Bearer {WakeSecret}` on [24 — CloudAgents Grok Bot oneshot stream](24-cloudagents-grokbot-oneshot.md) and [bot-channel](../../bot-channel/map.md) map / spec / arch so they agree. Do not leave hub header name Unsettled.
+2. [x] Name-and-link issue ids with `[label](path)` links.
 
 ### 2. Library wake header
 
-1. [ ] [GrokBotHttp.applyWakeAuth](../../../src/CloudAgents/Internal/GrokBotHttp.fs) sets `Authorization: Bearer <WakeSecret>` on the `HttpRequestMessage`.
-2. [ ] Empty or whitespace secret does not invent a fake header; leave unset. [GrokBotAdapter.wake](../../../src/CloudAgents/Internal/GrokBotAdapter.fs) already fails closed (`missing wake secret` / `unauthorized`) without writing the secret into error text.
-3. [ ] Do not send `X-Ambit-Wake-Secret` or `X-Ambit-Inbound-Secret` on wake.
+1. [x] [GrokBotHttp.applyWakeAuth](../../../src/CloudAgents/Internal/GrokBotHttp.fs) sets `Authorization: Bearer <WakeSecret>` on the `HttpRequestMessage`.
+2. [x] Empty or whitespace secret does not invent a fake header; leave unset. [GrokBotAdapter.wake](../../../src/CloudAgents/Internal/GrokBotAdapter.fs) already fails closed (`missing wake secret` / `unauthorized`) without writing the secret into error text.
+3. [x] Do not send `X-Ambit-Wake-Secret` or `X-Ambit-Inbound-Secret` on wake.
 
 ### 3. Proof
 
-1. [ ] CloudAgents grokbot collection: wake request carries `Authorization: Bearer …` with the configured `WakeSecret`.
-2. [ ] Same request does not carry `X-Ambit-*` for wake. Empty secret leaves Authorization unset.
-3. [ ] Existing CloudAgents grokbot facts stay green. Live hub not required.
+1. [x] CloudAgents grokbot collection: wake request carries `Authorization: Bearer …` with the configured `WakeSecret`.
+2. [x] Same request does not carry `X-Ambit-*` for wake. Empty secret leaves Authorization unset.
+3. [x] Existing CloudAgents grokbot facts stay green. Live hub not required.
 
 ### 4. Non-goals
 
@@ -40,5 +41,8 @@
 ## Comments
 
 - 2026-09-25 — Filed: Alan confirmed hub wake is `Authorization: Bearer <WakeSecret>`. Status `defined`.
+- 2026-09-25 — Coded: `applyWakeAuth` sets `Authorization: Bearer <WakeSecret>`; empty/whitespace leaves Authorization unset; no `X-Ambit-*` on wake. Proofs in [GrokBotOneshotTests](../../../tests/CloudAgents.Tests/GrokBotOneshotTests.fs). Status `coded`.
 
 ## Time
+
+- 2026-09-25 1h 30m — Plan lock + Bearer wake header + CloudAgents grokbot proofs (from chat)
