@@ -333,7 +333,7 @@ module RunAgentActor =
         }
 
     let private completeGrok
-        (grok: GrokBotConfig)
+        (grok: GrokBotBinding)
         (input: ActorInput)
         coreChanges
         document
@@ -341,16 +341,17 @@ module RunAgentActor =
         async {
             let sessionId = input.sessionId
             let wakeArgs =
-                { Config = grok
+                { Config = grok.Config
                   Text = document
                   CommandId = nodeGuid input.commandId
                   FocusId = nodeGuid input.focusId
-                  SessionId = sessionId }
+                  SessionId = sessionId
+                  ResponseUrl = grok.ResponseUrl }
             match GrokBotRunner.wake wakeArgs with
             | Error err -> return failedFromError err
             | Ok() ->
                 let stream =
-                    { Config = grok
+                    { Config = grok.Config
                       SessionId = sessionId
                       PollIntervalMs = 50
                       MaxWaitMs = None }
@@ -358,7 +359,8 @@ module RunAgentActor =
                     runStream
                         input
                         coreChanges
-                        (fun () -> requestGrokCancel grok sessionId)
+                        (fun () ->
+                            requestGrokCancel grok.Config sessionId)
                         (fun fold ->
                             GrokBotRunner.streamUntilComplete
                                 stream
@@ -425,7 +427,7 @@ module RunAgentActor =
     let actorFn
         (keys: AiKeySet)
         (repos: AiRepo list)
-        (grok: GrokBotConfig)
+        (grok: GrokBotBinding)
         : ActorFn =
         fun input coreChanges ->
             async {

@@ -35,11 +35,11 @@ Per [arch.md](../arch.md) first-slice cut and module **Run Agent Actor — gbot 
 
 1. [x] Bind `GrokBotConfig` from User Secrets / config `grokbot:WakeUrl` / `WakeSecret` / `InboundSecret` at composition
 2. [x] Library stays settings-blind
-3. [x] Do not invent inbound body fields in Server ([06 — Done seam for response concluded](06-done-seam-response-concluded.md) stays Unsettled under the Grok adapter)
+3. [x] Do not invent inbound body fields in Server. Oneshot Done is empty `text` on deliver. Absolute wake `responseUrl` is [06 — Wake response URL](06-wake-response-url.md)
 
 ### 4. Proof
 
-Live `GrokBotAdapter.streamRun` may still return `InvalidResponse` until the Done seam locks. Proofs use `GrokBotRunner.setFake` / `setFakeStream` the way Cursor tests use fakes.
+Live `GrokBotAdapter.streamRun` waits on inbound `GrokBotRunner.deliver`. Empty `text` is oneshot Done. Proofs use `GrokBotRunner.setFake` / `setFakeStream` the way Cursor tests use fakes.
 
 1. [x] Fake Grok stream → Focus growth / Finish class of terminus
 2. [x] Cancel mid-stream drops live and keeps streamed children
@@ -66,4 +66,4 @@ Live `GrokBotAdapter.streamRun` may still return `InvalidResponse` until the Don
 
 ## See also
 
-[04 — CloudAgents Grok Bot oneshot library](04-cloudagents-grokbot-oneshot.md), [24 — CloudAgents Grok Bot oneshot stream](../../llm-connector/issues/24-cloudagents-grokbot-oneshot.md), [src/Server/RunAgentActor.fs](../../../src/Server/RunAgentActor.fs), [src/CloudAgents/GrokBotRunner.fs](../../../src/CloudAgents/GrokBotRunner.fs), [06 — Done seam for response concluded](06-done-seam-response-concluded.md)
+[04 — CloudAgents Grok Bot oneshot library](04-cloudagents-grokbot-oneshot.md), [24 — CloudAgents Grok Bot oneshot stream](../../llm-connector/issues/24-cloudagents-grokbot-oneshot.md), [src/Server/RunAgentActor.fs](../../../src/Server/RunAgentActor.fs), [src/CloudAgents/GrokBotRunner.fs](../../../src/CloudAgents/GrokBotRunner.fs), [06 — Wake response URL](06-wake-response-url.md)

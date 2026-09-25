@@ -90,12 +90,14 @@ type GrokBotConfig =
       InboundSecret: string }
 
 /// One wake POST (ack-only). Next query is a new oneshot.
+/// ResponseUrl is the absolute deliver door; caller supplies it.
 type GrokBotWakeArgs =
     { Config: GrokBotConfig
       Text: string
       CommandId: string
       FocusId: string
-      SessionId: string }
+      SessionId: string
+      ResponseUrl: string }
 
 /// Which oneshot to stream, and how long to wait.
 type GrokBotStreamArgs =
