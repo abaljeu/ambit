@@ -59,6 +59,55 @@ type GrokBotOneshotTests() =
         finally
             clearFake ()
 
+    let hangingLateFinish _ =
+        GrokBotRunner.waitForCancel 8000 |> ignore
+        Finished(sampleResult "late")
+
+    let keptTextOnly _ = [ AssistantText "kept" ]
+
+    let noteCancelEvent
+        (sawText: ManualResetEvent)
+        (seen: string ref)
+        ev =
+        match ev with
+        | AssistantText _ ->
+            sawText.Set() |> ignore
+        | RunFinished _ ->
+            seen := "finished"
+        | _ -> ()
+
+    let recordCancelOutcome seen result =
+        match result with
+        | Error(ApiError("cancelled", _)) ->
+            seen := "cancelled"
+        | Ok _ -> seen := "ok"
+        | Error _ -> seen := "other"
+
+    let streamUntilCancel sessionId sawText seen =
+        let fold =
+            { Seed = ()
+              OnEvent =
+                fun () ev -> noteCancelEvent sawText seen ev }
+        GrokBotRunner.streamUntilComplete
+            { streamArgs sessionId with MaxWaitMs = None }
+            fold
+        |> recordCancelOutcome seen
+
+    let assertCancelledMidStream sessionId =
+        let sawText = new ManualResetEvent(false)
+        let seen = ref "none"
+        let worker =
+            Thread(fun () ->
+                streamUntilCancel sessionId sawText seen)
+        worker.Start()
+        Assert.True(sawText.WaitOne 2000)
+        match GrokBotRunner.cancel unusedConfig sessionId with
+        | Error err -> Assert.Fail($"cancel: {err}")
+        | Ok() ->
+            Assert.True(worker.Join 2000)
+            Assert.Equal("cancelled", !seen)
+            Assert.True(GrokBotRunner.fakeCancelCount() >= 1)
+
     [<Fact>]
     member _.``GrokBotConfig holds the three grokbot keys``() =
         Assert.Equal(
@@ -181,50 +230,12 @@ type GrokBotOneshotTests() =
 
     [<Fact>]
     member _.``cancel mid-stream yields cancelled not Finish``() =
-        withFake
-            (fun _ ->
-                GrokBotRunner.waitForCancel 8000 |> ignore
-                Finished(sampleResult "late"))
-            (fun () ->
-                Assert.True(
-                    GrokBotRunner.setFakeStream (Some (fun _ ->
-                        [ AssistantText "kept" ]))
-                )
-                let args = wakeArgs unusedConfig "sess-c" "pack"
-                match GrokBotRunner.wake args with
-                | Error err -> Assert.Fail($"wake: {err}")
-                | Ok() ->
-                    let sawText = new ManualResetEvent(false)
-                    let seen = ref "none"
-                    let worker =
-                        Thread(fun () ->
-                            match
-                                GrokBotRunner.streamUntilComplete
-                                    { streamArgs "sess-c" with
-                                        MaxWaitMs = None }
-                                    { Seed = ()
-                                      OnEvent =
-                                        fun () ev ->
-                                            match ev with
-                                            | AssistantText _ ->
-                                                sawText.Set()
-                                                |> ignore
-                                            | RunFinished _ ->
-                                                seen := "finished"
-                                            | _ -> () }
-                            with
-                            | Error(ApiError("cancelled", _)) ->
-                                seen := "cancelled"
-                            | Ok _ -> seen := "ok"
-                            | Error _ -> seen := "other")
-                    worker.Start()
-                    Assert.True(sawText.WaitOne 2000)
-                    match
-                        GrokBotRunner.cancel unusedConfig "sess-c"
-                    with
-                    | Ok() -> ()
-                    | Error err -> Assert.Fail($"cancel: {err}")
-                    Assert.True(worker.Join 2000)
-                    Assert.Equal("cancelled", !seen)
-                    Assert.True(
-                        GrokBotRunner.fakeCancelCount() >= 1))
+        withFake hangingLateFinish (fun () ->
+            Assert.True(
+                GrokBotRunner.setFakeStream (Some keptTextOnly))
+            match
+                GrokBotRunner.wake
+                    (wakeArgs unusedConfig "sess-c" "pack")
+            with
+            | Error err -> Assert.Fail($"wake: {err}")
+            | Ok() -> assertCancelledMidStream "sess-c")

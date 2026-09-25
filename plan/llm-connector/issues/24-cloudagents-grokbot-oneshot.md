@@ -1,7 +1,7 @@
 # 24 — CloudAgents Grok Bot oneshot stream
 
 **Status:** coded
-Actual: 2h
+Actual: 2h 20m
 **Blocked by:** None — [17 — CloudAgents Console stream](17-cloudagents-console-stream.md) is `done`.
 **Type:** coding
 
@@ -46,7 +46,9 @@ Alan asked for a oneshot Grok Bot stream face on the CloudAgents library ([Gambo
 ## Comments
 
 - 2026-09-25 — Filed and coded: sibling `GrokBotRunner` oneshot (wake ack-only, fake stream until `RunFinished`, cancel). Wake auth and Done seam Unsettled as documented. Status `coded`.
+- 2026-09-25 — Standards review hard item: split `cancel mid-stream yields cancelled not Finish` via helpers. Reports folded from the independent review. Status stays `coded`.
 
 ## Time
 
 - 2026-09-25 2h — Library oneshot runner + fakes + CloudAgents.Tests proofs (from chat)
+- 2026-09-25 20m — Split cancel test under 40 lines; fold review reports (from chat)
