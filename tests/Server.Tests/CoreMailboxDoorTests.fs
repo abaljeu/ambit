@@ -185,8 +185,10 @@ let ``CoreMailbox.actorStop with valid credential drops live row`` () =
                 stopped.Add(secret, result)
                 Ok ()
         liveFocusIds = fun () -> Set.empty
-        getFocusId = fun _ -> None
+        getFocusId = fun _ -> Some Graph.rootId
         trySecretForFocus = fun _ -> None
+        deliver = fun _ -> Error "not live"
+        takeInbox = fun _ -> Error "not live"
     }
     task {
         let dataDir = newTempDir ()
@@ -266,6 +268,8 @@ let ``CoreMailbox.actorStop appends ActorStop and drops live row`` () =
         liveFocusIds = fun () -> Set.empty
         getFocusId = fun _ -> Some sampleRequest.focusId
         trySecretForFocus = fun _ -> None
+        deliver = fun _ -> Error "not live"
+        takeInbox = fun _ -> Error "not live"
     }
     task {
         let dataDir = newTempDir ()

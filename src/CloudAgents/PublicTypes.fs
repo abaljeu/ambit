@@ -81,8 +81,8 @@ type AgentError =
 
 /// Grok Bot oneshot config. Caller binds User Secrets
 /// grokbot:WakeUrl, grokbot:WakeSecret, grokbot:InboundSecret.
-/// Library stays settings-blind. InboundSecret is unused here
-/// (Server deliver door is out of scope).
+/// Library stays settings-blind. InboundSecret is Server door
+/// auth; this library consumes deliver(sessionId, text).
 type GrokBotConfig =
     { WakeUrl: string
       WakeSecret: string

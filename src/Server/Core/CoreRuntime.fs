@@ -6,7 +6,8 @@ open Gambol.Shared
 /// Not a second admission API. HTTP builds Browser Caller from the cookie.
 type CoreRuntime =
     { host: MailboxHost
-      parseCaller: Caller }
+      parseCaller: Caller
+      pool: CoreActorPool }
 
 /// Persist choice, auth seed, and optional actors to boot a CoreRuntime.
 type CoreBoot =
@@ -86,4 +87,4 @@ module CoreRuntime =
                 pool
                 (CoreCredentials.ofCallers (
                     Set.ofList [ browserCaller; parseCaller ]))
-        { host = host; parseCaller = parseCaller }
+        { host = host; parseCaller = parseCaller; pool = pool }

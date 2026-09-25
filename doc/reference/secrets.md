@@ -21,7 +21,7 @@ An Azure App Setting writes a colon as a double underscore (`AiKeys:server` is s
 
 `WakeUrl` and `WakeSecret` are the pair this secrets strategy owns.
 
-Development and production use the names `grokbot:WakeUrl` and `grokbot:WakeSecret`. Development stores them in the same user-secrets store. Production stores them in Azure App Settings.
+Development and production use the names `grokbot:WakeUrl` and `grokbot:WakeSecret`. Development stores them in the same user-secrets store. Production stores them in Azure App Settings. The outbound wake POST sends `WakeSecret` as header `X-Ambit-Wake-Secret`.
 
 `InboundSecret` is Ambit Server config. The first slice uses a temporary inject of `InboundSecret` into the same `grokbot` holder. The name is `grokbot:InboundSecret` in the user-secrets store and in Azure App Settings.
 

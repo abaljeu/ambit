@@ -260,6 +260,23 @@ module RouteRegistration =
                             body
                         |> Async.StartAsTask
         })) |> ignore
+        this.MapPost("/ambit/actors/deliver", Func<HttpRequest, Task<IResult>>(fun req -> task {
+            use reader = new StreamReader(req.Body)
+            let! body = reader.ReadToEndAsync()
+            let provided =
+                match req.Headers.TryGetValue Api.inboundSecretHeader with
+                | true, values ->
+                    if values.Count = 0 then ""
+                    else values.[0]
+                | false, _ -> ""
+            let grok = GrokBotSettings.fromConfig this.Config
+            return
+                Api.postActorsDeliver
+                    grok.InboundSecret
+                    provided
+                    persistence.Core.pool.deliver
+                    body
+        })) |> ignore
         this.MapPost("/ambit/cancel", Func<HttpRequest, Task<IResult>>(fun req -> task {
             bindClientHint req |> ignore
             use reader = new StreamReader(req.Body)

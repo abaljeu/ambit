@@ -1,5 +1,6 @@
 namespace Gambol.CloudAgents.Internal
 
+open System
 open System.Net.Http
 open System.Text
 open FSharp.Data
@@ -22,14 +23,20 @@ module GrokBotHttp =
             "payload", JsonValue.Record [||]
         |]
 
-    /// Unsettled: Admiral hub wake header name is not in this repo.
-    /// Do not invent an Ambit-only header. Confirmed hub header
-    /// attaches here later. Until then, no extra auth header.
+    [<Literal>]
+    let wakeSecretHeader = "X-Ambit-Wake-Secret"
+
+    /// Outbound wake auth: `X-Ambit-Wake-Secret: <WakeSecret>`.
+    /// Empty secret adds no header (caller must fail closed).
     let applyWakeAuth
         (request: HttpRequestMessage)
-        (_secret: string)
+        (secret: string)
         : HttpRequestMessage =
-        request
+        if String.IsNullOrWhiteSpace secret then
+            request
+        else
+            request.Headers.Add(wakeSecretHeader, secret)
+            request
 
     /// Ack-only: success ignores body (never bot reply text).
     let interpretWakeResponse (statusCode: int) (body: string) =
@@ -50,22 +57,26 @@ module GrokBotHttp =
         (secret: string)
         (json: JsonValue)
         : Result<unit, string> =
-        try
-            use client = new HttpClient()
-            use request =
-                new HttpRequestMessage(
-                    System.Net.Http.HttpMethod.Post, url)
-            request.Content <-
-                new StringContent(
-                    json.ToString(),
-                    Encoding.UTF8,
-                    "application/json")
-            applyWakeAuth request secret |> ignore
-            let response =
-                client.SendAsync request
-                |> Async.AwaitTask
-                |> Async.RunSynchronously
-            let body = readBody response
-            interpretWakeResponse (int response.StatusCode) body
-        with ex ->
-            Error $"Request failed: {ex.Message}"
+        if String.IsNullOrWhiteSpace secret then
+            Error "unauthorized"
+        else
+            try
+                use client = new HttpClient()
+                use request =
+                    new HttpRequestMessage(
+                        System.Net.Http.HttpMethod.Post, url)
+                request.Content <-
+                    new StringContent(
+                        json.ToString(),
+                        Encoding.UTF8,
+                        "application/json")
+                applyWakeAuth request secret |> ignore
+                let response =
+                    client.SendAsync request
+                    |> Async.AwaitTask
+                    |> Async.RunSynchronously
+                let body = readBody response
+                interpretWakeResponse
+                    (int response.StatusCode) body
+            with ex ->
+                Error $"Request failed: {ex.Message}"

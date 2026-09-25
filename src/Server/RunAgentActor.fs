@@ -85,7 +85,13 @@ module RunAgentActor =
         |> Async.Start
 
     let private requestGrokCancel config sessionId =
-        GrokBotRunner.cancel config sessionId |> ignore
+        match GrokBotRunner.cancel config sessionId with
+        | Ok() -> ()
+        | Error err ->
+            eprintfn
+                "RunAgentActor: cancel grok %s failed: %A"
+                sessionId
+                err
 
     let private firstBehaviorToken (input: ActorInput) =
         match Map.tryFind input.commandId input.graph.nodes with
@@ -333,7 +339,7 @@ module RunAgentActor =
         document
         =
         async {
-            let sessionId = Guid.NewGuid().ToString()
+            let sessionId = input.sessionId
             let wakeArgs =
                 { Config = grok
                   Text = document

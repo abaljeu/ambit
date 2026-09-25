@@ -139,14 +139,24 @@ type GrokBotOneshotTests() =
         Assert.DoesNotContain("inbound-secret-value", raw)
 
     [<Fact>]
-    member _.``applyWakeAuth does not invent an Ambit header``() =
+    member _.``applyWakeAuth sends X-Ambit-Wake-Secret``() =
         use req = new HttpRequestMessage()
         let got =
             GrokBotHttp.applyWakeAuth req "wake-secret-value"
-        Assert.False(got.Headers.Contains("X-Ambit-Wake-Secret"))
+        Assert.True(got.Headers.Contains(GrokBotHttp.wakeSecretHeader))
+        let values =
+            got.Headers.GetValues(GrokBotHttp.wakeSecretHeader)
+            |> Seq.toList
+        Assert.Equal<string list>([ "wake-secret-value" ], values)
         Assert.False(
             got.Headers.Contains("X-Ambit-Inbound-Secret"))
         Assert.Null(got.Headers.Authorization)
+
+    [<Fact>]
+    member _.``applyWakeAuth skips header when secret is empty``() =
+        use req = new HttpRequestMessage()
+        let got = GrokBotHttp.applyWakeAuth req ""
+        Assert.False(got.Headers.Contains(GrokBotHttp.wakeSecretHeader))
         Assert.Empty(got.Headers)
 
     [<Fact>]
@@ -167,6 +177,23 @@ type GrokBotOneshotTests() =
         | other -> Assert.Fail($"401: {other}")
 
     [<Fact>]
+    member _.``empty WakeSecret fails without sending``() =
+        Assert.True(GrokBotRunner.setFake None)
+        let config =
+            { unusedConfig with WakeSecret = "" }
+        let args = wakeArgs config "sess-nosecret" "pack"
+        match GrokBotRunner.wake args with
+        | Error(AuthenticationFailed msg) ->
+            Assert.Equal(
+                AgentMessage.couldNotSend
+                    "Grok Bot" "missing wake secret",
+                msg)
+            Assert.DoesNotContain("wake-secret-value", msg)
+            Assert.DoesNotContain("inbound-secret-value", msg)
+        | other ->
+            Assert.Fail($"expected missing wake secret, {other}")
+
+    [<Fact>]
     member _.``empty WakeUrl fails without writing the secret``() =
         Assert.True(GrokBotRunner.setFake None)
         let args = wakeArgs emptyUrlConfig "sess-empty" "pack"
@@ -182,20 +209,53 @@ type GrokBotOneshotTests() =
             Assert.Fail($"expected missing wake URL, {other}")
 
     [<Fact>]
-    member _.``live stream without fake is Unsettled Done seam``() =
+    member _.``live inbound chunks and empty Done complete``() =
         Assert.True(GrokBotRunner.setFake None)
+        let sessionId = "sess-live"
+        match GrokBotRunner.deliver sessionId "hel" with
+        | Error err -> Assert.Fail($"chunk1: {err}")
+        | Ok() -> ()
+        match GrokBotRunner.deliver sessionId "lo" with
+        | Error err -> Assert.Fail($"chunk2: {err}")
+        | Ok() -> ()
+        match GrokBotRunner.deliver sessionId "" with
+        | Error err -> Assert.Fail($"done: {err}")
+        | Ok() -> ()
         match
             GrokBotRunner.streamUntilComplete
-                (streamArgs "sess-live")
+                (streamArgs sessionId)
                 collectFold
         with
-        | Error(InvalidResponse msg) ->
-            Assert.Equal(
-                AgentMessage.couldNotSend
-                    "Grok Bot" "stream Done seam Unsettled",
-                msg)
+        | Ok(result, seen) ->
+            Assert.Equal("hello", result.Text)
+            let expected =
+                [ AssistantText "hel"
+                  AssistantText "lo"
+                  RunFinished(sampleResult "") ]
+            Assert.Equal<AgentStreamEvent list>(
+                expected, List.rev seen)
         | other ->
-            Assert.Fail($"expected Unsettled Done, {other}")
+            Assert.Fail($"expected live Done, {other}")
+
+    [<Fact>]
+    member _.``live cancel mid inbound is cancelled not Finish``() =
+        Assert.True(GrokBotRunner.setFake None)
+        let sessionId = "sess-live-c"
+        match GrokBotRunner.deliver sessionId "kept" with
+        | Error err -> Assert.Fail($"chunk: {err}")
+        | Ok() -> ()
+        let sawText = new ManualResetEvent(false)
+        let seen = ref "none"
+        let worker =
+            Thread(fun () ->
+                streamUntilCancel sessionId sawText seen)
+        worker.Start()
+        Assert.True(sawText.WaitOne 2000)
+        match GrokBotRunner.cancel unusedConfig sessionId with
+        | Error err -> Assert.Fail($"cancel: {err}")
+        | Ok() ->
+            Assert.True(worker.Join 2000)
+            Assert.Equal("cancelled", !seen)
 
     [<Fact>]
     member _.``fake oneshot emits AssistantText then RunFinished``() =

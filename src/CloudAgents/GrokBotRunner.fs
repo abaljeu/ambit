@@ -34,6 +34,14 @@ module GrokBotRunner =
         | Some _ -> GrokBotFake.cancelFake sessionId
         | None -> Internal.GrokBotAdapter.cancel config sessionId
 
+    let deliver
+        (sessionId: string)
+        (text: string)
+        : Result<unit, AgentError> =
+        match GrokBotFake.statusHandler () with
+        | Some _ -> GrokBotFake.deliverFake sessionId text
+        | None -> Internal.GrokBotAdapter.deliver sessionId text
+
     let streamUntilComplete
         (args: GrokBotStreamArgs)
         (fold: StreamFold<'a>)

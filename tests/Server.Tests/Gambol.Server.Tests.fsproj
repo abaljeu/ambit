@@ -40,6 +40,8 @@
     <Compile Include="CoreRuntimeTests.fs" />
     <Compile Include="BrowserCredentialTests.fs" />
     <Compile Include="CoreActorPoolTests.fs" />
+    <Compile Include="CoreActorPoolDeliverTests.fs" />
+    <Compile Include="ActorsDeliverDoorTests.fs" />
     <Compile Include="TestActorHelloTests.fs" />
     <Compile Include="TestActorCommandErrorTests.fs" />
     <Compile Include="AskCancelHarness.fs" />

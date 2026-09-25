@@ -36,8 +36,50 @@ let private emptyWakeGrok =
         WakeSecret = "secret-must-not-leak"
         InboundSecret = "inbound-must-not-leak" }
 
+let private emptySecretGrok =
+    { unusedGrokConfig with
+        WakeUrl = "http://unused.example/"
+        WakeSecret = ""
+        InboundSecret = "inbound-must-not-leak" }
+
 [<Collection("GrokBot actor")>]
 type AgentGrokBotStreamTests() =
+
+    [<Fact>]
+    member _.``inbound deliver chunks Finish without fake stream``() =
+        let session = ref ""
+        withGrokFake
+            (fun args ->
+                session := args.SessionId
+                Running)
+            (fun () ->
+                withHost (fun host pool -> task {
+                    let! seeded = seedAskTree host "?ai gbot"
+                    let! request = startAsk host seeded
+                    let deadline = System.DateTime.UtcNow.AddSeconds 2.0
+                    while !session = ""
+                          && System.DateTime.UtcNow < deadline do
+                        do! System.Threading.Tasks.Task.Delay 10
+                    Assert.False(System.String.IsNullOrEmpty !session)
+                    match pool.deliver (!session, "<n>In</n>") with
+                    | Error err -> Assert.Fail($"pool: {err}")
+                    | Ok() -> ()
+                    match
+                        GrokBotRunner.deliver !session "<n>In</n>"
+                    with
+                    | Error err -> Assert.Fail($"deliver: {err}")
+                    | Ok() -> ()
+                    match pool.deliver (!session, "") with
+                    | Error err -> Assert.Fail($"pool done: {err}")
+                    | Ok() -> ()
+                    match GrokBotRunner.deliver !session "" with
+                    | Error err -> Assert.Fail($"done: {err}")
+                    | Ok() -> ()
+                    do! expectActorSucceeded
+                            host pool request.focusId
+                    do! expectOwnedTexts
+                            host request.focusId [ "In" ]
+                }))
 
     [<Fact>]
     member _.``fake Grok stream adds Focus children then Finishes``() =
@@ -129,6 +171,30 @@ type AgentGrokBotStreamTests() =
                 | other ->
                     Assert.Fail($"bad stop, {other}")
             do! expectNoNodeText host "secret-must-not-leak"
+            do! expectNoNodeText host "inbound-must-not-leak"
+        })
+
+    [<Fact>]
+    member _.``empty WakeSecret fails without writing secrets``() =
+        Assert.True(GrokBotRunner.setFake None)
+        let named =
+            AgentMessage.couldNotSend
+                "Grok Bot" "missing wake secret"
+        withHostGrok emptySecretGrok (fun host pool -> task {
+            let! seeded = seedAskTree host "?ai gbot"
+            let! request = startAsk host seeded
+            do! expectActorFailed host pool request.focusId
+            let! stopEvent = lastActorStop host request.focusId
+            match stopEvent with
+            | None -> Assert.Fail("missing ActorStop")
+            | Some event ->
+                match event.body with
+                | EventBody.ActorStop(_, ActorFailed msg) ->
+                    Assert.Equal(named, msg)
+                    Assert.DoesNotContain(
+                        "inbound-must-not-leak", msg)
+                | other ->
+                    Assert.Fail($"bad stop, {other}")
             do! expectNoNodeText host "inbound-must-not-leak"
         })
 

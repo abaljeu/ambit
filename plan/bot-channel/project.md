@@ -4,7 +4,7 @@ Stage: build
 Summary: Ambit is a Slack-like direct-message channel to Grok Bots. First slice is oneshot library [24 — CloudAgents Grok Bot oneshot stream](../llm-connector/issues/24-cloudagents-grokbot-oneshot.md) plus Actor wiring [05 — Run Agent Actor Grok Bot oneshot](issues/05-run-agent-grokbot-oneshot.md). Eventual [01 — CoreActorPool sessionId + deliver + commandId exclusivity](issues/01-coreactorpool-sessionid-deliver.md)–[03 — gbot Run Agent: wake + inbox → Focus stream](issues/03-gbot-wake-inbox-focus.md) keep the pool/inbox channel. Destination keep-alive wire stays planned.
 Updated: 2026-09-25
 Started: 2026-09-25
-Actual: 2h
+Actual: 4h 20m
 
 ## Objective
 
@@ -30,6 +30,7 @@ Make Ambit the durable messaging surface for talking to Grok Bots. Cognition sta
 
 ## Notes
 
+- 2026-09-25 — Live Grokbot corrections: [01 — CoreActorPool sessionId + deliver + commandId exclusivity](issues/01-coreactorpool-sessionid-deliver.md)–[03 — gbot Run Agent: wake + inbox → Focus stream](issues/03-gbot-wake-inbox-focus.md) Status `coded`. Wake hub header still Unsettled. Report [live-grokbot-corrections.md](reports/live-grokbot-corrections.md).
 - 2026-09-25 — [05 — Run Agent Actor Grok Bot oneshot](issues/05-run-agent-grokbot-oneshot.md) Status `done`. Alan accepted; squash-landed. Fake Grok stream / Cancel / empty WakeUrl proofs on existing Run Agent Actor.
 - 2026-09-25 — Alan lock: remap tickets. [01 — CoreActorPool sessionId + deliver + commandId exclusivity](issues/01-coreactorpool-sessionid-deliver.md)–[03 — gbot Run Agent: wake + inbox → Focus stream](issues/03-gbot-wake-inbox-focus.md) eventual / deferred (do not implement now). [04 — CloudAgents Grok Bot oneshot library](issues/04-cloudagents-grokbot-oneshot.md) = CloudAgents oneshot library (`done`, pointer to [24 — CloudAgents Grok Bot oneshot stream](../llm-connector/issues/24-cloudagents-grokbot-oneshot.md)). [05 — Run Agent Actor Grok Bot oneshot](issues/05-run-agent-grokbot-oneshot.md) implemented on existing RunAgentActor. [06 — Done seam for response concluded](issues/06-done-seam-response-concluded.md) Done seam stays Unsettled under the Grok adapter. Stage `build`.
 - 2026-09-25 — Filed first-slice variant tickets (later remapped). Old [05 — Run Agent Actor Grok Bot oneshot](issues/05-run-agent-grokbot-oneshot.md) Finish-on-response-end story / old TestActor simulation (not current [04 — CloudAgents Grok Bot oneshot library](issues/04-cloudagents-grokbot-oneshot.md)) superseded by the 2026-09-24/25 lock.

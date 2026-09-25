@@ -160,7 +160,7 @@ let withHostKeysRepos keys repos body =
     withHostKeysReposGrok keys repos unusedGrokConfig body
 
 let withHostGrok grok body =
-    withHostKeysReposGrok [] [] grok body
+    withHostKeysReposGrok AiKeys.empty [] grok body
 
 let withHostKeys keys body = withHostKeysRepos keys [] body
 
