@@ -117,8 +117,10 @@ Architecture: [[arch.md]]. Sequence `module-build`. Tickets:
 
 1. [[issues/01-coreactorpool-sessionid-deliver.md|01 — CoreActorPool sessionId + deliver + commandId exclusivity]] — Status `defined` (frontier)
 2. [[issues/02-inbound-actors-deliver-door.md|02 — Inbound POST /ambit/actors/deliver + secret + GrokbotConfig]] — Status `defined` (frontier)
-3. [[issues/03-gbot-wake-inbox-focus.md|03 — gbot Run Agent: wake + inbox → Focus stream]] — Status `blocked` (by 01 and 02; [[plan/llm-connector/issues/18-ai-actor-stream.md|18 — AI Actor stream]] is `done`)
-4. [[issues/04-testactor-gbot-simulation.md|04 — TestActor gbot simulation]] — Status `defined` (Blocked-by 01; 18 is `done`)
+3. [[issues/03-gbot-wake-inbox-focus.md|03 — gbot Run Agent: wake + inbox → Focus stream]] — Status `blocked` (by 01 and 02; [[plan/llm-connector/issues/18-ai-actor-stream.md|18 — AI Actor stream]] is `done`) — channel plumbing (wake + stream)
+4. [[issues/04-testactor-gbot-simulation.md|04 — TestActor gbot simulation]] — Status `defined` (Blocked-by 01; 18 is `done`) — canned stream; Finish is 05
+5. [[issues/05-gbot-finish-on-response-end.md|05 — gbot Finish on response end]] — Status `defined` (Blocked-by 03 and 04) — first-slice Cursor-Cloud-like terminus
+6. [[issues/06-done-seam-response-concluded.md|06 — Done seam for response concluded]] — Status `defined` (frontier research) — Unsettled wire signal (`kind: close` may be it)
 
 ## Not yet specified
 
@@ -126,7 +128,7 @@ Architecture: [[arch.md]]. Sequence `module-build`. Tickets:
 - Attachment pointers
 - Hub wake header exact name (confirm at wire time — see [[arch.md]] Unsettled)
 - Azure Key Vault vs User Secrets packaging details if any (see [[arch.md]] Unsettled)
-- Exact Done seam for “response concluded” (bot `kind: close` vs harness Done / explicit inbound kind / empty sentinel — see [[arch.md]] Unsettled)
+- Exact Done seam for “response concluded” — owned by [[issues/06-done-seam-response-concluded.md|06 — Done seam for response concluded]] (bot `kind: close` vs harness Done / explicit inbound kind / empty sentinel; see [[arch.md]] Unsettled)
 - Memory policy (clean vs continue chat context)
 
 ## Out of scope
