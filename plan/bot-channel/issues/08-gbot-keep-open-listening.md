@@ -40,7 +40,7 @@ Finish only on Cancel / Actor drop (existing), or other already-locked close pat
 2. Close-notify from Ambit
 3. MCP or Slack
 4. Changing wake / auth / `responseUrl`
-5. Proxy allowlist / `proxy.php` / any ticket 07
+5. Proxy allowlist / `proxy.php`
 6. Rewriting [01 — CoreActorPool sessionId + deliver + commandId exclusivity](01-coreactorpool-sessionid-deliver.md)–[03 — gbot Run Agent: wake + inbox → Focus stream](03-gbot-wake-inbox-focus.md) wholesale
 
 ## See also
@@ -54,4 +54,4 @@ Finish only on Cancel / Actor drop (existing), or other already-locked close pat
 
 ## Time
 
-- 2026-09-25 1h 45m — File ticket 08, keep-open seam, CloudAgents / Run Agent / pool proofs (from chat)
+- 2026-09-25 1h 45m — File [08 — gbot keep-open listening](08-gbot-keep-open-listening.md), keep-open seam, CloudAgents / Run Agent / pool proofs (from chat)
