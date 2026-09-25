@@ -24,7 +24,7 @@ Command behavior `gbot` already selects the oneshot Grok backend in [05 — Run 
 Per [bot-channel architecture](../arch.md) module **WakeHttp**.
 
 1. [x] 2.3.2.1 postWake ack-only — POST wake body; treat HTTP response as ack only (never as bot reply text) via existing `GrokBotRunner.wake`
-2. [x] 2.3.2.2 Hub auth — outbound wake header `X-Ambit-Wake-Secret: <WakeSecret>`; empty secret fails closed
+2. [x] 2.3.2.2 Hub auth — outbound wake header `Authorization: Bearer <WakeSecret>` ([25 — Grok Bot wake auth Bearer](../../llm-connector/issues/25-grokbot-wake-auth-bearer.md)); empty secret fails closed. Do not send `X-Ambit-*` on wake.
 3. [x] 2.3.2.3 Empty WakeUrl — safe domain error; no Graph write of secrets
 
 ### 2. Run Agent Actor — gbot function
@@ -55,6 +55,7 @@ Per [bot-channel architecture](../arch.md) module **StubOrProofBot**.
 
 - 2026-09-25 — Live `streamRun` waits on inbound `deliver`; empty `text` is oneshot Done. Status `coded`.
 - 2026-09-25 — Wake header locked: `X-Ambit-Wake-Secret`. Empty secret fails closed. Status stays `coded`.
+- 2026-09-25 — Alan confirmed hub wake is `Authorization: Bearer <WakeSecret>`. Supersedes the invented `X-Ambit-Wake-Secret` lock. Settled on [25 — Grok Bot wake auth Bearer](../../llm-connector/issues/25-grokbot-wake-auth-bearer.md). Status stays `coded`.
 
 ## Time
 
