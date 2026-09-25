@@ -58,6 +58,36 @@ type AgentActorStreamTests() =
                 }))
 
     [<Fact>]
+    member _.``next open angle commits Focus child before next tag closes``
+        ()
+        =
+        let hangStarted, hang = hangUntilCancel ()
+        withFakeStream
+            hang
+            (fun _ -> [ AssistantText "<n>Text<" ])
+            (fun () ->
+                withHost (fun host pool -> task {
+                    let! request = startLiveAsk host pool "?ai"
+                    do! awaitHang hangStarted
+                    let! seen =
+                        waitOwnedText
+                            host
+                            request.focusId
+                            "Text"
+                            2000
+                    Assert.True(seen)
+                    do! cancelFocus host request.focusId
+                    do! expectActorCancelled
+                            host pool request.focusId
+                    do! expectOwnedTexts
+                            host
+                            request.focusId
+                            [ "Text" ]
+                    let! ops = actorChangeOps host
+                    Assert.False(hasSetText ops)
+                }))
+
+    [<Fact>]
     member _.``cancel mid-stream drops live and keeps streamed children``
         ()
         =

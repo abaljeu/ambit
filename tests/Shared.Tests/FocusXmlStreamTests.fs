@@ -74,6 +74,59 @@ let ``fragment wrappers are not nodes`` () =
     Assert.Equal(focusId, step.adds.[1].parentId)
 
 [<Fact>]
+let ``leading angle of next tag commits pending text`` () =
+    let focusId = NodeId.New()
+    let draft = FocusXmlStream.start focusId
+    let step = pushApply draft "<tag>Text<"
+    Assert.Equal(1, step.adds.Length)
+    Assert.Equal("Text", step.adds.Head.text)
+    Assert.Equal(focusId, step.adds.Head.parentId)
+    Assert.True(step.draft.pending.IsNone)
+    Assert.Equal("<", step.draft.hold)
+
+[<Fact>]
+let ``incomplete next tag after commit stays in hold`` () =
+    let focusId = NodeId.New()
+    let draft = FocusXmlStream.start focusId
+    let step = pushApply draft "<tag>Text<"
+    Assert.Equal(1, step.adds.Length)
+    let step = pushApply step.draft "di"
+    Assert.Empty(step.adds)
+    Assert.Equal("<di", step.draft.hold)
+    Assert.True(step.draft.pending.IsNone)
+
+[<Fact>]
+let ``more text before next open stays pending`` () =
+    let focusId = NodeId.New()
+    let draft = FocusXmlStream.start focusId
+    let step = pushApply draft "<n>Te"
+    Assert.Empty(step.adds)
+    let step = pushApply step.draft "xt"
+    Assert.Empty(step.adds)
+    match step.draft.pending with
+    | None -> Assert.Fail("pending missing")
+    | Some pending -> Assert.Equal("Text", pending.text)
+    let step = pushApply step.draft "<"
+    Assert.Equal(1, step.adds.Length)
+    Assert.Equal("Text", step.adds.Head.text)
+    Assert.True(step.draft.pending.IsNone)
+    Assert.Equal("<", step.draft.hold)
+
+[<Fact>]
+let ``End after open-commit does not add again`` () =
+    let focusId = NodeId.New()
+    let draft = FocusXmlStream.start focusId
+    let step = pushApply draft "<tag>Text<"
+    Assert.Equal(1, step.adds.Length)
+    let childId = step.adds.Head.childId
+    let step = pushApply step.draft "/tag>"
+    Assert.Empty(step.adds)
+    Assert.True(step.draft.pending.IsNone)
+    Assert.Equal("", step.draft.hold)
+    Assert.Equal(focusId, step.draft.parents.Head.id)
+    Assert.NotEqual(childId, step.draft.parents.Head.id)
+
+[<Fact>]
 let ``flush commits pending without a later text edit`` () =
     let focusId = NodeId.New()
     let draft = FocusXmlStream.start focusId
