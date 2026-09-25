@@ -1,6 +1,7 @@
 # 23 — Focus stream commit on next <
 
-**Status:** defined
+**Status:** coded
+Actual: 1h
 **Blocked by:** None — [18 — AI Actor stream](18-ai-actor-stream.md) is `done`.
 **Type:** task
 
@@ -16,17 +17,17 @@ This ticket amends only the commit trigger. The “no SetText after add” rule 
 
 ### 1. Commit pending on next open
 
-1. [ ] [FocusXmlStream](../../../src/Shared/documents/FocusXmlStream.fs): when `hold` (or the tokenizer) sees that text is followed by `<` starting a new tag, `commitPending` so the node exists with text so far.
-2. [ ] Then continue buffering the incomplete tag in `hold` until `>`.
-3. [ ] Incomplete tag bytes like `<di` stay in `hold` and do not invent a node.
-4. [ ] Once committed, later text for that element must not edit the graph. If more text arrives before the next `<`, that text is still pending of the current open element — only the boundary `<` commits.
-5. [ ] Flush / End / Empty / full Start stay coherent with [18 — AI Actor stream](18-ai-actor-stream.md).
+1. [x] [FocusXmlStream](../../../src/Shared/documents/FocusXmlStream.fs): when `hold` (or the tokenizer) sees that text is followed by `<` starting a new tag, `commitPending` so the node exists with text so far.
+2. [x] Then continue buffering the incomplete tag in `hold` until `>`.
+3. [x] Incomplete tag bytes like `<di` stay in `hold` and do not invent a node.
+4. [x] Once committed, later text for that element must not edit the graph. If more text arrives before the next `<`, that text is still pending of the current open element — only the boundary `<` commits.
+5. [x] Flush / End / Empty / full Start stay coherent with [18 — AI Actor stream](18-ai-actor-stream.md).
 
 ### 2. Proof
 
-1. [ ] Unit test: `<tag>Text<` yields a PlannedAdd / graph child with text `Text` before the next tag’s `>` arrives.
-2. [ ] Similar cases: more text before `<` still pending; incomplete `<di` after commit stays in `hold`; End / flush / full Start still one add and no SetText after add.
-3. [ ] Existing [FocusXmlStream](../../../tests/Shared.Tests/FocusXmlStreamTests.fs) and [AgentActorStream](../../../tests/Server.Tests/AgentActorStreamTests.fs) facts stay green.
+1. [x] Unit test: `<tag>Text<` yields a PlannedAdd / graph child with text `Text` before the next tag’s `>` arrives.
+2. [x] Similar cases: more text before `<` still pending; incomplete `<di` after commit stays in `hold`; End / flush / full Start still one add and no SetText after add.
+3. [x] Existing [FocusXmlStream](../../../tests/Shared.Tests/FocusXmlStreamTests.fs) and [AgentActorStream](../../../tests/Server.Tests/AgentActorStreamTests.fs) facts stay green.
 
 ### 3. Non-goals
 
@@ -51,3 +52,8 @@ Tokenizer still waits for `>` before emitting `Start` / `End` / `Empty`. Text st
 ## Comments
 
 - 2026-09-25 — Filed: Alan lock 2026-09-24/25 — `<tag>Text<` is enough to generate a node; commit pending on the next `<`. Status `defined`.
+- 2026-09-25 — Coded: tokenizer still waits for `>` on tags and emits `Text` up to the next `<`. `apply` calls `commitIfNextOpen` when leftover `hold` starts with `<`, so pending becomes one PlannedAdd before the next tag’s `>`. Incomplete `<di` stays in `hold`. Proofs: [FocusXmlStreamTests](../../../tests/Shared.Tests/FocusXmlStreamTests.fs) (`leading angle of next tag commits pending text` and siblings) and [AgentActorStreamTests](../../../tests/Server.Tests/AgentActorStreamTests.fs) (`next open angle commits Focus child before next tag closes`). Status `coded`.
+
+## Time
+
+- 2026-09-25 1h — Ticket + commit-on-next-`<` in FocusXmlStream + proofs (from chat)

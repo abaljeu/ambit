@@ -1,6 +1,6 @@
 namespace Gambol.Shared
 
-/// Incremental `<>` XML fragment: one addChild at each tag boundary.
+/// Incremental `<>` XML fragment: one addChild at next `<` or tag close.
 ///
 /// fragment = { wrap | node | text }
 /// wrap     = '<>' | '</>'
@@ -172,6 +172,16 @@ module FocusXmlStream =
             let draft, adds = commitPending newId draft adds
             addLeaf newId draft adds
 
+    let private commitIfNextOpen
+        (newId: unit -> NodeId)
+        (draft: Draft)
+        (adds: PlannedAdd list)
+        =
+        if draft.hold.StartsWith("<") then
+            commitPending newId draft adds
+        else
+            draft, adds
+
     let apply
         (newId: unit -> NodeId)
         (tokens: Token list)
@@ -183,6 +193,7 @@ module FocusXmlStream =
                 (fun acc token -> stepToken newId acc token)
                 (draft, [])
                 tokens
+        let draft, adds = commitIfNextOpen newId draft adds
         { draft = draft
           adds = List.rev adds }
 
