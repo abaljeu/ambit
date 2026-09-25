@@ -20,7 +20,7 @@ Pointer only — do not re-implement. See [24 — CloudAgents Grok Bot oneshot s
 3. [x] `GrokBotRunner.streamUntilComplete` folds shared `AgentStreamEvent` until `RunFinished`
 4. [x] `GrokBotRunner.cancel` aborts mid-stream (no success Finish; no close-notify wake)
 5. [x] Sibling modules `GrokBotRunner`, `GrokBotFake`, `Internal/GrokBotHttp`, `Internal/GrokBotAdapter` — Cursor `AgentRunner` unchanged
-6. [x] Done seam Unsettled under the Grok adapter — live `streamRun` returns `InvalidResponse` until [06 — Done seam for response concluded](06-done-seam-response-concluded.md) locks; fake `setFakeStream` emits `RunFinished`
+6. [x] Oneshot Done is empty `text` on deliver (`GrokBotRunner.deliver` → `RunFinished`). Prior research **06 — Done seam for response concluded** is superseded. Absolute wake `responseUrl` is [06 — Wake response URL](06-wake-response-url.md). Fake `setFakeStream` still emits harness `RunFinished`
 
 ## Later (not this ticket)
 

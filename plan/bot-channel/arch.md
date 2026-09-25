@@ -18,7 +18,7 @@ Sources: [map.md](map.md) Decisions (arch grill 2026-09-24; Alan lock 2026-09-24
    3. [ ] CoreActorPool mints `sessionId` on the live row beside `commandId`, `focusId`, and Actor secret
    4. [ ] Run Agent Actor selects the **gbot** function (Actor name still `ai`)
    5. [ ] gbot packs Focus extract like cursor (`AiExtractPack`)
-   6. [ ] WakeHttp POSTs ack-only wake with pack + `commandId` + `focusId` + `sessionId`; auth is `Authorization: Bearer {WakeSecret}`
+   6. [ ] WakeHttp POSTs ack-only wake with pack + `commandId` + `focusId` + `sessionId` + absolute `responseUrl`; auth is `Authorization: Bearer {WakeSecret}`
    7. [ ] Actor stays live after wake ack (does not Finish on wake ack)
 
 2. **Inbound deliver (eventual channel)**
@@ -45,8 +45,9 @@ Sources: [map.md](map.md) Decisions (arch grill 2026-09-24; Alan lock 2026-09-24
    3. [ ] Pack extract via shared `AiExtractPack`; wake + `streamUntilComplete` + FocusXmlStream fold on `AssistantText`
    4. [ ] Finish on `RunFinished` (same class of terminus as cursor); Cancel mid-stream via `GrokBotRunner.cancel`
    5. [ ] Empty `WakeUrl` fails safely without writing secrets
-   6. [ ] Done seam stays Unsettled under the Grok adapter — do not invent inbound body fields in Server
-   7. [ ] Later destination (not this slice): keep-alive until Cancel/drop; inbox deliver; subsequent outbound wakes; fuller-channel `kind: close` / close-notify
+   6. [x] Empty inbound `text` is oneshot Done — already coded on `GrokBotRunner.deliver`; do not redesign
+   7. [x] Wake JSON includes absolute `responseUrl` for `/ambit/actors/deliver` ([06 — Wake response URL](issues/06-wake-response-url.md))
+   8. [ ] Later destination (not this slice): keep-alive until Cancel/drop; inbox deliver; subsequent outbound wakes; fuller-channel `kind: close` / close-notify
 
 6. **Secrets bind (first slice composition)**
    1. [ ] Composition binds `GrokBotConfig` from `grokbot:WakeUrl`, `grokbot:WakeSecret`, `grokbot:InboundSecret` (.NET User Secrets / config)
@@ -105,7 +106,7 @@ Narrowest shared test seam:
    1. State
       1. [ ] None durable
    2. Interface
-      1. [ ] `postWake: GrokbotConfig * wakeBody -> Async<Result<unit, string>>` — HTTP POST; treat response as ack only (ignore reply body as bot text)
+      1. [ ] `postWake: GrokbotConfig * wakeBody -> Async<Result<unit, string>>` — HTTP POST; treat response as ack only (ignore reply body as bot text); wakeBody includes absolute `responseUrl` ([06 — Wake response URL](issues/06-wake-response-url.md))
       2. [ ] Auth header is `Authorization: Bearer {WakeSecret}` (Admiral hub panel; [25 — Grok Bot wake auth Bearer](../llm-connector/issues/25-grokbot-wake-auth-bearer.md)). Empty or whitespace secret adds no header; caller fails closed. Do not invent `X-Ambit-Wake-Secret`.
       3. [ ] Empty `WakeUrl` → safe domain error (no Graph write of secrets)
    3. Uses
@@ -149,8 +150,8 @@ Narrowest shared test seam:
       2. [ ] First slice: oneshot `GrokBotRunner` wake + stream on the same Actor; destination later consumes inbox until Cancel/drop
    2. Interface
       1. [ ] Parse Command behavior: first token `gbot` selects `GrokBotRunner`; further tokens ignored in first slice; other behaviors keep Cursor `AgentRunner`
-      2. [ ] On start: pack Focus extract (`AiExtractPack` shared with cursor); `GrokBotRunner.wake` with three ids; `streamUntilComplete` + shared FocusXmlStream fold
-      3. [ ] First slice terminus: `RunFinished` → Finish (same class as cursor). Done seam Unsettled under the Grok adapter — do not invent inbound body fields in Server. Next query is a new oneshot
+      2. [ ] On start: pack Focus extract (`AiExtractPack` shared with cursor); `GrokBotRunner.wake` with three ids plus absolute `responseUrl`; `streamUntilComplete` + shared FocusXmlStream fold
+      3. [ ] First slice terminus: `RunFinished` → Finish (same class as cursor). Oneshot Done is empty `text` on deliver. Wake JSON includes absolute `responseUrl` ([06 — Wake response URL](issues/06-wake-response-url.md)). Next query is a new oneshot
       4. [ ] On Cancel token / drop: `GrokBotRunner.cancel` mid-stream; no close-notify wake
       5. [ ] Never expose a bot Graph write API; never Finish solely because wake acked
       6. [ ] Later destination (not this slice): inbox loop via [01 — CoreActorPool sessionId + deliver + commandId exclusivity](issues/01-coreactorpool-sessionid-deliver.md)–[03 — gbot Run Agent: wake + inbox → Focus stream](issues/03-gbot-wake-inbox-focus.md)
@@ -192,7 +193,7 @@ Narrowest shared test seam:
 1. [x] **Browser ↔ RouteRegistration** — existing typed launch / Cancel / Poll (`/ambit/*`)
 2. [ ] **ActorsDeliverDoor ↔ CoreActorPool.deliver** — sole inbound bot→Actor door; secret checked before deliver
 3. [ ] **GrokBotConfig ↔ User Secrets** — `grokbot:*` bind at composition; library stays settings-blind. Eventual inbound door reads the same config later
-4. [x] **GrokBotRunner ↔ Admiral hub / bot webhook** — outbound ack-only in CloudAgents ([24 — CloudAgents Grok Bot oneshot stream](../llm-connector/issues/24-cloudagents-grokbot-oneshot.md) `done`); wake auth `Authorization: Bearer {WakeSecret}` ([25 — Grok Bot wake auth Bearer](../llm-connector/issues/25-grokbot-wake-auth-bearer.md))
+4. [x] **GrokBotRunner ↔ Admiral hub / bot webhook** — outbound ack-only in CloudAgents ([24 — CloudAgents Grok Bot oneshot stream](../llm-connector/issues/24-cloudagents-grokbot-oneshot.md) `done`); wake auth `Authorization: Bearer {WakeSecret}` ([25 — Grok Bot wake auth Bearer](../llm-connector/issues/25-grokbot-wake-auth-bearer.md)). Absolute `responseUrl` on that JSON is [06 — Wake response URL](issues/06-wake-response-url.md).
 5. [ ] **Run Agent Actor ↔ GrokBotRunner** — first token `gbot` uses wake + shared FocusXmlStream fold + Finish on `RunFinished`
 6. [ ] **gbot function ↔ FocusXmlStream** — Interface on **Run Agent Actor — gbot function**; reuses [18 — AI Actor stream](../llm-connector/issues/18-ai-actor-stream.md) helpers (`done`); one fold for both backends
 7. [x] **CoreActorPool ↔ Focus exclusivity** — existing admit; this Project adds `commandId` exclusivity beside it
@@ -204,10 +205,11 @@ Narrowest shared test seam:
 2. **CloudAgents stretch of Cursor `AgentRunner`** — Rejected: destination keep-alive stays a webhook + inbox wire ([01 — CoreActorPool sessionId + deliver + commandId exclusivity](issues/01-coreactorpool-sessionid-deliver.md)–[03 — gbot Run Agent: wake + inbox → Focus stream](issues/03-gbot-wake-inbox-focus.md)). First slice uses sibling `GrokBotRunner` (not stretched Cursor `AgentRunner`) wired on the existing Run Agent Actor. Cursor path stays owned by llm-connector; gbot shares extract/Focus helpers only.
 3. **Direct Graph write API for the bot** — Rejected: would bypass Actor-mediated Changes, Poll, Cancel, and History; map Non-goal and spec Problem 3.
 4. **Invent Ambit-only wake auth header** — Rejected: wake must match the existing Admiral hub / bot webhook contract so Alan’s hub panel credentials work. Locked 2026-09-25 as `Authorization: Bearer {WakeSecret}` ([25 — Grok Bot wake auth Bearer](../llm-connector/issues/25-grokbot-wake-auth-bearer.md)). Do not send `X-Ambit-Wake-Secret`.
-5. **Bot `kind: close` as keep-alive close** — Deferred as the fuller-channel close decision (destination still planned). First-slice terminus is response concluded → Actor Finish. `kind: close` may be that Unsettled inbound Done signal; it is not deleted. Cancel/drop still ends the wire mid-stream; bot learns via 404. Close-notify from Ambit stays deferred.
+5. **Bot `kind: close` as keep-alive close** — Deferred as the fuller-channel close decision (destination still planned). First-slice terminus is response concluded → Actor Finish. Oneshot Done is empty `text` on deliver (settled). `kind: close` stays later. Cancel/drop still ends the wire mid-stream; bot learns via 404. Close-notify from Ambit stays deferred.
 6. **New command or second Actor for gbot proof** — Rejected: extend existing TestActor / `?test` behavior token `gbot`; do not invent a second product path.
 
 ## 5. Unsettled
 
 1. **Azure Key Vault vs User Secrets packaging** — First slice binds via User Secrets for localhost and Azure alike; any Key Vault packaging detail beyond that bind is deferred if needed.
-2. **Done seam for “response concluded”** — Leave Unsettled under the Grok adapter (`GrokBotAdapter.streamRun` returns `InvalidResponse`). Product behavior is locked: Actor Finish when the response message ends (cursor class of terminus). Exact wire signal is not locked: bot `kind: close`, harness Done, explicit inbound kind, or empty sentinel. First-slice proofs use `setFakeStream` `RunFinished`. Do not invent inbound body fields in Server for this slice. [06 — Done seam for response concluded](issues/06-done-seam-response-concluded.md) owns the later lock.
+
+Settled 2026-09-25: oneshot Done is empty `text` on deliver (`GrokBotRunner.deliver` → `RunFinished`). Prior research ticket **06 — Done seam for response concluded** is superseded. Next lock is [06 — Wake response URL](issues/06-wake-response-url.md) (absolute `responseUrl` on outbound wake).
