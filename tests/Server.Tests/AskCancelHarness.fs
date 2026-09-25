@@ -51,11 +51,18 @@ let private actorStops host focusId =
                 | _ -> None)
     }
 
-let private createHost keys repos =
+let unusedGrokConfig =
+    { GrokBotConfig.WakeUrl = "http://unused.example/"
+      WakeSecret = "unused-wake-secret"
+      InboundSecret = "unused-inbound-secret" }
+
+let private createHost keys repos grok =
     let dataDir = newTempDir ()
     let pool = CoreActorPool.create ()
     pool.register (ActorName "test") TestActor.actorFn
-    pool.register (ActorName "ai") (RunAgentActor.actorFn keys repos)
+    pool.register
+        (ActorName "ai")
+        (RunAgentActor.actorFn keys repos grok)
     let host =
         CoreMailbox.host
             pool
@@ -140,14 +147,20 @@ let fakeReply text =
 
 let fakeFailed message = Failed message
 
-let withHostKeysRepos keys repos body =
+let withHostKeysReposGrok keys repos grok body =
     task {
-        let host, pool = createHost keys repos
+        let host, pool = createHost keys repos grok
         try
             do! body host pool
         finally
             CoreMailbox.dispose host
     }
+
+let withHostKeysRepos keys repos body =
+    withHostKeysReposGrok keys repos unusedGrokConfig body
+
+let withHostGrok grok body =
+    withHostKeysReposGrok [] [] grok body
 
 let withHostKeys keys body = withHostKeysRepos keys [] body
 
@@ -386,6 +399,45 @@ let expectNoNodeText host fragment =
 let waitFakeCancelled timeoutMs =
     waitUntil timeoutMs (fun () -> task {
         return AgentRunner.fakeCancelCount() >= 1
+    })
+
+let private clearGrokFake () =
+    let deadline = DateTime.UtcNow.AddSeconds 2.0
+    let rec spin () =
+        if GrokBotRunner.setFake None then
+            true
+        elif DateTime.UtcNow > deadline then
+            false
+        else
+            Thread.Sleep 10
+            spin ()
+    Assert.True(spin ())
+
+let withGrokFake handler body =
+    task {
+        Assert.True(GrokBotRunner.setFake (Some handler))
+        try
+            do! body ()
+        finally
+            clearGrokFake ()
+    }
+
+let withGrokFakeStream statusHandler streamHandler body =
+    withGrokFake statusHandler (fun () ->
+        Assert.True(GrokBotRunner.setFakeStream (Some streamHandler))
+        body ())
+
+let hangUntilGrokCancel () =
+    let started = TaskCompletionSource<unit>()
+    let handler (_: GrokBotWakeArgs) =
+        started.TrySetResult() |> ignore
+        GrokBotRunner.waitForCancel 8000 |> ignore
+        fakeReply "late-complete"
+    started, handler
+
+let waitGrokFakeCancelled timeoutMs =
+    waitUntil timeoutMs (fun () -> task {
+        return GrokBotRunner.fakeCancelCount() >= 1
     })
 
 let expectChangeCount host expected =
