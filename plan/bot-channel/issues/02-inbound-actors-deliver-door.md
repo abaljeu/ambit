@@ -6,7 +6,7 @@
 
 ## Context
 
-The bot must post durable text into Ambit without a Graph write API and without Actor Credential secrets. Grill locked the door as `POST /ambit/actors/deliver` with header `X-Ambit-Inbound-Secret` and body exactly `sessionId` + `text`. Secrets bind from .NET User Secrets under `grokbot:*` for localhost and Azure alike.
+The bot must post durable text into Ambit without a Graph write API and without Actor Credential secrets. Grill locked the door as `POST /ambit/actors/deliver` with header `X-Ambit-Inbound-Secret` and body exactly `sessionId` + `text`. Secrets bind from .NET User Secrets under `grokbot:*` for localhost and Azure alike. The door still does not Finish Actors — first-slice Finish-on-response-end is the gbot function’s job ([[03-gbot-wake-inbox-focus.md|03 — gbot Run Agent: wake + inbox → Focus stream]]), not the inbound door.
 
 ## What to build
 

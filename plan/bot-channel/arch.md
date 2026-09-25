@@ -1,10 +1,10 @@
 # bot-channel architecture
 
 Spec: [[spec.md]]
-Updated: 2026-09-24
+Updated: 2026-09-25
 Sequence: module-build
 
-Sources: [[map.md]] Decisions (arch grill 2026-09-24; Alan accepted arch 2026-09-24 and locked `?test` gbot simulation); form example [[plan/llm-connector/arch.md]]; Focus stream helpers from [[plan/llm-connector/issues/18-ai-actor-stream.md|18 — AI Actor stream]] / `FocusXmlStream`. Checklist: `[x]` already true of the codebase shape; `[ ]` still to build for this Project.
+Sources: [[map.md]] Decisions (arch grill 2026-09-24; Alan accepted arch 2026-09-24 and locked `?test` gbot simulation; intermediate Finish-on-response-end lock 2026-09-24/25); form example [[plan/llm-connector/arch.md]]; Focus stream helpers from [[plan/llm-connector/issues/18-ai-actor-stream.md|18 — AI Actor stream]] (`done`) / `FocusXmlStream`. Checklist: `[x]` already true of the codebase shape; `[ ]` still to build for this Project. First slice is the Cursor-Cloud-like job. Destination keep-alive chat wire stays planned.
 
 ## 1. Story paths
 
@@ -15,7 +15,7 @@ Sources: [[map.md]] Decisions (arch grill 2026-09-24; Alan accepted arch 2026-09
    4. [ ] Run Agent Actor selects the **gbot** function (Actor name still `ai`)
    5. [ ] gbot packs Focus extract like cursor (`AiExtractPack`)
    6. [ ] WakeHttp POSTs ack-only wake with pack + `commandId` + `focusId` + `sessionId`; auth per Admiral hub / bot webhook contract
-   7. [ ] Actor stays live (does not Finish on wake ack)
+   7. [ ] Actor stays live after wake ack (does not Finish on wake ack)
 
 2. **Inbound deliver**
    1. [ ] Bot POSTs `POST /ambit/actors/deliver` with header `X-Ambit-Inbound-Secret`
@@ -26,7 +26,7 @@ Sources: [[map.md]] Decisions (arch grill 2026-09-24; Alan accepted arch 2026-09
 
 3. **Focus stream from inbox**
    1. [ ] gbot Actor consumes inbox messages while live
-   2. [ ] Each text chunk drives FocusXmlStream pending-buffer → ordinary Core Changes under Focus (reuse 18 helpers — no second Focus-write path). Those Changes may post Append (event-sourced-ops mailbox op; `commandName` Append; end of Children only; expands to Replace in History) when that op exists — preferred over a hand-built full-list Replace for end-append. Do not wait on Append if 18 ships Replace-based FocusXmlStream.
+   2. [ ] Each text chunk drives FocusXmlStream pending-buffer → ordinary Core Changes under Focus (reuse 18 helpers — no second Focus-write path). Those Changes may post Append (event-sourced-ops mailbox op; `commandName` Append; end of Children only; expands to Replace in History) when that op exists — preferred over a hand-built full-list Replace for end-append. [[plan/llm-connector/issues/18-ai-actor-stream.md|18 — AI Actor stream]] is `done` (Replace-based FocusXmlStream available).
    3. [ ] Browser Poll shows Focus Children grow
 
 4. **Cancel drops the wire**
@@ -35,32 +35,41 @@ Sources: [[map.md]] Decisions (arch grill 2026-09-24; Alan accepted arch 2026-09
    3. [ ] No close-notify wake; later inbound gets 404
    4. [ ] Accepted Focus Children stay; new Run on same Command mints a fresh `sessionId`
 
-5. **Secrets bind**
+5. **Finish on response end (first slice)**
+   1. [ ] The bot’s response message concludes (Done seam Unsettled — `kind: close` may be the inbound signal, or harness Done / explicit inbound kind / empty sentinel)
+   2. [ ] Actor Finishes (same class of terminus as CloudAgents RunFinished / ActorFinished on `?ai` cursor)
+   3. [ ] Live row and `sessionId` drop; chrome matches cursor Done
+   4. [ ] No close-notify from Ambit; later inbound gets 404
+   5. [ ] Next query is a new Run / new `sessionId` (do not keep a long-lived live wire for more queries in this slice)
+   6. [ ] Later destination (not this slice): keep-alive until Cancel/drop; multi-turn without Finish-on-every-reply; subsequent outbound wakes while live; fuller-channel `kind: close` / close-notify decisions
+
+6. **Secrets bind**
    1. [ ] GrokbotConfig binds `grokbot:WakeUrl`, `grokbot:WakeSecret`, `grokbot:InboundSecret` from .NET User Secrets (localhost + Azure same path)
    2. [ ] Keys may be empty until Alan loads them; missing wake URL fails the wake call safely without writing secrets into Graph
 
-6. **Stub or proof bot**
+7. **Stub or proof bot**
    1. [ ] Optional proof under tests/proofs POSTs `{ sessionId, text }` through the inbound door and observes Focus growth
 
-7. **Simulate gbot via TestActor**
+8. **Simulate gbot via TestActor**
    1. [ ] Browser Run Command text `?test gbot` (optional extra tokens are extra canned texts) on the existing typed ActorStart path; Actor name `test`
    2. [ ] TestActor selects gbot-simulation behavior; `?test hello` unchanged
    3. [ ] Canned inbound `text` values enqueue via CoreActorPool `deliver` (no HTTP inbound door; no WakeHttp)
    4. [ ] Each canned text drives FocusXmlStream pending-buffer → ordinary Core Changes under Focus (reuse 18 helpers — same write path as gbot)
    5. [ ] Browser Poll shows Focus Children grow
-   6. [ ] Actor may Finish after canned texts; this is not a live hub session
+   6. [ ] Actor Finishes after the canned stream (first-slice parity with Finish-on-response-end). This is not a keep-alive hub session.
 
-Shared segments (paths 1–4):
+Shared segments (paths 1–5):
 1. [ ] CoreActorPool live registry with `sessionId` index + `deliver`
-2. [ ] Run Agent Actor gbot function (wake + inbox loop)
-3. [ ] FocusXmlStream / pending-buffer Focus writes from 18
+2. [ ] Run Agent Actor gbot function (wake + inbox + first-slice Finish-on-response-end)
+3. [ ] FocusXmlStream / pending-buffer Focus writes from 18 (`done`)
 4. [ ] Existing Cancel / drop / Focus exclusivity
+5. [ ] Actor Finish when the response concludes (cursor class of terminus)
 
 Narrowest shared test seam:
 1. [ ] CoreActorPool `deliver` + live-row `sessionId` / `commandId` exclusivity (no HTTP)
 2. [ ] Inbound door → `deliver` with secret header (harness or test host)
-3. [ ] gbot inbox → FocusXmlStream adds under Focus (fake inbound; Blocked-by 18)
-4. [ ] TestActor `?test gbot` canned texts → `deliver` + FocusXmlStream (no hub; Blocked-by 01 and 18)
+3. [ ] gbot inbox → FocusXmlStream adds under Focus → Finish on response end (fake inbound; 18 is `done`)
+4. [ ] TestActor `?test gbot` canned texts → `deliver` + FocusXmlStream → Finish after canned stream (no hub; Blocked-by 01; 18 is `done`)
 
 ## 2. Module map
 
@@ -132,13 +141,15 @@ Narrowest shared test seam:
    File: [[src/Server/RunAgentActor.fs]] (branch inside existing `ai` ActorFn; do not register a second Actor name).
    1. State
       1. [x] Cursor path job memory (CloudAgents) — unchanged
-      2. [ ] gbot: in-memory wake-sent flag; consumes inbox until Cancel/drop
+      2. [ ] gbot: in-memory wake-sent flag; first slice consumes inbox until the response concludes then Finishes; destination later consumes until Cancel/drop
    2. Interface
       1. [ ] Parse Command behavior: first token `gbot` selects gbot function; further tokens ignored in first slice; other behaviors keep cursor path
-      2. [ ] On start: pack Focus extract (`AiExtractPack` shared with cursor); POST wake via WakeHttp with three ids; stay live
+      2. [ ] On start: pack Focus extract (`AiExtractPack` shared with cursor); POST wake via WakeHttp with three ids; stay live after wake ack (do not Finish on wake ack)
       3. [ ] Loop: take inbox texts → FocusXmlStream pending-buffer → post ordinary Core Changes under Focus (helpers from 18 — no second write stack). May post Append when that mailbox op exists (preferred for end-append); first slice may keep 18 Replace-based writes
-      4. [ ] On Cancel token / drop: stop loop; no close-notify wake; framework drop invalidates `sessionId`
-      5. [ ] Never expose a bot Graph write API; never Finish solely because wake acked
+      4. [ ] First slice terminus: when the response message concludes, Finish (same class as CloudAgents RunFinished on `?ai` cursor). Exact Done seam Unsettled (`kind: close` may be the inbound signal, or harness Done / explicit inbound kind / empty sentinel). Next query is a new Run / new `sessionId`
+      5. [ ] On Cancel token / drop: stop loop mid-stream; no close-notify wake; framework drop invalidates `sessionId`
+      6. [ ] Never expose a bot Graph write API; never Finish solely because wake acked
+      7. [ ] Later destination (not this slice): keep the inbox loop live across turns until Cancel/drop; no Finish-on-every-reply; subsequent outbound wakes and fuller-channel close decisions stay later tickets
    3. Uses
       1. [ ] AiExtractPack (shared)
       2. [ ] WakeHttp + GrokbotConfig
@@ -160,13 +171,14 @@ Narrowest shared test seam:
    File: [[src/Server/TestActor.fs]] (existing; Actor name `test`). Not a second product Actor and not a Shared module.
    1. State
       1. [x] None durable (hello path)
-      2. [ ] gbot-sim: canned inbound texts consumed through the live-row inbox until applied
+      2. [ ] gbot-sim: canned inbound texts consumed through the live-row inbox until applied, then Finish
    2. Interface
       1. [x] Interpret `?test hello` → post one Owned child `hello` then ActorStop
       2. [ ] First behavior token `gbot` selects simulation; further tokens are extra canned texts; with no extra tokens use a short fixed canned sequence
       3. [ ] Simulated: no WakeHttp, no Admiral hub, no live Grok Bot, no inbound HTTP
       4. [ ] Real: enqueue canned texts via CoreActorPool `deliver` (01); consume inbox through FocusXmlStream pending-buffer (18); ordinary Core Changes under Focus
-      5. [ ] Unknown `?test` behaviors stay ActorFailed; hello path unchanged
+      5. [ ] Finish after the canned stream (first-slice parity). This is not a keep-alive hub session
+      6. [ ] Unknown `?test` behaviors stay ActorFailed; hello path unchanged
    3. Uses
       1. [x] CoreMailbox postEvents / actorStop
       2. [ ] CoreActorPool `deliver` + inbox (via 01)
@@ -178,21 +190,22 @@ Narrowest shared test seam:
 2. [ ] **ActorsDeliverDoor ↔ CoreActorPool.deliver** — sole inbound bot→Actor door; secret checked before deliver
 3. [ ] **GrokbotConfig ↔ User Secrets** — `grokbot:*` bind; WakeHttp and InboundAuth read the same config
 4. [ ] **WakeHttp ↔ Admiral hub / bot webhook** — outbound ack-only; auth per hub contract (Ambit adapter)
-5. [ ] **CoreActorPool ↔ Run Agent Actor** — start/schedule/drop plus inbox deliver; gbot opts in to inbox
-6. [ ] **gbot function ↔ FocusXmlStream** — Interface on **Run Agent Actor — gbot function**; reuses 18 helpers
+5. [ ] **CoreActorPool ↔ Run Agent Actor** — start/schedule/drop/finish plus inbox deliver; gbot opts in to inbox; first slice Finishes on response end
+6. [ ] **gbot function ↔ FocusXmlStream** — Interface on **Run Agent Actor — gbot function**; reuses 18 helpers (`done`)
 7. [x] **CoreActorPool ↔ Focus exclusivity** — existing admit; this Project adds `commandId` exclusivity beside it
 8. [ ] **TestActor ↔ deliver + FocusXmlStream** — Interface on **TestActor**; primary deterministic seam (no hub)
 
 ## 4. Alternative considered
 
 1. **gbot-named inbound door** (`POST /ambit/gbot/deliver` or similar) — Rejected: deliver is generalized for any live Actor; path stays `/ambit/actors/deliver` so the door is Actor-pool shaped, not bot-branded.
-2. **CloudAgents stretch for bot replies** — Rejected for first slice: bot conversation is a live webhook wire with inbox deliver, not a CloudAgents job ticket + final report. Cursor CloudAgents path stays owned by llm-connector; gbot shares extract/Focus helpers only.
+2. **CloudAgents stretch for bot replies** — Rejected as the product path: destination bot conversation is a keep-alive webhook wire with inbox deliver, not a CloudAgents job ticket. First slice is **functionally** like a Cursor Cloud job (one wake, stream one reply, Actor Finish when that response concludes) so Done / chrome match `?ai` cursor — still via wake + inbound deliver + FocusXmlStream, not by stretching CloudAgents. Cursor CloudAgents path stays owned by llm-connector; gbot shares extract/Focus helpers only.
 3. **Direct Graph write API for the bot** — Rejected: would bypass Actor-mediated Changes, Poll, Cancel, and History; map Non-goal and spec Problem 3.
 4. **Invent Ambit-only wake auth header** — Rejected: wake must match the existing Admiral hub / bot webhook contract so Alan’s hub panel credentials work; confirm exact header name at wire time (Unsettled).
-5. **Bot `kind: close` in first slice** — Deferred: Cancel/drop only; bot learns via 404.
+5. **Bot `kind: close` as keep-alive close** — Deferred as the fuller-channel close decision (destination still planned). First-slice terminus is response concluded → Actor Finish. `kind: close` may be that Unsettled inbound Done signal; it is not deleted. Cancel/drop still ends the wire mid-stream; bot learns via 404. Close-notify from Ambit stays deferred.
 6. **New command or second Actor for gbot proof** — Rejected: extend existing TestActor / `?test` behavior token `gbot`; do not invent a second product path.
 
 ## 5. Unsettled
 
 1. **Hub wake header exact name** — Confirm at wire time against the Admiral hub / bot webhook contract; Ambit adapter follows that name (do not invent).
 2. **Azure Key Vault vs User Secrets packaging** — First slice binds via User Secrets for localhost and Azure alike; any Key Vault packaging detail beyond that bind is deferred if needed.
+3. **Done seam for “response concluded”** — Product behavior is locked: Actor Finish when the response message ends (cursor class of terminus). Exact wire signal is not locked: bot `kind: close`, harness Done, explicit inbound kind, or empty sentinel. Prefer `kind: close` as the bot→Ambit signal if the hub already has it; otherwise pick the thinnest seam at coding time and record it here. If the chosen signal needs a body field beyond `{ sessionId, text }`, amend the inbound-body lock then — do not invent that field in this slice until the seam is picked.

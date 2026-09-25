@@ -6,7 +6,7 @@
 
 ## Context
 
-A Grok Bot conversation needs a live wire id the bot can echo, and a way for any live Actor to receive inbound text without learning Actor Credential secrets. Today [[src/Server/Core/CoreActorPool.fs|CoreActorPool]] indexes live rows by Credential and Focus only. Before the inbound HTTP door or the gbot function can land, the pool must mint `sessionId`, reject a second start on the same `commandId`, and expose generalized `deliver`.
+A Grok Bot conversation needs a live wire id the bot can echo, and a way for any live Actor to receive inbound text without learning Actor Credential secrets. Today [[src/Server/Core/CoreActorPool.fs|CoreActorPool]] indexes live rows by Credential and Focus only. Before the inbound HTTP door or the gbot function can land, the pool must mint `sessionId`, reject a second start on the same `commandId`, and expose generalized `deliver`. First-slice gbot Finishes when the response concludes (cursor class of terminus); this ticket already clears the session index on Finish. Destination keep-alive (same `sessionId` across turns) stays later and does not change the pool fields.
 
 ## What to build
 
