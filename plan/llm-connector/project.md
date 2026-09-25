@@ -9,6 +9,8 @@ Actual: 33h 30m
 
 ## Notes
 
+- 2026-09-25 — Landed [24 — CloudAgents Grok Bot oneshot stream](issues/24-cloudagents-grokbot-oneshot.md): sibling `GrokBotRunner` wake + fake stream-until-`RunFinished` + cancel. Cursor `AgentRunner` unchanged. Status `done`. Stage stays `done`.
+- 2026-09-25 — Coded [24 — CloudAgents Grok Bot oneshot stream](issues/24-cloudagents-grokbot-oneshot.md): sibling `GrokBotRunner` wake + fake stream-until-`RunFinished` + cancel. Cursor `AgentRunner` unchanged. Status `coded`. Stage stays `done`.
 - 2026-09-25 — Landed [23 — Focus stream commit on next <](issues/23-focus-stream-commit-on-next-open.md) on staging: leftover `hold` starting with `<` commits pending. Status `done`. Stage stays `done`.
 - 2026-09-25 — Coded [23 — Focus stream commit on next <](issues/23-focus-stream-commit-on-next-open.md): leftover `hold` starting with `<` commits pending. Status `coded`. Stage stays `done`.
 - 2026-09-25 — Filed [23 — Focus stream commit on next <](issues/23-focus-stream-commit-on-next-open.md): `<tag>Text<` commits pending (Alan lock 2026-09-24/25). Status `defined`. Stage stays `done`.
@@ -63,6 +65,7 @@ Actual: 33h 30m
 
 ## Implementation tickets
 
+- [24 — CloudAgents Grok Bot oneshot stream](issues/24-cloudagents-grokbot-oneshot.md) — Status `done`. Follow-up: sibling oneshot `GrokBotRunner` (wake ack-only, fake Done, cancel). Server Actor gbot wiring out of scope.
 - [23 — Focus stream commit on next <](issues/23-focus-stream-commit-on-next-open.md) — Status `done`. Follow-up: commit pending when the next `<` arrives; incomplete tag bytes stay in `hold`.
 - [18 — AI Actor stream](issues/18-ai-actor-stream.md) — Status `done`. Follow-up: Actor consumes CloudAgents stream; pending-buffer incremental Focus children; tidy replace only when no element was committed.
 - [17 — CloudAgents Console stream](issues/17-cloudagents-console-stream.md) — Status `done`. Follow-up: DLL `streamUntilComplete` / `setFakeStream`, Cursor SSE, Console deltas.
