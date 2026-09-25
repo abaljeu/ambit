@@ -1,7 +1,7 @@
 # 06 — Wake response URL
 
-**Status:** coded
-Actual: 2h 20m
+**Status:** done
+Actual: 2h 30m
 **Blocked by:** None — [05 — Run Agent Actor Grok Bot oneshot](05-run-agent-grokbot-oneshot.md) is `done`. Eventual [03 — gbot Run Agent: wake + inbox → Focus stream](03-gbot-wake-inbox-focus.md) stays deferred.
 **Type:** coding
 
@@ -67,6 +67,7 @@ Ticket Done is the Definition of done above: Azure `?ai gbot` → Focus nodes vi
 - 2026-09-25 — Filed. Alan lock: oneshot `?ai gbot` replies under Focus when Ambit runs on Azure. Outbound wake carries an absolute response URL so the hub can POST to `/ambit/actors/deliver`. Prior Done-seam research ticket superseded (empty-text Done is live). Status `defined`.
 - 2026-09-25 — Alan locked Definition of done: Azure `?ai gbot` → grokbot has deliver info → Focus nodes via `/deliver` → CloudAgents grokbot handlers → Actor Changes. Hub POST is an ops dependency. [04 — CloudAgents Grok Bot oneshot library](04-cloudagents-grokbot-oneshot.md) and [05 — Run Agent Actor Grok Bot oneshot](05-run-agent-grokbot-oneshot.md) stay `done`. Leave [03 — gbot Run Agent: wake + inbox → Focus stream](03-gbot-wake-inbox-focus.md) alone.
 - 2026-09-25 — Coded absolute wake `responseUrl`. Server origin from `PublicAssetBase` or `https://collaborative-systems.org`. Library stays settings-blind. Status `coded`. Live Azure Done stays ops / hub POST.
+- 2026-09-25 — Alan accepted; squash-landed. Status `done`.
 
 ## Time
 
@@ -74,3 +75,4 @@ Ticket Done is the Definition of done above: Azure `?ai gbot` → Focus nodes vi
 - 2026-09-25 10m — Add Alan Definition of done (from chat)
 - 2026-09-25 10m — Proof: Azure Focus growth is Done; unit tests are Ambit-repo evidence only (from chat)
 - 2026-09-25 1h 15m — Implement wake `responseUrl` + Server origin bind (from chat)
+- 2026-09-25 10m — Alan accepted; Status `done` before squash-land (from chat)
