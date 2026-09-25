@@ -229,6 +229,15 @@ module internal GrokBotFake =
                                 Error(ApiError("failed", msg))))
                     | _ -> None)
 
+    let private streamEventsReady sessionId index =
+        lock gate (fun () ->
+            match Map.tryFind sessionId (!handler).Events with
+            | Some events -> Some(index < events.Length)
+            | None ->
+                match (!handler).Stream with
+                | Some _ -> None
+                | None -> Some false)
+
     let internal streamFake
         (args: GrokBotStreamArgs)
         (fold: StreamFold<'a>)
@@ -251,8 +260,17 @@ module internal GrokBotFake =
                     | None -> loop (index + 1) outcome state
                 | None ->
                     match tryGet args.SessionId with
-                    | Some(Finished result) ->
-                        finishFromStatus args state fold
+                    | Some(Finished _) ->
+                        match
+                            streamEventsReady args.SessionId index
+                        with
+                        | Some true ->
+                            loop index outcome state
+                        | Some false ->
+                            finishFromStatus args state fold
+                        | None ->
+                            Thread.Sleep args.PollIntervalMs
+                            loop index outcome state
                     | _ ->
                         Thread.Sleep args.PollIntervalMs
                         loop index outcome state
