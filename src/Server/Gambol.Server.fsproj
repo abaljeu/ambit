@@ -64,6 +64,7 @@
     <Compile Include="RouteAuthentication.fs" />
     <Compile Include="RouteAppShell.fs" />
     <Compile Include="RouteRegistration.fs" />
+    <Compile Include="ConfigurationOrder.fs" />
     <Compile Include="Server.fs" />
   </ItemGroup>
 

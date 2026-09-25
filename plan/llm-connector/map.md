@@ -8,6 +8,7 @@ Run an Agent from a Zoom-rooted mixed-format Graph extract, mark Focus in the ou
 
 ## Notes
 
+- 2026-09-25 — Follow-up [25 — Grok Bot wake auth Bearer](issues/25-grokbot-wake-auth-bearer.md): outbound wake is `Authorization: Bearer {WakeSecret}`. Settles the Unsettled wake-auth on [24 — CloudAgents Grok Bot oneshot stream](issues/24-cloudagents-grokbot-oneshot.md). Inbound stays `X-Ambit-Inbound-Secret`.
 - 2026-09-21 — Bug-fix [19 — AI extract pack is XML with Focus cssClass](issues/19-ai-xml-pack-focus-css.md): CloudAgents document is write-only XML; Focus is css class `prompt` on the extract copy only. Amb extract-walk and reply apply stay.
 - Enables [[plan/roadmap/epics/agent-chat-managed-context.md]] Chapter **Ask from what I see**.
 - This Project owns document extraction, the vendor-neutral CloudAgents call, and response write-back. [[plan/expression-language/issues/33-recognize-ask-run-statement.md]] only recognizes `?` as a Run statement.
@@ -17,6 +18,7 @@ Run an Agent from a Zoom-rooted mixed-format Graph extract, mark Focus in the ou
 
 ## Decisions so far
 
+- 2026-09-25 — [25 — Grok Bot wake auth Bearer](issues/25-grokbot-wake-auth-bearer.md): Ambit → hub wake auth is `Authorization: Bearer {WakeSecret}`. Do not invent `X-Ambit-Wake-Secret`. Inbound stays `X-Ambit-Inbound-Secret`.
 - 2026-09-21 — [21 — Console lists models and fills CLI gaps from appsettings](issues/21-console-lists-models-and-appsettings.md): Console prints the Cursor model catalog at start; CLI > `appsettings.<level>.json` > `CURSOR_API_KEY` for the key. Create JSON `model` is `{ id, params? }`. CloudAgents stays settings-blind. Not a Browser UI.
 - 2026-09-21 — [20 — Gitignore Development appsettings](issues/20-gitignore-development-appsettings.md): Development is gitignored like Production; tracked empty placeholders stay in base `appsettings.json` only.
 - 2026-09-25 — [23 — Focus stream commit on next <](issues/23-focus-stream-commit-on-next-open.md): pending commits when the next `<` arrives (`<tag>Text<` is enough). Incomplete tag bytes stay in `hold`. Amends [18 — AI Actor stream](issues/18-ai-actor-stream.md) commit trigger only.
@@ -34,24 +36,26 @@ Run an Agent from a Zoom-rooted mixed-format Graph extract, mark Focus in the ou
 
 ## Implementation
 
-1. [23 — Focus stream commit on next <](issues/23-focus-stream-commit-on-next-open.md) — Status `done`.
-2. [21 — Console lists models and fills CLI gaps from appsettings](issues/21-console-lists-models-and-appsettings.md) — Status `done`.
-3. [20 — Gitignore Development appsettings](issues/20-gitignore-development-appsettings.md) — Status `done`.
-4. [19 — AI extract pack is XML with Focus cssClass](issues/19-ai-xml-pack-focus-css.md) — Status `done`.
-5. [18 — AI Actor stream](issues/18-ai-actor-stream.md) — Status `done`.
-6. [17 — CloudAgents Console stream](issues/17-cloudagents-console-stream.md) — Status `done`.
-7. [16 — AiRepos from appsettings](issues/16-airepos-from-appsettings.md) — Status `done`.
-8. [15 — AiKeys from appsettings](issues/15-aikeys-from-appsettings.md) — Status `done`.
-9. [14 — Provider-named AI errors](issues/14-provider-named-ai-errors.md) — Status `done`.
-10. [13 — Vertical proof: Browser Ask from what I see](issues/13-vertical-proof-browser-ask.md) — Status `done`.
-11. [11 — Pack extract with Amb (supplied-fragment walk)](issues/11-simple-extract-format.md) — Status `done`.
-12. [08 — Agent ask from what I see](issues/08-agent-ask-from-what-i-see.md) — Status `done`.
-13. [09 — Agent failure preserves children](issues/09-agent-failure-preserves-children.md) — Status `done`.
-14. [10 — Cancel by Focus](issues/10-cancel-by-focus.md) — Status `done`.
+1. [25 — Grok Bot wake auth Bearer](issues/25-grokbot-wake-auth-bearer.md) — Status `done`. Follow-up: lock wake auth as `Authorization: Bearer {WakeSecret}`.
+2. [24 — CloudAgents Grok Bot oneshot stream](issues/24-cloudagents-grokbot-oneshot.md) — Status `done`. Follow-up: sibling oneshot `GrokBotRunner` (wake ack-only, fake Done, cancel). Wake auth settled on [25 — Grok Bot wake auth Bearer](issues/25-grokbot-wake-auth-bearer.md).
+3. [23 — Focus stream commit on next <](issues/23-focus-stream-commit-on-next-open.md) — Status `done`.
+4. [21 — Console lists models and fills CLI gaps from appsettings](issues/21-console-lists-models-and-appsettings.md) — Status `done`.
+5. [20 — Gitignore Development appsettings](issues/20-gitignore-development-appsettings.md) — Status `done`.
+6. [19 — AI extract pack is XML with Focus cssClass](issues/19-ai-xml-pack-focus-css.md) — Status `done`.
+7. [18 — AI Actor stream](issues/18-ai-actor-stream.md) — Status `done`.
+8. [17 — CloudAgents Console stream](issues/17-cloudagents-console-stream.md) — Status `done`.
+9. [16 — AiRepos from appsettings](issues/16-airepos-from-appsettings.md) — Status `done`.
+10. [15 — AiKeys from appsettings](issues/15-aikeys-from-appsettings.md) — Status `done`.
+11. [14 — Provider-named AI errors](issues/14-provider-named-ai-errors.md) — Status `done`.
+12. [13 — Vertical proof: Browser Ask from what I see](issues/13-vertical-proof-browser-ask.md) — Status `done`.
+13. [11 — Pack extract with Amb (supplied-fragment walk)](issues/11-simple-extract-format.md) — Status `done`.
+14. [08 — Agent ask from what I see](issues/08-agent-ask-from-what-i-see.md) — Status `done`.
+15. [09 — Agent failure preserves children](issues/09-agent-failure-preserves-children.md) — Status `done`.
+16. [10 — Cancel by Focus](issues/10-cancel-by-focus.md) — Status `done`.
 
 ## Not yet specified
 
-None for the first Agent vertical. [23 — Focus stream commit on next <](issues/23-focus-stream-commit-on-next-open.md), [17 — CloudAgents Console stream](issues/17-cloudagents-console-stream.md), and [18 — AI Actor stream](issues/18-ai-actor-stream.md) are `done` under Implementation. Mixed-format owning-codec pack stays tabled under Decisions. Live-Actor chrome is owned by core-creation, not this map.
+None for the first Agent vertical. [25 — Grok Bot wake auth Bearer](issues/25-grokbot-wake-auth-bearer.md) is `done` under Implementation. [23 — Focus stream commit on next <](issues/23-focus-stream-commit-on-next-open.md), [17 — CloudAgents Console stream](issues/17-cloudagents-console-stream.md), and [18 — AI Actor stream](issues/18-ai-actor-stream.md) are `done` under Implementation. Mixed-format owning-codec pack stays tabled under Decisions. Live-Actor chrome is owned by core-creation, not this map.
 
 ## Out of scope
 

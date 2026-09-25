@@ -6,15 +6,9 @@ open Gambol.CloudAgents
 open Gambol.Server
 open Gambol.Server.Tests.AskCancelHarness
 
-let private desktopKeys =
-    { DefaultAiKey = "desktop"
-      Keys = Map.ofList [ "desktop", "desk-secret" ] }
-let private workKeys =
-    { DefaultAiKey = "desktop"
-      Keys =
-        Map.ofList
-            [ "desktop", "desk-secret"
-              "work", "work-secret" ] }
+let private cursorKeys =
+    { DefaultAiKey = "cursor"
+      Keys = Map.ofList [ "cursor", "cursor-secret" ] }
 let private lifeRepo =
     { Name = "life"
       Url = "https://origin.cursor.com/alanbaljeu/life.git"
@@ -88,11 +82,11 @@ type AiReposActorTests() =
         withFake
             (fun args ->
                 Assert.Equal(None, args.Repos)
-                Assert.Equal("desk-secret", args.Config.ApiKey)
+                Assert.Equal("cursor-secret", args.Config.ApiKey)
                 fakeReply "from-default")
             (fun () ->
                 withHostKeysRepos
-                    desktopKeys
+                    cursorKeys
                     [ lifeRepo ]
                     (fun host pool -> task {
                         let! seeded = seedAskTree host "?ai"
@@ -106,15 +100,15 @@ type AiReposActorTests() =
         withFake
             (fun args ->
                 Assert.Equal(Some [ lifeConfig ], args.Repos)
-                Assert.Equal("work-secret", args.Config.ApiKey)
+                Assert.Equal("cursor-secret", args.Config.ApiKey)
                 fakeReply "from-named-repo")
             (fun () ->
                 withHostKeysRepos
-                    workKeys
+                    cursorKeys
                     [ lifeRepo ]
                     (fun host pool -> task {
                         let! seeded =
-                            seedAskTree host "?ai work life"
+                            seedAskTree host "?ai cursor life"
                         let! request = startAsk host seeded
                         do! expectActorSucceeded
                                 host pool request.focusId
@@ -125,11 +119,11 @@ type AiReposActorTests() =
         withFake
             (fun args ->
                 Assert.Equal(Some [ lifeConfig ], args.Repos)
-                Assert.Equal("desk-secret", args.Config.ApiKey)
+                Assert.Equal("cursor-secret", args.Config.ApiKey)
                 fakeReply "from-repo-only")
             (fun () ->
                 withHostKeysRepos
-                    desktopKeys
+                    cursorKeys
                     [ lifeRepo ]
                     (fun host pool -> task {
                         let! seeded = seedAskTree host "?ai life"

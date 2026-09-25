@@ -21,7 +21,7 @@ Alan asked for a oneshot Grok Bot stream face on the CloudAgents library ([Gambo
 
 ### 2. Wake auth and Done seam (Unsettled)
 
-1. [x] Wake auth header matches the Admiral hub / bot webhook contract — do not invent an Ambit-only header. Repo has no hub header evidence: `GrokBotHttp.applyWakeAuth` is the adapter seam (no extra header until confirmed).
+1. [x] Wake auth header matches the Admiral hub / bot webhook contract — do not invent an Ambit-only header. Repo has no hub header evidence: `GrokBotHttp.applyWakeAuth` is the adapter seam (no extra header until confirmed). Settled later on [25 — Grok Bot wake auth Bearer](25-grokbot-wake-auth-bearer.md): `Authorization: Bearer {WakeSecret}`. Do not use `X-Ambit-*` for wake.
 2. [x] Done seam stays Unsettled (`kind: close` may be it). Live stream without fake returns `InvalidResponse` (Done seam Unsettled). Fake `setFakeStream` emits `RunFinished`.
 
 ### 3. Proof
@@ -41,13 +41,14 @@ Alan asked for a oneshot Grok Bot stream face on the CloudAgents library ([Gambo
 
 ## See also
 
-[CloudAgents README](../../../src/CloudAgents/README.md), [17 — CloudAgents Console stream](17-cloudagents-console-stream.md), [plan/bot-channel/spec.md](../../bot-channel/spec.md)
+[CloudAgents README](../../../src/CloudAgents/README.md), [17 — CloudAgents Console stream](17-cloudagents-console-stream.md), [plan/bot-channel/spec.md](../../bot-channel/spec.md), [25 — Grok Bot wake auth Bearer](25-grokbot-wake-auth-bearer.md)
 
 ## Comments
 
 - 2026-09-25 — Filed and coded: sibling `GrokBotRunner` oneshot (wake ack-only, fake stream until `RunFinished`, cancel). Wake auth and Done seam Unsettled as documented. Status `coded`.
 - 2026-09-25 — Standards review hard item: split `cancel mid-stream yields cancelled not Finish` via helpers. Reports folded from the independent review. Status stays `coded`.
 - 2026-09-25 — Alan accepted; squash-landed. Status `done`.
+- 2026-09-25 — Alan confirmed hub wake is `Authorization: Bearer <WakeSecret>`. Wake-auth Unsettled on this ticket is settled by [25 — Grok Bot wake auth Bearer](25-grokbot-wake-auth-bearer.md). Done seam stays Unsettled. Status stays `done`.
 
 ## Time
 
