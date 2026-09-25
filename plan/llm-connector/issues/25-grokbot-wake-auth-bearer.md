@@ -1,6 +1,6 @@
 # 25 — Grok Bot wake auth Bearer
 
-**Status:** coded
+**Status:** done
 Actual: 1h 30m
 **Blocked by:** None — [24 — CloudAgents Grok Bot oneshot stream](24-cloudagents-grokbot-oneshot.md) is `done`.
 **Type:** coding
@@ -42,6 +42,7 @@ Actual: 1h 30m
 
 - 2026-09-25 — Filed: Alan confirmed hub wake is `Authorization: Bearer <WakeSecret>`. Status `defined`.
 - 2026-09-25 — Coded: `applyWakeAuth` sets `Authorization: Bearer <WakeSecret>`; empty/whitespace leaves Authorization unset; no `X-Ambit-*` on wake. Proofs in [GrokBotOneshotTests](../../../tests/CloudAgents.Tests/GrokBotOneshotTests.fs). Status `coded`.
+- 2026-09-25 — Alan accepted; squash-landed. Status `done`.
 
 ## Time
 
