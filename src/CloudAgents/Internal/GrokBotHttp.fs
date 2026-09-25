@@ -23,10 +23,7 @@ module GrokBotHttp =
             "payload", JsonValue.Record [||]
         |]
 
-    [<Literal>]
-    let wakeSecretHeader = "X-Ambit-Wake-Secret"
-
-    /// Outbound wake auth: `X-Ambit-Wake-Secret: <WakeSecret>`.
+    /// Outbound wake auth: `Authorization: Bearer <WakeSecret>`.
     /// Empty secret adds no header (caller must fail closed).
     let applyWakeAuth
         (request: HttpRequestMessage)
@@ -35,7 +32,8 @@ module GrokBotHttp =
         if String.IsNullOrWhiteSpace secret then
             request
         else
-            request.Headers.Add(wakeSecretHeader, secret)
+            request.Headers.Authorization <-
+                Headers.AuthenticationHeaderValue("Bearer", secret)
             request
 
     /// Ack-only: success ignores body (never bot reply text).
