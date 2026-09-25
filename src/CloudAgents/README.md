@@ -11,9 +11,9 @@ The library provides a vendor-neutral public API.
 
 - **Types** (`PublicTypes.fs`): `AgentStatus`, `AgentResult`,
   `GitResult`, `RepoConfig`, `AgentOptions`, `ModelParam`,
-  `RunnerConfig`
-- **Runner** (`AgentRunner.fs`): `start`, `poll`, `cancel`,
-  `waitUntilComplete`, `streamUntilComplete`, `setFakeStream`
+  `RunnerConfig`, `StreamArgs`, `StreamFold`, `AgentStreamEvent`
+- **Runner** (`AgentRunner.fs`): `start`, `cancel`,
+  `streamUntilComplete`, `setFake`, `setFakeStream`
 - **Catalog** (`cursor-models.json`): checked-in model ids,
   parameters, and allowed values; loaded via
   `Internal/CursorModelsFile.fs`
@@ -40,11 +40,19 @@ let options =
       ModelHint = None
       ModelParams = [] }
 
+let fold = { Seed = (); OnEvent = fun s _ -> s }
+
 match AgentRunner.start config "Explain F# computation expressions" None options with
 | Error err -> printfn "Failed: %A" err
 | Ok (agentId, runId) ->
-    match AgentRunner.waitUntilComplete config agentId runId 5000 None with
-    | Ok result -> printfn "Result: %s" result.Text
+    let args =
+        { Config = config
+          AgentId = agentId
+          RunId = runId
+          PollIntervalMs = 50
+          MaxWaitMs = None }
+    match AgentRunner.streamUntilComplete args fold with
+    | Ok (result, _) -> printfn "Result: %s" result.Text
     | Error err -> printfn "Error: %A" err
 ```
 
@@ -66,11 +74,19 @@ let repos =
     Some [ { RepoConfig.Url = "https://github.com/org/repo"
              StartingRef = Some "main" } ]
 
+let fold = { Seed = (); OnEvent = fun s _ -> s }
+
 match AgentRunner.start config "Add unit tests" repos options with
 | Error err -> printfn "Failed: %A" err
 | Ok (agentId, runId) ->
-    match AgentRunner.waitUntilComplete config agentId runId 5000 None with
-    | Ok result ->
+    let args =
+        { Config = config
+          AgentId = agentId
+          RunId = runId
+          PollIntervalMs = 50
+          MaxWaitMs = None }
+    match AgentRunner.streamUntilComplete args fold with
+    | Ok (result, _) ->
         printfn "Result: %s" result.Text
         for git in result.Git do
             printfn "Branch: %s" (git.Branch |> Option.defaultValue "none")

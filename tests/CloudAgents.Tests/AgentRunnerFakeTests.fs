@@ -38,28 +38,18 @@ type AgentRunnerFakeTests() =
         finally
             clearFake ()
 
-    let waitFinished agentId runId remainingMs =
-        let rec spin left =
-            match AgentRunner.poll unusedConfig agentId runId with
-            | Ok(Finished result) -> Some result
-            | Ok Running when left > 0 ->
-                Thread.Sleep 10
-                spin (left - 10)
-            | _ -> None
-        spin remainingMs
-
-    let waitFailed agentId runId remainingMs =
-        let rec spin left =
-            match AgentRunner.poll unusedConfig agentId runId with
-            | Ok(Failed msg) -> Some msg
-            | Ok Running when left > 0 ->
-                Thread.Sleep 10
-                spin (left - 10)
-            | _ -> None
-        spin remainingMs
+    let streamOnce agentId runId =
+        AgentRunner.streamUntilComplete
+            { Config = unusedConfig
+              AgentId = agentId
+              RunId = runId
+              PollIntervalMs = 10
+              MaxWaitMs = Some 2000 }
+            { Seed = ()
+              OnEvent = fun () _ -> () }
 
     [<Fact>]
-    member _.``setFake Some routes start poll and wait without HTTP``() =
+    member _.``setFake Some routes start and stream without HTTP``() =
         let seen = ref None
         withFake
             (fun args ->
@@ -74,18 +64,11 @@ type AgentRunnerFakeTests() =
                 | Ok(agentId, runId) ->
                     Assert.False(String.IsNullOrEmpty agentId)
                     Assert.False(String.IsNullOrEmpty runId)
-                    match waitFinished agentId runId 2000 with
-                    | None -> Assert.Fail("poll did not finish")
-                    | Some result ->
+                    match streamOnce agentId runId with
+                    | Ok(result, _) ->
                         Assert.Equal("fake-reply", result.Text)
-                    Assert.Equal(Some "pack-body", !seen)
-                    match
-                        AgentRunner.waitUntilComplete
-                            unusedConfig agentId runId 10 None
-                    with
-                    | Ok result ->
-                        Assert.Equal("fake-reply", result.Text)
-                    | Error err -> Assert.Fail($"wait: {err}"))
+                    | Error err -> Assert.Fail($"stream: {err}")
+                    Assert.Equal(Some "pack-body", !seen))
 
     [<Fact>]
     member _.``setFake None restores CursorAdapter reject``() =
@@ -116,9 +99,10 @@ type AgentRunnerFakeTests() =
                 match started with
                 | Error err -> Assert.Fail($"start: {err}")
                 | Ok(agentId, runId) ->
-                    match waitFailed agentId runId 2000 with
-                    | None -> Assert.Fail("poll did not fail")
-                    | Some msg -> Assert.Equal(named, msg))
+                    match streamOnce agentId runId with
+                    | Error(ApiError("failed", msg)) ->
+                        Assert.Equal(named, msg)
+                    | other -> Assert.Fail($"expected failed, {other}"))
 
     [<Fact>]
     member _.``setFake refuses while a handler is in flight``() =
@@ -138,10 +122,10 @@ type AgentRunnerFakeTests() =
                     while not !refused && DateTime.UtcNow < deadline do
                         Thread.Sleep 10
                     Assert.True(!refused)
-                    waitFinished agentId runId 2000 |> ignore)
+                    streamOnce agentId runId |> ignore)
 
     [<Fact>]
-    member _.``hanging fake stays Running until cancel``() =
+    member _.``hanging fake stream waits until cancel``() =
         withFake
             (fun _ ->
                 AgentRunner.waitForCancel 8000 |> ignore
@@ -153,26 +137,22 @@ type AgentRunnerFakeTests() =
                 match started with
                 | Error err -> Assert.Fail($"start: {err}")
                 | Ok(agentId, runId) ->
-                    match AgentRunner.poll unusedConfig agentId runId with
-                    | Ok Running -> ()
-                    | other -> Assert.Fail($"expected Running, {other}")
+                    let seen = ref "none"
+                    let worker =
+                        Thread(fun () ->
+                            match streamOnce agentId runId with
+                            | Error(ApiError("cancelled", _)) ->
+                                seen := "cancelled"
+                            | _ -> seen := "other")
+                    worker.Start()
                     match
                         AgentRunner.cancel unusedConfig agentId runId
                     with
                     | Ok() -> ()
                     | Error err -> Assert.Fail($"cancel: {err}")
-                    match AgentRunner.poll unusedConfig agentId runId with
-                    | Ok Cancelled -> ()
-                    | other ->
-                        Assert.Fail($"expected Cancelled, {other}")
-                    Assert.True(AgentRunner.fakeCancelCount() >= 1)
-                    match
-                        AgentRunner.waitUntilComplete
-                            unusedConfig agentId runId 10 (Some 500)
-                    with
-                    | Error(ApiError("cancelled", _)) -> ()
-                    | other ->
-                        Assert.Fail($"expected cancelled wait, {other}"))
+                    Assert.True(worker.Join 2000)
+                    Assert.Equal("cancelled", !seen)
+                    Assert.True(AgentRunner.fakeCancelCount() >= 1))
 
     [<Fact>]
     member _.``streamUntilComplete emits fake stream events``() =
@@ -212,6 +192,57 @@ type AgentRunnerFakeTests() =
                     | Error err -> Assert.Fail($"stream: {err}"))
 
     [<Fact>]
+    member _.``partial fake stream waits until cancel``() =
+        withFake
+            (fun _ ->
+                AgentRunner.waitForCancel 8000 |> ignore
+                Finished(sampleResult "late"))
+            (fun () ->
+                Assert.True(
+                    AgentRunner.setFakeStream (Some (fun _ ->
+                        [ AssistantText "kept" ]))
+                )
+                let started =
+                    AgentRunner.start
+                        unusedConfig "pack" None emptyOptions
+                match started with
+                | Error err -> Assert.Fail($"start: {err}")
+                | Ok(agentId, runId) ->
+                    let sawText = new ManualResetEvent(false)
+                    let seen = ref "none"
+                    let worker =
+                        Thread(fun () ->
+                            match
+                                AgentRunner.streamUntilComplete
+                                    { Config = unusedConfig
+                                      AgentId = agentId
+                                      RunId = runId
+                                      PollIntervalMs = 10
+                                      MaxWaitMs = None }
+                                    { Seed = ()
+                                      OnEvent =
+                                        fun () ev ->
+                                            match ev with
+                                            | AssistantText _ ->
+                                                sawText.Set()
+                                                |> ignore
+                                            | _ -> () }
+                            with
+                            | Error(ApiError("cancelled", _)) ->
+                                seen := "cancelled"
+                            | _ -> seen := "other")
+                    worker.Start()
+                    Assert.True(sawText.WaitOne 2000)
+                    match
+                        AgentRunner.cancel
+                            unusedConfig agentId runId
+                    with
+                    | Ok() -> ()
+                    | Error err -> Assert.Fail($"cancel: {err}")
+                    Assert.True(worker.Join 2000)
+                    Assert.Equal("cancelled", !seen))
+
+    [<Fact>]
     member _.``setFake handler yields Failed not Finished``() =
         withFake
             (fun _ -> Failed "provider-boom")
@@ -222,16 +253,9 @@ type AgentRunnerFakeTests() =
                 match started with
                 | Error err -> Assert.Fail($"start: {err}")
                 | Ok(agentId, runId) ->
-                    match waitFailed agentId runId 2000 with
-                    | None -> Assert.Fail("poll did not fail")
-                    | Some msg ->
-                        Assert.Equal("provider-boom", msg)
-                    match
-                        AgentRunner.waitUntilComplete
-                            unusedConfig agentId runId 10 None
-                    with
+                    match streamOnce agentId runId with
                     | Error(ApiError("failed", msg)) ->
                         Assert.Equal("provider-boom", msg)
                     | other ->
-                        Assert.Fail($"expected failed wait, {other}"))
+                        Assert.Fail($"expected failed stream, {other}"))
 

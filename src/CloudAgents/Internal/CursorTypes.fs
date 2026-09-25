@@ -67,11 +67,3 @@ module CursorTypes =
 
     type CursorGit =
         { branches: CursorGitBranch list }
-
-    type CursorRunStatus =
-        { id: string
-          agentId: string
-          status: string
-          result: string option
-          durationMs: int option
-          git: CursorGit option }

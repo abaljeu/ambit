@@ -2,7 +2,7 @@
 
 Stage: spec
 Summary: Ambit is a Slack-like direct-message channel to Grok Bots — `?ai gbot` wake webhook, live Actor inbox deliver, Focus streaming writes — with Ambit itself as the channel.
-Updated: 2026-09-24
+Updated: 2026-09-25
 
 ## Objective
 
@@ -25,6 +25,7 @@ Make Ambit the durable messaging surface for talking to Grok Bots. Cognition sta
 
 ## Notes
 
+- 2026-09-25 — [18 — AI Actor stream](../llm-connector/issues/18-ai-actor-stream.md) is `done`. Incremental-append protocol is available. No bot-channel tickets yet. Stage stays `spec`.
 - 2026-09-24 — Spec published ([[spec.md]]); Stage `spec`. Grill locks remain in [[map.md]]. Next `/to-arch` (not tickets yet).
 - 2026-09-24 — Grill closed; locks in [[map.md]] Decisions.
 - 2026-09-23 — Charted from Nectar + Alan.
