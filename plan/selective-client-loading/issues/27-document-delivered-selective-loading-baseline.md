@@ -8,7 +8,8 @@
 
 **See also:** [[plan/selective-client-loading/spec.md]] (Further Notes documentation promotion); [[plan/selective-client-loading/issues/14-simplify-selective-loading.md]] (Authority).
 
-**Status:** ready-for-agent
+**Type:** coding
+**Status:** cancelled
 
 - [ ] One [[doc/current/]] document states the delivered facts: complete-Workspace client residency, bootstrap scope, explicit Load, resident-only navigation, ChangeRequest sync, canonical owners, structural guards including MoveSelected, and Move-dialog Unloaded destination rules.
 - [ ] [[doc/index.md]] presents selective client loading as current behavior and points to that document.
@@ -21,3 +22,4 @@
 ## Comments
 
 - 2026-09-02: Parked from WORK.md Blocked. Blocked by already recorded.
+- 2026-09-26: Status `cancelled`. Do not promote the complete-Workspace baseline as current. Successor destination is [browser-residency](plan/browser-residency/map.md). A later docs pass waits until that map is walked. See [04 — Retire selective hollow-click and resident-only Find assumptions](plan/browser-residency/issues/04-retire-selective-hollow-click-find.md).

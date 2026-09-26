@@ -8,7 +8,8 @@
 
 **See also:** [[plan/selective-client-loading/spec.md]] (hollow-circle Load control); [[plan/selective-client-loading/issues/14-simplify-selective-loading.md]] (full-selection hollow-circle click); [[plan/selective-client-loading/issues/23-introduce-hollow-circle-presentation.md]] (introduces hollow-circle presentation).
 
-**Status:** ready-for-agent
+**Type:** coding
+**Status:** cancelled
 
 - [ ] Unloaded and Unparsed hollow circles each run the same Load command.
 - [ ] A hollow-circle click on an occurrence that is not selected first makes that occurrence the only selection. Then Load runs.
@@ -20,3 +21,4 @@
 
 - Split from the former combined issue 23: presentation is [[23-introduce-hollow-circle-presentation.md]]; this ticket owns click→Load only.
 - 2026-09-02: Parked from WORK.md Blocked. Blocked by already recorded.
+- 2026-09-26: Status `cancelled`. Superseded by [browser-residency](plan/browser-residency/map.md). Auto wants grow residency without a click or a Load command. Do not un-wire hollow-circle → Load if present; hollow-click Load may remain. See [04 — Retire selective hollow-click and resident-only Find assumptions](plan/browser-residency/issues/04-retire-selective-hollow-click-find.md).
