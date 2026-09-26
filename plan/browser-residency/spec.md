@@ -11,9 +11,9 @@ Sources: [map.md](map.md) Destination and Notes (2026-09-26 grill locks). Part o
 
 ## 2. Solution
 
-1. **Focus-scoped Graph** — The Browser starts with a small Graph around Focus and the ancestor path that frames it. Direct Children of reserved Nodes ROOT, TRASH, Workspaces Node, and SYSTEM are also present even when they sit outside that path. The Graph is not the whole Server Graph and not a complete Workspace.
-2. **Bootstrap set** — The current `/state` request carries `focusId`. The Server uses it to include the Focus ancestor path and Focus Children, plus Children of reserved Nodes ROOT, TRASH, Workspaces Node, and SYSTEM. Zoom and Fold restore remain Browser session state. After restore, `Want.compose` computes Fold-aware Included. Bootstrap and later Wants use the same edges-plus-Nodes package.
-3. **Auto wants** — A Want names Included Nodes whose Children are desired. `Want.compose` returns Fold-aware Included Nodes that miss Children. After the answer is installed, the Browser computes Included again; newly Included Children may enter the next Want. Reserved Nodes and the Focus path are bootstrap, not an ongoing tier. Every post-Event and Poll carries the current Want, including `[]`. Repeated Wants are allowed. Auto wants need no click and no command.
+1. **Bootstrap Graph** — The Browser starts with a small Graph around saved Zoom and the ancestor path that frames it. Direct Children of reserved Nodes ROOT, TRASH, Workspaces Node, and SYSTEM are also present even when they sit outside that path. The Graph is not the whole Server Graph and not a complete Workspace.
+2. **Browser-computed growth** — Saved Zoom only scopes the initial Graph. Fold restore remains Browser session state. After restore, `Want.compose` computes Fold-aware Included Nodes that miss Children from the ViewModel, and the Browser sends that Want list. The Server answers the supplied Node ids; it does not derive Included. Bootstrap and later Wants use the same edges-plus-Nodes package.
+3. **Auto wants** — A Want names Included Nodes whose Children are desired. `Want.compose` returns Fold-aware Included Nodes that miss Children. After the answer is installed, the Browser computes Included again; newly Included Children may enter the next Want. Reserved Nodes and the Zoom framing path are not an ongoing tier. Every post-Event and Poll carries the current Want, including `[]`. Repeated Wants are allowed. Auto wants need no click and no command.
 4. **Edges plus Nodes** — The Server answers a Want with child edges (`Graph.childMap`) and, separately, the Nodes those edges point at. No dangling edges. An absent `childMap` key is Unloaded. A present key, including an empty list, is Loaded.
 5. **Hollow-circle Bullet** — An Unloaded Node (absent `childMap`) or an Unparsed Node shows a hollow-circle Bullet as today. There is no new per-Node loading Status. Auto growth does not require a click. If hollow-circle → Load is already wired, it may remain; auto wants do not use that command.
 6. **Find stays in residence** — Default Find searches Resident Nodes only. A Server-mode Find that asks the Server and receives found Nodes is later work on [05 — Chart server-mode Find](issues/05-chart-server-mode-find.md).
@@ -22,8 +22,8 @@ Sources: [map.md](map.md) Destination and Notes (2026-09-26 grill locks). Part o
 ## 3. User Stories
 
 1. **Open a large Server Graph** — As a person, I want the Browser to open a Graph that is already large on the Server without receiving that whole Graph, so that first paint depends on what I see, not on Server size.
-2. **Focus first paint** — As a person, I want first paint to include Focus and its direct Children, so that the Node where I work is Resident before ongoing Wants grow Included context.
-3. **Framing path** — As a person, I want the ancestor path to Focus Resident at first paint, so that Focus has its structural frame.
+2. **Zoom first paint** — As a person, I want first paint to include the saved Zoom root and its direct Children, so that the Browser has a small base before ViewModel-derived Wants grow Included context.
+3. **Framing path** — As a person, I want the ancestor path to the Zoom root Resident at first paint, so that Zoom has its structural frame.
 4. **ROOT Children** — As a person, I want direct Children of ROOT Resident at first paint, so that reserved structure under ROOT is present even when a Child sits outside Included.
 5. **TRASH Children** — As a person, I want direct Children of TRASH Resident at first paint, so that the recycle bin's first rank is present.
 6. **Workspaces Node Children** — As a person, I want direct Children of the Workspaces Node Resident at first paint, so that named Workspace headers are present.
@@ -35,7 +35,7 @@ Sources: [map.md](map.md) Destination and Notes (2026-09-26 grill locks). Part o
 12. **No new loading Status** — As a person, I want no new per-Node loading Status, so that Unloaded, Loaded, and Unparsed remain the residency and source facts I already know.
 13. **Auto want Included** — As a person, I want Included Nodes that miss Children wanted first, so that what I am looking at gains Children without my asking.
 14. **Next rank after recompute** — As a person, I want newly Resident Children wanted after Fold-aware Included is computed again, so that the next Included rank can arrive after its parents without prefetching hidden Children.
-15. **No bootstrap tier in ongoing Want** — As the Browser, I want reserved Nodes and the Focus path kept in bootstrap, so that ongoing Wants contain only Fold-aware Included Nodes that miss Children.
+15. **No bootstrap tier in ongoing Want** — As the Browser, I want reserved Nodes and the Zoom framing path kept out of ongoing Wants, so that those Wants contain only Fold-aware Included Nodes that miss Children.
 16. **No click** — As a person, I want auto wants to run without a click, so that a hollow-circle Bullet is a signal, not a required control.
 17. **No command** — As a person, I want auto wants to run without Load or any other command, so that residency growth is silent.
 18. **Hollow-click Load may remain** — As a person, I want an existing hollow-circle → Load wiring left in place if it is present, so that a click still runs Load while auto wants do not need it.

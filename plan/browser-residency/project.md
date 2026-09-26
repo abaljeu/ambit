@@ -1,7 +1,7 @@
 # Browser residency
 
 Stage: build
-Summary: The Browser starts with Focus-scoped visible-closure and grows by recomputing Wants for Fold-aware Included Nodes that miss Children. An Unloaded Node shows a hollow-circle Bullet until its Children arrive. Server Find stays postponed. Every post-Event and Poll carries Changes plus the current Want.
+Summary: The Browser starts with a small bootstrap Graph and grows from ViewModel-derived Wants for Fold-aware Included Nodes that miss Children. An Unloaded Node shows a hollow-circle Bullet until its Children arrive. Server Find stays postponed. Every post-Event and Poll carries Changes plus the current Want.
 Updated: 2026-09-26
 Started: 2026-09-26
 Actual: 3h

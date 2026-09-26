@@ -4,7 +4,7 @@ Spec: [[spec.md]]
 Updated: 2026-09-26
 Sequence: expand-contract
 
-Sources: [map.md](map.md) Destination, Notes, and Decisions so far (2026-09-26 locks); [spec.md](spec.md) Solution and 36 stories. Prefer existing seams. `Graph.childMap` (absent key = Unloaded) is the residency list. Checklist: `[x]` already true of the recorded shape; `[ ]` still to build. Sequence is expand-contract inside the current code version: Poll and post-Event migrate directly to required Want fields, while `/state` carries required `focusId` for the backend projection. There is no cross-version interoperation or compatibility form. Old Load Fetch `packages` dual-run until [06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md) locks their removal.
+Sources: [map.md](map.md) Destination, Notes, and Decisions so far (2026-09-26 locks); [spec.md](spec.md) Solution and 36 stories. Prefer existing seams. `Graph.childMap` (absent key = Unloaded) is the residency list. Checklist: `[x]` already true of the recorded shape; `[ ]` still to build. Sequence is expand-contract inside the current code version: Poll and post-Event migrate directly to required Want fields computed from the Browser ViewModel. Saved Zoom scopes only the initial base Graph. There is no cross-version interoperation or compatibility form. Old Load Fetch `packages` dual-run until [06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md) locks their removal.
 
 ## 1. Story paths
 
@@ -14,14 +14,14 @@ Sources: [map.md](map.md) Destination, Notes, and Decisions so far (2026-09-26 l
    3. [ ] [src/Server/Api.fs](src/Server/Api.fs) `getState` returns a visible-closure Graph, not the whole Server Graph
    4. [ ] Browser first paint uses that scoped Graph only
 
-2. **Focus first paint**
-   1. [ ] `/state` request carries required `focusId`
-   2. [ ] Visible-closure bootstrap includes Focus and its direct Children
+2. **Zoom first paint**
+   1. [x] `/state` request carries best-effort saved Zoom
+   2. [ ] Visible-closure bootstrap includes the Zoom root and its direct Children
    3. [ ] Browser restores Zoom and Fold locally after State loads
    4. [x] [src/Shared/IncludedDescendantIds.fs](src/Shared/IncludedDescendantIds.fs) walks the restored SiteMap honoring Fold
 
 3. **Framing path**
-   1. [ ] Bootstrap includes the ancestor path to Focus
+   1. [ ] Bootstrap includes the ancestor path to saved Zoom
    2. [ ] Those ancestors are Loaded so the path edges and headers are Resident
    3. [x] Browser restores the UI Zoom independently
 
@@ -81,7 +81,7 @@ Sources: [map.md](map.md) Destination, Notes, and Decisions so far (2026-09-26 l
     3. [ ] Newly Included Children may enter the next Poll / post-Event Want
 
 15. **No third ongoing tier**
-    1. [x] Want.compose does not add reserved Nodes or the Focus path as an ongoing tier
+    1. [x] Want.compose does not add reserved Nodes or the Zoom framing path as an ongoing tier
     2. [x] Those ids stay bootstrap-only
     3. [x] Shared test asserts the single Fold-aware Included rule
 
@@ -199,7 +199,7 @@ Shared segments:
 3. [ ] Server answers edges plus pointed-at Nodes (no dangling edges)
 4. [x] ResidentProjection installs that package into `Graph.childMap`
 5. [x] Bullet from Unloaded / Unparsed via ViewModelChildrenIndicator
-6. [ ] Focus-scoped bootstrap (reserved Children + Focus ancestor path + Focus Children)
+6. [ ] Small bootstrap base (reserved Children + Zoom ancestor path + Zoom Children)
 
 Narrowest shared test seam:
 1. [x] Want.compose + installWantAnswer in Shared (no HTTP): given Graph, SiteMap, Zoom, and an answer package, the next Graph has Loaded wanted parents, Resident Children, and no dangling edges
@@ -233,7 +233,7 @@ Narrowest shared test seam:
    1. State
       1. [ ] None beyond the Graph it returns
    2. Interface
-      1. [x] `visibleClosureGraph: NodeId option * Graph -> Graph` computes `childMap` for ROOT, TRASH, Workspaces Node, and SYSTEM; the Focus ancestor path; and Focus. It includes each Loaded parent's direct Children and is not a complete Workspace. [09 — Migrate Server Sync doors](issues/09-migrate-server-sync-doors.md) owns the production `/state` switch
+      1. [x] `visibleClosureGraph: NodeId option * Graph -> Graph` computes `childMap` for ROOT, TRASH, Workspaces Node, and SYSTEM; the saved Zoom ancestor path; and the Zoom root. It includes each Loaded parent's direct Children and is not a complete Workspace. [09 — Migrate Server Sync doors](issues/09-migrate-server-sync-doors.md) owns the production `/state` switch
       2. [x] `installWantAnswer: edges * nodes * Graph -> Result<Graph, string>` — edges and Nodes separately; refuse dangling edges
       3. [x] `packagesForTargets` / `installPackages` stay for dual-run Load Fetch
       4. [ ] `wantAnswer: Graph * NodeId list -> childMap * Node list` — include every pointed-at Resident Child Node; do not emit dangling edges
@@ -271,7 +271,7 @@ Narrowest shared test seam:
       1. [x] None — doors read Core Graph / EventLog
    2. Interface
       1. [ ] `postPoll` and `postEvents` accept required Want and return Changes plus edges plus Nodes
-      2. [ ] `getState` requires `focusId` and returns Focus-scoped visible-closure via ResidentProjection
+      2. [ ] `getState` uses saved Zoom and returns the small base visible-closure via ResidentProjection
       3. [x] `postLoad` still returns `packages` (dual-run)
    3. Uses
       1. [x] CoreChanges `getState` / `getEventsSince` / `postEvents`
@@ -297,8 +297,8 @@ Narrowest shared test seam:
       1. [x] Boot cache / first Poll
    2. Interface
       1. [x] `runBootPoll` / `handleBootPoll` stay the first-paint Poll
-      2. [ ] Bootstrap derives `focusId` from saved Focus and sends it on `/state`
-      3. [ ] First `/state` Graph is Focus-scoped visible-closure
+      2. [x] Bootstrap reads best-effort saved Zoom and sends it on `/state`
+      3. [ ] First `/state` Graph is the small bootstrap visible-closure
       4. [ ] Browser restores Zoom and Fold locally, then boot Poll may compute Want from restored Included
    3. Uses
       1. [x] ChangeSuccessResponse decode
@@ -378,7 +378,7 @@ Narrowest shared test seam:
 2. **installWantAnswer**
    1. [x] Interface on **ResidentProjection** — edges plus Nodes; no dangling edges
 3. **visibleClosureGraph**
-   1. [x] Interface on **ResidentProjection** — `focusId` produces reserved Children, the Focus ancestor path, and Focus Children; [09 — Migrate Server Sync doors](issues/09-migrate-server-sync-doors.md) owns the production switch
+   1. [x] Interface on **ResidentProjection** — saved Zoom produces reserved Children, its ancestor path, and its Children; [09 — Migrate Server Sync doors](issues/09-migrate-server-sync-doors.md) owns the production switch
 4. **ChangeSuccessResponse**
    1. [ ] Interface on **Sync wire** — current-version Poll and post-Event require `want`; answer requires `nodes` + `childMap`
 5. **postPoll / postEvents / getState**
