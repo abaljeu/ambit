@@ -16,10 +16,11 @@ Map a desktop repo folder to a Workspace Node in the App (Current). Automatic Up
 - [ ] [[plan/roadmap/issues/07-chart-automatic-upload-and-download.md]] — chart auto-upload (owned by the documents Chapter)
 - [ ] [[plan/auto-download-persisted-files/project.md]] — auto-download (HITL tabled; owned by the documents Chapter)
 - [ ] [[plan/client-start-time/project.md]] — primarily the Browser on a phone
+- [ ] [[plan/github-transport/project.md]] — external GitHub remote pull/push Actor
 
 ## Notes
 
-Upload and Download stay on [[plan/roadmap/epics/work-with-text-files-from-anywhere.md]]. Mapping is Current ([[doc/current/workspace-local-mapping.md]]). Grill: [[plan/roadmap/issues/13-grill-cursor-repo-to-ambit-llm-use.md]].
+Upload and Download stay on [[plan/roadmap/epics/work-with-text-files-from-anywhere.md]]. Mapping is Current ([[doc/current/workspace-local-mapping.md]]). Grill: [[plan/roadmap/issues/13-grill-cursor-repo-to-ambit-llm-use.md]]. External git push/pull Actor: [[plan/github-transport/project.md]] (GitHub remote path). WebDAV Upload/Download stay Ambit↔Ambit.
 
 ## Locked — external git framework (2026-09-20)
 

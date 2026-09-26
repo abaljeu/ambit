@@ -12,6 +12,7 @@ Chart how existing Projects and Epics implement transport instances or dependenc
 | --- | --- | --- |
 | **Parse/Persist primitive** | Shared text in ↔ Graph **Changes** / slice out | [[details/parse-persist.md]]; ESO [[plan/event-sourced-ops/details/actors-and-jobs.md]] |
 | **File channel (disk)** | Upload/Download, workspace mapping, auto sync; redesign chart: FETCH/UPDATE Actors | [[plan/roadmap/epics/work-with-text-files-from-anywhere.md]] Chapter [[plan/roadmap/epics/chapters/automatic-upload-and-download.md]]; [[plan/auto-download-persisted-files/project.md]]; redesign owned here |
+| **GitHub remote (external)** | Server Actor pull/push to GitHub; DataDir work tree is the git home; FF-only; hard-skip `.amb` | [[plan/github-transport/project.md]]; Chapter [[plan/roadmap/epics/chapters/ambit-keeps-consistency-with-desktop-repo-for-agentic-work.md]] |
 | **Document codecs** | Round-trip Parse/reconcile on File Node bodies | [[plan/document-formats/map.md]]; [[plan/roadmap/epics/build-or-explore-a-wiki.md]] (`.md` leg) |
 | **Web publish (outbound)** | Generate HTML and send attachments and CSS (Graph / HTML File content → visitor-facing site; not HTML File body only) | [[plan/roadmap/epics/create-and-publish-web-pages.md]] |
 | **Wiki publish (outbound)** | Public URL: Graph / `.md` File content → HTML for visitors; not HTML File pages | [[plan/roadmap/epics/build-or-explore-a-wiki.md]] (Public URL chapter) |
@@ -30,12 +31,14 @@ flowchart BT
   LLM[llm-connector]
   SCL[selective-client-loading]
   DISK[documents-from-anywhere / auto-download]
+  GH[github-transport]
   PKM[Operate a PKM Epic]
 
   ESO --> TL
   TL --> DF
   TL --> LLM
   TL --> DISK
+  TL --> GH
   SCL --> TL
   TL --> PKM
   DF --> PKM
@@ -52,7 +55,7 @@ flowchart BT
 
 Chart a new feature-set Project per source or protocol when work appears. Each should state:
 
-Charted: [[plan/bot-channel/project.md]] (Grok Bot DM; wake webhook + reply API).
+Charted: [[plan/bot-channel/project.md]] (Grok Bot DM; wake webhook + reply API). [[plan/github-transport/project.md]] (external GitHub remote; Server pull/push Actor).
 
 - [ ] Channel — inbound, outbound, or round-trip (which flows).
 - [ ] Wire — how bytes or text arrive (file path, HTTP, paste buffer, MCP, etc.).
