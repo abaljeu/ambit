@@ -9,24 +9,15 @@ A person chats with an Agent that provides managed context. Mapping a desktop re
 
 ## Goal
 
-Map a desktop repo folder to a Workspace Node in the App (Current). Automatic Upload and Download keep that folder consistent with the Server. The person works in the App and in the Browser. Ambit's Agent continues the Agentic work. Do not name the Agent after a vendor.
+Map a desktop repo folder to a Workspace Node in the App (Current). Automatic Upload and Download keep that folder consistent with the Server. The person sends work to GitHub and brings work from GitHub. The Workspace stays consistent with the desktop repo for Agentic work. The person works in the App and in the Browser. Ambit's Agent continues the Agentic work. Do not name the Agent after a vendor.
 
 ## Required for done
 
 - [ ] [[plan/roadmap/issues/07-chart-automatic-upload-and-download.md]] — chart auto-upload (owned by the documents Chapter)
 - [ ] [[plan/auto-download-persisted-files/project.md]] — auto-download (HITL tabled; owned by the documents Chapter)
 - [ ] [[plan/client-start-time/project.md]] — primarily the Browser on a phone
-- [ ] [[plan/github-transport/project.md]] — external GitHub remote pull/push Actor
+- [ ] [[plan/github-transport/project.md]] — send to and from GitHub
 
 ## Notes
 
-Upload and Download stay on [[plan/roadmap/epics/work-with-text-files-from-anywhere.md]]. Mapping is Current ([[doc/current/workspace-local-mapping.md]]). Grill: [[plan/roadmap/issues/13-grill-cursor-repo-to-ambit-llm-use.md]]. External git push/pull Actor: [[plan/github-transport/project.md]] (GitHub remote path). WebDAV Upload/Download stay Ambit↔Ambit.
-
-## Locked — external git framework (2026-09-20)
-
-When connecting a Workspace to an **external** git repo for push/pull (workspace / git framework), **default exclude** Directory File / Ambit note paths named `.amb` — same hard skip class as `.git/`. Most remotes must not receive Ambit notes; that leaves free local notes without cluttering sync.
-
-**Offsite backup is required separately.** Skipping `.amb` on the repo remote removes that path as backup. Ambit must still keep those notes offsite — via Ambit Server DataDir (WebDAV Upload/Download + Server git / daily save), not via the mapped repo remote. Do not treat “exclude from repo sync” as “notes are desk-local only.”
-
-This does **not** change Ambit WebDAV Upload/Download or Server DataDir tracking of `.amb` as the Directory File artifact ([[doc/current/workspace-graph.md]]). Those stay Ambit↔Ambit graph persistence **and** the backup path for notes the repo remote never sees.
-
+Upload and Download stay on [[plan/roadmap/epics/work-with-text-files-from-anywhere.md]]. Mapping is Current ([[doc/current/workspace-local-mapping.md]]). Grill: [[plan/roadmap/issues/13-grill-cursor-repo-to-ambit-llm-use.md]]. Send to and from GitHub lives on [[plan/github-transport/project.md]].

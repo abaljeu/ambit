@@ -10,7 +10,7 @@ A Server Actor pulls from and pushes to GitHub for a Workspace label whose DataD
 
 This Project is a transport-layer connector leg for the **external GitHub remote**. It is not Ambit↔Ambit WebDAV Upload/Download. Those stay on [[plan/transport-layer/project.md]] / [[plan/auto-download-persisted-files/project.md]]. File-shaped file→Graph stays [[plan/parse-actor/project.md]]. This is not [[plan/git-protocol/project.md]] (this repo’s Desktop git procedure).
 
-Chapter home: [[plan/roadmap/epics/chapters/ambit-keeps-consistency-with-desktop-repo-for-agentic-work.md]]. Cite [[doc/roadmap/workspace-file-sync.md]] and [[src/Server/WorkspaceGit.fs]] (`ensurePushConfig` / `receive.denyNonFastForwards`).
+Chapter home (product objective only): [[plan/roadmap/epics/chapters/ambit-keeps-consistency-with-desktop-repo-for-agentic-work.md]] — send to and from GitHub; Workspace stays consistent with the desktop repo for Agentic work. Technical locks live on this Project. Cite [[doc/roadmap/workspace-file-sync.md]] and [[src/Server/WorkspaceGit.fs]] (`ensurePushConfig` / `receive.denyNonFastForwards`).
 
 The 2026-09-26 lock names the Server Actor a **Peer Actor**. Actor is the glossary word. Peer Actor here means that Server Actor, not a new Kind.
 
@@ -26,7 +26,7 @@ Skills: [[.agents/skills/wayfinder/SKILL.md]], [[.agents/skills/grilling/SKILL.m
 2. **Operator sets remote and credentials** — The operator sets `git remote` and credentials so git works. Remotes accept push (not PR-only). Policy is **fast-forward only**. A conflicted or non-FF push is rejected. Server `ensurePushConfig` sets `receive.denyNonFastForwards`.
 3. **Server Peer Actor does the round-trip** — A Server-side Peer Actor does pull and push (round-trip v1). The App stays thin. The App is not the git Actor host.
 4. **One Actor shape through Server** — The same Actor shape serves every device that maps through Server. This is not a per-App clone protocol.
-5. **Hard-skip `.amb` on the repo remote** — Directory File / Ambit note paths named `.amb` stay off the external remote (same hard-skip class as `.git/`). Ambit notes back up via WebDAV / DataDir, not that remote. WebDAV Upload/Download of `.amb` stay Ambit↔Ambit graph persistence.
+5. **Hard-skip `.amb` on the repo remote** — 2026-09-20 lock (moved from the Chapter). Default exclude Directory File / Ambit note paths named `.amb` — same hard skip class as `.git/`. Most remotes must not receive Ambit notes. Offsite backup of those notes is required separately: Ambit Server DataDir (WebDAV Upload/Download + Server git / daily save), not the mapped repo remote. Do not treat “exclude from repo sync” as “notes are desk-local only.” WebDAV Upload/Download and Server DataDir tracking of `.amb` stay Ambit↔Ambit graph persistence ([[doc/current/workspace-graph.md]]) and the backup path for notes the repo remote never sees.
 6. **Not this repo’s git procedure** — This Project is not [[plan/git-protocol/project.md]].
 
 ## 4. Not yet specified
