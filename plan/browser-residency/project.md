@@ -16,4 +16,4 @@ Actual: 3h 5m
 - Map: [[map.md]].
 - Spec: [[spec.md]].
 - Arch: [[arch.md]].
-- Implementation: [07 — Expand Want and edges/Nodes package](issues/07-expand-want-and-edges-nodes-package.md) through [12 — Contract old Load Fetch packages](issues/12-contract-old-load-fetch-packages.md). The first implementation frontier is [08 — Migrate Shared wire](issues/08-migrate-shared-wire.md); [11 — Migrate Bullet and Included readers](issues/11-migrate-bullet-included-and-bootstrap-wants.md) can proceed independently.
+- Implementation: [07 — Expand Want and edges/Nodes package](issues/07-expand-want-and-edges-nodes-package.md) is done. The migrate frontier is [08 — Migrate Shared wire](issues/08-migrate-shared-wire.md), [09 — Migrate Server Sync doors](issues/09-migrate-server-sync-doors.md), [10 — Migrate Browser Poll, post-Event, and Boot](issues/10-migrate-browser-poll-post-event-and-boot.md), and [11 — Migrate Bullet and Included readers](issues/11-migrate-bullet-included-and-bootstrap-wants.md). [12 — Contract old Load Fetch packages](issues/12-contract-old-load-fetch-packages.md) waits on all four.

@@ -16,17 +16,25 @@ Remove the legacy Load Fetch package API after every migration ticket is done. L
 
 Module [Load command](../arch.md). Story path 31.
 
-1. [ ] Death of packages — 31.4: Load Fetch uses the edges-plus-Nodes answer only
-2. [ ] Load command remains — 30.1: the user-facing Load command stays
-3. [ ] Hollow-click Load may remain — 18.1: do not require un-wiring the click; it must not call the deleted `packages` path
+- [ ] 31.4 Delete package response — remove `LoadResponse.packages` and `packageChildMap`
+- [ ] 13.2.2 Keep current Fetch — `tryStartLoadFetch` uses the edges-plus-Nodes answer only
+- [ ] 30.1 Keep Load command — the user-facing Load command still runs Upload, Parse, and Fetch
+- [ ] 18.1 Keep optional click wiring — do not require un-wiring hollow-circle → Load
 
 ### 2. Sync wire and Server doors
 
 Modules [Sync wire](../arch.md), [Server Sync doors](../arch.md).
 
-1. [ ] Drop LoadResponse.packages — no caller remains
-2. [ ] postLoad uses Want answer — same edges-plus-Nodes package as Poll
-3. [ ] installPackages gone — ResidentProjection keeps installWantAnswer only
+- [ ] 3.2.3 Delete legacy projection helpers — remove `packagesForTargets` and `installPackages`
+- [ ] 6.2.3 Keep current Server answer — `postLoad` uses the same edges-plus-Nodes answer as Poll
+- [ ] 9.2.1 Keep one apply path — `applySyncResponse` applies Events, then `installWantAnswer`
+
+### 3. Contract proof
+
+Prove no legacy symbol or caller remains.
+
+- [ ] 31.4 Symbol scan — no `LoadResponse.packages`, `packageChildMap`, `packagesForTargets`, or `installPackages`
+- [ ] 9.2.2 Residency proof — Poll, post-Event, bootstrap, and Load Fetch all install through the current answer path
 
 ## See also
 

@@ -2,7 +2,7 @@
 
 **Type:** coding
 **Status:** defined
-**Blocked by:** [01 — Lock Sync want + edges/Nodes package shape](01-lock-sync-want-package-shape.md), [07 — Expand Want and edges/Nodes package](07-expand-want-and-edges-nodes-package.md)
+**Blocked by:** None — can start immediately
 
 ## Context
 
@@ -16,23 +16,29 @@ Poll and post-Event codecs require Want; their answer requires edges plus Nodes.
 
 Module [Sync wire](../arch.md).
 
-1. [ ] Poll and post-Event request codecs — `PollRequest` and `ChangeRequest` require `want`; empty is `[]`
-2. [ ] Sync answer codec — `ChangeSuccessResponse` requires `nodes` plus `childMap`
-3. [ ] Current version only — missing version 13 fields fail decode; no compatibility branch remains
+- [ ] 5.2.1 Request and answer codecs — `PollRequest` and `ChangeRequest` require `want`; `ChangeSuccessResponse` requires `nodes` plus `childMap`; empty Want is `[]`
+- [ ] 5.2.3 Current version only — missing version 13 fields fail decode and no compatibility branch remains
 
 ### 2. SyncLogic
 
 Module [SyncLogic](../arch.md). Story path 9.
 
-1. [ ] Install after Events — Module **SyncLogic** Interface **Install Want answer**: apply the Event tail, then `installWantAnswer`
-2. [ ] One Load answer — `loadResponseToSync` maps Load Fetch onto `nodes` plus `childMap`; it does not install `packages`
-3. [ ] Outcome stamps unchanged — `getPollOutcome` still keys on `apiVersion` and event id
+- [ ] 9.2.1 Apply order — apply the Event tail before the edges-plus-Nodes answer
+- [ ] 9.2.2 One residency install — Poll, post-Event, bootstrap, and Load Fetch install through `installWantAnswer`
+- [ ] 9.3.3 One Load response — `loadResponseToSync` maps Load Fetch onto `nodes` plus `childMap`; it does not install `packages`
+
+### 3. Shared proof
+
+Use the narrowest Shared seam named in [Browser residency architecture](../arch.md).
+
+- [ ] 9.3 Shared apply proof — Events apply before residency; `[]` marks Loaded; a missing key stays Unloaded; dangling edges fail
 
 ## See also
 
-[Browser residency architecture](../arch.md), [07 — Expand Want and edges/Nodes package](07-expand-want-and-edges-nodes-package.md)
+[Browser residency architecture](../arch.md), [01 — Lock Sync want + edges/Nodes package shape](01-lock-sync-want-package-shape.md)
 
 ## Comments
 
 - 2026-09-26: Filed via `/to-tickets`. Migrate batch. Blocked by expand.
 - 2026-09-26: Redefined for strict current-version codecs and Shared apply after decisions 01–03.
+- 2026-09-26: Republished via `/to-tickets`; completed expand 07 clears this ticket's live blockers.
