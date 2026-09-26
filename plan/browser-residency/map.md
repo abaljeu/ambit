@@ -29,6 +29,8 @@ Bootstrap is that same Zoom-scoped visible-closure, not a complete Workspace: Ch
 1. [01 — Lock Sync want + edges/Nodes package shape](issues/01-lock-sync-want-package-shape.md) — JSON `want` (`NodeId` list) on both Poll and post-Event; always send, empty compose is `want: []`; do not use Poll query-string for Want (Poll may need a body). Answer `nodes` (Node list) and `childMap` (`Map<NodeId, ChildNode list>`) on `ChangeSuccessResponse`. When that expand lands, `ApiVersion.current = 13` (wire integer for 1.3), same commit as the package.
 2. **No throttle** — Expect only a few wants at a time; no batching or backpressure design.
 3. **Same wants** — App and Browser use the same wants.
+4. [02 — Lock bootstrap visible-closure set](issues/02-lock-bootstrap-visible-closure.md) — First paint always includes every direct Child of ROOT, TRASH, Workspaces Node, and SYSTEM, even outside Included. Full Zoom-root ancestor chain up to ROOT is Resident with `childMap` Loaded. Missing, stale, or out-of-set Zoom restores to a safe default Zoom root inside the bootstrapable set; do not widen bootstrap beyond reserved Children + ancestors + Included.
+5. [03 — Lock ongoing want priority and when wants are attached](issues/03-lock-ongoing-want-priority.md) — Every Poll and every post-Event carries the current Want. Empty compose stays `want: []` from [01 — Lock Sync want + edges/Nodes package shape](issues/01-lock-sync-want-package-shape.md). Compose lists Unloaded parents only; they drop after install. Server does not hold back. Receiving Nodes twice is idempotent. No client suppress-until-context-changes list. No Want throttle.
 
 ## 4. Not yet specified
 

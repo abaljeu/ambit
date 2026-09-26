@@ -4,7 +4,7 @@ Spec: [[spec.md]]
 Updated: 2026-09-26
 Sequence: expand-contract
 
-Sources: [map.md](map.md) Destination, Notes, and Decisions so far (2026-09-26 locks including [01 — Lock Sync want + edges/Nodes package shape](issues/01-lock-sync-want-package-shape.md)); [spec.md](spec.md) Solution and 36 stories. Prefer existing seams. Want wire fields are settled on that ticket: request JSON `want` (`NodeId` list) on Poll and post-Event; always send, empty compose is `want: []`; Poll may need a body so both doors share that field; answer `nodes` and `childMap` on `ChangeSuccessResponse`; `ApiVersion.current = 13` ships with the expand. `Graph.childMap` (absent key = Unloaded) is the residency list. Checklist: `[x]` already true of the recorded shape; `[ ]` still to build. Sequence is expand-contract: expand Poll and post-Event with Want plus edges and Nodes; dual-run old Load Fetch `packages`; contract later when [06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md) kills the old path.
+Sources: [map.md](map.md) Destination, Notes, and Decisions so far (2026-09-26 locks including [01 — Lock Sync want + edges/Nodes package shape](issues/01-lock-sync-want-package-shape.md), [02 — Lock bootstrap visible-closure set](issues/02-lock-bootstrap-visible-closure.md), and [03 — Lock ongoing want priority and when wants are attached](issues/03-lock-ongoing-want-priority.md)); [spec.md](spec.md) Solution and 36 stories. Prefer existing seams. Want wire fields are settled on [01 — Lock Sync want + edges/Nodes package shape](issues/01-lock-sync-want-package-shape.md): request JSON `want` (`NodeId` list) on Poll and post-Event; always send, empty compose is `want: []`; Poll may need a body so both doors share that field; answer `nodes` and `childMap` on `ChangeSuccessResponse`; `ApiVersion.current = 13` ships with the expand. Bootstrap set and Zoom restore are settled on [02 — Lock bootstrap visible-closure set](issues/02-lock-bootstrap-visible-closure.md). Every Poll and every post-Event carries Want; compose lists Unloaded parents; no suppress list and no Want throttle ([03 — Lock ongoing want priority and when wants are attached](issues/03-lock-ongoing-want-priority.md)). `Graph.childMap` (absent key = Unloaded) is the residency list. Checklist: `[x]` already true of the recorded shape; `[ ]` still to build. Sequence is expand-contract: expand Poll and post-Event with Want plus edges and Nodes; dual-run old Load Fetch `packages`; contract later when [06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md) kills the old path.
 
 ## 1. Story paths
 
@@ -20,9 +20,10 @@ Sources: [map.md](map.md) Destination, Notes, and Decisions so far (2026-09-26 l
    3. [x] SiteMap render shows those Nodes
 
 3. **Framing path**
-   1. [ ] Bootstrap includes ancestors of the Zoom root
-   2. [ ] Those ancestors are Resident so the framing path exists
+   1. [ ] Bootstrap includes the full ancestor chain of the Zoom root up to ROOT
+   2. [ ] Every ancestor is Resident and has `childMap` Loaded so framing path Children lists exist
    3. [x] SiteMap roots at Zoom
+   4. [ ] If saved Zoom is missing, stale, or outside the bootstrapable set, pick a safe default Zoom root inside reserved Children + ancestors + Included; do not widen bootstrap ([02 — Lock bootstrap visible-closure set](issues/02-lock-bootstrap-visible-closure.md))
 
 4. **ROOT Children**
    1. [x] [src/Shared/GraphBuild.fs](src/Shared/GraphBuild.fs) `rootId` is ROOT
@@ -141,8 +142,8 @@ Sources: [map.md](map.md) Destination, Notes, and Decisions so far (2026-09-26 l
 
 27. **Growth while I work**
     1. [x] [src/Shared/SyncPlanner.fs](src/Shared/SyncPlanner.fs) `tryStartPoll` after Idle
-    2. [ ] Each later Poll / post-Event recomputes Want from current Included
-    3. [ ] Install is additive; residency stays monotonic this session
+   2. [ ] Each later Poll / post-Event recomputes Want from current Included; Unloaded parents drop after install ([03 — Lock ongoing want priority and when wants are attached](issues/03-lock-ongoing-want-priority.md))
+   3. [ ] Install is additive; residency stays monotonic this session; receiving Nodes twice is idempotent
 
 28. **Find in residence**
     1. [x] [src/Shared/ViewModelSearch.fs](src/Shared/ViewModelSearch.fs) `searchNodes` walks the Browser Graph only
@@ -192,7 +193,7 @@ Sources: [map.md](map.md) Destination, Notes, and Decisions so far (2026-09-26 l
 
 Shared segments:
 1. [ ] Want.compose (Included missing Children, then those Children)
-2. [ ] Poll and post-Event carry Want with Changes
+2. [ ] Every Poll and every post-Event carry Want with Changes
 3. [ ] Server answers edges plus pointed-at Nodes (no dangling edges)
 4. [ ] ResidentProjection installs that package into `Graph.childMap`
 5. [x] Bullet from Unloaded / Unparsed via ViewModelChildrenIndicator
@@ -219,8 +220,9 @@ Narrowest shared test seam:
    1. State
       1. [ ] None durable — a Want is a list of parent Node ids whose Children are desired
    2. Interface
-      1. [ ] `compose: Graph * SiteMap * zoomRoot -> NodeId list` — (1) Included that miss Children, (2) those Children; no third tier
+      1. [ ] `compose: Graph * SiteMap * zoomRoot -> NodeId list` — (1) Included that miss Children, (2) those Children; no third tier; output is Unloaded parents only
       2. [ ] Empty list is allowed; always send JSON `want`; empty compose is `want: []` ([01 — Lock Sync want + edges/Nodes package shape](issues/01-lock-sync-want-package-shape.md))
+      3. [ ] After install, those parents drop out of the next compose. No client suppress-until-context-changes list. No Want throttle ([03 — Lock ongoing want priority and when wants are attached](issues/03-lock-ongoing-want-priority.md))
    3. Uses
       1. [x] IncludedDescendantIds
       2. [ ] Graph childMap (miss = absent key)
@@ -230,7 +232,7 @@ Narrowest shared test seam:
    1. State
       1. [ ] None beyond the Graph it returns
    2. Interface
-      1. [ ] `bootstrapGraph` becomes Zoom-scoped visible-closure: `childMap` for ROOT, TRASH, Workspaces Node, SYSTEM; ancestors of Zoom root; Included. Not complete Workspace
+      1. [ ] `bootstrapGraph` becomes Zoom-scoped visible-closure: every direct Child of ROOT, TRASH, Workspaces Node, and SYSTEM (even outside Included); full Zoom-root ancestor chain up to ROOT, each ancestor Resident with `childMap` Loaded; Included. Missing, stale, or out-of-set Zoom restores to a safe default inside that set. Not complete Workspace ([02 — Lock bootstrap visible-closure set](issues/02-lock-bootstrap-visible-closure.md))
       2. [ ] `installWantAnswer: edges * nodes * Graph -> Result<Graph, string>` — edges and Nodes separately; refuse dangling edges
       3. [x] `packagesForTargets` / `installPackages` stay for dual-run Load Fetch
    3. Uses
@@ -278,8 +280,8 @@ Narrowest shared test seam:
    1. State
       1. [x] In-memory VM Graph and `eventId`
    2. Interface
-      1. [ ] `runPollServer` sends current Want with Poll
-      2. [ ] POST `/{file}/changes` sends current Want with the Ev batch
+      1. [ ] `runPollServer` sends the current Want on every Poll
+      2. [ ] POST `/{file}/changes` sends the current Want on every post-Event
       3. [x] `runLoadServer` still POSTs `/load` with `LoadRequest.targets`
    3. Uses
       1. [ ] Want.compose
@@ -397,7 +399,7 @@ Expand-contract won over module-build: the new depth (Want.compose + installWant
 
 ## 5. Unsettled
 
-1. **Zoom-restore edge cases** — Missing or stale saved Zoom. [02 — Lock bootstrap visible-closure set](issues/02-lock-bootstrap-visible-closure.md).
-2. **Want cadence** — Whether every Poll and every post-Event always carry Want. Empty-Want encoding is locked on [01 — Lock Sync want + edges/Nodes package shape](issues/01-lock-sync-want-package-shape.md). Cadence remains [03 — Lock ongoing want priority and when wants are attached](issues/03-lock-ongoing-want-priority.md).
+1. **Zoom restore** — Locked on [02 — Lock bootstrap visible-closure set](issues/02-lock-bootstrap-visible-closure.md): reserved Children on first paint even outside Included; Zoom ancestors Resident with `childMap` Loaded; missing, stale, or out-of-set Zoom restores to a safe default inside the bootstrapable set and does not widen bootstrap.
+2. **Want cadence** — Locked on [03 — Lock ongoing want priority and when wants are attached](issues/03-lock-ongoing-want-priority.md): every Poll and every post-Event carries Want; empty compose stays `want: []` from [01 — Lock Sync want + edges/Nodes package shape](issues/01-lock-sync-want-package-shape.md); Unloaded parents only; Server does not hold back; receiving Nodes twice is idempotent; no suppress list; no Want throttle.
 3. **Server-mode Find** — Ask Server, receive found Nodes, Fetch before navigate. [05 — Chart server-mode Find](issues/05-chart-server-mode-find.md).
 4. **Load Fetch death** — When `packages` die. [06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md).

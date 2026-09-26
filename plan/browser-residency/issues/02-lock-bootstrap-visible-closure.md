@@ -1,17 +1,22 @@
 # 02 — Lock bootstrap visible-closure set
 
 **Type:** grilling
-**Status:** needs-info
+**Status:** done
 **Blocked by:** None
+**Actual:** 20m
 
-## 1. Question
+## 1. Answer
 
-What is the exact first-paint Resident set, and how does Zoom restore interact with it?
+Locked 2026-09-26.
 
-Bootstrap is Zoom-scoped visible-closure, not a complete Workspace. It uses the same edges-plus-Nodes package shape as ongoing wants. The locked set includes Children of reserved Nodes ROOT, TRASH, Workspaces Node, and SYSTEM (that SYSTEM spelling), ancestors of the Zoom root, and Included.
+1. **Reserved Children** — First paint always includes every direct Child of ROOT, TRASH, Workspaces Node, and SYSTEM (SYSTEM spelling), even when those Children sit outside Included.
+2. **Zoom ancestors** — Full ancestor chain of the Zoom root up to ROOT: every ancestor is Resident, and each has `childMap` Loaded (framing path Children lists exist).
+3. **Zoom restore** — If saved Zoom is missing, stale, or outside the bootstrapable set, pick a safe default Zoom root inside that set (for example ROOT or the first Workspace Child). Do not widen bootstrap beyond reserved Children + ancestors + Included.
 
-Lock:
+## Comments
 
-1. **Reserved Children** — Does first paint always include every direct Child of ROOT, TRASH, Workspaces Node, and SYSTEM, even when those Children sit outside Included?
-2. **Zoom ancestors** — Which ancestors of the restored Zoom root must be Resident and Loaded so the framing path is present?
-3. **Zoom restore** — When saved Zoom is missing, stale, or outside the reserved set, what Resident set remains? Does restore widen bootstrap beyond Included plus reserved Children plus ancestors, or does it only choose the Zoom root inside that set?
+- 2026-09-26: Grill locked reserved Children on first paint, Zoom ancestor chain Resident with `childMap` Loaded, and Zoom restore to a safe default inside the bootstrapable set.
+
+## Time
+
+- 2026-09-26 20m — recorded 2026-09-26 grill locks: reserved Children, Zoom ancestors Loaded, Zoom restore default (from chat)

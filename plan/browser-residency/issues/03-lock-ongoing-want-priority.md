@@ -1,21 +1,23 @@
 # 03 — Lock ongoing want priority and when wants are attached
 
 **Type:** grilling
-**Status:** needs-info
+**Status:** done
 **Blocked by:** None
+**Actual:** 20m
 
-## 1. Question
+## 1. Answer
 
-When does the Browser attach wants to post-Event and Poll, and what happens when the Want list is empty?
+Locked 2026-09-26.
 
-Ongoing priority is already locked: (1) Included Nodes that miss Children, (2) those Children. Reserved Nodes and Zoom ancestors are bootstrap, not a third ongoing tier. Auto wants need no click and no command.
-
-Lock:
-
-1. **Attachment moment** — Does every post-Event and every Poll carry the current Want list, or only some of those doors?
-2. **Empty wants** — Encoding is locked on [01 — Lock Sync want + edges/Nodes package shape](01-lock-sync-want-package-shape.md): always send `want`; empty compose is `want: []`. Remaining: when no Included Node misses Children, does the Browser still attach that empty Want on every door, or skip some doors?
-3. **Cadence** — Is Poll the steady want door, with post-Event as the after-Change door, or do both always carry the same Want? What stops a tight Poll loop from repeating a Want the Server already answered?
+1. **Attachment** — Every Poll and every post-Event carries the current Want list.
+2. **Empty** — Already locked on [01 — Lock Sync want + edges/Nodes package shape](01-lock-sync-want-package-shape.md): always send `want`; empty compose is `want: []`. Restated only; not reopened.
+3. **Repeat / cadence** — Want only Unloaded parents (compose lists parents that still miss Children). After Server answers and Browser installs, those parents are no longer Unloaded and drop out of the next compose naturally. Server does not hold back. Receiving Nodes twice is idempotent. No client suppress-until-context-changes list. No Want throttle.
 
 ## Comments
 
-- 2026-09-26: [01 — Lock Sync want + edges/Nodes package shape](01-lock-sync-want-package-shape.md) is done. Empty-Want encoding is `want: []`. This ticket still locks attachment and cadence.
+- 2026-09-26: [01 — Lock Sync want + edges/Nodes package shape](01-lock-sync-want-package-shape.md) is done. Empty-Want encoding is `want: []`. Attachment and cadence were still open on this ticket.
+- 2026-09-26: Grill locked attachment on every Poll and post-Event, restated empty `want: []` from [01 — Lock Sync want + edges/Nodes package shape](01-lock-sync-want-package-shape.md), and cadence: Unloaded parents only, no suppress list, no Want throttle.
+
+## Time
+
+- 2026-09-26 20m — recorded 2026-09-26 grill locks: attach Want on every Poll and post-Event; Unloaded-parent cadence; no suppress list; no Want throttle (from chat)

@@ -15,3 +15,4 @@ Updated: 2026-09-26
 - Spec: [[spec.md]].
 - Arch: [[arch.md]].
 - Implementation: [07 — Expand Want and edges/Nodes package](issues/07-expand-want-and-edges-nodes-package.md) through [12 — Contract old Load Fetch packages](issues/12-contract-old-load-fetch-packages.md).
+- Frontier: [01 — Lock Sync want + edges/Nodes package shape](issues/01-lock-sync-want-package-shape.md), [02 — Lock bootstrap visible-closure set](issues/02-lock-bootstrap-visible-closure.md), and [03 — Lock ongoing want priority and when wants are attached](issues/03-lock-ongoing-want-priority.md) grilling is done. Next defined work is [04 — Retire selective hollow-click and resident-only Find assumptions](issues/04-retire-selective-hollow-click-find.md) (task) and [07 — Expand Want and edges/Nodes package](issues/07-expand-want-and-edges-nodes-package.md) (coding).
