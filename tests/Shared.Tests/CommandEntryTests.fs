@@ -4,6 +4,7 @@ open FSharp.Reflection
 open Xunit
 open Gambol.Shared
 open Gambol.Shared.CommandEntry
+open GraphChildMapHelpers
 
 [<Fact>]
 let ``inKeyScope respects selection context`` () =
@@ -86,7 +87,6 @@ let private contextualGraph () =
         Node.Create(
             fileId,
             name = Filename.create "note.txt",
-            children = [ owned childId ],
             kind = Special File,
             documentState = Unparsed)
     let child = Node.Create(childId, owner = fileId)
@@ -95,28 +95,20 @@ let private contextualGraph () =
             workspaceId,
             name = Filename.create "home",
             kind = Special Workspace)
-    let holder =
-        Node.Create(
-            refHolderId,
-            children = [ ChildNode.reference fileId ])
-    let root = graph0.nodes.[Graph.rootId]
-    let rootChildren =
-        root.children @ [ owned fileId; owned workspaceId; owned refHolderId ]
+    let holder = Node.Create(refHolderId)
     let graph =
-        graph0.nodes
-        |> Map.add Graph.rootId { root with children = rootChildren }
-        |> Map.add fileId file
-        |> Map.add childId child
-        |> Map.add workspaceId workspace
-        |> Map.add refHolderId holder
-        |> Graph.fromNodes graph0.root
+        graph0
+        |> addDetachedMany [ file; child; workspace; holder ]
+        |> appendKids Graph.rootId [ owned fileId; owned workspaceId; owned refHolderId ]
+        |> setChildren fileId [ owned childId ]
+        |> setChildren refHolderId [ ChildNode.reference fileId ]
     graph, fileId, workspaceId, refHolderId
 
 [<Fact>]
 let ``context command parses owning unparsed file from focused owner occurrence`` () =
     let graph, fileId, _, _ = contextualGraph ()
     let rootIndex =
-        graph.nodes.[Graph.rootId].children
+        Graph.children graph Graph.rootId
         |> List.findIndex (fun child -> child.id = fileId)
     let target = contextualTarget graph Graph.rootId rootIndex
     Assert.Equal(
@@ -136,7 +128,7 @@ let ``context command reconciles named workspace and ignores ref occurrence`` ()
     Assert.Equal(
         Some(ReconcileWorkspace workspaceId),
         contextualTarget graph Graph.rootId
-            (graph.nodes.[Graph.rootId].children
+            (Graph.children graph Graph.rootId
              |> List.findIndex (fun child -> child.id = workspaceId)))
     Assert.Equal(None, contextualTarget graph refHolderId 0)
     let currentGraph =
@@ -165,27 +157,20 @@ let ``context command reconciles owned directory under named workspace`` () =
     let dirId, dirOps = FileNodeOps.planCreateOwnedDirectory graph1 workspaceId "docs"
     let graph2 = applyOps graph1 dirOps
     let dirIndex =
-        graph2.nodes.[workspaceId].children
+        Graph.children graph2 workspaceId
         |> List.findIndex (fun child -> child.id = dirId)
     Assert.Equal(
         Some(ReconcileDirectory dirId),
         contextualTarget graph2 workspaceId dirIndex)
     let refHolderId = NodeId.New()
-    let holder =
-        Node.Create(
-            refHolderId,
-            children = [ ChildNode.reference dirId ])
-    let ws = graph2.nodes.[workspaceId]
+    let holder = Node.Create(refHolderId)
     let graph3 =
-        graph2.nodes
-        |> Map.add workspaceId
-            { ws with
-                children =
-                    ws.children @ [ ChildNode.owner refHolderId ] }
-        |> Map.add refHolderId holder
-        |> Graph.fromNodes graph2.root
+        graph2
+        |> Graph.addDetachedNode holder
+        |> appendKids workspaceId [ ChildNode.owner refHolderId ]
+        |> setChildren refHolderId [ ChildNode.reference dirId ]
     let refIndex =
-        graph3.nodes.[workspaceId].children
+        Graph.children graph3 workspaceId
         |> List.findIndex (fun child -> child.id = refHolderId)
     Assert.Equal(None, contextualTarget graph3 workspaceId refIndex)
 
@@ -193,7 +178,7 @@ let ``context command reconciles owned directory under named workspace`` () =
 let ``context command reconciles SYSTEM directory`` () =
     let graph = Graph.create ()
     let systemIndex =
-        graph.nodes.[Graph.rootId].children
+        Graph.children graph Graph.rootId
         |> List.findIndex (fun child -> child.id = Graph.systemId)
     Assert.Equal(
         Some(ReconcileDirectory Graph.systemId),
@@ -223,7 +208,7 @@ let ``context command reconciles owned directory under SYSTEM`` () =
         FileNodeOps.planCreateOwnedDirectory graph0 Graph.systemId "cfg"
     let graph1 = applyOps graph0 dirOps
     let dirIndex =
-        graph1.nodes.[Graph.systemId].children
+        Graph.children graph1 Graph.systemId
         |> List.findIndex (fun child -> child.id = dirId)
     Assert.Equal(
         Some(ReconcileDirectory dirId),

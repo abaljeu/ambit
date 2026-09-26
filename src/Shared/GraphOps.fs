@@ -21,8 +21,15 @@ module GraphOps =
         static member isCanonicalDataRoot nodeId = GraphBuild.isCanonicalDataRoot nodeId
         static member isCanonicalNode nodeId = GraphBuild.isCanonicalNode nodeId
         static member rootPlaceholder = GraphBuild.rootPlaceholder
-        static member fromNodes root nodes = GraphBuild.fromNodes root nodes
-        static member fromExtracted root nodes = GraphBuild.fromExtracted root nodes
+        static member fromNodes root nodes childMap =
+            GraphBuild.fromNodes root nodes childMap
+        static member fromExtracted root nodes childMap =
+            GraphBuild.fromExtracted root nodes childMap
+        static member reindex graph = GraphBuild.reindex graph
+        static member children graph id = GraphBuild.getChildren graph id
+        static member tryGetChildren graph id = GraphBuild.tryGetChildren graph id
+        static member isLoaded graph id = GraphBuild.isLoaded graph id
+        static member childrenStatus graph id = GraphBuild.childrenStatus graph id
         static member addDetachedNode node graph = GraphBuild.addDetachedNode node graph
         static member nodeCount graph = GraphBuild.nodeCount graph
         static member contains nodeId graph = GraphBuild.contains nodeId graph

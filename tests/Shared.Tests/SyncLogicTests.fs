@@ -3,6 +3,7 @@ module SyncLogicTests
 open Gambol.Shared
 open Gambol.Shared
 open Gambol.Shared.ViewModel
+open GraphChildMapHelpers
 open Xunit
 
 // ---------------------------------------------------------------------------
@@ -329,23 +330,14 @@ let ``applyServerTail skips structural Replace on Unloaded parent`` () =
             text = "ws",
             name = Filename.Ok "ws",
             kind = Special Workspace,
-            childrenStatus = Unloaded,
             owner = Graph.workspacesId)
     let child =
         Node.Create(childId, text = "child", owner = wsId)
-    let root = graph0.nodes.[graph0.root]
-    let workspaces = graph0.nodes.[Graph.workspacesId]
-    let nodes =
-        graph0.nodes
-        |> Map.add wsId ws
-        |> Map.add childId child
-        |> Map.add
-            Graph.workspacesId
-            { workspaces with
-                children =
-                    workspaces.children
-                    @ [ ChildNode.owner wsId ] }
-    let graph = Graph.fromNodes graph0.root nodes
+    let graph =
+        graph0
+        |> addDetachedMany [ ws; child ]
+        |> appendKids Graph.workspacesId [ ChildNode.owner wsId ]
+        |> unload wsId
     let st: ClientSyncState =
         { graph = graph
           history = ClientHistory.clear ()
@@ -363,8 +355,8 @@ let ``applyServerTail skips structural Replace on Unloaded parent`` () =
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
     | Ok result ->
         Assert.Equal(EventIdFixtures.storedId 4, result.eventId)
-        Assert.Equal(Unloaded, result.graph.nodes.[wsId].childrenStatus)
-        Assert.Equal<ChildNode list>([], result.graph.nodes.[wsId].children)
+        Assert.Equal(Unloaded, Graph.childrenStatus result.graph wsId)
+        Assert.Equal<ChildNode list>([], Graph.children result.graph wsId)
 
 [<Fact>]
 let ``applyServerTail applies header facts on Unloaded resident Node`` () =
@@ -376,20 +368,14 @@ let ``applyServerTail applies header facts on Unloaded resident Node`` () =
             text = "before",
             name = Filename.Ok "ws",
             kind = Special Workspace,
-            childrenStatus = Unloaded,
             owner = Graph.workspacesId)
-    let workspaces = graph0.nodes.[Graph.workspacesId]
-    let nodes =
-        graph0.nodes
-        |> Map.add wsId ws
-        |> Map.add
-            Graph.workspacesId
-            { workspaces with
-                children =
-                    workspaces.children
-                    @ [ ChildNode.owner wsId ] }
+    let graph =
+        graph0
+        |> Graph.addDetachedNode ws
+        |> appendKids Graph.workspacesId [ ChildNode.owner wsId ]
+        |> unload wsId
     let st: ClientSyncState =
-        { graph = Graph.fromNodes graph0.root nodes
+        { graph = graph
           history = ClientHistory.clear ()
           eventId = EventIdFixtures.storedId 2
           eventLog = EventLog.empty
@@ -404,7 +390,7 @@ let ``applyServerTail applies header facts on Unloaded resident Node`` () =
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
     | Ok result ->
         Assert.Equal("after", result.graph.nodes.[wsId].text)
-        Assert.Equal(Unloaded, result.graph.nodes.[wsId].childrenStatus)
+        Assert.Equal(Unloaded, Graph.childrenStatus result.graph wsId)
 
 [<Fact>]
 let ``applySyncResponse installs complete child list as Loaded and preserves owner`` () =
@@ -419,30 +405,17 @@ let ``applySyncResponse installs complete child list as Loaded and preserves own
             text = "ws",
             name = Filename.Ok "ws",
             kind = Special Workspace,
-            childrenStatus = Unloaded,
             owner = Graph.workspacesId)
     let marker =
         Node.Create(markerId, text = "marker", owner = Graph.rootId)
-    let workspaces = graph0.nodes.[Graph.workspacesId]
-    let root = graph0.nodes.[graph0.root]
-    let nodes0 =
-        graph0.nodes
-        |> Map.add wsId wsHeader
-        |> Map.add markerId marker
-        |> Map.add
-            Graph.workspacesId
-            { workspaces with
-                children =
-                    workspaces.children
-                    @ [ ChildNode.owner wsId ] }
-        |> Map.add
-            graph0.root
-            { root with
-                children =
-                    root.children
-                    @ [ ChildNode.owner markerId ] }
+    let graph =
+        graph0
+        |> addDetachedMany [ wsHeader; marker ]
+        |> appendKids Graph.workspacesId [ ChildNode.owner wsId ]
+        |> appendKids graph0.root [ ChildNode.owner markerId ]
+        |> unload wsId
     let st: ClientSyncState =
-        { graph = Graph.fromNodes graph0.root nodes0
+        { graph = graph
           history =
             ClientHistory.record { mkChange 1 with commandName = "test" } (ClientHistory.clear ())
           eventId = EventIdFixtures.storedId 5
@@ -450,10 +423,6 @@ let ``applySyncResponse installs complete child list as Loaded and preserves own
           actorLiveFocusIds = Set.empty }
     let child =
         Node.Create(childId, text = "leaf", owner = wsId)
-    let loadedWs =
-        { wsHeader with
-            children = [ ChildNode.owner childId ]
-            childrenStatus = Loaded }
     // External resident header whose owner edge lives only in an Unloaded list.
     let external =
         Node.Create(
@@ -461,7 +430,6 @@ let ``applySyncResponse installs complete child list as Loaded and preserves own
             text = "ext",
             name = Filename.Ok "ext",
             kind = Special Workspace,
-            childrenStatus = Unloaded,
             owner = wsId)
     // Change touches a Loaded root child; package then installs ws at response revision.
     let response =
@@ -471,14 +439,18 @@ let ``applySyncResponse installs complete child list as Loaded and preserves own
                     (EventIdFixtures.storedId 6)
                     (System.Guid.NewGuid())
                     [ Op.SetText(markerId, "marker", "marker-tail") ] ]
-          packages = [ loadedWs; child; external ] }
+          packages = [ wsHeader; child; external ]
+          packageChildMap =
+            Map.ofList
+                [ wsId, [ ChildNode.owner childId ]
+                  childId, [] ] }
     match SyncLogic.applySyncResponse response st with
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
     | Ok result ->
         Assert.Equal(st.history, result.history)
         Assert.Equal(EventIdFixtures.storedId 6, result.eventId)
-        Assert.Equal(Loaded, result.graph.nodes.[wsId].childrenStatus)
-        Assert.Equal(1, result.graph.nodes.[wsId].children.Length)
+        Assert.Equal(Loaded, Graph.childrenStatus result.graph wsId)
+        Assert.Equal(1, (Graph.children result.graph wsId).Length)
         Assert.Equal("marker-tail", result.graph.nodes.[markerId].text)
         Assert.Equal(wsId, result.graph.nodes.[external.id].owner)
         Assert.Equal(Some wsId, result.graph.ownerParentByChild |> Map.tryFind childId)
@@ -488,9 +460,9 @@ let ``applySyncResponse installs complete child list as Loaded and preserves own
 let ``applyServerTail multi-change tail advances revision and graph`` () =
     let state0 =
         { ModelBuilder.createState12 () with eventId = EventIdFixtures.storedId 10 }
-    let root = state0.graph.nodes.[state0.graph.root]
-    let nodeA = state0.graph.nodes.[root.children.[0].id]
-    let nodeB = state0.graph.nodes.[root.children.[1].id]
+    let rootKids = Graph.children state0.graph state0.graph.root
+    let nodeA = state0.graph.nodes.[rootKids.[0].id]
+    let nodeB = state0.graph.nodes.[rootKids.[1].id]
     let change1 =
         { id = EventIdFixtures.storedId 1
           submissionId = System.Guid.NewGuid()
@@ -514,7 +486,11 @@ let ``applyServerTail multi-change tail advances revision and graph`` () =
 let ``applySyncResponse empty packages and empty changes preserves History`` () =
     let past = mkChange 4
     let st = emptyState () |> withRecorded past
-    match SyncLogic.applySyncResponse { events = []; packages = [] } st with
+    match
+        SyncLogic.applySyncResponse
+            { events = []; packages = []; packageChildMap = Map.empty }
+            st
+    with
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
     | Ok result ->
         Assert.Equal(st.history, result.history)
@@ -530,50 +506,45 @@ let ``applySyncResponse empty Loaded child list marks Loaded without History cle
             text = "empty-ws",
             name = Filename.Ok "empty-ws",
             kind = Special Workspace,
-            childrenStatus = Unloaded,
             owner = Graph.workspacesId)
-    let workspaces = graph0.nodes.[Graph.workspacesId]
-    let nodes =
-        graph0.nodes
-        |> Map.add wsId ws
-        |> Map.add
-            Graph.workspacesId
-            { workspaces with
-                children =
-                    workspaces.children
-                    @ [ ChildNode.owner wsId ] }
+    let graph =
+        graph0
+        |> Graph.addDetachedNode ws
+        |> appendKids Graph.workspacesId [ ChildNode.owner wsId ]
+        |> unload wsId
     let past = mkChange 2
     let st: ClientSyncState =
-        { graph = Graph.fromNodes graph0.root nodes
+        { graph = graph
           history =
             ClientHistory.record { past with commandName = "test" } (ClientHistory.clear ())
           eventId = EventIdFixtures.storedId 4
           eventLog = EventLog.empty
           actorLiveFocusIds = Set.empty }
-    let loadedEmpty = { ws with children = []; childrenStatus = Loaded }
     match
         SyncLogic.applySyncResponse
-            { events = []; packages = [ loadedEmpty ] }
+            { events = []
+              packages = [ ws ]
+              packageChildMap = Map.ofList [ wsId, [] ] }
             st
     with
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
     | Ok result ->
         Assert.Equal(st.history, result.history)
         Assert.Equal(EventIdFixtures.storedId 4, result.eventId)
-        Assert.Equal(Loaded, result.graph.nodes.[wsId].childrenStatus)
-        Assert.Equal<ChildNode list>([], result.graph.nodes.[wsId].children)
+        Assert.Equal(Loaded, Graph.childrenStatus result.graph wsId)
+        Assert.Equal<ChildNode list>([], Graph.children result.graph wsId)
 
 [<Fact>]
 let ``applyServerTail trusts server tails without ownership re-check`` () =
     // Server-accepted tails are trusted: poll apply must not reject on ownership.
     let state0 = ModelBuilder.createState12 ()
     let rootId = state0.graph.root
-    let root = state0.graph.nodes.[rootId]
-    let childA = root.children.[0]
+    let rootKids = Graph.children state0.graph rootId
+    let childA = rootKids.[0]
     let nodeA = state0.graph.nodes.[childA.id]
-    let childB = nodeA.children.[0]
-    let originalBChildren = state0.graph.nodes.[childB.id].children
-    let nodeC = state0.graph.nodes.[root.children.[1].id]
+    let childB = (Graph.children state0.graph childA.id).[0]
+    let originalBChildren = Graph.children state0.graph childB.id
+    let nodeC = state0.graph.nodes.[rootKids.[1].id]
     let goodChange =
         { id = EventIdFixtures.storedId 1
           submissionId = System.Guid.NewGuid()
@@ -688,8 +659,8 @@ let ``applyServerTail with changes preserves History`` () =
     let past = mkChange 4
     let st = emptyState () |> withRecorded past
     let state0 = ModelBuilder.createState12 ()
-    let root = state0.graph.nodes.[state0.graph.root]
-    let nodeA = state0.graph.nodes.[root.children.[0].id]
+    let rootKids = Graph.children state0.graph state0.graph.root
+    let nodeA = state0.graph.nodes.[rootKids.[0].id]
     let change =
         { id = EventIdFixtures.storedId 1
           submissionId = System.Guid.NewGuid()

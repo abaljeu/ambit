@@ -103,7 +103,13 @@ module CoreActorPool =
                 Map.tryFind id fullGraph.nodes
                 |> Option.map (fun n -> id, n))
             |> Map.ofList
-        Graph.fromExtracted request.zoomId actorNodes
+        let childMap =
+            request.graphIds
+            |> List.choose (fun id ->
+                Graph.tryGetChildren fullGraph id
+                |> Option.map (fun kids -> id, kids))
+            |> Map.ofList
+        Graph.fromExtracted request.zoomId actorNodes childMap
         |> Graph.withFocus (Some request.focusId)
 
     let private commandIsLive (model: Model) commandId =

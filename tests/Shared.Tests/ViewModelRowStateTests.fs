@@ -2,6 +2,7 @@ module ViewModelRowStateTests
 
 open Gambol.Shared
 open Gambol.Shared.ViewModel
+open GraphChildMapHelpers
 open VmTestHelpers
 open Xunit
 
@@ -13,7 +14,7 @@ let private requireOk label result =
     result |> ModelBuilder.requireOk label
 
 let private addChild parent child graph =
-    let index = graph.nodes.[parent].children.Length
+    let index = (Graph.children graph parent).Length
     Graph.replace parent index [] [ owned child ] graph
     |> requireOk "add owned child"
 
@@ -60,14 +61,14 @@ let private modelWithUnparsedFile () =
             text = "sibling",
             name = Filename.create "sibling.md",
             kind = Special File)
-    let nodes =
-        graph0.nodes
-        |> Map.add fileId file
-        |> Map.add childId (Node.Create(childId, text = "child"))
-        |> Map.add grandchildId (Node.Create(grandchildId, text = "grandchild"))
-        |> Map.add refParentId (Node.Create(refParentId, text = "refs"))
-        |> Map.add siblingFileId sibling
-    let graph1 = Graph.fromNodes graph0.root nodes
+    let graph1 =
+        graph0
+        |> addDetachedMany
+            [ file
+              Node.Create(childId, text = "child")
+              Node.Create(grandchildId, text = "grandchild")
+              Node.Create(refParentId, text = "refs")
+              sibling ]
     let graph2 = addChild Graph.rootId fileId graph1
     let graph3 = addChild fileId childId graph2
     let graph4 = addChild childId grandchildId graph3
@@ -105,8 +106,8 @@ let ``document state change patches all visible owned File member rows`` () =
         modelWithUnparsedFile ()
     let file = newModel.graph.nodes.[fileId]
     let oldGraph =
-        Graph.fromNodes
-            newModel.graph.root
+        fromExisting
+            newModel.graph
             (newModel.graph.nodes
              |> Map.add fileId { file with documentState = Current })
     let oldModel = { newModel with graph = oldGraph }
@@ -152,14 +153,10 @@ let ``special row with absent artifact uses missing indicator and absent class``
             name = Filename.Invalid "",
             owner = Graph.workspacesId,
             kind = Special Workspace)
-    let workspaces =
-        { graph0.nodes.[Graph.workspacesId] with
-            children = [ owned wsId ] }
     let graph =
-        graph0.nodes
-        |> Map.add Graph.workspacesId workspaces
-        |> Map.add wsId workspace
-        |> Graph.fromNodes graph0.root
+        graph0
+        |> Graph.addDetachedNode workspace
+        |> setChildren Graph.workspacesId [ owned wsId ]
     let model = modelFromGraph graph |> expandNode Graph.workspacesId
     let entry = entryUnderParentNode Graph.workspacesId wsId model
     let node = model.graph.nodes.[wsId]
@@ -173,14 +170,10 @@ let ``missing workspace path reference uses missing text indicator`` () =
     let graph0 = Graph.create ()
     let refId = NodeId.New()
     let refNode = Node.Create(refId, text = "see [[//missing/file.md]]")
-    let root =
-        { graph0.nodes.[Graph.rootId] with
-            children = graph0.nodes.[Graph.rootId].children @ [ owned refId ] }
     let graph =
-        graph0.nodes
-        |> Map.add Graph.rootId root
-        |> Map.add refId refNode
-        |> Graph.fromNodes graph0.root
+        graph0
+        |> Graph.addDetachedNode refNode
+        |> appendKids Graph.rootId [ owned refId ]
     let model = modelFromGraph graph
     let entry = entryUnderParentNode Graph.rootId refId model
     let node = model.graph.nodes.[refId]
@@ -222,10 +215,8 @@ let private modelWithWorkspaceFile
             kind = Special File,
             documentState = documentState)
     let graph1 =
-        graph0.nodes
-        |> Map.add wsId workspace
-        |> Map.add fileId file
-        |> Graph.fromNodes graph0.root
+        graph0
+        |> addDetachedMany [ workspace; file ]
     let graph2 =
         Graph.replace Graph.workspacesId 0 [] [ owned wsId ] graph1
         |> requireOk "workspaces->ws"
@@ -293,8 +284,8 @@ let ``mapped desktop uses ledger comparison and Unparsed overlay`` () =
     let parsedModel =
         { model with
             graph =
-                Graph.fromNodes
-                    model.graph.root
+                fromExisting
+                    model.graph
                     (Map.add fileId parsedNode model.graph.nodes) }
     Assert.Equal(
         Some WorkspacePathSyncStatus.Synced,
@@ -394,8 +385,8 @@ let ``mapped live local fact compares against node server stamp`` () =
             { baseModel with
                 desktopCapabilities = Some desktopCaps
                 graph =
-                    Graph.fromNodes
-                        baseModel.graph.root
+                    fromExisting
+                        baseModel.graph
                         (Map.add fileId stamped baseModel.graph.nodes) }
     Assert.Equal(
         Some WorkspacePathSyncStatus.NewerOnDesktop,
@@ -453,8 +444,8 @@ let ``mapped desktop NewerOnDesktop when node stamp lags download-aligned ledger
             workspaceSyncFacts =
                 Map.ofList [ "home", Map.ofList [ "note.md", fact ] ]
             graph =
-                Graph.fromNodes
-                    baseModel.graph.root
+                fromExisting
+                    baseModel.graph
                     (Map.add fileId stamped baseModel.graph.nodes) }
     Assert.Equal(
         Some WorkspacePathSyncStatus.NewerOnDesktop,
@@ -483,8 +474,8 @@ let ``mapped desktop Synced when node stamp equals aligned ledger`` () =
             workspaceSyncFacts =
                 Map.ofList [ "home", Map.ofList [ "note.md", fact ] ]
             graph =
-                Graph.fromNodes
-                    baseModel.graph.root
+                fromExisting
+                    baseModel.graph
                     (Map.add fileId stamped baseModel.graph.nodes) }
     Assert.Equal(
         Some WorkspacePathSyncStatus.Synced,
@@ -515,8 +506,8 @@ let ``mapped desktop NewerOnServer when persist stamp newer than aligned local``
             workspaceSyncFacts =
                 Map.ofList [ "home", Map.ofList [ "note.md", fact ] ]
             graph =
-                Graph.fromNodes
-                    baseModel.graph.root
+                fromExisting
+                    baseModel.graph
                     (Map.add fileId stamped baseModel.graph.nodes) }
     Assert.Equal(
         Some WorkspacePathSyncStatus.NewerOnServer,
@@ -547,8 +538,8 @@ let ``mapped Unparsed file keeps ledger stamps despite newer node updateTime`` (
             workspaceSyncFacts =
                 Map.ofList [ "home", Map.ofList [ "note.md", fact ] ]
             graph =
-                Graph.fromNodes
-                    baseModel.graph.root
+                fromExisting
+                    baseModel.graph
                     (Map.add fileId stamped baseModel.graph.nodes) }
     Assert.Equal(
         Some WorkspacePathSyncStatus.Unparsed,
@@ -561,10 +552,19 @@ let ``mapped Unparsed file keeps ledger stamps despite newer node updateTime`` (
 // rowChildrenIndicator — hollow circle for Unloaded / Unparsed leaves
 // ---------------------------------------------------------------------------
 
+let private graphWithNode (node: Node) =
+    Graph.addDetachedNode node (Graph.create ())
+
+let private graphWithKids (parent: Node) (child: Node) =
+    Graph.create ()
+    |> addDetachedMany [ parent; child ]
+    |> setChildren parent.id [ ChildNode.owner child.id ]
+
 [<Fact>]
 let ``rowChildrenIndicator is HollowCircle when children are Unloaded`` () =
-    let node = Node.Create(NodeId.New(), text = "ws", childrenStatus = Unloaded)
-    Assert.Equal(RowChildrenIndicator.HollowCircle, rowChildrenIndicator node)
+    let node = Node.Create(NodeId.New(), text = "ws")
+    let graph = graphWithNode node |> unload node.id
+    Assert.Equal(RowChildrenIndicator.HollowCircle, rowChildrenIndicator graph node)
 
 [<Fact>]
 let ``rowChildrenIndicator is HollowCircle when document is Unparsed leaf`` () =
@@ -574,22 +574,25 @@ let ``rowChildrenIndicator is HollowCircle when document is Unparsed leaf`` () =
             text = "file",
             kind = Special File,
             documentState = Unparsed)
-    Assert.Equal(RowChildrenIndicator.HollowCircle, rowChildrenIndicator node)
+    Assert.Equal(
+        RowChildrenIndicator.HollowCircle,
+        rowChildrenIndicator (graphWithNode node) node)
 
 [<Fact>]
 let ``rowChildrenIndicator is SolidCircle for Loaded Parsed empty children`` () =
     let node = Node.Create(NodeId.New(), text = "leaf")
-    Assert.Equal(RowChildrenIndicator.SolidCircle, rowChildrenIndicator node)
+    Assert.Equal(
+        RowChildrenIndicator.SolidCircle,
+        rowChildrenIndicator (graphWithNode node) node)
 
 [<Fact>]
 let ``rowChildrenIndicator is FoldChevron when Loaded with children`` () =
     let childId = NodeId.New()
-    let node =
-        Node.Create(
-            NodeId.New(),
-            text = "parent",
-            children = [ ChildNode.owner childId ])
-    Assert.Equal(RowChildrenIndicator.FoldChevron, rowChildrenIndicator node)
+    let node = Node.Create(NodeId.New(), text = "parent")
+    let child = Node.Create(childId, text = "c")
+    Assert.Equal(
+        RowChildrenIndicator.FoldChevron,
+        rowChildrenIndicator (graphWithKids node child) node)
 
 [<Fact>]
 let ``rowChildrenIndicator keeps FoldChevron for Unparsed with resident children`` () =
@@ -599,26 +602,21 @@ let ``rowChildrenIndicator keeps FoldChevron for Unparsed with resident children
             NodeId.New(),
             text = "file",
             kind = Special File,
-            documentState = Unparsed,
-            children = [ ChildNode.owner childId ])
-    Assert.Equal(RowChildrenIndicator.FoldChevron, rowChildrenIndicator node)
+            documentState = Unparsed)
+    let child = Node.Create(childId, text = "c")
+    Assert.Equal(
+        RowChildrenIndicator.FoldChevron,
+        rowChildrenIndicator (graphWithKids node child) node)
 
 [<Fact>]
 let ``planPatchDOM recreates row when leaf circle becomes hollow`` () =
     let graph0 = Graph.create ()
     let leafId = NodeId.New()
     let leaf = Node.Create(leafId, text = "leaf")
-    let nodes = graph0.nodes |> Map.add leafId leaf
-    let graph1 = Graph.fromNodes graph0.root nodes
+    let graph1 = Graph.addDetachedNode leaf graph0
     let graph2 = addChild Graph.rootId leafId graph1
     let oldModel = modelFromGraph graph2
-    let unloaded = { leaf with childrenStatus = Unloaded }
-    let newModel =
-        { oldModel with
-            graph =
-                Graph.fromNodes
-                    graph2.root
-                    (Map.add leafId unloaded graph2.nodes) }
+    let newModel = { oldModel with graph = unload leafId graph2 }
     let leafInst =
         entryUnderParentNode Graph.rootId leafId oldModel
     let cached = Set.ofList [ oldModel.siteMap.rootId; leafInst.instanceId ]
@@ -634,23 +632,17 @@ let ``planPatchDOM recreates row when Unloaded leaf becomes Loaded with children
     let graph0 = Graph.create ()
     let leafId = NodeId.New()
     let childId = NodeId.New()
-    let unloaded =
-        Node.Create(leafId, text = "leaf", childrenStatus = Unloaded)
-    let graph1 =
-        Graph.fromNodes graph0.root (graph0.nodes |> Map.add leafId unloaded)
+    let unloaded = Node.Create(leafId, text = "leaf")
+    let graph1 = Graph.addDetachedNode unloaded graph0 |> unload leafId
     let graph2 = addChild Graph.rootId leafId graph1
     let oldModel = modelFromGraph graph2
-    let loaded =
-        { unloaded with
-            children = [ ChildNode.owner childId ]
-            childrenStatus = Loaded }
     let child = Node.Create(childId, text = "c", owner = leafId)
     let newModel =
         { oldModel with
             graph =
-                Graph.fromNodes
-                    graph2.root
-                    (graph2.nodes |> Map.add leafId loaded |> Map.add childId child) }
+                graph2
+                |> Graph.addDetachedNode child
+                |> setChildren leafId [ ChildNode.owner childId ] }
     let leafInst =
         entryUnderParentNode Graph.rootId leafId oldModel
     let cached = Set.ofList [ oldModel.siteMap.rootId; leafInst.instanceId ]
@@ -668,9 +660,7 @@ let ``planPatchDOM recreates row when Unloaded leaf becomes Loaded with children
 let private stubFormatLocal (d: System.DateTime) : string = $"LOCAL[{d.Ticks}]"
 
 let private modelWithLooseNode (node: Node) =
-    let graph0 = Graph.create ()
-    let graph = Graph.fromNodes graph0.root (Map.add node.id node graph0.nodes)
-    modelFromGraph graph
+    modelFromGraph (graphWithNode node)
 
 [<Fact>]
 let ``bulletTip minimal node lists guid residency and update time only`` () =
@@ -687,15 +677,16 @@ let ``bulletTip minimal node lists guid residency and update time only`` () =
 
 [<Fact>]
 let ``bulletTip disambiguates hollow by Unloaded versus Unparsed`` () =
-    let unloaded =
-        Node.Create(NodeId.New(), text = "ws", childrenStatus = Unloaded)
+    let unloaded = Node.Create(NodeId.New(), text = "ws")
     let unparsed =
         Node.Create(
             NodeId.New(),
             text = "file",
             kind = Special File,
             documentState = Unparsed)
-    let tipU = bulletTip stubFormatLocal (modelWithLooseNode unloaded) unloaded
+    let unloadedModel =
+        modelFromGraph (graphWithNode unloaded |> unload unloaded.id)
+    let tipU = bulletTip stubFormatLocal unloadedModel unloaded
     let tipP = bulletTip stubFormatLocal (modelWithLooseNode unparsed) unparsed
     Assert.Contains("Residency: Unloaded, Current", tipU)
     Assert.Contains("Residency: Loaded, Unparsed", tipP)
@@ -767,16 +758,15 @@ let ``bulletTip omits css line when node has no classes`` () =
 [<Fact>]
 let ``bulletTip keeps line order stable across chevron and leaf nodes`` () =
     let childId = NodeId.New()
-    let chevron =
-        Node.Create(
-            NodeId.New(),
-            text = "parent",
-            children = [ ChildNode.owner childId ])
+    let chevron = Node.Create(NodeId.New(), text = "parent")
+    let child = Node.Create(childId, text = "c")
     let leaf = Node.Create(NodeId.New(), text = "leaf")
-    let orderOf (node: Node) =
-        (bulletTip stubFormatLocal (modelWithLooseNode node) node).Split('\n')
+    let orderOf graph node =
+        (bulletTip stubFormatLocal (modelFromGraph graph) node).Split('\n')
         |> Array.map (fun l -> l.Substring(0, l.IndexOf ':' + 1))
-    Assert.Equal<string[]>(orderOf chevron, orderOf leaf)
+    Assert.Equal<string[]>(
+        orderOf (graphWithKids chevron child) chevron,
+        orderOf (graphWithNode leaf) leaf)
 
 [<Fact>]
 let ``planPatchDOM live Actor adds actor-live and clears it`` () =

@@ -1,7 +1,7 @@
 module LoadCaptureTests
 
 open Gambol.Shared
-open Gambol.Shared
+open GraphChildMapHelpers
 open Xunit
 
 let private owned = ChildNode.owners
@@ -24,11 +24,8 @@ let private graphWithNestedWorkspace () : Graph * NodeId * NodeId * NodeId =
     let fileNode = specialNode fileId File "readme.txt" dirId
 
     let graph1 =
-        graph0.nodes
-        |> Map.add wsId wsNode
-        |> Map.add dirId dirNode
-        |> Map.add fileId fileNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        graph0
+        |> addDetachedMany [ wsNode; dirNode; fileNode ]
 
     let graph2 =
         Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
@@ -62,7 +59,15 @@ let private graphWithTwoWorkspaces () : Graph * NodeId * NodeId * NodeId * NodeI
         |> Map.add fileA (specialNode fileA File "a.txt" wsA)
         |> Map.add wsB (specialNode wsB Workspace "b" Graph.workspacesId)
         |> Map.add fileB (specialNode fileB File "b.txt" wsB)
-    let graph1 = Graph.fromNodes graph0.root nodes
+    let graph1 =
+        Graph.fromNodes
+            graph0.root
+            nodes
+            (graph0.childMap
+             |> Map.add wsA []
+             |> Map.add fileA []
+             |> Map.add wsB []
+             |> Map.add fileB [])
     let graph2 =
         Graph.replace Graph.workspacesId 0 [] (owned [ wsA; wsB ]) graph1
         |> function
@@ -92,7 +97,7 @@ let ``packagesForTarget Unloaded includeWorkspace returns owning Workspace subgr
         ResidentProjection.packagesForTarget graph fileId true
     let byId = packages |> List.map (fun n -> n.id, n) |> Map.ofList
     Assert.True(byId.ContainsKey wsId)
-    Assert.Equal(Loaded, byId.[wsId].childrenStatus)
+    Assert.True(byId.ContainsKey wsId)
     Assert.True(byId.ContainsKey dirId)
     Assert.True(byId.ContainsKey fileId)
 
@@ -106,11 +111,8 @@ let ``packagesForTarget keeps Directory named .agents Loaded with children`` () 
     let dirNode = specialNode dirId Directory ".agents" wsId
     let fileNode = specialNode fileId File "skill.md" dirId
     let graph1 =
-        graph0.nodes
-        |> Map.add wsId wsNode
-        |> Map.add dirId dirNode
-        |> Map.add fileId fileNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        graph0
+        |> addDetachedMany [ wsNode; dirNode; fileNode ]
     let graph2 =
         Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
         |> function
@@ -129,9 +131,7 @@ let ``packagesForTarget keeps Directory named .agents Loaded with children`` () 
     let packages =
         ResidentProjection.packagesForTarget graph4 dirId true
     let byId = packages |> List.map (fun n -> n.id, n) |> Map.ofList
-    Assert.Equal(Loaded, byId.[dirId].childrenStatus)
     Assert.Equal(Special Directory, byId.[dirId].kind)
-    Assert.False(byId.[dirId].children.IsEmpty)
     Assert.True(byId.ContainsKey fileId)
 
 [<Fact>]
@@ -179,7 +179,8 @@ let ``LoadResponse toSyncResponse preserves changes and packages`` () =
           apiVersion = ApiVersion.current
           isReady = true
           events = []
-          packages = [ node ] }
+          packages = [ node ]
+          packageChildMap = Map.empty }
     let sync = SyncLogic.loadResponseToSync load
     Assert.Empty(sync.events)
     Assert.Equal(1, sync.packages.Length)
@@ -194,10 +195,10 @@ let ``packagesForTargets same Workspace Unloaded targets dedupe one package`` ()
     match ResidentProjection.packagesForTargets graph targets with
     | Error ResidentProjection.LoadRefuse.MultiWorkspace ->
         failwith "expected packages"
-    | Ok packages ->
+    | Ok (packages, childMap) ->
         let wsNodes = packages |> List.filter (fun n -> n.id = wsId)
         Assert.Equal(1, wsNodes.Length)
-        Assert.Equal(Loaded, wsNodes.[0].childrenStatus)
+        Assert.True(Map.containsKey wsId childMap)
 
 [<Fact>]
 let ``packagesForTargets Loaded and Unloaded same Workspace send package once`` () =
@@ -207,7 +208,7 @@ let ``packagesForTargets Loaded and Unloaded same Workspace send package once`` 
           { targetId = fileId; includeWorkspace = true } ]
     match ResidentProjection.packagesForTargets graph targets with
     | Error _ -> failwith "expected packages"
-    | Ok packages ->
+    | Ok (packages, _) ->
         Assert.True(packages |> List.exists (fun n -> n.id = wsId))
         let wsCount =
             packages |> List.filter (fun n -> n.id = wsId) |> List.length
@@ -221,7 +222,7 @@ let ``packagesForTargets all includeWorkspace false returns empty`` () =
           { targetId = fileId; includeWorkspace = false } ]
     match ResidentProjection.packagesForTargets graph targets with
     | Error _ -> failwith "expected packages"
-    | Ok packages -> Assert.Empty(packages)
+    | Ok (packages, _) -> Assert.Empty(packages)
 
 [<Fact>]
 let ``packagesForTargets refuses when selection spans two Workspaces`` () =

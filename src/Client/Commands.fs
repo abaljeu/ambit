@@ -70,13 +70,13 @@ let private execAmbleRunOp
     else
         let afterDelete, delEffects =
             match Map.tryFind focusId committed.graph.nodes with
-            | Some node when node.children.Length > 0 ->
+            | Some _ when (Graph.children committed.graph focusId).Length > 0 ->
                 deleteChildSpan
-                    focusId 0 node.children.Length committed
+                    focusId 0 (Graph.children committed.graph focusId).Length committed
             | _ -> committed, []
         let kidsLeft =
             match Map.tryFind focusId afterDelete.graph.nodes with
-            | Some node -> node.children.Length > 0
+            | Some _ -> (Graph.children afterDelete.graph focusId).Length > 0
             | None -> false
         if kidsLeft then
             afterDelete, commitEffects @ delEffects
@@ -171,8 +171,8 @@ let private plainTextForOpenTarget (raw: string) : string =
 
 let private firstChildPlainOpt (graph: Graph) (focusId: NodeId) : string option =
     Map.tryFind focusId graph.nodes
-    |> Option.bind (fun node ->
-        List.tryHead node.children
+    |> Option.bind (fun _ ->
+        List.tryHead (Graph.children graph focusId)
         |> Option.bind (fun ch -> Map.tryFind ch.id graph.nodes)
         |> Option.map (fun n -> plainTextForOpenTarget n.text))
 
@@ -205,9 +205,8 @@ let copySelectionAsLinks (model: VM) : VM * Effect list =
     match model.selectedNodes with
     | None -> model, []
     | Some sel ->
-        let parentNode = model.graph.nodes.[sel.range.parent.nodeId]
         let selectedIds =
-            parentNode.children
+            Graph.children model.graph sel.range.parent.nodeId
             |> List.skip sel.range.start
             |> List.take (sel.range.endd - sel.range.start)
         let idsText =
@@ -222,9 +221,8 @@ let copyOp (model: VM) : VM * Effect list =
     match model.selectedNodes with
     | None -> model, []
     | Some sel ->
-        let parentNode = model.graph.nodes.[sel.range.parent.nodeId]
         let selectedIds =
-            parentNode.children
+            Graph.children model.graph sel.range.parent.nodeId
             |> List.skip sel.range.start
             |> List.take (sel.range.endd - sel.range.start)
             |> List.map (fun child -> child.id)

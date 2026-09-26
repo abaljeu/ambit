@@ -13,7 +13,7 @@ type DesktopExportResponse =
 [<RequireQualifiedAccess>]
 module ExportText =
     let private ownedChildIds (graph: Graph) (node: Node) : NodeId list =
-        node.children
+        GraphChildren.get graph node.id
         |> List.choose (fun child ->
             match Node.childOwnership graph node.id child with
             | Ownership.Owner -> Some child.id

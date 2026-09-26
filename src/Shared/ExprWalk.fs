@@ -10,10 +10,10 @@ module ExprWalk =
         (keep: ChildNode -> bool)
         (node: Node)
         : Node list =
-        match node.childrenStatus with
-        | Unloaded -> []
-        | Loaded ->
-            node.children
+        match GraphChildren.tryGet graph node.id with
+        | None -> []
+        | Some children ->
+            children
             |> List.choose (fun child ->
                 if keep child then
                     Map.tryFind child.id graph.nodes
@@ -83,10 +83,8 @@ module ExprWalk =
     let refAnswers graph input =
         answersWhere graph (fun child -> child.ref = Ownership.Ref) input
 
-    let private loadedChildren (parent: Node) =
-        match parent.childrenStatus with
-        | Unloaded -> []
-        | Loaded -> parent.children
+    let private loadedChildren (graph: Graph) (parent: Node) =
+        GraphChildren.get graph parent.id
 
     let private toAnswer (node: Node) = ExprAnswer.Node node
 
@@ -168,13 +166,13 @@ module ExprWalk =
                 | None -> stepDesc graph seen frames
                 | Some node ->
                     let seen = Set.add node.id seen
-                    Some(toAnswer node, seen, loadedChildren node :: frames)
+                    Some(toAnswer node, seen, loadedChildren graph node :: frames)
 
     let descendantAnswers graph input =
         match tryGraphNode graph input with
         | None -> ExprEval.empty
         | Some node ->
-            streamSeen (stepDesc graph) (Set.singleton node.id) [ loadedChildren node ]
+            streamSeen (stepDesc graph) (Set.singleton node.id) [ loadedChildren graph node ]
 
     let private enclosingAnswer graph predicate input =
         match tryGraphNode graph input with
@@ -359,7 +357,7 @@ module ExprWalk =
                     let seen = Set.add node.id seen
                     match node.kind, Filename.tryValue node.name with
                     | Normal, None ->
-                        stepContent glob graph seen (loadedChildren node :: frames)
+                        stepContent glob graph seen (loadedChildren graph node :: frames)
                     | Normal, Some name when globMatch glob name ->
                         Some(toAnswer node, seen, frames)
                     | Normal, Some _ ->
@@ -367,10 +365,10 @@ module ExprWalk =
                     | _ when isFileDirWorkspace node ->
                         stepContent glob graph seen frames
                     | _ ->
-                        stepContent glob graph seen (loadedChildren node :: frames)
+                        stepContent glob graph seen (loadedChildren graph node :: frames)
 
     let contentSearch graph glob input =
         match tryGraphNode graph input with
         | None -> ExprEval.empty
         | Some node ->
-            streamSeen (stepContent glob graph) Set.empty [ loadedChildren node ]
+            streamSeen (stepContent glob graph) Set.empty [ loadedChildren graph node ]

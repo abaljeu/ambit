@@ -31,14 +31,13 @@ let private graphWithTwoFiles () =
     let fileBId = NodeId.New()
     let bodyAId = NodeId.New()
     let bodyBId = NodeId.New()
-    let nodes =
-        graph0.nodes
-        |> Map.add wsId (specialNode wsId Workspace "home" Graph.workspacesId)
-        |> Map.add fileAId (specialNode fileAId File "a.txt" wsId)
-        |> Map.add fileBId (specialNode fileBId File "b.txt" wsId)
-        |> Map.add bodyAId (Node.Create(bodyAId, text = "alpha", owner = fileAId))
-        |> Map.add bodyBId (Node.Create(bodyBId, text = "beta", owner = fileBId))
-    let graph1 = Graph.fromNodes graph0.root nodes
+    let graph1 =
+        graph0
+        |> Graph.addDetachedNode (specialNode wsId Workspace "home" Graph.workspacesId)
+        |> Graph.addDetachedNode (specialNode fileAId File "a.txt" wsId)
+        |> Graph.addDetachedNode (specialNode fileBId File "b.txt" wsId)
+        |> Graph.addDetachedNode (Node.Create(bodyAId, text = "alpha", owner = fileAId))
+        |> Graph.addDetachedNode (Node.Create(bodyBId, text = "beta", owner = fileBId))
     let graph =
         graph1
         |> attach Graph.workspacesId [ wsId ]
@@ -93,11 +92,10 @@ let ``persistGraphOps soft-fails illicit write and returns could-not-save messag
             owner = Graph.systemId,
             kind = Special File)
     let bodyNode = Node.Create(bodyId, text = "body", owner = fileId)
-    let nodes =
-        graph0.nodes
-        |> Map.add fileId fileNode
-        |> Map.add bodyId bodyNode
-    let graph1 = Graph.fromNodes graph0.root nodes
+    let graph1 =
+        graph0
+        |> Graph.addDetachedNode fileNode
+        |> Graph.addDetachedNode bodyNode
     let graph =
         graph1
         |> attach Graph.systemId [ fileId ]

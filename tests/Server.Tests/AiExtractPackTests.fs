@@ -42,15 +42,14 @@ let private zoomWithChild childText =
     let zoomId = NodeId.New()
     let childId = NodeId.New()
     let child = Node.Create(childId, text = childText)
-    let zoom =
-        Node.Create(
-            zoomId,
-            text = "zoom",
-            children = owned [ childId ])
+    let zoom = Node.Create(zoomId, text = "zoom")
     let graph =
         Graph.fromExtracted
             zoomId
             (Map.ofList [ zoomId, zoom; childId, child ])
+            (Map.ofList
+                [ zoomId, owned [ childId ]
+                  childId, [] ])
     graph, zoomId, childId
 
 [<Fact>]
@@ -94,17 +93,15 @@ let ``existing cssClasses stay on the Focus copy`` () =
         Node.Create(
             focusId,
             text = "prompt",
-            cssClasses = prior,
-            children = [])
-    let zoom =
-        Node.Create(
-            zoomId,
-            text = "zoom",
-            children = owned [ focusId ])
+            cssClasses = prior)
+    let zoom = Node.Create(zoomId, text = "zoom")
     let graph =
         Graph.fromExtracted
             zoomId
             (Map.ofList [ zoomId, zoom; focusId, focus ])
+            (Map.ofList
+                [ zoomId, owned [ focusId ]
+                  focusId, [] ])
     let text =
         AiExtractPack.packExtract graph zoomId focusId
         |> requireOk "pack"
@@ -155,23 +152,9 @@ let ``walk recurses present Ref and omits missing ids`` () =
     let leafId = NodeId.New()
     let missingId = NodeId.New()
     let leaf = Node.Create(leafId, text = "ref-leaf")
-    let shared =
-        Node.Create(
-            sharedId,
-            text = "shared-body",
-            children = owned [ leafId ])
-    let holder =
-        Node.Create(
-            holderId,
-            text = "holder",
-            children =
-                [ ChildNode.reference sharedId
-                  ChildNode.owner missingId ])
-    let zoom =
-        Node.Create(
-            zoomId,
-            text = "zoom",
-            children = owned [ holderId ])
+    let shared = Node.Create(sharedId, text = "shared-body")
+    let holder = Node.Create(holderId, text = "holder")
+    let zoom = Node.Create(zoomId, text = "zoom")
     let graph =
         Graph.fromExtracted
             zoomId
@@ -180,6 +163,13 @@ let ``walk recurses present Ref and omits missing ids`` () =
                   holderId, holder
                   sharedId, shared
                   leafId, leaf ])
+            (Map.ofList
+                [ zoomId, owned [ holderId ]
+                  holderId,
+                    [ ChildNode.reference sharedId
+                      ChildNode.owner missingId ]
+                  sharedId, owned [ leafId ]
+                  leafId, [] ])
     let text =
         AiExtractPack.packExtract graph zoomId holderId
         |> requireOk "pack"

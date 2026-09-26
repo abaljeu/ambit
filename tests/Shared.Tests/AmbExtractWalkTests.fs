@@ -3,6 +3,7 @@ module Gambol.Shared.Tests.AmbExtractWalkTests
 open System
 open Xunit
 open Gambol.Shared
+open GraphChildMapHelpers
 
 let private owned = ChildNode.owners
 let private nl = Environment.NewLine
@@ -45,12 +46,7 @@ let private directoryWithNestedFile () =
             kind = Special File)
     let inside =
         Node.Create(insideId, text = "inside-file", owner = fileId)
-    let nodes =
-        graph0.nodes
-        |> Map.add dirId dir
-        |> Map.add fileId file
-        |> Map.add insideId inside
-    let graph1 = Graph.fromNodes graph0.root nodes
+    let graph1 = addDetachedMany [ dir; file; inside ] graph0
     let graph2 = placeOwned Graph.rootId [ dirId ] graph1
     let graph3 = placeOwned dirId [ fileId ] graph2
     let graph = placeOwned fileId [ insideId ] graph3
@@ -77,24 +73,11 @@ let private documentWithRefOnlyTarget () =
             text = "shared-body",
             owner = Graph.rootId)
     let leaf = Node.Create(leafId, text = "ref-leaf", owner = sharedId)
-    let nodes =
-        graph0.nodes
-        |> Map.add docId doc
-        |> Map.add holderId holder
-        |> Map.add sharedId shared
-        |> Map.add leafId leaf
-    let graph1 = Graph.fromNodes graph0.root nodes
+    let graph1 = addDetachedMany [ doc; holder; shared; leaf ] graph0
     let graph2 = placeOwned Graph.rootId [ docId ] graph1
     let graph3 = placeOwned docId [ holderId ] graph2
-    let holderNode = graph3.nodes.[holderId]
     let graph4 =
-        { graph3 with
-            nodes =
-                graph3.nodes
-                |> Map.add
-                    holderId
-                    { holderNode with
-                        children = [ ChildNode.reference sharedId ] } }
+        setChildren holderId [ ChildNode.reference sharedId ] graph3
     let graph = placeOwned sharedId [ leafId ] graph4
     graph, docId, sharedId, leafId
 
@@ -128,18 +111,17 @@ let ``extract walk omits child ids missing from the extract`` () =
     let presentId = NodeId.New()
     let missingId = NodeId.New()
     let present = Node.Create(presentId, text = "kept-child")
-    let root =
-        Node.Create(
-            rootId,
-            text = "zoom",
-            children =
-                [ ChildNode.owner presentId
-                  ChildNode.owner missingId
-                  ChildNode.reference missingId ])
+    let root = Node.Create(rootId, text = "zoom")
     let graph =
         Graph.fromExtracted
             rootId
             (Map.ofList [ rootId, root; presentId, present ])
+            (Map.ofList
+                [ (rootId,
+                   [ ChildNode.owner presentId
+                     ChildNode.owner missingId
+                     ChildNode.reference missingId ])
+                  (presentId, []) ])
     let text = writeExtract graph rootId
     Assert.Contains("kept-child", text)
     Assert.DoesNotContain(AmbDocument.formatStableId missingId, text)
@@ -150,12 +132,12 @@ let ``extract walk Amb text has no Focus sentinel`` () =
     let rootId = NodeId.New()
     let childId = NodeId.New()
     let child = Node.Create(childId, text = "visible")
-    let root =
-        Node.Create(rootId, text = "zoom", children = owned [ childId ])
+    let root = Node.Create(rootId, text = "zoom")
     let graph =
         Graph.fromExtracted
             rootId
             (Map.ofList [ rootId, root; childId, child ])
+            (Map.ofList [ rootId, owned [ childId ]; childId, [] ])
         |> Graph.withFocus (Some childId)
     let text = writeExtract graph rootId
     Assert.Contains("visible", text)

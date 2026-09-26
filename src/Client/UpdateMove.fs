@@ -96,14 +96,14 @@ let private replaceOpsForMove
         // One Replace so ROOT can reorder Workspaces/TRASH without a
         // temporary "removed from root" intermediate state.
         let parentId = from.parent.nodeId
-        let oldChildren = graph.nodes.[parentId].children
+        let oldChildren = Graph.children graph parentId
         let count = selectedChildren.Length
         [ ChildListWire.edit parentId oldChildren from.start count insertIdx selectedChildren ]
     else
         let fromParentId = from.parent.nodeId
         let toParentId = too.pnode
-        let fromOld = graph.nodes.[fromParentId].children
-        let toOld = graph.nodes.[toParentId].children
+        let fromOld = Graph.children graph fromParentId
+        let toOld = Graph.children graph toParentId
         let count = selectedChildren.Length
         [ ChildListWire.removeRange fromParentId fromOld from.start count
           ChildListWire.insertAt toParentId toOld insertIdx selectedChildren ]
@@ -189,7 +189,7 @@ let private moveIntoOpenParentSibling (delta: int) (range: SiteNodeRange) (model
         let siblingId = sibling.nodeId
         let target =
             if delta = -1 then
-                let insertIdx = model.graph.nodes.[siblingId].children.Length
+                let insertIdx = (Graph.children model.graph siblingId).Length
                 { pnode = siblingId; start = insertIdx; endd = insertIdx }
             else
                 { pnode = siblingId; start = 0; endd = 0 }
@@ -216,7 +216,7 @@ let moveNodeDelta (commandName: string) (delta: int) (model: VM) : VM * Effect l
     | Some sel ->
         let range = sel.range
         let parentId = range.parent.nodeId
-        let parentLen = model.graph.nodes.[parentId].children.Length
+        let parentLen = (Graph.children model.graph parentId).Length
         let moveTarget: (VM * NodeRange) option =
             if delta < 0 && range.start > 0 then
                 // Move to before sibling above: insert at range.start - 1 (after the range ending there)

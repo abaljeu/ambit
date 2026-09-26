@@ -44,17 +44,19 @@ let private nestedWorkspaceGraph () : Graph * NodeId * NodeId * NodeId =
             name = Filename.Ok "readme.txt",
             kind = Special File,
             owner = dirId)
-    let workspaces = graph0.nodes.[Graph.workspacesId]
-    let nodes =
-        graph0.nodes
-        |> Map.add wsId wsNode
-        |> Map.add dirId dirNode
-        |> Map.add fileId fileNode
-        |> Map.add
-            Graph.workspacesId
-            { workspaces with
-                children = workspaces.children @ owned [ wsId ] }
-    let graph1 = Graph.fromNodes graph0.root nodes
+    let graph1 =
+        graph0
+        |> Graph.addDetachedNode wsNode
+        |> Graph.addDetachedNode dirNode
+        |> Graph.addDetachedNode fileNode
+        |> fun g ->
+            Graph.fromNodes
+                g.root
+                g.nodes
+                (Map.add
+                    Graph.workspacesId
+                    (Graph.children g Graph.workspacesId @ owned [ wsId ])
+                    g.childMap)
     let graph2 =
         Graph.replace wsId 0 [] (owned [ dirId ]) graph1
         |> function
@@ -141,7 +143,7 @@ let ``postLoad Workspace subgraph when includeWorkspace true`` () = task {
             Assert.Empty(response.events)
             let byId = response.packages |> List.map (fun n -> n.id, n) |> Map.ofList
             Assert.True(byId.ContainsKey wsId)
-            Assert.Equal(Loaded, byId.[wsId].childrenStatus)
+            Assert.True(Map.containsKey wsId response.packageChildMap)
             Assert.True(byId.ContainsKey dirId)
             Assert.True(byId.ContainsKey fileId)
     | other ->
@@ -265,18 +267,20 @@ let ``postLoad refuses selection spanning two Workspaces`` () = task {
             name = Filename.Ok "b.txt",
             kind = Special File,
             owner = wsB)
-    let workspaces = graph0.nodes.[Graph.workspacesId]
-    let nodes =
-        graph0.nodes
-        |> Map.add wsA wsNodeA
-        |> Map.add fileA fileNodeA
-        |> Map.add wsB wsNodeB
-        |> Map.add fileB fileNodeB
-        |> Map.add
-            Graph.workspacesId
-            { workspaces with
-                children = workspaces.children @ owned [ wsA; wsB ] }
-    let graph1 = Graph.fromNodes graph0.root nodes
+    let graph1 =
+        graph0
+        |> Graph.addDetachedNode wsNodeA
+        |> Graph.addDetachedNode fileNodeA
+        |> Graph.addDetachedNode wsNodeB
+        |> Graph.addDetachedNode fileNodeB
+        |> fun g ->
+            Graph.fromNodes
+                g.root
+                g.nodes
+                (Map.add
+                    Graph.workspacesId
+                    (Graph.children g Graph.workspacesId @ owned [ wsA; wsB ])
+                    g.childMap)
     let graph2 =
         Graph.replace wsA 0 [] (owned [ fileA ]) graph1
         |> function

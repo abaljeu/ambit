@@ -3,6 +3,7 @@ module ViewModelMoveOpsTests
 open Gambol.Shared
 open Gambol.Shared.ViewModel
 open Gambol.Shared.ViewModelMoveOps
+open GraphChildMapHelpers
 open VmTestHelpers
 open Xunit
 
@@ -81,7 +82,7 @@ let ``selectionAfterIndent focuses moved node under previous ref instance`` () =
     let ownerInstId = model.siteMap.entries.[model.siteMap.rootId].children.[0]
     let refInstId = model.siteMap.entries.[model.siteMap.rootId].children.[1]
     let plan = planIndentSelection model |> Option.get
-    let newChild = graph.nodes.[cont].children.[2]
+    let newChild = (Graph.children graph cont).[2]
     let graph1 =
         Graph.replace cont 2 [ newChild ] [] graph
         |> ModelBuilder.requireOk "remove new"
@@ -140,9 +141,7 @@ let private addSpecialNode id kind name (graph: Graph) =
             name = Filename.create name,
             kind = Special kind)
 
-    graph.nodes
-    |> Map.add id node
-    |> fun nodes -> Graph.fromNodes graph.root nodes
+    Graph.addDetachedNode node graph
 
 /// Normal sibling then owned Directory under ROOT — Tab indents the
 /// directory under the normal node (valid Owner placement via owner chain).
@@ -175,7 +174,7 @@ let private folderBesideFileGraph () =
 [<Fact>]
 let ``selectionModelAfterStructuralMove indents under nearest shared sibling instance`` () =
     let graph, cont, sharedId, newId = sharedRefGraph ()
-    let newChild = graph.nodes.[cont].children.[2]
+    let newChild = (Graph.children graph cont).[2]
     let gMid =
         Graph.replace cont 2 [ newChild ] [] graph
         |> ModelBuilder.requireOk "rm new"
@@ -239,7 +238,7 @@ let ``selectionModelAfterStructuralMove outdents under ancestor shared instance`
     let parentInst = sm1.entries.[refG].children.[0]
     let sm2, nid2 = expandEntry parentInst graph sm1 nid1
     let parentEntry = sm2.entries.[parentInst]
-    let childChild = graph.nodes.[parentId].children.[0]
+    let childChild = (Graph.children graph parentId).[0]
     let gMid =
         Graph.replace parentId 0 [ childChild ] [] graph
         |> ModelBuilder.requireOk "rm child"
@@ -272,7 +271,7 @@ let ``selectionModelAfterStructuralMove expands visible collapsed destination`` 
     let graphPre, cont, ids = buildFlat [ "a"; "b"; "c" ]
     let a = ids.[0]
     let b = ids.[1]
-    let bChild = graphPre.nodes.[cont].children.[1]
+    let bChild = (Graph.children graphPre cont).[1]
     let gMid =
         Graph.replace cont 1 [ bChild ] [] graphPre |> ModelBuilder.requireOk "rm b"
     let gPost =
@@ -305,7 +304,7 @@ let ``selectionModelAfterStructuralMove expands visible collapsed destination`` 
 let ``selectionModelAfterStructuralMove stayAtSource does not expand destination`` () =
     let graphPre, cont, ids = buildFlat [ "a"; "b"; "c" ]
     let a = ids.[0]
-    let bChild = graphPre.nodes.[cont].children.[1]
+    let bChild = (Graph.children graphPre cont).[1]
     let gMid =
         Graph.replace cont 1 [ bChild ] [] graphPre |> ModelBuilder.requireOk "rm b"
     let gPost =
@@ -335,7 +334,7 @@ let ``selectionModelAfterStructuralMove stayAtSource same-parent keeps from inde
     let graphPre, cont, ids = buildFlat [ "a"; "b"; "c" ]
     let b = ids.[1]
     let c = ids.[2]
-    let oldKids = graphPre.nodes.[cont].children
+    let oldKids = Graph.children graphPre cont
     let bChild = oldKids.[1]
     let withoutB =
         oldKids
@@ -439,9 +438,9 @@ let ``indent Directory under Normal sibling is accepted by SpecialNodeTestHelper
                       focus = dirIdx } }
     let plan = planIndentSelection selected |> Option.get
     Assert.Equal(normalId, plan.target.pnode)
-    let dirChild = graph.nodes.[Graph.rootId].children.[dirIdx]
-    let rootKids = graph.nodes.[Graph.rootId].children
-    let normKids = graph.nodes.[normalId].children
+    let dirChild = (Graph.children graph Graph.rootId).[dirIdx]
+    let rootKids = Graph.children graph Graph.rootId
+    let normKids = Graph.children graph normalId
     let ops =
         [ Op.Replace(Graph.rootId, rootKids, List.filter ((<>) dirChild) rootKids)
           ChildListWire.insertAt normalId normKids plan.target.endd [ dirChild ] ]
@@ -457,7 +456,7 @@ let ``indent Directory under Normal sibling is accepted by SpecialNodeTestHelper
     match SpecialNodeTestHelpers.applyChange change state with
     | ApplyResult.Changed s ->
         Assert.True(
-            s.graph.nodes.[normalId].children
+            Graph.children s.graph normalId
             |> List.exists (fun c -> c.id = dirId && c.ref = Ownership.Owner))
     | _ -> Assert.True(false, "expected Changed for indent under normal")
 
@@ -471,19 +470,17 @@ let private refBesideNormalWithForeignDupDirs () =
     let normalId = ids.[0]
     let graph2 = addSpecialNode d1Id Directory "dup" graph1
     let graph3 = addSpecialNode d2Id Directory "dup" graph2
-    let root = graph3.nodes.[Graph.rootId]
     let idx = Graph.fileTreeInsertIndex graph3 Graph.rootId
     let dirRef = ChildNode.reference d1Id
-    let nodes =
-        graph3.nodes
-        |> Map.add Graph.rootId
-            { root with
-                children =
-                    root.children.[0 .. idx - 1]
-                    @ owned [ d1Id; d2Id; normalId ]
-                      @ [ dirRef ]
-                      @ root.children.[idx..] }
-    let graph = Graph.fromNodes graph3.root nodes
+    let rootKids = Graph.children graph3 Graph.rootId
+    let graph =
+        setChildren
+            Graph.rootId
+            (rootKids.[0 .. idx - 1]
+             @ owned [ d1Id; d2Id; normalId ]
+             @ [ dirRef ]
+             @ rootKids.[idx..])
+            graph3
     graph, normalId, d1Id, dirRef
 
 [<Fact>]
@@ -492,7 +489,7 @@ let ``indent Ref Directory under Normal succeeds despite foreign name duplicates
     let model = emptyModelAt graph Graph.rootId
     let rootEntry = model.siteMap.entries.[model.siteMap.rootId]
     let refIdx =
-        graph.nodes.[Graph.rootId].children
+        Graph.children graph Graph.rootId
         |> List.findIndex (fun c -> c.id = dirRef.id && c.ref = Ownership.Ref)
     let selected =
         { model with
@@ -505,8 +502,8 @@ let ``indent Ref Directory under Normal succeeds despite foreign name duplicates
                       focus = refIdx } }
     let plan = planIndentSelection selected |> Option.get
     Assert.Equal(normalId, plan.target.pnode)
-    let rootKids = graph.nodes.[Graph.rootId].children
-    let normKids = graph.nodes.[normalId].children
+    let rootKids = Graph.children graph Graph.rootId
+    let normKids = Graph.children graph normalId
     let ops =
         [ Op.Replace(Graph.rootId, rootKids, List.filter ((<>) dirRef) rootKids)
           ChildListWire.insertAt normalId normKids plan.target.endd [ dirRef ] ]
@@ -522,7 +519,7 @@ let ``indent Ref Directory under Normal succeeds despite foreign name duplicates
     match SpecialNodeTestHelpers.applyChange change state with
     | ApplyResult.Changed s ->
         Assert.True(
-            s.graph.nodes.[normalId].children
+            Graph.children s.graph normalId
             |> List.exists (fun c -> c.id = dirRef.id && c.ref = Ownership.Ref))
     | ApplyResult.Invalid (_, msg) -> Assert.True(false, $"expected Changed, got Invalid: {msg}")
     | ApplyResult.Unchanged _ -> Assert.True(false, "expected Changed, got Unchanged")

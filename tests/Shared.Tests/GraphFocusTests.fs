@@ -17,7 +17,10 @@ let ``create and fromExtracted default focus to None`` () =
     Assert.Equal(None, created.focus)
     let node = Node.Create(NodeId.New(), text = "solo")
     let extracted =
-        Graph.fromExtracted node.id (Map.ofList [ node.id, node ])
+        Graph.fromExtracted
+            node.id
+            (Map.ofList [ node.id, node ])
+            (Map.ofList [ node.id, [] ])
     Assert.Equal(None, extracted.focus)
 
 [<Fact>]

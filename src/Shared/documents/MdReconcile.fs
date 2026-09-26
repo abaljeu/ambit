@@ -8,7 +8,7 @@ open System
 module MdReconcile =
 
     let private toNodesRead (r: MdReadResult) =
-        OutlineDocument.nodesRead r.documentRootId r.nodes
+        OutlineDocument.nodesRead r.documentRootId r.nodes r.childMap
 
     let private lineEndInArtifact
         (spanned: (TextSpan * string) array)
@@ -83,8 +83,9 @@ module MdReconcile =
 
         OutlineDocument.nestByDepth rootSpan lines
 
-    let private finishNodes documentRootId contextGraph nodes =
-        toNodesRead (MdDocument.finishRead documentRootId contextGraph nodes)
+    let private finishNodes documentRootId contextGraph (nodes, childMap) =
+        toNodesRead (
+            MdDocument.finishRead documentRootId contextGraph nodes childMap)
 
     let private readColdImpl text graph documentRootId =
         MdDocument.read text documentRootId graph
@@ -171,4 +172,8 @@ module MdReconcile =
         : Result<MdReadResult, string> =
         readWarm diffTexts editedText contextGraph documentRootId previousText
         |> Result.map (fun r ->
-            MdDocument.finishRead documentRootId contextGraph r.nodes)
+            MdDocument.finishRead
+                documentRootId
+                contextGraph
+                r.nodes
+                r.childMap)

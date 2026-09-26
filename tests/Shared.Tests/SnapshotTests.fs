@@ -3,6 +3,7 @@ module Gambol.Shared.Tests.SnapshotTests
 open System
 open Xunit
 open Gambol.Shared
+open GraphChildMapHelpers
 open SpecialNodeTestHelpers
 
 let private childId (child: ChildNode) = child.id
@@ -142,12 +143,14 @@ let ``read shared-node format produces shared NodeId`` () =
     let p2 = graph.nodes.[userChildren.[1].id]
     Assert.Equal("parent1", p1.text)
     Assert.Equal("parent2", p2.text)
-    Assert.Equal(1, p1.children.Length)
-    Assert.Equal(1, p2.children.Length)
-    Assert.Equal(p1.children.[0].id, p2.children.[0].id)   // same NodeId
-    Assert.Equal(Ownership.Owner, p1.children.[0].ref)
-    Assert.Equal(Ownership.Ref, p2.children.[0].ref)
-    Assert.Equal("shared", graph.nodes.[p1.children.[0].id].text)
+    let p1Kids = Graph.children graph p1.id
+    let p2Kids = Graph.children graph p2.id
+    Assert.Equal(1, p1Kids.Length)
+    Assert.Equal(1, p2Kids.Length)
+    Assert.Equal(p1Kids.[0].id, p2Kids.[0].id)   // same NodeId
+    Assert.Equal(Ownership.Owner, p1Kids.[0].ref)
+    Assert.Equal(Ownership.Ref, p2Kids.[0].ref)
+    Assert.Equal("shared", graph.nodes.[p1Kids.[0].id].text)
     Assert.Equal(3, userNodeCount graph)             // parent1 + parent2 + shared
 
 [<Fact>]
@@ -162,16 +165,19 @@ let ``read ref-before-owner creates stub then merges owner`` () =
     let p1 = graph.nodes.[userChildren.[1].id]
     Assert.Equal("parent2", p2.text)
     Assert.Equal("parent1", p1.text)
-    Assert.Equal(Ownership.Ref, p2.children.[0].ref)
-    Assert.Equal(Ownership.Owner, p1.children.[0].ref)
-    Assert.Equal(p1.children.[0].id, p2.children.[0].id)
-    Assert.Equal("shared", graph.nodes.[p1.children.[0].id].text)
+    Assert.Equal(Ownership.Ref, (Graph.children graph p2.id).[0].ref)
+    Assert.Equal(Ownership.Owner, (Graph.children graph p1.id).[0].ref)
+    Assert.Equal(
+        (Graph.children graph p1.id).[0].id,
+        (Graph.children graph p2.id).[0].id)
+    Assert.Equal(
+        "shared",
+        graph.nodes.[(Graph.children graph p1.id).[0].id].text)
     Assert.Equal(3, userNodeCount graph)
 
 let private createSharedNodeGraphRefParentFirst () : Graph =
     let g = ModelBuilder.createSharedNodeGraph ()
-    let root = g.nodes.[g.root]
-    let ch = root.children
+    let ch = Graph.children g g.root
     let users, specials =
         ch
         |> List.partition (fun c ->
@@ -193,9 +199,11 @@ let ``round-trip shared-node graph preserves shape and sharing`` () =
     let userChildren = userRootChildren decoded
     let p1 = decoded.nodes.[userChildren.[0].id]
     let p2 = decoded.nodes.[userChildren.[1].id]
-    Assert.Equal(p1.children.[0].id, p2.children.[0].id)     // truly shared NodeId
-    Assert.Equal(Ownership.Owner, p1.children.[0].ref)
-    Assert.Equal(Ownership.Ref, p2.children.[0].ref)
+    Assert.Equal(
+        (Graph.children decoded p1.id).[0].id,
+        (Graph.children decoded p2.id).[0].id)     // truly shared NodeId
+    Assert.Equal(Ownership.Owner, (Graph.children decoded p1.id).[0].ref)
+    Assert.Equal(Ownership.Ref, (Graph.children decoded p2.id).[0].ref)
 
 [<Fact>]
 let ``write ref parent before owner emits arrow before hash definition`` () =
@@ -207,9 +215,10 @@ let ``write ref parent before owner emits arrow before hash definition`` () =
     Assert.True(hashIdx > arrowIdx, "ref line should precede owner definition")
     let decoded = Snapshot.read text
     Assert.Equal<(int * string) list>(treeShape original, treeShape decoded)
-    let root = decoded.nodes.[decoded.root]
-    Assert.Equal(decoded.nodes.[root.children.[0].id].children.[0].id,
-                 decoded.nodes.[root.children.[1].id].children.[0].id)
+    let rootKids = Graph.children decoded decoded.root
+    let firstKids = Graph.children decoded rootKids.[0].id
+    let secondKids = Graph.children decoded rootKids.[1].id
+    Assert.Equal(firstKids.[0].id, secondKids.[0].id)
 
 let private specialNode (id: NodeId) (kind: SpecialKind) (name: string) (owner: NodeId) : Node =
     Node.Create(
@@ -229,11 +238,7 @@ let private graphWithWorkspaceTree () : Graph =
     let fileNode = specialNode fileId File "readme.txt" dirId
 
     let graph1 =
-        graph0.nodes
-        |> Map.add wsId wsNode
-        |> Map.add dirId dirNode
-        |> Map.add fileId fileNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        addDetachedMany [ wsNode; dirNode; fileNode ] graph0
 
     let graph2 =
         Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1

@@ -49,9 +49,9 @@ let private decodeSuccessExternalChanges json =
     (decodeSuccess json).externalChanges
 
 let private assertAmbConflictFirstChild (graph: Graph) (parentId: NodeId) (expectedText: string) =
-    let parent = graph.nodes.[parentId]
-    Assert.NotEmpty(parent.children)
-    let first = parent.children.[0]
+    let kids = Graph.children graph parentId
+    Assert.NotEmpty(kids)
+    let first = kids.[0]
     Assert.Equal(Ownership.Owner, Node.childOwnership graph parentId first)
     let child = graph.nodes.[first.id]
     Assert.Equal(expectedText, child.text)
@@ -611,7 +611,7 @@ let ``POST unrelated attribute edits with stale revision both succeed``
         Assert.Equal(HttpStatusCode.OK, rX.StatusCode)
 
         let! json1 = getStateJson client testFile
-        let rootChildren = (decodeGraph json1).nodes.[rootId].children
+        let rootChildren = Graph.children (decodeGraph json1) rootId
         let nodeY = NodeId.New()
         let setupY =
             { id = EventId.zero
@@ -845,10 +845,10 @@ let ``POST unrelated structural edits with stale revision both succeed``
         Assert.Equal(EventId.fromJson 3, decodeEventId json)
         Assert.Equal<ChildNode list>(
             ownedChild childA,
-            g.nodes.[parentP1].children)
+            (Graph.children g parentP1))
         Assert.Equal<ChildNode list>(
             ownedChild childB,
-            g.nodes.[parentP2].children)
+            (Graph.children g parentP2))
     })
 
 [<Fact>]
@@ -901,7 +901,7 @@ let ``POST same-parent structural collision amends and succeeds``
         let! json = getStateJson client testFile
         let g = decodeGraph json
         Assert.Equal(EventId.fromJson 3, decodeEventId json)
-        let children = g.nodes.[parentP].children
+        let children = Graph.children g parentP
         Assert.Equal(2, children.Length)
         Assert.Contains(ownedChild childA |> List.head, children)
         Assert.Contains(ownedChild childB |> List.head, children)
@@ -1278,7 +1278,7 @@ let ``GET state default returns ROOT closure excluding nested workspace contents
         let! json = getStateJson client testFile
         let graph = decodeGraph json
         Assert.True(graph.nodes.ContainsKey wsId)
-        Assert.Equal(Unloaded, graph.nodes.[wsId].childrenStatus)
+        Assert.Equal(Unloaded, Graph.childrenStatus graph wsId)
         Assert.False(graph.nodes.ContainsKey innerId)
     })
 

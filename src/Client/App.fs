@@ -512,7 +512,7 @@ let createRuntime (initialModel: VM) =
                     SysMsg (
                         LoadDone (
                             None,
-                            { events = []; packages = [] },
+                            { events = []; packages = []; packageChildMap = Map.empty },
                             model.eventId,
                             None)))
         let onLoadHttp (_status: int) (_body: string) : unit =
@@ -520,7 +520,7 @@ let createRuntime (initialModel: VM) =
                 SysMsg (
                     LoadDone (
                         None,
-                        { events = []; packages = [] },
+                        { events = []; packages = []; packageChildMap = Map.empty },
                         model.eventId,
                         None)))
         let onLoadFail () : unit =
@@ -528,7 +528,7 @@ let createRuntime (initialModel: VM) =
                 SysMsg (
                     LoadDone (
                         None,
-                        { events = []; packages = [] },
+                        { events = []; packages = []; packageChildMap = Map.empty },
                         model.eventId,
                         None)))
         postJson

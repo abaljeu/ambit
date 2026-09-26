@@ -51,19 +51,35 @@ module GraphBuild =
     let rootPlaceholder: Node =
         Node.Create(rootId, text = "ROOT", kind = Special Workspace)
 
-    let private addStructuralEdges (parentId: NodeId) (parent: Node) acc =
-        parent.children
+    let tryGetChildren (graph: Graph) (id: NodeId) =
+        GraphChildren.tryGet graph id
+
+    let getChildren (graph: Graph) (id: NodeId) = GraphChildren.get graph id
+
+    let isLoaded (graph: Graph) (id: NodeId) = GraphChildren.isLoaded graph id
+
+    let childrenStatus (graph: Graph) (id: NodeId) =
+        GraphChildren.status graph id
+
+    let private kidsOf
+        (childMap: Map<NodeId, ChildNode list>)
+        (parentId: NodeId)
+        : ChildNode list =
+        Map.tryFind parentId childMap |> Option.defaultValue []
+
+    let private addStructuralEdges parentId (kids: ChildNode list) acc =
+        kids
         |> List.mapi (fun i c -> i, c.id)
         |> List.fold
             (fun a (i, cid) ->
                 if Map.containsKey cid a then a else Map.add cid (parentId, i) a)
             acc
 
-    let private addOwnerEdges (parentId: NodeId) (parent: Node) acc =
+    let private addOwnerEdges parentId (kids: ChildNode list) acc =
         // Edge.ref is the write-side source until ChildNode is removed (Phase C).
         // Do not use Node.childOwnership here: fromNodes applies owner fields after
         // these maps are built.
-        parent.children
+        kids
         |> List.fold
             (fun a child ->
                 match child.ref with
@@ -71,176 +87,132 @@ module GraphBuild =
                 | Ownership.Ref -> a)
             acc
 
-    let private buildParentMaps (nodes: Map<NodeId, Node>) =
+    let private buildParentMaps (childMap: Map<NodeId, ChildNode list>) =
         let structural =
-            nodes |> Map.fold (fun acc pid p -> addStructuralEdges pid p acc) Map.empty
+            childMap
+            |> Map.fold (fun acc pid kids -> addStructuralEdges pid kids acc) Map.empty
         let owners =
-            nodes |> Map.fold (fun acc pid p -> addOwnerEdges pid p acc) Map.empty
+            childMap
+            |> Map.fold (fun acc pid kids -> addOwnerEdges pid kids acc) Map.empty
         structural, owners
 
-    let private ensureTrashNode (nodes: Map<NodeId, Node>) : Map<NodeId, Node> =
-        let hasTrash = Map.containsKey trashId nodes
-        let nodesWithTrash =
-            if hasTrash then
-                nodes
+    let private withLoadedEmpty
+        (id: NodeId)
+        (childMap: Map<NodeId, ChildNode list>)
+        =
+        if Map.containsKey id childMap then
+            childMap
+        else
+            Map.add id [] childMap
+
+    let private hasOwnerChild parentId childId childMap =
+        kidsOf childMap parentId
+        |> List.exists (fun c -> c.id = childId && c.ref = Ownership.Owner)
+
+    let private insertOwnerBeforeTrash parentId childId childMap =
+        let child = ChildNode.owner childId
+        let without =
+            kidsOf childMap parentId |> List.filter (fun c -> c.id <> childId)
+        let beforeTrash, afterTrash =
+            match without |> List.tryFindIndex (fun c -> c.id = trashId) with
+            | Some i -> List.take i without, List.skip i without
+            | None -> without, []
+        Map.add parentId (beforeTrash @ [ child ] @ afterTrash) childMap
+
+    let private appendOwnerChild parentId childId childMap =
+        let child = ChildNode.owner childId
+        let kids = kidsOf childMap parentId
+        if kids |> List.exists (fun c -> c.id = childId) then
+            Map.add parentId kids childMap
+        else
+            Map.add parentId (kids @ [ child ]) childMap
+
+    let private ensureTrashNode nodes childMap =
+        let trashNode =
+            Node.Create(
+                trashId,
+                text = "Trash",
+                name = Filename.Ok "TRASH",
+                kind = Special Directory)
+        let nodes, childMap =
+            if Map.containsKey trashId nodes then
+                nodes, childMap
             else
-                let rootNode = nodes.[rootId]
-                let trashNode: Node =
-                    Node.Create(
-                        trashId,
-                        text = "Trash",
-                        name = Filename.Ok "TRASH",
-                        kind = Special Directory)
-
-                let trashChild = ChildNode.owner trashId
-
-                let rootChildren =
-                    if rootNode.children |> List.exists (fun c -> c.id = trashId) then
-                        rootNode.children
-                    else
-                        rootNode.children @ [ trashChild ]
-
-                nodes
-                |> Map.add rootId { rootNode with children = rootChildren }
-                |> Map.add trashId trashNode
-
-        let rootNode = nodesWithTrash.[rootId]
-        let hasTrashOwner =
-            rootNode.children
-            |> List.exists (fun c -> c.id = trashId && c.ref = Ownership.Owner)
-
-        let nodesFixed =
-            if hasTrashOwner then
-                nodesWithTrash
+                nodes |> Map.add trashId trashNode,
+                childMap
+                |> withLoadedEmpty trashId
+                |> appendOwnerChild rootId trashId
+        let childMap =
+            if hasOwnerChild rootId trashId childMap then
+                childMap
             else
-                // Missing Owner under ROOT — append (repair load / partial graphs).
-                let trashChild = ChildNode.owner trashId
-                let withoutTrash =
-                    rootNode.children |> List.filter (fun c -> c.id <> trashId)
-                nodesWithTrash
-                |> Map.add rootId
-                    { rootNode with children = withoutTrash @ [ trashChild ] }
-
-        match Map.tryFind trashId nodesFixed with
-        | None -> nodesFixed
+                let without =
+                    kidsOf childMap rootId
+                    |> List.filter (fun c -> c.id <> trashId)
+                Map.add
+                    rootId
+                    (without @ [ ChildNode.owner trashId ])
+                    childMap
+        match Map.tryFind trashId nodes with
+        | None -> nodes, childMap
         | Some trash ->
-            nodesFixed
-            |> Map.add trashId
+            nodes
+            |> Map.add
+                trashId
                 { trash with
                     kind = Special Directory
-                    name = Filename.Ok "TRASH" }
+                    name = Filename.Ok "TRASH" },
+            childMap
 
-    let private ensureWorkspacesNode (nodes: Map<NodeId, Node>) : Map<NodeId, Node> =
-        let hasWorkspaces = Map.containsKey workspacesId nodes
-
-        let nodesWithWorkspaces =
-            if hasWorkspaces then
-                nodes
+    let private ensureWorkspacesNode nodes childMap =
+        let workspacesNode =
+            Node.Create(
+                workspacesId,
+                text = "Workspaces",
+                kind = Special Workspaces)
+        let nodes, childMap =
+            if Map.containsKey workspacesId nodes then
+                nodes, childMap
             else
-                let rootNode = nodes.[rootId]
-
-                let workspacesNode: Node =
-                    Node.Create(
-                        workspacesId,
-                        text = "Workspaces",
-                        kind = Special Workspaces)
-
-                let workspacesChild = ChildNode.owner workspacesId
-
-                let rootChildren =
-                    if rootNode.children |> List.exists (fun c -> c.id = workspacesId) then
-                        rootNode.children
-                    else
-                        rootNode.children @ [ workspacesChild ]
-
-                nodes
-                |> Map.add rootId { rootNode with children = rootChildren }
-                |> Map.add workspacesId workspacesNode
-
-        let rootNode = nodesWithWorkspaces.[rootId]
-        let hasWorkspacesOwner =
-            rootNode.children
-            |> List.exists (fun c ->
-                c.id = workspacesId && c.ref = Ownership.Owner)
-
-        if hasWorkspacesOwner then
-            nodesWithWorkspaces
+                nodes |> Map.add workspacesId workspacesNode,
+                childMap
+                |> withLoadedEmpty workspacesId
+                |> appendOwnerChild rootId workspacesId
+        if hasOwnerChild rootId workspacesId childMap then
+            nodes, childMap
         else
-            // Missing Owner under ROOT — insert before TRASH when present.
-            let workspacesChild = ChildNode.owner workspacesId
-            let withoutWorkspaces =
-                rootNode.children |> List.filter (fun c -> c.id <> workspacesId)
-            let beforeTrash, afterTrashStart =
-                match withoutWorkspaces |> List.tryFindIndex (fun c -> c.id = trashId) with
-                | Some i ->
-                    withoutWorkspaces |> List.take i,
-                    withoutWorkspaces |> List.skip i
-                | None ->
-                    withoutWorkspaces, []
-            let fixedRootChildren =
-                beforeTrash @ [ workspacesChild ] @ afterTrashStart
-            nodesWithWorkspaces
-            |> Map.add rootId { rootNode with children = fixedRootChildren }
+            nodes, insertOwnerBeforeTrash rootId workspacesId childMap
 
-    let private ensureSystemNode (nodes: Map<NodeId, Node>) : Map<NodeId, Node> =
-        let hasSystem = Map.containsKey systemId nodes
-        let nodesWithSystem =
-            if hasSystem then
-                nodes
+    let private ensureSystemNode nodes childMap =
+        let systemNode =
+            Node.Create(
+                systemId,
+                text = "System",
+                name = Filename.Ok "SYSTEM",
+                kind = Special Directory)
+        let nodes, childMap =
+            if Map.containsKey systemId nodes then
+                nodes, childMap
             else
-                let rootNode = nodes.[rootId]
-                let systemNode: Node =
-                    Node.Create(
-                        systemId,
-                        text = "System",
-                        name = Filename.Ok "SYSTEM",
-                        kind = Special Directory)
-
-                let systemChild = ChildNode.owner systemId
-
-                let rootChildren =
-                    if rootNode.children |> List.exists (fun c -> c.id = systemId) then
-                        rootNode.children
-                    else
-                        rootNode.children @ [ systemChild ]
-
-                nodes
-                |> Map.add rootId { rootNode with children = rootChildren }
-                |> Map.add systemId systemNode
-
-        let rootNode = nodesWithSystem.[rootId]
-        let hasSystemOwner =
-            rootNode.children
-            |> List.exists (fun c -> c.id = systemId && c.ref = Ownership.Owner)
-
-        let nodesFixed =
-            if hasSystemOwner then
-                nodesWithSystem
+                nodes |> Map.add systemId systemNode,
+                childMap
+                |> withLoadedEmpty systemId
+                |> appendOwnerChild rootId systemId
+        let childMap =
+            if hasOwnerChild rootId systemId childMap then
+                childMap
             else
-                // Missing Owner under ROOT — insert before TRASH when present.
-                let systemChild = ChildNode.owner systemId
-                let withoutSystem =
-                    rootNode.children |> List.filter (fun c -> c.id <> systemId)
-                let beforeTrash, afterTrashStart =
-                    match withoutSystem |> List.tryFindIndex (fun c -> c.id = trashId) with
-                    | Some i ->
-                        withoutSystem |> List.take i,
-                        withoutSystem |> List.skip i
-                    | None ->
-                        withoutSystem, []
-                let fixedRootChildren =
-                    beforeTrash @ [ systemChild ] @ afterTrashStart
-                nodesWithSystem
-                |> Map.add rootId { rootNode with children = fixedRootChildren }
-
-        match Map.tryFind systemId nodesFixed with
-        | None -> nodesFixed
+                insertOwnerBeforeTrash rootId systemId childMap
+        match Map.tryFind systemId nodes with
+        | None -> nodes, childMap
         | Some system ->
-            nodesFixed
-            |> Map.add systemId
+            nodes
+            |> Map.add
+                systemId
                 { system with
                     kind = Special Directory
-                    name = Filename.Ok "SYSTEM" }
+                    name = Filename.Ok "SYSTEM" },
+            childMap
 
     let private ensureRootKind (nodes: Map<NodeId, Node>) : Map<NodeId, Node> =
         match Map.tryFind rootId nodes with
@@ -267,36 +239,41 @@ module GraphBuild =
                     |> Option.defaultValue node.owner
                 { node with owner = ownerParent })
 
-    let private requireValidChildrenStatus (nodes: Map<NodeId, Node>) : unit =
-        nodes
-        |> Map.iter (fun _ node ->
-            match node.childrenStatus, node.children with
-            | Unloaded, _ :: _ ->
-                failwith "Unloaded childrenStatus requires empty children"
-            | _ -> ())
-
     /// Build a graph with recomputed parent indexes (use for decode, snapshots, tests).
-    let fromNodes (root: NodeId) (nodes: Map<NodeId, Node>) : Graph =
-        requireValidChildrenStatus nodes
+    /// `childMap` keys are Loaded lists; absent parent ids stay Unloaded.
+    let fromNodes
+        (root: NodeId)
+        (nodes: Map<NodeId, Node>)
+        (childMap: Map<NodeId, ChildNode list>)
+        : Graph =
         let nodesWithRoot = ensureRootKind nodes
-        let nodesWithWorkspaces = ensureWorkspacesNode nodesWithRoot
-        let nodesWithSystem = ensureSystemNode nodesWithWorkspaces
-        let nodesWithTrash = ensureTrashNode nodesWithSystem
-        let pbc, opc = buildParentMaps nodesWithTrash
-        let nodesWithOwner = applyOwnerField root opc nodesWithTrash
+        let nodesW, childW = ensureWorkspacesNode nodesWithRoot childMap
+        let nodesS, childS = ensureSystemNode nodesW childW
+        let nodesT, childT = ensureTrashNode nodesS childS
+        let pbc, opc = buildParentMaps childT
+        let nodesWithOwner = applyOwnerField root opc nodesT
         { root = root
           nodes = nodesWithOwner
+          childMap = childT
           parentByChild = pbc
           ownerParentByChild = opc
           focus = None }
 
+    /// Rebuild indexes from an existing graph's nodes and childMap.
+    let reindex (graph: Graph) : Graph =
+        fromNodes graph.root graph.nodes graph.childMap
+
     /// Build a Graph from an extracted node set without injecting canonical folders.
-    let fromExtracted (root: NodeId) (nodes: Map<NodeId, Node>) : Graph =
-        requireValidChildrenStatus nodes
-        let pbc, opc = buildParentMaps nodes
+    let fromExtracted
+        (root: NodeId)
+        (nodes: Map<NodeId, Node>)
+        (childMap: Map<NodeId, ChildNode list>)
+        : Graph =
+        let pbc, opc = buildParentMaps childMap
         let nodesWithOwner = applyOwnerField root opc nodes
         { root = root
           nodes = nodesWithOwner
+          childMap = childMap
           parentByChild = pbc
           ownerParentByChild = opc
           focus = None }
@@ -304,12 +281,19 @@ module GraphBuild =
     /// Insert a fresh, childless, not-yet-attached node. Such a node contributes no
     /// parent edges, so the indexes are unchanged and bulk inserts (a parse tail is
     /// thousands of NewNode ops) avoid a whole-graph rebuild per op.
+    /// New nodes are Loaded empty (`childMap` key present with []).
     let addDetachedNode (node: Node) (graph: Graph) : Graph =
         if Map.containsKey node.id graph.nodes then
-            fromNodes graph.root (graph.nodes |> Map.add node.id node)
+            fromNodes
+                graph.root
+                (graph.nodes |> Map.add node.id node)
+                graph.childMap
         else
             { graph with
-                nodes = graph.nodes |> Map.add node.id { node with owner = graph.root } }
+                nodes =
+                    graph.nodes
+                    |> Map.add node.id { node with owner = graph.root }
+                childMap = graph.childMap |> Map.add node.id [] }
 
     /// Index update for children appended at the end of a parent's list. Nothing is
     /// removed and no sibling index shifts, so every existing edge stays valid and only
@@ -320,10 +304,11 @@ module GraphBuild =
     let appendChildren
         (parentId: NodeId)
         (appended: ChildNode list)
+        (updatedChildren: ChildNode list)
         (updatedParent: Node)
         (graph: Graph)
         : Graph =
-        let firstIndex = updatedParent.children.Length - appended.Length
+        let firstIndex = updatedChildren.Length - appended.Length
         let parentByChild =
             appended
             |> List.indexed
@@ -358,6 +343,7 @@ module GraphBuild =
                 (graph.nodes |> Map.add parentId updatedParent)
         { root = graph.root
           nodes = nodes
+          childMap = Map.add parentId updatedChildren graph.childMap
           parentByChild = parentByChild
           ownerParentByChild = ownerParentByChild
           focus = graph.focus }
@@ -372,8 +358,13 @@ module GraphBuild =
         let nodeId = NodeId.New()
         let node =
             Node.Create(nodeId, text = text, updateTime = NodeUpdateTime.now ())
-        let nodes = graph.nodes |> Map.add nodeId node
-        { graph with nodes = nodes }, nodeId
+        { graph with
+            nodes = graph.nodes |> Map.add nodeId node
+            childMap = graph.childMap |> Map.add nodeId [] },
+        nodeId
 
     let create () : Graph =
-        fromNodes rootId (Map.ofList [ rootId, rootPlaceholder ])
+        fromNodes
+            rootId
+            (Map.ofList [ rootId, rootPlaceholder ])
+            (Map.ofList [ rootId, [] ])

@@ -1,6 +1,7 @@
 module BootstrapScopeTests
 
 open Gambol.Shared
+open GraphChildMapHelpers
 open Xunit
 
 let private owned = ChildNode.owners
@@ -25,11 +26,8 @@ let private graphWithNestedWorkspace () : Graph * NodeId * NodeId * NodeId =
     let fileNode = specialNode fileId File "readme.txt" dirId
 
     let graph1 =
-        graph0.nodes
-        |> Map.add wsId wsNode
-        |> Map.add dirId dirNode
-        |> Map.add fileId fileNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        graph0
+        |> addDetachedMany [ wsNode; dirNode; fileNode ]
 
     let graph2 =
         Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
@@ -56,8 +54,8 @@ let ``rootBootstrapGraph includes nested workspace header Unloaded`` () =
     let graph, wsId, dirId, fileId = graphWithNestedWorkspace ()
     let scoped = ResidentProjection.rootBootstrapGraph graph
     Assert.True(scoped.nodes.ContainsKey wsId)
-    Assert.Equal(Unloaded, scoped.nodes.[wsId].childrenStatus)
-    Assert.Empty scoped.nodes.[wsId].children
+    Assert.Equal(Unloaded, Graph.childrenStatus scoped wsId)
+    Assert.Empty(Graph.children scoped wsId)
     Assert.False(scoped.nodes.ContainsKey dirId)
     Assert.False(scoped.nodes.ContainsKey fileId)
 
@@ -66,15 +64,16 @@ let ``rootBootstrapGraph keeps ROOT owned content Loaded`` () =
     let graph0 = Graph.create ()
     let noteId = NodeId.New()
     let note = Node.Create(noteId, text = "note", owner = graph0.root)
-    let root = graph0.nodes.[graph0.root]
     let graph1 =
-        graph0.nodes
-        |> Map.add noteId note
-        |> Map.add graph0.root { root with children = owned [ noteId ] }
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        Graph.addDetachedNode note graph0
+        |> fun g ->
+            Graph.replace g.root 0 [] (owned [ noteId ]) g
+            |> function
+                | Ok next -> next
+                | Error err -> failwith err
     let scoped = ResidentProjection.rootBootstrapGraph graph1
     Assert.True(scoped.nodes.ContainsKey noteId)
-    Assert.Equal(Loaded, scoped.nodes.[noteId].childrenStatus)
+    Assert.Equal(Loaded, Graph.childrenStatus scoped noteId)
 
 [<Fact>]
 let ``rootBootstrapGraph includes Ref header without children`` () =
@@ -82,24 +81,26 @@ let ``rootBootstrapGraph includes Ref header without children`` () =
     let holderId = NodeId.New()
     let refTargetId = NodeId.New()
     let holder =
-        Node.Create(
-            holderId,
-            text = "holder",
-            owner = graph0.root,
-            children = [ refChild refTargetId ])
+        Node.Create(holderId, text = "holder", owner = graph0.root)
     let refTarget =
         Node.Create(refTargetId, text = "external", owner = refTargetId)
-    let root = graph0.nodes.[graph0.root]
     let graph1 =
-        graph0.nodes
-        |> Map.add holderId holder
-        |> Map.add refTargetId refTarget
-        |> Map.add graph0.root { root with children = owned [ holderId ] }
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        graph0
+        |> addDetachedMany [ holder; refTarget ]
+        |> fun g ->
+            Graph.replace g.root 0 [] (owned [ holderId ]) g
+            |> function
+                | Ok next -> next
+                | Error err -> failwith err
+        |> fun g ->
+            Graph.replace holderId 0 [] [ refChild refTargetId ] g
+            |> function
+                | Ok next -> next
+                | Error err -> failwith err
     let scoped = ResidentProjection.rootBootstrapGraph graph1
     Assert.True(scoped.nodes.ContainsKey refTargetId)
-    Assert.Equal(Unloaded, scoped.nodes.[refTargetId].childrenStatus)
-    Assert.Empty scoped.nodes.[refTargetId].children
+    Assert.Equal(Unloaded, Graph.childrenStatus scoped refTargetId)
+    Assert.Empty(Graph.children scoped refTargetId)
 
 [<Fact>]
 let ``bootstrapGraph FullGraph returns canonical graph unchanged`` () =
@@ -107,7 +108,7 @@ let ``bootstrapGraph FullGraph returns canonical graph unchanged`` () =
     let scoped =
         ResidentProjection.bootstrapGraph BootstrapScope.FullGraph None graph
     Assert.True(scoped.nodes.ContainsKey wsId)
-    Assert.Equal<ChildNode list>(graph.nodes.[wsId].children, scoped.nodes.[wsId].children)
+    Assert.Equal<ChildNode list>(Graph.children graph wsId, Graph.children scoped wsId)
 
 [<Fact>]
 let ``bootstrapGraph with zoom outside ROOT adds complete owning Workspace`` () =
@@ -115,11 +116,11 @@ let ``bootstrapGraph with zoom outside ROOT adds complete owning Workspace`` () 
     let scoped =
         ResidentProjection.bootstrapGraph BootstrapScope.RootClosure (Some fileId) graph
     Assert.True(scoped.nodes.ContainsKey wsId)
-    Assert.Equal(Loaded, scoped.nodes.[wsId].childrenStatus)
+    Assert.Equal(Loaded, Graph.childrenStatus scoped wsId)
     Assert.True(scoped.nodes.ContainsKey dirId)
-    Assert.Equal(Loaded, scoped.nodes.[dirId].childrenStatus)
+    Assert.Equal(Loaded, Graph.childrenStatus scoped dirId)
     Assert.True(scoped.nodes.ContainsKey fileId)
-    Assert.Equal(Loaded, scoped.nodes.[fileId].childrenStatus)
+    Assert.Equal(Loaded, Graph.childrenStatus scoped fileId)
 
 [<Fact>]
 let ``bootstrapGraph with no zoom is ROOT only`` () =
@@ -127,7 +128,7 @@ let ``bootstrapGraph with no zoom is ROOT only`` () =
     let scoped =
         ResidentProjection.bootstrapGraph BootstrapScope.RootClosure None graph
     Assert.True(scoped.nodes.ContainsKey wsId)
-    Assert.Equal(Unloaded, scoped.nodes.[wsId].childrenStatus)
+    Assert.Equal(Unloaded, Graph.childrenStatus scoped wsId)
     Assert.False(scoped.nodes.ContainsKey dirId)
     Assert.False(scoped.nodes.ContainsKey fileId)
 
@@ -136,16 +137,17 @@ let ``bootstrapGraph with zoom inside ROOT does not duplicate residency`` () =
     let graph0 = Graph.create ()
     let noteId = NodeId.New()
     let note = Node.Create(noteId, text = "note", owner = graph0.root)
-    let root = graph0.nodes.[graph0.root]
     let graph1 =
-        graph0.nodes
-        |> Map.add noteId note
-        |> Map.add graph0.root { root with children = owned [ noteId ] }
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        Graph.addDetachedNode note graph0
+        |> fun g ->
+            Graph.replace g.root 0 [] (owned [ noteId ]) g
+            |> function
+                | Ok next -> next
+                | Error err -> failwith err
     let scoped =
         ResidentProjection.bootstrapGraph BootstrapScope.RootClosure (Some noteId) graph1
     Assert.True(scoped.nodes.ContainsKey noteId)
-    Assert.Equal(Loaded, scoped.nodes.[noteId].childrenStatus)
+    Assert.Equal(Loaded, Graph.childrenStatus scoped noteId)
     // Named workspaces stay Unloaded headers; no extra package.
     Assert.Equal(
         (ResidentProjection.rootBootstrapGraph graph1).nodes.Count,
@@ -158,7 +160,7 @@ let ``bootstrapGraph with missing zoom falls back to ROOT only`` () =
     let scoped =
         ResidentProjection.bootstrapGraph BootstrapScope.RootClosure (Some missing) graph
     Assert.True(scoped.nodes.ContainsKey wsId)
-    Assert.Equal(Unloaded, scoped.nodes.[wsId].childrenStatus)
+    Assert.Equal(Unloaded, Graph.childrenStatus scoped wsId)
     Assert.False(scoped.nodes.ContainsKey dirId)
     Assert.False(scoped.nodes.ContainsKey fileId)
 
@@ -169,16 +171,14 @@ let ``bootstrapGraph zoom Workspace keeps nested Workspace header Unloaded`` () 
     let nestedFileId = NodeId.New()
     let nestedWs = specialNode nestedWsId Workspace "nested" wsId
     let nestedFile = specialNode nestedFileId File "inner.txt" nestedWsId
-    let wsNode = graph0.nodes.[wsId]
     let graph1 =
-        graph0.nodes
-        |> Map.add nestedWsId nestedWs
-        |> Map.add nestedFileId nestedFile
-        |> Map.add
-            wsId
-            { wsNode with
-                children = wsNode.children @ owned [ nestedWsId ] }
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        graph0
+        |> addDetachedMany [ nestedWs; nestedFile ]
+        |> fun g ->
+            setChildren
+                wsId
+                (Graph.children g wsId @ owned [ nestedWsId ])
+                g
     let graph2 =
         Graph.replace nestedWsId 0 [] (owned [ nestedFileId ]) graph1
         |> function
@@ -187,8 +187,8 @@ let ``bootstrapGraph zoom Workspace keeps nested Workspace header Unloaded`` () 
     let scoped =
         ResidentProjection.bootstrapGraph BootstrapScope.RootClosure (Some wsId) graph2
     Assert.True(scoped.nodes.ContainsKey nestedWsId)
-    Assert.Equal(Unloaded, scoped.nodes.[nestedWsId].childrenStatus)
-    Assert.Empty scoped.nodes.[nestedWsId].children
+    Assert.Equal(Unloaded, Graph.childrenStatus scoped nestedWsId)
+    Assert.Empty(Graph.children scoped nestedWsId)
     Assert.False(scoped.nodes.ContainsKey nestedFileId)
 
 [<Fact>]
@@ -197,20 +197,18 @@ let ``bootstrapGraph zoom Workspace includes Ref header without children`` () =
     let refTargetId = NodeId.New()
     let refTarget =
         Node.Create(refTargetId, text = "external", owner = refTargetId)
-    let dirNode = graph0.nodes.[dirId]
     let graph1 =
-        graph0.nodes
-        |> Map.add refTargetId refTarget
-        |> Map.add
-            dirId
-            { dirNode with
-                children = dirNode.children @ [ refChild refTargetId ] }
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        Graph.addDetachedNode refTarget graph0
+        |> fun g ->
+            setChildren
+                dirId
+                (Graph.children g dirId @ [ refChild refTargetId ])
+                g
     let scoped =
         ResidentProjection.bootstrapGraph BootstrapScope.RootClosure (Some dirId) graph1
     Assert.True(scoped.nodes.ContainsKey refTargetId)
-    Assert.Equal(Unloaded, scoped.nodes.[refTargetId].childrenStatus)
-    Assert.Empty scoped.nodes.[refTargetId].children
+    Assert.Equal(Unloaded, Graph.childrenStatus scoped refTargetId)
+    Assert.Empty(Graph.children scoped refTargetId)
 
 [<Fact>]
 let ``sessionBootstrapTarget keeps zoom when zoom is outside ROOT`` () =
@@ -230,7 +228,7 @@ let ``sessionBootstrapTarget uses focus when zoom stays in ROOT`` () =
     Assert.Equal(fileId, target)
     let scoped =
         ResidentProjection.bootstrapGraph BootstrapScope.RootClosure (Some target) graph
-    Assert.Equal(Loaded, scoped.nodes.[wsId].childrenStatus)
+    Assert.Equal(Loaded, Graph.childrenStatus scoped wsId)
     Assert.True(scoped.nodes.ContainsKey fileId)
 
 [<Fact>]

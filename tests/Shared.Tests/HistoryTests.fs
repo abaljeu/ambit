@@ -2,6 +2,7 @@ module HistoryTests
 
 open System
 open Gambol.Shared
+open GraphChildMapHelpers
 open Xunit
 
 let private expectChanged (result: ApplyResult) : State =
@@ -24,10 +25,7 @@ let private findNodeByText (text: string) (state: State) : Node =
 
 let private stateWithNodes (nodes: Node list) =
     let graph0 = Graph.create ()
-    let allNodes =
-        nodes
-        |> List.fold (fun acc node -> Map.add node.id node acc) graph0.nodes
-    { graph = Graph.fromNodes graph0.root allNodes
+    { graph = addDetachedMany nodes graph0
       eventId = EventId.zero }
 
 let private specialNode kind name =
@@ -148,8 +146,7 @@ let ``Apply NewNode with canonical root id is invalid`` () =
 [<Fact>]
 let ``Apply SetText updates node text`` () =
     let state = ModelBuilder.createState12 ()
-    let rootNode = state.graph.nodes.[state.graph.root]
-    let nodeId = rootNode.children.[0].id
+    let nodeId = (Graph.children state.graph state.graph.root).[0].id
     let oldText = state.graph.nodes.[nodeId].text
     let op = Op.SetText(nodeId, oldText, oldText + "!")
     let state2 = Op.apply op state |> expectChanged
@@ -159,8 +156,7 @@ let ``Apply SetText updates node text`` () =
 [<Fact>]
 let ``Apply SetUpdateTime stamps without requiring old match`` () =
     let state = ModelBuilder.createState12 ()
-    let rootNode = state.graph.nodes.[state.graph.root]
-    let nodeId = rootNode.children.[0].id
+    let nodeId = (Graph.children state.graph state.graph.root).[0].id
     let stamp = DateTime(2026, 7, 22, 12, 0, 0, DateTimeKind.Utc)
     let op =
         Op.SetUpdateTime(nodeId, NodeUpdateTime.missing, stamp)
@@ -176,8 +172,7 @@ let ``Apply SetUpdateTime stamps without requiring old match`` () =
 [<Fact>]
 let ``PersistStamp opsBetween emits SetUpdateTime for changed stamps`` () =
     let state = ModelBuilder.createState12 ()
-    let rootNode = state.graph.nodes.[state.graph.root]
-    let nodeId = rootNode.children.[0].id
+    let nodeId = (Graph.children state.graph state.graph.root).[0].id
     let stamp = DateTime(2026, 7, 22, 15, 30, 0, DateTimeKind.Utc)
     let before = state.graph
     let oldTime = NodeUpdateTime.toDbPrecision before.nodes.[nodeId].updateTime
@@ -207,8 +202,7 @@ let ``Apply SetText on canonical root is invalid`` () =
 let ``Apply Replace updates parent children`` () =
     let state = ModelBuilder.createState12 ()
     let parentId = state.graph.root
-    let parent = state.graph.nodes |> Map.find parentId
-    let originalChildren = parent.children
+    let originalChildren = Graph.children state.graph parentId
     let oldChild0 = originalChildren |> List.head
     let newNode = ChildNode.New()
     let state1 = Op.apply (Op.NewNode(newNode.id, "new")) state |> expectChanged
@@ -219,14 +213,13 @@ let ``Apply Replace updates parent children`` () =
             (newNode :: List.tail originalChildren)
     let state2 = Op.apply op state1 |> expectChanged
     let updatedParent = state2.graph.nodes |> Map.find parentId
-    Assert.Equal(newNode.id, updatedParent.children.[0].id)
+    Assert.Equal(newNode.id, (Graph.children state2.graph parentId).[0].id)
 
 [<Fact>]
 let ``Invalid move change does not modify graph`` () =
     let state0 = ModelBuilder.createState12 ()
     let parentId = state0.graph.root
-    let parent0 = state0.graph.nodes |> Map.find parentId
-    let originalChildren = parent0.children
+    let originalChildren = Graph.children state0.graph parentId
     let first = originalChildren.[0]
     let second = originalChildren.[1]
 
@@ -240,18 +233,16 @@ let ``Invalid move change does not modify graph`` () =
 
     let stateAfter, _ = ChangeValidation.applyOps moveOps state0 |> expectInvalid
     let parentAfter = stateAfter.graph.nodes |> Map.find parentId
-    Assert.Equal<ChildNode>(originalChildren, parentAfter.children)
+    Assert.Equal<ChildNode list>(originalChildren, Graph.children stateAfter.graph parentId)
 
 [<Fact>]
 let ``Move with correct old span is rejected when target is owned-descendant`` () =
     let state0 = ModelBuilder.createState12 ()
     let rootId = state0.graph.root
-    let root = state0.graph.nodes |> Map.find rootId
-    let childA = root.children.[0]
-    let nodeA = state0.graph.nodes |> Map.find childA.id
-    let childB = nodeA.children.[0]
-    let originalRootChildren = root.children
-    let originalBChildren = (state0.graph.nodes |> Map.find childB.id).children
+    let childA = (Graph.children state0.graph rootId).[0]
+    let childB = (Graph.children state0.graph childA.id).[0]
+    let originalRootChildren = Graph.children state0.graph rootId
+    let originalBChildren = Graph.children state0.graph childB.id
 
     // Valid move-shape (remove+insert) using the correct old span.
     // Illegal by ownership semantics: moving A under its owned descendant B.
@@ -265,8 +256,10 @@ let ``Move with correct old span is rejected when target is owned-descendant`` (
     let rootAfter = stateAfter.graph.nodes |> Map.find rootId
     let bAfter = stateAfter.graph.nodes |> Map.find childB.id
 
-    Assert.Equal<ChildNode>(originalRootChildren, rootAfter.children)
-    Assert.Equal<ChildNode>(originalBChildren, bAfter.children)
+    Assert.Equal<ChildNode list>(
+        originalRootChildren, Graph.children stateAfter.graph rootId)
+    Assert.Equal<ChildNode list>(
+        originalBChildren, Graph.children stateAfter.graph childB.id)
 
 let private unparsedFileState () =
     let graph0 = Graph.create ()
@@ -279,7 +272,6 @@ let private unparsedFileState () =
             fileId,
             text = "file.txt",
             name = Filename.create "file.txt",
-            children = [ ChildNode.owner childId ],
             kind = Special File,
             documentState = Unparsed)
     let child = Node.Create(childId, text = "body", owner = fileId)
@@ -289,24 +281,17 @@ let private unparsedFileState () =
             text = "other.txt",
             name = Filename.create "other.txt",
             kind = Special File)
-    let holder =
-        Node.Create(
-            holderId,
-            text = "holder",
-            children = [ ChildNode.reference fileId ])
-    let root = graph0.nodes.[Graph.rootId]
+    let holder = Node.Create(holderId, text = "holder")
     let additions =
         [ ChildNode.owner fileId
           ChildNode.owner otherId
           ChildNode.owner holderId ]
-    let nodes =
-        graph0.nodes
-        |> Map.add Graph.rootId { root with children = root.children @ additions }
-        |> Map.add fileId file
-        |> Map.add childId child
-        |> Map.add otherId other
-        |> Map.add holderId holder
-    let graph = Graph.fromNodes graph0.root nodes
+    let graph =
+        graph0
+        |> addDetachedMany [ file; child; other; holder ]
+        |> setChildren fileId [ ChildNode.owner childId ]
+        |> setChildren holderId [ ChildNode.reference fileId ]
+        |> appendKids Graph.rootId additions
     { graph = graph; eventId = EventId.zero },
     fileId,
     childId,
@@ -359,7 +344,7 @@ let ``edit of no-server-file document is rejected`` () =
 [<Fact>]
 let ``structural relocate of unparsed file to start among siblings succeeds`` () =
     let state, fileId, _, _, _ = unparsedFileState ()
-    let oldChildren = state.graph.nodes.[Graph.rootId].children
+    let oldChildren = Graph.children state.graph Graph.rootId
     let index = oldChildren |> List.findIndex (fun child -> child.id = fileId)
     let occurrence = oldChildren.[index]
     let without =
@@ -371,7 +356,7 @@ let ``structural relocate of unparsed file to start among siblings succeeds`` ()
     let changed =
         Op.apply (Op.Replace(Graph.rootId, oldChildren, newChildren)) state
         |> expectChanged
-    Assert.Equal(fileId, changed.graph.nodes.[Graph.rootId].children.Head.id)
+    Assert.Equal(fileId, (Graph.children changed.graph Graph.rootId).Head.id)
     Assert.Equal(Unparsed, changed.graph.nodes.[fileId].documentState)
 
 [<Fact>]
@@ -385,7 +370,7 @@ let ``operation in unrelated current document remains valid`` () =
 [<Fact>]
 let ``ref occurrence is governed by occurrence document not target document`` () =
     let state, fileId, _, _, holderId = unparsedFileState ()
-    let oldRef = state.graph.nodes.[holderId].children.Head
+    let oldRef = (Graph.children state.graph holderId).Head
     let replacementId = NodeId.New()
     let withReplacement =
         Op.apply (Op.NewNode(replacementId, "replacement")) state
@@ -394,7 +379,7 @@ let ``ref occurrence is governed by occurrence document not target document`` ()
     let changed =
         Op.apply (Op.Replace(holderId, [ oldRef ], [ replacement ])) withReplacement
         |> expectChanged
-    Assert.Equal(replacementId, changed.graph.nodes.[holderId].children.Head.id)
+    Assert.Equal(replacementId, (Graph.children changed.graph holderId).Head.id)
     assertUnparsedInvalid state (Op.SetText(fileId, "file.txt", "changed"))
 
 [<Fact>]
@@ -402,14 +387,14 @@ let ``parse state transition before tree mutation succeeds and reverse order fai
     let state, fileId, _, _, _ = unparsedFileState ()
     let parsedId = NodeId.New()
     let attach = ChildNode.owner parsedId
-    let fileChildren = state.graph.nodes.[fileId].children
+    let fileChildren = Graph.children state.graph fileId
     let parseOps =
         [ Op.SetDocumentState(fileId, Unparsed, Current)
           Op.NewNode(parsedId, "parsed")
           ChildListWire.append fileId fileChildren [ attach ] ]
     let parsed = ChangeValidation.applyOps parseOps state |> expectChanged
     Assert.Equal(Current, parsed.graph.nodes.[fileId].documentState)
-    Assert.Equal(parsedId, parsed.graph.nodes.[fileId].children.[1].id)
+    Assert.Equal(parsedId, (Graph.children parsed.graph fileId).[1].id)
 
     let reverse =
         [ Op.NewNode(parsedId, "parsed")
@@ -473,7 +458,7 @@ let ``nested file parse under current directory replaces file tree`` () =
     let parsed = ChangeValidation.applyOps parseOps fileUnparsed |> expectChanged
     Assert.Equal(Current, parsed.graph.nodes.[fileId].documentState)
     Assert.Equal(Current, parsed.graph.nodes.[directoryId].documentState)
-    Assert.Equal(parsedId, parsed.graph.nodes.[fileId].children.Head.id)
+    Assert.Equal(parsedId, (Graph.children parsed.graph fileId).Head.id)
 
 [<Fact>]
 let ``nested file parse still allowed when enclosing directory is unparsed`` () =
@@ -508,7 +493,7 @@ let ``nested file parse still allowed when enclosing directory is unparsed`` () 
     let parsed = ChangeValidation.applyOps parseOps bothUnparsed |> expectChanged
     Assert.Equal(Current, parsed.graph.nodes.[fileId].documentState)
     Assert.Equal(Unparsed, parsed.graph.nodes.[directoryId].documentState)
-    Assert.Equal(parsedId, parsed.graph.nodes.[fileId].children.Head.id)
+    Assert.Equal(parsedId, (Graph.children parsed.graph fileId).Head.id)
 
 [<Fact>]
 let ``unparsed invariant also applies to directory and workspace documents`` () =
@@ -546,13 +531,11 @@ let private graphWithDistantFileUnderFileViolation () =
     let fileAId, fileA = specialNode File "outer.txt"
     let fileBId, fileB = specialNode File "inner.txt"
     let owner = ChildNode.owner
-    let root = graph0.nodes.[Graph.rootId]
-    let nodes =
-        graph0.nodes
-        |> Map.add Graph.rootId { root with children = root.children @ [ owner fileAId ] }
-        |> Map.add fileAId { fileA with children = [ owner fileBId ] }
-        |> Map.add fileBId fileB
-    let graph = Graph.fromNodes graph0.root nodes
+    let graph =
+        graph0
+        |> addDetachedMany [ fileA; fileB ]
+        |> setChildren fileAId [ owner fileBId ]
+        |> appendKids Graph.rootId [ owner fileAId ]
     graph, fileAId, fileBId
 
 [<Fact>]
@@ -582,15 +565,9 @@ let ``validateOwnershipLocated Ok when Ref owner defaults to ROOT`` () =
     let graph0 = Graph.create ()
     let childId = NodeId.New()
     let child = Node.Create(childId, text = "orphan-ref")
-    let root = graph0.nodes.[Graph.rootId]
-    let nodes =
-        graph0.nodes
-        |> Map.add Graph.rootId
-            { root with
-                children =
-                    root.children @ [ ChildNode.reference childId ] }
-        |> Map.add childId child
-    let graph = Graph.fromNodes graph0.root nodes
+    let graph =
+        Graph.addDetachedNode child graph0
+        |> appendKids Graph.rootId [ ChildNode.reference childId ]
     match ChangeValidation.validateOwnershipLocated graph with
     | Ok () -> ()
     | Error (msg, _) -> Assert.True(false, $"expected Ok, got Error: {msg}")
@@ -604,35 +581,18 @@ let ``validateOwnershipLocated Ok when Ref owner parent is Unloaded`` () =
     let loadedParentId = NodeId.New()
     let headerId = NodeId.New()
     let ownerParent =
-        Node.Create(
-            ownerParentId,
-            text = "owner-unloaded",
-            childrenStatus = Unloaded,
-            owner = Graph.rootId)
+        Node.Create(ownerParentId, text = "owner-unloaded", owner = Graph.rootId)
     let loadedParent =
-        Node.Create(
-            loadedParentId,
-            text = "loaded-parent",
-            children = [ refOf headerId ],
-            owner = Graph.rootId)
+        Node.Create(loadedParentId, text = "loaded-parent", owner = Graph.rootId)
     let header =
-        Node.Create(
-            headerId,
-            text = "ref-header",
-            childrenStatus = Unloaded,
-            owner = ownerParentId)
-    let root = graph0.nodes.[Graph.rootId]
-    let nodes =
-        graph0.nodes
-        |> Map.add Graph.rootId
-            { root with
-                children =
-                    root.children
-                    @ [ owner ownerParentId; owner loadedParentId ] }
-        |> Map.add ownerParentId ownerParent
-        |> Map.add loadedParentId loadedParent
-        |> Map.add headerId header
-    let graph = Graph.fromNodes graph0.root nodes
+        Node.Create(headerId, text = "ref-header", owner = ownerParentId)
+    let graph =
+        graph0
+        |> addDetachedMany [ ownerParent; loadedParent; header ]
+        |> unload ownerParentId
+        |> unload headerId
+        |> setChildren loadedParentId [ refOf headerId ]
+        |> appendKids Graph.rootId [ owner ownerParentId; owner loadedParentId ]
     match ChangeValidation.validateOwnershipLocated graph with
     | Ok () -> ()
     | Error (msg, _) -> Assert.True(false, $"expected Ok, got Error: {msg}")
@@ -646,36 +606,19 @@ let ``validateOwnershipLocated Ok when Ref owner defaulted to ROOT with Unloaded
     let loadedParentId = NodeId.New()
     let headerId = NodeId.New()
     let ownerParent =
-        Node.Create(
-            ownerParentId,
-            text = "owner-unloaded",
-            childrenStatus = Unloaded,
-            owner = Graph.rootId)
+        Node.Create(ownerParentId, text = "owner-unloaded", owner = Graph.rootId)
     let loadedParent =
-        Node.Create(
-            loadedParentId,
-            text = "loaded-parent",
-            children = [ refOf headerId ],
-            owner = Graph.rootId)
+        Node.Create(loadedParentId, text = "loaded-parent", owner = Graph.rootId)
     // Claim defaulted to ROOT despite Unloaded real owner existing (appendChildren path).
     let header =
-        Node.Create(
-            headerId,
-            text = "LAPS-log",
-            childrenStatus = Unloaded,
-            owner = Graph.rootId)
-    let root = graph0.nodes.[Graph.rootId]
-    let nodes =
-        graph0.nodes
-        |> Map.add Graph.rootId
-            { root with
-                children =
-                    root.children
-                    @ [ owner ownerParentId; owner loadedParentId ] }
-        |> Map.add ownerParentId ownerParent
-        |> Map.add loadedParentId loadedParent
-        |> Map.add headerId header
-    let graph = Graph.fromNodes graph0.root nodes
+        Node.Create(headerId, text = "LAPS-log", owner = Graph.rootId)
+    let graph =
+        graph0
+        |> addDetachedMany [ ownerParent; loadedParent; header ]
+        |> unload ownerParentId
+        |> unload headerId
+        |> setChildren loadedParentId [ refOf headerId ]
+        |> appendKids Graph.rootId [ owner ownerParentId; owner loadedParentId ]
     Assert.Equal(Graph.rootId, graph.nodes.[headerId].owner)
     match ChangeValidation.validateOwnershipLocated graph with
     | Ok () -> ()
@@ -690,34 +633,26 @@ let ``validateOwnershipLocated Error when Ref owner parent is Loaded without Own
     let loadedParentId = NodeId.New()
     let headerId = NodeId.New()
     let claimedOwner =
-        Node.Create(
-            claimedOwnerId,
-            text = "claimed-owner",
-            children = [],
-            owner = Graph.rootId)
+        Node.Create(claimedOwnerId, text = "claimed-owner", owner = Graph.rootId)
     let loadedParent =
-        Node.Create(
-            loadedParentId,
-            text = "loaded-parent",
-            children = [ refOf headerId ],
-            owner = Graph.rootId)
+        Node.Create(loadedParentId, text = "loaded-parent", owner = Graph.rootId)
     let header =
-        Node.Create(
-            headerId,
-            text = "orphan-ref-header",
-            owner = claimedOwnerId)
-    let root = graph0.nodes.[Graph.rootId]
+        Node.Create(headerId, text = "orphan-ref-header", owner = claimedOwnerId)
     let nodes =
         graph0.nodes
-        |> Map.add Graph.rootId
-            { root with
-                children =
-                    root.children
-                    @ [ owner claimedOwnerId; owner loadedParentId ] }
         |> Map.add claimedOwnerId claimedOwner
         |> Map.add loadedParentId loadedParent
         |> Map.add headerId header
-    let graph = Graph.fromNodes graph0.root nodes
+    let childMap =
+        graph0.childMap
+        |> Map.add claimedOwnerId []
+        |> Map.add loadedParentId [ refOf headerId ]
+        |> Map.add headerId []
+        |> Map.add
+            Graph.rootId
+            (Graph.children graph0 Graph.rootId
+             @ [ owner claimedOwnerId; owner loadedParentId ])
+    let graph = Graph.fromNodes graph0.root nodes childMap
     match ChangeValidation.validateOwnershipLocated graph with
     | Ok () -> Assert.True(false, "expected Error")
     | Error (msg, nodeId) ->
@@ -732,17 +667,14 @@ let ``validateOwnershipLocated reports multiple owner occurrences with ids`` () 
     let parentBId = NodeId.New()
     let owner = ChildNode.owner
     let child = Node.Create(childId, text = "child")
-    let parentA = { Node.Create(parentAId, text = "a") with children = [ owner childId ] }
-    let parentB = { Node.Create(parentBId, text = "b") with children = [ owner childId ] }
-    let root = graph0.nodes.[Graph.rootId]
-    let nodes =
-        graph0.nodes
-        |> Map.add Graph.rootId
-            { root with children = root.children @ [ owner parentAId; owner parentBId ] }
-        |> Map.add parentAId parentA
-        |> Map.add parentBId parentB
-        |> Map.add childId child
-    let graph = Graph.fromNodes graph0.root nodes
+    let parentA = Node.Create(parentAId, text = "a")
+    let parentB = Node.Create(parentBId, text = "b")
+    let graph =
+        graph0
+        |> addDetachedMany [ parentA; parentB; child ]
+        |> setChildren parentAId [ owner childId ]
+        |> setChildren parentBId [ owner childId ]
+        |> appendKids Graph.rootId [ owner parentAId; owner parentBId ]
     match ChangeValidation.validateOwnershipLocated graph with
     | Ok () -> Assert.True(false, "expected Error")
     | Error (msg, nodeId) ->
@@ -759,13 +691,13 @@ let ``validateOwnershipLocated reports owner chain that does not reach root`` ()
     let aId = NodeId.New()
     let bId = NodeId.New()
     let owner = ChildNode.owner
-    let a = { Node.Create(aId, text = "a") with children = [ owner bId ] }
-    let b = { Node.Create(bId, text = "b") with children = [ owner aId ] }
-    let nodes =
-        graph0.nodes
-        |> Map.add aId a
-        |> Map.add bId b
-    let graph = Graph.fromNodes graph0.root nodes
+    let a = Node.Create(aId, text = "a")
+    let b = Node.Create(bId, text = "b")
+    let graph =
+        graph0
+        |> addDetachedMany [ a; b ]
+        |> setChildren aId [ owner bId ]
+        |> setChildren bId [ owner aId ]
     match ChangeValidation.validateOwnershipLocated graph with
     | Ok () -> Assert.True(false, "expected Error")
     | Error (msg, nodeId) ->
@@ -784,14 +716,10 @@ let ``validateOwnershipLocated reports duplicate artifact name`` () =
     let d1Id, d1 = specialNode Directory "dup"
     let d2Id, d2 = specialNode Directory "dup"
     let owner = ChildNode.owner
-    let root = graph0.nodes.[Graph.rootId]
-    let nodes =
-        graph0.nodes
-        |> Map.add Graph.rootId
-            { root with children = root.children @ [ owner d1Id; owner d2Id ] }
-        |> Map.add d1Id d1
-        |> Map.add d2Id d2
-    let graph = Graph.fromNodes graph0.root nodes
+    let graph =
+        graph0
+        |> addDetachedMany [ d1; d2 ]
+        |> appendKids Graph.rootId [ owner d1Id; owner d2Id ]
     match ChangeValidation.validateOwnershipLocated graph with
     | Ok () -> Assert.True(false, "expected Error")
     | Error (msg, nodeId) ->
@@ -809,7 +737,7 @@ let ``local shape op succeeds despite distant ownership violation`` () =
         [ Op.NewNode(newId, "sibling")
           ChildListWire.append
               Graph.rootId
-              state.graph.nodes.[Graph.rootId].children
+              (Graph.children state.graph Graph.rootId)
               [ ChildNode.owner newId ] ]
     ChangeValidation.applyOps ops state |> expectChanged |> ignore
 
@@ -817,7 +745,7 @@ let ``local shape op succeeds despite distant ownership violation`` () =
 let ``childOwnership follows edge.ref even when Node.owner matches parent`` () =
     let state0 = ModelBuilder.createState12 ()
     let parentId = state0.graph.root
-    let owned = state0.graph.nodes.[parentId].children.Head
+    let owned = (Graph.children state0.graph parentId).Head
     Assert.Equal(Ownership.Owner, owned.ref)
     Assert.Equal(parentId, state0.graph.nodes.[owned.id].owner)
     let asRef = ChildNode.reference owned.id
@@ -826,17 +754,17 @@ let ``childOwnership follows edge.ref even when Node.owner matches parent`` () =
 [<Fact>]
 let ``applyChange accepts same-parent Owner then Ref (Duplicate link)`` () =
     let state0 = ModelBuilder.createState12 ()
-    let parent = state0.graph.nodes.[state0.graph.root]
-    let ownedChild = parent.children.Head
-    let insertAt = parent.children.Length
+    let parentKids = Graph.children state0.graph state0.graph.root
+    let ownedChild = parentKids.Head
+    let insertAt = parentKids.Length
     let ops =
         [ ChildListWire.insertAt
               state0.graph.root
-              parent.children
+              parentKids
               insertAt
               [ ChildNode.reference ownedChild.id ] ]
     let state1 = ChangeValidation.applyOps ops state0 |> expectChanged
-    let kids = state1.graph.nodes.[state0.graph.root].children
+    let kids = Graph.children state1.graph state0.graph.root
     Assert.Equal(insertAt + 1, kids.Length)
     Assert.Equal(ChildNode.reference ownedChild.id, kids.[insertAt])
     Assert.Equal(Ownership.Ref, Node.childOwnership state1.graph state0.graph.root kids.[insertAt])
@@ -846,14 +774,14 @@ let ``applyChange accepts same-parent Owner then Ref (Duplicate link)`` () =
 let ``applyChange accepts mid-list same-parent Ref (Duplicate link)`` () =
     let state0 = ModelBuilder.createState12 ()
     let parentId = state0.graph.root
-    let kids0 = state0.graph.nodes.[parentId].children
+    let kids0 = Graph.children state0.graph parentId
     Assert.True(kids0.Length >= 2, "need a mid-list insert slot")
     let ownedChild = kids0.Head
     let insertAt = 1
     let ops =
         [ ChildListWire.insertAt parentId kids0 insertAt [ ChildNode.reference ownedChild.id ] ]
     let state1 = ChangeValidation.applyOps ops state0 |> expectChanged
-    let kids = state1.graph.nodes.[parentId].children
+    let kids = Graph.children state1.graph parentId
     Assert.Equal(kids0.Length + 1, kids.Length)
     Assert.Equal(ChildNode.reference ownedChild.id, kids.[insertAt])
     Assert.Equal(Ownership.Ref, Node.childOwnership state1.graph parentId kids.[insertAt])
@@ -866,19 +794,16 @@ let private graphWithDualOwnedParentAndChild () =
     let altParentId = NodeId.New()
     let childId = NodeId.New()
     let owner = ChildNode.owner
-    let parent = { Node.Create(parentId, text = "parent") with children = [ owner childId ] }
+    let parent = Node.Create(parentId, text = "parent")
     let altParent = Node.Create(altParentId, text = "alt")
     let child = Node.Create(childId, text = "child")
-    let root = graph0.nodes.[Graph.rootId]
-    let nodes =
-        graph0.nodes
-        |> Map.add Graph.rootId
-            { root with children = root.children @ [ owner parentId; owner altParentId ] }
-        |> Map.add parentId parent
+    let graph =
+        graph0
+        |> addDetachedMany [ parent; altParent; child ]
+        |> setChildren parentId [ owner childId ]
         // Second Owner edge to parent (pre-existing graph dirt).
-        |> Map.add altParentId { altParent with children = [ owner parentId ] }
-        |> Map.add childId child
-    let graph = Graph.fromNodes graph0.root nodes
+        |> setChildren altParentId [ owner parentId ]
+        |> appendKids Graph.rootId [ owner parentId; owner altParentId ]
     graph, parentId, childId
 
 [<Fact>]
@@ -889,15 +814,15 @@ let ``Duplicate Ref succeeds despite dual-Owned Replace parent`` () =
     | Error (msg, _) -> Assert.Contains("expected exactly one owner occurrence", msg)
     let state =
         { graph = graph; eventId = EventId.zero }
-    let insertAt = state.graph.nodes.[parentId].children.Length
+    let insertAt = (Graph.children state.graph parentId).Length
     let ops =
         [ ChildListWire.insertAt
               parentId
-              state.graph.nodes.[parentId].children
+              (Graph.children state.graph parentId)
               insertAt
               [ ChildNode.reference childId ] ]
     let state1 = ChangeValidation.applyOps ops state |> expectChanged
-    let kids = state1.graph.nodes.[parentId].children
+    let kids = Graph.children state1.graph parentId
     Assert.Equal(ChildNode.reference childId, kids.[insertAt])
 
 [<Fact>]
@@ -909,32 +834,30 @@ let ``Duplicate Ref succeeds despite distant dual-Owner`` () =
     let u2 = NodeId.New()
     let victim = NodeId.New()
     let owner = ChildNode.owner
-    let parent = { Node.Create(parentId, text = "parent") with children = [ owner childId ] }
+    let parent = Node.Create(parentId, text = "parent")
     let child = Node.Create(childId, text = "child")
-    let root = graph0.nodes.[Graph.rootId]
-    let nodes =
-        graph0.nodes
-        |> Map.add Graph.rootId
-            { root with
-                children =
-                    root.children
-                    @ [ owner parentId; owner u1; owner u2 ] }
-        |> Map.add parentId parent
-        |> Map.add childId child
-        |> Map.add u1 { Node.Create(u1, text = "u1") with children = [ owner victim ] }
-        |> Map.add u2 { Node.Create(u2, text = "u2") with children = [ owner victim ] }
-        |> Map.add victim (Node.Create(victim, text = "victim"))
-    let graph = Graph.fromNodes graph0.root nodes
+    let graph =
+        graph0
+        |> addDetachedMany
+            [ parent
+              child
+              Node.Create(u1, text = "u1")
+              Node.Create(u2, text = "u2")
+              Node.Create(victim, text = "victim") ]
+        |> setChildren parentId [ owner childId ]
+        |> setChildren u1 [ owner victim ]
+        |> setChildren u2 [ owner victim ]
+        |> appendKids Graph.rootId [ owner parentId; owner u1; owner u2 ]
     match ChangeValidation.validateOwnershipLocated graph with
     | Ok () -> failwith "expected distant dual-Owner seed"
     | Error _ -> ()
     let state =
         { graph = graph; eventId = EventId.zero }
-    let insertAt = state.graph.nodes.[parentId].children.Length
+    let insertAt = (Graph.children state.graph parentId).Length
     let ops =
         [ ChildListWire.insertAt
               parentId
-              state.graph.nodes.[parentId].children
+              (Graph.children state.graph parentId)
               insertAt
               [ ChildNode.reference childId ] ]
     ChangeValidation.applyOps ops state |> expectChanged |> ignore
@@ -942,15 +865,15 @@ let ``Duplicate Ref succeeds despite distant dual-Owner`` () =
 [<Fact>]
 let ``applyChange rejects Replace that introduces a second Owner edge`` () =
     let state0 = ModelBuilder.createState12 ()
-    let rootKids = state0.graph.nodes.[state0.graph.root].children
+    let rootKids = Graph.children state0.graph state0.graph.root
     let parentA = rootKids.[0].id
     let parentB = rootKids.[1].id
-    let ownedUnderA = state0.graph.nodes.[parentA].children.Head.id
-    let insertAt = state0.graph.nodes.[parentB].children.Length
+    let ownedUnderA = (Graph.children state0.graph parentA).Head.id
+    let insertAt = (Graph.children state0.graph parentB).Length
     let ops =
         [ ChildListWire.insertAt
               parentB
-              state0.graph.nodes.[parentB].children
+              (Graph.children state0.graph parentB)
               insertAt
               [ ChildNode.owner ownedUnderA ] ]
     let _, msg = ChangeValidation.applyOps ops state0 |> expectInvalid
@@ -962,10 +885,12 @@ let private reachableStructure (graph: Graph) =
             visited, nodes
         else
             let node = graph.nodes.[nodeId]
+            let kids = Graph.children graph nodeId
             let shape =
                 node.text, node.name, node.cssClasses, node.owner,
-                node.kind, node.documentState, node.childrenStatus, node.children
-            node.children
+                node.kind, node.documentState,
+                Graph.childrenStatus graph nodeId, kids
+            kids
             |> List.fold
                 (fun state child -> walk child.id state)
                 (Set.add nodeId visited, Map.add nodeId shape nodes)
@@ -992,20 +917,25 @@ let ``nested paste and NewSpecialNode Undo and Redo preserve reachable structure
     let topIds, pasteOps =
         Paste.buildPasteOps [ "parent", 0; "child", 1; "leaf", 2; "sibling", 0 ]
     let workspaceId = NodeId.New()
-    let root = state.graph.nodes.[state.graph.root]
     let ops =
         pasteOps
-        @ [ ChildListWire.append state.graph.root root.children (ChildNode.owners topIds)
+        @ [ ChildListWire.append
+                state.graph.root
+                (Graph.children state.graph state.graph.root)
+                (ChildNode.owners topIds)
             Op.NewSpecialNode(workspaceId, Workspace, "undo-workspace")
             Op.Replace(
                 Graph.workspacesId,
                 [],
                 [ ChildNode.owner workspaceId ]) ]
     let changed = applyUndoRedo ops state
-    let parent = changed.graph.nodes.[topIds.Head]
-    let child = changed.graph.nodes.[parent.children.Head.id]
+    let parentId = topIds.Head
+    let childId = (Graph.children changed.graph parentId).Head.id
+    let child = changed.graph.nodes.[childId]
     Assert.Equal("child", child.text)
-    Assert.Equal("leaf", changed.graph.nodes.[child.children.Head.id].text)
+    Assert.Equal(
+        "leaf",
+        changed.graph.nodes.[(Graph.children changed.graph childId).Head.id].text)
     let workspace = changed.graph.nodes.[workspaceId]
     Assert.Equal(Special Workspace, workspace.kind)
     Assert.Equal(Filename.Ok "undo-workspace", workspace.name)
@@ -1015,9 +945,9 @@ let ``nested paste and NewSpecialNode Undo and Redo preserve reachable structure
 let ``split-shaped Change Undo and Redo preserve sibling semantics`` () =
     let state = ModelBuilder.createState12 ()
     let parentId = state.graph.root
-    let original = state.graph.nodes.[parentId].children.Head
+    let original = (Graph.children state.graph parentId).Head
     let splitId = NodeId.New()
-    let parentChildren = state.graph.nodes.[parentId].children
+    let parentChildren = Graph.children state.graph parentId
     let ops =
         [ Op.NewNode(splitId, "right")
           ChildListWire.insertAt parentId parentChildren 1 [ ChildNode.owner splitId ]
@@ -1025,7 +955,7 @@ let ``split-shaped Change Undo and Redo preserve sibling semantics`` () =
     let changed = applyUndoRedo ops state
     Assert.Equal<NodeId list>(
         [ original.id; splitId ],
-        changed.graph.nodes.[parentId].children
+        Graph.children changed.graph parentId
         |> List.take 2
         |> List.map _.id)
     Assert.Equal("left", changed.graph.nodes.[original.id].text)

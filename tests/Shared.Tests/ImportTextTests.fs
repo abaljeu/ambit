@@ -2,6 +2,7 @@ module Gambol.Shared.Tests.ImportTextTests
 
 open Xunit
 open Gambol.Shared
+open GraphChildMapHelpers
 
 module Enc = Thoth.Json.Newtonsoft.Encode
 module Dec = Thoth.Json.Newtonsoft.Decode
@@ -138,8 +139,8 @@ let private directoryPackage (text: string) =
     |> requirePackage
     |> fun p -> { p with isDirectory = true }
 
-let private normalNode (id: NodeId) text children =
-    Node.Create(id, text = text, children = children)
+let private normalNode (id: NodeId) text =
+    Node.Create(id, text = text)
 
 let private specialFileNode (id: NodeId) (name: string) (owner: NodeId) =
     Node.Create(
@@ -151,14 +152,11 @@ let private specialFileNode (id: NodeId) (name: string) (owner: NodeId) =
 
 let private graphWithFocus (focusId: NodeId) (focusChildren: ChildNode list) (extraNodes: Node list) =
     let graph0 = Graph.create ()
-    let focus = normalNode focusId "dir" focusChildren
-
-    let nodes =
-        extraNodes
-        |> List.fold (fun acc n -> Map.add n.id n acc) graph0.nodes
-        |> Map.add focusId focus
-
-    Graph.fromNodes graph0.root nodes
+    let focus = normalNode focusId "dir"
+    graph0
+    |> addDetachedMany (focus :: extraNodes)
+    |> appendKids graph0.root [ ChildNode.owner focusId ]
+    |> setChildren focusId focusChildren
 
 [<Fact>]
 let ``build import marks unparsed file current before tree operations`` () =
@@ -172,13 +170,9 @@ let ``build import marks unparsed file current before tree operations`` () =
             kind = Special File,
             documentState = Unparsed)
     let graph0 = Graph.create ()
-    let root = graph0.nodes.[Graph.rootId]
-    let fileOccurrence = ChildNode.owner focusId
     let graph =
-        graph0.nodes
-        |> Map.add Graph.rootId { root with children = root.children @ [ fileOccurrence ] }
-        |> Map.add focusId file
-        |> Graph.fromNodes graph0.root
+        Graph.addDetachedNode file graph0
+        |> appendKids graph0.root [ ChildNode.owner focusId ]
     let change =
         ImportText.buildImportChange graph focusId [] package (System.Guid.NewGuid())
     Assert.Equal(
@@ -211,7 +205,7 @@ let ``buildDirectoryMergeChange skips existing Normal child by file reference`` 
     let existing = owned [ existingId ]
     let graph =
         graphWithFocus focusId existing
-            [ normalNode existingId "[[readme.md]] ts" [] ]
+            [ normalNode existingId "[[readme.md]] ts" ]
 
     let change =
         ImportText.buildDirectoryMergeChange graph focusId existing package (System.Guid.NewGuid())
@@ -249,7 +243,7 @@ let ``buildDirectoryMergeChange appends only new entries at end`` () =
     let existing = owned [ existingId ]
     let graph =
         graphWithFocus focusId existing
-            [ normalNode existingId "[[alpha.txt]] ts" [] ]
+            [ normalNode existingId "[[alpha.txt]] ts" ]
 
     let change =
         ImportText.buildDirectoryMergeChange graph focusId existing package (System.Guid.NewGuid())

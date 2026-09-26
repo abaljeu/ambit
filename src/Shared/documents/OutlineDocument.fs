@@ -197,8 +197,10 @@ module OutlineDocument =
     let nodesRead
         (documentRootId: NodeId)
         (nodes: Map<NodeId, Node>)
+        (childMap: Map<NodeId, ChildNode list>)
         : DocumentNodesRead =
         {
             DocumentNodesRead.documentRootId = documentRootId
             nodes = nodes
+            childMap = childMap
         }

@@ -4,6 +4,7 @@ open System
 open Gambol.Shared
 open Gambol.Shared.ViewModel
 open Gambol.Shared.ViewModelSelection
+open GraphChildMapHelpers
 open SpecialNodeTestHelpers
 open VmTestHelpers
 open Xunit
@@ -91,11 +92,8 @@ let private graphWithWorkspaceTree () : Graph * NodeId * NodeId * NodeId =
     let fileNode = specialNode fileId File "readme.txt" dirId
 
     let graph1 =
-        graph0.nodes
-        |> Map.add wsId wsNode
-        |> Map.add dirId dirNode
-        |> Map.add fileId fileNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        graph0
+        |> addDetachedMany [ wsNode; dirNode; fileNode ]
 
     let graph2 =
         Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
@@ -171,9 +169,8 @@ let ``refreshDesktopFileIndicator requests status for Special Workspace path`` (
             kind = Special Workspace)
 
     let graph1 =
-        graph0.nodes
-        |> Map.add wsId wsNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        graph0
+        |> Graph.addDetachedNode wsNode
 
     let graph2 =
         Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
@@ -306,8 +303,8 @@ let ``rowFileIndicatorText shows Workspaces symbol only without sync status`` ()
 let ``rowFileIndicatorText is blank on active special file without sync status`` () =
     let graph, wsId, _, fileId = graphWithWorkspaceTree ()
     let parentId = graph.nodes.[fileId].owner
-    let parent = graph.nodes.[parentId]
-    let fileIdx = parent.children |> List.findIndex (fun c -> c.id = fileId)
+    let fileIdx =
+        Graph.children graph parentId |> List.findIndex (fun c -> c.id = fileId)
     let model = modelWithSel graph parentId fileIdx (fileIdx + 1) fileIdx |> withDesktop
     let checking, _ = refreshDesktopFileIndicator model
     let path = NodeDesktopPath.pathForNodeId checking.graph fileId |> Option.get
@@ -428,7 +425,7 @@ let ``selectionAfterStructuralMove collapsed parent picks original sibling above
     let graphPre, cont, ids = buildFlat [ "a"; "b"; "c" ]
     let a = ids.[0]
     let b = ids.[1]
-    let bChild = graphPre.nodes.[cont].children.[1]
+    let bChild = (Graph.children graphPre cont).[1]
     let gMid =
         Graph.replace cont 1 [ bChild ] [] graphPre |> ModelBuilder.requireOk "rm b"
     let gPost =
@@ -458,7 +455,7 @@ let ``selectionAfterStructuralMove expanded newParent focuses moved node indent 
     let graphPre, cont, ids = buildFlat [ "a"; "b"; "c" ]
     let a = ids.[0]
     let b = ids.[1]
-    let bChild = graphPre.nodes.[cont].children.[1]
+    let bChild = (Graph.children graphPre cont).[1]
     let gMid =
         Graph.replace cont 1 [ bChild ] [] graphPre |> ModelBuilder.requireOk "rm b"
     let gPost =
@@ -487,7 +484,7 @@ let private indentUndoTopology () =
     let graphPre, cont, ids = buildFlat [ "a"; "b"; "c" ]
     let a = ids.[0]
     let b = ids.[1]
-    let bChild = graphPre.nodes.[cont].children.[1]
+    let bChild = (Graph.children graphPre cont).[1]
     let gMid =
         Graph.replace cont 1 [ bChild ] [] graphPre |> ModelBuilder.requireOk "rm b"
     let gPost =
@@ -566,7 +563,7 @@ let ``selectionAfterStructuralMove collapsed parent picks original sibling below
     let graphPre, cont, ids = buildFlat [ "a"; "b"; "c" ]
     let a = ids.[0]
     let b = ids.[1]
-    let aChild = graphPre.nodes.[cont].children.[0]
+    let aChild = (Graph.children graphPre cont).[0]
     let gMid =
         Graph.replace cont 0 [ aChild ] [] graphPre |> ModelBuilder.requireOk "rm a"
     let gPost =
@@ -594,7 +591,7 @@ let ``selectionAfterStructuralMove collapsed parent picks original sibling below
 let ``selectionAfterStructuralMove stayAtSource same-parent keeps from index`` () =
     let graphPre, cont, ids = buildFlat [ "a"; "b"; "c" ]
     let c = ids.[2]
-    let oldKids = graphPre.nodes.[cont].children
+    let oldKids = Graph.children graphPre cont
     let bChild = oldKids.[1]
     let withoutB =
         oldKids
@@ -623,7 +620,7 @@ let ``selectionAfterStructuralMove stayAtSource same-parent keeps from index`` (
 let ``selectionAfterStructuralMove stayAtSource picks sibling below range at range start`` () =
     let graphPre, cont, ids = buildFlat [ "a"; "b"; "c" ]
     let c = ids.[2]
-    let oldKids = graphPre.nodes.[cont].children
+    let oldKids = Graph.children graphPre cont
     let moved = [ oldKids.[0]; oldKids.[1] ]
     let gMid =
         Graph.replace cont 0 moved [] graphPre |> ModelBuilder.requireOk "rm a b"
@@ -647,7 +644,7 @@ let ``selectionAfterStructuralMove stayAtSource picks sibling below range at ran
 [<Fact>]
 let ``selectionAfterStructuralMove stayAtSource returns none when zoom root has no siblings`` () =
     let graphPre, cont, _ = buildFlat [ "a" ]
-    let aChild = graphPre.nodes.[cont].children.[0]
+    let aChild = (Graph.children graphPre cont).[0]
     let gEmpty =
         Graph.replace cont 0 [ aChild ] [] graphPre |> ModelBuilder.requireOk "empty"
     let m0 = emptyModelAt graphPre cont
@@ -856,8 +853,8 @@ let ``applyMoveSelectionDown with focus at end collapses and moves down`` () =
     | None -> Assert.True(false, "Expected Some")
     | Some sel ->
         // Should have moved to ids.[1]
-        let expectedId = graph.nodes.[cont].children.[1].id
-        let gotId = graph.nodes.[sel.range.parent.nodeId].children.[sel.focus].id
+        let expectedId = (Graph.children graph cont).[1].id
+        let gotId = (Graph.children graph sel.range.parent.nodeId).[sel.focus].id
         Assert.Equal(expectedId, gotId)
         Assert.Equal(1, sel.range.endd - sel.range.start) // single-node
 
@@ -1136,17 +1133,16 @@ let ``firstGraphChild skips Root children missing from the Graph`` () =
     let missing = NodeId.New()
     let present = NodeId.New()
     let presentNode = Node.Create(present, text = "kept")
-    let root =
-        { Graph.rootPlaceholder with
-            children =
-                [ ChildNode.reference missing
-                  ChildNode.owner present ] }
     let graph =
         Graph.fromExtracted
             Graph.rootId
             (Map.ofList
-                [ Graph.rootId, root
+                [ Graph.rootId, Graph.rootPlaceholder
                   present, presentNode ])
+            (Map.ofList
+                [ Graph.rootId,
+                  [ ChildNode.reference missing
+                    ChildNode.owner present ] ])
     Assert.Equal(present, firstGraphChild graph)
 
 [<Fact>]
@@ -1659,7 +1655,7 @@ let ``SiteMap reconcileSiteMap assigns new IDs for added nodes`` () =
     let graph, cont, _ = buildNested ()
     let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
     let graph2, newNodeId = Graph.newNode "c" graph
-    let contChildren = graph2.nodes.[cont].children
+    let contChildren = Graph.children graph2 cont
 
     let graph3 =
         Graph.replace cont contChildren.Length [] (owned [ newNodeId ]) graph2
@@ -2019,7 +2015,7 @@ let ``planPatchDOM text change produces SetText patch and no CreateRow`` () =
         { graph.nodes.[targetId] with
             text = "b-edited" }
 
-    let newGraph = Graph.fromNodes graph.root (Map.add targetId newNode graph.nodes)
+    let newGraph = fromExisting graph (Map.add targetId newNode graph.nodes)
 
     let newModel = { oldModel with graph = newGraph }
     let cachedInstIds = buildCacheSet oldModel.siteMap
@@ -2057,7 +2053,7 @@ let ``planPatchDOM name change produces SetNodeName patch`` () =
         { oldNode with
             name = Filename.Ok "renamed.txt" }
 
-    let newGraph = Graph.fromNodes graph.root (Map.add targetId newNode graph.nodes)
+    let newGraph = fromExisting graph (Map.add targetId newNode graph.nodes)
     let newModel = { oldModel with graph = newGraph }
     let cachedInstIds = buildCacheSet oldModel.siteMap
 
@@ -2228,7 +2224,7 @@ let ``planPatchDOM editing row text change produces SetText not RecreateRow`` ()
         |> Option.defaultWith (fun () -> Assert.True(false); oldModel)
     let targetId = ids.[1]
     let newNode = { graph.nodes.[targetId] with text = "b+pasted" }
-    let newGraph = Graph.fromNodes graph.root (Map.add targetId newNode graph.nodes)
+    let newGraph = fromExisting graph (Map.add targetId newNode graph.nodes)
     let newModel = { editingModel with graph = newGraph }
     let cachedInstIds = buildCacheSet editingModel.siteMap
     let mutations = planPatchDOM editingModel newModel cachedInstIds
@@ -2306,7 +2302,7 @@ let ``planPatchDOM selection move emits only affected row patches`` () =
 let ``planPatchDOM sibling reorder needs DOM order walk without Create Remove Recreate`` () =
     let graph, cont, ids = buildFlat [ "a"; "b"; "c" ]
     let oldModel = modelWithSel graph cont 1 2 1
-    let oldChildren = graph.nodes.[cont].children
+    let oldChildren = Graph.children graph cont
     // Move selected "b" up among siblings: [a;b;c] -> [b;a;c]
     let reordered = [ oldChildren.[1]; oldChildren.[0]; oldChildren.[2] ]
     let graph2 =
@@ -2347,7 +2343,7 @@ let ``planPatchDOM sibling reorder needs DOM order walk without Create Remove Re
 let ``planPatchDOM sibling reorder down needs DOM order walk`` () =
     let graph, cont, ids = buildFlat [ "a"; "b"; "c" ]
     let oldModel = modelWithSel graph cont 0 1 0
-    let oldChildren = graph.nodes.[cont].children
+    let oldChildren = Graph.children graph cont
     // Move selected "a" down: [a;b;c] -> [b;a;c]
     let reordered = [ oldChildren.[1]; oldChildren.[0]; oldChildren.[2] ]
     let graph2 =
@@ -2514,7 +2510,7 @@ let ``searchPickSetRoot with children zooms target and selects first child`` () 
     let result = ViewModelSearch.searchPickSetRoot (searchHit graph a) model |> fst
 
     Assert.Equal(a, result.zoomRoot)
-    Assert.False(result.graph.nodes.[a].children.IsEmpty)
+    Assert.False((Graph.children result.graph a).IsEmpty)
     let selectedId =
         result.selectedNodes |> Option.map (focusedNodeId result.graph)
     Assert.Equal(Some a1, selectedId)
@@ -2587,15 +2583,10 @@ let ``tryFocusNodeOccurrence falls back to ref occurrence without owner`` () =
     let graph0 = Graph.create ()
     let childId = NodeId.New()
     let child = Node.Create(childId, text = "ref-only")
-    let root = graph0.nodes.[Graph.rootId]
-    let nodes =
-        graph0.nodes
-        |> Map.add Graph.rootId
-            { root with
-                children =
-                    root.children @ [ ChildNode.reference childId ] }
-        |> Map.add childId child
-    let graph = Graph.fromNodes graph0.root nodes
+    let graph =
+        graph0
+        |> Graph.addDetachedNode child
+        |> appendKids Graph.rootId [ ChildNode.reference childId ]
     match tryFocusNodeOccurrence graph childId (Sid 0) with
     | None -> Assert.True(false, "Expected Some")
     | Some (zoomRoot, _siteMap, _nextId, sel) ->
@@ -2618,7 +2609,7 @@ let ``zoom ingress round-trip returns to Ref parent for shared node`` () =
     let model0 = modelWithSel graph refParent 0 1 0
     let sel = model0.selectedNodes.Value
     Assert.Equal(shared, focusedNodeId graph sel)
-    Assert.False(graph.nodes.[shared].children.IsEmpty)
+    Assert.False((Graph.children graph shared).IsEmpty)
 
     let ingress =
         tryZoomInIngress false sel model0.siteMap shared |> Option.get
@@ -2806,7 +2797,7 @@ let ``EditingCaretPreserve true when graph changes but Editing mode ref unchange
     let graph, _, _ = buildFlat [ "hi" ]
     let prev =
         { emptyModel graph with mode = Editing ("hi", EditCaret.Utf16Index 0) }
-    let g2 = Graph.fromNodes graph.root graph.nodes
+    let g2 = Graph.fromNodes graph.root graph.nodes graph.childMap
     let next = { prev with graph = g2 }
     Assert.True(EditingCaretPreserve.shouldPreserveDomCaret (Some prev) next)
 
@@ -2848,7 +2839,7 @@ let ``ManageFocus false when graph changes but mode and focus site unchanged`` (
     let graph, _, _ = buildFlat [ "hi" ]
     let prev =
         { emptyModel graph with mode = Editing ("hi", EditCaret.Utf16Index 0) }
-    let g2 = Graph.fromNodes graph.root graph.nodes
+    let g2 = Graph.fromNodes graph.root graph.nodes graph.childMap
     let next = { prev with graph = g2 }
     Assert.False(ManageFocus.shouldInvoke (Some prev) next)
 
@@ -2889,9 +2880,8 @@ let ``ManageFocus false when Selecting and only sync fields change`` () =
 [<Fact>]
 let ``Graph.create bootstraps TRASH under root as Directory with TRASH name`` () =
     let graph = Graph.create ()
-    let rootNode = graph.nodes.[graph.root]
     let trashChildOpt =
-        rootNode.children
+        Graph.children graph graph.root
         |> List.tryFind (fun c -> c.id = Graph.trashId && c.ref = Ownership.Owner)
     Assert.True(trashChildOpt.IsSome)
     let trashNode = graph.nodes.[Graph.trashId]
@@ -2902,9 +2892,8 @@ let ``Graph.create bootstraps TRASH under root as Directory with TRASH name`` ()
 [<Fact>]
 let ``Graph.create bootstraps SYSTEM under root as Directory with SYSTEM name`` () =
     let graph = Graph.create ()
-    let rootNode = graph.nodes.[graph.root]
     let systemChildOpt =
-        rootNode.children
+        Graph.children graph graph.root
         |> List.tryFind (fun c -> c.id = Graph.systemId && c.ref = Ownership.Owner)
     Assert.True(systemChildOpt.IsSome)
     let systemNode = graph.nodes.[Graph.systemId]
@@ -2921,23 +2910,23 @@ let ``Graph.replace rejects wiping all root children and leaves root unchanged``
         Graph.replace graph1.root 0 [] (owned [ a ]) graph1
         |> ModelBuilder.requireOk "root->a"
     let rootId = graph2.root
-    let rootChildrenBefore = graph2.nodes.[rootId].children
+    let rootChildrenBefore = Graph.children graph2 rootId
     let wipe = Graph.replace rootId 0 rootChildrenBefore [] graph2
     match wipe with
     | Ok _ -> Assert.True(false, "expected Error when removing trash owner from root")
     | Error msg ->
         Assert.Contains("cannot remove trash owner child from root", msg)
-        let rootChildrenAfter = graph2.nodes.[rootId].children
+        let rootChildrenAfter = Graph.children graph2 rootId
         Assert.Equal<ChildNode list>(rootChildrenBefore, rootChildrenAfter)
 
 [<Fact>]
 let ``Graph.replace clears all children under buildFlat cont`` () =
     let graph, cont, _ids = buildFlat [ "a"; "b"; "c" ]
-    let contChildren = graph.nodes.[cont].children
+    let contChildren = Graph.children graph cont
     let graph2 =
         Graph.replace cont 0 contChildren [] graph
         |> ModelBuilder.requireOk "cont wipe"
-    Assert.Empty(graph2.nodes.[cont].children)
+    Assert.Empty(Graph.children graph2 cont)
 
 [<Fact>]
 let ``classifyDeleteForSelection marks last non-trash owner as MoveToTrash`` () =
@@ -2971,7 +2960,7 @@ let ``MoveToTrash ops apply successfully and node lands under TRASH`` () =
 
     let removeOp = Op.Replace(graph2.root, owned [ a ], [])
 
-    let trashChildren = graph2.nodes.[Graph.trashId].children
+    let trashChildren = Graph.children graph2 Graph.trashId
     let newTrashChildren = trashChildren @ [ ChildNode.owner a ]
     let addToTrashOp = Op.Replace(Graph.trashId, trashChildren, newTrashChildren)
 
@@ -2990,12 +2979,11 @@ let ``MoveToTrash ops apply successfully and node lands under TRASH`` () =
     | ApplyResult.Unchanged _ ->
         Assert.True(false, "Expected Changed but got Unchanged")
     | ApplyResult.Changed newState ->
-        let trashNode = newState.graph.nodes.[Graph.trashId]
         let aUnderTrash =
-            trashNode.children
+            Graph.children newState.graph Graph.trashId
             |> List.exists (fun c -> c.id = a && c.ref = Ownership.Owner)
         Assert.True(aUnderTrash, "node 'a' should be an Owner child of TRASH")
-        let rootNode = newState.graph.nodes.[graph2.root]
         let aUnderRoot =
-            rootNode.children |> List.exists (fun c -> c.id = a)
+            Graph.children newState.graph graph2.root
+            |> List.exists (fun c -> c.id = a)
         Assert.False(aUnderRoot, "node 'a' should no longer be under root")

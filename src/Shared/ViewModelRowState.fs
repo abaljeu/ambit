@@ -290,8 +290,9 @@ module ViewModelRowState =
         |> Option.bind (fun parent ->
             model.graph.nodes
             |> Map.tryFind parent.nodeId
-            |> Option.bind (fun node ->
-                List.tryItem entry.childIndex node.children
+            |> Option.bind (fun _ ->
+                GraphChildren.get model.graph parent.nodeId
+                |> List.tryItem entry.childIndex
                 |> Option.map (fun child ->
                     Node.childOwnership model.graph parent.nodeId child)))
         |> Option.defaultValue Ownership.Owner
@@ -436,9 +437,9 @@ module ViewModelRowState =
         | Some sk -> CssClass.add sk className
         | None -> className
 
-    let private residencyText (node: Node) : string =
+    let private residencyText (graph: Graph) (node: Node) : string =
         let children =
-            match node.childrenStatus with
+            match GraphChildren.status graph node.id with
             | Loaded -> "Loaded"
             | Unloaded -> "Unloaded"
         let document =
@@ -479,7 +480,7 @@ module ViewModelRowState =
                 let joined = String.concat " " classes
                 Some $"Classes: {joined}"
         [ Some $"Guid \u2026{NodeId.GuidTail8 node.id.Value}"
-          Some(residencyText node)
+          Some(residencyText model.graph node)
           workspacePathLine
           localPathLine
           Some $"Updated: {formatLocal node.updateTime}"

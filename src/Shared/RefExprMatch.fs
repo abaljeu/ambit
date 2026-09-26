@@ -7,11 +7,11 @@ open System.Collections.Generic
 module RefExprMatch =
 
     let private parentChildren (parentId: NodeId) (graph: Graph) : Node list =
-        graph.nodes.[parentId].children
+        GraphChildren.get graph parentId
         |> List.choose (fun child -> graph.nodes |> Map.tryFind child.id)
 
     let private ownerChildren (parentId: NodeId) (graph: Graph) : Node list =
-        graph.nodes.[parentId].children
+        GraphChildren.get graph parentId
         |> List.choose (fun child ->
             if Node.childOwnership graph parentId child = Ownership.Owner then
                 graph.nodes |> Map.tryFind child.id

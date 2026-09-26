@@ -78,11 +78,8 @@ module DocumentColdParse =
         (outlineChildren: ChildNode list)
         =
         let existingOwnedSpecials =
-            match Map.tryFind documentRootId before.nodes with
-            | None -> []
-            | Some root ->
-                root.children
-                |> List.filter (isOwnedSpecial before documentRootId)
+            Graph.children before documentRootId
+            |> List.filter (isOwnedSpecial before documentRootId)
 
         let existingOwnedIds =
             existingOwnedSpecials
@@ -160,12 +157,8 @@ module DocumentColdParse =
         (overlay: Set<NodeId>)
         (nodeId: NodeId)
         : ChildNode list * ChildNode list =
-        let oldChildren =
-            match Map.tryFind nodeId before.nodes with
-            | Some node -> node.children
-            | None -> []
-
-        let afterChildren = after.nodes.[nodeId].children
+        let oldChildren = Graph.children before nodeId
+        let afterChildren = Graph.children after nodeId
 
         let outlined =
             if nodeId = documentRootId then
@@ -339,9 +332,7 @@ module DocumentColdParse =
                 kind = Special File,
                 documentState = Unparsed)
 
-        graph0.nodes
-        |> Map.add documentRootId file
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        Graph.addDetachedNode file graph0
 
     /// External paste: cold-plan on a disposable stub root, then peel.
     /// Do not plan against the live insertion parent — existing siblings produce

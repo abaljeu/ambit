@@ -40,9 +40,7 @@ let private graphWithWorkspace (label: string) : Graph * NodeId =
             owner = Graph.workspacesId,
             kind = Special Workspace)
     let graph1 =
-        graph0.nodes
-        |> Map.add wsId wsNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        Graph.addDetachedNode wsNode graph0
     let graph2 =
         Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
         |> requireOk "workspaces->ws"

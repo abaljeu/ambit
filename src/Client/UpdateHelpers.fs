@@ -62,8 +62,8 @@ let selectedLoadTargetIds (model: VM) : NodeId list =
     | Some sel ->
         match Map.tryFind sel.range.parent.nodeId model.graph.nodes with
         | None -> []
-        | Some parent ->
-            parent.children
+        | Some _ ->
+            Graph.children model.graph sel.range.parent.nodeId
             |> List.skip sel.range.start
             |> List.take (sel.range.endd - sel.range.start)
             |> List.map (fun child -> child.id)
@@ -71,7 +71,7 @@ let selectedLoadTargetIds (model: VM) : NodeId list =
 let private loadTargetIntent (graph: Graph) (targetId: NodeId) : LoadTarget =
     let includeWorkspace =
         match Map.tryFind targetId graph.nodes with
-        | Some node when node.childrenStatus = Unloaded -> true
+        | Some _ when not (Graph.isLoaded graph targetId) -> true
         | _ -> false
     { targetId = targetId; includeWorkspace = includeWorkspace }
 
@@ -186,7 +186,7 @@ let applyAndPost
 
 /// Extract the child span covered by a SiteNodeRange.
 let rangeChildren (graph: Graph) (range: SiteNodeRange) =
-    graph.nodes.[range.parent.nodeId].children
+    Graph.children graph range.parent.nodeId
     |> List.skip range.start
     |> List.take (range.endd - range.start)
 
@@ -196,9 +196,9 @@ let ownedChildren = ChildNode.owners
 
 let childrenForPaste (graph: Graph) (ids: NodeId list) : ChildNode list =
     let existingOwnerIds =
-        graph.nodes
+        graph.childMap
         |> Map.toSeq
-        |> Seq.collect (fun (_, node) -> node.children)
+        |> Seq.collect (fun (_, kids) -> kids)
         |> Seq.choose (fun child ->
             match child.ref with
             | Ownership.Owner -> Some child.id
@@ -313,7 +313,7 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) : VM * Effect l
                 // new node after; focus moves to new node
                 (parentId, indexInParent + 1, textAfter)
 
-        let ownerChildren = model.graph.nodes.[newNodeOwner].children
+        let ownerChildren = Graph.children model.graph newNodeOwner
 
         let ops =
             [ yield Op.NewNode(newChild.id, newNodeText)

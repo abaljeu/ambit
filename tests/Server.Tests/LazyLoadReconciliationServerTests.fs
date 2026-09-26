@@ -150,11 +150,11 @@ let ``server reconciler applies planner ops through active agent`` () =
         |> Async.RunSynchronously
         |> requireOk "state"
     let graph = state.graph
-    let srcId = graph.nodes.[workspaceId].children |> List.exactlyOne |> fun child -> child.id
-    let fileId = graph.nodes.[srcId].children |> List.exactlyOne |> fun child -> child.id
+    let srcId = Graph.children graph workspaceId |> List.exactlyOne |> fun child -> child.id
+    let fileId = Graph.children graph srcId |> List.exactlyOne |> fun child -> child.id
     Assert.Equal(Special SpecialKind.Directory, graph.nodes.[srcId].kind)
     Assert.Equal(Special SpecialKind.File, graph.nodes.[fileId].kind)
-    Assert.Empty(graph.nodes.[fileId].children)
+    Assert.Empty(Graph.children graph fileId)
     Assert.Equal("module Main", File.ReadAllText(sourcePath))
     CoreMailbox.dispose fileAgent
 
@@ -192,7 +192,7 @@ let ``server reconciler adds disk files outside the changed path list`` () =
         |> requireOk "state"
     let graph = state.graph
     let childNames =
-        graph.nodes.[workspaceId].children
+        Graph.children graph workspaceId
         |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
         |> List.sort
     Assert.Equal<string list>([ "existing.txt"; "updated.txt" ], childNames)
@@ -230,12 +230,12 @@ let ``server reconciler adds missing directory and file nodes from discovered pa
         |> requireOk "state"
     let graph = state.graph
     let docsId =
-        graph.nodes.[workspaceId].children
+        Graph.children graph workspaceId
         |> List.find (fun child ->
             Filename.tryValue graph.nodes.[child.id].name = Some "docs")
         |> fun child -> child.id
     let notesId =
-        graph.nodes.[docsId].children
+        Graph.children graph docsId
         |> List.find (fun child ->
             Filename.tryValue graph.nodes.[child.id].name = Some "notes.txt")
         |> fun child -> child.id
@@ -295,7 +295,7 @@ let ``post receive rename of unparsed stub is rejected without moving disk twice
         |> requireOk "state"
     let graph = state.graph
     let fileId =
-        graph.nodes.[workspaceId].children
+        Graph.children graph workspaceId
         |> List.find (fun child ->
             Filename.tryValue graph.nodes.[child.id].name = Some "old.txt")
         |> fun child -> child.id
@@ -356,7 +356,7 @@ let ``server reconciler posts good sibling when one path fails`` () =
         |> requireOk "state"
     let graph = state.graph
     let names =
-        graph.nodes.[workspaceId].children
+        Graph.children graph workspaceId
         |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
         |> List.sort
     Assert.Equal<string list>([ "bad.txt"; "good.txt" ], names)
@@ -443,12 +443,12 @@ let ``directory reconcile discovers only under directory prefix`` () =
     |> ignore
     let graph = readGraph fileAgent
     let docsChildren =
-        graph.nodes.[docsId].children
+        Graph.children graph docsId
         |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
         |> List.sort
     Assert.Equal<string list>([ "inside.txt" ], docsChildren)
     let workspaceNames =
-        graph.nodes.[workspaceId].children
+        Graph.children graph workspaceId
         |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
         |> List.sort
     Assert.Equal<string list>([ "docs" ], workspaceNames)
@@ -470,18 +470,18 @@ let ``workspace reconcile discovers under workspace root`` () =
     |> ignore
     let graph = readGraph fileAgent
     let workspaceNames =
-        graph.nodes.[workspaceId].children
+        Graph.children graph workspaceId
         |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
         |> List.sort
     Assert.Equal<string list>([ "docs"; "outside.txt" ], workspaceNames)
     let docsId =
-        graph.nodes.[workspaceId].children
+        Graph.children graph workspaceId
         |> List.pick (fun child ->
             match Filename.tryValue graph.nodes.[child.id].name with
             | Some "docs" -> Some child.id
             | _ -> None)
     let docsChildren =
-        graph.nodes.[docsId].children
+        Graph.children graph docsId
         |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
         |> List.sort
     Assert.Equal<string list>([ "inside.txt" ], docsChildren)
@@ -500,13 +500,13 @@ let ``workspace reconcile creates Directory for empty leading-dot dir`` () =
     |> ignore
     let graph = readGraph fileAgent
     let scratchNode =
-        graph.nodes.[workspaceId].children
+        Graph.children graph workspaceId
         |> List.pick (fun child ->
             match Filename.tryValue graph.nodes.[child.id].name with
             | Some ".scratch" -> Some graph.nodes.[child.id]
             | _ -> None)
     Assert.Equal(Special SpecialKind.Directory, scratchNode.kind)
-    Assert.Equal(Loaded, scratchNode.childrenStatus)
+    Assert.Equal(Loaded, Graph.childrenStatus graph scratchNode.id)
     CoreMailbox.dispose fileAgent
 
 [<Fact>]
@@ -533,9 +533,9 @@ let ``directory reconcile keeps .agents Loaded with discovered children`` () =
     let graph = readGraph fileAgent
     let agents = graph.nodes.[agentsId]
     Assert.Equal(Special SpecialKind.Directory, agents.kind)
-    Assert.Equal(Loaded, agents.childrenStatus)
+    Assert.Equal(Loaded, Graph.childrenStatus graph agentsId)
     let childNames =
-        agents.children
+        Graph.children graph agentsId
         |> List.choose (fun child ->
             Filename.tryValue graph.nodes.[child.id].name)
     Assert.Contains("skill.md", childNames)
@@ -556,7 +556,7 @@ let ``SYSTEM workspace reconcile creates File stubs under systemId`` () =
     |> ignore
     let graph = readGraph fileAgent
     let names =
-        graph.nodes.[Graph.systemId].children
+        Graph.children graph Graph.systemId
         |> List.choose (fun child ->
             if child.ref <> Ownership.Owner then
                 None
@@ -569,7 +569,7 @@ let ``SYSTEM workspace reconcile creates File stubs under systemId`` () =
     Assert.True(
         names
         |> List.forall (fun name ->
-            graph.nodes.[Graph.systemId].children
+            Graph.children graph Graph.systemId
             |> List.exists (fun c ->
                 c.ref = Ownership.Owner
                 && Filename.tryValue graph.nodes.[c.id].name = Some name
@@ -631,7 +631,7 @@ let ``directory reconcile creates missing sibling under directory`` () =
     |> ignore
     let graph = readGraph fileAgent
     let names =
-        graph.nodes.[docsId].children
+        Graph.children graph docsId
         |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
         |> List.sort
     Assert.Equal<string list>([ "missing.txt" ], names)
@@ -669,13 +669,13 @@ let ``directory reconcile with amb outline and missing file posts without owners
     | Ok _ ->
         let graph = readGraph fileAgent
         let names =
-            graph.nodes.[tasksId].children
+            Graph.children graph tasksId
             |> List.choose (fun child ->
                 Filename.tryValue graph.nodes.[child.id].name)
             |> List.sort
         Assert.Contains("inbox.txt", names)
         let occurrences =
-            graph.nodes.[tasksId].children
+            Graph.children graph tasksId
             |> List.filter (fun c -> c.id = activeId)
         Assert.Equal(1, occurrences.Length)
         Assert.Equal(Ownership.Owner, occurrences.Head.ref)
@@ -720,7 +720,7 @@ let ``directory reconcile returns resilient failures and posts good sibling`` ()
             && f.message.Contains("unparsed document"))
     let graph = readGraph fileAgent
     let names =
-        graph.nodes.[docsId].children
+        Graph.children graph docsId
         |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
         |> List.sort
     Assert.Equal<string list>([ "bad.txt"; "good.txt" ], names)
@@ -836,7 +836,7 @@ let ``workspace reconciliation POST with empty path discovers root`` () =
         |> requireOk "state"
         |> snd
     let names =
-        graph.nodes.[workspaceId].children
+        Graph.children graph workspaceId
         |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
         |> List.sort
     Assert.Equal<string list>([ "root.txt" ], names)

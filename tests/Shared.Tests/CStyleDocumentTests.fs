@@ -3,6 +3,7 @@ module Gambol.Shared.Tests.CStyleDocumentTests
 open System
 open Xunit
 open Gambol.Shared
+open GraphChildMapHelpers
 
 let private requireOk label r =
     match r with
@@ -10,6 +11,20 @@ let private requireOk label r =
     | Error e -> failwith $"{label}: {e}"
 
 let private owned = ChildNode.owners
+
+let private kids
+    (childMap: Map<NodeId, ChildNode list>)
+    parentId
+    : ChildNode list =
+    Map.tryFind parentId childMap |> Option.defaultValue []
+
+let private withRead (graph: Graph) nodes childMap =
+    let pairs =
+        childMap
+        |> Map.toList
+        |> List.filter (fun (id, _) ->
+            id <> graph.root && not (Graph.isSystemFolderNode id))
+    fromExisting graph nodes |> setChildMap pairs
 
 let private graphWithDocument (childNodes: Node list) : Graph * NodeId =
     let graph0 = Graph.create ()
@@ -24,18 +39,10 @@ let private graphWithDocument (childNodes: Node list) : Graph * NodeId =
             kind = Special File)
 
     let graph1 =
-        graph0.nodes
-        |> Map.add docId docNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        Graph.addDetachedNode docNode graph0
+        |> appendKids graph0.root [ ChildNode.owner docId ]
 
-    let graph2 =
-        childNodes
-        |> List.fold
-            (fun graph node ->
-                graph.nodes
-                |> Map.add node.id node
-                |> fun nodes -> { graph with nodes = nodes })
-            graph1
+    let graph2 = addDetachedMany childNodes graph1
 
     let childIds = childNodes |> List.map (fun node -> node.id)
 
@@ -44,8 +51,8 @@ let private graphWithDocument (childNodes: Node list) : Graph * NodeId =
         | Ok graph -> graph, docId
         | Error msg -> failwith msg
 
-let private childTexts (nodes: Map<NodeId, Node>) (parentId: NodeId) : string list =
-    nodes.[parentId].children
+let private childTexts childMap (nodes: Map<NodeId, Node>) parentId =
+    kids childMap parentId
     |> List.map (fun c -> nodes.[c.id].text)
 
 let private hasClass (nodes: Map<NodeId, Node>) (nodeId: NodeId) (name: string) =
@@ -97,17 +104,21 @@ let ``same-line close-open brace split attaches braces to statements`` () =
         CStyleDocument.read sameLineCloseOpenFixture docId graph
         |> requireOk "read"
 
-    Assert.Equal(2, result.nodes.[docId].children.Length)
-    let ifId = result.nodes.[docId].children.Head.id
-    let elseId = result.nodes.[docId].children.[1].id
+    Assert.Equal(2, (kids result.childMap docId).Length)
+    let ifId = (kids result.childMap docId).Head.id
+    let elseId = (kids result.childMap docId).[1].id
     Assert.Equal("if (x) ", result.nodes.[ifId].text)
     Assert.True(hasClass result.nodes ifId "code-brace")
-    Assert.Equal<string list>([ "y = 3;" ], childTexts result.nodes ifId)
+    Assert.Equal<string list>(
+        [ "y = 3;" ],
+        childTexts result.childMap result.nodes ifId)
     Assert.Equal("else", result.nodes.[elseId].text)
     Assert.True(hasClass result.nodes elseId "code-brace")
-    Assert.Equal<string list>([ "y = 4;" ], childTexts result.nodes elseId)
-    let y3 = result.nodes.[ifId].children.Head.id
-    let y4 = result.nodes.[elseId].children.Head.id
+    Assert.Equal<string list>(
+        [ "y = 4;" ],
+        childTexts result.childMap result.nodes elseId)
+    let y3 = (kids result.childMap ifId).Head.id
+    let y4 = (kids result.childMap elseId).Head.id
     Assert.False(hasClass result.nodes y3 "code-brace")
     Assert.False(hasClass result.nodes y4 "code-brace")
 
@@ -121,7 +132,7 @@ let ``same-line close-open warm unchanged round-trip preserves layout`` () =
     let output =
         CStyleDocument.writeWarm
             OutlineLcs.diffTexts
-            { graph with nodes = readResult.nodes }
+            (withRead graph readResult.nodes readResult.childMap)
             docId
             readResult.complement
             input
@@ -136,17 +147,19 @@ let ``Allman switch has no brace-only nodes and marks code-brace`` () =
         CStyleDocument.read allmanSwitchFixture docId graph
         |> requireOk "read"
 
-    Assert.Equal(2, result.nodes.[docId].children.Length)
-    let defaultId = result.nodes.[docId].children.Head.id
-    let seesId = result.nodes.[docId].children.[1].id
+    Assert.Equal(2, (kids result.childMap docId).Length)
+    let defaultId = (kids result.childMap docId).Head.id
+    let seesId = (kids result.childMap docId).[1].id
     Assert.Equal("DefaultSees(ETile t)", result.nodes.[defaultId].text)
     Assert.True(hasClass result.nodes defaultId "code-brace")
     Assert.Equal("Sees(Tile t)", result.nodes.[seesId].text)
     Assert.False(hasClass result.nodes seesId "code-brace")
-    let switchId = result.nodes.[defaultId].children.Head.id
+    let switchId = (kids result.childMap defaultId).Head.id
     Assert.Equal("switch (t)", result.nodes.[switchId].text)
     Assert.True(hasClass result.nodes switchId "code-brace")
-    Assert.Equal<string list>([ "case X:" ], childTexts result.nodes switchId)
+    Assert.Equal<string list>(
+        [ "case X:" ],
+        childTexts result.childMap result.nodes switchId)
     let texts =
         result.nodes
         |> Map.toList
@@ -181,7 +194,7 @@ let ``warm write preserves nested input byte for byte`` () =
     let output =
         CStyleDocument.writeWarm
             OutlineLcs.diffTexts
-            { graph with nodes = readResult.nodes }
+            (withRead graph readResult.nodes readResult.childMap)
             docId
             readResult.complement
             nestedWarmFixture
@@ -199,7 +212,7 @@ let ``warm write empty brace-only structure remains empty output`` () =
     let output =
         CStyleDocument.writeWarm
             OutlineLcs.diffTexts
-            { graph with nodes = readResult.nodes }
+            (withRead graph readResult.nodes readResult.childMap)
             docId
             readResult.complement
             previous
@@ -214,8 +227,8 @@ let ``warm Keep preserves surrounding brace layout when inner statement edits`` 
     let readResult =
         CStyleDocument.read previous docId graph |> requireOk "read"
 
-    let ifId = readResult.nodes.[docId].children.Head.id
-    let y3Id = readResult.nodes.[ifId].children.Head.id
+    let ifId = (kids readResult.childMap docId).Head.id
+    let y3Id = (kids readResult.childMap ifId).Head.id
     let nodes =
         readResult.nodes
         |> Map.add y3Id { readResult.nodes.[y3Id] with text = "y = 9;" }
@@ -223,7 +236,7 @@ let ``warm Keep preserves surrounding brace layout when inner statement edits`` 
     let output =
         CStyleDocument.writeWarm
             OutlineLcs.diffTexts
-            { graph with nodes = nodes }
+            (withRead graph nodes readResult.childMap)
             docId
             readResult.complement
             previous
@@ -264,9 +277,9 @@ let ``warm write sibling reorder follows graph not previous disk order`` () =
         + nl
     let readResult =
         CStyleDocument.read previous docId graph0 |> requireOk "read"
-    let graph = { graph0 with nodes = readResult.nodes }
-    let children = graph.nodes.[docId].children
-    let texts = childTexts readResult.nodes docId
+    let graph = withRead graph0 readResult.nodes readResult.childMap
+    let children = Graph.children graph docId
+    let texts = childTexts graph.childMap graph.nodes docId
     Assert.True(texts.Length >= 3, sprintf "children=%A" texts)
     let drawingId = children.[0].id
     let mediaId = children.[1].id
@@ -284,7 +297,7 @@ let ``warm write sibling reorder follows graph not previous disk order`` () =
     Assert.Equal<string list>(
         [ "using System.Media;"; "using System.Drawing.Drawing2D;" ]
         @ (rest |> List.map (fun c -> graph.nodes.[c.id].text)),
-        childTexts graph.nodes docId)
+        childTexts graph.childMap graph.nodes docId)
     let output =
         DocumentWarm.writeArtifact
             OutlineLcs.diffTexts
@@ -325,14 +338,11 @@ let ``warm write first graph node replaces mismatched leading file line`` () =
             text = "using System.Drawing.Drawing2D;",
             owner = docId)
     let graph1 =
-        graph0.nodes
-        |> Map.add docId
-            { graph0.nodes.[docId] with
-                name = Filename.Ok "Form1.cs"
-                children = [] }
-        |> Map.add media.id media
-        |> Map.add drawing.id drawing
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        fromExisting
+            graph0
+            (graph0.nodes
+             |> Map.add docId { graph0.nodes.[docId] with name = Filename.Ok "Form1.cs" })
+        |> addDetachedMany [ media; drawing ]
     let graph =
         Graph.replace docId 0 [] (owned [ media.id; drawing.id ]) graph1
         |> requireOk "attach"
@@ -379,16 +389,16 @@ let ``warm write nested Allman edit preserves close layout`` () =
         + nl
     let readResult =
         CStyleDocument.read previous docId graph0 |> requireOk "read"
-    let graph = { graph0 with nodes = readResult.nodes }
+    let graph = withRead graph0 readResult.nodes readResult.childMap
     let mId =
-        graph.nodes.[docId].children.Head.id
-        |> fun ns -> graph.nodes.[ns].children.Head.id
-        |> fun cls -> graph.nodes.[cls].children.Head.id
-        |> fun m -> graph.nodes.[m].children.Head.id
+        (Graph.children graph docId).Head.id
+        |> fun ns -> (Graph.children graph ns).Head.id
+        |> fun cls -> (Graph.children graph cls).Head.id
+        |> fun m -> (Graph.children graph m).Head.id
     let graph =
-        graph.nodes
-        |> Map.add mId { graph.nodes.[mId] with text = "int x = 2;" }
-        |> fun nodes -> { graph with nodes = nodes }
+        fromExisting
+            graph
+            (Map.add mId { graph.nodes.[mId] with text = "int x = 2;" } graph.nodes)
     let output =
         CStyleDocument.writeWarm
             OutlineLcs.diffTexts
@@ -444,7 +454,7 @@ let ``Form1-like warm round-trip does not duplicate usings or mash braces`` () =
     let previous = form1LikeFixture
     let readResult =
         CStyleDocument.read previous docId graph0 |> requireOk "read"
-    let graph = { graph0 with nodes = readResult.nodes }
+    let graph = withRead graph0 readResult.nodes readResult.childMap
     let output =
         CStyleDocument.writeWarm
             OutlineLcs.diffTexts
@@ -474,20 +484,21 @@ let ``Form1-like warm edit replaces mismatched body line without duplicating`` (
     let previous = form1LikeFixture
     let readResult =
         CStyleDocument.read previous docId graph0 |> requireOk "read"
-    let graph = { graph0 with nodes = readResult.nodes }
+    let graph = withRead graph0 readResult.nodes readResult.childMap
     let initId =
-        graph.nodes.[docId].children
+        Graph.children graph docId
         |> List.find (fun c -> graph.nodes.[c.id].text = "namespace mask")
-        |> fun ns -> graph.nodes.[ns.id].children.Head.id
-        |> fun cls -> graph.nodes.[cls].children.Head.id
-        |> fun ctor -> graph.nodes.[ctor].children.Head.id
+        |> fun ns -> (Graph.children graph ns.id).Head.id
+        |> fun cls -> (Graph.children graph cls).Head.id
+        |> fun ctor -> (Graph.children graph ctor).Head.id
     let graph =
-        graph.nodes
-        |> Map.add initId {
-            graph.nodes.[initId] with
-                text = "InitializeComponent(); // warm"
-        }
-        |> fun nodes -> { graph with nodes = nodes }
+        fromExisting
+            graph
+            (Map.add
+                initId
+                { graph.nodes.[initId] with
+                    text = "InitializeComponent(); // warm" }
+                graph.nodes)
     let output =
         CStyleDocument.writeWarm
             OutlineLcs.diffTexts
@@ -514,13 +525,9 @@ let ``writeArtifact falls back to cold when warm throws`` () =
     let line =
         Node.Create(NodeId.New(), text = "using System;", owner = NodeId.New())
     let graph0, docId = graphWithDocument []
-    let line =
-        { line with
-            owner = docId }
+    let line = { line with owner = docId }
     let graph =
-        graph0.nodes
-        |> Map.add line.id line
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        Graph.addDetachedNode line graph0
         |> Graph.replace docId 0 [] (owned [ line.id ])
         |> requireOk "attach"
     let previous = "using System;" + Environment.NewLine
@@ -552,17 +559,16 @@ let ``cold write emits Allman braces for code-brace parent`` () =
             owner = NodeId.New(),
             cssClasses = CssClass.ofList [ "code-brace" ])
     let graph0, docId = graphWithDocument []
-    let block = { block with owner = docId; children = owned [ yId; xId ] }
+    let block = { block with owner = docId }
     let graph1 =
-        graph0.nodes
-        |> Map.add docId
-            { graph0.nodes.[docId] with
-                name = Filename.Ok "user.css"
-                children = [] }
-        |> Map.add blockId block
-        |> Map.add yId y
-        |> Map.add xId x
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        fromExisting
+            graph0
+            (Map.add
+                docId
+                { graph0.nodes.[docId] with name = Filename.Ok "user.css" }
+                graph0.nodes)
+        |> addDetachedMany [ block; y; x ]
+        |> setChildren blockId (owned [ yId; xId ])
     let graph =
         Graph.replace docId 0 [] (owned [ blockId ]) graph1
         |> requireOk "attach"
@@ -587,22 +593,17 @@ let ``warm write overrides brace-less file when graph has code-brace`` () =
     let graph0, docId = graphWithDocument []
     let readResult =
         CStyleDocument.read previous docId graph0 |> requireOk "read"
-    let blockId = readResult.nodes.[docId].children.Head.id
+    let blockId = (kids readResult.childMap docId).Head.id
     let nodes =
         readResult.nodes
         |> Map.add
             blockId
             { readResult.nodes.[blockId] with
                 cssClasses = CssClass.ofList [ "code-brace" ] }
-    let graph =
-        { graph0 with nodes = nodes }
-        |> fun g ->
-            { g with
-                nodes =
-                    Map.add
-                        docId
-                        { g.nodes.[docId] with name = Filename.Ok "user.css" }
-                        g.nodes }
+        |> Map.add
+            docId
+            { readResult.nodes.[docId] with name = Filename.Ok "user.css" }
+    let graph = withRead graph0 nodes readResult.childMap
     let output =
         DocumentWarm.writeArtifact
             OutlineLcs.diffTexts

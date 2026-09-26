@@ -160,7 +160,7 @@ module WorkspaceUploadStructure =
         | _ -> []
 
     let private hasOwnedMember (graph: Graph) (dirId: NodeId) =
-        graph.nodes.[dirId].children
+        GraphChildren.get graph dirId
         |> List.exists (fun c ->
             Node.childOwnership graph dirId c = Ownership.Owner)
 
@@ -375,7 +375,8 @@ module WorkspaceUploadStructure =
         workspaceByLabel graph workspaceLabel
         |> Result.bind (fun workspaceId ->
             match Map.tryFind workspaceId graph.nodes with
-            | Some { childrenStatus = Unloaded } -> Ok []
+            | Some _ when not (GraphChildren.isLoaded graph workspaceId) ->
+                Ok []
             | _ ->
                 let ordered = orderForStubs items
 

@@ -218,7 +218,7 @@ let private waitForHello host focusId timeoutMs =
             | Error _ -> ()
             | Ok s ->
                 found <-
-                    s.graph.nodes.[focusId].children
+                    Graph.children s.graph focusId
                     |> List.exists (fun child ->
                         child.ref = Ownership.Owner
                         && match Map.tryFind child.id s.graph.nodes with
@@ -349,7 +349,7 @@ let private waitStateHello
                     match Map.tryFind focusId graph.nodes with
                     | None -> false
                     | Some node ->
-                        node.children
+                        Graph.children graph focusId
                         |> List.exists (fun child ->
                             child.ref = Ownership.Owner
                             && match Map.tryFind child.id graph.nodes with

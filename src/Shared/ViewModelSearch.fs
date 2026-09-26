@@ -86,7 +86,9 @@ module ViewModelSearch =
             match Map.tryFind nodeId graph.nodes with
             | None -> nextDiscoveryNode graph { state with visited = visited; queue = queue }
             | Some node ->
-                let childIds = node.children |> List.map (fun child -> child.id)
+                let childIds =
+                    GraphChildren.get graph nodeId
+                    |> List.map (fun child -> child.id)
                 Some(
                     node,
                     { state with
@@ -194,7 +196,7 @@ module ViewModelSearch =
     let searchPickSetRoot (hit: NodeSearchResult) (model: VM) : VM * Effect list =
         let node = model.graph.nodes.[hit.nodeId]
         let zoomId, leafTargetIndex =
-            if node.children.IsEmpty then
+            if (GraphChildren.get model.graph hit.nodeId).IsEmpty then
                 match Graph.tryFindParentAndIndex hit.nodeId model.graph with
                 | Some (parentId, index) -> parentId, Some index
                 | None -> hit.nodeId, None
