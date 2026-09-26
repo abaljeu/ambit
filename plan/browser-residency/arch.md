@@ -256,7 +256,7 @@ Narrowest shared test seam:
       3. [ ] Additive Want-answer fields (edges + Nodes). Exact names Unsettled
    2. Interface
       1. [ ] Encode / decode Want on Poll and post-Event without dropping Changes
-      2. [x] `ApiVersion.current` remains the incompatibility marker; the integer for this package is Unsettled
+      2. [x] `ApiVersion.current` remains the incompatibility marker; when the Want + edges/Nodes package ships, bump minor on the existing major ((old major).(minor + 1))
    3. Uses
       1. [x] Ev, EventId, Graph types
 
@@ -397,11 +397,8 @@ Expand-contract won over module-build: the new depth (Want.compose + installWant
 
 ## 5. Unsettled
 
-1. **Want wire fields** — Exact request and response field names, edge-versus-Node JSON layout, empty-Want encoding. [01 — Lock Sync want + edges/Nodes package shape](issues/01-lock-sync-want-package-shape.md).
-2. **ApiVersion integer** — Which `ApiVersion.current` marks the Want package. Map fog; do not pin here.
-3. **Batching and backpressure** — How many wanted parents ride one Poll or post-Event. Map [Not yet specified](map.md).
-4. **Zoom-restore edge cases** — Missing or stale saved Zoom. [02 — Lock bootstrap visible-closure set](issues/02-lock-bootstrap-visible-closure.md).
-5. **Want cadence** — Whether every Poll and every post-Event always carry Want. [03 — Lock ongoing want priority and when wants are attached](issues/03-lock-ongoing-want-priority.md).
-6. **Load Fetch death** — When `packages` die. [06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md).
-7. **Server-mode Find** — Ask Server, receive found Nodes, Fetch before navigate. [05 — Chart server-mode Find](issues/05-chart-server-mode-find.md).
-8. **App versus Browser** — Whether the App attaches Want differently. Map fog.
+1. **Want wire fields** — Exact request and response field names, edge-versus-Node JSON layout, empty-Want encoding. [01 — Lock Sync want + edges/Nodes package shape](issues/01-lock-sync-want-package-shape.md). The ApiVersion bump rule is locked on the map; this ticket still locks field shape.
+2. **Zoom-restore edge cases** — Missing or stale saved Zoom. [02 — Lock bootstrap visible-closure set](issues/02-lock-bootstrap-visible-closure.md).
+3. **Want cadence** — Whether every Poll and every post-Event always carry Want. [03 — Lock ongoing want priority and when wants are attached](issues/03-lock-ongoing-want-priority.md).
+4. **Server-mode Find** — Ask Server, receive found Nodes, Fetch before navigate. [05 — Chart server-mode Find](issues/05-chart-server-mode-find.md).
+5. **Load Fetch death** — When `packages` die. [06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md).

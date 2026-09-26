@@ -80,6 +80,5 @@ Sources: [map.md](map.md) Destination and Notes (2026-09-26 grill locks). Part o
 1. **Map** — Live decisions stay on [map.md](map.md). This spec synthesizes Destination and Notes locks. It does not resolve map tickets.
 2. **Vocabulary** — Prefer Resident, Unloaded, Included, Fetch, Load, Poll, Change, `childMap`, and Bullet. An Unloaded parent is an absent `childMap` key.
 3. **Find later** — Default Find searches residence only. [05 — Chart server-mode Find](issues/05-chart-server-mode-find.md) will design a Server mode that asks the Server and lets the Browser receive found Nodes, then later work may Fetch those Nodes before navigate.
-4. **Fog** — Batching and backpressure, the ApiVersion integer, and any App-versus-Browser want diffs stay in map [Not yet specified](map.md).
-5. **Selective leftovers** — [04 — Retire selective hollow-click and resident-only Find assumptions](issues/04-retire-selective-hollow-click-find.md) records cancelled [selective client loading](plan/selective-client-loading/project.md) tickets. File-transit leftovers point at [[plan/transport-layer/project.md]].
-6. **Grill** — Destination locked 2026-09-26. Reserved SYSTEM spelling is SYSTEM.
+4. **Selective leftovers** — [04 — Retire selective hollow-click and resident-only Find assumptions](issues/04-retire-selective-hollow-click-find.md) records cancelled [selective client loading](plan/selective-client-loading/project.md) tickets. File-transit leftovers point at [[plan/transport-layer/project.md]].
+5. **Grill** — Destination locked 2026-09-26. Reserved SYSTEM spelling is SYSTEM.

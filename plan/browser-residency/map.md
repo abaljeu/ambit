@@ -26,13 +26,13 @@ Bootstrap is that same Zoom-scoped visible-closure, not a complete Workspace: Ch
 
 ## 3. Decisions so far
 
-<!-- the index — one numbered line per resolved ticket: enough to judge relevance, then zoom the link for the detail the ticket holds -->
+1. **ApiVersion bump** — ApiVersion = (old major).(minor + 1) when the Want + edges/Nodes package ships (bump minor on the existing major).
+2. **No throttle** — Expect only a few wants at a time; no batching or backpressure design.
+3. **Same wants** — App and Browser use the same wants.
 
 ## 4. Not yet specified
 
-1. **Batching and backpressure** — How many wanted Nodes ride one post-Event or Poll, and what happens when the Browser wants more than the Server should answer in one package.
-2. **ApiVersion number** — Which integer marks the edges-plus-Nodes package. [01 — Lock Sync want + edges/Nodes package shape](issues/01-lock-sync-want-package-shape.md) asks the field shape and ApiVersion implications; the number itself is not pinned yet.
-3. **Desktop vs Browser** — Whether the App and the Browser attach or answer wants differently, if they differ at all.
+<!-- see "Fog of war": in-scope fog you can't ticket yet; graduates as the frontier advances; numbered list when items exist -->
 
 ## 5. Out of scope
 
