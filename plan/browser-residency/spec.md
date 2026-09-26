@@ -17,7 +17,7 @@ Sources: [map.md](map.md) Destination and Notes (2026-09-26 grill locks). Part o
 4. **Edges plus Nodes** — The Server answers a Want with child edges (`Graph.childMap`) and, separately, the Nodes those edges point at. No dangling edges. An absent `childMap` key is Unloaded. A present key, including an empty list, is Loaded.
 5. **Hollow-circle Bullet** — An Unloaded Node (absent `childMap`) or an Unparsed Node shows a hollow-circle Bullet as today. There is no new per-Node loading Status. Auto growth does not require a click. If hollow-circle → Load is already wired, it may remain; auto wants do not use that command.
 6. **Find stays in residence** — Default Find searches Resident Nodes only. A Server-mode Find that asks the Server and receives found Nodes is later work on [05 — Chart server-mode Find](issues/05-chart-server-mode-find.md).
-7. **Explicit Load remains** — The user-facing Load command may dual-run the old Fetch path. New auto and bootstrap use the edges-plus-Nodes package. When the old Fetch path dies is [06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md).
+7. **Explicit Load remains** — The user-facing Load command stays. No dual-run in product. Old Load Fetch `packages` / `packageChildMap` exists only for development if needed. Migrate/contract swaps that old form for edges-plus-Nodes (`nodes` / `childMap`). Do not maintain both production paths. After the cut, explicit Load uses the new package. Locked on [06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md).
 
 ## 3. User Stories
 
@@ -51,7 +51,7 @@ Sources: [map.md](map.md) Destination and Notes (2026-09-26 grill locks). Part o
 28. **Find in residence** — As a person, I want default Find to search Resident Nodes only, so that Find stays synchronous and does not ask the Server.
 29. **Find commit stays Zoom** — As a person, I want committing a residence Find hit to navigate with ordinary Zoom, so that Find does not Fetch in this spec.
 30. **Load command still there** — As a person, I want the user-facing Load command to remain, so that Upload, Parse, and explicit Fetch still have a command when I invoke them.
-31. **Load may dual-run Fetch** — As the Browser, I want explicit Load able to dual-run the old Fetch path while auto and bootstrap use edges plus Nodes, so that the command does not have to migrate on the same day as silent growth.
+31. **Load Fetch swaps, no dual-run** — As the Browser, I want explicit Load to use the new edges-plus-Nodes package after migrate/contract, and never both production Fetch paths at once, so that old `packages` / `packageChildMap` stay development-only if needed.
 32. **Commands that name Nodes later** — As a person, I want no new command that names Nodes for this destination, so that silent wants are enough to reach visible-closure growth.
 33. **SiteMap honors Fold** — As a person, I want Included to honor Fold, so that a folded Node is not treated as a deep visible tree for wants.
 34. **Unloaded is not empty** — As a person, I want an Unloaded hollow-circle Bullet to mean Children are not here yet, so that I do not mistake it for a Loaded leaf.
@@ -73,7 +73,6 @@ Sources: [map.md](map.md) Destination and Notes (2026-09-26 grill locks). Part o
 11. **Want field shape** — Locked on [01 — Lock Sync want + edges/Nodes package shape](issues/01-lock-sync-want-package-shape.md): JSON `want` (`NodeId` list) on Poll and post-Event; always send, empty compose is `want: []`; Poll may need a body so both doors share that field; answer `nodes` and `childMap` on `ChangeSuccessResponse`; `ApiVersion.current = 13` ships with the expand.
 12. **Zoom-restore edge cases** — This spec does not lock what happens when saved Zoom is missing or stale. That decision is [02 — Lock bootstrap visible-closure set](issues/02-lock-bootstrap-visible-closure.md).
 13. **Want cadence details** — This spec does not lock Poll-versus-post-Event cadence. Empty-Want encoding is locked on [01 — Lock Sync want + edges/Nodes package shape](issues/01-lock-sync-want-package-shape.md). Cadence remains [03 — Lock ongoing want priority and when wants are attached](issues/03-lock-ongoing-want-priority.md).
-14. **Death of old Load Fetch** — This spec does not lock when the old Fetch path dies. That decision is [06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md).
 
 ## 5. Further Notes
 
@@ -82,3 +81,4 @@ Sources: [map.md](map.md) Destination and Notes (2026-09-26 grill locks). Part o
 3. **Find later** — Default Find searches residence only. [05 — Chart server-mode Find](issues/05-chart-server-mode-find.md) will design a Server mode that asks the Server and lets the Browser receive found Nodes, then later work may Fetch those Nodes before navigate.
 4. **Selective leftovers** — [04 — Retire selective hollow-click and resident-only Find assumptions](issues/04-retire-selective-hollow-click-find.md) recorded cancelled [selective client loading](plan/selective-client-loading/project.md) tickets. File-transit leftovers point at [[plan/transport-layer/project.md]].
 5. **Grill** — Destination locked 2026-09-26. Reserved SYSTEM spelling is SYSTEM.
+6. **Load Fetch cut** — Locked on [06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md): no dual-run in product; old `packages` / `packageChildMap` development-only if needed; migrate/contract swaps to `nodes` / `childMap`; explicit Load uses the new package after the cut.

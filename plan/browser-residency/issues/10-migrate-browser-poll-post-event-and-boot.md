@@ -10,7 +10,7 @@ The Browser already Polls and posts Events, and boot already hits `/state` or bo
 
 ## What to build
 
-Each Poll and each post-Event carries the current Want. The Browser installs the Want answer after Changes. First paint uses the visible-closure Graph. Load Fetch still uses `/load` `packages`. Find does not Fetch.
+Each Poll and each post-Event carries the current Want. The Browser installs the Want answer after Changes. First paint uses the visible-closure Graph. Load Fetch still uses `/load` `packages` as the sole Load path until [12 — Contract old Load Fetch packages](12-contract-old-load-fetch-packages.md). Do not add a production dual-run ([06 — Dual-run vs migrate explicit Load Fetch](06-dual-run-vs-migrate-explicit-load.md) done). Find does not Fetch.
 
 ### 1. Browser HTTP
 
@@ -36,7 +36,7 @@ Module [Boot Poll](../arch.md). Story paths 1, 2, 3.
 Modules [SyncPlanner](../arch.md), [Load command](../arch.md). Story paths 18, 30, 31.
 
 1. [ ] Want is payload — 10.2.2: Want rides Poll and submit; no new flight state
-2. [ ] Load dual-run stays — 31.2: `runLoadServer` still POSTs `/load` `packages`
+2. [ ] Old Load path stays until contract — 31.2: `runLoadServer` still POSTs `/load` `packages` as the sole Load path; not a production dual-run
 3. [ ] Hollow-click Load may remain — 18.2: do not un-wire hollow-circle → Load if present
 
 ### 4. Find
@@ -53,3 +53,4 @@ Module [Find](../arch.md). Story paths 28, 29.
 ## Comments
 
 - 2026-09-26: Filed via `/to-tickets`. Migrate batch. Blocked by expand.
+- 2026-09-26: [06 — Dual-run vs migrate explicit Load Fetch](06-dual-run-vs-migrate-explicit-load.md) locked no dual-run in product. This batch does not add a second production Load path.

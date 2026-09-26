@@ -4,7 +4,7 @@ Spec: [[spec.md]]
 Updated: 2026-09-26
 Sequence: expand-contract
 
-Sources: [map.md](map.md) Destination, Notes, and Decisions so far (2026-09-26 locks including [01 — Lock Sync want + edges/Nodes package shape](issues/01-lock-sync-want-package-shape.md)); [spec.md](spec.md) Solution and 36 stories. Prefer existing seams. Want wire fields are settled on that ticket: request JSON `want` (`NodeId` list) on Poll and post-Event; always send, empty compose is `want: []`; Poll may need a body so both doors share that field; answer `nodes` and `childMap` on `ChangeSuccessResponse`; `ApiVersion.current = 13` ships with the expand. `Graph.childMap` (absent key = Unloaded) is the residency list. Checklist: `[x]` already true of the recorded shape; `[ ]` still to build. Sequence is expand-contract: expand Poll and post-Event with Want plus edges and Nodes; dual-run old Load Fetch `packages`; contract later when [06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md) kills the old path.
+Sources: [map.md](map.md) Destination, Notes, and Decisions so far (2026-09-26 locks including [01 — Lock Sync want + edges/Nodes package shape](issues/01-lock-sync-want-package-shape.md) and [06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md)); [spec.md](spec.md) Solution and 36 stories. Prefer existing seams. Want wire fields are settled on that ticket: request JSON `want` (`NodeId` list) on Poll and post-Event; always send, empty compose is `want: []`; Poll may need a body so both doors share that field; answer `nodes` and `childMap` on `ChangeSuccessResponse`; `ApiVersion.current = 13` ships with the expand. `Graph.childMap` (absent key = Unloaded) is the residency list. Checklist: `[x]` already true of the recorded shape; `[ ]` still to build. Sequence is expand-contract: expand Poll and post-Event with Want plus edges and Nodes. No dual-run in product. Old Load Fetch `packages` / `packageChildMap` exists only for development if needed. Migrate/contract swaps that old form for `nodes` / `childMap`. Explicit Load uses the new package after the cut.
 
 ## 1. Story paths
 
@@ -159,11 +159,11 @@ Sources: [map.md](map.md) Destination, Notes, and Decisions so far (2026-09-26 l
     2. [x] `loadOp` still plans Upload / Parse / Fetch
     3. [x] File-transit stages stay on [src/Client/UpdateWorkspaceSync.fs](src/Client/UpdateWorkspaceSync.fs) (out of this Project)
 
-31. **Load may dual-run Fetch**
+31. **Load Fetch swaps, no dual-run**
     1. [x] `SyncPlanner.tryStartLoad` emits `LoadServer`
-    2. [x] App `runLoadServer` POSTs `/load`; `LoadResponse.packages` remain
+    2. [x] App `runLoadServer` POSTs `/load`; today's `LoadResponse.packages` remain until contract
     3. [ ] Auto and bootstrap do not use `packages`; they use edges plus Nodes
-    4. [ ] Death of `packages` stays [06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md)
+    4. [ ] After migrate/contract, explicit Load Fetch uses `nodes` / `childMap` only. No dual-run in product. Old `packages` / `packageChildMap` exist only for development if needed ([06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md) done)
 
 32. **Commands that name Nodes later**
     1. [ ] No new command that names Nodes
@@ -232,7 +232,7 @@ Narrowest shared test seam:
    2. Interface
       1. [ ] `bootstrapGraph` becomes Zoom-scoped visible-closure: `childMap` for ROOT, TRASH, Workspaces Node, SYSTEM; ancestors of Zoom root; Included. Not complete Workspace
       2. [ ] `installWantAnswer: edges * nodes * Graph -> Result<Graph, string>` — edges and Nodes separately; refuse dangling edges
-      3. [x] `packagesForTargets` / `installPackages` stay for dual-run Load Fetch
+      3. [x] `packagesForTargets` / `installPackages` stay for development if needed; not a production dual-run
    3. Uses
       1. [x] GraphBuild reserved ids
       2. [ ] Graph childMap
@@ -252,7 +252,7 @@ Narrowest shared test seam:
    File: [src/Shared/ApiResponses.fs](src/Shared/ApiResponses.fs).
    1. State
       1. [x] `ChangeSuccessResponse` Events, `apiVersion`, Poll stamps
-      2. [x] `LoadResponse.packages` for dual-run Fetch
+      2. [x] `LoadResponse.packages` remain for development if needed; not a production dual-run
       3. [ ] Additive Want-answer fields `nodes` (Node list) and `childMap` (`Map<NodeId, ChildNode list>`) on `ChangeSuccessResponse` ([01 — Lock Sync want + edges/Nodes package shape](issues/01-lock-sync-want-package-shape.md))
    2. Interface
       1. [ ] Encode / decode JSON `want` on Poll and post-Event without dropping Changes
@@ -267,7 +267,7 @@ Narrowest shared test seam:
    2. Interface
       1. [ ] `getPoll` and `postEvents` accept Want and return Changes plus edges plus Nodes
       2. [ ] `getState` returns visible-closure via ResidentProjection
-      3. [x] `postLoad` still returns `packages` (dual-run)
+      3. [x] `postLoad` still returns `packages` today; migrate/contract swaps to the new package
    3. Uses
       1. [x] CoreChanges `getState` / `getEventsSince` / `postEvents`
       2. [ ] ResidentProjection bootstrap + Want answer
@@ -308,7 +308,7 @@ Narrowest shared test seam:
    3. Uses
       1. [x] ResidentProjection.applyOps
       2. [ ] ResidentProjection.installWantAnswer
-      3. [x] LoadResponse dual-run via `loadResponseToSync`
+      3. [x] LoadResponse still applies via `loadResponseToSync` until contract; not a production dual-run
 
 10. **SyncPlanner**
     File: [src/Shared/SyncPlanner.fs](src/Shared/SyncPlanner.fs).
@@ -385,19 +385,18 @@ Narrowest shared test seam:
 9. **searchNodes**
    1. [x] Interface on **Find** — residence only
 10. **loadOp / tryStartLoadFetch**
-    1. [x] Interface on **Load command** — dual-run old Fetch
+    1. [x] Interface on **Load command** — old Fetch until contract; no production dual-run
 
 ## 4. Alternative considered
 
-1. **Expand Poll and post-Event (chosen)** — Want and the edges-plus-Nodes answer ride the doors that already carry Changes ([src/Server/Api.fs](src/Server/Api.fs) `getPoll` / `postEvents`, [src/Client/App.fs](src/Client/App.fs) Poll and `/{file}/changes`). One flight, one apply order (Events then residency). Matches the Destination lock. Sequence expand-contract fits: additive fields now; old `LoadResponse.packages` stay until [06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md).
+1. **Expand Poll and post-Event (chosen)** — Want and the edges-plus-Nodes answer ride the doors that already carry Changes ([src/Server/Api.fs](src/Server/Api.fs) `getPoll` / `postEvents`, [src/Client/App.fs](src/Client/App.fs) Poll and `/{file}/changes`). One flight, one apply order (Events then residency). Matches the Destination lock. Sequence expand-contract fits: additive fields now; no dual-run in product; old `LoadResponse.packages` exist only for development if needed; migrate/contract swaps to `nodes` / `childMap` ([06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md) done).
 2. **New Want door** — A separate GET/POST for Want. Splits Changes from residency, adds a second flight, and fights SyncPlanner single-flight. Rejected for this Project.
 3. **Auto growth through Load** — Reuse `tryStartLoad` / `/load` packages for Included Unloaded Nodes. Contradicts silent wants (no command) and would keep complete-Workspace packages. Rejected.
 
-Expand-contract won over module-build: the new depth (Want.compose + installWantAnswer) is small Shared surface, but the product change is a wire dual-run on existing doors, not a green-field module stack.
+Expand-contract won over module-build: the new depth (Want.compose + installWantAnswer) is small Shared surface, but the product change is a wire expand then a swap on existing doors, not a green-field module stack and not two production Load paths.
 
 ## 5. Unsettled
 
 1. **Zoom-restore edge cases** — Missing or stale saved Zoom. [02 — Lock bootstrap visible-closure set](issues/02-lock-bootstrap-visible-closure.md).
 2. **Want cadence** — Whether every Poll and every post-Event always carry Want. Empty-Want encoding is locked on [01 — Lock Sync want + edges/Nodes package shape](issues/01-lock-sync-want-package-shape.md). Cadence remains [03 — Lock ongoing want priority and when wants are attached](issues/03-lock-ongoing-want-priority.md).
 3. **Server-mode Find** — Ask Server, receive found Nodes, Fetch before navigate. [05 — Chart server-mode Find](issues/05-chart-server-mode-find.md).
-4. **Load Fetch death** — When `packages` die. [06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md).
