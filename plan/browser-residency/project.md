@@ -3,6 +3,7 @@
 Stage: slice
 Summary: The Browser starts with a small visible-closure Graph and grows by auto wants: Included Nodes that miss Children first, then those Children. An Unloaded Node shows a hollow-circle Bullet until those Children arrive. Find of a not-Resident hit is later Fetch-before-navigate work. Post-Event and Poll carry Changes plus wanted Nodes.
 Updated: 2026-09-26
+Actual: 55m
 
 **Part of:** [[plan/roadmap/epics/chapters/incremental-operations.md]]
 
