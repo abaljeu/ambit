@@ -70,19 +70,19 @@ Sources: [map.md](map.md) Destination and Notes (2026-09-26 locks; Decisions so 
     3. [x] SyncInfo `Loading` stays the global Load-command flight, not a Node field
 
 13. **Auto want Included**
-    1. [ ] Want module lists Included Nodes that miss Children first
+    1. [x] Want module lists Included Nodes that miss Children first
     2. [ ] [src/Client/App.fs](src/Client/App.fs) attaches that Want on Poll and post-Event
     3. [ ] No click and no Load
 
 14. **Auto want those Children**
-    1. [ ] Want module lists those Children second
+    1. [x] Want module lists those Children second
     2. [ ] Same Poll / post-Event doors carry the combined Want
     3. [ ] Server answers their `childMap` edges plus Nodes
 
 15. **No third ongoing tier**
-    1. [ ] Want.compose does not add reserved Nodes or Zoom ancestors as an ongoing tier
-    2. [ ] Those ids stay bootstrap-only
-    3. [ ] Shared test asserts two-tier order only
+    1. [x] Want.compose does not add reserved Nodes or Zoom ancestors as an ongoing tier
+    2. [x] Those ids stay bootstrap-only
+    3. [x] Shared test asserts two-tier order only
 
 16. **No click**
     1. [x] RowView Bullet click is fold / select, not Want
@@ -111,27 +111,27 @@ Sources: [map.md](map.md) Destination and Notes (2026-09-26 locks; Decisions so 
 
 21. **Edges in the answer**
     1. [ ] Server builds `childMap` entries for each wanted parent
-    2. [ ] SyncLogic / ResidentProjection installs those edges
-    3. [ ] Wanted parents become Loaded when the key is present
+    2. [x] SyncLogic / ResidentProjection installs those edges
+    3. [x] Wanted parents become Loaded when the key is present
 
 22. **Nodes in the answer**
     1. [ ] Server includes each Child Node the edges point at, as a separate collection
-    2. [ ] Install adds those Nodes to `graph.nodes`
-    3. [ ] No edge is installed without its target Node
+    2. [x] Install adds those Nodes to `graph.nodes`
+    3. [x] No edge is installed without its target Node
 
 23. **No dangling edges**
-    1. [ ] Install refuses an edge whose target is not in the Node collection and not already Resident
-    2. [ ] Shared test covers the refuse
+    1. [x] Install refuses an edge whose target is not in the Node collection and not already Resident
+    2. [x] Shared test covers the refuse
     3. [ ] Browser Graph never shows a header-less Child
 
 24. **Absent key stays Unloaded**
     1. [x] Destination rule: absent `childMap` key = Unloaded
-    2. [ ] Install does not insert an empty key unless the Server sent `[]`
+    2. [x] Install does not insert an empty key unless the Server sent `[]`
     3. [ ] Indicator treats absent key as hollow Unloaded
 
 25. **Present key is Loaded**
     1. [x] Destination rule: present key including `[]` = Loaded
-    2. [ ] Install of `[]` marks a true leaf Loaded
+    2. [x] Install of `[]` marks a true leaf Loaded
     3. [ ] A Loaded empty list is not a hollow Unloaded Bullet unless Unparsed
 
 26. **Children arrive on the Bullet**
@@ -172,7 +172,7 @@ Sources: [map.md](map.md) Destination and Notes (2026-09-26 locks; Decisions so 
 
 33. **SiteMap honors Fold**
     1. [x] IncludedDescendantIds stops at folded children
-    2. [ ] Want.compose uses that Included list, not a deep unfold
+    2. [x] Want.compose uses that Included list, not a deep unfold
     3. [x] Folded Nodes are not treated as a deep visible tree
 
 34. **Unloaded is not empty**
@@ -191,15 +191,15 @@ Sources: [map.md](map.md) Destination and Notes (2026-09-26 locks; Decisions so 
     3. [x] No Trash / System spelling in this Project's doors
 
 Shared segments:
-1. [ ] Want.compose (Included missing Children, then those Children)
+1. [x] Want.compose (Included missing Children, then those Children)
 2. [ ] Poll and post-Event carry Want with Changes
 3. [ ] Server answers edges plus pointed-at Nodes (no dangling edges)
-4. [ ] ResidentProjection installs that package into `Graph.childMap`
+4. [x] ResidentProjection installs that package into `Graph.childMap`
 5. [x] Bullet from Unloaded / Unparsed via ViewModelChildrenIndicator
-6. [ ] Visible-closure bootstrap (reserved Children + Zoom ancestors + Included)
+6. [x] Visible-closure bootstrap (reserved Children + Zoom ancestors + Included)
 
 Narrowest shared test seam:
-1. [ ] Want.compose + installWantAnswer in Shared (no HTTP): given Graph, SiteMap, Zoom, and an answer package, the next Graph has Loaded wanted parents, Resident Children, and no dangling edges
+1. [x] Want.compose + installWantAnswer in Shared (no HTTP): given Graph, SiteMap, Zoom, and an answer package, the next Graph has Loaded wanted parents, Resident Children, and no dangling edges
 
 ## 2. Module map
 
@@ -217,21 +217,21 @@ Narrowest shared test seam:
 2. **Want**
    File: new [src/Shared/Want.fs](src/Shared/Want.fs) (name may match the locked term Want).
    1. State
-      1. [ ] None durable — a Want is a list of parent Node ids whose Children are desired
+      1. [x] None durable — a Want is a list of parent Node ids whose Children are desired
    2. Interface
-      1. [ ] `compose: Graph * SiteMap * zoomRoot -> NodeId list` — (1) Included that miss Children, (2) those Children; no third tier
-      2. [ ] Empty list is allowed; encoding on the wire is Unsettled
+      1. [x] `compose: Graph * SiteMap * zoomRoot -> NodeId list` — (1) Included that miss Children, (2) those Children; no third tier
+      2. [x] Empty list is allowed; request field is `want` (`[]` when empty)
    3. Uses
       1. [x] IncludedDescendantIds
-      2. [ ] Graph childMap (miss = absent key)
+      2. [x] Graph childMap (miss = absent key)
 
 3. **ResidentProjection**
    File: [src/Shared/ResidentProjection.fs](src/Shared/ResidentProjection.fs).
    1. State
       1. [ ] None beyond the Graph it returns
    2. Interface
-      1. [ ] `bootstrapGraph` becomes Zoom-scoped visible-closure: `childMap` for ROOT, TRASH, Workspaces Node, SYSTEM; ancestors of Zoom root; Included. Not complete Workspace
-      2. [ ] `installWantAnswer: edges * nodes * Graph -> Result<Graph, string>` — edges and Nodes separately; refuse dangling edges
+      1. [x] `visibleClosureGraph` is Zoom-scoped visible-closure beside `rootBootstrapGraph`: `childMap` for ROOT, TRASH, Workspaces Node, SYSTEM; ancestors of Zoom root. Not complete Workspace. Production `bootstrapGraph` still uses the old ROOT path
+      2. [x] `installWantAnswer: edges * nodes * Graph -> Result<Graph, string>` — edges and Nodes separately; refuse dangling edges
       3. [x] `packagesForTargets` / `installPackages` stay for dual-run Load Fetch
    3. Uses
       1. [x] GraphBuild reserved ids
@@ -253,10 +253,10 @@ Narrowest shared test seam:
    1. State
       1. [x] `ChangeSuccessResponse` Events, `apiVersion`, Poll stamps
       2. [x] `LoadResponse.packages` for dual-run Fetch
-      3. [ ] Additive Want-answer fields (edges + Nodes). Exact names Unsettled
+      3. [x] Additive Want-answer fields `nodes` + `childMap`. Request field `want`
    2. Interface
-      1. [ ] Encode / decode Want on Poll and post-Event without dropping Changes
-      2. [x] `ApiVersion.current` remains the incompatibility marker; when the Want + edges/Nodes package ships, bump minor on the existing major ((old major).(minor + 1))
+      1. [x] Encode / decode Want on `PollRequest` / `ChangeRequest` without dropping Changes
+      2. [x] `ApiVersion.current` is 13 (wire 1.3) with the Want + edges/Nodes package
    3. Uses
       1. [x] Ev, EventId, Graph types
 
@@ -367,13 +367,13 @@ Narrowest shared test seam:
 ## 3. Seams
 
 1. **Want.compose**
-   1. [ ] Interface on **Want** — Shared tests for priority and Fold
+   1. [x] Interface on **Want** — Shared tests for priority and Fold
 2. **installWantAnswer**
-   1. [ ] Interface on **ResidentProjection** — edges plus Nodes; no dangling edges
+   1. [x] Interface on **ResidentProjection** — edges plus Nodes; no dangling edges
 3. **bootstrapGraph**
-   1. [ ] Interface on **ResidentProjection** — visible-closure set
+   1. [x] Interface on **ResidentProjection** — `visibleClosureGraph` beside old `rootBootstrapGraph`
 4. **ChangeSuccessResponse**
-   1. [ ] Interface on **Sync wire** — Poll and post-Event share it
+   1. [x] Interface on **Sync wire** — Poll and post-Event share it; additive `nodes` + `childMap`
 5. **getPoll / postEvents / getState**
    1. [ ] Interface on **Server Sync doors**
 6. **runPollServer / POST changes**

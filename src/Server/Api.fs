@@ -58,7 +58,9 @@ module Api =
               externalChanges = not events.IsEmpty
               events = events
               message = None
-              bootstrapHash = None }
+              bootstrapHash = None
+              nodes = []
+              childMap = Map.empty }
         return changeSuccessResult poll
     }
 
@@ -191,7 +193,9 @@ module Api =
                           externalChanges = accepted.externalChanges
                           events = accepted.events
                           message = accepted.message
-                          bootstrapHash = None }
+                          bootstrapHash = None
+                          nodes = []
+                          childMap = Map.empty }
             | Error err -> return agentErrorResult err
     }
 

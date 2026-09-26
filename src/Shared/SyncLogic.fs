@@ -121,7 +121,9 @@ module SyncLogic =
           externalChanges = not response.events.IsEmpty
           events = response.events
           message = None
-          bootstrapHash = None }
+          bootstrapHash = None
+          nodes = []
+          childMap = Map.empty }
 
     /// Apply a server-supplied Ev tail onto local State (Poll path).
     /// Empty list is a no-op that preserves History.

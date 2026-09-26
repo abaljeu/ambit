@@ -428,7 +428,9 @@ let ``ChangeSuccessResponse round-trip with non-empty Changes`` () =
           externalChanges = true
           events = [ change ]
           message = Some "stable file update failed"
-          bootstrapHash = None }
+          bootstrapHash = None
+          nodes = []
+          childMap = Map.empty }
     let decoded =
         roundTrip
             ApiResponseSerialization.encodeChangeSuccessResponse
@@ -458,7 +460,9 @@ let ``ChangeSuccessResponse round-trip with empty Changes`` () =
           externalChanges = false
           events = []
           message = None
-          bootstrapHash = None }
+          bootstrapHash = None
+          nodes = []
+          childMap = Map.empty }
     let decoded =
         roundTrip
             ApiResponseSerialization.encodeChangeSuccessResponse
@@ -492,13 +496,97 @@ let ``ChangeSuccessResponse round-trip with bootstrapHash`` () =
           externalChanges = false
           events = []
           message = None
-          bootstrapHash = Some "deadbeef" }
+          bootstrapHash = Some "deadbeef"
+          nodes = []
+          childMap = Map.empty }
     let decoded =
         roundTrip
             ApiResponseSerialization.encodeChangeSuccessResponse
             ApiResponseSerialization.decodeChangeSuccessResponseDecoder
             response
     Assert.Equal(Some "deadbeef", decoded.bootstrapHash)
+
+[<Fact>]
+let ``ChangeSuccessResponse omits nodes and childMap and still decodes`` () =
+    let json =
+        """{"r":3,"b":0,"p":0,"ready":true,"externalChanges":false,"c":[]}"""
+    match
+        Dec.fromString
+            ApiResponseSerialization.decodeChangeSuccessResponseDecoder
+            json
+    with
+    | Error err -> failwith err
+    | Ok decoded ->
+        Assert.Equal<Node list>([], decoded.nodes)
+        Assert.True(decoded.childMap.IsEmpty)
+
+[<Fact>]
+let ``ChangeSuccessResponse round-trip with Want-answer nodes and childMap`` () =
+    let parentId = NodeId.New()
+    let childId = NodeId.New()
+    let parent = Node.Create(parentId, text = "parent")
+    let child = Node.Create(childId, text = "child", owner = parentId)
+    let response: ChangeSuccessResponse =
+        { eventId = EventIdFixtures.storedId 4
+          buildEpochSec = 0
+          pageBuildEpochSec = 0
+          apiVersion = ApiVersion.current
+          isReady = true
+          externalChanges = false
+          events = []
+          message = None
+          bootstrapHash = None
+          nodes = [ parent; child ]
+          childMap = Map.ofList [ parentId, ChildNode.owners [ childId ] ] }
+    let decoded =
+        roundTrip
+            ApiResponseSerialization.encodeChangeSuccessResponse
+            ApiResponseSerialization.decodeChangeSuccessResponseDecoder
+            response
+    Assert.Equal(13, decoded.apiVersion)
+    Assert.Equal(2, decoded.nodes.Length)
+    Assert.Equal(parentId, decoded.nodes.[0].id)
+    Assert.Equal(childId, decoded.nodes.[1].id)
+    Assert.Equal<ChildNode list>(
+        ChildNode.owners [ childId ],
+        decoded.childMap.[parentId])
+
+[<Fact>]
+let ``PollRequest always encodes want including empty`` () =
+    let request: PollRequest =
+        { eventId = EventIdFixtures.storedId 2
+          want = [] }
+    let json =
+        Enc.toString 0 (ApiResponseSerialization.encodePollRequest request)
+    Assert.Contains("\"want\":[]", json.Replace(" ", ""))
+    let decoded =
+        roundTrip
+            ApiResponseSerialization.encodePollRequest
+            ApiResponseSerialization.decodePollRequestDecoder
+            request
+    Assert.Equal(request.eventId, decoded.eventId)
+    Assert.Equal<NodeId list>([], decoded.want)
+
+[<Fact>]
+let ``ChangeRequest round-trip with want ids`` () =
+    let parentId = NodeId.New()
+    let request: ChangeRequest =
+        { events = []
+          want = [ parentId ] }
+    let decoded =
+        roundTrip
+            ApiResponseSerialization.encodeChangeRequest
+            ApiResponseSerialization.decodeChangeRequestDecoder
+            request
+    Assert.Equal<Ev list>([], decoded.events)
+    Assert.Equal<NodeId list>([ parentId ], decoded.want)
+
+[<Fact>]
+let ``SyncWant always encodes want`` () =
+    let payload: SyncWant = { want = [] }
+    let json =
+        Enc.toString 0 (ApiResponseSerialization.encodeSyncWant payload)
+    Assert.Contains("\"want\":[]", json.Replace(" ", ""))
 
 [<Fact>]
 let ``LoadRequest round-trip`` () =
