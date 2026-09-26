@@ -1,7 +1,7 @@
 # 08 — gbot keep-open listening
 
-**Status:** coded
-Actual: 1h 45m
+**Status:** done
+Actual: 1h 55m
 **Blocked by:** None — [04 — CloudAgents Grok Bot oneshot library](04-cloudagents-grokbot-oneshot.md) and [05 — Run Agent Actor Grok Bot oneshot](05-run-agent-grokbot-oneshot.md) are `done`. Eventual [01 — CoreActorPool sessionId + deliver + commandId exclusivity](01-coreactorpool-sessionid-deliver.md)–[03 — gbot Run Agent: wake + inbox → Focus stream](03-gbot-wake-inbox-focus.md) stay deferred.
 **Type:** coding
 
@@ -51,7 +51,9 @@ Finish only on Cancel / Actor drop (existing), or other already-locked close pat
 
 - 2026-09-25 — Filed. Alan lock: after the first reply, do not Finish the gbot Actor on empty-text oneshot Done. Same `sessionId` stays live and later deliver texts fold into Focus until Cancel or drop. Status `defined`.
 - 2026-09-25 — Coded keep-listening on empty-text `RunFinished` in `GrokBotAdapter.streamRun` and `GrokBotFake` (flush, do not complete / do not mark `Finished`). Run Agent Actor stays in `runStream`. Status `coded`.
+- 2026-09-26 — Alan accepted; squash-landed. Status `done`.
 
 ## Time
 
 - 2026-09-25 1h 45m — File [08 — gbot keep-open listening](08-gbot-keep-open-listening.md), keep-open seam, CloudAgents / Run Agent / pool proofs (from chat)
+- 2026-09-26 10m — Alan accepted; Status `done` before squash-land (from chat)
