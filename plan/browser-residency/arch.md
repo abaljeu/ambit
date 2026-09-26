@@ -114,7 +114,7 @@ Sources: [map.md](map.md) Destination, Notes, and Decisions so far (2026-09-26 l
     1. [ ] Server builds `childMap` entries for each wanted parent
     2. [x] ResidentProjection.installWantAnswer installs those edges
     3. [x] Wanted parents become Loaded when the key is present
-    4. [ ] SyncLogic.applySyncResponse installs Want-answer edges after Events ([08 — Migrate Shared wire](issues/08-migrate-shared-wire.md))
+      4. [x] SyncLogic.applySyncResponse installs Want-answer edges after Events ([08 — Migrate Shared wire](issues/08-migrate-shared-wire.md))
 
 22. **Nodes in the answer**
     1. [ ] Server includes each Child Node the edges point at, as a separate collection
@@ -258,9 +258,9 @@ Narrowest shared test seam:
       1. [x] `ChangeSuccessResponse` Events, `apiVersion`, Poll stamps
       2. [x] Want-answer fields `nodes` + `childMap`. Request field `want`
    2. Interface
-      1. [ ] Encode / decode required current-version fields on `PollRequest`, `ChangeRequest`, and `ChangeSuccessResponse`
+      1. [x] Encode / decode required current-version fields on `PollRequest`, `ChangeRequest`, and `ChangeSuccessResponse`
       2. [x] `ApiVersion.current` is 13 (wire 1.3) with the Want + edges/Nodes package
-      3. [ ] Do not decode missing current-version fields and do not keep an old Poll or post-Event form
+      3. [x] Do not decode missing current-version fields and do not keep an old Poll or post-Event form
    3. Uses
       1. [x] Ev, EventId, Graph types
 
@@ -308,13 +308,13 @@ Narrowest shared test seam:
    1. State
       1. [x] None
    2. Interface
-      1. [ ] `applySyncResponse` applies Event tail then the edges-plus-Nodes answer
-      2. [ ] After Events, install Want-answer edges plus Nodes through ResidentProjection
-      3. [x] `getPollOutcome` still keys on `apiVersion` and event id
+      1. [x] `applySyncResponse` applies Event tail then the edges-plus-Nodes answer
+      2. [x] After Events, install Want-answer edges plus Nodes through ResidentProjection
+      3. [x] `getPollOutcome` keys on event id; does not branch on `apiVersion`
    3. Uses
       1. [x] ResidentProjection.applyOps
-      2. [ ] ResidentProjection.installWantAnswer
-      3. [ ] Load response uses the same answer fields and install path
+      2. [x] ResidentProjection.installWantAnswer
+      3. [x] Load response uses the same answer fields and install path
 
 10. **SyncPlanner**
     File: [src/Shared/SyncPlanner.fs](src/Shared/SyncPlanner.fs).
@@ -380,7 +380,7 @@ Narrowest shared test seam:
 3. **visibleClosureGraph**
    1. [x] Interface on **ResidentProjection** — saved Zoom produces reserved Children, its ancestor path, and its Children; [09 — Migrate Server Sync doors](issues/09-migrate-server-sync-doors.md) owns the production switch
 4. **ChangeSuccessResponse**
-   1. [ ] Interface on **Sync wire** — current-version Poll and post-Event require `want`; answer requires `nodes` + `childMap`
+   1. [x] Interface on **Sync wire** — current-version Poll and post-Event require `want`; answer requires `nodes` + `childMap`
 5. **postPoll / postEvents / getState**
    1. [ ] Interface on **Server Sync doors**
 6. **runPollServer / POST changes**

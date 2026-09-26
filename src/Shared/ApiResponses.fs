@@ -36,9 +36,9 @@ type ChangeSuccessResponse =
       message: string option
       /// Optional ROOT-closure fingerprint; omitted by old Servers.
       bootstrapHash: string option
-      /// Want-answer Nodes. Missing on the wire decodes as [].
+      /// Required Want-answer Nodes. Missing field fails decode.
       nodes: Node list
-      /// Want-answer edges. Absent key stays Unloaded; [] is a Loaded leaf.
+      /// Required Want-answer edges. Absent key stays Unloaded; [] is a Loaded leaf.
       childMap: Map<NodeId, ChildNode list> }
 
 /// Want list on Poll and post-Event. Always send; empty compose is [].
@@ -91,14 +91,14 @@ type CancelRequest =
     { focusId: NodeId
       eventId: EventId }
 
-/// Authoritative Sync install: Event tail, Want-answer, optional Load packages.
+/// Authoritative Sync install: Event tail then edges-plus-Nodes answer.
 type SyncResponse =
     { events: Ev list
-      /// Complete Workspace / child-list snapshots at the response event id.
+      /// Legacy Load package Nodes. Unused by apply.
       packages: Node list
-      /// Loaded child lists for `packages`. Absent package id = Unloaded header.
+      /// Legacy Load child lists. Unused by apply.
       packageChildMap: Map<NodeId, ChildNode list>
-      /// Want-answer Nodes from Poll / post-Event. Empty when unused.
+      /// Want-answer Nodes. Load Fetch maps here too.
       nodes: Node list
       /// Want-answer edges. Absent key stays Unloaded; [] is a Loaded leaf.
       childMap: Map<NodeId, ChildNode list> }

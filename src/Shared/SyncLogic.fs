@@ -81,18 +81,8 @@ module SyncLogic =
                 response.nodes
                 graph
 
-    let private graphAfterPackages
-        (response: SyncResponse)
-        (graph: Graph)
-        : Graph =
-        ResidentProjection.installPackages
-            response.packages
-            response.packageChildMap
-            graph
-
     /// Apply a Sync response atomically under Loaded rules.
-    /// Event tail, then Want-answer edges/Nodes, then Load packages.
-    /// Packages stay last so authoritative Workspace snapshots win.
+    /// Event tail, then the edges-plus-Nodes answer through installWantAnswer.
     let applySyncResponse
         (response: SyncResponse)
         (state: ClientSyncState)
@@ -103,9 +93,7 @@ module SyncLogic =
             match graphAfterWant response afterEvents.graph with
             | Error msg -> Error msg
             | Ok afterWant ->
-                Ok
-                    { afterEvents with
-                        graph = graphAfterPackages response afterWant }
+                Ok { afterEvents with graph = afterWant }
 
     let applyLoadResponse
         (responseEventId: EventId)
@@ -115,7 +103,7 @@ module SyncLogic =
         : Result<ClientSyncState, string> =
         let packageOnly =
             List.isEmpty response.events
-            && not (List.isEmpty response.packages)
+            && not (List.isEmpty response.nodes)
         if
             packageOnly
             && (hasPendingLocal || responseEventId <> state.eventId)
@@ -126,10 +114,10 @@ module SyncLogic =
 
     let loadResponseToSync (response: LoadResponse) : SyncResponse =
         { events = response.events
-          packages = response.packages
-          packageChildMap = response.packageChildMap
-          nodes = []
-          childMap = Map.empty }
+          packages = []
+          packageChildMap = Map.empty
+          nodes = response.packages
+          childMap = response.packageChildMap }
 
     let changeSuccessToSync (response: ChangeSuccessResponse) : SyncResponse =
         { events = response.events

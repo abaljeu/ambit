@@ -441,13 +441,13 @@ let ``applySyncResponse installs complete child list as Loaded and preserves own
                     (EventIdFixtures.storedId 6)
                     (System.Guid.NewGuid())
                     [ Op.SetText(markerId, "marker", "marker-tail") ] ]
-          packages = [ wsHeader; child; external ]
-          packageChildMap =
+          packages = []
+          packageChildMap = Map.empty
+          nodes = [ wsHeader; child; external ]
+          childMap =
             Map.ofList
                 [ wsId, [ ChildNode.owner childId ]
-                  childId, [] ]
-          nodes = []
-          childMap = Map.empty }
+                  childId, [] ] }
     match SyncLogic.applySyncResponse response st with
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
     | Ok result ->
@@ -531,10 +531,10 @@ let ``applySyncResponse empty Loaded child list marks Loaded without History cle
     match
         SyncLogic.applySyncResponse
             { events = []
-              packages = [ ws ]
-              packageChildMap = Map.ofList [ wsId, [] ]
-              nodes = []
-              childMap = Map.empty }
+              packages = []
+              packageChildMap = Map.empty
+              nodes = [ ws ]
+              childMap = Map.ofList [ wsId, [] ] }
             st
     with
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
@@ -656,7 +656,7 @@ let ``applySyncResponse refuses dangling Want edges`` () =
     | Error msg -> Assert.Equal("dangling edge", msg)
 
 [<Fact>]
-let ``applySyncResponse dual-run keeps packages after Want answer`` () =
+let ``applySyncResponse Load Fetch answer installs through installWantAnswer`` () =
     let graph0 = Graph.create ()
     let wantParentId = NodeId.New()
     let wantChildId = NodeId.New()
@@ -689,16 +689,15 @@ let ``applySyncResponse dual-run keeps packages after Want answer`` () =
     let wsChild = Node.Create(wsChildId, text = "ws-leaf", owner = wsId)
     let response =
         { events = []
-          packages = [ wsHeader; wsChild ]
-          packageChildMap =
-            Map.ofList
-                [ wsId, [ ChildNode.owner wsChildId ]
-                  wsChildId, [] ]
-          nodes = [ wantParent; wantChild ]
+          packages = []
+          packageChildMap = Map.empty
+          nodes = [ wantParent; wantChild; wsHeader; wsChild ]
           childMap =
             Map.ofList
                 [ wantParentId, [ ChildNode.owner wantChildId ]
-                  wantChildId, [] ] }
+                  wantChildId, []
+                  wsId, [ ChildNode.owner wsChildId ]
+                  wsChildId, [] ] }
     match SyncLogic.applySyncResponse response st with
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
     | Ok result ->

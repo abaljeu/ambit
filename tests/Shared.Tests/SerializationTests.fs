@@ -477,7 +477,8 @@ let ``ChangeSuccessResponse round-trip with empty Changes`` () =
 
 [<Fact>]
 let ``ChangeSuccessResponse omits bootstrapHash and still decodes`` () =
-    let json = """{"r":3,"b":0,"p":0,"ready":true,"externalChanges":false,"c":[]}"""
+    let json =
+        """{"r":3,"b":0,"p":0,"ready":true,"externalChanges":false,"c":[],"nodes":[],"childMap":[]}"""
     match Dec.fromString ApiResponseSerialization.decodeChangeSuccessResponseDecoder json with
     | Error err -> failwith err
     | Ok decoded ->
@@ -507,7 +508,7 @@ let ``ChangeSuccessResponse round-trip with bootstrapHash`` () =
     Assert.Equal(Some "deadbeef", decoded.bootstrapHash)
 
 [<Fact>]
-let ``ChangeSuccessResponse omits nodes and childMap and still decodes`` () =
+let ``ChangeSuccessResponse fails decode when nodes or childMap is missing`` () =
     let json =
         """{"r":3,"b":0,"p":0,"ready":true,"externalChanges":false,"c":[]}"""
     match
@@ -515,10 +516,8 @@ let ``ChangeSuccessResponse omits nodes and childMap and still decodes`` () =
             ApiResponseSerialization.decodeChangeSuccessResponseDecoder
             json
     with
-    | Error err -> failwith err
-    | Ok decoded ->
-        Assert.Equal<Node list>([], decoded.nodes)
-        Assert.True(decoded.childMap.IsEmpty)
+    | Ok _ -> failwith "Expected missing nodes/childMap to fail"
+    | Error _ -> ()
 
 [<Fact>]
 let ``ChangeSuccessResponse round-trip with Want-answer nodes and childMap`` () =
@@ -602,6 +601,17 @@ let ``PollRequest always encodes want including empty`` () =
             request
     Assert.Equal(request.eventId, decoded.eventId)
     Assert.Equal<NodeId list>([], decoded.want)
+
+[<Fact>]
+let ``PollRequest fails decode when want is missing`` () =
+    let json = """{"eventId":2}"""
+    match
+        Dec.fromString
+            ApiResponseSerialization.decodePollRequestDecoder
+            json
+    with
+    | Ok _ -> failwith "Expected missing want to fail"
+    | Error _ -> ()
 
 [<Fact>]
 let ``ChangeRequest round-trip with want ids`` () =

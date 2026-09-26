@@ -183,10 +183,10 @@ let ``LoadResponse toSyncResponse preserves changes and packages`` () =
           packageChildMap = Map.empty }
     let sync = SyncLogic.loadResponseToSync load
     Assert.Empty(sync.events)
-    Assert.Equal(1, sync.packages.Length)
-    Assert.Equal(node.id, sync.packages.[0].id)
-    Assert.Empty(sync.nodes)
-    Assert.True(sync.childMap.IsEmpty)
+    Assert.Empty(sync.packages)
+    Assert.Equal(1, sync.nodes.Length)
+    Assert.Equal(node.id, sync.nodes.[0].id)
+    Assert.True(sync.packageChildMap.IsEmpty)
 
 [<Fact>]
 let ``packagesForTargets same Workspace Unloaded targets dedupe one package`` () =

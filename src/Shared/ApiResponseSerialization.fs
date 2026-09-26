@@ -86,13 +86,13 @@ module ApiResponseSerialization =
               bootstrapHash =
                 get.Optional.Field "bootstrapHash" Decode.string
               nodes =
-                get.Optional.Field
+                get.Required.Field
                     "nodes"
                     (Decode.list Serialization.decodeNode)
-                |> Option.defaultValue []
               childMap =
-                get.Optional.Field "childMap" Serialization.decodeChildMap
-                |> Option.defaultValue Map.empty })
+                get.Required.Field
+                    "childMap"
+                    Serialization.decodeChildMap })
 
     let decodeChangeSuccessResponse text =
         Decode.fromString decodeChangeSuccessResponseDecoder text
