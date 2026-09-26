@@ -19,7 +19,6 @@ Live:
 - [ ] [[plan/transport-layer/project.md]] — transport layer (inbound, outbound, round-trip); PKM depends on this, does not implement it
 - [ ] [[plan/graph-view/project.md]] — radial focus-centric graph view with Ref overlay ([[doc/roadmap/graph-view.md]])
 - [ ] [[plan/expression-language/project.md]] — remainder beyond Find
-- [ ] [[plan/selective-client-loading/project.md]]
 - [ ] [[plan/bullet-tip-times/project.md]]
 - [ ] [[plan/document-formats/map.md]] — remainder (XML and other draft codecs)
 - [ ] [[plan/event-sourced-ops/project.md]] — remainder beyond Agent-chat Actor issues
@@ -28,6 +27,7 @@ Live:
 
 Done:
 
+- [x] [[plan/selective-client-loading/project.md]] — prior whole-Workspace slice; successor [[plan/browser-residency/project.md]]
 - [x] [[plan/node-bullet-tooltip/project.md]]
 
 ## Notes

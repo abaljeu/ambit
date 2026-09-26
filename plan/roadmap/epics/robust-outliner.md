@@ -32,9 +32,7 @@ Sequence: establish Core through [[chapters/initial-core.md]], support the first
 
 Aim for incremental work. Send a modest amount, then send more. Chapter: [[chapters/incremental-operations.md]].
 
-The Browser starts small and grows from want (hollow-circle Bullet, or Find of a not-yet-Resident hit then Fetch). The Server Parse Actor turns file-shaped disk into Graph and emits Changes. Post-Event and Poll carry Changes plus wanted Nodes. Workspace Download and Upload stay file operations; they do not Parse on the Browser or the App. Graph→Browser is visible-closure.
-
-Conflict resolution is already implemented. Do not re-plan it.
+The Browser starts small (visible-closure) and grows by auto wants: visible Nodes that miss Children first, then those Children; a hollow-circle Bullet until fill. Auto wants need no click and no command. Homes: [[plan/browser-residency/project.md]], [[plan/parse-actor/project.md]], [[plan/transport-layer/project.md]] (file transit). Conflict resolution is already implemented. Do not re-plan it.
 
 ## Required for done
 

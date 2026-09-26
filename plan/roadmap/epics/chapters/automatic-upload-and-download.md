@@ -24,5 +24,5 @@ Replace today's manual Upload, Download, and Load for that path so files stay cu
 - Pattern home: [[plan/transport-layer/overview.md]], [[plan/transport-layer/details/parse-persist.md]]. Implementation legs stay file-channel Projects; transport-layer does not implement DAV.
 - Next Chapter [[automatic-parse.md]] stays Unparsed-without-a-separate-Parse-command; FETCH may compose pull + Parse, but automatic Parse UX is that beat.
 - Locked 2026-09-19: fold Actor-shaped Workspace sync into this Chapter; transport-layer owns the redesign chart (not a new Chapter).
-- Locked 2026-09-26: Workspace Download and Workspace Upload stay file operations. They do not Parse on the Browser or the App. File-shaped file→Graph and want-driven Graph→Browser live on [[incremental-operations.md]].
+- Locked 2026-09-26: Workspace Download and Workspace Upload stay file operations. They do not Parse on the Browser or the App. File-shaped file→Graph lives on [[plan/parse-actor/project.md]]. Want-driven Graph→Browser lives on [[plan/browser-residency/project.md]]. File transit remains [[plan/transport-layer/project.md]]; that Project will evolve an Actor linked to file transport. Do not create a new transit Project.
 - Overwrite policy for v1 WebDAV remains last-write-wins in scope. Mirror-delete / Class 2 stay out of this Chapter.

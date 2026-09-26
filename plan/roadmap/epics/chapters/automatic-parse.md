@@ -9,12 +9,13 @@ A person works with documents from any connected device. File Nodes can be Unpar
 
 ## Goal
 
-Unparsed File Nodes parse without a separate Parse command.
+Unparsed File Nodes parse without a separate Parse command. A continuous Server Parse Actor turns file-shaped disk into Graph, takes priority from Browser wants, and emits Changes.
 
 ## Required for done
 
+- [ ] [[plan/parse-actor/project.md]] — continuous Server Parse Actor; file-shaped disk→Graph; priority from Browser wants; emits Changes
 - [ ] Unparsed File Nodes parse without a separate Parse command.
 
 ## Notes
 
-Parse is the Server Parse Actor. It emits Changes. Workspace Download and Workspace Upload do not Parse on the Browser or the App. See [[incremental-operations.md]].
+Workspace Download and Workspace Upload do not Parse on the Browser or the App. File transit stays on [[plan/transport-layer/project.md]]. Browser wants come from [[plan/browser-residency/project.md]]. See [[incremental-operations.md]].

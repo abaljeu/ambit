@@ -11,26 +11,26 @@ File on disk becomes Graph on the Server. Workspace Download and Workspace Uploa
 
 ## Goal
 
-The Browser starts small. It grows only from want. An Unloaded Node shows a hollow circle Bullet. The person opens that Node, or Find picks a hit that is not Resident, and the Browser then Fetches that want.
+The Browser starts small. It holds visible-closure: the Included context and the path that frames it, not the whole Server Graph.
 
-The Server Parse Actor turns file-shaped disk into Graph and emits Changes. Post-Event and Poll carry those Changes plus the Nodes the Browser wants. File-shaped file→Graph stays on the Server. Workspace Download and Workspace Upload stay file operations. They do not Parse on the Browser or the App.
+The Browser grows by auto wants. First it wants visible Nodes that miss Children. Then it wants those Children. An Unloaded Node shows a hollow-circle Bullet until that fill. Auto wants need no click and no command. Commands come later.
 
-Graph→Browser is visible-closure: the Browser holds the Included context and the path that frames it, not the whole Server Graph.
+When Find picks a hit that is not Resident, the Browser Fetches those Nodes before navigate.
+
+Post-Event and Poll carry Changes plus the Nodes the Browser wants.
 
 ## Required for done
 
-- [ ] Browser start is small, not a full Workspace Graph.
-- [ ] Growth is want-driven: expand a hollow-circle Bullet, or Fetch when Find picks a hit that is not yet Resident.
-- [ ] Server Parse Actor emits Changes. File-shaped reconcile (disk → Graph) stays on the Server and stays file-shaped.
-- [ ] Post-Event and Poll carry Changes plus the wanted Nodes.
-- [ ] Workspace Download and Workspace Upload stay file operations. Those operations do not Parse on the Browser or the App.
-- [ ] Graph→Browser is visible-closure.
+- [ ] [[plan/browser-residency/project.md]] — visible-closure; auto wants (visible Nodes that miss Children first, then those Children); hollow until fill; search hydration; post-Event and Poll carry Changes plus wanted Nodes
+- [ ] [[plan/parse-actor/project.md]] — continuous Server Parse Actor; file-shaped disk→Graph; priority from Browser wants; emits Changes
+- [ ] [[plan/transport-layer/project.md]] — file transit stays here; no new transit Project
 
 ## Notes
 
-- Search hydration is in scope: when Find picks a hit that is not yet Resident, Fetch those Nodes before navigate.
+- File transit remains [[plan/transport-layer/project.md]]. That Project will evolve an Actor linked to file transport. Do not create a new transit Project.
+- Search hydration is in Browser residency: when Find picks a hit that is not yet Resident, Fetch those Nodes before navigate.
 - Conflict resolution is already implemented. Do not re-plan it. Strike it as a todo wherever a leftover plan still lists it.
 - Do not plan: document partition / membership partition; cache leases; coalesce; LRU / pinning; IndexedDB; per-document versions or patches as delivery; server eviction; partial-residency live-save; parent-index rebuild; client or App stub creation as the Upload structure; client Parse from Upload or Download.
 - Full Workspace Upload/Load redesign stays parked relative to the Solid core bar until the Core and Actors Chapters are met. That redesign is not this Chapter. File-channel Upload/Download lives on [[automatic-upload-and-download.md]].
-- [[plan/selective-client-loading/project.md]] is a prior client-only slice (complete Workspace, server fully Resident). This Chapter is the later want-driven visible-closure shape and may replace that slice's granularity.
-- 2026-09-26 grill folded the useful remainder of leftover on-demand residency and Server file-shaped reconcile into this Chapter. Do not revive the deleted extras.
+- [[plan/selective-client-loading/project.md]] is done (prior whole-Workspace slice). Successor is [[plan/browser-residency/project.md]].
+- 2026-09-26 grill folded the useful remainder of leftover on-demand residency into this Chapter. Project homes locked the same day.
