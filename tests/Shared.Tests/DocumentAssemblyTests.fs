@@ -403,6 +403,29 @@ let ``readArtifact cold Amb ignores previous when None`` () =
         after.nodes.[(Graph.children after docId).Head.id].text)
 
 [<Fact>]
+let ``readArtifact cold Amb overlays nested outline nodes`` () =
+    let graph0 = Graph.create ()
+    let docId = NodeId.New()
+    let docNode =
+        Node.Create(
+            docId,
+            text = "notes.amb",
+            name = Filename.Ok "notes.amb",
+            owner = graph0.root,
+            kind = Special File)
+    let graph =
+        Graph.addDetachedNode docNode graph0
+        |> appendKids graph0.root [ ChildNode.owner docId ]
+    let text = "parent\n\tchild\n"
+    let after =
+        DocumentFormat.readArtifact "notes.amb" text docId graph None
+        |> requireOk "cold nested amb read"
+    let parentId = (Graph.children after docId).Head.id
+    Assert.Equal("parent", after.nodes.[parentId].text)
+    let childId = (Graph.children after parentId).Head.id
+    Assert.Equal("child", after.nodes.[childId].text)
+
+[<Fact>]
 let ``assembleFromArtifactsBounded seeds Unparsed File stub without body`` () =
     let fileId = NodeId(System.Guid.Parse "6556583f-322d-4183-bc42-284a81044a0f")
     let artifacts =

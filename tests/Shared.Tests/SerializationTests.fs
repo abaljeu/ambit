@@ -63,7 +63,17 @@ let ``legacy Graph decode without childrenStatus defaults to Loaded`` () =
     let rootId = Graph.rootId.Value
     let nodeId = NodeId.New()
     let json =
-        $"""{{"root":"{rootId}","nodes":[{{"id":"{rootId}","text":"ROOT","children":[],"kind":{{"type":"special","kind":"workspace"}}}},{{"id":"{nodeId.Value}","text":"legacy","children":[],"cssClasses":[],"kind":"normal"}}]}}"""
+        "{\"root\":\""
+        + string rootId
+        + "\",\"nodes\":["
+        + "{\"id\":\""
+        + string rootId
+        + "\",\"text\":\"ROOT\",\"children\":[],"
+        + "\"kind\":{\"type\":\"special\",\"kind\":\"workspace\"}},"
+        + "{\"id\":\""
+        + string nodeId.Value
+        + "\",\"text\":\"legacy\",\"children\":[],"
+        + "\"cssClasses\":[],\"kind\":\"normal\"}]}"
     match Dec.fromString Serialization.decodeGraph json with
     | Error err -> failwith $"Decode failed: {err}"
     | Ok decoded ->
@@ -75,7 +85,13 @@ let ``legacy package decode rejects Unloaded with non-empty children`` () =
     let nodeId = NodeId.New()
     let childId = NodeId.New()
     let json =
-        $"""[{{"id":"{nodeId.Value}","text":"bad","children":[{{"ref":"owner","id":"{childId.Value}"}}],"childrenStatus":"unloaded","cssClasses":[],"kind":"normal"}}]"""
+        "[{\"id\":\""
+        + string nodeId.Value
+        + "\",\"text\":\"bad\",\"children\":["
+        + "{\"ref\":\"owner\",\"id\":\""
+        + string childId.Value
+        + "\"}],\"childrenStatus\":\"unloaded\","
+        + "\"cssClasses\":[],\"kind\":\"normal\"}]"
     match Dec.fromString Serialization.decodeLegacyPackageNodes json with
     | Ok _ -> failwith "expected decode failure"
     | Error err -> Assert.Contains("Unloaded", err)
@@ -84,7 +100,10 @@ let ``legacy package decode rejects Unloaded with non-empty children`` () =
 let ``Node decode without updateTime uses missing sentinel`` () =
     let nodeId = NodeId.New()
     let json =
-        $"""{{"id":"{nodeId.Value}","text":"legacy","children":[],"cssClasses":[],"kind":"normal"}}"""
+        "{\"id\":\""
+        + string nodeId.Value
+        + "\",\"text\":\"legacy\",\"children\":[],"
+        + "\"cssClasses\":[],\"kind\":\"normal\"}"
 
     match Dec.fromString Serialization.decodeNode json with
     | Error err -> failwith $"Decode failed: {err}"
@@ -94,7 +113,10 @@ let ``Node decode without updateTime uses missing sentinel`` () =
 let ``Node decode without documentState defaults to current`` () =
     let nodeId = NodeId.New()
     let json =
-        $"""{{"id":"{nodeId.Value}","text":"legacy","children":[],"cssClasses":[],"kind":"normal"}}"""
+        "{\"id\":\""
+        + string nodeId.Value
+        + "\",\"text\":\"legacy\",\"children\":[],"
+        + "\"cssClasses\":[],\"kind\":\"normal\"}"
     match Dec.fromString Serialization.decodeNode json with
     | Error err -> failwith $"Decode failed: {err}"
     | Ok decoded -> Assert.Equal(Current, decoded.documentState)
@@ -528,6 +550,28 @@ let ``LoadResponse round-trip with packages`` () =
     Assert.Equal(1, decoded.events.Length)
     Assert.Equal(1, decoded.packages.Length)
     Assert.Equal(node.id, decoded.packages.[0].id)
+    Assert.True(Map.containsKey node.id decoded.packageChildMap)
+
+[<Fact>]
+let ``LoadResponse round-trip keeps Unloaded package header absent`` () =
+    let header =
+        Node.Create(NodeId.New(), text = "ws header", owner = Graph.rootId)
+    let response: LoadResponse =
+        { eventId = EventIdFixtures.storedId 8
+          buildEpochSec = 10
+          pageBuildEpochSec = 20
+          apiVersion = ApiVersion.current
+          isReady = true
+          events = []
+          packages = [ header ]
+          packageChildMap = Map.empty }
+    let decoded =
+        roundTrip
+            ApiResponseSerialization.encodeLoadResponse
+            ApiResponseSerialization.decodeLoadResponseDecoder
+            response
+    Assert.Equal(header.id, decoded.packages.[0].id)
+    Assert.False(Map.containsKey header.id decoded.packageChildMap)
 
 [<Fact>]
 let ``LoadResponse decoder tolerates missing packages`` () =

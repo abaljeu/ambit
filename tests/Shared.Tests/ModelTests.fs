@@ -244,6 +244,20 @@ let ``Graph replace parent missing error ends with last 8 hex of parent id`` () 
         Assert.Equal(wantSuffix, msg.Substring("parent not found ".Length))
     | Ok _ -> Assert.Fail("expected Error")
 
+[<Fact>]
+let ``Graph.replace rejects Unloaded parent`` () =
+    let graph0 = Graph.create ()
+    let id = NodeId.New()
+    let node = Node.Create(id, text = "hollow")
+    let graph =
+        Graph.fromNodes
+            graph0.root
+            (Map.add id node graph0.nodes)
+            graph0.childMap
+    match Graph.replace id 0 [] [] graph with
+    | Error msg -> Assert.Equal("parent children not loaded", msg)
+    | Ok _ -> Assert.Fail("expected Error")
+
 // For Graph.replace node index oldList newList -> Result
 
 // replace: when old span matches, parent children are updated

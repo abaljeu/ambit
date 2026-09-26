@@ -65,7 +65,12 @@ module Api =
     let private loadPackages
         (handle: CoreChanges)
         (targets: LoadTarget list)
-        : Async<Result<Result<Node list * Map<NodeId, ChildNode list>, ResidentProjection.LoadRefuse>, string>> =
+        : Async<
+            Result<
+                Result<
+                    Node list * Map<NodeId, ChildNode list>,
+                    ResidentProjection.LoadRefuse>,
+                string>> =
         async {
             match! handle.getState () with
             | Error err -> return Error err

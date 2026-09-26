@@ -127,7 +127,10 @@ module DocumentFormat =
         (context: Graph)
         (readResult: DocumentNodesRead)
         : Result<Graph, string> =
-        let graphWithRead = { context with nodes = readResult.nodes }
+        let graphWithRead =
+            { context with
+                nodes = readResult.nodes
+                childMap = readResult.childMap }
         let overlayIds =
             DocumentPartition.memberNodeIds graphWithRead readResult.documentRootId
             |> Set.filter (fun nodeId ->
@@ -175,7 +178,7 @@ module DocumentFormat =
                     (fun childMap nodeId ->
                         match Map.tryFind nodeId readResult.childMap with
                         | Some kids -> Map.add nodeId kids childMap
-                        | None -> childMap)
+                        | None -> Map.remove nodeId childMap)
                     context.childMap
 
             Ok (Graph.fromNodes context.root mergedNodes mergedChildMap)
