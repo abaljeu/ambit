@@ -119,12 +119,11 @@ let ``resolve api key prefers CLI then user secret then env`` () =
 let ``apiKeyFromSecrets uses DefaultAiKey not a list index`` () =
     let lookup name =
         match name with
-        | "desktop" -> Some "desk-secret"
-        | "server" -> Some "srv-secret"
+        | "cursor" -> Some "cursor-secret"
         | _ -> None
     Assert.Equal(
-        Some "desk-secret",
-        ConsoleConfig.apiKeyFromSecrets (Some "desktop") lookup)
+        Some "cursor-secret",
+        ConsoleConfig.apiKeyFromSecrets (Some "cursor") lookup)
     Assert.Equal(
         None,
         ConsoleConfig.apiKeyFromSecrets None lookup)
@@ -133,7 +132,7 @@ let ``apiKeyFromSecrets uses DefaultAiKey not a list index`` () =
         ConsoleConfig.apiKeyFromSecrets (Some "missing") lookup)
     Assert.Equal(
         None,
-        ConsoleConfig.apiKeyFromSecrets (Some "desktop") (fun _ -> Some "  "))
+        ConsoleConfig.apiKeyFromSecrets (Some "cursor") (fun _ -> Some "  "))
 
 [<Fact>]
 let ``pickParams prefers non-empty CLI list`` () =

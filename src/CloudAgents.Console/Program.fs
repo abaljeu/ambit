@@ -18,7 +18,7 @@ let printUsage () =
     printfn "  Model, ModelParams, Repo, Ref, Name"
     printfn "  Level: ASPNETCORE_ENVIRONMENT or DOTNET_ENVIRONMENT"
     printfn "  ApiKey: --api-key, user-secrets, then CURSOR_API_KEY"
-    printfn "  Secrets: DefaultAiKey selects AiKeys:desktop"
+    printfn "  Secrets: DefaultAiKey=cursor plus AiKeys:cursor in user-secrets"
     printfn "  Catalog: cursor-models.json beside CloudAgents"
     printfn ""
     printfn "Example:"
@@ -255,7 +255,7 @@ let main argv =
     match settings.ApiKey with
     | None ->
         printfn "Error: no API key"
-        printfn "Set --api-key, user-secrets AiKeys:desktop, or CURSOR_API_KEY"
+        printfn "Set --api-key, user-secrets DefaultAiKey=cursor and AiKeys:cursor, or CURSOR_API_KEY"
         printfn "Get a key from: https://cursor.com/settings"
         1
     | Some apiKey ->

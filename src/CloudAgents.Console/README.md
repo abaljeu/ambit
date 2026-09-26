@@ -26,7 +26,7 @@ Load order: tracked `appsettings.json`, then `appsettings.<level>.json`. Search 
 
 CLI wins over the file for Model, ModelParams, Repo, Ref, and Name.
 
-The API key comes from `--api-key`, then the shared user-secrets store (`DefaultAiKey` and `AiKeys:desktop`), then `CURSOR_API_KEY`. Development sets `DefaultAiKey` to `desktop`. Production sets `DefaultAiKey` on its own.
+The API key comes from `--api-key`, then the shared user-secrets store (`DefaultAiKey=cursor` plus `AiKeys:cursor`), then `CURSOR_API_KEY`. Console does not read `DefaultAiKey` or `AiKeys` from appsettings. Set those two names in user-secrets. Server Production uses Azure App Settings `DefaultAiKey=cursor` and `AiKeys__cursor`, not this Console path.
 
 ```json
 {

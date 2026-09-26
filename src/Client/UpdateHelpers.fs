@@ -258,12 +258,9 @@ let adjustModeAfterServerApply (prevGraph: Graph) (model: VM) : VM =
     | _ -> model
 
 /// If `newText` differs from the graph, the same `SetText` op `commitTextEdit` would post (no mode change).
-let tryTextCommitOps (nodeId: NodeId) (originalTextForHistory: string) (newText: string) (graph: Graph) : Op list =
-    if nodeId = graph.root then
-        []
-    else
-        let modelText = graph.nodes.[nodeId].text
-        if newText = modelText then [] else [ Op.SetText(nodeId, originalTextForHistory, newText) ]
+/// Old text is the live node text, so a stale edit-start snapshot cannot fail compare-and-swap.
+let tryTextCommitOps (nodeId: NodeId) (newText: string) (graph: Graph) : Op list =
+    RunEditCommit.commitTextOps nodeId newText graph
 
 /// Apply a committed text edit to the model and POST to server.
 /// Returns the updated model and any effects.
@@ -273,7 +270,7 @@ let commitTextEdit
     (newText: string)
     (model: VM)
     : VM * Effect list =
-    match tryTextCommitOps nodeId _originalText newText model.graph with
+    match tryTextCommitOps nodeId newText model.graph with
     | [] -> withLastCmdOk { model with mode = Selecting }, []
     | ops ->
         match applyAndPost (displayName EditNode) ops model with
