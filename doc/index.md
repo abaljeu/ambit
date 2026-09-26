@@ -37,6 +37,10 @@ Summary: WebView2 proxy, `/_desktop/*` capabilities, import/export, and file-sta
 Details: [[doc/current/workspace-local-mapping.md]].
 Summary: Desktop config mapping workspace labels to absolute local filesystem roots.
 
+### **Workspace file sync**
+Details: [[doc/current/workspace-file-sync.md]].
+Summary: WebDAV Upload / Download, ignore inventory, prepare-push / finish-commit, download manager, and sync ledger.
+
 ## Currency Rules
 
 - This file describes the current program only. Planned work lives in `plan` Projects; the goto is [[plan/roadmap/map.md]].

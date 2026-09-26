@@ -37,6 +37,7 @@ Current feature baselines (`current/`):
 - [[current/workspace-local-mapping.md]] — desktop workspace label → local root config
 - [[current/desktop-local-files.md]] — desktop proxy and `/_desktop/*` API
 - [[current/workspace-stage-plan.md]] — implemented workspace stages through Stage 8
+- [[current/workspace-file-sync.md]] — App folder ↔ Server DataDir Upload / Download as-built
 
 Reference (`reference/`):
 

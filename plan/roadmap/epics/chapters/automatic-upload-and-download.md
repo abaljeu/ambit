@@ -19,4 +19,4 @@ Keep the person's files current on the App and in the Browser. Upload and Downlo
 
 ## Notes
 
-This Chapter is keep-files-current. Send to and from GitHub is [[send-to-and-from-github.md]]. Pattern home: [[plan/transport-layer/overview.md]]. File-shaped file→Graph stays [[plan/parse-actor/project.md]]. Want-driven Graph→Browser stays [[plan/browser-residency/project.md]].
+This Chapter is keep-files-current. Implemented tree sync is [[doc/current/workspace-file-sync.md]]. Send to and from GitHub is [[send-to-and-from-github.md]]. Pattern home: [[plan/transport-layer/overview.md]]. File-shaped file→Graph stays [[plan/parse-actor/project.md]]. Want-driven Graph→Browser stays [[plan/browser-residency/project.md]].

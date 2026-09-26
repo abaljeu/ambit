@@ -17,4 +17,4 @@ The person sends work to GitHub and brings work from GitHub. The Workspace stays
 
 ## Notes
 
-Keep files current with the Server stays on [[automatic-upload-and-download.md]]. Mapping is Current ([[doc/current/workspace-local-mapping.md]]). Detail lives on [[plan/github-transport/project.md]]. [[plan/roadmap/epics/agent-chat-managed-context.md]] depends on this Chapter. That Epic does not own it.
+Keep files current with the Server stays on [[automatic-upload-and-download.md]] ([[doc/current/workspace-file-sync.md]]). Mapping is Current ([[doc/current/workspace-local-mapping.md]]). Detail lives on [[plan/github-transport/project.md]]. [[plan/roadmap/epics/agent-chat-managed-context.md]] depends on this Chapter. That Epic does not own it.

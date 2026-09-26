@@ -11,6 +11,7 @@ Current documents remain authoritative for implemented behavior. This index orga
 - [[doc/current/workspace-local-mapping]]
 - [[doc/current/workspace-stage-plan]]
 - [[doc/current/desktop-local-files]]
+- [[doc/current/workspace-file-sync]]
 - [[doc/current/persistence-model]]
 
 ## Active roadmaps
@@ -58,7 +59,7 @@ The range 35f2976..22e28ca changed 20 documentation paths.
 
 - [[doc/roadmap/workspace-scale-import]]
 - [[doc/roadmap/workspace-scale-file-and-db-management]]
-- leftover `doc/roadmap/workspace-file-sync` — addressed; see [[plan/transport-layer/project.md]] and [[plan/github-transport/project.md]]
+- leftover `doc/roadmap/workspace-file-sync` — addressed and deleted; implemented tree sync is [[doc/current/workspace-file-sync.md]]; forward GitHub is [[plan/github-transport/project.md]]
 - [[doc/roadmap/workspace-file-model]]
 - [[doc/roadmap/revising-workspace-file-model]]
 - [[doc/roadmap/workspace-file-persistence]]
