@@ -4,11 +4,11 @@ Spec: [[spec.md]]
 Updated: 2026-09-25
 Sequence: module-build
 
-Sources: [map.md](map.md) Decisions (arch grill 2026-09-24; Alan lock 2026-09-24/25 remap); form example [plan/llm-connector/arch.md](../llm-connector/arch.md); Focus stream helpers from [18 — AI Actor stream](../llm-connector/issues/18-ai-actor-stream.md) (`done`) / `FocusXmlStream`. Checklist: `[x]` already true of the codebase shape; `[ ]` still to build. First slice is oneshot library [24 — CloudAgents Grok Bot oneshot stream](../llm-connector/issues/24-cloudagents-grokbot-oneshot.md) (`done`) plus Actor wiring [05 — Run Agent Actor Grok Bot oneshot](issues/05-run-agent-grokbot-oneshot.md). Tickets [01 — CoreActorPool sessionId + deliver + commandId exclusivity](issues/01-coreactorpool-sessionid-deliver.md)–[03 — gbot Run Agent: wake + inbox → Focus stream](issues/03-gbot-wake-inbox-focus.md) stay the eventual channel target. Destination keep-alive chat wire stays planned.
+Sources: [map.md](map.md) Decisions (arch grill 2026-09-24; Alan lock 2026-09-24/25 remap; keep-open lock 2026-09-25); form example [plan/llm-connector/arch.md](../llm-connector/arch.md); Focus stream helpers from [18 — AI Actor stream](../llm-connector/issues/18-ai-actor-stream.md) (`done`) / `FocusXmlStream`. Checklist: `[x]` already true of the codebase shape; `[ ]` still to build. Oneshot library [24 — CloudAgents Grok Bot oneshot stream](../llm-connector/issues/24-cloudagents-grokbot-oneshot.md) (`done`) plus Actor wiring [05 — Run Agent Actor Grok Bot oneshot](issues/05-run-agent-grokbot-oneshot.md) are shipped. Current increment is [08 — gbot keep-open listening](issues/08-gbot-keep-open-listening.md). Tickets [01 — CoreActorPool sessionId + deliver + commandId exclusivity](issues/01-coreactorpool-sessionid-deliver.md)–[03 — gbot Run Agent: wake + inbox → Focus stream](issues/03-gbot-wake-inbox-focus.md) stay the eventual fuller channel.
 
 ## 1. Story paths
 
-**First-slice cut (implement now):** `?ai gbot` on existing [src/Server/RunAgentActor.fs](../../src/Server/RunAgentActor.fs) uses `GrokBotRunner` (wake + `streamUntilComplete` + cancel). Shared FocusXmlStream fold stays one path with cursor `AgentRunner`. Composition binds `GrokBotConfig` from `grokbot:WakeUrl` / `WakeSecret` / `InboundSecret`. No Server inbox loop, no WakeHttp Actor path, no second Actor name. Proofs use `GrokBotRunner.setFake` / `setFakeStream`.
+**First-slice cut (implement now):** `?ai gbot` on existing [src/Server/RunAgentActor.fs](../../src/Server/RunAgentActor.fs) uses `GrokBotRunner` (wake + `streamUntilComplete` + cancel). Shared FocusXmlStream fold stays one path with cursor `AgentRunner`. Empty-text Done flushes the turn and does **not** Finish the Actor ([08 — gbot keep-open listening](issues/08-gbot-keep-open-listening.md)). Composition binds `GrokBotConfig` from `grokbot:WakeUrl` / `WakeSecret` / `InboundSecret`. No Server inbox loop, no WakeHttp Actor path, no second Actor name. Proofs use `GrokBotRunner.setFake` / `setFakeStream`.
 
 **Eventual (do not implement now):** paths **Run gbot wake (eventual)**, **Inbound deliver (eventual)**, **Focus stream from inbox (eventual)**, and TestActor `?test gbot` simulation. Those stay [01 — CoreActorPool sessionId + deliver + commandId exclusivity](issues/01-coreactorpool-sessionid-deliver.md)–[03 — gbot Run Agent: wake + inbox → Focus stream](issues/03-gbot-wake-inbox-focus.md).
 
@@ -43,11 +43,11 @@ Sources: [map.md](map.md) Decisions (arch grill 2026-09-24; Alan lock 2026-09-24
    1. [ ] Browser Run `?ai gbot` on the existing typed ActorStart path (Actor name still `ai`)
    2. [ ] First token `gbot` selects `GrokBotRunner`; other behaviors keep Cursor `AgentRunner`
    3. [ ] Pack extract via shared `AiExtractPack`; wake + `streamUntilComplete` + FocusXmlStream fold on `AssistantText`
-   4. [ ] Finish on `RunFinished` (same class of terminus as cursor); Cancel mid-stream via `GrokBotRunner.cancel`
+   4. [ ] Empty-text `RunFinished` flushes Focus and keeps `streamUntilComplete` listening ([08 — gbot keep-open listening](issues/08-gbot-keep-open-listening.md)); Cancel mid-stream via `GrokBotRunner.cancel`
    5. [ ] Empty `WakeUrl` fails safely without writing secrets
-   6. [x] Empty inbound `text` is oneshot Done — already coded on `GrokBotRunner.deliver`; do not redesign
+   6. [x] Empty inbound `text` is oneshot Done mapping (`GrokBotRunner.deliver` → `RunFinished`) — keep the mapping for turn flush; do not Finish the Actor on it
    7. [x] Wake JSON includes absolute `responseUrl` for `/ambit/actors/deliver` ([06 — Wake response URL](issues/06-wake-response-url.md))
-   8. [ ] Later destination (not this slice): keep-alive until Cancel/drop; inbox deliver; subsequent outbound wakes; fuller-channel `kind: close` / close-notify
+   8. [ ] Later destination (not this slice): subsequent outbound wakes; fuller-channel `kind: close` / close-notify
 
 6. **Secrets bind (first slice composition)**
    1. [ ] Composition binds `GrokBotConfig` from `grokbot:WakeUrl`, `grokbot:WakeSecret`, `grokbot:InboundSecret` (.NET User Secrets / config)
@@ -151,7 +151,7 @@ Narrowest shared test seam:
    2. Interface
       1. [ ] Parse Command behavior: first token `gbot` selects `GrokBotRunner`; further tokens ignored in first slice; other behaviors keep Cursor `AgentRunner`
       2. [ ] On start: pack Focus extract (`AiExtractPack` shared with cursor); `GrokBotRunner.wake` with three ids plus absolute `responseUrl`; `streamUntilComplete` + shared FocusXmlStream fold
-      3. [ ] First slice terminus: `RunFinished` → Finish (same class as cursor). Oneshot Done is empty `text` on deliver. Wake JSON includes absolute `responseUrl` ([06 — Wake response URL](issues/06-wake-response-url.md)). Next query is a new oneshot
+      3. [ ] Current increment: empty-text `RunFinished` flushes and does not Finish ([08 — gbot keep-open listening](issues/08-gbot-keep-open-listening.md)). Wake JSON includes absolute `responseUrl` ([06 — Wake response URL](issues/06-wake-response-url.md)). Same `sessionId` stays live for later deliver texts
       4. [ ] On Cancel token / drop: `GrokBotRunner.cancel` mid-stream; no close-notify wake
       5. [ ] Never expose a bot Graph write API; never Finish solely because wake acked
       6. [ ] Later destination (not this slice): inbox loop via [01 — CoreActorPool sessionId + deliver + commandId exclusivity](issues/01-coreactorpool-sessionid-deliver.md)–[03 — gbot Run Agent: wake + inbox → Focus stream](issues/03-gbot-wake-inbox-focus.md)
@@ -194,7 +194,7 @@ Narrowest shared test seam:
 2. [ ] **ActorsDeliverDoor ↔ CoreActorPool.deliver** — sole inbound bot→Actor door; secret checked before deliver
 3. [ ] **GrokBotConfig ↔ User Secrets** — `grokbot:*` bind at composition; library stays settings-blind. Eventual inbound door reads the same config later
 4. [x] **GrokBotRunner ↔ Admiral hub / bot webhook** — outbound ack-only in CloudAgents ([24 — CloudAgents Grok Bot oneshot stream](../llm-connector/issues/24-cloudagents-grokbot-oneshot.md) `done`); wake auth `Authorization: Bearer {WakeSecret}` ([25 — Grok Bot wake auth Bearer](../llm-connector/issues/25-grokbot-wake-auth-bearer.md)). Absolute `responseUrl` on that JSON is [06 — Wake response URL](issues/06-wake-response-url.md).
-5. [ ] **Run Agent Actor ↔ GrokBotRunner** — first token `gbot` uses wake + shared FocusXmlStream fold + Finish on `RunFinished`
+5. [ ] **Run Agent Actor ↔ GrokBotRunner** — first token `gbot` uses wake + shared FocusXmlStream fold; empty-text `RunFinished` flushes and keeps listening ([08 — gbot keep-open listening](issues/08-gbot-keep-open-listening.md))
 6. [ ] **gbot function ↔ FocusXmlStream** — Interface on **Run Agent Actor — gbot function**; reuses [18 — AI Actor stream](../llm-connector/issues/18-ai-actor-stream.md) helpers (`done`); one fold for both backends
 7. [x] **CoreActorPool ↔ Focus exclusivity** — existing admit; this Project adds `commandId` exclusivity beside it
 8. [ ] **TestActor ↔ deliver + FocusXmlStream** — Interface on **TestActor**; primary deterministic seam (no hub)

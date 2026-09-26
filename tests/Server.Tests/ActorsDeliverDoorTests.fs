@@ -56,40 +56,41 @@ let ``unknown sessionId is 404`` () =
             """{"sessionId":"missing","text":"hi"}"""
     Assert.Equal(404, statusCode result)
 
-[<Fact>]
-let ``good secret delivers chunk then empty Done`` () =
-    Assert.True(GrokBotRunner.setFake None)
-    let seen = ResizeArray<string * string>()
-    let deliver (sessionId, text) =
-        seen.Add(sessionId, text)
-        Ok()
-    let chunk =
-        Api.postActorsDeliver
-            unusedConfig.InboundSecret
-            unusedConfig.InboundSecret
-            deliver
-            """{"sessionId":"sess-door","text":"<n>Hi</n>"}"""
-    Assert.Equal(200, statusCode chunk)
-    let doneAck =
-        Api.postActorsDeliver
-            unusedConfig.InboundSecret
-            unusedConfig.InboundSecret
-            deliver
-            """{"sessionId":"sess-door","text":""}"""
-    Assert.Equal(200, statusCode doneAck)
-    Assert.Equal(2, seen.Count)
-    let fold =
-        { Seed = []
-          OnEvent = fun acc ev -> ev :: acc }
-    match
-        GrokBotRunner.streamUntilComplete
-            { Config = unusedConfig
-              SessionId = "sess-door"
-              PollIntervalMs = 10
-              MaxWaitMs = Some 2000 }
-            fold
-    with
-    | Ok(result, events) ->
-        Assert.Equal("<n>Hi</n>", result.Text)
-        Assert.Equal(2, List.length events)
-    | Error err -> Assert.Fail($"stream: {err}")
+[<Collection("GrokBot actor")>]
+type ActorsDeliverDoorGrokTests() =
+    [<Fact>]
+    member _.``good secret delivers chunk then empty Done``() =
+        Assert.True(GrokBotRunner.setFake None)
+        let seen = ResizeArray<string * string>()
+        let deliver (sessionId, text) =
+            seen.Add(sessionId, text)
+            Ok()
+        let chunk =
+            Api.postActorsDeliver
+                unusedConfig.InboundSecret
+                unusedConfig.InboundSecret
+                deliver
+                """{"sessionId":"sess-door","text":"<n>Hi</n>"}"""
+        Assert.Equal(200, statusCode chunk)
+        let doneAck =
+            Api.postActorsDeliver
+                unusedConfig.InboundSecret
+                unusedConfig.InboundSecret
+                deliver
+                """{"sessionId":"sess-door","text":""}"""
+        Assert.Equal(200, statusCode doneAck)
+        Assert.Equal(2, seen.Count)
+        let fold =
+            { Seed = []
+              OnEvent = fun acc ev -> ev :: acc }
+        match
+            GrokBotRunner.streamUntilComplete
+                { Config = unusedConfig
+                  SessionId = "sess-door"
+                  PollIntervalMs = 10
+                  MaxWaitMs = Some 200 }
+                fold
+        with
+        | Error AgentError.Timeout -> ()
+        | other ->
+            Assert.Fail($"expected keep-open Timeout, {other}")
