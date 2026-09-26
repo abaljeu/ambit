@@ -1,41 +1,47 @@
-# 11 — Migrate Bullet, Included, and bootstrap wants
+# 11 — Migrate Bullet and Included readers
 
 **Type:** coding
-**Status:** blocked
-**Blocked by:** [07 — Expand Want and edges/Nodes package](07-expand-want-and-edges-nodes-package.md)
+**Status:** defined
+**Blocked by:** None — can start immediately
 
 ## Context
 
-Bullet, Included, and SiteMap still read Node children and `childrenStatus`. After expand, `Graph.childMap` and visible-closure bootstrap exist beside the old lists. This batch switches those readers so an Unloaded Node shows a hollow-circle Bullet until Children arrive, and Fold still bounds Included.
+Bullet and Included must read `Graph.childMap` consistently so an Unloaded Node shows a hollow-circle Bullet until Children arrive and Fold bounds Included. Production bootstrap belongs to [09 — Migrate Server Sync doors](09-migrate-server-sync-doors.md), not this ticket.
 
 ## What to build
 
-The hollow-circle Bullet follows absent `childMap` or Unparsed. Included walks `childMap` and honors Fold. Production bootstrap uses visible-closure. No new per-Node loading Status. No new command that names Nodes.
+The hollow-circle Bullet follows absent `childMap` or Unparsed. Included walks `childMap` and honors Fold. Remove any remaining reader of the retired Node-children residency shape. No new per-Node loading Status. No new command that names Nodes.
 
 ### 1. Bullet
 
 Module [Bullet](../arch.md). Story paths 10, 11, 12, 26, 34.
 
-1. [ ] Absent key is hollow Unloaded — 10.2, 24.3: indicator reads absent `childMap` as Unloaded
-2. [ ] Unparsed stays hollow — 11.1: Unparsed keeps the same hollow-circle Bullet
-3. [ ] Children arrive — 26.1: after install, chevron or solid replaces hollow when Loaded and not Unparsed
-4. [ ] Unloaded is not empty — 34.1: absent key never renders as a Loaded leaf
-5. [ ] No new loading Status — 12.2: residency stays `childMap` plus Unparsed
+- [ ] 11.2.2 Absent key is hollow Unloaded — indicator reads absent `childMap` as Unloaded
+- [ ] 11.2.1 Unparsed stays hollow — Unparsed keeps the same hollow-circle Bullet
+- [ ] 26.2 Children arrive — chevron or solid replaces hollow when Loaded and not Unparsed
+- [ ] 34.1 Unloaded is not empty — absent key never renders as a Loaded leaf
+- [ ] 12.2 No new loading Status — residency stays `childMap` plus Unparsed
 
 ### 2. Included
 
 Module [Included](../arch.md). Story path 33.
 
-1. [ ] Walk childMap — 4.2.2: `expand` walks `childMap`, not Node.children
-2. [ ] Honor Fold — 33.1: stop at folded children
+- [ ] 4.2.2 Walk childMap — `expand` walks `childMap`, not Node children
+- [ ] 33.1 Honor Fold — stop at folded children
 
-### 3. Graph childMap and bootstrap
+### 3. Graph childMap constraints
 
-Modules [Graph childMap](../arch.md), [ResidentProjection](../arch.md). Story paths 2, 8, 32.
+Module [Graph childMap](../arch.md). Story path 32.
 
-1. [ ] Production bootstrap — 8.1: first paint uses visible-closure, not complete Workspace
-2. [ ] Not a complete Workspace — 8.2: do not call complete-ROOT `rootBootstrapGraph` as the production scope
-3. [ ] No new named-Node command — 32.1: silent wants are enough
+- [ ] 1.2.1 One residency reader — Bullet and Included use `Graph.childMap`; no retired Node-children residency read remains in these paths
+- [ ] 32.1 No new named-Node command — silent wants are enough
+
+### 4. Reader proof
+
+Prove the UI distinction at the Shared view-model seams.
+
+- [ ] 10.2, 25.3, and 26.2 Indicator proof — absent, empty Loaded, populated Loaded, and Unparsed cases render the specified glyph
+- [ ] 33.1 Included proof — Fold bounds traversal while `childMap` supplies Children
 
 ## See also
 
@@ -44,3 +50,5 @@ Modules [Graph childMap](../arch.md), [ResidentProjection](../arch.md). Story pa
 ## Comments
 
 - 2026-09-26: Filed via `/to-tickets`. Migrate batch. Blocked by expand.
+- 2026-09-26: Production bootstrap ownership moved to [09 — Migrate Server Sync doors](09-migrate-server-sync-doors.md); this ticket now owns only Bullet and Included readers.
+- 2026-09-26: Republished via `/to-tickets`; completed expand 07 clears this ticket's live blockers.

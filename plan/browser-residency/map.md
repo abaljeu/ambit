@@ -4,9 +4,9 @@ Labels: wayfinder:map
 
 ## 1. Destination
 
-A person opens the Browser on a Graph that is already large on the Server. The Browser starts with a small visible-closure Graph (Included context and the path that frames it), not the whole Server Graph. It grows by auto wants: first visible Nodes that miss Children, then those Children. An Unloaded Node shows a hollow-circle Bullet until those Children arrive. Auto wants need no click and no command. When Find picks a hit that is not Resident, later work may Fetch those Nodes before navigate (see tickets). Post-Event and Poll carry Changes plus the Nodes the Browser wants. Commands that name Nodes come later and are not required for this destination.
+A person opens the Browser on a Graph that is already large on the Server. The Browser starts with a small Zoom-scoped bootstrap Graph, not the whole Server Graph. It grows by auto wants that the Browser computes from its ViewModel: Included Nodes that miss Children. After an answer is installed, Fold-aware Included is computed again, so the next rank can become the next Want. An Unloaded Node shows a hollow-circle Bullet until those Children arrive. Auto wants need no click and no command. When Find picks a hit that is not Resident, later work may Fetch those Nodes before navigate (see tickets). Post-Event and Poll carry Changes plus the current Want. Commands that name Nodes come later and are not required for this destination.
 
-Bootstrap is that same Zoom-scoped visible-closure, not a complete Workspace: Children of reserved Nodes ROOT, TRASH, Workspaces Node, and SYSTEM, plus ancestors of the Zoom root, plus Included. Auto wants ride post-Event and Poll with Changes. The Server answers with child edges (`Graph.childMap`) and the Nodes those edges point at. Hollow-circle presentation stays Unloaded (absent `childMap` key) or Unparsed as today. Find defaults to residence only; a Server-mode Find is later work on this map.
+Bootstrap is a small visible-closure, not a complete Workspace: Children of reserved Nodes ROOT, TRASH, Workspaces Node, and SYSTEM, plus the ancestor path to the Zoom root and the Zoom root's Children. The saved Zoom only frames initial State; it does not tell the Server what Fold-aware Included means. Fold restore remains Browser session state. After restore, `Want.compose` computes the Want list from the ViewModel and the Browser sends it. Auto wants ride every post-Event and Poll with Changes. The Server answers with child edges (`Graph.childMap`) and the Nodes those edges point at. Hollow-circle presentation stays Unloaded (absent `childMap` key) or Unparsed as today. Find defaults to residence only; a Server-mode Find is postponed on this map.
 
 ## 2. Notes
 
@@ -16,23 +16,26 @@ Bootstrap is that same Zoom-scoped visible-closure, not a complete Workspace: Ch
 4. **Vocabulary** — Prefer CONTEXT terms Resident, Unloaded, Included, Fetch, Load, Poll, Change, and `childMap`.
 5. **Silent residency growth** — Auto wants ride post-Event and Poll with Changes. The Server answers with edges plus Nodes. Auto growth is not the user-facing Load command. Do not un-wire hollow-circle → Load if present; hollow-click Load may remain, but the auto path does not require a click or a command.
 6. **Want** — A Want names Nodes whose Children are desired. The answer returns child edges (`Graph.childMap`) and the Nodes those edges point at — no dangling edges. An absent `childMap` key is Unloaded. This matches the childMap redesign.
-7. **Want priority (ongoing)** — (1) Included Nodes that miss Children, (2) those Children. Reserved Nodes and Zoom ancestors are bootstrap, not a third ongoing tier.
+7. **Want computation (ongoing)** — `Want.compose` returns Fold-aware Included Nodes that miss Children. After an answer is installed, the Browser computes Included again; newly Included Children can then enter the next Want. Reserved Nodes and the Zoom framing path are not an ongoing tier.
 8. **Hollow circle** — Unloaded (absent `childMap`) or Unparsed as today. No new per-Node loading Status.
 9. **Find** — Default searches residence only. A later ticket on this map redesigns a Server mode that asks the Server and the Browser receives found Nodes.
-10. **Explicit Load** — May dual-run the old Fetch path. New auto and bootstrap use the edges-plus-Nodes package. Migrate or dual-run is a later ticket on this map.
+10. **Explicit Load** — The Load command remains, but its Fetch stage uses the same edges-plus-Nodes answer as Poll and post-Event. The legacy `packages` API is removed; there is no dual-run or compatibility path.
 11. **Parse Actor** — How Parse consumes Browser wants is out of scope. Pointer: [[plan/parse-actor/project.md]].
 12. **File transit** — Out of scope. Pointer: [[plan/transport-layer/project.md]].
 13. **Selective leftovers** — [28 — Make hollow-circle clicks invoke Load](plan/selective-client-loading/issues/28-make-hollow-circle-clicks-invoke-load.md) and [29 — Validate two-phase state loading exploration](plan/selective-client-loading/issues/29-validate-two-phase-state-loading.md) are cancelled against this destination. [24 — Keep navigation and Find resident-only](plan/selective-client-loading/issues/24-keep-navigation-and-find-resident-only.md), [27 — Document delivered selective-loading baseline](plan/selective-client-loading/issues/27-document-delivered-selective-loading-baseline.md), [30 — Ledger reuse on already-synced Load](plan/selective-client-loading/issues/30-ledger-reuse-on-already-synced-load.md), [31 — Skip workspace-inventory when Unloaded](plan/selective-client-loading/issues/31-skip-workspace-inventory-when-unloaded.md), and [32 — Defer or narrow path-sync ledger waterfall after push](plan/selective-client-loading/issues/32-defer-path-sync-ledger-waterfall.md) are cancelled or retargeted from that done Project. Pointers live on [04 — Retire selective hollow-click and resident-only Find assumptions](issues/04-retire-selective-hollow-click-find.md).
 
 ## 3. Decisions so far
 
-1. **ApiVersion bump** — ApiVersion = (old major).(minor + 1) when the Want + edges/Nodes package ships (bump minor on the existing major).
-2. **No throttle** — Expect only a few wants at a time; no batching or backpressure design.
-3. **Same wants** — App and Browser use the same wants.
+1. **[01 — Lock Sync want + edges/Nodes package shape](issues/01-lock-sync-want-package-shape.md)** — Current-version-only wire: required `want` request field; `nodes` plus `childMap` answer; `ApiVersion.current = 13`; no interoperation between versions.
+2. **[02 — Lock bootstrap visible-closure set](issues/02-lock-bootstrap-visible-closure.md)** — Initial `/state` uses saved Zoom only for a small base Graph. After local Fold restore, the Browser computes and sends the ViewModel-derived Want list; the Server does not derive Included.
+3. **[03 — Lock ongoing want priority and when wants are attached](issues/03-lock-ongoing-want-priority.md)** — Every Poll and post-Event carries the current `Want.compose` result, including `[]`; recompute after each install; repeated Wants are allowed.
+4. **[06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md)** — No dual-run: explicit Load Fetch uses the edges-plus-Nodes answer and the legacy `packages` API is removed.
+5. **No throttle** — Expect only a few wants at a time; no batching or backpressure design.
+6. **Same wants** — App and Browser use the same wants.
 
 ## 4. Not yet specified
 
-<!-- see "Fog of war": in-scope fog you can't ticket yet; graduates as the frontier advances; numbered list when items exist -->
+1. **[05 — Chart server-mode Find](issues/05-chart-server-mode-find.md)** — Server Find and Fetch-before-navigate remain postponed. They do not gate the current residence-only Find path or residency migration tickets.
 
 ## 5. Out of scope
 
