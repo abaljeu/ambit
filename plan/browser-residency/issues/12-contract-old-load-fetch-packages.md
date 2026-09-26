@@ -1,8 +1,8 @@
 # 12 — Contract old Load Fetch packages
 
 **Type:** coding
-**Status:** blocked
-**Blocked by:** [06 — Dual-run vs migrate explicit Load Fetch](06-dual-run-vs-migrate-explicit-load.md), [08 — Migrate Shared wire](08-migrate-shared-wire.md), [09 — Migrate Server Sync doors](09-migrate-server-sync-doors.md), [10 — Migrate Browser Poll, post-Event, and Boot](10-migrate-browser-poll-post-event-and-boot.md), [11 — Migrate Bullet, Included, and bootstrap wants](11-migrate-bullet-included-and-bootstrap-wants.md)
+**Status:** defined
+**Blocked by:** [06 — Dual-run vs migrate explicit Load Fetch](06-dual-run-vs-migrate-explicit-load.md), [08 — Migrate Shared wire](08-migrate-shared-wire.md), [09 — Migrate Server Sync doors](09-migrate-server-sync-doors.md), [10 — Migrate Browser Poll, post-Event, and Boot](10-migrate-browser-poll-post-event-and-boot.md), [11 — Migrate Bullet and Included readers](11-migrate-bullet-included-and-bootstrap-wants.md)
 
 ## Context
 
@@ -10,7 +10,7 @@ After expand and migrate, Poll, post-Event, and bootstrap use edges plus Nodes. 
 
 ## What to build
 
-Remove the old Load Fetch `packages` path once no caller remains and 06 has locked the cut. Load may still run Upload and Parse. Auto wants stay on Poll and post-Event. Hollow-click Load may remain as the Load command; it must not need the old `packages` type.
+Implement the cut recorded in [06 — Dual-run vs migrate explicit Load Fetch](06-dual-run-vs-migrate-explicit-load.md) after every migration ticket is done. If 06 keeps the dual-run, cancel this ticket instead of inventing a package-removal cut. Load may still run Upload and Parse. Auto wants stay on Poll and post-Event.
 
 ### 1. Load command
 
@@ -35,3 +35,4 @@ Modules [Sync wire](../arch.md), [Server Sync doors](../arch.md).
 ## Comments
 
 - 2026-09-26: Filed via `/to-tickets`. Contract. Decision home is [06 — Dual-run vs migrate explicit Load Fetch](06-dual-run-vs-migrate-explicit-load.md).
+- 2026-09-26: Status changed to `defined`; linked Blocked-by tickets carry dependency order.

@@ -1,10 +1,10 @@
 # Browser residency
 
 Stage: build
-Summary: The Browser starts with a small visible-closure Graph and grows by auto wants: Included Nodes that miss Children first, then those Children. An Unloaded Node shows a hollow-circle Bullet until those Children arrive. Find of a not-Resident hit is later Fetch-before-navigate work. Post-Event and Poll carry Changes plus wanted Nodes.
+Summary: The Browser starts with Fold-aware visible-closure and grows by recomputing Wants for Included Nodes that miss Children. An Unloaded Node shows a hollow-circle Bullet until its Children arrive. Server Find stays postponed. Every post-Event and Poll carries Changes plus the current Want.
 Updated: 2026-09-26
 Started: 2026-09-26
-Actual: 2.5h
+Actual: 3h
 
 **Part of:** [[plan/roadmap/epics/chapters/incremental-operations.md]]
 
@@ -16,4 +16,4 @@ Actual: 2.5h
 - Map: [[map.md]].
 - Spec: [[spec.md]].
 - Arch: [[arch.md]].
-- Implementation: [07 — Expand Want and edges/Nodes package](issues/07-expand-want-and-edges-nodes-package.md) through [12 — Contract old Load Fetch packages](issues/12-contract-old-load-fetch-packages.md).
+- Implementation: [07 — Expand Want and edges/Nodes package](issues/07-expand-want-and-edges-nodes-package.md) through [12 — Contract old Load Fetch packages](issues/12-contract-old-load-fetch-packages.md). The first implementation frontier is [08 — Migrate Shared wire](issues/08-migrate-shared-wire.md); [11 — Migrate Bullet and Included readers](issues/11-migrate-bullet-included-and-bootstrap-wants.md) can proceed independently.

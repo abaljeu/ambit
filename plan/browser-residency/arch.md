@@ -4,7 +4,7 @@ Spec: [[spec.md]]
 Updated: 2026-09-26
 Sequence: expand-contract
 
-Sources: [map.md](map.md) Destination and Notes (2026-09-26 locks; Decisions so far empty); [spec.md](spec.md) Solution and 36 stories. Prefer existing seams. Field names for Want on the wire stay Unsettled ([01 — Lock Sync want + edges/Nodes package shape](issues/01-lock-sync-want-package-shape.md)). `Graph.childMap` (absent key = Unloaded) is the residency list. Checklist: `[x]` already true of the recorded shape; `[ ]` still to build. Sequence is expand-contract: expand Poll and post-Event with Want plus edges and Nodes; dual-run old Load Fetch `packages`; contract later when [06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md) kills the old path.
+Sources: [map.md](map.md) Destination, Notes, and Decisions so far (2026-09-26 locks); [spec.md](spec.md) Solution and 36 stories. Prefer existing seams. `Graph.childMap` (absent key = Unloaded) is the residency list. Checklist: `[x]` already true of the recorded shape; `[ ]` still to build. Sequence is expand-contract inside the current code version: Poll, post-Event, and bootstrap migrate directly to required Want and Fold-aware request fields, with no cross-version interoperation or compatibility form. Old Load Fetch `packages` dual-run until [06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md) locks their removal.
 
 ## 1. Story paths
 
@@ -15,9 +15,10 @@ Sources: [map.md](map.md) Destination and Notes (2026-09-26 locks; Decisions so 
    4. [ ] Browser first paint uses that scoped Graph only
 
 2. **Included first paint**
-   1. [ ] Visible-closure bootstrap includes Included under Zoom
-   2. [x] [src/Shared/IncludedDescendantIds.fs](src/Shared/IncludedDescendantIds.fs) walks SiteMap honoring Fold
-   3. [x] SiteMap render shows those Nodes
+   1. [ ] Bootstrap request carries Zoom plus Fold occurrence snapshots
+   2. [ ] Visible-closure bootstrap computes and includes Fold-aware Included under Zoom
+   3. [x] [src/Shared/IncludedDescendantIds.fs](src/Shared/IncludedDescendantIds.fs) walks SiteMap honoring Fold
+   4. [x] SiteMap render shows those Nodes
 
 3. **Framing path**
    1. [ ] Bootstrap includes ancestors of the Zoom root
@@ -45,7 +46,7 @@ Sources: [map.md](map.md) Destination and Notes (2026-09-26 locks; Decisions so 
    3. [ ] SYSTEM first-rank Nodes are Resident
 
 8. **Not a complete Workspace**
-   1. [ ] `ResidentProjection.bootstrapGraph` stops at visible-closure
+   1. [ ] Production `/state` uses `ResidentProjection.visibleClosureGraph`
    2. [ ] It does not call today's complete-ROOT `rootBootstrapGraph` / extra Workspace package as the production scope
    3. [x] `BootstrapScope.FullGraph` stays a test door (`?scope=full`)
 
@@ -74,15 +75,15 @@ Sources: [map.md](map.md) Destination and Notes (2026-09-26 locks; Decisions so 
     2. [ ] [src/Client/App.fs](src/Client/App.fs) attaches that Want on Poll and post-Event
     3. [ ] No click and no Load
 
-14. **Auto want those Children**
-    1. [x] Want module lists those Children second
-    2. [ ] Same Poll / post-Event doors carry the combined Want
-    3. [ ] Server answers their `childMap` edges plus Nodes
+14. **Next rank after recompute**
+    1. [x] Want module lists current Fold-aware Included Nodes that miss Children
+    2. [ ] After install, Browser recomputes Fold-aware Included
+    3. [ ] Newly Included Children may enter the next Poll / post-Event Want
 
 15. **No third ongoing tier**
     1. [x] Want.compose does not add reserved Nodes or Zoom ancestors as an ongoing tier
     2. [x] Those ids stay bootstrap-only
-    3. [x] Shared test asserts two-tier order only
+    3. [x] Shared test asserts the single Fold-aware Included rule
 
 16. **No click**
     1. [x] RowView Bullet click is fold / select, not Want
@@ -105,9 +106,9 @@ Sources: [map.md](map.md) Destination and Notes (2026-09-26 locks; Decisions so 
     3. [ ] [src/Server/Api.fs](src/Server/Api.fs) `postEvents` answers Changes plus edges plus Nodes
 
 20. **Wants on Poll**
-    1. [x] App `runPollServer` GETs `/{file}/poll`
-    2. [ ] Request carries the current Want (query or body — Unsettled field names)
-    3. [ ] `Api.getPoll` answers Changes plus edges plus Nodes
+    1. [x] `PollRequest` has required `eventId` and `want` fields
+    2. [ ] App `runPollServer` POSTs `PollRequest` to `/{file}/poll`
+    3. [ ] `Api.postPoll` answers Changes plus edges plus Nodes
 
 21. **Edges in the answer**
     1. [ ] Server builds `childMap` entries for each wanted parent
@@ -123,7 +124,8 @@ Sources: [map.md](map.md) Destination and Notes (2026-09-26 locks; Decisions so 
 23. **No dangling edges**
     1. [x] Install refuses an edge whose target is not in the Node collection and not already Resident
     2. [x] Shared test covers the refuse
-    3. [ ] Browser Graph never shows a header-less Child
+    3. [ ] Server `wantAnswer` includes every target Node for every emitted edge
+    4. [ ] Browser Graph never shows a header-less Child
 
 24. **Absent key stays Unloaded**
     1. [x] Destination rule: absent `childMap` key = Unloaded
@@ -192,7 +194,7 @@ Sources: [map.md](map.md) Destination and Notes (2026-09-26 locks; Decisions so 
     3. [x] No Trash / System spelling in this Project's doors
 
 Shared segments:
-1. [x] Want.compose (Included missing Children, then those Children)
+1. [x] Want.compose (Fold-aware Included Nodes that miss Children; recompute after install)
 2. [ ] Poll and post-Event carry Want with Changes
 3. [ ] Server answers edges plus pointed-at Nodes (no dangling edges)
 4. [x] ResidentProjection installs that package into `Graph.childMap`
@@ -220,7 +222,7 @@ Narrowest shared test seam:
    1. State
       1. [x] None durable — a Want is a list of parent Node ids whose Children are desired
    2. Interface
-      1. [x] `compose: Graph * SiteMap * zoomRoot -> NodeId list` — (1) Included that miss Children, (2) those Children; no third tier
+      1. [x] `compose: Graph * SiteMap * zoomRoot -> NodeId list` — Fold-aware Included Nodes that miss Children; recompute after each install; no bootstrap tier
       2. [x] Empty list is allowed; request field is `want` (`[]` when empty)
    3. Uses
       1. [x] IncludedDescendantIds
@@ -231,9 +233,10 @@ Narrowest shared test seam:
    1. State
       1. [ ] None beyond the Graph it returns
    2. Interface
-      1. [x] `visibleClosureGraph` is reserved-plus-ancestors beside `rootBootstrapGraph`: `childMap` for ROOT, TRASH, Workspaces Node, SYSTEM; ancestors of Zoom root. Not Included ([02 — Lock bootstrap visible-closure set](issues/02-lock-bootstrap-visible-closure.md) / [11 — Migrate Bullet, Included, and bootstrap wants](issues/11-migrate-bullet-included-and-bootstrap-wants.md)). Not complete Workspace. Production `bootstrapGraph` still uses the old ROOT path
+      1. [ ] `visibleClosureGraph: Graph * zoomRoot * FoldOccurrenceSnapshot list -> Graph` computes `childMap` for ROOT, TRASH, Workspaces Node, and SYSTEM; Zoom ancestors; and Fold-aware Included. It is not a complete Workspace. [09 — Migrate Server Sync doors](issues/09-migrate-server-sync-doors.md) owns the production `/state` switch
       2. [x] `installWantAnswer: edges * nodes * Graph -> Result<Graph, string>` — edges and Nodes separately; refuse dangling edges
       3. [x] `packagesForTargets` / `installPackages` stay for dual-run Load Fetch
+      4. [ ] `wantAnswer: Graph * NodeId list -> childMap * Node list` — include every pointed-at Resident Child Node; do not emit dangling edges
    3. Uses
       1. [x] GraphBuild reserved ids
       2. [ ] Graph childMap
@@ -254,10 +257,12 @@ Narrowest shared test seam:
    1. State
       1. [x] `ChangeSuccessResponse` Events, `apiVersion`, Poll stamps
       2. [x] `LoadResponse.packages` for dual-run Fetch
-      3. [x] Additive Want-answer fields `nodes` + `childMap`. Request field `want`
+      3. [x] Want-answer fields `nodes` + `childMap`. Request field `want`
+      4. [ ] `StateRequest` carries `zoomId` plus `FoldOccurrenceSnapshot list`
    2. Interface
-      1. [x] Encode / decode Want on `PollRequest` / `ChangeRequest` without dropping Changes
+      1. [ ] Encode / decode required current-version fields on `StateRequest`, `PollRequest`, `ChangeRequest`, and `ChangeSuccessResponse`
       2. [x] `ApiVersion.current` is 13 (wire 1.3) with the Want + edges/Nodes package
+      3. [ ] Do not decode missing current-version fields and do not keep an old Poll or post-Event form
    3. Uses
       1. [x] Ev, EventId, Graph types
 
@@ -266,12 +271,12 @@ Narrowest shared test seam:
    1. State
       1. [x] None — doors read Core Graph / EventLog
    2. Interface
-      1. [ ] `getPoll` and `postEvents` accept Want and return Changes plus edges plus Nodes
-      2. [ ] `getState` returns visible-closure via ResidentProjection
+      1. [ ] `postPoll` and `postEvents` accept required Want and return Changes plus edges plus Nodes
+      2. [ ] `getState` accepts Zoom plus Fold occurrence snapshots and returns Fold-aware visible-closure via ResidentProjection
       3. [x] `postLoad` still returns `packages` (dual-run)
    3. Uses
       1. [x] CoreChanges `getState` / `getEventsSince` / `postEvents`
-      2. [ ] ResidentProjection bootstrap + Want answer
+      2. [ ] ResidentProjection visible-closure + `wantAnswer`
       3. [x] ApiResponses encode
 
 7. **Browser HTTP**
@@ -279,7 +284,7 @@ Narrowest shared test seam:
    1. State
       1. [x] In-memory VM Graph and `eventId`
    2. Interface
-      1. [ ] `runPollServer` sends current Want with Poll
+      1. [ ] `runPollServer` POSTs current-version `PollRequest` with the current Want
       2. [ ] POST `/{file}/changes` sends current Want with the Ev batch
       3. [x] `runLoadServer` still POSTs `/load` with `LoadRequest.targets`
    3. Uses
@@ -293,7 +298,8 @@ Narrowest shared test seam:
       1. [x] Boot cache / first Poll
    2. Interface
       1. [x] `runBootPoll` / `handleBootPoll` stay the first-paint Poll
-      2. [ ] First `/state` Graph is visible-closure; boot Poll may carry Want after that Graph exists
+      2. [ ] Bootstrap sends Zoom plus captured Fold occurrence snapshots before `/state`
+      3. [ ] First `/state` Graph is Fold-aware visible-closure; boot Poll may carry Want after that Graph exists
    3. Uses
       1. [x] ChangeSuccessResponse decode
       2. [ ] SyncLogic install when a Want answer is present
@@ -371,11 +377,11 @@ Narrowest shared test seam:
    1. [x] Interface on **Want** — Shared tests for priority and Fold
 2. **installWantAnswer**
    1. [x] Interface on **ResidentProjection** — edges plus Nodes; no dangling edges
-3. **bootstrapGraph**
-   1. [x] Interface on **ResidentProjection** — reserved-plus-ancestors `visibleClosureGraph` beside old `rootBootstrapGraph`; Included stays later
+3. **visibleClosureGraph**
+   1. [ ] Interface on **ResidentProjection** — Zoom plus Fold occurrence snapshots produce reserved Children, Zoom ancestors, and Fold-aware Included; [09 — Migrate Server Sync doors](issues/09-migrate-server-sync-doors.md) owns the production switch
 4. **ChangeSuccessResponse**
-   1. [x] Interface on **Sync wire** — Poll and post-Event share it; additive `nodes` + `childMap`
-5. **getPoll / postEvents / getState**
+   1. [ ] Interface on **Sync wire** — current-version Poll and post-Event require `want`; answer requires `nodes` + `childMap`
+5. **postPoll / postEvents / getState**
    1. [ ] Interface on **Server Sync doors**
 6. **runPollServer / POST changes**
    1. [ ] Interface on **Browser HTTP**
@@ -390,16 +396,13 @@ Narrowest shared test seam:
 
 ## 4. Alternative considered
 
-1. **Expand Poll and post-Event (chosen)** — Want and the edges-plus-Nodes answer ride the doors that already carry Changes ([src/Server/Api.fs](src/Server/Api.fs) `getPoll` / `postEvents`, [src/Client/App.fs](src/Client/App.fs) Poll and `/{file}/changes`). One flight, one apply order (Events then residency). Matches the Destination lock. Sequence expand-contract fits: additive fields now; old `LoadResponse.packages` stay until [06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md).
+1. **Migrate current-version Poll and post-Event (chosen)** — Want and the edges-plus-Nodes answer ride the doors that already carry Changes ([src/Server/Api.fs](src/Server/Api.fs) `postPoll` / `postEvents`, [src/Client/App.fs](src/Client/App.fs) Poll and `/{file}/changes`). One flight, one apply order (Events then residency). There is no old/new wire interoperation: request and answer fields are required for `ApiVersion.current = 13`. Expand-contract remains only for internal migration and old `LoadResponse.packages`, which stay until [06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md).
 2. **New Want door** — A separate GET/POST for Want. Splits Changes from residency, adds a second flight, and fights SyncPlanner single-flight. Rejected for this Project.
 3. **Auto growth through Load** — Reuse `tryStartLoad` / `/load` packages for Included Unloaded Nodes. Contradicts silent wants (no command) and would keep complete-Workspace packages. Rejected.
 
-Expand-contract won over module-build: the new depth (Want.compose + installWantAnswer) is small Shared surface, but the product change is a wire dual-run on existing doors, not a green-field module stack.
+Expand-contract won over module-build: the new depth (`Want.compose`, `wantAnswer`, and `installWantAnswer`) is small Shared surface, while old Load Fetch `packages` still need a later contract. Poll, post-Event, and bootstrap themselves migrate as one current wire version, without compatibility branches.
 
 ## 5. Unsettled
 
-1. **Want wire fields** — Exact request and response field names, edge-versus-Node JSON layout, empty-Want encoding. [01 — Lock Sync want + edges/Nodes package shape](issues/01-lock-sync-want-package-shape.md). The ApiVersion bump rule is locked on the map; this ticket still locks field shape.
-2. **Zoom-restore edge cases** — Missing or stale saved Zoom. [02 — Lock bootstrap visible-closure set](issues/02-lock-bootstrap-visible-closure.md).
-3. **Want cadence** — Whether every Poll and every post-Event always carry Want. [03 — Lock ongoing want priority and when wants are attached](issues/03-lock-ongoing-want-priority.md).
-4. **Server-mode Find** — Ask Server, receive found Nodes, Fetch before navigate. [05 — Chart server-mode Find](issues/05-chart-server-mode-find.md).
-5. **Load Fetch death** — When `packages` die. [06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md).
+1. **Server-mode Find** — Ask Server, receive found Nodes, Fetch before navigate. Postponed on [05 — Chart server-mode Find](issues/05-chart-server-mode-find.md); it does not gate residency migration.
+2. **Load Fetch death** — When `packages` die. [06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md).

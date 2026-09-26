@@ -1,26 +1,27 @@
 # 09 — Migrate Server Sync doors
 
 **Type:** coding
-**Status:** blocked
-**Blocked by:** [07 — Expand Want and edges/Nodes package](07-expand-want-and-edges-nodes-package.md)
+**Status:** defined
+**Blocked by:** [01 — Lock Sync want + edges/Nodes package shape](01-lock-sync-want-package-shape.md), [02 — Lock bootstrap visible-closure set](02-lock-bootstrap-visible-closure.md), [07 — Expand Want and edges/Nodes package](07-expand-want-and-edges-nodes-package.md), [08 — Migrate Shared wire](08-migrate-shared-wire.md)
 
 ## Context
 
-The Server still answers Poll and post-Event with Changes only, and `/state` still scopes a complete ROOT Workspace. After expand, Shared can build a Want answer and a visible-closure Graph. This batch switches the Server doors. The Server Graph stays large. Load Fetch `packages` stay.
+The Server still answers Poll and post-Event with Changes only, and `/state` still scopes a complete ROOT Workspace. Shared defines the strict current-version requests and answers. This batch owns the production Server switch: Fold-aware `/state`, Poll POST, post-Event Want answers, and the Server-side no-dangling builder. The Server Graph stays large. Load Fetch `packages` stay.
 
 ## What to build
 
-`getPoll` and `postEvents` accept Want and return Changes plus edges plus Nodes. `getState` returns visible-closure. `postLoad` still returns `packages`. App and Browser hit the same doors with the same Want.
+`postPoll` and `postEvents` require Want and return Changes plus edges plus Nodes. `getState` requires Zoom plus Fold occurrence snapshots and returns Fold-aware visible-closure. `postLoad` still returns `packages`.
 
 ### 1. Server Sync doors
 
 Module [Server Sync doors](../arch.md). Story paths 1, 19, 20, 35.
 
-1. [ ] Poll answers Want — 20.3: `getPoll` returns Changes plus edges plus Nodes
+1. [ ] Poll answers Want — story **Wants on Poll**: replace the old GET with current-version `postPoll`; return Changes plus edges plus Nodes
 2. [ ] post-Event answers Want — 19.3: `postEvents` returns Changes plus edges plus Nodes
-3. [ ] State is visible-closure — 1.3: `getState` uses bootstrapGraph, not the whole Server Graph
+3. [ ] State is visible-closure — stories **Open a large Server Graph** and **Included first paint**: `getState` calls the locked Fold-aware visible-closure projection
 4. [ ] Server stays large — 35.1: Core Graph stays complete; visible-closure is the Browser answer only
 5. [ ] Load packages remain — 6.2.3: `postLoad` still returns `packages`
+6. [ ] No compatibility doors — old Poll and post-Event wire forms are removed; only version 13 is accepted
 
 ### 2. Reserved bootstrap set
 
@@ -28,6 +29,16 @@ Module [Reserved ids](../arch.md). Story paths 4–7, 36.
 
 1. [ ] ROOT, TRASH, Workspaces Node, SYSTEM Children — 4.2–7.2, 36.2: first paint includes those Children
 2. [ ] SYSTEM spelling — 36.1: reserved Node SYSTEM stays SYSTEM
+3. [ ] Fold-aware Included — [02 — Lock bootstrap visible-closure set](02-lock-bootstrap-visible-closure.md): reconstruct occurrences from Zoom plus Fold snapshots and include Fold-aware Included before first paint
+4. [ ] Zoom fallback — missing or stale Zoom uses ROOT without widening to a complete Workspace
+
+### 3. Want answer
+
+Module [ResidentProjection](../arch.md). Story paths 21–23.
+
+1. [ ] Server package builder — `wantAnswer` reads the large Server Graph for each wanted parent
+2. [ ] No dangling edges — include every target Node for every emitted edge; omit an edge rather than emit a missing target
+3. [ ] Empty Want — `[]` returns empty `nodes` and `childMap`
 
 ## See also
 
@@ -36,3 +47,4 @@ Module [Reserved ids](../arch.md). Story paths 4–7, 36.
 ## Comments
 
 - 2026-09-26: Filed via `/to-tickets`. Migrate batch. Blocked by expand.
+- 2026-09-26: Redefined as the sole production Server-door and bootstrap owner.

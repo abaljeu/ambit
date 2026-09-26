@@ -2,12 +2,13 @@
 
 **Type:** coding
 **Status:** done
+**Blocked by:** None
 **Estimate:** 3h
 **Actual:** 2.5h
 
 ## Context
 
-A person opens the Browser on a Graph that is already large on the Server. Today Poll and post-Event carry Changes only, and Load Fetch still returns complete Workspace `packages`. Silent residency needs a Want list and an edges-plus-Nodes answer beside those old forms so nothing breaks. Locked grill (authoritative while [01 — Lock Sync want + edges/Nodes package shape](01-lock-sync-want-package-shape.md) is still on an open PR): request JSON field `want` as a `NodeId` list on Poll and post-Event; always send `want`; empty is `[]`. Answer on `ChangeSuccessResponse`: `nodes` plus `childMap`. `ApiVersion.current` is 13. Load keeps `packages` / `packageChildMap`. App and Browser use the same wants. There is no throttle.
+A person opens the Browser on a Graph that is already large on the Server. Poll and post-Event carried Changes only, and Load Fetch still returns complete Workspace `packages`. This expand slice added the Shared Want and edges-plus-Nodes shapes before production doors migrated. [01 — Lock Sync want + edges/Nodes package shape](01-lock-sync-want-package-shape.md) now owns the accepted current-version wire: request JSON field `want` as a `NodeId` list on Poll and post-Event; always send `want`; empty is `[]`. Answer on `ChangeSuccessResponse`: `nodes` plus `childMap`. `ApiVersion.current` is 13. Load keeps `packages` / `packageChildMap`. App and Browser use the same wants. There is no throttle.
 
 ## What to build
 
@@ -18,8 +19,8 @@ Add Want.compose, installWantAnswer, visible-closure bootstrap, and additive wir
 Module [Want](../arch.md). Story paths 13, 14, 15, 33.
 
 1. [x] Compose Included first — 13.1: list Included Nodes that miss Children
-2. [x] Compose those Children second — 14.1: list those Children next
-3. [x] No third tier — 15.1: reserved Nodes and Zoom ancestors stay off the ongoing Want
+2. [x] Recompute next rank — 14.1: after install, newly Included Children can enter the next compose
+3. [x] No bootstrap tier — 15.1: reserved Nodes and Zoom ancestors stay off the ongoing Want
 4. [x] Honor Fold — 33.2: use Included, not a deep unfold
 5. [x] No throttle — a few wants at a time; no batching or backpressure
 

@@ -1,30 +1,32 @@
 # 08 — Migrate Shared wire
 
 **Type:** coding
-**Status:** blocked
-**Blocked by:** [07 — Expand Want and edges/Nodes package](07-expand-want-and-edges-nodes-package.md)
+**Status:** defined
+**Blocked by:** [01 — Lock Sync want + edges/Nodes package shape](01-lock-sync-want-package-shape.md), [02 — Lock bootstrap visible-closure set](02-lock-bootstrap-visible-closure.md), [07 — Expand Want and edges/Nodes package](07-expand-want-and-edges-nodes-package.md)
 
 ## Context
 
-Shared encode, decode, and Sync apply still treat Poll and post-Event as Changes only, then optional Load `packages`. After expand, the new fields exist beside the old. This batch moves Shared encode/decode and SyncLogic onto the Want answer while `packages` still work.
+Shared types contain the new Want and answer fields, but codecs and Sync apply still allow or use old shapes. This batch makes bootstrap, Poll, post-Event, and their answer one strict current-version wire. There is no old/new wire interoperation. Explicit Load `packages` still work until the later contract.
 
 ## What to build
 
-Poll and post-Event Shared codecs carry Want plus edges and Nodes. After the Event tail, SyncLogic installs the Want answer. Load Fetch `packages` still apply. CI stays green because the old form remains.
+Bootstrap codecs carry Zoom plus Fold occurrence snapshots. Poll and post-Event codecs require Want; their answer requires edges plus Nodes. Missing current-version fields fail decode. After the Event tail, SyncLogic installs the Want answer. Load Fetch `packages` still apply.
 
 ### 1. Sync wire
 
 Module [Sync wire](../arch.md).
 
-1. [ ] Encode Want on Poll and post-Event — 5.2.1: encode and decode without dropping Changes
-2. [ ] Empty Want allowed — encoding follows [01 — Lock Sync want + edges/Nodes package shape](01-lock-sync-want-package-shape.md)
+1. [ ] Bootstrap request codec — `StateRequest` requires `zoomId` plus `FoldOccurrenceSnapshot list`
+2. [ ] Poll and post-Event request codecs — `PollRequest` and `ChangeRequest` require `want`; empty is `[]`
+3. [ ] Sync answer codec — `ChangeSuccessResponse` requires `nodes` plus `childMap`
+4. [ ] Current version only — missing version 13 fields fail decode; no compatibility branch remains
 
 ### 2. SyncLogic
 
 Module [SyncLogic](../arch.md). Story path 9.
 
-1. [ ] Install after Events — 9.3: apply the Event tail, then installWantAnswer
-2. [ ] Dual-run packages — 9.3.3: `loadResponseToSync` still installs `packages`
+1. [ ] Install after Events — Module **SyncLogic** Interface **Install Want answer**: apply the Event tail, then `installWantAnswer`
+2. [ ] Dual-run packages — Module **SyncLogic** Uses **Load dual-run**: `loadResponseToSync` still installs `packages`
 3. [ ] Outcome stamps unchanged — `getPollOutcome` still keys on `apiVersion` and event id
 
 ## See also
@@ -34,3 +36,4 @@ Module [SyncLogic](../arch.md). Story path 9.
 ## Comments
 
 - 2026-09-26: Filed via `/to-tickets`. Migrate batch. Blocked by expand.
+- 2026-09-26: Redefined for strict current-version codecs and Shared apply after decisions 01–03.

@@ -6,14 +6,14 @@ Sources: [map.md](map.md) Destination and Notes (2026-09-26 grill locks). Part o
 
 1. **Whole Server Graph is too much** — A person opens the Browser on a Graph that is already large on the Server. First paint and Sync must not wait on the whole Server Graph.
 2. **Complete Workspace is still too much** — The prior [selective client loading](plan/selective-client-loading/project.md) slice starts with a complete Workspace and grows only through the user-facing Load command. That slice is done. A person looking at Included context still pays for Workspace Children they do not see.
-3. **Residency must grow without a command** — After first paint, visible Unloaded Nodes need their Children. The person must not click a hollow-circle Bullet or run Load for that growth.
+3. **Residency must grow without a command** — After first paint, Included Unloaded Nodes need their Children. The person must not click a hollow-circle Bullet or run Load for that growth.
 4. **Answers must be complete edges** — When the Browser wants Children, the Server must not return dangling edges. The Browser must receive child edges and the Nodes those edges point at, so an absent `childMap` key stays Unloaded and a present key is Loaded.
 
 ## 2. Solution
 
-1. **Visible-closure Graph** — The Browser starts with a small visible-closure Graph: Included context and the path that frames it. That set is Zoom-scoped. It is not the whole Server Graph and not a complete Workspace.
-2. **Bootstrap set** — First paint includes Children of reserved Nodes ROOT, TRASH, Workspaces Node, and SYSTEM, plus ancestors of the Zoom root, plus Included. Bootstrap uses the same edges-plus-Nodes package as later wants.
-3. **Auto wants** — A Want names Nodes whose Children are desired. Ongoing priority is (1) Included Nodes that miss Children, then (2) those Children. Reserved Nodes and Zoom ancestors are bootstrap, not a third ongoing tier. Auto wants ride post-Event and Poll with Changes. They need no click and no command.
+1. **Visible-closure Graph** — The Browser starts with a small visible-closure Graph: Included context and the path that frames it. Included and the framing path are Zoom-scoped. Direct Children of reserved Nodes ROOT, TRASH, Workspaces Node, and SYSTEM are also present even when they sit outside Included. The Graph is not the whole Server Graph and not a complete Workspace.
+2. **Bootstrap set** — The bootstrap request carries the Zoom root and Fold occurrence identifiers. The Server uses them to compute first-paint Fold-aware Included, Zoom ancestors, and Children of reserved Nodes ROOT, TRASH, Workspaces Node, and SYSTEM. Bootstrap uses the same edges-plus-Nodes package as later Wants.
+3. **Auto wants** — A Want names Included Nodes whose Children are desired. `Want.compose` returns Fold-aware Included Nodes that miss Children. After the answer is installed, the Browser computes Included again; newly Included Children may enter the next Want. Reserved Nodes and Zoom ancestors are bootstrap, not an ongoing tier. Every post-Event and Poll carries the current Want, including `[]`. Repeated Wants are allowed. Auto wants need no click and no command.
 4. **Edges plus Nodes** — The Server answers a Want with child edges (`Graph.childMap`) and, separately, the Nodes those edges point at. No dangling edges. An absent `childMap` key is Unloaded. A present key, including an empty list, is Loaded.
 5. **Hollow-circle Bullet** — An Unloaded Node (absent `childMap`) or an Unparsed Node shows a hollow-circle Bullet as today. There is no new per-Node loading Status. Auto growth does not require a click. If hollow-circle → Load is already wired, it may remain; auto wants do not use that command.
 6. **Find stays in residence** — Default Find searches Resident Nodes only. A Server-mode Find that asks the Server and receives found Nodes is later work on [05 — Chart server-mode Find](issues/05-chart-server-mode-find.md).
@@ -34,8 +34,8 @@ Sources: [map.md](map.md) Destination and Notes (2026-09-26 grill locks). Part o
 11. **Hollow Unparsed Bullet** — As a person, I want an Unparsed Node to show the same hollow-circle Bullet as today, so that Unloaded and Unparsed stay distinct facts on one glyph.
 12. **No new loading Status** — As a person, I want no new per-Node loading Status, so that Unloaded, Loaded, and Unparsed remain the residency and source facts I already know.
 13. **Auto want Included** — As a person, I want Included Nodes that miss Children wanted first, so that what I am looking at gains Children without my asking.
-14. **Auto want those Children** — As a person, I want those Children wanted next, so that the next rank under Included can arrive after their parents.
-15. **No third ongoing tier** — As the Browser, I want reserved Nodes and Zoom ancestors kept as bootstrap, so that ongoing wants do not grow a third priority tier.
+14. **Next rank after recompute** — As a person, I want newly Resident Children wanted after Fold-aware Included is computed again, so that the next Included rank can arrive after its parents without prefetching hidden Children.
+15. **No bootstrap tier in ongoing Want** — As the Browser, I want reserved Nodes and Zoom ancestors kept in bootstrap, so that ongoing Wants contain only Fold-aware Included Nodes that miss Children.
 16. **No click** — As a person, I want auto wants to run without a click, so that a hollow-circle Bullet is a signal, not a required control.
 17. **No command** — As a person, I want auto wants to run without Load or any other command, so that residency growth is silent.
 18. **Hollow-click Load may remain** — As a person, I want an existing hollow-circle → Load wiring left in place if it is present, so that a click still runs Load while auto wants do not need it.
@@ -69,16 +69,13 @@ Sources: [map.md](map.md) Destination and Notes (2026-09-26 grill locks). Part o
 7. **Server eviction** — This spec does not remove Nodes from the Server Graph cache.
 8. **Commands that name Nodes** — This spec does not add user-facing commands that request named Nodes. They come later and are not required for this destination.
 9. **Whole-Workspace bootstrap** — This spec does not start the Browser with a complete Workspace.
-10. **Server-mode Find** — This spec does not ask the Server for Find hits or Fetch found Nodes before navigate. That design is [05 — Chart server-mode Find](issues/05-chart-server-mode-find.md).
-11. **Want field shape** — This spec does not lock post-Event or Poll field names, edge-versus-Node wire layout, or an ApiVersion integer. That decision is [01 — Lock Sync want + edges/Nodes package shape](issues/01-lock-sync-want-package-shape.md).
-12. **Zoom-restore edge cases** — This spec does not lock what happens when saved Zoom is missing or stale. That decision is [02 — Lock bootstrap visible-closure set](issues/02-lock-bootstrap-visible-closure.md).
-13. **Want cadence details** — This spec does not lock empty-Want encoding or Poll-versus-post-Event cadence. That decision is [03 — Lock ongoing want priority and when wants are attached](issues/03-lock-ongoing-want-priority.md).
-14. **Death of old Load Fetch** — This spec does not lock when the old Fetch path dies. That decision is [06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md).
+10. **Server-mode Find** — This spec does not ask the Server for Find hits or Fetch found Nodes before navigate. That design is postponed on [05 — Chart server-mode Find](issues/05-chart-server-mode-find.md).
+11. **Death of old Load Fetch** — This spec does not lock when the old Fetch path dies. That decision is [06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md).
 
 ## 5. Further Notes
 
 1. **Map** — Live decisions stay on [map.md](map.md). This spec synthesizes Destination and Notes locks. It does not resolve map tickets.
 2. **Vocabulary** — Prefer Resident, Unloaded, Included, Fetch, Load, Poll, Change, `childMap`, and Bullet. An Unloaded parent is an absent `childMap` key.
-3. **Find later** — Default Find searches residence only. [05 — Chart server-mode Find](issues/05-chart-server-mode-find.md) will design a Server mode that asks the Server and lets the Browser receive found Nodes, then later work may Fetch those Nodes before navigate.
+3. **Find postponed** — Default Find searches residence only. Server Find and Fetch-before-navigate remain postponed on [05 — Chart server-mode Find](issues/05-chart-server-mode-find.md) and do not gate this spec's residency migration.
 4. **Selective leftovers** — [04 — Retire selective hollow-click and resident-only Find assumptions](issues/04-retire-selective-hollow-click-find.md) records cancelled [selective client loading](plan/selective-client-loading/project.md) tickets. File-transit leftovers point at [[plan/transport-layer/project.md]].
 5. **Grill** — Destination locked 2026-09-26. Reserved SYSTEM spelling is SYSTEM.

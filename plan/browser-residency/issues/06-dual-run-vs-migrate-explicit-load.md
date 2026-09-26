@@ -2,7 +2,7 @@
 
 **Type:** grilling
 **Status:** needs-info
-**Blocked by:** 01
+**Blocked by:** [01 — Lock Sync want + edges/Nodes package shape](01-lock-sync-want-package-shape.md)
 
 ## 1. Question
 
