@@ -43,7 +43,8 @@ Sources: [spec.md](spec.md) User Stories 1–23; [map.md](map.md) Destination an
 8. **Load**
    1. [x] Person Command Load (`CommandEntry` Load; [[src/Client/Commands.fs]] `loadOp`)
    2. [ ] Plain Load asks PathPick
-   3. [ ] PathPick git → git Load (files only); PathPick desk → desk Load (files only)
+   3. [ ] PathPick git → git Load; PathPick desk → desk Load
+   4. [x] After files land, Load invokes Parse / graph-push as today’s `loadOp` already does (`parseFileOp` / directory reconcile / Fetch+Poll)
 
 9. **Save**
    1. [x] Person Command Save (`CommandEntry` Save; [[src/Client/UpdateSave.fs]] `saveOp`)
@@ -53,7 +54,8 @@ Sources: [spec.md](spec.md) User Stories 1–23; [map.md](map.md) Destination an
 10. **git Load**
     1. [ ] Person names git Load (explicit pre-pick)
     2. [ ] PathPick is skipped
-    3. [ ] Peer Actor pulls the tracked branch (files only)
+    3. [ ] Peer Actor pulls the tracked branch
+    4. [x] After files land, same Parse / graph-push hops as today’s desk Load (`parseFileOp` / directory reconcile / Fetch+Poll)
 
 11. **git Save**
     1. [ ] Person names git Save (explicit pre-pick)
@@ -64,6 +66,7 @@ Sources: [spec.md](spec.md) User Stories 1–23; [map.md](map.md) Destination an
     1. [ ] Person names desk Load (explicit pre-pick)
     2. [ ] PathPick is skipped
     3. [x] Desk file path stays WebDAV Upload / existing `loadOp` desk transit ([[doc/current/workspace-file-sync.md]])
+    4. [x] Existing Load → Parse coupling stays (`parseFileOp` / directory reconcile / Fetch+Poll)
 
 13. **desk Save**
     1. [ ] Person names desk Save (explicit pre-pick)
@@ -84,10 +87,10 @@ Sources: [spec.md](spec.md) User Stories 1–23; [map.md](map.md) Destination an
     3. [ ] No post-Download git pull or push
     4. [x] DailyGitSave / local Server commit is not GitHub push
 
-17. **Load transfers files only**
-    1. [ ] git Load, desk Load, and plain Load stop at file transfer
-    2. [ ] Parse is not a hop on this path ([[plan/parse-actor/project.md]] stays independent)
-    3. [ ] Graph sync is not a hop on this path
+17. **Load keeps Parse**
+    1. [x] desk Load already invokes Parse / graph-push after files land
+    2. [ ] git Load and plain-git Load use that same Parse / graph-push coupling; they do not stop at file transfer
+    3. [ ] Do not redesign Load around a future autonomous Parse ([[plan/parse-actor/project.md]] stays elsewhere)
 
 18. **WebDAV remains**
     1. [x] WebDAV Upload / Download stay implemented
@@ -125,6 +128,7 @@ Shared segments:
 4. [ ] Peer Actor git Load / git Save
 5. [x] Desk WebDAV / `loadOp` / desk Save ([[src/Shared/dotnet/WorkspaceFileSync.fs]], [[src/Client/UpdateWorkspaceLoad.fs]], [[src/Client/UpdateSave.fs]])
 6. [x] Host GitRun (no Ambit credential store)
+7. [x] Existing Load → Parse / graph-push (`parseFileOp` / directory reconcile / Fetch+Poll)
 
 Narrowest shared test seam:
 1. [ ] PathPick: remote exists → git; else desk (pure; no git process)
@@ -143,10 +147,12 @@ Narrowest shared test seam:
       2. [ ] Plain Load/Save ask PathPick
       3. [ ] Explicit Git or Desk skips PathPick
       4. [ ] No schedule, post-Persist, or post-Download start
+      5. [x] Load still invokes Parse / graph-push as today’s desk Load does
    3. Uses
       1. [ ] PathPick
       2. [ ] Peer Actor (git path)
       3. [x] Desk Load/Save (desk path)
+      4. [x] Existing Parse hops (`parseFileOp` / directory reconcile / Fetch+Poll)
 
 2. **PathPick**
    File: new [[src/Shared/PathPick.fs]] (pure choose). Remote-exists fact stays on WorkspaceGit.
@@ -182,7 +188,7 @@ Narrowest shared test seam:
       1. [ ] Live Actor row only while a person-started git Load or git Save runs
       2. [ ] No stored GitHub credential
    2. Interface
-      1. [ ] git Load: pull tracked branch; files only
+      1. [ ] git Load: pull tracked branch, then today’s Load → Parse / graph-push hops
       2. [ ] git Save: push same tracked branch; FF-only reject
       3. [ ] Same Actor shape for every device that maps through Server
       4. [ ] Invokes WorkspaceGit; does not call git with an Ambit-supplied token
@@ -190,18 +196,20 @@ Narrowest shared test seam:
       1. [x] CoreActorPool / ActorFn ([[src/Server/Core/CoreActorPool.fs]])
       2. [ ] WorkspaceGit
       3. [x] No App git host
+      4. [x] Existing Load → Parse / graph-push after git Load files land
 
 5. **Desk Load/Save**
    File: existing [[src/Client/UpdateWorkspaceLoad.fs]], [[src/Client/UpdateSave.fs]], [[src/Shared/dotnet/WorkspaceFileSync.fs]]. Shape unchanged for this Project.
    1. State
       1. [x] Desktop map + WebDAV sync ledger
    2. Interface
-      1. [x] desk Load: App↔Server file transit (Upload / existing `loadOp`)
+      1. [x] desk Load: App↔Server file transit (Upload / existing `loadOp`) then Parse / graph-push
       2. [x] desk Save: existing desk Save / Server local GitSave commit (not GitHub push)
       3. [x] WebDAV Upload / Download remain
    3. Uses
       1. [x] Desktop workspace-push / WebDAV
       2. [x] Server GitSave for local DataDir commit
+      3. [x] Existing Parse hops (`parseFileOp` / directory reconcile / Fetch+Poll)
 
 6. **App**
    File: Desktop / Browser hosts (existing). Stays thin.
@@ -248,6 +256,7 @@ Narrowest shared test seam:
 3. **Server branch map** — Ambit stores which Workspace tracks which branch. Rejected: [01 — Which Workspaces and remotes](issues/01-which-workspace-labels-and-remotes.md); config is git on that work tree.
 4. **Ambit credential store** — appsettings / user-secrets / Graph / DataDir hold a GitHub token. Rejected: [04 — Credential storage on Server](issues/04-credential-storage-on-server.md); git loads host credentials.
 5. **Automatic git** — schedule, post-Persist, or post-Download pull/push. Rejected: [03 — When pull and push fire](issues/03-when-pull-and-push-fire.md); person Commands only.
+6. **File-transfer-only Load / autonomous Parse** — git Load stops at pull and leaves Parse to a future autonomous actor. Rejected: independent Parse is not in place; keep today’s Load → Parse coupling until [[plan/parse-actor/project.md]] lands elsewhere.
 
 ## 5. Unsettled
 

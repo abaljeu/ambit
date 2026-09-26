@@ -19,7 +19,7 @@ Sources: [map.md](map.md) Destination and Decisions so far 1–10; [01 — Which
 4. **Fast-forward only** — Remotes accept push (not PR-only). A conflicted or non-FF push is rejected. Server `ensurePushConfig` sets `receive.denyNonFastForwards`.
 5. **Load and Save** — Person-facing Commands are Load and Save (same Ambit command names). Explicit secondary pre-picks are git Load / git Save and desk Load / desk Save. Plain Load/Save is git* when a remote exists, else desk*.
 6. **Person-started only** — No automatic pull or push in v1 (no schedule, post-Persist, or post-Download git). Person Load/Save and explicit git*/desk* only. When a remote exists, plain Load/Save prefer git first.
-7. **Load transfers files only** — All three Load forms transfer files only on this spec. The WebDAV Upload/Download path remains. Parse after files land stays on [[plan/parse-actor/project.md]]. Parse autonomy and Graph sync autonomy stay independent. This spec does not adapt Load for parse or graph.
+7. **Load keeps today’s Parse coupling** — Independent / autonomous Parse is not in place. All three Load forms keep the existing Load → Parse pipeline: after files land, Load still invokes Parse and graph push the same way desk Load does today (`loadOp` / `parseFileOp` / directory reconcile / Fetch+Poll). The WebDAV Upload/Download path remains. When a remote exists, plain Load/Save still prefer git first. Do not redesign Load around a future autonomous Parse; that rearchitecture stays [[plan/parse-actor/project.md]] until it lands elsewhere.
 8. **Host git credentials** — Ambit does not store GitHub credentials in appsettings, user-secrets, Graph, or DataDir. The Actor invokes `git`. git loads credentials (credential helper / host setup). On Server that is the host’s git.
 9. **Optional `.amb` skip** — Directory File / Ambit note paths named `.amb` may be skipped on the GitHub remote when repo configuration says so. They are not a hard-skip default and not the same class as `.git/`. When excluded, offsite backup of those notes is Ambit Server DataDir (WebDAV Upload/Download + Server git / daily save), not the mapped repo remote.
 
@@ -32,16 +32,16 @@ Sources: [map.md](map.md) Destination and Decisions so far 1–10; [01 — Which
 5. **Same tracked branch** — As a person, I want pull and push to use the same tracked branch, so that round-trip v1 does not switch branches.
 6. **Fast-forward only** — As a person, I want a conflicted or non-FF push rejected, so that the remote does not take a diverging history.
 7. **Remotes accept push** — As an operator, I want remotes that accept push (not PR-only), so that the Server Actor can push the tracked branch.
-8. **Load** — As a person, I want Command Load, so that I bring files through the chosen path.
+8. **Load** — As a person, I want Command Load, so that I bring files through the chosen path and then Parse / graph-push as today’s Load already does.
 9. **Save** — As a person, I want Command Save, so that I send files through the chosen path.
-10. **git Load** — As a person, I want an explicit git Load pre-pick, so that I pull from the GitHub remote when I choose git.
+10. **git Load** — As a person, I want an explicit git Load pre-pick, so that I pull from the GitHub remote and then Parse / graph-push as today’s desk Load does.
 11. **git Save** — As a person, I want an explicit git Save pre-pick, so that I push to the GitHub remote when I choose git.
-12. **desk Load** — As a person, I want an explicit desk Load pre-pick, so that I take the desk file path when I choose desk.
+12. **desk Load** — As a person, I want an explicit desk Load pre-pick, so that I take the desk file path and the existing Load → Parse pipeline.
 13. **desk Save** — As a person, I want an explicit desk Save pre-pick, so that I take the desk file path when I choose desk.
-14. **Plain Load prefers git** — As a person, I want plain Load to be git Load when a remote exists and desk Load otherwise, so that I do not pick a path when the default is enough.
+14. **Plain Load prefers git** — As a person, I want plain Load to be git Load when a remote exists and desk Load otherwise, so that I do not pick a path when the default is enough, and both still run today’s Parse / graph-push after files land.
 15. **Plain Save prefers git** — As a person, I want plain Save to be git Save when a remote exists and desk Save otherwise, so that I do not pick a path when the default is enough.
 16. **No automatic pull or push** — As a person, I want pull and push only when I run Load or Save (or an explicit git*/desk* pre-pick), so that no schedule, post-Persist, or post-Download git starts a round-trip.
-17. **Load transfers files only** — As a person, I want all three Load forms to transfer files only, so that this spec does not fold Parse or Graph sync into Load.
+17. **Load keeps Parse** — As a person, I want all three Load forms to keep today’s Load → Parse coupling (Parse and graph push as desk Load already does), so that git Load does not land files without the Parse today’s Load still owns.
 18. **WebDAV remains** — As a person, I want WebDAV Upload and Download to remain, so that Ambit↔Ambit file transit stays available beside Server-git.
 19. **Server Peer Actor does the round-trip** — As a person, I want a Server-side Peer Actor to pull and push, so that the App stays thin and is not the git Actor host.
 20. **One Actor shape through Server** — As a person, I want the same Actor shape on every device that maps through Server, so that this is not a per-App clone protocol.
@@ -52,7 +52,7 @@ Sources: [map.md](map.md) Destination and Decisions so far 1–10; [01 — Which
 ## 4. Out of Scope
 
 1. **Checkout / switch / older commits** — This spec does not checkout, switch branch, or move to older commits. That work is future, not github-transport v1.
-2. **Parse and Graph sync autonomy** — This spec does not adapt Load for parse or graph. Parse after files land stays [[plan/parse-actor/project.md]]. Graph sync stays its own autonomy.
+2. **Autonomous Parse rearchitecture** — This spec does not make Parse autonomous and does not redesign Load around a future autonomous Parse. That rearchitecture stays [[plan/parse-actor/project.md]]. Until it lands elsewhere, github-transport keeps today’s Load → Parse coupling.
 3. **WebDAV redesign** — This spec does not replace Ambit↔Ambit WebDAV Upload/Download. Redesign stays on [[plan/transport-layer/project.md]] / [[plan/auto-download-persisted-files/project.md]]. Implemented path: [[doc/current/workspace-file-sync.md]].
 4. **This repo’s git procedure** — This spec is not [[plan/git-protocol/project.md]]. Committed Decision [[doc/Decisions/0002-git-protocol.md]] stays that Desktop procedure.
 5. **Want-driven Graph→Browser** — This spec does not change residency. That work stays [[plan/browser-residency/project.md]].
@@ -65,4 +65,5 @@ Sources: [map.md](map.md) Destination and Decisions so far 1–10; [01 — Which
 1. **Spoken names** — Prefer Workspace, not “label.” Use Actor, not Agent, for the Server Peer Actor ([[CONTEXT.md]]). Load and Save are the existing Command names.
 2. **Chapter home** — Product objective only: [Send to and from GitHub](../roadmap/epics/chapters/send-to-and-from-github.md) on [[plan/roadmap/epics/work-with-text-files-from-anywhere.md]]. Technical locks live here.
 3. **Cite** — [[src/Server/WorkspaceGit.fs]] (`ensurePushConfig` / `receive.denyNonFastForwards`). Implemented WebDAV Upload / Download: [[doc/current/workspace-file-sync.md]].
-4. **Next** — Architecture is [[.agents/skills/to-arch/SKILL.md]] (HITL). This spec does not run to-arch or to-tickets.
+4. **Load → Parse (2026-09-26 refine)** — Alan: independent / autonomous Parse is not in place. “Do not adapt for parse autonomy” means do not redesign around a future autonomous Parse. Keep today’s Load/Parse coupling. WebDAV remains. git first when a remote exists still holds.
+5. **Architecture** — [[arch.md]]. Sequence `module-build`. This spec does not run to-tickets.

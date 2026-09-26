@@ -23,15 +23,16 @@ Person Load/Save (and explicit git*/desk*) only.
 
 When a remote exists, plain Load/Save prefer **git first** (git Load/Save).
 
-All three Load forms **transfer files only** on this chart. WebDAV Upload/Download path **remains**.
+WebDAV Upload/Download path **remains**.
 
-Parse autonomy and Graph sync autonomy are **independent of this Project**. Do not adapt Load one way or the other for parse or graph. Out of scope / non-adaptation on [[../map.md]].
+**Amend (2026-09-26):** Independent / autonomous Parse is **not** in place. All three Load forms keep today’s Load → Parse pipeline (Parse and graph push as desk Load already does). “Do not adapt for parse autonomy” means do not redesign around a future autonomous Parse; that rearchitecture stays [[plan/parse-actor/project.md]]. Do not design git Load as file-transfer-only.
 
 Map gist: [[../map.md]] Decisions so far item 9.
 
 ## Comments
 
-- 2026-09-26: Alan locked in chat. Status `done`. Person-started only. Load forms transfer files only. Parse and Graph sync stay independent.
+- 2026-09-26: Alan locked in chat. Status `done`. Person-started only. WebDAV remains. git first when a remote exists.
+- 2026-09-26: Amend — keep today’s Load → Parse coupling; do not redesign around a future autonomous Parse.
 
 ## Time
 

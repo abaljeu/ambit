@@ -32,7 +32,7 @@ Skills: [[.agents/skills/wayfinder/SKILL.md]], [[.agents/skills/grilling/SKILL.m
 6. **Not this repo’s git procedure** — This Project is not [[plan/git-protocol/project.md]].
 7. [01 — Which Workspaces and remotes](issues/01-which-workspace-labels-and-remotes.md) — Every Workspace (all have git). Server-git when a remote exists; no allowlist. Config is `git remote` + current branch / upstream on that work tree. Same tracked branch for pull and push. No Server branch map in v1.
 8. [02 — Actor command surface](issues/02-actor-command-surface.md) — Person Commands are Load and Save. Secondary pre-picks: git Load / git Save and desk Load / desk Save. Plain Load/Save = git* when a remote exists, else desk*. Do not inherit workspace-git’s Git Remote / Git Pull / Git Push or non-FF accept.
-9. [03 — When pull and push fire](issues/03-when-pull-and-push-fire.md) — No automatic pull or push in v1. Person Load/Save (and explicit git*/desk*) only. When a remote exists, plain Load/Save prefer git first. All three Load forms transfer files only. WebDAV Upload/Download remains. Parse and Graph sync autonomy stay independent.
+9. [03 — When pull and push fire](issues/03-when-pull-and-push-fire.md) — No automatic pull or push in v1. Person Load/Save (and explicit git*/desk*) only. When a remote exists, plain Load/Save prefer git first. WebDAV Upload/Download remains. Load keeps today’s Load → Parse coupling (Parse is not autonomous yet). Do not redesign around a future autonomous Parse.
 10. [04 — Credential storage on Server](issues/04-credential-storage-on-server.md) — Ambit does not store GitHub credentials. The Actor invokes `git`; git loads credentials (credential helper / host setup). On Server that is the host’s git.
 
 ## 4. Not yet specified
@@ -48,4 +48,4 @@ Skills: [[.agents/skills/wayfinder/SKILL.md]], [[.agents/skills/grilling/SKILL.m
 4. **Want-driven Graph→Browser** — Stays [[plan/browser-residency/project.md]].
 5. **Product code on this chart** — The map finds the way. It does not implement the Actor.
 6. **Checkout / switch branch / older commits** — Future. Not this chart.
-7. **Parse autonomy and Graph sync autonomy** — Independent of this Project. Do not adapt Load one way or the other for parse or graph. Non-adaptation.
+7. **Autonomous Parse rearchitecture** — Independent Parse is not in place. Do not redesign Load around a future autonomous Parse. That work stays [[plan/parse-actor/project.md]]. Until it lands, Load keeps today’s Load → Parse coupling.
