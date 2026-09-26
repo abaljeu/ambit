@@ -16,7 +16,9 @@ let private mkPoll rev (events: Ev list) : ChangeSuccessResponse =
       externalChanges = not events.IsEmpty
       events = events
       message = None
-      bootstrapHash = None }
+      bootstrapHash = None
+      nodes = []
+      childMap = Map.empty }
 
 let private decide clientEventId log poll =
     BootCache.decideBootPoll clientEventId log poll None None

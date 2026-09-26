@@ -50,6 +50,105 @@ module ResidentProjection =
         | Ok (s, false) -> ApplyResult.Unchanged s
         | Ok (s, true) -> ApplyResult.Changed s
 
+    /// Install Want-answer edges and pointed-at Nodes. Refuse dangling edges.
+    /// Absent `childMap` keys stay Unloaded. A present key, including `[]`,
+    /// is Loaded. Idempotent for the same package.
+    let installWantAnswer
+        (edges: Map<NodeId, ChildNode list>)
+        (nodes: Node list)
+        (graph: Graph)
+        : Result<Graph, string> =
+        let mergedNodes =
+            nodes
+            |> List.fold
+                (fun acc node -> Map.add node.id node acc)
+                graph.nodes
+        let dangling =
+            edges
+            |> Map.exists (fun _ kids ->
+                kids
+                |> List.exists (fun child ->
+                    not (Map.containsKey child.id mergedNodes)))
+        if dangling then
+            Error "dangling edge"
+        else
+            let mergedChildMap =
+                edges
+                |> Map.fold (fun acc key kids -> Map.add key kids acc)
+                    graph.childMap
+            Ok(Graph.fromNodes graph.root mergedNodes mergedChildMap)
+
+    let private reservedParentIds : NodeId list =
+        [ GraphBuild.rootId
+          GraphBuild.trashId
+          GraphBuild.workspacesId
+          GraphBuild.systemId ]
+
+    let private resolveZoom (savedZoom: NodeId option) (graph: Graph) =
+        match savedZoom with
+        | Some id when Map.containsKey id graph.nodes -> id
+        | _ -> graph.root
+
+    let private ownerAncestorIds (graph: Graph) (nodeId: NodeId) : NodeId list =
+        let rec walk acc current visited =
+            if Set.contains current visited then
+                acc
+            else
+                match Map.tryFind current graph.ownerParentByChild with
+                | None -> acc
+                | Some parent ->
+                    walk
+                        (parent :: acc)
+                        parent
+                        (Set.add current visited)
+        List.rev (walk [] nodeId Set.empty)
+
+    let private loadedParentIds (savedZoom: NodeId option) (graph: Graph) =
+        let zoom = resolveZoom savedZoom graph
+        reservedParentIds
+        @ ownerAncestorIds graph zoom
+        @ [ zoom ]
+        |> List.distinct
+        |> List.filter (fun id -> Map.containsKey id graph.nodes)
+
+    /// Visible-closure edges plus Nodes. Same package as installWantAnswer.
+    let visibleClosureWantAnswer
+        (savedZoom: NodeId option)
+        (graph: Graph)
+        : Map<NodeId, ChildNode list> * Node list =
+        let parents = loadedParentIds savedZoom graph
+        let edges =
+            parents
+            |> List.choose (fun id ->
+                GraphChildren.tryGet graph id
+                |> Option.map (fun kids -> id, kids))
+            |> Map.ofList
+        let childIds =
+            edges
+            |> Map.toList
+            |> List.collect (fun (_, kids) ->
+                kids |> List.map (fun child -> child.id))
+        let residentIds =
+            parents @ childIds
+            |> List.distinct
+            |> List.filter (fun id -> Map.containsKey id graph.nodes)
+        let nodes =
+            residentIds
+            |> List.map (fun id -> graph.nodes.[id])
+        edges, nodes
+
+    /// Visible-closure Graph beside complete-Workspace `rootBootstrapGraph`.
+    /// Missing or stale Zoom uses ROOT. Does not widen to a Workspace.
+    let visibleClosureGraph
+        (savedZoom: NodeId option)
+        (graph: Graph)
+        : Graph =
+        let edges, nodes = visibleClosureWantAnswer savedZoom graph
+        let nodeMap =
+            nodes
+            |> List.fold (fun acc node -> Map.add node.id node acc) Map.empty
+        Graph.fromNodes graph.root nodeMap edges
+
     /// Merge authoritative package Nodes and their Loaded child lists.
     /// Package node ids missing from `packageChildMap` become Unloaded.
     let installPackages

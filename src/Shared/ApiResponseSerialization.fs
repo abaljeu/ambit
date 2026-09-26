@@ -58,7 +58,13 @@ module ApiResponseSerialization =
               | Some message -> [ "message", Encode.string message ]
             @ match response.bootstrapHash with
               | None -> []
-              | Some hash -> [ "bootstrapHash", Encode.string hash ])
+              | Some hash -> [ "bootstrapHash", Encode.string hash ]
+            @ [ "nodes",
+                  response.nodes
+                  |> List.map Serialization.encodeNode
+                  |> Encode.list
+                "childMap",
+                  Serialization.encodeChildMap response.childMap ])
 
     let decodeChangeSuccessResponseDecoder: Decoder<ChangeSuccessResponse> =
         Decode.object (fun get ->
@@ -78,10 +84,66 @@ module ApiResponseSerialization =
                     (Decode.list Gambol.Shared.EventJson.decode)
               message = get.Optional.Field "message" Decode.string
               bootstrapHash =
-                get.Optional.Field "bootstrapHash" Decode.string })
+                get.Optional.Field "bootstrapHash" Decode.string
+              nodes =
+                get.Optional.Field
+                    "nodes"
+                    (Decode.list Serialization.decodeNode)
+                |> Option.defaultValue []
+              childMap =
+                get.Optional.Field "childMap" Serialization.decodeChildMap
+                |> Option.defaultValue Map.empty })
 
     let decodeChangeSuccessResponse text =
         Decode.fromString decodeChangeSuccessResponseDecoder text
+
+    let encodeWant (want: NodeId list) : IEncodable =
+        want
+        |> List.map Serialization.encodeNodeId
+        |> Encode.list
+
+    let decodeWant: Decoder<NodeId list> =
+        Decode.list Serialization.decodeNodeId
+
+    let encodeSyncWant (payload: SyncWant) : IEncodable =
+        Encode.object [ "want", encodeWant payload.want ]
+
+    let decodeSyncWantDecoder: Decoder<SyncWant> =
+        Decode.object (fun get ->
+            { want = get.Required.Field "want" decodeWant })
+
+    let encodePollRequest (request: PollRequest) : IEncodable =
+        Encode.object
+            [ "eventId", Encode.int (EventId.toJson request.eventId)
+              "want", encodeWant request.want ]
+
+    let decodePollRequestDecoder: Decoder<PollRequest> =
+        Decode.object (fun get ->
+            { eventId =
+                EventId.fromJson (get.Required.Field "eventId" Decode.int)
+              want = get.Required.Field "want" decodeWant })
+
+    let decodePollRequest text =
+        Decode.fromString decodePollRequestDecoder text
+
+    let encodeChangeRequest (request: ChangeRequest) : IEncodable =
+        Encode.object
+            [ "events",
+              request.events
+              |> List.map Gambol.Shared.EventJson.encode
+              |> Encode.list
+              "want", encodeWant request.want ]
+
+    let decodeChangeRequestDecoder: Decoder<ChangeRequest> =
+        Decode.object (fun get ->
+            { events =
+                get.Required.Field
+                    "events"
+                    (Decode.list Gambol.Shared.EventJson.decode)
+              want = get.Required.Field "want" decodeWant })
+
+    let decodeChangeRequest text =
+        Decode.fromString decodeChangeRequestDecoder text
 
     let encodeLoadTarget (target: LoadTarget) : IEncodable =
         Encode.object

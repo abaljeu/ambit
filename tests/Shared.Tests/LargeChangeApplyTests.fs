@@ -243,7 +243,9 @@ let ``delivered inverse of large paste measures phases without per-created-Node 
           externalChanges = false
           events = [ inverseEvent ]
           message = None
-          bootstrapHash = None }
+          bootstrapHash = None
+          nodes = []
+          childMap = Map.empty }
     let _, ackMs =
         time (fun () ->
             Enc.toString 0 (

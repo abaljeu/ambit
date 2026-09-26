@@ -18,6 +18,7 @@
     <Compile Include="LoadCaptureTests.fs" />
     <Compile Include="GraphQueryTests.fs" />
     <Compile Include="IncludedDescendantIdsTests.fs" />
+    <Compile Include="WantTests.fs" />
     <Compile Include="CommandRequestTests.fs" />
     <Compile Include="RunEditCommitTests.fs" />
     <Compile Include="GraphSpanTests.fs" />

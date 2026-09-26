@@ -28,7 +28,9 @@ let private mkPoll rev build page : ChangeSuccessResponse =
       externalChanges = false
       events = []
       message = None
-      bootstrapHash = None }
+      bootstrapHash = None
+      nodes = []
+      childMap = Map.empty }
 
 // ---------------------------------------------------------------------------
 // getPollOutcome — data outdated
