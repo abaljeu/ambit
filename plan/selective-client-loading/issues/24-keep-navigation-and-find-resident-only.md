@@ -8,7 +8,8 @@
 
 **See also:** [[plan/selective-client-loading/spec.md]] (resident-only Zoom, Find, folds, traversal); [[plan/selective-client-loading/issues/14-simplify-selective-loading.md]] (no implicit loading from navigation surfaces).
 
-**Status:** ready-for-agent
+**Type:** coding
+**Status:** cancelled
 
 - [ ] Zoom treats a resident header with Unloaded children as an ordinary leaf. Zoom does not request more residency.
 - [ ] Find returns only matches from resident headers and Loaded child lists. Find has no Server or Load effect.
@@ -20,3 +21,4 @@
 ## Comments
 
 - 2026-09-02: Parked from WORK.md. Parent: [[plan/selective-client-loading/spec.md]].
+- 2026-09-26: Status `cancelled`. Superseded by [browser-residency](plan/browser-residency/map.md). Residence-only Find stays the default until [05 — Chart server-mode Find](plan/browser-residency/issues/05-chart-server-mode-find.md). Auto wants, not Zoom or Find, grow residency — [03 — Lock ongoing want priority and when wants are attached](plan/browser-residency/issues/03-lock-ongoing-want-priority.md). Tests that forbid all implicit residency growth are superseded. See [04 — Retire selective hollow-click and resident-only Find assumptions](plan/browser-residency/issues/04-retire-selective-hollow-click-find.md).
