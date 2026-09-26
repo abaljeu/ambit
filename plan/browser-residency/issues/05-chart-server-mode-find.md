@@ -2,7 +2,7 @@
 
 **Type:** grilling
 **Status:** needs-info
-**Blocked by:** 01
+**Blocked by:** None
 
 ## 1. Question
 
@@ -15,3 +15,7 @@ Lock:
 1. **Two modes** — What names and triggers distinguish residence Find from Server-mode Find? Does Server mode stay opt-in?
 2. **Received Nodes** — When the Server answers found hits, does the Browser install those Nodes through the same edges-plus-Nodes package as auto wants, or through a Find-specific shape?
 3. **Navigate** — What must be Resident before navigate: the hit only, the hit plus its framing path, or more? Is hydrate-before-navigate a later implementation ticket after this design?
+
+## Comments
+
+- 2026-09-26: [01 — Lock Sync want + edges/Nodes package shape](01-lock-sync-want-package-shape.md) is done. Auto-want package fields are `want`, `nodes`, and `childMap`. This ticket still charts Server-mode Find.

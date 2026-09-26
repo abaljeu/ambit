@@ -26,7 +26,7 @@ Bootstrap is that same Zoom-scoped visible-closure, not a complete Workspace: Ch
 
 ## 3. Decisions so far
 
-1. **ApiVersion bump** — ApiVersion = (old major).(minor + 1) when the Want + edges/Nodes package ships (bump minor on the existing major).
+1. [01 — Lock Sync want + edges/Nodes package shape](issues/01-lock-sync-want-package-shape.md) — JSON `want` (`NodeId` list) on both Poll and post-Event; always send, empty compose is `want: []`; do not use Poll query-string for Want (Poll may need a body). Answer `nodes` (Node list) and `childMap` (`Map<NodeId, ChildNode list>`) on `ChangeSuccessResponse`. When that expand lands, `ApiVersion.current = 13` (wire integer for 1.3), same commit as the package.
 2. **No throttle** — Expect only a few wants at a time; no batching or backpressure design.
 3. **Same wants** — App and Browser use the same wants.
 

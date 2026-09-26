@@ -70,9 +70,9 @@ Sources: [map.md](map.md) Destination and Notes (2026-09-26 grill locks). Part o
 8. **Commands that name Nodes** — This spec does not add user-facing commands that request named Nodes. They come later and are not required for this destination.
 9. **Whole-Workspace bootstrap** — This spec does not start the Browser with a complete Workspace.
 10. **Server-mode Find** — This spec does not ask the Server for Find hits or Fetch found Nodes before navigate. That design is [05 — Chart server-mode Find](issues/05-chart-server-mode-find.md).
-11. **Want field shape** — This spec does not lock post-Event or Poll field names, edge-versus-Node wire layout, or an ApiVersion integer. That decision is [01 — Lock Sync want + edges/Nodes package shape](issues/01-lock-sync-want-package-shape.md).
+11. **Want field shape** — Locked on [01 — Lock Sync want + edges/Nodes package shape](issues/01-lock-sync-want-package-shape.md): JSON `want` (`NodeId` list) on Poll and post-Event; always send, empty compose is `want: []`; Poll may need a body so both doors share that field; answer `nodes` and `childMap` on `ChangeSuccessResponse`; `ApiVersion.current = 13` ships with the expand.
 12. **Zoom-restore edge cases** — This spec does not lock what happens when saved Zoom is missing or stale. That decision is [02 — Lock bootstrap visible-closure set](issues/02-lock-bootstrap-visible-closure.md).
-13. **Want cadence details** — This spec does not lock empty-Want encoding or Poll-versus-post-Event cadence. That decision is [03 — Lock ongoing want priority and when wants are attached](issues/03-lock-ongoing-want-priority.md).
+13. **Want cadence details** — This spec does not lock Poll-versus-post-Event cadence. Empty-Want encoding is locked on [01 — Lock Sync want + edges/Nodes package shape](issues/01-lock-sync-want-package-shape.md). Cadence remains [03 — Lock ongoing want priority and when wants are attached](issues/03-lock-ongoing-want-priority.md).
 14. **Death of old Load Fetch** — This spec does not lock when the old Fetch path dies. That decision is [06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md).
 
 ## 5. Further Notes

@@ -4,7 +4,7 @@ Spec: [[spec.md]]
 Updated: 2026-09-26
 Sequence: expand-contract
 
-Sources: [map.md](map.md) Destination and Notes (2026-09-26 locks; Decisions so far empty); [spec.md](spec.md) Solution and 36 stories. Prefer existing seams. Field names for Want on the wire stay Unsettled ([01 — Lock Sync want + edges/Nodes package shape](issues/01-lock-sync-want-package-shape.md)). `Graph.childMap` (absent key = Unloaded) is the residency list. Checklist: `[x]` already true of the recorded shape; `[ ]` still to build. Sequence is expand-contract: expand Poll and post-Event with Want plus edges and Nodes; dual-run old Load Fetch `packages`; contract later when [06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md) kills the old path.
+Sources: [map.md](map.md) Destination, Notes, and Decisions so far (2026-09-26 locks including [01 — Lock Sync want + edges/Nodes package shape](issues/01-lock-sync-want-package-shape.md)); [spec.md](spec.md) Solution and 36 stories. Prefer existing seams. Want wire fields are settled on that ticket: request JSON `want` (`NodeId` list) on Poll and post-Event; always send, empty compose is `want: []`; Poll may need a body so both doors share that field; answer `nodes` and `childMap` on `ChangeSuccessResponse`; `ApiVersion.current = 13` ships with the expand. `Graph.childMap` (absent key = Unloaded) is the residency list. Checklist: `[x]` already true of the recorded shape; `[ ]` still to build. Sequence is expand-contract: expand Poll and post-Event with Want plus edges and Nodes; dual-run old Load Fetch `packages`; contract later when [06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md) kills the old path.
 
 ## 1. Story paths
 
@@ -106,7 +106,7 @@ Sources: [map.md](map.md) Destination and Notes (2026-09-26 locks; Decisions so 
 
 20. **Wants on Poll**
     1. [x] App `runPollServer` GETs `/{file}/poll`
-    2. [ ] Request carries the current Want (query or body — Unsettled field names)
+    2. [ ] Request carries JSON `want` (`NodeId` list). Poll may need a body so both doors share that field ([01 — Lock Sync want + edges/Nodes package shape](issues/01-lock-sync-want-package-shape.md))
     3. [ ] `Api.getPoll` answers Changes plus edges plus Nodes
 
 21. **Edges in the answer**
@@ -220,7 +220,7 @@ Narrowest shared test seam:
       1. [ ] None durable — a Want is a list of parent Node ids whose Children are desired
    2. Interface
       1. [ ] `compose: Graph * SiteMap * zoomRoot -> NodeId list` — (1) Included that miss Children, (2) those Children; no third tier
-      2. [ ] Empty list is allowed; encoding on the wire is Unsettled
+      2. [ ] Empty list is allowed; always send JSON `want`; empty compose is `want: []` ([01 — Lock Sync want + edges/Nodes package shape](issues/01-lock-sync-want-package-shape.md))
    3. Uses
       1. [x] IncludedDescendantIds
       2. [ ] Graph childMap (miss = absent key)
@@ -253,10 +253,10 @@ Narrowest shared test seam:
    1. State
       1. [x] `ChangeSuccessResponse` Events, `apiVersion`, Poll stamps
       2. [x] `LoadResponse.packages` for dual-run Fetch
-      3. [ ] Additive Want-answer fields (edges + Nodes). Exact names Unsettled
+      3. [ ] Additive Want-answer fields `nodes` (Node list) and `childMap` (`Map<NodeId, ChildNode list>`) on `ChangeSuccessResponse` ([01 — Lock Sync want + edges/Nodes package shape](issues/01-lock-sync-want-package-shape.md))
    2. Interface
-      1. [ ] Encode / decode Want on Poll and post-Event without dropping Changes
-      2. [x] `ApiVersion.current` remains the incompatibility marker; when the Want + edges/Nodes package ships, bump minor on the existing major ((old major).(minor + 1))
+      1. [ ] Encode / decode JSON `want` on Poll and post-Event without dropping Changes
+      2. [x] `ApiVersion.current` remains the incompatibility marker; when the Want + `nodes`/`childMap` expand lands, set `ApiVersion.current = 13` (wire integer for 1.3). Bump with expand, same commit as the package
    3. Uses
       1. [x] Ev, EventId, Graph types
 
@@ -397,8 +397,7 @@ Expand-contract won over module-build: the new depth (Want.compose + installWant
 
 ## 5. Unsettled
 
-1. **Want wire fields** — Exact request and response field names, edge-versus-Node JSON layout, empty-Want encoding. [01 — Lock Sync want + edges/Nodes package shape](issues/01-lock-sync-want-package-shape.md). The ApiVersion bump rule is locked on the map; this ticket still locks field shape.
-2. **Zoom-restore edge cases** — Missing or stale saved Zoom. [02 — Lock bootstrap visible-closure set](issues/02-lock-bootstrap-visible-closure.md).
-3. **Want cadence** — Whether every Poll and every post-Event always carry Want. [03 — Lock ongoing want priority and when wants are attached](issues/03-lock-ongoing-want-priority.md).
-4. **Server-mode Find** — Ask Server, receive found Nodes, Fetch before navigate. [05 — Chart server-mode Find](issues/05-chart-server-mode-find.md).
-5. **Load Fetch death** — When `packages` die. [06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md).
+1. **Zoom-restore edge cases** — Missing or stale saved Zoom. [02 — Lock bootstrap visible-closure set](issues/02-lock-bootstrap-visible-closure.md).
+2. **Want cadence** — Whether every Poll and every post-Event always carry Want. Empty-Want encoding is locked on [01 — Lock Sync want + edges/Nodes package shape](issues/01-lock-sync-want-package-shape.md). Cadence remains [03 — Lock ongoing want priority and when wants are attached](issues/03-lock-ongoing-want-priority.md).
+3. **Server-mode Find** — Ask Server, receive found Nodes, Fetch before navigate. [05 — Chart server-mode Find](issues/05-chart-server-mode-find.md).
+4. **Load Fetch death** — When `packages` die. [06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md).

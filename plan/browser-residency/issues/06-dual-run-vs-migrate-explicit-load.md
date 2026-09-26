@@ -2,7 +2,7 @@
 
 **Type:** grilling
 **Status:** needs-info
-**Blocked by:** 01
+**Blocked by:** None
 
 ## 1. Question
 
@@ -15,3 +15,7 @@ Lock:
 1. **Dual-run window** — Which Load invocations keep the old Fetch packages, and which use the new edges-plus-Nodes answer?
 2. **Death of the old path** — What must be true before Load Fetch uses only the new package? Is there a single cut, or a per-door migrate?
 3. **App vs Browser** — If the App still needs the old Fetch path after the Browser migrates, is that in scope here or a [transport-layer](plan/transport-layer/project.md) note?
+
+## Comments
+
+- 2026-09-26: [01 — Lock Sync want + edges/Nodes package shape](01-lock-sync-want-package-shape.md) is done. Load keeps `packages` / `packageChildMap` until this ticket locks the cut. This ticket still decides dual-run and death of the old Fetch path.

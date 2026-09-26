@@ -1,17 +1,23 @@
 # 01 — Lock Sync want + edges/Nodes package shape
 
 **Type:** grilling
-**Status:** needs-info
+**Status:** done
 **Blocked by:** None
+**Actual:** 25m
 
-## 1. Question
+## 1. Answer
 
-What exact fields do post-Event and Poll carry for a Want, and how does the Server answer with child edges plus Nodes?
+Locked 2026-09-26.
 
-Today `ChangeSuccessResponse` carries `events`, `apiVersion`, and related Poll stamps. The destination adds auto wants on those same doors. A Want names Nodes whose Children are desired. The answer must return `Graph.childMap` edges and the Nodes those edges point at — no dangling edges. Absent `childMap` key stays Unloaded.
+1. **Want request** — JSON field `want` as a `NodeId` list on both Poll and post-Event. One shared encode/decode shape (simplicity on transport: send events / request state / receive events / receive state). Do not use Poll query-string for Want. Poll may need a body or stop being pure GET-with-query so both doors share the same JSON field. Implementers follow that lock later.
+2. **Empty Want** — Always send `want`. When `Want.compose` is empty, send `want: []`. Do not omit the field. No door-specific empty rules.
+3. **Answer package** — On `ChangeSuccessResponse` (Poll / post-Event success), additive fields `nodes` (Node list) and `childMap` (`Map<NodeId, ChildNode list>`). Edges and Nodes are separate collections. No dangling edges (every edge target must be in `nodes` or already Resident). Absent `childMap` key stays Unloaded; present key including `[]` is Loaded. Load keeps `packages` / `packageChildMap` until [06 — Dual-run vs migrate explicit Load Fetch](06-dual-run-vs-migrate-explicit-load.md). Do not rename Load fields in this lock.
+4. **ApiVersion** — When the expand that ships Want + `nodes`/`childMap` lands, set `ApiVersion.current = 13` (wire integer for 1.3: major*10+minor). Bump with expand, same commit as the package. Do not implement the bump in this recording. Current `ApiVersion.current` is 12 (1.2).
 
-Lock:
+## Comments
 
-1. **Want request fields** — Which field names, types, and emptiness rules ride post-Event and Poll? Is the Want a list of Node ids only?
-2. **Edge vs Node separation** — Are edges and Nodes two collections, one Graph fragment, or another shape? How does the Browser install them without inventing Children?
-3. **ApiVersion implications** — Does this package require a new `ApiVersion.current`, a compatible additive field, or a different door? Do not pick the integer yet.
+- 2026-09-26: Grill locked Want request `want`, empty `want: []`, answer `nodes` + `childMap`, and ApiVersion 13 with expand.
+
+## Time
+
+- 2026-09-26 25m — recorded 2026-09-26 grill locks: `want` JSON field, empty `want: []`, `nodes` + `childMap`, ApiVersion 13 with expand (from chat)

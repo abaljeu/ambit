@@ -1,12 +1,12 @@
 # 07 — Expand Want and edges/Nodes package
 
 **Type:** coding
-**Status:** blocked
-**Blocked by:** [01 — Lock Sync want + edges/Nodes package shape](01-lock-sync-want-package-shape.md)
+**Status:** defined
+**Blocked by:** None
 
 ## Context
 
-A person opens the Browser on a Graph that is already large on the Server. Today Poll and post-Event carry Changes only, and Load Fetch still returns complete Workspace `packages`. Silent residency needs a Want list and an edges-plus-Nodes answer beside those old forms so nothing breaks. Field names wait on [01 — Lock Sync want + edges/Nodes package shape](01-lock-sync-want-package-shape.md). ApiVersion bumps minor on the existing major when this package ships. App and Browser use the same wants. There is no throttle.
+A person opens the Browser on a Graph that is already large on the Server. Today Poll and post-Event carry Changes only, and Load Fetch still returns complete Workspace `packages`. Silent residency needs a Want list and an edges-plus-Nodes answer beside those old forms so nothing breaks. Wire names are locked on [01 — Lock Sync want + edges/Nodes package shape](01-lock-sync-want-package-shape.md): request JSON `want`, answer `nodes` and `childMap`, `ApiVersion.current = 13` with this expand. App and Browser use the same wants. There is no throttle.
 
 ## What to build
 
@@ -34,10 +34,10 @@ Module [ResidentProjection](../arch.md). Story paths 8, 9, 21–25. Narrowest te
 
 ### 3. Sync wire
 
-Module [Sync wire](../arch.md). Map Decisions **ApiVersion bump**.
+Module [Sync wire](../arch.md). [01 — Lock Sync want + edges/Nodes package shape](01-lock-sync-want-package-shape.md).
 
-1. [ ] Additive fields — 5.1.3: Want-answer edges and Nodes on the shared success shape; exact names from [01 — Lock Sync want + edges/Nodes package shape](01-lock-sync-want-package-shape.md)
-2. [ ] ApiVersion minor bump — (old major).(minor + 1) when this package ships
+1. [ ] Additive fields — on `ChangeSuccessResponse` (Poll / post-Event success), add `nodes` (Node list) and `childMap` (`Map<NodeId, ChildNode list>`). Edges and Nodes are separate collections. No dangling edges (every edge target must be in `nodes` or already Resident). Absent `childMap` key stays Unloaded; present key including `[]` is Loaded. Request JSON `want` is a `NodeId` list on both Poll and post-Event. Always send `want`; empty compose is `want: []`. Do not use Poll query-string for Want. Poll may need a body so both doors share the same JSON field. Keep Load `packages` / `packageChildMap` until [06 — Dual-run vs migrate explicit Load Fetch](06-dual-run-vs-migrate-explicit-load.md); do not rename Load fields in this expand.
+2. [ ] ApiVersion 13 — when this expand ships, set `ApiVersion.current = 13` (wire integer for 1.3: major*10+minor) in the same commit as the package. Current `ApiVersion.current` is 12 (1.2).
 3. [ ] Old Load packages remain — 5.1.2: `LoadResponse.packages` still compile
 
 ### 4. Shared.Tests
@@ -50,8 +50,9 @@ Narrowest shared test seam on [Browser residency architecture](../arch.md).
 
 ## See also
 
-[Browser residency architecture](../arch.md), [map.md](../map.md) Decisions so far
+[Browser residency architecture](../arch.md), [map.md](../map.md) Decisions so far, [01 — Lock Sync want + edges/Nodes package shape](01-lock-sync-want-package-shape.md)
 
 ## Comments
 
 - 2026-09-26: Filed via `/to-tickets`. Sequence expand-contract. Expand only.
+- 2026-09-26: Unblocked. [01 — Lock Sync want + edges/Nodes package shape](01-lock-sync-want-package-shape.md) is done. Status `defined`. Wire names `want`, `nodes`, `childMap`; ApiVersion 13 with this expand.
