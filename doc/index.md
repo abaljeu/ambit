@@ -40,6 +40,6 @@ Summary: Desktop config mapping workspace labels to absolute local filesystem ro
 ## Currency Rules
 
 - This file describes the current program only. Planned work lives in `plan` Projects; the goto is [[plan/roadmap/map.md]].
-- If an item is fully implemented, its durable behavior should be in [[doc/current/]] or [[doc/reference/]], not only in [[doc/roadmap/]].
+- If an item is fully implemented, its durable behavior should be in [[doc/current/]] or [[doc/reference/]], not only in leftover essays.
 - If this index contradicts a current doc, the current doc wins and this index should be corrected.
 - If two current docs disagree, surface the contradiction for clarification before updating this index.

@@ -1,4 +1,4 @@
-[[doc/]] describes the current program. Chart future work on `plan` Projects. Leftover [[doc/roadmap/]] files wait until a Project cites them or they move to history.
+[[doc/]] describes the current program. Chart future work on `plan` Projects. Leftover essays from the old `doc/roadmap/` home live under [[doc/history/roadmap/]] or were deleted.
 
 Planning docs follow [[.agents/rules/markdown-writing.md]], no hard wrap, one concern per section.
 

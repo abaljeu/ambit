@@ -30,14 +30,11 @@ Sequence: establish Core through [[chapters/initial-core.md]], support the first
 
 ## Incremental operations
 
-Aim for incremental work. Send a modest amount, then send more. Do not communicate a large amount of data in one shot. Chapter: [[chapters/incremental-operations.md]].
+Aim for incremental work. Send a modest amount, then send more. Chapter: [[chapters/incremental-operations.md]].
 
-Today these are not very incremental:
+The Browser starts small and grows from want (hollow-circle Bullet, or Find of a not-yet-Resident hit then Fetch). The Server Parse Actor turns file-shaped disk into Graph and emits Changes. Post-Event and Poll carry Changes plus wanted Nodes. Workspace Download and Upload stay file operations; they do not Parse on the Browser or the App. Graph→Browser is visible-closure.
 
-- Upload of a Workspace
-- Load of a Workspace into the Browser
-
-Incremental send also lets a hang abort mid-stream without a full redo.
+Conflict resolution is already implemented. Do not re-plan it.
 
 ## Required for done
 

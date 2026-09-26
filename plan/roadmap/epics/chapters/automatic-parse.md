@@ -16,3 +16,5 @@ Unparsed File Nodes parse without a separate Parse command.
 - [ ] Unparsed File Nodes parse without a separate Parse command.
 
 ## Notes
+
+Parse is the Server Parse Actor. It emits Changes. Workspace Download and Workspace Upload do not Parse on the Browser or the App. See [[incremental-operations.md]].

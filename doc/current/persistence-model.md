@@ -1,19 +1,19 @@
 # Persistence model (Graph / Node)
 
 Category: Persistence
-See also: [[doc/current/sync-mvp.md]], [[doc/arch.md]], [[doc/reference/postgres-environments.md]], [[doc/roadmap/workspace-file-persistence.md]], [[on-demand-graph-residency]]
+See also: [[doc/current/sync-mvp.md]], [[doc/arch.md]], [[doc/reference/postgres-environments.md]], [[doc/history/roadmap/workspace-file-persistence.md]], [[plan/roadmap/epics/chapters/incremental-operations.md]]
 
-How Gambol persists the graph: PostgreSQL is always the source of truth; on-disk files under `DataDir` correlate with database nodes and are written automatically from accepted DB state. Target on-demand residency (partial warm cache, document versions) is roadmap-only until slices land: [[on-demand-graph-residency]].
+How Gambol persists the graph: PostgreSQL is always the source of truth; on-disk files under `DataDir` correlate with database nodes and are written automatically from accepted DB state. Want-driven Browser residency is planned on [[plan/roadmap/epics/chapters/incremental-operations.md]].
 
 ## Principles
 
 1. **PostgreSQL authority** — The server always runs database-backed. Startup initializes the schema and loads graph state from PostgreSQL only. An empty DB stays empty; startup does not silently import from disk.
 
-2. **Correlated files** — A directory tree under `DataDir` holds persisted artifacts that map to graph nodes (workspace, directory, and file document roots). File paths and membership follow the rules in [[doc/roadmap/workspace-file-persistence.md]].
+2. **Correlated files** — A directory tree under `DataDir` holds persisted artifacts that map to graph nodes (workspace, directory, and file document roots). File paths and membership follow the rules in [[doc/history/roadmap/workspace-file-persistence.md]].
 
 3. **DB-to-disk auto-persist** — Each accepted change commits to PostgreSQL first. The server then writes or updates the correlated on-disk artifacts for affected documents. Disk is a projection of DB state, not a separate authority or startup input.
 
-   **Explicit post-receive exception:** after a successful Git receive, the server may inspect added paths and submit ordinary graph Changes that create missing Directory/File stubs. It does not parse file contents or import disk state at startup; the accepted graph Change remains authoritative. See [[doc/roadmap/lazy-load.md]].
+   **Explicit post-receive exception:** after a successful Git receive, the server may inspect added paths and submit ordinary graph Changes that create missing Directory/File stubs. It does not parse file contents or import disk state at startup; the accepted graph Change remains authoritative. Remaining file-shaped file→Graph work is [[plan/roadmap/epics/chapters/incremental-operations.md]].
 
 4. **No outline blobs in PostgreSQL** — Do not store the file snapshot's **line-oriented outline syntax** as the graph source of truth in SQL (no monolithic `Snapshot.write` text as the projection). That syntax exists only in the **file** layer (`src/Shared/Snapshot.fs`).
 
@@ -60,7 +60,7 @@ Disk files are **projections** of DB state, keyed to document roots in the graph
 
 | Concern | Role |
 |---------|------|
-| **Document artifacts** | Outline or payload text per workspace, directory, or file document root, under `DataDir/{label}/...`. Path layout, membership, incremental writes, and path moves: [[doc/roadmap/workspace-file-persistence.md]]. |
+| **Document artifacts** | Outline or payload text per workspace, directory, or file document root, under `DataDir/{label}/...`. Path layout, membership, incremental writes, and path moves: [[doc/history/roadmap/workspace-file-persistence.md]]. |
 | **Outline syntax** | Tab-indented lines (optional `{...}` class meta) via `Snapshot.read` / `Snapshot.write` in [[src/Shared/Snapshot.fs]]. Serialization stops at nested document roots. |
 
 Parity between disk and DB is defined on **`Graph`** and **revision**, not on matching raw outline text byte-for-byte to SQL rows.
@@ -156,14 +156,15 @@ Foreign keys `parent_id` → `nodes(id)` and `child_id` → `nodes(id)` are reco
 - **`DbAgent`** — loads projection + replays `changes` tail; each accepted change appends a row and applies a typed incremental projection patch in one transaction.
 - **Startup projection repair** — maintenance loads persisted rows, GCs unreachable nodes, repairs `node_children` into a ROOT-owned tree in one transaction, reloads the Graph when anything changed, then enables normal mutation processing.
 - **Projection bootstrap and rebuild** — an absent singleton and explicit document-file rebuilds use the full replacement path; ordinary initialized writes touch only selected node and parent-child rows.
-- **Auto-persist to correlated files** — after a successful DB commit, write or update document artifacts under `DataDir` for affected document roots (see [[doc/roadmap/workspace-file-persistence.md]]). Incremental writes skip unchanged documents.
+- **Auto-persist to correlated files** — after a successful DB commit, write or update document artifacts under `DataDir` for affected document roots (see [[doc/history/roadmap/workspace-file-persistence.md]]). Incremental writes skip unchanged documents.
 
-## Not implemented (see roadmap)
+## Not implemented
 
 - External migration tooling beyond `initSchema` on startup.
-- Full per-document snapshot layout and incremental file writes — [[doc/roadmap/workspace-file-persistence.md]].
-- Server-authoritative merge and conflict markers — [[doc/roadmap/future-merge-sync.md]].
+- Full per-document snapshot layout and incremental file writes — [[doc/history/roadmap/workspace-file-persistence.md]].
 - Removal of legacy `Persistence:Mode` / `FileAgent` file-authority path from server startup (code still carries rollback hooks).
+
+Conflict resolution is implemented. Do not re-plan it.
 
 ---
 

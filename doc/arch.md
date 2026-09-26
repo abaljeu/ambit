@@ -125,7 +125,7 @@ Optional host for users who need local filesystem access while using the same we
 - **Auth**: desktop can store cloud session cookie (`AuthStore.fs`) so the proxied app is authenticated
 
 The desktop host does **not** become a second source of truth for the graph. Full detail:
-[[doc/current/desktop-local-files.md]]. Roadmap: [[doc/roadmap/postgres-roadmap.md]] §7.
+[[doc/current/desktop-local-files.md]].
 
 ## Server
 
@@ -189,7 +189,7 @@ Canonical contract evolution: [[api]]. Running server uses `/ambit` prefix.
 
 | `GET` | `/ambit/login`, `POST /ambit/login`, `GET /ambit/logout` | optional auth |
 
-Deferred vs older docs: `POST /undo`, `POST /redo`, `GET /ops?since=…` as separate endpoints — not exposed; undo is client-side. Workspace Upload / Download transport is WebDAV under `/ambit/dav/{label}/…` ([[doc/roadmap/workspace-file-sync]], server surface [[doc/roadmap/workspace-webdav]]).
+Deferred vs older docs: `POST /undo`, `POST /redo`, `GET /ops?since=…` as separate endpoints — not exposed; undo is client-side. Workspace Upload / Download transport is WebDAV under `/ambit/dav/{label}/…` ([[doc/current/desktop-local-files.md]], [[doc/history/roadmap/workspace-file-sync.md]], server surface [[doc/history/roadmap/workspace-webdav.md]]).
 
 ## Domain model
 
@@ -286,7 +286,7 @@ root : sitenode; selection : nodeview + span
 
 **On-disk** (under `DataDir`, default `data/` locally, `/home/data` on Azure):
 
-- document artifacts per graph node — outline or payload text under `DataDir/{label}/...` (see [[doc/roadmap/workspace-file-persistence.md]])
+- document artifacts per graph node — outline or payload text under `DataDir/{label}/...` (see [[doc/history/roadmap/workspace-file-persistence.md]])
 
 - tab-indented outline syntax via `Snapshot.fs` for serialization; not the SQL source of truth
 
@@ -352,6 +352,6 @@ Tooling: **xUnit** in `tests/Shared.Tests` and `tests/Server.Tests`.
 | [[doc/current/workspace-local-mapping.md]] | Desktop workspace label → local root config |
 | [[doc/current/desktop-local-files.md]] | Desktop proxy and `/_desktop/*` API |
 | [[doc/reference/postgres-environments.md]] | Dev/prod Postgres setup |
-| [[doc/roadmap/postgres-roadmap.md]] | Roadmap index (Postgres, sync, desktop) |
-| [[doc/roadmap/workspace-file-sync.md]] | Partial Upload / Download (WebDAV + server git) |
-| [[doc/roadmap/workspace-webdav.md]] | Server WebDAV Class 1 mount; PROPFIND datestamps |
+| [[plan/roadmap/map.md]] | What to work on next |
+| [[doc/history/roadmap/workspace-file-sync.md]] | Historical Upload / Download (WebDAV + server git) |
+| [[doc/history/roadmap/workspace-webdav.md]] | Historical server WebDAV Class 1 mount; PROPFIND datestamps |

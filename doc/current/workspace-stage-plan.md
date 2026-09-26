@@ -2,12 +2,12 @@
 
 Status: Current
 Authority: Implemented workspace stage baseline through Stage 8.
-Stage status and terminology: [[doc/roadmap/workspace-file-model.md]] (Implementation Stages).
-See also: [[doc/roadmap/reference-expressions.md]], [[doc/current/persistence-model.md]]
+Stage status and terminology: [[doc/history/roadmap/workspace-file-model.md]] (Implementation Stages).
+See also: [[doc/history/roadmap/reference-expressions.md]], [[doc/current/persistence-model.md]]
 
 ## Scope Relationship
 
-This document records the implemented workspace-only slice of [[doc/roadmap/workspace-file-model.md]] with implementation detail, verification, and remaining follow-ups.
+This document records the implemented workspace-only slice of [[doc/history/roadmap/workspace-file-model.md]] with implementation detail, verification, and remaining follow-ups.
 
 The file-model document defines target end-state behavior and tracks current status (`[x]` done, `[~]` partial, `[ ]` not started). Differences between this current baseline and the full file-model roadmap are intentional where noted.
 
@@ -110,7 +110,7 @@ Corrections (done — see [[doc/current/workspace-graph.md]]):
 
 - Placement restrictions apply only to `workspaces`/`workspace`; `directory`, `file`, and `normal` nodes may be placed anywhere in the ownership tree.
 - Treat workspace, directory, and file as context-defining special nodes for traversal and resolution (`RefExpr.refContext`, `RefExpr.match_`).
-- Align RefExpr semantics with directory-first member lookup (`DirStep`/`FileStep`) and `^` structural-container lookup — [[doc/roadmap/reference-expression-interpretation.md]].
+- Align RefExpr semantics with directory-first member lookup (`DirStep`/`FileStep`) and `^` structural-container lookup — [[doc/history/roadmap/reference-expression-interpretation.md]].
 
 Verification:
 
@@ -148,7 +148,7 @@ Shared workspace-label → workspace-root mapping is stored in the graph project
 
 Directory and file node identity (`kind`, `name`, owner link) exists in the graph projection; server `DataDir` path materialization, live-save, snapshot integration, and incremental persist are implemented (Stages 7–8).
 
-Target persistence split (documented): workspace, directory, and file documents persist separately; serialization stops at nested document roots — see [[doc/roadmap/workspace-file-model.md]] Persistence Shape and [[doc/roadmap/workspace-file-persistence.md]].
+Target persistence split (documented): workspace, directory, and file documents persist separately; serialization stops at nested document roots — see [[doc/history/roadmap/workspace-file-model.md]] Persistence Shape and [[doc/history/roadmap/workspace-file-persistence.md]].
 
 Lookup: `RefExpr.refContext`, `RefExpr.match_`, and owner-name scans in search helpers.
 
@@ -285,7 +285,7 @@ Status: Stage 6 `[x]` — implemented.
 | Path resolution | `NodeDesktopPath` resolves TRASH as `//TRASH/` (under nameless ROOT workspace) |
 | Row styling | Map `trashId` to existing trash row class/symbol (by id, not kind) |
 
-On disk (Stage 7): TRASH is a persisted directory document — folder `TRASH/` with artifact `.amb` under `DataDir` — see [[doc/roadmap/workspace-file-persistence.md]].
+On disk (Stage 7): TRASH is a persisted directory document — folder `TRASH/` with artifact `.amb` under `DataDir` — see [[doc/history/roadmap/workspace-file-persistence.md]].
 
 ### Insert… command
 
@@ -364,7 +364,7 @@ Status: Stage 7 core `[x]`; Stage 8 `[x]`; Stage 7 follow-ups `[ ]`.
 
 ### Stage 7 — server `DataDir` live-save and unified path moves
 
-**Implemented.** Code: [[src/Server/DocumentPersistence.fs]], [[src/Server/DbAgent.fs]] (`liveSaveDataDir`). Tests: [[tests/Server.Tests/DocumentPersistenceTests.fs]], [[tests/Server.Tests/DocumentPathMoveExecutionTests.fs]]. Full spec: [[doc/roadmap/workspace-file-persistence.md]], [[doc/roadmap/workspace-text-outline-conversion.md]].
+**Implemented.** Code: [[src/Server/DocumentPersistence.fs]], [[src/Server/DbAgent.fs]] (`liveSaveDataDir`). Tests: [[tests/Server.Tests/DocumentPersistenceTests.fs]], [[tests/Server.Tests/DocumentPathMoveExecutionTests.fs]]. Full spec: [[doc/history/roadmap/workspace-file-persistence.md]], [[doc/history/roadmap/workspace-text-outline-conversion.md]].
 
 What is in place:
 
@@ -426,7 +426,7 @@ Remaining:
 
 ## Clarifications And Decisions
 
-Aligned with [[doc/roadmap/workspace-file-model.md]] Settled Decisions:
+Aligned with [[doc/history/roadmap/workspace-file-model.md]] Settled Decisions:
 
 1. Lifecycle in this stage: create/list/rename only; removal is not in this stage.
 2. Removal policy (for later stage): soft remove (hidden/disabled).

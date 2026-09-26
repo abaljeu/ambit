@@ -45,6 +45,6 @@ For `.amb` Directory/Workspace documents, or “marker-only” cold bootstrap �
 | `src/Server/DocumentPersistence.fs` | marker-path / marker-outline comments and locals |
 | `src/Server/LazyLoadReconciliationServer.fs` | `markerPathsFromChanges` |
 | `src/Shared/WorkspaceUploadStructure.fs` | `markerOwnerParts` |
-| Informal docs | e.g. `doc/roadmap/lazy-load.md`, `doc/roadmap/workspace-file-persistence.md` |
+| Informal docs | e.g. leftover essays under `doc/history/roadmap/` |
 
 Unrelated (do not retarget): conflict markers, markdown list markers, `@` disk-marker history, Bullet “node marker”, WebDAV URL markers.

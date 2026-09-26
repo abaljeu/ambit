@@ -6,7 +6,7 @@ Top level contains the front-door docs for the current system as a whole:
 New docs should normally go in a subfolder:
 
 - `current/` — current subsystem or feature docs
-- `roadmap/` — leftover planned-direction files until a `plan` Project cites them or they move to history
+- `roadmap/` — empty leftover slot; planned work lives in `plan` Projects. Remaining essays moved to `history/roadmap/`
 - `history/` — assessed historical project materials
 - `reference/` — operational and reference material
 - `unsorted/` — unassessed docs; temporary and non-authoritative
@@ -27,7 +27,7 @@ Start here:
 - [[spec.md]]
 - [[api.md]]
 - [[index.md]] — Feature index of the current program
-- [[roadmap/postgres-roadmap.md]] — persistence-focused roadmap index
+- [[plan/roadmap/map.md]] — what to work on next
 
 Current feature baselines (`current/`):
 

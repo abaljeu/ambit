@@ -6,8 +6,8 @@ Resolve every product, domain, and architectural decision needed for `/to-spec` 
 
 ## Notes
 
-- This is an independently shippable client-only phase of the broader [[doc/roadmap/on-demand-graph-residency.md]]. The server remains fully resident, and later server-residency work may replace this phase's Workspace granularity and protocol.
-- [[doc/roadmap/selective client loading.amb]] is a preliminary historical concept, not a current requirement or decision store.
+- This is an independently shippable client-only phase. The server remains fully resident. Later want-driven visible-closure work is [[plan/roadmap/epics/chapters/incremental-operations.md]] and may replace this phase's Workspace granularity and protocol.
+- [[doc/history/roadmap/selective client loading.amb]] is a preliminary historical concept, not a current requirement or decision store.
 - Tickets 01–13 are resolved historical deliberation. [[plan/selective-client-loading/issues/14-simplify-selective-loading.md]] is the sole current decision and supersedes them wherever they differ.
 - Ticket 14 is the simplified model.  Future developments may revisit 01-13 to add sophistication.
 - Residency grows monotonically by complete Workspace within one webpage session. Refresh starts a new session; eviction and re-unloading are outside this effort.
