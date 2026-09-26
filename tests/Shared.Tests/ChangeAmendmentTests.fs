@@ -33,7 +33,7 @@ let ``applyOps amends stale SetText collision`` () =
     match result with
     | ApplyResult.Changed st ->
         Assert.Equal("xA", st.graph.nodes.[nodeId].text)
-        Assert.Equal(1, st.graph.nodes.[nodeId].children.Length)
+        Assert.Equal(1, (Graph.children st.graph nodeId).Length)
     | _ -> failwith $"changeB result: {result}"
 
 [<Fact>]
@@ -107,7 +107,7 @@ let ``applyOps amends stale Replace collision`` () =
     Assert.NotEqual<Op list>(opsB, applied)
     match result with
     | ApplyResult.Changed st ->
-        let children = st.graph.nodes.[parentId].children
+        let children = Graph.children st.graph parentId
         Assert.Equal(2, children.Length)
         Assert.Contains(ChildNode.owner childA, children)
         Assert.Contains(ChildNode.owner childB, children)

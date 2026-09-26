@@ -1,6 +1,7 @@
 module GraphQueryTests
 
 open Gambol.Shared
+open GraphChildMapHelpers
 open Xunit
 
 let private owned = ChildNode.owners
@@ -28,11 +29,8 @@ let private graphWithWorkspaceTree () : Graph * NodeId * NodeId * NodeId =
     let fileNode = specialNode fileId File "readme.txt" dirId
 
     let graph1 =
-        graph0.nodes
-        |> Map.add wsId wsNode
-        |> Map.add dirId dirNode
-        |> Map.add fileId fileNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        graph0
+        |> addDetachedMany [ wsNode; dirNode; fileNode ]
 
     let graph2 =
         Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
@@ -78,9 +76,7 @@ let ``resolveOwnedFileDirectoryInsert returns Some focus for nested normal under
     let dirId = NodeId.New()
     let dirNode = specialNode dirId Directory "docs" Graph.rootId
     let graph1 =
-        graph0.nodes
-        |> Map.add dirId dirNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        Graph.addDetachedNode dirNode graph0
     let idx = Graph.fileTreeInsertIndex graph1 Graph.rootId
     let graph2 =
         Graph.replace Graph.rootId idx [] (owned [ dirId ]) graph1
@@ -99,9 +95,7 @@ let ``resolveOwnedFileDirectoryInsert returns None for nested normal under File`
     let fileId = NodeId.New()
     let fileNode = specialNode fileId File "note.txt" Graph.rootId
     let graph1 =
-        graph0.nodes
-        |> Map.add fileId fileNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        Graph.addDetachedNode fileNode graph0
     let idx = Graph.fileTreeInsertIndex graph1 Graph.rootId
     let graph2 =
         Graph.replace Graph.rootId idx [] (owned [ fileId ]) graph1
@@ -120,9 +114,7 @@ let ``ownedNameTaken is true across Normal branches in same Directory`` () =
     let dirId = NodeId.New()
     let dirNode = specialNode dirId Directory "docs" Graph.rootId
     let graph1 =
-        graph0.nodes
-        |> Map.add dirId dirNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        Graph.addDetachedNode dirNode graph0
     let idx = Graph.fileTreeInsertIndex graph1 Graph.rootId
     let graph2 =
         Graph.replace Graph.rootId idx [] (owned [ dirId ]) graph1
@@ -135,9 +127,7 @@ let ``ownedNameTaken is true across Normal branches in same Directory`` () =
     let fileId = NodeId.New()
     let fileNode = specialNode fileId File "a.txt" n1
     let graph6 =
-        graph5.nodes
-        |> Map.add fileId fileNode
-        |> fun nodes -> Graph.fromNodes graph5.root nodes
+        Graph.addDetachedNode fileNode graph5
     let graph7 =
         Graph.replace n1 0 [] (owned [ fileId ]) graph6
         |> requireOk "n1->file"
@@ -153,18 +143,21 @@ let private graphWithForeignDuplicateDirsAndRef () =
     let d2 = specialNode d2Id Directory "dup" Graph.rootId
     let normal =
         Node.Create(normalId, text = "note", name = Filename.Empty, owner = Graph.rootId)
-    let root = graph0.nodes.[Graph.rootId]
     let nodes =
         graph0.nodes
-        |> Map.add Graph.rootId
-            { root with
-                children =
-                    root.children
-                    @ owned [ d1Id; d2Id; normalId ] }
         |> Map.add d1Id d1
         |> Map.add d2Id d2
         |> Map.add normalId normal
-    let graph = Graph.fromNodes graph0.root nodes
+    let childMap =
+        graph0.childMap
+        |> Map.add
+            Graph.rootId
+            (Graph.children graph0 Graph.rootId
+             @ owned [ d1Id; d2Id; normalId ])
+        |> Map.add d1Id []
+        |> Map.add d2Id []
+        |> Map.add normalId []
+    let graph = Graph.fromNodes graph0.root nodes childMap
     graph, normalId, d1Id
 
 [<Fact>]
@@ -189,5 +182,5 @@ let ``Graph.replace accepts Ref attach despite foreign duplicate artifact names`
     let dirRef = ChildNode.reference d1Id
     match Graph.replace normalId 0 [] [ dirRef ] graph with
     | Ok graph2 ->
-        Assert.Equal<ChildNode list>([ dirRef ], graph2.nodes.[normalId].children)
+        Assert.Equal<ChildNode list>([ dirRef ], Graph.children graph2 normalId)
     | Error err -> Assert.True(false, $"Expected Ok, got Error: {err}")

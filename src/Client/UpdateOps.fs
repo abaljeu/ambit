@@ -32,7 +32,7 @@ let copySelectionOp (model: VM) : VM * Effect list =
     | None -> model, []
     | Some sel ->
         let selectedChildren =
-            model.graph.nodes.[sel.range.parent.nodeId].children
+            Graph.children model.graph sel.range.parent.nodeId
             |> List.skip sel.range.start
             |> List.take (sel.range.endd - sel.range.start)
         { model with clipboard = Some (collectSubtree model.graph model.siteMap selectedChildren) }, []
@@ -258,7 +258,7 @@ let moveSelectionToLevelStartOp (model: VM) : VM * Effect list =
 let moveSelectionToLevelEndOp (model: VM) : VM * Effect list =
     tryStructuralMove (displayName MoveSelectionToEnd) model (fun m sel ->
         let range = sel.range
-        let parentLen = m.graph.nodes.[range.parent.nodeId].children.Length
+        let parentLen = (Graph.children m.graph range.parent.nodeId).Length
         if parentLen = 0 || range.endd >= parentLen then None
         else
             Some
@@ -286,7 +286,7 @@ let moveSelectionToViewRootStartOp (model: VM) : VM * Effect list =
         match Map.tryFind m.siteMap.rootId m.siteMap.entries with
         | None -> None
         | Some rootEntry ->
-            let n = m.graph.nodes.[rootEntry.nodeId].children.Length
+            let n = (Graph.children m.graph rootEntry.nodeId).Length
             if n = 0 then None
             elif sel.range.parent.nodeId = rootEntry.nodeId && sel.range.start = 0 then None
             else
@@ -298,7 +298,7 @@ let moveSelectionToViewRootEndOp (model: VM) : VM * Effect list =
         match Map.tryFind m.siteMap.rootId m.siteMap.entries with
         | None -> None
         | Some rootEntry ->
-            let n = m.graph.nodes.[rootEntry.nodeId].children.Length
+            let n = (Graph.children m.graph rootEntry.nodeId).Length
             if n = 0 then None
             elif sel.range.parent.nodeId = rootEntry.nodeId && sel.range.endd >= n then None
             else
@@ -375,8 +375,7 @@ let arrowRightSelectionOp (model: VM) : VM * Effect list =
             match Map.tryFind focusInstId model.siteMap.entries with
             | None -> model, []
             | Some entry ->
-                let node = model.graph.nodes.[entry.nodeId]
-                let hasChildren = not node.children.IsEmpty
+                let hasChildren = not (Graph.children model.graph entry.nodeId).IsEmpty
                 if not hasChildren then model, []
                 elif not entry.expanded then
                     let siteMap, nextId =
@@ -428,7 +427,7 @@ let duplicateSelectionOp (model: VM) : VM * Effect list =
         if selectedChildren.IsEmpty then model, []
         else
             let parentId = sel.range.parent.nodeId
-            let parentChildren = model.graph.nodes.[parentId].children
+            let parentChildren = Graph.children model.graph parentId
             let duplicatedRefs =
                 selectedChildren
                 |> List.map (fun child -> { child with ref = Ownership.Ref })
@@ -490,7 +489,7 @@ let deleteSelectionOp (model: VM) : VM * Effect list =
         if effects.IsEmpty then
             m, []
         else
-            let newChildren = m.graph.nodes.[sel.range.parent.nodeId].children
+            let newChildren = Graph.children m.graph sel.range.parent.nodeId
             let newSel =
                 if sel.range.start < newChildren.Length then
                     let i = sel.range.start
@@ -508,9 +507,8 @@ let deleteSelectionOp (model: VM) : VM * Effect list =
 
 /// Union of user classes (non-amb-) across selected nodes, as space-separated string.
 let private initialUserClassesForSelection (model: VM) (sel: Selection) : string =
-    let parentNode = model.graph.nodes.[sel.range.parent.nodeId]
     let selectedIds =
-        parentNode.children
+        Graph.children model.graph sel.range.parent.nodeId
         |> List.skip sel.range.start
         |> List.take (sel.range.endd - sel.range.start)
         |> List.map (fun child -> child.id)
@@ -572,9 +570,8 @@ let submitCssClassPromptOp (model: VM) : VM * Effect list =
         let input = readCssClassPromptValue ()
         let newUserClasses = CssClass.parseUserClasses (if isNull input then "" else input)
         let result = { model with mode = ret }
-        let parentNode = model.graph.nodes.[sel.range.parent.nodeId]
         let selectedIds =
-            parentNode.children
+            Graph.children model.graph sel.range.parent.nodeId
             |> List.skip sel.range.start
             |> List.take (sel.range.endd - sel.range.start)
             |> List.map (fun child -> child.id)
@@ -604,8 +601,7 @@ let zoomInOp (model: VM) : VM * Effect list =
     | None -> model', effs
     | Some sel ->
         let firstId = firstSelectedNodeId model'.graph sel
-        let firstNode = model'.graph.nodes.[firstId]
-        let isLeaf = firstNode.children.IsEmpty
+        let isLeaf = (Graph.children model'.graph firstId).IsEmpty
         let zoomId =
             if isLeaf then
                 match Graph.tryFindParentAndIndex firstId model'.graph with

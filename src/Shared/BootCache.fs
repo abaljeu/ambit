@@ -291,7 +291,7 @@ module BootCache =
             |> Map.toList
             |> List.map (fun (NodeId guid, node) ->
                 let kids =
-                    node.children
+                    GraphChildren.get scoped (NodeId guid)
                     |> List.map (fun child -> child.id.Value.ToString())
                     |> String.concat ","
                 guid.ToString() + ":" + node.text + ":" + kids)

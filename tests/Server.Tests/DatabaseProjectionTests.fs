@@ -21,14 +21,15 @@ let private completeNode nodeId label =
         documentState = Unparsed,
         updateTime = stamp 1)
 
-let private graphFromNodes _root nodes =
-    let customNodes = nodes |> List.map (fun node -> node.id, node)
+let private setChildren parentId kids (graph: Graph) =
+    Graph.fromNodes
+        graph.root
+        graph.nodes
+        (Map.add parentId kids graph.childMap)
 
-    (Graph.create ()).nodes
-    |> Map.toList
-    |> List.append customNodes
-    |> Map.ofList
-    |> Graph.fromNodes Graph.rootId
+let private graphFromNodes nodes =
+    nodes
+    |> List.fold (fun g n -> Graph.addDetachedNode n g) (Graph.create ())
 
 let private change op =
     { id = EventId.zero
@@ -55,7 +56,7 @@ let private expectedRow node =
 let ``plan selects complete final node rows for every current op`` () =
     let ids = [ 1..8 ] |> List.map id
     let nodes = ids |> List.mapi (fun index nodeId -> completeNode nodeId $"final-{index}")
-    let graph = graphFromNodes ids.Head nodes
+    let graph = graphFromNodes nodes
     let classes = CssClass.ofList [ "old" ]
     let child = ChildNode.reference ids.[1]
 
@@ -93,7 +94,7 @@ let ``plan uses final special rename text update time and generated defaults`` (
             kind = Special SpecialKind.File,
             updateTime = stamp 3)
 
-    let graph = graphFromNodes normalId [ normal; special ]
+    let graph = graphFromNodes [ normal; special ]
     let changes =
         [ change (Op.NewNode(normalId, "created"))
           change (Op.SetName(specialId, "old.amb", "renamed.amb")) ]
@@ -113,8 +114,10 @@ let ``plan collapses repeated node and parent touches`` () =
     let childId = id 21
     let child = completeNode childId "child"
     let childRef = ChildNode.owner childId
-    let parent = Node.Create(parentId, text = "final", children = [ childRef ])
-    let graph = graphFromNodes parentId [ parent; child ]
+    let parent = Node.Create(parentId, text = "final")
+    let graph =
+        graphFromNodes [ parent; child ]
+        |> setChildren parentId [ childRef ]
 
     let changes =
         [ { id = EventId.zero
@@ -146,9 +149,11 @@ let ``plan replaces children from final ordering including an empty list`` () =
         [ ChildNode.reference secondId
           ChildNode.owner firstId ]
 
-    let filled = Node.Create(filledId, children = finalChildren)
+    let filled = Node.Create(filledId)
     let empty = Node.Create(emptyId)
-    let graph = graphFromNodes filledId [ first; second; filled; empty ]
+    let graph =
+        graphFromNodes [ first; second; filled; empty ]
+        |> setChildren filledId finalChildren
 
     let changes =
         [ change (Op.Replace(filledId, [], finalChildren))
@@ -172,9 +177,11 @@ let ``commands expose deterministic SQL and bind values`` () =
     let parentId = id 40
     let childId = id 41
     let childRef = ChildNode.owner childId
-    let parent = Node.Create(parentId, text = "parent", children = [ childRef ])
+    let parent = Node.Create(parentId, text = "parent")
     let child = completeNode childId "child"
-    let graph = graphFromNodes parentId [ parent; child ]
+    let graph =
+        graphFromNodes [ parent; child ]
+        |> setChildren parentId [ childRef ]
 
     let eventId = EventIdFixtures.storedId 7
     let patch =
@@ -252,7 +259,7 @@ let ``commands expose deterministic SQL and bind values`` () =
 let ``trim deleted nodes rebuilds indexes and protects canonical nodes`` () =
     let detachedId = id 100
     let detached = Node.Create(detachedId)
-    let graph = graphFromNodes Graph.rootId [ detached ]
+    let graph = graphFromNodes [ detached ]
     let deleted =
         [ detachedId; Graph.rootId; Graph.workspacesId; Graph.systemId; Graph.trashId ]
 

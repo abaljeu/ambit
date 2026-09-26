@@ -78,7 +78,7 @@ let private pasteNodesSelecting
     else
         let selRange = sel.range
         let parentId = selRange.parent.nodeId
-        let parentChildren = model.graph.nodes.[parentId].children
+        let parentChildren = Graph.children model.graph parentId
         let replaceOp =
             ChildListWire.edit
                 parentId
@@ -103,7 +103,7 @@ let private pasteEditingLink
     let setTextOps =
         if currentText <> originalText then [ Op.SetText(focusId, originalText, currentText) ]
         else []
-    let parentChildren = model.graph.nodes.[parentId].children
+    let parentChildren = Graph.children model.graph parentId
     let insertOp =
         ChildListWire.insertAt
             parentId
@@ -140,7 +140,7 @@ let private pasteEditingMultiline
         match planColdPaste restText with
         | Some result -> result
         | None -> [], []
-    let parentChildren = model.graph.nodes.[parentId].children
+    let parentChildren = Graph.children model.graph parentId
     let insertOps =
         if remainingTopIds.IsEmpty then []
         else
@@ -222,7 +222,7 @@ let cutSelection (model: VM) : VM * Effect list =
     | None -> model, []
     | Some sel ->
         let parentId = sel.range.parent.nodeId
-        let parentChildren = model.graph.nodes.[parentId].children
+        let parentChildren = Graph.children model.graph parentId
         let selectedChildren = rangeChildren model.graph sel.range
         let cb = collectSubtree model.graph model.siteMap selectedChildren
         let removeOp =
@@ -233,7 +233,7 @@ let cutSelection (model: VM) : VM * Effect list =
                 selectedChildren.Length
         match applyAndPost "Cut" [removeOp] model with
         | Ok (m, effects) ->
-            let newChildren = m.graph.nodes.[sel.range.parent.nodeId].children
+            let newChildren = Graph.children m.graph sel.range.parent.nodeId
             let newSel =
                 if sel.range.start < newChildren.Length then
                     let i = sel.range.start

@@ -24,14 +24,15 @@ let private change ops =
       commandName = ""
       body = EventBody.Change ops }
 
-let private graphWithCustomNodes nodes =
-    let customNodes = nodes |> List.map (fun (node: Node) -> node.id, node)
+let private setChildren parentId kids (graph: Graph) =
+    Graph.fromNodes
+        graph.root
+        graph.nodes
+        (Map.add parentId kids graph.childMap)
 
-    (Graph.create ()).nodes
-    |> Map.toList
-    |> List.append customNodes
-    |> Map.ofList
-    |> Graph.fromNodes Graph.rootId
+let private graphWithCustomNodes nodes =
+    nodes
+    |> List.fold (fun g n -> Graph.addDetachedNode n g) (Graph.create ())
 
 let private replaceProjection connStr graph eventId = task {
     use conn = Database.getConnection connStr
@@ -125,39 +126,43 @@ let ``writer upserts complete nodes children revision and reloads`` () = task {
     let second = Node.Create(secondId, text = "second")
     let firstRef = ChildNode.owner firstId
     let secondRef = ChildNode.reference secondId
+    let initialKids = [ firstRef; secondRef ]
 
     let initial =
         Node.Create(
             parentId,
             text = "initial",
             name = Filename.create "initial.amb",
-            children = [ firstRef; secondRef ],
             kind = Special Directory,
             updateTime = stamp 2)
 
-    let initialGraph = graphWithCustomNodes [ initial; first; second ]
+    let initialGraph =
+        graphWithCustomNodes [ initial; first; second ]
+        |> setChildren parentId initialKids
     let createOps =
         [ Op.NewSpecialNode(parentId, Directory, "initial.amb")
           Op.NewNode(firstId, "first")
           Op.NewNode(secondId, "second")
-          Op.Replace(parentId, [], initial.children) ]
+          Op.Replace(parentId, [], initialKids) ]
     do! persistPatch connStr initialGraph (EventIdFixtures.storedId 1) [ change createOps ]
 
     let final =
         { initial with
             text = "renamed.amb"
             name = Filename.create "renamed.amb"
-            children = [ secondRef; firstRef ]
             cssClasses = CssClass.ofList [ "new-class" ]
             documentState = Unparsed
             updateTime = stamp 4 }
-    let finalGraph = graphWithCustomNodes [ final; first; second ]
+    let finalKids = [ secondRef; firstRef ]
+    let finalGraph =
+        graphWithCustomNodes [ final; first; second ]
+        |> setChildren parentId finalKids
     let updateOps =
         [ Op.SetName(parentId, "initial.amb", "renamed.amb")
           Op.SetClasses(parentId, CssClass.empty, final.cssClasses)
           Op.SetDocumentState(parentId, Current, Unparsed)
           Op.SetUpdateTime(parentId, stamp 2, stamp 4)
-          Op.Replace(parentId, initial.children, final.children) ]
+          Op.Replace(parentId, initialKids, finalKids) ]
     do! persistPatch connStr finalGraph (EventIdFixtures.storedId 2) [ change updateOps ]
 
     use conn = new NpgsqlConnection(connStr)
@@ -203,9 +208,12 @@ let ``writer clears one parent without rewriting unrelated rows and rolls back``
     let childA, childB = Node.Create(childAId), Node.Create(childBId)
     let edgeA = ChildNode.owner childAId
     let edgeB = ChildNode.owner childBId
-    let parentA = Node.Create(parentAId, text = "before", children = [ edgeA ])
-    let parentB = Node.Create(parentBId, text = "unrelated", children = [ edgeB ])
-    let initial = graphWithCustomNodes [ parentA; parentB; childA; childB ]
+    let parentA = Node.Create(parentAId, text = "before")
+    let parentB = Node.Create(parentBId, text = "unrelated")
+    let initial =
+        graphWithCustomNodes [ parentA; parentB; childA; childB ]
+        |> setChildren parentAId [ edgeA ]
+        |> setChildren parentBId [ edgeB ]
     do! replaceProjection connStr initial (EventIdFixtures.storedId 5)
 
     let xminSql table whereClause =
@@ -217,8 +225,10 @@ let ``writer clears one parent without rewriting unrelated rows and rolls back``
             (xminSql "node_children" "parent_id = @id AND ordinal = 0")
             parentBId.Value
 
-    let clearedA = { parentA with text = "after"; children = [] }
-    let final = graphWithCustomNodes [ clearedA; parentB; childA; childB ]
+    let clearedA = { parentA with text = "after" }
+    let final =
+        graphWithCustomNodes [ clearedA; parentB; childA; childB ]
+        |> setChildren parentBId [ edgeB ]
     let ops =
         [ Op.SetText(parentAId, "before", "after")
           Op.Replace(parentAId, [ edgeA ], []) ]
@@ -243,6 +253,7 @@ let ``writer clears one parent without rewriting unrelated rows and rolls back``
     use tx = conn.BeginTransaction()
     let rolledBack =
         graphWithCustomNodes [ { clearedA with text = "rolled-back" }; parentB; childA; childB ]
+        |> setChildren parentBId [ edgeB ]
     let patch =
         DatabaseProjection.plan rolledBack (EventIdFixtures.storedId 7)
             [ change [ Op.SetText(parentAId, "after", "rolled-back") ] ]
@@ -318,26 +329,18 @@ let ``startup sweep deletes unreachable rows without rewriting reachable project
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
     let reachableId, orphanId, orphanChildId = id 80, id 81, id 82
-    let reachable =
-        Node.Create(
-            reachableId,
-            text = "reachable",
-            children = [ ChildNode.reference Graph.rootId ])
+    let reachable = Node.Create(reachableId, text = "reachable")
     let orphanChild = Node.Create(orphanChildId, text = "orphan child")
-    let orphan =
-        Node.Create(
-            orphanId,
-            text = "orphan",
-            children = [ ChildNode.owner orphanChildId ])
-    let graph0 = graphWithCustomNodes [ reachable; orphan; orphanChild ]
-    let root = graph0.nodes.[Graph.rootId]
+    let orphan = Node.Create(orphanId, text = "orphan")
+    let graph0 =
+        graphWithCustomNodes [ reachable; orphan; orphanChild ]
+        |> setChildren reachableId [ ChildNode.reference Graph.rootId ]
+        |> setChildren orphanId [ ChildNode.owner orphanChildId ]
     let graph =
-        graph0.nodes
-        |> Map.add Graph.rootId
-            { root with
-                children =
-                    ChildNode.owner reachableId :: root.children }
-        |> Graph.fromNodes Graph.rootId
+        setChildren
+            Graph.rootId
+            (ChildNode.owner reachableId :: Graph.children graph0 Graph.rootId)
+            graph0
     do! replaceProjection connStr graph (EventIdFixtures.storedId 12)
 
     let! nodeXminBefore =
@@ -418,14 +421,11 @@ let ``startup sweep preserves persisted reachable nodes absent from loaded subse
     let persistedId = id 90
     let persisted = Node.Create(persistedId, text = "not resident")
     let graph0 = graphWithCustomNodes [ persisted ]
-    let root = graph0.nodes.[Graph.rootId]
     let persistedGraph =
-        graph0.nodes
-        |> Map.add Graph.rootId
-            { root with
-                children =
-                    ChildNode.owner persistedId :: root.children }
-        |> Graph.fromNodes Graph.rootId
+        setChildren
+            Graph.rootId
+            (ChildNode.owner persistedId :: Graph.children graph0 Graph.rootId)
+            graph0
     do! replaceProjection connStr persistedGraph (EventIdFixtures.storedId 5)
 
     let loadedSubset = Graph.create ()
@@ -451,17 +451,17 @@ let ``ownership repair does not bump revision or append changes`` () = task {
     do! resetTestDatabase connStr
     let aId, uId = id 100, id 101
     let a = Node.Create(aId, text = "A")
-    let u = Node.Create(uId, text = "U", children = [ ChildNode.owner aId ])
+    let u = Node.Create(uId, text = "U")
     let graph0 = graphWithCustomNodes [ a; u ]
-    let ws = graph0.nodes.[Graph.workspacesId]
-    let root = graph0.nodes.[Graph.rootId]
     let graph =
-        graph0.nodes
-        |> Map.add Graph.workspacesId
-            { ws with children = ChildNode.owner aId :: ws.children }
-        |> Map.add Graph.rootId
-            { root with children = ChildNode.owner uId :: root.children }
-        |> Graph.fromNodes Graph.rootId
+        graph0
+        |> setChildren uId [ ChildNode.owner aId ]
+        |> setChildren
+            Graph.workspacesId
+            (ChildNode.owner aId :: Graph.children graph0 Graph.workspacesId)
+        |> setChildren
+            Graph.rootId
+            (ChildNode.owner uId :: Graph.children graph0 Graph.rootId)
     do! replaceProjection connStr graph (EventIdFixtures.storedId 8)
 
     let! deleted = sweep connStr
@@ -496,15 +496,12 @@ let ``ownership repair inserts canonicals without node_children_pkey clash`` () 
     let u1 = Node.Create(u1Id, text = "U1")
     let u2 = Node.Create(u2Id, text = "U2")
     let graph0 = graphWithCustomNodes [ u1; u2 ]
-    let root = graph0.nodes.[Graph.rootId]
     let graph =
-        graph0.nodes
-        |> Map.add Graph.rootId
-            { root with
-                children =
-                    root.children
-                    @ [ ChildNode.owner u1Id; ChildNode.owner u2Id ] }
-        |> Graph.fromNodes Graph.rootId
+        setChildren
+            Graph.rootId
+            (Graph.children graph0 Graph.rootId
+             @ [ ChildNode.owner u1Id; ChildNode.owner u2Id ])
+            graph0
     do! replaceProjection connStr graph (EventIdFixtures.storedId 9)
 
     do!
@@ -565,13 +562,11 @@ let ``ownership repair shifts root with owner-and-ref sibling without pkey clash
         let u1Id = id 122
         let u1 = Node.Create(u1Id, text = "U1")
         let graph0 = graphWithCustomNodes [ u1 ]
-        let root = graph0.nodes.[Graph.rootId]
         let graph =
-            graph0.nodes
-            |> Map.add Graph.rootId
-                { root with
-                    children = root.children @ [ ChildNode.owner u1Id ] }
-            |> Graph.fromNodes Graph.rootId
+            setChildren
+                Graph.rootId
+                (Graph.children graph0 Graph.rootId @ [ ChildNode.owner u1Id ])
+                graph0
         do! replaceProjection connStr graph (EventIdFixtures.storedId 9)
         do!
             exec connStr

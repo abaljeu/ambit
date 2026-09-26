@@ -2,6 +2,7 @@
 module RefExprTestTree
 
 open Gambol.Shared
+open GraphChildMapHelpers
 
 type Tree =
     { graph: Graph
@@ -27,13 +28,8 @@ let private specialNode (id: NodeId) (kind: SpecialKind) (name: string) (owner: 
         kind = Special kind)
 
 let private addUnder (parentId: NodeId) (child: Node) (graph: Graph) : Graph =
-    let parent = graph.nodes.[parentId]
-    let link = ChildNode.owner child.id
-    let nodes =
-        graph.nodes
-        |> Map.add child.id child
-        |> Map.add parentId { parent with children = parent.children @ [ link ] }
-    Graph.fromNodes graph.root nodes
+    Graph.addDetachedNode child graph
+    |> appendKids parentId [ ChildNode.owner child.id ]
 
 let private namedNormalNode (text: string) (tagName: string) (owner: NodeId) : Node =
     Node.Create(

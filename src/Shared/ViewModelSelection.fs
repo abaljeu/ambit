@@ -56,14 +56,14 @@ module ViewModelSelection =
             let graphCount =
                 match Map.tryFind parent.nodeId graph.nodes with
                 | None -> 0
-                | Some node -> node.children.Length
+                | Some _ -> GraphChildren.get graph parent.nodeId |> List.length
             min visibleCount graphCount
 
         let relocateViaGraphFocus () =
             match Map.tryFind sel.range.parent.nodeId graph.nodes with
             | None -> None
-            | Some parentNode ->
-                parentNode.children
+            | Some _ ->
+                GraphChildren.get graph sel.range.parent.nodeId
                 |> List.tryItem sel.focus
                 |> Option.map (fun child -> child.id)
                 |> Option.bind (singleSelection graph siteMap)
@@ -91,7 +91,7 @@ module ViewModelSelection =
 
     let private tryOriginalAdjacentNodeId (preGraph: Graph) (fromRange: SiteNodeRange) : NodeId option =
         let pid = fromRange.parent.nodeId
-        let kids = preGraph.nodes.[pid].children
+        let kids = GraphChildren.get preGraph pid
         if fromRange.start > 0 then Some kids.[fromRange.start - 1].id
         elif fromRange.endd < kids.Length then Some kids.[fromRange.endd].id
         else None
@@ -109,8 +109,11 @@ module ViewModelSelection =
             |> Option.orElse (singleSelection postGraph postSiteMap parent.nodeId)
         let keepFromIndex () =
             match Map.tryFind parent.nodeId postGraph.nodes with
-            | Some node when node.children.Length > 0 ->
-                let idx = min fromRange.start (node.children.Length - 1)
+            | Some _ when (GraphChildren.get postGraph parent.nodeId).Length > 0 ->
+                let idx =
+                    min
+                        fromRange.start
+                        ((GraphChildren.get postGraph parent.nodeId).Length - 1)
                 Some
                     { range = { parent = parent; start = idx; endd = idx + 1 }
                       focus = idx }
@@ -165,18 +168,18 @@ module ViewModelSelection =
 
     /// Extract the first (start) selected NodeId from a Selection.
     let firstSelectedNodeId (graph: Graph) (sel: Selection) : NodeId =
-        graph.nodes.[sel.range.parent.nodeId].children.[sel.range.start].id
+        (GraphChildren.get graph sel.range.parent.nodeId).[sel.range.start].id
 
     /// Extract the focused NodeId from a Selection (the active end, used for editing and Arrow movement).
     let focusedNodeId (graph: Graph) (sel: Selection) : NodeId =
-        graph.nodes.[sel.range.parent.nodeId].children.[sel.focus].id
+        (GraphChildren.get graph sel.range.parent.nodeId).[sel.focus].id
 
     /// Focused NodeId when parent and focus index are still valid in `graph`.
     let tryFocusedNodeId (graph: Graph) (sel: Selection) : NodeId option =
         match Map.tryFind sel.range.parent.nodeId graph.nodes with
         | None -> None
-        | Some parent ->
-            parent.children
+        | Some _ ->
+            GraphChildren.get graph sel.range.parent.nodeId
             |> List.tryItem sel.focus
             |> Option.map (fun child -> child.id)
 
@@ -197,7 +200,8 @@ module ViewModelSelection =
         | None -> model
         | Some sel ->
             let range = sel.range
-            let childCount = model.graph.nodes.[range.parent.nodeId].children.Length
+            let childCount =
+                GraphChildren.get model.graph range.parent.nodeId |> List.length
             let update r f = { model with selectedNodes = Some { range = r; focus = f } }
             let single = range.endd - range.start = 1
             let focusAtStart = sel.focus = range.start
@@ -287,7 +291,8 @@ module ViewModelSelection =
 
     /// Single-node selection on the child at `childIndex` under `parent` (site-map occurrence).
     let private selectChildIndexUnderParent (model: VM) (parent: SiteEntry) (childIndex: int) : VM =
-        let childCount = model.graph.nodes.[parent.nodeId].children.Length
+        let childCount =
+            GraphChildren.get model.graph parent.nodeId |> List.length
         if childIndex < 0 || childIndex >= childCount then model
         else
             let instId = parent.children.[childIndex]
@@ -315,7 +320,7 @@ module ViewModelSelection =
         | None -> model
         | Some sel ->
             let p = sel.range.parent
-            let n = model.graph.nodes.[p.nodeId].children.Length
+            let n = GraphChildren.get model.graph p.nodeId |> List.length
             if n = 0 then model
             else
                 let lastSibInstId = p.children.[n - 1]
@@ -331,7 +336,8 @@ module ViewModelSelection =
         | None -> model
         | Some sel ->
             let r = sel.range
-            let childCount = model.graph.nodes.[r.parent.nodeId].children.Length
+            let childCount =
+                GraphChildren.get model.graph r.parent.nodeId |> List.length
             if childCount <= 0 || r.start >= childCount || r.endd > childCount then
                 model
             elif delta > 0 then

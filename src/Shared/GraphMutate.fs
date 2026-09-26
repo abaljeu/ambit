@@ -180,8 +180,10 @@ module GraphMutate =
 
         match parentOpt with
         | None -> Error $"parent not found {NodeId.GuidTail8 parentId.Value}"
+        | Some _ when not (GraphChildren.isLoaded graph parentId) ->
+            Error "parent children not loaded"
         | Some parent ->
-            let children = parent.children
+            let children = GraphChildren.get graph parentId
             let childCount = List.length children
             let oldCount = List.length oldChildren
 
@@ -238,14 +240,19 @@ module GraphMutate =
                 // so the parent indexes can be updated in place.
                 let isAppend = oldCount = 0 && index = childCount
                 let commit (updatedChildren: ChildNode list) =
-                    let updatedParent =
-                        NodeUpdateTime.touch { parent with children = updatedChildren }
+                    let updatedParent = NodeUpdateTime.touch parent
                     if isAppend then
-                        GraphBuild.appendChildren parentId newChildren updatedParent graph
+                        GraphBuild.appendChildren
+                            parentId
+                            newChildren
+                            updatedChildren
+                            updatedParent
+                            graph
                     else
                         GraphBuild.fromNodes
                             graph.root
                             (graph.nodes |> Map.add parentId updatedParent)
+                            (Map.add parentId updatedChildren graph.childMap)
 
                 match placementError with
                 | Some msg -> Error msg

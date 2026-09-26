@@ -40,9 +40,8 @@ module ViewModelDeleteOps =
         : ClassifiedDelete list
         =
         let parentId = range.parent.nodeId
-        let parentNode = graph.nodes.[parentId]
         let selectedChildren =
-            parentNode.children
+            GraphChildren.get graph parentId
             |> List.mapi (fun i child -> i, child)
             |> List.filter (fun (i, _) -> i >= range.start && i < range.endd)
 
@@ -106,7 +105,9 @@ module ViewModelDeleteOps =
                     let children =
                         graph.nodes
                         |> Map.tryFind nid
-                        |> Option.map (fun n -> n.children |> List.map (fun c -> c.id))
+                        |> Option.map (fun _ ->
+                            GraphChildren.get graph nid
+                            |> List.map (fun c -> c.id))
                         |> Option.defaultValue []
                     collectSubtree (children @ rest) (Set.add nid visited)
 
@@ -150,7 +151,7 @@ module ViewModelDeleteOps =
                     && Node.childOwnership graph promoParentId c = Ownership.Ref)
                 |> Option.map (fun (promoParentId, promoIdx, oldChild) ->
                     let newChild = { oldChild with ref = Ownership.Owner }
-                    let oldChildren = graph.nodes.[promoParentId].children
+                    let oldChildren = GraphChildren.get graph promoParentId
                     ChildListWire.updateChildAt promoParentId oldChildren promoIdx newChild)
             | _ -> None)
 
@@ -201,7 +202,7 @@ module ViewModelDeleteOps =
         match newOwners with
         | [] -> []
         | owners ->
-            let oldChildren = graph.nodes.[Graph.trashId].children
+            let oldChildren = GraphChildren.get graph Graph.trashId
             [ ChildListWire.append Graph.trashId oldChildren owners ]
 
     /// Build hard-delete ops for HardDeleteSubtreeInTrash items.
@@ -223,7 +224,7 @@ module ViewModelDeleteOps =
             |> Map.toList
             |> List.filter (fun (pid, _) -> pid <> selectionParentId)
             |> List.map (fun (pid, indices) ->
-                let children = graph.nodes.[pid].children
+                let children = GraphChildren.get graph pid
                 ChildListWire.removeIndices pid children (Set.ofList indices)))
 
     /// Build the complete ordered op list for a classified delete gesture.
@@ -236,7 +237,7 @@ module ViewModelDeleteOps =
         : Op list
         =
         let parentId = range.parent.nodeId
-        let parentChildren = graph.nodes.[parentId].children
+        let parentChildren = GraphChildren.get graph parentId
         let promoteOps = buildPromoteOps graph classified
         let spanRemove =
             ChildListWire.removeRange
@@ -267,11 +268,10 @@ module ViewModelDeleteOps =
         (indices: int list)
         : ClassifiedDelete list
         =
-        let parentNode = graph.nodes.[parentId]
         let selected =
             indices
             |> List.choose (fun index ->
-                parentNode.children
+                GraphChildren.get graph parentId
                 |> List.tryItem index
                 |> Option.map (fun child -> index, child))
 
@@ -335,7 +335,7 @@ module ViewModelDeleteOps =
             |> Map.toList
             |> List.filter (fun (pid, _) -> not (Set.contains pid excludedParents))
             |> List.map (fun (pid, indices) ->
-                let children = graph.nodes.[pid].children
+                let children = GraphChildren.get graph pid
                 ChildListWire.removeIndices pid children (Set.ofList indices)))
 
     let private planFromClassified
@@ -351,7 +351,7 @@ module ViewModelDeleteOps =
                 classified
                 |> List.groupBy (fun item -> item.parentId)
                 |> List.map (fun (parentId, items) ->
-                    let children = graph.nodes.[parentId].children
+                    let children = GraphChildren.get graph parentId
                     let indicesToRemove =
                         items |> List.map (fun item -> item.index) |> Set.ofList
                     ChildListWire.removeIndices parentId children indicesToRemove)
@@ -379,9 +379,9 @@ module ViewModelDeleteOps =
                 else
                     match Map.tryFind parentId graph.nodes with
                     | None -> []
-                    | Some parent ->
+                    | Some _ ->
                         let indices =
-                            parent.children
+                            GraphChildren.get graph parentId
                             |> List.mapi (fun i c -> i, c)
                             |> List.choose (fun (i, c) ->
                                 if
@@ -410,9 +410,9 @@ module ViewModelDeleteOps =
         =
         match Map.tryFind parentId graph.nodes with
         | None -> []
-        | Some parent ->
+        | Some _ ->
             let lo = max 0 start
-            let hi = min parent.children.Length endd
+            let hi = min (GraphChildren.get graph parentId).Length endd
             if hi <= lo then
                 []
             else

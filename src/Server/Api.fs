@@ -65,7 +65,7 @@ module Api =
     let private loadPackages
         (handle: CoreChanges)
         (targets: LoadTarget list)
-        : Async<Result<Result<Node list, ResidentProjection.LoadRefuse>, string>> =
+        : Async<Result<Result<Node list * Map<NodeId, ChildNode list>, ResidentProjection.LoadRefuse>, string>> =
         async {
             match! handle.getState () with
             | Error err -> return Error err
@@ -98,7 +98,7 @@ module Api =
                     Results.BadRequest(
                         {| error =
                             "Load requires all selected targets in one Workspace" |})
-            | Ok(Ok packages) ->
+            | Ok(Ok (packages, packageChildMap)) ->
                 let! eventId = handle.getEventId ()
                 let revValue = EventId.value eventId
                 let! events =
@@ -113,7 +113,8 @@ module Api =
                       apiVersion = ApiVersion.current
                       isReady = handle.isReady ()
                       events = events
-                      packages = packages }
+                      packages = packages
+                      packageChildMap = packageChildMap }
                 let json =
                     Encode.toString 0 (ApiResponseSerialization.encodeLoadResponse load)
                 return jsonResult json

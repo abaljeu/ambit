@@ -165,9 +165,10 @@ module ViewModelDomPlan =
                         let oldNode = oldModel.graph.nodes |> Map.tryFind entry.nodeId
                         let oldChildrenIndicator =
                             oldNode
-                            |> Option.map rowChildrenIndicator
+                            |> Option.map (rowChildrenIndicator oldModel.graph)
                             |> Option.defaultValue RowChildrenIndicator.SolidCircle
-                        let newChildrenIndicator = rowChildrenIndicator newNode
+                        let newChildrenIndicator =
+                            rowChildrenIndicator newModel.graph newNode
                         let oldKind = oldNode |> Option.map (fun n -> n.kind)
                         let newKind = newNode.kind
                         if wasEditing <> nowEditing

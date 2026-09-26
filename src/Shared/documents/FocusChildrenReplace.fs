@@ -19,9 +19,10 @@ module FocusChildrenReplace =
                 owner = graph0.root,
                 kind = Special File,
                 documentState = Unparsed)
-        graph0.nodes
-        |> Map.add rootId file
-        |> Graph.fromNodes graph0.root
+        Graph.fromNodes
+            graph0.root
+            (graph0.nodes |> Map.add rootId file)
+            (graph0.childMap |> Map.add rootId [])
 
     let private peelFrom (stub: Graph) rootId after =
         DocumentColdParse.planOpsFromGraphs stub rootId after
@@ -33,7 +34,11 @@ module FocusChildrenReplace =
         DocumentColdParse.planApplyCold stub rootId AmbReplyPath text
         |> Result.map (DocumentColdParse.peelDocumentRootOps rootId)
 
-    let private graphFromRead (stub: Graph) (nodes: Map<NodeId, Node>) =
+    let private graphFromRead
+        (stub: Graph)
+        (nodes: Map<NodeId, Node>)
+        (childMap: Map<NodeId, ChildNode list>)
+        =
         let merged =
             stub.nodes
             |> Map.fold
@@ -41,14 +46,21 @@ module FocusChildrenReplace =
                     if Map.containsKey id acc then acc
                     else Map.add id node acc)
                 nodes
-        Graph.fromNodes stub.root merged
+        let mergedChildMap =
+            stub.childMap
+            |> Map.fold
+                (fun acc id kids ->
+                    if Map.containsKey id acc then acc
+                    else Map.add id kids acc)
+                childMap
+        Graph.fromNodes stub.root merged mergedChildMap
 
     let private parsePlain text =
         let rootId = NodeId.New()
         let stub: Graph = stubRoot rootId DocumentColdParse.PasteRelativePath
         PlainTextDocument.read text rootId stub
         |> Result.map (fun read ->
-            peelFrom stub rootId (graphFromRead stub read.nodes))
+            peelFrom stub rootId (graphFromRead stub read.nodes read.childMap))
 
     let private parseReply text =
         match parseAmb text with
@@ -58,7 +70,7 @@ module FocusChildrenReplace =
     let private currentChildren (graph: Graph) focusId =
         match Map.tryFind focusId graph.nodes with
         | None -> Error "focus not found"
-        | Some node -> Ok node.children
+        | Some _ -> Ok (GraphChildren.get graph focusId)
 
     let private replaceOps focusId oldChildren topIds nested =
         let newEdges = ChildNode.owners topIds

@@ -27,8 +27,12 @@ module DocumentFormat =
         else
             Ok DocumentCodec.Plain
 
-    let private toNodesRead (documentRootId: NodeId) (nodes: Map<NodeId, Node>) =
-        OutlineDocument.nodesRead documentRootId nodes
+    let private toNodesRead
+        (documentRootId: NodeId)
+        (nodes: Map<NodeId, Node>)
+        (childMap: Map<NodeId, ChildNode list>)
+        =
+        OutlineDocument.nodesRead documentRootId nodes childMap
 
     let private warmUnavailable _ _ _ _ =
         Error "warm reconcile requires DocumentWarm with Diff"
@@ -48,7 +52,7 @@ module DocumentFormat =
                     fun text graph documentRootId ->
                         AmbDocument.read text documentRootId graph
                         |> Result.map (fun r ->
-                            toNodesRead r.documentRootId r.nodes)
+                            toNodesRead r.documentRootId r.nodes r.childMap)
                 DocumentHandler.readWarm = warmUnavailable
                 DocumentHandler.write =
                     fun graph documentRootId _previousText ->
@@ -70,7 +74,7 @@ module DocumentFormat =
                     fun text graph documentRootId ->
                         PlainTextDocument.read text documentRootId graph
                         |> Result.map (fun r ->
-                            toNodesRead r.documentRootId r.nodes)
+                            toNodesRead r.documentRootId r.nodes r.childMap)
                 DocumentHandler.readWarm = warmUnavailable
                 DocumentHandler.write = PlainTextDocument.writeArtifact
             }
@@ -93,7 +97,7 @@ module DocumentFormat =
                     fun text graph documentRootId ->
                         MdDocument.read text documentRootId graph
                         |> Result.map (fun r ->
-                            toNodesRead r.documentRootId r.nodes)
+                            toNodesRead r.documentRootId r.nodes r.childMap)
                 DocumentHandler.readWarm = warmUnavailable
                 DocumentHandler.write = MdDocument.writeArtifact
             }
@@ -113,7 +117,7 @@ module DocumentFormat =
                     fun text graph documentRootId ->
                         CStyleDocument.read text documentRootId graph
                         |> Result.map (fun r ->
-                            toNodesRead r.documentRootId r.nodes)
+                            toNodesRead r.documentRootId r.nodes r.childMap)
                 DocumentHandler.readWarm = warmUnavailable
                 DocumentHandler.write = CStyleDocument.writeArtifact
             }
@@ -165,13 +169,22 @@ module DocumentFormat =
                         | None -> nodes)
                     context.nodes
 
-            Ok (Graph.fromNodes context.root mergedNodes)
+            let mergedChildMap =
+                overlayIds
+                |> Set.fold
+                    (fun childMap nodeId ->
+                        match Map.tryFind nodeId readResult.childMap with
+                        | Some kids -> Map.add nodeId kids childMap
+                        | None -> childMap)
+                    context.childMap
+
+            Ok (Graph.fromNodes context.root mergedNodes mergedChildMap)
 
     let private hasNestedDocumentRootChild (graph: Graph) (documentRootId: NodeId) =
         match Map.tryFind documentRootId graph.nodes with
         | None -> false
-        | Some root ->
-            root.children
+        | Some _ ->
+            GraphChildren.get graph documentRootId
             |> List.exists (fun child ->
                 Node.childOwnership graph documentRootId child = Ownership.Owner
                 && DocumentPartition.isNestedDocumentRootBoundary

@@ -222,7 +222,7 @@ let askRequest (seeded: SeededAsk) =
         seeded.graphIds
 
 let ownedTexts (graph: Graph) focusId =
-    graph.nodes.[focusId].children
+    Graph.children graph focusId
     |> List.filter (fun child -> child.ref = Ownership.Owner)
     |> List.map (fun child -> graph.nodes.[child.id].text)
 
@@ -239,7 +239,7 @@ let ownedChildren host focusId =
     task {
         let! state = graphState host
         return
-            state.graph.nodes.[focusId].children
+            Graph.children state.graph focusId
             |> List.filter (fun child -> child.ref = Ownership.Owner)
             |> List.map (fun child ->
                 let text =

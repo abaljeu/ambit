@@ -7,6 +7,7 @@ open System
 type AmbDocumentReadResult = {
     documentRootId: NodeId
     nodes: Map<NodeId, Node>
+    childMap: Map<NodeId, ChildNode list>
 }
 
 /// How Amb write walks children of the supplied root.
@@ -127,8 +128,9 @@ module AmbDocument =
     let private refTargetIds (graph: Graph) : Set<NodeId> =
         graph.nodes
         |> Map.toSeq
-        |> Seq.collect (fun (parentId, node) ->
-            node.children |> List.map (fun child -> parentId, child))
+        |> Seq.collect (fun (parentId, _) ->
+            GraphChildren.get graph parentId
+            |> List.map (fun child -> parentId, child))
         |> Seq.filter (fun (parentId, child) ->
             Node.childOwnership graph parentId child = Ownership.Ref)
         |> Seq.map (fun (_, child) -> child.id)
@@ -190,8 +192,8 @@ module AmbDocument =
     let private childOccurrenceCount (graph: Graph) : Map<NodeId, int> =
         graph.nodes
         |> Map.toSeq
-        |> Seq.collect (fun (_, node) ->
-            node.children |> Seq.map (fun child -> child.id))
+        |> Seq.collect (fun (id, _) ->
+            GraphChildren.get graph id |> Seq.map (fun child -> child.id))
         |> Seq.groupBy id
         |> Seq.map (fun (nodeId, xs) -> nodeId, Seq.length xs)
         |> Map.ofSeq
@@ -258,13 +260,13 @@ module AmbDocument =
                         acc'
                     else
                         let path' = Set.add nodeId path
-                        node.children
+                        GraphChildren.get graph nodeId
                         |> List.fold
                             (writePresent (depth + 1) path')
                             acc'
 
             let lines =
-                rootNode.children
+                GraphChildren.get graph documentRootId
                 |> List.fold (writePresent 0 Set.empty) []
             Ok(List.rev lines)
 
@@ -345,7 +347,7 @@ module AmbDocument =
                             emitted', line :: acc
                         else
                             let emitted'', acc' =
-                                node.children
+                                GraphChildren.get graph nodeId
                                 |> List.fold
                                     (fun (em, a) c ->
                                         writeChild nodeId (depth + 1) em a c)
@@ -353,7 +355,7 @@ module AmbDocument =
                             emitted'', acc'
 
             let _, lines =
-                rootNode.children
+                GraphChildren.get graph documentRootId
                 |> List.fold
                     (fun (emitted, acc) child ->
                         writeChild documentRootId 0 emitted acc child)
@@ -432,10 +434,10 @@ module AmbDocument =
     let private prependChild
         (parentId: NodeId)
         (edge: ChildNode)
-        (nodes: Map<NodeId, Node>)
+        (childMap: Map<NodeId, ChildNode list>)
         =
-        let parent = nodes |> Map.find parentId
-        nodes |> Map.add parentId { parent with children = edge :: parent.children }
+        let kids = Map.tryFind parentId childMap |> Option.defaultValue []
+        Map.add parentId (edge :: kids) childMap
 
     let rec private popStack depth stack =
         match stack with
@@ -457,9 +459,9 @@ module AmbDocument =
         else
             match Map.tryFind nodeId contextGraph.nodes with
             | Some node when not (String.IsNullOrWhiteSpace node.text) ->
-                Map.add nodeId { node with children = [] } nodes
+                Map.add nodeId node nodes
             | Some node ->
-                Map.add nodeId { node with children = []; text = brokenLinkText } nodes
+                Map.add nodeId { node with text = brokenLinkText } nodes
             | None ->
                 Map.add nodeId (stubBrokenLink nodeId) nodes
 
@@ -533,6 +535,7 @@ module AmbDocument =
         (classes: CssClasses)
         (nodeText: string)
         (nodes: Map<NodeId, Node>)
+        (childMap: Map<NodeId, ChildNode list>)
         (contextGraph: Graph)
         (ownerCandidates: Map<NodeId, NodeId list>)
         (claimed: Set<NodeId>)
@@ -547,8 +550,11 @@ module AmbDocument =
             | Some node when matchesNode nodeId node -> Some nodeId
             | _ -> None
 
-        let fromParentChildren (nodeSources: Map<NodeId, Node>) (parent: Node) =
-            parent.children
+        let fromParentChildren
+            (nodeSources: Map<NodeId, Node>)
+            (kids: ChildNode list)
+            =
+            kids
             |> List.tryPick (fun child ->
                 if Node.childOwnership contextGraph parentId child
                    <> Ownership.Owner then
@@ -562,30 +568,34 @@ module AmbDocument =
             |> Option.defaultValue []
             |> List.tryPick (fromOwnerChild nodeSources)
 
-        let trySources nodeSources =
+        let trySources nodeSources kids =
             match Map.tryFind parentId nodeSources with
             | None -> None
-            | Some parent ->
-                match fromParentChildren nodeSources parent with
+            | Some _ ->
+                match fromParentChildren nodeSources kids with
                 | Some nodeId -> Some nodeId
                 | None -> fromOwnerLinks nodeSources
 
-        match trySources contextGraph.nodes with
+        match trySources contextGraph.nodes (GraphChildren.get contextGraph parentId) with
         | Some nodeId -> Some nodeId
-        | None -> trySources nodes
+        | None ->
+            trySources
+                nodes
+                (Map.tryFind parentId childMap |> Option.defaultValue [])
 
     let private resolvePlainLine
         (parentId: NodeId)
         (classes: CssClasses)
         (nodeText: string)
         (nodes: Map<NodeId, Node>)
+        (childMap: Map<NodeId, ChildNode list>)
         (contextGraph: Graph)
         (ownerCandidates: Map<NodeId, NodeId list>)
         (claimed: Set<NodeId>)
         : NodeId * Map<NodeId, Node> * Set<NodeId> =
         match
             tryMatchPlainOwnerChild
-                parentId classes nodeText nodes contextGraph ownerCandidates claimed
+                parentId classes nodeText nodes childMap contextGraph ownerCandidates claimed
         with
         | Some nodeId ->
             let baseNode =
@@ -620,7 +630,7 @@ module AmbDocument =
         (documentRootId: NodeId)
         (contextGraph: Graph)
         (ownerCandidates: Map<NodeId, NodeId list>)
-        (nodes, stack, idMap: Map<string, NodeId>, claimed: Set<NodeId>)
+        (nodes, childMap, stack, idMap: Map<string, NodeId>, claimed: Set<NodeId>)
         (line: string)
         =
         let depth = line |> Seq.takeWhile ((=) '\t') |> Seq.length
@@ -631,14 +641,17 @@ module AmbDocument =
         if content.StartsWith("-> ") then
             let target = content.Substring(3).Trim()
             match parseRefTarget target with
-            | None -> nodes, stack, idMap, claimed, Error ("invalid ref line: " + content)
+            | None ->
+                nodes, childMap, stack, idMap, claimed,
+                Error ("invalid ref line: " + content)
             | Some (path, stableToken) ->
                 match resolveRefTarget path stableToken contextGraph nodes with
-                | Error msg -> nodes, stack, idMap, claimed, Error msg
+                | Error msg ->
+                    nodes, childMap, stack, idMap, claimed, Error msg
                 | Ok (nodeId, nodes') ->
                     let edge = ChildNode.reference nodeId
-                    let nodes'' = prependChild parentId edge nodes'
-                    nodes'', stack, idMap, claimed, Ok ()
+                    let childMap' = prependChild parentId edge childMap
+                    nodes', childMap', stack, idMap, claimed, Ok ()
 
         elif content.StartsWith("^") then
             match splitStableIdPrefix (content.Substring(1)) with
@@ -656,36 +669,39 @@ module AmbDocument =
                         nodes
                         contextGraph
                 with
-                | Error msg -> nodes, stack, idMap, claimed, Error msg
+                | Error msg ->
+                    nodes, childMap, stack, idMap, claimed, Error msg
                 | Ok (nodeId, nodes') ->
                     let idMap' = idMap |> Map.add stableToken nodeId
                     let claimed' = Set.add nodeId claimed
                     let edge = ChildNode.owner nodeId
-                    let nodes'' = prependChild parentId edge nodes'
-                    nodes'', (depth, nodeId) :: stack, idMap', claimed', Ok ()
+                    let childMap' = prependChild parentId edge childMap
+                    nodes', childMap', (depth, nodeId) :: stack, idMap', claimed',
+                    Ok ()
             | None ->
                 // Body text may start with '^' without a stable id (legacy plain write).
                 let classes, nodeText = parseOutlineMeta content
                 let nodeId, nodes', claimed' =
                     resolvePlainLine
-                        parentId classes nodeText nodes contextGraph ownerCandidates claimed
+                        parentId classes nodeText nodes childMap
+                        contextGraph ownerCandidates claimed
                 let edge = ChildNode.owner nodeId
-                let nodes'' = prependChild parentId edge nodes'
-                nodes'', (depth, nodeId) :: stack, idMap, claimed', Ok ()
+                let childMap' = prependChild parentId edge childMap
+                nodes', childMap', (depth, nodeId) :: stack, idMap, claimed', Ok ()
 
         else
             let classes, nodeText = parseOutlineMeta content
             let nodeId, nodes', claimed' =
                 resolvePlainLine
-                    parentId classes nodeText nodes contextGraph ownerCandidates claimed
+                    parentId classes nodeText nodes childMap
+                    contextGraph ownerCandidates claimed
 
             let edge = ChildNode.owner nodeId
-            let nodes'' = prependChild parentId edge nodes'
-            nodes'', (depth, nodeId) :: stack, idMap, claimed', Ok ()
+            let childMap' = prependChild parentId edge childMap
+            nodes', childMap', (depth, nodeId) :: stack, idMap, claimed', Ok ()
 
-    let private finalizeDocument (nodemap: Map<NodeId, Node>) : Map<NodeId, Node> =
-        nodemap
-        |> Map.map (fun _ node -> { node with children = List.rev node.children })
+    let private finalizeChildMap childMap =
+        childMap |> Map.map (fun _ kids -> List.rev kids)
 
     /// Parse one document artifact. `contextGraph` resolves cross-file refs and seeds known nodes.
     let read
@@ -699,12 +715,13 @@ module AmbDocument =
             let ownerCandidates =
                 ownerCandidatesByParent contextGraph.nodes
 
-            let seedNodes =
-                contextGraph.nodes
-                |> Map.map (fun _ node -> { node with children = [] })
+            let seedNodes = contextGraph.nodes
+            let seedChildMap =
+                contextGraph.nodes |> Map.map (fun _ _ -> [])
 
             let initial =
                 ( seedNodes
+                  , seedChildMap
                   , [ (-1, documentRootId) ]
                   , Map.empty<string, NodeId>
                   , Set.empty )
@@ -712,25 +729,26 @@ module AmbDocument =
             let folder acc line =
                 match acc with
                 | Error msg -> Error msg
-                | Ok (nodes, stack, idMap, claimed) ->
-                    let nodes', stack', idMap', claimed', result =
+                | Ok (nodes, childMap, stack, idMap, claimed) ->
+                    let nodes', childMap', stack', idMap', claimed', result =
                         foldOutlineLine
                             documentRootId
                             contextGraph
                             ownerCandidates
-                            (nodes, stack, idMap, claimed)
+                            (nodes, childMap, stack, idMap, claimed)
                             line
                     match result with
-                    | Ok () -> Ok (nodes', stack', idMap', claimed')
+                    | Ok () ->
+                        Ok (nodes', childMap', stack', idMap', claimed')
                     | Error msg -> Error msg
 
             match outlineSourceLines text |> Array.fold folder (Ok initial) with
             | Error msg -> Error msg
-            | Ok (nodes, _, _, _) ->
-                let finalized = finalizeDocument nodes
+            | Ok (nodes, childMap, _, _, _) ->
                 Ok {
                     AmbDocumentReadResult.documentRootId = documentRootId
-                    AmbDocumentReadResult.nodes = finalized
+                    AmbDocumentReadResult.nodes = nodes
+                    AmbDocumentReadResult.childMap = finalizeChildMap childMap
                 }
 
     let normalizeForCompare (text: string) : string =

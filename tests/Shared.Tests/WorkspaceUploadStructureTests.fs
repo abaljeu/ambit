@@ -23,7 +23,7 @@ let private addWorkspace label graph =
     id, applyOps graph ops
 
 let private ownedNamedChildren graph parentId =
-    graph.nodes.[parentId].children
+    Graph.children graph parentId
     |> List.choose (fun child ->
         if child.ref <> Ownership.Owner then
             None
@@ -74,7 +74,7 @@ let ``planStubOps creates Directory named .agents with file child`` () =
     Assert.Equal(Special Directory, agents.kind)
     let skill = childNamed graph2 agents.id "skill.md"
     Assert.Equal(Special File, skill.kind)
-    Assert.Equal(Loaded, agents.childrenStatus)
+    Assert.Equal(Loaded, Graph.childrenStatus graph2 agents.id)
 
 [<Fact>]
 let ``plan creates directory then file stubs under workspace`` () =
@@ -91,7 +91,7 @@ let ``plan creates directory then file stubs under workspace`` () =
     let file = childNamed graph2 docs.id "note.txt"
     Assert.Equal(Special Directory, docs.kind)
     Assert.Equal(Special File, file.kind)
-    Assert.Empty(file.children)
+    Assert.Empty(Graph.children graph2 file.id)
 
 [<Fact>]
 let ``exact amb inventory paths represent containing document roots`` () =
@@ -228,7 +228,7 @@ let ``no content children on new file stubs`` () =
         |> applyOps graph
 
     let file = childNamed graph2 workspaceId "only.txt"
-    Assert.Empty(file.children)
+    Assert.Empty(Graph.children graph2 file.id)
 
 [<Fact>]
 let ``reused Unparsed directory with owned child becomes Current`` () =
@@ -344,6 +344,7 @@ let ``planAlignFileStampOps SetUpdateTime when node lags download mtime`` () =
         Graph.fromNodes
             graph1.root
             (Map.add fileId stamped graph1.nodes)
+            graph1.childMap
     match
         WorkspaceUploadStructure.planAlignFileStampOps
             graph2
@@ -398,7 +399,7 @@ let ``Load Unloaded stub plan must not name-conflict on resident server`` () =
             BootstrapScope.RootClosure
             None
             server
-    Assert.Equal(Unloaded, client.nodes.[workspaceId].childrenStatus)
+    Assert.Equal(Unloaded, Graph.childrenStatus client workspaceId)
     Assert.False(Map.containsKey serverFileId client.nodes)
     let ops = requirePlan client "home" [ item "note.txt" false ]
     match ops with

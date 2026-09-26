@@ -53,7 +53,7 @@ module ChangeAmendment =
         let current =
             match Map.tryFind parentId graph.nodes with
             | None -> []
-            | Some parent -> parent.children
+            | Some _ -> GraphChildren.get graph parentId
         [ Op.NewNode(childId, conflictText)
           Op.SetClasses(childId, CssClass.empty, ambConflictClasses)
           ChildListWire.replace parentId current [ ChildNode.owner childId ] ]
@@ -115,8 +115,8 @@ module ChangeAmendment =
         else
             match Map.tryFind parentId graph.nodes with
             | None -> Error "node not found"
-            | Some parent ->
-                let current = parent.children
+            | Some _ ->
+                let current = GraphChildren.get graph parentId
                 let target = ChildListMerge.resolve anchor current newList
                 if target = current then
                     Ok []

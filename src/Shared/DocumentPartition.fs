@@ -35,8 +35,8 @@ module DocumentPartition =
                 let visited' = Set.add nodeId visited
                 match Map.tryFind nodeId graph.nodes with
                 | None -> visited'
-                | Some node ->
-                    node.children
+                | Some _ ->
+                    GraphChildren.get graph nodeId
                     |> List.fold
                         (fun acc child ->
                             if Node.childOwnership graph nodeId child = Ownership.Owner then
@@ -74,8 +74,14 @@ module DocumentPartition =
         && a.documentState = b.documentState
         && a.owner = b.owner
         && CssClass.toList a.cssClasses = CssClass.toList b.cssClasses
-        && List.length a.children = List.length b.children
-        && List.forall2 childNodeContentEquals a.children b.children
+
+    let private childMapEquals (pre: Graph) (post: Graph) (id: NodeId) : bool =
+        match GraphChildren.tryGet pre id, GraphChildren.tryGet post id with
+        | None, None -> true
+        | Some a, Some b ->
+            List.length a = List.length b
+            && List.forall2 childNodeContentEquals a b
+        | _ -> false
 
     /// Writable post-graph roots containing touched nodes, plus known moved roots.
     let documentRootsAffectedByNodeIds
@@ -114,7 +120,9 @@ module DocumentPartition =
             allIds
             |> Set.filter (fun id ->
                 match Map.tryFind id preGraph.nodes, Map.tryFind id postGraph.nodes with
-                | Some a, Some b -> not (nodeContentEquals a b)
+                | Some a, Some b ->
+                    not (nodeContentEquals a b)
+                    || not (childMapEquals preGraph postGraph id)
                 | _ -> true)
 
         documentRootsAffectedByNodeIds
@@ -249,7 +257,7 @@ module DocumentPartition =
                             |> Array.exists Filename.isReservedSystemName)
                     | _ -> false
                 invalidHere
-                || (node.children
+                || (GraphChildren.get graph nodeId
                     |> List.exists (fun child ->
                         Node.childOwnership graph nodeId child = Ownership.Owner
                         && ownedSubtreeHasReservedArtifactPath

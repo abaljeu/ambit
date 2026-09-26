@@ -67,14 +67,16 @@ module DatabaseProjection =
         let retainedNodes =
             graph.nodes
             |> Map.filter (fun nodeId _ -> not (Set.contains nodeId deletedIds))
-            |> Map.map (fun _ node ->
-                { node with
-                    children =
-                        node.children
-                        |> List.filter (fun child ->
-                            not (Set.contains child.id deletedIds)) })
+        let retainedChildMap =
+            graph.childMap
+            |> Map.filter (fun parentId _ ->
+                not (Set.contains parentId deletedIds))
+            |> Map.map (fun _ kids ->
+                kids
+                |> List.filter (fun child ->
+                    not (Set.contains child.id deletedIds)))
 
-        Graph.fromNodes graph.root retainedNodes
+        Graph.fromNodes graph.root retainedNodes retainedChildMap
 
     let startupSweepPatch : ProjectionMaintenancePatch =
         { protectedNodeIds = canonicalNodeIds |> List.map _.Value }
@@ -123,9 +125,13 @@ module DatabaseProjection =
         |> List.choose (fun parentId ->
             graph.nodes
             |> Map.tryFind parentId
-            |> Option.map (fun node ->
-                { parentId = parentId.Value
-                  rows = GraphProjection.childRowsFromNode graph node }))
+            |> Option.bind (fun _ ->
+                Graph.tryGetChildren graph parentId
+                |> Option.map (fun kids ->
+                    { parentId = parentId.Value
+                      rows =
+                        GraphProjection.childRowsFromNode
+                            graph parentId kids })))
 
     let plan (graph: Graph) (eventId: EventId) (events: Ev list) : ProjectionPatch =
         { nodeUpserts = nodeRows graph events

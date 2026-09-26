@@ -1,6 +1,7 @@
 module ExprCombinatorTests
 
 open Gambol.Shared
+open GraphChildMapHelpers
 open Xunit
 
 type private Fixture =
@@ -28,13 +29,7 @@ let private namedNormal id name text owner =
         owner = owner)
 
 let private addUnder parentId child graph =
-    let parent = graph.nodes.[parentId]
-    let nodes =
-        graph.nodes
-        |> Map.add child.id child
-        |> Map.add parentId
-            { parent with children = parent.children @ [ ChildNode.owner child.id ] }
-    Graph.fromNodes graph.root nodes
+    GraphChildMapHelpers.addUnder parentId child graph
 
 let private build () : Fixture =
     let wsId = NodeId.New()
@@ -175,13 +170,7 @@ type private OuterFixture =
       outsideBlue: NodeId }
 
 let private addRef parentId targetId graph =
-    let parent = graph.nodes.[parentId]
-    let nodes =
-        graph.nodes
-        |> Map.add parentId
-            { parent with
-                children = parent.children @ [ ChildNode.reference targetId ] }
-    Graph.fromNodes graph.root nodes
+    GraphChildMapHelpers.addRef parentId targetId graph
 
 let private unnamed id text owner =
     Node.Create(id, text = text, owner = owner)
@@ -206,8 +195,8 @@ let private buildOuter () : OuterFixture =
             (Node.Create(
                 unloadedId,
                 text = "blue unloaded",
-                owner = fileId,
-                childrenStatus = Unloaded))
+                owner = fileId))
+        |> unload unloadedId
         |> addUnder wsId (specialNode otherFileId File "g.fs" wsId)
         |> addUnder otherFileId (unnamed outsideId "blue outside" otherFileId)
         |> addRef fileId outsideId
@@ -270,7 +259,7 @@ let ``OUTER is Owned only, strictly below, Unloaded miss, not a tree prune`` () 
     let outer = nodeIds (evalOk f.graph fromFile "OUTER containing \"blue\"")
     Assert.DoesNotContain(f.outsideBlue, outer)
     Assert.Contains(f.unloadedBlue, outer)
-    Assert.Equal(Unloaded, f.graph.nodes.[f.unloadedBlue].childrenStatus)
+    Assert.Equal(Unloaded, Graph.childrenStatus f.graph f.unloadedBlue)
     Assert.DoesNotContain(f.file, outer)
     let treeHits =
         nodeIds (evalOk f.graph fromFile "tree containing \"blue\"")

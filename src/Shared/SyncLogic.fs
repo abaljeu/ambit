@@ -86,6 +86,7 @@ module SyncLogic =
             let graph =
                 ResidentProjection.installPackages
                     response.packages
+                    response.packageChildMap
                     afterEvents.graph
             Ok { afterEvents with graph = graph }
 
@@ -108,7 +109,8 @@ module SyncLogic =
 
     let loadResponseToSync (response: LoadResponse) : SyncResponse =
         { events = response.events
-          packages = response.packages }
+          packages = response.packages
+          packageChildMap = response.packageChildMap }
 
     let loadResponseToPoll (response: LoadResponse) : ChangeSuccessResponse =
         { eventId = response.eventId
@@ -127,7 +129,11 @@ module SyncLogic =
         (events: Ev list)
         (state: ClientSyncState)
         : Result<ClientSyncState, string> =
-        applySyncResponse { events = events; packages = [] } state
+        applySyncResponse
+            { events = events
+              packages = []
+              packageChildMap = Map.empty }
+            state
 
     let private undoPendingGraph
         (state: ClientSyncState)

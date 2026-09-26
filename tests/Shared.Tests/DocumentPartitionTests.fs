@@ -2,6 +2,7 @@ module DocumentPartitionTests
 
 open System
 open Gambol.Shared
+open GraphChildMapHelpers
 open Xunit
 
 let private requireOk label r =
@@ -34,12 +35,7 @@ let private graphWithNestedDocs () : Graph * NodeId * NodeId * NodeId * NodeId =
     let normalNode = normalNode normalId "body" fileId
 
     let graph1 =
-        graph0.nodes
-        |> Map.add wsId wsNode
-        |> Map.add dirId dirNode
-        |> Map.add fileId fileNode
-        |> Map.add normalId normalNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        addDetachedMany [ wsNode; dirNode; fileNode; normalNode ] graph0
 
     let graph2 =
         Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
@@ -64,20 +60,14 @@ let private graphFileOwnsDirectory () : Graph * NodeId * NodeId * NodeId =
     let fileId = NodeId.New()
     let dirId = NodeId.New()
     let normalId = NodeId.New()
-    let fileNode =
-        { specialNode fileId File "container.txt" Graph.rootId with
-            children = owned [ dirId ] }
-    let dirNode =
-        { specialNode dirId Directory "inner" fileId with
-            children = owned [ normalId ] }
+    let fileNode = specialNode fileId File "container.txt" Graph.rootId
+    let dirNode = specialNode dirId Directory "inner" fileId
     let normalNode = normalNode normalId "nested" dirId
 
     let graph1 =
-        graph0.nodes
-        |> Map.add fileId fileNode
-        |> Map.add dirId dirNode
-        |> Map.add normalId normalNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        addDetachedMany [ fileNode; dirNode; normalNode ] graph0
+        |> setChildren fileId (owned [ dirId ])
+        |> setChildren dirId (owned [ normalId ])
 
     let idx = Graph.fileTreeInsertIndex graph1 Graph.rootId
     let graph2 =
@@ -127,10 +117,7 @@ let ``artifact paths for named workspace blue`` () =
     let graph0 = Graph.create ()
     let wsId = NodeId.New()
     let wsNode = specialNode wsId Workspace "blue" Graph.workspacesId
-    let graph1 =
-        graph0.nodes
-        |> Map.add wsId wsNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+    let graph1 = Graph.addDetachedNode wsNode graph0
     let graph2 =
         Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
         |> requireOk "workspaces->blue"
@@ -166,10 +153,7 @@ let ``artifact paths for file under ROOT`` () =
     let graph0 = Graph.create ()
     let fileId = NodeId.New()
     let fileNode = specialNode fileId File "name.ext" Graph.rootId
-    let graph1 =
-        graph0.nodes
-        |> Map.add fileId fileNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+    let graph1 = Graph.addDetachedNode fileNode graph0
     let idx = Graph.fileTreeInsertIndex graph1 Graph.rootId
     let graph2 =
         Graph.replace Graph.rootId idx [] (owned [ fileId ]) graph1
@@ -235,13 +219,13 @@ let private graphWithTwoSiblingFiles () : Graph * NodeId * NodeId * NodeId * Nod
     let bodyAId = NodeId.New()
     let bodyBId = NodeId.New()
     let graph1 =
-        graph0.nodes
-        |> Map.add wsId (specialNode wsId Workspace "home" Graph.workspacesId)
-        |> Map.add fileAId (specialNode fileAId File "a.txt" wsId)
-        |> Map.add fileBId (specialNode fileBId File "b.txt" wsId)
-        |> Map.add bodyAId (normalNode bodyAId "alpha" fileAId)
-        |> Map.add bodyBId (normalNode bodyBId "beta" fileBId)
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        addDetachedMany
+            [ specialNode wsId Workspace "home" Graph.workspacesId
+              specialNode fileAId File "a.txt" wsId
+              specialNode fileBId File "b.txt" wsId
+              normalNode bodyAId "alpha" fileAId
+              normalNode bodyBId "beta" fileBId ]
+            graph0
     let graph2 =
         Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
         |> requireOk "workspaces->ws"

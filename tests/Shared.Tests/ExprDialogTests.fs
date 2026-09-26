@@ -1,6 +1,7 @@
 module ExprDialogTests
 
 open Gambol.Shared
+open GraphChildMapHelpers
 open Xunit
 
 type private Fixture =
@@ -9,13 +10,7 @@ type private Fixture =
       other: NodeId }
 
 let private addUnder parentId child graph =
-    let parent = graph.nodes.[parentId]
-    let nodes =
-        graph.nodes
-        |> Map.add child.id child
-        |> Map.add parentId
-            { parent with children = parent.children @ [ ChildNode.owner child.id ] }
-    Graph.fromNodes graph.root nodes
+    GraphChildMapHelpers.addUnder parentId child graph
 
 let private build () : Fixture =
     let theId = NodeId.New()

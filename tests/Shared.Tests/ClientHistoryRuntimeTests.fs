@@ -3,6 +3,7 @@ module ClientHistoryRuntimeTests
 open System
 open Gambol.Shared
 open Gambol.Shared
+open GraphChildMapHelpers
 open Xunit
 
 let private textChange n nodeId oldText newText : Ev =
@@ -24,18 +25,13 @@ let private unloadedWorkspace () : Graph * NodeId * Node =
             text = "ws",
             name = Filename.Ok "ws",
             kind = Special Workspace,
-            childrenStatus = Unloaded,
             owner = Graph.workspacesId)
-    let workspaces = graph0.nodes.[Graph.workspacesId]
-    let nodes =
-        graph0.nodes
-        |> Map.add wsId ws
-        |> Map.add
-            Graph.workspacesId
-            { workspaces with
-                children =
-                    workspaces.children @ [ ChildNode.owner wsId ] }
-    Graph.fromNodes graph0.root nodes, wsId, ws
+    let graph =
+        graph0
+        |> Graph.addDetachedNode ws
+        |> appendKids Graph.workspacesId [ ChildNode.owner wsId ]
+        |> unload wsId
+    graph, wsId, ws
 
 [<Fact>]
 let ``applyLocalEvent records the submitted Event at EventId.zero`` () =
@@ -158,31 +154,33 @@ let ``package-only Load preserves ClientHistory at the same settled Revision`` (
         |> ClientHistory.record { change with commandName = "Edit node" }
     let state: ClientSyncState =
         ClientSyncState.create graph (EventIdFixtures.storedId 4) history
-    let loadedEmpty = { ws with children = []; childrenStatus = Loaded }
     match
         SyncLogic.applyLoadResponse
             (EventIdFixtures.storedId 4)
             false
-            { events = []; packages = [ loadedEmpty ] }
+            { events = []
+              packages = [ ws ]
+              packageChildMap = Map.ofList [ wsId, [] ] }
             state
     with
     | Error msg -> failwith msg
     | Ok result ->
         Assert.Equal(history, result.history)
         Assert.Equal(EventIdFixtures.storedId 4, result.eventId)
-        Assert.Equal(Loaded, result.graph.nodes.[wsId].childrenStatus)
+        Assert.Equal(Loaded, Graph.childrenStatus result.graph wsId)
 
 [<Fact>]
 let ``package-only Load refuses a raced pending local transition`` () =
     let graph, _, ws = unloadedWorkspace ()
     let state: ClientSyncState =
         ClientSyncState.create graph (EventIdFixtures.storedId 4) (ClientHistory.clear ())
-    let loadedEmpty = { ws with children = []; childrenStatus = Loaded }
     match
         SyncLogic.applyLoadResponse
             (EventIdFixtures.storedId 4)
             true
-            { events = []; packages = [ loadedEmpty ] }
+            { events = []
+              packages = [ ws ]
+              packageChildMap = Map.ofList [ ws.id, [] ] }
             state
     with
     | Ok _ -> failwith "Expected raced package refusal"
@@ -240,12 +238,13 @@ let ``package-only Load refuses a revision mismatch`` () =
     let graph, _, ws = unloadedWorkspace ()
     let state: ClientSyncState =
         ClientSyncState.create graph (EventIdFixtures.storedId 4) (ClientHistory.clear ())
-    let loadedEmpty = { ws with children = []; childrenStatus = Loaded }
     match
         SyncLogic.applyLoadResponse
             (EventIdFixtures.storedId 5)
             false
-            { events = []; packages = [ loadedEmpty ] }
+            { events = []
+              packages = [ ws ]
+              packageChildMap = Map.ofList [ ws.id, [] ] }
             state
     with
     | Ok _ -> failwith "Expected raced package refusal"

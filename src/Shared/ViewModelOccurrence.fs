@@ -12,8 +12,8 @@ module ViewModelOccurrence =
     let getAllOccurrences (graph: Graph) (nodeId: NodeId) : (NodeId * int * ChildNode) list =
         graph.nodes
         |> Map.toList
-        |> List.collect (fun (parentId, node) ->
-            node.children
+        |> List.collect (fun (parentId, _) ->
+            GraphChildren.get graph parentId
             |> List.mapi (fun index child ->
                 if child.id = nodeId then
                     Some(parentId, index, child)
@@ -166,14 +166,18 @@ module ViewModelOccurrence =
         else
             Some (sel.range.parent.nodeId, sel.focus)
 
-    let private childIndexOf (parent: Node) (childId: NodeId) (stored: int) : int option =
-        let live =
-            parent.children
-            |> List.tryFindIndex (fun c -> c.id = childId)
+    let private childIndexOf
+        (graph: Graph)
+        (parentId: NodeId)
+        (childId: NodeId)
+        (stored: int)
+        : int option =
+        let kids = GraphChildren.get graph parentId
+        let live = kids |> List.tryFindIndex (fun c -> c.id = childId)
         match live with
         | None -> None
         | Some idx ->
-            match List.tryItem stored parent.children with
+            match List.tryItem stored kids with
             | Some c when c.id = childId -> Some stored
             | _ -> Some idx
 
@@ -189,8 +193,8 @@ module ViewModelOccurrence =
             | (parentId, storedIndex) :: rest ->
                 match Map.tryFind parentId graph.nodes with
                 | None -> loop rest
-                | Some parent ->
-                    match childIndexOf parent currentZoomRoot storedIndex with
+                | Some _ ->
+                    match childIndexOf graph parentId currentZoomRoot storedIndex with
                     | Some index -> Some (parentId, index, rest)
                     | None -> loop rest
             | [] ->
@@ -228,8 +232,8 @@ module ViewModelOccurrence =
     let firstGraphChild (graph: Graph) : NodeId =
         match Map.tryFind graph.root graph.nodes with
         | None -> graph.root
-        | Some node ->
-            node.children
+        | Some _ ->
+            GraphChildren.get graph graph.root
             |> List.tryPick (fun child ->
                 if Map.containsKey child.id graph.nodes then
                     Some child.id

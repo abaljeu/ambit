@@ -28,11 +28,10 @@ let private graphWithWorkspaceTree () : Graph * NodeId * NodeId * NodeId =
     let fileNode = specialNode fileId File "readme.txt" dirId
 
     let graph1 =
-        graph0.nodes
-        |> Map.add wsId wsNode
-        |> Map.add dirId dirNode
-        |> Map.add fileId fileNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        graph0
+        |> Graph.addDetachedNode wsNode
+        |> Graph.addDetachedNode dirNode
+        |> Graph.addDetachedNode fileNode
 
     let graph2 =
         Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1

@@ -23,9 +23,7 @@ module ImportDocument =
                 kind = Special File,
                 documentState = Unparsed)
 
-        graph0.nodes
-        |> Map.add documentRootId file
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        Graph.addDetachedNode file graph0
 
     let private packageFromCold
         (sourcePath: string)

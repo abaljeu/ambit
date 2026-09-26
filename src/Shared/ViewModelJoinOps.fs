@@ -27,7 +27,7 @@ module ViewModelJoinOps =
                     Some (instanceId, nodeId, model.graph.nodes.[nodeId])))
 
     let private removeCurrentChildOp (g: Graph) (currentId: NodeId) (parentId: NodeId) (indexInParent: int) =
-        let oldChildren = g.nodes.[parentId].children
+        let oldChildren = GraphChildren.get g parentId
         ChildListWire.removeRange parentId oldChildren indexInParent 1
 
     let joinWithNextPlan (currentText: string) (model: VM) : JoinEditPlan option =
@@ -38,7 +38,9 @@ module ViewModelJoinOps =
 
             match tryVisibleNeighbor 1 model sel with
             | None -> None
-            | Some _ when not currentNode.children.IsEmpty -> Some RestoreCaret
+            | Some _ when
+                not (GraphChildren.get model.graph currentId).IsEmpty ->
+                Some RestoreCaret
             | Some (nextInstId, nextId, nextNode) ->
                 match Graph.tryFindParentAndIndex nextId model.graph,
                       Graph.tryFindParentAndIndex currentId model.graph with
@@ -78,15 +80,17 @@ module ViewModelJoinOps =
             match tryVisibleNeighbor -1 model sel,
                   Graph.tryFindParentAndIndex currentId model.graph with
             | Some (prevInstId, prevId, prevNode), Some (parentId, indexInParent)
-                when currentNode.children.IsEmpty || prevNode.children.IsEmpty ->
+                when (GraphChildren.get model.graph currentId).IsEmpty
+                     || (GraphChildren.get model.graph prevId).IsEmpty ->
                 let joinedText = prevNode.text + currentText
-                let prevChildren = prevNode.children
+                let prevChildren = GraphChildren.get model.graph prevId
+                let currentChildren = GraphChildren.get model.graph currentId
                 let ops =
                     [ if joinedText <> prevNode.text then
                           yield Op.SetText(prevId, prevNode.text, joinedText)
-                      if not currentNode.children.IsEmpty then
+                      if not currentChildren.IsEmpty then
                           yield
-                              ChildListWire.append prevId prevChildren currentNode.children
+                              ChildListWire.append prevId prevChildren currentChildren
                       yield removeCurrentChildOp model.graph currentId parentId indexInParent ]
 
                 Some (Apply (ops, joinedText, EditCaret.Utf16Index prevNode.text.Length, prevInstId))

@@ -114,9 +114,8 @@ let private onCopyOrCut
     | None -> ()
     | Some sel ->
         ev.preventDefault()
-        let parentNode = model.graph.nodes.[sel.range.parent.nodeId]
         let selectedIds =
-            parentNode.children
+            Graph.children model.graph sel.range.parent.nodeId
             |> List.skip sel.range.start
             |> List.take (sel.range.endd - sel.range.start)
             |> List.map (fun child -> child.id)

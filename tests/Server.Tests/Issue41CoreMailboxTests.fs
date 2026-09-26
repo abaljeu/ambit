@@ -172,7 +172,7 @@ let ``name-only Undo and Redo store completed Events with submission ids`` () =
             Ev.ops storedRedo
             |> Option.defaultValue [])
         Assert.Contains(
-            state.graph.nodes.[Graph.rootId].children,
+            Graph.children state.graph Graph.rootId,
             fun child -> child.id = childId)
     })
 

@@ -15,7 +15,7 @@ let private reachableIds (graph: Graph) : Set<NodeId> =
         if Set.contains nodeId visited then
             visited
         else
-            graph.nodes.[nodeId].children
+            Graph.children graph nodeId
             |> List.fold
                 (fun state child -> walk state child.id)
                 (Set.add nodeId visited)
@@ -95,8 +95,8 @@ let private createPasteScenario () : State * Ev * NodeId list =
     let topIds, pasteOps =
         Paste.buildPasteOps [ "parent", 0; "child", 1 ]
     let workspaceId = NodeId.New()
-    let rootIndex = initial.graph.nodes.[initial.graph.root].children.Length
-    let rootChildren = initial.graph.nodes.[initial.graph.root].children
+    let rootIndex = (Graph.children initial.graph initial.graph.root).Length
+    let rootChildren = Graph.children initial.graph initial.graph.root
     let source =
         SpecialNodeTestHelpers.changeEventZero
             "Paste"

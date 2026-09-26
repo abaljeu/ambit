@@ -77,10 +77,9 @@ module ViewModelSiteMap =
         (oldEntryOpt: SiteEntry option)
         (instId: SiteId) : SiteId list =
         if shouldExpandChildren isRoot expanded then
-            let node = graph.nodes.[nodeId]
             let oldChildren = oldEntryOpt |> Option.map (fun o -> o.children) |> Option.defaultValue []
             let usedIds = ref Set.empty<SiteId>
-            node.children |> List.mapi (fun i child ->
+            GraphChildren.get graph nodeId |> List.mapi (fun i child ->
                 let oldChildOpt =
                     let positional =
                         List.tryItem i oldChildren
@@ -136,9 +135,8 @@ module ViewModelSiteMap =
         let freshId, endCount = makeCounter startId
         let mutable acc = Map.empty<SiteId, SiteEntry>
         let rootInstId = freshId ()
-        let rootNode = graph.nodes.[rootNodeId]
         let childInstIds =
-            rootNode.children |> List.mapi (fun i child ->
+            GraphChildren.get graph rootNodeId |> List.mapi (fun i child ->
                 let childId = freshId ()
                 acc <- Map.add childId { instanceId = childId; nodeId = child.id
                                          parentInstanceId = Some rootInstId
@@ -241,9 +239,8 @@ module ViewModelSiteMap =
             else
                 let freshId, endCount = makeCounter startId
                 let mutable acc = siteMap.entries
-                let node = graph.nodes.[entry.nodeId]
                 let childInstIds =
-                    node.children |> List.mapi (fun i child ->
+                    GraphChildren.get graph entry.nodeId |> List.mapi (fun i child ->
                         // Reuse existing child entry at this position if nodeId matches
                         match List.tryItem i entry.children |> Option.bind (fun oid -> Map.tryFind oid acc) with
                         | Some existing when existing.nodeId = child.id ->
@@ -304,8 +301,9 @@ module ViewModelSiteMap =
                             Some (siteMap, nextSiteId, sibling)
                         | Some sibling ->
                             let hasChildren =
-                                Map.tryFind sibling.nodeId graph.nodes
-                                |> Option.exists (fun node -> not node.children.IsEmpty)
+                                GraphChildren.get graph sibling.nodeId
+                                |> List.isEmpty
+                                |> not
 
                             if not hasChildren then
                                 Some (siteMap, nextSiteId, sibling)
@@ -313,7 +311,10 @@ module ViewModelSiteMap =
                                 None)
     let private isFolded (graph: Graph) (entry: SiteEntry) : bool =
         match Map.tryFind entry.nodeId graph.nodes with
-        | Some node when not node.children.IsEmpty && not entry.expanded -> true
+        | Some _ when
+            not (GraphChildren.get graph entry.nodeId).IsEmpty
+            && not entry.expanded ->
+            true
         | _ -> false
 
     /// Iterative-deepening unfold over a frontier of instance ids.

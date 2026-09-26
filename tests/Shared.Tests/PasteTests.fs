@@ -119,7 +119,7 @@ let ``collectSubtree single node no children`` () =
     Assert.Equal<NodeId list>([id], cb.topLevelIds)
     Assert.Equal(1, cb.nodes.Count)
     Assert.Equal("x", cb.nodes.[id].text)
-    Assert.Empty(cb.nodes.[id].children)
+    Assert.Empty(cb.childMap.[id])
 
 [<Fact>]
 let ``collectSubtree collapsed node excludes children`` () =
@@ -129,7 +129,7 @@ let ``collectSubtree collapsed node excludes children`` () =
     let cb = collectSubtree graph siteMap (owned [parentId])
     Assert.Equal<NodeId list>([parentId], cb.topLevelIds)
     Assert.Equal(1, cb.nodes.Count)
-    Assert.Empty(cb.nodes.[parentId].children)
+    Assert.Empty(cb.childMap.[parentId])
 
 [<Fact>]
 let ``collectSubtree expanded node includes children`` () =
@@ -140,7 +140,9 @@ let ``collectSubtree expanded node includes children`` () =
     let cb = collectSubtree graph siteMap' (owned [parentId])
     Assert.Equal<NodeId list>([parentId], cb.topLevelIds)
     Assert.Equal(3, cb.nodes.Count)  // parent + 2 children
-    Assert.Equal<NodeId list>(childIds, cb.nodes.[parentId].children |> List.map (fun child -> child.id))
+    Assert.Equal<NodeId list>(
+        childIds,
+        cb.childMap.[parentId] |> List.map (fun child -> child.id))
     for cid in childIds do
         Assert.True(cb.nodes.ContainsKey cid)
 
@@ -171,14 +173,15 @@ let ``buildPasteOpsFromClipboard single node gets fresh id and same text`` () =
           nodes =
             Map.ofList
                 [ oldId,
-                  Node.Create(oldId, text = "hello") ] }
+                  Node.Create(oldId, text = "hello") ]
+          childMap = Map.ofList [ oldId, [] ] }
     let newTopIds, ops = buildPasteOpsFromClipboard cb
     Assert.Equal(1, newTopIds.Length)
     Assert.NotEqual(oldId, newTopIds.[0])
     let graph = applyOps ops (Graph.create ())
     let newNode = graph.nodes.[newTopIds.[0]]
     Assert.Equal("hello", newNode.text)
-    Assert.Empty(newNode.children)
+    Assert.Empty(Graph.children graph newTopIds.[0])
 
 [<Fact>]
 let ``buildPasteOpsFromClipboard remaps parent-child relationship`` () =
@@ -186,22 +189,19 @@ let ``buildPasteOpsFromClipboard remaps parent-child relationship`` () =
     let bId = NodeId.New()
     let cb =
         { topLevelIds = [aId]
-          nodes = Map.ofList
-            [ aId,
-              Node.Create(
-                aId,
-                text = "a",
-                children = owned [ bId ])
-              bId,
-              Node.Create(bId, text = "b") ] }
+          nodes =
+            (Map.ofList
+                [ aId, Node.Create(aId, text = "a")
+                  bId, Node.Create(bId, text = "b") ])
+          childMap = Map.ofList [ aId, owned [ bId ]; bId, [] ] }
     let newTopIds, ops = buildPasteOpsFromClipboard cb
     let graph = applyOps ops (Graph.create ())
     let newAId = newTopIds.[0]
     Assert.NotEqual(aId, newAId)
     let newANode = graph.nodes.[newAId]
     Assert.Equal("a", newANode.text)
-    Assert.Equal(1, newANode.children.Length)
-    let newBId = newANode.children.[0].id
+    Assert.Equal(1, (Graph.children graph newAId).Length)
+    let newBId = (Graph.children graph newAId).[0].id
     Assert.NotEqual(bId, newBId)
     let newBNode = graph.nodes.[newBId]
     Assert.Equal("b", newBNode.text)
@@ -212,11 +212,11 @@ let ``buildPasteOpsFromClipboard multiple top-level nodes`` () =
     let id2 = NodeId.New()
     let cb =
         { topLevelIds = [id1; id2]
-          nodes = Map.ofList
-            [ id1,
-              Node.Create(id1, text = "x")
-              id2,
-              Node.Create(id2, text = "y") ] }
+          nodes =
+            (Map.ofList
+                [ id1, Node.Create(id1, text = "x")
+                  id2, Node.Create(id2, text = "y") ])
+          childMap = Map.ofList [ (id1, []); (id2, []) ] }
     let newTopIds, ops = buildPasteOpsFromClipboard cb
     Assert.Equal(2, newTopIds.Length)
     Assert.NotEqual(id1, newTopIds.[0])
@@ -233,7 +233,8 @@ let ``buildPasteOpsFromClipboard all old ids absent from new graph keys`` () =
           nodes =
             Map.ofList
                 [ oldId,
-                  Node.Create(oldId, text = "z") ] }
+                  Node.Create(oldId, text = "z") ]
+          childMap = Map.ofList [ oldId, [] ] }
     let _, ops = buildPasteOpsFromClipboard cb
     let graph = applyOps ops (Graph.create ())
     Assert.False(graph.nodes.ContainsKey oldId)

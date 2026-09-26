@@ -1,6 +1,7 @@
 module AmbleRunTests
 
 open Gambol.Shared
+open GraphChildMapHelpers
 open Xunit
 
 let private requireOk label r =
@@ -195,13 +196,7 @@ let private applyOps graph ops =
     |> fun s -> s.graph
 
 let private addUnder parentId child graph =
-    let parent = graph.nodes.[parentId]
-    let nodes =
-        graph.nodes
-        |> Map.add child.id child
-        |> Map.add parentId
-            { parent with children = parent.children @ [ ChildNode.owner child.id ] }
-    Graph.fromNodes graph.root nodes
+    GraphChildMapHelpers.addUnder parentId child graph
 
 let private entryOf nodeId (siteMap: SiteMap) =
     siteMap.entries
@@ -312,7 +307,7 @@ let ``run bang-star containing needle on the expression text unfolds`` () =
     Assert.True(siteMap3.entries.Count < 50)
     Assert.Contains(
         hitId,
-        graph2.nodes.[focusId].children |> List.map (fun c -> c.id))
+        Graph.children graph2 focusId |> List.map (fun c -> c.id))
 
 let private siblingChildHits line =
     let graph0 = Graph.create ()
@@ -337,7 +332,7 @@ let private siblingChildHits line =
     graph, parentId, focusId, hit1, hit2
 
 let private childCount graph focusId =
-    graph.nodes.[focusId].children.Length
+    (Graph.children graph focusId).Length
 
 let private runOnce graph focusId line =
     let plan = requirePlan "run" (AmbleRun.runPlan focusId graph line)
@@ -351,7 +346,7 @@ let private childrenRange graph parentId focusId =
     let parent = entryOf focusId siteMap2
     { parent = parent
       start = 0
-      endd = graph.nodes.[focusId].children.Length }
+      endd = (Graph.children graph focusId).Length }
 
 let private deleteThenRun graph parentId focusId line =
     let range = childrenRange graph parentId focusId
@@ -368,7 +363,7 @@ let ``second run of bang-star child containing finds prior result refs`` () =
     let graph1 = runOnce graph focusId line
     let count1 = childCount graph1 focusId
     Assert.Equal(2, count1)
-    let ids1 = graph1.nodes.[focusId].children |> List.map (fun c -> c.id)
+    let ids1 = Graph.children graph1 focusId |> List.map (fun c -> c.id)
     Assert.Contains(hit1, ids1)
     Assert.Contains(hit2, ids1)
     let graph2 = runOnce graph1 focusId line
@@ -382,11 +377,11 @@ let ``delete children then run does not pick up prior result refs`` () =
     Assert.Equal(2, childCount graph1 focusId)
     let graph2 = deleteThenRun graph1 parentId focusId line
     Assert.Equal(2, childCount graph2 focusId)
-    let ids = graph2.nodes.[focusId].children |> List.map (fun c -> c.id)
+    let ids = Graph.children graph2 focusId |> List.map (fun c -> c.id)
     Assert.Contains(hit1, ids)
     Assert.Contains(hit2, ids)
     let trashIds =
-        graph2.nodes.[Graph.trashId].children |> List.map (fun c -> c.id)
+        Graph.children graph2 Graph.trashId |> List.map (fun c -> c.id)
     Assert.DoesNotContain(hit1, trashIds)
     Assert.DoesNotContain(hit2, trashIds)
 

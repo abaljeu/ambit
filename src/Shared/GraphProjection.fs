@@ -29,22 +29,33 @@ module GraphProjection =
         && a.name = b.name
         && a.kind = b.kind
         && a.documentState = b.documentState
-        && a.childrenStatus = b.childrenStatus
         && CssClass.toList a.cssClasses = CssClass.toList b.cssClasses
         && a.updateTime = b.updateTime
-        && List.length a.children = List.length b.children
-        && List.forall2 (fun x y -> childNodeEquals x y) a.children b.children
 
-    /// Structural equality on stored shape (`root` + `nodes` map).
+    let private childListEquals (a: ChildNode list) (b: ChildNode list) : bool =
+        List.length a = List.length b
+        && List.forall2 (fun x y -> childNodeEquals x y) a b
+
+    /// Structural equality on stored shape (`root` + `nodes` + `childMap`).
     let graphEquals (a: Graph) (b: Graph) : bool =
-        if a.root.Value <> b.root.Value || a.nodes.Count <> b.nodes.Count then
+        if a.root.Value <> b.root.Value
+           || a.nodes.Count <> b.nodes.Count
+           || a.childMap.Count <> b.childMap.Count then
             false
         else
-            a.nodes
-            |> Map.forall (fun nid na ->
-                match Map.tryFind nid b.nodes with
-                | None -> false
-                | Some nb -> nodeEquals na nb)
+            let nodesEqual =
+                a.nodes
+                |> Map.forall (fun nid na ->
+                    match Map.tryFind nid b.nodes with
+                    | None -> false
+                    | Some nb -> nodeEquals na nb)
+            let childMapsEqual =
+                a.childMap
+                |> Map.forall (fun pid kids ->
+                    match Map.tryFind pid b.childMap with
+                    | None -> false
+                    | Some other -> childListEquals kids other)
+            nodesEqual && childMapsEqual
 
     let nodeRowFromNode (node: Node) : NodePersistenceRow =
         { id = node.id.Value
@@ -64,18 +75,23 @@ module GraphProjection =
         |> Map.toList
         |> List.map (snd >> nodeRowFromNode)
 
-    let childRowsFromNode (graph: Graph) (node: Node) : ChildPersistenceRow list =
-        node.children
+    let childRowsFromNode
+        (graph: Graph)
+        (parentId: NodeId)
+        (children: ChildNode list)
+        : ChildPersistenceRow list =
+        children
         |> List.mapi (fun ordinal child ->
-            { parentId = node.id.Value
+            { parentId = parentId.Value
               ordinal = ordinal
               childId = child.id.Value
-              ownership = Node.childOwnership graph node.id child })
+              ownership = Node.childOwnership graph parentId child })
 
     let childRowsFromGraph (g: Graph) : ChildPersistenceRow list =
-        g.nodes
+        g.childMap
         |> Map.toList
-        |> List.collect (fun (_, node) -> childRowsFromNode g node)
+        |> List.collect (fun (parentId, children) ->
+            childRowsFromNode g parentId children)
 
     let graphFromPersistence
         (rootId: NodeId)
@@ -148,22 +164,24 @@ module GraphProjection =
             Error "graphFromPersistence: child ordinals must be 0..n-1 per parent"
         else
 
-        let withChildren =
+        let childMap =
             baseNodes
-            |> Map.map (fun nid node ->
-                match Map.tryFind nid.Value grouped with
-                | None -> node
-                | Some rows ->
-                    let sorted = rows |> List.sortBy (fun r -> r.ordinal)
+            |> Map.fold
+                (fun acc nid _ ->
+                    match Map.tryFind nid.Value grouped with
+                    | None -> Map.add nid [] acc
+                    | Some rows ->
+                        let sorted = rows |> List.sortBy (fun r -> r.ordinal)
+                        let ch =
+                            sorted
+                            |> List.map (fun r ->
+                                ChildNode.ofOwnership
+                                    r.ownership
+                                    (NodeId r.childId))
+                        Map.add nid ch acc)
+                Map.empty
 
-                    let ch =
-                        sorted
-                        |> List.map (fun r ->
-                            ChildNode.ofOwnership r.ownership (NodeId r.childId))
-
-                    { node with children = ch })
-
-        Ok (Graph.fromNodes rootId withChildren)
+        Ok (Graph.fromNodes rootId baseNodes childMap)
 
     /// Round-trip for tests: graph → rows → graph.
     let graphRoundTrip (g: Graph) : Result<Graph, string> =
