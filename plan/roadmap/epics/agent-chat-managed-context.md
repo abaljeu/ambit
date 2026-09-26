@@ -9,7 +9,6 @@ Current chapter: [[chapters/ask-from-what-i-see.md]]
 ## Chapters
 
 - [[chapters/ask-from-what-i-see.md]]
-- [[chapters/ambit-keeps-consistency-with-desktop-repo-for-agentic-work.md]]
 - [[chapters/talk-again.md]]
 - [[chapters/change-the-graph.md]]
 - [[chapters/query-the-graph-or-the-files.md]]
@@ -31,4 +30,4 @@ Live:
 
 - [[plan/transport-layer/project.md]] cross-cutting pattern — agent Actor is an inbound transport leg (reply as Owned children); see [[plan/transport-layer/overview.md]], [[plan/transport-layer/map.md]].
 - Scaling is [[organize-huge-outlines.md]]; first use does not wait on it.
-- Desktop-repo use is [[chapters/ambit-keeps-consistency-with-desktop-repo-for-agentic-work.md]]. One Chapter on this Epic; Projects own the details. No Chapter order — only **Blocked by**. Current chapter stays [[chapters/ask-from-what-i-see.md]] ([[plan/llm-connector/project.md]]). Mapping is Current ([[doc/current/workspace-local-mapping.md]]). Upload/Download stay on [[work-with-text-files-from-anywhere.md]]. [[chapters/talk-again.md]] stays a separate Chapter. **Agent** and **Agentic**: [[CONTEXT.md]]. Grill: [[plan/roadmap/issues/13-grill-cursor-repo-to-ambit-llm-use.md]]. Options history: [[plan/roadmap/reports/cursor-repo-to-ambit-mobile-grok.md]].
+- Depends on [[work-with-text-files-from-anywhere.md]] Chapter [[chapters/send-to-and-from-github.md]] for send to and from GitHub. This Epic does not own that Chapter. Current chapter stays [[chapters/ask-from-what-i-see.md]] ([[plan/llm-connector/project.md]]). Mapping is Current ([[doc/current/workspace-local-mapping.md]]). Upload/Download stay on [[work-with-text-files-from-anywhere.md]]. [[chapters/talk-again.md]] stays a separate Chapter. **Agent** and **Agentic**: [[CONTEXT.md]]. Grill: [[plan/roadmap/issues/13-grill-cursor-repo-to-ambit-llm-use.md]]. Options history: [[plan/roadmap/reports/cursor-repo-to-ambit-mobile-grok.md]].

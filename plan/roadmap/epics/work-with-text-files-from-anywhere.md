@@ -9,6 +9,7 @@ Current chapter: [[chapters/automatic-upload-and-download.md]]
 ## Chapters
 
 - [[chapters/automatic-upload-and-download.md]]
+- [[chapters/send-to-and-from-github.md]]
 - [[chapters/automatic-parse.md]]
 - [[chapters/markdown-styling.md]]
 - [[chapters/embed-an-image.md]]
@@ -47,4 +48,4 @@ Done:
 - A Google Doc (a document that is not a File) is potentially IN scope.
 - Graphic editing is out of scope. A graphic file is not a document.
 - English **document** vs **Document** (project) vs File Node: [[CONTEXT.md]].
-- [[agent-chat-managed-context.md]] Chapter [[chapters/ambit-keeps-consistency-with-desktop-repo-for-agentic-work.md]] depends on this Epic’s [[chapters/automatic-upload-and-download.md]]. This Epic keeps that Chapter and those Projects. Mapping is Current ([[doc/current/workspace-local-mapping.md]]). Grill: [[plan/roadmap/issues/13-grill-cursor-repo-to-ambit-llm-use.md]].
+- 2026-09-26 — This Epic owns two file-source Chapters: keep-files-current [[chapters/automatic-upload-and-download.md]] and [[chapters/send-to-and-from-github.md]]. [[agent-chat-managed-context.md]] depends on Send to and from GitHub. It does not own that Chapter. Mapping is Current ([[doc/current/workspace-local-mapping.md]]).
