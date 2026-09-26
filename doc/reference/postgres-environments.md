@@ -220,7 +220,7 @@ Phased rollout from flat-file authority to PostgreSQL-primary is complete.
 - **Correlated files** — `DataDir` artifacts map to document nodes; DB edits auto-persist to disk.
 - **Legacy cleanup** — remove `Persistence:Mode` / `FileAgent` file-authority path from server startup.
 
-See [[doc/current/persistence-model.md]] and [[doc/history/roadmap/workspace-file-persistence.md]].
+See [[doc/current/persistence-model.md]] and [[doc/roadmap/workspace-file-persistence.md]].
 
 ---
 

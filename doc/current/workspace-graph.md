@@ -2,7 +2,7 @@
 
 Category: Graph model
 See also: [[doc/current/workspace-local-mapping.md]], [[doc/current/desktop-local-files.md]],
-[[doc/history/roadmap/workspace-file-model.md]], [[doc/current/workspace-stage-plan.md]], [[doc/arch.md]]
+[[doc/roadmap/workspace-file-model.md]], [[doc/current/workspace-stage-plan.md]], [[doc/arch.md]]
 
 The shared graph model includes vocabulary and structural rules for workspace-related special
 nodes, enforced at the graph layer.
@@ -26,7 +26,7 @@ Every graph built via `Graph.fromNodes` or `Graph.create` has:
 `Workspaces` and `Trash` cannot be edited (`setText`, `setClasses`) or removed from root
 (`replace` on root rejects their removal or duplication). TRASH cannot be renamed (`setName` rejects `trashId`).
 
-**Stage 6 target:** retire `SpecialKind.Trash`; TRASH becomes `Special Directory` with `Node.name = TRASH`. Same permanence and delete semantics (`MoveToTrash` reparents owner under `trashId`). Path: `//TRASH/`. UI trash styling maps by `trashId`, not kind. See [[doc/history/roadmap/workspace-file-model.md]] § TRASH.
+**Stage 6 target:** retire `SpecialKind.Trash`; TRASH becomes `Special Directory` with `Node.name = TRASH`. Same permanence and delete semantics (`MoveToTrash` reparents owner under `trashId`). Path: `//TRASH/`. UI trash styling maps by `trashId`, not kind. See [[doc/roadmap/workspace-file-model.md]] § TRASH.
 
 ## Context
 
@@ -34,7 +34,7 @@ A node's **context** is its ancestry along the ownership tree, considering only
 `workspace`, `directory`, and `file` special nodes (`normal` nodes are skipped).
 Context drives reference resolution; it does not restrict where nodes may be placed.
 
-Authority: [[doc/history/roadmap/revising-workspace-file-model.md]].
+Authority: [[doc/roadmap/revising-workspace-file-model]].
 
 ## Structural invariants
 
@@ -55,7 +55,7 @@ Named `Workspace` nodes remain under `Workspaces` only. Ref links are unrestrict
 
 `Workspaces` and `Trash` may not appear as children of any non-root parent.
 
-Owned `File` / `Directory` may sit under `Normal` or `Workspaces` when a Workspace/Directory ancestor terminates the owner chain; a `File` ancestor is illegal. Names that persist into the same system directory must be unique among owned File/Directory/named Workspace nodes in that artifact directory. See [[doc/history/roadmap/workspace-file-directory-placement.md]].
+Owned `File` / `Directory` may sit under `Normal` or `Workspaces` when a Workspace/Directory ancestor terminates the owner chain; a `File` ancestor is illegal. Names that persist into the same system directory must be unique among owned File/Directory/named Workspace nodes in that artifact directory. See [[doc/roadmap/workspace-file-directory-placement]].
 
 Tests: `tests/Shared.Tests/ModelTests.fs` (workspaces bootstrap and placement cases).
 
@@ -110,7 +110,7 @@ Tests: `tests/Shared.Tests/WorkspaceOpsTests.fs`.
 ## Reference expressions (baseline)
 
 Implementation in `RefExprTypes.fs`, `RefExprParse.fs`, `RefExprMatch.fs` (facade: `RefExpr.fs`).
-Target grammar: [[doc/history/roadmap/reference-expression-interpretation.md]].
+Target grammar: [[doc/roadmap/reference-expression-interpretation.md]].
 
 Implemented now:
 

@@ -17,7 +17,7 @@ The Epic is not done until each item is done (or the named part).
 Live:
 
 - [ ] [[plan/transport-layer/project.md]] — transport layer (inbound, outbound, round-trip); PKM depends on this, does not implement it
-- [ ] [[plan/graph-view/project.md]] — radial focus-centric graph view with Ref overlay ([[plan/graph-view/graph-view-draft-proposal.md]])
+- [ ] [[plan/graph-view/project.md]] — radial focus-centric graph view with Ref overlay ([[doc/roadmap/graph-view.md]])
 - [ ] [[plan/expression-language/project.md]] — remainder beyond Find
 - [ ] [[plan/selective-client-loading/project.md]]
 - [ ] [[plan/bullet-tip-times/project.md]]

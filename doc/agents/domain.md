@@ -5,7 +5,7 @@ The canonical Gambol project documentation lives under [[doc/]]. Start with [[do
 - [[doc/arch.md]], [[doc/spec.md]], and [[doc/api.md]] describe the system.
 - [[doc/current/]] contains implemented feature baselines and takes precedence.
 - [[doc/reference/]] contains operational and format reference material.
-- Planned work lives in `plan` Projects. Leftover essays from the old `doc/roadmap/` home live under [[doc/history/roadmap/]] or were deleted.
+- [[doc/roadmap/]] is leftover planned-direction text until a `plan` Project cites it or it moves to history. New planned work lives in Projects, not here.
 - [[doc/history/]] is historical.
 - [[doc/unsorted/]] is temporary and non-authoritative.
 

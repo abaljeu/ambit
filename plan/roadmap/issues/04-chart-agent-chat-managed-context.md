@@ -12,7 +12,7 @@ Recommended: grill the in-product job first, then name increments breadth-first.
 
 ## Comments
 
-- 2026-08-29 Q1: Inside Gambol. Same family as Run (`CommandId.Exec`, Ctrl+Enter, focus line) but the line is a message to an LLM, not an Expression statement. Run today: [[doc/history/roadmap/amble-run.md]], [[src/Shared/CommandEntry.fs]].
+- 2026-08-29 Q1: Inside Gambol. Same family as Run (`CommandId.Exec`, Ctrl+Enter, focus line) but the line is a message to an LLM, not an Expression statement. Run today: [[doc/roadmap/amble-run.md]], [[src/Shared/CommandEntry.fs]].
 - 2026-08-29 Q2: Same Run command, third statement form `?` plus a message (example: `? Based on the visible nodes (included context) what should i do next`). Not a sibling command. Spec today: Run is only `=` / `Name=` ([[plan/expression-language/spec.md]] ch. 8).
 - 2026-08-29 Q3: Included context is SiteMap rows under Zoom, honoring Fold. Visible is de facto speech, not glossary. Unloaded Children stay out of the pack. Term: [[CONTEXT.md]] Included context.
 - 2026-08-29 Q4: Reply is Owned child Nodes under the focus Node, then unfold; errors as one child — same as Run Text Answers.

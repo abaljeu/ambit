@@ -2,7 +2,7 @@
 
 Status: tabled — not yet verified
 
-Board advice: `remove` the historical [[doc/history/roadmap/workspace-file-sync.md]] auto-download item. The implementation is delivered; the unresolved runtime checks remain durable in this project and should return to the board only if resumed.
+Board advice: `remove` the [[doc/roadmap/workspace-file-sync.md]] auto-download item. The implementation is delivered; the unresolved runtime checks remain durable in this project and should return to the board only if resumed.
 
 ## Tabled project items
 

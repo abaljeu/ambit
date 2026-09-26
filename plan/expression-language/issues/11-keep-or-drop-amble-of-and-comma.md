@@ -6,7 +6,7 @@ Blocked by: none
 
 ## Question
 
-Amble infix `of` and comma `,` were sugar for prefix `FunCall` ([[doc/history/roadmap/language-syntax-and-semantics.md]]). [[plan/expression-language/issues/01-pipeline-versus-amble-juxtaposition.md]] locked juxtaposition as left-associative anchors, postfix, and infix; space only lexes; prefix `FunCall` is not the meaning. Keep `of` and `,` as sugar on that surface, or drop them from this spec?
+Amble infix `of` and comma `,` were sugar for prefix `FunCall` ([[doc/roadmap/language-syntax-and-semantics.md]]). [[plan/expression-language/issues/01-pipeline-versus-amble-juxtaposition.md]] locked juxtaposition as left-associative anchors, postfix, and infix; space only lexes; prefix `FunCall` is not the meaning. Keep `of` and `,` as sugar on that surface, or drop them from this spec?
 
 Recommended answer (HITL confirm): drop `of` (it existed to nest prefix calls). Keep `,` only if a later catalog needs concatenate; do not treat `,` as conjunction.
 
@@ -18,4 +18,4 @@ HITL 2026-08-27. Drop `of`. Drop Amble comma-as-`FunCall` sugar. Comma stays as 
 
 `sort 3,5,2` is not defined. A number is only valid as the right operand of `:` or `!`.
 
-Reworked examples: [[doc/history/roadmap/language-syntax-and-semantics.md]].
+Reworked examples: [[doc/roadmap/language-syntax-and-semantics.md]].
