@@ -53,10 +53,10 @@ let ``decideBootPoll confirms when the tail is only local log duplicates`` () =
     | other -> failwithf "%A" other
 
 [<Fact>]
-let ``decideBootPoll reports CodeOutdated when API version mismatches`` () =
+let ``decideBootPoll applies a matching poll when apiVersion differs`` () =
     let poll = { mkPoll 5 [] with apiVersion = ApiVersion.current + 1 }
     match decide (EventIdFixtures.storedId 5) [] poll with
-    | BootCache.BootPoll.CodeOutdated -> ()
+    | BootCache.BootPoll.Confirmed true -> ()
     | other -> failwithf "%A" other
 
 [<Fact>]

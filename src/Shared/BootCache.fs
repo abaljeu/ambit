@@ -215,7 +215,6 @@ module BootCache =
     type BootPoll =
         | Confirmed of isReady: bool
         | ApplyNovel of Ev list * isReady: bool
-        | CodeOutdated
         | FallbackState of reason: string
 
     /// After `/state`, omit the cached hash. A Fable fingerprint does not match
@@ -237,26 +236,21 @@ module BootCache =
         if poll.eventId < clientEventId then
             BootPoll.FallbackState "eventId"
         else
-            match SyncLogic.getPollOutcome poll clientEventId with
-            | Some CodeOutdated -> BootPoll.CodeOutdated
-            | Some DataOutdated
-            | None ->
-                let novel = novelEvents log poll.events
-                let gap =
-                    EventId.value poll.eventId - EventId.value clientEventId
-                if
-                    novel.Length > maxNovelCount
-                    || gap > maxPollEventIdGap
-                then
-                    BootPoll.FallbackState "oversized"
-                elif novel.IsEmpty then
-                    match cachedHash, pollHash with
-                    | Some local, Some remote when local <> remote ->
-                        BootPoll.FallbackState "hash"
-                    | _ -> BootPoll.Confirmed poll.isReady
-                else
-                    BootPoll.ApplyNovel(novel, poll.isReady)
-            | Some _ -> BootPoll.Confirmed poll.isReady
+            let novel = novelEvents log poll.events
+            let gap =
+                EventId.value poll.eventId - EventId.value clientEventId
+            if
+                novel.Length > maxNovelCount
+                || gap > maxPollEventIdGap
+            then
+                BootPoll.FallbackState "oversized"
+            elif novel.IsEmpty then
+                match cachedHash, pollHash with
+                | Some local, Some remote when local <> remote ->
+                    BootPoll.FallbackState "hash"
+                | _ -> BootPoll.Confirmed poll.isReady
+            else
+                BootPoll.ApplyNovel(novel, poll.isReady)
 
     let shouldTruncate
         (logLength: int)

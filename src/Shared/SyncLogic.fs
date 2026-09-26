@@ -12,20 +12,16 @@ type AckReconcile =
 module SyncLogic =
 
     /// Determine if the poll response indicates the client is outdated.
-    /// Returns Some CodeOutdated if Poll apiVersion differs from ApiVersion.current,
-    /// Some DataOutdated if server event id is ahead of the client,
+    /// Returns Some DataOutdated if server event id is ahead of the client,
     /// or None if the client is up to date.
-    /// CodeOutdated takes priority when both conditions hold.
+    /// Does not branch on apiVersion: one live API; apply what arrived.
     /// Callers must only invoke this when there are no pending local events
     /// (otherwise a higher server event id may reflect our own in-flight POST).
     let getPollOutcome
         (poll: ChangeSuccessResponse)
         (clientEventId: EventId)
         : SyncState option =
-        let codeOutdated = poll.apiVersion <> ApiVersion.current
-        let dataOutdated = poll.eventId > clientEventId
-        if codeOutdated then Some CodeOutdated
-        elif dataOutdated then Some DataOutdated
+        if poll.eventId > clientEventId then Some DataOutdated
         else None
 
     /// Server-restart signal: poll/load `buildEpochSec` (DeployEpochSec) differs

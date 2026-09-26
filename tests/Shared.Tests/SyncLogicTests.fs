@@ -83,14 +83,14 @@ let ``getPollOutcome does not treat page stamp drift as CodeOutdated`` () =
     Assert.Equal(None, SyncLogic.getPollOutcome poll (EventIdFixtures.storedId 5))
 
 [<Fact>]
-let ``getPollOutcome returns CodeOutdated when API version mismatches`` () =
+let ``getPollOutcome ignores apiVersion mismatch`` () =
     let poll = { mkPoll 5 1 1 with apiVersion = ApiVersion.current + 1 }
-    Assert.Equal(Some CodeOutdated, SyncLogic.getPollOutcome poll (EventIdFixtures.storedId 5))
+    Assert.Equal(None, SyncLogic.getPollOutcome poll (EventIdFixtures.storedId 5))
 
 [<Fact>]
-let ``getPollOutcome returns CodeOutdated when both API and data are outdated`` () =
+let ``getPollOutcome returns DataOutdated when event id is ahead even if apiVersion differs`` () =
     let poll = { mkPoll 6 1 1 with apiVersion = ApiVersion.current + 1 }
-    Assert.Equal(Some CodeOutdated, SyncLogic.getPollOutcome poll (EventIdFixtures.storedId 5))
+    Assert.Equal(Some DataOutdated, SyncLogic.getPollOutcome poll (EventIdFixtures.storedId 5))
 
 // ---------------------------------------------------------------------------
 // SyncInfo helpers
@@ -729,21 +729,18 @@ let ``changeSuccessToSync carries Want answer not packages`` () =
         sync.childMap.[parentId])
 
 [<Fact>]
-let ``getPollOutcome still keys on apiVersion and event id`` () =
+let ``getPollOutcome keys on event id not apiVersion`` () =
     let parentId = NodeId.New()
     let poll =
         { mkPoll 5 1 1 with
             nodes = [ Node.Create(parentId, text = "p") ]
-            childMap = Map.ofList [ parentId, [] ] }
+            childMap = Map.ofList [ parentId, [] ]
+            apiVersion = ApiVersion.current + 1 }
     Assert.Equal(None, SyncLogic.getPollOutcome poll (EventIdFixtures.storedId 5))
     let ahead = { poll with eventId = EventIdFixtures.storedId 6 }
     Assert.Equal(
         Some DataOutdated,
         SyncLogic.getPollOutcome ahead (EventIdFixtures.storedId 5))
-    let code = { poll with apiVersion = ApiVersion.current + 1 }
-    Assert.Equal(
-        Some CodeOutdated,
-        SyncLogic.getPollOutcome code (EventIdFixtures.storedId 5))
 
 [<Fact>]
 let ``applyServerTail trusts server tails without ownership re-check`` () =
