@@ -32,7 +32,8 @@ module RouteRegistration =
                       ActorName "ai", RunAgentActor.actorFn
                             (AiKeys.fromConfig this.Config)
                             (AiRepos.fromConfig this.Config)
-                            (GrokBotSettings.fromConfig this.Config) ]
+                            (GrokBotSettings.fromConfigBinding
+                                this.Config) ]
             }
 
     let private errorTemplate (message: string) =

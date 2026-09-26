@@ -20,6 +20,7 @@ module GrokBotHttp =
             "focusId", JsonValue.String args.FocusId
             "sessionId", JsonValue.String args.SessionId
             "text", JsonValue.String args.Text
+            "responseUrl", JsonValue.String args.ResponseUrl
             "payload", JsonValue.Record [||]
         |]
 
