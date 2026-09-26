@@ -2,24 +2,23 @@
 
 **Type:** coding
 **Status:** defined
-**Blocked by:** [01 — Lock Sync want + edges/Nodes package shape](01-lock-sync-want-package-shape.md), [02 — Lock bootstrap visible-closure set](02-lock-bootstrap-visible-closure.md), [07 — Expand Want and edges/Nodes package](07-expand-want-and-edges-nodes-package.md)
+**Blocked by:** [01 — Lock Sync want + edges/Nodes package shape](01-lock-sync-want-package-shape.md), [07 — Expand Want and edges/Nodes package](07-expand-want-and-edges-nodes-package.md)
 
 ## Context
 
-Shared types contain the new Want and answer fields, but codecs and Sync apply still allow or use old shapes. This batch makes bootstrap, Poll, post-Event, and their answer one strict current-version wire. There is no old/new wire interoperation. Explicit Load `packages` still work until the later contract.
+Shared types contain the new Want and answer fields, but codecs and Sync apply still allow or use old shapes. This batch makes Poll, post-Event, and their answer one strict current-version wire. There is no old/new wire interoperation. Explicit Load `packages` still work until the later contract.
 
 ## What to build
 
-Bootstrap codecs carry Zoom plus Fold occurrence snapshots. Poll and post-Event codecs require Want; their answer requires edges plus Nodes. Missing current-version fields fail decode. After the Event tail, SyncLogic installs the Want answer. Load Fetch `packages` still apply.
+Poll and post-Event codecs require Want; their answer requires edges plus Nodes. Missing current-version fields fail decode. After the Event tail, SyncLogic installs the Want answer. Load Fetch `packages` still apply.
 
 ### 1. Sync wire
 
 Module [Sync wire](../arch.md).
 
-1. [ ] Bootstrap request codec — `StateRequest` requires `zoomId` plus `FoldOccurrenceSnapshot list`
-2. [ ] Poll and post-Event request codecs — `PollRequest` and `ChangeRequest` require `want`; empty is `[]`
-3. [ ] Sync answer codec — `ChangeSuccessResponse` requires `nodes` plus `childMap`
-4. [ ] Current version only — missing version 13 fields fail decode; no compatibility branch remains
+1. [ ] Poll and post-Event request codecs — `PollRequest` and `ChangeRequest` require `want`; empty is `[]`
+2. [ ] Sync answer codec — `ChangeSuccessResponse` requires `nodes` plus `childMap`
+3. [ ] Current version only — missing version 13 fields fail decode; no compatibility branch remains
 
 ### 2. SyncLogic
 

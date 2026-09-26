@@ -6,11 +6,11 @@
 
 ## Context
 
-The Server still answers Poll and post-Event with Changes only, and `/state` still scopes a complete ROOT Workspace. Shared defines the strict current-version requests and answers. This batch owns the production Server switch: Fold-aware `/state`, Poll POST, post-Event Want answers, and the Server-side no-dangling builder. The Server Graph stays large. Load Fetch `packages` stay.
+The Server still answers Poll and post-Event with Changes only, and `/state` still scopes a complete ROOT Workspace. Shared defines the strict current-version requests and answers. This batch owns the production Server switch: Focus-scoped `/state`, Poll POST, post-Event Want answers, and the Server-side no-dangling builder. The Server Graph stays large. Load Fetch `packages` stay.
 
 ## What to build
 
-`postPoll` and `postEvents` require Want and return Changes plus edges plus Nodes. `getState` requires Zoom plus Fold occurrence snapshots and returns Fold-aware visible-closure. `postLoad` still returns `packages`.
+`postPoll` and `postEvents` require Want and return Changes plus edges plus Nodes. `getState` requires `focusId` and returns Focus-scoped visible-closure. `postLoad` still returns `packages`.
 
 ### 1. Server Sync doors
 
@@ -18,7 +18,7 @@ Module [Server Sync doors](../arch.md). Story paths 1, 19, 20, 35.
 
 1. [ ] Poll answers Want — story **Wants on Poll**: replace the old GET with current-version `postPoll`; return Changes plus edges plus Nodes
 2. [ ] post-Event answers Want — 19.3: `postEvents` returns Changes plus edges plus Nodes
-3. [ ] State is visible-closure — stories **Open a large Server Graph** and **Included first paint**: `getState` calls the locked Fold-aware visible-closure projection
+3. [ ] State is visible-closure — stories **Open a large Server Graph** and **Focus first paint**: `getState` requires `focusId` and calls the locked Focus-scoped visible-closure projection
 4. [ ] Server stays large — 35.1: Core Graph stays complete; visible-closure is the Browser answer only
 5. [ ] Load packages remain — 6.2.3: `postLoad` still returns `packages`
 6. [ ] No compatibility doors — old Poll and post-Event wire forms are removed; only version 13 is accepted
@@ -29,8 +29,8 @@ Module [Reserved ids](../arch.md). Story paths 4–7, 36.
 
 1. [ ] ROOT, TRASH, Workspaces Node, SYSTEM Children — 4.2–7.2, 36.2: first paint includes those Children
 2. [ ] SYSTEM spelling — 36.1: reserved Node SYSTEM stays SYSTEM
-3. [ ] Fold-aware Included — [02 — Lock bootstrap visible-closure set](02-lock-bootstrap-visible-closure.md): reconstruct occurrences from Zoom plus Fold snapshots and include Fold-aware Included before first paint
-4. [ ] Zoom fallback — missing or stale Zoom uses ROOT without widening to a complete Workspace
+3. [ ] Focus path and Children — [02 — Lock bootstrap visible-closure set](02-lock-bootstrap-visible-closure.md): include the Loaded ancestor path to Focus, Focus Children, and required headers
+4. [ ] Focus fallback — missing or stale Focus uses ROOT without widening to a complete Workspace
 
 ### 3. Want answer
 

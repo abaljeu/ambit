@@ -6,11 +6,11 @@
 
 ## Context
 
-The Browser already Polls and posts Events, and boot already hits `/state` or boot Poll. Those calls do not send the strict current-version bootstrap or Want requests. Shared owns codecs and apply; the Server owns projection and answers. This batch owns Browser transport: capture Fold for bootstrap, compute Want at each send, POST Poll, and consume the resulting Graph and answers. Auto wants need no click and no Load command.
+The Browser already Polls and posts Events, and boot already hits `/state` or boot Poll. Those calls do not send the strict current-version Focus or Want requests. Shared owns codecs and apply; the Server owns projection and answers. This batch owns Browser transport: derive backend `focusId`, compute Want at each send, POST Poll, and consume the resulting Graph and answers. Auto wants need no click and no Load command.
 
 ## What to build
 
-Each Poll and each post-Event computes and carries the current Want, including `[]`. Boot sends Zoom plus Fold occurrence snapshots and consumes the returned visible-closure Graph. Load Fetch still uses `/load` `packages`. Find remains residence-only and postponed.
+Each Poll and each post-Event computes and carries the current Want, including `[]`. Boot sends `focusId`, consumes the returned Focus-scoped Graph, then restores Zoom and Fold locally. Load Fetch still uses `/load` `packages`. Find remains residence-only and postponed.
 
 ### 1. Browser HTTP
 
@@ -28,10 +28,11 @@ Module [Browser HTTP](../arch.md). Story paths 13, 16, 17, 19, 20, 27.
 
 Module [Boot Poll](../arch.md). Story paths 1, 2, 3.
 
-1. [ ] Fold-aware bootstrap request — capture Zoom plus `FoldOccurrenceSnapshot list` and send them before `/state`
+1. [ ] Focus bootstrap request — derive saved Focus and send required `focusId` on `/state`
 2. [ ] First paint scoped Graph — consume the Server-produced visible-closure only
-3. [ ] Included and framing path — assert Fold-aware Included and Zoom ancestors are Resident before first paint
-4. [ ] Boot Poll may Want — after that Graph exists, boot Poll computes and carries the next Want
+3. [ ] Focus and framing path — assert Focus, Focus Children, and the Focus ancestor path are Resident before first paint
+4. [ ] Local UI restore — restore Zoom and Fold in the Browser after State loads
+5. [ ] Boot Poll may Want — after restore, boot Poll computes Fold-aware Included and carries the next Want
 
 ### 3. SyncPlanner and Load command
 

@@ -20,7 +20,7 @@ Module [Want](../arch.md). Story paths 13, 14, 15, 33.
 
 1. [x] Compose Included first — 13.1: list Included Nodes that miss Children
 2. [x] Recompute next rank — 14.1: after install, newly Included Children can enter the next compose
-3. [x] No bootstrap tier — 15.1: reserved Nodes and Zoom ancestors stay off the ongoing Want
+3. [x] No bootstrap tier — 15.1: reserved Nodes and the Focus path stay off the ongoing Want
 4. [x] Honor Fold — 33.2: use Included, not a deep unfold
 5. [x] No throttle — a few wants at a time; no batching or backpressure
 

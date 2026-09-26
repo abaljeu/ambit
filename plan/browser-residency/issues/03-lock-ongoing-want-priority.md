@@ -9,7 +9,7 @@
 
 When does the Browser attach wants to post-Event and Poll, and what happens when the Want list is empty?
 
-Ongoing computation is locked to Fold-aware Included Nodes that miss Children. After an answer is installed, the Browser computes Included again; newly Included Children may enter the next Want. Reserved Nodes and Zoom ancestors are bootstrap, not an ongoing tier. Auto wants need no click and no command.
+Ongoing computation is locked to Fold-aware Included Nodes that miss Children. After an answer is installed, the Browser computes Included again; newly Included Children may enter the next Want. Reserved Nodes and the Focus path are bootstrap, not an ongoing tier. Auto wants need no click and no command.
 
 Lock:
 
