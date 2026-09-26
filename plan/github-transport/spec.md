@@ -2,7 +2,7 @@
 
 Updated: 2026-09-26
 
-Sources: [map.md](map.md) Destination and Decisions so far 1–10; [01 — Which Workspaces and remotes](issues/01-which-workspace-labels-and-remotes.md); [02 — Actor command surface](issues/02-actor-command-surface.md); [03 — When pull and push fire](issues/03-when-pull-and-push-fire.md); [04 — Credential storage on Server](issues/04-credential-storage-on-server.md); [project.md](project.md). Chapter: [Send to and from GitHub](../roadmap/epics/chapters/send-to-and-from-github.md). This spec synthesizes those locks. It does not invent new product behavior.
+Sources: [map.md](map.md) Destination and Decisions so far 1–11; [01 — Which Workspaces and remotes](issues/01-which-workspace-labels-and-remotes.md); [02 — Actor command surface](issues/02-actor-command-surface.md); [03 — When pull and push fire](issues/03-when-pull-and-push-fire.md); [04 — Credential storage on Server](issues/04-credential-storage-on-server.md); [05 — Git Load/Save are Workspace-scoped](issues/05-git-load-save-workspace-scoped.md); [project.md](project.md). Chapter: [Send to and from GitHub](../roadmap/epics/chapters/send-to-and-from-github.md). This spec synthesizes those locks. It does not invent new product behavior. Later: [06 — Selection-scoped Parse after whole-tree git Load](issues/06-selection-scoped-parse-after-whole-tree-git-load.md).
 
 ## 1. Problem Statement
 
@@ -22,6 +22,7 @@ Sources: [map.md](map.md) Destination and Decisions so far 1–10; [01 — Which
 7. **Load keeps today’s Parse coupling** — Independent / autonomous Parse is not in place. All three Load forms keep the existing Load → Parse pipeline: after files land, Load still invokes Parse and graph push the same way desk Load does today (`loadOp` / `parseFileOp` / directory reconcile / Fetch+Poll). The WebDAV Upload/Download path remains. When a remote exists, plain Load/Save still prefer git first. Do not redesign Load around a future autonomous Parse; that rearchitecture stays [[plan/parse-actor/project.md]] until it lands elsewhere.
 8. **Host git credentials** — Ambit does not store GitHub credentials in appsettings, user-secrets, Graph, or DataDir. The Actor invokes `git`. git loads credentials (credential helper / host setup). On Server that is the host’s git.
 9. **Optional `.amb` skip** — Directory File / Ambit note paths named `.amb` may be skipped on the GitHub remote when repo configuration says so. They are not a hard-skip default and not the same class as `.git/`. When excluded, offsite backup of those notes is Ambit Server DataDir (WebDAV Upload/Download + Server git / daily save), not the mapped repo remote.
+10. **Git Load/Save are Workspace-scoped** — Wherever Load/Save is invoked from (Workspace root or a subnode), git pull/push always operates on the whole Workspace work tree / tracked branch — never file-level git. After files land, Load still runs Parse on the selection where appropriate (today’s Load → Parse pipeline). The selection-parse nuance after a whole-tree pull is later: [06 — Selection-scoped Parse after whole-tree git Load](issues/06-selection-scoped-parse-after-whole-tree-git-load.md). Do not expand that nuance in v1 coding tickets.
 
 ## 3. User Stories
 
@@ -29,25 +30,26 @@ Sources: [map.md](map.md) Destination and Decisions so far 1–10; [01 — Which
 2. **Every Workspace may connect** — As a person, I want any Workspace to use Server-git when a remote exists, so that there is no allowlist.
 3. **Server-git when a remote exists** — As a person, I want the Server-git path when a remote exists and the desk path when it does not, so that one check chooses the path.
 4. **Config in git** — As an operator, I want config to live in git on that work tree (`git remote` plus current branch / upstream), so that Ambit does not keep a Server branch map in v1.
-5. **Same tracked branch** — As a person, I want pull and push to use the same tracked branch, so that round-trip v1 does not switch branches.
+5. **Same tracked branch** — As a person, I want pull and push to use the same tracked branch of the whole Workspace work tree, so that round-trip v1 does not switch branches or go file-level.
 6. **Fast-forward only** — As a person, I want a conflicted or non-FF push rejected, so that the remote does not take a diverging history.
 7. **Remotes accept push** — As an operator, I want remotes that accept push (not PR-only), so that the Server Actor can push the tracked branch.
 8. **Load** — As a person, I want Command Load, so that I bring files through the chosen path and then Parse / graph-push as today’s Load already does.
 9. **Save** — As a person, I want Command Save, so that I send files through the chosen path.
-10. **git Load** — As a person, I want an explicit git Load pre-pick, so that I pull from the GitHub remote and then Parse / graph-push as today’s desk Load does.
-11. **git Save** — As a person, I want an explicit git Save pre-pick, so that I push to the GitHub remote when I choose git.
+10. **git Load** — As a person, I want an explicit git Load pre-pick, so that I pull the whole Workspace work tree / tracked branch (even from a subnode) and then Parse / graph-push on the selection as today’s desk Load does.
+11. **git Save** — As a person, I want an explicit git Save pre-pick, so that I push the whole Workspace work tree / tracked branch (even from a subnode), never file-level git.
 12. **desk Load** — As a person, I want an explicit desk Load pre-pick, so that I take the desk file path and the existing Load → Parse pipeline.
 13. **desk Save** — As a person, I want an explicit desk Save pre-pick, so that I take the desk file path when I choose desk.
 14. **Plain Load prefers git** — As a person, I want plain Load to be git Load when a remote exists and desk Load otherwise, so that I do not pick a path when the default is enough, and both still run today’s Parse / graph-push after files land.
 15. **Plain Save prefers git** — As a person, I want plain Save to be git Save when a remote exists and desk Save otherwise, so that I do not pick a path when the default is enough.
 16. **No automatic pull or push** — As a person, I want pull and push only when I run Load or Save (or an explicit git*/desk* pre-pick), so that no schedule, post-Persist, or post-Download git starts a round-trip.
-17. **Load keeps Parse** — As a person, I want all three Load forms to keep today’s Load → Parse coupling (Parse and graph push as desk Load already does), so that git Load does not land files without the Parse today’s Load still owns.
+17. **Load keeps Parse** — As a person, I want all three Load forms to keep today’s Load → Parse coupling (Parse and graph push as desk Load already does), so that after a whole-tree git pull, Load still runs Parse on the selection where appropriate.
 18. **WebDAV remains** — As a person, I want WebDAV Upload and Download to remain, so that Ambit↔Ambit file transit stays available beside Server-git.
 19. **Server Peer Actor does the round-trip** — As a person, I want a Server-side Peer Actor to pull and push, so that the App stays thin and is not the git Actor host.
 20. **One Actor shape through Server** — As a person, I want the same Actor shape on every device that maps through Server, so that this is not a per-App clone protocol.
 21. **Host git credentials** — As an operator, I want the Actor to invoke `git` and git to load host credentials, so that Ambit does not store GitHub credentials in appsettings, user-secrets, Graph, or DataDir.
 22. **Optional `.amb` skip** — As an operator, I want Directory File `.amb` skipped on the GitHub remote only when repo configuration says so, so that skip is optional and not a hard default.
 23. **Backup when `.amb` is excluded** — As a person, I want excluded `.amb` notes to stay on Server DataDir through WebDAV Upload/Download and Server git / daily save, so that exclude-from-repo is not desk-local-only.
+24. **Workspace-scoped git** — As a person, I want git Load and git Save to always pull or push the whole Workspace work tree / tracked branch, so that invoking Load/Save from a subnode never becomes file-level git.
 
 ## 4. Out of Scope
 
@@ -59,6 +61,8 @@ Sources: [map.md](map.md) Destination and Decisions so far 1–10; [01 — Which
 6. **workspace-git command surface** — This spec does not inherit [[plan/workspace-git/project.md]] Git Remote / Git Pull / Git Push as the primary surface, and does not inherit that spec’s non-FF accept.
 7. **Actor wiring and reject UX** — How the Server Actor is composed, and how a person sees a rejected non-FF push or a failed pull, stay unsettled on [map.md](map.md) Not yet specified. This spec does not invent that surface.
 8. **git Save vs existing Persist / GitSave** — How git Save meets the current Server commit path stays unsettled on [map.md](map.md) Not yet specified. This spec does not invent that composition.
+9. **File-level git** — This spec does not pull or push a file or subtree as a git path. Git Load/Save are Workspace-scoped ([05 — Git Load/Save are Workspace-scoped](issues/05-git-load-save-workspace-scoped.md)).
+10. **Selection-parse nuance in v1** — How selection-scoped Parse should behave after a whole-tree pull is later: [06 — Selection-scoped Parse after whole-tree git Load](issues/06-selection-scoped-parse-after-whole-tree-git-load.md). This spec does not expand that nuance in v1 coding tickets.
 
 ## 5. Further Notes
 
@@ -67,3 +71,4 @@ Sources: [map.md](map.md) Destination and Decisions so far 1–10; [01 — Which
 3. **Cite** — [[src/Server/WorkspaceGit.fs]] (`ensurePushConfig` / `receive.denyNonFastForwards`). Implemented WebDAV Upload / Download: [[doc/current/workspace-file-sync.md]].
 4. **Load → Parse (2026-09-26 refine)** — Alan: independent / autonomous Parse is not in place. “Do not adapt for parse autonomy” means do not redesign around a future autonomous Parse. Keep today’s Load/Parse coupling. WebDAV remains. git first when a remote exists still holds.
 5. **Architecture** — [[arch.md]]. Sequence `module-build`. This spec does not run to-tickets.
+6. **Workspace-scoped git (2026-09-26)** — Alan: git Load/Save always operate on the whole Workspace work tree / tracked branch. Parse still runs on the selection where appropriate after files land. Selection-parse detail is [06 — Selection-scoped Parse after whole-tree git Load](issues/06-selection-scoped-parse-after-whole-tree-git-load.md).

@@ -4,7 +4,7 @@ Spec: [[spec.md]]
 Updated: 2026-09-26
 Sequence: module-build
 
-Sources: [spec.md](spec.md) User Stories 1–23; [map.md](map.md) Destination and Decisions so far 1–10 ([01 — Which Workspaces and remotes](issues/01-which-workspace-labels-and-remotes.md)–[04 — Credential storage on Server](issues/04-credential-storage-on-server.md)). Checklist: `[x]` already true of the codebase shape; `[ ]` still to build. Does not invent product behavior beyond those locks. Existing Ambit smart-HTTP helper [[src/Shared/WorkspaceGitRemote.fs]] (`RemoteName` `ambit`, `/ambit/git/{label}.git`) is not the GitHub remote. Sequence is `module-build`: the stories share a few modules (PathPick, WorkspaceGit git facts, Peer Actor, existing desk WebDAV). This is not expand-contract (no wide rename). Tracer-cut would mint one ticket per story and repeat the same hops.
+Sources: [spec.md](spec.md) User Stories 1–24; [map.md](map.md) Destination and Decisions so far 1–11 ([01 — Which Workspaces and remotes](issues/01-which-workspace-labels-and-remotes.md)–[05 — Git Load/Save are Workspace-scoped](issues/05-git-load-save-workspace-scoped.md)). Later: [06 — Selection-scoped Parse after whole-tree git Load](issues/06-selection-scoped-parse-after-whole-tree-git-load.md) (`needs-info`; not v1). Checklist: `[x]` already true of the codebase shape; `[ ]` still to build. Does not invent product behavior beyond those locks. Existing Ambit smart-HTTP helper [[src/Shared/WorkspaceGitRemote.fs]] (`RemoteName` `ambit`, `/ambit/git/{label}.git`) is not the GitHub remote. Sequence is `module-build`: the stories share a few modules (PathPick, WorkspaceGit git facts, Peer Actor, existing desk WebDAV). This is not expand-contract (no wide rename). Tracer-cut would mint one ticket per story and repeat the same hops.
 
 ## 1. Story paths
 
@@ -27,9 +27,10 @@ Sources: [spec.md](spec.md) User Stories 1–23; [map.md](map.md) Destination an
    3. [ ] No Server branch map module
 
 5. **Same tracked branch**
-   1. [ ] git Load pulls the current tracked branch
-   2. [ ] git Save pushes the same tracked branch
-   3. [ ] Neither hop checkouts, switches, or moves to an older commit
+   1. [ ] git Load pulls the current tracked branch of the whole Workspace work tree
+   2. [ ] git Save pushes the same tracked branch of the whole Workspace work tree
+   3. [ ] Neither hop is file-level git
+   4. [ ] Neither hop checkouts, switches, or moves to an older commit
 
 6. **Fast-forward only**
    1. [x] `WorkspaceGit.ensurePushConfig` sets `receive.denyNonFastForwards`
@@ -54,13 +55,14 @@ Sources: [spec.md](spec.md) User Stories 1–23; [map.md](map.md) Destination an
 10. **git Load**
     1. [ ] Person names git Load (explicit pre-pick)
     2. [ ] PathPick is skipped
-    3. [ ] Peer Actor pulls the tracked branch
-    4. [x] After files land, same Parse / graph-push hops as today’s desk Load (`parseFileOp` / directory reconcile / Fetch+Poll)
+    3. [ ] Peer Actor pulls the whole Workspace work tree / tracked branch (invocation node does not narrow git)
+    4. [x] After files land, Parse / graph-push on the selection where appropriate, as today’s desk Load (`parseFileOp` / directory reconcile / Fetch+Poll)
+    5. [ ] Selection-parse nuance after whole-tree pull is later ([06 — Selection-scoped Parse after whole-tree git Load](issues/06-selection-scoped-parse-after-whole-tree-git-load.md)); do not expand in v1
 
 11. **git Save**
     1. [ ] Person names git Save (explicit pre-pick)
     2. [ ] PathPick is skipped
-    3. [ ] Peer Actor pushes the same tracked branch
+    3. [ ] Peer Actor pushes the whole Workspace work tree / same tracked branch (invocation node does not narrow git)
 
 12. **desk Load**
     1. [ ] Person names desk Load (explicit pre-pick)
@@ -89,8 +91,10 @@ Sources: [spec.md](spec.md) User Stories 1–23; [map.md](map.md) Destination an
 
 17. **Load keeps Parse**
     1. [x] desk Load already invokes Parse / graph-push after files land
-    2. [ ] git Load and plain-git Load use that same Parse / graph-push coupling; they do not stop at file transfer
-    3. [ ] Do not redesign Load around a future autonomous Parse ([[plan/parse-actor/project.md]] stays elsewhere)
+    2. [ ] git Load and plain-git Load use that same Parse / graph-push coupling after a whole-tree pull; they do not stop at file transfer
+    3. [ ] Parse runs on the selection where appropriate (selection-scoped parse after whole-tree pull)
+    4. [ ] Do not expand the selection-parse nuance in v1 ([06 — Selection-scoped Parse after whole-tree git Load](issues/06-selection-scoped-parse-after-whole-tree-git-load.md))
+    5. [ ] Do not redesign Load around a future autonomous Parse ([[plan/parse-actor/project.md]] stays elsewhere)
 
 18. **WebDAV remains**
     1. [x] WebDAV Upload / Download stay implemented
@@ -120,6 +124,11 @@ Sources: [spec.md](spec.md) User Stories 1–23; [map.md](map.md) Destination an
     1. [x] WebDAV Upload / Download still transfer Directory File `.amb`
     2. [x] Server DataDir / Server git / DailyGitSave still track those notes
     3. [ ] Exclude-from-repo does not mean desk-local-only
+
+24. **Workspace-scoped git**
+    1. [ ] git Load/Save from Workspace root or a subnode use the same whole-tree pull/push
+    2. [ ] No file-level git pathspec
+    3. [ ] Tracked branch is the Workspace work tree’s current branch / upstream
 
 Shared segments:
 1. [x] Command Load and Save doors ([[src/Shared/CommandEntry.fs]], [[src/Client/Commands.fs]])
@@ -173,8 +182,8 @@ Narrowest shared test seam:
       1. [x] `isRepo` / `currentBranch` / `ensurePushConfig` (FF-only receive)
       2. [ ] `remoteExists: workspaceRoot -> Result<bool, string>` from `git remote` (any remote counts)
       3. [ ] Tracked branch + upstream from that work tree (no Server map)
-      4. [ ] Pull the current tracked branch (git Load)
-      5. [ ] Push the same tracked branch (git Save); reject conflicted or non-FF
+      4. [ ] Pull the current tracked branch of the whole Workspace work tree (git Load); never file-level git
+      5. [ ] Push the same tracked branch of the whole Workspace work tree (git Save); reject conflicted or non-FF; never file-level git
       6. [ ] Optional `.amb` skip when repo configuration on that work tree says so (exact key unsettled)
       7. [ ] No checkout, switch, or older-commit move
       8. [ ] No GitHub credential argument
@@ -188,8 +197,8 @@ Narrowest shared test seam:
       1. [ ] Live Actor row only while a person-started git Load or git Save runs
       2. [ ] No stored GitHub credential
    2. Interface
-      1. [ ] git Load: pull tracked branch, then today’s Load → Parse / graph-push hops
-      2. [ ] git Save: push same tracked branch; FF-only reject
+      1. [ ] git Load: pull whole Workspace work tree / tracked branch (any invocation node), then today’s Load → Parse / graph-push on the selection
+      2. [ ] git Save: push whole Workspace work tree / same tracked branch; FF-only reject; never file-level git
       3. [ ] Same Actor shape for every device that maps through Server
       4. [ ] Invokes WorkspaceGit; does not call git with an Ambit-supplied token
    3. Uses
@@ -257,6 +266,7 @@ Narrowest shared test seam:
 4. **Ambit credential store** — appsettings / user-secrets / Graph / DataDir hold a GitHub token. Rejected: [04 — Credential storage on Server](issues/04-credential-storage-on-server.md); git loads host credentials.
 5. **Automatic git** — schedule, post-Persist, or post-Download pull/push. Rejected: [03 — When pull and push fire](issues/03-when-pull-and-push-fire.md); person Commands only.
 6. **File-transfer-only Load / autonomous Parse** — git Load stops at pull and leaves Parse to a future autonomous actor. Rejected: independent Parse is not in place; keep today’s Load → Parse coupling until [[plan/parse-actor/project.md]] lands elsewhere.
+7. **File-level git** — pull or push a file or subtree because Load/Save was invoked on a subnode. Rejected: [05 — Git Load/Save are Workspace-scoped](issues/05-git-load-save-workspace-scoped.md).
 
 ## 5. Unsettled
 
