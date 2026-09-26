@@ -11,7 +11,7 @@ Chart how arbitrary outside sources connect to Gambol: materialize external data
 ## Dependencies
 
 - **Depends on:** [[plan/event-sourced-ops/project.md]] — Actor produce path, merge, job identity, soft-lock.
-- **Uses (legs):** [[plan/document-formats/map.md]] (codec Parse/Persist), [[plan/llm-connector/project.md]] (agent Actor), [[plan/selective-client-loading/project.md]] (Load/residency), workspace file sync Projects (file channel).
+- **Uses (legs):** [[plan/document-formats/map.md]] (codec Parse/Persist), [[plan/llm-connector/project.md]] (agent Actor), [[plan/browser-residency/project.md]] (want-driven residency; successor to done [[plan/selective-client-loading/project.md]]), workspace file sync Projects (file channel).
 - **Enables:** [[plan/roadmap/epics/operate-a-pkm.md]] — PKM consumes and navigates transported material; it does not implement the transport layer.
 
 ## Out of scope (this Project)

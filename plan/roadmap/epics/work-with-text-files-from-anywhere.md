@@ -20,11 +20,9 @@ The Epic is not done until each item is done (or the named part).
 
 Live:
 
-- [ ] [[plan/selective-client-loading/project.md]]
 - [ ] [[plan/client-start-time/project.md]] — primarily mobile; this Epic is a key component for [[manage-a-project.md]] and [[operate-a-pkm.md]]
 - [ ] [[plan/daily-git-save/project.md]]
 - [ ] [[plan/download-no-parse-fix/project.md]]
-- [ ] [[plan/parse-load-demote/project.md]]
 - [ ] [[plan/bullet-tip-times/project.md]]
 - [ ] [[plan/document-formats/map.md]] — remainder (XML and other draft codecs); `.md` and HTML are on other Epics
 - [ ] [[plan/end-user-wiki/issues/01-describe-documents-from-any-connected-device.md]] — end-user wiki portion for this Epic
@@ -32,6 +30,7 @@ Live:
 
 Done:
 
+- [x] [[plan/selective-client-loading/project.md]] — prior whole-Workspace slice; successor [[plan/browser-residency/project.md]]
 - [x] [[plan/load-status-phases/project.md]]
 - [x] [[plan/login-context-restore/project.md]]
 - [x] [[plan/node-bullet-tooltip/project.md]]

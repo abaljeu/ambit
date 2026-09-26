@@ -1,8 +1,8 @@
 # Workspace scale file and db management
 
-See also: [[doc/roadmap/workspace-scale-import.md]], [[workspace-file-sync]], [[doc/roadmap/workspace-file-persistence.md]], [[doc/roadmap/workspace-file-model.md]], [[on-demand-graph-residency]]
+See also: [[doc/roadmap/workspace-scale-import.md]], [[workspace-file-sync]], [[doc/roadmap/workspace-file-persistence.md]], [[doc/roadmap/workspace-file-model.md]], [[plan/roadmap/epics/chapters/incremental-operations.md]]
 
-This document is the **umbrella vision** for repo-scale outliner behavior (lazy materialization, residency, queries, identity). **Rollout** is divided into concrete worksets in [[doc/roadmap/workspace-scale-import.md]] and residency authority in [[on-demand-graph-residency]]; do not treat everything here as part of expand-to-parse and freshness UI. This file was created from discussions without looking at gambol sources — terms and details may need adaptation. `Repo` maps directly onto this project's concept of `workspace`.
+This document is the **umbrella vision** for repo-scale outliner behavior (lazy materialization, residency, queries, identity). **Rollout** is divided into concrete worksets in [[doc/roadmap/workspace-scale-import.md]] and residency authority in [[plan/roadmap/epics/chapters/incremental-operations.md]]; do not treat everything here as part of expand-to-parse and freshness UI. This file was created from discussions without looking at gambol sources — terms and details may need adaptation. `Repo` maps directly onto this project's concept of `workspace`.
 
 ## Rollout
 
@@ -12,7 +12,7 @@ Committed sequencing (authoritative detail in linked docs):
 2. **Workspace file sync** — **planned**: WebDAV Class 1 Map / Push / Pull, server finish-commit, `git check-ignore` for `.gitignore` ([[workspace-file-sync]]).
 3. **Disk-to-graph stub reconciliation** — add/delete/rename/move/`M`→Unparsed after server tree commit is implemented; target trigger is WebDAV push + finish-commit. Contents are not parsed ([[lazy-load]]).
 4. **Expand-to-parse and freshness UI** — parse files on demand and report current / unparsed / older / newer state ([[doc/roadmap/workspace-scale-import.md]]).
-5. **On-demand graph residency** — document membership, scoped SQL loaders, server/client residency, per-document versions, hybrid search, then passive reclamation ([[on-demand-graph-residency]]). Supersedes keeping all topology resident.
+5. **On-demand graph residency** — document membership, scoped SQL loaders, server/client residency, per-document versions, hybrid search, then passive reclamation ([[plan/roadmap/epics/chapters/incremental-operations.md]]). Supersedes keeping all topology resident.
 
 Disk-to-graph reconciliation and expand-to-parse can use disk + graph path nodes without the full DB materialization model in this doc. Long-term, repo metadata and parsed nodes live in PostgreSQL as described here.
 
@@ -81,8 +81,8 @@ The repo boundary matters for:
 - Commit command.
 - Pull / push (git sync between server `DataDir` and desktop clone).
 - Gitignore scope.
-- Activation/residency (*deferred* — authority: [[on-demand-graph-residency]]).
-- Search/query scoping (*deferred* — [[on-demand-graph-residency]]).
+- Activation/residency (*deferred* — authority: [[plan/roadmap/epics/chapters/incremental-operations.md]]).
+- Search/query scoping (*deferred* — [[plan/roadmap/epics/chapters/incremental-operations.md]]).
 
 The file boundary matters for:
 
@@ -119,7 +119,7 @@ So the design assumes:
 
 ## Server-side memory management
 
-*Deferred — authority: [[on-demand-graph-residency]].*
+*Deferred — authority: [[plan/roadmap/epics/chapters/incremental-operations.md]].*
 
 Current server loads the whole DB into memory. Target policy: whole-document lazy-on-touch admission, coalesce concurrent loads, brief client-interest leases, prefetch one boundary hop at low priority, initially no server eviction. Search over unloaded workspaces queries PostgreSQL without hydrating the warm cache.
 
@@ -129,7 +129,7 @@ Current server loads the whole DB into memory. Target policy: whole-document laz
 
 ## Client-side residency memory management
 
-*Deferred — authority: [[on-demand-graph-residency]].*
+*Deferred — authority: [[plan/roadmap/epics/chapters/incremental-operations.md]].*
 
 Client policy: keep whole loaded documents; preload documents rooted at rendered Special nodes plus viewport/navigation lookahead; retain only boundary headers and document descriptors outside that set. After correctness without eviction, add byte-budgeted document LRU/clock; do not keep global topology resident.
 

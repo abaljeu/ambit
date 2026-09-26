@@ -1,10 +1,10 @@
 # Future merge and sync
 
-See also: [[on-demand-graph-residency]], [[postgres-roadmap]], [[doc/current/sync-mvp]]
+See also: [[plan/roadmap/epics/chapters/incremental-operations.md]], [[postgres-roadmap]], [[doc/current/sync-mvp]]
 
 ## Objective
 
-Provide **eventual consistency** of the application model across clients and the single database server: offline or lagging clients may submit edits that are merged **deterministically** at the master, with optional **conflict marker nodes** so users can finish resolution when automation stops. The **complete model** lives in PostgreSQL; webservers and clients hold **partial replicas** (whole documents they have loaded, not slices within a document). The server warm cache is also partial under [[on-demand-graph-residency]]; merge authority loads and pins the operation's document dependency closure before validation.
+Provide **eventual consistency** of the application model across clients and the single database server: offline or lagging clients may submit edits that are merged **deterministically** at the master, with optional **conflict marker nodes** so users can finish resolution when automation stops. The **complete model** lives in PostgreSQL; webservers and clients hold **partial replicas** (whole documents they have loaded, not slices within a document). The server warm cache is also partial under [[plan/roadmap/epics/chapters/incremental-operations.md]]; merge authority loads and pins the operation's document dependency closure before validation.
 
 ## Decisions
 
@@ -14,7 +14,7 @@ Provide **eventual consistency** of the application model across clients and the
 
 - **Replication unit:** A device holds a **set of whole documents** in memory. Document identity is the document-root NodeId unless a later requirement demands a separate ID; references may point across documents. Edits are **node-level**, not restricted to document-sized blobs.
 
-- **Conflict boundary:** Keep one global ordered change sequence for audit and catch-up, but stop using exact global revision equality as the conflict boundary for unrelated workspaces. Submissions carry affected document base versions; cross-document changes check all touched documents atomically. Detail: [[on-demand-graph-residency]]. Current MVP still uses global revision equality ([[doc/current/sync-mvp]]).
+- **Conflict boundary:** Keep one global ordered change sequence for audit and catch-up, but stop using exact global revision equality as the conflict boundary for unrelated workspaces. Submissions carry affected document base versions; cross-document changes check all touched documents atomically. Detail: [[plan/roadmap/epics/chapters/incremental-operations.md]]. Current MVP still uses global revision equality ([[doc/current/sync-mvp]]).
 
 - **Conflict handling:** Merge is a **complete computation** over tame concurrency (bounded outcomes, e.g. parallel branches for doubly-edited nodes). The merge may **create nodes** (e.g. conflict markers) for the user to clear manually.
 
@@ -30,7 +30,7 @@ Provide **eventual consistency** of the application model across clients and the
 
 - **Client UX:** **Optimistic** local application of pending edits is allowed; the **canonical** model is whatever the server returns after accept. Clients reconcile pending queues to server acks.
 
-- **Catch-up bandwidth:** Prefer **per-document packages and projection patches** (plus descriptor version advances for unloaded documents) so lagging clients are not required to download the entire server history or warm cache to converge; merge still runs **once** at the master for submitted batches. Detail: [[on-demand-graph-residency]].
+- **Catch-up bandwidth:** Prefer **per-document packages and projection patches** (plus descriptor version advances for unloaded documents) so lagging clients are not required to download the entire server history or warm cache to converge; merge still runs **once** at the master for submitted batches. Detail: [[plan/roadmap/epics/chapters/incremental-operations.md]].
 
 - **Cross-document edits:** When one logical change touches multiple documents, log **one** operation with enough payload for downstream **projections** (per document read models, search indexes) to update every affected document—same spirit as a global write log with document-shaped **read** views.
 

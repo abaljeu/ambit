@@ -69,5 +69,5 @@ Bringing existing trees into the workspace model and responding after file-tree 
 - [x] **Wire reconcile after WebDAV push + finish-commit** (via `/ambit/workspace/reconciliation/directory`)
 - [ ] **Expand-to-parse** — when a file is expanded, parse it and merge the result into existing nodes.
 - [ ] **Richer freshness metadata/UI** — planned after reconciliation with expand-to-parse; show whether the local file is current, unparsed, older than the server file, or newer than the server file.
-- [ ] **On-demand graph residency** — document membership, scoped loaders, server/client residency, per-document versions, hybrid search, then passive reclamation. Authority: [[on-demand-graph-residency]]. Supersedes keeping all topology resident ([[postgres-roadmap]] §5).
+- [ ] **On-demand graph residency** — document membership, scoped loaders, server/client residency, per-document versions, hybrid search, then passive reclamation. Authority: [[plan/roadmap/epics/chapters/incremental-operations.md]]. Supersedes keeping all topology resident ([[postgres-roadmap]] §5).
 - [ ] **Annotation migration** — when files change; still later under [[workspace-scale-file-and-db-management]].
