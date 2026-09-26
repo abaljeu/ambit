@@ -126,7 +126,7 @@ Server integration: server commit with rename/delete → reconcile produces corr
 
 ## Capability sequence
 
-1. **Workspace file sync** — Partial: WebDAV Class 1 Upload / Download, server finish-commit, `git check-ignore` for `.gitignore`. Authority: [[workspace-file-sync]].
+1. **Workspace file sync** — Partial: WebDAV Class 1 Upload / Download, server finish-commit, `git check-ignore` for `.gitignore`. File-channel home: [[plan/transport-layer/project.md]]. High-level pointer: [[workspace-file-sync]].
 2. **Disk-to-graph stub reconciliation** — implemented for add, delete, rename/move, and `M` → **Unparsed**, with exact `.amb` semantics and graph-only persistence; wired after finish-commit via `/ambit/workspace/reconciliation/directory`.
 3. **Expand-to-parse and freshness** — planned next: parse one File on expansion, merge into its existing identity, and add richer current/unparsed/older/newer metadata and UI.
 4. **On-demand graph residency** — document membership, scoped SQL loaders, server/client residency, per-document versions, hybrid search, then passive reclamation. Authority: [[plan/roadmap/epics/chapters/incremental-operations.md]].

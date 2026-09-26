@@ -74,7 +74,7 @@ sequenceDiagram
 
 | Piece | Role |
 | --- | --- |
-| Desktop inventory | Scoped path list after `.git/` skip + `git check-ignore` ([[workspace-file-sync]]) |
+| Desktop inventory | Scoped path list after `.git/` skip + `git check-ignore` |
 | Client stub planner | Map selected inventory → Directory/File create ops under focused Workspace; reuse existing owned path when present; new File nodes start `NoServerFile` |
 | One Change | Multiple structure ops in a single posted Change |
 | Server persist | Creates directory nodes / DataDir dirs as today when graph ops require them |
@@ -82,7 +82,7 @@ sequenceDiagram
 | Finish-commit | Unchanged end-of-batch server git commit |
 | Reconcile endpoint | **Not** called after Desktop Upload; retained for web / repair ([[lazy-load]]) |
 
-Bulk Upload selection and transfer thresholds are defined in [[workspace-file-sync]]. TreeStructure-as-empty-PUT is retired for Desktop Upload; Download is unlimited after server-scope ignore filtering.
+Bulk Upload selection and transfer thresholds are locked in this file (Locked decisions 2 and 6). TreeStructure-as-empty-PUT is retired for Desktop Upload; Download is unlimited after server-scope ignore filtering. High-level pointer: [[workspace-file-sync]].
 
 ## Implementation steps
 
@@ -90,7 +90,7 @@ Bulk Upload selection and transfer thresholds are defined in [[workspace-file-sy
 2. **Client Upload wiring** — structure Change before body PUTs; no post-upload directory reconcile on this path. → **Done.**
 3. **Transfer simplification** — no TreeStructure empty PUT placeholders; bulk policy uses eligible bodies plus full/immediate-child structure. → **Done.**
 4. **Web / repair unchanged** — disk→graph reconcile remains for Upload without Desktop and explicit repair. → **Done.**
-5. **Docs / checklist** — [[workspace-file-sync]] and this baseline describe limited Upload and unlimited Download. → **Done.**
+5. **Docs / checklist** — this baseline describes limited Upload and unlimited Download. High-level pointer: [[workspace-file-sync]]. → **Done.**
 
 ## Tests
 

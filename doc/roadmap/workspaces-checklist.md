@@ -29,7 +29,7 @@ Each server workspace directory is its own git repository under `DataDir/{label}
 - [x] Ignore via `git check-ignore` (IgnoredDestination pattern) — keep essential for Upload / PROPFIND / PUT
 
 ## Workspace file sync (WebDAV)
-Client Upload / Download (ensure-map built in). Product authority: [[workspace-file-sync]]. Server DAV surface + PROPFIND datestamps: [[workspace-webdav]].
+Client Upload / Download (ensure-map built in). File-channel home: [[plan/transport-layer/project.md]]. High-level pointer: [[workspace-file-sync]]. Server DAV surface + PROPFIND datestamps: [[workspace-webdav]].
 
 - [x] Server WebDAV Class 1 under `/ambit/dav/{label}/…` (PROPFIND with getlastmodified / GET / PUT / MKCOL) — [[workspace-webdav]]
 - [x] PROPFIND exposes href/path, collection vs file, **getlastmodified** (mtime); optional getcontentlength
@@ -59,7 +59,7 @@ How users create, open, navigate, and work in workspaces in the UI (commands / k
 - [x] Prevent Workspace nodes from moving outside Workspaces. [[workspace-file-directory-placement]]
 - [x] Parse file / Reparse from disk (on-demand hydrate of owned File) — via **Parse** branch of `Ctrl+Shift+>`
 - [x] **Broken / unresolved references in the UI** — show when a workspace label or path reference cannot resolve; server-side file-status (not only desktop-mapped). See [[workspace-file-model]], [[doc/current/workspace-stage-plan]].
-- [ ] **Overwrite policy** — last-write-wins in scope for v1 WebDAV sync; no FF / mirror-delete ([[workspace-file-sync]]). Graph multi-client merge remains out of scope ([[future-merge-sync]]).
+- [ ] **Overwrite policy** — last-write-wins in scope for v1 WebDAV sync; no FF / mirror-delete ([[plan/roadmap/epics/chapters/automatic-upload-and-download.md]]). Graph multi-client merge remains out of scope ([[future-merge-sync]]).
 
 ## Lazy Load
 Bringing existing trees into the workspace model and responding after file-tree sync. Canonical project and decisions: [[lazy-load]]. Target trigger: after WebDAV push + finish-commit ([[workspace-file-sync]]).

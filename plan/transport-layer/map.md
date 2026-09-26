@@ -11,7 +11,7 @@ Chart how existing Projects and Epics implement transport instances or dependenc
 | Leg | Role | Pointer |
 | --- | --- | --- |
 | **Parse/Persist primitive** | Shared text in ↔ Graph **Changes** / slice out | [[details/parse-persist.md]]; ESO [[plan/event-sourced-ops/details/actors-and-jobs.md]] |
-| **File channel (disk)** | Upload/Download, workspace mapping, auto sync; redesign chart: FETCH/UPDATE Actors | [[plan/roadmap/epics/work-with-text-files-from-anywhere.md]] Chapter [[plan/roadmap/epics/chapters/automatic-upload-and-download.md]]; [[plan/auto-download-persisted-files/project.md]]; redesign owned here |
+| **File channel (disk)** | Upload/Download, workspace mapping, auto sync; redesign chart: FETCH/UPDATE Actors | Chapter [[plan/roadmap/epics/chapters/automatic-upload-and-download.md]]; [[plan/auto-download-persisted-files/project.md]]; leftover [[doc/roadmap/workspace-webdav.md]], [[doc/roadmap/workspace-upload-client-structure.md]]; redesign owned here; leftover pointer [[doc/roadmap/workspace-file-sync.md]] |
 | **GitHub remote (external)** | Server Actor pull/push to GitHub; DataDir work tree is the git home; FF-only; hard-skip `.amb` | [[plan/github-transport/project.md]]; Chapter [[plan/roadmap/epics/chapters/ambit-keeps-consistency-with-desktop-repo-for-agentic-work.md]] |
 | **Document codecs** | Round-trip Parse/reconcile on File Node bodies | [[plan/document-formats/map.md]]; [[plan/roadmap/epics/build-or-explore-a-wiki.md]] (`.md` leg) |
 | **Web publish (outbound)** | Generate HTML and send attachments and CSS (Graph / HTML File content → visitor-facing site; not HTML File body only) | [[plan/roadmap/epics/create-and-publish-web-pages.md]] |
