@@ -19,8 +19,7 @@ let parentSiblingTarget (delta: int) (me: SiteEntry) (model: VM) : (VM * SiteEnt
         { model with siteMap = siteMap; nextSiteId = nextSiteId }, sibling)
 
 type private InlineEditContext =
-    { originalText: string
-      rebuildMode: string -> int -> Mode }
+    { rebuildMode: string -> int -> Mode }
 
 let private mapRebuild
     (rewrap: (string -> int -> Mode) -> string -> int -> Mode)
@@ -31,10 +30,11 @@ let private mapRebuild
 let private trySaveContext (mode: Mode) : InlineEditContext option =
     let rec unwrapMode m =
         match m with
-        | Editing (orig, _) ->
+        | Editing _ ->
             Some
-                { originalText = orig
-                  rebuildMode = fun t c -> Editing (t, EditCaret.utf16ClampedToLength c t.Length) }
+                { rebuildMode =
+                    fun t c ->
+                        Editing (t, EditCaret.utf16ClampedToLength c t.Length) }
         | Mode.CommandPalette (q, sc, ret) ->
             unwrapMode ret
             |> Option.map (mapRebuild (fun rebuild t c ->
@@ -138,7 +138,7 @@ let tryMoveNodeFromTo
         match model.selectedNodes, oldMode with
         | Some sel, Some ctx ->
             let editingId = focusedNodeId model.graph sel
-            tryTextCommitOps editingId ctx.originalText live model.graph
+            tryTextCommitOps editingId live model.graph
         | _ -> []
     match tryBuildMoveInputs too model with
     | None -> Error invalidMoveTargetMessage

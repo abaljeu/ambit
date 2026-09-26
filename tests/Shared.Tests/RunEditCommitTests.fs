@@ -130,3 +130,48 @@ let ``successful Editing commit may SubmitCommand`` () =
     Assert.True(
         RunEditCommit.mayLaunchAfterEditCommit
             true (Some (CmdLastResult.Ok (Some "Edit node"))))
+
+/// Same apply path as Client `commitTextEdit`, using live node text.
+let private commitLiveEdit (liveText: string) (model: VM) : VM * Effect list =
+    match model.mode, model.selectedNodes with
+    | Editing _, Some sel ->
+        let editingId =
+            ViewModelSelection.focusedNodeId model.graph sel
+        let ops = RunEditCommit.commitTextOps editingId liveText model.graph
+        let state = { graph = model.graph; eventId = model.eventId }
+        match ChangeValidation.applyOps ops state with
+        | ApplyResult.Invalid (_, msg) ->
+            ViewModelMoveOps.withMoveError
+                msg { model with mode = Selecting }, []
+        | ApplyResult.Changed next
+        | ApplyResult.Unchanged next ->
+            ViewModelMoveOps.withLastCmdOk
+                { model with graph = next.graph; mode = Selecting }, []
+    | _ -> model, []
+
+[<Fact>]
+let ``stale Editing snapshot commits live text and Submits`` () =
+    let model = editingCommandModel ()
+    let focusId =
+        match model.selectedNodes with
+        | None -> failwith "expected command selection"
+        | Some sel ->
+            ViewModelSelection.focusedNodeId model.graph sel
+    let live = "?test hello now"
+    match RunEditCommit.commitTextOps focusId live model.graph with
+    | [ Op.SetText(_, oldText, newText) ] ->
+        Assert.Equal("?test hello", oldText)
+        Assert.Equal(live, newText)
+    | other -> failwith $"expected one SetText, got %A{other}"
+    let ran, effects =
+        afterEditCommitThenTryStart (commitLiveEdit live) model
+    Assert.Equal(live, ran.graph.nodes.[focusId].text)
+    Assert.True(
+        effects
+        |> List.exists (function
+            | SubmitCommand _ -> true
+            | _ -> false))
+    match ran.lastCmdResult with
+    | Some (CmdLastResult.Error (_, msg)) ->
+        failwith $"expected launch, got {msg}"
+    | _ -> ()
