@@ -49,3 +49,7 @@ Axis report: [spec-review-07.md](spec-review-07.md).
 ## 7. Summary
 
 Standards: 2 judgement findings (worst: custom owner-chain walk). Spec: 3 findings (worst: Shared segment 6 claims Included). Ticket Status stays `coded`.
+
+## 8. Honesty fix
+
+2026-09-26: Alan accepted reserved-plus-ancestors for this expand (do not add Included on [07 — Expand Want and edges/Nodes package](plan/browser-residency/issues/07-expand-want-and-edges-nodes-package.md)). [arch.md](plan/browser-residency/arch.md) Shared segment 6 is unchecked. Story 2.1 stays unchecked. Story 21.2 names `installWantAnswer` only; new 21.4 leaves SyncLogic Want-answer install to [08 — Migrate Shared wire](plan/browser-residency/issues/08-migrate-shared-wire.md). Module map and seam 3 say reserved-plus-ancestors, not Included. Ticket 07 Status stays `coded`. Must-fix honesty items are addressed. Nice-to-haves stay open.

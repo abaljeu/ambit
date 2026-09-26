@@ -111,8 +111,9 @@ Sources: [map.md](map.md) Destination and Notes (2026-09-26 locks; Decisions so 
 
 21. **Edges in the answer**
     1. [ ] Server builds `childMap` entries for each wanted parent
-    2. [x] SyncLogic / ResidentProjection installs those edges
+    2. [x] ResidentProjection.installWantAnswer installs those edges
     3. [x] Wanted parents become Loaded when the key is present
+    4. [ ] SyncLogic.applySyncResponse installs Want-answer edges after Events ([08 — Migrate Shared wire](issues/08-migrate-shared-wire.md))
 
 22. **Nodes in the answer**
     1. [ ] Server includes each Child Node the edges point at, as a separate collection
@@ -196,7 +197,7 @@ Shared segments:
 3. [ ] Server answers edges plus pointed-at Nodes (no dangling edges)
 4. [x] ResidentProjection installs that package into `Graph.childMap`
 5. [x] Bullet from Unloaded / Unparsed via ViewModelChildrenIndicator
-6. [x] Visible-closure bootstrap (reserved Children + Zoom ancestors + Included)
+6. [ ] Visible-closure bootstrap (reserved Children + Zoom ancestors + Included)
 
 Narrowest shared test seam:
 1. [x] Want.compose + installWantAnswer in Shared (no HTTP): given Graph, SiteMap, Zoom, and an answer package, the next Graph has Loaded wanted parents, Resident Children, and no dangling edges
@@ -230,7 +231,7 @@ Narrowest shared test seam:
    1. State
       1. [ ] None beyond the Graph it returns
    2. Interface
-      1. [x] `visibleClosureGraph` is Zoom-scoped visible-closure beside `rootBootstrapGraph`: `childMap` for ROOT, TRASH, Workspaces Node, SYSTEM; ancestors of Zoom root. Not complete Workspace. Production `bootstrapGraph` still uses the old ROOT path
+      1. [x] `visibleClosureGraph` is reserved-plus-ancestors beside `rootBootstrapGraph`: `childMap` for ROOT, TRASH, Workspaces Node, SYSTEM; ancestors of Zoom root. Not Included ([02 — Lock bootstrap visible-closure set](issues/02-lock-bootstrap-visible-closure.md) / [11 — Migrate Bullet, Included, and bootstrap wants](issues/11-migrate-bullet-included-and-bootstrap-wants.md)). Not complete Workspace. Production `bootstrapGraph` still uses the old ROOT path
       2. [x] `installWantAnswer: edges * nodes * Graph -> Result<Graph, string>` — edges and Nodes separately; refuse dangling edges
       3. [x] `packagesForTargets` / `installPackages` stay for dual-run Load Fetch
    3. Uses
@@ -371,7 +372,7 @@ Narrowest shared test seam:
 2. **installWantAnswer**
    1. [x] Interface on **ResidentProjection** — edges plus Nodes; no dangling edges
 3. **bootstrapGraph**
-   1. [x] Interface on **ResidentProjection** — `visibleClosureGraph` beside old `rootBootstrapGraph`
+   1. [x] Interface on **ResidentProjection** — reserved-plus-ancestors `visibleClosureGraph` beside old `rootBootstrapGraph`; Included stays later
 4. **ChangeSuccessResponse**
    1. [x] Interface on **Sync wire** — Poll and post-Event share it; additive `nodes` + `childMap`
 5. **getPoll / postEvents / getState**
