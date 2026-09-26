@@ -63,7 +63,7 @@ Updated: 2026-09-23
 7. **Fast-forward-only accept** — This spec does not limit an accepted non-overlapping push to a fast-forward.
 8. **Per-file conflict choice** — This spec does not offer a choice to keep local bytes on a conflicting file. The follow-up Pull accepts upstream for every conflicting file.
 9. **Directory File transport** — This spec does not change WebDAV Upload or Download of Directory Files, and does not change Server DataDir tracking of `.amb`.
-10. **Ambit note backup** — A new offsite path for Ambit notes is out of scope for Workspace git. [[plan/roadmap/epics/chapters/ambit-keeps-consistency-with-desktop-repo-for-agentic-work.md]] already places that backup on Server DataDir through WebDAV Upload and Download and Server git.
+10. **Ambit note backup** — A new offsite path for Ambit notes is out of scope for Workspace git. [[plan/github-transport/project.md]] already places that backup on Server DataDir through WebDAV Upload and Download and Server git.
 11. **Automatic Upload and Download** — Automatic Upload and Download are out of scope for Workspace git. [[plan/auto-download-persisted-files/project.md]] and the documents Chapter own that work.
 
 ## 5. Further Notes

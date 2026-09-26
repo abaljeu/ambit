@@ -189,7 +189,7 @@ Canonical contract evolution: [[api]]. Running server uses `/ambit` prefix.
 
 | `GET` | `/ambit/login`, `POST /ambit/login`, `GET /ambit/logout` | optional auth |
 
-Deferred vs older docs: `POST /undo`, `POST /redo`, `GET /ops?since=…` as separate endpoints — not exposed; undo is client-side. Workspace Upload / Download transport is WebDAV under `/ambit/dav/{label}/…` ([[doc/roadmap/workspace-file-sync]], server surface [[doc/roadmap/workspace-webdav]]).
+Deferred vs older docs: `POST /undo`, `POST /redo`, `GET /ops?since=…` as separate endpoints — not exposed; undo is client-side. Workspace Upload / Download transport is WebDAV under `/ambit/dav/{label}/…` (file-channel [[plan/transport-layer/project.md]], server surface [[doc/roadmap/workspace-webdav]]).
 
 ## Domain model
 
@@ -353,5 +353,5 @@ Tooling: **xUnit** in `tests/Shared.Tests` and `tests/Server.Tests`.
 | [[doc/current/desktop-local-files.md]] | Desktop proxy and `/_desktop/*` API |
 | [[doc/reference/postgres-environments.md]] | Dev/prod Postgres setup |
 | [[doc/roadmap/postgres-roadmap.md]] | Roadmap index (Postgres, sync, desktop) |
-| [[doc/roadmap/workspace-file-sync.md]] | Partial Upload / Download (WebDAV + server git) |
+| [[plan/transport-layer/project.md]] | File-channel Upload / Download chart |
 | [[doc/roadmap/workspace-webdav.md]] | Server WebDAV Class 1 mount; PROPFIND datestamps |

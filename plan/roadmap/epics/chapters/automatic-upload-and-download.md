@@ -7,11 +7,9 @@
 
 A person explores and works with their documents from any connected device, not only at one desk. The Browser or the App talks to the same Server. In the App a document on disk is a File Node.
 
-Workspace sync today is half in the transport Actor scheme: Parse File is already an Actor; byte move (DAV / prepare-push / Client `UpdateWorkspace*`) is still a special Client↔HTTP path. The high-level redesign folds pull/parse and persist/push into FETCH and UPDATE Actors (ORGANIZE stays Graph authority).
-
 ## Goal
 
-Replace today's manual Upload, Download, and Load for that path so files stay current on the App and in the Browser — through Workspace **FETCH** (pull → Parse → Changes) and **UPDATE** (Persist → push) Actors, not a parallel sync writer.
+Keep the person's files current on the App and in the Browser. Upload and Download move files between the App folder and the Server.
 
 ## Required for done
 
@@ -21,8 +19,4 @@ Replace today's manual Upload, Download, and Load for that path so files stay cu
 
 ## Notes
 
-- Pattern home: [[plan/transport-layer/overview.md]], [[plan/transport-layer/details/parse-persist.md]]. Implementation legs stay file-channel Projects; transport-layer does not implement DAV.
-- Next Chapter [[automatic-parse.md]] stays Unparsed-without-a-separate-Parse-command; FETCH may compose pull + Parse, but automatic Parse UX is that beat.
-- Locked 2026-09-19: fold Actor-shaped Workspace sync into this Chapter; transport-layer owns the redesign chart (not a new Chapter).
-- Locked 2026-09-26: Workspace Download and Workspace Upload stay file operations. They do not Parse on the Browser or the App. File-shaped file→Graph lives on [[plan/parse-actor/project.md]]. Want-driven Graph→Browser lives on [[plan/browser-residency/project.md]]. File transit remains [[plan/transport-layer/project.md]]; that Project will evolve an Actor linked to file transport. Do not create a new transit Project.
-- Overwrite policy for v1 WebDAV remains last-write-wins in scope. Mirror-delete / Class 2 stay out of this Chapter.
+This Chapter is keep-files-current. Implemented tree sync is [[doc/current/workspace-file-sync.md]]. Send to and from GitHub is [[send-to-and-from-github.md]]. Pattern home: [[plan/transport-layer/overview.md]]. File-shaped file→Graph stays [[plan/parse-actor/project.md]]. Want-driven Graph→Browser stays [[plan/browser-residency/project.md]].

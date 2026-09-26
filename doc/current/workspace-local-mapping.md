@@ -1,13 +1,13 @@
 # Workspace local mapping
 
 Category: Desktop
-See also: [[doc/current/desktop-local-files.md]], [[doc/current/workspace-graph.md]], [[doc/roadmap/workspace-file-sync]]
+See also: [[doc/current/desktop-local-files.md]], [[doc/current/workspace-graph.md]], [[doc/current/workspace-file-sync.md]], [[plan/transport-layer/project.md]]
 
 Implemented baseline for desktop-local workspace label → filesystem root bindings. Shared module; the desktop layer supplies the config file path and Get/Put / folder-picker HTTP endpoints.
 
 ## Purpose
 
-A workspace label such as `home` is shared graph identity (`//home`). Each desktop may map that label to an absolute local directory root. Mapping is local-only and does not alter the cloud graph. The mapped folder need not be a git clone; tree sync direction is WebDAV ([[doc/roadmap/workspace-file-sync]]).
+A workspace label such as `home` is shared graph identity (`//home`). Each desktop may map that label to an absolute local directory root. Mapping is local-only and does not alter the cloud graph. The mapped folder need not be a git clone; tree sync is WebDAV ([[doc/current/workspace-file-sync.md]]).
 
 ## Config file
 
@@ -66,7 +66,7 @@ Plain paths (not `//label/...` workspace form) are resolved relative to `Environ
 - `GET /_desktop/file` (import)
 - `POST /_desktop/file` (export)
 - `GET` / `PUT /_desktop/workspace-mappings`
-- Planned WebDAV Push / Pull inventory and write-back under the mapped root
+- WebDAV Upload / Download inventory and write-back under the mapped root ([[doc/current/workspace-file-sync.md]])
 
 Requires `workspacePaths` capability when using `//label/...` form.
 

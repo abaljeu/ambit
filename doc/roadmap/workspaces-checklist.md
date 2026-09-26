@@ -1,14 +1,14 @@
 # Workspaces checklist
 
 Category: Workspace scale
-See also: [[workspaces]], [[doc/current/workspace-graph]], [[doc/current/workspace-local-mapping]], [[workspace-file-sync]], [[workspace-webdav]]
+See also: [[workspaces]], [[doc/current/workspace-graph]], [[doc/current/workspace-local-mapping]], [[plan/transport-layer/project.md]], [[workspace-webdav]]
 
 Living checklist for implementing workspaces.  Mark done an item when it is done.
 
 - Workspace = graph node type;
 - 1:1 with `DataDir/{workspaceName}`;
 - that directory is an independent git repo **on the server** (tracking + ignore + commits).
-- Desktop holds a partial map `workspaceName` → local path; tree sync is WebDAV, not a client git remote ([[workspace-file-sync]]).
+- Desktop holds a partial map `workspaceName` → local path; tree sync is WebDAV, not a client git remote ([[plan/transport-layer/project.md]]).
 
 ## Graph model
 
@@ -21,7 +21,7 @@ One workspace folder per name under DataDir; ownership and on-disk layout.
 - [x] Name collision prevention on new workspace/directory/file, and on rename or move directory/file, needs to account for the root folder structure.
 
 ## Server git tracking
-Each server workspace directory is its own git repository under `DataDir/{label}/`. Used for `.gitignore` / `git check-ignore` and post-push commits — not for client pack transport. Direction: [[workspace-file-sync]].
+Each server workspace directory is its own git repository under `DataDir/{label}/`. Used for `.gitignore` / `git check-ignore` and post-push commits — not for client pack transport. File-channel home: [[plan/transport-layer/project.md]]. Server DAV: [[workspace-webdav]].
 
 - [x] Init empty repo in a new server directory
 - [x] Commit all files to repo on server (WorkspaceGit / GitSave)
@@ -29,7 +29,7 @@ Each server workspace directory is its own git repository under `DataDir/{label}
 - [x] Ignore via `git check-ignore` (IgnoredDestination pattern) — keep essential for Upload / PROPFIND / PUT
 
 ## Workspace file sync (WebDAV)
-Client Upload / Download (ensure-map built in). Product authority: [[workspace-file-sync]]. Server DAV surface + PROPFIND datestamps: [[workspace-webdav]].
+Client Upload / Download (ensure-map built in). File-channel home: [[plan/transport-layer/project.md]]. Server DAV surface + PROPFIND datestamps: [[workspace-webdav]].
 
 - [x] Server WebDAV Class 1 under `/ambit/dav/{label}/…` (PROPFIND with getlastmodified / GET / PUT / MKCOL) — [[workspace-webdav]]
 - [x] PROPFIND exposes href/path, collection vs file, **getlastmodified** (mtime); optional getcontentlength
@@ -53,16 +53,16 @@ How users create, open, navigate, and work in workspaces in the UI (commands / k
 - [x] **Insert…** (`f`): New Workspace (focus on Workspaces); New File / New Folder (elsewhere); pick existing file → insert Ref
 - [x] **Rename** (`F2`) for Directory / File / Normal; workspace rename refused (immutable names)
 - [x] **Delete** (move to TRASH), **Move Selected** (`m`), Indent / Outdent, Duplicate (link)
-- [x] **Upload** (`Ctrl+Shift+>`) — parse focused Unparsed File, or upload focused Workspace / scope via WebDAV ([[workspace-file-sync]]); **Download** (`Ctrl+Shift+<`) for focused scope. See [[lazy-load]].
+- [x] **Upload** (`Ctrl+Shift+>`) — parse focused Unparsed File, or upload focused Workspace / scope via WebDAV ([[plan/transport-layer/project.md]]); **Download** (`Ctrl+Shift+<`) for focused scope. See [[lazy-load]].
 - [x] **Save** (`Ctrl+S`)
 - [x] Navigate: Find, Zoom in / out / owner, Jump to Target
 - [x] Prevent Workspace nodes from moving outside Workspaces. [[workspace-file-directory-placement]]
 - [x] Parse file / Reparse from disk (on-demand hydrate of owned File) — via **Parse** branch of `Ctrl+Shift+>`
 - [x] **Broken / unresolved references in the UI** — show when a workspace label or path reference cannot resolve; server-side file-status (not only desktop-mapped). See [[workspace-file-model]], [[doc/current/workspace-stage-plan]].
-- [ ] **Overwrite policy** — last-write-wins in scope for v1 WebDAV sync; no FF / mirror-delete ([[workspace-file-sync]]). Graph multi-client merge remains out of scope ([[future-merge-sync]]).
+- [ ] **Overwrite policy** — last-write-wins in scope for v1 WebDAV sync; no FF / mirror-delete ([[plan/roadmap/epics/chapters/automatic-upload-and-download.md]]). Graph multi-client merge remains out of scope ([[future-merge-sync]]).
 
 ## Lazy Load
-Bringing existing trees into the workspace model and responding after file-tree sync. Canonical project and decisions: [[lazy-load]]. Target trigger: after WebDAV push + finish-commit ([[workspace-file-sync]]).
+Bringing existing trees into the workspace model and responding after file-tree sync. Canonical project and decisions: [[lazy-load]]. Target trigger: after WebDAV push + finish-commit ([[workspace-webdav]]).
 - [x] **Create-only stub reconciliation** — added paths create or reuse matching Directory and File stubs under the named Workspace through standard server Change lists.
 - [x] **Structural stubs only** — current reconciliation does not parse file contents or create parsed child nodes.
 - [x] **Complete disk-to-graph reconciliation** — added/deleted/renamed/moved paths reconcile through graph-only Changes; Git `M` marks the corresponding document Unparsed; exact `.amb`, refs/TRASH, identity, and idempotency semantics are covered. Best-effort failure remains observable without speculative repair/retry.

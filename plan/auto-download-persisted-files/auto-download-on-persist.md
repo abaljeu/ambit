@@ -2,7 +2,7 @@
 
 Status: tabled — not yet verified
 
-Board advice: `remove` the [[doc/roadmap/workspace-file-sync.md]] auto-download item. The implementation is delivered; the unresolved runtime checks remain durable in this project and should return to the board only if resumed.
+Board advice: leftover `doc/roadmap/workspace-file-sync.md` is deleted. Implemented tree sync is [[doc/current/workspace-file-sync.md]]. Auto-download lives on this Project. The implementation is delivered; the unresolved runtime checks remain durable here and should return to the board only if resumed.
 
 ## Tabled project items
 

@@ -2,9 +2,9 @@
 
 Category: Sync
 Status: Partial
-See also: [[workspace-file-sync]], [[workspaces-checklist]], [[doc/arch]], [[doc/current/workspace-local-mapping]], [[src/Server/IgnoredDestination.fs]], [[src/Server/WorkspaceGit.fs]], [[src/Server/GitSave.fs]]
+See also: [[doc/current/workspace-file-sync.md]], [[plan/transport-layer/project.md]], [[workspaces-checklist]], [[doc/arch]], [[doc/current/workspace-local-mapping]], [[src/Server/IgnoredDestination.fs]], [[src/Server/WorkspaceGit.fs]], [[src/Server/GitSave.fs]]
 
-Server-side WebDAV Class 1 that maps `/ambit/dav/{label}/…` onto `DataDir/{label}/`. This is the **only** Upload / Download transport. Product flow, desktop push/pull functions, and command surface live in [[workspace-file-sync]]; this doc owns the server HTTP surface, listing properties, and **server-side Download inventory filtering**.
+Server-side WebDAV Class 1 that maps `/ambit/dav/{label}/…` onto `DataDir/{label}/`. This is the **only** Upload / Download transport. Implemented as-built: [[doc/current/workspace-file-sync.md]]. File-channel redesign home: [[plan/transport-layer/project.md]]. This leftover owns the server HTTP surface, listing properties, and **server-side Download inventory filtering**.
 
 ## What it gives you
 
@@ -17,7 +17,7 @@ Server-side WebDAV Class 1 that maps `/ambit/dav/{label}/…` onto `DataDir/{lab
 
 ## Inventory role on the server
 
-Per [[workspace-file-sync]]:
+Download inventory on this mount:
 
 - **Download inventory source** = this mount’s `PROPFIND` under scope.
 - **Download ignore SoT** = server `DataDir/{label}/` ignore rules. Prefer applying check-ignore **when building/filtering `PROPFIND` results** so the multistatus is already the download candidate list.
@@ -71,7 +71,7 @@ Depth behavior:
 
 ## Finish-commit
 
-WebDAV alone does not commit. After a Push batch, the desktop (or client via desktop proxy) calls an explicit finish endpoint so the server runs WorkspaceGit add/commit ([[src/Server/WorkspaceGit.fs]] / [[src/Server/GitSave.fs]]). Lazy Load then reconciles from the new `HEAD`. Push pipeline and sequence: [[workspace-file-sync]] (local scope → check-ignore → PUT/MKCOL → finish-commit).
+WebDAV alone does not commit. After a Push batch, the desktop (or client via desktop proxy) calls an explicit finish endpoint so the server runs WorkspaceGit add/commit ([[src/Server/WorkspaceGit.fs]] / [[src/Server/GitSave.fs]]). Lazy Load then reconciles from the new `HEAD`. Desktop Upload pipeline: [[workspace-upload-client-structure]]. File-channel home: [[plan/transport-layer/project.md]].
 
 ## Libraries
 
