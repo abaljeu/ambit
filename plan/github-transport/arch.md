@@ -4,7 +4,7 @@ Spec: [[spec.md]]
 Updated: 2026-09-26
 Sequence: module-build
 
-Sources: [spec.md](spec.md) User Stories 1–24; [map.md](map.md) Destination and Decisions so far 1–11 ([01 — Which Workspaces and remotes](issues/01-which-workspace-labels-and-remotes.md)–[05 — Git Load/Save are Workspace-scoped](issues/05-git-load-save-workspace-scoped.md)). Later: [06 — Selection-scoped Parse after whole-tree git Load](issues/06-selection-scoped-parse-after-whole-tree-git-load.md) (`needs-info`; not v1). Checklist: `[x]` already true of the codebase shape; `[ ]` still to build. Does not invent product behavior beyond those locks. Existing Ambit smart-HTTP helper [[src/Shared/WorkspaceGitRemote.fs]] (`RemoteName` `ambit`, `/ambit/git/{label}.git`) is not the GitHub remote. Sequence is `module-build`: the stories share a few modules (PathPick, WorkspaceGit git facts, Peer Actor, existing desk WebDAV). This is not expand-contract (no wide rename). Tracer-cut would mint one ticket per story and repeat the same hops.
+Sources: [spec.md](spec.md) User Stories 1–26; [map.md](map.md) Destination and Decisions so far 1–14 ([01 — Which Workspaces and remotes](issues/01-which-workspace-labels-and-remotes.md)–[05 — Git Load/Save are Workspace-scoped](issues/05-git-load-save-workspace-scoped.md), [07 — Actor start door](issues/07-actor-start-door.md)–[09 — Skip list is .gitignore](issues/09-gitignore-skip-list.md)). Later: [06 — Selection-scoped Parse after whole-tree git Load](issues/06-selection-scoped-parse-after-whole-tree-git-load.md) (`needs-info`; not v1). Checklist: `[x]` already true of the codebase shape; `[ ]` still to build. Does not invent product behavior beyond those locks. Existing Ambit smart-HTTP helper [[src/Shared/WorkspaceGitRemote.fs]] (`RemoteName` `ambit`, `/ambit/git/{label}.git`) is not the GitHub remote. Sequence is `module-build`: the stories share a few modules (PathPick, WorkspaceGit git facts, Peer Actor, existing desk WebDAV). This is not expand-contract (no wide rename). Tracer-cut would mint one ticket per story and repeat the same hops.
 
 ## 1. Story paths
 
@@ -35,7 +35,9 @@ Sources: [spec.md](spec.md) User Stories 1–24; [map.md](map.md) Destination an
 6. **Fast-forward only**
    1. [x] `WorkspaceGit.ensurePushConfig` sets `receive.denyNonFastForwards`
    2. [ ] git Save rejects a conflicted or non-FF push
-   3. [ ] Reject does not accept non-overlapping diverge (not [[plan/workspace-git/project.md]])
+   3. [ ] Conflict error names at least one file path
+   4. [ ] Other failures use a matching short error that reflects git, condensed
+   5. [ ] Reject does not accept non-overlapping diverge (not [[plan/workspace-git/project.md]])
 
 7. **Remotes accept push**
    1. [x] Operator sets `git remote` on the work tree so git works
@@ -43,26 +45,32 @@ Sources: [spec.md](spec.md) User Stories 1–24; [map.md](map.md) Destination an
 
 8. **Load**
    1. [x] Person Command Load (`CommandEntry` Load; [[src/Client/Commands.fs]] `loadOp`)
-   2. [ ] Plain Load asks PathPick
-   3. [ ] PathPick git → git Load; PathPick desk → desk Load
-   4. [x] After files land, Load invokes Parse / graph-push as today’s `loadOp` already does (`parseFileOp` / directory reconcile / Fetch+Poll)
+   2. [ ] Load command request → mailbox → actor pool (not Run, not `?git`)
+   3. [ ] Plain Load asks PathPick
+   4. [ ] PathPick git → pool invokes GitHub Peer Actor (Focus = Workspace / work tree); PathPick desk → desk Load
+   5. [x] After files land, Load invokes Parse / graph-push as today’s `loadOp` already does (`parseFileOp` / directory reconcile / Fetch+Poll)
 
 9. **Save**
    1. [x] Person Command Save (`CommandEntry` Save; [[src/Client/UpdateSave.fs]] `saveOp`)
-   2. [ ] Plain Save asks PathPick
-   3. [ ] PathPick git → git Save; PathPick desk → desk Save
+   2. [ ] Save command request uses the same mailbox → actor-pool door as Load
+   3. [ ] Plain Save asks PathPick
+   4. [ ] PathPick git → pool invokes GitHub Peer Actor (Focus = Workspace / work tree); PathPick desk → desk Save
 
 10. **git Load**
     1. [ ] Person names git Load (explicit pre-pick)
     2. [ ] PathPick is skipped
-    3. [ ] Peer Actor pulls the whole Workspace work tree / tracked branch (invocation node does not narrow git)
-    4. [x] After files land, Parse / graph-push on the selection where appropriate, as today’s desk Load (`parseFileOp` / directory reconcile / Fetch+Poll)
-    5. [ ] Selection-parse nuance after whole-tree pull is later ([06 — Selection-scoped Parse after whole-tree git Load](issues/06-selection-scoped-parse-after-whole-tree-git-load.md)); do not expand in v1
+    3. [ ] Mailbox → actor pool invokes Peer Actor; Actor uses Focus as the work tree
+    4. [ ] Peer Actor pulls the whole Workspace work tree / tracked branch (invocation node does not narrow git)
+    5. [ ] Reject uses condensed git error (conflict names at least one path)
+    6. [x] After files land, Parse / graph-push on the selection where appropriate, as today’s desk Load (`parseFileOp` / directory reconcile / Fetch+Poll)
+    7. [ ] Selection-parse nuance after whole-tree pull is later ([06 — Selection-scoped Parse after whole-tree git Load](issues/06-selection-scoped-parse-after-whole-tree-git-load.md)); do not expand in v1
 
 11. **git Save**
     1. [ ] Person names git Save (explicit pre-pick)
     2. [ ] PathPick is skipped
-    3. [ ] Peer Actor pushes the whole Workspace work tree / same tracked branch (invocation node does not narrow git)
+    3. [ ] Same mailbox → actor-pool door as Load; Actor uses Focus as the work tree
+    4. [ ] Peer Actor pushes the whole Workspace work tree / same tracked branch (invocation node does not narrow git)
+    5. [ ] Reject uses condensed git error (conflict names at least one path)
 
 12. **desk Load**
     1. [ ] Person names desk Load (explicit pre-pick)
@@ -102,9 +110,10 @@ Sources: [spec.md](spec.md) User Stories 1–24; [map.md](map.md) Destination an
     3. [ ] desk Load/Save keep using it
 
 19. **Server Peer Actor does the round-trip**
-    1. [ ] git Load and git Save run on the Server Peer Actor
-    2. [x] App does not invoke `git` ([[src/Shared/dotnet/GitRun.fs]] is host-side)
-    3. [ ] App stays thin (no git Actor host)
+    1. [ ] Load or Save Command request reaches mailbox → actor pool → GitHub Peer Actor
+    2. [ ] Actor cares about Focus (Workspace / work tree) only
+    3. [x] App does not invoke `git` ([[src/Shared/dotnet/GitRun.fs]] is host-side)
+    4. [ ] App stays thin (no git Actor host)
 
 20. **One Actor shape through Server**
     1. [ ] The same Peer Actor shape serves every device that maps through Server
@@ -116,9 +125,10 @@ Sources: [spec.md](spec.md) User Stories 1–24; [map.md](map.md) Destination an
     3. [ ] git loads credentials (credential helper / host setup)
     4. [ ] No GitHub credential in appsettings, user-secrets, Graph, or DataDir
 
-22. **Optional `.amb` skip**
-    1. [ ] Directory File `.amb` skip on the GitHub remote follows repo configuration on that work tree
-    2. [ ] Skip is not a hard default and not the same class as `.git/`
+22. **Skip list is `.gitignore`**
+    1. [ ] Skip on the GitHub remote is whatever `.gitignore` already says
+    2. [ ] No Ambit skip key; the person edits `.gitignore`
+    3. [ ] Skip is not a hard Ambit default for `.amb`
 
 23. **Backup when `.amb` is excluded**
     1. [x] WebDAV Upload / Download still transfer Directory File `.amb`
@@ -130,14 +140,27 @@ Sources: [spec.md](spec.md) User Stories 1–24; [map.md](map.md) Destination an
     2. [ ] No file-level git pathspec
     3. [ ] Tracked branch is the Workspace work tree’s current branch / upstream
 
+25. **Actor start door**
+    1. [ ] Not Run and not a `?git` entrée
+    2. [ ] Load or Save Command → load/save command request → mailbox → actor pool → GitHub Peer Actor
+    3. [ ] Same wiring for Save as Load
+    4. [ ] Actor input is Focus (Workspace / work tree)
+
+26. **Reject UX**
+    1. [ ] Conflict: error message names at least one file path
+    2. [ ] Other failures: matching short error
+    3. [ ] Text reflects what git reports, condensed
+    4. [ ] Same for Load and Save
+
 Shared segments:
 1. [x] Command Load and Save doors ([[src/Shared/CommandEntry.fs]], [[src/Client/Commands.fs]])
 2. [ ] PathPick (plain Load/Save only)
 3. [ ] WorkspaceGit remote-exists + tracked branch + pull/push
-4. [ ] Peer Actor git Load / git Save
+4. [ ] Peer Actor git Load / git Save (mailbox → actor pool; Focus = work tree)
 5. [x] Desk WebDAV / `loadOp` / desk Save ([[src/Shared/dotnet/WorkspaceFileSync.fs]], [[src/Client/UpdateWorkspaceLoad.fs]], [[src/Client/UpdateSave.fs]])
 6. [x] Host GitRun (no Ambit credential store)
 7. [x] Existing Load → Parse / graph-push (`parseFileOp` / directory reconcile / Fetch+Poll)
+8. [ ] Reject UX: condensed git error; conflict names a path
 
 Narrowest shared test seam:
 1. [ ] PathPick: remote exists → git; else desk (pure; no git process)
@@ -156,10 +179,11 @@ Narrowest shared test seam:
       2. [ ] Plain Load/Save ask PathPick
       3. [ ] Explicit Git or Desk skips PathPick
       4. [ ] No schedule, post-Persist, or post-Download start
-      5. [x] Load still invokes Parse / graph-push as today’s desk Load does
+      5. [ ] Load or Save Command → load/save command request → mailbox → actor pool (not Run, not `?git`)
+      6. [x] Load still invokes Parse / graph-push as today’s desk Load does
    3. Uses
       1. [ ] PathPick
-      2. [ ] Peer Actor (git path)
+      2. [ ] Peer Actor (git path) via actor pool
       3. [x] Desk Load/Save (desk path)
       4. [x] Existing Parse hops (`parseFileOp` / directory reconcile / Fetch+Poll)
 
@@ -184,23 +208,28 @@ Narrowest shared test seam:
       3. [ ] Tracked branch + upstream from that work tree (no Server map)
       4. [ ] Pull the current tracked branch of the whole Workspace work tree (git Load); never file-level git
       5. [ ] Push the same tracked branch of the whole Workspace work tree (git Save); reject conflicted or non-FF; never file-level git
-      6. [ ] Optional `.amb` skip when repo configuration on that work tree says so (exact key unsettled)
-      7. [ ] No checkout, switch, or older-commit move
-      8. [ ] No GitHub credential argument
+      6. [ ] Skip list is `.gitignore` on that work tree (person edits that file; no Ambit skip key)
+      7. [ ] Reject error: conflict names at least one file path; other failures a matching short git-condensed message
+      8. [ ] No checkout, switch, or older-commit move
+      9. [ ] No GitHub credential argument
    3. Uses
       1. [x] GitSave.runGit / GitRun.gitExec (host `git`)
       2. [ ] Host credential helper (git’s, not Ambit’s)
 
 4. **Peer Actor**
-   File: new [[src/Server/GithubTransportActor.fs]] (spoken name: Server Peer Actor; not a new Kind). How Command Load/Save starts this Actor stays Unsettled.
+   File: new [[src/Server/GithubTransportActor.fs]] (spoken name: Server Peer Actor; not a new Kind). Start door: [07 — Actor start door](issues/07-actor-start-door.md).
    1. State
       1. [ ] Live Actor row only while a person-started git Load or git Save runs
       2. [ ] No stored GitHub credential
    2. Interface
-      1. [ ] git Load: pull whole Workspace work tree / tracked branch (any invocation node), then today’s Load → Parse / graph-push on the selection
-      2. [ ] git Save: push whole Workspace work tree / same tracked branch; FF-only reject; never file-level git
-      3. [ ] Same Actor shape for every device that maps through Server
-      4. [ ] Invokes WorkspaceGit; does not call git with an Ambit-supplied token
+      1. [ ] Pool invokes the Actor from a Load or Save command request on the mailbox (not Run, not `?git`)
+      2. [ ] Actor cares about Focus only (which Workspace / work tree)
+      3. [ ] Same wiring for Save as Load
+      4. [ ] git Load: pull whole Workspace work tree / tracked branch (any invocation node), then today’s Load → Parse / graph-push on the selection
+      5. [ ] git Save: push whole Workspace work tree / same tracked branch; FF-only reject; never file-level git
+      6. [ ] Reject UX: conflict names at least one file path; other failures a matching short git-condensed error; same for Load and Save
+      7. [ ] Same Actor shape for every device that maps through Server
+      8. [ ] Invokes WorkspaceGit; does not call git with an Ambit-supplied token
    3. Uses
       1. [x] CoreActorPool / ActorFn ([[src/Server/Core/CoreActorPool.fs]])
       2. [ ] WorkspaceGit
@@ -238,16 +267,20 @@ Narrowest shared test seam:
    1. [ ] Pure `choose` Git vs Desk
 
 2. **WorkspaceGit git facts**
-   Interface on **WorkspaceGit**. Tests cross GitRun on a temp work tree (remote present / absent; FF push accept / reject).
+   Interface on **WorkspaceGit**. Tests cross GitRun on a temp work tree (remote present / absent; FF push accept / reject; `.gitignore` skip).
    1. [ ] `remoteExists` + tracked branch
    2. [ ] pull / push FF-only
-   3. [ ] no credential parameter
+   3. [ ] skip list is `.gitignore`
+   4. [ ] reject text: conflict names a path; other failures short git-condensed
+   5. [ ] no credential parameter
 
 3. **Peer Actor git Load/Save**
-   Interface on **Peer Actor**. Tests stub WorkspaceGit. Composition / start door stays Unsettled.
-   1. [ ] git Load → pull
-   2. [ ] git Save → push
-   3. [ ] no Ambit credential store
+   Interface on **Peer Actor**. Tests stub WorkspaceGit. Start door is mailbox → actor pool from Load/Save ([07 — Actor start door](issues/07-actor-start-door.md)).
+   1. [ ] Load/Save command request → pool invokes Actor; Focus names the work tree
+   2. [ ] git Load → pull
+   3. [ ] git Save → push
+   4. [ ] reject UX same for Load and Save
+   5. [ ] no Ambit credential store
 
 4. **Desk WebDAV**
    Interface on **Desk Load/Save**. Existing seam. This Project does not redesign it.
@@ -267,10 +300,9 @@ Narrowest shared test seam:
 5. **Automatic git** — schedule, post-Persist, or post-Download pull/push. Rejected: [03 — When pull and push fire](issues/03-when-pull-and-push-fire.md); person Commands only.
 6. **File-transfer-only Load / autonomous Parse** — git Load stops at pull and leaves Parse to a future autonomous actor. Rejected: independent Parse is not in place; keep today’s Load → Parse coupling until [[plan/parse-actor/project.md]] lands elsewhere.
 7. **File-level git** — pull or push a file or subtree because Load/Save was invoked on a subnode. Rejected: [05 — Git Load/Save are Workspace-scoped](issues/05-git-load-save-workspace-scoped.md).
+8. **Run / `?git` entrée** — Start the Peer Actor from Run or a `?git` Command. Rejected: [07 — Actor start door](issues/07-actor-start-door.md); door is Load or Save via mailbox → actor pool.
+9. **Ambit skip key** — A special Ambit config key for `.amb` skip. Rejected: [09 — Skip list is .gitignore](issues/09-gitignore-skip-list.md); skip list is `.gitignore`.
 
 ## 5. Unsettled
 
-1. **Actor wiring** — How Command Load/Save starts the Peer Actor (mailbox door, HTTP door, or other). Recorded on [map.md](map.md) Not yet specified. Do not invent the start door here.
-2. **Reject UX** — How a person sees a rejected non-FF push or a failed pull. Recorded on [map.md](map.md) Not yet specified. Do not invent chrome here.
-3. **git Save vs existing Persist / GitSave** — How git Save meets [[src/Server/GitSave.fs]] local commit and Persist. Recorded on [map.md](map.md) Not yet specified. Do not invent that composition here.
-4. **`.amb` repo-configuration key** — Spec locks optional skip from repo configuration on that work tree. The exact git config or exclude spelling is not locked. Do not invent a key name here.
+1. **git Save vs existing Persist / GitSave** — How git Save meets [[src/Server/GitSave.fs]] local commit and Persist. Recorded on [map.md](map.md) Not yet specified. Do not invent that composition here.
