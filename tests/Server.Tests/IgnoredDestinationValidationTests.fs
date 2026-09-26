@@ -13,6 +13,12 @@ let private gitOnPath () = DesktopGit.isAvailable()
 
 let private ownedChild = ChildNode.owner
 
+let private setChildren parentId kids (graph: Graph) =
+    Graph.fromNodes
+        graph.root
+        graph.nodes
+        (Map.add parentId kids graph.childMap)
+
 let private addSpecial parentId kind name (graph: Graph) =
     let id = NodeId.New()
     let node =
@@ -22,13 +28,13 @@ let private addSpecial parentId kind name (graph: Graph) =
             name = Filename.create name,
             owner = parentId,
             kind = Special kind)
-    let parent = graph.nodes.[parentId]
-    let nodes =
-        graph.nodes
-        |> Map.add id node
-        |> Map.add parentId
-            { parent with children = parent.children @ [ ownedChild id ] }
-    Graph.fromNodes graph.root nodes, id
+    let graph1 = Graph.addDetachedNode node graph
+    let graph2 =
+        setChildren
+            parentId
+            (Graph.children graph1 parentId @ [ ownedChild id ])
+            graph1
+    graph2, id
 
 let private rename id name (graph: Graph) =
     Graph.setName id (Filename.tryValue graph.nodes.[id].name |> Option.get) name graph
@@ -38,18 +44,18 @@ let private rename id name (graph: Graph) =
 
 let private reparent id newParentId (graph: Graph) =
     let oldParentId = graph.ownerParentByChild.[id]
-    let oldParent = graph.nodes.[oldParentId]
-    let newParent = graph.nodes.[newParentId]
     let moved = { graph.nodes.[id] with owner = newParentId }
-    let nodes =
-        graph.nodes
-        |> Map.add id moved
-        |> Map.add oldParentId
-            { oldParent with
-                children = oldParent.children |> List.filter (fun child -> child.id <> id) }
-        |> Map.add newParentId
-            { newParent with children = newParent.children @ [ ownedChild id ] }
-    Graph.fromNodes graph.root nodes
+    let nodes = graph.nodes |> Map.add id moved
+    let childMap =
+        graph.childMap
+        |> Map.add
+            oldParentId
+            (Graph.children graph oldParentId
+             |> List.filter (fun child -> child.id <> id))
+        |> Map.add
+            newParentId
+            (Graph.children graph newParentId @ [ ownedChild id ])
+    Graph.fromNodes graph.root nodes childMap
 
 let private writeIgnore root (text: string) =
     Directory.CreateDirectory(root) |> ignore

@@ -35,11 +35,11 @@ let private addNamedNode (name: string) (graph: Graph) : Graph * NodeId =
     let nodeId = NodeId.New()
     let node =
         Node.Create(nodeId, text = name, name = Filename.Ok name)
-    Graph.fromNodes graph.root (graph.nodes |> Map.add nodeId node), nodeId
+    Graph.addDetachedNode node graph, nodeId
 
 /// Insert a new owner child at the end of a node's child list.
 let private appendOwned (parentId: NodeId) (childId: NodeId) (graph: Graph) : Graph =
-    let childCount = graph.nodes.[parentId].children.Length
+    let childCount = (Graph.children graph parentId).Length
     Graph.replace parentId childCount [] [ owned childId ] graph
     |> requireOk "appendOwned"
 
@@ -263,7 +263,7 @@ let ``Replace rejects workspace colliding with root file name`` () =
     let state2 =
         Op.apply (Op.NewSpecialNode(wsId, Workspace, "shared")) (makeState graph1)
         |> requireChanged
-    let idx = state2.graph.nodes.[Graph.workspacesId].children.Length
+    let idx = (Graph.children state2.graph Graph.workspacesId).Length
     let result =
         Graph.replace Graph.workspacesId idx [] [ owned wsId ] state2.graph
     Assert.True(Result.isError result)

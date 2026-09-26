@@ -214,7 +214,8 @@ type Selection =
 /// Independent of graph.nodes — survives graph mutations and snapshot reload.
 type ClipboardContent =
     { topLevelIds: NodeId list
-      nodes: Map<NodeId, Node> }
+      nodes: Map<NodeId, Node>
+      childMap: Map<NodeId, ChildNode list> }
 
 /// Row / active-file indicator vocabulary (desktop status + absent artifacts).
 type DesktopFileIndicator =

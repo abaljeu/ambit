@@ -2,6 +2,7 @@ module DeleteOpsTests
 
 open Gambol.Shared
 open Gambol.Shared.ViewModel
+open GraphChildMapHelpers
 open Xunit
 
 // ---------------------------------------------------------------------------
@@ -67,12 +68,12 @@ let ``planDeleteOps multi-sibling: change applies and both nodes land under TRAS
     | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
     | ApplyResult.Unchanged _ -> Assert.True(false, "Expected Changed")
     | ApplyResult.Changed s ->
-        let trashChildren = s.graph.nodes.[Graph.trashId].children
+        let trashChildren = Graph.children s.graph Graph.trashId
         let aUnderTrash = trashChildren |> List.exists (fun c -> c.id = a)
         let bUnderTrash = trashChildren |> List.exists (fun c -> c.id = b)
         Assert.True(aUnderTrash, "a should be under TRASH")
         Assert.True(bUnderTrash, "b should be under TRASH")
-        let rootChildren = s.graph.nodes.[s.graph.root].children
+        let rootChildren = Graph.children s.graph s.graph.root
         Assert.False(rootChildren |> List.exists (fun c -> c.id = a), "a should not be under root")
         Assert.False(rootChildren |> List.exists (fun c -> c.id = b), "b should not be under root")
 
@@ -99,7 +100,7 @@ let ``reconcileSiteMapFrom after planDeleteOps drops deleted children from paren
             reconcileSiteMapFrom s.graph s.graph.root siteMap nextId
         Assert.DoesNotContain(a, rootChildNodeIds remapped)
         Assert.DoesNotContain(b, rootChildNodeIds remapped)
-        let rootKids = s.graph.nodes.[s.graph.root].children
+        let rootKids = Graph.children s.graph s.graph.root
         Assert.False(rootKids |> List.exists (fun c -> c.id = a))
         Assert.False(rootKids |> List.exists (fun c -> c.id = b))
     | r -> Assert.True(false, $"expected Changed: {r}")
@@ -121,7 +122,7 @@ let ``reconcileSiteMapFrom after partial planDeleteOps keeps leftover children``
             reconcileSiteMapFrom s.graph s.graph.root siteMap nextId
         Assert.DoesNotContain(a, rootChildNodeIds remapped)
         Assert.Contains(b, rootChildNodeIds remapped)
-        let rootKids = s.graph.nodes.[s.graph.root].children
+        let rootKids = Graph.children s.graph s.graph.root
         Assert.False(rootKids |> List.exists (fun c -> c.id = a))
         Assert.True(rootKids |> List.exists (fun c -> c.id = b))
     | r -> Assert.True(false, $"expected Changed: {r}")
@@ -136,7 +137,7 @@ let ``classifyDeleteForChildSpan plans delete without a SiteEntry`` () =
     let change = SpecialNodeTestHelpers.changeEventZero "" ops
     match SpecialNodeTestHelpers.applyChange change (stateOf graph) with
     | ApplyResult.Changed s ->
-        let rootKids = s.graph.nodes.[s.graph.root].children
+        let rootKids = Graph.children s.graph s.graph.root
         Assert.False(rootKids |> List.exists (fun c -> c.id = a))
         Assert.False(rootKids |> List.exists (fun c -> c.id = b))
     | r -> Assert.True(false, $"expected Changed: {r}")
@@ -183,10 +184,10 @@ let ``planDeleteOps promotion: ref promoted to owner, original owner row removed
     | ApplyResult.Unchanged _ -> Assert.True(false, "Expected Changed")
     | ApplyResult.Changed s ->
         // a no longer under root
-        let rootChildren = s.graph.nodes.[s.graph.root].children
+        let rootChildren = Graph.children s.graph s.graph.root
         Assert.False(rootChildren |> List.exists (fun c -> c.id = a), "a should not be under root")
         // x's a-child is now Owner
-        let xChildren = s.graph.nodes.[x].children
+        let xChildren = Graph.children s.graph x
         let aInX = xChildren |> List.tryFind (fun c -> c.id = a)
         match aInX with
         | None -> Assert.True(false, "a should still exist under x")
@@ -279,9 +280,9 @@ let ``planDeleteOps single node MoveToTrash still works`` () =
     | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
     | ApplyResult.Unchanged _ -> Assert.True(false, "Expected Changed")
     | ApplyResult.Changed s ->
-        let trashChildren = s.graph.nodes.[Graph.trashId].children
+        let trashChildren = Graph.children s.graph Graph.trashId
         Assert.True(trashChildren |> List.exists (fun c -> c.id = a), "a should be under TRASH")
-        let rootChildren = s.graph.nodes.[s.graph.root].children
+        let rootChildren = Graph.children s.graph s.graph.root
         Assert.False(rootChildren |> List.exists (fun c -> c.id = a), "a should not be under root")
 
 // ---------------------------------------------------------------------------
@@ -295,7 +296,7 @@ let ``planDeleteOps single item hard-delete from TRASH: item removed permanently
     let g1, ids = ModelBuilder.createNodes [ "a" ] g0
     let a = ids.[0]
     let g2 =
-        let trashLen = g1.nodes.[Graph.trashId].children.Length
+        let trashLen = (Graph.children g1 Graph.trashId).Length
         Graph.replace Graph.trashId trashLen [] [ ChildNode.owner a ] g1
         |> ModelBuilder.requireOk "trash->[a]"
     let range = trashRange g2 0 1
@@ -309,7 +310,7 @@ let ``planDeleteOps single item hard-delete from TRASH: item removed permanently
     | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
     | ApplyResult.Unchanged _ -> Assert.True(false, "Expected Changed, not Unchanged")
     | ApplyResult.Changed s ->
-        let trashChildren = s.graph.nodes.[Graph.trashId].children
+        let trashChildren = Graph.children s.graph Graph.trashId
         Assert.False(trashChildren |> List.exists (fun c -> c.id = a), "a should be gone from TRASH")
 
 [<Fact>]
@@ -320,7 +321,7 @@ let ``planDeleteOps multi-item hard-delete from TRASH: both items removed perman
     let a = ids.[0]
     let b = ids.[1]
     let g2 =
-        let trashLen = g1.nodes.[Graph.trashId].children.Length
+        let trashLen = (Graph.children g1 Graph.trashId).Length
         Graph.replace Graph.trashId trashLen []
             [ ChildNode.owner a; ChildNode.owner b ] g1
         |> ModelBuilder.requireOk "trash->[a,b]"
@@ -337,7 +338,7 @@ let ``planDeleteOps multi-item hard-delete from TRASH: both items removed perman
     | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
     | ApplyResult.Unchanged _ -> Assert.True(false, "Expected Changed, not Unchanged")
     | ApplyResult.Changed s ->
-        let trashChildren = s.graph.nodes.[Graph.trashId].children
+        let trashChildren = Graph.children s.graph Graph.trashId
         Assert.False(trashChildren |> List.exists (fun c -> c.id = a), "a should be gone from TRASH")
         Assert.False(trashChildren |> List.exists (fun c -> c.id = b), "b should be gone from TRASH")
 
@@ -358,10 +359,10 @@ let private workspaceDirectoryGraph () : Graph * NodeId * NodeId =
     let wsId = NodeId.New()
     let dirId = NodeId.New()
     let graph1 =
-        graph0.nodes
-        |> Map.add wsId (specialNode wsId Workspace "home" Graph.workspacesId)
-        |> Map.add dirId (specialNode dirId Directory "docs" wsId)
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        graph0
+        |> addDetachedMany
+            [ specialNode wsId Workspace "home" Graph.workspacesId
+              specialNode dirId Directory "docs" wsId ]
     let graph2 =
         Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
         |> ModelBuilder.requireOk "workspaces->ws"
@@ -404,9 +405,9 @@ let ``classifyDeleteForSelection unlinks a Ref to Workspaces`` () =
             (stateOf g3)
     match result with
     | ApplyResult.Changed s ->
-        Assert.Empty(s.graph.nodes.[a].children)
+        Assert.Empty(Graph.children s.graph a)
         let wsOwned =
-            s.graph.nodes.[s.graph.root].children
+            Graph.children s.graph s.graph.root
             |> List.exists (fun c ->
                 c.id = Graph.workspacesId && c.ref = Ownership.Owner)
         Assert.True(wsOwned, "Workspaces stays Owned under ROOT")
@@ -448,9 +449,9 @@ let ``classifyDeleteForSelection unlinks a Ref to a Workspace Node`` () =
                 (stateOf g4)
         match result with
         | ApplyResult.Changed s ->
-            Assert.Empty(s.graph.nodes.[a].children)
+            Assert.Empty(Graph.children s.graph a)
             let stillOwned =
-                s.graph.nodes.[Graph.workspacesId].children
+                Graph.children s.graph Graph.workspacesId
                 |> List.exists (fun c -> c.id = ws && c.ref = Ownership.Owner)
             Assert.True(stillOwned, "Workspace Node stays Owned under Workspaces")
         | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
@@ -472,12 +473,12 @@ let ``planDeleteOps Directory under workspace moves to TRASH`` () =
     | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
     | ApplyResult.Unchanged _ -> Assert.True(false, "Expected Changed")
     | ApplyResult.Changed s ->
-        let trashChildren = s.graph.nodes.[Graph.trashId].children
+        let trashChildren = Graph.children s.graph Graph.trashId
         Assert.True(
             trashChildren |> List.exists (fun c -> c.id = dirId && c.ref = Ownership.Owner),
             "directory should be under TRASH")
         Assert.False(
-            s.graph.nodes.[wsId].children |> List.exists (fun c -> c.id = dirId),
+            Graph.children s.graph wsId |> List.exists (fun c -> c.id = dirId),
             "directory should leave workspace")
 
 [<Fact>]
@@ -503,9 +504,8 @@ let ``planDeleteOps second Directory with same name as one already in TRASH appl
         | r -> failwithf "first delete failed: %A" r
     let dir2 = NodeId.New()
     let graph2 =
-        graph1.nodes
-        |> Map.add dir2 (specialNode dir2 Directory "docs" wsId)
-        |> fun nodes -> Graph.fromNodes graph1.root nodes
+        graph1
+        |> Graph.addDetachedNode (specialNode dir2 Directory "docs" wsId)
         |> fun g -> Graph.replace wsId 0 [] (owned [ dir2 ]) g
         |> ModelBuilder.requireOk "ws->dir2"
     let range2 = parentRange wsId 0 1
@@ -526,7 +526,7 @@ let ``planDeleteOps second Directory with same name as one already in TRASH appl
     | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
     | ApplyResult.Unchanged _ -> Assert.True(false, "Expected Changed")
     | ApplyResult.Changed s ->
-        let trashChildren = s.graph.nodes.[Graph.trashId].children
+        let trashChildren = Graph.children s.graph Graph.trashId
         Assert.True(trashChildren |> List.exists (fun c -> c.id = dir1), "dir1 stays in TRASH")
         Assert.True(trashChildren |> List.exists (fun c -> c.id = dir2), "dir2 should join TRASH")
         Assert.Equal(Filename.Ok "docs", s.graph.nodes.[dir1].name)
@@ -561,7 +561,7 @@ let ``classifyDeleteForChildSpan does not promote a self-Ref`` () =
 let ``classifyDeleteForSelection does not promote a self-Ref`` () =
     let graph, x = ownedWithSelfRef ()
     let range = rootRange graph 0 1
-    Assert.Equal(x, graph.nodes.[graph.root].children.[0].id)
+    Assert.Equal(x, (Graph.children graph graph.root).[0].id)
     let classified = ViewModelDeleteOps.classifyDeleteForSelection graph range
     Assert.Equal(1, classified.Length)
     Assert.Equal(ViewModelDeleteOps.MoveToTrash, classified.[0].action)
@@ -577,11 +577,11 @@ let ``owned Delete with self-Ref moves to TRASH and History applies`` () =
     | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
     | ApplyResult.Unchanged _ -> Assert.True(false, "Expected Changed")
     | ApplyResult.Changed s ->
-        let trashChildren = s.graph.nodes.[Graph.trashId].children
+        let trashChildren = Graph.children s.graph Graph.trashId
         Assert.True(
             trashChildren |> List.exists (fun c -> c.id = x),
             "x should be under TRASH")
-        let rootChildren = s.graph.nodes.[s.graph.root].children
+        let rootChildren = Graph.children s.graph s.graph.root
         Assert.False(
             rootChildren |> List.exists (fun c -> c.id = x),
             "x should not be under root")
@@ -615,7 +615,7 @@ let ``owned Delete with self-Ref and another Ref promotes the other Ref`` () =
     | ApplyResult.Unchanged _ -> Assert.True(false, "Expected Changed")
     | ApplyResult.Changed s ->
         Assert.Equal(Some y, Map.tryFind x s.graph.ownerParentByChild)
-        let yChild = s.graph.nodes.[y].children |> List.find (fun c -> c.id = x)
+        let yChild = Graph.children s.graph y |> List.find (fun c -> c.id = x)
         Assert.Equal(Ownership.Owner, yChild.ref)
-        let rootChildren = s.graph.nodes.[s.graph.root].children
+        let rootChildren = Graph.children s.graph s.graph.root
         Assert.False(rootChildren |> List.exists (fun c -> c.id = x))

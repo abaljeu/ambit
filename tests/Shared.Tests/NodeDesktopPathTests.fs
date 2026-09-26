@@ -2,6 +2,7 @@ module NodeDesktopPathTests
 
 open Gambol.Shared
 open Gambol.Shared.ViewModel
+open GraphChildMapHelpers
 open Xunit
 
 let private owned = ChildNode.owners
@@ -32,11 +33,8 @@ let private graphWithWorkspaceTree () : Graph * NodeId * NodeId * NodeId =
     let fileNode = specialNode fileId File "readme.txt" dirId
 
     let graph1 =
-        graph0.nodes
-        |> Map.add wsId wsNode
-        |> Map.add dirId dirNode
-        |> Map.add fileId fileNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        graph0
+        |> addDetachedMany [ wsNode; dirNode; fileNode ]
 
     let graph2 =
         Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
@@ -53,8 +51,7 @@ let private graphWithWorkspaceTree () : Graph * NodeId * NodeId * NodeId =
     graph4, wsId, dirId, fileId
 
 let private selectionOn (graph: Graph) (parentId: NodeId) (focusIdx: int) : Selection =
-    let parent = graph.nodes.[parentId]
-    let focusChild = parent.children.[focusIdx]
+    let focusChild = (Graph.children graph parentId).[focusIdx]
 
     { range =
         { parent =
@@ -103,10 +100,7 @@ let ``tryWorkspaceGitLabel resolves named workspace from owned Normal descendant
     let graph0, wsId, _, _ = graphWithWorkspaceTree ()
     let noteId = NodeId.New()
     let note = Node.Create(noteId, text = "notes", owner = wsId)
-    let graph1 =
-        graph0.nodes
-        |> Map.add noteId note
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+    let graph1 = Graph.addDetachedNode note graph0
     let graph =
         Graph.replace wsId 0 [] (owned [ noteId ]) graph1
         |> requireOk "ws->note"
@@ -126,23 +120,16 @@ let ``pathForNodeId skips consecutive Normal owners without changing ownership``
     let outerNormalId = NodeId.New()
     let innerNormalId = NodeId.New()
     let fileId = NodeId.New()
-    let dirNode =
-        { specialNode dirId Directory "dir1" Graph.rootId with
-            children = owned [ outerNormalId ] }
-    let outerNormal =
-        { normalNode outerNormalId "Tasks [[ignored.txt]]" dirId with
-            children = owned [ innerNormalId ] }
-    let innerNormal =
-        { normalNode innerNormalId "Nested tasks" outerNormalId with
-            children = owned [ fileId ] }
+    let dirNode = specialNode dirId Directory "dir1" Graph.rootId
+    let outerNormal = normalNode outerNormalId "Tasks [[ignored.txt]]" dirId
+    let innerNormal = normalNode innerNormalId "Nested tasks" outerNormalId
     let fileNode = specialNode fileId File "file2" innerNormalId
-    let nodes =
-        graph0.nodes
-        |> Map.add dirId dirNode
-        |> Map.add outerNormalId outerNormal
-        |> Map.add innerNormalId innerNormal
-        |> Map.add fileId fileNode
-    let graph = Graph.fromNodes graph0.root nodes
+    let graph =
+        graph0
+        |> addDetachedMany [ dirNode; outerNormal; innerNormal; fileNode ]
+        |> setChildren dirId (owned [ outerNormalId ])
+        |> setChildren outerNormalId (owned [ innerNormalId ])
+        |> setChildren innerNormalId (owned [ fileId ])
 
     Assert.Equal(Some "//dir1/file2", NodeDesktopPath.pathForNodeId graph fileId)
     Assert.Equal(Some "//dir1/file2", NodeDesktopPath.expandedPathForNodeId graph fileId)
@@ -156,19 +143,14 @@ let ``pathForNodeId detects cycles through Normal owners`` () =
     let firstNormalId = NodeId.New()
     let secondNormalId = NodeId.New()
     let fileId = NodeId.New()
-    let firstNormal =
-        { normalNode firstNormalId "[[ignored.txt]]" secondNormalId with
-            children = owned [ secondNormalId; fileId ] }
-    let secondNormal =
-        { normalNode secondNormalId "Tasks" firstNormalId with
-            children = owned [ firstNormalId ] }
+    let firstNormal = normalNode firstNormalId "[[ignored.txt]]" secondNormalId
+    let secondNormal = normalNode secondNormalId "Tasks" firstNormalId
     let fileNode = specialNode fileId File "file2" firstNormalId
-    let nodes =
-        graph0.nodes
-        |> Map.add firstNormalId firstNormal
-        |> Map.add secondNormalId secondNormal
-        |> Map.add fileId fileNode
-    let graph = Graph.fromNodes graph0.root nodes
+    let graph =
+        graph0
+        |> addDetachedMany [ firstNormal; secondNormal; fileNode ]
+        |> setChildren firstNormalId (owned [ secondNormalId; fileId ])
+        |> setChildren secondNormalId (owned [ firstNormalId ])
 
     Assert.Equal(None, NodeDesktopPath.pathForNodeId graph fileId)
     Assert.Equal(None, NodeDesktopPath.expandedPathForNodeId graph fileId)
@@ -178,10 +160,7 @@ let ``pathForNodeId File under ROOT returns root slash path`` () =
     let graph0 = Graph.create ()
     let fileId = NodeId.New()
     let fileNode = specialNode fileId File "name.ext" Graph.rootId
-    let graph1 =
-        graph0.nodes
-        |> Map.add fileId fileNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+    let graph1 = Graph.addDetachedNode fileNode graph0
     let idx = Graph.fileTreeInsertIndex graph1 Graph.rootId
     let graph2 =
         Graph.replace Graph.rootId idx [] (owned [ fileId ]) graph1
@@ -192,16 +171,13 @@ let private graphFileOwnsDirectory () : Graph * NodeId * NodeId =
     let graph0 = Graph.create ()
     let fileId = NodeId.New()
     let dirId = NodeId.New()
-    let fileNode =
-        { specialNode fileId File "container.txt" Graph.rootId with
-            children = owned [ dirId ] }
+    let fileNode = specialNode fileId File "container.txt" Graph.rootId
     let dirNode = specialNode dirId Directory "inner" fileId
 
     let graph1 =
-        graph0.nodes
-        |> Map.add fileId fileNode
-        |> Map.add dirId dirNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        graph0
+        |> addDetachedMany [ fileNode; dirNode ]
+        |> setChildren fileId (owned [ dirId ])
 
     let idx = Graph.fileTreeInsertIndex graph1 Graph.rootId
     let graph2 =

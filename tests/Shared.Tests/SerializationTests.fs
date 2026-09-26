@@ -26,9 +26,6 @@ let ``Node round-trip with Ok name`` () =
             NodeId.New(),
             text = "hello world",
             name = Filename.create "myname",
-            children =
-              [ ChildNode.New()
-                ChildNode.New()],
             updateTime = System.DateTime(2024, 6, 1, 12, 0, 0, System.DateTimeKind.Utc))
     let decoded = roundTrip Serialization.encodeNode Serialization.decodeNode node
     Assert.Equal(node, decoded)
@@ -41,11 +38,16 @@ let ``Node round-trip with Empty name`` () =
     Assert.Equal(node, decoded)
 
 [<Fact>]
-let ``Node childrenStatus Unloaded round-trip`` () =
-    let node = Node.Create(NodeId.New(), text = "hollow", childrenStatus = Unloaded)
-    let decoded = roundTrip Serialization.encodeNode Serialization.decodeNode node
-    Assert.Equal(Unloaded, decoded.childrenStatus)
-    Assert.Equal(node, decoded)
+let ``Graph childMap Unloaded is absent after round-trip`` () =
+    let id = NodeId.New()
+    let node = Node.Create(id, text = "hollow")
+    let graph =
+        Graph.create ()
+        |> Graph.addDetachedNode node
+        |> GraphChildMapHelpers.unload id
+    let decoded = roundTrip Serialization.encodeGraph Serialization.decodeGraph graph
+    Assert.Equal(Unloaded, Graph.childrenStatus decoded id)
+    Assert.False(Map.containsKey id decoded.childMap)
 
 [<Fact>]
 let ``Node JSON omits lock-present`` () =
@@ -57,21 +59,24 @@ let ``Node JSON omits lock-present`` () =
     Assert.False(decoded.lockPresent)
 
 [<Fact>]
-let ``Node decode without childrenStatus defaults to Loaded`` () =
+let ``legacy Graph decode without childrenStatus defaults to Loaded`` () =
+    let rootId = Graph.rootId.Value
     let nodeId = NodeId.New()
     let json =
-        $"""{{"id":"{nodeId.Value}","text":"legacy","children":[],"cssClasses":[],"kind":"normal"}}"""
-    match Dec.fromString Serialization.decodeNode json with
+        $"""{{"root":"{rootId}","nodes":[{{"id":"{rootId}","text":"ROOT","children":[],"kind":{{"type":"special","kind":"workspace"}}}},{{"id":"{nodeId.Value}","text":"legacy","children":[],"cssClasses":[],"kind":"normal"}}]}}"""
+    match Dec.fromString Serialization.decodeGraph json with
     | Error err -> failwith $"Decode failed: {err}"
-    | Ok decoded -> Assert.Equal(Loaded, decoded.childrenStatus)
+    | Ok decoded ->
+        Assert.Equal(Loaded, Graph.childrenStatus decoded nodeId)
+        Assert.Equal<ChildNode list>([], Graph.children decoded nodeId)
 
 [<Fact>]
-let ``Node decode rejects Unloaded with non-empty children`` () =
+let ``legacy package decode rejects Unloaded with non-empty children`` () =
     let nodeId = NodeId.New()
     let childId = NodeId.New()
     let json =
-        $"""{{"id":"{nodeId.Value}","text":"bad","children":[{{"ref":"owner","id":"{childId.Value}"}}],"childrenStatus":"unloaded","cssClasses":[],"kind":"normal"}}"""
-    match Dec.fromString Serialization.decodeNode json with
+        $"""[{{"id":"{nodeId.Value}","text":"bad","children":[{{"ref":"owner","id":"{childId.Value}"}}],"childrenStatus":"unloaded","cssClasses":[],"kind":"normal"}}]"""
+    match Dec.fromString Serialization.decodeLegacyPackageNodes json with
     | Ok _ -> failwith "expected decode failure"
     | Error err -> Assert.Contains("Unloaded", err)
 
@@ -127,8 +132,6 @@ let ``Node decode accepts mixed kind null name and string updateTime`` () =
         special.id.Value)
     Assert.Equal(Special Directory, special.kind)
     Assert.Equal(Filename.create "Example", special.name)
-    Assert.Equal(1, special.children.Length)
-    Assert.Equal(Ownership.Ref, special.children.Head.ref)
     Assert.Equal(
         System.DateTime(639204537026026480L, System.DateTimeKind.Utc),
         special.updateTime)
@@ -167,6 +170,9 @@ let ``StateResponse decode accepts Alan sample node shapes`` () =
             NodeId(System.Guid.Parse "ffab5839-cc99-4036-a967-0ae70a779969")
         Assert.True(Map.containsKey specialId response.graph.nodes)
         Assert.True(Map.containsKey normalId response.graph.nodes)
+        Assert.Equal(Loaded, Graph.childrenStatus response.graph specialId)
+        Assert.Equal(1, (Graph.children response.graph specialId).Length)
+        Assert.Equal(Ownership.Ref, (Graph.children response.graph specialId).Head.ref)
 
 [<Fact>]
 let ``Graph decode missing root is an Error not a throw`` () =
@@ -220,6 +226,7 @@ let ``Graph round-trip`` () =
     let decoded = roundTrip Serialization.encodeGraph Serialization.decodeGraph graph
     Assert.Equal(graph.root, decoded.root)
     Assert.Equal<Map<NodeId, Node>>(graph.nodes, decoded.nodes)
+    Assert.Equal<Map<NodeId, ChildNode list>>(graph.childMap, decoded.childMap)
 
 [<Fact>]
 let ``Desktop capabilities disabled round-trip`` () =
@@ -506,7 +513,8 @@ let ``LoadResponse round-trip with packages`` () =
           apiVersion = ApiVersion.current
           isReady = false
           events = [ change ]
-          packages = [ node ] }
+          packages = [ node ]
+          packageChildMap = Map.ofList [ node.id, [] ] }
     let decoded =
         roundTrip
             ApiResponseSerialization.encodeLoadResponse

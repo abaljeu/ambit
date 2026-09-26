@@ -59,17 +59,19 @@ let private nestedWorkspaceStateResponse () =
             name = Filename.Ok "docs",
             kind = Special Directory,
             owner = wsId)
-    let workspaces = graph0.nodes.[Graph.workspacesId]
-    let nodes =
-        graph0.nodes
-        |> Map.add wsId wsNode
-        |> Map.add dirId dirNode
-        |> Map.add
-            Graph.workspacesId
-            { workspaces with
-                children =
-                    workspaces.children @ [ ChildNode.owner wsId ] }
-    let graph1 = Graph.fromNodes graph0.root nodes
+    let graph1 =
+        graph0
+        |> Graph.addDetachedNode wsNode
+        |> Graph.addDetachedNode dirNode
+        |> fun g ->
+            Graph.fromNodes
+                g.root
+                g.nodes
+                (Map.add
+                    Graph.workspacesId
+                    (Graph.children g Graph.workspacesId
+                     @ [ ChildNode.owner wsId ])
+                    g.childMap)
     let graph2 =
         Graph.replace wsId 0 [] [ ChildNode.owner dirId ] graph1
         |> function
@@ -122,7 +124,10 @@ let ``getState seeds liveFocusIds from lockPresent overlay`` () = task {
     let graph0 = Graph.create ()
     let node = Node.Create(focusId, text = "focus", lockPresent = true)
     let graph =
-        Graph.fromNodes graph0.root (Map.add focusId node graph0.nodes)
+        Graph.fromNodes
+            graph0.root
+            (Map.add focusId node graph0.nodes)
+            (Map.add focusId [] graph0.childMap)
     let handle =
         handleWithGetState (fun () ->
             async.Return(
@@ -172,7 +177,7 @@ let ``getState zoom outside ROOT adds owning Workspace`` () = task {
         | Error err -> failwith err
         | Ok response ->
             Assert.True(response.graph.nodes.ContainsKey dirId)
-            Assert.Equal(Loaded, response.graph.nodes.[wsId].childrenStatus)
+            Assert.Equal(Loaded, Graph.childrenStatus response.graph wsId)
             Assert.True(EventId.isAccepted response.eventId)
     | other ->
         Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
@@ -190,7 +195,7 @@ let ``getState without zoom keeps nested Workspace Unloaded`` () = task {
         | Error err -> failwith err
         | Ok response ->
             Assert.True(response.graph.nodes.ContainsKey wsId)
-            Assert.Equal(Unloaded, response.graph.nodes.[wsId].childrenStatus)
+            Assert.Equal(Unloaded, Graph.childrenStatus response.graph wsId)
             Assert.False(response.graph.nodes.ContainsKey dirId)
     | other ->
         Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")

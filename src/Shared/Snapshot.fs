@@ -20,7 +20,8 @@ module Snapshot =
         let occurrenceCount =
             graph.nodes
             |> Map.toSeq
-            |> Seq.collect (fun (_, node) -> node.children |> Seq.map (fun child -> child.id))
+            |> Seq.collect (fun (id, _) ->
+                GraphChildren.get graph id |> Seq.map (fun child -> child.id))
             |> Seq.groupBy id
             |> Seq.map (fun (nodeId, xs) -> nodeId, Seq.length xs)
             |> Map.ofSeq
@@ -93,12 +94,10 @@ module Snapshot =
                     |> ignore
                 else
                     sb.Append(indent).Append(body).Append(nl) |> ignore
-                for c in node.children do
+                for c in GraphChildren.get graph nodeId do
                     writeChild nodeId (depth + 1) c
 
-        let root = graph.nodes.[graph.root]
-
-        for child in root.children do
+        for child in GraphChildren.get graph graph.root do
             writeChild graph.root 0 child
 
         sb.ToString()
@@ -195,10 +194,10 @@ module Snapshot =
     let private prependOutlineChild
         (parentId: NodeId)
         (edge: ChildNode)
-        (nodes: Map<NodeId, Node>)
+        (childMap: Map<NodeId, ChildNode list>)
         =
-        let p = nodes |> Map.find parentId
-        nodes |> Map.add parentId { p with children = edge :: p.children }
+        let kids = Map.tryFind parentId childMap |> Option.defaultValue []
+        Map.add parentId (edge :: kids) childMap
 
     let private parseHashDefLine (content: string) : string * string =
         let spaceIdx = content.IndexOf(' ')
@@ -269,7 +268,10 @@ module Snapshot =
         else
             text.Replace("\r\n", "\n").TrimEnd('\n').Split('\n')
 
-    let private foldOutlineLine (nodes, stack, idMap: Map<string, NodeId>) (line: string) =
+    let private foldOutlineLine
+        (nodes, childMap, stack, idMap: Map<string, NodeId>)
+        (line: string)
+        =
         let depth = line |> Seq.takeWhile ((=) '\t') |> Seq.length
         let content = line.Substring(depth)
         let stack = popOutlineStack depth stack
@@ -279,27 +281,41 @@ module Snapshot =
             let sid = content.Substring(4).Trim()
             let nid, nodes, idMap = resolveRefSid sid nodes idMap
             let edge = ChildNode.reference nid
-            (prependOutlineChild parentId edge nodes, stack, idMap)
+            (nodes, prependOutlineChild parentId edge childMap, stack, idMap)
 
         elif content.StartsWith("#") then
             let sid, body = parseHashDefLine content
             let classes, nodeText = parseOutlineMeta body
             let nid, nodes', idMap' = resolveOwnerSid sid classes nodeText nodes idMap
             let edge = ChildNode.owner nid
-            (prependOutlineChild parentId edge nodes', (depth, nid) :: stack, idMap')
+            (nodes', prependOutlineChild parentId edge childMap,
+             (depth, nid) :: stack, idMap')
 
         else
             let classes, nodeText = parseOutlineMeta content
             let nid = NodeId.New()
             let nodes = nodes |> Map.add nid (outlineTextNode nid nodeText classes)
             let edge = ChildNode.owner nid
-            (prependOutlineChild parentId edge nodes, (depth, nid) :: stack, idMap)
+            (nodes, prependOutlineChild parentId edge childMap,
+             (depth, nid) :: stack, idMap)
 
-    let private finalizeOutlineGraph (rootId: NodeId) (nodemap: Map<NodeId, Node>) : Graph =
-        let nodes =
-            nodemap
-            |> Map.map (fun _ (n: Node) -> { n with children = List.rev n.children })
-        Graph.fromNodes rootId nodes
+    let private finalizeOutlineGraph
+        (rootId: NodeId)
+        (nodes: Map<NodeId, Node>)
+        (childMap: Map<NodeId, ChildNode list>)
+        : Graph =
+        let childMap =
+            childMap |> Map.map (fun _ kids -> List.rev kids)
+        // Outline snapshot is a complete tree: every present node is Loaded
+        // (including empty leaves). Absent `childMap` keys stay Unloaded.
+        let childMap =
+            nodes
+            |> Map.fold
+                (fun acc id _ ->
+                    if Map.containsKey id acc then acc
+                    else Map.add id [] acc)
+                childMap
+        Graph.fromNodes rootId nodes childMap
 
     /// Parse tab-indented text outline into a new Graph.
     /// Canonical root id is preserved; other NodeIds are minted fresh.
@@ -307,7 +323,9 @@ module Snapshot =
     let read (text: string) : Graph =
         let initial =
             ( Map.ofList [ Graph.rootId, Graph.rootPlaceholder ]
+              , Map.ofList [ Graph.rootId, [] ]
               , [ (-1, Graph.rootId) ]
               , Map.empty )
-        let nodemap, _, _ = outlineSourceLines text |> Array.fold foldOutlineLine initial
-        finalizeOutlineGraph Graph.rootId nodemap
+        let nodes, childMap, _, _ =
+            outlineSourceLines text |> Array.fold foldOutlineLine initial
+        finalizeOutlineGraph Graph.rootId nodes childMap

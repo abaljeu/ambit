@@ -32,12 +32,11 @@ let private graphWithNestedDocs () : Graph * NodeId * NodeId * NodeId * NodeId =
     let normalId = NodeId.New()
 
     let graph1 =
-        graph0.nodes
-        |> Map.add wsId (specialNode wsId Workspace "home" Graph.workspacesId)
-        |> Map.add dirId (specialNode dirId Directory "docs" wsId)
-        |> Map.add fileId (specialNode fileId File "readme.txt" dirId)
-        |> Map.add normalId (normalNode normalId "body" fileId)
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        graph0
+        |> Graph.addDetachedNode (specialNode wsId Workspace "home" Graph.workspacesId)
+        |> Graph.addDetachedNode (specialNode dirId Directory "docs" wsId)
+        |> Graph.addDetachedNode (specialNode fileId File "readme.txt" dirId)
+        |> Graph.addDetachedNode (normalNode normalId "body" fileId)
 
     let graph2 =
         Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1

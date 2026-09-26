@@ -6,7 +6,7 @@ module ModelBuilder =
         let existingOccurrences =
             graph.nodes
             |> Map.values
-            |> Seq.collect (fun node -> node.children)
+            |> Seq.collect (fun node -> GraphChildren.get graph node.id)
             |> Seq.map (fun child -> child.id)
             |> Set.ofSeq
 

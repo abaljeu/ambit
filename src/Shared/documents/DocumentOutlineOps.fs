@@ -54,37 +54,37 @@ module DocumentOutlineOps =
 
         loop [] stack
 
-    let prependChild (parentId: NodeId) (edge: ChildNode) (nodes: Map<NodeId, Node>) =
-        let parent = nodes.[parentId]
-        nodes |> Map.add parentId { parent with children = edge :: parent.children }
+    let prependChild
+        (parentId: NodeId)
+        (edge: ChildNode)
+        (childMap: Map<NodeId, ChildNode list>)
+        =
+        let kids = Map.tryFind parentId childMap |> Option.defaultValue []
+        Map.add parentId (edge :: kids) childMap
 
-    let finalizeDocument (nodes: Map<NodeId, Node>) =
-        nodes |> Map.map (fun _ node -> { node with children = List.rev node.children })
+    let finalizeChildMap (childMap: Map<NodeId, ChildNode list>) =
+        childMap |> Map.map (fun _ kids -> List.rev kids)
 
     let copyDocumentFromGraph (contextGraph: Graph) (documentRootId: NodeId) =
-        let rec copySubtree nodeId acc =
+        let rec copySubtree nodeId (nodes, childMap) =
             match Map.tryFind nodeId contextGraph.nodes with
-            | None -> acc
+            | None -> nodes, childMap
             | Some node ->
-                let acc' = Map.add nodeId { node with children = [] } acc
-
-                node.children
+                let nodes = Map.add nodeId node nodes
+                let childMap = Map.add nodeId [] childMap
+                GraphChildren.get contextGraph nodeId
                 |> List.fold
-                    (fun a child ->
-                        let a' = copySubtree child.id a
-
+                    (fun (nodes, childMap) child ->
+                        let nodes, childMap = copySubtree child.id (nodes, childMap)
                         match Map.tryFind child.id contextGraph.nodes with
-                        | None -> a'
+                        | None -> nodes, childMap
                         | Some _ ->
-                            let parent = a'.[nodeId]
+                            nodes, prependChild nodeId child childMap)
+                    (nodes, childMap)
 
-                            Map.add
-                                nodeId
-                                { parent with children = child :: parent.children }
-                                a')
-                    acc'
-
-        copySubtree documentRootId Map.empty |> finalizeDocument
+        let nodes, childMap =
+            copySubtree documentRootId (Map.empty, Map.empty)
+        nodes, finalizeChildMap childMap
 
     /// Fold depth-ordered rows into an owner-child tree under documentRootId.
     let foldRowsIntoTree
@@ -100,19 +100,27 @@ module DocumentOutlineOps =
                 -> Map<NodeId, Node>
                 -> Graph
                 -> Map<NodeId, Node>)
-        : Map<NodeId, Node> =
-        let cleared =
-            contextGraph.nodes |> Map.map (fun _ n -> { n with children = [] })
+        : Map<NodeId, Node> * Map<NodeId, ChildNode list> =
+        let clearedNodes = contextGraph.nodes
+        let clearedChildMap =
+            contextGraph.nodes |> Map.map (fun _ _ -> [])
 
-        let folder (nodes: Map<NodeId, Node>, stack: (int * NodeId) list) (row: 'Row) =
+        let folder
+            (nodes, childMap, stack: (int * NodeId) list)
+            (row: 'Row)
+            =
             let depth = depthOf row
             let stack' = popStack depth stack
             let parentId = snd stack'.Head
             let nodeId = nodeIdFor row
             let nodes' = mergeNode nodeId row parentId nodes contextGraph
             let edge = ChildNode.owner nodeId
-            let nodes'' = prependChild parentId edge nodes'
-            nodes'', (depth, nodeId) :: stack'
+            let childMap' = prependChild parentId edge childMap
+            nodes', childMap', (depth, nodeId) :: stack'
 
-        let nodes, _ = List.fold folder (cleared, [ (-1, documentRootId) ]) rows
-        finalizeDocument nodes
+        let nodes, childMap, _ =
+            List.fold
+                folder
+                (clearedNodes, clearedChildMap, [ (-1, documentRootId) ])
+                rows
+        nodes, finalizeChildMap childMap

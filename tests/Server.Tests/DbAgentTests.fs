@@ -45,9 +45,9 @@ let private stateWithDetachedNode () =
     let orphanId = NodeId.New()
     let graph0 = Graph.create ()
     let graph =
-        graph0.nodes
-        |> Map.add orphanId (Node.Create(orphanId, text = "orphan"))
-        |> Graph.fromNodes Graph.rootId
+        Graph.addDetachedNode
+            (Node.Create(orphanId, text = "orphan"))
+            graph0
 
     { graph = graph
       eventId = EventIdFixtures.storedId 4 },
@@ -62,15 +62,15 @@ let ``DbAgent empty test DB has revision 0 and canonical ROOT`` () = task {
     let! state = getState agent |> Async.StartAsTask
     Assert.Equal(EventId.zero, rev)
     let graph = state.graph
-    let root = graph.nodes.[graph.root]
+    let rootKids = Graph.children graph graph.root
     Assert.Equal(4, graph.nodes.Count)
-    Assert.Equal("ROOT", root.text)
-    Assert.Equal(3, root.children.Length)
-    Assert.Equal(Graph.workspacesId, root.children.[0].id)
+    Assert.Equal("ROOT", graph.nodes.[graph.root].text)
+    Assert.Equal(3, rootKids.Length)
+    Assert.Equal(Graph.workspacesId, rootKids.[0].id)
     Assert.Equal("Workspaces", graph.nodes.[Graph.workspacesId].text)
-    Assert.Equal(Graph.systemId, root.children.[1].id)
+    Assert.Equal(Graph.systemId, rootKids.[1].id)
     Assert.Equal("System", graph.nodes.[Graph.systemId].text)
-    Assert.Equal(Graph.trashId, root.children.[2].id)
+    Assert.Equal(Graph.trashId, rootKids.[2].id)
     Assert.Equal("Trash", graph.nodes.[Graph.trashId].text)
 }
 
@@ -82,9 +82,7 @@ let ``DbAgent startup sweeps and trims unreachable persisted nodes before ready`
     let graph0 = Graph.create ()
     let orphan = Node.Create(orphanId, text = "orphan")
     let graph =
-        graph0.nodes
-        |> Map.add orphanId orphan
-        |> Graph.fromNodes Graph.rootId
+        Graph.addDetachedNode orphan graph0
 
     use conn = Database.getConnection connStr
     do! conn.OpenAsync()
@@ -216,13 +214,13 @@ let ``DbAgent new process loads state from projection and changes after post`` (
     Assert.True(EventId.isAccepted rev2)
     let graph2 = state2.graph
     Assert.Equal(Graph.rootId, graph2.root)
-    let root = graph2.nodes.[graph2.root]
-    Assert.Equal(4, root.children.Length)
-    let cid = root.children.[0].id
+    let rootKids = Graph.children graph2 graph2.root
+    Assert.Equal(4, rootKids.Length)
+    let cid = rootKids.[0].id
     Assert.Equal("reload-check", graph2.nodes.[cid].text)
-    Assert.Equal(Graph.workspacesId, root.children.[1].id)
-    Assert.Equal(Graph.systemId, root.children.[2].id)
-    Assert.Equal(Graph.trashId, root.children.[3].id)
+    Assert.Equal(Graph.workspacesId, rootKids.[1].id)
+    Assert.Equal(Graph.systemId, rootKids.[2].id)
+    Assert.Equal(Graph.trashId, rootKids.[3].id)
 }
 
 
@@ -367,9 +365,11 @@ let ``loadPersistedState preserves node name`` () = task {
     let expectedName = Filename.create "TRASH"
 
     let graphWithName =
-        baseGraph.nodes
-        |> Map.add Graph.trashId { trashNode with name = expectedName }
-        |> Graph.fromNodes baseGraph.root
+        Graph.fromNodes
+            baseGraph.root
+            (baseGraph.nodes
+             |> Map.add Graph.trashId { trashNode with name = expectedName })
+            baseGraph.childMap
 
     use conn = Database.getConnection connStr
     do! conn.OpenAsync()
@@ -398,7 +398,11 @@ let ``loadPersistedState preserves node kind`` () = task {
               commandName = ""
               body = EventBody.Change
                 [ Op.NewSpecialNode(fileId, SpecialKind.File, "file1")
-                  ChildListWire.insertAt Graph.rootId g0.nodes.[Graph.rootId].children idx [ ChildNode.owner fileId ] ] }
+                  ChildListWire.insertAt
+                      Graph.rootId
+                      (Graph.children g0 Graph.rootId)
+                      idx
+                      [ ChildNode.owner fileId ] ] }
 
         match
             applyChange change
@@ -560,21 +564,27 @@ let ``DbAgent dual-owned repair reloads ready graph from projection`` () = task 
     let aId = NodeId(Guid.Parse("20000000-0000-0000-0000-000000000110"))
     let uId = NodeId(Guid.Parse("20000000-0000-0000-0000-000000000111"))
     let a = Node.Create(aId, text = "A")
-    let u = Node.Create(uId, text = "U", children = [ ChildNode.owner aId ])
+    let u = Node.Create(uId, text = "U")
     let graph0 = Graph.create ()
-    let custom =
-        graph0.nodes
-        |> Map.add aId a
-        |> Map.add uId u
-    let ws = custom.[Graph.workspacesId]
-    let root = custom.[Graph.rootId]
+    let graph1 =
+        graph0
+        |> Graph.addDetachedNode a
+        |> Graph.addDetachedNode u
     let graph =
-        custom
-        |> Map.add Graph.workspacesId
-            { ws with children = ChildNode.owner aId :: ws.children }
-        |> Map.add Graph.rootId
-            { root with children = ChildNode.owner uId :: root.children }
-        |> Graph.fromNodes Graph.rootId
+        graph1
+        |> fun g ->
+            Graph.fromNodes
+                g.root
+                g.nodes
+                (g.childMap
+                 |> Map.add uId [ ChildNode.owner aId ]
+                 |> Map.add
+                    Graph.workspacesId
+                    (ChildNode.owner aId
+                     :: Graph.children g Graph.workspacesId)
+                 |> Map.add
+                    Graph.rootId
+                    (ChildNode.owner uId :: Graph.children g Graph.rootId))
 
     use conn = Database.getConnection connStr
     do! conn.OpenAsync()

@@ -394,8 +394,8 @@ let ``retireSubmittedPrefix remainder still submits together`` () =
 [<Fact>]
 let ``restorePending keeps EventId.zero and does not record History`` () =
     let state0 = ModelBuilder.createState12 ()
-    let root = state0.graph.nodes.[state0.graph.root]
-    let node = state0.graph.nodes.[root.children.Head.id]
+    let rootKids = Graph.children state0.graph state0.graph.root
+    let node = state0.graph.nodes.[rootKids.Head.id]
     let change =
         { id = EventId.zero
           submissionId = Guid.NewGuid()

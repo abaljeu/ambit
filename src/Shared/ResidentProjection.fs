@@ -19,7 +19,7 @@ module ResidentProjection =
                 ApplyResult.Unchanged state
         | Op.Replace(parentId, _, _) ->
             match Map.tryFind parentId state.graph.nodes with
-            | Some parent when parent.childrenStatus = Loaded ->
+            | Some _ when GraphChildren.isLoaded state.graph parentId ->
                 Op.apply op state
             | _ ->
                 ApplyResult.Unchanged state
@@ -50,17 +50,30 @@ module ResidentProjection =
         | Ok (s, false) -> ApplyResult.Unchanged s
         | Ok (s, true) -> ApplyResult.Changed s
 
-    /// Merge authoritative package Nodes and rebuild Loaded-only indexes.
-    let installPackages (packages: Node list) (graph: Graph) : Graph =
+    /// Merge authoritative package Nodes and their Loaded child lists.
+    /// Package node ids missing from `packageChildMap` become Unloaded.
+    let installPackages
+        (packages: Node list)
+        (packageChildMap: Map<NodeId, ChildNode list>)
+        (graph: Graph)
+        : Graph =
         if List.isEmpty packages then
             graph
         else
-            let merged =
+            let packageIds =
+                packages |> List.map (fun n -> n.id) |> Set.ofList
+            let mergedNodes =
                 packages
                 |> List.fold
                     (fun nodes node -> Map.add node.id node nodes)
                     graph.nodes
-            Graph.fromNodes graph.root merged
+            let withoutPackage =
+                packageIds
+                |> Set.fold (fun m id -> Map.remove id m) graph.childMap
+            let mergedChildMap =
+                packageChildMap
+                |> Map.fold (fun acc k v -> Map.add k v acc) withoutPackage
+            Graph.fromNodes graph.root mergedNodes mergedChildMap
 
     let private isNamedWorkspaceBoundary (packageRootId: NodeId) (node: Node) : bool =
         match node.kind with
@@ -80,7 +93,7 @@ module ResidentProjection =
                     if isNamedWorkspaceBoundary packageRootId node then
                         visited'
                     else
-                        node.children
+                        GraphChildren.get graph nodeId
                         |> List.choose (fun c ->
                             if Node.childOwnership graph nodeId c = Ownership.Owner then
                                 Some c.id
@@ -97,8 +110,8 @@ module ResidentProjection =
         |> List.collect (fun id ->
             match Map.tryFind id graph.nodes with
             | None -> []
-            | Some node ->
-                node.children
+            | Some _ ->
+                GraphChildren.get graph id
                 |> List.choose (fun c ->
                     if
                         Node.childOwnership graph id c = Ownership.Ref
@@ -109,11 +122,11 @@ module ResidentProjection =
                         None))
         |> Set.ofList
 
-    /// Projected Nodes for one Workspace package root (not a full Graph).
-    let private projectWorkspaceNodes
+    /// Projected Nodes and Loaded child lists for one Workspace package root.
+    let private projectWorkspaceSlice
         (graph: Graph)
         (packageRootId: NodeId)
-        : Map<NodeId, Node> =
+        : Map<NodeId, Node> * Map<NodeId, ChildNode list> =
         let ownedIds = collectOwnedIds graph packageRootId
         let refHeaderIds = collectRefHeaderIds graph ownedIds
         let residentIds = Set.union ownedIds refHeaderIds
@@ -127,31 +140,37 @@ module ResidentProjection =
                     || isNamedWorkspaceBoundary packageRootId node
 
                 if headerOnly then
-                    Some
-                        { node with
-                            children = []
-                            childrenStatus = Unloaded }
+                    Some(node, None)
                 else
                     let children =
-                        node.children
+                        GraphChildren.get graph nodeId
                         |> List.filter (fun c -> Set.contains c.id residentIds)
-
-                    Some
-                        { node with
-                            children = children
-                            childrenStatus = Loaded }
+                    Some(node, Some children)
 
         residentIds
         |> Set.toList
-        |> List.choose (fun id ->
-            projectNode id |> Option.map (fun node -> id, node))
-        |> Map.ofList
+        |> List.fold
+            (fun (nodes, childMap) id ->
+                match projectNode id with
+                | None -> nodes, childMap
+                | Some (node, None) -> Map.add id node nodes, childMap
+                | Some (node, Some kids) ->
+                    Map.add id node nodes, Map.add id kids childMap)
+            (Map.empty, Map.empty)
 
     /// Workspace subgraph as a Node list for SyncResponse.packages / LoadResponse.
     let workspaceSubgraphNodes (graph: Graph) (workspaceId: NodeId) : Node list =
-        projectWorkspaceNodes graph workspaceId
+        projectWorkspaceSlice graph workspaceId
+        |> fst
         |> Map.toList
         |> List.map snd
+
+    let workspaceSubgraph
+        (graph: Graph)
+        (workspaceId: NodeId)
+        : Node list * Map<NodeId, ChildNode list> =
+        let nodes, childMap = projectWorkspaceSlice graph workspaceId
+        nodes |> Map.toList |> List.map snd, childMap
 
     [<RequireQualifiedAccess>]
     type LoadRefuse =
@@ -197,7 +216,7 @@ module ResidentProjection =
     let packagesForTargets
         (graph: Graph)
         (targets: LoadTarget list)
-        : Result<Node list, LoadRefuse> =
+        : Result<Node list * Map<NodeId, ChildNode list>, LoadRefuse> =
         let targetIds = targets |> List.map (fun t -> t.targetId)
         if selectionSpansMultipleWorkspaces graph targetIds then
             Error LoadRefuse.MultiWorkspace
@@ -207,8 +226,8 @@ module ResidentProjection =
                 |> List.choose (fun t ->
                     if t.includeWorkspace then Some t.targetId else None)
             match distinctOwningWorkspaces graph packageIds with
-            | [ wsId ] -> Ok(workspaceSubgraphNodes graph wsId)
-            | _ -> Ok []
+            | [ wsId ] -> Ok(workspaceSubgraph graph wsId)
+            | _ -> Ok([], Map.empty)
 
     /// Capture LoadResponse fields at one EventId (events + optional subgraph).
     let captureLoadResponse
@@ -222,7 +241,7 @@ module ResidentProjection =
         : Result<LoadResponse, LoadRefuse> =
         match packagesForTargets graph targets with
         | Error refuse -> Error refuse
-        | Ok packages ->
+        | Ok (packages, packageChildMap) ->
             Ok
                 { eventId = eventId
                   buildEpochSec = buildEpochSec
@@ -230,12 +249,14 @@ module ResidentProjection =
                   apiVersion = ApiVersion.current
                   isReady = isReady
                   events = events
-                  packages = packages }
+                  packages = packages
+                  packageChildMap = packageChildMap }
 
     /// Scoped resident graph for fresh-session bootstrap: complete ROOT Workspace,
     /// nested named Workspace headers Unloaded, reachable Ref headers without children.
     let rootBootstrapGraph (graph: Graph) : Graph =
-        Graph.fromNodes graph.root (projectWorkspaceNodes graph graph.root)
+        let nodes, childMap = projectWorkspaceSlice graph graph.root
+        Graph.fromNodes graph.root nodes childMap
 
     let private outsideRootWorkspace (graph: Graph) (nodeId: NodeId) : bool =
         Map.containsKey nodeId graph.nodes
@@ -278,20 +299,25 @@ module ResidentProjection =
     /// Merge package nodes into an existing bootstrap graph (Loaded wins over Unloaded headers).
     let private mergePackageNodes
         (baseGraph: Graph)
-        (extra: Map<NodeId, Node>)
+        (extraNodes: Map<NodeId, Node>)
+        (extraChildMap: Map<NodeId, ChildNode list>)
         : Graph =
-        let merged =
-            extra
+        let mergedNodes, mergedChildMap =
+            extraNodes
             |> Map.fold
-                (fun nodes id node ->
-                    match Map.tryFind id nodes with
-                    | Some existing when
-                        existing.childrenStatus = Loaded
-                        && node.childrenStatus = Unloaded ->
-                        nodes
-                    | _ -> Map.add id node nodes)
-                baseGraph.nodes
-        Graph.fromNodes baseGraph.root merged
+                (fun (nodes, childMap) id node ->
+                    let existingLoaded = Map.containsKey id childMap
+                    let extraLoaded = Map.containsKey id extraChildMap
+                    if existingLoaded && not extraLoaded then
+                        nodes, childMap
+                    else
+                        let childMap' =
+                            match Map.tryFind id extraChildMap with
+                            | Some kids -> Map.add id kids childMap
+                            | None -> Map.remove id childMap
+                        Map.add id node nodes, childMap')
+                (baseGraph.nodes, baseGraph.childMap)
+        Graph.fromNodes baseGraph.root mergedNodes mergedChildMap
 
     let bootstrapGraph
         (scope: BootstrapScope)
@@ -305,7 +331,8 @@ module ResidentProjection =
             match extraZoomWorkspace graph savedZoom with
             | None -> rootScoped
             | Some wsId ->
-                mergePackageNodes rootScoped (projectWorkspaceNodes graph wsId)
+                let extraNodes, extraChildMap = projectWorkspaceSlice graph wsId
+                mergePackageNodes rootScoped extraNodes extraChildMap
 
     let bootstrapStateResponse
         (scope: BootstrapScope)

@@ -18,7 +18,7 @@ module AmbleRun =
         (parentId: NodeId)
         (newChildren: ChildNode list)
         : Op =
-        let existing = graph.nodes.[parentId].children
+        let existing = GraphChildren.get graph parentId
         Op.Replace(parentId, existing, newChildren)
 
     let private redletterClasses = CssClass.ofList [ "redletter" ]

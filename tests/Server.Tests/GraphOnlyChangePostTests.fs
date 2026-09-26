@@ -91,7 +91,7 @@ let ``reconcile posts graph-only chunks at or under maxOps`` () =
         |> requireOk "state"
         |> fun state -> state.graph
     let names =
-        graph.nodes.[workspaceId].children
+        Graph.children graph workspaceId
         |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
         |> List.sort
     Assert.Equal(fileCount, names.Length)

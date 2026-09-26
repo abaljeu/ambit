@@ -21,7 +21,7 @@ let private addWorkspace label graph =
     id, applyOps graph ops
 
 let private ownedNamedChildren graph parentId =
-    graph.nodes.[parentId].children
+    Graph.children graph parentId
     |> List.choose (fun child ->
         if child.ref <> Ownership.Owner then None
         else
@@ -66,7 +66,7 @@ let ``one added file creates a file stub`` () =
     Assert.Equal("README.md", fst children.Head)
     Assert.Equal(Special File, (snd children.Head).kind)
     Assert.Equal(Unparsed, (snd children.Head).documentState)
-    Assert.Empty((snd children.Head).children)
+    Assert.Empty(Graph.children graph2 (snd children.Head).id)
 
 [<Fact>]
 let ``nested file parse after upload tree build is accepted`` () =
@@ -93,7 +93,7 @@ let ``nested file parse after upload tree build is accepted`` () =
     | ApplyResult.Changed next ->
         Assert.Equal(Current, next.graph.nodes.[file.id].documentState)
         Assert.Equal(Current, next.graph.nodes.[src.id].documentState)
-        Assert.Equal(parsedId, next.graph.nodes.[file.id].children.Head.id)
+        Assert.Equal(parsedId, (Graph.children next.graph file.id).Head.id)
     | other -> Assert.Fail($"expected Changed, got {other}")
 
 [<Fact>]
@@ -166,8 +166,8 @@ let ``exact amb add with text parses outline immediately`` () =
     let graph2 = applyOps graph ops
     let docs = childNamed graph2 workspaceId "docs"
     Assert.Equal(Current, docs.documentState)
-    Assert.Equal(1, docs.children.Length)
-    Assert.Equal("outline body", graph2.nodes.[docs.children.Head.id].text)
+    Assert.Equal(1, (Graph.children graph2 docs.id).Length)
+    Assert.Equal("outline body", graph2.nodes.[(Graph.children graph2 docs.id).Head.id].text)
 
 [<Fact>]
 let ``exact amb modify with text reparses instead of leaving unparsed`` () =
@@ -187,7 +187,9 @@ let ``exact amb modify with text reparses instead of leaving unparsed`` () =
         | Error err -> failwith err
     let graph3 = applyOps graph2 ops
     Assert.Equal(Current, graph3.nodes.[docs.id].documentState)
-    Assert.Equal("fresh", graph3.nodes.[graph3.nodes.[docs.id].children.Head.id].text)
+    Assert.Equal(
+        "fresh",
+        graph3.nodes.[(Graph.children graph3 docs.id).Head.id].text)
 
 [<Fact>]
 let ``exact amb modify warm keeps node id on text edit`` () =
@@ -205,7 +207,7 @@ let ``exact amb modify warm keeps node id on text edit`` () =
         | Error err -> failwith err
     let graph2 = applyOps graph ops1
     let docs = childNamed graph2 workspaceId "docs"
-    let childId = docs.children.Head.id
+    let childId = (Graph.children graph2 docs.id).Head.id
     Assert.Equal("alpha", graph2.nodes.[childId].text)
     let edited = Map.ofList [ "docs/.amb", "ALPHA" + System.Environment.NewLine ]
     let ops2 =
@@ -219,7 +221,7 @@ let ``exact amb modify warm keeps node id on text edit`` () =
         | Ok o -> o
         | Error err -> failwith err
     let graph3 = applyOps graph2 ops2
-    Assert.Equal(childId, graph3.nodes.[docs.id].children.Head.id)
+    Assert.Equal(childId, (Graph.children graph3 docs.id).Head.id)
     Assert.Equal("ALPHA", graph3.nodes.[childId].text)
 
 [<Fact>]
@@ -353,9 +355,9 @@ let ``deleted file is moved to trash with parsed descendants`` () =
         requireChangedPlan graph3 "home" [ LazyLoadReconciliation.Deleted "docs/readme.txt" ]
         |> applyOps graph3
     Assert.Contains(
-        graph4.nodes.[Graph.trashId].children,
+        Graph.children graph4 Graph.trashId,
         fun child -> child.id = docs.id && child.ref = Ownership.Owner)
-    Assert.Equal(parsedId, graph4.nodes.[file.id].children.Head.id)
+    Assert.Equal(parsedId, (Graph.children graph4 file.id).Head.id)
 
 [<Fact>]
 let ``deleted file refs become path expressions without promotion`` () =
@@ -371,10 +373,10 @@ let ``deleted file refs become path expressions without promotion`` () =
     let graph4 =
         requireChangedPlan graph3 "home" [ LazyLoadReconciliation.Deleted "note.txt" ]
         |> applyOps graph3
-    let replacement = graph4.nodes.[holderId].children |> List.exactlyOne
+    let replacement = Graph.children graph4 holderId |> List.exactlyOne
     Assert.Equal(Ownership.Owner, replacement.ref)
     Assert.Equal("[[//home/note.txt]]", graph4.nodes.[replacement.id].text)
-    Assert.Contains(graph4.nodes.[Graph.trashId].children, fun child -> child.id = file.id)
+    Assert.Contains(Graph.children graph4 Graph.trashId, fun child -> child.id = file.id)
 
 [<Fact>]
 let ``rename and cross-directory move preserve identity and children`` () =
@@ -406,7 +408,7 @@ let ``rename and cross-directory move preserve identity and children`` () =
         |> applyOps renamed
     let movedFile = childNamed moved archive.id "b.txt"
     Assert.Equal(file.id, movedFile.id)
-    Assert.Equal(parsedId, movedFile.children.Head.id)
+    Assert.Equal(parsedId, (Graph.children moved movedFile.id).Head.id)
 
 [<Fact>]
 let ``Directory File rename coalesces nested renames`` () =
@@ -488,13 +490,13 @@ let ``rediscovered Added Current file stays Current with children`` () =
           Op.Replace(file.id, [], [ attach ]) ]
         |> applyOps graph2
     Assert.Equal(Current, current.nodes.[file.id].documentState)
-    Assert.Equal(parsedId, current.nodes.[file.id].children.Head.id)
+    Assert.Equal(parsedId, (Graph.children current file.id).Head.id)
     let graph3 =
         requirePlan current "home" [ "note.txt" ] |> applyOps current
     let after = childNamed graph3 workspaceId "note.txt"
     Assert.Equal(file.id, after.id)
     Assert.Equal(Current, after.documentState)
-    Assert.Equal(parsedId, after.children.Head.id)
+    Assert.Equal(parsedId, (Graph.children graph3 after.id).Head.id)
 
 [<Fact>]
 let ``x amb remains an ordinary file for rename and delete`` () =
@@ -511,7 +513,7 @@ let ``x amb remains an ordinary file for rename and delete`` () =
     let graph4 =
         requireChangedPlan graph3 "home" [ LazyLoadReconciliation.Deleted "y.amb" ]
         |> applyOps graph3
-    Assert.Contains(graph4.nodes.[Graph.trashId].children, fun child -> child.id = original.id)
+    Assert.Contains(Graph.children graph4 Graph.trashId, fun child -> child.id = original.id)
 
 [<Fact>]
 let ``delete and add without rename use a new identity`` () =
@@ -524,7 +526,7 @@ let ``delete and add without rename use a new identity`` () =
     let graph3 = requireChangedPlan graph2 "home" changes |> applyOps graph2
     let newId = (childNamed graph3 workspaceId "new.txt").id
     Assert.NotEqual(oldId, newId)
-    Assert.Contains(graph3.nodes.[Graph.trashId].children, fun child -> child.id = oldId)
+    Assert.Contains(Graph.children graph3 Graph.trashId, fun child -> child.id = oldId)
 
 [<Fact>]
 let ``repeated full reconciliation is idempotent`` () =
@@ -625,7 +627,7 @@ let ``directory amb ref to existing owned child keeps owner occurrence`` () =
         | ApplyResult.Unchanged _ -> Assert.Fail("expected Changed")
         | ApplyResult.Changed next ->
             let occurrences =
-                next.graph.nodes.[tasks.id].children
+                Graph.children next.graph tasks.id
                 |> List.filter (fun c -> c.id = active.id)
             Assert.Equal(1, occurrences.Length)
             Assert.Equal(Ownership.Owner, occurrences.Head.ref)
@@ -681,7 +683,7 @@ let ``rediscovered Current Directory Files skip parse on Added`` () =
         | Error err -> failwith err
     let graph1 = applyOps graph0 ops1 |> markDocumentsCurrent
     let docs = childNamed graph1 workspaceId "docs"
-    Assert.Equal("outline", graph1.nodes.[docs.children.Head.id].text)
+    Assert.Equal("outline", graph1.nodes.[(Graph.children graph1 docs.id).Head.id].text)
     // Divergent disk text must not apply while stub stays Current.
     let poison =
         Map.ofList [ "docs/.amb", "POISON" + System.Environment.NewLine ]
@@ -698,7 +700,7 @@ let ``rediscovered Current Directory Files skip parse on Added`` () =
         Assert.Empty(report.ops)
         Assert.Equal(
             "outline",
-            graph1.nodes.[docs.children.Head.id].text)
+            graph1.nodes.[(Graph.children graph1 docs.id).Head.id].text)
 
 [<Fact>]
 let ``rediscovered Unparsed Directory File still parses on Added`` () =
@@ -722,8 +724,8 @@ let ``rediscovered Unparsed Directory File still parses on Added`` () =
         let graph2 = applyOps graph1 report.ops
         let docs2 = graph2.nodes.[docs.id]
         Assert.Equal(Current, docs2.documentState)
-        Assert.Equal(1, docs2.children.Length)
-        Assert.Equal("body", graph2.nodes.[docs2.children.Head.id].text)
+        Assert.Equal(1, (Graph.children graph2 docs2.id).Length)
+        Assert.Equal("body", graph2.nodes.[(Graph.children graph2 docs2.id).Head.id].text)
 
 [<Fact>]
 let ``new Directory File Added still parses outline`` () =
@@ -744,7 +746,7 @@ let ``new Directory File Added still parses outline`` () =
         let graph1 = applyOps graph0 report.ops
         let fresh = childNamed graph1 workspaceId "fresh"
         Assert.Equal(Current, fresh.documentState)
-        Assert.Equal("hello", graph1.nodes.[fresh.children.Head.id].text)
+        Assert.Equal("hello", graph1.nodes.[(Graph.children graph1 fresh.id).Head.id].text)
 
 [<Collection("ExclusiveTiming")>]
 type SecondRediscoveryTiming() =

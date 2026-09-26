@@ -3,10 +3,11 @@ namespace Gambol.Shared
 open Gambol.Shared
 
 /// Shared Poll/events/load protocol marker. Bump on incompatible wire or semantics.
-/// Wire: integer (major*10 + minor); current is 11 for API version 1.1.
+/// Wire: integer (major*10 + minor); current is 12 for API version 1.2
+/// (`Graph.childMap` on the wire; nodes no longer embed children).
 [<RequireQualifiedAccess>]
 module ApiVersion =
-    let current = 11
+    let current = 12
 
 /// Bootstrap graph scope for GET /state. Production clients use RootClosure.
 /// Tests may request FullGraph via `?scope=full` on `/ambit/state`.
@@ -55,7 +56,9 @@ type LoadResponse =
       isReady: bool
       events: Ev list
       /// Complete Workspace subgraph Nodes at the response event id (wire: packages).
-      packages: Node list }
+      packages: Node list
+      /// Loaded child lists for `packages`. Absent package id = Unloaded header.
+      packageChildMap: Map<NodeId, ChildNode list> }
 
     member this.changes = this.events
 
@@ -74,4 +77,6 @@ type CancelRequest =
 type SyncResponse =
     { events: Ev list
       /// Complete Workspace / child-list snapshots at the response event id.
-      packages: Node list }
+      packages: Node list
+      /// Loaded child lists for `packages`. Absent package id = Unloaded header.
+      packageChildMap: Map<NodeId, ChildNode list> }

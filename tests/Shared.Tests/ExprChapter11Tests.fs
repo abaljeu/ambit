@@ -1,6 +1,7 @@
 module ExprChapter11Tests
 
 open Gambol.Shared
+open GraphChildMapHelpers
 open Xunit
 
 /// Graph for spec chapter 11 structural, content, and filter rows.
@@ -45,13 +46,7 @@ let private namedNormal id name owner =
         owner = owner)
 
 let private addUnder parentId child graph =
-    let parent = graph.nodes.[parentId]
-    let nodes =
-        graph.nodes
-        |> Map.add child.id child
-        |> Map.add parentId
-            { parent with children = parent.children @ [ ChildNode.owner child.id ] }
-    Graph.fromNodes graph.root nodes
+    GraphChildMapHelpers.addUnder parentId child graph
 
 let private build () : Fixture =
     let wsId, xId, innerId = NodeId.New(), NodeId.New(), NodeId.New()

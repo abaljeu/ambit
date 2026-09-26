@@ -72,7 +72,7 @@ let private produceFromSubgraph
     async {
         let priorChildren =
             match Map.tryFind Graph.rootId subgraph.nodes with
-            | Some node -> node.children
+            | Some _ -> Graph.children subgraph Graph.rootId
             | None -> []
         let childId = NodeId.New()
         let event =

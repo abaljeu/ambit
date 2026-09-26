@@ -20,7 +20,7 @@ let private baseState () : State =
             Node.Create(NodeId.New(), text = "filler " + string i))
     let nodes =
         filler |> List.fold (fun acc node -> Map.add node.id node acc) graph0.nodes
-    { graph = Graph.fromNodes graph0.root nodes
+    { graph = Graph.fromNodes graph0.root nodes graph0.childMap
       eventId = EventId.zero }
 
 let private parseLikeChange (parentId: NodeId) : Ev =
@@ -77,7 +77,11 @@ let ``bulk NewNode apply keeps the parent indexes consistent with a full rebuild
     let state = baseState ()
     let change = parseLikeChange Graph.workspacesId
     let result = applied state change
-    let rebuilt = Graph.fromNodes result.graph.root result.graph.nodes
+    let rebuilt =
+        Graph.fromNodes
+            result.graph.root
+            result.graph.nodes
+            result.graph.childMap
     Assert.Equal<Map<NodeId, NodeId * int>>(rebuilt.parentByChild, result.graph.parentByChild)
     Assert.Equal<Map<NodeId, NodeId>>(rebuilt.ownerParentByChild, result.graph.ownerParentByChild)
     Assert.Equal<Map<NodeId, Node>>(rebuilt.nodes, result.graph.nodes)
@@ -112,8 +116,8 @@ let ``paste-shaped Undo records one rebuild opportunity per create Op`` () =
         | ApplyResult.Invalid(_, message) -> failwithf "Undo failed: %s" message
     sw.Stop()
     Assert.Equal<ChildNode list>(
-        state.graph.nodes.[Graph.workspacesId].children,
-        undone.graph.nodes.[Graph.workspacesId].children)
+        Graph.children state.graph Graph.workspacesId,
+        Graph.children undone.graph Graph.workspacesId)
     printfn "2,000-Node paste-shaped Undo: %d create Ops, %.3f ms"
         createOpCount sw.Elapsed.TotalMilliseconds
 
@@ -132,8 +136,8 @@ let ``ordinary inverse of large paste detaches but retains created nodes`` () =
             | _ -> false)
     let undone = applied changed inverse
     Assert.Equal<ChildNode list>(
-        state.graph.nodes.[Graph.workspacesId].children,
-        undone.graph.nodes.[Graph.workspacesId].children)
+        Graph.children state.graph Graph.workspacesId,
+        Graph.children undone.graph Graph.workspacesId)
     eventOps change
     |> List.iter (function
         | Op.NewNode(nodeId, _)
@@ -147,10 +151,12 @@ let private reachableStructure (graph: Graph) =
             visited, nodes
         else
             let node = graph.nodes.[nodeId]
+            let kids = Graph.children graph nodeId
             let shape =
                 node.text, node.name, node.cssClasses, node.owner,
-                node.kind, node.documentState, node.childrenStatus, node.children
-            node.children
+                node.kind, node.documentState,
+                Graph.childrenStatus graph nodeId, kids
+            kids
             |> List.fold
                 (fun state child -> walk child.id state)
                 (Set.add nodeId visited, Map.add nodeId shape nodes)
@@ -275,7 +281,11 @@ let ``nested parse tail with many Replace ops stays responsive`` () =
     let sw = Stopwatch.StartNew()
     let result = applied state change
     sw.Stop()
-    let rebuilt = Graph.fromNodes result.graph.root result.graph.nodes
+    let rebuilt =
+        Graph.fromNodes
+            result.graph.root
+            result.graph.nodes
+            result.graph.childMap
     Assert.Equal<Map<NodeId, NodeId * int>>(rebuilt.parentByChild, result.graph.parentByChild)
     Assert.Equal<Map<NodeId, NodeId>>(rebuilt.ownerParentByChild, result.graph.ownerParentByChild)
     Assert.True(

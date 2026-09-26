@@ -15,7 +15,7 @@ let private specialFileUnderRoot () : Graph * NodeId =
     let fileId = NodeId.New()
     let g0 = Graph.create ()
     let idx = Graph.fileTreeInsertIndex g0 Graph.rootId
-    let rootKids = g0.nodes.[Graph.rootId].children
+    let rootKids = Graph.children g0 Graph.rootId
     let g =
         applyChange
             [ Op.NewSpecialNode(fileId, File, "file1")
@@ -62,23 +62,27 @@ let ``graphEquals is true for same graph`` () =
 let ``graphEquals distinguishes Unloaded from Loaded empty`` () =
     let g0 = Graph.create ()
     let id = NodeId.New()
-    let unloaded = Node.Create(id, text = "hollow", childrenStatus = Unloaded)
+    let unloaded = Node.Create(id, text = "hollow")
     let loadedEmpty = Node.Create(id, text = "hollow")
-    let gUnloaded = Graph.fromNodes g0.root (g0.nodes |> Map.add id unloaded)
-    let gLoaded = Graph.fromNodes g0.root (g0.nodes |> Map.add id loadedEmpty)
+    let gUnloaded =
+        Graph.fromNodes g0.root (Map.add id unloaded g0.nodes) g0.childMap
+    let gLoaded = Graph.addDetachedNode loadedEmpty g0
     Assert.False(GraphProjection.graphEquals gUnloaded gLoaded)
 
 [<Fact>]
 let ``graphRoundTrip rebuilds Unloaded as Loaded`` () =
     let g0 = Graph.create ()
     let id = NodeId.New()
-    let unloaded = Node.Create(id, text = "hollow", childrenStatus = Unloaded)
-    let g1 = Graph.fromNodes g0.root (g0.nodes |> Map.add id unloaded)
+    let unloaded = Node.Create(id, text = "hollow")
+    let g1 =
+        Graph.fromNodes g0.root (Map.add id unloaded g0.nodes) g0.childMap
     match GraphProjection.graphRoundTrip g1 with
     | Error e -> Assert.Fail(e)
     | Ok g2 ->
-        Assert.Equal(Loaded, g2.nodes.[id].childrenStatus)
-        Assert.True(g2.nodes |> Map.forall (fun _ n -> n.childrenStatus = Loaded))
+        Assert.Equal(Loaded, Graph.childrenStatus g2 id)
+        Assert.True(
+            g2.nodes
+            |> Map.forall (fun nid _ -> Graph.isLoaded g2 nid))
 
 [<Fact>]
 let ``graphRoundTrip preserves default graph`` () =

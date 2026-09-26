@@ -58,7 +58,7 @@ module ExprRun =
         classify line |> Option.isSome
 
     let private replaceChildren (graph: Graph) (parentId: NodeId) kids =
-        Op.Replace(parentId, graph.nodes.[parentId].children, kids)
+        Op.Replace(parentId, GraphChildren.get graph parentId, kids)
 
     let private blueletterChild (graph: Graph) (focusId: NodeId) (text: string) : Plan =
         let id = NodeId.New()

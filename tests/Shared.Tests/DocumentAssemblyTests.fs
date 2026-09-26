@@ -1,6 +1,7 @@
 module DocumentAssemblyTests
 
 open Gambol.Shared
+open GraphChildMapHelpers
 open Xunit
 
 let private requireOk label r =
@@ -33,12 +34,7 @@ let private graphWithNestedDocs () : Graph * NodeId * NodeId * NodeId * NodeId =
     let normalNode = normalNode normalId "body" fileId
 
     let graph1 =
-        graph0.nodes
-        |> Map.add wsId wsNode
-        |> Map.add dirId dirNode
-        |> Map.add fileId fileNode
-        |> Map.add normalId normalNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        addDetachedMany [ wsNode; dirNode; fileNode; normalNode ] graph0
 
     let graph2 =
         Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
@@ -63,20 +59,14 @@ let private graphFileOwnsDirectory () : Graph * NodeId * NodeId * NodeId =
     let fileId = NodeId.New()
     let dirId = NodeId.New()
     let normalId = NodeId.New()
-    let fileNode =
-        { specialNode fileId File "container.txt" Graph.rootId with
-            children = owned [ dirId ] }
-    let dirNode =
-        { specialNode dirId Directory "inner" fileId with
-            children = owned [ normalId ] }
+    let fileNode = specialNode fileId File "container.txt" Graph.rootId
+    let dirNode = specialNode dirId Directory "inner" fileId
     let normalNode = normalNode normalId "nested" dirId
 
     let graph1 =
-        graph0.nodes
-        |> Map.add fileId fileNode
-        |> Map.add dirId dirNode
-        |> Map.add normalId normalNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        addDetachedMany [ fileNode; dirNode; normalNode ] graph0
+        |> setChildren fileId (owned [ dirId ])
+        |> setChildren dirId (owned [ normalId ])
 
     let idx = Graph.fileTreeInsertIndex graph1 Graph.rootId
     let graph2 =
@@ -175,12 +165,7 @@ let ``assembleFromArtifacts round trips nested named amb file`` () =
     let body = normalNode normalId "ready" fileId
 
     let graph1 =
-        graph0.nodes
-        |> Map.add wsId wsNode
-        |> Map.add dirId dirNode
-        |> Map.add fileId fileNode
-        |> Map.add normalId body
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        addDetachedMany [ wsNode; dirNode; fileNode; body ] graph0
 
     let expected =
         Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
@@ -203,9 +188,9 @@ let ``assembleFromArtifacts round trips nested named amb file`` () =
     let viaAmb = AmbDocument.write expected fileId |> requireOk "amb write"
     Assert.Equal(viaAmb, viaFormat)
     let actual = DocumentAssembly.assembleFromArtifacts artifacts |> requireOk "assemble"
-    let actualNormalId = actual.nodes.[fileId].children.Head.id
+    let actualNormalId = (Graph.children actual fileId).Head.id
     Assert.Equal("ready", actual.nodes.[actualNormalId].text)
-    Assert.Equal(fileId, actual.nodes.[dirId].children.Head.id)
+    Assert.Equal(fileId, (Graph.children actual dirId).Head.id)
     Assert.Equal(Special File, actual.nodes.[fileId].kind)
 
 [<Fact>]
@@ -224,9 +209,9 @@ let ``assembleFromArtifacts preserves owner handle when artifact is missing`` ()
     let dirNode = actual.nodes.[dirId]
     Assert.Equal(NodeKind.Normal, dirNode.kind)
     Assert.Equal("inner", Filename.tryValue dirNode.name |> Option.get)
-    Assert.Empty(dirNode.children)
-    Assert.Equal(dirId, actual.nodes.[fileId].children.Head.id)
-    Assert.Equal(Ownership.Owner, actual.nodes.[fileId].children.Head.ref)
+    Assert.Empty(Graph.children actual dirId)
+    Assert.Equal(dirId, (Graph.children actual fileId).Head.id)
+    Assert.Equal(Ownership.Owner, (Graph.children actual fileId).Head.ref)
 
 [<Fact>]
 let ``scanRefIndex extracts workspace ref from ROOT text`` () =
@@ -240,11 +225,11 @@ let ``assembleFromArtifacts round trips nested workspace tree`` () =
     let expected, wsId, dirId, fileId, normalId = graphWithNestedDocs ()
     let artifacts = artifactMap expected
     let actual = DocumentAssembly.assembleFromArtifacts artifacts |> requireOk "assemble"
-    let actualNormalId = actual.nodes.[fileId].children.Head.id
+    let actualNormalId = (Graph.children actual fileId).Head.id
     Assert.Equal("body", actual.nodes.[actualNormalId].text)
-    Assert.Equal(wsId, actual.nodes.[Graph.workspacesId].children.Head.id)
-    Assert.Equal(dirId, actual.nodes.[wsId].children.Head.id)
-    Assert.Equal(fileId, actual.nodes.[dirId].children.Head.id)
+    Assert.Equal(wsId, (Graph.children actual Graph.workspacesId).Head.id)
+    Assert.Equal(dirId, (Graph.children actual wsId).Head.id)
+    Assert.Equal(fileId, (Graph.children actual dirId).Head.id)
     Assert.Equal(Special Directory, actual.nodes.[dirId].kind)
     Assert.Equal(Special File, actual.nodes.[fileId].kind)
 
@@ -253,10 +238,10 @@ let ``assembleFromArtifacts round trips file owns directory boundary`` () =
     let expected, fileId, dirId, normalId = graphFileOwnsDirectory ()
     let artifacts = artifactMap expected
     let actual = DocumentAssembly.assembleFromArtifacts artifacts |> requireOk "assemble"
-    let actualNormalId = actual.nodes.[dirId].children.Head.id
+    let actualNormalId = (Graph.children actual dirId).Head.id
     Assert.Equal("nested", actual.nodes.[actualNormalId].text)
-    Assert.Equal(dirId, actual.nodes.[fileId].children.Head.id)
-    Assert.True(actual.nodes.[dirId].children |> List.exists (fun c -> c.id = actualNormalId))
+    Assert.Equal(dirId, (Graph.children actual fileId).Head.id)
+    Assert.True(Graph.children actual dirId |> List.exists (fun c -> c.id = actualNormalId))
 
 [<Fact>]
 let ``validateAssembledGraph stubs missing ref target with Broken link`` () =
@@ -264,20 +249,16 @@ let ``validateAssembledGraph stubs missing ref target with Broken link`` () =
     let parentId = NodeId.New()
     let missingId = NodeId.New()
     let parent =
-        Node.Create(
-            parentId,
-            text = "parent",
-            children = [ ChildNode.reference missingId ])
+        Node.Create(parentId, text = "parent")
     let graph =
-        graph0.nodes
-        |> Map.add parentId parent
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        Graph.addDetachedNode parent graph0
+        |> setChildren parentId [ ChildNode.reference missingId ]
     let actual =
         DocumentAssembly.validateAssembledGraph graph |> requireOk "validate"
     Assert.True(Map.containsKey missingId actual.nodes)
     Assert.Equal("Broken link.", actual.nodes.[missingId].text)
-    Assert.Equal(missingId, actual.nodes.[parentId].children.Head.id)
-    Assert.Equal(Ownership.Ref, actual.nodes.[parentId].children.Head.ref)
+    Assert.Equal(missingId, (Graph.children actual parentId).Head.id)
+    Assert.Equal(Ownership.Ref, (Graph.children actual parentId).Head.ref)
 
 [<Fact>]
 let ``validateAssembledGraph preserves existing text on missing-target stub`` () =
@@ -285,17 +266,12 @@ let ``validateAssembledGraph preserves existing text on missing-target stub`` ()
     let parentId = NodeId.New()
     let targetId = NodeId.New()
     let parent =
-        Node.Create(
-            parentId,
-            text = "parent",
-            children = [ ChildNode.reference targetId ])
+        Node.Create(parentId, text = "parent")
     let stub =
         Node.Create(targetId, text = "kept annotation")
     let graph =
-        graph0.nodes
-        |> Map.add parentId parent
-        |> Map.add targetId stub
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        addDetachedMany [ parent; stub ] graph0
+        |> setChildren parentId [ ChildNode.reference targetId ]
     let actual =
         DocumentAssembly.validateAssembledGraph graph |> requireOk "validate"
     Assert.Equal("kept annotation", actual.nodes.[targetId].text)
@@ -312,7 +288,7 @@ let ``assembleFromArtifacts stubs dangling same-doc ref with Broken link`` () =
     Assert.True(Map.containsKey missingId actual.nodes)
     Assert.Equal("Broken link.", actual.nodes.[missingId].text)
     Assert.True(
-        actual.nodes.[Graph.rootId].children
+        Graph.children actual Graph.rootId
         |> List.exists (fun c -> c.id = missingId && c.ref = Ownership.Ref))
 
 [<Fact>]
@@ -322,11 +298,7 @@ let ``validateAssembledGraph catches overlapping document membership`` () =
     let sharedId = NodeId.New()
     let wsNode = specialNode wsId Workspace "home" Graph.workspacesId
     let sharedNode = normalNode sharedId "shared" wsId
-    let graph1 =
-        graph0.nodes
-        |> Map.add wsId wsNode
-        |> Map.add sharedId sharedNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+    let graph1 = addDetachedMany [ wsNode; sharedNode ] graph0
     let graph2 =
         Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
         |> requireOk "workspaces->ws"
@@ -351,14 +323,12 @@ let ``readArtifact warm Amb keeps stable id on text edit`` () =
             text = "notes.amb",
             name = Filename.Ok "notes.amb",
             owner = graph0.root,
-            kind = Special File,
-            children = owned [ aId ])
+            kind = Special File)
     let aNode = Node.Create(aId, text = "alpha", owner = docId)
     let graph =
-        graph0.nodes
-        |> Map.add docId docNode
-        |> Map.add aId aNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        addDetachedMany [ docNode; aNode ] graph0
+        |> appendKids graph0.root [ ChildNode.owner docId ]
+        |> setChildren docId (owned [ aId ])
     let previous =
         "^" + AmbDocument.formatStableId aId + " alpha\n"
     let edited =
@@ -372,7 +342,7 @@ let ``readArtifact warm Amb keeps stable id on text edit`` () =
             graph
             (Some previous)
         |> requireOk "warm amb read"
-    Assert.Equal(aId, after.nodes.[docId].children.Head.id)
+    Assert.Equal(aId, (Graph.children after docId).Head.id)
     Assert.Equal("ALPHA", after.nodes.[aId].text)
 
 [<Fact>]
@@ -387,16 +357,13 @@ let ``readArtifact warm Plain keeps id on line text edit`` () =
             text = "readme.txt",
             name = Filename.Ok "readme.txt",
             owner = graph0.root,
-            kind = Special File,
-            children = owned [ aId; bId ])
+            kind = Special File)
     let aNode = Node.Create(aId, text = "alpha", owner = docId)
     let bNode = Node.Create(bId, text = "beta", owner = docId)
     let graph =
-        graph0.nodes
-        |> Map.add docId docNode
-        |> Map.add aId aNode
-        |> Map.add bId bNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        addDetachedMany [ docNode; aNode; bNode ] graph0
+        |> appendKids graph0.root [ ChildNode.owner docId ]
+        |> setChildren docId (owned [ aId; bId ])
     let previous = "alpha\nbeta\n"
     let edited = "ALPHA\nbeta\n"
     let after =
@@ -408,9 +375,9 @@ let ``readArtifact warm Plain keeps id on line text edit`` () =
             graph
             (Some previous)
         |> requireOk "warm plain read"
-    Assert.Equal(aId, after.nodes.[docId].children.Head.id)
+    Assert.Equal(aId, (Graph.children after docId).Head.id)
     Assert.Equal("ALPHA", after.nodes.[aId].text)
-    Assert.Equal(bId, after.nodes.[docId].children.[1].id)
+    Assert.Equal(bId, (Graph.children after docId).[1].id)
 
 [<Fact>]
 let ``readArtifact cold Amb ignores previous when None`` () =
@@ -424,15 +391,16 @@ let ``readArtifact cold Amb ignores previous when None`` () =
             owner = graph0.root,
             kind = Special File)
     let graph =
-        graph0.nodes
-        |> Map.add docId docNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        Graph.addDetachedNode docNode graph0
+        |> appendKids graph0.root [ ChildNode.owner docId ]
     let text = "hello\n"
     let after =
         DocumentFormat.readArtifact "notes.amb" text docId graph None
         |> requireOk "cold amb read"
-    Assert.Equal(1, after.nodes.[docId].children.Length)
-    Assert.Equal("hello", after.nodes.[after.nodes.[docId].children.Head.id].text)
+    Assert.Equal(1, (Graph.children after docId).Length)
+    Assert.Equal(
+        "hello",
+        after.nodes.[(Graph.children after docId).Head.id].text)
 
 [<Fact>]
 let ``assembleFromArtifactsBounded seeds Unparsed File stub without body`` () =
@@ -453,9 +421,9 @@ let ``assembleFromArtifactsBounded seeds Unparsed File stub without body`` () =
     let file = actual.nodes.[fileId]
     Assert.Equal(Special File, file.kind)
     Assert.Equal(Unparsed, file.documentState)
-    Assert.Empty(file.children)
+    Assert.Empty(Graph.children actual fileId)
     let owned =
-        actual.nodes.[Graph.systemId].children
+        Graph.children actual Graph.systemId
         |> List.choose (fun c ->
             if c.ref <> Ownership.Owner then None
             else

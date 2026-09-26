@@ -316,8 +316,10 @@ module Op =
         match op with
         | Op.NewNode(nodeId, _) ->
             let nodes = state.graph.nodes |> Map.remove nodeId
+            let childMap = state.graph.childMap |> Map.remove nodeId
             ApplyResult.Changed
-                { state with graph = Graph.fromNodes state.graph.root nodes }
+                { state with
+                    graph = Graph.fromNodes state.graph.root nodes childMap }
         | Op.SetText(nodeId, oldText, newText) ->
             Graph.setText nodeId newText oldText state.graph
             |> fromGraphResult state
@@ -330,8 +332,10 @@ module Op =
             |> fromGraphResult state
         | Op.NewSpecialNode(nodeId, _, _) ->
             let nodes = state.graph.nodes |> Map.remove nodeId
+            let childMap = state.graph.childMap |> Map.remove nodeId
             ApplyResult.Changed
-                { state with graph = Graph.fromNodes state.graph.root nodes }
+                { state with
+                    graph = Graph.fromNodes state.graph.root nodes childMap }
         | Op.SetName(nodeId, oldName, newName) ->
             Graph.setName nodeId newName oldName state.graph
             |> fromGraphResult state
@@ -418,10 +422,10 @@ module ChangeValidation =
         (childIdsScope: Set<NodeId> option)
         : Result<unit, string * NodeId> =
         let allChildren =
-            graph.nodes
+            graph.childMap
             |> Map.toList
-            |> List.collect (fun (parentId, node) ->
-                node.children |> List.map (fun child -> parentId, child))
+            |> List.collect (fun (parentId, children) ->
+                children |> List.map (fun child -> parentId, child))
 
         let allChildIds =
             allChildren |> List.map (fun (_, child) -> child.id) |> Set.ofList
@@ -472,7 +476,8 @@ module ChangeValidation =
                 | Some childNode ->
                     match Map.tryFind childNode.owner graph.nodes with
                     | None -> false
-                    | Some { childrenStatus = Unloaded } -> false
+                    | Some _ when not (GraphChildren.isLoaded graph childNode.owner) ->
+                        false
                     | Some _ -> true
 
         let childIdsMissingOwner =

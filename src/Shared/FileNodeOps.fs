@@ -17,7 +17,7 @@ module FileNodeOps =
             | _ -> defaultName
 
     let private appendOwnedOp (graph: Graph) (parentId: NodeId) (childId: NodeId) (index: int) : Op =
-        let oldChildren = graph.nodes.[parentId].children
+        let oldChildren = GraphChildren.get graph parentId
         ChildListWire.insertAt parentId oldChildren index [ ChildNode.owner childId ]
 
     let private planCreateOwnedSpecial
@@ -61,13 +61,14 @@ module FileNodeOps =
         (fileNodeId: NodeId)
         (graph: Graph)
         : Op list =
-        if insert.index < 0 || insert.index > graph.nodes.[insert.parentId].children.Length then
+        let parentKids = GraphChildren.get graph insert.parentId
+        if insert.index < 0 || insert.index > parentKids.Length then
             []
         else
             let newRef = ChildNode.reference fileNodeId
 
             let already =
-                graph.nodes.[insert.parentId].children
+                parentKids
                 |> List.tryItem insert.index
                 |> Option.exists (fun c ->
                     Node.childOwnership graph insert.parentId c = Ownership.Ref
@@ -76,5 +77,5 @@ module FileNodeOps =
             if already then
                 []
             else
-                let oldChildren = graph.nodes.[insert.parentId].children
+                let oldChildren = parentKids
                 [ ChildListWire.insertAt insert.parentId oldChildren insert.index [ newRef ] ]

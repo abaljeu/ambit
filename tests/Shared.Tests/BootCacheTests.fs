@@ -244,7 +244,7 @@ let ``decideBootRead fetches /state on fold error`` () =
             documentState = Unparsed)
     let graph =
         Graph.create ()
-        |> fun g -> Graph.fromNodes g.root (Map.add fileId fileNode g.nodes)
+        |> fun g -> Graph.addDetachedNode fileNode g
     let snapshot =
         { graph = graph
           eventId = EventIdFixtures.storedId 1
@@ -307,7 +307,7 @@ let ``foldLog applies deletion and advances Revision`` () =
           seedLiveFocusIds = Set.empty }
     Assert.True(Map.containsKey noteId snapshot.graph.nodes)
     let removeOp = Op.Replace(graph2.root, [ ChildNode.owner noteId ], [])
-    let trashChildren = graph2.nodes.[Graph.trashId].children
+    let trashChildren = Graph.children graph2 Graph.trashId
     let addToTrashOp =
         Op.Replace(Graph.trashId, trashChildren, trashChildren @ [ ChildNode.owner noteId ])
     let event =
@@ -321,10 +321,10 @@ let ``foldLog applies deletion and advances Revision`` () =
     | Ok folded ->
         Assert.Equal(event.id, folded.eventId)
         let underRoot =
-            folded.graph.nodes.[folded.graph.root].children
+            Graph.children folded.graph folded.graph.root
             |> List.exists (fun c -> c.id = noteId)
         Assert.False(underRoot, "deleted node must leave its former parent")
         let underTrash =
-            folded.graph.nodes.[Graph.trashId].children
+            Graph.children folded.graph Graph.trashId
             |> List.exists (fun c -> c.id = noteId)
         Assert.True(underTrash, "MoveToTrash must place the node under TRASH")

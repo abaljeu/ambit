@@ -2,6 +2,7 @@ module Gambol.Shared.Tests.AmbDocumentTestsWorkspaceMarker
 
 open System
 open Gambol.Shared
+open GraphChildMapHelpers
 open Xunit
 
 let private requireOk label result =
@@ -25,13 +26,13 @@ let private graphWithWorkspace () =
             documentId,
             name = Filename.Ok "parent.amb",
             owner = graph.root,
-            kind = Special File,
-            children = [ ChildNode.owner workspaceId ])
-    let nodes =
-        graph.nodes
-        |> Map.add documentId document
-        |> Map.add workspaceId workspace
-    Graph.fromNodes graph.root nodes, documentId, workspaceId
+            kind = Special File)
+    Graph.addDetachedNode document graph
+    |> Graph.addDetachedNode workspace
+    |> appendKids graph.root [ ChildNode.owner documentId ]
+    |> setChildren documentId [ ChildNode.owner workspaceId ],
+    documentId,
+    workspaceId
 
 [<Fact>]
 let ``write Workspace owner line emits compact marker`` () =
@@ -46,7 +47,7 @@ let ``read compact marker restores Workspace kind`` () =
     let context =
         graph.nodes
         |> Map.remove workspaceId
-        |> fun nodes -> Graph.fromNodes graph.root nodes
+        |> fun nodes -> fromExisting graph nodes
     let sid = AmbDocument.formatStableId workspaceId
     let text = "^" + sid + " !W home\tworkspace body" + Environment.NewLine
     let result = AmbDocument.read text documentId context |> requireOk "read"
@@ -60,7 +61,7 @@ let ``read historical unmarked owner line remains Normal`` () =
     let context =
         graph.nodes
         |> Map.remove workspaceId
-        |> fun nodes -> Graph.fromNodes graph.root nodes
+        |> fun nodes -> fromExisting graph nodes
     let sid = AmbDocument.formatStableId workspaceId
     let text = "^" + sid + " home\tworkspace body" + Environment.NewLine
     let result = AmbDocument.read text documentId context |> requireOk "read"

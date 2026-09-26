@@ -6,7 +6,7 @@ open System
 module GraphQuery =
 
     let fileTreeInsertIndex (graph: Graph) (parentId: NodeId) : int =
-        graph.nodes.[parentId].children.Length
+        GraphChildren.get graph parentId |> List.length
 
     /// File, Directory, or named Workspace node (artifact on disk).
     let isArtifact (node: Node) : bool =
@@ -74,7 +74,7 @@ module GraphQuery =
                 match Map.tryFind parentId graph.nodes with
                 | None -> acc
                 | Some parent ->
-                    parent.children
+                    GraphChildren.get graph parentId
                     |> List.fold
                         (fun acc child ->
                             if Node.childOwnership graph parentId child <> Ownership.Owner then
@@ -133,9 +133,7 @@ module GraphQuery =
         | _ -> None
 
     let childrenOf (graph: Graph) (parentId: NodeId) : ChildNode list =
-        match graph.nodes |> Map.tryFind parentId with
-        | Some p -> p.children
-        | None -> []
+        GraphChildren.get graph parentId
 
     let ownedNameLowers
         (graph: Graph)
@@ -202,16 +200,13 @@ module GraphQuery =
         (reservedLowers: Set<string>)
         : string =
         let siblingTaken (nameLower: string) =
-            match Map.tryFind parentId graph.nodes with
-            | None -> false
-            | Some parent ->
-                parent.children
-                |> List.exists (fun c ->
-                    Node.childOwnership graph parentId c = Ownership.Owner
-                    && match Map.tryFind c.id graph.nodes
-                             |> Option.bind nameLowerOk with
-                       | Some n -> n = nameLower
-                       | None -> false)
+            GraphChildren.get graph parentId
+            |> List.exists (fun c ->
+                Node.childOwnership graph parentId c = Ownership.Owner
+                && match Map.tryFind c.id graph.nodes
+                         |> Option.bind nameLowerOk with
+                   | Some n -> n = nameLower
+                   | None -> false)
 
         let rec loop (i: int) =
             let candidate = numberedSiblingName baseName i
@@ -380,9 +375,8 @@ module GraphQuery =
         elif String.Equals(label, "TRASH", StringComparison.OrdinalIgnoreCase) then
             Ok GraphBuild.trashId
         else
-            let workspaces = graph.nodes.[GraphBuild.workspacesId]
             match
-                workspaces.children
+                GraphChildren.get graph GraphBuild.workspacesId
                 |> List.tryPick (fun child ->
                     if Node.childOwnership graph GraphBuild.workspacesId child
                        <> Ownership.Owner then
@@ -405,25 +399,21 @@ module GraphQuery =
     let nodeFirstChild (graph: Graph) (id: NodeId option) : NodeId option =
         id
         |> Option.bind (fun nid ->
-            Map.tryFind nid graph.nodes
-            |> Option.bind (fun node ->
-                node.children |> List.tryHead |> Option.map (fun c -> c.id)))
+            GraphChildren.get graph nid
+            |> List.tryHead
+            |> Option.map (fun c -> c.id))
 
     let nodeLastChild (graph: Graph) (id: NodeId option) : NodeId option =
         id
         |> Option.bind (fun nid ->
-            Map.tryFind nid graph.nodes
-            |> Option.bind (fun node ->
-                let n = List.length node.children
-                if n = 0 then
-                    None
-                else
-                    List.tryItem (n - 1) node.children |> Option.map (fun c -> c.id)))
+            GraphChildren.get graph nid
+            |> List.tryLast
+            |> Option.map (fun c -> c.id))
 
     /// Insert position as the last child of nodeId.
     let makeNodeRangeForInsertingUnder (nodeId: NodeId) (graph: Graph) : NodeRange option =
         match Map.tryFind nodeId graph.nodes with
         | None -> None
-        | Some node ->
-            let childCount = List.length node.children
+        | Some _ ->
+            let childCount = GraphChildren.get graph nodeId |> List.length
             Some { pnode = nodeId; start = childCount; endd = childCount }

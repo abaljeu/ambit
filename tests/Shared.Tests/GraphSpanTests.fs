@@ -1,6 +1,7 @@
 module GraphSpanTests
 
 open Gambol.Shared
+open GraphChildMapHelpers
 open Xunit
 
 let private requireOk label r =
@@ -9,13 +10,11 @@ let private requireOk label r =
     | Error e -> failwith $"{label}: {e}"
 
 let private appendOwned (parentId: NodeId) (child: Node) (graph: Graph) : Graph =
-    let parent = graph.nodes.[parentId]
-    let nodes =
-        graph.nodes
-        |> Map.add child.id child
-        |> Map.add parentId
-            { parent with children = parent.children @ [ ChildNode.owner child.id ] }
-    Graph.fromNodes graph.root nodes
+    let g1 = Graph.addDetachedNode child graph
+    setChildren
+        parentId
+        (Graph.children g1 parentId @ [ ChildNode.owner child.id ])
+        g1
 
 [<Fact>]
 let ``extract takes parent and span children plus owned descendants`` () =
@@ -27,7 +26,7 @@ let ``extract takes parent and span children plus owned descendants`` () =
     let graph2 = appendOwned Graph.rootId (Node.Create(b, text = "b")) graph1
     let graph3 =
         appendOwned a (Node.Create(grandchild, text = "g")) graph2
-    let start = graph3.nodes.[Graph.rootId].children |> List.findIndex (fun c -> c.id = a)
+    let start = Graph.children graph3 Graph.rootId |> List.findIndex (fun c -> c.id = a)
     let span = { pnode = Graph.rootId; start = start; endd = start + 1 }
     let sub = GraphSpan.extract graph3 span |> requireOk "extract"
     Assert.Equal(Graph.rootId, sub.root)
@@ -36,7 +35,7 @@ let ``extract takes parent and span children plus owned descendants`` () =
     Assert.False(Map.containsKey b sub.nodes)
     Assert.Equal<NodeId list>(
         [ a ],
-        sub.nodes.[Graph.rootId].children |> List.map _.id)
+        Graph.children sub Graph.rootId |> List.map _.id)
 
 [<Fact>]
 let ``caret and missing parent are refused`` () =
@@ -57,7 +56,7 @@ let ``spanIds are the child occurrences not descendants`` () =
     let graph0 = Graph.create ()
     let graph1 = appendOwned Graph.rootId (Node.Create(a, text = "a")) graph0
     let graph2 = appendOwned a (Node.Create(grandchild, text = "g")) graph1
-    let start = graph2.nodes.[Graph.rootId].children |> List.findIndex (fun c -> c.id = a)
+    let start = Graph.children graph2 Graph.rootId |> List.findIndex (fun c -> c.id = a)
     let span = { pnode = Graph.rootId; start = start; endd = start + 1 }
     let ids = GraphSpan.spanIds graph2 span |> requireOk "spanIds"
     Assert.Equal<Set<NodeId>>(Set.singleton a, ids)

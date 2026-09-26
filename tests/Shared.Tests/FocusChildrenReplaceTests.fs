@@ -3,6 +3,7 @@ module Gambol.Shared.Tests.FocusChildrenReplaceTests
 open System
 open Xunit
 open Gambol.Shared
+open GraphChildMapHelpers
 
 let private requireOk label result =
     match result with
@@ -24,14 +25,13 @@ let private seedFocus childTexts =
     let focusId = NodeId.New()
     let childIds = childTexts |> List.map (fun _ -> NodeId.New())
     let focus = Node.Create(focusId, text = "focus")
-    let nodes =
-        List.fold2
-            (fun acc id text ->
-                Map.add id (Node.Create(id, text = text)) acc)
-            (graph0.nodes |> Map.add focusId focus)
+    let childNodes =
+        List.map2
+            (fun id text -> Node.Create(id, text = text))
             childIds
             childTexts
-    let withNodes = Graph.fromNodes graph0.root nodes
+    let withNodes =
+        addDetachedMany (focus :: childNodes) graph0
     let attached =
         Graph.replace graph0.root 0 [] [ ChildNode.owner focusId ] withNodes
         |> requireOk "attach focus"
@@ -41,12 +41,12 @@ let private seedFocus childTexts =
     focusId, withChildren
 
 let private ownedTexts (graph: Graph) focusId =
-    graph.nodes.[focusId].children
+    Graph.children graph focusId
     |> List.filter (fun child -> child.ref = Ownership.Owner)
     |> List.map (fun child -> graph.nodes.[child.id].text)
 
 let private firstOwned (graph: Graph) parentId =
-    graph.nodes.[parentId].children
+    Graph.children graph parentId
     |> List.tryFind (fun child -> child.ref = Ownership.Owner)
     |> Option.map (fun child -> child.id)
 

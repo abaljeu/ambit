@@ -3,6 +3,7 @@ module Gambol.Shared.Tests.MdDocumentTests
 open System
 open Xunit
 open Gambol.Shared
+open GraphChildMapHelpers
 
 let private requireOk label r =
     match r with
@@ -10,6 +11,20 @@ let private requireOk label r =
     | Error e -> failwith $"{label}: {e}"
 
 let private owned = ChildNode.owners
+
+let private kids
+    (childMap: Map<NodeId, ChildNode list>)
+    parentId
+    : ChildNode list =
+    Map.tryFind parentId childMap |> Option.defaultValue []
+
+let private withRead (graph: Graph) nodes childMap =
+    let pairs =
+        childMap
+        |> Map.toList
+        |> List.filter (fun (id, _) ->
+            id <> graph.root && not (Graph.isSystemFolderNode id))
+    fromExisting graph nodes |> setChildMap pairs
 
 let private graphWithDocument (childNodes: Node list) : Graph * NodeId =
     let graph0 = Graph.create ()
@@ -22,15 +37,9 @@ let private graphWithDocument (childNodes: Node list) : Graph * NodeId =
             owner = graph0.root,
             kind = Special File)
     let graph1 =
-        graph0.nodes
-        |> Map.add docId docNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
-    let graph2 =
-        childNodes
-        |> List.fold
-            (fun graph node ->
-                graph.nodes |> Map.add node.id node |> fun nodes -> { graph with nodes = nodes })
-            graph1
+        Graph.addDetachedNode docNode graph0
+        |> appendKids graph0.root [ ChildNode.owner docId ]
+    let graph2 = addDetachedMany childNodes graph1
     let childIds = childNodes |> List.map (fun node -> node.id)
     Graph.replace docId 0 [] (owned childIds) graph2
     |> function
@@ -40,8 +49,8 @@ let private graphWithDocument (childNodes: Node list) : Graph * NodeId =
 let private normalNode (id: NodeId) (text: string) (owner: NodeId) : Node =
     Node.Create(id, text = text, owner = owner)
 
-let private childTexts (nodes: Map<NodeId, Node>) (parentId: NodeId) : string list =
-    nodes.[parentId].children
+let private childTexts childMap (nodes: Map<NodeId, Node>) parentId =
+    kids childMap parentId
     |> List.map (fun c -> nodes.[c.id].text)
 
 let private emptyComplement : MdComplement = {
@@ -56,14 +65,20 @@ let private hasClass (nodes: Map<NodeId, Node>) (nodeId: NodeId) (name: string) 
 [<Fact>]
 let ``read heading nesting creates hierarchy`` () =
     let graph, docId = graphWithDocument []
-    let text = "# one" + Environment.NewLine + "plain" + Environment.NewLine + "## two" + Environment.NewLine
+    let text =
+        "# one"
+        + Environment.NewLine
+        + "plain"
+        + Environment.NewLine
+        + "## two"
+        + Environment.NewLine
     let result = MdDocument.read text docId graph |> requireOk "read"
-    let h1 = result.nodes.[docId].children.Head.id
+    let h1 = (kids result.childMap docId).Head.id
     Assert.Equal("one", result.nodes.[h1].text)
     Assert.True(hasClass result.nodes h1 "md-head")
-    let plainId = result.nodes.[h1].children.Head.id
+    let plainId = (kids result.childMap h1).Head.id
     Assert.Equal("plain", result.nodes.[plainId].text)
-    let h2 = result.nodes.[h1].children.[1].id
+    let h2 = (kids result.childMap h1).[1].id
     Assert.Equal("two", result.nodes.[h2].text)
     Assert.True(hasClass result.nodes h2 "md-head")
 
@@ -72,10 +87,10 @@ let ``read tag line stays plain not heading`` () =
     let graph, docId = graphWithDocument []
     let text = "#tag" + Environment.NewLine + "# real" + Environment.NewLine
     let result = MdDocument.read text docId graph |> requireOk "read"
-    let tagId = result.nodes.[docId].children.Head.id
+    let tagId = (kids result.childMap docId).Head.id
     Assert.Equal("#tag", result.nodes.[tagId].text)
     Assert.False(hasClass result.nodes tagId "md-head")
-    let headId = result.nodes.[docId].children.[1].id
+    let headId = (kids result.childMap docId).[1].id
     Assert.Equal("real", result.nodes.[headId].text)
     Assert.True(hasClass result.nodes headId "md-head")
 
@@ -90,35 +105,53 @@ let ``read list and nested list`` () =
         + "  - nested"
         + Environment.NewLine
     let result = MdDocument.read text docId graph |> requireOk "read"
-    let headId = result.nodes.[docId].children.Head.id
-    let listId = result.nodes.[headId].children.Head.id
+    let headId = (kids result.childMap docId).Head.id
+    let listId = (kids result.childMap headId).Head.id
     Assert.Equal("item", result.nodes.[listId].text)
     Assert.True(hasClass result.nodes listId "md-list")
-    let nestedId = result.nodes.[listId].children.Head.id
+    let nestedId = (kids result.childMap listId).Head.id
     Assert.Equal("nested", result.nodes.[nestedId].text)
     Assert.True(hasClass result.nodes nestedId "md-list")
 
 [<Fact>]
 let ``read plain line under heading is sibling depth`` () =
     let graph, docId = graphWithDocument []
-    let text = "# head" + Environment.NewLine + "body one" + Environment.NewLine + "body two" + Environment.NewLine
+    let text =
+        "# head"
+        + Environment.NewLine
+        + "body one"
+        + Environment.NewLine
+        + "body two"
+        + Environment.NewLine
     let result = MdDocument.read text docId graph |> requireOk "read"
-    let headId = result.nodes.[docId].children.Head.id
-    Assert.Equal<string list>([ "body one"; "body two" ], childTexts result.nodes headId)
+    let headId = (kids result.childMap docId).Head.id
+    Assert.Equal<string list>(
+        [ "body one"; "body two" ],
+        childTexts result.childMap result.nodes headId)
 
 [<Fact>]
 let ``read blank lines do not create nodes`` () =
     let graph, docId = graphWithDocument []
-    let text = "alpha" + Environment.NewLine + Environment.NewLine + "beta" + Environment.NewLine
+    let text =
+        "alpha"
+        + Environment.NewLine
+        + Environment.NewLine
+        + "beta"
+        + Environment.NewLine
     let result = MdDocument.read text docId graph |> requireOk "read"
-    Assert.Equal(2, result.nodes.[docId].children.Length)
-    Assert.Equal<string list>([ "alpha"; "beta" ], childTexts result.nodes docId)
+    Assert.Equal(2, (kids result.childMap docId).Length)
+    Assert.Equal<string list>(
+        [ "alpha"; "beta" ],
+        childTexts result.childMap result.nodes docId)
 
 [<Fact>]
 let ``parse span tree absorbs blank into preceding node`` () =
     let text = "a\n\nb\n"
     let tree =
-        (MdReconcile.handler OutlineLcs.diffTexts).parse text (Graph.create ()) Graph.rootId
+        (MdReconcile.handler OutlineLcs.diffTexts).parse
+            text
+            (Graph.create ())
+            Graph.rootId
         |> requireOk "parse"
     let child = tree.children.Head
     Assert.Equal("a", child.text)
@@ -130,7 +163,10 @@ let ``parse span tree absorbs blank into preceding node`` () =
 let ``parse span tree preserves order and trailing blank bounds`` () =
     let text = "a\n\n\nb\n\n"
     let tree =
-        (MdReconcile.handler OutlineLcs.diffTexts).parse text (Graph.create ()) Graph.rootId
+        (MdReconcile.handler OutlineLcs.diffTexts).parse
+            text
+            (Graph.create ())
+            Graph.rootId
         |> requireOk "parse"
 
     Assert.Equal<string list>(
@@ -142,7 +178,10 @@ let ``parse span tree preserves order and trailing blank bounds`` () =
 [<Fact>]
 let ``parse empty markdown produces empty bounded tree`` () =
     let tree =
-        (MdReconcile.handler OutlineLcs.diffTexts).parse "" (Graph.create ()) Graph.rootId
+        (MdReconcile.handler OutlineLcs.diffTexts).parse
+            ""
+            (Graph.create ())
+            Graph.rootId
         |> requireOk "parse"
 
     Assert.Empty(tree.children)
@@ -155,22 +194,23 @@ let ``write cold emits headings and lists`` () =
     let listId = NodeId.New()
     let head =
         { normalNode headId "section" Graph.rootId with
-            cssClasses = CssClass.ofList [ "md-head" ]
-            children = owned [ listId ] }
+            cssClasses = CssClass.ofList [ "md-head" ] }
     let listItem =
         { normalNode listId "item" headId with
             cssClasses = CssClass.ofList [ "md-list" ] }
-    let graph, docId = graphWithDocument [ head ]
+    let graph0, docId = graphWithDocument [ head ]
     let graph' =
-        graph.nodes
-        |> Map.add listId listItem
-        |> Map.add headId { graph.nodes.[headId] with children = owned [ listId ] }
-        |> fun nodes -> { graph with nodes = nodes }
+        Graph.addDetachedNode listItem graph0
+        |> setChildren headId (owned [ listId ])
     let text =
         MdDocument.write graph' docId emptyComplement None
         |> requireOk "write"
     Assert.Equal(
-        "# section" + Environment.NewLine + Environment.NewLine + "- item" + Environment.NewLine,
+        "# section"
+        + Environment.NewLine
+        + Environment.NewLine
+        + "- item"
+        + Environment.NewLine,
         text)
 
 [<Fact>]
@@ -252,19 +292,21 @@ let ``write cold skips empty nodes and does not multiply blanks`` () =
 [<Fact>]
 let ``write warm does not append blank for empty new node`` () =
     let graph, docId = graphWithDocument []
-    let previous = "alpha" + Environment.NewLine + Environment.NewLine + "beta" + Environment.NewLine
+    let previous =
+        "alpha"
+        + Environment.NewLine
+        + Environment.NewLine
+        + "beta"
+        + Environment.NewLine
     let readResult = MdDocument.read previous docId graph |> requireOk "read"
     let emptyId = NodeId.New()
-    let alphaId = readResult.nodes.[docId].children.Head.id
-    let betaId = readResult.nodes.[docId].children.[1].id
+    let alphaId = (kids readResult.childMap docId).Head.id
+    let betaId = (kids readResult.childMap docId).[1].id
     let empty = normalNode emptyId "" docId
     let graph' =
-        { graph with nodes = readResult.nodes }
-        |> fun g ->
-            g.nodes
-            |> Map.add emptyId empty
-            |> Map.add docId { g.nodes.[docId] with children = owned [ alphaId; emptyId; betaId ] }
-            |> fun nodes -> { g with nodes = nodes }
+        withRead graph readResult.nodes readResult.childMap
+        |> Graph.addDetachedNode empty
+        |> setChildren docId (owned [ alphaId; emptyId; betaId ])
     let text =
         MdDocument.writeWarm
             OutlineLcs.diffTexts
@@ -281,15 +323,13 @@ let ``write warm delete drops absorbed trailing blanks`` () =
     let nl = Environment.NewLine
     let previous = "alpha" + nl + nl + nl + "beta" + nl
     let readResult = MdDocument.read previous docId graph0 |> requireOk "read"
-    let alphaId = readResult.nodes.[docId].children.Head.id
-    let betaId = readResult.nodes.[docId].children.[1].id
+    let alphaId = (kids readResult.childMap docId).Head.id
+    let betaId = (kids readResult.childMap docId).[1].id
     let graph =
-        { graph0 with nodes = readResult.nodes }
+        withRead graph0 readResult.nodes readResult.childMap
         |> fun g ->
-            g.nodes
-            |> Map.remove alphaId
-            |> Map.add docId { g.nodes.[docId] with children = owned [ betaId ] }
-            |> fun nodes -> { g with nodes = nodes }
+            fromExisting g (Map.remove alphaId g.nodes)
+            |> setChildren docId (owned [ betaId ])
     let text =
         MdDocument.writeWarm
             OutlineLcs.diffTexts
@@ -303,12 +343,17 @@ let ``write warm delete drops absorbed trailing blanks`` () =
 [<Fact>]
 let ``round trip preserves blank lines in previous text`` () =
     let graph, docId = graphWithDocument []
-    let input = "# head" + Environment.NewLine + Environment.NewLine + "body" + Environment.NewLine
+    let input =
+        "# head"
+        + Environment.NewLine
+        + Environment.NewLine
+        + "body"
+        + Environment.NewLine
     let readResult = MdDocument.read input docId graph |> requireOk "read"
     let output =
         MdDocument.writeWarm
             OutlineLcs.diffTexts
-            { graph with nodes = readResult.nodes }
+            (withRead graph readResult.nodes readResult.childMap)
             docId
             readResult.complement
             input
@@ -320,30 +365,30 @@ let ``unchanged export reconciles with same node ids`` () =
     let graph, docId = graphWithDocument []
     let previous = "# title" + Environment.NewLine + "body" + Environment.NewLine
     let readResult = MdDocument.read previous docId graph |> requireOk "read"
-    let graph' = { graph with nodes = readResult.nodes }
-    let titleId = readResult.nodes.[docId].children.Head.id
-    let bodyId = readResult.nodes.[titleId].children.Head.id
+    let graph' = withRead graph readResult.nodes readResult.childMap
+    let titleId = (kids readResult.childMap docId).Head.id
+    let bodyId = (kids readResult.childMap titleId).Head.id
     let result =
         MdReconcile.reconcile OutlineLcs.diffTexts previous graph' docId previous
         |> requireOk "reconcile"
-    Assert.Equal(titleId, result.nodes.[docId].children.Head.id)
-    Assert.Equal(bodyId, result.nodes.[titleId].children.Head.id)
+    Assert.Equal(titleId, (kids result.childMap docId).Head.id)
+    Assert.Equal(bodyId, (kids result.childMap titleId).Head.id)
 
 [<Fact>]
 let ``reconcile line text edit keeps ids`` () =
     let graph, docId = graphWithDocument []
     let previous = "# title" + Environment.NewLine + "body" + Environment.NewLine
     let readResult = MdDocument.read previous docId graph |> requireOk "read"
-    let graph' = { graph with nodes = readResult.nodes }
-    let titleId = readResult.nodes.[docId].children.Head.id
-    let bodyId = readResult.nodes.[titleId].children.Head.id
+    let graph' = withRead graph readResult.nodes readResult.childMap
+    let titleId = (kids readResult.childMap docId).Head.id
+    let bodyId = (kids readResult.childMap titleId).Head.id
     let edited = "# TITLE" + Environment.NewLine + "body" + Environment.NewLine
     let result =
         MdReconcile.reconcile OutlineLcs.diffTexts previous graph' docId edited
         |> requireOk "reconcile"
     Assert.Equal("TITLE", result.nodes.[titleId].text)
-    Assert.Equal(titleId, result.nodes.[docId].children.Head.id)
-    Assert.Equal(bodyId, result.nodes.[titleId].children.Head.id)
+    Assert.Equal(titleId, (kids result.childMap docId).Head.id)
+    Assert.Equal(bodyId, (kids result.childMap titleId).Head.id)
 
 [<Fact>]
 let ``reconcile sibling reorder updates child order`` () =
@@ -352,19 +397,21 @@ let ``reconcile sibling reorder updates child order`` () =
     let orderA = "# Title" + nl + "alpha" + nl + "beta" + nl
     let orderB = "# Title" + nl + "beta" + nl + "alpha" + nl
     let readResult = MdDocument.read orderA docId graph |> requireOk "read"
-    let graph' = { graph with nodes = readResult.nodes }
-    let titleId = readResult.nodes.[docId].children.Head.id
-    let alphaId = readResult.nodes.[titleId].children.[0].id
-    let betaId = readResult.nodes.[titleId].children.[1].id
+    let graph' = withRead graph readResult.nodes readResult.childMap
+    let titleId = (kids readResult.childMap docId).Head.id
+    let alphaId = (kids readResult.childMap titleId).[0].id
+    let betaId = (kids readResult.childMap titleId).[1].id
     let previous =
         MdDocument.write graph' docId readResult.complement None
         |> requireOk "write"
     let result =
         MdReconcile.reconcile OutlineLcs.diffTexts previous graph' docId orderB
         |> requireOk "reconcile"
-    Assert.Equal<string list>([ "beta"; "alpha" ], childTexts result.nodes titleId)
-    Assert.Equal(betaId, result.nodes.[titleId].children.[0].id)
-    Assert.Equal(alphaId, result.nodes.[titleId].children.[1].id)
+    Assert.Equal<string list>(
+        [ "beta"; "alpha" ],
+        childTexts result.childMap result.nodes titleId)
+    Assert.Equal(betaId, (kids result.childMap titleId).[0].id)
+    Assert.Equal(alphaId, (kids result.childMap titleId).[1].id)
 
 [<Fact>]
 let ``reconcile section reorder updates outline under h1`` () =
@@ -383,16 +430,20 @@ let ``reconcile section reorder updates outline under h1`` () =
         + "## First" + nl
         + "Read this after AGENTS.md." + nl
     let readResult = MdDocument.read orderA docId graph |> requireOk "read"
-    let graph' = { graph with nodes = readResult.nodes }
-    let h1 = readResult.nodes.[docId].children.Head.id
-    Assert.Equal<string list>([ "First"; "Second" ], childTexts readResult.nodes h1)
+    let graph' = withRead graph readResult.nodes readResult.childMap
+    let h1 = (kids readResult.childMap docId).Head.id
+    Assert.Equal<string list>(
+        [ "First"; "Second" ],
+        childTexts readResult.childMap readResult.nodes h1)
     let previous =
         MdDocument.write graph' docId readResult.complement None
         |> requireOk "write"
     let result =
         MdReconcile.reconcile OutlineLcs.diffTexts previous graph' docId orderB
         |> requireOk "reconcile"
-    Assert.Equal<string list>([ "Second"; "First" ], childTexts result.nodes h1)
+    Assert.Equal<string list>(
+        [ "Second"; "First" ],
+        childTexts result.childMap result.nodes h1)
 
 [<Fact>]
 let ``unchanged bytes still rebuild outline from file not graph copy`` () =
@@ -400,13 +451,15 @@ let ``unchanged bytes still rebuild outline from file not graph copy`` () =
     let nl = Environment.NewLine
     let text = "# Title" + nl + "alpha" + nl + "beta" + nl
     let readResult = MdDocument.read text docId graph |> requireOk "read"
-    let graph' = { graph with nodes = readResult.nodes }
-    let titleId = readResult.nodes.[docId].children.Head.id
+    let graph' = withRead graph readResult.nodes readResult.childMap
+    let titleId = (kids readResult.childMap docId).Head.id
     let previous =
         MdDocument.write graph' docId readResult.complement None
         |> requireOk "write"
     let result =
         MdReconcile.reconcile OutlineLcs.diffTexts previous graph' docId previous
         |> requireOk "reconcile"
-    Assert.Equal(titleId, result.nodes.[docId].children.Head.id)
-    Assert.Equal<string list>([ "alpha"; "beta" ], childTexts result.nodes titleId)
+    Assert.Equal(titleId, (kids result.childMap docId).Head.id)
+    Assert.Equal<string list>(
+        [ "alpha"; "beta" ],
+        childTexts result.childMap result.nodes titleId)

@@ -33,10 +33,7 @@ let private outlineSetup () =
             text = "docs",
             name = Filename.create "docs",
             kind = Special Directory)
-    let graph1 =
-        graph0.nodes
-        |> Map.add dirId dirNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+    let graph1 = Graph.addDetachedNode dirNode graph0
     let idx = Graph.fileTreeInsertIndex graph1 Graph.rootId
     let graph2 =
         match Graph.replace Graph.rootId idx [] [ owned dirId ] graph1 with
@@ -53,7 +50,7 @@ let ``planCreateWorkspace creates workspace under Workspaces`` () =
     Assert.Equal(Special Workspace, wsNode.kind)
     Assert.Equal(Filename.Ok "workspace", wsNode.name)
     Assert.True(
-        graph2.nodes.[Graph.workspacesId].children
+        Graph.children graph2 Graph.workspacesId
         |> List.exists (fun c -> c.id = wsId && c.ref = Ownership.Owner))
 
 [<Fact>]
@@ -123,7 +120,7 @@ let ``planCreateOwnedFile picks unused sibling name`` () =
     let _, ops2 = FileNodeOps.planCreateOwnedFile graph2 focus ""
     let graph3 = applyOps graph2 ops2
     let names =
-        graph3.nodes.[focus].children
+        Graph.children graph3 focus
         |> List.choose (fun c ->
             if c.ref <> Ownership.Owner then None
             else
@@ -182,7 +179,7 @@ let ``planCreateOwnedFile under Normal under ROOT creates Owner under focus`` ()
     Assert.Equal(Special File, fileNode.kind)
     Assert.Equal(focus, fileNode.owner)
     Assert.True(
-        graph2.nodes.[focus].children
+        Graph.children graph2 focus
         |> List.exists (fun c -> c.id = fileId && c.ref = Ownership.Owner))
 
 [<Fact>]
@@ -261,10 +258,7 @@ let ``planCreateOwnedFile under Normal under File returns empty ops`` () =
             text = "note.txt",
             name = Filename.create "note.txt",
             kind = Special File)
-    let graph1 =
-        graph0.nodes
-        |> Map.add fileId fileNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+    let graph1 = Graph.addDetachedNode fileNode graph0
     let idx = Graph.fileTreeInsertIndex graph1 Graph.rootId
     let graph2 =
         match Graph.replace Graph.rootId idx [] [ owned fileId ] graph1 with
@@ -285,7 +279,7 @@ let ``planInsertFileRefAtFocus inserts ref at index`` () =
     let ops = FileNodeOps.planInsertFileRefAtFocus insert t.libFs t.graph
     Assert.Equal(1, ops.Length)
     let graph2 = applyOps t.graph ops
-    let child = graph2.nodes.[t.blueChild].children.[0]
+    let child = (Graph.children graph2 t.blueChild).[0]
     Assert.Equal(Ownership.Ref, child.ref)
     Assert.Equal(t.libFs, child.id)
 

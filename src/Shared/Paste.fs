@@ -83,33 +83,45 @@ let collectSubtree (graph: Graph) (siteMap: SiteMap)
         |> Option.bind List.tryHead
         |> Option.bind (fun instId -> Map.tryFind instId siteMap.entries)
     let rec walk
-        (acc: Map<NodeId, Node>)
+        (accNodes: Map<NodeId, Node>)
+        (accChildMap: Map<NodeId, ChildNode list>)
         (nodeId: NodeId)
         (visibleChildren: ChildNode list)
         (visibleChildInstIds: SiteId list)
         =
         let node = graph.nodes.[nodeId]
-        let acc = acc |> Map.add nodeId { node with children = visibleChildren }
-        visibleChildInstIds |> List.fold (fun acc childInstId ->
+        let accNodes = accNodes |> Map.add nodeId node
+        let accChildMap = accChildMap |> Map.add nodeId visibleChildren
+        visibleChildInstIds |> List.fold (fun (accNodes, accChildMap) childInstId ->
             let childEntry = siteMap.entries.[childInstId]
             let grandchildren = if childEntry.expanded then childEntry.children else []
-            let childNode = graph.nodes.[childEntry.nodeId]
             let visibleGrandchildren =
-                if childEntry.expanded then childNode.children else []
-            walk acc childEntry.nodeId visibleGrandchildren grandchildren) acc
-    let nodes =
-        topLevelChildren |> List.fold (fun acc topChild ->
+                if childEntry.expanded then
+                    Graph.children graph childEntry.nodeId
+                else
+                    []
+            walk
+                accNodes
+                accChildMap
+                childEntry.nodeId
+                visibleGrandchildren
+                grandchildren) (accNodes, accChildMap)
+    let nodes, childMap =
+        topLevelChildren |> List.fold (fun (accNodes, accChildMap) topChild ->
             let topId = topChild.id
             match findEntry topId with
             | Some topEntry ->
                 let children = if topEntry.expanded then topEntry.children else []
-                let topNode = graph.nodes.[topId]
-                let visibleChildren = if topEntry.expanded then topNode.children else []
-                walk acc topId visibleChildren children
+                let visibleChildren =
+                    if topEntry.expanded then Graph.children graph topId else []
+                walk accNodes accChildMap topId visibleChildren children
             | None ->
-                acc |> Map.add topId { graph.nodes.[topId] with children = [] }
-        ) Map.empty
-    { topLevelIds = topLevelChildren |> List.map (fun child -> child.id); nodes = nodes }
+                accNodes |> Map.add topId graph.nodes.[topId],
+                accChildMap |> Map.add topId []
+        ) (Map.empty, Map.empty)
+    { topLevelIds = topLevelChildren |> List.map (fun child -> child.id)
+      nodes = nodes
+      childMap = childMap }
 
 /// Remap all NodeIds in a ClipboardContent to fresh ones, producing NewNode +
 /// Replace ops that recreate the subtree with independent identities (deep copy).
@@ -126,13 +138,13 @@ let buildPasteOpsFromClipboard (clipboard: ClipboardContent) : NodeId list * Op 
         |> Map.toList
         |> List.map (fun (oldId, node) -> Op.NewNode(mapId oldId, node.text))
     let replaceOps =
-        clipboard.nodes
+        clipboard.childMap
         |> Map.toList
-        |> List.choose (fun (oldId, node) ->
-            if node.children.IsEmpty then None
+        |> List.choose (fun (oldId, kids) ->
+            if kids.IsEmpty then None
             else
                 let remappedChildren = // not sure about this
-                    node.children
+                    kids
                     |> List.map (fun child -> { child with id = mapId child.id })
                 Some (ChildListWire.insertAt (mapId oldId) [] 0 remappedChildren))
     newTopLevelIds, newNodeOps @ replaceOps

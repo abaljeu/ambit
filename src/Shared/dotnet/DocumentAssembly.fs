@@ -111,15 +111,20 @@ module DocumentAssembly =
         else
             let node = stubNode graph relativePath documentRootId
             let nodes = Map.add documentRootId node graph.nodes
-            Graph.fromNodes graph.root nodes
+            let childMap =
+                if Map.containsKey documentRootId graph.childMap then
+                    graph.childMap
+                else
+                    Map.add documentRootId [] graph.childMap
+            Graph.fromNodes graph.root nodes childMap
 
     let private brokenLinkText = "Broken link."
 
     let private stubMissingRefTargets (graph: Graph) : Graph =
         let missingIds =
-            graph.nodes
+            graph.childMap
             |> Map.toSeq
-            |> Seq.collect (fun (_, node) -> node.children)
+            |> Seq.collect (fun (_, kids) -> kids)
             |> Seq.map (fun child -> child.id)
             |> Seq.distinct
             |> Seq.filter (fun id -> not (Map.containsKey id graph.nodes))
@@ -128,13 +133,14 @@ module DocumentAssembly =
         match missingIds with
         | [] -> graph
         | ids ->
-            let nodes =
+            let nodes, childMap =
                 ids
                 |> List.fold
-                    (fun nodes id ->
-                        Map.add id (Node.Create(id, text = brokenLinkText)) nodes)
-                    graph.nodes
-            Graph.fromNodes graph.root nodes
+                    (fun (nodes, childMap) id ->
+                        Map.add id (Node.Create(id, text = brokenLinkText)) nodes,
+                        Map.add id [] childMap)
+                    (graph.nodes, graph.childMap)
+            Graph.fromNodes graph.root nodes childMap
 
     let validateAssembledGraph (graph: Graph) : Result<Graph, string> =
         let graph = stubMissingRefTargets graph
@@ -239,9 +245,10 @@ module DocumentAssembly =
             let nodes =
                 Map.add
                     documentRootId
-                    { node with documentState = Unparsed; children = [] }
+                    { node with documentState = Unparsed }
                     graph'.nodes
-            Graph.fromNodes graph'.root nodes
+            let childMap = Map.add documentRootId [] graph'.childMap
+            Graph.fromNodes graph'.root nodes childMap
         | _ -> graph'
 
     let rec private assembleLoop

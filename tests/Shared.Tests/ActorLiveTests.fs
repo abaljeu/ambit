@@ -147,7 +147,7 @@ let ``focusIdsFromLockPresent reads GetState overlay`` () =
     let graph0 = Graph.create ()
     let node = Node.Create(focusId, text = "focus", lockPresent = true)
     let graph =
-        Graph.fromNodes graph0.root (Map.add focusId node graph0.nodes)
+        Graph.addDetachedNode node graph0
     Assert.True(
         Set.contains focusId (ActorLive.focusIdsFromLockPresent graph))
     Assert.True(Set.isEmpty (ActorLive.focusIdsFromLockPresent graph0))

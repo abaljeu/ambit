@@ -128,10 +128,28 @@ module ApiResponseSerialization =
               "packages",
                 response.packages
                 |> List.map Serialization.encodeNode
-                |> Encode.list ]
+                |> Encode.list
+              "childMap",
+                Serialization.encodeChildMap response.packageChildMap ]
 
     let decodeLoadResponseDecoder: Decoder<LoadResponse> =
         Decode.object (fun get ->
+            let childMapOpt =
+                get.Optional.Field "childMap" Serialization.decodeChildMap
+            let packages, packageChildMap =
+                match childMapOpt with
+                | Some childMap ->
+                    let nodes =
+                        get.Optional.Field
+                            "packages"
+                            (Decode.list Serialization.decodeNode)
+                        |> Option.defaultValue []
+                    nodes, childMap
+                | None ->
+                    get.Optional.Field
+                        "packages"
+                        Serialization.decodeLegacyPackageNodes
+                    |> Option.defaultValue ([], Map.empty)
             { eventId = EventId.fromJson (get.Required.Field "r" Decode.int)
               buildEpochSec = get.Required.Field "b" Decode.int
               pageBuildEpochSec = get.Required.Field "p" Decode.int
@@ -146,11 +164,8 @@ module ApiResponseSerialization =
                     "c"
                     (Decode.list Gambol.Shared.EventJson.decode)
                 |> Option.defaultValue []
-              packages =
-                get.Optional.Field
-                    "packages"
-                    (Decode.list Serialization.decodeNode)
-                |> Option.defaultValue [] })
+              packages = packages
+              packageChildMap = packageChildMap })
 
     let decodeLoadResponse text =
         Decode.fromString decodeLoadResponseDecoder text
