@@ -2,7 +2,7 @@
 
 Updated: 2026-09-26
 
-Sources: [map.md](map.md) Destination and Decisions so far 1–14; [01 — Which Workspaces and remotes](issues/01-which-workspace-labels-and-remotes.md)–[05 — Git Load/Save are Workspace-scoped](issues/05-git-load-save-workspace-scoped.md); [07 — Actor start door](issues/07-actor-start-door.md); [08 — Reject UX](issues/08-reject-ux.md); [09 — Skip list is .gitignore](issues/09-gitignore-skip-list.md); [project.md](project.md). Chapter: [Send to and from GitHub](../roadmap/epics/chapters/send-to-and-from-github.md). This spec synthesizes those locks. It does not invent new product behavior. Later: [06 — Selection-scoped Parse after whole-tree git Load](issues/06-selection-scoped-parse-after-whole-tree-git-load.md).
+Sources: [map.md](map.md) Destination and Decisions so far 1–15; [01 — Which Workspaces and remotes](issues/01-which-workspace-labels-and-remotes.md)–[05 — Git Load/Save are Workspace-scoped](issues/05-git-load-save-workspace-scoped.md); [07 — Actor start door](issues/07-actor-start-door.md); [08 — Reject UX](issues/08-reject-ux.md); [09 — Skip list is .gitignore](issues/09-gitignore-skip-list.md); [10 — git Save is commit then push](issues/10-git-save-commit-then-push.md); [project.md](project.md). Chapter: [Send to and from GitHub](../roadmap/epics/chapters/send-to-and-from-github.md). This spec synthesizes those locks. It does not invent new product behavior. Later: [06 — Selection-scoped Parse after whole-tree git Load](issues/06-selection-scoped-parse-after-whole-tree-git-load.md).
 
 ## 1. Problem Statement
 
@@ -23,6 +23,7 @@ Sources: [map.md](map.md) Destination and Decisions so far 1–14; [01 — Which
 8. **Host git credentials** — Ambit does not store GitHub credentials in appsettings, user-secrets, Graph, or DataDir. The Actor invokes `git`. git loads credentials (credential helper / host setup). On Server that is the host’s git.
 9. **Skip list is `.gitignore`** — No special Ambit config key. Skip on the GitHub remote is whatever `.gitignore` already says; the person edits that file. When `.amb` or other notes are listed there, they are skipped on the remote. When excluded, offsite backup of those notes is Ambit Server DataDir (WebDAV Upload/Download + Server git / daily save), not the mapped repo remote.
 10. **Git Load/Save are Workspace-scoped** — Wherever Load/Save is invoked from (Workspace root or a subnode), git pull/push always operates on the whole Workspace work tree / tracked branch — never file-level git. After files land, Load still runs Parse on the selection where appropriate (today’s Load → Parse pipeline). The selection-parse nuance after a whole-tree pull is later: [06 — Selection-scoped Parse after whole-tree git Load](issues/06-selection-scoped-parse-after-whole-tree-git-load.md). Do not expand that nuance in v1 coding tickets.
+11. **git Save is commit then push** — git Save is `git commit` of the work-tree edits, then push. Graph→file Persist already happens independently. git Save does not own or replace Persist. Do not merge Persist into git Save.
 
 ## 3. User Stories
 
@@ -36,7 +37,7 @@ Sources: [map.md](map.md) Destination and Decisions so far 1–14; [01 — Which
 8. **Load** — As a person, I want Command Load to send a load command request through the mailbox to the actor pool, so that the GitHub Peer Actor runs when PathPick chooses git, then Parse / graph-push as today’s Load already does.
 9. **Save** — As a person, I want Command Save to use the same mailbox → actor-pool wiring as Load, so that the GitHub Peer Actor runs when PathPick chooses git.
 10. **git Load** — As a person, I want an explicit git Load pre-pick, so that I pull the whole Workspace work tree / tracked branch (even from a subnode) and then Parse / graph-push on the selection as today’s desk Load does.
-11. **git Save** — As a person, I want an explicit git Save pre-pick, so that I push the whole Workspace work tree / tracked branch (even from a subnode), never file-level git.
+11. **git Save** — As a person, I want an explicit git Save pre-pick, so that I `git commit` the work-tree edits and then push the whole Workspace work tree / tracked branch (even from a subnode), never file-level git.
 12. **desk Load** — As a person, I want an explicit desk Load pre-pick, so that I take the desk file path and the existing Load → Parse pipeline.
 13. **desk Save** — As a person, I want an explicit desk Save pre-pick, so that I take the desk file path when I choose desk.
 14. **Plain Load prefers git** — As a person, I want plain Load to be git Load when a remote exists and desk Load otherwise, so that I do not pick a path when the default is enough, and both still run today’s Parse / graph-push after files land.
@@ -52,6 +53,7 @@ Sources: [map.md](map.md) Destination and Decisions so far 1–14; [01 — Which
 24. **Workspace-scoped git** — As a person, I want git Load and git Save to always pull or push the whole Workspace work tree / tracked branch, so that invoking Load/Save from a subnode never becomes file-level git.
 25. **Actor start door** — As a person, I want Load or Save (not Run, not `?git`) to start the GitHub Peer Actor through mailbox → actor pool, so that Focus names the work tree and Save uses the same door as Load.
 26. **Reject UX** — As a person, I want a conflict reject to name at least one file path and other failures to show a matching short git-condensed error, so that Load and Save rejects reflect what git reported.
+27. **Persist stays independent of git Save** — As a person, I want Graph→file Persist to keep running on its own path, so that git Save only commits work-tree edits and then pushes, and does not own or replace Persist.
 
 ## 4. Out of Scope
 
@@ -62,7 +64,7 @@ Sources: [map.md](map.md) Destination and Decisions so far 1–14; [01 — Which
 5. **Want-driven Graph→Browser** — This spec does not change residency. That work stays [[plan/browser-residency/project.md]].
 6. **workspace-git command surface** — This spec does not inherit [[plan/workspace-git/project.md]] Git Remote / Git Pull / Git Push as the primary surface, and does not inherit that spec’s non-FF accept.
 7. **Run / `?git` entrée** — This spec does not start the GitHub Peer Actor from Run or a `?git` Command. The door is Load or Save ([07 — Actor start door](issues/07-actor-start-door.md)).
-8. **git Save vs existing Persist / GitSave** — How git Save meets the current Server commit path stays unsettled on [map.md](map.md) Not yet specified. This spec does not invent that composition.
+8. **Merge Persist into git Save** — This spec does not merge Graph→file Persist into git Save. Persist stays independent. git Save is `git commit` of work-tree edits, then push ([10 — git Save is commit then push](issues/10-git-save-commit-then-push.md)).
 9. **File-level git** — This spec does not pull or push a file or subtree as a git path. Git Load/Save are Workspace-scoped ([05 — Git Load/Save are Workspace-scoped](issues/05-git-load-save-workspace-scoped.md)).
 10. **Selection-parse nuance in v1** — How selection-scoped Parse should behave after a whole-tree pull is later: [06 — Selection-scoped Parse after whole-tree git Load](issues/06-selection-scoped-parse-after-whole-tree-git-load.md). This spec does not expand that nuance in v1 coding tickets.
 
@@ -75,3 +77,4 @@ Sources: [map.md](map.md) Destination and Decisions so far 1–14; [01 — Which
 5. **Architecture** — [[arch.md]]. Sequence `module-build`. This spec does not run to-tickets.
 6. **Workspace-scoped git (2026-09-26)** — Alan: git Load/Save always operate on the whole Workspace work tree / tracked branch. Parse still runs on the selection where appropriate after files land. Selection-parse detail is [06 — Selection-scoped Parse after whole-tree git Load](issues/06-selection-scoped-parse-after-whole-tree-git-load.md).
 7. **Start door, reject UX, `.gitignore` (2026-09-26)** — Alan, Github Sync room: mailbox → actor pool from Load/Save; condensed git errors (conflict names a path); skip list is `.gitignore` with no Ambit key.
+8. **git Save is commit then push (2026-09-26)** — Alan, Github Sync: git Save is `git commit` of work-tree edits, then push. Persist stays independent. Do not merge Persist into git Save.
