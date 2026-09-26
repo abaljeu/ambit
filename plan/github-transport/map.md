@@ -4,7 +4,7 @@ Labels: wayfinder:map
 
 ## 1. Destination
 
-A Server Actor pulls from and pushes to GitHub for a Workspace label whose DataDir work tree is already the git home. Round-trip v1 is fast-forward only. The App stays thin. Skip of Directory File `.amb` on that remote is optional, from repo configuration. Parse after files land stays on [[plan/parse-actor/project.md]].
+A Server Actor pulls from and pushes to GitHub for a Workspace whose DataDir work tree is already the git home. Round-trip v1 is fast-forward only. The App stays thin. Skip of Directory File `.amb` on that remote is optional, from repo configuration. Parse after files land stays on [[plan/parse-actor/project.md]].
 
 ## 2. Notes
 
@@ -14,27 +14,31 @@ Chapter home (product objective only): [[plan/roadmap/epics/chapters/send-to-and
 
 The 2026-09-26 lock names the Server Actor a **Peer Actor**. Actor is the glossary word. Peer Actor here means that Server Actor, not a new Kind.
 
-Prior spec [[plan/workspace-git/project.md]] is not this home. Grill its Git Remote / Git Push / Git Pull surface as a candidate on [02 — Actor command surface](issues/02-actor-command-surface.md). Do not inherit that spec’s non-FF accept.
+Prefer **Workspace**, not “label.” Every Workspace’s DataDir work tree is a git work tree. Server-git vs desk: check if a remote exists. If a remote exists, the Server-git path is valid; else desk.
 
-Frontier grilling: [01 — Which Workspace labels and remotes](issues/01-which-workspace-labels-and-remotes.md), [02 — Actor command surface](issues/02-actor-command-surface.md), [03 — When pull and push fire](issues/03-when-pull-and-push-fire.md), [04 — Credential storage on Server](issues/04-credential-storage-on-server.md).
+Prior spec [[plan/workspace-git/project.md]] is not this home. Do not inherit that spec’s Git Remote / Git Pull / Git Push as the primary surface. Do not inherit that spec’s non-FF accept.
+
+2026-09-26 grill locks: [01 — Which Workspaces and remotes](issues/01-which-workspace-labels-and-remotes.md), [02 — Actor command surface](issues/02-actor-command-surface.md), [03 — When pull and push fire](issues/03-when-pull-and-push-fire.md), [04 — Credential storage on Server](issues/04-credential-storage-on-server.md). Status `done`. Report: [[reports/grill-locks-01-04-2026-09-26.md]].
 
 Skills: [[.agents/skills/wayfinder/SKILL.md]], [[.agents/skills/grilling/SKILL.md]], [[.agents/skills/domain-modeling/SKILL.md]], [[.agents/skills/project-work/SKILL.md]].
 
 ## 3. Decisions so far
 
-1. **GitHub is the outside channel** — Key repos use GitHub. The Workspace label’s DataDir work tree **is** the git home (`.git` already established).
+1. **GitHub is the outside channel** — Key repos use GitHub. Every Workspace’s DataDir work tree **is** a git work tree (the git home; `.git` already established).
 2. **Operator sets remote and credentials** — The operator sets `git remote` and credentials so git works. Remotes accept push (not PR-only). Policy is **fast-forward only**. A conflicted or non-FF push is rejected. Server `ensurePushConfig` sets `receive.denyNonFastForwards`.
 3. **Server Peer Actor does the round-trip** — A Server-side Peer Actor does pull and push (round-trip v1). The App stays thin. The App is not the git Actor host.
 4. **One Actor shape through Server** — The same Actor shape serves every device that maps through Server. This is not a per-App clone protocol.
 5. **Optional `.amb` skip from repo configuration** — Directory File / Ambit note paths named `.amb` may be skipped on the GitHub remote when repo configuration says so. They are not a hard-skip default and not the same class as `.git/`. When excluded, offsite backup of those notes is Ambit Server DataDir (WebDAV Upload/Download + Server git / daily save), not the mapped repo remote. Do not treat “exclude from repo sync” as “notes are desk-local only.” WebDAV Upload/Download and Server DataDir tracking of `.amb` stay Ambit↔Ambit graph persistence ([[doc/current/workspace-graph.md]]) and the backup path when the repo remote does not take the notes.
 6. **Not this repo’s git procedure** — This Project is not [[plan/git-protocol/project.md]].
+7. [01 — Which Workspaces and remotes](issues/01-which-workspace-labels-and-remotes.md) — Every Workspace (all have git). Server-git when a remote exists; no allowlist. Config is `git remote` + current branch / upstream on that work tree. Same tracked branch for pull and push. No Server branch map in v1.
+8. [02 — Actor command surface](issues/02-actor-command-surface.md) — Person Commands are Load and Save. Secondary pre-picks: git Load / git Save and desk Load / desk Save. Plain Load/Save = git* when a remote exists, else desk*. Do not inherit workspace-git’s Git Remote / Git Pull / Git Push or non-FF accept.
+9. [03 — When pull and push fire](issues/03-when-pull-and-push-fire.md) — No automatic pull or push in v1. Person Load/Save (and explicit git*/desk*) only. When a remote exists, plain Load/Save prefer git first. All three Load forms transfer files only. WebDAV Upload/Download remains. Parse and Graph sync autonomy stay independent.
+10. [04 — Credential storage on Server](issues/04-credential-storage-on-server.md) — Ambit does not store GitHub credentials. The Actor invokes `git`; git loads credentials (credential helper / host setup). On Server that is the host’s git.
 
 ## 4. Not yet specified
 
-1. **Which Workspace labels and remotes** — Which labels connect, and where that config lives. Ticket [01 — Which Workspace labels and remotes](issues/01-which-workspace-labels-and-remotes.md).
-2. **Actor command surface** — What Commands the Server Actor receives for remote, pull, and push. Ticket [02 — Actor command surface](issues/02-actor-command-surface.md).
-3. **When pull and push fire** — What starts pull vs push in round-trip v1. Ticket [03 — When pull and push fire](issues/03-when-pull-and-push-fire.md).
-4. **Credential storage on Server** — Where the Server keeps git credentials for GitHub. Ticket [04 — Credential storage on Server](issues/04-credential-storage-on-server.md).
+1. **Actor wiring and reject UX** — How the Server Actor is composed, and how a person sees a rejected non-FF push or a failed pull. Not ticket-sharp yet.
+2. **git Save vs existing Persist / GitSave** — How git Save meets the current Server commit path. Not ticket-sharp yet.
 
 ## 5. Out of scope
 
@@ -43,3 +47,5 @@ Skills: [[.agents/skills/wayfinder/SKILL.md]], [[.agents/skills/grilling/SKILL.m
 3. **This repo’s git procedure** — Stays [[plan/git-protocol/project.md]].
 4. **Want-driven Graph→Browser** — Stays [[plan/browser-residency/project.md]].
 5. **Product code on this chart** — The map finds the way. It does not implement the Actor.
+6. **Checkout / switch branch / older commits** — Future. Not this chart.
+7. **Parse autonomy and Graph sync autonomy** — Independent of this Project. Do not adapt Load one way or the other for parse or graph. Non-adaptation.
