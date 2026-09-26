@@ -10,7 +10,7 @@ The Browser already Polls and posts Events, and boot already hits `/state` or bo
 
 ## What to build
 
-Each Poll and each post-Event computes and carries the current Want, including `[]`. Boot consumes the small Zoom-scoped Graph, restores Fold locally, then computes the next Want from the ViewModel. Load Fetch still uses `/load` `packages`. Find remains residence-only and postponed.
+Each Poll and each post-Event computes and carries the current Want, including `[]`. Boot consumes the small Zoom-scoped Graph, restores Fold locally, then computes the next Want from the ViewModel. Load Fetch uses the same edges-plus-Nodes answer. Find remains residence-only and postponed.
 
 ### 1. Browser HTTP
 
@@ -39,7 +39,7 @@ Module [Boot Poll](../arch.md). Story paths 1, 2, 3.
 Modules [SyncPlanner](../arch.md), [Load command](../arch.md). Story paths 18, 30, 31.
 
 1. [ ] Want is payload — 10.2.2: Want rides Poll and submit; no new flight state
-2. [ ] Load dual-run stays — 31.2: `runLoadServer` still POSTs `/load` `packages`
+2. [ ] Load uses current answer — story **Load uses the same package**: `runLoadServer` receives `nodes` plus `childMap`
 3. [ ] Hollow-click Load may remain — 18.2: do not un-wire hollow-circle → Load if present
 
 ### 4. Find

@@ -6,11 +6,11 @@
 
 ## Context
 
-Shared types contain the new Want and answer fields, but codecs and Sync apply still allow or use old shapes. This batch makes Poll, post-Event, and their answer one strict current-version wire. There is no old/new wire interoperation. Explicit Load `packages` still work until the later contract.
+Shared types contain the new Want and answer fields, but codecs and Sync apply still allow or use old shapes. This batch makes Poll, post-Event, Load Fetch, and their answer one strict current-version wire. There is no old/new wire interoperation.
 
 ## What to build
 
-Poll and post-Event codecs require Want; their answer requires edges plus Nodes. Missing current-version fields fail decode. After the Event tail, SyncLogic installs the Want answer. Load Fetch `packages` still apply.
+Poll and post-Event codecs require Want; their answer requires edges plus Nodes. Load Fetch uses the same answer fields. Missing current-version fields fail decode. After the Event tail, SyncLogic installs the answer through one path.
 
 ### 1. Sync wire
 
@@ -25,7 +25,7 @@ Module [Sync wire](../arch.md).
 Module [SyncLogic](../arch.md). Story path 9.
 
 1. [ ] Install after Events — Module **SyncLogic** Interface **Install Want answer**: apply the Event tail, then `installWantAnswer`
-2. [ ] Dual-run packages — Module **SyncLogic** Uses **Load dual-run**: `loadResponseToSync` still installs `packages`
+2. [ ] One Load answer — `loadResponseToSync` maps Load Fetch onto `nodes` plus `childMap`; it does not install `packages`
 3. [ ] Outcome stamps unchanged — `getPollOutcome` still keys on `apiVersion` and event id
 
 ## See also

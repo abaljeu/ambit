@@ -57,7 +57,8 @@ Narrowest shared test seam on [Browser residency architecture](../arch.md).
 ## Comments
 
 - 2026-09-26: Filed via `/to-tickets`. Sequence expand-contract. Expand only.
-- 2026-09-26: Built expand beside old Poll / post-Event / Load doors. Followed the locked grill for `want`, `nodes`, `childMap`, and ApiVersion 13. Production App and Server doors stay on the old path ([08 — Migrate Shared wire](08-migrate-shared-wire.md) through [11 — Migrate Bullet, Included, and bootstrap wants](11-migrate-bullet-included-and-bootstrap-wants.md)).
+- 2026-09-26: Built expand beside old Poll / post-Event / Load doors. Followed the locked grill for `want`, `nodes`, `childMap`, and ApiVersion 13. Production App and Server doors stayed on the old path for this completed slice ([08 — Migrate Shared wire](08-migrate-shared-wire.md) through [11 — Migrate Bullet and Included readers](11-migrate-bullet-included-and-bootstrap-wants.md)).
+- 2026-09-26: [06 — Dual-run vs migrate explicit Load Fetch](06-dual-run-vs-migrate-explicit-load.md) later affirmed one current answer. The checked legacy-package items record this completed expand slice; [12 — Contract old Load Fetch packages](12-contract-old-load-fetch-packages.md) removes them from the destination.
 
 ## Time
 

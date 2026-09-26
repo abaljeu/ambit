@@ -22,7 +22,7 @@ Lock:
 1. **Required Want** — `PollRequest` and `ChangeRequest` carry required `want: NodeId list`. Every Poll and post-Event sends the field; empty is `[]`. Poll uses the current-version POST body rather than the old GET query form.
 2. **Separate answer collections** — `ChangeSuccessResponse` carries required `nodes: Node list` and `childMap: Map<NodeId, ChildNode list>`. The Server includes every target Node for every emitted edge. The Browser installs Events first, then this answer through `installWantAnswer`.
 3. **Current version only** — `ApiVersion.current` is 13. There is no interoperation between versions and no compatibility decode for missing current-version request or answer fields. Poll and post-Event migrate directly to the version 13 shape.
-4. **Load stays separate** — `LoadResponse.packages` and `packageChildMap` remain only for the explicit Load dual-run until [06 — Dual-run vs migrate explicit Load Fetch](06-dual-run-vs-migrate-explicit-load.md) locks their removal.
+4. **Load converges** — [06 — Dual-run vs migrate explicit Load Fetch](06-dual-run-vs-migrate-explicit-load.md) affirms that explicit Load Fetch uses the same `nodes` plus `childMap` answer. The legacy `LoadResponse.packages` and `packageChildMap` fields are removed.
 
 ## Time
 

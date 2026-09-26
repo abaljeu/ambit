@@ -6,11 +6,11 @@
 
 ## Context
 
-The Server still answers Poll and post-Event with Changes only, and `/state` still scopes a complete ROOT Workspace. Shared defines the strict current-version requests and answers. This batch owns the production Server switch: small bootstrap `/state`, Poll POST, post-Event Want answers, and the Server-side no-dangling builder. The Server Graph stays large. Load Fetch `packages` stay.
+The Server still answers Poll and post-Event with Changes only, and `/state` still scopes a complete ROOT Workspace. Shared defines the strict current-version requests and answers. This batch owns the production Server switch: small bootstrap `/state`, Poll POST, post-Event and Load Fetch answers, and the Server-side no-dangling builder. The Server Graph stays large.
 
 ## What to build
 
-`postPoll` and `postEvents` require the Browser-computed Want and return Changes plus edges plus Nodes. `getState` uses saved Zoom only for the initial visible-closure. `postLoad` still returns `packages`.
+`postPoll` and `postEvents` require the Browser-computed Want and return Changes plus edges plus Nodes. `getState` uses saved Zoom only for the initial visible-closure. `postLoad` returns the same edges-plus-Nodes answer; no legacy package response remains.
 
 ### 1. Server Sync doors
 
@@ -20,7 +20,7 @@ Module [Server Sync doors](../arch.md). Story paths 1, 19, 20, 35.
 2. [ ] post-Event answers Want — 19.3: `postEvents` returns Changes plus edges plus Nodes
 3. [ ] State is visible-closure — stories **Open a large Server Graph** and **Zoom first paint**: `getState` calls the locked small visible-closure projection
 4. [ ] Server stays large — 35.1: Core Graph stays complete; visible-closure is the Browser answer only
-5. [ ] Load packages remain — 6.2.3: `postLoad` still returns `packages`
+5. [ ] Load uses current answer — story **Load uses the same package**: `postLoad` returns `nodes` plus `childMap`, not `packages`
 6. [ ] No compatibility doors — old Poll and post-Event wire forms are removed; only version 13 is accepted
 
 ### 2. Reserved bootstrap set

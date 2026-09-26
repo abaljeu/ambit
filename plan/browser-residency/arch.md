@@ -4,7 +4,7 @@ Spec: [[spec.md]]
 Updated: 2026-09-26
 Sequence: expand-contract
 
-Sources: [map.md](map.md) Destination, Notes, and Decisions so far (2026-09-26 locks); [spec.md](spec.md) Solution and 36 stories. Prefer existing seams. `Graph.childMap` (absent key = Unloaded) is the residency list. Checklist: `[x]` already true of the recorded shape; `[ ]` still to build. Sequence is expand-contract inside the current code version: Poll and post-Event migrate directly to required Want fields computed from the Browser ViewModel. Saved Zoom scopes only the initial base Graph. There is no cross-version interoperation or compatibility form. Old Load Fetch `packages` dual-run until [06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md) locks their removal.
+Sources: [map.md](map.md) Destination, Notes, and Decisions so far (2026-09-26 locks); [spec.md](spec.md) Solution and 36 stories. Prefer existing seams. `Graph.childMap` (absent key = Unloaded) is the residency list. Checklist: `[x]` already true of the recorded shape; `[ ]` still to build. Poll, post-Event, bootstrap, and explicit Load Fetch converge on one current-version edges-plus-Nodes answer. The Browser computes Want fields from its ViewModel. Saved Zoom scopes only the initial base Graph. There is no cross-version interoperation, compatibility form, or legacy `packages` API in the destination.
 
 ## 1. Story paths
 
@@ -162,11 +162,11 @@ Sources: [map.md](map.md) Destination, Notes, and Decisions so far (2026-09-26 l
     2. [x] `loadOp` still plans Upload / Parse / Fetch
     3. [x] File-transit stages stay on [src/Client/UpdateWorkspaceSync.fs](src/Client/UpdateWorkspaceSync.fs) (out of this Project)
 
-31. **Load may dual-run Fetch**
+31. **Load uses the same package**
     1. [x] `SyncPlanner.tryStartLoad` emits `LoadServer`
-    2. [x] App `runLoadServer` POSTs `/load`; `LoadResponse.packages` remain
-    3. [ ] Auto and bootstrap do not use `packages`; they use edges plus Nodes
-    4. [ ] Death of `packages` stays [06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md)
+    2. [ ] App `runLoadServer` POSTs `/load` and receives edges plus Nodes
+    3. [ ] Load Fetch, auto wants, and bootstrap use the same install door
+    4. [ ] `LoadResponse.packages`, `packageChildMap`, and `installPackages` are removed
 
 32. **Commands that name Nodes later**
     1. [ ] No new command that names Nodes
@@ -235,7 +235,7 @@ Narrowest shared test seam:
    2. Interface
       1. [x] `visibleClosureGraph: NodeId option * Graph -> Graph` computes `childMap` for ROOT, TRASH, Workspaces Node, and SYSTEM; the saved Zoom ancestor path; and the Zoom root. It includes each Loaded parent's direct Children and is not a complete Workspace. [09 — Migrate Server Sync doors](issues/09-migrate-server-sync-doors.md) owns the production `/state` switch
       2. [x] `installWantAnswer: edges * nodes * Graph -> Result<Graph, string>` — edges and Nodes separately; refuse dangling edges
-      3. [x] `packagesForTargets` / `installPackages` stay for dual-run Load Fetch
+      3. [ ] Remove `packagesForTargets` / `installPackages`; explicit Load Fetch uses `wantAnswer` / `installWantAnswer`
       4. [ ] `wantAnswer: Graph * NodeId list -> childMap * Node list` — include every pointed-at Resident Child Node; do not emit dangling edges
    3. Uses
       1. [x] GraphBuild reserved ids
@@ -256,8 +256,7 @@ Narrowest shared test seam:
    File: [src/Shared/ApiResponses.fs](src/Shared/ApiResponses.fs).
    1. State
       1. [x] `ChangeSuccessResponse` Events, `apiVersion`, Poll stamps
-      2. [x] `LoadResponse.packages` for dual-run Fetch
-      3. [x] Want-answer fields `nodes` + `childMap`. Request field `want`
+      2. [x] Want-answer fields `nodes` + `childMap`. Request field `want`
    2. Interface
       1. [ ] Encode / decode required current-version fields on `PollRequest`, `ChangeRequest`, and `ChangeSuccessResponse`
       2. [x] `ApiVersion.current` is 13 (wire 1.3) with the Want + edges/Nodes package
@@ -272,7 +271,7 @@ Narrowest shared test seam:
    2. Interface
       1. [ ] `postPoll` and `postEvents` accept required Want and return Changes plus edges plus Nodes
       2. [ ] `getState` uses saved Zoom and returns the small base visible-closure via ResidentProjection
-      3. [x] `postLoad` still returns `packages` (dual-run)
+      3. [ ] `postLoad` returns the same edges-plus-Nodes answer; no legacy `packages`
    3. Uses
       1. [x] CoreChanges `getState` / `getEventsSince` / `postEvents`
       2. [ ] ResidentProjection visible-closure + `wantAnswer`
@@ -309,13 +308,13 @@ Narrowest shared test seam:
    1. State
       1. [x] None
    2. Interface
-      1. [x] `applySyncResponse` applies Event tail then packages
+      1. [ ] `applySyncResponse` applies Event tail then the edges-plus-Nodes answer
       2. [ ] After Events, install Want-answer edges plus Nodes through ResidentProjection
       3. [x] `getPollOutcome` still keys on `apiVersion` and event id
    3. Uses
       1. [x] ResidentProjection.applyOps
       2. [ ] ResidentProjection.installWantAnswer
-      3. [x] LoadResponse dual-run via `loadResponseToSync`
+      3. [ ] Load response uses the same answer fields and install path
 
 10. **SyncPlanner**
     File: [src/Shared/SyncPlanner.fs](src/Shared/SyncPlanner.fs).
@@ -355,11 +354,12 @@ Narrowest shared test seam:
        1. [x] QueuedLoad / Loading on SyncInfo
     2. Interface
        1. [x] `loadOp` remains the user-facing Load
-       2. [x] `tryStartLoadFetch` still POSTs `/load` packages when targets need a Workspace
+      2. [ ] `tryStartLoadFetch` POSTs `/load` and receives edges plus Nodes
        3. [ ] Auto Want does not enter this module
     3. Uses
        1. [x] SyncPlanner.tryStartLoad
-       2. [x] ResidentProjection multi-Workspace refuse
+      2. [x] ResidentProjection multi-Workspace refuse
+      3. [ ] ResidentProjection want-answer builder and installer
 
 14. **Reserved ids**
     File: [src/Shared/GraphBuild.fs](src/Shared/GraphBuild.fs).
@@ -392,17 +392,16 @@ Narrowest shared test seam:
 9. **searchNodes**
    1. [x] Interface on **Find** — residence only
 10. **loadOp / tryStartLoadFetch**
-    1. [x] Interface on **Load command** — dual-run old Fetch
+    1. [ ] Interface on **Load command** — explicit Fetch uses the same edges-plus-Nodes answer; no legacy API
 
 ## 4. Alternative considered
 
-1. **Migrate current-version Poll and post-Event (chosen)** — Want and the edges-plus-Nodes answer ride the doors that already carry Changes ([src/Server/Api.fs](src/Server/Api.fs) `postPoll` / `postEvents`, [src/Client/App.fs](src/Client/App.fs) Poll and `/{file}/changes`). One flight, one apply order (Events then residency). There is no old/new wire interoperation: request and answer fields are required for `ApiVersion.current = 13`. Expand-contract remains only for internal migration and old `LoadResponse.packages`, which stay until [06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md).
+1. **One current residency answer (chosen)** — Want and the edges-plus-Nodes answer ride Poll and post-Event ([src/Server/Api.fs](src/Server/Api.fs) `postPoll` / `postEvents`, [src/Client/App.fs](src/Client/App.fs) Poll and `/{file}/changes`). Bootstrap and explicit Load Fetch use the same answer shape and install door. There is no old/new wire interoperation: request and answer fields are required for `ApiVersion.current = 13`, and the legacy Load `packages` API is removed.
 2. **New Want door** — A separate GET/POST for Want. Splits Changes from residency, adds a second flight, and fights SyncPlanner single-flight. Rejected for this Project.
 3. **Auto growth through Load** — Reuse `tryStartLoad` / `/load` packages for Included Unloaded Nodes. Contradicts silent wants (no command) and would keep complete-Workspace packages. Rejected.
 
-Expand-contract won over module-build: the new depth (`Want.compose`, `wantAnswer`, and `installWantAnswer`) is small Shared surface, while old Load Fetch `packages` still need a later contract. Poll, post-Event, and bootstrap themselves migrate as one current wire version, without compatibility branches.
+Expand-contract won over module-build as an internal edit sequence: the new depth (`Want.compose`, `wantAnswer`, and `installWantAnswer`) is small Shared surface, callers migrate to it, then [12 — Contract old Load Fetch packages](issues/12-contract-old-load-fetch-packages.md) removes the legacy code. No deployed compatibility branch remains.
 
 ## 5. Unsettled
 
 1. **Server-mode Find** — Ask Server, receive found Nodes, Fetch before navigate. Postponed on [05 — Chart server-mode Find](issues/05-chart-server-mode-find.md); it does not gate residency migration.
-2. **Load Fetch death** — When `packages` die. [06 — Dual-run vs migrate explicit Load Fetch](issues/06-dual-run-vs-migrate-explicit-load.md).
