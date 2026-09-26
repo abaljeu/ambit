@@ -552,6 +552,42 @@ let ``ChangeSuccessResponse round-trip with Want-answer nodes and childMap`` () 
         decoded.childMap.[parentId])
 
 [<Fact>]
+let ``ChangeSuccessResponse keeps Changes beside Want answer`` () =
+    let parentId = NodeId.New()
+    let childId = NodeId.New()
+    let change =
+        { id = EventIdFixtures.storedId 9
+          submissionId = System.Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [ Op.SetText(parentId, "old", "new") ] }
+    let parent = Node.Create(parentId, text = "parent")
+    let child = Node.Create(childId, text = "child", owner = parentId)
+    let response: ChangeSuccessResponse =
+        { eventId = EventIdFixtures.storedId 9
+          buildEpochSec = 0
+          pageBuildEpochSec = 0
+          apiVersion = ApiVersion.current
+          isReady = true
+          externalChanges = true
+          events = [ change ]
+          message = None
+          bootstrapHash = None
+          nodes = [ parent; child ]
+          childMap = Map.ofList [ parentId, ChildNode.owners [ childId ] ] }
+    let decoded =
+        roundTrip
+            ApiResponseSerialization.encodeChangeSuccessResponse
+            ApiResponseSerialization.decodeChangeSuccessResponseDecoder
+            response
+    Assert.Equal(1, decoded.events.Length)
+    Assert.Equal(change.id, decoded.events.[0].id)
+    Assert.Equal(2, decoded.nodes.Length)
+    Assert.Equal<ChildNode list>(
+        ChildNode.owners [ childId ],
+        decoded.childMap.[parentId])
+
+[<Fact>]
 let ``PollRequest always encodes want including empty`` () =
     let request: PollRequest =
         { eventId = EventIdFixtures.storedId 2
@@ -579,6 +615,30 @@ let ``ChangeRequest round-trip with want ids`` () =
             ApiResponseSerialization.decodeChangeRequestDecoder
             request
     Assert.Equal<Ev list>([], decoded.events)
+    Assert.Equal<NodeId list>([ parentId ], decoded.want)
+
+[<Fact>]
+let ``ChangeRequest round-trip keeps Changes beside want`` () =
+    let parentId = NodeId.New()
+    let change =
+        { id = EventIdFixtures.storedId 4
+          submissionId = System.Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [ Op.SetText(parentId, "old", "new") ] }
+    let request: ChangeRequest =
+        { events = [ change ]
+          want = [ parentId ] }
+    let decoded =
+        roundTrip
+            ApiResponseSerialization.encodeChangeRequest
+            ApiResponseSerialization.decodeChangeRequestDecoder
+            request
+    Assert.Equal(1, decoded.events.Length)
+    Assert.Equal(change.id, decoded.events.[0].id)
+    Assert.Equal<Op list>(
+        SpecialNodeTestHelpers.eventOps change,
+        Ev.ops decoded.events.[0] |> Option.defaultValue [])
     Assert.Equal<NodeId list>([ parentId ], decoded.want)
 
 [<Fact>]

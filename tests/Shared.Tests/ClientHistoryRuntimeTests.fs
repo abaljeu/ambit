@@ -160,7 +160,9 @@ let ``package-only Load preserves ClientHistory at the same settled Revision`` (
             false
             { events = []
               packages = [ ws ]
-              packageChildMap = Map.ofList [ wsId, [] ] }
+              packageChildMap = Map.ofList [ wsId, [] ]
+              nodes = []
+              childMap = Map.empty }
             state
     with
     | Error msg -> failwith msg
@@ -180,7 +182,9 @@ let ``package-only Load refuses a raced pending local transition`` () =
             true
             { events = []
               packages = [ ws ]
-              packageChildMap = Map.ofList [ ws.id, [] ] }
+              packageChildMap = Map.ofList [ ws.id, [] ]
+              nodes = []
+              childMap = Map.empty }
             state
     with
     | Ok _ -> failwith "Expected raced package refusal"
@@ -244,7 +248,9 @@ let ``package-only Load refuses a revision mismatch`` () =
             false
             { events = []
               packages = [ ws ]
-              packageChildMap = Map.ofList [ ws.id, [] ] }
+              packageChildMap = Map.ofList [ ws.id, [] ]
+              nodes = []
+              childMap = Map.empty }
             state
     with
     | Ok _ -> failwith "Expected raced package refusal"

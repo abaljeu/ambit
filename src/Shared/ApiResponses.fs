@@ -91,10 +91,14 @@ type CancelRequest =
     { focusId: NodeId
       eventId: EventId }
 
-/// Authoritative Sync install: ordered Change tail plus optional resident packages.
+/// Authoritative Sync install: Event tail, Want-answer, optional Load packages.
 type SyncResponse =
     { events: Ev list
       /// Complete Workspace / child-list snapshots at the response event id.
       packages: Node list
       /// Loaded child lists for `packages`. Absent package id = Unloaded header.
-      packageChildMap: Map<NodeId, ChildNode list> }
+      packageChildMap: Map<NodeId, ChildNode list>
+      /// Want-answer Nodes from Poll / post-Event. Empty when unused.
+      nodes: Node list
+      /// Want-answer edges. Absent key stays Unloaded; [] is a Loaded leaf.
+      childMap: Map<NodeId, ChildNode list> }

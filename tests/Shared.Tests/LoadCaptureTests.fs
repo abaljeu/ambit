@@ -185,6 +185,8 @@ let ``LoadResponse toSyncResponse preserves changes and packages`` () =
     Assert.Empty(sync.events)
     Assert.Equal(1, sync.packages.Length)
     Assert.Equal(node.id, sync.packages.[0].id)
+    Assert.Empty(sync.nodes)
+    Assert.True(sync.childMap.IsEmpty)
 
 [<Fact>]
 let ``packagesForTargets same Workspace Unloaded targets dedupe one package`` () =

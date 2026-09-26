@@ -73,9 +73,30 @@ module SyncLogic =
                     | ApplyResult.Invalid (_, msg) -> Error msg)
             (Ok state)
 
+    let private graphAfterWant
+        (response: SyncResponse)
+        (graph: Graph)
+        : Result<Graph, string> =
+        if List.isEmpty response.nodes && Map.isEmpty response.childMap then
+            Ok graph
+        else
+            ResidentProjection.installWantAnswer
+                response.childMap
+                response.nodes
+                graph
+
+    let private graphAfterPackages
+        (response: SyncResponse)
+        (graph: Graph)
+        : Graph =
+        ResidentProjection.installPackages
+            response.packages
+            response.packageChildMap
+            graph
+
     /// Apply a Sync response atomically under Loaded rules.
-    /// Packages install after the projected tail so authoritative snapshots at the
-    /// response event id win. Poll and Post consume paths preserve History.
+    /// Event tail, then Want-answer edges/Nodes, then Load packages.
+    /// Packages stay last so authoritative Workspace snapshots win.
     let applySyncResponse
         (response: SyncResponse)
         (state: ClientSyncState)
@@ -83,12 +104,12 @@ module SyncLogic =
         match foldProjectedEvents response.events state with
         | Error msg -> Error msg
         | Ok afterEvents ->
-            let graph =
-                ResidentProjection.installPackages
-                    response.packages
-                    response.packageChildMap
-                    afterEvents.graph
-            Ok { afterEvents with graph = graph }
+            match graphAfterWant response afterEvents.graph with
+            | Error msg -> Error msg
+            | Ok afterWant ->
+                Ok
+                    { afterEvents with
+                        graph = graphAfterPackages response afterWant }
 
     let applyLoadResponse
         (responseEventId: EventId)
@@ -110,7 +131,16 @@ module SyncLogic =
     let loadResponseToSync (response: LoadResponse) : SyncResponse =
         { events = response.events
           packages = response.packages
-          packageChildMap = response.packageChildMap }
+          packageChildMap = response.packageChildMap
+          nodes = []
+          childMap = Map.empty }
+
+    let changeSuccessToSync (response: ChangeSuccessResponse) : SyncResponse =
+        { events = response.events
+          packages = []
+          packageChildMap = Map.empty
+          nodes = response.nodes
+          childMap = response.childMap }
 
     let loadResponseToPoll (response: LoadResponse) : ChangeSuccessResponse =
         { eventId = response.eventId
@@ -134,7 +164,9 @@ module SyncLogic =
         applySyncResponse
             { events = events
               packages = []
-              packageChildMap = Map.empty }
+              packageChildMap = Map.empty
+              nodes = []
+              childMap = Map.empty }
             state
 
     let private undoPendingGraph
