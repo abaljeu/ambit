@@ -2,9 +2,9 @@
 
 Category: Sync
 Status: Partial
-See also: [[workspace-file-sync]], [[workspaces-checklist]], [[doc/arch]], [[doc/current/workspace-local-mapping]], [[src/Server/IgnoredDestination.fs]], [[src/Server/WorkspaceGit.fs]], [[src/Server/GitSave.fs]]
+See also: [[plan/transport-layer/project.md]], [[workspaces-checklist]], [[doc/arch]], [[doc/current/workspace-local-mapping]], [[src/Server/IgnoredDestination.fs]], [[src/Server/WorkspaceGit.fs]], [[src/Server/GitSave.fs]]
 
-Server-side WebDAV Class 1 that maps `/ambit/dav/{label}/…` onto `DataDir/{label}/`. This is the **only** Upload / Download transport. File-channel home: [[plan/transport-layer/project.md]]. High-level pointer: [[workspace-file-sync]]. This doc owns the server HTTP surface, listing properties, and **server-side Download inventory filtering**.
+Server-side WebDAV Class 1 that maps `/ambit/dav/{label}/…` onto `DataDir/{label}/`. This is the **only** Upload / Download transport. File-channel home: [[plan/transport-layer/project.md]]. This doc owns the server HTTP surface, listing properties, and **server-side Download inventory filtering**.
 
 ## What it gives you
 

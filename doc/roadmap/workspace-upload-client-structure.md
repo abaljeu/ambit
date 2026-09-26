@@ -2,7 +2,7 @@
 
 Category: Sync
 Status: Done
-See also: [[workspace-file-sync]], [[lazy-load]], [[doc/current/desktop-local-files]], [[workspace-scale-import]]
+See also: [[plan/transport-layer/project.md]], [[lazy-load]], [[doc/current/desktop-local-files]], [[workspace-scale-import]]
 
 Move **Desktop Upload** stub creation from post-push disk→graph reconcile onto the **client**. Desktop inventory drives Directory/File stubs in one Change; WebDAV then transfers file bodies only. Disk→graph reconcile remains for web / repair paths that never ran client structure.
 
@@ -82,7 +82,7 @@ sequenceDiagram
 | Finish-commit | Unchanged end-of-batch server git commit |
 | Reconcile endpoint | **Not** called after Desktop Upload; retained for web / repair ([[lazy-load]]) |
 
-Bulk Upload selection and transfer thresholds are locked in this file (Locked decisions 2 and 6). TreeStructure-as-empty-PUT is retired for Desktop Upload; Download is unlimited after server-scope ignore filtering. High-level pointer: [[workspace-file-sync]].
+Bulk Upload selection and transfer thresholds are locked in this file (Locked decisions 2 and 6). TreeStructure-as-empty-PUT is retired for Desktop Upload; Download is unlimited after server-scope ignore filtering. File-channel home: [[plan/transport-layer/project.md]].
 
 ## Implementation steps
 
@@ -90,7 +90,7 @@ Bulk Upload selection and transfer thresholds are locked in this file (Locked de
 2. **Client Upload wiring** — structure Change before body PUTs; no post-upload directory reconcile on this path. → **Done.**
 3. **Transfer simplification** — no TreeStructure empty PUT placeholders; bulk policy uses eligible bodies plus full/immediate-child structure. → **Done.**
 4. **Web / repair unchanged** — disk→graph reconcile remains for Upload without Desktop and explicit repair. → **Done.**
-5. **Docs / checklist** — this baseline describes limited Upload and unlimited Download. High-level pointer: [[workspace-file-sync]]. → **Done.**
+5. **Docs / checklist** — this baseline describes limited Upload and unlimited Download. File-channel home: [[plan/transport-layer/project.md]]. → **Done.**
 
 ## Tests
 

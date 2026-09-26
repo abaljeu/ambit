@@ -1,6 +1,6 @@
 # Workspace scale file and db management
 
-See also: [[doc/roadmap/workspace-scale-import.md]], [[workspace-file-sync]], [[doc/roadmap/workspace-file-persistence.md]], [[doc/roadmap/workspace-file-model.md]], [[plan/roadmap/epics/chapters/incremental-operations.md]]
+See also: [[doc/roadmap/workspace-scale-import.md]], [[plan/transport-layer/project.md]], [[doc/roadmap/workspace-file-persistence.md]], [[doc/roadmap/workspace-file-model.md]], [[plan/roadmap/epics/chapters/incremental-operations.md]]
 
 This document is the **umbrella vision** for repo-scale outliner behavior (lazy materialization, residency, queries, identity). **Rollout** is divided into concrete worksets in [[doc/roadmap/workspace-scale-import.md]] and residency authority in [[plan/roadmap/epics/chapters/incremental-operations.md]]; do not treat everything here as part of expand-to-parse and freshness UI. This file was created from discussions without looking at gambol sources — terms and details may need adaptation. `Repo` maps directly onto this project's concept of `workspace`.
 
@@ -9,7 +9,7 @@ This document is the **umbrella vision** for repo-scale outliner behavior (lazy 
 Committed sequencing (authoritative detail in linked docs):
 
 1. **`DataDir` live-save and path moves** — **done** ([[doc/current/workspace-stage-plan.md]] §7).
-2. **Workspace file sync** — **planned**: WebDAV Class 1 Map / Push / Pull, server finish-commit, `git check-ignore` for `.gitignore` ([[workspace-file-sync]]).
+2. **Workspace file sync** — **planned**: WebDAV Class 1 Map / Push / Pull, server finish-commit, `git check-ignore` for `.gitignore` ([[plan/transport-layer/project.md]], [[workspace-webdav]]).
 3. **Disk-to-graph stub reconciliation** — add/delete/rename/move/`M`→Unparsed after server tree commit is implemented; target trigger is WebDAV push + finish-commit. Contents are not parsed ([[lazy-load]]).
 4. **Expand-to-parse and freshness UI** — parse files on demand and report current / unparsed / older / newer state ([[doc/roadmap/workspace-scale-import.md]]).
 5. **On-demand graph residency** — document membership, scoped SQL loaders, server/client residency, per-document versions, hybrid search, then passive reclamation ([[plan/roadmap/epics/chapters/incremental-operations.md]]). Supersedes keeping all topology resident.
@@ -23,7 +23,7 @@ You want **transparent repo browsing/editing** inside the outliner:
 - Workspace file tree appears as an outline tree.
 - Files can be expanded into parsed outline structure.
 - Editing outline nodes writes immediately back to source files.
-- Coarse sync is WebDAV Map / Push / Pull; server finish-commit after Push ([[workspace-file-sync]]).
+- Coarse sync is WebDAV Map / Push / Pull; server finish-commit after Push ([[workspace-webdav]]).
 - Server git tracks the tree for ignore rules and commits; it is not the client transport.
 - The outliner preserves node identity, links, annotations, and roundtripping as much as possible.
 
@@ -159,7 +159,7 @@ This keeps repo use transparent:
 
 ## Commit and sync model
 
-Authoritative file-tree sync: [[workspace-file-sync]]. Summary:
+File-channel home: [[plan/transport-layer/project.md]]. Server DAV: [[workspace-webdav]]. Summary:
 
 **Commit cadence**
 
@@ -417,4 +417,4 @@ discovered stub
   -> reparsed
 ```
 
-That lifecycle defines metadata and commands for expand-to-parse and freshness UI. Workspace file sync is planned independently ([[workspace-file-sync]]); disk-to-graph stub reconciliation is the bridge from changed server files into structural graph nodes.
+That lifecycle defines metadata and commands for expand-to-parse and freshness UI. Workspace file sync is planned independently ([[plan/transport-layer/project.md]]); disk-to-graph stub reconciliation is the bridge from changed server files into structural graph nodes.

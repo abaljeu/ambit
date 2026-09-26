@@ -23,7 +23,8 @@ Current documents remain authoritative for implemented behavior. This index orga
 - [[doc/roadmap/workspace-file-persistence]]
 - [[doc/roadmap/workspace-scale-file-and-db-management]]
 - [[doc/roadmap/workspace-scale-import]]
-- [[doc/roadmap/workspace-file-sync]]
+- [[plan/transport-layer/project.md]] — file-channel Upload / Download
+- [[plan/github-transport/project.md]] — send to and from GitHub
 - [[doc/roadmap/workspace-webdav]] — server WebDAV Class 1 mount and PROPFIND datestamps
 - [[doc/roadmap/revising-workspace-file-model]]
 - Formats: [[doc/roadmap/workspace-format-amb]], [[doc/roadmap/workspace-format-md]], [[doc/roadmap/workspace-format-plain]], [[doc/roadmap/workspace-format-code]], [[doc/roadmap/workspace-format-xml]], [[doc/roadmap/workspace-format-dispatch]]
@@ -57,7 +58,7 @@ The range 35f2976..22e28ca changed 20 documentation paths.
 
 - [[doc/roadmap/workspace-scale-import]]
 - [[doc/roadmap/workspace-scale-file-and-db-management]]
-- [[doc/roadmap/workspace-file-sync]]
+- leftover `doc/roadmap/workspace-file-sync` — addressed; see [[plan/transport-layer/project.md]] and [[plan/github-transport/project.md]]
 - [[doc/roadmap/workspace-file-model]]
 - [[doc/roadmap/revising-workspace-file-model]]
 - [[doc/roadmap/workspace-file-persistence]]
