@@ -146,7 +146,7 @@ let ``non-empty Poll tail preserves ClientHistory before projection`` () =
         Assert.Equal(EventIdFixtures.storedId 3, result.eventId)
 
 [<Fact>]
-let ``answer-only Load preserves ClientHistory at the same settled Revision`` () =
+let ``answer-only Load at the same event id preserves ClientHistory`` () =
     let graph, wsId, ws = unloadedWorkspace ()
     let change = textChange 2 (NodeId.New()) "x" "y"
     let history =
@@ -170,7 +170,7 @@ let ``answer-only Load preserves ClientHistory at the same settled Revision`` ()
         Assert.Equal(Loaded, Graph.childrenStatus result.graph wsId)
 
 [<Fact>]
-let ``answer-only Load refuses a raced pending local transition`` () =
+let ``answer-only Load at the same event id refuses pending local work`` () =
     let graph, _, ws = unloadedWorkspace ()
     let state: ClientSyncState =
         ClientSyncState.create graph (EventIdFixtures.storedId 4) (ClientHistory.clear ())
@@ -183,7 +183,7 @@ let ``answer-only Load refuses a raced pending local transition`` () =
               childMap = Map.ofList [ ws.id, [] ] }
             state
     with
-    | Ok _ -> failwith "Expected raced package refusal"
+    | Ok _ -> failwith "Expected raced Load answer refusal"
     | Error msg -> Assert.Contains("raced", msg)
 
 [<Fact>]
@@ -234,7 +234,7 @@ let ``approve stamps Redo target written while undo id was zero`` () =
                 | _ -> failwith "expected Redo body"
 
 [<Fact>]
-let ``answer-only Load refuses a revision mismatch`` () =
+let ``answer-only Load refuses an event id mismatch`` () =
     let graph, _, ws = unloadedWorkspace ()
     let state: ClientSyncState =
         ClientSyncState.create graph (EventIdFixtures.storedId 4) (ClientHistory.clear ())
@@ -247,5 +247,5 @@ let ``answer-only Load refuses a revision mismatch`` () =
               childMap = Map.ofList [ ws.id, [] ] }
             state
     with
-    | Ok _ -> failwith "Expected raced package refusal"
+    | Ok _ -> failwith "Expected raced Load answer refusal"
     | Error msg -> Assert.Contains("raced", msg)

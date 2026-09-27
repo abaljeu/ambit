@@ -2,7 +2,7 @@
 
 **Type:** coding
 **Status:** coded
-**Actual:** 25m
+**Actual:** 35m
 **Blocked by:** [08 — Migrate Shared wire](08-migrate-shared-wire.md), [09 — Migrate Server Sync doors](09-migrate-server-sync-doors.md), [10 — Migrate Browser Poll, post-Event, and Boot](10-migrate-browser-poll-post-event-and-boot.md), [11 — Migrate Bullet and Included readers](11-migrate-bullet-included-and-bootstrap-wants.md)
 
 ## Context
@@ -26,7 +26,7 @@ Module [Load command](../arch.md). Story path 31.
 
 Modules [Sync wire](../arch.md), [Server Sync doors](../arch.md).
 
-- [x] 3.2.3 Delete legacy projection helpers — remove `packagesForTargets` and `installPackages`
+- [x] 3.2.3 Delete legacy projection helpers — remove `packagesForTarget`, `packagesForTargets`, and `installPackages`
 - [x] 6.2.3 Keep current Server answer — `postLoad` uses the same edges-plus-Nodes answer as Poll
 - [x] 9.2.1 Keep one apply path — `applySyncResponse` applies Events, then `installWantAnswer`
 
@@ -34,7 +34,7 @@ Modules [Sync wire](../arch.md), [Server Sync doors](../arch.md).
 
 Prove no legacy symbol or caller remains.
 
-- [x] 31.4 Symbol scan — no `LoadResponse.packages`, `packageChildMap`, `packagesForTargets`, or `installPackages`
+- [x] 31.4 Symbol scan — no `LoadResponse.packages`, `packageChildMap`, `packagesForTarget`, `packagesForTargets`, or `installPackages`
 - [x] 9.2.2 Residency proof — Poll, post-Event, bootstrap, and Load Fetch all install through the current answer path
 
 ## See also
@@ -46,7 +46,9 @@ Prove no legacy symbol or caller remains.
 - 2026-09-26: Filed via `/to-tickets`. Contract. Decision home is [06 — Dual-run vs migrate explicit Load Fetch](06-dual-run-vs-migrate-explicit-load.md).
 - 2026-09-26: Status changed to `defined`; linked Blocked-by tickets carry dependency order.
 - 2026-09-26: Decision 06 affirmed removal; no dual-run or compatibility API remains.
+- 1. **Independent review fix** — 2026-09-27: Removed the remaining singular package projection and retargeted its tests to the current Want answer.
 
 ## 4. Time
 
 - 1. **Contract implementation** — 2026-09-27 25m — removed the old Load Fetch package API and verified the current answer path.
+- 2. **Independent review fixes** — 2026-09-27 10m — removed the singular package helper, retargeted tests, and verified the current answer path.

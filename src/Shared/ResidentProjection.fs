@@ -261,13 +261,6 @@ module ResidentProjection =
                     Map.add id node nodes, Map.add id kids childMap)
             (Map.empty, Map.empty)
 
-    /// Workspace subgraph as a Node list.
-    let workspaceSubgraphNodes (graph: Graph) (workspaceId: NodeId) : Node list =
-        projectWorkspaceSlice graph workspaceId
-        |> fst
-        |> Map.toList
-        |> List.map snd
-
     [<RequireQualifiedAccess>]
     type LoadRefuse =
         | MultiWorkspace
@@ -291,22 +284,6 @@ module ResidentProjection =
         : bool =
         distinctOwningWorkspaces graph targetIds
         |> List.length > 1
-
-    /// Optional owning-Workspace subgraph for one Load target.
-    /// Missing target → empty (Change catch-up only).
-    let packagesForTarget
-        (graph: Graph)
-        (targetId: NodeId)
-        (includeWorkspace: bool)
-        : Node list =
-        if not includeWorkspace then
-            []
-        elif not (Map.containsKey targetId graph.nodes) then
-            []
-        else
-            match GraphQuery.enclosingWorkspace graph targetId with
-            | None -> []
-            | Some wsId -> workspaceSubgraphNodes graph wsId
 
     let wantAnswerForTargets
         (graph: Graph)
