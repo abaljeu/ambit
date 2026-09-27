@@ -1,7 +1,7 @@
 # 14 — Route Load and Save by path pre-pick
 
 **Type:** coding
-**Status:** coded
+**Status:** done
 **Blocked by:** [11 — Pick git or desk for plain Load and Save](11-pick-git-or-desk-for-plain-load-save.md); [13 — Run git Load and Save through the Server Peer Actor](13-peer-actor-runs-git-load-save.md)
 Actual: 2h15m
 
