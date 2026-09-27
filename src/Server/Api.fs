@@ -47,6 +47,22 @@ module Api =
                 return Ok(state, childMap, nodes)
         }
 
+    let private eventsThroughSnapshot
+        (handle: CoreChanges)
+        (after: EventId)
+        (snapshotId: EventId)
+        : Async<Ev list> =
+        async {
+            if snapshotId <= after then
+                return []
+            else
+                let! events = handle.getEventsSince after
+                return
+                    events
+                    |> List.filter (fun event ->
+                        event.id <= snapshotId)
+        }
+
     let postPoll
         (handle: CoreChanges)
         (buildEpochSec: int)
@@ -65,13 +81,10 @@ module Api =
             | Error err -> return agentErrorResult err
             | Ok (state, childMap, nodes) ->
                 let! events =
-                    if state.eventId > request.eventId then
-                        handle.getEventsSince request.eventId
-                    else async.Return []
-                let snapshotEvents =
-                    events
-                    |> List.filter (fun event ->
-                        event.id <= state.eventId)
+                    eventsThroughSnapshot
+                        handle
+                        request.eventId
+                        state.eventId
                 return
                     changeSuccessResult
                         { eventId = state.eventId
@@ -79,8 +92,8 @@ module Api =
                           pageBuildEpochSec = pageBuildEpochSec
                           apiVersion = ApiVersion.current
                           isReady = handle.isReady ()
-                          externalChanges = not snapshotEvents.IsEmpty
-                          events = snapshotEvents
+                          externalChanges = not events.IsEmpty
+                          events = events
                           message = None
                           bootstrapHash = None
                           nodes = nodes
@@ -92,7 +105,7 @@ module Api =
         (targets: LoadTarget list)
         : Async<
             Result<
-                Result<
+                State * Result<
                     Node list * Map<NodeId, ChildNode list>,
                     ResidentProjection.LoadRefuse>,
                 string>> =
@@ -102,6 +115,7 @@ module Api =
             | Ok stateResponse ->
                 return
                     Ok(
+                        stateResponse,
                         ResidentProjection.packagesForTargets
                             stateResponse.graph
                             targets)
@@ -123,21 +137,19 @@ module Api =
         | Ok request ->
             match! loadPackages handle request.targets with
             | Error err -> return agentErrorResult err
-            | Ok(Error ResidentProjection.LoadRefuse.MultiWorkspace) ->
+            | Ok(_, Error ResidentProjection.LoadRefuse.MultiWorkspace) ->
                 return
                     Results.BadRequest(
                         {| error =
                             "Load requires all selected targets in one Workspace" |})
-            | Ok(Ok (packages, packageChildMap)) ->
-                let! eventId = handle.getEventId ()
-                let revValue = EventId.value eventId
+            | Ok(state, Ok (packages, packageChildMap)) ->
                 let! events =
-                    if revValue > EventId.value request.eventId then
-                        handle.getEventsSince request.eventId
-                    else
-                        async.Return []
+                    eventsThroughSnapshot
+                        handle
+                        request.eventId
+                        state.eventId
                 let load: LoadResponse =
-                    { eventId = eventId
+                    { eventId = state.eventId
                       buildEpochSec = buildEpochSec
                       pageBuildEpochSec = pageBuildEpochSec
                       apiVersion = ApiVersion.current
@@ -215,16 +227,23 @@ module Api =
             | Ok accepted ->
                 match! wantAnswerFromHandle handle request.want with
                 | Error err -> return agentErrorResult err
-                | Ok (_, childMap, nodes) ->
+                | Ok (state, childMap, nodes) ->
+                    let! laterEvents =
+                        eventsThroughSnapshot
+                            handle
+                            accepted.eventId
+                            state.eventId
                     return
                         changeSuccessResult
-                            { eventId = accepted.eventId
+                            { eventId = state.eventId
                               buildEpochSec = buildEpochSec
                               pageBuildEpochSec = pageBuildEpochSec
                               apiVersion = ApiVersion.current
                               isReady = accepted.isReady
-                              externalChanges = accepted.externalChanges
-                              events = accepted.events
+                              externalChanges =
+                                accepted.externalChanges
+                                || not laterEvents.IsEmpty
+                              events = accepted.events @ laterEvents
                               message = accepted.message
                               bootstrapHash = None
                               nodes = nodes
