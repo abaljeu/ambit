@@ -282,12 +282,11 @@ module GraphBuild =
     /// parent edges, so the indexes are unchanged and bulk inserts (a parse tail is
     /// thousands of NewNode ops) avoid a whole-graph rebuild per op.
     /// New nodes are Loaded empty (`childMap` key present with []).
+    /// An id already present keeps the supplied node, including `owner`.
+    /// A rebuild would reapply the ROOT owner edge and drop that owner link.
     let addDetachedNode (node: Node) (graph: Graph) : Graph =
         if Map.containsKey node.id graph.nodes then
-            fromNodes
-                graph.root
-                (graph.nodes |> Map.add node.id node)
-                graph.childMap
+            { graph with nodes = graph.nodes |> Map.add node.id node }
         else
             { graph with
                 nodes =
