@@ -59,10 +59,7 @@ module DocumentPersistPath =
                 withWorkTreeGates rest action)
 
     let normalizedWorkTreeRoots (workspaceRoots: string list) =
-        workspaceRoots
-        |> List.map Path.GetFullPath
-        |> List.distinct
-        |> List.sort
+        WorkspaceGit.normalizeWorkTreeRoots workspaceRoots
 
     let enumerateDocumentRoots (graph: Graph) : NodeId list =
         graph.nodes

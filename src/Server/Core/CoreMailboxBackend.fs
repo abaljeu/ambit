@@ -12,16 +12,13 @@ module internal CoreMailboxBackend =
     module Ev = Gambol.Shared.Ev
     module EventLog = Gambol.Shared.EventLog
 
-    /// Bound on wall-clock time for a single change's persist step (disk write via
-    /// DocumentWarm/CStyleReconcile). That reconcile path is a known-slow/hanging
-    /// algorithm; this timeout exists to keep the mailbox context responsive, not to fix it.
+    /// Bound for non-file change work that may keep the mailbox context busy.
+    /// Never wrap work-tree-gated file Persist: timeout abandonment would leave a late writer.
     [<Literal>]
     let ChangeProcessingTimeoutMs = 8000
 
-    /// Runs a synchronous computation on a background Task, bounding wall-clock time so
-    /// a pathologically slow computation can never wedge the caller's mailbox context. If the
-    /// timeout elapses, the background Task is abandoned (fire-and-forget): it may still run
-    /// to completion later and write to disk concurrently with subsequently accepted changes.
+    /// Runs a synchronous computation on a background Task, bounding wall-clock time. If the
+    /// timeout elapses, the background Task is abandoned and may still complete later.
     /// Uses WaitAny (not Wait/Result) because WaitAny reports timeout vs settled without
     /// itself throwing on a faulted task; GetAwaiter().GetResult() then rethrows `f`'s
     /// original exception unwrapped (as if called synchronously), so the caller's existing

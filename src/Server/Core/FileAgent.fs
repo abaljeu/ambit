@@ -8,9 +8,6 @@ type FileAgentDependencies = {
     persistGraphOps:
         string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, string>
     appendException: string -> string -> exn -> unit
-    /// Wall-clock bound for the persistGraphOps call. Overridable so tests can exercise
-    /// the timeout path without waiting the full production timeout.
-    changeProcessingTimeoutMs: int
 }
 
 // FileAgent — persist filling for one dataDir. Does not start a mailbox.
@@ -43,8 +40,6 @@ module FileAgent =
                 HttpResponseLog.appendException
                     (HttpResponseLog.logPath dataDir)
                     "FileAgent"
-            changeProcessingTimeoutMs =
-                CoreMailboxBackend.ChangeProcessingTimeoutMs
         }
 
     let private accepted loaded confirmed externalChanges message =
@@ -63,14 +58,11 @@ module FileAgent =
         (ops: Op list)
         =
         let persisted =
-            CoreMailboxBackend.runBounded
-                loaded.dependencies.changeProcessingTimeoutMs
-                (fun () ->
-                    loaded.dependencies.persistGraphOps
-                        loaded.dataDir
-                        preGraph
-                        postGraph
-                        ops)
+            loaded.dependencies.persistGraphOps
+                loaded.dataDir
+                preGraph
+                postGraph
+                ops
         match persisted with
         | Error err -> Error err
         | Ok stamped ->

@@ -260,14 +260,11 @@ module DbAgent =
                 fresh
                 |> List.collect (fun event ->
                     Ev.ops event |> Option.defaultValue [])
-            CoreMailboxBackend.runBounded
-                CoreMailboxBackend.ChangeProcessingTimeoutMs
-                (fun () ->
-                    loaded.persistGraphOps
-                        dataDir
-                        preGraph
-                        newState.graph
-                        ops)
+            loaded.persistGraphOps
+                dataDir
+                preGraph
+                newState.graph
+                ops
             |> Result.map Some
         | _ -> Ok None
 

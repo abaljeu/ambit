@@ -3,6 +3,7 @@ namespace Gambol.Server
 open System
 open System.Collections.Concurrent
 open System.IO
+open System.Linq
 open System.Threading
 open Gambol.Shared
 
@@ -24,9 +25,20 @@ module WorkspaceGit =
     let private workTreeGates =
         ConcurrentDictionary<string, SemaphoreSlim>(gateComparer)
 
-    let private gateKey (workspaceRoot: string) =
-        Path.GetFullPath(workspaceRoot)
-            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+    let normalizeWorkTreeRoot (workspaceRoot: string) =
+        let fullPath = Path.GetFullPath(workspaceRoot)
+        let trimmed =
+            fullPath.TrimEnd(
+                Path.DirectorySeparatorChar,
+                Path.AltDirectorySeparatorChar)
+        if String.IsNullOrEmpty trimmed then fullPath else trimmed
+
+    let normalizeWorkTreeRoots (workspaceRoots: string list) =
+        workspaceRoots
+        |> Seq.map normalizeWorkTreeRoot
+        |> fun roots -> roots.Distinct(gateComparer)
+        |> Seq.sortWith (fun left right -> gateComparer.Compare(left, right))
+        |> Seq.toList
 
     let withWorkTreeGate
         (workspaceRoot: string)
@@ -34,7 +46,7 @@ module WorkspaceGit =
         : Result<'value, string> =
         let gate =
             workTreeGates.GetOrAdd(
-                gateKey workspaceRoot,
+                normalizeWorkTreeRoot workspaceRoot,
                 fun _ -> new SemaphoreSlim(1, 1))
         gate.Wait()
         try

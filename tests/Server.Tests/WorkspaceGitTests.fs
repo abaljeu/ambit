@@ -495,6 +495,21 @@ let ``work tree gate waits then continues without overlap`` () =
         entered |> Seq.toList)
 
 [<Fact>]
+let ``work tree root aliases acquire one gate without deadlock`` () =
+    let root = Path.Combine(newTempDir (), "home")
+    let aliases =
+        [ root
+          root + string Path.DirectorySeparatorChar
+          if OperatingSystem.IsWindows() then root.ToUpperInvariant() ]
+    let normalized = DocumentPersistPath.normalizedWorkTreeRoots aliases
+    Assert.Single(normalized) |> ignore
+    let acquired =
+        Task.Run(fun () ->
+            DocumentPersistPath.withWorkTreeGates normalized (fun () -> Ok ()))
+    Assert.True(acquired.Wait(1000))
+    acquired.Result |> requireOk "aliased gates" |> ignore
+
+[<Fact>]
 let ``Persist write waits on the Workspace work tree gate`` () =
     let dataDir = newTempDir ()
     let graph, wsId = graphWithWorkspace "home"
@@ -518,3 +533,52 @@ let ``Persist write waits on the Workspace work tree gate`` () =
     Task.WaitAll(holder, persist)
     persist.Result |> requireOk "Persist" |> ignore
     Assert.True(File.Exists(Path.Combine(root, ".amb")))
+
+[<SkippableFact>]
+let ``pullTracked waits for the work tree gate then continues`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let _, _, _, workspace = trackedWorkspace ()
+    let holderEntered = TaskCompletionSource<unit>()
+    let releaseHolder = TaskCompletionSource<unit>()
+    let holder =
+        Task.Run(fun () ->
+            WorkspaceGit.withWorkTreeGate workspace (fun () ->
+                holderEntered.SetResult()
+                releaseHolder.Task.Wait()
+                Ok ()))
+    holderEntered.Task.Wait()
+    let pull = Task.Run(fun () -> WorkspaceGit.pullTracked workspace)
+    Assert.True(
+        SpinWait.SpinUntil(
+            (fun () -> pull.Status = TaskStatus.Running),
+            1000))
+    Assert.False(pull.Wait(100))
+    releaseHolder.SetResult()
+    Task.WaitAll(holder, pull)
+    pull.Result |> requireOk "queued pull" |> ignore
+
+[<SkippableFact>]
+let ``saveTracked waits for the work tree gate then continues`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let _, _, _, workspace = trackedWorkspace ()
+    File.WriteAllText(Path.Combine(workspace, "queued.txt"), "queued")
+    let holderEntered = TaskCompletionSource<unit>()
+    let releaseHolder = TaskCompletionSource<unit>()
+    let holder =
+        Task.Run(fun () ->
+            WorkspaceGit.withWorkTreeGate workspace (fun () ->
+                holderEntered.SetResult()
+                releaseHolder.Task.Wait()
+                Ok ()))
+    holderEntered.Task.Wait()
+    let save =
+        Task.Run(fun () -> WorkspaceGit.saveTracked workspace "queued-save" None)
+    Assert.True(
+        SpinWait.SpinUntil(
+            (fun () -> save.Status = TaskStatus.Running),
+            1000))
+    Assert.False(save.Wait(100))
+    releaseHolder.SetResult()
+    Task.WaitAll(holder, save)
+    save.Result |> requireOk "queued save" |> ignore
+    Assert.Equal("queued-save", git workspace "log -1 --pretty=%s")
