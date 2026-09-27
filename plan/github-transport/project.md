@@ -4,7 +4,7 @@ Stage: build
 Summary: A person maps a key GitHub repo to a Workspace whose DataDir work tree is already the git home. A Server Actor pulls from and pushes to that GitHub remote (round-trip v1, fast-forward only) so every device that maps through Server sees the same files. The App stays thin. Skip on that remote is whatever `.gitignore` already says.
 Updated: 2026-09-27
 Started: 2026-09-27
-Actual: 5h55m
+Actual: 6h25m
 
 **Part of:** [[plan/roadmap/epics/chapters/send-to-and-from-github.md]]
 **Part of / under:** [[plan/transport-layer/project.md]] (file transit)

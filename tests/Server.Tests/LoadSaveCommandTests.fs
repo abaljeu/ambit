@@ -240,23 +240,35 @@ let private postRouted operation prePick harness = task {
     Assert.True(Option.isSome response.command)
 }
 
-let rec private waitForStop host focusId remainingMs = task {
-    let! history =
-        CoreMailbox.eventHistory host |> Async.StartAsTask
-    let stopped =
-        history.events
-        |> List.tryPick (fun event ->
-            match event.body with
-            | EventBody.ActorStop(id, result) when id = focusId ->
-                Some result
-            | _ -> None)
-    match stopped with
-    | Some result -> return Some result
-    | None when remainingMs <= 0 -> return None
-    | None ->
-        do! Task.Delay 10
-        return! waitForStop host focusId (remainingMs - 10)
-}
+let rec private waitForStopUntil
+    host
+    focusId
+    (deadline: DateTime)
+    (delayMs: int)
+    =
+    task {
+        let! history =
+            CoreMailbox.eventHistory host |> Async.StartAsTask
+        let stopped =
+            history.events
+            |> List.tryPick (fun event ->
+                match event.body with
+                | EventBody.ActorStop(id, result) when id = focusId ->
+                    Some result
+                | _ -> None)
+        match stopped with
+        | Some result -> return Some result
+        | None when DateTime.UtcNow >= deadline -> return None
+        | None ->
+            do! Task.Delay delayMs
+            return!
+                waitForStopUntil
+                    host focusId deadline (min 250 (delayMs * 2))
+    }
+
+let private waitForStop host focusId =
+    waitForStopUntil
+        host focusId (DateTime.UtcNow.AddSeconds 30.0) 10
 
 let private decodePoll result =
     match box result with
@@ -313,7 +325,7 @@ let ``routed Git Save commits then pushes through Peer Actor`` () = task {
                 LoadSavePrePick.Git
                 harness
         let! stopped =
-            waitForStop harness.host harness.seed.focusId 2000
+            waitForStop harness.host harness.seed.focusId
         Assert.Equal(Some ActorSucceeded, stopped)
         let verify = Path.Combine(harness.parent, "verify")
         git harness.parent $"clone {harness.remote} verify" |> ignore
@@ -342,7 +354,7 @@ let ``routed Git Load pulls and Poll sees Parse lifecycle`` () = task {
                 LoadSavePrePick.Plain
                 harness
         let! stopped =
-            waitForStop harness.host harness.seed.focusId 2000
+            waitForStop harness.host harness.seed.focusId
         Assert.Equal(Some ActorSucceeded, stopped)
         Assert.Equal(
             "pulled",

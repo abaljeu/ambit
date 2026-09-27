@@ -22,9 +22,9 @@ let deskSaveOp (model: VM) : VM * Effect list =
     else
         model, [ ContinueDeskSave ]
 
-let runDeskSave () =
-    postEmpty
-        (deskSaveUrl currentFile)
+let runDeskSaveWith post fileName =
+    post
+        (deskSaveUrl fileName)
         (fun text ->
             match decodeGitSaveResponse text with
             | Ok { ok = true; detail = detail } ->
@@ -42,7 +42,6 @@ let runDeskSave () =
                 + ": "
                 + LogText.summarizeHttpBody 200 text))
         (fun () -> consoleLog "[Gambol] save network error")
-        (emptyMutatingPostHeaders ())
 
 let saveOpFor
     (prePick: LoadSavePrePick)

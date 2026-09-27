@@ -86,20 +86,57 @@ let private saveEnabledModel () =
         serverCapabilities =
             Some { canGitSave = true; canFileStatus = true } }
 
+let private effectDependencies () =
+    let urls = ResizeArray<string>()
+    let postJson url _ onOk _ _ =
+        urls.Add url
+        if url = "/_desktop/workspace-inventory" then
+            onOk """{"mode":"Full","items":[]}"""
+    let postEmpty url _ _ _ =
+        urls.Add url
+    let dependencies: DeskLoadSaveEffectClient.Dependencies =
+        { defer = fun action -> action ()
+          postJson = postJson
+          prepareWorkspacePush = fun _ -> Ok "{}"
+          encodeWorkspaceInventory = fun _ -> "{}"
+          decodeWorkspaceInventory =
+            fun _ -> Ok { mode = "Full"; items = [] }
+          postEmpty = postEmpty
+          fileName = "ambit" }
+    dependencies, urls
+
+let private onlyUpdater messages =
+    match messages |> Seq.toList with
+    | [ ApplyOp updater ] -> updater
+    | other -> failwith $"expected one ApplyOp, got {other}"
+
 [<Fact>]
 let ``Desk Load response continues to mapped workspace push`` () =
     let updater = runDesk LoadSaveOperation.Load
-    let _, effects = updater (mappedWorkspaceModel ())
+    let model, effects = updater (mappedWorkspaceModel ())
     match effects with
     | [ ContinueWorkspaceStubsThenPush(scope, None) ] ->
-        Assert.Equal("home", scope.label)
+        let dependencies, urls = effectDependencies ()
+        let messages = ResizeArray<Msg>()
+        DeskLoadSaveEffectClient.runWorkspaceStubsThenPushWith
+            dependencies messages.Add scope None
+        let completeInventory = onlyUpdater messages
+        let _, nextEffects = completeInventory model
+        match nextEffects with
+        | [ ContinueWorkspacePush(nextScope, None) ] ->
+            DeskLoadSaveEffectClient.runWorkspacePushWith
+                dependencies ignore nextScope None
+        | other -> failwith $"expected push continuation, got {other}"
+        Assert.Contains("/_desktop/workspace-push", urls)
     | other -> failwith $"expected workspace push, got {other}"
 
 [<Fact>]
 let ``Desk Save response continues to existing save endpoint`` () =
     let updater = runDesk LoadSaveOperation.Save
     let _, effects = updater (saveEnabledModel ())
-    Assert.Equal<Effect list>([ ContinueDeskSave ], effects)
-    Assert.Equal(
-        "/ambit/save",
-        UpdateSave.deskSaveUrl "ambit")
+    match effects with
+    | [ ContinueDeskSave ] ->
+        let dependencies, urls = effectDependencies ()
+        DeskLoadSaveEffectClient.runDeskSaveWith dependencies
+        Assert.Contains("/ambit/save", urls)
+    | other -> failwith $"expected desk save continuation, got {other}"

@@ -102,32 +102,8 @@ let createRuntime (initialModel: VM) =
         | RequestServerFileStatus (nodeId, path) -> runServerFileStatus nodeId path
         | RequestWorkspacePathSyncSnapshot -> runWorkspacePathSyncSnapshot ()
         | ContinueWorkspaceStubsThenPush (scope, parseFileId) ->
-            // Delay past the current frame so Uploading can paint, then async inventory.
-            setTimeout
-                (fun () ->
-                    let body = encodeWorkspaceInventoryBody scope
-                    postJson
-                        "/_desktop/workspace-inventory"
-                        body
-                        (fun text ->
-                            dispatch (
-                                ApplyOp (
-                                    completeUploadInventory
-                                        scope
-                                        parseFileId
-                                        text)))
-                        (fun status text ->
-                            dispatch (
-                                ApplyOp (
-                                    failWorkspacePushHttp status text)))
-                        (fun () ->
-                            dispatch (
-                                ApplyOp (
-                                    failWorkspacePush
-                                        "workspace-inventory request failed")))
-                        (jsonMutatingPostHeaders ()))
-                50
-            |> ignore
+            DeskLoadSaveEffectClient.runWorkspaceStubsThenPush
+                dispatch scope parseFileId
         | ContinuePostUploadStructure (submitted, scope, parseFileId) ->
             // Stubs already in the model (DOM patched before effects). Async POST.
             let url = sprintf "/%s/changes" currentFile
@@ -163,37 +139,8 @@ let createRuntime (initialModel: VM) =
             // idempotent and recovers its authoritative ACK.
             post ()
         | ContinueWorkspacePush (scope, parseFileId) ->
-            // Ensure-map may sync-dialog; heavy WebDAV push must use async fetch.
-            setTimeout
-                (fun () ->
-                    match tryPrepareWorkspacePushBody scope with
-                    | Error "cancelled" ->
-                        dispatch (ApplyOp cancelWorkspacePush)
-                    | Error e ->
-                        dispatch (ApplyOp (failWorkspacePush e))
-                    | Ok body ->
-                        postJson
-                            "/_desktop/workspace-push"
-                            body
-                            (fun text ->
-                                dispatch (
-                                    ApplyOp (
-                                        completeWorkspacePush
-                                            scope
-                                            parseFileId
-                                            text)))
-                            (fun status text ->
-                                dispatch (
-                                    ApplyOp (
-                                        failWorkspacePushHttp status text)))
-                            (fun () ->
-                                dispatch (
-                                    ApplyOp (
-                                        failWorkspacePush
-                                            "workspace-push request failed")))
-                            (jsonMutatingPostHeaders ()))
-                50
-            |> ignore
+            DeskLoadSaveEffectClient.runWorkspacePush
+                dispatch scope parseFileId
         | ContinueWorkspaceDownload jobId ->
             setTimeout
                 (fun () ->
@@ -248,7 +195,8 @@ let createRuntime (initialModel: VM) =
                         (fun () -> runNext rest)
                 | _ :: rest -> runNext rest
             runNext requests
-        | ContinueDeskSave -> UpdateSave.runDeskSave ()
+        | ContinueDeskSave ->
+            DeskLoadSaveEffectClient.runDeskSave ()
         | ScheduleAutoDownloadTick delayMs ->
             runScheduleAutoDownloadTick delayMs
 
