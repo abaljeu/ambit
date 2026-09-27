@@ -11,7 +11,7 @@ type SyncState =
     | Loading                    // Load Fetch+Poll in-flight (blocks poll/submit)
     | WaitingToRetry of attempt: int * baseEventId: EventId * events: Ev list
     | ServerRejected  // server returned 400 — change cannot be applied; reload required
-    | CodeOutdated    // Poll apiVersion differs from ApiVersion.current — reload required
+    | CodeOutdated    // reload required; not set from apiVersion
     | DataOutdated    // server has newer data with no local pending — reload required
 
 /// A multi-phase request that must start from a settled event id, so it rides the

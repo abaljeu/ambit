@@ -12,20 +12,16 @@ type AckReconcile =
 module SyncLogic =
 
     /// Determine if the poll response indicates the client is outdated.
-    /// Returns Some CodeOutdated if Poll apiVersion differs from ApiVersion.current,
-    /// Some DataOutdated if server event id is ahead of the client,
+    /// Returns Some DataOutdated if server event id is ahead of the client,
     /// or None if the client is up to date.
-    /// CodeOutdated takes priority when both conditions hold.
+    /// Does not branch on apiVersion: one live API; apply what arrived.
     /// Callers must only invoke this when there are no pending local events
     /// (otherwise a higher server event id may reflect our own in-flight POST).
     let getPollOutcome
         (poll: ChangeSuccessResponse)
         (clientEventId: EventId)
         : SyncState option =
-        let codeOutdated = poll.apiVersion <> ApiVersion.current
-        let dataOutdated = poll.eventId > clientEventId
-        if codeOutdated then Some CodeOutdated
-        elif dataOutdated then Some DataOutdated
+        if poll.eventId > clientEventId then Some DataOutdated
         else None
 
     /// Server-restart signal: poll/load `buildEpochSec` (DeployEpochSec) differs
@@ -73,9 +69,20 @@ module SyncLogic =
                     | ApplyResult.Invalid (_, msg) -> Error msg)
             (Ok state)
 
+    let private graphAfterWant
+        (response: SyncResponse)
+        (graph: Graph)
+        : Result<Graph, string> =
+        if List.isEmpty response.nodes && Map.isEmpty response.childMap then
+            Ok graph
+        else
+            ResidentProjection.installWantAnswer
+                response.childMap
+                response.nodes
+                graph
+
     /// Apply a Sync response atomically under Loaded rules.
-    /// Packages install after the projected tail so authoritative snapshots at the
-    /// response event id win. Poll and Post consume paths preserve History.
+    /// Event tail, then the edges-plus-Nodes answer through installWantAnswer.
     let applySyncResponse
         (response: SyncResponse)
         (state: ClientSyncState)
@@ -83,12 +90,10 @@ module SyncLogic =
         match foldProjectedEvents response.events state with
         | Error msg -> Error msg
         | Ok afterEvents ->
-            let graph =
-                ResidentProjection.installPackages
-                    response.packages
-                    response.packageChildMap
-                    afterEvents.graph
-            Ok { afterEvents with graph = graph }
+            match graphAfterWant response afterEvents.graph with
+            | Error msg -> Error msg
+            | Ok afterWant ->
+                Ok { afterEvents with graph = afterWant }
 
     let applyLoadResponse
         (responseEventId: EventId)
@@ -98,7 +103,7 @@ module SyncLogic =
         : Result<ClientSyncState, string> =
         let packageOnly =
             List.isEmpty response.events
-            && not (List.isEmpty response.packages)
+            && not (List.isEmpty response.nodes)
         if
             packageOnly
             && (hasPendingLocal || responseEventId <> state.eventId)
@@ -109,8 +114,17 @@ module SyncLogic =
 
     let loadResponseToSync (response: LoadResponse) : SyncResponse =
         { events = response.events
-          packages = response.packages
-          packageChildMap = response.packageChildMap }
+          packages = []
+          packageChildMap = Map.empty
+          nodes = response.packages
+          childMap = response.packageChildMap }
+
+    let changeSuccessToSync (response: ChangeSuccessResponse) : SyncResponse =
+        { events = response.events
+          packages = []
+          packageChildMap = Map.empty
+          nodes = response.nodes
+          childMap = response.childMap }
 
     let loadResponseToPoll (response: LoadResponse) : ChangeSuccessResponse =
         { eventId = response.eventId
@@ -134,7 +148,9 @@ module SyncLogic =
         applySyncResponse
             { events = events
               packages = []
-              packageChildMap = Map.empty }
+              packageChildMap = Map.empty
+              nodes = []
+              childMap = Map.empty }
             state
 
     let private undoPendingGraph

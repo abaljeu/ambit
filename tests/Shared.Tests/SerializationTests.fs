@@ -477,7 +477,8 @@ let ``ChangeSuccessResponse round-trip with empty Changes`` () =
 
 [<Fact>]
 let ``ChangeSuccessResponse omits bootstrapHash and still decodes`` () =
-    let json = """{"r":3,"b":0,"p":0,"ready":true,"externalChanges":false,"c":[]}"""
+    let json =
+        """{"r":3,"b":0,"p":0,"ready":true,"externalChanges":false,"c":[],"nodes":[],"childMap":[]}"""
     match Dec.fromString ApiResponseSerialization.decodeChangeSuccessResponseDecoder json with
     | Error err -> failwith err
     | Ok decoded ->
@@ -507,7 +508,7 @@ let ``ChangeSuccessResponse round-trip with bootstrapHash`` () =
     Assert.Equal(Some "deadbeef", decoded.bootstrapHash)
 
 [<Fact>]
-let ``ChangeSuccessResponse omits nodes and childMap and still decodes`` () =
+let ``ChangeSuccessResponse fails decode when nodes or childMap is missing`` () =
     let json =
         """{"r":3,"b":0,"p":0,"ready":true,"externalChanges":false,"c":[]}"""
     match
@@ -515,10 +516,8 @@ let ``ChangeSuccessResponse omits nodes and childMap and still decodes`` () =
             ApiResponseSerialization.decodeChangeSuccessResponseDecoder
             json
     with
-    | Error err -> failwith err
-    | Ok decoded ->
-        Assert.Equal<Node list>([], decoded.nodes)
-        Assert.True(decoded.childMap.IsEmpty)
+    | Ok _ -> failwith "Expected missing nodes/childMap to fail"
+    | Error _ -> ()
 
 [<Fact>]
 let ``ChangeSuccessResponse round-trip with Want-answer nodes and childMap`` () =
@@ -552,6 +551,42 @@ let ``ChangeSuccessResponse round-trip with Want-answer nodes and childMap`` () 
         decoded.childMap.[parentId])
 
 [<Fact>]
+let ``ChangeSuccessResponse keeps Changes beside Want answer`` () =
+    let parentId = NodeId.New()
+    let childId = NodeId.New()
+    let change =
+        { id = EventIdFixtures.storedId 9
+          submissionId = System.Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [ Op.SetText(parentId, "old", "new") ] }
+    let parent = Node.Create(parentId, text = "parent")
+    let child = Node.Create(childId, text = "child", owner = parentId)
+    let response: ChangeSuccessResponse =
+        { eventId = EventIdFixtures.storedId 9
+          buildEpochSec = 0
+          pageBuildEpochSec = 0
+          apiVersion = ApiVersion.current
+          isReady = true
+          externalChanges = true
+          events = [ change ]
+          message = None
+          bootstrapHash = None
+          nodes = [ parent; child ]
+          childMap = Map.ofList [ parentId, ChildNode.owners [ childId ] ] }
+    let decoded =
+        roundTrip
+            ApiResponseSerialization.encodeChangeSuccessResponse
+            ApiResponseSerialization.decodeChangeSuccessResponseDecoder
+            response
+    Assert.Equal(1, decoded.events.Length)
+    Assert.Equal(change.id, decoded.events.[0].id)
+    Assert.Equal(2, decoded.nodes.Length)
+    Assert.Equal<ChildNode list>(
+        ChildNode.owners [ childId ],
+        decoded.childMap.[parentId])
+
+[<Fact>]
 let ``PollRequest always encodes want including empty`` () =
     let request: PollRequest =
         { eventId = EventIdFixtures.storedId 2
@@ -568,6 +603,17 @@ let ``PollRequest always encodes want including empty`` () =
     Assert.Equal<NodeId list>([], decoded.want)
 
 [<Fact>]
+let ``PollRequest fails decode when want is missing`` () =
+    let json = """{"eventId":2}"""
+    match
+        Dec.fromString
+            ApiResponseSerialization.decodePollRequestDecoder
+            json
+    with
+    | Ok _ -> failwith "Expected missing want to fail"
+    | Error _ -> ()
+
+[<Fact>]
 let ``ChangeRequest round-trip with want ids`` () =
     let parentId = NodeId.New()
     let request: ChangeRequest =
@@ -579,6 +625,30 @@ let ``ChangeRequest round-trip with want ids`` () =
             ApiResponseSerialization.decodeChangeRequestDecoder
             request
     Assert.Equal<Ev list>([], decoded.events)
+    Assert.Equal<NodeId list>([ parentId ], decoded.want)
+
+[<Fact>]
+let ``ChangeRequest round-trip keeps Changes beside want`` () =
+    let parentId = NodeId.New()
+    let change =
+        { id = EventIdFixtures.storedId 4
+          submissionId = System.Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [ Op.SetText(parentId, "old", "new") ] }
+    let request: ChangeRequest =
+        { events = [ change ]
+          want = [ parentId ] }
+    let decoded =
+        roundTrip
+            ApiResponseSerialization.encodeChangeRequest
+            ApiResponseSerialization.decodeChangeRequestDecoder
+            request
+    Assert.Equal(1, decoded.events.Length)
+    Assert.Equal(change.id, decoded.events.[0].id)
+    Assert.Equal<Op list>(
+        SpecialNodeTestHelpers.eventOps change,
+        Ev.ops decoded.events.[0] |> Option.defaultValue [])
     Assert.Equal<NodeId list>([ parentId ], decoded.want)
 
 [<Fact>]

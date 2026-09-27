@@ -167,14 +167,6 @@ and private handleBootPoll (clientEventId: EventId) (poll: ChangeSuccessResponse
                     [],
                     Some ready,
                     Some (poll.eventId))))
-    | BootCache.BootPoll.CodeOutdated ->
-        dispatch (
-            SysMsg (
-                PollDone (
-                    Some CodeOutdated,
-                    [],
-                    Some poll.isReady,
-                    Some (poll.eventId))))
     | BootCache.BootPoll.ApplyNovel (novel, ready) ->
         applyBootNovel novel ready
     | BootCache.BootPoll.FallbackState reason ->
