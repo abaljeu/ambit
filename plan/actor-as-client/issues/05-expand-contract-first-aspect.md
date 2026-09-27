@@ -6,20 +6,23 @@ Blocked by: None
 
 ## 1. Question
 
-Which aspect of the system should be migrated first under expand-and-contract, one aspect at a time, so each slice is independently shippable and safely contracted before the next begins?
+Which aspect migrates first under expand-and-contract?
 
-Keep the four provisional Destination aims and their gaps. This ticket only locks sequencing of aspects. It does not lock or rewrite the aims themselves.
+Alan 2026-09-27 voice: the first slice is **function-passing at Actor pool construction / start**. The pool receives a function rather than a bag of IDs. The Actor calls that function to obtain the information it needs. The pool does not supply a Graph/ids bag to the Actor. This replaces the Graph-resolver idea entirely for now. Start here; let the migration reveal the next seam.
+
+Keep the four provisional Destination aims and their gaps. This ticket locks the first expand-contract step only. It does not rewrite those aims.
 
 Grill:
 
-1. **Candidate aspects** — Name the distinct remake aspects (at least: Graph handoff / drop extract; Actor duplex / Core door; mailbox orchestration / FS+DB workers; start surface / curried function vs registry). May add others only if sharp.
-2. **First slice** — Which one aspect migrates first, and why it is independently shippable.
-3. **Expand then contract** — For that first aspect, what expands alongside the old path, and what gets contracted only after the new path is proven.
-4. **Order after first** — Provisional order of the remaining aspects (still fog until later grills if needed).
-5. **Pilot Actor** — Which existing Actor (for example TestActor) proves each slice without rewriting all Actors.
+1. **First aspect** — Confirm first migrate = function-passing at Actor pool construction / start (pool holds or receives a function; Actor invokes it for needed info).
+2. **Retire Graph-resolver as first step** — Graph-resolver / “full Graph + start ids as first slice” is not step one. It may remain later fog or later tickets. Do not make it the first expand-contract slice.
+3. **Expand then contract** — Expand: the pool can accept or register a function-shaped start alongside (or instead of) today’s ID-bag ActorStart path. Contract: drop bag-of-IDs supply from the pool once Actors call the function.
+4. **Next seams** — Stay fog until this slice ships. Do not hard-lock Graph handoff as #2.
+5. **Pilot Actor** — Confirm TestActor proves this slice without rewriting all Actors.
 
 Do not implement.
 
 ## Comments
 
 - 2026-09-27 — Filed as next-pass sequencing after the first grillset. Status `defined`.
+- 2026-09-27 — Alan voice lock: first expand-contract step is function-passing at Actor pool construction / start. Pool receives a function; Actor calls it for needed info; pool does not supply a Graph/ids bag. Replaces Graph-resolver as first step. Status stays `defined`.
