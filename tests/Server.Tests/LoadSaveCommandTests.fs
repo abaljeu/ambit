@@ -37,14 +37,19 @@ let private requireResponse (result: IResult) =
                 content.ResponseContent
         with
         | Result.Ok response -> response
-        | Result.Error err -> failwith err
+        | Result.Error err ->
+            Assert.Fail(err)
+            Unchecked.defaultof<_>
     | other ->
-        failwith $"expected JSON content, got {other.GetType().Name}"
+        Assert.Fail($"expected JSON content, got {other.GetType().Name}")
+        Unchecked.defaultof<_>
 
 let private requireOk label =
     function
     | Result.Ok value -> value
-    | Result.Error err -> failwith $"{label}: {err}"
+    | Result.Error err ->
+        Assert.Fail($"{label}: {err}")
+        Unchecked.defaultof<_>
 
 [<Fact>]
 let ``Desk request reaches pool without starting Peer Actor`` () = task {
@@ -211,8 +216,7 @@ let private productionRouter harness =
                     (operationFor command.operation))
                 command }
 
-let private requestFor operation prePick harness =
-    let seed = harness.seed
+let private requestFor operation prePick seed =
     { operation = operation
       prePick = prePick
       start =
@@ -228,7 +232,7 @@ let private requestFor operation prePick harness =
           eventId = seed.eventId } }
 
 let private postRouted operation prePick harness = task {
-    let command = requestFor operation prePick harness
+    let command = requestFor operation prePick harness.seed
     let! result =
         Api.postLoadSaveCommand
             (productionRouter harness)
@@ -310,6 +314,101 @@ let private isParseChange event =
     && match event.body with
        | EventBody.Change _ -> true
        | _ -> false
+
+let private routeMatrixDependencies (started: TaskCompletionSource<unit>) =
+    let markStarted () = started.TrySetResult() |> ignore
+    let tracked =
+        { branch = "main"
+          remote = "origin"
+          upstream = "refs/heads/main" }
+    { git =
+        { withWorkTreeGate = fun _ action -> action ()
+          trackedBranch = fun _ -> Result.Ok tracked
+          pullTracked =
+            fun _ _ ->
+                markStarted ()
+                Result.Ok "pulled"
+          commitAll =
+            fun _ _ _ ->
+                markStarted ()
+                Result.Ok(tracked, "committed")
+          pushTracked = fun _ _ _ -> Result.Ok "pushed" }
+      continueLoad = fun _ _ -> async.Return(Result.Ok ()) }
+
+let private routeMatrixHarness operation operationName =
+    let dataDir = newTempDir ()
+    let started =
+        TaskCompletionSource<unit>(
+            TaskCreationOptions.RunContinuationsAsynchronously)
+    let pool = CoreActorPool.create ()
+    registerPeer
+        dataDir pool (operationFor operation)
+        (routeMatrixDependencies started)
+    let host =
+        CoreMailbox.host
+            pool
+            (FileAgent.persist (FileAgent.create dataDir))
+            admittedCredentials
+    host, seedWorkspace host operationName, started
+
+let private routeMatrixRouter host operation =
+    { resolvePath =
+        fun _ command ->
+            PathPick.resolve command.prePick (fun () -> Result.Ok true)
+      startCommand =
+        fun path command ->
+            CoreMailbox.startLoadSaveCommand
+                host testCaller path
+                (GithubTransportActor.peerName
+                    (operationFor operation))
+                command }
+
+let private operationFromName =
+    function
+    | "load" -> LoadSaveOperation.Load
+    | "save" -> LoadSaveOperation.Save
+    | name ->
+        Assert.Fail($"unknown operation: {name}")
+        Unchecked.defaultof<_>
+
+let private prePickFromName =
+    function
+    | "plain" -> LoadSavePrePick.Plain
+    | "git" -> LoadSavePrePick.Git
+    | name ->
+        Assert.Fail($"unknown pre-pick: {name}")
+        Unchecked.defaultof<_>
+
+[<Theory>]
+[<InlineData("load", "git")>]
+[<InlineData("load", "plain")>]
+[<InlineData("save", "git")>]
+[<InlineData("save", "plain")>]
+let ``every Git choice starts the Server Peer Actor``
+    operationName
+    prePickName
+    = task {
+    let operation = operationFromName operationName
+    let prePick = prePickFromName prePickName
+    let host, seed, started =
+        routeMatrixHarness operation operationName
+    try
+        let command = requestFor operation prePick seed
+        let! result =
+            Api.postLoadSaveCommand
+                (routeMatrixRouter host operation)
+                (CoreMailbox.coreChanges host testCaller)
+                (encodeRequest command)
+            |> Async.StartAsTask
+        let response = requireResponse result
+        Assert.Equal(LoadSavePath.Git, response.path)
+        Assert.True(Option.isSome response.command)
+        do! started.Task.WaitAsync(TimeSpan.FromSeconds 1.0)
+        let! history = CoreMailbox.eventHistory host |> Async.StartAsTask
+        Assert.Contains(history.events, hasActorStart seed.focusId)
+    finally
+        CoreMailbox.dispose host
+}
 
 [<SkippableFact>]
 let ``routed Git Save commits then pushes through Peer Actor`` () = task {
