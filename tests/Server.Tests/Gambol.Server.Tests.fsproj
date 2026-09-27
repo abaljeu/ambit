@@ -41,6 +41,7 @@
     <Compile Include="CoreRuntimeTests.fs" />
     <Compile Include="BrowserCredentialTests.fs" />
     <Compile Include="CoreActorPoolTests.fs" />
+    <Compile Include="CoreActorPoolFunctionStartTests.fs" />
     <Compile Include="CoreActorPoolDeliverTests.fs" />
     <Compile Include="ActorsDeliverDoorTests.fs" />
     <Compile Include="AppGithubTransportBoundaryTests.fs" />

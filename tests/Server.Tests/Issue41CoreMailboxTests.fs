@@ -221,6 +221,7 @@ let ``mailbox appends ActorStart and ActorStop in lifecycle order`` () =
         { register = fun _ _ -> ()
           registerPeer = fun _ _ -> ()
           startActor = fun _ _ -> Ok actorSecret
+          startFunction = fun _ -> Error "unused"
           startPeerActor = fun _ _ _ -> Error "unused"
           schedule = fun _ _ -> ()
           isLive = fun secret -> secret = actorSecret
