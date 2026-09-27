@@ -42,12 +42,17 @@ module SyncLogic =
         (event: Ev)
         (state: ClientSyncState)
         (projected: State)
+        (note: string option)
         : ClientSyncState =
         { state with
             graph = projected.graph
             eventId = event.id
             actorLiveFocusIds =
-                ActorLive.applyEvent event state.actorLiveFocusIds }
+                ActorLive.applyEvent event state.actorLiveFocusIds
+            applyDetail =
+                match state.applyDetail with
+                | Some _ as existing -> existing
+                | None -> note }
 
     let private foldProjectedEvents
         (events: Ev list)
@@ -61,12 +66,14 @@ module SyncLogic =
                 | Ok st ->
                     let ops = Ev.ops event |> Option.defaultValue []
                     match
-                        ResidentProjection.applyOps ops (asProjectionState st)
+                        ResidentProjection.applyOpsForSync
+                            ops
+                            (asProjectionState st)
                     with
-                    | ApplyResult.Changed newSt
-                    | ApplyResult.Unchanged newSt ->
-                        Ok (withProjectedGraph event st newSt)
-                    | ApplyResult.Invalid (_, msg) -> Error msg)
+                    | ApplyResult.Changed newSt, note
+                    | ApplyResult.Unchanged newSt, note ->
+                        Ok (withProjectedGraph event st newSt note)
+                    | ApplyResult.Invalid (_, msg), _ -> Error msg)
             (Ok state)
 
     let private graphAfterWant

@@ -16,6 +16,13 @@ let withActorCmdResult (events: Ev list) (model: VM) : VM =
     | None -> model
     | Some result -> { model with lastCmdResult = Some result }
 
+let withApplyDetail (state: ClientSyncState) (model: VM) : VM =
+    match state.applyDetail with
+    | None -> model
+    | Some msg ->
+        { model with
+            lastCmdResult = Some (CmdLastResult.Detail (None, msg)) }
+
 let withAppliedResult
     (events: Ev list)
     (state: ClientSyncState)
@@ -23,7 +30,9 @@ let withAppliedResult
     (model: VM)
     : VM =
     let next =
-        withAppliedSync state model |> withActorCmdResult events
+        withAppliedSync state model
+        |> withActorCmdResult events
+        |> withApplyDetail state
     { next with syncInfo = syncInfo }
 
 let cancelFocusOp (focusId: NodeId) (model: VM) : VM * Effect list =
@@ -41,6 +50,7 @@ let applyCommandEvents (events: Ev list) (model: VM) : VM * Effect list =
         let next =
             withAppliedSync state model
             |> withActorCmdResult events
+            |> withApplyDetail state
             |> withSiteMap
             |> adjustModeAfterServerApply model.graph
         next, []

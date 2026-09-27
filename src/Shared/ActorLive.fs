@@ -9,7 +9,9 @@ type ClientSyncState =
       eventId: EventId
       history: ClientHistory
       eventLog: EventLog
-      actorLiveFocusIds: Set<NodeId> }
+      actorLiveFocusIds: Set<NodeId>
+      /// Soft-conflict note from Poll/sync apply; maps to CmdLastResult.Detail.
+      applyDetail: string option }
 
 [<RequireQualifiedAccess>]
 module ClientSyncState =
@@ -18,7 +20,8 @@ module ClientSyncState =
           eventId = eventId
           history = history
           eventLog = EventLog.empty
-          actorLiveFocusIds = Set.empty }
+          actorLiveFocusIds = Set.empty
+          applyDetail = None }
 
 /// Live Focus set from ActorStart / ActorStop, plus boot seed from GetState.
 /// StateResponse.seedLiveFocusIds is the mailbox lockPresent overlay (live table),

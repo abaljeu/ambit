@@ -270,39 +270,111 @@ let ``applyServerTail carries SetUpdateTime after SetText as poll stamp path`` (
             NodeUpdateTime.toDbPrecision stamp,
             result.graph.nodes.[nodeId].updateTime)
 
+let private changeEvent eventId ops : Ev =
+    { id = EventIdFixtures.storedId eventId
+      submissionId = System.Guid.NewGuid()
+      authority = Authority "Browser"
+      commandName = ""
+      body = EventBody.Change ops }
+
 [<Fact>]
-let ``applyServerTail returns Error on first invalid change`` () =
-    let st, nodeId = stateWithNode "original"
+let ``applyServerTail returns Error on first hard-invalid change`` () =
+    let st, _ = stateWithNode "original"
     let badChange =
-        { id = EventIdFixtures.storedId 5
-          submissionId = System.Guid.NewGuid()
-          authority = Authority "Browser"
-          commandName = ""
-          body = EventBody.Change [ Op.SetText(nodeId, "wrong-old", "new") ] }
+        changeEvent 5 [ Op.SetText(st.graph.root, "wrong", "new") ]
     let goodChange = mkChange 6
     match applyTail [ badChange; goodChange ] st with
     | Ok _ -> failwith "Expected Error but got Ok"
     | Error _ -> ()
 
 [<Fact>]
-let ``applyServerTail short-circuits: state unchanged after invalid change`` () =
+let ``applyServerTail short-circuits: state unchanged after hard-invalid change`` () =
     let st, nodeId = stateWithNode "original"
     let badChange =
-        { id = EventIdFixtures.storedId 3
-          submissionId = System.Guid.NewGuid()
-          authority = Authority "Browser"
-          commandName = ""
-          body = EventBody.Change [ Op.SetText(nodeId, "wrong-old", "y") ] }
+        changeEvent 3 [ Op.SetText(st.graph.root, "wrong", "y") ]
     let goodChange =
-        { id = EventIdFixtures.storedId 4
-          submissionId = System.Guid.NewGuid()
-          authority = Authority "Browser"
-          commandName = ""
-          body = EventBody.Change [ Op.SetText(nodeId, "original", "modified") ] }
+        changeEvent 4 [ Op.SetText(nodeId, "original", "modified") ]
     match applyTail [ badChange; goodChange ] st with
     | Ok _ -> failwith "Expected Error but got Ok"
     | Error _ ->
         Assert.Equal("original", st.graph.nodes.[nodeId].text)
+
+[<Fact>]
+let ``applyServerTail soft-skips SetName CAS and continues the event list`` () =
+    let st, nodeId = stateWithNode "original"
+    let staleName = changeEvent 4 [ Op.SetName(nodeId, "stale", "renamed.md") ]
+    let laterText = changeEvent 5 [ Op.SetText(nodeId, "original", "modified") ]
+    match applyTail [ staleName; laterText ] st with
+    | Error msg -> failwith $"Expected Ok, got Error: {msg}"
+    | Ok result ->
+        Assert.Equal(Filename.Empty, result.graph.nodes.[nodeId].name)
+        Assert.Equal("modified", result.graph.nodes.[nodeId].text)
+        Assert.Equal(EventIdFixtures.storedId 5, result.eventId)
+        Assert.Equal(Some "can't change the name", result.applyDetail)
+
+[<Fact>]
+let ``applyServerTail soft-skips SetText CAS and continues later ops`` () =
+    let st, nodeId = stateWithNode "original"
+    let mixed =
+        changeEvent
+            4
+            [ Op.SetText(nodeId, "stale", "skipped")
+              Op.SetText(nodeId, "original", "kept") ]
+    match applyTail [ mixed ] st with
+    | Error msg -> failwith $"Expected Ok, got Error: {msg}"
+    | Ok result ->
+        Assert.Equal("kept", result.graph.nodes.[nodeId].text)
+        Assert.Equal(Some "can't change the text", result.applyDetail)
+
+[<Fact>]
+let ``applyServerTail soft-skips SetClasses CAS`` () =
+    let st, nodeId = stateWithNode "original"
+    let stale =
+        changeEvent
+            4
+            [ Op.SetClasses(
+                  nodeId,
+                  CssClass.ofList [ "stale" ],
+                  CssClass.ofList [ "next" ]) ]
+    match applyTail [ stale ] st with
+    | Error msg -> failwith $"Expected Ok, got Error: {msg}"
+    | Ok result ->
+        Assert.Equal(CssClass.empty, result.graph.nodes.[nodeId].cssClasses)
+        Assert.Equal(EventIdFixtures.storedId 4, result.eventId)
+        Assert.Equal(Some "can't change the classes", result.applyDetail)
+
+[<Fact>]
+let ``applyServerTail soft-skips Replace CAS`` () =
+    let st, parentId = stateWithNode "original"
+    let childId = NodeId.New()
+    let ghost = NodeId.New()
+    let seeded =
+        match
+            ChangeValidation.applyOps
+                [ Op.NewNode(childId, "c")
+                  ChildListWire.replace
+                      parentId
+                      []
+                      [ ChildNode.owner childId ] ]
+                { graph = st.graph; eventId = st.eventId }
+        with
+        | ApplyResult.Changed next -> { st with graph = next.graph }
+        | other -> failwith $"seed child: {other}"
+    let stale =
+        changeEvent
+            4
+            [ ChildListWire.replace
+                  parentId
+                  [ ChildNode.owner ghost ]
+                  [] ]
+    match applyTail [ stale ] seeded with
+    | Error msg -> failwith $"Expected Ok, got Error: {msg}"
+    | Ok result ->
+        Assert.Equal<ChildNode list>(
+            [ ChildNode.owner childId ],
+            Graph.children result.graph parentId)
+        Assert.Equal(EventIdFixtures.storedId 4, result.eventId)
+        Assert.Equal(Some "can't change the structure", result.applyDetail)
 
 [<Fact>]
 let ``applyServerTail consumes Change on Absent Header without graph effect`` () =
@@ -345,7 +417,8 @@ let ``applyServerTail skips structural Replace on Unloaded parent`` () =
           history = ClientHistory.clear ()
           eventId = EventIdFixtures.storedId 3
           eventLog = EventLog.empty
-          actorLiveFocusIds = Set.empty }
+          actorLiveFocusIds = Set.empty
+          applyDetail = None }
     let change =
         { id = EventIdFixtures.storedId 4
           submissionId = System.Guid.NewGuid()
@@ -381,7 +454,8 @@ let ``applyServerTail applies header facts on Unloaded resident Node`` () =
           history = ClientHistory.clear ()
           eventId = EventIdFixtures.storedId 2
           eventLog = EventLog.empty
-          actorLiveFocusIds = Set.empty }
+          actorLiveFocusIds = Set.empty
+          applyDetail = None }
     let change =
         { id = EventIdFixtures.storedId 3
           submissionId = System.Guid.NewGuid()
@@ -422,7 +496,8 @@ let ``applySyncResponse installs complete child list as Loaded and preserves own
             ClientHistory.record { mkChange 1 with commandName = "test" } (ClientHistory.clear ())
           eventId = EventIdFixtures.storedId 5
           eventLog = EventLog.empty
-          actorLiveFocusIds = Set.empty }
+          actorLiveFocusIds = Set.empty
+          applyDetail = None }
     let child =
         Node.Create(childId, text = "leaf", owner = wsId)
     // External resident header whose owner edge lives only in an Unloaded list.
@@ -523,7 +598,8 @@ let ``applySyncResponse empty Loaded child list marks Loaded without History cle
             ClientHistory.record { past with commandName = "test" } (ClientHistory.clear ())
           eventId = EventIdFixtures.storedId 4
           eventLog = EventLog.empty
-          actorLiveFocusIds = Set.empty }
+          actorLiveFocusIds = Set.empty
+          applyDetail = None }
     match
         SyncLogic.applySyncResponse
             { events = []
@@ -557,7 +633,8 @@ let ``applySyncResponse installs Want answer after Event tail`` () =
             ClientHistory.record { mkChange 1 with commandName = "test" } (ClientHistory.clear ())
           eventId = EventIdFixtures.storedId 5
           eventLog = EventLog.empty
-          actorLiveFocusIds = Set.empty }
+          actorLiveFocusIds = Set.empty
+          applyDetail = None }
     let child = Node.Create(childId, text = "leaf", owner = parentId)
     let response =
         { events =
@@ -600,7 +677,8 @@ let ``applySyncResponse Want-answer empty list marks Loaded leaf`` () =
             ClientHistory.record { past with commandName = "test" } (ClientHistory.clear ())
           eventId = EventIdFixtures.storedId 4
           eventLog = EventLog.empty
-          actorLiveFocusIds = Set.empty }
+          actorLiveFocusIds = Set.empty
+          applyDetail = None }
     match
         SyncLogic.applySyncResponse
             { events = []
@@ -631,7 +709,8 @@ let ``applySyncResponse refuses dangling Want edges`` () =
           history = ClientHistory.clear ()
           eventId = EventIdFixtures.storedId 3
           eventLog = EventLog.empty
-          actorLiveFocusIds = Set.empty }
+          actorLiveFocusIds = Set.empty
+          applyDetail = None }
     match
         SyncLogic.applySyncResponse
             { events = []
@@ -671,7 +750,8 @@ let ``applySyncResponse Load Fetch answer installs through installWantAnswer`` (
           history = ClientHistory.clear ()
           eventId = EventIdFixtures.storedId 4
           eventLog = EventLog.empty
-          actorLiveFocusIds = Set.empty }
+          actorLiveFocusIds = Set.empty
+          applyDetail = None }
     let wantChild =
         Node.Create(wantChildId, text = "want-leaf", owner = wantParentId)
     let wsChild = Node.Create(wsChildId, text = "ws-leaf", owner = wsId)
@@ -778,7 +858,8 @@ let private seededEditState () =
           eventId = EventId.zero
           history = ClientHistory.clear ()
           eventLog = EventLog.empty
-          actorLiveFocusIds = Set.empty }
+          actorLiveFocusIds = Set.empty
+          applyDetail = None }
     match SyncLogic.applyLocalEvent change state0 with
     | Error msg -> failwith msg
     | Ok (state, pending) -> nodeId, state, pending, change
@@ -863,7 +944,8 @@ let ``applyServerTail with changes preserves History`` () =
           eventId = state0.eventId
           history = st.history
           eventLog = EventLog.empty
-          actorLiveFocusIds = Set.empty }
+          actorLiveFocusIds = Set.empty
+          applyDetail = None }
     match applyTail [ change ] client with
     | Error msg -> failwith msg
     | Ok result -> Assert.Equal(st.history, result.history)

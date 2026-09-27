@@ -50,6 +50,57 @@ module ResidentProjection =
         | Ok (s, false) -> ApplyResult.Unchanged s
         | Ok (s, true) -> ApplyResult.Changed s
 
+    let private casUserMessage (message: string) =
+        if message = "old name does not match" then
+            Some "can't change the name"
+        elif message = "old text does not match" then
+            Some "can't change the text"
+        elif message = "old classes do not match" then
+            Some "can't change the classes"
+        elif message = "old span does not match" then
+            Some "can't change the structure"
+        else
+            None
+
+    let private firstNote (prior: string option) (next: string option) =
+        match prior with
+        | Some _ -> prior
+        | None -> next
+
+    /// Poll/sync apply: recoverable CAS is Unchanged plus a user note.
+    let applyOpForSync (op: Op) (state: State) : ApplyResult * string option =
+        match applyOp op state with
+        | ApplyResult.Invalid (s, msg) ->
+            match casUserMessage msg with
+            | Some userMsg -> ApplyResult.Unchanged s, Some userMsg
+            | None -> ApplyResult.Invalid (s, msg), None
+        | other -> other, None
+
+    let applyOpsForSync (ops: Op list) (state: State) : ApplyResult * string option =
+        let step (accState, hasChanged, note) op =
+            match applyOpForSync op accState with
+            | ApplyResult.Invalid _ as err, _ -> Error err
+            | ApplyResult.Unchanged s', msg ->
+                Ok (s', hasChanged, firstNote note msg)
+            | ApplyResult.Changed s', msg ->
+                Ok (s', true, firstNote note msg)
+
+        let result =
+            ops
+            |> List.fold
+                (fun acc op ->
+                    match acc with
+                    | Error err -> Error err
+                    | Ok accState -> step accState op)
+                (Ok (state, false, None))
+
+        match result with
+        | Error (ApplyResult.Invalid (_, message)) ->
+            ApplyResult.Invalid (state, message), None
+        | Error err -> err, None
+        | Ok (s, false, note) -> ApplyResult.Unchanged s, note
+        | Ok (s, true, note) -> ApplyResult.Changed s, note
+
     /// Install Want-answer edges and pointed-at Nodes. Refuse dangling edges.
     /// Absent `childMap` keys stay Unloaded. A present key, including `[]`,
     /// is Loaded. Idempotent for the same package.
