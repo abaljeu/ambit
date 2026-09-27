@@ -7,7 +7,7 @@ open Gambol.Shared
 module DocumentLoader =
 
     let private loadGraphFromDisk (dataDir: string) : Result<Graph, string> =
-        DocumentPersistence.readAllDocuments dataDir
+        DocumentPersistChange.readAllDocuments dataDir
 
     let private stateFromGraph (dataDir: string) (graph: Graph) : State =
         { graph = graph

@@ -15,7 +15,7 @@ let private requireOk label r =
     | Error e -> failwith $"{label}: {e}"
 
 let private writeAmbFiles (dataDir: string) (state: State) =
-    DocumentPersistence.writeAllDocuments dataDir state.graph
+    DocumentPersistWrite.writeAllDocuments dataDir state.graph
     |> requireOk "writeAllDocuments"
     |> ignore
 

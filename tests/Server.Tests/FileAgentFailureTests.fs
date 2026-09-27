@@ -1,8 +1,9 @@
 module Gambol.Server.Tests.FileAgentFailureTests
 
 open System
+open System.Collections.Concurrent
 open System.IO
-open System.Threading
+open System.Threading.Tasks
 open Xunit
 open Gambol.Server
 open Gambol.Shared
@@ -24,6 +25,8 @@ let private changedBody () =
 
 let private host agent = admittedHostFile agent
 
+let private oldPersistTimeoutMs = 8000
+
 let private getState agent = async {
     match! CoreMailbox.getState (host agent) with
     | Ok state -> return state
@@ -36,7 +39,7 @@ let private softFailPersist : string -> Graph -> Graph -> Op list -> Result<Pers
     fun _ _ postGraph _ ->
         Ok {
             graph = postGraph
-            message = Some(DocumentPersistence.fileCouldNotSave "SYSTEM/secret.txt")
+            message = Some(DocumentPersistWrite.fileCouldNotSave "SYSTEM/secret.txt")
         }
 
 let private decodeAck (accepted: CoreChangesAccepted) =
@@ -105,48 +108,59 @@ let ``persistence exception is logged replied and mailbox survives`` () = task {
         CoreMailbox.dispose (host agent)
 }
 
-/// A hang (not an exception) in the persist step must not wedge the mailbox forever:
-/// the handler should reject within the (test-shortened) timeout, and the mailbox
-/// must still serve a subsequent GetState request afterwards.
 [<Fact>]
-let ``persist step hang is rejected within timeout and mailbox survives`` () = task {
+let ``Persist waits past the old timeout and continues after gate release`` () = task {
     let dataDir = newTempDir ()
+    let workspaceRoot = Path.Combine(dataDir, "home")
+    let holderEntered = TaskCompletionSource<unit>()
+    let releaseHolder = TaskCompletionSource<unit>()
+    let persistAttempted = TaskCompletionSource<unit>()
+    let writes = ConcurrentQueue<string>()
+    let holder =
+        Task.Run(fun () ->
+            WorkspaceGit.withWorkTreeGate workspaceRoot (fun () ->
+                holderEntered.SetResult()
+                releaseHolder.Task.Wait()
+                Ok ()))
+    holderEntered.Task.Wait()
+
     let defaults = FileAgent.defaultDependencies dataDir
-    let hangMs = 500
     let dependencies =
         {
             defaults with
                 persistGraphOps =
-                    fun _ preGraph _ _ ->
-                        Thread.Sleep(hangMs)
-                        Ok { graph = preGraph; message = None }
-                changeProcessingTimeoutMs = 50
+                    fun _ _ postGraph _ ->
+                        persistAttempted.SetResult()
+                        WorkspaceGit.withWorkTreeGate workspaceRoot (fun () ->
+                            writes.Enqueue("persisted")
+                            Ok { graph = postGraph; message = None })
         }
     let agent = FileAgent.createWithDependencies dependencies dataDir
     try
-        let sw = Diagnostics.Stopwatch.StartNew()
-        let! postResult =
+        let pending =
             (admittedChanges (host agent)).postEvents
                 ((changedBody ()))
             |> Async.StartAsTask
-            |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
-        sw.Stop()
+        persistAttempted.Task.Wait()
+        Assert.False(
+            pending.Wait(oldPersistTimeoutMs + 250))
+        Assert.Empty(writes)
+        releaseHolder.SetResult()
+
+        let! postResult = pending.WaitAsync(TimeSpan.FromSeconds(2.0))
         match postResult with
-        | Ok _ -> Assert.Fail("Expected change processing to time out.")
-        | Error error ->
-            Assert.Contains("timed out", error)
-        Assert.True(
-            sw.ElapsedMilliseconds < int64 hangMs,
-            $"Expected reject before the {hangMs}ms hang completed, took {sw.ElapsedMilliseconds}ms.")
+        | Error error -> Assert.Fail($"expected queued Persist to continue: {error}")
+        | Ok _ -> ()
+        Assert.Single(writes) |> ignore
 
         let! state =
             getState agent
             |> Async.StartAsTask
             |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
-        Assert.Equal(EventId.zero, state.eventId)
+        Assert.True(EventId.isAccepted state.eventId)
     finally
-        // let the orphaned background task finish before disposing shared resources
-        Thread.Sleep(hangMs)
+        releaseHolder.TrySetResult() |> ignore
+        holder.Wait()
         CoreMailbox.dispose (host agent)
 }
 
@@ -165,7 +179,7 @@ let ``soft-fail live-save still commits graph and returns could-not-save message
         | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")
         | Ok ackJson ->
             Assert.Equal(
-                Some(DocumentPersistence.fileCouldNotSave "SYSTEM/secret.txt"),
+                Some(DocumentPersistWrite.fileCouldNotSave "SYSTEM/secret.txt"),
                 decodeAckMessage ackJson)
         let! state =
             getState agent |> Async.StartAsTask

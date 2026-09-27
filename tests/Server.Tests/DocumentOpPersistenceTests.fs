@@ -47,14 +47,14 @@ let private graphWithTwoFiles () =
     graph, fileAId, fileBId, bodyAId, bodyBId
 
 let private artifactPath dataDir graph rootId =
-    DocumentPersistence.resolveArtifactPath dataDir graph rootId
+    DocumentPersistPath.resolveArtifactPath dataDir graph rootId
     |> requireOk "resolve artifact path"
 
 [<Fact>]
 let ``persistGraphOps writes only roots represented by accepted operations`` () =
     let dataDir = newTempDir ()
     let graph, fileAId, fileBId, bodyAId, bodyBId = graphWithTwoFiles ()
-    DocumentPersistence.writeAllDocuments dataDir graph
+    DocumentPersistWrite.writeAllDocuments dataDir graph
     |> requireOk "initial write"
     |> ignore
     let pathA = artifactPath dataDir graph fileAId
@@ -69,7 +69,7 @@ let ``persistGraphOps writes only roots represented by accepted operations`` () 
         |> requireOk "edit b"
     let acceptedOps = [ Op.SetText(bodyAId, "alpha", "ALPHA") ]
 
-    DocumentPersistence.persistGraphOps dataDir graph post acceptedOps
+    DocumentPersistChange.persistGraphOps dataDir graph post acceptedOps
     |> requireOk "persistGraphOps"
     |> ignore
 
@@ -104,13 +104,13 @@ let ``persistGraphOps soft-fails illicit write and returns could-not-save messag
         Graph.setText bodyId "body" "BODY" graph
         |> requireOk "edit"
     let result =
-        DocumentPersistence.persistGraphOps
+        DocumentPersistChange.persistGraphOps
             dataDir
             graph
             post
             [ Op.SetText(bodyId, "body", "BODY") ]
         |> requireOk "persistGraphOps"
     Assert.Equal(
-        Some(DocumentPersistence.fileCouldNotSave "SYSTEM/secret.txt"),
+        Some(DocumentPersistWrite.fileCouldNotSave "SYSTEM/secret.txt"),
         result.message)
     Assert.Equal("BODY", result.graph.nodes.[bodyId].text)

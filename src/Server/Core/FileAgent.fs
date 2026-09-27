@@ -8,9 +8,6 @@ type FileAgentDependencies = {
     persistGraphOps:
         string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, string>
     appendException: string -> string -> exn -> unit
-    /// Wall-clock bound for the persistGraphOps call. Overridable so tests can exercise
-    /// the timeout path without waiting the full production timeout.
-    changeProcessingTimeoutMs: int
 }
 
 // FileAgent — persist filling for one dataDir. Does not start a mailbox.
@@ -38,13 +35,11 @@ module FileAgent =
 
     let defaultDependencies (dataDir: string) =
         {
-            persistGraphOps = DocumentPersistence.persistGraphOps
+            persistGraphOps = DocumentPersistChange.persistGraphOps
             appendException =
                 HttpResponseLog.appendException
                     (HttpResponseLog.logPath dataDir)
                     "FileAgent"
-            changeProcessingTimeoutMs =
-                CoreMailboxBackend.ChangeProcessingTimeoutMs
         }
 
     let private accepted loaded confirmed externalChanges message =
@@ -63,14 +58,11 @@ module FileAgent =
         (ops: Op list)
         =
         let persisted =
-            CoreMailboxBackend.runBounded
-                loaded.dependencies.changeProcessingTimeoutMs
-                (fun () ->
-                    loaded.dependencies.persistGraphOps
-                        loaded.dataDir
-                        preGraph
-                        postGraph
-                        ops)
+            loaded.dependencies.persistGraphOps
+                loaded.dataDir
+                preGraph
+                postGraph
+                ops
         match persisted with
         | Error err -> Error err
         | Ok stamped ->
@@ -132,12 +124,12 @@ module FileAgent =
         if graphOnly then
             Ok ()
         else
-            DocumentPersistence.validatePathMoves
+            DocumentPersistChange.validatePathMoves
                 loaded.dataDir
                 preGraph
                 postGraph
             |> Result.bind (fun () ->
-                DocumentPersistence.validateGraphDiskEffects
+                DocumentPersistChange.validateGraphDiskEffects
                     loaded.dataDir
                     preGraph
                     postGraph)

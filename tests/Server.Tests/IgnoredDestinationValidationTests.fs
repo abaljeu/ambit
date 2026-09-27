@@ -62,12 +62,12 @@ let private writeIgnore root (text: string) =
     File.WriteAllText(Path.Combine(root, ".gitignore"), text)
 
 let private assertIgnored dataDir preGraph postGraph =
-    match DocumentPersistence.validateGraphDiskEffects dataDir preGraph postGraph with
+    match DocumentPersistChange.validateGraphDiskEffects dataDir preGraph postGraph with
     | Ok () -> Assert.Fail("expected ignored destination rejection")
     | Error error -> Assert.Contains("ignored by .gitignore", error)
 
 let private assertAllowed dataDir preGraph postGraph =
-    match DocumentPersistence.validateGraphDiskEffects dataDir preGraph postGraph with
+    match DocumentPersistChange.validateGraphDiskEffects dataDir preGraph postGraph with
     | Ok () -> ()
     | Error error -> Assert.Fail(error)
 
