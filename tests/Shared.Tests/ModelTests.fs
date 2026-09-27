@@ -304,6 +304,16 @@ let ``Graph absent childMap key is Unloaded empty is Loaded`` () =
     Assert.Equal<ChildNode list>([], Graph.children loaded id)
 
 [<Fact>]
+let ``Graph.addDetachedNode keeps supplied owner`` () =
+    let g0 = Graph.create ()
+    let id = NodeId.New()
+    let ownerId = NodeId.New()
+    let node = Node.Create(id, text = "owned", owner = ownerId)
+    let g1 = Graph.addDetachedNode node g0
+    Assert.Equal(ownerId, g1.nodes.[id].owner)
+    Assert.Equal(Loaded, Graph.childrenStatus g1 id)
+
+[<Fact>]
 let ``Graph.fromNodes keeps Unloaded when parent key is absent`` () =
     let g0 = Graph.create ()
     let id = NodeId.New()

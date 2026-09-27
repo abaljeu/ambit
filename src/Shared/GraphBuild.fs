@@ -284,15 +284,10 @@ module GraphBuild =
     /// New nodes are Loaded empty (`childMap` key present with []).
     let addDetachedNode (node: Node) (graph: Graph) : Graph =
         if Map.containsKey node.id graph.nodes then
-            fromNodes
-                graph.root
-                (graph.nodes |> Map.add node.id node)
-                graph.childMap
+            { graph with nodes = graph.nodes |> Map.add node.id node }
         else
             { graph with
-                nodes =
-                    graph.nodes
-                    |> Map.add node.id { node with owner = graph.root }
+                nodes = graph.nodes |> Map.add node.id node
                 childMap = graph.childMap |> Map.add node.id [] }
 
     /// Index update for children appended at the end of a parent's list. Nothing is
