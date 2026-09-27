@@ -150,17 +150,53 @@ module WorkspaceGit =
                 StringSplitOptions.RemoveEmptyEntries ||| StringSplitOptions.TrimEntries)
             |> Array.tryHead)
 
+    let internal pullTrackedBranch
+        (workspaceRoot: string)
+        (tracked: WorkspaceTrackedBranch)
+        : Result<string, string> =
+        unmergedPath workspaceRoot
+        |> Result.bind (function
+            | Some path -> Error $"Git conflict: {path}"
+            | None ->
+                runGitCondensed
+                    workspaceRoot
+                    $"pull --ff-only --no-rebase {tracked.remote} {tracked.upstream}")
+
     let pullTracked (workspaceRoot: string) : Result<string, string> =
         withWorkTreeGate workspaceRoot (fun () ->
             trackedBranch workspaceRoot
-            |> Result.bind (fun tracked ->
-                unmergedPath workspaceRoot
-                |> Result.bind (function
-                    | Some path -> Error $"Git conflict: {path}"
-                    | None ->
-                        runGitCondensed
-                            workspaceRoot
-                            $"pull --ff-only --no-rebase {tracked.remote} {tracked.upstream}")))
+            |> Result.bind (pullTrackedBranch workspaceRoot))
+
+    let internal commitTracked
+        (workspaceRoot: string)
+        (baseMsg: string)
+        (clientHint: string option)
+        : Result<WorkspaceTrackedBranch * string, string> =
+        trackedBranch workspaceRoot
+        |> Result.bind (fun tracked ->
+            unmergedPath workspaceRoot
+            |> Result.bind (function
+                | Some path -> Error $"Git conflict: {path}"
+                | None ->
+                    let message =
+                        ClientIdentity.formatCommitMessage baseMsg clientHint
+                    GitSave.commitAll workspaceRoot message
+                    |> Result.mapError condenseGitError
+                    |> Result.map (fun output -> tracked, output)))
+
+    let internal pushTrackedBranch
+        (workspaceRoot: string)
+        (tracked: WorkspaceTrackedBranch)
+        (commitOutput: string)
+        : Result<string, string> =
+        runGitCondensed
+            workspaceRoot
+            $"push {tracked.remote} HEAD:{tracked.upstream}"
+        |> Result.map (fun pushOutput ->
+            if String.IsNullOrWhiteSpace pushOutput then
+                commitOutput
+            else
+                pushOutput)
 
     let saveTracked
         (workspaceRoot: string)
@@ -168,26 +204,9 @@ module WorkspaceGit =
         (clientHint: string option)
         : Result<string, string> =
         withWorkTreeGate workspaceRoot (fun () ->
-            trackedBranch workspaceRoot
-            |> Result.bind (fun tracked ->
-                unmergedPath workspaceRoot
-                |> Result.bind (function
-                    | Some path -> Error $"Git conflict: {path}"
-                    | None ->
-                        let message =
-                            ClientIdentity.formatCommitMessage baseMsg clientHint
-                        GitSave.commitAll workspaceRoot message
-                        |> Result.mapError condenseGitError
-                        |> Result.map (fun commitOutput -> tracked, commitOutput))))
+            commitTracked workspaceRoot baseMsg clientHint)
         |> Result.bind (fun (tracked, commitOutput) ->
-            runGitCondensed
-                workspaceRoot
-                $"push {tracked.remote} HEAD:{tracked.upstream}"
-            |> Result.map (fun pushOutput ->
-                if String.IsNullOrWhiteSpace pushOutput then
-                    commitOutput
-                else
-                    pushOutput))
+            pushTrackedBranch workspaceRoot tracked commitOutput)
 
     let private masterBranchExists (workspaceRoot: string) : bool =
         match

@@ -59,10 +59,25 @@ module RouteRegistration =
 
     let private createPersistenceContext (this: AmbitApp) =
         let boot = this.CreateBoot ()
+        let core = CoreRuntime.create boot
+        let github =
+            GithubTransportActor.productionDependencies boot.DataDir
+        core.pool.registerPeer
+            (GithubTransportActor.peerName GithubTransportOperation.Load)
+            (GithubTransportActor.actorFn
+                boot.DataDir
+                GithubTransportOperation.Load
+                github)
+        core.pool.registerPeer
+            (GithubTransportActor.peerName GithubTransportOperation.Save)
+            (GithubTransportActor.actorFn
+                boot.DataDir
+                GithubTransportOperation.Save
+                github)
         {
             DataDir = boot.DataDir
             DbStatus = boot.DbStatus
-            Core = CoreRuntime.create boot
+            Core = core
         }
 
     let private isWritable (persistence: PersistenceContext) =

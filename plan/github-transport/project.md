@@ -4,7 +4,7 @@ Stage: build
 Summary: A person maps a key GitHub repo to a Workspace whose DataDir work tree is already the git home. A Server Actor pulls from and pushes to that GitHub remote (round-trip v1, fast-forward only) so every device that maps through Server sees the same files. The App stays thin. Skip on that remote is whatever `.gitignore` already says.
 Updated: 2026-09-27
 Started: 2026-09-27
-Actual: 2h55m
+Actual: 4h25m
 
 **Part of:** [[plan/roadmap/epics/chapters/send-to-and-from-github.md]]
 **Part of / under:** [[plan/transport-layer/project.md]] (file transit)
@@ -25,3 +25,4 @@ Actual: 2h55m
 - 2026-09-26 — Alan lock (Github Sync room): [16 — Persist/git work-tree gate](issues/16-persist-git-work-tree-gate.md). Graph→file Persist, git Load pull, and git Save commit share one exclusive gate per Workspace work tree; a second caller queues until the gate is free instead of rejecting as busy.
 - Prior spec [[plan/workspace-git/project.md]] is not this home. That spec’s non-FF accept of non-overlapping edits is not this Destination.
 - Map: [[map.md]]. Spec: [[spec.md]]. Arch: [[arch.md]].
+- 2026-09-27 — [13 — Run git Load and Save through the Server Peer Actor](issues/13-peer-actor-runs-git-load-save.md) coded. A peer-only mailbox/pool door keeps git Load/Save outside Run and `?git`; the Server Peer Actor resolves Focus to the Workspace work tree, runs the gated tracked-branch operation, and continues Load through Parse reconciliation.

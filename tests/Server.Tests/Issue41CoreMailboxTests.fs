@@ -219,7 +219,9 @@ let ``mailbox appends ActorStart and ActorStop in lifecycle order`` () =
     let actorSecret = Credential "issue-41-actor"
     let pool: CoreActorPool =
         { register = fun _ _ -> ()
+          registerPeer = fun _ _ -> ()
           startActor = fun _ _ -> Ok actorSecret
+          startPeerActor = fun _ _ _ -> Error "unused"
           schedule = fun _ _ -> ()
           isLive = fun secret -> secret = actorSecret
           admit = fun _ -> Ok ()

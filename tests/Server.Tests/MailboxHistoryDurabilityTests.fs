@@ -27,7 +27,9 @@ let private actorCaller secret =
 
 let private stubPool secret : CoreActorPool =
     { register = fun _ _ -> ()
+      registerPeer = fun _ _ -> ()
       startActor = fun _ _ -> Ok secret
+      startPeerActor = fun _ _ _ -> Error "unused"
       schedule = fun _ _ -> ()
       isLive = fun s -> s = secret
       admit = fun _ -> Ok ()
