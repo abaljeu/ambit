@@ -12,7 +12,7 @@ The scan printed no long lines, no TAB, no `mutable` in added source, and no fil
 
 No findings.
 
-**Bullet.** The ticket says: “The hollow-circle Bullet follows absent `childMap` or Unparsed.” New `rowChildrenIndicator` returns `HollowCircle` for `Unparsed` first, then `None` (absent `childMap`) as Unloaded, `Some []` as a Loaded leaf (`SolidCircle`), and `Some _` as `FoldChevron`. That matches 11.2.2, 11.2.1, 26.2, 34.1, and 12.2. There is no new per-Node loading Status and no new command that names Nodes (32.1). Unparsed with resident Children now stays hollow; HEAD painted `FoldChevron`. That matches ticket 26.2 (“chevron or solid replaces hollow when Loaded and not Unparsed”), not spec story 11’s “as today” if today means HEAD. The ticket is the originating spec for this range.
+**Bullet.** The ticket says: “The hollow-circle Bullet follows absent `childMap` or Unparsed.” New `rowChildrenIndicator` returns `HollowCircle` for `Unparsed` first, then `None` (absent `childMap`) as Unloaded, `Some []` as a Loaded leaf (`SolidCircle`), and `Some _` as `FoldChevron`. That matches **11.2.2 — Absent key is hollow Unloaded**, **11.2.1 — Unparsed stays hollow**, **26.2 — Children arrive**, **34.1 — Unloaded is not empty**, and **12.2 — No new loading Status**. There is no new per-Node loading Status and no new command that names Nodes (**32.1 — No new named-Node command**). Unparsed with resident Children now stays hollow; HEAD painted `FoldChevron`. That matches **26.2 — Children arrive** (“chevron or solid replaces hollow when Loaded and not Unparsed”), not specification story **11 — Hollow Unparsed Bullet**’s “as today” if today means HEAD. The ticket is the originating spec for this range.
 
 **Included.** The ticket says: “`expand` walks `childMap`, not Node children” and “stop at folded children.” HEAD already called `GraphChildren.get`. This diff only drops `Map.tryFind nodeId graph.nodes` before the walk. Children still come from `childMap`. Fold still comes from `entry.expanded` and the zip with `entry.children`. `GraphChildren.get` treats an absent key as `[]`, so an Unloaded parent adds no descendants. That is the correct walk. No retired Node-children residency read remains: `Node` has no children field.
 
@@ -29,7 +29,7 @@ Indicator proof is adequate at the Shared seam in [ViewModelRowStateTests.fs](te
 5. Unparsed with resident Children — assertion changed from `FoldChevron` to `HollowCircle`.
 6. `planPatchDOM` still recreates the row when a leaf becomes hollow and when Unloaded becomes Loaded with Children.
 
-Included proof for 33.1 is pre-existing only. [IncludedDescendantIdsTests.fs](tests/Shared.Tests/IncludedDescendantIdsTests.fs) is not in the diff. Those tests still start at Zoom, walk unfolded Children from `Graph.replace` (childMap), and stop at folded Children. They do not pin the removed `graph.nodes` header guard, and they do not `unload` a parent then `expand`. That gap is not a ticket miss: HEAD already walked `childMap`, and Fold-plus-Children remains covered.
+Included proof for **33.1 — Honor Fold** is pre-existing only. [IncludedDescendantIdsTests.fs](tests/Shared.Tests/IncludedDescendantIdsTests.fs) is not in the diff. Those tests still start at Zoom, walk unfolded Children from `Graph.replace` (childMap), and stop at folded Children. They do not pin the removed `graph.nodes` header guard, and they do not `unload` a parent then `expand`. That gap is not a ticket miss: HEAD already walked `childMap`, and Fold-plus-Children remains covered.
 
 ## Out of scope (working tree)
 
