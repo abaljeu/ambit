@@ -12,6 +12,7 @@ Actual: 2h
 ## Notes
 
 - 2026-09-27 — Deferred pending the reframing of Actors as functions that can take all kinds of parameters. It may land around step five or six; the gaps in between are unknown. Keep the project, map, tickets, and chapter link. Slice one on [05 — Expand-contract first aspect](issues/05-expand-contract-first-aspect.md) stays `coded` as historical progress; further slices wait.
+- 2026-09-27 — [03 — Mailbox orchestration shape](issues/03-mailbox-orchestration-shape.md) locked from Alan voice: mailbox is a dispatcher (stamp EventId and route, do not wait); EventId is the watermark; queues are open-access; each entity answers completion on that Event. Feature-set remains deferred.
 - 2026-09-27 — Charted from Alan chat. Existing Core pool and mailbox stay [[plan/core-creation/project.md]]. First Actor definition / Parse stays outside Core on [[plan/parse-actor/project.md]]. Parse File tracer stays [[plan/event-sourced-ops/issues/08-parse-file-realignment-tracer.md]].
 - Map: [[map.md]]. Function-shaped start lookup: [function-shaped start](function-shaped-start.md).
 - First grillset: [01 — Actor-as-client duplex](issues/01-actor-as-client-duplex.md), [02 — Graph handoff](issues/02-graph-handoff.md), [03 — Mailbox orchestration shape](issues/03-mailbox-orchestration-shape.md), [04 — Start surface](issues/04-start-surface.md).
