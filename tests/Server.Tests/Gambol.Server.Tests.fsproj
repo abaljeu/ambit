@@ -43,6 +43,7 @@
     <Compile Include="CoreActorPoolTests.fs" />
     <Compile Include="CoreActorPoolDeliverTests.fs" />
     <Compile Include="ActorsDeliverDoorTests.fs" />
+    <Compile Include="AppGithubTransportBoundaryTests.fs" />
     <Compile Include="GithubTransportActorTests.fs" />
     <Compile Include="TestActorHelloTests.fs" />
     <Compile Include="TestActorCommandErrorTests.fs" />

@@ -54,10 +54,10 @@ type private DeskHttpHandler() as this =
     override _.SendAsync(request, _cancellationToken: CancellationToken) =
         Task.FromResult(this.Handle request)
 
-let private request operation =
+let private request prePick operation =
     let nodeId = NodeId.New()
     { operation = operation
-      prePick = LoadSavePrePick.Desk
+      prePick = prePick
       start =
         { zoomId = nodeId
           focusId = nodeId
@@ -92,13 +92,89 @@ let private runDesk operation =
             LoadSaveCommandClient.continueDesk messages.Add
           commandDone = fun _ -> Assert.Fail("unexpected Git completion")
           commandFailed = fun detail -> Assert.Fail(detail) }
-    LoadSaveCommandClient.runWith dependencies "ambit" (request operation)
+    LoadSaveCommandClient.runWith
+        dependencies "ambit" (request LoadSavePrePick.Desk operation)
     Assert.Equal<string list>(
         [ "/ambit/load-save-command" ],
         urls |> Seq.toList)
     match messages |> Seq.toList with
     | [ ApplyOp updater ] -> updater
     | other -> failwith $"expected one ApplyOp, got {other}"
+
+let private gitResponse =
+    { path = LoadSavePath.Git
+      command =
+        Some
+            { nodes = []
+              events = []
+              latestId = EventId.zero } }
+    |> ApiResponseSerialization.encodeLoadSaveCommandResponse
+    |> Encode.toString 0
+
+[<Theory>]
+[<InlineData("load")>]
+[<InlineData("save")>]
+let ``Git Load and Save cross the Server command request door`` operationName =
+    let operation =
+        if operationName = "load" then
+            LoadSaveOperation.Load
+        else
+            LoadSaveOperation.Save
+    let post url body onOk _ _ =
+        Assert.Equal("/ambit/load-save-command", url)
+        let decoded =
+            Decode.fromString EventJson.decodeLoadSaveCommandRequest body
+            |> Result.defaultWith failwith
+        Assert.Equal(operation, decoded.operation)
+        Assert.Equal(LoadSavePrePick.Git, decoded.prePick)
+        onOk gitResponse
+    let dependencies: LoadSaveCommandClient.Dependencies =
+        { encodeRequest =
+            EventJson.encodeLoadSaveCommandRequest >> Encode.toString 0
+          decodeResponse =
+            Decode.fromString
+                ApiResponseSerialization.decodeLoadSaveCommandResponseDecoder
+          post = post
+          continueDesk = fun _ -> Assert.Fail("unexpected Desk continuation")
+          commandDone = fun events -> Assert.Empty(events)
+          commandFailed = fun detail -> Assert.Fail(detail) }
+    LoadSaveCommandClient.runWith
+        dependencies "ambit" (request LoadSavePrePick.Git operation)
+
+[<Theory>]
+[<InlineData("Load", "load", "plain")>]
+[<InlineData("git Load", "load", "git")>]
+[<InlineData("desk Load", "load", "desk")>]
+[<InlineData("Save", "save", "plain")>]
+[<InlineData("git Save", "save", "git")>]
+[<InlineData("desk Save", "save", "desk")>]
+let ``Command surface keeps Load and Save pre-picks``
+    commandName
+    operationName
+    prePickName
+    =
+    let operation =
+        if operationName = "load" then
+            LoadSaveOperation.Load
+        else
+            LoadSaveOperation.Save
+    let prePick =
+        match prePickName with
+        | "git" -> LoadSavePrePick.Git
+        | "desk" -> LoadSavePrePick.Desk
+        | _ -> LoadSavePrePick.Plain
+    let command =
+        Commands.commandRegistry
+        |> List.find (fun entry -> entry.name = commandName)
+    let updater =
+        command.run ()
+        |> Option.defaultWith (fun () -> failwith "command unavailable")
+    let _, effects = updater (VmTestHelpers.emptyModel (Graph.create ()))
+    match effects with
+    | [ SubmitLoadSaveCommand actual ] ->
+        Assert.Equal(operation, actual.operation)
+        Assert.Equal(prePick, actual.prePick)
+    | other -> failwith $"expected load/save request, got {other}"
 
 let private applyOps graph ops =
     match
