@@ -44,6 +44,7 @@
     <Compile Include="SessionState.fs" />
     <Compile Include="BootCacheStore.fs" />
     <Compile Include="AutoDownloadTimer.fs" />
+    <Compile Include="SubmitChangeCallbacks.fs" />
     <Compile Include="App.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>

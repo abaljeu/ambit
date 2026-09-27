@@ -28,69 +28,15 @@ open Gambol.Client.SessionState
 // MVU runtime (factory: model cell + effect interpreter)
 // ---------------------------------------------------------------------------
 
-module private SubmitChangeCallbacks =
-    open Gambol.Shared.LogText
-    open Gambol.Shared.ViewModel
-    open Gambol.Client.JsInterop
-    open Gambol.Client.Update
-
-    let onPostOk
-        (timeoutId: float)
-        (reqId: string)
-        (submitted: Ev list)
-        (dispatch: Msg -> unit)
-        (text: string)
-        : unit =
-        clearTimeout timeoutId
-        let n = text.Length
-        match decodeChangeSuccessResponse text with
-        | Ok ack ->
-            consoleLog (
-                "[Gambol sync] POST 200 req=" + reqId
-                + " ackRev=" + string ack.eventId.Value
-                + " bodyLen=" + string n)
-            dispatch (
-                SysMsg (
-                    SubmitResponse (
-                        submitted,
-                        ack)))
-        | Error err ->
-            consoleLog (
-                "[Gambol sync] POST 200 bad ACK JSON req=" + reqId
-                + " err=" + err + " bodyLen=" + string n)
-            dispatch (SysMsg (SubmitRejected ("ACK decode: " + err)))
-
-    let onPostHttp (timeoutId: float) (reqId: string) (dispatch: Msg -> unit) (httpStatus: int) (bodyText: string) : unit =
-        clearTimeout timeoutId
-        let snippet = summarizeHttpBody 400 bodyText
-        consoleLog (
-            "[Gambol sync] GAMBOL_HTTP_ERR POST fail req=" + reqId
-            + " http=" + string httpStatus + " body=" + snippet)
-        let detail =
-            decodePostEventError bodyText
-            |> Option.map (summarizeHttpBody 400)
-            |> Option.defaultValue (summarizeHttpBody 400 bodyText)
-        dispatch (SysMsg (SubmitRejected detail))
-
-    let onPostFetchFail
-        (timeoutId: float)
-        (reqId: string)
-        (baseEventId: EventId)
-        (events: Ev list)
-        (dispatch: Msg -> unit)
-        ()
-        : unit =
-        clearTimeout timeoutId
-        consoleLog ("[Gambol sync] POST fetch failed req=" + reqId)
-        dispatch (
-            SysMsg (
-                SubmitNetworkError (
-                    baseEventId,
-                    events,
-                    SubmitNetworkErrorKind.FetchFailed)))
-
 // Idle/pause remote polling after a period of no user interaction (battery-friendly).
 let idleTimeoutMs = 15 * 60 * 1000
+
+let private emptySyncResponse: SyncResponse =
+    { events = []
+      packages = []
+      packageChildMap = Map.empty
+      nodes = []
+      childMap = Map.empty }
 
 let createRuntime (initialModel: VM) =
     let mutable model = initialModel
@@ -463,12 +409,6 @@ let createRuntime (initialModel: VM) =
                 ApiResponseSerialization.encodePollRequest
                     { eventId = eventId
                       want = currentWant model })
-        let emptyResponse =
-            { events = []
-              packages = []
-              packageChildMap = Map.empty
-              nodes = []
-              childMap = Map.empty }
         let onPollOk (text: string) : unit =
             match ApiResponseSerialization.decodeChangeSuccessResponse text with
             | Ok poll ->
@@ -486,15 +426,13 @@ let createRuntime (initialModel: VM) =
             | Error _ ->
                 dispatch (
                     SysMsg (
-                        PollDone (None, emptyResponse, None, None)))
+                        PollDone (None, emptySyncResponse, None, None)))
+        let onPollFail () =
+            dispatch (
+                SysMsg (
+                    PollDone (None, emptySyncResponse, None, None)))
         let onPollHttp (_status: int) (_body: string) : unit =
-            dispatch (
-                SysMsg (
-                    PollDone (None, emptyResponse, None, None)))
-        let onPollFail () : unit =
-            dispatch (
-                SysMsg (
-                    PollDone (None, emptyResponse, None, None)))
+            onPollFail ()
         postJson
             url
             body
