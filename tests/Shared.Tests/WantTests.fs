@@ -118,7 +118,7 @@ let ``compose then installWantAnswer loads wanted parents and children`` () =
     Assert.DoesNotContain(Graph.systemId, want2)
 
 [<Fact>]
-let ``compose honors Fold and does not unfold`` () =
+let ``compose wants unloaded children of folded members`` () =
     let g0 = Graph.create ()
     let g1, zoomIds = ModelBuilder.createNodes [ "zoom" ] g0
     let zoomId = zoomIds.[0]
@@ -137,8 +137,37 @@ let ``compose honors Fold and does not unfold`` () =
         |> requireOk "fold.mid"
     let siteMap, _ = buildSiteMapFrom graph zoomId (Sid 0)
     let want = Want.compose (unload hiddenId graph) siteMap zoomId
+    Assert.Equal<NodeId list>([ hiddenId ], want)
+    Assert.DoesNotContain(zoomId, want)
+    Assert.DoesNotContain(midId, want)
+
+[<Fact>]
+let ``compose wants one rank past a folded loaded child`` () =
+    let g0 = Graph.create ()
+    let g1, zoomIds = ModelBuilder.createNodes [ "zoom" ] g0
+    let zoomId = zoomIds.[0]
+    let g2, midIds = ModelBuilder.createNodes [ "mid" ] g1
+    let midId = midIds.[0]
+    let g3, hiddenIds = ModelBuilder.createNodes [ "hidden" ] g2
+    let hiddenId = hiddenIds.[0]
+    let g4, grandIds = ModelBuilder.createNodes [ "grand" ] g3
+    let grandId = grandIds.[0]
+    let g5 =
+        Graph.replace g4.root 0 [] (owned [ zoomId ]) g4
+        |> requireOk "deep.root"
+    let g6 =
+        Graph.replace zoomId 0 [] (owned [ midId ]) g5
+        |> requireOk "deep.zoom"
+    let g7 =
+        Graph.replace midId 0 [] (owned [ hiddenId ]) g6
+        |> requireOk "deep.mid"
+    let graph =
+        Graph.replace hiddenId 0 [] (owned [ grandId ]) g7
+        |> requireOk "deep.hidden"
+    let siteMap, _ = buildSiteMapFrom graph zoomId (Sid 0)
+    let want = Want.compose (unload grandId graph) siteMap zoomId
+    Assert.Equal<NodeId list>([ grandId ], want)
     Assert.DoesNotContain(hiddenId, want)
-    Assert.Equal<NodeId list>([], want)
 
 [<Fact>]
 let ``compose is empty when Included is Loaded`` () =

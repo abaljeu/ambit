@@ -13,7 +13,7 @@ File on disk becomes Graph on the Server. Workspace Download and Workspace Uploa
 
 The Browser starts small. It holds visible-closure: the Included context and the path that frames it, not the whole Server Graph.
 
-The Browser grows by auto wants. First it wants visible Nodes that miss Children. Then it wants those Children. An Unloaded Node shows a hollow-circle Bullet until that fill. Auto wants need no click and no command. Commands come later.
+The Browser grows by auto wants. One Want lists visible Nodes that miss Children, then their Children, then the grandchildren. An Unloaded Node shows a hollow-circle Bullet until that fill. Auto wants need no click and no command. Commands come later.
 
 When Find picks a hit that is not Resident, the Browser Fetches those Nodes before navigate.
 
@@ -21,7 +21,7 @@ Post-Event and Poll carry Changes plus the Nodes the Browser wants.
 
 ## Required for done
 
-- [ ] [[plan/browser-residency/project.md]] — visible-closure; auto wants (visible Nodes that miss Children first, then those Children); hollow until fill; search hydration; post-Event and Poll carry Changes plus wanted Nodes
+- [ ] [[plan/browser-residency/project.md]] — visible-closure; auto wants (visible Nodes that miss Children, then their Children, then the grandchildren); hollow until fill; search hydration; post-Event and Poll carry Changes plus wanted Nodes
 - [ ] [[plan/parse-actor/project.md]] — continuous Server Parse Actor; file-shaped disk→Graph; priority from Browser wants; emits Changes
 - [ ] [[plan/transport-layer/project.md]] — file transit stays here; no new transit Project
 

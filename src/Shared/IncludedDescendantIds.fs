@@ -15,7 +15,7 @@ module IncludedDescendantIds =
 
     /// Flat NodeId list starting at Zoom root. Recurse unfolded child lists;
     /// stop at folded children; do not filter ownership; ids only.
-    let expand
+    let throughChildrenOfExpandedNodes
         (graph: Graph)
         (siteMap: SiteMap)
         (startId: NodeId)
@@ -40,3 +40,24 @@ module IncludedDescendantIds =
         match startSite siteMap startId with
         | None -> [ startId ]
         | Some sid -> List.rev (walk [] startId sid)
+
+    /// `found` in order, then each node's direct children that are not
+    /// already listed. One rank. An absent childMap adds no children.
+    let plusChildrenOfEach (graph: Graph) (found: NodeId list) : NodeId list =
+        let extras, _ =
+            found
+            |> List.fold
+                (fun (acc, seen) parentId ->
+                    match GraphChildren.tryGet graph parentId with
+                    | None -> acc, seen
+                    | Some children ->
+                        children
+                        |> List.fold
+                            (fun (acc, seen) child ->
+                                if Set.contains child.id seen then
+                                    acc, seen
+                                else
+                                    child.id :: acc, Set.add child.id seen)
+                            (acc, seen))
+                ([], Set.ofList found)
+        found @ List.rev extras

@@ -73,7 +73,7 @@ let ``oneNodeStart graphIds are the unfolded Included descendant ids`` () =
     let graph, siteMap, nodeId, childIds = zoomWithChildren [ "a"; "b" ]
     let request =
         CommandRequest.oneNodeStart graph siteMap nodeId EventId.zero
-    let expected = IncludedDescendantIds.expand graph siteMap nodeId
+    let expected = IncludedDescendantIds.throughChildrenOfExpandedNodes graph siteMap nodeId
     Assert.Equal<NodeId list>(expected, request.graphIds)
     Assert.Equal<NodeId list>([ nodeId; childIds.[0]; childIds.[1] ], request.graphIds)
 
@@ -168,7 +168,7 @@ let ``tryStart encodes distinct Focus Command and Zoom from owner-scan`` () =
         Assert.Equal(commandId, request.commandId)
         Assert.NotEqual(request.commandId, request.focusId)
         Assert.Equal<NodeId list>(
-            IncludedDescendantIds.expand graph siteMap commandId,
+            IncludedDescendantIds.throughChildrenOfExpandedNodes graph siteMap commandId,
             request.graphIds)
 
 [<Fact>]
