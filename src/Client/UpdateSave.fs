@@ -22,26 +22,31 @@ let deskSaveOp (model: VM) : VM * Effect list =
     else
         model, [ ContinueDeskSave ]
 
-let runDeskSaveWith post fileName =
+let runDeskSaveWith
+    (decodeResponse: string -> Result<GitSaveResponse, string>)
+    log
+    post
+    fileName
+    =
     post
         (deskSaveUrl fileName)
         (fun text ->
-            match decodeGitSaveResponse text with
+            match decodeResponse text with
             | Ok { ok = true; detail = detail } ->
-                consoleLog ("[Gambol] save: " + detail)
+                log ("[Gambol] save: " + detail)
             | Ok { error = Some err } ->
-                consoleLog ("[Gambol] save failed: " + err)
+                log ("[Gambol] save failed: " + err)
             | Ok _ ->
-                consoleLog "[Gambol] save failed: unknown response"
+                log "[Gambol] save failed: unknown response"
             | Error err ->
-                consoleLog ("[Gambol] save decode failed: " + err))
+                log ("[Gambol] save decode failed: " + err))
         (fun status text ->
-            consoleLog (
+            log (
                 "[Gambol] save HTTP "
                 + string status
                 + ": "
                 + LogText.summarizeHttpBody 200 text))
-        (fun () -> consoleLog "[Gambol] save network error")
+        (fun () -> log "[Gambol] save network error")
 
 let saveOpFor
     (prePick: LoadSavePrePick)

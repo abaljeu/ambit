@@ -29,6 +29,8 @@ type Dependencies =
         (int -> string -> unit) ->
         (unit -> unit) ->
         unit
+      decodeGitSave: string -> Result<GitSaveResponse, string>
+      log: string -> unit
       fileName: string }
 
 let runWorkspaceStubsThenPushWith
@@ -95,6 +97,8 @@ let runWorkspacePushWith
 
 let runDeskSaveWith dependencies =
     UpdateSave.runDeskSaveWith
+        dependencies.decodeGitSave
+        dependencies.log
         dependencies.postEmpty
         dependencies.fileName
 
@@ -114,6 +118,8 @@ let private productionDependencies =
             postEmpty
                 url onOk onHttp onFail
                 (emptyMutatingPostHeaders ())
+      decodeGitSave = decodeGitSaveResponse
+      log = consoleLog
       fileName = currentFile }
 
 let runWorkspaceStubsThenPush dispatch scope parseFileId =

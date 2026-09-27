@@ -1,6 +1,11 @@
 module Gambol.Server.Tests.LoadSaveCommandClientTests
 
 open System
+open System.Net
+open System.Net.Http
+open System.Text
+open System.Threading
+open System.Threading.Tasks
 open Xunit
 open Gambol.Client
 open Gambol.Shared
@@ -9,6 +14,45 @@ open Thoth.Json.Newtonsoft
 
 module Encode = Thoth.Json.Newtonsoft.Encode
 module Decode = Thoth.Json.Newtonsoft.Decode
+
+type private DeskHttpHandler() as this =
+    inherit HttpMessageHandler()
+
+    let requests = ResizeArray<string * string>()
+
+    member _.Requests = requests |> Seq.toList
+
+    member private _.Handle(request: HttpRequestMessage) =
+        let path = request.RequestUri.AbsolutePath
+        let body =
+            if isNull request.Content then ""
+            else request.Content.ReadAsStringAsync().Result
+        requests.Add(string request.Method, path)
+        let responseBody =
+            match path with
+            | "/_desktop/workspace-inventory" ->
+                """{"mode":"Full","items":[]}"""
+            | "/_desktop/workspace-push" ->
+                """{"ok":true,"uploaded":0,"downloaded":0,"detail":"pushed","error":null}"""
+            | "/ambit/save" ->
+                """{"ok":true,"detail":"saved","error":null}"""
+            | _ -> """{"error":"unexpected path"}"""
+        let status =
+            if path = "/_desktop/workspace-inventory"
+               || path = "/_desktop/workspace-push"
+               || path = "/ambit/save" then
+                HttpStatusCode.OK
+            else
+                HttpStatusCode.NotFound
+        new HttpResponseMessage(
+            status,
+            Content = new StringContent(responseBody))
+
+    override _.Send(request, _cancellationToken: CancellationToken) =
+        this.Handle request
+
+    override _.SendAsync(request, _cancellationToken: CancellationToken) =
+        Task.FromResult(this.Handle request)
 
 let private request operation =
     let nodeId = NodeId.New()
@@ -86,24 +130,51 @@ let private saveEnabledModel () =
         serverCapabilities =
             Some { canGitSave = true; canFileStatus = true } }
 
+let private postHttp
+    (client: HttpClient)
+    (url: string)
+    (body: string)
+    (onOk: string -> unit)
+    (onHttp: int -> string -> unit)
+    (onFail: unit -> unit)
+    : unit
+    =
+    try
+        use content =
+            new StringContent(body, Encoding.UTF8, "application/json")
+        use response =
+            client.PostAsync(url, content).GetAwaiter().GetResult()
+        let text =
+            response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+        if response.IsSuccessStatusCode then
+            onOk text
+        else
+            onHttp (int response.StatusCode) text
+    with _ ->
+        onFail ()
+
 let private effectDependencies () =
-    let urls = ResizeArray<string>()
-    let postJson url _ onOk _ _ =
-        urls.Add url
-        if url = "/_desktop/workspace-inventory" then
-            onOk """{"mode":"Full","items":[]}"""
-    let postEmpty url _ _ _ =
-        urls.Add url
+    let handler = new DeskHttpHandler()
+    let client = new HttpClient(handler)
+    client.BaseAddress <- Uri("http://localhost")
     let dependencies: DeskLoadSaveEffectClient.Dependencies =
         { defer = fun action -> action ()
-          postJson = postJson
+          postJson = postHttp client
           prepareWorkspacePush = fun _ -> Ok "{}"
           encodeWorkspaceInventory = fun _ -> "{}"
           decodeWorkspaceInventory =
             fun _ -> Ok { mode = "Full"; items = [] }
-          postEmpty = postEmpty
+          postEmpty =
+            fun url onOk onHttp onFail ->
+                postHttp client url "" onOk onHttp onFail
+          decodeGitSave =
+            Decode.fromString GitSaveResponse.decoder
+          log = ignore
           fileName = "ambit" }
-    dependencies, urls
+    dependencies, handler, client
+
+let private assertPosted path (handler: DeskHttpHandler) =
+    Assert.Contains(("POST", path), handler.Requests)
 
 let private onlyUpdater messages =
     match messages |> Seq.toList with
@@ -116,7 +187,8 @@ let ``Desk Load response continues to mapped workspace push`` () =
     let model, effects = updater (mappedWorkspaceModel ())
     match effects with
     | [ ContinueWorkspaceStubsThenPush(scope, None) ] ->
-        let dependencies, urls = effectDependencies ()
+        let dependencies, handler, client = effectDependencies ()
+        use _client = client
         let messages = ResizeArray<Msg>()
         DeskLoadSaveEffectClient.runWorkspaceStubsThenPushWith
             dependencies messages.Add scope None
@@ -127,7 +199,7 @@ let ``Desk Load response continues to mapped workspace push`` () =
             DeskLoadSaveEffectClient.runWorkspacePushWith
                 dependencies ignore nextScope None
         | other -> failwith $"expected push continuation, got {other}"
-        Assert.Contains("/_desktop/workspace-push", urls)
+        assertPosted "/_desktop/workspace-push" handler
     | other -> failwith $"expected workspace push, got {other}"
 
 [<Fact>]
@@ -136,7 +208,8 @@ let ``Desk Save response continues to existing save endpoint`` () =
     let _, effects = updater (saveEnabledModel ())
     match effects with
     | [ ContinueDeskSave ] ->
-        let dependencies, urls = effectDependencies ()
+        let dependencies, handler, client = effectDependencies ()
+        use _client = client
         DeskLoadSaveEffectClient.runDeskSaveWith dependencies
-        Assert.Contains("/ambit/save", urls)
+        assertPosted "/ambit/save" handler
     | other -> failwith $"expected desk save continuation, got {other}"

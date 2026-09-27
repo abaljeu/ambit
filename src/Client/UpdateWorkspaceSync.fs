@@ -315,14 +315,6 @@ let completeUploadInventoryWith
                 keepUploading (withSiteMap model'),
                 [ Effect.ContinuePostUploadStructure (submitted, scope, parseFileId) ]
 
-let completeUploadInventory scope parseFileId text model =
-    completeUploadInventoryWith
-        decodeDesktopUploadInventory
-        scope
-        parseFileId
-        text
-        model
-
 /// Structure Change ACK: stamp + revision, then body push.
 let completeUploadStructurePost
     (submitted: Ev)
