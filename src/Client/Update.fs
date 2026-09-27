@@ -43,6 +43,20 @@ type private SubmitReconciliation =
     { outcome: AckReconcile
       needsCatchUp: bool }
 
+let private continueAutoWant
+    (response: SyncResponse)
+    (model: VM, effects: Effect list)
+    : VM * Effect list =
+    let installedAnswer =
+        not (List.isEmpty response.nodes)
+        || not (Map.isEmpty response.childMap)
+    if not installedAnswer || List.isEmpty (currentWant model) then
+        model, effects
+    else
+        let syncInfo, pollEffects =
+            SyncPlanner.tryStartPoll model.eventId model.syncInfo
+        { model with syncInfo = syncInfo }, effects @ pollEffects
+
 let private reconcileSubmit
     (submitted: Ev list)
     (response: ChangeSuccessResponse)
@@ -74,9 +88,11 @@ let private applyIgnoredSubmitAnswer
             syncInfo = SyncInfo.withSyncState DataOutdated model.syncInfo },
         []
     | Ok answered ->
-        withAppliedSync answered model
-        |> withSiteMap
-        |> adjustModeAfterServerApply model.graph, []
+        (withAppliedSync answered model
+         |> withSiteMap
+         |> adjustModeAfterServerApply model.graph,
+         [])
+        |> continueAutoWant (SyncLogic.changeSuccessToSync response)
 
 let private finishAppliedSubmit
     (response: ChangeSuccessResponse)
@@ -112,9 +128,10 @@ let private finishAppliedSubmit
             SyncPlanner.tryStartPoll model.eventId applied.syncInfo
         else
             applied.syncInfo, []
-    { updated' with syncInfo = nextSync },
-    SavePendingQueue nextSync.pending
-    :: applied.effects @ pollEffects @ autoEffects
+    ({ updated' with syncInfo = nextSync },
+     SavePendingQueue nextSync.pending
+     :: applied.effects @ pollEffects @ autoEffects)
+    |> continueAutoWant (SyncLogic.changeSuccessToSync response)
 
 let private applySubmitResponse
     (submitted: Ev list)
@@ -282,6 +299,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                  |> List.collect (fun e ->
                     Ev.ops e |> Option.defaultValue []))
                 model'
+            |> continueAutoWant syncResponse
         match readyModel.syncInfo.syncState with
         | Loading ->
             readyModel, []
@@ -360,7 +378,8 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                         answeredState
                         (si |> SyncInfo.clearCatchUp)
                         readyModel
-                    |> withSiteMap, []
+                    |> withSiteMap
+                    |> fun next -> continueAutoWant syncResponse (next, [])
             | _ ->
                 match stateOpt with
                 | None ->
