@@ -275,7 +275,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
             | None -> model
         // While Uploading, Parsing, or Loading: keep the busy indicator. Do not apply
         // Poll tails during Loading — a stale poll would advance revision and cause
-        // applyLoadResponse to reject package-only Load payloads.
+        // applyLoadResponse to reject answer-only Load payloads.
         let autoDownload model' =
             UpdateWorkspaceDownload.accumulateAutoDownloadFromOps
                 (events

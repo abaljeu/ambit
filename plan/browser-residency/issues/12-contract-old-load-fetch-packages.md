@@ -1,7 +1,8 @@
 # 12 — Contract old Load Fetch packages
 
 **Type:** coding
-**Status:** defined
+**Status:** coded
+**Actual:** 25m
 **Blocked by:** [08 — Migrate Shared wire](08-migrate-shared-wire.md), [09 — Migrate Server Sync doors](09-migrate-server-sync-doors.md), [10 — Migrate Browser Poll, post-Event, and Boot](10-migrate-browser-poll-post-event-and-boot.md), [11 — Migrate Bullet and Included readers](11-migrate-bullet-included-and-bootstrap-wants.md)
 
 ## Context
@@ -16,25 +17,25 @@ Remove the legacy Load Fetch package API after every migration ticket is done. L
 
 Module [Load command](../arch.md). Story path 31.
 
-- [ ] 31.4 Delete package response — remove `LoadResponse.packages` and `packageChildMap`
-- [ ] 13.2.2 Keep current Fetch — `tryStartLoadFetch` uses the edges-plus-Nodes answer only
-- [ ] 30.1 Keep Load command — the user-facing Load command still runs Upload, Parse, and Fetch
-- [ ] 18.1 Keep optional click wiring — do not require un-wiring hollow-circle → Load
+- [x] 31.4 Delete package response — remove `LoadResponse.packages` and `packageChildMap`
+- [x] 13.2.2 Keep current Fetch — `tryStartLoadFetch` uses the edges-plus-Nodes answer only
+- [x] 30.1 Keep Load command — the user-facing Load command still runs Upload, Parse, and Fetch
+- [x] 18.1 Keep optional click wiring — do not require un-wiring hollow-circle → Load
 
 ### 2. Sync wire and Server doors
 
 Modules [Sync wire](../arch.md), [Server Sync doors](../arch.md).
 
-- [ ] 3.2.3 Delete legacy projection helpers — remove `packagesForTargets` and `installPackages`
-- [ ] 6.2.3 Keep current Server answer — `postLoad` uses the same edges-plus-Nodes answer as Poll
-- [ ] 9.2.1 Keep one apply path — `applySyncResponse` applies Events, then `installWantAnswer`
+- [x] 3.2.3 Delete legacy projection helpers — remove `packagesForTargets` and `installPackages`
+- [x] 6.2.3 Keep current Server answer — `postLoad` uses the same edges-plus-Nodes answer as Poll
+- [x] 9.2.1 Keep one apply path — `applySyncResponse` applies Events, then `installWantAnswer`
 
 ### 3. Contract proof
 
 Prove no legacy symbol or caller remains.
 
-- [ ] 31.4 Symbol scan — no `LoadResponse.packages`, `packageChildMap`, `packagesForTargets`, or `installPackages`
-- [ ] 9.2.2 Residency proof — Poll, post-Event, bootstrap, and Load Fetch all install through the current answer path
+- [x] 31.4 Symbol scan — no `LoadResponse.packages`, `packageChildMap`, `packagesForTargets`, or `installPackages`
+- [x] 9.2.2 Residency proof — Poll, post-Event, bootstrap, and Load Fetch all install through the current answer path
 
 ## See also
 
@@ -45,3 +46,7 @@ Prove no legacy symbol or caller remains.
 - 2026-09-26: Filed via `/to-tickets`. Contract. Decision home is [06 — Dual-run vs migrate explicit Load Fetch](06-dual-run-vs-migrate-explicit-load.md).
 - 2026-09-26: Status changed to `defined`; linked Blocked-by tickets carry dependency order.
 - 2026-09-26: Decision 06 affirmed removal; no dual-run or compatibility API remains.
+
+## 4. Time
+
+- 1. **Contract implementation** — 2026-09-27 25m — removed the old Load Fetch package API and verified the current answer path.

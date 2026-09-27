@@ -33,8 +33,6 @@ let idleTimeoutMs = 15 * 60 * 1000
 
 let private emptySyncResponse: SyncResponse =
     { events = []
-      packages = []
-      packageChildMap = Map.empty
       nodes = []
       childMap = Map.empty }
 
@@ -468,8 +466,6 @@ let createRuntime (initialModel: VM) =
                         LoadDone (
                             None,
                             { events = []
-                              packages = []
-                              packageChildMap = Map.empty
                               nodes = []
                               childMap = Map.empty },
                             model.eventId,
@@ -480,8 +476,6 @@ let createRuntime (initialModel: VM) =
                     LoadDone (
                         None,
                         { events = []
-                          packages = []
-                          packageChildMap = Map.empty
                           nodes = []
                           childMap = Map.empty },
                         model.eventId,
@@ -492,8 +486,6 @@ let createRuntime (initialModel: VM) =
                     LoadDone (
                         None,
                         { events = []
-                          packages = []
-                          packageChildMap = Map.empty
                           nodes = []
                           childMap = Map.empty },
                         model.eventId,

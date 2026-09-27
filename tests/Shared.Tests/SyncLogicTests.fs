@@ -433,7 +433,7 @@ let ``applySyncResponse installs complete child list as Loaded and preserves own
             name = Filename.Ok "ext",
             kind = Special Workspace,
             owner = wsId)
-    // Change touches a Loaded root child; package then installs ws at response revision.
+    // Change touches a Loaded root child; answer then installs ws at response event id.
     let response =
         { events =
               [ SpecialNodeTestHelpers.changeEvent
@@ -441,8 +441,6 @@ let ``applySyncResponse installs complete child list as Loaded and preserves own
                     (EventIdFixtures.storedId 6)
                     (System.Guid.NewGuid())
                     [ Op.SetText(markerId, "marker", "marker-tail") ] ]
-          packages = []
-          packageChildMap = Map.empty
           nodes = [ wsHeader; child; external ]
           childMap =
             Map.ofList
@@ -487,14 +485,12 @@ let ``applyServerTail multi-change tail advances revision and graph`` () =
         Assert.Equal(nodeB.text + "2", result.graph.nodes.[nodeB.id].text)
 
 [<Fact>]
-let ``applySyncResponse empty packages and empty changes preserves History`` () =
+let ``applySyncResponse empty answer and empty changes preserves History`` () =
     let past = mkChange 4
     let st = emptyState () |> withRecorded past
     match
         SyncLogic.applySyncResponse
             { events = []
-              packages = []
-              packageChildMap = Map.empty
               nodes = []
               childMap = Map.empty }
             st
@@ -531,8 +527,6 @@ let ``applySyncResponse empty Loaded child list marks Loaded without History cle
     match
         SyncLogic.applySyncResponse
             { events = []
-              packages = []
-              packageChildMap = Map.empty
               nodes = [ ws ]
               childMap = Map.ofList [ wsId, [] ] }
             st
@@ -572,8 +566,6 @@ let ``applySyncResponse installs Want answer after Event tail`` () =
                     (EventIdFixtures.storedId 6)
                     (System.Guid.NewGuid())
                     [ Op.SetText(markerId, "marker", "marker-tail") ] ]
-          packages = []
-          packageChildMap = Map.empty
           nodes = [ parent; child ]
           childMap =
             Map.ofList
@@ -612,8 +604,6 @@ let ``applySyncResponse Want-answer empty list marks Loaded leaf`` () =
     match
         SyncLogic.applySyncResponse
             { events = []
-              packages = []
-              packageChildMap = Map.empty
               nodes = [ parent ]
               childMap = Map.ofList [ parentId, [] ] }
             st
@@ -645,8 +635,6 @@ let ``applySyncResponse refuses dangling Want edges`` () =
     match
         SyncLogic.applySyncResponse
             { events = []
-              packages = []
-              packageChildMap = Map.empty
               nodes = [ parent ]
               childMap =
                 Map.ofList [ parentId, [ ChildNode.owner missingId ] ] }
@@ -689,8 +677,6 @@ let ``applySyncResponse Load Fetch answer installs through installWantAnswer`` (
     let wsChild = Node.Create(wsChildId, text = "ws-leaf", owner = wsId)
     let response =
         { events = []
-          packages = []
-          packageChildMap = Map.empty
           nodes = [ wantParent; wantChild; wsHeader; wsChild ]
           childMap =
             Map.ofList
@@ -707,7 +693,7 @@ let ``applySyncResponse Load Fetch answer installs through installWantAnswer`` (
         Assert.Equal(wsChildId, (Graph.children result.graph wsId).[0].id)
 
 [<Fact>]
-let ``changeSuccessToSync carries Want answer not packages`` () =
+let ``changeSuccessToSync carries Want answer`` () =
     let parentId = NodeId.New()
     let childId = NodeId.New()
     let parent = Node.Create(parentId, text = "parent")
@@ -719,8 +705,6 @@ let ``changeSuccessToSync carries Want answer not packages`` () =
             childMap = Map.ofList [ parentId, ChildNode.owners [ childId ] ] }
     let sync = SyncLogic.changeSuccessToSync poll
     Assert.Equal(1, sync.events.Length)
-    Assert.Empty(sync.packages)
-    Assert.True(sync.packageChildMap.IsEmpty)
     Assert.Equal(2, sync.nodes.Length)
     Assert.Equal(parentId, sync.nodes.[0].id)
     Assert.Equal<ChildNode list>(

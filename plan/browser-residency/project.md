@@ -4,7 +4,7 @@ Stage: build
 Summary: The Browser starts with a small bootstrap Graph and grows from ViewModel-derived Wants for Fold-aware Included Nodes that miss Children. An Unloaded Node shows a hollow-circle Bullet until its Children arrive. Server Find stays postponed. Every post-Event and Poll carries Changes plus the current Want.
 Updated: 2026-09-27
 Started: 2026-09-26
-Actual: 7h 07m
+Actual: 7h 32m
 
 **Part of:** [[plan/roadmap/epics/chapters/incremental-operations.md]]
 
@@ -16,4 +16,4 @@ Actual: 7h 07m
 - Map: [[map.md]].
 - Spec: [[spec.md]].
 - Arch: [[arch.md]].
-- Implementation: [07 — Expand Want and edges/Nodes package](issues/07-expand-want-and-edges-nodes-package.md) is done. The migrate frontier is [08 — Migrate Shared wire](issues/08-migrate-shared-wire.md), [09 — Migrate Server Sync doors](issues/09-migrate-server-sync-doors.md), [10 — Migrate Browser Poll, post-Event, and Boot](issues/10-migrate-browser-poll-post-event-and-boot.md), and [11 — Migrate Bullet and Included readers](issues/11-migrate-bullet-included-and-bootstrap-wants.md). [12 — Contract old Load Fetch packages](issues/12-contract-old-load-fetch-packages.md) waits on all four.
+- Implementation: [07 — Expand Want and edges/Nodes package](issues/07-expand-want-and-edges-nodes-package.md), [08 — Migrate Shared wire](issues/08-migrate-shared-wire.md), [09 — Migrate Server Sync doors](issues/09-migrate-server-sync-doors.md), [10 — Migrate Browser Poll, post-Event, and Boot](issues/10-migrate-browser-poll-post-event-and-boot.md), and [11 — Migrate Bullet and Included readers](issues/11-migrate-bullet-included-and-bootstrap-wants.md) are done. [12 — Contract old Load Fetch packages](issues/12-contract-old-load-fetch-packages.md) is coded.

@@ -65,7 +65,7 @@ type LoadRequest =
     { eventId: EventId
       targets: LoadTarget list }
 
-/// Response from POST /ambit/load: Poll stamp envelope plus optional Workspace subgraphs.
+/// Response from POST /ambit/load: Poll stamp envelope plus an edges-and-Nodes answer.
 type LoadResponse =
     { eventId: EventId
       buildEpochSec: int
@@ -73,10 +73,8 @@ type LoadResponse =
       apiVersion: int
       isReady: bool
       events: Ev list
-      /// Complete Workspace subgraph Nodes at the response event id (wire: nodes).
-      packages: Node list
-      /// Loaded child lists for `packages`. Absent package id = Unloaded header.
-      packageChildMap: Map<NodeId, ChildNode list> }
+      nodes: Node list
+      childMap: Map<NodeId, ChildNode list> }
 
     member this.changes = this.events
 
@@ -94,10 +92,6 @@ type CancelRequest =
 /// Authoritative Sync install: Event tail then edges-plus-Nodes answer.
 type SyncResponse =
     { events: Ev list
-      /// Legacy Load package Nodes. Unused by apply.
-      packages: Node list
-      /// Legacy Load child lists. Unused by apply.
-      packageChildMap: Map<NodeId, ChildNode list>
       /// Want-answer Nodes. Load Fetch maps here too.
       nodes: Node list
       /// Want-answer edges. Absent key stays Unloaded; [] is a Loaded leaf.

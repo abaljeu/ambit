@@ -213,26 +213,6 @@ let ``wantAnswer omits an edge with an absent target Node`` () =
     Assert.Empty(nodes)
 
 [<Fact>]
-let ``installPackages still works beside installWantAnswer`` () =
-    let graph0 = Graph.create ()
-    let noteId = NodeId.New()
-    let note = Node.Create(noteId, text = "pkg", owner = graph0.root)
-    let graph = Graph.addDetachedNode note graph0
-    let viaPackages =
-        ResidentProjection.installPackages
-            [ note ]
-            (Map.ofList [ noteId, [] ])
-            graph
-    Assert.True(GraphChildren.isLoaded viaPackages noteId)
-    let viaWant =
-        ResidentProjection.installWantAnswer
-            (Map.ofList [ noteId, [] ])
-            [ note ]
-            graph
-        |> requireOk "want-leaf"
-    Assert.True(GraphChildren.isLoaded viaWant noteId)
-
-[<Fact>]
 let ``visibleClosureGraph loads reserved Children and Zoom ancestors`` () =
     let graph, wsId, dirId, fileId, buriedId, grandId =
         graphWithWorkspaceAndRootNote ()
