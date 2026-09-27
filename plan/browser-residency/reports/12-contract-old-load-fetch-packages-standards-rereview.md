@@ -1,0 +1,1 @@
+No remaining Standards findings: [ResidentProjection](src/Shared/ResidentProjection.fs) `wantAnswerForTargets` is the single Load-target Want answer; [captureLoadResponse](src/Shared/ResidentProjection.fs) and [Api](src/Server/Api.fs) `loadWantAnswer` call it; scan sizes 17 and 14 lines are under the 40-line limit in [fsharp-source](.agents/rules/fsharp-source.md).
