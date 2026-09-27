@@ -735,8 +735,8 @@ let ``directory reconciliation POST returns failures JSON`` () =
     let wsEvent = wsChange
     let wsBody =
         Thoth.Json.Newtonsoft.Encode.toString 0
-            (EventJson.encodeEventBatch
-                { events = [ wsEvent ] })
+            (ApiResponseSerialization.encodeChangeRequest
+                { events = [ wsEvent ]; want = [] })
     use wsContent = new StringContent(wsBody, Text.Encoding.UTF8, "application/json")
     let wsResp =
         client.PostAsync("/ambit/changes", wsContent)
@@ -762,8 +762,8 @@ let ``directory reconciliation POST returns failures JSON`` () =
     let docsEvent = docsChange
     let docsBody =
         Thoth.Json.Newtonsoft.Encode.toString 0
-            (EventJson.encodeEventBatch
-                { events = [ docsEvent ] })
+            (ApiResponseSerialization.encodeChangeRequest
+                { events = [ docsEvent ]; want = [] })
     use docsContent =
         new StringContent(docsBody, Text.Encoding.UTF8, "application/json")
     let docsResp =
@@ -798,8 +798,8 @@ let ``workspace reconciliation POST with empty path discovers root`` () =
     let wsEvent = wsChange
     let wsBody =
         Thoth.Json.Newtonsoft.Encode.toString 0
-            (EventJson.encodeEventBatch
-                { events = [ wsEvent ] })
+            (ApiResponseSerialization.encodeChangeRequest
+                { events = [ wsEvent ]; want = [] })
     use wsContent = new StringContent(wsBody, Text.Encoding.UTF8, "application/json")
     let wsResp =
         client.PostAsync("/ambit/changes", wsContent)

@@ -20,6 +20,13 @@ module Decode = Thoth.Json.Newtonsoft.Decode
 let private decodeStateResponse json =
     Decode.fromString ApiResponseSerialization.decodeStateResponseDecoder json
 
+let private requireOk label result =
+    match result with
+    | Ok value -> value
+    | Error err ->
+        Assert.Fail($"{label}: {err}")
+        Unchecked.defaultof<_>
+
 let private handleWithGetState
     (getState: unit -> Async<Result<State, string>>)
     : CoreChanges =
@@ -40,11 +47,13 @@ let private minimalStateResponse () =
       eventId = EventId.zero
     }
 
-/// Nested named Workspace with one Directory child (canonical full graph).
+/// Nested Workspace with enough depth to distinguish visible closure from full.
 let private nestedWorkspaceStateResponse () =
     let graph0 = Graph.create ()
     let wsId = NodeId.New()
     let dirId = NodeId.New()
+    let fileId = NodeId.New()
+    let grandId = NodeId.New()
     let wsNode =
         Node.Create(
             wsId,
@@ -59,10 +68,21 @@ let private nestedWorkspaceStateResponse () =
             name = Filename.Ok "docs",
             kind = Special Directory,
             owner = wsId)
+    let fileNode =
+        Node.Create(
+            fileId,
+            text = "readme.txt",
+            name = Filename.Ok "readme.txt",
+            kind = Special File,
+            owner = dirId)
+    let grandNode =
+        Node.Create(grandId, text = "deep", owner = fileId)
     let graph1 =
         graph0
         |> Graph.addDetachedNode wsNode
         |> Graph.addDetachedNode dirNode
+        |> Graph.addDetachedNode fileNode
+        |> Graph.addDetachedNode grandNode
         |> fun g ->
             Graph.fromNodes
                 g.root
@@ -74,14 +94,20 @@ let private nestedWorkspaceStateResponse () =
                     g.childMap)
     let graph2 =
         Graph.replace wsId 0 [] [ ChildNode.owner dirId ] graph1
-        |> function
-            | Ok g -> g
-            | Error err -> failwith err
-    { graph = graph2
+        |> requireOk "Workspace Children"
+    let graph3 =
+        Graph.replace dirId 0 [] [ ChildNode.owner fileId ] graph2
+        |> requireOk "Directory Children"
+    let graph4 =
+        Graph.replace fileId 0 [] [ ChildNode.owner grandId ] graph3
+        |> requireOk "File Children"
+    { graph = graph4
       eventId = EventIdFixtures.storedId 1
     },
     wsId,
-    dirId
+    dirId,
+    fileId,
+    grandId
 
 [<Fact>]
 let ``getState returns 500 text body when agent fails`` () = task {
@@ -146,7 +172,7 @@ let ``getState seeds liveFocusIds from lockPresent overlay`` () = task {
 
 [<Fact>]
 let ``getState scope full skips bootstrap projection`` () = task {
-    let response, _, dirId = nestedWorkspaceStateResponse ()
+    let response, _, dirId, _, grandId = nestedWorkspaceStateResponse ()
     let handle =
         handleWithGetState (fun () -> async.Return(Result.Ok response))
     let req = DefaultHttpContext().Request
@@ -158,13 +184,15 @@ let ``getState scope full skips bootstrap projection`` () = task {
         | Error err -> failwith err
         | Ok response ->
             Assert.True(response.graph.nodes.ContainsKey dirId)
+            Assert.True(response.graph.nodes.ContainsKey grandId)
     | other ->
         Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
 }
 
 [<Fact>]
 let ``getState zoom outside ROOT adds owning Workspace`` () = task {
-    let response, wsId, dirId = nestedWorkspaceStateResponse ()
+    let response, wsId, dirId, fileId, grandId =
+        nestedWorkspaceStateResponse ()
     let handle =
         handleWithGetState (fun () -> async.Return(Result.Ok response))
     let req = DefaultHttpContext().Request
@@ -178,6 +206,8 @@ let ``getState zoom outside ROOT adds owning Workspace`` () = task {
         | Ok response ->
             Assert.True(response.graph.nodes.ContainsKey dirId)
             Assert.Equal(Loaded, Graph.childrenStatus response.graph wsId)
+            Assert.True(response.graph.nodes.ContainsKey fileId)
+            Assert.False(response.graph.nodes.ContainsKey grandId)
             Assert.True(EventId.isAccepted response.eventId)
     | other ->
         Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
@@ -185,7 +215,8 @@ let ``getState zoom outside ROOT adds owning Workspace`` () = task {
 
 [<Fact>]
 let ``getState without zoom keeps nested Workspace Unloaded`` () = task {
-    let response, wsId, dirId = nestedWorkspaceStateResponse ()
+    let response, wsId, dirId, fileId, grandId =
+        nestedWorkspaceStateResponse ()
     let handle =
         handleWithGetState (fun () -> async.Return(Result.Ok response))
     let! result = Api.getState handle (defaultStateRequest()) |> Async.StartAsTask
@@ -197,6 +228,8 @@ let ``getState without zoom keeps nested Workspace Unloaded`` () = task {
             Assert.True(response.graph.nodes.ContainsKey wsId)
             Assert.Equal(Unloaded, Graph.childrenStatus response.graph wsId)
             Assert.False(response.graph.nodes.ContainsKey dirId)
+            Assert.False(response.graph.nodes.ContainsKey fileId)
+            Assert.False(response.graph.nodes.ContainsKey grandId)
     | other ->
         Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
 }

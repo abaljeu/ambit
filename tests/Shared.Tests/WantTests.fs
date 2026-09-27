@@ -187,6 +187,32 @@ let ``installWantAnswer accepts a Child already Resident`` () =
     Assert.True(installed.nodes.ContainsKey residentChild)
 
 [<Fact>]
+let ``wantAnswer returns wanted edges and pointed-at Nodes`` () =
+    let graph, _, zoomId, childIds = zoomWithChildren [ "a"; "b" ]
+    let edges, nodes =
+        ResidentProjection.wantAnswer graph [ zoomId ]
+    Assert.Equal<ChildNode list>(owned childIds, edges.[zoomId])
+    Assert.Equal<Set<NodeId>>(Set.ofList childIds, nodes |> List.map (_.id) |> Set.ofList)
+    let emptyEdges, emptyNodes =
+        ResidentProjection.wantAnswer graph []
+    Assert.Empty(emptyEdges)
+    Assert.Empty(emptyNodes)
+
+[<Fact>]
+let ``wantAnswer omits an edge with an absent target Node`` () =
+    let graph0, _, zoomId, _ = zoomWithChildren [ "resident" ]
+    let missingId = NodeId.New()
+    let graph =
+        Graph.fromNodes
+            graph0.root
+            graph0.nodes
+            (Map.add zoomId (owned [ missingId ]) graph0.childMap)
+    let edges, nodes =
+        ResidentProjection.wantAnswer graph [ zoomId ]
+    Assert.False(Map.containsKey zoomId edges)
+    Assert.Empty(nodes)
+
+[<Fact>]
 let ``installPackages still works beside installWantAnswer`` () =
     let graph0 = Graph.create ()
     let noteId = NodeId.New()

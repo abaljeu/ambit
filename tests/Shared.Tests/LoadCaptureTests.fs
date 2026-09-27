@@ -141,7 +141,7 @@ let ``packagesForTarget missing target returns empty`` () =
         ResidentProjection.packagesForTarget graph (NodeId.New()) true)
 
 [<Fact>]
-let ``captureLoadResponse shares revision for changes and packages`` () =
+let ``captureLoadResponse shares event id for Changes and Nodes`` () =
     let graph, wsId, _, fileId = graphWithNestedWorkspace ()
     let events =
         [ { id = EventIdFixtures.storedId 4
@@ -169,7 +169,7 @@ let ``captureLoadResponse shares revision for changes and packages`` () =
         Assert.True(response.packages |> List.exists (fun n -> n.id = wsId))
 
 [<Fact>]
-let ``LoadResponse toSyncResponse preserves changes and packages`` () =
+let ``LoadResponse toSyncResponse preserves Changes and Nodes`` () =
     let node =
         Node.Create(NodeId.New(), text = "n", owner = Graph.rootId)
     let load: LoadResponse =

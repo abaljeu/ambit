@@ -78,6 +78,35 @@ module ResidentProjection =
                     graph.childMap
             Ok(Graph.fromNodes graph.root mergedNodes mergedChildMap)
 
+    /// Authoritative Children and pointed-at Nodes for Browser-supplied Want ids.
+    /// Omit a parent edge when any target Header is absent.
+    let wantAnswer
+        (graph: Graph)
+        (want: NodeId list)
+        : Map<NodeId, ChildNode list> * Node list =
+        let completeEdge parentId =
+            GraphChildren.tryGet graph parentId
+            |> Option.bind (fun children ->
+                let nodes =
+                    children
+                    |> List.choose (fun child ->
+                        Map.tryFind child.id graph.nodes)
+                if List.length nodes = List.length children then
+                    Some(parentId, children, nodes)
+                else
+                    None)
+        let answers = want |> List.distinct |> List.choose completeEdge
+        let edges =
+            answers
+            |> List.map (fun (parentId, children, _) ->
+                parentId, children)
+            |> Map.ofList
+        let nodes =
+            answers
+            |> List.collect (fun (_, _, children) -> children)
+            |> List.distinctBy (_.id)
+        edges, nodes
+
     let private reservedParentIds : NodeId list =
         [ GraphBuild.rootId
           GraphBuild.trashId
@@ -432,11 +461,3 @@ module ResidentProjection =
             | Some wsId ->
                 let extraNodes, extraChildMap = projectWorkspaceSlice graph wsId
                 mergePackageNodes rootScoped extraNodes extraChildMap
-
-    let bootstrapStateResponse
-        (scope: BootstrapScope)
-        (savedZoom: NodeId option)
-        (response: StateResponse)
-        : StateResponse =
-        { response with
-            graph = bootstrapGraph scope savedZoom response.graph }

@@ -73,7 +73,7 @@ type LoadResponse =
       apiVersion: int
       isReady: bool
       events: Ev list
-      /// Complete Workspace subgraph Nodes at the response event id (wire: packages).
+      /// Complete Workspace subgraph Nodes at the response event id (wire: nodes).
       packages: Node list
       /// Loaded child lists for `packages`. Absent package id = Unloaded header.
       packageChildMap: Map<NodeId, ChildNode list> }

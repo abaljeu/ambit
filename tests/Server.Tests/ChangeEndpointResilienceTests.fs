@@ -131,8 +131,8 @@ let ``SetText persists SYSTEM user css and server remains responsive`` () = task
     let event = change
     let body =
         Encode.toString 0 (
-            EventJson.encodeEventBatch
-                { events = [ event ] })
+            ApiResponseSerialization.encodeChangeRequest
+                { events = [ event ]; want = [] })
     use content = new StringContent(body, Encoding.UTF8, "application/json")
     use! response = client.PostAsync("/ambit/changes", content) |> timeout
     Assert.Equal(HttpStatusCode.OK, response.StatusCode)
@@ -150,7 +150,8 @@ let ``changes POST rejects non-zero EventId and admits zero`` () = task {
     let _, zeroEvent = addRootChildEvent "zero-ok"
     let zeroBody =
         Encode.toString 0 (
-            EventJson.encodeEventBatch { events = [ zeroEvent ] })
+            ApiResponseSerialization.encodeChangeRequest
+                { events = [ zeroEvent ]; want = [] })
     use zeroContent =
         new StringContent(zeroBody, Encoding.UTF8, "application/json")
     use! zeroResponse =
@@ -160,7 +161,8 @@ let ``changes POST rejects non-zero EventId and admits zero`` () = task {
     let dirty = { dirtyEvent with id = EventIdFixtures.storedId 4 }
     let dirtyBody =
         Encode.toString 0 (
-            EventJson.encodeEventBatch { events = [ dirty ] })
+            ApiResponseSerialization.encodeChangeRequest
+                { events = [ dirty ]; want = [] })
     use dirtyContent =
         new StringContent(dirtyBody, Encoding.UTF8, "application/json")
     use! dirtyResponse =

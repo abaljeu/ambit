@@ -151,7 +151,7 @@ let ``postLoad Workspace subgraph when includeWorkspace true`` () = task {
 }
 
 [<Fact>]
-let ``postLoad missing target returns events without packages`` () = task {
+let ``postLoad missing target returns Events without Nodes`` () = task {
     let graph, _, _, _ = nestedWorkspaceGraph ()
     let event =
         { id = EventIdFixtures.storedId 4
@@ -180,7 +180,7 @@ let ``postLoad missing target returns events without packages`` () = task {
 }
 
 [<Fact>]
-let ``postLoad shares one revision for events and packages`` () = task {
+let ``postLoad shares one event id for Events and Nodes`` () = task {
     let graph, wsId, _, fileId = nestedWorkspaceGraph ()
     let event =
         { id = EventIdFixtures.storedId 9
