@@ -7,11 +7,12 @@ open Thoth.Json.Core
 // Encoding / decoding helpers
 // ---------------------------------------------------------------------------
 
-/// Encode a batch as compact JSON for POST /{file}/changes.
-let encodePendingBatchBody (events: Ev list) : string =
-    let batch: EventBatch = { events = SyncBatch.toWireBatch events }
+/// Encode current-version Events plus Want for POST /{file}/changes.
+let encodePendingBatchBody (events: Ev list) (want: NodeId list) : string =
     Thoth.Json.JavaScript.Encode.toString 0 (
-        Gambol.Shared.EventJson.encodeEventBatch batch)
+        ApiResponseSerialization.encodeChangeRequest
+            { events = SyncBatch.toWireBatch events
+              want = want })
 
 /// Encode ActorStart for POST /{file}/command.
 let encodeCommandRequest (request: ActorStart) : string =

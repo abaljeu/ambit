@@ -46,6 +46,9 @@ let emptyMutatingPostHeaders () : obj =
 let jsonMutatingPostHeaders () : obj =
     withClientIdentity [ "Content-Type" ==> "application/json" ]
 
+let currentWant (model: VM) : NodeId list =
+    Want.compose model.graph model.siteMap model.zoomRoot
+
 /// Focus target used by Load (same resolution as the Load command).
 let focusContextualTarget (model: VM) : ContextualTarget option =
     model.selectedNodes

@@ -80,13 +80,26 @@ let private reconcileWorkspaceAck
             state
             syncInfo
 
+let private applyAckAnswer
+    (ack: ChangeSuccessResponse)
+    (state: ClientSyncState)
+    : Result<ClientSyncState, string> =
+    SyncLogic.applySyncResponse
+        (SyncLogic.changeSuccessAnswerToSync ack)
+        state
+
 /// Apply + synchronous POST so server graph has the workspace before push/reconcile.
 let applyAndPostSync (commandName: string) (ops: Op list) (model: VM) : Result<VM, string> =
     let event = ClientHistory.mintChange commandName ops
     match SyncLogic.applyLocalEvent event (clientSyncState model) with
     | Error msg -> Error msg
     | Ok (nextState, submitted) ->
-        let body = encodePendingBatchBody [ submitted ]
+        let sendModel =
+            withSiteMap { model with graph = nextState.graph }
+        let body =
+            encodePendingBatchBody
+                [ submitted ]
+                (currentWant sendModel)
         let url = sprintf "/%s/changes" currentFile
         let status, text = postJsonSync url body (jsonHeaders ())
         if status < 200 || status >= 300 then
@@ -104,16 +117,18 @@ let applyAndPostSync (commandName: string) (ops: Op list) (model: VM) : Result<V
                         model.eventId
                 with
                 | AckReconcile.Applied (st, _, _, _) ->
-                    Ok
+                    applyAckAnswer ack st
+                    |> Result.map (fun answered ->
                         { model with
-                            graph = st.graph
-                            history = st.history
-                            eventId = st.eventId }
+                            graph = answered.graph
+                            history = answered.history
+                            eventId = answered.eventId })
                 | AckReconcile.Ignored ->
-                    Ok
+                    applyAckAnswer ack nextState
+                    |> Result.map (fun answered ->
                         { model with
-                            graph = nextState.graph
-                            history = nextState.history }
+                            graph = answered.graph
+                            history = answered.history })
                 | AckReconcile.Rejected msg -> Error msg
 
 /// Local graph only — stubs paint before structure POST / body push.
@@ -328,16 +343,23 @@ let completeUploadStructurePost
                 model.eventId
         with
         | AckReconcile.Applied (st, _, _, _) ->
-            let model' =
-                { model with
-                    graph = st.graph
-                    eventId = st.eventId }
-                |> withSiteMap
-                |> keepUploading
-            model', [ Effect.ContinueWorkspacePush (scope, parseFileId) ]
+            match applyAckAnswer ack st with
+            | Error msg -> failUploadStructurePost msg model
+            | Ok answered ->
+                let model' =
+                    { model with
+                        graph = answered.graph
+                        eventId = answered.eventId }
+                    |> withSiteMap
+                    |> keepUploading
+                model', [ Effect.ContinueWorkspacePush (scope, parseFileId) ]
         | AckReconcile.Ignored ->
-            keepUploading (withSiteMap model),
-            [ Effect.ContinueWorkspacePush (scope, parseFileId) ]
+            match applyAckAnswer ack (clientSyncState model) with
+            | Error msg -> failUploadStructurePost msg model
+            | Ok answered ->
+                keepUploading (
+                    withSiteMap { model with graph = answered.graph }),
+                [ Effect.ContinueWorkspacePush (scope, parseFileId) ]
         | AckReconcile.Rejected msg ->
             fail
                 (clearUploading

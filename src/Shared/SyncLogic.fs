@@ -126,6 +126,11 @@ module SyncLogic =
           nodes = response.nodes
           childMap = response.childMap }
 
+    let changeSuccessAnswerToSync
+        (response: ChangeSuccessResponse)
+        : SyncResponse =
+        { changeSuccessToSync response with events = [] }
+
     let loadResponseToPoll (response: LoadResponse) : ChangeSuccessResponse =
         { eventId = response.eventId
           buildEpochSec = response.buildEpochSec

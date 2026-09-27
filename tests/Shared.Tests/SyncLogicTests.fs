@@ -728,6 +728,23 @@ let ``changeSuccessToSync carries Want answer not packages`` () =
         sync.childMap.[parentId])
 
 [<Fact>]
+let ``changeSuccessAnswerToSync carries Want answer without Events`` () =
+    let parentId = NodeId.New()
+    let childId = NodeId.New()
+    let child = Node.Create(childId, text = "child", owner = parentId)
+    let response =
+        { mkPoll 7 1 1 with
+            events = [ mkChange 8 ]
+            nodes = [ child ]
+            childMap = Map.ofList [ parentId, ChildNode.owners [ childId ] ] }
+    let sync = SyncLogic.changeSuccessAnswerToSync response
+    Assert.Empty(sync.events)
+    Assert.Equal<Node list>([ child ], sync.nodes)
+    Assert.Equal<ChildNode list>(
+        ChildNode.owners [ childId ],
+        sync.childMap.[parentId])
+
+[<Fact>]
 let ``getPollOutcome keys on event id not apiVersion`` () =
     let parentId = NodeId.New()
     let poll =
