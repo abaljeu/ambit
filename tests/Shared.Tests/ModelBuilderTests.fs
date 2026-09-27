@@ -25,7 +25,7 @@ let ``CreateDag12 builds a 12 node dag with depth 3`` () =
             depth
         else
             let node = graph.nodes[nodeId]
-            match node.children with
+            match Graph.children graph nodeId with
             | [] -> depth
             | children ->
                 let visited2 = Set.add nodeId visited

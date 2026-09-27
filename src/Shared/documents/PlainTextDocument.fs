@@ -17,6 +17,7 @@ type PlainTextComplement = {
 type PlainTextReadResult = {
     documentRootId: NodeId
     nodes: Map<NodeId, Node>
+    childMap: Map<NodeId, ChildNode list>
     complement: PlainTextComplement
 }
 
@@ -229,12 +230,12 @@ module PlainTextDocument =
                         Node.childOwnership graph parentId child,
                         Map.tryFind child.id graph.nodes
                     with
-                    | Ownership.Owner, Some node ->
-                        node.children
+                    | Ownership.Owner, Some _ ->
+                        GraphChildren.get graph child.id
                         |> List.fold (loop child.id (depth + 1)) acc'
                     | _ -> acc'
 
-            root.children
+            GraphChildren.get graph documentRootId
             |> List.fold (loop documentRootId 0) []
             |> List.rev
 
@@ -242,13 +243,13 @@ module PlainTextDocument =
         (text: string)
         (documentRootId: NodeId)
         (contextGraph: Graph)
-        : Result<Map<NodeId, Node> * PlainTextIndentStyle, string> =
+        : Result<Map<NodeId, Node> * Map<NodeId, ChildNode list> * PlainTextIndentStyle, string> =
         match Map.tryFind documentRootId contextGraph.nodes with
         | None -> Error "document root not found in context graph"
         | Some _ ->
             let indentStyle, outline = parseOutlineLines text
 
-            Ok(
+            let nodes, childMap =
                 DocumentOutlineOps.foldRowsIntoTree
                     documentRootId
                     contextGraph
@@ -256,8 +257,8 @@ module PlainTextDocument =
                     (fun line -> line.depth)
                     (fun _ -> NodeId.New())
                     (fun nodeId line parentId nodes ctx ->
-                        mergeOwnerNode nodeId line.text parentId nodes ctx),
-                indentStyle)
+                        mergeOwnerNode nodeId line.text parentId nodes ctx)
+            Ok(nodes, childMap, indentStyle)
 
     let private mapPreviousLines (previousText: string) (graph: Graph) (documentRootId: NodeId) =
         let serialized = serializeLines graph documentRootId |> List.toArray
@@ -300,7 +301,7 @@ module PlainTextDocument =
         (documentRootId: NodeId)
         (contextGraph: Graph)
         (aligned: (int * string * NodeId option) list)
-        : Result<Map<NodeId, Node>, string> =
+        : Result<Map<NodeId, Node> * Map<NodeId, ChildNode list>, string> =
         match Map.tryFind documentRootId contextGraph.nodes with
         | None -> Error "document root not found in context graph"
         | Some _ ->
@@ -324,6 +325,7 @@ module PlainTextDocument =
         (documentRootId: NodeId)
         (contextGraph: Graph)
         (nodes: Map<NodeId, Node>)
+        (childMap: Map<NodeId, ChildNode list>)
         (indentStyle: PlainTextIndentStyle)
         : PlainTextReadResult =
         let complement = buildComplement indentStyle contextGraph documentRootId
@@ -331,6 +333,7 @@ module PlainTextDocument =
         {
             PlainTextReadResult.documentRootId = documentRootId
             PlainTextReadResult.nodes = applyCssClasses complement nodes contextGraph
+            PlainTextReadResult.childMap = childMap
             PlainTextReadResult.complement = complement
         }
 
@@ -341,8 +344,8 @@ module PlainTextDocument =
         : Result<PlainTextReadResult, string> =
         match parseCold text documentRootId contextGraph with
         | Error msg -> Error msg
-        | Ok(nodes, indentStyle) ->
-            Ok(finishRead documentRootId contextGraph nodes indentStyle)
+        | Ok(nodes, childMap, indentStyle) ->
+            Ok(finishRead documentRootId contextGraph nodes childMap indentStyle)
 
     let private indentForDepth (depth: int) (style: PlainTextIndentStyle) : string =
         match style with

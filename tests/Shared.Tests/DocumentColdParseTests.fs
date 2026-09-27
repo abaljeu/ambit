@@ -3,6 +3,7 @@ module Gambol.Shared.Tests.DocumentColdParseTests
 open System
 open Xunit
 open Gambol.Shared
+open GraphChildMapHelpers
 
 let private requireOk label result =
     match result with
@@ -23,9 +24,8 @@ let private stubRoot (name: string) =
             documentState = Unparsed)
 
     let graph =
-        graph0.nodes
-        |> Map.add documentRootId file
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        Graph.addDetachedNode file graph0
+        |> appendKids graph0.root [ ChildNode.owner documentRootId ]
 
     documentRootId, graph
 
@@ -40,6 +40,7 @@ let ``planParseFile rejects file with no server body`` () =
                 { graph0.nodes.[rootId] with
                     documentState = NoServerFile }
                 graph0.nodes)
+            graph0.childMap
     match ImportDocument.planParseFile graph rootId "body" with
     | Ok _ -> Assert.Fail("expected absent server file to be rejected")
     | Error error -> Assert.Equal("no file on server", error)
@@ -131,7 +132,7 @@ let private applySelectModeExternalPaste
         let insertChildren =
             ChildNode.owners topLevelIds
 
-        let parentChildren = graph.nodes.[parentId].children
+        let parentChildren = Graph.children graph parentId
         let replaceOp =
             ChildListWire.edit
                 parentId
@@ -168,26 +169,18 @@ let ``live-parent planApplyCold peel is empty when siblings exist`` () =
         Node.Create(
             parentId,
             text = "parent",
-            owner = g0.root,
-            children =
-                [ ChildNode.owner keepId
-                  ChildNode.owner selectedId ])
+            owner = g0.root)
 
     let keep = Node.Create(keepId, text = "keep", owner = parentId)
     let selected = Node.Create(selectedId, text = "selected", owner = parentId)
 
     let graph =
-        g0.nodes
-        |> Map.add parentId parent
-        |> Map.add keepId keep
-        |> Map.add selectedId selected
-        |> fun nodes ->
-            let rootChildren =
-                g0.nodes.[g0.root].children
-                @ [ ChildNode.owner parentId ]
-
-            Map.add g0.root { g0.nodes.[g0.root] with children = rootChildren } nodes
-        |> fun nodes -> Graph.fromNodes g0.root nodes
+        addDetachedMany [ parent; keep; selected ] g0
+        |> appendKids g0.root [ ChildNode.owner parentId ]
+        |> setChildren
+            parentId
+            [ ChildNode.owner keepId
+              ChildNode.owner selectedId ]
 
     let pasted = "alpha" + Environment.NewLine + "beta" + Environment.NewLine
 
@@ -217,26 +210,18 @@ let ``select-mode external multiline paste keeps non-selected siblings`` () =
         Node.Create(
             parentId,
             text = "parent",
-            owner = g0.root,
-            children =
-                [ ChildNode.owner keepId
-                  ChildNode.owner selectedId ])
+            owner = g0.root)
 
     let keep = Node.Create(keepId, text = "keep", owner = parentId)
     let selected = Node.Create(selectedId, text = "selected", owner = parentId)
 
     let graph =
-        g0.nodes
-        |> Map.add parentId parent
-        |> Map.add keepId keep
-        |> Map.add selectedId selected
-        |> fun nodes ->
-            let rootChildren =
-                g0.nodes.[g0.root].children
-                @ [ ChildNode.owner parentId ]
-
-            Map.add g0.root { g0.nodes.[g0.root] with children = rootChildren } nodes
-        |> fun nodes -> Graph.fromNodes g0.root nodes
+        addDetachedMany [ parent; keep; selected ] g0
+        |> appendKids g0.root [ ChildNode.owner parentId ]
+        |> setChildren
+            parentId
+            [ ChildNode.owner keepId
+              ChildNode.owner selectedId ]
 
     let pasted = "alpha" + Environment.NewLine + "beta" + Environment.NewLine
     let selectedChild = ChildNode.owner selectedId
@@ -251,7 +236,7 @@ let ``select-mode external multiline paste keeps non-selected siblings`` () =
     with
     | Error err -> Assert.Fail($"expected paste apply to succeed: {err}")
     | Ok after ->
-        let children = after.nodes.[parentId].children
+        let children = Graph.children after parentId
         let texts =
             children
             |> List.map (fun c -> after.nodes.[c.id].text)
@@ -271,7 +256,7 @@ let ``planApplyCold md heading emits SetClasses md-head`` () =
         DocumentColdParse.readArtifactCold "notes.md" text rootId graph
         |> requireOk "readArtifactCold"
 
-    let headId = after.nodes.[rootId].children.Head.id
+    let headId = (Graph.children after rootId).Head.id
     Assert.True(
         CssClass.toList after.nodes.[headId].cssClasses
         |> List.contains "md-head")

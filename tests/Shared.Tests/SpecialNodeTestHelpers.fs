@@ -43,8 +43,7 @@ let userNodeCount (graph: Graph) =
 
 /// Root children excluding any special nodes.
 let userRootChildren (graph: Graph) =
-    let root = graph.nodes.[graph.root]
-    root.children
+    Graph.children graph graph.root
     |> List.filter (fun c -> graph.nodes.[c.id] |> isUserNode)
 
 /// Tree shape (depth, text) excluding special nodes entirely.
@@ -53,12 +52,13 @@ let userTreeShape (graph: Graph) : (int * string) list =
         let node = graph.nodes.[nodeId]
         if isUserNode node then
             (depth, node.text)
-            :: (node.children |> List.collect (fun child -> walk (depth + 1) child.id))
+            :: (Graph.children graph nodeId
+                |> List.collect (fun child -> walk (depth + 1) child.id))
         else
             []
 
-    let root = graph.nodes.[graph.root]
-    root.children |> List.collect (fun child -> walk 0 child.id)
+    Graph.children graph graph.root
+    |> List.collect (fun child -> walk 0 child.id)
 
 /// Strip TRASH-related lines from a snapshot outline string for legacy tests.
 let stripSpecialLinesFromOutline (text: string) : string =

@@ -2,6 +2,7 @@ module SearchTests
 
 open Gambol.Shared
 open Gambol.Shared.ViewModel
+open GraphChildMapHelpers
 open RefExprTestTree
 open Xunit
 
@@ -14,7 +15,7 @@ let private setNodeName (nodeId: NodeId) (nameStr: string option) (graph: Graph)
             if f = Filename.Invalid s then failwith $"setNodeName: invalid filename '{s}'"
             f
     let node = graph.nodes.[nodeId]
-    Graph.fromNodes graph.root (graph.nodes |> Map.add nodeId { node with name = name })
+    fromExisting graph (graph.nodes |> Map.add nodeId { node with name = name })
 
 let private ownedRootChildren (ids: NodeId list) (graph: Graph) : Graph =
     let ch = ChildNode.owners ids
@@ -233,11 +234,8 @@ let ``search cursor terminates and deduplicates a cycle`` () =
     let graph1, ids = ModelBuilder.createNodes [ "cycle token" ] graph0
     let childId = ids.[0]
     let graph2 = ownedRootChildren ids graph1
-    let child = graph2.nodes.[childId]
     let cycle = [ ChildNode.owner graph2.root ]
-    let graph3 =
-        Graph.fromNodes graph2.root
-            (graph2.nodes |> Map.add childId { child with children = cycle })
+    let graph3 = setChildren childId cycle graph2
 
     let results, finished =
         ViewModelSearch.startSearch "token" graph3.root graph3

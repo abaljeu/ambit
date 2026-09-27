@@ -116,7 +116,7 @@ module CommandRequest =
         { zoomId = zoomId
           focusId = focusId
           commandId = commandId
-          graphIds = IncludedDescendantIds.expand graph siteMap zoomId
+          graphIds = IncludedDescendantIds.throughChildrenOfExpandedNodes graph siteMap zoomId
           eventId = eventId }
 
     /// Product ActorStart. Zoom is the Included extract root. `=` is not Actor.

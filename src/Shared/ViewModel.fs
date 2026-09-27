@@ -214,7 +214,8 @@ type Selection =
 /// Independent of graph.nodes — survives graph mutations and snapshot reload.
 type ClipboardContent =
     { topLevelIds: NodeId list
-      nodes: Map<NodeId, Node> }
+      nodes: Map<NodeId, Node>
+      childMap: Map<NodeId, ChildNode list> }
 
 /// Row / active-file indicator vocabulary (desktop status + absent artifacts).
 type DesktopFileIndicator =
@@ -350,10 +351,7 @@ type SystemMsg =
     | StateLoaded of StateResponse
     | SubmitResponse of
         submitted: Ev list *
-        confirmed: Ev list *
-        eventId: EventId *
-        externalChanges: bool *
-        message: string option
+        response: ChangeSuccessResponse
     | SubmitRejected of detail: string // server HTTP error (decoded `error` or short body snippet)
     | SubmitNetworkError of
         baseEventId: EventId * events: Ev list * kind: SubmitNetworkErrorKind
@@ -373,7 +371,7 @@ type SystemMsg =
     | AutoDownloadTick    // debounce timer fired; update coalesces + fires auto-downloads
     | PollDone of
         SyncState option *
-        Ev list *
+        SyncResponse *
         isReady: bool option *
         responseEventId: EventId option
     | BootGraphApplied of AppliedBrowserGraph * isReady: bool

@@ -70,6 +70,46 @@ module EventJson =
                     (Decode.list Serialization.decodeNodeId)
               eventId = get.Required.Field "eventId" decodeEventId })
 
+    let private encodeLoadSaveOperation =
+        function
+        | LoadSaveOperation.Load -> Encode.string "load"
+        | LoadSaveOperation.Save -> Encode.string "save"
+
+    let private decodeLoadSaveOperation: Decoder<LoadSaveOperation> =
+        Decode.string
+        |> Decode.andThen (function
+            | "load" -> Decode.succeed LoadSaveOperation.Load
+            | "save" -> Decode.succeed LoadSaveOperation.Save
+            | other -> Decode.fail ("Unknown Load/Save operation: " + other))
+
+    let private encodeLoadSavePrePick =
+        function
+        | LoadSavePrePick.Plain -> Encode.string "plain"
+        | LoadSavePrePick.Git -> Encode.string "git"
+        | LoadSavePrePick.Desk -> Encode.string "desk"
+
+    let private decodeLoadSavePrePick: Decoder<LoadSavePrePick> =
+        Decode.string
+        |> Decode.andThen (function
+            | "plain" -> Decode.succeed LoadSavePrePick.Plain
+            | "git" -> Decode.succeed LoadSavePrePick.Git
+            | "desk" -> Decode.succeed LoadSavePrePick.Desk
+            | other -> Decode.fail ("Unknown Load/Save pre-pick: " + other))
+
+    let encodeLoadSaveCommandRequest (request: LoadSaveCommandRequest) =
+        Encode.object
+            [ "operation", encodeLoadSaveOperation request.operation
+              "prePick", encodeLoadSavePrePick request.prePick
+              "start", encodeStartRequest request.start ]
+
+    let decodeLoadSaveCommandRequest: Decoder<LoadSaveCommandRequest> =
+        Decode.object (fun get ->
+            { operation =
+                get.Required.Field "operation" decodeLoadSaveOperation
+              prePick =
+                get.Required.Field "prePick" decodeLoadSavePrePick
+              start = get.Required.Field "start" decodeStartRequest })
+
     let encodeCancelRequest (request: CancelRequest) =
         Encode.object
             [ "focusId", Serialization.encodeNodeId request.focusId

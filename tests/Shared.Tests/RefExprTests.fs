@@ -1,6 +1,7 @@
 module RefExprTests
 
 open Gambol.Shared
+open GraphChildMapHelpers
 open RefExprTestTree
 open Xunit
 
@@ -325,15 +326,14 @@ let ``match_ child index counts ref children`` () =
         | Ok g -> g
         | Error e -> failwith e
     let graph4 =
-        let parentNode = graph3.nodes.[parent]
         let children =
-            parentNode.children
+            Graph.children graph3 parent
             |> List.map (fun link ->
                 if link.id = refNode then
                     { link with ref = Ownership.Ref }
                 else
                     link)
-        Graph.fromNodes graph3.root (graph3.nodes |> Map.add parent { parentNode with children = children })
+        setChildren parent children graph3
     let ctx = RefExpr.refContext parent graph4
     Assert.Equal<Set<NodeId>>(Set [ a; refNode; c ], ids (RefExpr.match_ ctx graph4 (parseOk ":")))
     Assert.Equal<Set<NodeId>>(Set [ refNode ], ids (RefExpr.match_ ctx graph4 (parseOk ":1")))
@@ -360,15 +360,14 @@ let ``match_ index zero is self and skips ref siblings in order`` () =
         | Ok g -> g
         | Error e -> failwith e
     let graph4 =
-        let parentNode = graph3.nodes.[parent]
         let children =
-            parentNode.children
+            Graph.children graph3 parent
             |> List.map (fun link ->
                 if link.id = refNode then
                     { link with ref = Ownership.Ref }
                 else
                     link)
-        Graph.fromNodes graph3.root (graph3.nodes |> Map.add parent { parentNode with children = children })
+        setChildren parent children graph3
     let ctx = RefExpr.refContext c graph4
     Assert.Equal<Set<NodeId>>(Set [ c ], ids (RefExpr.match_ ctx graph4 (parseOk "!0")))
     Assert.Equal<Set<NodeId>>(Set [ refNode ], ids (RefExpr.match_ ctx graph4 (parseOk "!-1")))
@@ -379,10 +378,7 @@ let ``match_ path step follows ref children`` () =
     let t = tree.Value
     let graph =
         let parent = t.appFs
-        let parentNode = t.graph.nodes.[parent]
-        let children =
-            parentNode.children @ [ ChildNode.reference t.libFs ]
-        Graph.fromNodes t.graph.root (t.graph.nodes |> Map.add parent { parentNode with children = children })
+        addRef parent t.libFs t.graph
     let ctx = RefExpr.refContext t.appFs graph
     let nodes = RefExpr.match_ ctx graph (parseOk "lib.fs")
     Assert.Equal<Set<NodeId>>(Set [ t.libFs ], ids nodes)
@@ -398,9 +394,7 @@ let ``match_ tag step follows ref children`` () =
         { graph2.nodes.[tagged] with
             name = Filename.create "findme" }
     let graph3 =
-        graph2.nodes
-        |> Map.add tagged taggedNode
-        |> fun nodes -> Graph.fromNodes graph2.root nodes
+        fromExisting graph2 (Map.add tagged taggedNode graph2.nodes)
     let graph4 =
         match Graph.replace holder 0 [] [ ChildNode.reference tagged ] graph3 with
         | Ok g -> g

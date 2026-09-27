@@ -26,9 +26,6 @@ let ``Node round-trip with Ok name`` () =
             NodeId.New(),
             text = "hello world",
             name = Filename.create "myname",
-            children =
-              [ ChildNode.New()
-                ChildNode.New()],
             updateTime = System.DateTime(2024, 6, 1, 12, 0, 0, System.DateTimeKind.Utc))
     let decoded = roundTrip Serialization.encodeNode Serialization.decodeNode node
     Assert.Equal(node, decoded)
@@ -41,11 +38,16 @@ let ``Node round-trip with Empty name`` () =
     Assert.Equal(node, decoded)
 
 [<Fact>]
-let ``Node childrenStatus Unloaded round-trip`` () =
-    let node = Node.Create(NodeId.New(), text = "hollow", childrenStatus = Unloaded)
-    let decoded = roundTrip Serialization.encodeNode Serialization.decodeNode node
-    Assert.Equal(Unloaded, decoded.childrenStatus)
-    Assert.Equal(node, decoded)
+let ``Graph childMap Unloaded is absent after round-trip`` () =
+    let id = NodeId.New()
+    let node = Node.Create(id, text = "hollow")
+    let graph =
+        Graph.create ()
+        |> Graph.addDetachedNode node
+        |> GraphChildMapHelpers.unload id
+    let decoded = roundTrip Serialization.encodeGraph Serialization.decodeGraph graph
+    Assert.Equal(Unloaded, Graph.childrenStatus decoded id)
+    Assert.False(Map.containsKey id decoded.childMap)
 
 [<Fact>]
 let ``Node JSON omits lock-present`` () =
@@ -57,21 +59,40 @@ let ``Node JSON omits lock-present`` () =
     Assert.False(decoded.lockPresent)
 
 [<Fact>]
-let ``Node decode without childrenStatus defaults to Loaded`` () =
+let ``legacy Graph decode without childrenStatus defaults to Loaded`` () =
+    let rootId = Graph.rootId.Value
     let nodeId = NodeId.New()
     let json =
-        $"""{{"id":"{nodeId.Value}","text":"legacy","children":[],"cssClasses":[],"kind":"normal"}}"""
-    match Dec.fromString Serialization.decodeNode json with
+        "{\"root\":\""
+        + string rootId
+        + "\",\"nodes\":["
+        + "{\"id\":\""
+        + string rootId
+        + "\",\"text\":\"ROOT\",\"children\":[],"
+        + "\"kind\":{\"type\":\"special\",\"kind\":\"workspace\"}},"
+        + "{\"id\":\""
+        + string nodeId.Value
+        + "\",\"text\":\"legacy\",\"children\":[],"
+        + "\"cssClasses\":[],\"kind\":\"normal\"}]}"
+    match Dec.fromString Serialization.decodeGraph json with
     | Error err -> failwith $"Decode failed: {err}"
-    | Ok decoded -> Assert.Equal(Loaded, decoded.childrenStatus)
+    | Ok decoded ->
+        Assert.Equal(Loaded, Graph.childrenStatus decoded nodeId)
+        Assert.Equal<ChildNode list>([], Graph.children decoded nodeId)
 
 [<Fact>]
-let ``Node decode rejects Unloaded with non-empty children`` () =
+let ``legacy package decode rejects Unloaded with non-empty children`` () =
     let nodeId = NodeId.New()
     let childId = NodeId.New()
     let json =
-        $"""{{"id":"{nodeId.Value}","text":"bad","children":[{{"ref":"owner","id":"{childId.Value}"}}],"childrenStatus":"unloaded","cssClasses":[],"kind":"normal"}}"""
-    match Dec.fromString Serialization.decodeNode json with
+        "[{\"id\":\""
+        + string nodeId.Value
+        + "\",\"text\":\"bad\",\"children\":["
+        + "{\"ref\":\"owner\",\"id\":\""
+        + string childId.Value
+        + "\"}],\"childrenStatus\":\"unloaded\","
+        + "\"cssClasses\":[],\"kind\":\"normal\"}]"
+    match Dec.fromString Serialization.decodeLegacyPackageNodes json with
     | Ok _ -> failwith "expected decode failure"
     | Error err -> Assert.Contains("Unloaded", err)
 
@@ -79,7 +100,10 @@ let ``Node decode rejects Unloaded with non-empty children`` () =
 let ``Node decode without updateTime uses missing sentinel`` () =
     let nodeId = NodeId.New()
     let json =
-        $"""{{"id":"{nodeId.Value}","text":"legacy","children":[],"cssClasses":[],"kind":"normal"}}"""
+        "{\"id\":\""
+        + string nodeId.Value
+        + "\",\"text\":\"legacy\",\"children\":[],"
+        + "\"cssClasses\":[],\"kind\":\"normal\"}"
 
     match Dec.fromString Serialization.decodeNode json with
     | Error err -> failwith $"Decode failed: {err}"
@@ -89,7 +113,10 @@ let ``Node decode without updateTime uses missing sentinel`` () =
 let ``Node decode without documentState defaults to current`` () =
     let nodeId = NodeId.New()
     let json =
-        $"""{{"id":"{nodeId.Value}","text":"legacy","children":[],"cssClasses":[],"kind":"normal"}}"""
+        "{\"id\":\""
+        + string nodeId.Value
+        + "\",\"text\":\"legacy\",\"children\":[],"
+        + "\"cssClasses\":[],\"kind\":\"normal\"}"
     match Dec.fromString Serialization.decodeNode json with
     | Error err -> failwith $"Decode failed: {err}"
     | Ok decoded -> Assert.Equal(Current, decoded.documentState)
@@ -127,8 +154,6 @@ let ``Node decode accepts mixed kind null name and string updateTime`` () =
         special.id.Value)
     Assert.Equal(Special Directory, special.kind)
     Assert.Equal(Filename.create "Example", special.name)
-    Assert.Equal(1, special.children.Length)
-    Assert.Equal(Ownership.Ref, special.children.Head.ref)
     Assert.Equal(
         System.DateTime(639204537026026480L, System.DateTimeKind.Utc),
         special.updateTime)
@@ -167,6 +192,9 @@ let ``StateResponse decode accepts Alan sample node shapes`` () =
             NodeId(System.Guid.Parse "ffab5839-cc99-4036-a967-0ae70a779969")
         Assert.True(Map.containsKey specialId response.graph.nodes)
         Assert.True(Map.containsKey normalId response.graph.nodes)
+        Assert.Equal(Loaded, Graph.childrenStatus response.graph specialId)
+        Assert.Equal(1, (Graph.children response.graph specialId).Length)
+        Assert.Equal(Ownership.Ref, (Graph.children response.graph specialId).Head.ref)
 
 [<Fact>]
 let ``Graph decode missing root is an Error not a throw`` () =
@@ -220,6 +248,7 @@ let ``Graph round-trip`` () =
     let decoded = roundTrip Serialization.encodeGraph Serialization.decodeGraph graph
     Assert.Equal(graph.root, decoded.root)
     Assert.Equal<Map<NodeId, Node>>(graph.nodes, decoded.nodes)
+    Assert.Equal<Map<NodeId, ChildNode list>>(graph.childMap, decoded.childMap)
 
 [<Fact>]
 let ``Desktop capabilities disabled round-trip`` () =
@@ -399,7 +428,9 @@ let ``ChangeSuccessResponse round-trip with non-empty Changes`` () =
           externalChanges = true
           events = [ change ]
           message = Some "stable file update failed"
-          bootstrapHash = None }
+          bootstrapHash = None
+          nodes = []
+          childMap = Map.empty }
     let decoded =
         roundTrip
             ApiResponseSerialization.encodeChangeSuccessResponse
@@ -429,7 +460,9 @@ let ``ChangeSuccessResponse round-trip with empty Changes`` () =
           externalChanges = false
           events = []
           message = None
-          bootstrapHash = None }
+          bootstrapHash = None
+          nodes = []
+          childMap = Map.empty }
     let decoded =
         roundTrip
             ApiResponseSerialization.encodeChangeSuccessResponse
@@ -444,7 +477,8 @@ let ``ChangeSuccessResponse round-trip with empty Changes`` () =
 
 [<Fact>]
 let ``ChangeSuccessResponse omits bootstrapHash and still decodes`` () =
-    let json = """{"r":3,"b":0,"p":0,"ready":true,"externalChanges":false,"c":[]}"""
+    let json =
+        """{"r":3,"b":0,"p":0,"ready":true,"externalChanges":false,"c":[],"nodes":[],"childMap":[]}"""
     match Dec.fromString ApiResponseSerialization.decodeChangeSuccessResponseDecoder json with
     | Error err -> failwith err
     | Ok decoded ->
@@ -463,13 +497,166 @@ let ``ChangeSuccessResponse round-trip with bootstrapHash`` () =
           externalChanges = false
           events = []
           message = None
-          bootstrapHash = Some "deadbeef" }
+          bootstrapHash = Some "deadbeef"
+          nodes = []
+          childMap = Map.empty }
     let decoded =
         roundTrip
             ApiResponseSerialization.encodeChangeSuccessResponse
             ApiResponseSerialization.decodeChangeSuccessResponseDecoder
             response
     Assert.Equal(Some "deadbeef", decoded.bootstrapHash)
+
+[<Fact>]
+let ``ChangeSuccessResponse fails decode when nodes or childMap is missing`` () =
+    let json =
+        """{"r":3,"b":0,"p":0,"ready":true,"externalChanges":false,"c":[]}"""
+    match
+        Dec.fromString
+            ApiResponseSerialization.decodeChangeSuccessResponseDecoder
+            json
+    with
+    | Ok _ -> failwith "Expected missing nodes/childMap to fail"
+    | Error _ -> ()
+
+[<Fact>]
+let ``ChangeSuccessResponse round-trip with Want-answer nodes and childMap`` () =
+    let parentId = NodeId.New()
+    let childId = NodeId.New()
+    let parent = Node.Create(parentId, text = "parent")
+    let child = Node.Create(childId, text = "child", owner = parentId)
+    let response: ChangeSuccessResponse =
+        { eventId = EventIdFixtures.storedId 4
+          buildEpochSec = 0
+          pageBuildEpochSec = 0
+          apiVersion = ApiVersion.current
+          isReady = true
+          externalChanges = false
+          events = []
+          message = None
+          bootstrapHash = None
+          nodes = [ parent; child ]
+          childMap = Map.ofList [ parentId, ChildNode.owners [ childId ] ] }
+    let decoded =
+        roundTrip
+            ApiResponseSerialization.encodeChangeSuccessResponse
+            ApiResponseSerialization.decodeChangeSuccessResponseDecoder
+            response
+    Assert.Equal(13, decoded.apiVersion)
+    Assert.Equal(2, decoded.nodes.Length)
+    Assert.Equal(parentId, decoded.nodes.[0].id)
+    Assert.Equal(childId, decoded.nodes.[1].id)
+    Assert.Equal<ChildNode list>(
+        ChildNode.owners [ childId ],
+        decoded.childMap.[parentId])
+
+[<Fact>]
+let ``ChangeSuccessResponse keeps Changes beside Want answer`` () =
+    let parentId = NodeId.New()
+    let childId = NodeId.New()
+    let change =
+        { id = EventIdFixtures.storedId 9
+          submissionId = System.Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [ Op.SetText(parentId, "old", "new") ] }
+    let parent = Node.Create(parentId, text = "parent")
+    let child = Node.Create(childId, text = "child", owner = parentId)
+    let response: ChangeSuccessResponse =
+        { eventId = EventIdFixtures.storedId 9
+          buildEpochSec = 0
+          pageBuildEpochSec = 0
+          apiVersion = ApiVersion.current
+          isReady = true
+          externalChanges = true
+          events = [ change ]
+          message = None
+          bootstrapHash = None
+          nodes = [ parent; child ]
+          childMap = Map.ofList [ parentId, ChildNode.owners [ childId ] ] }
+    let decoded =
+        roundTrip
+            ApiResponseSerialization.encodeChangeSuccessResponse
+            ApiResponseSerialization.decodeChangeSuccessResponseDecoder
+            response
+    Assert.Equal(1, decoded.events.Length)
+    Assert.Equal(change.id, decoded.events.[0].id)
+    Assert.Equal(2, decoded.nodes.Length)
+    Assert.Equal<ChildNode list>(
+        ChildNode.owners [ childId ],
+        decoded.childMap.[parentId])
+
+[<Fact>]
+let ``PollRequest always encodes want including empty`` () =
+    let request: PollRequest =
+        { eventId = EventIdFixtures.storedId 2
+          want = [] }
+    let json =
+        Enc.toString 0 (ApiResponseSerialization.encodePollRequest request)
+    Assert.Contains("\"want\":[]", json.Replace(" ", ""))
+    let decoded =
+        roundTrip
+            ApiResponseSerialization.encodePollRequest
+            ApiResponseSerialization.decodePollRequestDecoder
+            request
+    Assert.Equal(request.eventId, decoded.eventId)
+    Assert.Equal<NodeId list>([], decoded.want)
+
+[<Fact>]
+let ``PollRequest fails decode when want is missing`` () =
+    let json = """{"eventId":2}"""
+    match
+        Dec.fromString
+            ApiResponseSerialization.decodePollRequestDecoder
+            json
+    with
+    | Ok _ -> failwith "Expected missing want to fail"
+    | Error _ -> ()
+
+[<Fact>]
+let ``ChangeRequest round-trip with want ids`` () =
+    let parentId = NodeId.New()
+    let request: ChangeRequest =
+        { events = []
+          want = [ parentId ] }
+    let decoded =
+        roundTrip
+            ApiResponseSerialization.encodeChangeRequest
+            ApiResponseSerialization.decodeChangeRequestDecoder
+            request
+    Assert.Equal<Ev list>([], decoded.events)
+    Assert.Equal<NodeId list>([ parentId ], decoded.want)
+
+[<Fact>]
+let ``ChangeRequest round-trip keeps Changes beside want`` () =
+    let parentId = NodeId.New()
+    let change =
+        { id = EventIdFixtures.storedId 4
+          submissionId = System.Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [ Op.SetText(parentId, "old", "new") ] }
+    let request: ChangeRequest =
+        { events = [ change ]
+          want = [ parentId ] }
+    let decoded =
+        roundTrip
+            ApiResponseSerialization.encodeChangeRequest
+            ApiResponseSerialization.decodeChangeRequestDecoder
+            request
+    Assert.Equal(1, decoded.events.Length)
+    Assert.Equal(change.id, decoded.events.[0].id)
+    Assert.Equal<Op list>(
+        SpecialNodeTestHelpers.eventOps change,
+        Ev.ops decoded.events.[0] |> Option.defaultValue [])
+    Assert.Equal<NodeId list>([ parentId ], decoded.want)
+
+[<Fact>]
+let ``SyncWant always encodes want`` () =
+    let payload: SyncWant = { want = [] }
+    let json =
+        Enc.toString 0 (ApiResponseSerialization.encodeSyncWant payload)
+    Assert.Contains("\"want\":[]", json.Replace(" ", ""))
 
 [<Fact>]
 let ``LoadRequest round-trip`` () =
@@ -490,7 +677,7 @@ let ``LoadRequest round-trip`` () =
     Assert.False(decoded.targets.[1].includeWorkspace)
 
 [<Fact>]
-let ``LoadResponse round-trip with packages`` () =
+let ``LoadResponse round-trip with nodes and childMap`` () =
     let node =
         Node.Create(NodeId.New(), text = "ws child", owner = Graph.rootId)
     let change =
@@ -506,7 +693,8 @@ let ``LoadResponse round-trip with packages`` () =
           apiVersion = ApiVersion.current
           isReady = false
           events = [ change ]
-          packages = [ node ] }
+          nodes = [ node ]
+          childMap = Map.ofList [ node.id, [] ] }
     let decoded =
         roundTrip
             ApiResponseSerialization.encodeLoadResponse
@@ -518,17 +706,37 @@ let ``LoadResponse round-trip with packages`` () =
     Assert.Equal(response.apiVersion, decoded.apiVersion)
     Assert.False(decoded.isReady)
     Assert.Equal(1, decoded.events.Length)
-    Assert.Equal(1, decoded.packages.Length)
-    Assert.Equal(node.id, decoded.packages.[0].id)
+    Assert.Equal(1, decoded.nodes.Length)
+    Assert.Equal(node.id, decoded.nodes.[0].id)
+    Assert.True(Map.containsKey node.id decoded.childMap)
 
 [<Fact>]
-let ``LoadResponse decoder tolerates missing packages`` () =
+let ``LoadResponse round-trip keeps Unloaded Node Children absent`` () =
+    let header =
+        Node.Create(NodeId.New(), text = "ws header", owner = Graph.rootId)
+    let response: LoadResponse =
+        { eventId = EventIdFixtures.storedId 8
+          buildEpochSec = 10
+          pageBuildEpochSec = 20
+          apiVersion = ApiVersion.current
+          isReady = true
+          events = []
+          nodes = [ header ]
+          childMap = Map.empty }
+    let decoded =
+        roundTrip
+            ApiResponseSerialization.encodeLoadResponse
+            ApiResponseSerialization.decodeLoadResponseDecoder
+            response
+    Assert.Equal(header.id, decoded.nodes.[0].id)
+    Assert.False(Map.containsKey header.id decoded.childMap)
+
+[<Fact>]
+let ``LoadResponse decoder requires nodes and childMap`` () =
     let json = """{"r":4,"b":100,"p":200,"ready":true,"c":[]}"""
     match Dec.fromString ApiResponseSerialization.decodeLoadResponseDecoder json with
-    | Error err -> failwith $"Decode failed: {err}"
-    | Ok (decoded: LoadResponse) ->
-        Assert.Equal(EventIdFixtures.storedId 4, decoded.eventId)
-        Assert.Empty(decoded.packages)
+    | Error _ -> ()
+    | Ok _ -> Assert.Fail("Expected missing nodes and childMap to fail")
 
 [<Fact>]
 let ``StateResponse round-trip preserves startup readiness`` () =

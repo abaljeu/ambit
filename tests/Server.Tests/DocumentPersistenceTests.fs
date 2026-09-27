@@ -14,6 +14,12 @@ let private requireOk label r =
 
 let private owned = ChildNode.owners
 
+let private setChildren parentId kids (graph: Graph) =
+    Graph.fromNodes
+        graph.root
+        graph.nodes
+        (Map.add parentId kids graph.childMap)
+
 let private specialNode (id: NodeId) (kind: SpecialKind) (name: string) (owner: NodeId) : Node =
     Node.Create(
         id,
@@ -37,12 +43,11 @@ let private graphWithNestedDocs () : Graph * NodeId * NodeId * NodeId * NodeId =
     let normalNode = normalNode normalId "body" fileId
 
     let graph1 =
-        graph0.nodes
-        |> Map.add wsId wsNode
-        |> Map.add dirId dirNode
-        |> Map.add fileId fileNode
-        |> Map.add normalId normalNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        graph0
+        |> Graph.addDetachedNode wsNode
+        |> Graph.addDetachedNode dirNode
+        |> Graph.addDetachedNode fileNode
+        |> Graph.addDetachedNode normalNode
 
     let graph2 =
         Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
@@ -67,20 +72,17 @@ let private graphFileOwnsDirectory () : Graph * NodeId * NodeId * NodeId =
     let fileId = NodeId.New()
     let dirId = NodeId.New()
     let normalId = NodeId.New()
-    let fileNode =
-        { specialNode fileId File "container.txt" Graph.rootId with
-            children = owned [ dirId ] }
-    let dirNode =
-        { specialNode dirId Directory "inner" fileId with
-            children = owned [ normalId ] }
+    let fileNode = specialNode fileId File "container.txt" Graph.rootId
+    let dirNode = specialNode dirId Directory "inner" fileId
     let normalNode = normalNode normalId "nested" dirId
 
     let graph1 =
-        graph0.nodes
-        |> Map.add fileId fileNode
-        |> Map.add dirId dirNode
-        |> Map.add normalId normalNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        graph0
+        |> Graph.addDetachedNode fileNode
+        |> Graph.addDetachedNode dirNode
+        |> Graph.addDetachedNode normalNode
+        |> setChildren fileId (owned [ dirId ])
+        |> setChildren dirId (owned [ normalId ])
 
     let idx = Graph.fileTreeInsertIndex graph1 Graph.rootId
     let graph2 =
@@ -94,10 +96,7 @@ let private graphWithRootFile () : Graph * NodeId =
     let fileId = NodeId.New()
     let fileNode = specialNode fileId File "name.ext" Graph.rootId
 
-    let graph1 =
-        graph0.nodes
-        |> Map.add fileId fileNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+    let graph1 = Graph.addDetachedNode fileNode graph0
 
     let idx = Graph.fileTreeInsertIndex graph1 Graph.rootId
     let graph2 =
@@ -107,7 +106,7 @@ let private graphWithRootFile () : Graph * NodeId =
     graph2, fileId
 
 let private artifactFullPath (dataDir: string) (graph: Graph) (documentRootId: NodeId) =
-    DocumentPersistence.resolveArtifactPath dataDir graph documentRootId
+    DocumentPersistPath.resolveArtifactPath dataDir graph documentRootId
     |> requireOk "resolveArtifactPath"
 
 let private assertNestedWorkspaceLoad (expected: Graph) (actual: Graph) =
@@ -118,16 +117,16 @@ let private assertNestedWorkspaceLoad (expected: Graph) (actual: Graph) =
             match node.kind with
             | NodeKind.Special SpecialKind.Workspace when id <> Graph.rootId -> Some id
             | _ -> None)
-    let dirId = expected.nodes.[wsId].children.Head.id
-    let fileId = expected.nodes.[dirId].children.Head.id
-    Assert.Equal(wsId, actual.nodes.[Graph.workspacesId].children.Head.id)
-    Assert.Equal(dirId, actual.nodes.[wsId].children.Head.id)
-    Assert.Equal(fileId, actual.nodes.[dirId].children.Head.id)
+    let dirId = (Graph.children expected wsId).Head.id
+    let fileId = (Graph.children expected dirId).Head.id
+    Assert.Equal(wsId, (Graph.children actual Graph.workspacesId).Head.id)
+    Assert.Equal(dirId, (Graph.children actual wsId).Head.id)
+    Assert.Equal(fileId, (Graph.children actual dirId).Head.id)
     // Cold load: on-disk plain body → Unparsed File stub (no children), not Normal outline.
     Assert.Equal(NodeKind.Special SpecialKind.File, actual.nodes.[fileId].kind)
     Assert.Equal(Unparsed, actual.nodes.[fileId].documentState)
     Assert.Equal("readme.txt", Filename.tryValue actual.nodes.[fileId].name |> Option.get)
-    Assert.Empty(actual.nodes.[fileId].children)
+    Assert.Empty(Graph.children actual fileId)
 
 let private assertFileOwnsDirectoryLoad (expected: Graph) (actual: Graph) =
     let fileId =
@@ -137,11 +136,13 @@ let private assertFileOwnsDirectoryLoad (expected: Graph) (actual: Graph) =
             match node.kind with
             | NodeKind.Special SpecialKind.File -> Some id
             | _ -> None)
-    let dirId = expected.nodes.[fileId].children.Head.id
-    let actualNormalId = actual.nodes.[dirId].children.Head.id
+    let dirId = (Graph.children expected fileId).Head.id
+    let actualNormalId = (Graph.children actual dirId).Head.id
     Assert.Equal("nested", actual.nodes.[actualNormalId].text)
-    Assert.Equal(dirId, actual.nodes.[fileId].children.Head.id)
-    Assert.True(actual.nodes.[dirId].children |> List.exists (fun c -> c.id = actualNormalId))
+    Assert.Equal(dirId, (Graph.children actual fileId).Head.id)
+    Assert.True(
+        Graph.children actual dirId
+        |> List.exists (fun c -> c.id = actualNormalId))
 
 let private graphWithPlainFileRef () : Graph * NodeId * NodeId * NodeId =
     let graph0 = Graph.create ()
@@ -151,18 +152,16 @@ let private graphWithPlainFileRef () : Graph * NodeId * NodeId * NodeId =
     let sharedId = NodeId.New()
     let wsNode = specialNode wsId Workspace "home" Graph.workspacesId
     let fileNode = specialNode fileId File "readme.txt" wsId
-    let holderNode =
-        { normalNode holderId "holder" fileId with
-            children = [ ChildNode.reference sharedId ] }
+    let holderNode = normalNode holderId "holder" fileId
     let sharedNode = normalNode sharedId "shared text" Graph.rootId
 
     let graph1 =
-        graph0.nodes
-        |> Map.add wsId wsNode
-        |> Map.add fileId fileNode
-        |> Map.add holderId holderNode
-        |> Map.add sharedId sharedNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        graph0
+        |> Graph.addDetachedNode wsNode
+        |> Graph.addDetachedNode fileNode
+        |> Graph.addDetachedNode holderNode
+        |> Graph.addDetachedNode sharedNode
+        |> setChildren holderId [ ChildNode.reference sharedId ]
 
     let graph2 =
         Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
@@ -186,13 +185,12 @@ let private graphWithTwoSiblingFiles () : Graph * NodeId * NodeId * NodeId * Nod
     let bodyAId = NodeId.New()
     let bodyBId = NodeId.New()
     let graph1 =
-        graph0.nodes
-        |> Map.add wsId (specialNode wsId Workspace "home" Graph.workspacesId)
-        |> Map.add fileAId (specialNode fileAId File "a.txt" wsId)
-        |> Map.add fileBId (specialNode fileBId File "b.txt" wsId)
-        |> Map.add bodyAId (normalNode bodyAId "alpha" fileAId)
-        |> Map.add bodyBId (normalNode bodyBId "beta" fileBId)
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        graph0
+        |> Graph.addDetachedNode (specialNode wsId Workspace "home" Graph.workspacesId)
+        |> Graph.addDetachedNode (specialNode fileAId File "a.txt" wsId)
+        |> Graph.addDetachedNode (specialNode fileBId File "b.txt" wsId)
+        |> Graph.addDetachedNode (normalNode bodyAId "alpha" fileAId)
+        |> Graph.addDetachedNode (normalNode bodyBId "beta" fileBId)
     let graph2 =
         Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
         |> requireOk "workspaces->ws"
@@ -211,7 +209,7 @@ let private graphWithTwoSiblingFiles () : Graph * NodeId * NodeId * NodeId * Nod
 let ``writeAllDocuments bootstrap graph writes ROOT and TRASH artifacts`` () =
     let dataDir = newTempDir ()
     let graph = Graph.create ()
-    DocumentPersistence.writeAllDocuments dataDir graph |> requireOk "writeAllDocuments" |> ignore
+    DocumentPersistWrite.writeAllDocuments dataDir graph |> requireOk "writeAllDocuments" |> ignore
     Assert.True(File.Exists(Path.Combine(dataDir, ".amb")))
     Assert.True(File.Exists(Path.Combine(dataDir, "TRASH", ".amb")))
     Assert.True(File.Exists(Path.Combine(dataDir, "SYSTEM", ".amb")))
@@ -220,7 +218,7 @@ let ``writeAllDocuments bootstrap graph writes ROOT and TRASH artifacts`` () =
 let ``writeAllDocuments nested workspace tree writes expected paths`` () =
     let dataDir = newTempDir ()
     let graph, _, dirId, fileId, _ = graphWithNestedDocs ()
-    DocumentPersistence.writeAllDocuments dataDir graph |> requireOk "writeAllDocuments" |> ignore
+    DocumentPersistWrite.writeAllDocuments dataDir graph |> requireOk "writeAllDocuments" |> ignore
     Assert.True(File.Exists(Path.Combine(dataDir, "home", ".amb")))
     Assert.True(File.Exists(Path.Combine(dataDir, "home", "docs", ".amb")))
     Assert.True(File.Exists(Path.Combine(dataDir, "home", "docs", "readme.txt")))
@@ -230,7 +228,7 @@ let ``writeAllDocuments stamps artifact updateTime from disk mtime`` () =
     let dataDir = newTempDir ()
     let graph, wsId, dirId, fileId, _ = graphWithNestedDocs ()
     let stamped =
-        DocumentPersistence.writeAllDocuments dataDir graph
+        DocumentPersistWrite.writeAllDocuments dataDir graph
         |> requireOk "writeAllDocuments"
     let filePath = artifactFullPath dataDir graph fileId
     let dirPath = artifactFullPath dataDir graph dirId
@@ -253,7 +251,7 @@ let ``upload structure persistence preserves existing file mtime`` () =
     let dataDir = newTempDir ()
     let graph0, _, _, fileId, _ = graphWithNestedDocs ()
     let graph =
-        DocumentPersistence.writeAllDocuments dataDir graph0
+        DocumentPersistWrite.writeAllDocuments dataDir graph0
         |> requireOk "initial write"
     let uploadOps =
         WorkspaceUploadStructure.planStubOps
@@ -276,7 +274,7 @@ let ``upload structure persistence preserves existing file mtime`` () =
     File.SetLastWriteTimeUtc(filePath, original)
 
     let stamped =
-        DocumentPersistence.persistGraphChange dataDir graph afterUpload
+        DocumentPersistChange.persistGraphChange dataDir graph afterUpload
         |> requireOk "persist upload structure"
 
     Assert.Equal(original, File.GetLastWriteTimeUtc filePath)
@@ -297,7 +295,7 @@ let ``upload structure persistence preserves existing file mtime`` () =
 let ``persistGraphChange does not rewrite untouched sibling document artifact`` () =
     let dataDir = newTempDir ()
     let graph, fileAId, fileBId, bodyAId, _ = graphWithTwoSiblingFiles ()
-    DocumentPersistence.writeAllDocuments dataDir graph
+    DocumentPersistWrite.writeAllDocuments dataDir graph
     |> requireOk "initial write"
     |> ignore
     let pathA = artifactFullPath dataDir graph fileAId
@@ -309,7 +307,7 @@ let ``persistGraphChange does not rewrite untouched sibling document artifact`` 
         Graph.setText bodyAId "alpha" "ALPHA" graph
         |> requireOk "edit bodyA"
 
-    DocumentPersistence.persistGraphChange dataDir graph post
+    DocumentPersistChange.persistGraphChange dataDir graph post
     |> requireOk "persistGraphChange"
     |> ignore
 
@@ -321,7 +319,7 @@ let ``persistGraphChange does not rewrite untouched sibling document artifact`` 
 let ``readAllDocuments cold load stamps Directory File roots from disk mtime`` () =
     let dataDir = newTempDir ()
     let graph, wsId, dirId, fileId, _ = graphWithNestedDocs ()
-    DocumentPersistence.writeAllDocuments dataDir graph
+    DocumentPersistWrite.writeAllDocuments dataDir graph
     |> requireOk "writeAllDocuments"
     |> ignore
     let dirPath = artifactFullPath dataDir graph dirId
@@ -331,7 +329,7 @@ let ``readAllDocuments cold load stamps Directory File roots from disk mtime`` (
     let wsMtime =
         File.GetLastWriteTimeUtc wsPath |> NodeUpdateTime.toDbPrecision
     let loaded =
-        DocumentPersistence.readAllDocuments dataDir |> requireOk "read"
+        DocumentPersistChange.readAllDocuments dataDir |> requireOk "read"
     Assert.Equal(dirMtime, loaded.nodes.[dirId].updateTime)
     Assert.Equal(wsMtime, loaded.nodes.[wsId].updateTime)
     Assert.True(Map.containsKey fileId loaded.nodes)
@@ -340,14 +338,14 @@ let ``readAllDocuments cold load stamps Directory File roots from disk mtime`` (
 let ``fileStatusForReference reports existing and missing server artifacts`` () =
     let dataDir = newTempDir ()
     let graph, _, _, _, _ = graphWithNestedDocs ()
-    DocumentPersistence.writeAllDocuments dataDir graph |> requireOk "writeAllDocuments" |> ignore
+    DocumentPersistWrite.writeAllDocuments dataDir graph |> requireOk "writeAllDocuments" |> ignore
 
     let existing =
-        DocumentPersistence.fileStatusForReference dataDir "//home/docs/readme.txt"
+        DocumentPersistPath.fileStatusForReference dataDir "//home/docs/readme.txt"
         |> requireOk "existing status"
 
     let missing =
-        DocumentPersistence.fileStatusForReference dataDir "//home/docs/missing.txt"
+        DocumentPersistPath.fileStatusForReference dataDir "//home/docs/missing.txt"
         |> requireOk "missing status"
 
     Assert.Equal(ExistingFile, existing.status)
@@ -359,13 +357,13 @@ let ``fileStatusForReference reports existing and missing server artifacts`` () 
 let ``fileStatusForReference reports workspace and directory as folder not file`` () =
     let dataDir = newTempDir ()
     let graph, _, _, _, _ = graphWithNestedDocs ()
-    DocumentPersistence.writeAllDocuments dataDir graph |> requireOk "writeAllDocuments" |> ignore
+    DocumentPersistWrite.writeAllDocuments dataDir graph |> requireOk "writeAllDocuments" |> ignore
 
     let ws =
-        DocumentPersistence.fileStatusForReference dataDir "//home"
+        DocumentPersistPath.fileStatusForReference dataDir "//home"
         |> requireOk "workspace status"
     let dir =
-        DocumentPersistence.fileStatusForReference dataDir "//home/docs/"
+        DocumentPersistPath.fileStatusForReference dataDir "//home/docs/"
         |> requireOk "directory status"
 
     Assert.Equal(ExistingFolder, ws.status)
@@ -378,7 +376,7 @@ let ``fileStatusForReference directory is folder when dir exists without amb`` (
     Directory.CreateDirectory dirPath |> ignore
 
     let status =
-        DocumentPersistence.fileStatusForReference dataDir "//fambit/elm/"
+        DocumentPersistPath.fileStatusForReference dataDir "//fambit/elm/"
         |> requireOk "mkcol-only directory"
 
     Assert.Equal(ExistingFolder, status.status)
@@ -389,7 +387,7 @@ let ``fileStatusForReference directory missing when neither dir nor amb exists``
     Directory.CreateDirectory(Path.Combine(dataDir, "fambit")) |> ignore
 
     let status =
-        DocumentPersistence.fileStatusForReference dataDir "//fambit/doc/"
+        DocumentPersistPath.fileStatusForReference dataDir "//fambit/doc/"
         |> requireOk "absent directory"
 
     Assert.Equal(MissingArtifact, status.status)
@@ -399,7 +397,7 @@ let ``fileStatusForReference missing when neither amb nor folder exist`` () =
     let dataDir = newTempDir ()
 
     let status =
-        DocumentPersistence.fileStatusForReference dataDir "//fambit/doc/"
+        DocumentPersistPath.fileStatusForReference dataDir "//fambit/doc/"
         |> requireOk "missing folder"
 
     Assert.Equal(MissingArtifact, status.status)
@@ -412,7 +410,7 @@ let ``importPackageForReference builds package from DataDir file`` () =
     File.WriteAllText(Path.Combine(relDir, "goal.md"), "hello goal")
 
     let package =
-        DocumentPersistence.importPackageForReference
+        DocumentPersistPath.importPackageForReference
             dataDir
             "//life/memory/goal.md"
         |> requireOk "import package"
@@ -427,7 +425,7 @@ let ``importPackageForReference reports missing DataDir file`` () =
     let dataDir = newTempDir ()
 
     match
-        DocumentPersistence.importPackageForReference
+        DocumentPersistPath.importPackageForReference
             dataDir
             "//life/memory/goal.md"
     with
@@ -442,7 +440,7 @@ let ``planParseFile refuses oversized body before writing artifact`` () =
     let actualCodeUnits = DocumentParseLimits.maxInputCodeUnits + 1
     let text = String('x', actualCodeUnits)
 
-    match DocumentPersistence.planParseFile dataDir graph fileId (Some text) with
+    match DocumentPersistWrite.planParseFile dataDir graph fileId (Some text) with
     | Error msg ->
         Assert.Equal(
             DocumentParseLimits.errorForCodeUnits actualCodeUnits,
@@ -458,7 +456,7 @@ let ``planParseFile blank body overwrites artifact and returns ops`` () =
     Directory.CreateDirectory(Path.GetDirectoryName diskPath) |> ignore
     File.WriteAllText(diskPath, "EXISTING")
 
-    DocumentPersistence.planParseFile dataDir graph fileId (Some " \r\n\t")
+    DocumentPersistWrite.planParseFile dataDir graph fileId (Some " \r\n\t")
     |> requireOk "blank body parse"
     |> ignore
 
@@ -472,7 +470,7 @@ let ``planParseFile blank DataDir artifact without request text succeeds`` () =
     Directory.CreateDirectory(Path.GetDirectoryName diskPath) |> ignore
     File.WriteAllText(diskPath, " \r\n\t")
 
-    DocumentPersistence.planParseFile dataDir graph fileId None
+    DocumentPersistWrite.planParseFile dataDir graph fileId None
     |> requireOk "blank artifact parse"
     |> ignore
 
@@ -481,7 +479,7 @@ let ``planParseFile DataDir warm keeps line NodeId on text edit`` () =
     let dataDir = newTempDir ()
     let graph, _, _, fileId, normalId = graphWithNestedDocs ()
 
-    DocumentPersistence.writeAllDocuments dataDir graph
+    DocumentPersistWrite.writeAllDocuments dataDir graph
     |> requireOk "writeAllDocuments"
     |> ignore
 
@@ -490,7 +488,7 @@ let ``planParseFile DataDir warm keeps line NodeId on text edit`` () =
         "BODY\n")
 
     let ops =
-        DocumentPersistence.planParseFile
+        DocumentPersistWrite.planParseFile
             dataDir
             graph
             fileId
@@ -511,7 +509,7 @@ let ``planParseFile DataDir warm keeps line NodeId on text edit`` () =
                 | ApplyResult.Invalid(_, error) -> failwith error)
             state0
 
-    Assert.Equal(normalId, after.graph.nodes.[fileId].children.Head.id)
+    Assert.Equal(normalId, (Graph.children after.graph fileId).Head.id)
     Assert.Equal("BODY", after.graph.nodes.[normalId].text)
     Assert.Equal(Current, after.graph.nodes.[fileId].documentState)
 
@@ -521,7 +519,7 @@ let ``planParseFile with body text writes artifact to DataDir`` () =
     let graph, _, _, fileId, _ = graphWithNestedDocs ()
     let diskPath = Path.Combine(dataDir, "home", "docs", "readme.txt")
 
-    DocumentPersistence.planParseFile
+    DocumentPersistWrite.planParseFile
         dataDir
         graph
         fileId
@@ -542,7 +540,7 @@ let ``planParseFile with body text overwrites stale DataDir content`` () =
     let original = DateTime(2024, 2, 3, 4, 5, 6, DateTimeKind.Utc)
     File.SetLastWriteTimeUtc(diskPath, original)
 
-    DocumentPersistence.planParseFile
+    DocumentPersistWrite.planParseFile
         dataDir
         graph
         fileId
@@ -558,12 +556,12 @@ let ``planParseFile uses body text over DataDir`` () =
     let dataDir = newTempDir ()
     let graph, _, _, fileId, normalId = graphWithNestedDocs ()
 
-    DocumentPersistence.writeAllDocuments dataDir graph
+    DocumentPersistWrite.writeAllDocuments dataDir graph
     |> requireOk "writeAllDocuments"
     |> ignore
 
     let ops =
-        DocumentPersistence.planParseFile
+        DocumentPersistWrite.planParseFile
             dataDir
             graph
             fileId
@@ -582,7 +580,7 @@ let ``planParseFile uses body text over DataDir`` () =
                 | ApplyResult.Invalid(_, error) -> failwith error)
             state0
 
-    Assert.Equal(normalId, after.graph.nodes.[fileId].children.Head.id)
+    Assert.Equal(normalId, (Graph.children after.graph fileId).Head.id)
     Assert.Equal("FROMBODY", after.graph.nodes.[normalId].text)
 
 [<Fact>]
@@ -598,15 +596,12 @@ let ``planParseFile without text rejects File with no server occurrence`` () =
             owner = Graph.rootId,
             kind = Special File,
             documentState = Unparsed)
-    let graph1 =
-        graph0.nodes
-        |> Map.add fileId fileNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+    let graph1 = Graph.addDetachedNode fileNode graph0
     let graph =
         Graph.replace Graph.rootId 0 [] (owned [ fileId ]) graph1
         |> requireOk "root->file"
 
-    match DocumentPersistence.planParseFile dataDir graph fileId None with
+    match DocumentPersistWrite.planParseFile dataDir graph fileId None with
     | Error msg ->
         Assert.Equal("selected File has no occurrence on the server", msg)
     | Ok _ -> Assert.Fail("expected no-occurrence error")
@@ -631,7 +626,7 @@ let ``GET /ambit/file returns import package for DataDir file`` () = task {
 let ``writeAllDocuments ROOT file lands at dataDir root without amb suffix`` () =
     let dataDir = newTempDir ()
     let graph, fileId = graphWithRootFile ()
-    DocumentPersistence.writeAllDocuments dataDir graph |> requireOk "writeAllDocuments" |> ignore
+    DocumentPersistWrite.writeAllDocuments dataDir graph |> requireOk "writeAllDocuments" |> ignore
     let path = artifactFullPath dataDir graph fileId
     Assert.Equal(Path.Combine(dataDir, "name.ext"), path)
     Assert.True(File.Exists path)
@@ -643,7 +638,7 @@ let ``planParseFile ROOT file reads artifact directly from DataDir`` () =
     File.WriteAllText(Path.Combine(dataDir, "name.ext"), "FROM ROOT\n")
 
     let ops =
-        DocumentPersistence.planParseFile dataDir graph fileId None
+        DocumentPersistWrite.planParseFile dataDir graph fileId None
         |> requireOk "planParseFile ROOT"
 
     Assert.False(List.isEmpty ops)
@@ -652,7 +647,7 @@ let ``planParseFile ROOT file reads artifact directly from DataDir`` () =
 let ``writeAllDocuments nested file directory boundary writes separate artifacts`` () =
     let dataDir = newTempDir ()
     let graph, fileId, dirId, normalId = graphFileOwnsDirectory ()
-    DocumentPersistence.writeAllDocuments dataDir graph |> requireOk "writeAllDocuments" |> ignore
+    DocumentPersistWrite.writeAllDocuments dataDir graph |> requireOk "writeAllDocuments" |> ignore
     let filePath = artifactFullPath dataDir graph fileId
     let dirPath = artifactFullPath dataDir graph dirId
     Assert.Equal(Path.Combine(dataDir, "container.txt"), filePath)
@@ -670,16 +665,13 @@ let ``resolveArtifactPath malformed document root identifies node`` () =
     let graph0 = Graph.create ()
     let malformedId = NodeId.New()
     let malformedNode = specialNode malformedId Directory "orphan" Graph.rootId
-    let graph =
-        graph0.nodes
-        |> Map.add malformedId malformedNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+    let graph = Graph.addDetachedNode malformedNode graph0
 
     let expected =
         $"no artifact path for document root: id={malformedId.Value}; "
         + $"kind=Special Directory; name=orphan; owner={Graph.rootId.Value}"
 
-    match DocumentPersistence.resolveArtifactPath dataDir graph malformedId with
+    match DocumentPersistPath.resolveArtifactPath dataDir graph malformedId with
     | Ok _ -> failwith "expected error"
     | Error error -> Assert.Equal(expected, error)
 
@@ -691,7 +683,7 @@ let ``resolveArtifactPath unknown document root identifies missing node`` () =
     let expected =
         $"no artifact path for document root: id={unknownId.Value}; node=missing"
 
-    match DocumentPersistence.resolveArtifactPath dataDir graph unknownId with
+    match DocumentPersistPath.resolveArtifactPath dataDir graph unknownId with
     | Ok _ -> failwith "expected error"
     | Error error -> Assert.Equal(expected, error)
 
@@ -701,7 +693,7 @@ let ``resolveArtifactPath unknown document root identifies missing node`` () =
 let ``writeDocument round trip preserves member text`` () =
     let dataDir = newTempDir ()
     let graph, _, _, fileId, normalId = graphWithNestedDocs ()
-    DocumentPersistence.writeAllDocuments dataDir graph |> requireOk "writeAllDocuments" |> ignore
+    DocumentPersistWrite.writeAllDocuments dataDir graph |> requireOk "writeAllDocuments" |> ignore
     let filePath = artifactFullPath dataDir graph fileId
     let text = File.ReadAllText filePath
 
@@ -716,9 +708,9 @@ let ``writeDocument round trip preserves member text`` () =
 let ``discoverArtifactRelatives finds all written artifacts`` () =
     let dataDir = newTempDir ()
     let graph, wsId, dirId, fileId, _ = graphWithNestedDocs ()
-    DocumentPersistence.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
+    DocumentPersistWrite.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
     let relatives =
-        DocumentPersistence.discoverArtifactRelatives dataDir
+        DocumentPersistPath.discoverArtifactRelatives dataDir
         |> requireOk "discover"
         |> Set.ofList
     let expected =
@@ -731,8 +723,8 @@ let ``discoverArtifactRelatives finds all written artifacts`` () =
 let ``readAllDocuments round trip matches normalized snapshot outline`` () =
     let dataDir = newTempDir ()
     let graph = Graph.create ()
-    DocumentPersistence.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
-    let actual = DocumentPersistence.readAllDocuments dataDir |> requireOk "read"
+    DocumentPersistWrite.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
+    let actual = DocumentPersistChange.readAllDocuments dataDir |> requireOk "read"
     let expectedOutline = Snapshot.normalizeOutlineForCompare (Snapshot.write graph)
     let actualOutline = Snapshot.normalizeOutlineForCompare (Snapshot.write actual)
     Assert.Equal(expectedOutline, actualOutline)
@@ -741,8 +733,8 @@ let ``readAllDocuments round trip matches normalized snapshot outline`` () =
 let ``readAllDocuments round trips nested workspace tree`` () =
     let dataDir = newTempDir ()
     let expected, _, _, _, _ = graphWithNestedDocs ()
-    DocumentPersistence.writeAllDocuments dataDir expected |> requireOk "write" |> ignore
-    let actual = DocumentPersistence.readAllDocuments dataDir |> requireOk "read"
+    DocumentPersistWrite.writeAllDocuments dataDir expected |> requireOk "write" |> ignore
+    let actual = DocumentPersistChange.readAllDocuments dataDir |> requireOk "read"
     assertNestedWorkspaceLoad expected actual
     Assert.DoesNotContain(
         actual.nodes |> Map.toSeq,
@@ -752,34 +744,34 @@ let ``readAllDocuments round trips nested workspace tree`` () =
 let ``readAllDocuments cold load file-owns-directory without plain body`` () =
     let dataDir = newTempDir ()
     let expected, fileId, dirId, _ = graphFileOwnsDirectory ()
-    DocumentPersistence.writeAllDocuments dataDir expected |> requireOk "write" |> ignore
-    let actual = DocumentPersistence.readAllDocuments dataDir |> requireOk "read"
+    DocumentPersistWrite.writeAllDocuments dataDir expected |> requireOk "write" |> ignore
+    let actual = DocumentPersistChange.readAllDocuments dataDir |> requireOk "read"
     Assert.True(Map.containsKey fileId actual.nodes)
     Assert.Equal("container.txt", Filename.tryValue actual.nodes.[fileId].name |> Option.get)
-    Assert.Empty(actual.nodes.[fileId].children)
+    Assert.Empty(Graph.children actual fileId)
     Assert.False(Map.containsKey dirId actual.nodes)
 
 [<Fact>]
 let ``readAllDocuments preserves owner handle when artifact is missing`` () =
     let dataDir = newTempDir ()
     let graph, _, dirId, fileId, _ = graphWithNestedDocs ()
-    DocumentPersistence.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
+    DocumentPersistWrite.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
     let filePath = artifactFullPath dataDir graph fileId
     File.Delete filePath
-    let actual = DocumentPersistence.readAllDocuments dataDir |> requireOk "read"
+    let actual = DocumentPersistChange.readAllDocuments dataDir |> requireOk "read"
     let fileNode = actual.nodes.[fileId]
     Assert.Equal(NodeKind.Normal, fileNode.kind)
     Assert.Equal("readme.txt", Filename.tryValue fileNode.name |> Option.get)
-    Assert.Empty(fileNode.children)
-    Assert.Equal(fileId, actual.nodes.[dirId].children.Head.id)
-    Assert.Equal(Ownership.Owner, actual.nodes.[dirId].children.Head.ref)
+    Assert.Empty(Graph.children actual fileId)
+    Assert.Equal(fileId, (Graph.children actual dirId).Head.id)
+    Assert.Equal(Ownership.Owner, (Graph.children actual dirId).Head.ref)
 
 [<Fact>]
 let ``discoverArtifactRelatives lists stray amb file`` () =
     let dataDir = newTempDir ()
     File.WriteAllText(Path.Combine(dataDir, "foo.amb"), "")
     let relatives =
-        DocumentPersistence.discoverArtifactRelatives dataDir
+        DocumentPersistPath.discoverArtifactRelatives dataDir
         |> requireOk "discover"
     Assert.Contains("foo.amb", relatives)
 
@@ -793,7 +785,7 @@ let ``discoverArtifactRelatives excludes reserved gambol dot files`` () =
     File.WriteAllText(Path.Combine(nested, "GAMBOL.meta"), "bookkeeping")
     File.WriteAllText(Path.Combine(dataDir, "gambolish"), "ordinary artifact")
     let relatives =
-        DocumentPersistence.discoverArtifactRelatives dataDir
+        DocumentPersistPath.discoverArtifactRelatives dataDir
         |> requireOk "discover"
     Assert.DoesNotContain("gambol.events", relatives)
     Assert.DoesNotContain("nested/GAMBOL.meta", relatives)
@@ -804,9 +796,9 @@ let ``discoverArtifactRelatives excludes reserved gambol dot files`` () =
 let ``readAllDocuments ignores stray amb file`` () =
     let dataDir = newTempDir ()
     let graph, _, _, _, _ = graphWithNestedDocs ()
-    DocumentPersistence.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
+    DocumentPersistWrite.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
     File.WriteAllText(Path.Combine(dataDir, "foo.amb"), "stray")
-    DocumentPersistence.readAllDocuments dataDir |> requireOk "read" |> ignore
+    DocumentPersistChange.readAllDocuments dataDir |> requireOk "read" |> ignore
 
 [<Fact>]
 let ``readAllDocuments ignores large non-Directory-File under dataDir`` () =
@@ -818,33 +810,33 @@ let ``readAllDocuments ignores large non-Directory-File under dataDir`` () =
     File.WriteAllText(
         Path.Combine(dataDir, "notes.amb"),
         String.replicate (DocumentParseLimits.maxInputCodeUnits + 1) "y")
-    DocumentPersistence.readAllDocuments dataDir |> requireOk "read" |> ignore
+    DocumentPersistChange.readAllDocuments dataDir |> requireOk "read" |> ignore
 
 [<Fact>]
 let ``readAllDocuments skips oversized Directory File`` () =
     let dataDir = newTempDir ()
     let graph, wsId, _, _, _ = graphWithNestedDocs ()
-    DocumentPersistence.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
+    DocumentPersistWrite.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
     let oversized =
         String.replicate (DocumentParseLimits.maxInputCodeUnits + 1) "a"
     File.WriteAllText(Path.Combine(dataDir, "home", ".amb"), oversized)
     let actual =
-        DocumentPersistence.readAllDocuments dataDir |> requireOk "read"
+        DocumentPersistChange.readAllDocuments dataDir |> requireOk "read"
     Assert.True(Map.containsKey wsId actual.nodes)
-    Assert.Equal(0, actual.nodes.[wsId].children.Length)
+    Assert.Equal(0, (Graph.children actual wsId).Length)
 
 [<Fact>]
 let ``readAllDocuments duplicate id corruption returns error`` () =
     let dataDir = newTempDir ()
     let graph, wsId, dirId, _, normalId = graphWithNestedDocs ()
-    DocumentPersistence.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
+    DocumentPersistWrite.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
     let wsPath = artifactFullPath dataDir graph wsId
     let dirPath = artifactFullPath dataDir graph dirId
     let sid = AmbDocument.formatStableId normalId
     let corrupt = "^" + sid + " corrupt" + System.Environment.NewLine
     File.WriteAllText(wsPath, File.ReadAllText wsPath + corrupt)
     File.WriteAllText(dirPath, File.ReadAllText dirPath + corrupt)
-    match DocumentPersistence.readAllDocuments dataDir with
+    match DocumentPersistChange.readAllDocuments dataDir with
     | Ok _ -> failwith "expected error"
     | Error msg ->
         Assert.True(msg.Contains("conflicting") || msg.Contains("member"))
@@ -853,7 +845,7 @@ let ``readAllDocuments duplicate id corruption returns error`` () =
 let ``writeAllDocuments plain file writes outline without stable id syntax`` () =
     let dataDir = newTempDir ()
     let graph, _, _, fileId, normalId = graphWithNestedDocs ()
-    DocumentPersistence.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
+    DocumentPersistWrite.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
     let filePath = artifactFullPath dataDir graph fileId
     let text = File.ReadAllText filePath
     let sid = AmbDocument.formatStableId normalId
@@ -864,7 +856,7 @@ let ``writeAllDocuments plain file writes outline without stable id syntax`` () 
 let ``writeAllDocuments amb directory artifact keeps stable id syntax`` () =
     let dataDir = newTempDir ()
     let graph, _, dirId, fileId, _ = graphWithNestedDocs ()
-    DocumentPersistence.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
+    DocumentPersistWrite.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
     let dirPath = artifactFullPath dataDir graph dirId
     let text = File.ReadAllText dirPath
     let fileSid = AmbDocument.formatStableId fileId
@@ -874,22 +866,22 @@ let ``writeAllDocuments amb directory artifact keeps stable id syntax`` () =
 let ``readAllDocuments cold load keeps file outline without plain body`` () =
     let dataDir = newTempDir ()
     let expected, _, dirId, fileId, _ = graphWithNestedDocs ()
-    DocumentPersistence.writeAllDocuments dataDir expected |> requireOk "write" |> ignore
-    let actual = DocumentPersistence.readAllDocuments dataDir |> requireOk "read"
-    Assert.Equal(fileId, actual.nodes.[dirId].children.Head.id)
+    DocumentPersistWrite.writeAllDocuments dataDir expected |> requireOk "write" |> ignore
+    let actual = DocumentPersistChange.readAllDocuments dataDir |> requireOk "read"
+    Assert.Equal(fileId, (Graph.children actual dirId).Head.id)
     // Body is on disk but unloaded: Special File + Unparsed, empty children.
     Assert.Equal(NodeKind.Special SpecialKind.File, actual.nodes.[fileId].kind)
     Assert.Equal(Unparsed, actual.nodes.[fileId].documentState)
     Assert.Equal("readme.txt", Filename.tryValue actual.nodes.[fileId].name |> Option.get)
-    Assert.Empty(actual.nodes.[fileId].children)
+    Assert.Empty(Graph.children actual fileId)
 
 [<Fact>]
 let ``discoverArtifactRelatives lists plain file alongside amb artifacts`` () =
     let dataDir = newTempDir ()
     let graph, wsId, dirId, fileId, _ = graphWithNestedDocs ()
-    DocumentPersistence.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
+    DocumentPersistWrite.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
     let relatives =
-        DocumentPersistence.discoverArtifactRelatives dataDir
+        DocumentPersistPath.discoverArtifactRelatives dataDir
         |> requireOk "discover"
         |> Set.ofList
     let fileRel = DocumentPartition.artifactFileRelative graph fileId |> Option.get
@@ -910,7 +902,7 @@ let ``resolveArtifactPath plain file resolves to named extension path`` () =
 let ``writeAllDocuments ref child in plain file writes target text only`` () =
     let dataDir = newTempDir ()
     let graph, _, fileId, sharedId = graphWithPlainFileRef ()
-    DocumentPersistence.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
+    DocumentPersistWrite.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
     let filePath = artifactFullPath dataDir graph fileId
     let text = File.ReadAllText filePath
     let sharedSid = AmbDocument.formatStableId sharedId
@@ -922,10 +914,10 @@ let ``writeAllDocuments ref child in plain file writes target text only`` () =
 let ``readAllDocuments cold load skips plain file body artifact`` () =
     let dataDir = newTempDir ()
     let graph, _, fileId, sharedId = graphWithPlainFileRef ()
-    DocumentPersistence.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
-    let actual = DocumentPersistence.readAllDocuments dataDir |> requireOk "read"
+    DocumentPersistWrite.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
+    let actual = DocumentPersistChange.readAllDocuments dataDir |> requireOk "read"
     Assert.True(Map.containsKey fileId actual.nodes)
-    Assert.Empty(actual.nodes.[fileId].children)
+    Assert.Empty(Graph.children actual fileId)
     Assert.False(Map.containsKey sharedId actual.nodes)
 
 let private graphWithIllicitAmbFile () : Graph * NodeId * NodeId =
@@ -942,10 +934,9 @@ let private graphWithIllicitAmbFile () : Graph * NodeId * NodeId =
             owner = wsId,
             kind = Special File)
     let graph1 =
-        graph0.nodes
-        |> Map.add wsId wsNode
-        |> Map.add fileId fileNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        graph0
+        |> Graph.addDetachedNode wsNode
+        |> Graph.addDetachedNode fileNode
     let graph2 =
         Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
         |> requireOk "workspaces->ws"
@@ -963,7 +954,7 @@ let ``refuseDirectoryFileNamedDocument errors on illicit amb node name`` () =
             name = Filename.Ok ".amb",
             owner = Graph.rootId,
             kind = Special File)
-    match DocumentPersistence.refuseDirectoryFileNamedDocument node with
+    match DocumentPersistWrite.refuseDirectoryFileNamedDocument node with
     | Ok () -> failwith "expected refuse"
     | Error msg ->
         Assert.Contains("directory file", msg, StringComparison.OrdinalIgnoreCase)
@@ -977,7 +968,7 @@ let ``refuseDirectoryFileNamedDocument allows legitimate workspace name`` () =
             name = Filename.create "home",
             owner = Graph.workspacesId,
             kind = Special Workspace)
-    DocumentPersistence.refuseDirectoryFileNamedDocument node
+    DocumentPersistWrite.refuseDirectoryFileNamedDocument node
     |> requireOk "refuseDirectoryFileNamedDocument"
     |> ignore
 
@@ -985,10 +976,7 @@ let private graphWithSystemFile (fileName: string) : Graph * NodeId =
     let graph0 = Graph.create ()
     let fileId = NodeId.New()
     let fileNode = specialNode fileId File fileName Graph.systemId
-    let graph1 =
-        graph0.nodes
-        |> Map.add fileId fileNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+    let graph1 = Graph.addDetachedNode fileNode graph0
     let graph2 =
         Graph.replace Graph.systemId 0 [] (owned [ fileId ]) graph1
         |> requireOk "system->file"
@@ -998,7 +986,7 @@ let private graphWithSystemFile (fileName: string) : Graph * NodeId =
 let ``writeDocument allows SYSTEM Directory File`` () =
     let dataDir = newTempDir ()
     let graph = Graph.create ()
-    DocumentPersistence.writeDocument dataDir graph Graph.systemId
+    DocumentPersistWrite.writeDocument dataDir graph Graph.systemId
     |> requireOk "write SYSTEM/.amb"
     |> ignore
     Assert.True(File.Exists(Path.Combine(dataDir, "SYSTEM", ".amb")))
@@ -1007,7 +995,7 @@ let ``writeDocument allows SYSTEM Directory File`` () =
 let ``writeDocument allows SYSTEM user css`` () =
     let dataDir = newTempDir ()
     let graph, fileId = graphWithSystemFile "user.css"
-    DocumentPersistence.writeDocument dataDir graph fileId
+    DocumentPersistWrite.writeDocument dataDir graph fileId
     |> requireOk "write SYSTEM/user.css"
     |> ignore
     Assert.True(File.Exists(Path.Combine(dataDir, "SYSTEM", "user.css")))
@@ -1020,7 +1008,7 @@ let ``writeDocument refuses illicit SYSTEM file and leaves DataDir untouched`` (
     Directory.CreateDirectory systemDir |> ignore
     let path = Path.Combine(systemDir, "secret.txt")
     File.WriteAllText(path, "SECRET")
-    match DocumentPersistence.writeDocument dataDir graph fileId with
+    match DocumentPersistWrite.writeDocument dataDir graph fileId with
     | Ok _ -> failwith "expected writeDocument to refuse SYSTEM file"
     | Error msg ->
         Assert.Contains(
@@ -1037,7 +1025,7 @@ let ``planParseFile refuses illicit SYSTEM body write`` () =
     Directory.CreateDirectory systemDir |> ignore
     let path = Path.Combine(systemDir, "secret.txt")
     File.WriteAllText(path, "SECRET")
-    match DocumentPersistence.planParseFile dataDir graph fileId (Some "new") with
+    match DocumentPersistWrite.planParseFile dataDir graph fileId (Some "new") with
     | Ok _ -> failwith "expected planParseFile to refuse SYSTEM write"
     | Error msg ->
         Assert.Contains(
@@ -1063,7 +1051,8 @@ let ``validatePathMoves refuses rename of non-allowlisted SYSTEM file`` () =
                     name = Filename.Ok "other.txt"
                     text = "other.txt" }
                 pre.nodes)
-    match DocumentPersistence.validatePathMoves dataDir pre post with
+            pre.childMap
+    match DocumentPersistChange.validatePathMoves dataDir pre post with
     | Ok () -> failwith "expected validatePathMoves to refuse SYSTEM path"
     | Error msg ->
         Assert.Contains(
@@ -1079,7 +1068,7 @@ let ``writeDocument refuses illicit amb-named file and leaves DataDir untouched`
     Directory.CreateDirectory homeDir |> ignore
     let directoryFilePath = Path.Combine(homeDir, ".amb")
     File.WriteAllText(directoryFilePath, "MARKER")
-    match DocumentPersistence.writeDocument dataDir graph fileId with
+    match DocumentPersistWrite.writeDocument dataDir graph fileId with
     | Ok _ -> failwith "expected writeDocument to refuse illicit .amb"
     | Error msg ->
         Assert.Contains("directory file", msg, StringComparison.OrdinalIgnoreCase)

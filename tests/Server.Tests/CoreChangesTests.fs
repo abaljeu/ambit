@@ -26,6 +26,11 @@ let private decodeChangeResponse json =
         json
     |> requireOk "decode response"
 
+let private encodePollRequest eventId want =
+    Encode.toString 0 (
+        ApiResponseSerialization.encodePollRequest
+            { eventId = eventId; want = want })
+
 let private addRootChild _revision text =
     let _, event = addRootChildEvent text
     { event with id = EventId.zero }
@@ -45,12 +50,15 @@ let ``typed Normal caller publishes accepted Change to Poll`` () = task {
             [ event.submissionId ],
             accepted.events |> List.map (_.submissionId))
 
-        let! poll = Api.getPoll handle 10 20 0 |> Async.StartAsTask
+        let body = encodePollRequest EventId.zero [ Graph.rootId ]
+        let! poll = Api.postPoll handle 10 20 body |> Async.StartAsTask
         match box poll with
         | :? ContentHttpResult as content ->
             let response = decodeChangeResponse content.ResponseContent
             Assert.Equal(accepted.eventId.Value, response.eventId.Value)
             Assert.Equal<Ev list>(accepted.events, response.events)
+            Assert.True(Map.containsKey Graph.rootId response.childMap)
+            Assert.NotEmpty(response.nodes)
         | other ->
             Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
     finally
@@ -72,7 +80,7 @@ let private produceFromSubgraph
     async {
         let priorChildren =
             match Map.tryFind Graph.rootId subgraph.nodes with
-            | Some node -> node.children
+            | Some _ -> Graph.children subgraph Graph.rootId
             | None -> []
         let childId = NodeId.New()
         let event =
@@ -101,12 +109,16 @@ let ``test Actor posts Normal Change off apply mailbox and Poll sees it`` () =
             Assert.True(EventId.isAccepted accepted.eventId)
             Assert.NotEmpty(accepted.events)
 
-            let! poll = Api.getPoll handle 10 20 0 |> Async.StartAsTask
+            let body = encodePollRequest EventId.zero []
+            let! poll =
+                Api.postPoll handle 10 20 body |> Async.StartAsTask
             match box poll with
             | :? ContentHttpResult as content ->
                 let response = decodeChangeResponse content.ResponseContent
                 Assert.Equal(accepted.eventId.Value, response.eventId.Value)
                 Assert.Equal<Ev list>(accepted.events, response.events)
+                Assert.Empty(response.nodes)
+                Assert.Empty(response.childMap)
             | other ->
                 Assert.Fail(
                     $"Expected ContentHttpResult, got {other.GetType().FullName}")
@@ -117,7 +129,7 @@ let ``test Actor posts Normal Change off apply mailbox and Poll sees it`` () =
 let private recordingHandle (posts: ResizeArray<Ev list>) =
     let state =
         { graph = Graph.create ()
-          eventId = EventId.zero }
+          eventId = EventIdFixtures.storedId 1 }
     let accepted events : CoreChangesAccepted =
         { eventId = EventIdFixtures.storedId 1
           events = events
@@ -125,7 +137,7 @@ let private recordingHandle (posts: ResizeArray<Ev list>) =
           message = None
           isReady = true }
     { getState = fun () -> async.Return(Result.Ok state)
-      getEventId = fun () -> async.Return (EventId.zero)
+      getEventId = fun () -> async.Return state.eventId
       getEventsSince = fun _ -> async.Return []
       isReady = fun () -> true
       postEvents =
@@ -144,16 +156,33 @@ let ``HTTP Adapter passes typed Changes only after valid decode`` () = task {
     let event = addRootChild 0 "adapter"
     let validBody =
         Encode.toString 0 (
-            EventJson.encodeEventBatch
-                { events = [ event ] })
+            ApiResponseSerialization.encodeChangeRequest
+                { events = [ event ]
+                  want = [ Graph.rootId ] })
 
-    let! _ =
+    let! result =
         Api.postEvents handle 10 20 validBody
         |> Async.StartAsTask
     let! _ =
         Api.postEvents handle 10 20 "not-json"
         |> Async.StartAsTask
+    let! missingWant =
+        Api.postEvents handle 10 20 """{"events":[]}"""
+        |> Async.StartAsTask
 
     let posted = Assert.Single(posts)
     Assert.Equal<Ev list>([ event ], posted)
+    match missingWant with
+    | :? Microsoft.AspNetCore.Http.IStatusCodeHttpResult as status ->
+        Assert.Equal(Nullable 400, status.StatusCode)
+    | other ->
+        Assert.Fail($"Expected status result, got {other.GetType().FullName}")
+    match box result with
+    | :? ContentHttpResult as content ->
+        let response = decodeChangeResponse content.ResponseContent
+        Assert.Equal<Ev list>([ event ], response.events)
+        Assert.True(Map.containsKey Graph.rootId response.childMap)
+        Assert.NotEmpty(response.nodes)
+    | other ->
+        Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
 }

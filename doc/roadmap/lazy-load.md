@@ -2,18 +2,18 @@
 
 Category: Workspace scale
 Status: Partial — disk-to-graph reconciliation implemented; expand-to-parse planned next; reconcile wired after WebDAV upload+finish-commit (Desktop Upload structure moving client-side — [[workspace-upload-client-structure]])
-See also: [[workspaces-checklist]], [[workspace-file-sync]], [[workspace-upload-client-structure]], [[workspace-file-model]], [[workspace-scale-import]], [[workspace-scale-file-and-db-management]], [[on-demand-graph-residency]], [[doc/current/persistence-model]], [[doc/roadmap/reference-expressions.md]]
+See also: [[workspaces-checklist]], [[plan/transport-layer/project.md]], [[workspace-upload-client-structure]], [[workspace-file-model]], [[workspace-scale-import]], [[workspace-scale-file-and-db-management]], [[plan/roadmap/epics/chapters/incremental-operations.md]], [[doc/current/persistence-model]], [[doc/roadmap/reference-expressions.md]]
 
-Lazy Load turns workspace files on server disk into a browsable graph without eagerly parsing every file. File-tree sync ([[workspace-file-sync]]) is a separate capability. **Today:** Lazy Load reacts after a successful WebDAV upload + finish-commit and publishes ordinary graph changes for existing polling clients. **Planned:** Desktop Upload builds Directory/File stubs on the client and drops that post-upload reconcile; disk→graph reconcile remains for web Upload without Desktop and for repair ([[workspace-upload-client-structure]]).
+Lazy Load turns workspace files on server disk into a browsable graph without eagerly parsing every file. File-tree sync ([[plan/transport-layer/project.md]]) is a separate capability. **Today:** Lazy Load reacts after a successful WebDAV upload + finish-commit and publishes ordinary graph changes for existing polling clients. **Planned:** Desktop Upload builds Directory/File stubs on the client and drops that post-upload reconcile; disk→graph reconcile remains for web Upload without Desktop and for repair ([[workspace-upload-client-structure]]).
 
 ## User-visible behavior
 
 - A successful workspace Upload makes newly added source paths appear as Directory and File stubs under the matching named Workspace (today via post-upload reconcile; planned Desktop path via client stubs — [[workspace-upload-client-structure]]). File contents are not parsed, so a new File stub has no parsed child nodes.
-- `Ctrl+Shift+>` parses the focused Unparsed File, or the Unparsed File that owns the focused owner occurrence, in place. On a named Workspace (or scoped focus) it instead uploads that scope via WebDAV. `Ctrl+Shift+<` downloads the focused scope to the desktop. Upload / Download direction: [[workspace-file-sync]].
+- `Ctrl+Shift+>` parses the focused Unparsed File, or the Unparsed File that owns the focused owner occurrence, in place. On a named Workspace (or scoped focus) it instead uploads that scope via WebDAV. `Ctrl+Shift+<` downloads the focused scope to the desktop. Upload / Download direction: [[plan/transport-layer/project.md]].
 - Expanding an unparsed File will later read and parse that file, merge the parsed result into its existing graph identity, and expose editable child nodes.
 - Freshness will distinguish **current**, **unparsed**, **client older**, and **client newer**. A successful desktop Download means client and server files match and are current; it does not make unchanged graph content unparsed.
 - A deleted workspace file trashes its graph node under `//TRASH/`; the workspace disk path is gone and the UI shows a missing target. The user can recover from TRASH in the graph or from server history on disk. Moving out of TRASH may recreate disk content if the user chooses.
-- Document load units and residency will later load and unload whole graph documents independently of path reconciliation — authority: [[on-demand-graph-residency]].
+- Document load units and residency will later load and unload whole graph documents independently of path reconciliation — authority: [[plan/roadmap/epics/chapters/incremental-operations.md]].
 - Annotation migration when files change remains later scale work under [[workspace-scale-file-and-db-management]].
 
 ## High-level implementation
@@ -106,7 +106,7 @@ Path resolution walks workspace owned children by name (case-insensitive), same 
 4. `planRenamedPaths` — `NodeRenameOps.planRenameNode` or reparent `Replace` for `R` rows only; pair with `DocumentPathMove` planners in tests.
 5. `planChangedPaths` — orchestrate delete → rename → add → modified invalidation; extend `LazyLoadReconciliationServer.reconcileAddedPaths` → `reconcileChangedPaths`.
 6. Snapshot/persist behavior — structural lazy-load reconciliation uses graph-only apply and does not write workspace file bodies or execute disk path moves.
-7. Wire reconcile after server tree commit (today: push-complete hook; target: WebDAV finish-commit — [[workspace-file-sync]]).
+7. Wire reconcile after server tree commit (today: push-complete hook; target: WebDAV finish-commit — [[workspace-webdav]]).
 
 ### Tests (Shared first)
 
@@ -126,10 +126,10 @@ Server integration: server commit with rename/delete → reconcile produces corr
 
 ## Capability sequence
 
-1. **Workspace file sync** — Partial: WebDAV Class 1 Upload / Download, server finish-commit, `git check-ignore` for `.gitignore`. Authority: [[workspace-file-sync]].
+1. **Workspace file sync** — Partial: WebDAV Class 1 Upload / Download, server finish-commit, `git check-ignore` for `.gitignore`. File-channel home: [[plan/transport-layer/project.md]]. Server DAV: [[workspace-webdav]].
 2. **Disk-to-graph stub reconciliation** — implemented for add, delete, rename/move, and `M` → **Unparsed**, with exact `.amb` semantics and graph-only persistence; wired after finish-commit via `/ambit/workspace/reconciliation/directory`.
 3. **Expand-to-parse and freshness** — planned next: parse one File on expansion, merge into its existing identity, and add richer current/unparsed/older/newer metadata and UI.
-4. **On-demand graph residency** — document membership, scoped SQL loaders, server/client residency, per-document versions, hybrid search, then passive reclamation. Authority: [[on-demand-graph-residency]].
+4. **On-demand graph residency** — document membership, scoped SQL loaders, server/client residency, per-document versions, hybrid search, then passive reclamation. Authority: [[plan/roadmap/epics/chapters/incremental-operations.md]].
 5. **Annotation migration** — address annotation migration when files change (still under [[workspace-scale-file-and-db-management]]).
 
 ## Locked decisions and boundaries
@@ -142,7 +142,7 @@ Server integration: server commit with rename/delete → reconcile produces corr
 - Structural reconciliation does not parse source contents.
 - Unparsed documents are immutable until an ordered parse transition marks them Current; this can make a later structural reconciliation best-effort failure.
 - There is no manual “Sync tree” command.
-- Pull/freshness UI, expand-to-parse, and on-demand residency ([[on-demand-graph-residency]]) are independent follow-on capabilities.
+- Pull/freshness UI, expand-to-parse, and on-demand residency ([[plan/roadmap/epics/chapters/incremental-operations.md]]) are independent follow-on capabilities.
 - Parsing is a merge into existing nodes; it does not delete the existing File identity first.
 - Only `R` preserves node identity on rename/move. `D` + `A` without `R` are unrelated trash + add operations.
 - `D` trashes the graph node; refs become `[[pathexpr]]` before trash; no ref promotion.
@@ -151,4 +151,4 @@ Server integration: server commit with rename/delete → reconcile produces corr
 
 - Desktop Upload: move structure to client stubs; drop post-upload reconcile on that path ([[workspace-upload-client-structure]]); keep reconcile for web / repair.
 - Add richer source metadata and current/unparsed/older/newer freshness UI.
-- Deliver on-demand graph residency and hybrid search ([[on-demand-graph-residency]]); annotation migration remains later.
+- Deliver on-demand graph residency and hybrid search ([[plan/roadmap/epics/chapters/incremental-operations.md]]); annotation migration remains later.

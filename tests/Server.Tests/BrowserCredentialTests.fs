@@ -25,6 +25,20 @@ let private requestWithCookie (cookie: string) =
 let private jsonContent body =
     new StringContent(body, Encoding.UTF8, "application/json")
 
+let private postPoll (client: HttpClient) = task {
+    use content = jsonContent """{"eventId":0,"want":[]}"""
+    return! client.PostAsync("/ambit/poll", content)
+}
+
+[<Fact>]
+let ``Poll has only the version 13 POST route`` () = task {
+    use client = createClientForDir (newTempDir ())
+    let! oldGet = client.GetAsync("/ambit/poll?rev=0")
+    let! currentPost = postPoll client
+    Assert.Equal(HttpStatusCode.MethodNotAllowed, oldGet.StatusCode)
+    Assert.Equal(HttpStatusCode.OK, currentPost.StatusCode)
+}
+
 [<Fact>]
 let ``Browser message without a live cookie is the same auth refuse as inactive Actor``
     () =
@@ -32,7 +46,7 @@ let ``Browser message without a live cookie is the same auth refuse as inactive 
         let dataDir = newTempDir ()
         use client = createClientForDirWithAuth dataDir "alice" "secret"
         let! state = client.GetAsync("/ambit/state")
-        let! poll = client.GetAsync("/ambit/poll")
+        let! poll = postPoll client
         use changesBody = jsonContent "{}"
         let! changes = client.PostAsync("/ambit/changes", changesBody)
         use loadBody = jsonContent "{}"
@@ -51,7 +65,7 @@ let ``Browser message with live cookie is not auth-refused`` () = task {
         createClientForDirWithAuth dataDir "alice" "secret"
         |> withAuthCookie "alice" "secret"
     let! state = client.GetAsync("/ambit/state")
-    let! poll = client.GetAsync("/ambit/poll")
+    let! poll = postPoll client
     Assert.Equal(HttpStatusCode.OK, state.StatusCode)
     Assert.Equal(HttpStatusCode.OK, poll.StatusCode)
     use changesBody = jsonContent "{}"
@@ -77,7 +91,7 @@ let ``Empty Auth Browser APIs without cookie are refused`` () = task {
     let dataDir = newTempDir ()
     use client = createClientForDirWithoutCookie dataDir
     let! state = client.GetAsync("/ambit/state")
-    let! poll = client.GetAsync("/ambit/poll")
+    let! poll = postPoll client
     use changesBody = jsonContent "{}"
     let! changes = client.PostAsync("/ambit/changes", changesBody)
     use loadBody = jsonContent """{"revision":0,"targets":[]}"""
@@ -134,7 +148,7 @@ let ``Empty Auth Browser APIs with request cookie are not refused`` () =
         let dataDir = newTempDir ()
         use client = createClientForDir dataDir
         let! state = client.GetAsync("/ambit/state")
-        let! poll = client.GetAsync("/ambit/poll")
+        let! poll = postPoll client
         Assert.Equal(HttpStatusCode.OK, state.StatusCode)
         Assert.Equal(HttpStatusCode.OK, poll.StatusCode)
         use changesBody = jsonContent "{}"

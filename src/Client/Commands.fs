@@ -33,11 +33,19 @@ type CommandOp = unit -> Updater option
 
 type CommandEntry2 = {
     id: CommandId
+    name: string
     run: CommandOp
 }
 
 let private cmd (id: CommandId) (run: CommandOp) : CommandEntry2 =
-    { id = id; run = run }
+    { id = id; name = displayName id; run = run }
+
+let private prePickCmd
+    (id: CommandId)
+    (name: string)
+    (run: CommandOp)
+    : CommandEntry2 =
+    { id = id; name = name; run = run }
 
 // ---------------------------------------------------------------------------
 // Editing command ops (read live caret from DOM)
@@ -70,13 +78,13 @@ let private execAmbleRunOp
     else
         let afterDelete, delEffects =
             match Map.tryFind focusId committed.graph.nodes with
-            | Some node when node.children.Length > 0 ->
+            | Some _ when (Graph.children committed.graph focusId).Length > 0 ->
                 deleteChildSpan
-                    focusId 0 node.children.Length committed
+                    focusId 0 (Graph.children committed.graph focusId).Length committed
             | _ -> committed, []
         let kidsLeft =
             match Map.tryFind focusId afterDelete.graph.nodes with
-            | Some node -> node.children.Length > 0
+            | Some _ -> (Graph.children afterDelete.graph focusId).Length > 0
             | None -> false
         if kidsLeft then
             afterDelete, commitEffects @ delEffects
@@ -171,8 +179,8 @@ let private plainTextForOpenTarget (raw: string) : string =
 
 let private firstChildPlainOpt (graph: Graph) (focusId: NodeId) : string option =
     Map.tryFind focusId graph.nodes
-    |> Option.bind (fun node ->
-        List.tryHead node.children
+    |> Option.bind (fun _ ->
+        List.tryHead (Graph.children graph focusId)
         |> Option.bind (fun ch -> Map.tryFind ch.id graph.nodes)
         |> Option.map (fun n -> plainTextForOpenTarget n.text))
 
@@ -205,9 +213,8 @@ let copySelectionAsLinks (model: VM) : VM * Effect list =
     match model.selectedNodes with
     | None -> model, []
     | Some sel ->
-        let parentNode = model.graph.nodes.[sel.range.parent.nodeId]
         let selectedIds =
-            parentNode.children
+            Graph.children model.graph sel.range.parent.nodeId
             |> List.skip sel.range.start
             |> List.take (sel.range.endd - sel.range.start)
         let idsText =
@@ -222,9 +229,8 @@ let copyOp (model: VM) : VM * Effect list =
     match model.selectedNodes with
     | None -> model, []
     | Some sel ->
-        let parentNode = model.graph.nodes.[sel.range.parent.nodeId]
         let selectedIds =
-            parentNode.children
+            Graph.children model.graph sel.range.parent.nodeId
             |> List.skip sel.range.start
             |> List.take (sel.range.endd - sel.range.start)
             |> List.map (fun child -> child.id)
@@ -297,7 +303,11 @@ let commandRegistry : CommandEntry2 list =
       cmd EditClasses (keyAlways openCssClassPromptOp)
       cmd JumpToTarget (keyAlways jumpTargetOp)
       cmd Load (keyAlways loadOp)
+      prePickCmd Load "git Load" (keyAlways (loadOpFor LoadSavePrePick.Git))
+      prePickCmd Load "desk Load" (keyAlways (loadOpFor LoadSavePrePick.Desk))
       cmd Save (keyAlways saveOp)
+      prePickCmd Save "git Save" (keyAlways (saveOpFor LoadSavePrePick.Git))
+      prePickCmd Save "desk Save" (keyAlways (saveOpFor LoadSavePrePick.Desk))
       cmd Download (keyAlways downloadOp)
       cmd CheckGraph (keyAlways validateGraphOp)
     ]
@@ -344,7 +354,7 @@ let filteredCommands (model: VM) (returnTo: Mode) (query: string) : CommandEntry
         let q = query.ToLowerInvariant()
         baseList
         |> List.filter (fun c ->
-            displayName c.id |> fun n -> n.ToLowerInvariant().Contains q)
+            c.name.ToLowerInvariant().Contains q)
 
 let tryFindCommand (id: CommandId) : CommandEntry2 option =
     commandRegistry |> List.tryFind (fun c -> c.id = id)

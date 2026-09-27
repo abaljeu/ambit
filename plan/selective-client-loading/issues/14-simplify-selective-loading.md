@@ -12,7 +12,7 @@ What is the smallest coherent selective-client-loading design after the complete
 ### Authority
 
 - This is the sole current decision for this selective-client-loading effort. It supersedes the conflicting portions of [[01-represent-child-list-residency.md]], [[02-set-partial-graph-boundaries.md]], [[03-define-load-snapshot-protocol.md]], [[04-choose-startup-bootstrap-scope.md]], [[05-restore-session-partial-residency.md]], [[06-define-unloaded-navigation-ui.md]], [[07-define-selective-residency-search.md]], [[08-define-move-edit-dependencies.md]], [[09-define-sync-revision-correctness.md]], [[10-set-explicit-load-command.md]], [[11-unify-loading-decision-function.md]], [[12-place-selective-loading-seams.md]], and [[13-finalize-permanent-delete-undo.md]]. Those tickets remain resolved historical deliberation; this answer restates the surviving decisions needed for a specification.
-- This is an independently shippable client-only phase. The server remains fully resident. The broader later direction in [[doc/roadmap/on-demand-graph-residency.md]] may replace this phase's Workspace granularity and protocol.
+- This is an independently shippable client-only phase. The server remains fully resident. The later want-driven visible-closure direction in [[plan/roadmap/epics/chapters/incremental-operations.md]] may replace this phase's Workspace granularity and protocol.
 
 ### Residency and graph model
 

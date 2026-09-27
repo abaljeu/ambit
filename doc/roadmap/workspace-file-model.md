@@ -22,13 +22,13 @@ The goal is to add those concepts without changing the current graph ownership r
 
 ## Documents
 
-Authority for the document partition concept: [[doc/roadmap/postgres-roadmap.md]] §5; residency and load/unload: [[on-demand-graph-residency]].
+Authority for the document partition concept: [[doc/roadmap/postgres-roadmap.md]] §5; residency and load/unload: [[plan/roadmap/epics/chapters/incremental-operations.md]].
 
 There is always one graph in PostgreSQL. **Today** the whole graph is one document (monolithic snapshot). **Target:** one graph, many documents with on-demand residency.
 
 A **document** is a partition of the graph defined by a **document root** — a `Special Workspace`, `Directory`, or `File` node (including implicit ROOT). **Document membership** follows Owner-tree ancestry from that root; Ref edges do not confer membership. **Ownership** means `Owner` vs `Ref` on a child slot only — not which document a node is in.
 
-Workspace, directory, and file special nodes are document roots. Per-document `DataDir` persistence is implemented; **on-demand graph residency** will load/unload documents on client and server and replicate them as units ([[on-demand-graph-residency]]). A document rooted at a `File` node usually persists as one file; workspace and directory roots persist as directory layouts (including `.amb` where applicable).
+Workspace, directory, and file special nodes are document roots. Per-document `DataDir` persistence is implemented; **on-demand graph residency** will load/unload documents on client and server and replicate them as units ([[plan/roadmap/epics/chapters/incremental-operations.md]]). A document rooted at a `File` node usually persists as one file; workspace and directory roots persist as directory layouts (including `.amb` where applicable).
 
 ## Persistence Strategy
 
@@ -70,7 +70,7 @@ When a Correction is described below, the meaning is that the item previous is d
 - `[x]` Correction: add command support for free-form special-node ownership (including under `normal` and `file` nodes) while keeping persistence ownership rules explicit.
 - `[x]` Stage 7: Step 1: server `DataDir` live-save of `.amb` document artifacts for workspace, directory, and file roots regardless of logical extension; path layout per [[doc/roadmap/workspace-file-persistence.md]].
 - `[x]` Stage 7: Step 2: unified filesystem moves from `DocumentPathMove` (rename, reparent, soft delete to TRASH).
-- `[x]` Stage 7: Step 3: git persistence for per-document artifacts (server WorkspaceGit / GitSave; client tree sync direction: [[workspace-file-sync]]).
+- `[x]` Stage 7: Step 3: git persistence for per-document artifacts (server WorkspaceGit / GitSave; client tree sync direction: [[plan/transport-layer/project.md]]).
 - `[x]` Stage 7: Step 4: hard delete under TRASH removes on-disk artifacts.
 - `[x]` Stage 7: Step 5: generic text read/write for `Special File` artifacts whose path is neither `.amb` nor `.md`; workspace and directory documents stay on `.amb`. Format spec: [[doc/roadmap/workspace-format-plain.md]] (reconciliation: § Reconciliation). Generic contract: [[doc/roadmap/workspace-text-outline-conversion.md]] § Settled. Dispatch plan: [[doc/roadmap/workspace-format-dispatch.md]]. Adds a document-format dispatch boundary in the read/write layer (`DocumentAssembly`, `DocumentPersistence`).
 - `[ ]` Stage 7: Step 6: XML read/write for `File` artifacts whose persisted body is XML; plain text and `.amb` behavior unchanged. Format spec: [[doc/roadmap/workspace-format-xml.md]] (reconciliation: § Reconciliation). Generic contract: [[doc/roadmap/workspace-text-outline-conversion.md]] § Settled. Extends `DocumentFormat` dispatch with an `Xml` codec. Implementation plan: [[doc/reference/formats/xml-round-trip-plan.md]].
@@ -96,7 +96,7 @@ Authority for implemented behavior: [[doc/current/workspace-graph.md]],
 - `[x]` RefExpr anchors, path steps, tag steps, and namespace search —  [[doc/current/workspace-graph.md]], [[doc/roadmap/reference-expression-interpretation.md]].
 - `[x]` Correction: align RefExpr semantics with directory-first member lookup (`DirStep`/`FileStep`) and `^` structural-container lookup.
 - `[ ]` Surrounding language functions (`text Ref`, `children Ref`, `name Ref`) and command/assignment syntax.
-- `[ ]` **On-demand graph residency:** whole graph still one resident document at runtime; membership metadata, scoped loaders, and load/unload not started ([[on-demand-graph-residency]]).
+- `[ ]` **On-demand graph residency:** whole graph still one resident document at runtime; membership metadata, scoped loaders, and load/unload not started ([[plan/roadmap/epics/chapters/incremental-operations.md]]).
 - `[x]` Per-document `DataDir` live-save and snapshot persist are implemented (Stages 7–8).
 - `[x]` Incremental persist skips unchanged documents on snapshot pass (Stage 8).
 - `[x]` Full unresolved-reference indicator for unknown workspace labels and paths.

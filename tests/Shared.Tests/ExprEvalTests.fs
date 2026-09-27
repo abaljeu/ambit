@@ -1,6 +1,7 @@
 module ExprEvalTests
 
 open Gambol.Shared
+open GraphChildMapHelpers
 open Xunit
 
 let private nodeId (n: int) =
@@ -120,41 +121,25 @@ let ``catalog stub row registers and invokes through core`` () =
 
 [<Fact>]
 let ``child answers on Unloaded node yields empty sequence`` () =
-    let parent =
-        Node.Create(
-            NodeId.New(),
-            childrenStatus = Unloaded,
-            children = []
-        )
+    let parent = Node.Create(NodeId.New())
     let child = node 1
     let graph =
         Graph.create ()
-        |> fun g ->
-            let nodes =
-                g.nodes
-                |> Map.add parent.id parent
-                |> Map.add child.id child
-            Graph.fromNodes g.root nodes
+        |> addDetachedMany [ parent; child ]
+        |> unload parent.id
     Assert.Equal<ExprAnswer list>([], ExprEval.toList (ExprWalk.childAnswers graph parent))
 
 [<Fact>]
 let ``child answers on Loaded node yields Children in order`` () =
     let child1 = node 1
     let child2 = node 2
-    let parent =
-        Node.Create(
-            NodeId.New(),
-            children = [ ChildNode.owner child1.id; ChildNode.owner child2.id ]
-        )
+    let parent = Node.Create(NodeId.New())
     let graph =
         Graph.create ()
-        |> fun g ->
-            let nodes =
-                g.nodes
-                |> Map.add parent.id parent
-                |> Map.add child1.id child1
-                |> Map.add child2.id child2
-            Graph.fromNodes g.root nodes
+        |> addDetachedMany [ parent; child1; child2 ]
+        |> setChildren
+            parent.id
+            [ ChildNode.owner child1.id; ChildNode.owner child2.id ]
     let result = ExprEval.toList (ExprWalk.childAnswers graph parent)
     Assert.Equal<NodeId list>([ child1.id; child2.id ], nodeIds result)
 
@@ -163,23 +148,15 @@ let ``owned and ref answers partition Loaded Children in order`` () =
     let owned1 = node 1
     let refN = node 2
     let owned2 = node 3
-    let parent =
-        Node.Create(
-            NodeId.New(),
-            children =
-                [ ChildNode.owner owned1.id
-                  ChildNode.reference refN.id
-                  ChildNode.owner owned2.id ])
+    let parent = Node.Create(NodeId.New())
     let graph =
         Graph.create ()
-        |> fun g ->
-            let nodes =
-                g.nodes
-                |> Map.add parent.id parent
-                |> Map.add owned1.id owned1
-                |> Map.add refN.id refN
-                |> Map.add owned2.id owned2
-            Graph.fromNodes g.root nodes
+        |> addDetachedMany [ parent; owned1; refN; owned2 ]
+        |> setChildren
+            parent.id
+            [ ChildNode.owner owned1.id
+              ChildNode.reference refN.id
+              ChildNode.owner owned2.id ]
     let input = ExprAnswer.Node parent
     Assert.Equal<NodeId list>(
         [ owned1.id; owned2.id ],
@@ -199,20 +176,12 @@ let ``owned and ref answers partition Loaded Children in order`` () =
 
 [<Fact>]
 let ``owned and ref answers on Unloaded node yield empty sequence`` () =
-    let parent =
-        Node.Create(
-            NodeId.New(),
-            childrenStatus = Unloaded,
-            children = [])
+    let parent = Node.Create(NodeId.New())
     let child = node 1
     let graph =
         Graph.create ()
-        |> fun g ->
-            let nodes =
-                g.nodes
-                |> Map.add parent.id parent
-                |> Map.add child.id child
-            Graph.fromNodes g.root nodes
+        |> addDetachedMany [ parent; child ]
+        |> unload parent.id
     let input = ExprAnswer.Node parent
     Assert.Equal<ExprAnswer list>(
         [],
@@ -220,7 +189,7 @@ let ``owned and ref answers on Unloaded node yield empty sequence`` () =
     Assert.Equal<ExprAnswer list>(
         [],
         ExprEval.toList (ExprWalk.refAnswers graph input))
-    Assert.Equal(Unloaded, graph.nodes.[parent.id].childrenStatus)
+    Assert.Equal(Unloaded, Graph.childrenStatus graph parent.id)
 
 [<Fact>]
 let ``take two from a three-hit stream leaves the third unforced`` () =
@@ -244,23 +213,15 @@ let ``descendant take two resumes at the late unique child`` () =
     let late = node 3
     let childA = node 1
     let childB = node 2
-    let parent =
-        Node.Create(
-            NodeId.New(),
-            children =
-                [ ChildNode.owner childA.id
-                  ChildNode.owner childB.id
-                  ChildNode.owner late.id ])
+    let parent = Node.Create(NodeId.New())
     let graph =
         Graph.create ()
-        |> fun g ->
-            let nodes =
-                g.nodes
-                |> Map.add parent.id parent
-                |> Map.add childA.id childA
-                |> Map.add childB.id childB
-                |> Map.add late.id late
-            Graph.fromNodes g.root nodes
+        |> addDetachedMany [ parent; childA; childB; late ]
+        |> setChildren
+            parent.id
+            [ ChildNode.owner childA.id
+              ChildNode.owner childB.id
+              ChildNode.owner late.id ]
     let stream = ExprWalk.descendantAnswers graph (ExprAnswer.Node parent)
     let taken, leftover = ExprEval.take 2 stream
     Assert.Equal<NodeId list>([ childA.id; childB.id ], nodeIds taken)

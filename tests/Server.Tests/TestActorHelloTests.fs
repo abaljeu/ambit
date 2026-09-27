@@ -50,7 +50,7 @@ let private waitForLiveRowDrop pool focusId timeoutMs =
     }
 
 let private helloOutputChildren (graph: Graph) focusId commandId =
-    graph.nodes.[focusId].children
+    Graph.children graph focusId
     |> List.filter (fun child ->
         child.ref = Ownership.Owner
         && child.id <> commandId
@@ -213,7 +213,7 @@ let ``TestActor hello reply sits under question Focus not Command`` () =
             helloOutputChildren state.graph focusId commandId
         Assert.Equal(1, helloChildren.Length)
         let commandKids =
-            state.graph.nodes.[commandId].children
+            Graph.children state.graph commandId
             |> List.map (fun child -> child.id)
         Assert.Contains(focusId, commandKids)
         Assert.DoesNotContain(

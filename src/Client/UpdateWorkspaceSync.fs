@@ -86,7 +86,11 @@ let applyAndPostSync (commandName: string) (ops: Op list) (model: VM) : Result<V
     match SyncLogic.applyLocalEvent event (clientSyncState model) with
     | Error msg -> Error msg
     | Ok (nextState, submitted) ->
-        let body = encodePendingBatchBody [ submitted ]
+        let sendModel =
+            withSiteMap { model with graph = nextState.graph }
+        let body =
+            encodePendingBatchBody
+                (currentChangeRequest [ submitted ] sendModel)
         let url = sprintf "/%s/changes" currentFile
         let status, text = postJsonSync url body (jsonHeaders ())
         if status < 200 || status >= 300 then
@@ -104,16 +108,18 @@ let applyAndPostSync (commandName: string) (ops: Op list) (model: VM) : Result<V
                         model.eventId
                 with
                 | AckReconcile.Applied (st, _, _, _) ->
-                    Ok
+                    SyncAnswer.applyChangeSuccess ack st
+                    |> Result.map (fun answered ->
                         { model with
-                            graph = st.graph
-                            history = st.history
-                            eventId = st.eventId }
+                            graph = answered.graph
+                            history = answered.history
+                            eventId = answered.eventId })
                 | AckReconcile.Ignored ->
-                    Ok
+                    SyncAnswer.applyChangeSuccess ack nextState
+                    |> Result.map (fun answered ->
                         { model with
-                            graph = nextState.graph
-                            history = nextState.history }
+                            graph = answered.graph
+                            history = answered.history })
                 | AckReconcile.Rejected msg -> Error msg
 
 /// Local graph only — stubs paint before structure POST / body push.
@@ -286,13 +292,14 @@ let failUploadStructurePostHttp
     failUploadStructurePost (httpError status body) model
 
 /// Inventory arrived: plan + apply stubs locally, then async structure POST.
-let completeUploadInventory
+let completeUploadInventoryWith
+    decodeInventory
     (scope: WorkspaceSyncScope)
     (parseFileId: NodeId option)
     (text: string)
     (model: VM)
     : VM * Effect list =
-    match decodeDesktopUploadInventory text with
+    match decodeInventory text with
     | Error e -> fail (clearUploading model) e
     | Ok { items = items } ->
         let stubItems = inventoryToStubItems items
@@ -328,16 +335,27 @@ let completeUploadStructurePost
                 model.eventId
         with
         | AckReconcile.Applied (st, _, _, _) ->
-            let model' =
-                { model with
-                    graph = st.graph
-                    eventId = st.eventId }
-                |> withSiteMap
-                |> keepUploading
-            model', [ Effect.ContinueWorkspacePush (scope, parseFileId) ]
+            match SyncAnswer.applyChangeSuccess ack st with
+            | Error msg -> failUploadStructurePost msg model
+            | Ok answered ->
+                let model' =
+                    { model with
+                        graph = answered.graph
+                        eventId = answered.eventId }
+                    |> withSiteMap
+                    |> keepUploading
+                model', [ Effect.ContinueWorkspacePush (scope, parseFileId) ]
         | AckReconcile.Ignored ->
-            keepUploading (withSiteMap model),
-            [ Effect.ContinueWorkspacePush (scope, parseFileId) ]
+            match
+                SyncAnswer.applyChangeSuccess
+                    ack
+                    (clientSyncState model)
+            with
+            | Error msg -> failUploadStructurePost msg model
+            | Ok answered ->
+                keepUploading (
+                    withSiteMap { model with graph = answered.graph }),
+                [ Effect.ContinueWorkspacePush (scope, parseFileId) ]
         | AckReconcile.Rejected msg ->
             fail
                 (clearUploading

@@ -19,8 +19,8 @@ let private artifactsForChildKind (kind: SpecialKind) =
             name = Filename.Ok "home",
             owner = Graph.workspacesId,
             kind = Special kind)
-    let nodes = Map.add childId child graph.nodes
-    let graphWithNode = Graph.fromNodes graph.root nodes
+    let graphWithNode =
+        Graph.addDetachedNode child graph
     let expected =
         Graph.replace
             Graph.workspacesId
@@ -45,7 +45,7 @@ let ``assembly round trip restores Workspace only from marker`` () =
         DocumentAssembly.assembleFromArtifacts artifacts
         |> requireOk "assemble"
     Assert.Equal(Special Workspace, actual.nodes.[workspaceId].kind)
-    Assert.Equal(workspaceId, actual.nodes.[Graph.workspacesId].children.Head.id)
+    Assert.Equal(workspaceId, (Graph.children actual Graph.workspacesId).Head.id)
 
 [<Fact>]
 let ``directory under Workspaces remains Directory without marker`` () =
@@ -60,4 +60,4 @@ let ``directory under Workspaces remains Directory without marker`` () =
         DocumentAssembly.assembleFromArtifacts artifacts
         |> requireOk "assemble"
     Assert.Equal(Special Directory, actual.nodes.[directoryId].kind)
-    Assert.Equal(directoryId, actual.nodes.[Graph.workspacesId].children.Head.id)
+    Assert.Equal(directoryId, (Graph.children actual Graph.workspacesId).Head.id)

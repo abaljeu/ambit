@@ -227,7 +227,7 @@ type GrokBotOneshotTests() =
             Assert.Fail($"expected missing wake URL, {other}")
 
     [<Fact>]
-    member _.``live inbound chunks and empty Done complete``() =
+    member _.``empty Done does not complete streamUntilComplete``() =
         Assert.True(GrokBotRunner.setFake None)
         let sessionId = "sess-live"
         match GrokBotRunner.deliver sessionId "hel" with
@@ -241,19 +241,57 @@ type GrokBotOneshotTests() =
         | Ok() -> ()
         match
             GrokBotRunner.streamUntilComplete
-                (streamArgs sessionId)
+                { streamArgs sessionId with MaxWaitMs = Some 200 }
                 collectFold
         with
-        | Ok(result, seen) ->
-            Assert.Equal("hello", result.Text)
-            let expected =
-                [ AssistantText "hel"
-                  AssistantText "lo"
-                  RunFinished(sampleResult "") ]
-            Assert.Equal<AgentStreamEvent list>(
-                expected, List.rev seen)
+        | Error AgentError.Timeout -> ()
         | other ->
-            Assert.Fail($"expected live Done, {other}")
+            Assert.Fail($"expected keep-open Timeout, {other}")
+
+    [<Fact>]
+    member _.``empty Done keeps listening for a later inbound chunk``() =
+        Assert.True(GrokBotRunner.setFake None)
+        let sessionId = "sess-keep"
+        match GrokBotRunner.deliver sessionId "one" with
+        | Error err -> Assert.Fail($"chunk1: {err}")
+        | Ok() -> ()
+        let sawTwo = new ManualResetEvent(false)
+        let seen = ref "none"
+        let events = ref List.empty<AgentStreamEvent>
+        let fold =
+            { Seed = ()
+              OnEvent =
+                fun () ev ->
+                    events := ev :: !events
+                    match ev with
+                    | AssistantText "two" ->
+                        sawTwo.Set() |> ignore
+                    | _ -> () }
+        let worker =
+            Thread(fun () ->
+                GrokBotRunner.streamUntilComplete
+                    { streamArgs sessionId with MaxWaitMs = None }
+                    fold
+                |> recordCancelOutcome seen)
+        worker.Start()
+        match GrokBotRunner.deliver sessionId "" with
+        | Error err -> Assert.Fail($"done: {err}")
+        | Ok() -> ()
+        match GrokBotRunner.deliver sessionId "two" with
+        | Error err -> Assert.Fail($"chunk2: {err}")
+        | Ok() -> ()
+        Assert.True(sawTwo.WaitOne 2000)
+        match GrokBotRunner.cancel unusedConfig sessionId with
+        | Error err -> Assert.Fail($"cancel: {err}")
+        | Ok() ->
+            Assert.True(worker.Join 2000)
+            Assert.Equal("cancelled", !seen)
+            let expected =
+                [ AssistantText "one"
+                  RunFinished(sampleResult "")
+                  AssistantText "two" ]
+            Assert.Equal<AgentStreamEvent list>(
+                expected, List.rev !events)
 
     [<Fact>]
     member _.``live cancel mid inbound is cancelled not Finish``() =

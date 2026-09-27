@@ -6,7 +6,7 @@ namespace Gambol.Shared
 module PlainTextReconcile =
 
     let private toNodesRead (r: PlainTextReadResult) =
-        OutlineDocument.nodesRead r.documentRootId r.nodes
+        OutlineDocument.nodesRead r.documentRootId r.nodes r.childMap
 
     let private toSpanTree text nodeIds =
         let _, flat = PlainTextDocument.flattenText text
@@ -15,7 +15,7 @@ module PlainTextReconcile =
             (flat |> List.map (fun (depth, body) -> depth, body, None))
             nodeIds
 
-    let private finishNodes text documentRootId contextGraph nodes =
+    let private finishNodes text documentRootId contextGraph (nodes, childMap) =
         let indentStyle, _ = PlainTextDocument.flattenText text
 
         toNodesRead (
@@ -23,6 +23,7 @@ module PlainTextReconcile =
                 documentRootId
                 contextGraph
                 nodes
+                childMap
                 indentStyle
         )
 
@@ -93,4 +94,5 @@ module PlainTextReconcile =
                 documentRootId
                 contextGraph
                 r.nodes
+                r.childMap
                 indentStyle)

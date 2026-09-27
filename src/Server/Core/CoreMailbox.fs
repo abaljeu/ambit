@@ -180,6 +180,30 @@ module CoreMailbox =
         reply host (fun channel ->
             StartActor(caller, request, channel))
 
+    let startPeerActor
+        (host: MailboxHost)
+        (caller: Caller)
+        (peerName: PeerActorName)
+        (request: Gambol.Shared.ActorStart)
+        : Async<Result<unit, string>> =
+        reply host (fun channel ->
+            StartPeerActor(caller, peerName, request, channel))
+
+    let startLoadSaveCommand
+        (host: MailboxHost)
+        (caller: Caller)
+        (path: LoadSavePath)
+        (peerName: PeerActorName)
+        (request: LoadSaveCommandRequest)
+        : Async<Result<unit, string>> =
+        reply host (fun channel ->
+            StartLoadSaveCommand(
+                caller,
+                path,
+                peerName,
+                request,
+                channel))
+
     let actorStop
         (host: MailboxHost)
         (caller: Caller)

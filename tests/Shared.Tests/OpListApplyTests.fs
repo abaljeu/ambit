@@ -72,7 +72,7 @@ let ``ChangeAmendment.applyOps amends stale SetText collision`` () =
     match result with
     | ApplyResult.Changed st ->
         Assert.Equal("xA", st.graph.nodes.[nodeId].text)
-        Assert.Equal(1, st.graph.nodes.[nodeId].children.Length)
+        Assert.Equal(1, (Graph.children st.graph nodeId).Length)
     | _ -> failwith $"stale result: {result}"
 
 [<Fact>]

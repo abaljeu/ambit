@@ -52,6 +52,8 @@
     <Compile Include="ApiResponses.fs" />
     <Compile Include="LogText.fs" />
     <Compile Include="ClientIdentity.fs" />
+    <Compile Include="PathPick.fs" />
+    <Compile Include="LoadSaveCommand.fs" />
     <Compile Include="WorkspaceGitRemote.fs" />
     <Compile Include="ServerCapabilities.fs" />
 
@@ -64,6 +66,7 @@
     <Compile Include="ViewModelSync.fs" />
     <Compile Include="ViewModel.fs" />
     <Compile Include="IncludedDescendantIds.fs" />
+    <Compile Include="Want.fs" />
     <Compile Include="CommandRequest.fs" />
     <Compile Include="RunEditCommit.fs" />
     <Compile Include="SyncRiskAlert.fs" />

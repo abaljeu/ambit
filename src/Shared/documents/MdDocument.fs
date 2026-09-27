@@ -12,6 +12,7 @@ type MdComplement = {
 type MdReadResult = {
     documentRootId: NodeId
     nodes: Map<NodeId, Node>
+    childMap: Map<NodeId, ChildNode list>
     complement: MdComplement
 }
 
@@ -274,13 +275,13 @@ module MdDocument =
                             | ListItem -> listDepth' + 1
                             | _ -> 0
 
-                        node.children
+                        GraphChildren.get graph child.id
                         |> List.fold
                             (loop child.id activeHeading' nextListDepth)
                             acc'
                     | _ -> acc'
 
-            root.children
+            GraphChildren.get graph documentRootId
             |> List.fold (loop documentRootId 0 0) []
             |> List.rev
 
@@ -316,7 +317,7 @@ module MdDocument =
         (documentRootId: NodeId)
         (contextGraph: Graph)
         (aligned: (int * string * NodeId option) list)
-        : Result<Map<NodeId, Node>, string> =
+        : Result<Map<NodeId, Node> * Map<NodeId, ChildNode list>, string> =
         match Map.tryFind documentRootId contextGraph.nodes with
         | None -> Error "document root not found in context graph"
         | Some _ ->
@@ -349,12 +350,14 @@ module MdDocument =
         (documentRootId: NodeId)
         (contextGraph: Graph)
         (nodes: Map<NodeId, Node>)
+        (childMap: Map<NodeId, ChildNode list>)
         : MdReadResult =
         let complement = buildComplement contextGraph documentRootId
 
         {
             MdReadResult.documentRootId = documentRootId
             MdReadResult.nodes = applyCssClasses complement nodes contextGraph
+            MdReadResult.childMap = childMap
             MdReadResult.complement = complement
         }
 
@@ -362,7 +365,7 @@ module MdDocument =
         (text: string)
         (documentRootId: NodeId)
         (contextGraph: Graph)
-        : Result<Map<NodeId, Node>, string> =
+        : Result<Map<NodeId, Node> * Map<NodeId, ChildNode list>, string> =
         match Map.tryFind documentRootId contextGraph.nodes with
         | None -> Error "document root not found in context graph"
         | Some _ ->
@@ -385,7 +388,8 @@ module MdDocument =
         : Result<MdReadResult, string> =
         match parseCold text documentRootId contextGraph with
         | Error msg -> Error msg
-        | Ok nodes -> Ok(finishRead documentRootId contextGraph nodes)
+        | Ok (nodes, childMap) ->
+            Ok(finishRead documentRootId contextGraph nodes childMap)
 
     let private activeHeadingBefore (lines: SerializedLine list) (index: int) =
         lines

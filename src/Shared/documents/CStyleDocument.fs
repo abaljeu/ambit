@@ -12,6 +12,7 @@ type CStyleComplement = {
 type CStyleReadResult = {
     documentRootId: NodeId
     nodes: Map<NodeId, Node>
+    childMap: Map<NodeId, ChildNode list>
     complement: CStyleComplement
 }
 
@@ -163,11 +164,11 @@ module CStyleDocument =
 
                     match Node.childOwnership graph parentId child with
                     | Ownership.Owner ->
-                        node.children
+                        GraphChildren.get graph child.id
                         |> List.fold (loop child.id (depth + 1)) acc'
                     | Ownership.Ref -> acc'
 
-            root.children
+            GraphChildren.get graph documentRootId
             |> List.fold (loop documentRootId 0) []
             |> List.rev
 
@@ -195,7 +196,7 @@ module CStyleDocument =
         (documentRootId: NodeId)
         (contextGraph: Graph)
         (aligned: (int * string * NodeId option) list)
-        : Result<Map<NodeId, Node>, string> =
+        : Result<Map<NodeId, Node> * Map<NodeId, ChildNode list>, string> =
         match Map.tryFind documentRootId contextGraph.nodes with
         | None -> Error "document root not found in context graph"
         | Some _ ->
@@ -231,6 +232,7 @@ module CStyleDocument =
         (documentRootId: NodeId)
         (contextGraph: Graph)
         (nodes: Map<NodeId, Node>)
+        (childMap: Map<NodeId, ChildNode list>)
         (indentStyle: PlainTextIndentStyle)
         : CStyleReadResult =
         let complement = buildComplement indentStyle contextGraph documentRootId
@@ -238,6 +240,7 @@ module CStyleDocument =
         {
             CStyleReadResult.documentRootId = documentRootId
             CStyleReadResult.nodes = applyCssClasses complement nodes contextGraph
+            CStyleReadResult.childMap = childMap
             CStyleReadResult.complement = complement
         }
 
@@ -245,13 +248,13 @@ module CStyleDocument =
         (text: string)
         (documentRootId: NodeId)
         (contextGraph: Graph)
-        : Result<Map<NodeId, Node> * PlainTextIndentStyle, string> =
+        : Result<Map<NodeId, Node> * Map<NodeId, ChildNode list> * PlainTextIndentStyle, string> =
         match Map.tryFind documentRootId contextGraph.nodes with
         | None -> Error "document root not found in context graph"
         | Some _ ->
             let indentStyle, outline = CStyleBrace.toOutlineRows text
 
-            Ok(
+            let nodes, childMap =
                 DocumentOutlineOps.foldRowsIntoTree
                     documentRootId
                     contextGraph
@@ -265,8 +268,8 @@ module CStyleDocument =
                             row.braced
                             parentId
                             nodes
-                            ctx),
-                indentStyle)
+                            ctx)
+            Ok(nodes, childMap, indentStyle)
 
     let read
         (text: string)
@@ -275,8 +278,8 @@ module CStyleDocument =
         : Result<CStyleReadResult, string> =
         match parseCold text documentRootId contextGraph with
         | Error msg -> Error msg
-        | Ok(nodes, indentStyle) ->
-            Ok(finishRead documentRootId contextGraph nodes indentStyle)
+        | Ok(nodes, childMap, indentStyle) ->
+            Ok(finishRead documentRootId contextGraph nodes childMap indentStyle)
 
     let private writeFresh
         (graph: Graph)

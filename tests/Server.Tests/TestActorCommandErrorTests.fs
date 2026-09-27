@@ -61,7 +61,7 @@ let private waitForActorStop host focusId timeoutMs =
     }
 
 let private helloChildren (graph: Graph) focusId commandId =
-    graph.nodes.[focusId].children
+    Graph.children graph focusId
     |> List.filter (fun child ->
         child.ref = Ownership.Owner
         && child.id <> commandId
@@ -149,7 +149,7 @@ let private seedCommandWithChildren host text childTexts =
     }
 
 let private ownedChildFacts (graph: Graph) focusId =
-    graph.nodes.[focusId].children
+    Graph.children graph focusId
     |> List.filter (fun child -> child.ref = Ownership.Owner)
     |> List.map (fun child ->
         let text =
@@ -332,7 +332,9 @@ let private getFullState (client: HttpClient) = task {
 
 let private postEventsHttp (client: HttpClient) (events: Ev list) = task {
     let body =
-        Encode.toString 0 (EventJson.encodeEventBatch { events = events })
+        Encode.toString 0 (
+            ApiResponseSerialization.encodeChangeRequest
+                { events = events; want = [] })
     use content = jsonPost body
     return! client.PostAsync("/ambit/changes", content)
 }

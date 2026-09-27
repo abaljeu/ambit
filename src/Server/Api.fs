@@ -34,47 +34,96 @@ module Api =
         Thoth.Json.Core.Decode.object (fun get ->
             get.Required.Field "path" Thoth.Json.Core.Decode.string)
 
-    let private decodeQueryEventId (clientEventId: int) =
-        EventId.fromJson clientEventId
+    type private SnapshotAnswer =
+        { state: State
+          nodes: Node list
+          childMap: Map<NodeId, ChildNode list> }
 
-    let getPoll
+    let private wantAnswerFromHandle
         (handle: CoreChanges)
-        (buildEpochSec: int)
-        (pageBuildEpochSec: int)
-        (clientEventId: int)
-        : Async<IResult> = async {
-        let! eventId = handle.getEventId ()
-        let queryEventId = decodeQueryEventId clientEventId
-        let! events =
-            if EventId.value eventId > EventId.value queryEventId then
-                handle.getEventsSince queryEventId
-            else async.Return []
-        let poll: ChangeSuccessResponse =
-            { eventId = eventId
-              buildEpochSec = buildEpochSec
-              pageBuildEpochSec = pageBuildEpochSec
-              apiVersion = ApiVersion.current
-              isReady = handle.isReady ()
-              externalChanges = not events.IsEmpty
-              events = events
-              message = None
-              bootstrapHash = None }
-        return changeSuccessResult poll
-    }
-
-    let private loadPackages
-        (handle: CoreChanges)
-        (targets: LoadTarget list)
-        : Async<Result<Result<Node list, ResidentProjection.LoadRefuse>, string>> =
+        (want: NodeId list)
+        : Async<Result<SnapshotAnswer, string>> =
         async {
             match! handle.getState () with
             | Error err -> return Error err
-            | Ok stateResponse ->
+            | Ok state ->
+                let childMap, nodes =
+                    ResidentProjection.wantAnswer state.graph want
                 return
-                    Ok(
-                        ResidentProjection.packagesForTargets
-                            stateResponse.graph
-                            targets)
+                    Ok
+                        { state = state
+                          nodes = nodes
+                          childMap = childMap }
+        }
+
+    let private eventsThroughSnapshot
+        (handle: CoreChanges)
+        (after: EventId)
+        (snapshotId: EventId)
+        : Async<Ev list> =
+        async {
+            if snapshotId <= after then
+                return []
+            else
+                let! events = handle.getEventsSince after
+                return
+                    events
+                    |> List.filter (fun event ->
+                        event.id <= snapshotId)
+        }
+
+    let postPoll
+        (handle: CoreChanges)
+        (buildEpochSec: int)
+        (pageBuildEpochSec: int)
+        (body: string)
+        : Async<IResult> = async {
+        match
+            Decode.fromString
+                ApiResponseSerialization.decodePollRequestDecoder
+                body
+        with
+        | Error err ->
+            return Results.BadRequest({| error = $"Invalid poll request: {err}" |})
+        | Ok request ->
+            match! wantAnswerFromHandle handle request.want with
+            | Error err -> return agentErrorResult err
+            | Ok answer ->
+                let! events =
+                    eventsThroughSnapshot
+                        handle
+                        request.eventId
+                        answer.state.eventId
+                return
+                    changeSuccessResult
+                        { eventId = answer.state.eventId
+                          buildEpochSec = buildEpochSec
+                          pageBuildEpochSec = pageBuildEpochSec
+                          apiVersion = ApiVersion.current
+                          isReady = handle.isReady ()
+                          externalChanges = not events.IsEmpty
+                          events = events
+                          message = None
+                          bootstrapHash = None
+                          nodes = answer.nodes
+                          childMap = answer.childMap }
+    }
+
+    let private loadWantAnswer
+        (handle: CoreChanges)
+        (targets: LoadTarget list)
+        : Async<Result<Result<SnapshotAnswer, ResidentProjection.LoadRefuse>, string>> =
+        async {
+            match! handle.getState () with
+            | Error err -> return Error err
+            | Ok state ->
+                return
+                    ResidentProjection.wantAnswerForTargets state.graph targets
+                    |> Result.map (fun (childMap, nodes) ->
+                        { state = state
+                          nodes = nodes
+                          childMap = childMap })
+                    |> Ok
         }
 
     let postLoad
@@ -91,29 +140,28 @@ module Api =
         | Error err ->
             return Results.BadRequest({| error = $"Invalid load request: {err}" |})
         | Ok request ->
-            match! loadPackages handle request.targets with
+            match! loadWantAnswer handle request.targets with
             | Error err -> return agentErrorResult err
             | Ok(Error ResidentProjection.LoadRefuse.MultiWorkspace) ->
                 return
                     Results.BadRequest(
                         {| error =
                             "Load requires all selected targets in one Workspace" |})
-            | Ok(Ok packages) ->
-                let! eventId = handle.getEventId ()
-                let revValue = EventId.value eventId
+            | Ok(Ok answer) ->
                 let! events =
-                    if revValue > EventId.value request.eventId then
-                        handle.getEventsSince request.eventId
-                    else
-                        async.Return []
+                    eventsThroughSnapshot
+                        handle
+                        request.eventId
+                        answer.state.eventId
                 let load: LoadResponse =
-                    { eventId = eventId
+                    { eventId = answer.state.eventId
                       buildEpochSec = buildEpochSec
                       pageBuildEpochSec = pageBuildEpochSec
                       apiVersion = ApiVersion.current
                       isReady = handle.isReady ()
                       events = events
-                      packages = packages }
+                      nodes = answer.nodes
+                      childMap = answer.childMap }
                 let json =
                     Encode.toString 0 (ApiResponseSerialization.encodeLoadResponse load)
                 return jsonResult json
@@ -147,10 +195,14 @@ module Api =
                       seedLiveFocusIds =
                         ActorLive.focusIdsFromLockPresent state.graph }
                 let scoped =
-                    ResidentProjection.bootstrapStateResponse
-                        scope
-                        savedZoom
-                        response
+                    match scope with
+                    | BootstrapScope.FullGraph -> response
+                    | BootstrapScope.RootClosure ->
+                        { response with
+                            graph =
+                                ResidentProjection.visibleClosureGraph
+                                    savedZoom
+                                    response.graph }
                 let encoded =
                     ApiResponseSerialization.encodeStateResponse scoped
                     |> Encode.toString 0
@@ -168,24 +220,39 @@ module Api =
         (pageBuildEpochSec: int)
         (body: string)
         : Async<IResult> = async {
-        match Decode.fromString Gambol.Shared.EventJson.decodeEventBatch body with
+        match
+            Decode.fromString
+                ApiResponseSerialization.decodeChangeRequestDecoder
+                body
+        with
         | Error err ->
             return agentErrorResult $"Invalid JSON: {err}"
-        | Ok batch ->
-            match! handle.postEvents batch.events with
+        | Ok request ->
+            match! handle.postEvents request.events with
             | Ok accepted ->
-                let! eventId = handle.getEventId ()
-                return
-                    changeSuccessResult
-                        { eventId = eventId
-                          buildEpochSec = buildEpochSec
-                          pageBuildEpochSec = pageBuildEpochSec
-                          apiVersion = ApiVersion.current
-                          isReady = accepted.isReady
-                          externalChanges = accepted.externalChanges
-                          events = accepted.events
-                          message = accepted.message
-                          bootstrapHash = None }
+                match! wantAnswerFromHandle handle request.want with
+                | Error err -> return agentErrorResult err
+                | Ok answer ->
+                    let! laterEvents =
+                        eventsThroughSnapshot
+                            handle
+                            accepted.eventId
+                            answer.state.eventId
+                    return
+                        changeSuccessResult
+                            { eventId = answer.state.eventId
+                              buildEpochSec = buildEpochSec
+                              pageBuildEpochSec = pageBuildEpochSec
+                              apiVersion = ApiVersion.current
+                              isReady = accepted.isReady
+                              externalChanges =
+                                accepted.externalChanges
+                                || not laterEvents.IsEmpty
+                              events = accepted.events @ laterEvents
+                              message = accepted.message
+                              bootstrapHash = None
+                              nodes = answer.nodes
+                              childMap = answer.childMap }
             | Error err -> return agentErrorResult err
     }
 
@@ -204,19 +271,25 @@ module Api =
         |> List.map (fun e -> e.id)
         |> List.fold EventId.max persistId
 
-    let private universalFromHandle
+    let private universalResponseFromHandle
         (handle: CoreChanges)
         (after: EventId)
         (nodes: Node list)
-        : Async<IResult> =
+        : Async<UniversalResponse> =
         async {
             let! events = handle.getEventsSince after
             let! persistId = handle.getEventId ()
             return
-                commandSuccessResult
-                    { nodes = nodes
-                      events = events
-                      latestId = latestEventId events persistId }
+                { nodes = nodes
+                  events = events
+                  latestId = latestEventId events persistId }
+        }
+
+    let private universalFromHandle handle after nodes =
+        async {
+            let! response =
+                universalResponseFromHandle handle after nodes
+            return commandSuccessResult response
         }
 
     /// Decode ActorStart ids, call startActor, encode `{ nodes; events; latestId }`.
@@ -243,6 +316,49 @@ module Api =
                                 (nodesForRequest
                                     state.graph
                                     request.graphIds)
+        }
+
+    let private loadSaveSuccessResult path command =
+        { path = path; command = command }
+        |> ApiResponseSerialization.encodeLoadSaveCommandResponse
+        |> Encode.toString 0
+        |> jsonResult
+
+    let postLoadSaveCommand
+        (router: LoadSaveCommandRouter)
+        (handle: CoreChanges)
+        (body: string)
+        : Async<IResult> =
+        async {
+            match Decode.fromString EventJson.decodeLoadSaveCommandRequest body with
+            | Error err ->
+                return agentErrorResult $"Invalid JSON: {err}"
+            | Ok request ->
+                match! handle.getState () with
+                | Error err -> return agentErrorResult err
+                | Ok state ->
+                    match router.resolvePath state request with
+                    | Error err -> return agentErrorResult err
+                    | Ok path ->
+                        match! router.startCommand path request with
+                        | Error err -> return agentErrorResult err
+                        | Ok () when path = LoadSavePath.Desk ->
+                            return
+                                loadSaveSuccessResult
+                                    LoadSavePath.Desk
+                                    None
+                        | Ok () ->
+                            let nodes =
+                                nodesForRequest state.graph request.start.graphIds
+                            let! command =
+                                universalResponseFromHandle
+                                    handle
+                                    request.start.eventId
+                                    nodes
+                            return
+                                loadSaveSuccessResult
+                                    LoadSavePath.Git
+                                    (Some command)
         }
 
     /// Decode CancelRequest, call cancelByFocus, encode Events like Command.
@@ -274,7 +390,7 @@ module Api =
         match Decode.fromString decodeFileStatusRequest body with
         | Error err -> Results.BadRequest({| error = err |})
         | Ok path ->
-            match DocumentPersistence.fileStatusForReference dataDir path with
+            match DocumentPersistPath.fileStatusForReference dataDir path with
             | Error err -> Results.BadRequest({| error = err |})
             | Ok response ->
                 response
@@ -283,7 +399,7 @@ module Api =
                 |> jsonResult
 
     let getImportFile (dataDir: string) (path: string) : IResult =
-        match DocumentPersistence.importPackageForReference dataDir path with
+        match DocumentPersistPath.importPackageForReference dataDir path with
         | Error err -> Results.BadRequest({| error = err |})
         | Ok package ->
             package
@@ -316,7 +432,7 @@ module Api =
         : Async<IResult> =
         async {
             match
-                DocumentPersistence.planParseFile
+                DocumentPersistWrite.planParseFile
                     dataDir
                     state.graph
                     fileId

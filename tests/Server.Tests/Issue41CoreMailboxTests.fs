@@ -172,7 +172,7 @@ let ``name-only Undo and Redo store completed Events with submission ids`` () =
             Ev.ops storedRedo
             |> Option.defaultValue [])
         Assert.Contains(
-            state.graph.nodes.[Graph.rootId].children,
+            Graph.children state.graph Graph.rootId,
             fun child -> child.id = childId)
     })
 
@@ -219,7 +219,9 @@ let ``mailbox appends ActorStart and ActorStop in lifecycle order`` () =
     let actorSecret = Credential "issue-41-actor"
     let pool: CoreActorPool =
         { register = fun _ _ -> ()
+          registerPeer = fun _ _ -> ()
           startActor = fun _ _ -> Ok actorSecret
+          startPeerActor = fun _ _ _ -> Error "unused"
           schedule = fun _ _ -> ()
           isLive = fun secret -> secret = actorSecret
           admit = fun _ -> Ok ()

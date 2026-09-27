@@ -44,17 +44,19 @@ let private nestedWorkspaceGraph () : Graph * NodeId * NodeId * NodeId =
             name = Filename.Ok "readme.txt",
             kind = Special File,
             owner = dirId)
-    let workspaces = graph0.nodes.[Graph.workspacesId]
-    let nodes =
-        graph0.nodes
-        |> Map.add wsId wsNode
-        |> Map.add dirId dirNode
-        |> Map.add fileId fileNode
-        |> Map.add
-            Graph.workspacesId
-            { workspaces with
-                children = workspaces.children @ owned [ wsId ] }
-    let graph1 = Graph.fromNodes graph0.root nodes
+    let graph1 =
+        graph0
+        |> Graph.addDetachedNode wsNode
+        |> Graph.addDetachedNode dirNode
+        |> Graph.addDetachedNode fileNode
+        |> fun g ->
+            Graph.fromNodes
+                g.root
+                g.nodes
+                (Map.add
+                    Graph.workspacesId
+                    (Graph.children g Graph.workspacesId @ owned [ wsId ])
+                    g.childMap)
     let graph2 =
         Graph.replace wsId 0 [] (owned [ dirId ]) graph1
         |> function
@@ -91,7 +93,7 @@ let private encodeRequest (request: LoadRequest) =
 
 [<Fact>]
 let ``postLoad Ev-only when includeWorkspace false`` () = task {
-    let graph, wsId, _, fileId = nestedWorkspaceGraph ()
+    let graph, _, _, fileId = nestedWorkspaceGraph ()
     let event =
         { id = EventIdFixtures.storedId 5
           submissionId = Guid.NewGuid()
@@ -115,22 +117,22 @@ let ``postLoad Ev-only when includeWorkspace false`` () = task {
             Assert.Equal(100, response.buildEpochSec)
             Assert.Equal(200, response.pageBuildEpochSec)
             Assert.Equal(1, response.events.Length)
-            Assert.Empty(response.packages)
-            Assert.False(response.packages |> List.exists (fun n -> n.id = wsId))
+            Assert.Empty(response.nodes)
+            Assert.Empty(response.childMap)
     | other ->
         Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
 }
 
 [<Fact>]
-let ``postLoad Workspace subgraph when includeWorkspace true`` () = task {
-    let graph, wsId, dirId, fileId = nestedWorkspaceGraph ()
+let ``postLoad Want answer when includeWorkspace true`` () = task {
+    let graph, _, dirId, fileId = nestedWorkspaceGraph ()
     let handle =
         handleForLoad 7 [] (stateResponse graph 7)
     let body =
         encodeRequest
             { eventId = EventIdFixtures.storedId 7
               targets =
-                [ { targetId = fileId; includeWorkspace = true } ] }
+                [ { targetId = dirId; includeWorkspace = true } ] }
     let! result = Api.postLoad handle 1 2 body |> Async.StartAsTask
     match box result with
     | :? ContentHttpResult as content ->
@@ -139,17 +141,17 @@ let ``postLoad Workspace subgraph when includeWorkspace true`` () = task {
         | Ok (response: LoadResponse) ->
             Assert.Equal(EventIdFixtures.storedId 7, response.eventId)
             Assert.Empty(response.events)
-            let byId = response.packages |> List.map (fun n -> n.id, n) |> Map.ofList
-            Assert.True(byId.ContainsKey wsId)
-            Assert.Equal(Loaded, byId.[wsId].childrenStatus)
-            Assert.True(byId.ContainsKey dirId)
+            let byId = response.nodes |> List.map (fun n -> n.id, n) |> Map.ofList
             Assert.True(byId.ContainsKey fileId)
+            Assert.Equal<ChildNode list>(
+                owned [ fileId ],
+                response.childMap.[dirId])
     | other ->
         Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
 }
 
 [<Fact>]
-let ``postLoad missing target returns events without packages`` () = task {
+let ``postLoad missing target returns Events without Nodes`` () = task {
     let graph, _, _, _ = nestedWorkspaceGraph ()
     let event =
         { id = EventIdFixtures.storedId 4
@@ -172,14 +174,15 @@ let ``postLoad missing target returns events without packages`` () = task {
         | Ok (response: LoadResponse) ->
             Assert.Equal(EventIdFixtures.storedId 4, response.eventId)
             Assert.Equal(1, response.events.Length)
-            Assert.Empty(response.packages)
+            Assert.Empty(response.nodes)
+            Assert.Empty(response.childMap)
     | other ->
         Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
 }
 
 [<Fact>]
-let ``postLoad shares one revision for events and packages`` () = task {
-    let graph, wsId, _, fileId = nestedWorkspaceGraph ()
+let ``postLoad shares one event id for Events and Nodes`` () = task {
+    let graph, _, dirId, fileId = nestedWorkspaceGraph ()
     let event =
         { id = EventIdFixtures.storedId 9
           submissionId = Guid.NewGuid()
@@ -192,7 +195,7 @@ let ``postLoad shares one revision for events and packages`` () = task {
         encodeRequest
             { eventId = EventIdFixtures.storedId 3
               targets =
-                [ { targetId = fileId; includeWorkspace = true } ] }
+                [ { targetId = dirId; includeWorkspace = true } ] }
     let! result = Api.postLoad handle 10 20 body |> Async.StartAsTask
     match box result with
     | :? ContentHttpResult as content ->
@@ -201,14 +204,14 @@ let ``postLoad shares one revision for events and packages`` () = task {
         | Ok (response: LoadResponse) ->
             Assert.Equal(EventIdFixtures.storedId 9, response.eventId)
             Assert.Equal(1, response.events.Length)
-            Assert.True(response.packages |> List.exists (fun n -> n.id = wsId))
+            Assert.True(response.nodes |> List.exists (fun n -> n.id = fileId))
     | other ->
         Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
 }
 
 [<Fact>]
-let ``postLoad same Workspace multi-target dedupes one package`` () = task {
-    let graph, wsId, dirId, fileId = nestedWorkspaceGraph ()
+let ``postLoad same Workspace multi-target dedupes answer Nodes`` () = task {
+    let graph, _, dirId, fileId = nestedWorkspaceGraph ()
     let handle =
         handleForLoad 8 [] (stateResponse graph 8)
     let body =
@@ -223,9 +226,11 @@ let ``postLoad same Workspace multi-target dedupes one package`` () = task {
         match decodeLoadResponse content.ResponseContent with
         | Error err -> failwith err
         | Ok (response: LoadResponse) ->
-            let wsNodes =
-                response.packages |> List.filter (fun n -> n.id = wsId)
-            Assert.Equal(1, wsNodes.Length)
+            let fileNodes =
+                response.nodes |> List.filter (fun n -> n.id = fileId)
+            Assert.Equal(1, fileNodes.Length)
+            Assert.True(Map.containsKey dirId response.childMap)
+            Assert.True(Map.containsKey fileId response.childMap)
     | other ->
         Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
 }
@@ -265,18 +270,20 @@ let ``postLoad refuses selection spanning two Workspaces`` () = task {
             name = Filename.Ok "b.txt",
             kind = Special File,
             owner = wsB)
-    let workspaces = graph0.nodes.[Graph.workspacesId]
-    let nodes =
-        graph0.nodes
-        |> Map.add wsA wsNodeA
-        |> Map.add fileA fileNodeA
-        |> Map.add wsB wsNodeB
-        |> Map.add fileB fileNodeB
-        |> Map.add
-            Graph.workspacesId
-            { workspaces with
-                children = workspaces.children @ owned [ wsA; wsB ] }
-    let graph1 = Graph.fromNodes graph0.root nodes
+    let graph1 =
+        graph0
+        |> Graph.addDetachedNode wsNodeA
+        |> Graph.addDetachedNode fileNodeA
+        |> Graph.addDetachedNode wsNodeB
+        |> Graph.addDetachedNode fileNodeB
+        |> fun g ->
+            Graph.fromNodes
+                g.root
+                g.nodes
+                (Map.add
+                    Graph.workspacesId
+                    (Graph.children g Graph.workspacesId @ owned [ wsA; wsB ])
+                    g.childMap)
     let graph2 =
         Graph.replace wsA 0 [] (owned [ fileA ]) graph1
         |> function

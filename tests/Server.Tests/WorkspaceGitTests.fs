@@ -1,7 +1,10 @@
 module Gambol.Server.Tests.WorkspaceGitTests
 
 open System
+open System.Collections.Concurrent
 open System.IO
+open System.Threading
+open System.Threading.Tasks
 open Xunit
 open Gambol.Server
 open Gambol.Shared
@@ -27,6 +30,37 @@ let private currentBranch root =
 let private branchOid root branch =
     git root $"rev-parse refs/heads/{branch}"
 
+let private configureIdentity root =
+    git root "config user.email test@gambol" |> ignore
+    git root "config user.name test" |> ignore
+
+let private commitFile
+    (root: string)
+    (path: string)
+    (text: string)
+    (message: string)
+    =
+    File.WriteAllText(Path.Combine(root, path), text)
+    git root "add -A" |> ignore
+    git root $"commit -m {message}" |> ignore
+
+let private trackedWorkspace () =
+    let parent = newTempDir ()
+    let remote = Path.Combine(parent, "remote.git")
+    let source = Path.Combine(parent, "source")
+    let workspace = Path.Combine(parent, "workspace")
+    Directory.CreateDirectory(remote) |> ignore
+    git remote "init --bare -b main" |> ignore
+    Directory.CreateDirectory(source) |> ignore
+    git source "init -b main" |> ignore
+    configureIdentity source
+    commitFile source "note.txt" "seed" "seed"
+    git source $"remote add origin {remote}" |> ignore
+    git source "push -u origin main" |> ignore
+    git parent $"clone {remote} workspace" |> ignore
+    configureIdentity workspace
+    parent, remote, source, workspace
+
 let private owned = ChildNode.owners
 
 let private graphWithWorkspace (label: string) : Graph * NodeId =
@@ -40,9 +74,7 @@ let private graphWithWorkspace (label: string) : Graph * NodeId =
             owner = Graph.workspacesId,
             kind = Special Workspace)
     let graph1 =
-        graph0.nodes
-        |> Map.add wsId wsNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        Graph.addDetachedNode wsNode graph0
     let graph2 =
         Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
         |> requireOk "workspaces->ws"
@@ -176,7 +208,7 @@ let ``writeDocument for Workspace inits repo under label`` () =
     Skip.IfNot(gitOnPath(), "git not on PATH")
     let dataDir = newTempDir ()
     let graph, wsId = graphWithWorkspace "home"
-    DocumentPersistence.writeDocument dataDir graph wsId
+    DocumentPersistWrite.writeDocument dataDir graph wsId
     |> requireOk "writeDocument"
     |> ignore
     Assert.True(WorkspaceGit.isRepo (Path.Combine(dataDir, "home")))
@@ -318,3 +350,235 @@ let ``changedPathsBetween extracts rename delete add and modify`` () =
     Assert.Contains(
         LazyLoadReconciliation.Renamed("rename.txt", "renamed.txt"),
         changes)
+
+[<SkippableFact>]
+let ``remoteExists reports any configured remote`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let root = Path.Combine(newTempDir (), "home")
+    requireOk "init" (WorkspaceGit.ensureInit root)
+    Assert.False(WorkspaceGit.remoteExists root |> requireOk "without remote")
+    git root "remote add backup https://example.invalid/repo.git" |> ignore
+    Assert.True(WorkspaceGit.remoteExists root |> requireOk "with remote")
+
+[<SkippableFact>]
+let ``pullTracked fast forwards the current tracked branch`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let _, _, source, workspace = trackedWorkspace ()
+    commitFile source "note.txt" "from remote" "remote-change"
+    git source "push origin main" |> ignore
+
+    let tracked = WorkspaceGit.trackedBranch workspace |> requireOk "tracked"
+    Assert.Equal("main", tracked.branch)
+    Assert.Equal("origin", tracked.remote)
+    Assert.Equal("refs/heads/main", tracked.upstream)
+    WorkspaceGit.pullTracked workspace |> requireOk "pull" |> ignore
+
+    Assert.Equal("from remote", File.ReadAllText(Path.Combine(workspace, "note.txt")))
+    Assert.Equal(branchOid source "main", branchOid workspace "main")
+
+[<SkippableFact>]
+let ``saveTracked commits then pushes while honoring gitignore`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let parent, remote, _, workspace = trackedWorkspace ()
+    File.WriteAllText(Path.Combine(workspace, ".gitignore"), "ignored.txt\n")
+    File.WriteAllText(Path.Combine(workspace, "saved.txt"), "saved")
+    File.WriteAllText(Path.Combine(workspace, "ignored.txt"), "ignored")
+
+    WorkspaceGit.saveTracked workspace "save" None
+    |> requireOk "save"
+    |> ignore
+
+    let verify = Path.Combine(parent, "verify")
+    git parent $"clone {remote} verify" |> ignore
+    Assert.True(File.Exists(Path.Combine(verify, "saved.txt")))
+    Assert.False(File.Exists(Path.Combine(verify, "ignored.txt")))
+    Assert.Equal(branchOid verify "main", branchOid workspace "main")
+
+[<SkippableFact>]
+let ``saveTracked rejects a non fast forward push`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let parent, remote, _, workspace = trackedWorkspace ()
+    let peer = Path.Combine(parent, "peer")
+    git parent $"clone {remote} peer" |> ignore
+    configureIdentity peer
+    commitFile peer "peer.txt" "peer" "peer-change"
+    git peer "push origin main" |> ignore
+    File.WriteAllText(Path.Combine(workspace, "local.txt"), "local")
+
+    match WorkspaceGit.saveTracked workspace "save" None with
+    | Ok _ -> Assert.Fail("expected non-fast-forward rejection")
+    | Error error ->
+        Assert.True(
+            error.Contains("non-fast-forward", StringComparison.OrdinalIgnoreCase)
+            || error.Contains("fetch first", StringComparison.OrdinalIgnoreCase))
+        Assert.True(error.Length <= 400)
+
+[<SkippableFact>]
+let ``saveTracked conflict error names an unmerged path`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let _, _, _, workspace = trackedWorkspace ()
+    git workspace "checkout -b other" |> ignore
+    commitFile workspace "note.txt" "other" "other-change"
+    git workspace "checkout main" |> ignore
+    commitFile workspace "note.txt" "main" "main-change"
+    GitSave.runGit workspace "merge other" |> ignore
+
+    match WorkspaceGit.saveTracked workspace "save" None with
+    | Ok _ -> Assert.Fail("expected conflict rejection")
+    | Error error ->
+        Assert.Contains("note.txt", error)
+        Assert.True(error.Length <= 400)
+
+[<SkippableFact>]
+let ``pullTracked local conflict error names the path`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let _, _, source, workspace = trackedWorkspace ()
+    commitFile source "note.txt" "remote" "remote-change"
+    git source "push origin main" |> ignore
+    File.WriteAllText(Path.Combine(workspace, "note.txt"), "local")
+
+    match WorkspaceGit.pullTracked workspace with
+    | Ok _ -> Assert.Fail("expected local conflict rejection")
+    | Error error ->
+        Assert.Contains("note.txt", error)
+        Assert.True(error.Length <= 400)
+
+[<SkippableFact>]
+let ``pullTracked condenses other git failures`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let root = Path.Combine(newTempDir (), "home")
+    requireOk "init" (WorkspaceGit.ensureInit root)
+    commitFile root "note.txt" "seed" "seed"
+    let missing = Path.Combine(newTempDir (), "missing.git")
+    git root $"remote add origin {missing}" |> ignore
+    git root "config branch.master.remote origin" |> ignore
+    git root "config branch.master.merge refs/heads/master" |> ignore
+
+    match WorkspaceGit.pullTracked root with
+    | Ok _ -> Assert.Fail("expected pull failure")
+    | Error error ->
+        Assert.Contains("does not appear to be a git repository", error)
+        Assert.True(error.Length <= 400)
+
+[<Fact>]
+let ``work tree gate waits then continues without overlap`` () =
+    let root = Path.Combine(newTempDir (), "home")
+    let entered = ConcurrentQueue<string>()
+    let holderEntered = TaskCompletionSource<unit>()
+    let releaseHolder = TaskCompletionSource<unit>()
+    let waiterAttempted = TaskCompletionSource<unit>()
+    let waiterEntered = TaskCompletionSource<unit>()
+
+    let holder =
+        Task.Run(fun () ->
+            WorkspaceGit.withWorkTreeGate root (fun () ->
+                entered.Enqueue("holder entered")
+                holderEntered.SetResult()
+                releaseHolder.Task.Wait()
+                entered.Enqueue("holder exited")
+                Ok ()))
+
+    holderEntered.Task.Wait()
+    let waiter =
+        Task.Run(fun () ->
+            waiterAttempted.SetResult()
+            WorkspaceGit.withWorkTreeGate root (fun () ->
+                entered.Enqueue("waiter entered")
+                waiterEntered.SetResult()
+                Ok ()))
+    waiterAttempted.Task.Wait()
+    Assert.False(waiterEntered.Task.Wait(100))
+    releaseHolder.SetResult()
+    Task.WaitAll(holder, waiter)
+    Assert.Equal<string list>(
+        [ "holder entered"; "holder exited"; "waiter entered" ],
+        entered |> Seq.toList)
+
+[<Fact>]
+let ``work tree root aliases acquire one gate without deadlock`` () =
+    let root = Path.Combine(newTempDir (), "home")
+    let aliases =
+        [ root
+          root + string Path.DirectorySeparatorChar
+          if OperatingSystem.IsWindows() then root.ToUpperInvariant() ]
+    let normalized = DocumentPersistPath.normalizedWorkTreeRoots aliases
+    Assert.Single(normalized) |> ignore
+    let acquired =
+        Task.Run(fun () ->
+            DocumentPersistPath.withWorkTreeGates normalized (fun () -> Ok ()))
+    Assert.True(acquired.Wait(1000))
+    acquired.Result |> requireOk "aliased gates" |> ignore
+
+[<Fact>]
+let ``Persist write waits on the Workspace work tree gate`` () =
+    let dataDir = newTempDir ()
+    let graph, wsId = graphWithWorkspace "home"
+    let root = Path.Combine(dataDir, "home")
+    let holderEntered = TaskCompletionSource<unit>()
+    let releaseHolder = TaskCompletionSource<unit>()
+
+    let holder =
+        Task.Run(fun () ->
+            WorkspaceGit.withWorkTreeGate root (fun () ->
+                holderEntered.SetResult()
+                releaseHolder.Task.Wait()
+                Ok ()))
+
+    holderEntered.Task.Wait()
+    let persist =
+        Task.Run(fun () -> DocumentPersistWrite.writeDocument dataDir graph wsId)
+    Assert.False(persist.Wait(100))
+    Assert.False(File.Exists(Path.Combine(root, ".amb")))
+    releaseHolder.SetResult()
+    Task.WaitAll(holder, persist)
+    persist.Result |> requireOk "Persist" |> ignore
+    Assert.True(File.Exists(Path.Combine(root, ".amb")))
+
+[<SkippableFact>]
+let ``pullTracked waits for the work tree gate then continues`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let _, _, _, workspace = trackedWorkspace ()
+    let holderEntered = TaskCompletionSource<unit>()
+    let releaseHolder = TaskCompletionSource<unit>()
+    let holder =
+        Task.Run(fun () ->
+            WorkspaceGit.withWorkTreeGate workspace (fun () ->
+                holderEntered.SetResult()
+                releaseHolder.Task.Wait()
+                Ok ()))
+    holderEntered.Task.Wait()
+    let pull = Task.Run(fun () -> WorkspaceGit.pullTracked workspace)
+    Assert.True(
+        SpinWait.SpinUntil(
+            (fun () -> pull.Status = TaskStatus.Running),
+            1000))
+    Assert.False(pull.Wait(100))
+    releaseHolder.SetResult()
+    Task.WaitAll(holder, pull)
+    pull.Result |> requireOk "queued pull" |> ignore
+
+[<SkippableFact>]
+let ``saveTracked waits for the work tree gate then continues`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let _, _, _, workspace = trackedWorkspace ()
+    File.WriteAllText(Path.Combine(workspace, "queued.txt"), "queued")
+    let holderEntered = TaskCompletionSource<unit>()
+    let releaseHolder = TaskCompletionSource<unit>()
+    let holder =
+        Task.Run(fun () ->
+            WorkspaceGit.withWorkTreeGate workspace (fun () ->
+                holderEntered.SetResult()
+                releaseHolder.Task.Wait()
+                Ok ()))
+    holderEntered.Task.Wait()
+    let save =
+        Task.Run(fun () -> WorkspaceGit.saveTracked workspace "queued-save" None)
+    Assert.True(
+        SpinWait.SpinUntil(
+            (fun () -> save.Status = TaskStatus.Running),
+            1000))
+    Assert.False(save.Wait(100))
+    releaseHolder.SetResult()
+    Task.WaitAll(holder, save)
+    save.Result |> requireOk "queued save" |> ignore
+    Assert.Equal("queued-save", git workspace "log -1 --pretty=%s")

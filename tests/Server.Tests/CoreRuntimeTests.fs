@@ -92,8 +92,8 @@ let ``HTTP Adapter refuses inactive Core sender with 401 and does not enqueue``
             let event = addRootChild "http"
             let body =
                 Encode.toString 0 (
-                    Gambol.Shared.EventJson.encodeEventBatch
-                        { events = [ event ] })
+                    ApiResponseSerialization.encodeChangeRequest
+                        { events = [ event ]; want = [] })
             let! result =
                 Api.postEvents bound 10 20 body
                 |> Async.StartAsTask
@@ -112,7 +112,8 @@ let ``HTTP Adapter enqueues when Browser credential is live`` () = task {
         let event = addRootChild "http-live"
         let body =
             Encode.toString 0 (
-                Gambol.Shared.EventJson.encodeEventBatch { events = [ event ] })
+                ApiResponseSerialization.encodeChangeRequest
+                    { events = [ event ]; want = [] })
         let! result =
             Api.postEvents handle 10 20 body
             |> Async.StartAsTask

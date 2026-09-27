@@ -11,7 +11,7 @@ type SyncState =
     | Loading                    // Load Fetch+Poll in-flight (blocks poll/submit)
     | WaitingToRetry of attempt: int * baseEventId: EventId * events: Ev list
     | ServerRejected  // server returned 400 — change cannot be applied; reload required
-    | CodeOutdated    // Poll apiVersion differs from ApiVersion.current — reload required
+    | CodeOutdated    // reload required; not set from apiVersion
     | DataOutdated    // server has newer data with no local pending — reload required
 
 /// A multi-phase request that must start from a settled event id, so it rides the
@@ -80,6 +80,7 @@ module SyncInfo =
 type Effect =
     | SubmitPendingBatch of baseEventId: EventId * events: Ev list
     | SubmitCommand of ActorStart
+    | SubmitLoadSaveCommand of LoadSaveCommandRequest
     | SubmitCancel of NodeId
     | PollServer of eventId: EventId
     | LoadServer of eventId: EventId * targets: LoadTarget list
@@ -110,5 +111,7 @@ type Effect =
         detailPath: string
     /// Same Upload may reparse several skipped files; run these requests in order.
     | ContinueUploadParses of parseRequests: Effect list
+    /// Existing desk Save POST to `/{file}/save`.
+    | ContinueDeskSave
     /// Arm (or re-arm) the debounced auto-download tick after a delay.
     | ScheduleAutoDownloadTick of delayMs: int

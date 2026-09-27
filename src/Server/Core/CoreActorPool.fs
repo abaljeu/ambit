@@ -5,6 +5,8 @@ open Gambol.Shared
 
 type ActorName = ActorName of string
 
+type PeerActorName = PeerActorName of string
+
 /// Actor input: Graph plus named ids and Actor secret.
 type ActorInput =
     { graph: Graph
@@ -18,8 +20,14 @@ type ActorFn = ActorInput -> CoreChanges -> Async<unit>
 
 type CoreActorPool =
     { register: ActorName -> ActorFn -> unit
+      registerPeer: PeerActorName -> ActorFn -> unit
       startActor:
         Gambol.Shared.ActorStart ->
+            (unit -> Graph) ->
+            Result<Credential, string>
+      startPeerActor:
+        PeerActorName ->
+            Gambol.Shared.ActorStart ->
             (unit -> Graph) ->
             Result<Credential, string>
       schedule: Credential -> CoreChanges -> unit
@@ -50,6 +58,7 @@ module CoreActorPool =
 
     type private Model =
         { defs: Map<string, ActorFn>
+          peerDefs: Map<string, ActorFn>
           live: Map<Credential, LiveRow>
           bySession: Map<string, Credential> }
 
@@ -103,7 +112,13 @@ module CoreActorPool =
                 Map.tryFind id fullGraph.nodes
                 |> Option.map (fun n -> id, n))
             |> Map.ofList
-        Graph.fromExtracted request.zoomId actorNodes
+        let childMap =
+            request.graphIds
+            |> List.choose (fun id ->
+                Graph.tryGetChildren fullGraph id
+                |> Option.map (fun kids -> id, kids))
+            |> Map.ofList
+        Graph.fromExtracted request.zoomId actorNodes childMap
         |> Graph.withFocus (Some request.focusId)
 
     let private commandIsLive (model: Model) commandId =
@@ -121,13 +136,33 @@ module CoreActorPool =
         else
             Ok()
 
-    let private runStartActor
+    let private putActorStart
         (putLive:
             Credential -> NodeId -> NodeId -> string -> PendingBody -> unit)
-        (getModel: unit -> Model)
         (request: Gambol.Shared.ActorStart)
-        (getState: unit -> Graph)
+        (fullGraph: Graph)
+        (actorFn: ActorFn)
         =
+        let actorGraph = actorGraphFrom fullGraph request
+        let secret =
+            Credential(Guid.NewGuid().ToString("N"))
+        let sessionId = Guid.NewGuid().ToString()
+        let input: ActorInput =
+            { graph = actorGraph
+              zoomId = request.zoomId
+              focusId = request.focusId
+              commandId = request.commandId
+              sessionId = sessionId
+              secret = secret }
+        putLive
+            secret
+            request.focusId
+            request.commandId
+            sessionId
+            { actorFn = actorFn; input = input }
+        Ok secret
+
+    let private runStartActor putLive getModel request getState =
         let fullGraph = getState ()
         match admitStart request (getModel ()) with
         | Error err -> Error err
@@ -140,23 +175,33 @@ module CoreActorPool =
                 match Map.tryFind actorName (getModel ()).defs with
                 | None -> Error $"actor '{actorName}' not registered"
                 | Some actorFn ->
-                    let secret =
-                        Credential(Guid.NewGuid().ToString("N"))
-                    let sessionId = Guid.NewGuid().ToString()
-                    let input: ActorInput =
-                        { graph = actorGraph
-                          zoomId = request.zoomId
-                          focusId = request.focusId
-                          commandId = request.commandId
-                          sessionId = sessionId
-                          secret = secret }
-                    putLive
-                        secret
-                        request.focusId
-                        request.commandId
-                        sessionId
-                        { actorFn = actorFn; input = input }
-                    Ok secret
+                    putActorStart
+                        putLive request fullGraph actorFn
+
+    let private runStartPeerActor putLive getModel peerName request getState =
+        let fullGraph = getState ()
+        match admitStart request (getModel ()) with
+        | Error err -> Error err
+        | Ok () ->
+            let (PeerActorName name) = peerName
+            match Map.tryFind name (getModel ()).peerDefs with
+            | None -> Error $"Peer Actor '{name}' not registered"
+            | Some actorFn ->
+                putActorStart putLive request fullGraph actorFn
+
+    let startLoadSaveCommand
+        (pool: CoreActorPool)
+        (path: LoadSavePath)
+        (peerName: PeerActorName)
+        (request: LoadSaveCommandRequest)
+        (getState: unit -> Graph)
+        : Result<Credential option, string>
+        =
+        match path with
+        | LoadSavePath.Desk -> Ok None
+        | LoadSavePath.Git ->
+            pool.startPeerActor peerName request.start getState
+            |> Result.map Some
 
     let private takePending (model: Model) secret =
         match Map.tryFind secret model.live with
@@ -193,6 +238,7 @@ module CoreActorPool =
     let create () : CoreActorPool =
         let mutable model =
             { defs = Map.empty
+              peerDefs = Map.empty
               live = Map.empty
               bySession = Map.empty }
         let getModel () = model
@@ -253,7 +299,13 @@ module CoreActorPool =
         { register =
             fun (ActorName name) actor ->
                 model <- { model with defs = Map.add name actor model.defs }
+          registerPeer =
+            fun (PeerActorName name) actor ->
+                model <-
+                    { model with
+                        peerDefs = Map.add name actor model.peerDefs }
           startActor = runStartActor putLive getModel
+          startPeerActor = runStartPeerActor putLive getModel
           schedule = runSchedule takePendingBody
           isLive = fun secret -> Map.containsKey secret model.live
           admit = runAdmit (fun secret -> Map.containsKey secret model.live)

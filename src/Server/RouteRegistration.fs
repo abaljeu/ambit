@@ -59,10 +59,25 @@ module RouteRegistration =
 
     let private createPersistenceContext (this: AmbitApp) =
         let boot = this.CreateBoot ()
+        let core = CoreRuntime.create boot
+        let github =
+            GithubTransportActor.productionDependencies boot.DataDir
+        core.pool.registerPeer
+            (GithubTransportActor.peerName GithubTransportOperation.Load)
+            (GithubTransportActor.actorFn
+                boot.DataDir
+                GithubTransportOperation.Load
+                github)
+        core.pool.registerPeer
+            (GithubTransportActor.peerName GithubTransportOperation.Save)
+            (GithubTransportActor.actorFn
+                boot.DataDir
+                GithubTransportOperation.Save
+                github)
         {
             DataDir = boot.DataDir
             DbStatus = boot.DbStatus
-            Core = CoreRuntime.create boot
+            Core = core
         }
 
     let private isWritable (persistence: PersistenceContext) =
@@ -78,6 +93,11 @@ module RouteRegistration =
 
     let private parseBound (persistence: PersistenceContext) =
         boundChanges persistence persistence.Core.parseCaller
+
+    let private githubOperation =
+        function
+        | LoadSaveOperation.Load -> GithubTransportOperation.Load
+        | LoadSaveOperation.Save -> GithubTransportOperation.Save
 
     /// Missing cookie is 401 without Core. Present cookie uses mailbox admit.
     let private withBrowserChanges
@@ -142,14 +162,6 @@ module RouteRegistration =
                     {| username = this.Auth.ExpectedUser; token = this.Auth.GitToken |})
         )) |> ignore
 
-    let private parseClientEventId (req: HttpRequest) =
-        match req.Query.TryGetValue "rev" with
-        | true, value ->
-            match Int32.TryParse(string value) with
-            | true, eventId -> eventId
-            | _ -> 0
-        | _ -> 0
-
     /// Read X-Gambol-Client, store on HttpContext.Items, log when present.
     let private bindClientHint (req: HttpRequest) : string option =
         match req.Headers.TryGetValue(ClientIdentity.HeaderName) with
@@ -184,16 +196,17 @@ module RouteRegistration =
                         "text/plain; charset=utf-8",
                         statusCode = 500)
         })) |> ignore
-        this.MapGet("/ambit/poll", Func<HttpRequest, Task<IResult>>(fun req -> task {
+        this.MapPost("/ambit/poll", Func<HttpRequest, Task<IResult>>(fun req -> task {
+            use reader = new StreamReader(req.Body)
+            let! body = reader.ReadToEndAsync()
             let pageEpoch = stamps.PageBuildEpochSec ()
-            let clientEventId = parseClientEventId req
             return!
                 withBrowserChanges persistence req (fun handle ->
-                    Api.getPoll
+                    Api.postPoll
                         handle
                         (stamps.DeployEpochSec ())
                         pageEpoch
-                        clientEventId)
+                        body)
                 |> Async.StartAsTask
         })) |> ignore
         this.MapPost("/ambit/load", Func<HttpRequest, Task<IResult>>(fun req -> task {
@@ -261,6 +274,41 @@ module RouteRegistration =
                             body
                         |> Async.StartAsTask
         })) |> ignore
+        this.MapPost(
+            "/ambit/load-save-command",
+            Func<HttpRequest, Task<IResult>>(fun req -> task {
+                bindClientHint req |> ignore
+                use reader = new StreamReader(req.Body)
+                let! body = reader.ReadToEndAsync()
+                match BrowserRequestCreds.tryCookieCaller req with
+                | None -> return Results.Unauthorized()
+                | Some caller ->
+                    let! live =
+                        CoreMailbox.isAdmitted persistence.Core.host caller
+                        |> Async.StartAsTask
+                    if not live then
+                        return Results.Unauthorized()
+                    else
+                        let router =
+                            { resolvePath =
+                                LoadSaveRouting.resolvePath persistence.DataDir
+                              startCommand =
+                                fun path request ->
+                                    CoreMailbox.startLoadSaveCommand
+                                        persistence.Core.host
+                                        caller
+                                        path
+                                        (GithubTransportActor.peerName
+                                            (githubOperation request.operation))
+                                        request }
+                        return!
+                            Api.postLoadSaveCommand
+                                router
+                                (boundChanges persistence caller)
+                                body
+                            |> Async.StartAsTask
+            }))
+        |> ignore
         this.MapPost("/ambit/actors/deliver", Func<HttpRequest, Task<IResult>>(fun req -> task {
             use reader = new StreamReader(req.Body)
             let! body = reader.ReadToEndAsync()

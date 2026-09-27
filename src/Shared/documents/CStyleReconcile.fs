@@ -5,7 +5,7 @@ namespace Gambol.Shared
 module CStyleReconcile =
 
     let private toNodesRead (r: CStyleReadResult) =
-        OutlineDocument.nodesRead r.documentRootId r.nodes
+        OutlineDocument.nodesRead r.documentRootId r.nodes r.childMap
 
     let private toSpanTree text nodeIds =
         let _, flat = CStyleDocument.flattenText text
@@ -14,7 +14,7 @@ module CStyleReconcile =
             (flat |> List.map (fun (depth, body, _) -> depth, body, None))
             nodeIds
 
-    let private finishNodes text documentRootId contextGraph nodes =
+    let private finishNodes text documentRootId contextGraph (nodes, childMap) =
         let indentStyle, _ = CStyleDocument.flattenText text
 
         toNodesRead (
@@ -22,6 +22,7 @@ module CStyleReconcile =
                 documentRootId
                 contextGraph
                 nodes
+                childMap
                 indentStyle
         )
 

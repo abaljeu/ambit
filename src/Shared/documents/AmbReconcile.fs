@@ -5,7 +5,7 @@ namespace Gambol.Shared
 module AmbReconcile =
 
     let private toNodesRead (r: AmbDocumentReadResult) =
-        OutlineDocument.nodesRead r.documentRootId r.nodes
+        OutlineDocument.nodesRead r.documentRootId r.nodes r.childMap
 
     let private toSpanTree text nodeIds =
         OutlineDocument.nestOutlineRows (AmbDocument.flattenText text) nodeIds
@@ -51,4 +51,5 @@ module AmbReconcile =
         |> Result.map (fun r -> {
             AmbDocumentReadResult.documentRootId = r.documentRootId
             AmbDocumentReadResult.nodes = r.nodes
+            AmbDocumentReadResult.childMap = r.childMap
         })

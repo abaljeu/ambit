@@ -3,6 +3,7 @@ module BootCachePollTests
 open System
 open Gambol.Shared
 open Gambol.Shared
+open GraphChildMapHelpers
 open BootCacheTestHelpers
 open Xunit
 
@@ -15,7 +16,9 @@ let private mkPoll rev (events: Ev list) : ChangeSuccessResponse =
       externalChanges = not events.IsEmpty
       events = events
       message = None
-      bootstrapHash = None }
+      bootstrapHash = None
+      nodes = []
+      childMap = Map.empty }
 
 let private decide clientEventId log poll =
     BootCache.decideBootPoll clientEventId log poll None None
@@ -50,10 +53,10 @@ let ``decideBootPoll confirms when the tail is only local log duplicates`` () =
     | other -> failwithf "%A" other
 
 [<Fact>]
-let ``decideBootPoll reports CodeOutdated when API version mismatches`` () =
+let ``decideBootPoll applies a matching poll when apiVersion differs`` () =
     let poll = { mkPoll 5 [] with apiVersion = ApiVersion.current + 1 }
     match decide (EventIdFixtures.storedId 5) [] poll with
-    | BootCache.BootPoll.CodeOutdated -> ()
+    | BootCache.BootPoll.Confirmed true -> ()
     | other -> failwithf "%A" other
 
 [<Fact>]
@@ -128,8 +131,7 @@ let ``truncationGraph drops Load-only nested Workspace children`` () =
             text = "home",
             name = Filename.create "home",
             owner = Graph.workspacesId,
-            kind = Special Workspace,
-            children = [ ChildNode.owner dirId ])
+            kind = Special Workspace)
     let dirNode =
         Node.Create(
             dirId,
@@ -137,31 +139,21 @@ let ``truncationGraph drops Load-only nested Workspace children`` () =
             name = Filename.create "docs",
             owner = wsId,
             kind = Special Directory)
-    let nodes =
-        graph0.nodes
-        |> Map.add wsId wsNode
-        |> Map.add dirId dirNode
-        |> Map.add
-            Graph.workspacesId
-            { graph0.nodes.[Graph.workspacesId] with
-                children = [ ChildNode.owner wsId ] }
-    let graph = Graph.fromNodes graph0.root nodes
+    let graph =
+        graph0
+        |> addDetachedMany [ wsNode; dirNode ]
+        |> setChildren wsId [ ChildNode.owner dirId ]
+        |> setChildren Graph.workspacesId [ ChildNode.owner wsId ]
     let scoped = BootCache.truncationGraph graph None
     Assert.True(scoped.nodes.ContainsKey wsId)
-    Assert.Equal(Unloaded, scoped.nodes.[wsId].childrenStatus)
+    Assert.Equal(Unloaded, Graph.childrenStatus scoped wsId)
     Assert.False(scoped.nodes.ContainsKey dirId)
 
 [<Fact>]
 let ``graphFingerprint is stable for the same Graph and changes when ROOT text changes`` () =
     let graph0, noteId = Graph.newNode "hello" (Graph.create ())
-    let root = graph0.nodes.[graph0.root]
     let graph =
-        Graph.fromNodes
-            graph0.root
-            (graph0.nodes
-             |> Map.add
-                    graph0.root
-                    { root with children = [ ChildNode.owner noteId ] })
+        setChildren graph0.root [ ChildNode.owner noteId ] graph0
     let same = BootCache.graphFingerprint graph
     Assert.Equal(same, BootCache.graphFingerprint graph)
     match Graph.setText noteId "hello" "world" graph with

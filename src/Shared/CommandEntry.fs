@@ -79,9 +79,11 @@ type ContextualTarget =
 let contextualTarget (graph: Graph) (parentId: NodeId) (index: int) : ContextualTarget option =
     match Map.tryFind parentId graph.nodes with
     | None -> None
-    | Some parent when index < 0 || index >= parent.children.Length -> None
-    | Some parent ->
-        let occurrence = parent.children.[index]
+    | Some _ when
+        index < 0 || index >= (GraphChildren.get graph parentId).Length ->
+        None
+    | Some _ ->
+        let occurrence = (GraphChildren.get graph parentId).[index]
         match Map.tryFind occurrence.id graph.nodes with
         | Some { kind = Special Workspace } as workspace
             when workspace

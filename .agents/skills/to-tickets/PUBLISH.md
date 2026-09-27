@@ -2,7 +2,7 @@
 
 Write one file per ticket under `plan/<feature-slug>/issues/<NN>-<slug>.md`. Number from `01` in dependency order (blockers first). Each file's **Blocked by** lists the numbers and names it depends on. Keep the template's fixed wrapper sections unnumbered. Inside **What to build**, number and name each build subsection and every checklist item per [[.agents/rules/refer-by-name.md]]. Use the template below. One ticket per file. Include one or two pointers to defining specs from which the ticket was derived. Trace back to decision files, not only `spec.md`.
 
-Record the **frontier** (unblocked tickets with Status `defined`, per [[doc/agents/triage-labels.md]]) for a later implement. For a purely linear chain that is the first ticket. Name it in the reply. Give tickets behind blocking edges Status `blocked`. Do not write `ready-for-agent` or `ready-for-human`. Do not rewrite Status on existing tickets.
+Record the **frontier** (unblocked tickets with Status `defined`, per [[doc/agents/triage-labels.md]]) for a later implement. For a purely linear chain that is the first ticket. Name it in the reply. Tickets behind blocking edges also use Status `defined` when fully specified; their **Blocked by** list carries dependency order. Do not write retired Status values. Do not rewrite Status on existing tickets unless the user asks or the ticket is otherwise touched.
 
 Leave the parent issue as it is. Publish the child tickets only.
 
@@ -12,7 +12,7 @@ Existing tickets stay in their current shape. See [[.agents/rules/no-retrofit.md
 
 # <NN> — <Ticket title>
 
-**Status:** `defined` when fully specified (implement when Blocked-by is clear); `needs-info` when information is missing; `blocked` when an external or non-ticket dependency gates it; or later `coded`. Never `ready-for-agent`, `ready-for-human`, or `ready-to-implement`.
+**Status:** `defined` when fully specified (implement when Blocked-by is clear); `needs-info` when information is missing; or later `coded`. Never `blocked`, `ready-for-agent`, `ready-for-human`, or `ready-to-implement`.
 **Blocked by:** the numbers and names of the tickets that gate this one, or "None — can start immediately".
 
 ## Context

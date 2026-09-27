@@ -7,16 +7,30 @@ open Thoth.Json.Core
 // Encoding / decoding helpers
 // ---------------------------------------------------------------------------
 
-/// Encode a batch as compact JSON for POST /{file}/changes.
-let encodePendingBatchBody (events: Ev list) : string =
-    let batch: EventBatch = { events = SyncBatch.toWireBatch events }
+let encodePollRequestBody (request: PollRequest) : string =
     Thoth.Json.JavaScript.Encode.toString 0 (
-        Gambol.Shared.EventJson.encodeEventBatch batch)
+        ApiResponseSerialization.encodePollRequest request)
+
+/// Encode current-version Events plus Want for POST /{file}/changes.
+let encodePendingBatchBody (request: ChangeRequest) : string =
+    Thoth.Json.JavaScript.Encode.toString 0 (
+        ApiResponseSerialization.encodeChangeRequest request)
 
 /// Encode ActorStart for POST /{file}/command.
 let encodeCommandRequest (request: ActorStart) : string =
     Thoth.Json.JavaScript.Encode.toString 0 (
         Gambol.Shared.EventJson.encodeStartRequest request)
+
+let encodeLoadSaveCommandRequest
+    (request: LoadSaveCommandRequest)
+    : string =
+    Thoth.Json.JavaScript.Encode.toString 0 (
+        Gambol.Shared.EventJson.encodeLoadSaveCommandRequest request)
+
+let decodeLoadSaveCommandResponse
+    (text: string)
+    : Result<LoadSaveCommandResponse, string> =
+    ApiResponseSerialization.decodeLoadSaveCommandResponse text
 
 /// Encode Focus NodeId and EventId cursor for POST /{file}/cancel.
 let encodeCancelRequest (focusId: NodeId) (eventId: EventId) : string =

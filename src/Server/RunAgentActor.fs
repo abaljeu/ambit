@@ -131,9 +131,7 @@ module RunAgentActor =
         | _ -> CompleteFailed ""
 
     let private parentChildren (graph: Graph) parentId =
-        match Map.tryFind parentId graph.nodes with
-        | Some node -> node.children
-        | None -> []
+        Graph.children graph parentId
 
     let private rememberedChildren
         (lists: Map<NodeId, ChildNode list>)

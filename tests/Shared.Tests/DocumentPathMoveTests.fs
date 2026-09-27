@@ -1,6 +1,7 @@
 module DocumentPathMoveTests
 
 open Gambol.Shared
+open GraphChildMapHelpers
 open Xunit
 
 let private requireOk label r =
@@ -39,11 +40,7 @@ let private graphWithWorkspaceFile () : Graph * NodeId * NodeId =
             owner = wsId,
             kind = Special File)
 
-    let graph1 =
-        graph0.nodes
-        |> Map.add wsId wsNode
-        |> Map.add fileId fileNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+    let graph1 = addDetachedMany [ wsNode; fileNode ] graph0
 
     let graph2 =
         Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
@@ -74,12 +71,12 @@ let private graphWithNestedDocs () : Graph * NodeId * NodeId * NodeId * NodeId =
     let normalId = NodeId.New()
 
     let graph1 =
-        graph0.nodes
-        |> Map.add wsId (specialNode wsId Workspace "home" Graph.workspacesId)
-        |> Map.add dirId (specialNode dirId Directory "docs" wsId)
-        |> Map.add fileId (specialNode fileId File "readme.txt" dirId)
-        |> Map.add normalId (normalNode normalId "body" fileId)
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        addDetachedMany
+            [ specialNode wsId Workspace "home" Graph.workspacesId
+              specialNode dirId Directory "docs" wsId
+              specialNode fileId File "readme.txt" dirId
+              normalNode normalId "body" fileId ]
+            graph0
 
     let graph2 =
         Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
@@ -106,17 +103,13 @@ let private graphFileOwnsDirectory () : Graph * NodeId * NodeId * NodeId =
     let normalId = NodeId.New()
 
     let graph1 =
-        graph0.nodes
-        |> Map.add
-            fileId
-            { specialNode fileId File "container.txt" Graph.rootId with
-                children = owned [ dirId ] }
-        |> Map.add
-            dirId
-            { specialNode dirId Directory "inner" fileId with
-                children = owned [ normalId ] }
-        |> Map.add normalId (normalNode normalId "nested" dirId)
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        addDetachedMany
+            [ specialNode fileId File "container.txt" Graph.rootId
+              specialNode dirId Directory "inner" fileId
+              normalNode normalId "nested" dirId ]
+            graph0
+        |> setChildren fileId (owned [ dirId ])
+        |> setChildren dirId (owned [ normalId ])
 
     let idx = Graph.fileTreeInsertIndex graph1 Graph.rootId
     let graph2 =
@@ -161,9 +154,7 @@ let ``planRenameNode Error name conflict when sibling name taken`` () =
     let otherId = NodeId.New()
     let wsId = graph.ownerParentByChild.[fileId]
     let graph1 =
-        graph.nodes
-        |> Map.add otherId (specialNode otherId File "notes.txt" wsId)
-        |> fun nodes -> Graph.fromNodes graph.root nodes
+        Graph.addDetachedNode (specialNode otherId File "notes.txt" wsId) graph
     let graph2 =
         Graph.replace wsId 0 (owned [ fileId ]) (owned [ fileId; otherId ]) graph1
         |> requireOk "ws->two files"
@@ -178,9 +169,7 @@ let ``planRenameNode Error when File rename collides with Directory peer`` () =
     let graph, wsId, fileId = graphWithWorkspaceFile ()
     let dirId = NodeId.New()
     let graph1 =
-        graph.nodes
-        |> Map.add dirId (specialNode dirId Directory "docs" wsId)
-        |> fun nodes -> Graph.fromNodes graph.root nodes
+        Graph.addDetachedNode (specialNode dirId Directory "docs" wsId) graph
     let graph2 =
         Graph.replace wsId 0 (owned [ fileId ]) (owned [ fileId; dirId ]) graph1
         |> requireOk "ws->file+dir"
@@ -195,9 +184,7 @@ let ``planRenameNode Error when Directory rename collides with File peer`` () =
     let graph, wsId, fileId = graphWithWorkspaceFile ()
     let dirId = NodeId.New()
     let graph1 =
-        graph.nodes
-        |> Map.add dirId (specialNode dirId Directory "docs" wsId)
-        |> fun nodes -> Graph.fromNodes graph.root nodes
+        Graph.addDetachedNode (specialNode dirId Directory "docs" wsId) graph
     let graph2 =
         Graph.replace wsId 0 (owned [ fileId ]) (owned [ fileId; dirId ]) graph1
         |> requireOk "ws->file+dir"
@@ -294,10 +281,7 @@ let ``planPathMovesBetweenGraphs includes file reparent across workspaces`` () =
     let graph, wsId, fileId = graphWithWorkspaceFile ()
     let ws2Id = NodeId.New()
     let ws2Node = specialNode ws2Id Workspace "other" Graph.workspacesId
-    let graph1 =
-        graph.nodes
-        |> Map.add ws2Id ws2Node
-        |> fun nodes -> Graph.fromNodes graph.root nodes
+    let graph1 = Graph.addDetachedNode ws2Node graph
     let graph2 =
         Graph.replace Graph.workspacesId 1 [] (owned [ ws2Id ]) graph1
         |> requireOk "insert second ws"
@@ -353,10 +337,7 @@ let ``planPathMovesBetweenGraphs skips illicit amb-named file trash move`` () =
             owner = wsId,
             kind = Special File)
     let graph =
-        graph0.nodes
-        |> Map.add wsId wsNode
-        |> Map.add fileId fileNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        addDetachedMany [ wsNode; fileNode ] graph0
         |> fun g -> Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) g
         |> requireOk "workspaces->ws"
         |> fun g -> Graph.replace wsId 0 [] (owned [ fileId ]) g

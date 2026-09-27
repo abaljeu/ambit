@@ -69,7 +69,7 @@ Stage 1 vocabulary for `Special Directory` and `Special File` exists in the shar
 - Hard delete under TRASH (artifact removal — Stage 7 step 4, not done).
 - Document membership in the model (`docId`, load/unload) belongs to the broader persistence and replication plans.
 - Namespace wildcard resolution under workspaces.
-- Automatic filesystem sync/import/reconciliation (manual Import/Export via desktop continues).
+- Automatic filesystem sync/import/reconciliation as a Stage-plan deliverable. Implemented tree sync is [[doc/current/workspace-file-sync.md]]; manual Import/Export continues.
 - Surrounding language functions (`text Ref`, `children Ref`, `name Ref`) and command/assignment syntax.
 
 Directory and file **node identity** is Stage 1 vocabulary; Stage 6 adds create/rename command surfaces and TRASH-as-directory model change. Stage 7 server `DataDir` persist and unified path moves are implemented ([[src/Server/DocumentPersistence.fs]], [[src/Server/DbAgent.fs]]).

@@ -1,6 +1,7 @@
 module ViewModelFileSearchTests
 
 open Gambol.Shared
+open GraphChildMapHelpers
 open RefExprTestTree
 open Xunit
 
@@ -22,13 +23,10 @@ let private addRootOwnedFile (name: string) (graph: Graph) : NodeId * Graph =
             name = Filename.create name,
             owner = Graph.rootId,
             kind = Special File)
-    let parent = graph.nodes.[Graph.rootId]
-    let link = ChildNode.owner fileId
-    let nodes =
-        graph.nodes
-        |> Map.add fileId file
-        |> Map.add Graph.rootId { parent with children = parent.children @ [ link ] }
-    fileId, Graph.fromNodes graph.root nodes
+    fileId,
+    graph
+    |> Graph.addDetachedNode file
+    |> appendKids Graph.rootId [ ChildNode.owner fileId ]
 
 let private isArtifactKind (kind: NodeKind) =
     match kind with

@@ -51,7 +51,9 @@ let renderCommandPalette (model: VM) (dispatch: Msg -> unit) : unit =
             window.setTimeout((fun _ ->
                 focusPreventScroll input
                 input.select()), 0) |> ignore
-        let items = filteredCommands model ret q |> List.map (fun c -> CommandMeta.displayName c.id)
+        let items =
+            filteredCommands model ret q
+            |> List.map (fun command -> command.name)
         renderPalette container items selectedCommand
 
         if not paletteWired.Value then
@@ -87,7 +89,7 @@ let renderCommandPalette (model: VM) (dispatch: Msg -> unit) : unit =
                                     { m with mode = ret }, []
                                 | Some op ->
                                     withDiagnostic
-                                        (Some (CommandMeta.displayName cmd.id))
+                                        (Some cmd.name)
                                         op
                                         { m with mode = ret }
                         | _ -> m, [])))

@@ -218,7 +218,7 @@ let private waitForHello host focusId timeoutMs =
             | Error _ -> ()
             | Ok s ->
                 found <-
-                    s.graph.nodes.[focusId].children
+                    Graph.children s.graph focusId
                     |> List.exists (fun child ->
                         child.ref = Ownership.Owner
                         && match Map.tryFind child.id s.graph.nodes with
@@ -308,7 +308,9 @@ let private getFullState (client: HttpClient) = task {
 
 let private postEventsHttp (client: HttpClient) (events: Ev list) = task {
     let body =
-        Encode.toString 0 (EventJson.encodeEventBatch { events = events })
+        Encode.toString 0 (
+            ApiResponseSerialization.encodeChangeRequest
+                { events = events; want = [] })
     use content = jsonPost body
     return! client.PostAsync("/ambit/changes", content)
 }
@@ -349,7 +351,7 @@ let private waitStateHello
                     match Map.tryFind focusId graph.nodes with
                     | None -> false
                     | Some node ->
-                        node.children
+                        Graph.children graph focusId
                         |> List.exists (fun child ->
                             child.ref = Ownership.Owner
                             && match Map.tryFind child.id graph.nodes with

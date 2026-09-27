@@ -49,9 +49,9 @@ let private decodeSuccessExternalChanges json =
     (decodeSuccess json).externalChanges
 
 let private assertAmbConflictFirstChild (graph: Graph) (parentId: NodeId) (expectedText: string) =
-    let parent = graph.nodes.[parentId]
-    Assert.NotEmpty(parent.children)
-    let first = parent.children.[0]
+    let kids = Graph.children graph parentId
+    Assert.NotEmpty(kids)
+    let first = kids.[0]
     Assert.Equal(Ownership.Owner, Node.childOwnership graph parentId first)
     let child = graph.nodes.[first.id]
     Assert.Equal(expectedText, child.text)
@@ -83,19 +83,29 @@ let private getStateJsonFull (client: HttpClient) (_file: string) = task {
     return! resp.Content.ReadAsStringAsync()
 }
 
-let private encodeEventBatchBody (changes: Ev list) =
-    let events = changes 
-    Encode.toString 0 (EventJson.encodeEventBatch { events = events })
+let private encodeChangeRequestBody (events: Ev list) =
+    Encode.toString 0 (
+        ApiResponseSerialization.encodeChangeRequest
+            { events = events; want = [] })
+
+let private postPoll (client: HttpClient) eventId = task {
+    let body =
+        Encode.toString 0 (
+            ApiResponseSerialization.encodePollRequest
+                { eventId = eventId; want = [] })
+    use content = new StringContent(body, Encoding.UTF8, "application/json")
+    return! client.PostAsync("/ambit/poll", content)
+}
 
 /// POST /ambit/events with a change and return the raw response.
 let private postChange (client: HttpClient) (_file: string) (change: Ev) = task {
-    let body = encodeEventBatchBody [ change ]
+    let body = encodeChangeRequestBody [ change ]
     let content = new StringContent(body, Encoding.UTF8, "application/json")
     return! client.PostAsync("/ambit/events", content)
 }
 
 let private postChanges (client: HttpClient) (_file: string) (changes: Ev list) = task {
-    let body = encodeEventBatchBody changes
+    let body = encodeChangeRequestBody changes
     let content = new StringContent(body, Encoding.UTF8, "application/json")
     return! client.PostAsync("/ambit/events", content)
 }
@@ -138,7 +148,7 @@ let private readFileShared (path: string) =
     reader.ReadToEnd()
 
 let private writeDocumentFiles (tempDir: string) (state: State) =
-    DocumentPersistence.writeAllDocuments tempDir state.graph
+    DocumentPersistWrite.writeAllDocuments tempDir state.graph
     |> function
         | Ok _ -> ()
         | Error err -> failwith err
@@ -252,7 +262,7 @@ let ``POST Change and inverse Changes return complete confirmations in request o
         List.iter2 assertExactPrefix [ change; undo; redo ] post.events
         let! stateJson = getStateJson client testFile
         Assert.Equal("history-action", (decodeGraph stateJson).nodes.[childId].text)
-        let! pollResponse = client.GetAsync("/ambit/poll?rev=0")
+        let! pollResponse = postPoll client EventId.zero
         let! pollJson = pollResponse.Content.ReadAsStringAsync()
         let poll =
             decode
@@ -332,7 +342,7 @@ let ``POST changes accepts X-Gambol-Client header`` () = task {
     let! json0 = getStateJson client testFile
     let rootId = (decodeGraph json0).root
     let change, _ = changeAddChild rootId 0 "hinted"
-    let body = encodeEventBatchBody [ change ]
+    let body = encodeChangeRequestBody [ change ]
     use content = new StringContent(body, Encoding.UTF8, "application/json")
     use req = new HttpRequestMessage(HttpMethod.Post, "/ambit/events")
     req.Content <- content
@@ -502,7 +512,7 @@ let ``POST changes batch with bad second change keeps earlier items``
         Assert.Equal(EventId.fromJson 1, decodeEventId json)
         Assert.True((decodeGraph json).nodes.ContainsKey childId)
         Assert.Equal("first", (decodeGraph json).nodes.[childId].text)
-        let! pollResponse = client.GetAsync("/ambit/poll?rev=0")
+        let! pollResponse = postPoll client EventId.zero
         let! pollJson = pollResponse.Content.ReadAsStringAsync()
         let poll =
             decode
@@ -611,7 +621,7 @@ let ``POST unrelated attribute edits with stale revision both succeed``
         Assert.Equal(HttpStatusCode.OK, rX.StatusCode)
 
         let! json1 = getStateJson client testFile
-        let rootChildren = (decodeGraph json1).nodes.[rootId].children
+        let rootChildren = Graph.children (decodeGraph json1) rootId
         let nodeY = NodeId.New()
         let setupY =
             { id = EventId.zero
@@ -691,7 +701,7 @@ let ``POST concurrent stale text Changes amend second as amb-conflict child``
         Assert.Equal<Guid list>([ changeB.submissionId ], decodeAckChangeIds postBody)
         Assert.True(decodeSuccessExternalChanges postBody)
 
-        let! json = getStateJson client testFile
+        let! json = getStateJsonFull client testFile
         let g = decodeGraph json
         Assert.Equal(EventId.fromJson 3, decodeEventId json)
         Assert.Equal("xA", g.nodes.[nodeX].text)
@@ -738,7 +748,7 @@ let ``POST concurrent stale name Changes amend second as amb-conflict child``
         let! postBody = rB.Content.ReadAsStringAsync()
         Assert.True(decodeSuccessExternalChanges postBody)
 
-        let! json = getStateJson client testFile
+        let! json = getStateJsonFull client testFile
         let g = decodeGraph json
         Assert.Equal("nameA", Filename.tryValue g.nodes.[nodeId].name |> Option.get)
         assertAmbConflictFirstChild g nodeId "nameB"
@@ -840,15 +850,15 @@ let ``POST unrelated structural edits with stale revision both succeed``
         Assert.Equal(EventId.fromJson 3, decodeSuccessRevision postBody)
         Assert.Equal<Guid list>([ changeB.submissionId ], decodeAckChangeIds postBody)
 
-        let! json = getStateJson client testFile
+        let! json = getStateJsonFull client testFile
         let g = decodeGraph json
         Assert.Equal(EventId.fromJson 3, decodeEventId json)
         Assert.Equal<ChildNode list>(
             ownedChild childA,
-            g.nodes.[parentP1].children)
+            (Graph.children g parentP1))
         Assert.Equal<ChildNode list>(
             ownedChild childB,
-            g.nodes.[parentP2].children)
+            (Graph.children g parentP2))
     })
 
 [<Fact>]
@@ -898,10 +908,10 @@ let ``POST same-parent structural collision amends and succeeds``
         let! postBody = rB.Content.ReadAsStringAsync()
         Assert.True(decodeSuccessExternalChanges postBody)
 
-        let! json = getStateJson client testFile
+        let! json = getStateJsonFull client testFile
         let g = decodeGraph json
         Assert.Equal(EventId.fromJson 3, decodeEventId json)
-        let children = g.nodes.[parentP].children
+        let children = Graph.children g parentP
         Assert.Equal(2, children.Length)
         Assert.Contains(ownedChild childA |> List.head, children)
         Assert.Contains(ownedChild childB |> List.head, children)
@@ -1187,7 +1197,7 @@ let ``DB restart keeps inverse Change in EventLog`` () = task {
     let! undoAck = undoResp.Content.ReadAsStringAsync()
     let confirmedUndo = Assert.Single((decodeSuccess undoAck).events)
     use client2 = createDbClientNoReset connStr
-    let! pollResponse = client2.GetAsync("/ambit/poll?rev=0")
+    let! pollResponse = postPoll client2 EventId.zero
     let! pollJson = pollResponse.Content.ReadAsStringAsync()
     let poll =
         decode
@@ -1278,7 +1288,7 @@ let ``GET state default returns ROOT closure excluding nested workspace contents
         let! json = getStateJson client testFile
         let graph = decodeGraph json
         Assert.True(graph.nodes.ContainsKey wsId)
-        Assert.Equal(Unloaded, graph.nodes.[wsId].childrenStatus)
+        Assert.Equal(Unloaded, Graph.childrenStatus graph wsId)
         Assert.False(graph.nodes.ContainsKey innerId)
     })
 

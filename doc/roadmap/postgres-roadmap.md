@@ -48,7 +48,7 @@ A record of actions taken shall be maintained in [[doc/legacy/Commands executed 
 
 ## 3. Server-authoritative merge
 
-**Decision:** The database server is the sole merge authority. No other actor (client, local webserver) performs merge. The client submits changes against whatever base it has; the server rebases them against the current head and appends the result. This is the right split because PostgreSQL holds the complete model, while clients and the server warm cache may hold only partial views ([[on-demand-graph-residency]]).
+**Decision:** The database server is the sole merge authority. No other actor (client, local webserver) performs merge. The client submits changes against whatever base it has; the server rebases them against the current head and appends the result. This is the right split because PostgreSQL holds the complete model, while clients and the server warm cache may hold only partial views ([[plan/roadmap/epics/chapters/incremental-operations.md]]).
 
 **Key sub-decisions:**
 
@@ -91,7 +91,7 @@ A record of actions taken shall be maintained in [[doc/legacy/Commands executed 
 
 There is always exactly one graph in PostgreSQL. A *document* is a named partition of that graph: a **document root** (root NodeId as identity unless a later requirement demands a separate ID) assigns membership to every node in that partition (Owner-tree ancestry from the root; Ref edges do not confer membership). The graph is not split into separate stores; document membership is a property of each node within the single graph.
 
-In the workspace file model, document roots are `Special Workspace`, `Directory`, and `File` nodes (including implicit ROOT). See [[doc/roadmap/workspace-file-model.md]] § Documents. Persistence, client load/unload, and replication all use the same document boundary. Per-document server persistence is implemented; **on-demand graph residency** adds membership metadata, scoped loaders, and client/server load/unload — authority: [[on-demand-graph-residency]].
+In the workspace file model, document roots are `Special Workspace`, `Directory`, and `File` nodes (including implicit ROOT). See [[doc/roadmap/workspace-file-model.md]] § Documents. Persistence, client load/unload, and replication all use the same document boundary. Per-document server persistence is implemented; **on-demand graph residency** adds membership metadata, scoped loaders, and client/server load/unload — authority: [[plan/roadmap/epics/chapters/incremental-operations.md]].
 
 **How it begins:**
 
@@ -104,10 +104,10 @@ Payloads and complete child lists are the memory pressure. The document is the n
 
 **Key sub-decisions:**
 
-- **Hybrid search:** Instant search over loaded document payloads for local results; async server-side search for results across unloaded documents ([[on-demand-graph-residency]]).
+- **Hybrid search:** Instant search over loaded document payloads for local results; async server-side search for results across unloaded documents ([[plan/roadmap/epics/chapters/incremental-operations.md]]).
 - **Topology is not globally resident (supersedes prior commitment):** Do not keep all edges for all documents in memory. Unloaded documents contribute boundary headers and descriptors only; required closures load on touch.
 
-*Sources:* [[on-demand-graph-residency]], [[doc/legacy/memory-management.md]] (historical; topology-always-resident decision superseded).
+*Sources:* [[plan/roadmap/epics/chapters/incremental-operations.md]], [[doc/legacy/memory-management.md]] (historical; topology-always-resident decision superseded).
 
 ---
 
@@ -115,9 +115,9 @@ Payloads and complete child lists are the memory pressure. The document is the n
 
 **Decision:** The unit of replication between server and client is a *whole document* — the full set of nodes under a document root within the single server graph, stopping at nested document roots (boundary headers only). Edits are node-level, but sync and caching deal in complete documents. Cross-document references are allowed; cross-document edits are logged as a single operation with enough payload for per-document projections to update independently. Conflict checking targets per-document base versions while a global change sequence remains for audit and catch-up.
 
-Implementation workset: [[on-demand-graph-residency]] (supersedes the older “document load units” framing that kept topology fully resident).
+Implementation workset: [[plan/roadmap/epics/chapters/incremental-operations.md]] (supersedes the older “document load units” framing that kept topology fully resident).
 
-*Sources:* [[on-demand-graph-residency]], [[doc/roadmap/future-merge-sync.md]].
+*Sources:* [[plan/roadmap/epics/chapters/incremental-operations.md]], [[doc/roadmap/future-merge-sync.md]].
 
 ## 7. Desktop app with local webserver
 

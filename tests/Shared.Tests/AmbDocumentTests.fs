@@ -3,8 +3,20 @@ module Gambol.Shared.Tests.AmbDocumentTests
 open System
 open Xunit
 open Gambol.Shared
+open GraphChildMapHelpers
 
 let private owned = ChildNode.owners
+
+let private kids childMap parentId =
+    Map.tryFind parentId childMap |> Option.defaultValue []
+
+let private withRead (graph: Graph) nodes childMap =
+    let pairs =
+        childMap
+        |> Map.toList
+        |> List.filter (fun (id, _) ->
+            id <> graph.root && not (Graph.isSystemFolderNode id))
+    fromExisting graph nodes |> setChildMap pairs
 
 let private graphWithDocument (childNodes: Node list) : Graph * NodeId =
     let graph0 = Graph.create ()
@@ -17,24 +29,14 @@ let private graphWithDocument (childNodes: Node list) : Graph * NodeId =
             owner = graph0.root,
             kind = Special File)
     let graph1 =
-        graph0.nodes
-        |> Map.add docId docNode
-        |> fun nodes -> Graph.fromNodes graph0.root nodes
-    let graph2 =
-        childNodes
-        |> List.fold
-            (fun graph node ->
-                graph.nodes |> Map.add node.id node |> fun nodes -> { graph with nodes = nodes })
-            graph1
+        Graph.addDetachedNode docNode graph0
+        |> appendKids graph0.root [ ChildNode.owner docId ]
+    let graph2 = addDetachedMany childNodes graph1
     let childIds = childNodes |> List.map (fun node -> node.id)
     Graph.replace docId 0 [] (owned childIds) graph2
     |> function
         | Ok graph -> graph, docId
         | Error msg -> failwith msg
-
-let private childTexts (graph: Graph) (docId: NodeId) : string list =
-    graph.nodes.[docId].children
-    |> List.map (fun c -> graph.nodes.[c.id].text)
 
 let private requireOk label r =
     match r with
@@ -68,13 +70,12 @@ let ``write referenced node uses caret stable id on ref line`` () =
     let sharedId = NodeId.New()
     let parentId = NodeId.New()
     let parent =
-        Node.Create(
-            parentId,
-            text = "holder",
-            children = [ ChildNode.reference sharedId ])
+        Node.Create(parentId, text = "holder")
     let shared =
         Node.Create(sharedId, text = "hello")
-    let graph, docId = graphWithDocument [ parent; shared ]
+    let graph0, docId = graphWithDocument [ parent; shared ]
+    let graph =
+        setChildren parentId [ ChildNode.reference sharedId ] graph0
     let text =
         AmbDocument.write graph docId
         |> function
@@ -105,13 +106,12 @@ let ``write referenced named node uses caret stable id and tab before body`` () 
     let sharedId = NodeId.New()
     let parentId = NodeId.New()
     let parent =
-        Node.Create(
-            parentId,
-            text = "holder",
-            children = [ ChildNode.reference sharedId ])
+        Node.Create(parentId, text = "holder")
     let shared =
         Node.Create(sharedId, text = "body text", name = Filename.Ok "anchor")
-    let graph, docId = graphWithDocument [ parent; shared ]
+    let graph0, docId = graphWithDocument [ parent; shared ]
+    let graph =
+        setChildren parentId [ ChildNode.reference sharedId ] graph0
     let text =
         AmbDocument.write graph docId
         |> function
@@ -130,8 +130,7 @@ let ``read same-document ref resolves stable id`` () =
     let shared =
         Node.Create(sharedId, text = "shared")
     let graph, docId = graphWithDocument [ parent ]
-    let graph =
-        graph.nodes |> Map.add sharedId shared |> fun nodes -> { graph with nodes = nodes }
+    let graph = Graph.addDetachedNode shared graph
     let sid = AmbDocument.formatStableId sharedId
     let outline =
         "^" + AmbDocument.formatStableId parentId + " parent" + Environment.NewLine
@@ -142,10 +141,10 @@ let ``read same-document ref resolves stable id`` () =
         |> function
             | Ok r -> r
             | Error msg -> failwith msg
-    let parentNode = result.nodes.[parentId]
-    Assert.Equal(1, parentNode.children.Length)
-    Assert.Equal(sharedId, parentNode.children.[0].id)
-    Assert.Equal(Ownership.Ref, parentNode.children.[0].ref)
+    let parentKids = kids result.childMap parentId
+    Assert.Equal(1, parentKids.Length)
+    Assert.Equal(sharedId, parentKids.[0].id)
+    Assert.Equal(Ownership.Ref, parentKids.[0].ref)
 
 [<Fact>]
 let ``read cross-document ref resolves against context graph`` () =
@@ -156,8 +155,7 @@ let ``read cross-document ref resolves against context graph`` () =
     let external =
         Node.Create(externalId, text = "external", name = Filename.Ok "target")
     let graph, docId = graphWithDocument [ local ]
-    let graph =
-        graph.nodes |> Map.add externalId external |> fun nodes -> { graph with nodes = nodes }
+    let graph = Graph.addDetachedNode external graph
     let sid = AmbDocument.formatStableId externalId
     let outline =
         "^" + AmbDocument.formatStableId localId + " local" + Environment.NewLine
@@ -167,10 +165,10 @@ let ``read cross-document ref resolves against context graph`` () =
         |> function
             | Ok r -> r
             | Error msg -> failwith msg
-    let localNode = result.nodes.[localId]
-    Assert.Equal(1, localNode.children.Length)
-    Assert.Equal(externalId, localNode.children.[0].id)
-    Assert.Equal(Ownership.Ref, localNode.children.[0].ref)
+    let localKids = kids result.childMap localId
+    Assert.Equal(1, localKids.Length)
+    Assert.Equal(externalId, localKids.[0].id)
+    Assert.Equal(Ownership.Ref, localKids.[0].ref)
 
 [<Fact>]
 let ``read missing cross-document ref creates Broken link stub`` () =
@@ -187,8 +185,8 @@ let ``read missing cross-document ref creates Broken link stub`` () =
         |> function
             | Ok r -> r
             | Error msg -> failwith msg
-    Assert.Equal(missingId, result.nodes.[localId].children.[0].id)
-    Assert.Equal(Ownership.Ref, result.nodes.[localId].children.[0].ref)
+    Assert.Equal(missingId, (kids result.childMap localId).[0].id)
+    Assert.Equal(Ownership.Ref, (kids result.childMap localId).[0].ref)
     Assert.Equal("Broken link.", result.nodes.[missingId].text)
 
 [<Fact>]
@@ -202,7 +200,7 @@ let ``read same-document dangling ref creates Broken link stub`` () =
         |> function
             | Ok r -> r
             | Error msg -> failwith msg
-    Assert.Equal(missingId, result.nodes.[docId].children.[0].id)
+    Assert.Equal(missingId, (kids result.childMap docId).[0].id)
     Assert.Equal("Broken link.", result.nodes.[missingId].text)
 
 [<Fact>]
@@ -217,7 +215,7 @@ let ``read owner line with caret stable id`` () =
             | Ok r -> r
             | Error msg -> failwith msg
     Assert.Equal("plain body", result.nodes.[nodeId].text)
-    Assert.Equal(1, result.nodes.[docId].children.Length)
+    Assert.Equal(1, (kids result.childMap docId).Length)
 
 [<Fact>]
 let ``read caret text without stable id as plain line`` () =
@@ -228,8 +226,10 @@ let ``read caret text without stable id as plain line`` () =
         |> function
             | Ok r -> r
             | Error msg -> failwith msg
-    Assert.Equal("^ff", result.nodes.[result.nodes.[docId].children.[0].id].text)
-    Assert.Equal(1, result.nodes.[docId].children.Length)
+    Assert.Equal(
+        "^ff",
+        result.nodes.[(kids result.childMap docId).[0].id].text)
+    Assert.Equal(1, (kids result.childMap docId).Length)
 
 [<Fact>]
 let ``read ambiguous owner-link candidates keeps map order`` () =
@@ -238,17 +238,13 @@ let ``read ambiguous owner-link candidates keeps map order`` () =
     let highId = NodeId(Guid.Parse "00000000-0000-0000-0000-000000000002")
     let low = Node.Create(lowId, text = "same", owner = docId)
     let high = Node.Create(highId, text = "same", owner = docId)
-    let graph =
-        graph.nodes
-        |> Map.add highId high
-        |> Map.add lowId low
-        |> fun nodes -> { graph with nodes = nodes }
+    let graph = addDetachedMany [ high; low ] graph
 
     let result =
         AmbDocument.read ("same" + Environment.NewLine) docId graph
         |> requireOk "read"
 
-    Assert.Equal(lowId, result.nodes.[docId].children.Head.id)
+    Assert.Equal(lowId, (kids result.childMap docId).Head.id)
 
 [<Fact>]
 let ``round-trip preserves caret-prefixed plain text`` () =
@@ -266,7 +262,7 @@ let ``round-trip preserves caret-prefixed plain text`` () =
         |> function
             | Ok r -> r
             | Error msg -> failwith msg
-    Assert.Equal(nodeId, result.nodes.[docId].children.[0].id)
+    Assert.Equal(nodeId, (kids result.childMap docId).[0].id)
     Assert.Equal("^ff", result.nodes.[nodeId].text)
 
 [<Fact>]
@@ -290,23 +286,18 @@ let ``write owned nested File uses owner line not ref`` () =
             text = "already owned",
             name = Filename.Ok "present.txt",
             owner = organizerId,
-            kind = Special File,
-            children = owned [ NodeId.New() ])
-    let nodes =
-        graph0.nodes
-        |> Map.add dirId dir
-        |> Map.add organizerId organizer
-        |> Map.add fileId file
-    let graph1 = Graph.fromNodes graph0.root nodes
+            kind = Special File)
+    let graph1 =
+        addDetachedMany [ dir; organizer; file ] graph0
+        |> appendKids graph0.root [ ChildNode.owner dirId ]
     let graph2 =
-        Graph.replace Graph.rootId 0 [] (owned [ dirId ]) graph1
-        |> requireOk "place dir"
-    let graph3 =
-        Graph.replace dirId 0 [] (owned [ organizerId ]) graph2
+        Graph.replace dirId 0 [] (owned [ organizerId ]) graph1
         |> requireOk "place organizer"
-    let graph =
-        Graph.replace organizerId 0 [] (owned [ fileId ]) graph3
+    let graph3 =
+        Graph.replace organizerId 0 [] (owned [ fileId ]) graph2
         |> requireOk "place file"
+    let graph =
+        setChildren fileId (owned [ NodeId.New() ]) graph3
     let written =
         AmbDocument.write graph dirId
         |> requireOk "write"
@@ -316,12 +307,12 @@ let ``write owned nested File uses owner line not ref`` () =
     let result =
         AmbDocument.read written dirId graph
         |> requireOk "read"
-    let underOrganizer = result.nodes.[organizerId].children
+    let underOrganizer = kids result.childMap organizerId
     Assert.Equal(1, underOrganizer.Length)
     Assert.Equal(Ownership.Owner, underOrganizer.[0].ref)
     Assert.Equal(fileId, underOrganizer.[0].id)
     Assert.Equal(Special File, result.nodes.[fileId].kind)
-    Assert.Equal(0, result.nodes.[fileId].children.Length)
+    Assert.Equal(0, (kids result.childMap fileId).Length)
 
 [<Fact>]
 let ``round-trip preserves stable ids and tree shape`` () =
@@ -331,7 +322,8 @@ let ``round-trip preserves stable ids and tree shape`` () =
         Node.Create(aId, text = "alpha")
     let b =
         Node.Create(bId, text = "beta", owner = aId)
-    let graph, docId = graphWithDocument [ { a with children = owned [ bId ] }; b ]
+    let graph0, docId = graphWithDocument [ a; b ]
+    let graph = setChildren aId (owned [ bId ]) graph0
     let written =
         AmbDocument.write graph docId
         |> function
@@ -342,12 +334,14 @@ let ``round-trip preserves stable ids and tree shape`` () =
         |> function
             | Ok r -> r
             | Error msg -> failwith msg
-    Assert.Equal(aId, result.nodes.[docId].children.[0].id)
-    Assert.Equal(bId, result.nodes.[aId].children.[0].id)
+    Assert.Equal(aId, (kids result.childMap docId).[0].id)
+    Assert.Equal(bId, (kids result.childMap aId).[0].id)
     Assert.Equal("alpha", result.nodes.[aId].text)
     Assert.Equal("beta", result.nodes.[bId].text)
     let rewritten =
-        AmbDocument.write { graph with nodes = result.nodes } docId
+        AmbDocument.write
+            (withRead graph result.nodes result.childMap)
+            docId
         |> function
             | Ok s -> s
             | Error msg -> failwith msg
@@ -366,7 +360,7 @@ let ``reconcile owner text edit keeps stable id`` () =
     let result =
         AmbReconcile.reconcile OutlineLcs.diffTexts previous graph docId edited
         |> requireOk "reconcile"
-    Assert.Equal(aId, result.nodes.[docId].children.Head.id)
+    Assert.Equal(aId, (kids result.childMap docId).Head.id)
     Assert.Equal("ALPHA", result.nodes.[aId].text)
 
 [<Fact>]
@@ -381,8 +375,8 @@ let ``reconcile external tab reindent keeps owner id`` () =
     let result =
         AmbReconcile.reconcile OutlineLcs.diffTexts previous graph docId edited
         |> requireOk "reconcile"
-    Assert.Equal(aId, result.nodes.[docId].children.Head.id)
-    Assert.Equal(bId, result.nodes.[aId].children.Head.id)
+    Assert.Equal(aId, (kids result.childMap docId).Head.id)
+    Assert.Equal(bId, (kids result.childMap aId).Head.id)
     Assert.Equal("child", result.nodes.[bId].text)
 
 [<Fact>]
@@ -395,9 +389,9 @@ let ``reconcile plain line add mints new id`` () =
     let result =
         AmbReconcile.reconcile OutlineLcs.diffTexts previous graph docId edited
         |> requireOk "reconcile"
-    Assert.Equal(2, result.nodes.[docId].children.Length)
-    Assert.Equal(aId, result.nodes.[docId].children.Head.id)
-    let gammaId = result.nodes.[docId].children.[1].id
+    Assert.Equal(2, (kids result.childMap docId).Length)
+    Assert.Equal(aId, (kids result.childMap docId).Head.id)
+    let gammaId = (kids result.childMap docId).[1].id
     Assert.NotEqual(aId, gammaId)
     Assert.Equal("gamma", result.nodes.[gammaId].text)
 
@@ -413,8 +407,8 @@ let ``reconcile plain line delete drops node`` () =
     let result =
         AmbReconcile.reconcile OutlineLcs.diffTexts previous graph docId edited
         |> requireOk "reconcile"
-    Assert.Equal(1, result.nodes.[docId].children.Length)
-    Assert.Equal(aId, result.nodes.[docId].children.Head.id)
+    Assert.Equal(1, (kids result.childMap docId).Length)
+    Assert.Equal(aId, (kids result.childMap docId).Head.id)
 
 [<Fact>]
 let ``reconcile ref line stable across reorder`` () =
@@ -439,9 +433,9 @@ let ``reconcile ref line stable across reorder`` () =
     let result =
         AmbReconcile.reconcile OutlineLcs.diffTexts previous graph docId edited
         |> requireOk "reconcile"
-    let kids = result.nodes.[docId].children
-    Assert.Equal(2, kids.Length)
-    Assert.Equal(Ownership.Ref, kids.[0].ref)
-    Assert.Equal(Ownership.Ref, kids.[1].ref)
-    Assert.Equal(bId, kids.[0].id)
-    Assert.Equal(aId, kids.[1].id)
+    let docKids = kids result.childMap docId
+    Assert.Equal(2, docKids.Length)
+    Assert.Equal(Ownership.Ref, docKids.[0].ref)
+    Assert.Equal(Ownership.Ref, docKids.[1].ref)
+    Assert.Equal(bId, docKids.[0].id)
+    Assert.Equal(aId, docKids.[1].id)

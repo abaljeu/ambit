@@ -23,11 +23,12 @@ module GraphSpan =
             match Map.tryFind span.pnode graph.nodes with
             | None -> Error parentMissing
             | Some parent ->
-                if span.endd > parent.children.Length then
+                let children = GraphChildren.get graph span.pnode
+                if span.endd > children.Length then
                     Error outOfRange
                 else
                     let sliced =
-                        parent.children
+                        children
                         |> List.skip span.start
                         |> List.take (span.endd - span.start)
                     Ok(parent, sliced)
@@ -44,7 +45,7 @@ module GraphSpan =
             | None -> acc
             | Some node ->
                 let acc = Map.add nodeId node acc
-                node.children
+                GraphChildren.get graph nodeId
                 |> List.fold
                     (fun acc child ->
                         if child.ref = Ownership.Owner then
@@ -63,13 +64,23 @@ module GraphSpan =
         match trySlice graph span with
         | Error err -> Error err
         | Ok(parent, children) ->
-            let parent' = { parent with children = children }
             let nodes =
                 children
                 |> List.fold
                     (fun acc child -> addOwned graph child.id acc)
-                    (Map.add span.pnode parent' Map.empty)
-            Ok(GraphBuild.fromExtracted span.pnode nodes)
+                    (Map.add span.pnode parent Map.empty)
+            let childMap =
+                nodes
+                |> Map.fold
+                    (fun acc id _ ->
+                        if id = span.pnode then
+                            Map.add id children acc
+                        else
+                            match GraphChildren.tryGet graph id with
+                            | Some kids -> Map.add id kids acc
+                            | None -> acc)
+                    Map.empty
+            Ok(GraphBuild.fromExtracted span.pnode nodes childMap)
 
     let withLockPresent (ids: Set<NodeId>) (graph: Graph) : Graph =
         if Set.isEmpty ids then

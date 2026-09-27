@@ -19,7 +19,7 @@ module ResidentProjection =
                 ApplyResult.Unchanged state
         | Op.Replace(parentId, _, _) ->
             match Map.tryFind parentId state.graph.nodes with
-            | Some parent when parent.childrenStatus = Loaded ->
+            | Some _ when GraphChildren.isLoaded state.graph parentId ->
                 Op.apply op state
             | _ ->
                 ApplyResult.Unchanged state
@@ -50,17 +50,133 @@ module ResidentProjection =
         | Ok (s, false) -> ApplyResult.Unchanged s
         | Ok (s, true) -> ApplyResult.Changed s
 
-    /// Merge authoritative package Nodes and rebuild Loaded-only indexes.
-    let installPackages (packages: Node list) (graph: Graph) : Graph =
-        if List.isEmpty packages then
-            graph
+    /// Install Want-answer edges and pointed-at Nodes. Refuse dangling edges.
+    /// Absent `childMap` keys stay Unloaded. A present key, including `[]`,
+    /// is Loaded. Idempotent for the same package.
+    let installWantAnswer
+        (edges: Map<NodeId, ChildNode list>)
+        (nodes: Node list)
+        (graph: Graph)
+        : Result<Graph, string> =
+        let mergedNodes =
+            nodes
+            |> List.fold
+                (fun acc node -> Map.add node.id node acc)
+                graph.nodes
+        let dangling =
+            edges
+            |> Map.exists (fun _ kids ->
+                kids
+                |> List.exists (fun child ->
+                    not (Map.containsKey child.id mergedNodes)))
+        if dangling then
+            Error "dangling edge"
         else
-            let merged =
-                packages
-                |> List.fold
-                    (fun nodes node -> Map.add node.id node nodes)
-                    graph.nodes
-            Graph.fromNodes graph.root merged
+            let mergedChildMap =
+                edges
+                |> Map.fold (fun acc key kids -> Map.add key kids acc)
+                    graph.childMap
+            Ok(Graph.fromNodes graph.root mergedNodes mergedChildMap)
+
+    /// Authoritative Children and pointed-at Nodes for Browser-supplied Want ids.
+    /// Omit a parent edge when any target Header is absent.
+    let wantAnswer
+        (graph: Graph)
+        (want: NodeId list)
+        : Map<NodeId, ChildNode list> * Node list =
+        let completeEdge parentId =
+            GraphChildren.tryGet graph parentId
+            |> Option.bind (fun children ->
+                let nodes =
+                    children
+                    |> List.choose (fun child ->
+                        Map.tryFind child.id graph.nodes)
+                if List.length nodes = List.length children then
+                    Some(parentId, children, nodes)
+                else
+                    None)
+        let answers = want |> List.distinct |> List.choose completeEdge
+        let edges =
+            answers
+            |> List.map (fun (parentId, children, _) ->
+                parentId, children)
+            |> Map.ofList
+        let nodes =
+            answers
+            |> List.collect (fun (_, _, children) -> children)
+            |> List.distinctBy (_.id)
+        edges, nodes
+
+    let private reservedParentIds : NodeId list =
+        [ GraphBuild.rootId
+          GraphBuild.trashId
+          GraphBuild.workspacesId
+          GraphBuild.systemId ]
+
+    let private resolveZoom (savedZoom: NodeId option) (graph: Graph) =
+        match savedZoom with
+        | Some id when Map.containsKey id graph.nodes -> id
+        | _ -> graph.root
+
+    let private ownerAncestorIds (graph: Graph) (nodeId: NodeId) : NodeId list =
+        let rec walk acc current visited =
+            if Set.contains current visited then
+                acc
+            else
+                match Map.tryFind current graph.ownerParentByChild with
+                | None -> acc
+                | Some parent ->
+                    walk
+                        (parent :: acc)
+                        parent
+                        (Set.add current visited)
+        List.rev (walk [] nodeId Set.empty)
+
+    let private loadedParentIds (savedZoom: NodeId option) (graph: Graph) =
+        let zoom = resolveZoom savedZoom graph
+        reservedParentIds
+        @ ownerAncestorIds graph zoom
+        @ [ zoom ]
+        |> List.distinct
+        |> List.filter (fun id -> Map.containsKey id graph.nodes)
+
+    /// Visible-closure edges plus Nodes. Same package as installWantAnswer.
+    let visibleClosureWantAnswer
+        (savedZoom: NodeId option)
+        (graph: Graph)
+        : Map<NodeId, ChildNode list> * Node list =
+        let parents = loadedParentIds savedZoom graph
+        let edges =
+            parents
+            |> List.choose (fun id ->
+                GraphChildren.tryGet graph id
+                |> Option.map (fun kids -> id, kids))
+            |> Map.ofList
+        let childIds =
+            edges
+            |> Map.toList
+            |> List.collect (fun (_, kids) ->
+                kids |> List.map (fun child -> child.id))
+        let residentIds =
+            parents @ childIds
+            |> List.distinct
+            |> List.filter (fun id -> Map.containsKey id graph.nodes)
+        let nodes =
+            residentIds
+            |> List.map (fun id -> graph.nodes.[id])
+        edges, nodes
+
+    /// Visible-closure Graph beside complete-Workspace `rootBootstrapGraph`.
+    /// Missing or stale Zoom uses ROOT. Does not widen to a Workspace.
+    let visibleClosureGraph
+        (savedZoom: NodeId option)
+        (graph: Graph)
+        : Graph =
+        let edges, nodes = visibleClosureWantAnswer savedZoom graph
+        let nodeMap =
+            nodes
+            |> List.fold (fun acc node -> Map.add node.id node acc) Map.empty
+        Graph.fromNodes graph.root nodeMap edges
 
     let private isNamedWorkspaceBoundary (packageRootId: NodeId) (node: Node) : bool =
         match node.kind with
@@ -80,7 +196,7 @@ module ResidentProjection =
                     if isNamedWorkspaceBoundary packageRootId node then
                         visited'
                     else
-                        node.children
+                        GraphChildren.get graph nodeId
                         |> List.choose (fun c ->
                             if Node.childOwnership graph nodeId c = Ownership.Owner then
                                 Some c.id
@@ -97,8 +213,8 @@ module ResidentProjection =
         |> List.collect (fun id ->
             match Map.tryFind id graph.nodes with
             | None -> []
-            | Some node ->
-                node.children
+            | Some _ ->
+                GraphChildren.get graph id
                 |> List.choose (fun c ->
                     if
                         Node.childOwnership graph id c = Ownership.Ref
@@ -109,11 +225,11 @@ module ResidentProjection =
                         None))
         |> Set.ofList
 
-    /// Projected Nodes for one Workspace package root (not a full Graph).
-    let private projectWorkspaceNodes
+    /// Projected Nodes and Loaded child lists for one Workspace package root.
+    let private projectWorkspaceSlice
         (graph: Graph)
         (packageRootId: NodeId)
-        : Map<NodeId, Node> =
+        : Map<NodeId, Node> * Map<NodeId, ChildNode list> =
         let ownedIds = collectOwnedIds graph packageRootId
         let refHeaderIds = collectRefHeaderIds graph ownedIds
         let residentIds = Set.union ownedIds refHeaderIds
@@ -127,31 +243,23 @@ module ResidentProjection =
                     || isNamedWorkspaceBoundary packageRootId node
 
                 if headerOnly then
-                    Some
-                        { node with
-                            children = []
-                            childrenStatus = Unloaded }
+                    Some(node, None)
                 else
                     let children =
-                        node.children
+                        GraphChildren.get graph nodeId
                         |> List.filter (fun c -> Set.contains c.id residentIds)
-
-                    Some
-                        { node with
-                            children = children
-                            childrenStatus = Loaded }
+                    Some(node, Some children)
 
         residentIds
         |> Set.toList
-        |> List.choose (fun id ->
-            projectNode id |> Option.map (fun node -> id, node))
-        |> Map.ofList
-
-    /// Workspace subgraph as a Node list for SyncResponse.packages / LoadResponse.
-    let workspaceSubgraphNodes (graph: Graph) (workspaceId: NodeId) : Node list =
-        projectWorkspaceNodes graph workspaceId
-        |> Map.toList
-        |> List.map snd
+        |> List.fold
+            (fun (nodes, childMap) id ->
+                match projectNode id with
+                | None -> nodes, childMap
+                | Some (node, None) -> Map.add id node nodes, childMap
+                | Some (node, Some kids) ->
+                    Map.add id node nodes, Map.add id kids childMap)
+            (Map.empty, Map.empty)
 
     [<RequireQualifiedAccess>]
     type LoadRefuse =
@@ -177,40 +285,21 @@ module ResidentProjection =
         distinctOwningWorkspaces graph targetIds
         |> List.length > 1
 
-    /// Optional owning-Workspace subgraph for one Load target.
-    /// Missing target → empty (Change catch-up only).
-    let packagesForTarget
-        (graph: Graph)
-        (targetId: NodeId)
-        (includeWorkspace: bool)
-        : Node list =
-        if not includeWorkspace then
-            []
-        elif not (Map.containsKey targetId graph.nodes) then
-            []
-        else
-            match GraphQuery.enclosingWorkspace graph targetId with
-            | None -> []
-            | Some wsId -> workspaceSubgraphNodes graph wsId
-
-    /// Deduplicated packages for a full selection; refuses multi-Workspace.
-    let packagesForTargets
+    let wantAnswerForTargets
         (graph: Graph)
         (targets: LoadTarget list)
-        : Result<Node list, LoadRefuse> =
-        let targetIds = targets |> List.map (fun t -> t.targetId)
+        : Result<Map<NodeId, ChildNode list> * Node list, LoadRefuse> =
+        let targetIds = targets |> List.map (fun target -> target.targetId)
         if selectionSpansMultipleWorkspaces graph targetIds then
             Error LoadRefuse.MultiWorkspace
         else
-            let packageIds =
-                targets
-                |> List.choose (fun t ->
-                    if t.includeWorkspace then Some t.targetId else None)
-            match distinctOwningWorkspaces graph packageIds with
-            | [ wsId ] -> Ok(workspaceSubgraphNodes graph wsId)
-            | _ -> Ok []
+            targets
+            |> List.choose (fun target ->
+                if target.includeWorkspace then Some target.targetId else None)
+            |> wantAnswer graph
+            |> Ok
 
-    /// Capture LoadResponse fields at one EventId (events + optional subgraph).
+    /// Capture LoadResponse fields at one EventId.
     let captureLoadResponse
         (eventId: EventId)
         (buildEpochSec: int)
@@ -220,9 +309,9 @@ module ResidentProjection =
         (graph: Graph)
         (targets: LoadTarget list)
         : Result<LoadResponse, LoadRefuse> =
-        match packagesForTargets graph targets with
+        match wantAnswerForTargets graph targets with
         | Error refuse -> Error refuse
-        | Ok packages ->
+        | Ok (childMap, nodes) ->
             Ok
                 { eventId = eventId
                   buildEpochSec = buildEpochSec
@@ -230,12 +319,14 @@ module ResidentProjection =
                   apiVersion = ApiVersion.current
                   isReady = isReady
                   events = events
-                  packages = packages }
+                  nodes = nodes
+                  childMap = childMap }
 
     /// Scoped resident graph for fresh-session bootstrap: complete ROOT Workspace,
     /// nested named Workspace headers Unloaded, reachable Ref headers without children.
     let rootBootstrapGraph (graph: Graph) : Graph =
-        Graph.fromNodes graph.root (projectWorkspaceNodes graph graph.root)
+        let nodes, childMap = projectWorkspaceSlice graph graph.root
+        Graph.fromNodes graph.root nodes childMap
 
     let private outsideRootWorkspace (graph: Graph) (nodeId: NodeId) : bool =
         Map.containsKey nodeId graph.nodes
@@ -278,20 +369,25 @@ module ResidentProjection =
     /// Merge package nodes into an existing bootstrap graph (Loaded wins over Unloaded headers).
     let private mergePackageNodes
         (baseGraph: Graph)
-        (extra: Map<NodeId, Node>)
+        (extraNodes: Map<NodeId, Node>)
+        (extraChildMap: Map<NodeId, ChildNode list>)
         : Graph =
-        let merged =
-            extra
+        let mergedNodes, mergedChildMap =
+            extraNodes
             |> Map.fold
-                (fun nodes id node ->
-                    match Map.tryFind id nodes with
-                    | Some existing when
-                        existing.childrenStatus = Loaded
-                        && node.childrenStatus = Unloaded ->
-                        nodes
-                    | _ -> Map.add id node nodes)
-                baseGraph.nodes
-        Graph.fromNodes baseGraph.root merged
+                (fun (nodes, childMap) id node ->
+                    let existingLoaded = Map.containsKey id childMap
+                    let extraLoaded = Map.containsKey id extraChildMap
+                    if existingLoaded && not extraLoaded then
+                        nodes, childMap
+                    else
+                        let childMap' =
+                            match Map.tryFind id extraChildMap with
+                            | Some kids -> Map.add id kids childMap
+                            | None -> Map.remove id childMap
+                        Map.add id node nodes, childMap')
+                (baseGraph.nodes, baseGraph.childMap)
+        Graph.fromNodes baseGraph.root mergedNodes mergedChildMap
 
     let bootstrapGraph
         (scope: BootstrapScope)
@@ -305,12 +401,5 @@ module ResidentProjection =
             match extraZoomWorkspace graph savedZoom with
             | None -> rootScoped
             | Some wsId ->
-                mergePackageNodes rootScoped (projectWorkspaceNodes graph wsId)
-
-    let bootstrapStateResponse
-        (scope: BootstrapScope)
-        (savedZoom: NodeId option)
-        (response: StateResponse)
-        : StateResponse =
-        { response with
-            graph = bootstrapGraph scope savedZoom response.graph }
+                let extraNodes, extraChildMap = projectWorkspaceSlice graph wsId
+                mergePackageNodes rootScoped extraNodes extraChildMap

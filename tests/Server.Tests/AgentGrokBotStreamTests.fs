@@ -46,7 +46,7 @@ let private emptySecretGrok =
 type AgentGrokBotStreamTests() =
 
     [<Fact>]
-    member _.``inbound deliver chunks Finish without fake stream``() =
+    member _.``inbound deliver stays live for a second chunk``() =
         let session = ref ""
         withGrokFake
             (fun args ->
@@ -75,10 +75,40 @@ type AgentGrokBotStreamTests() =
                     match GrokBotRunner.deliver !session "" with
                     | Error err -> Assert.Fail($"done: {err}")
                     | Ok() -> ()
-                    do! expectActorSucceeded
-                            host pool request.focusId
+                    let! seenIn =
+                        waitOwnedText host request.focusId "In" 2000
+                    Assert.True(seenIn)
+                    Assert.True(
+                        Set.contains
+                            request.focusId
+                            (pool.liveFocusIds ()))
+                    let! stops =
+                        actorStopCount host request.focusId
+                    Assert.Equal(0, stops)
+                    match pool.deliver (!session, "<n>Two</n>") with
+                    | Error err -> Assert.Fail($"pool two: {err}")
+                    | Ok() -> ()
+                    match
+                        GrokBotRunner.deliver !session "<n>Two</n>"
+                    with
+                    | Error err -> Assert.Fail($"two: {err}")
+                    | Ok() -> ()
+                    let! seenTwo =
+                        waitOwnedText host request.focusId "Two" 2000
+                    Assert.True(seenTwo)
                     do! expectOwnedTexts
-                            host request.focusId [ "In" ]
+                            host request.focusId [ "In"; "Two" ]
+                    Assert.True(
+                        Set.contains
+                            request.focusId
+                            (pool.liveFocusIds ()))
+                    do! cancelFocus host request.focusId
+                    do! expectActorCancelled
+                            host pool request.focusId
+                    match pool.deliver (!session, "late") with
+                    | Error "not live" -> ()
+                    | other ->
+                        Assert.Fail($"late deliver: {other}")
                 }))
 
     [<Fact>]

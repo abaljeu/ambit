@@ -1,7 +1,7 @@
 # Selective client loading
 
 Status: ready-for-agent
-See also: [[map.md]], [[undo-spec.md]], [[issues/14-simplify-selective-loading.md]], [[doc/roadmap/on-demand-graph-residency.md]]
+See also: [[map.md]], [[undo-spec.md]], [[issues/14-simplify-selective-loading.md]], [[plan/roadmap/epics/chapters/incremental-operations.md]]
 
 ## Problem Statement
 
@@ -75,7 +75,7 @@ Treat the client graph as a resident projection of the canonical server graph. S
 - Client residency is monotonic by complete Workspace during one webpage session. Do not add eviction, re-unloading, or a configurable loading policy.
 - ROOT is a complete Workspace. Its `/state` closure is the complete ROOT Workspace and stops at nested named Workspace boundaries, whose headers are resident while their children are Unloaded. Ref headers reachable from owned ROOT nodes are included; their children are not.
 - `/state` remains `StateResponse` with a scoped `graph` at one response revision—not a Change list and not SiteMap. The map is the resident ROOT closure (nested Workspace headers Unloaded/empty; reachable Ref headers without children), plus at most one additional complete owning Workspace when a valid saved zoom target lies outside ROOT. Saved fold state does not widen `/state`.
-- Node retains its ordinary ordered child list and adds a separate `childrenStatus` with exactly `Unloaded` and `Loaded`. `Unloaded` requires an empty resident child list; source state such as Unparsed remains independent.
+- Graph stores child lists on `childMap`. An absent parent key is `Unloaded`. A present key, including an empty list, is `Loaded`. `ChildrenStatus` is derived from that lookup. Source state such as Unparsed remains independent.
 - `Node.owner` remains a plain canonical `NodeId` and is supplied for every resident header. Graph rebuild preserves that canonical owner when its owner edge or list is Unloaded rather than defaulting it to ROOT. `ownerParentByChild` includes only authoritative Owner edges from Loaded lists. ROOT self-owns. Do not add an Unknown owner state, wrapper, or sentinel.
 - Shared graph queries that do not require completeness operate on the resident projection. Only Loaded child lists contribute edges and derived indexes; rebuilding those indexes does not discard canonical owner identity.
 - Complete Workspace packages contain ordinary Node headers needed by loaded child lists, including external and Ref targets. There is no separate stub domain type.
@@ -128,6 +128,6 @@ Treat the client graph as a resident projection of the canonical server graph. S
 ## Further Notes
 
 - Revisit complete-Workspace client granularity only if loading any one Workspace takes more than 10 seconds.
-- On completion, extract the implemented client-only selective-loading baseline from [[doc/roadmap/on-demand-graph-residency.md]] into a new authoritative document under [[doc/current/]]. Leave only still-unimplemented server-residency work in the roadmap: bounded SQL loading, per-document versions, projection patches, hybrid search, and reclamation. Do not promote server-cache admission, `NeedsDocuments`, or partial-server startup as current behavior.
+- On completion, extract the implemented client-only selective-loading baseline into a new authoritative document under [[doc/current/]]. Later want-driven visible-closure work is [[plan/roadmap/epics/chapters/incremental-operations.md]]. Do not promote server-cache admission, `NeedsDocuments`, or partial-server startup as current behavior.
 - Update [[doc/index.md]] so selective client loading appears as a current baseline while later server residency remains planned. Reconcile the current sync, persistence, workspace-graph, architecture, API, and command references with the new baseline, linking to one authoritative home instead of duplicating it.
 - The roadmap currently uses `Unknown | Loaded`; this specification standardizes the client phase on `Unloaded | Loaded`. The current document and remaining roadmap must use those terms deliberately rather than presenting them as the same implemented model.

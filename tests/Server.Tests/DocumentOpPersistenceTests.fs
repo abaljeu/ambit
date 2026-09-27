@@ -31,14 +31,13 @@ let private graphWithTwoFiles () =
     let fileBId = NodeId.New()
     let bodyAId = NodeId.New()
     let bodyBId = NodeId.New()
-    let nodes =
-        graph0.nodes
-        |> Map.add wsId (specialNode wsId Workspace "home" Graph.workspacesId)
-        |> Map.add fileAId (specialNode fileAId File "a.txt" wsId)
-        |> Map.add fileBId (specialNode fileBId File "b.txt" wsId)
-        |> Map.add bodyAId (Node.Create(bodyAId, text = "alpha", owner = fileAId))
-        |> Map.add bodyBId (Node.Create(bodyBId, text = "beta", owner = fileBId))
-    let graph1 = Graph.fromNodes graph0.root nodes
+    let graph1 =
+        graph0
+        |> Graph.addDetachedNode (specialNode wsId Workspace "home" Graph.workspacesId)
+        |> Graph.addDetachedNode (specialNode fileAId File "a.txt" wsId)
+        |> Graph.addDetachedNode (specialNode fileBId File "b.txt" wsId)
+        |> Graph.addDetachedNode (Node.Create(bodyAId, text = "alpha", owner = fileAId))
+        |> Graph.addDetachedNode (Node.Create(bodyBId, text = "beta", owner = fileBId))
     let graph =
         graph1
         |> attach Graph.workspacesId [ wsId ]
@@ -48,14 +47,14 @@ let private graphWithTwoFiles () =
     graph, fileAId, fileBId, bodyAId, bodyBId
 
 let private artifactPath dataDir graph rootId =
-    DocumentPersistence.resolveArtifactPath dataDir graph rootId
+    DocumentPersistPath.resolveArtifactPath dataDir graph rootId
     |> requireOk "resolve artifact path"
 
 [<Fact>]
 let ``persistGraphOps writes only roots represented by accepted operations`` () =
     let dataDir = newTempDir ()
     let graph, fileAId, fileBId, bodyAId, bodyBId = graphWithTwoFiles ()
-    DocumentPersistence.writeAllDocuments dataDir graph
+    DocumentPersistWrite.writeAllDocuments dataDir graph
     |> requireOk "initial write"
     |> ignore
     let pathA = artifactPath dataDir graph fileAId
@@ -70,7 +69,7 @@ let ``persistGraphOps writes only roots represented by accepted operations`` () 
         |> requireOk "edit b"
     let acceptedOps = [ Op.SetText(bodyAId, "alpha", "ALPHA") ]
 
-    DocumentPersistence.persistGraphOps dataDir graph post acceptedOps
+    DocumentPersistChange.persistGraphOps dataDir graph post acceptedOps
     |> requireOk "persistGraphOps"
     |> ignore
 
@@ -93,11 +92,10 @@ let ``persistGraphOps soft-fails illicit write and returns could-not-save messag
             owner = Graph.systemId,
             kind = Special File)
     let bodyNode = Node.Create(bodyId, text = "body", owner = fileId)
-    let nodes =
-        graph0.nodes
-        |> Map.add fileId fileNode
-        |> Map.add bodyId bodyNode
-    let graph1 = Graph.fromNodes graph0.root nodes
+    let graph1 =
+        graph0
+        |> Graph.addDetachedNode fileNode
+        |> Graph.addDetachedNode bodyNode
     let graph =
         graph1
         |> attach Graph.systemId [ fileId ]
@@ -106,13 +104,13 @@ let ``persistGraphOps soft-fails illicit write and returns could-not-save messag
         Graph.setText bodyId "body" "BODY" graph
         |> requireOk "edit"
     let result =
-        DocumentPersistence.persistGraphOps
+        DocumentPersistChange.persistGraphOps
             dataDir
             graph
             post
             [ Op.SetText(bodyId, "body", "BODY") ]
         |> requireOk "persistGraphOps"
     Assert.Equal(
-        Some(DocumentPersistence.fileCouldNotSave "SYSTEM/secret.txt"),
+        Some(DocumentPersistWrite.fileCouldNotSave "SYSTEM/secret.txt"),
         result.message)
     Assert.Equal("BODY", result.graph.nodes.[bodyId].text)

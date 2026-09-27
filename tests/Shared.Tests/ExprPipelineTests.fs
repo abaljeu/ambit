@@ -1,6 +1,7 @@
 module ExprPipelineTests
 
 open Gambol.Shared
+open GraphChildMapHelpers
 open Xunit
 
 type private Fixture =
@@ -20,22 +21,10 @@ let private specialNode id kind name owner =
         kind = Special kind)
 
 let private addUnder parentId child graph =
-    let parent = graph.nodes.[parentId]
-    let nodes =
-        graph.nodes
-        |> Map.add child.id child
-        |> Map.add parentId
-            { parent with children = parent.children @ [ ChildNode.owner child.id ] }
-    Graph.fromNodes graph.root nodes
+    GraphChildMapHelpers.addUnder parentId child graph
 
 let private addRef parentId targetId graph =
-    let parent = graph.nodes.[parentId]
-    let nodes =
-        graph.nodes
-        |> Map.add parentId
-            { parent with
-                children = parent.children @ [ ChildNode.reference targetId ] }
-    Graph.fromNodes graph.root nodes
+    GraphChildMapHelpers.addRef parentId targetId graph
 
 let private build () : Fixture =
     let wsId = NodeId.New()
@@ -191,14 +180,15 @@ let ``Unloaded input: child, owned, and ref miss and do not Load`` () =
         Node.Create(
             unloadedId,
             text = "hollow",
-            owner = f.file,
-            childrenStatus = Unloaded)
-    let graph = addUnder f.file unloaded f.graph
+            owner = f.file)
+    let graph =
+        addUnder f.file unloaded f.graph
+        |> unload unloadedId
     let input = ExprAnswer.Node graph.nodes.[unloadedId]
     Assert.Equal<NodeId list>([], nodeIds (evalOk graph input "child"))
     Assert.Equal<NodeId list>([], nodeIds (evalOk graph input "owned"))
     Assert.Equal<NodeId list>([], nodeIds (evalOk graph input "ref"))
-    Assert.Equal(Unloaded, graph.nodes.[unloadedId].childrenStatus)
+    Assert.Equal(Unloaded, Graph.childrenStatus graph unloadedId)
 
 [<Fact>]
 let ``ref and owned are lowercase Name tokens; Ref and Owned are unknown`` () =

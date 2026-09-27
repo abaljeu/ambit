@@ -1,6 +1,7 @@
 module ExprTextOpsTests
 
 open Gambol.Shared
+open GraphChildMapHelpers
 open Xunit
 
 /// Graph for the spec chapter 7 text rows: `text`, `name`, `left`, `right`, `IS`.
@@ -21,13 +22,7 @@ let private specialNode id kind name owner =
         kind = Special kind)
 
 let private addUnder parentId child graph =
-    let parent = graph.nodes.[parentId]
-    let nodes =
-        graph.nodes
-        |> Map.add child.id child
-        |> Map.add parentId
-            { parent with children = parent.children @ [ ChildNode.owner child.id ] }
-    Graph.fromNodes graph.root nodes
+    GraphChildMapHelpers.addUnder parentId child graph
 
 let private build () : Fixture =
     let wsId, fileId, rapidId = NodeId.New(), NodeId.New(), NodeId.New()

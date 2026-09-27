@@ -89,6 +89,48 @@ let ``mint deliver enqueue drop then deliver fails`` () =
         CoreMailbox.dispose host
 
 [<Fact>]
+let ``empty deliver keeps session live for a later chunk`` () =
+    let session = ref ""
+    let dataDir = newTempDir ()
+    let pool = CoreActorPool.create ()
+    pool.register (ActorName "root") (hangActor session)
+    let host =
+        CoreMailbox.host
+            pool
+            (FileAgent.persist (FileAgent.create dataDir))
+            admittedCredentials
+    try
+        let started =
+            CoreMailbox.startActor
+                host
+                testCaller
+                { zoomId = Graph.rootId
+                  focusId = Graph.rootId
+                  commandId = Graph.rootId
+                  graphIds = [ Graph.rootId ]
+                  eventId = EventId.zero }
+            |> Async.RunSynchronously
+        requireOk "start" started
+        let deadline = DateTime.UtcNow.AddSeconds 2.0
+        while !session = "" && DateTime.UtcNow < deadline do
+            Thread.Sleep 10
+        Assert.False(String.IsNullOrEmpty !session)
+        requireOk "empty" (pool.deliver (!session, ""))
+        requireOk "later" (pool.deliver (!session, "later"))
+        match pool.takeInbox !session with
+        | Ok texts ->
+            Assert.Equal<string list>([ ""; "later" ], texts)
+        | Error err -> Assert.Fail($"inbox: {err}")
+        match pool.trySecretForFocus Graph.rootId with
+        | None -> Assert.Fail("missing live secret")
+        | Some secret -> pool.drop secret
+        match pool.deliver (!session, "late") with
+        | Error "not live" -> ()
+        | other -> Assert.Fail($"drop deliver: {other}")
+    finally
+        CoreMailbox.dispose host
+
+[<Fact>]
 let ``second start on the same commandId is rejected`` () =
     withPool (fun host pool -> task {
         let childId = NodeId.New()

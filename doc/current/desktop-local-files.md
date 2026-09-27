@@ -1,11 +1,11 @@
 # Desktop local files
 
 Category: Desktop
-See also: [[doc/current/workspace-local-mapping.md]], [[doc/current/workspace-graph.md]], [[doc/arch.md]], [[doc/roadmap/workspace-file-sync]]
+See also: [[doc/current/workspace-local-mapping.md]], [[doc/current/workspace-graph.md]], [[doc/current/workspace-file-sync.md]], [[doc/arch.md]], [[plan/transport-layer/project.md]]
 
 Implemented baseline for the Gambol desktop host: WPF WebView2 + local HTTP proxy in front of the cloud API. The cloud server remains authoritative for the graph; the desktop adds loopback-only filesystem access.
 
-Tree sync (Upload / Download over WebDAV, with ensure-map) is [[doc/roadmap/workspace-file-sync]] — not client remotes.
+Tree sync (Upload / Download over WebDAV, with ensure-map) is [[doc/current/workspace-file-sync.md]]. Server DAV leftover: [[doc/roadmap/workspace-webdav.md]]. Forward file-channel redesign: [[plan/transport-layer/project.md]].
 
 ## Architecture
 
@@ -55,7 +55,11 @@ Web client (no desktop host): capabilities request fails; all flags treated as d
 | `PUT` | `/_desktop/workspace-mappings` | Upsert `{label,path}` or replace full `workspaceMappings` array; persists config |
 | `POST` | `/_desktop/pick-folder` | Native folder browse; `{cancelled,path}` |
 | `POST` | `/_desktop/workspace-push` | Scoped Upload (WebDAV) for mapped label |
-| `POST` | `/_desktop/workspace-pull` | Scoped Download (WebDAV) for mapped label |
+| `POST` | `/_desktop/workspace-pull` | Blocking scoped pull (WebDAV) for mapped label |
+| `POST` | `/_desktop/workspace-download` | Enqueue Download manager job |
+| `GET` | `/_desktop/workspace-download?id=…` | Download job status |
+| `POST` | `/_desktop/workspace-inventory` | Local scoped inventory |
+| `POST` | `/_desktop/workspace-sync-ledger` | Ledger rows for a mapped label |
 
 Legacy `/_desktop/import` and `/_desktop/export` are removed; clients use `/_desktop/file`. `/_desktop/detect-git` is removed (unused).
 
@@ -98,8 +102,8 @@ Registered in the command palette (`src/Client/Commands.fs`):
 
 - **Import** — reads local file at the focus row's first file reference; replaces that node's children (via `UpdateImport.fs`, `GET /_desktop/file`).
 - **Export** — serializes owned children of the focus row to the local file at its file reference (via `UpdateExport.fs`, `POST /_desktop/file`).
-- **Upload** (`Ctrl+Shift+>`) — ensure-map (pick-folder + mapping Put when needed) then scoped WebDAV push; Workspaces focus creates a named workspace from the folder basename; File focus then Parses. Requires `git.git` capability for ignore filtering only ([[doc/roadmap/workspace-file-sync]]).
-- **Download** (`Ctrl+Shift+<`) — ensure-map then scoped WebDAV pull for named Workspace / Directory / File.
+- **Upload** (`Ctrl+Shift+>`) — ensure-map (pick-folder + mapping Put when needed) then scoped WebDAV push; Workspaces focus creates a named workspace from the folder basename; File focus then Parses. Requires `git.git` capability for ignore filtering only ([[doc/current/workspace-file-sync.md]]).
+- **Download** (`Ctrl+Shift+<`) — ensure-map then enqueue `workspace-download` for named Workspace / Directory / File.
 
 Results surface in `#cmd-last-result`. Standalone Map / Connect / Clone / pack Push / Status commands are removed.
 

@@ -1,6 +1,6 @@
 # Multi-Client Sync – MVP (implemented baseline)
 
-Current baseline used by the running server/client. See the **Implemented API** section in [[doc/api.md]] for endpoint and JSON details. This document describes sync semantics; it can evolve toward the **Target API** in [[doc/api.md]] later. Target document-scoped bootstrap, per-document base versions, and projection patches: [[on-demand-graph-residency]] (not current behavior).
+Current baseline used by the running server/client. See the **Implemented API** section in [[doc/api.md]] for endpoint and JSON details. This document describes sync semantics; it can evolve toward the **Target API** in [[doc/api.md]] later. Want-driven Graph→Browser residency is planned on [[plan/roadmap/epics/chapters/incremental-operations.md]] (not current behavior).
 
 ## Principle
 

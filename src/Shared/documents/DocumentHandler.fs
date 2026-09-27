@@ -22,6 +22,7 @@ type SpanNode = {
 type DocumentNodesRead = {
     documentRootId: NodeId
     nodes: Map<NodeId, Node>
+    childMap: Map<NodeId, ChildNode list>
 }
 
 /// Per-format codec face used by DocumentFormat dispatch.

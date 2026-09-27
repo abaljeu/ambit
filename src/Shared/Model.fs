@@ -72,7 +72,7 @@ type DocumentState =
     | Unparsed
     | NoServerFile
 
-/// Whether `Node.children` is an authoritative Loaded list or Unloaded (must be empty).
+/// Derived from `Graph.childMap`: absent key = Unloaded; present key = Loaded.
 type ChildrenStatus =
     | Unloaded
     | Loaded
@@ -81,8 +81,6 @@ type Node =
     { id         : NodeId
       text       : string
       name       : Filename
-      children   : ChildNode list
-      childrenStatus : ChildrenStatus
       cssClasses : CssClasses
       owner      : NodeId
       kind       : NodeKind
@@ -124,17 +122,14 @@ module NodeUpdateTime =
 
 
 type Node with
-    /// Build a node; omit fields to use defaults (empty text/name/children/classes,
-    /// childrenStatus = Loaded, owner = root Guid.Empty, kind = Normal,
-    /// updateTime = missing, lockPresent = false).
-    /// Unloaded is valid only when children is empty.
+    /// Build a node; omit fields to use defaults (empty text/name/classes,
+    /// owner = root Guid.Empty, kind = Normal, updateTime = missing,
+    /// lockPresent = false). Child lists live on `Graph.childMap`.
     static member Create
         (
             id: NodeId,
             ?text: string,
             ?name: Filename,
-            ?children: ChildNode list,
-            ?childrenStatus: ChildrenStatus,
             ?cssClasses: CssClasses,
             ?owner: NodeId,
             ?kind: NodeKind,
@@ -142,23 +137,15 @@ type Node with
             ?updateTime: DateTime,
             ?lockPresent: bool
         ) : Node =
-        let children' = defaultArg children []
-        let childrenStatus' = defaultArg childrenStatus Loaded
-        match childrenStatus', children' with
-        | Unloaded, _ :: _ ->
-            invalidArg "childrenStatus" "Unloaded childrenStatus requires empty children"
-        | _ ->
-            { id = id
-              text = defaultArg text ""
-              name = defaultArg name Filename.Empty
-              children = children'
-              childrenStatus = childrenStatus'
-              cssClasses = defaultArg cssClasses CssClass.empty
-              owner = defaultArg owner (NodeId Guid.Empty)
-              kind = defaultArg kind Normal
-              documentState = defaultArg documentState Current
-              updateTime = defaultArg updateTime NodeUpdateTime.missing
-              lockPresent = defaultArg lockPresent false }
+        { id = id
+          text = defaultArg text ""
+          name = defaultArg name Filename.Empty
+          cssClasses = defaultArg cssClasses CssClass.empty
+          owner = defaultArg owner (NodeId Guid.Empty)
+          kind = defaultArg kind Normal
+          documentState = defaultArg documentState Current
+          updateTime = defaultArg updateTime NodeUpdateTime.missing
+          lockPresent = defaultArg lockPresent false }
 
 
 // Span of child indices [start, endd) under graph node `pnode` (parent NodeId).
@@ -176,12 +163,30 @@ type NodeSearchResult =
 type Graph =
     { root: NodeId
       nodes: Map<NodeId, Node>
+      /// Parent id -> authoritative child list. Absent key = Unloaded.
+      /// Present key (including []) = Loaded.
+      childMap: Map<NodeId, ChildNode list>
       /// Child id -> structural parent and index (min parent NodeId wins when shared).
       parentByChild: Map<NodeId, NodeId * int>
       /// Child id -> graph parent along the single Ownership.Owner edge.
       ownerParentByChild: Map<NodeId, NodeId>
       /// Ephemeral extract-pack Focus. JSON and History omit this field.
       focus: NodeId option }
+
+/// Child-list lookup. Absent `childMap` key = Unloaded (not an empty leaf).
+[<RequireQualifiedAccess>]
+module GraphChildren =
+    let tryGet (graph: Graph) (id: NodeId) : ChildNode list option =
+        Map.tryFind id graph.childMap
+
+    let get (graph: Graph) (id: NodeId) : ChildNode list =
+        Map.tryFind id graph.childMap |> Option.defaultValue []
+
+    let isLoaded (graph: Graph) (id: NodeId) : bool =
+        Map.containsKey id graph.childMap
+
+    let status (graph: Graph) (id: NodeId) : ChildrenStatus =
+        if Map.containsKey id graph.childMap then Loaded else Unloaded
 
 /// Carries a fixed `Graph` and current `NodeId`; steps compose like `SiteNav`.
 type NodeNav = NodeNav of Graph * NodeId option
@@ -213,35 +218,30 @@ module Node =
         step (fun graph id ->
             id
             |> Option.bind (fun nid ->
-                Map.tryFind nid graph.nodes
-                |> Option.bind (fun node ->
-                    node.children |> List.tryHead |> Option.map (fun c -> c.id))))
+                GraphChildren.get graph nid
+                |> List.tryHead
+                |> Option.map (fun c -> c.id)))
 
     let lastChild =
         step (fun graph id ->
             id
             |> Option.bind (fun nid ->
-                Map.tryFind nid graph.nodes
-                |> Option.bind (fun node ->
-                    let n = List.length node.children
-                    if n = 0 then
-                        None
-                    else
-                        List.tryItem (n - 1) node.children
-                        |> Option.map (fun c -> c.id))))
+                GraphChildren.get graph nid
+                |> List.tryLast
+                |> Option.map (fun c -> c.id)))
 
     let childNth (n: int) =
         step (fun graph id ->
             id
-            |> Option.bind (fun nid -> Map.tryFind nid graph.nodes)
-            |> Option.bind (fun (node: Node) ->
-                List.tryItem n node.children |> Option.map (fun c -> c.id)))
+            |> Option.bind (fun nid ->
+                GraphChildren.get graph nid
+                |> List.tryItem n
+                |> Option.map (fun c -> c.id)))
 
     let childIds (NodeNav(graph, id)) : NodeId list =
         id
-        |> Option.bind (fun nid -> Map.tryFind nid graph.nodes)
-        |> Option.map (fun (node: Node) ->
-            node.children |> List.map (fun c -> c.id))
+        |> Option.map (fun nid ->
+            GraphChildren.get graph nid |> List.map (fun c -> c.id))
         |> Option.defaultValue []
 
     /// Index of the current id's Owned appearance among the Owned parent's Children.
@@ -249,11 +249,9 @@ module Node =
         let (NodeNav (graph, id)) = nav
         match nav |> owner |> current, id with
         | Some pid, Some cid ->
-            Map.tryFind pid graph.nodes
-            |> Option.bind (fun (parent: Node) ->
-                parent.children
-                |> List.tryFindIndex (fun c ->
-                    c.id = cid && c.ref = Ownership.Owner))
+            GraphChildren.get graph pid
+            |> List.tryFindIndex (fun c ->
+                c.id = cid && c.ref = Ownership.Owner)
         | _ -> None
 
     let siblingNth (n: int) (nav: NodeNav) : NodeNav =

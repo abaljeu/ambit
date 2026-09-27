@@ -52,7 +52,7 @@ module AiExtractPack =
                     []
                 else
                     let path' = Set.add nodeId path
-                    node.children
+                    Graph.children graph nodeId
                     |> List.choose (fun child ->
                         writePresent graph path' child.id)
             let parts =

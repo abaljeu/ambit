@@ -209,7 +209,7 @@ module DbAgent =
             match liveSaveDataDir with
             | Some dataDir ->
                 match
-                    DocumentPersistence.persistGraphChange
+                    DocumentPersistChange.persistGraphChange
                         dataDir preGraph postGraph
                 with
                 | Error err ->
@@ -246,9 +246,9 @@ module DbAgent =
         | true, _ -> Ok ()
         | false, None -> Ok ()
         | false, Some dataDir ->
-            DocumentPersistence.validatePathMoves dataDir preGraph postGraph
+            DocumentPersistChange.validatePathMoves dataDir preGraph postGraph
             |> Result.bind (fun () ->
-                DocumentPersistence.validateGraphDiskEffects
+                DocumentPersistChange.validateGraphDiskEffects
                     dataDir
                     preGraph
                     postGraph)
@@ -260,14 +260,11 @@ module DbAgent =
                 fresh
                 |> List.collect (fun event ->
                     Ev.ops event |> Option.defaultValue [])
-            CoreMailboxBackend.runBounded
-                CoreMailboxBackend.ChangeProcessingTimeoutMs
-                (fun () ->
-                    loaded.persistGraphOps
-                        dataDir
-                        preGraph
-                        newState.graph
-                        ops)
+            loaded.persistGraphOps
+                dataDir
+                preGraph
+                newState.graph
+                ops
             |> Result.map Some
         | _ -> Ok None
 
@@ -533,7 +530,7 @@ module DbAgent =
             initialState
             connectionString
             liveSaveDataDir
-            DocumentPersistence.persistGraphOps
+            DocumentPersistChange.persistGraphOps
             (liveStartupSweep connectionString)
 
     let private wrapFakeSweep
@@ -554,7 +551,7 @@ module DbAgent =
             initialState
             ""
             None
-            DocumentPersistence.persistGraphOps
+            DocumentPersistChange.persistGraphOps
             (wrapFakeSweep runStartupSweep)
 
     /// Test-only seam: injects a stand-in for the live-persist step (and an optional

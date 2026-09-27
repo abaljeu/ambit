@@ -135,7 +135,8 @@ module Layout =
         : HTMLElement * HTMLElement * HTMLElement * bool * RowChildrenIndicator =
         let nodeId = siteEntry.nodeId
         let node = model.graph.nodes.[nodeId]
-        let childrenIndicator = ViewModel.rowChildrenIndicator node
+        let childrenIndicator =
+            ViewModel.rowChildrenIndicator model.graph node
         let hasChildren = childrenIndicator = RowChildrenIndicator.FoldChevron
         let row = document.createElement "div"
         row.classList.add "amb-row"

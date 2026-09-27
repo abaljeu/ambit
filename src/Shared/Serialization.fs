@@ -113,62 +113,101 @@ module Serialization =
             [ "id", encodeNodeId node.id
               "text", Encode.string node.text
               "name", Encode.lossyOption Encode.string (Filename.tryValue node.name)
-              "children", node.children |> List.map encodeChildNode |> Encode.list
-              "childrenStatus", encodeChildrenStatus node.childrenStatus
               "cssClasses", node.cssClasses |> CssClass.toList |> List.map Encode.string |> Encode.list
               "kind", encodeNodeKind node.kind
               "documentState", encodeDocumentState node.documentState
               "updateTime", Encode.int64 node.updateTime.Ticks ]
 
+    let private nodeFromFields
+        (get: Decode.IGetters)
+        : Node =
+        let kind =
+            get.Optional.Field "kind" decodeNodeKind
+            |> Option.defaultValue Normal
+        let name =
+            get.Optional.Field "name" Decode.string
+            |> Option.map Filename.create
+            |> Option.defaultValue Filename.Empty
+        let cssClasses =
+            get.Optional.Field "cssClasses" (Decode.list Decode.string)
+            |> Option.defaultValue []
+            |> CssClass.ofList
+        let updateTime =
+            get.Optional.Field "updateTime" Decode.int64
+            |> Option.map (fun ticks -> DateTime(ticks, DateTimeKind.Utc))
+            |> Option.defaultValue NodeUpdateTime.missing
+        let documentState =
+            get.Optional.Field "documentState" decodeDocumentState
+            |> Option.defaultValue Current
+        Node.Create(
+            get.Required.Field "id" decodeNodeId,
+            text = get.Required.Field "text" Decode.string,
+            name = name,
+            cssClasses = cssClasses,
+            kind = kind,
+            documentState = documentState,
+            updateTime = updateTime)
+
     let decodeNode: Decoder<Node> =
+        Decode.object nodeFromFields
+
+    type private NodeWire =
+        { node: Node
+          children: ChildNode list
+          childrenStatus: ChildrenStatus }
+
+    let private decodeNodeWire: Decoder<NodeWire> =
         Decode.object (fun get ->
-            let kind =
-                get.Optional.Field "kind" decodeNodeKind
-                |> Option.defaultValue Normal
-            let name =
-                get.Optional.Field "name" Decode.string
-                |> Option.map Filename.create
-                |> Option.defaultValue Filename.Empty
-            let cssClasses =
-                get.Optional.Field "cssClasses" (Decode.list Decode.string)
+            let children =
+                get.Optional.Field "children" (Decode.list decodeChildNode)
                 |> Option.defaultValue []
-                |> CssClass.ofList
-            let updateTime =
-                get.Optional.Field "updateTime" Decode.int64
-                |> Option.map (fun ticks -> DateTime(ticks, DateTimeKind.Utc))
-                |> Option.defaultValue NodeUpdateTime.missing
-            let documentState =
-                get.Optional.Field "documentState" decodeDocumentState
-                |> Option.defaultValue Current
-            let children = get.Required.Field "children" (Decode.list decodeChildNode)
             let childrenStatus =
                 get.Optional.Field "childrenStatus" decodeChildrenStatus
                 |> Option.defaultValue Loaded
-            get.Required.Field "id" decodeNodeId,
-            get.Required.Field "text" Decode.string,
-            name,
-            children,
-            childrenStatus,
-            cssClasses,
-            kind,
-            documentState,
-            updateTime)
-        |> Decode.andThen (fun (id, text, name, children, childrenStatus, cssClasses, kind, documentState, updateTime) ->
-            match childrenStatus, children with
+            { node = nodeFromFields get
+              children = children
+              childrenStatus = childrenStatus })
+        |> Decode.andThen (fun wire ->
+            match wire.childrenStatus, wire.children with
             | Unloaded, _ :: _ ->
                 Decode.fail "Unloaded childrenStatus requires empty children"
-            | _ ->
-                Decode.succeed (
-                    Node.Create(
-                        id,
-                        text = text,
-                        name = name,
-                        children = children,
-                        childrenStatus = childrenStatus,
-                        cssClasses = cssClasses,
-                        kind = kind,
-                        documentState = documentState,
-                        updateTime = updateTime)))
+            | _ -> Decode.succeed wire)
+
+    let encodeChildMap
+        (childMap: Map<NodeId, ChildNode list>)
+        : IEncodable =
+        childMap
+        |> Map.toList
+        |> List.map (fun (parentId, children) ->
+            Encode.object
+                [ "parent", encodeNodeId parentId
+                  "children",
+                    children |> List.map encodeChildNode |> Encode.list ])
+        |> Encode.list
+
+    let decodeChildMap: Decoder<Map<NodeId, ChildNode list>> =
+        Decode.list (
+            Decode.object (fun get ->
+                get.Required.Field "parent" decodeNodeId,
+                get.Required.Field "children" (Decode.list decodeChildNode)))
+        |> Decode.map Map.ofList
+
+    let private childMapFromWires
+        (wires: NodeWire seq)
+        : Map<NodeId, ChildNode list> =
+        wires
+        |> Seq.choose (fun wire ->
+            match wire.childrenStatus with
+            | Unloaded -> None
+            | Loaded -> Some(wire.node.id, wire.children))
+        |> Map.ofSeq
+
+    /// Old package array: children/childrenStatus embedded on each node.
+    let decodeLegacyPackageNodes
+        : Decoder<Node list * Map<NodeId, ChildNode list>> =
+        Decode.list decodeNodeWire
+        |> Decode.map (fun wires ->
+            wires |> List.map (fun w -> w.node), childMapFromWires wires)
 
     // ---- Graph ----
 
@@ -178,18 +217,20 @@ module Serialization =
 
         Encode.object
             [ "root", encodeNodeId graph.root
-              "nodes", Encode.list nodeList ]
+              "nodes", Encode.list nodeList
+              "childMap", encodeChildMap graph.childMap ]
 
     let private graphFromDecodedNodes
         (root: NodeId)
         (nodes: Map<NodeId, Node>)
+        (childMap: Map<NodeId, ChildNode list>)
         : Decoder<Graph> =
         if root <> Graph.rootId then
             Decode.fail "graph root id must be canonical"
         elif not (Map.containsKey Graph.rootId nodes) then
             Decode.fail "graph missing canonical root node"
         else
-            let g = Graph.fromNodes root nodes
+            let g = Graph.fromNodes root nodes childMap
             let n = g.nodes.[Graph.rootId]
             if n.id <> Graph.rootId || n.text <> "ROOT"
                || n.name <> Filename.Empty
@@ -201,14 +242,22 @@ module Serialization =
     let decodeGraph: Decoder<Graph> =
         Decode.object (fun get ->
             let root = get.Required.Field "root" decodeNodeId
-            let nodeArray =
-                get.Required.Field "nodes" (Decode.resizeArray decodeNode)
-            root, nodeArray)
-        |> Decode.andThen (fun (root, nodeArray) ->
-            nodeArray
-            |> Seq.map (fun n -> n.id, n)
-            |> Map.ofSeq
-            |> graphFromDecodedNodes root)
+            let childMapOpt = get.Optional.Field "childMap" decodeChildMap
+            match childMapOpt with
+            | Some childMap ->
+                let nodes =
+                    get.Required.Field "nodes" (Decode.resizeArray decodeNode)
+                    |> Seq.map (fun n -> n.id, n)
+                    |> Map.ofSeq
+                root, nodes, childMap
+            | None ->
+                let wires =
+                    get.Required.Field "nodes" (Decode.resizeArray decodeNodeWire)
+                let nodes =
+                    wires |> Seq.map (fun w -> w.node.id, w.node) |> Map.ofSeq
+                root, nodes, childMapFromWires wires)
+        |> Decode.andThen (fun (root, nodes, childMap) ->
+            graphFromDecodedNodes root nodes childMap)
 
     // ---- Op ----
 

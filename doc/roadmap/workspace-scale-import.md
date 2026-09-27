@@ -1,12 +1,12 @@
 # Workspace Scale Import
 
-See also: [[doc/roadmap/workspace-scale-file-and-db-management.md]], [[workspace-file-sync]], [[doc/roadmap/workspace-format-amb.md]], [[doc/roadmap/workspace-format-md.md]], [[doc/roadmap/workspace-format-plain.md]], [[doc/roadmap/workspace-format-code.md]], [[on-demand-graph-residency]]
+See also: [[doc/roadmap/workspace-scale-file-and-db-management.md]], [[plan/transport-layer/project.md]], [[doc/roadmap/workspace-format-amb.md]], [[doc/roadmap/workspace-format-md.md]], [[doc/roadmap/workspace-format-plain.md]], [[doc/roadmap/workspace-format-code.md]], [[plan/roadmap/epics/chapters/incremental-operations.md]]
 
-Worksets: **disk-to-graph stub reconciliation**, **expand-to-parse and freshness UI**, and **workspace file sync**. Transport direction: [[workspace-file-sync]]; canonical Lazy Load project: [[lazy-load]].
+Worksets: **disk-to-graph stub reconciliation**, **expand-to-parse and freshness UI**, and **workspace file sync**. Transport direction: [[plan/transport-layer/project.md]]; canonical Lazy Load project: [[lazy-load]].
 
 ## Repo file-tree browsing + on-demand parse/edit for individual files
 
-Not full repo-scale querying, not advanced freshness reconciliation, and not multi-client graph merge. Coarse tree sync uses last-write-wins WebDAV in scope ([[workspace-file-sync]]); live graph editing stays on HTTP change batches.
+Not full repo-scale querying, not advanced freshness reconciliation, and not multi-client graph merge. Coarse tree sync uses last-write-wins WebDAV in scope ([[plan/transport-layer/project.md]]); live graph editing stays on HTTP change batches.
 
 ## What it gives you
 
@@ -30,15 +30,15 @@ That already delivers the core promise:
 Defer:
 
 - full content indexing,
-- repo-wide graph queries ([[on-demand-graph-residency]]),
+- repo-wide graph queries ([[plan/roadmap/epics/chapters/incremental-operations.md]]),
 - advanced freshness/reparse handling,
 - annotation migration,
-- client LRU ([[on-demand-graph-residency]]),
-- partial hydration ([[on-demand-graph-residency]]),
+- client LRU ([[plan/roadmap/epics/chapters/incremental-operations.md]]),
+- partial hydration ([[plan/roadmap/epics/chapters/incremental-operations.md]]),
 - multi-client graph merge (out of scope),
 - mirror-delete / conflict UI on file sync,
 - git object model in the outline,
-- server-wide memory management beyond not parsing everything ([[on-demand-graph-residency]]).
+- server-wide memory management beyond not parsing everything ([[plan/roadmap/epics/chapters/incremental-operations.md]]).
 
 ## Minimal state model
 
@@ -166,7 +166,7 @@ That is a useful product even before repo-wide search or advanced sync exists.
 
 ## Workspace file sync to desktop
 
-See [[workspace-file-sync]] for WebDAV Class 1, server finish-commit, and `git check-ignore` for `.gitignore`.
+See [[workspace-webdav]] for WebDAV Class 1, server finish-commit, and `git check-ignore` for `.gitignore`. File-channel home: [[plan/transport-layer/project.md]].
 
 ## What file sync adds
 

@@ -2,7 +2,7 @@
 
 Category: PKM navigation
 Status: Planned — design drafted; no implementation started
-See also: [[plan/graph-view/graph-view-draft-proposal.md]], [[doc/current/workspace-graph.md]], [[on-demand-graph-residency]], [[plan/selective-client-loading/project.md]], [[doc/arch.md]]
+See also: [[plan/graph-view/graph-view-draft-proposal.md]], [[doc/current/workspace-graph.md]], [[plan/roadmap/epics/chapters/incremental-operations.md]], [[plan/selective-client-loading/project.md]], [[doc/arch.md]]
 
 An alternate navigation surface beside the outline SiteMap: a **focus-centric radial tree** of Owned children with **Ref edges** as a secondary overlay. Tree layout is authoritative; Ref edges do not move Nodes. Design detail lives in [[plan/graph-view/graph-view-draft-proposal.md]].
 
@@ -50,7 +50,7 @@ Record answers in [[plan/graph-view/graph-view-draft-proposal.md]] or a follow-o
 3. **Inbound and ancestor context** — after decision 1, add inner-ring or hull portals for inbound Ref edges and optional shallow ancestor radial.
 4. **Satellite radials** — after decision 3, spawn scaled-down radials for expanded portal clusters with inter-radial connectors (Pattern A).
 5. **Mosaic comparison** — optional Pattern B tiles for pinned focuses; defer until A/C are stable.
-6. **Scale integration** — align portal/load behavior with [[on-demand-graph-residency]] and selective loading so off-document targets never imply false emptiness.
+6. **Scale integration** — align portal/load behavior with [[plan/roadmap/epics/chapters/incremental-operations.md]] and selective loading so off-document targets never imply false emptiness.
 
 ## Tests
 

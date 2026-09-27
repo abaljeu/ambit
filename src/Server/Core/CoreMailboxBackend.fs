@@ -12,16 +12,13 @@ module internal CoreMailboxBackend =
     module Ev = Gambol.Shared.Ev
     module EventLog = Gambol.Shared.EventLog
 
-    /// Bound on wall-clock time for a single change's persist step (disk write via
-    /// DocumentWarm/CStyleReconcile). That reconcile path is a known-slow/hanging
-    /// algorithm; this timeout exists to keep the mailbox context responsive, not to fix it.
+    /// Bound for non-file change work that may keep the mailbox context busy.
+    /// Never wrap work-tree-gated file Persist: timeout abandonment would leave a late writer.
     [<Literal>]
     let ChangeProcessingTimeoutMs = 8000
 
-    /// Runs a synchronous computation on a background Task, bounding wall-clock time so
-    /// a pathologically slow computation can never wedge the caller's mailbox context. If the
-    /// timeout elapses, the background Task is abandoned (fire-and-forget): it may still run
-    /// to completion later and write to disk concurrently with subsequently accepted changes.
+    /// Runs a synchronous computation on a background Task, bounding wall-clock time. If the
+    /// timeout elapses, the background Task is abandoned and may still complete later.
     /// Uses WaitAny (not Wait/Result) because WaitAny reports timeout vs settled without
     /// itself throwing on a faulted task; GetAwaiter().GetResult() then rethrows `f`'s
     /// original exception unwrapped (as if called synchronously), so the caller's existing
@@ -79,6 +76,10 @@ module internal CoreMailboxBackend =
             "PostGraphOnly", $"ops={n}"
         | SnapshotDone _ -> "SnapshotDone", ""
         | StartActor _ -> "StartActor", ""
+        | StartPeerActor (_, PeerActorName name, _, _) ->
+            "StartPeerActor", name
+        | StartLoadSaveCommand (_, path, PeerActorName name, _, _) ->
+            "StartLoadSaveCommand", $"{path}:{name}"
         | ActorStop (_, result, _) ->
             match result with
             | ActorSucceeded -> "ActorStop", "ActorSucceeded"
@@ -100,6 +101,9 @@ module internal CoreMailboxBackend =
         | PostGraphOnly (_, _, reply) -> reply.Reply(Error error)
         | SnapshotDone _ -> ()
         | StartActor (_, _, reply) -> reply.Reply(Error error)
+        | StartPeerActor (_, _, _, reply) -> reply.Reply(Error error)
+        | StartLoadSaveCommand (_, _, _, _, reply) ->
+            reply.Reply(Error error)
         | ActorStop (_, _, reply) -> reply.Reply(Error error)
         | CancelActor (_, _, reply) -> reply.Reply(Error error)
         | Login (_, reply) -> reply.Reply(Error error)
@@ -152,11 +156,12 @@ module internal CoreMailboxBackend =
           persist = context.persist
           eventLog = context.eventLog }
 
-    let private dispatchStartActor
+    let private dispatchActorStartResult
         (context: MailboxContext)
         (caller: Caller)
         (request: Gambol.Shared.ActorStart)
         (reply: AsyncReplyChannel<Result<unit, string>>)
+        start
         : unit =
         match admitCaller context caller with
         | Error err -> reply.Reply(Error err)
@@ -168,9 +173,10 @@ module internal CoreMailboxBackend =
                     match context.persist.getState () with
                     | Ok state -> state.graph
                     | Error _ -> Graph.create ()
-                match context.pool.startActor request getState with
+                match start request getState with
                 | Error err -> reply.Reply(Error err)
-                | Ok secret ->
+                | Ok None -> reply.Reply(Ok ())
+                | Ok(Some secret) ->
                     match
                         CoreEventDispatch.actorStart
                             (eventDispatchContext context)
@@ -183,6 +189,48 @@ module internal CoreMailboxBackend =
                     | Ok () ->
                         context.pool.schedule secret (make caller)
                         reply.Reply(Ok ())
+
+    let private dispatchStartActor context caller request reply =
+        dispatchActorStartResult
+            context
+            caller
+            request
+            reply
+            (fun start getState ->
+                context.pool.startActor start getState
+                |> Result.map Some)
+
+    let private dispatchStartPeerActor
+        context caller peerName request reply =
+        dispatchActorStartResult
+            context
+            caller
+            request
+            reply
+            (fun start getState ->
+                context.pool.startPeerActor peerName start getState
+                |> Result.map Some)
+
+    let private dispatchStartLoadSaveCommand
+        context
+        caller
+        path
+        peerName
+        (request: LoadSaveCommandRequest)
+        reply
+        =
+        dispatchActorStartResult
+            context
+            caller
+            request.start
+            reply
+            (fun _ getState ->
+                CoreActorPool.startLoadSaveCommand
+                    context.pool
+                    path
+                    peerName
+                    request
+                    getState)
 
     let private dispatchActorStop
         (context: MailboxContext)
@@ -291,6 +339,12 @@ module internal CoreMailboxBackend =
         | SnapshotDone graph -> context.persist.snapshotDone graph
         | StartActor (caller, request, reply) ->
             dispatchStartActor context caller request reply
+        | StartPeerActor (caller, peerName, request, reply) ->
+            dispatchStartPeerActor
+                context caller peerName request reply
+        | StartLoadSaveCommand (caller, path, peerName, request, reply) ->
+            dispatchStartLoadSaveCommand
+                context caller path peerName request reply
         | ActorStop (caller, result, reply) ->
             dispatchActorStop context caller result reply
         | CancelActor (caller, focusId, reply) ->

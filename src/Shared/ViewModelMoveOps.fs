@@ -43,7 +43,8 @@ module ViewModelMoveOps =
                             expandEntry prevInstId model.graph model.siteMap model.nextSiteId
 
                     let prevSibId = prevEntry.nodeId
-                    let insertIdx = model.graph.nodes.[prevSibId].children.Length
+                    let insertIdx =
+                        GraphChildren.get model.graph prevSibId |> List.length
                     let target =
                         { pnode = prevSibId
                           start = max 0 (insertIdx - 1)

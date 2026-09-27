@@ -27,7 +27,9 @@
     <Compile Include="LazyLoadReconciliationDiagnostics.fs" />
     <Compile Include="GitGatewayDiagnostics.fs" />
     <Compile Include="IgnoredDestination.fs" />
-    <Compile Include="DocumentPersistence.fs" />
+    <Compile Include="DocumentPersistPath.fs" />
+    <Compile Include="DocumentPersistWrite.fs" />
+    <Compile Include="DocumentPersistChange.fs" />
     <Compile Include="Bookkeeping.fs" />
     <Compile Include="EventLogFile.fs" />
     <Compile Include="DailyGitSave.fs" />
@@ -55,8 +57,10 @@
     <Compile Include="SavePrep.fs" />
     <Compile Include="Core\CoreRuntime.fs" />
     <Compile Include="GraphOnlyChangePost.fs" />
+    <Compile Include="LoadSaveRouting.fs" />
     <Compile Include="Api.fs" />
     <Compile Include="LazyLoadReconciliationServer.fs" />
+    <Compile Include="GithubTransportActor.fs" />
     <Compile Include="HeadPresence.fs" />
     <Compile Include="BrowserRequestCreds.fs" />
     <Compile Include="RouteTypes.fs" />

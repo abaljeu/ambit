@@ -57,6 +57,28 @@ module LazyLoadReconciliation =
                 | None -> Ok None
                 | Some info -> Path.resolveInfo graph workspaceId info))
 
+    let private currentDiscoveredPath graph workspaceLabel path =
+        match resolveOwnedPath graph workspaceLabel path with
+        | Ok(Some(nodeId, _)) ->
+            match Map.tryFind nodeId graph.nodes with
+            | Some node when node.documentState = Current -> Some path
+            | _ -> None
+        | _ -> None
+
+    /// Discovered paths the graph already holds as Current, so a later
+    /// checkout can re-parse or mark them Unparsed instead of skipping them.
+    let currentDiscoveredAsModified
+        (graph: Graph)
+        (workspaceLabel: string)
+        (discovered: ChangedPath list)
+        : ChangedPath list =
+        discovered
+        |> List.choose (function
+            | Added path ->
+                currentDiscoveredPath graph workspaceLabel path
+                |> Option.map Modified
+            | _ -> None)
+
     let internal planAddedInfo (graph: Graph) workspaceId (info: Path.PathInfo) =
         if info.parts.IsEmpty then
             Ok(graph, [])
@@ -77,7 +99,7 @@ module LazyLoadReconciliation =
             Node.childOwnership graph parentId child = Ownership.Ref)
         |> List.collect (fun (parentId, index, oldChild) ->
             let replacementId = NodeId.New()
-            let oldChildren = graph.nodes.[parentId].children
+            let oldChildren = Graph.children graph parentId
             [ Op.NewNode(replacementId, $"[[{path}]]")
               ChildListWire.updateChildAt parentId oldChildren index (ChildNode.owner replacementId) ])
 
@@ -90,20 +112,20 @@ module LazyLoadReconciliation =
             | None -> Ok(graph, [])
             | Some parentId when parentId = Graph.trashId -> Ok(graph, [])
             | Some parentId ->
-                let parent = graph.nodes.[parentId]
+                let parentKids = Graph.children graph parentId
                 let index =
-                    parent.children
+                    parentKids
                     |> List.findIndex (fun child ->
                         child.id = nodeId
                         && Node.childOwnership graph parentId child
                            = Ownership.Owner)
-                let ownerChild = parent.children.[index]
+                let ownerChild = parentKids.[index]
                 let path =
                     NodeDesktopPath.pathForNodeId graph nodeId
                     |> Option.defaultValue ""
                 let refOps = refReplacementOps graph nodeId path
-                let oldParentChildren = parent.children
-                let oldTrashChildren = graph.nodes.[Graph.trashId].children
+                let oldParentChildren = parentKids
+                let oldTrashChildren = Graph.children graph Graph.trashId
                 let ops =
                     refOps
                     @ [ ChildListWire.removeRange parentId oldParentChildren index 1
@@ -173,19 +195,21 @@ module LazyLoadReconciliation =
                             if oldParentId = newParentId then
                                 []
                             else
-                                let oldParent = renamed.nodes.[oldParentId]
+                                let oldParentKids =
+                                    Graph.children renamed oldParentId
                                 let oldIndex =
-                                    oldParent.children
+                                    oldParentKids
                                     |> List.findIndex (fun child ->
                                         child.id = nodeId
                                         && Node.childOwnership
                                             renamed oldParentId child
                                            = Ownership.Owner)
-                                let ownerChild = oldParent.children.[oldIndex]
+                                let ownerChild = oldParentKids.[oldIndex]
                                 let newIndex =
                                     Graph.fileTreeInsertIndex renamed newParentId
-                                let oldParentChildren = oldParent.children
-                                let newParentOldChildren = renamed.nodes.[newParentId].children
+                                let oldParentChildren = oldParentKids
+                                let newParentOldChildren =
+                                    Graph.children renamed newParentId
                                 [ ChildListWire.removeRange oldParentId oldParentChildren oldIndex 1
                                   ChildListWire.insertAt
                                       newParentId
