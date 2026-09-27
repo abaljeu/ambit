@@ -1,8 +1,10 @@
 # Actor as client
 
-Stage: chart
+Stage: build
 Summary: Remake Server Actor hosting and mailbox orchestration so an Actor is a Core client like the Browser: it owns internal behavior, talks Core for Graph, Events, and Changes, and starts from a full Graph plus start ids under thin mailbox routing.
 Updated: 2026-09-27
+Started: 2026-09-27
+Actual: 2h
 
 **Part of:** [[plan/roadmap/epics/chapters/actors-supported.md]]
 
@@ -14,3 +16,4 @@ Updated: 2026-09-27
 - 2026-09-27 — Added [05 — Expand-contract first aspect](issues/05-expand-contract-first-aspect.md): sequencing of remake aspects under expand-and-contract. Aims stay provisional.
 - 2026-09-27 — [05 — Expand-contract first aspect](issues/05-expand-contract-first-aspect.md) revised: first slice is function-passing pool setup, not Graph resolver.
 - 2026-09-27 — [05 — Expand-contract first aspect](issues/05-expand-contract-first-aspect.md) step-two working hypothesis only: flexibility across Actor types after function-passing ships. Not a Decision.
+- 2026-09-27 — Slice one coded: function-passing pool start expand-alongside. Report: [Slice one: function-passing pool start](reports/slice-one-function-start.md).

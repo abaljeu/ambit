@@ -24,6 +24,7 @@ Provisional aims from Alan 2026-09-27 chat (not Decisions so far):
 7. **Today's extract** — ActorStart carries `graphIds` (Included expand of Zoom). CoreActorPool ([[src/Server/Core/CoreActorPool.fs]]) requires that extract. [02 — Graph handoff](issues/02-graph-handoff.md) grills dropping it.
 8. **Today's start** — CoreActorPool registers `ActorFn` by `ActorName` / `PeerActorName` and `startActor` takes ActorStart plus a Graph getter. [04 — Start surface](issues/04-start-surface.md) grills curried in-process post versus that registry.
 9. **Step-two hypothesis** — After function-passing ships, next seam may be flexibility across Actor types (dispatch chooses the function shape; polymorphism in signatures, not the pool). Working hypothesis only on [05 — Expand-contract first aspect](issues/05-expand-contract-first-aspect.md). Not a Decision.
+10. **Slice one expand-alongside** — [05 — Expand-contract first aspect](issues/05-expand-contract-first-aspect.md) Status `coded`. `startFunction` posts a function; the Actor calls `getGraph`; ID-bag `startActor` remains. Hard cut is later.
 
 ## 3. Decisions so far
 

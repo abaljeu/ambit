@@ -1,8 +1,9 @@
 # 05 — Expand-contract first aspect
 
 **Type:** grilling
-**Status:** defined
+**Status:** coded
 Blocked by: None
+Actual: 2h
 
 ## 1. Question
 
@@ -62,3 +63,8 @@ The Graph is the universal carrier. Any particular function constructs a Graph a
 - 2026-09-27 — Alan voice lock: contract flip is a hard cut. No drain of in-flight ID-bag messages. No dual-lifetime management. Switch everything over at once when proven. Status stays `defined`.
 - 2026-09-27 — Alan voice lock: TestActor is the pilot. Dispatcher function; one function carries different information per operation. Status stays `defined`.
 - 2026-09-27 — Alan voice lock: Graph is the universal carrier. Functions construct and pass a Graph; pool and dispatch stay dumb. Status stays `defined`.
+- 2026-09-27 — Slice one implemented: `startFunction` expand-alongside; TestActor `functionActor` hello/ping; ID-bag `startActor` kept. Hard cut and HTTP polymorphism not done. Status `coded`. Report: [Slice one: function-passing pool start](../reports/slice-one-function-start.md).
+
+## Time
+
+- 2026-09-27 2h — slice one function-passing pool start and TestActor dispatcher (from chat)

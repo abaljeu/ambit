@@ -100,6 +100,7 @@ let ``ActorStart persists across File restart`` () = task {
         { register = fun _ _ -> ()
           registerPeer = fun _ _ -> ()
           startActor = fun _ _ -> Ok actorSecret
+          startFunction = fun _ -> Error "unused"
           startPeerActor = fun _ _ _ -> Error "unused"
           schedule = fun _ _ -> ()
           isLive = fun secret -> secret = actorSecret
@@ -156,6 +157,7 @@ let private stubPool secret : CoreActorPool =
     { register = fun _ _ -> ()
       registerPeer = fun _ _ -> ()
       startActor = fun _ _ -> Ok secret
+      startFunction = fun _ -> Error "unused"
       startPeerActor = fun _ _ _ -> Error "unused"
       schedule = fun _ _ -> ()
       isLive = fun s -> s = secret
