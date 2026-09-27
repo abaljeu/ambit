@@ -1,8 +1,8 @@
 # 05 — Expand-contract first aspect
 
 **Type:** grilling
-**Status:** coded
-**Deferred:** 2026-09-27 — Slice one stays `coded` as historical progress. Further slices are deferred pending Actors as functions that can take all kinds of parameters. May resume around step five or six; intervening gaps unknown.
+**Status:** done
+**Deferred:** 2026-09-27 — Slice one is `done`. Further slices are deferred pending Actors as functions that can take all kinds of parameters. May resume around step five or six; intervening gaps unknown.
 Blocked by: None
 Actual: 2h
 
@@ -65,6 +65,7 @@ The Graph is the universal carrier. Any particular function constructs a Graph a
 - 2026-09-27 — Alan voice lock: TestActor is the pilot. Dispatcher function; one function carries different information per operation. Status stays `defined`.
 - 2026-09-27 — Alan voice lock: Graph is the universal carrier. Functions construct and pass a Graph; pool and dispatch stay dumb. Status stays `defined`.
 - 2026-09-27 — Slice one implemented: `startFunction` expand-alongside; TestActor `functionActor` hello/ping; ID-bag `startActor` kept. Hard cut and HTTP polymorphism not done. Status `coded`. Report: [Slice one: function-passing pool start](../reports/slice-one-function-start.md).
+- 2026-09-27 — Alan accepted land. Status `done`. Further slices remain deferred with the Feature-set park.
 
 ## Time
 
