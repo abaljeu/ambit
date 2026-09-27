@@ -65,7 +65,7 @@ type LoadRequest =
     { eventId: EventId
       targets: LoadTarget list }
 
-/// Response from POST /ambit/load: Poll stamp envelope plus optional Workspace subgraphs.
+/// Response from POST /ambit/load: Poll envelope plus edges and pointed-at Nodes.
 type LoadResponse =
     { eventId: EventId
       buildEpochSec: int
@@ -73,10 +73,8 @@ type LoadResponse =
       apiVersion: int
       isReady: bool
       events: Ev list
-      /// Complete Workspace subgraph Nodes at the response event id (wire: packages).
-      packages: Node list
-      /// Loaded child lists for `packages`. Absent package id = Unloaded header.
-      packageChildMap: Map<NodeId, ChildNode list> }
+      nodes: Node list
+      childMap: Map<NodeId, ChildNode list> }
 
     member this.changes = this.events
 

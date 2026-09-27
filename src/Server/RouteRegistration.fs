@@ -142,14 +142,6 @@ module RouteRegistration =
                     {| username = this.Auth.ExpectedUser; token = this.Auth.GitToken |})
         )) |> ignore
 
-    let private parseClientEventId (req: HttpRequest) =
-        match req.Query.TryGetValue "rev" with
-        | true, value ->
-            match Int32.TryParse(string value) with
-            | true, eventId -> eventId
-            | _ -> 0
-        | _ -> 0
-
     /// Read X-Gambol-Client, store on HttpContext.Items, log when present.
     let private bindClientHint (req: HttpRequest) : string option =
         match req.Headers.TryGetValue(ClientIdentity.HeaderName) with
@@ -184,16 +176,17 @@ module RouteRegistration =
                         "text/plain; charset=utf-8",
                         statusCode = 500)
         })) |> ignore
-        this.MapGet("/ambit/poll", Func<HttpRequest, Task<IResult>>(fun req -> task {
+        this.MapPost("/ambit/poll", Func<HttpRequest, Task<IResult>>(fun req -> task {
+            use reader = new StreamReader(req.Body)
+            let! body = reader.ReadToEndAsync()
             let pageEpoch = stamps.PageBuildEpochSec ()
-            let clientEventId = parseClientEventId req
             return!
                 withBrowserChanges persistence req (fun handle ->
-                    Api.getPoll
+                    Api.postPoll
                         handle
                         (stamps.DeployEpochSec ())
                         pageEpoch
-                        clientEventId)
+                        body)
                 |> Async.StartAsTask
         })) |> ignore
         this.MapPost("/ambit/load", Func<HttpRequest, Task<IResult>>(fun req -> task {

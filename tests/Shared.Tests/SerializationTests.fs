@@ -677,7 +677,7 @@ let ``LoadRequest round-trip`` () =
     Assert.False(decoded.targets.[1].includeWorkspace)
 
 [<Fact>]
-let ``LoadResponse round-trip with packages`` () =
+let ``LoadResponse round-trip with nodes and childMap`` () =
     let node =
         Node.Create(NodeId.New(), text = "ws child", owner = Graph.rootId)
     let change =
@@ -693,8 +693,8 @@ let ``LoadResponse round-trip with packages`` () =
           apiVersion = ApiVersion.current
           isReady = false
           events = [ change ]
-          packages = [ node ]
-          packageChildMap = Map.ofList [ node.id, [] ] }
+          nodes = [ node ]
+          childMap = Map.ofList [ node.id, [] ] }
     let decoded =
         roundTrip
             ApiResponseSerialization.encodeLoadResponse
@@ -706,12 +706,12 @@ let ``LoadResponse round-trip with packages`` () =
     Assert.Equal(response.apiVersion, decoded.apiVersion)
     Assert.False(decoded.isReady)
     Assert.Equal(1, decoded.events.Length)
-    Assert.Equal(1, decoded.packages.Length)
-    Assert.Equal(node.id, decoded.packages.[0].id)
-    Assert.True(Map.containsKey node.id decoded.packageChildMap)
+    Assert.Equal(1, decoded.nodes.Length)
+    Assert.Equal(node.id, decoded.nodes.[0].id)
+    Assert.True(Map.containsKey node.id decoded.childMap)
 
 [<Fact>]
-let ``LoadResponse round-trip keeps Unloaded package header absent`` () =
+let ``LoadResponse round-trip keeps Unloaded Node Children absent`` () =
     let header =
         Node.Create(NodeId.New(), text = "ws header", owner = Graph.rootId)
     let response: LoadResponse =
@@ -721,24 +721,22 @@ let ``LoadResponse round-trip keeps Unloaded package header absent`` () =
           apiVersion = ApiVersion.current
           isReady = true
           events = []
-          packages = [ header ]
-          packageChildMap = Map.empty }
+          nodes = [ header ]
+          childMap = Map.empty }
     let decoded =
         roundTrip
             ApiResponseSerialization.encodeLoadResponse
             ApiResponseSerialization.decodeLoadResponseDecoder
             response
-    Assert.Equal(header.id, decoded.packages.[0].id)
-    Assert.False(Map.containsKey header.id decoded.packageChildMap)
+    Assert.Equal(header.id, decoded.nodes.[0].id)
+    Assert.False(Map.containsKey header.id decoded.childMap)
 
 [<Fact>]
-let ``LoadResponse decoder tolerates missing packages`` () =
+let ``LoadResponse decoder requires nodes and childMap`` () =
     let json = """{"r":4,"b":100,"p":200,"ready":true,"c":[]}"""
     match Dec.fromString ApiResponseSerialization.decodeLoadResponseDecoder json with
-    | Error err -> failwith $"Decode failed: {err}"
-    | Ok (decoded: LoadResponse) ->
-        Assert.Equal(EventIdFixtures.storedId 4, decoded.eventId)
-        Assert.Empty(decoded.packages)
+    | Error _ -> ()
+    | Ok _ -> failwith "Expected missing nodes and childMap to fail"
 
 [<Fact>]
 let ``StateResponse round-trip preserves startup readiness`` () =

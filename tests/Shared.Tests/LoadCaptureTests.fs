@@ -141,7 +141,7 @@ let ``packagesForTarget missing target returns empty`` () =
         ResidentProjection.packagesForTarget graph (NodeId.New()) true)
 
 [<Fact>]
-let ``captureLoadResponse shares revision for changes and packages`` () =
+let ``captureLoadResponse shares event id for Changes and Nodes`` () =
     let graph, wsId, _, fileId = graphWithNestedWorkspace ()
     let events =
         [ { id = EventIdFixtures.storedId 4
@@ -166,10 +166,10 @@ let ``captureLoadResponse shares revision for changes and packages`` () =
         Assert.Equal(200, response.pageBuildEpochSec)
         Assert.True(response.isReady)
         Assert.Equal(1, response.events.Length)
-        Assert.True(response.packages |> List.exists (fun n -> n.id = wsId))
+        Assert.True(response.nodes |> List.exists (fun n -> n.id = wsId))
 
 [<Fact>]
-let ``LoadResponse toSyncResponse preserves changes and packages`` () =
+let ``LoadResponse toSyncResponse preserves Changes and Nodes`` () =
     let node =
         Node.Create(NodeId.New(), text = "n", owner = Graph.rootId)
     let load: LoadResponse =
@@ -179,8 +179,8 @@ let ``LoadResponse toSyncResponse preserves changes and packages`` () =
           apiVersion = ApiVersion.current
           isReady = true
           events = []
-          packages = [ node ]
-          packageChildMap = Map.empty }
+          nodes = [ node ]
+          childMap = Map.empty }
     let sync = SyncLogic.loadResponseToSync load
     Assert.Empty(sync.events)
     Assert.Empty(sync.packages)

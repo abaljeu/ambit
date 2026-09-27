@@ -34,34 +34,52 @@ module Api =
         Thoth.Json.Core.Decode.object (fun get ->
             get.Required.Field "path" Thoth.Json.Core.Decode.string)
 
-    let private decodeQueryEventId (clientEventId: int) =
-        EventId.fromJson clientEventId
+    let private wantAnswerFromHandle
+        (handle: CoreChanges)
+        (want: NodeId list)
+        : Async<Result<Map<NodeId, ChildNode list> * Node list, string>> =
+        async {
+            match! handle.getState () with
+            | Error err -> return Error err
+            | Ok state ->
+                return Ok(ResidentProjection.wantAnswer state.graph want)
+        }
 
-    let getPoll
+    let postPoll
         (handle: CoreChanges)
         (buildEpochSec: int)
         (pageBuildEpochSec: int)
-        (clientEventId: int)
+        (body: string)
         : Async<IResult> = async {
-        let! eventId = handle.getEventId ()
-        let queryEventId = decodeQueryEventId clientEventId
-        let! events =
-            if EventId.value eventId > EventId.value queryEventId then
-                handle.getEventsSince queryEventId
-            else async.Return []
-        let poll: ChangeSuccessResponse =
-            { eventId = eventId
-              buildEpochSec = buildEpochSec
-              pageBuildEpochSec = pageBuildEpochSec
-              apiVersion = ApiVersion.current
-              isReady = handle.isReady ()
-              externalChanges = not events.IsEmpty
-              events = events
-              message = None
-              bootstrapHash = None
-              nodes = []
-              childMap = Map.empty }
-        return changeSuccessResult poll
+        match
+            Decode.fromString
+                ApiResponseSerialization.decodePollRequestDecoder
+                body
+        with
+        | Error err ->
+            return Results.BadRequest({| error = $"Invalid poll request: {err}" |})
+        | Ok request ->
+            match! wantAnswerFromHandle handle request.want with
+            | Error err -> return agentErrorResult err
+            | Ok (childMap, nodes) ->
+                let! eventId = handle.getEventId ()
+                let! events =
+                    if eventId > request.eventId then
+                        handle.getEventsSince request.eventId
+                    else async.Return []
+                return
+                    changeSuccessResult
+                        { eventId = eventId
+                          buildEpochSec = buildEpochSec
+                          pageBuildEpochSec = pageBuildEpochSec
+                          apiVersion = ApiVersion.current
+                          isReady = handle.isReady ()
+                          externalChanges = not events.IsEmpty
+                          events = events
+                          message = None
+                          bootstrapHash = None
+                          nodes = nodes
+                          childMap = childMap }
     }
 
     let private loadPackages
@@ -120,8 +138,8 @@ module Api =
                       apiVersion = ApiVersion.current
                       isReady = handle.isReady ()
                       events = events
-                      packages = packages
-                      packageChildMap = packageChildMap }
+                      nodes = packages
+                      childMap = packageChildMap }
                 let json =
                     Encode.toString 0 (ApiResponseSerialization.encodeLoadResponse load)
                 return jsonResult json
@@ -155,10 +173,14 @@ module Api =
                       seedLiveFocusIds =
                         ActorLive.focusIdsFromLockPresent state.graph }
                 let scoped =
-                    ResidentProjection.bootstrapStateResponse
-                        scope
-                        savedZoom
-                        response
+                    match scope with
+                    | BootstrapScope.FullGraph -> response
+                    | BootstrapScope.RootClosure ->
+                        { response with
+                            graph =
+                                ResidentProjection.visibleClosureGraph
+                                    savedZoom
+                                    response.graph }
                 let encoded =
                     ApiResponseSerialization.encodeStateResponse scoped
                     |> Encode.toString 0
@@ -176,26 +198,33 @@ module Api =
         (pageBuildEpochSec: int)
         (body: string)
         : Async<IResult> = async {
-        match Decode.fromString Gambol.Shared.EventJson.decodeEventBatch body with
+        match
+            Decode.fromString
+                ApiResponseSerialization.decodeChangeRequestDecoder
+                body
+        with
         | Error err ->
             return agentErrorResult $"Invalid JSON: {err}"
-        | Ok batch ->
-            match! handle.postEvents batch.events with
+        | Ok request ->
+            match! handle.postEvents request.events with
             | Ok accepted ->
-                let! eventId = handle.getEventId ()
-                return
-                    changeSuccessResult
-                        { eventId = eventId
-                          buildEpochSec = buildEpochSec
-                          pageBuildEpochSec = pageBuildEpochSec
-                          apiVersion = ApiVersion.current
-                          isReady = accepted.isReady
-                          externalChanges = accepted.externalChanges
-                          events = accepted.events
-                          message = accepted.message
-                          bootstrapHash = None
-                          nodes = []
-                          childMap = Map.empty }
+                match! wantAnswerFromHandle handle request.want with
+                | Error err -> return agentErrorResult err
+                | Ok (childMap, nodes) ->
+                    let! eventId = handle.getEventId ()
+                    return
+                        changeSuccessResult
+                            { eventId = eventId
+                              buildEpochSec = buildEpochSec
+                              pageBuildEpochSec = pageBuildEpochSec
+                              apiVersion = ApiVersion.current
+                              isReady = accepted.isReady
+                              externalChanges = accepted.externalChanges
+                              events = accepted.events
+                              message = accepted.message
+                              bootstrapHash = None
+                              nodes = nodes
+                              childMap = childMap }
             | Error err -> return agentErrorResult err
     }
 
