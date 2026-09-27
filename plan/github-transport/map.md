@@ -39,6 +39,7 @@ Skills: [[.agents/skills/wayfinder/SKILL.md]], [[.agents/skills/grilling/SKILL.m
 13. [08 — Reject UX](issues/08-reject-ux.md) — Conflict: error message naming at least one file path. Other failures: matching short error. Reflect what git reports, condensed. Same for Load and Save.
 14. [09 — Skip list is .gitignore](issues/09-gitignore-skip-list.md) — No Ambit skip key. Skip list is `.gitignore`; the person edits that file.
 15. [10 — git Save is commit then push](issues/10-git-save-commit-then-push.md) — git Save is `git commit` of the work-tree edits, then push. Graph→file Persist already happens independently; git Save does not own or replace that path. Do not merge Persist into git Save.
+16. [16 — Persist/git work-tree gate](issues/16-persist-git-work-tree-gate.md) — Each Workspace work tree has one exclusive gate shared by Graph→file Persist, git Load pull, and git Save commit. The second caller queues behind the holder until the gate is free; contention waits and does not reject as busy. Persist stays independent of git Save. The gate coordinates their work-tree changes; it does not merge Persist into Save. git Save remains commit, then push.
 
 ## 4. Not yet specified
 

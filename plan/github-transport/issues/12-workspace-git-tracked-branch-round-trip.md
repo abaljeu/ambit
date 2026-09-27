@@ -24,6 +24,7 @@ Extend **WorkspaceGit** as defined by the Module map in [[../arch.md]]. This cap
 - [ ] 3.2.8 Keep the attached branch — The capability does not checkout, switch, or move to an older commit.
 - [ ] 3.2.9 Use host credentials — The interface takes no GitHub credential; host git loads its configured credentials.
 - [ ] 3.2.10 Keep Persist separate — git Save does not invoke, own, or replace Graph→file Persist.
+- [ ] 3.2.11 Gate work-tree changes per Workspace — Persist file writes, git Load pull, and git Save commit acquire and release one exclusive gate for that Workspace work tree; a second caller waits and continues after release instead of rejecting as busy.
 - [ ] 3.3.1 Use the existing git host — The implementation uses WorkspaceGit, GitSave, and GitRun rather than another process host.
 - [ ] 3.3.2 Leave credential loading to git — Ambit adds no appsettings, user-secrets, Graph, or DataDir credential store.
 - [ ] 3.2.2 Prove remote facts — Temp-work-tree tests cover a remote that is present and absent.
@@ -33,3 +34,4 @@ Extend **WorkspaceGit** as defined by the Module map in [[../arch.md]]. This cap
 
 - [github-transport architecture](../arch.md)
 - [10 — git Save is commit then push](10-git-save-commit-then-push.md)
+- [16 — Persist/git work-tree gate](16-persist-git-work-tree-gate.md)

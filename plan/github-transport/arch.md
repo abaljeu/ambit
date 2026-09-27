@@ -4,7 +4,7 @@ Spec: [[spec.md]]
 Updated: 2026-09-26
 Sequence: module-build
 
-Sources: [spec.md](spec.md) User Stories 1–27; [map.md](map.md) Destination and Decisions so far 1–15 ([01 — Which Workspaces and remotes](issues/01-which-workspace-labels-and-remotes.md)–[05 — Git Load/Save are Workspace-scoped](issues/05-git-load-save-workspace-scoped.md), [07 — Actor start door](issues/07-actor-start-door.md)–[10 — git Save is commit then push](issues/10-git-save-commit-then-push.md)). Later: [06 — Selection-scoped Parse after whole-tree git Load](issues/06-selection-scoped-parse-after-whole-tree-git-load.md) (`needs-info`; not v1). Checklist: `[x]` already true of the codebase shape; `[ ]` still to build. Does not invent product behavior beyond those locks. Existing Ambit smart-HTTP helper [[src/Shared/WorkspaceGitRemote.fs]] (`RemoteName` `ambit`, `/ambit/git/{label}.git`) is not the GitHub remote. Sequence is `module-build`: the stories share a few modules (PathPick, WorkspaceGit git facts, Peer Actor, existing desk WebDAV). This is not expand-contract (no wide rename). Tracer-cut would mint one ticket per story and repeat the same hops.
+Sources: [spec.md](spec.md) User Stories 1–27; [map.md](map.md) Destination and Decisions so far 1–16 ([01 — Which Workspaces and remotes](issues/01-which-workspace-labels-and-remotes.md)–[05 — Git Load/Save are Workspace-scoped](issues/05-git-load-save-workspace-scoped.md), [07 — Actor start door](issues/07-actor-start-door.md)–[10 — git Save is commit then push](issues/10-git-save-commit-then-push.md), [16 — Persist/git work-tree gate](issues/16-persist-git-work-tree-gate.md)). Later: [06 — Selection-scoped Parse after whole-tree git Load](issues/06-selection-scoped-parse-after-whole-tree-git-load.md) (`needs-info`; not v1). Checklist: `[x]` already true of the codebase shape; `[ ]` still to build. Does not invent product behavior beyond those locks. Existing Ambit smart-HTTP helper [[src/Shared/WorkspaceGitRemote.fs]] (`RemoteName` `ambit`, `/ambit/git/{label}.git`) is not the GitHub remote. Sequence is `module-build`: the stories share a few modules (PathPick, WorkspaceGit git facts, Peer Actor, existing desk WebDAV). This is not expand-contract (no wide rename). Tracer-cut would mint one ticket per story and repeat the same hops.
 
 ## 1. Story paths
 
@@ -160,6 +160,12 @@ Sources: [spec.md](spec.md) User Stories 1–27; [map.md](map.md) Destination an
     3. [ ] git Save composition is `git commit` of work-tree edits, then push
     4. [ ] Do not merge Persist into git Save
 
+28. **Per-Workspace work-tree gate queues without overlap**
+    1. [ ] Graph→file Persist, git Load pull, and git Save commit acquire one exclusive gate for that Workspace work tree
+    2. [ ] A second caller waits until the holder releases the gate, then continues
+    3. [ ] Contention does not reject as busy
+    4. [ ] The gate coordinates work-tree mutation without merging Persist into git Save
+
 Shared segments:
 1. [x] Command Load and Save doors ([[src/Shared/CommandEntry.fs]], [[src/Client/Commands.fs]])
 2. [ ] PathPick (plain Load/Save only)
@@ -169,11 +175,13 @@ Shared segments:
 6. [x] Host GitRun (no Ambit credential store)
 7. [x] Existing Load → Parse / graph-push (`parseFileOp` / directory reconcile / Fetch+Poll)
 8. [ ] Reject UX: condensed git error; conflict names a path
+9. [ ] Per-Workspace exclusive work-tree gate shared by Persist, pull, and commit
 
 Narrowest shared test seam:
 1. [ ] PathPick: remote exists → git; else desk (pure; no git process)
 2. [ ] WorkspaceGit remote-exists + tracked-branch pull/push FF-only through GitRun on a temp work tree
 3. [ ] Peer Actor git Load / git Save invoke that WorkspaceGit interface; no Ambit credential argument
+4. [ ] Work-tree gate: a second Persist, pull, or commit waits for the holder and continues after release without overlap
 
 ## 2. Module map
 
@@ -210,6 +218,7 @@ Narrowest shared test seam:
    1. State
       1. [x] DataDir work tree `.git` (`isRepo`, `currentBranch`, `ensurePushConfig`)
       2. [ ] Remote-exists and current upstream read from that work tree only
+      3. [ ] One exclusive work-tree gate per Workspace shared with Graph→file Persist
    2. Interface
       1. [x] `isRepo` / `currentBranch` / `ensurePushConfig` (FF-only receive)
       2. [ ] `remoteExists: workspaceRoot -> Result<bool, string>` from `git remote` (any remote counts)
@@ -221,6 +230,8 @@ Narrowest shared test seam:
       8. [ ] No checkout, switch, or older-commit move
       9. [ ] No GitHub credential argument
       10. [ ] Does not invoke Graph→file Persist
+      11. [ ] Persist file writes, git Load pull, and git Save commit acquire and release the Workspace work-tree gate
+      12. [ ] A second caller waits for the gate and continues after release instead of rejecting as busy
    3. Uses
       1. [x] GitSave.runGit / GitSave.commitAll / GitRun.gitExec (host `git`)
       2. [ ] Host credential helper (git’s, not Ambit’s)
@@ -239,6 +250,7 @@ Narrowest shared test seam:
       6. [ ] Reject UX: conflict names at least one file path; other failures a matching short git-condensed error; same for Load and Save
       7. [ ] Same Actor shape for every device that maps through Server
       8. [ ] Invokes WorkspaceGit; does not call git with an Ambit-supplied token
+      9. [ ] Acquires and releases the Workspace work-tree gate around git Load pull and git Save commit
    3. Uses
       1. [x] CoreActorPool / ActorFn ([[src/Server/Core/CoreActorPool.fs]])
       2. [ ] WorkspaceGit
@@ -284,6 +296,7 @@ Narrowest shared test seam:
    5. [ ] reject text: conflict names a path; other failures short git-condensed
    6. [ ] no credential parameter
    7. [ ] no Persist call
+   8. [ ] one gate per Workspace; a second Persist, pull, or commit waits for the holder and continues after release
 
 3. **Peer Actor git Load/Save**
    Interface on **Peer Actor**. Tests stub WorkspaceGit. Start door is mailbox → actor pool from Load/Save ([07 — Actor start door](issues/07-actor-start-door.md)).
@@ -293,6 +306,7 @@ Narrowest shared test seam:
    4. [ ] Persist is not invoked from git Save
    5. [ ] reject UX same for Load and Save
    6. [ ] no Ambit credential store
+   7. [ ] pull and commit acquire and release the Workspace work-tree gate
 
 4. **Desk WebDAV**
    Interface on **Desk Load/Save**. Existing seam. This Project does not redesign it.

@@ -23,6 +23,7 @@ Build the **Peer Actor** from the Module map in [[../arch.md]]. This capability 
 - [ ] 4.2.6 Return matching rejects — Load and Save return the same condensed git error shape, and a conflict names at least one file path.
 - [ ] 4.2.7 Serve every mapped device — The same Server Actor shape handles each device that maps through Server.
 - [ ] 4.2.8 Use WorkspaceGit without a token — The Actor invokes the WorkspaceGit interface and supplies no Ambit credential.
+- [ ] 4.2.9 Acquire and release the work-tree gate — The Actor acquires the Workspace gate before git Load pull or git Save commit and releases it after that work-tree change; a second caller waits until release.
 - [ ] 4.3.1 Use the actor pool — The implementation uses CoreActorPool and ActorFn for lifecycle and invocation.
 - [ ] 4.3.2 Depend on WorkspaceGit — Tests stub WorkspaceGit and prove pull for Load and commit-then-push for Save.
 - [ ] 4.3.4 Preserve Load completion — Tests prove git Load continues to the existing Parse / graph-push hop after files land, with the selection behavior left at its current v1 boundary.
@@ -31,3 +32,4 @@ Build the **Peer Actor** from the Module map in [[../arch.md]]. This capability 
 
 - [github-transport architecture](../arch.md)
 - [07 — Actor start door](07-actor-start-door.md)
+- [16 — Persist/git work-tree gate](16-persist-git-work-tree-gate.md)
