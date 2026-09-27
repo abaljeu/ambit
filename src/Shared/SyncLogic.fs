@@ -101,28 +101,24 @@ module SyncLogic =
         (response: SyncResponse)
         (state: ClientSyncState)
         : Result<ClientSyncState, string> =
-        let packageOnly =
+        let answerOnly =
             List.isEmpty response.events
             && not (List.isEmpty response.nodes)
         if
-            packageOnly
+            answerOnly
             && (hasPendingLocal || responseEventId <> state.eventId)
         then
-            Error "raced package payload"
+            Error "raced Load answer"
         else
             applySyncResponse response state
 
     let loadResponseToSync (response: LoadResponse) : SyncResponse =
         { events = response.events
-          packages = []
-          packageChildMap = Map.empty
-          nodes = response.packages
-          childMap = response.packageChildMap }
+          nodes = response.nodes
+          childMap = response.childMap }
 
     let changeSuccessToSync (response: ChangeSuccessResponse) : SyncResponse =
         { events = response.events
-          packages = []
-          packageChildMap = Map.empty
           nodes = response.nodes
           childMap = response.childMap }
 
@@ -147,8 +143,6 @@ module SyncLogic =
         : Result<ClientSyncState, string> =
         applySyncResponse
             { events = events
-              packages = []
-              packageChildMap = Map.empty
               nodes = []
               childMap = Map.empty }
             state

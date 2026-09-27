@@ -85,64 +85,58 @@ let private graphWithTwoWorkspaces () : Graph * NodeId * NodeId * NodeId * NodeI
             | Error err -> failwith err
     graph4, wsA, fileA, wsB, fileB
 [<Fact>]
-let ``packagesForTarget with includeWorkspace false returns empty`` () =
+let ``wantAnswerForTargets without residency intent returns empty`` () =
     let graph, _, _, fileId = graphWithNestedWorkspace ()
-    Assert.Empty(
-        ResidentProjection.packagesForTarget graph fileId false)
+    match
+        ResidentProjection.wantAnswerForTargets
+            graph
+            [ { targetId = fileId; includeWorkspace = false } ]
+    with
+    | Error _ -> failwith "expected empty answer"
+    | Ok (childMap, nodes) ->
+        Assert.Empty(childMap)
+        Assert.Empty(nodes)
 
 [<Fact>]
-let ``packagesForTarget Unloaded includeWorkspace returns owning Workspace subgraph`` () =
-    let graph, wsId, dirId, fileId = graphWithNestedWorkspace ()
-    let packages =
-        ResidentProjection.packagesForTarget graph fileId true
-    let byId = packages |> List.map (fun n -> n.id, n) |> Map.ofList
-    Assert.True(byId.ContainsKey wsId)
-    Assert.True(byId.ContainsKey wsId)
-    Assert.True(byId.ContainsKey dirId)
-    Assert.True(byId.ContainsKey fileId)
+let ``wantAnswerForTargets returns direct Children and pointed-at Nodes`` () =
+    let graph, _, dirId, fileId = graphWithNestedWorkspace ()
+    match
+        ResidentProjection.wantAnswerForTargets
+            graph
+            [ { targetId = dirId; includeWorkspace = true } ]
+    with
+    | Error _ -> failwith "expected Want answer"
+    | Ok (childMap, nodes) ->
+        Assert.Equal(1, childMap.Count)
+        Assert.Equal<ChildNode list>(owned [ fileId ], childMap.[dirId])
+        Assert.Equal<NodeId list>([ fileId ], nodes |> List.map (_.id))
 
 [<Fact>]
-let ``packagesForTarget keeps Directory named .agents Loaded with children`` () =
-    let graph0 = Graph.create ()
-    let wsId = NodeId.New()
-    let dirId = NodeId.New()
-    let fileId = NodeId.New()
-    let wsNode = specialNode wsId Workspace "home" Graph.workspacesId
-    let dirNode = specialNode dirId Directory ".agents" wsId
-    let fileNode = specialNode fileId File "skill.md" dirId
-    let graph1 =
-        graph0
-        |> addDetachedMany [ wsNode; dirNode; fileNode ]
-    let graph2 =
-        Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
-        |> function
-            | Ok g -> g
-            | Error err -> failwith err
-    let graph3 =
-        Graph.replace wsId 0 [] (owned [ dirId ]) graph2
-        |> function
-            | Ok g -> g
-            | Error err -> failwith err
-    let graph4 =
-        Graph.replace dirId 0 [] (owned [ fileId ]) graph3
-        |> function
-            | Ok g -> g
-            | Error err -> failwith err
-    let packages =
-        ResidentProjection.packagesForTarget graph4 dirId true
-    let byId = packages |> List.map (fun n -> n.id, n) |> Map.ofList
-    Assert.Equal(Special Directory, byId.[dirId].kind)
-    Assert.True(byId.ContainsKey fileId)
-
-[<Fact>]
-let ``packagesForTarget missing target returns empty`` () =
+let ``wantAnswerForTargets missing target returns empty`` () =
     let graph, _, _, _ = graphWithNestedWorkspace ()
-    Assert.Empty(
-        ResidentProjection.packagesForTarget graph (NodeId.New()) true)
+    match
+        ResidentProjection.wantAnswerForTargets
+            graph
+            [ { targetId = NodeId.New(); includeWorkspace = true } ]
+    with
+    | Error _ -> failwith "expected empty answer"
+    | Ok (childMap, nodes) ->
+        Assert.Empty(childMap)
+        Assert.Empty(nodes)
+
+[<Fact>]
+let ``wantAnswerForTargets refuses targets across Workspaces`` () =
+    let graph, _, fileA, _, fileB = graphWithTwoWorkspaces ()
+    let targets =
+        [ { targetId = fileA; includeWorkspace = true }
+          { targetId = fileB; includeWorkspace = true } ]
+    match ResidentProjection.wantAnswerForTargets graph targets with
+    | Error ResidentProjection.LoadRefuse.MultiWorkspace -> ()
+    | Ok _ -> failwith "expected multi-Workspace refusal"
 
 [<Fact>]
 let ``captureLoadResponse shares event id for Changes and Nodes`` () =
-    let graph, wsId, _, fileId = graphWithNestedWorkspace ()
+    let graph, _, _, fileId = graphWithNestedWorkspace ()
     let events =
         [ { id = EventIdFixtures.storedId 4
             submissionId = System.Guid.NewGuid()
@@ -166,7 +160,8 @@ let ``captureLoadResponse shares event id for Changes and Nodes`` () =
         Assert.Equal(200, response.pageBuildEpochSec)
         Assert.True(response.isReady)
         Assert.Equal(1, response.events.Length)
-        Assert.True(response.packages |> List.exists (fun n -> n.id = wsId))
+        Assert.Empty(response.nodes)
+        Assert.True(Map.containsKey fileId response.childMap)
 
 [<Fact>]
 let ``LoadResponse toSyncResponse preserves Changes and Nodes`` () =
@@ -179,62 +174,13 @@ let ``LoadResponse toSyncResponse preserves Changes and Nodes`` () =
           apiVersion = ApiVersion.current
           isReady = true
           events = []
-          packages = [ node ]
-          packageChildMap = Map.empty }
+          nodes = [ node ]
+          childMap = Map.empty }
     let sync = SyncLogic.loadResponseToSync load
     Assert.Empty(sync.events)
-    Assert.Empty(sync.packages)
     Assert.Equal(1, sync.nodes.Length)
     Assert.Equal(node.id, sync.nodes.[0].id)
-    Assert.True(sync.packageChildMap.IsEmpty)
-
-[<Fact>]
-let ``packagesForTargets same Workspace Unloaded targets dedupe one package`` () =
-    let graph, wsId, dirId, fileId = graphWithNestedWorkspace ()
-    let targets =
-        [ { targetId = dirId; includeWorkspace = true }
-          { targetId = fileId; includeWorkspace = true } ]
-    match ResidentProjection.packagesForTargets graph targets with
-    | Error ResidentProjection.LoadRefuse.MultiWorkspace ->
-        failwith "expected packages"
-    | Ok (packages, childMap) ->
-        let wsNodes = packages |> List.filter (fun n -> n.id = wsId)
-        Assert.Equal(1, wsNodes.Length)
-        Assert.True(Map.containsKey wsId childMap)
-
-[<Fact>]
-let ``packagesForTargets Loaded and Unloaded same Workspace send package once`` () =
-    let graph, wsId, dirId, fileId = graphWithNestedWorkspace ()
-    let targets =
-        [ { targetId = dirId; includeWorkspace = false }
-          { targetId = fileId; includeWorkspace = true } ]
-    match ResidentProjection.packagesForTargets graph targets with
-    | Error _ -> failwith "expected packages"
-    | Ok (packages, _) ->
-        Assert.True(packages |> List.exists (fun n -> n.id = wsId))
-        let wsCount =
-            packages |> List.filter (fun n -> n.id = wsId) |> List.length
-        Assert.Equal(1, wsCount)
-
-[<Fact>]
-let ``packagesForTargets all includeWorkspace false returns empty`` () =
-    let graph, _, dirId, fileId = graphWithNestedWorkspace ()
-    let targets =
-        [ { targetId = dirId; includeWorkspace = false }
-          { targetId = fileId; includeWorkspace = false } ]
-    match ResidentProjection.packagesForTargets graph targets with
-    | Error _ -> failwith "expected packages"
-    | Ok (packages, _) -> Assert.Empty(packages)
-
-[<Fact>]
-let ``packagesForTargets refuses when selection spans two Workspaces`` () =
-    let graph, _, fileA, _, fileB = graphWithTwoWorkspaces ()
-    let targets =
-        [ { targetId = fileA; includeWorkspace = true }
-          { targetId = fileB; includeWorkspace = true } ]
-    match ResidentProjection.packagesForTargets graph targets with
-    | Error ResidentProjection.LoadRefuse.MultiWorkspace -> ()
-    | Ok _ -> failwith "expected MultiWorkspace refuse"
+    Assert.True(sync.childMap.IsEmpty)
 
 [<Fact>]
 let ``selectionSpansMultipleWorkspaces is true across two Workspaces`` () =

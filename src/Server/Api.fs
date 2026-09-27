@@ -109,7 +109,7 @@ module Api =
                           childMap = answer.childMap }
     }
 
-    let private loadPackages
+    let private loadWantAnswer
         (handle: CoreChanges)
         (targets: LoadTarget list)
         : Async<Result<Result<SnapshotAnswer, ResidentProjection.LoadRefuse>, string>> =
@@ -118,8 +118,8 @@ module Api =
             | Error err -> return Error err
             | Ok state ->
                 return
-                    ResidentProjection.packagesForTargets state.graph targets
-                    |> Result.map (fun (nodes, childMap) ->
+                    ResidentProjection.wantAnswerForTargets state.graph targets
+                    |> Result.map (fun (childMap, nodes) ->
                         { state = state
                           nodes = nodes
                           childMap = childMap })
@@ -140,7 +140,7 @@ module Api =
         | Error err ->
             return Results.BadRequest({| error = $"Invalid load request: {err}" |})
         | Ok request ->
-            match! loadPackages handle request.targets with
+            match! loadWantAnswer handle request.targets with
             | Error err -> return agentErrorResult err
             | Ok(Error ResidentProjection.LoadRefuse.MultiWorkspace) ->
                 return
@@ -160,8 +160,8 @@ module Api =
                       apiVersion = ApiVersion.current
                       isReady = handle.isReady ()
                       events = events
-                      packages = answer.nodes
-                      packageChildMap = answer.childMap }
+                      nodes = answer.nodes
+                      childMap = answer.childMap }
                 let json =
                     Encode.toString 0 (ApiResponseSerialization.encodeLoadResponse load)
                 return jsonResult json
