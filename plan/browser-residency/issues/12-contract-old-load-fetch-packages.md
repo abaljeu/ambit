@@ -1,7 +1,7 @@
 # 12 — Contract old Load Fetch packages
 
 **Type:** coding
-**Status:** coded
+**Status:** done
 **Actual:** 35m
 **Blocked by:** [08 — Migrate Shared wire](08-migrate-shared-wire.md), [09 — Migrate Server Sync doors](09-migrate-server-sync-doors.md), [10 — Migrate Browser Poll, post-Event, and Boot](10-migrate-browser-poll-post-event-and-boot.md), [11 — Migrate Bullet and Included readers](11-migrate-bullet-included-and-bootstrap-wants.md)
 
