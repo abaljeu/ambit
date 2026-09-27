@@ -1,6 +1,6 @@
 # 15 — Keep the App outside Peer Actor hosting
 
-**Status:** coded
+**Status:** done
 **Type:** coding
 Actual: 15m
 **Blocked by:** [13 — Run git Load and Save through the Server Peer Actor](13-peer-actor-runs-git-load-save.md)
