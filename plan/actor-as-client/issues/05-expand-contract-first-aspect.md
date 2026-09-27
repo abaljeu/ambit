@@ -16,7 +16,7 @@ Grill:
 
 1. **First aspect** — Confirm first migrate = function-passing at Actor pool construction / start (pool holds or receives a function; Actor invokes it for needed info).
 2. **Retire Graph-resolver as first step** — Graph-resolver / “full Graph + start ids as first slice” is not step one. It may remain later fog or later tickets. Do not make it the first expand-contract slice.
-3. **Expand then contract** — Expand: the pool can accept or register a function-shaped start alongside (or instead of) today’s ID-bag ActorStart path. Contract: drop bag-of-IDs supply from the pool once Actors call the function.
+3. **Expand then contract** — Expand (prove phase): the pool can accept or register a function-shaped start alongside today’s ID-bag ActorStart path. Contract: hard cut when proven — switch everything over at once and drop the old path. No drain of in-flight ID-bag messages. No dual-lifetime management. See [Lock: hard-cut contract](#3-lock-hard-cut-contract).
 4. **Next seams** — Stay fog until this slice ships. Do not hard-lock Graph handoff as #2.
 5. **Pilot Actor** — Confirm TestActor proves this slice without rewriting all Actors.
 
@@ -34,8 +34,17 @@ After function-passing at pool construction ships (step one):
 4. **Command** — which command is running determines the information that goes with the command.
 5. **Polymorphism** — lives in the function signatures, not in the pool or the mailbox.
 
+## 3. Lock: hard-cut contract
+
+Alan 2026-09-27 voice. Settled lock on this ticket. The ticket stays Status `defined`. This is not the whole-ticket Answer and is not a map Decision so far.
+
+**Contract flip is a hard cut.** No draining in-flight messages on the old ID-bag path. Once the function-shaped start is proven, switch everything over at once and drop the old path. **No dual-lifetime management.**
+
+Expand-alongside during the prove phase stays accurate: the pool can accept or register a function-shaped start alongside today’s ID-bag ActorStart path while proving. Contract is a hard flip when proven — not a gradual drain of the old path.
+
 ## Comments
 
 - 2026-09-27 — Filed as next-pass sequencing after the first grillset. Status `defined`.
 - 2026-09-27 — Alan voice lock: first expand-contract step is function-passing at Actor pool construction / start. Pool receives a function; Actor calls it for needed info; pool does not supply a Graph/ids bag. Replaces Graph-resolver as first step. Status stays `defined`.
 - 2026-09-27 — Alan voice: step-two working hypothesis appended (flexibility across Actor types). Not a Decision. Status stays `defined`.
+- 2026-09-27 — Alan voice lock: contract flip is a hard cut. No drain of in-flight ID-bag messages. No dual-lifetime management. Switch everything over at once when proven. Status stays `defined`.
