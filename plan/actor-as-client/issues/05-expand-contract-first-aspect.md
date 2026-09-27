@@ -22,7 +22,20 @@ Grill:
 
 Do not implement.
 
+## 2. Step-two working hypothesis
+
+Working hypothesis only (Alan 2026-09-27 voice). Not a Decision. Not Status `done`. Refine once step one lands. Next seams stay fog until then.
+
+After function-passing at pool construction ships (step one):
+
+1. **Next seam** — flexibility across Actor types.
+2. **Shapes** — Agent Actors keep their function shape; other Actors (for example a Parse function) bring a different input shape.
+3. **Dispatch** — the switch happens at the HTTP / actor-call dispatch layer: it says “I want a parse” and passes the information that Parse requires; then everything proceeds from there.
+4. **Command** — which command is running determines the information that goes with the command.
+5. **Polymorphism** — lives in the function signatures, not in the pool or the mailbox.
+
 ## Comments
 
 - 2026-09-27 — Filed as next-pass sequencing after the first grillset. Status `defined`.
 - 2026-09-27 — Alan voice lock: first expand-contract step is function-passing at Actor pool construction / start. Pool receives a function; Actor calls it for needed info; pool does not supply a Graph/ids bag. Replaces Graph-resolver as first step. Status stays `defined`.
+- 2026-09-27 — Alan voice: step-two working hypothesis appended (flexibility across Actor types). Not a Decision. Status stays `defined`.

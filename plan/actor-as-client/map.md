@@ -23,6 +23,7 @@ Provisional aims from Alan 2026-09-27 chat (not Decisions so far):
 6. **Mailbox clear-fast** — [[doc/Decisions/0004-core-mailbox-messages-clear-fast.md]] still says every Core mailbox message finishes quickly and slow work is an Actor. [03 — Mailbox orchestration shape](issues/03-mailbox-orchestration-shape.md) grills whether that still holds after worker queues.
 7. **Today's extract** — ActorStart carries `graphIds` (Included expand of Zoom). CoreActorPool ([[src/Server/Core/CoreActorPool.fs]]) requires that extract. [02 — Graph handoff](issues/02-graph-handoff.md) grills dropping it.
 8. **Today's start** — CoreActorPool registers `ActorFn` by `ActorName` / `PeerActorName` and `startActor` takes ActorStart plus a Graph getter. [04 — Start surface](issues/04-start-surface.md) grills curried in-process post versus that registry.
+9. **Step-two hypothesis** — After function-passing ships, next seam may be flexibility across Actor types (dispatch chooses the function shape; polymorphism in signatures, not the pool). Working hypothesis only on [05 — Expand-contract first aspect](issues/05-expand-contract-first-aspect.md). Not a Decision.
 
 ## 3. Decisions so far
 
