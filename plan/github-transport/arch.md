@@ -15,11 +15,11 @@ Sources: [spec.md](spec.md) User Stories 1–27; [map.md](map.md) Destination an
 
 2. **Every Workspace may connect**
    1. [ ] PathPick runs for any Workspace work tree
-   2. [ ] No allowlist and no special label gate
+   2. [x] No allowlist and no special label gate
 
 3. **Server-git when a remote exists**
    1. [ ] WorkspaceGit reports whether a remote exists on that work tree
-   2. [ ] PathPick chooses git when a remote exists, else desk
+   2. [x] PathPick chooses git when a remote exists, else desk
 
 4. **Config in git**
    1. [x] `WorkspaceGit.currentBranch` reads the attached branch from that work tree
@@ -168,7 +168,7 @@ Sources: [spec.md](spec.md) User Stories 1–27; [map.md](map.md) Destination an
 
 Shared segments:
 1. [x] Command Load and Save doors ([[src/Shared/CommandEntry.fs]], [[src/Client/Commands.fs]])
-2. [ ] PathPick (plain Load/Save only)
+2. [x] PathPick (plain Load/Save only)
 3. [ ] WorkspaceGit remote-exists + tracked branch + pull/push
 4. [ ] Peer Actor git Load / git Save (mailbox → actor pool; Focus = work tree; git Save = commit then push)
 5. [x] Desk WebDAV / `loadOp` / desk Save ([[src/Shared/dotnet/WorkspaceFileSync.fs]], [[src/Client/UpdateWorkspaceLoad.fs]], [[src/Client/UpdateSave.fs]])
@@ -178,7 +178,7 @@ Shared segments:
 9. [ ] Per-Workspace exclusive work-tree gate shared by Persist, pull, and commit
 
 Narrowest shared test seam:
-1. [ ] PathPick: remote exists → git; else desk (pure; no git process)
+1. [x] PathPick: remote exists → git; else desk (pure; no git process)
 2. [ ] WorkspaceGit remote-exists + tracked-branch pull/push FF-only through GitRun on a temp work tree
 3. [ ] Peer Actor git Load / git Save invoke that WorkspaceGit interface; no Ambit credential argument
 4. [ ] Work-tree gate: a second Persist, pull, or commit waits for the holder and continues after release without overlap
@@ -206,12 +206,12 @@ Narrowest shared test seam:
 2. **PathPick**
    File: new [[src/Shared/PathPick.fs]] (pure choose). Remote-exists fact stays on WorkspaceGit.
    1. State
-      1. [ ] None durable
+      1. [x] None durable
    2. Interface
-      1. [ ] `choose: remoteExists:bool -> Git | Desk` — Git when true, Desk when false
-      2. [ ] No allowlist, no Workspace name list, no Server branch map
+      1. [x] `choose: remoteExists:bool -> Git | Desk` — Git when true, Desk when false
+      2. [x] No allowlist, no Workspace name list, no Server branch map
    3. Uses
-      1. [ ] None (pure)
+      1. [x] None (pure)
 
 3. **WorkspaceGit**
    File: [[src/Server/WorkspaceGit.fs]] (extend). Git process stays [[src/Server/GitSave.fs]] / [[src/Shared/dotnet/GitRun.fs]].
@@ -285,7 +285,7 @@ Narrowest shared test seam:
 
 1. **PathPick choose**
    Interface on **PathPick**. Tests pass `remoteExists` true/false. No git process.
-   1. [ ] Pure `choose` Git vs Desk
+   1. [x] Pure `choose` Git vs Desk
 
 2. **WorkspaceGit git facts**
    Interface on **WorkspaceGit**. Tests cross GitRun on a temp work tree (remote present / absent; FF push accept / reject; `.gitignore` skip).

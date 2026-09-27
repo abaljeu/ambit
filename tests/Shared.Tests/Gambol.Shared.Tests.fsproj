@@ -90,6 +90,7 @@
     <Compile Include="WorkspacePathSyncStatusTests.fs" />
     <Compile Include="ClientIdentityTests.fs" />
     <Compile Include="WorkspaceGitRemoteTests.fs" />
+    <Compile Include="PathPickTests.fs" />
     <Compile Include="DesktopGitTests.fs" />
 
     <Compile Include="ImportTextTests.fs" />
