@@ -91,6 +91,16 @@ let ``tryFromFocus directory and file use relative prefix`` () =
         Assert.Equal(SyncScopeKind.File, scope.kind)
 
 [<Fact>]
+let ``tryWorkspaceRootFromFocus lifts file focus to workspace root`` () =
+    let graph, _, _, fileId = graphWithWorkspaceTree ()
+    match WorkspaceSyncScope.tryWorkspaceRootFromFocus graph fileId with
+    | Error e -> Assert.Fail(e)
+    | Ok scope ->
+        Assert.Equal("home", scope.label)
+        Assert.Equal("", scope.relative)
+        Assert.Equal(SyncScopeKind.Workspace, scope.kind)
+
+[<Fact>]
 let ``tryFromFocus SYSTEM directory is workspace-kind empty relative`` () =
     let graph = Graph.create ()
     match WorkspaceSyncScope.tryFromFocus graph Graph.systemId with

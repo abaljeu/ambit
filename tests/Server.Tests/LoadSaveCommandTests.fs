@@ -554,3 +554,75 @@ let ``git Load reflects a staging checkout already fetched`` () = task {
     finally
         CoreMailbox.dispose host
 }
+
+[<SkippableFact>]
+let ``git Load on a file parses that file`` () = task {
+    Skip.IfNot(DesktopGit.isAvailable(), "git not on PATH")
+    let harness = createGitHarness "load"
+    try
+        let graph = readGraph harness.host
+        let fileId, fileOps =
+            FileNodeOps.planCreateOwnedFile
+                graph
+                harness.seed.workspaceId
+                "note.txt"
+        postChange harness.host fileOps
+        let command =
+            { operation = LoadSaveOperation.Load
+              prePick = LoadSavePrePick.Git
+              start =
+                { zoomId = harness.seed.workspaceId
+                  focusId = fileId
+                  commandId = harness.seed.commandId
+                  graphIds =
+                    [ Graph.rootId
+                      Graph.workspacesId
+                      harness.seed.workspaceId
+                      harness.seed.commandId
+                      fileId ]
+                  eventId = harness.seed.eventId } }
+        let! result =
+            Api.postLoadSaveCommand
+                (productionRouter harness)
+                (CoreMailbox.coreChanges harness.host testCaller)
+                (encodeRequest command)
+            |> Async.StartAsTask
+        let response = requireResponse result
+        Assert.Equal(LoadSavePath.Git, response.path)
+        let! stopped = waitForStop harness.host fileId
+        Assert.Equal(Some ActorSucceeded, stopped)
+        let after = readGraph harness.host
+        Assert.Equal(Current, after.nodes.[fileId].documentState)
+        let kids = Graph.children after fileId
+        Assert.NotEmpty(kids)
+        Assert.Equal("seed", after.nodes.[kids.Head.id].text)
+    finally
+        CoreMailbox.dispose harness.host
+}
+
+[<SkippableFact>]
+let ``git Load after-step creates a disk file the graph does not hold`` () = task {
+    Skip.IfNot(DesktopGit.isAvailable(), "git not on PATH")
+    let harness = createGitHarness "load"
+    try
+        File.WriteAllText(
+            Path.Combine(harness.workspace, "leftover.txt"),
+            "already on disk")
+        do!
+            postRouted
+                LoadSaveOperation.Load
+                LoadSavePrePick.Git
+                harness
+        let! stopped =
+            waitForStop harness.host harness.seed.focusId
+        Assert.Equal(Some ActorSucceeded, stopped)
+        let after = readGraph harness.host
+        let names =
+            Graph.children after harness.seed.workspaceId
+            |> List.choose (fun child ->
+                Filename.tryValue after.nodes.[child.id].name)
+        Assert.Contains("leftover.txt", names)
+        Assert.Contains("note.txt", names)
+    finally
+        CoreMailbox.dispose harness.host
+}

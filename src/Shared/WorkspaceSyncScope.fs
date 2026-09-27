@@ -202,3 +202,12 @@ module WorkspaceSyncScope =
                         scopeFromParsed SyncScopeKind.File label tail
                     | None -> Error "file is not under a named workspace"
             | _ -> Error "focus is not a workspace, directory, or file"
+
+    /// Load after-step: enclosing Workspace root, not file/directory focus.
+    let tryWorkspaceRootFromFocus
+        (graph: Graph)
+        (nodeId: NodeId)
+        : Result<WorkspaceSyncScope, string> =
+        match GraphQuery.enclosingWorkspace graph nodeId with
+        | None -> Error "Focus is not in a Workspace."
+        | Some workspaceId -> tryFromFocus graph workspaceId

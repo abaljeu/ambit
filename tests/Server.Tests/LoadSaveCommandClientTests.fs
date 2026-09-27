@@ -101,6 +101,16 @@ let private deskResponse =
     |> ApiResponseSerialization.encodeLoadSaveCommandResponse
     |> Encode.toString 0
 
+let private gitResponse =
+    { path = LoadSavePath.Git
+      command =
+        Some
+            { nodes = []
+              events = []
+              latestId = EventId.zero } }
+    |> ApiResponseSerialization.encodeLoadSaveCommandResponse
+    |> Encode.toString 0
+
 let private runDesk operation =
     let urls = ResizeArray<string>()
     let messages = ResizeArray<Msg>()
@@ -121,6 +131,8 @@ let private runDesk operation =
           post = post
           continueDesk =
             LoadSaveCommandClient.continueDesk messages.Add
+          continueGitLoad =
+            fun () -> Assert.Fail("unexpected Git Load after-step")
           commandDone = fun _ -> Assert.Fail("unexpected Git completion")
           commandFailed = fun detail -> Assert.Fail(detail) }
     LoadSaveCommandClient.runWith
@@ -242,6 +254,62 @@ let private onlyUpdater messages =
     match messages |> Seq.toList with
     | [ ApplyOp updater ] -> updater
     | other -> failwith $"expected one ApplyOp, got {other}"
+
+[<Fact>]
+let ``Git Load on a file continues to parse`` () =
+    let graph0 = Graph.create ()
+    let wsId, wsOps =
+        FileNodeOps.planCreateWorkspace graph0 "home"
+    let graph1 = applyOps graph0 wsOps
+    let fileId, fileOps =
+        FileNodeOps.planCreateOwnedFile graph1 wsId "note.txt"
+    let graph = applyOps graph1 fileOps
+    let model = VmTestHelpers.emptyModelAt graph wsId
+    match ViewModelSelection.singleSelection graph model.siteMap fileId with
+    | None -> Assert.Fail("file not in site map")
+    | Some selection ->
+        let focused = { model with selectedNodes = Some selection }
+        let _, effects = UpdateWorkspaceLoad.gitLoadAfterOp focused
+        match effects with
+        | [ ContinueParseFile(id, None, _, _) ] ->
+            Assert.Equal(fileId, id)
+        | other -> Assert.Fail($"expected parse, got {other}")
+
+[<Fact>]
+let ``Git Load response continues to workspace directory reconcile`` () =
+    let urls = ResizeArray<string>()
+    let messages = ResizeArray<Msg>()
+    let doneEvents = ResizeArray<Ev list>()
+    let post url _ onOk _ _ =
+        urls.Add url
+        onOk gitResponse
+    let dependencies: LoadSaveCommandClient.Dependencies =
+        { encodeRequest =
+            fun command ->
+                EventJson.encodeLoadSaveCommandRequest command
+                |> Encode.toString 0
+          decodeResponse =
+            Decode.fromString
+                ApiResponseSerialization.decodeLoadSaveCommandResponseDecoder
+          post = post
+          continueDesk =
+            fun _ -> Assert.Fail("unexpected Desk continuation")
+          continueGitLoad =
+            fun () ->
+                LoadSaveCommandClient.continueGitLoad messages.Add
+          commandDone = doneEvents.Add
+          commandFailed = fun detail -> Assert.Fail(detail) }
+    LoadSaveCommandClient.runWith
+        dependencies
+        "ambit"
+        (request LoadSavePrePick.Git LoadSaveOperation.Load)
+    Assert.Equal<string list>(
+        [ "/ambit/load-save-command" ],
+        urls |> Seq.toList)
+    Assert.Equal(1, doneEvents.Count)
+    match messages |> Seq.toList with
+    | [ ApplyOp _ ] -> ()
+    | other -> Assert.Fail($"expected Git Load after-step ApplyOp, got {other}")
 
 [<Fact>]
 let ``Desk Load response continues to mapped workspace push`` () =
