@@ -63,7 +63,21 @@ let private applySubmitResponse
                     (clientSyncState model)
                     model.syncInfo
         match result with
-        | AckReconcile.Ignored -> model, []
+        | AckReconcile.Ignored ->
+            match
+                SyncLogic.applySyncResponse
+                    (SyncLogic.changeSuccessAnswerToSync response)
+                    (clientSyncState model)
+            with
+            | Error _ ->
+                { model with
+                    syncInfo =
+                        SyncInfo.withSyncState DataOutdated model.syncInfo },
+                []
+            | Ok answered ->
+                withAppliedSync answered model
+                |> withSiteMap
+                |> adjustModeAfterServerApply model.graph, []
         | AckReconcile.Rejected detail -> rejectPending detail model
         | AckReconcile.Applied (nextState, nextSync, submitEffects, suffixOps) ->
             consoleLog (
