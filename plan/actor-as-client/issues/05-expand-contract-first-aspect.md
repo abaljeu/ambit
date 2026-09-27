@@ -2,6 +2,7 @@
 
 **Type:** grilling
 **Status:** coded
+**Deferred:** 2026-09-27 — Slice one stays `coded` as historical progress. Further slices are deferred pending Actors as functions that can take all kinds of parameters. May resume around step five or six; intervening gaps unknown.
 Blocked by: None
 Actual: 2h
 

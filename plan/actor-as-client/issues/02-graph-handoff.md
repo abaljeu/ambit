@@ -2,6 +2,7 @@
 
 **Type:** grilling
 **Status:** defined
+**Deferred:** 2026-09-27 — Feature-set parked pending Actors as functions that can take all kinds of parameters. May resume around step five or six; intervening gaps unknown.
 Blocked by: None
 
 ## 1. Question
