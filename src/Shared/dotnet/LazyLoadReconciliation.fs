@@ -57,6 +57,28 @@ module LazyLoadReconciliation =
                 | None -> Ok None
                 | Some info -> Path.resolveInfo graph workspaceId info))
 
+    let private currentDiscoveredPath graph workspaceLabel path =
+        match resolveOwnedPath graph workspaceLabel path with
+        | Ok(Some(nodeId, _)) ->
+            match Map.tryFind nodeId graph.nodes with
+            | Some node when node.documentState = Current -> Some path
+            | _ -> None
+        | _ -> None
+
+    /// Discovered paths the graph already holds as Current, so a later
+    /// checkout can re-parse or mark them Unparsed instead of skipping them.
+    let currentDiscoveredAsModified
+        (graph: Graph)
+        (workspaceLabel: string)
+        (discovered: ChangedPath list)
+        : ChangedPath list =
+        discovered
+        |> List.choose (function
+            | Added path ->
+                currentDiscoveredPath graph workspaceLabel path
+                |> Option.map Modified
+            | _ -> None)
+
     let internal planAddedInfo (graph: Graph) workspaceId (info: Path.PathInfo) =
         if info.parts.IsEmpty then
             Ok(graph, [])

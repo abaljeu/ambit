@@ -148,7 +148,7 @@ module GithubTransportActor =
             fun changes label ->
                 async {
                     let! result =
-                        LazyLoadReconciliationServer.reconcileWorkspace
+                        LazyLoadReconciliationServer.reconcileCheckedOutWorkspace
                             changes dataDir label
                     return result |> Result.map ignore
                 } }

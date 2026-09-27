@@ -249,6 +249,35 @@ module LazyLoadReconciliationServer =
             (Some dirRel)
             []
 
+    /// Discover the work tree and re-apply paths the graph already holds
+    /// as Current. git Load uses this after the tracked branch is checked out.
+    let reconcileCheckedOutWorkspace
+        (handle: CoreChanges)
+        (dataDir: string)
+        (workspaceLabel: string)
+        : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
+        async {
+            let! stateResult = handle.getState ()
+            match stateResult with
+            | Error err -> return Error err
+            | Ok stateResponse ->
+                match discoveredAddedPaths dataDir workspaceLabel None with
+                | Error err -> return Error err
+                | Ok discovered ->
+                    let modified =
+                        LazyLoadReconciliation.currentDiscoveredAsModified
+                            stateResponse.graph
+                            workspaceLabel
+                            discovered
+                    return!
+                        reconcileChangedPathsWithDiscovery
+                            handle
+                            dataDir
+                            workspaceLabel
+                            None
+                            modified
+        }
+
     /// Discover under DataDir/{label} (workspace root) with no git delta.
     let reconcileWorkspace
         (handle: CoreChanges)
