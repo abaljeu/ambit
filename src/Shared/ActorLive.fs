@@ -11,7 +11,9 @@ type ClientSyncState =
       eventLog: EventLog
       actorLiveFocusIds: Set<NodeId>
       /// Soft-conflict note from Poll/sync apply; maps to CmdLastResult.Detail.
-      applyDetail: string option }
+      applyDetail: string option
+      /// In-flight local Changes; used to undo optimistic CAS conflicts.
+      pending: Ev list }
 
 [<RequireQualifiedAccess>]
 module ClientSyncState =
@@ -21,7 +23,8 @@ module ClientSyncState =
           history = history
           eventLog = EventLog.empty
           actorLiveFocusIds = Set.empty
-          applyDetail = None }
+          applyDetail = None
+          pending = [] }
 
 /// Live Focus set from ActorStart / ActorStop, plus boot seed from GetState.
 /// StateResponse.seedLiveFocusIds is the mailbox lockPresent overlay (live table),

@@ -377,6 +377,42 @@ let ``applyServerTail soft-skips Replace CAS`` () =
         Assert.Equal(Some "can't change the structure", result.applyDetail)
 
 [<Fact>]
+let ``applyServerTail SetName CAS undoes conflicting pending rename`` () =
+    let st, nodeId = stateWithNode "n"
+    match Graph.setName nodeId "" "keep.md" st.graph with
+    | Error msg -> failwith msg
+    | Ok named ->
+        let localOps = [ Op.SetName(nodeId, "keep.md", "local.md") ]
+        let afterLocal =
+            match
+                ResidentProjection.applyOps
+                    localOps
+                    { graph = named; eventId = st.eventId }
+            with
+            | ApplyResult.Changed next -> next.graph
+            | other -> failwith $"local rename: {other}"
+        let localId = System.Guid.NewGuid()
+        let pendingEv =
+            { id = EventId.zero
+              submissionId = localId
+              authority = Authority "Browser"
+              commandName = "Rename"
+              body = EventBody.Change localOps }
+        let st =
+            { st with
+                graph = afterLocal
+                pending = [ pendingEv ] }
+        let incoming =
+            changeEvent 5 [ Op.SetName(nodeId, "keep.md", "server.md") ]
+        match applyTail [ incoming ] st with
+        | Error msg -> failwith $"Expected Ok, got Error: {msg}"
+        | Ok result ->
+            Assert.Equal(
+                Filename.Ok "keep.md",
+                result.graph.nodes.[nodeId].name)
+            Assert.Equal(Some "can't change the name", result.applyDetail)
+
+[<Fact>]
 let ``applyServerTail consumes Change on Absent Header without graph effect`` () =
     let st = emptyState ()
     let absentId = NodeId.New()
@@ -418,7 +454,8 @@ let ``applyServerTail skips structural Replace on Unloaded parent`` () =
           eventId = EventIdFixtures.storedId 3
           eventLog = EventLog.empty
           actorLiveFocusIds = Set.empty
-          applyDetail = None }
+          applyDetail = None
+          pending = [] }
     let change =
         { id = EventIdFixtures.storedId 4
           submissionId = System.Guid.NewGuid()
@@ -455,7 +492,8 @@ let ``applyServerTail applies header facts on Unloaded resident Node`` () =
           eventId = EventIdFixtures.storedId 2
           eventLog = EventLog.empty
           actorLiveFocusIds = Set.empty
-          applyDetail = None }
+          applyDetail = None
+          pending = [] }
     let change =
         { id = EventIdFixtures.storedId 3
           submissionId = System.Guid.NewGuid()
@@ -497,7 +535,8 @@ let ``applySyncResponse installs complete child list as Loaded and preserves own
           eventId = EventIdFixtures.storedId 5
           eventLog = EventLog.empty
           actorLiveFocusIds = Set.empty
-          applyDetail = None }
+          applyDetail = None
+          pending = [] }
     let child =
         Node.Create(childId, text = "leaf", owner = wsId)
     // External resident header whose owner edge lives only in an Unloaded list.
@@ -599,7 +638,8 @@ let ``applySyncResponse empty Loaded child list marks Loaded without History cle
           eventId = EventIdFixtures.storedId 4
           eventLog = EventLog.empty
           actorLiveFocusIds = Set.empty
-          applyDetail = None }
+          applyDetail = None
+          pending = [] }
     match
         SyncLogic.applySyncResponse
             { events = []
@@ -634,7 +674,8 @@ let ``applySyncResponse installs Want answer after Event tail`` () =
           eventId = EventIdFixtures.storedId 5
           eventLog = EventLog.empty
           actorLiveFocusIds = Set.empty
-          applyDetail = None }
+          applyDetail = None
+          pending = [] }
     let child = Node.Create(childId, text = "leaf", owner = parentId)
     let response =
         { events =
@@ -678,7 +719,8 @@ let ``applySyncResponse Want-answer empty list marks Loaded leaf`` () =
           eventId = EventIdFixtures.storedId 4
           eventLog = EventLog.empty
           actorLiveFocusIds = Set.empty
-          applyDetail = None }
+          applyDetail = None
+          pending = [] }
     match
         SyncLogic.applySyncResponse
             { events = []
@@ -710,7 +752,8 @@ let ``applySyncResponse refuses dangling Want edges`` () =
           eventId = EventIdFixtures.storedId 3
           eventLog = EventLog.empty
           actorLiveFocusIds = Set.empty
-          applyDetail = None }
+          applyDetail = None
+          pending = [] }
     match
         SyncLogic.applySyncResponse
             { events = []
@@ -751,7 +794,8 @@ let ``applySyncResponse Load Fetch answer installs through installWantAnswer`` (
           eventId = EventIdFixtures.storedId 4
           eventLog = EventLog.empty
           actorLiveFocusIds = Set.empty
-          applyDetail = None }
+          applyDetail = None
+          pending = [] }
     let wantChild =
         Node.Create(wantChildId, text = "want-leaf", owner = wantParentId)
     let wsChild = Node.Create(wsChildId, text = "ws-leaf", owner = wsId)
@@ -859,7 +903,8 @@ let private seededEditState () =
           history = ClientHistory.clear ()
           eventLog = EventLog.empty
           actorLiveFocusIds = Set.empty
-          applyDetail = None }
+          applyDetail = None
+          pending = [] }
     match SyncLogic.applyLocalEvent change state0 with
     | Error msg -> failwith msg
     | Ok (state, pending) -> nodeId, state, pending, change
@@ -945,7 +990,8 @@ let ``applyServerTail with changes preserves History`` () =
           history = st.history
           eventLog = EventLog.empty
           actorLiveFocusIds = Set.empty
-          applyDetail = None }
+          applyDetail = None
+          pending = [] }
     match applyTail [ change ] client with
     | Error msg -> failwith msg
     | Ok result -> Assert.Equal(st.history, result.history)

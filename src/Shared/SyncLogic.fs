@@ -69,6 +69,8 @@ module SyncLogic =
                         ResidentProjection.applyOpsForSync
                             ops
                             (asProjectionState st)
+                            { pending = st.pending
+                              submissionId = event.submissionId }
                     with
                     | ApplyResult.Changed newSt, note
                     | ApplyResult.Unchanged newSt, note ->
