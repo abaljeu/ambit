@@ -7,12 +7,14 @@ open Thoth.Json.Core
 // Encoding / decoding helpers
 // ---------------------------------------------------------------------------
 
-/// Encode current-version Events plus Want for POST /{file}/changes.
-let encodePendingBatchBody (events: Ev list) (want: NodeId list) : string =
+let encodePollRequestBody (request: PollRequest) : string =
     Thoth.Json.JavaScript.Encode.toString 0 (
-        ApiResponseSerialization.encodeChangeRequest
-            { events = SyncBatch.toWireBatch events
-              want = want })
+        ApiResponseSerialization.encodePollRequest request)
+
+/// Encode current-version Events plus Want for POST /{file}/changes.
+let encodePendingBatchBody (request: ChangeRequest) : string =
+    Thoth.Json.JavaScript.Encode.toString 0 (
+        ApiResponseSerialization.encodeChangeRequest request)
 
 /// Encode ActorStart for POST /{file}/command.
 let encodeCommandRequest (request: ActorStart) : string =

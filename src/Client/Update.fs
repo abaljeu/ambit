@@ -32,99 +32,118 @@ let private rejectPending detail (model: VM) : VM * Effect list =
                 |> SyncInfo.withSyncState ServerRejected },
         [ SavePendingQueue [] ]
 
+type private AppliedSubmit =
+    { state: ClientSyncState
+      syncInfo: SyncInfo
+      effects: Effect list
+      suffixOps: Op list }
+
+let private reconcileSubmit
+    (submitted: Ev list)
+    (response: ChangeSuccessResponse)
+    (model: VM)
+    : bool * AckReconcile =
+    let useExternal =
+        response.externalChanges
+        || not (SyncLogic.isConfirmationEcho submitted response.events)
+    let state = clientSyncState model
+    let result =
+        if useExternal then
+            SyncLogic.reconcileExternalAck
+                submitted response.eventId state model.syncInfo
+        else
+            SyncLogic.reconcileAck
+                submitted response.events response.eventId state model.syncInfo
+    useExternal, result
+
+let private applyIgnoredSubmitAnswer
+    (response: ChangeSuccessResponse)
+    (model: VM)
+    : VM * Effect list =
+    match
+        SyncLogic.applyChangeSuccessAnswer response (clientSyncState model)
+    with
+    | Error _ ->
+        { model with
+            syncInfo = SyncInfo.withSyncState DataOutdated model.syncInfo },
+        []
+    | Ok answered ->
+        withAppliedSync answered model
+        |> withSiteMap
+        |> adjustModeAfterServerApply model.graph, []
+
+let private finishAppliedSubmit
+    (response: ChangeSuccessResponse)
+    (useExternal: bool)
+    (model: VM)
+    (applied: AppliedSubmit) : VM * Effect list =
+    let applied =
+        match SyncLogic.applyChangeSuccessAnswer response applied.state with
+        | Ok state -> { applied with state = state }
+        | Error _ ->
+            { applied with
+                syncInfo =
+                    SyncInfo.withSyncState DataOutdated applied.syncInfo
+                effects = [] }
+    let updated =
+        { model with
+            graph = applied.state.graph
+            eventId = applied.state.eventId
+            history = applied.state.history
+            syncInfo = applied.syncInfo
+            lastCmdResult =
+                match response.message with
+                | Some msg -> Some(CmdLastResult.Detail(None, msg))
+                | None -> model.lastCmdResult }
+    let updated', autoEffects =
+        UpdateWorkspaceDownload.accumulateAutoDownloadFromOps
+            applied.suffixOps
+            updated
+    let nextSync, pollEffects =
+        if
+            useExternal
+            && applied.syncInfo.pending.IsEmpty
+            && applied.syncInfo.catchUp.IsSome
+        then
+            SyncPlanner.tryStartPoll model.eventId applied.syncInfo
+        else
+            applied.syncInfo, []
+    { updated' with syncInfo = nextSync },
+    SavePendingQueue nextSync.pending
+    :: applied.effects @ pollEffects @ autoEffects
+
 let private applySubmitResponse
     (submitted: Ev list)
     (response: ChangeSuccessResponse)
     (model: VM)
     : VM * Effect list =
-    let confirmed = response.events
-    let eventId = response.eventId
-    let externalChanges = response.externalChanges
     match model.syncInfo.syncState with
     | ServerRejected | CodeOutdated | DataOutdated ->
         consoleLog (
             "[Gambol sync] SubmitResponse IGNORED blocked-risk serverAck="
-            + string eventId.Value + " modelRev=" + string model.eventId.Value)
+            + string response.eventId.Value
+            + " modelRev=" + string model.eventId.Value)
         model, []
     | _ ->
-        let serverRev = eventId
-        let useExternal =
-            externalChanges
-            || not (SyncLogic.isConfirmationEcho submitted confirmed)
-        let result =
-            if useExternal then
-                SyncLogic.reconcileExternalAck
-                    submitted serverRev (clientSyncState model) model.syncInfo
-            else
-                SyncLogic.reconcileAck
-                    submitted
-                    confirmed
-                    serverRev
-                    (clientSyncState model)
-                    model.syncInfo
+        let useExternal, result = reconcileSubmit submitted response model
         match result with
-        | AckReconcile.Ignored ->
-            match
-                SyncLogic.applySyncResponse
-                    (SyncLogic.changeSuccessAnswerToSync response)
-                    (clientSyncState model)
-            with
-            | Error _ ->
-                { model with
-                    syncInfo =
-                        SyncInfo.withSyncState DataOutdated model.syncInfo },
-                []
-            | Ok answered ->
-                withAppliedSync answered model
-                |> withSiteMap
-                |> adjustModeAfterServerApply model.graph, []
+        | AckReconcile.Ignored -> applyIgnoredSubmitAnswer response model
         | AckReconcile.Rejected detail -> rejectPending detail model
         | AckReconcile.Applied (nextState, nextSync, submitEffects, suffixOps) ->
             consoleLog (
                 "[Gambol sync] SubmitResponse apply prevRev="
                 + string model.eventId.Value
-                + " serverAck=" + string eventId.Value
+                + " serverAck=" + string response.eventId.Value
                 + " pendingNext=" + string nextSync.pending.Length
                 + " external=" + string useExternal)
-            let answered =
-                SyncLogic.applySyncResponse
-                    (SyncLogic.changeSuccessAnswerToSync response)
-                    nextState
-            let nextState, nextSync, submitEffects =
-                match answered with
-                | Ok state -> state, nextSync, submitEffects
-                | Error _ ->
-                    nextState,
-                    SyncInfo.withSyncState DataOutdated nextSync,
-                    []
-            let updated =
-                { model with
-                    graph = nextState.graph
-                    eventId = nextState.eventId
-                    history = nextState.history
-                    syncInfo = nextSync
-                    lastCmdResult =
-                        match response.message with
-                        | Some msg -> Some(CmdLastResult.Detail(None, msg))
-                        | None -> model.lastCmdResult }
-            let updated', autoEffects =
-                UpdateWorkspaceDownload.accumulateAutoDownloadFromOps suffixOps updated
-            let nextSync', pollEffects =
-                if
-                    useExternal
-                    && nextSync.pending.IsEmpty
-                    && nextSync.catchUp.IsSome
-                then
-                    SyncPlanner.tryStartPoll
-                        (model.eventId)
-                        nextSync
-                else
-                    nextSync, []
-            { updated' with syncInfo = nextSync' },
-            (SavePendingQueue nextSync'.pending)
-            :: submitEffects
-            @ pollEffects
-            @ autoEffects
+            finishAppliedSubmit
+                response
+                useExternal
+                model
+                { state = nextState
+                  syncInfo = nextSync
+                  effects = submitEffects
+                  suffixOps = suffixOps }
 
 let update (msg: Msg) (model: VM) : VM * Effect list =
     match msg with
@@ -302,9 +321,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                         syncInfo = SyncInfo.withSyncState DataOutdated si }, []
                 | Ok newState ->
                     match
-                        SyncLogic.applySyncResponse
-                            { syncResponse with events = [] }
-                            newState
+                        SyncLogic.applySyncAnswer syncResponse newState
                     with
                     | Error _ ->
                         { readyModel with

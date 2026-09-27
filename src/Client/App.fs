@@ -137,8 +137,7 @@ let createRuntime (initialModel: VM) =
             let rec post () =
                 let body =
                     encodePendingBatchBody
-                        [ submitted ]
-                        (currentWant model)
+                        (currentChangeRequest [ submitted ] model)
                 let retry () =
                     setTimeout post 1000 |> ignore
 
@@ -319,7 +318,7 @@ let createRuntime (initialModel: VM) =
             |> Option.defaultValue "empty"
         let url = $"/{currentFile}/changes"
         let body =
-            encodePendingBatchBody events (currentWant model)
+            encodePendingBatchBody (currentChangeRequest events model)
         let qLen = model.syncInfo.pending.Length
         consoleLog (
             "[Gambol sync] POST start req=" + reqId + " baseEventId=" + string baseEventId.Value
@@ -405,10 +404,7 @@ let createRuntime (initialModel: VM) =
     and runPollServer (eventId: EventId) : unit =
         let url = $"/{currentFile}/poll"
         let body =
-            Thoth.Json.JavaScript.Encode.toString 0 (
-                ApiResponseSerialization.encodePollRequest
-                    { eventId = eventId
-                      want = currentWant model })
+            encodePollRequestBody (currentPollRequest eventId model)
         let onPollOk (text: string) : unit =
             match ApiResponseSerialization.decodeChangeSuccessResponse text with
             | Ok poll ->

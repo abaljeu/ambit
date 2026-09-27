@@ -80,14 +80,6 @@ let private reconcileWorkspaceAck
             state
             syncInfo
 
-let private applyAckAnswer
-    (ack: ChangeSuccessResponse)
-    (state: ClientSyncState)
-    : Result<ClientSyncState, string> =
-    SyncLogic.applySyncResponse
-        (SyncLogic.changeSuccessAnswerToSync ack)
-        state
-
 /// Apply + synchronous POST so server graph has the workspace before push/reconcile.
 let applyAndPostSync (commandName: string) (ops: Op list) (model: VM) : Result<VM, string> =
     let event = ClientHistory.mintChange commandName ops
@@ -98,8 +90,7 @@ let applyAndPostSync (commandName: string) (ops: Op list) (model: VM) : Result<V
             withSiteMap { model with graph = nextState.graph }
         let body =
             encodePendingBatchBody
-                [ submitted ]
-                (currentWant sendModel)
+                (currentChangeRequest [ submitted ] sendModel)
         let url = sprintf "/%s/changes" currentFile
         let status, text = postJsonSync url body (jsonHeaders ())
         if status < 200 || status >= 300 then
@@ -117,14 +108,14 @@ let applyAndPostSync (commandName: string) (ops: Op list) (model: VM) : Result<V
                         model.eventId
                 with
                 | AckReconcile.Applied (st, _, _, _) ->
-                    applyAckAnswer ack st
+                    SyncLogic.applyChangeSuccessAnswer ack st
                     |> Result.map (fun answered ->
                         { model with
                             graph = answered.graph
                             history = answered.history
                             eventId = answered.eventId })
                 | AckReconcile.Ignored ->
-                    applyAckAnswer ack nextState
+                    SyncLogic.applyChangeSuccessAnswer ack nextState
                     |> Result.map (fun answered ->
                         { model with
                             graph = answered.graph
@@ -343,7 +334,7 @@ let completeUploadStructurePost
                 model.eventId
         with
         | AckReconcile.Applied (st, _, _, _) ->
-            match applyAckAnswer ack st with
+            match SyncLogic.applyChangeSuccessAnswer ack st with
             | Error msg -> failUploadStructurePost msg model
             | Ok answered ->
                 let model' =
@@ -354,7 +345,11 @@ let completeUploadStructurePost
                     |> keepUploading
                 model', [ Effect.ContinueWorkspacePush (scope, parseFileId) ]
         | AckReconcile.Ignored ->
-            match applyAckAnswer ack (clientSyncState model) with
+            match
+                SyncLogic.applyChangeSuccessAnswer
+                    ack
+                    (clientSyncState model)
+            with
             | Error msg -> failUploadStructurePost msg model
             | Ok answered ->
                 keepUploading (

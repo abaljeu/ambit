@@ -182,10 +182,7 @@ and private runBootPoll () =
     let clientEventId = model.eventId
     let url = $"/{currentFile}/poll"
     let body =
-        Thoth.Json.JavaScript.Encode.toString 0 (
-            ApiResponseSerialization.encodePollRequest
-                { eventId = clientEventId
-                  want = currentWant model })
+        encodePollRequestBody (currentPollRequest clientEventId model)
     postJson
         url
         body
