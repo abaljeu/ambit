@@ -290,7 +290,7 @@ let paletteRunOp =
                 { model with mode = ret }, []
             | Some op ->
                 withDiagnostic
-                    (Some (CommandMeta.displayName cmd.id))
+                    (Some cmd.name)
                     op
                     { model with mode = ret })
 

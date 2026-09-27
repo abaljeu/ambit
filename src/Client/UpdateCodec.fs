@@ -21,6 +21,17 @@ let encodeCommandRequest (request: ActorStart) : string =
     Thoth.Json.JavaScript.Encode.toString 0 (
         Gambol.Shared.EventJson.encodeStartRequest request)
 
+let encodeLoadSaveCommandRequest
+    (request: LoadSaveCommandRequest)
+    : string =
+    Thoth.Json.JavaScript.Encode.toString 0 (
+        Gambol.Shared.EventJson.encodeLoadSaveCommandRequest request)
+
+let decodeLoadSaveCommandResponse
+    (text: string)
+    : Result<LoadSaveCommandResponse, string> =
+    ApiResponseSerialization.decodeLoadSaveCommandResponse text
+
 /// Encode Focus NodeId and EventId cursor for POST /{file}/cancel.
 let encodeCancelRequest (focusId: NodeId) (eventId: EventId) : string =
     Thoth.Json.JavaScript.Encode.toString 0 (

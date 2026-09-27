@@ -28,8 +28,48 @@ let private queueWorkspacePush
             syncInfo = SyncInfo.queueRequest request model.syncInfo }
         "load queued until current sync completes"
 
+let private runDeskLoadAction
+    (action: WorkspaceUploadAction)
+    (model: VM)
+    : VM * Effect list =
+    match action with
+    | WorkspaceUploadAction.DesktopPush parseFileId ->
+        match syncScopeFromFocus model with
+        | Error msg -> fail model msg
+        | Ok scope when WorkspaceUpload.canStart model.syncInfo ->
+            startWorkspacePush scope parseFileId model
+        | Ok scope ->
+            queueWorkspacePush scope parseFileId model
+    | WorkspaceUploadAction.CreateWorkspaceFromFolder when
+        WorkspaceUpload.canStart model.syncInfo ->
+        uploadCreateWorkspaceOp model
+    | WorkspaceUploadAction.CreateWorkspaceFromFolder ->
+        queueLoadRequest model
+    | WorkspaceUploadAction.ReconcileServerDisk when
+        WorkspaceUpload.canStartWeb model.syncInfo ->
+        match syncScopeFromFocus model with
+        | Error msg -> fail model msg
+        | Ok scope ->
+            let parsing =
+                { model with
+                    syncInfo =
+                        SyncInfo.withSyncState Parsing model.syncInfo }
+            let model', effs =
+                okDetail parsing "reconciling server disk"
+            model', effs @ [ Effect.ContinueDirectoryReconcile scope ]
+    | (WorkspaceUploadAction.ParseServerDisk fileId as parseAction) when
+        WorkspaceUpload.canStartWeb model.syncInfo ->
+        parseFileOp parseAction fileId model
+    | WorkspaceUploadAction.ReconcileServerDisk
+    | WorkspaceUploadAction.ParseServerDisk _ ->
+        queueLoadRequest model
+    | WorkspaceUploadAction.Unavailable msg ->
+        withResult
+            model
+            (CmdLastResult.Error(Some(displayName Load), msg))
+
 /// Load command: desktop Upload when mapped; else graph-only from DataDir (web / unmapped).
-let loadOp (model: VM) : VM * Effect list =
+let deskLoadOp (model: VM) : VM * Effect list =
     let targetIds = selectedLoadTargetIds model
     if
         ResidentProjection.selectionSpansMultipleWorkspaces
@@ -52,47 +92,37 @@ let loadOp (model: VM) : VM * Effect list =
                 | Ok(Some _) -> true
                 | _ -> false
             | Error _ -> false
-        match
-            WorkspaceUpload.plan
-                canPush
-                hasMapping
-                (focusIsWorkspaces model)
-                target
-        with
-        | WorkspaceUploadAction.DesktopPush parseFileId ->
-            match syncScopeFromFocus model with
-            | Error msg -> fail model msg
-            | Ok scope when WorkspaceUpload.canStart model.syncInfo ->
-                startWorkspacePush scope parseFileId model
-            | Ok scope ->
-                queueWorkspacePush scope parseFileId model
-        | WorkspaceUploadAction.CreateWorkspaceFromFolder when
-            WorkspaceUpload.canStart model.syncInfo ->
-            uploadCreateWorkspaceOp model
-        | WorkspaceUploadAction.CreateWorkspaceFromFolder ->
-            queueLoadRequest model
-        | WorkspaceUploadAction.ReconcileServerDisk when
-            WorkspaceUpload.canStartWeb model.syncInfo ->
-            match syncScopeFromFocus model with
-            | Error msg -> fail model msg
-            | Ok scope ->
-                let parsing =
-                    { model with
-                        syncInfo =
-                            SyncInfo.withSyncState Parsing model.syncInfo }
-                let model', effs =
-                    okDetail parsing "reconciling server disk"
-                model', effs @ [ Effect.ContinueDirectoryReconcile scope ]
-        | (WorkspaceUploadAction.ParseServerDisk fileId as action) when
-            WorkspaceUpload.canStartWeb model.syncInfo ->
-            parseFileOp action fileId model
-        | WorkspaceUploadAction.ReconcileServerDisk
-        | WorkspaceUploadAction.ParseServerDisk _ ->
-            queueLoadRequest model
-        | WorkspaceUploadAction.Unavailable msg ->
-            withResult
-                model
-                (CmdLastResult.Error(Some(displayName Load), msg))
+        WorkspaceUpload.plan
+            canPush
+            hasMapping
+            (focusIsWorkspaces model)
+            target
+        |> fun action -> runDeskLoadAction action model
+
+let loadOpFor
+    (prePick: LoadSavePrePick)
+    (model: VM)
+    : VM * Effect list =
+    let targetIds = selectedLoadTargetIds model
+    if
+        ResidentProjection.selectionSpansMultipleWorkspaces
+            model.graph
+            targetIds
+    then
+        withResult
+            model
+            (CmdLastResult.Error(
+                Some(displayName Load),
+                "Load requires all selected targets in one Workspace"))
+    else
+        model,
+        [ SubmitLoadSaveCommand
+            (loadSaveCommandRequest
+                LoadSaveOperation.Load
+                prePick
+                model) ]
+
+let loadOp = loadOpFor LoadSavePrePick.Plain
 
 let loadAvailable (model: VM) =
     WorkspaceUpload.isAvailable

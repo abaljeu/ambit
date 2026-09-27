@@ -94,6 +94,11 @@ module RouteRegistration =
     let private parseBound (persistence: PersistenceContext) =
         boundChanges persistence persistence.Core.parseCaller
 
+    let private githubOperation =
+        function
+        | LoadSaveOperation.Load -> GithubTransportOperation.Load
+        | LoadSaveOperation.Save -> GithubTransportOperation.Save
+
     /// Missing cookie is 401 without Core. Present cookie uses mailbox admit.
     let private withBrowserChanges
         (persistence: PersistenceContext)
@@ -269,6 +274,41 @@ module RouteRegistration =
                             body
                         |> Async.StartAsTask
         })) |> ignore
+        this.MapPost(
+            "/ambit/load-save-command",
+            Func<HttpRequest, Task<IResult>>(fun req -> task {
+                bindClientHint req |> ignore
+                use reader = new StreamReader(req.Body)
+                let! body = reader.ReadToEndAsync()
+                match BrowserRequestCreds.tryCookieCaller req with
+                | None -> return Results.Unauthorized()
+                | Some caller ->
+                    let! live =
+                        CoreMailbox.isAdmitted persistence.Core.host caller
+                        |> Async.StartAsTask
+                    if not live then
+                        return Results.Unauthorized()
+                    else
+                        let router =
+                            { resolvePath =
+                                LoadSaveRouting.resolvePath persistence.DataDir
+                              startCommand =
+                                fun path request ->
+                                    CoreMailbox.startLoadSaveCommand
+                                        persistence.Core.host
+                                        caller
+                                        path
+                                        (GithubTransportActor.peerName
+                                            (githubOperation request.operation))
+                                        request }
+                        return!
+                            Api.postLoadSaveCommand
+                                router
+                                (boundChanges persistence caller)
+                                body
+                            |> Async.StartAsTask
+            }))
+        |> ignore
         this.MapPost("/ambit/actors/deliver", Func<HttpRequest, Task<IResult>>(fun req -> task {
             use reader = new StreamReader(req.Body)
             let! body = reader.ReadToEndAsync()

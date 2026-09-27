@@ -14,7 +14,7 @@ Sources: [spec.md](spec.md) User Stories 1–27; [map.md](map.md) Destination an
    3. [x] PathPick and Peer Actor treat every such Workspace as a candidate (no extra Kind)
 
 2. **Every Workspace may connect**
-   1. [ ] PathPick runs for any Workspace work tree
+   1. [x] PathPick runs for any Workspace work tree
    2. [x] No allowlist and no special label gate
 
 3. **Server-git when a remote exists**
@@ -45,20 +45,20 @@ Sources: [spec.md](spec.md) User Stories 1–27; [map.md](map.md) Destination an
 
 8. **Load**
    1. [x] Person Command Load (`CommandEntry` Load; [[src/Client/Commands.fs]] `loadOp`)
-   2. [ ] Load command request → mailbox → actor pool (not Run, not `?git`)
-   3. [ ] Plain Load asks PathPick
-   4. [ ] PathPick git → pool invokes GitHub Peer Actor (Focus = Workspace / work tree); PathPick desk → desk Load
+   2. [x] Load command request → mailbox → actor pool (not Run, not `?git`)
+   3. [x] Plain Load asks PathPick
+   4. [x] PathPick git → pool invokes GitHub Peer Actor (Focus = Workspace / work tree); PathPick desk → desk Load
    5. [x] After files land, Load invokes Parse / graph-push as today’s `loadOp` already does (`parseFileOp` / directory reconcile / Fetch+Poll)
 
 9. **Save**
    1. [x] Person Command Save (`CommandEntry` Save; [[src/Client/UpdateSave.fs]] `saveOp`)
-   2. [ ] Save command request uses the same mailbox → actor-pool door as Load
-   3. [ ] Plain Save asks PathPick
-   4. [ ] PathPick git → pool invokes GitHub Peer Actor (Focus = Workspace / work tree); PathPick desk → desk Save
+   2. [x] Save command request uses the same mailbox → actor-pool door as Load
+   3. [x] Plain Save asks PathPick
+   4. [x] PathPick git → pool invokes GitHub Peer Actor (Focus = Workspace / work tree); PathPick desk → desk Save
 
 10. **git Load**
-    1. [ ] Person names git Load (explicit pre-pick)
-    2. [ ] PathPick is skipped
+    1. [x] Person names git Load (explicit pre-pick)
+    2. [x] PathPick is skipped
     3. [x] Mailbox → actor pool invokes Peer Actor; Actor uses Focus as the work tree
     4. [x] Peer Actor pulls the whole Workspace work tree / tracked branch (invocation node does not narrow git)
     5. [x] Reject uses condensed git error (conflict names at least one path)
@@ -66,8 +66,8 @@ Sources: [spec.md](spec.md) User Stories 1–27; [map.md](map.md) Destination an
     7. [ ] Selection-parse nuance after whole-tree pull is later ([06 — Selection-scoped Parse after whole-tree git Load](issues/06-selection-scoped-parse-after-whole-tree-git-load.md)); do not expand in v1
 
 11. **git Save**
-    1. [ ] Person names git Save (explicit pre-pick)
-    2. [ ] PathPick is skipped
+    1. [x] Person names git Save (explicit pre-pick)
+    2. [x] PathPick is skipped
     3. [x] Same mailbox → actor-pool door as Load; Actor uses Focus as the work tree
     4. [x] Peer Actor `git commit`s the work-tree edits (`GitSave.commitAll`)
     5. [x] Then pushes the whole Workspace work tree / same tracked branch (invocation node does not narrow git)
@@ -75,33 +75,33 @@ Sources: [spec.md](spec.md) User Stories 1–27; [map.md](map.md) Destination an
     7. [x] Reject uses condensed git error (conflict names at least one path)
 
 12. **desk Load**
-    1. [ ] Person names desk Load (explicit pre-pick)
-    2. [ ] PathPick is skipped
+    1. [x] Person names desk Load (explicit pre-pick)
+    2. [x] PathPick is skipped
     3. [x] Desk file path stays WebDAV Upload / existing `loadOp` desk transit ([[doc/current/workspace-file-sync.md]])
     4. [x] Existing Load → Parse coupling stays (`parseFileOp` / directory reconcile / Fetch+Poll)
 
 13. **desk Save**
-    1. [ ] Person names desk Save (explicit pre-pick)
-    2. [ ] PathPick is skipped
+    1. [x] Person names desk Save (explicit pre-pick)
+    2. [x] PathPick is skipped
     3. [x] Desk file path stays the existing desk Save / WebDAV transit (not a GitHub push)
 
 14. **Plain Load prefers git**
-    1. [ ] Plain Load with a remote exists → same hops as **git Load**
-    2. [ ] Plain Load with no remote → same hops as **desk Load**
+    1. [x] Plain Load with a remote exists → same hops as **git Load**
+    2. [x] Plain Load with no remote → same hops as **desk Load**
 
 15. **Plain Save prefers git**
-    1. [ ] Plain Save with a remote exists → same hops as **git Save**
-    2. [ ] Plain Save with no remote → same hops as **desk Save**
+    1. [x] Plain Save with a remote exists → same hops as **git Save**
+    2. [x] Plain Save with no remote → same hops as **desk Save**
 
 16. **No automatic pull or push**
-    1. [ ] No schedule starts git pull or push
-    2. [ ] No post-Persist git pull or push
-    3. [ ] No post-Download git pull or push
+    1. [x] No schedule starts git pull or push
+    2. [x] No post-Persist git pull or push
+    3. [x] No post-Download git pull or push
     4. [x] DailyGitSave / local Server commit is not GitHub push
 
 17. **Load keeps Parse**
     1. [x] desk Load already invokes Parse / graph-push after files land
-    2. [ ] git Load and plain-git Load use that same Parse / graph-push coupling after a whole-tree pull; they do not stop at file transfer
+    2. [x] git Load and plain-git Load use that same Parse / graph-push coupling after a whole-tree pull; they do not stop at file transfer
     3. [ ] Parse runs on the selection where appropriate (selection-scoped parse after whole-tree pull)
     4. [ ] Do not expand the selection-parse nuance in v1 ([06 — Selection-scoped Parse after whole-tree git Load](issues/06-selection-scoped-parse-after-whole-tree-git-load.md))
     5. [ ] Do not redesign Load around a future autonomous Parse ([[plan/parse-actor/project.md]] stays elsewhere)
@@ -109,17 +109,17 @@ Sources: [spec.md](spec.md) User Stories 1–27; [map.md](map.md) Destination an
 18. **WebDAV remains**
     1. [x] WebDAV Upload / Download stay implemented
     2. [x] git Load/Save do not replace that transit
-    3. [ ] desk Load/Save keep using it
+    3. [x] desk Load/Save keep using it
 
 19. **Server Peer Actor does the round-trip**
-    1. [ ] Load or Save Command request reaches mailbox → actor pool → GitHub Peer Actor
+    1. [x] Load or Save Command request reaches mailbox → actor pool → GitHub Peer Actor
     2. [x] Actor cares about Focus (Workspace / work tree) only
     3. [x] App does not invoke `git` ([[src/Shared/dotnet/GitRun.fs]] is host-side)
-    4. [ ] App stays thin (no git Actor host)
+    4. [x] App stays thin (no git Actor host)
 
 20. **One Actor shape through Server**
     1. [x] The same Peer Actor shape serves every device that maps through Server
-    2. [ ] No per-App clone protocol
+    2. [x] No per-App clone protocol
 
 21. **Host git credentials**
     1. [x] Peer Actor invokes `git` through WorkspaceGit / GitSave / GitRun
@@ -144,7 +144,7 @@ Sources: [spec.md](spec.md) User Stories 1–27; [map.md](map.md) Destination an
 
 25. **Actor start door**
     1. [x] Not Run and not a `?git` entrée
-    2. [ ] Load or Save Command → load/save command request → mailbox → actor pool → GitHub Peer Actor
+    2. [x] Load or Save Command → load/save command request → mailbox → actor pool → GitHub Peer Actor
     3. [x] Same wiring for Save as Load
     4. [x] Actor input is Focus (Workspace / work tree)
 
@@ -186,20 +186,20 @@ Narrowest shared test seam:
 ## 2. Module map
 
 1. **Command Load/Save**
-   File: [[src/Shared/CommandEntry.fs]] and [[src/Client/Commands.fs]] (existing Load / Save). Spoken names stay Load and Save. Pre-picks are git Load / git Save / desk Load / desk Save — not Git Remote / Git Pull / Git Push.
+   File: [[src/Shared/CommandEntry.fs]], [[src/Shared/LoadSaveCommand.fs]], and [[src/Client/Commands.fs]] (existing Load / Save). Spoken names stay Load and Save. Pre-picks are git Load / git Save / desk Load / desk Save on the load/save command request — not Git Remote / Git Pull / Git Push.
    1. State
       1. [x] CommandId Load and Save
-      2. [ ] Path pre-pick: Plain | Git | Desk (encoding unsettled only as a field; not a new primary command name)
+      2. [x] Path pre-pick: Plain | Git | Desk on `LoadSaveCommandRequest` (not a new primary command name)
    2. Interface
       1. [x] Person Command Load and Save
-      2. [ ] Plain Load/Save ask PathPick
-      3. [ ] Explicit Git or Desk skips PathPick
-      4. [ ] No schedule, post-Persist, or post-Download start
-      5. [ ] Load or Save Command → load/save command request → mailbox → actor pool (not Run, not `?git`)
+      2. [x] Plain Load/Save ask PathPick
+      3. [x] Explicit Git or Desk skips PathPick
+      4. [x] No schedule, post-Persist, or post-Download start
+      5. [x] Load or Save Command → load/save command request → mailbox → actor pool (not Run, not `?git`)
       6. [x] Load still invokes Parse / graph-push as today’s desk Load does
    3. Uses
-      1. [ ] PathPick
-      2. [ ] Peer Actor (git path) via actor pool
+      1. [x] PathPick
+      2. [x] Peer Actor (git path) via actor pool
       3. [x] Desk Load/Save (desk path)
       4. [x] Existing Parse hops (`parseFileOp` / directory reconcile / Fetch+Poll)
 
@@ -242,10 +242,10 @@ Narrowest shared test seam:
       1. [x] Live Actor row only while a person-started git Load or git Save runs
       2. [x] No stored GitHub credential
    2. Interface
-      1. [ ] Pool invokes the Actor from a Load or Save command request on the mailbox (not Run, not `?git`)
+      1. [x] Pool invokes the Actor from a Load or Save command request on the mailbox (not Run, not `?git`)
       2. [x] Actor cares about Focus only (which Workspace / work tree)
       3. [x] Same wiring for Save as Load
-      4. [ ] git Load: pull whole Workspace work tree / tracked branch (any invocation node), then today’s Load → Parse / graph-push on the selection
+      4. [x] git Load: pull whole Workspace work tree / tracked branch (any invocation node), then today’s Load → Parse / graph-push on the selection
       5. [x] git Save: `git commit` work-tree edits, then push whole Workspace work tree / same tracked branch; FF-only reject; never file-level git; Persist stays independent
       6. [x] Reject UX: conflict names at least one file path; other failures a matching short git-condensed error; same for Load and Save
       7. [x] Same Actor shape for every device that maps through Server
@@ -276,7 +276,7 @@ Narrowest shared test seam:
       1. [x] No git remote map on the App
    2. Interface
       1. [x] Does not invoke GitRun for GitHub pull or push
-      2. [ ] Does not host the Peer Actor
+      2. [x] Does not host the Peer Actor
    3. Uses
       1. [x] Command Load/Save
       2. [x] Desk WebDAV when PathPick or pre-pick is desk
@@ -300,7 +300,7 @@ Narrowest shared test seam:
 
 3. **Peer Actor git Load/Save**
    Interface on **Peer Actor**. Tests stub WorkspaceGit. Start door is mailbox → actor pool from Load/Save ([07 — Actor start door](issues/07-actor-start-door.md)).
-   1. [ ] Load/Save command request → pool invokes Actor; Focus names the work tree
+   1. [x] Load/Save command request → pool invokes Actor; Focus names the work tree
    2. [x] git Load → pull
    3. [x] git Save → commit work-tree edits, then push
    4. [x] Persist is not invoked from git Save

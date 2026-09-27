@@ -28,6 +28,12 @@ type internal CoreMsg =
         peerName: PeerActorName *
         request: Gambol.Shared.ActorStart *
         AsyncReplyChannel<Result<unit, string>>
+    | StartLoadSaveCommand of
+        caller: Caller *
+        path: LoadSavePath *
+        peerName: PeerActorName *
+        request: LoadSaveCommandRequest *
+        AsyncReplyChannel<Result<unit, string>>
     | ActorStop of
         caller: Caller *
         result: ActorResult *

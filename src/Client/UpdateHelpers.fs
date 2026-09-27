@@ -57,6 +57,27 @@ let currentChangeRequest (events: Ev list) (model: VM) : ChangeRequest =
     { events = SyncBatch.toWireBatch events
       want = currentWant model }
 
+let loadSaveCommandRequest
+    (operation: LoadSaveOperation)
+    (prePick: LoadSavePrePick)
+    (model: VM)
+    : LoadSaveCommandRequest =
+    let focusId =
+        match model.selectedNodes with
+        | Some selection ->
+            focusedNodeId model.graph selection
+        | None -> model.zoomRoot
+    { operation = operation
+      prePick = prePick
+      start =
+        CommandRequest.actorStart
+            model.graph
+            model.siteMap
+            model.zoomRoot
+            focusId
+            focusId
+            model.eventId }
+
 /// Focus target used by Load (same resolution as the Load command).
 let focusContextualTarget (model: VM) : ContextualTarget option =
     model.selectedNodes

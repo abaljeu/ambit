@@ -33,11 +33,19 @@ type CommandOp = unit -> Updater option
 
 type CommandEntry2 = {
     id: CommandId
+    name: string
     run: CommandOp
 }
 
 let private cmd (id: CommandId) (run: CommandOp) : CommandEntry2 =
-    { id = id; run = run }
+    { id = id; name = displayName id; run = run }
+
+let private prePickCmd
+    (id: CommandId)
+    (name: string)
+    (run: CommandOp)
+    : CommandEntry2 =
+    { id = id; name = name; run = run }
 
 // ---------------------------------------------------------------------------
 // Editing command ops (read live caret from DOM)
@@ -295,7 +303,11 @@ let commandRegistry : CommandEntry2 list =
       cmd EditClasses (keyAlways openCssClassPromptOp)
       cmd JumpToTarget (keyAlways jumpTargetOp)
       cmd Load (keyAlways loadOp)
+      prePickCmd Load "git Load" (keyAlways (loadOpFor LoadSavePrePick.Git))
+      prePickCmd Load "desk Load" (keyAlways (loadOpFor LoadSavePrePick.Desk))
       cmd Save (keyAlways saveOp)
+      prePickCmd Save "git Save" (keyAlways (saveOpFor LoadSavePrePick.Git))
+      prePickCmd Save "desk Save" (keyAlways (saveOpFor LoadSavePrePick.Desk))
       cmd Download (keyAlways downloadOp)
       cmd CheckGraph (keyAlways validateGraphOp)
     ]
@@ -342,7 +354,7 @@ let filteredCommands (model: VM) (returnTo: Mode) (query: string) : CommandEntry
         let q = query.ToLowerInvariant()
         baseList
         |> List.filter (fun c ->
-            displayName c.id |> fun n -> n.ToLowerInvariant().Contains q)
+            c.name.ToLowerInvariant().Contains q)
 
 let tryFindCommand (id: CommandId) : CommandEntry2 option =
     commandRegistry |> List.tryFind (fun c -> c.id = id)

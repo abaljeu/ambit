@@ -78,6 +78,8 @@ module internal CoreMailboxBackend =
         | StartActor _ -> "StartActor", ""
         | StartPeerActor (_, PeerActorName name, _, _) ->
             "StartPeerActor", name
+        | StartLoadSaveCommand (_, path, PeerActorName name, _, _) ->
+            "StartLoadSaveCommand", $"{path}:{name}"
         | ActorStop (_, result, _) ->
             match result with
             | ActorSucceeded -> "ActorStop", "ActorSucceeded"
@@ -100,6 +102,8 @@ module internal CoreMailboxBackend =
         | SnapshotDone _ -> ()
         | StartActor (_, _, reply) -> reply.Reply(Error error)
         | StartPeerActor (_, _, _, reply) -> reply.Reply(Error error)
+        | StartLoadSaveCommand (_, _, _, _, reply) ->
+            reply.Reply(Error error)
         | ActorStop (_, _, reply) -> reply.Reply(Error error)
         | CancelActor (_, _, reply) -> reply.Reply(Error error)
         | Login (_, reply) -> reply.Reply(Error error)
@@ -152,7 +156,7 @@ module internal CoreMailboxBackend =
           persist = context.persist
           eventLog = context.eventLog }
 
-    let private dispatchActorStart
+    let private dispatchActorStartResult
         (context: MailboxContext)
         (caller: Caller)
         (request: Gambol.Shared.ActorStart)
@@ -171,7 +175,8 @@ module internal CoreMailboxBackend =
                     | Error _ -> Graph.create ()
                 match start request getState with
                 | Error err -> reply.Reply(Error err)
-                | Ok secret ->
+                | Ok None -> reply.Reply(Ok ())
+                | Ok(Some secret) ->
                     match
                         CoreEventDispatch.actorStart
                             (eventDispatchContext context)
@@ -186,17 +191,46 @@ module internal CoreMailboxBackend =
                         reply.Reply(Ok ())
 
     let private dispatchStartActor context caller request reply =
-        dispatchActorStart
-            context caller request reply context.pool.startActor
-
-    let private dispatchStartPeerActor
-        context caller peerName request reply =
-        dispatchActorStart
+        dispatchActorStartResult
             context
             caller
             request
             reply
-            (context.pool.startPeerActor peerName)
+            (fun start getState ->
+                context.pool.startActor start getState
+                |> Result.map Some)
+
+    let private dispatchStartPeerActor
+        context caller peerName request reply =
+        dispatchActorStartResult
+            context
+            caller
+            request
+            reply
+            (fun start getState ->
+                context.pool.startPeerActor peerName start getState
+                |> Result.map Some)
+
+    let private dispatchStartLoadSaveCommand
+        context
+        caller
+        path
+        peerName
+        (request: LoadSaveCommandRequest)
+        reply
+        =
+        dispatchActorStartResult
+            context
+            caller
+            request.start
+            reply
+            (fun _ getState ->
+                CoreActorPool.startLoadSaveCommand
+                    context.pool
+                    path
+                    peerName
+                    request
+                    getState)
 
     let private dispatchActorStop
         (context: MailboxContext)
@@ -308,6 +342,9 @@ module internal CoreMailboxBackend =
         | StartPeerActor (caller, peerName, request, reply) ->
             dispatchStartPeerActor
                 context caller peerName request reply
+        | StartLoadSaveCommand (caller, path, peerName, request, reply) ->
+            dispatchStartLoadSaveCommand
+                context caller path peerName request reply
         | ActorStop (caller, result, reply) ->
             dispatchActorStop context caller result reply
         | CancelActor (caller, focusId, reply) ->

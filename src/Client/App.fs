@@ -3,7 +3,6 @@ module Gambol.Client.App
 open Browser.Dom
 open Browser.Types
 open Gambol.Shared
-open Gambol.Shared
 open Gambol.Shared.ViewModel
 open Gambol.Client
 open Gambol.Client.Update
@@ -90,12 +89,13 @@ let createRuntime (initialModel: VM) =
         match e with
         | SubmitPendingBatch (baseEventId, events) -> runSubmitPendingBatch baseEventId events
         | SubmitCommand request -> runSubmitCommand request
+        | SubmitLoadSaveCommand request -> LoadSaveCommandClient.run dispatch request
         | SubmitCancel focusId -> runSubmitCancel focusId
         | PollServer eventId -> runPollServer eventId
         | LoadServer (_, targets) ->
             runLoadServer targets
         | ScheduleRetry delayMs -> runScheduleRetry delayMs
-        | RunQueuedRequest QueuedLoad -> dispatch (ApplyOp loadOp)
+        | RunQueuedRequest QueuedLoad -> dispatch (ApplyOp deskLoadOp)
         | RunQueuedRequest (QueuedWorkspacePush (scope, parseFileId)) ->
             dispatch (ApplyOp (startWorkspacePush scope parseFileId))
         | SavePendingQueue q -> runSavePendingQueue q

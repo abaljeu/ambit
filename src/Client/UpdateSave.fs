@@ -13,7 +13,7 @@ let private canSave (model: VM) =
     | _ -> false
 
 /// Persist data-dir snapshot via the server Save endpoint.
-let saveOp (model: VM) : VM * Effect list =
+let deskSaveOp (model: VM) : VM * Effect list =
     if not (canSave model) then
         model, []
     else
@@ -38,3 +38,16 @@ let saveOp (model: VM) : VM * Effect list =
             (fun () -> consoleLog "[Gambol] save network error")
             (emptyMutatingPostHeaders ())
         model, []
+
+let saveOpFor
+    (prePick: LoadSavePrePick)
+    (model: VM)
+    : VM * Effect list =
+    model,
+    [ SubmitLoadSaveCommand
+        (loadSaveCommandRequest
+            LoadSaveOperation.Save
+            prePick
+            model) ]
+
+let saveOp = saveOpFor LoadSavePrePick.Plain

@@ -252,3 +252,38 @@ module ApiResponseSerialization =
 
     let decodeUniversalResponse text =
         Decode.fromString decodeUniversalResponseDecoder text
+
+    let private encodeLoadSavePath =
+        function
+        | LoadSavePath.Git -> Encode.string "git"
+        | LoadSavePath.Desk -> Encode.string "desk"
+
+    let private decodeLoadSavePath: Decoder<LoadSavePath> =
+        Decode.string
+        |> Decode.andThen (function
+            | "git" -> Decode.succeed LoadSavePath.Git
+            | "desk" -> Decode.succeed LoadSavePath.Desk
+            | other -> Decode.fail ("Unknown Load/Save path: " + other))
+
+    let encodeLoadSaveCommandResponse
+        (response: LoadSaveCommandResponse)
+        : IEncodable =
+        let commandField =
+            match response.command with
+            | Some command ->
+                [ "command", encodeUniversalResponse command ]
+            | None -> []
+        Encode.object (
+            [ "path", encodeLoadSavePath response.path ]
+            @ commandField)
+
+    let decodeLoadSaveCommandResponseDecoder: Decoder<LoadSaveCommandResponse> =
+        Decode.object (fun get ->
+            { path = get.Required.Field "path" decodeLoadSavePath
+              command =
+                get.Optional.Field
+                    "command"
+                    decodeUniversalResponseDecoder })
+
+    let decodeLoadSaveCommandResponse text =
+        Decode.fromString decodeLoadSaveCommandResponseDecoder text

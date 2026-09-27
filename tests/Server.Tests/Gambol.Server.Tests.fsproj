@@ -65,6 +65,7 @@
     <Compile Include="ApiGetStateTests.fs" />
     <Compile Include="ResponseCompressionTests.fs" />
     <Compile Include="ApiPostLoadTests.fs" />
+    <Compile Include="LoadSaveCommandTests.fs" />
     <Compile Include="ApiPostCommandTests.fs" />
     <Compile Include="ApiPostCancelTests.fs" />
     <Compile Include="ChangeEndpointResilienceTests.fs" />
