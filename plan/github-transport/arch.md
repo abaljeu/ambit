@@ -1,7 +1,7 @@
 # github-transport architecture
 
 Spec: [[spec.md]]
-Updated: 2026-09-26
+Updated: 2026-09-27
 Sequence: module-build
 
 Sources: [spec.md](spec.md) User Stories 1–27; [map.md](map.md) Destination and Decisions so far 1–16 ([01 — Which Workspaces and remotes](issues/01-which-workspace-labels-and-remotes.md)–[05 — Git Load/Save are Workspace-scoped](issues/05-git-load-save-workspace-scoped.md), [07 — Actor start door](issues/07-actor-start-door.md)–[10 — git Save is commit then push](issues/10-git-save-commit-then-push.md), [16 — Persist/git work-tree gate](issues/16-persist-git-work-tree-gate.md)). Later: [06 — Selection-scoped Parse after whole-tree git Load](issues/06-selection-scoped-parse-after-whole-tree-git-load.md) (`needs-info`; not v1). Checklist: `[x]` already true of the codebase shape; `[ ]` still to build. Does not invent product behavior beyond those locks. Existing Ambit smart-HTTP helper [[src/Shared/WorkspaceGitRemote.fs]] (`RemoteName` `ambit`, `/ambit/git/{label}.git`) is not the GitHub remote. Sequence is `module-build`: the stories share a few modules (PathPick, WorkspaceGit git facts, Peer Actor, existing desk WebDAV). This is not expand-contract (no wide rename). Tracer-cut would mint one ticket per story and repeat the same hops.
@@ -11,7 +11,7 @@ Sources: [spec.md](spec.md) User Stories 1–27; [map.md](map.md) Destination an
 1. **Workspace is a git work tree**
    1. [x] Workspace DataDir work tree is a git work tree (`WorkspaceGit.isRepo`)
    2. [x] No special label required for git home
-   3. [ ] PathPick and Peer Actor treat every such Workspace as a candidate (no extra Kind)
+   3. [x] PathPick and Peer Actor treat every such Workspace as a candidate (no extra Kind)
 
 2. **Every Workspace may connect**
    1. [ ] PathPick runs for any Workspace work tree
@@ -41,7 +41,7 @@ Sources: [spec.md](spec.md) User Stories 1–27; [map.md](map.md) Destination an
 
 7. **Remotes accept push**
    1. [x] Operator sets `git remote` on the work tree so git works
-   2. [ ] Peer Actor pushes that remote; it does not invent a PR-only path
+   2. [x] Peer Actor pushes that remote; it does not invent a PR-only path
 
 8. **Load**
    1. [x] Person Command Load (`CommandEntry` Load; [[src/Client/Commands.fs]] `loadOp`)
@@ -59,20 +59,20 @@ Sources: [spec.md](spec.md) User Stories 1–27; [map.md](map.md) Destination an
 10. **git Load**
     1. [ ] Person names git Load (explicit pre-pick)
     2. [ ] PathPick is skipped
-    3. [ ] Mailbox → actor pool invokes Peer Actor; Actor uses Focus as the work tree
-    4. [ ] Peer Actor pulls the whole Workspace work tree / tracked branch (invocation node does not narrow git)
-    5. [ ] Reject uses condensed git error (conflict names at least one path)
+    3. [x] Mailbox → actor pool invokes Peer Actor; Actor uses Focus as the work tree
+    4. [x] Peer Actor pulls the whole Workspace work tree / tracked branch (invocation node does not narrow git)
+    5. [x] Reject uses condensed git error (conflict names at least one path)
     6. [x] After files land, Parse / graph-push on the selection where appropriate, as today’s desk Load (`parseFileOp` / directory reconcile / Fetch+Poll)
     7. [ ] Selection-parse nuance after whole-tree pull is later ([06 — Selection-scoped Parse after whole-tree git Load](issues/06-selection-scoped-parse-after-whole-tree-git-load.md)); do not expand in v1
 
 11. **git Save**
     1. [ ] Person names git Save (explicit pre-pick)
     2. [ ] PathPick is skipped
-    3. [ ] Same mailbox → actor-pool door as Load; Actor uses Focus as the work tree
-    4. [ ] Peer Actor `git commit`s the work-tree edits (`GitSave.commitAll`)
-    5. [ ] Then pushes the whole Workspace work tree / same tracked branch (invocation node does not narrow git)
-    6. [ ] Does not invoke or replace Graph→file Persist
-    7. [ ] Reject uses condensed git error (conflict names at least one path)
+    3. [x] Same mailbox → actor-pool door as Load; Actor uses Focus as the work tree
+    4. [x] Peer Actor `git commit`s the work-tree edits (`GitSave.commitAll`)
+    5. [x] Then pushes the whole Workspace work tree / same tracked branch (invocation node does not narrow git)
+    6. [x] Does not invoke or replace Graph→file Persist
+    7. [x] Reject uses condensed git error (conflict names at least one path)
 
 12. **desk Load**
     1. [ ] Person names desk Load (explicit pre-pick)
@@ -108,21 +108,21 @@ Sources: [spec.md](spec.md) User Stories 1–27; [map.md](map.md) Destination an
 
 18. **WebDAV remains**
     1. [x] WebDAV Upload / Download stay implemented
-    2. [ ] git Load/Save do not replace that transit
+    2. [x] git Load/Save do not replace that transit
     3. [ ] desk Load/Save keep using it
 
 19. **Server Peer Actor does the round-trip**
     1. [ ] Load or Save Command request reaches mailbox → actor pool → GitHub Peer Actor
-    2. [ ] Actor cares about Focus (Workspace / work tree) only
+    2. [x] Actor cares about Focus (Workspace / work tree) only
     3. [x] App does not invoke `git` ([[src/Shared/dotnet/GitRun.fs]] is host-side)
     4. [ ] App stays thin (no git Actor host)
 
 20. **One Actor shape through Server**
-    1. [ ] The same Peer Actor shape serves every device that maps through Server
+    1. [x] The same Peer Actor shape serves every device that maps through Server
     2. [ ] No per-App clone protocol
 
 21. **Host git credentials**
-    1. [ ] Peer Actor invokes `git` through WorkspaceGit / GitSave / GitRun
+    1. [x] Peer Actor invokes `git` through WorkspaceGit / GitSave / GitRun
     2. [x] GitRun starts the host `git` process
     3. [x] git loads credentials (credential helper / host setup)
     4. [x] No GitHub credential in appsettings, user-secrets, Graph, or DataDir
@@ -138,15 +138,15 @@ Sources: [spec.md](spec.md) User Stories 1–27; [map.md](map.md) Destination an
     3. [ ] Exclude-from-repo does not mean desk-local-only
 
 24. **Workspace-scoped git**
-    1. [ ] git Load/Save from Workspace root or a subnode use the same whole-tree pull/push
+    1. [x] git Load/Save from Workspace root or a subnode use the same whole-tree pull/push
     2. [x] No file-level git pathspec
     3. [x] Tracked branch is the Workspace work tree’s current branch / upstream
 
 25. **Actor start door**
-    1. [ ] Not Run and not a `?git` entrée
+    1. [x] Not Run and not a `?git` entrée
     2. [ ] Load or Save Command → load/save command request → mailbox → actor pool → GitHub Peer Actor
-    3. [ ] Same wiring for Save as Load
-    4. [ ] Actor input is Focus (Workspace / work tree)
+    3. [x] Same wiring for Save as Load
+    4. [x] Actor input is Focus (Workspace / work tree)
 
 26. **Reject UX**
     1. [x] Conflict: error message names at least one file path
@@ -170,7 +170,7 @@ Shared segments:
 1. [x] Command Load and Save doors ([[src/Shared/CommandEntry.fs]], [[src/Client/Commands.fs]])
 2. [x] PathPick (plain Load/Save only)
 3. [x] WorkspaceGit remote-exists + tracked branch + pull/push
-4. [ ] Peer Actor git Load / git Save (mailbox → actor pool; Focus = work tree; git Save = commit then push)
+4. [x] Peer Actor git Load / git Save (mailbox → actor pool; Focus = work tree; git Save = commit then push)
 5. [x] Desk WebDAV / `loadOp` / desk Save ([[src/Shared/dotnet/WorkspaceFileSync.fs]], [[src/Client/UpdateWorkspaceLoad.fs]], [[src/Client/UpdateSave.fs]])
 6. [x] Host GitRun (no Ambit credential store)
 7. [x] Existing Load → Parse / graph-push (`parseFileOp` / directory reconcile / Fetch+Poll)
@@ -180,7 +180,7 @@ Shared segments:
 Narrowest shared test seam:
 1. [x] PathPick: remote exists → git; else desk (pure; no git process)
 2. [x] WorkspaceGit remote-exists + tracked-branch pull/push FF-only through GitRun on a temp work tree
-3. [ ] Peer Actor git Load / git Save invoke that WorkspaceGit interface; no Ambit credential argument
+3. [x] Peer Actor git Load / git Save invoke that WorkspaceGit interface; no Ambit credential argument
 4. [x] Work-tree gate: a second Persist, pull, or commit waits for the holder and continues after release without overlap
 
 ## 2. Module map
@@ -239,21 +239,21 @@ Narrowest shared test seam:
 4. **Peer Actor**
    File: new [[src/Server/GithubTransportActor.fs]] (spoken name: Server Peer Actor; not a new Kind). Start door: [07 — Actor start door](issues/07-actor-start-door.md).
    1. State
-      1. [ ] Live Actor row only while a person-started git Load or git Save runs
-      2. [ ] No stored GitHub credential
+      1. [x] Live Actor row only while a person-started git Load or git Save runs
+      2. [x] No stored GitHub credential
    2. Interface
       1. [ ] Pool invokes the Actor from a Load or Save command request on the mailbox (not Run, not `?git`)
-      2. [ ] Actor cares about Focus only (which Workspace / work tree)
-      3. [ ] Same wiring for Save as Load
+      2. [x] Actor cares about Focus only (which Workspace / work tree)
+      3. [x] Same wiring for Save as Load
       4. [ ] git Load: pull whole Workspace work tree / tracked branch (any invocation node), then today’s Load → Parse / graph-push on the selection
-      5. [ ] git Save: `git commit` work-tree edits, then push whole Workspace work tree / same tracked branch; FF-only reject; never file-level git; Persist stays independent
-      6. [ ] Reject UX: conflict names at least one file path; other failures a matching short git-condensed error; same for Load and Save
-      7. [ ] Same Actor shape for every device that maps through Server
-      8. [ ] Invokes WorkspaceGit; does not call git with an Ambit-supplied token
-      9. [ ] Acquires and releases the Workspace work-tree gate around git Load pull and git Save commit
+      5. [x] git Save: `git commit` work-tree edits, then push whole Workspace work tree / same tracked branch; FF-only reject; never file-level git; Persist stays independent
+      6. [x] Reject UX: conflict names at least one file path; other failures a matching short git-condensed error; same for Load and Save
+      7. [x] Same Actor shape for every device that maps through Server
+      8. [x] Invokes WorkspaceGit; does not call git with an Ambit-supplied token
+      9. [x] Acquires and releases the Workspace work-tree gate around git Load pull and git Save commit
    3. Uses
       1. [x] CoreActorPool / ActorFn ([[src/Server/Core/CoreActorPool.fs]])
-      2. [ ] WorkspaceGit
+      2. [x] WorkspaceGit
       3. [x] No App git host
       4. [x] Existing Load → Parse / graph-push after git Load files land
 
@@ -301,12 +301,12 @@ Narrowest shared test seam:
 3. **Peer Actor git Load/Save**
    Interface on **Peer Actor**. Tests stub WorkspaceGit. Start door is mailbox → actor pool from Load/Save ([07 — Actor start door](issues/07-actor-start-door.md)).
    1. [ ] Load/Save command request → pool invokes Actor; Focus names the work tree
-   2. [ ] git Load → pull
-   3. [ ] git Save → commit work-tree edits, then push
-   4. [ ] Persist is not invoked from git Save
-   5. [ ] reject UX same for Load and Save
-   6. [ ] no Ambit credential store
-   7. [ ] pull and commit acquire and release the Workspace work-tree gate
+   2. [x] git Load → pull
+   3. [x] git Save → commit work-tree edits, then push
+   4. [x] Persist is not invoked from git Save
+   5. [x] reject UX same for Load and Save
+   6. [x] no Ambit credential store
+   7. [x] pull and commit acquire and release the Workspace work-tree gate
 
 4. **Desk WebDAV**
    Interface on **Desk Load/Save**. Existing seam. This Project does not redesign it.

@@ -76,6 +76,8 @@ module internal CoreMailboxBackend =
             "PostGraphOnly", $"ops={n}"
         | SnapshotDone _ -> "SnapshotDone", ""
         | StartActor _ -> "StartActor", ""
+        | StartPeerActor (_, PeerActorName name, _, _) ->
+            "StartPeerActor", name
         | ActorStop (_, result, _) ->
             match result with
             | ActorSucceeded -> "ActorStop", "ActorSucceeded"
@@ -97,6 +99,7 @@ module internal CoreMailboxBackend =
         | PostGraphOnly (_, _, reply) -> reply.Reply(Error error)
         | SnapshotDone _ -> ()
         | StartActor (_, _, reply) -> reply.Reply(Error error)
+        | StartPeerActor (_, _, _, reply) -> reply.Reply(Error error)
         | ActorStop (_, _, reply) -> reply.Reply(Error error)
         | CancelActor (_, _, reply) -> reply.Reply(Error error)
         | Login (_, reply) -> reply.Reply(Error error)
@@ -149,11 +152,12 @@ module internal CoreMailboxBackend =
           persist = context.persist
           eventLog = context.eventLog }
 
-    let private dispatchStartActor
+    let private dispatchActorStart
         (context: MailboxContext)
         (caller: Caller)
         (request: Gambol.Shared.ActorStart)
         (reply: AsyncReplyChannel<Result<unit, string>>)
+        start
         : unit =
         match admitCaller context caller with
         | Error err -> reply.Reply(Error err)
@@ -165,7 +169,7 @@ module internal CoreMailboxBackend =
                     match context.persist.getState () with
                     | Ok state -> state.graph
                     | Error _ -> Graph.create ()
-                match context.pool.startActor request getState with
+                match start request getState with
                 | Error err -> reply.Reply(Error err)
                 | Ok secret ->
                     match
@@ -180,6 +184,19 @@ module internal CoreMailboxBackend =
                     | Ok () ->
                         context.pool.schedule secret (make caller)
                         reply.Reply(Ok ())
+
+    let private dispatchStartActor context caller request reply =
+        dispatchActorStart
+            context caller request reply context.pool.startActor
+
+    let private dispatchStartPeerActor
+        context caller peerName request reply =
+        dispatchActorStart
+            context
+            caller
+            request
+            reply
+            (context.pool.startPeerActor peerName)
 
     let private dispatchActorStop
         (context: MailboxContext)
@@ -288,6 +305,9 @@ module internal CoreMailboxBackend =
         | SnapshotDone graph -> context.persist.snapshotDone graph
         | StartActor (caller, request, reply) ->
             dispatchStartActor context caller request reply
+        | StartPeerActor (caller, peerName, request, reply) ->
+            dispatchStartPeerActor
+                context caller peerName request reply
         | ActorStop (caller, result, reply) ->
             dispatchActorStop context caller result reply
         | CancelActor (caller, focusId, reply) ->

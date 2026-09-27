@@ -37,10 +37,12 @@ let private recordingPool () =
     let live = ResizeArray<Credential>()
     let pool: CoreActorPool = {
         register = fun _ _ -> ()
+        registerPeer = fun _ _ -> ()
         startActor =
             fun request _ ->
                 started.TrySetResult request |> ignore
                 Ok (Credential "recorded")
+        startPeerActor = fun _ _ _ -> Error "unused"
         schedule = fun _ _ -> ()
         isLive = fun secret -> live.Contains secret
         admit = fun _ -> Ok ()
@@ -51,7 +53,12 @@ let private recordingPool () =
                 stopped.Add(secret, result)
                 Ok ()
         liveFocusIds = fun () -> Set.empty
-        getFocusId = fun _ -> None
+        getFocusId =
+            fun secret ->
+                if live.Contains secret then
+                    Some sampleRequest.focusId
+                else
+                    None
         trySecretForFocus = fun _ -> None
         deliver = fun _ -> Error "not live"
         takeInbox = fun _ -> Error "not live"
@@ -255,9 +262,11 @@ let ``ActorStop consults isLive once for a live Actor`` () =
     live.Add actorSecret
     let pool: CoreActorPool = {
         register = fun _ _ -> ()
+        registerPeer = fun _ _ -> ()
         startActor =
             fun _ _ ->
                 Ok actorSecret
+        startPeerActor = fun _ _ _ -> Error "unused"
         schedule = fun _ _ -> ()
         isLive =
             fun secret ->
