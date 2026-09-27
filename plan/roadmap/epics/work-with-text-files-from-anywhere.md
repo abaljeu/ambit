@@ -49,3 +49,4 @@ Done:
 - Graphic editing is out of scope. A graphic file is not a document.
 - English **document** vs **Document** (project) vs File Node: [[CONTEXT.md]].
 - 2026-09-26 — This Epic owns two file-source Chapters: keep-files-current [[chapters/automatic-upload-and-download.md]] and [[chapters/send-to-and-from-github.md]]. [[agent-chat-managed-context.md]] depends on Send to and from GitHub. It does not own that Chapter. Mapping is Current ([[doc/current/workspace-local-mapping.md]]). Tree sync is Current ([[doc/current/workspace-file-sync.md]]).
+- 2026-09-27 — Directory reconciliation is a Note on [[chapters/send-to-and-from-github.md]] (local working directory and the remote GitHub copy).
