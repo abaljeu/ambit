@@ -20,6 +20,13 @@ module Decode = Thoth.Json.Newtonsoft.Decode
 let private decodeStateResponse json =
     Decode.fromString ApiResponseSerialization.decodeStateResponseDecoder json
 
+let private requireOk label result =
+    match result with
+    | Ok value -> value
+    | Error err ->
+        Assert.Fail($"{label}: {err}")
+        Unchecked.defaultof<_>
+
 let private handleWithGetState
     (getState: unit -> Async<Result<State, string>>)
     : CoreChanges =
@@ -87,19 +94,13 @@ let private nestedWorkspaceStateResponse () =
                     g.childMap)
     let graph2 =
         Graph.replace wsId 0 [] [ ChildNode.owner dirId ] graph1
-        |> function
-            | Ok g -> g
-            | Error err -> failwith err
+        |> requireOk "Workspace Children"
     let graph3 =
         Graph.replace dirId 0 [] [ ChildNode.owner fileId ] graph2
-        |> function
-            | Ok g -> g
-            | Error err -> failwith err
+        |> requireOk "Directory Children"
     let graph4 =
         Graph.replace fileId 0 [] [ ChildNode.owner grandId ] graph3
-        |> function
-            | Ok g -> g
-            | Error err -> failwith err
+        |> requireOk "File Children"
     { graph = graph4
       eventId = EventIdFixtures.storedId 1
     },

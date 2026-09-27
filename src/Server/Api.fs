@@ -37,12 +37,14 @@ module Api =
     let private wantAnswerFromHandle
         (handle: CoreChanges)
         (want: NodeId list)
-        : Async<Result<Map<NodeId, ChildNode list> * Node list, string>> =
+        : Async<Result<State * Map<NodeId, ChildNode list> * Node list, string>> =
         async {
             match! handle.getState () with
             | Error err -> return Error err
             | Ok state ->
-                return Ok(ResidentProjection.wantAnswer state.graph want)
+                let childMap, nodes =
+                    ResidentProjection.wantAnswer state.graph want
+                return Ok(state, childMap, nodes)
         }
 
     let postPoll
@@ -61,21 +63,24 @@ module Api =
         | Ok request ->
             match! wantAnswerFromHandle handle request.want with
             | Error err -> return agentErrorResult err
-            | Ok (childMap, nodes) ->
-                let! eventId = handle.getEventId ()
+            | Ok (state, childMap, nodes) ->
                 let! events =
-                    if eventId > request.eventId then
+                    if state.eventId > request.eventId then
                         handle.getEventsSince request.eventId
                     else async.Return []
+                let snapshotEvents =
+                    events
+                    |> List.filter (fun event ->
+                        event.id <= state.eventId)
                 return
                     changeSuccessResult
-                        { eventId = eventId
+                        { eventId = state.eventId
                           buildEpochSec = buildEpochSec
                           pageBuildEpochSec = pageBuildEpochSec
                           apiVersion = ApiVersion.current
                           isReady = handle.isReady ()
-                          externalChanges = not events.IsEmpty
-                          events = events
+                          externalChanges = not snapshotEvents.IsEmpty
+                          events = snapshotEvents
                           message = None
                           bootstrapHash = None
                           nodes = nodes
@@ -210,11 +215,10 @@ module Api =
             | Ok accepted ->
                 match! wantAnswerFromHandle handle request.want with
                 | Error err -> return agentErrorResult err
-                | Ok (childMap, nodes) ->
-                    let! eventId = handle.getEventId ()
+                | Ok (_, childMap, nodes) ->
                     return
                         changeSuccessResult
-                            { eventId = eventId
+                            { eventId = accepted.eventId
                               buildEpochSec = buildEpochSec
                               pageBuildEpochSec = pageBuildEpochSec
                               apiVersion = ApiVersion.current

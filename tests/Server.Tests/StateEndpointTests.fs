@@ -701,7 +701,7 @@ let ``POST concurrent stale text Changes amend second as amb-conflict child``
         Assert.Equal<Guid list>([ changeB.submissionId ], decodeAckChangeIds postBody)
         Assert.True(decodeSuccessExternalChanges postBody)
 
-        let! json = getStateJson client testFile
+        let! json = getStateJsonFull client testFile
         let g = decodeGraph json
         Assert.Equal(EventId.fromJson 3, decodeEventId json)
         Assert.Equal("xA", g.nodes.[nodeX].text)
@@ -748,7 +748,7 @@ let ``POST concurrent stale name Changes amend second as amb-conflict child``
         let! postBody = rB.Content.ReadAsStringAsync()
         Assert.True(decodeSuccessExternalChanges postBody)
 
-        let! json = getStateJson client testFile
+        let! json = getStateJsonFull client testFile
         let g = decodeGraph json
         Assert.Equal("nameA", Filename.tryValue g.nodes.[nodeId].name |> Option.get)
         assertAmbConflictFirstChild g nodeId "nameB"
@@ -850,7 +850,7 @@ let ``POST unrelated structural edits with stale revision both succeed``
         Assert.Equal(EventId.fromJson 3, decodeSuccessRevision postBody)
         Assert.Equal<Guid list>([ changeB.submissionId ], decodeAckChangeIds postBody)
 
-        let! json = getStateJson client testFile
+        let! json = getStateJsonFull client testFile
         let g = decodeGraph json
         Assert.Equal(EventId.fromJson 3, decodeEventId json)
         Assert.Equal<ChildNode list>(
@@ -908,7 +908,7 @@ let ``POST same-parent structural collision amends and succeeds``
         let! postBody = rB.Content.ReadAsStringAsync()
         Assert.True(decodeSuccessExternalChanges postBody)
 
-        let! json = getStateJson client testFile
+        let! json = getStateJsonFull client testFile
         let g = decodeGraph json
         Assert.Equal(EventId.fromJson 3, decodeEventId json)
         let children = Graph.children g parentP

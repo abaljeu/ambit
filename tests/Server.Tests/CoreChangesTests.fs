@@ -166,12 +166,21 @@ let ``HTTP Adapter passes typed Changes only after valid decode`` () = task {
     let! _ =
         Api.postEvents handle 10 20 "not-json"
         |> Async.StartAsTask
+    let! missingWant =
+        Api.postEvents handle 10 20 """{"events":[]}"""
+        |> Async.StartAsTask
 
     let posted = Assert.Single(posts)
     Assert.Equal<Ev list>([ event ], posted)
+    match missingWant with
+    | :? Microsoft.AspNetCore.Http.IStatusCodeHttpResult as status ->
+        Assert.Equal(Nullable 400, status.StatusCode)
+    | other ->
+        Assert.Fail($"Expected status result, got {other.GetType().FullName}")
     match box result with
     | :? ContentHttpResult as content ->
         let response = decodeChangeResponse content.ResponseContent
+        Assert.Equal<Ev list>([ event ], response.events)
         Assert.True(Map.containsKey Graph.rootId response.childMap)
         Assert.NotEmpty(response.nodes)
     | other ->

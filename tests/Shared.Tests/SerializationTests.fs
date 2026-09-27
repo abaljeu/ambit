@@ -736,7 +736,7 @@ let ``LoadResponse decoder requires nodes and childMap`` () =
     let json = """{"r":4,"b":100,"p":200,"ready":true,"c":[]}"""
     match Dec.fromString ApiResponseSerialization.decodeLoadResponseDecoder json with
     | Error _ -> ()
-    | Ok _ -> failwith "Expected missing nodes and childMap to fail"
+    | Ok _ -> Assert.Fail("Expected missing nodes and childMap to fail")
 
 [<Fact>]
 let ``StateResponse round-trip preserves startup readiness`` () =
