@@ -75,8 +75,7 @@ let private applyIgnoredSubmitAnswer
 let private finishAppliedSubmit
     (response: ChangeSuccessResponse)
     (useExternal: bool)
-    (model: VM)
-    (applied: AppliedSubmit) : VM * Effect list =
+    (model: VM) (applied: AppliedSubmit) : VM * Effect list =
     let applied =
         match SyncLogic.applyChangeSuccessAnswer response applied.state with
         | Ok state -> { applied with state = state }
@@ -95,10 +94,10 @@ let private finishAppliedSubmit
                 match response.message with
                 | Some msg -> Some(CmdLastResult.Detail(None, msg))
                 | None -> model.lastCmdResult }
+        |> withSiteMap
     let updated', autoEffects =
         UpdateWorkspaceDownload.accumulateAutoDownloadFromOps
-            applied.suffixOps
-            updated
+            applied.suffixOps updated
     let nextSync, pollEffects =
         if
             useExternal
