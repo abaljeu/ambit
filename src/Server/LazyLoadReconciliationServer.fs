@@ -236,35 +236,23 @@ module LazyLoadReconciliationServer =
             None
             changedPaths
 
-    let reconcileDirectory
+    /// Load's directory match. Discovers the tree and corrects nodes the
+    /// graph already holds as Current. Runs whether or not a pull changed files.
+    let private matchDiscoveredDirectory
         (handle: CoreChanges)
         (dataDir: string)
         (workspaceLabel: string)
-        (dirRel: string)
-        : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
-        reconcileChangedPathsWithDiscovery
-            handle
-            dataDir
-            workspaceLabel
-            (Some dirRel)
-            []
-
-    /// Discover the work tree and re-apply paths the graph already holds
-    /// as Current. git Load uses this after the tracked branch is checked out.
-    let reconcileCheckedOutWorkspace
-        (handle: CoreChanges)
-        (dataDir: string)
-        (workspaceLabel: string)
+        (discoveryDirRel: string option)
         : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
         async {
             let! stateResult = handle.getState ()
             match stateResult with
             | Error err -> return Error err
             | Ok stateResponse ->
-                match discoveredAddedPaths dataDir workspaceLabel None with
+                match discoveredAddedPaths dataDir workspaceLabel discoveryDirRel with
                 | Error err -> return Error err
                 | Ok discovered ->
-                    let modified =
+                    let held =
                         LazyLoadReconciliation.currentDiscoveredAsModified
                             stateResponse.graph
                             workspaceLabel
@@ -274,22 +262,29 @@ module LazyLoadReconciliationServer =
                             handle
                             dataDir
                             workspaceLabel
-                            None
-                            modified
+                            discoveryDirRel
+                            held
         }
 
-    /// Discover under DataDir/{label} (workspace root) with no git delta.
+    let reconcileDirectory
+        (handle: CoreChanges)
+        (dataDir: string)
+        (workspaceLabel: string)
+        (dirRel: string)
+        : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
+        matchDiscoveredDirectory
+            handle
+            dataDir
+            workspaceLabel
+            (Some dirRel)
+
+    /// Discover under DataDir/{label} (workspace root) and correct the graph.
     let reconcileWorkspace
         (handle: CoreChanges)
         (dataDir: string)
         (workspaceLabel: string)
         : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
-        reconcileChangedPathsWithDiscovery
-            handle
-            dataDir
-            workspaceLabel
-            None
-            []
+        matchDiscoveredDirectory handle dataDir workspaceLabel None
 
     let reconcileAddedPaths
         (handle: CoreChanges)

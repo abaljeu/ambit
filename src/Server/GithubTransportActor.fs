@@ -80,18 +80,83 @@ module GithubTransportActor =
         |> Result.bind (fun (tracked, commitOutput) ->
             git.pushTracked workspaceRoot tracked commitOutput)
 
-    let private runLoad dependencies changes label workspaceRoot =
+    let private focusFileId (graph: Graph) (focusId: NodeId) =
+        match DocumentPartition.documentRootForNode graph focusId with
+        | None -> None
+        | Some rootId ->
+            match Map.tryFind rootId graph.nodes with
+            | Some { kind = Special File } -> Some rootId
+            | _ -> None
+
+    /// After directory match, parse the focused File from DataDir.
+    let private parseFocusFile dataDir (changes: CoreChanges) focusId =
         async {
-            match pullTracked dependencies.git workspaceRoot with
+            let! state = changes.getState ()
+            match state with
             | Error err -> return Error err
-            | Ok _ ->
-                return! dependencies.continueLoad changes label
+            | Ok current ->
+                match focusFileId current.graph focusId with
+                | None -> return Ok ()
+                | Some fileId ->
+                    match
+                        DocumentPersistWrite.planParseFile
+                            dataDir
+                            current.graph
+                            fileId
+                            None
+                    with
+                    | Error err -> return Error err
+                    | Ok ops ->
+                        return!
+                            GraphOnlyChangePost.postChunks
+                                changes.postGraphOnly
+                                "Parse"
+                                (GraphOnlyChangeChunks.split ops)
         }
 
-    let private runOperation operation dependencies changes label root =
+    /// Load step 1 pulls. Step 2 corrects the graph even when pull
+    /// failed or changed no files. Step 3 parses a focused File.
+    /// Pull's error is the actor result.
+    let private runLoad
+        dependencies
+        dataDir
+        changes
+        focusId
+        label
+        workspaceRoot
+        =
+        async {
+            let pulled =
+                pullTracked dependencies.git workspaceRoot
+            let! matched =
+                dependencies.continueLoad changes label
+            let! parsed = parseFocusFile dataDir changes focusId
+            match pulled with
+            | Error err -> return Error err
+            | Ok _ ->
+                match matched with
+                | Error err -> return Error err
+                | Ok () -> return parsed
+        }
+
+    let private runOperation
+        operation
+        dependencies
+        dataDir
+        changes
+        focusId
+        label
+        root
+        =
         match operation with
         | GithubTransportOperation.Load ->
-            runLoad dependencies changes label root
+            runLoad
+                dependencies
+                dataDir
+                changes
+                focusId
+                label
+                root
         | GithubTransportOperation.Save ->
             async.Return(
                 saveTracked dependencies.git root
@@ -113,7 +178,13 @@ module GithubTransportActor =
                 | Ok(label, root) ->
                     match!
                         runOperation
-                            operation dependencies actorChanges label root
+                            operation
+                            dependencies
+                            dataDir
+                            actorChanges
+                            input.focusId
+                            label
+                            root
                     with
                     | Ok () -> return ActorSucceeded
                     | Error err -> return ActorFailed err
@@ -148,7 +219,7 @@ module GithubTransportActor =
             fun changes label ->
                 async {
                     let! result =
-                        LazyLoadReconciliationServer.reconcileCheckedOutWorkspace
+                        LazyLoadReconciliationServer.reconcileWorkspace
                             changes dataDir label
                     return result |> Result.map ignore
                 } }

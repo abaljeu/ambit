@@ -20,6 +20,7 @@ type Dependencies =
         (unit -> unit) ->
         unit
       continueDesk: LoadSaveOperation -> unit
+      continueGitLoad: unit -> unit
       commandDone: Ev list -> unit
       commandFailed: string -> unit }
 
@@ -33,6 +34,10 @@ let private applyResponse
         dependencies.continueDesk operation
     | LoadSavePath.Git, Some command ->
         dependencies.commandDone command.events
+        match operation with
+        | LoadSaveOperation.Load ->
+            dependencies.continueGitLoad ()
+        | LoadSaveOperation.Save -> ()
     | LoadSavePath.Git, None ->
         dependencies.commandFailed
             "git Load/Save response omitted command events"
@@ -68,6 +73,9 @@ let continueDesk (dispatch: Msg -> unit) =
     | LoadSaveOperation.Save ->
         dispatch (ApplyOp deskSaveOp)
 
+let continueGitLoad (dispatch: Msg -> unit) =
+    dispatch (ApplyOp gitLoadAfterOp)
+
 let private productionDependencies (dispatch: Msg -> unit) =
     { encodeRequest = encodeLoadSaveCommandRequest
       decodeResponse = decodeLoadSaveCommandResponse
@@ -77,6 +85,7 @@ let private productionDependencies (dispatch: Msg -> unit) =
                 url body onOk onHttp onFail
                 (jsonMutatingPostHeaders ())
       continueDesk = continueDesk dispatch
+      continueGitLoad = fun () -> continueGitLoad dispatch
       commandDone =
         fun events -> dispatch (SysMsg (CommandDone events))
       commandFailed =
