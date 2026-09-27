@@ -1,7 +1,7 @@
 # 10 — Migrate Browser Poll, post-Event, and Boot
 
 **Type:** coding
-**Status:** coded
+**Status:** done
 Actual: 10m
 **Blocked by:** None — can start immediately
 
