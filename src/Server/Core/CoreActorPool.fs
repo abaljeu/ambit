@@ -189,6 +189,20 @@ module CoreActorPool =
             | Some actorFn ->
                 putActorStart putLive request fullGraph actorFn
 
+    let startLoadSaveCommand
+        (pool: CoreActorPool)
+        (path: LoadSavePath)
+        (peerName: PeerActorName)
+        (request: LoadSaveCommandRequest)
+        (getState: unit -> Graph)
+        : Result<Credential option, string>
+        =
+        match path with
+        | LoadSavePath.Desk -> Ok None
+        | LoadSavePath.Git ->
+            pool.startPeerActor peerName request.start getState
+            |> Result.map Some
+
     let private takePending (model: Model) secret =
         match Map.tryFind secret model.live with
         | None -> model, None

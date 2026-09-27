@@ -1,0 +1,3 @@
+# [14 — Route Load and Save by path pre-pick](../issues/14-route-load-save-by-pre-pick.md) spec recheck 3
+
+No spec findings: Desk Load and Save continuations in [LoadSaveCommandClientTests.fs](../../../tests/Server.Tests/LoadSaveCommandClientTests.fs) are sufficient HTTP transport proof (true `HttpClient.PostAsync` through `HttpMessageHandler`, not a seam-only `postJson` fake) and observe `POST /_desktop/workspace-push` plus `POST /ambit/save` (`/{file}/save` with file `ambit`); [LoadSaveCommandTests.fs](../../../tests/Server.Tests/LoadSaveCommandTests.fs) routed Git Save still waits 30 seconds (`AddSeconds 30.0`) and proves the remote clone contains `saved.txt`; the orphan `completeUploadInventory` wrapper is absent (only `completeUploadInventoryWith` remains).

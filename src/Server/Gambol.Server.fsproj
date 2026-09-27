@@ -57,6 +57,7 @@
     <Compile Include="SavePrep.fs" />
     <Compile Include="Core\CoreRuntime.fs" />
     <Compile Include="GraphOnlyChangePost.fs" />
+    <Compile Include="LoadSaveRouting.fs" />
     <Compile Include="Api.fs" />
     <Compile Include="LazyLoadReconciliationServer.fs" />
     <Compile Include="GithubTransportActor.fs" />

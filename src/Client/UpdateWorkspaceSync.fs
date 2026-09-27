@@ -292,13 +292,14 @@ let failUploadStructurePostHttp
     failUploadStructurePost (httpError status body) model
 
 /// Inventory arrived: plan + apply stubs locally, then async structure POST.
-let completeUploadInventory
+let completeUploadInventoryWith
+    decodeInventory
     (scope: WorkspaceSyncScope)
     (parseFileId: NodeId option)
     (text: string)
     (model: VM)
     : VM * Effect list =
-    match decodeDesktopUploadInventory text with
+    match decodeInventory text with
     | Error e -> fail (clearUploading model) e
     | Ok { items = items } ->
         let stubItems = inventoryToStubItems items

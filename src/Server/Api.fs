@@ -271,19 +271,25 @@ module Api =
         |> List.map (fun e -> e.id)
         |> List.fold EventId.max persistId
 
-    let private universalFromHandle
+    let private universalResponseFromHandle
         (handle: CoreChanges)
         (after: EventId)
         (nodes: Node list)
-        : Async<IResult> =
+        : Async<UniversalResponse> =
         async {
             let! events = handle.getEventsSince after
             let! persistId = handle.getEventId ()
             return
-                commandSuccessResult
-                    { nodes = nodes
-                      events = events
-                      latestId = latestEventId events persistId }
+                { nodes = nodes
+                  events = events
+                  latestId = latestEventId events persistId }
+        }
+
+    let private universalFromHandle handle after nodes =
+        async {
+            let! response =
+                universalResponseFromHandle handle after nodes
+            return commandSuccessResult response
         }
 
     /// Decode ActorStart ids, call startActor, encode `{ nodes; events; latestId }`.
@@ -310,6 +316,49 @@ module Api =
                                 (nodesForRequest
                                     state.graph
                                     request.graphIds)
+        }
+
+    let private loadSaveSuccessResult path command =
+        { path = path; command = command }
+        |> ApiResponseSerialization.encodeLoadSaveCommandResponse
+        |> Encode.toString 0
+        |> jsonResult
+
+    let postLoadSaveCommand
+        (router: LoadSaveCommandRouter)
+        (handle: CoreChanges)
+        (body: string)
+        : Async<IResult> =
+        async {
+            match Decode.fromString EventJson.decodeLoadSaveCommandRequest body with
+            | Error err ->
+                return agentErrorResult $"Invalid JSON: {err}"
+            | Ok request ->
+                match! handle.getState () with
+                | Error err -> return agentErrorResult err
+                | Ok state ->
+                    match router.resolvePath state request with
+                    | Error err -> return agentErrorResult err
+                    | Ok path ->
+                        match! router.startCommand path request with
+                        | Error err -> return agentErrorResult err
+                        | Ok () when path = LoadSavePath.Desk ->
+                            return
+                                loadSaveSuccessResult
+                                    LoadSavePath.Desk
+                                    None
+                        | Ok () ->
+                            let nodes =
+                                nodesForRequest state.graph request.start.graphIds
+                            let! command =
+                                universalResponseFromHandle
+                                    handle
+                                    request.start.eventId
+                                    nodes
+                            return
+                                loadSaveSuccessResult
+                                    LoadSavePath.Git
+                                    (Some command)
         }
 
     /// Decode CancelRequest, call cancelByFocus, encode Events like Command.
