@@ -18,3 +18,5 @@ The person sends work to GitHub and brings work from GitHub. The Workspace stays
 ## Notes
 
 Keep files current with the Server stays on [[automatic-upload-and-download.md]] ([[doc/current/workspace-file-sync.md]]). Mapping is Current ([[doc/current/workspace-local-mapping.md]]). Detail lives on [[plan/github-transport/project.md]]. [[plan/roadmap/epics/agent-chat-managed-context.md]] depends on this Chapter. That Epic does not own it.
+
+- **Directory reconciliation** — Keep three surfaces reconciled: the local working directory, the remote GitHub copy, and the Graph. Added, removed, and moved files are reflected between the local directory and GitHub, and between the local directory and the Graph (directory changes appear in the Graph; Graph changes that affect files appear back in the directory). Detail: [[plan/github-transport/project.md]]; Graph↔Browser residency stays [[plan/browser-residency/project.md]].
