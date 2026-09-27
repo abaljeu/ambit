@@ -116,8 +116,8 @@ module SyncLogic =
         { events = response.events
           packages = []
           packageChildMap = Map.empty
-          nodes = response.nodes
-          childMap = response.childMap }
+          nodes = response.packages
+          childMap = response.packageChildMap }
 
     let changeSuccessToSync (response: ChangeSuccessResponse) : SyncResponse =
         { events = response.events

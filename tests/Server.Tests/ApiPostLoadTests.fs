@@ -117,8 +117,8 @@ let ``postLoad Ev-only when includeWorkspace false`` () = task {
             Assert.Equal(100, response.buildEpochSec)
             Assert.Equal(200, response.pageBuildEpochSec)
             Assert.Equal(1, response.events.Length)
-            Assert.Empty(response.nodes)
-            Assert.False(response.nodes |> List.exists (fun n -> n.id = wsId))
+            Assert.Empty(response.packages)
+            Assert.False(response.packages |> List.exists (fun n -> n.id = wsId))
     | other ->
         Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
 }
@@ -141,9 +141,9 @@ let ``postLoad Workspace subgraph when includeWorkspace true`` () = task {
         | Ok (response: LoadResponse) ->
             Assert.Equal(EventIdFixtures.storedId 7, response.eventId)
             Assert.Empty(response.events)
-            let byId = response.nodes |> List.map (fun n -> n.id, n) |> Map.ofList
+            let byId = response.packages |> List.map (fun n -> n.id, n) |> Map.ofList
             Assert.True(byId.ContainsKey wsId)
-            Assert.True(Map.containsKey wsId response.childMap)
+            Assert.True(Map.containsKey wsId response.packageChildMap)
             Assert.True(byId.ContainsKey dirId)
             Assert.True(byId.ContainsKey fileId)
     | other ->
@@ -174,7 +174,7 @@ let ``postLoad missing target returns Events without Nodes`` () = task {
         | Ok (response: LoadResponse) ->
             Assert.Equal(EventIdFixtures.storedId 4, response.eventId)
             Assert.Equal(1, response.events.Length)
-            Assert.Empty(response.nodes)
+            Assert.Empty(response.packages)
     | other ->
         Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
 }
@@ -203,7 +203,7 @@ let ``postLoad shares one event id for Events and Nodes`` () = task {
         | Ok (response: LoadResponse) ->
             Assert.Equal(EventIdFixtures.storedId 9, response.eventId)
             Assert.Equal(1, response.events.Length)
-            Assert.True(response.nodes |> List.exists (fun n -> n.id = wsId))
+            Assert.True(response.packages |> List.exists (fun n -> n.id = wsId))
     | other ->
         Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
 }
@@ -226,7 +226,7 @@ let ``postLoad same Workspace multi-target dedupes one package`` () = task {
         | Error err -> failwith err
         | Ok (response: LoadResponse) ->
             let wsNodes =
-                response.nodes |> List.filter (fun n -> n.id = wsId)
+                response.packages |> List.filter (fun n -> n.id = wsId)
             Assert.Equal(1, wsNodes.Length)
     | other ->
         Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")

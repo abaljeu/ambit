@@ -166,7 +166,7 @@ let ``captureLoadResponse shares event id for Changes and Nodes`` () =
         Assert.Equal(200, response.pageBuildEpochSec)
         Assert.True(response.isReady)
         Assert.Equal(1, response.events.Length)
-        Assert.True(response.nodes |> List.exists (fun n -> n.id = wsId))
+        Assert.True(response.packages |> List.exists (fun n -> n.id = wsId))
 
 [<Fact>]
 let ``LoadResponse toSyncResponse preserves Changes and Nodes`` () =
@@ -179,8 +179,8 @@ let ``LoadResponse toSyncResponse preserves Changes and Nodes`` () =
           apiVersion = ApiVersion.current
           isReady = true
           events = []
-          nodes = [ node ]
-          childMap = Map.empty }
+          packages = [ node ]
+          packageChildMap = Map.empty }
     let sync = SyncLogic.loadResponseToSync load
     Assert.Empty(sync.events)
     Assert.Empty(sync.packages)

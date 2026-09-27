@@ -693,8 +693,8 @@ let ``LoadResponse round-trip with nodes and childMap`` () =
           apiVersion = ApiVersion.current
           isReady = false
           events = [ change ]
-          nodes = [ node ]
-          childMap = Map.ofList [ node.id, [] ] }
+          packages = [ node ]
+          packageChildMap = Map.ofList [ node.id, [] ] }
     let decoded =
         roundTrip
             ApiResponseSerialization.encodeLoadResponse
@@ -706,9 +706,9 @@ let ``LoadResponse round-trip with nodes and childMap`` () =
     Assert.Equal(response.apiVersion, decoded.apiVersion)
     Assert.False(decoded.isReady)
     Assert.Equal(1, decoded.events.Length)
-    Assert.Equal(1, decoded.nodes.Length)
-    Assert.Equal(node.id, decoded.nodes.[0].id)
-    Assert.True(Map.containsKey node.id decoded.childMap)
+    Assert.Equal(1, decoded.packages.Length)
+    Assert.Equal(node.id, decoded.packages.[0].id)
+    Assert.True(Map.containsKey node.id decoded.packageChildMap)
 
 [<Fact>]
 let ``LoadResponse round-trip keeps Unloaded Node Children absent`` () =
@@ -721,15 +721,15 @@ let ``LoadResponse round-trip keeps Unloaded Node Children absent`` () =
           apiVersion = ApiVersion.current
           isReady = true
           events = []
-          nodes = [ header ]
-          childMap = Map.empty }
+          packages = [ header ]
+          packageChildMap = Map.empty }
     let decoded =
         roundTrip
             ApiResponseSerialization.encodeLoadResponse
             ApiResponseSerialization.decodeLoadResponseDecoder
             response
-    Assert.Equal(header.id, decoded.nodes.[0].id)
-    Assert.False(Map.containsKey header.id decoded.childMap)
+    Assert.Equal(header.id, decoded.packages.[0].id)
+    Assert.False(Map.containsKey header.id decoded.packageChildMap)
 
 [<Fact>]
 let ``LoadResponse decoder requires nodes and childMap`` () =

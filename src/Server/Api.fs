@@ -34,17 +34,26 @@ module Api =
         Thoth.Json.Core.Decode.object (fun get ->
             get.Required.Field "path" Thoth.Json.Core.Decode.string)
 
+    type private SnapshotAnswer =
+        { state: State
+          nodes: Node list
+          childMap: Map<NodeId, ChildNode list> }
+
     let private wantAnswerFromHandle
         (handle: CoreChanges)
         (want: NodeId list)
-        : Async<Result<State * Map<NodeId, ChildNode list> * Node list, string>> =
+        : Async<Result<SnapshotAnswer, string>> =
         async {
             match! handle.getState () with
             | Error err -> return Error err
             | Ok state ->
                 let childMap, nodes =
                     ResidentProjection.wantAnswer state.graph want
-                return Ok(state, childMap, nodes)
+                return
+                    Ok
+                        { state = state
+                          nodes = nodes
+                          childMap = childMap }
         }
 
     let private eventsThroughSnapshot
@@ -79,15 +88,15 @@ module Api =
         | Ok request ->
             match! wantAnswerFromHandle handle request.want with
             | Error err -> return agentErrorResult err
-            | Ok (state, childMap, nodes) ->
+            | Ok answer ->
                 let! events =
                     eventsThroughSnapshot
                         handle
                         request.eventId
-                        state.eventId
+                        answer.state.eventId
                 return
                     changeSuccessResult
-                        { eventId = state.eventId
+                        { eventId = answer.state.eventId
                           buildEpochSec = buildEpochSec
                           pageBuildEpochSec = pageBuildEpochSec
                           apiVersion = ApiVersion.current
@@ -96,29 +105,25 @@ module Api =
                           events = events
                           message = None
                           bootstrapHash = None
-                          nodes = nodes
-                          childMap = childMap }
+                          nodes = answer.nodes
+                          childMap = answer.childMap }
     }
 
     let private loadPackages
         (handle: CoreChanges)
         (targets: LoadTarget list)
-        : Async<
-            Result<
-                State * Result<
-                    Node list * Map<NodeId, ChildNode list>,
-                    ResidentProjection.LoadRefuse>,
-                string>> =
+        : Async<Result<Result<SnapshotAnswer, ResidentProjection.LoadRefuse>, string>> =
         async {
             match! handle.getState () with
             | Error err -> return Error err
-            | Ok stateResponse ->
+            | Ok state ->
                 return
-                    Ok(
-                        stateResponse,
-                        ResidentProjection.packagesForTargets
-                            stateResponse.graph
-                            targets)
+                    ResidentProjection.packagesForTargets state.graph targets
+                    |> Result.map (fun (nodes, childMap) ->
+                        { state = state
+                          nodes = nodes
+                          childMap = childMap })
+                    |> Ok
         }
 
     let postLoad
@@ -137,26 +142,26 @@ module Api =
         | Ok request ->
             match! loadPackages handle request.targets with
             | Error err -> return agentErrorResult err
-            | Ok(_, Error ResidentProjection.LoadRefuse.MultiWorkspace) ->
+            | Ok(Error ResidentProjection.LoadRefuse.MultiWorkspace) ->
                 return
                     Results.BadRequest(
                         {| error =
                             "Load requires all selected targets in one Workspace" |})
-            | Ok(state, Ok (packages, packageChildMap)) ->
+            | Ok(Ok answer) ->
                 let! events =
                     eventsThroughSnapshot
                         handle
                         request.eventId
-                        state.eventId
+                        answer.state.eventId
                 let load: LoadResponse =
-                    { eventId = state.eventId
+                    { eventId = answer.state.eventId
                       buildEpochSec = buildEpochSec
                       pageBuildEpochSec = pageBuildEpochSec
                       apiVersion = ApiVersion.current
                       isReady = handle.isReady ()
                       events = events
-                      nodes = packages
-                      childMap = packageChildMap }
+                      packages = answer.nodes
+                      packageChildMap = answer.childMap }
                 let json =
                     Encode.toString 0 (ApiResponseSerialization.encodeLoadResponse load)
                 return jsonResult json
@@ -227,15 +232,15 @@ module Api =
             | Ok accepted ->
                 match! wantAnswerFromHandle handle request.want with
                 | Error err -> return agentErrorResult err
-                | Ok (state, childMap, nodes) ->
+                | Ok answer ->
                     let! laterEvents =
                         eventsThroughSnapshot
                             handle
                             accepted.eventId
-                            state.eventId
+                            answer.state.eventId
                     return
                         changeSuccessResult
-                            { eventId = state.eventId
+                            { eventId = answer.state.eventId
                               buildEpochSec = buildEpochSec
                               pageBuildEpochSec = pageBuildEpochSec
                               apiVersion = ApiVersion.current
@@ -246,8 +251,8 @@ module Api =
                               events = accepted.events @ laterEvents
                               message = accepted.message
                               bootstrapHash = None
-                              nodes = nodes
-                              childMap = childMap }
+                              nodes = answer.nodes
+                              childMap = answer.childMap }
             | Error err -> return agentErrorResult err
     }
 

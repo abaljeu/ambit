@@ -188,11 +188,11 @@ module ApiResponseSerialization =
                 |> List.map Gambol.Shared.EventJson.encode
                 |> Encode.list
               "nodes",
-                response.nodes
+                response.packages
                 |> List.map Serialization.encodeNode
                 |> Encode.list
               "childMap",
-                Serialization.encodeChildMap response.childMap ]
+                Serialization.encodeChildMap response.packageChildMap ]
 
     let decodeLoadResponseDecoder: Decoder<LoadResponse> =
         Decode.object (fun get ->
@@ -210,11 +210,11 @@ module ApiResponseSerialization =
                     "c"
                     (Decode.list Gambol.Shared.EventJson.decode)
                 |> Option.defaultValue []
-              nodes =
+              packages =
                 get.Required.Field
                     "nodes"
                     (Decode.list Serialization.decodeNode)
-              childMap =
+              packageChildMap =
                 get.Required.Field
                     "childMap"
                     Serialization.decodeChildMap })

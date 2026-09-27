@@ -377,8 +377,8 @@ module ResidentProjection =
                   apiVersion = ApiVersion.current
                   isReady = isReady
                   events = events
-                  nodes = packages
-                  childMap = packageChildMap }
+                  packages = packages
+                  packageChildMap = packageChildMap }
 
     /// Scoped resident graph for fresh-session bootstrap: complete ROOT Workspace,
     /// nested named Workspace headers Unloaded, reachable Ref headers without children.
@@ -461,11 +461,3 @@ module ResidentProjection =
             | Some wsId ->
                 let extraNodes, extraChildMap = projectWorkspaceSlice graph wsId
                 mergePackageNodes rootScoped extraNodes extraChildMap
-
-    let bootstrapStateResponse
-        (scope: BootstrapScope)
-        (savedZoom: NodeId option)
-        (response: StateResponse)
-        : StateResponse =
-        { response with
-            graph = bootstrapGraph scope savedZoom response.graph }
