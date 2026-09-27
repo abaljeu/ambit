@@ -308,6 +308,20 @@ module ResidentProjection =
             | None -> []
             | Some wsId -> workspaceSubgraphNodes graph wsId
 
+    let wantAnswerForTargets
+        (graph: Graph)
+        (targets: LoadTarget list)
+        : Result<Map<NodeId, ChildNode list> * Node list, LoadRefuse> =
+        let targetIds = targets |> List.map (fun target -> target.targetId)
+        if selectionSpansMultipleWorkspaces graph targetIds then
+            Error LoadRefuse.MultiWorkspace
+        else
+            targets
+            |> List.choose (fun target ->
+                if target.includeWorkspace then Some target.targetId else None)
+            |> wantAnswer graph
+            |> Ok
+
     /// Capture LoadResponse fields at one EventId.
     let captureLoadResponse
         (eventId: EventId)
@@ -318,15 +332,9 @@ module ResidentProjection =
         (graph: Graph)
         (targets: LoadTarget list)
         : Result<LoadResponse, LoadRefuse> =
-        let targetIds = targets |> List.map (fun target -> target.targetId)
-        if selectionSpansMultipleWorkspaces graph targetIds then
-            Error LoadRefuse.MultiWorkspace
-        else
-            let want =
-                targets
-                |> List.choose (fun target ->
-                    if target.includeWorkspace then Some target.targetId else None)
-            let childMap, nodes = wantAnswer graph want
+        match wantAnswerForTargets graph targets with
+        | Error refuse -> Error refuse
+        | Ok (childMap, nodes) ->
             Ok
                 { eventId = eventId
                   buildEpochSec = buildEpochSec

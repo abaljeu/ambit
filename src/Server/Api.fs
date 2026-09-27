@@ -117,30 +117,13 @@ module Api =
             match! handle.getState () with
             | Error err -> return Error err
             | Ok state ->
-                let targetIds =
-                    targets |> List.map (fun target -> target.targetId)
-                if
-                    ResidentProjection.selectionSpansMultipleWorkspaces
-                        state.graph
-                        targetIds
-                then
-                    return Ok(Error ResidentProjection.LoadRefuse.MultiWorkspace)
-                else
-                    let want =
-                        targets
-                        |> List.choose (fun target ->
-                            if target.includeWorkspace then
-                                Some target.targetId
-                            else
-                                None)
-                    let childMap, nodes =
-                        ResidentProjection.wantAnswer state.graph want
-                    return
-                        Ok(
-                            Ok
-                                { state = state
-                                  nodes = nodes
-                                  childMap = childMap })
+                return
+                    ResidentProjection.wantAnswerForTargets state.graph targets
+                    |> Result.map (fun (childMap, nodes) ->
+                        { state = state
+                          nodes = nodes
+                          childMap = childMap })
+                    |> Ok
         }
 
     let postLoad
