@@ -3,7 +3,7 @@
 **Type:** coding
 **Status:** coded
 **Blocked by:** [11 — Pick git or desk for plain Load and Save](11-pick-git-or-desk-for-plain-load-save.md); [13 — Run git Load and Save through the Server Peer Actor](13-peer-actor-runs-git-load-save.md)
-Actual: 1h
+Actual: 1h30m
 
 ## Context
 
@@ -34,3 +34,4 @@ Extend **Command Load/Save** as defined by the Module map in [[../arch.md]]. Thi
 ## Time
 
 - 2026-09-27 1h — implemented and reviewed path pre-picks, mailbox and actor-pool routing, Client command variants, desk fallback, and routing tests
+- 2026-09-27 30m — added independent-review proof for actual Desk continuations, routed Git Save, and routed remote-first Load reconciliation/Poll events

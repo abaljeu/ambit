@@ -111,5 +111,7 @@ type Effect =
         detailPath: string
     /// Same Upload may reparse several skipped files; run these requests in order.
     | ContinueUploadParses of parseRequests: Effect list
+    /// Existing desk Save POST to `/{file}/save`.
+    | ContinueDeskSave
     /// Arm (or re-arm) the debounced auto-download tick after a delay.
     | ScheduleAutoDownloadTick of delayMs: int

@@ -8,47 +8,79 @@ open Gambol.Client.UpdateHelpers
 open Gambol.Client.UpdateSave
 open Gambol.Client.UpdateWorkspaceLoad
 
-let private dispatchResponse
-    (dispatch: Msg -> unit)
+type Dependencies =
+    { encodeRequest: LoadSaveCommandRequest -> string
+      decodeResponse:
+        string -> Result<LoadSaveCommandResponse, string>
+      post:
+        string ->
+        string ->
+        (string -> unit) ->
+        (int -> string -> unit) ->
+        (unit -> unit) ->
+        unit
+      continueDesk: LoadSaveOperation -> unit
+      commandDone: Ev list -> unit
+      commandFailed: string -> unit }
+
+let private applyResponse
+    (dependencies: Dependencies)
     (operation: LoadSaveOperation)
     (response: LoadSaveCommandResponse)
     =
     match response.path, response.command with
     | LoadSavePath.Desk, _ ->
-        let updater =
-            match operation with
-            | LoadSaveOperation.Load -> deskLoadOp
-            | LoadSaveOperation.Save -> deskSaveOp
-        dispatch (ApplyOp updater)
+        dependencies.continueDesk operation
     | LoadSavePath.Git, Some command ->
-        dispatch (SysMsg (CommandDone command.events))
+        dependencies.commandDone command.events
     | LoadSavePath.Git, None ->
-        dispatch (
-            SysMsg (
-                CommandFailed
-                    "git Load/Save response omitted command events"))
+        dependencies.commandFailed
+            "git Load/Save response omitted command events"
 
-let run
-    (dispatch: Msg -> unit)
+let runWith
+    (dependencies: Dependencies)
+    (fileName: string)
     (request: LoadSaveCommandRequest)
     : unit =
-    let body = encodeLoadSaveCommandRequest request
-    postJson
-        ("/" + currentFile + "/load-save-command")
+    let body = dependencies.encodeRequest request
+    dependencies.post
+        ("/" + fileName + "/load-save-command")
         body
         (fun text ->
-            match decodeLoadSaveCommandResponse text with
+            match dependencies.decodeResponse text with
             | Ok response ->
-                dispatchResponse dispatch request.operation response
+                applyResponse dependencies request.operation response
             | Error err ->
-                dispatch (SysMsg (CommandFailed err)))
+                dependencies.commandFailed err)
         (fun status text ->
             let detail =
                 "HTTP "
                 + string status
                 + " "
                 + LogText.summarizeHttpBody 400 text
-            dispatch (SysMsg (CommandFailed detail)))
-        (fun () ->
-            dispatch (SysMsg (CommandFailed "fetch failed")))
-        (jsonMutatingPostHeaders ())
+            dependencies.commandFailed detail)
+        (fun () -> dependencies.commandFailed "fetch failed")
+
+let continueDesk (dispatch: Msg -> unit) =
+    function
+    | LoadSaveOperation.Load ->
+        dispatch (ApplyOp deskLoadOp)
+    | LoadSaveOperation.Save ->
+        dispatch (ApplyOp deskSaveOp)
+
+let private productionDependencies (dispatch: Msg -> unit) =
+    { encodeRequest = encodeLoadSaveCommandRequest
+      decodeResponse = decodeLoadSaveCommandResponse
+      post =
+        fun url body onOk onHttp onFail ->
+            postJson
+                url body onOk onHttp onFail
+                (jsonMutatingPostHeaders ())
+      continueDesk = continueDesk dispatch
+      commandDone =
+        fun events -> dispatch (SysMsg (CommandDone events))
+      commandFailed =
+        fun detail -> dispatch (SysMsg (CommandFailed detail)) }
+
+let run dispatch request =
+    runWith (productionDependencies dispatch) currentFile request

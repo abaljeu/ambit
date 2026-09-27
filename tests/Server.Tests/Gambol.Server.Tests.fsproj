@@ -10,6 +10,7 @@
     <Compile Include="AuthTokenTests.fs" />
     <Compile Include="..\Shared.Tests\SpecialNodeTestHelpers.fs" Link="SpecialNodeTestHelpers.fs" />
     <Compile Include="..\Shared.Tests\EventIdFixtures.fs" Link="EventIdFixtures.fs" />
+    <Compile Include="..\Shared.Tests\VmTestHelpers.fs" Link="VmTestHelpers.fs" />
     <Compile Include="HeadPresenceTests.fs" />
     <Compile Include="DataDirTests.fs" />
     <Compile Include="TestDbConfigTests.fs" />
@@ -65,6 +66,7 @@
     <Compile Include="ApiGetStateTests.fs" />
     <Compile Include="ResponseCompressionTests.fs" />
     <Compile Include="ApiPostLoadTests.fs" />
+    <Compile Include="LoadSaveCommandClientTests.fs" />
     <Compile Include="LoadSaveCommandTests.fs" />
     <Compile Include="ApiPostCommandTests.fs" />
     <Compile Include="ApiPostCancelTests.fs" />
@@ -77,6 +79,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Client\Gambol.Client.fsproj" />
     <ProjectReference Include="..\..\src\Server\Gambol.Server.fsproj" />
     <ProjectReference Include="..\..\src\CloudAgents\Gambol.CloudAgents.fsproj" />
     <ProjectReference Include="..\..\src\Shared\Gambol.Shared.fsproj" />

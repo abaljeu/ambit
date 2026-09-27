@@ -29,7 +29,6 @@ open Gambol.Client.SessionState
 
 // Idle/pause remote polling after a period of no user interaction (battery-friendly).
 let idleTimeoutMs = 15 * 60 * 1000
-
 let private emptySyncResponse: SyncResponse =
     { events = []
       nodes = []
@@ -249,6 +248,7 @@ let createRuntime (initialModel: VM) =
                         (fun () -> runNext rest)
                 | _ :: rest -> runNext rest
             runNext requests
+        | ContinueDeskSave -> UpdateSave.runDeskSave ()
         | ScheduleAutoDownloadTick delayMs ->
             runScheduleAutoDownloadTick delayMs
 

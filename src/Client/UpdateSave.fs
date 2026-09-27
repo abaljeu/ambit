@@ -12,32 +12,37 @@ let private canSave (model: VM) =
     | Some { canGitSave = true } -> true
     | _ -> false
 
+let deskSaveUrl (fileName: string) =
+    sprintf "/%s/save" fileName
+
 /// Persist data-dir snapshot via the server Save endpoint.
 let deskSaveOp (model: VM) : VM * Effect list =
     if not (canSave model) then
         model, []
     else
-        postEmpty
-            (sprintf "/%s/save" currentFile)
-            (fun text ->
-                match decodeGitSaveResponse text with
-                | Ok { ok = true; detail = detail } ->
-                    consoleLog ("[Gambol] save: " + detail)
-                | Ok { error = Some err } ->
-                    consoleLog ("[Gambol] save failed: " + err)
-                | Ok _ ->
-                    consoleLog "[Gambol] save failed: unknown response"
-                | Error err ->
-                    consoleLog ("[Gambol] save decode failed: " + err))
-            (fun status text ->
-                consoleLog (
-                    "[Gambol] save HTTP "
-                    + string status
-                    + ": "
-                    + LogText.summarizeHttpBody 200 text))
-            (fun () -> consoleLog "[Gambol] save network error")
-            (emptyMutatingPostHeaders ())
-        model, []
+        model, [ ContinueDeskSave ]
+
+let runDeskSave () =
+    postEmpty
+        (deskSaveUrl currentFile)
+        (fun text ->
+            match decodeGitSaveResponse text with
+            | Ok { ok = true; detail = detail } ->
+                consoleLog ("[Gambol] save: " + detail)
+            | Ok { error = Some err } ->
+                consoleLog ("[Gambol] save failed: " + err)
+            | Ok _ ->
+                consoleLog "[Gambol] save failed: unknown response"
+            | Error err ->
+                consoleLog ("[Gambol] save decode failed: " + err))
+        (fun status text ->
+            consoleLog (
+                "[Gambol] save HTTP "
+                + string status
+                + ": "
+                + LogText.summarizeHttpBody 200 text))
+        (fun () -> consoleLog "[Gambol] save network error")
+        (emptyMutatingPostHeaders ())
 
 let saveOpFor
     (prePick: LoadSavePrePick)

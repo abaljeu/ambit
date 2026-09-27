@@ -88,9 +88,7 @@ let deskLoadOp (model: VM) : VM * Effect list =
         let hasMapping =
             match syncScopeFromFocus model with
             | Ok scope ->
-                match lookupMappedPath scope.label with
-                | Ok(Some _) -> true
-                | _ -> false
+                canCompareWorkspacePathSync model scope.label
             | Error _ -> false
         WorkspaceUpload.plan
             canPush
