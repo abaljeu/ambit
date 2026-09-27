@@ -112,8 +112,9 @@ let ``document state change patches all visible owned File member rows`` () =
              |> Map.add fileId { file with documentState = Current })
     let oldModel = { newModel with graph = oldGraph }
     let cached = getVisibleInstanceIds oldModel.siteMap |> Set.ofList
+    let mutations = planPatchDOM oldModel newModel cached
     let patchedClasses =
-        planPatchDOM oldModel newModel cached
+        mutations
         |> List.choose (function
             | PatchRow (instanceId, patches) ->
                 patches
@@ -125,8 +126,14 @@ let ``document state change patches all visible owned File member rows`` () =
     let classFor parentId nodeId =
         let entry = entryUnderParentNode parentId nodeId newModel
         Map.tryFind entry.instanceId patchedClasses
+    let fileInst =
+        (entryUnderParentNode Graph.rootId fileId newModel).instanceId
 
-    Assert.Contains("amb-row-sync-unparsed", classFor Graph.rootId fileId |> Option.get)
+    Assert.True(
+        mutations
+        |> List.exists (function
+            | RecreateRow id -> id = fileInst
+            | _ -> false))
     Assert.Contains("amb-row-sync-unparsed", classFor fileId childId |> Option.get)
     Assert.Contains("amb-row-sync-unparsed", classFor childId grandchildId |> Option.get)
     Assert.Equal(None, classFor refParentId childId)
