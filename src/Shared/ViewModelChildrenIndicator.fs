@@ -9,15 +9,13 @@ type RowChildrenIndicator =
 
 module ViewModelChildrenIndicator =
 
-    /// Hollow for Unloaded or Unparsed leaves; solid for Loaded+Parsed leaves;
-    /// chevron when resident children are present.
+    /// Hollow for Unloaded or Unparsed; solid for Loaded+Parsed leaves;
+    /// chevron for Loaded+Parsed Nodes with Children.
     let rowChildrenIndicator (graph: Graph) (node: Node) : RowChildrenIndicator =
-        let kids = GraphChildren.get graph node.id
-        if not kids.IsEmpty then
-            RowChildrenIndicator.FoldChevron
-        elif
-            not (GraphChildren.isLoaded graph node.id)
-            || node.documentState = Unparsed then
+        if node.documentState = Unparsed then
             RowChildrenIndicator.HollowCircle
         else
-            RowChildrenIndicator.SolidCircle
+            match GraphChildren.tryGet graph node.id with
+            | None -> RowChildrenIndicator.HollowCircle
+            | Some [] -> RowChildrenIndicator.SolidCircle
+            | Some _ -> RowChildrenIndicator.FoldChevron

@@ -595,7 +595,7 @@ let ``rowChildrenIndicator is FoldChevron when Loaded with children`` () =
         rowChildrenIndicator (graphWithKids node child) node)
 
 [<Fact>]
-let ``rowChildrenIndicator keeps FoldChevron for Unparsed with resident children`` () =
+let ``rowChildrenIndicator stays HollowCircle when Unparsed has resident children`` () =
     let childId = NodeId.New()
     let node =
         Node.Create(
@@ -605,7 +605,7 @@ let ``rowChildrenIndicator keeps FoldChevron for Unparsed with resident children
             documentState = Unparsed)
     let child = Node.Create(childId, text = "c")
     Assert.Equal(
-        RowChildrenIndicator.FoldChevron,
+        RowChildrenIndicator.HollowCircle,
         rowChildrenIndicator (graphWithKids node child) node)
 
 [<Fact>]

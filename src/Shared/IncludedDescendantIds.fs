@@ -24,21 +24,18 @@ module IncludedDescendantIds =
             let acc = nodeId :: acc
             match Map.tryFind siteId siteMap.entries with
             | Some entry when entry.expanded ->
-                match Map.tryFind nodeId graph.nodes with
-                | None -> acc
-                | Some node ->
-                    let rec addChildren
-                        (acc: NodeId list)
-                        (children: ChildNode list)
-                        (siteIds: SiteId list)
-                        =
-                        match children, siteIds with
-                        | [], _ -> acc
-                        | child :: rest, sid :: sids ->
-                            addChildren (walk acc child.id sid) rest sids
-                        | child :: rest, [] ->
-                            addChildren (child.id :: acc) rest []
-                    addChildren acc (GraphChildren.get graph nodeId) entry.children
+                let rec addChildren
+                    (acc: NodeId list)
+                    (children: ChildNode list)
+                    (siteIds: SiteId list)
+                    =
+                    match children, siteIds with
+                    | [], _ -> acc
+                    | child :: rest, sid :: sids ->
+                        addChildren (walk acc child.id sid) rest sids
+                    | child :: rest, [] ->
+                        addChildren (child.id :: acc) rest []
+                addChildren acc (GraphChildren.get graph nodeId) entry.children
             | _ -> acc
         match startSite siteMap startId with
         | None -> [ startId ]

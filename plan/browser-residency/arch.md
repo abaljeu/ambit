@@ -57,7 +57,7 @@ Sources: [map.md](map.md) Destination, Notes, and Decisions so far (2026-09-26 l
 
 10. **Hollow Unloaded Bullet**
     1. [x] [src/Shared/ViewModelChildrenIndicator.fs](src/Shared/ViewModelChildrenIndicator.fs) hollow when Unloaded
-    2. [ ] Indicator reads absent `childMap` key as Unloaded
+    2. [x] Indicator reads absent `childMap` key as Unloaded
     3. [x] [src/Client/RowView.fs](src/Client/RowView.fs) paints `amb-bullet-hollow`
 
 11. **Hollow Unparsed Bullet**
@@ -67,7 +67,7 @@ Sources: [map.md](map.md) Destination, Notes, and Decisions so far (2026-09-26 l
 
 12. **No new loading Status**
     1. [x] No per-Node loading Status on Node
-    2. [ ] Residency stays absent/present `childMap` plus Unparsed
+    2. [x] Residency stays absent/present `childMap` plus Unparsed
     3. [x] SyncInfo `Loading` stays the global Load-command flight, not a Node field
 
 13. **Auto want Included**
@@ -130,16 +130,16 @@ Sources: [map.md](map.md) Destination, Notes, and Decisions so far (2026-09-26 l
 24. **Absent key stays Unloaded**
     1. [x] Destination rule: absent `childMap` key = Unloaded
     2. [x] Install does not insert an empty key unless the Server sent `[]`
-    3. [ ] Indicator treats absent key as hollow Unloaded
+    3. [x] Indicator treats absent key as hollow Unloaded
 
 25. **Present key is Loaded**
     1. [x] Destination rule: present key including `[]` = Loaded
     2. [x] Install of `[]` marks a true leaf Loaded
-    3. [ ] A Loaded empty list is not a hollow Unloaded Bullet unless Unparsed
+    3. [x] A Loaded empty list is not a hollow Unloaded Bullet unless Unparsed
 
 26. **Children arrive on the Bullet**
     1. [ ] After install, `childMap` is present for that parent
-    2. [ ] Indicator leaves HollowCircle when children exist (chevron) or when Loaded and not Unparsed (solid)
+    2. [x] Indicator leaves HollowCircle when children exist (chevron) or when Loaded and not Unparsed (solid)
     3. [x] RowView re-renders from the indicator
 
 27. **Growth while I work**
@@ -169,7 +169,7 @@ Sources: [map.md](map.md) Destination, Notes, and Decisions so far (2026-09-26 l
     4. [ ] `LoadResponse.packages`, `packageChildMap`, and `installPackages` are removed
 
 32. **Commands that name Nodes later**
-    1. [ ] No new command that names Nodes
+    1. [x] No new command that names Nodes
     2. [x] Auto Want is not a command
     3. [x] Load remains the existing user-facing command
 
@@ -179,9 +179,9 @@ Sources: [map.md](map.md) Destination, Notes, and Decisions so far (2026-09-26 l
     3. [x] Folded Nodes are not treated as a deep visible tree
 
 34. **Unloaded is not empty**
-    1. [ ] Absent `childMap` key never renders as a Loaded leaf
+    1. [x] Absent `childMap` key never renders as a Loaded leaf
     2. [x] Hollow Bullet means Children are not here or Unparsed
-    3. [ ] Person can tell Unloaded from a Loaded empty list
+    3. [x] Person can tell Unloaded from a Loaded empty list
 
 35. **Server stays large**
     1. [x] Server `getState` handle still holds the full Core Graph
@@ -209,10 +209,10 @@ Narrowest shared test seam:
 1. **Graph childMap**
    File: [src/Shared/Model.fs](src/Shared/Model.fs) (`Graph`); helpers in [src/Shared/GraphBuild.fs](src/Shared/GraphBuild.fs) / Graph lookup.
    1. State
-      1. [ ] `childMap: Map<NodeId, ChildNode list>` — absent key = Unloaded; present key including `[]` = Loaded
-      2. [ ] `nodes` holds Resident headers; Children lists do not live on Node
+      1. [x] `childMap: Map<NodeId, ChildNode list>` — absent key = Unloaded; present key including `[]` = Loaded
+      2. [x] `nodes` holds Resident headers; Children lists do not live on Node
    2. Interface
-      1. [ ] Lookup Children only through `childMap` (or a derived `ChildrenStatus`)
+      1. [x] Lookup Children only through `childMap` (or a derived `ChildrenStatus`)
       2. [ ] Install never writes an edge whose target Node is absent
    3. Uses
       1. [x] NodeId, ChildNode, Ownership
@@ -248,7 +248,7 @@ Narrowest shared test seam:
       1. [x] None
    2. Interface
       1. [x] `expand: Graph * SiteMap * startId -> NodeId list` honoring Fold
-      2. [ ] Walk `childMap`, not Node.children, once childMap is the list
+      2. [x] Walk `childMap`, not Node.children, once childMap is the list
    3. Uses
       1. [x] SiteMap, Graph
 
@@ -332,10 +332,10 @@ Narrowest shared test seam:
        1. [x] None
     2. Interface
        1. [x] HollowCircle for Unloaded or Unparsed; FoldChevron when children present; SolidCircle otherwise
-       2. [ ] Unloaded means absent `childMap` key
+      2. [x] Unloaded means absent `childMap` key
        3. [x] RowView class `amb-bullet-hollow`
     3. Uses
-       1. [ ] Graph childMap
+      1. [x] Graph childMap
        2. [x] `documentState`
 
 12. **Find**
