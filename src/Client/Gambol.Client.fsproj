@@ -13,6 +13,7 @@
     <Compile Include="UpdateHelpers.fs" />
     <Compile Include="RunLaunch.fs" />
     <Compile Include="UpdateCodec.fs" />
+    <Compile Include="SyncAnswer.fs" />
     <Compile Include="UpdateEdit.fs" />
     <Compile Include="UpdateMove.fs" />
     <Compile Include="SearchDialog.fs" />
@@ -44,6 +45,7 @@
     <Compile Include="SessionState.fs" />
     <Compile Include="BootCacheStore.fs" />
     <Compile Include="AutoDownloadTimer.fs" />
+    <Compile Include="SubmitChangeCallbacks.fs" />
     <Compile Include="App.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>

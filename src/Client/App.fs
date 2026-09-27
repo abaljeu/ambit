@@ -28,72 +28,15 @@ open Gambol.Client.SessionState
 // MVU runtime (factory: model cell + effect interpreter)
 // ---------------------------------------------------------------------------
 
-module private SubmitChangeCallbacks =
-    open Gambol.Shared.LogText
-    open Gambol.Shared.ViewModel
-    open Gambol.Client.JsInterop
-    open Gambol.Client.Update
-
-    let onPostOk
-        (timeoutId: float)
-        (reqId: string)
-        (submitted: Ev list)
-        (dispatch: Msg -> unit)
-        (text: string)
-        : unit =
-        clearTimeout timeoutId
-        let n = text.Length
-        match decodeChangeSuccessResponse text with
-        | Ok ack ->
-            consoleLog (
-                "[Gambol sync] POST 200 req=" + reqId
-                + " ackRev=" + string ack.eventId.Value
-                + " bodyLen=" + string n)
-            dispatch (
-                SysMsg (
-                    SubmitResponse (
-                        submitted,
-                        ack.events,
-                        ack.eventId,
-                        ack.externalChanges,
-                        ack.message)))
-        | Error err ->
-            consoleLog (
-                "[Gambol sync] POST 200 bad ACK JSON req=" + reqId
-                + " err=" + err + " bodyLen=" + string n)
-            dispatch (SysMsg (SubmitRejected ("ACK decode: " + err)))
-
-    let onPostHttp (timeoutId: float) (reqId: string) (dispatch: Msg -> unit) (httpStatus: int) (bodyText: string) : unit =
-        clearTimeout timeoutId
-        let snippet = summarizeHttpBody 400 bodyText
-        consoleLog (
-            "[Gambol sync] GAMBOL_HTTP_ERR POST fail req=" + reqId
-            + " http=" + string httpStatus + " body=" + snippet)
-        let detail =
-            decodePostEventError bodyText
-            |> Option.map (summarizeHttpBody 400)
-            |> Option.defaultValue (summarizeHttpBody 400 bodyText)
-        dispatch (SysMsg (SubmitRejected detail))
-
-    let onPostFetchFail
-        (timeoutId: float)
-        (reqId: string)
-        (baseEventId: EventId)
-        (events: Ev list)
-        (dispatch: Msg -> unit)
-        ()
-        : unit =
-        clearTimeout timeoutId
-        consoleLog ("[Gambol sync] POST fetch failed req=" + reqId)
-        dispatch (
-            SysMsg (
-                SubmitNetworkError (
-                    baseEventId,
-                    events,
-                    SubmitNetworkErrorKind.FetchFailed)))
-
 // Idle/pause remote polling after a period of no user interaction (battery-friendly).
 let idleTimeoutMs = 15 * 60 * 1000
+
+let private emptySyncResponse: SyncResponse =
+    { events = []
+      packages = []
+      packageChildMap = Map.empty
+      nodes = []
+      childMap = Map.empty }
 
 let createRuntime (initialModel: VM) =
     let mutable model = initialModel
@@ -150,7 +93,7 @@ let createRuntime (initialModel: VM) =
         | SubmitPendingBatch (baseEventId, events) -> runSubmitPendingBatch baseEventId events
         | SubmitCommand request -> runSubmitCommand request
         | SubmitCancel focusId -> runSubmitCancel focusId
-        | PollServer _ -> runPollServer ()
+        | PollServer eventId -> runPollServer eventId
         | LoadServer (_, targets) ->
             runLoadServer targets
         | ScheduleRetry delayMs -> runScheduleRetry delayMs
@@ -190,9 +133,11 @@ let createRuntime (initialModel: VM) =
             |> ignore
         | ContinuePostUploadStructure (submitted, scope, parseFileId) ->
             // Stubs already in the model (DOM patched before effects). Async POST.
-            let body = encodePendingBatchBody [ submitted ]
             let url = sprintf "/%s/changes" currentFile
             let rec post () =
+                let body =
+                    encodePendingBatchBody
+                        (currentChangeRequest [ submitted ] model)
                 let retry () =
                     setTimeout post 1000 |> ignore
 
@@ -372,7 +317,8 @@ let createRuntime (initialModel: VM) =
                 item.submissionId.ToString("N").Substring(0, 8))
             |> Option.defaultValue "empty"
         let url = $"/{currentFile}/changes"
-        let body = encodePendingBatchBody events
+        let body =
+            encodePendingBatchBody (currentChangeRequest events model)
         let qLen = model.syncInfo.pending.Length
         consoleLog (
             "[Gambol sync] POST start req=" + reqId + " baseEventId=" + string baseEventId.Value
@@ -455,9 +401,10 @@ let createRuntime (initialModel: VM) =
                 dispatch (SysMsg (CommandFailed "fetch failed")))
             (jsonMutatingPostHeaders ())
 
-    and runPollServer () : unit =
-        let url =
-            $"/{currentFile}/poll?_={nowMs ()}&rev={model.eventId.Value}"
+    and runPollServer (eventId: EventId) : unit =
+        let url = $"/{currentFile}/poll"
+        let body =
+            encodePollRequestBody (currentPollRequest eventId model)
         let onPollOk (text: string) : unit =
             match ApiResponseSerialization.decodeChangeSuccessResponse text with
             | Ok poll ->
@@ -469,18 +416,26 @@ let createRuntime (initialModel: VM) =
                     SysMsg (
                         PollDone (
                             outcome,
-                            poll.events,
+                            SyncLogic.changeSuccessToSync poll,
                             Some poll.isReady,
                             Some (poll.eventId))))
             | Error _ ->
                 dispatch (
                     SysMsg (
-                        PollDone (None, [], None, None)))
-        let onPollFail () : unit =
+                        PollDone (None, emptySyncResponse, None, None)))
+        let onPollFail () =
             dispatch (
                 SysMsg (
-                    PollDone (None, [], None, None)))
-        fetchTextNoCacheWithFail url onPollOk onPollFail
+                    PollDone (None, emptySyncResponse, None, None)))
+        let onPollHttp (_status: int) (_body: string) : unit =
+            onPollFail ()
+        postJson
+            url
+            body
+            onPollOk
+            onPollHttp
+            onPollFail
+            (jsonMutatingPostHeaders ())
 
     and runLoadServer
         (targets: LoadTarget list)
@@ -668,7 +623,7 @@ let createRuntime (initialModel: VM) =
                     $"[Gambol boot] restoreSessionState: {int (perfNowMs () - restoreStart)}ms")
                 let merged, e1 = mergePendingAfterLoad restored
                 merged, e0 @ e1
-            | SysMsg (SubmitResponse (submitted, confirmed, _, _, _)) ->
+            | SysMsg (SubmitResponse (submitted, response)) ->
                 clearRetryTimer ()
                 let next, effects = update msg prev
                 let pendingLen = prev.syncInfo.pending.Length
@@ -681,7 +636,7 @@ let createRuntime (initialModel: VM) =
                 if pendingDropped && not rejected then
                     BootCacheStore.appendEvents
                         currentFile
-                        (BootCache.acceptedForLog confirmed submitted)
+                        (BootCache.acceptedForLog response.events submitted)
                     BootCacheStore.requestIdleTruncate
                         currentFile
                         (BootCache.scopeKey (tryReadSavedZoomId ()))

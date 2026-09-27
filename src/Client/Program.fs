@@ -130,10 +130,15 @@ and private fallbackState (reason: string) =
     BootCacheStore.deleteCache currentFile ignore
     loadFromState ()
 
-and private applyBootNovel (novel: Ev list) (ready: bool) =
+and private applyBootNovel
+    (novel: Ev list)
+    (ready: bool)
+    (poll: ChangeSuccessResponse) =
     let model = getModel ()
     match
-        SyncLogic.applyServerTail novel (clientSyncState model)
+        SyncLogic.applySyncResponse
+            { SyncLogic.changeSuccessToSync poll with events = novel }
+            (clientSyncState model)
     with
     | Error _ -> fallbackState "apply"
     | Ok newState ->
@@ -164,29 +169,36 @@ and private handleBootPoll (clientEventId: EventId) (poll: ChangeSuccessResponse
             SysMsg (
                 PollDone (
                     None,
-                    [],
+                    SyncAnswer.fromChangeSuccess poll,
                     Some ready,
                     Some (poll.eventId))))
     | BootCache.BootPoll.ApplyNovel (novel, ready) ->
-        applyBootNovel novel ready
+        applyBootNovel novel ready poll
     | BootCache.BootPoll.FallbackState reason ->
         fallbackState reason
 
-and private runBootPoll (clientEventId: EventId) =
-    let url = $"/{currentFile}/poll?_={nowMs ()}&rev={EventId.value clientEventId}"
-    fetchTextNoCacheWithFail
+and private runBootPoll () =
+    let model = getModel ()
+    let clientEventId = model.eventId
+    let url = $"/{currentFile}/poll"
+    let body =
+        encodePollRequestBody (currentPollRequest clientEventId model)
+    postJson
         url
+        body
         (fun text ->
             match decodeChangeSuccessResponse text with
             | Ok poll -> handleBootPoll clientEventId poll
             | Error _ -> ())
+        (fun _ _ -> ())
         (fun () -> ())
+        (jsonMutatingPostHeaders ())
 
 and private finishPaint (response: StateResponse) (localLog: Ev list) =
     bootLog <- localLog
     dispatch (SysMsg (StateLoaded response))
     ensurePolling ()
-    runBootPoll response.eventId
+    runBootPoll ()
     BootCacheStore.requestIdleTruncate
         currentFile
         bootScope
