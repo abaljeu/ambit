@@ -8,7 +8,7 @@ Launch and query exist on a discarded second pool mailbox. Rebuild the shape.
 
 **Blocked by:** [[plan/core-creation/issues/01-generalized-server-actor-produce-path.md]], [[plan/core-creation/issues/12-define-actor-pool-shutdown-behavior.md]], [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]]
 
-**See also:** [[plan/core-creation/project.md]], [[plan/core-creation/reports/kernel-fsproj.md]], [[plan/event-sourced-ops/details/actors-and-jobs.md]], [[plan/event-sourced-ops/issues/09-job-identity-with-advisory-soft-lock.md]]
+**See also:** [[plan/core-creation/project.md]], [[plan/core-creation/reports/kernel-fsproj.md]], [[plan/event-sourced-ops/details/actors-and-jobs.md]], [[plan/event-sourced-ops/issues/09-job-identity-with-advisory-soft-lock.md]]. Look up Actors this way: [function-shaped start](../../actor-as-client/function-shaped-start.md).
 
 **Status:** ready-for-agent
 Actual: 25m
