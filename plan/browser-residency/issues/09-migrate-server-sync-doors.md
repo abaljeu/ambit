@@ -1,7 +1,7 @@
 # 09 — Migrate Server Sync doors
 
 **Type:** coding
-**Status:** coded
+**Status:** done
 Actual: 22m
 **Blocked by:** None — can start immediately
 
