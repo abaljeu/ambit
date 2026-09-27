@@ -1,11 +1,46 @@
 namespace Gambol.Server
 
 open System
+open System.Collections.Concurrent
 open System.IO
+open System.Threading
 open Gambol.Shared
+
+type WorkspaceTrackedBranch = {
+    branch: string
+    remote: string
+    upstream: string
+}
 
 [<RequireQualifiedAccess>]
 module WorkspaceGit =
+
+    let private gateComparer =
+        if OperatingSystem.IsWindows() then
+            StringComparer.OrdinalIgnoreCase
+        else
+            StringComparer.Ordinal
+
+    let private workTreeGates =
+        ConcurrentDictionary<string, SemaphoreSlim>(gateComparer)
+
+    let private gateKey (workspaceRoot: string) =
+        Path.GetFullPath(workspaceRoot)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+
+    let withWorkTreeGate
+        (workspaceRoot: string)
+        (action: unit -> Result<'value, string>)
+        : Result<'value, string> =
+        let gate =
+            workTreeGates.GetOrAdd(
+                gateKey workspaceRoot,
+                fun _ -> new SemaphoreSlim(1, 1))
+        gate.Wait()
+        try
+            action ()
+        finally
+            gate.Release() |> ignore
 
     [<Literal>]
     let private reservedSystemFileExclude = "[gG][aA][mM][bB][oO][lL].*"
@@ -29,6 +64,113 @@ module WorkspaceGit =
                     GitSave.runGit workspaceRoot "symbolic-ref --short HEAD"
             with ex ->
                 Error ex.Message
+
+    let private errorLines (text: string) =
+        text.Split(
+            [| '\r'; '\n' |],
+            StringSplitOptions.RemoveEmptyEntries ||| StringSplitOptions.TrimEntries)
+        |> Array.filter (fun line ->
+            not (line.StartsWith("hint:", StringComparison.OrdinalIgnoreCase)))
+
+    let private isKeyGitError (line: string) =
+        [ "fatal:"
+          "error:"
+          "rejected"
+          "non-fast-forward"
+          "fetch first"
+          "needs merge" ]
+        |> List.exists (fun marker ->
+            line.Contains(marker, StringComparison.OrdinalIgnoreCase))
+
+    let private condenseGitError (text: string) =
+        let lines = errorLines text
+        let keyLines = lines |> Array.filter isKeyGitError
+        let selected =
+            if Array.isEmpty keyLines then lines else keyLines
+        let condensed =
+            selected
+            |> Array.distinct
+            |> Array.truncate 3
+            |> String.concat " "
+        if condensed.Length <= 400 then
+            condensed
+        else
+            condensed.Substring(0, 397) + "..."
+
+    let private runGitCondensed workspaceRoot arguments =
+        GitSave.runGit workspaceRoot arguments
+        |> Result.mapError condenseGitError
+
+    let remoteExists (workspaceRoot: string) : Result<bool, string> =
+        runGitCondensed workspaceRoot "remote"
+        |> Result.map (String.IsNullOrWhiteSpace >> not)
+
+    let trackedBranch
+        (workspaceRoot: string)
+        : Result<WorkspaceTrackedBranch, string> =
+        currentBranch workspaceRoot
+        |> Result.bind (fun branch ->
+            match
+                runGitCondensed
+                    workspaceRoot
+                    $"config --get branch.{branch}.remote",
+                runGitCondensed
+                    workspaceRoot
+                    $"config --get branch.{branch}.merge"
+            with
+            | Ok remote, Ok upstream
+                when not (String.IsNullOrWhiteSpace remote)
+                     && not (String.IsNullOrWhiteSpace upstream) ->
+                Ok {
+                    branch = branch
+                    remote = remote
+                    upstream = upstream
+                }
+            | _ ->
+                Error $"Current branch '{branch}' has no upstream.")
+
+    let private unmergedPath (workspaceRoot: string) : Result<string option, string> =
+        runGitCondensed workspaceRoot "diff --name-only --diff-filter=U"
+        |> Result.map (fun output ->
+            output.Split(
+                [| '\r'; '\n' |],
+                StringSplitOptions.RemoveEmptyEntries ||| StringSplitOptions.TrimEntries)
+            |> Array.tryHead)
+
+    let pullTracked (workspaceRoot: string) : Result<string, string> =
+        withWorkTreeGate workspaceRoot (fun () ->
+            trackedBranch workspaceRoot
+            |> Result.bind (fun tracked ->
+                runGitCondensed
+                    workspaceRoot
+                    $"pull --ff-only --no-rebase {tracked.remote} {tracked.upstream}"))
+
+    let saveTracked
+        (workspaceRoot: string)
+        (baseMsg: string)
+        (clientHint: string option)
+        : Result<string, string> =
+        withWorkTreeGate workspaceRoot (fun () ->
+            trackedBranch workspaceRoot
+            |> Result.bind (fun tracked ->
+                unmergedPath workspaceRoot
+                |> Result.bind (function
+                    | Some path -> Error $"Git conflict: {path}"
+                    | None ->
+                        let message =
+                            ClientIdentity.formatCommitMessage baseMsg clientHint
+                        GitSave.commitAll workspaceRoot message
+                        |> Result.mapError condenseGitError
+                        |> Result.map (fun commitOutput -> tracked, commitOutput))))
+        |> Result.bind (fun (tracked, commitOutput) ->
+            runGitCondensed
+                workspaceRoot
+                $"push {tracked.remote} HEAD:{tracked.upstream}"
+            |> Result.map (fun pushOutput ->
+                if String.IsNullOrWhiteSpace pushOutput then
+                    commitOutput
+                else
+                    pushOutput))
 
     let private masterBranchExists (workspaceRoot: string) : bool =
         match

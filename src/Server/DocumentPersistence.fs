@@ -186,7 +186,33 @@ module DocumentPersistence =
             | :? IOException as ex ->
                 Error ("read failed: " + ex.Message)
 
-    let private writeArtifactText
+    let private workspaceRootFor
+        (dataDir: string)
+        (graph: Graph)
+        (nodeId: NodeId)
+        : string option =
+        GraphQuery.enclosingWorkspace graph nodeId
+        |> Option.bind (DocumentPartition.artifactDirectoryRelative graph)
+        |> Option.bind (fun relativePath ->
+            resolveUnderDataDir dataDir relativePath |> Result.toOption)
+
+    let rec private withWorkTreeGates
+        (workspaceRoots: string list)
+        (action: unit -> Result<'value, string>)
+        : Result<'value, string> =
+        match workspaceRoots with
+        | [] -> action ()
+        | root :: rest ->
+            WorkspaceGit.withWorkTreeGate root (fun () ->
+                withWorkTreeGates rest action)
+
+    let private normalizedWorkTreeRoots (workspaceRoots: string list) =
+        workspaceRoots
+        |> List.map Path.GetFullPath
+        |> List.distinct
+        |> List.sort
+
+    let private writeArtifactTextCore
         (dataDir: string)
         (graph: Graph)
         (fileId: NodeId)
@@ -224,6 +250,18 @@ module DocumentPersistence =
                         Ok ()
                     with ex ->
                         Error ex.Message
+
+    let private writeArtifactText
+        (dataDir: string)
+        (graph: Graph)
+        (fileId: NodeId)
+        (text: string)
+        : Result<unit, string> =
+        match workspaceRootFor dataDir graph fileId with
+        | None -> writeArtifactTextCore dataDir graph fileId text
+        | Some root ->
+            WorkspaceGit.withWorkTreeGate root (fun () ->
+                writeArtifactTextCore dataDir graph fileId text)
 
     /// Plan ParseFile ops on the live graph. `textOpt` from desktop upload
     /// (writes artifact to DataDir first); otherwise read artifact text from DataDir.
@@ -464,7 +502,7 @@ module DocumentPersistence =
         | Some rel -> rel
         | None -> $"id={documentRootId.Value}"
 
-    let writeDocument
+    let private writeDocumentCore
         (dataDir: string)
         (graph: Graph)
         (documentRootId: NodeId)
@@ -563,6 +601,17 @@ module DocumentPersistence =
                                     with ex ->
                                         Error ex.Message
 
+    let writeDocument
+        (dataDir: string)
+        (graph: Graph)
+        (documentRootId: NodeId)
+        : Result<DocumentWriteOk, string> =
+        match workspaceRootFor dataDir graph documentRootId with
+        | None -> writeDocumentCore dataDir graph documentRootId
+        | Some root ->
+            WorkspaceGit.withWorkTreeGate root (fun () ->
+                writeDocumentCore dataDir graph documentRootId)
+
     let private stampNodes
         (stamps: Map<NodeId, DateTime>)
         (graph: Graph)
@@ -616,7 +665,7 @@ module DocumentPersistence =
                 match acc with
                 | Error msg -> Error msg
                 | Ok stamps ->
-                    match writeDocument dataDir graph documentRootId with
+                    match writeDocumentCore dataDir graph documentRootId with
                     | Error msg -> Error msg
                     | Ok written ->
                         let mtime = File.GetLastWriteTimeUtc written.path
@@ -637,7 +686,7 @@ module DocumentPersistence =
             rootIds
             |> List.fold
                 (fun (stamps, messages) documentRootId ->
-                    match writeDocument dataDir graph documentRootId with
+                    match writeDocumentCore dataDir graph documentRootId with
                     | Error _ ->
                         let msg =
                             softWritePathHint graph documentRootId
@@ -659,10 +708,16 @@ module DocumentPersistence =
     /// Normal accepted graph changes use persistGraphOps/JIT live-save; this intentionally
     /// bypasses normal production persistence.
     let writeAllDocuments (dataDir: string) (graph: Graph) : Result<Graph, string> =
-        enumerateDocumentRoots graph
-        |> List.filter (fun documentRootId ->
+        let roots =
+            enumerateDocumentRoots graph
+            |> List.filter (fun documentRootId ->
             DocumentPartition.shouldWriteDocumentRoot graph.nodes.[documentRootId])
-        |> writeDocuments dataDir graph
+        let workTreeRoots =
+            roots
+            |> List.choose (workspaceRootFor dataDir graph)
+            |> normalizedWorkTreeRoots
+        withWorkTreeGates workTreeRoots (fun () ->
+            writeDocuments dataDir graph roots)
 
     let private persistGraphChangeWith
         (affectedRoots: NodeId list -> Set<NodeId>)
@@ -672,25 +727,33 @@ module DocumentPersistence =
         (postGraph: Graph)
         : Result<PersistGraphOk, string> =
         let moves = DocumentPathMove.planPathMovesBetweenGraphs preGraph postGraph
+        let moveIds = moves |> List.map (fun move -> move.nodeId)
+        let affected = affectedRoots moveIds
+        let gatedIds = Set.toList affected @ moveIds
+        let workTreeRoots =
+            [ for nodeId in gatedIds do
+                  workspaceRootFor dataDir preGraph nodeId
+                  workspaceRootFor dataDir postGraph nodeId ]
+            |> List.choose id
+            |> normalizedWorkTreeRoots
 
-        match executePathMoves dataDir preGraph postGraph moves with
-        | Error msg -> Error msg
-        | Ok () ->
-            let moveIds = moves |> List.map (fun m -> m.nodeId)
-            let affected = affectedRoots moveIds
-            let stamped, message =
-                affected
-                |> Set.toList
-                |> writeDocumentsSoft dataDir postGraph
+        withWorkTreeGates workTreeRoots (fun () ->
+            match executePathMoves dataDir preGraph postGraph moves with
+            | Error msg -> Error msg
+            | Ok () ->
+                let stamped, message =
+                    affected
+                    |> Set.toList
+                    |> writeDocumentsSoft dataDir postGraph
 
-            Ok {
-                graph =
-                    stampExistingDocuments
-                        dataDir
-                        (existingStampRoots moveIds)
-                        stamped
-                message = message
-            }
+                Ok {
+                    graph =
+                        stampExistingDocuments
+                            dataDir
+                            (existingStampRoots moveIds)
+                            stamped
+                    message = message
+                })
 
     /// Snapshot fallback when no accepted operation batch is available.
     let persistGraphChange
