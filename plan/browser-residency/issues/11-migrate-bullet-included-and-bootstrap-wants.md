@@ -1,7 +1,7 @@
 # 11 — Migrate Bullet and Included readers
 
 **Type:** coding
-**Status:** coded
+**Status:** done
 Actual: 30m
 **Blocked by:** None — can start immediately
 
