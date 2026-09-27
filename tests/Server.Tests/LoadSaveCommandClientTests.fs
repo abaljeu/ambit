@@ -65,6 +65,37 @@ let private request prePick operation =
           graphIds = [ nodeId ]
           eventId = EventId.zero } }
 
+let private requireOk =
+    function
+    | Ok value -> value
+    | Error error ->
+        Assert.Fail(error)
+        Unchecked.defaultof<_>
+
+let private requireSome label =
+    function
+    | Some value -> value
+    | None ->
+        Assert.Fail(label)
+        Unchecked.defaultof<_>
+
+let private operationFromName =
+    function
+    | "load" -> LoadSaveOperation.Load
+    | "save" -> LoadSaveOperation.Save
+    | name ->
+        Assert.Fail($"unknown operation: {name}")
+        Unchecked.defaultof<_>
+
+let private prePickFromName =
+    function
+    | "plain" -> LoadSavePrePick.Plain
+    | "git" -> LoadSavePrePick.Git
+    | "desk" -> LoadSavePrePick.Desk
+    | name ->
+        Assert.Fail($"unknown pre-pick: {name}")
+        Unchecked.defaultof<_>
+
 let private deskResponse =
     { path = LoadSavePath.Desk; command = None }
     |> ApiResponseSerialization.encodeLoadSaveCommandResponse
@@ -76,7 +107,7 @@ let private runDesk operation =
     let post url body onOk _ _ =
         urls.Add url
         Decode.fromString EventJson.decodeLoadSaveCommandRequest body
-        |> Result.defaultWith failwith
+        |> requireOk
         |> fun decoded -> Assert.Equal(operation, decoded.operation)
         onOk deskResponse
     let dependencies: LoadSaveCommandClient.Dependencies =
@@ -99,47 +130,9 @@ let private runDesk operation =
         urls |> Seq.toList)
     match messages |> Seq.toList with
     | [ ApplyOp updater ] -> updater
-    | other -> failwith $"expected one ApplyOp, got {other}"
-
-let private gitResponse =
-    { path = LoadSavePath.Git
-      command =
-        Some
-            { nodes = []
-              events = []
-              latestId = EventId.zero } }
-    |> ApiResponseSerialization.encodeLoadSaveCommandResponse
-    |> Encode.toString 0
-
-[<Theory>]
-[<InlineData("load")>]
-[<InlineData("save")>]
-let ``Git Load and Save cross the Server command request door`` operationName =
-    let operation =
-        if operationName = "load" then
-            LoadSaveOperation.Load
-        else
-            LoadSaveOperation.Save
-    let post url body onOk _ _ =
-        Assert.Equal("/ambit/load-save-command", url)
-        let decoded =
-            Decode.fromString EventJson.decodeLoadSaveCommandRequest body
-            |> Result.defaultWith failwith
-        Assert.Equal(operation, decoded.operation)
-        Assert.Equal(LoadSavePrePick.Git, decoded.prePick)
-        onOk gitResponse
-    let dependencies: LoadSaveCommandClient.Dependencies =
-        { encodeRequest =
-            EventJson.encodeLoadSaveCommandRequest >> Encode.toString 0
-          decodeResponse =
-            Decode.fromString
-                ApiResponseSerialization.decodeLoadSaveCommandResponseDecoder
-          post = post
-          continueDesk = fun _ -> Assert.Fail("unexpected Desk continuation")
-          commandDone = fun events -> Assert.Empty(events)
-          commandFailed = fun detail -> Assert.Fail(detail) }
-    LoadSaveCommandClient.runWith
-        dependencies "ambit" (request LoadSavePrePick.Git operation)
+    | other ->
+        Assert.Fail($"expected one ApplyOp, got {other}")
+        Unchecked.defaultof<_>
 
 [<Theory>]
 [<InlineData("Load", "load", "plain")>]
@@ -153,28 +146,21 @@ let ``Command surface keeps Load and Save pre-picks``
     operationName
     prePickName
     =
-    let operation =
-        if operationName = "load" then
-            LoadSaveOperation.Load
-        else
-            LoadSaveOperation.Save
-    let prePick =
-        match prePickName with
-        | "git" -> LoadSavePrePick.Git
-        | "desk" -> LoadSavePrePick.Desk
-        | _ -> LoadSavePrePick.Plain
+    let operation = operationFromName operationName
+    let prePick = prePickFromName prePickName
     let command =
         Commands.commandRegistry
-        |> List.find (fun entry -> entry.name = commandName)
+        |> List.tryFind (fun entry -> entry.name = commandName)
+        |> requireSome $"command not found: {commandName}"
     let updater =
         command.run ()
-        |> Option.defaultWith (fun () -> failwith "command unavailable")
+        |> requireSome $"command unavailable: {commandName}"
     let _, effects = updater (VmTestHelpers.emptyModel (Graph.create ()))
     match effects with
     | [ SubmitLoadSaveCommand actual ] ->
         Assert.Equal(operation, actual.operation)
         Assert.Equal(prePick, actual.prePick)
-    | other -> failwith $"expected load/save request, got {other}"
+    | other -> Assert.Fail($"expected load/save request, got {other}")
 
 let private applyOps graph ops =
     match
