@@ -83,19 +83,29 @@ let private getStateJsonFull (client: HttpClient) (_file: string) = task {
     return! resp.Content.ReadAsStringAsync()
 }
 
-let private encodeEventBatchBody (changes: Ev list) =
-    let events = changes 
-    Encode.toString 0 (EventJson.encodeEventBatch { events = events })
+let private encodeChangeRequestBody (events: Ev list) =
+    Encode.toString 0 (
+        ApiResponseSerialization.encodeChangeRequest
+            { events = events; want = [] })
+
+let private postPoll (client: HttpClient) eventId = task {
+    let body =
+        Encode.toString 0 (
+            ApiResponseSerialization.encodePollRequest
+                { eventId = eventId; want = [] })
+    use content = new StringContent(body, Encoding.UTF8, "application/json")
+    return! client.PostAsync("/ambit/poll", content)
+}
 
 /// POST /ambit/events with a change and return the raw response.
 let private postChange (client: HttpClient) (_file: string) (change: Ev) = task {
-    let body = encodeEventBatchBody [ change ]
+    let body = encodeChangeRequestBody [ change ]
     let content = new StringContent(body, Encoding.UTF8, "application/json")
     return! client.PostAsync("/ambit/events", content)
 }
 
 let private postChanges (client: HttpClient) (_file: string) (changes: Ev list) = task {
-    let body = encodeEventBatchBody changes
+    let body = encodeChangeRequestBody changes
     let content = new StringContent(body, Encoding.UTF8, "application/json")
     return! client.PostAsync("/ambit/events", content)
 }
@@ -252,7 +262,7 @@ let ``POST Change and inverse Changes return complete confirmations in request o
         List.iter2 assertExactPrefix [ change; undo; redo ] post.events
         let! stateJson = getStateJson client testFile
         Assert.Equal("history-action", (decodeGraph stateJson).nodes.[childId].text)
-        let! pollResponse = client.GetAsync("/ambit/poll?rev=0")
+        let! pollResponse = postPoll client EventId.zero
         let! pollJson = pollResponse.Content.ReadAsStringAsync()
         let poll =
             decode
@@ -332,7 +342,7 @@ let ``POST changes accepts X-Gambol-Client header`` () = task {
     let! json0 = getStateJson client testFile
     let rootId = (decodeGraph json0).root
     let change, _ = changeAddChild rootId 0 "hinted"
-    let body = encodeEventBatchBody [ change ]
+    let body = encodeChangeRequestBody [ change ]
     use content = new StringContent(body, Encoding.UTF8, "application/json")
     use req = new HttpRequestMessage(HttpMethod.Post, "/ambit/events")
     req.Content <- content
@@ -502,7 +512,7 @@ let ``POST changes batch with bad second change keeps earlier items``
         Assert.Equal(EventId.fromJson 1, decodeEventId json)
         Assert.True((decodeGraph json).nodes.ContainsKey childId)
         Assert.Equal("first", (decodeGraph json).nodes.[childId].text)
-        let! pollResponse = client.GetAsync("/ambit/poll?rev=0")
+        let! pollResponse = postPoll client EventId.zero
         let! pollJson = pollResponse.Content.ReadAsStringAsync()
         let poll =
             decode
@@ -1187,7 +1197,7 @@ let ``DB restart keeps inverse Change in EventLog`` () = task {
     let! undoAck = undoResp.Content.ReadAsStringAsync()
     let confirmedUndo = Assert.Single((decodeSuccess undoAck).events)
     use client2 = createDbClientNoReset connStr
-    let! pollResponse = client2.GetAsync("/ambit/poll?rev=0")
+    let! pollResponse = postPoll client2 EventId.zero
     let! pollJson = pollResponse.Content.ReadAsStringAsync()
     let poll =
         decode

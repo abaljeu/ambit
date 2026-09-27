@@ -308,7 +308,9 @@ let private getFullState (client: HttpClient) = task {
 
 let private postEventsHttp (client: HttpClient) (events: Ev list) = task {
     let body =
-        Encode.toString 0 (EventJson.encodeEventBatch { events = events })
+        Encode.toString 0 (
+            ApiResponseSerialization.encodeChangeRequest
+                { events = events; want = [] })
     use content = jsonPost body
     return! client.PostAsync("/ambit/changes", content)
 }

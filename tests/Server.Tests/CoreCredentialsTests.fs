@@ -76,7 +76,8 @@ let ``Adapter cookie fail and inactive sender are the same refuse family`` () =
         let event = addRootChild "adapter"
         let body =
             Encode.toString 0 (
-                Gambol.Shared.EventJson.encodeEventBatch { events = [ event ] })
+                ApiResponseSerialization.encodeChangeRequest
+                    { events = [ event ]; want = [] })
         let! coreFail =
             Api.postEvents handle 10 20 body
             |> Async.StartAsTask
@@ -96,7 +97,8 @@ let ``TCP or Database failure is not that auth refuse`` () = task {
     let event = addRootChild "system"
     let body =
         Encode.toString 0 (
-            Gambol.Shared.EventJson.encodeEventBatch { events = [ event ] })
+            ApiResponseSerialization.encodeChangeRequest
+                { events = [ event ]; want = [] })
     let! result =
         Api.postEvents handle 10 20 body
         |> Async.StartAsTask
