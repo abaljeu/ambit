@@ -178,6 +178,7 @@ module DocumentPersistChange =
                     | Error msg -> Error msg
                     | Ok (oldPath, newPath) -> executePathMove oldPath newPath)
             (Ok ())
+
     let private persistGraphChangeWith
         (affectedRoots: NodeId list -> Set<NodeId>)
         (existingStampRoots: NodeId list -> NodeId list)
@@ -240,6 +241,7 @@ module DocumentPersistChange =
             dataDir
             preGraph
             postGraph
+
     let private tryMtime
         (pathByRel: Map<string, string>)
         (rel: string)

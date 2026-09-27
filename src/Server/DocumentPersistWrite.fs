@@ -359,7 +359,8 @@ module DocumentPersistWrite =
         let roots =
             DocumentPersistPath.enumerateDocumentRoots graph
             |> List.filter (fun documentRootId ->
-            DocumentPartition.shouldWriteDocumentRoot graph.nodes.[documentRootId])
+                DocumentPartition.shouldWriteDocumentRoot
+                    graph.nodes.[documentRootId])
         let workTreeRoots =
             roots
             |> List.choose (DocumentPersistPath.workspaceRootFor dataDir graph)

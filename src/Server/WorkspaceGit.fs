@@ -84,13 +84,14 @@ module WorkspaceGit =
 
     let private condenseGitError (text: string) =
         let lines = errorLines text
-        let keyLines = lines |> Array.filter isKeyGitError
         let selected =
-            if Array.isEmpty keyLines then lines else keyLines
+            match lines |> Array.tryFindIndex isKeyGitError with
+            | Some index -> lines |> Array.skip index
+            | None -> lines
         let condensed =
             selected
-            |> Array.distinct
             |> Array.truncate 3
+            |> Array.distinct
             |> String.concat " "
         if condensed.Length <= 400 then
             condensed
@@ -141,9 +142,13 @@ module WorkspaceGit =
         withWorkTreeGate workspaceRoot (fun () ->
             trackedBranch workspaceRoot
             |> Result.bind (fun tracked ->
-                runGitCondensed
-                    workspaceRoot
-                    $"pull --ff-only --no-rebase {tracked.remote} {tracked.upstream}"))
+                unmergedPath workspaceRoot
+                |> Result.bind (function
+                    | Some path -> Error $"Git conflict: {path}"
+                    | None ->
+                        runGitCondensed
+                            workspaceRoot
+                            $"pull --ff-only --no-rebase {tracked.remote} {tracked.upstream}")))
 
     let saveTracked
         (workspaceRoot: string)

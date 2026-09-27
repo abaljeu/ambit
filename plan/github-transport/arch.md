@@ -18,26 +18,26 @@ Sources: [spec.md](spec.md) User Stories 1–27; [map.md](map.md) Destination an
    2. [x] No allowlist and no special label gate
 
 3. **Server-git when a remote exists**
-   1. [ ] WorkspaceGit reports whether a remote exists on that work tree
+   1. [x] WorkspaceGit reports whether a remote exists on that work tree
    2. [x] PathPick chooses git when a remote exists, else desk
 
 4. **Config in git**
    1. [x] `WorkspaceGit.currentBranch` reads the attached branch from that work tree
-   2. [ ] WorkspaceGit reads `git remote` and current upstream on that work tree
-   3. [ ] No Server branch map module
+   2. [x] WorkspaceGit reads `git remote` and current upstream on that work tree
+   3. [x] No Server branch map module
 
 5. **Same tracked branch**
-   1. [ ] git Load pulls the current tracked branch of the whole Workspace work tree
-   2. [ ] git Save commits work-tree edits, then pushes the same tracked branch of the whole Workspace work tree
-   3. [ ] Neither hop is file-level git
-   4. [ ] Neither hop checkouts, switches, or moves to an older commit
+   1. [x] git Load pulls the current tracked branch of the whole Workspace work tree
+   2. [x] git Save commits work-tree edits, then pushes the same tracked branch of the whole Workspace work tree
+   3. [x] Neither hop is file-level git
+   4. [x] Neither hop checkouts, switches, or moves to an older commit
 
 6. **Fast-forward only**
    1. [x] `WorkspaceGit.ensurePushConfig` sets `receive.denyNonFastForwards`
-   2. [ ] git Save rejects a conflicted or non-FF push
-   3. [ ] Conflict error names at least one file path
-   4. [ ] Other failures use a matching short error that reflects git, condensed
-   5. [ ] Reject does not accept non-overlapping diverge (not [[plan/workspace-git/project.md]])
+   2. [x] git Save rejects a conflicted or non-FF push
+   3. [x] Conflict error names at least one file path
+   4. [x] Other failures use a matching short error that reflects git, condensed
+   5. [x] Reject does not accept non-overlapping diverge (not [[plan/workspace-git/project.md]])
 
 7. **Remotes accept push**
    1. [x] Operator sets `git remote` on the work tree so git works
@@ -124,13 +124,13 @@ Sources: [spec.md](spec.md) User Stories 1–27; [map.md](map.md) Destination an
 21. **Host git credentials**
     1. [ ] Peer Actor invokes `git` through WorkspaceGit / GitSave / GitRun
     2. [x] GitRun starts the host `git` process
-    3. [ ] git loads credentials (credential helper / host setup)
-    4. [ ] No GitHub credential in appsettings, user-secrets, Graph, or DataDir
+    3. [x] git loads credentials (credential helper / host setup)
+    4. [x] No GitHub credential in appsettings, user-secrets, Graph, or DataDir
 
 22. **Skip list is `.gitignore`**
-    1. [ ] Skip on the GitHub remote is whatever `.gitignore` already says
-    2. [ ] No Ambit skip key; the person edits `.gitignore`
-    3. [ ] Skip is not a hard Ambit default for `.amb`
+    1. [x] Skip on the GitHub remote is whatever `.gitignore` already says
+    2. [x] No Ambit skip key; the person edits `.gitignore`
+    3. [x] Skip is not a hard Ambit default for `.amb`
 
 23. **Backup when `.amb` is excluded**
     1. [x] WebDAV Upload / Download still transfer Directory File `.amb`
@@ -139,8 +139,8 @@ Sources: [spec.md](spec.md) User Stories 1–27; [map.md](map.md) Destination an
 
 24. **Workspace-scoped git**
     1. [ ] git Load/Save from Workspace root or a subnode use the same whole-tree pull/push
-    2. [ ] No file-level git pathspec
-    3. [ ] Tracked branch is the Workspace work tree’s current branch / upstream
+    2. [x] No file-level git pathspec
+    3. [x] Tracked branch is the Workspace work tree’s current branch / upstream
 
 25. **Actor start door**
     1. [ ] Not Run and not a `?git` entrée
@@ -149,39 +149,39 @@ Sources: [spec.md](spec.md) User Stories 1–27; [map.md](map.md) Destination an
     4. [ ] Actor input is Focus (Workspace / work tree)
 
 26. **Reject UX**
-    1. [ ] Conflict: error message names at least one file path
-    2. [ ] Other failures: matching short error
-    3. [ ] Text reflects what git reports, condensed
-    4. [ ] Same for Load and Save
+    1. [x] Conflict: error message names at least one file path
+    2. [x] Other failures: matching short error
+    3. [x] Text reflects what git reports, condensed
+    4. [x] Same for Load and Save
 
 27. **Persist stays independent of git Save**
     1. [x] Graph→file Persist already runs on its own path
-    2. [ ] git Save does not own or replace Persist
-    3. [ ] git Save composition is `git commit` of work-tree edits, then push
-    4. [ ] Do not merge Persist into git Save
+    2. [x] git Save does not own or replace Persist
+    3. [x] git Save composition is `git commit` of work-tree edits, then push
+    4. [x] Do not merge Persist into git Save
 
 28. **Per-Workspace work-tree gate queues without overlap**
-    1. [ ] Graph→file Persist, git Load pull, and git Save commit acquire one exclusive gate for that Workspace work tree
-    2. [ ] A second caller waits until the holder releases the gate, then continues
-    3. [ ] Contention does not reject as busy
-    4. [ ] The gate coordinates work-tree mutation without merging Persist into git Save
+    1. [x] Graph→file Persist, git Load pull, and git Save commit acquire one exclusive gate for that Workspace work tree
+    2. [x] A second caller waits until the holder releases the gate, then continues
+    3. [x] Contention does not reject as busy
+    4. [x] The gate coordinates work-tree mutation without merging Persist into git Save
 
 Shared segments:
 1. [x] Command Load and Save doors ([[src/Shared/CommandEntry.fs]], [[src/Client/Commands.fs]])
 2. [x] PathPick (plain Load/Save only)
-3. [ ] WorkspaceGit remote-exists + tracked branch + pull/push
+3. [x] WorkspaceGit remote-exists + tracked branch + pull/push
 4. [ ] Peer Actor git Load / git Save (mailbox → actor pool; Focus = work tree; git Save = commit then push)
 5. [x] Desk WebDAV / `loadOp` / desk Save ([[src/Shared/dotnet/WorkspaceFileSync.fs]], [[src/Client/UpdateWorkspaceLoad.fs]], [[src/Client/UpdateSave.fs]])
 6. [x] Host GitRun (no Ambit credential store)
 7. [x] Existing Load → Parse / graph-push (`parseFileOp` / directory reconcile / Fetch+Poll)
-8. [ ] Reject UX: condensed git error; conflict names a path
-9. [ ] Per-Workspace exclusive work-tree gate shared by Persist, pull, and commit
+8. [x] Reject UX: condensed git error; conflict names a path
+9. [x] Per-Workspace exclusive work-tree gate shared by Persist, pull, and commit
 
 Narrowest shared test seam:
 1. [x] PathPick: remote exists → git; else desk (pure; no git process)
-2. [ ] WorkspaceGit remote-exists + tracked-branch pull/push FF-only through GitRun on a temp work tree
+2. [x] WorkspaceGit remote-exists + tracked-branch pull/push FF-only through GitRun on a temp work tree
 3. [ ] Peer Actor git Load / git Save invoke that WorkspaceGit interface; no Ambit credential argument
-4. [ ] Work-tree gate: a second Persist, pull, or commit waits for the holder and continues after release without overlap
+4. [x] Work-tree gate: a second Persist, pull, or commit waits for the holder and continues after release without overlap
 
 ## 2. Module map
 
@@ -217,24 +217,24 @@ Narrowest shared test seam:
    File: [[src/Server/WorkspaceGit.fs]] (extend). Git process stays [[src/Server/GitSave.fs]] / [[src/Shared/dotnet/GitRun.fs]].
    1. State
       1. [x] DataDir work tree `.git` (`isRepo`, `currentBranch`, `ensurePushConfig`)
-      2. [ ] Remote-exists and current upstream read from that work tree only
-      3. [ ] One exclusive work-tree gate per Workspace shared with Graph→file Persist
+      2. [x] Remote-exists and current upstream read from that work tree only
+      3. [x] One exclusive work-tree gate per Workspace shared with Graph→file Persist
    2. Interface
       1. [x] `isRepo` / `currentBranch` / `ensurePushConfig` (FF-only receive)
-      2. [ ] `remoteExists: workspaceRoot -> Result<bool, string>` from `git remote` (any remote counts)
-      3. [ ] Tracked branch + upstream from that work tree (no Server map)
-      4. [ ] Pull the current tracked branch of the whole Workspace work tree (git Load); never file-level git
-      5. [ ] git Save: `git commit` work-tree edits (`GitSave.commitAll`), then push the same tracked branch of the whole Workspace work tree; reject conflicted or non-FF; never file-level git
-      6. [ ] Skip list is `.gitignore` on that work tree (person edits that file; no Ambit skip key)
-      7. [ ] Reject error: conflict names at least one file path; other failures a matching short git-condensed message
-      8. [ ] No checkout, switch, or older-commit move
-      9. [ ] No GitHub credential argument
-      10. [ ] Does not invoke Graph→file Persist
-      11. [ ] Persist file writes, git Load pull, and git Save commit acquire and release the Workspace work-tree gate
-      12. [ ] A second caller waits for the gate and continues after release instead of rejecting as busy
+      2. [x] `remoteExists: workspaceRoot -> Result<bool, string>` from `git remote` (any remote counts)
+      3. [x] Tracked branch + upstream from that work tree (no Server map)
+      4. [x] Pull the current tracked branch of the whole Workspace work tree (git Load); never file-level git
+      5. [x] git Save: `git commit` work-tree edits (`GitSave.commitAll`), then push the same tracked branch of the whole Workspace work tree; reject conflicted or non-FF; never file-level git
+      6. [x] Skip list is `.gitignore` on that work tree (person edits that file; no Ambit skip key)
+      7. [x] Reject error: conflict names at least one file path; other failures a matching short git-condensed message
+      8. [x] No checkout, switch, or older-commit move
+      9. [x] No GitHub credential argument
+      10. [x] Does not invoke Graph→file Persist
+      11. [x] Persist file writes, git Load pull, and git Save commit acquire and release the Workspace work-tree gate
+      12. [x] A second caller waits for the gate and continues after release instead of rejecting as busy
    3. Uses
       1. [x] GitSave.runGit / GitSave.commitAll / GitRun.gitExec (host `git`)
-      2. [ ] Host credential helper (git’s, not Ambit’s)
+      2. [x] Host credential helper (git’s, not Ambit’s)
 
 4. **Peer Actor**
    File: new [[src/Server/GithubTransportActor.fs]] (spoken name: Server Peer Actor; not a new Kind). Start door: [07 — Actor start door](issues/07-actor-start-door.md).
@@ -289,14 +289,14 @@ Narrowest shared test seam:
 
 2. **WorkspaceGit git facts**
    Interface on **WorkspaceGit**. Tests cross GitRun on a temp work tree (remote present / absent; FF push accept / reject; `.gitignore` skip).
-   1. [ ] `remoteExists` + tracked branch
-   2. [ ] pull / push FF-only
-   3. [ ] git Save: commit work-tree edits, then push
-   4. [ ] skip list is `.gitignore`
-   5. [ ] reject text: conflict names a path; other failures short git-condensed
-   6. [ ] no credential parameter
-   7. [ ] no Persist call
-   8. [ ] one gate per Workspace; a second Persist, pull, or commit waits for the holder and continues after release
+   1. [x] `remoteExists` + tracked branch
+   2. [x] pull / push FF-only
+   3. [x] git Save: commit work-tree edits, then push
+   4. [x] skip list is `.gitignore`
+   5. [x] reject text: conflict names a path; other failures short git-condensed
+   6. [x] no credential parameter
+   7. [x] no Persist call
+   8. [x] one gate per Workspace; a second Persist, pull, or commit waits for the holder and continues after release
 
 3. **Peer Actor git Load/Save**
    Interface on **Peer Actor**. Tests stub WorkspaceGit. Start door is mailbox → actor pool from Load/Save ([07 — Actor start door](issues/07-actor-start-door.md)).
@@ -315,7 +315,7 @@ Narrowest shared test seam:
 5. **Host git credentials**
    Interface on **WorkspaceGit** (invoke git only). Seam is the host `git` process, not an Ambit secret module.
    1. [x] GitRun starts `git`
-   2. [ ] No appsettings / user-secrets / Graph / DataDir GitHub credential module
+   2. [x] No appsettings / user-secrets / Graph / DataDir GitHub credential module
 
 ## 4. Alternative considered
 

@@ -430,6 +430,20 @@ let ``saveTracked conflict error names an unmerged path`` () =
         Assert.True(error.Length <= 400)
 
 [<SkippableFact>]
+let ``pullTracked local conflict error names the path`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let _, _, source, workspace = trackedWorkspace ()
+    commitFile source "note.txt" "remote" "remote-change"
+    git source "push origin main" |> ignore
+    File.WriteAllText(Path.Combine(workspace, "note.txt"), "local")
+
+    match WorkspaceGit.pullTracked workspace with
+    | Ok _ -> Assert.Fail("expected local conflict rejection")
+    | Error error ->
+        Assert.Contains("note.txt", error)
+        Assert.True(error.Length <= 400)
+
+[<SkippableFact>]
 let ``pullTracked condenses other git failures`` () =
     Skip.IfNot(gitOnPath(), "git not on PATH")
     let root = Path.Combine(newTempDir (), "home")
