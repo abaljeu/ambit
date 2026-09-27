@@ -108,14 +108,14 @@ let applyAndPostSync (commandName: string) (ops: Op list) (model: VM) : Result<V
                         model.eventId
                 with
                 | AckReconcile.Applied (st, _, _, _) ->
-                    SyncLogic.applyChangeSuccessAnswer ack st
+                    SyncAnswer.applyChangeSuccess ack st
                     |> Result.map (fun answered ->
                         { model with
                             graph = answered.graph
                             history = answered.history
                             eventId = answered.eventId })
                 | AckReconcile.Ignored ->
-                    SyncLogic.applyChangeSuccessAnswer ack nextState
+                    SyncAnswer.applyChangeSuccess ack nextState
                     |> Result.map (fun answered ->
                         { model with
                             graph = answered.graph
@@ -334,7 +334,7 @@ let completeUploadStructurePost
                 model.eventId
         with
         | AckReconcile.Applied (st, _, _, _) ->
-            match SyncLogic.applyChangeSuccessAnswer ack st with
+            match SyncAnswer.applyChangeSuccess ack st with
             | Error msg -> failUploadStructurePost msg model
             | Ok answered ->
                 let model' =
@@ -346,7 +346,7 @@ let completeUploadStructurePost
                 model', [ Effect.ContinueWorkspacePush (scope, parseFileId) ]
         | AckReconcile.Ignored ->
             match
-                SyncLogic.applyChangeSuccessAnswer
+                SyncAnswer.applyChangeSuccess
                     ack
                     (clientSyncState model)
             with

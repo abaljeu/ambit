@@ -169,7 +169,7 @@ and private handleBootPoll (clientEventId: EventId) (poll: ChangeSuccessResponse
             SysMsg (
                 PollDone (
                     None,
-                    SyncLogic.changeSuccessAnswerToSync poll,
+                    SyncAnswer.fromChangeSuccess poll,
                     Some ready,
                     Some (poll.eventId))))
     | BootCache.BootPoll.ApplyNovel (novel, ready) ->

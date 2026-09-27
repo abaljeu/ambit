@@ -95,12 +95,6 @@ module SyncLogic =
             | Ok afterWant ->
                 Ok { afterEvents with graph = afterWant }
 
-    let applySyncAnswer
-        (response: SyncResponse)
-        (state: ClientSyncState)
-        : Result<ClientSyncState, string> =
-        applySyncResponse { response with events = [] } state
-
     let applyLoadResponse
         (responseEventId: EventId)
         (hasPendingLocal: bool)
@@ -131,17 +125,6 @@ module SyncLogic =
           packageChildMap = Map.empty
           nodes = response.nodes
           childMap = response.childMap }
-
-    let changeSuccessAnswerToSync
-        (response: ChangeSuccessResponse)
-        : SyncResponse =
-        { changeSuccessToSync response with events = [] }
-
-    let applyChangeSuccessAnswer
-        (response: ChangeSuccessResponse)
-        (state: ClientSyncState)
-        : Result<ClientSyncState, string> =
-        applySyncAnswer (changeSuccessToSync response) state
 
     let loadResponseToPoll (response: LoadResponse) : ChangeSuccessResponse =
         { eventId = response.eventId

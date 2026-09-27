@@ -36,32 +36,38 @@ type private AppliedSubmit =
     { state: ClientSyncState
       syncInfo: SyncInfo
       effects: Effect list
-      suffixOps: Op list }
+      suffixOps: Op list
+      needsCatchUp: bool }
+
+type private SubmitReconciliation =
+    { outcome: AckReconcile
+      needsCatchUp: bool }
 
 let private reconcileSubmit
     (submitted: Ev list)
     (response: ChangeSuccessResponse)
     (model: VM)
-    : bool * AckReconcile =
-    let useExternal =
+    : SubmitReconciliation =
+    let needsCatchUp =
         response.externalChanges
         || not (SyncLogic.isConfirmationEcho submitted response.events)
     let state = clientSyncState model
-    let result =
-        if useExternal then
+    let outcome =
+        if needsCatchUp then
             SyncLogic.reconcileExternalAck
                 submitted response.eventId state model.syncInfo
         else
             SyncLogic.reconcileAck
                 submitted response.events response.eventId state model.syncInfo
-    useExternal, result
+    { outcome = outcome
+      needsCatchUp = needsCatchUp }
 
 let private applyIgnoredSubmitAnswer
     (response: ChangeSuccessResponse)
     (model: VM)
     : VM * Effect list =
     match
-        SyncLogic.applyChangeSuccessAnswer response (clientSyncState model)
+        SyncAnswer.applyChangeSuccess response (clientSyncState model)
     with
     | Error _ ->
         { model with
@@ -74,10 +80,9 @@ let private applyIgnoredSubmitAnswer
 
 let private finishAppliedSubmit
     (response: ChangeSuccessResponse)
-    (useExternal: bool)
     (model: VM) (applied: AppliedSubmit) : VM * Effect list =
     let applied =
-        match SyncLogic.applyChangeSuccessAnswer response applied.state with
+        match SyncAnswer.applyChangeSuccess response applied.state with
         | Ok state -> { applied with state = state }
         | Error _ ->
             { applied with
@@ -100,7 +105,7 @@ let private finishAppliedSubmit
             applied.suffixOps updated
     let nextSync, pollEffects =
         if
-            useExternal
+            applied.needsCatchUp
             && applied.syncInfo.pending.IsEmpty
             && applied.syncInfo.catchUp.IsSome
         then
@@ -124,8 +129,8 @@ let private applySubmitResponse
             + " modelRev=" + string model.eventId.Value)
         model, []
     | _ ->
-        let useExternal, result = reconcileSubmit submitted response model
-        match result with
+        let reconciliation = reconcileSubmit submitted response model
+        match reconciliation.outcome with
         | AckReconcile.Ignored -> applyIgnoredSubmitAnswer response model
         | AckReconcile.Rejected detail -> rejectPending detail model
         | AckReconcile.Applied (nextState, nextSync, submitEffects, suffixOps) ->
@@ -134,15 +139,15 @@ let private applySubmitResponse
                 + string model.eventId.Value
                 + " serverAck=" + string response.eventId.Value
                 + " pendingNext=" + string nextSync.pending.Length
-                + " external=" + string useExternal)
+                + " external=" + string reconciliation.needsCatchUp)
             finishAppliedSubmit
                 response
-                useExternal
                 model
                 { state = nextState
                   syncInfo = nextSync
                   effects = submitEffects
-                  suffixOps = suffixOps }
+                  suffixOps = suffixOps
+                  needsCatchUp = reconciliation.needsCatchUp }
 
 let update (msg: Msg) (model: VM) : VM * Effect list =
     match msg with
@@ -320,7 +325,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                         syncInfo = SyncInfo.withSyncState DataOutdated si }, []
                 | Ok newState ->
                     match
-                        SyncLogic.applySyncAnswer syncResponse newState
+                        SyncAnswer.apply syncResponse newState
                     with
                     | Error _ ->
                         { readyModel with
