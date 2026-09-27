@@ -208,7 +208,7 @@ let ``writeDocument for Workspace inits repo under label`` () =
     Skip.IfNot(gitOnPath(), "git not on PATH")
     let dataDir = newTempDir ()
     let graph, wsId = graphWithWorkspace "home"
-    DocumentPersistence.writeDocument dataDir graph wsId
+    DocumentPersistWrite.writeDocument dataDir graph wsId
     |> requireOk "writeDocument"
     |> ignore
     Assert.True(WorkspaceGit.isRepo (Path.Combine(dataDir, "home")))
@@ -497,7 +497,7 @@ let ``Persist write waits on the Workspace work tree gate`` () =
 
     holderEntered.Task.Wait()
     let persist =
-        Task.Run(fun () -> DocumentPersistence.writeDocument dataDir graph wsId)
+        Task.Run(fun () -> DocumentPersistWrite.writeDocument dataDir graph wsId)
     Assert.False(persist.Wait(100))
     Assert.False(File.Exists(Path.Combine(root, ".amb")))
     releaseHolder.SetResult()

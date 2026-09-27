@@ -140,7 +140,7 @@ module LazyLoadReconciliationServer =
                     dirRel.Replace('/', Path.DirectorySeparatorChar))
         let fileAdds =
             discoveryRoot
-            |> DocumentPersistence.discoverArtifactRelatives
+            |> DocumentPersistPath.discoverArtifactRelatives
             |> Result.map (fun relatives ->
                 relatives
                 |> List.map (fun rel ->

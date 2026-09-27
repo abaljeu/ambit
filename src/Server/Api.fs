@@ -341,7 +341,7 @@ module Api =
         match Decode.fromString decodeFileStatusRequest body with
         | Error err -> Results.BadRequest({| error = err |})
         | Ok path ->
-            match DocumentPersistence.fileStatusForReference dataDir path with
+            match DocumentPersistPath.fileStatusForReference dataDir path with
             | Error err -> Results.BadRequest({| error = err |})
             | Ok response ->
                 response
@@ -350,7 +350,7 @@ module Api =
                 |> jsonResult
 
     let getImportFile (dataDir: string) (path: string) : IResult =
-        match DocumentPersistence.importPackageForReference dataDir path with
+        match DocumentPersistPath.importPackageForReference dataDir path with
         | Error err -> Results.BadRequest({| error = err |})
         | Ok package ->
             package
@@ -383,7 +383,7 @@ module Api =
         : Async<IResult> =
         async {
             match
-                DocumentPersistence.planParseFile
+                DocumentPersistWrite.planParseFile
                     dataDir
                     state.graph
                     fileId

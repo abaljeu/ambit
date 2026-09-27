@@ -36,7 +36,7 @@ let private softFailPersist : string -> Graph -> Graph -> Op list -> Result<Pers
     fun _ _ postGraph _ ->
         Ok {
             graph = postGraph
-            message = Some(DocumentPersistence.fileCouldNotSave "SYSTEM/secret.txt")
+            message = Some(DocumentPersistWrite.fileCouldNotSave "SYSTEM/secret.txt")
         }
 
 let private decodeAck (accepted: CoreChangesAccepted) =
@@ -165,7 +165,7 @@ let ``soft-fail live-save still commits graph and returns could-not-save message
         | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")
         | Ok ackJson ->
             Assert.Equal(
-                Some(DocumentPersistence.fileCouldNotSave "SYSTEM/secret.txt"),
+                Some(DocumentPersistWrite.fileCouldNotSave "SYSTEM/secret.txt"),
                 decodeAckMessage ackJson)
         let! state =
             getState agent |> Async.StartAsTask

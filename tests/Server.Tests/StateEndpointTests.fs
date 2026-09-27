@@ -148,7 +148,7 @@ let private readFileShared (path: string) =
     reader.ReadToEnd()
 
 let private writeDocumentFiles (tempDir: string) (state: State) =
-    DocumentPersistence.writeAllDocuments tempDir state.graph
+    DocumentPersistWrite.writeAllDocuments tempDir state.graph
     |> function
         | Ok _ -> ()
         | Error err -> failwith err

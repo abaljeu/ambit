@@ -38,7 +38,7 @@ module FileAgent =
 
     let defaultDependencies (dataDir: string) =
         {
-            persistGraphOps = DocumentPersistence.persistGraphOps
+            persistGraphOps = DocumentPersistChange.persistGraphOps
             appendException =
                 HttpResponseLog.appendException
                     (HttpResponseLog.logPath dataDir)
@@ -132,12 +132,12 @@ module FileAgent =
         if graphOnly then
             Ok ()
         else
-            DocumentPersistence.validatePathMoves
+            DocumentPersistChange.validatePathMoves
                 loaded.dataDir
                 preGraph
                 postGraph
             |> Result.bind (fun () ->
-                DocumentPersistence.validateGraphDiskEffects
+                DocumentPersistChange.validateGraphDiskEffects
                     loaded.dataDir
                     preGraph
                     postGraph)
