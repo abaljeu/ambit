@@ -182,7 +182,9 @@ let readEditInputSelectionEnd () : int =
 let clientSyncState (model: VM) : ClientSyncState =
     let state =
         ClientSyncState.create model.graph model.eventId model.history
-    { state with actorLiveFocusIds = model.actorLiveFocusIds }
+    { state with
+        actorLiveFocusIds = model.actorLiveFocusIds
+        pending = model.syncInfo.pending }
 
 let applyAndPost
     (commandName: string)

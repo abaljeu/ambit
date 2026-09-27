@@ -26,6 +26,7 @@ let ``applyOpsForSync soft-skips SetName CAS like Unchanged`` () =
         ResidentProjection.applyOpsForSync
             [ Op.SetName(nodeId, "stale", "new.md") ]
             state
+            ResidentProjection.emptyPending
     with
     | ApplyResult.Unchanged next, Some msg ->
         Assert.Equal("can't change the name", msg)
@@ -41,6 +42,7 @@ let ``applyOpsForSync SetName CAS then SetText applies the text`` () =
             [ Op.SetName(nodeId, "stale", "new.md")
               Op.SetText(nodeId, "n", "later") ]
             state
+            ResidentProjection.emptyPending
     with
     | ApplyResult.Changed next, Some msg ->
         Assert.Equal("can't change the name", msg)
@@ -56,6 +58,7 @@ let ``applyOpsForSync keeps the first CAS user message`` () =
             [ Op.SetName(nodeId, "stale", "new.md")
               Op.SetText(nodeId, "stale", "later") ]
             state
+            ResidentProjection.emptyPending
     with
     | ApplyResult.Unchanged _, Some msg ->
         Assert.Equal("can't change the name", msg)
@@ -88,7 +91,12 @@ let ``applyOpsForSync soft-skips SetText SetClasses and Replace CAS`` () =
           [ ChildListWire.replace nodeId [ ChildNode.owner ghost ] [] ],
             "can't change the structure" ]
     for ops, expected in cases do
-        match ResidentProjection.applyOpsForSync ops state with
+        match
+            ResidentProjection.applyOpsForSync
+                ops
+                state
+                ResidentProjection.emptyPending
+        with
         | ApplyResult.Unchanged next, Some msg ->
             Assert.Equal(expected, msg)
             Assert.Equal("n", next.graph.nodes.[nodeId].text)
@@ -110,3 +118,76 @@ let ``applyLocalEvent SetName CAS stays Error`` () =
     with
     | Error msg -> Assert.Equal("old name does not match", msg)
     | Ok _ -> failwith "expected local apply to stay Error"
+
+let private namedState () : State * NodeId =
+    let graph0, nodeId = Graph.newNode "n" (Graph.create ())
+    match Graph.setName nodeId "" "keep.md" graph0 with
+    | Error msg -> failwith msg
+    | Ok graph -> { graph = graph; eventId = EventId.zero }, nodeId
+
+let private pendingChange submissionId ops : Ev =
+    { id = EventId.zero
+      submissionId = submissionId
+      authority = Authority "Browser"
+      commandName = "Rename"
+      body = EventBody.Change ops }
+
+[<Fact>]
+let ``applyOpsForSync SetName CAS undoes a conflicting pending rename`` () =
+    let state, nodeId = namedState ()
+    let localId = System.Guid.NewGuid()
+    let localOps = [ Op.SetName(nodeId, "keep.md", "local.md") ]
+    let state =
+        match ResidentProjection.applyOps localOps state with
+        | ApplyResult.Changed next -> next
+        | other -> failwith $"local rename: {other}"
+    let incoming = [ Op.SetName(nodeId, "keep.md", "server.md") ]
+    let sync =
+        { ResidentProjection.emptyPending with
+            pending = [ pendingChange localId localOps ]
+            submissionId = System.Guid.NewGuid() }
+    match ResidentProjection.applyOpsForSync incoming state sync with
+    | ApplyResult.Changed next, Some msg ->
+        Assert.Equal("can't change the name", msg)
+        Assert.Equal(Filename.Ok "keep.md", next.graph.nodes.[nodeId].name)
+    | other -> failwith $"expected undo to keep.md, got {other}"
+
+[<Fact>]
+let ``applyOpsForSync SetName CAS does not undo an echo of the same Change`` () =
+    let state, nodeId = namedState ()
+    let localId = System.Guid.NewGuid()
+    let localOps = [ Op.SetName(nodeId, "keep.md", "local.md") ]
+    let state =
+        match ResidentProjection.applyOps localOps state with
+        | ApplyResult.Changed next -> next
+        | other -> failwith $"local rename: {other}"
+    let incoming = localOps
+    let sync =
+        { ResidentProjection.emptyPending with
+            pending = [ pendingChange localId localOps ]
+            submissionId = localId }
+    match ResidentProjection.applyOpsForSync incoming state sync with
+    | ApplyResult.Unchanged next, Some msg ->
+        Assert.Equal("can't change the name", msg)
+        Assert.Equal(Filename.Ok "local.md", next.graph.nodes.[nodeId].name)
+    | other -> failwith $"expected echo to keep local.md, got {other}"
+
+[<Fact>]
+let ``applyOpsForSync SetText CAS undoes a conflicting pending edit`` () =
+    let state, nodeId = stateWithNode "orig"
+    let localId = System.Guid.NewGuid()
+    let localOps = [ Op.SetText(nodeId, "orig", "local") ]
+    let state =
+        match ResidentProjection.applyOps localOps state with
+        | ApplyResult.Changed next -> next
+        | other -> failwith $"local text: {other}"
+    let incoming = [ Op.SetText(nodeId, "orig", "server") ]
+    let sync =
+        { ResidentProjection.emptyPending with
+            pending = [ pendingChange localId localOps ]
+            submissionId = System.Guid.NewGuid() }
+    match ResidentProjection.applyOpsForSync incoming state sync with
+    | ApplyResult.Changed next, Some msg ->
+        Assert.Equal("can't change the text", msg)
+        Assert.Equal("orig", next.graph.nodes.[nodeId].text)
+    | other -> failwith $"expected undo to orig, got {other}"
