@@ -1,8 +1,8 @@
 # github-transport
 
-Stage: arch
+Stage: slice
 Summary: A person maps a key GitHub repo to a Workspace whose DataDir work tree is already the git home. A Server Actor pulls from and pushes to that GitHub remote (round-trip v1, fast-forward only) so every device that maps through Server sees the same files. The App stays thin. Skip on that remote is whatever `.gitignore` already says.
-Updated: 2026-09-26
+Updated: 2026-09-27
 
 **Part of:** [[plan/roadmap/epics/chapters/send-to-and-from-github.md]]
 **Part of / under:** [[plan/transport-layer/project.md]] (file transit)
@@ -20,5 +20,6 @@ Updated: 2026-09-26
 - 2026-09-26 — `.amb` skip lock (replaces the 2026-09-20 hard-skip default; 2026-09-26 Github Sync room: skip list is `.gitignore`, no Ambit key). When `.amb` is listed in `.gitignore`, git skips it on the remote. When excluded, offsite backup of those notes is Ambit Server DataDir (WebDAV Upload/Download + Server git / daily save), not the mapped repo remote. Do not treat “exclude from repo sync” as “notes are desk-local only.” This does not change Ambit WebDAV Upload/Download or Server DataDir tracking of `.amb` as the Directory File artifact ([[doc/current/workspace-graph.md]]). Those stay Ambit↔Ambit graph persistence and the backup path when the repo remote does not take the notes.
 - 2026-09-26 — Alan locks (Github Sync room): [07 — Actor start door](issues/07-actor-start-door.md) mailbox → actor pool from Load/Save (not Run); [08 — Reject UX](issues/08-reject-ux.md) condensed git error, conflict names a path; [09 — Skip list is .gitignore](issues/09-gitignore-skip-list.md). [06 — Selection-scoped Parse after whole-tree git Load](issues/06-selection-scoped-parse-after-whole-tree-git-load.md) stays `needs-info`.
 - 2026-09-26 — Alan lock (Github Sync): [10 — git Save is commit then push](issues/10-git-save-commit-then-push.md). git Save is `git commit` of work-tree edits, then push. Persist stays independent. Map Not yet specified and arch §5 Unsettled are empty. Stage stays `arch` (`/to-tickets` writes `slice`; empty Unsettled does not advance Stage).
+- 2026-09-26 — Alan lock (Github Sync room): [16 — Persist/git work-tree gate](issues/16-persist-git-work-tree-gate.md). Graph→file Persist, git Load pull, and git Save commit share one exclusive gate per Workspace work tree; a second caller queues until the gate is free instead of rejecting as busy.
 - Prior spec [[plan/workspace-git/project.md]] is not this home. That spec’s non-FF accept of non-overlapping edits is not this Destination.
 - Map: [[map.md]]. Spec: [[spec.md]]. Arch: [[arch.md]].
