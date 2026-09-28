@@ -112,6 +112,7 @@
     <Compile Include="DeleteOpsTests.fs" />
     <Compile Include="ActorLiveTests.fs" />
     <Compile Include="ResidentProjectionApplyTests.fs" />
+    <Compile Include="SplitOriginTraceTests.fs" />
     <Compile Include="SyncLogicTests.fs" />
     <Compile Include="BootCacheTestHelpers.fs" />
     <Compile Include="BootCacheTests.fs" />

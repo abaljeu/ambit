@@ -251,6 +251,72 @@ let ``applyServerTail ActorStart adds and ActorStop removes a live Focus`` () =
             Assert.False(Set.contains focusId afterStop.actorLiveFocusIds)
 
 [<Fact>]
+let ``applyServerTail ActorStart keeps pending Graph ops`` () =
+    let st, nodeId = stateWithNode "orig"
+    let localOps = [ Op.SetText(nodeId, "orig", "local") ]
+    let afterLocal =
+        match
+            ResidentProjection.applyOps
+                localOps
+                { graph = st.graph; eventId = st.eventId }
+        with
+        | ApplyResult.Changed next -> next.graph
+        | other -> failwith $"local text: {other}"
+    let pendingEv =
+        { id = EventId.zero
+          submissionId = System.Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = "Edit"
+          body = EventBody.Change localOps }
+    let st =
+        { st with
+            graph = afterLocal
+            pending = [ pendingEv ] }
+    let started = actorStartEvent (EventIdFixtures.storedId 6) nodeId
+    match applyTail [ started ] st with
+    | Error msg -> failwith $"Expected Ok, got Error: {msg}"
+    | Ok result ->
+        Assert.Equal("local", result.graph.nodes.[nodeId].text)
+        Assert.Equal(1, result.pending.Length)
+        Assert.True(Set.contains nodeId result.actorLiveFocusIds)
+
+[<Fact>]
+let ``applyServerTail non-mismatch Change keeps pending Graph ops`` () =
+    let st, nodeId = stateWithNode "orig"
+    let otherGraph, otherId = Graph.newNode "other" st.graph
+    let localOps = [ Op.SetText(nodeId, "orig", "local") ]
+    let afterLocal =
+        match
+            ResidentProjection.applyOps
+                localOps
+                { graph = otherGraph; eventId = st.eventId }
+        with
+        | ApplyResult.Changed next -> next.graph
+        | other -> failwith $"local text: {other}"
+    let pendingEv =
+        { id = EventId.zero
+          submissionId = System.Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = "Edit"
+          body = EventBody.Change localOps }
+    let st =
+        { st with
+            graph = afterLocal
+            pending = [ pendingEv ] }
+    let incoming =
+        { id = EventIdFixtures.storedId 6
+          submissionId = System.Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [ Op.SetText(otherId, "other", "remote") ] }
+    match applyTail [ incoming ] st with
+    | Error msg -> failwith $"Expected Ok, got Error: {msg}"
+    | Ok result ->
+        Assert.Equal("local", result.graph.nodes.[nodeId].text)
+        Assert.Equal("remote", result.graph.nodes.[otherId].text)
+        Assert.Equal(1, result.pending.Length)
+
+[<Fact>]
 let ``applyServerTail carries SetUpdateTime after SetText as poll stamp path`` () =
     let st, nodeId = stateWithNode "before"
     let stamp = System.DateTime(2026, 7, 22, 18, 0, 0, System.DateTimeKind.Utc)
@@ -408,7 +474,7 @@ let ``applyServerTail SetName CAS undoes conflicting pending rename`` () =
         | Error msg -> failwith $"Expected Ok, got Error: {msg}"
         | Ok result ->
             Assert.Equal(
-                Filename.Ok "keep.md",
+                Filename.Ok "server.md",
                 result.graph.nodes.[nodeId].name)
             Assert.Equal(Some "can't change the name", result.applyDetail)
 

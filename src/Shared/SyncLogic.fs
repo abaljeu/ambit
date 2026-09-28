@@ -90,8 +90,42 @@ module SyncLogic =
                 response.nodes
                 graph
 
+    let private undoPendingGraph
+        (state: ClientSyncState)
+        (pending: Ev list)
+        : Graph =
+        pending
+        |> List.rev
+        |> List.fold
+            (fun graph event ->
+                let inverseOps = Ev.inverseOps event |> Option.defaultValue []
+                match
+                    ResidentProjection.applyOps
+                        inverseOps
+                        (asProjectionState { state with graph = graph })
+                with
+                | ApplyResult.Changed projected
+                | ApplyResult.Unchanged projected -> projected.graph
+                | ApplyResult.Invalid _ -> graph)
+            state.graph
+
+    let private hasWantPayload (response: SyncResponse) =
+        not response.nodes.IsEmpty
+        || not response.childMap.IsEmpty
+
+    let private rewindPendingBeforeWant
+        (response: SyncResponse)
+        (state: ClientSyncState)
+        : ClientSyncState =
+        if not (hasWantPayload response) || state.pending.IsEmpty then
+            state
+        else
+            { state with
+                graph = undoPendingGraph state state.pending }
+
     /// Apply a Sync response atomically under Loaded rules.
-    /// Event tail, then the edges-plus-Nodes answer through installWantAnswer.
+    /// Event tail first. Recoverable field mismatch undoes pending in
+    /// applyOpForSync. Want install rewinds pending Graph ops, then applies.
     let applySyncResponse
         (response: SyncResponse)
         (state: ClientSyncState)
@@ -99,6 +133,7 @@ module SyncLogic =
         match foldProjectedEvents response.events state with
         | Error msg -> Error msg
         | Ok afterEvents ->
+            let afterEvents = rewindPendingBeforeWant response afterEvents
             match graphAfterWant response afterEvents.graph with
             | Error msg -> Error msg
             | Ok afterWant ->
@@ -155,25 +190,6 @@ module SyncLogic =
               nodes = []
               childMap = Map.empty }
             state
-
-    let private undoPendingGraph
-        (state: ClientSyncState)
-        (pending: Ev list)
-        : Graph =
-        pending
-        |> List.rev
-        |> List.fold
-            (fun graph event ->
-                let inverseOps = Ev.inverseOps event |> Option.defaultValue []
-                match
-                    ResidentProjection.applyOps
-                        inverseOps
-                        (asProjectionState { state with graph = graph })
-                with
-                | ApplyResult.Changed projected
-                | ApplyResult.Unchanged projected -> projected.graph
-                | ApplyResult.Invalid _ -> graph)
-            state.graph
 
     let applyLocalEvent
         (event: Ev)

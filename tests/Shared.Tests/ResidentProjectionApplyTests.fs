@@ -149,8 +149,8 @@ let ``applyOpsForSync SetName CAS undoes a conflicting pending rename`` () =
     match ResidentProjection.applyOpsForSync incoming state sync with
     | ApplyResult.Changed next, Some msg ->
         Assert.Equal("can't change the name", msg)
-        Assert.Equal(Filename.Ok "keep.md", next.graph.nodes.[nodeId].name)
-    | other -> failwith $"expected undo to keep.md, got {other}"
+        Assert.Equal(Filename.Ok "server.md", next.graph.nodes.[nodeId].name)
+    | other -> failwith $"expected Server merge server.md, got {other}"
 
 [<Fact>]
 let ``applyOpsForSync SetName CAS does not undo an echo of the same Change`` () =
@@ -189,5 +189,5 @@ let ``applyOpsForSync SetText CAS undoes a conflicting pending edit`` () =
     match ResidentProjection.applyOpsForSync incoming state sync with
     | ApplyResult.Changed next, Some msg ->
         Assert.Equal("can't change the text", msg)
-        Assert.Equal("orig", next.graph.nodes.[nodeId].text)
-    | other -> failwith $"expected undo to orig, got {other}"
+        Assert.Equal("server", next.graph.nodes.[nodeId].text)
+    | other -> failwith $"expected Server merge server, got {other}"
