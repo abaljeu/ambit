@@ -3,7 +3,7 @@
 **Type:** grilling
 **Status:** done
 Blocked by: [17 — Git Load: Unparsed then Parse stack](17-post-pull-cascade-and-gate-handoff.md)
-Actual: 25m
+Actual: 30m
 
 ## 1. Question
 
@@ -20,9 +20,9 @@ There is **one long-lived Parse actor**. Nobody starts an Actor after pull. Core
 
 Workspace/directory Parse: reconcile **immediate members only**. Then set **Unparsed** on children that need updating, and mark this node **Parsed** (as a change event). File Parse converts that file’s disk object into graph content.
 
-Parse Actor home: [[plan/parse-actor/project.md]].
+Parse Actor home: [[plan/parse-actor/project.md]]. Persist is **not** a second Actor. Persist is an async persisting task on Core: [19 — Parsed/Unparsed and Persisted/Unpersisted](19-file-newer-graph-newer.md).
 
-Git Load and Upload handoff: [17 — Git Load: Unparsed then Parse stack](17-post-pull-cascade-and-gate-handoff.md). Axes: [19 — Parsed/Unparsed and Persisted/Unpersisted](19-file-newer-graph-newer.md).
+Git Load and Upload handoff: [17 — Git Load: Unparsed then Parse stack](17-post-pull-cascade-and-gate-handoff.md).
 
 Map gist: [[../map.md]] Decisions so far item 18.
 
@@ -34,6 +34,7 @@ Map gist: [[../map.md]] Decisions so far item 18.
 ## Comments
 
 - 2026-09-28: Alan locked one long-lived Parse actor. Core pushes reconcile targets. Status `done`. Directory-reconcile worker and “hold Unparsed” language withdrawn.
+- 2026-09-28: Persist is a Core async stack task, not a Persist actor.
 
 ## Time
 
@@ -42,3 +43,4 @@ Map gist: [[../map.md]] Decisions so far item 18.
 - 2026-09-28 5m — recorded Unparsed Persist-block clarification from chat
 - 2026-09-28 5m — aligned file lock to Unparsed and directory lock to Reconciling from chat
 - 2026-09-28 5m — rewrote to one long-lived Parse actor from chat
+- 2026-09-28 5m — Persist is Core async task, not an Actor

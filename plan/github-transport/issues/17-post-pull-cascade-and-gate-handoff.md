@@ -35,7 +35,7 @@ Map gist: [[../map.md]] Decisions so far item 17.
 
 - Axes and Persist: [19 — Parsed/Unparsed and Persisted/Unpersisted](19-file-newer-graph-newer.md).
 - Parse Actor home: [[plan/parse-actor/project.md]].
-- [16 — Persist/git work-tree gate](16-persist-git-work-tree-gate.md) is a prior lock. The sequence above does not use it. Whether it still stands is open.
+- [16 — Persist/git work-tree gate](16-persist-git-work-tree-gate.md) exclusive gate is revoked. Unparsed / Unpersisted replace it.
 
 ## Comments
 
