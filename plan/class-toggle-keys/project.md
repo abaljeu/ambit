@@ -1,12 +1,14 @@
 # Class toggle keys
 
-Stage: slice
+Stage: build
 Summary: Bind keys so a person can toggle cssClasses `b`, `i`, and `check` on the current Selection through the existing SetClasses path.
 Updated: 2026-09-28
+Started: 2026-09-28
+Actual: 2.5h
 
 **Part of:** [[plan/roadmap/epics/robust-outliner.md]]
 
-Frontier: none. [01 — Toggle cssClasses b, i, and check from keys](issues/01-toggle-cssclasses-b-i-check-from-keys.md) — Type `coding`, Status `done`.
+Frontier: [01 — Toggle cssClasses b, i, and check from keys](issues/01-toggle-cssclasses-b-i-check-from-keys.md) — Type `coding`, Status `coded`.
 
 ## Notes
 

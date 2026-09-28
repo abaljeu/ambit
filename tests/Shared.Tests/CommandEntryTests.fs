@@ -69,6 +69,42 @@ let ``load owns Ctrl Shift greater-than`` () =
     Assert.DoesNotContain(allCommands, fun command -> command.name = "Upload")
 
 [<Fact>]
+let ``toggle bold owns Ctrl B and b`` () =
+    let entry = commandFor ToggleBold |> Option.get
+    Assert.Equal("Toggle bold", entry.name)
+    Assert.Equal<string list>([ "Ctrl+B"; "b" ], entry.keys)
+    Assert.Equal(SelectionOrEditing, entry.keyScope)
+
+[<Fact>]
+let ``toggle italic owns Ctrl I and i`` () =
+    let entry = commandFor ToggleItalic |> Option.get
+    Assert.Equal("Toggle italic", entry.name)
+    Assert.Equal<string list>([ "Ctrl+I"; "i" ], entry.keys)
+    Assert.Equal(SelectionOrEditing, entry.keyScope)
+
+[<Fact>]
+let ``toggle check owns the space character`` () =
+    let entry = commandFor ToggleCheck |> Option.get
+    Assert.Equal("Toggle check", entry.name)
+    Assert.Equal<string list>([ " " ], entry.keys)
+    Assert.Equal(SelectionOnly, entry.keyScope)
+    Assert.DoesNotContain("Space", entry.keys)
+
+[<Fact>]
+let ``toggle class keys are first-wins free in selection scope`` () =
+    let selectionKeys =
+        allCommands
+        |> List.filter (fun e -> scopeInSelection e.keyScope)
+        |> List.collect (fun e -> e.keys)
+    let owned =
+        [ "b"; "i"; " "; "Ctrl+B"; "Ctrl+I" ]
+        |> List.map (fun k ->
+            k, selectionKeys |> List.filter ((=) k) |> List.length)
+    Assert.Equal<int list>(
+        [ 1; 1; 1; 1; 1 ],
+        owned |> List.map snd)
+
+[<Fact>]
 let ``download owns Ctrl Shift less-than`` () =
     let entry = commandFor Download |> Option.get
     Assert.Equal("Download", entry.name)

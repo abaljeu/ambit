@@ -53,6 +53,9 @@ type CommandId =
     | MoveSelected
     | Find
     | EditClasses
+    | ToggleBold
+    | ToggleItalic
+    | ToggleCheck
     | JumpToTarget
     | Load
     | Save
@@ -251,6 +254,15 @@ let allCommands : CommandEntry list =
         { id = EditClasses; name = "Edit classes"
           keys = [ "."; "Alt+." ]; keyScope = SelectionOrEditing
           iconId = Some "amb-icon-edit-classes" }
+        { id = ToggleBold; name = "Toggle bold"
+          keys = [ "Ctrl+B"; "b" ]; keyScope = SelectionOrEditing
+          iconId = None }
+        { id = ToggleItalic; name = "Toggle italic"
+          keys = [ "Ctrl+I"; "i" ]; keyScope = SelectionOrEditing
+          iconId = None }
+        { id = ToggleCheck; name = "Toggle check"
+          keys = [ " " ]; keyScope = SelectionOnly
+          iconId = None }
         { id = JumpToTarget; name = "Jump to Target"
           keys = [ "Alt+j"; "j" ]; keyScope = SelectionOrEditing
           iconId = Some "amb-icon-jump" }
