@@ -4,7 +4,7 @@ Stage: build
 Summary: A person maps a key GitHub repo to a Workspace whose DataDir work tree is already the git home. A Server Actor pulls from and pushes to that GitHub remote (round-trip v1, fast-forward only) so every device that maps through Server sees the same files. The App stays thin. Skip on that remote is whatever `.gitignore` already says.
 Updated: 2026-09-28
 Started: 2026-09-27
-Actual: 8h20m
+Actual: 8h45m
 
 **Part of:** [[plan/roadmap/epics/chapters/send-to-and-from-github.md]]
 **Part of / under:** [[plan/transport-layer/project.md]] (file transit)
@@ -24,6 +24,7 @@ Actual: 8h20m
 - 2026-09-26 — Alan lock (Github Sync): [10 — git Save is commit then push](issues/10-git-save-commit-then-push.md). git Save is `git commit` of work-tree edits, then push. Persist stays independent. Map Not yet specified and arch §5 Unsettled are empty. Stage stays `arch` (`/to-tickets` writes `slice`; empty Unsettled does not advance Stage).
 - 2026-09-26 — Alan lock (Github Sync room): [16 — Persist/git work-tree gate](issues/16-persist-git-work-tree-gate.md). Graph→file Persist, git Load pull, and git Save commit share one exclusive gate per Workspace work tree; a second caller queues until the gate is free instead of rejecting as busy.
 - 2026-09-28 — Alan model (chat): [17 — Git Load: Unparsed then Parse stack](issues/17-post-pull-cascade-and-gate-handoff.md), [18 — One Parse actor stack](issues/18-parse-actor-stack-and-file-lock-ownership.md), [19 — Parsed/Unparsed and Persisted/Unpersisted](issues/19-file-newer-graph-newer.md), [06 — Selection-scoped Parse after whole-tree git Load](issues/06-selection-scoped-parse-after-whole-tree-git-load.md). Special nodes carry Parsed|Unparsed and Persisted|Unpersisted. Git Load: Unparsed on Workspace → pull → push onto the one long-lived Parse actor. Upload is the same path. Workspace/directory Parse reconciles immediate members only. Graph edit → Unpersisted, feeding Core’s async Persist stack (not an Actor). Persist of a file is blocked while Unparsed. git Save is permitted while Unparsed or Unpersisted. Client Load on a file node pushes the selection onto the same Parse stack; Git Load’s remaining work does not need a special selection path or priority. [16 — Persist/git work-tree gate](issues/16-persist-git-work-tree-gate.md) exclusive gate is revoked. Reconciling cascade withdrawn.
+- 2026-09-28 — Alan lock: Core alone knows where files reside. Everyone else has a relative path. One hardened control point. Map decision 21: [[map.md]]. Cross-cutting: [[plan/transport-layer/map.md]].
 - Prior spec [[plan/workspace-git/project.md]] is not this home. That spec’s non-FF accept of non-overlapping edits is not this Destination.
 - Map: [[map.md]]. Spec: [[spec.md]]. Arch: [[arch.md]].
 - 2026-09-27 — [13 — Run git Load and Save through the Server Peer Actor](issues/13-peer-actor-runs-git-load-save.md) coded. A peer-only mailbox/pool door keeps git Load/Save outside Run and `?git`; the Server Peer Actor resolves Focus to the Workspace work tree, runs the gated tracked-branch operation, and continues Load through Parse reconciliation.

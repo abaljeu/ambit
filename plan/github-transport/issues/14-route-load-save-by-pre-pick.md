@@ -3,7 +3,7 @@
 **Type:** coding
 **Status:** done
 **Blocked by:** [11 — Pick git or desk for plain Load and Save](11-pick-git-or-desk-for-plain-load-save.md); [13 — Run git Load and Save through the Server Peer Actor](13-peer-actor-runs-git-load-save.md)
-Actual: 2h15m
+Actual: 2h20m
 
 ## Context
 
@@ -20,11 +20,11 @@ Extend **Command Load/Save** as defined by the Module map in [[../arch.md]]. Thi
 - [x] 1.2.3 Honor explicit git and desk — Explicit git or desk skips PathPick and uses the selected path.
 - [x] 1.2.4 Start only from a person Command — No schedule, post-Persist, or post-Download path starts git pull or push.
 - [x] 1.2.5 Use the command-request door — Load and Save send a load/save command request through the mailbox to the actor pool, not through Run or `?git`.
-- [x] 1.2.6 Preserve Load completion — Each Load form keeps today's Parse / graph-push coupling after files land; this ticket does not expand selection-scoped Parse.
+- [x] 1.2.6 Preserve Load completion — Each Load form keeps today's Parse / graph-push coupling after files land; this ticket does not expand selection-scoped Parse. **Superseded 2026-09-28.** Current truth is Unparsed → push onto the one Parse actor ([17 — Git Load: Unparsed then Parse stack](17-post-pull-cascade-and-gate-handoff.md)). Selection is push-on-stack ([06 — Selection-scoped Parse after whole-tree git Load](06-selection-scoped-parse-after-whole-tree-git-load.md)). This line records what shipped; it is not current required acceptance.
 - [x] 1.3.1 Use PathPick only for plain commands — Tests prove a remote chooses Git, no remote chooses Desk, and each explicit pre-pick bypasses the chooser.
 - [x] 1.3.2 Invoke the Peer Actor for git — Git Load and Save reach the Server Peer Actor through the actor pool with Focus.
 - [x] 1.3.3 Preserve the desk path — Desk Load and Save continue to use the existing WebDAV and desk behavior.
-- [x] 1.3.4 Preserve existing Parse hops — Load still reaches `parseFileOp`, directory reconciliation, and Fetch+Poll as applicable after either transport path.
+- [x] 1.3.4 Preserve existing Parse hops — Load still reaches `parseFileOp`, directory reconciliation, and Fetch+Poll as applicable after either transport path. **Superseded 2026-09-28.** `parseFileOp` / directory reconciliation are not current required hops. Current truth is Unparsed → push onto the one Parse actor; Fetch+Poll stays for residency. This line records what shipped.
 
 ## See also
 
@@ -37,3 +37,4 @@ Extend **Command Load/Save** as defined by the Module map in [[../arch.md]]. Thi
 - 2026-09-27 30m — added independent-review proof for actual Desk continuations, routed Git Save, and routed remote-first Load reconciliation/Poll events
 - 2026-09-27 30m — drove Desk continuations through final HTTP requests and stabilized routed Git completion under full-suite load
 - 2026-09-27 15m — replaced delegate-only Desk proof with real HttpClient handler POST observations and removed the orphaned inventory wrapper
+- 2026-09-28 5m — annotated 1.2.6 / 1.3.4 `parseFileOp` / directory-reconciliation hops as superseded by Unparsed → push onto Parse (#151)
