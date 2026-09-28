@@ -28,6 +28,46 @@ let private queueWorkspacePush
             syncInfo = SyncInfo.queueRequest request model.syncInfo }
         "load queued until current sync completes"
 
+let private startDirectoryReconcile
+    (scope: WorkspaceSyncScope)
+    (model: VM)
+    : VM * Effect list =
+    let parsing =
+        { model with
+            syncInfo = SyncInfo.withSyncState Parsing model.syncInfo }
+    let model', effs = okDetail parsing "reconciling server disk"
+    model', effs @ [ Effect.ContinueDirectoryReconcile scope ]
+
+let private loadFocusId (model: VM) =
+    match model.selectedNodes with
+    | Some selection -> focusedNodeId model.graph selection
+    | None -> model.zoomRoot
+
+let private parseFocusedFile (fileId: NodeId) (model: VM) =
+    if WorkspaceUpload.canStartWeb model.syncInfo then
+        parseFileOp
+            (WorkspaceUploadAction.ParseServerDisk fileId)
+            fileId
+            model
+    else
+        fail model (WorkspaceUpload.queueBlockedDetail model.syncInfo)
+
+/// Git Load after-step: parse a focused File; otherwise directory-match the Workspace.
+let gitLoadAfterOp (model: VM) : VM * Effect list =
+    match contextualTargetForModel model with
+    | Some(ParseFile fileId) -> parseFocusedFile fileId model
+    | _ ->
+        match
+            WorkspaceSyncScope.tryWorkspaceRootFromFocus
+                model.graph
+                (loadFocusId model)
+        with
+        | Error msg -> fail model msg
+        | Ok scope when WorkspaceUpload.canStartWeb model.syncInfo ->
+            startDirectoryReconcile scope model
+        | Ok _ ->
+            fail model (WorkspaceUpload.queueBlockedDetail model.syncInfo)
+
 let private runDeskLoadAction
     (action: WorkspaceUploadAction)
     (model: VM)
@@ -49,14 +89,7 @@ let private runDeskLoadAction
         WorkspaceUpload.canStartWeb model.syncInfo ->
         match syncScopeFromFocus model with
         | Error msg -> fail model msg
-        | Ok scope ->
-            let parsing =
-                { model with
-                    syncInfo =
-                        SyncInfo.withSyncState Parsing model.syncInfo }
-            let model', effs =
-                okDetail parsing "reconciling server disk"
-            model', effs @ [ Effect.ContinueDirectoryReconcile scope ]
+        | Ok scope -> startDirectoryReconcile scope model
     | (WorkspaceUploadAction.ParseServerDisk fileId as parseAction) when
         WorkspaceUpload.canStartWeb model.syncInfo ->
         parseFileOp parseAction fileId model

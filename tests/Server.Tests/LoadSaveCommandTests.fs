@@ -466,3 +466,163 @@ let ``routed Git Load pulls and Poll sees Parse lifecycle`` () = task {
     finally
         CoreMailbox.dispose harness.host
 }
+
+let private postChange host ops =
+    let event =
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change ops }
+    CoreMailbox.postGraphOnly host testCaller event
+    |> Async.RunSynchronously
+    |> requireOk "post change"
+    |> ignore
+
+let private readGraph host =
+    CoreMailbox.getState host
+    |> Async.RunSynchronously
+    |> requireOk "state"
+    |> fun state -> state.graph
+
+let private childNamed graph parentId name =
+    Graph.children graph parentId
+    |> List.pick (fun child ->
+        match Filename.tryValue graph.nodes.[child.id].name with
+        | Some candidate when candidate = name -> Some graph.nodes.[child.id]
+        | _ -> None)
+
+let private publishStaging parent =
+    let remote = Path.Combine(parent, "remote.git")
+    let source = Path.Combine(parent, "source")
+    Directory.CreateDirectory(remote) |> ignore
+    Directory.CreateDirectory(source) |> ignore
+    git remote "init --bare -b staging" |> ignore
+    git source "init -b staging" |> ignore
+    configureIdentity source
+    File.WriteAllText(Path.Combine(source, "note.txt"), "from-staging")
+    File.WriteAllText(Path.Combine(source, "arrived.txt"), "arrived")
+    git source "add -A" |> ignore
+    git source "commit -m seed" |> ignore
+    git source $"remote add origin {remote}" |> ignore
+    git source "push -u origin staging" |> ignore
+    remote
+
+let private fetchSwitchStaging workspace remote =
+    git workspace "init -b master" |> ignore
+    git workspace $"remote add origin {remote}" |> ignore
+    git workspace "fetch" |> ignore
+    git workspace "switch staging" |> ignore
+
+[<SkippableFact>]
+let ``git Load reflects a staging checkout already fetched`` () = task {
+    Skip.IfNot(DesktopGit.isAvailable(), "git not on PATH")
+    let dataDir = newTempDir ()
+    let workspace = Path.Combine(dataDir, "home")
+    Directory.CreateDirectory(workspace) |> ignore
+    let remote = publishStaging (newTempDir ())
+    let host = createProductionHost dataDir
+    try
+        let seed = seedWorkspace host "load"
+        let graph = readGraph host
+        let _, fileOps =
+            FileNodeOps.planCreateOwnedFile graph seed.workspaceId "note.txt"
+        postChange host fileOps
+        fetchSwitchStaging workspace remote
+        let harness =
+            { dataDir = dataDir
+              parent = dataDir
+              remote = remote
+              source = remote
+              workspace = workspace
+              host = host
+              seed = seed }
+        do!
+            postRouted
+                LoadSaveOperation.Load
+                LoadSavePrePick.Git
+                harness
+        let! stopped = waitForStop host seed.focusId
+        Assert.Equal(Some ActorSucceeded, stopped)
+        let after = readGraph host
+        let names =
+            Graph.children after seed.workspaceId
+            |> List.choose (fun child ->
+                Filename.tryValue after.nodes.[child.id].name)
+        Assert.Contains("arrived.txt", names)
+        Assert.Equal(Unparsed, (childNamed after seed.workspaceId "note.txt").documentState)
+    finally
+        CoreMailbox.dispose host
+}
+
+[<SkippableFact>]
+let ``git Load on a file parses that file`` () = task {
+    Skip.IfNot(DesktopGit.isAvailable(), "git not on PATH")
+    let harness = createGitHarness "load"
+    try
+        let graph = readGraph harness.host
+        let fileId, fileOps =
+            FileNodeOps.planCreateOwnedFile
+                graph
+                harness.seed.workspaceId
+                "note.txt"
+        postChange harness.host fileOps
+        let command =
+            { operation = LoadSaveOperation.Load
+              prePick = LoadSavePrePick.Git
+              start =
+                { zoomId = harness.seed.workspaceId
+                  focusId = fileId
+                  commandId = harness.seed.commandId
+                  graphIds =
+                    [ Graph.rootId
+                      Graph.workspacesId
+                      harness.seed.workspaceId
+                      harness.seed.commandId
+                      fileId ]
+                  eventId = harness.seed.eventId } }
+        let! result =
+            Api.postLoadSaveCommand
+                (productionRouter harness)
+                (CoreMailbox.coreChanges harness.host testCaller)
+                (encodeRequest command)
+            |> Async.StartAsTask
+        let response = requireResponse result
+        Assert.Equal(LoadSavePath.Git, response.path)
+        let! stopped = waitForStop harness.host fileId
+        Assert.Equal(Some ActorSucceeded, stopped)
+        let after = readGraph harness.host
+        Assert.Equal(Current, after.nodes.[fileId].documentState)
+        let kids = Graph.children after fileId
+        Assert.NotEmpty(kids)
+        Assert.Equal("seed", after.nodes.[kids.Head.id].text)
+    finally
+        CoreMailbox.dispose harness.host
+}
+
+[<SkippableFact>]
+let ``git Load after-step creates a disk file the graph does not hold`` () = task {
+    Skip.IfNot(DesktopGit.isAvailable(), "git not on PATH")
+    let harness = createGitHarness "load"
+    try
+        File.WriteAllText(
+            Path.Combine(harness.workspace, "leftover.txt"),
+            "already on disk")
+        do!
+            postRouted
+                LoadSaveOperation.Load
+                LoadSavePrePick.Git
+                harness
+        let! stopped =
+            waitForStop harness.host harness.seed.focusId
+        Assert.Equal(Some ActorSucceeded, stopped)
+        let after = readGraph harness.host
+        let names =
+            Graph.children after harness.seed.workspaceId
+            |> List.choose (fun child ->
+                Filename.tryValue after.nodes.[child.id].name)
+        Assert.Contains("leftover.txt", names)
+        Assert.Contains("note.txt", names)
+    finally
+        CoreMailbox.dispose harness.host
+}

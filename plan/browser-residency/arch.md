@@ -71,19 +71,19 @@ Sources: [map.md](map.md) Destination, Notes, and Decisions so far (2026-09-26 l
     3. [x] SyncInfo `Loading` stays the global Load-command flight, not a Node field
 
 13. **Auto want Included**
-    1. [x] Want module lists Included Nodes that miss Children first
+    1. [x] Want module lists Unloaded Included Nodes first, then two ranks of Unloaded Children
     2. [ ] [src/Client/App.fs](src/Client/App.fs) attaches that Want on Poll and post-Event
     3. [ ] No click and no Load
 
-14. **Next rank after recompute**
-    1. [x] Want module lists current Fold-aware Included Nodes that miss Children
-    2. [ ] After install, Browser recomputes Fold-aware Included
-    3. [ ] Newly Included Children may enter the next Poll / post-Event Want
+14. **Children and grandchildren**
+    1. [x] One compose includes Unloaded Children of the Included set and the Unloaded grandchildren, including under Fold
+    2. [ ] After install, Browser recomputes the Want
+    3. [ ] A later Poll / post-Event carries that recomputed Want
 
 15. **No third ongoing tier**
     1. [x] Want.compose does not add reserved Nodes or the Zoom framing path as an ongoing tier
     2. [x] Those ids stay bootstrap-only
-    3. [x] Shared test asserts the single Fold-aware Included rule
+    3. [x] Shared test asserts Included first, then two Children ranks, and no reserved tier
 
 16. **No click**
     1. [x] RowView Bullet click is fold / select, not Want
@@ -175,8 +175,8 @@ Sources: [map.md](map.md) Destination, Notes, and Decisions so far (2026-09-26 l
 
 33. **SiteMap honors Fold**
     1. [x] IncludedDescendantIds stops at folded children
-    2. [x] Want.compose uses that Included list, not a deep unfold
-    3. [x] Folded Nodes are not treated as a deep visible tree
+    2. [x] Want.compose uses that Included list, then two Children ranks, not a deep unfold
+    3. [x] Folded Nodes are not a deep visible tree. Their Children and grandchildren may still be wanted
 
 34. **Unloaded is not empty**
     1. [x] Absent `childMap` key never renders as a Loaded leaf
@@ -194,7 +194,7 @@ Sources: [map.md](map.md) Destination, Notes, and Decisions so far (2026-09-26 l
     3. [x] No Trash / System spelling in this Project's doors
 
 Shared segments:
-1. [x] Want.compose (Fold-aware Included Nodes that miss Children; recompute after install)
+1. [x] Want.compose (Unloaded Included Nodes, then two ranks of Unloaded Children; recompute after install)
 2. [ ] Poll and post-Event carry Want with Changes
 3. [ ] Server answers edges plus pointed-at Nodes (no dangling edges)
 4. [x] ResidentProjection installs that package into `Graph.childMap`
@@ -222,7 +222,7 @@ Narrowest shared test seam:
    1. State
       1. [x] None durable — a Want is a list of parent Node ids whose Children are desired
    2. Interface
-      1. [x] `compose: Graph * SiteMap * zoomRoot -> NodeId list` — Fold-aware Included Nodes that miss Children; recompute after each install; no bootstrap tier
+      1. [x] `compose: Graph * SiteMap * zoomRoot -> NodeId list` — Unloaded Included Nodes, then their Unloaded Children, then the Unloaded grandchildren; recompute after each install; no bootstrap tier
       2. [x] Empty list is allowed; request field is `want` (`[]` when empty)
    3. Uses
       1. [x] IncludedDescendantIds
@@ -247,8 +247,9 @@ Narrowest shared test seam:
    1. State
       1. [x] None
    2. Interface
-      1. [x] `expand: Graph * SiteMap * startId -> NodeId list` honoring Fold
-      2. [x] Walk `childMap`, not Node.children, once childMap is the list
+      1. [x] `throughChildrenOfExpandedNodes: Graph * SiteMap * startId -> NodeId list` honoring Fold
+      2. [x] `plusChildrenOfEach: Graph * NodeId list -> NodeId list` — found ids, then each node's direct Children that are not already listed. `Want.compose` applies it twice
+      3. [x] Walk `childMap`, not Node.children, once childMap is the list
    3. Uses
       1. [x] SiteMap, Graph
 

@@ -59,7 +59,7 @@ let private findInstanceId (nodeId: NodeId) (siteMap: SiteMap) : SiteId =
 [<Fact>]
 let ``expand starts with the Zoom root`` () =
     let graph, siteMap, zoomId, childIds = zoomWithChildren [ "a"; "b" ]
-    let ids = IncludedDescendantIds.expand graph siteMap zoomId
+    let ids = IncludedDescendantIds.throughChildrenOfExpandedNodes graph siteMap zoomId
     Assert.Equal(zoomId, List.head ids)
     Assert.Equal<NodeId list>([ zoomId; childIds.[0]; childIds.[1] ], ids)
 
@@ -69,7 +69,7 @@ let ``expand walks unfolded children and includes every child id`` () =
     let siteMap0, nextId = buildSiteMapFrom graph zoomId (Sid 0)
     let midInst = findInstanceId midId siteMap0
     let siteMap, _ = expandEntry midInst graph siteMap0 nextId
-    let ids = IncludedDescendantIds.expand graph siteMap zoomId
+    let ids = IncludedDescendantIds.throughChildrenOfExpandedNodes graph siteMap zoomId
     Assert.Equal<NodeId list>(
         [ zoomId; midId; childIds.[0]; childIds.[1] ],
         ids)
@@ -78,7 +78,7 @@ let ``expand walks unfolded children and includes every child id`` () =
 let ``expand does not descend folded children`` () =
     let graph, zoomId, midId, childIds = zoomWithMid [ "hidden" ]
     let siteMap, _ = buildSiteMapFrom graph zoomId (Sid 0)
-    let ids = IncludedDescendantIds.expand graph siteMap zoomId
+    let ids = IncludedDescendantIds.throughChildrenOfExpandedNodes graph siteMap zoomId
     Assert.Equal<NodeId list>([ zoomId; midId ], ids)
     Assert.DoesNotContain(childIds.[0], ids)
 
@@ -97,11 +97,18 @@ let ``expand includes Owner and Ref children`` () =
     let graph =
         Graph.replace zoomId 0 [] children g3 |> requireOk "ownership.zoom"
     let siteMap, _ = buildSiteMapFrom graph zoomId (Sid 0)
-    let got = IncludedDescendantIds.expand graph siteMap zoomId
+    let got = IncludedDescendantIds.throughChildrenOfExpandedNodes graph siteMap zoomId
     Assert.Equal<NodeId list>([ zoomId; ownedId; refId ], got)
+
+[<Fact>]
+let ``plusChildrenOfEach appends children that the walk did not enter`` () =
+    let graph, zoomId, midId, childIds = zoomWithMid [ "hidden" ]
+    let found = [ zoomId; midId ]
+    let ids = IncludedDescendantIds.plusChildrenOfEach graph found
+    Assert.Equal<NodeId list>([ zoomId; midId; childIds.[0] ], ids)
 
 [<Fact>]
 let ``expand returns node ids only`` () =
     let graph, siteMap, zoomId, childIds = zoomWithChildren [ "leaf" ]
-    let ids = IncludedDescendantIds.expand graph siteMap zoomId
+    let ids = IncludedDescendantIds.throughChildrenOfExpandedNodes graph siteMap zoomId
     Assert.Equal<NodeId list>([ zoomId; childIds.[0] ], ids)

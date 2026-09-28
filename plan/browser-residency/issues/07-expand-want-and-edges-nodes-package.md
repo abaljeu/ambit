@@ -18,10 +18,10 @@ Add Want.compose, installWantAnswer, visible-closure bootstrap, and additive wir
 
 Module [Want](../arch.md). Story paths 13, 14, 15, 33.
 
-1. [x] Compose Included first — 13.1: list Included Nodes that miss Children
-2. [x] Recompute next rank — 14.1: after install, newly Included Children can enter the next compose
+1. [x] Compose Included first — 13.1: Unloaded Included Nodes, then two ranks of Unloaded Children
+2. [x] Children and grandchildren — 14.1: one compose includes Unloaded Children and grandchildren, including under Fold
 3. [x] No bootstrap tier — 15.1: reserved Nodes and the Zoom framing path stay off the ongoing Want
-4. [x] Honor Fold — 33.2: use Included, not a deep unfold
+4. [x] Honor Fold — 33.2: use the Included walk, then two Children ranks, not a deep unfold
 5. [x] No throttle — a few wants at a time; no batching or backpressure
 
 ### 2. ResidentProjection
@@ -59,6 +59,7 @@ Narrowest shared test seam on [Browser residency architecture](../arch.md).
 - 2026-09-26: Filed via `/to-tickets`. Sequence expand-contract. Expand only.
 - 2026-09-26: Built expand beside old Poll / post-Event / Load doors. Followed the locked grill for `want`, `nodes`, `childMap`, and ApiVersion 13. Production App and Server doors stayed on the old path for this completed slice ([08 — Migrate Shared wire](08-migrate-shared-wire.md) through [11 — Migrate Bullet and Included readers](11-migrate-bullet-included-and-bootstrap-wants.md)).
 - 2026-09-26: [06 — Dual-run vs migrate explicit Load Fetch](06-dual-run-vs-migrate-explicit-load.md) later affirmed one current answer. The checked legacy-package items record this completed expand slice; [12 — Contract old Load Fetch packages](12-contract-old-load-fetch-packages.md) removes them from the destination.
+- 2026-09-27: Want depth is two Children ranks. One compose lists Unloaded Included Nodes, then their Unloaded Children, then the Unloaded grandchildren, including under Fold.
 
 ## Time
 
