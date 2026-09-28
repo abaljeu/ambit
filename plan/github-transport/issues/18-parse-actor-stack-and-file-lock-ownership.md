@@ -3,13 +3,14 @@
 **Type:** grilling
 **Status:** done
 Blocked by: [17 — Post-pull cascade and gate handoff](17-post-pull-cascade-and-gate-handoff.md)
-Actual: 10m
+Actual: 15m
 
 ## 1. Question
 
 - [x] Who holds file fine locks after git Load pull, and how do parse requests reach Parse?
 - [x] May Parse serialize the exclusive Workspace gate across a long parse?
 - [x] Does Parse take directory locks or reverse parent-then-child acquire order?
+- [x] Does Parse’s file lock also block Persist, or is that Unparsed?
 
 ## 2. Answer
 
@@ -27,9 +28,13 @@ Follow-up locked 2026-09-28 (Alan, chat).
 
 Parse holding file locks must not hold or serialize the Workspace exclusive gate across the whole parse. A later git Load pull proceeds. See [17 — Post-pull cascade and gate handoff](17-post-pull-cascade-and-gate-handoff.md).
 
-What locking protects: Graph→file Persist must not lose GitHub→file. The correct pipeline is github → file → parse → (merge) graph → file.
+The correct pipeline is github → file → parse → (merge) graph → file.
 
 Deadlock rule: Parse holds only file locks. It does not take directory locks. Acquire only down the tree — lock parent, then children, never child-then-parent. Nobody takes a second lock while holding one that would reverse that order.
+
+Clarification locked 2026-09-28 (Alan, chat).
+
+The Parse stack and file fine locks coordinate concurrency (who Parses which file; later git Load pulls still proceed). They are not a second Persist-block. Don’t Graph→file Persist over a path that still needs Parse: that intent is the Unparsed marker. See [17 — Post-pull cascade and gate handoff](17-post-pull-cascade-and-gate-handoff.md).
 
 Map gist: [[../map.md]] Decisions so far item 18.
 
@@ -42,8 +47,10 @@ Map gist: [[../map.md]] Decisions so far item 18.
 
 - 2026-09-28: Alan locked in chat. Status `done`. One Parse Actor stack; anybody may push; Parse holds file locks.
 - 2026-09-28: Alan follow-up. Long parse must not block later git Load pulls. Pipeline github → file → parse → (merge) graph → file. Parse does not take directory locks or reverse acquire order.
+- 2026-09-28: Alan clarification. Parse file locks are concurrency. Anti-Persist is Unparsed.
 
 ## Time
 
 - 2026-09-28 5m — recorded lock from chat
 - 2026-09-28 5m — recorded follow-up locks from chat
+- 2026-09-28 5m — recorded Unparsed Persist-block clarification from chat
