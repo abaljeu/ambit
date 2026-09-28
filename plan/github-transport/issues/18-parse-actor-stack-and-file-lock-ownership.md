@@ -22,7 +22,7 @@ Workspace/directory Parse: reconcile **immediate members only**. Then set **Unpa
 
 Parse Actor home: [[plan/parse-actor/project.md]]. Persist is **not** a second Actor. Persist is an async persisting task on Core: [19 — Parsed/Unparsed and Persisted/Unpersisted](19-file-newer-graph-newer.md).
 
-Git Load and Upload handoff: [17 — Git Load: Unparsed then Parse stack](17-post-pull-cascade-and-gate-handoff.md).
+Git Load and Upload handoff: [17 — Git Load: Unparsed then Parse stack](17-post-pull-cascade-and-gate-handoff.md). Selection Load: [06 — Selection-scoped Parse after whole-tree git Load](06-selection-scoped-parse-after-whole-tree-git-load.md).
 
 Map gist: [[../map.md]] Decisions so far item 18.
 

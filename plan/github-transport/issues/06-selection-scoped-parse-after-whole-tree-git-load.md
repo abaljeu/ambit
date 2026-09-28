@@ -1,22 +1,36 @@
 # 06 — Selection-scoped Parse after whole-tree git Load
 
-**Type:** coding
-**Status:** needs-info
-Blocked by: None
-Actual: 5m
+**Type:** grilling
+**Status:** done
+Blocked by: [18 — One Parse actor stack](18-parse-actor-stack-and-file-lock-ownership.md)
+Actual: 10m
 
 ## 1. Question
 
-After a Workspace-scoped git pull (whole work tree / tracked branch), how does Load run Parse on the current selection?
+- [x] After a Workspace-scoped git pull (whole work tree / tracked branch), how does Load run Parse on the current selection?
 
-[05 — Git Load/Save are Workspace-scoped](05-git-load-save-workspace-scoped.md) locks: git pull/push is always the whole Workspace work tree. Parse still runs on the selection where appropriate after files land (today’s Load → Parse pipeline). Alan: this nuance is a later ticket. Do not expand it in v1 coding tickets.
+## 2. Answer
 
-Grill or spec the selection-parse detail when v1 whole-tree git Load/Save is in place. Then set Status `defined` before implement.
+Locked 2026-09-28 (Alan, chat).
+
+The Client runs Load on a file node (the selection). Selected nodes are pushed onto the one Parse actor’s stack. Parse processes them in the normal course of stack processing.
+
+Git Load may still have work it triggered. That does not matter. Selection does not need a special path or priority scheme beyond push-on-stack.
+
+See [18 — One Parse actor stack](18-parse-actor-stack-and-file-lock-ownership.md). Whole-tree git stays [05 — Git Load/Save are Workspace-scoped](05-git-load-save-workspace-scoped.md).
+
+Map gist: [[../map.md]] Decisions so far item 20.
+
+## Notes
+
+- This lock names who pushes the selection. It does not invent a second Parse actor or a priority queue.
 
 ## Comments
 
 - 2026-09-26: Filed later. Status `needs-info`. Not the v1 implement frontier.
+- 2026-09-28: Alan locked push-on-stack. Status `done`.
 
 ## Time
 
 - 2026-09-26 5m — stubbed later ticket from chat
+- 2026-09-28 5m — recorded selection push-on-stack lock from chat
