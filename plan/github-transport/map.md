@@ -20,6 +20,8 @@ Prior spec [[plan/workspace-git/project.md]] is not this home. Do not inherit th
 
 2026-09-26 grill locks: [01 — Which Workspaces and remotes](issues/01-which-workspace-labels-and-remotes.md)–[05 — Git Load/Save are Workspace-scoped](issues/05-git-load-save-workspace-scoped.md), [07 — Actor start door](issues/07-actor-start-door.md), [08 — Reject UX](issues/08-reject-ux.md), [09 — Skip list is .gitignore](issues/09-gitignore-skip-list.md), [10 — git Save is commit then push](issues/10-git-save-commit-then-push.md). Status `done`. Later: [06 — Selection-scoped Parse after whole-tree git Load](issues/06-selection-scoped-parse-after-whole-tree-git-load.md) (`needs-info`). Report: [[reports/grill-locks-01-04-2026-09-26.md]].
 
+2026-09-28 grill locks: [17 — Post-pull cascade and gate handoff](issues/17-post-pull-cascade-and-gate-handoff.md), [18 — Parse Actor stack and file-lock ownership](issues/18-parse-actor-stack-and-file-lock-ownership.md). Status `done`. They refine the post-pull cascade after [16 — Persist/git work-tree gate](issues/16-persist-git-work-tree-gate.md); they do not rewrite that exclusive-gate lock.
+
 Skills: [[.agents/skills/wayfinder/SKILL.md]], [[.agents/skills/grilling/SKILL.md]], [[.agents/skills/domain-modeling/SKILL.md]], [[.agents/skills/project-work/SKILL.md]].
 
 ## 3. Decisions so far
@@ -39,11 +41,16 @@ Skills: [[.agents/skills/wayfinder/SKILL.md]], [[.agents/skills/grilling/SKILL.m
 13. [08 — Reject UX](issues/08-reject-ux.md) — Conflict: error message naming at least one file path. Other failures: matching short error. Reflect what git reports, condensed. Same for Load and Save.
 14. [09 — Skip list is .gitignore](issues/09-gitignore-skip-list.md) — No Ambit skip key. Skip list is `.gitignore`; the person edits that file.
 15. [10 — git Save is commit then push](issues/10-git-save-commit-then-push.md) — git Save is `git commit` of the work-tree edits, then push. Graph→file Persist already happens independently; git Save does not own or replace that path. Do not merge Persist into git Save.
-16. [16 — Persist/git work-tree gate](issues/16-persist-git-work-tree-gate.md) — Each Workspace work tree has one exclusive gate shared by Graph→file Persist, git Load pull, and git Save commit. The second caller queues behind the holder until the gate is free; contention waits and does not reject as busy. Persist stays independent of git Save. The gate coordinates their work-tree changes; it does not merge Persist into Save. git Save remains commit, then push.
+16. [16 — Persist/git work-tree gate](issues/16-persist-git-work-tree-gate.md) — Each Workspace work tree has one exclusive gate shared by Graph→file Persist, git Load pull, and git Save commit. The second caller queues behind the holder until the gate is free; contention waits and does not reject as busy. Persist stays independent of git Save. The gate coordinates their work-tree changes; it does not merge Persist into Save. git Save remains commit, then push. Post-pull cascade: [17 — Post-pull cascade and gate handoff](issues/17-post-pull-cascade-and-gate-handoff.md).
+17. [17 — Post-pull cascade and gate handoff](issues/17-post-pull-cascade-and-gate-handoff.md) — After pull and fine-lock install, release the exclusive Workspace gate. Writers (including Graph→file Persist) proceed on unlocked paths and queue only when they need a still-locked path or directory. [16 — Persist/git work-tree gate](issues/16-persist-git-work-tree-gate.md) still covers the pull itself. Directory cascade from Workspace root: lock children that need work, unlock parent, process children. Directory fine locks are held by a directory-reconcile worker, unlocked as each directory’s Graph nodes are updated.
+18. [18 — Parse Actor stack and file-lock ownership](issues/18-parse-actor-stack-and-file-lock-ownership.md) — One Parse Actor with a stack of files to parse. Anybody may push a request onto that stack. File fine locks are held by the Parse Actor and unlocked when that file’s Graph update is done. Parse holds only file locks. Actor home: [[plan/parse-actor/project.md]].
 
 ## 4. Not yet specified
 
-None.
+1. **Directory-reconcile worker host** — Alan named a worker, not an Actor. Mailbox, Peer Actor continuation, or another host is open.
+2. **git Save during the fine-lock window** — [16 — Persist/git work-tree gate](issues/16-persist-git-work-tree-gate.md) still covers Save commit’s exclusive gate. [17 — Post-pull cascade and gate handoff](issues/17-post-pull-cascade-and-gate-handoff.md) does not refine Save.
+3. **Parse stack priority vs selection Parse** — [06 — Selection-scoped Parse after whole-tree git Load](issues/06-selection-scoped-parse-after-whole-tree-git-load.md) stays `needs-info`. The client may push onto the Parse stack for sooner updates; that does not close 06.
+4. **Fine locks outside git Load pull** — The 2026-09-28 flow is specified for git Load pull. Whether desk Load or Persist-created files install the same fine locks is open.
 
 ## 5. Out of scope
 
