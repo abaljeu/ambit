@@ -40,8 +40,9 @@ The prior non-Must-fix (second-apply CAS still `Unchanged` when undo cannot make
 ## Verification
 
 1. **Mechanical standards scan** — exit 0 from the product tip. No FILE, long-line, tab, or `mutable` hits. Bindings in the range are 4–19 lines.
-2. **Source at tip** — [applySyncResponse](src/Shared/SyncLogic.fs) does not call `undoPendingGraph` on Events. [applyOpForSync](src/Shared/ResidentProjection.fs) still undoes all pending on recoverable CAS, then applies. [applyCommandEvents](src/Client/UpdateActorLive.fs) still uses `applyServerTail` then `withAppliedSync`.
-3. **Locked policy that holds** — Recoverable pending mismatch applies the Server merge and continues. The Poll fold does not Error that case. No Client file rewrites `#edit-input`. [4.1 Truncated-line split](plan/split-node-trace/issues/01-poll-sync-cas-undo-all-pending-apply-merge.md) expects suffix `lo` and prefix `hel`. [4.2 Want overwrite proving test](plan/split-node-trace/issues/01-poll-sync-cas-undo-all-pending-apply-merge.md) applies Want after undo; it does not skip Want.
+2. **Focused Shared tests** — `dotnet test tests/Shared.Tests/Gambol.Shared.Tests.fsproj --filter "FullyQualifiedName~SplitOriginTraceTests|FullyQualifiedName~ResidentProjectionApplyTests|FullyQualifiedName~SyncLogicTests"` passed 59 of 59 on tip `6770efde`.
+3. **Source at tip** — [applySyncResponse](src/Shared/SyncLogic.fs) does not call `undoPendingGraph` on Events. [applyOpForSync](src/Shared/ResidentProjection.fs) still undoes all pending on recoverable CAS, then applies. [applyCommandEvents](src/Client/UpdateActorLive.fs) still uses `applyServerTail` then `withAppliedSync`.
+4. **Locked policy that holds** — Recoverable pending mismatch applies the Server merge and continues. The Poll fold does not Error that case. No Client file rewrites `#edit-input`. [4.1 Truncated-line split](plan/split-node-trace/issues/01-poll-sync-cas-undo-all-pending-apply-merge.md) expects suffix `lo` and prefix `hel`. [4.2 Want overwrite proving test](plan/split-node-trace/issues/01-poll-sync-cas-undo-all-pending-apply-merge.md) applies Want after undo; it does not skip Want.
 
 ## Summary
 
