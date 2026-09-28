@@ -237,13 +237,8 @@ let ``reused Unparsed directory with owned child becomes Current`` () =
     let graph1 = applyOps graph0 dirOps
     let docsId = (childNamed graph1 workspaceId "docs").id
 
-    let graph1' =
-        applyOps
-            graph1
-            [ Op.SetDocumentState(docsId, Current, Unparsed) ]
-
-    let _, fileOps = FileNodeOps.planCreateOwnedFile graph1' docsId "note.txt"
-    let graph2 = applyOps graph1' fileOps
+    let _, fileOps = FileNodeOps.planCreateOwnedFile graph1 docsId "note.txt"
+    let graph2 = applyOps graph1 fileOps
 
     let graph3 =
         requirePlan graph2 "home" [ item "docs" true ] |> applyOps graph2

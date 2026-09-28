@@ -1218,12 +1218,16 @@ let ``planParseFile after Insert Ref reaches Current`` () =
     let hostId, hostOps =
         FileNodeOps.planCreateOwnedFile withFile.graph workspaceId "host.txt"
     let withHost = applyOpsState withFile hostOps
+    let withHostCurrent =
+        applyOpsState
+            withHost
+            [ Op.SetDocumentState(hostId, Unparsed, Current) ]
     let insert =
         { parentId = hostId
-          index = (Graph.children withHost.graph hostId).Length }
+          index = (Graph.children withHostCurrent.graph hostId).Length }
     let refOps =
-        FileNodeOps.planInsertFileRefAtFocus insert fileId withHost.graph
-    let withRef = applyOpsState withHost refOps
+        FileNodeOps.planInsertFileRefAtFocus insert fileId withHostCurrent.graph
+    let withRef = applyOpsState withHostCurrent refOps
     let graph =
         { withRef.graph.nodes.[fileId] with documentState = Unparsed }
         |> fun n -> Graph.addDetachedNode n withRef.graph

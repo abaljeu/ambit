@@ -446,8 +446,9 @@ let ``nested file parse under current directory replaces file tree`` () =
         fileOps
         |> List.fold (fun state op -> Op.apply op state |> expectChanged) state1
     let fileUnparsed =
-        Op.apply (Op.SetDocumentState(fileId, Current, Unparsed)) state2
+        Op.apply (Op.SetDocumentState(directoryId, Unparsed, Current)) state2
         |> expectChanged
+    Assert.Equal(Unparsed, fileUnparsed.graph.nodes.[fileId].documentState)
     Assert.Equal(Current, fileUnparsed.graph.nodes.[directoryId].documentState)
     let parsedId = NodeId.New()
     let attach = ChildNode.owner parsedId
@@ -479,11 +480,8 @@ let ``nested file parse still allowed when enclosing directory is unparsed`` () 
     let state2 =
         fileOps
         |> List.fold (fun state op -> Op.apply op state |> expectChanged) state1
-    // Legitimate Directory Unparsed (e.g. `.amb` modified), not upload stubs.
-    let bothUnparsed =
-        [ Op.SetDocumentState(directoryId, Current, Unparsed)
-          Op.SetDocumentState(fileId, Current, Unparsed) ]
-        |> List.fold (fun state op -> Op.apply op state |> expectChanged) state2
+    // Create special starts Unparsed on Directory and File.
+    let bothUnparsed = state2
     let parsedId = NodeId.New()
     let attach = ChildNode.owner parsedId
     let parseOps =
@@ -509,19 +507,13 @@ let ``unparsed invariant also applies to directory and workspace documents`` () 
     let state1 =
         directoryOps
         |> List.fold (fun state op -> Op.apply op state |> expectChanged) state0
-    let directoryUnparsed =
-        Op.apply
-            (Op.SetDocumentState(directoryId, Current, Unparsed))
-            state1
-        |> expectChanged
+    let directoryUnparsed = state1
+    Assert.Equal(Unparsed, directoryUnparsed.graph.nodes.[directoryId].documentState)
     assertUnparsedInvalid
         directoryUnparsed
         (Op.SetName(directoryId, "docs", "renamed"))
-    let workspaceUnparsed =
-        Op.apply
-            (Op.SetDocumentState(workspaceId, Current, Unparsed))
-            state1
-        |> expectChanged
+    let workspaceUnparsed = state1
+    Assert.Equal(Unparsed, workspaceUnparsed.graph.nodes.[workspaceId].documentState)
     assertUnparsedInvalid
         workspaceUnparsed
         (Op.SetName(directoryId, "docs", "renamed"))

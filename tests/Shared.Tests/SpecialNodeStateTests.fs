@@ -33,6 +33,7 @@ let ``NewSpecialNode starts Unparsed and Persisted`` () =
     for kind, name in [ Workspace, "home"; Directory, "docs"; File, "note.txt" ] do
         let nodeId, graph = createSpecial kind name
         let node = graph.nodes.[nodeId]
+        Assert.Equal(Unparsed, node.documentState)
         Assert.Equal(ParseState.Unparsed, node.parseState)
         Assert.Equal(PersistState.Persisted, node.persistState)
 
