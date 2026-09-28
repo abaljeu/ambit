@@ -3,11 +3,13 @@
 **Type:** grilling
 **Status:** done
 Blocked by: [17 — Post-pull cascade and gate handoff](17-post-pull-cascade-and-gate-handoff.md)
-Actual: 5m
+Actual: 10m
 
 ## 1. Question
 
 - [x] Who holds file fine locks after git Load pull, and how do parse requests reach Parse?
+- [x] May Parse serialize the exclusive Workspace gate across a long parse?
+- [x] Does Parse take directory locks or reverse parent-then-child acquire order?
 
 ## 2. Answer
 
@@ -21,6 +23,14 @@ Directory fine locks stay on the directory-reconcile worker: [17 — Post-pull c
 
 Parse Actor home: [[plan/parse-actor/project.md]]. This lock is filed here because fine locks are the post-pull handoff from [16 — Persist/git work-tree gate](16-persist-git-work-tree-gate.md).
 
+Follow-up locked 2026-09-28 (Alan, chat).
+
+Parse holding file locks must not hold or serialize the Workspace exclusive gate across the whole parse. A later git Load pull proceeds. See [17 — Post-pull cascade and gate handoff](17-post-pull-cascade-and-gate-handoff.md).
+
+What locking protects: Graph→file Persist must not lose GitHub→file. The correct pipeline is github → file → parse → (merge) graph → file.
+
+Deadlock rule: Parse holds only file locks. It does not take directory locks. Acquire only down the tree — lock parent, then children, never child-then-parent. Nobody takes a second lock while holding one that would reverse that order.
+
 Map gist: [[../map.md]] Decisions so far item 18.
 
 ## Notes
@@ -31,7 +41,9 @@ Map gist: [[../map.md]] Decisions so far item 18.
 ## Comments
 
 - 2026-09-28: Alan locked in chat. Status `done`. One Parse Actor stack; anybody may push; Parse holds file locks.
+- 2026-09-28: Alan follow-up. Long parse must not block later git Load pulls. Pipeline github → file → parse → (merge) graph → file. Parse does not take directory locks or reverse acquire order.
 
 ## Time
 
 - 2026-09-28 5m — recorded lock from chat
+- 2026-09-28 5m — recorded follow-up locks from chat
