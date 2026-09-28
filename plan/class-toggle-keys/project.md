@@ -6,7 +6,7 @@ Updated: 2026-09-28
 
 **Part of:** [[plan/roadmap/epics/robust-outliner.md]]
 
-Frontier: [01 — Toggle cssClasses b, i, and check from keys](issues/01-toggle-cssclasses-b-i-check-from-keys.md) — Type `coding`, Status `defined`.
+Frontier: none. [01 — Toggle cssClasses b, i, and check from keys](issues/01-toggle-cssclasses-b-i-check-from-keys.md) — Type `coding`, Status `done`.
 
 ## Notes
 

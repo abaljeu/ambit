@@ -1,7 +1,7 @@
 # 01 — Toggle cssClasses b, i, and check from keys
 
 **Type:** coding
-**Status:** defined
+**Status:** done
 **Blocked by:** None — can start immediately
 **Estimate:** 2h
 
@@ -42,7 +42,9 @@ Bare `b`, bare `i`, and Space must not fire as class toggles when the person is 
 ## Comments
 
 - 2026-09-28 — Charted from Alan’s easy ticket. Status `defined`. Home is a new slice Project on [Robust outliner](plan/roadmap/epics/robust-outliner.md). No existing keybind Project. Gate for bare `b` / `i` / Space is the existing Editing single-character skip plus overlay tables.
+- 2026-09-28 — Alan accepted this chart PR. Status `done`.
 
 ## Time
 
 - 2026-09-28 45m — charted coding ticket from Alan ask (from chat)
+- 2026-09-28 10m — Status `done` on accepted chart land (from chat)
