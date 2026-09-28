@@ -313,7 +313,8 @@ let commitTextEdit
 
 /// Split the currently-edited node at the cursor position.
 ///
-/// cursor at 0   → blank sibling inserted above; current node keeps its text; focus moves to the new blank node.
+/// cursor at 0   → blank sibling inserted above; current node keeps its text
+///                  and stays in edit one row down.
 /// cursor > 0, expanded with children → text-after becomes first child; focus at start of new child.
 /// cursor > 0    → current node gets text-before; new sibling gets text-after; focus at start of new node.
 let splitNode (currentText: string) (cursorPos: int) (model: VM) : VM * Effect list =
@@ -338,7 +339,7 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) : VM * Effect l
 
         let (newNodeOwner, insertIndex, newNodeText) =
             if clampedPos = 0 then
-                // blank node above; focus moves to the new blank node
+                // blank node above; current node stays in edit
                 (parentId, indexInParent, textBefore)
             elif focusedHasExpandedChildren then
                 // text-after becomes first child of expanded focused node
@@ -383,7 +384,11 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) : VM * Effect l
                 |> Option.orElseWith (fun () -> singleSelection m2.graph m2.siteMap newId)
             { m2 with
                 selectedNodes = newSel
-                mode = Editing (newNodeText, EditCaret.Utf16Index 0) }, effects
+                mode =
+                    Editing (
+                        ViewModelSplitOps.splitContinueEditText
+                            clampedPos currentText newNodeText,
+                        EditCaret.Utf16Index 0) }, effects
         | Error msg -> withMoveError msg model, []
     | _ -> model, []
 

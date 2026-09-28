@@ -78,6 +78,7 @@
     <Compile Include="ViewModelDomPlan.fs" />
     <Compile Include="ViewModelOps.fs" />
     <Compile Include="ViewModelJoinOps.fs" />
+    <Compile Include="ViewModelSplitOps.fs" />
     <Compile Include="ViewModelMoveOps.fs" />
     <Compile Include="ViewModelDeleteOps.fs" />
     <Compile Include="ViewModelSearch.fs" />

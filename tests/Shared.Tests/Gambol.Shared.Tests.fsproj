@@ -104,6 +104,7 @@
     <Compile Include="SearchDialogModeTests.fs" />
     <Compile Include="FileSearchDialogModeTests.fs" />
     <Compile Include="ViewModelJoinOpsTests.fs" />
+    <Compile Include="ViewModelSplitOpsTests.fs" />
     <Compile Include="ViewModelMoveOpsTests.fs" />
     <Compile Include="ViewModelRowStateTests.fs" />
     <Compile Include="ViewModelCmdLastResultTests.fs" />
