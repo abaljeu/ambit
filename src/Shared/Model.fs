@@ -72,6 +72,26 @@ type DocumentState =
     | Unparsed
     | NoServerFile
 
+/// Parsed is the other pole of Unparsed (`Current` is today's DocumentState name).
+[<RequireQualifiedAccess>]
+type ParseState =
+    | Parsed
+    | Unparsed
+
+[<RequireQualifiedAccess>]
+type PersistState =
+    | Persisted
+    | Unpersisted
+
+[<RequireQualifiedAccess>]
+module DocumentState =
+    /// Dual-write map: old DocumentState → Parse | Unparsed.
+    let parseState (state: DocumentState) : ParseState =
+        match state with
+        | Current -> ParseState.Parsed
+        | Unparsed
+        | NoServerFile -> ParseState.Unparsed
+
 /// Derived from `Graph.childMap`: absent key = Unloaded; present key = Loaded.
 type ChildrenStatus =
     | Unloaded
@@ -85,6 +105,8 @@ type Node =
       owner      : NodeId
       kind       : NodeKind
       documentState : DocumentState
+      parseState : ParseState
+      persistState : PersistState
       /// Mutation time via `touch`; after server persist, artifact disk mtime.
       updateTime : DateTime
       /// Live lock-present. History and SQL omit this field.
@@ -134,16 +156,21 @@ type Node with
             ?owner: NodeId,
             ?kind: NodeKind,
             ?documentState: DocumentState,
+            ?parseState: ParseState,
+            ?persistState: PersistState,
             ?updateTime: DateTime,
             ?lockPresent: bool
         ) : Node =
+        let documentState = defaultArg documentState Current
         { id = id
           text = defaultArg text ""
           name = defaultArg name Filename.Empty
           cssClasses = defaultArg cssClasses CssClass.empty
           owner = defaultArg owner (NodeId Guid.Empty)
           kind = defaultArg kind Normal
-          documentState = defaultArg documentState Current
+          documentState = documentState
+          parseState = defaultArg parseState (DocumentState.parseState documentState)
+          persistState = defaultArg persistState PersistState.Persisted
           updateTime = defaultArg updateTime NodeUpdateTime.missing
           lockPresent = defaultArg lockPresent false }
 

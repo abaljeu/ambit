@@ -444,6 +444,7 @@ let ``assembleFromArtifactsBounded seeds Unparsed File stub without body`` () =
     let file = actual.nodes.[fileId]
     Assert.Equal(Special File, file.kind)
     Assert.Equal(Unparsed, file.documentState)
+    Assert.Equal(ParseState.Unparsed, file.parseState)
     Assert.Empty(Graph.children actual fileId)
     let owned =
         Graph.children actual Graph.systemId

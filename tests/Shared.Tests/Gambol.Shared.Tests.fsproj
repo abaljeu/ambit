@@ -33,6 +33,7 @@
     <Compile Include="ChildListMergeTests.fs" />
     <Compile Include="LargeChangeApplyTests.fs" />
     <Compile Include="WorkspaceOpsTests.fs" />
+    <Compile Include="SpecialNodeStateTests.fs" />
     <Compile Include="RefExprTestTree.fs" />
     <Compile Include="RefExprTests.fs" />
     <Compile Include="ExprEvalTests.fs" />

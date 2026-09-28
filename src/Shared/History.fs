@@ -237,6 +237,8 @@ module Op =
                             text = name,
                             name = Filename.Ok name,
                             kind = Special kind,
+                            parseState = ParseState.Unparsed,
+                            persistState = PersistState.Persisted,
                             updateTime = NodeUpdateTime.now ())
                     ApplyResult.Changed
                         { state with

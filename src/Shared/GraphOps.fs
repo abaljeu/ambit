@@ -61,5 +61,9 @@ module GraphOps =
             GraphMutate.setName nodeId oldName newName graph
         static member setDocumentState nodeId oldState newState graph =
             GraphMutate.setDocumentState nodeId oldState newState graph
+        static member setParseState nodeId oldState newState graph =
+            GraphMutate.setParseState nodeId oldState newState graph
+        static member setPersistState nodeId oldState newState graph =
+            GraphMutate.setPersistState nodeId oldState newState graph
         static member replace parentId index oldChildren newChildren graph =
             GraphMutate.replace parentId index oldChildren newChildren graph

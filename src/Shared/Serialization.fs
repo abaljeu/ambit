@@ -24,6 +24,30 @@ module Serialization =
             | "noServerFile" -> Decode.succeed NoServerFile
             | other -> Decode.fail $"Unknown document state: {other}")
 
+    let private encodeParseState (state: ParseState) : IEncodable =
+        match state with
+        | ParseState.Parsed -> Encode.string "parsed"
+        | ParseState.Unparsed -> Encode.string "unparsed"
+
+    let private decodeParseState: Decoder<ParseState> =
+        Decode.string
+        |> Decode.andThen (function
+            | "parsed" -> Decode.succeed ParseState.Parsed
+            | "unparsed" -> Decode.succeed ParseState.Unparsed
+            | other -> Decode.fail $"Unknown parse state: {other}")
+
+    let private encodePersistState (state: PersistState) : IEncodable =
+        match state with
+        | PersistState.Persisted -> Encode.string "persisted"
+        | PersistState.Unpersisted -> Encode.string "unpersisted"
+
+    let private decodePersistState: Decoder<PersistState> =
+        Decode.string
+        |> Decode.andThen (function
+            | "persisted" -> Decode.succeed PersistState.Persisted
+            | "unpersisted" -> Decode.succeed PersistState.Unpersisted
+            | other -> Decode.fail $"Unknown persist state: {other}")
+
     let private encodeChildrenStatus (status: ChildrenStatus) : IEncodable =
         match status with
         | Loaded -> Encode.string "loaded"
@@ -116,6 +140,8 @@ module Serialization =
               "cssClasses", node.cssClasses |> CssClass.toList |> List.map Encode.string |> Encode.list
               "kind", encodeNodeKind node.kind
               "documentState", encodeDocumentState node.documentState
+              "parseState", encodeParseState node.parseState
+              "persistState", encodePersistState node.persistState
               "updateTime", Encode.int64 node.updateTime.Ticks ]
 
     let private nodeFromFields
@@ -139,6 +165,12 @@ module Serialization =
         let documentState =
             get.Optional.Field "documentState" decodeDocumentState
             |> Option.defaultValue Current
+        let parseState =
+            get.Optional.Field "parseState" decodeParseState
+            |> Option.defaultValue (DocumentState.parseState documentState)
+        let persistState =
+            get.Optional.Field "persistState" decodePersistState
+            |> Option.defaultValue PersistState.Persisted
         Node.Create(
             get.Required.Field "id" decodeNodeId,
             text = get.Required.Field "text" Decode.string,
@@ -146,6 +178,8 @@ module Serialization =
             cssClasses = cssClasses,
             kind = kind,
             documentState = documentState,
+            parseState = parseState,
+            persistState = persistState,
             updateTime = updateTime)
 
     let decodeNode: Decoder<Node> =

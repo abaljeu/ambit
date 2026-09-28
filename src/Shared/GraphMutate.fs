@@ -57,7 +57,10 @@ module GraphMutate =
                 else
                     let updatedNode = NodeUpdateTime.touch { node with text = newText }
                     let nodes = graph.nodes |> Map.add nodeId updatedNode
-                    Ok { graph with nodes = nodes }
+                    Ok
+                        (SpecialNodeState.markUnpersisted
+                            { graph with nodes = nodes }
+                            nodeId)
 
     let setClasses
         (nodeId: NodeId)
@@ -79,7 +82,10 @@ module GraphMutate =
                 else
                     let updatedNode = NodeUpdateTime.touch { node with cssClasses = newClasses }
                     let nodes = graph.nodes |> Map.add nodeId updatedNode
-                    Ok { graph with nodes = nodes }
+                    Ok
+                        (SpecialNodeState.markUnpersisted
+                            { graph with nodes = nodes }
+                            nodeId)
 
     let setName
         (nodeId: NodeId)
@@ -145,7 +151,11 @@ module GraphMutate =
                                 | Special _ ->
                                     NodeUpdateTime.touch
                                         { node with name = Filename.Ok validName; text = validName }
-                            Ok { graph with nodes = graph.nodes |> Map.add nodeId updatedNode }
+                            Ok
+                                (SpecialNodeState.markUnpersisted
+                                    { graph with
+                                        nodes = graph.nodes |> Map.add nodeId updatedNode }
+                                    nodeId)
 
     let setDocumentState
         (nodeId: NodeId)
@@ -165,7 +175,53 @@ module GraphMutate =
         | Some node when oldState = newState ->
             Ok graph
         | Some node ->
-            let updated = NodeUpdateTime.touch { node with documentState = newState }
+            let updated =
+                NodeUpdateTime.touch
+                    { node with
+                        documentState = newState
+                        parseState = DocumentState.parseState newState }
+            Ok { graph with nodes = graph.nodes |> Map.add nodeId updated }
+
+    let setParseState
+        (nodeId: NodeId)
+        (oldState: ParseState)
+        (newState: ParseState)
+        (graph: Graph)
+        : Result<Graph, string>
+        =
+        match graph.nodes |> Map.tryFind nodeId with
+        | None -> Error "node not found"
+        | Some node when node.kind = Special Workspaces ->
+            Error "workspaces is not a graph document"
+        | Some node when node.kind = Normal ->
+            Error "normal nodes do not have parse state"
+        | Some node when node.parseState <> oldState ->
+            Error "old parse state does not match"
+        | Some node when oldState = newState ->
+            Ok graph
+        | Some node ->
+            let updated = NodeUpdateTime.touch { node with parseState = newState }
+            Ok { graph with nodes = graph.nodes |> Map.add nodeId updated }
+
+    let setPersistState
+        (nodeId: NodeId)
+        (oldState: PersistState)
+        (newState: PersistState)
+        (graph: Graph)
+        : Result<Graph, string>
+        =
+        match graph.nodes |> Map.tryFind nodeId with
+        | None -> Error "node not found"
+        | Some node when node.kind = Special Workspaces ->
+            Error "workspaces is not a graph document"
+        | Some node when node.kind = Normal ->
+            Error "normal nodes do not have persist state"
+        | Some node when node.persistState <> oldState ->
+            Error "old persist state does not match"
+        | Some node when oldState = newState ->
+            Ok graph
+        | Some node ->
+            let updated = NodeUpdateTime.touch { node with persistState = newState }
             Ok { graph with nodes = graph.nodes |> Map.add nodeId updated }
 
     let replace
@@ -241,18 +297,20 @@ module GraphMutate =
                 let isAppend = oldCount = 0 && index = childCount
                 let commit (updatedChildren: ChildNode list) =
                     let updatedParent = NodeUpdateTime.touch parent
-                    if isAppend then
-                        GraphBuild.appendChildren
-                            parentId
-                            newChildren
-                            updatedChildren
-                            updatedParent
-                            graph
-                    else
-                        GraphBuild.fromNodes
-                            graph.root
-                            (graph.nodes |> Map.add parentId updatedParent)
-                            (Map.add parentId updatedChildren graph.childMap)
+                    let nextGraph =
+                        if isAppend then
+                            GraphBuild.appendChildren
+                                parentId
+                                newChildren
+                                updatedChildren
+                                updatedParent
+                                graph
+                        else
+                            GraphBuild.fromNodes
+                                graph.root
+                                (graph.nodes |> Map.add parentId updatedParent)
+                                (Map.add parentId updatedChildren graph.childMap)
+                    SpecialNodeState.markUnpersisted nextGraph parentId
 
                 match placementError with
                 | Some msg -> Error msg

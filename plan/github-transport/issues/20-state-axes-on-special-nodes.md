@@ -1,9 +1,9 @@
 # 20 — State axes on special nodes
 
 **Type:** coding
-**Status:** defined
+**Status:** coded
 **Blocked by:** None — can start immediately
-Actual: 20m
+Actual: 1h20m
 
 ## Context
 
@@ -17,10 +17,10 @@ Special nodes carry **Parsed | Unparsed** and **Persisted | Unpersisted**. Code 
 
 Add the two axes as Graph markers on special nodes only. Point of lock: [19 — Parsed/Unparsed and Persisted/Unpersisted](19-file-newer-graph-newer.md). Migration home: [Here→There — step 1 locked](../here-to-there.md).
 
-- [ ] 1.1 Carry Parsed | Unparsed — Each Workspace Node, Directory Node, and File Node has this axis. Parsed is the other pole of Unparsed.
-- [ ] 1.2 Carry Persisted | Unpersisted — Each Workspace Node, Directory Node, and File Node has this axis. The axis is independent of Parsed | Unparsed.
-- [ ] 1.3 Set and read both axes — Tests prove a special node can set and read each axis. No Parse or Persist work starts.
-- [ ] 1.4 Leave workers unbuilt — Do not stand up the Parse actor or stack, the Core Persist stack, git Load retarget, Upload or selection Parse, path-control migration, or retirement of old hops.
+- [x] 1.1 Carry Parsed | Unparsed — Each Workspace Node, Directory Node, and File Node has this axis. Parsed is the other pole of Unparsed.
+- [x] 1.2 Carry Persisted | Unpersisted — Each Workspace Node, Directory Node, and File Node has this axis. The axis is independent of Parsed | Unparsed.
+- [x] 1.3 Set and read both axes — Tests prove a special node can set and read each axis. No Parse or Persist work starts.
+- [x] 1.4 Leave workers unbuilt — Do not stand up the Parse actor or stack, the Core Persist stack, git Load retarget, Upload or selection Parse, path-control migration, or retirement of old hops.
 
 ## Notes
 
@@ -50,8 +50,10 @@ Locked 2026-09-28 (Alan). Axis-write mechanics live on [Here→There — step 1 
 
 - 2026-09-28: Alan locked axis-write mechanics. Notes record who writes each axis. Acceptance stays markers set and read only. No workers.
 - 2026-09-28: Alan locked Mikado. Create the new axes; set both new and old wherever state changes; migrate old uses step by step; finally remove the old. Acceptance stays markers set and read only.
+- 2026-09-28: Coded. `ParseState` and `PersistState` live on `Node`. `Graph.setParseState` / `Graph.setPersistState` set and read. `Op.SetDocumentState` and `DocumentAssembly.seedUnparsedStub` dual-write the parse axis. `Op.NewSpecialNode` starts Unparsed + Persisted. Graph edits (`setText` / `setName` / `setClasses` / `replace`) mark the nearest owning special Unpersisted only.
 
 ## Time
 
 - 2026-09-28 15m — recorded axis-write mechanics Notes from Alan lock (from chat)
 - 2026-09-28 5m — recorded Mikado approach from Alan lock (from chat)
+- 2026-09-28 1h — Shared axes, dual-write at existing state-change sites, Shared.Tests (from chat)

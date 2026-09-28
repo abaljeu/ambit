@@ -4,7 +4,7 @@ Stage: build
 Summary: A person maps a key GitHub repo to a Workspace whose DataDir work tree is already the git home. A Server Actor pulls from and pushes to that GitHub remote (round-trip v1, fast-forward only) so every device that maps through Server sees the same files. The App stays thin. Skip on that remote is whatever `.gitignore` already says.
 Updated: 2026-09-28
 Started: 2026-09-27
-Actual: 9h5m
+Actual: 10h25m
 
 **Part of:** [[plan/roadmap/epics/chapters/send-to-and-from-github.md]]
 **Part of / under:** [[plan/transport-layer/project.md]] (file transit)
@@ -33,3 +33,4 @@ Actual: 9h5m
 - 2026-09-27 — [13 — Run git Load and Save through the Server Peer Actor](issues/13-peer-actor-runs-git-load-save.md) coded. A peer-only mailbox/pool door keeps git Load/Save outside Run and `?git`; the Server Peer Actor resolves Focus to the Workspace work tree, runs the gated tracked-branch operation, and continues Load through Parse reconciliation.
 - 2026-09-27 — [14 — Route Load and Save by path pre-pick](issues/14-route-load-save-by-pre-pick.md) done. Plain commands resolve the Workspace remote through PathPick; explicit git and desk pre-picks bypass that choice; the load/save command request crosses the mailbox and actor pool, where Git starts the Peer Actor and Desk continues the existing App path.
 - 2026-09-27 — [15 — Keep the App outside Peer Actor hosting](issues/15-keep-app-outside-peer-actor-hosting.md) done. Repository-boundary tests keep GitRun, the Server Peer Actor host, and GitHub remote, tracked-branch, and credential state out of the App; command tests preserve Load/Save pre-picks and the Server request door.
+- 2026-09-28 — [20 — State axes on special nodes](issues/20-state-axes-on-special-nodes.md) coded. Special nodes carry Parsed|Unparsed and Persisted|Unpersisted. `Op.SetDocumentState` dual-writes the parse axis. Create special starts Unparsed + Persisted. Graph edit marks the nearest owning special Unpersisted only. No Parse actor, Persist stack, or stack push.
