@@ -8,7 +8,7 @@ Actual: 3h40m
 
 **Part of:** [[plan/roadmap/epics/robust-outliner.md]]
 
-Frontier: none. [01 — Poll/sync recoverable mismatch: undo all pending, then apply Server merge](issues/01-poll-sync-cas-undo-all-pending-apply-merge.md) — Type `coding`, Status `coded`.
+Frontier: none. [01 — Poll/sync recoverable mismatch: undo all pending, then apply Server merge](issues/01-poll-sync-cas-undo-all-pending-apply-merge.md) — Type `coding`, Status `done`.
 
 ## Notes
 

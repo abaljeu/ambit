@@ -1,7 +1,7 @@
 # 01 — Poll/sync recoverable mismatch: undo all pending, then apply Server merge
 
 **Type:** coding
-**Status:** coded
+**Status:** done
 **Actual:** 3h40m
 **Blocked by:** None — can start immediately
 
@@ -58,6 +58,7 @@ Prove both TRACE symptoms on the corrected path. Seed from [SplitOriginTraceTest
 - 2026-09-28 — Alan accepted this chart PR. Status `done`.
 - 2026-09-28 — Implemented undo-all-pending then apply Server merge in [applyOpForSync](src/Shared/ResidentProjection.fs) and rewind-then-replay in [applySyncResponse](src/Shared/SyncLogic.fs). Soft-skip-without-apply after undo is gone for these field mismatches. Status `coded`.
 - 2026-09-28 — Review Must-fix: Event tails no longer rewind pending Graph ops. Undo-all-pending stays on recoverable field mismatch; Want install still rewinds then applies Want. Status `coded`.
+- 2026-09-28 — Alan accepted the product land. Status `done`.
 
 ## Time
 
