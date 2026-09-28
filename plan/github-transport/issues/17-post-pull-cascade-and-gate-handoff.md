@@ -19,7 +19,7 @@ Locked 2026-09-28 (Alan, chat). Exact sequence. Locks are Graph state, not a sep
 
 1. Lock the **Workspace Node** by setting it to **Reconciling**. That prohibits other processes from making or deleting files here. This is [16 — Persist/git work-tree gate](16-persist-git-work-tree-gate.md)’s exclusive gate, named as Graph state.
 2. **Pull** files.
-3. For each **modified** file, set the Graph node to **Unparsed**. That **is** the file fine lock.
+3. For each **modified** file, set the Graph node to **Unparsed**. That **is** the file fine lock (File Newer: [19 — File Newer / Graph Newer](19-file-newer-graph-newer.md)).
 4. Set **Directory** nodes to **Reconciling**. That is a **new** directory lock (directory Graph state).
 5. Then **release** the Workspace lock (clear Workspace Reconciling).
 
@@ -39,7 +39,7 @@ Map gist: [[../map.md]] Decisions so far item 17.
 
 - This ticket refines the post-pull window after [16 — Persist/git work-tree gate](16-persist-git-work-tree-gate.md). It does not rewrite that exclusive-gate lock. Wording aligns: exclusive gate = Workspace Reconciling.
 - `DocumentState` today is `Current` | `Unparsed` | `NoServerFile` ([[src/Shared/Model.fs]]). **Reconciling** is a new Graph state for Workspace Node and Directory Node. That is implement, not an open decision.
-- File this on github-transport. Parse stack and file Unparsed: [18 — Parse Actor stack and file-lock ownership](18-parse-actor-stack-and-file-lock-ownership.md). Parse Actor home: [[plan/parse-actor/project.md]].
+- File this on github-transport. Parse stack and file Unparsed: [18 — Parse Actor stack and file-lock ownership](18-parse-actor-stack-and-file-lock-ownership.md). File Newer / Unpersisted: [19 — File Newer / Graph Newer](19-file-newer-graph-newer.md). Parse Actor home: [[plan/parse-actor/project.md]].
 
 ## Comments
 

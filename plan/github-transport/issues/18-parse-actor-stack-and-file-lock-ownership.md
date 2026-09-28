@@ -18,7 +18,7 @@ Locked 2026-09-28 (Alan, chat).
 
 One Parse Actor with a stack of files to parse. Anybody may push a request onto that stack (the client can get certain things updated sooner).
 
-The file fine lock **is** Unparsed on the File Node. Not a separate lock table. Parse holds that Unparsed marker and clears it when that file’s Graph update is done (`SetDocumentState` Unparsed → Current). Parse holds only file Unparsed. It does not set or clear directory Reconciling.
+The file fine lock **is** Unparsed on the File Node (File Newer). Not a separate lock table. Parse holds that Unparsed marker and clears it when that file’s Graph update is done. Parse holds only file Unparsed. It does not set or clear directory Reconciling. Parse takes precedence over Persist. After Unparsed is off, Persist any Unpersisted (Graph Newer). See [19 — File Newer / Graph Newer](19-file-newer-graph-newer.md).
 
 Directory Reconciling stays on the directory-reconcile worker: [17 — Post-pull cascade and gate handoff](17-post-pull-cascade-and-gate-handoff.md).
 
@@ -36,10 +36,11 @@ Map gist: [[../map.md]] Decisions so far item 18.
 
 - Do not invent parse-actor tickets on this lock. The Parse Project stays at [[plan/parse-actor/project.md]].
 - This lock names the stack and Unparsed ownership. It does not redesign Load around a future autonomous Parse. Load’s v1 Parse coupling stays until that Project builds the Actor.
+- File Newer = Unparsed; Graph Newer = Unpersisted: [19 — File Newer / Graph Newer](19-file-newer-graph-newer.md).
 
 ## Comments
 
-- 2026-09-28: Alan locked in chat. Status `done`. One Parse Actor stack; anybody may push; file lock is Unparsed; Parse does not take directory Reconciling; long parse must not block later git Load pulls.
+- 2026-09-28: Alan locked in chat. Status `done`. One Parse Actor stack; anybody may push; file lock is Unparsed; Parse does not take directory Reconciling; long parse must not block later git Load pulls. Parse takes precedence; then Persist Unpersisted ([19 — File Newer / Graph Newer](19-file-newer-graph-newer.md)).
 
 ## Time
 
