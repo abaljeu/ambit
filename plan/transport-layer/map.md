@@ -50,6 +50,7 @@ flowchart BT
 - Transport-layer replaces the prior **information-hub** slug as the home for inbound/outbound/round-trip pattern (same concept, clearer name).
 - File Parse/Persist is one transport instance, not the definition of the layer.
 - User Epics per channel (files, chat, publish) ship legs; transport-layer holds the cross-cutting contract.
+- **Core alone knows where files reside** — Locked 2026-09-28 (Alan). One hardened control point: Core alone knows where files reside. Everyone else has a relative path. File channel and connector legs use relative paths.
 
 ## Future connector Projects (pointer checklist)
 

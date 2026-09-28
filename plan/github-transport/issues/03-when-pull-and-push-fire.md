@@ -3,7 +3,7 @@
 **Type:** grilling
 **Status:** done
 Blocked by: 02
-Actual: 5m
+Actual: 10m
 
 ## 1. Question
 
@@ -25,7 +25,7 @@ When a remote exists, plain Load/Save prefer **git first** (git Load/Save).
 
 WebDAV Upload/Download path **remains**.
 
-**Amend (2026-09-26):** Independent / autonomous Parse is **not** in place. All three Load forms keep today’s Load → Parse pipeline (Parse and graph push as desk Load already does). “Do not adapt for parse autonomy” means do not redesign around a future autonomous Parse; that rearchitecture stays [[plan/parse-actor/project.md]]. Do not design git Load as file-transfer-only.
+**Amend (2026-09-26, superseded 2026-09-28):** Independent / autonomous Parse was not in place; 2026-09-26 kept today’s Load → Parse pipeline. **Current truth (2026-09-28):** after files land, Load marks Unparsed and pushes onto the one Parse actor ([17 — Git Load: Unparsed then Parse stack](17-post-pull-cascade-and-gate-handoff.md), [18 — One Parse actor stack](18-parse-actor-stack-and-file-lock-ownership.md)). Nobody starts an Actor after pull. Parse home stays [[plan/parse-actor/project.md]]. Do not design git Load as file-transfer-only.
 
 Map gist: [[../map.md]] Decisions so far item 9.
 
@@ -33,7 +33,9 @@ Map gist: [[../map.md]] Decisions so far item 9.
 
 - 2026-09-26: Alan locked in chat. Status `done`. Person-started only. WebDAV remains. git first when a remote exists.
 - 2026-09-26: Amend — keep today’s Load → Parse coupling; do not redesign around a future autonomous Parse.
+- 2026-09-28: That amend is superseded. Current truth is Unparsed → push onto the one Parse actor ([17 — Git Load: Unparsed then Parse stack](17-post-pull-cascade-and-gate-handoff.md), [18 — One Parse actor stack](18-parse-actor-stack-and-file-lock-ownership.md)).
 
 ## Time
 
 - 2026-09-26 5m — recorded lock from chat
+- 2026-09-28 5m — annotated 2026-09-26 Load → Parse amend as superseded by Unparsed → push onto Parse (#151 / [17 — Git Load: Unparsed then Parse stack](17-post-pull-cascade-and-gate-handoff.md))

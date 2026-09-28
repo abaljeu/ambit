@@ -23,6 +23,8 @@ The CloudAgents library still returns the vendor branch and PR URL. That is not 
 
 You are free to work outside of github on your own branch.  Pull on ready.  Squash onto staging then push.
 
+GitHub `git push` auth: [Push auth recovery](#push-auth-recovery).
+
 ### 1. Disposable branch
 
 Create or switch to a disposable branch. Base it on `origin/ready` (same start as a disposable workspace in [[.agents/skills/git-share/SKILL.md]]). If HEAD is `ready` or `master`, create the disposable branch from this tip and switch to it before the first commit.
@@ -49,3 +51,13 @@ The first approved publish of a ticket onto GitHub `staging` is one commit. Squa
 Off-ticket items (review reports, small docs, rule tweaks that are not on a ticket) do not publish as their own staging lands. Pool them into one shared land, or fold them into a related ticket's single first-land commit.
 
 Done when explicit publish approval is given and `git fetch origin` plus `git merge-base --is-ancestor HEAD origin/staging` succeed for this run's published tip — or, before that approval, when the draft PR toward `staging` is open and GitHub `ready`, `master`, and `staging` were not pushed or merged.
+
+### Push auth recovery
+
+This repo's day-to-day remote (`abaljeu/ambit`) is GitHub, not Cursor Origin. Authenticate `git` through `gh` for GitHub remotes. Run `gh auth setup-git` (or configure the git credential helper from `gh`) so `git push` uses that helper.
+
+On any `git push` failure that looks like auth — Invalid username or token, Authentication failed, could not read Username, HTTP 401 or 403 on push — recover at once: run `gh auth setup-git` (or the same helper setup), then retry that push once. Start this recovery as soon as the push fails as auth. Do not wait for Alan.
+
+If the retry succeeds, continue the Work path. If it still fails, report the local commit SHA (`git rev-parse HEAD`), the remote tip (`git rev-parse @{u}` or `git ls-remote` when the upstream ref is missing), and that this recovery ran, then stop. One recovery and one retry is the whole auth path. Do not run four exponential retries on an auth failure without this recovery.
+
+Done when the push succeeded after at most one recovery and one retry, or when that report is written and you stopped.
