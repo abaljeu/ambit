@@ -27,6 +27,8 @@ Acceptance: the two axes exist on special nodes and can be set and read.
 
 This step does not start workers.
 
+**Approach (Mikado)** — Locked 2026-09-28 (Alan). Create the new state axes. Set both the new axes and the old `DocumentState` wherever state changes. Migrate old uses over step by step. Finally remove the old.
+
 Implement ticket: [20 — State axes on special nodes](issues/20-state-axes-on-special-nodes.md).
 
 ## 4. Axis-write mechanics

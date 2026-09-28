@@ -3,7 +3,7 @@
 **Type:** coding
 **Status:** defined
 **Blocked by:** None — can start immediately
-Actual: 15m
+Actual: 20m
 
 ## Context
 
@@ -26,6 +26,8 @@ Add the two axes as Graph markers on special nodes only. Point of lock: [19 — 
 
 Locked 2026-09-28 (Alan). Axis-write mechanics live on [Here→There — step 1 locked](../here-to-there.md) §4 and [[../map.md]] decision 23. This ticket’s acceptance stays markers set and read only. It does not start workers.
 
+**Approach (Mikado)** — Locked 2026-09-28 (Alan). Create the new state axes. Set both the new axes and the old `DocumentState` wherever state changes. Migrate old uses over step by step. Finally remove the old.
+
 1. **Writer target** — Core / mailbox only. Until that lands, set the axes at today’s file-edit sites and graph-edit sites.
 2. **Graph edit** — Nearest owning special (File Node, Directory Node, or Workspace Node) Unpersisted only. Do not mark ancestors.
 3. **Discovery** — Whoever finds a disk change writes the axis. Parse is not the discovery tool. New or deleted member → Directory Node Unparsed. Modified file → File Node Unparsed.
@@ -47,7 +49,9 @@ Locked 2026-09-28 (Alan). Axis-write mechanics live on [Here→There — step 1 
 ## Comments
 
 - 2026-09-28: Alan locked axis-write mechanics. Notes record who writes each axis. Acceptance stays markers set and read only. No workers.
+- 2026-09-28: Alan locked Mikado. Create the new axes; set both new and old wherever state changes; migrate old uses step by step; finally remove the old. Acceptance stays markers set and read only.
 
 ## Time
 
 - 2026-09-28 15m — recorded axis-write mechanics Notes from Alan lock (from chat)
+- 2026-09-28 5m — recorded Mikado approach from Alan lock (from chat)

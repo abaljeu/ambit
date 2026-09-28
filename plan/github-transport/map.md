@@ -28,6 +28,8 @@ Prior spec [[plan/workspace-git/project.md]] is not this home. Do not inherit th
 
 2026-09-28 — Alan lock: axis-write mechanics (who writes the axes and which node they mark). Writer target is Core / mailbox only; until that lands, set axes at today’s file-edit sites and graph-edit sites. Discovery is whoever finds the disk change; Parse is not the discovery tool. Graph edit marks the nearest owning special Unpersisted only. Directory Parse walks all nodes tied to that `.amb` (supersedes “immediate members only” on [18 — One Parse actor stack](issues/18-parse-actor-stack-and-file-lock-ownership.md)). Client Load marks Unparsed; File push onto the Parse stack is deferred. Note: [[here-to-there.md]]. Implement: [20 — State axes on special nodes](issues/20-state-axes-on-special-nodes.md) (markers set/read only).
 
+2026-09-28 — Alan lock: Mikado for [20 — State axes on special nodes](issues/20-state-axes-on-special-nodes.md). Create the new state axes. Set both the new axes and the old `DocumentState` wherever state changes. Migrate old uses over step by step. Finally remove the old. Acceptance stays markers set/read only. Note: [[here-to-there.md]] §3.
+
 Skills: [[.agents/skills/wayfinder/SKILL.md]], [[.agents/skills/grilling/SKILL.md]], [[.agents/skills/domain-modeling/SKILL.md]], [[.agents/skills/project-work/SKILL.md]].
 
 ## 3. Decisions so far

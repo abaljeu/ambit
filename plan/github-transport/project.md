@@ -4,7 +4,7 @@ Stage: build
 Summary: A person maps a key GitHub repo to a Workspace whose DataDir work tree is already the git home. A Server Actor pulls from and pushes to that GitHub remote (round-trip v1, fast-forward only) so every device that maps through Server sees the same files. The App stays thin. Skip on that remote is whatever `.gitignore` already says.
 Updated: 2026-09-28
 Started: 2026-09-27
-Actual: 9h
+Actual: 9h5m
 
 **Part of:** [[plan/roadmap/epics/chapters/send-to-and-from-github.md]]
 **Part of / under:** [[plan/transport-layer/project.md]] (file transit)
@@ -27,6 +27,7 @@ Actual: 9h
 - 2026-09-28 — Alan lock: Core alone knows where files reside. Everyone else has a relative path. One hardened control point. Map decision 21: [[map.md]]. Cross-cutting: [[plan/transport-layer/map.md]].
 - 2026-09-28 — Alan lock: Here→There step 1 (easy start). Special nodes carry Parsed|Unparsed and Persisted|Unpersisted as Graph markers only. Later steps stay deferred. Note: [[here-to-there.md]]. Implement: [20 — State axes on special nodes](issues/20-state-axes-on-special-nodes.md). Map decision 22: [[map.md]].
 - 2026-09-28 — Alan lock: axis-write mechanics. Writer target is Core / mailbox only; until that lands, set axes at today’s file-edit sites and graph-edit sites. Graph edit marks the nearest owning special Unpersisted only. Discovery is whoever finds the disk change (Parse is not the discovery tool): new or deleted member → Directory Node Unparsed; modified file → File Node Unparsed. git pull finish notes the same discoveries. Persist done → that node Persisted only. Directory Parse done → that Directory Node Parsed only. Create special → Unparsed + Persisted. Client Load on Directory marks Directory Node Unparsed (re-process). Client Load on File marks File Node Unparsed; Parse-stack push is deferred. Directory Parse body (deferred) walks all nodes tied to that `.amb`. Parse stack pop (deferred) skips a node that is already Parsed. Note: [[here-to-there.md]] §4. Map decision 23: [[map.md]]. [20 — State axes on special nodes](issues/20-state-axes-on-special-nodes.md) acceptance stays markers set/read only.
+- 2026-09-28 — Alan lock: Mikado for [20 — State axes on special nodes](issues/20-state-axes-on-special-nodes.md). Create the new state axes. Set both the new axes and the old `DocumentState` wherever state changes. Migrate old uses over step by step. Finally remove the old. Acceptance stays markers set/read only. Note: [[here-to-there.md]] §3.
 - Prior spec [[plan/workspace-git/project.md]] is not this home. That spec’s non-FF accept of non-overlapping edits is not this Destination.
 - Map: [[map.md]]. Spec: [[spec.md]]. Arch: [[arch.md]].
 - 2026-09-27 — [13 — Run git Load and Save through the Server Peer Actor](issues/13-peer-actor-runs-git-load-save.md) coded. A peer-only mailbox/pool door keeps git Load/Save outside Run and `?git`; the Server Peer Actor resolves Focus to the Workspace work tree, runs the gated tracked-branch operation, and continues Load through Parse reconciliation.
