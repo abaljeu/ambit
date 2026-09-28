@@ -24,6 +24,8 @@ Prior spec [[plan/workspace-git/project.md]] is not this home. Do not inherit th
 
 2026-09-28 — Alan lock: Core alone knows where files reside. Everyone else has a relative path. One hardened control point. Cross-cutting home: [[plan/transport-layer/map.md]] Decisions so far. This Project uses relative paths; it does not hold file residence.
 
+2026-09-28 — Alan lock: Here→There step 1 (easy start). Special nodes carry Parsed|Unparsed and Persisted|Unpersisted as Graph markers only. Later steps stay deferred. Note: [[here-to-there.md]]. Implement: [20 — State axes on special nodes](issues/20-state-axes-on-special-nodes.md).
+
 Skills: [[.agents/skills/wayfinder/SKILL.md]], [[.agents/skills/grilling/SKILL.md]], [[.agents/skills/domain-modeling/SKILL.md]], [[.agents/skills/project-work/SKILL.md]].
 
 ## 3. Decisions so far
@@ -49,6 +51,7 @@ Skills: [[.agents/skills/wayfinder/SKILL.md]], [[.agents/skills/grilling/SKILL.m
 19. [19 — Parsed/Unparsed and Persisted/Unpersisted](issues/19-file-newer-graph-newer.md) — Special nodes carry two independent axes: Parsed|Unparsed and Persisted|Unpersisted. Parse = disk → graph. Persist = graph → disk. Graph edit → Unpersisted and feeds Core’s async Persist stack. Persist of a file is blocked while that node is Unparsed. git Save is permitted while Unparsed or Unpersisted. No Conflicted state.
 20. [06 — Selection-scoped Parse after whole-tree git Load](issues/06-selection-scoped-parse-after-whole-tree-git-load.md) — Client Load on a file node (selection) pushes selected nodes onto the one Parse actor’s stack. Parse processes them in the normal course of stack processing. Git Load may still have work it triggered; selection does not need a special path or priority beyond push-on-stack.
 21. **Core alone knows where files reside** — Locked 2026-09-28 (Alan). One hardened control point: Core alone knows where files reside. Everyone else has a relative path. Git Load/Save, Parse, and Persist on this Project use relative paths. Cross-cutting home: [[plan/transport-layer/map.md]].
+22. **Here→There step 1 locked** — Locked 2026-09-28 (Alan). Special-node markers only (Parsed|Unparsed and Persisted|Unpersisted). Later steps stay deferred. Note: [[here-to-there.md]]. Implement: [20 — State axes on special nodes](issues/20-state-axes-on-special-nodes.md).
 
 ## 4. Not yet specified
 
