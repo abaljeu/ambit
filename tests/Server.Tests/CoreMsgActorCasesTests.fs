@@ -42,6 +42,7 @@ let private recordingPool () =
             fun request _ ->
                 started.TrySetResult request |> ignore
                 Ok (Credential "recorded")
+        startFunction = fun _ -> Error "unused"
         startPeerActor = fun _ _ _ -> Error "unused"
         schedule = fun _ _ -> ()
         isLive = fun secret -> live.Contains secret
@@ -266,6 +267,7 @@ let ``ActorStop consults isLive once for a live Actor`` () =
         startActor =
             fun _ _ ->
                 Ok actorSecret
+        startFunction = fun _ -> Error "unused"
         startPeerActor = fun _ _ _ -> Error "unused"
         schedule = fun _ _ -> ()
         isLive =

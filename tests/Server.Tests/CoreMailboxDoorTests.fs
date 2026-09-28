@@ -176,6 +176,7 @@ let ``CoreMailbox.actorStop with valid credential drops live row`` () =
         startActor =
             fun _ _ ->
                 Ok actorSecret
+        startFunction = fun _ -> Error "unused"
         startPeerActor = fun _ _ _ -> Error "unused"
         schedule = fun _ _ -> ()
         isLive = fun secret -> live.Contains secret
@@ -260,6 +261,7 @@ let ``CoreMailbox.actorStop appends ActorStop and drops live row`` () =
         startActor =
             fun _ _ ->
                 Ok actorSecret
+        startFunction = fun _ -> Error "unused"
         startPeerActor = fun _ _ _ -> Error "unused"
         schedule = fun _ _ -> ()
         isLive = fun secret -> live.Contains secret
