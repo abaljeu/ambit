@@ -24,7 +24,7 @@ Map gist: [[../map.md]] Decisions so far item 16.
 ## Notes
 
 - The implementation belongs with [12 — Run the Workspace git tracked-branch round-trip](12-workspace-git-tracked-branch-round-trip.md) and [13 — Run git Load and Save through the Server Peer Actor](13-peer-actor-runs-git-load-save.md); this decision does not create another coding ticket.
-- 2026-09-28: [17 — Post-pull cascade and gate handoff](17-post-pull-cascade-and-gate-handoff.md) and [18 — Parse Actor stack and file-lock ownership](18-parse-actor-stack-and-file-lock-ownership.md) refine the post-pull cascade after this exclusive gate. This ticket’s locked answer is unchanged. The exclusive gate still covers the pull itself; Persist queues while pull holds the workspace gate. Fine locks and parse must not hold this exclusive gate across a long parse; a later git Load pull proceeds. Anti-Persist after that window is Unparsed, not a second Persist-block on this gate.
+- 2026-09-28: [17 — Post-pull cascade and gate handoff](17-post-pull-cascade-and-gate-handoff.md) names this exclusive gate as Workspace Reconciling (blocks make/delete for the pull window). This ticket’s locked answer is unchanged. Unparsed on modified files and directory Reconciling are set before Workspace Reconciling clears. Long parse must not hold Workspace Reconciling.
 
 ## Time
 
