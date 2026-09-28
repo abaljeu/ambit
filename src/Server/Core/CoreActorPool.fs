@@ -18,6 +18,23 @@ type ActorInput =
 
 type ActorFn = ActorInput -> CoreChanges -> Async<unit>
 
+/// Graph carrier the Actor calls. The pool does not invoke this.
+type GraphCarrier = unit -> Graph
+
+/// What a function-shaped Actor receives. No Graph or ids bag.
+type FunctionRun =
+    { getGraph: GraphCarrier
+      secret: Credential }
+
+type FunctionActor = FunctionRun -> CoreChanges -> Async<unit>
+
+/// Lifecycle keys for the pool; Graph arrives only via getGraph.
+type FunctionStart =
+    { actor: FunctionActor
+      getGraph: GraphCarrier
+      focusId: NodeId
+      commandId: NodeId }
+
 type CoreActorPool =
     { register: ActorName -> ActorFn -> unit
       registerPeer: PeerActorName -> ActorFn -> unit
@@ -25,6 +42,7 @@ type CoreActorPool =
         Gambol.Shared.ActorStart ->
             (unit -> Graph) ->
             Result<Credential, string>
+      startFunction: FunctionStart -> Result<Credential, string>
       startPeerActor:
         PeerActorName ->
             Gambol.Shared.ActorStart ->
@@ -45,8 +63,11 @@ type CoreActorPool =
 module CoreActorPool =
 
     type private PendingBody =
-        { actorFn: ActorFn
-          input: ActorInput }
+        | BagPending of actorFn: ActorFn * input: ActorInput
+        | FunctionPending of
+            actor: FunctionActor *
+            getGraph: GraphCarrier *
+            secret: Credential
 
     type private LiveRow =
         { focusId: NodeId
@@ -159,7 +180,7 @@ module CoreActorPool =
             request.focusId
             request.commandId
             sessionId
-            { actorFn = actorFn; input = input }
+            (BagPending(actorFn, input))
         Ok secret
 
     let private runStartActor putLive getModel request getState =
@@ -177,6 +198,42 @@ module CoreActorPool =
                 | Some actorFn ->
                     putActorStart
                         putLive request fullGraph actorFn
+
+    let private admitFunctionStart
+        (request: FunctionStart)
+        (model: Model)
+        =
+        if Set.contains request.focusId (liveFocusIds model) then
+            Error "focus already has a live Actor"
+        elif commandIsLive model request.commandId then
+            Error "command already has a live Actor"
+        else
+            Ok()
+
+    let private putFunctionStart
+        (putLive:
+            Credential -> NodeId -> NodeId -> string -> PendingBody -> unit)
+        (request: FunctionStart)
+        =
+        let secret =
+            Credential(Guid.NewGuid().ToString("N"))
+        let sessionId = Guid.NewGuid().ToString()
+        putLive
+            secret
+            request.focusId
+            request.commandId
+            sessionId
+            (FunctionPending(request.actor, request.getGraph, secret))
+        Ok secret
+
+    let private runStartFunction
+        putLive
+        getModel
+        (request: FunctionStart)
+        =
+        match admitFunctionStart request (getModel ()) with
+        | Error err -> Error err
+        | Ok() -> putFunctionStart putLive request
 
     let private runStartPeerActor putLive getModel peerName request getState =
         let fullGraph = getState ()
@@ -222,9 +279,16 @@ module CoreActorPool =
         match takePendingBody secret with
         | None -> ()
         | Some (pending, row) ->
-            Async.Start(
-                pending.actorFn pending.input coreChanges,
-                row.cancel.Token)
+            let work =
+                match pending with
+                | BagPending(actorFn, input) ->
+                    actorFn input coreChanges
+                | FunctionPending(actor, getGraph, secret) ->
+                    actor
+                        { getGraph = getGraph
+                          secret = secret }
+                        coreChanges
+            Async.Start(work, row.cancel.Token)
 
     let dropAndReply
         (pool: CoreActorPool)
@@ -305,6 +369,7 @@ module CoreActorPool =
                     { model with
                         peerDefs = Map.add name actor model.peerDefs }
           startActor = runStartActor putLive getModel
+          startFunction = runStartFunction putLive getModel
           startPeerActor = runStartPeerActor putLive getModel
           schedule = runSchedule takePendingBody
           isLive = fun secret -> Map.containsKey secret model.live

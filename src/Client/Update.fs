@@ -318,6 +318,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                     let kept =
                         withAppliedSync newState readyModel
                         |> withActorCmdResult events
+                        |> withApplyDetail newState
                         |> withSiteMap
                         |> adjustModeAfterServerApply readyModel.graph
                     { kept with

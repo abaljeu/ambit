@@ -98,7 +98,10 @@ let ``ActorStart persists across File restart`` () = task {
     let actorSecret = Credential "issue-42-actor"
     let pool: CoreActorPool =
         { register = fun _ _ -> ()
+          registerPeer = fun _ _ -> ()
           startActor = fun _ _ -> Ok actorSecret
+          startFunction = fun _ -> Error "unused"
+          startPeerActor = fun _ _ _ -> Error "unused"
           schedule = fun _ _ -> ()
           isLive = fun secret -> secret = actorSecret
           admit = fun _ -> Ok ()
@@ -152,7 +155,10 @@ let private sampleActorStart: ActorStart =
 
 let private stubPool secret : CoreActorPool =
     { register = fun _ _ -> ()
+      registerPeer = fun _ _ -> ()
       startActor = fun _ _ -> Ok secret
+      startFunction = fun _ -> Error "unused"
+      startPeerActor = fun _ _ _ -> Error "unused"
       schedule = fun _ _ -> ()
       isLive = fun s -> s = secret
       admit = fun _ -> Ok ()

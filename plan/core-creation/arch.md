@@ -155,6 +155,7 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. ClientH
      10. [x] launch / query are gone; `withLocks` / `lockedIds` leave the CoreRuntime wrap
    - Uses:
      1. [x] `ActorFn` (injected; Core does not own Actor bodies). Pool does not Use EventLog or CoreCredentials. Live row is Actor liveness.
+   Look up Actors this way: [function-shaped start](../actor-as-client/function-shaped-start.md).
 4. **Ev** — types after `Op`; `module Ev` after `module Op` in [[src/Shared/History.fs]] (`Gambol.Shared`; no `Gambol.Shared.Events` namespace)
    Field shapes: [[reports/event-abstraction.md]].
    1. [x] EventLog stores that Change as an Event with a unique event id greater than zero. Until EventLog stores it, the Event’s event id is zero. Poll with event id zero returns every stored Event. Only EventLog assigns stored event ids. Event id zero stays zero; it does not count up to one.

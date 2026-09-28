@@ -50,6 +50,110 @@ module ResidentProjection =
         | Ok (s, false) -> ApplyResult.Unchanged s
         | Ok (s, true) -> ApplyResult.Changed s
 
+    let private casUserMessage (message: string) =
+        if message = "old name does not match" then
+            Some "can't change the name"
+        elif message = "old text does not match" then
+            Some "can't change the text"
+        elif message = "old classes do not match" then
+            Some "can't change the classes"
+        elif message = "old span does not match" then
+            Some "can't change the structure"
+        else
+            None
+
+    let private firstNote (prior: string option) (next: string option) =
+        match prior with
+        | Some _ -> prior
+        | None -> next
+
+    type SyncPending =
+        { pending: Ev list
+          submissionId: System.Guid }
+
+    let emptyPending : SyncPending =
+        { pending = []
+          submissionId = System.Guid.Empty }
+
+    let private sameFieldTarget (incoming: Op) (pendingOp: Op) =
+        match incoming, pendingOp with
+        | Op.SetName(a, _, _), Op.SetName(b, _, _) -> a = b
+        | Op.SetText(a, _, _), Op.SetText(b, _, _) -> a = b
+        | Op.SetClasses(a, _, _), Op.SetClasses(b, _, _) -> a = b
+        | Op.Replace(a, _, _), Op.Replace(b, _, _) -> a = b
+        | _ -> false
+
+    let private undoMatchingPending
+        (op: Op)
+        (sync: SyncPending)
+        (state: State)
+        : ApplyResult =
+        let inverses =
+            sync.pending
+            |> List.collect (fun ev ->
+                if ev.submissionId = sync.submissionId then
+                    []
+                else
+                    Ev.ops ev
+                    |> Option.defaultValue []
+                    |> List.filter (sameFieldTarget op))
+            |> Op.invertAll
+        if inverses.IsEmpty then
+            ApplyResult.Unchanged state
+        else
+            match applyOps inverses state with
+            | ApplyResult.Invalid _ -> ApplyResult.Unchanged state
+            | other -> other
+
+    /// Poll/sync apply: recoverable CAS is skipped, optimistic field undone.
+    let applyOpForSync
+        (op: Op)
+        (state: State)
+        (sync: SyncPending)
+        : ApplyResult * string option =
+        match applyOp op state with
+        | ApplyResult.Invalid (s, msg) ->
+            match casUserMessage msg with
+            | Some userMsg ->
+                match undoMatchingPending op sync s with
+                | ApplyResult.Changed s' ->
+                    ApplyResult.Changed s', Some userMsg
+                | ApplyResult.Unchanged s' ->
+                    ApplyResult.Unchanged s', Some userMsg
+                | ApplyResult.Invalid _ ->
+                    ApplyResult.Unchanged s, Some userMsg
+            | None -> ApplyResult.Invalid (s, msg), None
+        | other -> other, None
+
+    let applyOpsForSync
+        (ops: Op list)
+        (state: State)
+        (sync: SyncPending)
+        : ApplyResult * string option =
+        let step (accState, hasChanged, note) op =
+            match applyOpForSync op accState sync with
+            | ApplyResult.Invalid _ as err, _ -> Error err
+            | ApplyResult.Unchanged s', msg ->
+                Ok (s', hasChanged, firstNote note msg)
+            | ApplyResult.Changed s', msg ->
+                Ok (s', true, firstNote note msg)
+
+        let result =
+            ops
+            |> List.fold
+                (fun acc op ->
+                    match acc with
+                    | Error err -> Error err
+                    | Ok accState -> step accState op)
+                (Ok (state, false, None))
+
+        match result with
+        | Error (ApplyResult.Invalid (_, message)) ->
+            ApplyResult.Invalid (state, message), None
+        | Error err -> err, None
+        | Ok (s, false, note) -> ApplyResult.Unchanged s, note
+        | Ok (s, true, note) -> ApplyResult.Changed s, note
+
     /// Install Want-answer edges and pointed-at Nodes. Refuse dangling edges.
     /// Absent `childMap` keys stay Unloaded. A present key, including `[]`,
     /// is Loaded. Idempotent for the same package.

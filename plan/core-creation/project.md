@@ -40,6 +40,8 @@ Actual: 84h05m
 - [[doc/Decisions/0003-core-is-a-container-of-subobjects.md]] — provisional framing of the Core structure.
 - [[doc/Decisions/0004-core-mailbox-messages-clear-fast.md]] — cancel/finish are fast queue messages; slow work is an Actor.
 
+Look up Actors this way: [function-shaped start](../actor-as-client/function-shaped-start.md).
+
 ## Agent instruction
 
 This increment: Core owns the authoritative Graph, Authority validation, and the Actor pool. The Adapter owns HTTP JSON and Browser transport. Persist algorithms and Parse algorithms stay outside Core. Parse retains its typed Graph-only operation; Actor output uses normal Core Change. Actor definitions stay outside Core.
