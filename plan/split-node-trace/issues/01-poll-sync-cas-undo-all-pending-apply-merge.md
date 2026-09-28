@@ -2,7 +2,7 @@
 
 **Type:** coding
 **Status:** coded
-**Actual:** 2h55m
+**Actual:** 3h40m
 **Blocked by:** None — can start immediately
 
 ## Context
@@ -57,9 +57,11 @@ Prove both TRACE symptoms on the corrected path. Seed from [SplitOriginTraceTest
 - 2026-09-28 — Charted from Alan’s locked grill. Never hard-fail the Poll fold. Undo all pending Graph ops, apply Server merge, continue. Soft-skip-without-apply is wrong. Preserve uncommitted `#edit-input` draft. Want overwrite stays in this family. Status `defined`.
 - 2026-09-28 — Alan accepted this chart PR. Status `done`.
 - 2026-09-28 — Implemented undo-all-pending then apply Server merge in [applyOpForSync](src/Shared/ResidentProjection.fs) and rewind-then-replay in [applySyncResponse](src/Shared/SyncLogic.fs). Soft-skip-without-apply after undo is gone for these field mismatches. Status `coded`.
+- 2026-09-28 — Review Must-fix: Event tails no longer rewind pending Graph ops. Undo-all-pending stays on recoverable field mismatch; Want install still rewinds then applies Want. Status `coded`.
 
 ## Time
 
 - 2026-09-28 45m — charted coding ticket from locked grill (from chat)
 - 2026-09-28 10m — Status `done` on accepted chart land (from chat)
 - 2026-09-28 2h — implement undo-all-pending then apply Server merge (from chat)
+- 2026-09-28 45m — review Must-fix: scope Event-tail rewind off pending Graph (from chat)

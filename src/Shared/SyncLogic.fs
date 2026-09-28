@@ -109,31 +109,31 @@ module SyncLogic =
                 | ApplyResult.Invalid _ -> graph)
             state.graph
 
-    let private hasSyncPayload (response: SyncResponse) =
-        not response.events.IsEmpty
-        || not response.nodes.IsEmpty
+    let private hasWantPayload (response: SyncResponse) =
+        not response.nodes.IsEmpty
         || not response.childMap.IsEmpty
 
-    let private rewindPending (state: ClientSyncState) =
-        if state.pending.IsEmpty then
+    let private rewindPendingBeforeWant
+        (response: SyncResponse)
+        (state: ClientSyncState)
+        : ClientSyncState =
+        if not (hasWantPayload response) || state.pending.IsEmpty then
             state
         else
             { state with
-                graph = undoPendingGraph state state.pending
-                pending = [] }
+                graph = undoPendingGraph state state.pending }
 
     /// Apply a Sync response atomically under Loaded rules.
-    /// Rewind pending Graph ops, replay the Event tail, then install Want.
+    /// Event tail first. Recoverable field mismatch undoes pending in
+    /// applyOpForSync. Want install rewinds pending Graph ops, then applies.
     let applySyncResponse
         (response: SyncResponse)
         (state: ClientSyncState)
         : Result<ClientSyncState, string> =
-        let state =
-            if hasSyncPayload response then rewindPending state
-            else state
         match foldProjectedEvents response.events state with
         | Error msg -> Error msg
         | Ok afterEvents ->
+            let afterEvents = rewindPendingBeforeWant response afterEvents
             match graphAfterWant response afterEvents.graph with
             | Error msg -> Error msg
             | Ok afterWant ->
