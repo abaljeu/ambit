@@ -3,7 +3,7 @@
 **Type:** coding
 **Status:** done
 **Blocked by:** [12 — Run the Workspace git tracked-branch round-trip](12-workspace-git-tracked-branch-round-trip.md)
-Actual: 1h30m
+Actual: 1h35m
 
 ## Context
 
@@ -25,7 +25,7 @@ Build the **Peer Actor** from the Module map in [[../arch.md]]. This capability 
 - [x] 4.2.6 Return matching rejects — Load and Save return the same condensed git error shape, and a conflict names at least one file path.
 - [x] 4.2.7 Serve every mapped device — The same Server Actor shape handles each device that maps through Server.
 - [x] 4.2.8 Use WorkspaceGit without a token — The Actor invokes the WorkspaceGit interface and supplies no Ambit credential.
-- [x] 4.2.9 Acquire and release the work-tree gate — The Actor acquires the Workspace gate before git Load pull or git Save commit and releases it after that work-tree change; a second caller waits until release.
+- [x] 4.2.9 Acquire and release the work-tree gate — The Actor acquires the Workspace gate before git Load pull or git Save commit and releases it after that work-tree change; a second caller waits until release. **Superseded 2026-09-28.** [16 — Persist/git work-tree gate](16-persist-git-work-tree-gate.md) revoked that exclusive gate (#151). Unparsed / Unpersisted replace it ([19 — Parsed/Unparsed and Persisted/Unpersisted](19-file-newer-graph-newer.md)). This line records what shipped; it is not current required acceptance.
 - [x] 4.3.1 Use the actor pool — The implementation uses CoreActorPool and ActorFn for lifecycle and invocation.
 - [x] 4.3.2 Depend on WorkspaceGit — Tests stub WorkspaceGit and prove pull for Load and commit-then-push for Save.
 - [x] 4.3.4 Preserve Load completion — Tests prove git Load continues to the existing Parse / graph-push hop after files land, with the selection behavior left at its current v1 boundary.
@@ -39,3 +39,4 @@ Build the **Peer Actor** from the Module map in [[../arch.md]]. This capability 
 ## Time
 
 - 2026-09-27 1h30m — implemented and tested the peer-only mailbox door, Server Peer Actor, WorkspaceGit composition, work-tree gate order, Load Parse continuation, and matching rejects
+- 2026-09-28 5m — annotated 4.2.9 exclusive-gate acceptance as superseded by Unparsed/Unpersisted (#151 / [16 — Persist/git work-tree gate](16-persist-git-work-tree-gate.md) revoke)
