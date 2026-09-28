@@ -3,7 +3,7 @@
 **Type:** coding
 **Status:** done
 **Blocked by:** [12 — Run the Workspace git tracked-branch round-trip](12-workspace-git-tracked-branch-round-trip.md)
-Actual: 1h35m
+Actual: 1h40m
 
 ## Context
 
@@ -20,7 +20,7 @@ Build the **Peer Actor** from the Module map in [[../arch.md]]. This capability 
 - [x] 4.2.1 Use the Load/Save start door — A load/save command request reaches the mailbox and actor pool; the pool invokes the Peer Actor, not Run or a `?git` entrée.
 - [x] 4.2.2 Resolve the work tree from Focus — The Actor uses Focus only to identify the Workspace work tree; a subnode does not narrow git scope.
 - [x] 4.2.3 Use one door shape — Save uses the same mailbox-to-pool wiring as Load.
-- [x] 4.2.4 Run git Load — The Actor asks WorkspaceGit to pull the whole tracked branch, then continues through today's Load → Parse / graph-push coupling without expanding the later selection-parse nuance.
+- [x] 4.2.4 Run git Load — The Actor asks WorkspaceGit to pull the whole tracked branch, then continues through today's Load → Parse / graph-push coupling without expanding the later selection-parse nuance. **Current truth 2026-09-28:** after pull, mark Unparsed and push the Workspace onto the one Parse actor ([17 — Git Load: Unparsed then Parse stack](17-post-pull-cascade-and-gate-handoff.md), [18 — One Parse actor stack](18-parse-actor-stack-and-file-lock-ownership.md)). Selection Load is push-on-stack ([06 — Selection-scoped Parse after whole-tree git Load](06-selection-scoped-parse-after-whole-tree-git-load.md)). The 2026-09-27 hop records what shipped; it is not current required acceptance.
 - [x] 4.2.5 Run git Save — The Actor asks WorkspaceGit to commit all work-tree edits and then push the whole tracked branch; it does not invoke Persist.
 - [x] 4.2.6 Return matching rejects — Load and Save return the same condensed git error shape, and a conflict names at least one file path.
 - [x] 4.2.7 Serve every mapped device — The same Server Actor shape handles each device that maps through Server.
@@ -28,7 +28,7 @@ Build the **Peer Actor** from the Module map in [[../arch.md]]. This capability 
 - [x] 4.2.9 Acquire and release the work-tree gate — The Actor acquires the Workspace gate before git Load pull or git Save commit and releases it after that work-tree change; a second caller waits until release. **Superseded 2026-09-28.** [16 — Persist/git work-tree gate](16-persist-git-work-tree-gate.md) revoked that exclusive gate (#151). Unparsed / Unpersisted replace it ([19 — Parsed/Unparsed and Persisted/Unpersisted](19-file-newer-graph-newer.md)). This line records what shipped; it is not current required acceptance.
 - [x] 4.3.1 Use the actor pool — The implementation uses CoreActorPool and ActorFn for lifecycle and invocation.
 - [x] 4.3.2 Depend on WorkspaceGit — Tests stub WorkspaceGit and prove pull for Load and commit-then-push for Save.
-- [x] 4.3.4 Preserve Load completion — Tests prove git Load continues to the existing Parse / graph-push hop after files land, with the selection behavior left at its current v1 boundary.
+- [x] 4.3.4 Preserve Load completion — Tests prove git Load continues to the existing Parse / graph-push hop after files land, with the selection behavior left at its current v1 boundary. **Current truth 2026-09-28:** required completion is Unparsed → push onto the one Parse actor; selection is push-on-stack ([06 — Selection-scoped Parse after whole-tree git Load](06-selection-scoped-parse-after-whole-tree-git-load.md)). This line records what shipped; it is not current required acceptance.
 
 ## See also
 
@@ -40,3 +40,4 @@ Build the **Peer Actor** from the Module map in [[../arch.md]]. This capability 
 
 - 2026-09-27 1h30m — implemented and tested the peer-only mailbox door, Server Peer Actor, WorkspaceGit composition, work-tree gate order, Load Parse continuation, and matching rejects
 - 2026-09-28 5m — annotated 4.2.9 exclusive-gate acceptance as superseded by Unparsed/Unpersisted (#151 / [16 — Persist/git work-tree gate](16-persist-git-work-tree-gate.md) revoke)
+- 2026-09-28 5m — annotated 4.2.4 / 4.3.4 Parse / graph-push hops as current-truth Unparsed → push onto Parse
