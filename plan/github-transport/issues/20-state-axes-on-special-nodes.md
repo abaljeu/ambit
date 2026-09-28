@@ -51,12 +51,12 @@ Locked 2026-09-28 (Alan). Axis-write mechanics live on [Here→There — step 1 
 - 2026-09-28: Alan locked axis-write mechanics. Notes record who writes each axis. Acceptance stays markers set and read only. No workers.
 - 2026-09-28: Alan locked Mikado. Create the new axes; set both new and old wherever state changes; migrate old uses step by step; finally remove the old. Acceptance stays markers set and read only.
 - 2026-09-28: Coded. `ParseState` and `PersistState` live on `Node`. `Graph.setParseState` / `Graph.setPersistState` set and read. `Op.SetDocumentState` and `DocumentAssembly.seedUnparsedStub` dual-write the parse axis. `Op.NewSpecialNode` starts Unparsed + Persisted. Graph edits (`setText` / `setName` / `setClasses` / `replace`) mark the nearest owning special Unpersisted only.
-- 2026-09-28: Merged `origin/ready` (`fb83e3ce`). Ready added git Load after-step / directory-match helpers and `LazyLoadReconciliation.currentDiscoveredAsModified` (reads `DocumentState` Current only). No new DocumentState write sites. Dual-write stays on `Op.SetDocumentState` apply.
-- 2026-09-28: Review must-fixes: create special now dual-writes `DocumentState` Unparsed with the parse axis. Reverted the ready Load/reconciliation merge so the PR vs staging is Ticket 20 axes only.
+- 2026-09-28: `staging` includes `origin/ready` (`fb83e3ce`) via merge `69930a91`. Ready added git Load after-step / directory-match helpers and `LazyLoadReconciliation.currentDiscoveredAsModified` (reads `DocumentState` Current only). No new DocumentState write sites. Dual-write stays on `Op.SetDocumentState` apply. Keep that Load slice on this branch.
+- 2026-09-28: Review must-fixes: create special now dual-writes `DocumentState` Unparsed with the parse axis. Undo of create is not blocked by that Unparsed mark.
 
 ## Time
 
 - 2026-09-28 15m — recorded axis-write mechanics Notes from Alan lock (from chat)
 - 2026-09-28 5m — recorded Mikado approach from Alan lock (from chat)
 - 2026-09-28 1h — Shared axes, dual-write at existing state-change sites, Shared.Tests (from chat)
-- 2026-09-28 45m — review must-fixes: create dual-write + strip ready Load slice (from chat)
+- 2026-09-28 45m — review must-fixes: create dual-write on NewSpecialNode (from chat)
