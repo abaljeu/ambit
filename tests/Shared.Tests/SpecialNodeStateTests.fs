@@ -28,6 +28,17 @@ let private createSpecial kind name =
         |> requireChanged
     nodeId, state.graph
 
+let private specialKinds =
+    [ Workspace, "home"; Directory, "docs"; File, "note.txt" ]
+
+let private setParse nodeId oldState newState graph =
+    Graph.setParseState nodeId oldState newState graph
+    |> requireOk "setParseState"
+
+let private setPersist nodeId oldState newState graph =
+    Graph.setPersistState nodeId oldState newState graph
+    |> requireOk "setPersistState"
+
 [<Fact>]
 let ``NewSpecialNode starts Unparsed and Persisted`` () =
     for kind, name in [ Workspace, "home"; Directory, "docs"; File, "note.txt" ] do
@@ -51,6 +62,41 @@ let ``Workspace Directory and File can set and read both axes`` () =
             |> requireOk "setPersistState"
         Assert.Equal(PersistState.Unpersisted, graph2.nodes.[nodeId].persistState)
         Assert.Equal(ParseState.Parsed, graph2.nodes.[nodeId].parseState)
+
+[<Fact>]
+let ``parse axis set and reset every pole on Workspace Directory and File`` () =
+    for kind, name in specialKinds do
+        let nodeId, graph0 = createSpecial kind name
+        Assert.Equal(ParseState.Unparsed, graph0.nodes.[nodeId].parseState)
+        let graph1 =
+            setParse nodeId ParseState.Unparsed ParseState.Parsed graph0
+        Assert.Equal(ParseState.Parsed, graph1.nodes.[nodeId].parseState)
+        Assert.Equal(PersistState.Persisted, graph1.nodes.[nodeId].persistState)
+        let graph2 =
+            setParse nodeId ParseState.Parsed ParseState.Unparsed graph1
+        Assert.Equal(ParseState.Unparsed, graph2.nodes.[nodeId].parseState)
+        let graph3 =
+            setParse nodeId ParseState.Unparsed ParseState.Parsed graph2
+        Assert.Equal(ParseState.Parsed, graph3.nodes.[nodeId].parseState)
+
+[<Fact>]
+let ``persist axis set and reset every pole on Workspace Directory and File`` () =
+    for kind, name in specialKinds do
+        let nodeId, graph0 = createSpecial kind name
+        Assert.Equal(PersistState.Persisted, graph0.nodes.[nodeId].persistState)
+        let graph1 =
+            setPersist
+                nodeId PersistState.Persisted PersistState.Unpersisted graph0
+        Assert.Equal(PersistState.Unpersisted, graph1.nodes.[nodeId].persistState)
+        Assert.Equal(ParseState.Unparsed, graph1.nodes.[nodeId].parseState)
+        let graph2 =
+            setPersist
+                nodeId PersistState.Unpersisted PersistState.Persisted graph1
+        Assert.Equal(PersistState.Persisted, graph2.nodes.[nodeId].persistState)
+        let graph3 =
+            setPersist
+                nodeId PersistState.Persisted PersistState.Unpersisted graph2
+        Assert.Equal(PersistState.Unpersisted, graph3.nodes.[nodeId].persistState)
 
 [<Fact>]
 let ``SetDocumentState dual-writes the parse axis`` () =
