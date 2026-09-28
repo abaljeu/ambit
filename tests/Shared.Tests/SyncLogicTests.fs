@@ -408,9 +408,9 @@ let ``applyServerTail SetName CAS undoes conflicting pending rename`` () =
         | Error msg -> failwith $"Expected Ok, got Error: {msg}"
         | Ok result ->
             Assert.Equal(
-                Filename.Ok "keep.md",
+                Filename.Ok "server.md",
                 result.graph.nodes.[nodeId].name)
-            Assert.Equal(Some "can't change the name", result.applyDetail)
+            Assert.Equal(None, result.applyDetail)
 
 [<Fact>]
 let ``applyServerTail consumes Change on Absent Header without graph effect`` () =

@@ -90,12 +90,47 @@ module SyncLogic =
                 response.nodes
                 graph
 
+    let private undoPendingGraph
+        (state: ClientSyncState)
+        (pending: Ev list)
+        : Graph =
+        pending
+        |> List.rev
+        |> List.fold
+            (fun graph event ->
+                let inverseOps = Ev.inverseOps event |> Option.defaultValue []
+                match
+                    ResidentProjection.applyOps
+                        inverseOps
+                        (asProjectionState { state with graph = graph })
+                with
+                | ApplyResult.Changed projected
+                | ApplyResult.Unchanged projected -> projected.graph
+                | ApplyResult.Invalid _ -> graph)
+            state.graph
+
+    let private hasSyncPayload (response: SyncResponse) =
+        not response.events.IsEmpty
+        || not response.nodes.IsEmpty
+        || not response.childMap.IsEmpty
+
+    let private rewindPending (state: ClientSyncState) =
+        if state.pending.IsEmpty then
+            state
+        else
+            { state with
+                graph = undoPendingGraph state state.pending
+                pending = [] }
+
     /// Apply a Sync response atomically under Loaded rules.
-    /// Event tail, then the edges-plus-Nodes answer through installWantAnswer.
+    /// Rewind pending Graph ops, replay the Event tail, then install Want.
     let applySyncResponse
         (response: SyncResponse)
         (state: ClientSyncState)
         : Result<ClientSyncState, string> =
+        let state =
+            if hasSyncPayload response then rewindPending state
+            else state
         match foldProjectedEvents response.events state with
         | Error msg -> Error msg
         | Ok afterEvents ->
@@ -155,25 +190,6 @@ module SyncLogic =
               nodes = []
               childMap = Map.empty }
             state
-
-    let private undoPendingGraph
-        (state: ClientSyncState)
-        (pending: Ev list)
-        : Graph =
-        pending
-        |> List.rev
-        |> List.fold
-            (fun graph event ->
-                let inverseOps = Ev.inverseOps event |> Option.defaultValue []
-                match
-                    ResidentProjection.applyOps
-                        inverseOps
-                        (asProjectionState { state with graph = graph })
-                with
-                | ApplyResult.Changed projected
-                | ApplyResult.Unchanged projected -> projected.graph
-                | ApplyResult.Invalid _ -> graph)
-            state.graph
 
     let applyLocalEvent
         (event: Ev)
