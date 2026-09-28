@@ -1,51 +1,47 @@
-# 19 — File Newer / Graph Newer
+# 19 — Parsed/Unparsed and Persisted/Unpersisted
 
 **Type:** grilling
 **Status:** done
-Blocked by: [17 — Post-pull cascade and gate handoff](17-post-pull-cascade-and-gate-handoff.md)
-Actual: 5m
+Blocked by: [17 — Git Load: Unparsed then Parse stack](17-post-pull-cascade-and-gate-handoff.md)
+Actual: 10m
 
 ## 1. Question
 
-- [x] How do File Newer and Graph Newer relate to Unparsed, Persist, and Parse?
+- [x] What Graph state do special nodes carry for Parse and Persist?
 - [x] Is there a conflicted DocumentState when both sides changed?
 
 ## 2. Answer
 
-Locked 2026-09-28 (Alan, chat). Related formulation to [17 — Post-pull cascade and gate handoff](17-post-pull-cascade-and-gate-handoff.md) and [18 — Parse Actor stack and file-lock ownership](18-parse-actor-stack-and-file-lock-ownership.md).
+Locked 2026-09-28 (Alan, chat).
 
-File Newer / Graph Newer is the formulation. In principle a conflicted state exists. **Resolution is not to have the conflicted state.** Do not invent a Conflicted `DocumentState`.
+Special nodes (Workspace, Directory, File) each carry two independent axes Core sets:
 
-**File Newer and Unparsed are equivalent.**
+- **Parsed | Unparsed**
+- **Persisted | Unpersisted**
 
-If something other than Persist changes the file, Unparsed applies and remains until Parse releases it. Git Load pull is that case: [17 — Post-pull cascade and gate handoff](17-post-pull-cascade-and-gate-handoff.md) step 3 sets Unparsed on each modified file while Workspace is still Reconciling.
+**Parse** = convert this disk object → graph. **Persist** = convert this graph → disk. Same interface for all three kinds; implementation differs by type.
 
-After Parse: if no merging → everything Current. If merging → Graph is newer.
+Land on disk (git pull, Upload, or any other disk change) → set **Unparsed** on the relevant node → push onto Parse. Parse clears Unparsed by marking the node **Parsed**.
 
-If edits occur when Graph == file, Graph becomes newer.
+Any **graph edit** sets its owning special node **Unpersisted**. Persist later writes that node to disk and clears Unpersisted.
 
-Simpler rule:
+Do not invent a Conflicted state. The two axes are independent markers, not a lock table.
 
-- If anything changes the file → set Unparsed.
-- If anything changes the Graph → set Unpersisted.
-- Parse takes precedence.
-- After Parse and Unparsed is off, Persist the Unpersisted.
-
-Unpersisted is Graph Newer. It is a new Graph state alongside Unparsed (`DocumentState` today is `Current` | `Unparsed` | `NoServerFile` in [[src/Shared/Model.fs]]). That is implement, not an open decision.
-
-Pipeline alignment: github → file → Unparsed → parse → (merge) graph → Unpersisted → Persist → file. Persist does not set Unparsed.
+`DocumentState` today is `Current` | `Unparsed` | `NoServerFile` ([[src/Shared/Model.fs]]). Parsed is the other pole of Unparsed (`Current` is today’s name). Unpersisted is new. That is implement.
 
 Map gist: [[../map.md]] Decisions so far item 19.
 
 ## Notes
 
-- Reconciling (Workspace / Directory) stays the lock in [17 — Post-pull cascade and gate handoff](17-post-pull-cascade-and-gate-handoff.md). It is not File Newer or Graph Newer.
-- Parse stack and Unparsed ownership: [18 — Parse Actor stack and file-lock ownership](18-parse-actor-stack-and-file-lock-ownership.md). Parse takes precedence; Parse releases Unparsed; then Persist Unpersisted.
+- Git Load / Upload handoff: [17 — Git Load: Unparsed then Parse stack](17-post-pull-cascade-and-gate-handoff.md).
+- Parse actor: [18 — One Parse actor stack](18-parse-actor-stack-and-file-lock-ownership.md).
+- File Newer / Graph Newer was an earlier formulation. Unparsed is disk-newer. Unpersisted is graph-newer. Do not keep a third Conflicted value.
 
 ## Comments
 
-- 2026-09-28: Alan locked in chat. Status `done`. File Newer = Unparsed. Graph Newer = Unpersisted (new). No Conflicted state. Parse first; then Persist Unpersisted.
+- 2026-09-28: Alan locked the two axes. Status `done`. No Conflicted. No Reconciling.
 
 ## Time
 
 - 2026-09-28 5m — recorded File Newer / Graph Newer formulation from chat
+- 2026-09-28 5m — rewrote to Parsed/Unparsed and Persisted/Unpersisted axes from chat

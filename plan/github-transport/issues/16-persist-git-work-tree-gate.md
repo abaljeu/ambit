@@ -3,7 +3,7 @@
 **Type:** grilling
 **Status:** done
 Blocked by: [10 — git Save is commit then push](10-git-save-commit-then-push.md)
-Actual: 5m
+Actual: 10m
 
 ## 1. Question
 
@@ -24,8 +24,14 @@ Map gist: [[../map.md]] Decisions so far item 16.
 ## Notes
 
 - The implementation belongs with [12 — Run the Workspace git tracked-branch round-trip](12-workspace-git-tracked-branch-round-trip.md) and [13 — Run git Load and Save through the Server Peer Actor](13-peer-actor-runs-git-load-save.md); this decision does not create another coding ticket.
-- 2026-09-28: [17 — Post-pull cascade and gate handoff](17-post-pull-cascade-and-gate-handoff.md) names this exclusive gate as Workspace Reconciling (blocks make/delete for the pull window). This ticket’s locked answer is unchanged. Unparsed on modified files and directory Reconciling are set before Workspace Reconciling clears. Long parse must not hold Workspace Reconciling.
+- 2026-09-28: The later model in [17 — Git Load: Unparsed then Parse stack](17-post-pull-cascade-and-gate-handoff.md)–[19 — Parsed/Unparsed and Persisted/Unpersisted](19-file-newer-graph-newer.md) does not mention this exclusive gate. This ticket’s 2026-09-26 answer is not revoked. Whether the gate still stands beside Unparsed / Unpersisted is open ([[../map.md]] Not yet specified).
+
+## Comments
+
+- 2026-09-26: Alan locked in chat. Status `done`.
+- 2026-09-28: Reconciling-as-gate naming withdrawn. 2026-09-26 gate lock left as-is; standing beside the two-axis model is open.
 
 ## Time
 
 - 2026-09-26 5m — recorded lock from chat
+- 2026-09-28 5m — stripped Reconciling rename; noted gate standing is open

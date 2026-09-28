@@ -1,49 +1,45 @@
-# 17 — Post-pull cascade and gate handoff
+# 17 — Git Load: Unparsed then Parse stack
 
 **Type:** grilling
 **Status:** done
 Blocked by: [16 — Persist/git work-tree gate](16-persist-git-work-tree-gate.md)
-Actual: 20m
+Actual: 25m
 
 ## 1. Question
 
-- [x] After git Load pull, when does the exclusive Workspace gate release, and how do directory fine locks cascade?
-- [x] May a long parse block a later git Load pull?
-- [x] What does locking protect?
-- [x] What is the deadlock / acquire-order rule?
-- [x] Is the file fine lock a separate table, or Graph state?
+- [x] After git Load pull, how does work reach Parse?
+- [x] Does anyone start a Parse Actor after pull?
+- [x] Is Client Upload a separate pipeline?
 
 ## 2. Answer
 
-Locked 2026-09-28 (Alan, chat). Exact sequence. Locks are Graph state, not a separate lock table.
+Locked 2026-09-28 (Alan, chat). Supersedes the Reconciling cascade on this ticket.
 
-1. Lock the **Workspace Node** by setting it to **Reconciling**. That prohibits other processes from making or deleting files here. This is [16 — Persist/git work-tree gate](16-persist-git-work-tree-gate.md)’s exclusive gate, named as Graph state.
-2. **Pull** files.
-3. For each **modified** file, set the Graph node to **Unparsed**. That **is** the file fine lock (File Newer: [19 — File Newer / Graph Newer](19-file-newer-graph-newer.md)).
-4. Set **Directory** nodes to **Reconciling**. That is a **new** directory lock (directory Graph state).
-5. Then **release** the Workspace lock (clear Workspace Reconciling).
+Git Load / Core github pull:
 
-Unparsed is set while the Workspace Node is still Reconciling, before release. Anti-Persist does not need a later window: Persist already writes only Current roots (`DocumentPartition.shouldWriteDocumentRoot` in [[src/Shared/DocumentPartition.fs]]).
+1. Set **Unparsed** on the Workspace Node.
+2. Pull files.
+3. Push the Workspace onto the Parse actor.
 
-After release, directory cascade continues: lock children that need work → unlock parent → process children. Acquire only down the tree — parent then children, never child-then-parent. Unlock the parent before waiting on deeper work. Directory-reconcile worker holds directory Reconciling and clears it as each directory’s Graph nodes are updated. Parse holds only file Unparsed. See [18 — Parse Actor stack and file-lock ownership](18-parse-actor-stack-and-file-lock-ownership.md).
+Nobody starts an Actor after pull. Core pushes a reconcile target onto the one long-lived Parse actor. See [18 — One Parse actor stack](18-parse-actor-stack-and-file-lock-ownership.md).
 
-Long parse must not block further git Load pulls. Parsing an entire Workspace can take a very long time. File Unparsed and directory Reconciling must not hold Workspace Reconciling, or otherwise serialize, across the whole parse. A later git Load pull proceeds by taking Workspace Reconciling again. Persist still queues while that later pull holds Workspace Reconciling.
+Client **Upload** uses the same path: land on disk → mark the relevant node Unparsed → push onto Parse. No special Upload pipeline.
 
-The correct pipeline is github → file → parse → (merge) graph → file.
+Workspace/directory Parse reconciles **immediate members only** (spot disk vs graph discrepancies, update the graph). Then set **Unparsed** on children that need updating, and mark this node **Parsed**.
 
-One owner per lock kind: directory-reconcile holds directory Reconciling; Parse holds file Unparsed. Nobody takes a second lock while holding one that would reverse parent-then-child order.
+Markers are Graph state Core and the Parse actor set and clear. They are not mutexes entities “hold.”
 
 Map gist: [[../map.md]] Decisions so far item 17.
 
 ## Notes
 
-- This ticket refines the post-pull window after [16 — Persist/git work-tree gate](16-persist-git-work-tree-gate.md). It does not rewrite that exclusive-gate lock. Wording aligns: exclusive gate = Workspace Reconciling.
-- `DocumentState` today is `Current` | `Unparsed` | `NoServerFile` ([[src/Shared/Model.fs]]). **Reconciling** is a new Graph state for Workspace Node and Directory Node. That is implement, not an open decision.
-- File this on github-transport. Parse stack and file Unparsed: [18 — Parse Actor stack and file-lock ownership](18-parse-actor-stack-and-file-lock-ownership.md). File Newer / Unpersisted: [19 — File Newer / Graph Newer](19-file-newer-graph-newer.md). Parse Actor home: [[plan/parse-actor/project.md]].
+- Axes and Persist: [19 — Parsed/Unparsed and Persisted/Unpersisted](19-file-newer-graph-newer.md).
+- Parse Actor home: [[plan/parse-actor/project.md]].
+- [16 — Persist/git work-tree gate](16-persist-git-work-tree-gate.md) is a prior lock. The sequence above does not use it. Whether it still stands is open.
 
 ## Comments
 
-- 2026-09-28: Alan locked the exact sequence. Workspace Reconciling → pull → Unparsed on modified files → directory Reconciling → release Workspace Reconciling. File fine lock = Unparsed. Directory fine lock = Reconciling (new). Not a gap: Unparsed is set before Workspace release.
+- 2026-09-28: Alan replaced the Reconciling cascade. Status `done`. Sequence is Unparsed on Workspace → pull → push Parse. Upload is the same path. No new Actor after pull.
 
 ## Time
 
@@ -51,3 +47,4 @@ Map gist: [[../map.md]] Decisions so far item 17.
 - 2026-09-28 5m — recorded follow-up locks from chat
 - 2026-09-28 5m — recorded Unparsed Persist-block clarification from chat
 - 2026-09-28 5m — rewrote cascade to Workspace Reconciling sequence from chat
+- 2026-09-28 5m — rewrote to Unparsed-then-Parse-stack model from chat

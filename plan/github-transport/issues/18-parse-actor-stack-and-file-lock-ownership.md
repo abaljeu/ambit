@@ -1,46 +1,39 @@
-# 18 — Parse Actor stack and file-lock ownership
+# 18 — One Parse actor stack
 
 **Type:** grilling
 **Status:** done
-Blocked by: [17 — Post-pull cascade and gate handoff](17-post-pull-cascade-and-gate-handoff.md)
-Actual: 20m
+Blocked by: [17 — Git Load: Unparsed then Parse stack](17-post-pull-cascade-and-gate-handoff.md)
+Actual: 25m
 
 ## 1. Question
 
-- [x] Who holds file fine locks after git Load pull, and how do parse requests reach Parse?
-- [x] May Parse serialize Workspace Reconciling across a long parse?
-- [x] Does Parse take directory Reconciling or reverse parent-then-child acquire order?
-- [x] Is the file fine lock Unparsed, or a separate lock?
+- [x] How many Parse actors exist, and who pushes work onto them?
+- [x] What does Parse do on a Workspace, Directory, or File Node?
 
 ## 2. Answer
 
 Locked 2026-09-28 (Alan, chat).
 
-One Parse Actor with a stack of files to parse. Anybody may push a request onto that stack (the client can get certain things updated sooner).
+There is **one long-lived Parse actor**. Nobody starts an Actor after pull. Core **pushes a reconcile target** onto that actor’s stack. Others may also push onto the same stack (the client can get certain things updated sooner).
 
-The file fine lock **is** Unparsed on the File Node (File Newer). Not a separate lock table. Parse holds that Unparsed marker and clears it when that file’s Graph update is done. Parse holds only file Unparsed. It does not set or clear directory Reconciling. Parse takes precedence over Persist. After Unparsed is off, Persist any Unpersisted (Graph Newer). See [19 — File Newer / Graph Newer](19-file-newer-graph-newer.md).
+**Parse** = convert this disk object → graph. Same interface for Workspace, Directory, and File. Implementation differs by kind.
 
-Directory Reconciling stays on the directory-reconcile worker: [17 — Post-pull cascade and gate handoff](17-post-pull-cascade-and-gate-handoff.md).
+Workspace/directory Parse: reconcile **immediate members only**. Then set **Unparsed** on children that need updating, and mark this node **Parsed** (as a change event). File Parse converts that file’s disk object into graph content.
 
-Parse Actor home: [[plan/parse-actor/project.md]]. This lock is filed here because Unparsed is the post-pull file lock from [16 — Persist/git work-tree gate](16-persist-git-work-tree-gate.md) / [17 — Post-pull cascade and gate handoff](17-post-pull-cascade-and-gate-handoff.md).
+Parse Actor home: [[plan/parse-actor/project.md]].
 
-Parse holding Unparsed must not hold or serialize Workspace Reconciling across the whole parse. A later git Load pull proceeds (takes Workspace Reconciling again). See [17 — Post-pull cascade and gate handoff](17-post-pull-cascade-and-gate-handoff.md).
-
-The correct pipeline is github → file → parse → (merge) graph → file.
-
-Deadlock rule: acquire only down the tree — lock parent, then children, never child-then-parent. Nobody takes a second lock while holding one that would reverse that order.
+Git Load and Upload handoff: [17 — Git Load: Unparsed then Parse stack](17-post-pull-cascade-and-gate-handoff.md). Axes: [19 — Parsed/Unparsed and Persisted/Unpersisted](19-file-newer-graph-newer.md).
 
 Map gist: [[../map.md]] Decisions so far item 18.
 
 ## Notes
 
 - Do not invent parse-actor tickets on this lock. The Parse Project stays at [[plan/parse-actor/project.md]].
-- This lock names the stack and Unparsed ownership. It does not redesign Load around a future autonomous Parse. Load’s v1 Parse coupling stays until that Project builds the Actor.
-- File Newer = Unparsed; Graph Newer = Unpersisted: [19 — File Newer / Graph Newer](19-file-newer-graph-newer.md).
+- This lock names the stack and who pushes. It does not start a new Actor per pull.
 
 ## Comments
 
-- 2026-09-28: Alan locked in chat. Status `done`. One Parse Actor stack; anybody may push; file lock is Unparsed; Parse does not take directory Reconciling; long parse must not block later git Load pulls. Parse takes precedence; then Persist Unpersisted ([19 — File Newer / Graph Newer](19-file-newer-graph-newer.md)).
+- 2026-09-28: Alan locked one long-lived Parse actor. Core pushes reconcile targets. Status `done`. Directory-reconcile worker and “hold Unparsed” language withdrawn.
 
 ## Time
 
@@ -48,3 +41,4 @@ Map gist: [[../map.md]] Decisions so far item 18.
 - 2026-09-28 5m — recorded follow-up locks from chat
 - 2026-09-28 5m — recorded Unparsed Persist-block clarification from chat
 - 2026-09-28 5m — aligned file lock to Unparsed and directory lock to Reconciling from chat
+- 2026-09-28 5m — rewrote to one long-lived Parse actor from chat
