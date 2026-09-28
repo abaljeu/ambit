@@ -21,10 +21,13 @@ let private repositoryRoot =
         Assert.Fail("Could not find repository root")
         ""
 
+let private repositoryPath (relative: string) =
+    Path.GetFullPath(Path.Combine(repositoryRoot, relative))
+
 let private appProjects =
     [ "src/Client/Gambol.Client.fsproj"
       "src/Desktop/Gambol.Desktop.fsproj" ]
-    |> List.map (fun path -> Path.Combine(repositoryRoot, path))
+    |> List.map repositoryPath
 
 let private projectItems (itemName: string) (projectPath: string) =
     let projectDirectory = Path.GetDirectoryName projectPath
@@ -75,7 +78,7 @@ let private expectedProjectClosure =
       "src/Shared/Gambol.Shared.fsproj"
       "src/Shared/documents/Gambol.Shared.Documents.fsproj"
       "src/Shared/dotnet/Gambol.Shared.DotNet.fsproj" ]
-    |> List.map (fun path -> Path.Combine(repositoryRoot, path))
+    |> List.map repositoryPath
     |> Set.ofList
 
 [<Fact>]
