@@ -12,14 +12,17 @@ A browsable description of how Gambol is coded and how it runs: processes, layer
 - [[doc/arch.md]] is a thin engineering overview. [[doc/current/]] holds feature baselines. [[doc/agents/domain.md]] says where canonical docs live. This Project is the standing effort to describe coding and runtime, not a second source of feature truth.
 - Sister Projects: [[plan/end-user-wiki/map.md]] (what the software is for users), [[plan/marketing-wiki/map.md]] (uses).
 - Related: [[plan/debug-reload/project.md]] -- how a person on watch loads debug modules and picks up an esbuild rebuild (Browser hard-reload). Homed on [[plan/roadmap/epics/robust-outliner.md]].
+- 2026-09-28 — Locked [[server-core.md]] from Alan inbound Server description.
 
 ## Pages
 
 1. **Browser and App auth** — [[browser-and-app-auth.md]] — how the Browser and the App present `gambol_auth` to Core, and how a Server restart keeps the same derived token.
+2. **Server Core** — [[server-core.md]] — what Core deals with (database, Graph, Events, file system, Actors, mailbox) and what stays outside Core.
 
 ## Decisions so far
 
 - Goal is how it is coded and how it runs, not user how-to and not use-case marketing.
+- 2026-09-28 — Server Core description locked from Alan inbound. Home: [[server-core.md]].
 
 ## Not yet specified
 

@@ -26,6 +26,7 @@ Aims from Alan 2026-09-27 chat. Aims 1 and 2 stay provisional (not Decisions so 
 9. **Today's start** — In-process start posts a curried function; it is not a named ActorFn registry lookup. CoreActorPool remains and cancels via focus ID and name on the function. Named registry stays fog. Locked on [04 — Start surface](issues/04-start-surface.md).
 10. **Step-two hypothesis** — After function-passing ships, next seam may be flexibility across Actor types (dispatch chooses the function shape; polymorphism in signatures, not the pool). Working hypothesis only on [05 — Expand-contract first aspect](issues/05-expand-contract-first-aspect.md). Not a Decision.
 11. **Slice one expand-alongside** — [05 — Expand-contract first aspect](issues/05-expand-contract-first-aspect.md) Status `coded` (historical). `startFunction` posts a function; the Actor calls `getGraph`; ID-bag `startActor` remains. Further slices are deferred with this Feature-set.
+12. **2026-09-28 Server description** — [[plan/architecture/server-core.md]] confirms Actors as privilege-less external functions that only post to the mailbox. Core and the mailbox own create and destroy, and Graph and file mutations. This Feature-set stays concept-only. No new implement tickets.
 
 ## 3. Decisions so far
 
