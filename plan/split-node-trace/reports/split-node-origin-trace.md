@@ -2,7 +2,7 @@
 
 Question: does the Graph.childMap node data-structure change already break Enter node-split (a line becomes two Nodes), or does a later change introduce a path that deletes line text?
 
-Answer: Shared split ops are not broken at that change. The Enter-at-front field wipe is a Client continue-edit snapshot defect. It is already present on the parent of the childMap change. It is not a Graph child-list defect. No later change rewrites the split Op list. The snapshot correction does not change middle-split Graph semantics.
+Answer: Shared first-apply split ops are not broken at childMap. Two later mechanisms can delete line text after a local split. The one that leaves a truncated line (`hel` without `lo`) is introduced at `8309e9db`. The one that drops the new sibling and can restore the old full text is Want overwrite, live from `52f79c49`..`b41c5dea`.
 
 Worktree commands and pass/fail tables: [childmap-split-worktree-tests](childmap-split-worktree-tests.md).
 
@@ -32,7 +32,7 @@ The only `splitNode` hunk in `61c24d51` is mechanical:
 
 1. `Op.NewNode` for the new Child (blank at offset 0; suffix at offset > 0).
 2. `ChildListWire.insertAt` on `Graph.children` of the owner (parent sibling, or first Child of an expanded Node).
-3. `Op.SetText` on the focused Node only when the text changes. Offset 0 keeps the current text, so there is no `SetText`.
+3. `Op.SetText` on the focused Node only when the text changes. Offset 0 uses live `currentText`. An empty field still posts `SetText` to empty. See §10.
 
 `Graph.replace` refuses an Unloaded parent (`parent children not loaded`). A silent sibling wipe needs a Loaded parent whose `childMap` list is already wrong (Loaded `[]` or a short list), not an Unloaded parent.
 
@@ -70,15 +70,74 @@ At `0170be5b` and at `61c24d51`, offset 0 already keeps focus on the current Nod
 
 PR 154 / `68723ec2` corrects that snapshot. It does not change Graph child-list apply. The same focus-stay plus empty snapshot is already on the childMap parent. childMap is not the introducing change.
 
-## 6 — What this TRACE did not make red
+## 6 — Browser gap
 
-Client `splitNode` reads `#edit-input` in the Browser. This run did not drive Fable or the DOM. Shared tests apply the same Op list `splitNode` builds.
+Client `splitNode` reads `#edit-input` in the Browser. This run did not drive Fable or the DOM. Shared tests apply the same Op list `splitNode` builds. Residency overwrite is now characterized in Shared. See §8.
 
-A later residency install can overwrite `childMap[parent]` with a short Loaded list ([installWantAnswer](src/Shared/ResidentProjection.fs) `Map.add key kids`). `insertAt` would then `Replace` that short list. That can drop siblings that were not in the installed list. That is not present as a first-apply defect at `61c24d51`, where Loaded `[]` is a true leaf. This TRACE has no red Browser residency split repro.
-
-## 7 — Conclusion
+## 7 — First-pass conclusion (childMap)
 
 1. The Graph.childMap changelist does not break node-split Shared apply.
 2. `a3cd1fd1` is not the split-break.
 3. Enter-at-front line wipe is a Client `Editing` snapshot defect. It predates childMap. PR 154 corrects the symptom. It is not a graph data-structure break of split.
-4. No later commit introduces a new split Op-list break on the walk to `69930a91`.
+4. The split Op list is unchanged after childMap except the PR 154 snapshot.
+
+## 8 — Hypothesis 1: residency Want overwrite
+
+[installWantAnswer](src/Shared/ResidentProjection.fs) does `Map.add key kids` on `childMap`. A stale package whose parent list omits the new split Child replaces the local list. [graphAfterWant](src/Shared/SyncLogic.fs) runs that install after every non-empty Poll/Post answer.
+
+Characterization in [SplitOriginTraceTests.fs](tests/Shared.Tests/SplitOriginTraceTests.fs) (5 passed):
+
+| Fact | Result | Meaning |
+|---|---|---|
+| `stale installWantAnswer after split drops suffix and restores hello text` | PASS | Primitive is real. Suffix edge gone. `hello` text restored. Node still in `nodes`. |
+| `applySyncResponse stale Want after split drops suffix` | PASS | Poll/Post consume path does the same overwrite. |
+| `compose after Loaded split does not want the parent` | PASS | Default [Want.compose](src/Shared/Want.fs) lists only Unloaded ids. A Loaded split parent is not requested. |
+| `applyLoadResponse answer-only with pending is raced Load answer` | PASS | Load Fetch is guarded when pending is non-empty. |
+
+Kill of the common Poll: after a Loaded parent split, `currentWant` is compose, so the parent is not in `request.want`. Server `wantAnswer` then omits that parent. `graphAfterWant` is a no-op for that key.
+
+Live race: an in-flight Poll that composed the parent while it was still Unloaded. Server returns the pre-split list. Client [PollDone](src/Client/Update.fs) `stateOpt = None` still calls `applySyncResponse` (no `isAutoSyncBlocked` check). [tryStartPoll](src/Shared/SyncPlanner.fs) will not start a new Poll while pending, but a Poll already in flight (state `Polling`) can finish after Enter.
+
+Introducing range (Want pipeline after childMap):
+
+| Commit | Role |
+|---|---|
+| `2e3dcc1b` | `installWantAnswer` overwrite |
+| `52f79c49` | `applySyncResponse` uses `graphAfterWant` → `installWantAnswer` |
+| `d3d80ed2` | Poll/Post responses carry `childMap` |
+| `b41c5dea` | Client PollDone applies `applySyncResponse` |
+
+Narrowest live range: `52f79c49`..`b41c5dea` (2026-09-27). Symptom: new sibling vanishes; original text can return to the pre-split string (split looks undone).
+
+## 9 — Hypothesis 2: later split Op / replay / edit-sync commits
+
+`git log -p 61c24d51..69930a91 -- src/Client/UpdateHelpers.fs` shows one `splitNode` hunk after childMap: `68723ec2` continue-edit snapshot. No later commit changes `NewNode` + `insertAt` + optional `SetText`.
+
+Later sync apply does change the fate of that pending Replace:
+
+- `84d19416` soft-skips recoverable CAS on Poll/sync apply.
+- `8309e9db` on that skip, inverts other pending ops on the same field.
+
+[applyOpsForSync Replace CAS undoes pending split insert and keeps prefix text](tests/Shared.Tests/SplitOriginTraceTests.fs) PASSES. Incoming mismatched `Replace` on the parent (`old span does not match`) does not apply. It inverts the local pending `Replace` (suffix removed from the parent list). Same-Change `SetText` is a different op kind, so it is not inverted. Original text stays `hel`.
+
+That is the remaining line-deletion shape: prefix kept, suffix gone from the outline.
+
+`84d19416` alone would skip and leave the local split in place. `8309e9db` is the introducing commit of the undo.
+
+## 10 — Hypothesis 3: Client-only paths
+
+Shared first-apply stays clean. Client paths that can still erase text:
+
+- Offset 0 plus empty `#edit-input` (`readEditInputValue` is `""` when the element is missing). `updatedText = currentText` then `SetText` wipes. This read-empty behavior is in `c543a13b` (2026-04-02). Not introduced after childMap.
+- PR 154 snapshot wipe at offset 0. Present on the childMap parent. Fixed at `68723ec2`.
+
+No Fable/DOM run in this TRACE. The two Shared mechanisms above do not need the Browser.
+
+## 11 — Origin
+
+Name these two. They are different symptoms.
+
+1. **Truncated line on split (`hel`, suffix gone):** introducing commit `8309e9db` (Undo optimistic pending field when Poll CAS is soft-skipped). Needs a Poll/sync `Replace` on the same parent whose old span does not match, while the split Change is still pending. Mechanism: soft-skip + invert pending `Replace` only.
+2. **New sibling dropped, old full text restored:** introducing range `52f79c49`..`b41c5dea`. Mechanism: stale Want `childMap` overwrite through `applySyncResponse`. Default compose after a Loaded split does not request that parent. An in-flight Unloaded-parent Poll can still carry it.
+
+childMap `61c24d51` is not the first-apply break. PR 154 is not this origin. No product fix in this TRACE.
