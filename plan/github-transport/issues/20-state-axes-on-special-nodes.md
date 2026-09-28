@@ -3,6 +3,7 @@
 **Type:** coding
 **Status:** defined
 **Blocked by:** None — can start immediately
+Actual: 15m
 
 ## Context
 
@@ -21,7 +22,32 @@ Add the two axes as Graph markers on special nodes only. Point of lock: [19 — 
 - [ ] 1.3 Set and read both axes — Tests prove a special node can set and read each axis. No Parse or Persist work starts.
 - [ ] 1.4 Leave workers unbuilt — Do not stand up the Parse actor or stack, the Core Persist stack, git Load retarget, Upload or selection Parse, path-control migration, or retirement of old hops.
 
+## Notes
+
+Locked 2026-09-28 (Alan). Axis-write mechanics live on [Here→There — step 1 locked](../here-to-there.md) §4 and [[../map.md]] decision 23. This ticket’s acceptance stays markers set and read only. It does not start workers.
+
+1. **Writer target** — Core / mailbox only. Until that lands, set the axes at today’s file-edit sites and graph-edit sites.
+2. **Graph edit** — Nearest owning special (File Node, Directory Node, or Workspace Node) Unpersisted only. Do not mark ancestors.
+3. **Discovery** — Whoever finds a disk change writes the axis. Parse is not the discovery tool. New or deleted member → Directory Node Unparsed. Modified file → File Node Unparsed.
+4. **git pull finish** — Notes the same discoveries. No separate axis path.
+5. **Persist done** — That node Persisted only.
+6. **Directory Parse done** — That Directory Node Parsed only.
+7. **Create special** — Unparsed + Persisted.
+8. **Client Load on Directory** — Mark the Directory Node Unparsed (re-process). Reconciliation with no extra info can spot disk members the Graph lacks.
+9. **Client Load on File** — Mark the File Node Unparsed. Push onto the Parse stack is deferred (needs the Parse loop).
+10. **Directory Parse body** (deferred) — Walks all nodes tied to that `.amb`, not only immediate children. Create missing File Nodes. Disk-newer → File Node Unparsed (and push when the stack exists).
+11. **Parse stack pop** (deferred) — If the node is already Parsed, skip. Real work arrives Unparsed.
+
 ## See also
 
 - [19 — Parsed/Unparsed and Persisted/Unpersisted](19-file-newer-graph-newer.md)
 - [Here→There — step 1 locked](../here-to-there.md)
+- [[../map.md]] decision 23
+
+## Comments
+
+- 2026-09-28: Alan locked axis-write mechanics. Notes record who writes each axis. Acceptance stays markers set and read only. No workers.
+
+## Time
+
+- 2026-09-28 15m — recorded axis-write mechanics Notes from Alan lock (from chat)
