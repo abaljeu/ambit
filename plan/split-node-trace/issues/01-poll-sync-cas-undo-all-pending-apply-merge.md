@@ -1,7 +1,7 @@
 # 01 — Poll/sync recoverable mismatch: undo all pending, then apply Server merge
 
 **Type:** coding
-**Status:** defined
+**Status:** done
 **Blocked by:** None — can start immediately
 
 ## Context
@@ -54,7 +54,9 @@ Prove both TRACE symptoms on the corrected path. Seed from [SplitOriginTraceTest
 ## Comments
 
 - 2026-09-28 — Charted from Alan’s locked grill. Never hard-fail the Poll fold. Undo all pending Graph ops, apply Server merge, continue. Soft-skip-without-apply is wrong. Preserve uncommitted `#edit-input` draft. Want overwrite stays in this family. Status `defined`.
+- 2026-09-28 — Alan accepted this chart PR. Status `done`.
 
 ## Time
 
 - 2026-09-28 45m — charted coding ticket from locked grill (from chat)
+- 2026-09-28 10m — Status `done` on accepted chart land (from chat)
