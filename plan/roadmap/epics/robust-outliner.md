@@ -41,6 +41,8 @@ The Epic is not done until each item is done (or the named part). Chapter checkl
 Live:
 
 - [ ] [[plan/event-sourced-ops/project.md]] — remainder beyond the Parse definition in [[chapters/actors-supported.md]], including advisory soft-lock behavior
+- [ ] [[plan/split-node-trace/project.md]] — Poll/sync recoverable mismatch consume ([01 — Poll/sync recoverable mismatch: undo all pending, then apply Server merge](plan/split-node-trace/issues/01-poll-sync-cas-undo-all-pending-apply-merge.md))
+- [ ] [[plan/class-toggle-keys/project.md]] — keybinds toggle cssClasses `b`, `i`, and `check` on the current Selection ([01 — Toggle cssClasses b, i, and check from keys](plan/class-toggle-keys/issues/01-toggle-cssclasses-b-i-check-from-keys.md))
 - [ ] [[plan/single-event-source/project.md]] — Event as the sole durable source of truth for Graph history and apply
 - [ ] [[plan/architecture/map.md]] — remainder of the architecture wiki; portions about other Epics gate those Epics
 - [ ] [[plan/debug-reload/project.md]] — architecture documentation: debug modules and esbuild hard-reload
