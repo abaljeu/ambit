@@ -159,7 +159,12 @@ module ViewModelDomPlan =
                 newVisible |> List.map (fun instId ->
                     let entry = newModel.siteMap.entries.[instId]
                     if Set.contains instId cachedInstIds then
-                        let wasEditing = isEditingEntry oldModel entry
+                        let oldEntryForEdit =
+                            Map.tryFind instId oldModel.siteMap.entries
+                        let wasEditing =
+                            oldEntryForEdit
+                            |> Option.map (isEditingEntry oldModel)
+                            |> Option.defaultValue false
                         let nowEditing = isEditingEntry newModel entry
                         let newNode = newModel.graph.nodes.[entry.nodeId]
                         let oldNode = oldModel.graph.nodes |> Map.tryFind entry.nodeId

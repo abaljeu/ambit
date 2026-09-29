@@ -207,7 +207,10 @@ module Layout =
                 | m -> m
             let initialValue =
                 match effectiveMode with
-                | Editing (text, _) -> text
+                | Editing (text, _) ->
+                    ViewModel.editInputSeedText
+                        text
+                        (ViewModel.outlineDisplayText node)
                 | _ -> ViewModel.outlineDisplayText node
             textDiv.textContent <- initialValue
         else
