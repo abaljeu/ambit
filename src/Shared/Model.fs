@@ -72,6 +72,33 @@ type DocumentState =
     | Unparsed
     | NoServerFile
 
+/// Disk object converted to Graph. Independent of Persisted | Unpersisted.
+[<RequireQualifiedAccess>]
+type ParseState =
+    | Parsed
+    | Unparsed
+
+/// Graph converted to disk. Independent of Parsed | Unparsed.
+[<RequireQualifiedAccess>]
+type PersistState =
+    | Persisted
+    | Unpersisted
+
+[<RequireQualifiedAccess>]
+module ParseState =
+    /// Mikado mirror of DocumentState. NoServerFile has no Parsed pole.
+    let ofDocumentState (state: DocumentState) : ParseState =
+        match state with
+        | Current -> ParseState.Parsed
+        | Unparsed
+        | NoServerFile -> ParseState.Unparsed
+
+    /// Inverse of the Current | Unparsed poles. NoServerFile stays on DocumentState.
+    let toDocumentState (state: ParseState) : DocumentState =
+        match state with
+        | ParseState.Parsed -> Current
+        | ParseState.Unparsed -> Unparsed
+
 /// Derived from `Graph.childMap`: absent key = Unloaded; present key = Loaded.
 type ChildrenStatus =
     | Unloaded
@@ -85,6 +112,8 @@ type Node =
       owner      : NodeId
       kind       : NodeKind
       documentState : DocumentState
+      parseState : ParseState
+      persistState : PersistState
       /// Mutation time via `touch`; after server persist, artifact disk mtime.
       updateTime : DateTime
       /// Live lock-present. History and SQL omit this field.
@@ -134,16 +163,22 @@ type Node with
             ?owner: NodeId,
             ?kind: NodeKind,
             ?documentState: DocumentState,
+            ?parseState: ParseState,
+            ?persistState: PersistState,
             ?updateTime: DateTime,
             ?lockPresent: bool
         ) : Node =
+        let documentState = defaultArg documentState Current
         { id = id
           text = defaultArg text ""
           name = defaultArg name Filename.Empty
           cssClasses = defaultArg cssClasses CssClass.empty
           owner = defaultArg owner (NodeId Guid.Empty)
           kind = defaultArg kind Normal
-          documentState = defaultArg documentState Current
+          documentState = documentState
+          parseState =
+            defaultArg parseState (ParseState.ofDocumentState documentState)
+          persistState = defaultArg persistState PersistState.Persisted
           updateTime = defaultArg updateTime NodeUpdateTime.missing
           lockPresent = defaultArg lockPresent false }
 
@@ -193,6 +228,18 @@ type NodeNav = NodeNav of Graph * NodeId option
 
 [<RequireQualifiedAccess>]
 module Node =
+    /// Set DocumentState and the parse axis together.
+    let withDocumentState (state: DocumentState) (node: Node) : Node =
+        { node with
+            documentState = state
+            parseState = ParseState.ofDocumentState state }
+
+    /// Set the parse axis and the Current | Unparsed DocumentState pole together.
+    let withParseState (state: ParseState) (node: Node) : Node =
+        { node with
+            parseState = state
+            documentState = ParseState.toDocumentState state }
+
     /// Owner vs Ref for the parent→child edge.
     /// Edge.ref is authoritative while it exists: same-parent Refs (Duplicate link)
     /// must stay Ref even when `Node.owner` matches the parent. Node.owner remains

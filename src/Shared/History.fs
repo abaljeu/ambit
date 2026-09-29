@@ -166,6 +166,10 @@ module Op =
             // Download stamp alignment and persist tails only touch mtime metadata;
             // they must not require the document to be parsed first.
             false
+        | Op.NewSpecialNode _ ->
+            // Create and undo introduce or remove the special node. They are not
+            // an edit inside an Unparsed document.
+            false
         | Op.Replace(parentId, oldChildren, newChildren) ->
             let stubAttachUnderShell =
                 isUnparsedTreeShell parentId
@@ -237,6 +241,7 @@ module Op =
                             text = name,
                             name = Filename.Ok name,
                             kind = Special kind,
+                            documentState = Unparsed,
                             updateTime = NodeUpdateTime.now ())
                     ApplyResult.Changed
                         { state with

@@ -233,7 +233,9 @@ let ``repeated reconciliation reuses matching stubs`` () =
 
 [<Fact>]
 let ``reconciliation finds artifacts through normal organizers`` () =
-    let workspaceId, graph0 = Graph.create () |> addWorkspace "home"
+    let workspaceId, created = Graph.create () |> addWorkspace "home"
+    let graph0 =
+        applyOps created [ Op.SetDocumentState(workspaceId, Unparsed, Current) ]
     let graph1, workspaceOrganizerId = Graph.newNode "organizer" graph0
     let graph2 =
         [ Op.Replace(
@@ -243,7 +245,9 @@ let ``reconciliation finds artifacts through normal organizers`` () =
         |> applyOps graph1
     let srcId, srcOps =
         FileNodeOps.planCreateOwnedDirectory graph2 workspaceOrganizerId "src"
-    let graph3 = applyOps graph2 srcOps
+    let graph3 =
+        applyOps graph2 srcOps
+        |> fun g -> applyOps g [ Op.SetDocumentState(srcId, Unparsed, Current) ]
     let graph4, srcOrganizerId = Graph.newNode "nested organizer" graph3
     let graph5 =
         [ Op.Replace(

@@ -1212,12 +1212,21 @@ let ``planParseFile after Insert Ref reaches Current`` () =
         applyOpsState
             { graph = graph0; eventId = EventId.zero }
             wsOps
+        |> fun state ->
+            applyOpsState
+                state
+                [ Op.SetDocumentState(workspaceId, Unparsed, Current) ]
     let fileId, fileOps =
         FileNodeOps.planCreateOwnedFile withWs.graph workspaceId "refed.txt"
     let withFile = applyOpsState withWs fileOps
     let hostId, hostOps =
         FileNodeOps.planCreateOwnedFile withFile.graph workspaceId "host.txt"
-    let withHost = applyOpsState withFile hostOps
+    let withHost =
+        applyOpsState withFile hostOps
+        |> fun state ->
+            applyOpsState
+                state
+                [ Op.SetDocumentState(hostId, Unparsed, Current) ]
     let insert =
         { parentId = hostId
           index = (Graph.children withHost.graph hostId).Length }
