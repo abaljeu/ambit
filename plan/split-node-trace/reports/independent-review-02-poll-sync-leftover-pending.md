@@ -1,68 +1,51 @@
 # Independent review — leftover pending re-apply
 
-Reviewer did not write the implementation. This report is not approval. No ticket Status changes.
+Reviewer did not write the implementation. This report is not approval. [02 — Poll/sync leftover pending: re-apply for visibility](plan/split-node-trace/issues/02-poll-sync-leftover-pending-reapply.md) stays Status `coded`.
 
-**Range:** `origin/staging...8f39c76d`. Base `origin/staging` `01827839`. Command: `git diff origin/staging...8f39c76d`. Diff is non-empty (10 files, +285 / −50). Commits: `6104c299` Chart Case B leftover pending re-apply after Poll/sync play. `8f39c76d` Re-apply leftover pending after Poll/sync rewind and play.
+Re-review of tip `23ac7480`. The prior pass at `8f39c76d` was Needs work. This text replaces that verdict.
 
-**Spec:** [02 — Poll/sync leftover pending: re-apply for visibility](plan/split-node-trace/issues/02-poll-sync-leftover-pending-reapply.md). Locked Case B (Alan, 2026-09-29). [Chart Case B Poll/sync leftover pending re-apply](https://github.com/abaljeu/ambit/pull/173) is open and unmerged. [Re-apply leftover pending after Poll/sync play](https://github.com/abaljeu/ambit/pull/174) carries that plan. The plan delta from the chart tip is Status `coded`, the time log, and the coded comment.
+**Range:** `origin/staging...23ac7480`. Base `origin/staging` `01827839`. Command: `git diff origin/staging...23ac7480`. Diff is non-empty (11 files, +411 / −52). Commits: `6104c299` Chart Case B leftover pending re-apply after Poll/sync play. `8f39c76d` Re-apply leftover pending after Poll/sync rewind and play. `23ac7480` Keep event-stripped Want install off leftover re-apply.
 
-Mechanical scan: `python3 .agents/skills/code-review/scripts/standards-scan.py --diff origin/staging` from a worktree at `8f39c76d`. `applyPendingEvent` is 7 lines. `reapplyLeftoverPending` is 13 lines. Both are under the 40-line limit in [.agents/rules/fsharp-source.md](.agents/rules/fsharp-source.md). No file-limit hit.
+**Spec:** [02 — Poll/sync leftover pending: re-apply for visibility](plan/split-node-trace/issues/02-poll-sync-leftover-pending-reapply.md). Locked Case B (Alan, 2026-09-29). [Chart Case B Poll/sync leftover pending re-apply](https://github.com/abaljeu/ambit/pull/173) is open and unmerged. [Re-apply leftover pending after Poll/sync play](https://github.com/abaljeu/ambit/pull/174) carries that plan.
+
+Mechanical scan: `python3 .agents/skills/code-review/scripts/standards-scan.py --diff origin/staging` from a worktree at `23ac7480`. `applyPendingEvent` is 7 lines. `reapplyLeftoverPending` is 13 lines. `applyWantPreservingPending` is 8 lines. All three are under the 40-line limit in [.agents/rules/fsharp-source.md](.agents/rules/fsharp-source.md). [SyncLogic.fs](src/Shared/SyncLogic.fs) stays under the 800-line file limit. No file-limit hit.
+
+Focused facts at this tip: `dotnet test tests/Shared.Tests/Gambol.Shared.Tests.fsproj --filter "FullyQualifiedName~want install after catch-up|FullyQualifiedName~acknowledgement want install|FullyQualifiedName~keeps trailing pending|FullyQualifiedName~precondition undo|FullyQualifiedName~re-applies pending after Want|FullyQualifiedName~stale Want re-applies"`. Passed 6, failed 0.
 
 ## Standards
 
 ### 1. Bare issue id on the edited project line (hard)
 
-[.agents/rules/refer-by-name.md](.agents/rules/refer-by-name.md) says every issue reference carries its number and its name. The edited sentence in [Event-sourced ops](plan/event-sourced-ops/project.md) still says `former issue 07` and links [01 — Generalized Server Actor produce path](plan/core-creation/issues/01-generalized-server-actor-produce-path.md) without that title beside the old number. The same sentence names [16 — Fix pending+merged-events: undo-then-apply instead of DataOutdated reload](plan/event-sourced-ops/issues/16-fix-pending-merged-events-undo-then-apply.md), [17 — Instrument apply-error → DataOutdated with op type and mismatch reason](plan/event-sourced-ops/issues/17-instrument-apply-error-dataoutdated.md), [01 — Poll/sync recoverable mismatch: undo all pending, then apply Server merge](plan/split-node-trace/issues/01-poll-sync-cas-undo-all-pending-apply-merge.md), and [02 — Poll/sync leftover pending: re-apply for visibility](plan/split-node-trace/issues/02-poll-sync-leftover-pending-reapply.md) with number and name.
+[.agents/rules/refer-by-name.md](.agents/rules/refer-by-name.md) says every issue reference carries its number and its name. The edited sentence in [Event-sourced ops](plan/event-sourced-ops/project.md) still says `former issue 07` and links the destination file without that title beside the old number. The same sentence names [16 — Fix pending+merged-events: undo-then-apply instead of DataOutdated reload](plan/event-sourced-ops/issues/16-fix-pending-merged-events-undo-then-apply.md), [17 — Instrument apply-error → DataOutdated with op type and mismatch reason](plan/event-sourced-ops/issues/17-instrument-apply-error-dataoutdated.md), [01 — Poll/sync recoverable mismatch: undo all pending, then apply Server merge](plan/split-node-trace/issues/01-poll-sync-cas-undo-all-pending-apply-merge.md), and [02 — Poll/sync leftover pending: re-apply for visibility](plan/split-node-trace/issues/02-poll-sync-leftover-pending-reapply.md) with number and name. Commit `23ac7480` does not change this clause.
 
 No smell to stand behind.
 
 ## Spec
 
-### 1. PollDone catch-up re-applies the posted prefix when the poll has a Want answer (wrong)
+No findings. The prior Must-fix is closed.
 
-Spec: "Do not re-apply that prefix on top of a Server list that already contains it."
-
-[consumeCatchUpPoll](src/Shared/SyncLogic.fs) re-applies leftover pending with ordinary apply and skips a pending Change whose submission id is in the played Server list. The PollDone catch-up arm in [Update.fs](src/Client/Update.fs) then calls [SyncAnswer.apply](src/Client/SyncAnswer.fs). That helper strips `events` and calls [applySyncResponse](src/Shared/SyncLogic.fs). The Want `nodes` and `childMap` stay. [rewindPendingBeforeWant](src/Shared/SyncLogic.fs) undoes the whole pending list when that payload is present and pending is non-empty. The new gate (`undidPending || didRewind`) re-applies with an empty played list, so the posted prefix is eligible again.
-
-Poll and post responses carry that Want answer from [Api.fs](src/Server/Api.fs). [Want.compose](src/Shared/Want.fs) fills the request whenever the included walk still has an unloaded Node. An empty Want answer leaves the [consumeCatchUpPoll](src/Shared/SyncLogic.fs) graph in place. The Shared tests use empty `nodes` and empty `childMap`, so they stay on that empty path.
-
-### 2. SubmitResponse re-applies when the acknowledgement has a Want answer (wrong)
-
-Spec: "Do not re-apply on that acknowledgement." Also: "The live Graph stays optimistic until catch-up play. Do not re-apply on that acknowledgement."
-
-[finishAppliedSubmit](src/Client/Update.fs) calls [applyChangeSuccess](src/Client/SyncAnswer.fs). That is the same event-stripped [applySyncResponse](src/Shared/SyncLogic.fs). A non-empty Want answer plus leftover pending sets `didRewind`. The gate re-applies on the acknowledgement. The acknowledgement still does not play the Server event list.
+[SyncAnswer.apply](src/Client/SyncAnswer.fs) and [applyChangeSuccess](src/Client/SyncAnswer.fs) install the Want answer through [applyWantPreservingPending](src/Shared/SyncLogic.fs). That helper calls [graphAfterWant](src/Shared/SyncLogic.fs) on the current Graph. It does not rewind pending. It does not re-apply leftover. The PollDone catch-up arm still plays the Server list in [consumeCatchUpPoll](src/Shared/SyncLogic.fs), then installs Want through [SyncAnswer.apply](src/Client/SyncAnswer.fs). [finishAppliedSubmit](src/Client/Update.fs) and the workspace acknowledgement arms call [applyChangeSuccess](src/Client/SyncAnswer.fs). The acknowledgement stays a signal plus a baseline.
 
 ## Independent checks
 
-These were asked for on this review. They confirm or extend the Spec findings.
+**Prior Must-fix, catch-up plus Want.** After play, [applyWantPreservingPending](src/Shared/SyncLogic.fs) merges the Want answer onto the post-play Graph. The played submission stays out of the re-apply set inside [consumeCatchUpPoll](src/Shared/SyncLogic.fs). The new fact `want install after catch-up keeps the Server prefix off the Graph` plays a Server text Change, then installs a Want package. The trailing text is `b-local`. The prefix `NewNode` is absent. The queue still holds the prefix and the trailing Change.
 
-**Catch-up play.** [consumeCatchUpPoll](src/Shared/SyncLogic.fs) rewinds to the baseline, plays the Server list, then re-applies leftover pending with [applyOps](src/Shared/ResidentProjection.fs). It leaves `pending` as it found it. A played submission id is skipped. That matches Case B at this Shared seam.
+**Prior Must-fix, acknowledgement.** `acknowledgement want install leaves leftover pending un-applied` keeps optimistic text `local`, leaves the pending `NewNode` out of the Graph, and leaves that Change in the queue. A rewind followed by re-apply would have inserted that Node.
 
-**Sync apply after undo.** [applySyncResponse](src/Shared/SyncLogic.fs) re-applies only when the fold note is present (the [undoAllPending](src/Shared/ResidentProjection.fs) path) or when [rewindPendingBeforeWant](src/Shared/SyncLogic.fs) ran. A direct poll arm that passes the Server list keeps those played ids. That part matches the ticket.
+**Catch-up, precondition undo, and direct Want rewind.** Those three paths still re-apply inside [consumeCatchUpPoll](src/Shared/SyncLogic.fs) and at the end of [applySyncResponse](src/Shared/SyncLogic.fs). Commit `23ac7480` does not change that gate. The empty-event catch-up arm in [Update.fs](src/Client/Update.fs) still calls [applySyncResponse](src/Shared/SyncLogic.fs). That is the direct Want-rewind path, not the acknowledgement.
 
-**Queue.** [consumeCatchUpPoll](src/Shared/SyncLogic.fs) does not assign `pending`. PollDone writes the model from `syncInfo`, which still holds the queue.
-
-**Client amend.** The F# diff does not call [ChangeAmendment](src/Shared/ChangeAmendment.fs). Re-apply uses ordinary apply. The Server amends on a later post. That matches the lock.
-
-**Acknowledgement.** [SubmitResponse](src/Client/Update.fs) notes the baseline through [reconcileExternalAck](src/Shared/SyncLogic.fs) and does not play the Server list. It re-applies when the Want answer is present. That is Spec finding 2.
-
-**Tests and the ticket 01 correction.** [SyncLogicTests](tests/Shared.Tests/SyncLogicTests.fs) has the Case B catch-up fact, the precondition-undo fact, and the Want-rewind fact. The split Want fact in [SplitOriginTraceTests](tests/Shared.Tests/SplitOriginTraceTests.fs) now expects the pending split to show again. [01 — Poll/sync recoverable mismatch: undo all pending, then apply Server merge](plan/split-node-trace/issues/01-poll-sync-cas-undo-all-pending-apply-merge.md) corrects the edit-box overspeak and stays Status `done`.
-
-The Case B SetText facts stay green if the prefix is re-applied. SetText from the old text fails on the Server text, so the prefix filter is not what those facts lock.
+**Queue, ordinary apply, ticket 01.** [consumeCatchUpPoll](src/Shared/SyncLogic.fs) does not assign `pending`. The F# diff does not call [ChangeAmendment](src/Shared/ChangeAmendment.fs). [01 — Poll/sync recoverable mismatch: undo all pending, then apply Server merge](plan/split-node-trace/issues/01-poll-sync-cas-undo-all-pending-apply-merge.md) stays Status `done`.
 
 ## Verdict
 
-**Needs work.**
+**Good.**
 
-### Must-fix
-
-1. Keep event-stripped [applySyncResponse](src/Shared/SyncLogic.fs) off this re-apply. After [consumeCatchUpPoll](src/Shared/SyncLogic.fs), the PollDone arm must keep that graph when it installs a Want answer, and the posted prefix must stay off the Graph. [SubmitResponse](src/Client/Update.fs) and [finishAppliedSubmit](src/Client/Update.fs) stay a signal plus a baseline. They must leave leftover pending un-applied on that acknowledgement.
+No residual Must-fix.
 
 ### Should-fix
 
-2. Add a fact that runs catch-up play and then [SyncAnswer.apply](src/Client/SyncAnswer.fs) with a non-empty `childMap`. Add a fact that an acknowledgement with a Want answer and leftover pending leaves the Graph without this re-apply.
-3. On the edited line in [Event-sourced ops](plan/event-sourced-ops/project.md), name the moved issue: [01 — Generalized Server Actor produce path](plan/core-creation/issues/01-generalized-server-actor-produce-path.md).
+1. On the edited line in [Event-sourced ops](plan/event-sourced-ops/project.md), name the moved issue: [01 — Generalized Server Actor produce path](plan/core-creation/issues/01-generalized-server-actor-produce-path.md).
 
 ## Summary
 
-Standards: 1 finding. Worst: bare `issue 07` on the edited project line. Spec: 2 findings. Worst: the acknowledgement re-applies leftover pending when the Want answer is present.
+Standards: 1 finding. Worst: bare `issue 07` on the edited project line. Spec: 0 findings. The prior Must-fix is closed.
