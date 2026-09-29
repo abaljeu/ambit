@@ -10,43 +10,60 @@ open Gambol.Client.RowView.Behavior
 // Focus/caret/scroll behavior after paint. Depends on RowView.Behavior for
 // selection-scroll defer (cancel / flag / scrollFocusedRow).
 
+let private placeEditingCaret
+        (preserveEditCaret: bool) (model: VM) (root: HTMLElement) : unit =
+    let alreadyFocused =
+        not (isNull document.activeElement)
+        && System.Object.ReferenceEquals(document.activeElement, root)
+    // Re-focusing an unfocused contenteditable places the caret at start. When preserving
+    // the live caret (same Editing mode ref), skip focus if we already own it.
+    if not (preserveEditCaret && alreadyFocused) then
+        focusPreventScroll root
+    if not preserveEditCaret then
+        match model.mode with
+        | Editing (_, caret) ->
+            match caret with
+            | EditCaret.EndOfText ->
+                let t = root.textContent
+                let n = if isNull t then 0 else t.Length
+                setEditorCaret root n
+            | EditCaret.Utf16Index p -> setEditorCaret root p
+            | EditCaret.LastVisualLineAtClientX x ->
+                setEditorCaretToLastLineAtX root x
+            | EditCaret.FirstVisualLineAtClientX x ->
+                setEditorCarentToFirstLineAtX root x
+        | _ -> ()
+
+/// Edit Up/Down recreates `#edit-input`. Put scroll back, then nudge `#amb-document`
+/// only when the field is outside the padded view. Do not use `scrollIntoView`.
+let private focusEditingField
+        (preserveEditCaret: bool) (model: VM) (scrollBefore: Scrollports) : unit =
+    cancelPendingSelectionScroll ()
+    deferSelectionScroll <- false
+    let editEl = document.getElementById "edit-input"
+    if isNull editEl then ()
+    else
+        let root = editEl
+        restoreScrollports scrollBefore
+        placeEditingCaret preserveEditCaret model root
+        restoreScrollports scrollBefore
+        scrollEditingFieldIntoView root
+
 /// Focus the correct element after a focus-relevant transition (`ManageFocus.shouldInvoke`).
 /// `previousModel` = model before this dispatch; None on full `render` (always apply caret).
+/// `scrollBefore` is the document and window scroll from before this paint's row edits.
 let manageFocus
-        (previousModel: VM option) (model: VM) (rowByInstanceId: Map<SiteId, HTMLElement>)
+        (previousModel: VM option)
+        (model: VM)
+        (rowByInstanceId: Map<SiteId, HTMLElement>)
+        (scrollBefore: Scrollports)
         : unit =
     let preserveEditCaret = EditingCaretPreserve.shouldPreserveDomCaret previousModel model
     match model.mode with
     | CommandPalette _ | SearchDialog _ | FileSearchDialog _ | CssClassPrompt _ | RenamePrompt _ ->
         () // focus is handled by overlay renderers after the element becomes visible
     | Editing _ ->
-        cancelPendingSelectionScroll ()
-        deferSelectionScroll <- false
-        let editEl = document.getElementById "edit-input"
-        if not (isNull editEl) then
-            let root = editEl
-            let alreadyFocused =
-                not (isNull document.activeElement)
-                && System.Object.ReferenceEquals(document.activeElement, root)
-            // Re-focusing an unfocused contenteditable places the caret at start. When preserving
-            // the live caret (same Editing mode ref), skip focus if we already own it.
-            if not (preserveEditCaret && alreadyFocused) then
-                focusPreventScroll root
-            if not preserveEditCaret then
-                match model.mode with
-                | Editing (_, caret) ->
-                    match caret with
-                    | EditCaret.EndOfText ->
-                        let t = root.textContent
-                        let n = if isNull t then 0 else t.Length
-                        setEditorCaret root n
-                    | EditCaret.Utf16Index p -> setEditorCaret root p
-                    | EditCaret.LastVisualLineAtClientX x ->
-                        setEditorCaretToLastLineAtX root x
-                    | EditCaret.FirstVisualLineAtClientX x ->
-                        setEditorCarentToFirstLineAtX root x
-                | _ -> ()
-            scrollElementIntoViewAboveKeyboard root
+        focusEditingField preserveEditCaret model scrollBefore
     | Selecting ->
         let hiddenInput = document.getElementById "hidden-input"
         if not (isNull hiddenInput) then

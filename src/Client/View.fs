@@ -19,6 +19,7 @@ open Gambol.Client.Overlays
 /// that precede the hidden-input sentinel), then recreates them in preorder.
 /// Returns a fresh element cache keyed by instanceId.
 let render (vm: VM) (dispatch: Msg -> unit) : Map<SiteId, HTMLElement> =
+    let scrollBefore = captureScrollports ()
     let rowRoot =
         if isNull ambDocument then app else ambDocument
     // Remove existing rows — everything before the hidden-input sentinel
@@ -44,7 +45,7 @@ let render (vm: VM) (dispatch: Msg -> unit) : Map<SiteId, HTMLElement> =
         if isNull sentinel then rowRoot.appendChild row |> ignore
         else rowRoot.insertBefore(row, sentinel) |> ignore
 
-    manageFocus None vm cache
+    manageFocus None vm cache scrollBefore
     renderSyncChrome vm dispatch
     cache
 
@@ -59,6 +60,7 @@ let patchDOM
         (oldModel: VM) (newModel: VM) (dispatch: Msg -> unit)
         (cache: Map<SiteId, HTMLElement>)
         : Map<SiteId, HTMLElement> =
+    let scrollBefore = captureScrollports ()
     let preserveEditCaret =
         EditingCaretPreserve.shouldPreserveDomCaret (Some oldModel) newModel
     // Capture live caret before row patches; class/indicator writes can clear selection.
@@ -154,7 +156,7 @@ let patchDOM
 
     if ManageFocus.shouldInvoke (Some oldModel) newModel then
     //if false then
-        manageFocus (Some oldModel) newModel cache'
+        manageFocus (Some oldModel) newModel cache' scrollBefore
     //if preserveEditCaret then
     if false then
         match savedEditCaret with
