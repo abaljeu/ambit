@@ -57,26 +57,29 @@ module SyncLogic =
     let private foldProjectedEvents
         (events: Ev list)
         (state: ClientSyncState)
-        : Result<ClientSyncState, string> =
+        : Result<ClientSyncState * bool, string> =
+        let step (st, undid) event =
+            let ops = Ev.ops event |> Option.defaultValue []
+            match
+                ResidentProjection.applyOpsForSync
+                    ops
+                    (asProjectionState st)
+                    { pending = st.pending
+                      submissionId = event.submissionId }
+            with
+            | ApplyResult.Changed newSt, note
+            | ApplyResult.Unchanged newSt, note ->
+                Ok(
+                    withProjectedGraph event st newSt note,
+                    undid || note.IsSome)
+            | ApplyResult.Invalid (_, msg), _ -> Error msg
         events
         |> List.fold
             (fun acc event ->
                 match acc with
                 | Error _ -> acc
-                | Ok st ->
-                    let ops = Ev.ops event |> Option.defaultValue []
-                    match
-                        ResidentProjection.applyOpsForSync
-                            ops
-                            (asProjectionState st)
-                            { pending = st.pending
-                              submissionId = event.submissionId }
-                    with
-                    | ApplyResult.Changed newSt, note
-                    | ApplyResult.Unchanged newSt, note ->
-                        Ok (withProjectedGraph event st newSt note)
-                    | ApplyResult.Invalid (_, msg), _ -> Error msg)
-            (Ok state)
+                | Ok cursor -> step cursor event)
+            (Ok(state, false))
 
     let private graphAfterWant
         (response: SyncResponse)
@@ -116,28 +119,55 @@ module SyncLogic =
     let private rewindPendingBeforeWant
         (response: SyncResponse)
         (state: ClientSyncState)
-        : ClientSyncState =
+        : ClientSyncState * bool =
         if not (hasWantPayload response) || state.pending.IsEmpty then
-            state
+            state, false
         else
             { state with
-                graph = undoPendingGraph state state.pending }
+                graph = undoPendingGraph state state.pending },
+            true
+
+    let private applyPendingEvent (state: State) (event: Ev) : State =
+        let ops = Ev.ops event |> Option.defaultValue []
+        match ResidentProjection.applyOps ops state with
+        | ApplyResult.Changed next
+        | ApplyResult.Unchanged next -> next
+        | ApplyResult.Invalid _ -> state
+
+    let private reapplyLeftoverPending
+        (played: Ev list)
+        (state: ClientSyncState)
+        : ClientSyncState =
+        let playedIds =
+            played |> List.map (fun event -> event.submissionId) |> Set.ofList
+        let next =
+            state.pending
+            |> List.filter (fun event ->
+                not (Set.contains event.submissionId playedIds))
+            |> List.fold applyPendingEvent (asProjectionState state)
+        { state with graph = next.graph }
 
     /// Apply a Sync response atomically under Loaded rules.
-    /// Event tail first. Recoverable field mismatch undoes pending in
-    /// applyOpForSync. Want install rewinds pending Graph ops, then applies.
+    /// Event tail first. A failed Poll/sync apply precondition undoes
+    /// pending in applyOpForSync. Want install rewinds pending, then applies.
+    /// After either undo, leftover pending is re-applied with ordinary apply.
     let applySyncResponse
         (response: SyncResponse)
         (state: ClientSyncState)
         : Result<ClientSyncState, string> =
         match foldProjectedEvents response.events state with
         | Error msg -> Error msg
-        | Ok afterEvents ->
-            let afterEvents = rewindPendingBeforeWant response afterEvents
-            match graphAfterWant response afterEvents.graph with
+        | Ok (afterEvents, undidPending) ->
+            let rewound, didRewind =
+                rewindPendingBeforeWant response afterEvents
+            match graphAfterWant response rewound.graph with
             | Error msg -> Error msg
             | Ok afterWant ->
-                Ok { afterEvents with graph = afterWant }
+                let applied = { rewound with graph = afterWant }
+                if undidPending || didRewind then
+                    Ok (reapplyLeftoverPending response.events applied)
+                else
+                    Ok applied
 
     let applyLoadResponse
         (responseEventId: EventId)
@@ -344,7 +374,8 @@ module SyncLogic =
                 | Error _ -> false
                 | Ok _ -> true
 
-    /// Rewind to the noted baseline and replay a Poll Ev list without clearing History.
+    /// Rewind to the noted baseline, replay a Poll Ev list, then re-apply
+    /// leftover pending so those edits stay visible. History is not cleared.
     let consumeCatchUpPoll
         (baseline: CatchUpBaseline)
         (events: Ev list)
@@ -357,11 +388,12 @@ module SyncLogic =
                 eventId = baseline.eventId }
         match foldProjectedEvents events atBaseline with
         | Error msg -> Error msg
-        | Ok afterEvents ->
-            Ok
+        | Ok (afterEvents, _) ->
+            let replayed =
                 { afterEvents with
                     eventId = serverEventId
                     history = ClientHistory.approve events state.history }
+            Ok (reapplyLeftoverPending events replayed)
 
     let reconcileExternalAck
         (submitted: Ev list)

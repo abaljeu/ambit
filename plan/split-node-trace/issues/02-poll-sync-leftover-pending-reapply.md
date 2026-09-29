@@ -1,8 +1,8 @@
 # 02 — Poll/sync leftover pending: re-apply for visibility
 
 **Type:** coding
-**Status:** defined
-**Actual:** 30m
+**Status:** coded
+**Actual:** 1h30m
 **Blocked by:** None — can start immediately
 
 ## Context
@@ -32,24 +32,24 @@ After rewind and play, leftover trailing pending are still in the pending queue,
 
 The pending queue is [SyncInfo.pending](src/Shared/ViewModelSync.fs). Apply copies it onto [ClientSyncState.pending](src/Shared/ActorLive.fs). Re-apply the trailing pending that remain after the posted prefix is retired. Do not re-apply that prefix on top of a Server list that already contains it.
 
-1. [ ] 1.1 After rewind and play — When [consumeCatchUpPoll](src/Shared/SyncLogic.fs) finishes, and on the PollDone arm in [Update.fs](src/Client/Update.fs) that uses it, re-apply leftover pending in queue order onto the post-play Graph.
-2. [ ] 1.2 Queue stays — Leave that leftover in the pending queue. The next post sends those Changes as constructed.
+1. [x] 1.1 After rewind and play — When [consumeCatchUpPoll](src/Shared/SyncLogic.fs) finishes, and on the PollDone arm in [Update.fs](src/Client/Update.fs) that uses it, re-apply leftover pending in queue order onto the post-play Graph.
+2. [x] 1.2 Queue stays — Leave that leftover in the pending queue. The next post sends those Changes as constructed.
 
 ### 2. Other paths that undo pending off the Graph
 
 Re-apply at the end of any sync apply that takes pending effects off the live Graph and leaves those pending in the queue. Do this once, on the post-play Graph, not between ops inside the fold.
 
-1. [ ] 2.1 End of [applySyncResponse](src/Shared/SyncLogic.fs) — [applyOpForSync](src/Shared/ResidentProjection.fs) calls [undoAllPending](src/Shared/ResidentProjection.fs) when a Poll/sync apply precondition fails, then applies the Server payload. [rewindPendingBeforeWant](src/Shared/SyncLogic.fs) calls [undoPendingGraph](src/Shared/SyncLogic.fs) before Want install. After that Server list or Want install is on the Graph, re-apply the leftover pending in queue order.
-2. [ ] 2.2 Post ack stays a signal — [SubmitResponse](src/Client/Update.fs) and [finishAppliedSubmit](src/Client/Update.fs) note the baseline. They do not play the Server list. Do not re-apply on that acknowledgement.
+1. [x] 2.1 End of [applySyncResponse](src/Shared/SyncLogic.fs) — [applyOpForSync](src/Shared/ResidentProjection.fs) calls [undoAllPending](src/Shared/ResidentProjection.fs) when a Poll/sync apply precondition fails, then applies the Server payload. [rewindPendingBeforeWant](src/Shared/SyncLogic.fs) calls [undoPendingGraph](src/Shared/SyncLogic.fs) before Want install. After that Server list or Want install is on the Graph, re-apply the leftover pending in queue order.
+2. [x] 2.2 Post ack stays a signal — [SubmitResponse](src/Client/Update.fs) and [finishAppliedSubmit](src/Client/Update.fs) note the baseline. They do not play the Server list. Do not re-apply on that acknowledgement.
 
 ### 3. Ordinary apply on the Client, amend on the Server
 
-1. [ ] 3.1 Ordinary apply — Re-apply with [applyOp](src/Shared/ResidentProjection.fs) / [applyOps](src/Shared/ResidentProjection.fs). Do not call [ChangeAmendment](src/Shared/ChangeAmendment.fs) on the Client for this leftover.
-2. [ ] 3.2 Server amend later — The next post sends the leftover as constructed. The Server amends with [ChangeAmendment](src/Shared/ChangeAmendment.fs).
+1. [x] 3.1 Ordinary apply — Re-apply with [applyOp](src/Shared/ResidentProjection.fs) / [applyOps](src/Shared/ResidentProjection.fs). Do not call [ChangeAmendment](src/Shared/ChangeAmendment.fs) on the Client for this leftover.
+2. [x] 3.2 Server amend later — The next post sends the leftover as constructed. The Server amends with [ChangeAmendment](src/Shared/ChangeAmendment.fs).
 
 ### 4. Tests
 
-1. [ ] 4.1 Case B — In [SyncLogicTests](tests/Shared.Tests/SyncLogicTests.fs), seed a submitted pending prefix plus trailing pending. After catch-up play, the trailing pending is still in the queue, and the Graph shows the trailing effects again.
+1. [x] 4.1 Case B — In [SyncLogicTests](tests/Shared.Tests/SyncLogicTests.fs), seed a submitted pending prefix plus trailing pending. After catch-up play, the trailing pending is still in the queue, and the Graph shows the trailing effects again.
 
 ## Open
 
@@ -62,7 +62,9 @@ If ordinary apply of one leftover op fails, leave that op in the pending queue f
 ## Comments
 
 - 2026-09-29 — Charted from Alan’s locked Case B policy. Undo converges the Graph on the Server list. Leftover trailing pending stay in the queue and post as constructed. Re-apply them with ordinary apply after rewind and play so the person still sees those edits. The Client does not amend. Status `defined`.
+- 2026-09-29 — Alan accepted the chart. Implemented re-apply in [consumeCatchUpPoll](src/Shared/SyncLogic.fs) and at the end of [applySyncResponse](src/Shared/SyncLogic.fs) after a precondition undo or Want rewind. Ordinary apply skips an op that does not fit. The queue is unchanged. The post acknowledgement does not play the list. Status `coded`.
 
 ## Time
 
 - 2026-09-29 30m — charted coding ticket from locked Case B policy (from chat)
+- 2026-09-29 1h — re-apply leftover pending after catch-up play and sync undo (from chat)

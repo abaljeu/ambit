@@ -4,11 +4,11 @@ Stage: build
 Summary: Name the origin of obscure line deletion on Enter node-split, undo pending so Poll/sync can apply the Server merge, and re-apply leftover trailing pending so the person still sees those edits.
 Updated: 2026-09-29
 Started: 2026-09-28
-Actual: 4h10m
+Actual: 5h10m
 
 **Part of:** [[plan/roadmap/epics/robust-outliner.md]]
 
-Frontier: [02 — Poll/sync leftover pending: re-apply for visibility](issues/02-poll-sync-leftover-pending-reapply.md) — Type `coding`, Status `defined`. [01 — Poll/sync recoverable mismatch: undo all pending, then apply Server merge](issues/01-poll-sync-cas-undo-all-pending-apply-merge.md) — Type `coding`, Status `done`.
+Frontier: [02 — Poll/sync leftover pending: re-apply for visibility](issues/02-poll-sync-leftover-pending-reapply.md) — Type `coding`, Status `coded`. [01 — Poll/sync recoverable mismatch: undo all pending, then apply Server merge](issues/01-poll-sync-cas-undo-all-pending-apply-merge.md) — Type `coding`, Status `done`.
 
 ## Notes
 
@@ -18,3 +18,4 @@ Frontier: [02 — Poll/sync leftover pending: re-apply for visibility](issues/02
 - 2026-09-28 — [01 — Poll/sync recoverable mismatch: undo all pending, then apply Server merge](issues/01-poll-sync-cas-undo-all-pending-apply-merge.md) coded. Poll/sync apply undoes all pending Graph ops, then applies the Server merge. Soft-skip-without-apply after undo is removed for those field mismatches.
 - 2026-09-28 — Review Must-fix on [01 — Poll/sync recoverable mismatch: undo all pending, then apply Server merge](issues/01-poll-sync-cas-undo-all-pending-apply-merge.md): Event tails do not rewind pending Graph ops. Want install still undoes pending, then applies Want.
 - 2026-09-29 — Alan locked Case B. The 2026-09-28 note that only an uncommitted edit-box draft stays local overspoke. Undo converges the Graph on the Server list. Leftover trailing pending stay in the queue and are re-applied for visibility after play. The Client does not amend them. Ticket: [02 — Poll/sync leftover pending: re-apply for visibility](issues/02-poll-sync-leftover-pending-reapply.md). [01 — Poll/sync recoverable mismatch: undo all pending, then apply Server merge](issues/01-poll-sync-cas-undo-all-pending-apply-merge.md) stays Status `done`.
+- 2026-09-29 — [02 — Poll/sync leftover pending: re-apply for visibility](issues/02-poll-sync-leftover-pending-reapply.md) coded. Catch-up play and sync undo re-apply leftover pending with ordinary apply. The pending queue stays. Status `coded`.
