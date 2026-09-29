@@ -203,30 +203,72 @@ let focusedRowNeedsScroll (el: HTMLElement) : bool =
             epsilon = 1.0
         }
 
-/// Scroll element into view within #amb-document (keyboard-aware on iOS). Always uses
-/// `scrollIntoView({block:'nearest'})` first; then nudges within the document scroller.
-[<Emit("""(function(el){
-var sc=document.getElementById('amb-document');
-function adjust(){
-if(!sc)return;
-var vv=window.visualViewport;
-var rect=el.getBoundingClientRect();
-var scr=sc.getBoundingClientRect();
-var margin=8;
-var visTop=vv?vv.offsetTop:scr.top;
-var visBottom=vv?vv.offsetTop+vv.height:scr.bottom;
-var topBound=Math.max(visTop,scr.top)+margin;
-var bottomBound=Math.min(visBottom,scr.bottom)-margin;
-var dy=0;
-if(rect.bottom>bottomBound){dy=rect.bottom-bottomBound;}
-else if(rect.top<topBound){dy=rect.top-topBound;}
-if(dy!==0){sc.scrollTop+=dy;}
+[<Emit("window.visualViewport?window.visualViewport.height:0")>]
+let private visualViewportHeight () : float = jsNative
+
+/// Padded `#amb-document` band, cut by the visual viewport when the keyboard covers it.
+/// Rects are visual-viewport coordinates, so the visible top is the scroller's top.
+let private editingViewBand (sc: Element) : ScrollIntoViewNeed.VerticalSpan =
+    let vr = sc.getBoundingClientRect ()
+    let topBound = vr.top + computedScrollPaddingTop sc
+    let paddedBottom = vr.bottom - computedScrollPaddingBottom sc
+    let vh = visualViewportHeight ()
+    let bottomBound = if vh > 0. then min paddedBottom vh else paddedBottom
+    { top = topBound; bottom = bottomBound }
+
+[<Emit("$0.contains($1)")>]
+let private elementContains (parent: Element) (child: HTMLElement) : bool = jsNative
+
+let private editingFieldDelta (el: HTMLElement) : float =
+    let sc = document.getElementById "amb-document"
+    if isNull sc || not (elementContains sc el) then
+        0.
+    else
+        let er = el.getBoundingClientRect ()
+        ScrollIntoViewNeed.scrollDelta {
+            element = { top = er.top; bottom = er.bottom }
+            view = editingViewBand sc
+            epsilon = 1.0
+        }
+
+/// Move `#amb-document` only. `scrollIntoView` also scrolls the window, which jumps
+/// Edit Up/Down when the previous or next line is already fully visible.
+let scrollEditingFieldIntoView (el: HTMLElement) : unit =
+    let nudge () =
+        let sc = document.getElementById "amb-document"
+        if isNull sc then ()
+        else
+            let dy = editingFieldDelta el
+            if dy <> 0. then sc.scrollTop <- sc.scrollTop + dy
+    nudge ()
+    // Second pass: iOS keyboard inset settles after focus.
+    window.setTimeout ((fun _ -> nudge ()), 350) |> ignore
+
+type Scrollports = {
+    docTop: float
+    docLeft: float
+    winX: float
+    winY: float
 }
-el.scrollIntoView({block:'nearest'});
-adjust();
-setTimeout(adjust,350);
-})($0)""")>]
-let scrollElementIntoViewAboveKeyboard (el: HTMLElement) : unit = jsNative
+
+let captureScrollports () : Scrollports =
+    let sc = document.getElementById "amb-document"
+    {
+        docTop = if isNull sc then 0. else sc.scrollTop
+        docLeft = if isNull sc then 0. else sc.scrollLeft
+        winX = window.scrollX
+        winY = window.scrollY
+    }
+
+[<Emit("window.scrollTo($0,$1)")>]
+let private scrollWindowTo (x: float) (y: float) : unit = jsNative
+
+let restoreScrollports (saved: Scrollports) : unit =
+    let sc = document.getElementById "amb-document"
+    if not (isNull sc) then
+        sc.scrollTop <- saved.docTop
+        sc.scrollLeft <- saved.docLeft
+    scrollWindowTo saved.winX saved.winY
 
 /// Pin #app to the visual viewport so header, document, and footer stay above the
 /// on-screen keyboard (iPad Safari keeps the layout viewport full-height otherwise).

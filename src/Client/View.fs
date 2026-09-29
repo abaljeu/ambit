@@ -19,6 +19,7 @@ open Gambol.Client.Overlays
 /// that precede the hidden-input sentinel), then recreates them in preorder.
 /// Returns a fresh element cache keyed by instanceId.
 let render (vm: VM) (dispatch: Msg -> unit) : Map<SiteId, HTMLElement> =
+    let scrollBefore = captureScrollports ()
     let rowRoot =
         if isNull ambDocument then app else ambDocument
     // Remove existing rows — everything before the hidden-input sentinel
@@ -44,13 +45,26 @@ let render (vm: VM) (dispatch: Msg -> unit) : Map<SiteId, HTMLElement> =
         if isNull sentinel then rowRoot.appendChild row |> ignore
         else rowRoot.insertBefore(row, sentinel) |> ignore
 
-    manageFocus None vm cache
+    manageFocus None vm cache scrollBefore
     renderSyncChrome vm dispatch
     cache
 
 // ---------------------------------------------------------------------------
 // Incremental DOM patch (all ops except StateLoaded)
 // ---------------------------------------------------------------------------
+
+/// A mounted blank `#edit-input` that did not remount gets the recovered Node
+/// text. Live characters in the box stay.
+let private fillMountedBlankEdit (oldModel: VM) (newModel: VM) =
+    let editEl = document.getElementById "edit-input"
+    if isNull editEl then
+        ()
+    else
+        let raw = editEl.textContent
+        let domText = if isNull raw then "" else raw
+        match ViewModel.mountedBlankEditText domText oldModel newModel with
+        | Some text -> editEl.textContent <- text
+        | None -> ()
 
 /// Patch the DOM incrementally: diff old and new SiteMap visibility,
 /// removes stale rows, creates/moves new rows, updates existing rows in-place.
@@ -59,6 +73,7 @@ let patchDOM
         (oldModel: VM) (newModel: VM) (dispatch: Msg -> unit)
         (cache: Map<SiteId, HTMLElement>)
         : Map<SiteId, HTMLElement> =
+    let scrollBefore = captureScrollports ()
     let preserveEditCaret =
         EditingCaretPreserve.shouldPreserveDomCaret (Some oldModel) newModel
     // Capture live caret before row patches; class/indicator writes can clear selection.
@@ -152,9 +167,11 @@ let patchDOM
 
             prevNode <- Some (row :> Browser.Types.Node)
 
+    fillMountedBlankEdit oldModel newModel
+
     if ManageFocus.shouldInvoke (Some oldModel) newModel then
     //if false then
-        manageFocus (Some oldModel) newModel cache'
+        manageFocus (Some oldModel) newModel cache' scrollBefore
     //if preserveEditCaret then
     if false then
         match savedEditCaret with

@@ -64,17 +64,29 @@ let ``editInputSeedText hydrates an empty draft from Graph text`` () =
     Assert.Equal("", editInputSeedText "" "")
     Assert.Equal("lo", editInputSeedText "lo" "hello")
 
+let private splitEdit cursor current newer =
+    { cursorPos = cursor
+      currentText = current
+      newNodeText = newer }
+
+let private continueSplit cursor current newer nodeId inst model =
+    continueEditAfterSplit
+        { text = splitEdit cursor current newer
+          newNodeId = nodeId
+          focusInstanceId = inst }
+        model
+
 [<Fact>]
 let ``splitContinueEditText at offset 0 keeps the current node text`` () =
-    Assert.Equal("keep me", splitContinueEditText 0 "keep me" "")
+    Assert.Equal("keep me", splitContinueEditText (splitEdit 0 "keep me" ""))
 
 [<Fact>]
 let ``splitContinueEditText in the middle uses the new node text`` () =
-    Assert.Equal("lo", splitContinueEditText 3 "hello" "lo")
+    Assert.Equal("lo", splitContinueEditText (splitEdit 3 "hello" "lo"))
 
 [<Fact>]
 let ``splitContinueEditText at the end uses the new node text`` () =
-    Assert.Equal("", splitContinueEditText 5 "hello" "")
+    Assert.Equal("", splitContinueEditText (splitEdit 5 "hello" ""))
 
 [<Fact>]
 let ``continueEditAfterSplit middle split keeps Editing on suffix text`` () =
@@ -86,7 +98,7 @@ let ``continueEditAfterSplit middle split keeps Editing on suffix text`` () =
     let parent = split.siteMap.entries.[split.siteMap.rootId]
     let suffixInst = parent.children.[1]
     let next =
-        continueEditAfterSplit 3 "hello" "lo" suffixId (Some suffixInst) split
+        continueSplit 3 "hello" "lo" suffixId (Some suffixInst) split
     match next.mode, tryVisibleEditingEntry next with
     | Editing (text, _), Some entry ->
         Assert.Equal(suffixId, entry.nodeId)
@@ -105,7 +117,7 @@ let ``planPatchDOM after middle split remounts edit on the suffix`` () =
     let suffixInst = parent.children.[1]
     let helloInst = parent.children.[0]
     let next =
-        continueEditAfterSplit 3 "hello" "lo" suffixId (Some suffixInst) split
+        continueSplit 3 "hello" "lo" suffixId (Some suffixInst) split
     let cached = getVisibleInstanceIds start.siteMap |> Set.ofList
     let mutations = planPatchDOM start next cached
     let recreatesHello =
@@ -146,7 +158,10 @@ let ``retargetEditingSelection recovers a stale parent instance`` () =
         Assert.Equal(helloId, entry.nodeId)
         Assert.Equal(helloInst, entry.instanceId)
         match recovered.mode with
-        | Editing (text, _) -> Assert.Equal("hello", text)
+        | Editing (text, EditCaret.Utf16Index pos) ->
+            Assert.Equal("hello", text)
+            Assert.Equal(3, pos)
+            Assert.True(LanguagePrimitives.PhysicalEquality stale.mode recovered.mode)
         | _ -> Assert.True(false, "expected Editing")
 
 [<Fact>]
@@ -154,28 +169,86 @@ let ``retargetEditingSelection rehydrates empty draft from focused Graph text`` 
     let graph, zoomId, helloId, _ = zoomHelloSib ()
     let start = editingHello graph zoomId
     let staleDraft =
-        { start with mode = Editing ("", EditCaret.Utf16Index 0) }
+        { start with mode = Editing ("", EditCaret.Utf16Index 4) }
     match tryVisibleEditingEntry staleDraft with
     | Some entry -> Assert.Equal(helloId, entry.nodeId)
     | None -> Assert.True(false, "hello is already the edit row")
     let recovered = retargetEditingSelection staleDraft
     match recovered.mode, tryVisibleEditingEntry recovered with
-    | Editing (text, _), Some entry ->
+    | Editing (text, EditCaret.Utf16Index pos), Some entry ->
         Assert.Equal(helloId, entry.nodeId)
         Assert.Equal("hello", text)
+        Assert.Equal(0, pos)
         Assert.Equal("hello", recovered.graph.nodes.[helloId].text)
     | _ -> Assert.True(false, "expected Editing hydrated from Graph")
+    Assert.Equal(Some "hello", mountedBlankEditText "" staleDraft recovered)
+    Assert.Equal(None, mountedBlankEditText "hel" staleDraft recovered)
+    Assert.Equal<Op list>(
+        [],
+        RunEditCommit.commitTextOps helloId "hello" recovered.graph)
+    match RunEditCommit.commitTextOps helloId "" recovered.graph with
+    | [ Op.SetText(_, "hello", "") ] -> ()
+    | other -> Assert.True(false, $"blank commit must wipe, got %A{other}")
 
 [<Fact>]
-let ``retargetEditingSelection replaces a leftover suffix draft on hello`` () =
+let ``retargetEditingSelection keeps a mid-line draft and caret`` () =
+    let graph, zoomId, _, _ = zoomHelloSib ()
+    let start = editingHello graph zoomId
+    let draft =
+        { start with mode = Editing ("lo", EditCaret.Utf16Index 2) }
+    let recovered = retargetEditingSelection draft
+    match recovered.mode with
+    | Editing (text, EditCaret.Utf16Index pos) ->
+        Assert.Equal("lo", text)
+        Assert.Equal(2, pos)
+        Assert.True(LanguagePrimitives.PhysicalEquality draft.mode recovered.mode)
+    | _ -> Assert.True(false, "expected the mid-line draft to stay")
+    Assert.Equal(None, mountedBlankEditText "" draft recovered)
+
+[<Fact>]
+let ``retargetEditingSelection stale-empty remount uses Graph text`` () =
     let graph, zoomId, helloId, _ = zoomHelloSib ()
     let start = editingHello graph zoomId
-    let leftover =
-        { start with mode = Editing ("lo", EditCaret.Utf16Index 0) }
-    let recovered = retargetEditingSelection leftover
+    let staleParent =
+        { start.siteMap.entries.[start.siteMap.rootId] with
+            instanceId = Sid 999 }
+    let stale =
+        { start with
+            mode = Editing ("", EditCaret.Utf16Index 4)
+            selectedNodes =
+                Some
+                    { range = { parent = staleParent; start = 0; endd = 1 }
+                      focus = 0 } }
+    Assert.True((tryVisibleEditingEntry stale).IsNone)
+    let recovered = retargetEditingSelection stale
+    match recovered.mode, tryVisibleEditingEntry recovered with
+    | Editing (text, EditCaret.Utf16Index pos), Some entry ->
+        Assert.Equal(helloId, entry.nodeId)
+        Assert.Equal("hello", text)
+        Assert.Equal(0, pos)
+    | _ -> Assert.True(false, "expected stale-empty remount to use Graph text")
+
+[<Fact>]
+let ``retargetEditingSelection stale focus keeps a mid-line draft`` () =
+    let graph, zoomId, _, _ = zoomHelloSib ()
+    let start = editingHello graph zoomId
+    let staleParent =
+        { start.siteMap.entries.[start.siteMap.rootId] with
+            instanceId = Sid 999 }
+    let stale =
+        { start with
+            mode = Editing ("lo", EditCaret.Utf16Index 2)
+            selectedNodes =
+                Some
+                    { range = { parent = staleParent; start = 0; endd = 1 }
+                      focus = 0 } }
+    let recovered = retargetEditingSelection stale
     match recovered.mode with
-    | Editing (text, _) -> Assert.Equal("hello", text)
-    | _ -> Assert.True(false, "expected hello Graph text")
+    | Editing (text, EditCaret.Utf16Index pos) ->
+        Assert.Equal("lo", text)
+        Assert.Equal(2, pos)
+        Assert.True(LanguagePrimitives.PhysicalEquality stale.mode recovered.mode)
+    | _ -> Assert.True(false, "expected the mid-line draft to stay")
 
 [<Fact>]
 let ``retargetEditingSelection keeps a legitimately empty new-node draft`` () =
@@ -190,7 +263,7 @@ let ``retargetEditingSelection keeps a legitimately empty new-node draft`` () =
     let split = applySplitOps ops start
     let emptyInst = split.siteMap.entries.[split.siteMap.rootId].children.[1]
     let next =
-        continueEditAfterSplit 5 "hello" "" emptyId (Some emptyInst) split
+        continueSplit 5 "hello" "" emptyId (Some emptyInst) split
     match next.mode, tryVisibleEditingEntry next with
     | Editing (text, _), Some entry ->
         Assert.Equal(emptyId, entry.nodeId)

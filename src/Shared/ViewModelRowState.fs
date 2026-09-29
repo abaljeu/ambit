@@ -91,23 +91,43 @@ module ViewModelRowState =
         |> Option.orElse (
             ViewModelSiteMap.firstChildSelection model.siteMap model.zoomRoot)
 
-    let private editingSnapshotFor (model: VM) (sel: Selection) : Mode =
-        match tryFocusedNodeId model.graph sel, model.mode with
-        | Some nid, Editing _ ->
-            match Map.tryFind nid model.graph.nodes with
-            | Some node -> Editing (node.text, EditCaret.Utf16Index 0)
+    /// Stale-empty snapshot only: draft "" on a Node that has text.
+    /// A non-empty draft, including one that differs from Node.text, stays.
+    let private staleEmptyEditingMode (draft: string) (nodeText: string) : Mode option =
+        if draft = "" && nodeText <> "" then
+            Some (Editing (nodeText, EditCaret.Utf16Index 0))
+        else
+            None
+
+    let private snapshotKeepingDraft (model: VM) (nodeText: string) : Mode =
+        match model.mode with
+        | Editing (draft, _) ->
+            match staleEmptyEditingMode draft nodeText with
+            | Some mode -> mode
             | None -> model.mode
         | _ -> model.mode
 
-    let private rehydrateEditingFromNode (model: VM) (entry: SiteEntry) =
-        match model.mode, Map.tryFind entry.nodeId model.graph.nodes with
-        | Editing (draft, _), Some node when node.text <> draft ->
-            { model with
-                mode = Editing (node.text, EditCaret.Utf16Index 0) }
-        | _ -> model
+    let private editingSnapshotFor (model: VM) (sel: Selection) : Mode =
+        match tryFocusedNodeId model.graph sel with
+        | Some nid ->
+            match Map.tryFind nid model.graph.nodes with
+            | Some node -> snapshotKeepingDraft model node.text
+            | None -> model.mode
+        | None -> model.mode
 
-    /// Keep `Editing` text on the focused Node. Empty or stale draft from a
-    /// prior row (split / Server okay) remounts as a blank box otherwise.
+    let private rehydrateEditingFromNode (model: VM) (entry: SiteEntry) =
+        match Map.tryFind entry.nodeId model.graph.nodes with
+        | None -> model
+        | Some node ->
+            match snapshotKeepingDraft model node.text with
+            | mode when LanguagePrimitives.PhysicalEquality mode model.mode ->
+                model
+            | mode -> { model with mode = mode }
+
+    /// Site-map refresh while Editing. A stale-empty draft ("") on a Node
+    /// with text becomes that text and caret 0, so a remount can show the
+    /// Node. Any other draft and its caret stay. A mounted blank box is not
+    /// rewritten in the DOM here; see `mountedBlankEditText`.
     let retargetEditingSelection (model: VM) : VM =
         match model.mode with
         | Editing _ ->
@@ -121,6 +141,20 @@ module ViewModelRowState =
                         selectedNodes = Some sel
                         mode = editingSnapshotFor model sel }
         | _ -> model
+
+    /// Text for a mounted `#edit-input` that is still blank after stale-empty
+    /// recovery. Live characters stay. Writing this text stops commit from
+    /// posting the blank over the Node.
+    let mountedBlankEditText (domText: string) (before: VM) (after: VM) : string option =
+        if domText <> "" then
+            None
+        else
+            match before.mode, after.mode, tryVisibleEditingEntry after with
+            | Editing ("", _), Editing (draft, _), Some entry when draft <> "" ->
+                match Map.tryFind entry.nodeId after.graph.nodes with
+                | Some node when node.text = draft -> Some draft
+                | _ -> None
+            | _ -> None
 
     /// Enter edit mode for a view-line instance in one model step (selection + Editing).
     /// Returns None for unknown instances or the graph root node.
