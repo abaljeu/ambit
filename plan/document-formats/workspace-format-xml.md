@@ -2,13 +2,13 @@
 
 Status: Draft
 Authority: Target design for XML workspace files (well-formed XML; HTML excluded).
-See also: [[doc/roadmap/workspace-text-outline-conversion.md]], [[doc/roadmap/workspace-format-dispatch.md]], [[doc/roadmap/reference-expressions.md]], [[doc/reference/formats/xml-round-trip-plan.md]]
+See also: [[doc/roadmap/workspace-text-outline-conversion.md]], [[plan/document-formats/workspace-format-dispatch.md]], [[doc/roadmap/reference-expressions.md]], [[doc/reference/formats/xml-round-trip-plan.md]]
 
 Import/export workflow and the generic conversion contract live in [[doc/roadmap/workspace-text-outline-conversion.md]]. This format applies to `File` artifacts whose persisted body is XML.
 
 ## Classification
 
-Dispatch to the Xml codec uses a **heading scan** of artifact text (leading bytes; skip UTF-8 BOM and insignificant leading whitespace). Path extension is not authoritative. See [[doc/roadmap/workspace-format-dispatch.md]].
+Dispatch to the Xml codec uses a **heading scan** of artifact text (leading bytes; skip UTF-8 BOM and insignificant leading whitespace). Path extension is not authoritative. See [[plan/document-formats/workspace-format-dispatch.md]].
 
 - **HTML-shaped** — first markup is `<!DOCTYPE html` or an `html` element (ASCII case-insensitive) → Plain codec; HTML is out of scope.
 - **XML-shaped** — first markup is XML (e.g. `<?xml`, `<!--`, `<!DOCTYPE`, or `<` starting an element) and not HTML-shaped → Xml codec when a well-formed parse succeeds.
@@ -28,7 +28,7 @@ Gambol stores class names on each node in `cssClasses`. Three disjoint kinds sha
 - **User** — styling classes such as `.blue` or `.h1`; assigned by the user; never written into external file bodies by any codec.
 - **Structural** — codec-owned; record syntactic role in the persisted format; never written into external file bodies.
 
-Each file format defines its own structural class vocabulary behind a format-specific prefix so kinds stay distinctive across codecs. Markdown uses `md-*` ([[doc/roadmap/workspace-format-md.md]]). XML uses the `xml-*` vocabulary in **Tree mapping**.
+Each file format defines its own structural class vocabulary behind a format-specific prefix so kinds stay distinctive across codecs. Markdown uses `md-*` ([[plan/document-formats/workspace-format-md.md]]). XML uses the `xml-*` vocabulary in **Tree mapping**.
 
 Import sets or refreshes the structural class from the parsed construct. Export reads it to choose fragment shape. Reconciled import preserves user classes on matched nodes.
 
@@ -83,7 +83,7 @@ Structure preservation targets generic XML well-formedness only. No schema valid
 
 Stable `NodeId` is authoritative in the graph. XML must not gain Ambit-only syntax (`^` stable ids, `->` ref lines, `#name-token` suffixes) just to preserve graph round trips.
 
-The graph **`name`** field is an optional, non-globally-unique ref identifier (see [[doc/roadmap/workspace-format-plain.md]]). It is **not** an XML element, attribute, or PI name and is **never** written into XML markup. Codec naming uses other node fields: element name in **`text`**; attribute name in **`name`** on `xml-attribute` rows only; PI target in **`name`** on `xml-pi` rows only. Ref **`name`** and those codec fields are unrelated — do not match or merge them on import or export.
+The graph **`name`** field is an optional, non-globally-unique ref identifier (see [[plan/document-formats/workspace-format-plain.md]]). It is **not** an XML element, attribute, or PI name and is **never** written into XML markup. Codec naming uses other node fields: element name in **`text`**; attribute name in **`name`** on `xml-attribute` rows only; PI target in **`name`** on `xml-pi` rows only. Ref **`name`** and those codec fields are unrelated — do not match or merge them on import or export.
 
 Durable file anchors (`xml:id`, `id`, `name` attributes, element paths) are **out of scope** for this slice. Reconciliation uses graph `NodeId` and complement context on warm round trips; cold import from XML alone mints fresh ids for parser-representable structure only.
 
@@ -113,7 +113,7 @@ The Xml codec does not fail import or export on parseable irregular content; tar
 
 ### Mal-formed XML
 
-Use a regular .NET XML-to-DOM parser with chosen `XmlReaderSettings` (including `CheckCharacters = false` for control characters). If parse fails, fall back to plain-text import per [[doc/roadmap/workspace-format-plain.md]]; irregularities below are moot for that file until content is well-formed again.
+Use a regular .NET XML-to-DOM parser with chosen `XmlReaderSettings` (including `CheckCharacters = false` for control characters). If parse fails, fall back to plain-text import per [[plan/document-formats/workspace-format-plain.md]]; irregularities below are moot for that file until content is well-formed again.
 
 A missing XML declaration is valid XML, not an irregularity.
 
@@ -228,4 +228,4 @@ Codec and reconciliation (`XmlDocumentTests`):
 - Control characters in text fields round-trip via `\uuuu` graph encoding and literal character on export.
 - Reparenting an `xml-*` row under `xml-pi` or `xml-attribute`, or adding any Owner under `xml-attribute`, fails or no-ops.
 
-Dispatch and persistence: see [[doc/roadmap/workspace-format-dispatch.md]].
+Dispatch and persistence: see [[plan/document-formats/workspace-format-dispatch.md]].

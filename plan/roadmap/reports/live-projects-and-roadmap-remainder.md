@@ -80,8 +80,8 @@ Classification uses [[doc/index.md]] Development Sequence terms where that index
 - [[doc/roadmap/workspace-file-model.md]] — Status working draft; [[doc/index.md]] Workspace file model and persistence **Partial**; implemented behavior summarized in [[doc/current/workspace-graph.md]] / [[doc/current/workspace-stage-plan.md]]. **Partial**.
 - [[doc/roadmap/workspace-file-persistence.md]] — Status Draft; [[doc/current/workspace-stage-plan.md]] Stage 7 core and Stage 8 `[x]` with remaining follow-ups (hard delete under TRASH; git persistence verification); [[doc/current/persistence-model.md]] still lists “Full per-document snapshot layout and incremental file writes” under Not implemented pointing here — contradiction between current docs; both cited. Treat topic as **Partial**.
 - [[doc/roadmap/workspace-file-sync.md]] — Status Partial; [[doc/index.md]] Workspace file sync **Partial**; [[doc/current/desktop-local-files.md]] / [[doc/current/workspace-local-mapping.md]] cover mapping and Upload/Download surfaces. **Partial** (overwrite/freshness UI, mirror-delete / Class 2 still open per index and checklist).
-- [[doc/roadmap/workspace-format-cstyle-braces.md]] — Status Implemented (first slice). No dedicated [[doc/current/]] page; [[doc/reference/formats/code-shape.md]] documents CStyle codec. **Partial** / first slice implemented (not a current/ baseline).
-- [[doc/roadmap/workspace-format-dispatch.md]] — no Status; describes Amb/Plain with Xml planned; [[doc/reference/formats/code-shape.md]] documents live `DocumentFormat` dispatch including Md/CStyle. Roadmap text is stale relative to reference. **Partial**.
+- [[plan/document-formats/workspace-format-cstyle-braces.md]] — Status Implemented (first slice). No dedicated [[doc/current/]] page; [[doc/reference/formats/code-shape.md]] documents CStyle codec. **Partial** / first slice implemented (not a current/ baseline).
+- [[plan/document-formats/workspace-format-dispatch.md]] — no Status; describes Amb/Plain with Xml planned; [[doc/reference/formats/code-shape.md]] documents live `DocumentFormat` dispatch including Md/CStyle. Roadmap text is stale relative to reference. **Partial**.
 - [[doc/roadmap/workspace-scale-file-and-db-management.md]] — umbrella; rollout steps mix done and planned; [[doc/index.md]] points related work as Partial/Planned. **Partial**.
 - [[doc/roadmap/workspace-scale-import.md]] — worksets include done reconcile and planned expand-to-parse; [[doc/index.md]] Lazy Load **Partial**. **Partial**.
 - [[doc/roadmap/workspace-webdav.md]] — Status Partial; [[doc/index.md]] cites WebDAV under Partial file sync. **Partial**.
@@ -95,11 +95,11 @@ Classification uses [[doc/index.md]] Development Sequence terms where that index
 - [[doc/roadmap/node-kind-transform.md]] — Status Planned. Not covered as implemented in [[doc/current/]]. **Planned**.
 - [[doc/roadmap/paste-document-codec-import.md]] — Status Draft plan (no implementation yet). **Planned**.
 - [[doc/roadmap/language-syntax-and-semantics.md]] — draft Amble language beyond RefExpr; no Status; [[doc/index.md]] does not list a current Expression/Amble baseline under Current Features (Amble run is Evolving only). **Planned** / draft.
-- [[doc/roadmap/workspace-format-amb.md]] — Status Draft (target design; Snapshot.fs called pre-workspace baseline). Related codecs exist in code/reference; this doc remains target design. **Planned** / draft relative to its Status.
-- [[doc/roadmap/workspace-format-code.md]] — Status Draft. **Planned** / draft.
-- [[doc/roadmap/workspace-format-md.md]] — Status Target design; [[doc/index.md]] Might be next under workspace file model does not list Md as current; cites XML as next format example. **Planned**.
-- [[doc/roadmap/workspace-format-plain.md]] — Status Draft. **Planned** / draft (reference formats note Plain exists in code; this roadmap Status remains Draft).
-- [[doc/roadmap/workspace-format-xml.md]] — Status Draft; [[doc/index.md]] Might be next: XML read/write. **Planned**.
+- [[plan/document-formats/workspace-format-amb.md]] — Status Draft (target design; Snapshot.fs called pre-workspace baseline). Related codecs exist in code/reference; this doc remains target design. **Planned** / draft relative to its Status.
+- [[plan/document-formats/workspace-format-code.md]] — Status Draft. **Planned** / draft.
+- [[plan/document-formats/workspace-format-md.md]] — Status Target design; [[doc/index.md]] Might be next under workspace file model does not list Md as current; cites XML as next format example. **Planned**.
+- [[plan/document-formats/workspace-format-plain.md]] — Status Draft. **Planned** / draft (reference formats note Plain exists in code; this roadmap Status remains Draft).
+- [[plan/document-formats/workspace-format-xml.md]] — Status Draft; [[doc/index.md]] Might be next: XML read/write. **Planned**.
 - [[doc/roadmap/workspace-text-outline-conversion.md]] — Status Draft. **Planned** / draft (Stage plan cites it as full spec for Stage 7; Status still Draft).
 - [[doc/roadmap/workspace-text-outline-conversion.md.md]] — empty file (0 bytes). No claim.
 
@@ -136,7 +136,7 @@ Topics still open after subtracting current baselines:
 - Workspace file sync remainder: overwrite/freshness UI; mirror-delete / Class 2 ([[doc/index.md]], [[doc/roadmap/workspace-file-sync.md]], checklist Overwrite policy).
 - Stage 7 follow-ups: hard delete under TRASH removes artifacts; git persistence verification ([[doc/current/workspace-stage-plan.md]]).
 - Desktop gaps: open-in-explorer; startup workspace registration; full filesystem API; `open` capability ([[doc/current/desktop-local-files.md]], postgres-roadmap §7).
-- Format targets still draft/planned in roadmap: XML, Markdown, code comment-refs, text-outline conversion Status Draft ([[doc/roadmap/workspace-format-xml.md]], [[doc/roadmap/workspace-format-md.md]], [[doc/roadmap/workspace-format-code.md]], [[doc/roadmap/workspace-text-outline-conversion.md]]); paste via document codec ([[doc/roadmap/paste-document-codec-import.md]]); Normal↔Directory promote/demote ([[doc/roadmap/node-kind-transform.md]]).
+- Format targets still draft/planned in roadmap: XML, Markdown, code comment-refs, text-outline conversion Status Draft ([[plan/document-formats/workspace-format-xml.md]], [[plan/document-formats/workspace-format-md.md]], [[plan/document-formats/workspace-format-code.md]], [[doc/roadmap/workspace-text-outline-conversion.md]]); paste via document codec ([[doc/roadmap/paste-document-codec-import.md]]); Normal↔Directory promote/demote ([[doc/roadmap/node-kind-transform.md]]).
 - Amble / expression language beyond RefExpr baseline ([[doc/roadmap/language-syntax-and-semantics.md]], [[doc/roadmap/amble-run.md]]; live Project [[plan/expression-language/]]).
 - RefExpr postfixes and command/assignment syntax still Not implemented in [[doc/current/workspace-graph.md]].
 - Persistence-model Not implemented list also names: external migration tooling beyond initSchema; removal of legacy FileAgent file-authority path ([[doc/current/persistence-model.md]]).

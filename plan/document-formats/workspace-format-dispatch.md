@@ -1,13 +1,13 @@
 # Document Format Dispatch
 
 See also: [[doc/roadmap/workspace-file-model.md]] Stage 7 Steps 5–6,
-[[doc/roadmap/workspace-format-plain.md]], [[doc/roadmap/workspace-format-xml.md]], [[doc/roadmap/workspace-text-outline-conversion.md]]
+[[plan/document-formats/workspace-format-plain.md]], [[plan/document-formats/workspace-format-xml.md]], [[doc/roadmap/workspace-text-outline-conversion.md]]
 
 ## What it gives you
 
 - `.amb` directory and workspace artifacts keep using `AmbDocument`.
 - Generic text file artifacts (neither `.amb` nor `.md` nor XML-shaped) use `PlainTextDocument`.
-- XML file artifacts use `XmlDocument` ([[doc/roadmap/workspace-format-xml.md]]).
+- XML file artifacts use `XmlDocument` ([[plan/document-formats/workspace-format-xml.md]]).
 - One shared dispatch boundary in `src/Shared/`; `DocumentPersistence` and `DocumentAssembly` call it instead of hard-coding `AmbDocument`.
 - Server read/write/discovery tests prove both codecs on disk.
 
@@ -44,7 +44,7 @@ Classification rules (reuse `classifyArtifactRelative`):
 | Any other file path | Plain (unless heading or graph rules below override) |
 | Plain file with nested document-root children | Amb on write (graph-aware) |
 | `.txt` file whose content has `->` or `^` lines | Amb on read (content-aware) |
-| Artifact heading is HTML-shaped | Plain on read/write ([[doc/roadmap/workspace-format-xml.md]] § Classification) |
+| Artifact heading is HTML-shaped | Plain on read/write ([[plan/document-formats/workspace-format-xml.md]] § Classification) |
 | Artifact heading is XML-shaped and parse succeeds | Xml on read/write |
 | Artifact heading is XML-shaped but parse fails | Plain on read/write (flagged) |
 

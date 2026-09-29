@@ -2,7 +2,7 @@
 
 Status: Draft
 Authority: Target design for text workspace files that are not `.amb` or `.md`.
-See also: [[doc/roadmap/workspace-text-outline-conversion.md]], [[doc/roadmap/reference-expressions.md]], [[doc/roadmap/workspace-format-amb.md]]
+See also: [[doc/roadmap/workspace-text-outline-conversion.md]], [[doc/roadmap/reference-expressions.md]], [[plan/document-formats/workspace-format-amb.md]]
 
 Import/export workflow and the generic conversion contract live in [[doc/roadmap/workspace-text-outline-conversion.md]]. This format applies to plain text files that are not `.amb` or `.md`.
 
@@ -98,7 +98,7 @@ Format rules:
 - Ref-only lines round-trip at the correct depth; inline refs stay plain text.
 - Reconciled import preserves user `cssClasses`; unsupported constructs produce diagnostics.
 
-Dispatch and persistence (assembly/persistence tests): see [[doc/roadmap/workspace-format-dispatch.md]].
+Dispatch and persistence (assembly/persistence tests): see [[plan/document-formats/workspace-format-dispatch.md]].
 
 - `.amb` paths classify to Amb codec; non-`.amb`, non-`.md` file paths classify to Plain codec; `.md` remains unimplemented.
 - A `Special File` named `readme.txt` writes plain text, not `.amb` stable-id syntax; `readAllDocuments` reads it back through the plain codec.

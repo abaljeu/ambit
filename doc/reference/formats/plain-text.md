@@ -25,7 +25,7 @@ Fit according to [[code-shape.md]].
 
 ## Planned Doc Changes
 
-1. In `[doc/roadmap/workspace-file-model.md](doc/roadmap/workspace-file-model.md)`, promote the generic text bullet from deferred to a planned/read-write-layer slice and link to `[doc/roadmap/workspace-format-plain.md](doc/roadmap/workspace-format-plain.md)` plus `[doc/roadmap/workspace-text-outline-conversion.md](doc/roadmap/workspace-text-outline-conversion.md)`.
+1. In `[doc/roadmap/workspace-file-model.md](doc/roadmap/workspace-file-model.md)`, promote the generic text bullet from deferred to a planned/read-write-layer slice and link to `[plan/document-formats/workspace-format-plain.md](plan/document-formats/workspace-format-plain.md)` plus `[doc/roadmap/workspace-text-outline-conversion.md](doc/roadmap/workspace-text-outline-conversion.md)`.
 
 2. In [[doc/roadmap/workspace-text-outline-conversion.md]], record shared outline LCS reconcile (Shared/Documents) and that generic text persistence is reconciled as `(previous file text, current graph document, edited/new file text)`:
 
@@ -34,7 +34,7 @@ Fit according to [[code-shape.md]].
 - line edit/add/delete preserve unaffected node identity and untouched file bytes;
 - external re-indent keeps id when text LCS-matches; duplicate/blank runs use positional tie-break.
 
-3. In [[doc/roadmap/workspace-format-plain.md]], revise the plain-format specifics:
+3. In [[plan/document-formats/workspace-format-plain.md]], revise the plain-format specifics:
 
 - Keep indentation inference, blanks both ways, byte preservation expectations, and LCS reconcile outcomes.
 - Remove or sharply qualify ` #name-token` and ref-only line syntax; those make an Ambit-flavored text format, not arbitrary text.

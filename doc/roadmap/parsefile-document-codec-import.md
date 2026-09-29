@@ -2,7 +2,7 @@
 
 Status: Core Unparsed wiring landed; verification and Current warm remain.
 
-See also: [[doc/roadmap/parse-file-reconcile-current.md]], [[doc/roadmap/paste-document-codec-import.md]], [[doc/roadmap/workspace-format-md.md]], [[doc/reference/formats/code-shape.md]], [[src/Shared/documents/DocumentFormat.fs]], [[src/Shared/dotnet/ImportDocument.fs]], [[src/Client/UpdateImport.fs]]
+See also: [[doc/roadmap/parse-file-reconcile-current.md]], [[doc/roadmap/paste-document-codec-import.md]], [[plan/document-formats/workspace-format-md.md]], [[doc/reference/formats/code-shape.md]], [[src/Shared/documents/DocumentFormat.fs]], [[src/Shared/dotnet/ImportDocument.fs]], [[src/Client/UpdateImport.fs]]
 
 ## What it gives you
 
