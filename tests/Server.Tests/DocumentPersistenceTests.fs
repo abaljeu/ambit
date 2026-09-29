@@ -316,6 +316,72 @@ let ``persistGraphChange does not rewrite untouched sibling document artifact`` 
     Assert.Contains("ALPHA", File.ReadAllText pathA)
 
 [<Fact>]
+let ``persistGraphChange leaves an untouched sibling root Unpersisted`` () =
+    let dataDir = newTempDir ()
+    let built, fileAId, fileBId, bodyAId, _ = graphWithTwoSiblingFiles ()
+    let wsId = built.nodes.[fileAId].owner
+    let markUnpersisted id graph =
+        Graph.setPersistState id PersistState.Unpersisted graph
+        |> requireOk "unpersisted"
+    let prior =
+        built
+        |> markUnpersisted fileBId
+        |> markUnpersisted wsId
+    DocumentPersistWrite.writeAllDocuments dataDir prior
+    |> requireOk "initial write"
+    |> ignore
+    let post =
+        Graph.setText bodyAId "alpha" "ALPHA" prior
+        |> requireOk "edit a"
+    let result =
+        DocumentPersistChange.persistGraphChange dataDir prior post
+        |> requireOk "persistGraphChange"
+    Assert.Equal(PersistState.Persisted, result.graph.nodes.[fileAId].persistState)
+    Assert.Equal(PersistState.Unpersisted, result.graph.nodes.[fileBId].persistState)
+    Assert.Equal(PersistState.Unpersisted, result.graph.nodes.[wsId].persistState)
+
+[<Fact>]
+let ``persistGraphChange leaves a failed write Unpersisted when the old file remains`` () =
+    let dataDir = newTempDir ()
+    let fileId = NodeId.New()
+    let bodyId = NodeId.New()
+    let fileNode =
+        Node.Create(
+            fileId,
+            text = "secret.txt",
+            name = Filename.Ok "secret.txt",
+            owner = Graph.systemId,
+            kind = Special File)
+    let bodyNode = Node.Create(bodyId, text = "old", owner = fileId)
+    let graph =
+        Graph.create ()
+        |> Graph.addDetachedNode fileNode
+        |> Graph.addDetachedNode bodyNode
+        |> fun g ->
+            Graph.replace Graph.systemId 0 [] (owned [ fileId ]) g
+            |> requireOk "system->file"
+        |> fun g ->
+            Graph.replace fileId 0 [] (owned [ bodyId ]) g
+            |> requireOk "file->body"
+    let full = artifactFullPath dataDir graph fileId
+    let parent = Path.GetDirectoryName full
+    Directory.CreateDirectory parent |> ignore
+    File.WriteAllText(full, "OLD")
+    let post =
+        Graph.setText bodyId "old" "NEW" graph
+        |> requireOk "edit"
+    Assert.Equal(PersistState.Unpersisted, post.nodes.[fileId].persistState)
+    let result =
+        DocumentPersistChange.persistGraphChange dataDir graph post
+        |> requireOk "persistGraphChange"
+    Assert.Equal(
+        Some(DocumentPersistWrite.fileCouldNotSave "SYSTEM/secret.txt"),
+        result.message)
+    Assert.Equal("OLD", File.ReadAllText full)
+    Assert.Equal(PersistState.Unpersisted, result.graph.nodes.[fileId].persistState)
+    Assert.Equal("NEW", result.graph.nodes.[bodyId].text)
+
+[<Fact>]
 let ``readAllDocuments cold load stamps Directory File roots from disk mtime`` () =
     let dataDir = newTempDir ()
     let graph, wsId, dirId, fileId, _ = graphWithNestedDocs ()
