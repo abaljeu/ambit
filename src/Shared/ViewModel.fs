@@ -390,12 +390,41 @@ type Msg =
 
 /// After row patches (and if `ManageFocus` still runs without a mode change): keep the live
 /// `#edit-input` caret. Keystrokes update only the contenteditable; `Editing` text/caret stay
-/// stale until commit. True when still `Editing` with the same mode ref — restore saved offset
-/// if patches cleared the selection; do not apply stale `EditCaret` from the model.
+/// stale until commit. True when still `Editing` with the same mode ref, and when a stale-empty
+/// draft on the same focus becomes that Node's text — do not jump the live caret to index 0.
 [<RequireQualifiedAccess>]
 module EditingCaretPreserve =
+    let private focusNodeText (model: VM) : string option =
+        match model.selectedNodes with
+        | None -> None
+        | Some sel ->
+            sel.range.parent.children
+            |> List.tryItem sel.focus
+            |> Option.bind (fun id -> Map.tryFind id model.siteMap.entries)
+            |> Option.bind (fun entry -> Map.tryFind entry.nodeId model.graph.nodes)
+            |> Option.map (fun node -> node.text)
+
+    let private sameFocus (prev: VM) (model: VM) =
+        match prev.selectedNodes, model.selectedNodes with
+        | None, None -> true
+        | Some a, Some b ->
+            a.focus = b.focus
+            && a.range.parent.instanceId = b.range.parent.instanceId
+        | _ -> false
+
+    let private staleEmptySameFocus (prev: VM) (model: VM) (text: string) =
+        match prev.mode with
+        | Editing ("", _) when text <> "" && sameFocus prev model ->
+            match focusNodeText model with
+            | Some nodeText when nodeText = text -> true
+            | _ -> false
+        | _ -> false
+
     let shouldPreserveDomCaret (previousModel: VM option) (model: VM) : bool =
         match previousModel, model.mode with
-        | Some prev, Editing _ ->
-            LanguagePrimitives.PhysicalEquality prev.mode model.mode
+        | Some prev, Editing (text, _) when
+            LanguagePrimitives.PhysicalEquality prev.mode model.mode ->
+            true
+        | Some prev, Editing (text, _) when staleEmptySameFocus prev model text ->
+            true
         | _ -> false

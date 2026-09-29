@@ -2836,6 +2836,15 @@ let ``EditingCaretPreserve true when only sync fields change`` () =
     Assert.True(EditingCaretPreserve.shouldPreserveDomCaret (Some prev) next)
 
 [<Fact>]
+let ``EditingCaretPreserve true when stale-empty draft becomes node text`` () =
+    let graph, cont, _ = buildFlat [ "hello" ]
+    let prev =
+        { modelWithSel graph cont 0 1 0 with
+            mode = Editing ("", EditCaret.Utf16Index 4) }
+    let next = retargetEditingSelection prev
+    Assert.True(EditingCaretPreserve.shouldPreserveDomCaret (Some prev) next)
+
+[<Fact>]
 let ``EditingCaretPreserve false when EditCaret in model changes`` () =
     let graph, _, _ = buildFlat [ "hi" ]
     let prev =

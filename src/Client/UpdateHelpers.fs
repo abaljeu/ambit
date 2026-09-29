@@ -8,6 +8,7 @@ open Gambol.Shared.CommandEntry
 open Gambol.Shared
 open Gambol.Shared.ViewModel
 open Gambol.Shared.ViewModelMoveOps
+open Gambol.Shared.ViewModelSplitOps
 open Thoth.Json.Core
 
 // ---------------------------------------------------------------------------
@@ -383,8 +384,14 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) : VM * Effect l
                     |> Option.bind (fun p ->
                         if insertIndex < p.children.Length then Some p.children.[insertIndex]
                         else None)
-            ViewModelSplitOps.continueEditAfterSplit
-                clampedPos currentText newNodeText newId focusInstId m2,
+            continueEditAfterSplit
+                { text =
+                    { cursorPos = clampedPos
+                      currentText = currentText
+                      newNodeText = newNodeText }
+                  newNodeId = newId
+                  focusInstanceId = focusInstId }
+                m2,
             effects
         | Error msg -> withMoveError msg model, []
     | _ -> model, []
