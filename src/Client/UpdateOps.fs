@@ -593,6 +593,29 @@ let submitCssClassPromptOp (model: VM) : VM * Effect list =
                 { result with lastCmdResult = Some (CmdLastResult.Error (None, msg)) }, []
     | _ -> model, []
 
+/// Op: Toggle one user class on every Node in the current Selection.
+let toggleCssClassOp
+    (commandId: CommandId)
+    (className: string)
+    (model: VM)
+    : VM * Effect list =
+    match model.selectedNodes with
+    | None -> model, []
+    | Some sel ->
+        let ids =
+            rangeChildren model.graph sel.range
+            |> List.map (fun child -> child.id)
+        let ops = CssClassToggle.toggleClassOps className model.graph ids
+        if ops.IsEmpty then model, []
+        else
+            match applyAndPost (displayName commandId) ops model with
+            | Ok (m, effects) -> m, effects
+            | Error msg ->
+                consoleLog msg
+                { model with
+                    lastCmdResult = Some (CmdLastResult.Error (None, msg)) },
+                []
+
 /// Op: Zoom in — set the view root to the first selected node (Ctrl+]).
 /// Commits any in-progress edit first. No-op when the view root is focused or the node is a leaf.
 let zoomInOp (model: VM) : VM * Effect list =

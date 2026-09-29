@@ -112,6 +112,7 @@
     <Compile Include="DeleteOpsTests.fs" />
     <Compile Include="ActorLiveTests.fs" />
     <Compile Include="ResidentProjectionApplyTests.fs" />
+    <Compile Include="SplitOriginTraceTests.fs" />
     <Compile Include="SyncLogicTests.fs" />
     <Compile Include="BootCacheTestHelpers.fs" />
     <Compile Include="BootCacheTests.fs" />
@@ -126,6 +127,7 @@
     <Compile Include="CommandDockLayoutTests.fs" />
     <Compile Include="CommandCategoryTests.fs" />
     <Compile Include="CommandEntryTests.fs" />
+    <Compile Include="CssClassToggleTests.fs" />
     <Compile Include="WorkspaceUploadTests.fs" />
     <Compile Include="WorkspaceUploadStructureTests.fs" />
     <Compile Include="WorkspaceCloudUploadTests.fs" />

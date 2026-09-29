@@ -75,29 +75,19 @@ module ResidentProjection =
         { pending = []
           submissionId = System.Guid.Empty }
 
-    let private sameFieldTarget (incoming: Op) (pendingOp: Op) =
-        match incoming, pendingOp with
-        | Op.SetName(a, _, _), Op.SetName(b, _, _) -> a = b
-        | Op.SetText(a, _, _), Op.SetText(b, _, _) -> a = b
-        | Op.SetClasses(a, _, _), Op.SetClasses(b, _, _) -> a = b
-        | Op.Replace(a, _, _), Op.Replace(b, _, _) -> a = b
-        | _ -> false
+    let private pendingOps (sync: SyncPending) : Op list =
+        sync.pending
+        |> List.collect (fun ev ->
+            if ev.submissionId = sync.submissionId then
+                []
+            else
+                Ev.ops ev |> Option.defaultValue [])
 
-    let private undoMatchingPending
-        (op: Op)
+    let private undoAllPending
         (sync: SyncPending)
         (state: State)
         : ApplyResult =
-        let inverses =
-            sync.pending
-            |> List.collect (fun ev ->
-                if ev.submissionId = sync.submissionId then
-                    []
-                else
-                    Ev.ops ev
-                    |> Option.defaultValue []
-                    |> List.filter (sameFieldTarget op))
-            |> Op.invertAll
+        let inverses = pendingOps sync |> Op.invertAll
         if inverses.IsEmpty then
             ApplyResult.Unchanged state
         else
@@ -105,7 +95,14 @@ module ResidentProjection =
             | ApplyResult.Invalid _ -> ApplyResult.Unchanged state
             | other -> other
 
-    /// Poll/sync apply: recoverable CAS is skipped, optimistic field undone.
+    let private stateAfterUndo (result: ApplyResult) (fallback: State) =
+        match result with
+        | ApplyResult.Changed s
+        | ApplyResult.Unchanged s -> s
+        | ApplyResult.Invalid _ -> fallback
+
+    /// Poll/sync apply: when the old-value precondition fails, undo every
+    /// pending Graph op, then apply the Server payload.
     let applyOpForSync
         (op: Op)
         (state: State)
@@ -115,13 +112,13 @@ module ResidentProjection =
         | ApplyResult.Invalid (s, msg) ->
             match casUserMessage msg with
             | Some userMsg ->
-                match undoMatchingPending op sync s with
-                | ApplyResult.Changed s' ->
-                    ApplyResult.Changed s', Some userMsg
-                | ApplyResult.Unchanged s' ->
-                    ApplyResult.Unchanged s', Some userMsg
-                | ApplyResult.Invalid _ ->
-                    ApplyResult.Unchanged s, Some userMsg
+                let undone = stateAfterUndo (undoAllPending sync s) s
+                match applyOp op undone with
+                | ApplyResult.Invalid (s', msg') ->
+                    match casUserMessage msg' with
+                    | Some still -> ApplyResult.Unchanged s', Some still
+                    | None -> ApplyResult.Invalid (s', msg'), None
+                | other -> other, Some userMsg
             | None -> ApplyResult.Invalid (s, msg), None
         | other -> other, None
 
