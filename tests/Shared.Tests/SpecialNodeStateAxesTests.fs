@@ -111,8 +111,10 @@ let ``SetDocumentState dual-writes the parse axis and leaves persist`` () =
     Assert.Equal(ParseState.Unparsed, absent.nodes.[id].parseState)
     Assert.Equal(PersistState.Unpersisted, absent.nodes.[id].persistState)
 
-[<Fact>]
-let ``graph edit marks only the nearest owning special Unpersisted`` () =
+let private markPersisted id graph =
+    Graph.setPersistState id PersistState.Persisted graph |> requireOk
+
+let private persistedOwnedFile () =
     let wsId = NodeId.New()
     let dirId = NodeId.New()
     let fileId = NodeId.New()
@@ -128,10 +130,14 @@ let ``graph edit marks only the nearest owning special Unpersisted`` () =
         |> apply [ Op.SetDocumentState(fileId, Unparsed, Current) ]
         |> apply [ Op.NewNode(childId, "body") ]
         |> place fileId childId
-        |> fun g -> Graph.setPersistState wsId PersistState.Persisted g |> requireOk
-        |> fun g -> Graph.setPersistState dirId PersistState.Persisted g |> requireOk
-        |> fun g -> Graph.setPersistState fileId PersistState.Persisted g |> requireOk
+        |> markPersisted wsId
+        |> markPersisted dirId
+        |> markPersisted fileId
+    graph, wsId, dirId, fileId, childId
 
+[<Fact>]
+let ``graph edit marks only the nearest owning special Unpersisted`` () =
+    let graph, wsId, dirId, fileId, childId = persistedOwnedFile ()
     let edited = apply [ Op.SetText(childId, "body", "edited") ] graph
     Assert.Equal(PersistState.Unpersisted, edited.nodes.[fileId].persistState)
     Assert.Equal(PersistState.Persisted, edited.nodes.[dirId].persistState)
@@ -146,9 +152,9 @@ let ``graph edit marks only the nearest owning special Unpersisted`` () =
         |> apply [ Op.SetDocumentState(wsId, Unparsed, Current) ]
     let reset =
         opened
-        |> fun g -> Graph.setPersistState fileId PersistState.Persisted g |> requireOk
-        |> fun g -> Graph.setPersistState dirId PersistState.Persisted g |> requireOk
-        |> fun g -> Graph.setPersistState wsId PersistState.Persisted g |> requireOk
+        |> markPersisted fileId
+        |> markPersisted dirId
+        |> markPersisted wsId
     let renamed = apply [ Op.SetText(fileId, "file.txt", "renamed") ] reset
     Assert.Equal(PersistState.Unpersisted, renamed.nodes.[fileId].persistState)
     Assert.Equal(PersistState.Persisted, renamed.nodes.[dirId].persistState)

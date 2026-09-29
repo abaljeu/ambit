@@ -76,14 +76,11 @@ let ``persistGraphOps writes only roots represented by accepted operations`` () 
     Assert.Contains("ALPHA", File.ReadAllText pathA)
     Assert.Equal(planted, File.ReadAllText pathB)
 
-[<Fact>]
-let ``persistGraphOps soft-fails illicit write and returns could-not-save message`` () =
-    let dataDir = newTempDir ()
-    let graph0 = Graph.create ()
+// Non-allowlisted SYSTEM file: still a writable document root for impact,
+// but writeDocument refuses via SystemDirectoryPersist.
+let private illicitSystemFile () =
     let fileId = NodeId.New()
     let bodyId = NodeId.New()
-    // Non-allowlisted SYSTEM file: still a writable document root for impact,
-    // but writeDocument refuses via SystemDirectoryPersist.
     let fileNode =
         Node.Create(
             fileId,
@@ -91,15 +88,18 @@ let ``persistGraphOps soft-fails illicit write and returns could-not-save messag
             name = Filename.Ok "secret.txt",
             owner = Graph.systemId,
             kind = Special File)
-    let bodyNode = Node.Create(bodyId, text = "body", owner = fileId)
-    let graph1 =
-        graph0
-        |> Graph.addDetachedNode fileNode
-        |> Graph.addDetachedNode bodyNode
     let graph =
-        graph1
+        Graph.create ()
+        |> Graph.addDetachedNode fileNode
+        |> Graph.addDetachedNode (Node.Create(bodyId, text = "body", owner = fileId))
         |> attach Graph.systemId [ fileId ]
         |> attach fileId [ bodyId ]
+    graph, fileId, bodyId
+
+[<Fact>]
+let ``persistGraphOps soft-fails illicit write and returns could-not-save message`` () =
+    let dataDir = newTempDir ()
+    let graph, fileId, bodyId = illicitSystemFile ()
     let post =
         Graph.setText bodyId "body" "BODY" graph
         |> requireOk "edit"
@@ -128,14 +128,35 @@ let private workspaceIdOf (graph: Graph) =
     |> Map.pick (fun id node ->
         if node.kind = Special Workspace then Some id else None)
 
+let private markPersisted id graph =
+    Graph.setPersistState id PersistState.Persisted graph |> requireOk "clean"
+
+let private assertWrittenFileStamp fileAId wsId (dirty: Graph) (written: PersistGraphOk) =
+    let stampOps = PersistStamp.opsBetween dirty written.graph
+    Assert.Contains(
+        stampOps,
+        fun op ->
+            match op with
+            | Op.SetPersistState(
+                id, PersistState.Unpersisted, PersistState.Persisted)
+                when id = fileAId -> true
+            | _ -> false)
+    match Op.applyAll stampOps { graph = dirty; eventId = EventId.zero } with
+    | ApplyResult.Changed state ->
+        Assert.Equal(PersistState.Persisted, state.graph.nodes.[fileAId].persistState)
+        Assert.Equal(PersistState.Unpersisted, state.graph.nodes.[wsId].persistState)
+    | other -> failwith $"expected stamp ops to apply, got {other}"
+
 [<Fact>]
 let ``successful persistGraphOps marks the written special Persisted`` () =
     let dataDir = newTempDir ()
     let built, fileAId, fileBId, bodyAId, _ = graphWithTwoFiles ()
     let wsId = workspaceIdOf built
-    let clean id graph =
-        Graph.setPersistState id PersistState.Persisted graph |> requireOk "clean"
-    let graph = built |> clean fileAId |> clean fileBId |> clean wsId
+    let graph =
+        built
+        |> markPersisted fileAId
+        |> markPersisted fileBId
+        |> markPersisted wsId
     DocumentPersistWrite.writeAllDocuments dataDir graph
     |> requireOk "initial write"
     |> ignore
@@ -157,17 +178,4 @@ let ``successful persistGraphOps marks the written special Persisted`` () =
     Assert.Equal(ParseState.Parsed, result.graph.nodes.[fileAId].parseState)
     Assert.Equal(PersistState.Persisted, result.graph.nodes.[fileBId].persistState)
     Assert.Equal(PersistState.Unpersisted, result.graph.nodes.[wsId].persistState)
-    let stampOps = PersistStamp.opsBetween dirty result.graph
-    Assert.Contains(
-        stampOps,
-        fun op ->
-            match op with
-            | Op.SetPersistState(
-                id, PersistState.Unpersisted, PersistState.Persisted)
-                when id = fileAId -> true
-            | _ -> false)
-    match Op.applyAll stampOps { graph = dirty; eventId = EventId.zero } with
-    | ApplyResult.Changed state ->
-        Assert.Equal(PersistState.Persisted, state.graph.nodes.[fileAId].persistState)
-        Assert.Equal(PersistState.Unpersisted, state.graph.nodes.[wsId].persistState)
-    | other -> failwith $"expected stamp ops to apply, got {other}"
+    assertWrittenFileStamp fileAId wsId dirty result
