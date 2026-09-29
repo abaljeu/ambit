@@ -30,6 +30,64 @@ module ViewModelJoinOps =
         let oldChildren = GraphChildren.get g parentId
         ChildListWire.removeRange parentId oldChildren indexInParent 1
 
+    let private isBlankLeaf (node: Node) (children: ChildNode list) =
+        children.IsEmpty
+        && node.kind = Normal
+        && System.String.IsNullOrWhiteSpace node.text
+
+    let private immediatePrevIndex
+        (graph: Graph)
+        (prevId: NodeId)
+        (parentId: NodeId)
+        (indexInParent: int)
+        : int option =
+        match Graph.tryFindParentAndIndex prevId graph with
+        | Some (pp, pi) when pp = parentId && pi + 1 = indexInParent ->
+            Some pi
+        | _ -> None
+
+    let private tryDiscardBlankPrevious
+        (graph: Graph)
+        (sel: Selection)
+        (currentText: string)
+        (prevInstId: SiteId)
+        (prevId: NodeId)
+        (prevNode: Node)
+        (parentId: NodeId)
+        (indexInParent: int)
+        : JoinEditPlan option =
+        let prevChildren = GraphChildren.get graph prevId
+        match immediatePrevIndex graph prevId parentId indexInParent with
+        | Some prevIndex when isBlankLeaf prevNode prevChildren ->
+            let currentInstId =
+                focusedInstanceId sel |> Option.defaultValue prevInstId
+            Some
+                (Apply
+                    ([ removeCurrentChildOp graph prevId parentId prevIndex ],
+                     currentText,
+                     EditCaret.Utf16Index 0,
+                     currentInstId))
+        | _ -> None
+
+    let private joinIntoPreviousOps
+        (graph: Graph)
+        (prevId: NodeId)
+        (prevNode: Node)
+        (currentId: NodeId)
+        (currentText: string)
+        (parentId: NodeId)
+        (indexInParent: int)
+        : Op list =
+        let joinedText = prevNode.text + currentText
+        let prevChildren = GraphChildren.get graph prevId
+        let currentChildren = GraphChildren.get graph currentId
+        [ if joinedText <> prevNode.text then
+              yield Op.SetText(prevId, prevNode.text, joinedText)
+          if not currentChildren.IsEmpty then
+              yield ChildListWire.append prevId prevChildren currentChildren
+              yield ChildListWire.replace currentId currentChildren []
+          yield removeCurrentChildOp graph currentId parentId indexInParent ]
+
     let joinWithNextPlan (currentText: string) (model: VM) : JoinEditPlan option =
         match model.mode, model.selectedNodes with
         | Editing _, Some sel ->
@@ -71,28 +129,58 @@ module ViewModelJoinOps =
                 | _ -> None
         | _ -> None
 
+    let private previousJoinPlan
+        (currentText: string)
+        (model: VM)
+        (sel: Selection)
+        (currentId: NodeId)
+        (currentNode: Node)
+        (prevInstId: SiteId)
+        (prevId: NodeId)
+        (prevNode: Node)
+        (parentId: NodeId)
+        (indexInParent: int)
+        : JoinEditPlan =
+        match
+            tryDiscardBlankPrevious
+                model.graph
+                sel
+                currentText
+                prevInstId
+                prevId
+                prevNode
+                parentId
+                indexInParent
+        with
+        | Some plan -> plan
+        | None when NodeKind.artifact currentNode.kind -> RestoreCaret
+        | None ->
+            Apply(
+                joinIntoPreviousOps
+                    model.graph
+                    prevId
+                    prevNode
+                    currentId
+                    currentText
+                    parentId
+                    indexInParent,
+                prevNode.text + currentText,
+                EditCaret.Utf16Index prevNode.text.Length,
+                prevInstId)
+
     let joinWithPreviousPlan (currentText: string) (model: VM) : JoinEditPlan option =
         match model.mode, model.selectedNodes with
         | Editing _, Some sel ->
             let currentId = focusedNodeId model.graph sel
             let currentNode = model.graph.nodes.[currentId]
-
             match tryVisibleNeighbor -1 model sel,
                   Graph.tryFindParentAndIndex currentId model.graph with
-            | Some (prevInstId, prevId, prevNode), Some (parentId, indexInParent)
+            | Some (prev, prevId, prevNode), Some (parentId, index)
                 when (GraphChildren.get model.graph currentId).IsEmpty
                      || (GraphChildren.get model.graph prevId).IsEmpty ->
-                let joinedText = prevNode.text + currentText
-                let prevChildren = GraphChildren.get model.graph prevId
-                let currentChildren = GraphChildren.get model.graph currentId
-                let ops =
-                    [ if joinedText <> prevNode.text then
-                          yield Op.SetText(prevId, prevNode.text, joinedText)
-                      if not currentChildren.IsEmpty then
-                          yield
-                              ChildListWire.append prevId prevChildren currentChildren
-                      yield removeCurrentChildOp model.graph currentId parentId indexInParent ]
-
-                Some (Apply (ops, joinedText, EditCaret.Utf16Index prevNode.text.Length, prevInstId))
+                Some (
+                    previousJoinPlan
+                        currentText model sel currentId currentNode
+                        prev prevId prevNode parentId index)
             | _ -> None
         | _ -> None
