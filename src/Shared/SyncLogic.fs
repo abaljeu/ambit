@@ -151,6 +151,7 @@ module SyncLogic =
     /// Event tail first. A failed Poll/sync apply precondition undoes
     /// pending in applyOpForSync. Want install rewinds pending, then applies.
     /// After either undo, leftover pending is re-applied with ordinary apply.
+    /// Event-stripped callers use applyWantPreservingPending instead.
     let applySyncResponse
         (response: SyncResponse)
         (state: ClientSyncState)
@@ -168,6 +169,17 @@ module SyncLogic =
                     Ok (reapplyLeftoverPending response.events applied)
                 else
                     Ok applied
+
+    /// Install a Want answer on the current Graph. Do not rewind pending
+    /// and do not re-apply it. PollDone uses this after catch-up play.
+    /// A post acknowledgement uses it so the Graph stays optimistic.
+    let applyWantPreservingPending
+        (response: SyncResponse)
+        (state: ClientSyncState)
+        : Result<ClientSyncState, string> =
+        match graphAfterWant response state.graph with
+        | Error msg -> Error msg
+        | Ok graph -> Ok { state with graph = graph }
 
     let applyLoadResponse
         (responseEventId: EventId)

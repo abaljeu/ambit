@@ -2,7 +2,7 @@
 
 **Type:** coding
 **Status:** coded
-**Actual:** 1h30m
+**Actual:** 2h
 **Blocked by:** None — can start immediately
 
 ## Context
@@ -63,8 +63,10 @@ If ordinary apply of one leftover op fails, leave that op in the pending queue f
 
 - 2026-09-29 — Charted from Alan’s locked Case B policy. Undo converges the Graph on the Server list. Leftover trailing pending stay in the queue and post as constructed. Re-apply them with ordinary apply after rewind and play so the person still sees those edits. The Client does not amend. Status `defined`.
 - 2026-09-29 — Alan accepted the chart. Implemented re-apply in [consumeCatchUpPoll](src/Shared/SyncLogic.fs) and at the end of [applySyncResponse](src/Shared/SyncLogic.fs) after a precondition undo or Want rewind. Ordinary apply skips an op that does not fit. The queue is unchanged. The post acknowledgement does not play the list. Status `coded`.
+- 2026-09-29 — Must-fix from the independent review of this ticket. Event-stripped [SyncAnswer.apply](src/Client/SyncAnswer.fs) and the post acknowledgement install a Want answer through [applyWantPreservingPending](src/Shared/SyncLogic.fs). They do not rewind pending and do not re-apply it. After catch-up play, the posted prefix stays off the Graph. The acknowledgement leaves the Graph optimistic. Status stays `coded`.
 
 ## Time
 
 - 2026-09-29 30m — charted coding ticket from locked Case B policy (from chat)
 - 2026-09-29 1h — re-apply leftover pending after catch-up play and sync undo (from chat)
+- 2026-09-29 30m — keep event-stripped Want install off leftover re-apply (from chat)

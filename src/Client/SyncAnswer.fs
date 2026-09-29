@@ -14,10 +14,12 @@ let apply
     (response: SyncResponse)
     (state: ClientSyncState)
     : Result<ClientSyncState, string> =
-    SyncLogic.applySyncResponse (withoutEvents response) state
+    SyncLogic.applyWantPreservingPending response state
 
 let applyChangeSuccess
     (response: ChangeSuccessResponse)
     (state: ClientSyncState)
     : Result<ClientSyncState, string> =
-    SyncLogic.applySyncResponse (fromChangeSuccess response) state
+    SyncLogic.applyWantPreservingPending
+        (SyncLogic.changeSuccessToSync response)
+        state

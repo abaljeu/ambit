@@ -4,7 +4,7 @@ Stage: build
 Summary: Name the origin of obscure line deletion on Enter node-split, undo pending so Poll/sync can apply the Server merge, and re-apply leftover trailing pending so the person still sees those edits.
 Updated: 2026-09-29
 Started: 2026-09-28
-Actual: 5h10m
+Actual: 5h40m
 
 **Part of:** [[plan/roadmap/epics/robust-outliner.md]]
 
