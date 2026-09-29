@@ -1038,6 +1038,236 @@ let ``consumeCatchUpPoll stamps History when stream matches submissionId`` () =
             | _ -> failwith "expected Undo body"
 
 [<Fact>]
+let ``consumeCatchUpPoll keeps trailing pending and shows it after Server play`` () =
+    let graph0 = Graph.create ()
+    let graphA, nodeA = Graph.newNode "a0" graph0
+    let baselineGraph, nodeB = Graph.newNode "b0" graphA
+    let prefixId = System.Guid.NewGuid()
+    let trailingId = System.Guid.NewGuid()
+    let prefix =
+        { textChange EventId.zero nodeA "a0" "a-posted" with
+            submissionId = prefixId }
+    let trailing =
+        { textChange EventId.zero nodeB "b0" "b-local" with
+            submissionId = trailingId }
+    let serverPrefix =
+        { textChange (EventIdFixtures.storedId 1) nodeA "a0" "a-server" with
+            submissionId = prefixId }
+    let state : ClientSyncState =
+        { graph = baselineGraph
+          eventId = EventId.zero
+          history = ClientHistory.clear ()
+          eventLog = EventLog.empty
+          actorLiveFocusIds = Set.empty
+          applyDetail = None
+          pending = [ prefix; trailing ] }
+    let baseline : CatchUpBaseline =
+        { eventId = EventId.zero
+          graph = baselineGraph }
+    match
+        SyncLogic.consumeCatchUpPoll
+            baseline
+            [ serverPrefix ]
+            (EventIdFixtures.storedId 1)
+            state
+    with
+    | Error msg -> failwith msg
+    | Ok result ->
+        Assert.Equal("a-server", result.graph.nodes.[nodeA].text)
+        Assert.Equal("b-local", result.graph.nodes.[nodeB].text)
+        Assert.Equal<Ev list>([ prefix; trailing ], result.pending)
+
+let private wantPackage () =
+    let packageId = NodeId.New()
+    let node = Node.Create(packageId, text = "pkg", owner = Graph.rootId)
+    packageId,
+    { events = []
+      nodes = [ node ]
+      childMap = Map.ofList [ packageId, [] ] }
+
+[<Fact>]
+let ``want install after catch-up keeps the Server prefix off the Graph`` () =
+    let graph0 = Graph.create ()
+    let graphP, parentId = Graph.newNode "parent" graph0
+    let graphH, helloId = Graph.newNode "hello" graphP
+    let baselineGraph, nodeB = Graph.newNode "b0" graphH
+    let baselineGraph =
+        match
+            Graph.replace
+                parentId
+                0
+                []
+                [ ChildNode.owner helloId ]
+                baselineGraph
+        with
+        | Ok graph -> graph
+        | Error msg -> failwith msg
+    let suffixId = NodeId.New()
+    let prefixId = System.Guid.NewGuid()
+    let trailingId = System.Guid.NewGuid()
+    let before = Graph.children baselineGraph parentId
+    let prefix =
+        { id = EventId.zero
+          submissionId = prefixId
+          authority = Authority "Browser"
+          commandName = "Edit node"
+          body =
+            EventBody.Change
+                [ Op.NewNode(suffixId, "extra")
+                  ChildListWire.insertAt
+                      parentId
+                      before
+                      1
+                      [ ChildNode.owner suffixId ] ] }
+    let trailing =
+        { textChange EventId.zero nodeB "b0" "b-local" with
+            submissionId = trailingId }
+    let serverPrefix =
+        { textChange (EventIdFixtures.storedId 1) helloId "hello" "server" with
+            submissionId = prefixId }
+    let state : ClientSyncState =
+        { graph = baselineGraph
+          eventId = EventId.zero
+          history = ClientHistory.clear ()
+          eventLog = EventLog.empty
+          actorLiveFocusIds = Set.empty
+          applyDetail = None
+          pending = [ prefix; trailing ] }
+    let baseline : CatchUpBaseline =
+        { eventId = EventId.zero
+          graph = baselineGraph }
+    let _, want = wantPackage ()
+    match
+        SyncLogic.consumeCatchUpPoll
+            baseline
+            [ serverPrefix ]
+            (EventIdFixtures.storedId 1)
+            state
+    with
+    | Error msg -> failwith msg
+    | Ok caught ->
+        match SyncLogic.applyWantPreservingPending want caught with
+        | Error msg -> failwith msg
+        | Ok result ->
+            Assert.Equal("server", result.graph.nodes.[helloId].text)
+            Assert.Equal("b-local", result.graph.nodes.[nodeB].text)
+            Assert.False(result.graph.nodes.ContainsKey suffixId)
+            Assert.Equal<Ev list>([ prefix; trailing ], result.pending)
+
+[<Fact>]
+let ``acknowledgement want install leaves leftover pending un-applied`` () =
+    let graph0 = Graph.create ()
+    let graphH, helloId = Graph.newNode "hello" graph0
+    let optimistic =
+        match Graph.setText helloId "hello" "local" graphH with
+        | Ok graph -> graph
+        | Error msg -> failwith msg
+    let suffixId = NodeId.New()
+    let pendingEdit =
+        { id = EventId.zero
+          submissionId = System.Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = "Edit node"
+          body = EventBody.Change [ Op.NewNode(suffixId, "extra") ] }
+    let state : ClientSyncState =
+        { graph = optimistic
+          eventId = EventId.zero
+          history = ClientHistory.clear ()
+          eventLog = EventLog.empty
+          actorLiveFocusIds = Set.empty
+          applyDetail = None
+          pending = [ pendingEdit ] }
+    let _, want = wantPackage ()
+    match SyncLogic.applyWantPreservingPending want state with
+    | Error msg -> failwith msg
+    | Ok result ->
+        Assert.Equal("local", result.graph.nodes.[helloId].text)
+        Assert.False(result.graph.nodes.ContainsKey suffixId)
+        Assert.Equal<Ev list>([ pendingEdit ], result.pending)
+
+[<Fact>]
+let ``applySyncResponse re-applies trailing pending after precondition undo`` () =
+    let graph0 = Graph.create ()
+    let graphA, nodeA = Graph.newNode "orig" graph0
+    let graphB, nodeB = Graph.newNode "b0" graphA
+    let prefixId = System.Guid.NewGuid()
+    let trailingId = System.Guid.NewGuid()
+    let prefix =
+        { textChange EventId.zero nodeA "orig" "local" with
+            submissionId = prefixId }
+    let trailing =
+        { textChange EventId.zero nodeB "b0" "b-local" with
+            submissionId = trailingId }
+    let graph =
+        match Graph.setText nodeA "orig" "local" graphB with
+        | Error msg -> failwith msg
+        | Ok graphA' ->
+            match Graph.setText nodeB "b0" "b-local" graphA' with
+            | Error msg -> failwith msg
+            | Ok graphB' -> graphB'
+    let state : ClientSyncState =
+        { graph = graph
+          eventId = EventId.zero
+          history = ClientHistory.clear ()
+          eventLog = EventLog.empty
+          actorLiveFocusIds = Set.empty
+          applyDetail = None
+          pending = [ prefix; trailing ] }
+    let serverEdit =
+        { textChange (EventIdFixtures.storedId 2) nodeA "orig" "server" with
+            submissionId = System.Guid.NewGuid() }
+    match
+        SyncLogic.applySyncResponse
+            { events = [ serverEdit ]
+              nodes = []
+              childMap = Map.empty }
+            state
+    with
+    | Error msg -> failwith msg
+    | Ok result ->
+        Assert.Equal("server", result.graph.nodes.[nodeA].text)
+        Assert.Equal("b-local", result.graph.nodes.[nodeB].text)
+        Assert.Equal<Ev list>([ prefix; trailing ], result.pending)
+
+[<Fact>]
+let ``applySyncResponse re-applies pending after Want rewind`` () =
+    let graph0 = Graph.create ()
+    let graph1, markerId = Graph.newNode "orig" graph0
+    let parentId = NodeId.New()
+    let parent =
+        Node.Create(parentId, text = "leaf-parent", owner = graph0.root)
+    let graph =
+        graph1
+        |> Graph.addDetachedNode parent
+        |> appendKids graph1.root [ ChildNode.owner parentId ]
+        |> unload parentId
+    let pendingEdit = textChange EventId.zero markerId "orig" "local"
+    let graphLocal =
+        match Graph.setText markerId "orig" "local" graph with
+        | Error msg -> failwith msg
+        | Ok next -> next
+    let state : ClientSyncState =
+        { graph = graphLocal
+          eventId = EventIdFixtures.storedId 4
+          history = ClientHistory.clear ()
+          eventLog = EventLog.empty
+          actorLiveFocusIds = Set.empty
+          applyDetail = None
+          pending = [ pendingEdit ] }
+    match
+        SyncLogic.applySyncResponse
+            { events = []
+              nodes = [ parent ]
+              childMap = Map.ofList [ parentId, [] ] }
+            state
+    with
+    | Error msg -> failwith msg
+    | Ok result ->
+        Assert.Equal("local", result.graph.nodes.[markerId].text)
+        Assert.Equal<Ev list>([ pendingEdit ], result.pending)
+        Assert.Equal(Loaded, Graph.childrenStatus result.graph parentId)
+
+[<Fact>]
 let ``applyServerTail with changes preserves History`` () =
     let past = mkChange 4
     let st = emptyState () |> withRecorded past

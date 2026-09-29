@@ -109,7 +109,7 @@ let ``applyLoadResponse answer-only with pending is raced Load answer`` () =
     Assert.True(Map.containsKey suffixId split.graph.nodes)
 
 [<Fact>]
-let ``applySyncResponse stale Want after pending split undoes pending then applies Want`` () =
+let ``applySyncResponse stale Want re-applies the pending split for visibility`` () =
     let graph, _, zoomId, helloId, sibId = zoomHelloSib ()
     let suffixId = NodeId.New()
     let splitOps = middleSplitOps helloId sibId zoomId graph suffixId
@@ -118,10 +118,11 @@ let ``applySyncResponse stale Want after pending split undoes pending then appli
             splitOps
             { graph = graph; eventId = EventId.zero }
         |> expectChanged
+    let pending = [ pendingSplit (System.Guid.NewGuid()) splitOps ]
     let st =
         { ClientSyncState.create split.graph split.eventId (ClientHistory.clear ())
           with
-            pending = [ pendingSplit (System.Guid.NewGuid()) splitOps ] }
+            pending = pending }
     let staleHello = { split.graph.nodes.[helloId] with text = "hello" }
     let response: SyncResponse =
         { events = []
@@ -131,12 +132,11 @@ let ``applySyncResponse stale Want after pending split undoes pending then appli
     | Error msg -> failwith $"expected Ok, got {msg}"
     | Ok next ->
         Assert.Equal<NodeId list>(
-            [ helloId; sibId ],
+            [ helloId; suffixId; sibId ],
             Graph.children next.graph zoomId |> List.map _.id)
-        Assert.DoesNotContain(
-            suffixId,
-            Graph.children next.graph zoomId |> List.map _.id)
-        Assert.Equal("hello", next.graph.nodes.[helloId].text)
+        Assert.Equal("hel", next.graph.nodes.[helloId].text)
+        Assert.Equal("lo", next.graph.nodes.[suffixId].text)
+        Assert.Equal<Ev list>(pending, next.pending)
 
 [<Fact>]
 let ``applyOpsForSync Replace mismatch undoes all pending then applies the Server merge`` () =

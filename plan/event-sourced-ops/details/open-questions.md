@@ -10,7 +10,7 @@ An inventory. It is not a lock and it is not new work. The project stage stays `
 - Child lists: full-list Replace by default ([[replace-amendment.md]]); a conflict is occurrence-bag Accept Both with minimal algorithm in [[replace-amendment.md]]; order polish in issue 10.
 - Classes are a set delta. Owner count never rises from one to two. Fill-in **timing** is the same Change as the delete. DocumentState is removed.
 - **Two paths.** A post acknowledgement is an external-changes signal and a baseline note; a queue-empty poll applies the Change list. "Poll is an empty post" is **superseded**. Neither clears History; today's poll clear is debt.
-- Leftover pending stays unamended; the next post sends it and the Server amends. Posts and polls carry only the last revision received from the Server.
+- Leftover pending stays unamended; the next post sends it and the Server amends. After rewind and replay, ordinary re-apply puts that leftover back on the Local Graph so the person sees it. That re-apply is not Client replan. Posts and polls carry only the last revision received from the Server.
 - A recoverable kick-back is merge success. The older slice-2 Reject and replan is obsolete for that case. The remaining Reject is auth and malformed requests.
 - The soft-lock **meaning**: an advisory subtree reservation; edits there are legal.
 - **Soft-lock lifecycle couples to a job** (quiz pin): the reservation belongs to the job; job completion clears it; the lock indicator is an access point to the job. Issuance, expiry, and chrome details stay proposed.
@@ -31,7 +31,7 @@ An inventory. It is not a lock and it is not new work. The project stage stays `
 - **Actor packaging and residency detail** — one Change or a set, and what a job emits against what a Browser must Load (Load itself stays Graph transfer).
 - **Parse File realignment.** An observation, not a plan.
 - **Shell command.** A later Actor, with no product behind it.
-- **Client replan before POST (optional future UX).** Replan leftover pending against the graph after learning of external Changes, instead of sending unamended Ops for Server amend. Deferred: duplicates amendment logic for smoother optimistic display only ([[client-consume.md]]).
+- **Client replan before POST (optional future UX).** Replan leftover pending against the graph after learning of external Changes, instead of sending unamended Ops for Server amend. Deferred: duplicates amendment logic for smoother optimistic display only ([[client-consume.md]]). Ordinary re-apply for visibility is accepted and is not this replan.
 - **Permanent global Change log** — retain every accepted Change across server restart; load current state from DB; genesis derivable by invert-walk, not routine parser replay ([[permanent-history-and-genesis.md]]).
 
 ## Open and retained — not parked
