@@ -1,9 +1,9 @@
 # 20 — State axes on special nodes
 
 **Type:** coding
-**Status:** coded
+**Status:** done
 **Blocked by:** None — can start immediately
-Actual: 1h50m
+Actual: 2h
 
 ## Context
 
@@ -57,9 +57,11 @@ Locked 2026-09-28 (Alan). Axis-write mechanics live on [Here→There — step 1 
 - 2026-09-29: Workspace, Directory, and File nodes carry Parsed|Unparsed and Persisted|Unpersisted. Graph set and read cover both axes. Create special dual-writes DocumentState Unparsed with Persisted. A graph edit marks the nearest owning special Unpersisted. SQL still stores document_state; reload derives the parse axis and defaults persist to Persisted. Status `coded`.
 - 2026-09-29: Alan: a Directory File (exact `.amb` name) does not carry Parsed|Unparsed or Persisted|Unpersisted. Do not dual-write those axes onto it. A graph edit must not mark that Directory File Unpersisted. Workspace, Directory, and File content nodes still carry both axes.
 - 2026-09-29: A successful live artifact write marks that content node Persisted in the event source (`SetPersistState` on the persist stamp). A failed write leaves Unpersisted. A disk parse that brings that content node in line with disk ends Parsed and Persisted. Status stays `coded`.
+- 2026-09-29: Alan accepted; squash-landed. Status `done`.
 
 ## Time
 
 - 2026-09-28 15m — recorded axis-write mechanics Notes from Alan lock (from chat)
 - 2026-09-28 5m — recorded Mikado approach from Alan lock (from chat)
 - 2026-09-29 1h30m — state axes, dual-write, and set/read tests (from chat)
+- 2026-09-29 10m — Alan accepted; Status `done` before squash-land (from chat)
