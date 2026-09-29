@@ -110,3 +110,7 @@ Detail: [[permanent-history-and-genesis.md]]. Implementation: [[../issues/15-per
 
 
 Worker slang about a "wipe" of the pending queue, and a rejected-pending concept as a merge topic, were removed from the project. They were not a design case. The remaining Reject is authentication, malformed requests, and similar request failures.
+
+## Visibility re-apply (accepted 2026-09-29)
+
+After rewind and replay, the Client re-applies leftover pending onto the Local Graph with ordinary apply so the person sees those edits. The pending Changes stay unamended. The Server amends them on the next post. This is not Client replan. Client replan stays deferred ([[client-consume.md]]).

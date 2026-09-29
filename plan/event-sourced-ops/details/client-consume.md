@@ -35,13 +35,15 @@ After rewind and replay, the Client may still hold pending Changes that were not
 
 Those stay **as planned and unamended**. The next post sends them, and the Server amends them as the newest Actor at that time. The Client does not amend its own pending work, and does not drop it.
 
+After rewind and replay, re-apply those leftover pending Changes onto the Local Graph in queue order. Use ordinary apply. The person still sees those edits. This re-apply does not rewrite the pending Changes. The Server amends them on the next post.
+
 The reasoning: the outcome is the same, and it is cheaper. The Server is then the only amender — both of applied Changes and of leftover pending when it arrives.
 
 Posts and polls carry only the **last revision received from the Server**, never a locally advanced number. A stale last-received revision against the Server's current one **is** the amendment case; it is not an error.
 
 ## What this does not decide
 
-- Whether the Client replans remaining pending work onto the new base. It does not; see above.
+- Whether the Client replans remaining pending work onto the new base. It does not. Ordinary re-apply for visibility is accepted above. It does not rewrite the pending Ops.
 - History behavior beyond "neither channel clears it" ([[undo.md]]).
 
 ## Sync status (accepted for Ticket 4)
@@ -50,4 +52,6 @@ When a Post acknowledgement signals external Changes, the Browser notes the base
 
 ## Client replan (deferred — optional UX)
 
-Replanning leftover pending Ops on the Client before the next POST could smooth optimistic UI sooner. It duplicates Server amendment logic and is strictly extra complexity for UX polish. **Not** part of the accepted consume path. Leftover pending stays unamended; the Server amends on receive. A future increment may add Client replan only if smoother pending display is worth the dual maintenance cost.
+Ordinary re-apply for visibility is accepted. It is not Client replan. Client replan would rewrite leftover pending Ops on the Client before the next post.
+
+That rewrite could smooth optimistic UI sooner. It duplicates Server amendment logic and is strictly extra complexity for UX polish. **Not** part of the accepted consume path. Leftover pending stays unamended; the Server amends on receive. A future increment may add Client replan only if smoother pending display is worth the dual maintenance cost.

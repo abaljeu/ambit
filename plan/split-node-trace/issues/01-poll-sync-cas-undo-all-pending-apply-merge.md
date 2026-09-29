@@ -11,7 +11,7 @@ A person edits in the Browser and posts Graph Changes. Those Changes sit as pend
 
 Today the Poll fold can soft-skip a mismatched `SetName`, `SetText`, `SetClasses`, or `Replace` (`84d19416`) and invert only same-field pending (`8309e9db`). A split Change then keeps the `SetText` prefix and drops the `Replace` suffix. The line reads `hel`. The suffix Node is gone from the parent list. Soft-skip-without-apply of a mismatched authoritative payload is wrong. Hard-fail of that fold is also wrong.
 
-Want overwrite is a second symptom of the same family: a stale Want `childMap` install can drop the new sibling and restore the old full text. Keep the proving test. Do not keep a prior wrong fix. Corrected handling is undo all pending, then apply the Server merge.
+Want overwrite is a second symptom of the same family: a stale Want `childMap` install can drop the new sibling and restore the old full text. Keep the proving test. Do not keep a prior wrong fix. Corrected handling for the mismatched field is undo pending Graph ops so the Graph can take the Server merge, then apply that merge. Leftover trailing pending stay in the queue. Undo is how the Graph converges on the Server list. It does not drop that leftover. Visibility re-apply is [02 — Poll/sync leftover pending: re-apply for visibility](02-poll-sync-leftover-pending-reapply.md).
 
 Origin: [split-node-origin-trace](plan/split-node-trace/reports/split-node-origin-trace.md) (PR [#160 — TRACE: childMap refactor does not break node-split](https://github.com/abaljeu/ambit/pull/160)).
 
@@ -21,7 +21,7 @@ When Poll or sync apply hits a recoverable field mismatch, the Browser undoes ev
 
 ### 1. Recoverable Poll/sync field mismatch
 
-On `SetName`, `SetText`, `SetClasses`, or `Replace` CAS mismatch during Poll/sync apply, invert or drop all pending Graph ops, then apply the Server merge for that field, then continue the fold. The Server merge includes the posted edits.
+On `SetName`, `SetText`, `SetClasses`, or `Replace`, when the Poll/sync apply precondition fails, invert or drop all pending Graph ops, then apply the Server merge for that field, then continue the fold. The Server merge includes the posted edits.
 
 1. [x] 1.1 Undo all pending — Invert or drop every pending Graph op, not only same-field ops on the mismatched target.
 2. [x] 1.2 Apply Server merge — After that undo, apply the authoritative Server payload for the mismatched field. Do not leave the field at the undone local value.
@@ -36,21 +36,21 @@ The Poll fold stays a success path for recoverable field mismatch.
 
 ### 3. Uncommitted edit-box draft
 
-Post all ops in normal use. Only an uncommitted edit-box draft stays local.
+An uncommitted edit-box draft stays in `#edit-input`. Posted Graph ops are pending. Undo of those ops lets the Graph take the Server merge. That undo does not drop leftover trailing pending from the queue. The 2026-09-28 line that only the edit-box draft stays local overspoke. Visibility re-apply of the leftover is [02 — Poll/sync leftover pending: re-apply for visibility](02-poll-sync-leftover-pending-reapply.md).
 
 1. [x] 3.1 Leave `#edit-input` — On this conflict, do not rewrite `#edit-input` unless focus or the Node is gone.
-2. [x] 3.2 Posted edits are pending — Graph ops that were posted are pending. They are undone, then the Server merge (which includes them) is applied.
+2. [x] 3.2 Posted edits are pending — Graph ops that were posted are pending. They are undone, then the Server merge (which includes them) is applied. Trailing pending that were not in this post stay in the queue. This ticket does not re-apply them.
 
 ### 4. Regression tests
 
 Prove both TRACE symptoms on the corrected path. Seed from [SplitOriginTraceTests](tests/Shared.Tests/SplitOriginTraceTests.fs) when that file is not yet on the workplace tip (PR [#160 — TRACE: childMap refactor does not break node-split](https://github.com/abaljeu/ambit/pull/160)).
 
-1. [x] 4.1 Truncated-line split — The split case that today keeps `hel` and drops the suffix after `Replace` CAS plus same-field invert must, after this ticket, undo all pending (including `SetText`) and apply the Server merge. Prefix-only leftover is a fail.
+1. [x] 4.1 Truncated-line split — The split case that today keeps `hel` and drops the suffix after a `Replace` Poll/sync apply precondition failure plus same-field invert must, after this ticket, undo all pending (including `SetText`) and apply the Server merge. Prefix-only leftover is a fail.
 2. [x] 4.2 Want overwrite proving test — Keep the Want overwrite characterization test. Change its assertions to the corrected path (undo all pending, then apply Server merge). Do not keep a prior wrong fix (skip or ignore the Want payload).
 
 ## See also
 
-[split-node-origin-trace](plan/split-node-trace/reports/split-node-origin-trace.md), [Client correction — rewind and replay](plan/event-sourced-ops/details/client-consume.md), [16 — Fix pending+merged-events: undo-then-apply instead of DataOutdated reload](plan/event-sourced-ops/issues/16-fix-pending-merged-events-undo-then-apply.md), [17 — Instrument apply-error → DataOutdated with op type and mismatch reason](plan/event-sourced-ops/issues/17-instrument-apply-error-dataoutdated.md), [applyOpForSync](src/Shared/ResidentProjection.fs), [undoPendingGraph](src/Shared/SyncLogic.fs), [SplitOriginTraceTests](tests/Shared.Tests/SplitOriginTraceTests.fs)
+[02 — Poll/sync leftover pending: re-apply for visibility](02-poll-sync-leftover-pending-reapply.md), [split-node-origin-trace](plan/split-node-trace/reports/split-node-origin-trace.md), [Client correction — rewind and replay](plan/event-sourced-ops/details/client-consume.md), [16 — Fix pending+merged-events: undo-then-apply instead of DataOutdated reload](plan/event-sourced-ops/issues/16-fix-pending-merged-events-undo-then-apply.md), [17 — Instrument apply-error → DataOutdated with op type and mismatch reason](plan/event-sourced-ops/issues/17-instrument-apply-error-dataoutdated.md), [applyOpForSync](src/Shared/ResidentProjection.fs), [undoPendingGraph](src/Shared/SyncLogic.fs), [SplitOriginTraceTests](tests/Shared.Tests/SplitOriginTraceTests.fs)
 
 ## Comments
 
@@ -59,6 +59,7 @@ Prove both TRACE symptoms on the corrected path. Seed from [SplitOriginTraceTest
 - 2026-09-28 — Implemented undo-all-pending then apply Server merge in [applyOpForSync](src/Shared/ResidentProjection.fs) and rewind-then-replay in [applySyncResponse](src/Shared/SyncLogic.fs). Soft-skip-without-apply after undo is gone for these field mismatches. Status `coded`.
 - 2026-09-28 — Review Must-fix: Event tails no longer rewind pending Graph ops. Undo-all-pending stays on recoverable field mismatch; Want install still rewinds then applies Want. Status `coded`.
 - 2026-09-28 — Alan accepted the product land. Status `done`.
+- 2026-09-29 — Alan locked Case B. The line that only an edit-box draft stays local overspoke. Undo converges the Graph on the Server list. Leftover trailing pending stay in the queue and are re-applied for visibility after play. That work is [02 — Poll/sync leftover pending: re-apply for visibility](02-poll-sync-leftover-pending-reapply.md). Status stays `done`.
 
 ## Time
 
