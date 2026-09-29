@@ -155,12 +155,17 @@ let loadPendingQueue () : Ev list =
 // ---------------------------------------------------------------------------
 
 /// Read the live edit field text from the DOM (`contentEditable` `div#edit-input`).
-let readEditInputValue () : string =
+/// `None` when the box is not mounted — do not treat that as empty text.
+let tryReadEditInputValue () : string option =
     let el = document.getElementById "edit-input"
-    if isNull el then ""
+    if isNull el then None
     else
         let t = el.textContent
-        if isNull t then "" else t
+        Some (if isNull t then "" else t)
+
+/// Read the live edit field text from the DOM (`contentEditable` `div#edit-input`).
+let readEditInputValue () : string =
+    tryReadEditInputValue () |> Option.defaultValue ""
 
 /// Read caret start offset (UTF-16) within `#edit-input`.
 let readEditInputCursor () : int =
@@ -378,28 +383,24 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) : VM * Effect l
                     |> Option.bind (fun p ->
                         if insertIndex < p.children.Length then Some p.children.[insertIndex]
                         else None)
-            let newSel =
-                focusInstId
-                |> Option.bind (singleSelectionForInstance m2.siteMap)
-                |> Option.orElseWith (fun () -> singleSelection m2.graph m2.siteMap newId)
-            { m2 with
-                selectedNodes = newSel
-                mode =
-                    Editing (
-                        ViewModelSplitOps.splitContinueEditText
-                            clampedPos currentText newNodeText,
-                        EditCaret.Utf16Index 0) }, effects
+            ViewModelSplitOps.continueEditAfterSplit
+                clampedPos currentText newNodeText newId focusInstId m2,
+            effects
         | Error msg -> withMoveError msg model, []
     | _ -> model, []
 
 /// If currently editing, commit the edit and return Selecting model; otherwise return model as-is.
 let commitIfEditing (model: VM) : VM * Effect list =
     match model.mode, model.selectedNodes with
-    | Editing (originalText, _), None ->
-        commitTextEdit (viewRootNodeId model) originalText (readEditInputValue ()) model
-    | Editing (originalText, _), Some sel ->
-        let editingId = focusedNodeId model.graph sel
-        commitTextEdit editingId originalText (readEditInputValue ()) model
+    | Editing (originalText, _), selOpt ->
+        match tryReadEditInputValue () with
+        | None -> { model with mode = Selecting }, []
+        | Some text ->
+            let nodeId =
+                match selOpt with
+                | Some sel -> focusedNodeId model.graph sel
+                | None -> viewRootNodeId model
+            commitTextEdit nodeId originalText text model
     | _ -> model, []
 
 /// Rebuild the site map after a graph mutation, preserving fold states.
@@ -436,8 +437,10 @@ let withSiteMap (model: VM) : VM =
             ViewModel.refreshSelection model'.graph model'.siteMap sel
             |> Option.orElse (ViewModel.firstChildSelection model'.siteMap model'.zoomRoot)
         match adapted with
-        | Some refreshed -> { model' with selectedNodes = Some refreshed }
-        | None -> model'
+        | Some refreshed ->
+            { model' with selectedNodes = Some refreshed }
+            |> ViewModel.retargetEditingSelection
+        | None -> ViewModel.retargetEditingSelection model'
 
 // ---------------------------------------------------------------------------
 // Move-edit caret (shared with UpdateEdit)

@@ -64,6 +64,52 @@ module ViewModelRowState =
         | Editing _, Some sel -> isInstanceFocused sel model.siteMap entry
         | _ -> false
 
+    let tryVisibleEditingEntry (model: VM) : SiteEntry option =
+        ViewModelSiteMap.getVisibleInstanceIds model.siteMap
+        |> List.tryPick (fun id ->
+            Map.tryFind id model.siteMap.entries
+            |> Option.filter (isEditingEntry model))
+
+    let private recoveredEditingSelection (model: VM) : Selection option =
+        let fromGraphFocus =
+            match model.selectedNodes with
+            | Some sel ->
+                tryFocusedNodeId model.graph sel
+                |> Option.bind (singleSelection model.graph model.siteMap)
+            | None -> None
+        let fromInstance =
+            model.selectedNodes
+            |> Option.bind focusedInstanceId
+            |> Option.bind (singleSelectionForInstance model.siteMap)
+        fromInstance
+        |> Option.orElse fromGraphFocus
+        |> Option.orElse (
+            ViewModelSiteMap.firstChildSelection model.siteMap model.zoomRoot)
+
+    let private editingSnapshotFor (model: VM) (sel: Selection) : Mode =
+        match tryFocusedNodeId model.graph sel, model.mode with
+        | Some nid, Editing _ ->
+            match Map.tryFind nid model.graph.nodes with
+            | Some node -> Editing (node.text, EditCaret.Utf16Index 0)
+            | None -> model.mode
+        | _ -> model.mode
+
+    /// When mode is Editing but no visible row would mount `#edit-input`,
+    /// retarget selection to a live instance and snapshot that Node's text.
+    let retargetEditingSelection (model: VM) : VM =
+        match model.mode with
+        | Editing _ ->
+            match tryVisibleEditingEntry model with
+            | Some _ -> model
+            | None ->
+                match recoveredEditingSelection model with
+                | None -> model
+                | Some sel ->
+                    { model with
+                        selectedNodes = Some sel
+                        mode = editingSnapshotFor model sel }
+        | _ -> model
+
     /// Enter edit mode for a view-line instance in one model step (selection + Editing).
     /// Returns None for unknown instances or the graph root node.
     let startEditInstanceAtPos (instanceId: SiteId) (cursorPos: int) (model: VM) : VM option =
