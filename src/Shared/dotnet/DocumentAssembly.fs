@@ -245,7 +245,7 @@ module DocumentAssembly =
             let nodes =
                 Map.add
                     documentRootId
-                    { node with documentState = Unparsed }
+                    (Node.withDocumentState Unparsed node)
                     graph'.nodes
             let childMap = Map.add documentRootId [] graph'.childMap
             Graph.fromNodes graph'.root nodes childMap

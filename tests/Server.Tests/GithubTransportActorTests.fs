@@ -69,7 +69,8 @@ let private seedOperation host operationName =
     let focusId = NodeId.New()
     let ops =
         workspaceOps
-        @ [ Op.NewNode(commandId, operationName)
+        @ [ Op.SetDocumentState(workspaceId, Unparsed, Current)
+            Op.NewNode(commandId, operationName)
             Op.NewNode(focusId, "subnode")
             Op.Replace(
                 workspaceId,
