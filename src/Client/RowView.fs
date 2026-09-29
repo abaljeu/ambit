@@ -270,7 +270,8 @@ module Behavior =
                     doubleTapScrollDeferMs)
 
     let internal scrollFocusedRow (el: HTMLElement) : unit =
-        if deferSelectionScroll then scheduleDeferredSelectionScroll el
+        if not (focusedRowNeedsScroll el) then ()
+        elif deferSelectionScroll then scheduleDeferredSelectionScroll el
         else scrollIntoViewNearest el
 
     let internal wireZoomPath
