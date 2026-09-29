@@ -337,6 +337,16 @@ let ``Op.SetUpdateTime round-trip`` () =
     Assert.Equal(op, decoded)
 
 [<Fact>]
+let ``Op.SetPersistState round-trip`` () =
+    let op =
+        Op.SetPersistState(
+            NodeId.New(),
+            PersistState.Persisted,
+            PersistState.Unpersisted)
+    let decoded = roundTrip Serialization.encodeOp Serialization.decodeOp op
+    Assert.Equal(op, decoded)
+
+[<Fact>]
 let ``EventBatch round-trip`` () =
     let change =
         { id = EventIdFixtures.storedId 5

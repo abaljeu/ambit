@@ -164,7 +164,8 @@ let private seedWorkspace host operationName =
     let commandId, focusId = NodeId.New(), NodeId.New()
     let ops =
         workspaceOps
-        @ [ Op.NewNode(commandId, operationName)
+        @ [ Op.SetDocumentState(workspaceId, Unparsed, Current)
+            Op.NewNode(commandId, operationName)
             Op.NewNode(focusId, "focus")
             Op.Replace(
                 workspaceId,

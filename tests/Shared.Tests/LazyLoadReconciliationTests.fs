@@ -170,6 +170,47 @@ let ``exact amb add with text parses outline immediately`` () =
     Assert.Equal("outline body", graph2.nodes.[(Graph.children graph2 docs.id).Head.id].text)
 
 [<Fact>]
+let ``disk parse of a directory leaves that directory Parsed and Persisted`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+    let artifacts = Map.ofList [ "docs/.amb", "alpha" + System.Environment.NewLine ]
+    let ops1 =
+        match
+            LazyLoadReconciliation.planAddedPathsWithArtifacts
+                graph
+                "home"
+                [ "docs/.amb" ]
+                artifacts
+        with
+        | Ok o -> o
+        | Error err -> failwith err
+    let graph2 = applyOps graph ops1
+    let docs = childNamed graph2 workspaceId "docs"
+    let dirty =
+        match Graph.setPersistState docs.id PersistState.Unpersisted graph2 with
+        | Ok g -> g
+        | Error err -> failwith err
+    let wsDirty =
+        match Graph.setPersistState workspaceId PersistState.Unpersisted dirty with
+        | Ok g -> g
+        | Error err -> failwith err
+    let edited = Map.ofList [ "docs/.amb", "beta" + System.Environment.NewLine ]
+    let ops2 =
+        match
+            LazyLoadReconciliation.planChangedPathsWithArtifacts
+                wsDirty
+                "home"
+                [ LazyLoadReconciliation.Modified "docs/.amb" ]
+                edited
+        with
+        | Ok o -> o
+        | Error err -> failwith err
+    let graph3 = applyOps wsDirty ops2
+    Assert.Equal(ParseState.Parsed, graph3.nodes.[docs.id].parseState)
+    Assert.Equal(Current, graph3.nodes.[docs.id].documentState)
+    Assert.Equal(PersistState.Persisted, graph3.nodes.[docs.id].persistState)
+    Assert.Equal(PersistState.Unpersisted, graph3.nodes.[workspaceId].persistState)
+
+[<Fact>]
 let ``exact amb modify with text reparses instead of leaving unparsed`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
     let graph2 = createPaths graph [ "docs/.amb" ]
@@ -233,7 +274,9 @@ let ``repeated reconciliation reuses matching stubs`` () =
 
 [<Fact>]
 let ``reconciliation finds artifacts through normal organizers`` () =
-    let workspaceId, graph0 = Graph.create () |> addWorkspace "home"
+    let workspaceId, created = Graph.create () |> addWorkspace "home"
+    let graph0 =
+        applyOps created [ Op.SetDocumentState(workspaceId, Unparsed, Current) ]
     let graph1, workspaceOrganizerId = Graph.newNode "organizer" graph0
     let graph2 =
         [ Op.Replace(
@@ -243,7 +286,9 @@ let ``reconciliation finds artifacts through normal organizers`` () =
         |> applyOps graph1
     let srcId, srcOps =
         FileNodeOps.planCreateOwnedDirectory graph2 workspaceOrganizerId "src"
-    let graph3 = applyOps graph2 srcOps
+    let graph3 =
+        applyOps graph2 srcOps
+        |> fun g -> applyOps g [ Op.SetDocumentState(srcId, Unparsed, Current) ]
     let graph4, srcOrganizerId = Graph.newNode "nested organizer" graph3
     let graph5 =
         [ Op.Replace(

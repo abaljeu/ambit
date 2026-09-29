@@ -1203,30 +1203,38 @@ let ``planParseFile succeeds when parse File itself has dual Owner`` () =
     | ApplyResult.Changed after ->
         Assert.Equal(Current, after.graph.nodes.[fileId].documentState)
 
-/// Insert Ref (valid) + Unparsed File parse → Current; Ref is not a second Owner.
-[<Fact>]
-let ``planParseFile after Insert Ref reaches Current`` () =
+let private markDocumentCurrent id (state: State) =
+    applyOpsState state [ Op.SetDocumentState(id, Unparsed, Current) ]
+
+let private unparsedFileAfterInsertRef () =
     let graph0 = Graph.create ()
     let workspaceId, wsOps = FileNodeOps.planCreateWorkspace graph0 "home"
     let withWs =
-        applyOpsState
-            { graph = graph0; eventId = EventId.zero }
-            wsOps
+        applyOpsState { graph = graph0; eventId = EventId.zero } wsOps
+        |> markDocumentCurrent workspaceId
     let fileId, fileOps =
         FileNodeOps.planCreateOwnedFile withWs.graph workspaceId "refed.txt"
     let withFile = applyOpsState withWs fileOps
     let hostId, hostOps =
         FileNodeOps.planCreateOwnedFile withFile.graph workspaceId "host.txt"
-    let withHost = applyOpsState withFile hostOps
+    let withHost =
+        applyOpsState withFile hostOps
+        |> markDocumentCurrent hostId
     let insert =
         { parentId = hostId
           index = (Graph.children withHost.graph hostId).Length }
-    let refOps =
+    let withRef =
         FileNodeOps.planInsertFileRefAtFocus insert fileId withHost.graph
-    let withRef = applyOpsState withHost refOps
+        |> applyOpsState withHost
     let graph =
         { withRef.graph.nodes.[fileId] with documentState = Unparsed }
         |> fun n -> Graph.addDetachedNode n withRef.graph
+    graph, fileId
+
+/// Insert Ref (valid) + Unparsed File parse → Current; Ref is not a second Owner.
+[<Fact>]
+let ``planParseFile after Insert Ref reaches Current`` () =
+    let graph, fileId = unparsedFileAfterInsertRef ()
 
     match ChangeValidation.validateOwnershipLocated graph with
     | Error (msg, _) ->

@@ -284,7 +284,8 @@ module SyncLogic =
 
     let private isStampOp =
         function
-        | Op.SetUpdateTime _ -> true
+        | Op.SetUpdateTime _
+        | Op.SetPersistState _ -> true
         | _ -> false
 
     let private takeSuffix (prefix: Op list) (ops: Op list) : Result<Op list, string> =

@@ -37,6 +37,18 @@ module GraphMutate =
             if Node.childOwnership graph parentId c <> Ownership.Owner then None
             else nodeDisplayName graph c.id)
 
+    /// Nearest content special on the owner chain, inclusive.
+    /// Directory File nodes (exact `.amb` name) are not axis carriers.
+    let private markOwningSpecialUnpersisted (nodeId: NodeId) (graph: Graph) : Graph =
+        match GraphQuery.enclosing graph Node.carriesStateAxes nodeId with
+        | None -> graph
+        | Some ownerId ->
+            match Map.tryFind ownerId graph.nodes with
+            | Some node when node.persistState <> PersistState.Unpersisted ->
+                let updated = { node with persistState = PersistState.Unpersisted }
+                { graph with nodes = graph.nodes |> Map.add ownerId updated }
+            | _ -> graph
+
     let setText
         (nodeId: NodeId)
         (oldText: string)
@@ -57,7 +69,7 @@ module GraphMutate =
                 else
                     let updatedNode = NodeUpdateTime.touch { node with text = newText }
                     let nodes = graph.nodes |> Map.add nodeId updatedNode
-                    Ok { graph with nodes = nodes }
+                    Ok (markOwningSpecialUnpersisted nodeId { graph with nodes = nodes })
 
     let setClasses
         (nodeId: NodeId)
@@ -79,7 +91,7 @@ module GraphMutate =
                 else
                     let updatedNode = NodeUpdateTime.touch { node with cssClasses = newClasses }
                     let nodes = graph.nodes |> Map.add nodeId updatedNode
-                    Ok { graph with nodes = nodes }
+                    Ok (markOwningSpecialUnpersisted nodeId { graph with nodes = nodes })
 
     let setName
         (nodeId: NodeId)
@@ -145,7 +157,8 @@ module GraphMutate =
                                 | Special _ ->
                                     NodeUpdateTime.touch
                                         { node with name = Filename.Ok validName; text = validName }
-                            Ok { graph with nodes = graph.nodes |> Map.add nodeId updatedNode }
+                            let nodes = graph.nodes |> Map.add nodeId updatedNode
+                            Ok (markOwningSpecialUnpersisted nodeId { graph with nodes = nodes })
 
     let setDocumentState
         (nodeId: NodeId)
@@ -165,7 +178,48 @@ module GraphMutate =
         | Some node when oldState = newState ->
             Ok graph
         | Some node ->
-            let updated = NodeUpdateTime.touch { node with documentState = newState }
+            let updated =
+                NodeUpdateTime.touch (Node.withDocumentState newState node)
+            Ok { graph with nodes = graph.nodes |> Map.add nodeId updated }
+
+    let private artifactNode (graph: Graph) (nodeId: NodeId) : Result<Node, string> =
+        match Map.tryFind nodeId graph.nodes with
+        | None -> Error "node not found"
+        | Some node when node.kind = Special Workspaces ->
+            Error "workspaces is not a graph document"
+        | Some node when not (NodeKind.artifact node.kind) ->
+            Error "normal nodes do not have parse or persist state"
+        | Some node when Filename.isDirectoryFileFilename node.name ->
+            Error "directory file does not have parse or persist state"
+        | Some node -> Ok node
+
+    let setParseState
+        (nodeId: NodeId)
+        (parseState: ParseState)
+        (graph: Graph)
+        : Result<Graph, string>
+        =
+        match artifactNode graph nodeId with
+        | Error msg -> Error msg
+        | Ok node when
+            node.parseState = parseState
+            && node.documentState = ParseState.toDocumentState parseState ->
+            Ok graph
+        | Ok node ->
+            let updated = NodeUpdateTime.touch (Node.withParseState parseState node)
+            Ok { graph with nodes = graph.nodes |> Map.add nodeId updated }
+
+    let setPersistState
+        (nodeId: NodeId)
+        (persistState: PersistState)
+        (graph: Graph)
+        : Result<Graph, string>
+        =
+        match artifactNode graph nodeId with
+        | Error msg -> Error msg
+        | Ok node when node.persistState = persistState -> Ok graph
+        | Ok node ->
+            let updated = { node with persistState = persistState }
             Ok { graph with nodes = graph.nodes |> Map.add nodeId updated }
 
     let replace
@@ -241,18 +295,20 @@ module GraphMutate =
                 let isAppend = oldCount = 0 && index = childCount
                 let commit (updatedChildren: ChildNode list) =
                     let updatedParent = NodeUpdateTime.touch parent
-                    if isAppend then
-                        GraphBuild.appendChildren
-                            parentId
-                            newChildren
-                            updatedChildren
-                            updatedParent
-                            graph
-                    else
-                        GraphBuild.fromNodes
-                            graph.root
-                            (graph.nodes |> Map.add parentId updatedParent)
-                            (Map.add parentId updatedChildren graph.childMap)
+                    let committed =
+                        if isAppend then
+                            GraphBuild.appendChildren
+                                parentId
+                                newChildren
+                                updatedChildren
+                                updatedParent
+                                graph
+                        else
+                            GraphBuild.fromNodes
+                                graph.root
+                                (graph.nodes |> Map.add parentId updatedParent)
+                                (Map.add parentId updatedChildren graph.childMap)
+                    markOwningSpecialUnpersisted parentId committed
 
                 match placementError with
                 | Some msg -> Error msg

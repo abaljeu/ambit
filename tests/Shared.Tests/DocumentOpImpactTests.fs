@@ -147,7 +147,8 @@ let ``NewSpecialNode and Replace affect new root and parent package`` () =
     let post = applyOps graph ops
     let affected = affectedByOps graph post ops
     assertParity graph post ops
-    Assert.Equal<Set<NodeId>>(Set.ofList [ wsId; dirAId; fileId ], affected)
+    Assert.Equal<Set<NodeId>>(Set.ofList [ wsId; dirAId ], affected)
+    Assert.DoesNotContain(fileId, affected)
     Assert.DoesNotContain(fileBId, affected)
 
 [<Fact>]
@@ -167,6 +168,18 @@ let ``SetUpdateTime has no document artifact impact`` () =
     let oldTime = graph.nodes.[fileAId].updateTime
     let newTime = DateTime(2024, 1, 2, 3, 4, 5, DateTimeKind.Utc)
     let ops = [ Op.SetUpdateTime(fileAId, oldTime, newTime) ]
+    let post = applyOps graph ops
+    let affected = affectedByOps graph post ops
+    Assert.Empty(affected)
+
+[<Fact>]
+let ``SetPersistState has no document artifact impact`` () =
+    let graph, _, _, _, fileAId, _, _, _ = graphWithDocuments ()
+    let ops =
+        [ Op.SetPersistState(
+            fileAId,
+            PersistState.Persisted,
+            PersistState.Unpersisted) ]
     let post = applyOps graph ops
     let affected = affectedByOps graph post ops
     Assert.Empty(affected)

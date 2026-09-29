@@ -197,7 +197,10 @@ let private applyTrusted (graph: Graph) (ops: Op list) : Graph =
 let private fileWithHeadingAndBlankAbove () =
     let g0 = Graph.create ()
     let wsId, wsOps = FileNodeOps.planCreateWorkspace g0 "home"
-    let withWs = applyTrusted g0 wsOps
+    let withWs =
+        applyTrusted g0 wsOps
+        |> fun g ->
+            applyTrusted g [ Op.SetDocumentState(wsId, Unparsed, Current) ]
     let fileId, fileOps =
         FileNodeOps.planCreateOwnedFile withWs wsId "agents.md"
     let withFile = applyTrusted withWs fileOps

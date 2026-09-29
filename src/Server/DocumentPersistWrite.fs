@@ -321,11 +321,12 @@ module DocumentPersistWrite =
         | None -> $"id={documentRootId.Value}"
 
     /// Live-save writes: compute/IO failures never fail the fold; they become messages.
+    /// The id set is content roots this call successfully wrote.
     let writeDocumentsSoft
         (dataDir: string)
         (graph: Graph)
         (rootIds: NodeId list)
-        : Graph * string option =
+        : Graph * string option * Set<NodeId> =
         let baseDir = DocumentPersistPath.dataDirBase dataDir
         Directory.CreateDirectory baseDir |> ignore
 
@@ -350,7 +351,8 @@ module DocumentPersistWrite =
                 (Map.empty, [])
 
         DocumentPersistPath.stampNodes stamps graph,
-        joinWriteMessages (List.rev messages)
+        joinWriteMessages (List.rev messages),
+        stamps |> Map.toSeq |> Seq.map fst |> Set.ofSeq
 
     /// Test/bootstrap helper that materializes a complete file layout from a generated graph.
     /// Normal accepted graph changes use persistGraphOps/JIT live-save; this intentionally
