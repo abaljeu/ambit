@@ -59,6 +59,12 @@ let private middleSplitOps helloId parentId (graph: Graph) suffixId =
       Op.SetText(helloId, "hello", "hel") ]
 
 [<Fact>]
+let ``editInputSeedText hydrates an empty draft from Graph text`` () =
+    Assert.Equal("hello", editInputSeedText "" "hello")
+    Assert.Equal("", editInputSeedText "" "")
+    Assert.Equal("lo", editInputSeedText "lo" "hello")
+
+[<Fact>]
 let ``splitContinueEditText at offset 0 keeps the current node text`` () =
     Assert.Equal("keep me", splitContinueEditText 0 "keep me" "")
 
@@ -142,3 +148,52 @@ let ``retargetEditingSelection recovers a stale parent instance`` () =
         match recovered.mode with
         | Editing (text, _) -> Assert.Equal("hello", text)
         | _ -> Assert.True(false, "expected Editing")
+
+[<Fact>]
+let ``retargetEditingSelection rehydrates empty draft from focused Graph text`` () =
+    let graph, zoomId, helloId, _ = zoomHelloSib ()
+    let start = editingHello graph zoomId
+    let staleDraft =
+        { start with mode = Editing ("", EditCaret.Utf16Index 0) }
+    match tryVisibleEditingEntry staleDraft with
+    | Some entry -> Assert.Equal(helloId, entry.nodeId)
+    | None -> Assert.True(false, "hello is already the edit row")
+    let recovered = retargetEditingSelection staleDraft
+    match recovered.mode, tryVisibleEditingEntry recovered with
+    | Editing (text, _), Some entry ->
+        Assert.Equal(helloId, entry.nodeId)
+        Assert.Equal("hello", text)
+        Assert.Equal("hello", recovered.graph.nodes.[helloId].text)
+    | _ -> Assert.True(false, "expected Editing hydrated from Graph")
+
+[<Fact>]
+let ``retargetEditingSelection replaces a leftover suffix draft on hello`` () =
+    let graph, zoomId, helloId, _ = zoomHelloSib ()
+    let start = editingHello graph zoomId
+    let leftover =
+        { start with mode = Editing ("lo", EditCaret.Utf16Index 0) }
+    let recovered = retargetEditingSelection leftover
+    match recovered.mode with
+    | Editing (text, _) -> Assert.Equal("hello", text)
+    | _ -> Assert.True(false, "expected hello Graph text")
+
+[<Fact>]
+let ``retargetEditingSelection keeps a legitimately empty new-node draft`` () =
+    let graph, zoomId, helloId, _ = zoomHelloSib ()
+    let start = editingHello graph zoomId
+    let emptyId = NodeId.New()
+    let ops =
+        let before = Graph.children start.graph zoomId
+        [ Op.NewNode(emptyId, "")
+          ChildListWire.insertAt zoomId before 1 [ ChildNode.owner emptyId ]
+          Op.SetText(helloId, "hello", "hello") ]
+    let split = applySplitOps ops start
+    let emptyInst = split.siteMap.entries.[split.siteMap.rootId].children.[1]
+    let next =
+        continueEditAfterSplit 5 "hello" "" emptyId (Some emptyInst) split
+    match next.mode, tryVisibleEditingEntry next with
+    | Editing (text, _), Some entry ->
+        Assert.Equal(emptyId, entry.nodeId)
+        Assert.Equal("", text)
+        Assert.Equal("", next.graph.nodes.[emptyId].text)
+    | _ -> Assert.True(false, "expected empty suffix to stay empty")

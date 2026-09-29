@@ -64,6 +64,11 @@ module ViewModelRowState =
         | Editing _, Some sel -> isInstanceFocused sel model.siteMap entry
         | _ -> false
 
+    /// `#edit-input` seed: keep a real draft; if the snapshot is empty and
+    /// the focused Node has text, hydrate from Graph (not a blank box).
+    let editInputSeedText (draft: string) (nodeText: string) =
+        if draft = "" && nodeText <> "" then nodeText else draft
+
     let tryVisibleEditingEntry (model: VM) : SiteEntry option =
         ViewModelSiteMap.getVisibleInstanceIds model.siteMap
         |> List.tryPick (fun id ->
@@ -94,13 +99,20 @@ module ViewModelRowState =
             | None -> model.mode
         | _ -> model.mode
 
-    /// When mode is Editing but no visible row would mount `#edit-input`,
-    /// retarget selection to a live instance and snapshot that Node's text.
+    let private rehydrateEditingFromNode (model: VM) (entry: SiteEntry) =
+        match model.mode, Map.tryFind entry.nodeId model.graph.nodes with
+        | Editing (draft, _), Some node when node.text <> draft ->
+            { model with
+                mode = Editing (node.text, EditCaret.Utf16Index 0) }
+        | _ -> model
+
+    /// Keep `Editing` text on the focused Node. Empty or stale draft from a
+    /// prior row (split / Server okay) remounts as a blank box otherwise.
     let retargetEditingSelection (model: VM) : VM =
         match model.mode with
         | Editing _ ->
             match tryVisibleEditingEntry model with
-            | Some _ -> model
+            | Some entry -> rehydrateEditingFromNode model entry
             | None ->
                 match recoveredEditingSelection model with
                 | None -> model

@@ -88,6 +88,7 @@ module ViewModel =
     let isEntrySelected = ViewModelRowState.isEntrySelected
     let isEntryFocused = ViewModelRowState.isEntryFocused
     let isEditingEntry = ViewModelRowState.isEditingEntry
+    let editInputSeedText = ViewModelRowState.editInputSeedText
     let tryVisibleEditingEntry = ViewModelRowState.tryVisibleEditingEntry
     let retargetEditingSelection = ViewModelRowState.retargetEditingSelection
     let startEditInstanceAtPos = ViewModelRowState.startEditInstanceAtPos
