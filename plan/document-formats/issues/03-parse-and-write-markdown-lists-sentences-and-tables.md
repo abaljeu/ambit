@@ -12,7 +12,7 @@ A person keeps a markdown document on a File Node. Parse reads that file into th
 
 [MdDocumentTests](tests/Shared.Tests/MdDocumentTests.fs) is the proof file. The file line `Read this after AGENTS.md.` stays one Node. The period inside `AGENTS.md` is not followed by a space.
 
-The agreed rules are [Workspace .md text format](plan/document-formats/workspace-format-md.md). This ticket implements that file for lists, sentences, tables, and ordinary text. Active heading means the depth of the current heading Node. It is 0 when no heading is open.
+The agreed rules are [Workspace .md text format](plan/document-formats/workspace-format-md.md). How cold read, warm write, and repersist stay correct is [Markdown parse and write design](plan/document-formats/arch-md-parse-write.md). This ticket implements that file for lists, sentences, tables, and ordinary text. Active heading means the depth of the current heading Node. It is 0 when no heading is open.
 
 Alan locked these rules on 2026-09-29.
 
@@ -154,7 +154,7 @@ title: note
 
 ## See also
 
-[Document formats](plan/document-formats/map.md), [Markdown codec](plan/roadmap/epics/chapters/markdown-codec.md), [MdDocument](src/Shared/documents/MdDocument.fs), [MdDocumentTests](tests/Shared.Tests/MdDocumentTests.fs)
+[Document formats](plan/document-formats/map.md), [Markdown parse and write design](plan/document-formats/arch-md-parse-write.md), [Workspace .md text format](plan/document-formats/workspace-format-md.md), [Markdown codec](plan/roadmap/epics/chapters/markdown-codec.md), [MdDocument](src/Shared/documents/MdDocument.fs), [MdDocumentTests](tests/Shared.Tests/MdDocumentTests.fs)
 
 ## Comments
 

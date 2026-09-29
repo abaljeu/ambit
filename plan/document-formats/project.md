@@ -8,3 +8,4 @@ Actual: 1h
 ## Notes
 
 - 2026-09-29 — The markdown parse and write slice is [03 — Parse and write markdown lists, sentences, and tables](plan/document-formats/issues/03-parse-and-write-markdown-lists-sentences-and-tables.md). That ticket is the implement frontier for this slice. The rest of this chart stays open.
+- 2026-09-29 — Cold read, warm write, and repersist for that ticket are [Markdown parse and write design](plan/document-formats/arch-md-parse-write.md). Stage stays chart. That file is not a project-wide architecture.
