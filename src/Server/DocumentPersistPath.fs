@@ -212,6 +212,14 @@ module DocumentPersistPath =
             | :? IOException as ex ->
                 Error ("read failed: " + ex.Message)
 
+    /// A successful artifact write stamps mtime and marks that content node Persisted.
+    let private stampWrittenNode (time: DateTime) (node: Node) : Node =
+        let stamped = NodeUpdateTime.withStamp time node
+        if Node.carriesStateAxes stamped then
+            { stamped with persistState = PersistState.Persisted }
+        else
+            stamped
+
     let stampNodes
         (stamps: Map<NodeId, DateTime>)
         (graph: Graph)
@@ -224,10 +232,7 @@ module DocumentPersistPath =
                 | Some node ->
                     { g with
                         nodes =
-                            Map.add
-                                id
-                                (NodeUpdateTime.withStamp time node)
-                                g.nodes })
+                            Map.add id (stampWrittenNode time node) g.nodes })
             graph
 
     let stampExistingDocuments

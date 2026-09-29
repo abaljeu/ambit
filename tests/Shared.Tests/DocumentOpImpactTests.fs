@@ -173,6 +173,18 @@ let ``SetUpdateTime has no document artifact impact`` () =
     Assert.Empty(affected)
 
 [<Fact>]
+let ``SetPersistState has no document artifact impact`` () =
+    let graph, _, _, _, fileAId, _, _, _ = graphWithDocuments ()
+    let ops =
+        [ Op.SetPersistState(
+            fileAId,
+            PersistState.Persisted,
+            PersistState.Unpersisted) ]
+    let post = applyOps graph ops
+    let affected = affectedByOps graph post ops
+    Assert.Empty(affected)
+
+[<Fact>]
 let ``inverse SetText operation has the same scoped impact`` () =
     let graph, _, _, _, fileAId, fileBId, bodyAId, _ = graphWithDocuments ()
     let forward = [ Op.SetText(bodyAId, "alpha", "ALPHA") ]

@@ -192,6 +192,27 @@ let ``PersistStamp opsBetween emits SetUpdateTime for changed stamps`` () =
         failwith $"expected one SetUpdateTime, got {other}"
 
 [<Fact>]
+let ``PersistStamp opsBetween emits SetPersistState when the axis changes`` () =
+    let state = ModelBuilder.createState12 ()
+    let nodeId = (Graph.children state.graph state.graph.root).[0].id
+    let before = state.graph
+    let after =
+        { before with
+            nodes =
+                Map.add
+                    nodeId
+                    { before.nodes.[nodeId] with
+                        persistState = PersistState.Unpersisted }
+                    before.nodes }
+    match PersistStamp.opsBetween before after with
+    | [ Op.SetPersistState(id, oldState, newState) ] ->
+        Assert.Equal(nodeId, id)
+        Assert.Equal(PersistState.Persisted, oldState)
+        Assert.Equal(PersistState.Unpersisted, newState)
+    | other ->
+        failwith $"expected one SetPersistState, got {other}"
+
+[<Fact>]
 let ``Apply SetText on canonical root is invalid`` () =
     let state = ModelBuilder.createState12 ()
     let op = Op.SetText(Graph.rootId, "ROOT", "x")

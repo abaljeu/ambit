@@ -12,7 +12,8 @@ module ResidentProjection =
         | Op.SetClasses(nodeId, _, _)
         | Op.SetName(nodeId, _, _)
         | Op.SetDocumentState(nodeId, _, _)
-        | Op.SetUpdateTime(nodeId, _, _) ->
+        | Op.SetUpdateTime(nodeId, _, _)
+        | Op.SetPersistState(nodeId, _, _) ->
             if Map.containsKey nodeId state.graph.nodes then
                 Op.apply op state
             else

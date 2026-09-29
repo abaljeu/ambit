@@ -228,11 +228,21 @@ type NodeNav = NodeNav of Graph * NodeId option
 
 [<RequireQualifiedAccess>]
 module Node =
+    /// Workspace, Directory, or File content node.
+    /// A Directory File (exact `.amb` name) does not carry these axes.
+    let carriesStateAxes (node: Node) : bool =
+        NodeKind.artifact node.kind
+        && not (Filename.isDirectoryFileFilename node.name)
+
     /// Set DocumentState and the parse axis together.
+    /// A Directory File keeps DocumentState and does not dual-write the parse axis.
     let withDocumentState (state: DocumentState) (node: Node) : Node =
-        { node with
-            documentState = state
-            parseState = ParseState.ofDocumentState state }
+        if carriesStateAxes node then
+            { node with
+                documentState = state
+                parseState = ParseState.ofDocumentState state }
+        else
+            { node with documentState = state }
 
     /// Set the parse axis and the Current | Unparsed DocumentState pole together.
     let withParseState (state: ParseState) (node: Node) : Node =

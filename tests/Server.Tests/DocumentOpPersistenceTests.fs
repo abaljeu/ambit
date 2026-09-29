@@ -114,3 +114,60 @@ let ``persistGraphOps soft-fails illicit write and returns could-not-save messag
         Some(DocumentPersistWrite.fileCouldNotSave "SYSTEM/secret.txt"),
         result.message)
     Assert.Equal("BODY", result.graph.nodes.[bodyId].text)
+    Assert.Equal(PersistState.Unpersisted, result.graph.nodes.[fileId].persistState)
+    let stampOps = PersistStamp.opsBetween post result.graph
+    Assert.DoesNotContain(
+        stampOps,
+        fun op ->
+            match op with
+            | Op.SetPersistState(id, _, _) when id = fileId -> true
+            | _ -> false)
+
+let private workspaceIdOf (graph: Graph) =
+    graph.nodes
+    |> Map.pick (fun id node ->
+        if node.kind = Special Workspace then Some id else None)
+
+[<Fact>]
+let ``successful persistGraphOps marks the written special Persisted`` () =
+    let dataDir = newTempDir ()
+    let built, fileAId, fileBId, bodyAId, _ = graphWithTwoFiles ()
+    let wsId = workspaceIdOf built
+    let clean id graph =
+        Graph.setPersistState id PersistState.Persisted graph |> requireOk "clean"
+    let graph = built |> clean fileAId |> clean fileBId |> clean wsId
+    DocumentPersistWrite.writeAllDocuments dataDir graph
+    |> requireOk "initial write"
+    |> ignore
+    let edited =
+        Graph.setText bodyAId "alpha" "ALPHA" graph
+        |> requireOk "edit"
+    Assert.Equal(PersistState.Unpersisted, edited.nodes.[fileAId].persistState)
+    let dirty =
+        Graph.setPersistState wsId PersistState.Unpersisted edited
+        |> requireOk "dirty workspace"
+    let result =
+        DocumentPersistChange.persistGraphOps
+            dataDir
+            graph
+            dirty
+            [ Op.SetText(bodyAId, "alpha", "ALPHA") ]
+        |> requireOk "persistGraphOps"
+    Assert.Equal(PersistState.Persisted, result.graph.nodes.[fileAId].persistState)
+    Assert.Equal(ParseState.Parsed, result.graph.nodes.[fileAId].parseState)
+    Assert.Equal(PersistState.Persisted, result.graph.nodes.[fileBId].persistState)
+    Assert.Equal(PersistState.Unpersisted, result.graph.nodes.[wsId].persistState)
+    let stampOps = PersistStamp.opsBetween dirty result.graph
+    Assert.Contains(
+        stampOps,
+        fun op ->
+            match op with
+            | Op.SetPersistState(
+                id, PersistState.Unpersisted, PersistState.Persisted)
+                when id = fileAId -> true
+            | _ -> false)
+    match Op.applyAll stampOps { graph = dirty; eventId = EventId.zero } with
+    | ApplyResult.Changed state ->
+        Assert.Equal(PersistState.Persisted, state.graph.nodes.[fileAId].persistState)
+        Assert.Equal(PersistState.Unpersisted, state.graph.nodes.[wsId].persistState)
+    | other -> failwith $"expected stamp ops to apply, got {other}"

@@ -37,14 +37,10 @@ module GraphMutate =
             if Node.childOwnership graph parentId c <> Ownership.Owner then None
             else nodeDisplayName graph c.id)
 
-    /// Nearest Workspace, Directory, or File on the owner chain, inclusive.
+    /// Nearest content special on the owner chain, inclusive.
+    /// Directory File nodes (exact `.amb` name) are not axis carriers.
     let private markOwningSpecialUnpersisted (nodeId: NodeId) (graph: Graph) : Graph =
-        match
-            GraphQuery.enclosing
-                graph
-                (fun node -> NodeKind.artifact node.kind)
-                nodeId
-        with
+        match GraphQuery.enclosing graph Node.carriesStateAxes nodeId with
         | None -> graph
         | Some ownerId ->
             match Map.tryFind ownerId graph.nodes with
@@ -193,6 +189,8 @@ module GraphMutate =
             Error "workspaces is not a graph document"
         | Some node when not (NodeKind.artifact node.kind) ->
             Error "normal nodes do not have parse or persist state"
+        | Some node when Filename.isDirectoryFileFilename node.name ->
+            Error "directory file does not have parse or persist state"
         | Some node -> Ok node
 
     let setParseState

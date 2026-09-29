@@ -17,6 +17,11 @@ type Op =
         newState: DocumentState
     /// Server disk mtime after persist. `oldTime` is for undo; apply ignores mismatch.
     | SetUpdateTime of nodeId: NodeId * oldTime: System.DateTime * newTime: System.DateTime
+    /// Persist axis on a content special. `oldState` is for undo. Apply sets `newState`.
+    | SetPersistState of
+        nodeId: NodeId *
+        oldState: PersistState *
+        newState: PersistState
 
 type EventId =
     private
@@ -121,6 +126,7 @@ module Op =
         | Op.SetClasses(nodeId, _, _)
         | Op.SetName(nodeId, _, _)
         | Op.SetUpdateTime(nodeId, _, _) -> [ nodeId ]
+        | Op.SetPersistState _ -> []
         | Op.Replace(parentId, oldChildren, newChildren) ->
             (oldChildren @ newChildren)
             |> List.choose (fun child ->
@@ -166,6 +172,7 @@ module Op =
             // Download stamp alignment and persist tails only touch mtime metadata;
             // they must not require the document to be parsed first.
             false
+        | Op.SetPersistState _ -> false
         | Op.NewSpecialNode _ ->
             // Create and undo introduce or remove the special node. They are not
             // an edit inside an Unparsed document.
@@ -192,6 +199,18 @@ module Op =
             involvedNodeIds graph op
             |> List.distinct
             |> List.exists nodeBlocked
+
+    let private applySetPersistState
+        (nodeId: NodeId)
+        (persistState: PersistState)
+        (state: State)
+        : ApplyResult =
+        match Graph.setPersistState nodeId persistState state.graph with
+        | Error msg -> ApplyResult.Invalid(state, msg)
+        | Ok graph when LanguagePrimitives.PhysicalEquality graph state.graph ->
+            ApplyResult.Unchanged state
+        | Ok graph ->
+            ApplyResult.Changed { state with graph = graph }
 
     let private applyAllowed (op: Op) (state: State) : ApplyResult =
         match op with
@@ -265,6 +284,8 @@ module Op =
                             graph =
                                 { state.graph with
                                     nodes = Map.add nodeId stamped state.graph.nodes } }
+        | Op.SetPersistState(nodeId, _, newState) ->
+            applySetPersistState nodeId newState state
 
     let apply (op: Op) (state: State) : ApplyResult =
         if isBlockedByInaccessibleDocument op state.graph then
@@ -307,6 +328,8 @@ module Op =
         | Op.SetDocumentState(id, old, new_) ->
             Op.SetDocumentState(id, new_, old)
         | Op.SetUpdateTime(id, old, new_) -> Op.SetUpdateTime(id, new_, old)
+        | Op.SetPersistState(id, old, new_) ->
+            Op.SetPersistState(id, new_, old)
 
     let invertAll (ops: Op list) : Op list =
         let retainReversible =
@@ -360,6 +383,8 @@ module Op =
                             graph =
                                 { state.graph with
                                     nodes = Map.add nodeId restored state.graph.nodes } }
+        | Op.SetPersistState(nodeId, oldState, _) ->
+            applySetPersistState nodeId oldState state
 
     let undo (op: Op) (state: State) : ApplyResult =
         if isBlockedByInaccessibleDocument op state.graph then
@@ -623,7 +648,8 @@ module ChangeValidation =
         function
         | Op.Replace _ | Op.NewNode _ | Op.NewSpecialNode _ -> true
         | Op.SetText _ | Op.SetClasses _ | Op.SetName _ | Op.SetDocumentState _
-        | Op.SetUpdateTime _ -> false
+        | Op.SetUpdateTime _
+        | Op.SetPersistState _ -> false
 
     let private invalidOwnedFileDirectoryPlacement
         (graph: Graph)
@@ -705,23 +731,40 @@ module ChangeValidation =
 [<RequireQualifiedAccess>]
 module PersistStamp =
 
+    let private timeStampOp
+        (id: NodeId)
+        (beforeTime: System.DateTime)
+        (afterTime: System.DateTime)
+        =
+        let oldTime = NodeUpdateTime.toDbPrecision beforeTime
+        let newTime = NodeUpdateTime.toDbPrecision afterTime
+        if oldTime = newTime then None
+        else Some(Op.SetUpdateTime(id, oldTime, newTime))
+
+    let private persistStampOp
+        (id: NodeId)
+        (beforeState: PersistState)
+        (afterState: PersistState)
+        =
+        if beforeState = afterState then None
+        else Some(Op.SetPersistState(id, beforeState, afterState))
+
+    let private stampOpsFor (nodeId: NodeId) (beforeNode: Node option) (afterNode: Node) =
+        match beforeNode with
+        | Some beforeNode ->
+            [ timeStampOp nodeId beforeNode.updateTime afterNode.updateTime
+              persistStampOp nodeId beforeNode.persistState afterNode.persistState ]
+            |> List.choose id
+        | None ->
+            match timeStampOp nodeId NodeUpdateTime.missing afterNode.updateTime with
+            | None -> []
+            | Some op -> [ op ]
+
     let opsBetween (before: Graph) (after: Graph) : Op list =
         after.nodes
         |> Map.toList
-        |> List.choose (fun (id, afterNode) ->
-            let newTime = NodeUpdateTime.toDbPrecision afterNode.updateTime
-            match Map.tryFind id before.nodes with
-            | Some beforeNode ->
-                let oldTime = NodeUpdateTime.toDbPrecision beforeNode.updateTime
-                if oldTime = newTime then
-                    None
-                else
-                    Some(Op.SetUpdateTime(id, oldTime, newTime))
-            | None ->
-                if newTime = NodeUpdateTime.missing then
-                    None
-                else
-                    Some(Op.SetUpdateTime(id, NodeUpdateTime.missing, newTime)))
+        |> List.collect (fun (id, afterNode) ->
+            stampOpsFor id (Map.tryFind id before.nodes) afterNode)
 
     let appendToOps (ops: Op list) (stampOps: Op list) : Op list =
         if stampOps.IsEmpty then ops else ops @ stampOps

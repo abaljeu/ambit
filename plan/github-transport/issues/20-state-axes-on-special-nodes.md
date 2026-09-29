@@ -40,6 +40,10 @@ Locked 2026-09-28 (Alan). Axis-write mechanics live on [Here→There — step 1 
 10. **Directory Parse body** (deferred) — Walks all nodes tied to that `.amb`, not only immediate children. Create missing File Nodes. Disk-newer → File Node Unparsed (and push when the stack exists).
 11. **Parse stack pop** (deferred) — If the node is already Parsed, skip. Real work arrives Unparsed.
 
+**Directory File** — Locked 2026-09-29 (Alan). A Directory File (exact `.amb` name) does not carry Parsed|Unparsed or Persisted|Unpersisted. Do not dual-write those axes. A graph edit does not mark that node Unpersisted. Workspace, Directory, and File content nodes still carry both axes.
+
+**Live write and disk parse** — A successful artifact write marks that content node Persisted in the event source. A failed write leaves Unpersisted. A disk parse that brings that content node in line with disk ends Parsed and Persisted. This does not start the Persist stack or the Parse actor. Status stays `coded`.
+
 ## See also
 
 - [19 — Parsed/Unparsed and Persisted/Unpersisted](19-file-newer-graph-newer.md)
@@ -51,6 +55,8 @@ Locked 2026-09-28 (Alan). Axis-write mechanics live on [Here→There — step 1 
 - 2026-09-28: Alan locked axis-write mechanics. Notes record who writes each axis. Acceptance stays markers set and read only. No workers.
 - 2026-09-28: Alan locked Mikado. Create the new axes; set both new and old wherever state changes; migrate old uses step by step; finally remove the old. Acceptance stays markers set and read only.
 - 2026-09-29: Workspace, Directory, and File nodes carry Parsed|Unparsed and Persisted|Unpersisted. Graph set and read cover both axes. Create special dual-writes DocumentState Unparsed with Persisted. A graph edit marks the nearest owning special Unpersisted. SQL still stores document_state; reload derives the parse axis and defaults persist to Persisted. Status `coded`.
+- 2026-09-29: Alan: a Directory File (exact `.amb` name) does not carry Parsed|Unparsed or Persisted|Unpersisted. Do not dual-write those axes onto it. A graph edit must not mark that Directory File Unpersisted. Workspace, Directory, and File content nodes still carry both axes.
+- 2026-09-29: A successful live artifact write marks that content node Persisted in the event source (`SetPersistState` on the persist stamp). A failed write leaves Unpersisted. A disk parse that brings that content node in line with disk ends Parsed and Persisted. Status stays `coded`.
 
 ## Time
 

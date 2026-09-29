@@ -125,8 +125,9 @@ let private assertExactPrefix (submitted: Ev) (confirmed: Ev) =
     |> List.skip (eventOps submitted).Length
     |> List.iter (fun op ->
         match op with
-        | Op.SetUpdateTime _ -> ()
-        | _ -> failwith "stamp enrichment must be SetUpdateTime-only")
+        | Op.SetUpdateTime _
+        | Op.SetPersistState _ -> ()
+        | _ -> failwith "stamp enrichment must be SetUpdateTime or SetPersistState")
 
 /// Build a change (base revision `rev`) that adds one child under root; returns change + child id.
 let private changeAddChild (rootId: NodeId) (_rev: int) (childText: string) : Ev * NodeId =
