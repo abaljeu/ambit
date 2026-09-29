@@ -8,6 +8,7 @@
   <ItemGroup>
     <Compile Include="CssClass.fs" />
     <Compile Include="ClientRectCaret.fs" />
+    <Compile Include="ScrollIntoViewNeed.fs" />
     <Compile Include="Filename.fs" />
     <Compile Include="DocumentParseLimits.fs" />
     <Compile Include="SystemDirectoryPersist.fs" />

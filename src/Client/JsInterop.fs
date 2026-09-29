@@ -181,6 +181,28 @@ let focusPreventScroll (el: HTMLElement) : unit = jsNative
 [<Emit("$0.scrollIntoView({block:'nearest'})")>]
 let scrollIntoViewNearest (el: HTMLElement) : unit = jsNative
 
+[<Emit("parseFloat(getComputedStyle($0).scrollPaddingTop)||0")>]
+let private computedScrollPaddingTop (el: Element) : float = jsNative
+
+[<Emit("parseFloat(getComputedStyle($0).scrollPaddingBottom)||0")>]
+let private computedScrollPaddingBottom (el: Element) : float = jsNative
+
+/// True when `#amb-document` must scroll so `el` stays in the padded view.
+let focusedRowNeedsScroll (el: HTMLElement) : bool =
+    let sc = document.getElementById "amb-document"
+    if isNull sc then
+        true
+    else
+        let er = el.getBoundingClientRect ()
+        let vr = sc.getBoundingClientRect ()
+        let topPad = computedScrollPaddingTop sc
+        let botPad = computedScrollPaddingBottom sc
+        ScrollIntoViewNeed.needsScroll {
+            element = { top = er.top; bottom = er.bottom }
+            view = { top = vr.top + topPad; bottom = vr.bottom - botPad }
+            epsilon = 1.0
+        }
+
 /// Scroll element into view within #amb-document (keyboard-aware on iOS). Always uses
 /// `scrollIntoView({block:'nearest'})` first; then nudges within the document scroller.
 [<Emit("""(function(el){
