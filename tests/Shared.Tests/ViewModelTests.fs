@@ -2247,6 +2247,58 @@ let ``planPatchDOM editing row text change produces SetText not RecreateRow`` ()
     Assert.Equal("b+pasted", setTextOnTarget.[0])
 
 [<Fact>]
+let ``planPatchDOM remounts edit when cached sibling slides into old edit index`` () =
+    let graph, cont, ids = buildFlat [ "hello"; "suffix"; "sib" ]
+    let suffix, sib = ids.[1], ids.[2]
+    let oldModel =
+        let m = modelWithSel graph cont 1 2 1
+        { m with mode = Editing ("lo", EditCaret.Utf16Index 0) }
+    let suffixInst =
+        oldModel.siteMap.entries.[oldModel.siteMap.rootId].children.[1]
+    Assert.Equal(suffix, oldModel.siteMap.entries.[suffixInst].nodeId)
+    Assert.True(isEditingEntry oldModel oldModel.siteMap.entries.[suffixInst])
+    let kids = Graph.children graph cont
+    let withoutSuffix =
+        Graph.replace cont 1 [ kids.[1] ] [] graph
+        |> ModelBuilder.requireOk "drop suffix"
+    let newSite, nextId =
+        reconcileSiteMapFrom
+            withoutSuffix cont oldModel.siteMap oldModel.nextSiteId
+    let newModel =
+        { oldModel with
+            graph = withoutSuffix
+            siteMap = newSite
+            nextSiteId = nextId
+            selectedNodes =
+                Some
+                    { range =
+                        { parent = newSite.entries.[newSite.rootId]
+                          start = 1
+                          endd = 2 }
+                      focus = 1 } }
+    let sibInst =
+        newModel.siteMap.entries.[newModel.siteMap.rootId].children.[1]
+    Assert.Equal(sib, newModel.siteMap.entries.[sibInst].nodeId)
+    Assert.True(Set.contains sibInst (buildCacheSet oldModel.siteMap))
+    Assert.True(isEditingEntry newModel newModel.siteMap.entries.[sibInst])
+    let mutations =
+        planPatchDOM oldModel newModel (buildCacheSet oldModel.siteMap)
+    let recreatesSib =
+        mutations
+        |> List.exists (function
+            | RecreateRow id -> id = sibInst
+            | _ -> false)
+    let patchesSib =
+        mutations
+        |> List.exists (function
+            | PatchRow (id, _) -> id = sibInst
+            | _ -> false)
+    Assert.True(
+        recreatesSib,
+        "sibling that inherited edit must remount #edit-input")
+    Assert.False(patchesSib)
+
+[<Fact>]
 let ``SiteEntry.childIndex matches sibling order under parent`` () =
     let graph, cont, _ = buildFlat [ "a"; "b"; "c" ]
     let m = emptyModelAt graph cont
