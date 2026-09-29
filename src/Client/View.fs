@@ -52,6 +52,19 @@ let render (vm: VM) (dispatch: Msg -> unit) : Map<SiteId, HTMLElement> =
 // Incremental DOM patch (all ops except StateLoaded)
 // ---------------------------------------------------------------------------
 
+/// A mounted blank `#edit-input` that did not remount gets the recovered Node
+/// text. Live characters in the box stay.
+let private fillMountedBlankEdit (oldModel: VM) (newModel: VM) =
+    let editEl = document.getElementById "edit-input"
+    if isNull editEl then
+        ()
+    else
+        let raw = editEl.textContent
+        let domText = if isNull raw then "" else raw
+        match ViewModel.mountedBlankEditText domText oldModel newModel with
+        | Some text -> editEl.textContent <- text
+        | None -> ()
+
 /// Patch the DOM incrementally: diff old and new SiteMap visibility,
 /// removes stale rows, creates/moves new rows, updates existing rows in-place.
 /// Returns the updated element cache.
@@ -151,6 +164,8 @@ let patchDOM
                 rowRoot.insertBefore(row, anchor) |> ignore
 
             prevNode <- Some (row :> Browser.Types.Node)
+
+    fillMountedBlankEdit oldModel newModel
 
     if ManageFocus.shouldInvoke (Some oldModel) newModel then
     //if false then

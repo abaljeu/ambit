@@ -91,6 +91,7 @@ module ViewModel =
     let editInputSeedText = ViewModelRowState.editInputSeedText
     let tryVisibleEditingEntry = ViewModelRowState.tryVisibleEditingEntry
     let retargetEditingSelection = ViewModelRowState.retargetEditingSelection
+    let mountedBlankEditText = ViewModelRowState.mountedBlankEditText
     let startEditInstanceAtPos = ViewModelRowState.startEditInstanceAtPos
     let isActiveEntry = ViewModelRowState.isActiveEntry
     let activeNodeId = ViewModelRowState.activeNodeId
