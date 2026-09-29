@@ -255,10 +255,10 @@ let allCommands : CommandEntry list =
           keys = [ "."; "Alt+." ]; keyScope = SelectionOrEditing
           iconId = Some "amb-icon-edit-classes" }
         { id = ToggleBold; name = "Toggle bold"
-          keys = [ "Ctrl+B"; "b" ]; keyScope = SelectionOrEditing
+          keys = [ "Ctrl+b"; "b" ]; keyScope = SelectionOrEditing
           iconId = None }
         { id = ToggleItalic; name = "Toggle italic"
-          keys = [ "Ctrl+I"; "i" ]; keyScope = SelectionOrEditing
+          keys = [ "Ctrl+i"; "i" ]; keyScope = SelectionOrEditing
           iconId = None }
         { id = ToggleCheck; name = "Toggle check"
           keys = [ " " ]; keyScope = SelectionOnly
