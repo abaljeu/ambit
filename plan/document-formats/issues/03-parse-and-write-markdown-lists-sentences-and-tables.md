@@ -1,8 +1,8 @@
 # 03 — Parse and write markdown lists, sentences, and tables
 
-**Status:** defined
+**Status:** coded
 **Type:** coding
-**Actual:** 2h
+**Actual:** 4h
 **Blocked by:** None — can start immediately.
 
 ## Context
@@ -165,3 +165,4 @@ title: note
 
 - 2026-09-29 1h — chart the ticket from Alan locks (from chat)
 - 2026-09-29 1h — trace Persist bytes and amend the design (from chat)
+- 2026-09-29 2h — parse and write lists, sentences, and tables (from chat)

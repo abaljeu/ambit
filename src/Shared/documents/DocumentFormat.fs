@@ -87,12 +87,18 @@ module DocumentFormat =
 
                         let flats = MdDocument.flattenText normalized
 
-                        Ok(
-                            OutlineDocument.nestOutlineRows
-                                (flats
-                                 |> List.map (fun (depth, body, _) ->
-                                     depth, body, None))
-                                [])
+                        let rows =
+                            flats
+                            |> List.collect (fun (depth, body, kind) ->
+                                match MdDocument.splitLineSentences kind body with
+                                | (first, _) :: rest ->
+                                    (depth, first, None)
+                                    :: List.map
+                                        (fun (text, _) -> depth + 1, text, None)
+                                        rest
+                                | [] -> [ depth, body, None ])
+
+                        Ok(OutlineDocument.nestOutlineRows rows [])
                 DocumentHandler.readCold =
                     fun text graph documentRootId ->
                         MdDocument.read text documentRootId graph
