@@ -463,3 +463,316 @@ let ``unchanged bytes still rebuild outline from file not graph copy`` () =
     Assert.Equal<string list>(
         [ "alpha"; "beta" ],
         childTexts result.childMap result.nodes titleId)
+
+let private nl = Environment.NewLine
+
+let private readDoc text =
+    let graph, docId = graphWithDocument []
+    let result = MdDocument.read text docId graph |> requireOk "read"
+    graph, docId, result
+
+let private coldText (graph: Graph) docId (result: MdReadResult) =
+    MdDocument.write
+        (withRead graph result.nodes result.childMap)
+        docId
+        result.complement
+        None
+    |> requireOk "write"
+
+let private structuralNames = [
+    "md-head"
+    "md-list"
+    "md-list-star"
+    "md-number"
+    "md-table"
+]
+
+let private structuralOf (nodes: Map<NodeId, Node>) id =
+    nodes.[id].cssClasses
+    |> CssClass.toList
+    |> List.filter (fun name -> List.contains name structuralNames)
+
+let rec private shape (result: MdReadResult) (parentId: NodeId) : string list =
+    kids result.childMap parentId
+    |> List.map (fun child ->
+        let classes = structuralOf result.nodes child.id |> String.concat ","
+        let nested = shape result child.id |> String.concat "/"
+        result.nodes.[child.id].text + "[" + classes + "](" + nested + ")")
+
+[<Fact>]
+let ``digits period space become md-number nodes`` () =
+    let _, docId, result = readDoc ("1. item" + nl + "12. item" + nl)
+    let ids = kids result.childMap docId |> List.map (fun c -> c.id)
+    Assert.Equal<string list>([ "item"; "item" ], childTexts result.childMap result.nodes docId)
+    Assert.Equal<string list>([ "md-number" ], structuralOf result.nodes ids.[0])
+    Assert.Equal<string list>([ "md-number" ], structuralOf result.nodes ids.[1])
+
+[<Fact>]
+let ``close paren and missing space stay plain`` () =
+    let _, docId, result = readDoc ("1)" + nl + "1.item" + nl)
+    Assert.Equal<string list>(
+        [ "1)"; "1.item" ],
+        childTexts result.childMap result.nodes docId)
+    for child in kids result.childMap docId do
+        Assert.Empty(structuralOf result.nodes child.id)
+
+[<Fact>]
+let ``numbered lists share dash depth and indent`` () =
+    let text =
+        "# H" + nl
+        + "- dash" + nl
+        + "  - nested dash" + nl
+        + "1. num" + nl
+        + "  1. nested num" + nl
+    let _, docId, result = readDoc text
+    let head = (kids result.childMap docId).Head.id
+    let top = kids result.childMap head |> List.map (fun c -> c.id)
+    Assert.Equal<string list>([ "dash"; "num" ], childTexts result.childMap result.nodes head)
+    Assert.Equal("nested dash", result.nodes.[(kids result.childMap top.[0]).Head.id].text)
+    Assert.Equal("nested num", result.nodes.[(kids result.childMap top.[1]).Head.id].text)
+
+[<Fact>]
+let ``star marker is md-list-star and dash stays md-list`` () =
+    let _, docId, result = readDoc ("* item" + nl + "- item" + nl)
+    let ids = kids result.childMap docId |> List.map (fun c -> c.id)
+    Assert.Equal("item", result.nodes.[ids.[0]].text)
+    Assert.Equal<string list>([ "md-list-star" ], structuralOf result.nodes ids.[0])
+    Assert.Equal("item", result.nodes.[ids.[1]].text)
+    Assert.Equal<string list>([ "md-list" ], structuralOf result.nodes ids.[1])
+
+[<Fact>]
+let ``list markers require a following space`` () =
+    let _, docId, result =
+        readDoc ("*item" + nl + "-item" + nl + "***" + nl + "---" + nl)
+    Assert.Equal<string list>(
+        [ "*item"; "-item"; "***"; "---" ],
+        childTexts result.childMap result.nodes docId)
+    for child in kids result.childMap docId do
+        Assert.Empty(structuralOf result.nodes child.id)
+
+[<Fact>]
+let ``plain line splits on sentence marks`` () =
+    let _, docId, result = readDoc ("One. Two. Three" + nl)
+    let parent = (kids result.childMap docId).Head.id
+    Assert.Equal("One.", result.nodes.[parent].text)
+    Assert.Equal<string list>(
+        [ "Two."; "Three" ],
+        childTexts result.childMap result.nodes parent)
+    for child in kids result.childMap parent do
+        Assert.Empty(structuralOf result.nodes child.id)
+
+[<Fact>]
+let ``list and number bodies keep the marker on the first sentence`` () =
+    let _, docId, result = readDoc ("- One. Two." + nl + "1. One. Two." + nl)
+    let ids = kids result.childMap docId |> List.map (fun c -> c.id)
+    Assert.Equal("One.", result.nodes.[ids.[0]].text)
+    Assert.Equal<string list>([ "md-list" ], structuralOf result.nodes ids.[0])
+    Assert.Equal<string list>(
+        [ "Two." ],
+        childTexts result.childMap result.nodes ids.[0])
+    Assert.Empty(structuralOf result.nodes (kids result.childMap ids.[0]).Head.id)
+    Assert.Equal("One.", result.nodes.[ids.[1]].text)
+    Assert.Equal<string list>([ "md-number" ], structuralOf result.nodes ids.[1])
+    Assert.Equal<string list>(
+        [ "Two." ],
+        childTexts result.childMap result.nodes ids.[1])
+
+[<Fact>]
+let ``heading body splits and keeps md-head on the first sentence`` () =
+    let _, docId, result = readDoc ("# One. Two." + nl)
+    let head = (kids result.childMap docId).Head.id
+    Assert.Equal("One.", result.nodes.[head].text)
+    Assert.Equal<string list>([ "md-head" ], structuralOf result.nodes head)
+    Assert.Equal<string list>([ "Two." ], childTexts result.childMap result.nodes head)
+    Assert.Empty(structuralOf result.nodes (kids result.childMap head).Head.id)
+
+[<Fact>]
+let ``pipe line does not sentence-split`` () =
+    let _, docId, result = readDoc ("| a | Hello. World. |" + nl)
+    let carrier = (kids result.childMap docId).Head.id
+    let header = (kids result.childMap carrier).Head.id
+    Assert.Equal("| a | Hello. World. |", result.nodes.[header].text)
+    Assert.Equal<string list>([ "md-table" ], structuralOf result.nodes header)
+    Assert.Empty(kids result.childMap header)
+
+[<Fact>]
+let ``period inside AGENTS.md does not split the line`` () =
+    let _, docId, result = readDoc ("Read this after AGENTS.md." + nl)
+    Assert.Equal<string list>(
+        [ "Read this after AGENTS.md." ],
+        childTexts result.childMap result.nodes docId)
+    Assert.Empty(kids result.childMap (kids result.childMap docId).Head.id)
+
+[<Fact>]
+let ``write joins childless plain tails onto one file line`` () =
+    let parentId = NodeId.New()
+    let childId = NodeId.New()
+    let parent = normalNode parentId "One." Graph.rootId
+    let child = normalNode childId "Two." parentId
+    let graph, docId = graphWithDocument [ parent ]
+    let graph' =
+        Graph.addDetachedNode child graph
+        |> setChildren parentId (owned [ childId ])
+    let text =
+        MdDocument.write graph' docId emptyComplement None |> requireOk "write"
+    Assert.Equal("One. Two." + nl, text)
+
+[<Fact>]
+let ``three-line table hangs under an empty carrier`` () =
+    let text =
+        "| first | second | third |" + nl
+        + "|-----|------|-----|" + nl
+        + "|first | second | third |" + nl
+    let _, docId, result = readDoc text
+    let carrier = (kids result.childMap docId).Head.id
+    Assert.Equal("", result.nodes.[carrier].text)
+    Assert.Empty(structuralOf result.nodes carrier)
+    let header = (kids result.childMap carrier).Head.id
+    Assert.Equal("| first | second | third |", result.nodes.[header].text)
+    Assert.Equal<string list>([ "md-table" ], structuralOf result.nodes header)
+    Assert.Equal<string list>(
+        [ "|-----|------|-----|"; "|first | second | third |" ],
+        childTexts result.childMap result.nodes header)
+    for child in kids result.childMap header do
+        Assert.Equal<string list>([ "md-table" ], structuralOf result.nodes child.id)
+
+[<Fact>]
+let ``heading with no paragraph inserts a table carrier`` () =
+    let _, docId, result = readDoc ("# H" + nl + "| a |" + nl + "|---|" + nl)
+    let head = (kids result.childMap docId).Head.id
+    let carrier = (kids result.childMap head).Head.id
+    Assert.Equal("", result.nodes.[carrier].text)
+    Assert.Empty(structuralOf result.nodes carrier)
+    let header = (kids result.childMap carrier).Head.id
+    Assert.Equal("| a |", result.nodes.[header].text)
+    Assert.Equal("|---|", result.nodes.[(kids result.childMap header).Head.id].text)
+
+[<Fact>]
+let ``paragraph is the table parent and no carrier is invented`` () =
+    let _, docId, result = readDoc ("# H" + nl + "Para." + nl + "| a |" + nl)
+    let head = (kids result.childMap docId).Head.id
+    Assert.Equal<string list>([ "Para." ], childTexts result.childMap result.nodes head)
+    let para = (kids result.childMap head).Head.id
+    Assert.Equal<string list>([ "| a |" ], childTexts result.childMap result.nodes para)
+    Assert.Equal<string list>(
+        [ "md-table" ],
+        structuralOf result.nodes (kids result.childMap para).Head.id)
+
+[<Fact>]
+let ``sentence tail and table header are siblings`` () =
+    let _, docId, result = readDoc ("One. Two." + nl + "| a |" + nl)
+    let parent = (kids result.childMap docId).Head.id
+    Assert.Equal("One.", result.nodes.[parent].text)
+    Assert.Equal<string list>(
+        [ "Two."; "| a |" ],
+        childTexts result.childMap result.nodes parent)
+    Assert.Empty(structuralOf result.nodes (kids result.childMap parent).[0].id)
+    Assert.Equal<string list>(
+        [ "md-table" ],
+        structuralOf result.nodes (kids result.childMap parent).[1].id)
+
+[<Fact>]
+let ``blank line splits pipe groups into two tables`` () =
+    let _, docId, result = readDoc ("| a |" + nl + nl + "| b |" + nl)
+    let carrier = (kids result.childMap docId).Head.id
+    Assert.Equal("", result.nodes.[carrier].text)
+    Assert.Equal<string list>(
+        [ "| a |"; "| b |" ],
+        childTexts result.childMap result.nodes carrier)
+
+[<Fact>]
+let ``table text drops trailing spaces`` () =
+    let _, docId, result = readDoc ("| a |   " + nl)
+    let header = (kids result.childMap (kids result.childMap docId).Head.id).Head.id
+    Assert.Equal("| a |", result.nodes.[header].text)
+
+[<Fact>]
+let ``marker round-trip renumbers sibling md-number nodes`` () =
+    let source = "- a" + nl + "* b" + nl + "9. c" + nl + "8. d" + nl
+    let graph, docId, result = readDoc source
+    let written = coldText graph docId result
+    Assert.Equal("- a" + nl + "* b" + nl + "1. c" + nl + "2. d" + nl, written)
+    let _, docId2, again = readDoc written
+    Assert.Equal<string list>(shape result docId, shape again docId2)
+
+[<Fact>]
+let ``table round-trip omits the carrier line`` () =
+    let source =
+        "| first | second | third |" + nl
+        + "|-----|------|-----|" + nl
+        + "|first | second | third |" + nl
+    let graph, docId, result = readDoc source
+    let written = coldText graph docId result
+    Assert.Equal(source, written)
+    let _, docId2, again = readDoc written
+    Assert.Equal<string list>(shape result docId, shape again docId2)
+
+[<Fact>]
+let ``two tables gain one blank line on cold write`` () =
+    let source = "| a |" + nl + nl + "| b |" + nl
+    let graph, docId, result = readDoc source
+    Assert.Equal(source, coldText graph docId result)
+    let _, docId2, again = readDoc (coldText graph docId result)
+    Assert.Equal<string list>(shape result docId, shape again docId2)
+
+[<Fact>]
+let ``sentence round-trip writes one file line`` () =
+    let source = "One. Two." + nl
+    let graph, docId, result = readDoc source
+    Assert.Equal(source, coldText graph docId result)
+    let _, docId2, again = readDoc source
+    Assert.Equal<string list>(shape result docId, shape again docId2)
+
+[<Fact>]
+let ``sentence tail that owns a table writes on its own line`` () =
+    let source = "# One. Two." + nl + "| a |" + nl
+    let writtenExpect = "# One." + nl + "Two." + nl + "| a |" + nl
+    let graph, docId, result = readDoc source
+    Assert.Equal(writtenExpect, coldText graph docId result)
+    let _, docId2, again = readDoc writtenExpect
+    Assert.Equal<string list>(shape result docId, shape again docId2)
+
+[<Fact>]
+let ``warm write keeps a joined sentence line`` () =
+    let graph, docId = graphWithDocument []
+    let previous = "One. Two." + nl
+    let result = MdDocument.read previous docId graph |> requireOk "read"
+    let text =
+        MdDocument.writeWarm
+            OutlineLcs.diffTexts
+            (withRead graph result.nodes result.childMap)
+            docId
+            result.complement
+            previous
+        |> requireOk "write"
+    Assert.Equal(previous, text)
+
+[<Fact>]
+let ``ordinary text stays plain lines`` () =
+    let samples = [
+        "Heading" + nl + "=======" + nl, [ "Heading"; "=======" ]
+        "####### deep" + nl, [ "####### deep" ]
+        "[^1]: note" + nl, [ "[^1]: note" ]
+        "<div>hi</div>" + nl, [ "<div>hi</div>" ]
+        "---" + nl + "title: note" + nl + "---" + nl, [ "---"; "title: note"; "---" ]
+    ]
+    for text, expected in samples do
+        let _, docId, result = readDoc text
+        Assert.Equal<string list>(expected, childTexts result.childMap result.nodes docId)
+        for child in kids result.childMap docId do
+            Assert.False(hasClass result.nodes child.id "md-head")
+
+[<Fact>]
+let ``parse span of two sentences yields two span nodes`` () =
+    let text = "One. Two."
+    let tree =
+        (MdReconcile.handler OutlineLcs.diffTexts).parse
+            text
+            (Graph.create ())
+            Graph.rootId
+        |> requireOk "parse"
+    let rec count (node: SpanNode) =
+        1 + List.sumBy count node.children
+    Assert.Equal(2, count tree - 1)
+    Assert.Equal("One.", tree.children.Head.text)
+    Assert.Equal("Two.", tree.children.Head.children.Head.text)

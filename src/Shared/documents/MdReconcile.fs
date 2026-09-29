@@ -48,33 +48,84 @@ module MdReconcile =
 
         { TextSpan.start = start; end_ = end_ }
 
-    let private toSpanTree (text: string) (nodeIds: NodeId option list) : SpanNode =
-        let normalized = text.Replace("\r\n", "\n").Replace("\r", "\n")
-        let spanned =
-            OutlineDocument.lineSpans normalized |> List.toArray
-        let flats: (int * string * MdDocument.LineKind) list =
-            MdDocument.flattenText normalized
+    let private sentenceSpanLines
+        (expand: bool)
+        (fileIndex: int)
+        (spanned: (TextSpan * string) array)
+        (depth: int)
+        (span: TextSpan)
+        (body: string)
+        (kind: MdDocument.LineKind)
+        (nodeId: NodeId option)
+        =
+        let parts = MdDocument.splitLineSentences kind body
 
-        let substantiveFileIndices =
+        match parts with
+        | (first, _) :: (_ :: _ as tails) when expand ->
+            let parent =
+                OutlineDocument.flatLine depth span first None nodeId
+
+            let contentStart = (fst spanned.[fileIndex]).start
+
+            let kids =
+                tails
+                |> List.map (fun (text, offset) ->
+                    let childSpan: TextSpan = {
+                        TextSpan.start = contentStart + offset
+                        end_ = contentStart + offset + text.Length
+                    }
+
+                    OutlineDocument.flatLine (depth + 1) childSpan text None None)
+
+            parent :: kids
+        | _ ->
+            [ OutlineDocument.flatLine depth span body None nodeId ]
+
+    let private fileSpanLines
+        (expand: bool)
+        (normalized: string)
+        (spanned: (TextSpan * string) array)
+        (flats: (int * string * MdDocument.LineKind) list)
+        (nodeIds: NodeId option list)
+        =
+        let substantive =
             spanned
             |> Array.indexed
             |> Array.choose (fun (i, (_, content)) ->
                 if String.IsNullOrWhiteSpace content then None else Some i)
 
-        let nodeIds = nodeIds |> List.toArray
+        let ids = nodeIds |> List.toArray
 
-        let lines =
-            flats
-            |> List.mapi (fun i (depth, body, _) ->
-                let span =
-                    absorbedSpan spanned normalized substantiveFileIndices i
+        flats
+        |> List.mapi (fun i (depth, body, kind) ->
+            let fileIndex = substantive.[i]
+            let span = absorbedSpan spanned normalized substantive i
 
-                let nodeId =
-                    match Array.tryItem i nodeIds with
-                    | Some id -> id
-                    | None -> None
+            let nodeId =
+                match Array.tryItem i ids with
+                | Some id -> id
+                | None -> None
 
-                OutlineDocument.flatLine depth span body None nodeId)
+            sentenceSpanLines
+                expand
+                fileIndex
+                spanned
+                depth
+                span
+                body
+                kind
+                nodeId)
+        |> List.collect id
+
+    let private spanTree
+        (expandSentences: bool)
+        (text: string)
+        (nodeIds: NodeId option list)
+        : SpanNode =
+        let normalized = text.Replace("\r\n", "\n").Replace("\r", "\n")
+        let spanned = OutlineDocument.lineSpans normalized |> List.toArray
+        let flats = MdDocument.flattenText normalized
+        let lines = fileSpanLines expandSentences normalized spanned flats nodeIds
 
         let rootSpan: TextSpan = {
             TextSpan.start = 0
@@ -82,6 +133,12 @@ module MdReconcile =
         }
 
         OutlineDocument.nestByDepth rootSpan lines
+
+    let private toSpanTree text nodeIds =
+        spanTree true text nodeIds
+
+    let private toAlignTree text nodeIds =
+        spanTree false text nodeIds
 
     let private finishNodes documentRootId contextGraph (nodes, childMap) =
         toNodesRead (
@@ -143,7 +200,7 @@ module MdReconcile =
                 let aligned =
                     OutlineDocumentWarm.alignWarmEdit
                         diffTexts
-                        toSpanTree
+                        toAlignTree
                         previousText
                         editedText
                         prevIds

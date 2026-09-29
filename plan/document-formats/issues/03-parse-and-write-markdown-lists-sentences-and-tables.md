@@ -1,8 +1,8 @@
 # 03 — Parse and write markdown lists, sentences, and tables
 
-**Status:** defined
+**Status:** done
 **Type:** coding
-**Actual:** 2h
+**Actual:** 4h10m
 **Blocked by:** None — can start immediately.
 
 ## Context
@@ -160,8 +160,11 @@ title: note
 ## Comments
 
 - 2026-09-29 — Alan locked sentence scope, unterminated tails, table depth and the carrier, and parse plus write. Structural classes in this ticket are `md-list`, `md-list-star`, `md-number`, and `md-table`. Sentence children and the carrier stay plain.
+- 2026-09-29 — Alan accepted; squash-landed. Status `done`.
 
 ## Time
 
 - 2026-09-29 1h — chart the ticket from Alan locks (from chat)
 - 2026-09-29 1h — trace Persist bytes and amend the design (from chat)
+- 2026-09-29 2h — parse and write lists, sentences, and tables (from chat)
+- 2026-09-29 10m — Alan accepted; Status `done` before squash-land (from chat)
