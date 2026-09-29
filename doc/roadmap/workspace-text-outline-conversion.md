@@ -4,7 +4,7 @@ Status: Draft
 
 Authority: Target design for converting between document files and outline structure. Mixes settled commitments with open questions; each section marks which.
 
-See also: [[doc/roadmap/workspace-file-model.md]], [[doc/roadmap/workspace-file-persistence.md]], [[doc/current/workspace-stage-plan.md]], [[doc/roadmap/reference-expressions.md]], [[doc/roadmap/workspace-format-amb.md]], [[doc/roadmap/workspace-format-md.md]], [[doc/roadmap/workspace-format-plain.md]], [[doc/roadmap/workspace-format-xml.md]]
+See also: [[doc/roadmap/workspace-file-model.md]], [[doc/roadmap/workspace-file-persistence.md]], [[doc/current/workspace-stage-plan.md]], [[doc/roadmap/reference-expressions.md]], [[plan/document-formats/workspace-format-amb.md]], [[plan/document-formats/workspace-format-md.md]], [[plan/document-formats/workspace-format-plain.md]], [[plan/document-formats/workspace-format-xml.md]]
 
 This document defines the separate conversion step used by the main import and export process. The workflow itself stays in the main process docs; this file only defines how text content becomes outline structure and how outline structure becomes text content again.
 
@@ -50,10 +50,10 @@ These are committed.
 
 |--------|----------|-------|
 
-| `.amb` (native) | [[doc/roadmap/workspace-format-amb.md]] | [[src/Shared/Snapshot.fs]] is a pre-workspace baseline only; workspace `.amb` replaces its id scheme. |
-| `.md` | [[doc/roadmap/workspace-format-md.md]] | External-editor format; heading hierarchy maps to outline depth. |
-| other text | [[doc/roadmap/workspace-format-plain.md]] | Non-XML text extensions; indent-only hierarchy; infer and preserve indent style. |
-| XML | [[doc/roadmap/workspace-format-xml.md]] | Well-formed XML element tree; HTML excluded; structure and content preservation per base XML spec. |
+| `.amb` (native) | [[plan/document-formats/workspace-format-amb.md]] | [[src/Shared/Snapshot.fs]] is a pre-workspace baseline only; workspace `.amb` replaces its id scheme. |
+| `.md` | [[plan/document-formats/workspace-format-md.md]] | External-editor format; heading hierarchy maps to outline depth. |
+| other text | [[plan/document-formats/workspace-format-plain.md]] | Non-XML text extensions; indent-only hierarchy; infer and preserve indent style. |
+| XML | [[plan/document-formats/workspace-format-xml.md]] | Well-formed XML element tree; HTML excluded; structure and content preservation per base XML spec. |
 
 ## Content Conversion
 
@@ -80,13 +80,13 @@ Consumers: Plain (`PlainTextReconcile.handler`) and Amb (`AmbReconcile.handler`)
 
 ## Generic text reconciliation
 
-Authoritative spec: [[doc/roadmap/workspace-format-plain.md]]. That document defines line mapping (blanks both ways), identity, operations-driven export, LCS-based reconciliation outcomes, and verification targets for `Special File` artifacts whose path is neither `.amb` nor `.md`. Workspace and directory documents remain on `.amb`; markdown remains deferred.
+Authoritative spec: [[plan/document-formats/workspace-format-plain.md]]. That document defines line mapping (blanks both ways), identity, operations-driven export, LCS-based reconciliation outcomes, and verification targets for `Special File` artifacts whose path is neither `.amb` nor `.md`. Workspace and directory documents remain on `.amb`; markdown remains deferred.
 
 This conversion doc supplies the shared contract: three reconciliation inputs and required outcomes in **Settled**; external deletion semantics in **Deletion on import**; shared outline LCS above.
 
 ## Generic XML reconciliation
 
-Authoritative target design: [[doc/roadmap/workspace-format-xml.md]]. Until a dedicated Xml codec is in use, XML-shaped files may continue via the Plain path; a separate Xml OutlineReconcile consumer is not required near-term. The XML format doc defines tree mapping, structural classes (`xml-*`), operations-driven export, reconciliation by change kind, move asymmetry, references, and verification targets for when that codec is pursued. Classification uses a heading scan of artifact text; HTML-shaped headings are excluded. Workspace and directory documents remain on `.amb`; markdown remains deferred.
+Authoritative target design: [[plan/document-formats/workspace-format-xml.md]]. Until a dedicated Xml codec is in use, XML-shaped files may continue via the Plain path; a separate Xml OutlineReconcile consumer is not required near-term. The XML format doc defines tree mapping, structural classes (`xml-*`), operations-driven export, reconciliation by change kind, move asymmetry, references, and verification targets for when that codec is pursued. Classification uses a heading scan of artifact text; HTML-shaped headings are excluded. Workspace and directory documents remain on `.amb`; markdown remains deferred.
 
 This conversion doc supplies the shared contract only: three reconciliation inputs and required outcomes in **Settled**; external deletion semantics in **Deletion on import**.
 
@@ -126,7 +126,7 @@ Generic conversion (all formats):
 - import matches nodes by stable id across reorder, text edit, and ownership migration
 - editing file B does not require rewriting file A when A holds a cross-file reference to a node in B
 
-Generic text slice (Stage 7 Step 5) — see [[doc/roadmap/workspace-format-plain.md]] § Verification Targets for format-specific cases. Shared tests: `PlainTextDocumentTests` (codec parse/write/reconcile), extended `DocumentAssemblyTests` (path → codec dispatch). Server tests: extended `DocumentPersistenceTests` (`readme.txt` writes plain text, reads back through plain codec; `.amb` artifacts unchanged). Loader tests (`DocumentLoaderTests`) only if dispatch changes startup behavior.
+Generic text slice (Stage 7 Step 5) — see [[plan/document-formats/workspace-format-plain.md]] § Verification Targets for format-specific cases. Shared tests: `PlainTextDocumentTests` (codec parse/write/reconcile), extended `DocumentAssemblyTests` (path → codec dispatch). Server tests: extended `DocumentPersistenceTests` (`readme.txt` writes plain text, reads back through plain codec; `.amb` artifacts unchanged). Loader tests (`DocumentLoaderTests`) only if dispatch changes startup behavior.
 
-XML slice (Stage 7 Step 6) — see [[doc/roadmap/workspace-format-xml.md]] § Verification Targets. Shared tests: `XmlDocumentTests`, extended `DocumentAssemblyTests` (Xml dispatch). Server tests: extended `DocumentPersistenceTests` (XML file round-trip). Implementation plan: [[doc/reference/formats/xml-round-trip-plan.md]].
+XML slice (Stage 7 Step 6) — see [[plan/document-formats/workspace-format-xml.md]] § Verification Targets. Shared tests: `XmlDocumentTests`, extended `DocumentAssemblyTests` (Xml dispatch). Server tests: extended `DocumentPersistenceTests` (XML file round-trip). Implementation plan: [[doc/reference/formats/xml-round-trip-plan.md]].
 

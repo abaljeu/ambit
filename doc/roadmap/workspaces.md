@@ -28,7 +28,7 @@ Current documents remain authoritative for implemented behavior. This index orga
 - [[plan/github-transport/project.md]] — send to and from GitHub
 - [[doc/roadmap/workspace-webdav]] — server WebDAV Class 1 mount and PROPFIND datestamps
 - [[doc/roadmap/revising-workspace-file-model]]
-- Formats: [[doc/roadmap/workspace-format-amb]], [[doc/roadmap/workspace-format-md]], [[doc/roadmap/workspace-format-plain]], [[doc/roadmap/workspace-format-code]], [[doc/roadmap/workspace-format-xml]], [[doc/roadmap/workspace-format-dispatch]]
+- Formats: [[plan/document-formats/workspace-format-amb]], [[plan/document-formats/workspace-format-md]], [[plan/document-formats/workspace-format-plain]], [[plan/document-formats/workspace-format-code]], [[plan/document-formats/workspace-format-xml]], [[plan/document-formats/workspace-format-dispatch]]
 - Conversion: [[doc/roadmap/workspace-text-outline-conversion]]
 
 ## Retained planned decisions
@@ -63,7 +63,7 @@ The range 35f2976..22e28ca changed 20 documentation paths.
 - [[doc/roadmap/workspace-file-model]]
 - [[doc/roadmap/revising-workspace-file-model]]
 - [[doc/roadmap/workspace-file-persistence]]
-- [[doc/roadmap/workspace-format-plain]]
+- [[plan/document-formats/workspace-format-plain]]
 - [[doc/roadmap/workspace-text-outline-conversion]]
 - [[doc/roadmap/postgres-roadmap]]
 

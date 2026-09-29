@@ -2,9 +2,9 @@
 
 Status: Implemented (first slice)
 Authority: C-style brace languages (first extension: `.cs`). Not a general “any code” parser.
-See also: [[doc/reference/formats/code-shape.md]], [[doc/roadmap/workspace-format-plain.md]], [[doc/roadmap/workspace-format-code.md]]
+See also: [[doc/reference/formats/code-shape.md]], [[plan/document-formats/workspace-format-plain.md]], [[plan/document-formats/workspace-format-code.md]]
 
-Comment-ref profiles (`//-> `) stay in [[doc/roadmap/workspace-format-code.md]] and are out of scope here.
+Comment-ref profiles (`//-> `) stay in [[plan/document-formats/workspace-format-code.md]] and are out of scope here.
 
 ## Two-pass shape
 

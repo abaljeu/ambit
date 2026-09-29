@@ -2,9 +2,9 @@
 
 Status: Draft
 Authority: Target design for code-like workspace files that should follow plain-text rules with language comment references.
-See also: [[doc/roadmap/workspace-format-plain.md]], [[doc/roadmap/workspace-text-outline-conversion.md]], [[doc/roadmap/reference-expressions.md]]
+See also: [[plan/document-formats/workspace-format-plain.md]], [[doc/roadmap/workspace-text-outline-conversion.md]], [[doc/roadmap/reference-expressions.md]]
 
-This format inherits [[doc/roadmap/workspace-format-plain.md]] unless explicitly overridden here. That includes export behavior, line/indent handling, identity (` #name-token`), metadata (`cssClasses`), and diagnostics.
+This format inherits [[plan/document-formats/workspace-format-plain.md]] unless explicitly overridden here. That includes export behavior, line/indent handling, identity (` #name-token`), metadata (`cssClasses`), and diagnostics.
 
 ## Reference override
 
@@ -27,6 +27,6 @@ Import resolves prefixed ref-only lines to Ref edges exactly as plain refs. Expo
 
 ## Verification Targets
 
-- Everything in [[doc/roadmap/workspace-format-plain.md]] still holds unless overridden here.
+- Everything in [[plan/document-formats/workspace-format-plain.md]] still holds unless overridden here.
 - A profile with `//-> ` round-trips ref-only lines as comments while preserving Ref edges.
 - Files without a profile continue to use and round-trip plain `-> ` ref lines.

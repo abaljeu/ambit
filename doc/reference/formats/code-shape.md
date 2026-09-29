@@ -10,7 +10,7 @@ Blank / prologue rules:
 
 - **Plain blanks** — each blank line is its own **bound** empty node (`text = ""`), unchanged.
 - **Md blanks** — not separate nodes. Absorb blank-line bytes into a **neighboring bound node** by extending that node’s `TextSpan` (prefer the preceding substantive node when one exists; otherwise the following node or the document root) so coverage stays total.
-- **CStyle braces** — `{` / `}` attach to the preceding statement (not separate nodes); braced statements use cssClass `code-brace`. See [[doc/roadmap/workspace-format-cstyle-braces.md]].
+- **CStyle braces** — `{` / `}` attach to the preceding statement (not separate nodes); braced statements use cssClass `code-brace`. See [[plan/document-formats/workspace-format-cstyle-braces.md]].
 - **Xml prologue** (doc only until Xml) — fold into the document-root / first content node span, or into complement on the root File node; still in the tree, not unbound.
 - **Xml attributes** (doc only) — bound children whose spans sit in the opening tag.
 

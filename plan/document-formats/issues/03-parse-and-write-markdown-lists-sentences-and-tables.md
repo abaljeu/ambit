@@ -12,9 +12,9 @@ A person keeps a markdown document on a File Node. Parse reads that file into th
 
 [MdDocumentTests](tests/Shared.Tests/MdDocumentTests.fs) is the proof file. The file line `Read this after AGENTS.md.` stays one Node. The period inside `AGENTS.md` is not followed by a space.
 
-[Workspace .md text format](doc/roadmap/workspace-format-md.md) is leftover draft text. It says one file line is one Node, and it lists tables as unsupported. This ticket replaces those two points for the shapes below. This ticket does not edit that file.
+The agreed rules are [Workspace .md text format](plan/document-formats/workspace-format-md.md). This ticket implements that file for lists, sentences, tables, and ordinary text. Active heading means the depth of the current heading Node. It is 0 when no heading is open.
 
-Alan locked these rules on 2026-09-29. Active heading means the depth of the current heading Node. It is 0 when no heading is open.
+Alan locked these rules on 2026-09-29.
 
 ## What to build
 
@@ -69,7 +69,12 @@ When a sentence child already occupies depth active heading + 1, that child is t
 2. [ ] Depth with no heading — the carrier is depth 1, the header is depth 2, and the later pipe lines are depth 3. Header text is `| first | second | third |`. The children are `|-----|------|-----|` and `|first | second | third |`, in that order.
 3. [ ] Heading and no paragraph — `# H` then a pipe table makes the carrier a child of the heading. The header is a child of the carrier.
 4. [ ] Paragraph parent — `# H` then `Para.` then a pipe table makes the header a child of `Para.`. There is no carrier.
-5. [ ] Sentence tail as parent — `One. Two.` then a pipe line makes the header a child of `Two`. `Two` is a child of `One.`. There is no carrier.
+5. [ ] Sentence siblings — the file below makes the header a child of `One.` `Two` is also a child of `One.` There is no carrier.
+
+```markdown
+One. Two.
+| a |
+```
 6. [ ] Blank line splits tables — two pipe groups with a blank file line between them become two tables.
 7. [ ] Trailing spaces — `| a |   ` has Node text `| a |`.
 
@@ -89,22 +94,62 @@ Headings still write `#` repeated to the heading depth, then a space, then the j
 2. [ ] Table round-trip — the three-line example writes the three pipe lines and no carrier line. Read again rebuilds the carrier and the same three texts.
 3. [ ] Two tables — cold write puts one blank file line between them. Read again builds two tables.
 4. [ ] Sentence round-trip — `One. Two.` writes as one file line and reads back to parent `One.` and child `Two`.
-5. [ ] Tail that owns a table — `# One. Two.` followed by a pipe line writes the heading and `Two.` as separate file lines, then the pipe line. Read again puts the header under `Two.`.
+5. [ ] Tail that owns a table — the read file and the write file are the same pair as in [Workspace .md text format](plan/document-formats/workspace-format-md.md) **Tables**.
+
+```markdown
+# One. Two.
+| a |
+```
+
+```markdown
+# One.
+Two.
+| a |
+```
 
 ### 6. Tests
 
-Add facts in [MdDocumentTests](tests/Shared.Tests/MdDocumentTests.fs) for each acceptance check under Numbered lists, Unordered lists, Sentences, Tables, and Write round-trip. Keep the existing facts green. Add one span fact on the Md reconcile path: file line `One. Two.` yields two span Nodes and does not throw.
+Add facts in [MdDocumentTests](tests/Shared.Tests/MdDocumentTests.fs) for each acceptance check under Numbered lists, Unordered lists, Sentences, Tables, Write round-trip, and Ordinary text. Keep the existing facts green. Add one span fact on the Md reconcile path: file line `One. Two.` yields two span Nodes and does not throw.
 
-1. [ ] New facts — cover every acceptance check under Numbered lists, Unordered lists, Sentences, Tables, and Write round-trip.
+1. [ ] New facts — cover every acceptance check under Numbered lists, Unordered lists, Sentences, Tables, Write round-trip, and Ordinary text.
 2. [ ] Existing facts — [MdDocumentTests](tests/Shared.Tests/MdDocumentTests.fs) facts that already pass still pass, including `Read this after AGENTS.md.` as one Node.
 3. [ ] Span fact — `One. Two.` yields two span Nodes.
 
+### 7. Ordinary text
+
+Same rule as **Ordinary text** in [Workspace .md text format](plan/document-formats/workspace-format-md.md). These constructs are not reported and not dropped. Each file line is ordinary text.
+
+```markdown
+Heading
+=======
+```
+
+```markdown
+####### deep
+```
+
+```markdown
+[^1]: note
+```
+
+```markdown
+<div>hi</div>
+```
+
+```markdown
+---
+title: note
+---
+```
+
+1. [ ] Keep the lines — each fenced file above becomes plain Nodes, or a sentence parent plus sentence children. None of the lines is a heading. No diagnostic is raised.
+
 ## Non-goals
 
-- Blockquote, fenced code, indented code, task checkboxes, embeds, and block-ids.
+- Blockquote, fenced code, indented code, embeds, and block-ids. Those stay described in the format file and are not this ticket.
+- A checkbox state. `[ ]` and `[x]` stay in the Node text.
 - A `+ ` list marker.
 - Sentence split inside a pipe line.
-- An edit to [Workspace .md text format](doc/roadmap/workspace-format-md.md).
 - A structural css class on sentence children or on the carrier.
 
 ## See also
