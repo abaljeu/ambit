@@ -2,6 +2,7 @@
 
 **Status:** defined
 **Type:** coding
+**Actual:** 2h
 **Blocked by:** None — can start immediately.
 
 ## Context
@@ -12,7 +13,7 @@ A person keeps a markdown document on a File Node. Parse reads that file into th
 
 [MdDocumentTests](tests/Shared.Tests/MdDocumentTests.fs) is the proof file. The file line `Read this after AGENTS.md.` stays one Node. The period inside `AGENTS.md` is not followed by a space.
 
-The agreed rules are [Workspace .md text format](plan/document-formats/workspace-format-md.md). How cold read, warm write, and repersist stay correct is [Markdown parse and write design](plan/document-formats/arch-md-parse-write.md). This ticket implements that file for lists, sentences, tables, and ordinary text. Active heading means the depth of the current heading Node. It is 0 when no heading is open.
+The agreed rules are [Workspace .md text format](plan/document-formats/workspace-format-md.md). How cold read, warm write, and Persist bytes stay correct is [Markdown parse and write design](plan/document-formats/arch-md-parse-write.md). Persist file-format processing in that design is the Graph to artifact bytes path. `DocumentPersistWrite.writeDocumentCore` already calls `DocumentWarm.writeArtifact`. The write amendments are `MdDocument.kindOfNode`, `MdDocument.serializeLines`, `MdDocument.formatLine`, and `MdDocument.needsPreBlank`. This ticket implements that file for lists, sentences, tables, and ordinary text. Active heading means the depth of the current heading Node. It is 0 when no heading is open.
 
 Alan locked these rules on 2026-09-29.
 
@@ -154,7 +155,7 @@ title: note
 
 ## See also
 
-[Document formats](plan/document-formats/map.md), [Markdown parse and write design](plan/document-formats/arch-md-parse-write.md), [Workspace .md text format](plan/document-formats/workspace-format-md.md), [Markdown codec](plan/roadmap/epics/chapters/markdown-codec.md), [MdDocument](src/Shared/documents/MdDocument.fs), [MdDocumentTests](tests/Shared.Tests/MdDocumentTests.fs)
+[Document formats](plan/document-formats/map.md), [Markdown parse and write design](plan/document-formats/arch-md-parse-write.md), [Workspace .md text format](plan/document-formats/workspace-format-md.md), [Markdown codec](plan/roadmap/epics/chapters/markdown-codec.md), [MdDocument](src/Shared/documents/MdDocument.fs), [MdReconcile](src/Shared/documents/MdReconcile.fs), [DocumentWarm](src/Shared/documents/DocumentWarm.fs), [DocumentPersistWrite](src/Server/DocumentPersistWrite.fs), [MdDocumentTests](tests/Shared.Tests/MdDocumentTests.fs)
 
 ## Comments
 
@@ -163,3 +164,4 @@ title: note
 ## Time
 
 - 2026-09-29 1h — chart the ticket from Alan locks (from chat)
+- 2026-09-29 1h — trace Persist bytes and amend the design (from chat)
