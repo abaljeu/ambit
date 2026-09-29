@@ -314,6 +314,45 @@ module Behavior =
                 m2, effs @ effs2))
         )
 
+    /// ArrowUp/Down that will leave this field. In-field caret moves stay with the browser.
+    let private arrowLeavesEditField (key: KeyboardEvent) (textDiv: HTMLElement) : bool =
+        if key.ctrlKey || key.altKey || key.metaKey || key.shiftKey then
+            false
+        else
+            match key.key with
+            | "ArrowUp" ->
+                isContentEditableCaretOnVisualFirstLine textDiv
+                && Option.isSome (getContentEditableCaretClientX textDiv)
+            | "ArrowDown" ->
+                isContentEditableCaretOnVisualLastLine textDiv
+                && Option.isSome (getContentEditableCaretClientX textDiv)
+            | _ -> false
+
+    /// Browser ArrowUp can scroll the window after keydown, even once default is cancelled.
+    let private holdEditArrowScroll (saved: Scrollports) : unit =
+        setTimeout
+            (fun () ->
+                restoreScrollports saved
+                let el = document.getElementById "edit-input"
+                if isNull el then ()
+                else scrollEditingFieldIntoView el)
+            0
+        |> ignore
+
+    let private onEditKeyDown
+            (effectiveMode: Mode) (dispatch: Msg -> unit) (textDiv: HTMLElement) (ev: Event)
+            : unit =
+        let key = ev :?> KeyboardEvent
+        if (key.ctrlKey || key.metaKey) && key.key = "p" && not key.shiftKey then
+            ev.preventDefault()
+        if arrowLeavesEditField key textDiv then
+            ev.preventDefault()
+            let saved = captureScrollports ()
+            handleKey effectiveMode key dispatch
+            holdEditArrowScroll saved
+        else
+            handleKey effectiveMode key dispatch
+
     let private wireEditText
         (model: VM) (dispatch: Msg -> unit) (textDiv: HTMLElement) : unit =
         let effectiveMode =
@@ -324,12 +363,7 @@ module Behavior =
             | CssClassPrompt (ret, _) -> ret
             | RenamePrompt (ret, _) -> ret
             | m -> m
-        textDiv.addEventListener("keydown", fun (ev: Event) ->
-            let key = ev :?> KeyboardEvent
-            if (key.ctrlKey || key.metaKey) && key.key = "p" && not key.shiftKey then
-                ev.preventDefault()
-            handleKey effectiveMode key dispatch
-        )
+        textDiv.addEventListener("keydown", onEditKeyDown effectiveMode dispatch textDiv)
         textDiv.addEventListener("mousedown", fun (ev: Event) ->
             ev.stopPropagation()
         )
