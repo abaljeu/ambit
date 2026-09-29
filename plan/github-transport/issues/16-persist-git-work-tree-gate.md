@@ -25,7 +25,7 @@ Map gist: [[../map.md]] Decisions so far item 16.
 ## Notes
 
 - Persist is a Core async task on a stack, not this gate: [19 — Parsed/Unparsed and Persisted/Unpersisted](19-file-newer-graph-newer.md).
-- The 2026-09-26 implement notes on [12 — Run the Workspace git tracked-branch round-trip](12-workspace-git-tracked-branch-round-trip.md) and [13 — Run git Load and Save through the Server Peer Actor](13-peer-actor-runs-git-load-save.md) still describe the old gate in code. This ticket no longer requires that gate.
+- The 2026-09-26 implement notes on [12 — Run the Workspace git tracked-branch round-trip](12-workspace-git-tracked-branch-round-trip.md) and [13 — Run git Load and Save through the Server Peer Actor](13-actor-runs-git-load-save.md) still describe the old gate in code. This ticket no longer requires that gate.
 
 ## Comments
 

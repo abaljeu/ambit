@@ -1,4 +1,4 @@
-# 13 — Run git Load and Save through the Server Peer Actor
+# 13 — Run git Load and Save through the Server  Actor
 
 **Type:** coding
 **Status:** done
@@ -7,17 +7,17 @@ Actual: 1h40m
 
 ## Context
 
-A person has started a git Load or git Save for a Workspace. The Server must run the request as a live Peer Actor through the actor pool. The Actor receives Focus, uses the Workspace work tree, and gives every device the same Server-hosted path without making the App a git host.
+A person has started a git Load or git Save for a Workspace. The Server must run the request as a live Actor through the actor pool. The Actor receives Focus, uses the Workspace work tree, and gives every device the same Server-hosted path without making the App a git host.
 
 ## What to build
 
-### 1. Peer Actor
+### 1.  Actor
 
-Build the **Peer Actor** from the Module map in [[../arch.md]]. This capability supports the **git Load**, **git Save**, **Load keeps Parse**, **Server Peer Actor does the round-trip**, **One Actor shape through Server**, **Actor start door**, and **Reject UX** Story paths.
+Build the ** Actor** from the Module map in [[../arch.md]]. This capability supports the **git Load**, **git Save**, **Load keeps Parse**, **Server  Actor does the round-trip**, **One Actor shape through Server**, **Actor start door**, and **Reject UX** Story paths.
 
 - [x] 4.1.1 Keep only live Actor state — The Actor row exists only while a person-started git Load or git Save runs.
 - [x] 4.1.2 Store no GitHub credential — The Actor has no durable or live Ambit credential field.
-- [x] 4.2.1 Use the Load/Save start door — A load/save command request reaches the mailbox and actor pool; the pool invokes the Peer Actor, not Run or a `?git` entrée.
+- [x] 4.2.1 Use the Load/Save start door — A load/save command request reaches the mailbox and actor pool; the pool invokes the  Actor, not Run or a `?git` entrée.
 - [x] 4.2.2 Resolve the work tree from Focus — The Actor uses Focus only to identify the Workspace work tree; a subnode does not narrow git scope.
 - [x] 4.2.3 Use one door shape — Save uses the same mailbox-to-pool wiring as Load.
 - [x] 4.2.4 Run git Load — The Actor asks WorkspaceGit to pull the whole tracked branch, then continues through today's Load → Parse / graph-push coupling without expanding the later selection-parse nuance. **Current truth 2026-09-28:** after pull, mark Unparsed and push the Workspace onto the one Parse actor ([17 — Git Load: Unparsed then Parse stack](17-post-pull-cascade-and-gate-handoff.md), [18 — One Parse actor stack](18-parse-actor-stack-and-file-lock-ownership.md)). Selection Load is push-on-stack ([06 — Selection-scoped Parse after whole-tree git Load](06-selection-scoped-parse-after-whole-tree-git-load.md)). The 2026-09-27 hop records what shipped; it is not current required acceptance.
@@ -38,6 +38,6 @@ Build the **Peer Actor** from the Module map in [[../arch.md]]. This capability 
 
 ## Time
 
-- 2026-09-27 1h30m — implemented and tested the peer-only mailbox door, Server Peer Actor, WorkspaceGit composition, work-tree gate order, Load Parse continuation, and matching rejects
+- 2026-09-27 1h30m — implemented and tested the -only mailbox door, Server  Actor, WorkspaceGit composition, work-tree gate order, Load Parse continuation, and matching rejects
 - 2026-09-28 5m — annotated 4.2.9 exclusive-gate acceptance as superseded by Unparsed/Unpersisted (#151 / [16 — Persist/git work-tree gate](16-persist-git-work-tree-gate.md) revoke)
 - 2026-09-28 5m — annotated 4.2.4 / 4.3.4 Parse / graph-push hops as current-truth Unparsed → push onto Parse
