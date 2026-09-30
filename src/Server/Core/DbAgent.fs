@@ -7,14 +7,7 @@ open Gambol.Shared
 
 /// PostgreSQL-backed persist filling. Does not start a mailbox.
 type DbAgent = private {
-    handlers: PersistHandlers
-    onError: string -> string -> exn -> unit
-    formatError: string -> string
-    until: Async<Result<unit, string>>
-    bindSnapshot: (Graph option -> unit) -> unit
-    isReady: unit -> bool
-    flushSnapshot: unit -> Async<Result<unit, string>>
-    dispose: unit -> unit
+    filling: PersistFilling
 }
 
 [<RequireQualifiedAccess>]
@@ -483,15 +476,16 @@ module DbAgent =
         let recovered = loadReconciled connectionString initialState
         loaded.eventLog.Value <- snd recovered
         loaded.state.Value <- fst recovered
-        { handlers = persistHandlers loaded
-          onError = logUnhandledException loaded.liveSaveDataDir
-          formatError = formatError loaded.liveSaveDataDir
-          until = startupPrelude loaded runStartupSweep
-          bindSnapshot =
-            fun post -> loaded.snapshotPost.Value <- Some post
-          isReady = fun () -> loaded.ready.Task.IsCompletedSuccessfully
-          flushSnapshot = fun () -> async { return Ok () }
-          dispose = fun () -> () }
+        { filling =
+            { handlers = persistHandlers loaded
+              onError = logUnhandledException loaded.liveSaveDataDir
+              formatError = formatError loaded.liveSaveDataDir
+              isReady = fun () -> loaded.ready.Task.IsCompletedSuccessfully
+              flushSnapshot = fun () -> async { return Ok () }
+              dispose = fun () -> ()
+              until = Some(startupPrelude loaded runStartupSweep)
+              bindSnapshot =
+                fun post -> loaded.snapshotPost.Value <- Some post } }
 
     let private liveStartupSweep (connectionString: string) (_: Graph) =
         try
@@ -579,13 +573,5 @@ module DbAgent =
     let create (connectionString: string) : DbAgent =
         createWithLiveSave connectionString None
 
-    let persist (agent: DbAgent) : PersistFilling = {
-        handlers = agent.handlers
-        onError = agent.onError
-        formatError = agent.formatError
-        isReady = agent.isReady
-        flushSnapshot = agent.flushSnapshot
-        dispose = agent.dispose
-        until = Some agent.until
-        bindSnapshot = agent.bindSnapshot
-    }
+    let persist (agent: DbAgent) : PersistFilling =
+        agent.filling

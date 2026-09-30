@@ -1,8 +1,9 @@
 # 06 — Explicit parse command on a File (Load)
 
 **Type:** coding
-**Status:** defined
+**Status:** coded
 **Blocked by:** None — can start immediately
+Actual: 1.5h
 
 ## Context
 
@@ -14,16 +15,16 @@ Expand on [[../arch.md]] §3 step 2 Parse actor and stack for this first use cas
 
 ### 1. Mailbox Load of a File node
 
-- [ ] Load on mailbox queue — Load arrives on the mailbox queue.
-- [ ] File node subject — Subject is a File node.
-- [ ] Ask parse — When executed, it asks the parse function to parse the file.
+- [x] Load on mailbox queue — Load arrives on the mailbox queue.
+- [x] File node subject — Subject is a File node.
+- [x] Ask parse — When executed, it asks the parse function to parse the file.
 
 ### 2. Parse stack and loop
 
-- [ ] Push onto stack — That request is handled by pushing onto a stack.
-- [ ] Loop on Actor thread — The background loop that pulls the stack and runs the old parse function cannot work except on a separate thread; that implies the loop is an Actor function.
-- [ ] Loop runs old parse — A loop pulls from that stack and runs the old parse function (`DocumentPersistWrite.planParseFile`).
-- [ ] Keep old paths — Existing old paths do not need to be removed yet.
+- [x] Push onto stack — That request is handled by pushing onto a stack.
+- [x] Loop on Actor thread — The background loop that pulls the stack and runs the old parse function cannot work except on a separate thread; that implies the loop is an Actor function.
+- [x] Loop runs old parse — A loop pulls from that stack and runs the old parse function (`DocumentPersistWrite.planParseFile`).
+- [x] Keep old paths — Existing old paths do not need to be removed yet.
 
 ## Out of scope
 
@@ -38,3 +39,8 @@ Expand on [[../arch.md]] §3 step 2 Parse actor and stack for this first use cas
 
 - 2026-09-29: Specced from Alan’s first use case (explicit parse command on a file). Expand only; Status `defined`.
 - 2026-09-29: Alan — background parse loop needs a separate thread, so the loop is an Actor function.
+- 2026-09-29: Implemented expand path (mailbox Load, ParseStack, ParseActor loop). Status `coded`. Review: [code-review-06](../reports/code-review-06-explicit-parse-command-load-file.md).
+
+## Time
+
+- 2026-09-29 1.5h — implement mailbox Load, ParseStack, ParseActor loop, tests `(from chat)`

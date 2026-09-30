@@ -1,8 +1,10 @@
 # core-refinement
 
-Stage: chart
+Stage: build
 Summary: Sequel to [[plan/core-creation/project.md]]: refine Core so that after transport lands files, Core works through disk and Graph changes (Parse stack, Persist stack, state axes) until everything is updated.
 Updated: 2026-09-29
+Started: 2026-09-29
+Actual: 3h5m
 
 **Sequel to:** [[plan/core-creation/project.md]]
 **Feeds:** [[plan/github-transport/project.md]] (thin remainder: lock workspace, receive files, inform Core)
@@ -27,4 +29,4 @@ Updated: 2026-09-29
 - [03 — One Parse actor stack](issues/03-one-parse-actor-stack.md) — one long-lived Parse actor; Core pushes. Status `done`.
 - [04 — Parsed/Unparsed and Persisted/Unpersisted](issues/04-parsed-unparsed-and-persisted-unpersisted.md) — special-node axes and Core Persist stack. Status `done`.
 - [05 — Selection-scoped Parse after whole-tree git Load](issues/05-selection-scoped-parse-after-whole-tree-git-load.md) — selection push-on-stack. Status `done`.
-- [06 — Explicit parse command on a File (Load)](issues/06-explicit-parse-command-load-file.md) — first use case: mailbox Load of a File node through Parse stack. Status `defined`.
+- [06 — Explicit parse command on a File (Load)](issues/06-explicit-parse-command-load-file.md) — first use case: mailbox Load of a File node through Parse stack. Status `coded`.

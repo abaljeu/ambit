@@ -29,6 +29,7 @@ let private fileRuntime () =
             AuthPass = "secret"
             Actors = []
         }
+        (fun _ -> ())
 
 let private browserHandle runtime user pass =
     CoreMailbox.coreChanges runtime.host (browserCallerFromAuth user pass)

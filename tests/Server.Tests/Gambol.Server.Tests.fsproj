@@ -46,6 +46,7 @@
     <Compile Include="ActorsDeliverDoorTests.fs" />
     <Compile Include="AppGithubTransportBoundaryTests.fs" />
     <Compile Include="GithubTransportActorTests.fs" />
+    <Compile Include="ParseActorLoadTests.fs" />
     <Compile Include="TestActorHelloTests.fs" />
     <Compile Include="TestActorCommandErrorTests.fs" />
     <Compile Include="AskCancelHarness.fs" />

@@ -34,6 +34,11 @@ type internal CoreMsg =
         peerName: PeerActorName *
         request: LoadSaveCommandRequest *
         AsyncReplyChannel<Result<unit, string>>
+    /// Parse-stack Load: subject must be a File node. Fast push only.
+    | Load of
+        caller: Caller *
+        subject: NodeId *
+        AsyncReplyChannel<Result<unit, string>>
     | ActorStop of
         caller: Caller *
         result: ActorResult *
@@ -70,4 +75,17 @@ type PersistHandlers = {
     applyEvent:
         Ev -> bool -> Result<CoreChangesAccepted, string>
     snapshotDone: Graph option -> unit
+}
+
+/// Persist + lifecycle the mailbox hosts. File and Db build this; CoreMailbox
+/// does not read agent fields.
+type PersistFilling = {
+    handlers: PersistHandlers
+    onError: string -> string -> exn -> unit
+    formatError: string -> string
+    isReady: unit -> bool
+    flushSnapshot: unit -> Async<Result<unit, string>>
+    dispose: unit -> unit
+    until: Async<Result<unit, string>> option
+    bindSnapshot: (Graph option -> unit) -> unit
 }

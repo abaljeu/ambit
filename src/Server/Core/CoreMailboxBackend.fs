@@ -80,6 +80,8 @@ module internal CoreMailboxBackend =
             "StartPeerActor", name
         | StartLoadSaveCommand (_, path, PeerActorName name, _, _) ->
             "StartLoadSaveCommand", $"{path}:{name}"
+        | Load (_, subject, _) ->
+            "Load", $"{subject}"
         | ActorStop (_, result, _) ->
             match result with
             | ActorSucceeded -> "ActorStop", "ActorSucceeded"
@@ -104,6 +106,7 @@ module internal CoreMailboxBackend =
         | StartPeerActor (_, _, _, reply) -> reply.Reply(Error error)
         | StartLoadSaveCommand (_, _, _, _, reply) ->
             reply.Reply(Error error)
+        | Load (_, _, reply) -> reply.Reply(Error error)
         | ActorStop (_, _, reply) -> reply.Reply(Error error)
         | CancelActor (_, _, reply) -> reply.Reply(Error error)
         | Login (_, reply) -> reply.Reply(Error error)
@@ -121,6 +124,7 @@ module internal CoreMailboxBackend =
         credentials: CoreCredentials ref
         persist: PersistHandlers
         pool: CoreActorPool
+        parsePush: NodeId -> unit
         onError: string -> string -> exn -> unit
         formatError: string -> string
         eventLog: EventLog ref
@@ -318,6 +322,30 @@ module internal CoreMailboxBackend =
         CoreEventDispatch.postEvent (eventDispatchContext context) caller event false
         |> reply.Reply
 
+    let private isFileSubject (graph: Graph) (subject: NodeId) =
+        match Map.tryFind subject graph.nodes with
+        | Some { kind = Special File } -> Ok ()
+        | Some _ -> Error "Load subject is not a File node"
+        | None -> Error "Load subject not found"
+
+    let private dispatchLoad
+        (context: MailboxContext)
+        (caller: Caller)
+        (subject: NodeId)
+        (reply: AsyncReplyChannel<Result<unit, string>>)
+        : unit =
+        match admitCaller context caller with
+        | Error err -> reply.Reply(Error err)
+        | Ok () ->
+            match context.persist.getState () with
+            | Error err -> reply.Reply(Error err)
+            | Ok state ->
+                match isFileSubject state.graph subject with
+                | Error err -> reply.Reply(Error err)
+                | Ok () ->
+                    context.parsePush subject
+                    reply.Reply(Ok ())
+
     let private runMsg (context: MailboxContext) (msg: CoreMsg) =
         match msg with
         | GetState reply ->
@@ -345,6 +373,8 @@ module internal CoreMailboxBackend =
         | StartLoadSaveCommand (caller, path, peerName, request, reply) ->
             dispatchStartLoadSaveCommand
                 context caller path peerName request reply
+        | Load (caller, subject, reply) ->
+            dispatchLoad context caller subject reply
         | ActorStop (caller, result, reply) ->
             dispatchActorStop context caller result reply
         | CancelActor (caller, focusId, reply) ->
@@ -400,16 +430,23 @@ module internal CoreMailboxBackend =
         with ex ->
             Error ex.Message
 
-    let makeMailBox credentials persist pool onError formatError : MailboxContext =
+    let makeMailBox
+        credentials
+        (persist: PersistFilling)
+        pool
+        parsePush
+        : MailboxContext =
+        let seeded = persist.handlers
         let eventLog, handlers =
-            match seedEventLog persist with
-            | Ok log -> log, persist
-            | Error error -> EventLog.empty, failedSeed persist error
+            match seedEventLog seeded with
+            | Ok log -> log, seeded
+            | Error error -> EventLog.empty, failedSeed seeded error
         { credentials = ref credentials
           persist = handlers
           pool = pool
-          onError = onError
-          formatError = formatError
+          parsePush = parsePush
+          onError = persist.onError
+          formatError = persist.formatError
           eventLog = ref eventLog
           coreChanges = ref None }
 
@@ -435,10 +472,10 @@ module internal CoreMailboxBackend =
             with ex ->
                 Error $"Startup prelude failed: {ex.Message}")
 
-    let start (context: MailboxContext) : Started =
+    let private startNow (context: MailboxContext) : Started =
         started (MailboxProcessor<CoreMsg>.Start(pump context)) context
 
-    let startWithPrelude
+    let private startWithPrelude
         (context: MailboxContext)
         (until: Async<Result<unit, string>>)
         : Started =
@@ -473,3 +510,8 @@ module internal CoreMailboxBackend =
             startupLoop ()
         )
         started mailbox context
+
+    let start (context: MailboxContext) (persist: PersistFilling) : Started =
+        match persist.until with
+        | None -> startNow context
+        | Some until -> startWithPrelude context until
