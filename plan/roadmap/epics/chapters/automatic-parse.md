@@ -13,7 +13,7 @@ Unparsed File Nodes parse without a separate Parse command. A continuous Server 
 
 ## Required for done
 
-- [ ] [[plan/parse-actor/project.md]] — continuous Server Parse Actor; file-shaped disk→Graph; priority from Browser wants; emits Changes
+- [ ] [[plan/parse-thread/project.md]] — continuous Server Parse Actor; file-shaped disk→Graph; priority from Browser wants; emits Changes
 - [ ] Unparsed File Nodes parse without a separate Parse command.
 
 ## Notes

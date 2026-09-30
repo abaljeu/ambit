@@ -2,9 +2,9 @@
 
 Stage: build
 Summary: Sequel to [[plan/core-creation/project.md]]: refine Core so that after transport lands files, Core works through disk and Graph changes (Parse stack, Persist stack, state axes) until everything is updated.
-Updated: 2026-09-29
+Updated: 2026-09-30
 Started: 2026-09-29
-Actual: 3h5m
+Actual: 3h15m
 
 **Sequel to:** [[plan/core-creation/project.md]]
 **Feeds:** [[plan/github-transport/project.md]] (thin remainder: lock workspace, receive files, inform Core)
@@ -18,7 +18,7 @@ Actual: 3h5m
 - 2026-09-29 — Mailbox: 5.1 enable git requests, 5.2 call them, 5.3 stop any old. Note: [[arch.md]] §3 step 5.
 - 2026-09-29 — Alan: leave tickets undrafted. Draft a ticket only when a use case needs one; each ticket targets a use case from the expand-contract sequence on [[arch.md]] (a beat or a caller shift), not a pre-built full set.
 - Step 1 markers already shipped under github-transport as [20 — State axes on special nodes](../github-transport/issues/20-state-axes-on-special-nodes.md) (`done`). Expand-contract migrate/contract and later sequence steps stay on this Project ([[arch.md]] §3).
-- Parse Actor home stays [[plan/parse-actor/project.md]]. This Project owns how Core pushes work and how special-node axes drive Parse and Persist.
+- Parse product home stays [[plan/parse-thread/project.md]]. This Project owns how Core pushes work and how special-node axes drive Parse and Persist. Parse and Persist setup (stack/push/consumer; collectors/loop) live inside Core and stay hidden from outside Core such as RouteRegistration (Alan, 2026-09-30; [[arch.md]] §3 steps 2–3); that move is not done.
 - Map: [[map.md]]. Expand-contract architecture note: [[arch.md]].
 
 
@@ -26,7 +26,7 @@ Actual: 3h5m
 
 - [01 — Persist/git work-tree gate](issues/01-persist-git-work-tree-gate.md) — exclusive gate revoked; Unparsed / Unpersisted replace it. Status `done`.
 - [02 — Git Load: Unparsed then Parse stack](issues/02-git-load-unparsed-then-parse-stack.md) — after files land, Unparsed then push onto Parse. Status `done`.
-- [03 — One Parse actor stack](issues/03-one-parse-actor-stack.md) — one long-lived Parse actor; Core pushes. Status `done`.
+- [03 — One Parse thread stack](issues/03-one-parse-thread-stack.md) — one long-lived Parse stack; Core pushes. Status `done`.
 - [04 — Parsed/Unparsed and Persisted/Unpersisted](issues/04-parsed-unparsed-and-persisted-unpersisted.md) — special-node axes and Core Persist stack. Status `done`.
 - [05 — Selection-scoped Parse after whole-tree git Load](issues/05-selection-scoped-parse-after-whole-tree-git-load.md) — selection push-on-stack. Status `done`.
 - [06 — Explicit parse command on a File (Load)](issues/06-explicit-parse-command-load-file.md) — first use case: mailbox Load of a File node through Parse stack. Status `coded`.

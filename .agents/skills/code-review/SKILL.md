@@ -73,7 +73,7 @@ If the spec is missing, skip the Spec sub-agent and note this in the final repor
 
 ### 6. Aggregate
 
-Make a report file. Present the two reports under `## Standards` and `## Spec` headings. Keep findings only. If an axis has no findings, keep its one line. Keep the axes separate: do not merge or rerank findings, and do not pick a single winner across axes.
+Make a report file under a Project path (`plan/<slug>/reports/…`) per [[doc/agents/issue-tracker.md]] Conventions. Do not write the report directly under `plan/`. Present the two reports under `## Standards` and `## Spec` headings. Keep findings only. If an axis has no findings, keep its one line. Keep the axes separate: do not merge or rerank findings, and do not pick a single winner across axes.
 
 End with a one-line summary: total findings per axis, and the worst issue _within each axis_ (if any).
 

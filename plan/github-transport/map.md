@@ -10,7 +10,7 @@ After [[plan/core-refinement/project.md]] is done, this Project’s remaining jo
 
 ## 2. Notes
 
-This Project is a transport-layer connector leg for the **external GitHub remote**. It is not Ambit↔Ambit WebDAV Upload/Download. Those stay on [[plan/transport-layer/project.md]] / [[plan/auto-download-persisted-files/project.md]]. File-shaped file→Graph stays [[plan/parse-actor/project.md]]. Core revision (axes, Parse stack handoff, Persist stack) is [[plan/core-refinement/project.md]]. This is not [[plan/git-protocol/project.md]] (this repo’s Desktop git procedure).
+This Project is a transport-layer connector leg for the **external GitHub remote**. It is not Ambit↔Ambit WebDAV Upload/Download. Those stay on [[plan/transport-layer/project.md]] / [[plan/auto-download-persisted-files/project.md]]. File-shaped file→Graph stays [[plan/parse-thread/project.md]]. Core revision (axes, Parse stack handoff, Persist stack) is [[plan/core-refinement/project.md]]. This is not [[plan/git-protocol/project.md]] (this repo’s Desktop git procedure).
 
 Chapter home (product objective only): [[plan/roadmap/epics/chapters/send-to-and-from-github.md]] on [[plan/roadmap/epics/work-with-text-files-from-anywhere.md]]. Technical locks for GitHub transit live on this Project. Cite [[src/Server/WorkspaceGit.fs]] (`ensurePushConfig` / `receive.denyNonFastForwards`). Leftover `doc/roadmap/workspace-file-sync.md` is deleted. Implemented WebDAV Upload / Download is [[doc/current/workspace-file-sync.md]]. [[plan/roadmap/epics/agent-chat-managed-context.md]] depends on that Chapter. It does not own it.
 
@@ -38,7 +38,7 @@ Skills: [[.agents/skills/wayfinder/SKILL.md]], [[.agents/skills/grilling/SKILL.m
 6. **Not this repo’s git procedure** — This Project is not [[plan/git-protocol/project.md]].
 7. [01 — Which Workspaces and remotes](issues/01-which-workspace-labels-and-remotes.md) — Every Workspace (all have git). Server-git when a remote exists; no allowlist. Config is `git remote` + current branch / upstream on that work tree. Same tracked branch for pull and push. No Server branch map in v1.
 8. [02 — Actor command surface](issues/02-actor-command-surface.md) — Person Commands are Load and Save. Secondary pre-picks: git Load / git Save and desk Load / desk Save. Plain Load/Save = git* when a remote exists, else desk*. Do not inherit workspace-git’s Git Remote / Git Pull / Git Push or non-FF accept.
-9. [03 — When pull and push fire](issues/03-when-pull-and-push-fire.md) — No automatic pull or push in v1. Person Load/Save (and explicit git*/desk*) only. When a remote exists, plain Load/Save prefer git first. WebDAV Upload/Download remains. After files land, inform Core; Core works through changes ([[plan/core-refinement/project.md]]). Parse home stays [[plan/parse-actor/project.md]].
+9. [03 — When pull and push fire](issues/03-when-pull-and-push-fire.md) — No automatic pull or push in v1. Person Load/Save (and explicit git*/desk*) only. When a remote exists, plain Load/Save prefer git first. WebDAV Upload/Download remains. After files land, inform Core; Core works through changes ([[plan/core-refinement/project.md]]). Parse home stays [[plan/parse-thread/project.md]].
 10. [04 — Credential storage on Server](issues/04-credential-storage-on-server.md) — Ambit does not store GitHub credentials. The Actor invokes `git`; git loads credentials (credential helper / host setup). On Server that is the host’s git.
 11. [05 — Git Load/Save are Workspace-scoped](issues/05-git-load-save-workspace-scoped.md) — git Load/Save always pull/push the whole Workspace work tree / tracked branch, never file-level git, wherever Load/Save is invoked (Workspace root or a subnode). After files land, inform Core; selection Parse detail is [[plan/core-refinement/project.md]].
 12. [07 — Actor start door](issues/07-actor-start-door.md) — Not Run and not a `?git` entrée. Load or Save Command → load/save command request → mailbox → actor pool → GitHub Peer Actor. The Actor cares about Focus (Workspace / work tree) only. Same wiring for Save as Load.
@@ -57,7 +57,7 @@ None for transport mechanics. Core handoff detail: [[plan/core-refinement/map.md
 
 1. **Ambit↔Ambit WebDAV** — Implemented [[doc/current/workspace-file-sync.md]]. Redesign stays on transport-layer / [[plan/auto-download-persisted-files/project.md]]. This Project does not replace that transit.
 2. **Core revision after files land** — Stays [[plan/core-refinement/project.md]].
-3. **Parse after files land (Actor home)** — Stays [[plan/parse-actor/project.md]].
+3. **Parse after files land (Actor home)** — Stays [[plan/parse-thread/project.md]].
 4. **This repo’s git procedure** — Stays [[plan/git-protocol/project.md]].
 5. **Want-driven Graph→Browser** — Stays [[plan/browser-residency/project.md]].
 6. **Product code on this chart** — The map finds the way. It does not implement the Actor.

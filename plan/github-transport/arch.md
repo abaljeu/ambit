@@ -104,7 +104,7 @@ Sources: [spec.md](spec.md) User Stories 1–27; [map.md](map.md) Destination an
     2. [x] git Load and plain-git Load continue after a whole-tree pull; they do not stop at file transfer alone
     3. [ ] Remaining job after [[plan/core-refinement/project.md]]: lock workspace, receive files, inform revised Core; Core works through the changes
     4. [ ] Do not specify Parse/Persist stacks on this Project; that home is [[plan/core-refinement/project.md]]
-    5. [ ] Parse Actor product home stays [[plan/parse-actor/project.md]]
+    5. [ ] Parse Actor product home stays [[plan/parse-thread/project.md]]
 
 18. **WebDAV remains**
     1. [x] WebDAV Upload / Download stay implemented
@@ -324,7 +324,7 @@ Narrowest shared test seam:
 3. **Server branch map** — Ambit stores which Workspace tracks which branch. Rejected: [01 — Which Workspaces and remotes](issues/01-which-workspace-labels-and-remotes.md); config is git on that work tree.
 4. **Ambit credential store** — appsettings / user-secrets / Graph / DataDir hold a GitHub token. Rejected: [04 — Credential storage on Server](issues/04-credential-storage-on-server.md); git loads host credentials.
 5. **Automatic git** — schedule, post-Persist, or post-Download pull/push. Rejected: [03 — When pull and push fire](issues/03-when-pull-and-push-fire.md); person Commands only.
-6. **File-transfer-only Load with no Core handoff** — git Load stops at pull and never informs Core. Rejected: after files land, inform Core; Core works through changes ([[plan/core-refinement/project.md]]). Parse Actor home stays [[plan/parse-actor/project.md]].
+6. **File-transfer-only Load with no Core handoff** — git Load stops at pull and never informs Core. Rejected: after files land, inform Core; Core works through changes ([[plan/core-refinement/project.md]]). Parse Actor home stays [[plan/parse-thread/project.md]].
 7. **File-level git** — pull or push a file or subtree because Load/Save was invoked on a subnode. Rejected: [05 — Git Load/Save are Workspace-scoped](issues/05-git-load-save-workspace-scoped.md).
 8. **Run / `?git` entrée** — Start the Peer Actor from Run or a `?git` Command. Rejected: [07 — Actor start door](issues/07-actor-start-door.md); door is Load or Save via mailbox → actor pool.
 9. **Ambit skip key** — A special Ambit config key for `.amb` skip. Rejected: [09 — Skip list is .gitignore](issues/09-gitignore-skip-list.md); skip list is `.gitignore`.

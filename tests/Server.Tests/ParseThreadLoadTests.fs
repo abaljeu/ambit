@@ -1,4 +1,4 @@
-module Gambol.Server.Tests.ParseActorLoadTests
+module Gambol.Server.Tests.ParseThreadLoadTests
 
 open System
 open System.IO
@@ -116,7 +116,7 @@ let ``mailbox Load refuses non-File subject`` () =
     }
 
 [<Fact>]
-let ``Parse actor loop runs planParseFile for stacked File`` () =
+let ``ParseThread loop runs planParseFile for stacked File`` () =
     task {
         let dataDir = newTempDir ()
         let push, consumer = ParseStack.create ()
@@ -128,11 +128,11 @@ let ``Parse actor loop runs planParseFile for stacked File`` () =
                 push
         let parseHandle =
             CoreMailbox.coreChanges host testCaller
-        ParseActor.start
+        ParseThread.start
             { dataDir = dataDir
               consumer = consumer
-              getGraph = ParseActor.graphFromHost host
-              postOps = ParseActor.postParseOps parseHandle }
+              getGraph = ParseThread.graphFromHost host
+              postOps = ParseThread.postParseOps parseHandle }
         try
             let! fileId, _ =
                 seedWorkspaceFile host "home" "note.txt"

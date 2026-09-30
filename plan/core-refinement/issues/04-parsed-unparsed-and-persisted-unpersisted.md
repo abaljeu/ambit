@@ -40,7 +40,7 @@ Map gist: [[../map.md]] Decisions so far item 4.
 ## Notes
 
 - Git Load / Upload handoff: [02 — Git Load: Unparsed then Parse stack](02-git-load-unparsed-then-parse-stack.md).
-- Parse actor: [03 — One Parse actor stack](03-one-parse-actor-stack.md).
+- Parse stack: [03 — One Parse thread stack](03-one-parse-thread-stack.md).
 - File Newer / Graph Newer was an earlier formulation. Unparsed is disk-newer. Unpersisted is graph-newer. Do not keep a third Conflicted value.
 - Formerly github-transport issue 19. Moved to [[plan/core-refinement/project.md]] on 2026-09-29.
 

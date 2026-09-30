@@ -1,6 +1,6 @@
 # core-refinement architecture
 
-Updated: 2026-09-29
+Updated: 2026-09-30
 Sequence: expand-contract
 
 Home: [[project.md]]. Target architecture: [[plan/architecture/server-core.md]] (locked 2026-09-28). This note charts an incremental expand-contract path from current Core to that Server Core description. Spec.md and User Stories for a full `/to-arch` run are absent; Alan overrode that stop for expand-contract only. This note has no Story paths, Module map, or Seams. Stage stays `chart` on [[project.md]].
@@ -18,7 +18,7 @@ The two axes are independent markers. They are not a lock table. Do not invent a
 
 ## 2. Starting point
 
-Current Core is the [[plan/core-creation/project.md]] baseline: mailbox, Actor pool, Graph, Events, and database backend. Today `DocumentState` is `Current` | `Unparsed` | `NoServerFile`. `ParseState` and `PersistState` already exist on special nodes beside it ([20 — State axes on special nodes](../github-transport/issues/20-state-axes-on-special-nodes.md)). Parsed is the other pole of Unparsed (`Current` is today’s name). Load after files land still uses today’s Parse / graph-push hop ([[plan/github-transport/arch.md]] Load / git Load). The one long-lived Parse actor and the Core async Persist stack are not stood up. File Persist today goes through [[src/Server/DocumentPersistChange.fs]]. Transport still locks, receives, and informs Core; after this Project, that thin remainder stays [[plan/github-transport/project.md]].
+Current Core is the [[plan/core-creation/project.md]] baseline: mailbox, Actor pool, Graph, Events, and database backend. Today `DocumentState` is `Current` | `Unparsed` | `NoServerFile`. `ParseState` and `PersistState` already exist on special nodes beside it ([20 — State axes on special nodes](../github-transport/issues/20-state-axes-on-special-nodes.md)). Parsed is the other pole of Unparsed (`Current` is today’s name). Load after files land still uses today’s Parse / graph-push hop ([[plan/github-transport/arch.md]] Load / git Load). The Parse stack expand is coded but still started from [[src/Server/RouteRegistration.fs]] (`createPersistenceContext` builds `ParseStack` and calls `ParseThread.start`); that setup does not yet live only in [[src/Server/Core]]. The Core async Persist stack (collectors and loop) is not stood up. File Persist today goes through [[src/Server/DocumentPersistChange.fs]]. Transport still locks, receives, and informs Core; after this Project, that thin remainder stays [[plan/github-transport/project.md]].
 
 ## 3. Expand-contract sequence
 
@@ -29,13 +29,14 @@ Ordered path from §2 Starting point to [[plan/architecture/server-core.md]]. Th
    2. **Migrate** — [ ] Dual-write both new axes and old `DocumentState` wherever state changes; migrate old uses per §5 Axis-write mechanics.
    3. **Contract** — [ ] Remove `DocumentState` once no caller remains.
 
-2. **Parse actor and stack**
-   1. **Expand** — [x] Stand up the one long-lived Parse actor and its stack beside today’s Load → Parse / graph-push hop. Product home: [[plan/parse-actor/project.md]]. Core may push reconcile targets. Old hop still runs. See [03 — One Parse actor stack](issues/03-one-parse-actor-stack.md). The background loop that pulls the parse stack and runs the old parse function cannot work except on a separate thread, so that loop is an Actor function ([[plan/architecture/server-core.md]] §2 Actors). First use case (Alan, 2026-09-29): an explicit parse command on a file (today’s `ParseFile` / `postParseFile`) — mailbox Load of a File node, push onto the stack, loop runs the old parse body. Ticket: [06 — Explicit parse command on a File (Load)](issues/06-explicit-parse-command-load-file.md) (Status `coded`).
+2. **Parse stack**
+   Charted approach (Alan, 2026-09-30). Parse is not an Actor. Same posture as Persist (§3 step 3): private stack, public push inside Core, consumer thread waits until push, then calls the existing parse body. Parse setup (stack, push, consumer thread) lives inside [[src/Server/Core]]. Outside Core, including [[src/Server/RouteRegistration.fs]], does not construct Parse, start it, or hold its handles; RouteRegistration may call a Core entry that boots Core, and does not see parse push/consumer. That move is not done; today’s start site is still RouteRegistration (`createPersistenceContext` builds `ParseStack` and calls `ParseThread.start`).
+   1. **Expand** — [x] Stand up the one long-lived Parse stack beside today’s Load → Parse / graph-push hop. Product home: [[plan/parse-thread/project.md]]. Core may push reconcile targets. Old hop still runs. See [03 — One Parse thread stack](issues/03-one-parse-thread-stack.md). The background loop that pulls the parse stack and runs the old parse function runs on a separate thread; it is not an Actor. First use case (Alan, 2026-09-29): an explicit parse command on a file (today’s `ParseFile` / `postParseFile`) — mailbox Load of a File node, push onto the stack, loop runs the old parse body. Ticket: [06 — Explicit parse command on a File (Load)](issues/06-explicit-parse-command-load-file.md) (Status `coded`).
    2. **Migrate** — [ ] After files land (git Load pull or Upload): mark Unparsed, then push onto that stack. Client Load on Directory or File marks Unparsed; File push onto the stack waits on this expand. Selection push has no special priority. See [02 — Git Load: Unparsed then Parse stack](issues/02-git-load-unparsed-then-parse-stack.md) and [05 — Selection-scoped Parse after whole-tree git Load](issues/05-selection-scoped-parse-after-whole-tree-git-load.md). Transport only informs Core; Core owns the Unparsed → push path.
    3. **Contract** — [ ] Retire today’s Load → Parse / graph-push hop once every handoff uses the stack.
 
 3. **Core Persist stack**
-   Charted approach (Alan, 2026-09-29). Persist is not an Actor. See [04 — Parsed/Unparsed and Persisted/Unpersisted](issues/04-parsed-unparsed-and-persisted-unpersisted.md).
+   Charted approach (Alan, 2026-09-29). Persist is not an Actor. See [04 — Parsed/Unparsed and Persisted/Unpersisted](issues/04-parsed-unparsed-and-persisted-unpersisted.md). Setup location (Alan, 2026-09-30): Persist setup (collectors and the loop that calls existing persist functions) lives inside [[src/Server/Core]]. Outside Core, including [[src/Server/RouteRegistration.fs]], does not construct Persist, start it, or hold its handles; RouteRegistration may call a Core entry that boots Core, and does not see persist collectors. That setup is not stood up yet.
    1. **Expand** — [ ] Make **new collector functions** beside today’s sync live-save. A **loop** will pull from the collection and **call the existing persist functions** ([[src/Server/DocumentPersistChange.fs]] / today’s Graph→disk writers). Those functions stay the write body. Do not invent a new write body in this step.
    2. **Migrate** — [ ] **Change everyone to call the collectors.** Sync call sites move to collectors; the loop is the new feeder; the existing persist functions are what the loop calls. Do not delete those functions in this step.
    3. **Contract** — [ ] Retire the old sync call-site shape once collectors and the loop feed the existing persist functions. The write body stays.
@@ -94,5 +95,5 @@ Locked 2026-09-28 (Alan). These rules say who writes each axis and which node th
 1. **Map** — [[map.md]] (decision 6–7, 10)
 2. **Axes lock** — [04 — Parsed/Unparsed and Persisted/Unpersisted](issues/04-parsed-unparsed-and-persisted-unpersisted.md)
 3. **Server Core** — [[plan/architecture/server-core.md]]
-4. **Parse Actor home** — [[plan/parse-actor/project.md]]
+4. **Parse product home** — [[plan/parse-thread/project.md]]
 5. **Transport remainder** — [[plan/github-transport/project.md]]

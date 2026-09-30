@@ -3,7 +3,7 @@ namespace Gambol.Server
 open System.Threading
 open Gambol.Shared
 
-/// LIFO work for the long-lived Parse actor. Core pushes; one consumer waits.
+/// LIFO work for the long-lived Parse stack. Core pushes; one consumer waits.
 [<RequireQualifiedAccess>]
 module ParseStack =
 

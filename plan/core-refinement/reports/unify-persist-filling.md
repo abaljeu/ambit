@@ -23,7 +23,7 @@ FileAgent still keeps `initialState` beside `filling`. `FileAgent.initialState` 
 Command:
 
 ```
-dotnet test tests/Server.Tests/Gambol.Server.Tests.fsproj -c Debug --filter "FullyQualifiedName~ParseActorLoadTests|FullyQualifiedName~PersistHandlersRestoreTests|FullyQualifiedName~PersistApplyTests"
+dotnet test tests/Server.Tests/Gambol.Server.Tests.fsproj -c Debug --filter "FullyQualifiedName~ParseThreadLoadTests|FullyQualifiedName~PersistHandlersRestoreTests|FullyQualifiedName~PersistApplyTests"
 ```
 
 Result: passed. Failed 0, passed 14, skipped 0. I added PersistApplyTests to the filter because that module calls both persist functions and reads `.handlers`.

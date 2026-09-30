@@ -9,7 +9,7 @@ Canonical git procedure for this repo. Other rules and skills point here; they d
 
 ## Status
 
-1. From the project root, run `scripts/gitstatus.sh` with no arguments. Do not write `bash` in front of the command. This is the first git step. Done when the script printed the current branch and short status.
+1. From the project root, run `scripts/gitstatus.sh` with no arguments (command shape: [[.agents/rules/environment-windows-cursor-ide.md]]). This is the first git step. Done when the script printed the current branch and short status.
 2. Read that output. Proceed only when the workplace is right for this run. On Desktop, a right workplace has HEAD `dev`, and the tree is not dirty in a way that blocks this work. If the workplace is wrong, abort. Tell Alan what the script showed. Stop the task. Done when the workplace is right, or when you stopped and told Alan.
 3. Extra git after a right workplace is only for a current-task fact that `scripts/gitstatus.sh` did not print (paths for [[scripts/commit.sh]], a working-tree diff of files this task will change). Historical research is opt-in: run `git log`, merge-base, ancestor checks, `cat-file`, `git show` of old SHAs, or reconstruct history only when Alan asked for that research. Done when you proceed from the status output with extra git only for the current task, or you abort.
 

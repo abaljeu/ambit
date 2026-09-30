@@ -3,18 +3,18 @@ namespace Gambol.Server
 open System.Threading
 open Gambol.Shared
 
-/// Dependencies for the long-lived Parse actor loop (outside Core).
-type ParseActorDeps =
+/// Dependencies for the long-lived Parse consumer thread (outside Core).
+type ParseThreadDeps =
     { dataDir: string
       consumer: unit -> NodeId
       getGraph: unit -> Async<Result<Graph, string>>
       postOps: Op list -> Async<Result<unit, string>> }
 
-/// One long-lived Parse actor: pull stack, run planParseFile, post ops.
+/// One long-lived Parse consumer thread: pull stack, run planParseFile, post ops.
 [<RequireQualifiedAccess>]
-module ParseActor =
+module ParseThread =
 
-    let private parseOne (deps: ParseActorDeps) (fileId: NodeId) =
+    let private parseOne (deps: ParseThreadDeps) (fileId: NodeId) =
         async {
             let! graphResult = deps.getGraph ()
             match graphResult with
@@ -34,13 +34,13 @@ module ParseActor =
                     return ()
         }
 
-    let private loop (deps: ParseActorDeps) =
+    let private loop (deps: ParseThreadDeps) =
         while true do
             let fileId = deps.consumer ()
             parseOne deps fileId |> Async.RunSynchronously
 
     /// Hosts the perpetual consumer on a background thread.
-    let start (deps: ParseActorDeps) =
+    let start (deps: ParseThreadDeps) =
         let thread = Thread(ThreadStart(fun () -> loop deps))
         thread.IsBackground <- true
         thread.Start()

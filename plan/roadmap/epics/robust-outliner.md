@@ -32,7 +32,7 @@ Sequence: establish Core through [[chapters/initial-core.md]], support the first
 
 Aim for incremental work. Send a modest amount, then send more. Chapter: [[chapters/incremental-operations.md]].
 
-The Browser starts small (visible-closure) and grows by auto wants: visible Nodes that miss Children first, then those Children; a hollow-circle Bullet until fill. Auto wants need no click and no command. Homes: [[plan/browser-residency/project.md]], [[plan/parse-actor/project.md]], [[plan/transport-layer/project.md]] (file transit). Conflict resolution is already implemented. Do not re-plan it.
+The Browser starts small (visible-closure) and grows by auto wants: visible Nodes that miss Children first, then those Children; a hollow-circle Bullet until fill. Auto wants need no click and no command. Homes: [[plan/browser-residency/project.md]], [[plan/parse-thread/project.md]], [[plan/transport-layer/project.md]] (file transit). Conflict resolution is already implemented. Do not re-plan it.
 
 ## Required for done
 

@@ -15,7 +15,7 @@ Range: uncommitted working tree vs `HEAD`. Spec: [06 — Explicit parse command 
    ```
    Callers can mutate `items`/`closed` outside `lock`. (Server already uses concurrent mutation elsewhere; standing behind the *public ref record* shape.)
 
-3. **Judgement — Speculative Generality** — `ParseActorDeps.cancel` is always `CancellationToken.None` (production `startParseActor` and tests); stop is only via the handle’s private CTS + `CreateLinkedTokenSource`.
+3. **Judgement — Speculative Generality** — `ParseThreadDeps.cancel` is always `CancellationToken.None` (production `startParseThread` and tests); stop is only via the handle’s private CTS + `CreateLinkedTokenSource`.
 
 Mechanical scan: no function >40, no new line >100, no file >800 — no scan findings.
 
