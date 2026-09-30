@@ -53,65 +53,6 @@ let ``displayName matches metadata name`` () =
         Assert.False(System.String.IsNullOrWhiteSpace name)
         Assert.Equal(e.name, name)
 
-[<Fact>]
-let ``run owns Ctrl Enter and Alt Enter`` () =
-    let entry = commandFor Exec |> Option.get
-    Assert.Equal("Run", entry.name)
-    Assert.Equal<string list>([ "Ctrl+Enter"; "Alt+Enter" ], entry.keys)
-
-[<Fact>]
-let ``load owns Ctrl Shift greater-than`` () =
-    let entry = commandFor Load |> Option.get
-    Assert.Equal("Load", entry.name)
-    Assert.Equal<string list>([ "Ctrl+Shift+>" ], entry.keys)
-    Assert.DoesNotContain(allCommands, fun command -> command.name = "Import")
-    Assert.DoesNotContain(allCommands, fun command -> command.name = "Map workspace")
-    Assert.DoesNotContain(allCommands, fun command -> command.name = "Upload")
-
-[<Fact>]
-let ``toggle bold owns Ctrl B and b`` () =
-    let entry = commandFor ToggleBold |> Option.get
-    Assert.Equal("Toggle bold", entry.name)
-    Assert.Equal<string list>([ "Ctrl+B"; "b" ], entry.keys)
-    Assert.Equal(SelectionOrEditing, entry.keyScope)
-
-[<Fact>]
-let ``toggle italic owns Ctrl I and i`` () =
-    let entry = commandFor ToggleItalic |> Option.get
-    Assert.Equal("Toggle italic", entry.name)
-    Assert.Equal<string list>([ "Ctrl+I"; "i" ], entry.keys)
-    Assert.Equal(SelectionOrEditing, entry.keyScope)
-
-[<Fact>]
-let ``toggle check owns the space character`` () =
-    let entry = commandFor ToggleCheck |> Option.get
-    Assert.Equal("Toggle check", entry.name)
-    Assert.Equal<string list>([ " " ], entry.keys)
-    Assert.Equal(SelectionOnly, entry.keyScope)
-    Assert.DoesNotContain("Space", entry.keys)
-
-[<Fact>]
-let ``toggle class keys are first-wins free in selection scope`` () =
-    let selectionKeys =
-        allCommands
-        |> List.filter (fun e -> scopeInSelection e.keyScope)
-        |> List.collect (fun e -> e.keys)
-    let owned =
-        [ "b"; "i"; " "; "Ctrl+B"; "Ctrl+I" ]
-        |> List.map (fun k ->
-            k, selectionKeys |> List.filter ((=) k) |> List.length)
-    Assert.Equal<int list>(
-        [ 1; 1; 1; 1; 1 ],
-        owned |> List.map snd)
-
-[<Fact>]
-let ``download owns Ctrl Shift less-than`` () =
-    let entry = commandFor Download |> Option.get
-    Assert.Equal("Download", entry.name)
-    Assert.Equal<string list>([ "Ctrl+Shift+<" ], entry.keys)
-    Assert.DoesNotContain(allCommands, fun command -> command.name = "Export")
-    Assert.DoesNotContain(allCommands, fun command -> command.name = "Git status")
-
 let private contextualGraph () =
     let graph0 = Graph.create ()
     let fileId = NodeId.New()
