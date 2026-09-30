@@ -18,6 +18,8 @@ Before spawning sub-agents, write a user-facing explanation of the problem space
 
 Show this to the user, then immediately proceed to Step 2. The user reads and thinks while the sub-agents work in parallel.
 
+Done: the user-facing explanation is shown and covers callers, hide-vs-expose, constraints, dependency categories, and a grounding sketch.
+
 ### 2. Spawn sub-agents
 
 Spawn 3+ sub-agents in parallel using the Agent tool. Each must produce a **radically different** interface for the module.
@@ -39,6 +41,8 @@ Each sub-agent outputs:
 4. Dependency strategy and adapters (see [DEEPENING.md](DEEPENING.md)) when relevant
 5. Trade-offs — where leverage is high, where it's thin
 
+Done: 3+ sub-agents have returned, each with a different design constraint and an independent technical brief.
+
 ### 3. Present and compare
 
 Present designs sequentially so the user can absorb each one, then compare them in prose. Contrast by **depth** (leverage at the interface), **locality** (where change concentrates), **seam placement**, ease of correct use vs ease of misuse, and whether the shape allows efficient internals.
@@ -47,9 +51,11 @@ After comparing, give your own recommendation: which design you think is stronge
 
 Ask which design fits the primary use case and whether any elements from other designs are worth incorporating.
 
+Done: designs are presented and contrasted, a recommendation (or hybrid) is stated, and the user has been asked which design fits.
+
 ## Anti-patterns
 
-- Do not let sub-agents produce similar designs — enforce radical difference
-- Do not skip comparison — the value is in contrast
-- Do not implement — this is about interface shape
-- Do not evaluate based on implementation effort alone
+- Give each sub-agent a distinct design constraint so the proposals diverge — similar designs fail the brief.
+- Compare designs in prose after presenting them — contrast is the deliverable.
+- Deliver interface shape only; leave implementation for a later step.
+- Score designs on depth, locality, and seam placement — not on implementation effort alone.

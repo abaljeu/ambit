@@ -15,7 +15,7 @@ Canonical git procedure for this repo. Other rules and skills point here; they d
 
 ## Places
 
-Three Desktop places. Reuse these names. Do not add `w/` branches. Do not write per-project git notes. All Desktop work on **dev**; promote to **ready**. Cloud agents work on a disposable branch and send to **staging**: [[.agents/skills/cloud-agent-git/SKILL.md]].
+Three Desktop places. Reuse these names. Do not write per-project git notes. All Desktop work on **dev**; promote to **ready**. Cloud agents work on a disposable branch and send to **staging**: [[.agents/skills/cloud-agent-git/SKILL.md]].
 
 **dev** — workplace on this machine. All Desktop edits and ordinary commits happen here. Local-only; do not push `dev`.
 

@@ -45,32 +45,21 @@ If the subfolder has code, it also needs a `main.ts` (>1 line). But for stubs, a
 
 ## Workflow
 
-1. **Parse the plan** - extract section names, exercise names, and variant types
-2. **Create directories** - `mkdir -p` for each path
-3. **Create stub readmes** - one `readme.md` per variant folder with a title
-4. **Run lint** - `pnpm ai-hero-cli internal lint` to validate
-5. **Fix any errors** - iterate until lint passes
-
-## Lint rules summary
-
-The linter (`pnpm ai-hero-cli internal lint`) checks:
-
-- Each exercise has subfolders (`problem/`, `solution/`, `explainer/`)
-- At least one of `problem/`, `explainer/`, or `explainer.1/` exists
-- `readme.md` exists and is non-empty in the primary subfolder
-- No `.gitkeep` files
-- No `speaker-notes.md` files
-- No broken links in readmes
-- No `pnpm run exercise` commands in readmes
-- `main.ts` required per subfolder unless it's readme-only
+1. **Parse the plan** — extract section names, exercise names, and variant types.
+   Done: every section, exercise, and variant to create is listed.
+2. **Create directories** — `mkdir -p` for each path.
+   Done: every listed path exists on disk.
+3. **Create stub readmes** — one `readme.md` per variant folder with a title (and `main.ts` when the subfolder has code).
+   Done: each variant folder has a non-empty `readme.md` per Required files.
+4. **Lint** — `pnpm ai-hero-cli internal lint`; fix until it passes.
+   Done: lint exits clean for the new exercises.
 
 ## Moving/renaming exercises
 
-When renumbering or moving exercises:
-
-1. Use `git mv` (not `mv`) to rename directories - preserves git history
-2. Update the numeric prefix to maintain order
-3. Re-run lint after moves
+1. Use `git mv` (not `mv`) to rename directories — preserves git history.
+2. Update the numeric prefix to maintain order.
+3. Re-run lint after moves.
+   Done: paths use `git mv`, numbering is ordered, lint is clean.
 
 Example:
 

@@ -28,7 +28,7 @@ Match naming: backtick F# test names, xUnit `[<Fact>]` / `[<Theory>]`.
 
 ## Workflow
 
-1. Find the closest existing test file for the behavior.
-2. Add the failing case (or new file if the concern is distinct).
-3. Update the fsproj if you added a file.
-4. Run tests per [[.agents/skills/implement-fsharp-feature/SKILL.md]].
+1. Find the closest existing test file for the behavior. Done: the target file (or that a new file is needed) is chosen.
+2. Add the failing case (or new file if the concern is distinct). Done: the new case exists and fails for the right reason.
+3. Update the fsproj if you added a file. Done: the fsproj lists every new file, or no fsproj edit was needed.
+4. Run tests per [[.agents/skills/implement-fsharp-feature/SKILL.md]]. Done: the related foreground tests pass (or stay red until production code catches up under TDD).

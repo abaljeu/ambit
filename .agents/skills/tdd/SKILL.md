@@ -7,7 +7,7 @@ description: TDD augmentation for /implement. Use when the user mentions TDD, re
 
 When building a ticket, start at [[.agents/skills/implement/SKILL.md]]. This skill is the TDD augmentation: good tests, seams, anti-patterns, and red-green. It does not stop for review after each color. F# tests: [[.agents/skills/implement-fsharp-feature/SKILL.md]].
 
-TDD is the red → green loop. This skill is the reference that makes that loop produce tests worth keeping: what a good test is, where tests go, the anti-patterns, and the rules of the loop. Every section applies on every cycle — consult them before and during the loop, not after.
+TDD is the red → green loop. This skill is the reference that makes that loop produce tests worth keeping. Every section applies on every cycle — consult them before and during the loop, not after.
 
 When exploring the codebase, read `CONTEXT.md` (if it exists) so test names and interface vocabulary match the project's domain language, and respect ADRs in the area you're touching.
 
@@ -15,9 +15,9 @@ When exploring the codebase, read `CONTEXT.md` (if it exists) so test names and 
 
 Tests verify behavior through public interfaces, not implementation details. Code can change entirely; tests shouldn't. A good test reads like a specification — "user can checkout with valid cart" tells you exactly what capability exists — and survives refactors because it doesn't care about internal structure.
 
-A good test is non-trivial.  If the code merely assigns a constant value, there is no need to test that value was assigned.
+A good test is non-trivial. If the code merely assigns a constant value, there is no need to test that value was assigned.
 
-See [tests.md](tests.md) for examples and [mocking.md](mocking.md) for mocking guidelines.
+Examples: [tests.md](tests.md). Mocking at system boundaries: [mocking.md](mocking.md).
 
 ## Seams — where tests go
 
