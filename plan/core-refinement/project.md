@@ -20,13 +20,14 @@ Actual: 3h15m
 - Step 1 markers already shipped under github-transport as [20 — State axes on special nodes](../github-transport/issues/20-state-axes-on-special-nodes.md) (`done`). Expand-contract migrate/contract and later sequence steps stay on this Project ([[arch.md]] §3).
 - Parse product home stays [[plan/parse-thread/project.md]]. This Project owns how Core pushes work and how special-node axes drive Parse and Persist. Parse and Persist setup (stack/push/consumer; collectors/loop) live inside Core and stay hidden from outside Core such as RouteRegistration (Alan, 2026-09-30; [[arch.md]] §3 steps 2–3); that move is not done.
 - Map: [[map.md]]. Expand-contract architecture note: [[arch.md]].
+- 2026-09-30 — Alan locked the Core locking model (drift axes, parse thread, Persist when Unpersisted and Parsed, workspace lock, per-member persist locks, filesystem backstop). Home: [[arch.md]] §6. Map decision 13.
 
 
 ## Issues
 
-- [01 — Persist/git work-tree gate](issues/01-persist-git-work-tree-gate.md) — exclusive gate revoked; Unparsed / Unpersisted replace it. Status `done`.
-- [02 — Git Load: Unparsed then Parse stack](issues/02-git-load-unparsed-then-parse-stack.md) — after files land, Unparsed then push onto Parse. Status `done`.
-- [03 — One Parse thread stack](issues/03-one-parse-thread-stack.md) — one long-lived Parse stack; Core pushes. Status `done`.
-- [04 — Parsed/Unparsed and Persisted/Unpersisted](issues/04-parsed-unparsed-and-persisted-unpersisted.md) — special-node axes and Core Persist stack. Status `done`.
+- [01 — Persist/git work-tree gate](issues/01-persist-git-work-tree-gate.md) — exclusive gate revoked; axes are drift markers; locks are [[arch.md]] §6. Status `done`.
+- [02 — Git Load: Unparsed then Parse stack](issues/02-git-load-unparsed-then-parse-stack.md) — workspace lock → drain → pull → mark Unparsed → release → parse thread. Status `done`.
+- [03 — One Parse thread stack](issues/03-one-parse-thread-stack.md) — one long-lived Parse stack; Core pushes; consumer is the parse thread. Status `done`.
+- [04 — Parsed/Unparsed and Persisted/Unpersisted](issues/04-parsed-unparsed-and-persisted-unpersisted.md) — special-node axes and Core Persist stack; locks on [[arch.md]] §6. Status `done`.
 - [05 — Selection-scoped Parse after whole-tree git Load](issues/05-selection-scoped-parse-after-whole-tree-git-load.md) — selection push-on-stack. Status `done`.
 - [06 — Explicit parse command on a File (Load)](issues/06-explicit-parse-command-load-file.md) — first use case: mailbox Load of a File node through Parse stack. Status `coded`.

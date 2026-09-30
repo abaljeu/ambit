@@ -5,16 +5,16 @@ Sequence: expand-contract
 
 Home: [[project.md]]. Target architecture: [[plan/architecture/server-core.md]] (locked 2026-09-28). This note charts an incremental expand-contract path from current Core to that Server Core description. Spec.md and User Stories for a full `/to-arch` run are absent; Alan overrode that stop for expand-contract only. This note has no Story paths, Module map, or Seams. Stage stays `chart` on [[project.md]].
 
-Decision lock: [04 — Parsed/Unparsed and Persisted/Unpersisted](issues/04-parsed-unparsed-and-persisted-unpersisted.md). Step 1 implement (shipped): [20 — State axes on special nodes](../github-transport/issues/20-state-axes-on-special-nodes.md). Git use is Core: [[plan/architecture/server-core.md]]. This note does not reopen that lock. This expand-contract sequence is the ticket source: tickets stay undrafted until a use case needs one; then draft against a beat or a caller shift from the sequence, not a pre-built full set.
+Decision lock: [04 — Parsed/Unparsed and Persisted/Unpersisted](issues/04-parsed-unparsed-and-persisted-unpersisted.md). Core locking model: §6. Step 1 implement (shipped): [20 — State axes on special nodes](../github-transport/issues/20-state-axes-on-special-nodes.md). Git use is Core: [[plan/architecture/server-core.md]]. This note does not reopen that lock. This expand-contract sequence is the ticket source: tickets stay undrafted until a use case needs one; then draft against a beat or a caller shift from the sequence, not a pre-built full set.
 
 ## 1. Special-node Parse and Persist axes
 
-Special nodes (Workspace Node, Directory Node, File Node) each carry two independent axes Core sets:
+Special nodes (Workspace Node, Directory Node, File Node) each carry two independent axes Core sets. Unparsed and Unpersisted are the two directions of drift:
 
-1. **Parsed | Unparsed** — Parse converts this disk object to Graph. Parse clears Unparsed by marking the node Parsed.
-2. **Persisted | Unpersisted** — Persist converts this Graph to disk. A graph edit sets the nearest owning special node Unpersisted. It does not mark ancestors.
+1. **Parsed | Unparsed** — Unparsed means the file or directory changed and that change is not in the graph yet. The parse thread runs when a node is Unparsed and sets Parsed on completion.
+2. **Persisted | Unpersisted** — Unpersisted means the graph changed and that change is not in the file yet. Persist runs when a node is Unpersisted and Parsed, and sets Persisted on completion. A graph edit sets the nearest owning special node Unpersisted. It does not mark ancestors.
 
-The two axes are independent markers. They are not a lock table. Do not invent a Conflicted state. This section is not the project target; the project target is [[plan/architecture/server-core.md]].
+Only Core changes files, and only Core changes the graph. The flags record which side Core just moved. Other operations set Unparsed and Unpersisted. The two axes are independent drift markers. They are not a lock table. Workspace lock and per-member persist locks are additional protocol: §6 Core locking model. Do not invent a Conflicted state. This section is not the project target; the project target is [[plan/architecture/server-core.md]].
 
 ## 2. Starting point
 
@@ -32,7 +32,7 @@ Ordered path from §2 Starting point to [[plan/architecture/server-core.md]]. Th
 2. **Parse stack**
    Charted approach (Alan, 2026-09-30). Parse is not an Actor. Same posture as Persist (§3 step 3): private stack, public push inside Core, consumer thread waits until push, then calls the existing parse body. Parse setup (stack, push, consumer thread) lives inside [[src/Server/Core]]. Outside Core, including [[src/Server/RouteRegistration.fs]], does not construct Parse, start it, or hold its handles; RouteRegistration may call a Core entry that boots Core, and does not see parse push/consumer. That move is not done; today’s start site is still RouteRegistration (`createPersistenceContext` builds `ParseStack` and calls `ParseThread.start`).
    1. **Expand** — [x] Stand up the one long-lived Parse stack beside today’s Load → Parse / graph-push hop. Product home: [[plan/parse-thread/project.md]]. Core may push reconcile targets. Old hop still runs. See [03 — One Parse thread stack](issues/03-one-parse-thread-stack.md). The background loop that pulls the parse stack and runs the old parse function runs on a separate thread; it is not an Actor. First use case (Alan, 2026-09-29): an explicit parse command on a file (today’s `ParseFile` / `postParseFile`) — mailbox Load of a File node, push onto the stack, loop runs the old parse body. Ticket: [06 — Explicit parse command on a File (Load)](issues/06-explicit-parse-command-load-file.md) (Status `coded`).
-   2. **Migrate** — [ ] After files land (git Load pull or Upload): mark Unparsed, then push onto that stack. Client Load on Directory or File marks Unparsed; File push onto the stack waits on this expand. Selection push has no special priority. See [02 — Git Load: Unparsed then Parse stack](issues/02-git-load-unparsed-then-parse-stack.md) and [05 — Selection-scoped Parse after whole-tree git Load](issues/05-selection-scoped-parse-after-whole-tree-git-load.md). Transport only informs Core; Core owns the Unparsed → push path.
+   2. **Migrate** — [ ] Workspace lock drains in-flight member file use, then pull (or Upload land) proceeds; arrived files are marked Unparsed; the lock releases; Unparsed starts the parse thread (push onto that stack). Client Load on Directory or File marks Unparsed; File push onto the stack waits on this expand. Selection push has no special priority. See [02 — Git Load: Unparsed then Parse stack](issues/02-git-load-unparsed-then-parse-stack.md), [05 — Selection-scoped Parse after whole-tree git Load](issues/05-selection-scoped-parse-after-whole-tree-git-load.md), and §6 Core locking model. Transport only informs Core; Core owns the lock → Unparsed → parse-thread path.
    3. **Contract** — [ ] Retire today’s Load → Parse / graph-push hop once every handoff uses the stack.
 
 3. **Core Persist stack**
@@ -40,8 +40,8 @@ Ordered path from §2 Starting point to [[plan/architecture/server-core.md]]. Th
    1. **Expand** — [ ] Make **new collector functions** beside today’s sync live-save. A **loop** will pull from the collection and **call the existing persist functions** ([[src/Server/DocumentPersistChange.fs]] / today’s Graph→disk writers). Those functions stay the write body. Do not invent a new write body in this step.
    2. **Migrate** — [ ] **Change everyone to call the collectors.** Sync call sites move to collectors; the loop is the new feeder; the existing persist functions are what the loop calls. Do not delete those functions in this step.
    3. **Contract** — [ ] Retire the old sync call-site shape once collectors and the loop feed the existing persist functions. The write body stays.
-   **New behavior** (not today’s sync live-save): Unparsed files are not open for persist. Ops like git pull also lock against persist running. The loop must honor both. Axis lock already says file Persist is blocked while Unparsed ([04 — Parsed/Unparsed and Persisted/Unpersisted](issues/04-parsed-unparsed-and-persisted-unpersisted.md)); the collector loop is where that block becomes real. Do not claim today’s code already does it.
-   **Gate tension (leave both):** [01 — Persist/git work-tree gate](issues/01-persist-git-work-tree-gate.md) exclusive gate stays revoked; [04 — Parsed/Unparsed and Persisted/Unpersisted](issues/04-parsed-unparsed-and-persisted-unpersisted.md) git Save is permitted while Unparsed or Unpersisted. Beside that: git pull (and similar ops) lock against persist running. Tension: git Save may proceed while nodes are Unpersisted; persist does not run during git pull.
+   **New behavior** (not today’s sync live-save): Persist runs when a node is Unpersisted and Parsed (§6). Unparsed files are not open for persist. Workspace lock and per-member persist locks are the protocol against in-flight writes during pull (§6). Axis lock already says file Persist is blocked while Unparsed ([04 — Parsed/Unparsed and Persisted/Unpersisted](issues/04-parsed-unparsed-and-persisted-unpersisted.md)); the collector loop is where that block becomes real. Do not claim today’s code already does it.
+   **Gate:** [01 — Persist/git work-tree gate](issues/01-persist-git-work-tree-gate.md) exclusive gate stays revoked. Axes are drift markers; locks are §6 Core locking model. [04 — Parsed/Unparsed and Persisted/Unpersisted](issues/04-parsed-unparsed-and-persisted-unpersisted.md) git Save is permitted while Unparsed or Unpersisted. Persist does not take a new persist lock on a member while the workspace lock is pending for that member.
 
 4. **Path control**
    1. **Expand** — [ ] Core owns four operations that hold absolute residency: read file, write file, read directory, write directory. Callers pass a node, or a relative path derived from a node, to say where ([[plan/transport-layer/map.md]]).
@@ -73,7 +73,7 @@ Locked 2026-09-28 (Alan). These rules say who writes each axis and which node th
 1. **Writer target** — Core / mailbox only. Until that lands, set the axes at today’s file-edit sites and graph-edit sites.
 2. **Graph edit** — Mark the nearest owning special node (File Node, Directory Node, or Workspace Node) **Unpersisted** only. Do not mark ancestors.
 3. **Discovery** — Whoever finds a disk change writes the axis. Parse is not the discovery tool. A new member or a deleted member marks the Directory Node **Unparsed**. A modified file marks the File Node **Unparsed**.
-4. **git pull finish** — Notes the same discoveries. There is no separate axis path.
+4. **git pull finish** — After the workspace lock drains and files land (§6), notes the same discoveries (arrived files marked Unparsed). There is no separate axis path.
 5. **Persist done** — Mark that node **Persisted** only.
 6. **Directory Parse done** — Mark that Directory Node **Parsed** only.
 7. **Create special** — A new special node starts **Unparsed** and **Persisted**.
@@ -82,18 +82,40 @@ Locked 2026-09-28 (Alan). These rules say who writes each axis and which node th
 10. **Directory Parse body** (deferred) — Walks all nodes tied to that `.amb`, not only immediate children. Create missing File Nodes. Disk-newer marks the File Node **Unparsed** and pushes when the stack exists.
 11. **Parse stack pop** (deferred) — If the node is already **Parsed**, skip. Real work arrives **Unparsed**.
 
-## 6. Vocabulary
+## 6. Core locking model
+
+Locked 2026-09-30 (Alan). Axes remain drift markers (§1). The workspace lock and per-member persist locks are additional protocol. This section is current truth for Core-revision workers.
+
+1. **Unparsed and Unpersisted** — The two directions of drift.
+   1. **Unparsed** — The file or directory changed and that change is not in the graph yet.
+   2. **Unpersisted** — The graph changed and that change is not in the file yet.
+2. **Core alone moves both sides** — Only Core changes files, and only Core changes the graph. The flags record which side Core just moved.
+3. **Parse thread** — Runs when a node is Unparsed, and sets Parsed on completion.
+4. **Persist** — Runs when a node is Unpersisted and Parsed, and sets Persisted on completion.
+5. **Other operations** — Set Unparsed and Unpersisted.
+6. **Workspace lock** — Announces that member files may change.
+   1. **Take** — Waits while member files are already changing.
+   2. **Pending** — While the lock is pending, new persist locks for those member files cannot be taken, so a persist cannot start between the announcement and the last in-flight write finishing.
+   3. **Drain then pull** — When current file changes have drained, the pull proceeds, the arrived files are marked Unparsed, and the lock releases.
+   4. **After release** — Persist of a member then waits until that node is Parsed again.
+7. **Parse and the workspace lock** — Parse does not take a persist lock. It reads the file and changes the graph. An in-flight parse of a member is still a use of that file, so the same pending lock drains those reads and holds new ones off until the lock releases. After release, Unparsed is what starts the parse thread.
+8. **Unpersisted through pull** — A member can already be Unpersisted when the lock is requested, with no persist lock held yet. The pull still marks it Unparsed. Parse then brings the new file into the graph while Unpersisted is still set, and a later persist can write that graph back over the file that just arrived. This is part of the model.
+9. **File read/write backstop** — File read/write is strict buffer to/from. A write that finds the file still being written waits until the file is released, then proceeds. That wait is the filesystem backstop; the locks above are the protocol.
+
+## 7. Vocabulary
 
 1. Say **event source**, not ESO.
 2. Do not say CAS.
 3. Do not say Peer. Say Server git Actor, git Load, or git Save.
 4. Name tickets in full (for example [05 — Selection-scoped Parse after whole-tree git Load](issues/05-selection-scoped-parse-after-whole-tree-git-load.md)).
 5. Git use is Core. Do not imply git is outside Core.
+6. Say **parse thread**, not parse actor.
 
-## 7. Related
+## 8. Related
 
-1. **Map** — [[map.md]] (decision 6–7, 10)
+1. **Map** — [[map.md]] (decision 6–7, 10, 13)
 2. **Axes lock** — [04 — Parsed/Unparsed and Persisted/Unpersisted](issues/04-parsed-unparsed-and-persisted-unpersisted.md)
-3. **Server Core** — [[plan/architecture/server-core.md]]
-4. **Parse product home** — [[plan/parse-thread/project.md]]
-5. **Transport remainder** — [[plan/github-transport/project.md]]
+3. **Core locking model** — §6
+4. **Server Core** — [[plan/architecture/server-core.md]]
+5. **Parse product home** — [[plan/parse-thread/project.md]]
+6. **Transport remainder** — [[plan/github-transport/project.md]]

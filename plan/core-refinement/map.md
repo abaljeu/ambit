@@ -16,10 +16,10 @@ Skills: [[.agents/skills/wayfinder/SKILL.md]], [[.agents/skills/grilling/SKILL.m
 
 ## 3. Decisions so far
 
-1. [01 — Persist/git work-tree gate](issues/01-persist-git-work-tree-gate.md) — **Revoked.** The exclusive Persist/git work-tree gate does not stand. Unparsed / Unpersisted replace it.
-2. [02 — Git Load: Unparsed then Parse stack](issues/02-git-load-unparsed-then-parse-stack.md) — After files land (git Load pull or Upload): mark Unparsed, then push onto the one Parse stack. Nobody starts an Actor after pull.
-3. [03 — One Parse thread stack](issues/03-one-parse-thread-stack.md) — One long-lived Parse stack. Core pushes reconcile targets. Parse is not an Actor; Persist is not an Actor.
-4. [04 — Parsed/Unparsed and Persisted/Unpersisted](issues/04-parsed-unparsed-and-persisted-unpersisted.md) — Special nodes carry Parsed|Unparsed and Persisted|Unpersisted. Persist is Core’s async stack, blocked while Unparsed. git Save is permitted while Unparsed or Unpersisted. No Conflicted state.
+1. [01 — Persist/git work-tree gate](issues/01-persist-git-work-tree-gate.md) — **Revoked.** The exclusive Persist/git work-tree gate does not stand. Axes are drift markers; workspace lock and per-member persist locks are the protocol ([[arch.md]] §6).
+2. [02 — Git Load: Unparsed then Parse stack](issues/02-git-load-unparsed-then-parse-stack.md) — Workspace lock drains in-flight member file use, then pull (or Upload land); arrived files marked Unparsed; lock releases; Unparsed starts the parse thread. Nobody starts an Actor after pull. Detail: [[arch.md]] §6.
+3. [03 — One Parse thread stack](issues/03-one-parse-thread-stack.md) — One long-lived Parse stack. Core pushes reconcile targets. Parse is not an Actor; Persist is not an Actor. Consumer is the **parse thread**.
+4. [04 — Parsed/Unparsed and Persisted/Unpersisted](issues/04-parsed-unparsed-and-persisted-unpersisted.md) — Special nodes carry Parsed|Unparsed and Persisted|Unpersisted. Persist is Core’s async stack; runs when Unpersisted and Parsed. git Save is permitted while Unparsed or Unpersisted. No Conflicted state. Axes are drift markers; locks are [[arch.md]] §6.
 5. [05 — Selection-scoped Parse after whole-tree git Load](issues/05-selection-scoped-parse-after-whole-tree-git-load.md) — Client Load marks selection Unparsed; File push onto the Parse stack needs the Parse loop. No special selection priority.
 6. **Step 1 axes locked** — Markers only. Note: [[arch.md]] §4. Shipped: [20 — State axes on special nodes](../github-transport/issues/20-state-axes-on-special-nodes.md).
 7. **Axis-write mechanics locked** — Who writes each axis and which node they mark. Note: [[arch.md]] §5.
@@ -28,6 +28,7 @@ Skills: [[.agents/skills/wayfinder/SKILL.md]], [[.agents/skills/grilling/SKILL.m
 10. **Slow expand-contract; Persist collectors** — Pace and Persist feeder charted on [[arch.md]] §3.
 11. **Tickets as needed from sequence** — Undrafted until a use case needs one; each targets a beat or caller shift on [[arch.md]], not a pre-built full set.
 12. **First use case** — Explicit parse command on a file; targets [[arch.md]] §3 step 2 Expand. Ticket: [06 — Explicit parse command on a File (Load)](issues/06-explicit-parse-command-load-file.md).
+13. **Core locking model locked** — Locked 2026-09-30 (Alan). Unparsed/Unpersisted drift, parse thread, Persist when Unpersisted and Parsed, workspace lock, per-member persist locks, filesystem backstop. Note: [[arch.md]] §6.
 
 ## 4. Not yet specified
 

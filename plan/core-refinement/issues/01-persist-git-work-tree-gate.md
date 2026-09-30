@@ -14,17 +14,18 @@ Actual: 15m
 
 Locked 2026-09-26 (Alan, Github Sync room). **Revoked 2026-09-28** (Alan, chat).
 
-The exclusive Persist/git work-tree gate does **not** still stand. Unparsed / Unpersisted replace it. See [04 — Parsed/Unparsed and Persisted/Unpersisted](04-parsed-unparsed-and-persisted-unpersisted.md).
+The exclusive Persist/git work-tree gate does **not** still stand. Axes (Unparsed / Unpersisted) are drift markers; they are not a lock table that replaces that gate. Current protocol is the workspace lock and per-member persist locks: [[../arch.md]] §6 Core locking model. Axes: [04 — Parsed/Unparsed and Persisted/Unpersisted](04-parsed-unparsed-and-persisted-unpersisted.md).
 
 git Save remains commit then push ([10 — git Save is commit then push](../../github-transport/issues/10-git-save-commit-then-push.md)). Persist stays independent of git Save. git Save is permitted while nodes are Unparsed or Unpersisted.
 
-History: 2026-09-26 named one exclusive gate per Workspace work tree shared by Persist, git Load pull, and git Save commit. That gate is not current truth.
+History: 2026-09-26 named one exclusive gate per Workspace work tree shared by Persist, git Load pull, and git Save commit. That gate is not current truth. The 2026-09-28 line “Unparsed / Unpersisted replace it” is superseded by the 2026-09-30 locking model on [[../arch.md]] §6.
 
 Map gist: [[../map.md]] Decisions so far item 1.
 
 ## Notes
 
 - Persist is a Core async task on a stack, not this gate: [04 — Parsed/Unparsed and Persisted/Unpersisted](04-parsed-unparsed-and-persisted-unpersisted.md).
+- Locks: [[../arch.md]] §6 Core locking model.
 - The 2026-09-26 implement notes on [12 — Run the Workspace git tracked-branch round-trip](../../github-transport/issues/12-workspace-git-tracked-branch-round-trip.md) and [13 — Run git Load and Save through the Server Peer Actor](../../github-transport/issues/13-actor-runs-git-load-save.md) still describe the old gate in code. This ticket no longer requires that gate.
 - Formerly github-transport issue 16. Moved to [[plan/core-refinement/project.md]] on 2026-09-29.
 
@@ -33,6 +34,7 @@ Map gist: [[../map.md]] Decisions so far item 1.
 - 2026-09-26: Alan locked the exclusive gate.
 - 2026-09-28: Alan revoked the exclusive gate. Unparsed / Unpersisted replace it. Status `done`.
 - 2026-09-29: Moved from github-transport into core-refinement as [01 — Persist/git work-tree gate](01-persist-git-work-tree-gate.md).
+- 2026-09-30: Alan locked workspace lock + persist locks on [[../arch.md]] §6; axes stay drift markers. Answer updated.
 
 ## Time
 

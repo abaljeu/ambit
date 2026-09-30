@@ -23,15 +23,15 @@ Special nodes (Workspace, Directory, File) each carry two independent axes Core 
 
 **Parse** = convert this disk object → graph. **Persist** = convert this graph → disk. Same interface for all three kinds; implementation differs by type.
 
-Land on disk (git pull, Upload, or any other disk change) → set **Unparsed** on the relevant node → push onto Parse. Parse clears Unparsed by marking the node **Parsed**.
+Land on disk (git pull, Upload, or any other disk change) follows the workspace-lock protocol: lock → drain → land → mark **Unparsed** → release; then Unparsed starts the **parse thread** ([[../arch.md]] §6). Parse clears Unparsed by marking the node **Parsed**.
 
-Any **graph edit** sets its owning special node **Unpersisted** and feeds Core’s Persist stack.
+Any **graph edit** sets its owning special node **Unpersisted** and feeds Core’s Persist stack. Other operations set Unparsed and Unpersisted; only Core changes files and only Core changes the graph; the flags record which side Core just moved.
 
-Persist is an **async persisting task on Core**. It works off a **stack**. It is **not** a Persist Actor. Persisting a file is **blocked** while that node is marked **Unparsed**. After Unparsed is off, Persist writes Unpersisted nodes to disk and clears Unpersisted.
+Persist is an **async persisting task on Core**. It works off a **stack**. It is **not** a Persist Actor. Persist runs when a node is **Unpersisted** and **Parsed**, and sets **Persisted** on completion. Persisting a file is **blocked** while that node is marked **Unparsed**. Per-member persist locks and the workspace lock are additional protocol: [[../arch.md]] §6.
 
 git Save is **permitted** while nodes are Unparsed or Unpersisted.
 
-Do not invent a Conflicted state. The two axes are independent markers, not a lock table. [01 — Persist/git work-tree gate](01-persist-git-work-tree-gate.md)’s exclusive gate is revoked.
+Do not invent a Conflicted state. The two axes are independent drift markers, not a lock table. Workspace lock and per-member persist locks are additional: [[../arch.md]] §6. [01 — Persist/git work-tree gate](01-persist-git-work-tree-gate.md)’s exclusive gate is revoked.
 
 `DocumentState` today is `Current` | `Unparsed` | `NoServerFile` ([[src/Shared/Model.fs]]). Parsed is the other pole of Unparsed (`Current` is today’s name). Unpersisted is new. That is implement.
 
@@ -49,6 +49,7 @@ Map gist: [[../map.md]] Decisions so far item 4.
 - 2026-09-28: Alan locked the two axes. Status `done`. No Conflicted. No Reconciling.
 - 2026-09-28: Persist is a Core async stack, fed by graph edits, blocked while Unparsed. git Save is permitted while Unparsed or Unpersisted. Exclusive gate revoked.
 - 2026-09-29: Moved from github-transport into core-refinement as [04 — Parsed/Unparsed and Persisted/Unpersisted](04-parsed-unparsed-and-persisted-unpersisted.md).
+- 2026-09-30: Alan locked [[../arch.md]] §6 Core locking model. Answer updated: axes stay drift markers; Persist when Unpersisted and Parsed; land-on-disk order is lock → Unparsed → parse thread.
 
 ## Time
 
