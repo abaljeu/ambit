@@ -13,18 +13,18 @@ Do not create `git.md` to record branch names. Existing `git.md` files are histo
 
 ## 1. Start
 
-Follow [[.agents/skills/git-protocol/SKILL.md]] for where work sits. Then write the project files.
+Follow [[.agents/skills/git-protocol/SKILL.md]] for where work sits. Then write the project files. Done: `plan/<slug>/` exists with a `project.md`.
 
 ## 2. Stage
 
 Read `Stage:` before you change it. Vocabulary and Who-writes-Stage: [[doc/agents/project-status.md]]. Grilling is a method, not a Stage. Do not write `Stage: grilling`. If the user invokes a grill skill, follow it; grilling does not write Stage.
 
-Set `Stage:` and `Updated:` in `project.md` when the effort starts or advances.
+Set `Stage:` and `Updated:` in `project.md` when the effort starts or advances. Done: `Stage:` and `Updated:` match the effort's current place.
 
 ## 3. Work
 
-Edit the project's files. Placement of files under `plan/` follows [[doc/agents/issue-tracker.md]] Conventions. On issues you touch, keep `**Type:**` set ([[doc/agents/issue-tracker.md]] Ticket Type: Wayfinder `research`/`prototype`/`grilling`/`task`, or `coding` / `bug-fixing` for implement), log spent time under `## Time` and keep `Actual:` in sync; set optional `Estimate:` when sizing. After coding, set ticket `**Status:** coded`; `done` is review approval only ([[doc/agents/triage-labels.md]]). On `project.md`, set `Started:` on the discuss→build handoff (or first build commit), set `Finished:` when Stage becomes `done`, and keep project `Actual:` as the sum of issue times — backfill from chat and commits when gaps remain (see [[doc/agents/issue-tracker.md]] Time tracking).
+Edit the project's files. Placement of files under `plan/` follows [[doc/agents/issue-tracker.md]] Conventions. On issues you touch, keep `**Type:**` set ([[doc/agents/issue-tracker.md]] Ticket Type: Wayfinder `research`/`prototype`/`grilling`/`task`, or `coding` / `bug-fixing` for implement). Time, Status, Started, Finished, and project Actual: [[doc/agents/issue-tracker.md]] Time tracking and Claim / Resolve; Status values: [[doc/agents/triage-labels.md]]. Done: every file you edited sits under the Project, and every touched issue carries Type plus tracker time/Status fields per those docs.
 
 ## 4. Finish
 
-Finish as **done**.
+Finish as **done**. Done: this session's Project edits are written and `Stage:` / `Updated:` are current.
