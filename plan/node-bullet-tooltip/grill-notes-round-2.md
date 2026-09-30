@@ -35,7 +35,7 @@ Putting "desktop file info" on the Node marker tip without deciding the orphaned
 
 ## Naming stress
 
-- Glossary: Node ≠ bullet ([[CONTEXT.md]]).
+- Glossary: Node ≠ bullet ().
 - Code: `leafBullet` → proposed `nodeBullet`; CSS still `amb-leaf-*`.
 - Class lie: `.amb-node-guid` shows Filename, not Guid — tooltip Guid makes the lie louder unless scoped as separate debt.
 

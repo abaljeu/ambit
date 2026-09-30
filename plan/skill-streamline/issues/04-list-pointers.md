@@ -6,7 +6,7 @@ Actual: 15m
 
 ## Context
 
-[[CONTEXT.md]] already wikilinked the canonical Stage and Status docs but still pasted both value lists. [[.agents/rules/project-stage.md]] recopied Who-writes-Stage from [[doc/agents/project-status.md]].
+ already wikilinked the canonical Stage and Status docs but still pasted both value lists. [[.agents/rules/project-stage.md]] recopied Who-writes-Stage from [[doc/agents/project-status.md]].
 
 ## What to build
 

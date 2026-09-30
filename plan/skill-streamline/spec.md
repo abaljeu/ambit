@@ -23,8 +23,8 @@ An Agent that follows live skills and rules no longer hits retired jobs, dead pa
 1. Leftover junk — retired projects-overview, HTML-REPORT, `./status.sh`, `doc/plan`, code-review standards sources, ADR-FORMAT → Committed Decision.
 2. Writing pair collapse.
 3. Design-it-twice pair collapse.
-4. List pointers in [[CONTEXT.md]] and [[.agents/rules/project-stage.md]].
+4. List pointers in  and [[.agents/rules/project-stage.md]].
 
 ## Testing Decisions
 
-Repo search: no live instruction names `projects-overview` as a job, `./status.sh`, `doc/plan`, `writing-great-skills`, or `design-an-interface`. [[CONTEXT.md]] and [[.agents/rules/project-stage.md]] do not paste Stage/Status enums. Cursor stubs in `.cursor/rules/` stay Obey pointers; edit canonical `.agents/` text.
+Repo search: no live instruction names `projects-overview` as a job, `./status.sh`, `doc/plan`, `writing-great-skills`, or `design-an-interface`.  and [[.agents/rules/project-stage.md]] do not paste Stage/Status enums. Cursor stubs in `.cursor/rules/` stay Obey pointers; edit canonical `.agents/` text.

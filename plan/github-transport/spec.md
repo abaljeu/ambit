@@ -70,7 +70,7 @@ Sources: [map.md](map.md) Destination and Decisions so far; [01 — Which Worksp
 
 ## 5. Further Notes
 
-1. **Spoken names** — Prefer Workspace, not “label.” Use Actor, not Agent, for the Server Peer Actor ([[CONTEXT.md]]). Load and Save are the existing Command names.
+1. **Spoken names** — Prefer Workspace, not “label.” Use Actor, not Agent, for the Server Peer Actor (). Load and Save are the existing Command names.
 2. **Chapter home** — Product objective only: [Send to and from GitHub](../roadmap/epics/chapters/send-to-and-from-github.md) on [[plan/roadmap/epics/work-with-text-files-from-anywhere.md]]. Technical locks for transit live here; Core revision lives on [[plan/core-refinement/project.md]].
 3. **Cite** — [[src/Server/WorkspaceGit.fs]] (`ensurePushConfig` / `receive.denyNonFastForwards`). Implemented WebDAV Upload / Download: [[doc/current/workspace-file-sync.md]].
 4. **Architecture** — [[arch.md]]. Sequence `module-build`.

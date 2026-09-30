@@ -1,10 +1,10 @@
 # Provisional domain language — node marker tip
 
-Not locked. Do not merge into [[CONTEXT.md]] until the user confirms.
+Not locked. Do not merge into  until the user confirms.
 Round-2 revisions marked below.
 
 **Round-3 update**: "Node marker" is REJECTED in favour of **Bullet** (the glyph element every Node
-view shows). Bullet is now in [[CONTEXT.md]]. Time vocabulary (Update Time / Workspace file time /
+view shows). Bullet is now in . Time vocabulary (Update Time / Workspace file time /
 Server file time / Last sync) moved to [[plan/bullet-tip-times/time-requirements.md]].
 
 ## Candidate terms

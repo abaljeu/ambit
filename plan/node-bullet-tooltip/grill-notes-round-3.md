@@ -46,7 +46,7 @@ nodes → only Update Time is available locally.
   The content choice is **not** a long-term Committed Decision (reversible) — no record under
   [[doc/Decisions/]].
 - **R3-Q4 = a**, sharpened: **Bullet** = the glyph element every Node view shows (chevron / solid /
-  hollow circle); a Node is not a Bullet; "leaf" was the false name. Promoted to [[CONTEXT.md]].
+  hollow circle); a Node is not a Bullet; "leaf" was the false name. Promoted to .
   Rename binding `leafBullet` → `nodeBullet`; CSS `amb-leaf-*` and `.amb-node-guid` are later debt.
 - **R3-Q5 = yes**: one self-gating template; each line renders only if its fact applies; identical
   across chevron / solid / hollow.

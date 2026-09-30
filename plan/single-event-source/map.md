@@ -8,7 +8,7 @@ Every unit of work that today goes through a Change record, a Revision, or a par
 
 ## 2. Notes
 
-- Domain: Event (`Ev`), EventLog, EventBody.Change, event id, Op. Consult [[.agents/skills/wayfinder/SKILL.md]], [[.agents/skills/grilling/SKILL.md]], [[.agents/skills/domain-modeling/SKILL.md]], [[.agents/skills/project-work/SKILL.md]], [[CONTEXT.md]].
+- Domain: Event (`Ev`), EventLog, EventBody.Change, event id, Op. Consult [[.agents/skills/wayfinder/SKILL.md]], [[.agents/skills/grilling/SKILL.md]], [[.agents/skills/domain-modeling/SKILL.md]], [[.agents/skills/project-work/SKILL.md]], .
 - Sister of [[plan/core-creation/project.md]]. That Project is suspended until this architecture exists. Do not rewrite its map or tickets. Do not add implementation issues there. [[plan/core-creation/arch.md]] is written last, to match what this Project created.
 - Event (`Ev`), EventId, Op, and EventBody stay in [[src/Shared/History.fs]]. There is no `module History`. EventLog remains the sequence. ClientHistory stays the Emacs Action view.
 - Change is `EventBody.Change` of an Op list, not a `{ id; submissionId; ops }` record.

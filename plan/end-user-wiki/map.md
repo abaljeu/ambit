@@ -10,7 +10,7 @@ A browsable wiki that describes the software for people who use it: what Gambol 
 
 - Charted from [[plan/roadmap/map.md]] after [[plan/roadmap/issues/02-inventory-live-projects-and-roadmap-remainder.md]].
 - [[doc/]] today is engineer-facing (current baselines, roadmap, reference). It is not an end-user wiki.
-- [[CONTEXT.md]] is the agent glossary, not user documentation.
+-  is the agent glossary, not user documentation.
 - Sister Projects: [[plan/architecture/map.md]] (how it is coded and run), [[plan/marketing-wiki/map.md]] (uses, not how-to).
 
 ## Decisions so far

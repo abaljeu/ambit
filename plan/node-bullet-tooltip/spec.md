@@ -102,7 +102,7 @@ interactive surface.
   (`JsInterop.fs` has only a hardcoded ET/epoch helper). Format precision is date + time to the
   minute; adjust only if a resolved bullet-tip-times decision supersedes it.
 
-- **Naming.** "Bullet" is the glyph element (already promoted to [[CONTEXT.md]]); a Node is not a
+- **Naming.** "Bullet" is the glyph element (already promoted to ); a Node is not a
   Bullet. Spoken/doc name for the disclosure is **Bullet tip**. The binding rename is code-only.
 
 - **CSS class rename.** Rename `amb-leaf-dot` → `amb-bullet-dot` and `amb-leaf-hollow` →

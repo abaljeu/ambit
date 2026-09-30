@@ -1,6 +1,6 @@
 # Status
 
-This file is the single source of truth for the **Status** list on every ticket. Glossary names: [[CONTEXT.md]]. **Stage** is [[project-status.md]]. Tracker operations: [[issue-tracker.md]].
+This file is the single source of truth for the **Status** list on every ticket. Glossary names: [[GLOSSARY.md]]. **Stage** is [[project-status.md]]. Tracker operations: [[issue-tracker.md]].
 
 `**Status:**` is a ticket field only. Projects, Epics, Chapters, and the Roadmap do not carry Status.
 

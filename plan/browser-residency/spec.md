@@ -56,7 +56,7 @@ Sources: [map.md](map.md) Destination and Notes (2026-09-26 grill locks). Part o
 33. **SiteMap honors Fold** — As a person, I want the Included walk to honor Fold, so that a folded Node is not a deep visible tree. The Want still adds two Children ranks past that walk.
 34. **Unloaded is not empty** — As a person, I want an Unloaded hollow-circle Bullet to mean Children are not here yet, so that I do not mistake it for a Loaded leaf.
 35. **Server stays large** — As a person, I want the Server Graph to stay large and authoritative, so that the Browser can keep asking for the next wanted Children.
-36. **Reserved spelling** — As a builder, I want reserved Node SYSTEM spelled SYSTEM, so that the bootstrap set matches [[CONTEXT.md]] and the Graph's SYSTEM Node.
+36. **Reserved spelling** — As a builder, I want reserved Node SYSTEM spelled SYSTEM, so that the bootstrap set matches  and the Graph's SYSTEM Node.
 
 ## 4. Out of Scope
 

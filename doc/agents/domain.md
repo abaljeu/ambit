@@ -11,7 +11,7 @@ The canonical Gambol project documentation lives under [[doc/]]. Start with [[do
 
 Follow the authority and currency rules in [[doc/README.md]]. Surface contradictions instead of silently choosing between documents.
 
-If [[CONTEXT.md]] exists, treat it as Gambol's concise domain glossary: use its preferred terms and avoid synonyms it rejects. Do not duplicate the detailed project documentation there.
+If [[GLOSSARY.md]] exists, treat it as Gambol's concise domain glossary: use its preferred terms and avoid synonyms it rejects. Do not duplicate the detailed project documentation there.
 
 Architecture Decision Records live under [[doc/Decisions/]]. Before changing an area, read any relevant records and explicitly surface proposed changes that contradict them.
 

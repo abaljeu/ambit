@@ -16,7 +16,7 @@ HITL on [[08-prototype-pipeline-examples.md]] 2026-08-27: first reaction said `d
 
 ## Answer
 
-HITL 2026-08-27. Words follow the model element [[CONTEXT.md]] Children (Owned and Ref).
+HITL 2026-08-27. Words follow the model element  Children (Owned and Ref).
 
 - `child` finds Children: Owned and Ref.
 - `descendant` is the closure of `child`. It follows Ref.

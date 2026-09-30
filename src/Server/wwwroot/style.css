@@ -442,8 +442,7 @@ body {
     background: #e8e8e4;
 }
 .amb-row.amb-selected {
-    background: #eaa9;
-}
+    background-color: #e979; }
 .amb-row.amb-focused {
     background: #aac9;
 }
@@ -507,11 +506,12 @@ body {
 .h2 { font-size: 1.5rem }
 .h3, .md-head { font-size: 1.2rem }
 .md-head { font-weight:600 }
-.amb-text.md-head::before { content: "#"; }
-.amb-text.md-list::before { content: "-"; }
-.amb-text.md-list-star::before { content: "*"; }
-.amb-text.md-number::before { content: "n."; }
-.amb-text.md-table::before { content: "|-|"; }
+.amb-text.md-head::before { font-size: 1.4em; font-weight: bolder;content: "#"; }
+.amb-text.md-list::before { font-size: 1.4em; font-weight: bolder;content: "- "; }
+.amb-text.md-list-star::before { font-size: 1.4em; font-weight: bolder;content: "* "; }
+.amb-text.md-number::before { font-size: 1.4em; font-weight: bolder;content: "n. "; }
+.amb-text.md-table::before { font-size: 1.4em;content: "| "; }
+.amb-text.md-table::after{ font-size: 1.4em; font-weight: bolder;content: "| "; }
 
 
 .amb-text.code-brace::after{ content: " { ... }"; }
@@ -526,7 +526,7 @@ body {
 .dblue { background-color: #59fc; }
 .green { background-color: #7f76; }
 .dgreen { background-color: #7f76; }
-.pink { background-color: #f996; }
+.pink { background-color: #fb96; }
 .red { background-color: #f88c; }
 .dred { background-color: #f448; }
 .dorange { background-color: #fb68; }

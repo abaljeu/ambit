@@ -6,7 +6,7 @@
 
 **Blocked by:** none for planning. [[28-outer-prefix-combinator.md]] is done. Do not start implementation in this issue.
 
-**See also:** [[../spec.md]] chapter 2 (Answer types, equality), chapter 4 (`AndExpr` infix attach), chapter 5 (signatures), chapter 6 (juxtaposition bind; `AND` same-input), chapter 7 (`containing` / `re` / `rei` today; reserved `text` / `name`), chapter 8 (Run vs Search types); [[31-if-pullback.md]]; [[29-re-and-rei-header-filters.md]]; [[CONTEXT.md]] Node, Header, Answer; [[src/Shared/Filename.fs]]; [[src/Shared/Model.fs]] `node.text` / `node.name`; [[src/Shared/ExprAnswer.fs]]; [[src/Shared/ExprEval.fs]] `ofOption` / `andEval`; [[src/Shared/ExprParse.fs]] `parseAnd` / `parseAndTail` (not `tryPrefix`).
+**See also:** [[../spec.md]] chapter 2 (Answer types, equality), chapter 4 (`AndExpr` infix attach), chapter 5 (signatures), chapter 6 (juxtaposition bind; `AND` same-input), chapter 7 (`containing` / `re` / `rei` today; reserved `text` / `name`), chapter 8 (Run vs Search types); [[31-if-pullback.md]]; [[29-re-and-rei-header-filters.md]];  Node, Header, Answer; [[src/Shared/Filename.fs]]; [[src/Shared/Model.fs]] `node.text` / `node.name`; [[src/Shared/ExprAnswer.fs]]; [[src/Shared/ExprEval.fs]] `ofOption` / `andEval`; [[src/Shared/ExprParse.fs]] `parseAnd` / `parseAndTail` (not `tryPrefix`).
 
 **Status:** ready-for-human
 
@@ -111,7 +111,7 @@ New Text-domain terms (`left`, `right`, `IS` on Text) do not coerce. `nodes left
 
 ## Locked (2026-08-29 HITL)
 
-1. `text` extracts `node.text`, not the Name and not the whole Header. Header in [[CONTEXT.md]] is every field except Children, so Header includes both `node.text` and the Name. This lock picks `node.text`. Always one Text Answer from a Node. Text input is a miss.
+1. `text` extracts `node.text`, not the Name and not the whole Header. Header in  is every field except Children, so Header includes both `node.text` and the Name. This lock picks `node.text`. Always one Text Answer from a Node. Text input is a miss.
 2. `name` is `Filename.tryValue`: `Ok s` is `Some s`; Empty and Invalid are `None` (empty sequence). Not empty Text.
 3. `IS` is an infix combinator (capitals), AND-shaped same-input: both operands run on `x`; yield matching LHS Answers. Not a catalog slot row. Not juxtaposition / RHS-in-LHS-context. Not Run `=`. Quoted `"rapid"` is an Expression that yields that Text from any input. Pullback to Node is `IF (text left 5 IS "rapid")`. `containing` stays case-insensitive; `IS` uses chapter 2 Text equality (case-sensitive).
 4. `left` / `right` always yield one string Answer. If N is greater than the string length, yield the whole string. If N is less than 1, yield the empty string. Length never causes a miss. Domain is Text only; a Node input is a miss (write `text left 5`).

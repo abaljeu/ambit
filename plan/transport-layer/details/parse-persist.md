@@ -53,4 +53,4 @@ Codecs (document-formats) own format-specific Parse/Persist grammar. Transport-l
 
 ## Related vocabulary
 
-Locked terms: [[plan/event-sourced-ops/details/vocabulary.md]]. Gambol glossary: [[CONTEXT.md]] — **Parse**, **Load**, **Change**, **Actor**, **File Node**, **Sync**.
+Locked terms: [[plan/event-sourced-ops/details/vocabulary.md]]. Gambol glossary:  — **Parse**, **Load**, **Change**, **Actor**, **File Node**, **Sync**.

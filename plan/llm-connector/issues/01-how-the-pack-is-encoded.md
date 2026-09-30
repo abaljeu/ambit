@@ -11,7 +11,7 @@ How is included context packed and encoded for the LLM when Run Agent executes? 
 
 ## Answer
 
-Run Agent is the spoken name. The person types `?` plus a message on Focus, then Run. Glossary: [[CONTEXT.md]] Run Agent.
+Run Agent is the spoken name. The person types `?` plus a message on Focus, then Run. Glossary:  Run Agent.
 
 The pack is SiteMap-visible Nodes below `rootnode`. First Run Agent passes Zoom as `rootnode`. Later calls may pass another root. The Browser sends that NodeId list. Core extracts that subgraph and includes `rootnode` so Md `write` has a document root. The Actor Md-writes that graph (nodes to text, not to a file). Codec is Md for now.
 
@@ -19,7 +19,7 @@ The LLM message is the `?` remainder on Focus Header (example: `? what do you th
 
 ## Comments
 
-- 2026-09-02: Filed unclaimed from WORK.md. Map: [[../map.md]]. Glossary: [[CONTEXT.md]] Included context.
+- 2026-09-02: Filed unclaimed from WORK.md. Map: [[../map.md]]. Glossary:  Included context.
 - 2026-09-06: Q1: The `?` pack is Included context (SiteMap under Zoom, honoring Fold). Issue 02's subgraph-first default does not spec this pack. Encoding (who, what text) is still open.
 - 2026-09-06: Q4: Browser supplies the pack as a simple list of NodeIds. Not paste `serializeSubtree` text. How those ids become Grok prompt text is still open.
 - 2026-09-06: Q10: Actor calls a persist write — nodes to text, not to a file. Codec maybe markdown, maybe markup. Not flat `node.text` lines.

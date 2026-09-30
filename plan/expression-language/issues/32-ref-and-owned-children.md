@@ -6,7 +6,7 @@
 
 **Blocked by:** none. [[28-outer-prefix-combinator.md]] and [[31-if-pullback.md]] are done. Not blocked by [[30-text-operations.md]].
 
-**See also:** [[../spec.md]] chapters 6 and 7 (`child`, Unloaded rule; reserved `ref` / `owned`); [[12-owned-versus-ref-walk-for-descendant.md]]; [[CONTEXT.md]] Children, Owned, Ref; [[src/Shared/ExprWalk.fs]] `childAnswers` / `ownedChildren`; [[src/Shared/ExprPrimitive.fs]] `childRow`; tests next to existing child/walk facts in [[tests/Shared.Tests/ExprEvalTests.fs]] and [[tests/Shared.Tests/ExprPipelineTests.fs]]. Notes: [[../reports/ref-owned-children.md]].
+**See also:** [[../spec.md]] chapters 6 and 7 (`child`, Unloaded rule; reserved `ref` / `owned`); [[12-owned-versus-ref-walk-for-descendant.md]];  Children, Owned, Ref; [[src/Shared/ExprWalk.fs]] `childAnswers` / `ownedChildren`; [[src/Shared/ExprPrimitive.fs]] `childRow`; tests next to existing child/walk facts in [[tests/Shared.Tests/ExprEvalTests.fs]] and [[tests/Shared.Tests/ExprPipelineTests.fs]]. Notes: [[../reports/ref-owned-children.md]].
 
 **Status:** ready-for-human
 
@@ -23,7 +23,7 @@ Implementation: [[../reports/ref-owned-children-impl.md]].
 
 The Graph child list is the source of truth: each `ChildNode` is one appearance with `ref: Ownership`. Owned is the structural placement. Ref links to a Node Owned elsewhere. The catalog words select those appearances; they do not introduce a Kind.
 
-[[CONTEXT.md]] already uses **Ref** and **Owned** as spoken domain words for those roles. The user locked the catalog spellings as lowercase `ref` and `owned`. Keep the spoken terms for the roles. The catalog words are walk generators that filter Children by those roles.
+ already uses **Ref** and **Owned** as spoken domain words for those roles. The user locked the catalog spellings as lowercase `ref` and `owned`. Keep the spoken terms for the roles. The catalog words are walk generators that filter Children by those roles.
 
 `child` is not a trivial copy for product F#. `childRow` calls `ExprWalk.childAt graph None`, and `Node.childIds` drops `ChildNode.ref`. Filter the Children list the same way `childAnswers` walks it (Unloaded → empty; Loaded → `Map.tryFind` each id). `ownedChildren` in [[src/Shared/ExprWalk.fs]] is the Owned filter used by `tree` / `OUTER` for recursion; `owned` is that filter at depth one only.
 

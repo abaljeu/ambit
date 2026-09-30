@@ -1,8 +1,8 @@
-* # Document formats
-* Labels: wayfinder:map
-*#`Destination
+# Document formats
+Labels: wayfinder:map
+## Destination
   * The remaining document formats for Workspace files after the current file-model baseline, including XML read/write. 
-    * Recognize pasted markdown as markdown.
+* Recognize pasted markdown as markdown.
 
 ## Notes
 

@@ -13,7 +13,7 @@ A coding Agent looks up a Gambol workflow skill. Today some live skills sit unde
 Every repo-shared workflow skill lives under [[.agents/skills/]]. Live indexes name that path. [[.cursor/skills/]] holds no live SKILL.md. The junk copy at [[.agents/skills/to-tickets - Copy/]] is gone. Chart-time lock reports may still name the old path as history. Product F# does not change.
 
 - [x] No live workflow SKILL.md remains only under [[.cursor/skills/]].
-- [x] Live indexes ([[.cursor/rules/gambol.mdc]], rules, [[CONTEXT.md]], [[doc/agents/]], live Committed Decision procedure links) name [[.agents/skills/]] for those skills.
+- [x] Live indexes ([[.cursor/rules/gambol.mdc]], rules, , [[doc/agents/]], live Committed Decision procedure links) name [[.agents/skills/]] for those skills.
 - [x] [[.agents/skills/to-tickets - Copy/]] is gone.
 - [x] Chart-time lock reports under [[plan/skills-cleanup/reports/]] are not rewritten to hide the old path.
 

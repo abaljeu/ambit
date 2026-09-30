@@ -8,7 +8,7 @@ No decisions locked. Layout-behavior work is out of scope for this session.
 
 ## Domain language collisions
 
-From [[CONTEXT.md]]:
+From :
 
 - **Node** — avoid: item, bullet, line, row, entry.
 - **Browser** / **App** — avoid saying Client / Desktop in speech.
