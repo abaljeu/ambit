@@ -1,4 +1,4 @@
-[[doc/]] describes the current program. Chart future work on `plan` Projects. Leftover [[doc/roadmap/]] files wait until a Project cites them or they move to history.
+[[doc/]] holds what is coded (achieved, current behavior). `plan/` holds what will be coded. When plan work is achieved, update [[doc/]]. Do not keep several active plans with the same rough target; pick one plan to own that future. Leftover [[doc/roadmap/]] files wait until a Project cites them or they move to history.
 
 Planning docs follow [[.agents/rules/markdown-writing.md]], no hard wrap, one concern per section.
 

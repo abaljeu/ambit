@@ -5,26 +5,14 @@ description: Investigates Gambol Fable client MVU and DOM issues while keeping l
 
 # Investigate Fable Client
 
-Follow [[.agents/rules/fsharp-source.md]], [[.agents/skills/implement-fsharp-feature/SKILL.md]], and [[doc/arch.md]].
-
-## Client layout
-
-| Area | Path | Role |
-|------|------|------|
-| MVU update | `src/Client/Update*.fs` | Messages, cmds, op dispatch |
-| View / DOM | `src/Client/View.fs`, `*View.fs` | Render and event wiring |
-| Runtime | `src/Client/App.fs`, `Program.fs` | Dispatch, polling, boot |
-| JS interop | `src/Client/JsInterop.fs` | Fetch, timers, console |
-| Browser DOM types | `other/fable.browser.dom.fs` | When Fable.Browser.Dom is insufficient |
-
-Fable output goes to `src/Server/wwwroot`; the server serves `/ambit`.
+Follow [[.agents/rules/fsharp-source.md]], [[.agents/skills/implement-fsharp-feature/SKILL.md]], and [[doc/arch.md]]. Client paths and layer roles live in [[doc/arch.md]]; Fable output is served from `src/Server/wwwroot` at `/ambit`.
 
 ## Investigation order
 
-1. **Reproduce** — note URL, file, selection, and message sequence if known.
-2. **Classify** — pure logic, client wiring, or server response?
-3. **Shared first** — add a Shared.Tests case and fix in Shared when possible; thin the Client change.
-4. **Client only when necessary** — DOM measurement, focus, fetch lifecycle, desktop capabilities.
+1. **Reproduce** — note URL, file, selection, and message sequence if known. Done: the repro steps are written down.
+2. **Classify** — pure logic, client wiring, or server response? Done: the layer class is named.
+3. **Shared first** — add a Shared.Tests case and fix in Shared when possible; thin the Client change. Done: Shared holds the fix, or you recorded why the bug is Client-only.
+4. **Client only when necessary** — DOM measurement, focus, fetch lifecycle, desktop capabilities. Done: Client edits are limited to what Shared cannot express.
 
 ## Common splits
 

@@ -26,7 +26,7 @@ Extend **WorkspaceGit** as defined by the Module map in [[../arch.md]]. This cap
 - [x] 3.2.8 Keep the attached branch — The capability does not checkout, switch, or move to an older commit.
 - [x] 3.2.9 Use host credentials — The interface takes no GitHub credential; host git loads its configured credentials.
 - [x] 3.2.10 Keep Persist separate — git Save does not invoke, own, or replace Graph→file Persist.
-- [x] 3.2.11 Gate work-tree changes per Workspace — Persist file writes, git Load pull, and git Save commit acquire and release one exclusive gate for that Workspace work tree; a second caller waits and continues after release instead of rejecting as busy. **Superseded 2026-09-28.** [16 — Persist/git work-tree gate](16-persist-git-work-tree-gate.md) revoked that exclusive gate (#151). Unparsed / Unpersisted replace it ([19 — Parsed/Unparsed and Persisted/Unpersisted](19-file-newer-graph-newer.md)). This line records what shipped; it is not current required acceptance.
+- [x] 3.2.11 Gate work-tree changes per Workspace — Persist file writes, git Load pull, and git Save commit acquire and release one exclusive gate for that Workspace work tree; a second caller waits and continues after release instead of rejecting as busy. **Superseded 2026-09-28.** [01 — Persist/git work-tree gate](../../core-refinement/issues/01-persist-git-work-tree-gate.md) revoked that exclusive gate (#151). Unparsed / Unpersisted replace it ([04 — Parsed/Unparsed and Persisted/Unpersisted](../../core-refinement/issues/04-parsed-unparsed-and-persisted-unpersisted.md)). This line records what shipped; it is not current required acceptance.
 - [x] 3.3.1 Use the existing git host — The implementation uses WorkspaceGit, GitSave, and GitRun rather than another process host.
 - [x] 3.3.2 Leave credential loading to git — Ambit adds no appsettings, user-secrets, Graph, or DataDir credential store.
 - [x] 3.2.2 Prove remote facts — Temp-work-tree tests cover a remote that is present and absent.
@@ -34,7 +34,7 @@ Extend **WorkspaceGit** as defined by the Module map in [[../arch.md]]. This cap
 
 ## 3. Review notes
 
-These notes describe shipped 2026-09-27 code. The exclusive-gate lock is revoked ([16 — Persist/git work-tree gate](16-persist-git-work-tree-gate.md)); they are not current required acceptance.
+These notes describe shipped 2026-09-27 code. The exclusive-gate lock is revoked ([01 — Persist/git work-tree gate](../../core-refinement/issues/01-persist-git-work-tree-gate.md)); they are not current required acceptance.
 
 1. **Single-Workspace acquire/release hook** — `WorkspaceGit.withWorkTreeGate` is the shared queued gate. Direct Persist file writes call it through `DocumentPersistWrite`; git Load pull and git Save commit call it in `WorkspaceGit`.
 2. **Multi-Workspace Persist changes** — `DocumentPersistPath.withWorkTreeGates` normalizes, de-duplicates, and sorts Workspace roots before nested acquisition. `DocumentPersistChange` holds those gates across path moves and document writes, then releases them through `withWorkTreeGate` `finally` blocks.
@@ -43,10 +43,10 @@ These notes describe shipped 2026-09-27 code. The exclusive-gate lock is revoked
 ## 4. Time
 
 - 2026-09-27 1h30m — implemented, tested, debugged, and reviewed Workspace git facts, tracked-branch pull/save, condensed rejection, and the shared queued work-tree gate
-- 2026-09-28 5m — annotated 3.2.11 exclusive-gate acceptance as superseded by Unparsed/Unpersisted (#151 / [16 — Persist/git work-tree gate](16-persist-git-work-tree-gate.md) revoke)
+- 2026-09-28 5m — annotated 3.2.11 exclusive-gate acceptance as superseded by Unparsed/Unpersisted (#151 / [01 — Persist/git work-tree gate](../../core-refinement/issues/01-persist-git-work-tree-gate.md) revoke)
 
 ## 5. See also
 
 - [github-transport architecture](../arch.md)
 - [10 — git Save is commit then push](10-git-save-commit-then-push.md)
-- [16 — Persist/git work-tree gate](16-persist-git-work-tree-gate.md)
+- [01 — Persist/git work-tree gate](../../core-refinement/issues/01-persist-git-work-tree-gate.md)

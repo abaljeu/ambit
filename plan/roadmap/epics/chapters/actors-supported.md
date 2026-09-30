@@ -19,7 +19,7 @@ Parse File is the first Actor definition that works through Core. It concludes t
 ## Notes
 
 - Core pool and mailbox remake stays on [[plan/actor-as-client/project.md]] (deferred 2026-09-27; same rationale as Required). Core baseline remains [[plan/core-creation/project.md]].
-- Parse Actor definition remains [[plan/parse-actor/project.md]]. The Parse File tracer remains [[plan/event-sourced-ops/issues/08-parse-file-realignment-tracer.md]]. This Chapter does not move those homes.
+- Parse thread definition remains [[plan/parse-thread/project.md]]. The Parse File tracer remains [[plan/event-sourced-ops/issues/08-parse-file-realignment-tracer.md]]. This Chapter does not move those homes.
 - Advisory soft-lock behavior stays in [[plan/event-sourced-ops/issues/09-job-identity-with-advisory-soft-lock.md]].
 
 ## Actor as client chart

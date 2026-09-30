@@ -129,7 +129,9 @@ let ``server reconciler applies planner ops through active agent`` () =
           submissionId = Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
-          body = EventBody.Change ops }
+          body =
+            EventBody.Change(
+                ops @ [ Op.SetDocumentState(workspaceId, Unparsed, Current) ]) }
     handle.postEvents [ event ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
@@ -584,7 +586,10 @@ let ``directory reconcile does not duplicate Normal-owned present file`` () =
     let graph1 = readGraph fileAgent
     let docsId, docsOps =
         FileNodeOps.planCreateOwnedDirectory graph1 workspaceId "docs"
-    postOps fileAgent 1 docsOps
+    postOps
+        fileAgent
+        1
+        (docsOps @ [ Op.SetDocumentState(docsId, Unparsed, Current) ])
     let organizerId = NodeId.New()
     postOps
         fileAgent

@@ -10,27 +10,21 @@ description: >-
 
 # Write Simple Parser
 
-Follow [[.agents/rules/core-agent-behavior.md]] and [[.agents/rules/fsharp-source.md]].
-Pair with [[.agents/skills/implement-fsharp-feature/SKILL.md]] for TDD layout and
-[[.agents/skills/add-shared-test/SKILL.md]] for fixtures.
+Follow [[.agents/rules/core-agent-behavior.md]] and [[.agents/rules/fsharp-source.md]]. Pair with [[.agents/skills/implement-fsharp-feature/SKILL.md]] for TDD layout and [[.agents/skills/add-shared-test/SKILL.md]] for fixtures.
 
 ## Before coding
 
-1. Write a **small explicit grammar** (EBNF with few terminals) in a well-known style
-   (EBNF / recursive descent / PEG-sized) that matches the problem size.
-2. Confirm the grammar covers the fixtures with generic rules — not language keywords.
-3. Ask: would a senior engineer say this is overcomplicated? If yes, simplify to the EBNF.
+1. Write a **small explicit grammar** (EBNF with few terminals) in a well-known style (EBNF / recursive descent / PEG-sized) that matches the problem size. Done: the EBNF is written and agreed before non-trivial code.
+2. Confirm the grammar covers the fixtures with generic rules — not language keywords. Done: each fixture maps to a generic rule.
+3. Ask: would a senior engineer say this is overcomplicated? If yes, simplify to the EBNF. Done: the grammar is the simplest form that still covers the fixtures.
 
 ## Grammar and lexing
 
-- Prefer conventional grammars over bespoke machines.
-- Use regex for **local lexical** concerns (tokenize a token, split lines, detect a
-  brace-only line) when a pattern is clearer than hand-rolled char loops.
-- Nested structure (braces, trees) stays in the grammar/passes — not a mega-regex.
+Prefer conventional grammars over bespoke machines. Use regex for **local lexical** concerns (tokenize a token, split lines, detect a brace-only line) when a pattern is clearer than hand-rolled char loops. Nested structure (braces, trees) stays in the grammar/passes — one nesting home, not a mega-regex.
 
 ## Separate passes
 
-Do not mix concerns in one machine:
+Keep one concern per pass:
 
 | Pass | Responsibility |
 |------|----------------|
@@ -38,25 +32,15 @@ Do not mix concerns in one machine:
 | Layout | Line/indent/whitespace after structure exists |
 | Persistence / warm Keep | Emit previous raw when match — **orthogonal** to parse shape |
 
-Do not fold artifact round-trip or raw-byte preservation into the grammar machine.
+Keep artifact round-trip and raw-byte preservation outside the grammar machine.
 
-## Avoid
+## Prefer
 
-- Dual line-modes
-- Pending stacks that encode layout state the grammar should not need
-- Keyword special cases when a generic rule covers the fixture
-- Parsing nested structure with a single regex
+- One line-mode unless the EBNF needs more
+- Layout state in the layout pass, not pending stacks in the grammar
+- Generic rules that cover the fixture instead of keyword forks
+- Nesting handled in grammar/passes
 
 ## Tests vs parser
 
-- Tests may use realistic language snippets as **fixtures**.
-- Parsers stay **generic** (structure + layout rules, not a language front-end).
-
-## Checklist
-
-- [ ] EBNF written and agreed before non-trivial code
-- [ ] Structure pass independent of layout pass
-- [ ] Keep / raw emit outside the grammar machine
-- [ ] Regex only for local lexing; nesting in grammar/passes
-- [ ] No dual modes or keyword forks unless the EBNF requires them
-- [ ] Fixture-driven tests; parser remains generic
+Tests may use realistic language snippets as **fixtures**. Parsers stay **generic** (structure + layout rules, not a language front-end).

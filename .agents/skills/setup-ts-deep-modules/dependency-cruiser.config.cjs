@@ -1,15 +1,5 @@
 // @ts-check
-// Deep-module enforcement for dependency-cruiser.
-//
-// Each package under the packages root is a DEEP MODULE: a lot of behaviour
-// behind a small interface. A package's PUBLIC SURFACE is its ENTRY POINTS —
-// the files at the package root. Implementation lives in SUBFOLDERS and is
-// private — by convention `lib/` for implementation and `tests/` for tests,
-// though any subfolder is private. A package may expose several small entry
-// points (index.ts, client.ts, server.ts, …) — prefer that over one giant
-// barrel index.
-//
-// The only thing you should ever need to edit here is PACKAGES_ROOT.
+// Shape and rules: .agents/skills/setup-ts-deep-modules/SKILL.md. Edit PACKAGES_ROOT only.
 
 /** Where packages live. One immediate child dir per package (flat, no nesting). */
 const PACKAGES_ROOT = "src/packages";

@@ -192,6 +192,27 @@ let ``PersistStamp opsBetween emits SetUpdateTime for changed stamps`` () =
         failwith $"expected one SetUpdateTime, got {other}"
 
 [<Fact>]
+let ``PersistStamp opsBetween emits SetPersistState when the axis changes`` () =
+    let state = ModelBuilder.createState12 ()
+    let nodeId = (Graph.children state.graph state.graph.root).[0].id
+    let before = state.graph
+    let after =
+        { before with
+            nodes =
+                Map.add
+                    nodeId
+                    { before.nodes.[nodeId] with
+                        persistState = PersistState.Unpersisted }
+                    before.nodes }
+    match PersistStamp.opsBetween before after with
+    | [ Op.SetPersistState(id, oldState, newState) ] ->
+        Assert.Equal(nodeId, id)
+        Assert.Equal(PersistState.Persisted, oldState)
+        Assert.Equal(PersistState.Unpersisted, newState)
+    | other ->
+        failwith $"expected one SetPersistState, got {other}"
+
+[<Fact>]
 let ``Apply SetText on canonical root is invalid`` () =
     let state = ModelBuilder.createState12 ()
     let op = Op.SetText(Graph.rootId, "ROOT", "x")
@@ -446,8 +467,9 @@ let ``nested file parse under current directory replaces file tree`` () =
         fileOps
         |> List.fold (fun state op -> Op.apply op state |> expectChanged) state1
     let fileUnparsed =
-        Op.apply (Op.SetDocumentState(fileId, Current, Unparsed)) state2
+        Op.apply (Op.SetDocumentState(directoryId, Unparsed, Current)) state2
         |> expectChanged
+    Assert.Equal(Unparsed, fileUnparsed.graph.nodes.[fileId].documentState)
     Assert.Equal(Current, fileUnparsed.graph.nodes.[directoryId].documentState)
     let parsedId = NodeId.New()
     let attach = ChildNode.owner parsedId
@@ -479,11 +501,8 @@ let ``nested file parse still allowed when enclosing directory is unparsed`` () 
     let state2 =
         fileOps
         |> List.fold (fun state op -> Op.apply op state |> expectChanged) state1
-    // Legitimate Directory Unparsed (e.g. `.amb` modified), not upload stubs.
-    let bothUnparsed =
-        [ Op.SetDocumentState(directoryId, Current, Unparsed)
-          Op.SetDocumentState(fileId, Current, Unparsed) ]
-        |> List.fold (fun state op -> Op.apply op state |> expectChanged) state2
+    // Create leaves Directory and File Unparsed.
+    let bothUnparsed = state2
     let parsedId = NodeId.New()
     let attach = ChildNode.owner parsedId
     let parseOps =
@@ -509,21 +528,16 @@ let ``unparsed invariant also applies to directory and workspace documents`` () 
     let state1 =
         directoryOps
         |> List.fold (fun state op -> Op.apply op state |> expectChanged) state0
-    let directoryUnparsed =
-        Op.apply
-            (Op.SetDocumentState(directoryId, Current, Unparsed))
-            state1
-        |> expectChanged
     assertUnparsedInvalid
-        directoryUnparsed
+        state1
         (Op.SetName(directoryId, "docs", "renamed"))
-    let workspaceUnparsed =
+    let directoryCurrent =
         Op.apply
-            (Op.SetDocumentState(workspaceId, Current, Unparsed))
+            (Op.SetDocumentState(directoryId, Unparsed, Current))
             state1
         |> expectChanged
     assertUnparsedInvalid
-        workspaceUnparsed
+        directoryCurrent
         (Op.SetName(directoryId, "docs", "renamed"))
 
 let private graphWithDistantFileUnderFileViolation () =

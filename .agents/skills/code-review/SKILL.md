@@ -22,7 +22,7 @@ When pinning the range, run the mechanical Standards scan in step 2. Optional F#
 
 If the tree is clean (everything committed), the tip under review is `HEAD`. When the user names an older fixed point (commit, branch, tag, `HEAD~N`), use that; otherwise do not ask for one just to bookkeep SHAs.
 
-For an explicit fixed point: `git diff <fixed-point>...HEAD` (three-dot) and `git log <fixed-point>..HEAD --oneline`. Confirm the ref resolves and the diff is non-empty before spawning sub-agents.
+For an explicit fixed point: `git diff <fixed-point>...HEAD` (three-dot) and `git log <fixed-point>..HEAD --oneline`. Confirm the ref resolves and the diff is non-empty before spawning sub-agents. Done: the range is either `HEAD` working tree / tip, or a named fixed point whose three-dot diff is non-empty.
 
 ### 2. Run the mechanical Standards scan
 
@@ -44,13 +44,13 @@ Look for the originating spec, in this order:
 2. A PRD/spec under `plan/<feature>/` (or rarely `doc/` / `specs/`) matching the feature.
 3. If nothing is found, ask the user for the local spec path. If they say there isn't one, the **Spec** sub-agent will skip and report "no spec available".
 
-Do **not** harvest GitHub/GitLab issue numbers from commit messages as the spec source. No SHA bookkeeping on tickets.
+Do **not** harvest GitHub/GitLab issue numbers from commit messages as the spec source. No SHA bookkeeping on tickets. Done: you have a local spec path to pass, or Spec will report "no spec available".
 
 ### 4. Identify the standards sources
 
 Live coding standards for this repo live under [[.agents/rules/]]: [[.agents/rules/fsharp-source.md]] (F#), [[.agents/rules/core-api.md]] (Core vs Adapter), [[.agents/rules/core-agent-behavior.md]] (surgical changes), and the other scoped rules. Do not hunt missing `CODING_STANDARDS.md` or `CONTRIBUTING.md`.
 
-The Standards axis also always carries the smell baseline in [[SMELLS.md]].
+The Standards axis also always carries the smell baseline in [[SMELLS.md]]. Done: the Standards prompt will list the rules paths plus [[SMELLS.md]].
 
 ### 5. Spawn both sub-agents in parallel
 
@@ -69,13 +69,13 @@ Send a single message with two `Agent` tool calls. Use the `general-purpose` sub
 - The path or contents of the local spec.
 - The brief: "Report only findings. (a) Requirements the spec asked for that are missing or partial. (b) Behaviour in the diff that was not asked for (scope creep). (c) Requirements that look implemented but where the implementation looks wrong. Quote the spec line for each finding. If there are no findings, one line. Under 400 words."
 
-If the spec is missing, skip the Spec sub-agent and note this in the final report.
+If the spec is missing, skip the Spec sub-agent and note this in the final report. Done: Standards has been spawned; Spec has been spawned or skipped with "no spec available".
 
 ### 6. Aggregate
 
-Make a report file. Present the two reports under `## Standards` and `## Spec` headings. Keep findings only. If an axis has no findings, keep its one line. Keep the axes separate: do not merge or rerank findings, and do not pick a single winner across axes.
+Make a report file under a Project path (`plan/<slug>/reports/…`) per [[doc/agents/issue-tracker.md]] Conventions. Do not write the report directly under `plan/`. Present the two reports under `## Standards` and `## Spec` headings. Keep findings only. If an axis has no findings, keep its one line. Keep the axes separate: do not merge or rerank findings, and do not pick a single winner across axes.
 
-End with a one-line summary: total findings per axis, and the worst issue _within each axis_ (if any).
+End with a one-line summary: total findings per axis, and the worst issue _within each axis_ (if any). Done: the report file exists with both headings and the one-line totals.
 
 ### 7. Ticket Status
 

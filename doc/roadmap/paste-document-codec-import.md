@@ -2,7 +2,7 @@
 
 Status: Draft plan (no implementation yet)
 
-See also: [[doc/roadmap/parsefile-document-codec-import.md]], [[doc/roadmap/parse-file-reconcile-current.md]], [[doc/roadmap/workspace-text-outline-conversion.md]], [[doc/roadmap/workspace-format-plain.md]], [[doc/reference/formats/code-shape.md]], [[src/Shared/ImportText.fs]], [[src/Shared/Paste.fs]], [[src/Client/UpdatePaste.fs]], [[src/Shared/dotnet/ImportDocument.fs]], [[src/Shared/documents/DocumentFormat.fs]], [[src/Shared/dotnet/DocumentParseOps.fs]]
+See also: [[doc/roadmap/parsefile-document-codec-import.md]], [[doc/roadmap/parse-file-reconcile-current.md]], [[doc/roadmap/workspace-text-outline-conversion.md]], [[plan/document-formats/workspace-format-plain.md]], [[doc/reference/formats/code-shape.md]], [[src/Shared/ImportText.fs]], [[src/Shared/Paste.fs]], [[src/Client/UpdatePaste.fs]], [[src/Shared/dotnet/ImportDocument.fs]], [[src/Shared/documents/DocumentFormat.fs]], [[src/Shared/dotnet/DocumentParseOps.fs]]
 
 Third import slice: **ParseFile → document reader** (file read at Server/Desktop — [[doc/roadmap/parsefile-document-codec-import.md]]), **ParseFile for Current → warm reconcile** (same reader, live graph — [[doc/roadmap/parse-file-reconcile-current.md]]), **paste → document reader** (clipboard and text import into the live outline). This plan covers the third item only.
 
@@ -140,7 +140,7 @@ Link-paste and internal clipboard paths must not call the codec. Client gains a 
 
 ## Format gate (undefined — defer)
 
-No implementation in this slice. Document where a gate **might** live later:
+The goal to recognize pasted markdown as markdown now lives on [Document formats](plan/document-formats/map.md). This slice still hard-codes Plain. Document where a gate **might** live later:
 
 | Candidate location | Would decide |
 |--------------------|--------------|

@@ -11,19 +11,15 @@ Sets up a PreToolUse hook that intercepts and blocks dangerous git commands befo
 
 ## What Gets Blocked
 
-- `git push` (all variants including `--force`)
-- `git reset --hard`
-- `git clean -f` / `git clean -fd`
-- `git branch -D`
-- `git checkout .` / `git restore .`
-
-When blocked, Claude sees a message telling it that it does not have authority to access these commands.
+The blocked command list is the `DANGEROUS_PATTERNS` array in [scripts/block-dangerous-git.sh](scripts/block-dangerous-git.sh). When blocked, Claude sees a message telling it that it does not have authority to access these commands.
 
 ## Steps
 
 ### 1. Ask scope
 
 Ask the user: install for **this project only** (`.claude/settings.json`) or **all projects** (`~/.claude/settings.json`)?
+
+Done when the user chose project or global.
 
 ### 2. Copy the hook script
 
@@ -35,6 +31,8 @@ Copy it to the target location based on scope:
 - **Global**: `~/.claude/hooks/block-dangerous-git.sh`
 
 Make it executable with `chmod +x`.
+
+Done when the script is at the target path and executable.
 
 ### 3. Add hook to settings
 
@@ -82,9 +80,13 @@ Add to the appropriate settings file:
 
 If the settings file already exists, merge the hook into existing `hooks.PreToolUse` array — don't overwrite other settings.
 
+Done when settings.json has the PreToolUse hook and other settings remain.
+
 ### 4. Ask about customization
 
 Ask if user wants to add or remove any patterns from the blocked list. Edit the copied script accordingly.
+
+Done when the user answered, and any pattern edits are in the copied script.
 
 ### 5. Verify
 
@@ -95,3 +97,5 @@ echo '{"tool_input":{"command":"git push origin main"}}' | <path-to-script>
 ```
 
 Should exit with code 2 and print a BLOCKED message to stderr.
+
+Done when the test exits 2 with a BLOCKED message on stderr.

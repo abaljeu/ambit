@@ -27,7 +27,7 @@ Summary: PostgreSQL is always authoritative; on-disk document artifacts correlat
 
 ### **Workspace graph**
 Details: [[doc/current/workspace-graph.md]].
-Summary: Workspace, directory, and file special nodes, placement invariants, and ref context.
+Summary: Workspace, directory, and file special nodes, placement invariants, DocumentState plus ParseState/PersistState axes, and ref context.
 
 ### **Desktop local files**
 Details: [[doc/current/desktop-local-files.md]].

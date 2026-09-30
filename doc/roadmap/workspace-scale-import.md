@@ -1,6 +1,6 @@
 # Workspace Scale Import
 
-See also: [[doc/roadmap/workspace-scale-file-and-db-management.md]], [[plan/transport-layer/project.md]], [[doc/roadmap/workspace-format-amb.md]], [[doc/roadmap/workspace-format-md.md]], [[doc/roadmap/workspace-format-plain.md]], [[doc/roadmap/workspace-format-code.md]], [[plan/roadmap/epics/chapters/incremental-operations.md]]
+See also: [[doc/roadmap/workspace-scale-file-and-db-management.md]], [[plan/transport-layer/project.md]], [[plan/document-formats/workspace-format-amb.md]], [[plan/document-formats/workspace-format-md.md]], [[plan/document-formats/workspace-format-plain.md]], [[plan/document-formats/workspace-format-code.md]], [[plan/roadmap/epics/chapters/incremental-operations.md]]
 
 Worksets: **disk-to-graph stub reconciliation**, **expand-to-parse and freshness UI**, and **workspace file sync**. Transport direction: [[plan/transport-layer/project.md]]; canonical Lazy Load project: [[lazy-load]].
 

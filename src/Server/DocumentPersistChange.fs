@@ -179,6 +179,19 @@ module DocumentPersistChange =
                     | Ok (oldPath, newPath) -> executePathMove oldPath newPath)
             (Ok ())
 
+    /// Path-moves and successful writes. A failed write is not in this set.
+    let private persistedContentIds
+        (moveIds: NodeId list)
+        (affected: Set<NodeId>)
+        (writtenIds: Set<NodeId>)
+        : Set<NodeId> =
+        let failed =
+            Set.filter
+                (fun id -> not (Set.contains id writtenIds))
+                affected
+
+        Set.difference (Set.union writtenIds (Set.ofList moveIds)) failed
+
     let private persistGraphChangeWith
         (affectedRoots: NodeId list -> Set<NodeId>)
         (existingStampRoots: NodeId list -> NodeId list)
@@ -200,7 +213,7 @@ module DocumentPersistChange =
             match executePathMoves dataDir preGraph postGraph moves with
             | Error msg -> Error msg
             | Ok () ->
-                let stamped, message =
+                let stamped, message, writtenIds =
                     affected
                     |> Set.toList
                     |> DocumentPersistWrite.writeDocumentsSoft dataDir postGraph
@@ -209,6 +222,7 @@ module DocumentPersistChange =
                     graph =
                         DocumentPersistPath.stampExistingDocuments
                             dataDir
+                            (persistedContentIds moveIds affected writtenIds)
                             (existingStampRoots moveIds)
                             stamped
                     message = message

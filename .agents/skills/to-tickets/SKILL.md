@@ -56,8 +56,8 @@ Use when a **wide mechanical change** — rename a column, retype a shared symbo
 
 First **expand** — add the new form beside the old so nothing breaks. Then **migrate** call sites in batches sized by blast radius (per package, per directory), each batch its own ticket blocked by the expand, keeping CI green batch to batch because the old form still exists. Finally **contract** — delete the old form once no caller remains, in a ticket blocked by every migrate batch. When even the batches cannot stay green alone, keep the sequence but let them share an integration branch that all block a final integrate-and-verify ticket — green is promised only there.
 
-### 4. Publish
+Done: a draft list exists for every item in the Sequence's set, each with title, blockers, and what it delivers. Checklist leaves follow [[PUBLISH.md]].
 
-Done: a draft list exists for every item in the Sequence's set, each with title, blockers, and what it delivers.  Checklists use unnumbered tasks, but reference arch.md numbers. E.g. `- [ ] 5.3.2 item description` for story 5, item 3.2.
+### 4. Publish
 
 Publish the full draft set immediately per [[PUBLISH.md]]; do not ask for approval or run a breakdown quiz first. Set `Stage: slice` and `Updated:` on `project.md` per [[doc/agents/project-status.md]]. Name the frontier in the reply. Done: each ticket is one file, the frontier is named, and project Stage is `slice`.

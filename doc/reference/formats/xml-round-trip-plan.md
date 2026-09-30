@@ -36,14 +36,14 @@ Extend the existing `DocumentFormat` dispatch with an XML codec; keep `AmbDocume
 
 Roadmap specs for this slice :
 
-- [[doc/roadmap/workspace-format-xml.md]] — tree mapping, identity, reconciliation, verification targets.
-- [[doc/roadmap/workspace-format-dispatch.md]] — `Xml` codec in classification and routing.
+- [[plan/document-formats/workspace-format-xml.md]] — tree mapping, identity, reconciliation, verification targets.
+- [[plan/document-formats/workspace-format-dispatch.md]] — `Xml` codec in classification and routing.
 - [[doc/roadmap/workspace-text-outline-conversion.md]] — generic conversion contract (**Settled**); XML slice pointer in § Generic XML reconciliation.
 - [[doc/roadmap/workspace-file-model.md]] Stage 7 Step 6.
 
 ## Test-First Implementation Plan
 
-Behavioral targets: [[doc/roadmap/workspace-format-xml.md]] § Verification Targets. Dispatch: [[doc/roadmap/workspace-format-dispatch.md]].
+Behavioral targets: [[plan/document-formats/workspace-format-xml.md]] § Verification Targets. Dispatch: [[plan/document-formats/workspace-format-dispatch.md]].
 
 1. **Codec tests** — `tests/Shared.Tests/XmlDocumentTests.fs` (after `PlainTextDocumentTests.fs` in `Gambol.Shared.Tests.fsproj`). Parse, write, reconcile per **Tree mapping**; byte-identical unchanged paths; structural classes; prologue/epilogue complement.
 2. **Dispatch tests** — extend `DocumentAssemblyTests.fs`: XML-shaped paths → Xml codec; `.amb`, plain, and `.md` rules unchanged.

@@ -212,7 +212,17 @@ module DocumentPersistPath =
             | :? IOException as ex ->
                 Error ("read failed: " + ex.Message)
 
-    let stampNodes
+    /// Mtime stamp. Persisted only when this call successfully wrote that content node.
+    let private stampNode (markPersisted: bool) (time: DateTime) (node: Node) : Node =
+        let stamped = NodeUpdateTime.withStamp time node
+
+        if markPersisted && Node.carriesStateAxes stamped then
+            { stamped with persistState = PersistState.Persisted }
+        else
+            stamped
+
+    let private applyStamps
+        (markPersisted: NodeId -> bool)
         (stamps: Map<NodeId, DateTime>)
         (graph: Graph)
         : Graph =
@@ -222,16 +232,20 @@ module DocumentPersistPath =
                 match Map.tryFind id g.nodes with
                 | None -> g
                 | Some node ->
-                    { g with
-                        nodes =
-                            Map.add
-                                id
-                                (NodeUpdateTime.withStamp time node)
-                                g.nodes })
+                    let next = stampNode (markPersisted id) time node
+                    { g with nodes = Map.add id next g.nodes })
             graph
 
+    let stampNodes
+        (stamps: Map<NodeId, DateTime>)
+        (graph: Graph)
+        : Graph =
+        applyStamps (fun _ -> true) stamps graph
+
+    /// Existing on-disk roots take mtime. Persisted is limited to `markPersistedIds`.
     let stampExistingDocuments
         (dataDir: string)
+        (markPersistedIds: Set<NodeId>)
         (documentRootIds: NodeId list)
         (graph: Graph)
         : Graph =
@@ -243,7 +257,11 @@ module DocumentPersistPath =
                     Map.add documentRootId (File.GetLastWriteTimeUtc path) stamps
                 | _ -> stamps)
             Map.empty
-        |> fun stamps -> stampNodes stamps graph
+        |> fun stamps ->
+            applyStamps
+                (fun id -> Set.contains id markPersistedIds)
+                stamps
+                graph
 
     let private shouldSkipDiscoveryFile (fileName: string) =
         Filename.isReservedSystemName fileName
