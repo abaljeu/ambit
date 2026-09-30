@@ -1,8 +1,8 @@
-# Parse Actor
+# Parse thread
 
 Stage: chart
-Summary: A continuous Server Parse Actor turns file-shaped disk into Graph, takes priority from Browser wants, and emits Changes.
-Updated: 2026-09-28
+Summary: A continuous Server Parse thread turns file-shaped disk into Graph, takes priority from Browser wants, and emits Changes.
+Updated: 2026-09-30
 
 **Part of:** [[plan/roadmap/epics/chapters/automatic-parse.md]]
 

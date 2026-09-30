@@ -19,7 +19,7 @@ Aims from Alan 2026-09-27 chat. Aims 1 and 2 stay provisional (not Decisions so 
 2. **Skills** — [[.agents/skills/wayfinder/SKILL.md]], [[.agents/skills/grilling/SKILL.md]], [[.agents/skills/domain-modeling/SKILL.md]], [[.agents/skills/project-work/SKILL.md]]. Use [[.agents/skills/implement-fsharp-feature/SKILL.md]] only after the way is clear.
 3. **Part of** — [[plan/roadmap/epics/chapters/actors-supported.md]] on [[plan/roadmap/epics/robust-outliner.md]].
 4. **Core baseline** — Existing pool and mailbox stay [[plan/core-creation/project.md]]. This Project charts the remake. It does not replace that baseline while the way is fog.
-5. **Parse Actor** — First Actor definition stays [[plan/parse-thread/project.md]]. Parse stays outside Core. This map covers only how a Parse Actor *hosts* under the new scheme if hosting touches the remake. File→Graph algorithm body is out of scope.
+5. **Parse thread** — Parse product home stays [[plan/parse-thread/project.md]]. Parse stays outside Core. This map covers only how Parse *hosts* under the new scheme if hosting touches the remake. File→Graph algorithm body is out of scope.
 6. **Provisional aims** — Destination aims 1 and 2 stay chat aims until [01 — Actor-as-client duplex](issues/01-actor-as-client-duplex.md) and [02 — Graph handoff](issues/02-graph-handoff.md) resolve. Aims 3 and 4 are Decisions so far on [03 — Mailbox orchestration shape](issues/03-mailbox-orchestration-shape.md) and [04 — Start surface](issues/04-start-surface.md). Next pass: [05 — Expand-contract first aspect](issues/05-expand-contract-first-aspect.md) starts at function-passing pool setup (pool receives a function; Actor calls it; no Graph/ids bag from the pool). Graph-resolver is not the first slice. It does not promote aims 1 or 2.
 7. **Mailbox clear-fast** — [[doc/Decisions/0004-core-mailbox-messages-clear-fast.md]] still holds: the mailbox stamps and routes without waiting; slow work still leaves the mailbox. The mailbox is a dispatcher, not an executioner. Locked on [03 — Mailbox orchestration shape](issues/03-mailbox-orchestration-shape.md).
 8. **Today's extract** — Production ActorStart still carries `graphIds` (Included expand of Zoom). [04 — Start surface](issues/04-start-surface.md) locks that ActorStart drops that extract and keeps focus ID and name for cancel. Live versus snapshot Graph, and which start ids beyond cancel Focus, stay on [02 — Graph handoff](issues/02-graph-handoff.md).
@@ -45,7 +45,7 @@ Aims from Alan 2026-09-27 chat. Aims 1 and 2 stay provisional (not Decisions so 
 
 1. **Browser residency wire** — Want-driven Graph→Browser. Pointer: [[plan/browser-residency/project.md]].
 2. **GitHub transport / PathPick / Peer Actor App boundary** — Pointer: [[plan/github-transport/project.md]].
-3. **Parse file→Graph algorithm body** — Pointer: [[plan/parse-thread/project.md]]. This map may touch only how a Parse Actor *hosts* under the new scheme.
+3. **Parse file→Graph algorithm body** — Pointer: [[plan/parse-thread/project.md]]. This map may touch only how Parse *hosts* under the new scheme.
 4. **Rewriting all existing Actors in one go** — Migration of each Actor body is later work, not this chart.
 5. **Product code on this chart** — The map finds the way. It does not implement CoreActorPool or mailbox F#.
 

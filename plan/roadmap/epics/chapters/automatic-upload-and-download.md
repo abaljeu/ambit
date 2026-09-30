@@ -13,7 +13,7 @@ Keep the person's files current on the App and in the Browser. Upload and Downlo
 
 ## Required for done
 
-- [ ] [[plan/transport-layer/project.md]] — chart Workspace file-channel redesign: FETCH (Unparsed → pull → push onto the one Parse actor) and UPDATE (graph edit → Unpersisted → Core Persist stack). Persist is Core async, not an Actor. Parse home stays [[plan/parse-thread/project.md]].
+- [ ] [[plan/transport-layer/project.md]] — chart Workspace file-channel redesign: FETCH (Unparsed → pull → push onto the one Parse thread) and UPDATE (graph edit → Unpersisted → Core Persist stack). Persist is Core async, not an Actor. Parse home stays [[plan/parse-thread/project.md]].
 - [ ] [[plan/auto-download-persisted-files/project.md]] — auto-download (HITL tabled)
 - [ ] [[plan/roadmap/issues/07-chart-automatic-upload-and-download.md]] — chart auto-upload implementation Project (no Project yet)
 

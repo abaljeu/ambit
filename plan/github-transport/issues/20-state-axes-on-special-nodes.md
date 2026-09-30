@@ -11,7 +11,7 @@ A person works a Graph that already has Workspace, Directory, and File special n
 
 ## What to build
 
-Special nodes carry **Parsed | Unparsed** and **Persisted | Unpersisted**. Code can set and read each axis on a Workspace Node, a Directory Node, and a File Node. No Parse actor, no Persist stack, no git Load retarget, no Upload or selection Parse, no path-control change, and no retirement of old hops.
+Special nodes carry **Parsed | Unparsed** and **Persisted | Unpersisted**. Code can set and read each axis on a Workspace Node, a Directory Node, and a File Node. No Parse thread, no Persist stack, no git Load retarget, no Upload or selection Parse, no path-control change, and no retirement of old hops.
 
 ### 1. Special-node state axes
 
@@ -20,7 +20,7 @@ Add the two axes as Graph markers on special nodes only. Point of lock: [04 — 
 - [x] 1.1 Carry Parsed | Unparsed — Each Workspace Node, Directory Node, and File Node has this axis. Parsed is the other pole of Unparsed.
 - [x] 1.2 Carry Persisted | Unpersisted — Each Workspace Node, Directory Node, and File Node has this axis. The axis is independent of Parsed | Unparsed.
 - [x] 1.3 Set and read both axes — Tests prove a special node can set and read each axis. No Parse or Persist work starts.
-- [x] 1.4 Leave workers unbuilt — Do not stand up the Parse actor or stack, the Core Persist stack, git Load retarget, Upload or selection Parse, path-control migration, or retirement of old hops.
+- [x] 1.4 Leave workers unbuilt — Do not stand up the Parse thread or stack, the Core Persist stack, git Load retarget, Upload or selection Parse, path-control migration, or retirement of old hops.
 
 ## Notes
 
@@ -42,7 +42,7 @@ Locked 2026-09-28 (Alan). Axis-write mechanics live on [core-refinement architec
 
 **Directory File** — Locked 2026-09-29 (Alan). A Directory File (exact `.amb` name) does not carry Parsed|Unparsed or Persisted|Unpersisted. Do not dual-write those axes. A graph edit does not mark that node Unpersisted. Workspace, Directory, and File content nodes still carry both axes.
 
-**Live write and disk parse** — A successful artifact write marks that content node Persisted in the event source. A failed write leaves Unpersisted. A disk parse that brings that content node in line with disk ends Parsed and Persisted. This does not start the Persist stack or the Parse actor. Status stays `coded`.
+**Live write and disk parse** — A successful artifact write marks that content node Persisted in the event source. A failed write leaves Unpersisted. A disk parse that brings that content node in line with disk ends Parsed and Persisted. This does not start the Persist stack or the Parse thread. Status stays `coded`.
 
 ## See also
 

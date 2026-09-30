@@ -12,7 +12,7 @@ Actual: 7h 42m
 
 - Successor to [[plan/selective-client-loading/project.md]] (Stage done; prior whole-Workspace slice).
 - Auto wants need no click and no command. Commands that name Nodes come later.
-- File transit stays on [[plan/transport-layer/project.md]]. Server Parse Actor stays on [[plan/parse-thread/project.md]].
+- File transit stays on [[plan/transport-layer/project.md]]. Parse thread home stays on [[plan/parse-thread/project.md]].
 - Map: [[map.md]].
 - Spec: [[spec.md]].
 - Arch: [[arch.md]].

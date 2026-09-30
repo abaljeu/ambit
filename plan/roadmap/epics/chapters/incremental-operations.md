@@ -22,7 +22,7 @@ Post-Event and Poll carry Changes plus the Nodes the Browser wants.
 ## Required for done
 
 - [ ] [[plan/browser-residency/project.md]] — visible-closure; auto wants (visible Nodes that miss Children, then their Children, then the grandchildren); hollow until fill; search hydration; post-Event and Poll carry Changes plus wanted Nodes
-- [ ] [[plan/parse-thread/project.md]] — continuous Server Parse Actor; file-shaped disk→Graph; priority from Browser wants; emits Changes
+- [ ] [[plan/parse-thread/project.md]] — continuous Server Parse thread; file-shaped disk→Graph; priority from Browser wants; emits Changes
 - [ ] [[plan/transport-layer/project.md]] — file transit stays here; no new transit Project
 
 ## Notes

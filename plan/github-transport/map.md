@@ -57,7 +57,7 @@ None for transport mechanics. Core handoff detail: [[plan/core-refinement/map.md
 
 1. **Ambit↔Ambit WebDAV** — Implemented [[doc/current/workspace-file-sync.md]]. Redesign stays on transport-layer / [[plan/auto-download-persisted-files/project.md]]. This Project does not replace that transit.
 2. **Core revision after files land** — Stays [[plan/core-refinement/project.md]].
-3. **Parse after files land (Actor home)** — Stays [[plan/parse-thread/project.md]].
+3. **Parse after files land (Parse thread home)** — Stays [[plan/parse-thread/project.md]].
 4. **This repo’s git procedure** — Stays [[plan/git-protocol/project.md]].
 5. **Want-driven Graph→Browser** — Stays [[plan/browser-residency/project.md]].
 6. **Product code on this chart** — The map finds the way. It does not implement the Actor.

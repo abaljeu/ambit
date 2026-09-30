@@ -32,7 +32,7 @@ Define an implementation-ready initial Core increment that extracts the full cur
 
 ## Out of scope
 
-- The Parse Actor definition belongs to [[plan/roadmap/epics/chapters/actors-supported.md]].
+- The Parse thread definition belongs to [[plan/roadmap/epics/chapters/actors-supported.md]].
 - Focus-only Actor admission and cancellation lookup, lifecycle Events, and restart reconciliation are locked by [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]]. Browser indicators belong to [[plan/event-sourced-ops/project.md]] and project lifecycle Events rather than a Graph lock field.
 - Database authority, view-only file mode, timeout and mirror replacement, and startup or repair authority migration belong to [[plan/roadmap/epics/chapters/acid-apply.md]].
 - Incremental Upload and Load belong to [[plan/roadmap/epics/chapters/incremental-operations.md]].

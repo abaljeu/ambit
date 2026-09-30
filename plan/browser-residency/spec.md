@@ -60,7 +60,7 @@ Sources: [map.md](map.md) Destination and Notes (2026-09-26 grill locks). Part o
 
 ## 4. Out of Scope
 
-1. **Parse Actor design** — This spec does not design how Parse consumes Browser wants. Pointer: [[plan/parse-thread/project.md]].
+1. **Parse thread design** — This spec does not design how Parse consumes Browser wants. Pointer: [[plan/parse-thread/project.md]].
 2. **File transit Actor** — This spec does not design Workspace Upload, Download, or ledger or inventory Load-path work. Pointer: [[plan/transport-layer/project.md]].
 3. **Document partition** — This spec does not add document-scoped Server residency or partition membership.
 4. **Cache leases** — This spec does not add Server or Browser interest leases.
