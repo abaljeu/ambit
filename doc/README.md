@@ -11,7 +11,7 @@ New docs should normally go in a subfolder:
 - `reference/` — operational and reference material
 - `unsorted/` — unassessed docs; temporary and non-authoritative
 
-Authority rule: when a roadmap, history, or unsorted doc disagrees with a current doc, the current doc wins.
+Authority rule: when a roadmap, history, or unsorted doc disagrees with a current doc, the current doc wins. `doc/` holds what is coded (achieved, current behavior); what will be coded lives under `plan/`. When plan work is achieved, update `doc/`.
 
 Document header rule:
 

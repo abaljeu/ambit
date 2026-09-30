@@ -1,4 +1,4 @@
-Nine review groups, plus a standalone list. Skills that call each other are ordered so the entry skill comes first.
+# Nine review groups, plus a standalone list. Skills that call each other are ordered so the entry skill comes first.
 
 ## Git places and sharing
 `git-protocol` → `git-share` → `git-master` → `cloud-agent-git` → `resolving-merge-conflicts` → `git-guardrails-claude-code`

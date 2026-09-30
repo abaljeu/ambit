@@ -160,7 +160,7 @@ Sources: [spec.md](spec.md) User Stories 1–27; [map.md](map.md) Destination an
     3. [x] git Save composition is `git commit` of work-tree edits, then push
     4. [x] Do not merge Persist into git Save
 
-28. **Per-Workspace work-tree gate queues without overlap** — **Revoked.** Exclusive gate history and Unparsed/Unpersisted replacement live on [[plan/core-refinement/project.md]] ([01 — Persist/git work-tree gate](../core-refinement/issues/01-persist-git-work-tree-gate.md)). The `[x]` lines below record what shipped on [12 — Run the Workspace git tracked-branch round-trip](issues/12-workspace-git-tracked-branch-round-trip.md) / [13 — Run git Load and Save through the Server Peer Actor](issues/13-actor-runs-git-load-save.md); they are not current required architecture.
+28. **Per-Workspace work-tree gate queues without overlap** — **Revoked.** Core seam replacement (workspace lock, persist locks, axes): [[plan/core-refinement/arch.md]] §6 and §3 step 3 **§6 locks catch-up** ([01 — Persist/git work-tree gate](../core-refinement/issues/01-persist-git-work-tree-gate.md)). The `[x]` lines below record what shipped on [12 — Run the Workspace git tracked-branch round-trip](issues/12-workspace-git-tracked-branch-round-trip.md) / [13 — Run git Load and Save through the Server Peer Actor](issues/13-actor-runs-git-load-save.md); they are not current required architecture.
     1. [x] Graph→file Persist, git Load pull, and git Save commit acquire one exclusive gate for that Workspace work tree — **superseded**; not current required architecture
     2. [x] A second caller waits until the holder releases the gate, then continues — **superseded**
     3. [x] Contention does not reject as busy — **superseded**
@@ -175,7 +175,7 @@ Shared segments:
 6. [x] Host GitRun (no Ambit credential store)
 7. [x] Load informs Core after files land (today’s Parse / graph-push hop until [[plan/core-refinement/project.md]] retargets). Fetch+Poll stays
 8. [x] Reject UX: condensed git error; conflict names a path
-9. [x] Per-Workspace exclusive work-tree gate shared by Persist, pull, and commit — **revoked**; shipped on [12 — Run the Workspace git tracked-branch round-trip](issues/12-workspace-git-tracked-branch-round-trip.md) / [13 — Run git Load and Save through the Server Peer Actor](issues/13-actor-runs-git-load-save.md); replacement on [[plan/core-refinement/project.md]]
+9. [x] Per-Workspace exclusive work-tree gate shared by Persist, pull, and commit — **revoked**; shipped on [12 — Run the Workspace git tracked-branch round-trip](issues/12-workspace-git-tracked-branch-round-trip.md) / [13 — Run git Load and Save through the Server Peer Actor](issues/13-actor-runs-git-load-save.md); Core seam replacement: [[plan/core-refinement/arch.md]] §6
 
 Narrowest shared test seam:
 1. [x] PathPick: remote exists → git; else desk (pure; no git process)

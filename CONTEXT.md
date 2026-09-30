@@ -1,6 +1,6 @@
 # Ambit
 
-Concise glossary for this repo. Prefer these words; do not invent synonyms.  If a new term seems to be needed, raise the issue.
+Concise alphabetical glossary for this repo. Prefer these words; do not invent synonyms.  If a new term seems to be needed, raise the issue.
 
 ## About Working
 

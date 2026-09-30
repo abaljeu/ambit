@@ -14,16 +14,17 @@ A browsable description of how Gambol is coded and how it runs: processes, layer
 - Related: [[plan/debug-reload/project.md]] -- how a person on watch loads debug modules and picks up an esbuild rebuild (Browser hard-reload). Homed on [[plan/roadmap/epics/robust-outliner.md]].
 - 2026-09-28 — Locked [[server-core.md]] from Alan inbound Server description. Correction the same day: git use is Core.
 - 2026-09-28 — Pointer: special-node Parse/Persist axes (step 1) live on [core-refinement architecture](plan/core-refinement/arch.md). Git use stays Core ([[server-core.md]]).
+- 2026-09-30 — Alan: Core seam sole authority is [[plan/core-refinement/arch.md]]. [[server-core.md]] is the compact description of that same target, linked from the master.
 
 ## Pages
 
 1. **Browser and App auth** — [[browser-and-app-auth.md]] — how the Browser and the App present `gambol_auth` to Core, and how a Server restart keeps the same derived token.
-2. **Server Core** — [[server-core.md]] — what Core deals with (database, Graph, Events, file system, git, Actors, mailbox) and what stays outside Core.
+2. **Server Core** — [[server-core.md]] — compact description of the Core target; sole authority is [[plan/core-refinement/arch.md]] (Target — Server Core).
 
 ## Decisions so far
 
 - Goal is how it is coded and how it runs, not user how-to and not use-case marketing.
-- 2026-09-28 — Server Core description locked from Alan inbound. Git use is Core. Home: [[server-core.md]].
+- 2026-09-28 — Server Core description locked from Alan inbound. Git use is Core. Sole Core seam authority is [[plan/core-refinement/arch.md]] Target — Server Core; [[server-core.md]] is the compact description linked from that master.
 
 
 ## Not yet specified

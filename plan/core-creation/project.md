@@ -2,13 +2,13 @@
 
 Stage: build
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
-Updated: 2026-09-28
+Updated: 2026-09-30
 Started: 2026-09-05
 Actual: 84h05m
 
 ## Notes
-- 2026-09-29 — Sequel for Core revision after files land: [[plan/core-refinement/project.md]] (split from [[plan/github-transport/project.md]]).
-- 2026-09-28 — Server Core description: [[plan/architecture/server-core.md]].
+- 2026-09-29 — Sequel for Core revision after files land: [[plan/core-refinement/project.md]] (split from [[plan/github-transport/project.md]]). Future Core seam authority is that Project ([[plan/core-refinement/arch.md]]), not this baseline.
+- 2026-09-28 — Server Core target sole authority is [[plan/core-refinement/arch.md]] Target — Server Core; compact description: [[plan/architecture/server-core.md]].
 - 2026-09-21 — Landed [53 — Cancel HTTP conveys ActorStop](issues/53-cancel-http-conveys-actorstop.md) on staging (Good): Cancel HTTP success carries Cancelled `ActorStop` Events; Client applies them so `amb-actor-live` clears without waiting on Poll. Status `done`.
 - 2026-09-21 — Independent review of [53 — Cancel HTTP conveys ActorStop](issues/53-cancel-http-conveys-actorstop.md): Standards Needs changes; Spec Approve with nits. Status stays `coded`. Report: [independent-review-53-cancel-http-conveys-actorstop](reports/independent-review-53-cancel-http-conveys-actorstop.md).
 - 2026-09-21 — Implemented [53 — Cancel HTTP conveys ActorStop](issues/53-cancel-http-conveys-actorstop.md): Cancel HTTP success carries Cancelled `ActorStop` Events; Client applies them so `amb-actor-live` clears without waiting on Poll. Status `coded`.

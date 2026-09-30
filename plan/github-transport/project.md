@@ -2,7 +2,7 @@
 
 Stage: build
 Summary: Server Actor pulls from and pushes to a Workspace GitHub remote (round-trip v1, fast-forward only). After [[plan/core-refinement/project.md]] is done, this Project only locks the workspace, receives the files, and informs the revised Core of changes; Core works through the updates. The App stays thin. Skip on that remote is whatever `.gitignore` already says.
-Updated: 2026-09-29
+Updated: 2026-09-30
 Started: 2026-09-27
 Actual: 10h45m
 
@@ -27,6 +27,7 @@ Actual: 10h45m
 - 2026-09-28 — Alan Core-revision model and axis locks recorded here then moved 2026-09-29 to [[plan/core-refinement/project.md]] (see that Project’s [[plan/core-refinement/map.md]] and [[plan/core-refinement/arch.md]]).
 - 2026-09-28 — Alan lock: Core alone knows where files reside. Everyone else has a relative path. One hardened control point. Map decision: [[map.md]]. Cross-cutting: [[plan/transport-layer/map.md]].
 - 2026-09-29 — [20 — State axes on special nodes](issues/20-state-axes-on-special-nodes.md) Status `done`. Alan accepted; squash-landed onto staging. Workspace, Directory, and File content nodes carry Parsed|Unparsed and Persisted|Unpersisted. A Directory File does not carry those axes. Further axis-migration steps stay on [[plan/core-refinement/arch.md]] §5. Stage stays `build`.
+- 2026-09-30 — Core seam sole authority is [[plan/core-refinement/project.md]] ([[plan/core-refinement/arch.md]]); this Project keeps transport-only mechanics and does not restate a parallel Core design.
 - Prior spec [[plan/workspace-git/project.md]] is not this home. That spec’s non-FF accept of non-overlapping edits is not this Destination.
 - Map: [[map.md]]. Spec: [[spec.md]]. Arch: [[arch.md]].
 - 2026-09-27 — [13 — Run git Load and Save through the Server Peer Actor](issues/13-actor-runs-git-load-save.md) coded. A peer-only mailbox/pool door keeps git Load/Save outside Run and `?git`; the Server Peer Actor resolves Focus to the Workspace work tree, runs the gated tracked-branch operation, and continues Load through Parse reconciliation.
