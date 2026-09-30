@@ -508,6 +508,12 @@ body {
 .h3, .md-head { font-size: 1.2rem }
 .md-head { font-weight:600 }
 .amb-text.md-head::before { content: "#"; }
+.amb-text.md-list::before { content: "-"; }
+.amb-text.md-list-star::before { content: "*"; }
+.amb-text.md-number::before { content: "n."; }
+.amb-text.md-table::before { content: "|-|"; }
+
+
 .amb-text.code-brace::after{ content: " { ... }"; }
 .code-brace { font-weight: 600; }
 

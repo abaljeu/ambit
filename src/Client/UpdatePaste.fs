@@ -158,6 +158,54 @@ let private pasteEditingMultiline
         | Ok (m, effects) -> editingModeAfterPaste m focusId afterCaret, effects
         | Error _ -> model, []
 
+let private selectPasted
+    (model: VM)
+    (parent: SiteEntry)
+    (start: int)
+    (count: int)
+    : VM =
+    let range = { parent = parent; start = start; endd = start + count }
+    { model with
+        mode = Selecting
+        selectedNodes = Some { range = range; focus = start } }
+
+/// Whole markdown paste. An empty focus node is replaced by the tree.
+/// A node that already has text keeps that text; the tree is the next sibling.
+let private pasteEditingMarkdown
+    (model: VM)
+    (originalText: string)
+    (currentText: string)
+    (cursorPos: int)
+    (focusId: NodeId)
+    (parentId: NodeId)
+    (parentEntry: SiteEntry)
+    (focusIdx: int)
+    (pastedText: string)
+    : VM * Effect list =
+    match planColdPaste pastedText with
+    | None -> model, []
+    | Some (ids, _) when List.isEmpty ids -> model, []
+    | Some (topLevelIds, pasteOps) ->
+        let empty = System.String.IsNullOrEmpty currentText
+        let parentChildren = Graph.children model.graph parentId
+        let inserted = childrenForPaste model.graph topLevelIds
+        let setTextOps =
+            if empty || currentText = originalText then []
+            else [ Op.SetText(focusId, originalText, currentText) ]
+        let placeOp =
+            if empty then
+                ChildListWire.edit
+                    parentId parentChildren focusIdx 1 focusIdx inserted
+            else
+                ChildListWire.insertAt
+                    parentId parentChildren (focusIdx + 1) inserted
+        match applyAndPost "Paste" (setTextOps @ pasteOps @ [ placeOp ]) model with
+        | Error _ -> model, []
+        | Ok (m, effects) when empty ->
+            selectPasted m parentEntry focusIdx topLevelIds.Length, effects
+        | Ok (m, effects) ->
+            editingModeAfterPaste m focusId cursorPos, effects
+
 let private pasteEditingPlainText
     (model: VM) (originalText: string) (currentText: string) (cursorPos: int) (focusId: NodeId)
     (parentId: NodeId) (focusIdx: int) (pastedText: string)
@@ -189,17 +237,31 @@ let private pasteNodesEditing
         pasteEditingLink
             model originalText currentText cursorPos focusId parentId focusIdx refIds
     | None ->
-        pasteEditingPlainText
-            model originalText currentText cursorPos focusId parentId focusIdx pastedText
+        if DocumentColdParse.pasteRelativePath pastedText
+           = DocumentColdParse.PasteMarkdownRelativePath then
+            pasteEditingMarkdown
+                model
+                originalText
+                currentText
+                cursorPos
+                focusId
+                parentId
+                sel.range.parent
+                focusIdx
+                pastedText
+        else
+            pasteEditingPlainText
+                model originalText currentText cursorPos focusId parentId focusIdx pastedText
 
 /// When preferredNodeIds is Some (from cut/copy-as-links clipboard format), resolve
 /// to existing nodes and insert as links (Op.Replace only, no NewNode).
 /// Select mode: replaces selection with resolved nodes.
 /// Edit mode: commits current text then inserts resolved nodes as siblings below; stays Editing.
 ///
-/// Otherwise (external plain text): DocumentColdParse.planPasteOps (stub Plain).
+/// Otherwise (external text): DocumentColdParse.planPasteOps (markdown line test, else Plain).
 /// Select mode: replaces selection with pasted subtree.
-/// Edit mode: splices first line into node at cursor; remaining lines become siblings; stays Editing.
+/// Edit mode, plain: splices the first line into the node; remaining lines become siblings.
+/// Edit mode, markdown: plans the whole paste as one tree.
 let pasteNodes (pastedText: string) (preferredNodeIds: string option) (model: VM)
     : VM * Effect list =
     match model.selectedNodes with

@@ -140,7 +140,7 @@ Link-paste and internal clipboard paths must not call the codec. Client gains a 
 
 ## Format gate (undefined — defer)
 
-No implementation in this slice. Document where a gate **might** live later:
+The goal to recognize pasted markdown as markdown now lives on [Document formats](plan/document-formats/map.md). This slice still hard-codes Plain. Document where a gate **might** live later:
 
 | Candidate location | Would decide |
 |--------------------|--------------|
