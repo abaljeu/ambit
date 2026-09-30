@@ -22,6 +22,8 @@ With no argument, [[scripts/gitmaster.sh]] lists `ready` commits not on `master`
 
 Bisect squash-by-squash on `master`.
 
+Done when [[scripts/gitmaster.sh]] with the message finished, or the no-arg list was shown and no squash ran.
+
 ## Tag
 
 The human tags only. The agent does not run `git tag`, even if asked.
@@ -34,6 +36,8 @@ git tag -f NAME master
 
 Lightweight. No helper script. No checkout. `-f` may re-point an existing name at the current `master` tip, including replacing an annotated tag with a lightweight tag.
 
+Done when the human tagged, or you did not run `git tag`.
+
 ## Publish
 
 ```bash
@@ -41,3 +45,5 @@ Lightweight. No helper script. No checkout. `-f` may re-point an existing name a
 ```
 
 [[scripts/gitpush.sh]] refuses `dev` and pushes `origin` `master`. It also force-pushes every local tag that points at that `master` tip, so origin follows a moved name. It does not `--tags`. It fast-forwards once the public presentation commits on `origin/master` are in this line's ancestry.
+
+Done when [[scripts/gitpush.sh]] `master` ran (human path), or you did not push.

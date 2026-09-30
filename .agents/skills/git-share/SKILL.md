@@ -8,9 +8,7 @@ description: >-
 
 # Share
 
-Agents and humans may **pull** `ready` freely and **push `ready` only after approval**. `dev` stays local. `master` stays human-only ([[.agents/skills/git-master/SKILL.md]]).
-
-Places and daily merges are in [[.agents/skills/git-protocol/SKILL.md]].
+Places, push gates, and human-only rules: [[.agents/skills/git-protocol/SKILL.md]]. This skill is the pull and publish-`ready` procedure.
 
 ## Before editing (shared checkout)
 
@@ -34,6 +32,8 @@ Then catch `dev` up:
 
 Local `ready` must hold the published tip before anything merges into it. That keeps first-parent as "this `ready`" and turns a race into a rejected push or a file conflict instead of two `ready` tips mashed together. [[scripts/gitready.sh]] and [[scripts/gitmaster.sh]] enforce it: they refuse a local `ready` behind `origin/ready`.
 
+Done when local `ready` matches `origin/ready` (or you stopped on `--ff-only` failure) and `dev` is caught up via [[scripts/gitdev.sh]].
+
 ## Publish `ready` (approval-gated)
 
 After `dev` is on `ready` via [[scripts/gitready.sh]]:
@@ -44,7 +44,9 @@ After `dev` is on `ready` via [[scripts/gitready.sh]]:
 
 [[scripts/gitpush.sh]] refuses `dev` and pushes `origin` `ready`.
 
-**Code push gate:** do not run `gitpush.sh ready` (or any `git push` of application/plan commits) until Alan has approved that push in chat or via the tool approval card. Pull/fetch needs no approval. Never push `dev`. Never push `master` from this skill.
+**Code push gate:** do not run `gitpush.sh ready` (or any `git push` of application/plan commits) until Alan has approved that push in chat or via the tool approval card. Pull/fetch needs no approval.
+
+Done when `gitpush.sh ready` ran after Alan's approval, or you did not push.
 
 ## Agent workplaces
 
@@ -55,14 +57,13 @@ Cloud agents send finished work to `staging`: [[.agents/skills/cloud-agent-git/S
 Other disposable desktops:
 
 - Land finished work onto `ready` with `--no-ff` (via [[scripts/gitready.sh]] on this machine, or the same merge on a disposable workspace).
-- Push `ready` only after approval.
+- Push `ready` only after approval per [[.agents/skills/git-protocol/SKILL.md]].
 - Leave `master` alone. `staging` is the cloud drop.
 
 Do not two-write the same files without fetching first. Prefer disjoint paths when several agents co-edit.
 
+Done when work is on this machine's `dev` or a disposable from `origin/ready`, and cloud work uses `staging`.
+
 ## Still human-only / gated
 
-- Squash and publish `master` ([[.agents/skills/git-master/SKILL.md]]) — human only
-- Tags — human only
-- Pushing `dev` — forbidden
-- Pushing `ready` — agent-allowed only with Alan's push approval
+Place and push rules: [[.agents/skills/git-protocol/SKILL.md]]. Squash and tags: [[.agents/skills/git-master/SKILL.md]].

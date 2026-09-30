@@ -21,8 +21,6 @@ The CloudAgents library still returns the vendor branch and PR URL. That is not 
 
 ## Work
 
-You are free to work outside of github on your own branch.  Pull on ready.  Squash onto staging then push.
-
 GitHub `git push` auth: [Push auth recovery](#push-auth-recovery).
 
 ### 1. Disposable branch
