@@ -1,10 +1,10 @@
 # github-transport architecture
 
 Spec: [[spec.md]]
-Updated: 2026-09-28
+Updated: 2026-09-29
 Sequence: module-build
 
-Sources: [spec.md](spec.md) User Stories 1–27; [map.md](map.md) Destination and Decisions so far 1–20 ([01 — Which Workspaces and remotes](issues/01-which-workspace-labels-and-remotes.md)–[10 — git Save is commit then push](issues/10-git-save-commit-then-push.md), [16 — Persist/git work-tree gate](issues/16-persist-git-work-tree-gate.md) exclusive gate revoked, [17 — Git Load: Unparsed then Parse stack](issues/17-post-pull-cascade-and-gate-handoff.md)–[19 — Parsed/Unparsed and Persisted/Unpersisted](issues/19-file-newer-graph-newer.md), [06 — Selection-scoped Parse after whole-tree git Load](issues/06-selection-scoped-parse-after-whole-tree-git-load.md) locked). Checklist: `[x]` already true of the codebase shape; `[ ]` still to build. Does not invent product behavior beyond those locks. Existing Ambit smart-HTTP helper [[src/Shared/WorkspaceGitRemote.fs]] (`RemoteName` `ambit`, `/ambit/git/{label}.git`) is not the GitHub remote. Sequence is `module-build`: the stories share a few modules (PathPick, WorkspaceGit git facts, Peer Actor, existing desk WebDAV). This is not expand-contract (no wide rename). Tracer-cut would mint one ticket per story and repeat the same hops.
+Sources: [spec.md](spec.md) User Stories 1–27; [map.md](map.md) Destination and Decisions so far (transport locks [01 — Which Workspaces and remotes](issues/01-which-workspace-labels-and-remotes.md)–[10 — git Save is commit then push](issues/10-git-save-commit-then-push.md); thin remainder after [[plan/core-refinement/project.md]]). Checklist: `[x]` already true of the codebase shape; `[ ]` still to build. Does not invent product behavior beyond those locks. After core-refinement, this architecture’s open job is lock workspace, receive files, inform Core — not how Core works through changes. Existing Ambit smart-HTTP helper [[src/Shared/WorkspaceGitRemote.fs]] (`RemoteName` `ambit`, `/ambit/git/{label}.git`) is not the GitHub remote. Sequence is `module-build`: the stories share a few modules (PathPick, WorkspaceGit git facts, Peer Actor, existing desk WebDAV). This is not expand-contract (no wide rename). Tracer-cut would mint one ticket per story and repeat the same hops.
 
 ## 1. Story paths
 
@@ -48,7 +48,7 @@ Sources: [spec.md](spec.md) User Stories 1–27; [map.md](map.md) Destination an
    2. [x] Load command request → mailbox → actor pool (not Run, not `?git`)
    3. [x] Plain Load asks PathPick
    4. [x] PathPick git → pool invokes GitHub Peer Actor (Focus = Workspace / work tree); PathPick desk → desk Load
-   5. [x] After files land, Load reaches Parse / graph-push. Required handoff is Unparsed → push onto the one Parse actor ([17 — Git Load: Unparsed then Parse stack](issues/17-post-pull-cascade-and-gate-handoff.md), [18 — One Parse actor stack](issues/18-parse-actor-stack-and-file-lock-ownership.md)); directory-reconcile worker withdrawn. Fetch+Poll stays
+   5. [x] After files land, Load informs Core of changes (today’s Parse / graph-push hop until [[plan/core-refinement/project.md]] retargets). Fetch+Poll stays
 
 9. **Save**
    1. [x] Person Command Save (`CommandEntry` Save; [[src/Client/UpdateSave.fs]] `saveOp`)
@@ -62,8 +62,8 @@ Sources: [spec.md](spec.md) User Stories 1–27; [map.md](map.md) Destination an
     3. [x] Mailbox → actor pool invokes Peer Actor; Actor uses Focus as the work tree
     4. [x] Peer Actor pulls the whole Workspace work tree / tracked branch (invocation node does not narrow git)
     5. [x] Reject uses condensed git error (conflict names at least one path)
-    6. [x] After files land, Load reaches Parse / graph-push. Required handoff is Unparsed on Workspace → pull → push onto the one Parse actor; directory-reconcile worker withdrawn. Fetch+Poll stays
-    7. [ ] Selection Load pushes the selection onto the same Parse stack ([06 — Selection-scoped Parse after whole-tree git Load](issues/06-selection-scoped-parse-after-whole-tree-git-load.md)); no special path or priority
+    6. [x] After files land, Load informs Core of changes (today’s Parse / graph-push hop until [[plan/core-refinement/project.md]] retargets). Fetch+Poll stays
+    7. [ ] Thin remainder: lock workspace, receive files, inform revised Core ([[plan/core-refinement/project.md]] owns how Core works through changes)
 
 11. **git Save**
     1. [x] Person names git Save (explicit pre-pick)
@@ -78,7 +78,7 @@ Sources: [spec.md](spec.md) User Stories 1–27; [map.md](map.md) Destination an
     1. [x] Person names desk Load (explicit pre-pick)
     2. [x] PathPick is skipped
     3. [x] Desk file path stays WebDAV Upload / existing `loadOp` desk transit ([[doc/current/workspace-file-sync.md]])
-    4. [x] Desk Load reaches Parse after files land. Required handoff is Unparsed → push onto Parse (Upload is the same path); directory-reconcile worker withdrawn. Fetch+Poll stays
+    4. [x] Desk Load informs Core after files land (today’s Parse hop until [[plan/core-refinement/project.md]] retargets). Fetch+Poll stays
 
 13. **desk Save**
     1. [x] Person names desk Save (explicit pre-pick)
@@ -99,12 +99,12 @@ Sources: [spec.md](spec.md) User Stories 1–27; [map.md](map.md) Destination an
     3. [x] No post-Download git pull or push
     4. [x] DailyGitSave / local Server commit is not GitHub push
 
-17. **Load keeps Parse**
-    1. [x] desk Load already invokes Parse / graph-push after files land
-    2. [x] git Load and plain-git Load reach Parse after a whole-tree pull; they do not stop at file transfer
-    3. [ ] Required handoff is Unparsed → push onto the one Parse actor ([17 — Git Load: Unparsed then Parse stack](issues/17-post-pull-cascade-and-gate-handoff.md), [18 — One Parse actor stack](issues/18-parse-actor-stack-and-file-lock-ownership.md)); no directory-reconcile worker
-    4. [ ] Client Load on a file node pushes the selection onto that same stack ([06 — Selection-scoped Parse after whole-tree git Load](issues/06-selection-scoped-parse-after-whole-tree-git-load.md))
-    5. [ ] Do not start a Parse Actor after pull; Parse home stays [[plan/parse-actor/project.md]]
+17. **Inform Core after files land**
+    1. [x] desk Load already continues after files land (today’s Parse / graph-push hop)
+    2. [x] git Load and plain-git Load continue after a whole-tree pull; they do not stop at file transfer alone
+    3. [ ] Remaining job after [[plan/core-refinement/project.md]]: lock workspace, receive files, inform revised Core; Core works through the changes
+    4. [ ] Do not specify Parse/Persist stacks on this Project; that home is [[plan/core-refinement/project.md]]
+    5. [ ] Parse Actor product home stays [[plan/parse-actor/project.md]]
 
 18. **WebDAV remains**
     1. [x] WebDAV Upload / Download stay implemented
@@ -160,7 +160,7 @@ Sources: [spec.md](spec.md) User Stories 1–27; [map.md](map.md) Destination an
     3. [x] git Save composition is `git commit` of work-tree edits, then push
     4. [x] Do not merge Persist into git Save
 
-28. **Per-Workspace work-tree gate queues without overlap** — **Revoked 2026-09-28.** [16 — Persist/git work-tree gate](issues/16-persist-git-work-tree-gate.md) exclusive gate is superseded by Unparsed/Unpersisted ([19 — Parsed/Unparsed and Persisted/Unpersisted](issues/19-file-newer-graph-newer.md)). The `[x]` lines below record what shipped on [12 — Run the Workspace git tracked-branch round-trip](issues/12-workspace-git-tracked-branch-round-trip.md) / [13 — Run git Load and Save through the Server Peer Actor](issues/13-actor-runs-git-load-save.md); they are not current required architecture.
+28. **Per-Workspace work-tree gate queues without overlap** — **Revoked.** Exclusive gate history and Unparsed/Unpersisted replacement live on [[plan/core-refinement/project.md]] ([01 — Persist/git work-tree gate](../core-refinement/issues/01-persist-git-work-tree-gate.md)). The `[x]` lines below record what shipped on [12 — Run the Workspace git tracked-branch round-trip](issues/12-workspace-git-tracked-branch-round-trip.md) / [13 — Run git Load and Save through the Server Peer Actor](issues/13-actor-runs-git-load-save.md); they are not current required architecture.
     1. [x] Graph→file Persist, git Load pull, and git Save commit acquire one exclusive gate for that Workspace work tree — **superseded**; not current required architecture
     2. [x] A second caller waits until the holder releases the gate, then continues — **superseded**
     3. [x] Contention does not reject as busy — **superseded**
@@ -173,9 +173,9 @@ Shared segments:
 4. [x] Peer Actor git Load / git Save (mailbox → actor pool; Focus = work tree; git Save = commit then push)
 5. [x] Desk WebDAV / `loadOp` / desk Save ([[src/Shared/dotnet/WorkspaceFileSync.fs]], [[src/Client/UpdateWorkspaceLoad.fs]], [[src/Client/UpdateSave.fs]])
 6. [x] Host GitRun (no Ambit credential store)
-7. [x] Load reaches Parse / graph-push after files land. Required handoff is Unparsed → push onto the one Parse actor; directory-reconcile worker withdrawn. Fetch+Poll stays
+7. [x] Load informs Core after files land (today’s Parse / graph-push hop until [[plan/core-refinement/project.md]] retargets). Fetch+Poll stays
 8. [x] Reject UX: condensed git error; conflict names a path
-9. [x] Per-Workspace exclusive work-tree gate shared by Persist, pull, and commit — **revoked 2026-09-28**; shipped on [12 — Run the Workspace git tracked-branch round-trip](issues/12-workspace-git-tracked-branch-round-trip.md) / [13 — Run git Load and Save through the Server Peer Actor](issues/13-actor-runs-git-load-save.md); Unparsed/Unpersisted replace it
+9. [x] Per-Workspace exclusive work-tree gate shared by Persist, pull, and commit — **revoked**; shipped on [12 — Run the Workspace git tracked-branch round-trip](issues/12-workspace-git-tracked-branch-round-trip.md) / [13 — Run git Load and Save through the Server Peer Actor](issues/13-actor-runs-git-load-save.md); replacement on [[plan/core-refinement/project.md]]
 
 Narrowest shared test seam:
 1. [x] PathPick: remote exists → git; else desk (pure; no git process)
@@ -196,12 +196,12 @@ Narrowest shared test seam:
       3. [x] Explicit Git or Desk skips PathPick
       4. [x] No schedule, post-Persist, or post-Download start
       5. [x] Load or Save Command → load/save command request → mailbox → actor pool (not Run, not `?git`)
-      6. [x] Load still reaches Parse / graph-push after files land. Required handoff is Unparsed → push onto Parse; directory-reconcile worker withdrawn
+      6. [x] Load informs Core after files land (today’s Parse / graph-push hop until [[plan/core-refinement/project.md]] retargets)
    3. Uses
       1. [x] PathPick
       2. [x] Peer Actor (git path) via actor pool
       3. [x] Desk Load/Save (desk path)
-      4. [x] Parse actor stack after files land ([17 — Git Load: Unparsed then Parse stack](issues/17-post-pull-cascade-and-gate-handoff.md), [18 — One Parse actor stack](issues/18-parse-actor-stack-and-file-lock-ownership.md)); Fetch+Poll stays
+      4. [x] Core informed after files land ([[plan/core-refinement/project.md]]); Fetch+Poll stays
 
 2. **PathPick**
    File: new [[src/Shared/PathPick.fs]] (pure choose). Remote-exists fact stays on WorkspaceGit.
@@ -218,7 +218,7 @@ Narrowest shared test seam:
    1. State
       1. [x] DataDir work tree `.git` (`isRepo`, `currentBranch`, `ensurePushConfig`)
       2. [x] Remote-exists and current upstream read from that work tree only
-      3. [x] One exclusive work-tree gate per Workspace shared with Graph→file Persist — **revoked 2026-09-28**; Unparsed/Unpersisted replace it ([16 — Persist/git work-tree gate](issues/16-persist-git-work-tree-gate.md))
+      3. [x] One exclusive work-tree gate per Workspace shared with Graph→file Persist — **revoked**; replacement on [[plan/core-refinement/project.md]] ([01 — Persist/git work-tree gate](../core-refinement/issues/01-persist-git-work-tree-gate.md))
    2. Interface
       1. [x] `isRepo` / `currentBranch` / `ensurePushConfig` (FF-only receive)
       2. [x] `remoteExists: workspaceRoot -> Result<bool, string>` from `git remote` (any remote counts)
@@ -245,30 +245,30 @@ Narrowest shared test seam:
       1. [x] Pool invokes the Actor from a Load or Save command request on the mailbox (not Run, not `?git`)
       2. [x] Actor cares about Focus only (which Workspace / work tree)
       3. [x] Same wiring for Save as Load
-      4. [x] git Load: pull whole Workspace work tree / tracked branch (any invocation node), then Unparsed on Workspace → push onto the one Parse actor ([17 — Git Load: Unparsed then Parse stack](issues/17-post-pull-cascade-and-gate-handoff.md))
+      4. [x] git Load: pull whole Workspace work tree / tracked branch (any invocation node), then inform Core that files changed
       5. [x] git Save: `git commit` work-tree edits, then push whole Workspace work tree / same tracked branch; FF-only reject; never file-level git; Persist stays independent
       6. [x] Reject UX: conflict names at least one file path; other failures a matching short git-condensed error; same for Load and Save
       7. [x] Same Actor shape for every device that maps through Server
       8. [x] Invokes WorkspaceGit; does not call git with an Ambit-supplied token
-      9. [x] Acquires and releases the Workspace work-tree gate around git Load pull and git Save commit — **superseded**; exclusive gate revoked ([16 — Persist/git work-tree gate](issues/16-persist-git-work-tree-gate.md))
+      9. [x] Acquires and releases the Workspace work-tree gate around git Load pull and git Save commit — **superseded**; exclusive gate revoked ([[plan/core-refinement/issues/01-persist-git-work-tree-gate.md]])
    3. Uses
       1. [x] CoreActorPool / ActorFn ([[src/Server/Core/CoreActorPool.fs]])
       2. [x] WorkspaceGit
       3. [x] No App git host
-      4. [x] After git Load files land, Unparsed → push onto Parse ([17 — Git Load: Unparsed then Parse stack](issues/17-post-pull-cascade-and-gate-handoff.md))
+      4. [x] After git Load files land, inform Core ([[plan/core-refinement/project.md]])
 
 5. **Desk Load/Save**
    File: existing [[src/Client/UpdateWorkspaceLoad.fs]], [[src/Client/UpdateSave.fs]], [[src/Shared/dotnet/WorkspaceFileSync.fs]]. Shape unchanged for this Project.
    1. State
       1. [x] Desktop map + WebDAV sync ledger
    2. Interface
-      1. [x] desk Load: App↔Server file transit (Upload / existing `loadOp`) then Unparsed → push onto Parse
+      1. [x] desk Load: App↔Server file transit (Upload / existing `loadOp`) then inform Core
       2. [x] desk Save: existing desk Save / Server local GitSave commit (not GitHub push)
       3. [x] WebDAV Upload / Download remain
    3. Uses
       1. [x] Desktop workspace-push / WebDAV
       2. [x] Server GitSave for local DataDir commit
-      3. [x] Parse actor stack after files land; directory-reconcile worker withdrawn; Fetch+Poll stays
+      3. [x] Core informed after files land ([[plan/core-refinement/project.md]]); Fetch+Poll stays
 
 6. **App**
    File: Desktop / Browser hosts (existing). Stays thin.
@@ -324,7 +324,7 @@ Narrowest shared test seam:
 3. **Server branch map** — Ambit stores which Workspace tracks which branch. Rejected: [01 — Which Workspaces and remotes](issues/01-which-workspace-labels-and-remotes.md); config is git on that work tree.
 4. **Ambit credential store** — appsettings / user-secrets / Graph / DataDir hold a GitHub token. Rejected: [04 — Credential storage on Server](issues/04-credential-storage-on-server.md); git loads host credentials.
 5. **Automatic git** — schedule, post-Persist, or post-Download pull/push. Rejected: [03 — When pull and push fire](issues/03-when-pull-and-push-fire.md); person Commands only.
-6. **File-transfer-only Load / start a Parse Actor after pull** — git Load stops at pull and starts a new Parse Actor, or leaves Parse to a later redesign. Rejected: nobody starts an Actor after pull; Core pushes the Workspace onto the one long-lived Parse actor ([17 — Git Load: Unparsed then Parse stack](issues/17-post-pull-cascade-and-gate-handoff.md), [18 — One Parse actor stack](issues/18-parse-actor-stack-and-file-lock-ownership.md)). Parse home stays [[plan/parse-actor/project.md]].
+6. **File-transfer-only Load with no Core handoff** — git Load stops at pull and never informs Core. Rejected: after files land, inform Core; Core works through changes ([[plan/core-refinement/project.md]]). Parse Actor home stays [[plan/parse-actor/project.md]].
 7. **File-level git** — pull or push a file or subtree because Load/Save was invoked on a subnode. Rejected: [05 — Git Load/Save are Workspace-scoped](issues/05-git-load-save-workspace-scoped.md).
 8. **Run / `?git` entrée** — Start the Peer Actor from Run or a `?git` Command. Rejected: [07 — Actor start door](issues/07-actor-start-door.md); door is Load or Save via mailbox → actor pool.
 9. **Ambit skip key** — A special Ambit config key for `.amb` skip. Rejected: [09 — Skip list is .gitignore](issues/09-gitignore-skip-list.md); skip list is `.gitignore`.

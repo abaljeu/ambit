@@ -30,4 +30,4 @@ This page records the Server description Alan gave on 2026-09-28. The descriptio
 2. **Actor as client** — [[plan/actor-as-client/project.md]] — concept-only; this description confirms privilege-less Actors that only post to the mailbox.
 3. **Core creation** — [[plan/core-creation/project.md]] — existing Core baseline.
 4. **Mailbox clear-fast** — [[doc/Decisions/0004-core-mailbox-messages-clear-fast.md]]
-5. **Special-node Parse/Persist axes** — Graph markers live on [Here→There — step 1 locked](plan/github-transport/here-to-there.md). Implement: [20 — State axes on special nodes](plan/github-transport/issues/20-state-axes-on-special-nodes.md). Git use stays Core on this page. This pointer does not reopen that lock.
+5. **Special-node Parse/Persist axes** — Graph markers and the expand-contract path toward this Server Core description live on [core-refinement architecture](plan/core-refinement/arch.md). Step 1 implement: [20 — State axes on special nodes](plan/github-transport/issues/20-state-axes-on-special-nodes.md). Further Core revision: [[plan/core-refinement/project.md]]. Git use stays Core on this page. This pointer does not reopen that lock.

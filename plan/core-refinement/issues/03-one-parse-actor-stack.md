@@ -1,8 +1,8 @@
-# 18 — One Parse actor stack
+# 03 — One Parse actor stack
 
 **Type:** grilling
 **Status:** done
-Blocked by: [17 — Git Load: Unparsed then Parse stack](17-post-pull-cascade-and-gate-handoff.md)
+Blocked by: [02 — Git Load: Unparsed then Parse stack](02-git-load-unparsed-then-parse-stack.md)
 Actual: 30m
 
 ## 1. Question
@@ -20,21 +20,23 @@ There is **one long-lived Parse actor**. Nobody starts an Actor after pull. Core
 
 Workspace/directory Parse: reconcile **immediate members only**. Then set **Unparsed** on children that need updating, and mark this node **Parsed** (as a change event). File Parse converts that file’s disk object into graph content.
 
-Parse Actor home: [[plan/parse-actor/project.md]]. Persist is **not** a second Actor. Persist is an async persisting task on Core: [19 — Parsed/Unparsed and Persisted/Unpersisted](19-file-newer-graph-newer.md).
+Parse Actor home: [[plan/parse-actor/project.md]]. Persist is **not** a second Actor. Persist is an async persisting task on Core: [04 — Parsed/Unparsed and Persisted/Unpersisted](04-parsed-unparsed-and-persisted-unpersisted.md).
 
-Git Load and Upload handoff: [17 — Git Load: Unparsed then Parse stack](17-post-pull-cascade-and-gate-handoff.md). Selection Load: [06 — Selection-scoped Parse after whole-tree git Load](06-selection-scoped-parse-after-whole-tree-git-load.md).
+Git Load and Upload handoff: [02 — Git Load: Unparsed then Parse stack](02-git-load-unparsed-then-parse-stack.md). Selection Load: [05 — Selection-scoped Parse after whole-tree git Load](05-selection-scoped-parse-after-whole-tree-git-load.md).
 
-Map gist: [[../map.md]] Decisions so far item 18.
+Map gist: [[../map.md]] Decisions so far item 3.
 
 ## Notes
 
 - Do not invent parse-actor tickets on this lock. The Parse Project stays at [[plan/parse-actor/project.md]].
 - This lock names the stack and who pushes. It does not start a new Actor per pull.
+- Formerly github-transport issue 18. Moved to [[plan/core-refinement/project.md]] on 2026-09-29.
 
 ## Comments
 
 - 2026-09-28: Alan locked one long-lived Parse actor. Core pushes reconcile targets. Status `done`. Directory-reconcile worker and “hold Unparsed” language withdrawn.
 - 2026-09-28: Persist is a Core async stack task, not a Persist actor.
+- 2026-09-29: Moved from github-transport into core-refinement as [03 — One Parse actor stack](03-one-parse-actor-stack.md).
 
 ## Time
 

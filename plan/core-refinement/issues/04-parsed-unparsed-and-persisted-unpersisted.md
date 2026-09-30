@@ -1,8 +1,8 @@
-# 19 — Parsed/Unparsed and Persisted/Unpersisted
+# 04 — Parsed/Unparsed and Persisted/Unpersisted
 
 **Type:** grilling
 **Status:** done
-Blocked by: [17 — Git Load: Unparsed then Parse stack](17-post-pull-cascade-and-gate-handoff.md)
+Blocked by: [02 — Git Load: Unparsed then Parse stack](02-git-load-unparsed-then-parse-stack.md)
 Actual: 15m
 
 ## 1. Question
@@ -31,22 +31,24 @@ Persist is an **async persisting task on Core**. It works off a **stack**. It is
 
 git Save is **permitted** while nodes are Unparsed or Unpersisted.
 
-Do not invent a Conflicted state. The two axes are independent markers, not a lock table. [16 — Persist/git work-tree gate](16-persist-git-work-tree-gate.md)’s exclusive gate is revoked.
+Do not invent a Conflicted state. The two axes are independent markers, not a lock table. [01 — Persist/git work-tree gate](01-persist-git-work-tree-gate.md)’s exclusive gate is revoked.
 
 `DocumentState` today is `Current` | `Unparsed` | `NoServerFile` ([[src/Shared/Model.fs]]). Parsed is the other pole of Unparsed (`Current` is today’s name). Unpersisted is new. That is implement.
 
-Map gist: [[../map.md]] Decisions so far item 19.
+Map gist: [[../map.md]] Decisions so far item 4.
 
 ## Notes
 
-- Git Load / Upload handoff: [17 — Git Load: Unparsed then Parse stack](17-post-pull-cascade-and-gate-handoff.md).
-- Parse actor: [18 — One Parse actor stack](18-parse-actor-stack-and-file-lock-ownership.md).
+- Git Load / Upload handoff: [02 — Git Load: Unparsed then Parse stack](02-git-load-unparsed-then-parse-stack.md).
+- Parse actor: [03 — One Parse actor stack](03-one-parse-actor-stack.md).
 - File Newer / Graph Newer was an earlier formulation. Unparsed is disk-newer. Unpersisted is graph-newer. Do not keep a third Conflicted value.
+- Formerly github-transport issue 19. Moved to [[plan/core-refinement/project.md]] on 2026-09-29.
 
 ## Comments
 
 - 2026-09-28: Alan locked the two axes. Status `done`. No Conflicted. No Reconciling.
 - 2026-09-28: Persist is a Core async stack, fed by graph edits, blocked while Unparsed. git Save is permitted while Unparsed or Unpersisted. Exclusive gate revoked.
+- 2026-09-29: Moved from github-transport into core-refinement as [04 — Parsed/Unparsed and Persisted/Unpersisted](04-parsed-unparsed-and-persisted-unpersisted.md).
 
 ## Time
 

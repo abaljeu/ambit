@@ -1,8 +1,8 @@
-# 17 — Git Load: Unparsed then Parse stack
+# 02 — Git Load: Unparsed then Parse stack
 
 **Type:** grilling
 **Status:** done
-Blocked by: [16 — Persist/git work-tree gate](16-persist-git-work-tree-gate.md)
+Blocked by: [01 — Persist/git work-tree gate](01-persist-git-work-tree-gate.md)
 Actual: 25m
 
 ## 1. Question
@@ -21,7 +21,7 @@ Git Load / Core github pull:
 2. Pull files.
 3. Push the Workspace onto the Parse actor.
 
-Nobody starts an Actor after pull. Core pushes a reconcile target onto the one long-lived Parse actor. See [18 — One Parse actor stack](18-parse-actor-stack-and-file-lock-ownership.md).
+Nobody starts an Actor after pull. Core pushes a reconcile target onto the one long-lived Parse actor. See [03 — One Parse actor stack](03-one-parse-actor-stack.md).
 
 Client **Upload** uses the same path: land on disk → mark the relevant node Unparsed → push onto Parse. No special Upload pipeline.
 
@@ -29,17 +29,19 @@ Workspace/directory Parse reconciles **immediate members only** (spot disk vs gr
 
 Markers are Graph state Core and the Parse actor set and clear. They are not mutexes entities “hold.”
 
-Map gist: [[../map.md]] Decisions so far item 17.
+Map gist: [[../map.md]] Decisions so far item 2.
 
 ## Notes
 
-- Axes and Persist: [19 — Parsed/Unparsed and Persisted/Unpersisted](19-file-newer-graph-newer.md).
+- Axes and Persist: [04 — Parsed/Unparsed and Persisted/Unpersisted](04-parsed-unparsed-and-persisted-unpersisted.md).
 - Parse Actor home: [[plan/parse-actor/project.md]].
-- [16 — Persist/git work-tree gate](16-persist-git-work-tree-gate.md) exclusive gate is revoked. Unparsed / Unpersisted replace it.
+- [01 — Persist/git work-tree gate](01-persist-git-work-tree-gate.md) exclusive gate is revoked. Unparsed / Unpersisted replace it.
+- Formerly github-transport issue 17. Moved to [[plan/core-refinement/project.md]] on 2026-09-29.
 
 ## Comments
 
 - 2026-09-28: Alan replaced the Reconciling cascade. Status `done`. Sequence is Unparsed on Workspace → pull → push Parse. Upload is the same path. No new Actor after pull.
+- 2026-09-29: Moved from github-transport into core-refinement as [02 — Git Load: Unparsed then Parse stack](02-git-load-unparsed-then-parse-stack.md).
 
 ## Time
 

@@ -13,7 +13,7 @@ A browsable description of how Gambol is coded and how it runs: processes, layer
 - Sister Projects: [[plan/end-user-wiki/map.md]] (what the software is for users), [[plan/marketing-wiki/map.md]] (uses).
 - Related: [[plan/debug-reload/project.md]] -- how a person on watch loads debug modules and picks up an esbuild rebuild (Browser hard-reload). Homed on [[plan/roadmap/epics/robust-outliner.md]].
 - 2026-09-28 — Locked [[server-core.md]] from Alan inbound Server description. Correction the same day: git use is Core.
-- 2026-09-28 — Pointer: special-node Parse/Persist axes (Here→There step 1) live on [Here→There — step 1 locked](plan/github-transport/here-to-there.md). Git use stays Core ([[server-core.md]]).
+- 2026-09-28 — Pointer: special-node Parse/Persist axes (step 1) live on [core-refinement architecture](plan/core-refinement/arch.md). Git use stays Core ([[server-core.md]]).
 
 ## Pages
 

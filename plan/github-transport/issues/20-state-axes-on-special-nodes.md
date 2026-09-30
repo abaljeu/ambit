@@ -15,7 +15,7 @@ Special nodes carry **Parsed | Unparsed** and **Persisted | Unpersisted**. Code 
 
 ### 1. Special-node state axes
 
-Add the two axes as Graph markers on special nodes only. Point of lock: [19 — Parsed/Unparsed and Persisted/Unpersisted](19-file-newer-graph-newer.md). Migration home: [Here→There — step 1 locked](../here-to-there.md).
+Add the two axes as Graph markers on special nodes only. Point of lock: [04 — Parsed/Unparsed and Persisted/Unpersisted](../../core-refinement/issues/04-parsed-unparsed-and-persisted-unpersisted.md). Axis architecture: [core-refinement architecture](../../core-refinement/arch.md).
 
 - [x] 1.1 Carry Parsed | Unparsed — Each Workspace Node, Directory Node, and File Node has this axis. Parsed is the other pole of Unparsed.
 - [x] 1.2 Carry Persisted | Unpersisted — Each Workspace Node, Directory Node, and File Node has this axis. The axis is independent of Parsed | Unparsed.
@@ -24,7 +24,7 @@ Add the two axes as Graph markers on special nodes only. Point of lock: [19 — 
 
 ## Notes
 
-Locked 2026-09-28 (Alan). Axis-write mechanics live on [Here→There — step 1 locked](../here-to-there.md) §4 and [[../map.md]] decision 23. This ticket’s acceptance stays markers set and read only. It does not start workers.
+Locked 2026-09-28 (Alan). Axis-write mechanics live on [core-refinement architecture](../../core-refinement/arch.md) §4 and [[plan/core-refinement/map.md]] decision 7. This ticket’s acceptance stays markers set and read only. It does not start workers.
 
 **Approach (Mikado)** — Locked 2026-09-28 (Alan). Create the new state axes. Set both the new axes and the old `DocumentState` wherever state changes. Migrate old uses over step by step. Finally remove the old.
 
@@ -46,9 +46,9 @@ Locked 2026-09-28 (Alan). Axis-write mechanics live on [Here→There — step 1 
 
 ## See also
 
-- [19 — Parsed/Unparsed and Persisted/Unpersisted](19-file-newer-graph-newer.md)
-- [Here→There — step 1 locked](../here-to-there.md)
-- [[../map.md]] decision 23
+- [04 — Parsed/Unparsed and Persisted/Unpersisted](../../core-refinement/issues/04-parsed-unparsed-and-persisted-unpersisted.md)
+- [core-refinement architecture](../../core-refinement/arch.md)
+- [[plan/core-refinement/map.md]] decision 7
 
 ## Comments
 
