@@ -1,15 +1,15 @@
 # core-refinement architecture
 
-Updated: 2026-09-30
+Updated: 2026-10-01
 Sequence: expand-contract
 
-Home: [[project.md]]. This note is the sole authority for the Core seam (what will be coded): Target — Server Core, the expand-contract sequence (§3), axes, stacks, path control, mailbox git handoff, and the locking model (§6). Spec.md and User Stories for a full `/to-arch` run are absent; Alan overrode that stop for expand-contract only. This note has no Story paths, Module map, or Seams. Stage stays `chart` on [[project.md]].
+Home: [[project.md]]. This note is the sole authority for the Core seam (what will be coded): Target — Server Core, the expand-contract sequence (§3), axes, stacks, path control, mailbox git handoff, and the locking model (§6). Spec.md and User Stories are absent. Map decision 9 keeps Sequence `expand-contract` and keeps this note free of Story paths, a Module map, and Seams. Stage on [[project.md]] stays `build`. Claim marks for committed elements live under [[doc/current/]]. This note links to those pages. Map §4 (mailbox enable, call, and stop) stays in §3 step 6. It is not copied into [[doc/current/]].
 
 Decision lock: [04 — Parsed/Unparsed and Persisted/Unpersisted](issues/04-parsed-unparsed-and-persisted-unpersisted.md). Core locking model: §6. Step 1 implement (shipped): [20 — State axes on special nodes](../github-transport/issues/20-state-axes-on-special-nodes.md). Git use is Core (Target — Server Core). This note does not reopen that lock. This expand-contract sequence is the ticket source: tickets stay undrafted until a use case needs one; then draft against a beat or a caller shift from the sequence, not a pre-built full set.
 
 ## Target — Server Core
 
-Locked 2026-09-28 (Alan). Compact description of that same target: [[plan/architecture/server-core.md]]. This note is the sole authority for the Core seam; that page is the short description. One meaning, two roles — if they ever drift, this note wins. The lock does not chart coding tickets; the path is §3.
+Locked 2026-09-28 (Alan). Compact description of that same target: [[plan/architecture/server-core.md]]. This note is the sole authority for the Core seam; that page is the short description. One meaning, two roles — if they ever drift, this note wins. The lock does not chart coding tickets; the path is §3. Claim home for Core: [Server](doc/current/server.md).
 
 ### Dated note
 
@@ -24,7 +24,7 @@ Special nodes (Workspace Node, Directory Node, File Node) each carry Parse Statu
 1. **Parsed | Unparsed** — Unparsed means information on disk has not been pulled into the graph. The parse thread runs when a node is Unparsed and sets Parsed on completion.
 2. **Persisted | Unpersisted** — Unpersisted means information in the graph has not been written to disk. The persist thread runs when a node is Unpersisted and Parsed, and sets Persisted on completion. A graph edit sets the nearest owning special node Unpersisted. It does not mark ancestors.
 
-Only Core changes files, and only Core changes the graph. The flags record which side Core just moved. Other operations set Unparsed and Unpersisted. Workspace lock and per-member persist locks are additional protocol beside the axes: §6 Core locking model. Do not invent a Conflicted state. This section is not the project target; the project target is Target — Server Core.
+Only Core changes files, and only Core changes the graph. The flags record which side Core just moved. Other operations set Unparsed and Unpersisted. Workspace lock and per-member persist locks are additional protocol beside the axes: §6 Core locking model. Do not invent a Conflicted state. This section is not the project target; the project target is Target — Server Core. Claim home: [Workspace graph](doc/current/workspace-graph.md) (Document state).
 
 ## 2. Starting point
 
@@ -43,31 +43,31 @@ Ordered path from §2 Starting point to Target — Server Core. The expand-contr
    Charted approach (Alan, 2026-09-30). Parse is not an Actor. Same posture as Persist (§3 step 3 Core Persist stack): private stack, public push inside Core, consumer thread waits until push, then calls the existing parse body. Parse setup (stack, push, consumer thread) lives inside [[src/Server/Core]]. Outside Core, including [[src/Server/RouteRegistration.fs]], does not construct Parse, start it, or hold its handles; RouteRegistration may call a Core entry that boots Core, and does not see parse push/consumer. That move is not done; today’s start site is still RouteRegistration (`createPersistenceContext` builds `ParseStack` and calls `ParseThread.start`).
    1. **Expand** — [x] Stand up the one long-lived Parse stack beside today’s Load → Parse / graph-push hop. Product home: [[plan/parse-thread/project.md]]. Core may push reconcile targets. Old hop still runs. See [03 — One Parse thread stack](issues/03-one-parse-thread-stack.md). The background loop that pulls the parse stack and runs the old parse function runs on a separate thread; it is not an Actor. First use case (Alan, 2026-09-29): an explicit parse command on a file (today’s `ParseFile` / `postParseFile`) — mailbox Load of a File node, push onto the stack, loop runs the old parse body. Ticket: [06 — Explicit parse command on a File (Load)](issues/06-explicit-parse-command-load-file.md) (Status `coded`).
    2. **Migrate** — [ ] After §3 step 4 **§6 locks catch-up** Expand stands the workspace lock, that lock drains in-flight member file use, then pull (or Upload land) proceeds; arrived files are marked Unparsed; the lock releases; Unparsed starts the parse thread (push onto that stack). Client Load on Directory or File marks Unparsed; File push onto the stack waits on this expand. Selection push has no special priority. See [02 — Git Load: Unparsed then Parse stack](issues/02-git-load-unparsed-then-parse-stack.md), [05 — Selection-scoped Parse after whole-tree git Load](issues/05-selection-scoped-parse-after-whole-tree-git-load.md), and §6 Core locking model. Transport only informs Core; Core owns the lock → Unparsed → parse-thread path.
-   3. **Contract** — [ ] Retire today’s Load → Parse / graph-push hop once every handoff uses the stack.
+   3. **Contract** — [ ] Retire today’s Load → Parse / graph-push hop once every handoff uses the stack. Claim home: [Server](doc/current/server.md) (Parse stack claims).
 
 3. **Core Persist stack**
    Charted approach (Alan, 2026-09-29). Persist is not an Actor; it is a thread. See [04 — Parsed/Unparsed and Persisted/Unpersisted](issues/04-parsed-unparsed-and-persisted-unpersisted.md). Setup location (Alan, 2026-09-30): Persist setup (collectors and the loop that calls existing persist functions) lives inside [[src/Server/Core]]. Outside Core, including [[src/Server/RouteRegistration.fs]], does not construct Persist, start it, or hold its handles; RouteRegistration may call a Core entry that boots Core, and does not see persist collectors. That setup is not stood up yet. This step’s Expand / Migrate / Contract is collectors and call-site shape only. Standing workspace lock / per-member persist locks and removing `withWorkTreeGate` are §3 step 4 **§6 locks catch-up**, not this Contract.
    1. **Expand** — [ ] Make **new collector functions** beside today’s sync live-save. A **loop** on the persist thread will pull from the collection and **call the existing persist functions** ([[src/Server/DocumentPersistChange.fs]] / today’s Graph→disk writers). Those functions stay the write body. Do not invent a new write body in this step.
    2. **Migrate** — [ ] **Change everyone to call the collectors.** Sync call sites move to collectors; the loop is the new feeder; the existing persist functions are what the loop calls. Do not delete those functions in this step.
    3. **Contract** — [ ] Retire the old sync call-site shape once collectors and the loop feed the existing persist functions. The write body stays.
-   **New behavior** (not today’s sync live-save): The persist thread runs when a node is Unpersisted and Parsed (§6). Unparsed files are not open for persist. Axis lock already says file Persist is blocked while Unparsed ([04 — Parsed/Unparsed and Persisted/Unpersisted](issues/04-parsed-unparsed-and-persisted-unpersisted.md)); the persist thread (collector loop) is where that block becomes real. Do not claim today’s code already does it. Lock protocol against in-flight writes during pull: §6 and §3 step 4 **§6 locks catch-up**.
+   **New behavior** (not today’s sync live-save): The persist thread runs when a node is Unpersisted and Parsed (§6). Unparsed files are not open for persist. Axis lock already says file Persist is blocked while Unparsed ([04 — Parsed/Unparsed and Persisted/Unpersisted](issues/04-parsed-unparsed-and-persisted-unpersisted.md)); the persist thread (collector loop) is where that block becomes real. Do not claim today’s code already does it. Lock protocol against in-flight writes during pull: §6 and §3 step 4 **§6 locks catch-up**. Claim home: [Persistence model](doc/current/persistence-model.md) (Persist stack claims).
 
 4. **§6 locks catch-up**
    Code still runs today’s `WorkspaceGit.withWorkTreeGate` on Persist and git paths. That exclusive gate is not the workspace lock ([01 — Persist/git work-tree gate](issues/01-persist-git-work-tree-gate.md) revoked). Axes stay drift markers; locks are §6. Do not drop the workspace lock. Do not invent a new write body or a new git process home: DocumentPersistChange stays the write body; mailbox/parse-thread placement stays as already charted. [04 — Parsed/Unparsed and Persisted/Unpersisted](issues/04-parsed-unparsed-and-persisted-unpersisted.md) git Save is permitted while Unparsed or Unpersisted. Catch-up when the code meets §6 and the old gate leaves:
    1. **Expand** — [ ] Stand the workspace lock and per-member persist locks up beside `withWorkTreeGate`, matching §6 (pending, drain in-flight member file writes and parse reads, then pull, mark arrived files Unparsed, release). While the workspace lock is pending, new persist locks for member files cannot be taken.
    2. **Migrate** — [ ] Persist, parse-thread file use, and git Load/Save follow §6. `withWorkTreeGate` remains only while dual-running is required.
-   3. **Contract** — [ ] Remove `withWorkTreeGate` from Persist and git paths once §6 is the only protocol.
+   3. **Contract** — [ ] Remove `withWorkTreeGate` from Persist and git paths once §6 is the only protocol. Claim home: [Server](doc/current/server.md) (workspace lock claims).
 
 5. **Path control**
    1. **Expand** — [ ] Core owns four operations that hold absolute residency: read file, write file, read directory, write directory. Callers pass a node, or a relative path derived from a node, to say where ([[plan/transport-layer/map.md]]).
    2. **Migrate** — [ ] Classify each inventoried DataDir use as already one of those Core functions, or change it to that protocol (caller passes a node or a relative path derived from a node; Core holds the absolute residency). Inventory snapshot: [DataDir caller inventory](reports/datadir-caller-inventory.md). Do not invent migrate batches beyond that classification.
-   3. **Contract** — [ ] No caller outside Core builds or holds a DataDir absolute path. Callers pass a node or a relative path derived from a node.
+   3. **Contract** — [ ] No caller outside Core builds or holds a DataDir absolute path. Callers pass a node or a relative path derived from a node. Claim home: [Persistence model](doc/current/persistence-model.md) (path control claims).
 
 6. **Mailbox owns file and git work**
    Charted approach (Alan, 2026-09-29). Three beats for git requests. File work stays where earlier steps already require it; this step does not invent a file-migrate inventory.
    1. **6.1 Enable git requests** — [ ] Core/mailbox accepts git requests (expand). Actors remain defined outside Core and post to the mailbox; Core performs that work in the background with an end Event when needed (Target — Server Core · Core deals with). Keep today’s doors that already reach Core for Load / Save.
    2. **6.2 Call them** — [ ] Callers use those git requests (migrate).
-   3. **6.3 Stop any old** — [ ] Stop the old git path (contract).
+   3. **6.3 Stop any old** — [ ] Stop the old git path (contract). Map §4. These three beats stay on this note. They are not claims on [[doc/current/]]. The locked target (git use is Core; an Actor posts; Core performs the git work) has a claim home: [Server](doc/current/server.md) (Git use is Core).
 
 ## 4. Step 1 locked
 
@@ -79,11 +79,11 @@ This step does not start workers.
 
 **Approach (Mikado)** — Locked 2026-09-28 (Alan). Create the new state axes. Set both the new axes and the old `DocumentState` wherever state changes. Migrate old uses over step by step. Finally remove the old.
 
-Implement ticket: [20 — State axes on special nodes](../github-transport/issues/20-state-axes-on-special-nodes.md) (Status `done` on github-transport).
+Implement ticket: [20 — State axes on special nodes](../github-transport/issues/20-state-axes-on-special-nodes.md) (Status `done` on github-transport). Claim home: [Workspace graph](doc/current/workspace-graph.md) (Document state).
 
 ## 5. Axis-write mechanics
 
-Locked 2026-09-28 (Alan). These rules say who writes each axis and which node they mark. [20 — State axes on special nodes](../github-transport/issues/20-state-axes-on-special-nodes.md) still only adds the markers. It does not start workers. Items marked deferred wait for the Parse loop.
+Locked 2026-09-28 (Alan). These rules say who writes each axis and which node they mark. [20 — State axes on special nodes](../github-transport/issues/20-state-axes-on-special-nodes.md) still only adds the markers. It does not start workers. Items marked deferred wait for the Parse loop. Claim home: [Workspace graph](doc/current/workspace-graph.md) (Document state). Axis-write rules stay in this section. The current page does not copy them.
 
 1. **Writer target** — Core / mailbox only. Until that lands, set the axes at today’s file-edit sites and graph-edit sites.
 2. **Graph edit** — Mark the nearest owning special node (File Node, Directory Node, or Workspace Node) **Unpersisted** only. Do not mark ancestors.
@@ -99,7 +99,7 @@ Locked 2026-09-28 (Alan). These rules say who writes each axis and which node th
 
 ## 6. Core locking model
 
-Locked 2026-09-30 (Alan). Axes remain informational drift markers (§1), not locks. The workspace lock and per-member persist locks are additional protocol beside the axes. This section is current truth for Core-revision workers.
+Locked 2026-09-30 (Alan). Axes remain informational drift markers (§1), not locks. The workspace lock and per-member persist locks are additional protocol beside the axes. This section is current truth for Core-revision workers. Claim home: [Server](doc/current/server.md) (workspace lock claims). Do not copy this section into [[doc/current/]].
 
 1. **Unparsed and Unpersisted** — The two directions of drift. Both can be true at once.
    1. **Unparsed** — Information on disk has not been pulled into the graph.

@@ -16,6 +16,7 @@ Status legend (from file-model):
 - `[x]` implemented in the current codebase
 - `[~]` partially implemented or represented in the model, but not yet wired through
 - `[ ]` target design only
+- `[o]` obsolete yet implemented. The retiring `[ ]` is on [Persistence model](doc/current/persistence-model.md). See [Architecture](doc/current/arch.md) Claims.
 
 ## Stage Map
 
@@ -27,7 +28,8 @@ Status legend (from file-model):
 | 4 — desktop `//label/relative` via local mapping | §4 | `[x]` |
 | 5 — unresolved UI; file-status | §5 | `[x]` |
 | 6 — user commands for structure | §2, §6 | `[x]` |
-| 7 — server `DataDir` live-save + path moves | §7 | `[x]` |
+| 7 — server `DataDir` path moves and document artifacts | §7 | `[x]` |
+| 7 — sync live-save on accepted change as the write feeder | §7 | `[o]` |
 | 8 — snapshot integration; incremental persist | §7 | `[x]` |
 
 Corrections tracked in the file-model (placement rules, persistence-split docs, RefExpr namespace semantics) are noted inline where they affect this stage's work.
@@ -72,7 +74,7 @@ Stage 1 vocabulary for `Special Directory` and `Special File` exists in the shar
 - Automatic filesystem sync/import/reconciliation as a Stage-plan deliverable. Implemented tree sync is [[doc/current/workspace-file-sync.md]]; manual Import/Export continues.
 - Surrounding language functions (`text Ref`, `children Ref`, `name Ref`) and command/assignment syntax.
 
-Directory and file **node identity** is Stage 1 vocabulary; Stage 6 adds create/rename command surfaces and TRASH-as-directory model change. Stage 7 server `DataDir` persist and unified path moves are implemented ([[src/Server/DocumentPersistence.fs]], [[src/Server/DbAgent.fs]]).
+Directory and file **node identity** is Stage 1 vocabulary; Stage 6 adds create/rename command surfaces and TRASH-as-directory model change. Stage 7 server `DataDir` persist and unified path moves are implemented ([[src/Server/DocumentPersistChange.fs]], [[src/Server/DbAgent.fs]]).
 
 ## Deliverables
 
@@ -331,7 +333,7 @@ Planners (Stage 6 — path computation and tests):
 - `planPathMoveForSetName` — rename workspace/directory/file (`Op.SetName`)
 - `planPathMoveForReparent` — reparent (`Op.Replace` owner parent change); move-to-TRASH uses `planPathMoveForReparent graph nodeId trashId`
 
-Stage 7 server: `DocumentPersistence.persistGraphOps` / `persistGraphChange` execute moves then live-save affected documents ([[tests/Server.Tests/DocumentPathMoveExecutionTests.fs]], [[tests/Server.Tests/DocumentOpPersistenceTests.fs]]).
+Stage 7 server: `DocumentPersistChange.persistGraphOps` / `persistGraphChange` execute moves then live-save affected documents ([[tests/Server.Tests/DocumentPathMoveExecutionTests.fs]], [[tests/Server.Tests/DocumentOpPersistenceTests.fs]]).
 
 UI: Insert… dialog with three context-gated buttons (title **Insert…**); Rename prompt overlay.
 
@@ -360,16 +362,16 @@ Stage 6 is complete when all of the following are true:
 
 ## 7. Server File Persistence
 
-Status: Stage 7 core `[x]`; Stage 8 `[x]`; Stage 7 follow-ups `[ ]`.
+Status: Stage 7 path moves and artifacts `[x]`; sync live-save feeder `[o]`; Stage 8 `[x]`; Stage 7 follow-ups `[ ]`.
 
 ### Stage 7 — server `DataDir` live-save and unified path moves
 
-**Implemented.** Code: [[src/Server/DocumentPersistence.fs]], [[src/Server/DbAgent.fs]] (`liveSaveDataDir`). Tests: [[tests/Server.Tests/DocumentPersistenceTests.fs]], [[tests/Server.Tests/DocumentPathMoveExecutionTests.fs]]. Full spec: [[doc/roadmap/workspace-file-persistence.md]], [[doc/roadmap/workspace-text-outline-conversion.md]].
+**Implemented.** Code: [[src/Server/DocumentPersistChange.fs]], [[src/Server/DbAgent.fs]] (`liveSaveDataDir`). Tests: [[tests/Server.Tests/DocumentPersistenceTests.fs]], [[tests/Server.Tests/DocumentPathMoveExecutionTests.fs]]. Full spec: [[doc/roadmap/workspace-file-persistence.md]], [[doc/roadmap/workspace-text-outline-conversion.md]].
 
 What is in place:
 
 - **Path:** `{DataDir}/{workspaceLabel}/{canonicalRelativePath}` (folder name equals workspace label, verbatim).
-- **Write pattern:** sync live-save on accepted change via `DocumentPersistence.persistGraphOps` (ops + path moves); async catch-up via `persistGraphChange` (pre→post graph-diff) when needed. Writes only affected Current document roots, not a full Current-root walk.
+- [o] **Write pattern:** sync live-save on accepted change via `DocumentPersistChange.persistGraphOps` (ops + path moves); async catch-up via `persistGraphChange` (pre→post graph-diff) when needed. Writes only affected Current document roots, not a full Current-root walk. The retiring claim is [Persistence model](doc/current/persistence-model.md) Should Become (persist thread collectors).
 - **Stop at nested document root:** `AmbDocument.write` / `DocumentPartition` — nested workspace/directory/file document roots persist as separate artifacts.
 - **Unified path moves:** `executePathMoves` for rename, reparent, and soft delete (`MoveToTrash` → `//TRASH/...`). Path validation before accept; `Directory.Move` / `File.Move` on disk.
 - **TRASH on disk:** `TRASH/.amb` under `DataDir` (directory document for canonical `trashId`).

@@ -15,6 +15,10 @@ The Server is the spoken name for Gambol.Server ([[GLOSSARY.md]]). It is ASP.NET
 - The mailbox owns one in-memory History sequence (process-lifetime until durability) containing both successful Change events and Actor lifecycle events (ActorStarted, ActorFinished). Undo/Redo remain Change-only. Actor Events are not Undo targets.
 - Workspace Upload / Download transport is WebDAV under `/ambit/dav/{label}/…` (file-channel [[plan/transport-layer/project.md]], server surface [[doc/roadmap/workspace-webdav.md]]).
 - [o] Legacy `FileAgent.fs` / `Persistence:Mode` rollback hooks remain in code.
+- [x] Core is the Server subsystem. The mailbox door is [[src/Server/Core/CoreMailbox.fs]]. Compact target: [Server Core](plan/architecture/server-core.md). Seam authority: [core-refinement architecture](plan/core-refinement/arch.md).
+- [x] One long-lived Parse stack and parse thread. The thread is not an Actor. The loop runs `DocumentPersistWrite.planParseFile`. Files: [[src/Server/ParseStack.fs]], [[src/Server/ParseThread.fs]].
+- [o] [[src/Server/RouteRegistration.fs]] `createPersistenceContext` builds `ParseStack` and calls `ParseThread.start`.
+- [o] `WorkspaceGit.withWorkTreeGate` is the exclusive gate on Persist and git paths.
 
 Core is the first Subsystem of this project. Core behavior stays on [Server Core](plan/architecture/server-core.md). The mailbox notes below are the code as it stands.
 
@@ -30,9 +34,18 @@ The server project compiles [[src/Server/Core/CoreMailbox.fs]] before [[src/Serv
 
 - [ ] Removal of the legacy `Persistence:Mode` / `FileAgent` file-authority path from server startup ([[doc/current/persistence-model.md]]).
 - [ ] Merge-based sync, 409 conflicts, and `remoteChanges` ([[doc/api.md]]).
+- [ ] Parse setup (stack, push, and consumer) lives only in [[src/Server/Core]]. RouteRegistration does not construct Parse, start it, or hold its handles. This retires the [o] RouteRegistration start.
+- [ ] After the workspace lock drains in-flight member file use, pull or Upload land proceeds. Arrived files are marked Unparsed. The lock releases. Unparsed starts the parse thread.
+- [ ] Retire today's Load → Parse / graph-push hop once every handoff uses the Parse stack.
+- [ ] Stand the workspace lock and per-member persist locks beside `withWorkTreeGate`. While the workspace lock is pending, new persist locks for those member files cannot be taken. In-flight member file writes and parse reads drain. Then pull proceeds, arrived files are marked Unparsed, and the lock releases. Protocol: [core-refinement architecture](plan/core-refinement/arch.md) §6 Core locking model.
+- [ ] Persist, parse-thread file use, and git Load/Save follow that lock protocol. `withWorkTreeGate` remains only while both run.
+- [ ] Remove `withWorkTreeGate` from Persist and git paths once the workspace lock is the only protocol. This retires the [o] gate.
+- [ ] Git use is Core. Core performs git Load, git Save, pull, push, and commit. An Actor requests that work by posting to the mailbox. Compact target: [Server Core](plan/architecture/server-core.md).
+
+Persist stack and path control claims: [Persistence model](doc/current/persistence-model.md). Axis claims: [Workspace graph](doc/current/workspace-graph.md).
 
 ## Where
 
 - Project: [[src/Server]]
-- [[src/Server/Api.fs]] (`AgentHandle`), [[src/Server/Core/CoreMailbox.fs]], [[src/Server/Core/CoreMailboxBackend.fs]], [[src/Server/FileAgent.fs]], [[src/Server/DbAgent.fs]], [[src/Server/Database.fs]], [[src/Server/DatabaseSetup.fs]], [[src/Server/ChangeLog.fs]], [[src/Server/DocumentLoader.fs]]
+- [[src/Server/Api.fs]] (`AgentHandle`), [[src/Server/Core/CoreMailbox.fs]], [[src/Server/Core/CoreMailboxBackend.fs]], [[src/Server/FileAgent.fs]], [[src/Server/DbAgent.fs]], [[src/Server/Database.fs]], [[src/Server/DatabaseSetup.fs]], [[src/Server/ChangeLog.fs]], [[src/Server/DocumentLoader.fs]], [[src/Server/ParseStack.fs]], [[src/Server/ParseThread.fs]], [[src/Server/RouteRegistration.fs]], [[src/Server/WorkspaceGit.fs]]
 - Schema and rules: [[doc/current/persistence-model.md]]. Environments: [[doc/reference/postgres-environments.md]].

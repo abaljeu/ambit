@@ -43,7 +43,7 @@ A Module is an F# `module`, plus the types associated with that module. This cat
 
 A Subsystem is a named body inside a project, made of F# modules and the types associated with them, with one Interface. Glossary: [[GLOSSARY.md]] **Subsystem** and **Core**.
 
-1. **Core** — the first Subsystem, of the Server project. Core behavior stays on [Server Core](plan/architecture/server-core.md). Other Subsystems wait until this wiki looks at them.
+1. **Core** — the first Subsystem, of the Server project. Compact target: [Server Core](plan/architecture/server-core.md). Open claim marks: [Server](doc/current/server.md), [Workspace graph](doc/current/workspace-graph.md), [Persistence model](doc/current/persistence-model.md). Seam authority stays [core-refinement architecture](plan/core-refinement/arch.md). Other Subsystems wait until this wiki looks at them.
 
 ## 4. Claims
 

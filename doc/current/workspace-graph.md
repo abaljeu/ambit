@@ -80,7 +80,12 @@ graph JSON payload. Stage 6 retires the `trash` discriminator; TRASH persists as
 
 `DocumentState` is persisted in graph JSON and the PostgreSQL node projection. `Current` means graph content represents the server artifact, `Unparsed` means a server artifact exists but has not been parsed into current graph content, and `NoServerFile` means a File node has no server body. `NoServerFile` and Unparsed documents block content edits. Desktop Upload creates new File stubs as `NoServerFile`; successful PUT or already-present mtime skip changes matching paths to Unparsed before Parse. Directories retain their existing state behavior.
 
-Special nodes (Workspace, Directory, File content nodes) also carry `ParseState` (`Parsed` | `Unparsed`) and `PersistState` (`Persisted` | `Unpersisted`) beside `DocumentState`. Those axes shipped as markers; dual-write migrate and later workers are planned on [[plan/core-refinement/arch.md]]. A Directory File does not carry those axes.
+Special nodes (Workspace, Directory, File content nodes) also carry `ParseState` (`Parsed` | `Unparsed`) and `PersistState` (`Persisted` | `Unpersisted`) beside `DocumentState`. A Directory File does not carry those axes. Seam detail stays on [core-refinement architecture](plan/core-refinement/arch.md) §1 and §5. This page does not copy the axis-write rules.
+
+- [x] `ParseState` and `PersistState` markers exist on Workspace, Directory, and File content nodes. A Directory File does not carry those axes.
+- [o] `DocumentState` (`Current` | `Unparsed` | `NoServerFile`) is the special-node document axis in graph JSON and the PostgreSQL node projection.
+- [ ] Dual-write `ParseState`, `PersistState`, and `DocumentState` wherever state changes.
+- [ ] Remove `DocumentState` once no caller remains. This retires the [o] `DocumentState` axis.
 
 The filesystem file whose basename is exactly `.amb` (case-insensitive) is the persistence/proxy artifact consumed by its containing Directory document, or by the Workspace document at workspace root. It never has a graph node of its own and must not appear as a child File. `Filename.create` / `NewSpecialNode` / `SetName` reject that exact basename; create helpers fall back to a default name. If an illicit `.amb`-named node somehow exists, trash/delete/rename must not plan or execute DataDir move/delete/write for it. The artifact remains discoverable and transferable so its content is preserved. Names such as `notes.amb` are ordinary File nodes.
 
