@@ -2,7 +2,7 @@
 
 ## 1. Content
 
-This folder describes architecture.  The lead document is [[architecture.md]].
+This folder describes architecture.  The lead document is [[architecture.md]].  No details, only overview and links.
 
 The description is in  hierarchies of claims.
 
@@ -26,9 +26,9 @@ Organize ontologically.
 
 Refer by name, never by number.
 
-Never state a thing twice within this wiki.
+Never state a thing twice within this wiki.  Don't multiply links.
 
-Write lists as checkbox sequences, not sentences or paragraphs.  Don't write sentences like "The X is Y".  Simply make a line 
+Write lists as checkbox sequences, not sentences or paragraphs.  Don't write sentences like "The X is Y".  Simply make a line.  No black lines between checkboxes.
 ```
 [ ] X: Y
 [o] X: Z
@@ -61,8 +61,13 @@ The spine of a subject page is this order.
 2. **Category.** The category is one of the four page categories.
 3. **See Also.** See Also lists neighbor subjects only.
 4. **Sentence.** One sentence names the subject.
-5. **Topics.** The topics for that category follow.
-6. **Explanation.** Explanation is last. Explanation is on the page only when the page has a why.
+5. **Sources.** List source files.
+n. **Other Topics.** Suggestions follow.
+a. Published Types Defined - describe members
+b. Published Functions Defined - describe action
+c. Dependencies - note distinctive external dependencies.
+d. (What else you want.)
+e. Explanation - Explanation is last. Explanation is on the page only when the page has a why.
 
 The file path lives in the claim.
 

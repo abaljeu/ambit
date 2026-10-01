@@ -50,6 +50,7 @@ Before modifying the wiki, first read. Page writing (Is, Shall Be, Explanation o
 ### Subsystems
 
 [Core](core.md)
+[Mailbox](mailbox.md)
 
 ### Modules
 

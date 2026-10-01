@@ -24,12 +24,27 @@ Skills: [[.agents/skills/wayfinder/SKILL.md]], [[.agents/skills/grilling/SKILL.m
 6. **Step 1 axes locked** — Markers only. Note: [[arch.md]] §4. Shipped: [20 — State axes on special nodes](../github-transport/issues/20-state-axes-on-special-nodes.md).
 7. **Axis-write mechanics locked** — Who writes each axis and which node they mark. Note: [[arch.md]] §5.
 8. **Core alone knows where files reside** — Callers pass a node or a relative path derived from a node; Core holds absolute residency via read/write file and read/write directory. Note: [[arch.md]] §3 step 5 Path control. Inventory: [DataDir caller inventory](reports/datadir-caller-inventory.md). Cross-cutting: [[plan/transport-layer/map.md]].
-9. **Sequence expand-contract** — Incremental path current Core → Target — Server Core. Note: [[arch.md]] §3. No Story paths or Module map on this Project.
+9. **Sequence expand-contract** — Incremental path current Core → Target — Server Core. Note: [[arch.md]] §3 and §9 Story paths. Expand-contract does not drop Story paths, Shared segments, the Module map, or Seams. Those sections are on [[arch.md]]. Alan, 2026-10-01.
 10. **Slow expand-contract; Persist collectors** — Pace and Persist feeder charted on [[arch.md]] §3.
 11. **Tickets as needed from sequence** — Undrafted until a use case needs one; each targets a beat or caller shift on [[arch.md]], not a pre-built full set.
 12. **First use case** — Explicit parse command on a file; targets [[arch.md]] §3 step 2 Expand. Ticket: [06 — Explicit parse command on a File (Load)](issues/06-explicit-parse-command-load-file.md).
 13. **Core locking model locked** — Locked 2026-09-30 (Alan). Unparsed/Unpersisted drift (both can be true; informational, not locks), parse thread, persist thread when Unpersisted and Parsed, locks held briefly (no one holds more than one; aggregate locks exist; workspace lock is an aggregate), per-member persist locks, filesystem backstop. Note: [[arch.md]] §6. Code catch-up (stand §6 beside `withWorkTreeGate`, then contract the gate): [[arch.md]] §3 step 4 **§6 locks catch-up**.
 14. **Sole Core seam authority** — Locked 2026-09-30 (Alan). One plan owns the Core seam future; not a reading path or index across homes. Home: [[arch.md]]. Compact description of the same target: [[plan/architecture/server-core.md]], linked from [[arch.md]] Target — Server Core.
+15. **InMsg on the mailbox queue** — Locked 2026-10-01 (Alan). Internal message type `InMsg`. Cases `ParseFinished` and `SnapshotDone`. 
+    The mailbox has one queue. 
+    A private function on the mailbox takes `InMsg` and adds it to that queue. 
+    A public function takes `CoreMsg` and adds it to that same queue. 
+    The queue element is a private sum of `CoreMsg` and `InMsg`. 
+    That sum has no public name. 
+    The queue puller receives the next item and hands a `CoreMsg` to the `CoreMsg` handler and an `InMsg` to the `InMsg` handler. 
+    There is no second queue. Not an Op. Not an Actor mailbox. 
+    Module **Core loop** is the puller. 
+    File: `src/Server/Core/CoreMailboxBackend.fs`. 
+    The private function is on the mailbox. 
+    File: `src/Server/Core/CoreMailbox.fs`. 
+    The persist-side case is decision 16. Note: [[arch.md]] §10 **Core loop**.
+16. **SnapshotDone with Persisted** — Locked 2026-10-01 (Alan). Of `CoreMsg`, only `SnapshotDone` is an internal completion. `CoreMsg` has no `SnapshotDone`. `InMsg` case `SnapshotDone` replaces `PersistFinished`. One completion: snapshot finished and Persisted is set (`GraphMutate.setPersistState`). `ParseFinished` sets Parsed only, and PersistState stays unchanged. Not an Op. `postEvents` and `postGraphOnly` do not carry `InMsg`. The private function adds `InMsg`. The public function adds `CoreMsg`. Note: [[arch.md]] §10 **Core loop**.
+
 ## 4. Not yet specified
 
 1. **Mailbox enable → call → stop** — [[arch.md]] §3 step 6 Mailbox owns file and git work: 6.1 enable git requests → 6.2 call them → 6.3 stop any old. Persist collectors → loop → existing persist functions is charted (§3 step 3 Core Persist stack). Path-control classification rule and DataDir inventory are recorded (§3 step 5 Path control; [DataDir caller inventory](reports/datadir-caller-inventory.md)). Draft tickets as needed per Decisions §3.11.

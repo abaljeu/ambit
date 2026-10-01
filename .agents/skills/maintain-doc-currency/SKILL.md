@@ -25,6 +25,7 @@ Before promoting any exclusion or "Gambol does not …" into `doc/`, confirm it 
    Done: each fact in scope has one home; other mentions link or use a brief consistent recap.
 7. When redundancy is useful for clarity, keep it brief and make it consistent with the authoritative doc.
    Done: any kept redundancy is brief and matches the authoritative doc.
+8. If architecture changed, in design or implementation, update doc/current.
 
 ## Contradictions
 

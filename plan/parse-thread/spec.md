@@ -9,6 +9,7 @@ Sources: [Parse thread map](map.md) Destination, Notes, and Decisions so far (20
 3. **Directory members the Graph lacks** — A person issues Load on a Directory Node. That Directory Node can be a Directory that is not a Workspace Node. Structure-match must spot disk members the Graph lacks, with no extra info.
 4. **The Directory File is the body** — Directory Parse must walk every node tied to that Directory File, create missing File Nodes, and mark a disk-newer File Node Unparsed. The git-pull sentence about immediate members is the pull handoff. That sentence is imprecise as the Directory Parse body.
 5. **Download and Upload stay off Parse** — Workspace Download and Workspace Upload move files. File-shaped Parse stays on the Server. The Browser and the App do not Parse those files.
+6. **Finish continues onto the core loop** — Parse turns file-shaped disk into Graph. Persist turns Graph into disk. The parse thread and the persist thread add InMsg through the mailbox private function. They do not edit the graph axes. The core loop sets the axes.
 
 ## 2. Solution
 
@@ -18,6 +19,7 @@ Sources: [Parse thread map](map.md) Destination, Notes, and Decisions so far (20
 4. **Directory Parse body** — This Project owns the Directory Parse body. That body is [core-refinement architecture](../core-refinement/arch.md) §5 item 10, locked on [01 — Directory Parse body home](issues/01-directory-parse-body-home.md). The body walks every node tied to that Directory File (`.amb`), including nodes below the immediate children. It creates missing File Nodes. When disk is newer, it marks the File Node Unparsed and pushes when the stack exists.
 5. **Git-pull handoff stands beside the body** — [02 — Git Load: Unparsed then Parse stack](../core-refinement/issues/02-git-load-unparsed-then-parse-stack.md) stays the git-pull handoff. Its immediate-members sentence is that handoff. Directory Parse body (§5 item 10) remains the body this Project owns. The two stand together.
 6. **Structure-match Directory Load** — Client Load on a Directory Node marks that Directory Node Unparsed. The Load includes a Directory Node that is not a Workspace Node. Structure-match means reconciliation that can spot disk members the Graph lacks, with no extra info. The axis write is Client Load on Directory in [core-refinement architecture](../core-refinement/arch.md) §5 item 8. [02 — Structure-match Directory Load](issues/02-structure-match-directory-load.md) records that this way is clear enough for later coding.
+7. **InMsg** — When parse finishes, the parse thread adds InMsg ParseFinished through the mailbox private function. When persist finishes, the persist thread adds InMsg SnapshotDone through that same function. Neither thread edits the graph axes. The mailbox has one queue. The queue puller hands InMsg to the InMsg handler. ParseFinished sets that node Parsed only through `GraphMutate.setParseState`. PersistState stays unchanged. SnapshotDone sets that node Persisted only through `GraphMutate.setPersistState`. InMsg is not an Op. `Op.SetPersistState` is not a writer. `Op.SetDocumentState` is not the writer of the parsed axis. `CoreMailbox.postEvents` and `CoreMailbox.postGraphOnly` do not carry InMsg. The type home is [core-refinement architecture](../core-refinement/arch.md) §10 Core loop.
 
 ## 3. User Stories
 
@@ -42,6 +44,7 @@ Sources: [Parse thread map](map.md) Destination, Notes, and Decisions so far (20
 19. **Two locks stand together** — As a builder, I want the git-pull handoff and the Directory Parse body to stand together, so that later work keeps both.
 20. **Structure-match is ready to code later** — As a builder, I want structure-match Directory Load recorded as clear enough for later coding, so that a later coding ticket can build it.
 21. **Axes stay on Core** — As a builder, I want Client Load on Directory to mark the Directory Node Unparsed under [core-refinement architecture](../core-refinement/arch.md) §5 item 8, so that this spec uses the locked axis write.
+22. **Add InMsg** — As a builder, I want the parse thread and the persist thread to add InMsg through the mailbox private function, so that the core loop sets Parsed only after parse and Persisted only after persist.
 
 ## 4. Out of Scope
 
@@ -49,7 +52,7 @@ Sources: [Parse thread map](map.md) Destination, Notes, and Decisions so far (20
 2. **GitHub transport pull mechanics** — This spec does not design pull or push mechanics. Those stay [github-transport](../github-transport/project.md).
 3. **Architecture roadmap reconcile** — This spec does not reconcile workspace-file roadmap text. That stays [architecture](../architecture/project.md), from [06 — Parse / Upload for Current Files (Warm Reconcile)](../architecture/issues/06-parse-upload-for-current-files-warm-reconcile.md) through [12 — Workspace scale file and db management](../architecture/issues/12-workspace-scale-file-and-db-management.md).
 4. **Browser residency product** — This spec does not design how the Browser computes wants. That stays [browser-residency](../browser-residency/project.md).
-5. **Persist thread product** — This spec does not design the persist thread. Persist stays the Core persist thread on [core-refinement](../core-refinement/project.md).
+5. **Persist thread product** — This spec does not design the persist write body. That body stays the Core persist thread on [core-refinement](../core-refinement/project.md). The persist thread turns Graph into disk and adds InMsg SnapshotDone through the mailbox private function.
 
 ## 5. Further Notes
 
@@ -60,5 +63,5 @@ Sources: [Parse thread map](map.md) Destination, Notes, and Decisions so far (20
 5. **Workspace Load after incoming files** — [03 — Workspace Load after incoming files](issues/03-workspace-load-after-incoming-files.md) stays `defined`. The open question is what the parse thread does when the reconcile target is the Workspace Node, what that pass pushes for child Directory Nodes and File Nodes, and how that pass interacts with structure-match Directory Load.
 6. **Browser want priority versus directory reconcile** — [04 — Browser want priority versus directory reconcile](issues/04-browser-want-priority-versus-directory-reconcile.md) stays `defined`. [browser-residency](../browser-residency/project.md) computes Browser wants. [05 — Selection-scoped Parse after whole-tree git Load](../core-refinement/issues/05-selection-scoped-parse-after-whole-tree-git-load.md) says a selection push has no special priority. Whether a Browser want uses that same rule when the other work is Directory reconcile stays on that ticket.
 7. **Chapter goal** — [Automatic parse](../roadmap/epics/chapters/automatic-parse.md) names a continuous Server parse thread that turns file-shaped disk into Graph, takes priority from Browser wants, and emits Changes. The priority rule and the Poll meeting stay the open items above.
-8. **Vocabulary** — Say parse thread, persist thread, Directory Node, File Node, Workspace Node, Directory File, Change, Load, Parse, and Poll. Core seam words stay on [core-refinement architecture](../core-refinement/arch.md) §7.
+8. **Vocabulary** — Say parse thread, persist thread, Directory Node, File Node, Workspace Node, Directory File, Change, Load, Parse, Poll, and InMsg. Core seam words stay on [core-refinement architecture](../core-refinement/arch.md) §7 and §10 Core loop.
 9. **Coding tickets** — This spec does not file coding tickets. Structure-match Directory Load is clear enough for later coding on [02 — Structure-match Directory Load](issues/02-structure-match-directory-load.md). Coding the Directory Parse body still waits on Directory Parse body acceptance.

@@ -4,7 +4,7 @@ Spec: [spec](spec.md)
 Updated: 2026-10-01
 Sequence: module-build
 
-Core stacks, axes, locks, and the mailbox stay [core-refinement architecture](../core-refinement/arch.md) and [core-refinement map](../core-refinement/map.md). This architecture is the Parse product delta only. A `[x]` hop is already true in code, or it is a Core door this Project cites and does not build. Open Core build stays on that architecture and on [Core](../../doc/current/core.md). A `[ ]` hop is Directory Parse body work.
+Core stacks, axes, locks, and the mailbox stay [core-refinement architecture](../core-refinement/arch.md) and [core-refinement map](../core-refinement/map.md). InMsg on the one mailbox queue stays [core-refinement architecture](../core-refinement/arch.md) §10 Core loop. This architecture is the Parse product delta only. A `[x]` hop is already true in code, or it is a Core door this Project cites and does not build. Open Core build stays on that architecture and on [Core](../../doc/current/core.md). A `[ ]` hop is Directory Parse body work.
 
 Sequence is module-build. The open product delta is one module. Story paths that only cite Core do not add modules. Tests for this Project cross the Directory Parse body. They do not start the mailbox, the workspace lock, or the persist thread.
 
@@ -91,12 +91,20 @@ Sequence is module-build. The open product delta is one module. Story paths that
     1. [x] **Item 8** — Client Load on Directory uses [core-refinement architecture](../core-refinement/arch.md) §5 item 8.
     2. [x] **No axis redesign** — This Project does not own the axes. See [04 — Parsed/Unparsed and Persisted/Unpersisted](../core-refinement/issues/04-parsed-unparsed-and-persisted-unpersisted.md).
 
-### 22. Shared segments
+22. **Add InMsg**
+    1. [x] **Parse thread** — On finish the parse thread adds InMsg ParseFinished through the private function. It does not edit the graph axes.
+    2. [x] **Persist thread** — On finish the persist thread adds InMsg SnapshotDone through the private function. It does not edit the graph axes. This Project does not design the persist write body.
+    3. [x] **Core loop** — The mailbox has one queue. A private function adds InMsg. The queue puller in [Core mailbox backend](../../src/Server/Core/CoreMailboxBackend.fs) hands InMsg to the InMsg handler. ParseFinished sets Parsed only through `GraphMutate.setParseState`. PersistState stays unchanged. SnapshotDone sets Persisted only through `GraphMutate.setPersistState`.
+    4. [x] **Not an Op** — InMsg is not an Op. `Op.SetPersistState` is not a writer. `Op.SetDocumentState` is not the writer of the parsed axis. `CoreMailbox.postEvents` and `CoreMailbox.postGraphOnly` do not carry InMsg.
+    5. [x] **Type home** — [core-refinement architecture](../core-refinement/arch.md) §10 Core loop.
+
+### 23. Shared segments
 
 1. **File into Graph**
    1. [x] **Pop** — Parse stack pop of a File Node.
    2. [x] **Parse thread** — [Parse thread](../../src/Server/ParseThread.fs).
    3. [x] **File parse** — `planParseFile`.
+   4. [x] **ParseFinished** — On finish the parse thread adds InMsg ParseFinished through the private function. It does not edit the graph axes.
 
 2. **Directory into Graph**
    1. [x] **Mark Unparsed** — Core §5 item 8.
@@ -107,7 +115,7 @@ Sequence is module-build. The open product delta is one module. Story paths that
    1. [x] **Download** — Story path 7 **Download leaves Parse on the Server** does not cross the parse thread.
    2. [x] **Upload** — Story path 8 **Upload leaves Parse on the Server** does not cross the parse thread.
 
-### 23. Test seam
+### 24. Test seam
 
 1. [ ] **Directory Parse body** — Narrowest new door the directory paths cross. Shared tests call this interface.
 2. [x] **File parse** — Narrowest door the file paths already cross. This Project does not move that seam.
@@ -129,14 +137,14 @@ Sequence is module-build. The open product delta is one module. Story paths that
       4. [ ] **Push** — The body names that File Node for push when the Parse stack exists.
       5. [ ] **No extra info** — Structure-match uses the tie and the Graph only.
       6. [ ] **Not a Workspace** — A Directory Node that is not a Workspace Node uses this same body.
-      7. [ ] **Parsed only** — When the body is done, that Directory Node is Parsed only.
+      7. [ ] **ParseFinished** — When the body is done, the parse thread adds InMsg ParseFinished for that Directory Node through the private function. It does not edit the graph axes. The core loop sets Parsed only through `GraphMutate.setParseState`. PersistState stays unchanged.
    3. **Uses**
       1. [ ] **Parse thread** — [Parse thread](../../src/Server/ParseThread.fs) calls the body when the popped node is a Directory Node.
       2. [x] **Parse stack** — Push uses [Parse stack](../../src/Server/ParseStack.fs).
       3. [x] **File parse** — File text stays [Document persist write](../../src/Server/DocumentPersistWrite.fs) `planParseFile`.
       4. [x] **Create File Node** — Missing File Nodes use [File node ops](../../src/Shared/FileNodeOps.fs) `planCreateOwnedFile`.
       5. [x] **Pop skip** — A Parsed node skips work. Rule: [core-refinement architecture](../core-refinement/arch.md) §5 item 11.
-      6. [x] **Parsed only** — Directory Parse done marks that Directory Node Parsed only. Rule: §5 item 6.
+      6. [x] **ParseFinished** — Directory Parse done adds InMsg ParseFinished through the private function. The core loop sets that Directory Node Parsed only through `GraphMutate.setParseState`. PersistState stays unchanged. Rule: [core-refinement architecture](../core-refinement/arch.md) §5 item 6 and §10 Core loop.
       7. [x] **Load axis** — Client Load on Directory stays §5 item 8.
       8. [x] **Body rule** — The body is §5 item 10. Product home: [01 — Directory Parse body home](issues/01-directory-parse-body-home.md).
       9. [x] **Locks** — Workspace lock and member locks stay §6. This body does not take them.
@@ -147,7 +155,7 @@ Sequence is module-build. The open product delta is one module. Story paths that
 1. **Directory Parse body**
    1. [ ] Interface on **Directory Parse body**. Tests cross this seam.
 2. **Parse thread**
-   1. [x] Interface on the existing parse thread. A File Node pop stays `planParseFile`. A Directory Node pop calls **Directory Parse body**.
+   1. [x] Interface on the existing parse thread. A File Node pop stays `planParseFile`. A Directory Node pop calls **Directory Parse body**. On finish the parse thread adds InMsg ParseFinished through the private function.
 3. **File parse**
    1. [x] Interface on `planParseFile`. Unchanged.
 4. **Client Load on Directory**
