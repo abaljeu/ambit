@@ -102,7 +102,7 @@ interactive surface.
   (`JsInterop.fs` has only a hardcoded ET/epoch helper). Format precision is date + time to the
   minute; adjust only if a resolved bullet-tip-times decision supersedes it.
 
-- **Naming.** "Bullet" is the glyph element (already promoted to [[CONTEXT.md]]); a Node is not a
+- **Naming.** "Bullet" is the glyph element (already promoted to ); a Node is not a
   Bullet. Spoken/doc name for the disclosure is **Bullet tip**. The binding rename is code-only.
 
 - **CSS class rename.** Rename `amb-leaf-dot` → `amb-bullet-dot` and `amb-leaf-hollow` →
@@ -149,7 +149,7 @@ interactive surface.
   `NodeId` Guid and any resolved `%LocalAppData%` server-side mapping.)
 - **`.amb-node-guid` class-lie cleanup** (the name span shows the Filename, not a Guid) — later
   ticket, tracked separately.
-- **Stale `doc/arch.md` Node section** (lines ~186–207): hand-lists `Node` fields and omits
+- **Stale `doc/current/arch.md` Node section** (lines ~186–207): hand-lists `Node` fields and omits
   `updateTime` / `childrenStatus` / `documentState`. Remedy (later ticket): stop enumerating fields —
   name the `Node` type and point to it in `src/Shared/Model.fs` as the source of truth, so the doc
   cannot drift.

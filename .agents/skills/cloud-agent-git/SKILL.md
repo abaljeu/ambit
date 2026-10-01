@@ -11,7 +11,7 @@ description: >-
 
 Cloud agents follow Work. Desktop git stays [[.agents/skills/git-protocol/SKILL.md]].
 
-Toolchain and Postgres connection strings: [[.agents/rules/environment.md]] (Cursor Cloud Agents).
+Toolchain and Postgres: [[.agents/rules/environment-cursor-cloud.md]].
 
 If this run **downloads staging**, follow [[LAND.md]] only: pull `origin/staging` onto local `staging`. `dev` never pulls from cloud.
 
@@ -20,8 +20,6 @@ If this run **downloads staging**, follow [[LAND.md]] only: pull `origin/staging
 The CloudAgents library still returns the vendor branch and PR URL. That is not the drop. Send to `staging` is this protocol.
 
 ## Work
-
-You are free to work outside of github on your own branch.  Pull on ready.  Squash onto staging then push.
 
 GitHub `git push` auth: [Push auth recovery](#push-auth-recovery).
 

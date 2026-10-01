@@ -47,6 +47,7 @@ Done:
 - Wiki write-up is not a Chapter. Portions are Required for done.
 - A Google Doc (a document that is not a File) is potentially IN scope.
 - Graphic editing is out of scope. A graphic file is not a document.
-- English **document** vs **Document** (project) vs File Node: [[CONTEXT.md]].
+- English **document** vs **Document** (project) vs File Node: .
 - 2026-09-26 — This Epic owns two file-source Chapters: keep-files-current [[chapters/automatic-upload-and-download.md]] and [[chapters/send-to-and-from-github.md]]. [[agent-chat-managed-context.md]] depends on Send to and from GitHub. It does not own that Chapter. Mapping is Current ([[doc/current/workspace-local-mapping.md]]). Tree sync is Current ([[doc/current/workspace-file-sync.md]]).
-- 2026-09-28 — Directory-reconcile worker / Reconciling cascade withdrawn. Git Load is Unparsed on Workspace → pull → push Parse ([17 — Git Load: Unparsed then Parse stack](plan/github-transport/issues/17-post-pull-cascade-and-gate-handoff.md)). Chapter note: [[chapters/send-to-and-from-github.md]].
+- 2026-09-28 — Directory-reconcile worker / Reconciling cascade withdrawn. Git Load is Unparsed on Workspace → pull → push Parse ([02 — Git Load: Unparsed then Parse stack](plan/core-refinement/issues/02-git-load-unparsed-then-parse-stack.md)). Chapter note: [[chapters/send-to-and-from-github.md]].
+- 2026-09-29 — Core revision after files land split to [[plan/core-refinement/project.md]]; github-transport remainder is lock / receive / inform Core.

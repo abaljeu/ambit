@@ -28,7 +28,7 @@ Bind Changes inside Core. The Adapter posts through one nested interface, same p
 
 ## See also
 
-[[23-close-core-object-seam.md|23 (Close Core object seam)]], [[src/Server/Core/CoreCredentials.fs]], [[src/Server/Core/CoreRuntime.fs]], [[src/Server/Api.fs]], [[src/Server/RouteRegistration.fs]], [[doc/Decisions/0003-core-is-a-container-of-subobjects.md]], [[plan/core-creation/reports/improve-codebase-architecture.md]], [[CONTEXT.md]]
+[[23-close-core-object-seam.md|23 (Close Core object seam)]], [[src/Server/Core/CoreCredentials.fs]], [[src/Server/Core/CoreRuntime.fs]], [[src/Server/Api.fs]], [[src/Server/RouteRegistration.fs]], [[doc/Decisions/0003-core-is-a-container-of-subobjects.md]], [[plan/core-creation/reports/improve-codebase-architecture.md]], 
 
 ## Answer
 

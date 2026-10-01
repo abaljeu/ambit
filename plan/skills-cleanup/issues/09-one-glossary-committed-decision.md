@@ -6,13 +6,13 @@
 
 ## Context
 
-This repo has one glossary: [[CONTEXT.md]]. Hard choices that are costly to reverse live under [[doc/Decisions/]] as Committed Decisions. domain-modeling and other skills still say ADR. ubiquitous-language still writes a second glossary file. An Agent can open the wrong file or use the wrong name.
+This repo has one glossary: . Hard choices that are costly to reverse live under [[doc/Decisions/]] as Committed Decisions. domain-modeling and other skills still say ADR. ubiquitous-language still writes a second glossary file. An Agent can open the wrong file or use the wrong name.
 
 ## What to build
 
-domain-modeling writes [[CONTEXT.md]] and records hard choices as Committed Decisions under [[doc/Decisions/]]. It does not say ADR. ubiquitous-language is not a second glossary owner and does not create UBIQUITOUS_LANGUAGE.md. Skills this ticket touches use Committed Decision for that record.
+domain-modeling writes  and records hard choices as Committed Decisions under [[doc/Decisions/]]. It does not say ADR. ubiquitous-language is not a second glossary owner and does not create UBIQUITOUS_LANGUAGE.md. Skills this ticket touches use Committed Decision for that record.
 
-- [x] domain-modeling writes [[CONTEXT.md]] and says Committed Decision, not ADR.
+- [x] domain-modeling writes  and says Committed Decision, not ADR.
 - [x] ubiquitous-language does not own a second glossary and does not create UBIQUITOUS_LANGUAGE.md.
 
 ## Comments
@@ -21,8 +21,8 @@ Ask-Matt wording waits for [[12-ask-matt-and-gambol-mdc-agree.md]]. Architecture
 
 ## See also
 
-[[plan/skills-cleanup/reports/lock-grill-reports-refactor-glossary.md]], [[CONTEXT.md]]
+[[plan/skills-cleanup/reports/lock-grill-reports-refactor-glossary.md]], 
 
 ## Time
 
-- 2026-09-06 45m — domain-modeling writes [[CONTEXT.md]] and Committed Decisions; ubiquitous-language no longer writes a second glossary (from chat)
+- 2026-09-06 45m — domain-modeling writes  and Committed Decisions; ubiquitous-language no longer writes a second glossary (from chat)

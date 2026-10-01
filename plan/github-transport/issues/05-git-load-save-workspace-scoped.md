@@ -15,14 +15,14 @@ Locked 2026-09-26 (Alan, chat).
 
 **Git Load/Save are Workspace-scoped.** Wherever Load/Save is invoked from (Workspace root or a subnode), git pull/push always operates on the whole Workspace work tree / tracked branch — never file-level git.
 
-**Parse follow-up:** still run Parse on the selection where appropriate after files land. Selection-parse is [06 — Selection-scoped Parse after whole-tree git Load](06-selection-scoped-parse-after-whole-tree-git-load.md).
+**Parse follow-up:** still run Parse on the selection where appropriate after files land. Selection-parse is [05 — Selection-scoped Parse after whole-tree git Load](../../core-refinement/issues/05-selection-scoped-parse-after-whole-tree-git-load.md).
 
 Map gist: [[../map.md]] Decisions so far item 11.
 
 ## Comments
 
-- 2026-09-26: Alan locked in chat. Status `done`. Whole-tree git. Parse on selection after files land; nuance later on [06 — Selection-scoped Parse after whole-tree git Load](06-selection-scoped-parse-after-whole-tree-git-load.md).
-- 2026-09-28: [06 — Selection-scoped Parse after whole-tree git Load](06-selection-scoped-parse-after-whole-tree-git-load.md) locked (push-on-stack).
+- 2026-09-26: Alan locked in chat. Status `done`. Whole-tree git. Parse on selection after files land; nuance later on [05 — Selection-scoped Parse after whole-tree git Load](../../core-refinement/issues/05-selection-scoped-parse-after-whole-tree-git-load.md).
+- 2026-09-28: [05 — Selection-scoped Parse after whole-tree git Load](../../core-refinement/issues/05-selection-scoped-parse-after-whole-tree-git-load.md) locked (push-on-stack).
 
 ## Time
 

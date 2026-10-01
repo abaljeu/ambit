@@ -9,11 +9,11 @@ A person works with documents from any connected device. File Nodes can be Unpar
 
 ## Goal
 
-Unparsed File Nodes parse without a separate Parse command. A continuous Server Parse Actor turns file-shaped disk into Graph, takes priority from Browser wants, and emits Changes.
+Unparsed File Nodes parse without a separate Parse command. A continuous Server Parse thread turns file-shaped disk into Graph, takes priority from Browser wants, and emits Changes.
 
 ## Required for done
 
-- [ ] [[plan/parse-actor/project.md]] — continuous Server Parse Actor; file-shaped disk→Graph; priority from Browser wants; emits Changes
+- [ ] [[plan/parse-thread/project.md]] — continuous Server Parse thread; file-shaped disk→Graph; priority from Browser wants; emits Changes
 - [ ] Unparsed File Nodes parse without a separate Parse command.
 
 ## Notes

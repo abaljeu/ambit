@@ -1,6 +1,6 @@
 # Stage
 
-This file is the single source of truth for the **Stage** list. Glossary names: [[CONTEXT.md]]. Ticket **Status** is [[triage-labels.md]]. Tracker operations: [[issue-tracker.md]].
+This file is the single source of truth for the **Stage** list. Glossary names: [[GLOSSARY.md]]. Ticket **Status** is [[triage-labels.md]]. Tracker operations: [[issue-tracker.md]].
 
 ## Who carries Stage
 

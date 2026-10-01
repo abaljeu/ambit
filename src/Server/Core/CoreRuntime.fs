@@ -7,7 +7,8 @@ open Gambol.Shared
 type CoreRuntime =
     { host: MailboxHost
       parseCaller: Caller
-      pool: CoreActorPool }
+      pool: CoreActorPool
+      parsePush: NodeId -> unit }
 
 /// Persist choice, auth seed, and optional actors to boot a CoreRuntime.
 type CoreBoot =
@@ -45,21 +46,24 @@ module CoreRuntime =
         (boot: CoreBoot)
         (pool: CoreActorPool)
         (credentials: CoreCredentials)
+        (parsePush: NodeId -> unit)
         : MailboxHost =
         match boot.DbStatus with
         | DatabaseSetup.DbStatus.Ok ->
-            CoreMailbox.host
+            CoreMailbox.hostWithParsePush
                 pool
                 (DbAgent.persist
                     (DbAgent.createWithDataDir
                         boot.DbConnectionString
                         boot.DataDir))
                 credentials
+                parsePush
         | _ ->
-            CoreMailbox.host
+            CoreMailbox.hostWithParsePush
                 pool
                 (FileAgent.persist (FileAgent.create boot.DataDir))
                 credentials
+                parsePush
 
     let private bootCallers (boot: CoreBoot) =
         let browserSecret =
@@ -76,7 +80,10 @@ module CoreRuntime =
               secret = Credential parseSecret }
         browserCaller, parseCaller
 
-    let create (boot: CoreBoot) : CoreRuntime =
+    let create
+        (boot: CoreBoot)
+        (parsePush: NodeId -> unit)
+        : CoreRuntime =
         let browserCaller, parseCaller = bootCallers boot
         let pool = CoreActorPool.create ()
         boot.Actors
@@ -87,4 +94,8 @@ module CoreRuntime =
                 pool
                 (CoreCredentials.ofCallers (
                     Set.ofList [ browserCaller; parseCaller ]))
-        { host = host; parseCaller = parseCaller; pool = pool }
+                parsePush
+        { host = host
+          parseCaller = parseCaller
+          pool = pool
+          parsePush = parsePush }

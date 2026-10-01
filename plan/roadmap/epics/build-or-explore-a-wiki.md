@@ -28,7 +28,7 @@ Live:
 - In-product wiki. The three documentation wikis stay Projects: [[plan/end-user-wiki/map.md]], [[plan/architecture/map.md]], [[plan/marketing-wiki/map.md]].
 - Two document classes: `.md` (this Epic) vs HTML Files ([[create-and-publish-web-pages.md]]).
 - [[work-with-text-files-from-anywhere.md]] Markdown styling is look in the App, not the `.md` codec.
-- English **wiki page** vs File Node: do not say page for a File Node. [[CONTEXT.md]].
+- English **wiki page** vs File Node: do not say page for a File Node. .
 - Chapters stay open-ended: add one when a specific need is named.
 - Wiki write-up is not a Chapter. Portions are Required for done.
 - [[chapters/wiki-public-url.md]] has no owning Project yet.

@@ -12,12 +12,7 @@ type FileAgentDependencies = {
 
 // FileAgent — persist filling for one dataDir. Does not start a mailbox.
 type FileAgent = private {
-    handlers: PersistHandlers
-    onError: string -> string -> exn -> unit
-    formatError: string -> string
-    isReady: unit -> bool
-    flushSnapshot: unit -> Async<Result<unit, string>>
-    dispose: unit -> unit
+    filling: PersistFilling
     initialState: Gambol.Shared.State
 }
 
@@ -297,30 +292,25 @@ module FileAgent =
             dependencies.appendException operation context ex
         let formatError operation =
             $"Internal server error in FileAgent {operation} (dataDir={dataDir})."
-        { handlers = persistHandlers loaded
-          onError = onError
-          formatError = formatError
-          isReady = fun () -> true
-          flushSnapshot = fun () -> async { return Ok () }
-          dispose =
-            fun () ->
-                eventStream.Flush()
-                eventStream.Dispose()
+        { filling =
+            { handlers = persistHandlers loaded
+              onError = onError
+              formatError = formatError
+              isReady = fun () -> true
+              flushSnapshot = fun () -> async { return Ok () }
+              dispose =
+                fun () ->
+                    eventStream.Flush()
+                    eventStream.Dispose()
+              until = None
+              bindSnapshot = ignore }
           initialState = capturedInitialState }
 
     let create (dataDir: string) : FileAgent =
         createWithDependencies (defaultDependencies dataDir) dataDir
 
-    let persist (agent: FileAgent) : PersistFilling = {
-        handlers = agent.handlers
-        onError = agent.onError
-        formatError = agent.formatError
-        isReady = agent.isReady
-        flushSnapshot = agent.flushSnapshot
-        dispose = agent.dispose
-        until = None
-        bindSnapshot = ignore
-    }
+    let persist (agent: FileAgent) : PersistFilling =
+        agent.filling
 
     let initialState (agent: FileAgent) : State =
         agent.initialState

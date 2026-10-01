@@ -22,6 +22,8 @@ The following actions are manually requested, never automatic.
 
 The user reviews code.  He may invoke [[.agents/skills/code-review/SKILL.md]] of the landed range: the `dev` tip before this merge ... `HEAD`. `gitready.sh`, no arguments, lists that commit set.
 
+Done when the user finished review of that landed range, or said to skip review.
+
 ## 4. Ready
 
 After user approves the land, bring `dev` into `ready` with [[scripts/gitready.sh]] (or human CLI) per [[.agents/skills/git-protocol/SKILL.md]].

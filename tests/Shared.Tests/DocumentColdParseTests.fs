@@ -280,3 +280,140 @@ let ``planApplyCold md heading emits SetClasses md-head`` () =
     match headClasses with
     | None -> failwith "expected SetClasses for heading node"
     | Some classes -> Assert.Contains("md-head", classes)
+
+let private pasteNested (text: string) =
+    match DocumentColdParse.planPasteOps text with
+    | Ok(_, nested) -> nested
+    | Error err -> failwith $"planPasteOps: {err}"
+
+let private hasClass (name: string) (ops: Op list) =
+    ops
+    |> List.exists (function
+        | Op.SetClasses(_, _, classes) ->
+            CssClass.toList classes |> List.contains name
+        | _ -> false)
+
+let private newTexts (ops: Op list) =
+    ops
+    |> List.choose (function
+        | Op.NewNode(_, text) -> Some text
+        | _ -> None)
+
+[<Fact>]
+let ``paste heading uses markdown path`` () =
+    let text = "# Title" + Environment.NewLine + "body" + Environment.NewLine
+    Assert.Equal(
+        DocumentColdParse.PasteMarkdownRelativePath,
+        DocumentColdParse.pasteRelativePath text)
+    let ops = pasteNested text
+    Assert.True(hasClass "md-head" ops)
+    Assert.Contains("Title", newTexts ops)
+
+[<Fact>]
+let ``paste two hash heading with no space uses markdown path`` () =
+    let text = "##tight" + Environment.NewLine
+    Assert.Equal(
+        DocumentColdParse.PasteMarkdownRelativePath,
+        DocumentColdParse.pasteRelativePath text)
+    let ops = pasteNested text
+    Assert.True(hasClass "md-head" ops)
+    Assert.Contains("tight", newTexts ops)
+
+[<Fact>]
+let ``paste blank line then heading uses markdown path`` () =
+    let text =
+        Environment.NewLine
+        + "# Title"
+        + Environment.NewLine
+    Assert.Equal(
+        DocumentColdParse.PasteMarkdownRelativePath,
+        DocumentColdParse.pasteRelativePath text)
+    Assert.True(hasClass "md-head" (pasteNested text))
+
+[<Fact>]
+let ``paste two dash lines uses markdown path`` () =
+    let text = "- one" + Environment.NewLine + "- two" + Environment.NewLine
+    Assert.Equal(
+        DocumentColdParse.PasteMarkdownRelativePath,
+        DocumentColdParse.pasteRelativePath text)
+    let ops = pasteNested text
+    Assert.True(hasClass "md-list" ops)
+    Assert.Contains("one", newTexts ops)
+    Assert.Contains("two", newTexts ops)
+
+[<Fact>]
+let ``paste one dash line stays plain`` () =
+    let text = "- milk" + Environment.NewLine
+    Assert.Equal(
+        DocumentColdParse.PasteRelativePath,
+        DocumentColdParse.pasteRelativePath text)
+    let ops = pasteNested text
+    Assert.False(hasClass "md-list" ops)
+    Assert.Contains("- milk", newTexts ops)
+
+[<Fact>]
+let ``paste table line uses markdown path`` () =
+    let text = "| a |" + Environment.NewLine
+    Assert.Equal(
+        DocumentColdParse.PasteMarkdownRelativePath,
+        DocumentColdParse.pasteRelativePath text)
+    let ops = pasteNested text
+    Assert.True(hasClass "md-table" ops)
+    Assert.Contains("| a |", newTexts ops)
+
+[<Fact>]
+let ``paste hash include stays plain`` () =
+    let text = "#include <stdio.h>" + Environment.NewLine
+    Assert.Equal(
+        DocumentColdParse.PasteRelativePath,
+        DocumentColdParse.pasteRelativePath text)
+    let ops = pasteNested text
+    Assert.False(hasClass "md-head" ops)
+    Assert.Contains("#include <stdio.h>", newTexts ops)
+
+[<Fact>]
+let ``paste hash tag stays plain`` () =
+    let text = "#tag" + Environment.NewLine
+    Assert.Equal(
+        DocumentColdParse.PasteRelativePath,
+        DocumentColdParse.pasteRelativePath text)
+    let ops = pasteNested text
+    Assert.False(hasClass "md-head" ops)
+    Assert.Contains("#tag", newTexts ops)
+
+[<Fact>]
+let ``paste of a heading document is one md-head`` () =
+    let text =
+        "# Document formats"
+        + "\n\nLabels: wayfinder:map\n\n## Destination\n\n"
+        + "The remaining document formats for Workspace files after the "
+        + "current file-model baseline, including XML read/write. "
+        + "Recognize pasted markdown as markdown.\n"
+    match DocumentColdParse.planPasteOps text with
+    | Error err -> failwith $"planPasteOps: {err}"
+    | Ok (topLevelIds, nested) ->
+        Assert.Equal(1, topLevelIds.Length)
+        let rootId = topLevelIds.Head
+        let rootText =
+            nested
+            |> List.tryPick (function
+                | Op.NewNode(id, nodeText) when id = rootId -> Some nodeText
+                | _ -> None)
+        Assert.Equal(Some "Document formats", rootText)
+        match
+            nested
+            |> List.tryPick (function
+                | Op.SetClasses(id, _, classes) when id = rootId ->
+                    Some(CssClass.toList classes)
+                | _ -> None)
+        with
+        | None -> failwith "expected md-head on the document heading"
+        | Some classes -> Assert.Contains("md-head", classes)
+
+[<Fact>]
+let ``paste sentences only stay plain`` () =
+    let text = "Hello there" + Environment.NewLine
+    Assert.Equal(
+        DocumentColdParse.PasteRelativePath,
+        DocumentColdParse.pasteRelativePath text)
+    Assert.False(hasClass "md-head" (pasteNested text))

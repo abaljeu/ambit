@@ -1,6 +1,6 @@
 # Close Core object seam and increment boundary
 
-See also: [[map.md]], [[project.md]], [[reports/core-api-boundary-review.md]], [[issues/23-close-core-object-seam.md|23 (Close Core object seam)]], [[issues/24-clarify-core-increment-boundary.md|24 (Clarify Core increment boundary)]], [[doc/Decisions/0003-core-is-a-container-of-subobjects.md]], [[CONTEXT.md]]
+See also: [[map.md]], [[project.md]], [[reports/core-api-boundary-review.md]], [[issues/23-close-core-object-seam.md|23 (Close Core object seam)]], [[issues/24-clarify-core-increment-boundary.md|24 (Clarify Core increment boundary)]], [[doc/Decisions/0003-core-is-a-container-of-subobjects.md]], 
 
 Locked refactor plan for two tickets. Do not implement in the planning session. Grain is **steps** (each step leaves a working tree).
 
@@ -30,7 +30,7 @@ Core is a container of subobjects ([[doc/Decisions/0003-core-is-a-container-of-s
 
 ## Success criteria
 
-24 is done when a worker who opens this Project can tell Core vs Adapter vs Browser, will not add Browser lock UI in this increment, and will not call Core with cookie strings or new `dataDir` primitives. Canonical text is in [[project.md]]. Bridges and [[CONTEXT.md]] are unchanged.
+24 is done when a worker who opens this Project can tell Core vs Adapter vs Browser, will not add Browser lock UI in this increment, and will not call Core with cookie strings or new `dataDir` primitives. Canonical text is in [[project.md]]. Bridges and  are unchanged.
 
 23 is done when production-shaped posts present a live `Credential` and are auth-refused when the sender is not live, and when HTTP composition reaches Changes and Command through the Core object (not a dismantled runtime). Focused Server.Tests prove those two facts.
 
@@ -44,7 +44,7 @@ Instruction only. Do not implement 23. Do not rewrite application source.
 
 Edit [[project.md]]. Place a short **Agent instruction** section immediately after **Committed Decisions** (before **Implementation plan**).
 
-Write these claims. Keep them short. Use [[CONTEXT.md]] words (Core, Core API, Adapter, Browser, Graph, Change, Credential, Revision). Do not copy the review table.
+Write these claims. Keep them short. Use  words (Core, Core API, Adapter, Browser, Graph, Change, Credential, Revision). Do not copy the review table.
 
 - Core owns Graph write, History, agent selection, the credential set, the Actor pool, and lock-present overlay. HTTP JSON, cookie gate, and `/ambit` routes stay in the Adapter. Persist algorithms and Parse algorithms stay outside Core. Parse calls typed Graph-only Post. Actor definitions stay outside Core; the pool Interface stays in Core.
 - Callers hold the Core object ([[doc/Decisions/0003-core-is-a-container-of-subobjects.md]]). They call typed functions on its subobjects: `Credential`, `Revision`, `Change`, Command types (`ActorName`, `PublicNumber`, `NodeRange`). They do not unpack [[src/Server/Core/CoreRuntime.fs]] into a flattened HTTP context. Cookie token strings stay in the Adapter. This increment does not pass `dataDir` into Core.
@@ -78,13 +78,13 @@ Rule body is pointers only:
 
 - [[plan/core-creation/project.md]] Agent instruction
 - [[doc/Decisions/0003-core-is-a-container-of-subobjects.md]]
-- [[CONTEXT.md]] Core API
+-  Core API
 
 No duplicated table. No Core vs Adapter essay. No ticket checklists.
 
 Then add one index line in [[.cursor/rules/gambol.mdc]] next to the other scoped rules. Follow [[.cursor/skills/prepare-agent-instruction-change/SKILL.md]].
 
-Do not edit `AGENTS.md`, `.cursor/copilot-instructions.md`, or `.cursor/codex-context.md`. Do not rewrite [[CONTEXT.md]] (Core API is already defined). Do not start 21. Do not treat 07 or 08 as closed.
+Do not edit `AGENTS.md`, `.cursor/copilot-instructions.md`, or `.cursor/codex-context.md`. Do not rewrite  (Core API is already defined). Do not start 21. Do not treat 07 or 08 as closed.
 
 Verify: the new rule file exists; gambol.mdc lists it; bridges and CONTEXT are untouched.
 
@@ -230,7 +230,7 @@ Out of scope for this plan (this Project increment), not product-wide exclusions
 - Making `FileAgent.create` / `DbAgent.create*` private (05 allows tests).
 - Fixing `failwith` / `try/with` on getState / getRevision (standards debt, not 23).
 - Per-session Core credentials, Client source, or new HTTP Command routes.
-- Rewriting [[CONTEXT.md]], bridges, or global always-apply policy.
+- Rewriting , bridges, or global always-apply policy.
 
 ## Defaults Alan can override
 

@@ -64,7 +64,7 @@ module MdDocument =
         let spaces = ws |> Seq.filter ((=) ' ') |> Seq.length
         tabs + spaces / 2
 
-    let private parseAtxHeading (content: string) : (int * string) option =
+    let parseAtxHeading (content: string) : (int * string) option =
         let rec countHashes (i: int) (acc: int) =
             if i >= content.Length then acc
             elif content.[i] = '#' then countHashes (i + 1) (acc + 1)
@@ -104,7 +104,7 @@ module MdDocument =
         else
             None
 
-    let private parseMarker (content: string) : (LineKind * int * string) option =
+    let parseMarker (content: string) : (LineKind * int * string) option =
         let wsLen = DocumentOutlineOps.leadingWhitespace content |> String.length
         let rest = content.Substring wsLen
         let steps = listIndentSteps content

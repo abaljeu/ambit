@@ -22,7 +22,7 @@ Use **issue tracker**, not “backlog backend” or “backlog manager.” Use *
 
 ## Conventions
 
-- One Project per directory: `plan/<slug>/` (a feature-set Project, or the Roadmap).
+- One Project per directory: `plan/<slug>/` (a feature-set Project, or the Roadmap). Do not put files directly under `plan/`; put them in a Project.
 - The spec is `plan/<feature-slug>/spec.md`.
 - The architecture is `plan/<feature-slug>/arch.md`.
 - Implementation issues are separate files at `plan/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01`.

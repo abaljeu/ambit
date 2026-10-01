@@ -66,15 +66,11 @@ If `dotnet` or another required toolchain is missing, or the command fails to st
 
 A missing toolchain is an environment failure to surface. It is not a reason to proceed without verification.
 
-Subagents that run focused tests still need a working toolchain. If the tools are missing, they stop and report the same way.
-
 ## How to Work
 
 Include me in your work. Tell me what you're thinking about.
 OBLIGAGTORY: Before any nontrivial tool call emit a clause stating the goal of that call.
 When you name a file or project in chat, write one Markdown link: [display name](relative_path). The display name is the name you are talking about, for example [fast reboot](plan/client-start-time/reports/cache-first-boot-via-poll.md). Put the path in that same link. Never emit like `**fast reboot** ([client-start-time](plan/client-start-time/project.md))`. In files, labeled links are `[label](path)` per [[.agents/rules/markdown-writing.md]]. When you name an issue, follow [[.agents/rules/refer-by-name.md]].
-
-NEVER call on bash.  It's already the shell.
 
 Advise me if there is a better way to do something.
 If a request is unclear, just ask.
@@ -85,12 +81,10 @@ Do not websearch. Tell me if you lack information.
 While in plan mode, any request for a change should be interpreted as a request to plan for the change; do not write detailed code then.
 
 ## Multitasking / SubAgent Delegation
-At startup, a subagent follows [[.agents/skills/git-protocol/SKILL.md]] Status.
-Unless otherwise specified, always delegate to Grok 4.6.
-Use subagents to carry out tasks.
-The subagent writes the full result to `plan/<project-name>/reports/<subagent-title>.md` (create `reports/` if needed). Chat from the subagent, and from the parent after a Task returns, is a short pointer to that file plus the next step — not the report and not the Task body. If a workflow specifies another report path, use that path instead. Only the final report goes to reports/; project definition stays in the project directory.
-Reports are not authority.  They are the opinion of one agent, at one time, intended for the user.  Reports are write-once.  Never edit a report you didn't create.  Never read a report unless explicitly requested.
-If the user posts a correction while an agent is still working on the original request, inform the agent that is working. Don't start a second agent with overlapping work area.
 
-Subagents should only run focused tests, never all tests. That limit does not skip the Build / test toolchain gate when tools are absent. The Client compile gate in [[.agents/skills/implement-fsharp-feature/SKILL.md]] is a compile gate, not all tests; do not skip it when Client dependencies were edited.
+When delegating, have them first read [[.agents/subagents.md]]. Subagent-run rules live there.
+Unless otherwise specified, always delegate to Grok.
+Use subagents to carry out tasks.
+Chat from the parent after a Task returns is a short pointer to the report file plus the next step — not the report and not the Task body.
+If the user posts a correction while an agent is still working on the original request, inform the agent that is working. Don't start a second agent with overlapping work area.
 You may create a subagent specifically to run all tests of a project.

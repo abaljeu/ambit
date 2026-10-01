@@ -3,7 +3,7 @@
 Status: working draft
 Authority: [[revising-workspace-file-model]] is the authoritative behavioral target.  This file describes design intent to achieve the target model and persistence rules for workspace, directory, and file identity.  Implementation plans may be changed as needed.
 See also: [[doc/current/workspace-graph.md]], [[doc/current/workspace-local-mapping.md]],
-[[doc/current/desktop-local-files.md]], [[doc/roadmap/reference-expressions.md]], [[doc/roadmap/postgres-roadmap.md]], [[doc/arch.md]]
+[[doc/current/desktop-local-files.md]], [[doc/roadmap/reference-expressions.md]], [[doc/roadmap/postgres-roadmap.md]], [[doc/current/arch.md]]
 
 This document defines the model concepts needed by reference expressions such as `//bobby/`.
 It is about shared identity and persistence shape, not source-level implementation.

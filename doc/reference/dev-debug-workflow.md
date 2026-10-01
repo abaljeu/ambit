@@ -1,7 +1,7 @@
 # Dev debug workflow
 
 Category: Development
-See also: [[doc/arch.md]], [[.vscode/launch.json]], [[.vscode/tasks.json]]
+See also: [[doc/current/arch.md]], [[.vscode/launch.json]], [[.vscode/tasks.json]]
 
 ## Local app URL
 

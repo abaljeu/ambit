@@ -17,7 +17,7 @@ The code is pre-alpha in very active development.  The master branch is not curr
 
 The **Shared** project contains the domain model and is referenced by both client and server. The **Client** project is compiled from F# to JavaScript using Fable and served as static files under `/ambit`. The **Server** project is an ASP.NET Core app that serves the client and exposes the HTTP API.
 
-Full layer diagram, sync, and persistence modes: [[doc/arch.md]].
+Project structure: [[doc/current/arch.md]]. Sync: [[doc/current/sync-mvp.md]]. Persistence: [[doc/current/persistence-model.md]].
 
 HTTP contract (implemented `/ambit/*` routes): [[doc/api.md]].
 

@@ -35,7 +35,7 @@ This is several slices, not one pull request.
 17. As a coding agent, I want reports under `plan/<slug>/reports/`, so that research, review, and architecture notes land in one place.
 18. As a coding agent, I want architecture review as Markdown in that reports folder, so that I do not write HTML in OS temp.
 19. As a developer, I want request-refactor-plan to create and chart a new Project, so that it is not a third spec or ticket skill in a line.
-20. As a coding agent, I want domain-modeling to write [[CONTEXT.md]] and say Committed Decision, so that I do not open a second glossary or say ADR.
+20. As a coding agent, I want domain-modeling to write  and say Committed Decision, so that I do not open a second glossary or say ADR.
 21. As a coding agent, I want `/implement` as the entry, with tdd and the F# skills as references that augment it, so that I do not run two test loops.
 22. As a developer, I want the testing-workflow always-apply rule gone, so that stop-for-review does not fight `/implement`.
 23. As a developer, I want the triage skill deleted, so that coding agents do not apply GitHub labels to Markdown files.
@@ -47,7 +47,7 @@ This is several slices, not one pull request.
 
 ## Implementation Decisions
 
-Where we cut: instruction files under [[.agents/skills/]], [[.cursor/skills/]], [[.cursor/rules/]], [[doc/agents/]], and [[CONTEXT.md]]; then live `plan/` ticket headers. Not product F#.
+Where we cut: instruction files under [[.agents/skills/]], [[.cursor/skills/]], [[.cursor/rules/]], [[doc/agents/]], and ; then live `plan/` ticket headers. Not product F#.
 
 1. **First operation.** Move repo-shared skills from [[.cursor/skills/]] to [[.agents/skills/]]. After this, later edits happen in one home. Today's split is not the destination. Retarget pointers that still name the old directory. This slice is mandatory and comes first.
 2. **Rule flip.** Instruction edits go through [[.agents/skills/prepare-agent-instruction-change/SKILL.md]] (inventory, edit the most specific place, drop copies, update gambol.mdc when files move). That skill currently forbids storing repo-shared skills in [[.agents/skills/]]. Flip that rule to match the home lock. Do this immediately after the move so the next slices are legal.
@@ -60,7 +60,7 @@ Where we cut: instruction files under [[.agents/skills/]], [[.cursor/skills/]], 
 9. **Grill.** Default entry is grill-me. Other grill skills are not the default invoke. Grilling is a method, not a Stage.
 10. **Reports.** `plan/<slug>/reports/` unless a skill already names another path. Architecture review is Markdown there, not OS temp HTML.
 11. **Planning.** request-refactor-plan creates and charts a new Project (like Wayfinder). to-spec publishes `spec.md` only. It must not file a spec as a ticket.
-12. **Glossary.** domain-modeling writes [[CONTEXT.md]]. Always say Committed Decision, not ADR. ubiquitous-language is not a second glossary owner. Do not create UBIQUITOUS_LANGUAGE.md.
+12. **Glossary.** domain-modeling writes . Always say Committed Decision, not ADR. ubiquitous-language is not a second glossary owner. Do not create UBIQUITOUS_LANGUAGE.md.
 13. **Implement.** Entry is `/implement`. Ditch the testing-workflow always-apply rule. tdd, implement-fsharp-feature, and add-shared-test stay as referenced augmentations. They must not copy a second loop.
 14. **Triage and QA.** Delete the triage skill and its pointers. Keep QA as process. Issues QA files must be valid tracker files (bold Status and the locked Status values) without turning QA into a pointer skill.
 15. **Live ticket migrate (last).** `open` → takeable (`ready-for-agent` unless the ticket is clearly human). `resolved` / `closed` / `agent-done` → `done`. Any `wontfix` → `cancelled`. Unbolded `Status:` → `**Status:**` (same for other fields). Do not migrate in the same slice as the skill-home move.

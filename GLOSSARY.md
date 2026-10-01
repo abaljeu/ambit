@@ -1,0 +1,362 @@
+# Ambit
+
+Concise alphabetical glossary for this repo. Prefer these words; do not invent synonyms.  If a new term seems to be needed, raise the issue.
+
+## About Working
+
+**Chapter**:
+A named beat of an Epic (Visit Troy, see Circe). Not an issue. The Chapter file carries Stage, never Status, and never Stage `slice`. Each Chapter is a file under [[plan/roadmap/epics/chapters/]]. **Part of** names the Epic. **Blocked by** names other Chapters. **Context** and **Goal** follow [[.agents/skills/wait-what/SKILL.md]]. **Required for done** is a checklist of Projects or tickets that belong to that beat; the Chapter does not own them. Those items are not repeated on Required for done.
+_Avoid_: calling the beat itself a Stage, leg, beat (as the glossary name), issue (for this file), Status (on a Chapter)
+
+**Committed Decision**:
+A record under [[doc/Decisions/]] of a choice that is costly to reverse, surprising without context, and made between genuine alternatives. The mattpocock skills call this an ADR; in this project always say Committed Decision.
+_Avoid_: ADR (outside vendored skills), architecture decision record, decision record
+
+**dev**:
+Desktop workplace. Ordinary commits happen here. Local-only. Procedure: [[.agents/skills/git-protocol/SKILL.md]].
+_Avoid_: original branch, project branch, `w/` (for this place)
+
+**Developer Epic**:
+An Epic that serves developers. May have Chapters plus Required for done (same Chapter files as a User Epic). Chapters are optional until charted. Same files: [[plan/roadmap/epics/organize-huge-outlines.md]], [[plan/roadmap/epics/robust-outliner.md]], [[plan/roadmap/epics/process-improvement.md]].
+
+**Epic**:
+A marketable user end-goal, larger than a feature or interaction. On the Roadmap it is a standing file under [[plan/roadmap/epics/]] until that goal is met. It has Stage, never Status, and never Stage `slice`. Two kinds: **User Epic** and **Developer Epic**. The Epic is not done until every Chapter item and every Required item is done (or the named part of that Project). Wiki portions about this Epic are Required; the whole wiki Project is not.
+_Avoid_: saga, tale, epic project, marketable story (as the glossary name), steering (as an Epic Stage), tickets (as an Epic Stage), slice (as an Epic Stage), person-job, person-job Epic, home Epic, home-Epic, Person-job, Use Epic, end-user Epic (as this kind name), pseudo-epic (say Developer Epic), Homed Projects (say Required for done)
+
+**Feature-set Project**:
+A Project defined by focused features, user stories, and implementation issues. It may enable one or more Epics.
+_Avoid_: epic project, feature project (say Feature-set Project)
+
+**Grilling**:
+An interview method that refines a concept that is already clear. Not a Stage and not a Status. Use it at any live Stage when a slice is sharp. When the destination is still fog, use Wayfinder.
+_Avoid_: Stage: grilling, Status: grilling
+
+**Issue tracker**:
+Local Markdown under `plan/` for specs and issues; see [[doc/agents/issue-tracker.md]]. Not GitHub or GitLab issues. Issues may carry optional `Estimate:` / `Actual:` and a `## Time` log. Projects carry `Started:` / `Finished:` / `Actual:` filled from chat handoffs and commits when missing.
+_Avoid_: backlog, GitHub issues, GitLab issues, tickets board
+
+**master**:
+The place squashed merges from `ready` land, one commit each. Procedure: [[.agents/skills/git-master/SKILL.md]].
+
+**Original branch**:
+Retired. Use **dev**, **ready**, **master**, and **staging**. See [[.agents/skills/git-protocol/SKILL.md]].
+_Avoid_: original branch, base branch, long-lived branch
+
+**Project**:
+A `plan/<slug>/` effort. Two kinds: the Roadmap, and a feature-set Project.
+_Avoid_: epic project (as a third kind)
+
+**ready**:
+Integration place. Procedure: [[.agents/skills/git-protocol/SKILL.md]].
+_Avoid_: original branch (for this place)
+
+**Roadmap**:
+The Project at [[plan/roadmap/]] that sequences Epics toward the application. It answers what to work on next by grouping Epics by Stage. It carries neither Stage nor Status. Epics are parallel. Continue from recent work: that Epic, its current Chapter (or Developer Required live items), then Project Stage and ticket Status. Order inside a Stage does not rank Epics.
+_Avoid_: master project, master steering, doc/roadmap (as this Project), numbered Epic sequence (as the listing rule)
+
+**Stage**:
+The arc field (`Stage:`) on a feature-set Project, an Epic, or a Chapter. The value list is [[doc/agents/project-status.md]]. The Roadmap does not carry Stage. A ticket does not carry Stage.
+_Avoid_: Status (for this field), grilling (as a Stage), steering (as a Stage), charting, tickets, active, blocked (as Stage tokens)
+
+**staging**:
+Published drop for finished cloud-agent work. Not a workplace. Procedure: [[.agents/skills/cloud-agent-git/SKILL.md]].
+_Avoid_: PR (as the drop), cloud branch (as the drop)
+
+**Status**:
+The next-action field (`**Status:**`) on a ticket. The value list is [[doc/agents/triage-labels.md]]. A Project, Epic, Chapter, and the Roadmap do not carry Status.
+_Avoid_: Stage (for this field), needs-triage, wontfix, open, resolved, claimed, closed, agent-done, in-progress, ready-for-agent, ready-for-human, ready-to-implement (as ticket Status on new work)
+
+**Steering**:
+The Roadmap’s work of sequencing Epics. Not a Stage value.
+_Avoid_: using steering as a Stage
+
+**User Epic**:
+An Epic that fulfills an end-user’s goal for a particular pattern of usage of the software. Has Chapters plus Required for done. Opening line is still *A person [verb phrase]* where that is already the file shape.
+
+## About the Software
+
+**Action**:
+A Graph-changing Event: a Change, an Undo, or a Redo.
+_Avoid_: operation, lifecycle Event
+
+**Actor**:
+A Core-managed execution thread for a specific long-running task. Its public identity is durable, while its secret identity exists only while it is live.
+_Avoid_: Agent, job, task, Peer Actor, Server Actor
+
+**Agent**:
+An external LLM-empowered worker a connector talks to (for example Cursor Cloud Agents). Not an Ambit Actor.
+_Avoid_: Actor (for this counterpart), AI (as this name — AI is the Ambit Actor), Ask, bot, copilot, assistant (as the glossary name), Grok (as this name)
+
+**Agentic**:
+Pertaining to an Agent (the external LLM worker) or to AI Actor work that uses one.
+_Avoid_: using Agentic for Sync, Upload, or a long-running job; Ask
+
+**AI**:
+The Ambit Actor that invokes an LLM Agent. Command spelling is `?ai` plus optional keyname and options. Spoken and UI wording use AI (for example "Run: AI started."). It is not named Ask.
+_Avoid_: Ask (as this Actor or command name), Agent (as this Actor's name), Run Ask
+
+**Ambit**: The name of the SaaS.  Gambol is the name of the repo on this computer, but not a front facing name.
+**Amble**: Ambit's Embedded query Language.
+
+**Answer**:
+One possible value of an Expression: a Node, text, or a number. Failure produces no Answer. Boolean succeed and fail are control, not an Answer type.
+_Avoid_: result, solution, match (as this value)
+
+**App**:
+Spoken name for the Desktop project: the desktop host that contains a browser; also a client of the Server.
+_Avoid_: Desktop (in speech), shell, host app
+
+**Authority**:
+A named source that submits requests to Core and is recorded on accepted Events. Browser identities, Actors, Cursor, Zapier, and Amble are Authorities.
+_Avoid_: sender, user (when the source may not be a person)
+
+**Browser**:
+Spoken name for the Client project: the browser-side code. Both the App and a web browser are clients of the Server, so do not say Client for this project.
+_Avoid_: Client (in speech), frontend, web app
+
+**Bullet**:
+The visual glyph element every Node view shows at its left edge, rendered as a fold chevron, a solid circle, or a hollow circle. A Bullet marks a Node's appearance in the view; a Node is not a Bullet.
+_Avoid_: leaf, leafBullet, node marker, dot, tooltip target (as names for this element)
+
+**Change**:
+An Action: `EventBody.Change` of an Op list. Not a separate record. One kind of Event.
+_Avoid_: a `{ id; submissionId; ops }` record, Change.id, mutation, edit, transaction, patch (as synonyms for Change)
+
+**Children**:
+The child appearances under a Node (Owned and Ref roles).
+_Avoid_: kids, subordinates, child list (as a synonym for the Children themselves)
+
+**ClientHistory**:
+The Emacs Action view of Change, Undo, and Redo Events. Not the server Event sequence.
+_Avoid_: History (as a module name), EventLog (for this view), the full Event sequence, audit log
+
+**Core**:
+The Subsystem that owns persistent state (durable Graph and EventLog facts; file bytes and git of those files) and that manages the Actor pool. Persist algorithms stay outside and persist via Core API; Core owns open and write of the file. In file mode it owns persist and does not write bytes. In db mode it writes (bytes, git, projection). It does not own advanced logic (Parse algorithms, Graph↔document persist algorithms). Not the Solid core bar on [[plan/roadmap/epics/robust-outliner.md]].
+_Avoid_: kernel, Module (for this Subsystem), apply Module (as the name)
+
+**Core API**:
+The four-call Interface of Core: Files, Changes, Query, Command. Files is send, get, and git of file bytes; Core owns the open and write. Persist algorithms do not open the file themselves. In file mode Files does not write. inner apply is the Changes path that applies a Change. Advanced logic and Actor definitions work to this Interface. Not the web API.
+_Avoid_: web API, REST, `/ambit` (those are HTTP Adapters that may call Core API)
+
+**Directory File**:
+The `.amb` document that belongs to a Directory Node or Workspace Node (root `.amb` or `DirName/.amb`). It is that node's document artifact, not a File Node child. Cold bootstrap that reads only Directory Files leaves other File Nodes Unparsed until Parse.
+_Avoid_: Marker (for this concept), marker file, directory marker, amb marker, marker-only load (prefer Directory-File-only / Directory File cold load)
+
+**Directory Node**:
+A Node whose Kind is Directory; corresponds to a server directory plus that directory's `.amb` file (`DirName/.amb`). Always say Directory Node, not bare “directory,” when referring to the Node.
+_Avoid_: directory (bare, for a Node), folder
+
+**Document**:
+The project that reads and writes documents between Graph and file.
+_Avoid_: codec package, documents project, parsers (as the project name); File Node (do not say Document for the Node)
+
+**document**:
+Text content a person works with. In the App, a document that lives on disk is a File Node. A document need not be a file. A graphic file is not a document; graphic editing is out of scope.
+_Avoid_: Document (the project), File (for the English content when it is not a File Node)
+
+**Download**:
+A user-facing command that downloads files from the Server. Not Fetch.
+_Avoid_: Fetch (for this command), pull (as the command name)
+
+**Event**:
+One durable record in EventLog. An Event is a Change, Undo, Redo, ActorStart, or ActorStop. Code name `Ev`. It carries the Command that produced it (`commandName`).
+_Avoid_: Action (when lifecycle Events are included), audit record, Change (for the record)
+
+**event id**:
+The unique ordered position of an Event in EventLog. The one serial type (`EventId`). Field, JSON key, and Core door follow this term (`eventId`, `getEventId`).
+_Avoid_: Revision, EventPosition, version, change id, Change.id, getRevision
+
+**EventLog**:
+The server's Event sequence. Same type on client and server.
+_Avoid_: ChangeLog, History (for this sequence)
+
+**Expression**:
+A non-deterministic predicate over the Graph that can yield many Answers. Most Expressions find a Node; text and numbers are also in scope.
+_Avoid_: query (as the language name), FunCall, RefExpr (that is the path subset)
+
+**Fetch**:
+A Load-stage operation that brings a subgraph from the Server into the Browser Graph (residency). Load's final stage pairs Fetch with Poll updates.
+_Avoid_: Download (for this stage), pull, materialize
+
+**File Node**:
+A Node whose Kind is File; a Graph node that stands for a real on-disk file, identified by a relative path (e.g. `SYSTEM/user.css`). Always say File Node, not bare “file,” when referring to the Node. Cold load / stub: know the path exists and create the File Node without reading the file's text yet (Unparsed). After reading/parsing that file's text, it is the same File Node. Prefer “the file” at that relative path — not “file body.”
+_Avoid_: file (bare, for a Node), document, page, note, file body
+
+**Graph**:
+The editable structure: a root and the nodes reachable from it, with ownership and ref links among those nodes.
+_Avoid_: tree, document tree, model, outline
+
+**Header**:
+Everything in a Node except its Children.
+_Avoid_: metadata, node body, properties
+
+**History**:
+Retired as a module name and as a sequence name. Spoken history of the server sequence is EventLog. The Emacs Action view is ClientHistory. The Shared file [[src/Shared/History.fs]] holds Event (`Ev`), EventId, Op, and EventBody. Ambit has no separate History or audit UI application.
+_Avoid_: History (as a destination module or Event sequence)
+
+**IF**:
+An Expression combinator: yield the input Answer when the operand yields any Answer from that same input; otherwise miss. Same-input pullback. Spelling is `IF` (capitals, same class as `NOT` and `OUTER`).
+_Avoid_: if (lowercase, for this combinator), pullback (as a catalog name)
+
+**Included context**:
+The Nodes shown in the current SiteMap under Zoom, honoring Fold. Not the pixel viewport, and not every Resident Node.
+_Avoid_: visible (as the glossary name), context (bare, for this pack)
+
+**IS**:
+An infix Expression combinator: run both operands on the same input Answer and yield the Answers of the left operand that equal an Answer of the right operand. Spelling is `IS` (capitals, attaches in the `AND` family). It is not the Run statement `=`.
+_Avoid_: is (lowercase, for this combinator), equals, comparison operator
+
+**Kind**:
+A Node's classification: Normal, or a Special kind.
+_Avoid_: type, class, category
+
+**Linux setup**:
+The machine and the setup the Server needs.
+_Avoid_: Server (for this machine)
+
+**Load**:
+A user-facing command that runs up to three operations in sequence: Upload, Parse, then Fetch. Often only one of the three applies for a given run. The final stage Fetches part of the Graph and also Polls updates.
+_Avoid_: Upload (for the command), Download (for this command), sync (for this command)
+
+**Loaded**:
+A Node whose Children are present.
+_Avoid_: lazy, expanded, hydrated (for this meaning)
+
+**Node**:
+One addressable unit in a Graph, consisting of a Header and Children.
+_Avoid_: item, bullet, line, row, entry
+
+**Normal**:
+The default Kind: ordinary outline content with no special structural role.
+_Avoid_: regular, plain, standard
+
+**Normal Node**:
+A Node whose Kind is Normal. Always say Normal Node, not bare “normal,” when referring to the Node.
+_Avoid_: normal (bare, for a Node), regular node, plain node
+
+**Op**:
+A single Graph modification, either to a Node Header or to its Children.
+_Avoid_: operation (casually for Change), mutation, edit
+
+**OUTER**:
+An Expression combinator: the outermost acceptable Owned descendants below the input. Walk strictly below the input, Owned only; a Node that satisfies the operand yields, and the walk does not visit its descendants. Spelling is `OUTER` (capitals, same class as `NOT`).
+_Avoid_: tree2, outer (lowercase), outermost, cut (for this combinator)
+
+**Owned**:
+A child appearance that is a Node's single structural placement in the ownership tree. Prefer this over the code case name `Owner` in speech and docs.
+_Avoid_: Owner (spoken synonym for this role), hard link, parent link
+
+**Parse**:
+A Load-stage operation that turns server files into Graph content.  This step is more than simple parsing but also reconciles pre-existing graph content with file content.
+_Avoid_: import, reconcile (as the stage name)
+
+**Poll**:
+A Browser request for Events since a known event id; used in Sync and lifecycle projection and also as part of Load's final stage with Fetch.
+_Avoid_: sync (as a synonym for Poll), fetch (for this meaning)
+
+**Redo**:
+An Action that re-applies after Undo, following Emacs undo semantics; numbered like other Actions.
+_Avoid_: un-undo
+
+**Ref**:
+A child appearance that links to a Node Owned elsewhere; it does not place the Node in the ownership tree.
+_Avoid_: soft link, alias, pointer
+
+**Resident**:
+A Node whose Header is present in this Graph. Children may still be Loaded or Unloaded.
+Antonym: **Absent**. _Avoid_: materialized, present, cached (for this meaning)
+
+**Revision**:
+Retired name for **event id**. There is no separate Revision counter.
+_Avoid_: Revision
+
+**ROOT**:
+The unique nameless Workspace Node at the Graph root.
+_Avoid_: root node, graph root
+
+**Run**:
+A command the person invokes on Focus. It starts an Actor (ActorStart Event) or institutes a client-sourced Change Event. That Event's `commandName` is the Run command.
+_Avoid_: treating Run as only Run AI, a third EventBody kind
+
+**Run AI**:
+The Run command that starts the AI Actor. The person types `?ai` (optional keyname and options) on Focus, then Run. `?ai` is the statement spelling.
+_Avoid_: Ask, Run Ask, Run Agent (as the spoken name — prefer Run AI), `?` alone (as this command name)
+
+**section**:
+A named Normal Node. Unnamed Normal Nodes are not sections.
+_Avoid_: heading, HTML heading, Header (as this Node), named (as this Node)
+
+**Server**:
+The server project and the server process it runs.
+_Avoid_: backend, API host (as casual synonyms)
+
+**Shared**:
+Projects (`Shared` and `Shared/dotnet`) whose code is shared across modules and tests.
+_Avoid_: common, core (as a name for Shared), lib
+
+**Special**:
+Any Kind that is not Normal; a structural or system role.
+_Avoid_: system node, meta node
+
+**State**:
+The Graph data Core exposes (what people mean by the `/state` / getState graph payload, the StateResponse). Reserved for this Graph-data meaning; do not use State for Events, History, Actor lifecycle, or code type nicknames unless that Graph-data meaning.
+_Avoid_: mapState, treating History or ActorStart/ActorStop as State, using State as a synonym for Event or the full server record
+
+**subsection**:
+The Expression search for sections below the input Node. Cluster spelling `#`; `subsection "todo"` equals `#todo`.
+_Avoid_: tagged, content search, named (as this search), Find
+
+**Subsystem**:
+A named body inside a project, made of F# modules and the types associated with them, with one Interface. Core is a Subsystem of the Server project.
+_Avoid_: Module (for this body), kernel, component, service
+
+**Sync**:
+Keeping Browser and Server Graphs aligned by exchanging Actions (and related residency work). Not a synonym for Load.
+_Avoid_: Load (for this meaning), reconcile (as a synonym for Sync)
+
+**TRASH**:
+The unique Directory Node that acts as a recycle bin for deleted Nodes.
+_Avoid_: trash node
+
+**Undo**:
+An Action that reverses a prior Change, following Emacs undo semantics; numbered like other Actions.
+_Avoid_: revert, rollback
+
+**Unloaded**:
+A Node whose Children are not present.
+_Avoid_: stub, hollow, partial, collapsed (for this meaning)
+
+**Upload**:
+A Load-stage operation that pushes App files to the Server. Not the user-facing command name.
+_Avoid_: Load (for this stage), push (as the stage name)
+
+**Workspace Node**:
+A Node whose Kind is Workspace; maps to a workspace directory on client computers. Always say Workspace Node, not bare “workspace,” when referring to the Node.
+_Avoid_: workspace (bare, for a Node), project, vault, folder
+
+**Workspaces Node**:
+The unique Node that contains Workspace Nodes.
+_Avoid_: Workspaces (bare, for this Node), workspace list, workspace root
+
+## Additional approved terms
+
+These terms are permitted with standard definition:
+
+- **ChangeRequest**: the client's pending-queue and submit-payload unit (Change, Undo, or Redo).
+- **Find**: the command that searches the resident Graph.
+- **Focus**: the active node.  It will always be the first or last of selection.
+- **Fold**: the collapsed/expanded display state of a Node's Children.
+- **Selection**: the set of Nodes a user has currently selected.  It will always be a range of children of a node.
+- **Session**: one webpage lifetime from load to refresh or close.
+- **SiteMap**: the client's derived view index over the resident Graph.
+- **slice**: an implementation increment, and the Project-only Stage after spec ([[doc/agents/project-status.md]]).
+- **StateResponse**: the `/state` endpoint's response payload.
+- **synchronization**: plain noun form of **Sync**, same meaning.
+- **Zoom**: the command that focuses the view on a Node.
+
+## Additional Unwanted terms
+
+- affordance
+- **Marker** (for `.amb` Directory/Workspace documents, or “marker-only” cold bootstrap) — deprecated; say **Directory File**
+- **Peer** - as in peer actor.  The adjective is not descriptive.
+- **Piece** and **Slice** as names for git commit granularity — say what the commits are: ordinary commits on `dev`, one squashed merge per commit on `master`. The separate `plan/` sense of slice (an implementation increment) is unaffected.

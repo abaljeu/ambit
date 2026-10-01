@@ -22,22 +22,22 @@ If `plan/<slug>/arch.md` exists, read it. Respect its Module map names, Seams (e
 
 Git: follow [[.agents/skills/git-protocol/SKILL.md]].
 
-F# layout, targeted tests, and the Client compile gate: [[.agents/skills/implement-fsharp-feature/SKILL.md]]. Shared.Tests coverage: [[.agents/skills/add-shared-test/SKILL.md]].
+F# layout, targeted tests, Client compile gate, and the end-of-build suite: [[.agents/skills/implement-fsharp-feature/SKILL.md]]. Shared.Tests coverage: [[.agents/skills/add-shared-test/SKILL.md]].
 
 On first implement for this Project, set `Stage: build`.
 
 What a good test is, seams, and red-green: [[.agents/skills/tdd/SKILL.md]]. Use tdd at the test seam from arch when present, else at pre-agreed seams. Do not copy that loop here.
 
-Run typechecking and the directly relevant tests as you go. 
+Run typechecking and the directly relevant tests as you go. Done: the ticket's What to build is coded; targeted checks from the F# skill have been run.
 
 ### 4. Check
 
-Run the full suite once at the end as a background task. Do not start the full suite before coding is complete. While you wait, use [[.agents/skills/code-review/SKILL.md]].
+While the end-of-build suite from [[.agents/skills/implement-fsharp-feature/SKILL.md]] runs in the background, use [[.agents/skills/code-review/SKILL.md]].
 
-Anything you write on tickets or under `reports/` — number and name every section and list item per [[.agents/rules/refer-by-name.md]].
+Anything you write on tickets or under `reports/` — number and name every section and list item per [[.agents/rules/refer-by-name.md]]. Done: code-review has been run for this change; the suite was started only after coding finished.
 
+### 5. Log time and finish
 
-### 4. Log time and finish
 Done: the ticket's What to build is implemented and verified; Set ticket `**Status:** coded`. Do not set `done`. `done` is review approval only ([[doc/agents/triage-labels.md]]).
 
 Time: on issues you touched, append `## Time` and keep `Actual:`; on the project set/keep `Started:` / `Finished:` / `Actual:` per [[doc/agents/issue-tracker.md]] (Time tracking). Backfill from this chat and commits when a session was not logged.

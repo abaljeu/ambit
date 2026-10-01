@@ -16,4 +16,4 @@ Do not invent a third Epic kind. Do not implement. Do not create an Epic Project
 
 ## Answer
 
-The use is one Chapter on [[plan/roadmap/epics/agent-chat-managed-context.md]]: **Ambit keeps consistency with desktop repo for Agentic work**. Not a second User Epic. **Ask from what I see** stays current. Upload/Download remain the documents Epic’s Chapter; this Chapter points at them. **Agent** / **Agentic** recorded in [[CONTEXT.md]].
+The use is one Chapter on [[plan/roadmap/epics/agent-chat-managed-context.md]]: **Ambit keeps consistency with desktop repo for Agentic work**. Not a second User Epic. **Ask from what I see** stays current. Upload/Download remain the documents Epic’s Chapter; this Chapter points at them. **Agent** / **Agentic** recorded in .

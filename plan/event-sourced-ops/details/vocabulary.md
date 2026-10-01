@@ -2,7 +2,7 @@
 
 The locked terms of increment 1, plus the words this project deliberately refuses. Top layer: [[plan/event-sourced-ops/overview.md]]. Protocol: [[plan/event-sourced-ops/architecture.md]].
 
-Do not add these terms to [[CONTEXT.md]] yet. They are a project vocabulary, not yet project-wide language.
+Do not add these terms to  yet. They are a project vocabulary, not yet project-wide language.
 
 ## Locked terms
 
@@ -27,7 +27,7 @@ These words describe the software as it is. They are recorded so that merge does
 
 | Term | As-implemented sense |
 | --- | --- |
-| **Orphaned** | A subgraph that Owned child references cannot reach. It stays in the Graph until garbage collection. Not in [[CONTEXT.md]]. |
+| **Orphaned** | A subgraph that Owned child references cannot reach. It stays in the Graph until garbage collection. Not in . |
 | **TRASH** | The recycle bin. Its children are Owned by TRASH, so they are **not** Orphaned. |
 | **Single owner** | Every Node has one Owned parent, except ROOT and except Orphaned Nodes. |
 
@@ -40,4 +40,4 @@ These words describe the software as it is. They are recorded so that merge does
 
 ## Open, with no stake
 
-[[CONTEXT.md]] treats an Action as a History entry — a Change, an Undo, or a Redo — and there is no `Action` union. Actors produce **Changes**; Action stays History and undo speech. This fork is left unpicked on purpose.
+ treats an Action as a History entry — a Change, an Undo, or a Redo — and there is no `Action` union. Actors produce **Changes**; Action stays History and undo speech. This fork is left unpicked on purpose.

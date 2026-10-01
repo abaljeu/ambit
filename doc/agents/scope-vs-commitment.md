@@ -13,8 +13,8 @@ A product-wide fact belongs only where the human has placed it:
 | Channel | What it may commit |
 | --- | --- |
 | [[doc/Decisions/]] | A **Committed Decision** — costly to reverse, surprising without context, chosen between genuine alternatives ([[doc/Decisions/README.md]]) |
-| [[doc/current/]], [[doc/arch.md]], [[doc/spec.md]] | Implemented or agreed system behavior, after promotion per [[.agents/skills/maintain-doc-currency/SKILL.md]] |
-| [[CONTEXT.md]] | Ubiquitous language — terms and meanings, not exclusions or architecture |
+| [[doc/current/]], [[doc/current/arch.md]], [[doc/spec.md]] | Implemented or agreed system behavior, after promotion per [[.agents/skills/maintain-doc-currency/SKILL.md]] |
+| [[GLOSSARY.md]] | Ubiquitous language — terms and meanings, not exclusions or architecture |
 
 Everything else — `plan/` specs and maps, [[doc/roadmap/]], reports, tickets, agent chat — is **non-authoritative for product commitments**. Treat material there as scope, history, or draft unless promoted.
 

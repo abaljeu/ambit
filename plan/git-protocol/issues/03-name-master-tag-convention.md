@@ -40,4 +40,4 @@ The git-master skill states this convention. Other instructions keep pointing at
 
 ## See also
 
-[[.cursor/skills/git-protocol/SKILL.md]], [[CONTEXT.md]]
+[[.cursor/skills/git-protocol/SKILL.md]], 

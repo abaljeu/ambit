@@ -8,7 +8,7 @@ No decisions locked. Layout-behavior work is out of scope for this session.
 
 ## Domain language collisions
 
-From [[CONTEXT.md]]:
+From :
 
 - **Node** — avoid: item, bullet, line, row, entry.
 - **Browser** / **App** — avoid saying Client / Desktop in speech.
@@ -85,4 +85,4 @@ Tooltip content is screenshot- and screen-share-visible. Candidates that raise s
 
 - No existing `plan/node-bullet-tooltip/` spec before this grill.
 - No Committed Decision for UI disclosure of Node identity.
-- [[doc/arch.md]] Node section omits `updateTime`, `childrenStatus`, `documentState` (stale relative to Model.fs).
+- [[doc/current/arch.md]] Node section omits `updateTime`, `childrenStatus`, `documentState` (stale relative to Model.fs).

@@ -35,7 +35,7 @@ Putting "desktop file info" on the Node marker tip without deciding the orphaned
 
 ## Naming stress
 
-- Glossary: Node ≠ bullet ([[CONTEXT.md]]).
+- Glossary: Node ≠ bullet ().
 - Code: `leafBullet` → proposed `nodeBullet`; CSS still `amb-leaf-*`.
 - Class lie: `.amb-node-guid` shows Filename, not Guid — tooltip Guid makes the lie louder unless scoped as separate debt.
 
@@ -44,4 +44,4 @@ Putting "desktop file info" on the Node marker tip without deciding the orphaned
 - Server file-status can supply `sourceModifiedUtc` ([[src/Server/DocumentPersistence.fs]], [[doc/current/desktop-local-files.md]] status section is App-shaped; workspace path uses server path in Browser code).
 - `updateTime` meaning after persist is DataDir mtime ([[src/Shared/Model.fs]] `NodeUpdateTime.withStamp` comment) — same family as server source stamp.
 - No custom outline tooltip component; native `title` only ([[grill-notes.md]]).
-- `doc/arch.md` Node section still omits `updateTime` / residency fields relative to Model.
+- `doc/current/arch.md` Node section still omits `updateTime` / residency fields relative to Model.

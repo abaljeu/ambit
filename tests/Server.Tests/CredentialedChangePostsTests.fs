@@ -27,6 +27,7 @@ let private fileRuntime () =
             AuthPass = "secret"
             Actors = []
         }
+        (fun _ -> ())
 
 [<Fact>]
 let ``live Browser credential is admitted and Change reaches PersistHandlers``

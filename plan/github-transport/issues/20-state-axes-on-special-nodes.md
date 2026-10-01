@@ -11,20 +11,20 @@ A person works a Graph that already has Workspace, Directory, and File special n
 
 ## What to build
 
-Special nodes carry **Parsed | Unparsed** and **Persisted | Unpersisted**. Code can set and read each axis on a Workspace Node, a Directory Node, and a File Node. No Parse actor, no Persist stack, no git Load retarget, no Upload or selection Parse, no path-control change, and no retirement of old hops.
+Special nodes carry **Parsed | Unparsed** and **Persisted | Unpersisted**. Code can set and read each axis on a Workspace Node, a Directory Node, and a File Node. No Parse thread, no Persist stack, no git Load retarget, no Upload or selection Parse, no path-control change, and no retirement of old hops.
 
 ### 1. Special-node state axes
 
-Add the two axes as Graph markers on special nodes only. Point of lock: [19 — Parsed/Unparsed and Persisted/Unpersisted](19-file-newer-graph-newer.md). Migration home: [Here→There — step 1 locked](../here-to-there.md).
+Add the two axes as Graph markers on special nodes only. Point of lock: [04 — Parsed/Unparsed and Persisted/Unpersisted](../../core-refinement/issues/04-parsed-unparsed-and-persisted-unpersisted.md). Axis architecture: [core-refinement architecture](../../core-refinement/arch.md).
 
 - [x] 1.1 Carry Parsed | Unparsed — Each Workspace Node, Directory Node, and File Node has this axis. Parsed is the other pole of Unparsed.
 - [x] 1.2 Carry Persisted | Unpersisted — Each Workspace Node, Directory Node, and File Node has this axis. The axis is independent of Parsed | Unparsed.
 - [x] 1.3 Set and read both axes — Tests prove a special node can set and read each axis. No Parse or Persist work starts.
-- [x] 1.4 Leave workers unbuilt — Do not stand up the Parse actor or stack, the Core Persist stack, git Load retarget, Upload or selection Parse, path-control migration, or retirement of old hops.
+- [x] 1.4 Leave workers unbuilt — Do not stand up the Parse thread or stack, the Core Persist stack, git Load retarget, Upload or selection Parse, path-control migration, or retirement of old hops.
 
 ## Notes
 
-Locked 2026-09-28 (Alan). Axis-write mechanics live on [Here→There — step 1 locked](../here-to-there.md) §4 and [[../map.md]] decision 23. This ticket’s acceptance stays markers set and read only. It does not start workers.
+Locked 2026-09-28 (Alan). Axis-write mechanics live on [core-refinement architecture](../../core-refinement/arch.md) §4 and [[plan/core-refinement/map.md]] decision 7. This ticket’s acceptance stays markers set and read only. It does not start workers.
 
 **Approach (Mikado)** — Locked 2026-09-28 (Alan). Create the new state axes. Set both the new axes and the old `DocumentState` wherever state changes. Migrate old uses over step by step. Finally remove the old.
 
@@ -42,13 +42,13 @@ Locked 2026-09-28 (Alan). Axis-write mechanics live on [Here→There — step 1 
 
 **Directory File** — Locked 2026-09-29 (Alan). A Directory File (exact `.amb` name) does not carry Parsed|Unparsed or Persisted|Unpersisted. Do not dual-write those axes. A graph edit does not mark that node Unpersisted. Workspace, Directory, and File content nodes still carry both axes.
 
-**Live write and disk parse** — A successful artifact write marks that content node Persisted in the event source. A failed write leaves Unpersisted. A disk parse that brings that content node in line with disk ends Parsed and Persisted. This does not start the Persist stack or the Parse actor. Status stays `coded`.
+**Live write and disk parse** — A successful artifact write marks that content node Persisted in the event source. A failed write leaves Unpersisted. A disk parse that brings that content node in line with disk ends Parsed and Persisted. This does not start the Persist stack or the Parse thread. Status stays `coded`.
 
 ## See also
 
-- [19 — Parsed/Unparsed and Persisted/Unpersisted](19-file-newer-graph-newer.md)
-- [Here→There — step 1 locked](../here-to-there.md)
-- [[../map.md]] decision 23
+- [04 — Parsed/Unparsed and Persisted/Unpersisted](../../core-refinement/issues/04-parsed-unparsed-and-persisted-unpersisted.md)
+- [core-refinement architecture](../../core-refinement/arch.md)
+- [[plan/core-refinement/map.md]] decision 7
 
 ## Comments
 

@@ -7,7 +7,7 @@
 | **Implemented** | `/{pathname}/*` routes (production app at `/ambit`; see below) |
 | **Target** | `/documents/{docId}` multi-document API (future design) |
 
-For Sync semantics and Browser behavior, see [[doc/current/sync-mvp.md]] and [[doc/arch.md]].
+For Sync semantics and Browser behavior, see [[doc/current/sync-mvp.md]] and [[doc/current/browser.md]].
 
 ---
 
@@ -53,7 +53,7 @@ The in-process `History` inside server state mirrors applied changes for undo/re
 | `file` | `data/{doc}.log` + snapshot | Append-only `.log` | Tab-indented outline + `.meta` revision |
 | `db` | PostgreSQL | `changes` table | Optional file backup/export |
 
-Configured via `Persistence:Mode` (`db` default, `file` rollback). See [[doc/arch.md]].
+Configured via `Persistence:Mode` (`db` default, `file` rollback). See [[doc/current/persistence-model.md]].
 
 On startup, the server replays the log (and/or DB) from the last snapshot checkpoint.
 

@@ -7,39 +7,7 @@ description: Build and sharpen a project's domain model. Use when the user wants
 
 Actively build and sharpen the project's domain model as you design. This is the *active* discipline — challenging terms, inventing edge-case scenarios, and writing the glossary and decisions down the moment they crystallise. (Merely *reading* [[CONTEXT.md]] for vocabulary is not this skill — that's a one-line habit any skill can do. This skill is for when you're changing the model, not just consuming it.)
 
-This skill writes [[CONTEXT.md]]. Hard choices that are costly to reverse, surprising without context, and made between genuine alternatives are Committed Decisions under [[doc/Decisions/]].
-
-## File structure
-
-Most repos have a single context:
-
-```
-/
-├── CONTEXT.md
-├── doc/
-│   └── Decisions/
-│       ├── 0001-event-sourced-orders.md
-│       └── 0002-postgres-for-write-model.md
-└── src/
-```
-
-If a `CONTEXT-MAP.md` exists at the root, the repo has multiple contexts. The map points to where each one lives:
-
-```
-/
-├── CONTEXT-MAP.md
-├── doc/
-│   └── Decisions/                          ← system-wide decisions
-├── src/
-│   ├── ordering/
-│   │   ├── CONTEXT.md
-│   │   └── doc/Decisions/                 ← context-specific decisions
-│   └── billing/
-│       ├── CONTEXT.md
-│       └── doc/Decisions/
-```
-
-Create files lazily — only when you have something to write. If no [[CONTEXT.md]] exists, create one when the first term is resolved. If no [[doc/Decisions/]] exists, create it when the first Committed Decision is needed.
+This skill writes [[CONTEXT.md]]. Hard choices that are costly to reverse, surprising without context, and made between genuine alternatives are Committed Decisions under [[doc/Decisions/]]. Layout, lazy create, and single-vs-multi-context: [[CONTEXT-FORMAT.md]].
 
 ## During the session
 
@@ -67,12 +35,6 @@ When a term is resolved, update [[CONTEXT.md]] right there. Don't batch these up
 
 ### Offer Committed Decisions sparingly
 
-Only offer to create a Committed Decision when all three are true:
-
-1. **Hard to reverse** — the cost of changing your mind later is meaningful
-2. **Surprising without context** — a future reader will wonder "why did they do it this way?"
-3. **The result of a real trade-off** — there were genuine alternatives and you picked one for specific reasons
-
-If any of the three is missing, skip the record. Write it under [[doc/Decisions/]] with sequential numbering (`0001-slug.md`). Format and optional sections: [[COMMITTED-DECISION-FORMAT.md]](./COMMITTED-DECISION-FORMAT.md).
+Offer a Committed Decision only when the three criteria in [[COMMITTED-DECISION-FORMAT.md]] hold. Write it under [[doc/Decisions/]] with sequential numbering (`0001-slug.md`). Format and optional sections: [[COMMITTED-DECISION-FORMAT.md]](./COMMITTED-DECISION-FORMAT.md).
 
 A project's Out of scope section is **scope**, not a Committed Decision. Do not promote inferred exclusions to Committed Decisions or `doc/` without human confirmation. See [[doc/agents/scope-vs-commitment.md]].

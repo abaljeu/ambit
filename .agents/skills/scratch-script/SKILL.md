@@ -5,7 +5,7 @@ description: Scratch a short .sh with Write, then run that file. Use when asked 
 
 # Scratch script
 
-Shell and paths: [[.agents/rules/environment.md]].
+Shell and paths: [[.agents/rules/environment-windows-cursor-ide.md]].
 
 A **scratch** is the same commands you would have run, written as a file, then run as that file.
 The purpose is to make the commands readable and editable by a human, not to make it reusable or general.
@@ -24,7 +24,7 @@ Done: the file exists on disk.
 
 ## 3. Run the scratch
 
-One Shell call: `./tmp/<name>.sh`. No need to specify bash; that's automatic.  That path is the whole `command:`.
+One Shell call: `./tmp/<name>.sh` (command shape: [[.agents/rules/environment-windows-cursor-ide.md]]). That path is the whole `command:`.
 
 Done: the run used the file.
 

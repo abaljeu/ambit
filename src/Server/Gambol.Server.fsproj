@@ -34,6 +34,7 @@
     <Compile Include="EventLogFile.fs" />
     <Compile Include="DailyGitSave.fs" />
     <Compile Include="DocumentLoader.fs" />
+    <Compile Include="ParseStack.fs" />
     <Compile Include="Core\CoreChanges.fs" />
     <Compile Include="Core\CoreCredentials.fs" />
     <Compile Include="Core\CoreActorPool.fs" />
@@ -57,6 +58,7 @@
     <Compile Include="SavePrep.fs" />
     <Compile Include="Core\CoreRuntime.fs" />
     <Compile Include="GraphOnlyChangePost.fs" />
+    <Compile Include="ParseThread.fs" />
     <Compile Include="LoadSaveRouting.fs" />
     <Compile Include="Api.fs" />
     <Compile Include="LazyLoadReconciliationServer.fs" />

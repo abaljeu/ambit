@@ -9,47 +9,17 @@ Follow [[.agents/rules/planning-docs.md]], [[.agents/rules/markdown-writing.md]]
 
 Pair with [[.agents/skills/plan-roadmap-change/SKILL.md]] for roadmap shape and [[.agents/skills/maintain-doc-currency/SKILL.md]] when touching `doc/index.md` or stage sequencing.
 
-## Interaction
+## Workflow
 
-Hyper-interactive: **you draft one slice → user edits → you react**. Do not one-shot the whole plan.
-
-- Work **one section** (or one design question) per turn unless the user asks for more.
-- The user sees the diff; **summarize actions only** — do not repeat the diff back.
-- **Small corrective edits** in the same files are in scope when they follow directly from the turn (stale wording, cross-doc alignment, terminology).
-- When several interpretations exist, **present them** — do not pick silently.
-- **Planning only** until the user explicitly requests implementation.
-- **Implicit license** any prompt is implicitly a license to make focused edits to the document to match the request.
-- **Expect changes** after you change a thing the user will likely change things.  Therefore keep edits small so they are easier to change, rather than comprehensive and needing more change.
-
-## Reference vs active plan
-
-Except when the user says otherwise, work only on the active document.
-Do not edit previously finished plans if they no longer match the new plan.  They describe past situations and are relevant to their time.
-
-## Plan file skeleton
-
-Use these headings in referenced documents to kickstart an outline in the current.
-
-## Documentation workflow
-
-Update roadmap markdown **in the same session** as design decisions land:
-
-Adjust [[doc/index.md]] "Might be next" when sequencing changes.
-
-Use [[wikilinks]]; one blank line between blocks; no hard-wrapped paragraphs.
-
-## Design co-editing
-
-- Use **real example files** the user attaches when reasoning about structure (e.g. prologue, single root element, mixed content).
-- Mark **TBD** honestly (identity anchors, classification path vs sniff).
-
-## Turn endings
-
-After each edit, state what you changed in one short paragraph and name the **next section or question** — do not pad with optional follow-ups unless a real fork remains.
-
-## Do not
-
-- Implement `src/` or tests while co-editing unless explicitly asked.
-- Add a "Planned Doc Changes" checklist when roadmap files can be updated directly.
-- Copy finished-plan assumptions verbatim when the codebase or format differs.
-- Edit finished plans as part of a new format slice.
+1. Hyper-interactive: draft **one section** (or one design question) per turn with small focused edits; summarize actions only — the user sees the diff.
+   Done: one section (or question) edited, actions summarized, next section or question named.
+2. When several interpretations exist, present them.
+   Done: each live fork is listed, or one reading is clear.
+3. Plan docs only until the user explicitly asks to implement.
+   Done: no `src/` or test changes unless asked.
+4. Work only on the active document; treat finished plans as historical context for their time.
+   Done: edits are only on the active plan unless the user says otherwise.
+5. Update roadmap markdown in the same session as design decisions land; adjust [[doc/index.md]] "Might be next" when sequencing changes.
+   Done: roadmap and index reflect landed decisions for this turn, or no sequencing change.
+6. Use **real example files** the user attaches when reasoning about structure; mark **TBD** honestly (identity anchors, classification path vs sniff).
+   Done: attached examples informed the edit when present; open TBDs are marked.

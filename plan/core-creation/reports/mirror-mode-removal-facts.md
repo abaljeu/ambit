@@ -48,7 +48,7 @@ flowchart TB
 | [[src/Server/RouteRegistration.fs]] `registerPersistenceAndRoutes` | Reads `config.["Persistence:Mode"]`, fails startup on unknown mode | Stop reading mode or accept only `db`/empty (open decision) |
 | [[src/Server/appsettings.Development.json]] | `"Persistence": { "Mode": "db" }` | May drop `Persistence` section entirely once parsing removed |
 | [[doc/reference/deploy-azure.md]] | Documents `Persistence__Mode` = `db`; `file` for rollback/testing | Remove file-mode deploy/seed section |
-| [[README.md]], [[doc/api.md]], [[doc/arch.md]] | Document `db` and `file` modes | Remove file as writable option |
+| [[README.md]], [[doc/api.md]], [[doc/current/arch.md]] | Document `db` and `file` modes | Remove file as writable option |
 
 ### 2. RouteRegistration selection
 
@@ -191,7 +191,7 @@ DbAgent suite, most StateEndpointTests db cases, SavePrepTests (already Db-only)
 |----------|---------------|
 | [[README.md]] | `file` mode as authority; optional DB mirror |
 | [[doc/api.md]] | `file` rollback mode |
-| [[doc/arch.md]] | Legacy rollback hooks pending removal |
+| [[doc/current/arch.md]] | Legacy rollback hooks pending removal |
 | [[doc/reference/deploy-azure.md]] | `file` mode seed instructions; `Persistence__Mode` file option |
 | [[doc/history/database-migration-notes.md]] | File mode seed + mirror |
 | [[doc/unsorted/plan.md]] | Completed `Persistence:Mode` file rollback checkbox |

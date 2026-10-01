@@ -204,6 +204,15 @@ module CoreMailbox =
                 request,
                 channel))
 
+    /// Mailbox Load of a File node: push onto the Parse stack (clear-fast).
+    let load
+        (host: MailboxHost)
+        (caller: Caller)
+        (subject: NodeId)
+        : Async<Result<unit, string>> =
+        reply host (fun channel ->
+            Load(caller, subject, channel))
+
     let actorStop
         (host: MailboxHost)
         (caller: Caller)
@@ -265,33 +274,35 @@ module CoreMailbox =
 
     let dispose (host: MailboxHost) = MailboxHost.dispose host
 
+    let hostWithParsePush
+        (pool: CoreActorPool)
+        (persist: PersistFilling)
+        (credentials: CoreCredentials)
+        (parsePush: NodeId -> unit)
+        : MailboxHost =
+        let context =
+            CoreMailboxBackend.makeMailBox
+                credentials
+                persist
+                pool
+                parsePush
+        let started = CoreMailboxBackend.start context persist
+        persist.bindSnapshot (fun graph ->
+            started.processor.Post(SnapshotDone graph))
+        let created = MailboxHost.create started.processor persist
+        started.bindCoreChanges (coreChanges created)
+        created
+
     let host
         (pool: CoreActorPool)
         (persist: PersistFilling)
         (credentials: CoreCredentials)
         : MailboxHost =
-        let context =
-            CoreMailboxBackend.makeMailBox
-                credentials
-                persist.handlers
-                pool
-                persist.onError
-                persist.formatError
-        let started =
-            match persist.until with
-            | None -> CoreMailboxBackend.start context
-            | Some until ->
-                CoreMailboxBackend.startWithPrelude context until
-        persist.bindSnapshot (fun graph ->
-            started.processor.Post(SnapshotDone graph))
-        let created =
-            MailboxHost.create
-                started.processor
-                persist.isReady
-                persist.flushSnapshot
-                persist.dispose
-        started.bindCoreChanges (coreChanges created)
-        created
+        hostWithParsePush
+            pool
+            persist
+            credentials
+            (fun _ -> ())
 
     let createFile
         (dataDir: string)

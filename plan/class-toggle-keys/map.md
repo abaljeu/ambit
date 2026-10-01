@@ -6,7 +6,7 @@ A person in Selecting can toggle cssClasses `b`, `i`, and `check` on the current
 
 ## 2. Notes
 
-Domain: Browser command keys, Selection, cssClasses. Consult [[CONTEXT.md]] (Selection, Focus, Node), [CommandEntry](src/Shared/CommandEntry.fs), [CssClass.toggle](src/Shared/CssClass.fs), [submitCssClassPromptOp](src/Client/UpdateOps.fs), [handleKey](src/Client/Controller.fs).
+Domain: Browser command keys, Selection, cssClasses. Consult  (Selection, Focus, Node), [CommandEntry](src/Shared/CommandEntry.fs), [CssClass.toggle](src/Shared/CssClass.fs), [submitCssClassPromptOp](src/Client/UpdateOps.fs), [handleKey](src/Client/Controller.fs).
 
 This Project homes on [[plan/roadmap/epics/robust-outliner.md]]. It is a tiny slice. There is no spec.md and no arch.md. Implementation reads this map and [01 — Toggle cssClasses b, i, and check from keys](issues/01-toggle-cssclasses-b-i-check-from-keys.md).
 

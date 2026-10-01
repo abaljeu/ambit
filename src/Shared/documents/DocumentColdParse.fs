@@ -8,6 +8,10 @@ module DocumentColdParse =
     [<Literal>]
     let PasteRelativePath = "__paste__.txt"
 
+    /// Synthetic path when the paste line test selects markdown.
+    [<Literal>]
+    let PasteMarkdownRelativePath = "__paste__.md"
+
     let private overlayMemberIds (graph: Graph) (documentRootId: NodeId) =
         DocumentPartition.memberNodeIds graph documentRootId
         |> Set.filter (fun nodeId ->
@@ -319,9 +323,41 @@ module DocumentColdParse =
         readArtifactCold relativePath text documentRootId graph
         |> Result.map (planOpsFromGraphs graph documentRootId)
 
-    let private stubPasteGraph (documentRootId: NodeId) : Graph =
+    let private isTableLine (line: string) =
+        line.TrimEnd().StartsWith "|"
+
+    let private isHeadingLine (line: string) =
+        MdDocument.parseAtxHeading line |> Option.isSome
+
+    let private isListLine (line: string) =
+        MdDocument.parseMarker line |> Option.isSome
+
+    let private nonBlankLines (text: string) =
+        text.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n')
+        |> Array.filter (fun line ->
+            not (System.String.IsNullOrWhiteSpace line))
+
+    /// One ATX heading, one `|` line, or two list lines.
+    let private looksLikePastedMarkdown (text: string) =
+        let lines = nonBlankLines text
+        let heading = lines |> Array.exists isHeadingLine
+        let table = lines |> Array.exists isTableLine
+        let lists = lines |> Array.filter isListLine |> Array.length
+        heading || table || lists >= 2
+
+    /// Markdown hit uses `__paste__.md`. Otherwise `__paste__.txt` (Plain, or Amb).
+    let pasteRelativePath (text: string) =
+        if looksLikePastedMarkdown text then
+            PasteMarkdownRelativePath
+        else
+            PasteRelativePath
+
+    let private stubPasteGraph
+        (documentRootId: NodeId)
+        (relativePath: string)
+        : Graph =
         let graph0 = Graph.create ()
-        let name = PasteRelativePath
+        let name = relativePath
 
         let file =
             Node.Create(
@@ -339,9 +375,10 @@ module DocumentColdParse =
     /// delete Replaces that peelDocumentRootOps mis-reads as empty top-level ids.
     let planPasteOps (text: string) : Result<NodeId list * Op list, string> =
         let documentRootId = NodeId.New()
-        let graph = stubPasteGraph documentRootId
+        let relativePath = pasteRelativePath text
+        let graph = stubPasteGraph documentRootId relativePath
 
-        planApplyCold graph documentRootId PasteRelativePath text
+        planApplyCold graph documentRootId relativePath text
         |> Result.bind (fun ops ->
             let topLevelIds, nested =
                 peelDocumentRootOps documentRootId ops

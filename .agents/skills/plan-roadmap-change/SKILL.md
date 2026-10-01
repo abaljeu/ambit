@@ -9,11 +9,16 @@ Follow [[.agents/rules/planning-docs.md]] and [[.agents/rules/markdown-writing.m
 
 ## Workflow
 
-1. Read [[doc/arch.md]] and related current docs before proposing structure.
-2. Align with live `plan/` Projects and [[plan/roadmap/map.md]] when choosing what to plan next. Follow [[.agents/rules/planning-docs.md]].
+1. Read [[doc/current/arch.md]] and related current docs before proposing structure.
+   Done: every current doc that bears on the proposed structure has been read.
+2. Align with live `plan/` Projects and [[plan/roadmap/map.md]] when choosing what to plan next.
+   Done: the chosen next plan matches live Projects and the map (or the mismatch is stated for the user).
 3. Prefer a **slice** with clear user value over a full-system design.
+   Done: the plan names one slice and its user-visible value (or a simpler outline when the topic needs less).
 4. State assumptions and tradeoffs before writing the doc.
+   Done: assumptions and tradeoffs are written before the plan body.
 5. Defer unrelated work explicitly in the plan.
+   Done: unrelated work is listed under deferrals, or the plan states there is none.
 
 ## Plan shape
 
@@ -48,6 +53,6 @@ Stop for review when:
 - A step would touch Server, Client, and Shared in one pass.
 - The plan spans multiple unrelated features.
 
-## Do not
+## Scope
 
-Implement source code while planning unless the user explicitly asks to implement.
+Plan docs only until the user explicitly asks to implement.

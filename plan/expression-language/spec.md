@@ -18,9 +18,9 @@ User decisions of 2026-08-28, incorporated throughout:
 - New catalog word `wsroot`: up to the nearest Workspace Node. An ordinary row beside `^` and `.`.
 - `#` and `named` are separate rows. `#` is subsection search (spoken spelling `subsection`; `subsection "todo"` equals `#todo`): it takes a required name and searches strictly below each input through Children (Owned and Ref) for sections, with the walls and deterministic Node-identity deduplication defined in chapter 7. `named` takes a required quoted name and is a pure filter on the input Node's name glob. `section` is a zero-argument pure filter: yield the input when it is a named Normal Node.
 - Barriers 4 through 8 absorb as the report recommends: Answer equality is defined once; closure entries dedupe and composition never does; parse error, type error, and zero Answers stay distinct outcomes.
-- Terminology: this spec says type (`τ`) and never "kind" for the Node/Text classification, because Kind is the established Node classification in [[CONTEXT.md]].
+- Terminology: this spec says type (`τ`) and never "kind" for the Node/Text classification, because Kind is the established Node classification in .
 
-Notation: `τ` ranges over Answer types; `τ1 ⇒ τ2` is the type of a term (chapter 2); `E⟦e⟧` is the Answer function of Expression `e` (chapter 6); `δ(w)` is the catalog Answer function of row `w`; `⟨⟩` is the empty sequence, `⟨x⟩` the one-Answer sequence, `++` concatenation. Grammar is EBNF. Domain words — Node, Answer, Graph, Header, Children, Owned, Ref, Normal Node, section, subsection, File Node, Directory Node, Workspace Node, ROOT, Loaded, Unloaded, zoomRoot, Zoom, Find — follow [[CONTEXT.md]] exactly.
+Notation: `τ` ranges over Answer types; `τ1 ⇒ τ2` is the type of a term (chapter 2); `E⟦e⟧` is the Answer function of Expression `e` (chapter 6); `δ(w)` is the catalog Answer function of row `w`; `⟨⟩` is the empty sequence, `⟨x⟩` the one-Answer sequence, `++` concatenation. Grammar is EBNF. Domain words — Node, Answer, Graph, Header, Children, Owned, Ref, Normal Node, section, subsection, File Node, Directory Node, Workspace Node, ROOT, Loaded, Unloaded, zoomRoot, Zoom, Find — follow  exactly.
 
 ## 2. Semantic domain: Answers, types, and predicates
 

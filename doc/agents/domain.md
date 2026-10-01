@@ -2,7 +2,7 @@
 
 The canonical Gambol project documentation lives under [[doc/]]. Start with [[doc/index.md]] (Feature index of the current program). What to work on next is [[plan/roadmap/map.md]].
 
-- [[doc/arch.md]], [[doc/spec.md]], and [[doc/api.md]] describe the system.
+- [[doc/current/arch.md]] is the architecture home (project structure). Subject pages linked from it, plus [[doc/spec.md]] and [[doc/api.md]], describe the system.
 - [[doc/current/]] contains implemented feature baselines and takes precedence.
 - [[doc/reference/]] contains operational and format reference material.
 - [[doc/roadmap/]] is leftover planned-direction text until a `plan` Project cites it or it moves to history. New planned work lives in Projects, not here.
@@ -11,7 +11,7 @@ The canonical Gambol project documentation lives under [[doc/]]. Start with [[do
 
 Follow the authority and currency rules in [[doc/README.md]]. Surface contradictions instead of silently choosing between documents.
 
-If [[CONTEXT.md]] exists, treat it as Gambol's concise domain glossary: use its preferred terms and avoid synonyms it rejects. Do not duplicate the detailed project documentation there.
+If [[GLOSSARY.md]] exists, treat it as Gambol's concise domain glossary: use its preferred terms and avoid synonyms it rejects. Do not duplicate the detailed project documentation there.
 
 Architecture Decision Records live under [[doc/Decisions/]]. Before changing an area, read any relevant records and explicitly surface proposed changes that contradict them.
 

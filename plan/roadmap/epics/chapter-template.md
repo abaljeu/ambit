@@ -7,7 +7,7 @@ A Chapter is its own file, not an issue. Copy this shape into [[plan/roadmap/epi
 
 ## Context
 
-The situation that motivates this chapter. Write in ASD-STE100 Simplified Technical English. Use the ubiquitous language from [[CONTEXT.md]]. See [[.agents/skills/wait-what/SKILL.md]].
+The situation that motivates this chapter. Write in ASD-STE100 Simplified Technical English. Use the ubiquitous language from . See [[.agents/skills/wait-what/SKILL.md]].
 
 ## Goal
 

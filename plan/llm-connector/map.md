@@ -12,7 +12,7 @@ Run an Agent from a Zoom-rooted mixed-format Graph extract, mark Focus in the ou
 - 2026-09-21 — Bug-fix [19 — AI extract pack is XML with Focus cssClass](issues/19-ai-xml-pack-focus-css.md): CloudAgents document is write-only XML; Focus is css class `prompt` on the extract copy only. Amb extract-walk and reply apply stay.
 - Enables [[plan/roadmap/epics/agent-chat-managed-context.md]] Chapter **Ask from what I see**.
 - This Project owns document extraction, the vendor-neutral CloudAgents call, and response write-back. [[plan/expression-language/issues/33-recognize-ask-run-statement.md]] only recognizes `?` as a Run statement.
-- Spoken name is Run Agent. Glossary: [[CONTEXT.md]] Run Agent, Included context, Agent. Do not say Agent for the Actor.
+- Spoken name is Run Agent. Glossary:  Run Agent, Included context, Agent. Do not say Agent for the Actor.
 - Long-running Actor foundations: [[plan/core-creation/issues/01-generalized-server-actor-produce-path.md]] and [[plan/core-creation/issues/02-core-actor-pool.md]]. ESO background: [[plan/event-sourced-ops/details/actors-and-jobs.md]].
 - `appsettings.Development.json` is gitignored like Production. Base `appsettings.json` holds empty `AiKeys` / `AiRepos` placeholders. `addAppSettings` load order is unchanged. Console has its own tracked `appsettings.json` placeholders; Development and Production stay gitignored.
 

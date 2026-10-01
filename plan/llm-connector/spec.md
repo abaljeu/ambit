@@ -52,7 +52,7 @@ Checklist convention: `[x]` means locked by 06/07 and/or already delivered by th
 ## 5. Further Notes
 
 1. **Info hub** — Ambit pulls in, transforms, and brings back; Actor formats vary; the adaptive update process is common ([[reports/agent-redesign-locked-2026-09.md]]).
-2. **Spoken name** — Run Agent. Do not say Agent for the Actor ([[CONTEXT.md]]).
+2. **Spoken name** — Run Agent. Do not say Agent for the Actor ().
 3. **Recognition only** — [[plan/expression-language/issues/33-recognize-ask-run-statement.md]] owns `?` as a Run statement; this Project owns pack, call, and write-back.
 4. **Next build** — Smallest vendor-neutral CloudAgents / Run Agent Actor implementation issues after this arch; not a revival of 05.
 5. **First pack** — [11 — Pack extract with Amb (supplied-fragment walk)](issues/11-simple-extract-format.md) writes Amb extract-walk for Amb persist. The CloudAgents document is write-only XML; Focus is css class `prompt` on the extract copy ([19 — AI extract pack is XML with Focus cssClass](issues/19-ai-xml-pack-focus-css.md)). Mixed-format owning-codec stays tabled. Mixed-format stories above remain the product intent.
