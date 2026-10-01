@@ -7,7 +7,7 @@ This page records how the Browser and the App present authorization to the Serve
 ## 1. Purpose
 
 1. **Runtime description** — State how authorization runs for Browser HTTP, App proxy, and Core admit.
-2. **Not a feature baseline** — Feature behavior stays in [[doc/current/]] and [[doc/arch.md]]. This Project describes coding and runtime.
+2. **Not a feature baseline** — Feature behavior stays in [[doc/current/]] and [[doc/current/arch.md]]. This Project describes coding and runtime.
 
 ## 2. Credential identity
 
@@ -61,4 +61,4 @@ This page records how the Browser and the App present authorization to the Serve
 
 1. **Git PAT** — Basic username plus `deriveGitToken` for smart HTTP. Not the Browser cookie. Empty Auth still reports `GitAuthDisabled` and leaves the git gateway open.
 2. **Actor live-table admit** — Actor secrets on the CoreActorPool live table. Not this page.
-3. **Wiki home** — Whether this page later moves under [[doc/arch.md]] or another tree is [[issues/01-choose-wiki-home.md|Choose the architecture wiki home]].
+3. **Wiki home** — Whether this page later moves under [[doc/current/arch.md]] or another tree is [[issues/01-choose-wiki-home.md|Choose the architecture wiki home]].

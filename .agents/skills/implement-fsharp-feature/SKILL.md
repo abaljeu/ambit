@@ -7,7 +7,7 @@ description: Implements Gambol F# features with Shared-first logic and surgical 
 
 Augments [[.agents/skills/implement/SKILL.md]] for F# layout and test commands. TDD quality: [[.agents/skills/tdd/SKILL.md]]. Follow [[.agents/rules/fsharp-source.md]] and [[.agents/rules/core-agent-behavior.md]].
 
-Layer paths and boundaries: [[doc/arch.md]].
+Project structure: [[doc/current/arch.md]]. Layer behavior: [[doc/current/browser.md]], [[doc/current/server.md]].
 
 ## Implementation layout
 

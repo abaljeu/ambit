@@ -2,7 +2,7 @@
 
 Date: 2026-08-27  
 Branch: `w/relaxed-concurrency`  
-See also: [[plan/selective-client-loading/spec.md]], [[doc/reference/dev-debug-workflow.md]], [[doc/arch.md]]
+See also: [[plan/selective-client-loading/spec.md]], [[doc/reference/dev-debug-workflow.md]], [[doc/current/arch.md]]
 
 ## Problem statement (user-scoped)
 
@@ -275,7 +275,7 @@ Network tab measurements confirm `/ambit/state` TTFB as the dominant cost; **rec
 | Production proxy path for API | [[doc/reference/cpanel-transparent-proxy.md]], [[proxy.php]] |
 | ASP.NET compression does not reduce handler time | [Response compression in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/performance/response-compression) |
 | Selective bootstrap scope | [[plan/selective-client-loading/spec.md]] |
-| Poll not SignalR | [[src/Client/App.fs]], [[doc/arch.md]] |
+| Poll not SignalR | [[src/Client/App.fs]], [[doc/current/arch.md]] |
 | esbuild splitting | [esbuild API — Splitting](https://esbuild.github.io/api/#splitting) |
 | No mobile SLA | User clarification |
 | Measured on production (not localhost) | User clarification |

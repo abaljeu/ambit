@@ -178,7 +178,7 @@ Numbered slices; DiffPlex excision before Client wiring. Stop for review if Docu
 
 5. **Client paste wiring ([[src/Client/UpdatePaste.fs]])** — ProjectReference Documents; after link-paste check call `DocumentColdParse.planApplyCold` with `PasteRelativePath` instead of `buildPasteOps`; preserve edit-mode first-line splice. **Verify:** manual Ctrl+V select + edit; tab-indented Gambol export pastes under Plain rules (accepted behavior change).
 
-6. **Cross-link doc currency** — [[doc/arch.md]] paste bullet; [[doc/reference/formats/code-shape.md]] Documents cold vs DotNet warm boundary.
+6. **Cross-link doc currency** — [[doc/current/operations.md]] paste bullet; [[doc/reference/formats/code-shape.md]] Documents cold vs DotNet warm boundary.
 
 ## Tests
 
