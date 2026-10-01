@@ -277,7 +277,7 @@ Status: Stage 6 `[x]` — implemented.
 
 **Today:** canonical `trashId` is `Special Directory` — not a document root; no on-disk folder.
 
-**Target:** `trashId` becomes **`Special Directory`** with `Node.name = TRASH` (display `text` may remain `Trash`). Retire `SpecialKind.Trash` / `Special Directory`.
+**Target:** `trashId` is **`Special Directory`** with `Node.name = TRASH` (display `text` may remain `Trash`). `SpecialKind.Trash` is not a kind.
 
 | Concern | Treatment |
 | --- | --- |
@@ -371,7 +371,7 @@ Status: Stage 7 path moves and artifacts `[x]`; sync live-save feeder `[o]`; Sta
 What is in place:
 
 - **Path:** `{DataDir}/{workspaceLabel}/{canonicalRelativePath}` (folder name equals workspace label, verbatim).
-- [o] **Write pattern:** sync live-save on accepted change via `DocumentPersistChange.persistGraphOps` (ops + path moves); async catch-up via `persistGraphChange` (pre→post graph-diff) when needed. Writes only affected Current document roots, not a full Current-root walk. The retiring claim is [Persistence model](doc/current/persistence-model.md) Should Become (persist thread collectors).
+- [o] **Write pattern:** sync live-save on accepted change via `DocumentPersistChange.persistGraphOps` (ops + path moves); async catch-up via `persistGraphChange` (pre→post graph-diff) when needed. Writes only affected Current document roots, not a full Current-root walk. The shall-be claim is [Persistence model](doc/current/persistence-model.md) Should Become (persist thread).
 - **Stop at nested document root:** `AmbDocument.write` / `DocumentPartition` — nested workspace/directory/file document roots persist as separate artifacts.
 - **Unified path moves:** `executePathMoves` for rename, reparent, and soft delete (`MoveToTrash` → `//TRASH/...`). Path validation before accept; `Directory.Move` / `File.Move` on disk.
 - **TRASH on disk:** `TRASH/.amb` under `DataDir` (directory document for canonical `trashId`).

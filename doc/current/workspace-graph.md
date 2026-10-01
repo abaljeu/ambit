@@ -84,8 +84,8 @@ Special nodes (Workspace, Directory, File content nodes) also carry `ParseState`
 
 - [x] `ParseState` and `PersistState` markers exist on Workspace, Directory, and File content nodes. A Directory File does not carry those axes.
 - [o] `DocumentState` (`Current` | `Unparsed` | `NoServerFile`) is the special-node document axis in graph JSON and the PostgreSQL node projection.
-- [ ] Dual-write `ParseState`, `PersistState`, and `DocumentState` wherever state changes.
-- [ ] Remove `DocumentState` once no caller remains. This retires the [o] `DocumentState` axis.
+- [ ] A state change on a special node writes `ParseState` and `PersistState`.
+- [ ] `DocumentState` is not the special-node document axis.
 
 The filesystem file whose basename is exactly `.amb` (case-insensitive) is the persistence/proxy artifact consumed by its containing Directory document, or by the Workspace document at workspace root. It never has a graph node of its own and must not appear as a child File. `Filename.create` / `NewSpecialNode` / `SetName` reject that exact basename; create helpers fall back to a default name. If an illicit `.amb`-named node somehow exists, trash/delete/rename must not plan or execute DataDir move/delete/write for it. The artifact remains discoverable and transferable so its content is preserved. Names such as `notes.amb` are ordinary File nodes.
 

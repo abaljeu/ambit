@@ -161,9 +161,7 @@ Foreign keys `parent_id` → `nodes(id)` and `child_id` → `nodes(id)` are reco
 
 ## Should Become
 
-Expand-contract stays on [core-refinement architecture](plan/core-refinement/arch.md) §3 steps 3 and 5. This page holds the claim marks.
-
-- [ ] New collector functions sit beside that feeder. A persist-thread loop calls the existing persist functions in [[src/Server/DocumentPersistChange.fs]]. Callers move to the collectors. The sync call-site shape then retires. This retires the [o] sync feeder. The write body stays. The persist thread runs when a node is Unpersisted and Parsed. Today's code does not do that yet. Setup lives in [[src/Server/Core]].
+- [ ] The persist thread runs when a node is Unpersisted and Parsed. Its collectors call the persist functions in [[src/Server/DocumentPersistChange.fs]]. The write body is those functions. Setup lives in [[src/Server/Core]].
 - [ ] Core owns read file, write file, read directory, and write directory. Callers pass a node, or a relative path derived from a node. Core holds the absolute DataDir residency.
 - [ ] No caller outside Core builds or holds a DataDir absolute path.
 

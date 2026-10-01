@@ -47,14 +47,12 @@ A Subsystem is a named body inside a project, made of F# modules and the types a
 
 ## 4. Claims
 
-Later pages use Is and Should Become.
+Later pages use Is and Should Become. A claim describes the program. It does not describe the work that changes the program. The path stays in the plan.
 
-1. **Planned** — `[ ]`
-2. **Started** — `[/]`
-3. **Implemented** — `[x]`
-4. **Obsolete yet implemented** — `[o]`
-
-An `[o]` claim is paired with the `[ ]` claim that retires it. When that claim is `[x]`, the `[o]` claim is removed.
+1. **Is** — `[x]` The program is this.
+2. **Shall be** — `[ ]` The program shall be this.
+3. **Started** — `[/]`
+4. **Obsolete yet implemented** — `[o]` The program still is this. A shall-be claim is the program in its place. When that claim is `[x]`, the `[o]` claim is removed.
 
 ## 5. Other corpora
 
