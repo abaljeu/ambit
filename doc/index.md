@@ -1,7 +1,7 @@
 # Feature Index
 
 Category: Project coordination
-See Also: [[doc/README.md]], [[doc/arch.md]], [[doc/spec.md]], [[doc/api.md]], [[plan/roadmap/map.md]]
+See Also: [[doc/README.md]], [[doc/current/arch.md]], [[doc/spec.md]], [[doc/api.md]], [[plan/roadmap/map.md]]
 
 Index of the current program. One detail source per feature. What to work on next is [[plan/roadmap/map.md]].
 
@@ -10,8 +10,28 @@ Index of the current program. One detail source per feature. What to work on nex
 Implemented baselines in [[doc/current/]].
 
 ### **Product and architecture**
-Details: [[doc/arch.md]].
-Summary: Client/server MVU app, graph ops model, project structure, and layer boundaries.
+Details: [[doc/current/arch.md]].
+Summary: Architecture wiki home. The first Reference view is the project structure.
+
+### **Browser**
+Details: [[doc/current/browser.md]].
+Summary: Fable MVU loop, outline render, selection, and client-local undo.
+
+### **Server**
+Details: [[doc/current/server.md]].
+Summary: `/ambit` HTTP, persistence agents, and the as-built Core mailbox. Core behavior: [Server Core](plan/architecture/server-core.md).
+
+### **Operations**
+Details: [[doc/current/operations.md]].
+Summary: Shared ops that transform the graph. Node and Graph fields stay on [[doc/current/persistence-model.md]].
+
+### **View**
+Details: [[doc/current/view.md]].
+Summary: Browser site tree, selection span, and line rendering.
+
+### **Testing**
+Details: [[doc/current/testing.md]].
+Summary: xUnit layers for Shared ops, serialization, persistence, and server handlers.
 
 ### **API contract**
 Details: [[doc/api.md]].

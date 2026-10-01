@@ -149,7 +149,7 @@ interactive surface.
   `NodeId` Guid and any resolved `%LocalAppData%` server-side mapping.)
 - **`.amb-node-guid` class-lie cleanup** (the name span shows the Filename, not a Guid) — later
   ticket, tracked separately.
-- **Stale `doc/arch.md` Node section** (lines ~186–207): hand-lists `Node` fields and omits
+- **Stale `doc/current/arch.md` Node section** (lines ~186–207): hand-lists `Node` fields and omits
   `updateTime` / `childrenStatus` / `documentState`. Remedy (later ticket): stop enumerating fields —
   name the `Node` type and point to it in `src/Shared/Model.fs` as the source of truth, so the doc
   cannot drift.

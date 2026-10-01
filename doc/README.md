@@ -1,11 +1,11 @@
 # Documentation
 
 Top level contains the front-door docs for the current system as a whole:
-[[index.md]], [[arch.md]], [[spec.md]], and [[api.md]].
+[[index.md]], [[current/arch.md]], [[spec.md]], and [[api.md]].
 
 New docs should normally go in a subfolder:
 
-- `current/` — current subsystem or feature docs
+- `current/` — current subsystem or feature docs. [[current/arch.md]] is the architecture home
 - `roadmap/` — leftover planned-direction files until a `plan` Project cites them or they move to history
 - `history/` — assessed historical project materials
 - `reference/` — operational and reference material
@@ -23,7 +23,7 @@ Document header rule:
 
 Start here:
 
-- [[arch.md]]
+- [[current/arch.md]]
 - [[spec.md]]
 - [[api.md]]
 - [[index.md]] — Feature index of the current program
@@ -31,6 +31,11 @@ Start here:
 
 Current feature baselines (`current/`):
 
+- [[current/browser.md]] — Fable MVU Browser
+- [[current/server.md]] — Server HTTP, persistence agents, as-built mailbox
+- [[current/operations.md]] — shared graph ops
+- [[current/view.md]] — Browser site tree and line rendering
+- [[current/testing.md]] — xUnit test layers
 - [[current/sync-mvp.md]] — multi-client sync semantics
 - [[current/persistence-model.md]] — PostgreSQL schema, correlated on-disk artifacts, auto-persist from DB
 - [[current/workspace-graph.md]] — workspace special nodes and graph invariants

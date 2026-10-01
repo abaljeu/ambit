@@ -22,7 +22,7 @@ Content present in the `ready` README and **absent** from the `origin/master` RE
 |---|---|
 | Architecture rows for **Desktop** (WPF + WebView2, local HTTP proxy) and Npgsql on the Server row | Two layers of the system are invisible in the public table |
 | Client is served under `/ambit`, and the app URL is `http://localhost:5215/ambit`, not the site root | High. The public README still states port **5115** and the site root. Those build instructions are stale and would mislead a reader |
-| Links to [[doc/arch.md]] and [[doc/api.md]] | Entry points into the reference documentation |
+| Links to [[doc/current/arch.md]] and [[doc/api.md]] | Entry points into the reference documentation |
 | Whole **Persistence** section: `Persistence:Mode` (`db` default, `file` alternative), `DB_CONNECTION_STRING`, automatic snapshot and change-log writes, links to [[doc/reference/postgres-environments.md]] and [[doc/current/persistence-model.md]] | High. Without it there is no statement that a database is needed to run |
 | Whole **Desktop** section: `scripts/desktop.sh run` and the VS Code **desktop: Run** task | Setup step for the desktop shell |
 | Prerequisite **Node.js 18 or later** | High. Build fails without it |

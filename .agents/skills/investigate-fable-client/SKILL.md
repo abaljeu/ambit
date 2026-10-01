@@ -5,7 +5,7 @@ description: Investigates Gambol Fable client MVU and DOM issues while keeping l
 
 # Investigate Fable Client
 
-Follow [[.agents/rules/fsharp-source.md]], [[.agents/skills/implement-fsharp-feature/SKILL.md]], and [[doc/arch.md]]. Client paths and layer roles live in [[doc/arch.md]]; Fable output is served from `src/Server/wwwroot` at `/ambit`.
+Follow [[.agents/rules/fsharp-source.md]], [[.agents/skills/implement-fsharp-feature/SKILL.md]], [[doc/current/arch.md]], and [[doc/current/browser.md]]. Project structure lives in [[doc/current/arch.md]]. Browser paths and the MVU loop live in [[doc/current/browser.md]]. Fable output is served from `src/Server/wwwroot` at `/ambit`.
 
 ## Investigation order
 

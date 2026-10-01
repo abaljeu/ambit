@@ -1,6 +1,6 @@
 # Change-only Undo destination
 
-See also: [[undo-spec.md]], [[undo-implementation-plan.md]], [[audit-optimistic-undo-safety.md]], [[server-change-augmentation-audit.md]], [[spec.md]], [[doc/current/sync-mvp.md]], [[doc/arch.md]]
+See also: [[undo-spec.md]], [[undo-implementation-plan.md]], [[audit-optimistic-undo-safety.md]], [[server-change-augmentation-audit.md]], [[spec.md]], [[doc/current/sync-mvp.md]], [[doc/current/arch.md]]
 
 ## Destination
 

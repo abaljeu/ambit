@@ -131,8 +131,8 @@ The Emacs Action view of Change, Undo, and Redo Events. Not the server Event seq
 _Avoid_: History (as a module name), EventLog (for this view), the full Event sequence, audit log
 
 **Core**:
-The Module that owns persistent state (durable Graph and EventLog facts; file bytes and git of those files) and that manages the Actor pool. Persist algorithms stay outside and persist via Core API; Core owns open and write of the file. In file mode it owns persist and does not write bytes. In db mode it writes (bytes, git, projection). It does not own advanced logic (Parse algorithms, Graph↔document persist algorithms). Not the Solid core bar on [[plan/roadmap/epics/robust-outliner.md]].
-_Avoid_: kernel (for this Module), apply Module (as the name)
+The Subsystem that owns persistent state (durable Graph and EventLog facts; file bytes and git of those files) and that manages the Actor pool. Persist algorithms stay outside and persist via Core API; Core owns open and write of the file. In file mode it owns persist and does not write bytes. In db mode it writes (bytes, git, projection). It does not own advanced logic (Parse algorithms, Graph↔document persist algorithms). Not the Solid core bar on [[plan/roadmap/epics/robust-outliner.md]].
+_Avoid_: kernel, Module (for this Subsystem), apply Module (as the name)
 
 **Core API**:
 The four-call Interface of Core: Files, Changes, Query, Command. Files is send, get, and git of file bytes; Core owns the open and write. Persist algorithms do not open the file themselves. In file mode Files does not write. inner apply is the Changes path that applies a Change. Advanced logic and Actor definitions work to this Interface. Not the web API.
@@ -305,6 +305,10 @@ _Avoid_: mapState, treating History or ActorStart/ActorStop as State, using Stat
 **subsection**:
 The Expression search for sections below the input Node. Cluster spelling `#`; `subsection "todo"` equals `#todo`.
 _Avoid_: tagged, content search, named (as this search), Find
+
+**Subsystem**:
+A named body inside a project, made of F# modules and the types associated with them, with one Interface. Core is a Subsystem of the Server project.
+_Avoid_: Module (for this body), kernel, component, service
 
 **Sync**:
 Keeping Browser and Server Graphs aligned by exchanging Actions (and related residency work). Not a synonym for Load.

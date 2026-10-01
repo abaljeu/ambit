@@ -9,7 +9,7 @@ Follow [[.agents/rules/planning-docs.md]] and [[.agents/rules/markdown-writing.m
 
 ## Workflow
 
-1. Read [[doc/arch.md]] and related current docs before proposing structure.
+1. Read [[doc/current/arch.md]] and related current docs before proposing structure.
    Done: every current doc that bears on the proposed structure has been read.
 2. Align with live `plan/` Projects and [[plan/roadmap/map.md]] when choosing what to plan next.
    Done: the chosen next plan matches live Projects and the map (or the mismatch is stated for the user).

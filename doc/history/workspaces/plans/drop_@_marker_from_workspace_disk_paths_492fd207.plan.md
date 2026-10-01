@@ -87,7 +87,7 @@ Strike every colon-address / legacy label-prefixed path mention and every "auto-
 - [doc/roadmap/workspace-scale-import.md](doc/roadmap/workspace-scale-import.md)
 - [doc/roadmap/workspace-scale-import-slice1-plan.md](doc/roadmap/workspace-scale-import-slice1-plan.md)
 - [doc/roadmap/workspace-scale-import-slice2-plan.md](doc/roadmap/workspace-scale-import-slice2-plan.md)
-- [doc/arch.md](doc/arch.md)
+- [doc/current/arch.md](doc/current/arch.md)
 - [doc/index.md](doc/index.md)
 
 ## Verification

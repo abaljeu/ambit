@@ -1,6 +1,6 @@
 # Change-only Undo implementation plan
 
-See also: [[undo-wayfinder.md]], [[undo-spec.md]], [[audit-optimistic-undo-safety.md]], [[server-change-augmentation-audit.md]], [[spec.md]], [[doc/arch.md]]
+See also: [[undo-wayfinder.md]], [[undo-spec.md]], [[audit-optimistic-undo-safety.md]], [[server-change-augmentation-audit.md]], [[spec.md]], [[doc/current/arch.md]]
 
 ## Outcome
 
