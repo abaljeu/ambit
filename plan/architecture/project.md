@@ -2,7 +2,7 @@
 
 Stage: build
 Summary: A browsable description of how Gambol is coded and how it runs.
-Updated: 2026-09-30
+Updated: 2026-10-01
 Started: 2026-09-28
 Actual: 45m
 
@@ -21,3 +21,11 @@ Actual: 45m
 - 2026-09-30 — Alan: Subsystem is a Reference category on [What GitLab-level browsable means for architecture](plan/architecture/issues/02-gitlab-level-browsable.md). Core is the first Subsystem, of the Server project. Glossary: [[GLOSSARY.md]] **Subsystem** and **Core**. Others wait until looked at.
 - 2026-09-30 — Alan: file [Create the initial wiki structure with the established elements](plan/architecture/issues/05-create-initial-wiki-structure.md). Stage stays chart.
 - 2026-09-30 — Initial structure is the Reference lead on [[doc/current/arch.md]]. [Create the initial wiki structure with the established elements](plan/architecture/issues/05-create-initial-wiki-structure.md).
+- 2026-10-01 — Alan: this Project owns reconcile of seven workspace-file docs with existing plans and with [[doc/current/]]. The files stay in [[doc/roadmap/]]. This note does not merge their claims. [Parse thread](plan/parse-thread/project.md) may later claim Parse product leftovers; the two Parse docs are charted here first.
+- 2026-10-01 — [06 — Parse / Upload for Current Files (Warm Reconcile)](plan/architecture/issues/06-parse-upload-for-current-files-warm-reconcile.md) — [Parse / Upload for Current Files (Warm Reconcile)](doc/roadmap/parse-file-reconcile-current.md).
+- 2026-10-01 — [07 — ParseFile document reader](plan/architecture/issues/07-parsefile-document-reader.md) — [ParseFile → Document Reader](doc/roadmap/parsefile-document-codec-import.md).
+- 2026-10-01 — [08 — Revising Workspace File Model](plan/architecture/issues/08-revising-workspace-file-model.md) — [Revising Workspace File Model](doc/roadmap/revising-workspace-file-model.md).
+- 2026-10-01 — [09 — File and Directory owner placement](plan/architecture/issues/09-file-and-directory-owner-placement.md) — [File and Directory owner placement](doc/roadmap/workspace-file-directory-placement.md).
+- 2026-10-01 — [10 — Workspace File Model](plan/architecture/issues/10-workspace-file-model.md) — [Workspace File Model](doc/roadmap/workspace-file-model.md).
+- 2026-10-01 — [11 — Workspace File Persistence](plan/architecture/issues/11-workspace-file-persistence.md) — [Workspace File Persistence](doc/roadmap/workspace-file-persistence.md).
+- 2026-10-01 — [12 — Workspace scale file and db management](plan/architecture/issues/12-workspace-scale-file-and-db-management.md) — [Workspace scale file and db management](doc/roadmap/workspace-scale-file-and-db-management.md).
