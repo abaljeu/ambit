@@ -337,14 +337,15 @@ let ``Op.SetUpdateTime round-trip`` () =
     Assert.Equal(op, decoded)
 
 [<Fact>]
-let ``Op.SetPersistState round-trip`` () =
-    let op =
-        Op.SetPersistState(
-            NodeId.New(),
-            PersistState.Persisted,
-            PersistState.Unpersisted)
-    let decoded = roundTrip Serialization.encodeOp Serialization.decodeOp op
-    Assert.Equal(op, decoded)
+let ``SetPersistState is not an operation`` () =
+    let id = NodeId.New()
+    let json =
+        "{\"type\":\"SetPersistState\",\"nodeId\":\""
+        + string id.Value
+        + "\",\"oldState\":\"persisted\",\"newState\":\"unpersisted\"}"
+    match Dec.fromString Serialization.decodeOp json with
+    | Error _ -> ()
+    | Ok _ -> failwith "SetPersistState must not decode"
 
 [<Fact>]
 let ``EventBatch round-trip`` () =

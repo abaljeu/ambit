@@ -144,7 +144,7 @@ module DbAgent =
             | None -> Error "Event has no Ops"
             | Some ops ->
                 let result, amended, appliedOps =
-                    ChangeAmendment.applyOps ops s
+                    ChangeAmendment.applyForCommand event.commandName ops s
                 match result with
                 | ApplyResult.Invalid (_, errMsg) -> Error errMsg
                 | ApplyResult.Unchanged _ ->

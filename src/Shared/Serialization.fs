@@ -344,12 +344,6 @@ module Serialization =
                   "nodeId", encodeNodeId nodeId
                   "oldTime", Encode.int64 oldTime.Ticks
                   "newTime", Encode.int64 newTime.Ticks ]
-        | Op.SetPersistState(nodeId, oldState, newState) ->
-            Encode.object
-                [ "type", Encode.string "SetPersistState"
-                  "nodeId", encodeNodeId nodeId
-                  "oldState", encodePersistState oldState
-                  "newState", encodePersistState newState ]
 
     let decodeOp: Decoder<Op> =
         Decode.field "type" Decode.string
@@ -406,12 +400,6 @@ module Serialization =
                         DateTime(
                             get.Required.Field "newTime" Decode.int64,
                             DateTimeKind.Utc)))
-            | "SetPersistState" ->
-                Decode.object (fun get ->
-                    Op.SetPersistState(
-                        get.Required.Field "nodeId" decodeNodeId,
-                        get.Required.Field "oldState" decodePersistState,
-                        get.Required.Field "newState" decodePersistState))
             | other ->
                 Decode.fail $"Unknown Op type: {other}")
 

@@ -131,7 +131,8 @@ module BootCache =
                 | Error _ -> acc
                 | Ok st ->
                     let ops = Ev.ops event |> Option.defaultValue []
-                    match ResidentProjection.applyOps ops st with
+                    let mark = Op.marksOwningPersist event.commandName
+                    match ResidentProjection.applyOpsAllowing mark ops st with
                     | ApplyResult.Invalid (_, msg) -> Error msg
                     | ApplyResult.Changed next
                     | ApplyResult.Unchanged next -> Ok next)

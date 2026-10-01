@@ -17,11 +17,6 @@ type Op =
         newState: DocumentState
     /// Server disk mtime after persist. `oldTime` is for undo; apply ignores mismatch.
     | SetUpdateTime of nodeId: NodeId * oldTime: System.DateTime * newTime: System.DateTime
-    /// Persist axis on a content special. `oldState` is for undo. Apply sets `newState`.
-    | SetPersistState of
-        nodeId: NodeId *
-        oldState: PersistState *
-        newState: PersistState
 
 type EventId =
     private
@@ -126,7 +121,6 @@ module Op =
         | Op.SetClasses(nodeId, _, _)
         | Op.SetName(nodeId, _, _)
         | Op.SetUpdateTime(nodeId, _, _) -> [ nodeId ]
-        | Op.SetPersistState _ -> []
         | Op.Replace(parentId, oldChildren, newChildren) ->
             (oldChildren @ newChildren)
             |> List.choose (fun child ->
@@ -172,7 +166,6 @@ module Op =
             // Download stamp alignment and persist tails only touch mtime metadata;
             // they must not require the document to be parsed first.
             false
-        | Op.SetPersistState _ -> false
         | Op.NewSpecialNode _ ->
             // Create and undo introduce or remove the special node. They are not
             // an edit inside an Unparsed document.
@@ -200,19 +193,12 @@ module Op =
             |> List.distinct
             |> List.exists nodeBlocked
 
-    let private applySetPersistState
-        (nodeId: NodeId)
-        (persistState: PersistState)
+    let private applyAllowed
+        (markUnpersisted: bool)
+        (op: Op)
         (state: State)
-        : ApplyResult =
-        match Graph.setPersistState nodeId persistState state.graph with
-        | Error msg -> ApplyResult.Invalid(state, msg)
-        | Ok graph when LanguagePrimitives.PhysicalEquality graph state.graph ->
-            ApplyResult.Unchanged state
-        | Ok graph ->
-            ApplyResult.Changed { state with graph = graph }
-
-    let private applyAllowed (op: Op) (state: State) : ApplyResult =
+        : ApplyResult
+        =
         match op with
         | Op.NewNode(nodeId, text) ->
             if nodeId = Graph.rootId then
@@ -225,13 +211,17 @@ module Op =
                     { state with
                           graph = Graph.addDetachedNode node state.graph }
         | Op.SetText(nodeId, oldText, newText) ->
-            Graph.setText nodeId oldText newText state.graph
+            GraphMutate.setText markUnpersisted nodeId oldText newText state.graph
             |> fromGraphResult state
         | Op.SetClasses(nodeId, oldClasses, newClasses) ->
-            Graph.setClasses nodeId oldClasses newClasses state.graph
+            GraphMutate.setClasses
+                markUnpersisted nodeId oldClasses newClasses state.graph
             |> fromGraphResult state
         | Op.Replace(parentId, oldChildren, newChildren) ->
-            match Graph.replace parentId 0 oldChildren newChildren state.graph with
+            match
+                GraphMutate.replace
+                    markUnpersisted parentId 0 oldChildren newChildren state.graph
+            with
             | Error msg -> ApplyResult.Invalid(state, msg)
             | Ok graph ->
                 let isInvalidOwner child =
@@ -266,7 +256,7 @@ module Op =
                         { state with
                               graph = Graph.addDetachedNode node state.graph }
         | Op.SetName(nodeId, oldName, newName) ->
-            Graph.setName nodeId oldName newName state.graph
+            GraphMutate.setName markUnpersisted nodeId oldName newName state.graph
             |> fromGraphResult state
         | Op.SetDocumentState(nodeId, oldState, newState) ->
             Graph.setDocumentState nodeId oldState newState state.graph
@@ -284,18 +274,28 @@ module Op =
                             graph =
                                 { state.graph with
                                     nodes = Map.add nodeId stamped state.graph.nodes } }
-        | Op.SetPersistState(nodeId, _, newState) ->
-            applySetPersistState nodeId newState state
 
-    let apply (op: Op) (state: State) : ApplyResult =
+    /// Disk parse posts commandName "Parse" and must not write PersistState.
+    let internal marksOwningPersist (commandName: string) =
+        commandName <> "Parse"
+
+    let internal applyAllowing (markUnpersisted: bool) (op: Op) (state: State) : ApplyResult =
         if isBlockedByInaccessibleDocument op state.graph then
             ApplyResult.Invalid(state, unparsedDocumentError)
         else
-            applyAllowed op state
+            applyAllowed markUnpersisted op state
 
-    let applyAll (ops: Op list) (state: State) : ApplyResult =
+    let apply (op: Op) (state: State) : ApplyResult =
+        applyAllowing true op state
+
+    let internal applyAllAllowing
+        (markUnpersisted: bool)
+        (ops: Op list)
+        (state: State)
+        : ApplyResult
+        =
         let step (accState, hasChanged) op =
-            match apply op accState with
+            match applyAllowing markUnpersisted op accState with
             | ApplyResult.Invalid _ as err -> Error err
             | ApplyResult.Unchanged s' -> Ok(s', hasChanged)
             | ApplyResult.Changed s' -> Ok(s', true)
@@ -316,6 +316,9 @@ module Op =
         | Ok(s, false) -> ApplyResult.Unchanged s
         | Ok(s, true) -> ApplyResult.Changed s
 
+    let applyAll (ops: Op list) (state: State) : ApplyResult =
+        applyAllAllowing true ops state
+
     let invert (op: Op) : Op =
         match op with
         | Op.NewNode(id, text) -> Op.NewNode(id, text)
@@ -328,8 +331,6 @@ module Op =
         | Op.SetDocumentState(id, old, new_) ->
             Op.SetDocumentState(id, new_, old)
         | Op.SetUpdateTime(id, old, new_) -> Op.SetUpdateTime(id, new_, old)
-        | Op.SetPersistState(id, old, new_) ->
-            Op.SetPersistState(id, new_, old)
 
     let invertAll (ops: Op list) : Op list =
         let retainReversible =
@@ -383,8 +384,6 @@ module Op =
                             graph =
                                 { state.graph with
                                     nodes = Map.add nodeId restored state.graph.nodes } }
-        | Op.SetPersistState(nodeId, oldState, _) ->
-            applySetPersistState nodeId oldState state
 
     let undo (op: Op) (state: State) : ApplyResult =
         if isBlockedByInaccessibleDocument op state.graph then
@@ -442,7 +441,11 @@ module Ev =
     let apply (event: Ev) (state: State) : ApplyResult =
         match ops event with
         | None -> ApplyResult.Unchanged state
-        | Some opList -> Op.applyAll opList state
+        | Some opList ->
+            Op.applyAllAllowing
+                (Op.marksOwningPersist event.commandName)
+                opList
+                state
 
 /// Validation and apply functions for Change operations with ownership semantics.
 [<RequireQualifiedAccess>]
@@ -648,8 +651,7 @@ module ChangeValidation =
         function
         | Op.Replace _ | Op.NewNode _ | Op.NewSpecialNode _ -> true
         | Op.SetText _ | Op.SetClasses _ | Op.SetName _ | Op.SetDocumentState _
-        | Op.SetUpdateTime _
-        | Op.SetPersistState _ -> false
+        | Op.SetUpdateTime _ -> false
 
     let private invalidOwnedFileDirectoryPlacement
         (graph: Graph)
@@ -715,17 +717,25 @@ module ChangeValidation =
                 |> Option.map Error
                 |> Option.defaultValue (Ok ())
 
-    let applyOpsTrusted (ops: Op list) (state: State) : ApplyResult =
-        Op.applyAll ops state
-
-    let applyOps (ops: Op list) (state: State) : ApplyResult =
-        match applyOpsTrusted ops state with
+    let internal applyOpsAllowing
+        (markUnpersisted: bool)
+        (ops: Op list)
+        (state: State)
+        : ApplyResult
+        =
+        match Op.applyAllAllowing markUnpersisted ops state with
         | ApplyResult.Invalid _ as err -> err
         | ApplyResult.Unchanged s -> ApplyResult.Unchanged s
         | ApplyResult.Changed s ->
             match validateOwnershipForOps s.graph ops with
             | Error msg -> ApplyResult.Invalid(state, msg)
             | Ok () -> ApplyResult.Changed s
+
+    let applyOpsTrusted (ops: Op list) (state: State) : ApplyResult =
+        Op.applyAll ops state
+
+    let applyOps (ops: Op list) (state: State) : ApplyResult =
+        applyOpsAllowing true ops state
 
 /// After DocumentPersistence stamps artifact roots, emit ops for the change log / poll tail.
 [<RequireQualifiedAccess>]
@@ -741,24 +751,14 @@ module PersistStamp =
         if oldTime = newTime then None
         else Some(Op.SetUpdateTime(id, oldTime, newTime))
 
-    let private persistStampOp
-        (id: NodeId)
-        (beforeState: PersistState)
-        (afterState: PersistState)
-        =
-        if beforeState = afterState then None
-        else Some(Op.SetPersistState(id, beforeState, afterState))
-
     let private stampOpsFor (nodeId: NodeId) (beforeNode: Node option) (afterNode: Node) =
-        match beforeNode with
-        | Some beforeNode ->
-            [ timeStampOp nodeId beforeNode.updateTime afterNode.updateTime
-              persistStampOp nodeId beforeNode.persistState afterNode.persistState ]
-            |> List.choose id
-        | None ->
-            match timeStampOp nodeId NodeUpdateTime.missing afterNode.updateTime with
-            | None -> []
-            | Some op -> [ op ]
+        let beforeTime =
+            match beforeNode with
+            | Some node -> node.updateTime
+            | None -> NodeUpdateTime.missing
+        match timeStampOp nodeId beforeTime afterNode.updateTime with
+        | None -> []
+        | Some op -> [ op ]
 
     let opsBetween (before: Graph) (after: Graph) : Op list =
         after.nodes

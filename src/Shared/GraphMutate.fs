@@ -49,7 +49,18 @@ module GraphMutate =
                 { graph with nodes = graph.nodes |> Map.add ownerId updated }
             | _ -> graph
 
+    let private finishPersist
+        (markUnpersisted: bool)
+        (nodeId: NodeId)
+        (graph: Graph)
+        =
+        if markUnpersisted then
+            markOwningSpecialUnpersisted nodeId graph
+        else
+            graph
+
     let setText
+        (markUnpersisted: bool)
         (nodeId: NodeId)
         (oldText: string)
         (newText: string)
@@ -69,9 +80,11 @@ module GraphMutate =
                 else
                     let updatedNode = NodeUpdateTime.touch { node with text = newText }
                     let nodes = graph.nodes |> Map.add nodeId updatedNode
-                    Ok (markOwningSpecialUnpersisted nodeId { graph with nodes = nodes })
+                    let edited = { graph with nodes = nodes }
+                    Ok (finishPersist markUnpersisted nodeId edited)
 
     let setClasses
+        (markUnpersisted: bool)
         (nodeId: NodeId)
         (oldClasses: CssClasses)
         (newClasses: CssClasses)
@@ -91,9 +104,11 @@ module GraphMutate =
                 else
                     let updatedNode = NodeUpdateTime.touch { node with cssClasses = newClasses }
                     let nodes = graph.nodes |> Map.add nodeId updatedNode
-                    Ok (markOwningSpecialUnpersisted nodeId { graph with nodes = nodes })
+                    let edited = { graph with nodes = nodes }
+                    Ok (finishPersist markUnpersisted nodeId edited)
 
     let setName
+        (markUnpersisted: bool)
         (nodeId: NodeId)
         (oldName: string)
         (newName: string)
@@ -158,7 +173,8 @@ module GraphMutate =
                                     NodeUpdateTime.touch
                                         { node with name = Filename.Ok validName; text = validName }
                             let nodes = graph.nodes |> Map.add nodeId updatedNode
-                            Ok (markOwningSpecialUnpersisted nodeId { graph with nodes = nodes })
+                            let edited = { graph with nodes = nodes }
+                            Ok (finishPersist markUnpersisted nodeId edited)
 
     let setDocumentState
         (nodeId: NodeId)
@@ -223,6 +239,7 @@ module GraphMutate =
             Ok { graph with nodes = graph.nodes |> Map.add nodeId updated }
 
     let replace
+        (markUnpersisted: bool)
         (parentId: NodeId)
         (index: int)
         (oldChildren: ChildNode list)
@@ -308,7 +325,7 @@ module GraphMutate =
                                 graph.root
                                 (graph.nodes |> Map.add parentId updatedParent)
                                 (Map.add parentId updatedChildren graph.childMap)
-                    markOwningSpecialUnpersisted parentId committed
+                    finishPersist markUnpersisted parentId committed
 
                 match placementError with
                 | Some msg -> Error msg

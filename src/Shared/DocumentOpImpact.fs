@@ -41,8 +41,7 @@ module DocumentOpImpact =
             parentId
             :: (childListDelta oldChildren newChildren
                 |> ownedChildIds graph parentId)
-        | Op.SetUpdateTime _
-        | Op.SetPersistState _ -> []
+        | Op.SetUpdateTime _ -> []
 
     /// Current writable document roots dirtied by accepted operations and path moves.
     let documentRootsAffectedByOps

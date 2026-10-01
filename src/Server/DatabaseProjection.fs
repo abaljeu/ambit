@@ -93,8 +93,7 @@ module DatabaseProjection =
         | Op.NewSpecialNode(nodeId, _, _)
         | Op.SetName(nodeId, _, _)
         | Op.SetDocumentState(nodeId, _, _)
-        | Op.SetUpdateTime(nodeId, _, _)
-        | Op.SetPersistState(nodeId, _, _) -> nodeId
+        | Op.SetUpdateTime(nodeId, _, _) -> nodeId
 
     let private replacedParentFromOp op =
         match op with

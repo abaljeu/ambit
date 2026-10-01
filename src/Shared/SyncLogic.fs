@@ -60,8 +60,10 @@ module SyncLogic =
         : Result<ClientSyncState * bool, string> =
         let step (st, undid) event =
             let ops = Ev.ops event |> Option.defaultValue []
+            let mark = Op.marksOwningPersist event.commandName
             match
-                ResidentProjection.applyOpsForSync
+                ResidentProjection.applyOpsForSyncAllowing
+                    mark
                     ops
                     (asProjectionState st)
                     { pending = st.pending
@@ -284,8 +286,7 @@ module SyncLogic =
 
     let private isStampOp =
         function
-        | Op.SetUpdateTime _
-        | Op.SetPersistState _ -> true
+        | Op.SetUpdateTime _ -> true
         | _ -> false
 
     let private takeSuffix (prefix: Op list) (ops: Op list) : Result<Op list, string> =

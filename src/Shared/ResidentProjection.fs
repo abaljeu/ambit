@@ -6,31 +6,38 @@ module ResidentProjection =
 
     /// Apply one Op under Loaded rules: header facts only when Resident;
     /// structural Replace only when the parent child list is Loaded.
-    let applyOp (op: Op) (state: State) : ApplyResult =
+    let internal applyOpAllowing (markUnpersisted: bool) (op: Op) (state: State) : ApplyResult =
         match op with
         | Op.SetText(nodeId, _, _)
         | Op.SetClasses(nodeId, _, _)
         | Op.SetName(nodeId, _, _)
         | Op.SetDocumentState(nodeId, _, _)
-        | Op.SetUpdateTime(nodeId, _, _)
-        | Op.SetPersistState(nodeId, _, _) ->
+        | Op.SetUpdateTime(nodeId, _, _) ->
             if Map.containsKey nodeId state.graph.nodes then
-                Op.apply op state
+                Op.applyAllowing markUnpersisted op state
             else
                 ApplyResult.Unchanged state
         | Op.Replace(parentId, _, _) ->
             match Map.tryFind parentId state.graph.nodes with
             | Some _ when GraphChildren.isLoaded state.graph parentId ->
-                Op.apply op state
+                Op.applyAllowing markUnpersisted op state
             | _ ->
                 ApplyResult.Unchanged state
         | Op.NewNode _
         | Op.NewSpecialNode _ ->
-            Op.apply op state
+            Op.applyAllowing markUnpersisted op state
 
-    let applyOps (ops: Op list) (state: State) : ApplyResult =
+    let applyOp (op: Op) (state: State) : ApplyResult =
+        applyOpAllowing true op state
+
+    let internal applyOpsAllowing
+        (markUnpersisted: bool)
+        (ops: Op list)
+        (state: State)
+        : ApplyResult
+        =
         let step (accState, hasChanged) op =
-            match applyOp op accState with
+            match applyOpAllowing markUnpersisted op accState with
             | ApplyResult.Invalid _ as err -> Error err
             | ApplyResult.Unchanged s' -> Ok(s', hasChanged)
             | ApplyResult.Changed s' -> Ok(s', true)
@@ -50,6 +57,9 @@ module ResidentProjection =
         | Error err -> err
         | Ok (s, false) -> ApplyResult.Unchanged s
         | Ok (s, true) -> ApplyResult.Changed s
+
+    let applyOps (ops: Op list) (state: State) : ApplyResult =
+        applyOpsAllowing true ops state
 
     let private casUserMessage (message: string) =
         if message = "old name does not match" then
@@ -104,17 +114,18 @@ module ResidentProjection =
 
     /// Poll/sync apply: when the old-value precondition fails, undo every
     /// pending Graph op, then apply the Server payload.
-    let applyOpForSync
+    let private applyOpForSyncAllowing
+        (markUnpersisted: bool)
         (op: Op)
         (state: State)
         (sync: SyncPending)
         : ApplyResult * string option =
-        match applyOp op state with
+        match applyOpAllowing markUnpersisted op state with
         | ApplyResult.Invalid (s, msg) ->
             match casUserMessage msg with
             | Some userMsg ->
                 let undone = stateAfterUndo (undoAllPending sync s) s
-                match applyOp op undone with
+                match applyOpAllowing markUnpersisted op undone with
                 | ApplyResult.Invalid (s', msg') ->
                     match casUserMessage msg' with
                     | Some still -> ApplyResult.Unchanged s', Some still
@@ -123,13 +134,21 @@ module ResidentProjection =
             | None -> ApplyResult.Invalid (s, msg), None
         | other -> other, None
 
-    let applyOpsForSync
+    let applyOpForSync
+        (op: Op)
+        (state: State)
+        (sync: SyncPending)
+        : ApplyResult * string option =
+        applyOpForSyncAllowing true op state sync
+
+    let internal applyOpsForSyncAllowing
+        (markUnpersisted: bool)
         (ops: Op list)
         (state: State)
         (sync: SyncPending)
         : ApplyResult * string option =
         let step (accState, hasChanged, note) op =
-            match applyOpForSync op accState sync with
+            match applyOpForSyncAllowing markUnpersisted op accState sync with
             | ApplyResult.Invalid _ as err, _ -> Error err
             | ApplyResult.Unchanged s', msg ->
                 Ok (s', hasChanged, firstNote note msg)
@@ -151,6 +170,13 @@ module ResidentProjection =
         | Error err -> err, None
         | Ok (s, false, note) -> ApplyResult.Unchanged s, note
         | Ok (s, true, note) -> ApplyResult.Changed s, note
+
+    let applyOpsForSync
+        (ops: Op list)
+        (state: State)
+        (sync: SyncPending)
+        : ApplyResult * string option =
+        applyOpsForSyncAllowing true ops state sync
 
     /// Install Want-answer edges and pointed-at Nodes. Refuse dangling edges.
     /// Absent `childMap` keys stay Unloaded. A present key, including `[]`,

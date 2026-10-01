@@ -161,9 +161,13 @@ module ChangeAmendment =
 
         foldOps ops state []
 
-    /// Apply Ops, amending recoverable field CAS failures instead of rejecting.
-    let applyOps (ops: Op list) (state: State) : ApplyResult * bool * Op list =
-        match ChangeValidation.applyOps ops state with
+    let private applyMarked
+        (markUnpersisted: bool)
+        (ops: Op list)
+        (state: State)
+        : ApplyResult * bool * Op list
+        =
+        match ChangeValidation.applyOpsAllowing markUnpersisted ops state with
         | (ApplyResult.Changed _ | ApplyResult.Unchanged _) as ok ->
             ok, false, ops
         | ApplyResult.Invalid (_, msg) when isRecoverableCas msg ->
@@ -172,10 +176,26 @@ module ChangeAmendment =
             | Ok amended when amended = ops ->
                 ApplyResult.Invalid(state, msg), false, ops
             | Ok amended ->
-                match ChangeValidation.applyOps amended state with
+                match
+                    ChangeValidation.applyOpsAllowing
+                        markUnpersisted amended state
+                with
                 | ApplyResult.Invalid _ as err -> err, false, ops
                 | ApplyResult.Unchanged _ as unchanged ->
                     unchanged, true, amended
                 | ApplyResult.Changed _ as changed -> changed, true, amended
         | ApplyResult.Invalid _ as err ->
             err, false, ops
+
+    /// Apply Ops, amending recoverable field CAS failures instead of rejecting.
+    let applyOps (ops: Op list) (state: State) : ApplyResult * bool * Op list =
+        applyMarked true ops state
+
+    /// Disk parse (`commandName` Parse) applies without writing PersistState.
+    let applyForCommand
+        (commandName: string)
+        (ops: Op list)
+        (state: State)
+        : ApplyResult * bool * Op list
+        =
+        applyMarked (Op.marksOwningPersist commandName) ops state

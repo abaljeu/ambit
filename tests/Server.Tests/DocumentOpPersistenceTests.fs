@@ -116,12 +116,11 @@ let ``persistGraphOps soft-fails illicit write and returns could-not-save messag
     Assert.Equal("BODY", result.graph.nodes.[bodyId].text)
     Assert.Equal(PersistState.Unpersisted, result.graph.nodes.[fileId].persistState)
     let stampOps = PersistStamp.opsBetween post result.graph
-    Assert.DoesNotContain(
-        stampOps,
-        fun op ->
-            match op with
-            | Op.SetPersistState(id, _, _) when id = fileId -> true
-            | _ -> false)
+    Assert.True(
+        stampOps
+        |> List.forall (function
+            | Op.SetUpdateTime _ -> true
+            | _ -> false))
 
 let private workspaceIdOf (graph: Graph) =
     graph.nodes
@@ -132,18 +131,18 @@ let private markPersisted id graph =
     Graph.setPersistState id PersistState.Persisted graph |> requireOk "clean"
 
 let private assertWrittenFileStamp fileAId wsId (dirty: Graph) (written: PersistGraphOk) =
+    Assert.Equal(PersistState.Persisted, written.graph.nodes.[fileAId].persistState)
+    Assert.Equal(PersistState.Unpersisted, written.graph.nodes.[wsId].persistState)
     let stampOps = PersistStamp.opsBetween dirty written.graph
-    Assert.Contains(
-        stampOps,
-        fun op ->
-            match op with
-            | Op.SetPersistState(
-                id, PersistState.Unpersisted, PersistState.Persisted)
-                when id = fileAId -> true
-            | _ -> false)
+    Assert.True(
+        stampOps
+        |> List.forall (function
+            | Op.SetUpdateTime _ -> true
+            | _ -> false))
     match Op.applyAll stampOps { graph = dirty; eventId = EventId.zero } with
-    | ApplyResult.Changed state ->
-        Assert.Equal(PersistState.Persisted, state.graph.nodes.[fileAId].persistState)
+    | ApplyResult.Changed state
+    | ApplyResult.Unchanged state ->
+        Assert.Equal(PersistState.Unpersisted, state.graph.nodes.[fileAId].persistState)
         Assert.Equal(PersistState.Unpersisted, state.graph.nodes.[wsId].persistState)
     | other -> failwith $"expected stamp ops to apply, got {other}"
 

@@ -230,20 +230,15 @@ let ``JSON without axes derives parse state and defaults persist`` () =
         Assert.Equal(PersistState.Persisted, node.persistState)
 
 [<Fact>]
-let ``SetPersistState op sets the axis and undo restores it`` () =
+let ``graph update sets persist state`` () =
     let graph, id = artifact File "file.txt"
-    let op =
-        Op.SetPersistState(id, PersistState.Persisted, PersistState.Unpersisted)
-    match Op.apply op (freshState graph) with
-    | ApplyResult.Changed next ->
-        Assert.Equal(PersistState.Unpersisted, next.graph.nodes.[id].persistState)
-        match Op.undo op next with
-        | ApplyResult.Changed restored ->
-            Assert.Equal(
-                PersistState.Persisted,
-                restored.graph.nodes.[id].persistState)
-        | _ -> failwith "expected undo"
-    | _ -> failwith "expected Changed"
+    let dirty =
+        Graph.setPersistState id PersistState.Unpersisted graph |> requireOk
+    Assert.Equal(PersistState.Unpersisted, dirty.nodes.[id].persistState)
+    Assert.Empty(PersistStamp.opsBetween graph dirty)
+    let clean =
+        Graph.setPersistState id PersistState.Persisted dirty |> requireOk
+    Assert.Equal(PersistState.Persisted, clean.nodes.[id].persistState)
 
 [<Fact>]
 let ``directory file amb node is excluded from state axes`` () =
@@ -280,36 +275,45 @@ let ``directory file amb node is excluded from state axes`` () =
     Assert.Equal(ParseState.Parsed, stated.nodes.[ambId].parseState)
     Assert.Equal(PersistState.Persisted, stated.nodes.[ambId].persistState)
 
+let private applyDiskParse (ops: Op list) (graph: Graph) : Graph =
+    let state = { graph = graph; eventId = EventId.zero }
+    let result, _, _ = ChangeAmendment.applyForCommand "Parse" ops state
+    match result with
+    | ApplyResult.Changed next
+    | ApplyResult.Unchanged next -> next.graph
+    | ApplyResult.Invalid(_, msg) -> failwith msg
+
 [<Fact>]
-let ``disk parse leaves the file Parsed and Persisted`` () =
-    let fileId = NodeId.New()
-    let lineId = NodeId.New()
-    let graph =
-        Graph.create ()
-        |> Graph.addDetachedNode (
-            Node.Create(
-                fileId,
-                text = "notes.txt",
-                name = Filename.create "notes.txt",
-                kind = Special File))
-        |> Graph.addDetachedNode (Node.Create(lineId, text = "alpha"))
-        |> place fileId lineId
-        |> apply [ Op.SetDocumentState(fileId, Current, Unparsed) ]
-        |> fun g -> Graph.setPersistState fileId PersistState.Unpersisted g |> requireOk
-    let ops =
-        match
-            ImportDocument.planParseFile
-                graph
-                fileId
-                ("beta" + System.Environment.NewLine)
-        with
-        | Ok planned -> planned
-        | Error err -> failwith err
-    let after = apply ops graph
-    Assert.Equal(Current, after.nodes.[fileId].documentState)
-    Assert.Equal(ParseState.Parsed, after.nodes.[fileId].parseState)
-    Assert.Equal(PersistState.Persisted, after.nodes.[fileId].persistState)
-    Assert.Equal("beta", after.nodes.[(Graph.children after fileId).Head.id].text)
+let ``disk parse marks the file Parsed and keeps PersistState`` () =
+    for persist in [ PersistState.Persisted; PersistState.Unpersisted ] do
+        let fileId = NodeId.New()
+        let lineId = NodeId.New()
+        let graph =
+            Graph.create ()
+            |> Graph.addDetachedNode (
+                Node.Create(
+                    fileId,
+                    text = "notes.txt",
+                    name = Filename.create "notes.txt",
+                    kind = Special File))
+            |> Graph.addDetachedNode (Node.Create(lineId, text = "alpha"))
+            |> place fileId lineId
+            |> apply [ Op.SetDocumentState(fileId, Current, Unparsed) ]
+            |> fun g -> Graph.setPersistState fileId persist g |> requireOk
+        let ops =
+            match
+                ImportDocument.planParseFile
+                    graph
+                    fileId
+                    ("beta" + System.Environment.NewLine)
+            with
+            | Ok planned -> planned
+            | Error err -> failwith err
+        let after = applyDiskParse ops graph
+        Assert.Equal(Current, after.nodes.[fileId].documentState)
+        Assert.Equal(ParseState.Parsed, after.nodes.[fileId].parseState)
+        Assert.Equal(persist, after.nodes.[fileId].persistState)
+        Assert.Equal("beta", after.nodes.[(Graph.children after fileId).Head.id].text)
 
 [<Fact>]
 let ``JSON round-trip keeps an explicit Unpersisted axis`` () =

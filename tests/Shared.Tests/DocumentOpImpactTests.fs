@@ -173,14 +173,15 @@ let ``SetUpdateTime has no document artifact impact`` () =
     Assert.Empty(affected)
 
 [<Fact>]
-let ``SetPersistState has no document artifact impact`` () =
+let ``persist axis change has no document artifact impact`` () =
     let graph, _, _, _, fileAId, _, _, _ = graphWithDocuments ()
-    let ops =
-        [ Op.SetPersistState(
-            fileAId,
-            PersistState.Persisted,
-            PersistState.Unpersisted) ]
-    let post = applyOps graph ops
+    let post =
+        Graph.setPersistState fileAId PersistState.Unpersisted graph
+        |> function
+            | Ok g -> g
+            | Error err -> failwith err
+    let ops = PersistStamp.opsBetween graph post
+    Assert.Empty(ops)
     let affected = affectedByOps graph post ops
     Assert.Empty(affected)
 
