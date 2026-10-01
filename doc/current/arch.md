@@ -23,29 +23,14 @@ These projects are in [[gambol.sln]]. A project page waits until this wiki looks
 
 Separate test projects reference only the code under test (Shared vs Server) and keep dependencies clean.
 
-### 1.1 Directory layout
+### 1.1 Additional items
 
-```
-gambol.sln
-src/
-  Client/          Fable MVU app (compiled to src/Server/wwwroot)
-  Server/          HTTP API, FileAgent, DbAgent, auth, static wwwroot
-  Shared/          Model, ops, ViewModel, Snapshot, Serialization, …
-    dotnet/
-    documents/
-  Desktop/         WPF host, LocalProxy, AuthStore
-  CloudAgents/
-  CloudAgents.Console/
-tests/
-  Shared.Tests/
-  Server.Tests/    includes DbAgentTests when TEST_DB_CONNECTION_STRING is set
-  CloudAgents.Tests/
-data/              correlated on-disk document artifacts under DataDir (local dev default)
-doc/               architecture, API notes, deployment, future plans
-scripts/           desktop.sh, fullstack-build.sh, azure helpers
-```
+1. gambol.sln
+2. data/              correlated on-disk document artifacts under DataDir (local dev default)
+3. doc/               architecture, API notes, deployment, future plans
+4. scripts/           desktop.sh, fullstack-build.sh, azure helpers
 
-VS Code: default build runs Fable watch + server (`dev: Watch + Run`). Watch-task Server and F5 (`Local Server` / `Full Stack`) are alternate starters on `:5215` — see [[doc/reference/dev-debug-workflow.md]]. Desktop: `desktop: Run` → `scripts/desktop.sh run`.
+
 
 ## 2. Modules
 
@@ -85,3 +70,7 @@ Reference is primary. Explanation is secondary. One subject is one page, and thi
 - Bias toward small download size and low conceptual overhead
 - Full-stack authored in F# with an immutable domain model
   - Main containers may be mutable; elements should remain immutable
+
+## Building
+
+VS Code: default build runs Fable watch + server (`dev: Watch + Run`). Watch-task Server and F5 (`Local Server` / `Full Stack`) are alternate starters on `:5215` — see [[doc/reference/dev-debug-workflow.md]]. Desktop: `desktop: Run` → `scripts/desktop.sh run`.
