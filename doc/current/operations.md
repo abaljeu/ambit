@@ -1,41 +1,37 @@
 # Operations
 
-Category: Architecture
-See Also: , [[doc/current/browser.md]], [[doc/current/persistence-model.md]], [[doc/current/workspace-graph.md]]
+Category: Capability
 
-A small set of operations transforms a graph of nodes. The graph is a pure, directed, potentially cyclic graph ([[src/Shared/Model.fs]]). Node and Graph fields are [[doc/current/persistence-model.md]]. Workspace special nodes and placement are [[doc/current/workspace-graph.md]].
+See Also:
 
-## Is
+[Browser](browser.md)
+[Persistence model](persistence-model.md)
+[Workspace graph](workspace-graph.md)
+[Gambol.Shared](gambol-shared.md)
 
-**`Change` / `Op`** ([[src/Shared/History.fs]]):
+A small set of operations transforms a graph of nodes.
 
-- `NewNode`, `SetText`, `SetClasses`, `Replace(parent, index, oldChildren, newChildren)`
-- `Change` has `id`, `changeId` (Guid for dedup), `ops`
+## Job
 
-Low-level ops (shared Browser and Server):
+[x] Graph: pure, directed, and potentially cyclic. File: [Model.fs](../../src/Shared/Model.fs).
+[x] `NewNode` creates a node.
+[x] `SetText` sets text from an old value to a new value.
+[x] `SetClasses` sets CSS classes.
+[x] `Replace` replaces children at an index. `Replace` covers a parent-child edge and a ref edge.
+[x] Undo and redo use `History` and inverted ops. Client submits inverses. Server stores the forward log. File: [History.fs](../../src/Shared/History.fs).
 
-- [x] create node (`NewNode`)
-- [x] set text old/new (`SetText`)
-- [x] set CSS classes (`SetClasses`)
-- [x] replace children at index (`Replace` — parent-child and ref edges)
-- [x] undo/redo via `History` + inverted ops (client submits inverses; server stores forward log)
+## Change
 
-Model building:
+[x] `Change`: `id`, `changeId`, and `ops`. `changeId`: Guid for deduplication. File: [History.fs](../../src/Shared/History.fs).
+[x] Op names: `NewNode`, `SetText`, `SetClasses`, and `Replace(parent, index, oldChildren, newChildren)`.
 
-- [x] paste / import text → ops ([[src/Shared/Paste.fs]], [[src/Shared/ImportText.fs]])
+## Model building
 
-High-level ops (derived in the Browser):
+[x] Paste and import of text become ops. Files: [Paste.fs](../../src/Shared/Paste.fs), [ImportText.fs](../../src/Shared/ImportText.fs).
+[ ] Bulk create-from-outline helpers exist beyond paste and import.
 
-- structural delete with promotion, trash ([[src/Shared/ViewModelDeleteOps.fs]])
-- paste, move, search-driven navigation
-- wikilink / `[[filepath]]` handling (desktop hints + import)
+## High-level ops
 
-## Should Become
-
-- [ ] bulk create-from-outline helpers (beyond paste/import)
-
-## Where
-
-- [[src/Shared/Model.fs]]
-- [[src/Shared/History.fs]]
-- [[src/Shared/Paste.fs]], [[src/Shared/ImportText.fs]], [[src/Shared/ViewModelDeleteOps.fs]]
+[x] Browser derives structural delete. That delete promotes children and uses trash. File: [ViewModelDeleteOps.fs](../../src/Shared/ViewModelDeleteOps.fs).
+[x] Browser derives paste, move, and search-driven navigation.
+[x] Browser handles a wikilink and a `[[filepath]]`, with desktop hints and import.

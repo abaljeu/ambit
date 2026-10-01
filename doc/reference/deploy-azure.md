@@ -9,7 +9,6 @@
    - `Auth__Username` = your username
    - `Auth__Password` = your password
    - `WEBSITES_ENABLE_APP_SERVICE_STORAGE` = `true`
-   - `Persistence__Mode` = `db` (production default; use `file` only for rollback/testing)
    - `DB_CONNECTION_STRING` = PostgreSQL connection string (see [[doc/reference/postgres-environments.md]])
    - `DefaultAiKey` = `cursor`
    - `AiKeys:cursor` = the production Cursor API key
@@ -48,26 +47,11 @@ Then deploy via Kudu:
 2. **Tools → Zip Push Deploy**
 3. Drag and drop `site.zip` onto the page
 
-## Upload data (persistence mode)
+## Upload data
 
-Whether you need to seed files depends on **`Persistence:Mode`**:
+The database is the permanent store of graph and event info. See [[doc/current/persistence-model.md]] and [[doc/reference/postgres-environments.md]].
 
-### `db` mode (default production)
-
-- **PostgreSQL is authority.** An empty database starts empty; the app does not import local `data/` files on startup.
-- File upload to `/home/data` is **optional** — used only for backup/export artifacts the server may write, not as the source of truth.
-- Provision and connect Azure Database for PostgreSQL Flexible Server per [[doc/reference/postgres-environments.md]].
-
-### `file` mode (rollback / testing)
-
-Seed the on-disk document (first deploy or migration):
-
-1. Portal → your Web App → **Advanced Tools** → Go (opens Kudu)
-2. **Debug console → CMD**
-3. Navigate to `/home/data/` (server `DataDir` on Azure)
-4. Drag and drop the `.amb` network, `gambol.log`, and `gambol.meta` from your local `data/` folder
-
-Data under `/home/data` persists across redeploys — the zip only overwrites `/home/site/wwwroot/`.
+Data under `/home/data` persists across redeploys. The zip only overwrites `/home/site/wwwroot/`.
 
 ## URLs
 

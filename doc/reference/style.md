@@ -40,7 +40,7 @@ User class assignments live in the `Node` record as `cssClasses: CssClasses`.
 They travel through the existing op/change pipeline:
 - new `Op.SetClasses(nodeId, oldClasses, newClasses)` case (same optimistic-concurrency pattern as `SetText`)
 - posted via the existing `POST /ambit/changes` endpoint
-- applied to the graph and persisted to disk by the FileAgent — no new server endpoint needed
+- applied to the graph through the existing change pipeline — no new server endpoint needed
 - JSON serialization (`encodeNode`/`decodeNode`): gains a `cssClasses` field; old API messages decode with `cssClasses = CssClass.empty`
 - Snapshot text format (disk): after stripping indentation tabs, if line content starts with `{`, the `{...}` block is metadata; everything after `}` is node text
   - metadata is optional; lines without it are written and parsed as plain text (backward compatible)

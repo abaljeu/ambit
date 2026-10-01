@@ -4,7 +4,7 @@ Spec: [spec](spec.md)
 Updated: 2026-10-01
 Sequence: module-build
 
-Core stacks, axes, locks, and the mailbox stay [core-refinement architecture](../core-refinement/arch.md) and [core-refinement map](../core-refinement/map.md). This architecture is the Parse product delta only. A `[x]` hop is already true in code, or it is a Core door this Project cites and does not build. Open Core build stays on that architecture and on [Server](../../doc/current/server.md). A `[ ]` hop is Directory Parse body work.
+Core stacks, axes, locks, and the mailbox stay [core-refinement architecture](../core-refinement/arch.md) and [core-refinement map](../core-refinement/map.md). This architecture is the Parse product delta only. A `[x]` hop is already true in code, or it is a Core door this Project cites and does not build. Open Core build stays on that architecture and on [Core](../../doc/current/core.md). A `[ ]` hop is Directory Parse body work.
 
 Sequence is module-build. The open product delta is one module. Story paths that only cite Core do not add modules. Tests for this Project cross the Directory Parse body. They do not start the mailbox, the workspace lock, or the persist thread.
 
@@ -17,7 +17,7 @@ Sequence is module-build. The open product delta is one module. Story paths that
 
 2. **Continuous Parse**
    1. [x] **One consumer** — The parse thread consumes the stack. It is not a new command.
-   2. [x] **Unparsed start** — Unparsed starts that thread on the Core migrate. Claim: [Server](../../doc/current/server.md).
+   2. [x] **Unparsed start** — Unparsed starts that thread on the Core migrate. Claim: [Parse and persist](../../doc/current/parse-persist.md).
 
 3. **One parse thread**
    1. [x] **Parse thread** — One long-lived consumer. Lock: [03 — One Parse thread stack](../core-refinement/issues/03-one-parse-thread-stack.md).
@@ -32,7 +32,7 @@ Sequence is module-build. The open product delta is one module. Story paths that
    2. [x] **Workspace Node push** — After release, Core pushes the Workspace Node. Same handoff as story path 4 **Reconcile target after files land**.
 
 6. **No Actor after pull**
-   1. [x] **Not an Actor** — The parse thread is a thread. [Server](../../doc/current/server.md) records that.
+   1. [x] **Not an Actor** — The parse thread is a thread. [Parse and persist](../../doc/current/parse-persist.md) records that.
    2. [x] **No new Actor** — Nobody starts an Actor after pull. Lock: [03 — One Parse thread stack](../core-refinement/issues/03-one-parse-thread-stack.md).
 
 7. **Download leaves Parse on the Server**
@@ -116,7 +116,7 @@ Sequence is module-build. The open product delta is one module. Story paths that
 
 1. **Directory Parse body**
    File: `src/Shared/dotnet/DirectoryParse.fs`
-   Claim home: [Server](../../doc/current/server.md)
+   Claim home: [Parse and persist](../../doc/current/parse-persist.md)
 
    1. **State**
       1. [ ] **Whole tie** — The walk covers every node tied to that Directory File, including nodes below the immediate children.
@@ -140,7 +140,7 @@ Sequence is module-build. The open product delta is one module. Story paths that
       7. [x] **Load axis** — Client Load on Directory stays §5 item 8.
       8. [x] **Body rule** — The body is §5 item 10. Product home: [01 — Directory Parse body home](issues/01-directory-parse-body-home.md).
       9. [x] **Locks** — Workspace lock and member locks stay §6. This body does not take them.
-      10. [x] **Claim** — [Server](../../doc/current/server.md) holds the Should Become claim.
+      10. [x] **Claim** — [Parse and persist](../../doc/current/parse-persist.md) holds the Should Become claim.
 
 ## 3. Seams
 

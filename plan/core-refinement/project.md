@@ -23,7 +23,7 @@ Actual: 3h15m
 - 2026-09-30 — Alan locked the Core locking model (drift axes informational not locks, parse thread, persist thread when Unpersisted and Parsed, workspace lock as aggregate, per-member persist locks, filesystem backstop). Home: [[arch.md]] §6. Map decision 13.
 - 2026-09-30 — Alan approved Candidate A: stand §6 workspace lock and per-member persist locks beside `withWorkTreeGate`, migrate Persist/parse/git onto §6, then contract the gate. Home: [[arch.md]] §3 step 4 **§6 locks catch-up**.
 - 2026-09-30 — Alan rejected Candidate B (reading path / index). Sole Core seam authority is this Project ([[arch.md]]). Compact description of the same target: [[plan/architecture/server-core.md]], linked from [[arch.md]] Target — Server Core. Map decision 14.
-- 2026-10-01 — [[arch.md]] stays expand-contract. Map decision 9: no Story paths and no Module map. Stage stays `build`. Committed claim marks are on [[doc/current/server.md]], [[doc/current/workspace-graph.md]], and [[doc/current/persistence-model.md]]. Map §4 (mailbox enable, call, and stop) stays on [[arch.md]] §3 step 6 and is not on [[doc/current/]].
+- 2026-10-01 — [[arch.md]] stays expand-contract. Map decision 9: no Story paths and no Module map. Stage stays `build`. Committed claim marks for Core are on [[doc/current/core.md]] and the pages that hub links. Workspace graph and the persistence model keep their own claim homes. Map §4 (mailbox enable, call, and stop) stays on [[arch.md]] §3 step 6 and is not on [[doc/current/]].
 
 ## Issues
 

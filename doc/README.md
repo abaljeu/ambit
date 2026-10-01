@@ -29,20 +29,6 @@ Start here:
 - [[index.md]] — Feature index of the current program
 - [[roadmap/postgres-roadmap.md]] — persistence-focused roadmap index
 
-Current feature baselines (`current/`):
-
-- [[current/browser.md]] — Fable MVU Browser
-- [[current/server.md]] — Server HTTP, persistence agents, as-built mailbox
-- [[current/operations.md]] — shared graph ops
-- [[current/view.md]] — Browser site tree and line rendering
-- [[current/testing.md]] — xUnit test layers
-- [[current/sync-mvp.md]] — multi-client sync semantics
-- [[current/persistence-model.md]] — PostgreSQL schema, correlated on-disk artifacts, auto-persist from DB
-- [[current/workspace-graph.md]] — workspace special nodes and graph invariants
-- [[current/workspace-local-mapping.md]] — desktop workspace label → local root config
-- [[current/desktop-local-files.md]] — desktop proxy and `/_desktop/*` API
-- [[current/workspace-stage-plan.md]] — implemented workspace stages through Stage 8
-- [[current/workspace-file-sync.md]] — App folder ↔ Server DataDir Upload / Download as-built
 
 Reference (`reference/`):
 

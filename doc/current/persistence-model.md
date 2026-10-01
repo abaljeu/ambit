@@ -1,79 +1,48 @@
 # Persistence model (Graph / Node)
 
-Category: Persistence
-See also: [[doc/current/sync-mvp.md]], , [[doc/reference/postgres-environments.md]], [[doc/roadmap/workspace-file-persistence.md]], [[plan/roadmap/epics/chapters/incremental-operations.md]]
+Category: Information
 
-How Gambol persists the graph: PostgreSQL is always the source of truth; on-disk files under `DataDir` correlate with database nodes and are written automatically from accepted DB state. Want-driven Browser residency is planned on [[plan/roadmap/epics/chapters/incremental-operations.md]].
+See Also:
 
-## Principles
+- [Multi-client sync](sync-mvp.md)
+- [Db agent](db-agents.md)
+- [Parse and persist](parse-persist.md) — persist thread and Core file access
 
-1. **PostgreSQL authority** — The server always runs database-backed. Startup initializes the schema and loads graph state from PostgreSQL only. An empty DB stays empty; startup does not silently import from disk.
+The database is the permanent store of graph and event info.
 
-2. **Correlated files** — A directory tree under `DataDir` holds persisted artifacts that map to graph nodes (workspace, directory, and file document roots). File paths and membership follow the rules in [[doc/roadmap/workspace-file-persistence.md]].
+## Shape
 
-3. **DB-to-disk auto-persist** — Each accepted change commits to PostgreSQL first. The server then writes or updates the correlated on-disk artifacts for affected documents. Disk is a projection of DB state, not a separate authority or startup input.
+### Domain types
 
-   **Explicit post-receive exception:** after a successful Git receive, the server may inspect added paths and submit ordinary graph Changes that create missing Directory/File stubs. It does not parse file contents or import disk state at startup; the accepted graph Change remains authoritative. See [[doc/roadmap/lazy-load.md]].
+[x] Domain types: the abbreviated records in [Model](src/Shared/Model.fs).
 
-4. **No outline blobs in PostgreSQL** — Do not store the file snapshot's **line-oriented outline syntax** as the graph source of truth in SQL (no monolithic `Snapshot.write` text as the projection). That syntax exists only in the **file** layer (`src/Shared/Snapshot.fs`).
+[x] NodeId: `Guid`. PostgreSQL stores it as `UUID`.
 
-5. **Relational schema mirrors `Model.fs` fields** — Tables and columns reflect domain records (`Node`, child lists, `Ownership`, etc.). They do **not** mirror outline indentation or line grammar. **`Graph.parentByChild`** and **`Graph.ownerParentByChild`** are **derived** in code from nodes and child rows (same as `Graph.fromNodes` in `Model.fs`); they need not be stored as separate tables if the node and child-edge data are complete.
+[x] Node: `id`, `text`, `name` (`string option`), `kind`, `children` (`ChildNode list`), and `cssClasses`. `kind` is `NodeKind`: `Normal`, or `Special` of `File`, `Directory`, `Workspace`, or a system kind. `cssClasses` is an ordered list of class names. [CssClass](src/Shared/CssClass.fs).
 
-6. **Append-only change log in PostgreSQL** — Rows in the `changes` table record one persisted `Change` per accepted batch (`payload` = full change JSON). Replay uses `server_revision_after` against the `graph.revision` checkpoint.
+[x] ChildNode: `ref` (`Ownership`) and `id` (`NodeId`).
 
-## Running against PostgreSQL
+[x] Ownership: `Owner` or `Ref`. `Owner` means the child list holds the owning edge. `Ref` means the child list holds a reference.
 
-[[src/Server/Database.fs]] maintains append-only `changes` and a normalized projection: singleton `graph`, `nodes`, `node_children`. The legacy `snapshots` SQL table is dropped on `initSchema` (outline blob checkpoints are not used in PostgreSQL).
-Ordinary accepted batches update the normalized projection incrementally through typed `ProjectionPatch` commands in [[src/Server/DatabaseProjection.fs]]. The planner derives distinct touched node IDs and replaced parent IDs from the accepted, persistence-enriched changes, then reads complete final node and ordered child rows from the applied graph. The transaction upserts only those nodes, deletes and reinserts children only for replaced parents, and advances the singleton revision alongside the appended change log. Duplicate and unchanged submissions issue no projection writes. There is no persistent node deletion command because the submitted operation vocabulary has no delete-node operation.
+[x] Graph: the in-memory data store, with `root` (`NodeId`) and `nodes` (`Map<NodeId, Node>`). Derived maps `parentByChild` and `ownerParentByChild` are computed from the node map and the child lists.
 
-When the graph singleton is absent, the first accepted batch uses the full projection replacement to establish all canonical rows. Explicit document-file rebuilds also retain the full truncate-and-replace path; initialized ordinary writes do not truncate projection tables.
+[x] Root id: fixed, `Graph.rootId` (`Guid.Empty`).
 
-At `DbAgent` startup, projection maintenance loads the complete persisted projection into a frozen Graph, then repairs it in one ACID transaction: unreachable `nodes` are deleted (foreign-key cascades remove incident child rows), and surviving `node_children` ownership is rewritten into a ROOT-owned tree. ROOT and the other canonical IDs are protected defensively; missing Workspaces, SYSTEM, and TRASH rows or Owned-under-ROOT edges are inserted. The planner runs in Shared; the Server commits the plan without appending `changes`, advancing `graph.revision`, or collecting `DataDir` artifacts. After a non-no-op commit, the agent reloads the Graph from the projection so ready state matches the repaired rows. An absent graph singleton is a no-op. A present singleton whose `root_id` is missing from `nodes` fails closed like other maintenance failures.
+### On-disk artifacts
 
-The mailbox is available while startup maintenance runs. During that startup mode it selectively serves `GetState`, `GetRevision`, and `GetChangesSince` against the frozen loaded state while ordinary mutations remain buffered in FIFO order. After a successful maintenance commit and Graph reload (or a no-op that skips reload), the agent publishes readiness and enters its normal serialized receive loop. On maintenance failure, safe reads remain available while queued and new mutations fail closed with the startup error. State and poll responses carry this readiness value; the browser displays `Starting up…` until a successful poll or state response reports that normal queue processing is active. Client mutation controls remain enabled because the server buffers those requests safely.
+[x] Offline file read: the program can start with the database offline. It reads file data and recreates a partial graph. That partial graph is not used for editing.
 
-- **`DB_CONNECTION_STRING`** is required.
-- Startup loads from the DB only; correlated files are not read to rebuild graph state.
-- After each accepted change, the server updates the DB projection and auto-persists affected document artifacts under `DataDir`.
+[x] Document artifacts: the `.amb` format can hold a total graph. The program does not use `.amb` for the whole graph. Each workspace, directory, or file document root has outline or payload text under `DataDir/{label}/...`. Path layout, membership, incremental writes, and path moves: [Workspace file persistence](doc/roadmap/workspace-file-persistence.md).
 
-For automated DB tests, set `TEST_DB_CONNECTION_STRING` (see [[tests/Server.Tests/DbAgentTests.fs]]). Environment setup: [[doc/reference/postgres-environments.md]].
+[x] DataDir default: on-disk artifacts under `DataDir` default to `data/` locally and `/home/data` on Azure. [Database](src/Server/Database.fs), [Database setup](src/Server/DatabaseSetup.fs), [Document loader](src/Server/DocumentLoader.fs). [PostgreSQL environments](doc/reference/postgres-environments.md).
 
----
+[x] Outline syntax: lines are tab-indented. An optional `{...}` class meta is allowed. `Snapshot.read` and `Snapshot.write` in [Snapshot](src/Shared/Snapshot.fs) read and write that syntax. Serialization stops at nested document roots.
 
-## Domain types (reference)
+[x] Parity: defined on `Graph` and revision. It is not a byte-for-byte match of raw outline text to SQL rows.
 
-From `src/Shared/Model.fs` (abbreviated):
+### PostgreSQL schema
 
-- **`NodeId`** — `Guid` (use `UUID` in PostgreSQL).
-- **`Node`** — `id`, `text`, `name` (`string option`), `kind` (`NodeKind`: `Normal` or `Special` of `File` / `Directory` / `Workspace` / system kinds), `children` (`ChildNode list`), `cssClasses` (ordered list of class names; see `CssClass.fs`).
-- **`ChildNode`** — `ref` (`Ownership`), `id` (`NodeId`).
-- **`Ownership`** — `Owner` | `Ref` (whether the child list holds the owning edge or a reference).
-- **`Graph`** — `root` (`NodeId`), `nodes` (`Map<NodeId, Node>`), plus derived maps `parentByChild`, `ownerParentByChild` computed from the node map and child lists.
-
-The canonical root id is fixed: `Graph.rootId` (`Guid.Empty`).
-
----
-
-## On-disk artifacts (correlated with nodes)
-
-Disk files are **projections** of DB state, keyed to document roots in the graph. They are written after successful DB commits and are not read at startup to rebuild the graph.
-
-| Concern | Role |
-|---------|------|
-| **Document artifacts** | Outline or payload text per workspace, directory, or file document root, under `DataDir/{label}/...`. Path layout, membership, incremental writes, and path moves: [[doc/roadmap/workspace-file-persistence.md]]. |
-| **Outline syntax** | Tab-indented lines (optional `{...}` class meta) via `Snapshot.read` / `Snapshot.write` in [[src/Shared/Snapshot.fs]]. Serialization stops at nested document roots. |
-
-Parity between disk and DB is defined on **`Graph`** and **revision**, not on matching raw outline text byte-for-byte to SQL rows.
-
----
-
-## PostgreSQL schema
-
-Auto-created by `Database.initSchema` on startup (four tables). No external migration tool.
-
-### `changes` — append-only log
-
-One row per persisted client change; `payload` is the same JSON string concept as a historical `.log` line (full `Change`, including `ops`).
+[x] changes row: one row records one persisted client change. `payload` is the full `Change` JSON, including `ops`. This is the same JSON string concept as a historical `.log` line.
 
 ```sql
 CREATE TABLE changes (
@@ -88,11 +57,9 @@ CREATE INDEX idx_changes_server_revision_after
     ON changes (server_revision_after);
 ```
 
-`server_revision_after` is the server revision **after** applying that row; replay uses rows with this value greater than the stored checkpoint revision (see `src/Server/Database.fs`).
+[x] `server_revision_after`: the server revision after that row is applied. Replay uses rows whose value is greater than the stored checkpoint revision, `graph.revision`. [Database](src/Server/Database.fs).
 
-### `graph` — `Graph.root` plus server revision (singleton)
-
-`Model.Graph` has `root` and `nodes` (and derived maps). There is no `document_name` in the model; the server holds one outline at a time (e.g. file `gambol`). Persist **`Graph.root`** as `root_id`. **`revision`** is not on `Graph`; it matches `Revision` and tracks the log replay boundary alongside the node projection.
+[x] graph row: the server holds one graph. Store `Graph.root` as `root_id`. `revision` matches `Revision` and is the log replay boundary beside the node projection. `revision` is not a field of `Graph`. The model has no `document_name`.
 
 ```sql
 CREATE TABLE graph (
@@ -102,17 +69,17 @@ CREATE TABLE graph (
 );
 ```
 
-### `nodes` — one row per `Node`
+[x] nodes row: one row is one `Node`. Columns map to `Model.Node` except `children`, which is normalized into `node_children`.
 
-Columns map **`Model.Node`** except **`children`**, which is normalized into `node_children`.
+[x] `id`: `UUID`, `Node.id` (`NodeId`).
 
-| Column        | Type   | `Model.Node` field |
-|---------------|--------|--------------------|
-| `id`          | `UUID` | `id` (`NodeId`)    |
-| `text`        | `TEXT` | `text`             |
-| `name`        | `TEXT` | `name` (nullable)  |
-| `kind`        | `TEXT` | `kind` (`normal`, `file`, `directory`, `workspace`, `workspaces`, `trash`) |
-| `css_classes` | `JSONB` or `TEXT[]` | `cssClasses` (ordered class names) |
+[x] `text`: `TEXT`, `Node.text`.
+
+[x] `name`: `TEXT`, `Node.name` (nullable).
+
+[x] `kind`: `TEXT`, `Node.kind` (`normal`, `file`, `directory`, `workspace`, `workspaces`, `trash`).
+
+[x] `css_classes`: `JSONB` or `TEXT[]`, `Node.cssClasses` (ordered class names).
 
 ```sql
 CREATE TABLE nodes (
@@ -124,11 +91,9 @@ CREATE TABLE nodes (
 );
 ```
 
-`css_classes` stores the same ordered list as `CssClasses` (e.g. JSON `["amb-row-owned"]`).
+[x] `css_classes`: the same ordered list as `CssClasses`. An example value is the JSON `["amb-row-owned"]`.
 
-### `node_children` — `Node.children` as rows
-
-Each row is one **`Model.ChildNode`** in **`parent_id`'s** `children` list, in list order. **`child_id`** is `ChildNode.id`. **`ownership`** maps **`ChildNode.ref`** (`Ownership`): `'owner'` ↔ `Owner`, `'ref'` ↔ `Ref`.
+[x] node_children row: each row is one `Model.ChildNode` in the `children` list of `parent_id`, in list order. `child_id` is `ChildNode.id`. `ownership` maps `ChildNode.ref`: `'owner'` is `Owner`, and `'ref'` is `Ref`.
 
 ```sql
 CREATE TABLE node_children (
@@ -142,38 +107,90 @@ CREATE TABLE node_children (
 CREATE INDEX idx_node_children_child ON node_children (child_id);
 ```
 
-Foreign keys `parent_id` → `nodes(id)` and `child_id` → `nodes(id)` are recommended (bulk rebuild may need deferred constraints or insert order).
+[x] Foreign keys: this `CREATE TABLE` does not declare foreign keys. The recommended keys are `parent_id` to `nodes(id)` and `child_id` to `nodes(id)`. A bulk rebuild may need deferred constraints or a controlled insert order.
 
-**Rebuilding `Graph`:** read the singleton `graph` row for `root_id`. Load all `nodes`, build a map `NodeId → Node` with **`children = []`**. Load `node_children`, sort by `(parent_id, ordinal)`, append `{ ref = …; id = … }` to each parent's `children` list. Call **`Graph.fromNodes root_id`** with the completed `Map<NodeId, Node>` so **`parentByChild`** and **`ownerParentByChild`** match in-memory derivation.
+## Invariants
 
----
+[x] Correlated files: a directory tree under `DataDir` holds persisted artifacts that map to graph nodes. Those nodes are workspace, directory, and file document roots.
 
-## Server implementation
+[x] Database first: each accepted change commits to the database first. The server then writes or updates the correlated on-disk artifacts for the affected documents. After each accepted change, the server updates the database projection and auto-persists those artifacts under `DataDir` for the affected document roots. [Workspace file persistence](doc/roadmap/workspace-file-persistence.md).
 
-([[src/Server/DatabaseSetup.fs]], [[src/Server/Server.fs]], [[src/Server/DbAgent.fs]]):
+[x] Post-receive stubs: after a successful Git receive, the server may inspect added paths and submit ordinary graph Changes that create missing Directory and File stubs. It does not parse file contents. The accepted graph Change stays authoritative. [Lazy load](doc/roadmap/lazy-load.md).
 
-- **`Database.initSchema`** — creates **`changes`**, **`graph`**, **`nodes`**, **`node_children`**; drops legacy **`snapshots`** if present.
-- **`DbAgent`** — loads projection + replays `changes` tail; each accepted change appends a row and applies a typed incremental projection patch in one transaction.
-- **Startup projection repair** — maintenance loads persisted rows, GCs unreachable nodes, repairs `node_children` into a ROOT-owned tree in one transaction, reloads the Graph when anything changed, then enables normal mutation processing.
-- **Projection bootstrap and rebuild** — an absent singleton and explicit document-file rebuilds use the full replacement path; ordinary initialized writes touch only selected node and parent-child rows.
-- **Auto-persist to correlated files** — after a successful DB commit, write or update document artifacts under `DataDir` for affected document roots (see [[doc/roadmap/workspace-file-persistence.md]]). Incremental writes skip unchanged documents.
-- [o] Sync live-save on accepted change is the DataDir write feeder. `DbAgent` calls `DocumentPersistChange.persistGraphOps` / `persistGraphChange` after the DB commit. Stage record: [Workspace stage plan](doc/current/workspace-stage-plan.md) Stage 7.
+[x] No outline blobs: the database does not store the line-oriented outline syntax as the graph source of truth. There is no monolithic `Snapshot.write` text as the projection. That syntax exists only in the file layer, [Snapshot](src/Shared/Snapshot.fs).
 
-## Should Become
+[x] Schema follows the domain: tables and columns reflect domain records `Node`, child lists, `Ownership`, and the other records in [Model](src/Shared/Model.fs). They do not mirror outline indentation or line grammar.
 
-- [ ] The persist thread runs when a node is Unpersisted and Parsed. Its collectors call the persist functions in [[src/Server/DocumentPersistChange.fs]]. The write body is those functions. Setup lives in [[src/Server/Core]].
-- [ ] Core owns read file, write file, read directory, and write directory. Callers pass a node, or a relative path derived from a node. Core holds the absolute DataDir residency.
-- [ ] No caller outside Core builds or holds a DataDir absolute path.
+[x] Derived parent maps: `Graph.parentByChild` and `Graph.ownerParentByChild` are not stored as separate tables when the node and child-edge data are complete.
 
-## Not implemented (see roadmap)
+[x] Append-only log: each row in `changes` records one persisted `Change` per accepted batch. The log is one row per `Change`, not one row per low-level `Op`.
 
-- External migration tooling beyond `initSchema` on startup.
-- Full per-document snapshot layout and incremental file writes — [[doc/roadmap/workspace-file-persistence.md]].
-- Server-authoritative merge and conflict markers — [[doc/roadmap/future-merge-sync.md]].
-- Removal of legacy `Persistence:Mode` / `FileAgent` file-authority path from server startup (code still carries rollback hooks).
+[x] No merge markers: the server does not apply server-authoritative merge or conflict markers. [Future merge sync](doc/roadmap/future-merge-sync.md).
 
----
+## Store
 
-## Why people confuse persistence with the domain
+[x] Projection tables: [Database](src/Server/Database.fs) maintains append-only `changes` and a normalized projection: singleton `graph`, `nodes`, and `node_children`. Outline blob checkpoints are not used in PostgreSQL.
 
-It is natural to assume PostgreSQL "looks like" nested nodes. The **file** side uses a **compact outline syntax** for document artifacts; that is **not** how the relational model should be designed. The **domain** shape is `Model.fs`; SQL should follow that. The **event log** stays one row per `Change`, not one row per low-level `Op`, unless that is changed deliberately later.
+[x] Incremental projection: ordinary accepted batches update the normalized projection incrementally through typed `ProjectionPatch` commands in [Database projection](src/Server/DatabaseProjection.fs).
+
+[x] Touched rows: the planner derives distinct touched node ids and replaced parent ids from the accepted, persistence-enriched changes. It then reads the complete final node rows and ordered child rows from the applied graph.
+
+[x] Projection transaction: the transaction upserts only those nodes. It deletes and reinserts children only for replaced parents. It advances the singleton revision in the same transaction as the appended change log.
+
+[x] No-op writes: duplicate and unchanged submissions issue no projection writes.
+
+[x] No node delete: there is no persistent node-deletion command. The submitted operation vocabulary has no delete-node operation.
+
+[x] First batch: when the graph singleton is absent, the first accepted batch uses full projection replacement and writes all canonical rows.
+
+[x] Rebuild path: explicit document-file rebuilds keep the full truncate-and-replace path. Initialized ordinary writes do not truncate projection tables.
+
+[x] Read root: a `Graph` rebuild reads the singleton `graph` row for `root_id`.
+
+[x] Load nodes: it loads all `nodes` and builds a map `NodeId → Node` with `children = []`.
+
+[x] Load children: it loads `node_children`, sorts by `(parent_id, ordinal)`, and appends `{ ref = …; id = … }` to each parent's `children` list.
+
+[x] Derive maps: it calls `Graph.fromNodes root_id` in [Model](src/Shared/Model.fs) with that map so `parentByChild` and `ownerParentByChild` match the in-memory derivation.
+
+[x] Startup load: at `DbAgent` startup, projection maintenance loads the complete persisted projection into a frozen Graph.
+
+[x] Startup repair: it then repairs that Graph in one ACID transaction. Unreachable `nodes` are deleted. Foreign-key cascades remove the incident child rows. Surviving `node_children` ownership is rewritten into a ROOT-owned tree.
+
+[x] Canonical repair: ROOT and the other canonical ids are protected. Missing Workspaces, SYSTEM, and TRASH rows, or missing Owned-under-ROOT edges, are inserted.
+
+[x] Repair commit: the planner runs in Shared. The Server commits the plan. That commit does not append `changes`, does not advance `graph.revision`, and does not collect `DataDir` artifacts.
+
+[x] Repair reload: after a commit that is not a no-op, the agent reloads the Graph from the projection so ready state matches the repaired rows.
+
+[x] Absent singleton: an absent graph singleton makes this maintenance a no-op.
+
+[x] Missing root: a present singleton whose `root_id` is missing from `nodes` fails closed, as other maintenance failures do.
+
+[x] Startup reads: the mailbox stays available while startup maintenance runs. In that mode it selectively serves `GetState`, `GetRevision`, and `GetChangesSince` from the frozen loaded state. Ordinary mutations stay buffered in FIFO order.
+
+[x] Readiness: after a successful maintenance commit and Graph reload, or after a no-op that skips reload, the agent publishes readiness and enters its normal serialized receive loop.
+
+[x] Maintenance failure: on maintenance failure, safe reads remain available. Queued mutations and new mutations fail closed with the startup error.
+
+[x] Starting up: state and poll responses carry this readiness value. The browser shows `Starting up…` until a successful poll or state response reports that normal queue processing is active. Client mutation controls stay enabled because the server buffers those requests safely.
+
+[x] Connection string: `DB_CONNECTION_STRING` names the database connection.
+
+[x] Unchanged documents: incremental writes skip unchanged documents.
+
+[o] Sync live-save: sync live-save on an accepted change is the `DataDir` write feeder. `DbAgent` calls `DocumentPersistChange.persistGraphOps` / `persistGraphChange` after the database commit.
+
+[ ] Browser residency: want-driven.
+
+[x] Server files: schema init, startup wiring, and the agent are [Database setup](src/Server/DatabaseSetup.fs), [Server](src/Server/Server.fs), and [Db agent](src/Server/Core/DbAgent.fs).
+
+[x] `initSchema`: `Database.initSchema` creates `changes`, `graph`, `nodes`, and `node_children` on startup. It drops legacy `snapshots` when that table is present. There is no external migration tool.
+
+[x] Change apply: `DbAgent` loads the projection and replays the `changes` tail. Each accepted change appends a row and applies a typed incremental projection patch in one transaction.
+
+[x] Test database: automated database tests set `TEST_DB_CONNECTION_STRING`. [DbAgent tests](tests/Server.Tests/DbAgentTests.fs). [PostgreSQL environments](doc/reference/postgres-environments.md).
+
+## Explanation
+
+People can think that PostgreSQL looks like nested nodes. The file side uses a compact outline syntax for document artifacts. That syntax is not the relational model.

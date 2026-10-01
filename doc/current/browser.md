@@ -1,43 +1,35 @@
 # Browser
 
-Category: Architecture
-See Also: [[doc/current/architecture.md]], [[doc/current/view.md]], [[doc/current/operations.md]], [[doc/current/sync-mvp.md]], [[doc/current/desktop-local-files.md]], [[GLOSSARY.md]]
+Category: Capability
 
-The Browser is the spoken name for Gambol.Client ([[GLOSSARY.md]]). It is F# compiled to JavaScript with Fable, and a client-side MVU-style loop. It does local-first editing, renders outline, maintains selection, and syncs via poll + change POST.
+See Also:
 
-## Is
+[View](view.md)
+[Operations](operations.md)
+[Multi-client sync](sync-mvp.md)
+[Desktop local files](desktop-local-files.md)
+[Gambol.Client](gambol-client.md)
 
-The Browser needs to:
+The Browser is the spoken name for Gambol.Client.
 
-- Render “lines” for visible occurrences (respect folding/opened state)
-- Capture keys and drive edits via operations
-- Maintain selection state (nodeview + span)
-- Support undo/redo (client-local history; inverse changes submitted as normal edits)
+## Job
 
-Fable with a tiny MVU loop (no React):
-
-- Model/update in F# compiled to JS (`src/Client/Update*.fs`, `View.fs`)
-- Direct DOM via `Fable.Browser.Dom` (see `other/fable.browser.dom.fs` when needed)
-- `update : VM -> Msg -> VM * Cmd list` (or `VM` only when no cmds)
-- Minimal dependencies; no React stack
-- Served under `/ambit` from server `wwwroot` (Fable `--outDir src/Server/wwwroot`)
-
-When running in the desktop shell, the Browser talks to `localhost` (local proxy). Graph authority remains the cloud server. The App adds `/_desktop/*` for capabilities and local file access ([[doc/current/desktop-local-files.md]]).
-
-The line view is [[doc/current/view.md]]. Sync semantics are [[doc/current/sync-mvp.md]].
-
-## Should Become
-
-No later Browser shape is recorded here.
-
-## Where
-
-- Project: [[src/Client]]
-- `src/Client/Update*.fs`, [[src/Client/View.fs]]
-- Fable output: `src/Server/wwwroot`, served at `/ambit`
+[x] F# compiled to JavaScript with Fable.
+[x] Client-side MVU loop for local-first outline editing, selection, and poll-and-change sync.
+[x] Renders lines for visible occurrences and respects folding and opened state.
+[x] Captures keys and drives edits through operations.
+[x] Maintains selection state as a nodeview plus a span.
+[x] Supports undo and redo as client-local history. The client submits inverse changes as normal edits.
+[x] Model and update: F# compiled to JavaScript. Files: `src/Client/Update*.fs` and `src/Client/View.fs`, in `src/Client`.
+[x] Writes the DOM through `Fable.Browser.Dom`. See `other/fable.browser.dom.fs` when needed.
+[x] The update function has the shape `update : VM -> Msg -> VM * Cmd list`, or returns `VM` only when there are no commands.
+[x] Keeps dependencies minimal. No React stack.
+[x] Server serves the Browser under `/ambit` from `wwwroot`. Fable `--outDir`: `src/Server/wwwroot`.
+[x] In the desktop shell, the Browser talks to `localhost` through the local proxy. Graph authority remains the cloud server.
+[x] The App adds `/_desktop/*` for capabilities and local file access. Detail: Desktop local files.
 
 ## Explanation
 
-Because learning F# is a core project goal, the Browser is authored in F#.
+Learning F# is a core project goal. For this reason, the Browser is authored in F#.
 
-Principle: keep the architecture benefits of MVU while avoiding a heavy UI framework.
+The Browser keeps the architecture benefits of MVU and avoids a heavy UI framework.

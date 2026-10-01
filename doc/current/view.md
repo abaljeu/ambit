@@ -1,31 +1,28 @@
 # View
 
-Category: Architecture
-See Also: [[doc/current/browser.md]], , [[doc/current/workspace-graph.md]]
+Category: Capability
 
-The Browser view layer is not the server graph. It is the site tree, the selection span, and line rendering.
+See Also:
 
-## Is
+[Browser](browser.md)
+[Workspace graph](workspace-graph.md)
+[Gambol.Client](gambol-client.md)
+[Gambol.Shared](gambol-shared.md)
 
-Site/composite model:
+The Browser view layer is the site tree, the selection span, and line rendering.
 
-- type sitenode (conceptual)
-- node + occurrence scope
-- opened (include children)
-- children : nodeview list
-- root : sitenode; selection : nodeview + span
+## Site
 
-Lines:
+[x] Conceptual type: sitenode.
+[x] A sitenode holds a node and an occurrence scope.
+[x] Opened means the view includes children.
+[x] Children: a nodeview list.
+[x] Root: a sitenode. Selection: a nodeview plus a span.
+[x] Site model lives in `src/Shared/ViewModel.fs`.
 
-- viewroot → nodeview + trace
-- lines: editable, key capture, recursive sitenodes respecting fold state
-- incremental line updates on site node replace/remove/insert
+## Lines
 
-## Should Become
-
-No later view shape is recorded here.
-
-## Where
-
-- [[src/Shared/ViewModel.fs]]
-- [[src/Client/View.fs]]
+[x] `viewroot` yields a nodeview and a trace.
+[x] Lines are editable, capture keys, and recurse through sitenodes while they respect fold state.
+[x] Line updates are incremental on site-node replace, remove, and insert.
+[x] Line rendering lives in `src/Client/View.fs`.

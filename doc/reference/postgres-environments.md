@@ -9,7 +9,7 @@ On desktop, db password is postgres/postgres.
 
 ## Current state
 
-- **Code:** `Database.fs` and `DbAgent.fs` are implemented. PostgreSQL is the authority; legacy `Persistence:Mode` / `FileAgent` rollback hooks remain in code pending removal.
+- **Code:** `Database.fs` and `DbAgent.fs` are implemented. The database is the permanent store of graph and event info. See [[doc/current/persistence-model.md]].
 - **Schema:** Auto-created by `Database.initSchema` on startup (4 tables: `changes`, `graph`, `nodes`, `node_children`). No external migration tool.
 - **Production:** Azure App Service (`Amble`) has a production PostgreSQL host: Azure Database for PostgreSQL Flexible Server `gambol-pg` in `Canada Central`, with database `gambol`. Network access from App Service to the DB has already been configured.
 - **Dev:** Requires `DB_CONNECTION_STRING` and a running PostgreSQL instance (Docker Compose or native install below).
@@ -216,11 +216,10 @@ Phased rollout from flat-file authority to PostgreSQL-primary is complete.
 
 ### Current direction
 
-- **Always database-backed** — no persistence mode switch.
-- **Correlated files** — `DataDir` artifacts map to document nodes; DB edits auto-persist to disk.
-- **Legacy cleanup** — remove `Persistence:Mode` / `FileAgent` file-authority path from server startup.
+- **Database.** The database is the permanent store of graph and event info.
+- **Offline start.** The program can start with the database offline, read file data, and recreate a partial graph. That partial graph is not used for editing.
 
-See [[doc/current/persistence-model.md]] and [[doc/roadmap/workspace-file-persistence.md]].
+See [[doc/current/persistence-model.md]].
 
 ---
 

@@ -11,7 +11,7 @@ Implemented baselines in [[doc/current/]].
 
 ### **Product and architecture**
 Details: [[doc/current/architecture.md]].
-Summary: Architecture wiki home. The first Reference view is the project structure.
+Summary: The architecture wiki home links building blocks, capabilities, information, and contracts, and project structure is the first view.
 
 ### **Browser**
 Details: [[doc/current/browser.md]].
@@ -19,7 +19,11 @@ Summary: Fable MVU loop, outline render, selection, and client-local undo.
 
 ### **Server**
 Details: [[doc/current/server.md]].
-Summary: `/ambit` HTTP, persistence agents, and the as-built Core mailbox. Core behavior: [Server Core](plan/architecture/server-core.md).
+Summary: `/ambit` HTTP, cookie auth, and the change log. Core is [[doc/current/core.md]].
+
+### **Core**
+Details: [[doc/current/core.md]].
+Summary: Server subsystem. The hub links the mailbox, parse and persist, the file agent, the db agent, and Actors.
 
 ### **Operations**
 Details: [[doc/current/operations.md]].
@@ -43,7 +47,7 @@ Summary: Change batches, acked change IDs, polling, and last-write-wins server a
 
 ### **Persistence (PostgreSQL + correlated files)**
 Details: [[doc/current/persistence-model.md]].
-Summary: PostgreSQL is always authoritative; on-disk document artifacts correlate with graph nodes and auto-persist from DB edits.
+Summary: The database keeps graph and event info. A start with the database offline reads file data into a partial graph. That partial graph is not used for editing.
 
 ### **Workspace graph**
 Details: [[doc/current/workspace-graph.md]].

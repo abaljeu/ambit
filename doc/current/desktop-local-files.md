@@ -1,124 +1,89 @@
 # Desktop local files
 
-Category: Desktop
-See also: [[doc/current/workspace-local-mapping.md]], [[doc/current/workspace-graph.md]], [[doc/current/workspace-file-sync.md]], , [[plan/transport-layer/project.md]]
+Category: Capability
 
-Implemented baseline for the Gambol desktop host: WPF WebView2 + local HTTP proxy in front of the cloud API. The cloud server remains authoritative for the graph; the desktop adds loopback-only filesystem access.
+See Also
+[Workspace local mapping](workspace-local-mapping.md)
+Label-to-path bindings.
+[Workspace graph](workspace-graph.md)
+[Workspace file sync](workspace-file-sync.md)
+Scoped WebDAV Upload and Download.
+[Gambol.Desktop](gambol-desktop.md)
+[Gambol.Client](gambol-client.md)
+[Gambol.Shared](gambol-shared.md)
+[Workspace WebDAV](doc/roadmap/workspace-webdav.md)
 
-Tree sync (Upload / Download over WebDAV, with ensure-map) is [[doc/current/workspace-file-sync.md]]. Server DAV leftover: [[doc/roadmap/workspace-webdav.md]]. Forward file-channel redesign: [[plan/transport-layer/project.md]].
+Server DAV leftover.
 
-## Architecture
+The desktop host is WPF WebView2 plus a local HTTP proxy in front of the cloud API.
 
-```mermaid
-flowchart LR
-  WebView2 --> LocalProxy
-  LocalProxy -->|"/ambit/*"| Cloud
-  LocalProxy -->|"/_desktop/*"| LocalFS
-```
+## Job
 
-- **UI:** `Gambol.Desktop` (`src/Desktop/Desktop.fs`) — WebView2 loads the local proxy URL.
-- **Proxy:** `src/Desktop/LocalProxy.fs` — forwards `/ambit/*` and static assets to the configured cloud base URL; handles `/_desktop/*` locally.
-- **Auth:** `AuthStore.fs` stores cloud session cookie so the proxied app is authenticated.
-
-Target URL resolution: `--local`, `--cloud`, `--target <url>`, or `GAMBOL_TARGET_URL`.
+[x] The cloud server remains authoritative for the graph.
+[x] The desktop adds loopback-only filesystem access.
+[x] UI: Gambol.Desktop in [Desktop.fs](src/Desktop/Desktop.fs). WebView2 loads the local proxy URL.
+[x] The proxy in [LocalProxy.fs](src/Desktop/LocalProxy.fs) forwards `/ambit/*` and static assets to the configured cloud base URL.
+[x] The proxy handles `/_desktop/*` on the local host.
+[x] `AuthStore.fs` stores the cloud session cookie so the proxied app is authenticated.
+[x] Target URL resolution uses `--local`, `--cloud`, `--target <url>`, or `GAMBOL_TARGET_URL`.
 
 ## Capabilities
 
-`GET /_desktop/capabilities` returns JSON decoded by [[src/Shared/DesktopCapabilities.fs]].
-
-Desktop host enabled shape:
-
-```json
-{"file":{"open":false,"import":true,"export":true,"status":true,"workspacePaths":true},"git":{"git":true}}
-```
-
-| Key | Meaning |
-|-----|---------|
-| `open` | Launch file with default application (not implemented) |
-| `import` | Read local file into graph via import command |
-| `export` | Write owned children to local file |
-| `status` | Query path status for file-reference indicator |
-| `workspacePaths` | Resolve `//label/relative` paths via local workspace mapping |
-| `git.git` | Host has ignore-filter binary on PATH (needed for Upload ignore via `check-ignore`; not for pack transport) |
-
-Web client (no desktop host): capabilities request fails; all flags treated as disabled.
+[x] `GET /_desktop/capabilities` returns JSON for capability discovery. [DesktopCapabilities.fs](src/Shared/DesktopCapabilities.fs) decodes that JSON.
+[x] The enabled desktop shape is `file.open` false, `file.import` true, `file.export` true, `file.status` true, `file.workspacePaths` true, and `git.git` true.
+[x] `open`: launch a file with the default application.
+[x] `import`: read a local file into the graph through the import command.
+[x] `export`: write owned children to a local file.
+[x] `status`: query path status for the file-reference indicator.
+[x] `workspacePaths`: resolve a `//label/relative` path through local workspace mapping.
+[x] `git.git`: the host has the ignore-filter binary on PATH. Upload ignore uses `check-ignore`. Pack transport does not use this flag.
+[x] On the web client, the capabilities request fails. The client treats every flag as disabled.
+[x] The host does not open a file or a workspace root in the system explorer.
 
 ## Endpoints
 
-| Method | Path | Role |
-|--------|------|------|
-| `GET` | `/_desktop/capabilities` | Capability discovery |
-| `POST` | `/_desktop/file-status` | Path status for active-row indicator |
-| `GET` | `/_desktop/file?path=...` | Read local file or directory listing (import) |
-| `POST` | `/_desktop/file` | Write content to local file (export) |
-| `GET` | `/_desktop/workspace-mappings` | List label → path bindings |
-| `PUT` | `/_desktop/workspace-mappings` | Upsert `{label,path}` or replace full `workspaceMappings` array; persists config |
-| `POST` | `/_desktop/pick-folder` | Native folder browse; `{cancelled,path}` |
-| `POST` | `/_desktop/workspace-push` | Scoped Upload (WebDAV) for mapped label |
-| `POST` | `/_desktop/workspace-pull` | Blocking scoped pull (WebDAV) for mapped label |
-| `POST` | `/_desktop/workspace-download` | Enqueue Download manager job |
-| `GET` | `/_desktop/workspace-download?id=…` | Download job status |
-| `POST` | `/_desktop/workspace-inventory` | Local scoped inventory |
-| `POST` | `/_desktop/workspace-sync-ledger` | Ledger rows for a mapped label |
+[x] `POST /_desktop/workspace-inventory` returns a local scoped inventory.
+[x] Clients use `/_desktop/file`.
 
-Legacy `/_desktop/import` and `/_desktop/export` are removed; clients use `/_desktop/file`. `/_desktop/detect-git` is removed (unused).
+## File status
 
-### File status
+[x] `POST /_desktop/file-status` takes `{ "path": "..." }`.
+[x] Response: `{ "path": "...", "status": "invalid" | "create" | "file" | "folder" }`.
+[x] The response may include `sourceModifiedUtc` when the path exists on disk.
+[x] The client requests status for the active-row indicator when the active row has a valid `[[path]]` or a workspace path reference, and the `status` capability is enabled.
+[x] Indicator text: `...`, `invalid`, `create`, `file`, or `folder`.
 
-`POST /_desktop/file-status` with `{ "path": "..." }`.
+## File read
 
-Response: `{ "path": "...", "status": "invalid" | "create" | "file" | "folder" }`.
+[x] `GET /_desktop/file?path=<url-encoded-path>` reads a local file or a directory listing for import.
+[x] A file returns `DesktopImportPackage` JSON. The client applies that package through normal cloud sync.
+[x] A directory returns a synthetic listing, one `[[name]]` line per entry, as an import package with `isDirectory: true`.
 
-Optional `sourceModifiedUtc` may be present when the path exists on disk.
+## File write
 
-The client requests status when the active row has a valid `[[path]]` or workspace path reference and `status` capability is enabled. Indicator text: `...`, `invalid`, `create`, `file`, `folder`.
-
-### File read (import)
-
-`GET /_desktop/file?path=<url-encoded-path>`
-
-- **File:** returns `DesktopImportPackage` JSON for the client to apply via normal cloud sync.
-- **Directory:** returns a synthetic listing (one `[[name]]` line per entry) as import package with `isDirectory: true`.
-
-### File write (export)
-
-`POST /_desktop/file` with `{ "path": "...", "content": "..." }`.
-
-Writes tab-indented child text to a local file. Rejects directories. Response: `{ "path": "..." }`.
+[x] `POST /_desktop/file` takes `{ "path": "...", "content": "..." }`.
+[x] The write sends tab-indented child text to a local file.
+[x] The write rejects a directory.
+[x] Response: `{ "path": "..." }`.
 
 ## Path forms
 
-Resolved by `LocalProxy` using process current directory and workspace mapping (see [[doc/current/workspace-local-mapping.md]]):
+[x] [LocalProxy.fs](src/Desktop/LocalProxy.fs) resolves a path with the process current directory and the workspace mapping.
+[x] A wikilink relative path has a form such as `note.txt` from `[[note.txt]]`.
+[x] An absolute path has a form such as `D:\projects\doc.md`.
+[x] A workspace-relative path has a form such as `//home/src/lib.fs`.
 
-| Form | Example |
-|------|---------|
-| Wikilink relative | `note.txt` from `[[note.txt]]` |
-| Absolute | `D:\projects\doc.md` |
-| Workspace-relative | `//home/src/lib.fs` |
+## Commands
 
-## Client commands
-
-Registered in the command palette (`src/Client/Commands.fs`):
-
-- **Import** — reads local file at the focus row's first file reference; replaces that node's children (via `UpdateImport.fs`, `GET /_desktop/file`).
-- **Export** — serializes owned children of the focus row to the local file at its file reference (via `UpdateExport.fs`, `POST /_desktop/file`).
-- **Upload** (`Ctrl+Shift+>`) — ensure-map (pick-folder + mapping Put when needed) then scoped WebDAV push; Workspaces focus creates a named workspace from the folder basename; File focus then Parses. Requires `git.git` capability for ignore filtering only ([[doc/current/workspace-file-sync.md]]).
-- **Download** (`Ctrl+Shift+<`) — ensure-map then enqueue `workspace-download` for named Workspace / Directory / File.
-
-Results surface in `#cmd-last-result`. Standalone Map / Connect / Clone / pack Push / Status commands are removed.
-
-Import/Export require matching desktop capabilities (`import` / `export`) and are blocked during command palette, search dialog, and CSS-class prompt modes.
+[x] The command palette registers the commands in [Commands.fs](src/Client/Commands.fs).
+[x] Import reads the local file at the focus row's first file reference and replaces that node's children. The command uses `UpdateImport.fs` and `GET /_desktop/file`.
+[x] Export serializes the owned children of the focus row to the local file at its file reference. The command uses `UpdateExport.fs` and `POST /_desktop/file`.
+[x] Ignore filtering requires the `git.git` capability.
+[x] Results appear in `#cmd-last-result`.
+[x] The palette has no standalone Map, Connect, Clone, pack Push, or Status command.
+[x] Import and Export require the matching capabilities `import` and `export`.
+[x] Import and Export are blocked during the command palette, the search dialog, and the CSS-class prompt.
 
 ## Config
 
-Workspace label → local root mappings: `%LocalAppData%/Gambol/config.json`. Loaded at proxy startup; readable/writable via `/_desktop/workspace-mappings`. See [[doc/current/workspace-local-mapping.md]].
-
-WebView2 user data: `%LocalAppData%/Gambol/WebView2`.
-
-## Not implemented
-
-- Open file or workspace root in system explorer.
-- Startup workspace registration (sync local config labels to cloud graph).
-- Full workspace filesystem API (`GET workspaces`, dir/file CRUD with `modifiedUtc` conflicts) — see [[doc/current/workspace-stage-plan.md]] §4.
-- `open` capability (launch file with default application).
-- Persistent sync chrome beyond `#cmd-last-result`.
+[x] WebView2 user data lives in `%LocalAppData%/Gambol/WebView2`.

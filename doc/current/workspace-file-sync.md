@@ -1,131 +1,115 @@
 # Workspace file sync
 
-Category: Sync
-See also: [[doc/current/workspace-local-mapping.md]], [[doc/current/desktop-local-files.md]], [[doc/current/workspace-graph.md]], [[doc/current/sync-mvp.md]], [[plan/transport-layer/project.md]], [[plan/auto-download-persisted-files/project.md]], [[doc/roadmap/workspace-webdav.md]], [[doc/roadmap/workspace-upload-client-structure.md]], [[plan/github-transport/project.md]]
+Category: Capability
 
-Implemented baseline for App folder ↔ Server `DataDir/{label}/` tree transfer. Transport is WebDAV Class 1. This is not Graph Sync ([[doc/current/sync-mvp.md]]). This is not send to and from GitHub ([[plan/github-transport/project.md]]).
+See Also
 
-Mapping a Workspace label to a local folder is [[doc/current/workspace-local-mapping.md]]. Desktop host endpoints are [[doc/current/desktop-local-files.md]]. Directory File `.amb` as a graph artifact is [[doc/current/workspace-graph.md]].
+[Workspace local mapping](workspace-local-mapping.md)
+[Desktop local files](desktop-local-files.md)
+[Workspace graph](workspace-graph.md)
+[Multi-client sync](sync-mvp.md)
+[Gambol.Desktop](gambol-desktop.md)
+[Gambol.Server](gambol-server.md)
+[Gambol.Shared.DotNet](gambol-shared-dotnet.md)
+[Workspace WebDAV](doc/roadmap/workspace-webdav.md)
+Server HTTP surface and the required `getlastmodified` listings.
 
-## 1. Transport
+[Workspace upload client structure](doc/roadmap/workspace-upload-client-structure.md)
 
-Client Upload and Download do not use remotes or smart-HTTP pack transport. The Server mount is `/ambit/dav/{label}/…` onto `DataDir/{label}/`. Class 1 methods in use: `PROPFIND`, `GET`, `PUT`, `MKCOL`. Server HTTP surface and required `getlastmodified` listings: leftover [[doc/roadmap/workspace-webdav.md]].
+Client-first stubs and bulk caps.
 
-After a Push batch the desktop calls `_prepare-push` then `_finish-commit` on that mount. `_prepare-push` runs `WorkspaceGit.jitCommitBeforeWorkspacePush` when DataDir is dirty. `_finish-commit` add/commits through [[src/Server/WorkspaceGit.fs]] / [[src/Server/GitSave.fs]] so Server `HEAD` advances.
+[Lazy load](doc/roadmap/lazy-load.md)
 
-Same `/ambit` session auth as other app routes. No separate PAT for Upload or Download.
+Reconcile remains for web and for repair.
 
-## 2. Inventory and ignore
+Workspace file sync transfers a tree between an App folder and Server `DataDir/{label}/` over WebDAV Class 1.
 
-**Inventory** is the candidate path list for a scoped transfer before bytes move. Ignore filtering runs on that list. The inventory **source** differs by direction.
+## Job
 
-| Direction | Inventory source | Then |
-| --- | --- | --- |
-| **Upload** | Local walk under the mapped scope (Workspace, Directory prefix, or File) | `git check-ignore --no-index` against the mapped root; remaining paths may upload |
-| **Download** | Server `PROPFIND` under `/ambit/dav/{label}/…` for the same scope | DataDir check-ignore reduces the listing; remaining paths may download |
+[x] Upload (`Ctrl+Shift+>`) ensures a map, then creates client stubs, then pushes bodies over WebDAV with prepare-push and finish-commit. Ensure-map: pick-folder plus Put when the label is unmapped. Workspaces focus creates a named Workspace from the folder basename. File focus then Parses.
+[x] Download (`Ctrl+Shift+<`) ensures a map, then enqueues `workspace-download`. Target: a named Workspace, Directory, or File. Target: not ROOT and not Workspaces.
+[x] ROOT and Workspaces cannot acquire a mapping.
+[x] Focus sets the scope. Workspace: the whole tree. Directory: a relative prefix. File: one path.
 
-Always skip `.git/` regardless of ignore rules. `.gitignore` files themselves stay transferable (same exception as [[src/Server/IgnoredDestination.fs]]).
+## Transport
 
-Upload ignore source of truth is the local mapped tree (`GIT_WORK_TREE` = mapped root). Download ignore source of truth is Server `DataDir/{label}/` rules applied when building `PROPFIND`. Server also rejects `PUT` to an ignored destination.
+[x] Client Upload and Download do not use a remote and do not use smart-HTTP pack transport.
+[x] Server mount: `/ambit/dav/{label}/…` on `DataDir/{label}/`.
+[x] Class 1 methods in use: `PROPFIND`, `GET`, `PUT`, and `MKCOL`.
+[x] After a Push batch, the desktop calls `_prepare-push`, then `_finish-commit`, on that mount.
+[x] `_prepare-push` runs `WorkspaceGit.jitCommitBeforeWorkspacePush` when DataDir is dirty.
+[x] `_finish-commit` adds and commits through [WorkspaceGit.fs](src/Server/WorkspaceGit.fs) and [GitSave.fs](src/Server/GitSave.fs), so Server `HEAD` advances.
+[x] Upload and Download use the same `/ambit` session auth as the other app routes. They do not use a separate PAT.
 
-Code: [[src/Shared/dotnet/WorkspaceLocalInventory.fs]], [[src/Shared/dotnet/GitCheckIgnore.fs]], [[src/Server/IgnoredDestination.fs]].
+## Inventory
 
-If the desktop ignore-filter binary is not on PATH, Upload still walks the scope and still skips `.git/`. It does not fail the command. The result detail says the filter was skipped.
+[x] Inventory: the candidate path list for a scoped transfer, before bytes move.
+[x] Ignore filtering runs on that list. The inventory source depends on the direction.
+[x] Upload inventory: a local walk under the mapped scope: Workspace, Directory prefix, or File. Then `git check-ignore --no-index` runs against the mapped root. The remaining paths may upload.
+[x] Download inventory: a Server `PROPFIND` under `/ambit/dav/{label}/…` for the same scope. DataDir check-ignore reduces the listing. The remaining paths may download.
+[x] Transfer always skips `.git/`, with no dependence on ignore rules.
+[x] A `.gitignore` file itself stays transferable. The same exception is in [IgnoredDestination.fs](src/Server/IgnoredDestination.fs).
+[x] Upload ignore source of truth: the local mapped tree. `GIT_WORK_TREE`: the mapped root.
+[x] Download ignore source of truth: the rules in Server `DataDir/{label}/`, applied when the server builds `PROPFIND`.
+[x] The server rejects `PUT` to an ignored destination.
+[x] Inventory code: [WorkspaceLocalInventory.fs](src/Shared/dotnet/WorkspaceLocalInventory.fs), [GitCheckIgnore.fs](src/Shared/dotnet/GitCheckIgnore.fs), and [IgnoredDestination.fs](src/Server/IgnoredDestination.fs).
+[x] When the desktop ignore-filter binary is not on PATH, Upload still walks the scope and still skips `.git/`. The command does not fail. The result detail says the filter was skipped.
+[x] WebDAV transfers an exact `.amb` file, so Upload and Download keep the Directory File body.
 
-WebDAV still transfers an exact `.amb` file so Upload and Download keep the Directory File body. Graph consumers treat that file as the persistence artifact of the containing Directory or Workspace. DAV inventory must not create a child File Node named `.amb`.
+## Upload
 
-## 3. Upload
+[x] Desktop `post` runs JIT `_prepare-push`, then local inventory, then classify and plan, then client Directory and File stubs, then eligible WebDAV `PUT` bodies smallest-first, then `_finish-commit`.
+[x] The `PUT` sends the local mtime on `X-Gambol-Source-Mtime`.
+[x] An eligible bulk file is at most 1 MiB. Only eligible files and eligible bytes count toward the caps.
+[x] At most 1,500 eligible files and 16 MiB of eligible bytes keep the full structure, and the client uploads every eligible body.
+[x] Over either cap, the client keeps immediate-child structure and uploads the eligible top-level bodies.
+[x] An oversized selected file keeps a `NoServerFile` stub. The client transfers no body for that file.
+[x] A direct single-file Upload keeps a 4 MiB body limit and does not skip on mtime.
+[x] A new File stub shows `∅` until PUT or an mtime skip confirms a server body, then shows `…` until Parse.
+[x] Desktop Upload does not run a post-upload disk-to-graph reconcile.
+[x] Code: [WorkspaceFileSync.fs](src/Shared/dotnet/WorkspaceFileSync.fs) `post`, [WorkspaceDavClient.fs](src/Shared/dotnet/WorkspaceDavClient.fs), [WorkspaceCloudUpload.fs](src/Shared/dotnet/WorkspaceCloudUpload.fs), and `POST /_desktop/workspace-push`.
 
-**Post** on the desktop: JIT `_prepare-push` → local inventory → classify/plan → client Directory / File stubs → eligible WebDAV `PUT` bodies smallest-first (local mtime on `X-Gambol-Source-Mtime`) → `_finish-commit`.
+## Download
 
-Client-first stubs and bulk caps: leftover [[doc/roadmap/workspace-upload-client-structure.md]]. Implemented caps that the planner uses:
+[x] Download fetches every non-ignored directory and every non-ignored file in the selected server scope.
+[x] Upload bulk caps do not restrict Download.
+[x] The Download command enqueues a desktop job. The command does not block the Browser on the transfer.
+[x] Enqueue: `POST /_desktop/workspace-download` with `{ label, relative, kind }`.
+[x] Status: `GET /_desktop/workspace-download?id=…`.
+[x] The queue holds one Running job and at most one Queued job. The queue refuses a third enqueue.
+[x] Stage path: `%TEMP%/gambol-dl-tmp/{jobId}`. The job then promotes files into the mapped root.
+[x] The client sets the local file mtime from the `PROPFIND` value `getlastmodified`.
+[x] Code: [WorkspaceDownloadManager.fs](src/Desktop/WorkspaceDownloadManager.fs), [WorkspaceDownloadQueue.fs](src/Shared/dotnet/WorkspaceDownloadQueue.fs), and [WorkspaceFileSync.fs](src/Shared/dotnet/WorkspaceFileSync.fs) `getStaged`.
+[x] `POST /_desktop/workspace-pull` still runs a blocking scoped pull on the same Get path for a mapped label.
+[x] The Download command uses the manager. The Download command does not use that blocking route.
 
-- Eligible bulk file is `≤1 MiB`. Only eligible files and bytes count toward caps.
-- At most 1,500 eligible files and 16 MiB eligible bytes keep full structure and upload every eligible body.
-- Over either cap: keep immediate-child structure and upload eligible top-level bodies.
-- Oversized selected file: keep a `NoServerFile` stub; transfer no body.
-- Direct single-file Upload keeps a 4 MiB body limit and does not mtime-skip.
+## Ledger
 
-New File stubs show `∅` until PUT or mtime skip confirms a server body, then `…` until Parse. Desktop Upload does not run post-upload disk→graph reconcile. Reconcile remains for web / repair ([[doc/roadmap/lazy-load.md]]).
+[x] Per-path ledger: `%LocalAppData%/Gambol/sync-ledger-{label}.json`, beside the mappings file `config.json`.
+[x] The first scoped Upload or Download seeds the ledger from a full-workspace `PROPFIND` plus the local inventory.
+[x] A later scoped sync updates only the touched rows.
+[x] For a Directory scope or a Workspace scope, skip-if-newer uses UTC. Upload skips PUT when the server mtime is the same as the local mtime or newer. Download skips GET when the local mtime is the same as the server mtime or newer.
+[x] File scope always allows the transfer.
+[x] A skipped Upload still reparses.
+[x] `MKCOL` stays idempotent. Directory mtime is not a skip input.
+[x] After a successful Upload or Download, the client file, the server file, and the graph node share one datestamp when stamps apply.
+[x] A ledger row also stores `presence`, `lastOp` (`seed`, `upload`, or `download`), and `lastServerHead` when finish-commit returns that head.
+[x] Code: [WorkspaceSyncLedger.fs](src/Shared/dotnet/WorkspaceSyncLedger.fs). `POST /_desktop/workspace-sync-ledger` returns ledger rows for a mapped label.
 
-Code: [[src/Shared/dotnet/WorkspaceFileSync.fs]] `post`, [[src/Shared/dotnet/WorkspaceDavClient.fs]], [[src/Shared/dotnet/WorkspaceCloudUpload.fs]], `POST /_desktop/workspace-push`.
+## Auto-download
 
-## 4. Download
+[x] A persisted change carries `SetUpdateTime` stamp ops on a rewritten document-root node.
+[x] The Browser reuses those stamps to refresh a mapped App folder.
+[x] An own edit uses the stamp ops on `SubmitResponse`.
+[x] A remote edit uses the same stamp ops on an applied poll Change.
+[x] Shared coalesce keeps at most one job per label, for a File, the nearest Directory, or the whole Workspace, so the manager cap holds.
+[x] The Browser sends `POST /_desktop/workspace-download` and does not wait. There is no folder picker. A label with no mapping is dropped.
+[x] The path runs only when `DesktopCapabilities.canWorkspaceSync` is true. Plain web does nothing on this path.
+[x] The auto path does not poll the job. The auto path does not post a stamp-align Change.
 
-Download fetches every non-ignored directory and file in the selected server scope. Upload bulk caps do not restrict Download.
+## Layout
 
-The Download command enqueues a desktop job. It does not block the Browser on the transfer.
-
-| Piece | Behavior |
-| --- | --- |
-| Enqueue | `POST /_desktop/workspace-download` with `{ label, relative, kind }` |
-| Status | `GET /_desktop/workspace-download?id=…` |
-| Queue | One **Running** job and at most one **Queued** job; a third enqueue is refused |
-| Stage | `%TEMP%/gambol-dl-tmp/{jobId}` then promote into the mapped root |
-| Mtime | Set local file mtime from `PROPFIND` `getlastmodified` |
-
-Code: [[src/Desktop/WorkspaceDownloadManager.fs]], [[src/Shared/dotnet/WorkspaceDownloadQueue.fs]], [[src/Shared/dotnet/WorkspaceFileSync.fs]] `getStaged`.
-
-`POST /_desktop/workspace-pull` still runs a blocking pull on the same Get path. The Download command uses the manager, not that blocking route.
-
-## 5. Sync ledger and mtime skip
-
-Per-path ledger: `%LocalAppData%/Gambol/sync-ledger-{label}.json` beside mappings (`config.json`). Seeded on first scoped Upload or Download from full-workspace `PROPFIND` plus local inventory. Later scoped syncs update only touched rows.
-
-**Skip-if-newer (UTC), Directory or Workspace scope:** Upload skips PUT when server mtime is the same or newer than local. Download skips GET when local mtime is the same or newer than server. **File scope:** always allow transfer.
-
-Skipped Upload still reparses. Directories: `MKCOL` stays idempotent; directory mtime is not used for skip. After a successful Upload or Download, client file, server file, and graph node share the same datestamp when stamps apply.
-
-Ledger rows also store `presence` and `lastOp` (`seed` / `upload` / `download`) and `lastServerHead` when finish-commit returns it. Selective delete propagation is not implemented.
-
-Code: [[src/Shared/dotnet/WorkspaceSyncLedger.fs]], `POST /_desktop/workspace-sync-ledger`.
-
-## 6. Auto-download on persist
-
-Persisted changes carry `SetUpdateTime` stamp ops on rewritten document-root nodes. The Browser reuses those stamps to refresh a mapped App folder:
-
-- Own edits: `SubmitResponse` stamp ops.
-- Remote edits: applied poll Changes with the same stamp ops.
-- Shared coalesce keeps at most one job per label (File, nearest Directory, or whole Workspace) so the manager cap holds.
-- Fire-and-forget `POST /_desktop/workspace-download`. No folder picker. Labels without a mapping are dropped.
-- Gated on `DesktopCapabilities.canWorkspaceSync`. Plain web is a no-op.
-- The auto path does not poll the job and does not post a stamp-align Change.
-
-HITL checks remain tabled on [[plan/auto-download-persisted-files/project.md]].
-
-## 7. Command surface
-
-| Intent | Target |
-| --- | --- |
-| Upload (`Ctrl+Shift+>`) | Ensure map (pick-folder + Put when unmapped) → client stubs → WebDAV body push + prepare-push + finish-commit. Workspaces focus creates a named Workspace from the folder basename. File focus then Parses. |
-| Download (`Ctrl+Shift+<`) | Ensure map → enqueue `workspace-download`. Named Workspace / Directory / File only (not ROOT or Workspaces). |
-
-Standalone Map, Connect, Clone, pack Push, and Status are removed from the palette.
-
-ROOT and Workspaces cannot acquire a mapping. Focus sets scope: Workspace → whole tree; Directory → relative prefix; File → one path.
-
-## 8. On-disk layout
-
-```text
-{DataDir}/
-  home/                  ← workspace work tree (verbatim label)
-    .git/                ← Server tracking only; never transferred
-    src/
-      lib.fs
-    doc/
-      specs/
-        .amb
-```
-
-Desktop mapping points label `home` at a separate absolute directory. That folder need not be a git clone.
-
-## 9. Not implemented
-
-These are not in the current program. They are not product exclusions.
-
-- Overwrite / freshness UI beyond `#cmd-last-result`.
-- Mirror-delete (`DELETE`) / WebDAV Class 2.
-- Expand-to-parse and richer freshness metadata.
-- Selective delete propagation from ledger `presence` / `lastOp`.
-
-Forward GitHub remote pull/push stays on [[plan/github-transport/project.md]].
+[x] `DataDir/{label}/`: the workspace work tree. The directory name is the label, verbatim.
+[x] `.git/` under that tree: Server tracking only.
+[x] A Directory File `.amb` may sit in that tree.
+[x] The desktop mapping points the label at a separate absolute directory.

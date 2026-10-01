@@ -1,52 +1,46 @@
 # Testing
 
-Category: Architecture
-See Also: , [[doc/current/operations.md]], [[doc/current/persistence-model.md]]
+Category: Capability
 
-Goal: TDD where valuable; keep tests fast and layered.
+See Also:
 
-## Is
+[Operations](operations.md)
+[Persistence model](persistence-model.md)
+[Gambol.Shared.Tests](gambol-shared-tests.md)
+[Gambol.CloudAgents.Tests](gambol-cloud-agents-tests.md)
+[Gambol.Server.Tests](gambol-server-tests.md)
 
-All major functionality should be tested where easy; prefer `src/Shared` for code location.
+Testing is TDD where that is valuable, and the tests stay fast and layered.
 
-Workflow: smallest failing test → minimal implementation → refactor.
+## Job
 
-Bias:
+[x] Test major functionality where that test is easy.
+[x] Prefer [src/Shared](../../src/Shared) as the location of the code under test.
+[x] Prefer pure functions in Shared: ops, ViewModel planners, and serialization.
+[x] Test `DbAgent` and store logic with `TEST_DB_CONNECTION_STRING` when Postgres is available.
+[x] Avoid browser automation until it pays off.
+[x] Tool: xUnit in [tests/Shared.Tests](../../tests/Shared.Tests), [tests/CloudAgents.Tests](../../tests/CloudAgents.Tests), and [tests/Server.Tests](../../tests/Server.Tests).
 
-- Prefer pure functions in Shared (ops, ViewModel planners, serialization)
-- Server: test `DbAgent` / store logic with `TEST_DB_CONNECTION_STRING` when Postgres available
-- Avoid browser automation until it pays off
+## Shared ops
 
-Domain/ops unit tests:
+[x] Shared tests cover `applyOp`, `Change.apply`, and undo invariants.
+[x] Shared tests cover graph invariants after op batches: child refs exist, the root exists, and ownership rules hold.
 
-- `applyOp` / `Change.apply` / undo invariants (Shared.Tests)
-- Graph invariants after op batches (child refs exist, root exists, ownership rules)
+## Serialization
 
-Serialization tests:
+[x] Serialization tests cover JSON round-trip for `Op`, `Change`, `Graph`, and API DTOs. File: [SerializationTests.fs](../../tests/Shared.Tests/SerializationTests.fs).
 
-- JSON round-trip for `Op`, `Change`, `Graph`, API DTOs (`SerializationTests.fs`)
+## Persistence
 
-Persistence tests:
+[x] [DbAgentTests.fs](../../tests/Server.Tests/DbAgentTests.fs) runs against real Postgres when `TEST_DB_CONNECTION_STRING` is set.
+[x] Replay tests load persisted state, apply changes, and match the expected graph and revision.
 
-- DB: `DbAgentTests.fs` against real Postgres when `TEST_DB_CONNECTION_STRING` is set
-- Legacy file: snapshot + log replay (`FileAgent` / document loader tests — rollback path only)
-- Replay: load persisted state → apply changes → matches expected graph/revision
+## Server
 
-Server tests:
+[x] Server tests cover command handlers behind endpoints: revision increment, change append, and conflict behavior when that behavior is added.
+[ ] Optional in-memory ASP.NET Core integration tests cover the server.
 
-- Command handlers behind endpoints (revision increment, change append, conflict behavior when added)
+## Browser
 
-Browser tests:
-
-- Pure MVU/update helpers where extracted; no Playwright in baseline
-
-## Should Become
-
-- [ ] Optional later: in-memory ASP.NET Core integration tests
-
-## Where
-
-Tooling: **xUnit** in [[tests/Shared.Tests]] and [[tests/Server.Tests]].
-
-- [[tests/Shared.Tests/SerializationTests.fs]]
-- [[tests/Server.Tests/DbAgentTests.fs]]
+[x] Browser tests cover pure MVU and update helpers where those helpers are extracted.
+[x] Baseline: no Playwright.

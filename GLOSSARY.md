@@ -131,15 +131,15 @@ The Emacs Action view of Change, Undo, and Redo Events. Not the server Event seq
 _Avoid_: History (as a module name), EventLog (for this view), the full Event sequence, audit log
 
 **Core**:
-The Subsystem that owns persistent state (durable Graph and EventLog facts; file bytes and git of those files) and that manages the Actor pool. Persist algorithms stay outside and persist via Core API; Core owns open and write of the file. In file mode it owns persist and does not write bytes. In db mode it writes (bytes, git, projection). It does not own advanced logic (Parse algorithms, Graph↔document persist algorithms). Not the Solid core bar on [[plan/roadmap/epics/robust-outliner.md]].
+The Subsystem that owns persistent state (durable Graph and EventLog facts; file bytes and git of those files) and that manages the Actor pool. Persist algorithms stay outside and persist via Core API; Core owns open and write of the file. It does not own advanced logic (Parse algorithms, Graph↔document persist algorithms). Not the Solid core bar on [[plan/roadmap/epics/robust-outliner.md]].
 _Avoid_: kernel, Module (for this Subsystem), apply Module (as the name)
 
 **Core API**:
-The four-call Interface of Core: Files, Changes, Query, Command. Files is send, get, and git of file bytes; Core owns the open and write. Persist algorithms do not open the file themselves. In file mode Files does not write. inner apply is the Changes path that applies a Change. Advanced logic and Actor definitions work to this Interface. Not the web API.
+The four-call Interface of Core: Files, Changes, Query, Command. Files is send, get, and git of file bytes; Core owns the open and write. Persist algorithms do not open the file themselves. inner apply is the Changes path that applies a Change. Advanced logic and Actor definitions work to this Interface. Not the web API.
 _Avoid_: web API, REST, `/ambit` (those are HTTP Adapters that may call Core API)
 
 **Directory File**:
-The `.amb` document that belongs to a Directory Node or Workspace Node (root `.amb` or `DirName/.amb`). It is that node's document artifact, not a File Node child. Cold bootstrap that reads only Directory Files leaves other File Nodes Unparsed until Parse.
+The `.amb` document that belongs to a Directory Node or Workspace Node (root `.amb` or `DirName/.amb`). It is that node's document artifact, not a File Node child. The `.amb` format can hold a total graph. The program does not use it for the whole graph. Cold bootstrap that reads only Directory Files leaves other File Nodes Unparsed until Parse.
 _Avoid_: Marker (for this concept), marker file, directory marker, amb marker, marker-only load (prefer Directory-File-only / Directory File cold load)
 
 **Directory Node**:
@@ -183,7 +183,7 @@ A Node whose Kind is File; a Graph node that stands for a real on-disk file, ide
 _Avoid_: file (bare, for a Node), document, page, note, file body
 
 **Graph**:
-The editable structure: a root and the nodes reachable from it, with ownership and ref links among those nodes.
+The in-memory data store: a root and the nodes reachable from it, with ownership and ref links among those nodes.
 _Avoid_: tree, document tree, model, outline
 
 **Header**:
@@ -205,6 +205,9 @@ _Avoid_: visible (as the glossary name), context (bare, for this pack)
 **IS**:
 An infix Expression combinator: run both operands on the same input Answer and yield the Answers of the left operand that equal an Answer of the right operand. Spelling is `IS` (capitals, attaches in the `AND` family). It is not the Run statement `=`.
 _Avoid_: is (lowercase, for this combinator), equals, comparison operator
+
+**Gambol**:
+NOT the name of this repo. NOT a public name.  The name of fs project files and directories only.
 
 **Kind**:
 A Node's classification: Normal, or a Special kind.
