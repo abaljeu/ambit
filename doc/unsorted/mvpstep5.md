@@ -1,6 +1,6 @@
 # Step 5: Client editing – text
 
-> **Historical.** Tracer-bullet notes from early MVP. For current behavior see [[doc/current/arch.md]] and the implemented section of [[doc/api.md]].
+> **Historical.** Tracer-bullet notes from early MVP. For current behavior see  and the implemented section of [[doc/api.md]].
 
 ## Design overview
 

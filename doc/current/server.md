@@ -1,7 +1,7 @@
 # Server
 
 Category: Architecture
-See Also: [[doc/current/arch.md]], [[doc/api.md]], [[doc/current/sync-mvp.md]], [[doc/current/persistence-model.md]], [Server Core](plan/architecture/server-core.md)
+See Also: , [[doc/api.md]], [[doc/current/sync-mvp.md]], [[doc/current/persistence-model.md]], [Server Core](plan/architecture/server-core.md)
 
 The Server is the spoken name for Gambol.Server ([[GLOSSARY.md]]). It is ASP.NET Core (minimal API) and Npgsql. It holds the authoritative graph and revision, an append-only change log, and serves the `/ambit` API and static assets.
 

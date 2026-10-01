@@ -1,7 +1,7 @@
 # Desktop local files
 
 Category: Desktop
-See also: [[doc/current/workspace-local-mapping.md]], [[doc/current/workspace-graph.md]], [[doc/current/workspace-file-sync.md]], [[doc/current/arch.md]], [[plan/transport-layer/project.md]]
+See also: [[doc/current/workspace-local-mapping.md]], [[doc/current/workspace-graph.md]], [[doc/current/workspace-file-sync.md]], , [[plan/transport-layer/project.md]]
 
 Implemented baseline for the Gambol desktop host: WPF WebView2 + local HTTP proxy in front of the cloud API. The cloud server remains authoritative for the graph; the desktop adds loopback-only filesystem access.
 

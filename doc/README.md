@@ -1,11 +1,11 @@
 # Documentation
 
 Top level contains the front-door docs for the current system as a whole:
-[[index.md]], [[current/arch.md]], [[spec.md]], and [[api.md]].
+[[index.md]], [[current/architecture.md]], [[spec.md]], and [[api.md]].
 
 New docs should normally go in a subfolder:
 
-- `current/` — current subsystem or feature docs. [[current/arch.md]] is the architecture home
+- `current/` — current subsystem or feature docs. [[current/architecture.md]] is the architecture home
 - `roadmap/` — leftover planned-direction files until a `plan` Project cites them or they move to history
 - `history/` — assessed historical project materials
 - `reference/` — operational and reference material
@@ -23,7 +23,7 @@ Document header rule:
 
 Start here:
 
-- [[current/arch.md]]
+- [[current/architecture.md]]
 - [[spec.md]]
 - [[api.md]]
 - [[index.md]] — Feature index of the current program

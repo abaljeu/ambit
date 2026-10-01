@@ -1,7 +1,7 @@
 # Persistence model (Graph / Node)
 
 Category: Persistence
-See also: [[doc/current/sync-mvp.md]], [[doc/current/arch.md]], [[doc/reference/postgres-environments.md]], [[doc/roadmap/workspace-file-persistence.md]], [[plan/roadmap/epics/chapters/incremental-operations.md]]
+See also: [[doc/current/sync-mvp.md]], , [[doc/reference/postgres-environments.md]], [[doc/roadmap/workspace-file-persistence.md]], [[plan/roadmap/epics/chapters/incremental-operations.md]]
 
 How Gambol persists the graph: PostgreSQL is always the source of truth; on-disk files under `DataDir` correlate with database nodes and are written automatically from accepted DB state. Want-driven Browser residency is planned on [[plan/roadmap/epics/chapters/incremental-operations.md]].
 

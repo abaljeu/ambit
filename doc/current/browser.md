@@ -1,7 +1,7 @@
 # Browser
 
 Category: Architecture
-See Also: [[doc/current/arch.md]], [[doc/current/view.md]], [[doc/current/operations.md]], [[doc/current/sync-mvp.md]], [[doc/current/desktop-local-files.md]], [[GLOSSARY.md]]
+See Also: [[doc/current/architecture.md]], [[doc/current/view.md]], [[doc/current/operations.md]], [[doc/current/sync-mvp.md]], [[doc/current/desktop-local-files.md]], [[GLOSSARY.md]]
 
 The Browser is the spoken name for Gambol.Client ([[GLOSSARY.md]]). It is F# compiled to JavaScript with Fable, and a client-side MVU-style loop. It does local-first editing, renders outline, maintains selection, and syncs via poll + change POST.
 

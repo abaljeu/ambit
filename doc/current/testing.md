@@ -1,7 +1,7 @@
 # Testing
 
 Category: Architecture
-See Also: [[doc/current/arch.md]], [[doc/current/operations.md]], [[doc/current/persistence-model.md]]
+See Also: , [[doc/current/operations.md]], [[doc/current/persistence-model.md]]
 
 Goal: TDD where valuable; keep tests fast and layered.
 

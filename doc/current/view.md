@@ -1,7 +1,7 @@
 # View
 
 Category: Architecture
-See Also: [[doc/current/browser.md]], [[doc/current/arch.md]], [[doc/current/workspace-graph.md]]
+See Also: [[doc/current/browser.md]], , [[doc/current/workspace-graph.md]]
 
 The Browser view layer is not the server graph. It is the site tree, the selection span, and line rendering.
 

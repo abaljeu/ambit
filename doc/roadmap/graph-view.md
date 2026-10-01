@@ -2,7 +2,7 @@
 
 Category: PKM navigation
 Status: Planned — design drafted; no implementation started
-See also: [[plan/graph-view/graph-view-draft-proposal.md]], [[doc/current/workspace-graph.md]], [[doc/current/view.md]], [[plan/roadmap/epics/chapters/incremental-operations.md]], [[plan/selective-client-loading/project.md]], [[doc/current/arch.md]]
+See also: [[plan/graph-view/graph-view-draft-proposal.md]], [[doc/current/workspace-graph.md]], [[doc/current/view.md]], [[plan/roadmap/epics/chapters/incremental-operations.md]], [[plan/selective-client-loading/project.md]], 
 
 An alternate navigation surface beside the outline SiteMap: a **focus-centric radial tree** of Owned children with **Ref edges** as a secondary overlay. Tree layout is authoritative; Ref edges do not move Nodes. Design detail lives in [[plan/graph-view/graph-view-draft-proposal.md]].
 

@@ -16,7 +16,7 @@ Status legend (from file-model):
 - `[x]` implemented in the current codebase
 - `[~]` partially implemented or represented in the model, but not yet wired through
 - `[ ]` target design only
-- `[o]` obsolete yet implemented. The retiring `[ ]` is on [Persistence model](doc/current/persistence-model.md). See [Architecture](doc/current/arch.md) Claims.
+- `[o]` obsolete yet implemented. The retiring `[ ]` is on [Persistence model](doc/current/persistence-model.md). See [Architecture](doc/current/architecture.md) Claims.
 
 ## Stage Map
 

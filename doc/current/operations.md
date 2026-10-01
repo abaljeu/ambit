@@ -1,7 +1,7 @@
 # Operations
 
 Category: Architecture
-See Also: [[doc/current/arch.md]], [[doc/current/browser.md]], [[doc/current/persistence-model.md]], [[doc/current/workspace-graph.md]]
+See Also: , [[doc/current/browser.md]], [[doc/current/persistence-model.md]], [[doc/current/workspace-graph.md]]
 
 A small set of operations transforms a graph of nodes. The graph is a pure, directed, potentially cyclic graph ([[src/Shared/Model.fs]]). Node and Graph fields are [[doc/current/persistence-model.md]]. Workspace special nodes and placement are [[doc/current/workspace-graph.md]].
 

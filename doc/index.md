@@ -1,7 +1,7 @@
 # Feature Index
 
 Category: Project coordination
-See Also: [[doc/README.md]], [[doc/current/arch.md]], [[doc/spec.md]], [[doc/api.md]], [[plan/roadmap/map.md]]
+See Also: [[doc/README.md]], [[doc/current/architecture.md]], [[doc/spec.md]], [[doc/api.md]], [[plan/roadmap/map.md]]
 
 Index of the current program. One detail source per feature. What to work on next is [[plan/roadmap/map.md]].
 
@@ -10,7 +10,7 @@ Index of the current program. One detail source per feature. What to work on nex
 Implemented baselines in [[doc/current/]].
 
 ### **Product and architecture**
-Details: [[doc/current/arch.md]].
+Details: [[doc/current/architecture.md]].
 Summary: Architecture wiki home. The first Reference view is the project structure.
 
 ### **Browser**
