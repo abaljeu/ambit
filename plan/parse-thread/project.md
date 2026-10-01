@@ -1,6 +1,6 @@
 # Parse thread
 
-Stage: spec
+Stage: arch
 Summary: A continuous Server Parse thread turns file-shaped disk into Graph, takes priority from Browser wants, and emits Changes.
 Updated: 2026-10-01
 Started: 2026-09-28
@@ -16,3 +16,4 @@ Actual: 10m
 - 2026-09-30 — Core seam sole authority (axes, stacks, locks, mailbox git handoff into Core) is [[plan/core-refinement/arch.md]]. This Project stays the Parse product home only.
 - 2026-10-01 — Wayfinder map: [[map.md]]. Stage stays chart. Directory Parse body home is [01 — Directory Parse body home](issues/01-directory-parse-body-home.md). Structure-match Directory Load is [02 — Structure-match Directory Load](issues/02-structure-match-directory-load.md).
 - 2026-10-01 — Front-half spec: [spec](spec.md). Stage is spec. Open grilling on [03 — Workspace Load after incoming files](issues/03-workspace-load-after-incoming-files.md) and [04 — Browser want priority versus directory reconcile](issues/04-browser-want-priority-versus-directory-reconcile.md) stays open.
+- 2026-10-01 — Architecture: [arch](arch.md). Stage is arch. Open grilling stays open.
