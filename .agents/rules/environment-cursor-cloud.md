@@ -16,4 +16,4 @@ Cloud git procedure (disposable branch, staging drop): [[.agents/skills/cloud-ag
 
 ## Chat Window
 
-Present file links fully.
+When you name a repo file or issue in chat, write one Markdown link whose target is a clickable `https://github.com/abaljeu/ambit/blob/<ref>/…` URL (current branch tip, or `ready` when the path exists there). Put the path in that same link. Relative paths and `file://` URLs are not clickable in this harness — do not use them as the link target.

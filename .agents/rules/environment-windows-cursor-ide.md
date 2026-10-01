@@ -22,6 +22,8 @@ VSCode Tasks are not the agent command path.
 
 Issues are local Markdown under `plan/` — [[doc/agents/issue-tracker.md]]. GitHub/GitLab issue filing is not used here.
 
+Do not websearch.
+
 Normal Debug `bin`/`obj` output paths work. Overriding OutputPath/BaseIntermediateOutputPath (e.g. bin-verify/obj-verify) is not the path; if outputs are locked, report and stop.
 
 The linter cannot handle project edits until the environment reloads; work continues without waiting on the linter.

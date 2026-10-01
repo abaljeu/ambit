@@ -76,7 +76,7 @@ Advise me if there is a better way to do something.
 If a request is unclear, just ask.
 If a requested course of action seems inefficient, stop and propose a more efficient course.
 
-Do not websearch. Tell me if you lack information.
+Tell me if you lack information.
 
 While in plan mode, any request for a change should be interpreted as a request to plan for the change; do not write detailed code then.
 
