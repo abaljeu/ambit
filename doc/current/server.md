@@ -34,13 +34,13 @@ The server project compiles [[src/Server/Core/CoreMailbox.fs]] before [[src/Serv
 
 - [ ] Server startup uses the database authority path. The legacy `Persistence:Mode` / `FileAgent` file-authority path is absent ([[doc/current/persistence-model.md]]).
 - [ ] Sync is merge-based, with 409 conflicts and `remoteChanges` ([[doc/api.md]]).
-- [ ] Parse setup (stack, push, and consumer) lives only in [[src/Server/Core]]. RouteRegistration does not construct Parse, start it, or hold its handles. Pair: the [o] RouteRegistration start.
+- [ ] Parse setup (stack, push, and consumer) lives only in [[src/Server/Core]]. RouteRegistration does not construct Parse, start it, or hold its handles.
 - [ ] After the workspace lock drains in-flight member file use, pull or Upload land proceeds. Arrived files are marked Unparsed. The lock releases. Unparsed starts the parse thread.
 - [ ] Every handoff uses the Parse stack.
 - [ ] The Directory Parse body walks every node tied to that Directory File, including nodes below the immediate children. It creates missing File Nodes. A disk-newer file marks that File Node Unparsed, and that File Node is pushed when the Parse stack exists. When the body is done, that Directory Node is Parsed only. Structure-match on a Directory Node, including a Directory Node that is not a Workspace Node, spots disk members the Graph lacks, with no extra info. Axis rules stay [core-refinement architecture](plan/core-refinement/arch.md) §5 item 6, item 8, and item 10.
-- [ ] A workspace lock and per-member persist locks sit beside `withWorkTreeGate`. While the workspace lock is pending, new persist locks for those member files cannot be taken. In-flight member file writes and parse reads drain. Then pull proceeds, arrived files are marked Unparsed, and the lock releases. Protocol: [core-refinement architecture](plan/core-refinement/arch.md) §6 Core locking model.
-- [ ] Persist, parse-thread file use, and git Load/Save follow that lock protocol. `withWorkTreeGate` remains only while both run.
-- [ ] Persist and git paths use the workspace lock as their only protocol. Pair: the [o] `withWorkTreeGate` gate.
+- [ ] A workspace lock and per-member persist locks are the protocol for member files. While the workspace lock is pending, new persist locks for those member files cannot be taken. In-flight member file writes and parse reads drain. Then pull proceeds, arrived files are marked Unparsed, and the lock releases. Protocol: [core-refinement architecture](plan/core-refinement/arch.md) §6 Core locking model.
+- [ ] Persist, parse-thread file use, and git Load/Save follow that lock protocol.
+- [ ] Persist and git paths use the workspace lock as their only protocol.
 - [ ] Git use is Core. Core performs git Load, git Save, pull, push, and commit. An Actor requests that work by posting to the mailbox. Compact target: [Server Core](plan/architecture/server-core.md).
 
 Persist stack and path control claims: [Persistence model](doc/current/persistence-model.md). Axis claims: [Workspace graph](doc/current/workspace-graph.md).

@@ -104,7 +104,7 @@ Append-only change log is **persisted** in PostgreSQL (`changes` table; `payload
 
 On startup the server replays from the log after the stored revision checkpoint. In-process `History` mirrors applied changes for the running process but is not the durable store.
 
-See [[doc/current/server.md]] and [[doc/current/persistence-model.md]]. After each accepted change, the server commits to the DB and auto-persists correlated document artifacts under `DataDir`. That sync live-save feeder is obsolete yet implemented. The retiring claim is [Persistence model](doc/current/persistence-model.md) Should Become.
+See [[doc/current/server.md]] and [[doc/current/persistence-model.md]]. After each accepted change, the server commits to the DB and auto-persists correlated document artifacts under `DataDir`. That sync live-save feeder is obsolete yet implemented. The shall-be claim is [Persistence model](doc/current/persistence-model.md) Should Become.
 
 There is **no** `POST /save`; persistence runs automatically after accepted changes.
 
