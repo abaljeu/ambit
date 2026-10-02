@@ -587,6 +587,28 @@ let ``heading body splits and keeps md-head on the first sentence`` () =
     Assert.Empty(structuralOf result.nodes (kids result.childMap head).Head.id)
 
 [<Fact>]
+let ``heading list number does not end the sentence`` () =
+    let _, docId, result = readDoc ("## 1. Story paths" + nl)
+    let head = (kids result.childMap docId).Head.id
+    Assert.Equal("1. Story paths", result.nodes.[head].text)
+    Assert.Equal<string list>([ "md-head" ], structuralOf result.nodes head)
+    Assert.Empty(kids result.childMap head)
+    let _, docId2, deeper = readDoc ("### 2. Foo" + nl)
+    let h2 = (kids deeper.childMap docId2).Head.id
+    Assert.Equal("2. Foo", deeper.nodes.[h2].text)
+    Assert.Equal<string list>([ "md-head" ], structuralOf deeper.nodes h2)
+    Assert.Empty(kids deeper.childMap h2)
+    let _, docId3, continued = readDoc ("## 1. Story paths. More." + nl)
+    let h3 = (kids continued.childMap docId3).Head.id
+    Assert.Equal("1. Story paths.", continued.nodes.[h3].text)
+    Assert.Equal<string list>(
+        [ "md-head" ],
+        structuralOf continued.nodes h3)
+    Assert.Equal<string list>(
+        [ "More." ],
+        childTexts continued.childMap continued.nodes h3)
+
+[<Fact>]
 let ``pipe line does not sentence-split`` () =
     let _, docId, result = readDoc ("| a | Hello. World. |" + nl)
     let carrier = (kids result.childMap docId).Head.id

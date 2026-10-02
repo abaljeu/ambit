@@ -137,6 +137,15 @@ module MdDocument =
 
         find start
 
+    /// A leading `N. ` on a heading is a list number, not a sentence end.
+    let private sentenceScanStart (kind: LineKind) (text: string) =
+        match kind with
+        | Head ->
+            match numberedBody text with
+            | Some body -> text.Length - body.Length
+            | None -> 0
+        | _ -> 0
+
     /// First piece stays on the file-line node. Later pieces are sentence tails.
     let splitLineSentences (kind: LineKind) (text: string) : (string * int) list =
         let splits =
@@ -159,7 +168,7 @@ module MdDocument =
                     let sentence = text.Substring(prev, c - 1 - prev)
                     parts c rest ((sentence, prev) :: acc)
 
-            parts 0 (cuts 0 []) []
+            parts 0 (cuts (sentenceScanStart kind text) []) []
 
     let private outlineOf
         (depth: int)
