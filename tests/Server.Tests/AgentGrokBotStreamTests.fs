@@ -42,8 +42,77 @@ let private emptySecretGrok =
         WakeSecret = ""
         InboundSecret = "inbound-must-not-leak" }
 
+let private ambitPrompt =
+    "You are Ambit AI. You edit outline children under Focus."
+    + System.Environment.NewLine
+    + System.Environment.NewLine
+    + "The next message is the XML Zoom-rooted extract. "
+    + "The Focus / prompt node is the one with css class prompt."
+    + System.Environment.NewLine
+    + System.Environment.NewLine
+    + "Return ONLY a <> XML fragment that replaces every "
+    + "child of Focus."
+    + System.Environment.NewLine
+    + "- Each element is one outline node; element text "
+    + "is the node text."
+    + System.Environment.NewLine
+    + "- Nest elements for parent/child. Do not use "
+    + "indent-outline."
+    + System.Environment.NewLine
+    + "- No preamble, no markdown fences, no explanation "
+    + "outside the fragment."
+    + System.Environment.NewLine
+    + "- Do not rewrite Focus itself."
+
+let private packedExtract host (seeded: SeededAsk) =
+    task {
+        let! state =
+            CoreMailbox.getState host |> Async.StartAsTask
+        match state with
+        | Error err ->
+            Assert.Fail(err)
+            return ""
+        | Ok s ->
+            match
+                AiExtractPack.packExtract
+                    s.graph
+                    seeded.zoomId
+                    seeded.zoomId
+            with
+            | Error err ->
+                Assert.Fail(err)
+                return ""
+            | Ok xml -> return xml
+    }
+
 [<Collection("GrokBot actor")>]
 type AgentGrokBotStreamTests() =
+
+    [<Fact>]
+    member _.``gbot wake text is the Ambit prompt plus the extract``() =
+        let seen = ref ""
+        withGrokFakeStream
+            (fun args ->
+                seen := args.Text
+                fakeReply "ignored")
+            (fun _ ->
+                xmlStream [ "<n>prompted</n>" ] "<n>prompted</n>")
+            (fun () ->
+                withHost (fun host pool -> task {
+                    let! seeded = seedAskTree host "?ai gbot"
+                    let! document = packedExtract host seeded
+                    let! request = startAsk host seeded
+                    do! expectActorSucceeded
+                            host pool request.focusId
+                    let expected =
+                        ambitPrompt
+                        + System.Environment.NewLine
+                        + System.Environment.NewLine
+                        + document
+                    Assert.Equal(expected, !seen)
+                    Assert.Contains("visible-context", document)
+                    Assert.StartsWith("<node", document)
+                }))
 
     [<Fact>]
     member _.``inbound deliver stays live for a second chunk``() =
