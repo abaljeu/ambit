@@ -244,6 +244,9 @@ module FileAgent =
                 Ok ()
         applyEvent = fun event graphOnly ->
             processPostEvents loaded [ event ] graphOnly
+        replaceGraph = fun graph ->
+            loaded.state.Value <-
+                { loaded.state.Value with graph = graph }
         snapshotDone = fun _ -> ()
     }
 
@@ -309,7 +312,7 @@ module FileAgent =
     let create (dataDir: string) : FileAgent =
         createWithDependencies (defaultDependencies dataDir) dataDir
 
-    let persist (agent: FileAgent) : PersistFilling =
+    let internal persist (agent: FileAgent) : PersistFilling =
         agent.filling
 
     let initialState (agent: FileAgent) : State =

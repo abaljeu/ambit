@@ -234,15 +234,9 @@ module Node =
         NodeKind.artifact node.kind
         && not (Filename.isDirectoryFileFilename node.name)
 
-    /// Set DocumentState and the parse axis together.
-    /// A Directory File keeps DocumentState and does not dual-write the parse axis.
+    /// Set DocumentState. The parsed axis is written by setParseState.
     let withDocumentState (state: DocumentState) (node: Node) : Node =
-        if carriesStateAxes node then
-            { node with
-                documentState = state
-                parseState = ParseState.ofDocumentState state }
-        else
-            { node with documentState = state }
+        { node with documentState = state }
 
     /// Set the parse axis and the Current | Unparsed DocumentState pole together.
     let withParseState (state: ParseState) (node: Node) : Node =

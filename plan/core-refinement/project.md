@@ -4,7 +4,7 @@ Stage: build
 Summary: Sequel to [[plan/core-creation/project.md]]: refine Core so that after transport lands files, Core works through disk and Graph changes (Parse stack, Persist stack, state axes) until everything is updated.
 Updated: 2026-10-01
 Started: 2026-09-29
-Actual: 3h15m
+Actual: 5h15m
 
 **Sequel to:** [[plan/core-creation/project.md]]
 **Feeds:** [[plan/github-transport/project.md]] (thin remainder: lock workspace, receive files, inform Core)
@@ -28,6 +28,7 @@ Actual: 3h15m
 - 2026-10-01 — Alan: of `CoreMsg`, only `SnapshotDone` is an internal message, packaged with setting Persisted. `CoreMsg` loses `SnapshotDone`. `AxisCompletion` case `SnapshotDone` replaces `PersistFinished`. Stage stays `build`. Map decision 16. Superseded later the same day: the case is `InMsg` `SnapshotDone`.
 - 2026-10-01 — [06 — Explicit parse command on a File (Load)](issues/06-explicit-parse-command-load-file.md) revisited. The coded finish posts a Change and writes the parsed axis with `Op.SetDocumentState`. The required finish is InMsg ParseFinished through the private function. Status `defined`. Stage stays `build`.
 - 2026-10-01 — Alan: supersede map decisions 15 and 16. The internal message is `InMsg`. A private function on the mailbox adds `InMsg` to the one mailbox queue. A public function adds `CoreMsg` to that same queue. The queue puller hands the item to its handler. There is no second queue. Cases: `ParseFinished`, `SnapshotDone`. Stage stays `build`.
+- 2026-10-01 — This slice is in code. File parse finish adds InMsg ParseFinished. The db agent adds InMsg SnapshotDone. CoreMsg has no SnapshotDone. The persist thread is not built. [06 — Explicit parse command on a File (Load)](issues/06-explicit-parse-command-load-file.md) Status `coded`. Stage stays `build`.
 
 ## Issues
 
@@ -36,4 +37,4 @@ Actual: 3h15m
 - [03 — One Parse thread stack](issues/03-one-parse-thread-stack.md) — one long-lived Parse stack; Core pushes; consumer is the parse thread. Status `done`.
 - [04 — Parsed/Unparsed and Persisted/Unpersisted](issues/04-parsed-unparsed-and-persisted-unpersisted.md) — special-node axes and Core Persist stack; locks on [[arch.md]] §6. Status `done`.
 - [05 — Selection-scoped Parse after whole-tree git Load](issues/05-selection-scoped-parse-after-whole-tree-git-load.md) — selection push-on-stack. Status `done`.
-- [06 — Explicit parse command on a File (Load)](issues/06-explicit-parse-command-load-file.md) — mailbox Load of a File node. On finish the parse thread adds InMsg ParseFinished through the private function. Status `defined`.
+- [06 — Explicit parse command on a File (Load)](issues/06-explicit-parse-command-load-file.md) — mailbox Load of a File node. On finish the parse thread adds InMsg ParseFinished through the private function. Status `coded`.

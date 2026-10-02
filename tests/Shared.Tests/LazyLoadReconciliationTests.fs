@@ -183,7 +183,7 @@ let private applyDiskParse (graph: Graph) (ops: Op list) : Graph =
     | ApplyResult.Invalid(_, msg) -> failwith msg
 
 [<Fact>]
-let ``disk parse of a directory keeps PersistState and marks Parsed`` () =
+let ``disk parse of a directory keeps PersistState and the parse axis`` () =
     for persist in [ PersistState.Persisted; PersistState.Unpersisted ] do
         let workspaceId, graph = Graph.create () |> addWorkspace "home"
         let artifacts =
@@ -216,7 +216,7 @@ let ``disk parse of a directory keeps PersistState and marks Parsed`` () =
             | Ok o -> o
             | Error err -> failwith err
         let graph3 = applyDiskParse seeded ops2
-        Assert.Equal(ParseState.Parsed, graph3.nodes.[docs.id].parseState)
+        Assert.Equal(ParseState.Unparsed, graph3.nodes.[docs.id].parseState)
         Assert.Equal(Current, graph3.nodes.[docs.id].documentState)
         Assert.Equal(persist, graph3.nodes.[docs.id].persistState)
         Assert.Equal(persist, graph3.nodes.[workspaceId].persistState)

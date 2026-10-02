@@ -74,7 +74,6 @@ module internal CoreMailboxBackend =
         | PostGraphOnly (_, event, _) ->
             let n = Ev.ops event |> Option.defaultValue [] |> List.length
             "PostGraphOnly", $"ops={n}"
-        | SnapshotDone _ -> "SnapshotDone", ""
         | StartActor _ -> "StartActor", ""
         | StartPeerActor (_, PeerActorName name, _, _) ->
             "StartPeerActor", name
@@ -101,7 +100,6 @@ module internal CoreMailboxBackend =
         | GetEventsSince (_, reply) -> reply.Reply(Error error)
         | GetEventHistory reply -> reply.Reply(EventLog.empty)
         | PostGraphOnly (_, _, reply) -> reply.Reply(Error error)
-        | SnapshotDone _ -> ()
         | StartActor (_, _, reply) -> reply.Reply(Error error)
         | StartPeerActor (_, _, _, reply) -> reply.Reply(Error error)
         | StartLoadSaveCommand (_, _, _, _, reply) ->
@@ -116,7 +114,7 @@ module internal CoreMailboxBackend =
         | EventsSince (_, reply) -> reply.Reply(EventLog.empty)
 
     type Started = {
-        processor: MailboxProcessor<CoreMsg>
+        processor: MailboxProcessor<QueueSum>
         bindCoreChanges: (Caller -> CoreChanges) -> unit
     }
 
@@ -364,7 +362,6 @@ module internal CoreMailboxBackend =
             reply.Reply(context.eventLog.Value)
         | PostGraphOnly (caller, event, reply) ->
             dispatchPostGraphOnly context caller event reply
-        | SnapshotDone graph -> context.persist.snapshotDone graph
         | StartActor (caller, request, reply) ->
             dispatchStartActor context caller request reply
         | StartPeerActor (caller, peerName, request, reply) ->
@@ -406,6 +403,54 @@ module internal CoreMailboxBackend =
             with _ ->
                 ()
 
+    let private writeAxis
+        (persist: PersistHandlers)
+        (mutate: Graph -> Result<Graph, string>)
+        : Result<unit, string> =
+        match persist.getState () with
+        | Error err -> Error err
+        | Ok state ->
+            match mutate state.graph with
+            | Error err -> Error err
+            | Ok graph ->
+                persist.replaceGraph graph
+                Ok ()
+
+    /// Core loop apply. ParseFinished writes Parsed only.
+    /// SnapshotDone runs snapshot bookkeeping, then sets Persisted.
+    let internal applyInMsg
+        (persist: PersistHandlers)
+        (msg: InMsg)
+        : Result<unit, string> =
+        match msg with
+        | InMsg.ParseFinished nodeId ->
+            writeAxis persist (fun graph ->
+                GraphMutate.setParseState
+                    nodeId
+                    ParseState.Parsed
+                    graph)
+        | InMsg.SnapshotDone(nodeId, graph) ->
+            persist.snapshotDone graph
+            writeAxis persist (fun live ->
+                GraphMutate.setPersistState
+                    nodeId
+                    PersistState.Persisted
+                    live)
+
+    let private reportInMsg (context: MailboxContext) (err: string) =
+        context.onError "InMsg" err (exn err)
+
+    let private dispatchItem
+        (context: MailboxContext)
+        (item: QueueSum)
+        =
+        match item with
+        | QueueSum.Core msg -> dispatch context msg
+        | QueueSum.In msg ->
+            match applyInMsg context.persist msg with
+            | Ok () -> ()
+            | Error err -> reportInMsg context err
+
     let private failedPersist persist error : PersistHandlers = {
         getState = persist.getState
         getEventId = persist.getEventId
@@ -413,6 +458,7 @@ module internal CoreMailboxBackend =
         getEventLog = persist.getEventLog
         appendEvent = fun _ -> Error error
         applyEvent = fun _ _ -> Error error
+        replaceGraph = persist.replaceGraph
         snapshotDone = fun _ -> ()
     }
 
@@ -455,13 +501,22 @@ module internal CoreMailboxBackend =
           bindCoreChanges =
             fun make -> context.coreChanges.Value <- Some make }
 
+    let private isStartupRead (msg: CoreMsg) =
+        match msg with
+        | GetState _
+        | GetEventId _
+        | GetEventsSince _
+        | GetEventHistory _
+        | EventsSince _ -> true
+        | _ -> false
+
     let rec private pump
         (context: MailboxContext)
-        (inbox: MailboxProcessor<CoreMsg>)
+        (inbox: MailboxProcessor<QueueSum>)
         =
         async {
-            let! msg = inbox.Receive()
-            dispatch context msg
+            let! item = inbox.Receive()
+            dispatchItem context item
             return! pump context inbox
         }
 
@@ -473,14 +528,14 @@ module internal CoreMailboxBackend =
                 Error $"Startup prelude failed: {ex.Message}")
 
     let private startNow (context: MailboxContext) : Started =
-        started (MailboxProcessor<CoreMsg>.Start(pump context)) context
+        started (MailboxProcessor<QueueSum>.Start(pump context)) context
 
     let private startWithPrelude
         (context: MailboxContext)
         (until: Async<Result<unit, string>>)
         : Started =
         let untilTask = runUntil until
-        let mailbox = MailboxProcessor<CoreMsg>.Start(fun inbox ->
+        let mailbox = MailboxProcessor<QueueSum>.Start(fun inbox ->
             let rec startupLoop () = async {
                 if untilTask.IsCompleted then
                     match untilTask.GetAwaiter().GetResult() with
@@ -489,22 +544,18 @@ module internal CoreMailboxBackend =
                 else
                     let! _ =
                         inbox.TryScan(
-                            (fun msg ->
-                                match msg with
-                                | GetState _
-                                | GetEventId _
-                                | GetEventsSince _
-                                | GetEventHistory _
-                                | EventsSince _ ->
+                            (fun item ->
+                                match item with
+                                | QueueSum.Core msg when isStartupRead msg ->
                                     Some(async { dispatch context msg })
                                 | _ -> None),
                             timeout = 20)
                     return! startupLoop ()
             }
             and failedLoop error = async {
-                let! msg = inbox.Receive()
+                let! item = inbox.Receive()
                 let failed = failedPersist context.persist error
-                dispatch { context with persist = failed } msg
+                dispatchItem { context with persist = failed } item
                 return! failedLoop error
             }
             startupLoop ()

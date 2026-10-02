@@ -18,7 +18,6 @@ type internal CoreMsg =
     | Logout of
         Caller *
         AsyncReplyChannel<Result<unit, string>>
-    | SnapshotDone of graph: Graph option
     | StartActor of
         caller: Caller *
         request: Gambol.Shared.ActorStart *
@@ -63,6 +62,16 @@ type internal CoreMsg =
         after: Gambol.Shared.EventId *
         AsyncReplyChannel<Gambol.Shared.EventLog>
 
+/// Internal completion. Not an Op. No public enqueue door.
+type internal InMsg =
+    | ParseFinished of nodeId: NodeId
+    | SnapshotDone of nodeId: NodeId * graph: Graph option
+
+[<RequireQualifiedAccess>]
+type internal QueueSum =
+    | Core of CoreMsg
+    | In of InMsg
+
 type PersistHandlers = {
     getState: unit -> Result<State, string>
     getEventId: unit -> Result<EventId, string>
@@ -74,12 +83,13 @@ type PersistHandlers = {
         Ev -> Result<unit, string>
     applyEvent:
         Ev -> bool -> Result<CoreChangesAccepted, string>
+    replaceGraph: Graph -> unit
     snapshotDone: Graph option -> unit
 }
 
 /// Persist + lifecycle the mailbox hosts. File and Db build this; CoreMailbox
 /// does not read agent fields.
-type PersistFilling = {
+type internal PersistFilling = {
     handlers: PersistHandlers
     onError: string -> string -> exn -> unit
     formatError: string -> string
@@ -87,5 +97,5 @@ type PersistFilling = {
     flushSnapshot: unit -> Async<Result<unit, string>>
     dispose: unit -> unit
     until: Async<Result<unit, string>> option
-    bindSnapshot: (Graph option -> unit) -> unit
+    bindSnapshot: (InMsg -> unit) -> unit
 }

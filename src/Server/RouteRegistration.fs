@@ -68,7 +68,12 @@ module RouteRegistration =
             { dataDir = boot.DataDir
               consumer = consumer
               getGraph = ParseThread.graphFromHost core.host
-              postOps = ParseThread.postParseOps parseHandle }
+              postOps = ParseThread.postParseOps parseHandle
+              finishParse =
+                fun nodeId ->
+                    CoreMailbox.addInMsg
+                        core.host
+                        (InMsg.ParseFinished nodeId) }
 
     let private createPersistenceContext (this: AmbitApp) =
         let boot = this.CreateBoot ()

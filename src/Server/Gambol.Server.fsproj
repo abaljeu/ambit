@@ -17,6 +17,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>Gambol.Server.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Include="DataDir.fs" />
     <Compile Include="Types.fs" />
     <Compile Include="AmbitApp.fs" />

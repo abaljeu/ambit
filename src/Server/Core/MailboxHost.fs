@@ -4,7 +4,7 @@ open Gambol.Shared
 
 type MailboxHost =
     private {
-        mailbox: MailboxProcessor<CoreMsg>
+        mailbox: MailboxProcessor<QueueSum>
         isReady: unit -> bool
         flushSnapshot: unit -> Async<Result<unit, string>>
         dispose: unit -> unit
@@ -20,11 +20,15 @@ module MailboxHost =
         dispose = persist.dispose
     }
 
+    let internal postItem (host: MailboxHost) (item: QueueSum) =
+        host.mailbox.Post item
+
     let internal postAndAsyncReply
         (host: MailboxHost)
         (build: AsyncReplyChannel<'a> -> CoreMsg)
         : Async<'a> =
-        host.mailbox.PostAndAsyncReply build
+        host.mailbox.PostAndAsyncReply(fun channel ->
+            QueueSum.Core(build channel))
 
     let isReady (host: MailboxHost) = host.isReady
 

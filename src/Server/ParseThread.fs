@@ -8,11 +8,23 @@ type ParseThreadDeps =
     { dataDir: string
       consumer: unit -> NodeId
       getGraph: unit -> Async<Result<Graph, string>>
-      postOps: Op list -> Async<Result<unit, string>> }
+      postOps: Op list -> Async<Result<unit, string>>
+      finishParse: NodeId -> unit }
 
-/// One long-lived Parse consumer thread: pull stack, run planParseFile, post ops.
+/// One long-lived Parse consumer thread: pull stack, run planParseFile.
 [<RequireQualifiedAccess>]
 module ParseThread =
+
+    let private postContent (deps: ParseThreadDeps) (ops: Op list) =
+        async {
+            if List.isEmpty ops then
+                return Ok ()
+            else
+                return! deps.postOps ops
+        }
+
+    let private reportPost (err: string) =
+        eprintfn "ParseThread: content post failed: %s" err
 
     let private parseOne (deps: ParseThreadDeps) (fileId: NodeId) =
         async {
@@ -28,10 +40,11 @@ module ParseThread =
                         None
                 with
                 | Error _ -> return ()
-                | Ok [] -> return ()
                 | Ok ops ->
-                    let! _ = deps.postOps ops
-                    return ()
+                    let! posted = postContent deps ops
+                    match posted with
+                    | Error err -> return reportPost err
+                    | Ok () -> return deps.finishParse fileId
         }
 
     let private loop (deps: ParseThreadDeps) =

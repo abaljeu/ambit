@@ -28,6 +28,14 @@ module CoreMailbox =
         | Ok value -> value
         | Error error -> failwith error
 
+    /// Public add: CoreMsg joins the one mailbox queue.
+    let internal addCoreMsg (host: MailboxHost) (msg: CoreMsg) =
+        MailboxHost.postItem host (QueueSum.Core msg)
+
+    /// Private add: InMsg joins that same queue. No public door.
+    let internal addInMsg (host: MailboxHost) (msg: InMsg) =
+        MailboxHost.postItem host (QueueSum.In msg)
+
     let private reply host build =
         MailboxHost.postAndAsyncReply host build
 
@@ -274,7 +282,7 @@ module CoreMailbox =
 
     let dispose (host: MailboxHost) = MailboxHost.dispose host
 
-    let hostWithParsePush
+    let internal hostWithParsePush
         (pool: CoreActorPool)
         (persist: PersistFilling)
         (credentials: CoreCredentials)
@@ -287,13 +295,12 @@ module CoreMailbox =
                 pool
                 parsePush
         let started = CoreMailboxBackend.start context persist
-        persist.bindSnapshot (fun graph ->
-            started.processor.Post(SnapshotDone graph))
         let created = MailboxHost.create started.processor persist
+        persist.bindSnapshot (addInMsg created)
         started.bindCoreChanges (coreChanges created)
         created
 
-    let host
+    let internal host
         (pool: CoreActorPool)
         (persist: PersistFilling)
         (credentials: CoreCredentials)

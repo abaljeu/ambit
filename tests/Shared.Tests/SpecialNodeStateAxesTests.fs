@@ -90,13 +90,13 @@ let ``NewSpecialNode starts Unparsed and Persisted`` () =
         Assert.Equal(PersistState.Persisted, node.persistState)
 
 [<Fact>]
-let ``SetDocumentState dual-writes the parse axis and leaves persist`` () =
+let ``SetDocumentState writes DocumentState and leaves the parse axis`` () =
     let graph, id = artifact File "file.txt"
     let dirty = Graph.setPersistState id PersistState.Unpersisted graph |> requireOk
     let unparsed =
         apply [ Op.SetDocumentState(id, Current, Unparsed) ] dirty
     Assert.Equal(Unparsed, unparsed.nodes.[id].documentState)
-    Assert.Equal(ParseState.Unparsed, unparsed.nodes.[id].parseState)
+    Assert.Equal(ParseState.Parsed, unparsed.nodes.[id].parseState)
     Assert.Equal(PersistState.Unpersisted, unparsed.nodes.[id].persistState)
 
     let parsed =
@@ -108,7 +108,7 @@ let ``SetDocumentState dual-writes the parse axis and leaves persist`` () =
     let absent =
         apply [ Op.SetDocumentState(id, Current, NoServerFile) ] parsed
     Assert.Equal(NoServerFile, absent.nodes.[id].documentState)
-    Assert.Equal(ParseState.Unparsed, absent.nodes.[id].parseState)
+    Assert.Equal(ParseState.Parsed, absent.nodes.[id].parseState)
     Assert.Equal(PersistState.Unpersisted, absent.nodes.[id].persistState)
 
 let private markPersisted id graph =
@@ -142,7 +142,7 @@ let ``graph edit marks only the nearest owning special Unpersisted`` () =
     Assert.Equal(PersistState.Unpersisted, edited.nodes.[fileId].persistState)
     Assert.Equal(PersistState.Persisted, edited.nodes.[dirId].persistState)
     Assert.Equal(PersistState.Persisted, edited.nodes.[wsId].persistState)
-    Assert.Equal(ParseState.Parsed, edited.nodes.[fileId].parseState)
+    Assert.Equal(ParseState.Unparsed, edited.nodes.[fileId].parseState)
     Assert.Equal(ParseState.Unparsed, edited.nodes.[dirId].parseState)
     Assert.Equal(ParseState.Unparsed, edited.nodes.[wsId].parseState)
 
@@ -189,7 +189,7 @@ let ``directory Replace marks that directory only`` () =
     let edited = place dirId noteId graph
     Assert.Equal(PersistState.Unpersisted, edited.nodes.[dirId].persistState)
     Assert.Equal(PersistState.Persisted, edited.nodes.[wsId].persistState)
-    Assert.Equal(ParseState.Parsed, edited.nodes.[dirId].parseState)
+    Assert.Equal(ParseState.Unparsed, edited.nodes.[dirId].parseState)
 
 [<Fact>]
 let ``SQL reload derives parse state and defaults persist to Persisted`` () =
@@ -284,7 +284,7 @@ let private applyDiskParse (ops: Op list) (graph: Graph) : Graph =
     | ApplyResult.Invalid(_, msg) -> failwith msg
 
 [<Fact>]
-let ``disk parse marks the file Parsed and keeps PersistState`` () =
+let ``disk parse ops leave the parse axis and keep PersistState`` () =
     for persist in [ PersistState.Persisted; PersistState.Unpersisted ] do
         let fileId = NodeId.New()
         let lineId = NodeId.New()
@@ -299,6 +299,7 @@ let ``disk parse marks the file Parsed and keeps PersistState`` () =
             |> Graph.addDetachedNode (Node.Create(lineId, text = "alpha"))
             |> place fileId lineId
             |> apply [ Op.SetDocumentState(fileId, Current, Unparsed) ]
+            |> fun g -> Graph.setParseState fileId ParseState.Unparsed g |> requireOk
             |> fun g -> Graph.setPersistState fileId persist g |> requireOk
         let ops =
             match
@@ -311,7 +312,7 @@ let ``disk parse marks the file Parsed and keeps PersistState`` () =
             | Error err -> failwith err
         let after = applyDiskParse ops graph
         Assert.Equal(Current, after.nodes.[fileId].documentState)
-        Assert.Equal(ParseState.Parsed, after.nodes.[fileId].parseState)
+        Assert.Equal(ParseState.Unparsed, after.nodes.[fileId].parseState)
         Assert.Equal(persist, after.nodes.[fileId].persistState)
         Assert.Equal("beta", after.nodes.[(Graph.children after fileId).Head.id].text)
 

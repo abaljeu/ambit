@@ -132,7 +132,12 @@ let ``ParseThread loop runs planParseFile for stacked File`` () =
             { dataDir = dataDir
               consumer = consumer
               getGraph = ParseThread.graphFromHost host
-              postOps = ParseThread.postParseOps parseHandle }
+              postOps = ParseThread.postParseOps parseHandle
+              finishParse =
+                fun nodeId ->
+                    CoreMailbox.addInMsg
+                        host
+                        (InMsg.ParseFinished nodeId) }
         try
             let! fileId, _ =
                 seedWorkspaceFile host "home" "note.txt"

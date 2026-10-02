@@ -178,22 +178,22 @@ Sequence stays `expand-contract`. These paths are that implementation sequence. 
    3. [ ] **Stop** — The old git path is stopped.
 
 7. **InMsg**
-   1. [ ] **Expand** — The mailbox queue accepts `InMsg` through a private function, beside the public function that adds `CoreMsg`.
+   1. [x] **Expand** — The mailbox queue accepts `InMsg` through a private function, beside the public function that adds `CoreMsg`.
    2. [ ] **Migrate** — The parse thread and the persist thread add `InMsg` through the private function. The queue puller hands each item to its handler. **Core loop** applies `InMsg`.
-   3. [ ] **Contract** — `CoreMsg` has no `SnapshotDone`. `Op.SetPersistState` is not a writer. `Op.SetDocumentState` is not the writer of the parsed axis.
+   3. [x] **Contract** — `CoreMsg` has no `SnapshotDone`. `Op.SetPersistState` is not a writer. `Op.SetDocumentState` is not the writer of the parsed axis.
 
 ### Shared segments
 
 1. **InMsg**
-   1. [ ] **Private add** — The parse thread or the persist thread adds `InMsg` through the private function.
-   2. [ ] **Core loop** — The queue puller hands `InMsg` to the `InMsg` handler. **Core loop** applies `InMsg`.
+   1. [x] **Private add** — The parse thread or the persist thread adds `InMsg` through the private function.
+   2. [x] **Core loop** — The queue puller hands `InMsg` to the `InMsg` handler. **Core loop** applies `InMsg`.
 
 2. **Graph change**
    1. [ ] **Core loop** — A path that changes the graph crosses **Core loop**.
 
 ### Test seam
 
-1. [ ] **Core loop apply** — Narrowest point the completion paths cross. Tests apply `InMsg` on **Core loop**.
+1. [x] **Core loop apply** — Narrowest point the completion paths cross. Tests apply `InMsg` on **Core loop**.
 
 Implementation: add `InMsg` through the private function on the one mailbox queue, then move the threads onto that function. Testing: tests cross **Core loop** apply.
 
@@ -204,24 +204,24 @@ Deltas for this Project. Claim homes: [Mailbox](doc/current/mailbox.md) and [Par
 1. **Core loop**
    The `CoreMailboxBackend` module holds the queue puller. The private add function is on the mailbox. Puller file: `src/Server/Core/CoreMailboxBackend.fs`. Mailbox file: `src/Server/Core/CoreMailbox.fs`.
    1. **State**
-      1. [ ] **InMsg** — Internal message type. Not an Op. It carries the completion and the node.
-         1. [ ] **ParseFinished** — That `NodeId`. Parse finished.
-         2. [ ] **SnapshotDone** — That `NodeId` and the snapshot `Graph option`. Snapshot finished and that node is Persisted. This case replaces `PersistFinished`.
-      2. [ ] **One queue** — The mailbox queue. Its element is a private sum of `CoreMsg` and `InMsg`. That sum has no public name. There is no second queue.
+      1. [x] **InMsg** — Internal message type. Not an Op. It carries the completion and the node.
+         1. [x] **ParseFinished** — That `NodeId`. Parse finished.
+         2. [x] **SnapshotDone** — That `NodeId` and the snapshot `Graph option`. Snapshot finished and that node is Persisted. This case replaces `PersistFinished`.
+      2. [x] **One queue** — The mailbox queue. Its element is a private sum of `CoreMsg` and `InMsg`. That sum has no public name. There is no second queue.
    2. **Interface**
-      1. [ ] **Private add** — A private function on the mailbox takes `InMsg` and adds it to the queue.
-      2. [ ] **Public add** — A public function takes `CoreMsg` and adds it to the same queue.
-      3. [ ] **Pull** — The queue puller receives the next item and hands a `CoreMsg` to the `CoreMsg` handler and an `InMsg` to the `InMsg` handler.
-      4. [ ] **Parse finished** — `ParseFinished` sets that node Parsed only. The field write is `GraphMutate.setParseState`. PersistState stays unchanged.
-      5. [ ] **Snapshot done** — `SnapshotDone` sets that node Persisted through `GraphMutate.setPersistState`, and the same completion stores the snapshot graph as `persistedGraph` when it equals the live graph, clears the in-progress flag, and starts another snapshot when one is needed.
-      6. [ ] **Public post** — `CoreMailbox.postEvents` and `CoreMailbox.postGraphOnly` do not carry `InMsg`.
+      1. [x] **Private add** — A private function on the mailbox takes `InMsg` and adds it to the queue.
+      2. [x] **Public add** — A public function takes `CoreMsg` and adds it to the same queue.
+      3. [x] **Pull** — The queue puller receives the next item and hands a `CoreMsg` to the `CoreMsg` handler and an `InMsg` to the `InMsg` handler.
+      4. [x] **Parse finished** — `ParseFinished` sets that node Parsed only. The field write is `GraphMutate.setParseState`. PersistState stays unchanged.
+      5. [x] **Snapshot done** — `SnapshotDone` sets that node Persisted through `GraphMutate.setPersistState`, and the same completion stores the snapshot graph as `persistedGraph` when it equals the live graph, clears the in-progress flag, and starts another snapshot when one is needed.
+      6. [x] **Public post** — `CoreMailbox.postEvents` and `CoreMailbox.postGraphOnly` do not carry `InMsg`.
       7. [ ] **Not an Actor mailbox** — The mailbox queue is not an Actor mailbox. The persist thread does not get a `MailboxProcessor`.
-      8. [ ] **CoreMsg** — `CoreMsg` has no `SnapshotDone`. The other `CoreMsg` cases are the public mailbox doors. Current code posts `SnapshotDone` on the `MailboxProcessor` in `CoreMailbox.hostWithParsePush` before `MailboxHost` hides the processor. The completion is `InMsg` `SnapshotDone`, added by the private function.
+      8. [x] **CoreMsg** — `CoreMsg` has no `SnapshotDone`. The other `CoreMsg` cases are the public mailbox doors. The live-document completion is `InMsg` `SnapshotDone`, added by the private function.
       9. [ ] **Private axes** — PersistState and the parsed axis are internal. Outsiders may see them. The core loop writes them. `Op.SetPersistState` is not a writer. `Op.SetDocumentState` is not the writer of the parsed axis.
    3. **Uses**
-      1. [ ] **Parse thread** — Adds `InMsg` `ParseFinished` through the private function.
+      1. [x] **Parse thread** — Adds `InMsg` `ParseFinished` through the private function.
       2. [ ] **Persist thread** — Adds `InMsg` `SnapshotDone` through the private function.
-      3. [ ] **Db agent** — Adds `InMsg` `SnapshotDone` through the private function when the live-document snapshot finishes. It does not post `CoreMsg`.
+      3. [x] **Db agent** — Adds `InMsg` `SnapshotDone` through the private function when the live-document snapshot finishes. It does not post `CoreMsg`.
       4. [x] **Field write** — `GraphMutate.setParseState` and `GraphMutate.setPersistState` are the existing field writes.
 
 2. **Parse thread**
@@ -231,7 +231,7 @@ Deltas for this Project. Claim homes: [Mailbox](doc/current/mailbox.md) and [Par
    2. **Interface**
       1. [ ] **Add** — On finish it adds `InMsg` `ParseFinished` for that node through the private function. It does not edit the graph.
    3. **Uses**
-      1. [ ] **Private add** — The private function on the mailbox.
+      1. [x] **Private add** — The private function on the mailbox.
 
 3. **Persist thread**
    File: `src/Server/Core/PersistThread.fs`.
@@ -245,8 +245,8 @@ Deltas for this Project. Claim homes: [Mailbox](doc/current/mailbox.md) and [Par
 
 ## 11. Seams
 
-1. [ ] **Private add** — Interface on **Core loop**.
-2. [ ] **Parse add** — Interface on **Parse thread**.
+1. [x] **Private add** — Interface on **Core loop**.
+2. [x] **Parse add** — Interface on **Parse thread**.
 3. [ ] **Persist add** — Interface on **Persist thread**.
 
 ## 12. Alternative considered

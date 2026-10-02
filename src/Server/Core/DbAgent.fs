@@ -19,8 +19,10 @@ module DbAgent =
         eventLog: EventLog ref
         snapshotInProgress: bool ref
         snapshotNeeded: bool ref
+        snapshotWorkspaces: NodeId list ref
+        snapshotMarks: int ref
         ready: TaskCompletionSource<unit>
-        snapshotPost: (Graph option -> unit) option ref
+        snapshotPost: (InMsg -> unit) option ref
         startupError: string option ref
         connectionString: string
         liveSaveDataDir: string option
@@ -85,6 +87,8 @@ module DbAgent =
           eventLog = ref EventLog.empty
           snapshotInProgress = ref false
           snapshotNeeded = ref false
+          snapshotWorkspaces = ref []
+          snapshotMarks = ref 0
           ready =
             TaskCompletionSource<unit>(
                 TaskCreationOptions.RunContinuationsAsynchronously)
@@ -216,18 +220,53 @@ module DbAgent =
                 ex.Message
             None
 
-    let private startSnapshot loaded (post: Graph option -> unit) =
-        loaded.snapshotInProgress.Value <- true
-        loaded.snapshotNeeded.Value <- false
-        let snapshotState = loaded.state.Value
-        let preGraph = loaded.persistedGraph.Value
-        let postGraph = snapshotState.graph
-        Task.Run(fun () ->
-            let persisted =
-                writeLiveSnapshot loaded.liveSaveDataDir preGraph postGraph
-            post persisted
-        )
-        |> ignore
+    let private opAnchor (op: Op) : NodeId option =
+        match op with
+        | Op.NewNode(id, _)
+        | Op.SetText(id, _, _)
+        | Op.SetClasses(id, _, _)
+        | Op.NewSpecialNode(id, _, _)
+        | Op.SetName(id, _, _)
+        | Op.SetDocumentState(id, _, _) -> Some id
+        | Op.Replace(id, _, _) -> Some id
+        | Op.SetUpdateTime _ -> None
+
+    /// Workspaces that own the ops which requested this live snapshot.
+    let private workspacesTouched (graph: Graph) (events: Ev list) =
+        events
+        |> List.collect (fun event ->
+            Ev.ops event |> Option.defaultValue [])
+        |> List.choose opAnchor
+        |> List.choose (GraphQuery.enclosingWorkspace graph)
+        |> List.distinct
+
+    let private rememberWorkspaces loaded (graph: Graph) (events: Ev list) =
+        let more = workspacesTouched graph events
+        loaded.snapshotWorkspaces.Value <-
+            loaded.snapshotWorkspaces.Value @ more |> List.distinct
+
+    let private startSnapshot loaded (post: InMsg -> unit) =
+        let ids = loaded.snapshotWorkspaces.Value
+        loaded.snapshotWorkspaces.Value <- []
+        match ids with
+        | [] ->
+            loaded.snapshotNeeded.Value <- false
+            eprintfn "DbAgent: live snapshot has no owning workspace"
+        | _ ->
+            loaded.snapshotInProgress.Value <- true
+            loaded.snapshotNeeded.Value <- false
+            loaded.snapshotMarks.Value <- List.length ids
+            let preGraph = loaded.persistedGraph.Value
+            let postGraph = loaded.state.Value.graph
+            Task.Run(fun () ->
+                let persisted =
+                    writeLiveSnapshot
+                        loaded.liveSaveDataDir
+                        preGraph
+                        postGraph
+                for id in ids do
+                    post (InMsg.SnapshotDone(id, persisted)))
+            |> ignore
 
     let private requestSnapshot loaded =
         match loaded.snapshotPost.Value with
@@ -296,6 +335,7 @@ module DbAgent =
                 loaded.persistedGraph.Value <- stateToStore.graph
             elif not (List.isEmpty fresh) then
                 loaded.persistedGraph.Value <- stateToStore.graph
+                rememberWorkspaces loaded stateToStore.graph fresh
                 if loaded.snapshotInProgress.Value then
                     loaded.snapshotNeeded.Value <- true
                 else
@@ -365,9 +405,14 @@ module DbAgent =
             when GraphProjection.graphEquals loaded.state.Value.graph graph ->
             loaded.persistedGraph.Value <- graph
         | _ -> ()
-        loaded.snapshotInProgress.Value <- false
-        if loaded.snapshotNeeded.Value then
-            requestSnapshot loaded
+        let left = loaded.snapshotMarks.Value - 1
+        if left > 0 then
+            loaded.snapshotMarks.Value <- left
+        else
+            loaded.snapshotMarks.Value <- 0
+            loaded.snapshotInProgress.Value <- false
+            if loaded.snapshotNeeded.Value then
+                requestSnapshot loaded
 
     let private eventsSince loaded after =
         EventLog.since after loaded.eventLog.Value |> fun log -> log.events
@@ -413,6 +458,9 @@ module DbAgent =
         appendEvent = appendPersistedEvent loaded
         applyEvent = fun event graphOnly ->
             processPostEvents loaded [ event ] graphOnly
+        replaceGraph = fun graph ->
+            loaded.state.Value <-
+                { loaded.state.Value with graph = graph }
         snapshotDone = handleSnapshotDone loaded
     }
 
@@ -573,5 +621,5 @@ module DbAgent =
     let create (connectionString: string) : DbAgent =
         createWithLiveSave connectionString None
 
-    let persist (agent: DbAgent) : PersistFilling =
+    let internal persist (agent: DbAgent) : PersistFilling =
         agent.filling

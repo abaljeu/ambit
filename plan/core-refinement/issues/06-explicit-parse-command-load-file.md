@@ -1,9 +1,9 @@
 # 06 — Explicit parse command on a File (Load)
 
 **Type:** coding
-**Status:** defined
+**Status:** coded
 **Blocked by:** None — can start immediately
-Actual: 1.5h
+Actual: 3.5h
 
 ## Context
 
@@ -30,12 +30,12 @@ This ticket keeps mailbox Load of a File node and the parse thread loop. The req
 
 ### 3. Parse finish
 
-- [ ] InMsg — The message type is InMsg. It is not an Op. It carries the completion and the node. Cases: ParseFinished, SnapshotDone. Home: [[../arch.md]] §10 Core loop.
-- [ ] One queue — The mailbox has one queue. A private function adds InMsg. A public function adds CoreMsg. The queue puller hands the item to its handler. There is no second queue. Home: [[../arch.md]] §10 Core loop.
-- [ ] Parse thread adds — When this File parse finishes, the parse thread adds InMsg ParseFinished for that node through the private function. The parse thread does not edit the graph axes. The parse thread does not hold the mailbox queue.
-- [ ] Core loop sets Parsed — The InMsg handler applies ParseFinished. It sets that node Parsed only through `GraphMutate.setParseState`. PersistState stays unchanged.
-- [ ] Public post stays clear — `CoreMailbox.postEvents` and `CoreMailbox.postGraphOnly` do not carry InMsg.
-- [ ] Axis writers — `Op.SetDocumentState` is not the writer of the parsed axis. `Op.SetPersistState` is not a writer.
+- [x] InMsg — The message type is InMsg. It is not an Op. It carries the completion and the node. Cases: ParseFinished, SnapshotDone. Home: [[../arch.md]] §10 Core loop.
+- [x] One queue — The mailbox has one queue. A private function adds InMsg. A public function adds CoreMsg. The queue puller hands the item to its handler. There is no second queue. Home: [[../arch.md]] §10 Core loop.
+- [x] Parse thread adds — When this File parse finishes, the parse thread adds InMsg ParseFinished for that node through the private function. The parse thread does not edit the graph axes. The parse thread does not hold the mailbox queue.
+- [x] Core loop sets Parsed — The InMsg handler applies ParseFinished. It sets that node Parsed only through `GraphMutate.setParseState`. PersistState stays unchanged.
+- [x] Public post stays clear — `CoreMailbox.postEvents` and `CoreMailbox.postGraphOnly` do not carry InMsg.
+- [x] Axis writers — `Op.SetDocumentState` is not the writer of the parsed axis. `Op.SetPersistState` is not a writer.
 
 ## Out of scope
 
@@ -56,7 +56,9 @@ This ticket keeps mailbox Load of a File node and the parse thread loop. The req
 - 2026-09-30: Alan — Parse loop is not an Actor; same posture as Persist ([[../arch.md]] §3 step 2). Prior “Actor function” framing withdrawn.
 - 2026-10-01: Revisit. The coded finish does not match [[../arch.md]] §10 Core loop. When parse finishes, the parse thread adds InMsg ParseFinished through the private function. The core loop sets Parsed through `GraphMutate.setParseState`. Status `defined`. The 2026-09-29 `coded` mark was the Change and `Op.SetDocumentState` path.
 - 2026-10-01: Alan locked InMsg on the one mailbox queue. This ticket follows that name. Status stays `defined`.
+- 2026-10-01: InMsg is on the one mailbox queue. File parse finish adds ParseFinished. The db agent adds SnapshotDone. CoreMsg has no SnapshotDone. `Op.SetDocumentState` still dual-writes the parse axis for other callers. Status `coded`.
 
 ## Time
 
 - 2026-09-29 1.5h — implement mailbox Load, ParseStack, ParseThread loop, tests `(from chat)`
+- 2026-10-01 2h — InMsg queue, ParseFinished, SnapshotDone off CoreMsg `(from chat)`

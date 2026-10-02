@@ -67,7 +67,11 @@ Send a single message with two `Agent` tool calls. Use the `general-purpose` sub
 
 - The same diff command (and commit list if any).
 - The path or contents of the local spec.
-- The brief: "Report only findings. (a) Requirements the spec asked for that are missing or partial. (b) Behaviour in the diff that was not asked for (scope creep). (c) Requirements that look implemented but where the implementation looks wrong. (d) Each global type or interface the diff adds or changes that the local spec did not name. (d) is its own finding, separate from (b). A type defines a thing. Global means other callers can see it: a shared DU case, a public operation, a module signature, or an API surface. A private local binding inside one function stays outside (d). Quote the spec line for each finding. For (d), quote the spec line or state that the spec does not mention that type or interface. If there are no findings, one line. Under 400 words."
+- The brief: "Report only findings. 
+    (a) Requirements the spec asked for that are missing or partial. 
+    (b) Behaviour in the diff that was not asked for (scope creep). 
+    (c) Requirements that look implemented but where the implementation looks wrong. 
+    (d) Each global type or interface the diff adds or changes that the local spec did not name, focusing on the data, not functions.
 
 If the spec is missing, skip the Spec sub-agent and note this in the final report. Done: Standards has been spawned; Spec has been spawned or skipped with "no spec available".
 
