@@ -17,6 +17,7 @@ A browsable description of how Gambol is coded and how it runs: processes, layer
 - 2026-09-30 — Alan: Core seam sole authority is [[plan/core-refinement/arch.md]]. [[server-core.md]] is the compact description of that same target, linked from the master.
 - 2026-09-30 — Filed [Create the initial wiki structure with the established elements](plan/architecture/issues/05-create-initial-wiki-structure.md).
 - 2026-10-01 — Alan: this Project owns reconcile of seven workspace-file docs with existing plans and with [[doc/current/]]. The files stay in [[doc/roadmap/]]. This chart does not merge their claims into [[doc/current/]]. [Parse thread](plan/parse-thread/project.md) may later claim Parse product leftovers; the two Parse docs are charted here first. Open disagreements stay on the tickets.
+- 2026-10-02 — Stub pages for Server description outline headers only (no Alan body): [[configuration-secrets.md]], [[client-contract-surface.md]]. Link existing homes; not product locks.
 
 ## Reconcile
 
@@ -32,6 +33,8 @@ A browsable description of how Gambol is coded and how it runs: processes, layer
 
 1. **Browser and App auth** — [[browser-and-app-auth.md]] — how the Browser and the App present `gambol_auth` to Core, and how a Server restart keeps the same derived token.
 2. **Server Core** — [[server-core.md]] — compact description of the Core target; sole authority is [[plan/core-refinement/arch.md]] (Target — Server Core).
+3. **Configuration / secrets** — [[configuration-secrets.md]] — stub; points at [[doc/reference/secrets.md]], [[doc/reference/deploy-azure.md]], and [[browser-and-app-auth.md]]. Not a product lock.
+4. **Client contract surface** — [[client-contract-surface.md]] — stub; points at [[doc/api.md]]. Not a product lock.
 
 ## Decisions so far
 
