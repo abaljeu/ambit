@@ -300,14 +300,16 @@ module RunAgentActor =
                 requestCancel args.Config args.AgentId args.RunId)
             (fun fold -> AgentRunner.streamUntilComplete args fold)
 
+    let private promptAndExtract document =
+        systemPrompt
+        + Environment.NewLine
+        + Environment.NewLine
+        + document
+
     let private toStartArgs keys repos (args: AiCommandArgs) document : StartArgs =
         { Config =
             { RunnerConfig.ApiKey = AiKeys.resolve keys args.Keyname }
-          Prompt =
-            systemPrompt
-            + Environment.NewLine
-            + Environment.NewLine
-            + document
+          Prompt = promptAndExtract document
           Repos = AiRepos.resolve repos args.Reponame
           Options = askOptions }
 
@@ -340,7 +342,7 @@ module RunAgentActor =
             let sessionId = input.sessionId
             let wakeArgs =
                 { Config = grok.Config
-                  Text = document
+                  Text = promptAndExtract document
                   CommandId = nodeGuid input.commandId
                   FocusId = nodeGuid input.focusId
                   SessionId = sessionId
