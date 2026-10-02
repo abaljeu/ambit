@@ -46,7 +46,7 @@ Sequence is module-build. The open product delta is one module. Story paths that
    1. [x] **Mark Unparsed** — Client Load on a Directory Node marks that Directory Node Unparsed. Rule: [core-refinement architecture](../core-refinement/arch.md) §5 item 8.
    2. [x] **File Load door** — Mailbox Load of a File Node stays [Core mailbox backend](../../src/Server/Core/CoreMailboxBackend.fs) `dispatchLoad`. This Project does not widen that door.
 
-10. **Directory that is not a Workspace**
+10. **Same as a Workspace**
     1. [x] **Same axis write** — Item 8 includes a Directory Node that is not a Workspace Node.
     2. [ ] **Same reconcile** — That Directory Node uses Directory reconcile.
 
@@ -136,7 +136,8 @@ Sequence is module-build. The open product delta is one module. Story paths that
       3. [ ] **Unparsed** — Directory reconcile returns a disk-newer File Node as Unparsed.
       4. [ ] **Push** — Directory reconcile names that File Node for push.
       5. [ ] **No extra info** — Structure-match uses the Directory body and the Graph only.
-      6. [ ] **Not a Workspace** — Although workspcaaces       7. [ ] **ParseFinished** — When Directory reconcile is done, the parse thread adds InMsg ParseFinished for that Directory Node through the private function. It does not edit the graph axes. The core loop sets Parsed only through `GraphMutate.setParseState`. PersistState stays unchanged.
+      6. [ ] **Workspace** — Workspace nodes use the same reconcile process. (They also do other things.)
+      7. [ ] **ParseFinished** — When Directory reconcile is done, the parse thread adds InMsg ParseFinished for that Directory Node through the private function. It does not edit the graph axes. The core loop sets Parsed only through `GraphMutate.setParseState`. PersistState stays unchanged.
    3. **Uses**
       1. [ ] **Parse thread** — [Parse thread](../../src/Server/ParseThread.fs) calls Directory reconcile when the popped node is a Directory Node.
       2. [x] **Parse stack** — Push uses [Parse stack](../../src/Server/ParseStack.fs).
@@ -170,4 +171,6 @@ Sequence is module-build. The open product delta is one module. Story paths that
 
 1. **Directory reconcile acceptance** — §2 Module map, item 1 **Directory reconcile** names the walk, missing File Nodes, and disk-newer Unparsed. What a person must still accept before coding Directory reconcile is open. See [Parse thread map](map.md) Not yet specified, Directory reconcile acceptance. The locked sentences stay in the Module map. This architecture adds no acceptance leaves. Coding Directory reconcile waits on that acceptance. See [spec](spec.md) Further Notes.
 2. **Changes from directory reconcile** — The destination says the thread emits Changes. How a Directory reconcile meets Poll is open. See [Parse thread map](map.md) Not yet specified, Changes from directory reconcile. Story path 17 **Emit Changes** records only the existing File Change door.
-3. **Browser want priority versus directory reconcile** — [04 — Browser want priority versus directory reconcile](issues/04-browser-want-priority-versus-directory-reconcile.md) stays `defined`. Alan, 2026-10-01: this is poll. Not addressing. [browser-residency](../browser-residency/project.md) computes Browser wants. [05 — Selection-scoped Parse after whole-tree git Load](../core-refinement/issues/05-selection-scoped-parse-after-whole-tree-git-load.md) says a selection push has no special priority. Whether a Browser want uses that rule when the other work is Directory reconcile stays on that ticket.
+3. **Order among Directory targets** — Order among several Directory reconcile targets, apart from Browser wants, is open. See [Parse thread map](map.md) Not yet specified, Order among Directory targets.
+4. **Workspace Load after incoming files** — [03 — Workspace Load after incoming files](issues/03-workspace-load-after-incoming-files.md) stays `defined`. Open: what the parse thread does when the reconcile target is the Workspace Node, what that pass pushes for child Directory Nodes and File Nodes, and how that pass meets structure-match Directory Load.
+5. **Browser want priority versus directory reconcile** — [04 — Browser want priority versus directory reconcile](issues/04-browser-want-priority-versus-directory-reconcile.md) stays `defined`. [browser-residency](../browser-residency/project.md) computes Browser wants. [05 — Selection-scoped Parse after whole-tree git Load](../core-refinement/issues/05-selection-scoped-parse-after-whole-tree-git-load.md) says a selection push has no special priority. Whether a Browser want uses that rule when the other work is Directory reconcile stays on that ticket.
