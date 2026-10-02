@@ -6,7 +6,7 @@ Sequence: module-build
 
 Core stacks, axes, locks, and the mailbox stay [core-refinement architecture](../core-refinement/arch.md) and [core-refinement map](../core-refinement/map.md). InMsg on the one mailbox queue stays [core-refinement architecture](../core-refinement/arch.md) §10 Core loop. This architecture is the Parse product delta only. A `[x]` hop is already true in code, or it is a Core door this Project cites and does not build. Open Core build stays on that architecture and on [Core](../../doc/current/core.md). A `[ ]` hop is Directory reconcile work.
 
-Sequence is module-build. The open product delta is one module. Story paths that only cite Core do not add modules. Tests for this Project cross Directory reconcile. They do not start the mailbox, the workspace lock, or the persist thread.
+Sequence is module-build. Directory reconcile is in code. Story paths that only cite Core do not add modules. Tests for this Project cross Directory reconcile. They do not start the mailbox, the workspace lock, or the persist thread.
 
 ## 1. Story paths
 
@@ -48,26 +48,26 @@ Sequence is module-build. The open product delta is one module. Story paths that
 
 10. **Same as a Workspace**
     1. [x] **Same axis write** — Item 8 includes a Directory Node that is not a Workspace Node.
-    2. [ ] **Same reconcile** — That Directory Node uses Directory reconcile.
+    2. [x] **Same reconcile** — That Directory Node uses Directory reconcile.
 
 11. **Spot missing disk members**
-    1. [ ] **Structure-match** — Directory reconcile spots disk members the Graph lacks.
-    2. [ ] **No extra info** — That spot uses the Directory File tie and the Graph. It does not take a member hint list.
+    1. [x] **Structure-match** — Directory reconcile spots disk members the Graph lacks.
+    2. [x] **No extra info** — That spot uses the Directory File tie and the Graph. It does not take a member hint list.
 
 12. **Directory File walk**
-    1. [ ] **Directory File** — Directory reconcile walks the Directory body, every node tied to that Directory File (`.amb`).
+    1. [x] **Directory File** — Directory reconcile walks the Directory body, every node tied to that Directory File (`.amb`).
 
 13. **Nodes below the immediate children**
-    1. [ ] **Below immediate children** — The walk includes nodes below the immediate children.
+    1. [x] **Below immediate children** — The walk includes nodes below the immediate children.
 
 14. **Create missing File Nodes**
-    1. [ ] **Missing File Node** — Directory reconcile creates a File Node for a disk member the Graph lacks.
+    1. [x] **Missing File Node** — Directory reconcile creates a File Node for a disk member the Graph lacks.
 
 15. **Disk-newer Unparsed**
-    1. [ ] **Disk-newer** — When disk is newer, Directory reconcile marks that File Node Unparsed.
+    1. [x] **Disk-newer** — When disk is newer, Directory reconcile marks that File Node Unparsed.
 
 16. **Push when the stack exists**
-    1. [ ] **Push** — Directory reconcile pushes that Unparsed File Node when the Parse stack exists.
+    1. [x] **Push** — Directory reconcile pushes that Unparsed File Node when the Parse stack exists.
     2. [x] **Stack door** — The push door is [Parse stack](../../src/Server/ParseStack.fs).
 
 17. **Emit Changes**
@@ -84,7 +84,7 @@ Sequence is module-build. The open product delta is one module. Story paths that
 
 20. **Structure-match is ready to code later**
     1. [x] **Recorded** — [02 — Structure-match Directory Load](issues/02-structure-match-directory-load.md) records the way as clear enough for later coding.
-    2. [ ] **Later coding** — That coding is Directory reconcile. It does not reopen §5 item 8 **Client Load on Directory**.
+    2. [x] **Later coding** — That coding is Directory reconcile. It does not reopen §5 item 8 **Client Load on Directory**.
 
 21. **Axes stay on Core**
     1. [x] **Item 8** — Client Load on Directory uses [core-refinement architecture](../core-refinement/arch.md) §5 item 8.
@@ -107,7 +107,7 @@ Sequence is module-build. The open product delta is one module. Story paths that
 
 2. **Directory into Graph**
    1. [x] **Mark Unparsed** — Core §5 item 8.
-   2. [ ] **Directory reconcile** — Walk, create, disk-newer, push.
+   2. [x] **Directory reconcile** — Walk, create, disk-newer, push.
    3. [x] **File into Graph** — A pushed File Node uses segment 1 **File into Graph**.
 
 3. **Outside Parse**
@@ -116,7 +116,7 @@ Sequence is module-build. The open product delta is one module. Story paths that
 
 ### 24. Test seam
 
-1. [ ] **Directory reconcile** — Narrowest new door the directory paths cross. Shared tests call this interface.
+1. [x] **Directory reconcile** — Narrowest new door the directory paths cross. Shared tests call this interface.
 2. [x] **File parse** — Narrowest door the file paths already cross. This Project does not move that seam.
 
 ## 2. Module map
@@ -127,19 +127,19 @@ Sequence is module-build. The open product delta is one module. Story paths that
    Claim home: [Parse and persist](../../doc/current/parse-persist.md)
 
    1. **State**
-      1. [ ] **Whole tie** — The walk covers the Directory body, every node tied to that Directory File, including nodes below the immediate children.
-      2. [ ] **Missing File Node** — A disk member the Graph lacks has a File Node after Directory reconcile.
-      3. [ ] **Disk-newer** — A disk-newer file has its File Node Unparsed after Directory reconcile.
+      1. [x] **Whole tie** — The walk covers the Directory body, every node tied to that Directory File, including nodes below the immediate children.
+      2. [x] **Missing File Node** — A disk member the Graph lacks has a File Node after Directory reconcile.
+      3. [x] **Disk-newer** — A disk-newer file has its File Node Unparsed after Directory reconcile.
    2. **Interface**
-      1. [ ] **Inputs** — Directory reconcile takes a Directory Node and the Directory body.
-      2. [ ] **Create** — Directory reconcile returns ops that create each missing File Node. A new node appends alphabetically under the Directory Node.
-      3. [ ] **Unparsed** — Directory reconcile returns a disk-newer File Node as Unparsed.
-      4. [ ] **Push** — Directory reconcile names that File Node for push.
-      5. [ ] **No extra info** — Structure-match uses the Directory body and the Graph only.
-      6. [ ] **Workspace** — Workspace nodes use the same reconcile process. (They also do other things.)
-      7. [ ] **ParseFinished** — When Directory reconcile is done, the parse thread adds InMsg ParseFinished for that Directory Node through the private function. It does not edit the graph axes. The core loop sets Parsed only through `GraphMutate.setParseState`. PersistState stays unchanged.
+      1. [x] **Inputs** — Directory reconcile takes the disk directory, the graph, and the directory id. The directory id plus the graph is the Directory Node. Directory reconcile reads the Directory body from that graph. The disk directory is required.
+      2. [x] **Create** — Directory reconcile returns ops that create each missing File Node. A new node appends alphabetically under the Directory Node.
+      3. [x] **Unparsed** — Directory reconcile returns a disk-newer File Node as Unparsed.
+      4. [x] **Push** — Directory reconcile names that File Node for push.
+      5. [x] **No extra info** — Structure-match uses the Directory body and the Graph only.
+      6. [x] **Workspace** — Workspace nodes use the same reconcile process. (They also do other things.)
+      7. [x] **ParseFinished** — When Directory reconcile is done, the parse thread adds InMsg ParseFinished for that Directory Node through the private function. It does not edit the graph axes. The core loop sets Parsed only through `GraphMutate.setParseState`. PersistState stays unchanged.
    3. **Uses**
-      1. [ ] **Parse thread** — [Parse thread](../../src/Server/ParseThread.fs) calls Directory reconcile when the popped node is a Directory Node.
+      1. [x] **Parse thread** — [Parse thread](../../src/Server/ParseThread.fs) calls Directory reconcile when the popped node is a Directory Node.
       2. [x] **Parse stack** — Push uses [Parse stack](../../src/Server/ParseStack.fs).
       3. [x] **File parse** — File text stays [Document persist write](../../src/Server/DocumentPersistWrite.fs) `planParseFile`.
       4. [x] **Create File Node** — Missing File Nodes use [File node ops](../../src/Shared/FileNodeOps.fs) `planCreateOwnedFile`.
@@ -153,7 +153,7 @@ Sequence is module-build. The open product delta is one module. Story paths that
 ## 3. Seams
 
 1. **Directory reconcile**
-   1. [ ] Interface on **Directory reconcile**. Tests cross this seam.
+   1. [x] Interface on **Directory reconcile**. Tests cross this seam.
 2. **Parse thread**
    1. [x] Interface on the existing parse thread. A File Node pop stays `planParseFile`. A Directory Node pop calls **Directory reconcile**. On finish the parse thread adds InMsg ParseFinished through the private function.
 3. **File parse**
@@ -169,7 +169,7 @@ Sequence is module-build. The open product delta is one module. Story paths that
 
 ## 5. Unsettled
 
-1. **Directory reconcile acceptance** — §2 Module map, item 1 **Directory reconcile** names the walk, missing File Nodes, and disk-newer Unparsed. What a person must still accept before coding Directory reconcile is open. See [Parse thread map](map.md) Not yet specified, Directory reconcile acceptance. The locked sentences stay in the Module map. This architecture adds no acceptance leaves. Coding Directory reconcile waits on that acceptance. See [spec](spec.md) Further Notes.
+1. **Directory reconcile acceptance** — §2 Module map, item 1 **Directory reconcile** names the walk, missing File Nodes, and disk-newer Unparsed. The coding ticket is [05 — Directory reconcile](issues/05-directory-reconcile.md), Status `coded`.
 2. **Changes from directory reconcile** — The destination says the thread emits Changes. How a Directory reconcile meets Poll is open. See [Parse thread map](map.md) Not yet specified, Changes from directory reconcile. Story path 17 **Emit Changes** records only the existing File Change door.
 3. **Order among Directory targets** — Order among several Directory reconcile targets, apart from Browser wants, is open. See [Parse thread map](map.md) Not yet specified, Order among Directory targets.
 4. **Workspace Load after incoming files** — [03 — Workspace Load after incoming files](issues/03-workspace-load-after-incoming-files.md) stays `defined`. Open: what the parse thread does when the reconcile target is the Workspace Node, what that pass pushes for child Directory Nodes and File Nodes, and how that pass meets structure-match Directory Load.

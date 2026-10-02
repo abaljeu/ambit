@@ -54,6 +54,7 @@
     <Compile Include="FileNodeOpsTests.fs" />
     <Compile Include="GraphOnlyChangeChunksTests.fs" />
     <Compile Include="LazyLoadReconciliationTests.fs" />
+    <Compile Include="DirectoryReconcileTests.fs" />
     <Compile Include="DocumentPathMoveTests.fs" />
     <Compile Include="DocumentPartitionTests.fs" />
     <Compile Include="DocumentOpImpactTests.fs" />

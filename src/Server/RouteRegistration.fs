@@ -60,6 +60,7 @@ module RouteRegistration =
     let private startParseThread
         (boot: CoreBoot)
         (core: CoreRuntime)
+        (pushParsed: NodeId -> unit)
         (consumer: unit -> NodeId)
         =
         let parseHandle =
@@ -67,6 +68,7 @@ module RouteRegistration =
         ParseThread.start
             { dataDir = boot.DataDir
               consumer = consumer
+              push = pushParsed
               getGraph = ParseThread.graphFromHost core.host
               postOps = ParseThread.postParseOps parseHandle
               finishParse =
@@ -79,7 +81,7 @@ module RouteRegistration =
         let boot = this.CreateBoot ()
         let parsePush, consumer = ParseStack.create ()
         let core = CoreRuntime.create boot parsePush
-        startParseThread boot core consumer
+        startParseThread boot core parsePush consumer
         let github =
             GithubTransportActor.productionDependencies boot.DataDir
         core.pool.registerPeer

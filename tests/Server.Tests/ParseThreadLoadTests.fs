@@ -131,6 +131,7 @@ let ``ParseThread loop runs planParseFile for stacked File`` () =
         ParseThread.start
             { dataDir = dataDir
               consumer = consumer
+              push = push
               getGraph = ParseThread.graphFromHost host
               postOps = ParseThread.postParseOps parseHandle
               finishParse =

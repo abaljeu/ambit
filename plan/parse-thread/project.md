@@ -1,10 +1,10 @@
 # Parse thread
 
-Stage: arch
+Stage: build
 Summary: A continuous Server parse thread turns file-shaped disk into Graph, takes priority from Browser wants, and emits Changes. A continuous persist thread turns Graph into disk. Both add InMsg through the mailbox private function. The core loop sets the axes.
 Updated: 2026-10-01
 Started: 2026-09-28
-Actual: 10m
+Actual: 1h 40m
 
 **Part of:** [[plan/roadmap/epics/chapters/automatic-parse.md]]
 
@@ -21,3 +21,7 @@ Actual: 10m
 - 2026-10-01 — Persist finish on this spec is AxisCompletion SnapshotDone, the same package as setting Persisted. Home: [[plan/core-refinement/arch.md]] §10 Core loop. Stage stays arch. Superseded later the same day: the case is InMsg SnapshotDone.
 - 2026-10-01 — Alan: the internal message is InMsg on the one mailbox queue. The parse thread and the persist thread add InMsg through the private function. Home: [[plan/core-refinement/arch.md]] §10 Core loop. Stage stays arch.
 - 2026-10-01 — This Project owns Directory reconcile. Definition: [Parse thread architecture](arch.md) §2 Module map, item 1 **Directory reconcile**. [core-refinement architecture](../core-refinement/arch.md) §5 item 10 **Directory reconcile** is the deferred pointer. Stage stays arch.
+- 2026-10-01 — Coding ticket is [05 — Directory reconcile](issues/05-directory-reconcile.md). Stage is slice.
+- 2026-10-01 — First implement of [05 — Directory reconcile](issues/05-directory-reconcile.md). Stage is build.
+- 2026-10-01 — Setting Unparsed, recursive update is [06 — Setting Unparsed, recursive update](issues/06-setting-unparsed-recursive-update.md). This ticket does not block [05 — Directory reconcile](issues/05-directory-reconcile.md), and 05 does not block it.
+- 2026-10-01 — Alan: Directory reconcile inputs are the disk directory, the graph, and the directory id. The directory id plus the graph is the Directory Node. Directory reconcile reads the Directory body from that graph. The disk directory is required. Home: [Parse thread architecture](arch.md) §2 Module map, item 1 **Directory reconcile**, Interface **Inputs**, and [05 — Directory reconcile](issues/05-directory-reconcile.md) §1 Directory reconcile, **Inputs**.

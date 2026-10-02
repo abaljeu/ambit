@@ -27,7 +27,11 @@ Summary: Server subsystem. The hub links the mailbox, parse and persist, the fil
 
 ### **Operations**
 Details: [[doc/current/operations.md]].
-Summary: Shared ops that transform the graph. Node and Graph fields stay on [[doc/current/persistence-model.md]].
+Summary: Shared ops that transform the graph. Cases live on [[doc/current/op.md]]. Node and Graph fields stay on [[doc/current/persistence-model.md]].
+
+### **Op**
+Details: [[doc/current/op.md]].
+Summary: One Graph modification. Cases, apply, and which fields an Op writes.
 
 ### **View**
 Details: [[doc/current/view.md]].

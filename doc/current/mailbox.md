@@ -6,6 +6,7 @@ See Also:
 - [Db agent](db-agents.md)
 - [Actors](actors.md)
 - [Parse and persist](parse-persist.md)
+- [Op](op.md)
 
 The mailbox is the Core loop and the public post path.
 
@@ -43,7 +44,7 @@ The mailbox is the Core loop and the public post path.
 [x] `SnapshotDone`: the InMsg handler sets that node Persisted through `GraphMutate.setPersistState`, including when the snapshot graph is absent. The same completion stores the snapshot graph as `persistedGraph` when it equals the live graph, clears the in-progress flag, and starts another snapshot when one is needed. The db agent adds this case through the private function when the live-document snapshot finishes. That node is the enclosing workspace of the accepted ops that requested the snapshot.
 [ ] The persist thread adds `SnapshotDone` through the private function when a file write finishes.
 [x] Actor post path: `CoreMailbox.postEvents` and `CoreMailbox.postGraphOnly`. `InMsg` stays off that path.
-[ ] Parsed axis and `PersistState`: internal. Outsiders may see them. The core loop writes them. `Op.SetPersistState` is not a writer. `Op.SetDocumentState` is not the writer of the parsed axis.
+[ ] Parsed axis and `PersistState`: internal. Outsiders may see them. The core loop writes them. Writer cases: [Op](op.md).
 
 ## Explanation
 The queue stays short so one slow body cannot block every other message. That slow body is an Actor.

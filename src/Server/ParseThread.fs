@@ -7,11 +7,13 @@ open Gambol.Shared
 type ParseThreadDeps =
     { dataDir: string
       consumer: unit -> NodeId
+      push: NodeId -> unit
       getGraph: unit -> Async<Result<Graph, string>>
       postOps: Op list -> Async<Result<unit, string>>
       finishParse: NodeId -> unit }
 
-/// One long-lived Parse consumer thread: pull stack, run planParseFile.
+/// One long-lived Parse consumer thread: pull stack, run planParseFile
+/// or Directory reconcile.
 [<RequireQualifiedAccess>]
 module ParseThread =
 
@@ -26,25 +28,73 @@ module ParseThread =
     let private reportPost (err: string) =
         eprintfn "ParseThread: content post failed: %s" err
 
-    let private parseOne (deps: ParseThreadDeps) (fileId: NodeId) =
+    let private alreadyParsed (graph: Graph) (nodeId: NodeId) =
+        match Map.tryFind nodeId graph.nodes with
+        | Some node when node.parseState = ParseState.Parsed -> true
+        | _ -> false
+
+    let private afterPost
+        (deps: ParseThreadDeps)
+        (nodeId: NodeId)
+        (push: NodeId list)
+        (posted: Result<unit, string>)
+        =
+        match posted with
+        | Error err -> reportPost err
+        | Ok () ->
+            push |> List.iter deps.push
+            deps.finishParse nodeId
+
+    let private parseFile
+        (deps: ParseThreadDeps)
+        (graph: Graph)
+        (fileId: NodeId)
+        =
+        async {
+            match
+                DocumentPersistWrite.planParseFile
+                    deps.dataDir
+                    graph
+                    fileId
+                    None
+            with
+            | Error _ -> return ()
+            | Ok ops ->
+                let! posted = postContent deps ops
+                return afterPost deps fileId [] posted
+        }
+
+    let private parseDirectory
+        (deps: ParseThreadDeps)
+        (graph: Graph)
+        (directoryId: NodeId)
+        =
+        async {
+            match
+                DirectoryReconcile.planDirectoryReconcile
+                    { dataDir = deps.dataDir
+                      graph = graph
+                      directoryId = directoryId }
+            with
+            | Error _ -> return ()
+            | Ok planned ->
+                let! posted = postContent deps planned.ops
+                return afterPost deps directoryId planned.push posted
+        }
+
+    let private parseOne (deps: ParseThreadDeps) (nodeId: NodeId) =
         async {
             let! graphResult = deps.getGraph ()
             match graphResult with
             | Error _ -> return ()
+            | Ok graph when alreadyParsed graph nodeId -> return ()
             | Ok graph ->
-                match
-                    DocumentPersistWrite.planParseFile
-                        deps.dataDir
-                        graph
-                        fileId
-                        None
-                with
-                | Error _ -> return ()
-                | Ok ops ->
-                    let! posted = postContent deps ops
-                    match posted with
-                    | Error err -> return reportPost err
-                    | Ok () -> return deps.finishParse fileId
+                match Map.tryFind nodeId graph.nodes with
+                | Some { kind = Special File } ->
+                    return! parseFile deps graph nodeId
+                | Some { kind = Special (Directory | Workspace) } ->
+                    return! parseDirectory deps graph nodeId
+                | _ -> return ()
         }
 
     let private loop (deps: ParseThreadDeps) =

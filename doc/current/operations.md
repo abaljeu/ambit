@@ -4,6 +4,7 @@ Category: Capability
 
 See Also:
 
+[Op](op.md)
 [Browser](browser.md)
 [Persistence model](persistence-model.md)
 [Workspace graph](workspace-graph.md)
@@ -14,16 +15,12 @@ A small set of operations transforms a graph of nodes.
 ## Job
 
 [x] Graph: pure, directed, and potentially cyclic. File: [Model.fs](../../src/Shared/Model.fs).
-[x] `NewNode` creates a node.
-[x] `SetText` sets text from an old value to a new value.
-[x] `SetClasses` sets CSS classes.
-[x] `Replace` replaces children at an index. `Replace` covers a parent-child edge and a ref edge.
-[x] Undo and redo use `History` and inverted ops. Client submits inverses. Server stores the forward log. File: [History.fs](../../src/Shared/History.fs).
+[x] Cases and apply: [Op](op.md).
+[x] Undo and redo use inverted Ops. The client submits inverses. The server stores the forward log. File: [History](../../src/Shared/History.fs).
 
 ## Change
 
-[x] `Change`: `id`, `changeId`, and `ops`. `changeId`: Guid for deduplication. File: [History.fs](../../src/Shared/History.fs).
-[x] Op names: `NewNode`, `SetText`, `SetClasses`, and `Replace(parent, index, oldChildren, newChildren)`.
+[x] Change: an Action. Event body carries the Op list. `submissionId`: Guid for deduplication. File: [History](../../src/Shared/History.fs).
 
 ## Model building
 
