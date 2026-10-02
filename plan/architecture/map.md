@@ -27,11 +27,14 @@ A browsable description of how Gambol is coded and how it runs: processes, layer
 5. [10 — Workspace File Model](issues/10-workspace-file-model.md) — [Workspace File Model](doc/roadmap/workspace-file-model.md) says the whole graph is one document today, and also says per-document `DataDir` persistence is implemented. [Workspace graph](doc/current/workspace-graph.md) still calls the Stage 6 TRASH name token a target. [Workspace stage plan](doc/current/workspace-stage-plan.md) marks Stage 6 done.
 6. [11 — Workspace File Persistence](issues/11-workspace-file-persistence.md) — [Workspace File Persistence](doc/roadmap/workspace-file-persistence.md) is Draft. [Persistence model](doc/current/persistence-model.md) describes auto-persist as current and lists full per-document layout under Not implemented.
 7. [12 — Workspace scale file and db management](issues/12-workspace-scale-file-and-db-management.md) — [Workspace scale file and db management](doc/roadmap/workspace-scale-file-and-db-management.md) marks `DataDir` live-save done and leaves later steps on [Transport layer](plan/transport-layer/project.md), [Workspace scale import](doc/roadmap/workspace-scale-import.md), and [Incremental operations](plan/roadmap/epics/chapters/incremental-operations.md).
+- 2026-10-02 — Stub pages for Server description outline headers only (no Alan body): [[configuration-secrets.md]], [[client-contract-surface.md]]. Link existing homes; not product locks.
 
 ## Pages
 
 1. **Browser and App auth** — [[browser-and-app-auth.md]] — how the Browser and the App present `gambol_auth` to Core, and how a Server restart keeps the same derived token.
 2. **Server Core** — [[server-core.md]] — compact description of the Core target; sole authority is [[plan/core-refinement/arch.md]] (Target — Server Core).
+3. **Configuration / secrets** — [[configuration-secrets.md]] — stub; points at [[doc/reference/secrets.md]], [[doc/reference/deploy-azure.md]], and [[browser-and-app-auth.md]]. Not a product lock.
+4. **Client contract surface** — [[client-contract-surface.md]] — stub; points at [[doc/api.md]]. Not a product lock.
 
 ## Decisions so far
 
