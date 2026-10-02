@@ -23,7 +23,6 @@ Sequence: establish Core through [[chapters/initial-core.md]], support the first
 ### Bar (not process crash isolation)
 
 - **Core and managed Actor pool** — [[plan/core-creation/project.md]], sequenced by [[chapters/initial-core.md]].
-- **First Actor definition** — Parse through [[chapters/actors-supported.md]].
 - **ACID apply** — [[chapters/acid-apply.md]].
 - **Incremental work** — [[chapters/incremental-operations.md]].
 - **Not required for this bar:** process-level crash isolation (outer work crashing must not take down a separate core process). Full Workspace Upload/Load redesign and every connector stay parked.

@@ -86,7 +86,7 @@ That reading drops every other-Actor Op that does not rewrite the same field or 
 
 User answers while drafting the program ticket sequence ([[../to-tickets-draft.md]]):
 
-- **Soft-lock and job are one surface.** The lock belongs to the job; completion clears it; the indicator opens the job. Prefer one vertical project, not soft-lock-before-job or two parallel products. Parse remains a tracer for the Actor produce path without that surface.
+- **Soft-lock and job are one surface.** The lock belongs to the job; completion clears it; the indicator opens the job. Prefer one vertical project, not soft-lock-before-job or two parallel products. Parse remains a tracer for the produce path without that surface.
 - **Shared Post/Poll success envelope type** is preferred for a smaller footprint / easier verification. Channels stay distinct (Post signals; Poll lists). Fold into Ticket 0 expand; do not leave type unify as late optional cleanup.
 - **Decision-first is OK** for delete-against-edit / orphan / Undo, provided early tickets leave extension room (optional Change baseline, adjustable short-tail retention, History not frozen as own-posts-only) so late accepts do not force wire rework.
 - **Load packages as Graph / state transfer** reaffirmed **accepted** (Round 4); remove stale “parked” wording that blurred transfer kind with unfinished residency packaging.

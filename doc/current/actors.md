@@ -26,4 +26,4 @@ An Actor is a function outside Core.
 ## Pool
 
 [x] `CoreActorPool` keeps the live table: public Actor identity, secret, termination handle, and Focus. The mailbox is the only thread that reads or writes that table.
-[x] Parse thread: a thread. Persist thread: a thread. Detail: Parse and persist.
+[x] Persist thread: a thread. Detail: Parse and persist.

@@ -12,7 +12,7 @@ Once a Change **arrives** at Server apply, every existing rule decides the merge
 
 ## What is already determined
 
-A concluding Change is the **newest** Actor. The **other Actors** are whoever landed first: Browsers that edited during the long run, other jobs, Parse. Server arrival sequences them.
+A concluding Change is the **newest** Actor. The **other Actors** are whoever landed first: Browsers that edited during the long run, and other jobs. Server arrival sequences them.
 
 **Produce.** Common prior — typically the subgraph snapshot at plan time — then the other accepted Changes, then this job's Change amended. Recoverable overlap is merge success. Auth and malformed requests stay Reject.
 
@@ -40,7 +40,7 @@ Do **not** post a request to the Server's own interface. That re-enters authenti
 
 The user's answer on this was **don't-care**: passing objects, or encoding to text the way Parse does today, are both acceptable. The clean seam is the recommendation above; today's encoding detour is a workable temporary fact.
 
-## Parse File — the first Actor of this kind
+## Parse File
 
 **Already fits:** it produces a Change, not a graph dump; it plans **off** the apply queue and then sends a message for apply; it emits one Change of Ops; and the requester consumes by polling, not by a completion push.
 
@@ -48,11 +48,11 @@ The user's answer on this was **don't-care**: passing objects, or encoding to te
 
 **Not required now:** job identity, returning before apply, and cancel. Parse is still one request-scoped task.
 
-## Shell command — a later Actor of the same kind
+## Shell command
 
-Prospective, and no such interface exists. Same shape as Parse: its own task off the apply queue, conclude with Changes, send them to inner apply, Browsers poll and replay.
+Prospective, and no such interface exists. Its own task runs off the apply queue. It concludes with Changes, sends them to inner apply, and Browsers poll and replay.
 
-**New in relation to Parse:** several concurrent jobs, Client-held job identities, and cancel. Whether output becomes node text or parsed Ops is unspecified.
+**Later needs:** several concurrent jobs, Client-held job identities, and cancel. Whether output becomes node text or parsed Ops is unspecified.
 
 ## The sharp gaps
 

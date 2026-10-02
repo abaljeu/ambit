@@ -5,11 +5,11 @@
 
 ## Context
 
-[[plan/core-creation/project.md]] remains the Core baseline and the existing Actor pool and mailbox. Parse File remains the first Actor definition. It stays outside Core. The pool and mailbox remake that hosts Actors as Core clients stays on [[plan/actor-as-client/project.md]] (deferred 2026-09-27).
+[[plan/core-creation/project.md]] remains the Core baseline and the existing Actor pool and mailbox. Parse File stays outside Core. The pool and mailbox remake that hosts Actors as Core clients stays on [[plan/actor-as-client/project.md]] (deferred 2026-09-27).
 
 ## Goal
 
-Parse File is the first Actor definition that works through Core. It concludes through Changes and returns merge success. Parse stays outside Core. Actor hosting is remade so an Actor talks Core the same way the Browser does.
+Parse File concludes through Changes and returns merge success. Parse stays outside Core. Actor hosting is remade so an Actor talks Core the same way the Browser does.
 
 ## Required for done
 

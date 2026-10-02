@@ -31,10 +31,8 @@ Map gist: [[../map.md]] Decisions so far item 5.
 - 2026-09-26: Filed later. Status `needs-info`. Not the v1 implement frontier.
 - 2026-09-28: Alan locked push-on-stack. Status `done`.
 - 2026-09-29: Moved from github-transport into core-refinement as [05 — Selection-scoped Parse after whole-tree git Load](05-selection-scoped-parse-after-whole-tree-git-load.md).
-- 2026-09-30: Wording — Parse is stack/loop, not an Actor ([[../arch.md]] §3 step 2).
-
 ## Time
 
 - 2026-09-26 5m — stubbed later ticket from chat
 - 2026-09-28 5m — recorded selection push-on-stack lock from chat
-- 2026-09-30 5m — corrected Parse-actor wording in Answer
+- 2026-09-30 5m — corrected Answer wording

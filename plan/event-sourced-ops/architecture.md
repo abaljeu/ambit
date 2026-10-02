@@ -4,7 +4,7 @@ The conceptual protocol. It says who does what, and in which order. It does not 
 
 ## Roles
 
-**Actor.** Anything that produces a Change. A person editing in the Browser, the Parse File job, a later shell command or agent. An Actor may be synchronous or asynchronous, and may hold little or no Local Graph. All Actors are the same kind.
+**Actor.** Anything that produces a Change. A person editing in the Browser, a later shell command or agent. An Actor may be synchronous or asynchronous, and may hold little or no Local Graph. All Actors are the same kind.
 
 **Server.** The only sequencer and the only amender. It holds the full Graph, gives Changes their global order, amends the newest Change, completes a Change that an Actor could not write in full, and keeps the log that Clients read. The Server is also an Actor when it completes a Change ([[details/completing-ops.md]]).
 

@@ -31,7 +31,7 @@ Working hypothesis only (Alan 2026-09-27 voice). Not a Decision. Not Status `don
 After function-passing at pool construction ships (step one):
 
 1. **Next seam** — flexibility across Actor types.
-2. **Shapes** — Agent Actors keep their function shape; other Actors (for example a Parse function) bring a different input shape.
+2. **Shapes** — Agent Actors keep their function shape; other Actors bring a different input shape.
 3. **Dispatch** — the switch happens at the HTTP / actor-call dispatch layer: it says “I want a parse” and passes the information that Parse requires; then everything proceeds from there.
 4. **Command** — which command is running determines the information that goes with the command.
 5. **Polymorphism** — lives in the function signatures, not in the pool or the mailbox.

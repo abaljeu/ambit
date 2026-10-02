@@ -18,7 +18,7 @@ Implement the resolved issues 03–06 as the bounded initial Core Changes increm
 - Do not implement Core Files, general Query, Command, the Actor pool, Actor cancellation, Actor completion, or Actor shutdown. These belong to issues 07–12.
 - Do not implement issue 01. Do not add a production Server Actor or another production Server-producer path. This increment only supplies the typed Normal seam and direct test evidence that issue 01 can start later.
 - Do not implement issue 13. Do not delete the mirror, alter persistence-mode selection, add mirror tests, or redesign the obsolete mirror path.
-- Do not make Parse an Actor and do not change Parse planning.
+- Do not change Parse planning.
 - Do not redesign ACID apply, initialization, repair, database/file reconciliation, Graph-to-file, or file-to-Graph protocols.
 - Do not add Graph/file functions or move Shared source modules.
 

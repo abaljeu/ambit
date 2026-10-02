@@ -24,7 +24,7 @@ Give one semantic standard for how a mutation enters a Graph, so that every prod
 
 Three aims:
 
-1. **One mutation path.** An Op is the only mutation. A Change is a set of Ops. An Actor is anything that produces a Change — a person editing in the Browser, the Parse File job, a later shell command or agent. There is no second writer.
+1. **One mutation path.** An Op is the only mutation. A Change is a set of Ops. An Actor is anything that produces a Change — a person editing in the Browser, a later shell command or agent. There is no second writer.
 2. **Merge, not refuse.** Concurrency is normal, not an error. The Server sequences Changes and amends the newest one against what already landed. A recoverable collision is a success, not a Reject.
 3. **Async work is not a separate product.** A long-running job is an Actor of the same kind. Its result arrives as Changes on the same path, and Clients consume it the same way.
 

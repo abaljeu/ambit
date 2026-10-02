@@ -21,3 +21,4 @@ How the Browser computes wants stays [browser-residency](../../browser-residency
 ## Comments
 
 - 2026-10-01 — Filed from the directory/Load chart. Status `defined`. Open for grilling.
+- 2026-10-01 — Alan: this is poll. Not addressing. Status stays `defined`.

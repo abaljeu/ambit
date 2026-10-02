@@ -10,7 +10,7 @@ See Also:
 Parse and persist move text between disk and the graph.
 ## Job
 
-[x] Server: one long-lived Parse stack and one parse thread. Parse thread: a thread. [Parse stack](../../src/Server/ParseStack.fs), [Parse thread](../../src/Server/ParseThread.fs).
+[x] Server: one long-lived Parse stack and one parse thread. [Parse stack](../../src/Server/ParseStack.fs), [Parse thread](../../src/Server/ParseThread.fs).
 [x] Nobody starts an Actor after pull.
 [ ] Persist thread: runs when a node is Unpersisted and Parsed. Persist thread: a thread. Its collectors call the persist functions in [Document persist change](../../src/Server/DocumentPersistChange.fs). Those functions stay the write body. Setup lives in [Core](../../src/Server/Core).
 [x] Parse thread: adds `InMsg` `ParseFinished` through the mailbox private function when that File parse finishes. It does not edit the graph axes. The queue puller hands `InMsg` to the InMsg handler. [Mailbox](mailbox.md)
@@ -26,7 +26,7 @@ Parse and persist move text between disk and the graph.
 [ ] Parse setup (stack, push, and consumer) lives only in [Core](../../src/Server/Core). Route registration does not construct Parse, does not start Parse, and does not hold Parse handles.
 [ ] Every handoff uses the Parse stack.
 [ ] After the workspace lock drains in-flight member file use, pull or Upload land proceeds. Arrived files are marked Unparsed. The lock releases. Unparsed starts the parse thread.
-[ ] The Directory Parse body walks every node tied to that Directory File, including nodes below the immediate children. It creates missing File Nodes. A disk-newer file marks that File Node Unparsed, and that File Node is pushed when the Parse stack exists. When the body is done, that Directory Node is Parsed only. Structure-match on a Directory Node, including a Directory Node that is not a Workspace Node, spots disk members the Graph lacks, with no extra info. Axis rules: Directory Parse done, Client Load on Directory, and Directory Parse body.
+[ ] Directory reconcile walks every node tied to that Directory File, including nodes below the immediate children. It creates missing File Nodes. A disk-newer file marks that File Node Unparsed, and that File Node is pushed when the Parse stack exists. When Directory reconcile is done, that Directory Node is Parsed only. Structure-match on a Directory Node, including a Directory Node that is not a Workspace Node, spots disk members the Graph lacks, with no extra info. Parse thread owns Directory reconcile. Axis rules: Directory Parse done and Client Load on Directory.
 ## Persist
 
 [x] Persist: turns graph information into files.

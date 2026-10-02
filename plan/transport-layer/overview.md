@@ -36,14 +36,14 @@ The file channel is the first fully charted instance: **Parse File** on Load, do
 Disk is one transport channel, not the whole layer:
 
 - **Upload / Download** — move bytes between App and Server.
-- **Parse** — turn server files into Graph content (Parse File job as Server **Actor**).
+- **Parse** — turn server files into Graph content.
 - **Codec round-trip** — document-formats Parse/reconcile on File Node bodies for editable external copies.
 
 The *Work with my documents from anywhere* Epic is the User Epic; channels include disk and future Google (Drive/Docs, example), all through transport-layer. Current Chapters are the disk beat (auto upload/download, workspace mapping). Transport-layer owns the pattern those Projects implement.
 
 ## ESO Actor boundary
 
-Every transport that **mutates** the Graph posts **Changes** through the ESO path. A person editing in the Browser, **Parse File**, an LLM connector **Actor**, or a future shell command are the same kind of producer.
+Every transport that **mutates** the Graph posts **Changes** through the ESO path. A person editing in the Browser, an LLM connector **Actor**, or a future shell command are the same kind of producer.
 
 Transport-layer does not define merge, Poll, or job identity — [[plan/event-sourced-ops/overview.md]] does. Transport-layer requires every module to use that path. **Load** (Fetch residency) stays Graph transfer, not Change replay; inbound materialization and ongoing **Sync** both matter.
 

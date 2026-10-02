@@ -18,7 +18,7 @@ Details, by topic:
 - [[details/messaging.md]] — post against poll, success against Reject, History
 - [[details/completing-ops.md]] — Server fill-in and its timing
 - [[details/soft-lock.md]] — the advisory subtree reservation
-- [[details/actors-and-jobs.md]] — long-running Actors, Parse File, shell commands, launch and cancel
+- [[details/actors-and-jobs.md]] — long-running jobs, shell commands, launch and cancel
 - [[details/undo.md]] — what Undo inverts, and the retained open question
 - [[details/relation-to-relaxed-concurrency.md]] — build-upon layer on this project; what stays, what was superseded
 - [[plan/relaxed-concurrency/map.md]] — verified knowns, audit docs, shared rejections, frontier D–F

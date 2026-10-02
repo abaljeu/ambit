@@ -110,6 +110,9 @@ _Avoid_: Desktop (in speech), shell, host app
 A named source that submits requests to Core and is recorded on accepted Events. Browser identities, Actors, Cursor, Zapier, and Amble are Authorities.
 _Avoid_: sender, user (when the source may not be a person)
 
+**Body**: of a Special Node.  Also Graph Body.
+The collection of nodes which correspond to the disk file for that Special node.  (Disk and Workspace objects get .amb file to hold extra data.)  Calculation: recursive descent through owned children, up to the next Special Nodes.
+
 **Browser**:
 Spoken name for the Client project: the browser-side code. Both the App and a web browser are clients of the Server, so do not say Client for this project.
 _Avoid_: Client (in speech), frontend, web app
@@ -145,6 +148,10 @@ _Avoid_: Marker (for this concept), marker file, directory marker, amb marker, m
 **Directory Node**:
 A Node whose Kind is Directory; corresponds to a server directory plus that directory's `.amb` file (`DirName/.amb`). Always say Directory Node, not bare “directory,” when referring to the Node.
 _Avoid_: directory (bare, for a Node), folder
+
+**Directory reconcile**:
+The scan of a directory that updates that Directory Node's Body.
+_Avoid_: Directory Parse body
 
 **Document**:
 The project that reads and writes documents between Graph and file.

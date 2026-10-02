@@ -17,7 +17,7 @@ Structure-match Directory Load is clear enough for later coding. That includes L
 
 Structure-match means reconciliation that can spot disk members the Graph lacks, with no extra info. The axis write stays [core-refinement architecture](../../core-refinement/arch.md) §5 item 8: Client Load on a Directory marks that Directory Node Unparsed.
 
-The Directory Parse body is a separate lock: [01 — Directory Parse body home](01-directory-parse-body-home.md).
+The Directory body is a separate lock: [01 — Directory body home](01-directory-parse-body-home.md).
 
 Map gist: [[../map.md]] Decisions so far item 2.
 

@@ -26,19 +26,19 @@ flowchart LR
   G --> PERSIST --> BACK
 ```
 
-Inbound: outside text → Parse → **Changes** on the Actor path. Outbound: Graph slice → Persist → outside text. Round-trip: Persist → edit outside → Parse → **Update** **Changes**.
+Inbound: outside text → Parse → **Changes**. Outbound: Graph slice → Persist → outside text. Round-trip: Persist → edit outside → Parse → **Update** **Changes**.
 
 ## File channel mapping
 
 | Transport concern | File channel instance |
 | --- | --- |
 | Bytes on disk | Upload / Download (not Parse/Persist themselves) |
-| Text → Graph | Load **Parse** stage; **Parse File** Server **Actor** |
+| Text → Graph | Load **Parse** stage |
 | Graph → text | Document codec **Persist** / reconcile on File Node |
 | Round-trip | Codec Parse/reconcile + workspace sync ([[plan/document-formats/map.md]]) |
 | Residency | **Fetch** after Parse ([[plan/selective-client-loading/project.md]]) |
 
-Parse File on disk is the reference **Actor** implementation; generalized produce path and job identity live in event-sourced-ops.
+Generalized produce path and job identity live in event-sourced-ops.
 
 ## Shared vs per-transport
 

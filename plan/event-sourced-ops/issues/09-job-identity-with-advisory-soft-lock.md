@@ -1,6 +1,6 @@
 # 09 — Advisory soft-lock and Browser job access
 
-**Context:** Soft-lock meaning is accepted, and its lifecycle coupling to a job is an accepted direction. Core owns job launch, identity, cancellation, and finish through Changes. ESO owns the advisory semantics and Browser-facing access. Issuance, expiry, and Browser chrome are still proposed. Parse (08) proves the Actor path without this Browser surface.
+**Context:** Soft-lock meaning is accepted, and its lifecycle coupling to a job is an accepted direction. Core owns job launch, identity, cancellation, and finish through Changes. ESO owns the advisory semantics and Browser-facing access. Issuance, expiry, and Browser chrome are still proposed. Parse (08) proves the produce path without this Browser surface.
 
 **What to build:** Use Core job identity as the Browser access point for an advisory subtree reservation. The lock belongs to the job, job completion clears it, and its indicator lets the person inspect or cancel the job through the Core pool surface. Edits under the lock remain legal and merge. Do not duplicate Core pool implementation.
 

@@ -37,7 +37,7 @@ Locked 2026-09-28 (Alan). Axis-write mechanics live on [core-refinement architec
 7. **Create special** — Unparsed + Persisted.
 8. **Client Load on Directory** — Mark the Directory Node Unparsed (re-process). Reconciliation with no extra info can spot disk members the Graph lacks.
 9. **Client Load on File** — Mark the File Node Unparsed. Push onto the Parse stack is deferred (needs the Parse loop).
-10. **Directory Parse body** (deferred) — Walks all nodes tied to that `.amb`, not only immediate children. Create missing File Nodes. Disk-newer → File Node Unparsed (and push when the stack exists).
+10. **Directory body** (deferred) — Walks all nodes tied to that `.amb`, not only immediate children. Create missing File Nodes. Disk-newer → File Node Unparsed (and push when the stack exists).
 11. **Parse stack pop** (deferred) — If the node is already Parsed, skip. Real work arrives Unparsed.
 
 **Directory File** — Locked 2026-09-29 (Alan). A Directory File (exact `.amb` name) does not carry Parsed|Unparsed or Persisted|Unpersisted. Do not dual-write those axes. A graph edit does not mark that node Unpersisted. Workspace, Directory, and File content nodes still carry both axes.

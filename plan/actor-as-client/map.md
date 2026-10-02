@@ -36,7 +36,7 @@ Aims from Alan 2026-09-27 chat. Aims 1 and 2 stay provisional (not Decisions so 
 ## 4. Not yet specified
 
 1. **Remote or cross-process start** — Named ActorFn registry stays fog ([04 — Start surface](issues/04-start-surface.md)). How a Command reaches a worker in another process stays open.
-2. **Existing Actor migration** — how TestActor, AI, GitHub Peer Actor, and Parse adopt the new host without a one-shot rewrite.
+2. **Existing Actor migration** — how TestActor, AI, and GitHub Peer Actor adopt the new host without a one-shot rewrite.
 3. **Lifecycle Events after remake** — ActorStart records focus ID and name for cancel and drops `graphIds` ([04 — Start surface](issues/04-start-surface.md)). What ActorStop and any other Event fields must still record stays open.
 4. **Worker isolation** — whether filesystem and database workers stay in-process with Core or later move out.
 5. **Graph handoff remainder** — live versus snapshot Graph, and which start ids beyond cancel Focus, stay on [02 — Graph handoff](issues/02-graph-handoff.md).

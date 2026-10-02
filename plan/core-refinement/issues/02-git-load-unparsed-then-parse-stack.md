@@ -44,7 +44,6 @@ Map gist: [[../map.md]] Decisions so far item 2.
 
 - 2026-09-28: Alan replaced the Reconciling cascade. Status `done`. Sequence was Unparsed on Workspace → pull → push Parse. Upload is the same path. No new Actor after pull.
 - 2026-09-29: Moved from github-transport into core-refinement as [02 — Git Load: Unparsed then Parse stack](02-git-load-unparsed-then-parse-stack.md).
-- 2026-09-30: Wording — Parse is stack/loop, not an Actor ([[../arch.md]] §3 step 2).
 - 2026-09-30: Alan locked pull order on [[../arch.md]] §6: workspace lock → drain → pull → mark Unparsed → release → parse thread. Answer updated; the older “mark Unparsed then pull” sequence is not current truth.
 
 ## Time
@@ -54,4 +53,4 @@ Map gist: [[../map.md]] Decisions so far item 2.
 - 2026-09-28 5m — recorded Unparsed Persist-block clarification from chat
 - 2026-09-28 5m — rewrote cascade to Workspace Reconciling sequence from chat
 - 2026-09-28 5m — rewrote to Unparsed-then-Parse-stack model from chat
-- 2026-09-30 5m — corrected Parse-actor wording in Answer
+- 2026-09-30 5m — corrected Answer wording
