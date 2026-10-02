@@ -17,6 +17,7 @@ A browsable description of how Gambol is coded and how it runs: processes, layer
 - 2026-09-30 — Alan: Core seam sole authority is [[plan/core-refinement/arch.md]]. [[server-core.md]] is the compact description of that same target, linked from the master.
 - 2026-09-30 — Filed [Create the initial wiki structure with the established elements](plan/architecture/issues/05-create-initial-wiki-structure.md).
 - 2026-10-01 — Alan: this Project owns reconcile of seven workspace-file docs with existing plans and with [[doc/current/]]. The files stay in [[doc/roadmap/]]. This chart does not merge their claims into [[doc/current/]]. [Parse thread](plan/parse-thread/project.md) may later claim Parse product leftovers; the two Parse docs are charted here first. Open disagreements stay on the tickets.
+- 2026-10-02 — Stub pages for Server description outline headers only (no Alan body): [[configuration-secrets.md]], [[client-contract-surface.md]]. Link existing homes; not product locks.
 
 ## Reconcile
 
@@ -27,7 +28,6 @@ A browsable description of how Gambol is coded and how it runs: processes, layer
 5. [10 — Workspace File Model](issues/10-workspace-file-model.md) — [Workspace File Model](doc/roadmap/workspace-file-model.md) says the whole graph is one document today, and also says per-document `DataDir` persistence is implemented. [Workspace graph](doc/current/workspace-graph.md) still calls the Stage 6 TRASH name token a target. [Workspace stage plan](doc/current/workspace-stage-plan.md) marks Stage 6 done.
 6. [11 — Workspace File Persistence](issues/11-workspace-file-persistence.md) — [Workspace File Persistence](doc/roadmap/workspace-file-persistence.md) is Draft. [Persistence model](doc/current/persistence-model.md) describes auto-persist as current and lists full per-document layout under Not implemented.
 7. [12 — Workspace scale file and db management](issues/12-workspace-scale-file-and-db-management.md) — [Workspace scale file and db management](doc/roadmap/workspace-scale-file-and-db-management.md) marks `DataDir` live-save done and leaves later steps on [Transport layer](plan/transport-layer/project.md), [Workspace scale import](doc/roadmap/workspace-scale-import.md), and [Incremental operations](plan/roadmap/epics/chapters/incremental-operations.md).
-- 2026-10-02 — Stub pages for Server description outline headers only (no Alan body): [[configuration-secrets.md]], [[client-contract-surface.md]]. Link existing homes; not product locks.
 
 ## Pages
 
