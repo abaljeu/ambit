@@ -15,12 +15,12 @@ This file records the Destination, the Notes that still stand, and Alan's later 
 
 1. **Two phases** — Find is a two-phase fulfillment of the existing client search. Every keypress recomputes on the client only and updates the dialog immediately. That local incremental search stays. No server message goes out on a keypress. After the search text has been unchanged for a short quiet gap, one server request completes the picture. There is no later page.
 2. **Quiet gap** — The server request fires once, after that short quiet gap. This spec does not name a millisecond value. If the text changes before the gap ends, the request is not sent. If the client already has 200 hits, the request is not sent. A reply for an older search string is ignored. The reply matches the search text, or an equivalent generation of that text. This quiet gap is a lock.
-3. **Own server support** — Find has its own server support. Move has its own server support when Move recomputes on each keypress the same way. File search is out of this spec.
+3. **One backend** — One server backend serves both Find and Move. Move has no separate server path and no separate Actor. File search is out of this spec. This shared backend is a lock.
 4. **Want-fulfillment** — If the server finds N items, the Find dialog shows them. Move shows that same N when it uses this dialog. That showing is Want-fulfillment. The way a found-Node list rides Want is a proposed design in [arch](arch.md). It is not a lock.
 5. **Duplicates** — A client hit and a server hit are the same when they share a Node id. The one server request asks only for hits the client does not already have. The start message carries those Node ids. The second phase drops duplicates on Node id.
-6. **Cap of 200** — The combined result stops at 200. Find returns at most 200 hits and then stops. Move returns at most 200 hits and then stops. There is no paging. There is no continuation cursor. This cap is a lock.
+6. **Cap of 200** — The combined result stops at 200. Find and Move share that cap. There is no paging. There is no continuation cursor. This cap is a lock.
 7. **Trash** — Search skips trash unless it starts at the trash node. The trash node is TRASH.
-8. **Move** — Move is in this spec. When Move recomputes on each keypress the same way Find does, it uses this same quiet gap, the same one request, and the same cap of 200. File search is not in this spec.
+8. **Move** — Move is in this spec. Find shows the hit list in the dialog. Move shows that same list when it recomputes on each keypress. Both use the same server request, the same quiet gap, the same cap of 200, the same dedup on Node id, and the same trash rule. File search is not in this spec.
 
 ### 3. User Stories
 
@@ -34,7 +34,7 @@ This file records the Destination, the Notes that still stand, and Alan's later 
 8. **Skip trash** — As a person, I want search to skip trash, so that an ordinary search stays out of deleted Nodes.
 9. **Start at the trash node** — As a person, I want search to include trash when it starts at the trash node TRASH, so that a search that starts there can see trash.
 10. **Dialog shows server hits** — As a person, I want the Find dialog to show the N items the server finds, so that the server answer is visible.
-11. **Move uses the same search** — As a person, I want Move, when it recomputes on each keypress the same way, to use this same quiet gap and stop at 200 hits, so that Move has its own server support and the same cap.
+11. **Move uses the same search** — As a person, I want Move, when it recomputes on each keypress the same way, to show that same hit list through the same server request, so that Move shares Find's backend, quiet gap, cap of 200, dedup on Node id, and trash rule.
 
 ### 4. Out of Scope
 
@@ -53,10 +53,10 @@ This file records the Destination, the Notes that still stand, and Alan's later 
 ### 5. Further Notes
 
 1. **Duplicate identity** — Locked here as Node id. [04 — Duplicate hit identity](issues/04-duplicate-hit-identity.md) is not resolved by this spec.
-2. **Cap of 200** — The combined Find and Move result stops at 200. The earlier screen-plus-a-page bound is dropped.
+2. **Cap of 200** — The combined Find and Move result stops at 200 on the shared backend. The earlier screen-plus-a-page bound is dropped.
 3. **Quiet gap** — One server request follows a short quiet gap. The gap has no millisecond value in this spec. The reply matches the current search text, or an equivalent generation.
 4. **Trash start** — The search starts in trash when it starts at the trash node TRASH.
-5. **Move** — Move is in this spec when it recomputes on each keypress the same way Find does. File search is not.
+5. **Move** — Move is in this spec when it recomputes on each keypress the same way Find does. Find and Move share one server backend. File search is not.
 6. **Query** — A query is one server evaluation when the line runs. It is not a message per key. See [§2 Query spec](#2-query-spec).
 7. **Proposed mechanisms** — The Want ride stays a proposed design in [arch](arch.md). Next and Page are not part of this spec.
 8. **Spec file names** — Open on [map](map.md) item 7 **Spec file names**.

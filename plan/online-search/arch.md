@@ -16,7 +16,7 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
 
 2. **Server completes the picture**
    1. [ ] **Quiet gap** — One server request fires after the search text has been unchanged for a short quiet gap. The gap has no millisecond value. If the text changes before the gap ends, the request is not sent. If the client already has 200 hits, the request is not sent. This is a lock.
-   2. [ ] **Actor** — That one request starts the Find Actor. Move starts its own Actor on the same rule when Move recomputes per keypress. Query does not use this gap. Proposed design: one Actor function outside Core. See §2 item 1 **Search Actor**.
+   2. [ ] **Actor** — That one request starts the shared Find and Move Actor. Move does not start a second Actor. Query does not use this gap. Query keeps its own Actor. Proposed design: one Actor function outside Core for the shared backend. See §2 item 1 **Search Actor**. This shared backend is a lock.
    3. [ ] **One result** — The Actor returns one result and stops. There is no continuation cursor.
    4. [ ] **Stale reply** — A reply for an older search string is ignored. The reply matches the search text, or an equivalent generation of that text. The dialog applies a reply only when it matches the current text. This is a lock.
 
@@ -25,7 +25,7 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
    2. [ ] **Shown ids** — The one request asks only for hits the client does not already have. The start message carries those Node ids. This carried list is a lock. The Actor omits those ids.
 
 4. **Cap of 200**
-   1. [ ] **Find and Move** — The combined client hits and server hits stop at 200. Find returns at most 200 hits and then stops. Move returns at most 200 hits and then stops. This cap is a lock.
+   1. [ ] **Find and Move** — The combined client hits and server hits stop at 200. Find and Move share that cap. This cap is a lock.
    2. [ ] **Query** — The query function may set a lower limit. The server returns at most 200 for a query and then stops. If the function asks for more than 200, the server stops at 200. The query does not page. This cap is a lock.
 
 5. **Skip trash**
@@ -39,7 +39,7 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
    2. [ ] **Want nodes** — Proposed design: those hit Headers ride in the existing Want answer `nodes` list. [installWantAnswer](src/Shared/ResidentProjection.fs) merges that list. No new package. See §2 item 3 **Want nodes for hits**.
 
 8. **Move uses the same search**
-   1. [ ] **Move Actor** — When Move recomputes on each keypress the same way Find does, Move starts its own Actor after the same quiet gap, with the same Node-id dedup and the same cap of 200.
+   1. [ ] **Same backend** — When Move recomputes on each keypress the same way Find does, Move uses the shared Find and Move Actor. Find shows the hit list in the dialog. Move shows that same list. Both use the same server request, the same quiet gap, the same Node-id dedup, the same cap of 200, and the same trash rule. This shared backend is a lock.
 
 9. **Insert Refs under the query line**
    1. [ ] **Refs** — Results under the query line are Refs, not Owned Children.
@@ -62,7 +62,7 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
 ### 14. Shared segments
 
 1. **One Actor result**
-   1. [ ] **Actor thread** — The walk or the eval runs on that command's Actor, off the mailbox. Find and Move start that Actor once, after the quiet gap, not on a keypress. Query starts it when the line runs. The Actor posts its one result and stops. Same clear-fast rule as [Core mailbox messages clear fast](doc/Decisions/0004-core-mailbox-messages-clear-fast.md).
+   1. [ ] **Actor thread** — The walk runs on the shared Find and Move Actor, off the mailbox. Find and Move start that Actor once, after the quiet gap, not on a keypress. Query starts its own Actor when the line runs. Each Actor posts its one result and stops. Same clear-fast rule as [Core mailbox messages clear fast](doc/Decisions/0004-core-mailbox-messages-clear-fast.md).
    2. [ ] **Cap** — The result holds at most 200 Node ids.
    3. [ ] **Want nodes** — Those Node ids ride the existing Want answer `nodes` list.
 
@@ -76,8 +76,8 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
 
 ## 2. Module map
 
-1. **Search Actor** — Proposed design, not a lock.
-   Find, Move, and Query each start their own running Actor. The function is outside Core. There is no search actor under `src/Server` today. This names the proposed home. The Server git Actor stays the example of an Actor that posts to the mailbox while Core performs a Graph Change.
+1. **Search Actor** — The shared backend is a lock. The file name is a proposed design, not a lock.
+   Find and Move share one running Actor. Query does not use that Actor. The function is outside Core. There is no search actor under `src/Server` today. This names the proposed home. The Server git Actor stays the example of an Actor that posts to the mailbox while Core performs a Graph Change.
    File: `src/Server/SearchActor.fs`
 
    1. **State**
@@ -86,15 +86,15 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
       3. [ ] **Dedup** — The Actor drops a Node id the client already showed.
       4. [ ] **Cap** — The result stops at 200 hits. This cap is a lock.
    2. **Interface**
-      1. [ ] **Start** — Find starts one Actor after the quiet gap. Move starts another when it recomputes per keypress. The start message carries the Node ids the client already showed. That carried list is a lock. A keypress does not start the Actor.
+      1. [ ] **Start** — Find and Move start the same Actor after the quiet gap. Move does not start a second Actor. The start message carries the Node ids the client already showed. That carried list is a lock. A keypress does not start the Actor.
       2. [ ] **Stop** — The Actor returns one result and stops. Client hits plus this result stop at 200.
       3. [ ] **Reply match** — The result carries the search text it was computed for, or an equivalent generation. The dialog drops the result when that text is not current.
    3. **Uses**
       1. [ ] **Server Graph** — The Actor reads the server Graph.
       2. [ ] **ActorStart** — The running Actor is recorded on the event source as ActorStart.
 
-2. **Query Actor** — Proposed design, not a lock.
-   The server evaluates the query. The same proposed file starts this Actor. The cap of 200 is a lock.
+2. **Query Actor** — The separate Actor is a lock. The file name and the Ref post stay a proposed design.
+   The server evaluates the query. Query does not share the Find and Move Actor. The same proposed file starts this Actor. The cap of 200 is a lock.
    File: `src/Server/SearchActor.fs`
 
    1. **State**
@@ -107,7 +107,7 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
    3. **Uses**
       1. [ ] **Event source** — The Ref Replace is a Change on the event source.
       2. [ ] **ExprRun shape** — `ChildNode.reference` as in ExprRun's materialise path.
-      3. [ ] **Search Actor** — Query has its own running Actor. It starts when the line runs. It does not use the Find quiet gap.
+      3. [ ] **Search Actor** — Query has its own running Actor. It starts when the line runs. It does not use the Find and Move Actor or that quiet gap.
 
 3. **Want nodes for hits** — Proposed design, not a lock.
    The found-Node list uses the Want package that already exists. The list is the one result of at most 200, not a page.
@@ -129,9 +129,9 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
 2. **Ref Change**
    1. [ ] Interface on **Query Actor**. Proposed design. The event source applies the Ref Replace.
 3. **Cap**
-   1. [ ] **200** — Find, Move, and Query stop at 200. This is a lock. A query function may stop lower. Find and Move send no request when the client already has 200 hits.
+   1. [ ] **200** — Find and Move share the cap of 200. Query stops at 200. This is a lock. A query function may stop lower. Find and Move send no request when the client already has 200 hits.
 4. **Quiet gap**
-   1. [ ] **Short quiet gap** — One Find or Move request after the text is unchanged. No millisecond value. A text change before the gap ends sends nothing. A stale reply is ignored. This is a lock. Query does not use this seam.
+   1. [ ] **Short quiet gap** — One shared Find and Move request after the text is unchanged. No millisecond value. A text change before the gap ends sends nothing. A stale reply is ignored. This is a lock. Query does not use this seam.
 5. **Dialog UI**
    1. **Out of scope** — The Find dialog layout is out of scope. The dialog does not ask for a next page. Each keypress still updates the hit list from the client.
 
@@ -140,7 +140,7 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
 1. **Paging** — A continuation cursor, and mailbox messages Next and Page, so the dialog can ask for more. Alan locked no paging. That arrangement is out of this architecture.
 2. **New Want type** — A second answer beside `nodes` and `childMap`. [installWantAnswer](src/Shared/ResidentProjection.fs) already merges `nodes`. A second type is a wider interface. This arrangement loses.
 3. **Message per key** — A server request on every keypress. Alan locked the keypress path to the client. That arrangement is out.
-4. **Winner** — Local recompute on each keypress. One server request after a short quiet gap, skipped when the text changes or the client already has 200 hits. The combined result stops at 200. A stale reply is ignored. Hit Headers ride the existing `nodes` list. Query is one evaluation when the line runs. Sequence stays unsettled.
+4. **Winner** — Local recompute on each keypress. Find and Move share one server request after a short quiet gap, skipped when the text changes or the client already has 200 hits. The combined result stops at 200. A stale reply is ignored. Hit Headers ride the existing `nodes` list. Query is one evaluation on its own Actor when the line runs. Sequence stays unsettled.
 
 ## 5. Unsettled
 
