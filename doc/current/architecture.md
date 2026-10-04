@@ -61,6 +61,7 @@ Before modifying the wiki, first read. Page writing (Is, Shall Be, Explanation o
 [Browser](browser.md)
 [Server](server.md)
 [Operations](operations.md)
+[Search](search.md)
 [View](view.md)
 [Multi-client sync](sync-mvp.md)
 [Desktop local files](desktop-local-files.md)

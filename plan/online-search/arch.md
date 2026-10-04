@@ -4,7 +4,7 @@ Spec: [spec](spec.md)
 Updated: 2026-10-04
 Sequence: unsettled
 
-The Search spec and the Query spec stay separate. Dialog UI stays out of scope. File search stays out of scope. Paging and a continuation cursor are out of scope. Locks are in the story paths. Where a mechanism is still a design, the module map marks it **Proposed design**. [map](map.md) Decisions so far stays empty. This architecture does not resolve a ticket. It adds no claim under [doc/current](doc/current/).
+The Search spec and the Query spec stay separate. Dialog UI stays out of scope. File search stays out of scope. Paging and a continuation cursor are out of scope. Locks are in the story paths. Where a mechanism is still a design, the module map marks it **Proposed design**. [map](map.md) Decisions so far stays empty. This architecture does not resolve a ticket. Committed behavior lives on [Search](../../doc/current/search.md). Proposed designs stay off that page.
 
 Vocabulary: say event source. Say Server git Actor for that git Actor. Do not say CAS. Do not say Peer.
 
