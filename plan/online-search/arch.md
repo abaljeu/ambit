@@ -11,18 +11,21 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
 ## 1. Story paths
 
 1. **Residence hits first**
-   1. [ ] **Find dialog** — [Search dialog](src/Client/SearchDialog.fs) shows the hits the Browser already has. Move uses that same first phase.
+   1. [ ] **Keypress** — Every keypress recomputes on the client only and updates [Search dialog](src/Client/SearchDialog.fs) immediately. No server message goes out on a keypress. This local incremental search is a lock.
+   2. [ ] **Move keypress** — When Move recomputes on each keypress the same way, it uses this same client path.
 
 2. **Server completes the picture**
-   1. [ ] **Actor** — Find, Move, and Query each start their own running Actor. The Actor walks or evaluates on the server Graph and then stops. Proposed design: one Actor function outside Core. See §2 item 1 **Search Actor**.
-   2. [ ] **One result** — The Actor returns one result and stops. There is no continuation cursor.
+   1. [ ] **Quiet gap** — One server request fires after the search text has been unchanged for a short quiet gap. The gap has no millisecond value. If the text changes before the gap ends, the request is not sent. If the client already has 200 hits, the request is not sent. This is a lock.
+   2. [ ] **Actor** — That one request starts the Find Actor. Move starts its own Actor on the same rule when Move recomputes per keypress. Query does not use this gap. Proposed design: one Actor function outside Core. See §2 item 1 **Search Actor**.
+   3. [ ] **One result** — The Actor returns one result and stops. There is no continuation cursor.
+   4. [ ] **Stale reply** — A reply for an older search string is ignored. The reply matches the search text, or an equivalent generation of that text. The dialog applies a reply only when it matches the current text. This is a lock.
 
 3. **Duplicates on Node id**
    1. [ ] **Node id** — A client hit and a server hit are the same when they share a Node id. The server phase drops that id.
-   2. [ ] **Shown ids** — Proposed design: the start message carries the Node ids the client already showed. The Actor omits those ids.
+   2. [ ] **Shown ids** — The one request asks only for hits the client does not already have. The start message carries those Node ids. This carried list is a lock. The Actor omits those ids.
 
 4. **Cap of 200**
-   1. [ ] **Find and Move** — Find returns at most 200 hits and then stops. Move returns at most 200 hits and then stops. This cap is a lock.
+   1. [ ] **Find and Move** — The combined client hits and server hits stop at 200. Find returns at most 200 hits and then stops. Move returns at most 200 hits and then stops. This cap is a lock.
    2. [ ] **Query** — The query function may set a lower limit. The server returns at most 200 for a query and then stops. If the function asks for more than 200, the server stops at 200. The query does not page. This cap is a lock.
 
 5. **Skip trash**
@@ -36,7 +39,7 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
    2. [ ] **Want nodes** — Proposed design: those hit Headers ride in the existing Want answer `nodes` list. [installWantAnswer](src/Shared/ResidentProjection.fs) merges that list. No new package. See §2 item 3 **Want nodes for hits**.
 
 8. **Move uses the same search**
-   1. [ ] **Move Actor** — Move starts its own Actor and uses the same two-phase walk, the same Node-id dedup, and the same cap of 200 as Find.
+   1. [ ] **Move Actor** — When Move recomputes on each keypress the same way Find does, Move starts its own Actor after the same quiet gap, with the same Node-id dedup and the same cap of 200.
 
 9. **Insert Refs under the query line**
    1. [ ] **Refs** — Results under the query line are Refs, not Owned Children.
@@ -54,12 +57,12 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
     2. [ ] **Nodes then Refs** — Proposed design: the same Poll carries the Want `nodes` for those ids and the Change that inserts the Refs, so a Ref points at a Node the Browser has.
 
 13. **Server evaluates**
-    1. [ ] **Server Graph** — The server evaluates the query. The Actor then stops.
+    1. [ ] **Server Graph** — The server evaluates the query once, when the line runs. The Actor then stops. A keypress does not start this Actor.
 
 ### 14. Shared segments
 
 1. **One Actor result**
-   1. [ ] **Actor thread** — The walk or the eval runs on that command's Actor, off the mailbox. The Actor posts its one result and stops. Same clear-fast rule as [Core mailbox messages clear fast](doc/Decisions/0004-core-mailbox-messages-clear-fast.md).
+   1. [ ] **Actor thread** — The walk or the eval runs on that command's Actor, off the mailbox. Find and Move start that Actor once, after the quiet gap, not on a keypress. Query starts it when the line runs. The Actor posts its one result and stops. Same clear-fast rule as [Core mailbox messages clear fast](doc/Decisions/0004-core-mailbox-messages-clear-fast.md).
    2. [ ] **Cap** — The result holds at most 200 Node ids.
    3. [ ] **Want nodes** — Those Node ids ride the existing Want answer `nodes` list.
 
@@ -83,8 +86,9 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
       3. [ ] **Dedup** — The Actor drops a Node id the client already showed.
       4. [ ] **Cap** — The result stops at 200 hits. This cap is a lock.
    2. **Interface**
-      1. [ ] **Start** — Find starts one Actor. Move starts another. The start message carries the Node ids the client already showed. That carried list is a proposed design.
-      2. [ ] **Stop** — The Actor returns one result of at most 200 hits and stops.
+      1. [ ] **Start** — Find starts one Actor after the quiet gap. Move starts another when it recomputes per keypress. The start message carries the Node ids the client already showed. That carried list is a lock. A keypress does not start the Actor.
+      2. [ ] **Stop** — The Actor returns one result and stops. Client hits plus this result stop at 200.
+      3. [ ] **Reply match** — The result carries the search text it was computed for, or an equivalent generation. The dialog drops the result when that text is not current.
    3. **Uses**
       1. [ ] **Server Graph** — The Actor reads the server Graph.
       2. [ ] **ActorStart** — The running Actor is recorded on the event source as ActorStart.
@@ -103,7 +107,7 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
    3. **Uses**
       1. [ ] **Event source** — The Ref Replace is a Change on the event source.
       2. [ ] **ExprRun shape** — `ChildNode.reference` as in ExprRun's materialise path.
-      3. [ ] **Search Actor** — Same start and stop shape. Query has its own running Actor.
+      3. [ ] **Search Actor** — Query has its own running Actor. It starts when the line runs. It does not use the Find quiet gap.
 
 3. **Want nodes for hits** — Proposed design, not a lock.
    The found-Node list uses the Want package that already exists. The list is the one result of at most 200, not a page.
@@ -125,15 +129,18 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
 2. **Ref Change**
    1. [ ] Interface on **Query Actor**. Proposed design. The event source applies the Ref Replace.
 3. **Cap**
-   1. [ ] **200** — Find, Move, and Query stop at 200. This is a lock. A query function may stop lower.
-4. **Dialog UI**
-   1. **Out of scope** — The Find dialog layout is out of scope. The dialog does not ask for a next page.
+   1. [ ] **200** — Find, Move, and Query stop at 200. This is a lock. A query function may stop lower. Find and Move send no request when the client already has 200 hits.
+4. **Quiet gap**
+   1. [ ] **Short quiet gap** — One Find or Move request after the text is unchanged. No millisecond value. A text change before the gap ends sends nothing. A stale reply is ignored. This is a lock. Query does not use this seam.
+5. **Dialog UI**
+   1. **Out of scope** — The Find dialog layout is out of scope. The dialog does not ask for a next page. Each keypress still updates the hit list from the client.
 
 ## 4. Alternative considered
 
 1. **Paging** — A continuation cursor, and mailbox messages Next and Page, so the dialog can ask for more. Alan locked no paging. That arrangement is out of this architecture.
 2. **New Want type** — A second answer beside `nodes` and `childMap`. [installWantAnswer](src/Shared/ResidentProjection.fs) already merges `nodes`. A second type is a wider interface. This arrangement loses.
-3. **Winner** — One result of at most 200, then stop. Hit Headers ride the existing `nodes` list. The query posts the Ref Replace on the event source. Sequence stays unsettled.
+3. **Message per key** — A server request on every keypress. Alan locked the keypress path to the client. That arrangement is out.
+4. **Winner** — Local recompute on each keypress. One server request after a short quiet gap, skipped when the text changes or the client already has 200 hits. The combined result stops at 200. A stale reply is ignored. Hit Headers ride the existing `nodes` list. Query is one evaluation when the line runs. Sequence stays unsettled.
 
 ## 5. Unsettled
 
