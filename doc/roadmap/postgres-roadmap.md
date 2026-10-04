@@ -104,7 +104,7 @@ Payloads and complete child lists are the memory pressure. The document is the n
 
 **Key sub-decisions:**
 
-- **Hybrid search:** Instant search over loaded document payloads for local results; async server-side search for results across unloaded documents ([[plan/roadmap/epics/chapters/incremental-operations.md]]).
+- **Search:** Present work, not later residency. [[plan/online-search/project.md]]. Claims: [[doc/current/search.md]].
 - **Topology is not globally resident (supersedes prior commitment):** Do not keep all edges for all documents in memory. Unloaded documents contribute boundary headers and descriptors only; required closures load on touch.
 
 *Sources:* [[plan/roadmap/epics/chapters/incremental-operations.md]], [[doc/legacy/memory-management.md]] (historical; topology-always-resident decision superseded).

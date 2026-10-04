@@ -12,7 +12,7 @@ Committed sequencing (authoritative detail in linked docs):
 2. **Workspace file sync** — **planned**: WebDAV Class 1 Map / Push / Pull, server finish-commit, `git check-ignore` for `.gitignore` ([[plan/transport-layer/project.md]], [[workspace-webdav]]).
 3. **Disk-to-graph stub reconciliation** — add/delete/rename/move/`M`→Unparsed after server tree commit is implemented; target trigger is WebDAV push + finish-commit. Contents are not parsed ([[lazy-load]]).
 4. **Expand-to-parse and freshness UI** — parse files on demand and report current / unparsed / older / newer state ([[doc/roadmap/workspace-scale-import.md]]).
-5. **On-demand graph residency** — document membership, scoped SQL loaders, server/client residency, per-document versions, hybrid search, then passive reclamation ([[plan/roadmap/epics/chapters/incremental-operations.md]]). Supersedes keeping all topology resident.
+5. **On-demand graph residency** — document membership, scoped SQL loaders, server/client residency, per-document versions, then passive reclamation ([[plan/roadmap/epics/chapters/incremental-operations.md]]). Supersedes keeping all topology resident. Search is present work: [[plan/online-search/project.md]]. Claims: [[doc/current/search.md]].
 
 Disk-to-graph reconciliation and expand-to-parse can use disk + graph path nodes without the full DB materialization model in this doc. Long-term, repo metadata and parsed nodes live in PostgreSQL as described here.
 
@@ -121,7 +121,9 @@ So the design assumes:
 
 *Deferred — authority: [[plan/roadmap/epics/chapters/incremental-operations.md]].*
 
-Current server loads the whole DB into memory. Target policy: whole-document lazy-on-touch admission, coalesce concurrent loads, brief client-interest leases, prefetch one boundary hop at low priority, initially no server eviction. Search over unloaded workspaces queries PostgreSQL without hydrating the warm cache.
+Current server loads the whole DB into memory. Target policy: whole-document lazy-on-touch admission, coalesce concurrent loads, brief client-interest leases, prefetch one boundary hop at low priority, initially no server eviction.
+
+Search is present work: [[plan/online-search/project.md]]. Claims: [[doc/current/search.md]]. It is not part of this deferred residency policy.
 
 > Server policy: lazy-on-touch, no LRU for v1.
 
@@ -236,37 +238,7 @@ Serializer uses the parsed structure plus captured layout details to roundtrip t
 
 ## Query model
 
-*Deferred to later residency/search work.*
-
-Queries must return **node IDs**.
-
-Because of that:
-
-- DB-graph hits can return existing node IDs directly.
-- File-level scan hits need to hydrate enough to produce node IDs.
-
-Since partial parse may not be viable, the chosen approach is:
-
-> Query scans file content first. For files with hits, parse the whole file, then return matching node IDs.
-
-With a result cap, e.g.:
-
-- 25,
-- 50,
-- 100 max.
-
-This bounds the worst case.
-
-Flow:
-
-1. Query starts within a scope, probably repo or subtree.
-2. For current parsed/non-stale nodes, query graph directly.
-3. For stale/unparsed files, scan raw file content.
-4. If a file has hits, parse that file.
-5. Return node IDs.
-6. Stop at cap.
-
-This means a broad query may load content for many files but only parses files that actually contribute results.
+Graph search is present work: [[plan/online-search/project.md]]. Claims: [[doc/current/search.md]]. It is not later residency work.
 
 ---
 

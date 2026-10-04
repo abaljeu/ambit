@@ -29,6 +29,7 @@ Post-Event and Poll carry Changes plus the Nodes the Browser wants.
 
 - File transit remains [[plan/transport-layer/project.md]]. That Project will evolve an Actor linked to file transport. Do not create a new transit Project.
 - Search hydration is in Browser residency: when Find picks a hit that is not yet Resident, Fetch those Nodes before navigate.
+- Server search is present work: [[plan/online-search/project.md]]. Claims: [[doc/current/search.md]]. It is not a later item of this Chapter.
 - Conflict resolution is already implemented. Do not re-plan it. Strike it as a todo wherever a leftover plan still lists it.
 - Do not plan: document partition / membership partition; cache leases; coalesce; LRU / pinning; IndexedDB; per-document versions or patches as delivery; server eviction; partial-residency live-save; parent-index rebuild; client or App stub creation as the Upload structure; client Parse from Upload or Download.
 - Full Workspace Upload/Load redesign stays parked relative to the Solid core bar until the Core and Actors Chapters are met. That redesign is not this Chapter. File-channel Upload/Download lives on [[automatic-upload-and-download.md]].
