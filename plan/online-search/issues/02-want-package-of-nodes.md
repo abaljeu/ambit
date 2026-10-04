@@ -18,3 +18,7 @@ Report the current package only. Do not decide how the Search spec or the Query 
 Primary sources start at [Want.fs](src/Shared/Want.fs). Follow the Sync wire and the Server doors that answer a Want. Code is the source. A browser-residency spec may describe the same package. Cite the code for each claim.
 
 Write the findings to [Want package of Nodes](plan/online-search/reports/want-package-of-nodes.md).
+
+## 2. Context
+
+1. **Findings** — [Want package of Nodes](plan/online-search/reports/want-package-of-nodes.md). This chart did not accept an Answer.

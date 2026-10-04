@@ -20,6 +20,7 @@ Query spec: an expression such as `= root descendants with name like "Bob"` inse
 8. **Dialog UI** — The UI of the dialog is not in this map.
 9. **Query name** — In this map, Query means the expression that inserts results under the query line.
 10. **Charting** — This session charts only. It does not resolve a decision ticket. Decisions so far stays empty until a later session accepts an Answer.
+11. **Research reports** — Findings for the three research tickets are linked from those tickets. This chart did not accept those Answers.
 
 ## 3. Decisions so far
 

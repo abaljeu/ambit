@@ -19,3 +19,7 @@ Report current behavior only. Do not propose the Search spec. Do not treat the d
 Primary sources start at [ViewModelSearch.fs](src/Shared/ViewModelSearch.fs) (`searchNodes`, `startSearch`, `SearchCursor`, `takeResults`) and [SearchDialog.fs](src/Client/SearchDialog.fs). Cite each claim from those sources or from tests that lock them.
 
 Write the findings to [incremental search fill and resume](plan/online-search/reports/incremental-search-fill-and-resume.md).
+
+## 2. Context
+
+1. **Findings** — [Incremental search fill and resume](plan/online-search/reports/incremental-search-fill-and-resume.md). This chart did not accept an Answer.
