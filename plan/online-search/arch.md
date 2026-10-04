@@ -1,0 +1,151 @@
+# Online search architecture
+
+Spec: [spec](spec.md)
+Updated: 2026-10-04
+Sequence: unsettled
+
+The Search spec and the Query spec stay separate. Dialog UI stays out of scope. File search stays out of scope. Paging and a continuation cursor are out of scope. Locks are in the story paths. Where a mechanism is still a design, the module map marks it **Proposed design**. [map](map.md) Decisions so far stays empty. This architecture does not resolve a ticket. Committed behavior lives on [Search](../../doc/current/search.md). Proposed designs stay off that page.
+
+Vocabulary: say event source. Say Server git Actor for that git Actor. Do not say CAS. Do not say Peer.
+
+## 1. Story paths
+
+1. **Residence hits first**
+   1. [ ] **Keypress** — Every keypress recomputes on the client only and updates [Search dialog](src/Client/SearchDialog.fs) immediately. No server message goes out on a keypress. This local incremental search is a lock.
+   2. [ ] **Move keypress** — When Move recomputes on each keypress the same way, it uses this same client path.
+
+2. **Server completes the picture**
+   1. [ ] **Quiet gap** — One server request fires after the search text has been unchanged for a short quiet gap. The gap has no millisecond value. If the text changes before the gap ends, the request is not sent. If the client already has 200 hits, the request is not sent. This is a lock.
+   2. [ ] **Actor** — That one request starts the shared Find and Move Actor. Move does not start a second Actor. Query does not use this gap. Query keeps its own Actor. Proposed design: one Actor function outside Core for the shared backend. See §2 item 1 **Search Actor**. This shared backend is a lock.
+   3. [ ] **One result** — The Actor returns one result and stops. There is no continuation cursor.
+   4. [ ] **Stale reply** — A reply for an older search string is ignored. The reply matches the search text, or an equivalent generation of that text. The dialog applies a reply only when it matches the current text. This is a lock.
+
+3. **Duplicates on Node id**
+   1. [ ] **Node id** — A client hit and a server hit are the same when they share a Node id. The server phase drops that id.
+   2. [ ] **Shown ids** — The one request asks only for hits the client does not already have. The start message carries those Node ids. This carried list is a lock. The Actor omits those ids.
+
+4. **Cap of 200**
+   1. [ ] **Find and Move** — The combined client hits and server hits stop at 200. Find and Move share that cap. This cap is a lock.
+   2. [ ] **Query** — The query function may set a lower limit. The server returns at most 200 for a query and then stops. If the function asks for more than 200, the server stops at 200. The query does not page. This cap is a lock.
+
+5. **Skip trash**
+   1. [ ] **Ordinary search skips trash** — Search skips trash unless it starts at the trash node.
+
+6. **Start at the trash node**
+   1. [ ] **TRASH** — The search starts in trash when its start Node is TRASH ([GraphBuild.trashId](src/Shared/GraphBuild.fs)).
+
+7. **Dialog shows server hits**
+   1. [ ] **Show N** — If the server finds N items, the Find dialog shows them. Move shows that same N. N is at most 200.
+   2. [ ] **Want nodes** — Proposed design: those hit Headers ride in the existing Want answer `nodes` list. [installWantAnswer](src/Shared/ResidentProjection.fs) merges that list. No new package. See §2 item 3 **Want nodes for hits**.
+
+8. **Move uses the same search**
+   1. [ ] **Same backend** — When Move recomputes on each keypress the same way Find does, Move uses the shared Find and Move Actor. Find shows the hit list in the dialog. Move shows that same list. Both use the same server request, the same quiet gap, the same Node-id dedup, the same cap of 200, and the same trash rule. This shared backend is a lock.
+
+9. **Insert Refs under the query line**
+   1. [ ] **Refs** — Results under the query line are Refs, not Owned Children.
+   2. [ ] **Existing Ref shape** — [ExprRun](src/Shared/ExprRun.fs) `run` already materialises a Node answer with `ChildNode.reference`.
+   3. [ ] **Post the Replace** — Proposed design: the query Actor posts a Change on the event source whose child list uses that Ref shape under the query line. Server eval is not the local eval inside `ExprRun.run`. See §2 item 2 **Query Actor**.
+
+10. **Query skips trash**
+    1. [ ] **Ordinary query skips trash** — An ordinary query skips trash.
+
+11. **Trash function**
+    1. [ ] **trash** — The function is named `trash`. It works like `root` for reaching trash.
+
+12. **Server items inserted**
+    1. [ ] **Insert N** — The query expression inserts the N items the server finds, as Refs under the query line. N is at most 200, and lower when the function sets a lower limit.
+    2. [ ] **Nodes then Refs** — Proposed design: the same Poll carries the Want `nodes` for those ids and the Change that inserts the Refs, so a Ref points at a Node the Browser has.
+
+13. **Server evaluates**
+    1. [ ] **Server Graph** — The server evaluates the query once, when the line runs. The Actor then stops. A keypress does not start this Actor.
+
+### 14. Shared segments
+
+1. **One Actor result**
+   1. [ ] **Actor thread** — The walk runs on the shared Find and Move Actor, off the mailbox. Find and Move start that Actor once, after the quiet gap, not on a keypress. Query starts its own Actor when the line runs. Each Actor posts its one result and stops. Same clear-fast rule as [Core mailbox messages clear fast](doc/Decisions/0004-core-mailbox-messages-clear-fast.md).
+   2. [ ] **Cap** — The result holds at most 200 Node ids.
+   3. [ ] **Want nodes** — Those Node ids ride the existing Want answer `nodes` list.
+
+2. **Query Change**
+   1. [ ] **Ref Change** — Query also posts the Ref Replace on the event source.
+   2. [ ] **Lower limit** — When the function sets a limit under 200, the result uses that limit. Otherwise the result stops at 200.
+
+### 15. Test seam
+
+1. [ ] **One result of Node ids** — Proposed design: the narrowest shared point is that one result of at most 200 Node ids. Find and Move tests install it with [installWantAnswer](src/Shared/ResidentProjection.fs). Query tests also expect the Ref Replace under the query line, and a function limit under 200.
+
+## 2. Module map
+
+1. **Search Actor** — The shared backend is a lock. The file name is a proposed design, not a lock.
+   Find and Move share one running Actor. Query does not use that Actor. The function is outside Core. There is no search actor under `src/Server` today. This names the proposed home. The Server git Actor stays the example of an Actor that posts to the mailbox while Core performs a Graph Change.
+   File: `src/Server/SearchActor.fs`
+
+   1. **State**
+      1. [ ] **One walk** — The Actor holds one walk, off the mailbox, and then stops. It keeps no continuation cursor.
+      2. [ ] **Trash** — The walk skips trash unless the start Node is TRASH.
+      3. [ ] **Dedup** — The Actor drops a Node id the client already showed.
+      4. [ ] **Cap** — The result stops at 200 hits. This cap is a lock.
+   2. **Interface**
+      1. [ ] **Start** — Find and Move start the same Actor after the quiet gap. Move does not start a second Actor. The start message carries the Node ids the client already showed. That carried list is a lock. A keypress does not start the Actor.
+      2. [ ] **Stop** — The Actor returns one result and stops. Client hits plus this result stop at 200.
+      3. [ ] **Reply match** — The result carries the search text it was computed for, or an equivalent generation. The dialog drops the result when that text is not current.
+   3. **Uses**
+      1. [ ] **Server Graph** — The Actor reads the server Graph.
+      2. [ ] **ActorStart** — The running Actor is recorded on the event source as ActorStart.
+
+2. **Query Actor** — The separate Actor is a lock. The file name and the Ref post stay a proposed design.
+   The server evaluates the query. Query does not share the Find and Move Actor. The same proposed file starts this Actor. The cap of 200 is a lock.
+   File: `src/Server/SearchActor.fs`
+
+   1. **State**
+      1. [ ] **One result** — One result, then stop. No page and no cursor.
+      2. [ ] **Limit** — The function's own limit applies when it is under 200. A request above 200 stops at 200.
+      3. [ ] **Trash** — Ordinary eval skips trash. `trash` reaches trash the way `root` reaches ROOT.
+   2. **Interface**
+      1. [ ] **Eval** — The Actor evaluates the expression on the server Graph.
+      2. [ ] **Refs** — The Actor posts a Change that inserts `ChildNode.reference` children under the query line. The shape matches [ExprRun](src/Shared/ExprRun.fs). The Actor does not call local `ExprRun.run` as the eval.
+   3. **Uses**
+      1. [ ] **Event source** — The Ref Replace is a Change on the event source.
+      2. [ ] **ExprRun shape** — `ChildNode.reference` as in ExprRun's materialise path.
+      3. [ ] **Search Actor** — Query has its own running Actor. It starts when the line runs. It does not use the Find and Move Actor or that quiet gap.
+
+3. **Want nodes for hits** — Proposed design, not a lock.
+   The found-Node list uses the Want package that already exists. The list is the one result of at most 200, not a page.
+   File: [ResidentProjection](src/Shared/ResidentProjection.fs)
+
+   1. **State**
+      1. [ ] **Hit headers** — A hit Node is Resident after install. A hit with no new `childMap` key stays Unloaded for its Children.
+   2. **Interface**
+      1. [ ] **nodes** — The result's Nodes are added to the Want answer `nodes` list.
+      2. [ ] **childMap** — Ordinary Want edges stay `childMap`. The result does not add a `childMap` key only to carry a hit Header.
+      3. [ ] **Install** — [installWantAnswer](src/Shared/ResidentProjection.fs) merges `nodes` and `childMap` as it does today.
+   3. **Uses**
+      1. [ ] **Poll** — Post-Event and Poll already carry the Want answer. The one result uses that carrier.
+
+## 3. Seams
+
+1. **Want install**
+   1. [ ] Interface on **Want nodes for hits**. Proposed design. [installWantAnswer](src/Shared/ResidentProjection.fs) is the install door.
+2. **Ref Change**
+   1. [ ] Interface on **Query Actor**. Proposed design. The event source applies the Ref Replace.
+3. **Cap**
+   1. [ ] **200** — Find and Move share the cap of 200. Query stops at 200. This is a lock. A query function may stop lower. Find and Move send no request when the client already has 200 hits.
+4. **Quiet gap**
+   1. [ ] **Short quiet gap** — One shared Find and Move request after the text is unchanged. No millisecond value. A text change before the gap ends sends nothing. A stale reply is ignored. This is a lock. Query does not use this seam.
+5. **Dialog UI**
+   1. **Out of scope** — The Find dialog layout is out of scope. The dialog does not ask for a next page. Each keypress still updates the hit list from the client.
+
+## 4. Alternative considered
+
+1. **Paging** — A continuation cursor, and mailbox messages Next and Page, so the dialog can ask for more. Alan locked no paging. That arrangement is out of this architecture.
+2. **New Want type** — A second answer beside `nodes` and `childMap`. [installWantAnswer](src/Shared/ResidentProjection.fs) already merges `nodes`. A second type is a wider interface. This arrangement loses.
+3. **Message per key** — A server request on every keypress. Alan locked the keypress path to the client. That arrangement is out.
+4. **Winner** — Local recompute on each keypress. Find and Move share one server request after a short quiet gap, skipped when the text changes or the client already has 200 hits. The combined result stops at 200. A stale reply is ignored. Hit Headers ride the existing `nodes` list. Query is one evaluation on its own Actor when the line runs. Sequence stays unsettled.
+
+## 5. Unsettled
+
+1. **Spec file names** — The file names of the Search spec and the Query spec. [map](map.md) item 7 **Spec file names**. Both specs stay in [spec](spec.md).
+2. **Limit syntax** — A query function may set a lower limit than 200. The spelling of that limit in the expression is not locked.
+3. **Actor file name** — `src/Server/SearchActor.fs` is the proposed home. Alan did not lock the file name.
+4. **Sequence** — tracer-cut, module-build, or expand-contract is not locked. The earlier expand-contract note was for Next and Page. Those messages are gone.
+5. **Tickets** — [04 — Duplicate hit identity](issues/04-duplicate-hit-identity.md) and [05 — Query fulfillment while eval stays local](issues/05-query-fulfillment-while-eval-stays-local.md) stay unresolved. The locks above are in this architecture. They are not ticket Answers.
