@@ -23,7 +23,7 @@ Do NOT over-interview. If the description is clear enough to file, move on.
 
 While talking to the user, kick off an Agent (subagent_type=Explore) in the background to understand the relevant area. The goal is NOT to find a fix — it's to:
 
-- Learn the domain language used in that area (check [[CONTEXT.md]])
+- Learn the domain language used in that area (check [[GLOSSARY.md]])
 - Understand what the feature is supposed to do
 - Identify the user-facing behavior boundary
 
@@ -77,7 +77,7 @@ Use this template:
 
 ## Additional context
 
-[Any extra observations from the user or from codebase exploration that help frame the issue — e.g. "this only happens when using the Docker layer, not the filesystem layer" — use domain language but don't cite files]
+[Any extra observations from the user or from codebase exploration that help frame the issue ( e.g. "this only happens when using the Docker layer, not the filesystem layer" ) use domain language but don't cite files]
 ```
 
 #### For a breakdown (multiple issues)
@@ -119,7 +119,7 @@ Path to parent under plan/ (if any) or "Reported during QA session"
 When creating a breakdown:
 
 - **Prefer many thin issues over few thick ones** — each should be independently fixable and verifiable
-- **Mark blocking relationships honestly** — if issue B genuinely can't be tested until issue A is fixed, say so. If they're independent, mark both as "None — can start immediately"
+- **Mark blocking relationships honestly** ( if issue B genuinely can't be tested until issue A is fixed, say so. If they're independent, mark both as "None ) can start immediately"
 - **Create issues in dependency order** so "Blocked by" can cite real sibling numbers
 - **Maximize parallelism** — the goal is that multiple people (or agents) can grab different issues simultaneously
 
@@ -127,7 +127,7 @@ When creating a breakdown:
 
 - **Tracker header** — keep bold `**Status:**` at the top with a Status value from [[doc/agents/issue-tracker.md]]
 - **No source file paths or line numbers** — these go stale (issue paths under `plan/` are fine)
-- **Use the project's domain language** (check [[CONTEXT.md]] if it exists)
+- **Use the project's domain language** (check [[GLOSSARY.md]] if it exists)
 - **Describe behaviors, not code** — "the sync service fails to apply the patch" not "applyPatch() throws on line 42"
 - **Reproduction steps are mandatory** — if you can't determine them, ask the user
 - **Keep it concise** — a developer should be able to read the issue in 30 seconds

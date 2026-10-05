@@ -16,7 +16,7 @@ Working directory is the project root. Relative paths such as `./src` work. Abso
 
 ## Tooling
 
-Git procedure: [[.agents/skills/git-protocol/SKILL.md]]. Terms: [[CONTEXT.md]]. Remotes that need approval stay with [[.agents/skills/git-share/SKILL.md]] (human-invoked); this Desktop agent does not run remotes unless the user asks.
+Git procedure: [[.agents/skills/git-protocol/SKILL.md]]. Terms: [[GLOSSARY.md]]. Remotes that need approval stay with [[.agents/skills/git-share/SKILL.md]] (human-invoked); this Desktop agent does not run remotes unless the user asks.
 
 VSCode Tasks are not the agent command path.
 

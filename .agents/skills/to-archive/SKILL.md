@@ -7,7 +7,7 @@ description: Archive a completed project by moving a done plan project into plan
 
 Follow [[doc/agents/project-status.md]].
 
-Archive a completed **project** — a `plan/<slug>/` effort at stage `done` — into `plan/done/<slug>/`.
+Archive a completed **project** ( a `plan/<slug>/` effort at stage `done` ) into `plan/done/<slug>/`.
 
 0. Follow [[.agents/skills/project-work/SKILL.md]] for `plan` files. Git: [[.agents/skills/git-protocol/SKILL.md]].
 1. Confirm the target's `project.md` reads `Stage: done`. Any other stage → stop and report; only `done` projects archive.

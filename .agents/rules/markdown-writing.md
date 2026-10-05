@@ -1,6 +1,6 @@
 DO NOT PUT LINEBREAKS in Markdown paragraphs. Wordwrap takes care of it for us.
 Markdown lines are unlimited length. Only linebreaks at paragraph boundaries or for markdown formatting.
-Always talk in ASD-STE100 Simplified Technical English. Always read CONTEXT.md files and use their ubiquitous language.
+Always talk in ASD-STE100 Simplified Technical English. Always read GLOSSARY.md files and use their ubiquitous language.
 
 Never use two or more consecutive blank lines. Separate blocks (heading, paragraph, list, table, code fence) with exactly one blank line. List items, table rows, and lines inside a code fence have no blank line between them.
 

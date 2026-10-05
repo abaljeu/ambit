@@ -31,10 +31,10 @@ This skill turns User Stories and map Decisions so far into a whole-feature arch
 
 4. Publish `arch.md` on the Project immediately using [[ARCH.md]]; do not ask for approval first. Apply Process step 3 form rules. Number and name every section and list item per [[.agents/rules/refer-by-name.md]]. Set `Stage: arch` and `Updated:` on `project.md` per [[doc/agents/project-status.md]]. The arch path is in [[doc/agents/issue-tracker.md]]. An arch is not a ticket and has no `**Status:**`. Done: `plan/<slug>/arch.md` exists and project Stage is `arch`.
 
-5. Bring central architecture ([[doc/current/architecture.md]]) and the project plan in line , claim marks on [[doc/current/arch.md]] Claims; currency via [[.agents/skills/maintain-doc-currency/SKILL.md]]; do not treat plan material as product commitment without promotion per [[doc/agents/scope-vs-commitment.md]]):
-   - For each **committed** code element in the Module map (and other committed build sections), ensure a subject home under [[doc/current/]] (create or update the page). Mark new Should Become claims `[ ]` until coded, then `[x]` when the arch already records them done.
-   - When a committed Should Become contradicts a live `[x]` claim on current, remark that claim `[o]` and pair it with the retiring `[ ]` (remove the `[o]` only when that pair is `[x]`).
-   - Link **from** `plan/<slug>/arch.md` **to** the `doc/current/` subject pages (current is the lasting home). Do not make current a permanent index of every project `arch.md`; a short path cite on the current page is optional only while that effort's Should Become is open.
+5. The lasting home of the central architecture is at ([[doc/current/architecture.md]]).  Bring the central architecture and the project plan in line, by filling in gaps in the central architecture or adjusting arch.md to match what's already documented as existing or planned.
+   - Apply currency via [[.agents/skills/maintain-doc-currency/SKILL.md]]; do not treat plan material as product commitment without promotion per [[doc/agents/scope-vs-commitment.md]]):
+   - For each code element in the arch.md Module map (and other build sections), ensure a subject home under [[doc/current/]] (create or update the page). Follow the rules of [[doc/current/GLOSSARY.md]].
+   - Link **from** `plan/<slug>/arch.md` **to** the `doc/current/` subject pages (current is the lasting home).
    - Skip Unsettled and any other uncommitted plan detail — do not write it into `doc/current/`.
    Done: every committed Module map element has a current home and a link from the project arch; contradictory completed claims are `[o]` or cleared; uncommitted detail unchanged in current.
 

@@ -1,12 +1,12 @@
 ---
 name: ubiquitous-language
-description: Extract domain terms from the current conversation, flag ambiguities, and propose canonical terms. The glossary is CONTEXT.md; domain-modeling writes it.
+description: Extract domain terms from the current conversation, flag ambiguities, and propose canonical terms. The glossary is GLOSSARY.md; domain-modeling writes it.
 disable-model-invocation: true
 ---
 
 # Ubiquitous Language
 
-Extract and formalize domain terminology from the current conversation. Propose a canonical glossary in the conversation. [[CONTEXT.md]] is the one glossary; [[.agents/skills/domain-modeling/SKILL.md]] writes it. Hard choices are Committed Decisions under [[doc/Decisions/]], recorded by domain-modeling.
+Extract and formalize domain terminology from the current conversation. Propose a canonical glossary in the conversation. [[GLOSSARY.md]] is the one glossary; [[.agents/skills/domain-modeling/SKILL.md]] writes it. Hard choices are Committed Decisions under [[doc/Decisions/]], recorded by domain-modeling.
 
 ## Process
 
@@ -14,13 +14,13 @@ Extract and formalize domain terminology from the current conversation. Propose 
    Done: every domain-relevant term in the conversation is listed for the next steps.
 2. **Identify problems**: same word for different concepts (ambiguity); different words for the same concept (synonyms); vague or overloaded terms.
    Done: each problem is named with the conflicting uses.
-3. **Read [[CONTEXT.md]]** if it exists — that file is the glossary.
+3. **Read [[GLOSSARY.md]]** if it exists — that file is the glossary.
    Done: existing terms are loaded, or it is confirmed that no glossary file exists yet.
 4. **Propose a canonical glossary** with opinionated term choices.
    Done: every scanned term has a proposed canonical form or is deferred with a reason.
 5. **Output a summary** in the conversation using the format below.
    Done: the conversation shows the full proposal structure (tables, relationships, dialogue, flagged ambiguities).
-6. **Record accepted terms** by following [[.agents/skills/domain-modeling/SKILL.md]] into [[CONTEXT.md]].
+6. **Record accepted terms** by following [[.agents/skills/domain-modeling/SKILL.md]] into [[GLOSSARY.md]].
    Done: every term the user accepted is written via domain-modeling; the proposal remains conversation-only until then.
 
 ## Output Format
@@ -87,7 +87,7 @@ When domain-modeling writes accepted terms, use the format in [[.agents/skills/d
 
 When invoked again in the same conversation:
 
-1. Read [[CONTEXT.md]].
+1. Read [[GLOSSARY.md]].
    Done: current glossary terms are loaded.
 2. Incorporate any new terms from subsequent discussion.
    Done: every new domain term since the last run is in the proposal set.

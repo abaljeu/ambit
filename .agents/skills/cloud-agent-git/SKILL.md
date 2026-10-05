@@ -54,7 +54,7 @@ Done when explicit publish approval is given and `git fetch origin` plus `git me
 
 This repo's day-to-day remote (`abaljeu/ambit`) is GitHub, not Cursor Origin. Authenticate `git` through `gh` for GitHub remotes. Run `gh auth setup-git` (or configure the git credential helper from `gh`) so `git push` uses that helper.
 
-On any `git push` failure that looks like auth — Invalid username or token, Authentication failed, could not read Username, HTTP 401 or 403 on push — recover at once: run `gh auth setup-git` (or the same helper setup), then retry that push once. Start this recovery as soon as the push fails as auth. Do not wait for Alan.
+On any `git push` failure that looks like auth ( Invalid username or token, Authentication failed, could not read Username, HTTP 401 or 403 on push ) recover at once: run `gh auth setup-git` (or the same helper setup), then retry that push once. Start this recovery as soon as the push fails as auth. Do not wait for Alan.
 
 If the retry succeeds, continue the Work path. If it still fails, report the local commit SHA (`git rev-parse HEAD`), the remote tip (`git rev-parse @{u}` or `git ls-remote` when the upstream ref is missing), and that this recovery ran, then stop. One recovery and one retry is the whole auth path. Do not run four exponential retries on an auth failure without this recovery.
 

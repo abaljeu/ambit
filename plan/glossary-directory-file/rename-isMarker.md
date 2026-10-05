@@ -2,7 +2,7 @@
 
 ## Done
 
-`DocumentArtifactPath.isMarker` and related Directory File “Marker” identifiers renamed. CONTEXT.md glossary already defined Directory File / deprecated Marker.
+`DocumentArtifactPath.isMarker` and related Directory File “Marker” identifiers renamed. GLOSSARY.md glossary already defined Directory File / deprecated Marker.
 
 ## Renames
 

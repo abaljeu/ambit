@@ -21,7 +21,7 @@ This is pure **explore**: widen the space of what could be written without commi
 
 ## What is a fragment
 
-A fragment is any piece of text that might survive into the final article. It must be _readable by the author_ — the author can tell what it means — but it does not need to define its terms or be comprehensible to a cold reader. The bar is "is this a piece of good writing?", not "is this a self-contained argument?"
+A fragment is any piece of text that might survive into the final article. It must be _readable by the author_ ( the author can tell what it means ) but it does not need to define its terms or be comprehensible to a cold reader. The bar is "is this a piece of good writing?", not "is this a self-contained argument?"
 
 Fragments are deliberately heterogeneous. Examples of what could be a fragment:
 

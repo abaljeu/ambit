@@ -52,9 +52,9 @@ One ticket per **Module map** entry (cohesive testable module/capability).
 
 #### Expand–contract (`expand-contract`)
 
-Use when a **wide mechanical change** — rename a column, retype a shared symbol — has blast radius across the codebase so a single edit breaks many call sites and no tracer cut can land green. This mode does not derive ticket bodies from Story paths or Module map the way the other two do; keep the expand / migrate / contract procedure below.
+Use when a **wide mechanical change** ( rename a column, retype a shared symbol ) has blast radius across the codebase so a single edit breaks many call sites and no tracer cut can land green. This mode does not derive ticket bodies from Story paths or Module map the way the other two do; keep the expand / migrate / contract procedure below.
 
-First **expand** — add the new form beside the old so nothing breaks. Then **migrate** call sites in batches sized by blast radius (per package, per directory), each batch its own ticket blocked by the expand, keeping CI green batch to batch because the old form still exists. Finally **contract** — delete the old form once no caller remains, in a ticket blocked by every migrate batch. When even the batches cannot stay green alone, keep the sequence but let them share an integration branch that all block a final integrate-and-verify ticket — green is promised only there.
+First **expand** ( add the new form beside the old so nothing breaks. Then **migrate** call sites in batches sized by blast radius (per package, per directory), each batch its own ticket blocked by the expand, keeping CI green batch to batch because the old form still exists. Finally **contract** — delete the old form once no caller remains, in a ticket blocked by every migrate batch. When even the batches cannot stay green alone, keep the sequence but let them share an integration branch that all block a final integrate-and-verify ticket ) green is promised only there.
 
 Done: a draft list exists for every item in the Sequence's set, each with title, blockers, and what it delivers. Checklist leaves follow [[PUBLISH.md]].
 

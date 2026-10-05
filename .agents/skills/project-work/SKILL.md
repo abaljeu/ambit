@@ -15,7 +15,7 @@ Do not create `git.md` to record branch names. Existing `git.md` files are histo
 
 Follow [[.agents/skills/git-protocol/SKILL.md]] for where work sits. Then write the project files. Done: `plan/<slug>/` exists with a `project.md`.
 
-Anywhere CONTEXT.md is found, it asserts rules for how that subdirectory is structured.  Look for CONTEXT.md.
+Anywhere GLOSSARY.md is found, it asserts rules for how that subdirectory is structured.  Look for GLOSSARY.md.
 
 ## 2. Stage
 

@@ -2,7 +2,7 @@
 
 ## What changed
 
-### Glossary (CONTEXT.md) — already done
+### Glossary (GLOSSARY.md) — already done
 
 1. **Directory File** defined under About the Software (after Directory Node).
 2. **Marker** listed under Additional Unwanted terms → use Directory File.

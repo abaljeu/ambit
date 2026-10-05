@@ -1,6 +1,6 @@
 # Grounding
 
-Every **concept** has to be **grounded** before a beat or block can lean on it: the reader either walked in knowing it or met it in an earlier beat or block. A beat or block that reaches for an ungrounded concept loses the reader. The unit is the concept, not the word for it: a beat or block can lean on an idea the reader lacks even with no jargon in sight. Where a concept has a name — a **term** — grounding it means landing the idea and the term together.
+Every **concept** has to be **grounded** before a beat or block can lean on it: the reader either walked in knowing it or met it in an earlier beat or block. A beat or block that reaches for an ungrounded concept loses the reader. The unit is the concept, not the word for it: a beat or block can lean on an idea the reader lacks even with no jargon in sight. Where a concept has a name ( a **term** ) grounding it means landing the idea and the term together.
 
 A concept gets grounded one of two ways:
 

@@ -20,7 +20,7 @@ READ EXACTLY ONE OF THESE TWO:
 
 Shared runtime state:
 
-- [[CONTEXT.md]] — concise domain glossary
+- [[GLOSSARY.md]] — concise domain glossary
 
 Imported engineering skill configuration:
 
@@ -56,7 +56,7 @@ Workflow skills in [[.agents/skills/]]:
 
 ## Vocabulary and health
 
-- [[.agents/skills/domain-modeling/SKILL.md]] — glossary [[CONTEXT.md]] and Committed Decisions
+- [[.agents/skills/domain-modeling/SKILL.md]] — glossary [[GLOSSARY.md]] and Committed Decisions
 - [[.agents/skills/codebase-design/SKILL.md]] — deep-module vocabulary
 - [[.agents/skills/improve-codebase-architecture/SKILL.md]] — deepening opportunities
 

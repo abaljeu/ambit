@@ -24,4 +24,4 @@ Canonical tracker docs list one Status set and one Stage set. Ticket Status is `
 
 ## Time
 
-- 2026-09-06 1h — wrote locked Status and Stage lists into canonical tracker docs, project-stage, overview and project-work skills, and CONTEXT.md names (from chat)
+- 2026-09-06 1h — wrote locked Status and Stage lists into canonical tracker docs, project-stage, overview and project-work skills, and GLOSSARY.md names (from chat)
