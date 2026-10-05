@@ -16,6 +16,7 @@ The API index links each published contract.
 [x] Workspace Upload and Download: [Workspace file sync](workspace-file-sync.md)
 [ ] Find and Move: [Search Actor](search-actor.md)
 [ ] Query: [Query Actor](query-actor.md)
+[x] Ambit and the external agent: [AI agent protocol](ai-agent-protocol.md)
 
 ## Operations
 
@@ -31,7 +32,7 @@ The API index links each published contract.
 [x] WebDAV mount and sync HTTP: [Transport](workspace-file-sync.md#transport)
 [x] Mapping document: [JSON](workspace-local-mapping.md#json)
 [x] Mapping routes: [API](workspace-local-mapping.md#api)
-[x] Workspace node JSON: [Serialization](workspace-graph.md#serialization)
-[ ] Search server request: [Seams](search-actor.md#seams)
-[ ] Search Actors: [Search Actor](search-actor.md)
-[ ] Query evaluation: [Interface](query-actor.md#interface)
+[x] Workspace node JSON: [Serialization](graph.md#serialization)
+[x] Agent wake and deliver: [AI agent protocol](ai-agent-protocol.md)
+[ ] Search messages: [Messages](search-actor.md#messages)
+[ ] Query messages: [Messages](query-actor.md#messages)

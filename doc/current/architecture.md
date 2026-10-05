@@ -78,3 +78,4 @@ Agents must read: [CONTEXT](CONTEXT.md)
 ## Contracts
 
 [API](api.md)
+[AI agent protocol](ai-agent-protocol.md)
