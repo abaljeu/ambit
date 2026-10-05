@@ -47,18 +47,22 @@ Summary: Index of published contracts between parties.
 
 ### **HTTP contract**
 Details: [[doc/current/http-contract.md]].
-Summary: Implemented and target HTTP endpoints for `/ambit` and related surfaces.
+Summary: Browser and Server JSON for `/ambit` state, poll, changes, load, and git save.
+
+### **AI agent protocol**
+Details: [[doc/current/ai-agent-protocol.md]].
+Summary: Ack-only wake POST and `POST /ambit/actors/deliver` for the external Grok bot.
 
 ### **Multi-client sync**
 Details: [[doc/current/sync-mvp.md]].
-Summary: Change batches, acked change IDs, polling, and last-write-wins server authority.
+Summary: Last-write-wins server authority. Event post, poll, and state live on the HTTP contract.
 
 ### **Persistence (PostgreSQL + correlated files)**
 Details: [[doc/current/persistence-model.md]].
 Summary: The database keeps graph and event info. A start with the database offline reads file data into a partial graph. That partial graph is not used for editing.
 
 ### **Workspace graph**
-Details: [[graph]].
+Details: [[doc/current/graph.md]].
 Summary: Workspace, directory, and file special nodes, placement invariants, DocumentState plus ParseState/PersistState axes, and ref context.
 
 ### **Desktop local files**
