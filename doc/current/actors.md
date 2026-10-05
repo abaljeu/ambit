@@ -8,6 +8,8 @@ See Also:
 [Mailbox](mailbox.md)
 [Parse and persist](parse-persist.md)
 [Gambol.CloudAgents](gambol-cloud-agents.md)
+[Search Actor](search-actor.md)
+[Query Actor](query-actor.md)
 
 An Actor is a function outside Core.
 
@@ -22,6 +24,8 @@ An Actor is a function outside Core.
 [ ] An Actor requests git Load, git Save, pull, push, or commit by a post to the mailbox. The Actor does not perform that git mutation. Detail: Core.
 [x] The architecture summary calls these workers intelligent actors.
 [x] Clear-fast rule: Mailbox.
+[ ] Find and Move: [Search Actor](search-actor.md).
+[ ] Query expression: [Query Actor](query-actor.md).
 
 ## Pool
 

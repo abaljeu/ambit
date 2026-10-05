@@ -53,4 +53,4 @@ These are contract and migration problems. They are expected, and they do not ma
 
 ## Sources
 
-[[src/Shared/GraphMutate.fs]], [[src/Shared/History.fs]], [[src/Shared/SyncLogic.fs]], [[src/Shared/ApiResponses.fs]], [[src/Shared/Serialization.fs]], [[src/Shared/ViewModelDeleteOps.fs]], [[src/Server/Api.fs]], [[src/Server/FileAgent.fs]], [[src/Server/DbAgent.fs]], [[src/Server/RouteRegistration.fs]], [[src/Client/Update.fs]], [[tests/Shared.Tests/AckReconcileTests.fs]], [[plan/selective-client-loading/undo-spec.md]], [[doc/api.md]].
+[[src/Shared/GraphMutate.fs]], [[src/Shared/History.fs]], [[src/Shared/SyncLogic.fs]], [[src/Shared/ApiResponses.fs]], [[src/Shared/Serialization.fs]], [[src/Shared/ViewModelDeleteOps.fs]], [[src/Server/Api.fs]], [[src/Server/FileAgent.fs]], [[src/Server/DbAgent.fs]], [[src/Server/RouteRegistration.fs]], [[src/Client/Update.fs]], [[tests/Shared.Tests/AckReconcileTests.fs]], [[plan/selective-client-loading/undo-spec.md]], [[doc/current/http-contract.md]].

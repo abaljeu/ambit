@@ -1,6 +1,6 @@
 # Step 3: Server endpoints
 
-> **Historical.** Tracer-bullet notes from early MVP. For current behavior see  and the implemented section of [[doc/api.md]].
+> **Historical.** Tracer-bullet notes from early MVP. For current behavior see  and the implemented section of [[doc/current/http-contract.md]].
 
 ## Current status
 
@@ -22,7 +22,7 @@
     - *Enter (new sibling)* — `NewNode` + `Replace` (insert into parent's children)
     - *Tab (indent)* — `Replace` on old parent (remove) + `Replace` on new parent (insert)
     - *Shift+Tab (outdent)* — `Replace` on old parent (remove) + `Replace` on grandparent (insert)
-- **`POST /save`** — removed; snapshots are written automatically after accepted changes (see [[doc/api.md]]).
+- **`POST /save`** — removed; snapshots are written automatically after accepted changes (see [[doc/current/http-contract.md]]).
 - **Configurable snapshot file** — `SnapshotFile` in config (defaults to `gambol-snapshot.txt`). `ServerState` tracks `dataDir` and `snapshotFile`.
 - **All 48 tests pass** (36 shared + 12 server)
 

@@ -70,5 +70,5 @@ Bringing existing trees into the workspace model and responding after file-tree 
 - [ ] **Expand-to-parse** — when a file is expanded, parse it and merge the result into existing nodes.
 - [ ] **Richer freshness metadata/UI** — planned after reconciliation with expand-to-parse; show whether the local file is current, unparsed, older than the server file, or newer than the server file.
 - [ ] **On-demand graph residency** — document membership, scoped loaders, server/client residency, per-document versions, then passive reclamation. Authority: [[plan/roadmap/epics/chapters/incremental-operations.md]]. Supersedes keeping all topology resident ([[postgres-roadmap]] §5).
-- Search is present work: [[plan/online-search/project.md]]. Claims: [[doc/current/search.md]]. It is not a later residency item.
+- Search is present work: [[plan/online-search/project.md]]. Claims: [[doc/current/search-actor.md]] and [[doc/current/query-actor.md]]. It is not a later residency item.
 - [ ] **Annotation migration** — when files change; still later under [[workspace-scale-file-and-db-management]].

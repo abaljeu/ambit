@@ -12,7 +12,7 @@ Post and Poll now use one complete `ChangeSuccessResponse` type and codec. Both 
 - Browser: [[src/Client/UpdateCodec.fs]], [[src/Client/Update.fs]], [[src/Client/UpdateWorkspaceSync.fs]], and [[src/Client/App.fs]]
 - Shared tests: [[tests/Shared.Tests/SerializationTests.fs]], [[tests/Shared.Tests/SyncLogicTests.fs]], and [[tests/Shared.Tests/LargeChangeApplyTests.fs]]
 - Server tests: [[tests/Server.Tests/StateEndpointTests.fs]], [[tests/Server.Tests/FileAgentFailureTests.fs]], and [[tests/Server.Tests/DatabaseProjectionContractTests.fs]]
-- Current docs: [[doc/api.md]] and [[doc/current/sync-mvp.md]]
+- Current docs: [[doc/current/http-contract.md]] and [[doc/current/sync-mvp.md]]
 - Report: [[plan/event-sourced-ops/reports/shared-success-envelope-build.md]]
 
 The pre-existing root-agent change in [[WORK.md]] was not edited.

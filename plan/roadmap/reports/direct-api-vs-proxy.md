@@ -22,7 +22,7 @@ SameSite=Lax also withholds the cookie on **cross-site** XHR even if the host ma
 
 CORS today is only for `/ambit/*.js` (and maps/svg). Default `Access-Control-Allow-Origin: *` when `PublicAssetBase` is on ([[src/Server/Server.fs]]). Credentialed API needs a **named** origin, `Access-Control-Allow-Credentials: true`, and `OPTIONS` preflight for `Content-Type: application/json`. `*` plus credentials is invalid. API routes have **no** CORS and **no** OPTIONS.
 
-Client URLs are **relative** (`/{pathname}/state`, `…/poll`, `…/changes`, `…/load`) from `window.location.pathname` ([[src/Client/UpdateHelpers.fs]], [[doc/api.md]]). `fetchGet` / `postEmpty` use `credentials: 'same-origin'`. `postJson` omits `credentials` (Fetch default is same-origin). Cross-origin Azure URLs would send **no** cookie unless the client used `credentials: 'include'` **and** Azure echoed the custom-domain origin.
+Client URLs are **relative** (`/{pathname}/state`, `…/poll`, `…/changes`, `…/load`) from `window.location.pathname` ([[src/Client/UpdateHelpers.fs]], [[doc/current/http-contract.md]]). `fetchGet` / `postEmpty` use `credentials: 'same-origin'`. `postJson` omits `credentials` (Fetch default is same-origin). Cross-origin Azure URLs would send **no** cookie unless the client used `credentials: 'include'` **and** Azure echoed the custom-domain origin.
 
 **Blocker (auth):** cookie host + SameSite. **Blocker (CORS):** API CORS/preflight absent; `*` cannot carry cookies. Mixed content is not a factor (both HTTPS). No Content-Security-Policy on API. No EventSource / SSE in the Client.
 

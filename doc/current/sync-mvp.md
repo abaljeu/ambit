@@ -8,7 +8,7 @@ See Also
 
 [Persistence model](persistence-model.md)
 
-[HTTP contract](doc/api.md)
+[HTTP contract](http-contract.md)
 
 Endpoint and JSON detail for the implemented API.
 

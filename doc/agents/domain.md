@@ -2,7 +2,7 @@
 
 The canonical Gambol project documentation lives under [[doc/]]. Start with [[doc/index.md]] (Feature index of the current program). What to work on next is [[plan/roadmap/map.md]].
 
-- [[doc/current/architecture.md]] is the architecture home (project structure). Subject pages linked from it, plus [[doc/spec.md]] and [[doc/api.md]], describe the system.
+- [[doc/current/architecture.md]] is the architecture home (project structure). Subject pages linked from it, plus [[doc/spec.md]] and [[doc/current/api.md]], describe the system.
 - [[doc/current/]] contains implemented feature baselines and takes precedence.
 - [[doc/reference/]] contains operational and format reference material.
 - [[doc/roadmap/]] is leftover planned-direction text until a `plan` Project cites it or it moves to history. New planned work lives in Projects, not here.

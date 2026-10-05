@@ -1,16 +1,16 @@
-# HTTP API
+# HTTP contract
 
 Category: Contract
-See Also: [Multi-client sync](current/sync-mvp.md), [Browser](current/browser.md), [Persistence model](current/persistence-model.md)
+See Also: [Multi-client sync](sync-mvp.md), [Browser](browser.md), [Persistence model](persistence-model.md)
 
-The HTTP API is the JSON contract between the Browser and the Server under the app pathname.
+The HTTP contract is the JSON contract between the Browser and the Server under the app pathname.
 
 ## 1. Parties
 
 ### 1.1 Browser
 
 1. [x] **Browser.** The Browser is the client party. It loads state, submits changes, and polls.
-2. [x] **Path builder.** The Browser builds paths as `/{pathname}/…` from `window.location.pathname`. The code is [Update helpers](src/Client/UpdateHelpers.fs).
+2. [x] **Path builder.** The Browser builds paths as `/{pathname}/…` from `window.location.pathname`. The code is [Update helpers](../../src/Client/UpdateHelpers.fs).
 
 ### 1.2 Server
 
@@ -44,7 +44,7 @@ sequenceDiagram
 3. [x] **Get state.** `GET /state` returns the full graph for the initial load or a resync.
 4. [x] **Get poll.** `GET /poll` returns the same success envelope with a Change tail when the Browser is behind.
 5. [x] **No submit or save.** There is no `POST /submit` (full graph in the response) and no `POST /save` route.
-6. [x] **Automatic persistence.** The database keeps graph and event info. See [Persistence model](current/persistence-model.md).
+6. [x] **Automatic persistence.** The database keeps graph and event info. See [Persistence model](persistence-model.md).
 
 ### 2.2 Revision tracking
 
@@ -62,7 +62,7 @@ sequenceDiagram
 
 1. [x] **In-process history.** The in-process `History` in server state mirrors applied changes for undo and redo on the client.
 2. [x] **Durable history.** Durable history is separate from that in-process history.
-3. [x] **Database.** The database keeps graph and event info. The durable log is the `changes` table. See [Persistence model](current/persistence-model.md).
+3. [x] **Database.** The database keeps graph and event info. The durable log is the `changes` table. See [Persistence model](persistence-model.md).
 4. [x] **Startup.** The program can start with the database offline. It reads file data and recreates a partial graph. That partial graph is not used for editing.
 
 ### 2.4 Authentication
@@ -71,7 +71,7 @@ sequenceDiagram
 2. [x] **Login page.** `GET /ambit/login` returns the login page (`login.html`).
 3. [x] **Login post.** `POST /ambit/login` reads form fields `username` and `password`, sets the cookie, and redirects to `/ambit`.
 4. [x] **Logout.** `GET /ambit/logout` clears the cookie and redirects to `/ambit/login`.
-5. [x] **Cookie.** The cookie name is `gambol_auth`. The cookie is HttpOnly, SameSite=Lax, and Secure. The value is HMAC-SHA256 of the username, keyed by the password. The code is [Auth token](src/Server/AuthToken.fs).
+5. [x] **Cookie.** The cookie name is `gambol_auth`. The cookie is HttpOnly, SameSite=Lax, and Secure. The value is HMAC-SHA256 of the username, keyed by the password. The code is [Auth token](../../src/Shared/dotnet/AuthToken.fs).
 6. [x] **Protected routes.** When auth is on, `GET /ambit`, `GET /ambit/state`, `GET /ambit/poll`, and `POST /ambit/changes` return `401 Unauthorized` when the cookie is missing or invalid.
 7. [x] **Auth off.** When both auth fields are empty, auth is off and every route is open.
 
@@ -152,7 +152,7 @@ sequenceDiagram
 ### 2.7 GET /ambit/poll
 
 1. [x] **rev query.** The query field `rev` is the Browser revision. When `rev` is missing or invalid, the default is `0`.
-2. [x] **Poll response.** The `200` body is the complete success envelope from [API response serialization](src/Shared/ApiResponseSerialization.fs).
+2. [x] **Poll response.** The `200` body is the complete success envelope from [API response serialization](../../src/Shared/ApiResponseSerialization.fs).
 
 ```json
 {
@@ -172,7 +172,7 @@ sequenceDiagram
 7. [x] **Field externalChanges.** `externalChanges` is `true` when this Poll carries one or more Changes.
 8. [x] **Field c.** `c` is the Changes after the Browser `rev`. The field is required. It may be empty.
 9. [x] **Field message.** `message` is an optional persistence status. It is absent for Poll.
-10. [x] **Build stamps.** The Browser uses `b` and `p` to detect a redeploy or a stale bundle. See [Multi-client sync](current/sync-mvp.md).
+10. [x] **Build stamps.** The Browser uses `b` and `p` to detect a redeploy or a stale bundle. See [Multi-client sync](sync-mvp.md).
 
 ### 2.8 POST /ambit/changes
 
@@ -227,7 +227,7 @@ sequenceDiagram
 
 ### 2.9 JSON encoding
 
-1. [x] **Codecs.** The change-success type and codec are [API responses](src/Shared/ApiResponses.fs) and [API response serialization](src/Shared/ApiResponseSerialization.fs). Domain codecs are [Serialization](src/Shared/Serialization.fs). Tests are [State endpoint tests](tests/Server.Tests/StateEndpointTests.fs).
+1. [x] **Codecs.** The change-success type and codec are [API responses](../../src/Shared/ApiResponses.fs) and [API response serialization](../../src/Shared/ApiResponseSerialization.fs). Domain codecs are [Serialization](../../src/Shared/Serialization.fs). Tests are [State endpoint tests](../../tests/Server.Tests/StateEndpointTests.fs).
 
 #### 2.9.1 NodeId
 
@@ -241,7 +241,7 @@ sequenceDiagram
 { "ref": "owner", "id": "550e8400-e29b-41d4-a716-446655440000" }
 ```
 
-2. [x] **ref values.** `ref` is `"owner"` or `"ref"`. The codec is [Serialization](src/Shared/Serialization.fs).
+2. [x] **ref values.** `ref` is `"owner"` or `"ref"`. The codec is [Serialization](../../src/Shared/Serialization.fs).
 3. [ ] **ChildHolder.** A child is a `ChildHolder`: `Owned(NodeId)` or `Ref(NodeId)`.
 
 #### 2.9.3 Node
@@ -265,7 +265,7 @@ sequenceDiagram
 
 #### 2.9.4 Graph
 
-1. [x] **Canonical root.** The canonical root node exists and has the expected shape. See `decodeGraph` in [Serialization](src/Shared/Serialization.fs).
+1. [x] **Canonical root.** The canonical root node exists and has the expected shape. See `decodeGraph` in [Serialization](../../src/Shared/Serialization.fs).
 2. [x] **Graph.** A graph has `root` and a `nodes` array.
 
 ```json

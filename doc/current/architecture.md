@@ -60,7 +60,8 @@ Agents must read: [CONTEXT](CONTEXT.md)
 [Browser](browser.md)
 [Server](server.md)
 [Operations](operations.md)
-[Search](search.md)
+[Search Actor](search-actor.md)
+[Query Actor](query-actor.md)
 [View](view.md)
 [Multi-client sync](sync-mvp.md)
 [Desktop local files](desktop-local-files.md)
@@ -76,4 +77,4 @@ Agents must read: [CONTEXT](CONTEXT.md)
 
 ## Contracts
 
-[HTTP contract](../api.md)
+[API](api.md)
