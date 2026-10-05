@@ -1,7 +1,7 @@
 # Feature Index
 
 Category: Project coordination
-See Also: [[doc/README.md]], [[doc/current/architecture.md]], [[doc/spec.md]], [[doc/api.md]], [[plan/roadmap/map.md]]
+See Also: [[doc/README.md]], [[doc/current/architecture.md]], [[doc/spec.md]], [[doc/current/api.md]], [[plan/roadmap/map.md]]
 
 Index of the current program. One detail source per feature. What to work on next is [[plan/roadmap/map.md]].
 
@@ -41,8 +41,12 @@ Summary: Browser site tree, selection span, and line rendering.
 Details: [[doc/current/testing.md]].
 Summary: xUnit layers for Shared ops, serialization, persistence, and server handlers.
 
-### **API contract**
-Details: [[doc/api.md]].
+### **API**
+Details: [[doc/current/api.md]].
+Summary: Index of published contracts between parties.
+
+### **HTTP contract**
+Details: [[doc/current/http-contract.md]].
 Summary: Implemented and target HTTP endpoints for `/ambit` and related surfaces.
 
 ### **Multi-client sync**

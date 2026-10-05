@@ -20,11 +20,11 @@ Nearby fact `DbAgent startup sweep failure preserves reads and fails mutations c
 1. [[src/Server/Core/DbAgent.fs]] — `writePersistedEvent` / `appendPersistedEvent` wrap DB Ev append in `runBounded`.
 2. [[tests/Server.Tests/DbAgentTests.fs]] — `getStateFrom`; pin one mailbox on the three facts; wait for ready before hang lock and before closing the DB.
 
-Did not edit [[doc/api.md]]. Did not reintroduce preview. Did not change leftover Change/`postChange` assert strings except by hosting the mailbox the contract already assumes.
+Did not edit [[doc/current/http-contract.md]]. Did not reintroduce preview. Did not change leftover Change/`postChange` assert strings except by hosting the mailbox the contract already assumes.
 
 ## 4. Commands and outcomes
 
-1. `scripts/gitstatus.sh` — branch `dev`. Dirty: [[doc/api.md]], [[src/Server/Core/CoreEventDispatch.fs]], [[src/Server/Core/CoreMailbox.fs]], [[test-server.txt]], [[tests/Server.Tests/HttpResponseLogTests.fs]], [[tests/Server.Tests/StateEndpointTests.fs]], plus reports. This work added DbAgent source and tests only. Did not commit. Did not push.
+1. `scripts/gitstatus.sh` — branch `dev`. Dirty: [[doc/current/http-contract.md]], [[src/Server/Core/CoreEventDispatch.fs]], [[src/Server/Core/CoreMailbox.fs]], [[test-server.txt]], [[tests/Server.Tests/HttpResponseLogTests.fs]], [[tests/Server.Tests/StateEndpointTests.fs]], plus reports. This work added DbAgent source and tests only. Did not commit. Did not push.
 2. Prior `scripts/test.sh` (parent cluster) — the three facts red as named above.
 3. Focused `dotnet test tests/Server.Tests -c Debug --filter` on the three facts plus startup-sweep-failure-preserves — Passed 4, Failed 0, Duration 10 s.
 

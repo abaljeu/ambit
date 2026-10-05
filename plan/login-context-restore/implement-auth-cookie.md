@@ -26,7 +26,7 @@ Range: uncommitted `git diff HEAD` on this cookie work. `measure-fs-size.py --di
 
 No hard violations of [[.cursor/rules/fsharp-source.mdc]] (40-line bindings, 100-char lines, 4-space indent, match existing CookieOptions style). Smell baseline: possible Duplicated Code (HttpOnly/Secure/Lax repeated on set vs clear) — judgement call; left inline, no helper. No Speculative Generality.
 
-Stale doc not in this diff: [[doc/api.md]] still says `gambol_auth` is HttpOnly, SameSite=Strict.
+Stale doc not in this diff: [[doc/current/http-contract.md]] still says `gambol_auth` is HttpOnly, SameSite=Strict.
 
 ### Spec
 
@@ -57,7 +57,7 @@ Recipe (also on [[map.md]] Notes): After Server sets SameSite Lax + Secure (Http
 
 - `remove` Active: [[plan/login-context-restore/issues/04-choose-auth-persistence-approach.md]] — implement SameSite Lax + Secure on `gambol_auth` (code landed)
 - `add` Pending: [[plan/login-context-restore/map.md]] — HITL iPad/iPhone still-open tab cold-reload after memory unload; pass = `/ambit` no login form (ticket: [[plan/login-context-restore/issues/04-choose-auth-persistence-approach.md]])
-- `add` Pending (optional): [[doc/api.md]] — cookie line still says SameSite=Strict; update to Lax + Secure + HttpOnly
+- `add` Pending (optional): [[doc/current/http-contract.md]] — cookie line still says SameSite=Strict; update to Lax + Secure + HttpOnly
 
 The project is now `done` after the later context-restore HITL passed on 2026-08-15.
 

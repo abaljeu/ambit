@@ -23,7 +23,7 @@ Scale: about **1100 create-phase ops** → on the order of **500+ new Directory/
 
 ## What the request is
 
-`ChangeBatch` with one Change. Server applies ops, persists, returns confirmation Changes (not the full Graph). [[doc/current/sync-mvp.md]], [[doc/api.md]].
+`ChangeBatch` with one Change. Server applies ops, persists, returns confirmation Changes (not the full Graph). [[doc/current/sync-mvp.md]], [[doc/current/http-contract.md]].
 
 Client: [[src/Client/UpdateWorkspaceSync.fs]] `completeUploadInventory` → `ContinuePostUploadStructure` in [[src/Client/App.fs]] (`encodePendingBatchBody` of that one Change). Not Load (`POST /ambit/load`). Not WebDAV (`POST /_desktop/workspace-push`).
 

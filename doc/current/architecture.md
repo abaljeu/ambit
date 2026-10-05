@@ -77,4 +77,4 @@ Before modifying the wiki, first read. Page writing (Is, Shall Be, Explanation o
 
 ## Contracts
 
-[HTTP contract](../api.md)
+[API](api.md)

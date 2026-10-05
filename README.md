@@ -19,7 +19,7 @@ The **Shared** project contains the domain model and is referenced by both clien
 
 Project structure: [[doc/current/arch.md]]. Sync: [[doc/current/sync-mvp.md]]. Persistence: [[doc/current/persistence-model.md]].
 
-HTTP contract (implemented `/ambit/*` routes): [[doc/api.md]].
+HTTP contract (implemented `/ambit/*` routes): [[doc/current/http-contract.md]]. API index: [[doc/current/api.md]].
 
 ## Running
 
