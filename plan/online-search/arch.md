@@ -14,8 +14,8 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
 2. **No limit syntax** — A query function may stop under 200. The server stops at 200. This architecture does not add expression spelling for that stop.
 3. **Actor file** — `src/Server/SearchActor.fs` is the home of the Search Actor and the Query Actor.
 4. **Sequence** — tracer-cut.
-5. **Node id** — A client hit and a server hit are the same hit when they share a Node id (`NodeId`). [04 — Duplicate hit identity](issues/04-duplicate-hit-identity.md) stays in its current shape. This lock is not that ticket's Answer.
-6. **Remote query eval** — The Query Actor evaluates on the server. This project overturns eval-stays-local for the query. [05 — Query fulfillment while eval stays local](issues/05-query-fulfillment-while-eval-stays-local.md) stays in its current shape. [14 — Server-side search](plan/expression-language/issues/14-server-side-search.md) is not edited.
+5. **Node id** — The identity of a result is the NodeId. A client hit and a server hit are the same hit when they share a NodeId. Answer: [04 — Duplicate hit identity](issues/04-duplicate-hit-identity.md).
+6. **Remote query eval** — Query eval is remote. The Query Actor evaluates on the server. Answer: [05 — Query fulfillment while eval stays local](issues/05-query-fulfillment-while-eval-stays-local.md). [14 — Server-side search](plan/expression-language/issues/14-server-side-search.md) is not edited.
 7. **Standing locks** — The cap of 200, the short quiet gap, the shared Find and Move Actor, no paging, and the trash rules stay locks. Want nodes for hits and the Ref post stay proposed designs.
 
 ## 1. Story paths
@@ -158,7 +158,3 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
 2. **New Want type** — A second answer beside `nodes` and `childMap`. [installWantAnswer](src/Shared/ResidentProjection.fs) already merges `nodes`. A second type is a wider interface. This arrangement loses.
 3. **Message per key** — A server request on every keypress. Alan locked the keypress path to the client. That arrangement is out.
 4. **Winner** — Local recompute on each keypress. Find and Move share one server request after a short quiet gap, skipped when the text changes or the client already has 200 hits. The combined result stops at 200. A stale reply is ignored. Hit Headers ride the existing `nodes` list. Query is one remote evaluation on its own Actor when the line runs. Sequence is tracer-cut.
-
-## 5. Unsettled
-
-1. **Tickets** — [04 — Duplicate hit identity](issues/04-duplicate-hit-identity.md) and [05 — Query fulfillment while eval stays local](issues/05-query-fulfillment-while-eval-stays-local.md) stay unresolved. The locks above are in this architecture. They are not ticket Answers.

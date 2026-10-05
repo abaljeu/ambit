@@ -19,6 +19,6 @@ Started: 2026-10-04
 2. **No limit syntax** — A query function may stop under 200. The server stops at 200. This project does not add expression spelling for that stop.
 3. **Actor file** — `src/Server/SearchActor.fs` is the home of the Search Actor and the Query Actor.
 4. **Sequence** — tracer-cut.
-5. **Node id** — A client hit and a server hit are the same hit when they share a Node id (`NodeId`). [04 — Duplicate hit identity](issues/04-duplicate-hit-identity.md) stays in its current shape.
-6. **Remote query eval** — The Query Actor evaluates on the server. [05 — Query fulfillment while eval stays local](issues/05-query-fulfillment-while-eval-stays-local.md) stays in its current shape. [14 — Server-side search](plan/expression-language/issues/14-server-side-search.md) is not edited.
+5. **Node id** — The identity of a result is the NodeId. A client hit and a server hit are the same hit when they share a NodeId. [04 — Duplicate hit identity](issues/04-duplicate-hit-identity.md).
+6. **Remote query eval** — Query eval is remote. The Query Actor evaluates on the server. [05 — Query fulfillment while eval stays local](issues/05-query-fulfillment-while-eval-stays-local.md). [14 — Server-side search](plan/expression-language/issues/14-server-side-search.md) is not edited.
 7. **Standing locks** — The cap of 200, the short quiet gap, the shared Find and Move Actor, no paging, and the trash rules stay locks. Want nodes for hits and the Ref post stay proposed designs.

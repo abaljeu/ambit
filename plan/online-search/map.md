@@ -19,7 +19,7 @@ Query spec: an expression such as `= root descendants with name like "Bob"` inse
 7. **Bound** — A short keystroke such as the letter e must not return millions of Nodes.
 8. **Dialog UI** — The UI of the dialog is not in this map.
 9. **Query name** — In this map, Query means the expression that inserts results under the query line.
-10. **Charting** — This session charts only. It does not resolve a decision ticket. Later locks are in Decisions so far. They are not ticket Answers.
+10. **Charting** — This session charts only. Alan later accepted the Answers on [04 — Duplicate hit identity](issues/04-duplicate-hit-identity.md) and [05 — Query fulfillment while eval stays local](issues/05-query-fulfillment-while-eval-stays-local.md). Those gists are Decisions so far items 5 **Node id** and 6 **Remote query eval**.
 11. **Research reports** — Findings for the three research tickets are linked from those tickets. This chart did not accept those Answers.
 
 ## 3. Decisions so far
@@ -28,8 +28,8 @@ Query spec: an expression such as `= root descendants with name like "Bob"` inse
 2. **No limit syntax** — Alan, 2026-10-05. A query function may stop under 200. The server stops at 200. This project does not add expression spelling for that stop.
 3. **Actor file** — Alan, 2026-10-05. `src/Server/SearchActor.fs` is the home of the Search Actor and the Query Actor.
 4. **Sequence** — Alan, 2026-10-05. Sequence is tracer-cut. See [arch](arch.md).
-5. **Node id** — Alan, 2026-10-05. A client hit and a server hit are the same hit when they share a Node id (`NodeId`). [04 — Duplicate hit identity](issues/04-duplicate-hit-identity.md) stays in its current shape. This lock is not that ticket's Answer.
-6. **Remote query eval** — Alan, 2026-10-05. The Query Actor evaluates on the server. This project overturns eval-stays-local for the query. [05 — Query fulfillment while eval stays local](issues/05-query-fulfillment-while-eval-stays-local.md) stays in its current shape. [14 — Server-side search](plan/expression-language/issues/14-server-side-search.md) is not edited.
+5. **Node id** — Alan, 2026-10-05. The identity of a result is the NodeId. A client hit and a server hit are the same hit when they share a NodeId. [04 — Duplicate hit identity](issues/04-duplicate-hit-identity.md).
+6. **Remote query eval** — Alan, 2026-10-05. Query eval is remote. The Query Actor evaluates on the server. [05 — Query fulfillment while eval stays local](issues/05-query-fulfillment-while-eval-stays-local.md). [14 — Server-side search](plan/expression-language/issues/14-server-side-search.md) is not edited.
 7. **Standing locks** — The cap of 200, the short quiet gap, the shared Find and Move Actor, no paging, and the trash rules stay locks. Want nodes for hits and the Ref post stay proposed designs.
 
 ## 4. Not yet specified
