@@ -14,7 +14,8 @@ The API index links each published contract.
 [x] Desktop host and local proxy: [Desktop local files](desktop-local-files.md)
 [x] Workspace labels and local paths: [Workspace local mapping](workspace-local-mapping.md)
 [x] Workspace Upload and Download: [Workspace file sync](workspace-file-sync.md)
-[ ] Find, Move, and query: [Search](search.md)
+[ ] Find and Move: [Search Actor](search-actor.md)
+[ ] Query: [Query Actor](query-actor.md)
 
 ## Operations
 
@@ -31,6 +32,6 @@ The API index links each published contract.
 [x] Mapping document: [JSON](workspace-local-mapping.md#json)
 [x] Mapping routes: [API](workspace-local-mapping.md#api)
 [x] Workspace node JSON: [Serialization](workspace-graph.md#serialization)
-[ ] Search server request: [Quiet gap](search.md#quiet-gap)
-[ ] Search Actors: [Actors](search.md#actors)
-[ ] Query evaluation: [Query](search.md#query)
+[ ] Search server request: [Seams](search-actor.md#seams)
+[ ] Search Actors: [Search Actor](search-actor.md)
+[ ] Query evaluation: [Interface](query-actor.md#interface)
