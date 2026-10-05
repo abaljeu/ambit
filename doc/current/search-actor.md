@@ -1,36 +1,42 @@
 # Search Actor
-
 Category: Capability
-
 See Also:
-
-[Actors](actors.md)
-[Mailbox](mailbox.md)
-[Server](server.md)
-[Query Actor](query-actor.md)
-[Workspace graph](workspace-graph.md)
+- [Actors](actors.md)
+- [Mailbox](mailbox.md)
+- [Server](server.md)
+- [Query Actor](query-actor.md)
+- [Workspace graph](workspace-graph.md)
 
 Find and Move share one Actor. Query does not use this Actor.
 
 ## Sources
 
-[ViewModelSearch](../../src/Shared/ViewModelSearch.fs)
-[Search dialog](../../src/Client/SearchDialog.fs)
-[GraphBuild](../../src/Shared/GraphBuild.fs)
+[GraphBuild](../../src/Shared/GraphBuild.fs) — TRASH id `trashId`
+[History](../../src/Shared/History.fs) — `ActorStart`
+[Mailbox](mailbox.md) — the event source records that `ActorStart`
 
-## State
+## Data
 
-[ ] One walk: the Actor holds one walk, off the mailbox, and then stops. It keeps no continuation cursor.
+[ ] One walk, off the mailbox, then stop. No continuation cursor.
 [ ] Trash: the walk skips trash unless the start Node is TRASH. TRASH id: [GraphBuild](../../src/Shared/GraphBuild.fs) `trashId`.
-[ ] Dedup: the Actor drops a Node id the client already showed.
-[ ] Cap: the result stops at 200 hits. Find and Move share that cap.
+[ ] Dedup: the walk drops a Node id that is in the shown Node ids.
+[ ] Cap: the result holds at most 200 Node ids. Find and Move share that cap.
+
+## Job
+
+[ ] Shared backend for Find and Move. One running Actor. Move does not start a second Actor.
+[ ] A keypress does not start this Actor. Client recompute stays on [Workspace graph](workspace-graph.md).
 
 ## Interface
 
-[ ] Keypress: every keypress recomputes on the client only and updates the Find dialog immediately. Move uses this same path when Move recomputes on each keypress. A keypress sends no server message and does not start this Actor.
-[ ] Start: Find and Move start this same Actor after the quiet gap. Move does not start a second Actor. The start message carries the Node ids the client already showed.
-[ ] Stop: the Actor returns one result and stops. Client hits plus this result stop at the cap. When the server finds N items, the Find dialog shows them. Move shows that same N.
-[ ] Reply match: the result carries the search text it was computed for, or an equivalent generation of that text. The dialog applies the result only when that text is current.
+[ ] Start: Find and Move start this Actor after the quiet gap.
+[ ] Result: the Actor returns one result and stops. Client hits plus this result stop at the cap.
+
+## Messages
+
+[ ] Start fields: search text or an equivalent generation, the start Node, and the shown Node ids.
+[ ] Result fields: Node ids, and the reply-match search text or generation.
+[ ] Reply match: the caller drops the result when that search text or generation is not current.
 
 ## Uses
 
@@ -39,9 +45,9 @@ Find and Move share one Actor. Query does not use this Actor.
 
 ## Seams
 
-[ ] Quiet gap: one shared Find and Move start after the search text is unchanged for a short quiet gap. The gap has no millisecond value. A text change before the gap ends sends no start. Find and Move send no start when the client already has the cap.
-[ ] Cap: Find and Move share the State cap. Query uses that same number on [Query Actor](query-actor.md).
+[ ] Quiet gap: one Start after the search text is unchanged. The gap has no millisecond value. A text change before the gap ends sends no Start. No Start when the client already has 200 hits.
+[ ] Cap: Find and Move share 200. [Query Actor](query-actor.md) stops at that same cap.
 
 ## Explanation
 
-The cap of 200 keeps one search from returning the whole Graph. The quiet gap keeps the server request off the keypress.
+The cap of 200 keeps one search from returning the whole Graph. The quiet gap keeps Start off the keypress.

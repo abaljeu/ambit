@@ -11,7 +11,7 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
 ## 1. Story paths
 
 1. **Residence hits first**
-   1. [ ] **Keypress** — Every keypress recomputes on the client only and updates [Search dialog](src/Client/SearchDialog.fs) immediately. No server message goes out on a keypress. This local incremental search is a lock.
+   1. [ ] **Keypress** — Every keypress recomputes on the client only and updates [Search dialog](src/Client/SearchDialog.fs) immediately. No server message goes out on a keypress. This local incremental search is a lock. Claim home: [Workspace graph](../../doc/current/workspace-graph.md) (Reference search).
    2. [ ] **Move keypress** — When Move recomputes on each keypress the same way, it uses this same client path.
 
 2. **Server completes the picture**
@@ -77,7 +77,7 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
 ## 2. Module map
 
 1. **Search Actor** — The shared backend is a lock. The file name is a proposed design, not a lock.
-   Find and Move share one running Actor. Query does not use that Actor. The function is outside Core. There is no search actor under `src/Server` today. This names the proposed home.    The Server git Actor stays the example of an Actor that posts to the mailbox while Core performs a Graph Change.
+   Find and Move share one running Actor. Query does not use that Actor. The function is outside Core. There is no search actor under `src/Server` today. This names the proposed home. The Server git Actor stays the example of an Actor that posts to the mailbox while Core performs a Graph Change.
    File: `src/Server/SearchActor.fs`
    Claim home: [Search Actor](../../doc/current/search-actor.md)
 
