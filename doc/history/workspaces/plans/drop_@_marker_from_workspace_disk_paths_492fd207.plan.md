@@ -77,7 +77,7 @@ Strike every colon-address / legacy label-prefixed path mention and every "auto-
 
 - [doc/current/workspace-local-mapping.md](doc/current/workspace-local-mapping.md)
 - [doc/current/desktop-local-files.md](doc/current/desktop-local-files.md)
-- [doc/current/workspace-graph.md](doc/current/workspace-graph.md)
+- [doc/current/graph.md](doc/current/graph.md)
 - [doc/current/workspace-stage-plan.md](doc/current/workspace-stage-plan.md)
 - [doc/current/persistence-model.md](doc/current/persistence-model.md)
 - [doc/roadmap/workspace-file-persistence.md](doc/roadmap/workspace-file-persistence.md)

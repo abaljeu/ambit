@@ -6,7 +6,7 @@ See Also:
 
 - [Mailbox](mailbox.md)
 - [Operations](operations.md)
-- [Workspace graph](workspace-graph.md)
+- [Workspace graph](graph.md)
 - [Parse and persist](parse-persist.md)
 
 A single Graph modification, to a Node Header or to its Children.

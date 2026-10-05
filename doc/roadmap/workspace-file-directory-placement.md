@@ -2,7 +2,7 @@
 
 Category: Workspace scale
 Status: In progress (owner-chain placement + directory-scoped name uniqueness)
-See also: [[doc/roadmap/workspaces-checklist]], [[doc/roadmap/workspaces]], [[doc/current/workspace-graph]], [[doc/roadmap/workspace-file-model]], [[doc/roadmap/revising-workspace-file-model]], [[doc/history/workspaces/plans/slice_1_simplified_c97b7f48.plan]], [[doc/history/workspaces/plans/simplify_slice1_ownership_ffc8a965.plan]], [[doc/history/workspaces/plans/special-placement-reconcile_0f939c00.plan]]
+See also: [[doc/roadmap/workspaces-checklist]], [[doc/roadmap/workspaces]], [[graph]], [[doc/roadmap/workspace-file-model]], [[doc/roadmap/revising-workspace-file-model]], [[doc/history/workspaces/plans/slice_1_simplified_c97b7f48.plan]], [[doc/history/workspaces/plans/simplify_slice1_ownership_ffc8a965.plan]], [[doc/history/workspaces/plans/special-placement-reconcile_0f939c00.plan]]
 
 ## What it gives you
 

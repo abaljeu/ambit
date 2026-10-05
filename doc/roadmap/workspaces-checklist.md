@@ -1,7 +1,7 @@
 # Workspaces checklist
 
 Category: Workspace scale
-See also: [[workspaces]], [[doc/current/workspace-graph]], [[doc/current/workspace-local-mapping]], [[plan/transport-layer/project.md]], [[workspace-webdav]]
+See also: [[workspaces]], [[graph]], [[doc/current/workspace-local-mapping]], [[plan/transport-layer/project.md]], [[workspace-webdav]]
 
 Living checklist for implementing workspaces.  Mark done an item when it is done.
 

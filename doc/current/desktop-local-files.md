@@ -5,7 +5,7 @@ Category: Capability
 See Also
 [Workspace local mapping](workspace-local-mapping.md)
 Label-to-path bindings.
-[Workspace graph](workspace-graph.md)
+[Workspace graph](graph.md)
 [Workspace file sync](workspace-file-sync.md)
 Scoped WebDAV Upload and Download.
 [Gambol.Desktop](gambol-desktop.md)

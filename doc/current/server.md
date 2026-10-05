@@ -7,7 +7,7 @@ See Also:
 [Core](core.md)
 [Multi-client sync](sync-mvp.md)
 [Persistence model](persistence-model.md)
-[Workspace graph](workspace-graph.md)
+[Workspace graph](graph.md)
 [Gambol.Server](gambol-server.md)
 
 The Server is the spoken name for Gambol.Server.

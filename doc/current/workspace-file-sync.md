@@ -6,7 +6,7 @@ See Also
 
 [Workspace local mapping](workspace-local-mapping.md)
 [Desktop local files](desktop-local-files.md)
-[Workspace graph](workspace-graph.md)
+[Workspace graph](graph.md)
 [Multi-client sync](sync-mvp.md)
 [Gambol.Desktop](gambol-desktop.md)
 [Gambol.Server](gambol-server.md)

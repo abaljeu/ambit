@@ -15,7 +15,7 @@ todos:
     content: Add tests proving workspace rename is rejected (setName + isRenameAllowed/planRenameNode)
     status: pending
   - id: docs-update
-    content: Record immutable-workspace-name rule in workspace-graph.md and git-sync-gateway.md
+    content: Record immutable-workspace-name rule in graph.md and git-sync-gateway.md
     status: pending
 isProject: false
 ---
@@ -64,7 +64,7 @@ If a workspace is renamed, mechanism 1 moves the files; mechanism 2's cached lab
 
 ## Docs
 
-- [doc/current/workspace-graph.md](doc/current/workspace-graph.md) — record "workspace name is immutable after creation" as a locked identity rule.
+- [doc/current/graph.md](doc/current/graph.md) — record "workspace name is immutable after creation" as a locked identity rule.
 - [doc/roadmap/git-sync-gateway.md](doc/roadmap/git-sync-gateway.md) — note that this permanence is what keeps the git label and graph identity aligned (closes the divergence risk this plan was written to resolve).
 
 ## Verification

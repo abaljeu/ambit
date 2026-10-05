@@ -6,7 +6,7 @@ See Also:
 - [Mailbox](mailbox.md)
 - [Actors](actors.md)
 - [Persistence model](persistence-model.md)
-- [Workspace graph](workspace-graph.md)
+- [Workspace graph](graph.md)
 Parse and persist move text between disk and the graph.
 ## Job
 

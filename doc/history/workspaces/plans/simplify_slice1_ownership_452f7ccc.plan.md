@@ -51,7 +51,7 @@ Sync a directory = reconcile **immediate** disk children against that directory�
 
 1. **Rewrite** [`doc/roadmap/workspace-scale-import-slice1-plan.md`](doc/roadmap/workspace-scale-import-slice1-plan.md): remove path table, deep scan, “never move ownership / add link” rules. Lock ownership placement, shallow sync, metadata (`parsed`/`stale`/mtime), expand-to-parse, workspace git, tests.
 2. **Update** [`doc/roadmap/revising-workspace-file-model.md`](doc/roadmap/revising-workspace-file-model.md): replace free-form “normal may own file/directory” with Directory/Workspace-only ownership of specials; refs unrestricted.
-3. **Patch contradictions** in [`doc/roadmap/workspace-file-model.md`](doc/roadmap/workspace-file-model.md) and [`doc/current/workspace-graph.md`](doc/current/workspace-graph.md) placement tables (today: Directory/File “anywhere”) so roadmap/current agree on the new target; note current code still allows free-form until an implementation step.
+3. **Patch contradictions** in [`doc/roadmap/workspace-file-model.md`](doc/roadmap/workspace-file-model.md) and [`doc/current/graph.md`](doc/current/graph.md) placement tables (today: Directory/File “anywhere”) so roadmap/current agree on the new target; note current code still allows free-form until an implementation step.
 4. **Light touch** [`doc/roadmap/workspace-scale-import.md`](doc/roadmap/workspace-scale-import.md) / umbrella / [`doc/index.md`](doc/index.md): point at simplified slice1 plan; drop path-table language.
 
 ## Slice 1 plan content after rewrite (summary)

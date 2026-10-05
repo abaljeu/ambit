@@ -5,7 +5,7 @@ Category: Capability
 See Also:
 
 [Browser](browser.md)
-[Workspace graph](workspace-graph.md)
+[Workspace graph](graph.md)
 [Gambol.Client](gambol-client.md)
 [Gambol.Shared](gambol-shared.md)
 

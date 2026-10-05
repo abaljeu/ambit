@@ -2,7 +2,7 @@
 
 Category: Workspace scale
 Status: Planned
-See also: [[doc/roadmap/workspace-file-directory-placement]], [[doc/current/workspace-graph]], [[doc/roadmap/workspace-file-model]]
+See also: [[doc/roadmap/workspace-file-directory-placement]], [[graph]], [[doc/roadmap/workspace-file-model]]
 
 ## What it gives you
 

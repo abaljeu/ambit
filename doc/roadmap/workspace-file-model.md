@@ -2,14 +2,14 @@
 
 Status: working draft
 Authority: [[revising-workspace-file-model]] is the authoritative behavioral target.  This file describes design intent to achieve the target model and persistence rules for workspace, directory, and file identity.  Implementation plans may be changed as needed.
-See also: [[doc/current/workspace-graph.md]], [[doc/current/workspace-local-mapping.md]],
+See also: [[graph]], [[doc/current/workspace-local-mapping.md]],
 [[doc/current/desktop-local-files.md]], [[doc/roadmap/reference-expressions.md]], [[doc/roadmap/postgres-roadmap.md]], 
 
 This document defines the model concepts needed by reference expressions such as `//bobby/`.
 It is about shared identity and persistence shape, not source-level implementation.
 
 Scope note: this is a target-scope design document.
-Current implemented behavior is summarized in [[doc/current/workspace-graph.md]].
+Current implemented behavior is summarized in [[graph]].
 
 Stage implementation scope and sequencing are tracked in [[doc/current/workspace-stage-plan.md]].  For each implementation stage, refer to this file for details.
 
@@ -79,7 +79,7 @@ When a Correction is described below, the meaning is that the item previous is d
 
 ## Current Implementation Snapshot
 
-Authority for implemented behavior: [[doc/current/workspace-graph.md]],
+Authority for implemented behavior: [[graph]],
 [[doc/current/workspace-local-mapping.md]], [[doc/current/desktop-local-files.md]], [[doc/current/workspace-stage-plan.md]].
 
 - `[x]` `SpecialKind` includes `Workspace`, `Directory`, and `File` in the shared model.
@@ -89,11 +89,11 @@ Authority for implemented behavior: [[doc/current/workspace-graph.md]],
 - `[ ]` Correction: clarify this is the only required top-level structural anchor.
 - `[x]` `Workspaces` is permanent under root (cannot be removed or edited, like Trash).
 - `[x]` Correction: document that restrictions apply to `workspaces`/`workspace`; below that, layout is free-form.
-- `[x]` Graph invariants enforce structural placement rules — [[doc/current/workspace-graph.md]].
+- `[x]` Graph invariants enforce structural placement rules — [[graph]].
 - `[x]` Correction: update placement rules so `directory` and `file` nodes may be placed anywhere.
 - `[x]` Desktop-local workspace label → local root mapping and interim HTTP surface.
 - `[x]` Correction: document persistence tiers — server `DataDir` primary; desktop mapping secondary (download/export) plus Import entry; mapping independent of server path shape.
-- `[x]` RefExpr anchors, path steps, tag steps, and namespace search —  [[doc/current/workspace-graph.md]], [[doc/roadmap/reference-expression-interpretation.md]].
+- `[x]` RefExpr anchors, path steps, tag steps, and namespace search —  [[graph]], [[doc/roadmap/reference-expression-interpretation.md]].
 - `[x]` Correction: align RefExpr semantics with directory-first member lookup (`DirStep`/`FileStep`) and `^` structural-container lookup.
 - `[ ]` Surrounding language functions (`text Ref`, `children Ref`, `name Ref`) and command/assignment syntax.
 - `[ ]` **On-demand graph residency:** whole graph still one resident document at runtime; membership metadata, scoped loaders, and load/unload not started ([[plan/roadmap/epics/chapters/incremental-operations.md]]).
@@ -133,7 +133,7 @@ Authority for implemented behavior: [[doc/current/workspace-graph.md]],
 
 ## Structural Invariants
 
-See [[doc/current/workspace-graph.md]] for enforced placement rules.
+See [[graph]] for enforced placement rules.
 
 Placement restrictions: named `Workspace` only under `Workspaces`; owned `File` / `Directory` require a `Workspace` or `Directory` on the owner chain before any `File` (`Normal` / `Workspaces` may intervene). Persistence-directory name uniqueness among owned File/Directory/named Workspace. `Normal` may be placed anywhere. Refs are unrestricted. See [[doc/roadmap/workspace-file-directory-placement]].
 
@@ -141,7 +141,7 @@ Placement restrictions: named `Workspace` only under `Workspaces`; owned `File` 
 Context traversal uses only `workspace`, `directory`, and `file` nodes along the owner chain;
 `normal` nodes are ignored for context. See [[doc/roadmap/revising-workspace-file-model]].
 
-No full **Insert…** / **Rename** command surface exists yet (Stage 6). Workspace create/rename uses general graph ops today — [[doc/current/workspace-graph.md]].
+No full **Insert…** / **Rename** command surface exists yet (Stage 6). Workspace create/rename uses general graph ops today — [[graph]].
 
 **Stage 6 target — Insert…:** under `Workspaces` focus, create `Special Workspace`; elsewhere create `Special Directory` or `Special File` as owner child of focus. Pick-existing insert (search result) unchanged.
 
@@ -278,7 +278,7 @@ These rules support the reference-expression design. Authority:
 [[doc/roadmap/reference-expression-interpretation.md]] (interpretation),
 [[doc/roadmap/reference-expressions.md]] (surface syntax).
 
-Implemented in `RefExprParse`, `RefExprMatch` (facade: `RefExpr`). See [[doc/current/workspace-graph.md]].
+Implemented in `RefExprParse`, `RefExprMatch` (facade: `RefExpr`). See [[graph]].
 
 ### Not implemented yet
 

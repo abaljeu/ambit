@@ -73,7 +73,7 @@ Agents must read: [CONTEXT](CONTEXT.md)
 
 [Op](op.md)
 [Persistence model](persistence-model.md)
-[Workspace graph](workspace-graph.md)
+[Workspace graph](graph.md)
 
 ## Contracts
 

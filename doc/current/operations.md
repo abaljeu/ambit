@@ -7,7 +7,7 @@ See Also:
 [Op](op.md)
 [Browser](browser.md)
 [Persistence model](persistence-model.md)
-[Workspace graph](workspace-graph.md)
+[Workspace graph](graph.md)
 [Gambol.Shared](gambol-shared.md)
 
 A small set of operations transforms a graph of nodes.

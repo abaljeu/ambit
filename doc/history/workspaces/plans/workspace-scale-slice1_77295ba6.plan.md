@@ -53,7 +53,7 @@ Assumptions:
 Update the docs that still say illegal owner moves abort so the implementation target is unambiguous:
 - [doc/roadmap/workspace-scale-import-slice1-plan.md](doc/roadmap/workspace-scale-import-slice1-plan.md)
 - [doc/roadmap/revising-workspace-file-model.md](doc/roadmap/revising-workspace-file-model.md)
-- [doc/current/workspace-graph.md](doc/current/workspace-graph.md)
+- [doc/current/graph.md](doc/current/graph.md)
 
 The docs should say: Graph validation rejects newly planned illegal owners, but the Slice 1 reconciliation command repairs existing illegal owners by replacing the illegal owner occurrence with a ref and moving the owner to the nearest valid Workspace/Directory ancestor.
 

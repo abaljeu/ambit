@@ -11,7 +11,7 @@ Reconcile [Revising Workspace File Model](doc/roadmap/revising-workspace-file-mo
 ## Contradictions
 
 - [Workspace File Model](doc/roadmap/workspace-file-model.md) names this doc the authoritative behavioral target.
-- [Workspace graph](doc/current/workspace-graph.md) names this doc the authority for context, and also states placement and context as the implemented baseline. Current Truths in this doc overlap that baseline.
+- [Workspace graph](doc/current/graph.md) names this doc the authority for context, and also states placement and context as the implemented baseline. Current Truths in this doc overlap that baseline.
 - This doc says server file persistence is not fully implemented yet. [Workspace stage plan](doc/current/workspace-stage-plan.md) marks Stage 7 core and Stage 8 done, with Stage 7 follow-ups still open (hard delete under TRASH).
 
 ## Comments

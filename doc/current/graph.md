@@ -1,36 +1,19 @@
-# Workspace Graph
+# Graph
 
 Category: Information
 
 See Also
 
-[Workspace local mapping](workspace-local-mapping.md)
-
-Local filesystem mapping for `//label/relative` paths.
-
+[Workspace local mapping](workspace-local-mapping.md) Local filesystem mapping for `//label/relative` paths.
 [Desktop local files](desktop-local-files.md)
-
 [Workspace file sync](workspace-file-sync.md)
-
 [Workspace stage plan](workspace-stage-plan.md)
+[Workspace file model](doc/roadmap/workspace-file-model.md) TRASH.
+[Reference expression interpretation](doc/roadmap/reference-expression-interpretation.md) Reference expression grammar.
+[Revising the workspace file model](doc/roadmap/revising-workspace-file-model.md) Authority for context.
+[Workspace file directory placement](doc/roadmap/workspace-file-directory-placement.md) Artifact names.
 
-[Workspace file model](doc/roadmap/workspace-file-model.md)
-
-TRASH.
-
-[Reference expression interpretation](doc/roadmap/reference-expression-interpretation.md)
-
-Reference expression grammar.
-
-[Revising the workspace file model](doc/roadmap/revising-workspace-file-model.md)
-
-Authority for context.
-
-[Workspace file directory placement](doc/roadmap/workspace-file-directory-placement.md)
-
-Artifact names.
-
-The workspace graph is the shared vocabulary and structural rules for workspace special nodes, and the graph layer enforces those rules.
+The graph is the central data structure of the outliner.  There are rules for workspace special nodes, and the graph layer enforces those rules.
 
 ## Shape
 

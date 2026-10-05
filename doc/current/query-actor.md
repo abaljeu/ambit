@@ -3,7 +3,7 @@ Category: Capability
 See Also:
 - [Actors](actors.md)
 - [Search Actor](search-actor.md)
-- [Workspace graph](workspace-graph.md)
+- [Workspace graph](graph.md)
 
 A query expression runs on its own Actor.
 

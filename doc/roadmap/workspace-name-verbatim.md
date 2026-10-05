@@ -2,7 +2,7 @@
 
 Category: Workspace scale
 Status: Slice A + B done
-See also: [[doc/roadmap/workspaces]], [[doc/current/workspace-graph]], [[doc/current/workspace-local-mapping]], [[doc/history/workspaces/plans/drop_@_marker_from_workspace_disk_paths_492fd207.plan]]
+See also: [[doc/roadmap/workspaces]], [[graph]], [[doc/current/workspace-local-mapping]], [[doc/history/workspaces/plans/drop_@_marker_from_workspace_disk_paths_492fd207.plan]]
 
 ## What it gives you
 
@@ -51,7 +51,7 @@ Rewrite surgically from this plan. Do not cherry-pick commits from discarded `db
 
 1. RefExprTestTree: bare `bobby` / `other` via `Filename.create`.
 2. RefExpr / Search / ViewModelFileSearch: queries use `//bobby/...`; drop or replace colon-address coverage so it is not documented as workspace address syntax.
-3. Strike legacy label-prefixed / colon-address forms and auto-prepend disk-marker from current docs that claim implemented behavior ([[doc/current/workspace-graph]], [[doc/current/workspace-local-mapping]], [[doc/current/desktop-local-files]], [[doc/current/workspace-stage-plan]], [[doc/current/persistence-model]]); fix [[doc/roadmap/reference-expression-interpretation]] if it says workspace names start with a disk-marker prefix.
+3. Strike legacy label-prefixed / colon-address forms and auto-prepend disk-marker from current docs that claim implemented behavior ([[graph]], [[doc/current/workspace-local-mapping]], [[doc/current/desktop-local-files]], [[doc/current/workspace-stage-plan]], [[doc/current/persistence-model]]); fix [[doc/roadmap/reference-expression-interpretation]] if it says workspace names start with a disk-marker prefix.
 4. Verify: RefExpr + search suites green.
 
 ## Tests

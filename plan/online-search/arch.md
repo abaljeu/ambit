@@ -11,7 +11,7 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
 ## 1. Story paths
 
 1. **Residence hits first**
-   1. [ ] **Keypress** — Every keypress recomputes on the client only and updates [Search dialog](src/Client/SearchDialog.fs) immediately. No server message goes out on a keypress. This local incremental search is a lock. Claim home: [Workspace graph](../../doc/current/workspace-graph.md) (Reference search).
+   1. [ ] **Keypress** — Every keypress recomputes on the client only and updates [Search dialog](src/Client/SearchDialog.fs) immediately. No server message goes out on a keypress. This local incremental search is a lock. Claim home: [Workspace graph](../../doc/current/graph.md) (Reference search).
    2. [ ] **Move keypress** — When Move recomputes on each keypress the same way, it uses this same client path.
 
 2. **Server completes the picture**

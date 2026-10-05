@@ -7,7 +7,7 @@ Current documents remain authoritative for implemented behavior. This index orga
 
 ## Current baselines
 
-- [[doc/current/workspace-graph]]
+- [[graph]]
 - [[doc/current/workspace-local-mapping]]
 - [[doc/current/workspace-stage-plan]]
 - [[doc/current/desktop-local-files]]
@@ -73,7 +73,7 @@ Reconcile these against the restart baseline before carrying claims about path l
 
 - [[doc/index]]
 - [[doc/arch]]
-- [[doc/current/workspace-graph]]
+- [[graph]]
 - [[doc/current/workspace-stage-plan]]
 - [[doc/current/persistence-model]]
 - [[doc/current/workspace-local-mapping]]

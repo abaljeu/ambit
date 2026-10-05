@@ -58,7 +58,7 @@ Details: [[doc/current/persistence-model.md]].
 Summary: The database keeps graph and event info. A start with the database offline reads file data into a partial graph. That partial graph is not used for editing.
 
 ### **Workspace graph**
-Details: [[doc/current/workspace-graph.md]].
+Details: [[graph]].
 Summary: Workspace, directory, and file special nodes, placement invariants, DocumentState plus ParseState/PersistState axes, and ref context.
 
 ### **Desktop local files**

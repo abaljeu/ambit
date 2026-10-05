@@ -3,7 +3,7 @@
 Category: Capability
 See Also
 [Desktop local files](desktop-local-files.md)
-[Workspace graph](workspace-graph.md)
+[Workspace graph](graph.md)
 [Workspace file sync](workspace-file-sync.md)
 Tree sync is WebDAV.
 [Gambol.Desktop](gambol-desktop.md)

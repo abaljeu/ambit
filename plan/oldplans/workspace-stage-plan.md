@@ -108,7 +108,7 @@ Stage 2 — behavior-bearing concepts (done):
 - Ensure workspace nodes are `Special Workspace` direct children of `Workspaces`.
 - Preserve existing owner/ref semantics unchanged.
 
-Corrections (done — see [[doc/current/workspace-graph.md]]):
+Corrections (done — see [[graph]]):
 
 - Placement restrictions apply only to `workspaces`/`workspace`; `directory`, `file`, and `normal` nodes may be placed anywhere in the ownership tree.
 - Treat workspace, directory, and file as context-defining special nodes for traversal and resolution (`RefExpr.refContext`, `RefExpr.match_`).
@@ -139,7 +139,7 @@ Verification:
 
 Status: Stage 3 `[x]`. Correction (persistence-split documentation) `[x]`.
 
-Done — see [[doc/current/workspace-graph.md]] and [[doc/current/persistence-model.md]].
+Done — see [[graph]] and [[doc/current/persistence-model.md]].
 
 Shared workspace-label → workspace-root mapping is stored in the graph projection only (not server `DataDir` file layout):
 

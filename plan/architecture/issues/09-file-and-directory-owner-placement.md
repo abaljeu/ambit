@@ -11,7 +11,7 @@ Reconcile [File and Directory owner placement](doc/roadmap/workspace-file-direct
 ## Contradictions
 
 - This doc Status is In progress (owner-chain placement and directory-scoped name uniqueness).
-- [Workspace graph](doc/current/workspace-graph.md) states the same owner-chain placement and name uniqueness as structural invariants and cites this doc.
+- [Workspace graph](doc/current/graph.md) states the same owner-chain placement and name uniqueness as structural invariants and cites this doc.
 - [Workspaces checklist](doc/roadmap/workspaces-checklist.md) marks “Files and Directories are only allowed to be in Directories or Workspaces” done, and points at this doc. Slice B create/move UX and Slice C legacy reconcile are cancelled in this doc.
 
 ## Comments

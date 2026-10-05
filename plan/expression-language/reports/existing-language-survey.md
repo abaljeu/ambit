@@ -16,7 +16,7 @@ Contents of [[plan/expression-language/git.md]]:
 
 ## 2. Path and reference syntax: specified versus implemented
 
-Authority for interpretation is [[doc/roadmap/reference-expression-interpretation.md]]. [[doc/roadmap/reference-expressions.md]] is marked Partially superseded. It still points at [[doc/roadmap/language-syntax.md]], which is not in the repo. The live language draft is [[doc/roadmap/language-syntax-and-semantics.md]]. Baseline code notes are in [[doc/current/workspace-graph.md]] (stale on assignment and command parse).
+Authority for interpretation is [[doc/roadmap/reference-expression-interpretation.md]]. [[doc/roadmap/reference-expressions.md]] is marked Partially superseded. It still points at [[doc/roadmap/language-syntax.md]], which is not in the repo. The live language draft is [[doc/roadmap/language-syntax-and-semantics.md]]. Baseline code notes are in [[graph]] (stale on assignment and command parse).
 
 The grammar in the interpretation doc:
 
@@ -76,7 +76,7 @@ What exists:
 - **No `and` / `or` / `not` operators.** A word `and` would parse as a generic `FunCall` if arguments follow. There is no boolean combinator semantics.
 - **No filter postfix.** Interpretation doc forbids `[n]` and filters in `RefExpr`. Parser rejects `[` `]`.
 
-[[doc/current/workspace-graph.md]] still lists filters as not implemented.
+[[graph]] still lists filters as not implemented.
 
 ## 5. Concrete code pointers
 
@@ -126,4 +126,4 @@ Closest existing pieces, and why they do not compose into that query:
 
 What would be new: word-level pipeline (or equivalent combinators) that thread a Node set through named operators; a descendant operator that can start from ROOT or a Workspace; a text-containment filter on that set; a tag filter as a function rather than only `#name` path syntax; boolean combinators if AND/OR/NOT are required beyond Find's same-Node AND.
 
-Related docs that affect syntax or eval: [[doc/roadmap/amble-run.md]] (Run wiring; later slices still list `name` / `children` / `,` / shell); [[doc/current/workspace-graph.md]] (search merges RefExpr hits with text); [[doc/roadmap/workspace-file-model.md]] (stale "not implemented" list). [[doc/reference/style.md]] does not define this language.
+Related docs that affect syntax or eval: [[doc/roadmap/amble-run.md]] (Run wiring; later slices still list `name` / `children` / `,` / shell); [[graph]] (search merges RefExpr hits with text); [[doc/roadmap/workspace-file-model.md]] (stale "not implemented" list). [[doc/reference/style.md]] does not define this language.

@@ -5,7 +5,7 @@ See Also:
 - [Mailbox](mailbox.md)
 - [Server](server.md)
 - [Query Actor](query-actor.md)
-- [Workspace graph](workspace-graph.md)
+- [Workspace graph](graph.md)
 
 Find and Move share one Actor. Query does not use this Actor.
 
@@ -25,7 +25,7 @@ Find and Move share one Actor. Query does not use this Actor.
 ## Job
 
 [ ] Shared backend for Find and Move. One running Actor. Move does not start a second Actor.
-[ ] A keypress does not start this Actor. Client recompute stays on [Workspace graph](workspace-graph.md).
+[ ] A keypress does not start this Actor. Client recompute stays on [Workspace graph](graph.md).
 
 ## Interface
 

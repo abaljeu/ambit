@@ -24,7 +24,7 @@ Special nodes (Workspace Node, Directory Node, File Node) each carry Parse Statu
 1. **Parsed | Unparsed** — Unparsed means information on disk has not been pulled into the graph. The parse thread runs when a node is Unparsed. On completion the core loop sets Parsed only (§10 **Core loop**).
 2. **Persisted | Unpersisted** — Unpersisted means information in the graph has not been written to disk. The persist thread runs when a node is Unpersisted and Parsed. On completion the core loop sets Persisted only (§10 **Core loop**). A graph edit sets the nearest owning special node Unpersisted. It does not mark ancestors.
 
-Only Core changes files, and only Core changes the graph. The flags record which side Core just moved. Other operations set Unparsed and Unpersisted. Workspace lock and per-member persist locks are additional protocol beside the axes: §6 Core locking model. Do not invent a Conflicted state. This section is not the project target; the project target is Target — Server Core. Claim home: [Workspace graph](doc/current/workspace-graph.md) (Document state).
+Only Core changes files, and only Core changes the graph. The flags record which side Core just moved. Other operations set Unparsed and Unpersisted. Workspace lock and per-member persist locks are additional protocol beside the axes: §6 Core locking model. Do not invent a Conflicted state. This section is not the project target; the project target is Target — Server Core. Claim home: [Workspace graph](doc/current/graph.md) (Document state).
 
 ## 2. Starting point
 
@@ -79,11 +79,11 @@ This step does not start workers.
 
 **Approach (Mikado)** — Locked 2026-09-28 (Alan). Create the new state axes. Set both the new axes and the old `DocumentState` wherever state changes. Migrate old uses over step by step. Finally remove the old.
 
-Implement ticket: [20 — State axes on special nodes](../github-transport/issues/20-state-axes-on-special-nodes.md) (Status `done` on github-transport). Claim home: [Workspace graph](doc/current/workspace-graph.md) (Document state).
+Implement ticket: [20 — State axes on special nodes](../github-transport/issues/20-state-axes-on-special-nodes.md) (Status `done` on github-transport). Claim home: [Workspace graph](doc/current/graph.md) (Document state).
 
 ## 5. Axis-write mechanics
 
-Locked 2026-09-28 (Alan). These rules say who writes each axis and which node they mark. [20 — State axes on special nodes](../github-transport/issues/20-state-axes-on-special-nodes.md) still only adds the markers. It does not start workers. Items marked deferred wait for the Parse loop. Claim home: [Workspace graph](doc/current/workspace-graph.md) (Document state). Axis-write rules stay in this section. The current page does not copy them. `InMsg` on the one mailbox queue is locked 2026-10-01 (Alan). A private function adds `InMsg`. A public function adds `CoreMsg`. The queue puller hands the item to its handler. State, Interface, and Uses are §10 **Core loop**. Claim home: [Mailbox](doc/current/mailbox.md). The thread post is [Parse and persist](doc/current/parse-persist.md). Those pages do not copy this section.
+Locked 2026-09-28 (Alan). These rules say who writes each axis and which node they mark. [20 — State axes on special nodes](../github-transport/issues/20-state-axes-on-special-nodes.md) still only adds the markers. It does not start workers. Items marked deferred wait for the Parse loop. Claim home: [Workspace graph](doc/current/graph.md) (Document state). Axis-write rules stay in this section. The current page does not copy them. `InMsg` on the one mailbox queue is locked 2026-10-01 (Alan). A private function adds `InMsg`. A public function adds `CoreMsg`. The queue puller hands the item to its handler. State, Interface, and Uses are §10 **Core loop**. Claim home: [Mailbox](doc/current/mailbox.md). The thread post is [Parse and persist](doc/current/parse-persist.md). Those pages do not copy this section.
 
 1. **Writer target** — The core loop writes the axes on the live graph. The parse thread and the persist thread enqueue an axis completion. They do not edit the graph. Until the loop owns every axis write, set the axes at today’s file-edit sites and graph-edit sites.
 2. **Graph edit** — Mark the nearest owning special node (File Node, Directory Node, or Workspace Node) **Unpersisted** only. Do not mark ancestors.

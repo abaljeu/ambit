@@ -2,7 +2,7 @@
 
 Category: Workspace scale
 Status: Done
-See also: [[doc/roadmap/workspaces]], [[doc/current/workspace-graph]], [[doc/history/workspaces/plans/lock_workspace_name_immutable_ea821a05.plan]], [[doc/roadmap/workspace-name-verbatim]]
+See also: [[doc/roadmap/workspaces]], [[graph]], [[doc/history/workspaces/plans/lock_workspace_name_immutable_ea821a05.plan]], [[doc/roadmap/workspace-name-verbatim]]
 
 ## What it gives you
 
@@ -33,7 +33,7 @@ Live graph name drives document disk paths; git/desktop mapping caches a bare la
 
 ## Docs after implement
 
-- Record the rule in [[doc/current/workspace-graph]] when this ships.
+- Record the rule in [[graph]] when this ships.
 
 ## Non-goals
 

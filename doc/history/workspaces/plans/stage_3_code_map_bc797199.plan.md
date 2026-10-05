@@ -47,7 +47,7 @@ flowchart TD
 |----------|------|
 | [src/Shared/Model.fs](src/Shared/Model.fs) | `workspacesId`, `ensureWorkspacesNode`, root bootstrap; `setName` case-insensitive sibling uniqueness; `replace` rejects duplicate owner names and enforces `Special Workspace` only under `Workspaces` |
 | [src/Shared/History.fs](src/Shared/History.fs) | `Op.NewSpecialNode(..., Workspace, name)` creates labeled workspace root; `Op.SetName` renames label |
-| [doc/current/workspace-graph.md](doc/current/workspace-graph.md) | Documents create/rename via `NewSpecialNode` + `Replace` under `workspacesId` |
+| [doc/current/graph.md](doc/current/graph.md) | Documents create/rename via `NewSpecialNode` + `Replace` under `workspacesId` |
 
 The mapping record is literally: **`Special Workspace` child of `Workspaces` with `name = label`**.
 
