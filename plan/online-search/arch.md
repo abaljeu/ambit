@@ -2,11 +2,21 @@
 
 Spec: [spec](spec.md)
 Updated: 2026-10-05
-Sequence: unsettled
+Sequence: tracer-cut
 
-The Search spec and the Query spec stay separate. Dialog UI stays out of scope. File search stays out of scope. Paging and a continuation cursor are out of scope. Locks are in the story paths. Where a mechanism is still a design, the module map marks it **Proposed design**. [map](map.md) Decisions so far stays empty. This architecture does not resolve a ticket. to-arch step 5 is complete for committed Module map items. Each committed module has a doc/current home, and this arch links to it: [Search Actor](../../doc/current/search-actor.md) and [Query Actor](../../doc/current/query-actor.md). Want nodes for hits is a proposed design and has no doc/current home. The Query Actor Ref post is a proposed design and has no doc/current home.
+The Search spec and the Query spec stay separate sections of [spec](spec.md). Both specs live in that file. Dialog UI stays out of scope. File search stays out of scope. Paging and a continuation cursor are out of scope. Locks are in the story paths and in Decisions so far below. Where a mechanism is still a design, the module map marks it **Proposed design**. This architecture does not resolve a ticket. to-arch step 5 is complete for committed Module map items. Each committed module has a doc/current home, and this arch links to it: [Search Actor](../../doc/current/search-actor.md) and [Query Actor](../../doc/current/query-actor.md). Want nodes for hits is a proposed design and has no doc/current home. The Query Actor Ref post is a proposed design and has no doc/current home. The file `src/Server/SearchActor.fs` is the locked home of both Actors.
 
 Vocabulary: say event source. Say Server git Actor for that git Actor. Do not say CAS. Do not say Peer.
+
+**Decisions so far** (Alan, 2026-10-05). The same locks are on [map](map.md) Decisions so far.
+
+1. **One spec file** — Both specs live in [spec](spec.md). The Search spec and the Query spec stay separate sections of that file.
+2. **No limit syntax** — A query function may stop under 200. The server stops at 200. This architecture does not add expression spelling for that stop.
+3. **Actor file** — `src/Server/SearchActor.fs` is the home of the Search Actor and the Query Actor.
+4. **Sequence** — tracer-cut.
+5. **Node id** — A client hit and a server hit are the same hit when they share a Node id (`NodeId`). [04 — Duplicate hit identity](issues/04-duplicate-hit-identity.md) stays in its current shape. This lock is not that ticket's Answer.
+6. **Remote query eval** — The Query Actor evaluates on the server. This project overturns eval-stays-local for the query. [05 — Query fulfillment while eval stays local](issues/05-query-fulfillment-while-eval-stays-local.md) stays in its current shape. [14 — Server-side search](plan/expression-language/issues/14-server-side-search.md) is not edited.
+7. **Standing locks** — The cap of 200, the short quiet gap, the shared Find and Move Actor, no paging, and the trash rules stay locks. Want nodes for hits and the Ref post stay proposed designs.
 
 ## 1. Story paths
 
@@ -26,7 +36,7 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
 
 4. **Cap of 200**
    1. [ ] **Find and Move** — The combined client hits and server hits stop at 200. Find and Move share that cap. This cap is a lock.
-   2. [ ] **Query** — The query function may set a lower limit. The server returns at most 200 for a query and then stops. If the function asks for more than 200, the server stops at 200. The query does not page. This cap is a lock.
+   2. [ ] **Query** — The query function may stop under 200. The server returns at most 200 for a query and then stops. If the function asks for more than 200, the server stops at 200. The query does not page. This cap is a lock.
 
 5. **Skip trash**
    1. [ ] **Ordinary search skips trash** — Search skips trash unless it starts at the trash node.
@@ -44,7 +54,7 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
 9. **Insert Refs under the query line**
    1. [ ] **Refs** — Results under the query line are Refs, not Owned Children.
    2. [ ] **Existing Ref shape** — [ExprRun](src/Shared/ExprRun.fs) `run` already materialises a Node answer with `ChildNode.reference`.
-   3. [ ] **Post the Replace** — Proposed design: the query Actor posts a Change on the event source whose child list uses that Ref shape under the query line. Server eval is not the local eval inside `ExprRun.run`. See §2 item 2 **Query Actor**.
+   3. [ ] **Post the Replace** — Proposed design: the Query Actor posts a Change on the event source whose child list uses that Ref shape under the query line. The Query Actor evaluates on the server. See §2 item 2 **Query Actor**.
 
 10. **Query skips trash**
     1. [ ] **Ordinary query skips trash** — An ordinary query skips trash.
@@ -53,11 +63,11 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
     1. [ ] **trash** — The function is named `trash`. It works like `root` for reaching trash.
 
 12. **Server items inserted**
-    1. [ ] **Insert N** — The query expression inserts the N items the server finds, as Refs under the query line. N is at most 200, and lower when the function sets a lower limit.
+    1. [ ] **Insert N** — The query expression inserts the N items the server finds, as Refs under the query line. N is at most 200, and lower when the function stops under 200.
     2. [ ] **Nodes then Refs** — Proposed design: the same Poll carries the Want `nodes` for those ids and the Change that inserts the Refs, so a Ref points at a Node the Browser has.
 
 13. **Server evaluates**
-    1. [ ] **Server Graph** — The server evaluates the query once, when the line runs. The Actor then stops. A keypress does not start this Actor.
+    1. [ ] **Server Graph** — The Query Actor evaluates the query on the server once, when the line runs. The Actor then stops. A keypress does not start this Actor. This eval is remote.
 
 ### 14. Shared segments
 
@@ -68,16 +78,16 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
 
 2. **Query Change**
    1. [ ] **Ref Change** — Query also posts the Ref Replace on the event source.
-   2. [ ] **Lower limit** — When the function sets a limit under 200, the result uses that limit. Otherwise the result stops at 200.
+   2. [ ] **Lower limit** — When the function stops under 200, the result uses that stop. Otherwise the result stops at 200.
 
 ### 15. Test seam
 
-1. [ ] **One result of Node ids** — Proposed design: the narrowest shared point is that one result of at most 200 Node ids. Find and Move tests install it with [installWantAnswer](src/Shared/ResidentProjection.fs). Query tests also expect the Ref Replace under the query line, and a function limit under 200.
+1. [ ] **One result of Node ids** — Proposed design: the narrowest shared point is that one result of at most 200 Node ids. Find and Move tests install it with [installWantAnswer](src/Shared/ResidentProjection.fs). Query tests also expect the Ref Replace under the query line, and a function stop under 200.
 
 ## 2. Module map
 
-1. **Search Actor** — The shared backend is a lock. The file name is a proposed design, not a lock.
-   Find and Move share one running Actor. Query does not use that Actor. The function is outside Core. There is no search actor under `src/Server` today. This names the proposed home. The Server git Actor stays the example of an Actor that posts to the mailbox while Core performs a Graph Change.
+1. **Search Actor** — The shared backend is a lock. The file name is a lock.
+   Find and Move share one running Actor. Query does not use that Actor. The function is outside Core. There is no search actor under `src/Server` today. The locked home is the file below. The Server git Actor stays the example of an Actor that posts to the mailbox while Core performs a Graph Change.
    File: `src/Server/SearchActor.fs`
    Claim home: [Search Actor](../../doc/current/search-actor.md)
 
@@ -97,19 +107,19 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
       1. [ ] **Server Graph** — The Actor reads the server Graph.
       2. [ ] **ActorStart** — The running Actor is recorded on the event source as ActorStart.
 
-2. **Query Actor** — The separate Actor is a lock. The file name and the Ref post stay a proposed design.
-   The server evaluates the query. Query does not share the Find and Move Actor. The same proposed file starts this Actor. The cap of 200 is a lock.
+2. **Query Actor** — The separate Actor is a lock. The file name is a lock. The Ref post stays a proposed design.
+   The Query Actor evaluates the query on the server. This eval is remote. Query does not share the Find and Move Actor. The same file starts this Actor. The cap of 200 is a lock.
    File: `src/Server/SearchActor.fs`
    Claim home: [Query Actor](../../doc/current/query-actor.md)
 
    1. **State**
       Claim home: [Query Actor](../../doc/current/query-actor.md) Data.
       1. [ ] **One result** — One result, then stop. No page and no cursor.
-      2. [ ] **Limit** — The function's own limit applies when it is under 200. A request above 200 stops at 200.
+      2. [ ] **Limit** — The function may stop under 200. A request above 200 stops at 200.
       3. [ ] **Trash** — Ordinary eval skips trash. `trash` reaches trash the way `root` reaches ROOT.
    2. **Interface**
       1. [ ] **Eval** — The Actor evaluates the expression on the server Graph. Claim home: [Query Actor](../../doc/current/query-actor.md) Interface and Messages.
-      2. [ ] **Refs** — Proposed design. The Actor posts a Change that inserts `ChildNode.reference` children under the query line. The shape matches [ExprRun](src/Shared/ExprRun.fs). The Actor does not call local `ExprRun.run` as the eval. This Ref post has no doc/current home. The locked Ref shape is [Query Actor](../../doc/current/query-actor.md) Interface and Messages.
+      2. [ ] **Refs** — Proposed design. The Actor evaluates on the server. It posts a Change that inserts `ChildNode.reference` children under the query line. The shape matches [ExprRun](src/Shared/ExprRun.fs). This Ref post has no doc/current home. The locked Ref shape is [Query Actor](../../doc/current/query-actor.md) Interface and Messages.
    3. **Uses**
       1. [ ] **Event source** — Proposed design. The Ref Replace is a Change on the event source. This proposed design has no doc/current home.
       2. [ ] **ExprRun shape** — `ChildNode.reference` as in ExprRun's materialise path. Claim home: [Query Actor](../../doc/current/query-actor.md) Messages.
@@ -147,12 +157,8 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
 1. **Paging** — A continuation cursor, and mailbox messages Next and Page, so the dialog can ask for more. Alan locked no paging. That arrangement is out of this architecture.
 2. **New Want type** — A second answer beside `nodes` and `childMap`. [installWantAnswer](src/Shared/ResidentProjection.fs) already merges `nodes`. A second type is a wider interface. This arrangement loses.
 3. **Message per key** — A server request on every keypress. Alan locked the keypress path to the client. That arrangement is out.
-4. **Winner** — Local recompute on each keypress. Find and Move share one server request after a short quiet gap, skipped when the text changes or the client already has 200 hits. The combined result stops at 200. A stale reply is ignored. Hit Headers ride the existing `nodes` list. Query is one evaluation on its own Actor when the line runs. Sequence stays unsettled.
+4. **Winner** — Local recompute on each keypress. Find and Move share one server request after a short quiet gap, skipped when the text changes or the client already has 200 hits. The combined result stops at 200. A stale reply is ignored. Hit Headers ride the existing `nodes` list. Query is one remote evaluation on its own Actor when the line runs. Sequence is tracer-cut.
 
 ## 5. Unsettled
 
-1. **Spec file names** — The file names of the Search spec and the Query spec. [map](map.md) item 7 **Spec file names**. Both specs stay in [spec](spec.md).
-2. **Limit syntax** — A query function may set a lower limit than 200. The spelling of that limit in the expression is not locked.
-3. **Actor file name** — `src/Server/SearchActor.fs` is the proposed home. Alan did not lock the file name.
-4. **Sequence** — tracer-cut, module-build, or expand-contract is not locked. The earlier expand-contract note was for Next and Page. Those messages are gone.
-5. **Tickets** — [04 — Duplicate hit identity](issues/04-duplicate-hit-identity.md) and [05 — Query fulfillment while eval stays local](issues/05-query-fulfillment-while-eval-stays-local.md) stay unresolved. The locks above are in this architecture. They are not ticket Answers.
+1. **Tickets** — [04 — Duplicate hit identity](issues/04-duplicate-hit-identity.md) and [05 — Query fulfillment while eval stays local](issues/05-query-fulfillment-while-eval-stays-local.md) stay unresolved. The locks above are in this architecture. They are not ticket Answers.
