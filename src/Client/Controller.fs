@@ -165,11 +165,15 @@ let isPrintableKey (key: string) : bool =
     key.Length = 1 && key >= " "
 
 /// True when running on iOS (iPad, iPhone, iPod). Cmd+key is then treated as Ctrl+key.
-[<Emit("typeof navigator !== 'undefined' && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))")>]
+[<Emit("typeof navigator !== 'undefined' && (/iPad|iPhone|iPod/.test(navigator.userAgent)
+ || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))")>]
 let isIOS () : bool = jsNative
 
 /// Platform string for diagnostics: platform, touchPoints, isIOS, userAgent snippet.
-[<Emit("(typeof navigator !== 'undefined' ? navigator.platform + ' | maxTouchPoints=' + navigator.maxTouchPoints + ' | isIOS=' + $0 + ' | ' + navigator.userAgent.substring(0, 100) : 'n/a')")>]
+[<Emit("(typeof navigator !== 'undefined' ? navigator.platform + ' 
+    | maxTouchPoints=' + navigator.maxTouchPoints + ' 
+    | isIOS=' + $0 + ' 
+    | ' + navigator.userAgent.substring(0, 100) : 'n/a')")>]
 let getPlatformDiagnostic (isIOSResult: bool) : string = jsNative
 
 let private isSingleLetterKey (key: string) : bool =
@@ -237,7 +241,7 @@ let formatKeyCombo (ke: KeyboardEvent) : string =
                     | Some k -> k
                     | None -> if isSingleLetterKey ke.key then string (System.Char.ToLowerInvariant ke.key[0]) else ke.key
             if ke.ctrlKey then parts.Add "Ctrl"
-            if ke.metaKey then parts.Add "Cmd"
+            if ke.metaKey then parts.Add "Ctrl"
             if ke.altKey  then parts.Add "Alt"
             if shiftOnlySource then parts.Add "Shift"
             parts.Add (normalizeKeyToken keyToken)
