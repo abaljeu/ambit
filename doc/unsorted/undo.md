@@ -113,4 +113,4 @@ Available in both selection and editing modes.
 - Server-side undo/redo HTTP endpoints (undo/redo apply locally and sync via normal `POST /changes` batches).
 - Undo of `NewNode` via a `DeleteNode` op.
 
-See [[doc/api.md]] for the implemented HTTP contract.
+See [[doc/current/http-contract.md]] for the implemented HTTP contract.

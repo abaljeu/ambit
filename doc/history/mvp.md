@@ -1,6 +1,6 @@
 # Minimum Viable Product
 
-> **Historical.** Tracer-bullet notes from early MVP. For current behavior see  and the implemented section of [[doc/api.md]].
+> **Historical.** Tracer-bullet notes from early MVP. For current behavior see  and the implemented section of [[doc/current/http-contract.md]].
 
 A tracer-bullet implementation: the thinnest slice that demonstrates
 the full stack working end-to-end as an editable outliner.

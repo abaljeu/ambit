@@ -1,7 +1,7 @@
 # Documentation
 
 Top level contains the front-door docs for the current system as a whole:
-[[index.md]], [[current/architecture.md]], [[spec.md]], and [[api.md]].
+[[index.md]], [[current/architecture.md]], [[spec.md]], and [[current/api.md]].
 
 New docs should normally go in a subfolder:
 
@@ -25,7 +25,7 @@ Start here:
 
 - [[current/architecture.md]]
 - [[spec.md]]
-- [[api.md]]
+- [[current/api.md]]
 - [[index.md]] — Feature index of the current program
 - [[roadmap/postgres-roadmap.md]] — persistence-focused roadmap index
 

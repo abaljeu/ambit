@@ -5,7 +5,7 @@
 We are implementing [[spec]], following the [[arch]]. All documents are in development.
 
 This plan assumes a lightweight client (hidden-input editing) and a simple server that serves the page and persists ops.
-Multi-client sync (N<5 clients) is documented in [[sync-mvp]] and [[api]].
+Multi-client sync (N<5 clients) is documented in [[sync-mvp]] and [[doc/current/http-contract.md]].
 
 ## 1. client/server approach
 
@@ -48,14 +48,14 @@ DONE for current server + persistence.
     - Encode/decode `Graph` (for state endpoint)
     - Encode/decode `NodeId` (Guid)
     - Round-trip tests
-- [x] Define API contract (see [[api]] — implemented `/ambit/*` section)
+- [x] Define API contract (see [[doc/current/http-contract.md]] — implemented `/ambit/*` section)
 - [x] Implement revision tracking
     - Revision type (monotonically increasing integer)
     - Revision in server state
     - Durable append-only log (file `.log` and/or PostgreSQL `changes`)
 - [x] Serve app at `GET /ambit` with client assets
 - [x] `GET /ambit/state` → graph + revision (JSON)
-- [x] `POST /ambit/changes` → apply batch, return ack (see [[api]])
+- [x] `POST /ambit/changes` → apply batch, return ack (see [[doc/current/http-contract.md]])
 - [x] `GET /ambit/poll?rev=` → revision, build stamps, change tail
 - [x] Automatic snapshot persistence (no `POST /save` route)
 - [ ] `POST /undo` → server undo (deferred)
@@ -64,7 +64,7 @@ DONE for current server + persistence.
 
 ## 4a. Multi-client sync (N<5 clients)
 
-Implemented baseline: last-write-wins by arrival order (see [[sync-mvp]], [[api]]).
+Implemented baseline: last-write-wins by arrival order (see [[sync-mvp]], [[doc/current/http-contract.md]]).
 
 - Client posts `ChangeBatch` to `POST /{pathname}/changes`
 - Server responds with `ChangeBatchAck` (revision + `ackedChangeIds`)
@@ -72,7 +72,7 @@ Implemented baseline: last-write-wins by arrival order (see [[sync-mvp]], [[api]
 - Full graph via `GET /{pathname}/state` when needed
 - Undo/redo client-local; inverses sent as normal changes
 
-Later: upgrade to target API in [[api]] (sequences, 409, multi-document).
+Later: upgrade to target API in [[doc/current/http-contract.md]] (sequences, 409, multi-document).
 
 ## 5. Persistence
 

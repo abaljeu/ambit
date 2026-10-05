@@ -1,6 +1,6 @@
 # Documentation Review - Implementation vs. Documentation
 
-> **Status: historical gap analysis (pre-implementation).** This file records an early review pass and is **not** a current defect list. For up-to-date architecture and API behavior, see , [[doc/api.md]] (implemented section), and `src/Server` / `src/Shared`.
+> **Status: historical gap analysis (pre-implementation).** This file records an early review pass and is **not** a current defect list. For up-to-date architecture and API behavior, see , [[doc/current/http-contract.md]] (implemented section), and `src/Server` / `src/Shared`.
 
 Review of `src/Shared/` implementation against documentation in `doc/`.
 
@@ -191,7 +191,7 @@ Deliverable: a JSON encoding for ops + state.
    - Define JSON shapes for all types
    - Add round-trip tests
 
-2. **Define API contract** (`doc/api.md` or section in `arch.md`)
+2. **Define API contract** (`doc/current/http-contract.md` or section in `arch.md`)
    - Request/response shapes for each endpoint
    - Error response format
    - Revision handling

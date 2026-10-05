@@ -16,7 +16,7 @@ One file now serves as both the public landing page and the accurate developer e
 
 ### Kept from the work line
 
-Architecture table rows for **Desktop** (WPF + WebView2, local HTTP proxy) and Npgsql on the **Server** row; the statement that the Client is served under `/ambit`; links to [[doc/current/arch.md]] and [[doc/api.md]]; the Node.js 18 prerequisite; `npm ci`; `npm run bundle`; the app URL on port 5215 with the `/ambit` path; the `?debug=1` unbundled-module note; the whole **Persistence** section (`Persistence:Mode`, `DB_CONNECTION_STRING`, automatic snapshot and change-log writes, links to [[doc/reference/postgres-environments.md]] and [[doc/current/persistence-model.md]]); the whole **Desktop** section; the **Custom domain** section with links to [[doc/reference/cpanel-transparent-proxy.md]] and [[doc/reference/deploy-azure.md]].
+Architecture table rows for **Desktop** (WPF + WebView2, local HTTP proxy) and Npgsql on the **Server** row; the statement that the Client is served under `/ambit`; links to [[doc/current/arch.md]] and [[doc/current/http-contract.md]]; the Node.js 18 prerequisite; `npm ci`; `npm run bundle`; the app URL on port 5215 with the `/ambit` path; the `?debug=1` unbundled-module note; the whole **Persistence** section (`Persistence:Mode`, `DB_CONNECTION_STRING`, automatic snapshot and change-log writes, links to [[doc/reference/postgres-environments.md]] and [[doc/current/persistence-model.md]]); the whole **Desktop** section; the **Custom domain** section with links to [[doc/reference/cpanel-transparent-proxy.md]] and [[doc/reference/deploy-azure.md]].
 
 ### Stale facts corrected, and how each was verified
 

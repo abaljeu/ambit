@@ -17,7 +17,7 @@ The elements below are already recorded on [[../map.md]] and in [[GLOSSARY.md]].
 - A Module is an F# `module`, plus the types associated with that module. Illustrations only: `module Gambol.Client.App` in [[src/Client/App.fs]], and [[src/Shared/Model.fs]] `type NodeKind` with `module NodeKind`, and `type SpecialKind` which `NodeKind.Special` carries. No module catalog.
 - A Subsystem is a named body inside a project, made of F# modules and the types associated with them, with one Interface. Core is the first Subsystem, of the Server project. Others wait. Glossary terms: [[GLOSSARY.md]] **Subsystem** and **Core**. Core behavior stays on [[../server-core.md]].
 - Claims on later pages use Is and Should Become. Marks Alan stated: `[ ]` planned, `[/]` started, `[x]` implemented, `[o]` obsolete yet implemented. An `[o]` claim is paired with the `[ ]` that retires it. When that claim is `[x]`, the `[o]` claim is removed. Recorded on [Boundary vs End-user wiki and Committed Decisions](plan/architecture/issues/04-boundary-vs-end-user-wiki-and-decisions.md).
-- [[doc/api.md]] is not migrated in this ticket.
+- This ticket does not migrate the HTTP contract. Current home: [[doc/current/http-contract.md]]. Index: [[doc/current/api.md]].
 - How to use stays linked from the [End-user wiki](plan/end-user-wiki/map.md). A Committed Decision stays linked from [[doc/Decisions/]]. This ticket does not copy either. [[doc/current/arch.md]]
 
 ## Comments

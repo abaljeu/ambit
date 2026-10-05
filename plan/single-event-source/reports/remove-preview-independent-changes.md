@@ -38,7 +38,7 @@ No Client compile gate: Shared and Client were not edited.
 1. Cluster 3 — DbAgent timeout / sweep-begin / DB-away error wrapping.
 2. Cluster 4 — HttpResponseLogTests "change json" vs "event json" and log `00000000` prefix.
 3. Broader leftover-Change deletion from [[plan/single-event-source/arch.md]] Sequence.
-4. [[doc/api.md]] still says a multi-Change HTTP batch is all-or-nothing (`400` leaves state unchanged). This pass is code+tests.
+4. [[doc/current/http-contract.md]] still says a multi-Change HTTP batch is all-or-nothing (`400` leaves state unchanged). This pass is code+tests.
 5. FileAgent / DbAgent `applyBatch` still folds a PersistHandlers Change list as all-or-nothing inside one persist call. Transport no longer sends that list through preview.
 
 ## 5. Architecture note

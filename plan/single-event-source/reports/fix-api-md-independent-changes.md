@@ -1,10 +1,10 @@
 # Fix api.md independent Changes
 
-Surgical public-contract correction in [[doc/api.md]]. Product rule as of 2026-09-16: Changes in a list are independent. A later reject does not roll back earlier items. `previewTransportBatch` is gone from CoreMailbox.
+Surgical public-contract correction in [[doc/current/http-contract.md]]. Product rule as of 2026-09-16: Changes in a list are independent. A later reject does not roll back earlier items. `previewTransportBatch` is gone from CoreMailbox.
 
 ## Line changed
 
-[[doc/api.md]] POST `/ambit/changes` request bullets, one line.
+[[doc/current/http-contract.md]] POST `/ambit/changes` request bullets, one line.
 
 **Old:** Multiple changes in one batch are applied in order; all must succeed or none are applied (`400` on failure leaves state unchanged).
 
@@ -22,4 +22,4 @@ Searched [[doc/]] for all-or-nothing / none-are-applied / leaves-state-unchanged
 
 Only this line stated that lie as current. Left the Revision-tracking bullet “or the batch is rejected (`400`)”: it is a revision-mismatch 400, not a claim that later rejects roll back earlier items.
 
-Did not edit [[plan/core-creation/arch.md]]. Did not rewrite [[doc/api.md]]. Did not chase clusters 3/4.
+Did not edit [[plan/core-creation/arch.md]]. Did not rewrite [[doc/current/http-contract.md]]. Did not chase clusters 3/4.
