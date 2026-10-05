@@ -12,7 +12,7 @@ Committed sequencing (authoritative detail in linked docs):
 2. **Workspace file sync** — **planned**: WebDAV Class 1 Map / Push / Pull, server finish-commit, `git check-ignore` for `.gitignore` ([[plan/transport-layer/project.md]], [[workspace-webdav]]).
 3. **Disk-to-graph stub reconciliation** — add/delete/rename/move/`M`→Unparsed after server tree commit is implemented; target trigger is WebDAV push + finish-commit. Contents are not parsed ([[lazy-load]]).
 4. **Expand-to-parse and freshness UI** — parse files on demand and report current / unparsed / older / newer state ([[doc/roadmap/workspace-scale-import.md]]).
-5. **On-demand graph residency** — document membership, scoped SQL loaders, server/client residency, per-document versions, then passive reclamation ([[plan/roadmap/epics/chapters/incremental-operations.md]]). Supersedes keeping all topology resident. Search is present work: [[plan/online-search/project.md]]. Claims: [[doc/current/search.md]].
+5. **On-demand graph residency** — document membership, scoped SQL loaders, server/client residency, per-document versions, then passive reclamation ([[plan/roadmap/epics/chapters/incremental-operations.md]]). Supersedes keeping all topology resident. Search is present work: [[plan/online-search/project.md]]. Claims: [[doc/current/search-actor.md]] and [[doc/current/query-actor.md]].
 
 Disk-to-graph reconciliation and expand-to-parse can use disk + graph path nodes without the full DB materialization model in this doc. Long-term, repo metadata and parsed nodes live in PostgreSQL as described here.
 
@@ -123,7 +123,7 @@ So the design assumes:
 
 Current server loads the whole DB into memory. Target policy: whole-document lazy-on-touch admission, coalesce concurrent loads, brief client-interest leases, prefetch one boundary hop at low priority, initially no server eviction.
 
-Search is present work: [[plan/online-search/project.md]]. Claims: [[doc/current/search.md]]. It is not part of this deferred residency policy.
+Search is present work: [[plan/online-search/project.md]]. Claims: [[doc/current/search-actor.md]] and [[doc/current/query-actor.md]]. It is not part of this deferred residency policy.
 
 > Server policy: lazy-on-touch, no LRU for v1.
 
@@ -238,7 +238,7 @@ Serializer uses the parsed structure plus captured layout details to roundtrip t
 
 ## Query model
 
-Graph search is present work: [[plan/online-search/project.md]]. Claims: [[doc/current/search.md]]. It is not later residency work.
+Graph search is present work: [[plan/online-search/project.md]]. Claims: [[doc/current/search-actor.md]] and [[doc/current/query-actor.md]]. It is not later residency work.
 
 ---
 

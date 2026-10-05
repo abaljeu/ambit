@@ -1,10 +1,10 @@
 # Online search architecture
 
 Spec: [spec](spec.md)
-Updated: 2026-10-04
+Updated: 2026-10-05
 Sequence: unsettled
 
-The Search spec and the Query spec stay separate. Dialog UI stays out of scope. File search stays out of scope. Paging and a continuation cursor are out of scope. Locks are in the story paths. Where a mechanism is still a design, the module map marks it **Proposed design**. [map](map.md) Decisions so far stays empty. This architecture does not resolve a ticket. Committed behavior lives on [Search](../../doc/current/search.md). Proposed designs stay off that page.
+The Search spec and the Query spec stay separate. Dialog UI stays out of scope. File search stays out of scope. Paging and a continuation cursor are out of scope. Locks are in the story paths. Where a mechanism is still a design, the module map marks it **Proposed design**. [map](map.md) Decisions so far stays empty. This architecture does not resolve a ticket. Committed module claims live on [Search Actor](../../doc/current/search-actor.md) and [Query Actor](../../doc/current/query-actor.md). Proposed designs stay off those pages.
 
 Vocabulary: say event source. Say Server git Actor for that git Actor. Do not say CAS. Do not say Peer.
 
@@ -77,8 +77,9 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
 ## 2. Module map
 
 1. **Search Actor** — The shared backend is a lock. The file name is a proposed design, not a lock.
-   Find and Move share one running Actor. Query does not use that Actor. The function is outside Core. There is no search actor under `src/Server` today. This names the proposed home. The Server git Actor stays the example of an Actor that posts to the mailbox while Core performs a Graph Change.
+   Find and Move share one running Actor. Query does not use that Actor. The function is outside Core. There is no search actor under `src/Server` today. This names the proposed home.    The Server git Actor stays the example of an Actor that posts to the mailbox while Core performs a Graph Change.
    File: `src/Server/SearchActor.fs`
+   Claim home: [Search Actor](../../doc/current/search-actor.md)
 
    1. **State**
       1. [ ] **One walk** — The Actor holds one walk, off the mailbox, and then stops. It keeps no continuation cursor.
@@ -96,6 +97,7 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
 2. **Query Actor** — The separate Actor is a lock. The file name and the Ref post stay a proposed design.
    The server evaluates the query. Query does not share the Find and Move Actor. The same proposed file starts this Actor. The cap of 200 is a lock.
    File: `src/Server/SearchActor.fs`
+   Claim home: [Query Actor](../../doc/current/query-actor.md)
 
    1. **State**
       1. [ ] **One result** — One result, then stop. No page and no cursor.
@@ -112,6 +114,7 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
 3. **Want nodes for hits** — Proposed design, not a lock.
    The found-Node list uses the Want package that already exists. The list is the one result of at most 200, not a page.
    File: [ResidentProjection](src/Shared/ResidentProjection.fs)
+   This proposed design has no doc/current home.
 
    1. **State**
       1. [ ] **Hit headers** — A hit Node is Resident after install. A hit with no new `childMap` key stays Unloaded for its Children.
@@ -129,9 +132,9 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
 2. **Ref Change**
    1. [ ] Interface on **Query Actor**. Proposed design. The event source applies the Ref Replace.
 3. **Cap**
-   1. [ ] **200** — Find and Move share the cap of 200. Query stops at 200. This is a lock. A query function may stop lower. Find and Move send no request when the client already has 200 hits.
+   1. [ ] **200** — Find and Move share the cap of 200. Query stops at 200. This is a lock. A query function may stop lower. Find and Move send no request when the client already has 200 hits. Claim homes: [Search Actor](../../doc/current/search-actor.md), [Query Actor](../../doc/current/query-actor.md).
 4. **Quiet gap**
-   1. [ ] **Short quiet gap** — One shared Find and Move request after the text is unchanged. No millisecond value. A text change before the gap ends sends nothing. A stale reply is ignored. This is a lock. Query does not use this seam.
+   1. [ ] **Short quiet gap** — One shared Find and Move request after the text is unchanged. No millisecond value. A text change before the gap ends sends nothing. A stale reply is ignored. This is a lock. Query does not use this seam. Claim homes: [Search Actor](../../doc/current/search-actor.md), [Query Actor](../../doc/current/query-actor.md).
 5. **Dialog UI**
    1. **Out of scope** — The Find dialog layout is out of scope. The dialog does not ask for a next page. Each keypress still updates the hit list from the client.
 
