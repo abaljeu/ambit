@@ -4,7 +4,7 @@ Spec: [spec](spec.md)
 Updated: 2026-10-05
 Sequence: unsettled
 
-The Search spec and the Query spec stay separate. Dialog UI stays out of scope. File search stays out of scope. Paging and a continuation cursor are out of scope. Locks are in the story paths. Where a mechanism is still a design, the module map marks it **Proposed design**. [map](map.md) Decisions so far stays empty. This architecture does not resolve a ticket. Committed module claims live on [Search Actor](../../doc/current/search-actor.md) and [Query Actor](../../doc/current/query-actor.md). Proposed designs stay off those pages.
+The Search spec and the Query spec stay separate. Dialog UI stays out of scope. File search stays out of scope. Paging and a continuation cursor are out of scope. Locks are in the story paths. Where a mechanism is still a design, the module map marks it **Proposed design**. [map](map.md) Decisions so far stays empty. This architecture does not resolve a ticket. to-arch step 5 is complete for committed Module map items. Each committed module has a doc/current home, and this arch links to it: [Search Actor](../../doc/current/search-actor.md) and [Query Actor](../../doc/current/query-actor.md). Want nodes for hits is a proposed design and has no doc/current home. The Query Actor Ref post is a proposed design and has no doc/current home.
 
 Vocabulary: say event source. Say Server git Actor for that git Actor. Do not say CAS. Do not say Peer.
 
@@ -82,15 +82,18 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
    Claim home: [Search Actor](../../doc/current/search-actor.md)
 
    1. **State**
+      Claim home: [Search Actor](../../doc/current/search-actor.md) Data.
       1. [ ] **One walk** — The Actor holds one walk, off the mailbox, and then stops. It keeps no continuation cursor.
       2. [ ] **Trash** — The walk skips trash unless the start Node is TRASH.
       3. [ ] **Dedup** — The Actor drops a Node id the client already showed.
       4. [ ] **Cap** — The result stops at 200 hits. This cap is a lock.
    2. **Interface**
+      Claim home: [Search Actor](../../doc/current/search-actor.md) Interface and Messages.
       1. [ ] **Start** — Find and Move start the same Actor after the quiet gap. Move does not start a second Actor. The start message carries the Node ids the client already showed. That carried list is a lock. A keypress does not start the Actor.
       2. [ ] **Stop** — The Actor returns one result and stops. Client hits plus this result stop at 200.
       3. [ ] **Reply match** — The result carries the search text it was computed for, or an equivalent generation. The dialog drops the result when that text is not current.
    3. **Uses**
+      Claim home: [Search Actor](../../doc/current/search-actor.md) Uses.
       1. [ ] **Server Graph** — The Actor reads the server Graph.
       2. [ ] **ActorStart** — The running Actor is recorded on the event source as ActorStart.
 
@@ -100,16 +103,17 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
    Claim home: [Query Actor](../../doc/current/query-actor.md)
 
    1. **State**
+      Claim home: [Query Actor](../../doc/current/query-actor.md) Data.
       1. [ ] **One result** — One result, then stop. No page and no cursor.
       2. [ ] **Limit** — The function's own limit applies when it is under 200. A request above 200 stops at 200.
       3. [ ] **Trash** — Ordinary eval skips trash. `trash` reaches trash the way `root` reaches ROOT.
    2. **Interface**
-      1. [ ] **Eval** — The Actor evaluates the expression on the server Graph.
-      2. [ ] **Refs** — The Actor posts a Change that inserts `ChildNode.reference` children under the query line. The shape matches [ExprRun](src/Shared/ExprRun.fs). The Actor does not call local `ExprRun.run` as the eval.
+      1. [ ] **Eval** — The Actor evaluates the expression on the server Graph. Claim home: [Query Actor](../../doc/current/query-actor.md) Interface and Messages.
+      2. [ ] **Refs** — Proposed design. The Actor posts a Change that inserts `ChildNode.reference` children under the query line. The shape matches [ExprRun](src/Shared/ExprRun.fs). The Actor does not call local `ExprRun.run` as the eval. This Ref post has no doc/current home. The locked Ref shape is [Query Actor](../../doc/current/query-actor.md) Interface and Messages.
    3. **Uses**
-      1. [ ] **Event source** — The Ref Replace is a Change on the event source.
-      2. [ ] **ExprRun shape** — `ChildNode.reference` as in ExprRun's materialise path.
-      3. [ ] **Search Actor** — Query has its own running Actor. It starts when the line runs. It does not use the Find and Move Actor or that quiet gap.
+      1. [ ] **Event source** — Proposed design. The Ref Replace is a Change on the event source. This proposed design has no doc/current home.
+      2. [ ] **ExprRun shape** — `ChildNode.reference` as in ExprRun's materialise path. Claim home: [Query Actor](../../doc/current/query-actor.md) Messages.
+      3. [ ] **Search Actor** — Query has its own running Actor. It starts when the line runs. It does not use the Find and Move Actor or that quiet gap. Claim home: [Query Actor](../../doc/current/query-actor.md) Job and Uses.
 
 3. **Want nodes for hits** — Proposed design, not a lock.
    The found-Node list uses the Want package that already exists. The list is the one result of at most 200, not a page.
@@ -128,9 +132,9 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
 ## 3. Seams
 
 1. **Want install**
-   1. [ ] Interface on **Want nodes for hits**. Proposed design. [installWantAnswer](src/Shared/ResidentProjection.fs) is the install door.
+   1. [ ] Interface on **Want nodes for hits**. Proposed design. [installWantAnswer](src/Shared/ResidentProjection.fs) is the install door. This proposed design has no doc/current home.
 2. **Ref Change**
-   1. [ ] Interface on **Query Actor**. Proposed design. The event source applies the Ref Replace.
+   1. [ ] Interface on **Query Actor**. Proposed design. The event source applies the Ref Replace. This proposed design has no doc/current home.
 3. **Cap**
    1. [ ] **200** — Find and Move share the cap of 200. Query stops at 200. This is a lock. A query function may stop lower. Find and Move send no request when the client already has 200 hits. Claim homes: [Search Actor](../../doc/current/search-actor.md), [Query Actor](../../doc/current/query-actor.md).
 4. **Quiet gap**
