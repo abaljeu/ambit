@@ -129,7 +129,7 @@ Server integration: server commit with rename/delete → reconcile produces corr
 1. **Workspace file sync** — Partial: WebDAV Class 1 Upload / Download, server finish-commit, `git check-ignore` for `.gitignore`. File-channel home: [[plan/transport-layer/project.md]]. Server DAV: [[workspace-webdav]].
 2. **Disk-to-graph stub reconciliation** — implemented for add, delete, rename/move, and `M` → **Unparsed**, with exact `.amb` semantics and graph-only persistence; wired after finish-commit via `/ambit/workspace/reconciliation/directory`.
 3. **Expand-to-parse and freshness** — planned next: parse one File on expansion, merge into its existing identity, and add richer current/unparsed/older/newer metadata and UI.
-4. **On-demand graph residency** — document membership, scoped SQL loaders, server/client residency, per-document versions, then passive reclamation. Authority: [[plan/roadmap/epics/chapters/incremental-operations.md]]. Search is present work: [[plan/online-search/project.md]]. Claims: [[doc/current/search.md]].
+4. **On-demand graph residency** — document membership, scoped SQL loaders, server/client residency, per-document versions, then passive reclamation. Authority: [[plan/roadmap/epics/chapters/incremental-operations.md]]. Search is present work: [[plan/online-search/project.md]]. Claims: [[doc/current/search-actor.md]] and [[doc/current/query-actor.md]].
 5. **Annotation migration** — address annotation migration when files change (still under [[workspace-scale-file-and-db-management]]).
 
 ## Locked decisions and boundaries
@@ -151,4 +151,4 @@ Server integration: server commit with rename/delete → reconcile produces corr
 
 - Desktop Upload: move structure to client stubs; drop post-upload reconcile on that path ([[workspace-upload-client-structure]]); keep reconcile for web / repair.
 - Add richer source metadata and current/unparsed/older/newer freshness UI.
-- Deliver on-demand graph residency ([[plan/roadmap/epics/chapters/incremental-operations.md]]). Search is present work: [[plan/online-search/project.md]]. Claims: [[doc/current/search.md]]. Annotation migration remains later.
+- Deliver on-demand graph residency ([[plan/roadmap/epics/chapters/incremental-operations.md]]). Search is present work: [[plan/online-search/project.md]]. Claims: [[doc/current/search-actor.md]] and [[doc/current/query-actor.md]]. Annotation migration remains later.
