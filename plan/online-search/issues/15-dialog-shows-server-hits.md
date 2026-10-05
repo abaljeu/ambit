@@ -2,11 +2,11 @@
 
 **Status:** `defined`
 **Type:** coding
-**Blocked by:** [14 — Cap of 200](14-cap-of-200.md)
+**Blocked by:** [07 — Server completes the picture](07-server-completes-the-picture.md), [14 — Cap of 200](14-cap-of-200.md)
 
 ## Context
 
-The server has finished one Find or Move result. The cap of 200 is [14 — Cap of 200](14-cap-of-200.md). The person is looking at the dialog. Story path **Dialog shows server hits** is [Online search architecture](plan/online-search/arch.md) §1.
+The server has finished one Find or Move reply. That reply is [07 — Server completes the picture](07-server-completes-the-picture.md). The cap of 200 is [14 — Cap of 200](14-cap-of-200.md) section 1 **Find and Move**. The person is looking at the dialog. Story path **Dialog shows server hits** is [Online search architecture](plan/online-search/arch.md) §1.
 
 ## What to build
 

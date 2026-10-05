@@ -31,6 +31,7 @@ Query spec: an expression such as `= root descendants with name like "Bob"` inse
 5. **Node id** — Alan, 2026-10-05. The identity of a result is the NodeId. A client hit and a server hit are the same hit when they share a NodeId. [04 — Duplicate hit identity](issues/04-duplicate-hit-identity.md).
 6. **Remote query eval** — Alan, 2026-10-05. Query eval is remote. The Query Actor evaluates on the server. [05 — Query fulfillment while eval stays local](issues/05-query-fulfillment-while-eval-stays-local.md). [14 — Server-side search](plan/expression-language/issues/14-server-side-search.md) is not edited.
 7. **Standing locks** — The cap of 200, the short quiet gap, the shared Find and Move Actor, no paging, and the trash rules stay locks. Want nodes for hits and the Ref post stay proposed designs.
+8. **Shared search algorithm** — Alan, 2026-10-05. One search algorithm serves Find and Move. Step 1: the client algorithm stops at 200 hits. That work is [14 — Cap of 200](issues/14-cap-of-200.md) section 1 **Find and Move**. Step 2: the Search Actor calls that algorithm with the full server Graph, the focus node, and the zoom root. [07 — Server completes the picture](issues/07-server-completes-the-picture.md) is blocked by that client stop. The reply holds up to 200 hits. One reply and no continuation cursor stay a seam. The query cap stays on [14 — Cap of 200](issues/14-cap-of-200.md) section 2 **Query cap** and is blocked by [11 — Server evaluates](issues/11-server-evaluates.md) only.
 
 ## 4. Not yet specified
 

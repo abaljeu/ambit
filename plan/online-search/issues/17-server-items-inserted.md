@@ -6,7 +6,7 @@
 
 ## Context
 
-The server has found N items for a query. Refs under the query line are [16 — Insert Refs under the query line](16-insert-refs-under-the-query-line.md). The cap is [14 — Cap of 200](14-cap-of-200.md). Story path **Server items inserted** is [Online search architecture](plan/online-search/arch.md) §1.
+The server has found N items for a query. Refs under the query line are [16 — Insert Refs under the query line](16-insert-refs-under-the-query-line.md). The query stop is [14 — Cap of 200](14-cap-of-200.md) section 2 **Query cap**, after [11 — Server evaluates](11-server-evaluates.md). Story path **Server items inserted** is [Online search architecture](plan/online-search/arch.md) §1.
 
 ## What to build
 
