@@ -46,6 +46,8 @@ Workflow skills in [[.agents/skills/]]:
 - [[.agents/skills/implement-fsharp-feature/SKILL.md]] — F# layout and Client compile gate; augments `/implement`
 - [[.agents/skills/add-shared-test/SKILL.md]] — Shared.Tests coverage; augments `/implement`
 - [[.agents/skills/code-review/SKILL.md]] — Standards and Spec review of a diff
+- [[.agents/skills/pr/SKILL.md]] — PR body after code-review (Summary, Evidence, Merge Danger) and a Jev match-check, before human land
+- [[.agents/skills/retro/SKILL.md]] — user-invoked retrospective of the agent environment; change nothing until the human picks
 
 ## On-ramps
 
