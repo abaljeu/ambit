@@ -1,10 +1,9 @@
 # Architecture
 
-This page is the home of the architecture wiki. One subject is one page. This home links that page.
+This page is the home of the architecture wiki. Architecture describes what the pieces of the program are, and how they connect.  It is not detail of every behavior within the smallest pieces nor documentation of every command's detailed behavior.
 
-[CONTEXT](CONTEXT.md)
-
-Before modifying the wiki, first read. Page writing (Is, Shall Be, Explanation on the subject).
+One subject is one page. This home links that page.
+Agents must read: [CONTEXT](CONTEXT.md)
 
 ## Summary
 
