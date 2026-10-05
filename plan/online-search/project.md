@@ -1,16 +1,17 @@
 # Online search
 
-Stage: slice
+Stage: build
 Summary: Two specs in one file: Search is two-phase Want-fulfillment of Find, capped at 200, and a query expression inserts results under the query line. Query eval is remote.
 Updated: 2026-10-05
 Started: 2026-10-04
+Actual: 1h
 
 ## Notes
 
 - Map: [[map.md]]
 - Specs: [[spec.md]] holds the Search spec and the Query spec. Both specs live in that file.
 - Architecture: [[arch.md]]. Sequence is tracer-cut. The cap of 200, the short quiet gap, and `src/Server/SearchActor.fs` are locks. The Want ride and the Ref post stay proposed designs. Next and Page are not in this project.
-- Frontier: [14 — Cap of 200](issues/14-cap-of-200.md) section 1 **Find and Move**. The client search stops at 200. Next is [07 — Server completes the picture](issues/07-server-completes-the-picture.md). [06 — Residence hits first](issues/06-residence-hits-first.md) is done.
+- Frontier: [14 — Cap of 200](issues/14-cap-of-200.md) section 1 **Find and Move** is implemented. The client search stops at 200. Section 2 **Query cap** is not started. Next is [07 — Server completes the picture](issues/07-server-completes-the-picture.md) after review approves section 1. [06 — Residence hits first](issues/06-residence-hits-first.md) is done.
 - Committed claims: [Search Actor](../../doc/current/search-actor.md) and [Query Actor](../../doc/current/query-actor.md). Those pages do not hold proposed designs.
 - This project owns both specs. [Browser residency](plan/browser-residency/project.md), [search zoom select](plan/search-zoom-select/project.md), [expression language](plan/expression-language/project.md), and [selective client loading](plan/selective-client-loading/project.md) do not own them.
 

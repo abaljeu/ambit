@@ -244,3 +244,33 @@ let ``search cursor terminates and deduplicates a cycle`` () =
 
     Assert.Equal<NodeId>([ childId ], results |> List.map (fun result -> result.nodeId))
     Assert.Equal(None, finished)
+
+[<Fact>]
+let ``search stops at 200 hits and a later page adds none`` () =
+    let hitCount = 205
+    let graph0 = Graph.create ()
+    let labels = [ 1 .. hitCount ] |> List.map (fun i -> $"CAPTOKEN {i}")
+    let graph1, ids = ModelBuilder.createNodes labels graph0
+    let graph2 = ownedRootChildren ids graph1
+    let first200 = ids |> List.take 200
+
+    let got =
+        ViewModelSearch.searchNodes "CAPTOKEN" graph2.root graph2
+        |> List.map (fun result -> result.nodeId)
+    Assert.Equal(200, got.Length)
+    Assert.Equal<NodeId>(first200, got)
+
+    let cursor = ViewModelSearch.startSearch "CAPTOKEN" graph2.root graph2
+    let page, afterPage =
+        cursor
+        |> Option.map (ViewModelSearch.takeResults 150)
+        |> Option.defaultValue ([], None)
+    Assert.Equal(150, page.Length)
+    let rest, finished =
+        afterPage
+        |> Option.map (ViewModelSearch.takeResults 150)
+        |> Option.defaultValue ([], None)
+    Assert.Equal(50, rest.Length)
+    Assert.Equal(None, finished)
+    let paged = page @ rest |> List.map (fun result -> result.nodeId)
+    Assert.Equal<NodeId>(first200, paged)

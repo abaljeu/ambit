@@ -116,11 +116,15 @@ module ViewModelSearch =
     let private nodeMatchesAllParts (parts: PartFilter list) (nodeId: NodeId) (node: Node) : bool =
         parts |> List.forall (fun pf -> nodeMatchesPartFilter pf nodeId node)
 
+    /// Find and Move stop here. A later page does not continue the walk.
+    let private searchHitCap = 200
+
     type SearchCursor =
         private
             { graph: Graph
               filters: PartFilter list
-              discovery: DiscoveryState }
+              discovery: DiscoveryState
+              hitsTaken: int }
 
     let startSearch
         (query: string)
@@ -135,30 +139,52 @@ module ViewModelSearch =
             Some
                 { graph = graph
                   filters = filters
+                  hitsTaken = 0
                   discovery =
                     { phase = ZoomPhase
                       visited = Set.empty
                       queue = snocMany emptyQueue [ zoomRoot ] } }
 
+    let private cursorAfterPage
+        (cursor: SearchCursor)
+        (limit: int)
+        (discovery: DiscoveryState)
+        : SearchCursor option =
+        let taken = cursor.hitsTaken + limit
+        if taken >= searchHitCap then
+            None
+        else
+            Some
+                { cursor with
+                    discovery = discovery
+                    hitsTaken = taken }
+
     let takeResults
         (count: int)
         (cursor: SearchCursor)
         : NodeSearchResult list * SearchCursor option =
-        let rec collect remaining resultsRev discovery =
-            if remaining <= 0 then
-                List.rev resultsRev, Some { cursor with discovery = discovery }
-            else
-                match nextDiscoveryNode cursor.graph discovery with
-                | None -> List.rev resultsRev, None
-                | Some (node, nextDiscovery) ->
-                    if nodeMatchesAllParts cursor.filters node.id node then
-                        collect
-                            (remaining - 1)
-                            (nodeToSearchResult node :: resultsRev)
-                            nextDiscovery
-                    else
-                        collect remaining resultsRev nextDiscovery
-        collect count [] cursor.discovery
+        let room = searchHitCap - cursor.hitsTaken
+        if room <= 0 then
+            [], None
+        elif count <= 0 then
+            [], Some cursor
+        else
+            let limit = min count room
+            let rec collect remaining resultsRev discovery =
+                if remaining <= 0 then
+                    List.rev resultsRev, cursorAfterPage cursor limit discovery
+                else
+                    match nextDiscoveryNode cursor.graph discovery with
+                    | None -> List.rev resultsRev, None
+                    | Some (node, nextDiscovery) ->
+                        if nodeMatchesAllParts cursor.filters node.id node then
+                            collect
+                                (remaining - 1)
+                                (nodeToSearchResult node :: resultsRev)
+                                nextDiscovery
+                        else
+                            collect remaining resultsRev nextDiscovery
+            collect limit [] cursor.discovery
 
     let searchNodes (query: string) (zoomRoot: NodeId) (graph: Graph) : NodeSearchResult list =
         match ExprDialog.tryHits query zoomRoot graph with
