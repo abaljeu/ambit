@@ -36,7 +36,40 @@ Find and Move share one Actor. Query does not use this Actor.
 ## Messages
 
 [ ] Start fields: root, focus, the full server Graph, search text or an equivalent generation, the start Node, and the shown Node ids.
-[ ] Result fields: Node ids, and the reply-match search text or generation.
+[ ] The request carries `text` (string) or `generation` (number), one of the two, plus `startId` (string, Node id) and `shownIds` (array of Node id strings).
+
+```json
+{
+  "text": "quarterly",
+  "startId": "550e8400-e29b-41d4-a716-446655440000",
+  "shownIds": []
+}
+```
+
+```json
+{
+  "generation": 3,
+  "startId": "550e8400-e29b-41d4-a716-446655440000",
+  "shownIds": [ "550e8400-e29b-41d4-a716-446655440001" ]
+}
+```
+
+[ ] Result fields: Node ids, and the reply-match search text or generation. The response has `ids` (array of Node id strings, at most 200) and the reply-match `text` (string) or `generation` (number).
+
+```json
+{
+  "ids": [ "550e8400-e29b-41d4-a716-446655440001" ],
+  "text": "quarterly"
+}
+```
+
+```json
+{
+  "ids": [ "550e8400-e29b-41d4-a716-446655440001" ],
+  "generation": 3
+}
+```
+
 [ ] Reply match: the caller drops the result when that search text or generation is not current.
 
 ## Uses

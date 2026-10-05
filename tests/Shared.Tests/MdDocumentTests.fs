@@ -609,6 +609,47 @@ let ``heading list number does not end the sentence`` () =
         childTexts continued.childMap continued.nodes h3)
 
 [<Fact>]
+let ``atx heading whose title starts with a number stays md-head`` () =
+    let text =
+        "# CoLab Senior 3D — recruiter prep (Kristen, 30 min)" + nl
+        + nl
+        + "For Alan. Plain notes..." + nl
+        + nl
+        + "## 1. What the role is + your Oct 3 yes/no" + nl
+        + nl
+        + "**Role in one line:** Backend for **3D AutoReview** — ..." + nl
+    let graph, docId, result = readDoc text
+    let h1 = (kids result.childMap docId).Head.id
+    Assert.Equal<string list>([ "md-head" ], structuralOf result.nodes h1)
+    let h2 =
+        kids result.childMap h1
+        |> List.find (fun child ->
+            result.nodes.[child.id].text.StartsWith "1. What")
+    Assert.Equal(
+        "1. What the role is + your Oct 3 yes/no",
+        result.nodes.[h2.id].text)
+    Assert.Equal<string list>([ "md-head" ], structuralOf result.nodes h2.id)
+    Assert.Equal<string list>(
+        [ "**Role in one line:** Backend for **3D AutoReview** — ..." ],
+        childTexts result.childMap result.nodes h2.id)
+    let roleId = (kids result.childMap h2.id).Head.id
+    Assert.Empty(structuralOf result.nodes roleId)
+    let h1Texts = childTexts result.childMap result.nodes h1
+    Assert.DoesNotContain(result.nodes.[roleId].text, h1Texts)
+    let written = coldText graph docId result
+    Assert.Contains("## 1. What the role is + your Oct 3 yes/no" + nl, written)
+    let _, docAgain, again = readDoc written
+    Assert.Equal<string list>(shape result docId, shape again docAgain)
+
+    let _, docId2, hash1 = readDoc ("# 1. Opening item" + nl + "body" + nl)
+    let head = (kids hash1.childMap docId2).Head.id
+    Assert.Equal("1. Opening item", hash1.nodes.[head].text)
+    Assert.Equal<string list>([ "md-head" ], structuralOf hash1.nodes head)
+    Assert.Equal<string list>(
+        [ "body" ],
+        childTexts hash1.childMap hash1.nodes head)
+
+[<Fact>]
 let ``pipe line does not sentence-split`` () =
     let _, docId, result = readDoc ("| a | Hello. World. |" + nl)
     let carrier = (kids result.childMap docId).Head.id
