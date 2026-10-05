@@ -13,6 +13,7 @@ Find and Move share one Actor. Query does not use this Actor.
 
 [GraphBuild](../../src/Shared/GraphBuild.fs) — TRASH id `trashId`
 [History](../../src/Shared/History.fs) — `ActorStart`
+[ViewModelSearch](../../src/Shared/ViewModelSearch.fs) — `startSearch` and `takeResults`
 [Mailbox](mailbox.md) — the event source records that `ActorStart`
 
 ## Data
@@ -20,7 +21,7 @@ Find and Move share one Actor. Query does not use this Actor.
 [ ] One walk, off the mailbox, then stop. No continuation cursor.
 [ ] Trash: the walk skips trash unless the start Node is TRASH. TRASH id: [GraphBuild](../../src/Shared/GraphBuild.fs) `trashId`.
 [ ] Dedup: the walk drops a Node id that is in the shown Node ids.
-[ ] Cap: the result holds at most 200 Node ids. Find and Move share that cap.
+[ ] Cap: the client search algorithm stops at 200 hits. The reply holds at most 200 Node ids. Find and Move share that cap.
 
 ## Job
 
@@ -29,13 +30,13 @@ Find and Move share one Actor. Query does not use this Actor.
 
 ## Interface
 
-[ ] Start: Find and Move start this Actor after the quiet gap.
-[ ] Result: the Actor returns one result and stops. Client hits plus this result stop at the cap.
+[ ] Start: Find and Move start this Actor after the quiet gap. Start supplies root, focus, and the full server Graph.
+[ ] Result: the Actor uses the client search algorithm and returns at most 200 hits, then stops. Client hits plus this reply stop at the cap. One reply. No continuation cursor.
 
 ## Messages
 
-[ ] Start. The request has `text` (string) or `generation` (number), `startId` (string, Node id), and `shownIds` (array of Node id strings).
-[ ] The request carries `text` or `generation`, one of the two.
+[ ] Start fields: root, focus, the full server Graph, search text or an equivalent generation, the start Node, and the shown Node ids.
+[ ] The request carries `text` (string) or `generation` (number), one of the two, plus `startId` (string, Node id) and `shownIds` (array of Node id strings).
 
 ```json
 {
@@ -53,7 +54,7 @@ Find and Move share one Actor. Query does not use this Actor.
 }
 ```
 
-[ ] Result. The response has `ids` (array of Node id strings, at most 200) and the reply-match `text` (string) or `generation` (number).
+[ ] Result fields: Node ids, and the reply-match search text or generation. The response has `ids` (array of Node id strings, at most 200) and the reply-match `text` (string) or `generation` (number).
 
 ```json
 {
@@ -73,7 +74,7 @@ Find and Move share one Actor. Query does not use this Actor.
 
 ## Uses
 
-[ ] Server Graph: the Actor reads the server Graph. Detail: [Server](server.md).
+[ ] Server Graph: the walk uses [startSearch](../../src/Shared/ViewModelSearch.fs) and [takeResults](../../src/Shared/ViewModelSearch.fs) on the full server Graph. Those functions take the search text, the zoom, and the Graph. The walk may ignore focus. Detail: [Server](server.md).
 [ ] ActorStart: the running Actor is recorded on the event source as `ActorStart`. Detail: [Mailbox](mailbox.md).
 
 ## Seams
@@ -83,4 +84,4 @@ Find and Move share one Actor. Query does not use this Actor.
 
 ## Explanation
 
-The cap of 200 keeps one search from returning the whole Graph. The quiet gap keeps Start off the keypress.
+The cap of 200 keeps one search from returning the whole Graph. The client algorithm stops at 200 first. The Actor uses that same algorithm. The quiet gap keeps Start off the keypress.

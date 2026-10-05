@@ -1,7 +1,7 @@
 # 05 — Query fulfillment while eval stays local
 
 **Type:** grilling
-**Status:** defined
+**Status:** done
 **Blocked by:** [02 — Want package of Nodes](02-want-package-of-nodes.md), [03 — Expression result insert today](03-expression-result-insert-today.md)
 
 ## 1. Question
@@ -14,3 +14,7 @@ Expression eval stays on the client Graph. A query expression must insert the No
 4. **Separate spec** — The Find dialog is the Search spec, not this spec.
 
 Use the findings on [02 — Want package of Nodes](02-want-package-of-nodes.md) and [03 — Expression result insert today](03-expression-result-insert-today.md).
+
+## Answer
+
+Alan, 2026-10-05. Query will not stay local. It will be remote. The Query Actor evaluates on the server.
