@@ -13,6 +13,7 @@ Find and Move share one Actor. Query does not use this Actor.
 
 [GraphBuild](../../src/Shared/GraphBuild.fs) — TRASH id `trashId`
 [History](../../src/Shared/History.fs) — `ActorStart`
+[ViewModelSearch](../../src/Shared/ViewModelSearch.fs) — `startSearch` and `takeResults`
 [Mailbox](mailbox.md) — the event source records that `ActorStart`
 
 ## Data
@@ -29,18 +30,18 @@ Find and Move share one Actor. Query does not use this Actor.
 
 ## Interface
 
-[ ] Start: Find and Move start this Actor after the quiet gap.
+[ ] Start: Find and Move start this Actor after the quiet gap. Start supplies root, focus, and the full server Graph.
 [ ] Result: the Actor uses the client search algorithm and returns at most 200 hits, then stops. Client hits plus this reply stop at the cap. One reply. No continuation cursor.
 
 ## Messages
 
-[ ] Start fields: search text or an equivalent generation, the start Node, and the shown Node ids.
+[ ] Start fields: root, focus, the full server Graph, search text or an equivalent generation, the start Node, and the shown Node ids.
 [ ] Result fields: Node ids, and the reply-match search text or generation.
 [ ] Reply match: the caller drops the result when that search text or generation is not current.
 
 ## Uses
 
-[ ] Server Graph: the Actor reads the full server Graph. The walk is the client search algorithm. The Actor supplies that Graph, the focus node, and the zoom root. Detail: [Server](server.md).
+[ ] Server Graph: the walk uses [startSearch](../../src/Shared/ViewModelSearch.fs) and [takeResults](../../src/Shared/ViewModelSearch.fs) on the full server Graph. Those functions take the search text, the zoom, and the Graph. The walk may ignore focus. Detail: [Server](server.md).
 [ ] ActorStart: the running Actor is recorded on the event source as `ActorStart`. Detail: [Mailbox](mailbox.md).
 
 ## Seams

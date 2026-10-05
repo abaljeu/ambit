@@ -17,7 +17,7 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
 5. **Node id** — The identity of a result is the NodeId. A client hit and a server hit are the same hit when they share a NodeId. Answer: [04 — Duplicate hit identity](issues/04-duplicate-hit-identity.md).
 6. **Remote query eval** — Query eval is remote. The Query Actor evaluates on the server. Answer: [05 — Query fulfillment while eval stays local](issues/05-query-fulfillment-while-eval-stays-local.md). [14 — Server-side search](plan/expression-language/issues/14-server-side-search.md) is not edited.
 7. **Standing locks** — The cap of 200, the short quiet gap, the shared Find and Move Actor, no paging, and the trash rules stay locks. Want nodes for hits and the Ref post stay proposed designs.
-8. **Shared search algorithm** — One search algorithm serves Find and Move. Step 1: the client algorithm stops at 200 hits. That work is [14 — Cap of 200](issues/14-cap-of-200.md) section 1 **Find and Move**. Step 2: the Search Actor calls that algorithm with the full server Graph, the focus node, and the zoom root. [07 — Server completes the picture](issues/07-server-completes-the-picture.md) is blocked by that client stop. The reply holds up to 200 hits. One reply and no continuation cursor stay a seam. The query cap stays on [14 — Cap of 200](issues/14-cap-of-200.md) section 2 **Query cap** and is blocked by [11 — Server evaluates](issues/11-server-evaluates.md) only.
+8. **Shared search algorithm** — One search algorithm serves Find and Move. Step 1: the client algorithm stops at 200 hits. That work is [14 — Cap of 200](issues/14-cap-of-200.md) section 1 **Find and Move**. Step 2: the Search Actor reuses that algorithm. Today [startSearch](src/Shared/ViewModelSearch.fs) and [takeResults](src/Shared/ViewModelSearch.fs) take the search text, the zoom, and the Graph. Actor Start supplies root, focus, and the full server Graph. The Search walk may ignore focus. [07 — Server completes the picture](issues/07-server-completes-the-picture.md) is blocked by that client stop. The reply holds up to 200 hits. One reply and no continuation cursor stay a seam. The query cap stays on [14 — Cap of 200](issues/14-cap-of-200.md) section 2 **Query cap** and is blocked by [11 — Server evaluates](issues/11-server-evaluates.md) only.
 
 ## 1. Story paths
 
@@ -27,7 +27,7 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
 
 2. **Server completes the picture**
    1. [ ] **Quiet gap** — One server request fires after the search text has been unchanged for a short quiet gap. The gap has no millisecond value. If the text changes before the gap ends, the request is not sent. If the client already has 200 hits, the request is not sent. This is a lock.
-   2. [ ] **Actor** — That one request starts the shared Find and Move Actor. The Actor uses the same client search algorithm. It supplies the full server Graph, the focus node, and the zoom root. Move uses this Actor. Query does not use this gap. Query keeps its own Actor. Proposed design: one Actor function outside Core for the shared backend. See §2 item 1 **Search Actor**. This shared backend is a lock.
+   2. [ ] **Actor** — That one request starts the shared Find and Move Actor. The Actor uses the same client search algorithm. Actor Start supplies root, focus, and the full server Graph. The Search walk may ignore focus. Move uses this Actor. Query does not use this gap. Query keeps its own Actor. Proposed design: one Actor function outside Core for the shared backend. See §2 item 1 **Search Actor**. This shared backend is a lock.
    3. [ ] **Up to 200 hits** — The reply holds at most 200 Node ids from that same algorithm, then the walk stops. The Actor posts that one reply. There is no continuation cursor. Client hits plus this reply stop at 200.
    4. [ ] **Stale reply** — A reply for an older search string is ignored. The reply matches the search text, or an equivalent generation of that text. The dialog applies a reply only when it matches the current text. This is a lock.
 
@@ -74,7 +74,7 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
 ### 14. Shared segments
 
 1. **One reply**
-   1. [ ] **Actor thread** — The walk runs on the shared Find and Move Actor, off the mailbox. Find and Move start that Actor once, after the quiet gap, not on a keypress. The walk is the client search algorithm. The Actor supplies the full server Graph, the focus node, and the zoom root. Query starts its own Actor when the line runs. Each Actor posts one reply and stops. Same clear-fast rule as [Core mailbox messages clear fast](doc/Decisions/0004-core-mailbox-messages-clear-fast.md).
+   1. [ ] **Actor thread** — The walk runs on the shared Find and Move Actor, off the mailbox. Find and Move start that Actor once, after the quiet gap, not on a keypress. The walk is the client search algorithm. Actor Start supplies root, focus, and the full server Graph. The Search walk may ignore focus. Query starts its own Actor when the line runs. Each Actor posts one reply and stops. Same clear-fast rule as [Core mailbox messages clear fast](doc/Decisions/0004-core-mailbox-messages-clear-fast.md).
    2. [ ] **Cap** — The reply holds at most 200 Node ids.
    3. [ ] **Want nodes** — Those Node ids ride the existing Want answer `nodes` list.
 
@@ -101,12 +101,12 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
       4. [ ] **Cap** — The walk uses the client search algorithm and stops at 200 hits. This cap is a lock.
    2. **Interface**
       Claim home: [Search Actor](../../doc/current/search-actor.md) Interface and Messages.
-      1. [ ] **Start** — Find and Move start the same Actor after the quiet gap. Move does not start a second Actor. The start message carries the Node ids the client already showed. That carried list is a lock. A keypress does not start the Actor.
+      1. [ ] **Start** — Find and Move start the same Actor after the quiet gap. Move does not start a second Actor. Actor Start supplies root, focus, and the full server Graph. The start message also carries the Node ids the client already showed. That carried list is a lock. A keypress does not start the Actor.
       2. [ ] **Stop** — The Actor returns at most 200 hits and stops. Client hits plus this reply stop at 200. The Actor posts one reply. There is no continuation cursor.
       3. [ ] **Reply match** — The result carries the search text it was computed for, or an equivalent generation. The dialog drops the result when that text is not current.
    3. **Uses**
       Claim home: [Search Actor](../../doc/current/search-actor.md) Uses.
-      1. [ ] **Server Graph** — The Actor reads the full server Graph. The walk is the client search algorithm. The Actor supplies that Graph, the focus node, and the zoom root.
+      1. [ ] **Server Graph** — The Actor reads the full server Graph. The walk is the client search algorithm. That algorithm takes the search text, the zoom, and the Graph. Actor Start supplies root, focus, and that Graph. The walk may ignore focus.
       2. [ ] **ActorStart** — The running Actor is recorded on the event source as ActorStart.
 
 2. **Query Actor** — The separate Actor is a lock. The file name is a lock. The Ref post stays a proposed design.
@@ -159,4 +159,4 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
 1. **Paging** — A continuation cursor, and mailbox messages Next and Page, so the dialog can ask for more. Alan locked no paging. That arrangement is out of this architecture.
 2. **New Want type** — A second answer beside `nodes` and `childMap`. [installWantAnswer](src/Shared/ResidentProjection.fs) already merges `nodes`. A second type is a wider interface. This arrangement loses.
 3. **Message per key** — A server request on every keypress. Alan locked the keypress path to the client. That arrangement is out.
-4. **Winner** — Local recompute on each keypress. The client search algorithm stops at 200 hits. Find and Move share one server request after a short quiet gap, skipped when the text changes or the client already has 200 hits. That request uses the same algorithm on the full server Graph, the focus node, and the zoom root. The reply holds up to 200 hits. Client hits plus that reply stop at 200. A stale reply is ignored. Hit Headers ride the existing `nodes` list. Query is one remote evaluation on its own Actor when the line runs. Sequence is tracer-cut.
+4. **Winner** — Local recompute on each keypress. The client search algorithm stops at 200 hits. Find and Move share one server request after a short quiet gap, skipped when the text changes or the client already has 200 hits. That request uses the same algorithm on the full server Graph. Actor Start supplies root, focus, and that Graph. The Search walk may ignore focus. The reply holds up to 200 hits. Client hits plus that reply stop at 200. A stale reply is ignored. Hit Headers ride the existing `nodes` list. Query is one remote evaluation on its own Actor when the line runs. Sequence is tracer-cut.

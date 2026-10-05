@@ -18,7 +18,7 @@ State, Interface, and Uses for **Search Actor** stay on [Online search architect
 
 1. [ ] Quiet gap — One Start fires after the search text has been unchanged for a short quiet gap. The gap has no millisecond value. A text change before the gap ends sends nothing. When the client already has 200 hits, the Start is not sent.
 2. [ ] Actor — That Start runs the shared Find and Move Search Actor in `src/Server/SearchActor.fs`. Move uses this Actor. Query does not use this gap.
-3. [ ] Shared algorithm — The Actor uses [startSearch](src/Shared/ViewModelSearch.fs) and [takeResults](src/Shared/ViewModelSearch.fs). The client call supplies the residence Graph and the zoom root. The Actor call supplies the full server Graph, the focus node, and the zoom root. The walk is that same algorithm.
+3. [ ] Shared algorithm — The Actor uses [startSearch](src/Shared/ViewModelSearch.fs) and [takeResults](src/Shared/ViewModelSearch.fs). Today those functions take the search text, the zoom, and the Graph. The client call supplies the residence Graph. Actor Start supplies root, focus, and the full server Graph. The Search walk may ignore focus. The walk is that same algorithm.
 4. [ ] Up to 200 hits — The reply holds at most 200 Node ids, then the walk stops. That stop is the client algorithm from [14 — Cap of 200](14-cap-of-200.md) section 1 **Find and Move**. Client hits plus this reply stop at 200.
 5. [ ] One reply — The Actor posts that one reply and stops. There is no continuation cursor.
 6. [ ] Stale reply — The dialog applies a reply only when it matches the current search text, or an equivalent generation of that text.
