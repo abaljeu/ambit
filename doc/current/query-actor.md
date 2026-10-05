@@ -29,8 +29,21 @@ A query expression runs on its own Actor.
 
 ## Messages
 
-[ ] Eval: one server evaluation when the line runs. A keypress does not start this Actor.
-[ ] Ref child: `ChildNode.reference`, the shape [ExprRun](../../src/Shared/ExprRun.fs) uses to materialise a Node answer.
+[ ] Eval. The request field is `expression` (string). The Actor starts when the line runs. A keypress does not start this Actor.
+
+```json
+{ "expression": "trash" }
+```
+
+[ ] Result. The response field is `refs` (array). Each item is `ChildNode.reference`: `ref` (string `"ref"`) and `id` (string, Node id). Shape: [ExprRun](../../src/Shared/ExprRun.fs).
+
+```json
+{
+  "refs": [
+    { "ref": "ref", "id": "550e8400-e29b-41d4-a716-446655440000" }
+  ]
+}
+```
 
 ## Uses
 
