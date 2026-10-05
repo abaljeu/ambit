@@ -47,7 +47,7 @@ sequenceDiagram
     Server-->>Browser: graph and eventId
 ```
 
-1. [x] **Poll loop.** The Browser polls every 5 seconds or on activity.
+1. [x] **Poll loop.** The Browser calls poll on a 5 second interval. Window focus and a return to a visible page also call poll. Pointer, key, wheel, touch, and scroll wake a poll when polling is inactive.
 2. [x] **Post changes.** `POST /ambit/changes` returns the change-success envelope. The Browser reconciles that response on the post path.
 3. [x] **Get state.** `GET /ambit/state` returns the graph for the initial load or a resync.
 4. [x] **Post poll.** `POST /ambit/poll` returns the same success envelope with the event tail after the client event id.
@@ -58,7 +58,7 @@ sequenceDiagram
 
 1. [x] **Event id.** `eventId` is an integer. The Server assigns a positive id when it stores an event.
 2. [x] **Draft id.** A posted event sends `eventId` `0`. Any other posted `eventId` is `400`.
-3. [x] **submissionId.** `submissionId` is a client `Guid`. The same `submissionId` returns the stored event and does not append a second event.
+3. [x] **submissionId.** `submissionId` is a client `Guid`. The same `submissionId` returns the stored event and does not append a second event. The response field `r` stays the current snapshot event id.
 4. [x] **Cursor.** Poll and load send the client event id. The success field `r` is the server event id.
 5. [ ] **Accept rule.** The Server accepts the changeset when `baseSequence` equals `currentSequence`. Otherwise it rejects the changeset with `409`.
 6. [ ] **Operation log.** The Server keeps a linear operation log.
@@ -94,7 +94,7 @@ sequenceDiagram
 5. [x] **Events alias.** `POST /ambit/events` uses the same handler as `POST /ambit/changes`.
 6. [x] **Load.** `POST /ambit/load` submits an event id and load targets.
 7. [x] **Git save.** `POST /ambit/save` commits a git save. The request has no JSON body.
-8. [x] **User CSS.** `GET /ambit/user.css` returns the user stylesheet (`data/user.css` or the default).
+8. [x] **User CSS.** `GET /ambit/user.css` returns `200` and `text/css` from `{dataDir}/SYSTEM/user.css` when that file exists, otherwise from wwwroot `user.css`. When neither file exists the status is `204`.
 9. [x] **Static files.** `GET /ambit/*` returns Fable client assets (`Program.js`, CSS, and the other static files).
 10. [x] **Absent sync routes.** `POST /submit`, `POST /undo`, `POST /redo`, and `GET /ops?since={revision}` are absent.
 11. [x] **Deliver.** Inbound agent text is [AI agent protocol](ai-agent-protocol.md).
@@ -153,8 +153,9 @@ sequenceDiagram
 
 1. [x] **Method and path.** `GET /ambit`.
 2. [x] **Auth on.** A missing or invalid session redirects `302` to `/ambit/login`.
-3. [x] **Auth off.** Empty auth settings admit a session, set `gambol_auth`, and return the shell.
-4. [x] **Success.** `200` and `text/html`. The body is `gambol.template.html`.
+3. [x] **Auth off.** Empty auth settings admit a session, set `gambol_auth`, and return the shell. When that login returns an error, the response is `302` to `/ambit/login`.
+4. [x] **Query debug.** `debug` is an optional string. The value `1` selects `Program.js`. Any other value, or a missing `debug`, selects `Program.bundle.js`.
+5. [x] **Success.** `200` and `text/html`. The body is `gambol.template.html` with the build script injected. Cache-Control is `no-cache, no-store, must-revalidate`.
 
 ### 2.7 GET /ambit/state
 
@@ -228,8 +229,8 @@ sequenceDiagram
 ```
 
 8. [x] **Field r.** `r` is the server event id, an integer.
-9. [x] **Field b.** `b` is the Server and deploy build epoch, in Unix seconds.
-10. [x] **Field p.** `p` is the page and Browser artifact build epoch, in Unix seconds.
+9. [x] **Field b.** `b` is the process start time, in Unix seconds.
+10. [x] **Field p.** `p` is the latest write time of the page artifacts in wwwroot, in Unix seconds. When those files are missing, `p` is the server assembly write time.
 11. [x] **Field v.** `v` is the API version integer.
 12. [x] **Field ready.** `ready` is a boolean.
 13. [x] **Field externalChanges.** On poll, `externalChanges` is `true` when `c` has one or more events.
@@ -250,7 +251,7 @@ sequenceDiagram
 
 1. [x] **Method and path.** `POST /ambit/changes`. `POST /ambit/events` is the same handler.
 2. [x] **Cookie.** `gambol_auth` is required. A missing cookie is `401` with an empty body.
-3. [x] **Header.** `X-Gambol-Client` is an optional string. The route stores it when the value parses.
+3. [x] **Header.** `X-Gambol-Client` is an optional string. The server trims it and keeps at most 120 characters.
 4. [x] **Content type.** The request body is `application/json`.
 5. [x] **Changes request.** The body is events plus want.
 
@@ -279,9 +280,15 @@ sequenceDiagram
 }
 ```
 
-6. [x] **events.** `events` is an array of Event objects. Each posted `eventId` is `0`.
-7. [x] **want.** `want` is an array of Node id strings. The array is required. It may be empty.
-8. [x] **Success.** `200` and `application/json`. The body uses the same change-success codec as poll.
+6. [x] **events.** `events` is an array of Event objects. Each posted `eventId` is `0`. An empty `events` array is `400`.
+
+```json
+{ "error": "events must not be empty" }
+```
+
+7. [x] **Apply order.** The server posts the events one at a time. A later error leaves the earlier events stored. The HTTP result is that error.
+8. [x] **want.** `want` is an array of Node id strings. The array is required. It may be empty.
+9. [x] **Success.** `200` and `application/json`. The body uses the same change-success codec as poll.
 
 ```json
 {
@@ -315,18 +322,18 @@ sequenceDiagram
 }
 ```
 
-9. [x] **Field c.** `c` contains the stored events for this post, then any later events through the snapshot.
-10. [x] **Field externalChanges.** `externalChanges` is a boolean from the accept result, or `true` when later events exist.
-11. [x] **Field message.** `message` is present only when artifact persistence returns a status string.
-12. [x] **Want answer.** `nodes` and `childMap` are the want answer. The body has no `graph` field.
-13. [x] **Idempotent submissionId.** The same `submissionId` returns the stored event and does not append again.
-14. [x] **Draft event id.** A posted `eventId` other than `0` is `400`.
+10. [x] **Field c.** `c` contains the stored events for this post, then any later events through the snapshot.
+11. [x] **Field externalChanges.** `externalChanges` is a boolean from the accept result, or `true` when later events exist.
+12. [x] **Field message.** `message` is present only when artifact persistence returns a status string.
+13. [x] **Want answer.** `nodes` and `childMap` are the want answer. The body has no `graph` field.
+14. [x] **Idempotent submissionId.** The same `submissionId` returns the stored event and does not append again. `r` is the current snapshot event id.
+15. [x] **Draft event id.** A posted `eventId` other than `0` is `400`.
 
 ```json
 { "error": "posted EventId must be zero" }
 ```
 
-15. [x] **Invalid JSON.** A body that fails decode is `400`.
+16. [x] **Invalid JSON.** A body that fails decode is `400`.
 
 ```json
 { "error": "Invalid JSON: …" }
@@ -548,7 +555,7 @@ Graph {
 1. [x] **Initial load.** `GET /ambit/state` returns the graph and the event id.
 2. [x] **Local edit.** The client builds an event whose `eventId` is `0` and whose `submissionId` is new.
 3. [x] **Submit.** `POST /ambit/changes` sends `events` and `want`. On success the client reads `r`, `c`, `nodes`, and `childMap`.
-4. [x] **Poll.** `POST /ambit/poll` sends `eventId` and `want` on an interval and after activity. The client applies the `c` tail when it is behind.
+4. [x] **Poll.** `POST /ambit/poll` sends `eventId` and `want` on the poll loop. The client applies the `c` tail when it is behind.
 5. [x] **Resync.** When a resync is needed, `GET /ambit/state` returns the graph.
 6. [x] **Conflicts.** Conflict handling is last-write-wins, in server apply order. Detail: [Multi-client sync](sync-mvp.md).
 7. [x] **Undo.** Undo and redo are client-local. The client posts undo and redo events. Server undo and redo endpoints are absent.
@@ -558,8 +565,8 @@ Graph {
 1. [x] **200.** `200` means success for state, poll, changes, events, load, and a git-save result body.
 2. [x] **302.** `302` means login, logout, or the shell auth redirect.
 3. [x] **400.** `400` means a JSON decode error, a posted `eventId` other than `0`, a load that spans workspaces, or another handler error string.
-4. [x] **401.** `401` means the cookie is missing, the mailbox does not admit the caller, or the handler returned an auth refusal. The body is empty.
-5. [x] **500.** `500` means a startup or config failure, or a handler error whose text starts with `Internal server error`. That body is `text/plain`.
+4. [x] **401.** `401` means the cookie is missing, the mailbox does not admit the caller, or the handler error text is `Unauthorized`. The body is empty.
+5. [x] **500.** A handler error whose text starts with `Internal server error` is `500` and `text/plain`. A startup failure or a missing production config is `500` and `text/html`.
 
 ### 2.15 Notes
 

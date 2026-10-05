@@ -29,7 +29,7 @@ Multi-client sync is last-write-wins by arrival order on the server, and the run
 [x] The server applies each new event in order. The same `submissionId` returns the stored event.
 [x] When the graph changes, the server appends the event and auto-persists affected document artifacts under `DataDir`. Detail: [Persistence model](persistence-model.md).
 [x] The Browser uses the changes response and the poll response on separate paths.
-[x] The Browser polls `POST /ambit/poll` every 5 seconds or after activity.
+[x] The Browser polls `POST /ambit/poll` on a 5 second interval, on window focus, and when activity wakes an inactive poll. Wire: [HTTP contract](http-contract.md).
 [x] When the client is behind, poll returns the event tail. The Browser applies that tail. The graph comes from `GET /ambit/state` on initial load or on resync.
 [ ] Multi-document routes live under `/documents/{docId}`.
 [ ] The server can push on a WebSocket instead of poll, or in addition to poll.
