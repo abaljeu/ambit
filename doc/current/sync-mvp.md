@@ -25,34 +25,25 @@ Multi-client sync is last-write-wins by arrival order on the server, and the run
 
 ## Protocol
 
-[x] The client sends a `ChangeBatch` to `POST /{pathname}/changes`, for example `POST /ambit/changes`.
-[x] The server applies each change in order against authoritative state. The revision must match `Change.id`.
-[x] When the graph changes, the server increments `revision`, appends a row to the PostgreSQL `changes` table, and auto-persists affected document artifacts under `DataDir`.
-[x] The server responds with the complete `ChangeSuccessResponse`: revision, real deploy and page stamps, readiness, `externalChanges = false`, durable confirmation Changes in `c`, and an optional persistence message. The response does not include the full Graph.
-[x] The Browser uses the Post response only for confirmation reconciliation. The Browser does not apply `c` as a Poll tail.
-[x] The Browser polls `GET /{pathname}/poll?rev=N`, for example every 5 seconds or after activity, for remote Changes and build stamps.
-[x] When the client is behind, Poll returns the same response type with its Change tail in `c`. The Browser applies that list locally. The full Graph comes from `GET /{pathname}/state` on initial Load or on resync.
+[x] The client posts events and a want list to `POST /ambit/changes`. Wire: [HTTP contract](http-contract.md).
+[x] The server applies each new event in order. The same `submissionId` returns the stored event.
+[x] When the graph changes, the server appends the event and auto-persists affected document artifacts under `DataDir`. Detail: [Persistence model](persistence-model.md).
+[x] The Browser uses the changes response and the poll response on separate paths.
+[x] The Browser polls `POST /ambit/poll` every 5 seconds or after activity.
+[x] When the client is behind, poll returns the event tail. The Browser applies that tail. The graph comes from `GET /ambit/state` on initial load or on resync.
 [ ] Multi-document routes live under `/documents/{docId}`.
 [ ] The server can push on a WebSocket instead of poll, or in addition to poll.
 
 ## Endpoints
 
-[x] `GET /ambit/state` returns `{ revision, graph }`.
-[x] `POST /ambit/changes` accepts a `ChangeBatch` and returns the complete Change success envelope with confirmation Changes.
-[x] `GET /ambit/poll?rev=N` returns the same Change success envelope with a Poll tail.
-[x] `Change.id` equals the server revision at apply time.
-[x] `changeId` makes retry idempotent. The same id returns the same ack and does not apply the change twice.
-[x] Success: HTTP 200. Body fields: `r`, `b`, `p`, `ready`, `externalChanges`, and `c`.
-[x] Post uses `c` as confirmation data only. Poll uses `c` as the remote Change tail. Both channels use [ApiResponseSerialization.fs](src/Shared/ApiResponseSerialization.fs). The two channels remain separate Browser paths.
-[x] Failure: HTTP 400 with `{ "error": "…" }` for an invalid op, a revision mismatch, an empty batch, or a similar error.
-[x] A revision mismatch returns 400. The client catches up through poll or `GET /state`.
+[x] State, poll, changes, load, and the change-success JSON: [HTTP contract](http-contract.md).
 [ ] Sync uses sequence-based concurrency and returns 409 for a stale response.
-[x] Undo and redo stay on the client. The client applies inverses locally and posts them in a `ChangeBatch` like any other edit.
+[x] Undo and redo stay on the client. The client posts undo and redo events.
 [ ] The server exposes undo and redo endpoints with explicit conflict rules.
 
 ## State
 
-[x] `revision`: an int and increases monotonically.
+[x] The server cursor is the event id. The HTTP names are on [HTTP contract](http-contract.md).
 [x] `graph`: the current authoritative Graph.
 [x] `history`: the in-process change history. It mirrors applied ops.
 
@@ -66,4 +57,4 @@ Multi-client sync is last-write-wins by arrival order on the server, and the run
 
 ## Explanation
 
-A submit omits the full graph, so the response stays small. Undo and redo server endpoints are deferred, so history stays on the client and inverse ops travel in a normal batch. Fewer than five clients edit, and edits are infrequent, so the MVP accepts that overwrite.
+A changes response carries the want answer, so the body stays smaller than a full graph. Undo and redo server endpoints are deferred, so history stays on the client and inverse ops travel in a normal event. Fewer than five clients edit, and edits are infrequent, so the MVP accepts that overwrite.
