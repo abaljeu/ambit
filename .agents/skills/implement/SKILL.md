@@ -32,7 +32,7 @@ Run typechecking and the directly relevant tests as you go. Done: the ticket's W
 
 ### 4. Check
 
-While the end-of-build suite from [[.agents/skills/implement-fsharp-feature/SKILL.md]] runs in the background, use [[.agents/skills/code-review/SKILL.md]].
+While the end-of-build suite from [[.agents/skills/implement-fsharp-feature/SKILL.md]] runs in the background, use [[.agents/skills/code-review/SKILL.md]]. When this run writes a PR body, use [[.agents/skills/pr/SKILL.md]] after that review. [[.agents/skills/retro/SKILL.md]] is a separate human invoke.
 
 Anything you write on tickets or under `reports/` — number and name every section and list item per [[.agents/rules/refer-by-name.md]]. Done: code-review has been run for this change; the suite was started only after coding finished.
 
