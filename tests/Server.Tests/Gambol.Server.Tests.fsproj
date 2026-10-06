@@ -81,6 +81,7 @@
     <Compile Include="DbAgentTests.fs" />
     <Compile Include="DbAgentFailureTests.fs" />
     <Compile Include="StateEndpointTests.fs" />
+    <Compile Include="SearchActorTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

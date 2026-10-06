@@ -23,6 +23,45 @@ let mutable private searchCache: SearchCache option = None
 let resetSearchResults () : unit =
     searchCache <- None
 
+let private clientHitCount (model: VM) (query: string) : int =
+    ViewModelSearch.searchNodes query model.zoomRoot model.graph
+    |> List.length
+
+/// The quiet gap has ended for `armedText`. A newer query sends nothing.
+let searchPictureEffects (armedText: string) (model: VM) : VM * Effect list =
+    match model.mode with
+    | SearchDialog s ->
+        let hits = clientHitCount model s.query
+        let gap =
+            SearchPicture.awaitGap hits (SearchPicture.Text armedText)
+        match
+            SearchPicture.startAfterGap
+                gap
+                (SearchPicture.Text s.query)
+                hits
+        with
+        | None -> model, []
+        | Some _ ->
+            model, [ RequestSearchPicture (s.query, model.zoomRoot) ]
+    | _ -> model, []
+
+let applyServerReply
+    (reply: SearchPicture.Reply)
+    (model: VM)
+    : VM * Effect list =
+    match model.mode with
+    | SearchDialog s ->
+        let hits = clientHitCount model s.query
+        let ids =
+            SearchPicture.keepReply
+                hits
+                (SearchPicture.Text s.query)
+                s.serverHitIds
+                reply
+        { model with
+            mode = SearchDialog { s with serverHitIds = ids } }, []
+    | _ -> model, []
+
 let private cacheMatches (s: SearchDialogState) (model: VM) (cache: SearchCache) : bool =
     cache.query = s.query
     && cache.zoomRoot = model.zoomRoot
@@ -64,21 +103,24 @@ let openSearchDialogWithOnPick
     (model: VM)
     : VM * Effect list =
     resetSearchResults ()
-    { model with
-        mode =
-            SearchDialog
-                { invokedCommand = invokedCommand
-                  query = lastNodeSearchQuery
-                  selectedIndex = 0
-                  returnTo = model.mode
-                  onPick = onPick } }, []
+    let next =
+        { model with
+            mode =
+                SearchDialog
+                    { invokedCommand = invokedCommand
+                      query = lastNodeSearchQuery
+                      selectedIndex = 0
+                      returnTo = model.mode
+                      onPick = onPick
+                      serverHitIds = [] } }
+    next, [ ArmSearchQuietGap lastNodeSearchQuery ]
 
 let closeSearchDialogOp (model: VM) : VM * Effect list =
     match model.mode with
     | SearchDialog s ->
         rememberSearchQuery s.query
         resetSearchResults ()
-        { model with mode = s.returnTo }, []
+        { model with mode = s.returnTo }, [ CancelSearchQuietGap ]
     | _ -> model, []
 
 let searchSelectUpOp (model: VM) : VM * Effect list =

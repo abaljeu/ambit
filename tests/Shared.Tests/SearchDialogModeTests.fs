@@ -13,7 +13,8 @@ let ``SearchDialog mode stores invoked command label`` () =
               query = ""
               selectedIndex = 0
               returnTo = Selecting
-              onPick = stubPick }
+              onPick = stubPick
+              serverHitIds = [] }
     match mode with
     | SearchDialog s ->
         Assert.Equal("Find", s.invokedCommand)

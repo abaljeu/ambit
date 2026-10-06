@@ -43,6 +43,31 @@ let private renderSearchResults
 
 let private debounceTimer = ref (None: float option)
 
+let private serverStartTimer = ref (None: float option)
+
+let private clearServerStart () : unit =
+    match serverStartTimer.Value with
+    | None -> ()
+    | Some id ->
+        window.clearTimeout id |> ignore
+        serverStartTimer.Value <- None
+
+/// The quiet gap reuses the search settle delay. The spec names no duration.
+let armQuietGap (query: string) (dispatch: Msg -> unit) : unit =
+    clearServerStart ()
+    serverStartTimer.Value <-
+        Some(
+            window.setTimeout(
+                (fun _ ->
+                    serverStartTimer.Value <- None
+                    dispatch (
+                        ApplyOp (
+                            Gambol.Client.SearchDialog.searchPictureEffects
+                                query))),
+                searchDebounceMs))
+
+let cancelQuietGap () : unit = clearServerStart ()
+
 let private clearSearchDebounce () : unit =
     match debounceTimer.Value with
     | None -> ()
@@ -55,6 +80,7 @@ let private flushSearchQuery (input: HTMLInputElement) (dispatch: Msg -> unit) :
     dispatch (NodeSearchQuery input.value)
 
 let private scheduleSearchQuery (input: HTMLInputElement) (dispatch: Msg -> unit) : unit =
+    clearServerStart ()
     clearSearchDebounce ()
     debounceTimer.Value <-
         Some(
@@ -187,5 +213,6 @@ let renderSearchDialog (model: VM) (dispatch: Msg -> unit) : unit =
         wireSearchDialog input dispatch
     | _ ->
         clearSearchDebounce ()
+        clearServerStart ()
         lastSearchRenderKey <- None
         container.classList.remove "amb-dialog-open"

@@ -18,20 +18,20 @@ Find and Move share one Actor. Query does not use this Actor.
 
 ## Data
 
-[ ] One walk, off the mailbox, then stop. No continuation cursor.
+[x] One walk, off the mailbox, then stop. No continuation cursor.
 [ ] Trash: the walk skips trash unless the start Node is TRASH. TRASH id: [GraphBuild](../../src/Shared/GraphBuild.fs) `trashId`.
 [ ] Dedup: the walk drops a Node id that is in the shown Node ids.
-[ ] Cap: the client search algorithm stops at 200 hits. The reply holds at most 200 Node ids. Find and Move share that cap.
+[x] Cap: the client search algorithm stops at 200 hits. The reply holds at most 200 Node ids. Find and Move share that cap.
 
 ## Job
 
-[ ] Shared backend for Find and Move. One running Actor. Move does not start a second Actor.
-[ ] A keypress does not start this Actor. Client recompute stays on [Workspace graph](graph.md).
+[x] Shared backend for Find and Move. One running Actor. Move does not start a second Actor.
+[x] A keypress does not start this Actor. Client recompute stays on [Workspace graph](graph.md).
 
 ## Interface
 
-[ ] Start: Find and Move start this Actor after the quiet gap. Start supplies root, focus, and the full server Graph.
-[ ] Result: the Actor uses the client search algorithm and returns at most 200 hits, then stops. Client hits plus this reply stop at the cap. One reply. No continuation cursor.
+[x] Start: Find and Move start this Actor after the quiet gap. Start supplies root, focus, and the full server Graph.
+[x] Result: the Actor uses the client search algorithm and returns at most 200 hits, then stops. Client hits plus this reply stop at the cap. One reply. No continuation cursor.
 
 ## Messages
 
@@ -54,7 +54,7 @@ Find and Move share one Actor. Query does not use this Actor.
 }
 ```
 
-[ ] Result fields: Node ids, and the reply-match search text or generation. The response has `ids` (array of Node id strings, at most 200) and the reply-match `text` (string) or `generation` (number).
+[x] Result fields: Node ids, and the reply-match search text or generation. The response has `ids` (array of Node id strings, at most 200) and the reply-match `text` (string) or `generation` (number).
 
 ```json
 {
@@ -70,16 +70,18 @@ Find and Move share one Actor. Query does not use this Actor.
 }
 ```
 
-[ ] Reply match: the caller drops the result when that search text or generation is not current.
+[x] Reply match: the caller drops the result when that search text or generation is not current.
+
+The Browser posts the start JSON to `POST /ambit/search`. The `200` body is the result JSON.
 
 ## Uses
 
-[ ] Server Graph: the walk uses [startSearch](../../src/Shared/ViewModelSearch.fs) and [takeResults](../../src/Shared/ViewModelSearch.fs) on the full server Graph. Those functions take the search text, the zoom, and the Graph. The walk may ignore focus. Detail: [Server](server.md).
+[x] Server Graph: the walk uses [startSearch](../../src/Shared/ViewModelSearch.fs) and [takeResults](../../src/Shared/ViewModelSearch.fs) on the full server Graph. Those functions take the search text, the zoom, and the Graph. The walk may ignore focus. Detail: [Server](server.md).
 [ ] ActorStart: the running Actor is recorded on the event source as `ActorStart`. Detail: [Mailbox](mailbox.md).
 
 ## Seams
 
-[ ] Quiet gap: one Start after the search text is unchanged. The gap has no millisecond value. A text change before the gap ends sends no Start. No Start when the client already has 200 hits.
+[x] Quiet gap: one Start after the search text is unchanged. The gap has no millisecond value. A text change before the gap ends sends no Start. No Start when the client already has 200 hits.
 [ ] Cap: Find and Move share 200. [Query Actor](query-actor.md) stops at that same cap.
 
 ## Explanation

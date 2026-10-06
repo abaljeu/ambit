@@ -272,6 +272,15 @@ module RouteRegistration =
                         body)
                 |> Async.StartAsTask
         })) |> ignore
+        this.MapPost("/ambit/search", Func<HttpRequest, Task<IResult>>(fun req -> task {
+            bindClientHint req |> ignore
+            use reader = new StreamReader(req.Body)
+            let! body = reader.ReadToEndAsync()
+            return!
+                withBrowserChanges persistence req (fun handle ->
+                    Api.postSearch handle body)
+                |> Async.StartAsTask
+        })) |> ignore
         this.MapPost("/ambit/command", Func<HttpRequest, Task<IResult>>(fun req -> task {
             bindClientHint req |> ignore
             use reader = new StreamReader(req.Body)

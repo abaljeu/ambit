@@ -535,6 +535,25 @@ module Api =
                         Thoth.Json.Core.Decode.string |})
         Decode.fromString decoder body
 
+    /// One Find and Move reply. The walk runs after getState returns.
+    let postSearch (handle: CoreChanges) (body: string) : Async<IResult> =
+        async {
+            match Decode.fromString SearchPicture.decodeRequest body with
+            | Error err ->
+                return agentErrorResult $"Invalid JSON: {err}"
+            | Ok request ->
+                match! handle.getState () with
+                | Error err -> return agentErrorResult err
+                | Ok state ->
+                    let answer =
+                        SearchActor.reply (fun () -> state.graph) request
+                    return
+                        answer
+                        |> SearchPicture.encodeReply
+                        |> Encode.toString 0
+                        |> jsonResult
+        }
+
     let postActorsDeliver
         (configuredSecret: string)
         (providedSecret: string)

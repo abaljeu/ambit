@@ -96,6 +96,7 @@
     <Compile Include="ExportText.fs" />
     <Compile Include="Snapshot.fs" />
     <Compile Include="Serialization.fs" />
+    <Compile Include="SearchPicture.fs" />
     <Compile Include="EventLog.fs" />
     <Compile Include="EventJson.fs" />
 

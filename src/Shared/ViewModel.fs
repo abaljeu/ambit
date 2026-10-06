@@ -295,7 +295,8 @@ and SearchDialogState =
       query: string
       selectedIndex: int
       returnTo: Mode
-      onPick: NodeSearchResult -> VM -> VM * Effect list }
+      onPick: NodeSearchResult -> VM -> VM * Effect list
+      serverHitIds: NodeId list }
 
 /// File search overlay: path query, list selection, and optional create via **New** button.
 and FileSearchDialogState =
