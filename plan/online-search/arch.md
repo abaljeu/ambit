@@ -107,7 +107,7 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
    3. **Uses**
       Claim home: [Search Actor](../../doc/current/search-actor.md) Uses.
       1. [ ] **Server Graph** — The Actor reads the full server Graph. The walk is the client search algorithm. That algorithm takes the search text, the zoom, and the Graph. Actor Start supplies root, focus, and that Graph. The walk may ignore focus.
-      2. [ ] **ActorStart** — The running Actor is recorded on the event source as ActorStart.
+      2. [x] **ActorStart** — The running Actor is recorded on the event source as ActorStart. The record supplies root and focus. `graphIds` is the root. The walk reads the full server Graph from State. One reply, then ActorStop.
 
 2. **Query Actor** — The separate Actor is a lock. The file name is a lock. The Ref post stays a proposed design.
    The Query Actor evaluates the query on the server. This eval is remote. Query does not share the Find and Move Actor. The same file starts this Actor. The cap of 200 is a lock.

@@ -535,23 +535,49 @@ module Api =
                         Thoth.Json.Core.Decode.string |})
         Decode.fromString decoder body
 
-    /// One Find and Move reply. The walk runs after getState returns.
-    let postSearch (handle: CoreChanges) (body: string) : Async<IResult> =
+    /// Search door. The walk uses `changes`. Start and stop hit the event source.
+    type SearchActorDoor =
+        { changes: CoreChanges
+          recordStart:
+            ActorStart -> Async<Result<unit, string>>
+          recordStop:
+            NodeId -> Async<Result<unit, string>> }
+
+    let private searchReply
+        (door: SearchActorDoor)
+        (request: SearchPicture.Request)
+        (state: State)
+        : Async<IResult> =
         async {
-            match Decode.fromString SearchPicture.decodeRequest body with
-            | Error err ->
-                return agentErrorResult $"Invalid JSON: {err}"
-            | Ok request ->
-                match! handle.getState () with
+            let start =
+                SearchActor.actorStart state.graph state.eventId
+            match! door.recordStart start with
+            | Error err -> return agentErrorResult err
+            | Ok () ->
+                let answer =
+                    SearchActor.reply
+                        (fun () -> state.graph)
+                        request
+                match! door.recordStop start.focusId with
                 | Error err -> return agentErrorResult err
-                | Ok state ->
-                    let answer =
-                        SearchActor.reply (fun () -> state.graph) request
+                | Ok () ->
                     return
                         answer
                         |> SearchPicture.encodeReply
                         |> Encode.toString 0
                         |> jsonResult
+        }
+
+    /// One Find and Move reply. ActorStart is recorded, then the walk, then ActorStop.
+    let postSearch (door: SearchActorDoor) (body: string) : Async<IResult> =
+        async {
+            match Decode.fromString SearchPicture.decodeRequest body with
+            | Error err ->
+                return agentErrorResult $"Invalid JSON: {err}"
+            | Ok request ->
+                match! door.changes.getState () with
+                | Error err -> return agentErrorResult err
+                | Ok state -> return! searchReply door request state
         }
 
     let postActorsDeliver

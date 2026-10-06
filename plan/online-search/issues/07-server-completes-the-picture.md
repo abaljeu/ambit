@@ -2,6 +2,7 @@
 
 **Status:** `coded`
 **Type:** coding
+**Actual:** 3h
 **Blocked by:** [06 — Residence hits first](06-residence-hits-first.md), [14 — Cap of 200](14-cap-of-200.md)
 
 ## Context
@@ -26,10 +27,12 @@ State, Interface, and Uses for **Search Actor** stay on [Online search architect
 ## Comments
 
 - 2026-10-06: The Search Actor runs [startSearch](src/Shared/ViewModelSearch.fs) and [takeResults](src/Shared/ViewModelSearch.fs) on the full server graph. Find and Move send one Start after the search text settles, and they send none when the client already has 200 hits. The dialog keeps a reply only when the text or generation matches. Query cap is unchanged.
+- 2026-10-06: Search Start records ActorStart on the event source, then ActorStop after the one reply. The record supplies root and focus. `graphIds` is the root. The walk reads the full server Graph from State. Query cap is unchanged.
 
 ## Time
 
 - 2026-10-06 2h — Search Actor reuses the client walk (from chat)
+- 2026-10-06 1h — ActorStart on the event source (from chat)
 
 ## See also
 

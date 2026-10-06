@@ -4,7 +4,7 @@ Stage: build
 Summary: Two specs in one file: Search is two-phase Want-fulfillment of Find, capped at 200, and a query expression inserts results under the query line. Query eval is remote.
 Updated: 2026-10-06
 Started: 2026-10-04
-Actual: 3h
+Actual: 4h
 
 ## Notes
 

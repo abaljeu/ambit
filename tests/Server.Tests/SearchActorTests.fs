@@ -6,6 +6,7 @@ open Microsoft.AspNetCore.Http.HttpResults
 open Xunit
 open Gambol.Server
 open Gambol.Shared
+open Gambol.Server.Tests.TestBackend
 
 module Enc = Thoth.Json.Newtonsoft.Encode
 module Dec = Thoth.Json.Newtonsoft.Decode
@@ -127,6 +128,21 @@ let ``reply reads the carrier graph once and stops at 200`` () =
         got.ids)
 
 [<Fact>]
+let ``actorStart supplies root and focus`` () =
+    let graph0 = Graph.create ()
+    let graph1, ids =
+        ModelBuilder.createNodes [ "hit beside root" ] graph0
+    let graph =
+        ownedRoot ids graph1
+        |> Graph.withFocus (Some ids.[0])
+    let start = SearchActor.actorStart graph EventId.zero
+    Assert.Equal(graph.root, start.zoomId)
+    Assert.Equal(ids.[0], start.focusId)
+    Assert.Equal(graph.root, start.commandId)
+    Assert.Equal<NodeId list>([ graph.root ], start.graphIds)
+    Assert.Equal(EventId.zero, start.eventId)
+
+[<Fact>]
 let ``blank text returns no ids`` () =
     let graph = Graph.create ()
     let got = walk "   " graph.root (graph.focus) graph
@@ -135,6 +151,13 @@ let ``blank text returns no ids`` () =
 let private stateOf (graph: Graph) : State =
     { graph = graph
       eventId = EventId.zero }
+
+let private acceptRecord _ = async.Return (Result.Ok ())
+
+let private door (handle: CoreChanges) : Api.SearchActorDoor =
+    { changes = handle
+      recordStart = acceptRecord
+      recordStop = acceptRecord }
 
 let private handle (graph: Graph) : CoreChanges =
     { getState = fun () -> async.Return (Result.Ok (stateOf graph))
@@ -159,7 +182,7 @@ let ``postSearch returns one reply from the server graph`` () = task {
           generation = None }
     let body = Enc.toString 0 (SearchPicture.encodeRequest request)
     let! result =
-        Api.postSearch (handle graph) body |> Async.StartAsTask
+        Api.postSearch (door (handle graph)) body |> Async.StartAsTask
     match box result with
     | :? ContentHttpResult as content ->
         match Dec.fromString SearchPicture.decodeReply content.ResponseContent with
@@ -173,9 +196,67 @@ let ``postSearch returns one reply from the server graph`` () = task {
 }
 
 [<Fact>]
+let ``postSearch records ActorStart with root focus and the server graph`` () = task {
+    let dir = newTempDir ()
+    let host, handle = createAdmittedFile dir
+    try
+        let! stateResult = handle.getState () |> Async.StartAsTask
+        let state =
+            match stateResult with
+            | Ok state -> state
+            | Error err -> failwith err
+        let graph = state.graph
+        let request: SearchPicture.Request =
+            { text = "quarterly"
+              startId = graph.root
+              generation = None }
+        let body = Enc.toString 0 (SearchPicture.encodeRequest request)
+        let searchDoor: Api.SearchActorDoor =
+            { changes = handle
+              recordStart =
+                fun start ->
+                    CoreMailbox.recordSearchStart host testCaller start
+              recordStop =
+                fun focusId ->
+                    CoreMailbox.recordSearchStop host testCaller focusId }
+        let! _ = Api.postSearch searchDoor body |> Async.StartAsTask
+        let! history =
+            CoreMailbox.eventHistory host |> Async.StartAsTask
+        let recorded =
+            history.events
+            |> List.tryPick (fun event ->
+                match event.body with
+                | EventBody.ActorStart start -> Some start
+                | _ -> None)
+        let start =
+            match recorded with
+            | Some start -> start
+            | None ->
+                failwith "ActorStart missing on the event source"
+        let focusId =
+            match graph.focus with
+            | Some id -> id
+            | None -> graph.root
+        Assert.Equal(graph.root, start.zoomId)
+        Assert.Equal(focusId, start.focusId)
+        Assert.Equal(graph.root, start.commandId)
+        Assert.Equal<NodeId list>([ graph.root ], start.graphIds)
+        let stopped =
+            history.events
+            |> List.exists (fun event ->
+                match event.body with
+                | EventBody.ActorStop(stoppedId, ActorSucceeded) ->
+                    stoppedId = start.focusId
+                | _ -> false)
+        Assert.True(stopped, "ActorStop missing after the one reply")
+    finally
+        CoreMailbox.dispose host
+}
+
+[<Fact>]
 let ``postSearch rejects a body without search text`` () = task {
     let! result =
-        Api.postSearch (handle (Graph.create ())) "{}"
+        Api.postSearch (door (handle (Graph.create ()))) "{}"
         |> Async.StartAsTask
     match box result with
     | :? BadRequest<obj> -> ()

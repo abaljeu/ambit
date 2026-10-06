@@ -33,6 +33,16 @@ type internal CoreMsg =
         peerName: PeerActorName *
         request: LoadSaveCommandRequest *
         AsyncReplyChannel<Result<unit, string>>
+    /// Search Actor bookkeeping. Records ActorStart. Does not run the walk.
+    | RecordSearchStart of
+        caller: Caller *
+        request: Gambol.Shared.ActorStart *
+        AsyncReplyChannel<Result<unit, string>>
+    /// Search Actor bookkeeping. Records ActorStop after the one reply.
+    | RecordSearchStop of
+        caller: Caller *
+        focusId: NodeId *
+        AsyncReplyChannel<Result<unit, string>>
     /// Parse-stack Load: subject must be a File node. Fast push only.
     | Load of
         caller: Caller *

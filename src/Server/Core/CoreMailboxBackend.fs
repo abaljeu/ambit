@@ -79,6 +79,8 @@ module internal CoreMailboxBackend =
             "StartPeerActor", name
         | StartLoadSaveCommand (_, path, PeerActorName name, _, _) ->
             "StartLoadSaveCommand", $"{path}:{name}"
+        | RecordSearchStart _ -> "RecordSearchStart", ""
+        | RecordSearchStop _ -> "RecordSearchStop", ""
         | Load (_, subject, _) ->
             "Load", $"{subject}"
         | ActorStop (_, result, _) ->
@@ -103,6 +105,10 @@ module internal CoreMailboxBackend =
         | StartActor (_, _, reply) -> reply.Reply(Error error)
         | StartPeerActor (_, _, _, reply) -> reply.Reply(Error error)
         | StartLoadSaveCommand (_, _, _, _, reply) ->
+            reply.Reply(Error error)
+        | RecordSearchStart (_, _, reply) ->
+            reply.Reply(Error error)
+        | RecordSearchStop (_, _, reply) ->
             reply.Reply(Error error)
         | Load (_, _, reply) -> reply.Reply(Error error)
         | ActorStop (_, _, reply) -> reply.Reply(Error error)
@@ -326,6 +332,37 @@ module internal CoreMailboxBackend =
         | Some _ -> Error "Load subject is not a File node"
         | None -> Error "Load subject not found"
 
+    let private dispatchRecordSearchStart
+        (context: MailboxContext)
+        (caller: Caller)
+        (request: Gambol.Shared.ActorStart)
+        (reply: AsyncReplyChannel<Result<unit, string>>)
+        : unit =
+        match admitCaller context caller with
+        | Error err -> reply.Reply(Error err)
+        | Ok () ->
+            CoreEventDispatch.actorStart
+                (eventDispatchContext context)
+                caller
+                request
+            |> reply.Reply
+
+    let private dispatchRecordSearchStop
+        (context: MailboxContext)
+        (caller: Caller)
+        (focusId: NodeId)
+        (reply: AsyncReplyChannel<Result<unit, string>>)
+        : unit =
+        match admitCaller context caller with
+        | Error err -> reply.Reply(Error err)
+        | Ok () ->
+            CoreEventDispatch.actorStop
+                (eventDispatchContext context)
+                caller
+                focusId
+                ActorSucceeded
+            |> reply.Reply
+
     let private dispatchLoad
         (context: MailboxContext)
         (caller: Caller)
@@ -370,6 +407,10 @@ module internal CoreMailboxBackend =
         | StartLoadSaveCommand (caller, path, peerName, request, reply) ->
             dispatchStartLoadSaveCommand
                 context caller path peerName request reply
+        | RecordSearchStart (caller, request, reply) ->
+            dispatchRecordSearchStart context caller request reply
+        | RecordSearchStop (caller, focusId, reply) ->
+            dispatchRecordSearchStop context caller focusId reply
         | Load (caller, subject, reply) ->
             dispatchLoad context caller subject reply
         | ActorStop (caller, result, reply) ->

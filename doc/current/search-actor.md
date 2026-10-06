@@ -77,7 +77,7 @@ The Browser posts the start JSON to `POST /ambit/search`. The `200` body is the 
 ## Uses
 
 [x] Server Graph: the walk uses [startSearch](../../src/Shared/ViewModelSearch.fs) and [takeResults](../../src/Shared/ViewModelSearch.fs) on the full server Graph. Those functions take the search text, the zoom, and the Graph. The walk may ignore focus. Detail: [Server](server.md).
-[ ] ActorStart: the running Actor is recorded on the event source as `ActorStart`. Detail: [Mailbox](mailbox.md).
+[x] ActorStart: the running Actor is recorded on the event source as `ActorStart`. That record supplies root and focus. `graphIds` is the root. The walk reads the full server Graph from State at that start. One reply, then `ActorStop`. Detail: [Mailbox](mailbox.md).
 
 ## Seams
 

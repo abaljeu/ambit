@@ -27,6 +27,20 @@ module SearchActor =
         { ids = hitIds walk.text walk.zoomRoot walk.graph
           matchKey = walk.matchKey }
 
+    /// Event-source start. `zoomId` is root. `focusId` is focus, or root
+    /// when the graph has no focus. `graphIds` is the root. The walk
+    /// reads the full Graph. This record does not copy every Node id.
+    let actorStart (graph: Graph) (eventId: EventId) : ActorStart =
+        let focusId =
+            match graph.focus with
+            | Some id -> id
+            | None -> graph.root
+        { zoomId = graph.root
+          focusId = focusId
+          commandId = graph.root
+          graphIds = [ graph.root ]
+          eventId = eventId }
+
     /// The carrier supplies the full server graph. Root is that graph's root.
     let reply
         (getGraph: unit -> Graph)
