@@ -36,6 +36,8 @@ These leaves moved from [05 — Directory reconcile](05-directory-reconcile.md).
 
 [core-refinement architecture](plan/core-refinement/arch.md)
 
+[07 — Directory Unparsed during reconcile](07-directory-unparsed-during-reconcile.md)
+
 ## Time
 
 - 2026-10-07 20m — disk-newer File Node set Unparsed through InMsg (from chat)
@@ -44,3 +46,4 @@ These leaves moved from [05 — Directory reconcile](05-directory-reconcile.md).
 ## Comments
 
 - 2026-10-07 — Alan. MarkUnparsed is an accepted InMsg case. Document it on [core-refinement architecture](../../core-refinement/arch.md) §10 Core loop and under [doc/current](../../../doc/current/).
+- 2026-10-07 — This ticket stays disk-newer File Node Unparsed only. Siblings: [07 — Directory Unparsed during reconcile](07-directory-unparsed-during-reconcile.md) and [07 — Git changed list sets Unparsed](../../core-refinement/issues/07-git-changed-list-unparsed.md).

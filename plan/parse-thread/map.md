@@ -25,6 +25,7 @@ Clear the way for the Parse product: a continuous Server parse thread turns file
 2. [02 — Structure-match Directory Load](issues/02-structure-match-directory-load.md) — Structure-match Load on a Directory, including a Directory that is not a Workspace, is clear enough for later coding.
 3. **Order among Directory targets** — Decided 2026-10-01. See [Parse thread architecture](arch.md) §2 Module map, item 1 **Directory reconcile**, Interface item 2 **Create**.
 4. [03 — Workspace Load after incoming files](issues/03-workspace-load-after-incoming-files.md) — Decided 2026-10-01. Pull then Parse. A Workspace Node uses Directory reconcile.
+5. **Dual Unparsed approaches** — Locked 2026-10-07 (Alan). Both stay. Set the Workspace Node Unparsed, then Directory reconcile notes File Nodes in that directory that need reparsing and sets Directory Nodes there Unparsed. File Nodes stay [06 — Setting Unparsed, recursive update](issues/06-setting-unparsed-recursive-update.md). Directory Nodes are [07 — Directory Unparsed during reconcile](issues/07-directory-unparsed-during-reconcile.md). The git changed list immediately sets matching File Nodes and Directory Nodes Unparsed. That handoff stays [02 — Git Load: Unparsed then Parse stack](../core-refinement/issues/02-git-load-unparsed-then-parse-stack.md) and [core-refinement architecture](../core-refinement/arch.md) §6. This map does not reopen §6. Ticket: [07 — Git changed list sets Unparsed](../core-refinement/issues/07-git-changed-list-unparsed.md).
 
 ## 4. Not yet specified
 
