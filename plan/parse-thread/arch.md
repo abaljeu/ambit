@@ -76,7 +76,7 @@ Sequence is module-build. Directory reconcile is in code. Story paths that only 
 
 18. **Pull handoff stays the pull sentence**
     1. [x] **Immediate members** — The immediate-members sentence stays the git-pull handoff. Ticket: [02 — Git Load: Unparsed then Parse stack](../core-refinement/issues/02-git-load-unparsed-then-parse-stack.md).
-    2. [x] **Reconcile home** — This architecture defines Directory reconcile. [core-refinement architecture](../core-refinement/arch.md) §5 item 10 **Directory reconcile** is the deferred pointer. Ticket: [01 — Directory body home](issues/01-directory-parse-body-home.md).
+    2. [x] **Reconcile home** — This architecture defines Directory reconcile. [core-refinement architecture](../core-refinement/arch.md) §5 item 10 **Directory reconcile** points here. Ticket: [01 — Directory body home](issues/01-directory-parse-body-home.md).
 
 19. **Two locks stand together**
     1. [x] **Handoff** — The git-pull handoff stands.
@@ -149,7 +149,7 @@ Sequence is module-build. Directory reconcile is in code. Story paths that only 
       5. [x] **Pop skip** — A Parsed node skips work. Rule: [core-refinement architecture](../core-refinement/arch.md) §5 item 11.
       6. [x] **ParseFinished** — Directory Parse done adds InMsg ParseFinished through the private function. The core loop sets that Directory Node Parsed only through `GraphMutate.setParseState`. PersistState stays unchanged. Rule: [core-refinement architecture](../core-refinement/arch.md) §5 item 6 and §10 Core loop.
       7. [x] **Load axis** — Client Load on Directory stays §5 item 8.
-      8. [x] **Reconcile rule** — Directory reconcile is defined in this item. [core-refinement architecture](../core-refinement/arch.md) §5 item 10 **Directory reconcile** is the deferred pointer. Lock: [01 — Directory body home](issues/01-directory-parse-body-home.md).
+      8. [x] **Reconcile rule** — Directory reconcile is defined in this item. [core-refinement architecture](../core-refinement/arch.md) §5 item 10 **Directory reconcile** points here. Lock: [01 — Directory body home](issues/01-directory-parse-body-home.md).
       9. [x] **Locks** — Workspace lock and member locks stay §6. Directory reconcile does not take them.
       10. [x] **Claim** — [Parse and persist](../../doc/current/parse-persist.md) holds the Should Become claim.
 
@@ -172,8 +172,6 @@ Sequence is module-build. Directory reconcile is in code. Story paths that only 
 
 ## 5. Unsettled
 
-1. **Directory reconcile acceptance** — §2 Module map, item 1 **Directory reconcile** names the walk, missing File Nodes, and disk-newer Unparsed. The coding ticket is [05 — Directory reconcile](issues/05-directory-reconcile.md), Status `coded`.
+1. **Directory reconcile acceptance** — §2 Module map, item 1 **Directory reconcile** names the walk, missing File Nodes, and disk-newer Unparsed. The coding ticket is [05 — Directory reconcile](issues/05-directory-reconcile.md), Status `coded`. Child Directory Unparsed stays [07 — Directory Unparsed during reconcile](issues/07-directory-unparsed-during-reconcile.md), Status `defined`.
 2. **Changes from directory reconcile** — The destination says the thread emits Changes. How a Directory reconcile meets Poll is open. See [Parse thread map](map.md) Not yet specified, Changes from directory reconcile. Story path 17 **Emit Changes** records only the existing File Change door.
-3. **Order among Directory targets** — Order among several Directory reconcile targets, apart from Browser wants, is open. See [Parse thread map](map.md) Not yet specified, Order among Directory targets.
-4. **Workspace Load after incoming files** — [03 — Workspace Load after incoming files](issues/03-workspace-load-after-incoming-files.md) stays `defined`. Open: what the parse thread does when the reconcile target is the Workspace Node, what that pass pushes for child Directory Nodes and File Nodes, and how that pass meets structure-match Directory Load.
-5. **Browser want priority versus directory reconcile** — [04 — Browser want priority versus directory reconcile](issues/04-browser-want-priority-versus-directory-reconcile.md) stays `defined`. [browser-residency](../browser-residency/project.md) computes Browser wants. [05 — Selection-scoped Parse after whole-tree git Load](../core-refinement/issues/05-selection-scoped-parse-after-whole-tree-git-load.md) says a selection push has no special priority. Whether a Browser want uses that rule when the other work is Directory reconcile stays on that ticket.
+3. **Browser want priority versus directory reconcile** — [04 — Browser want priority versus directory reconcile](issues/04-browser-want-priority-versus-directory-reconcile.md) stays `defined`. [browser-residency](../browser-residency/project.md) computes Browser wants. [05 — Selection-scoped Parse after whole-tree git Load](../core-refinement/issues/05-selection-scoped-parse-after-whole-tree-git-load.md) says a selection push has no special priority. Whether a Browser want uses that rule when the other work is Directory reconcile stays on that ticket.

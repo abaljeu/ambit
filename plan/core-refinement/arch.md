@@ -42,7 +42,13 @@ Ordered path from §2 Starting point to Target — Server Core. The expand-contr
 2. **Parse stack**
    Charted approach (Alan, 2026-09-30). Same posture as Persist (§3 step 3 Core Persist stack): private stack, public push inside Core, consumer thread waits until push, then calls the existing parse body. Parse setup (stack, push, consumer thread) lives inside [[src/Server/Core]]. Outside Core, including [[src/Server/RouteRegistration.fs]], does not construct Parse, start it, or hold its handles; RouteRegistration may call a Core entry that boots Core, and does not see parse push/consumer. That move is not done; today’s start site is still RouteRegistration (`createPersistenceContext` builds `ParseStack` and calls `ParseThread.start`).
    1. **Expand** — [x] Stand up the one long-lived Parse stack beside today’s Load → Parse / graph-push hop. Product home: [[plan/parse-thread/project.md]]. Core may push reconcile targets. Old hop still runs. See [03 — One Parse thread stack](issues/03-one-parse-thread-stack.md). The background loop that pulls the parse stack and runs the old parse function runs on a separate thread. First use case (Alan, 2026-09-29): an explicit parse command on a file (today’s `ParseFile` / `postParseFile`) — mailbox Load of a File node, push onto the stack, loop runs the old parse body. Ticket: [06 — Explicit parse command on a File (Load)](issues/06-explicit-parse-command-load-file.md) (Status `coded`).
-   2. **Migrate** — [ ] After §3 step 4 **§6 locks catch-up** Expand stands the workspace lock, that lock drains in-flight member file use, then pull (or Upload land) proceeds; arrived files are marked Unparsed; the lock releases; Unparsed starts the parse thread (push onto that stack). Client Load on Directory or File marks Unparsed; File push onto the stack waits on this expand. Selection push has no special priority. See [02 — Git Load: Unparsed then Parse stack](issues/02-git-load-unparsed-then-parse-stack.md), [05 — Selection-scoped Parse after whole-tree git Load](issues/05-selection-scoped-parse-after-whole-tree-git-load.md), and §6 Core locking model. Transport only informs Core; Core owns the lock → Unparsed → parse-thread path. When the parse thread finishes, it adds `InMsg` `ParseFinished` through the private function (§10). It does not edit the graph.
+   2. **Migrate**
+      1. [ ] **Workspace lock handoff** — After §3 step 4 **§6 locks catch-up** Expand stands the workspace lock, that lock drains in-flight member file use, then pull (or Upload land) proceeds; arrived files are marked Unparsed; the lock releases; Unparsed starts the parse thread (push onto that stack). See [02 — Git Load: Unparsed then Parse stack](issues/02-git-load-unparsed-then-parse-stack.md) and §6 Core locking model. Transport only informs Core; Core owns the lock → Unparsed → parse-thread path.
+      2. [ ] **Client Load marks Unparsed** — Client Load on a Directory Node or a File Node marks that node Unparsed. The mailbox Load door accepts a File Node only. It does not mark Unparsed.
+      3. [x] **File push** — Mailbox Load of a File Node pushes that node onto the Parse stack. Selection push has no special priority. Ticket: [06 — Explicit parse command on a File (Load)](issues/06-explicit-parse-command-load-file.md) (Status `coded`). See [05 — Selection-scoped Parse after whole-tree git Load](issues/05-selection-scoped-parse-after-whole-tree-git-load.md).
+      4. [x] **Directory reconcile** — The parse thread runs Directory reconcile for a Directory Node and for a Workspace Node. The walk covers the Directory body. It creates missing File Nodes. A disk-newer File Node is marked Unparsed through `InMsg` `MarkUnparsed` and is pushed. Tickets: [05 — Directory reconcile](../parse-thread/issues/05-directory-reconcile.md) (Status `coded`), [06 — Setting Unparsed, recursive update](../parse-thread/issues/06-setting-unparsed-recursive-update.md) (Status `coded`). Grilling: [03 — Workspace Load after incoming files](../parse-thread/issues/03-workspace-load-after-incoming-files.md) (Status `done`).
+      5. [ ] **Child Directory Unparsed** — A child Directory Node that needs reparse is marked Unparsed on that same reconcile. Ticket: [07 — Directory Unparsed during reconcile](../parse-thread/issues/07-directory-unparsed-during-reconcile.md) (Status `defined`).
+      6. [x] **ParseFinished** — When the parse thread finishes a File Node or a Directory Node, it adds `InMsg` `ParseFinished` through the private function (§10). It does not edit the graph.
    3. **Contract** — [ ] Retire today’s Load → Parse / graph-push hop once every handoff uses the stack. Claim home: [Parse and persist](doc/current/parse-persist.md) (Parse stack claims).
 
 3. **Core Persist stack**
@@ -83,7 +89,7 @@ Implement ticket: [20 — State axes on special nodes](../github-transport/issue
 
 ## 5. Axis-write mechanics
 
-Locked 2026-09-28 (Alan). These rules say who writes each axis and which node they mark. [20 — State axes on special nodes](../github-transport/issues/20-state-axes-on-special-nodes.md) still only adds the markers. It does not start workers. Items marked deferred wait for the Parse loop. Claim home: [Workspace graph](doc/current/graph.md) (Document state). Axis-write rules stay in this section. The current page does not copy them. `InMsg` on the one mailbox queue is locked 2026-10-01 (Alan). A private function adds `InMsg`. A public function adds `CoreMsg`. The queue puller hands the item to its handler. State, Interface, and Uses are §10 **Core loop**. Claim home: [Mailbox](doc/current/mailbox.md). The thread post is [Parse and persist](doc/current/parse-persist.md). Those pages do not copy this section.
+Locked 2026-09-28 (Alan). These rules say who writes each axis and which node they mark. [20 — State axes on special nodes](../github-transport/issues/20-state-axes-on-special-nodes.md) still only adds the markers. It does not start workers. Claim home: [Workspace graph](doc/current/graph.md) (Document state). Axis-write rules stay in this section. The current page does not copy them. `InMsg` on the one mailbox queue is locked 2026-10-01 (Alan). A private function adds `InMsg`. A public function adds `CoreMsg`. The queue puller hands the item to its handler. State, Interface, and Uses are §10 **Core loop**. Claim home: [Mailbox](doc/current/mailbox.md). The thread post is [Parse and persist](doc/current/parse-persist.md). Those pages do not copy this section.
 
 1. **Writer target** — The core loop writes the axes on the live graph. The parse thread and the persist thread enqueue an axis completion. They do not edit the graph. Until the loop owns every axis write, set the axes at today’s file-edit sites and graph-edit sites.
 2. **Graph edit** — Mark the nearest owning special node (File Node, Directory Node, or Workspace Node) **Unpersisted** only. Do not mark ancestors.
@@ -93,9 +99,9 @@ Locked 2026-09-28 (Alan). These rules say who writes each axis and which node th
 6. **Directory Parse done** — Mark that Directory Node **Parsed** only. The parse thread adds `InMsg` `ParseFinished` through the private function. **Core loop** applies it (§10). That completion does not change PersistState.
 7. **Create special** — A new special node starts **Unparsed** and **Persisted**.
 8. **Client Load on Directory** — Mark the Directory Node **Unparsed** (re-process). Reconciliation with no extra info can spot disk members the Graph lacks.
-9. **Client Load on File** — Mark the File Node **Unparsed**. Push onto the Parse stack is deferred. That push needs the Parse loop.
-10. **Directory reconcile** (deferred) — [Parse thread](../parse-thread/project.md) owns this. Definition: [Parse thread architecture](../parse-thread/arch.md) §2 Module map, item 1 **Directory reconcile**. Walks all nodes tied to that `.amb`, not only immediate children. Create missing File Nodes. Disk-newer marks the File Node **Unparsed** through `InMsg` `MarkUnparsed` and pushes when the stack exists. A Directory Node that needs reparse is marked **Unparsed** on that same reconcile. Ticket: [07 — Directory Unparsed during reconcile](../parse-thread/issues/07-directory-unparsed-during-reconcile.md).
-11. **Parse stack pop** (deferred) — If the node is already **Parsed**, skip. Real work arrives **Unparsed**.
+9. **Client Load on File** — Mark the File Node **Unparsed**. Mailbox Load of a File Node pushes that node onto the Parse stack. That push is coded. Ticket: [06 — Explicit parse command on a File (Load)](issues/06-explicit-parse-command-load-file.md) (Status `coded`). The Unparsed mark on that Load is not coded.
+10. **Directory reconcile** — [Parse thread](../parse-thread/project.md) owns this. Definition: [Parse thread architecture](../parse-thread/arch.md) §2 Module map, item 1 **Directory reconcile**. The walk, missing File Nodes, disk-newer File **Unparsed** through `InMsg` `MarkUnparsed`, and push are coded. Tickets: [05 — Directory reconcile](../parse-thread/issues/05-directory-reconcile.md) (Status `coded`), [06 — Setting Unparsed, recursive update](../parse-thread/issues/06-setting-unparsed-recursive-update.md) (Status `coded`). A Workspace Node uses the same reconcile. Grilling: [03 — Workspace Load after incoming files](../parse-thread/issues/03-workspace-load-after-incoming-files.md) (Status `done`). A child Directory Node that needs reparse is not coded. Ticket: [07 — Directory Unparsed during reconcile](../parse-thread/issues/07-directory-unparsed-during-reconcile.md) (Status `defined`).
+11. **Parse stack pop** — If the node is already **Parsed**, the parse thread skips it. Real work arrives **Unparsed**. That skip is coded.
 12. **InMsg** — The internal message type is `InMsg` on **Core loop** (§10). It is not an Op. Cases: `ParseFinished`, `SnapshotDone`, `MarkUnparsed`.
 13. **One mailbox queue** — The mailbox has one queue. A private function adds `InMsg`. A public function adds `CoreMsg`. The queue puller hands a `CoreMsg` to the `CoreMsg` handler and an `InMsg` to the `InMsg` handler. There is no second queue. The puller file is `src/Server/Core/CoreMailboxBackend.fs`. The private function is on the mailbox, `src/Server/Core/CoreMailbox.fs`.
 14. **Private axes** — PersistState and the parsed axis stay internal. The writer interface is **Core loop** (§10).
@@ -153,7 +159,13 @@ Sequence stays `expand-contract`. These paths are that implementation sequence. 
 
 2. **Parse stack**
    1. [x] **Expand** — One parse thread consumes one Parse stack. [03 — One Parse thread stack](issues/03-one-parse-thread-stack.md).
-   2. [ ] **Migrate** — Unparsed starts the parse thread after the workspace lock releases.
+   2. **Migrate**
+      1. [ ] **Workspace lock** — Unparsed starts the parse thread after the workspace lock releases.
+      2. [ ] **Client Load Unparsed** — Client Load on a Directory Node or a File Node marks that node Unparsed.
+      3. [x] **File push** — Mailbox Load of a File Node pushes onto the Parse stack.
+      4. [x] **Directory reconcile** — Directory reconcile walks the Directory body, creates missing File Nodes, marks a disk-newer File Node Unparsed through `InMsg` `MarkUnparsed`, and pushes that File Node. A Workspace Node uses the same reconcile.
+      5. [ ] **Child Directory Unparsed** — A child Directory Node that needs reparse is marked Unparsed on that same reconcile. Ticket: [07 — Directory Unparsed during reconcile](../parse-thread/issues/07-directory-unparsed-during-reconcile.md) (Status `defined`).
+      6. [x] **ParseFinished** — File parse and Directory reconcile add `InMsg` `ParseFinished` through the private function.
    3. [ ] **Contract** — Load uses that stack.
 
 3. **Persist stack**
@@ -178,7 +190,9 @@ Sequence stays `expand-contract`. These paths are that implementation sequence. 
 
 7. **InMsg**
    1. [x] **Expand** — The mailbox queue accepts `InMsg` through a private function, beside the public function that adds `CoreMsg`.
-   2. [ ] **Migrate** — The parse thread and the persist thread add `InMsg` through the private function. The queue puller hands each item to its handler. **Core loop** applies `InMsg`.
+   2. **Migrate**
+      1. [x] **Parse thread** — The parse thread adds `InMsg` `ParseFinished` and `InMsg` `MarkUnparsed` through the private function. **Core loop** applies that `InMsg`.
+      2. [ ] **Persist thread** — The persist thread adds `InMsg` `SnapshotDone` through the private function.
    3. [x] **Contract** — `CoreMsg` has no `SnapshotDone`. `Op.SetPersistState` is not a writer. `Op.SetDocumentState` is not the writer of the parsed axis.
 
 ### Shared segments
@@ -231,7 +245,7 @@ Deltas for this Project. Claim homes: [Mailbox](doc/current/mailbox.md) and [Par
    1. **State**
       1. [x] **No queue** — The parse thread does not hold the mailbox queue.
    2. **Interface**
-      1. [ ] **Add** — On finish it adds `InMsg` `ParseFinished` for that node through the private function. It does not edit the graph.
+      1. [x] **Add** — On finish it adds `InMsg` `ParseFinished` for that node through the private function. It does not edit the graph.
       2. [x] **Mark unparsed** — For a disk-newer File Node it adds `InMsg` `MarkUnparsed` through the private function. It does not edit the graph.
    3. **Uses**
       1. [x] **Private add** — The private function on the mailbox.
