@@ -13,32 +13,36 @@ This file records the Destination, the Notes that still stand, and Alan's later 
 
 ### 2. Solution
 
-1. **Two phases** — Find is a two-phase fulfillment of the existing client search. Every keypress recomputes on the client only and updates the dialog immediately. That local incremental search stays. No server message goes out on a keypress. After the search text has been unchanged for a short quiet gap, one server request completes the picture. There is no later page.
-2. **Quiet gap** — The server request fires once, after that short quiet gap. This spec does not name a millisecond value. If the text changes before the gap ends, the request is not sent. If the client already has 200 hits, the request is not sent. A reply for an older search string is ignored. The reply matches the search text, or an equivalent generation of that text. This quiet gap is a lock.
-3. **One backend** — One server backend serves both Find and Move. Move has no separate server path and no separate Actor. File search is out of this spec. This shared backend is a lock.
-4. **Want-fulfillment** — If the server finds N items, the Find dialog shows them. Move shows that same N when it uses this dialog. That showing is Want-fulfillment. The way a found-Node list rides Want is a proposed design in [arch](arch.md). It is not a lock.
-5. **Duplicates** — A client hit and a server hit are the same when they share a Node id. The one server request asks only for hits the client does not already have. The start message carries those Node ids. The second phase drops duplicates on Node id.
-6. **Cap of 200** — The combined result stops at 200. Find and Move share that cap. There is no paging. There is no continuation cursor. This cap is a lock.
-7. **Trash** — Search skips trash unless it starts at the trash node. The trash node is TRASH.
-8. **Move** — Move is in this spec. Find shows the hit list in the dialog. Move shows that same list when it recomputes on each keypress. Both use the same server request, the same quiet gap, the same cap of 200, the same dedup on Node id, and the same trash rule. File search is not in this spec.
+1. **Open stays local** — The Find dialog opens on a local search and shows N hits. While the globe is not selected, each keypress recomputes on the client and updates the dialog immediately. A keypress then sends no server message.
+2. **Globe** — When N is under 200, the globe on the search bar can request the server. When N is 200, that request is not sent. There is no later page. This globe is a lock. A quiet gap does not start the server.
+3. **Replace** — When the search text is unchanged, the server reply replaces the client list. A reply for an older search string does not replace the list. The reply matches the search text, or an equivalent generation of that text.
+4. **Edit follows the globe** — When the person edits the text, the search is local when the globe is not selected. The search is a server search when the globe is selected.
+5. **One backend** — One server backend serves both Find and Move. Move has no separate server path and no separate Actor. File search is out of this spec. This shared backend is a lock.
+6. **Want-fulfillment** — If the server finds N items, the Find dialog shows that server list. Move shows that same list when it uses this search. That showing is Want-fulfillment. The way a found-Node list rides Want is a proposed design in [arch](arch.md). It is not a lock.
+7. **Node id** — The server list lists each Node id once. The start does not carry the Node ids the client already showed. The reply replaces the client list. It does not add the server hits onto the client list.
+8. **Cap of 200** — The local list stops at 200. The server list stops at 200. Find and Move share that cap. There is no paging. There is no continuation cursor. This cap is a lock.
+9. **Trash** — Search skips trash unless it starts at the trash node. The trash node is TRASH.
+10. **Move** — Move uses this same search. Find shows the hit list in the dialog. Move shows that same list. Both use the globe, the same server request, the same cap of 200, the same Node id list, and the same trash rule. File search is not in this spec.
 
 ### 3. User Stories
 
-1. **Keypress stays local** — As a person, I want each keypress to recompute Find on the client and update the dialog immediately, so that typing does not wait on the server.
-2. **Quiet gap** — As a person, I want one server request after the search text has been unchanged for a short quiet gap, so that the server completes the picture once the text has settled.
-3. **Text change holds the request** — As a person, I want a text change before the quiet gap ends to withhold the server request, so that a keypress does not send a message.
-4. **Already 200** — As a person, I want no server request when the client already has 200 hits, so that the combined result stops at 200.
-5. **Stale reply** — As a person, I want a server reply for an older search string to be ignored, so that the dialog shows hits for the text I see now.
-6. **Duplicates on Node id** — As a person, I want the server request to ask only for hits whose Node ids I do not already have, so that the dialog lists each Node once.
-7. **Cap of 200** — As a person, I want the combined Find result to stop at 200 hits, so that a short keystroke such as the letter e does not return the whole Graph.
-8. **Skip trash** — As a person, I want search to skip trash, so that an ordinary search stays out of deleted Nodes.
-9. **Start at the trash node** — As a person, I want search to include trash when it starts at the trash node TRASH, so that a search that starts there can see trash.
-10. **Dialog shows server hits** — As a person, I want the Find dialog to show the N items the server finds, so that the server answer is visible.
-11. **Move uses the same search** — As a person, I want Move, when it recomputes on each keypress the same way, to show that same hit list through the same server request, so that Move shares Find's backend, quiet gap, cap of 200, dedup on Node id, and trash rule.
+1. **Open stays local** — As a person, I want the Find dialog to open on a local search and show N hits, so that I see the Nodes the Browser already holds.
+2. **Keypress stays local** — As a person, I want each keypress to recompute on the client while the globe is not selected, so that typing does not wait on the server.
+3. **Globe** — As a person, I want the globe on the search bar to request the server when N is under 200, so that I can ask for the server list.
+4. **Already 200** — As a person, I want no server request when the local list already has 200 hits, so that the list stops at 200.
+5. **Replace** — As a person, I want the server reply to replace the client list when the search text is unchanged, so that the dialog shows the server list.
+6. **Stale reply** — As a person, I want a server reply for an older search string to leave the list, so that the dialog shows hits for the text I see now.
+7. **Edit follows the globe** — As a person, I want an edit to run a local search when the globe is not selected, and a server search when the globe is selected, so that the globe chooses the search.
+8. **Node id** — As a person, I want the server list to show each Node id once, so that the dialog does not list one Node twice.
+9. **Cap of 200** — As a person, I want each Find list to stop at 200 hits, so that a short keystroke such as the letter e does not return the whole Graph.
+10. **Skip trash** — As a person, I want search to skip trash, so that an ordinary search stays out of deleted Nodes.
+11. **Start at the trash node** — As a person, I want search to include trash when it starts at the trash node TRASH, so that a search that starts there can see trash.
+12. **Dialog shows server hits** — As a person, I want the Find dialog to show the server list in place of the client list, so that the server answer is the list I see.
+13. **Move uses the same search** — As a person, I want Move to use this same search, so that Move shares the globe, the cap of 200, the Node id list, and the trash rule.
 
 ### 4. Out of Scope
 
-1. **Dialog UI** — Layout and controls of the Find dialog are out of scope for this Search spec.
+1. **Dialog layout** — Layout of the Find dialog is out of scope for this Search spec. The globe on the search bar is in this spec.
 2. **Query spec** — The query expression is [§2 Query spec](#2-query-spec) in this file.
 3. **File search** — File search is out of scope for this Search spec.
 4. **Expression catalog** — Expression syntax and the catalog stay on [expression language](plan/expression-language/project.md).
@@ -47,16 +51,15 @@ This file records the Destination, the Notes that still stand, and Alan's later 
 7. **Search zoom select** — Zoom framing on a Find pick stays on [search zoom select](plan/search-zoom-select/project.md).
 8. **Selective client loading** — That done project stays [selective client loading](plan/selective-client-loading/project.md).
 9. **Paging** — Paging, a continuation cursor, and a resume-when-the-dialog-asks bound are out of scope for this Search spec.
-10. **Keypress message** — A server message on a keypress is out of scope for this Search spec.
-11. **Quiet-gap duration** — A millisecond length for the short quiet gap is out of scope for this Search spec.
+10. **Quiet gap** — An automatic server request after a quiet gap is out of scope for this Search spec. The globe requests the server.
 
 ### 5. Further Notes
 
-1. **Duplicate identity** — Locked here as Node id. [04 — Duplicate hit identity](issues/04-duplicate-hit-identity.md) is not resolved by this spec.
-2. **Cap of 200** — The combined Find and Move result stops at 200 on the shared backend. The earlier screen-plus-a-page bound is dropped.
-3. **Quiet gap** — One server request follows a short quiet gap. The gap has no millisecond value in this spec. The reply matches the current search text, or an equivalent generation.
+1. **Node id** — The server list lists each Node id once. [04 — Duplicate hit identity](issues/04-duplicate-hit-identity.md) is not resolved by this spec. [08 — Duplicates on Node id](issues/08-duplicates-on-node-id.md) is superseded by [21 — Globe requests the server](issues/21-globe-requests-the-server.md).
+2. **Cap of 200** — The local list stops at 200. The server list stops at 200. The earlier screen-plus-a-page bound is dropped. The earlier combined client-plus-server list is dropped.
+3. **Globe** — The globe on the search bar requests the server when N is under 200. The reply replaces the client list when the search text is unchanged. An edit follows the globe. There is no quiet gap. See [map](map.md) Decisions so far item 10 **Globe**.
 4. **Trash start** — The search starts in trash when it starts at the trash node TRASH.
-5. **Move** — Move is in this spec when it recomputes on each keypress the same way Find does. Find and Move share one server backend. File search is not.
+5. **Move** — Move uses this same search. Find and Move share one server backend. File search is not.
 6. **Query** — A query is one server evaluation when the line runs. It is not a message per key. See [§2 Query spec](#2-query-spec).
 7. **Proposed mechanisms** — The Want ride stays a proposed design in [arch](arch.md). Next and Page are not part of this spec.
 8. **One spec file** — Both specs live in this file. See [map](map.md) Decisions so far item 1 **One spec file**.
@@ -65,7 +68,7 @@ This file records the Destination, the Notes that still stand, and Alan's later 
 11. **Vocabulary** — Say event source. Say Server git Actor for that git Actor. Do not say CAS. Do not say Peer.
 12. **Root only** — Search does not take a focus. The server walk uses the root as the zoom. Actor Start supplies the root and the full server Graph. `zoomId`, `commandId`, and `graphIds` are the root. The shared `focusId` field holds that same root so ActorStop can pair with the start. Search does not read a dialog focus or a server focus.
 13. **Search Actor door** — Find and Move use `Api.SearchActorDoor`. The fields are `changes`, `recordStart`, and `recordStop`. `changes` reads State. `recordStart` records ActorStart. The mailbox case is `RecordSearchStart`. `recordStop` is a message to the queue. The mailbox case is `RecordSearchStop`. The queue puts ActorStop on the event source. The id is the root.
-14. **Start fields** — The request carries `text`. It may carry `generation` for the reply match. It carries `startId`. The walk does not use `startId` as a zoom or a focus. The zoom is the root. Shown Node ids are not on this request yet.
+14. **Start fields** — The request carries `text`. It may carry `generation` for the reply match. It carries `startId`. The walk does not use `startId` as a zoom or a focus. The zoom is the root. The start does not carry shown Node ids.
 
 ## 2. Query spec
 
@@ -106,7 +109,7 @@ This file records the Destination, the Notes that still stand, and Alan's later 
 7. **Selective client loading** — That done project stays [selective client loading](plan/selective-client-loading/project.md).
 8. **Owned results** — Owned Children under the query line are out of scope for this Query spec. Results are Refs.
 9. **Paging** — Paging and a continuation cursor are out of scope for this Query spec.
-10. **Quiet gap** — The Find quiet gap is out of scope for this Query spec. Query runs when the line runs.
+10. **Find globe** — The Find globe is out of scope for this Query spec. Query runs when the line runs.
 
 ### 5. Further Notes
 

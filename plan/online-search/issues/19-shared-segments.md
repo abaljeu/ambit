@@ -10,13 +10,13 @@ Find, Move, and Query each have their own story path. The person still sees one 
 
 ## What to build
 
-Find and Move share one walk off the mailbox, after the quiet gap, and that walk posts one reply and stops. The walk is the client search algorithm. Query starts its own Actor when the line runs, posts one reply, and posts the Ref Replace on the event source. Each reply holds at most 200 Node ids. A query function may stop under 200.
+Find and Move share one walk off the mailbox. The globe starts that walk when N is under 200. An edit starts a server search when the globe is selected. That walk posts one reply and stops. The walk is the client search algorithm. Query starts its own Actor when the line runs, posts one reply, and posts the Ref Replace on the event source. Each reply holds at most 200 Node ids. A query function may stop under 200.
 
 ### 1. Search Actor
 
 **Search Actor** state stays on [Online search architecture](plan/online-search/arch.md) §2 item 1. The clear-fast rule is [Core mailbox messages clear fast](doc/Decisions/0004-core-mailbox-messages-clear-fast.md).
 
-1. [ ] Actor thread — The walk runs on the shared Find and Move Actor, off the mailbox. Find and Move start that Actor once, after the quiet gap, not on a keypress. The walk is the client search algorithm. The Actor posts one reply and stops.
+1. [ ] Actor thread — The walk runs on the shared Find and Move Actor, off the mailbox. The globe starts that Actor when N is under 200. An edit starts a server search when the globe is selected. A keypress does not start the Actor when the globe is not selected. The walk is the client search algorithm. The Actor posts one reply and stops.
 2. [ ] Cap — The reply holds at most 200 Node ids.
 3. [ ] Want nodes — Those Node ids ride the existing Want answer `nodes` list. **Want nodes for hits** stays the proposed design in [Online search architecture](plan/online-search/arch.md) §2 item 3.
 

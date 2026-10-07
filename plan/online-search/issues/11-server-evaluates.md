@@ -10,7 +10,7 @@ A person runs a query line such as `= root descendants with name like "Bob"`. Th
 
 ## What to build
 
-The Query Actor evaluates the query once, when the line runs, then stops. A keypress does not start this Actor. Query keeps its own Actor. It does not use the Find quiet gap.
+The Query Actor evaluates the query once, when the line runs, then stops. A keypress does not start this Actor. Query keeps its own Actor. It does not use the Find globe.
 
 ### 1. Query Actor
 
@@ -18,7 +18,7 @@ State, Interface, and Uses for **Query Actor** stay on [Online search architectu
 
 1. [ ] Server Graph — The Query Actor evaluates the query on the server Graph once, when the line runs. The Actor then stops.
 2. [ ] Not a keypress — A keypress does not start this Actor.
-3. [ ] Own Actor — Query starts its own Actor in `src/Server/SearchActor.fs`. It does not use the Find and Move Actor or that quiet gap.
+3. [ ] Own Actor — Query starts its own Actor in `src/Server/SearchActor.fs`. It does not use the Find and Move Actor or the Find globe.
 
 ## See also
 
