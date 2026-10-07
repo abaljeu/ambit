@@ -80,6 +80,7 @@ Entry shapes and test seam: arch Story path **Outside Core lifecycle proof** and
 
 ## Comments
 
+- 2026-10-07 — Continued on core-refinement pointer [17 — Pointer: Prove TestActor hello](../../core-refinement/issues/17-pointer-prove-testactor-hello.md). This file stays history; do not chart or implement from here. Ownership moved with the Solid-core v1 lock (Alan).
 - 2026-09-11 — Dispatch itself is [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]]. That ticket owns command text `?test hello`.
 - 2026-09-11 — Hello uses the universal `{ nodes; events; latestId }` response. It does not use `CoreChangesAccepted`. TestActor receives the secret credential; after ActorFinished the outer fact proves that secret no longer admits a post.
 - 2026-09-12 — Alan locked the first user-visible augmentation as existing Browser Run through one-Node Command transport, named Actor dispatch, and TestActor hello. The same current Node is Command, Zoom root, and Focus.

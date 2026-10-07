@@ -11,7 +11,7 @@ A standing Roadmap that answers “what should I work on next.” Completing it 
 
 (Mutable section. Replace this section when the near-term aim changes; do not append.)
 
-Solid product core via [[epics/robust-outliner.md]], with detailed Core work in [[plan/core-creation/project.md]]. Grow by pull in / organize / send out. First inbound example: **Agent messages into the outline** (not a generic chat UI) via [[plan/llm-connector/project.md]]. Connected-channel first Chapter: **Ambit as bot DM channel** ([[epics/operate-connected-channels.md]], [[plan/bot-channel/project.md]]); mail stays later.
+Solid product core via [[epics/robust-outliner.md]]: **v1 built** ([[plan/core-creation/project.md]] Stage `done`; Chapter [[epics/chapters/initial-core.md]] met). **v2 live** Core-seam: [[plan/core-refinement/project.md]] ([[plan/core-refinement/arch.md]]); leftovers continue as pointers 08–17. Epic current Chapter: [[epics/chapters/actors-supported.md]]. Grow by pull in / organize / send out. First inbound Agent path [[plan/llm-connector/project.md]] is Stage done. Connected-channel first Chapter: **Ambit as bot DM channel** ([[epics/operate-connected-channels.md]], [[epics/chapters/ambit-as-bot-dm-channel.md]], [[plan/bot-channel/project.md]]); mail stays later. Present Find / Search work: [[plan/online-search/project.md]] (Ambot implement; Chapter home [[epics/chapters/find-what-i-wrote.md]]).
 
 ## Notes
 
@@ -29,7 +29,7 @@ Solid product core via [[epics/robust-outliner.md]], with detailed Core work in 
 - Work on **dev**; promote finished work to **ready**. Plan by default on this map except when invoking a named feature-set Project. Do not write per-project git notes.
 - Epics are parallel (order inside a Stage does not rank them). Continue from recent work: that Epic, its current Chapter (or live Required for done when no Chapter is charted), then pointed Project/issue status. Present that path as choices. Do not auto-pick. Offer a Developer Epic Chapter when that Epic has one.
 - Documentation wikis: [[plan/end-user-wiki/map.md]], [[plan/marketing-wiki/map.md]], [[plan/architecture/map.md]]. An Epic is not done until the wiki portions about that Epic are done. Architecture’s remainder is also Required on [[epics/robust-outliner.md]].
-- [[epics/robust-outliner.md]] sequences the Solid core bar. [[plan/core-creation/project.md]] owns Core design and implementation. [[plan/event-sourced-ops/project.md]] owns Parse and advisory soft-lock concerns. The Epic also sequences incremental operations.
+- [[epics/robust-outliner.md]] sequences the Solid core bar. [[plan/core-creation/project.md]] is v1 built (Stage `done`; Initial Core Chapter met). [[plan/core-refinement/project.md]] is v2 live Core-seam (pointers 08–17 for leftovers). [[plan/parse-thread/project.md]] owns continuous Parse/Persist product threads. [[plan/event-sourced-ops/project.md]] owns merge semantics, Parse File tracer, and advisory soft-lock. Current Chapter: [[epics/chapters/actors-supported.md]].
 
 ## Epics
 
@@ -43,9 +43,9 @@ Grouped by Stage. Order inside a Stage does not matter.
 - [[epics/manage-a-project.md]] — Manage a project (current: [[epics/chapters/status.md]])
 - [[epics/operate-a-pkm.md]] — Operate a PKM (current: [[epics/chapters/find-what-i-wrote.md]])
 - [[epics/agent-chat-managed-context.md]] — Agent chat with managed context (current: [[epics/chapters/ask-from-what-i-see.md]])
-- [[epics/operate-connected-channels.md]] — Operate connected channels (no Chapter yet)
+- [[epics/operate-connected-channels.md]] — Operate connected channels (current: [[epics/chapters/ambit-as-bot-dm-channel.md]])
 - [[epics/organize-huge-outlines.md]] — Organize Huge Outlines (Developer Epic; no Chapter to chart)
-- [[epics/robust-outliner.md]] — Robust outliner (Developer Epic; current: [[epics/chapters/initial-core.md]])
+- [[epics/robust-outliner.md]] — Robust outliner (Developer Epic; current: [[epics/chapters/actors-supported.md]])
 - [[epics/process-improvement.md]] — Process improvement (Developer Epic; no Chapter to chart)
 
 ## Decisions so far
@@ -70,6 +70,9 @@ Grouped by Stage. Order inside a Stage does not matter.
 - [Grill Cursor-repo to Ambit LLM use onto Epics](plan/roadmap/issues/13-grill-cursor-repo-to-ambit-llm-use.md) — one Chapter **Ambit keeps consistency with desktop repo for Agentic work** on [[epics/agent-chat-managed-context.md]]; depends on **Ask from what I see** and documents auto-upload/download; **Agent** in .
 - Work board retired 2026-09-02. No live [[WORK.md]]. Discovery is each Project's `project.md` plus issue Status plus wayfinder frontier. Recorded here; no Roadmap issue file. Cleanup Project: [[plan/work-board-cleanup/project.md]] (rename of work-board-audit).
 - Operate connected channels User Epic from locked definition (2026-09-03). Connect plus operate; mail is first channel in framing, not the title. No Chapter file yet. Recorded here; no Roadmap issue file.
+- 2026-10-07: Alan approved: home [[plan/online-search/project.md]] on Chapter [[epics/chapters/find-what-i-wrote.md]] Required (Ambot keeps implement / server Search Want-fulfillment). Incremental-operations note cross-refs that Chapter; search hydration stays Browser residency. Do not edit `plan/online-search/` from roadmap sessions. Recorded here; no Roadmap issue file.
+- 2026-10-07: Alan approved: [[plan/workspace-git/project.md]] Stage dead; prior home superseded by [[plan/github-transport/project.md]] / Chapter [[epics/chapters/send-to-and-from-github.md]]. Recorded here; no Roadmap issue file.
+- 2026-10-07: Alan lock: solid core built via [[plan/core-creation/project.md]] (v1 implemented, Stage `done`); [[plan/core-refinement/project.md]] is v2. Chapter [[epics/chapters/initial-core.md]] Required met; Epic current Chapter [[epics/chapters/actors-supported.md]]. Leftover core-creation issues continue as pointer tickets [[plan/core-refinement/issues/08-pointer-core-actor-pool.md]]–[[plan/core-refinement/issues/17-pointer-prove-testactor-hello.md]]. Recorded here; no Roadmap issue file.
 
 ## Not yet specified
 

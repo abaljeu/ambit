@@ -26,6 +26,7 @@ Succeeded, Failed, and Cancelled are Core-only terminal messages. The first term
 
 ## Comments
 
+- 2026-10-07 — Continued on core-refinement pointer [13 — Pointer: Finish and drop](../../core-refinement/issues/13-pointer-finish-and-drop.md). This file stays history; do not chart or implement from here. Ownership moved with the Solid-core v1 lock (Alan).
 - 2026-09-19 — Housekeeping pass: Succeeded/Failed/Cancelled + drop are in use on staging, but **Restart Interrupted** for unmatched ActorStarted is not verified here. Status stays `defined` until that checkbox is proven or explicitly waived.
 - 2026-09-11 — Review of the first delivery: failed stop does not enqueue delete-actor; pool is a second mailbox. Do not patch in place. Product rewound. Notes: [[../reports/actor-pool-rewind-review.md]].
 - 2026-09-11 — [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] replaced delete-only finish and no-result assumptions with durable ActorFinished, safe failure, Interrupted recovery, and terminal-before-drop order. Proof belongs to [[plan/core-creation/issues/27-prove-core-actor-lifecycle-with-testactor.md]].

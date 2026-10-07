@@ -22,6 +22,7 @@ Implement launch and Focus registration from [[plan/llm-connector/issues/07-lock
 
 ## Comments
 
+- 2026-10-07 — Continued on core-refinement pointer [12 — Pointer: Launch Actor (Focus registration)](../../core-refinement/issues/12-pointer-launch-actor-and-hold-span.md). This file stays history; do not chart or implement from here. Ownership moved with the Solid-core v1 lock (Alan).
 - 2026-09-06 — Implementation started on `dev`.
 - 2026-09-06 — Delivered Core Actor pool launch, span extract, never-reused public number, send credential in the Actor and the Core set, overlap refuse, and lock-present overlay on live Nodes. Node JSON, History Changes, and projection SQL rows omit lock. HTTP Command launch, query, cancel, and Browser lock UI stay 16–22. See [[plan/core-creation/reports/commit-14-implement-15.md]].
 - 2026-09-11 — Reconciled with [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]]. Credential and registry responsibility remain relevant. Focus NodeId replaces span membership: refuse only a second live Actor for the same Focus and allow every other extract overlap.
