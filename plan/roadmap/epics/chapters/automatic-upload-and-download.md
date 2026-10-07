@@ -13,10 +13,11 @@ Keep the person's files current on the App and in the Browser. Upload and Downlo
 
 ## Required for done
 
-- [ ] [[plan/transport-layer/project.md]] — chart Workspace file-channel redesign: FETCH (Unparsed → pull → push onto the one Parse thread) and UPDATE (graph edit → Unpersisted → Core Persist stack). Persist is Core async, not an Actor. Parse home stays [[plan/parse-thread/project.md]].
+- [ ] [[plan/transport-layer/project.md]] — chart Workspace file-channel redesign: FETCH (Unparsed → pull → push onto the one Parse thread → Changes → done) and UPDATE (graph edit → Unpersisted → Core Persist stack → push → done). Keep-files-current outbound is UPDATE = Persist (Graph → text) then push, not a separate auto-upload Project. Persist is Core async, not an Actor. Parse home stays [[plan/parse-thread/project.md]]. Further file-channel implementation is the Projects this chart names.
 - [ ] [[plan/auto-download-persisted-files/project.md]] — auto-download (HITL tabled)
-- [ ] [[plan/roadmap/issues/07-chart-automatic-upload-and-download.md]] — chart auto-upload implementation Project (no Project yet)
+
+Auto-upload as a sibling Project is withdrawn (Alan, 2026-10-07). Remaining outbound work is the transport-layer UPDATE chart above, plus the file-channel implementation Projects that chart names.
 
 ## Notes
 
-This Chapter is keep-files-current. Implemented tree sync is [[doc/current/workspace-file-sync.md]]. Send to and from GitHub is [[send-to-and-from-github.md]]. Pattern home: [[plan/transport-layer/overview.md]]. File-shaped file→Graph stays [[plan/parse-thread/project.md]]. Want-driven Graph→Browser stays [[plan/browser-residency/project.md]].
+This Chapter is keep-files-current. Implemented tree sync is [[doc/current/workspace-file-sync.md]]. Send to and from GitHub is [[send-to-and-from-github.md]]. Pattern home: [[plan/transport-layer/overview.md]]. File-shaped file→Graph stays [[plan/parse-thread/project.md]]. Want-driven Graph→Browser stays [[plan/browser-residency/project.md]]. 2026-10-07: [07 — Chart Automatic upload and download onto Projects](plan/roadmap/issues/07-chart-automatic-upload-and-download.md) is done. It does not chart an auto-upload Project.
