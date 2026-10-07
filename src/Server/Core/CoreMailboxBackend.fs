@@ -459,6 +459,7 @@ module internal CoreMailboxBackend =
                 Ok ()
 
     /// Core loop apply. ParseFinished writes Parsed only.
+    /// MarkUnparsed writes Unparsed only.
     /// SnapshotDone runs snapshot bookkeeping, then sets Persisted.
     let internal applyInMsg
         (persist: PersistHandlers)
@@ -470,6 +471,12 @@ module internal CoreMailboxBackend =
                 GraphMutate.setParseState
                     nodeId
                     ParseState.Parsed
+                    graph)
+        | InMsg.MarkUnparsed nodeId ->
+            writeAxis persist (fun graph ->
+                GraphMutate.setParseState
+                    nodeId
+                    ParseState.Unparsed
                     graph)
         | InMsg.SnapshotDone(nodeId, graph) ->
             persist.snapshotDone graph

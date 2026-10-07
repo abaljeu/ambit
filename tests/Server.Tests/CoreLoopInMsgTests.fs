@@ -79,6 +79,19 @@ let ``ParseFinished sets Parsed and leaves PersistState`` () =
     Assert.Empty(snaps)
 
 [<Fact>]
+let ``MarkUnparsed sets Unparsed and leaves PersistState`` () =
+    let id, initial =
+        fileState PersistState.Unpersisted ParseState.Parsed
+    let state = ref initial
+    let snaps = ResizeArray<Graph option>()
+    apply (handlers state snaps) (InMsg.MarkUnparsed id)
+    let node = state.Value.graph.nodes.[id]
+    Assert.Equal(ParseState.Unparsed, node.parseState)
+    Assert.Equal(Unparsed, node.documentState)
+    Assert.Equal(PersistState.Unpersisted, node.persistState)
+    Assert.Empty(snaps)
+
+[<Fact>]
 let ``SnapshotDone sets Persisted and calls the snapshot handler`` () =
     let id, initial =
         fileState PersistState.Unpersisted ParseState.Parsed

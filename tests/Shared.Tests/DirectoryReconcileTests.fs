@@ -128,6 +128,35 @@ let ``disk-newer file below immediate children is named for push`` () =
         Directory.Delete(dataDir, true)
 
 [<Fact>]
+let ``disk-newer reconcile ops leave the file Current`` () =
+    let dataDir = tempDir ()
+    try
+        let wsId, graph1 = Graph.create () |> addWorkspace "home"
+        let dirId, graph2 = addDirectory graph1 wsId "docs"
+        let fileId, graph3 = addFile graph2 dirId "note.txt"
+        let graph4 =
+            applyOps
+                graph3
+                [ Op.SetDocumentState(fileId, Unparsed, Current) ]
+        let old = DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+        let graph5 = stamp graph4 fileId old
+        let path = writeDisk dataDir "home/docs/note.txt" "newer"
+        File.SetLastWriteTimeUtc(path, DateTime.UtcNow)
+        let planned = plan dataDir graph5 dirId
+        let graph6 = applyOps graph5 planned.ops
+        let setsState =
+            planned.ops
+            |> List.exists (fun op ->
+                match op with
+                | Op.SetDocumentState _ -> true
+                | _ -> false)
+        Assert.False(setsState)
+        Assert.Equal<NodeId>([ fileId ], planned.push)
+        Assert.Equal(Current, graph6.nodes.[fileId].documentState)
+    finally
+        Directory.Delete(dataDir, true)
+
+[<Fact>]
 let ``workspace uses the same directory reconcile`` () =
     let dataDir = tempDir ()
     try

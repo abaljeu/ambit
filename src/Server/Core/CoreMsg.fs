@@ -73,10 +73,11 @@ type internal CoreMsg =
         after: Gambol.Shared.EventId *
         AsyncReplyChannel<Gambol.Shared.EventLog>
 
-/// Internal completion. Not an Op. No public enqueue door.
+/// Internal message. Not an Op. No public enqueue door.
 type internal InMsg =
     | ParseFinished of nodeId: NodeId
     | SnapshotDone of nodeId: NodeId * graph: Graph option
+    | MarkUnparsed of nodeId: NodeId
 
 [<RequireQualifiedAccess>]
 type internal QueueSum =

@@ -10,6 +10,7 @@ type ParseThreadDeps =
       push: NodeId -> unit
       getGraph: unit -> Async<Result<Graph, string>>
       postOps: Op list -> Async<Result<unit, string>>
+      markUnparsed: NodeId -> unit
       finishParse: NodeId -> unit }
 
 /// One long-lived Parse consumer thread: pull stack, run planParseFile
@@ -42,6 +43,7 @@ module ParseThread =
         match posted with
         | Error err -> reportPost err
         | Ok () ->
+            push |> List.iter deps.markUnparsed
             push |> List.iter deps.push
             deps.finishParse nodeId
 

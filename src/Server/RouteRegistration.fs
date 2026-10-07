@@ -71,6 +71,11 @@ module RouteRegistration =
               push = pushParsed
               getGraph = ParseThread.graphFromHost core.host
               postOps = ParseThread.postParseOps parseHandle
+              markUnparsed =
+                fun nodeId ->
+                    CoreMailbox.addInMsg
+                        core.host
+                        (InMsg.MarkUnparsed nodeId)
               finishParse =
                 fun nodeId ->
                     CoreMailbox.addInMsg
