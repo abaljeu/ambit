@@ -18,7 +18,7 @@ Find and Move share one walk off the mailbox. The globe starts that walk when N 
 
 1. [ ] Actor thread — The walk runs on the shared Find and Move Actor, off the mailbox. The globe starts that Actor when N is under 200. An edit starts a server search when the globe is selected. A keypress does not start the Actor when the globe is not selected. The walk is the client search algorithm. The Actor posts one reply and stops.
 2. [ ] Cap — The reply holds at most 200 Node ids.
-3. [ ] Want nodes — Those Node ids ride the existing Want answer `nodes` list. **Want nodes for hits** stays the proposed design in [Online search architecture](plan/online-search/arch.md) §2 item 3.
+3. [ ] Want nodes — Those hit Headers ride the existing Want answer `nodes` list. This ride is a lock. Claim home: [Want nodes for hits](../../doc/current/want-nodes.md).
 
 ### 2. Query Actor
 

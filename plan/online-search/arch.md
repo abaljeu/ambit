@@ -4,7 +4,7 @@ Spec: [spec](spec.md)
 Updated: 2026-10-07
 Sequence: tracer-cut
 
-The Search spec and the Query spec stay separate sections of [spec](spec.md). Both specs live in that file. Dialog UI stays out of scope. File search stays out of scope. Paging and a continuation cursor are out of scope. Locks are in the story paths and in Decisions so far below. Where a mechanism is still a design, the module map marks it **Proposed design**. This architecture does not resolve a ticket. to-arch step 5 is complete for committed Module map items. Each committed module has a doc/current home, and this arch links to it: [Search Actor](../../doc/current/search-actor.md) and [Query Actor](../../doc/current/query-actor.md). Want nodes for hits is a proposed design and has no doc/current home. The Query Actor Ref post is a proposed design and has no doc/current home. The file `src/Server/SearchActor.fs` is the locked home of both Actors.
+The Search spec and the Query spec stay separate sections of [spec](spec.md). Both specs live in that file. Dialog UI stays out of scope. File search stays out of scope. Paging and a continuation cursor are out of scope. Locks are in the story paths and in Decisions so far below. Where a mechanism is still a design, the module map marks it **Proposed design**. This architecture does not resolve a ticket. to-arch step 5 is complete for committed Module map items. Each committed module has a doc/current home, and this arch links to it: [Search Actor](../../doc/current/search-actor.md), [Query Actor](../../doc/current/query-actor.md), and [Want nodes for hits](../../doc/current/want-nodes.md). The Query Actor Ref post is a proposed design and has no doc/current home. The file `src/Server/SearchActor.fs` is the locked home of both Actors.
 
 Vocabulary: say event source. Say Server git Actor for that git Actor. Do not say CAS. Do not say Peer.
 
@@ -16,10 +16,11 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
 4. **Sequence** — tracer-cut.
 5. **Node id** — The identity of a result is the NodeId. The server list lists each Node id once. Answer: [04 — Duplicate hit identity](issues/04-duplicate-hit-identity.md). See item 10 **Globe**.
 6. **Remote query eval** — Query eval is remote. The Query Actor evaluates on the server. Answer: [05 — Query fulfillment while eval stays local](issues/05-query-fulfillment-while-eval-stays-local.md). [14 — Server-side search](plan/expression-language/issues/14-server-side-search.md) is not edited.
-7. **Standing locks** — The cap of 200, the globe on the search bar, the shared Find and Move Actor, no paging, and the trash rules stay locks. The short quiet gap is not a Find lock. Want nodes for hits and the Ref post stay proposed designs.
+7. **Standing locks** — The cap of 200, the globe on the search bar, the shared Find and Move Actor, no paging, the trash rules, and Want nodes for hits stay locks. The short quiet gap is not a Find lock. The Query Ref post stays a proposed design.
 8. **Shared search algorithm** — One search algorithm serves Find and Move. Step 1: the client algorithm stops at 200 hits. That work is [14 — Cap of 200](issues/14-cap-of-200.md) section 1 **Find and Move**. Step 2: the Search Actor reuses that algorithm. Today [startSearch](src/Shared/ViewModelSearch.fs) and [takeResults](src/Shared/ViewModelSearch.fs) take the search text, the zoom, and the Graph. The reply holds up to 200 hits. One reply and no continuation cursor stay a seam. The Find start is item 10 **Globe**. The query cap stays on [14 — Cap of 200](issues/14-cap-of-200.md) section 2 **Query cap** and is blocked by [11 — Server evaluates](issues/11-server-evaluates.md) only.
 9. **Root only** — Search does not take a focus. The server walk uses the root as the zoom. Actor Start supplies the root and the full server Graph. `zoomId`, `commandId`, and `graphIds` are the root. The shared `focusId` field holds that same root so ActorStop can pair with the start.
 10. **Globe** — Alan, 2026-10-07. The Find dialog opens on a local search and shows N hits. When N is under 200, the globe on the search bar can request the server. When the search text is unchanged, the server reply replaces the client list. When the person edits the text, the search is local or server according to whether the globe is selected. This supersedes the quiet-gap Start. [08 — Duplicates on Node id](issues/08-duplicates-on-node-id.md) is superseded by [21 — Globe requests the server](issues/21-globe-requests-the-server.md). The server list lists each Node id once. The start does not carry shown Node ids.
+11. **Want nodes** — Alan, 2026-10-07. A server reply with Find results includes the found Nodes as Want-fulfillment. Those hit Headers ride in the existing Want answer `nodes` list. [installWantAnswer](src/Shared/ResidentProjection.fs) merges that list. There is no new package. Move uses that same reply. The Query Ref post stays a proposed design. Claim home: [Want nodes for hits](../../doc/current/want-nodes.md).
 
 ## 1. Story paths
 
@@ -47,10 +48,10 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
 
 6. **Dialog shows server hits**
    1. [ ] **Show N** — If the server finds N items, the Find dialog shows that server list in place of the client list. Move shows that same list. N is at most 200.
-   2. [ ] **Want nodes** — Proposed design: those hit Headers ride in the existing Want answer `nodes` list. [installWantAnswer](src/Shared/ResidentProjection.fs) merges that list. No new package. See §2 item 3 **Want nodes for hits**.
+   2. [ ] **Want nodes** — Those hit Headers ride in the existing Want answer `nodes` list. [installWantAnswer](src/Shared/ResidentProjection.fs) merges that list. There is no new package. This ride is a lock. See §2 item 3 **Want nodes for hits**. Claim home: [Want nodes for hits](../../doc/current/want-nodes.md).
 
 7. **Move uses the same search**
-   1. [ ] **Same backend** — Move uses this same search. Find shows the hit list in the dialog. Move shows that same list. Both use the globe, the same server request, the same cap of 200, the same Node id list, and the same trash rule. This shared backend is a lock.
+   1. [ ] **Same backend** — Move uses this same search. Find shows the hit list in the dialog. Move shows that same list. Both use the globe, the same server request, the same Want nodes ride, the same cap of 200, the same Node id list, and the same trash rule. This shared backend is a lock.
 
 8. **Insert Refs under the query line**
    1. [ ] **Refs** — Results under the query line are Refs, not Owned Children.
@@ -75,7 +76,7 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
 1. **One reply**
    1. [ ] **Actor thread** — The walk runs on the shared Find and Move Actor, off the mailbox. The globe starts that Actor when N is under 200. An edit starts a server search when the globe is selected. A keypress does not start the Actor when the globe is not selected. The walk is the client search algorithm. Actor Start supplies the root and the full server Graph. The zoom is the root. Search does not take a focus. Query starts its own Actor when the line runs. Each Actor posts one reply and stops. Same clear-fast rule as [Core mailbox messages clear fast](doc/Decisions/0004-core-mailbox-messages-clear-fast.md).
    2. [ ] **Cap** — The reply holds at most 200 Node ids.
-   3. [ ] **Want nodes** — Those Node ids ride the existing Want answer `nodes` list.
+   3. [ ] **Want nodes** — Those hit Headers ride the existing Want answer `nodes` list. This ride is a lock. Claim home: [Want nodes for hits](../../doc/current/want-nodes.md).
 
 2. **Query Change**
    1. [ ] **Ref Change** — Query also posts the Ref Replace on the event source.
@@ -83,7 +84,7 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
 
 ### 14. Test seam
 
-1. [ ] **One result of Node ids** — Proposed design: the narrowest shared point is that one result of at most 200 Node ids. Find and Move tests install it with [installWantAnswer](src/Shared/ResidentProjection.fs). Query tests also expect the Ref Replace under the query line, and a function stop under 200.
+1. [ ] **One result of Node ids** — Find and Move tests install one result of at most 200 Node ids with [installWantAnswer](src/Shared/ResidentProjection.fs). That install is a lock. Claim home: [Want nodes for hits](../../doc/current/want-nodes.md). Query tests also expect the Ref Replace under the query line, and a function stop under 200. The Ref Replace stays a proposed design.
 
 ## 2. Module map
 
@@ -127,30 +128,33 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
       2. [ ] **ExprRun shape** — `ChildNode.reference` as in ExprRun's materialise path. Claim home: [Query Actor](../../doc/current/query-actor.md) Messages.
       3. [ ] **Search Actor** — Query has its own running Actor. It starts when the line runs. It does not use the Find and Move Actor or the Find globe. Claim home: [Query Actor](../../doc/current/query-actor.md) Job and Uses.
 
-3. **Want nodes for hits** — Proposed design, not a lock.
-   The found-Node list uses the Want package that already exists. The list is one reply of at most 200 Node ids, not a page.
+3. **Want nodes for hits** — This ride is a lock.
+   A server reply with Find results includes the found Nodes as Want-fulfillment. Those hit Headers ride in the existing Want answer `nodes` list. There is no new package. The list is one reply of at most 200 Node ids, not a page. Move uses that same reply. The Query Ref post is not this module.
    File: [ResidentProjection](src/Shared/ResidentProjection.fs)
-   This proposed design has no doc/current home.
+   Claim home: [Want nodes for hits](../../doc/current/want-nodes.md)
 
    1. **State**
+      Claim home: [Want nodes for hits](../../doc/current/want-nodes.md) Data.
       1. [ ] **Hit headers** — A hit Node is Resident after install. A hit with no new `childMap` key stays Unloaded for its Children.
    2. **Interface**
+      Claim home: [Want nodes for hits](../../doc/current/want-nodes.md) Interface.
       1. [ ] **nodes** — The result's Nodes are added to the Want answer `nodes` list.
       2. [ ] **childMap** — Ordinary Want edges stay `childMap`. The result does not add a `childMap` key only to carry a hit Header.
       3. [ ] **Install** — [installWantAnswer](src/Shared/ResidentProjection.fs) merges `nodes` and `childMap` as it does today.
    3. **Uses**
+      Claim home: [Want nodes for hits](../../doc/current/want-nodes.md) Uses.
       1. [ ] **Poll** — Post-Event and Poll already carry the Want answer. The one reply uses that carrier.
 
 ## 3. Seams
 
 1. **Want install**
-   1. [ ] Interface on **Want nodes for hits**. Proposed design. [installWantAnswer](src/Shared/ResidentProjection.fs) is the install door. This proposed design has no doc/current home.
+   1. [ ] Interface on **Want nodes for hits**. This ride is a lock. [installWantAnswer](src/Shared/ResidentProjection.fs) is the install door. Claim home: [Want nodes for hits](../../doc/current/want-nodes.md).
 2. **Ref Change**
    1. [ ] Interface on **Query Actor**. Proposed design. The event source applies the Ref Replace. This proposed design has no doc/current home.
 3. **Cap**
    1. [ ] **200** — The client search algorithm stops at 200. The Search Actor uses that same stop. Find and Move share the cap of 200. Query stops at 200. This is a lock. A query function may stop lower. The local list stops at 200. The server list stops at 200. The globe sends no request when the local list already has 200 hits. Claim homes: [Search Actor](../../doc/current/search-actor.md), [Query Actor](../../doc/current/query-actor.md).
 4. **Globe**
-   1. [ ] **Globe on the search bar** — When N is under 200, the globe can request the server. When the search text is unchanged, the reply replaces the client list. An edit follows the globe. A reply for an older search string does not replace the list. This is a lock. Query does not use this seam. Claim homes: [Search Actor](../../doc/current/search-actor.md), [Query Actor](../../doc/current/query-actor.md). [Search](../../doc/current/search.md) still records the coded quiet-gap Start. [21 — Globe requests the server](issues/21-globe-requests-the-server.md) replaces that Start.
+   1. [ ] **Globe on the search bar** — When N is under 200, the globe can request the server. When the search text is unchanged, the reply replaces the client list. An edit follows the globe. A reply for an older search string does not replace the list. This is a lock. Query does not use this seam. Claim homes: [Search Actor](../../doc/current/search-actor.md), [Query Actor](../../doc/current/query-actor.md), [Search](../../doc/current/search.md). [21 — Globe requests the server](issues/21-globe-requests-the-server.md) is the Find start.
 5. **Dialog layout**
    1. **Out of scope** — The Find dialog layout is out of scope. The globe on the search bar is in scope. The dialog does not ask for a next page. While the globe is not selected, each keypress updates the hit list from the client.
 
@@ -160,4 +164,4 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
 2. **New Want type** — A second answer beside `nodes` and `childMap`. [installWantAnswer](src/Shared/ResidentProjection.fs) already merges `nodes`. A second type is a wider interface. This arrangement loses.
 3. **Message per key** — A server request on every keypress. While the globe is not selected, the keypress path stays on the client. That arrangement stays.
 4. **Quiet gap** — One server request after the search text is unchanged, with no globe. Alan replaced that Start with the globe. That arrangement is out.
-5. **Winner** — The dialog opens on a local search and shows N hits. While the globe is not selected, each keypress stays on the client. The client search algorithm stops at 200 hits. When N is under 200, the globe on the search bar can request the server. That request uses the same algorithm on the full server Graph. Actor Start supplies the root and that Graph. The zoom is the root. Search does not take a focus. The reply holds up to 200 hits. When the search text is unchanged, the reply replaces the client list. An edit follows the globe. A reply for an older search string does not replace the list. The server list lists each Node id once. Hit Headers ride the existing `nodes` list. Query is one remote evaluation on its own Actor when the line runs. Sequence is tracer-cut.
+5. **Winner** — The dialog opens on a local search and shows N hits. While the globe is not selected, each keypress stays on the client. The client search algorithm stops at 200 hits. When N is under 200, the globe on the search bar can request the server. That request uses the same algorithm on the full server Graph. Actor Start supplies the root and that Graph. The zoom is the root. Search does not take a focus. The reply holds up to 200 hits. When the search text is unchanged, the reply replaces the client list. An edit follows the globe. A reply for an older search string does not replace the list. The server list lists each Node id once. Hit Headers ride the existing `nodes` list. That ride is a lock. Query is one remote evaluation on its own Actor when the line runs. The Query Ref post stays a proposed design. Sequence is tracer-cut.

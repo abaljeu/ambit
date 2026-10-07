@@ -18,11 +18,11 @@ This file records the Destination, the Notes that still stand, and Alan's later 
 3. **Replace** — When the search text is unchanged, the server reply replaces the client list. A reply for an older search string does not replace the list. The reply matches the search text, or an equivalent generation of that text.
 4. **Edit follows the globe** — When the person edits the text, the search is local when the globe is not selected. The search is a server search when the globe is selected.
 5. **One backend** — One server backend serves both Find and Move. Move has no separate server path and no separate Actor. File search is out of this spec. This shared backend is a lock.
-6. **Want-fulfillment** — If the server finds N items, the Find dialog shows that server list. Move shows that same list when it uses this search. That showing is Want-fulfillment. The way a found-Node list rides Want is a proposed design in [arch](arch.md). It is not a lock.
+6. **Want-fulfillment** — A server reply with Find results includes the found Nodes as Want-fulfillment. Those hit Headers ride in the existing Want answer `nodes` list. [installWantAnswer](src/Shared/ResidentProjection.fs) merges that list. There is no new package. This ride is a lock. Move uses that same reply when it uses this search.
 7. **Node id** — The server list lists each Node id once. The start does not carry the Node ids the client already showed. The reply replaces the client list. It does not add the server hits onto the client list.
 8. **Cap of 200** — The local list stops at 200. The server list stops at 200. Find and Move share that cap. There is no paging. There is no continuation cursor. This cap is a lock.
 9. **Trash** — Search skips trash unless it starts at the trash node. The trash node is TRASH.
-10. **Move** — Move uses this same search. Find shows the hit list in the dialog. Move shows that same list. Both use the globe, the same server request, the same cap of 200, the same Node id list, and the same trash rule. File search is not in this spec.
+10. **Move** — Move uses this same search. Find shows the hit list in the dialog. Move shows that same list. Both use the globe, the same server request, the same Want nodes ride, the same cap of 200, the same Node id list, and the same trash rule. File search is not in this spec.
 
 ### 3. User Stories
 
@@ -37,8 +37,8 @@ This file records the Destination, the Notes that still stand, and Alan's later 
 9. **Cap of 200** — As a person, I want each Find list to stop at 200 hits, so that a short keystroke such as the letter e does not return the whole Graph.
 10. **Skip trash** — As a person, I want search to skip trash, so that an ordinary search stays out of deleted Nodes.
 11. **Start at the trash node** — As a person, I want search to include trash when it starts at the trash node TRASH, so that a search that starts there can see trash.
-12. **Dialog shows server hits** — As a person, I want the Find dialog to show the server list in place of the client list, so that the server answer is the list I see.
-13. **Move uses the same search** — As a person, I want Move to use this same search, so that Move shares the globe, the cap of 200, the Node id list, and the trash rule.
+12. **Dialog shows server hits** — As a person, I want the Find dialog to show the server list in place of the client list, with those hit Headers on the existing Want answer `nodes` list, so that the server answer is the list I see.
+13. **Move uses the same search** — As a person, I want Move to use this same search, so that Move shares the globe, the Want nodes ride, the cap of 200, the Node id list, and the trash rule.
 
 ### 4. Out of Scope
 
@@ -61,7 +61,7 @@ This file records the Destination, the Notes that still stand, and Alan's later 
 4. **Trash start** — The search starts in trash when it starts at the trash node TRASH.
 5. **Move** — Move uses this same search. Find and Move share one server backend. File search is not.
 6. **Query** — A query is one server evaluation when the line runs. It is not a message per key. See [§2 Query spec](#2-query-spec).
-7. **Proposed mechanisms** — The Want ride stays a proposed design in [arch](arch.md). Next and Page are not part of this spec.
+7. **Want nodes** — Find hit Headers ride the existing Want answer `nodes` list. This ride is a lock. See [map](map.md) Decisions so far item 11 **Want nodes**. The Query Ref post stays a proposed design in [arch](arch.md). Next and Page are not part of this spec.
 8. **One spec file** — Both specs live in this file. See [map](map.md) Decisions so far item 1 **One spec file**.
 9. **Research reports** — Reports linked from the research tickets are not accepted Answers.
 10. **Map** — [map](map.md) Decisions so far holds the locks. This spec does not resolve a ticket.
@@ -117,7 +117,7 @@ This file records the Destination, the Notes that still stand, and Alan's later 
 2. **Cap of 200** — The server never returns more than 200 for a query. A query function may stop under 200. This spec does not add expression spelling for that stop.
 3. **Trash function** — The name is `trash`. It works like `root` for reaching trash.
 4. **Refs** — Results under the query line are Refs.
-5. **Proposed mechanisms** — How the found Nodes ride Want, and how the Actor posts the Ref insert, are proposed designs in [arch](arch.md).
+5. **Proposed mechanisms** — The Query Ref post stays a proposed design in [arch](arch.md). Find hit Headers on the Want answer `nodes` list are a lock. See [map](map.md) Decisions so far item 11 **Want nodes**.
 6. **One spec file** — Both specs live in this file. See [map](map.md) Decisions so far item 1 **One spec file**.
 7. **Research reports** — Reports linked from the research tickets are not accepted Answers.
 8. **Map** — [map](map.md) Decisions so far holds the locks. This spec does not resolve a ticket.

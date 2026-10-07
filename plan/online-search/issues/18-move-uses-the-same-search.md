@@ -10,14 +10,14 @@ Move uses the same search as Find. Find already has the local open, the globe, t
 
 ## What to build
 
-Move shows that same hit list. Move uses the shared Find and Move Actor. Move does not start a second Actor. Both use the globe, the same server request, the same cap of 200, the same Node id list, and the same trash rule.
+Move shows that same hit list. Move uses the shared Find and Move Actor. Move does not start a second Actor. Both use the globe, the same server request, the same Want nodes ride, the same cap of 200, the same Node id list, and the same trash rule.
 
 ### 1. Search Actor
 
 The shared backend stays on [Online search architecture](plan/online-search/arch.md) §2 item 1 **Search Actor**.
 
-1. [ ] Same backend — Move uses this same search. Find shows the hit list in the dialog. Move shows that same list. Both use the globe, the same server request, the same cap of 200, the same Node id list, and the same trash rule. Move does not start a second Actor.
+1. [ ] Same backend — Move uses this same search. Find shows the hit list in the dialog. Move shows that same list. Both use the globe, the same server request, the same Want nodes ride, the same cap of 200, the same Node id list, and the same trash rule. Move does not start a second Actor.
 
 ## See also
 
-[Online search spec](plan/online-search/spec.md) §1 Search spec, [Online search map](plan/online-search/map.md) Decisions so far item 10 **Globe**
+[Online search spec](plan/online-search/spec.md) §1 Search spec, [Online search map](plan/online-search/map.md) Decisions so far item 10 **Globe** and item 11 **Want nodes**

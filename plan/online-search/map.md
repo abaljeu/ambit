@@ -15,7 +15,7 @@ Query spec: an expression such as `= root descendants with name like "Bob"` inse
 3. **Ownership** — [Browser residency](plan/browser-residency/project.md) postpones Server Find and must not own this. Neighbors that must not own it: [search zoom select](plan/search-zoom-select/project.md), [expression language](plan/expression-language/project.md), and [selective client loading](plan/selective-client-loading/project.md).
 4. **Residence-only Find** — Current Find is residence-only (`searchNodes` on the browser Graph; `searchPickSetRoot` has no effect). There is no search actor under `src/Server` today. [05 — Chart server-mode Find](plan/browser-residency/issues/05-chart-server-mode-find.md) is postponed with Status `needs-info`.
 5. **Remote query eval** — This project locks Query Actor eval on the server. [14 — Server-side search](plan/expression-language/issues/14-server-side-search.md) stays that project's text. This map does not edit it.
-6. **Want-fulfillment** — Each related command gets server-side support. If the server finds N items, the Find dialog shows them. A query expression inserts them. That is Want-fulfillment.
+6. **Want-fulfillment** — A Find server reply includes the found Nodes on the existing Want answer `nodes` list. See Decisions so far item 11 **Want nodes**. A query expression inserts Refs. The Query Ref post stays a proposed design.
 7. **Bound** — A short keystroke such as the letter e must not return millions of Nodes.
 8. **Dialog UI** — Layout of the Find dialog is not in this map. The globe on the search bar is Decisions so far item 10 **Globe**.
 9. **Query name** — In this map, Query means the expression that inserts results under the query line.
@@ -30,14 +30,15 @@ Query spec: an expression such as `= root descendants with name like "Bob"` inse
 4. **Sequence** — Alan, 2026-10-05. Sequence is tracer-cut. See [arch](arch.md).
 5. **Node id** — Alan, 2026-10-05. The identity of a result is the NodeId. [04 — Duplicate hit identity](issues/04-duplicate-hit-identity.md). The server list lists each Node id once. See item 10 **Globe**.
 6. **Remote query eval** — Alan, 2026-10-05. Query eval is remote. The Query Actor evaluates on the server. [05 — Query fulfillment while eval stays local](issues/05-query-fulfillment-while-eval-stays-local.md). [14 — Server-side search](plan/expression-language/issues/14-server-side-search.md) is not edited.
-7. **Standing locks** — The cap of 200, the globe on the search bar, the shared Find and Move Actor, no paging, and the trash rules stay locks. The short quiet gap is not a Find lock. Want nodes for hits and the Ref post stay proposed designs.
+7. **Standing locks** — The cap of 200, the globe on the search bar, the shared Find and Move Actor, no paging, the trash rules, and Want nodes for hits stay locks. The short quiet gap is not a Find lock. The Query Ref post stays a proposed design.
 8. **Shared search algorithm** — Alan, 2026-10-05. One search algorithm serves Find and Move. Step 1: the client algorithm stops at 200 hits. That work is [14 — Cap of 200](issues/14-cap-of-200.md) section 1 **Find and Move**. Step 2: the Search Actor reuses that algorithm. Today [startSearch](src/Shared/ViewModelSearch.fs) and [takeResults](src/Shared/ViewModelSearch.fs) take the search text, the zoom, and the Graph. The reply holds up to 200 hits. One reply and no continuation cursor stay a seam. The Find start is item 10 **Globe**. The query cap stays on [14 — Cap of 200](issues/14-cap-of-200.md) section 2 **Query cap** and is blocked by [11 — Server evaluates](issues/11-server-evaluates.md) only.
 9. **Root only** — Alan, 2026-10-07. Search does not take a focus. The server walk uses the root as the zoom. Actor Start supplies the root and the full server Graph. `zoomId`, `commandId`, and `graphIds` are the root. The shared `focusId` field holds that same root so ActorStop can pair with the start.
 10. **Globe** — Alan, 2026-10-07. The Find dialog opens on a local search and shows N hits. When N is under 200, the globe on the search bar can request the server. When the search text is unchanged, the server reply replaces the client list. When the person edits the text, the search is local or server according to whether the globe is selected. This supersedes the quiet-gap Start. [08 — Duplicates on Node id](issues/08-duplicates-on-node-id.md) is superseded by [21 — Globe requests the server](issues/21-globe-requests-the-server.md). The server list lists each Node id once. The start does not carry shown Node ids.
+11. **Want nodes** — Alan, 2026-10-07. A server reply with Find results includes the found Nodes as Want-fulfillment. Those hit Headers ride in the existing Want answer `nodes` list. [installWantAnswer](src/Shared/ResidentProjection.fs) merges that list. There is no new package. Move uses that same reply. The Query Ref post stays a proposed design. [02 — Want package of Nodes](issues/02-want-package-of-nodes.md) stays in its current shape.
 
 ## 4. Not yet specified
 
-1. **Found Nodes on a Want** — How a found-Node list rides today's Want package stays a proposed design in [arch](arch.md) §2 item 3 **Want nodes for hits**. This waits on [02 — Want package of Nodes](issues/02-want-package-of-nodes.md). This map does not accept that ticket's Answer.
+None.
 
 ## 5. Out of scope
 

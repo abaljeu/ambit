@@ -20,7 +20,7 @@ A query expression runs on its own Actor.
 ## Job
 
 [ ] The server evaluates the query once, when the line runs.
-[ ] This Actor does not use the Find and Move Actor or the quiet gap. Detail: [Search Actor](search-actor.md).
+[ ] This Actor does not use the Find and Move Actor or the Find globe. Detail: [Search Actor](search-actor.md).
 
 ## Interface
 
@@ -44,7 +44,7 @@ A query expression runs on its own Actor.
 ## Seams
 
 [ ] Cap: the server stops at 200. A query function may stop lower.
-[ ] Quiet gap: this Actor does not use the Find and Move quiet gap. Detail: [Search Actor](search-actor.md).
+[ ] Globe: this Actor does not use the Find globe. Detail: [Search Actor](search-actor.md).
 
 ## Explanation
 

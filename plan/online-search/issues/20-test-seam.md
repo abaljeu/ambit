@@ -14,9 +14,9 @@ Tests share one result of at most 200 Node ids. Find and Move tests install that
 
 ### 1. Want nodes for hits
 
-The seam stays a proposed design on [Online search architecture](plan/online-search/arch.md) §1 item 14 **Test seam** and §2 item 3 **Want nodes for hits**. [installWantAnswer](src/Shared/ResidentProjection.fs) is the install door.
+The Find and Move install is a lock on [Online search architecture](plan/online-search/arch.md) §1 item 14 **Test seam** and §2 item 3 **Want nodes for hits**. [installWantAnswer](src/Shared/ResidentProjection.fs) is the install door. Claim home: [Want nodes for hits](../../doc/current/want-nodes.md).
 
-1. [ ] One result of Node ids — The narrowest shared point is one result of at most 200 Node ids. Find and Move tests install it with [installWantAnswer](src/Shared/ResidentProjection.fs).
+1. [ ] One result of Node ids — The narrowest shared point is one result of at most 200 Node ids. Find and Move tests install it with [installWantAnswer](src/Shared/ResidentProjection.fs). That install is a lock.
 
 ### 2. Query Actor
 
