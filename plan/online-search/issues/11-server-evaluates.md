@@ -17,7 +17,7 @@ The Query Actor evaluates the query once, when Run hits a line whose text contai
 
 ### 1. Query Actor
 
-State, Interface, and Uses for **Query Actor** stay on [Online search architecture](plan/online-search/arch.md) §2 item 2. Eval is remote. See [Online search map](plan/online-search/map.md) Decisions so far item 6 **Remote query eval**. The Ref post stays a proposed design for [16 — Insert Refs under the query line](16-insert-refs-under-the-query-line.md).
+State, Interface, and Uses for **Query Actor** stay on [Online search architecture](plan/online-search/arch.md) §2 item 2 **Query Actor**. Eval is remote. See [Online search map](plan/online-search/map.md) Decisions so far item 6 **Remote query eval**. The Ref post stays a proposed design for [16 — Insert Refs under the query line](16-insert-refs-under-the-query-line.md).
 
 1. [x] Server Graph — The Query Actor evaluates the query on the full server Graph once, when the line runs. The eval runs off the mailbox. The Actor then stops.
 2. [x] Not a keypress — A keypress does not start this Actor. The Find quiet gap does not start this Actor.
