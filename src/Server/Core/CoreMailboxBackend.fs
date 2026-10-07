@@ -458,6 +458,14 @@ module internal CoreMailboxBackend =
                 persist.replaceGraph graph
                 Ok ()
 
+    let private writeParseState
+        (persist: PersistHandlers)
+        (nodeId: NodeId)
+        (parseState: ParseState)
+        : Result<unit, string> =
+        writeAxis persist (fun graph ->
+            GraphMutate.setParseState nodeId parseState graph)
+
     /// Core loop apply. ParseFinished writes Parsed only.
     /// MarkUnparsed writes Unparsed only.
     /// SnapshotDone runs snapshot bookkeeping, then sets Persisted.
@@ -467,17 +475,9 @@ module internal CoreMailboxBackend =
         : Result<unit, string> =
         match msg with
         | InMsg.ParseFinished nodeId ->
-            writeAxis persist (fun graph ->
-                GraphMutate.setParseState
-                    nodeId
-                    ParseState.Parsed
-                    graph)
+            writeParseState persist nodeId ParseState.Parsed
         | InMsg.MarkUnparsed nodeId ->
-            writeAxis persist (fun graph ->
-                GraphMutate.setParseState
-                    nodeId
-                    ParseState.Unparsed
-                    graph)
+            writeParseState persist nodeId ParseState.Unparsed
         | InMsg.SnapshotDone(nodeId, graph) ->
             persist.snapshotDone graph
             writeAxis persist (fun live ->
