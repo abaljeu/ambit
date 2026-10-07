@@ -60,12 +60,18 @@ Open or update the pull request with that body. A cloud agent opens a draft towa
 
 ### 4. Run the Jev match-check
 
-Jev is the MCP connector. Jev is not a teammate agent. The connector Alan names is `user-jev`. The tool is `jev_classify`. The live namespace may appear as `jev`. Read the tool schema, then call it.
+Jev is the MCP connector. Jev is not a teammate agent. The connector Alan names is `user-jev`. The live namespace may appear as `jev`. The tool is `jev_decide`. Read the tool schema, then call it.
 
-Send the original request, what the agent changed, and which skills applied. Ask whether the work matches the complete request. The label is `yes`, `no`, or `unclear`.
+Build one `jev_decide` call from the live Spec and the live Standards for this diff. Every question is a choice. Name each facet with words. Give each criteria key a one-line description. Spec keys are `met` (the section holds), `partial` (some of it holds), and `missed` (it does not hold). Standards keys are `clean` (the cluster holds), `nit` (a small miss), and `blocker` (the cluster fails). The land check is this facet set. A single `jev_classify` yes/no/unclear call is not the land gate.
 
-Report the label and the percentiles to Alan. Percentiles are the per-option probabilities, the confidence, or both, when the tool returns them. The label alone is not the report. When the tool returns no percentiles, report that absence. Do not invent numbers.
+**Spec facets.** Read the ticket, arch, or spec for this pull request. Add one choice question for each real section that applies to the diff. Include each ticket checklist subsection that applies. Add a Spec bucket from [[.agents/skills/code-review/SKILL.md]] only when that bucket fires. One bucket is missing or partial requirements (a). One bucket is scope creep (b). One bucket is wrong implementation (c). One bucket is a global type or interface the diff adds or changes that the spec did not name (d).
 
-A `no` result is a gap. An `unclear` result is a gap. A `yes` that is not strictly the highest probability is a gap. Missing percentiles are a gap. Surface the gap. Do not squash-land until Alan accepts the gap or the doc or code gap is fixed.
+**Standards facets.** Use the mechanical standards scan from [[.agents/skills/code-review/SKILL.md]]. Add one choice question for each rule or smell cluster that had a chance to apply. Take clusters from that scan. Take clusters from each file under [[.agents/rules/]] the diff can hit. Take clusters from [[.agents/skills/code-review/SMELLS.md]] when a smell cluster had a chance to apply. Files that often apply are [[.agents/rules/fsharp-source.md]], [[.agents/rules/refer-by-name.md]], [[.agents/rules/core-api.md]], [[.agents/rules/core-agent-behavior.md]], and [[.agents/rules/markdown-writing.md]]. Skip a rule that had no chance to apply.
 
-When the connector fails, report the failure to Alan. Do not record that failure as `yes`. Done: Alan has the label and the percentiles, or Alan has the connector failure and the missing percentiles. A gap blocks squash-land.
+Put the original request, the diff, and the skills this run used in the call state. Put one question per facet in the call. The connector may reject the call because the question map is too large. Send further `jev_decide` calls with the same state until every facet has a row. Keep every facet. Do not merge facets into one yes/no question.
+
+**Facet table.** Put a facet table in the pull request body after Merge Danger. This table replaces a single yes/no/unclear block. One row per facet. Each row shows the facet name, the axis, the winning label, and the percentiles. Percentiles are the per-option probabilities, the confidence, or both, when the tool returns them. The label alone is not the row. When a facet has no percentiles, write that absence in the row. Do not invent numbers. Do not add an overall yes/no line.
+
+A `missed` facet is a gap. A `blocker` facet is a gap. A `partial` facet or a `nit` facet that Alan should see is a gap. Surface each gap in the table. Do not squash-land until Alan accepts the gap or the gap is fixed.
+
+A connector failure is not a pass. Report the failure to Alan and leave the labels unset. Done: the pull request body has one row per facet with the winning label and the percentiles, or Alan has the connector failure. A gap blocks squash-land.
