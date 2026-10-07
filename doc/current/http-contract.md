@@ -82,7 +82,7 @@ sequenceDiagram
 5. [x] **Login failure.** A mismatch redirects `302` to `/ambit/login?error=1`.
 6. [x] **Logout.** `GET /ambit/logout` clears the cookie and redirects `302` to `/ambit/login`.
 7. [x] **Cookie.** The cookie name is `gambol_auth`. The cookie is HttpOnly, SameSite=Lax, and Secure. The value is HMAC-SHA256 of the username, keyed by the password. The code is [Auth token](../../src/Shared/dotnet/AuthToken.fs).
-8. [x] **Protected routes.** When the cookie is missing, or the mailbox does not admit the caller, `GET /ambit/state`, `POST /ambit/poll`, `POST /ambit/load`, `POST /ambit/changes`, and `POST /ambit/events` return `401` with an empty body.
+8. [x] **Protected routes.** When the cookie is missing, or the mailbox does not admit the caller, `GET /ambit/state`, `POST /ambit/poll`, `POST /ambit/load`, `POST /ambit/changes`, `POST /ambit/events`, and `POST /ambit/search` return `401` with an empty body.
 9. [x] **Empty auth settings.** When both auth fields are empty, `GET /ambit` admits a session and sets `gambol_auth`. The protected routes in item 8 still return `401` when that cookie is missing.
 
 ### 2.5 Endpoints
@@ -596,3 +596,11 @@ Graph {
 3. [x] **MoveNodes validation.** The contract does not specify `MoveNodes` validation for cycles and ownership.
 4. [x] **Orphan holding area.** The contract does not specify the orphan holding-area structure.
 5. [x] **Ref promotion selection.** The contract does not specify the ref-promotion selection logic.
+
+### 2.18 POST /ambit/search
+
+1. [x] **Method and path.** `POST /ambit/search`.
+2. [x] **Cookie.** `gambol_auth` is required. A missing or unadmitted cookie is `401` with an empty body.
+3. [x] **Body.** JSON `text` (string) and `startId` (Node id). Optional `generation` (number) is the reply match when it is present. Detail: [Search Actor](search-actor.md).
+4. [x] **Success.** `200` and `application/json`. The body has `ids` (at most 200 Node ids) and either `text` or `generation`.
+5. [x] **One reply.** The handler reads the server graph, runs the client search algorithm once, and returns that reply. There is no continuation cursor.

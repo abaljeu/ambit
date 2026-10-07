@@ -117,7 +117,7 @@ module ViewModelSearch =
         parts |> List.forall (fun pf -> nodeMatchesPartFilter pf nodeId node)
 
     /// Find and Move stop here. A later page does not continue the walk.
-    let private searchHitCap = 200
+    let searchHitCap = 200
 
     type SearchCursor =
         private

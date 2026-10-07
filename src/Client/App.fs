@@ -88,6 +88,12 @@ let createRuntime (initialModel: VM) =
         match e with
         | SubmitPendingBatch (baseEventId, events) -> runSubmitPendingBatch baseEventId events
         | SubmitCommand request -> runSubmitCommand request
+        | RequestSearchPicture (text, zoomRoot) ->
+            SearchPictureClient.runSearch dispatch text zoomRoot
+        | ArmSearchQuietGap query ->
+            SearchDialogView.armQuietGap query dispatch
+        | CancelSearchQuietGap ->
+            SearchDialogView.cancelQuietGap ()
         | SubmitLoadSaveCommand request -> LoadSaveCommandClient.run dispatch request
         | SubmitCancel focusId -> runSubmitCancel focusId
         | PollServer eventId -> runPollServer eventId

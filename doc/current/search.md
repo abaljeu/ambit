@@ -27,15 +27,15 @@ Sources: [ViewModelSearch](../../src/Shared/ViewModelSearch.fs), [Search dialog]
 
 ## Quiet gap
 
-[ ] One server request fires after the search text is unchanged for a short quiet gap. Find and Move share that request.
-[ ] A text change before that gap ends sends no request.
-[ ] Find and Move send no server request when the client already has 200 hits.
+[x] One server request fires after the search text is unchanged for a short quiet gap. Find and Move share that request.
+[x] A text change before that gap ends sends no request.
+[x] Find and Move send no server request when the client already has 200 hits.
 [ ] The request asks only for hits the client does not already have. The start message carries those Node ids.
-[ ] A reply for an older search string is ignored. The reply matches the current search text, or an equivalent generation of that text.
+[x] A reply for an older search string is ignored. The reply matches the current search text, or an equivalent generation of that text.
 
 ## Actors
 
-[ ] Find and Move share one Actor. That Actor starts after the quiet gap.
+[x] Find and Move share one Actor. That Actor starts after the quiet gap.
 [ ] A query expression runs on its own Actor. That Actor starts when the line runs.
 [ ] The shared Actor returns one result and stops. The query Actor returns one result and stops.
 
@@ -45,7 +45,7 @@ Sources: [ViewModelSearch](../../src/Shared/ViewModelSearch.fs), [Search dialog]
 
 ## Bound
 
-[ ] Find and Move share a cap of 200. Client hits and server hits together stop at 200.
+[x] Find and Move share a cap of 200. Client hits and server hits together stop at 200.
 [ ] A query expression stops at 200 results. The query function may set a lower limit. A request above 200 stops at 200.
 [ ] There is no next page.
 

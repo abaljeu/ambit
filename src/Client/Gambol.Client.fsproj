@@ -17,6 +17,7 @@
     <Compile Include="UpdateEdit.fs" />
     <Compile Include="UpdateMove.fs" />
     <Compile Include="SearchDialog.fs" />
+    <Compile Include="SearchPictureClient.fs" />
     <Compile Include="FileSearchDialog.fs" />
     <Compile Include="UpdateFileSearch.fs" />
     <Compile Include="UpdateRename.fs" />

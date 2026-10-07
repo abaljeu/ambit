@@ -174,8 +174,15 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
         match model.mode with
         | SearchDialog s when s.query <> query ->
             Gambol.Client.SearchDialog.resetSearchResults ()
-            { model with
-                mode = SearchDialog { s with query = query; selectedIndex = 0 } }, []
+            let next =
+                { model with
+                    mode =
+                        SearchDialog
+                            { s with
+                                query = query
+                                selectedIndex = 0
+                                serverHitIds = [] } }
+            next, [ ArmSearchQuietGap query ]
         | _ -> model, []
 
     | FileSearchQuery query ->

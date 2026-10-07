@@ -196,6 +196,49 @@ module RouteRegistration =
             | None -> None
         | _ -> None
 
+    let private searchDoor
+        (persistence: PersistenceContext)
+        (caller: Caller)
+        (changes: CoreChanges)
+        : Api.SearchActorDoor =
+        let host = persistence.Core.host
+        { changes = changes
+          recordStart =
+            fun start ->
+                CoreMailbox.recordSearchStart host caller start
+          recordStop =
+            fun rootId ->
+                async {
+                    let! _ =
+                        CoreMailbox.recordSearchStop host caller rootId
+                    return ()
+                } }
+
+    let private postSearchRequest
+        (persistence: PersistenceContext)
+        (req: HttpRequest)
+        : Task<IResult> =
+        task {
+            bindClientHint req |> ignore
+            use reader = new StreamReader(req.Body)
+            let! body = reader.ReadToEndAsync()
+            match BrowserRequestCreds.tryCookieCaller req with
+            | None -> return Results.Unauthorized()
+            | Some caller ->
+                let! live =
+                    CoreMailbox.isAdmitted persistence.Core.host caller
+                    |> Async.StartAsTask
+                if not live then
+                    return Results.Unauthorized()
+                else
+                    let changes = boundChanges persistence caller
+                    return!
+                        Api.postSearch
+                            (searchDoor persistence caller changes)
+                            body
+                        |> Async.StartAsTask
+        }
+
     let private registerStateRoutes (routes: AppShellContext) =
         let this = routes.AmbitApp
         let persistence = routes.Persistence
@@ -272,6 +315,11 @@ module RouteRegistration =
                         body)
                 |> Async.StartAsTask
         })) |> ignore
+        this.MapPost(
+            "/ambit/search",
+            Func<HttpRequest, Task<IResult>>(
+                postSearchRequest persistence))
+        |> ignore
         this.MapPost("/ambit/command", Func<HttpRequest, Task<IResult>>(fun req -> task {
             bindClientHint req |> ignore
             use reader = new StreamReader(req.Body)

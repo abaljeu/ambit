@@ -197,6 +197,24 @@ module CoreMailbox =
         reply host (fun channel ->
             StartPeerActor(caller, peerName, request, channel))
 
+    /// Append ActorStart for a Search Actor. The walk stays off this queue.
+    let recordSearchStart
+        (host: MailboxHost)
+        (caller: Caller)
+        (request: Gambol.Shared.ActorStart)
+        : Async<Result<unit, string>> =
+        reply host (fun channel ->
+            RecordSearchStart(caller, request, channel))
+
+    /// Enqueue ActorStop for that Search Actor. The id is the root.
+    let recordSearchStop
+        (host: MailboxHost)
+        (caller: Caller)
+        (rootId: NodeId)
+        : Async<Result<unit, string>> =
+        reply host (fun channel ->
+            RecordSearchStop(caller, rootId, channel))
+
     let startLoadSaveCommand
         (host: MailboxHost)
         (caller: Caller)

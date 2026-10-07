@@ -535,6 +535,48 @@ module Api =
                         Thoth.Json.Core.Decode.string |})
         Decode.fromString decoder body
 
+    /// Search door. `changes` reads State. Start and stop hit the event source.
+    type SearchActorDoor =
+        { changes: CoreChanges
+          recordStart:
+            ActorStart -> Async<Result<unit, string>>
+          recordStop: NodeId -> Async<unit> }
+
+    let private searchReply
+        (door: SearchActorDoor)
+        (request: SearchPicture.Request)
+        (state: State)
+        : Async<IResult> =
+        async {
+            let start =
+                SearchActor.actorStart state.graph state.eventId
+            match! door.recordStart start with
+            | Error err -> return agentErrorResult err
+            | Ok () ->
+                let answer =
+                    SearchActor.reply
+                        (fun () -> state.graph)
+                        request
+                do! door.recordStop start.zoomId
+                return
+                    answer
+                    |> SearchPicture.encodeReply
+                    |> Encode.toString 0
+                    |> jsonResult
+        }
+
+    /// One Find and Move reply. ActorStart is recorded, then the walk, then ActorStop.
+    let postSearch (door: SearchActorDoor) (body: string) : Async<IResult> =
+        async {
+            match Decode.fromString SearchPicture.decodeRequest body with
+            | Error err ->
+                return agentErrorResult $"Invalid JSON: {err}"
+            | Ok request ->
+                match! door.changes.getState () with
+                | Error err -> return agentErrorResult err
+                | Ok state -> return! searchReply door request state
+        }
+
     let postActorsDeliver
         (configuredSecret: string)
         (providedSecret: string)

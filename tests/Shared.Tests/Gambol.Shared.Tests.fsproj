@@ -103,6 +103,7 @@
     <Compile Include="ExportTextTests.fs" />
     <Compile Include="NodeDesktopPathTests.fs" />
     <Compile Include="SearchTests.fs" />
+    <Compile Include="SearchPictureTests.fs" />
     <Compile Include="SearchDialogModeTests.fs" />
     <Compile Include="FileSearchDialogModeTests.fs" />
     <Compile Include="ViewModelJoinOpsTests.fs" />
