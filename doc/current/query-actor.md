@@ -24,13 +24,15 @@ A query expression runs on its own Actor.
 
 ## Interface
 
-[ ] Eval: one evaluation of the expression on the server Graph when the line runs.
-[ ] Refs: each result under the query line is a Ref, `ChildNode.reference`, not an Owned Child.
+[ ] Eval: one evaluation of the expression on the server Graph when Run hits a Node whose text contains `=`. The request is the existing Run ActorStart (`zoomId`, `focusId`, `commandId`, `graphIds`, `eventId`) on `POST /ambit/command`. The observable reply is Node ids. Detail: [11 — Server evaluates](../../plan/online-search/issues/11-server-evaluates.md).
+[ ] Refs: each result under the query line is a Ref, `ChildNode.reference`, not an Owned Child. That post is a proposed design. [16 — Insert Refs under the query line](../../plan/online-search/issues/16-insert-refs-under-the-query-line.md) owns it.
 
 ## Messages
 
 [ ] Eval. The Actor starts when the line runs. A keypress does not start this Actor.
-[ ] Result item. Each result under the query line is one `ChildNode.reference`. `ref` is the string `ref`. `id` is a Node id string.
+[ ] Start. Run on a Node whose text contains `=`. The request is the existing ActorStart. `focusId` is that line when Run is on it. `commandId` is that same Node.
+[ ] Eval reply. The result is Node ids. This reply is the server evaluation. The command response stays the existing Run response.
+[ ] Result item. Proposed design. Each result under the query line is one `ChildNode.reference`. `ref` is the string `ref`. `id` is a Node id string. [16 — Insert Refs under the query line](../../plan/online-search/issues/16-insert-refs-under-the-query-line.md) owns this post. It is not the eval reply.
 
 ```json
 { "ref": "ref", "id": "550e8400-e29b-41d4-a716-446655440000" }

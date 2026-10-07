@@ -56,7 +56,7 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
 8. **Insert Refs under the query line**
    1. [ ] **Refs** — Results under the query line are Refs, not Owned Children.
    2. [ ] **Existing Ref shape** — [ExprRun](src/Shared/ExprRun.fs) `run` already materialises a Node answer with `ChildNode.reference`.
-   3. [ ] **Post the Replace** — Proposed design: the Query Actor posts a Change on the event source whose child list uses that Ref shape under the query line. The Query Actor evaluates on the server. See §2 item 2 **Query Actor**.
+   3. [ ] **Post the Replace** — Proposed design: the Query Actor posts a Change on the event source whose child list uses that Ref shape under the query line. Server eval is story path 12 **Server evaluates**. See §2 item 2 **Query Actor**.
 
 9. **Query skips trash**
     1. [ ] **Ordinary query skips trash** — An ordinary query skips trash.
@@ -69,7 +69,7 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
     2. [ ] **Nodes then Refs** — Proposed design: the same Poll carries the Want `nodes` for those ids and the Change that inserts the Refs, so a Ref points at a Node the Browser has.
 
 12. **Server evaluates**
-    1. [ ] **Server Graph** — The Query Actor evaluates the query on the server once, when the line runs. The Actor then stops. A keypress does not start this Actor. This eval is remote.
+    1. [ ] **Server Graph** — The Query Actor evaluates the query on the full server Graph once, when Run hits a Node whose text contains `=`, off the mailbox. The Actor then stops. The door is the existing Run command. The observable reply is Node ids. A keypress does not start this Actor. This eval is remote. Detail is [11 — Server evaluates](issues/11-server-evaluates.md). The Ref post stays [16 — Insert Refs under the query line](issues/16-insert-refs-under-the-query-line.md).
 
 ### 13. Shared segments
 
@@ -84,7 +84,7 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
 
 ### 14. Test seam
 
-1. [ ] **One result of Node ids** — Find and Move tests install one result of at most 200 Node ids with [installWantAnswer](src/Shared/ResidentProjection.fs). That install is a lock. Claim home: [Want nodes for hits](../../doc/current/want-nodes.md). Query tests also expect the Ref Replace under the query line, and a function stop under 200. The Ref Replace stays a proposed design.
+1. [ ] **One result of Node ids** — Find and Move tests install one result of at most 200 Node ids with [installWantAnswer](src/Shared/ResidentProjection.fs). That install is a lock. Claim home: [Want nodes for hits](../../doc/current/want-nodes.md). Query tests also expect the Ref Replace under the query line, and a function stop under 200. The Ref Replace stays a proposed design. That Ref expectation is [16 — Insert Refs under the query line](issues/16-insert-refs-under-the-query-line.md). [11 — Server evaluates](issues/11-server-evaluates.md) observes Node ids. A provisional soft-stop in those tests does not close [14 — Cap of 200](issues/14-cap-of-200.md) section 2 **Query cap**.
 
 ## 2. Module map
 
@@ -121,8 +121,8 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
       2. [ ] **Limit** — The function may stop under 200. A request above 200 stops at 200.
       3. [ ] **Trash** — Ordinary eval skips trash. `trash` reaches trash the way `root` reaches ROOT.
    2. **Interface**
-      1. [ ] **Eval** — The Actor evaluates the expression on the server Graph. Claim home: [Query Actor](../../doc/current/query-actor.md) Interface and Messages.
-      2. [ ] **Refs** — Proposed design. The Actor evaluates on the server. It posts a Change that inserts `ChildNode.reference` children under the query line. The shape matches [ExprRun](src/Shared/ExprRun.fs). This Ref post has no doc/current home. The locked Ref shape is [Query Actor](../../doc/current/query-actor.md) Interface and Messages.
+      1. [ ] **Eval** — The Actor evaluates the expression on the server Graph once, when Run hits a Node whose text contains `=`. The request is the existing Run ActorStart. The observable reply is Node ids. The door is the existing Run command. Detail: [11 — Server evaluates](issues/11-server-evaluates.md). Claim home: [Query Actor](../../doc/current/query-actor.md) Interface and Messages.
+      2. [ ] **Refs** — Proposed design. The Actor posts a Change that inserts `ChildNode.reference` children under the query line. The shape matches [ExprRun](src/Shared/ExprRun.fs). This Ref post has no doc/current home. The locked Ref shape is [Query Actor](../../doc/current/query-actor.md) Interface and Messages. Server eval is Interface item 1 **Eval**.
    3. **Uses**
       1. [ ] **Event source** — Proposed design. The Ref Replace is a Change on the event source. This proposed design has no doc/current home.
       2. [ ] **ExprRun shape** — `ChildNode.reference` as in ExprRun's materialise path. Claim home: [Query Actor](../../doc/current/query-actor.md) Messages.
