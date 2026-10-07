@@ -6,7 +6,7 @@ The top layer of this project. It gives what transport-layer is and how outside 
 
 Transport-layer is the cross-cutting pattern for **moving information** between outside sources and the Graph. It is not one connector, one codec, or one Epic. It is the shared contract: inbound (outside → Graph), outbound (Graph → outside), and round-trip (export → edit elsewhere → re-import) while the **Graph stays authority**.
 
-Prior work called this the import layer or information hub. **Transport-layer** names the same concept with clearer scope: every channel is a transport instance; Parse/Persist is the fundamental text-processing unit reused across them.
+Prior work called this the import layer or information hub. **Transport-layer** names the same concept with clearer scope: every outside source is a transport instance; Parse/Persist is the fundamental text-processing unit reused across them.
 
 ## Three flows
 
@@ -27,19 +27,22 @@ Web-site publish ([[plan/roadmap/epics/create-and-publish-web-pages.md]]) is out
 **Parse** and **Persist** are not only Load-stage names for disk files. Together they form the transport primitive for text:
 
 - **Parse** — text (or bytes interpreted as text) in → reconcile with the Graph → produce **Changes** (or a staged view for examination).
-- **Persist** — Graph slice (typically File Node content) out → text for an outside channel.
+- **Persist** — Graph slice (typically File Node content) out → text for an outside destination.
 
-The file channel is the first fully charted instance: **Parse File** on Load, document codecs on round-trip, workspace sync for disk mapping. Future transports (API paste, SaaS connectors, agent replies) reuse the same unit with different wire and staging; see [[details/parse-persist.md]].
+Desktop App sync is the first fully charted instance: **Parse File** on Load, document codecs on round-trip, and Upload and Download between the App folder and Server DataDir. Future transports (API paste, SaaS connectors, agent replies) reuse the same unit with different wire and staging; see [[details/parse-persist.md]].
 
-## File channel — first transport instance
+## Desktop App sync — first transport instance
 
-Disk is one transport channel, not the whole layer:
+Sync with the Desktop App is one transport instance of this layer. Upload and Download move file bytes between the App folder and Server DataDir over WebDAV.
 
-- **Upload / Download** — move bytes between App and Server.
+- **Upload** — move bytes from the App folder to Server DataDir.
+- **Download** — move bytes from Server DataDir to the App folder.
 - **Parse** — turn server files into Graph content.
-- **Codec round-trip** — document-formats Parse/reconcile on File Node bodies for editable external copies.
+- **Codec round-trip** — document-formats Parse and reconcile on File Node bodies for editable external copies.
 
-The *Work with my documents from anywhere* Epic is the User Epic; channels include disk and future Google (Drive/Docs, example), all through transport-layer. Current Chapters are the disk beat (auto upload/download, workspace mapping). Transport-layer owns the pattern those Projects implement.
+This redesign is Desktop App sync. GitHub stays the separate external remote on [[plan/github-transport/project.md]].
+
+The [Work with my documents from anywhere](plan/roadmap/epics/work-with-text-files-from-anywhere.md) Epic is the User Epic. The current disk beat is this Desktop App sync (Upload, Download, and workspace mapping). A later Google (Drive/Docs) source is another instance of the same layer. Transport-layer owns the pattern those Projects implement.
 
 ## ESO Actor boundary
 

@@ -161,7 +161,7 @@ This keeps repo use transparent:
 
 ## Commit and sync model
 
-File-channel home: [[plan/transport-layer/project.md]]. Server DAV: [[workspace-webdav]]. Summary:
+Desktop App sync home: [[plan/transport-layer/project.md]]. Server DAV: [[workspace-webdav]]. Summary:
 
 **Commit cadence**
 
