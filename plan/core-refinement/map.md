@@ -44,6 +44,7 @@ Skills: [[.agents/skills/wayfinder/SKILL.md]], [[.agents/skills/grilling/SKILL.m
     File: `src/Server/Core/CoreMailbox.fs`. 
     The persist-side case is decision 16. Note: [[arch.md]] §10 **Core loop**.
 16. **SnapshotDone with Persisted** — Locked 2026-10-01 (Alan). Of `CoreMsg`, only `SnapshotDone` is an internal completion. `CoreMsg` has no `SnapshotDone`. `InMsg` case `SnapshotDone` replaces `PersistFinished`. One completion: snapshot finished and Persisted is set (`GraphMutate.setPersistState`). `ParseFinished` sets Parsed only, and PersistState stays unchanged. Not an Op. `postEvents` and `postGraphOnly` do not carry `InMsg`. The private function adds `InMsg`. The public function adds `CoreMsg`. Note: [[arch.md]] §10 **Core loop**.
+17. **Git changed list sets Unparsed** — Locked 2026-10-07 (Alan). After pull, the git changed list immediately marks matching File Nodes and Directory Nodes Unparsed. Arrived files means that list, including Directory Nodes. The workspace lock sequence stays [[arch.md]] §6. This decision does not reopen §6. Ticket: [07 — Git changed list sets Unparsed](issues/07-git-changed-list-unparsed.md). Directory reconcile stays the other approach: [07 — Directory Unparsed during reconcile](../parse-thread/issues/07-directory-unparsed-during-reconcile.md). Both stay.
 
 ## 4. Not yet specified
 

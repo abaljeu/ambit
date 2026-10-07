@@ -2,7 +2,7 @@
 
 Stage: build
 Summary: A continuous Server parse thread turns file-shaped disk into Graph, takes priority from Browser wants, and emits Changes. A continuous persist thread turns Graph into disk. Both add InMsg through the mailbox private function. The core loop sets the axes.
-Updated: 2026-10-01
+Updated: 2026-10-07
 Started: 2026-09-28
 Actual: 1h 40m
 
@@ -25,3 +25,4 @@ Actual: 1h 40m
 - 2026-10-01 — First implement of [05 — Directory reconcile](issues/05-directory-reconcile.md). Stage is build.
 - 2026-10-01 — Setting Unparsed, recursive update is [06 — Setting Unparsed, recursive update](issues/06-setting-unparsed-recursive-update.md). This ticket does not block [05 — Directory reconcile](issues/05-directory-reconcile.md), and 05 does not block it.
 - 2026-10-01 — Alan: Directory reconcile inputs are the disk directory, the graph, and the directory id. The directory id plus the graph is the Directory Node. Directory reconcile reads the Directory body from that graph. The disk directory is required. Home: [Parse thread architecture](arch.md) §2 Module map, item 1 **Directory reconcile**, Interface **Inputs**, and [05 — Directory reconcile](issues/05-directory-reconcile.md) §1 Directory reconcile, **Inputs**.
+- 2026-10-07 — Alan locked both Unparsed approaches. Directory Nodes during reconcile are [07 — Directory Unparsed during reconcile](issues/07-directory-unparsed-during-reconcile.md). The git changed list is [07 — Git changed list sets Unparsed](../core-refinement/issues/07-git-changed-list-unparsed.md). [06 — Setting Unparsed, recursive update](issues/06-setting-unparsed-recursive-update.md) stays disk-newer File Node Unparsed only. Stage stays build.
