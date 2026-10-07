@@ -20,9 +20,9 @@ The insert stays on [Online search architecture](plan/online-search/arch.md) §2
 
 ### 2. Want nodes for hits
 
-**Want nodes for hits** stays a proposed design on [Online search architecture](plan/online-search/arch.md) §2 item 3.
+Find hit Headers on the Want answer `nodes` list are a lock on [15 — Dialog shows server hits](15-dialog-shows-server-hits.md). This section is the query coupling. The Query Ref post stays a proposed design on [Online search architecture](plan/online-search/arch.md) §2 item 2 **Query Actor**.
 
-1. [ ] Nodes then Refs — The same Poll carries the Want `nodes` for those ids and the Change that inserts the Refs, so a Ref points at a Node the Browser has.
+1. [ ] Nodes then Refs — The same Poll carries the Want `nodes` for those ids and the Change that inserts the Refs, so a Ref points at a Node the Browser has. That coupling stays a proposed design.
 
 ## See also
 

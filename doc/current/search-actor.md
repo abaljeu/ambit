@@ -5,6 +5,7 @@ See Also:
 - [Mailbox](mailbox.md)
 - [Server](server.md)
 - [Query Actor](query-actor.md)
+- [Want nodes for hits](want-nodes.md)
 - [Workspace graph](graph.md)
 
 Find and Move share one Actor. Query does not use this Actor.
@@ -20,22 +21,25 @@ Find and Move share one Actor. Query does not use this Actor.
 
 [x] One walk, off the mailbox, then stop. No continuation cursor.
 [ ] Trash: the walk skips trash unless the start Node is TRASH. TRASH id: [GraphBuild](../../src/Shared/GraphBuild.fs) `trashId`.
-[ ] Dedup: the walk drops a Node id that is in the shown Node ids.
+[ ] The server list lists each Node id once. The reply replaces the client list. The start does not carry shown Node ids.
 [x] Cap: the client search algorithm stops at 200 hits. The reply holds at most 200 Node ids. Find and Move share that cap.
 
 ## Job
 
 [x] Shared backend for Find and Move. One running Actor. Move does not start a second Actor.
-[x] A keypress does not start this Actor. Client recompute stays on [Workspace graph](graph.md).
+[o] A keypress does not start this Actor. Client recompute stays on [Workspace graph](graph.md).
+[ ] A keypress does not start this Actor when the globe is not selected. An edit starts a server search when the globe is selected.
 
 ## Interface
 
-[x] Start: Find and Move start this Actor after the quiet gap. Start supplies the root and the full server Graph. The zoom is the root. Search does not take a focus.
-[x] Result: the Actor uses the client search algorithm and returns at most 200 hits, then stops. Client hits plus this reply stop at the cap. One reply. No continuation cursor.
+[o] Start: Find and Move start this Actor after the quiet gap. Start supplies the root and the full server Graph. The zoom is the root. Search does not take a focus.
+[ ] Start: the globe starts this Actor when the local list is under 200. Start supplies the root and the full server Graph. The zoom is the root. Search does not take a focus. The start does not carry shown Node ids.
+[o] Result: the Actor uses the client search algorithm and returns at most 200 hits, then stops. Client hits plus this reply stop at the cap. One reply. No continuation cursor.
+[ ] Result: the Actor returns at most 200 hits, then stops. When the search text is unchanged, the reply replaces the client list. One reply. No continuation cursor.
 
 ## Messages
 
-[x] Start fields: `text` (string). Optional `generation` (number) for the reply match. `startId` (string, Node id) is on the wire. The walk does not use `startId` as a zoom or a focus. The zoom is the root. The full server Graph comes from State. Search does not take a focus. Shown Node ids are not on this request yet.
+[x] Start fields: `text` (string). Optional `generation` (number) for the reply match. `startId` (string, Node id) is on the wire. The walk does not use `startId` as a zoom or a focus. The zoom is the root. The full server Graph comes from State. Search does not take a focus. The start does not carry shown Node ids.
 
 ```json
 {
@@ -80,9 +84,10 @@ The Browser posts the start JSON to `POST /ambit/search`. The `200` body is the 
 
 ## Seams
 
-[x] Quiet gap: one Start after the search text is unchanged. The gap has no millisecond value. A text change before the gap ends sends no Start. No Start when the client already has 200 hits.
+[o] Quiet gap: one Start after the search text is unchanged. The gap has no millisecond value. A text change before the gap ends sends no Start. No Start when the client already has 200 hits.
+[ ] Globe: the globe on the search bar requests the server when the local list is under 200. When the search text is unchanged, the reply replaces the client list. An edit follows the globe.
 [ ] Cap: Find and Move share 200. [Query Actor](query-actor.md) stops at that same cap.
 
 ## Explanation
 
-The cap of 200 keeps one search from returning the whole Graph. The client algorithm stops at 200 first. The Actor uses that same algorithm. The quiet gap keeps Start off the keypress.
+The cap of 200 keeps one search from returning the whole Graph. The client algorithm stops at 200 first. The Actor uses that same algorithm. The globe requests the server when the local list is under 200. Hit Headers for that reply ride [Want nodes for hits](want-nodes.md).

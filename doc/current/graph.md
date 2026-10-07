@@ -71,10 +71,10 @@ The graph is the central data structure of the outliner.  There are rules for wo
 [x] The search dialog merges two result sources. Code: [ViewModelSearch](src/Shared/ViewModelSearch.fs).
 [x] Namespace-style queries are parsed and matched first.
 [x] The second source is node text matching.
-[ ] Every keypress recomputes on the client only and updates the Find dialog immediately. Code: [ViewModelSearch](../../src/Shared/ViewModelSearch.fs), [Search dialog](../../src/Client/SearchDialog.fs).
-[ ] A keypress sends no server message.
-[ ] Move uses this same client path when Move recomputes on each keypress.
-[ ] Server start after the quiet gap: [Search Actor](search-actor.md).
+[ ] While the globe is not selected, every keypress recomputes on the client only and updates the Find dialog immediately. Code: [ViewModelSearch](../../src/Shared/ViewModelSearch.fs), [Search dialog](../../src/Client/SearchDialog.fs).
+[ ] While the globe is not selected, a keypress sends no server message.
+[ ] Move uses this same client path when the globe is not selected.
+[ ] The globe on the search bar requests the server when the local list is under 200. Detail: [Search Actor](search-actor.md).
 [x] Workspace nodes expose `//label` as their desktop file path through `NodeDesktopPath`. The file-status indicator uses that path.
 
 ## Invariants
