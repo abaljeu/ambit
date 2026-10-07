@@ -232,3 +232,31 @@ let ``Focus under count equals takes Amble path not ActorStart`` () =
             graph siteMap zoomId focusId EventId.zero with
     | Ok _ -> failwith "equals ancestor must not ActorStart"
     | Error _ -> ()
+    Assert.Equal(
+        None,
+        CommandRequest.tryQueryStart
+            graph siteMap zoomId focusId EventId.zero)
+
+[<Fact>]
+let ``tryQueryStart uses the equals line as focus and command`` () =
+    let graph, siteMap, ids =
+        ownerChain [ "= root descendant named \"Bob\"" ]
+    let lineId = ids.[0]
+    Assert.True(CommandRequest.isQueryText "= root descendant named \"Bob\"")
+    Assert.False(CommandRequest.isQueryText "?test a=b")
+    let request =
+        match
+            CommandRequest.tryQueryStart
+                graph siteMap lineId lineId EventId.zero with
+        | Some request -> request
+        | None -> failwith "expected query start"
+    Assert.Equal(lineId, request.zoomId)
+    Assert.Equal(lineId, request.focusId)
+    Assert.Equal(lineId, request.commandId)
+    Assert.Contains(lineId, request.graphIds)
+    Assert.Equal(EventId.zero, request.eventId)
+    match
+        CommandRequest.tryStart
+            graph siteMap lineId lineId EventId.zero with
+    | Ok _ -> failwith "equals line must not select an actor name"
+    | Error _ -> ()

@@ -12,6 +12,10 @@ module CommandRequest =
     let isScanStopText (text: string) =
         isCommandText text || text.Contains("=")
 
+    /// Query line: text contains `=`. A `?` Actor name is not a query.
+    let isQueryText (text: string) =
+        text.Contains("=") && not (isCommandText text)
+
     let private afterQuestion (text: string) =
         if text.Length <= 1 then ""
         else text.Substring(1).Trim()
@@ -133,6 +137,21 @@ module CommandRequest =
             Ok
                 (actorStart
                     graph siteMap zoomId focusId commandId eventId)
+
+    /// Run on a query line. `focusId` and `commandId` are that line.
+    let tryQueryStart
+        (graph: Graph)
+        (siteMap: SiteMap)
+        (zoomId: NodeId)
+        (focusId: NodeId)
+        (eventId: EventId)
+        : ActorStart option =
+        match Map.tryFind focusId graph.nodes with
+        | Some node when isQueryText node.text ->
+            Some
+                (actorStart
+                    graph siteMap zoomId focusId focusId eventId)
+        | _ -> None
 
     /// One-Node ActorStart. Client supplies unfolded Included `graphIds`.
     let oneNodeStart

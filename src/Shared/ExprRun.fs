@@ -121,6 +121,40 @@ module ExprRun =
         | Some name ->
             { core with ops = renameOps graph focusId name @ core.ops }
 
+    let private nodeIdOf (graph: Graph) (answer: ExprAnswer) =
+        match answer with
+        | ExprAnswer.Node n when Map.containsKey n.id graph.nodes ->
+            Some n.id
+        | _ -> None
+
+    let private idsFromSource
+        (focusId: NodeId)
+        (graph: Graph)
+        (source: string)
+        =
+        match Map.tryFind focusId graph.nodes with
+        | None -> []
+        | Some focus ->
+            let catalog = ExprPrimitive.catalog graph
+            match ExprCompile.inferType catalog source with
+            | Error _ -> []
+            | Ok _ ->
+                let input = ExprAnswer.Node focus
+                match ExprCompile.eval graph input source with
+                | Error _ -> []
+                | Ok answers -> List.choose (nodeIdOf graph) answers
+
+    /// Node ids of Node Answers. This does not build the Ref Plan.
+    let answerNodeIds
+        (focusId: NodeId)
+        (graph: Graph)
+        (line: string)
+        : NodeId list =
+        match classify line with
+        | None
+        | Some (_, "") -> []
+        | Some (_, source) -> idsFromSource focusId graph source
+
     let run (focusId: NodeId) (graph: Graph) (line: string) : Line =
         match classify line with
         | None -> Ignore

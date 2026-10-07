@@ -92,39 +92,64 @@ let private execAmbleRunOp
             let ran, runEffects = runAmbleOp afterDelete
             ran, commitEffects @ delEffects @ runEffects
 
+let private submitQuery
+    (committed: VM)
+    (commitEffects: Effect list)
+    (focusId: NodeId)
+    : (VM * Effect list) option =
+    match
+        CommandRequest.tryQueryStart
+            committed.graph
+            committed.siteMap
+            committed.zoomRoot
+            focusId
+            committed.eventId with
+    | None -> None
+    | Some request ->
+        let syncInfo, queued =
+            RunLaunch.queueStart
+                request
+                committed.eventId
+                committed.syncInfo
+                commitEffects
+        Some ({ committed with syncInfo = syncInfo }, queued)
+
 let private execRunOp (model: VM) : VM * Effect list =
     afterEditCommit model (fun committed commitEffects ->
         match committed.selectedNodes with
         | None -> committed, commitEffects
         | Some sel ->
             let focusId = focusedNodeId committed.graph sel
-            let zoomId = committed.zoomRoot
-            if CommandRequest.isAmbleScanStop committed.graph focusId zoomId then
-                execAmbleRunOp committed commitEffects focusId
-            else
-                match
-                    CommandRequest.tryStart
-                        committed.graph
-                        committed.siteMap
-                        zoomId
-                        focusId
-                        committed.eventId with
-                | Ok request ->
-                    let syncInfo, queued =
-                        RunLaunch.queueStart
-                            request
-                            committed.eventId
-                            committed.syncInfo
-                            commitEffects
-                    { committed with syncInfo = syncInfo }, queued
-                | Error msg ->
-                    if AmbleRun.shouldExec committed.graph focusId then
-                        execAmbleRunOp committed commitEffects focusId
-                    else
-                        { committed with
-                            lastCmdResult =
-                                Some (CmdLastResult.Error (Some "Run", msg)) },
-                        commitEffects)
+            match submitQuery committed commitEffects focusId with
+            | Some ran -> ran
+            | None ->
+                let zoomId = committed.zoomRoot
+                if CommandRequest.isAmbleScanStop committed.graph focusId zoomId then
+                    execAmbleRunOp committed commitEffects focusId
+                else
+                    match
+                        CommandRequest.tryStart
+                            committed.graph
+                            committed.siteMap
+                            zoomId
+                            focusId
+                            committed.eventId with
+                    | Ok request ->
+                        let syncInfo, queued =
+                            RunLaunch.queueStart
+                                request
+                                committed.eventId
+                                committed.syncInfo
+                                commitEffects
+                        { committed with syncInfo = syncInfo }, queued
+                    | Error msg ->
+                        if AmbleRun.shouldExec committed.graph focusId then
+                            execAmbleRunOp committed commitEffects focusId
+                        else
+                            { committed with
+                                lastCmdResult =
+                                    Some (CmdLastResult.Error (Some "Run", msg)) },
+                            commitEffects)
 
 let private splitAtCursor () : Updater option =
     let text = readEditInputValue ()

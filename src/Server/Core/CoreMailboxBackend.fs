@@ -231,6 +231,26 @@ module internal CoreMailboxBackend =
             | Error err -> reply.Reply(Error err)
             | Ok _ -> reply.Reply(Ok ())
 
+    /// Query uses the full server Graph after earlier events in this list.
+    /// An empty `graphIds` stays the named-actor error.
+    let private startChosen
+        (context: MailboxContext)
+        (request: Gambol.Shared.ActorStart)
+        (getState: unit -> Graph)
+        : Result<Credential option, StartError> =
+        let graph = getState ()
+        if request.graphIds.IsEmpty then
+            context.pool.startActor request getState
+            |> Result.map Some
+        elif SearchActor.isQueryRequest graph request then
+            SearchActor.functionStart request getState
+            |> context.pool.startFunction
+            |> Result.mapError StartError.Rejected
+            |> Result.map Some
+        else
+            context.pool.startActor request getState
+            |> Result.map Some
+
     let private dispatchStartActor context caller request reply =
         dispatchActorStartResult
             context
@@ -238,8 +258,7 @@ module internal CoreMailboxBackend =
             request
             reply
             (fun start getState ->
-                context.pool.startActor start getState
-                |> Result.map Some)
+                startChosen context start getState)
 
     let private dispatchStartPeerActor
         context caller peerName request reply =
@@ -430,8 +449,7 @@ module internal CoreMailboxBackend =
             replyList reply context (List.last events) events
         | None ->
             let start req getState =
-                context.pool.startActor req getState
-                |> Result.map Some
+                startChosen context req getState
             match prepareActorStart context caller request start with
             | Error error ->
                 recordFailedStart

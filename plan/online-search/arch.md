@@ -69,7 +69,7 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
     2. [ ] **Nodes then Refs** — Proposed design: the same Poll carries the Want `nodes` for those ids and the Change that inserts the Refs, so a Ref points at a Node the Browser has.
 
 12. **Server evaluates**
-    1. [ ] **Server Graph** — The Query Actor evaluates the query on the full server Graph once, when Run hits a Node whose text contains `=`, off the mailbox. The Actor then stops. The door is the existing Run command. The observable reply is Node ids. A keypress does not start this Actor. This eval is remote. Detail is [11 — Server evaluates](issues/11-server-evaluates.md). The Ref post stays [16 — Insert Refs under the query line](issues/16-insert-refs-under-the-query-line.md).
+    1. [x] **Server Graph** — The Query Actor evaluates the query on the full server Graph once, when Run hits a Node whose text contains `=`, off the mailbox. The Actor then stops. The door is the existing Run command. The observable reply is Node ids. A keypress does not start this Actor. This eval is remote. Detail is [11 — Server evaluates](issues/11-server-evaluates.md). The Ref post stays [16 — Insert Refs under the query line](issues/16-insert-refs-under-the-query-line.md).
 
 ### 13. Shared segments
 
@@ -117,16 +117,16 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
 
    1. **State**
       Claim home: [Query Actor](../../doc/current/query-actor.md) Data.
-      1. [ ] **One result** — One result, then stop. No page and no cursor.
+      1. [x] **One result** — One result, then stop. No page and no cursor.
       2. [ ] **Limit** — The function may stop under 200. A request above 200 stops at 200.
       3. [ ] **Trash** — Ordinary eval skips trash. `trash` reaches trash the way `root` reaches ROOT.
    2. **Interface**
-      1. [ ] **Eval** — The Actor evaluates the expression on the server Graph once, when Run hits a Node whose text contains `=`. The request is the existing Run ActorStart. The observable reply is Node ids. The door is the existing Run command. Detail: [11 — Server evaluates](issues/11-server-evaluates.md). Claim home: [Query Actor](../../doc/current/query-actor.md) Interface and Messages.
+      1. [x] **Eval** — The Actor evaluates the expression on the server Graph once, when Run hits a Node whose text contains `=`. The request is the existing Run ActorStart. The observable reply is Node ids. The door is the existing Run command. Detail: [11 — Server evaluates](issues/11-server-evaluates.md). Claim home: [Query Actor](../../doc/current/query-actor.md) Interface and Messages.
       2. [ ] **Refs** — Proposed design. The Actor posts a Change that inserts `ChildNode.reference` children under the query line. The shape matches [ExprRun](src/Shared/ExprRun.fs). This Ref post has no doc/current home. The locked Ref shape is [Query Actor](../../doc/current/query-actor.md) Interface and Messages. Server eval is Interface item 1 **Eval**.
    3. **Uses**
       1. [ ] **Event source** — Proposed design. The Ref Replace is a Change on the event source. This proposed design has no doc/current home.
       2. [ ] **ExprRun shape** — `ChildNode.reference` as in ExprRun's materialise path. Claim home: [Query Actor](../../doc/current/query-actor.md) Messages.
-      3. [ ] **Search Actor** — Query has its own running Actor. It starts when the line runs. It does not use the Find and Move Actor or the Find globe. Claim home: [Query Actor](../../doc/current/query-actor.md) Job and Uses.
+      3. [x] **Search Actor** — Query has its own running Actor. It starts when the line runs. It does not use the Find and Move Actor or the Find globe. Claim home: [Query Actor](../../doc/current/query-actor.md) Job and Uses.
 
 3. **Want nodes for hits** — This ride is a lock.
    A server reply with Find results includes the found Nodes as Want-fulfillment. Those hit Headers ride in the existing Want answer `nodes` list. There is no new package. The list is one reply of at most 200 Node ids, not a page. Move uses that same reply. The Query Ref post is not this module.
