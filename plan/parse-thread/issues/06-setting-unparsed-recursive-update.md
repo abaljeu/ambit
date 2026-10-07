@@ -1,7 +1,8 @@
 # 06 — Setting Unparsed, recursive update
 
 **Type:** coding
-**Status:** defined
+**Status:** coded
+Actual: 35m
 **Blocked by:** None — can start immediately
 
 ## Context
@@ -18,16 +19,16 @@ The queue and the private function stay [core-refinement architecture](plan/core
 
 The parse thread adds an InMsg through the mailbox private function. The core loop applies that InMsg and sets the File Node Unparsed.
 
-1. [ ] markUnparsedOps — The call that set Unparsed is an InMsg through the mailbox private function. It is not Op.SetDocumentState.
-2. [ ] planFromFiles — The call that appended the Unparsed ops is that same InMsg. Reconcile ops do not carry the Unparsed write.
+1. [x] markUnparsedOps — The call that set Unparsed is an InMsg through the mailbox private function. It is not Op.SetDocumentState.
+2. [x] planFromFiles — The call that appended the Unparsed ops is that same InMsg. Reconcile ops do not carry the Unparsed write.
 
 ### 2. Disk-newer and push
 
 These leaves moved from [05 — Directory reconcile](05-directory-reconcile.md).
 
-1. [ ] Disk-newer — After Directory reconcile, a disk-newer file has its File Node Unparsed.
-2. [ ] Unparsed — The parse thread sets that disk-newer File Node Unparsed by an InMsg. The core loop applies the InMsg.
-3. [ ] Push — Directory reconcile names that File Node for push.
+1. [x] Disk-newer — After Directory reconcile, a disk-newer file has its File Node Unparsed.
+2. [x] Unparsed — The parse thread sets that disk-newer File Node Unparsed by an InMsg. The core loop applies the InMsg.
+3. [x] Push — Directory reconcile names that File Node for push.
 
 ## See also
 
@@ -37,6 +38,12 @@ These leaves moved from [05 — Directory reconcile](05-directory-reconcile.md).
 
 [07 — Directory Unparsed during reconcile](07-directory-unparsed-during-reconcile.md)
 
+## Time
+
+- 2026-10-07 20m — disk-newer File Node set Unparsed through InMsg (from chat)
+- 2026-10-07 15m — document InMsg MarkUnparsed on the architecture and in current docs (from chat)
+
 ## Comments
 
-- 2026-10-07 — This ticket stays disk-newer File Node Unparsed only. Siblings: [07 — Directory Unparsed during reconcile](07-directory-unparsed-during-reconcile.md) and [07 — Git changed list sets Unparsed](plan/core-refinement/issues/07-git-changed-list-unparsed.md).
+- 2026-10-07 — Alan. MarkUnparsed is an accepted InMsg case. Document it on [core-refinement architecture](../../core-refinement/arch.md) §10 Core loop and under [doc/current](../../../doc/current/).
+- 2026-10-07 — This ticket stays disk-newer File Node Unparsed only. Siblings: [07 — Directory Unparsed during reconcile](07-directory-unparsed-during-reconcile.md) and [07 — Git changed list sets Unparsed](../../core-refinement/issues/07-git-changed-list-unparsed.md).

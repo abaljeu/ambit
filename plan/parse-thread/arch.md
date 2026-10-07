@@ -1,7 +1,7 @@
 # Parse thread architecture
 
 Spec: [spec](spec.md)
-Updated: 2026-10-01
+Updated: 2026-10-07
 Sequence: module-build
 
 Core stacks, axes, locks, and the mailbox stay [core-refinement architecture](../core-refinement/arch.md) and [core-refinement map](../core-refinement/map.md). InMsg on the one mailbox queue stays [core-refinement architecture](../core-refinement/arch.md) §10 Core loop. This architecture is the Parse product delta only. A `[x]` hop is already true in code, or it is a Core door this Project cites and does not build. Open Core build stays on that architecture and on [Core](../../doc/current/core.md). A `[ ]` hop is Directory reconcile work.
@@ -64,7 +64,7 @@ Sequence is module-build. Directory reconcile is in code. Story paths that only 
     1. [x] **Missing File Node** — Directory reconcile creates a File Node for a disk member the Graph lacks.
 
 15. **Disk-newer Unparsed**
-    1. [x] **Disk-newer** — When disk is newer, Directory reconcile marks that File Node Unparsed.
+    1. [x] **Disk-newer** — When disk is newer, the parse thread adds InMsg MarkUnparsed for that File Node. The core loop sets Unparsed. Case home: [core-refinement architecture](../core-refinement/arch.md) §10 Core loop.
 
 16. **Push when the stack exists**
     1. [x] **Push** — Directory reconcile pushes that Unparsed File Node when the Parse stack exists.
@@ -96,6 +96,7 @@ Sequence is module-build. Directory reconcile is in code. Story paths that only 
     3. [x] **Core loop** — The mailbox has one queue. A private function adds InMsg. The queue puller in [Core mailbox backend](../../src/Server/Core/CoreMailboxBackend.fs) hands InMsg to the InMsg handler. ParseFinished sets Parsed only through `GraphMutate.setParseState`. PersistState stays unchanged. SnapshotDone sets Persisted only through `GraphMutate.setPersistState`.
     4. [x] **Not an Op** — InMsg is not an Op. `Op.SetPersistState` is not a writer. `Op.SetDocumentState` is not the writer of the parsed axis. `CoreMailbox.postEvents` and `CoreMailbox.postGraphOnly` do not carry InMsg.
     5. [x] **Type home** — [core-refinement architecture](../core-refinement/arch.md) §10 Core loop.
+    6. [x] **MarkUnparsed** — For a disk-newer File Node the parse thread adds InMsg MarkUnparsed through the private function. The core loop sets Unparsed only through `GraphMutate.setParseState`. PersistState stays unchanged. `Op.SetDocumentState` is not the writer.
 
 ### 23. Shared segments
 
@@ -122,7 +123,7 @@ Sequence is module-build. Directory reconcile is in code. Story paths that only 
 ## 2. Module map
 
 1. **Directory reconcile**
-   Directory reconcile scans the directory and updates the Directory body. The Directory body is the nodes tied to that `.amb`. Scanning the `.amb` file would be Directory parse. That scan is not this operation. Directory reconcile walks all nodes tied to that `.amb`, not only immediate children. It creates missing File Nodes. When disk is newer, it marks the File Node Unparsed and pushes when the Parse stack exists. A Directory Node under that node that needs reparse is marked Unparsed the same way. Ticket: [07 — Directory Unparsed during reconcile](issues/07-directory-unparsed-during-reconcile.md).
+   Directory reconcile scans the directory and updates the Directory body. The Directory body is the nodes tied to that `.amb`. Scanning the `.amb` file would be Directory parse. That scan is not this operation. Directory reconcile walks all nodes tied to that `.amb`, not only immediate children. It creates missing File Nodes. When disk is newer, the parse thread adds InMsg MarkUnparsed for that File Node and names that File Node for push. The core loop sets Unparsed. A Directory Node under that node that needs reparse is marked Unparsed the same way. Ticket: [07 — Directory Unparsed during reconcile](issues/07-directory-unparsed-during-reconcile.md).
    File: `src/Shared/dotnet/DirectoryReconcile.fs`
    Claim home: [Parse and persist](../../doc/current/parse-persist.md)
 
@@ -134,7 +135,7 @@ Sequence is module-build. Directory reconcile is in code. Story paths that only 
    2. **Interface**
       1. [x] **Inputs** — Directory reconcile takes the disk directory, the graph, and the directory id. The directory id plus the graph is the Directory Node. Directory reconcile reads the Directory body from that graph. The disk directory is required.
       2. [x] **Create** — Directory reconcile returns ops that create each missing File Node. A new node appends alphabetically under the Directory Node.
-      3. [x] **Unparsed** — Directory reconcile returns a disk-newer File Node as Unparsed.
+      3. [x] **Unparsed** — Directory reconcile names a disk-newer File Node. The parse thread adds InMsg MarkUnparsed through the private function. The core loop sets that node Unparsed only through `GraphMutate.setParseState`. PersistState stays unchanged. Case home: [core-refinement architecture](../core-refinement/arch.md) §10 Core loop.
       4. [x] **Push** — Directory reconcile names that File Node for push.
       5. [x] **No extra info** — Structure-match uses the Directory body and the Graph only.
       6. [x] **Workspace** — Workspace nodes use the same reconcile process. (They also do other things.)

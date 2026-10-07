@@ -38,9 +38,10 @@ The mailbox is the Core loop and the public post path.
 ## Messages
 [x] Fast Actor messages on this loop: `StartActor` and `ActorStop`.
 [x] Persist handlers do not dispatch Actor cases. The file agent and the db agent do not start a mailbox.
-[x] `InMsg`: internal message type on module Core loop. Not an Op. It carries the completion and the node. Cases: `ParseFinished`, `SnapshotDone`.
+[x] `InMsg`: internal message type on module Core loop. Not an Op. It carries the node. Cases: `ParseFinished`, `SnapshotDone`, `MarkUnparsed`.
 [x] One queue: the mailbox queue. A private function on [Core mailbox](../../src/Server/Core/CoreMailbox.fs) adds `InMsg`. A public function adds `CoreMsg`. The queue puller in [Core mailbox backend](../../src/Server/Core/CoreMailboxBackend.fs) hands a `CoreMsg` to the `CoreMsg` handler and an `InMsg` to the `InMsg` handler. There is no second queue.
 [x] `ParseFinished`: the InMsg handler sets that node Parsed only. The field write is [Graph mutate](../../src/Shared/GraphMutate.fs) `setParseState`. PersistState stays unchanged.
+[x] `MarkUnparsed`: the InMsg handler sets that node Unparsed only. The field write is `GraphMutate.setParseState`. PersistState stays unchanged. `Op.SetDocumentState` is not the writer. The parse thread adds this case through the private function for a disk-newer File Node.
 [x] `SnapshotDone`: the InMsg handler sets that node Persisted through `GraphMutate.setPersistState`, including when the snapshot graph is absent. The same completion stores the snapshot graph as `persistedGraph` when it equals the live graph, clears the in-progress flag, and starts another snapshot when one is needed. The db agent adds this case through the private function when the live-document snapshot finishes. That node is the enclosing workspace of the accepted ops that requested the snapshot.
 [ ] The persist thread adds `SnapshotDone` through the private function when a file write finishes.
 [x] Actor post path: `CoreMailbox.postEvents` and `CoreMailbox.postGraphOnly`. `InMsg` stays off that path.
