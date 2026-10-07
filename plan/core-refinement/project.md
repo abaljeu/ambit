@@ -2,7 +2,7 @@
 
 Stage: build
 Summary: Sequel to [[plan/core-creation/project.md]]: refine Core so that after transport lands files, Core works through disk and Graph changes (Parse stack, Persist stack, state axes) until everything is updated.
-Updated: 2026-10-01
+Updated: 2026-10-07
 Started: 2026-09-29
 Actual: 5h15m
 
@@ -29,6 +29,7 @@ Actual: 5h15m
 - 2026-10-01 — [06 — Explicit parse command on a File (Load)](issues/06-explicit-parse-command-load-file.md) revisited. The coded finish posts a Change and writes the parsed axis with `Op.SetDocumentState`. The required finish is InMsg ParseFinished through the private function. Status `defined`. Stage stays `build`.
 - 2026-10-01 — Alan: supersede map decisions 15 and 16. The internal message is `InMsg`. A private function on the mailbox adds `InMsg` to the one mailbox queue. A public function adds `CoreMsg` to that same queue. The queue puller hands the item to its handler. There is no second queue. Cases: `ParseFinished`, `SnapshotDone`. Stage stays `build`.
 - 2026-10-01 — This slice is in code. File parse finish adds InMsg ParseFinished. The db agent adds InMsg SnapshotDone. CoreMsg has no SnapshotDone. The persist thread is not built. [06 — Explicit parse command on a File (Load)](issues/06-explicit-parse-command-load-file.md) Status `coded`. Stage stays `build`.
+- 2026-10-07 — Alan accepted `InMsg` `MarkUnparsed`. A disk-newer File Node is set Unparsed through that case. Case home: [[arch.md]] §10 Core loop. Current claim: [[doc/current/mailbox.md]]. Stage stays `build`.
 
 ## Issues
 

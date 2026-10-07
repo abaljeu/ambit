@@ -1,6 +1,6 @@
 # core-refinement architecture
 
-Updated: 2026-10-01
+Updated: 2026-10-07
 Sequence: expand-contract
 
 Home: [[project.md]]. This note is the sole authority for the Core seam (what will be coded): Target — Server Core, the expand-contract sequence (§3 and §9 Story paths), axes, stacks, path control, mailbox git handoff, the locking model (§6), and InMsg on the mailbox queue (§10 **Core loop**). Spec.md and User Stories are absent. Map decision 9 keeps Sequence `expand-contract`. Story paths, Shared segments, the Module map, and Seams are on this note. Expand-contract does not drop them. Stage on [[project.md]] stays `build`. Claim marks for committed elements live under [[doc/current/]]. This note links to those pages. Map §4 (mailbox enable, call, and stop) stays in §3 step 6. It is not copied into [[doc/current/]]. The locking model (§6) is not copied into [[doc/current/]].
@@ -94,9 +94,9 @@ Locked 2026-09-28 (Alan). These rules say who writes each axis and which node th
 7. **Create special** — A new special node starts **Unparsed** and **Persisted**.
 8. **Client Load on Directory** — Mark the Directory Node **Unparsed** (re-process). Reconciliation with no extra info can spot disk members the Graph lacks.
 9. **Client Load on File** — Mark the File Node **Unparsed**. Push onto the Parse stack is deferred. That push needs the Parse loop.
-10. **Directory reconcile** (deferred) — [Parse thread](../parse-thread/project.md) owns this. Definition: [Parse thread architecture](../parse-thread/arch.md) §2 Module map, item 1 **Directory reconcile**. Walks all nodes tied to that `.amb`, not only immediate children. Create missing File Nodes. Disk-newer marks the File Node **Unparsed** and pushes when the stack exists.
+10. **Directory reconcile** (deferred) — [Parse thread](../parse-thread/project.md) owns this. Definition: [Parse thread architecture](../parse-thread/arch.md) §2 Module map, item 1 **Directory reconcile**. Walks all nodes tied to that `.amb`, not only immediate children. Create missing File Nodes. Disk-newer marks the File Node **Unparsed** through `InMsg` `MarkUnparsed` and pushes when the stack exists.
 11. **Parse stack pop** (deferred) — If the node is already **Parsed**, skip. Real work arrives **Unparsed**.
-12. **InMsg** — The internal message type is `InMsg` on **Core loop** (§10). It is not an Op. Cases: `ParseFinished`, `SnapshotDone`.
+12. **InMsg** — The internal message type is `InMsg` on **Core loop** (§10). It is not an Op. Cases: `ParseFinished`, `SnapshotDone`, `MarkUnparsed`.
 13. **One mailbox queue** — The mailbox has one queue. A private function adds `InMsg`. A public function adds `CoreMsg`. The queue puller hands a `CoreMsg` to the `CoreMsg` handler and an `InMsg` to the `InMsg` handler. There is no second queue. The puller file is `src/Server/Core/CoreMailboxBackend.fs`. The private function is on the mailbox, `src/Server/Core/CoreMailbox.fs`.
 14. **Private axes** — PersistState and the parsed axis stay internal. The writer interface is **Core loop** (§10).
 
@@ -130,7 +130,7 @@ Locked 2026-09-30 (Alan). Axes remain informational drift markers (§1), not loc
 4. Name tickets in full (for example [05 — Selection-scoped Parse after whole-tree git Load](issues/05-selection-scoped-parse-after-whole-tree-git-load.md)).
 5. Git use is Core. Do not imply git is outside Core.
 7. Say **persist thread**, not persist actor. Persist is a thread; do not invent an Actor mailbox for it.
-8. Say **InMsg** for the internal message. The cases are `ParseFinished` and `SnapshotDone`.
+8. Say **InMsg** for the internal message. The cases are `ParseFinished`, `SnapshotDone`, and `MarkUnparsed`.
 
 ## 8. Related
 
@@ -203,9 +203,10 @@ Deltas for this Project. Claim homes: [Mailbox](doc/current/mailbox.md) and [Par
 1. **Core loop**
    The `CoreMailboxBackend` module holds the queue puller. The private add function is on the mailbox. Puller file: `src/Server/Core/CoreMailboxBackend.fs`. Mailbox file: `src/Server/Core/CoreMailbox.fs`.
    1. **State**
-      1. [x] **InMsg** — Internal message type. Not an Op. It carries the completion and the node.
+      1. [x] **InMsg** — Internal message type. Not an Op. It carries the node.
          1. [x] **ParseFinished** — That `NodeId`. Parse finished.
          2. [x] **SnapshotDone** — That `NodeId` and the snapshot `Graph option`. Snapshot finished and that node is Persisted. This case replaces `PersistFinished`.
+         3. [x] **MarkUnparsed** — That `NodeId`. A disk-newer File Node is set Unparsed.
       2. [x] **One queue** — The mailbox queue. Its element is a private sum of `CoreMsg` and `InMsg`. That sum has no public name. There is no second queue.
    2. **Interface**
       1. [x] **Private add** — A private function on the mailbox takes `InMsg` and adds it to the queue.
@@ -217,11 +218,13 @@ Deltas for this Project. Claim homes: [Mailbox](doc/current/mailbox.md) and [Par
       7. [ ] **Not an Actor mailbox** — The mailbox queue is not an Actor mailbox. The persist thread does not get a `MailboxProcessor`.
       8. [x] **CoreMsg** — `CoreMsg` has no `SnapshotDone`. The other `CoreMsg` cases are the public mailbox doors. The live-document completion is `InMsg` `SnapshotDone`, added by the private function.
       9. [ ] **Private axes** — PersistState and the parsed axis are internal. Outsiders may see them. The core loop writes them. `Op.SetPersistState` is not a writer. `Op.SetDocumentState` is not the writer of the parsed axis.
+      10. [x] **Mark unparsed** — `MarkUnparsed` sets that node Unparsed only. The field write is `GraphMutate.setParseState`. PersistState stays unchanged. `Op.SetDocumentState` is not the writer.
    3. **Uses**
       1. [x] **Parse thread** — Adds `InMsg` `ParseFinished` through the private function.
       2. [ ] **Persist thread** — Adds `InMsg` `SnapshotDone` through the private function.
       3. [x] **Db agent** — Adds `InMsg` `SnapshotDone` through the private function when the live-document snapshot finishes. It does not post `CoreMsg`.
       4. [x] **Field write** — `GraphMutate.setParseState` and `GraphMutate.setPersistState` are the existing field writes.
+      5. [x] **Disk-newer** — The parse thread adds `InMsg` `MarkUnparsed` for that File Node through the private function. It does not edit the graph.
 
 2. **Parse thread**
    File: `src/Server/ParseThread.fs`.
@@ -229,6 +232,7 @@ Deltas for this Project. Claim homes: [Mailbox](doc/current/mailbox.md) and [Par
       1. [x] **No queue** — The parse thread does not hold the mailbox queue.
    2. **Interface**
       1. [ ] **Add** — On finish it adds `InMsg` `ParseFinished` for that node through the private function. It does not edit the graph.
+      2. [x] **Mark unparsed** — For a disk-newer File Node it adds `InMsg` `MarkUnparsed` through the private function. It does not edit the graph.
    3. **Uses**
       1. [x] **Private add** — The private function on the mailbox.
 

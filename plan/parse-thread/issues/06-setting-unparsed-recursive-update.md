@@ -2,7 +2,7 @@
 
 **Type:** coding
 **Status:** coded
-Actual: 20m
+Actual: 35m
 **Blocked by:** None — can start immediately
 
 ## Context
@@ -39,3 +39,8 @@ These leaves moved from [05 — Directory reconcile](05-directory-reconcile.md).
 ## Time
 
 - 2026-10-07 20m — disk-newer File Node set Unparsed through InMsg (from chat)
+- 2026-10-07 15m — document InMsg MarkUnparsed on the architecture and in current docs (from chat)
+
+## Comments
+
+- 2026-10-07 — Alan. MarkUnparsed is an accepted InMsg case. Document it on [core-refinement architecture](../../core-refinement/arch.md) §10 Core loop and under [doc/current](../../../doc/current/).
