@@ -132,7 +132,10 @@ module BootCache =
                 | Ok st ->
                     let ops = Ev.ops event |> Option.defaultValue []
                     let mark = Op.marksOwningPersist event.commandName
-                    match ResidentProjection.applyOpsAllowing mark ops st with
+                    let guard = Op.guardsUnparsedDocument event.commandName
+                    match
+                        ResidentProjection.applyOpsAllowing guard mark ops st
+                    with
                     | ApplyResult.Invalid (_, msg) -> Error msg
                     | ApplyResult.Changed next
                     | ApplyResult.Unchanged next -> Ok next)

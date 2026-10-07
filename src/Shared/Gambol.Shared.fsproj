@@ -43,7 +43,6 @@
     <Compile Include="WorkspaceSyncScope.fs" />
     <Compile Include="DocumentArtifactPath.fs" />
     <Compile Include="DocumentPartition.fs" />
-    <Compile Include="UnparsedShellEdit.fs" />
     <Compile Include="History.fs" />
     <Compile Include="CssClassToggle.fs" />
     <Compile Include="ExprRun.fs" />

@@ -15,6 +15,28 @@ let private applyOps (graph: Graph) (ops: Op list) : Graph =
         | ApplyResult.Invalid(_, msg) -> failwith msg) state
     |> fun s -> s.graph
 
+let private applyGraphOnly (graph: Graph) (ops: Op list) : Graph =
+    let state = { graph = graph; eventId = EventId.zero }
+    match ChangeAmendment.applyForGraphOnly "Parse" ops state with
+    | ApplyResult.Changed next, _, _
+    | ApplyResult.Unchanged next, _, _ -> next.graph
+    | ApplyResult.Invalid(_, msg), _, _ -> failwith msg
+
+let private normalApplyMessage (graph: Graph) (ops: Op list) : string option =
+    let state = { graph = graph; eventId = EventId.zero }
+    ops
+    |> List.fold (fun acc op ->
+        match acc with
+        | Error _ -> acc
+        | Ok s ->
+            match Op.apply op s with
+            | ApplyResult.Invalid(_, msg) -> Error msg
+            | ApplyResult.Changed next
+            | ApplyResult.Unchanged next -> Ok next) (Ok state)
+    |> function
+        | Error msg -> Some msg
+        | Ok _ -> None
+
 let private addWorkspace label graph =
     let id, ops = FileNodeOps.planCreateWorkspace graph label
     id, applyOps graph ops
@@ -362,7 +384,10 @@ let ``missing directory attaches while the reconciled node is Unparsed`` () =
             DateTime(2024, 6, 1, 12, 0, 0, DateTimeKind.Utc))
         makeDiskDir dataDir "home/docs/extra" |> ignore
         let planned = plan dataDir graph7 dirId
-        let graph8 = applyOps graph7 planned.ops
+        match normalApplyMessage graph7 planned.ops with
+        | Some msg -> Assert.Contains("unparsed document", msg)
+        | None -> failwith "normal apply must reject the attach"
+        let graph8 = applyGraphOnly graph7 planned.ops
         let extraId =
             match createdDirectoryId planned.ops "extra" with
             | Some id -> id

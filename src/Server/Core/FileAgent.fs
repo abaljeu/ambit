@@ -112,6 +112,7 @@ module FileAgent =
 
     let private applyOne
         loaded
+        (graphOnly: bool)
         (s, confirmations, fresh, changed, externalChanges)
         (event: Ev)
         =
@@ -124,7 +125,10 @@ module FileAgent =
             | None -> Error "Event has no Ops"
             | Some ops ->
                 let result, amended, appliedOps =
-                    ChangeAmendment.applyForCommand event.commandName ops s
+                    if graphOnly then
+                        ChangeAmendment.applyForGraphOnly event.commandName ops s
+                    else
+                        ChangeAmendment.applyForCommand event.commandName ops s
                 match result with
                 | ApplyResult.Invalid (_, errMsg) -> Error errMsg
                 | ApplyResult.Unchanged _ ->
@@ -140,13 +144,13 @@ module FileAgent =
                         true,
                         externalChanges || amended)
 
-    let private applyBatch loaded (events: Ev list) =
+    let private applyBatch loaded (graphOnly: bool) (events: Ev list) =
         events
         |> List.fold
             (fun acc event ->
                 match acc with
                 | Error err -> Error err
-                | Ok stateAndLog -> applyOne loaded stateAndLog event)
+                | Ok stateAndLog -> applyOne loaded graphOnly stateAndLog event)
             (Ok(loaded.state.Value, [], [], false, false))
         |> Result.map (fun (newState, confirmations, fresh, changed, externalChanges) ->
             newState, List.rev confirmations, List.rev fresh, changed, externalChanges)
@@ -224,7 +228,7 @@ module FileAgent =
         if events.IsEmpty then
             Error "changes must not be empty"
         else
-            match applyBatch loaded events with
+            match applyBatch loaded graphOnly events with
             | Error err -> Error err
             | Ok (newState, confirmations, fresh, changed, externalChanges) ->
                 let preGraph = loaded.state.Value.graph

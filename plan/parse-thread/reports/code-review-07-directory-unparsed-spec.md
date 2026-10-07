@@ -8,7 +8,7 @@ No findings. The mechanical scan lists new bindings, and each is under the 40-li
 
 ## 2. Spec
 
-1. **Suffix detach beside a Normal child** — [07 — Directory Unparsed during reconcile](../issues/07-directory-unparsed-during-reconcile.md) asks Directory reconcile to append a missing Directory Node. [Unparsed shell edit](../../../src/Shared/UnparsedShellEdit.fs) `isStubEdit` also treats the swapped lists as a stub edit. `Op.invert` emits that swap, and undo applies those inverse ops through `Op.applyAllowing`, so the reverse is the undo of the append while the shell is still Unparsed. The predicate does not limit the suffix to nodes this reconcile just created. A Replace can also drop a pre-existing trailing File Node or Directory Node under an Unparsed Directory or Workspace that still has a Normal child. That wider detach is not in the ticket.
+No findings. The prior finding Suffix detach beside a Normal child is closed. [History](../../../src/Shared/History.fs) allows a stub attach on the normal-change door only when every owned child on both lists is a document root. A Replace that drops a trailing child stays blocked on that door. Mailbox `postGraphOnly` uses [Change amendment](../../../src/Shared/ChangeAmendment.fs) `applyForGraphOnly`. That apply may append a suffix of owned document-root children on an Unparsed shell. [File agent](../../../src/Server/Core/FileAgent.fs) and [Db agent](../../../src/Server/Core/DbAgent.fs) call it for graph-only posts.
 
 ## 3. Match-check labels
 
@@ -20,4 +20,4 @@ These two labels were `missed`. Neither is a Spec gap.
 
 ## 4. Totals
 
-Standards: 0 findings. Spec: 1 finding. Worst spec issue: Suffix detach beside a Normal child.
+Standards: 0 findings. Spec: 0 findings.

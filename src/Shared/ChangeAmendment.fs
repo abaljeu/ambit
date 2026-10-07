@@ -162,12 +162,16 @@ module ChangeAmendment =
         foldOps ops state []
 
     let private applyMarked
+        (guardUnparsed: bool)
         (markUnpersisted: bool)
         (ops: Op list)
         (state: State)
         : ApplyResult * bool * Op list
         =
-        match ChangeValidation.applyOpsAllowing markUnpersisted ops state with
+        match
+            ChangeValidation.applyOpsAllowing
+                guardUnparsed markUnpersisted ops state
+        with
         | (ApplyResult.Changed _ | ApplyResult.Unchanged _) as ok ->
             ok, false, ops
         | ApplyResult.Invalid (_, msg) when isRecoverableCas msg ->
@@ -178,7 +182,7 @@ module ChangeAmendment =
             | Ok amended ->
                 match
                     ChangeValidation.applyOpsAllowing
-                        markUnpersisted amended state
+                        guardUnparsed markUnpersisted amended state
                 with
                 | ApplyResult.Invalid _ as err -> err, false, ops
                 | ApplyResult.Unchanged _ as unchanged ->
@@ -189,13 +193,25 @@ module ChangeAmendment =
 
     /// Apply Ops, amending recoverable field CAS failures instead of rejecting.
     let applyOps (ops: Op list) (state: State) : ApplyResult * bool * Op list =
-        applyMarked true ops state
+        applyMarked true true ops state
 
     /// Disk parse (`commandName` Parse) applies without writing PersistState.
+    /// The normal-change unparsed gate still applies. Mailbox postGraphOnly
+    /// uses applyForGraphOnly.
     let applyForCommand
         (commandName: string)
         (ops: Op list)
         (state: State)
         : ApplyResult * bool * Op list
         =
-        applyMarked (Op.marksOwningPersist commandName) ops state
+        applyMarked true (Op.marksOwningPersist commandName) ops state
+
+    /// Mailbox postGraphOnly. A document-root suffix attach may land on an
+    /// Unparsed shell. Other unparsed content edits stay blocked.
+    let applyForGraphOnly
+        (commandName: string)
+        (ops: Op list)
+        (state: State)
+        : ApplyResult * bool * Op list
+        =
+        applyMarked false (Op.marksOwningPersist commandName) ops state
