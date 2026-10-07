@@ -535,13 +535,12 @@ module Api =
                         Thoth.Json.Core.Decode.string |})
         Decode.fromString decoder body
 
-    /// Search door. The walk uses `changes`. Start and stop hit the event source.
+    /// Search door. `changes` reads State. Start and stop hit the event source.
     type SearchActorDoor =
         { changes: CoreChanges
           recordStart:
             ActorStart -> Async<Result<unit, string>>
-          recordStop:
-            NodeId -> Async<Result<unit, string>> }
+          recordStop: NodeId -> Async<unit> }
 
     let private searchReply
         (door: SearchActorDoor)
@@ -558,14 +557,12 @@ module Api =
                     SearchActor.reply
                         (fun () -> state.graph)
                         request
-                match! door.recordStop start.focusId with
-                | Error err -> return agentErrorResult err
-                | Ok () ->
-                    return
-                        answer
-                        |> SearchPicture.encodeReply
-                        |> Encode.toString 0
-                        |> jsonResult
+                do! door.recordStop start.zoomId
+                return
+                    answer
+                    |> SearchPicture.encodeReply
+                    |> Encode.toString 0
+                    |> jsonResult
         }
 
     /// One Find and Move reply. ActorStart is recorded, then the walk, then ActorStop.

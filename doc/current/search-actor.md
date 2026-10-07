@@ -30,27 +30,25 @@ Find and Move share one Actor. Query does not use this Actor.
 
 ## Interface
 
-[x] Start: Find and Move start this Actor after the quiet gap. Start supplies root, focus, and the full server Graph.
+[x] Start: Find and Move start this Actor after the quiet gap. Start supplies the root and the full server Graph. The zoom is the root. Search does not take a focus.
 [x] Result: the Actor uses the client search algorithm and returns at most 200 hits, then stops. Client hits plus this reply stop at the cap. One reply. No continuation cursor.
 
 ## Messages
 
-[ ] Start fields: root, focus, the full server Graph, search text or an equivalent generation, the start Node, and the shown Node ids.
-[ ] The request carries `text` (string) or `generation` (number), one of the two, plus `startId` (string, Node id) and `shownIds` (array of Node id strings).
+[x] Start fields: `text` (string). Optional `generation` (number) for the reply match. `startId` (string, Node id) is on the wire. The walk does not use `startId` as a zoom or a focus. The zoom is the root. The full server Graph comes from State. Search does not take a focus. Shown Node ids are not on this request yet.
 
 ```json
 {
   "text": "quarterly",
-  "startId": "550e8400-e29b-41d4-a716-446655440000",
-  "shownIds": []
+  "startId": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
 ```json
 {
+  "text": "quarterly",
   "generation": 3,
-  "startId": "550e8400-e29b-41d4-a716-446655440000",
-  "shownIds": [ "550e8400-e29b-41d4-a716-446655440001" ]
+  "startId": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
@@ -76,8 +74,9 @@ The Browser posts the start JSON to `POST /ambit/search`. The `200` body is the 
 
 ## Uses
 
-[x] Server Graph: the walk uses [startSearch](../../src/Shared/ViewModelSearch.fs) and [takeResults](../../src/Shared/ViewModelSearch.fs) on the full server Graph. Those functions take the search text, the zoom, and the Graph. The walk may ignore focus. Detail: [Server](server.md).
-[x] ActorStart: the running Actor is recorded on the event source as `ActorStart`. That record supplies root and focus. `graphIds` is the root. The walk reads the full server Graph from State at that start. One reply, then `ActorStop`. Detail: [Mailbox](mailbox.md).
+[x] Server Graph: the walk uses [startSearch](../../src/Shared/ViewModelSearch.fs) and [takeResults](../../src/Shared/ViewModelSearch.fs) on the full server Graph. Those functions take the search text, the zoom, and the Graph. The zoom is the root. Detail: [Server](server.md).
+[x] ActorStart: the running Actor is recorded on the event source as `ActorStart`. `zoomId`, `commandId`, and `graphIds` are the root. The shared `focusId` field holds that same root so `ActorStop` can pair with the start. Search does not read a focus. The walk reads the full server Graph from State at that start. One reply, then the queue puts `ActorStop` on the event source. Detail: [Mailbox](mailbox.md).
+[x] Door: [Api](../../src/Server/Api.fs) `SearchActorDoor` has `changes`, `recordStart`, and `recordStop`. The mailbox cases are `RecordSearchStart` and `RecordSearchStop`. `changes` reads State. `recordStart` records `ActorStart`. `recordStop` is a queue message. The queue puts `ActorStop` on the event source. The id is the root.
 
 ## Seams
 

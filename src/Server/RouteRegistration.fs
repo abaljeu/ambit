@@ -207,8 +207,12 @@ module RouteRegistration =
             fun start ->
                 CoreMailbox.recordSearchStart host caller start
           recordStop =
-            fun focusId ->
-                CoreMailbox.recordSearchStop host caller focusId }
+            fun rootId ->
+                async {
+                    let! _ =
+                        CoreMailbox.recordSearchStop host caller rootId
+                    return ()
+                } }
 
     let private postSearchRequest
         (persistence: PersistenceContext)

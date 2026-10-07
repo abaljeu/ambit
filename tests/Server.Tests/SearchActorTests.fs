@@ -36,13 +36,11 @@ let private replaceChildren
 let private walk
     (text: string)
     (zoom: NodeId)
-    (focusId: NodeId option)
     (graph: Graph)
     : SearchPicture.Reply =
     SearchActor.oneReply
         { text = text
           zoomRoot = zoom
-          focusId = focusId
           graph = graph
           matchKey = SearchPicture.Text text }
 
@@ -52,7 +50,7 @@ let ``actor reply matches startSearch and takeResults`` () =
     let graph1, ids =
         ModelBuilder.createNodes [ "hit alpha"; "other"; "hit beta" ] graph0
     let graph = ownedRoot ids graph1
-    let got = walk "hit" graph.root None graph
+    let got = walk "hit" graph.root graph
     Assert.Equal<NodeId list>(
         clientIds "hit" graph.root graph,
         got.ids)
@@ -73,7 +71,7 @@ let ``actor walks the supplied graph from zoom then root`` () =
         graph1
         |> replaceChildren zoom [ underZoom ]
         |> ownedRoot [ zoom; underRoot ]
-    let full = walk "hit" zoom (Some underRoot) graph
+    let full = walk "hit" zoom graph
     Assert.Equal<NodeId list>([ underZoom; underRoot ], full.ids)
     let residence =
         graph1
@@ -81,23 +79,46 @@ let ``actor walks the supplied graph from zoom then root`` () =
         |> ownedRoot [ zoom ]
     Assert.Equal<NodeId list>(
         [ underZoom ],
-        (walk "hit" zoom None residence).ids)
+        (walk "hit" zoom residence).ids)
     Assert.Equal<NodeId list>(
         clientIds "hit" zoom graph,
         full.ids)
 
 [<Fact>]
-let ``focus does not change the walk`` () =
+let ``reply walks from the root`` () =
+    let graph0 = Graph.create ()
+    let graph1, ids =
+        ModelBuilder.createNodes
+            [ "zoom"; "hit under zoom"; "hit under root" ]
+            graph0
+    let zoom = ids.[0]
+    let underZoom = ids.[1]
+    let underRoot = ids.[2]
+    let graph =
+        graph1
+        |> replaceChildren zoom [ underZoom ]
+        |> ownedRoot [ zoom; underRoot ]
+    let request: SearchPicture.Request =
+        { text = "hit"
+          startId = zoom
+          generation = None }
+    let got = SearchActor.reply (fun () -> graph) request
+    Assert.Equal<NodeId list>(
+        clientIds "hit" graph.root graph,
+        got.ids)
+    Assert.Equal<NodeId list>([ underRoot; underZoom ], got.ids)
+
+[<Fact>]
+let ``graph focus does not change the walk`` () =
     let graph0 = Graph.create ()
     let graph1, ids =
         ModelBuilder.createNodes [ "hit one"; "hit two" ] graph0
     let graph = ownedRoot ids graph1
-    let left = walk "hit" graph.root (Some ids.[0]) graph
+    let left = walk "hit" graph.root graph
     let right =
         walk
             "hit"
             graph.root
-            (Some ids.[1])
             (Graph.withFocus (Some ids.[1]) graph)
     Assert.Equal<NodeId list>(left.ids, right.ids)
     Assert.Equal<NodeId list>([ ids.[0]; ids.[1] ], left.ids)
@@ -128,7 +149,7 @@ let ``reply reads the carrier graph once and stops at 200`` () =
         got.ids)
 
 [<Fact>]
-let ``actorStart supplies root and focus`` () =
+let ``actorStart records the root`` () =
     let graph0 = Graph.create ()
     let graph1, ids =
         ModelBuilder.createNodes [ "hit beside root" ] graph0
@@ -137,7 +158,7 @@ let ``actorStart supplies root and focus`` () =
         |> Graph.withFocus (Some ids.[0])
     let start = SearchActor.actorStart graph EventId.zero
     Assert.Equal(graph.root, start.zoomId)
-    Assert.Equal(ids.[0], start.focusId)
+    Assert.Equal(graph.root, start.focusId)
     Assert.Equal(graph.root, start.commandId)
     Assert.Equal<NodeId list>([ graph.root ], start.graphIds)
     Assert.Equal(EventId.zero, start.eventId)
@@ -145,7 +166,7 @@ let ``actorStart supplies root and focus`` () =
 [<Fact>]
 let ``blank text returns no ids`` () =
     let graph = Graph.create ()
-    let got = walk "   " graph.root (graph.focus) graph
+    let got = walk "   " graph.root graph
     Assert.Empty(got.ids)
 
 let private stateOf (graph: Graph) : State =
@@ -154,10 +175,12 @@ let private stateOf (graph: Graph) : State =
 
 let private acceptRecord _ = async.Return (Result.Ok ())
 
+let private acceptStop _ = async.Return ()
+
 let private door (handle: CoreChanges) : Api.SearchActorDoor =
     { changes = handle
       recordStart = acceptRecord
-      recordStop = acceptRecord }
+      recordStop = acceptStop }
 
 let private handle (graph: Graph) : CoreChanges =
     { getState = fun () -> async.Return (Result.Ok (stateOf graph))
@@ -196,7 +219,7 @@ let ``postSearch returns one reply from the server graph`` () = task {
 }
 
 [<Fact>]
-let ``postSearch records ActorStart with root focus and the server graph`` () = task {
+let ``postSearch records ActorStart at the root`` () = task {
     let dir = newTempDir ()
     let host, handle = createAdmittedFile dir
     try
@@ -208,7 +231,7 @@ let ``postSearch records ActorStart with root focus and the server graph`` () = 
         let graph = state.graph
         let request: SearchPicture.Request =
             { text = "quarterly"
-              startId = graph.root
+              startId = NodeId.New()
               generation = None }
         let body = Enc.toString 0 (SearchPicture.encodeRequest request)
         let searchDoor: Api.SearchActorDoor =
@@ -217,9 +240,20 @@ let ``postSearch records ActorStart with root focus and the server graph`` () = 
                 fun start ->
                     CoreMailbox.recordSearchStart host testCaller start
               recordStop =
-                fun focusId ->
-                    CoreMailbox.recordSearchStop host testCaller focusId }
-        let! _ = Api.postSearch searchDoor body |> Async.StartAsTask
+                fun rootId ->
+                    async {
+                        let! _ =
+                            CoreMailbox.recordSearchStop
+                                host
+                                testCaller
+                                rootId
+                        return ()
+                    } }
+        let! result = Api.postSearch searchDoor body |> Async.StartAsTask
+        match box result with
+        | :? ContentHttpResult -> ()
+        | other ->
+            failwith $"expected JSON content, got {other.GetType().Name}"
         let! history =
             CoreMailbox.eventHistory host |> Async.StartAsTask
         let recorded =
@@ -233,12 +267,8 @@ let ``postSearch records ActorStart with root focus and the server graph`` () = 
             | Some start -> start
             | None ->
                 failwith "ActorStart missing on the event source"
-        let focusId =
-            match graph.focus with
-            | Some id -> id
-            | None -> graph.root
         Assert.Equal(graph.root, start.zoomId)
-        Assert.Equal(focusId, start.focusId)
+        Assert.Equal(graph.root, start.focusId)
         Assert.Equal(graph.root, start.commandId)
         Assert.Equal<NodeId list>([ graph.root ], start.graphIds)
         let stopped =
@@ -246,7 +276,7 @@ let ``postSearch records ActorStart with root focus and the server graph`` () = 
             |> List.exists (fun event ->
                 match event.body with
                 | EventBody.ActorStop(stoppedId, ActorSucceeded) ->
-                    stoppedId = start.focusId
+                    stoppedId = graph.root
                 | _ -> false)
         Assert.True(stopped, "ActorStop missing after the one reply")
     finally

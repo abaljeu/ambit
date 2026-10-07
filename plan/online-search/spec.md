@@ -63,6 +63,9 @@ This file records the Destination, the Notes that still stand, and Alan's later 
 9. **Research reports** — Reports linked from the research tickets are not accepted Answers.
 10. **Map** — [map](map.md) Decisions so far holds the locks. This spec does not resolve a ticket.
 11. **Vocabulary** — Say event source. Say Server git Actor for that git Actor. Do not say CAS. Do not say Peer.
+12. **Root only** — Search does not take a focus. The server walk uses the root as the zoom. Actor Start supplies the root and the full server Graph. `zoomId`, `commandId`, and `graphIds` are the root. The shared `focusId` field holds that same root so ActorStop can pair with the start. Search does not read a dialog focus or a server focus.
+13. **Search Actor door** — Find and Move use `Api.SearchActorDoor`. The fields are `changes`, `recordStart`, and `recordStop`. `changes` reads State. `recordStart` records ActorStart. The mailbox case is `RecordSearchStart`. `recordStop` is a message to the queue. The mailbox case is `RecordSearchStop`. The queue puts ActorStop on the event source. The id is the root.
+14. **Start fields** — The request carries `text`. It may carry `generation` for the reply match. It carries `startId`. The walk does not use `startId` as a zoom or a focus. The zoom is the root. Shown Node ids are not on this request yet.
 
 ## 2. Query spec
 

@@ -347,10 +347,11 @@ module internal CoreMailboxBackend =
                 request
             |> reply.Reply
 
+    /// The queue puts ActorStop on the event source. The id is the root.
     let private dispatchRecordSearchStop
         (context: MailboxContext)
         (caller: Caller)
-        (focusId: NodeId)
+        (rootId: NodeId)
         (reply: AsyncReplyChannel<Result<unit, string>>)
         : unit =
         match admitCaller context caller with
@@ -359,7 +360,7 @@ module internal CoreMailboxBackend =
             CoreEventDispatch.actorStop
                 (eventDispatchContext context)
                 caller
-                focusId
+                rootId
                 ActorSucceeded
             |> reply.Reply
 
@@ -409,8 +410,8 @@ module internal CoreMailboxBackend =
                 context caller path peerName request reply
         | RecordSearchStart (caller, request, reply) ->
             dispatchRecordSearchStart context caller request reply
-        | RecordSearchStop (caller, focusId, reply) ->
-            dispatchRecordSearchStop context caller focusId reply
+        | RecordSearchStop (caller, rootId, reply) ->
+            dispatchRecordSearchStop context caller rootId reply
         | Load (caller, subject, reply) ->
             dispatchLoad context caller subject reply
         | ActorStop (caller, result, reply) ->

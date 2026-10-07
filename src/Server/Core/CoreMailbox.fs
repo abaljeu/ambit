@@ -206,14 +206,14 @@ module CoreMailbox =
         reply host (fun channel ->
             RecordSearchStart(caller, request, channel))
 
-    /// Append ActorStop after that Search Actor reply.
+    /// Enqueue ActorStop for that Search Actor. The id is the root.
     let recordSearchStop
         (host: MailboxHost)
         (caller: Caller)
-        (focusId: NodeId)
+        (rootId: NodeId)
         : Async<Result<unit, string>> =
         reply host (fun channel ->
-            RecordSearchStop(caller, focusId, channel))
+            RecordSearchStop(caller, rootId, channel))
 
     let startLoadSaveCommand
         (host: MailboxHost)

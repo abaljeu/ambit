@@ -9,7 +9,6 @@ module SearchActor =
     type Walk =
         { text: string
           zoomRoot: NodeId
-          focusId: NodeId option
           graph: Graph
           matchKey: SearchPicture.Match }
 
@@ -22,21 +21,17 @@ module SearchActor =
             |> List.map (fun hit -> hit.nodeId)
 
     /// One reply from the client search algorithm. No continuation cursor.
-    /// Focus is supplied. The walk uses zoom and the graph.
+    /// The walk uses zoom and the graph. Search does not take a focus.
     let oneReply (walk: Walk) : SearchPicture.Reply =
         { ids = hitIds walk.text walk.zoomRoot walk.graph
           matchKey = walk.matchKey }
 
-    /// Event-source start. `zoomId` is root. `focusId` is focus, or root
-    /// when the graph has no focus. `graphIds` is the root. The walk
-    /// reads the full Graph. This record does not copy every Node id.
+    /// Event-source start. `zoomId`, `focusId`, and `commandId` are the
+    /// root. `graphIds` is the root. Search does not read a focus.
+    /// `focusId` holds the root so ActorStop can pair on that id.
     let actorStart (graph: Graph) (eventId: EventId) : ActorStart =
-        let focusId =
-            match graph.focus with
-            | Some id -> id
-            | None -> graph.root
         { zoomId = graph.root
-          focusId = focusId
+          focusId = graph.root
           commandId = graph.root
           graphIds = [ graph.root ]
           eventId = eventId }
@@ -49,7 +44,6 @@ module SearchActor =
         let graph = getGraph ()
         oneReply
             { text = request.text
-              zoomRoot = request.startId
-              focusId = graph.focus
+              zoomRoot = graph.root
               graph = graph
               matchKey = SearchPicture.matchKeyOf request }

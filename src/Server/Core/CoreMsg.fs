@@ -38,10 +38,11 @@ type internal CoreMsg =
         caller: Caller *
         request: Gambol.Shared.ActorStart *
         AsyncReplyChannel<Result<unit, string>>
-    /// Search Actor bookkeeping. Records ActorStop after the one reply.
+    /// Search Actor bookkeeping. Puts ActorStop on the event source.
+    /// The id is the root.
     | RecordSearchStop of
         caller: Caller *
-        focusId: NodeId *
+        rootId: NodeId *
         AsyncReplyChannel<Result<unit, string>>
     /// Parse-stack Load: subject must be a File node. Fast push only.
     | Load of
