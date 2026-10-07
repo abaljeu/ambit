@@ -98,7 +98,6 @@ module FileAgent =
         | PersistOutcome.Blocked -> Ok None
         | PersistOutcome.Queued -> Ok None
         | PersistOutcome.Failed err -> Error err
-        | PersistOutcome.Raised ex -> raise ex
 
     let private persistCollected
         (loaded: LoadedFile)
@@ -361,6 +360,7 @@ module FileAgent =
             persistOps = dependencies.persistGraphOps
             persistChange = DocumentPersistChange.persistGraphChange
             finish = PersistThread.finishWhenBound loaded.snapshotPost
+            changeFailed = fun _ _ -> ()
         }
 
     let createWithDependencies

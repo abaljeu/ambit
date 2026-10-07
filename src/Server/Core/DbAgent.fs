@@ -315,7 +315,6 @@ module DbAgent =
         | PersistOutcome.Blocked -> Ok(liveOf None false)
         | PersistOutcome.Queued -> Ok(liveOf None false)
         | PersistOutcome.Failed err -> Error err
-        | PersistOutcome.Raised ex -> raise ex
 
     let private notifiedOwners
         (graph: Graph)
@@ -487,6 +486,24 @@ module DbAgent =
                 if loaded.snapshotNeeded.Value then
                     requestSnapshot loaded
 
+    /// A failed Change leaves those nodes Unpersisted. Drop the batch
+    /// so a later post can try again. Do not post SnapshotDone.
+    let private changeFailed (loaded: LoadedPersist) (ids: NodeId list) (err: string) =
+        eprintfn "DbAgent: failed to write live documents: %s" err
+        let hitsBatch =
+            loaded.snapshotInProgress.Value
+            && List.exists
+                (fun id -> List.contains id loaded.snapshotIds.Value)
+                ids
+        if hitsBatch then
+            let pending = loaded.snapshotIds.Value
+            loaded.snapshotIds.Value <- []
+            loaded.snapshotMarks.Value <- 0
+            loaded.snapshotInProgress.Value <- false
+            loaded.snapshotWorkspaces.Value <-
+                List.distinct (pending @ loaded.snapshotWorkspaces.Value)
+            loaded.snapshotNeeded.Value <- true
+
     let private handleSnapshotDone loaded nodeId persisted =
         match persisted with
         | Some graph
@@ -636,6 +653,7 @@ module DbAgent =
             persistOps = loaded.persistGraphOps
             persistChange = DocumentPersistChange.persistGraphChange
             finish = PersistThread.finishWhenBound loaded.snapshotPost
+            changeFailed = changeFailed loaded
         }
         { filling =
             { handlers = persistHandlers loaded

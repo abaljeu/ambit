@@ -1,5 +1,7 @@
 # Code review — 18 Core Persist stack
 
+Follow-up: the `Raised` rethrow and the failed-Change `SnapshotDone` findings below are closed. See [Code review — 18 Core Persist stack vs staging](code-review-18-vs-staging.md).
+
 Range: uncommitted working tree vs `HEAD`, plus untracked [Persist collectors](../../../src/Server/Core/PersistCollectors.fs), [Persist thread](../../../src/Server/Core/PersistThread.fs), [Persist thread tests](../../../tests/Server.Tests/PersistThreadTests.fs), and [18 — Core Persist stack](../issues/18-core-persist-stack.md). Spec: that ticket, [04 — Parsed/Unparsed and Persisted/Unpersisted](../issues/04-parsed-unparsed-and-persisted-unpersisted.md), and [core-refinement architecture](../arch.md) §3 step 3 **Core Persist stack**, §9 **Persist stack**, and §10 **Persist thread**. This report is not approval. Ticket Status stays `coded`.
 
 ## Standards

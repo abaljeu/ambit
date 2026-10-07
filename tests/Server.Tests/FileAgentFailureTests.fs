@@ -64,10 +64,8 @@ let private softFailEditBody () =
     } ]
 
 [<Fact>]
-let ``persistence exception is logged replied and mailbox survives`` () = task {
+let ``persistence failure is returned and mailbox survives`` () = task {
     let dataDir = newTempDir ()
-    let logPath = HttpResponseLog.logPath dataDir
-    HttpResponseLog.prepareFresh logPath
     let defaults = FileAgent.defaultDependencies dataDir
     let dependencies =
         {
@@ -75,10 +73,6 @@ let ``persistence exception is logged replied and mailbox survives`` () = task {
                 persistGraphOps =
                     fun _ _ _ _ ->
                         raise (InvalidOperationException("injected persistence failure"))
-                appendException =
-                    fun operation context ex ->
-                        defaults.appendException operation context ex
-                        raise (IOException("injected logger failure"))
         }
     let agent = FileAgent.createWithDependencies dependencies dataDir
     try
@@ -90,14 +84,7 @@ let ``persistence exception is logged replied and mailbox survives`` () = task {
         match postResult with
         | Ok _ -> Assert.Fail("Expected persistence failure.")
         | Error error ->
-            Assert.Contains("Internal server error in FileAgent PostEvent", error)
-            Assert.Contains($"(dataDir={dataDir})", error)
-
-        let log = File.ReadAllText logPath
-        Assert.Contains("EXCEPTION source=FileAgent operation=PostEvent", log)
-        Assert.Contains("type=System.InvalidOperationException", log)
-        Assert.Contains("message=injected persistence failure", log)
-        Assert.Contains("stack=", log)
+            Assert.Contains("injected persistence failure", error)
 
         let! state =
             getState agent

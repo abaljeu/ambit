@@ -21,13 +21,12 @@ type PersistSubmit = {
     wait: bool
 }
 
-/// Result of a collector call. Raised is the write body's exception.
+/// Result of a collector call. A thrown write becomes Failed.
 [<RequireQualifiedAccess>]
 type PersistOutcome =
     | Wrote of PersistGraphOk
     | Blocked
     | Failed of string
-    | Raised of exn
     | Queued
 
 type internal PersistWork = {

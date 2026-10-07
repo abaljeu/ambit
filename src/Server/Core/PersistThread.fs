@@ -12,6 +12,7 @@ type internal PersistThreadDeps = {
     persistChange:
         string -> Graph -> Graph -> Result<PersistGraphOk, string>
     finish: NodeId -> Graph option -> unit
+    changeFailed: NodeId list -> string -> unit
 }
 
 /// One long-lived persist thread. It pulls collector jobs and calls the
@@ -82,7 +83,7 @@ module PersistThread =
         match written with
         | Error err ->
             if submit.kind = PersistKind.Change then
-                notify deps submit None ids
+                deps.changeFailed submit.nodeIds err
             reply work (PersistOutcome.Failed err)
         | Ok stamped ->
             let clean = stamped.message.IsNone
@@ -99,10 +100,12 @@ module PersistThread =
         (ops: Op list)
         (ids: NodeId list)
         =
-        try
-            afterWrite deps work ids (invoke deps work.submit ops)
-        with ex ->
-            reply work (PersistOutcome.Raised ex)
+        let written =
+            try
+                invoke deps work.submit ops
+            with ex ->
+                Error ex.Message
+        afterWrite deps work ids written
 
     let private runOne (deps: PersistThreadDeps) (work: PersistWork) =
         let ops =
@@ -122,7 +125,7 @@ module PersistThread =
         thread.IsBackground <- true
         thread.Start()
 
-    /// Private add when the mailbox has bound the snapshot post.
+    /// Private add after a successful finish. A failed write does not call this.
     let internal finishWhenBound
         (slot: (InMsg -> unit) option ref)
         (nodeId: NodeId)
