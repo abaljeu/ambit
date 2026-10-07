@@ -4,14 +4,14 @@ Stage: build
 Summary: Two specs in one file. Find opens on a local list, and the globe requests the server when that list is under 200. A query expression inserts results under the query line. Query eval is remote.
 Updated: 2026-10-07
 Started: 2026-10-04
-Actual: 7h
+Actual: 8h
 
 ## Notes
 
 - Map: [[map.md]]
 - Specs: [[spec.md]] holds the Search spec and the Query spec. Both specs live in that file.
 - Architecture: [[arch.md]]. Sequence is tracer-cut. The cap of 200, the globe on the search bar, Want nodes for hits, and `src/Server/SearchActor.fs` are locks. The quiet gap is not a Find lock. The Query Ref post stays a proposed design. Next and Page are not in this project.
-- Frontier: [07 — Server completes the picture](issues/07-server-completes-the-picture.md) is coded. [21 — Globe requests the server](issues/21-globe-requests-the-server.md) is `defined` and blocked by that ticket. [11 — Server evaluates](issues/11-server-evaluates.md) is coded. Run on a `=` line evals on the server Graph and replies with Node ids. The Ref post stays [16 — Insert Refs under the query line](issues/16-insert-refs-under-the-query-line.md). [14 — Cap of 200](issues/14-cap-of-200.md) section 2 **Query cap** is not started. [06 — Residence hits first](issues/06-residence-hits-first.md) is done. [08 — Duplicates on Node id](issues/08-duplicates-on-node-id.md) is cancelled.
+- Frontier: [07 — Server completes the picture](issues/07-server-completes-the-picture.md) is coded. [21 — Globe requests the server](issues/21-globe-requests-the-server.md) is `defined` and blocked by that ticket. [11 — Server evaluates](issues/11-server-evaluates.md) is coded. Run on a `=` line evals on the server Graph and replies with Node ids on ActorStop. The Ref post stays [16 — Insert Refs under the query line](issues/16-insert-refs-under-the-query-line.md). [14 — Cap of 200](issues/14-cap-of-200.md) section 2 **Query cap** is not started. [06 — Residence hits first](issues/06-residence-hits-first.md) is done. [08 — Duplicates on Node id](issues/08-duplicates-on-node-id.md) is cancelled.
 - Coded pages: [Search](../../doc/current/search.md) and [Search Actor](../../doc/current/search-actor.md) mark the coded quiet-gap Start obsolete. The Find path on those pages is the globe. [Want nodes for hits](../../doc/current/want-nodes.md) is the Find reply ride.
 - Committed claims: [Search Actor](../../doc/current/search-actor.md), [Query Actor](../../doc/current/query-actor.md), and [Want nodes for hits](../../doc/current/want-nodes.md). Those pages do not hold the Query Ref post. That post stays a proposed design.
 - This project owns both specs. [Browser residency](plan/browser-residency/project.md), [search zoom select](plan/search-zoom-select/project.md), [expression language](plan/expression-language/project.md), and [selective client loading](plan/selective-client-loading/project.md) do not own them.

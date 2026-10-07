@@ -48,43 +48,26 @@ module SearchActor =
               graph = graph
               matchKey = SearchPicture.matchKeyOf request }
 
-    type QueryReply = { ids: NodeId list }
-
     /// The command Node on the server Graph is a query line.
     let isQueryRequest (graph: Graph) (request: ActorStart) =
         match Map.tryFind request.commandId graph.nodes with
         | None -> false
         | Some node -> CommandRequest.isQueryText node.text
 
-    /// One eval on the carrier Graph. `graphIds` do not select that Graph.
-    let queryReply (getGraph: unit -> Graph) (lineId: NodeId) : QueryReply =
-        let graph = getGraph ()
-        match Map.tryFind lineId graph.nodes with
-        | None -> { ids = [] }
-        | Some node ->
-            { ids = ExprRun.answerNodeIds lineId graph node.text }
-
     let private actorCaller (secret: Credential) : Caller =
         { authority = Authority "Actor"
           name = ""
           secret = secret }
 
-    /// One eval, then ActorStop. The stop id is the query line.
-    let runQuery
-        (lineId: NodeId)
-        (run: FunctionRun)
-        (changes: CoreChanges)
-        : Async<QueryReply> =
-        async {
-            let reply = queryReply run.getGraph lineId
-            let! _ =
-                changes
-                    .asCaller(actorCaller run.secret)
-                    .actorStop ActorSucceeded
-            return reply
-        }
+    /// One eval on the carrier Graph. `graphIds` do not select that Graph.
+    let private queryIds (getGraph: unit -> Graph) (lineId: NodeId) =
+        let graph = getGraph ()
+        match Map.tryFind lineId graph.nodes with
+        | None -> []
+        | Some node -> ExprRun.answerNodeIds lineId graph node.text
 
-    /// Query Actor body. It does not use the Find walk.
+    /// Query Actor body. ActorStop carries the Node ids. It does not use
+    /// the Find walk.
     let functionStart
         (request: ActorStart)
         (getGraph: GraphCarrier)
@@ -93,7 +76,11 @@ module SearchActor =
         { actor =
             fun run changes ->
                 async {
-                    let! _ = runQuery lineId run changes
+                    let result = ActorQuery (queryIds run.getGraph lineId)
+                    let! _ =
+                        changes
+                            .asCaller(actorCaller run.secret)
+                            .actorStop result
                     return ()
                 }
           getGraph = getGraph

@@ -88,6 +88,7 @@ module internal CoreMailboxBackend =
             | ActorSucceeded -> "ActorStop", "ActorSucceeded"
             | ActorFailed _ -> "ActorStop", "ActorFailed"
             | ActorCancelled -> "ActorStop", "ActorCancelled"
+            | ActorQuery _ -> "ActorStop", "ActorQuery"
         | CancelActor _ -> "CancelActor", ""
         | Login _ -> "Login", ""
         | Logout _ -> "Logout", ""

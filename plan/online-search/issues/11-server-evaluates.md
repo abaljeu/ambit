@@ -2,7 +2,7 @@
 
 **Status:** `coded`
 **Type:** coding
-**Actual:** 2h
+**Actual:** 3h
 **Blocked by:** [07 — Server completes the picture](07-server-completes-the-picture.md)
 
 ## Context
@@ -53,12 +53,15 @@ The door is the existing Run command. Today a `=` line runs locally. This ticket
 
 ### 4. Reply
 
-The observable reply is Node ids. [16 — Insert Refs under the query line](16-insert-refs-under-the-query-line.md) owns the Ref post. The HTTP body of `POST /ambit/command` stays the existing command response.
+The observable reply is Node ids. They ride ActorStop as `ActorQuery`. [16 — Insert Refs under the query line](16-insert-refs-under-the-query-line.md) owns the Ref post. The HTTP body of `POST /ambit/command` stays the existing command response. The client reads the ids from that ActorStop event on the command `events` list or on a later Poll.
 
-1. [x] Node ids — The eval result is the Node ids of the Node Answers. Tests observe that list. [ExprRun](src/Shared/ExprRun.fs) `run` builds a Plan that posts Refs. This ticket returns the Node ids. [16 — Insert Refs under the query line](16-insert-refs-under-the-query-line.md) owns that Plan.
+1. [x] Node ids — The eval result is the Node ids of the Node Answers. ActorStop carries them as `ActorQuery`. Tests read that event. [ExprRun](src/Shared/ExprRun.fs) `run` builds a Plan that posts Refs. This ticket returns the Node ids on ActorStop. [16 — Insert Refs under the query line](16-insert-refs-under-the-query-line.md) owns that Plan.
 
 ```json
 {
+  "kind": "actorStop",
+  "focusId": "550e8400-e29b-41d4-a716-446655440001",
+  "result": "query",
   "ids": [ "550e8400-e29b-41d4-a716-446655440002" ]
 }
 ```
@@ -67,7 +70,7 @@ The observable reply is Node ids. [16 — Insert Refs under the query line](16-i
 
 1. [x] ActorStart — `StartActor` records ActorStart before the eval. `focusId` is the query line when Run is on that line, so ActorStop can pair on that id. The Search Actor keeps its own root-only start.
 2. [x] One eval — The Query Actor in `src/Server/SearchActor.fs` evaluates once, off the mailbox, on the full server Graph from State. `graphIds` do not replace that Graph. A `=` line does not select a `?` actor name.
-3. [x] ActorStop — The Actor posts ActorStop and stops. The id is the query-line Node id. The result of the eval is the Node ids.
+3. [x] ActorStop — The Actor posts ActorStop and stops. The id is the query-line Node id. The result is `ActorQuery`. That result carries the Node ids. `ActorSucceeded` stays the result for other Actors.
 
 ### 6. Cap
 
@@ -89,7 +92,9 @@ The observable reply is Node ids. [16 — Insert Refs under the query line](16-i
 ## Comments
 
 - 2026-10-07: Alan. The door is the existing Run command. This ticket changes that door from local run to remote run. The reply is Node ids. The Ref post stays [16 — Insert Refs under the query line](16-insert-refs-under-the-query-line.md). Server eval stays the lock in Decisions so far item 6 **Remote query eval**. A new search-style door is out.
+- 2026-10-07: Alan. The Node ids ride ActorStop as `ActorQuery`. They do not ride the `POST /ambit/command` response body.
 
 ## Time
 
 - 2026-10-07 2h — remote query eval on Run (from chat)
+- 2026-10-07 1h — Node ids ride ActorStop (from chat)

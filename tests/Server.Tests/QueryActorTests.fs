@@ -65,35 +65,53 @@ let private recordingStops (stops: ResizeArray<ActorResult>) : CoreChanges =
           asCaller = fun _ -> make () }
     make ()
 
+let private stopFor (getGraph: unit -> Graph) (lineId: NodeId) =
+    let stops = ResizeArray<ActorResult>()
+    let request: ActorStart =
+        { zoomId = lineId
+          focusId = lineId
+          commandId = lineId
+          graphIds = [ lineId ]
+          eventId = EventId.zero }
+    let start = SearchActor.functionStart request getGraph
+    let run: FunctionRun =
+        { getGraph = getGraph
+          secret = Credential "query-test" }
+    start.actor run (recordingStops stops) |> Async.RunSynchronously
+    List.ofSeq stops
+
 [<Fact>]
-let ``query reply reads the carrier graph once`` () =
+let ``ActorStop reads the carrier graph once`` () =
     let lineId, bobId, full = bobGraph ()
     let calls = ResizeArray<int>()
     let getGraph () =
         calls.Add 1
         full
-    let got = SearchActor.queryReply getGraph lineId
+    let stops = stopFor getGraph lineId
     Assert.Equal(1, calls.Count)
-    Assert.Equal<NodeId list>([ bobId ], got.ids)
-    let extract =
-        full
-        |> withoutRootChild bobId
-    let missed = SearchActor.queryReply (fun () -> extract) lineId
-    Assert.DoesNotContain(bobId, missed.ids)
+    Assert.Equal<ActorResult list>([ ActorQuery [ bobId ] ], stops)
+    let extract = full |> withoutRootChild bobId
+    let missed = stopFor (fun () -> extract) lineId
+    match missed with
+    | [ ActorQuery ids ] -> Assert.DoesNotContain(bobId, ids)
+    | other -> Assert.Fail($"expected ActorQuery, got {other}")
 
 [<Fact>]
-let ``query reply is not the find walk`` () =
+let ``ActorStop ids are not the find walk`` () =
     let lineId, bobId, graph = bobGraph ()
-    let query = SearchActor.queryReply (fun () -> graph) lineId
+    let stops = stopFor (fun () -> graph) lineId
     let request: SearchPicture.Request =
         { text = "Bob"
           startId = graph.root
           generation = None }
     let found = SearchActor.reply (fun () -> graph) request
-    Assert.Equal<NodeId list>([ bobId ], query.ids)
+    match stops with
+    | [ ActorQuery ids ] ->
+        Assert.Equal<NodeId list>([ bobId ], ids)
+        Assert.DoesNotContain(lineId, ids)
+        Assert.NotEqual<NodeId list>(ids, found.ids)
+    | other -> Assert.Fail($"expected ActorQuery, got {other}")
     Assert.Contains(lineId, found.ids)
-    Assert.DoesNotContain(lineId, query.ids)
-    Assert.NotEqual<NodeId list>(query.ids, found.ids)
 
 [<Fact>]
 let ``question text is not a query request`` () =
@@ -110,31 +128,13 @@ let ``question text is not a query request`` () =
     Assert.False(SearchActor.isQueryRequest graph request)
 
 [<Fact>]
-let ``runQuery evals once then stops`` () =
-    let lineId, bobId, graph = bobGraph ()
-    let calls = ResizeArray<int>()
-    let getGraph () =
-        calls.Add 1
-        graph
-    let stops = ResizeArray<ActorResult>()
-    let run: FunctionRun =
-        { getGraph = getGraph
-          secret = Credential "query-test" }
-    let reply =
-        SearchActor.runQuery lineId run (recordingStops stops)
-        |> Async.RunSynchronously
-    Assert.Equal(1, calls.Count)
-    Assert.Equal<NodeId list>([ bobId ], reply.ids)
-    Assert.Equal<ActorResult list>([ ActorSucceeded ], List.ofSeq stops)
-
-[<Fact>]
-let ``empty equals line returns no node ids`` () =
+let ``empty equals line stops with no node ids`` () =
     let graph1, ids =
         ModelBuilder.createNodes [ "=" ] (Graph.create ())
     let lineId = ids.[0]
     let graph = insertAtRoot [ lineId ] graph1
-    let got = SearchActor.queryReply (fun () -> graph) lineId
-    Assert.Empty(got.ids)
+    let stops = stopFor (fun () -> graph) lineId
+    Assert.Equal<ActorResult list>([ ActorQuery [] ], stops)
 
 let private decodeUniversal json =
     Decode.fromString
@@ -150,23 +150,28 @@ let private requireUniversal (result: IResult) =
     | other ->
         failwith $"expected command JSON, got {other.GetType().Name}"
 
-let private waitStop (host: MailboxHost) (lineId: NodeId) = task {
-    let mutable found = false
+let private waitStopEvent (host: MailboxHost) (lineId: NodeId) = task {
+    let mutable found: Ev option = None
     let start = DateTime.UtcNow
     while
-        not found
+        found.IsNone
         && (DateTime.UtcNow - start).TotalMilliseconds < 2000.0 do
         let! history =
             CoreMailbox.eventHistory host |> Async.StartAsTask
         found <-
             history.events
-            |> List.exists (fun event ->
+            |> List.tryFind (fun event ->
                 match event.body with
-                | EventBody.ActorStop(id, ActorSucceeded) -> id = lineId
+                | EventBody.ActorStop(id, ActorQuery _) -> id = lineId
                 | _ -> false)
-        if not found then do! Task.Delay 10
+        if found.IsNone then do! Task.Delay 10
     return found
 }
+
+let private idsOfStop (event: Ev) =
+    match event.body with
+    | EventBody.ActorStop(_, ActorQuery ids) -> ids
+    | other -> failwith $"expected ActorQuery, got {other}"
 
 [<Fact>]
 let ``Run on an equals line evals the server graph once then stops`` () =
@@ -248,8 +253,17 @@ let ``Run on an equals line evals the server graph once then stops`` () =
                         && start.graphIds = [ root ]
                     | _ -> false)
             Assert.True(started, "ActorStart missing from the command response")
-            let! stopped = waitStop host lineId
-            Assert.True(stopped, "ActorStop missing after the one eval")
+            let! stopped = waitStopEvent host lineId
+            let event =
+                match stopped with
+                | Some value -> value
+                | None -> failwith "ActorStop missing after the one eval"
+            Assert.Equal<NodeId list>([ bobId ], idsOfStop event)
+            let json = Encode.toString 0 (EventJson.encode event)
+            match Decode.fromString EventJson.decode json with
+            | Error err -> failwith err
+            | Ok decoded ->
+                Assert.Equal<NodeId list>([ bobId ], idsOfStop decoded)
             Assert.Equal(3, !calls)
             let! after = handle.getState () |> Async.StartAsTask
             match after with
@@ -257,11 +271,6 @@ let ``Run on an equals line evals the server graph once then stops`` () =
             | Ok afterState ->
                 let kids = Graph.children afterState.graph lineId
                 Assert.Empty(kids)
-                let again =
-                    SearchActor.queryReply
-                        (fun () -> afterState.graph)
-                        lineId
-                Assert.Equal<NodeId list>([ bobId ], again.ids)
         finally
             CoreMailbox.dispose host
     }
