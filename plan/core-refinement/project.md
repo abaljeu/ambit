@@ -4,7 +4,7 @@ Stage: build
 Summary: Sequel to [[plan/core-creation/project.md]]: refine Core so that after transport lands files, Core works through disk and Graph changes (Parse stack, Persist stack, state axes) until everything is updated.
 Updated: 2026-10-07
 Started: 2026-09-29
-Actual: 5h15m
+Actual: 10h15m
 
 **Sequel to:** [[plan/core-creation/project.md]]
 **Feeds:** [[plan/github-transport/project.md]] (thin remainder: lock workspace, receive files, inform Core)
@@ -32,6 +32,7 @@ Actual: 5h15m
 - 2026-10-07 — Alan accepted `InMsg` `MarkUnparsed`. A disk-newer File Node is set Unparsed through that case. Case home: [[arch.md]] §10 Core loop. Current claim: [[doc/current/mailbox.md]]. Stage stays `build`.
 - 2026-10-07 — Alan locked both Unparsed approaches. After pull, the git changed list immediately marks matching File Nodes and Directory Nodes Unparsed. The workspace lock sequence stays [[arch.md]] §6. Ticket: [07 — Git changed list sets Unparsed](issues/07-git-changed-list-unparsed.md). The Directory reconcile approach stays [07 — Directory Unparsed during reconcile](../parse-thread/issues/07-directory-unparsed-during-reconcile.md). Stage stays `build`.
 - 2026-10-07 — Alan: leftover core-creation work continues here via pointer tickets [08](issues/08-pointer-core-actor-pool.md)–[17](issues/17-pointer-prove-testactor-hello.md). Solid core v1 is implemented on [[plan/core-creation/project.md]]; this Project is v2. Stage stays `build`.
+- 2026-10-07 — [18 — Core Persist stack](issues/18-core-persist-stack.md) stands the persist collectors and persist thread inside Core. Callers use the collectors. The write body stays [[src/Server/DocumentPersistChange.fs]]. Parse setup is unchanged. Stage stays `build`.
 
 ## Issues
 
@@ -52,3 +53,4 @@ Actual: 5h15m
 - [15 — Pointer: Prove Core Actor lifecycle with TestActor](issues/15-pointer-prove-core-actor-lifecycle-testactor.md) — pointer to [[plan/core-creation/issues/27-prove-core-actor-lifecycle-with-testactor.md|27 — Prove Core Actor lifecycle with TestActor]]; owned/continued here. Status `defined`.
 - [16 — Pointer: Drain Actor lifecycle on host stop](issues/16-pointer-drain-actor-lifecycle-on-host-stop.md) — pointer to [[plan/core-creation/issues/28-drain-actor-lifecycle-on-host-stop.md|28 — Drain Actor lifecycle on host stop]]; owned/continued here. Status `defined`.
 - [17 — Pointer: Prove TestActor hello](issues/17-pointer-prove-testactor-hello.md) — pointer to [[plan/core-creation/issues/29-prove-testactor-hello.md|29 — Prove TestActor hello]]; owned/continued here. Status `defined`.
+- [18 — Core Persist stack](issues/18-core-persist-stack.md) — collectors and the persist thread inside Core; callers use the collectors; the thread adds `InMsg` `SnapshotDone`. Status `coded`.

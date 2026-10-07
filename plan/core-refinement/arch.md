@@ -52,10 +52,10 @@ Ordered path from §2 Starting point to Target — Server Core. The expand-contr
    3. **Contract** — [ ] Retire today’s Load → Parse / graph-push hop once every handoff uses the stack. Claim home: [Parse and persist](doc/current/parse-persist.md) (Parse stack claims).
 
 3. **Core Persist stack**
-   Charted approach (Alan, 2026-09-29). Persist is not an Actor; it is a thread. See [04 — Parsed/Unparsed and Persisted/Unpersisted](issues/04-parsed-unparsed-and-persisted-unpersisted.md). Setup location (Alan, 2026-09-30): Persist setup (collectors and the loop that calls existing persist functions) lives inside [[src/Server/Core]]. Outside Core, including [[src/Server/RouteRegistration.fs]], does not construct Persist, start it, or hold its handles; RouteRegistration may call a Core entry that boots Core, and does not see persist collectors. That setup is not stood up yet. This step’s Expand / Migrate / Contract is collectors and call-site shape only. Standing workspace lock / per-member persist locks and removing `withWorkTreeGate` are §3 step 4 **§6 locks catch-up**, not this Contract.
-   1. **Expand** — [ ] Make **new collector functions** beside today’s sync live-save. A **loop** on the persist thread will pull from the collection and **call the existing persist functions** ([[src/Server/DocumentPersistChange.fs]] / today’s Graph→disk writers). Those functions stay the write body. Do not invent a new write body in this step.
-   2. **Migrate** — [ ] **Change everyone to call the collectors.** Sync call sites move to collectors; the loop is the new feeder; the existing persist functions are what the loop calls. Do not delete those functions in this step.
-   3. **Contract** — [ ] Retire the old sync call-site shape once collectors and the loop feed the existing persist functions. The write body stays.
+   Charted approach (Alan, 2026-09-29). Persist is not an Actor; it is a thread. See [04 — Parsed/Unparsed and Persisted/Unpersisted](issues/04-parsed-unparsed-and-persisted-unpersisted.md). Setup location (Alan, 2026-09-30): Persist setup (collectors and the loop that calls existing persist functions) lives inside [[src/Server/Core]]. Outside Core, including [[src/Server/RouteRegistration.fs]], does not construct Persist, start it, or hold its handles; RouteRegistration may call a Core entry that boots Core, and does not see persist collectors. That setup stands in Core. This step’s Expand / Migrate / Contract is collectors and call-site shape only. Standing workspace lock / per-member persist locks and removing `withWorkTreeGate` are §3 step 4 **§6 locks catch-up**, not this Contract.
+   1. **Expand** — [x] Make **new collector functions** beside today’s sync live-save. A **loop** on the persist thread will pull from the collection and **call the existing persist functions** ([[src/Server/DocumentPersistChange.fs]] / today’s Graph→disk writers). Those functions stay the write body. Do not invent a new write body in this step.
+   2. **Migrate** — [x] **Change everyone to call the collectors.** Sync call sites move to collectors; the loop is the new feeder; the existing persist functions are what the loop calls. Do not delete those functions in this step.
+   3. **Contract** — [x] Retire the old sync call-site shape once collectors and the loop feed the existing persist functions. The write body stays.
    **New behavior** (not today’s sync live-save): The persist thread runs when a node is Unpersisted and Parsed (§6). When it finishes, it adds `InMsg` `SnapshotDone` through the private function (§10). It does not edit the graph. The core loop sets Persisted. Unparsed files are not open for persist. Axis lock already says file Persist is blocked while Unparsed ([04 — Parsed/Unparsed and Persisted/Unpersisted](issues/04-parsed-unparsed-and-persisted-unpersisted.md)); the persist thread (collector loop) is where that block becomes real. Do not claim today’s code already does it. Lock protocol against in-flight writes during pull: §6 and §3 step 4 **§6 locks catch-up**. Claim home: [Parse and persist](doc/current/parse-persist.md) (Persist stack claims).
 
 4. **§6 locks catch-up**
@@ -169,9 +169,9 @@ Sequence stays `expand-contract`. These paths are that implementation sequence. 
    3. [ ] **Contract** — Load uses that stack.
 
 3. **Persist stack**
-   1. [ ] **Expand** — The persist thread calls the existing persist functions.
-   2. [ ] **Migrate** — Callers use the collectors. The write body stays.
-   3. [ ] **Contract** — The old sync call-site shape is gone.
+   1. [x] **Expand** — The persist thread calls the existing persist functions.
+   2. [x] **Migrate** — Callers use the collectors. The write body stays.
+   3. [x] **Contract** — The old sync call-site shape is gone.
 
 4. **Workspace lock catch-up**
    1. [ ] **Expand** — The workspace lock and per-member persist locks stand beside `withWorkTreeGate`.
@@ -235,7 +235,7 @@ Deltas for this Project. Claim homes: [Mailbox](doc/current/mailbox.md) and [Par
       10. [x] **Mark unparsed** — `MarkUnparsed` sets that node Unparsed only. The field write is `GraphMutate.setParseState`. PersistState stays unchanged. `Op.SetDocumentState` is not the writer.
    3. **Uses**
       1. [x] **Parse thread** — Adds `InMsg` `ParseFinished` through the private function.
-      2. [ ] **Persist thread** — Adds `InMsg` `SnapshotDone` through the private function.
+      2. [x] **Persist thread** — Adds `InMsg` `SnapshotDone` through the private function.
       3. [x] **Db agent** — Adds `InMsg` `SnapshotDone` through the private function when the live-document snapshot finishes. It does not post `CoreMsg`.
       4. [x] **Field write** — `GraphMutate.setParseState` and `GraphMutate.setPersistState` are the existing field writes.
       5. [x] **Disk-newer** — The parse thread adds `InMsg` `MarkUnparsed` for that File Node through the private function. It does not edit the graph.
@@ -253,18 +253,18 @@ Deltas for this Project. Claim homes: [Mailbox](doc/current/mailbox.md) and [Par
 3. **Persist thread**
    File: `src/Server/Core/PersistThread.fs`.
    1. **State**
-      1. [ ] **No queue** — The persist thread does not hold the mailbox queue.
+      1. [x] **No queue** — The persist thread does not hold the mailbox queue.
    2. **Interface**
-      1. [ ] **Add** — On finish it adds `InMsg` `SnapshotDone` for that node through the private function. It does not edit the graph.
+      1. [x] **Add** — On finish it adds `InMsg` `SnapshotDone` for that node through the private function. It does not edit the graph.
    3. **Uses**
-      1. [ ] **Private add** — The private function on the mailbox.
-      2. [ ] **Persist functions** — The thread calls the existing functions in `src/Server/DocumentPersistChange.fs`.
+      1. [x] **Private add** — The private function on the mailbox.
+      2. [x] **Persist functions** — The thread calls the existing functions in `src/Server/DocumentPersistChange.fs`.
 
 ## 11. Seams
 
 1. [x] **Private add** — Interface on **Core loop**.
 2. [x] **Parse add** — Interface on **Parse thread**.
-3. [ ] **Persist add** — Interface on **Persist thread**.
+3. [x] **Persist add** — Interface on **Persist thread**.
 
 ## 12. Alternative considered
 

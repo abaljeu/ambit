@@ -24,7 +24,7 @@ let private fileState persist parse =
 
 let private handlers
     (state: State ref)
-    (snaps: ResizeArray<Graph option>)
+    (snaps: ResizeArray<NodeId * Graph option>)
     : PersistHandlers =
     { getState = fun () -> Ok state.Value
       getEventId = fun () -> Ok state.Value.eventId
@@ -35,7 +35,8 @@ let private handlers
       replaceGraph =
         fun graph ->
             state.Value <- { state.Value with graph = graph }
-      snapshotDone = fun graph -> snaps.Add graph }
+      snapshotDone = fun nodeId graph -> snaps.Add(nodeId, graph)
+      noteParsed = ignore }
 
 let private filling state snaps : PersistFilling =
     { handlers = handlers state snaps
@@ -70,7 +71,7 @@ let ``ParseFinished sets Parsed and leaves PersistState`` () =
     let id, initial =
         fileState PersistState.Unpersisted ParseState.Unparsed
     let state = ref initial
-    let snaps = ResizeArray<Graph option>()
+    let snaps = ResizeArray<NodeId * Graph option>()
     apply (handlers state snaps) (InMsg.ParseFinished id)
     let node = state.Value.graph.nodes.[id]
     Assert.Equal(ParseState.Parsed, node.parseState)
@@ -83,7 +84,7 @@ let ``MarkUnparsed sets Unparsed and leaves PersistState`` () =
     let id, initial =
         fileState PersistState.Unpersisted ParseState.Parsed
     let state = ref initial
-    let snaps = ResizeArray<Graph option>()
+    let snaps = ResizeArray<NodeId * Graph option>()
     apply (handlers state snaps) (InMsg.MarkUnparsed id)
     let node = state.Value.graph.nodes.[id]
     Assert.Equal(ParseState.Unparsed, node.parseState)
@@ -96,34 +97,37 @@ let ``SnapshotDone sets Persisted and calls the snapshot handler`` () =
     let id, initial =
         fileState PersistState.Unpersisted ParseState.Parsed
     let state = ref initial
-    let snaps = ResizeArray<Graph option>()
+    let snaps = ResizeArray<NodeId * Graph option>()
     let shot = Some initial.graph
     apply (handlers state snaps) (InMsg.SnapshotDone(id, shot))
     let node = state.Value.graph.nodes.[id]
     Assert.Equal(PersistState.Persisted, node.persistState)
     Assert.Equal(ParseState.Parsed, node.parseState)
     Assert.Equal(Current, node.documentState)
-    Assert.Equal<Graph option>(shot, Seq.item 0 snaps)
-    Assert.Equal(1, snaps.Count)
+    let snapId, snapGraph = Assert.Single(snaps)
+    Assert.Equal(id, snapId)
+    Assert.Equal(shot, snapGraph)
 
 [<Fact>]
 let ``SnapshotDone without a graph sets Persisted`` () =
     let id, initial =
         fileState PersistState.Unpersisted ParseState.Parsed
     let state = ref initial
-    let snaps = ResizeArray<Graph option>()
+    let snaps = ResizeArray<NodeId * Graph option>()
     apply (handlers state snaps) (InMsg.SnapshotDone(id, None))
     let node = state.Value.graph.nodes.[id]
     Assert.Equal(PersistState.Persisted, node.persistState)
     Assert.Equal(ParseState.Parsed, node.parseState)
-    Assert.Equal<Graph option>(None, Seq.item 0 snaps)
+    let snapId, snapGraph = Assert.Single(snaps)
+    Assert.Equal(id, snapId)
+    Assert.Equal(None, snapGraph)
 
 [<Fact>]
 let ``axis write failure is returned`` () =
     let id, initial =
         fileState PersistState.Unpersisted ParseState.Unparsed
     let state = ref initial
-    let snaps = ResizeArray<Graph option>()
+    let snaps = ResizeArray<NodeId * Graph option>()
     let missing = NodeId.New()
     let missingResult =
         CoreMailboxBackend.applyInMsg
@@ -148,7 +152,7 @@ let ``mailbox queue applies ParseFinished`` () =
         let id, initial =
             fileState PersistState.Unpersisted ParseState.Unparsed
         let state = ref initial
-        let snaps = ResizeArray<Graph option>()
+        let snaps = ResizeArray<NodeId * Graph option>()
         let host = hostFor state snaps
         try
             CoreMailbox.addInMsg host (InMsg.ParseFinished id)
@@ -169,7 +173,7 @@ let ``mailbox queue applies SnapshotDone off CoreMsg`` () =
         let id, initial =
             fileState PersistState.Unpersisted ParseState.Parsed
         let state = ref initial
-        let snaps = ResizeArray<Graph option>()
+        let snaps = ResizeArray<NodeId * Graph option>()
         let host = hostFor state snaps
         try
             let shot = Some initial.graph

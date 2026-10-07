@@ -466,7 +466,8 @@ module internal CoreMailboxBackend =
         writeAxis persist (fun graph ->
             GraphMutate.setParseState nodeId parseState graph)
 
-    /// Core loop apply. ParseFinished writes Parsed only.
+    /// Core loop apply. ParseFinished writes Parsed only, then noteParsed
+    /// so a blocked edit can catch up. It does not set Persisted.
     /// MarkUnparsed writes Unparsed only.
     /// SnapshotDone runs snapshot bookkeeping, then sets Persisted.
     let internal applyInMsg
@@ -475,11 +476,15 @@ module internal CoreMailboxBackend =
         : Result<unit, string> =
         match msg with
         | InMsg.ParseFinished nodeId ->
-            writeParseState persist nodeId ParseState.Parsed
+            match writeParseState persist nodeId ParseState.Parsed with
+            | Error err -> Error err
+            | Ok () ->
+                persist.noteParsed nodeId
+                Ok ()
         | InMsg.MarkUnparsed nodeId ->
             writeParseState persist nodeId ParseState.Unparsed
         | InMsg.SnapshotDone(nodeId, graph) ->
-            persist.snapshotDone graph
+            persist.snapshotDone nodeId graph
             writeAxis persist (fun live ->
                 GraphMutate.setPersistState
                     nodeId
@@ -508,7 +513,8 @@ module internal CoreMailboxBackend =
         appendEvent = fun _ -> Error error
         applyEvent = fun _ _ -> Error error
         replaceGraph = persist.replaceGraph
-        snapshotDone = fun _ -> ()
+        snapshotDone = fun _ _ -> ()
+        noteParsed = persist.noteParsed
     }
 
     let private failedSeed persist error : PersistHandlers =

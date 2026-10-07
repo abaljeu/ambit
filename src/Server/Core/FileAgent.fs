@@ -26,6 +26,9 @@ module FileAgent =
         persistedEventLog: EventLog ref
         state: State ref
         persistClean: bool ref
+        lastPersisted: Graph ref
+        collect: (PersistSubmit -> PersistOutcome) option ref
+        snapshotPost: (InMsg -> unit) option ref
     }
 
     let defaultDependencies (dataDir: string) =
@@ -45,34 +48,67 @@ module FileAgent =
             externalChanges
             message
 
-    let private syncPersistChange
+    let private acceptWrote
+        (loaded: LoadedFile)
+        (eventId: EventId)
+        (stamped: PersistGraphOk)
+        =
+        // Soft-fail (or prior soft-fail in this process): keep meta behind the
+        // log so startup replay can restore graph edits that never hit disk.
+        if stamped.message.IsSome then
+            loaded.persistClean.Value <- false
+        let shouldCheckpoint =
+            stamped.message.IsNone && loaded.persistClean.Value
+        if not shouldCheckpoint then
+            Ok (Some stamped)
+        else
+            match Bookkeeping.writeEventId loaded.dataDir eventId with
+            | Error err -> Error err
+            | Ok () ->
+                loaded.lastPersisted.Value <- stamped.graph
+                Ok (Some stamped)
+
+    let private collectPersist
+        (loaded: LoadedFile)
+        (preGraph: Graph)
+        (postGraph: Graph)
+        (ops: Op list)
+        =
+        match loaded.collect.Value with
+        | None -> Error "persist collectors are not bound"
+        | Some collect ->
+            Ok (collect {
+                nodeIds = PersistCollectors.owningSpecials postGraph ops
+                dataDir = Some loaded.dataDir
+                preGraph = preGraph
+                postGraph = postGraph
+                ops = ops
+                kind = PersistKind.Ops
+                notify = true
+                wait = true
+            })
+
+    let private fromOutcome
+        (loaded: LoadedFile)
+        (eventId: EventId)
+        (outcome: PersistOutcome)
+        =
+        match outcome with
+        | PersistOutcome.Wrote stamped -> acceptWrote loaded eventId stamped
+        | PersistOutcome.Blocked -> Ok None
+        | PersistOutcome.Queued -> Ok None
+        | PersistOutcome.Failed err -> Error err
+
+    let private persistCollected
         (loaded: LoadedFile)
         (eventId: EventId)
         (preGraph: Graph)
         (postGraph: Graph)
         (ops: Op list)
         =
-        let persisted =
-            loaded.dependencies.persistGraphOps
-                loaded.dataDir
-                preGraph
-                postGraph
-                ops
-        match persisted with
+        match collectPersist loaded preGraph postGraph ops with
         | Error err -> Error err
-        | Ok stamped ->
-            // Soft-fail (or prior soft-fail in this process): keep meta behind the
-            // log so startup replay can restore graph edits that never hit disk.
-            if stamped.message.IsSome then
-                loaded.persistClean.Value <- false
-            let shouldCheckpoint =
-                stamped.message.IsNone && loaded.persistClean.Value
-            if not shouldCheckpoint then
-                Ok stamped
-            else
-                match Bookkeeping.writeEventId loaded.dataDir eventId with
-                | Error err -> Error err
-                | Ok () -> Ok stamped
+        | Ok outcome -> fromOutcome loaded eventId outcome
 
     let private applyOne
         loaded
@@ -135,13 +171,12 @@ module FileAgent =
                 fresh
                 |> List.collect (fun event ->
                     Ev.ops event |> Option.defaultValue [])
-            syncPersistChange
+            persistCollected
                 loaded
                 newState.eventId
                 preGraph
                 newState.graph
                 ops
-            |> Result.map Some
         else
             Ok None
 
@@ -220,6 +255,27 @@ module FileAgent =
                             externalChanges
                             persistMessage)
 
+    let private scheduleCatchUp (loaded: LoadedFile) (nodeId: NodeId) =
+        match loaded.collect.Value with
+        | None -> ()
+        | Some collect ->
+            let post = loaded.state.Value.graph
+            match Map.tryFind nodeId post.nodes with
+            | Some node when
+                node.parseState = ParseState.Parsed
+                && node.persistState = PersistState.Unpersisted ->
+                collect {
+                    nodeIds = [ nodeId ]
+                    dataDir = Some loaded.dataDir
+                    preGraph = loaded.lastPersisted.Value
+                    postGraph = post
+                    ops = []
+                    kind = PersistKind.Change
+                    notify = true
+                    wait = false
+                } |> ignore
+            | _ -> ()
+
     let private persistHandlers loaded : PersistHandlers = {
         getState = fun () -> Ok loaded.state.Value
         getEventId = fun () -> Ok loaded.state.Value.eventId
@@ -247,7 +303,8 @@ module FileAgent =
         replaceGraph = fun graph ->
             loaded.state.Value <-
                 { loaded.state.Value with graph = graph }
-        snapshotDone = fun _ -> ()
+        snapshotDone = fun _ _ -> ()
+        noteParsed = scheduleCatchUp loaded
     }
 
     let private loadOrFail (dataDir: string) =
@@ -270,6 +327,42 @@ module FileAgent =
         loaded.state.Value <- fst recovered
         loaded.persistedEventLog.Value <- snd recovered
 
+    let private openLoaded
+        (dependencies: FileAgentDependencies)
+        (dataDir: string)
+        (eventStream: FileStream)
+        (eventOffsets: int64 ResizeArray)
+        (loadedState: State)
+        =
+        { dataDir = dataDir
+          dependencies = dependencies
+          eventStream = eventStream
+          eventOffsets = eventOffsets
+          persistedEventLog =
+            ref (
+                EventLogFile.readAllEvents eventStream eventOffsets
+                |> EventLog.restorePersisted)
+          state = ref loadedState
+          persistClean = ref true
+          lastPersisted = ref loadedState.graph
+          collect = ref None
+          snapshotPost = ref None }
+
+    let private startPersist
+        (loaded: LoadedFile)
+        (dependencies: FileAgentDependencies)
+        =
+        loaded.lastPersisted.Value <- loaded.state.Value.graph
+        let collect, consumer = PersistCollectors.create ()
+        loaded.collect.Value <- Some collect
+        PersistThread.start {
+            consumer = consumer
+            persistOps = dependencies.persistGraphOps
+            persistChange = DocumentPersistChange.persistGraphChange
+            finish = PersistThread.finishWhenBound loaded.snapshotPost
+            changeFailed = fun _ _ -> ()
+        }
+
     let createWithDependencies
         (dependencies: FileAgentDependencies)
         (dataDir: string)
@@ -278,17 +371,10 @@ module FileAgent =
         let eventStream = EventLogFile.openStream dataDir
         let eventOffsets = EventLogFile.buildIndex eventStream
         let loaded =
-            { dataDir = dataDir
-              dependencies = dependencies
-              eventStream = eventStream
-              eventOffsets = eventOffsets
-              persistedEventLog =
-                ref (
-                    EventLogFile.readAllEvents eventStream eventOffsets
-                    |> EventLog.restorePersisted)
-              state = ref loadedState
-              persistClean = ref true }
+            openLoaded
+                dependencies dataDir eventStream eventOffsets loadedState
         reconcileLoaded loaded
+        startPersist loaded dependencies
         let capturedInitialState = loaded.state.Value
         eventStream.Seek(0L, SeekOrigin.End) |> ignore
         let onError operation context ex =
@@ -306,7 +392,8 @@ module FileAgent =
                     eventStream.Flush()
                     eventStream.Dispose()
               until = None
-              bindSnapshot = ignore }
+              bindSnapshot =
+                fun post -> loaded.snapshotPost.Value <- Some post }
           initialState = capturedInitialState }
 
     let create (dataDir: string) : FileAgent =

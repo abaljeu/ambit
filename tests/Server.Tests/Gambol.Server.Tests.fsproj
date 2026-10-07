@@ -47,6 +47,7 @@
     <Compile Include="AppGithubTransportBoundaryTests.fs" />
     <Compile Include="GithubTransportActorTests.fs" />
     <Compile Include="ParseThreadLoadTests.fs" />
+    <Compile Include="PersistThreadTests.fs" />
     <Compile Include="CoreLoopInMsgTests.fs" />
     <Compile Include="TestActorHelloTests.fs" />
     <Compile Include="TestActorCommandErrorTests.fs" />

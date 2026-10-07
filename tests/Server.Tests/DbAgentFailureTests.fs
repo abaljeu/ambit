@@ -34,16 +34,11 @@ let private getState agent = async {
         return Unchecked.defaultof<_>
 }
 
-/// Reproduces the wedged-mailbox bug: an uncaught exception thrown from the live-persist
-/// step (e.g. the real IndexOutOfRangeException surfaced via DocumentPersistence.persistGraphOps
-/// -> OutlineDocumentWarm) must not kill the DbAgent mailbox loop. The specific pending
-/// reply must get an Error, the exception must be logged, and the mailbox must keep
-/// serving subsequent requests.
+/// A throw from the live-persist step becomes an error value. The reply is
+/// that error, and the mailbox keeps serving later reads.
 [<Fact>]
-let ``persistence exception is logged replied and mailbox survives`` () = task {
+let ``persistence failure is returned and mailbox survives`` () = task {
     let dataDir = newTempDir ()
-    let logPath = HttpResponseLog.logPath dataDir
-    HttpResponseLog.prepareFresh logPath
     let throwingPersist : string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, string> =
         fun _ _ _ _ ->
             raise (InvalidOperationException("injected persistence failure"))
@@ -61,14 +56,7 @@ let ``persistence exception is logged replied and mailbox survives`` () = task {
     match postResult with
     | Ok _ -> Assert.Fail("Expected persistence failure.")
     | Error error ->
-        Assert.Contains("Internal server error in DbAgent PostEvent", error)
-        Assert.Contains($"(dataDir={dataDir})", error)
-
-    let log = IO.File.ReadAllText logPath
-    Assert.Contains("EXCEPTION source=DbAgent operation=PostEvent", log)
-    Assert.Contains("type=System.InvalidOperationException", log)
-    Assert.Contains("message=injected persistence failure", log)
-    Assert.Contains("stack=", log)
+        Assert.Contains("injected persistence failure", error)
 
     let! state =
         getState agent
