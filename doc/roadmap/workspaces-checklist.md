@@ -21,7 +21,7 @@ One workspace folder per name under DataDir; ownership and on-disk layout.
 - [x] Name collision prevention on new workspace/directory/file, and on rename or move directory/file, needs to account for the root folder structure.
 
 ## Server git tracking
-Each server workspace directory is its own git repository under `DataDir/{label}/`. Used for `.gitignore` / `git check-ignore` and post-push commits — not for client pack transport. File-channel home: [[plan/transport-layer/project.md]]. Server DAV: [[workspace-webdav]].
+Each server workspace directory is its own git repository under `DataDir/{label}/`. Used for `.gitignore` / `git check-ignore` and post-push commits — not for client pack transport. Desktop App sync home: [[plan/transport-layer/project.md]]. Server DAV: [[workspace-webdav]].
 
 - [x] Init empty repo in a new server directory
 - [x] Commit all files to repo on server (WorkspaceGit / GitSave)
@@ -29,7 +29,7 @@ Each server workspace directory is its own git repository under `DataDir/{label}
 - [x] Ignore via `git check-ignore` (IgnoredDestination pattern) — keep essential for Upload / PROPFIND / PUT
 
 ## Workspace file sync (WebDAV)
-Client Upload / Download (ensure-map built in). File-channel home: [[plan/transport-layer/project.md]]. Server DAV surface + PROPFIND datestamps: [[workspace-webdav]].
+Client Upload / Download (ensure-map built in). Desktop App sync home: [[plan/transport-layer/project.md]]. Server DAV surface + PROPFIND datestamps: [[workspace-webdav]].
 
 - [x] Server WebDAV Class 1 under `/ambit/dav/{label}/…` (PROPFIND with getlastmodified / GET / PUT / MKCOL) — [[workspace-webdav]]
 - [x] PROPFIND exposes href/path, collection vs file, **getlastmodified** (mtime); optional getcontentlength

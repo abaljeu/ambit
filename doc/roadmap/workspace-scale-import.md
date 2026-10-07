@@ -166,7 +166,7 @@ That is a useful product even before repo-wide search or advanced sync exists.
 
 ## Workspace file sync to desktop
 
-See [[workspace-webdav]] for WebDAV Class 1, server finish-commit, and `git check-ignore` for `.gitignore`. File-channel home: [[plan/transport-layer/project.md]].
+See [[workspace-webdav]] for WebDAV Class 1, server finish-commit, and `git check-ignore` for `.gitignore`. Desktop App sync home: [[plan/transport-layer/project.md]].
 
 ## What file sync adds
 

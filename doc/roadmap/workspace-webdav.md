@@ -4,7 +4,7 @@ Category: Sync
 Status: Partial
 See also: [[doc/current/workspace-file-sync.md]], [[plan/transport-layer/project.md]], [[workspaces-checklist]], [[doc/arch]], [[doc/current/workspace-local-mapping]], [[src/Server/IgnoredDestination.fs]], [[src/Server/WorkspaceGit.fs]], [[src/Server/GitSave.fs]]
 
-Server-side WebDAV Class 1 that maps `/ambit/dav/{label}/…` onto `DataDir/{label}/`. This is the **only** Upload / Download transport. Implemented as-built: [[doc/current/workspace-file-sync.md]]. File-channel redesign home: [[plan/transport-layer/project.md]]. This leftover owns the server HTTP surface, listing properties, and **server-side Download inventory filtering**.
+Server-side WebDAV Class 1 that maps `/ambit/dav/{label}/…` onto `DataDir/{label}/`. This is the **only** Upload / Download transport. Implemented as-built: [[doc/current/workspace-file-sync.md]]. Desktop App sync redesign home: [[plan/transport-layer/project.md]]. This leftover owns the server HTTP surface, listing properties, and **server-side Download inventory filtering**.
 
 ## What it gives you
 
@@ -71,7 +71,7 @@ Depth behavior:
 
 ## Finish-commit
 
-WebDAV alone does not commit. After a Push batch, the desktop (or client via desktop proxy) calls an explicit finish endpoint so the server runs WorkspaceGit add/commit ([[src/Server/WorkspaceGit.fs]] / [[src/Server/GitSave.fs]]). Lazy Load then reconciles from the new `HEAD`. Desktop Upload pipeline: [[workspace-upload-client-structure]]. File-channel home: [[plan/transport-layer/project.md]].
+WebDAV alone does not commit. After a Push batch, the desktop (or client via desktop proxy) calls an explicit finish endpoint so the server runs WorkspaceGit add/commit ([[src/Server/WorkspaceGit.fs]] / [[src/Server/GitSave.fs]]). Lazy Load then reconciles from the new `HEAD`. Desktop Upload pipeline: [[workspace-upload-client-structure]]. Desktop App sync home: [[plan/transport-layer/project.md]].
 
 ## Libraries
 

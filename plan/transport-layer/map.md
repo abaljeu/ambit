@@ -11,7 +11,7 @@ Chart how existing Projects and Epics implement transport instances or dependenc
 | Leg | Role | Pointer |
 | --- | --- | --- |
 | **Parse/Persist primitive** | Shared text in ↔ Graph **Changes** / slice out | [[details/parse-persist.md]]; ESO [[plan/event-sourced-ops/details/actors-and-jobs.md]] |
-| **File channel (disk)** | Upload/Download, workspace mapping, auto sync; redesign chart: FETCH/UPDATE Actors | Implemented [[doc/current/workspace-file-sync.md]]; Chapter [[plan/roadmap/epics/chapters/automatic-upload-and-download.md]]; [[plan/auto-download-persisted-files/project.md]]; leftover [[doc/roadmap/workspace-webdav.md]], [[doc/roadmap/workspace-upload-client-structure.md]]; redesign owned here |
+| **Desktop App sync** | Upload and Download between the App folder and Server DataDir over WebDAV; workspace mapping; redesign chart: FETCH and UPDATE | Implemented [[doc/current/workspace-file-sync.md]]; Chapter [[plan/roadmap/epics/chapters/automatic-upload-and-download.md]]; [[plan/auto-download-persisted-files/project.md]]; leftover [[doc/roadmap/workspace-webdav.md]], [[doc/roadmap/workspace-upload-client-structure.md]]; redesign owned here |
 | **GitHub remote (external)** | Server Actor pull/push to GitHub; DataDir work tree is the git home; FF-only; skip list is `.gitignore` (no Ambit key) | [[plan/github-transport/project.md]]; Chapter [[plan/roadmap/epics/chapters/send-to-and-from-github.md]] |
 | **Document codecs** | Round-trip Parse/reconcile on File Node bodies | [[plan/document-formats/map.md]]; [[plan/roadmap/epics/build-or-explore-a-wiki.md]] (`.md` leg) |
 | **Web publish (outbound)** | Generate HTML and send attachments and CSS (Graph / HTML File content → visitor-facing site; not HTML File body only) | [[plan/roadmap/epics/create-and-publish-web-pages.md]] |
@@ -30,7 +30,7 @@ flowchart BT
   DF[document-formats]
   LLM[llm-connector]
   SCL[selective-client-loading]
-  DISK[documents-from-anywhere / auto-download]
+  DISK[Desktop App sync]
   GH[github-transport]
   PKM[Operate a PKM Epic]
 
@@ -49,8 +49,8 @@ flowchart BT
 
 - Transport-layer replaces the prior **information-hub** slug as the home for inbound/outbound/round-trip pattern (same concept, clearer name).
 - File Parse/Persist is one transport instance, not the definition of the layer.
-- User Epics per channel (files, chat, publish) ship legs; transport-layer holds the cross-cutting contract.
-- **Core alone knows where files reside** — Locked 2026-09-28 (Alan). One hardened control point: Core alone knows where files reside. Everyone else has a relative path. File channel and connector legs use relative paths.
+- User Epics per source (Desktop App sync, chat, publish) ship legs; transport-layer holds the cross-cutting contract.
+- **Core alone knows where files reside** — Locked 2026-09-28 (Alan). One hardened control point: Core alone knows where files reside. Everyone else has a relative path. Desktop App sync and connector legs use relative paths. GitHub stays the separate external remote.
 
 ## Future connector Projects (pointer checklist)
 

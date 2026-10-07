@@ -1,13 +1,13 @@
 # Parse/Persist — transport primitive
 
-Short reference for Parse/Persist as the shared text-processing unit across transport channels. Parent: [[../overview.md]].
+Short reference for Parse/Persist as the shared text-processing unit across transport instances. Parent: [[../overview.md]].
 
 ## Definition
 
 | Unit | Input | Output | Typical trigger |
 | --- | --- | --- | --- |
 | **Parse** | Text (or bytes read as text) | Graph content as **Changes** (or a staged Local Graph for examination) | Load stage, import job, connector inbound |
-| **Persist** | Graph slice (often one File Node body or export selection) | Text for an outside channel | Save, export, publish hook, connector outbound |
+| **Persist** | Graph slice (often one File Node body or export selection) | Text for an outside destination | Save, export, publish hook, connector outbound |
 
 Parse reconciles outside text with existing Graph content; it is more than lexical parsing. Persist is the inverse direction for editable or archival copies.
 
@@ -28,14 +28,14 @@ flowchart LR
 
 Inbound: outside text → Parse → **Changes**. Outbound: Graph slice → Persist → outside text. Round-trip: Persist → edit outside → Parse → **Update** **Changes**.
 
-## File channel mapping
+## Desktop App sync mapping
 
-| Transport concern | File channel instance |
+| Transport concern | Desktop App sync |
 | --- | --- |
-| Bytes on disk | Upload / Download (not Parse/Persist themselves) |
+| Bytes on disk | Upload and Download between the App folder and Server DataDir (not Parse/Persist themselves) |
 | Text → Graph | Load **Parse** stage |
 | Graph → text | Document codec **Persist** / reconcile on File Node |
-| Round-trip | Codec Parse/reconcile + workspace sync ([[plan/document-formats/map.md]]) |
+| Round-trip | Codec Parse/reconcile plus Desktop App sync ([[plan/document-formats/map.md]]) |
 | Residency | **Fetch** after Parse ([[plan/selective-client-loading/project.md]]) |
 
 Generalized produce path and job identity live in event-sourced-ops.
@@ -49,7 +49,7 @@ Generalized produce path and job identity live in event-sourced-ops.
 | Parse/Persist as the text leg naming | Staging UX, examine-before-commit |
 | Optional long-running **Actor** + soft-lock | Schedule, trigger, connection config Nodes |
 
-Codecs (document-formats) own format-specific Parse/Persist grammar. Transport-layer owns the pattern; sibling Projects own one channel or codec.
+Codecs (document-formats) own format-specific Parse/Persist grammar. Transport-layer owns the pattern; sibling Projects own one instance or codec.
 
 ## Related vocabulary
 

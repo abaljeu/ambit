@@ -24,7 +24,7 @@ Current documents remain authoritative for implemented behavior. This index orga
 - [[doc/roadmap/workspace-file-persistence]]
 - [[doc/roadmap/workspace-scale-file-and-db-management]]
 - [[doc/roadmap/workspace-scale-import]]
-- [[plan/transport-layer/project.md]] — file-channel Upload / Download
+- [[plan/transport-layer/project.md]] — Desktop App sync (Upload / Download)
 - [[plan/github-transport/project.md]] — send to and from GitHub
 - [[doc/roadmap/workspace-webdav]] — server WebDAV Class 1 mount and PROPFIND datestamps
 - [[doc/roadmap/revising-workspace-file-model]]
