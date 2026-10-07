@@ -131,7 +131,7 @@ Sequence is module-build. Directory reconcile is in code. Story paths that only 
       1. [x] **Whole tie** — The walk covers the Directory body, every node tied to that Directory File, including nodes below the immediate children.
       2. [x] **Missing File Node** — A disk member the Graph lacks has a File Node after Directory reconcile.
       3. [x] **Disk-newer** — A disk-newer file has its File Node Unparsed after Directory reconcile.
-      4. [ ] **Directory needs reparse** — A child directory that is disk-newer, or a disk directory the Graph lacks, has its Directory Node Unparsed after Directory reconcile. Ticket: [07 — Directory Unparsed during reconcile](issues/07-directory-unparsed-during-reconcile.md).
+      4. [x] **Directory needs reparse** — A child directory that is disk-newer, or a disk directory the Graph lacks, has its Directory Node Unparsed after Directory reconcile. Ticket: [07 — Directory Unparsed during reconcile](issues/07-directory-unparsed-during-reconcile.md).
    2. **Interface**
       1. [x] **Inputs** — Directory reconcile takes the disk directory, the graph, and the directory id. The directory id plus the graph is the Directory Node. Directory reconcile reads the Directory body from that graph. The disk directory is required.
       2. [x] **Create** — Directory reconcile returns ops that create each missing File Node. A new node appends alphabetically under the Directory Node.
@@ -140,7 +140,7 @@ Sequence is module-build. Directory reconcile is in code. Story paths that only 
       5. [x] **No extra info** — Structure-match uses the Directory body and the Graph only.
       6. [x] **Workspace** — Workspace nodes use the same reconcile process. (They also do other things.)
       7. [x] **ParseFinished** — When Directory reconcile is done, the parse thread adds InMsg ParseFinished for that Directory Node through the private function. It does not edit the graph axes. The core loop sets Parsed only through `GraphMutate.setParseState`. PersistState stays unchanged.
-      8. [ ] **Directory Unparsed** — Directory reconcile names a Directory Node that needs reparse. A disk directory the Graph lacks gets a Directory Node. The parse thread sets Unparsed by the same InMsg as a File Node. The parse thread does not edit the graph axes. Reconcile ops do not carry the Unparsed write. Directory reconcile names that Directory Node for push when the Parse stack exists. Ticket: [07 — Directory Unparsed during reconcile](issues/07-directory-unparsed-during-reconcile.md).
+      8. [x] **Directory Unparsed** — Directory reconcile names a Directory Node that needs reparse. A disk directory the Graph lacks gets a Directory Node. The parse thread sets Unparsed by the same InMsg as a File Node. The parse thread does not edit the graph axes. Reconcile ops do not carry the Unparsed write. Directory reconcile names that Directory Node for push when the Parse stack exists. Ticket: [07 — Directory Unparsed during reconcile](issues/07-directory-unparsed-during-reconcile.md).
    3. **Uses**
       1. [x] **Parse thread** — [Parse thread](../../src/Server/ParseThread.fs) calls Directory reconcile when the popped node is a Directory Node.
       2. [x] **Parse stack** — Push uses [Parse stack](../../src/Server/ParseStack.fs).

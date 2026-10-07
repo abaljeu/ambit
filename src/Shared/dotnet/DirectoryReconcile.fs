@@ -53,35 +53,52 @@ module DirectoryReconcile =
             else
                 Error "path escapes data directory"
 
-    let private diskFiles (dirFull: string) =
+    let private diskEntries
+        (enumerate: string -> seq<string>)
+        (mtime: string -> DateTime)
+        (dirFull: string)
+        =
         try
             if not (Directory.Exists dirFull) then
                 Ok []
             else
-                Directory.EnumerateFiles dirFull
+                enumerate dirFull
                 |> Seq.choose (fun full ->
-                    let name = Path.GetFileName full
-                    if Filename.isDirectoryFileBasename name then
-                        None
-                    else
-                        match Filename.create name with
-                        | Filename.Ok okName ->
-                            Some(okName, File.GetLastWriteTimeUtc full)
-                        | _ -> None)
+                    match Filename.create (Path.GetFileName full) with
+                    | Filename.Ok name -> Some(name, mtime full)
+                    | _ -> None)
                 |> Seq.toList
                 |> Ok
         with ex ->
             Error ex.Message
 
-    let private bodyFileIds (graph: Graph) (directoryId: NodeId) =
-        DocumentPartition.memberNodeIds graph directoryId
+    let private diskFiles (dirFull: string) =
+        diskEntries
+            (fun dir -> Directory.EnumerateFiles dir)
+            File.GetLastWriteTimeUtc
+            dirFull
+
+    let private diskDirectories (dirFull: string) =
+        diskEntries
+            (fun dir -> Directory.EnumerateDirectories dir)
+            Directory.GetLastWriteTimeUtc
+            dirFull
+
+    type private CreatePlan =
+        { graph: Graph
+          directoryId: NodeId
+          kind: SpecialKind }
+
+    let private knownNamed (plan: CreatePlan) =
+        DocumentPartition.memberNodeIds plan.graph plan.directoryId
         |> Set.fold
             (fun acc id ->
-                if id = directoryId then
+                if id = plan.directoryId then
                     acc
                 else
-                    match Map.tryFind id graph.nodes with
-                    | Some { kind = Special File; name = Filename.Ok name } ->
+                    match Map.tryFind id plan.graph.nodes with
+                    | Some { kind = Special found; name = Filename.Ok name }
+                        when found = plan.kind ->
                         Map.add (name.ToLowerInvariant()) id acc
                     | _ -> acc)
             Map.empty
@@ -117,50 +134,87 @@ module DirectoryReconcile =
                     let diskTime = NodeUpdateTime.toDbPrecision mtime
                     if nodeTime < diskTime then Some id else None)))
 
-    let private planOne
-        (graph: Graph)
-        (directoryId: NodeId)
-        (reserved, acc)
-        name
-        =
+    type private Created =
+        { ops: Op list
+          ids: NodeId list
+          children: ChildNode list }
+
+    type private KindResult =
+        { created: Created
+          newer: NodeId list }
+
+    let private planOne (plan: CreatePlan) (reserved, acc) name =
         let unique =
-            GraphQuery.unusedOwnedName graph directoryId name reserved
+            GraphQuery.unusedOwnedName
+                plan.graph
+                plan.directoryId
+                name
+                reserved
         let id = NodeId.New()
-        let op = Op.NewSpecialNode(id, SpecialKind.File, unique)
+        let op = Op.NewSpecialNode(id, plan.kind, unique)
         let next = Set.add (unique.ToLowerInvariant()) reserved
         next, (id, op) :: acc
 
     let private createMissing
-        (graph: Graph)
-        (directoryId: NodeId)
+        (plan: CreatePlan)
+        (children: ChildNode list)
         (names: string list)
         =
         match names with
-        | [] -> Ok []
+        | [] ->
+            Ok
+                { ops = []
+                  ids = []
+                  children = children }
         | _ ->
             let _, plannedRev =
-                List.fold (planOne graph directoryId) (Set.empty, []) names
+                List.fold (planOne plan) (Set.empty, []) names
             let planned = List.rev plannedRev
-            let children = GraphChildren.get graph directoryId
             let appended =
                 planned |> List.map (fun (id, _) -> ChildNode.owner id)
             let created = planned |> List.map snd
+            let ids = planned |> List.map fst
             let appendOp =
-                ChildListWire.append directoryId children appended
-            Ok (created @ [ appendOp ])
+                ChildListWire.append plan.directoryId children appended
+            Ok
+                { ops = created @ [ appendOp ]
+                  ids = ids
+                  children = children @ appended }
 
-    let private planFromFiles
+    let private reconcileKind
+        (plan: CreatePlan)
+        (entries: (string * DateTime) list)
+        (children: ChildNode list)
+        =
+        let known = knownNamed plan
+        let names = missingNames known entries
+        createMissing plan children names
+        |> Result.map (fun created ->
+            { created = created
+              newer = diskNewerIds plan.graph known entries })
+
+    let private planFromEntries
         (graph: Graph)
         (directoryId: NodeId)
         (files: (string * DateTime) list)
+        (dirs: (string * DateTime) list)
         =
-        let known = bodyFileIds graph directoryId
-        let names = missingNames known files
-        createMissing graph directoryId names
-        |> Result.map (fun createOps ->
-            let newer = diskNewerIds graph known files
-            { ops = createOps
-              push = newer })
+        let children = GraphChildren.get graph directoryId
+        let filePlan =
+            { graph = graph
+              directoryId = directoryId
+              kind = SpecialKind.File }
+        reconcileKind filePlan files children
+        |> Result.bind (fun fileResult ->
+            let dirPlan =
+                { filePlan with kind = SpecialKind.Directory }
+            reconcileKind dirPlan dirs fileResult.created.children
+            |> Result.map (fun dirResult ->
+                { ops = fileResult.created.ops @ dirResult.created.ops
+                  push =
+                    fileResult.newer
+                    @ dirResult.newer
+                    @ dirResult.created.ids }))
 
     let planDirectoryReconcile (input: Input) : Result<Output, string> =
         match Map.tryFind input.directoryId input.graph.nodes with
@@ -178,4 +232,11 @@ module DirectoryReconcile =
                 resolveDirectory input.dataDir relative
                 |> Result.bind (fun full ->
                     diskFiles full
-                    |> Result.bind (planFromFiles input.graph input.directoryId))
+                    |> Result.bind (fun files ->
+                        diskDirectories full
+                        |> Result.bind (fun dirs ->
+                            planFromEntries
+                                input.graph
+                                input.directoryId
+                                files
+                                dirs)))

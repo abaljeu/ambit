@@ -149,6 +149,7 @@ module DbAgent =
 
     let private applyOneEvent
         loaded
+        (graphOnly: bool)
         ((s: State), confirmations, externalChanges)
         (event: Ev)
         =
@@ -160,7 +161,10 @@ module DbAgent =
             | None -> Error "Event has no Ops"
             | Some ops ->
                 let result, amended, appliedOps =
-                    ChangeAmendment.applyForCommand event.commandName ops s
+                    if graphOnly then
+                        ChangeAmendment.applyForGraphOnly event.commandName ops s
+                    else
+                        ChangeAmendment.applyForCommand event.commandName ops s
                 match result with
                 | ApplyResult.Invalid (_, errMsg) -> Error errMsg
                 | ApplyResult.Unchanged _ ->
@@ -174,14 +178,15 @@ module DbAgent =
                         applied :: confirmations,
                         externalChanges || amended)
 
-    let private applyBatch loaded events =
+    let private applyBatch loaded (graphOnly: bool) events =
         try
             events
             |> List.fold
                 (fun acc event ->
                     match acc with
                     | Error err -> Error err
-                    | Ok stateAndLog -> applyOneEvent loaded stateAndLog event)
+                    | Ok stateAndLog ->
+                        applyOneEvent loaded graphOnly stateAndLog event)
                 (Ok(loaded.state.Value, [], false))
             |> Result.map (fun (newState, confirmations, externalChanges) ->
                 newState, List.rev confirmations, externalChanges)
@@ -448,7 +453,7 @@ module DbAgent =
             match
                 CoreMailboxBackend.runBounded
                     CoreMailboxBackend.ChangeProcessingTimeoutMs
-                    (fun () -> applyBatch loaded events)
+                    (fun () -> applyBatch loaded graphOnly events)
             with
             | Error err -> Error err
             | Ok (newState, confirmations, externalChanges) ->

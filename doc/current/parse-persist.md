@@ -27,6 +27,7 @@ Parse and persist move text between disk and the graph.
 [ ] Every handoff uses the Parse stack.
 [ ] After the workspace lock drains in-flight member file use, pull or Upload land proceeds. Arrived files are marked Unparsed. The lock releases. Unparsed starts the parse thread.
 [x] Disk-newer File Node: the parse thread adds `InMsg` `MarkUnparsed` through the mailbox private function. The core loop sets that node Unparsed through `GraphMutate.setParseState`. PersistState stays unchanged. `Op.SetDocumentState` is not the writer. Directory reconcile names that File Node for push. [Mailbox](mailbox.md)
+[x] Directory Node that needs reparse: the directory is disk-newer than its Directory Node, or it is a disk directory the Graph lacks. A missing disk directory gets a Directory Node. A new special node starts Unparsed. Directory reconcile names that Directory Node. The parse thread adds `InMsg` `MarkUnparsed` through the mailbox private function. Reconcile ops do not carry the Unparsed write. Directory reconcile names that Directory Node for push. [Mailbox](mailbox.md)
 [ ] Directory reconcile walks every node tied to that Directory File, including nodes below the immediate children. It creates missing File Nodes. When Directory reconcile is done, that Directory Node is Parsed only. Structure-match on a Directory Node, including a Directory Node that is not a Workspace Node, spots disk members the Graph lacks, with no extra info. Parse thread owns Directory reconcile. Axis rules: Directory Parse done and Client Load on Directory.
 ## Persist
 

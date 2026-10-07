@@ -61,8 +61,10 @@ module SyncLogic =
         let step (st, undid) event =
             let ops = Ev.ops event |> Option.defaultValue []
             let mark = Op.marksOwningPersist event.commandName
+            let guard = Op.guardsUnparsedDocument event.commandName
             match
                 ResidentProjection.applyOpsForSyncAllowing
+                    guard
                     mark
                     ops
                     (asProjectionState st)

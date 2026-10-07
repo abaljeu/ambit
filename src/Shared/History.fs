@@ -137,6 +137,36 @@ module Op =
             && node.documentState = Current
         | None -> false
 
+    let private ownedAreDocumentRoots graph parentId children =
+        children
+        |> List.forall (fun child ->
+            Node.childOwnership graph parentId child <> Ownership.Owner
+            || DocumentPartition.isDocumentRootNode graph child.id)
+
+    let private replaceIsBlocked graph parentId oldChildren newChildren =
+        let blocked id =
+            DocumentPartition.isMemberOfInaccessibleDocument graph id
+        let shell =
+            match Map.tryFind parentId graph.nodes with
+            | Some { kind = Special(Directory | Workspace)
+                     documentState = Unparsed } -> true
+            | _ -> false
+        let stub =
+            shell
+            && ownedAreDocumentRoots graph parentId oldChildren
+            && ownedAreDocumentRoots graph parentId newChildren
+        let parentBlocked =
+            not (isCurrentDocumentRoot graph parentId)
+            && not stub
+            && blocked parentId
+        let touched =
+            oldChildren @ newChildren
+            |> List.exists (fun child ->
+                Node.childOwnership graph parentId child = Ownership.Owner
+                && blocked child.id
+                && not (DocumentPartition.isDocumentRootNode graph child.id))
+        parentBlocked || touched
+
     /// Inaccessible document membership blocks content edits. Structural Replace is allowed
     /// when relocating an inaccessible document root as an opaque unit under a
     /// Current parent (Move Up/Down, Move Selection to Start/End, indent).
@@ -145,22 +175,6 @@ module Op =
     /// an enclosing Directory/Workspace is Unparsed), and attaching/detaching
     /// document-root stubs under an Unparsed Directory/Workspace shell.
     let private isBlockedByInaccessibleDocument (op: Op) (graph: Graph) : bool =
-        let nodeBlocked nodeId =
-            DocumentPartition.isMemberOfInaccessibleDocument graph nodeId
-
-        let isUnparsedTreeShell nodeId =
-            match Map.tryFind nodeId graph.nodes with
-            | Some { kind = Special(Directory | Workspace)
-                     documentState = Unparsed } -> true
-            | _ -> false
-
-        let ownedAreDocumentRoots parentId children =
-            children
-            |> List.filter (fun child ->
-                Node.childOwnership graph parentId child = Ownership.Owner)
-            |> List.forall (fun child ->
-                DocumentPartition.isDocumentRootNode graph child.id)
-
         match op with
         | Op.SetUpdateTime _ ->
             // Download stamp alignment and persist tails only touch mtime metadata;
@@ -171,27 +185,12 @@ module Op =
             // an edit inside an Unparsed document.
             false
         | Op.Replace(parentId, oldChildren, newChildren) ->
-            let stubAttachUnderShell =
-                isUnparsedTreeShell parentId
-                && ownedAreDocumentRoots parentId oldChildren
-                && ownedAreDocumentRoots parentId newChildren
-            let parentBlocked =
-                if isCurrentDocumentRoot graph parentId then false
-                elif stubAttachUnderShell then false
-                else nodeBlocked parentId
-            // Document roots may move as opaque units; their Unparsed state
-            // must not block sibling reorder / reparent under a Current parent.
-            let childBlocked =
-                (oldChildren @ newChildren)
-                |> List.exists (fun child ->
-                    Node.childOwnership graph parentId child = Ownership.Owner
-                    && nodeBlocked child.id
-                    && not (DocumentPartition.isDocumentRootNode graph child.id))
-            parentBlocked || childBlocked
+            replaceIsBlocked graph parentId oldChildren newChildren
         | _ ->
             involvedNodeIds graph op
             |> List.distinct
-            |> List.exists nodeBlocked
+            |> List.exists (fun id ->
+                DocumentPartition.isMemberOfInaccessibleDocument graph id)
 
     let private applyAllowed
         (markUnpersisted: bool)
@@ -278,24 +277,33 @@ module Op =
     /// Disk parse posts commandName "Parse" and must not write PersistState.
     let internal marksOwningPersist (commandName: string) =
         commandName <> "Parse"
+    let internal guardsUnparsedDocument (commandName: string) =
+        commandName <> "Parse"
 
-    let internal applyAllowing (markUnpersisted: bool) (op: Op) (state: State) : ApplyResult =
-        if isBlockedByInaccessibleDocument op state.graph then
+    let private blockedForApply guardUnparsed op graph =
+        match guardUnparsed, op with
+        | false, Op.Replace(parentId, oldChildren, newChildren) when
+            (let n = List.length oldChildren
+             List.length newChildren >= n
+             && List.take n newChildren = oldChildren
+             && List.forall (fun child ->
+                 Node.childOwnership graph parentId child = Ownership.Owner
+                 && DocumentPartition.isDocumentRootNode graph child.id)
+                 (List.skip n newChildren)) -> false
+        | _ -> isBlockedByInaccessibleDocument op graph
+
+    let internal applyAllowing guardUnparsed markUnpersisted op state =
+        if blockedForApply guardUnparsed op state.graph then
             ApplyResult.Invalid(state, unparsedDocumentError)
         else
             applyAllowed markUnpersisted op state
 
     let apply (op: Op) (state: State) : ApplyResult =
-        applyAllowing true op state
+        applyAllowing true true op state
 
-    let internal applyAllAllowing
-        (markUnpersisted: bool)
-        (ops: Op list)
-        (state: State)
-        : ApplyResult
-        =
+    let internal applyAllAllowing guardUnparsed markUnpersisted ops state =
         let step (accState, hasChanged) op =
-            match applyAllowing markUnpersisted op accState with
+            match applyAllowing guardUnparsed markUnpersisted op accState with
             | ApplyResult.Invalid _ as err -> Error err
             | ApplyResult.Unchanged s' -> Ok(s', hasChanged)
             | ApplyResult.Changed s' -> Ok(s', true)
@@ -317,7 +325,7 @@ module Op =
         | Ok(s, true) -> ApplyResult.Changed s
 
     let applyAll (ops: Op list) (state: State) : ApplyResult =
-        applyAllAllowing true ops state
+        applyAllAllowing true true ops state
 
     let invert (op: Op) : Op =
         match op with
@@ -443,6 +451,7 @@ module Ev =
         | None -> ApplyResult.Unchanged state
         | Some opList ->
             Op.applyAllAllowing
+                (Op.guardsUnparsedDocument event.commandName)
                 (Op.marksOwningPersist event.commandName)
                 opList
                 state
@@ -717,13 +726,8 @@ module ChangeValidation =
                 |> Option.map Error
                 |> Option.defaultValue (Ok ())
 
-    let internal applyOpsAllowing
-        (markUnpersisted: bool)
-        (ops: Op list)
-        (state: State)
-        : ApplyResult
-        =
-        match Op.applyAllAllowing markUnpersisted ops state with
+    let internal applyOpsAllowing guardUnparsed markUnpersisted ops state =
+        match Op.applyAllAllowing guardUnparsed markUnpersisted ops state with
         | ApplyResult.Invalid _ as err -> err
         | ApplyResult.Unchanged s -> ApplyResult.Unchanged s
         | ApplyResult.Changed s ->
@@ -735,7 +739,7 @@ module ChangeValidation =
         Op.applyAll ops state
 
     let applyOps (ops: Op list) (state: State) : ApplyResult =
-        applyOpsAllowing true ops state
+        applyOpsAllowing true true ops state
 
 /// After DocumentPersistence stamps artifact roots, emit ops for the change log / poll tail.
 [<RequireQualifiedAccess>]
