@@ -12,9 +12,9 @@ Parse and persist move text between disk and the graph.
 
 [x] Server: one long-lived Parse stack and one parse thread. [Parse stack](../../src/Server/ParseStack.fs), [Parse thread](../../src/Server/ParseThread.fs).
 [x] Nobody starts an Actor after pull.
-[ ] Persist thread: runs when a node is Unpersisted and Parsed. Persist thread: a thread. Its collectors call the persist functions in [Document persist change](../../src/Server/DocumentPersistChange.fs). Those functions stay the write body. Setup lives in [Core](../../src/Server/Core).
+[x] Persist thread: runs when a node is Unpersisted and Parsed. A node is blocked when its parseState is Unparsed and its documentState is not Current. Persist thread: a thread. Its collectors call the persist functions in [Document persist change](../../src/Server/DocumentPersistChange.fs). Those functions stay the write body. Setup lives in [Core](../../src/Server/Core).
 [x] Parse thread: adds `InMsg` `ParseFinished` through the mailbox private function when that File parse finishes. It does not edit the graph axes. The queue puller hands `InMsg` to the InMsg handler. [Mailbox](mailbox.md)
-[ ] Persist thread: adds `InMsg` through the mailbox private function when that work finishes. It does not edit the graph.
+[x] Persist thread: adds `InMsg` `SnapshotDone` through the mailbox private function when that work finishes. It does not edit the graph.
 ## Parse
 
 [x] The parse thread takes a File Node from the stack. [Document persist write](../../src/Server/DocumentPersistWrite.fs) `planParseFile` turns that file's disk text into graph ops.

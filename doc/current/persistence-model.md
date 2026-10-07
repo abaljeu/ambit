@@ -179,7 +179,7 @@ CREATE INDEX idx_node_children_child ON node_children (child_id);
 
 [x] Unchanged documents: incremental writes skip unchanged documents.
 
-[o] Sync live-save: sync live-save on an accepted change is the `DataDir` write feeder. `DbAgent` calls `DocumentPersistChange.persistGraphOps` / `persistGraphChange` after the database commit.
+[x] Persist thread: an accepted change calls the collectors. The persist thread calls `DocumentPersistChange.persistGraphOps` / `persistGraphChange`. `FileAgent` and `DbAgent` do not call those functions on the post path.
 
 [ ] Browser residency: want-driven.
 

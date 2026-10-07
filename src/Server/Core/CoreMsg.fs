@@ -96,7 +96,8 @@ type PersistHandlers = {
     applyEvent:
         Ev -> bool -> Result<CoreChangesAccepted, string>
     replaceGraph: Graph -> unit
-    snapshotDone: Graph option -> unit
+    snapshotDone: NodeId -> Graph option -> unit
+    noteParsed: NodeId -> unit
 }
 
 /// Persist + lifecycle the mailbox hosts. File and Db build this; CoreMailbox
