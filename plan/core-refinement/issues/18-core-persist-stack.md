@@ -3,7 +3,7 @@
 **Type:** coding
 **Status:** coded
 **Blocked by:** None — can start immediately
-Actual: 3h
+Actual: 4h
 
 ## Context
 
@@ -59,8 +59,10 @@ Collector interface, named here because the architecture does not list the recor
 ## Comments
 
 - 2026-10-07: Drafted from §3 step 3 and §10 Persist thread. Status `coded` with the stack.
+- 2026-10-07: Staging review is [Code review — 18 Core Persist stack vs staging](../reports/code-review-18-vs-staging.md). Status stays `coded`.
 
 ## Time
 
 - 2026-10-07 2h — collectors, persist thread, caller migrate, tests `(from chat)`
 - 2026-10-07 1h — SnapshotDone node id, Change block, Db catch-up `(from chat)`
+- 2026-10-07 1h — code review vs staging `(from chat)`
