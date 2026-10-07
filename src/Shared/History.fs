@@ -137,6 +137,29 @@ module Op =
             && node.documentState = Current
         | None -> false
 
+    let private replaceIsBlocked graph parentId oldChildren newChildren =
+        let blocked id =
+            DocumentPartition.isMemberOfInaccessibleDocument graph id
+        let shell =
+            match Map.tryFind parentId graph.nodes with
+            | Some { kind = Special(Directory | Workspace)
+                     documentState = Unparsed } -> true
+            | _ -> false
+        let stub =
+            shell
+            && UnparsedShellEdit.isStubEdit graph parentId oldChildren newChildren
+        let parentBlocked =
+            not (isCurrentDocumentRoot graph parentId)
+            && not stub
+            && blocked parentId
+        let touched =
+            oldChildren @ newChildren
+            |> List.exists (fun child ->
+                Node.childOwnership graph parentId child = Ownership.Owner
+                && blocked child.id
+                && not (DocumentPartition.isDocumentRootNode graph child.id))
+        parentBlocked || (not stub && touched)
+
     /// Inaccessible document membership blocks content edits. Structural Replace is allowed
     /// when relocating an inaccessible document root as an opaque unit under a
     /// Current parent (Move Up/Down, Move Selection to Start/End, indent).
@@ -145,22 +168,6 @@ module Op =
     /// an enclosing Directory/Workspace is Unparsed), and attaching/detaching
     /// document-root stubs under an Unparsed Directory/Workspace shell.
     let private isBlockedByInaccessibleDocument (op: Op) (graph: Graph) : bool =
-        let nodeBlocked nodeId =
-            DocumentPartition.isMemberOfInaccessibleDocument graph nodeId
-
-        let isUnparsedTreeShell nodeId =
-            match Map.tryFind nodeId graph.nodes with
-            | Some { kind = Special(Directory | Workspace)
-                     documentState = Unparsed } -> true
-            | _ -> false
-
-        let ownedAreDocumentRoots parentId children =
-            children
-            |> List.filter (fun child ->
-                Node.childOwnership graph parentId child = Ownership.Owner)
-            |> List.forall (fun child ->
-                DocumentPartition.isDocumentRootNode graph child.id)
-
         match op with
         | Op.SetUpdateTime _ ->
             // Download stamp alignment and persist tails only touch mtime metadata;
@@ -171,27 +178,12 @@ module Op =
             // an edit inside an Unparsed document.
             false
         | Op.Replace(parentId, oldChildren, newChildren) ->
-            let stubAttachUnderShell =
-                isUnparsedTreeShell parentId
-                && ownedAreDocumentRoots parentId oldChildren
-                && ownedAreDocumentRoots parentId newChildren
-            let parentBlocked =
-                if isCurrentDocumentRoot graph parentId then false
-                elif stubAttachUnderShell then false
-                else nodeBlocked parentId
-            // Document roots may move as opaque units; their Unparsed state
-            // must not block sibling reorder / reparent under a Current parent.
-            let childBlocked =
-                (oldChildren @ newChildren)
-                |> List.exists (fun child ->
-                    Node.childOwnership graph parentId child = Ownership.Owner
-                    && nodeBlocked child.id
-                    && not (DocumentPartition.isDocumentRootNode graph child.id))
-            parentBlocked || childBlocked
+            replaceIsBlocked graph parentId oldChildren newChildren
         | _ ->
             involvedNodeIds graph op
             |> List.distinct
-            |> List.exists nodeBlocked
+            |> List.exists (fun id ->
+                DocumentPartition.isMemberOfInaccessibleDocument graph id)
 
     let private applyAllowed
         (markUnpersisted: bool)

@@ -220,7 +220,7 @@ Deltas for this Project. Claim homes: [Mailbox](doc/current/mailbox.md) and [Par
       1. [x] **InMsg** — Internal message type. Not an Op. It carries the node.
          1. [x] **ParseFinished** — That `NodeId`. Parse finished.
          2. [x] **SnapshotDone** — That `NodeId` and the snapshot `Graph option`. Snapshot finished and that node is Persisted. This case replaces `PersistFinished`.
-         3. [x] **MarkUnparsed** — That `NodeId`. A disk-newer File Node is set Unparsed.
+         3. [x] **MarkUnparsed** — That `NodeId`. A disk-newer File Node is set Unparsed. A Directory Node that needs reparse uses this same case.
       2. [x] **One queue** — The mailbox queue. Its element is a private sum of `CoreMsg` and `InMsg`. That sum has no public name. There is no second queue.
    2. **Interface**
       1. [x] **Private add** — A private function on the mailbox takes `InMsg` and adds it to the queue.
@@ -246,7 +246,7 @@ Deltas for this Project. Claim homes: [Mailbox](doc/current/mailbox.md) and [Par
       1. [x] **No queue** — The parse thread does not hold the mailbox queue.
    2. **Interface**
       1. [x] **Add** — On finish it adds `InMsg` `ParseFinished` for that node through the private function. It does not edit the graph.
-      2. [x] **Mark unparsed** — For a disk-newer File Node it adds `InMsg` `MarkUnparsed` through the private function. It does not edit the graph.
+      2. [x] **Mark unparsed** — For a disk-newer File Node, or a Directory Node that needs reparse, it adds `InMsg` `MarkUnparsed` through the private function. It does not edit the graph.
    3. **Uses**
       1. [x] **Private add** — The private function on the mailbox.
 
