@@ -21,4 +21,5 @@ Implement the Database-down policy locked by [[12-define-actor-pool-shutdown-beh
 
 ## Comments
 
+- 2026-10-07 — Continued on core-refinement pointer [14 — Pointer: Database down and probe](../../core-refinement/issues/14-pointer-database-down-and-host-stop.md). This file stays history; do not chart or implement from here. Ownership moved with the Solid-core v1 lock (Alan).
 - 2026-09-11 — Reconciled after the Actor rewind. Database-down detection and the mutating Post/launch probe stay here with [[plan/core-creation/issues/13-delete-runtime-mirror-and-remove-production-persistence-mode.md]]. Host StopAsync drain moved to [[plan/core-creation/issues/28-drain-actor-lifecycle-on-host-stop.md]].

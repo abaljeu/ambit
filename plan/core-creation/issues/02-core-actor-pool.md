@@ -22,6 +22,7 @@ Cancel, finish, and Interrupted restart are [[17-cancel-a-job.md]] and [[18-fini
 
 ## Comments
 
+- 2026-10-07 — Continued on core-refinement pointer [08 — Pointer: Core Actor pool](../../core-refinement/issues/08-pointer-core-actor-pool.md). This file stays history; do not chart or implement from here. Ownership moved with the Solid-core v1 lock (Alan).
 - 2026-09-11 — Rewind review named the mailbox/TaskPool/registry shape. Status was `needs-info`. Launch/query remain on the discarded second mailbox until rebuild.
 - 2026-09-11 — [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] superseded span locks, lock-present outside History, delete-only completion, and no terminal result. [[plan/core-creation/issues/27-prove-core-actor-lifecycle-with-testactor.md]] proves the provider-neutral machinery without an Agent transport.
 - 2026-09-11 — First implementation increment is [[29-prove-testactor-hello.md]]. This ticket stays the program piece for the full pool.

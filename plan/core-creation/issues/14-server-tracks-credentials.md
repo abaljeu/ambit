@@ -24,6 +24,7 @@ Implement Authority admission from [[plan/llm-connector/issues/07-lock-run-agent
 
 ## Comments
 
+- 2026-10-07 — Continued on core-refinement pointer [11 — Pointer: Server tracks credentials](../../core-refinement/issues/11-pointer-server-tracks-credentials.md). This file stays history; do not chart or implement from here. Ownership moved with the Solid-core v1 lock (Alan).
 - 2026-09-06 — Implementation started on `dev`.
 - 2026-09-06 — Delivered Core credential set, `CoreAuth.post` admission, and Adapter mapping of Unauthorized to HTTP 401. Browser HTTP still uses the Adapter cookie then `CoreChanges.postChange`. [[plan/core-creation/issues/20-client-presents-credential.md]] presents a Browser credential. See [[plan/core-creation/reports/implement-issue-14-credentials.md]].
 - 2026-09-11 — Reconciled with the one-mailbox rebuild. Credential admission remains a valid Core responsibility and this historical delivery stays `done`. The separate credential mailbox implementation shape is superseded: the one Changes/apply mailbox owns credential state and admit-and-enqueue.

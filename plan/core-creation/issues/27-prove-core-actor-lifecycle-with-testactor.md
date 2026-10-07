@@ -26,6 +26,7 @@ Tests observe Graph and registry outcomes from outside; TestActor does not asser
 
 ## Comments
 
+- 2026-10-07 — Continued on core-refinement pointer [15 — Pointer: Prove Core Actor lifecycle with TestActor](../../core-refinement/issues/15-pointer-prove-core-actor-lifecycle-testactor.md). This file stays history; do not chart or implement from here. Ownership moved with the Solid-core v1 lock (Alan).
 - 2026-09-11 — First proof slice is [[29-prove-testactor-hello.md]]. This ticket stays the full TestActor proof catalog.
 - 2026-09-11 — Dispatch is [[plan/llm-connector/issues/06-define-command-run-agent-redesign.md]].
 

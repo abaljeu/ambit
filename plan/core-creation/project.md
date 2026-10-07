@@ -1,12 +1,14 @@
 # Core creation
 
-Stage: build
+Stage: done
 Summary: Establish Core and Core API as the sole Server Graph writer, persistent-state coordinator, and Actor pool.
-Updated: 2026-09-30
+Updated: 2026-10-07
 Started: 2026-09-05
+Finished: 2026-10-07
 Actual: 84h05m
 
 ## Notes
+- 2026-10-07 — Alan lock: Solid core v1 implemented. Stage `done`. Leftover open issues continue as pointers on [[plan/core-refinement/project.md]] ([08](../core-refinement/issues/08-pointer-core-actor-pool.md)–[17](../core-refinement/issues/17-pointer-prove-testactor-hello.md)). Source issue files stay history with forward notes; do not implement further from this Project.
 - 2026-09-29 — Sequel for Core revision after files land: [[plan/core-refinement/project.md]] (split from [[plan/github-transport/project.md]]). Future Core seam authority is that Project ([[plan/core-refinement/arch.md]]), not this baseline.
 - 2026-09-28 — Server Core target sole authority is [[plan/core-refinement/arch.md]] Target — Server Core; compact description: [[plan/architecture/server-core.md]].
 - 2026-09-21 — Landed [53 — Cancel HTTP conveys ActorStop](issues/53-cancel-http-conveys-actorstop.md) on staging (Good): Cancel HTTP success carries Cancelled `ActorStop` Events; Client applies them so `amb-actor-live` clears without waiting on Poll. Status `done`.

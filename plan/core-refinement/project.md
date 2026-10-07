@@ -31,6 +31,7 @@ Actual: 5h15m
 - 2026-10-01 — This slice is in code. File parse finish adds InMsg ParseFinished. The db agent adds InMsg SnapshotDone. CoreMsg has no SnapshotDone. The persist thread is not built. [06 — Explicit parse command on a File (Load)](issues/06-explicit-parse-command-load-file.md) Status `coded`. Stage stays `build`.
 - 2026-10-07 — Alan accepted `InMsg` `MarkUnparsed`. A disk-newer File Node is set Unparsed through that case. Case home: [[arch.md]] §10 Core loop. Current claim: [[doc/current/mailbox.md]]. Stage stays `build`.
 - 2026-10-07 — Alan locked both Unparsed approaches. After pull, the git changed list immediately marks matching File Nodes and Directory Nodes Unparsed. The workspace lock sequence stays [[arch.md]] §6. Ticket: [07 — Git changed list sets Unparsed](issues/07-git-changed-list-unparsed.md). The Directory reconcile approach stays [07 — Directory Unparsed during reconcile](../parse-thread/issues/07-directory-unparsed-during-reconcile.md). Stage stays `build`.
+- 2026-10-07 — Alan: leftover core-creation work continues here via pointer tickets [08](issues/08-pointer-core-actor-pool.md)–[17](issues/17-pointer-prove-testactor-hello.md). Solid core v1 is implemented on [[plan/core-creation/project.md]]; this Project is v2. Stage stays `build`.
 
 ## Issues
 
@@ -41,3 +42,13 @@ Actual: 5h15m
 - [05 — Selection-scoped Parse after whole-tree git Load](issues/05-selection-scoped-parse-after-whole-tree-git-load.md) — selection push-on-stack. Status `done`.
 - [06 — Explicit parse command on a File (Load)](issues/06-explicit-parse-command-load-file.md) — mailbox Load of a File node. On finish the parse thread adds InMsg ParseFinished through the private function. Status `coded`.
 - [07 — Git changed list sets Unparsed](issues/07-git-changed-list-unparsed.md) — after pull, the git changed list marks matching File Nodes and Directory Nodes Unparsed. The §6 sequence stays. Status `defined`.
+- [08 — Pointer: Core Actor pool](issues/08-pointer-core-actor-pool.md) — pointer to [[plan/core-creation/issues/02-core-actor-pool.md|02 — Core Actor pool]]; owned/continued here. Status `defined`.
+- [09 — Pointer: Core Files contract](issues/09-pointer-core-files-contract.md) — pointer to [[plan/core-creation/issues/07-define-core-files-contract.md|Define the Core Files contract]]; owned/continued here. Status `defined`.
+- [10 — Pointer: Core Query contract](issues/10-pointer-core-query-contract.md) — pointer to [[plan/core-creation/issues/08-define-core-query-contract.md|Define the Core Query contract]]; owned/continued here. Status `defined`.
+- [11 — Pointer: Server tracks credentials](issues/11-pointer-server-tracks-credentials.md) — pointer to [[plan/core-creation/issues/14-server-tracks-credentials.md|14 — Server tracks credentials]]; owned/continued here. Status `defined`.
+- [12 — Pointer: Launch Actor (Focus registration)](issues/12-pointer-launch-actor-and-hold-span.md) — pointer to [[plan/core-creation/issues/15-launch-actor-and-hold-span.md|15 — Launch an Actor and hold the span]]; owned/continued here. Status `defined`.
+- [13 — Pointer: Finish and drop](issues/13-pointer-finish-and-drop.md) — pointer to [[plan/core-creation/issues/18-finish-and-drop.md|18 — Finish and drop]]; owned/continued here. Status `defined`.
+- [14 — Pointer: Database down and probe](issues/14-pointer-database-down-and-host-stop.md) — pointer to [[plan/core-creation/issues/19-database-down-and-host-stop.md|19 — Database down and probe]]; owned/continued here. Status `defined`.
+- [15 — Pointer: Prove Core Actor lifecycle with TestActor](issues/15-pointer-prove-core-actor-lifecycle-testactor.md) — pointer to [[plan/core-creation/issues/27-prove-core-actor-lifecycle-with-testactor.md|27 — Prove Core Actor lifecycle with TestActor]]; owned/continued here. Status `defined`.
+- [16 — Pointer: Drain Actor lifecycle on host stop](issues/16-pointer-drain-actor-lifecycle-on-host-stop.md) — pointer to [[plan/core-creation/issues/28-drain-actor-lifecycle-on-host-stop.md|28 — Drain Actor lifecycle on host stop]]; owned/continued here. Status `defined`.
+- [17 — Pointer: Prove TestActor hello](issues/17-pointer-prove-testactor-hello.md) — pointer to [[plan/core-creation/issues/29-prove-testactor-hello.md|29 — Prove TestActor hello]]; owned/continued here. Status `defined`.

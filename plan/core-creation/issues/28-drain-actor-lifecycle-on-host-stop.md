@@ -27,3 +27,7 @@ On host StopAsync, refuse new Posts, drain the mailbox through [[18-finish-and-d
 
 - 2026-09-11 5m — split host-stop drain from Database-down persistence work (from chat)
 - 2026-09-11 5m — drop restated finish path; keep unique host-stop drain (from chat)
+
+## Comments
+
+- 2026-10-07 — Continued on core-refinement pointer [16 — Pointer: Drain Actor lifecycle on host stop](../../core-refinement/issues/16-pointer-drain-actor-lifecycle-on-host-stop.md). This file stays history; do not chart or implement from here. Ownership moved with the Solid-core v1 lock (Alan).
