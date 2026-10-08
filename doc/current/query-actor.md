@@ -31,7 +31,7 @@ A query expression runs on its own Actor.
 
 [x] Eval. The Actor starts when the line runs. A keypress does not start this Actor.
 [x] Start. Run on a Node whose text contains `=`. The request is the existing ActorStart. `focusId` is that line when Run is on it. `commandId` is that same Node.
-[x] Eval reply. The result is Node ids on ActorStop (`ActorQuery`). This reply is the server evaluation. The command response stays the existing Run response. The client reads the ids from that event.
+[x] Eval reply. The result is Node ids on ActorStop (`ActorQuery`). This reply is the server evaluation. The command response stays the existing Run response. The client reads the ids from that event. The applied chip keeps those ids.
 [ ] Result item. Proposed design. Each result under the query line is one `ChildNode.reference`. `ref` is the string `ref`. `id` is a Node id string. [16 — Insert Refs under the query line](../../plan/online-search/issues/16-insert-refs-under-the-query-line.md) owns this post. It is not the eval reply.
 
 ```json

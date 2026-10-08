@@ -53,7 +53,7 @@ The door is the existing Run command. Today a `=` line runs locally. This ticket
 
 ### 4. Reply
 
-The observable reply is Node ids. They ride ActorStop as `ActorQuery`. [16 — Insert Refs under the query line](16-insert-refs-under-the-query-line.md) owns the Ref post. The HTTP body of `POST /ambit/command` stays the existing command response. The client reads the ids from that ActorStop event on the command `events` list or on a later Poll.
+The observable reply is Node ids. They ride ActorStop as `ActorQuery`. [16 — Insert Refs under the query line](16-insert-refs-under-the-query-line.md) owns the Ref post. The HTTP body of `POST /ambit/command` stays the existing command response. The client reads the ids from that ActorStop event on the command `events` list or on a later Poll. The applied chip keeps those ids.
 
 1. [x] Node ids — The eval result is the Node ids of the Node Answers. ActorStop carries them as `ActorQuery`. Tests read that event. [ExprRun](src/Shared/ExprRun.fs) `run` builds a Plan that posts Refs. This ticket returns the Node ids on ActorStop. [16 — Insert Refs under the query line](16-insert-refs-under-the-query-line.md) owns that Plan.
 

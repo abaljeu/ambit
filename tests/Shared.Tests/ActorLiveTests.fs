@@ -160,8 +160,36 @@ let ``ActorQuery ids stay on the event the client applies`` () =
     | Ok after ->
         Assert.False(Set.contains focusId after.actorLiveFocusIds)
     Assert.Equal(
-        Some (CmdLastResult.Detail (None, "Actor succeeded.")),
+        Some (CmdLastResult.Query (None, [ hitId ])),
         ActorLive.lastCmdResult (Graph.create ()) focusId [ decoded ])
+
+[<Fact>]
+let ``Query ActorStop chip keeps the Node ids`` () =
+    let focusId = NodeId.New()
+    let hitId = NodeId.New()
+    let otherId = NodeId.New()
+    let stopped =
+        actorStopEvent
+            (EventIdFixtures.storedId 2)
+            focusId
+            (ActorQuery [ hitId; otherId ])
+    let chip =
+        ActorLive.lastCmdResult (Graph.create ()) focusId [ stopped ]
+    Assert.Equal(
+        Some (CmdLastResult.Query (None, [ hitId; otherId ])),
+        chip)
+    let shown =
+        match chip with
+        | Some result -> CmdLastResult.toDisplay result
+        | None -> ""
+    Assert.Contains(hitId.Value.ToString(), shown)
+    Assert.Contains(otherId.Value.ToString(), shown)
+    let findStop =
+        actorStopEvent
+            (EventIdFixtures.storedId 3) focusId ActorSucceeded
+    Assert.Equal(
+        Some (CmdLastResult.Detail (None, "Actor succeeded.")),
+        ActorLive.lastCmdResult (Graph.create ()) focusId [ findStop ])
 
 [<Fact>]
 let ``offersCancel is true only while the Focus is live`` () =

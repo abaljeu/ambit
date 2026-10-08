@@ -251,12 +251,15 @@ type CmdLastResult =
     | Ok of commandName: string option
     | Detail of commandName: string option * message: string
     | Error of commandName: string option * message: string
+    /// Query ActorStop. The list is the Node ids. Find stays Detail.
+    | Query of commandName: string option * ids: NodeId list
 
 module CmdLastResult =
     let withCommandName (name: string option) = function
         | CmdLastResult.Ok _ -> CmdLastResult.Ok name
         | CmdLastResult.Detail (_, msg) -> CmdLastResult.Detail (name, msg)
         | CmdLastResult.Error (_, msg) -> CmdLastResult.Error (name, msg)
+        | CmdLastResult.Query (_, ids) -> CmdLastResult.Query (name, ids)
 
     let private formatNamed (name: string option) (body: string) : string =
         match name with
@@ -267,6 +270,12 @@ module CmdLastResult =
         | CmdLastResult.Ok name -> formatNamed name "OK"
         | CmdLastResult.Detail (name, msg) -> formatNamed name msg
         | CmdLastResult.Error (name, msg) -> formatNamed name msg
+        | CmdLastResult.Query (name, ids) ->
+            let shown =
+                ids
+                |> List.map (fun (NodeId id) -> id.ToString())
+                |> String.concat " "
+            formatNamed name shown
 
     let undoResult (commandName: string option) =
         CmdLastResult.Detail (Some "Undo", Option.defaultValue "nothing to undo" commandName)

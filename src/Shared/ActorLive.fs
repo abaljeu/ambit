@@ -143,9 +143,10 @@ module ActorLive =
         | EventBody.ActorStop(focusId, result) ->
             let chip = displayLabel graph focusId zoomRoot
             match result with
-            | ActorSucceeded
-            | ActorQuery _ ->
+            | ActorSucceeded ->
                 Some (CmdLastResult.Detail (chip, "Actor succeeded."))
+            | ActorQuery ids ->
+                Some (CmdLastResult.Query (chip, ids))
             | ActorFailed message ->
                 Some (CmdLastResult.Error (chip, failedText message))
             | ActorCancelled ->
