@@ -2,7 +2,7 @@
 
 **Status:** `coded`
 **Type:** coding
-**Actual:** 3h
+**Actual:** 4h
 **Blocked by:** [07 — Server completes the picture](07-server-completes-the-picture.md)
 
 ## Context
@@ -53,7 +53,7 @@ The door is the existing Run command. Today a `=` line runs locally. This ticket
 
 ### 4. Reply
 
-The observable reply is Node ids. They ride ActorStop as `ActorQuery`. [16 — Insert Refs under the query line](16-insert-refs-under-the-query-line.md) owns the Ref post. The HTTP body of `POST /ambit/command` stays the existing command response. The client reads the ids from that ActorStop event on the command `events` list or on a later Poll. The applied chip keeps those ids.
+The observable reply is Node ids. They ride ActorStop as `ActorQuery`. [16 — Insert Refs under the query line](16-insert-refs-under-the-query-line.md) owns the Ref post. The HTTP body of `POST /ambit/command` stays the existing command response. The client reads the ids from that ActorStop event on the command `events` list or on a later Poll. The applied chip keeps those ids as `CmdLastResult.Query`. Find stays the `ActorSucceeded` chip.
 
 1. [x] Node ids — The eval result is the Node ids of the Node Answers. ActorStop carries them as `ActorQuery`. Tests read that event. [ExprRun](src/Shared/ExprRun.fs) `run` builds a Plan that posts Refs. This ticket returns the Node ids on ActorStop. [16 — Insert Refs under the query line](16-insert-refs-under-the-query-line.md) owns that Plan.
 
@@ -98,3 +98,4 @@ The observable reply is Node ids. They ride ActorStop as `ActorQuery`. [16 — I
 
 - 2026-10-07 2h — remote query eval on Run (from chat)
 - 2026-10-07 1h — Node ids ride ActorStop (from chat)
+- 2026-10-08 1h — Query chip keeps the Node ids (from chat)

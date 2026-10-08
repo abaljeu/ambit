@@ -4,7 +4,7 @@ Stage: build
 Summary: Two specs in one file. Find opens on a local list, and the globe requests the server when that list is under 200. A query expression inserts results under the query line. Query eval is remote.
 Updated: 2026-10-07
 Started: 2026-10-04
-Actual: 8h
+Actual: 9h
 
 ## Notes
 
