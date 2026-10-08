@@ -16,11 +16,6 @@ let encodePendingBatchBody (request: ChangeRequest) : string =
     Thoth.Json.JavaScript.Encode.toString 0 (
         ApiResponseSerialization.encodeChangeRequest request)
 
-/// Encode ActorStart for POST /{file}/command.
-let encodeCommandRequest (request: ActorStart) : string =
-    Thoth.Json.JavaScript.Encode.toString 0 (
-        Gambol.Shared.EventJson.encodeStartRequest request)
-
 let encodeLoadSaveCommandRequest
     (request: LoadSaveCommandRequest)
     : string =
@@ -32,19 +27,9 @@ let decodeLoadSaveCommandResponse
     : Result<LoadSaveCommandResponse, string> =
     ApiResponseSerialization.decodeLoadSaveCommandResponse text
 
-/// Encode Focus NodeId and EventId cursor for POST /{file}/cancel.
-let encodeCancelRequest (focusId: NodeId) (eventId: EventId) : string =
-    Thoth.Json.JavaScript.Encode.toString 0 (
-        Gambol.Shared.EventJson.encodeCancelRequest
-            { focusId = focusId; eventId = eventId })
-
-
 /// Decode the response from GET /{file}/state
 let decodeStateResponse (text: string) : Result<StateResponse, string> =
     ApiResponseSerialization.decodeStateResponse text
-
-let decodeUniversalResponse (text: string) : Result<UniversalResponse, string> =
-    ApiResponseSerialization.decodeUniversalResponse text
 
 /// Decode the response from GET /{file}/capabilities.
 let decodeServerCapabilities (text: string) : Result<ServerCapabilities, string> =

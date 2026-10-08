@@ -138,6 +138,10 @@ module EventJson =
                   "target", encodeEventId target
                   "ops", encodeOps ops ]
         | EventBody.ActorStart start -> encodeActorStart start
+        | EventBody.Cancel focusId ->
+            Encode.object
+                [ "kind", Encode.string "cancel"
+                  "focusId", Serialization.encodeNodeId focusId ]
         | EventBody.ActorStop(focusId, result) ->
             let fields =
                 [ "kind", Encode.string "actorStop"
@@ -182,6 +186,12 @@ module EventJson =
             | "redo" -> decodeRedoBody
             | "actorStart" ->
                 decodeStartRequest |> Decode.map EventBody.ActorStart
+            | "cancel" ->
+                Decode.object (fun get ->
+                    EventBody.Cancel(
+                        get.Required.Field
+                            "focusId"
+                            Serialization.decodeNodeId))
             | "actorStop" -> decodeActorStopBody
             | other -> Decode.fail ("Unknown event body: " + other))
 

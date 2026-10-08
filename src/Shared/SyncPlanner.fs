@@ -26,6 +26,33 @@ module SyncPlanner =
             let nextInfo = syncInfo |> SyncInfo.withSyncState (Sending 1)
             nextInfo, [ SubmitPendingBatch (baseEventId, events) ]
 
+    /// Append one Event and include it in a SubmitPendingBatch already opened
+    /// by this turn. A busy queue keeps the Event behind the in-flight post.
+    let queueWithOpenBatch
+        (event: Ev)
+        (eventId: Gambol.Shared.EventId)
+        (syncInfo: SyncInfo)
+        (effects: Effect list)
+        : SyncInfo * Effect list =
+        let pending = syncInfo.pending @ [ event ]
+        let next = { syncInfo with pending = pending }
+        let rewritten =
+            effects
+            |> List.map (function
+                | SubmitPendingBatch (id, _) ->
+                    SubmitPendingBatch (id, pending)
+                | other -> other)
+        let opened =
+            rewritten
+            |> List.exists (function
+                | SubmitPendingBatch _ -> true
+                | _ -> false)
+        if opened then
+            next, rewritten @ [ SavePendingQueue pending ]
+        else
+            let submitted, more = tryStartSubmit eventId next
+            submitted, rewritten @ (SavePendingQueue pending :: more)
+
     let enqueuePending
         (event: Ev)
         (eventId: Gambol.Shared.EventId)

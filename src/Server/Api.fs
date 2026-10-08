@@ -260,12 +260,6 @@ module Api =
         graphIds
         |> List.choose (fun id -> Map.tryFind id graph.nodes)
 
-    let private commandSuccessResult (response: UniversalResponse) =
-        response
-        |> ApiResponseSerialization.encodeUniversalResponse
-        |> Encode.toString 0
-        |> jsonResult
-
     let private latestEventId (events: Ev list) persistId =
         events
         |> List.map (fun e -> e.id)
@@ -283,39 +277,6 @@ module Api =
                 { nodes = nodes
                   events = events
                   latestId = latestEventId events persistId }
-        }
-
-    let private universalFromHandle handle after nodes =
-        async {
-            let! response =
-                universalResponseFromHandle handle after nodes
-            return commandSuccessResult response
-        }
-
-    /// Decode ActorStart ids, call startActor, encode `{ nodes; events; latestId }`.
-    let postCommand
-        (startActor: ActorStart -> Async<Result<unit, string>>)
-        (handle: CoreChanges)
-        (body: string)
-        : Async<IResult> =
-        async {
-            match Decode.fromString EventJson.decodeStartRequest body with
-            | Error err ->
-                return agentErrorResult $"Invalid JSON: {err}"
-            | Ok request ->
-                match! startActor request with
-                | Error err -> return agentErrorResult err
-                | Ok () ->
-                    match! handle.getState () with
-                    | Error err -> return agentErrorResult err
-                    | Ok state ->
-                        return!
-                            universalFromHandle
-                                handle
-                                request.eventId
-                                (nodesForRequest
-                                    state.graph
-                                    request.graphIds)
         }
 
     let private loadSaveSuccessResult path command =
@@ -359,23 +320,6 @@ module Api =
                                 loadSaveSuccessResult
                                     LoadSavePath.Git
                                     (Some command)
-        }
-
-    /// Decode CancelRequest, call cancelByFocus, encode Events like Command.
-    let postCancel
-        (cancelByFocus: NodeId -> Async<Result<unit, string>>)
-        (handle: CoreChanges)
-        (body: string)
-        : Async<IResult> =
-        async {
-            match Decode.fromString EventJson.decodeCancelRequest body with
-            | Error err ->
-                return agentErrorResult $"Invalid JSON: {err}"
-            | Ok request ->
-                match! cancelByFocus request.focusId with
-                | Error err -> return agentErrorResult err
-                | Ok () ->
-                    return! universalFromHandle handle request.eventId []
         }
 
     let getCapabilities (dataDir: string) : IResult =

@@ -32,20 +32,22 @@ module internal CoreEventDispatch =
                     nextId =
                         EventId.max mailbox.nextId persistLog.nextId }
 
+    let private appendNew (context: Context) (event: Ev) =
+        let stored =
+            { event with id = EventLog.nextId context.eventLog.Value }
+        match context.persist.appendEvent stored with
+        | Error error -> Error error
+        | Ok () ->
+            context.eventLog.Value <-
+                EventLog.append stored context.eventLog.Value
+            Ok stored
+
     /// submissionId is Guid dedup (event-abstraction): replay returns the stored Ev.
     let private commit (context: Context) (event: Ev) =
         catchUpNextId context
         match tryStored context event.submissionId with
         | Some existing -> Ok existing
-        | None ->
-            let stored =
-                { event with id = EventLog.nextId context.eventLog.Value }
-            match context.persist.appendEvent stored with
-            | Error error -> Error error
-            | Ok () ->
-                context.eventLog.Value <-
-                    EventLog.append stored context.eventLog.Value
-                Ok stored
+        | None -> appendNew context event
 
     let private lifecycleEvent
         (caller: Caller)
@@ -81,6 +83,18 @@ module internal CoreEventDispatch =
         |> commit context
         |> Result.map ignore
 
+    /// Caller already checked submissionId. This append does not scan again.
+    let appendLifecycle
+        (context: Context)
+        (caller: Caller)
+        (submissionId: System.Guid)
+        (body: Gambol.Shared.EventBody)
+        : Result<Ev, string> =
+        catchUpNextId context
+        { lifecycleEvent caller body with
+            submissionId = submissionId }
+        |> appendNew context
+
     let private completeAction (eventLog: EventLog) (event: Ev) =
         match event.body with
         | Gambol.Shared.EventBody.Undo(target, [])
@@ -102,7 +116,8 @@ module internal CoreEventDispatch =
         | Gambol.Shared.EventBody.Undo _
         | Gambol.Shared.EventBody.Redo _ -> Ok event
         | Gambol.Shared.EventBody.ActorStart _
-        | Gambol.Shared.EventBody.ActorStop _ ->
+        | Gambol.Shared.EventBody.ActorStop _
+        | Gambol.Shared.EventBody.Cancel _ ->
             Error "Actor lifecycle Events are mailbox-generated"
 
     let private withConfirmedOps

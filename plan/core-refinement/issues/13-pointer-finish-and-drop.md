@@ -21,3 +21,5 @@ Follow the source ticket’s remaining unchecked work and Comments. This pointer
 ## See also
 
 [[plan/core-refinement/project.md]], [[plan/core-refinement/arch.md]], [[plan/core-creation/issues/18-finish-and-drop.md]]
+
+Cancel joins the ordered stream. The drop after that Cancel stays on this pointer. [22 — One ordered event stream](../../single-event-source/issues/22-ordered-event-stream.md).

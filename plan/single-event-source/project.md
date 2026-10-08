@@ -1,10 +1,10 @@
 # Single event source
 
 Stage: build
-Summary: Core creation is suspended. This Project creates a single Event source with one event id, then corrects [[plan/core-creation/arch.md]] to match what was created.
-Updated: 2026-09-18
+Summary: One Event source means one ordered stream, with one event id. Connected Events are queued in order, posted in that order, and processed in that order. A later Event does not pass an earlier connected Event. A posted list is applied in order, as one unit; lists from different clients do not interleave. The only rejection is the credential check. That check refuses the whole list before anything applies. Otherwise every posted list applies whole. Then [[plan/core-creation/arch.md]] matches what this Project created.
+Updated: 2026-10-08
 Started: 2026-09-16
-Actual: 29h30m
+Actual: 33h30m
 
 Home: [[plan/roadmap/epics/robust-outliner.md]] Required for done (Live). Chart map: [[map.md]].
 
@@ -36,11 +36,13 @@ Home: [[plan/roadmap/epics/robust-outliner.md]] Required for done (Live). Chart 
 - [04 — Write core-creation arch.md last](plan/single-event-source/issues/04-write-core-creation-arch-md-last.md) — after contract. Status `coded`.
 - [20 — SES smell-cleanup quality criteria](plan/single-event-source/issues/20-ses-smell-cleanup-quality-criteria.md) — Type `research`. Status `needs-info`. Naming + improper type usage; file/function length out of scope except functions a follow-on cleanup touches. Sources: SES 11/11-repair/12 reviews + 34b review.
 - [21 — SES smell-cleanup](plan/single-event-source/issues/21-ses-smell-cleanup.md) — apply [SES smell-cleanup quality criteria](plan/single-event-source/reports/ses-smell-cleanup-quality-criteria.md). Status `coded`.
+- [22 — One ordered event stream](plan/single-event-source/issues/22-ordered-event-stream.md) — expand ActorStart and Cancel on the events list, migrate `execRunOp` and Cancel onto `syncInfo.pending`, then contract `POST /ambit/command` and `POST /ambit/cancel`. Status `coded`. This ticket lands first. [11 — Server evaluates](plan/online-search/issues/11-server-evaluates.md) rebases onto this ticket.
 
 ## Notes
 
 - 2026-09-17 — Charted [[plan/single-event-source/issues/20-ses-smell-cleanup-quality-criteria.md|20 — SES smell-cleanup quality criteria]] (research; Status `needs-info`).
 - 2026-09-17 — [20 — SES smell-cleanup quality criteria](plan/single-event-source/issues/20-ses-smell-cleanup-quality-criteria.md) Answer filled; checklist [SES smell-cleanup quality criteria](plan/single-event-source/reports/ses-smell-cleanup-quality-criteria.md). Status stays `needs-info` until Alan accepts.
+- 2026-10-08 — Alan. One Event source means one ordered stream. Connected Events are queued in order, posted in that order, and processed in that order. A later Event does not pass an earlier connected Event. A posted list is applied in order, as one unit; lists from different clients do not interleave. The only rejection is the credential check. That check refuses the whole list before anything applies. Otherwise every posted list applies whole. Ticket: [22 — One ordered event stream](plan/single-event-source/issues/22-ordered-event-stream.md).
 
 ## Related work
 

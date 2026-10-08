@@ -93,41 +93,33 @@ type CancelByFocusTests() =
             }))
 
     [<Fact>]
-    member _.``Adapter postCancel cancels a hanging Focus by NodeId``() =
+    member _.``posted Cancel cancels a hanging Focus by NodeId``() =
         let hangStarted, hang = hangUntilCancel ()
         withFake hang (fun () ->
             withHost (fun host pool -> task {
                 let! request = startLiveAsk host pool "?ai"
                 do! awaitHang hangStarted
-                let body =
-                    Encode.toString 0 (
-                        EventJson.encodeCancelRequest
-                            { focusId = request.focusId
-                              eventId = EventId.zero })
+                let cancel =
+                    { id = EventId.zero
+                      submissionId = System.Guid.NewGuid()
+                      authority = Authority "Browser"
+                      commandName = "Cancel"
+                      body = EventBody.Cancel request.focusId }
                 let! result =
-                    Api.postCancel
-                        (fun focusId ->
-                            CoreMailbox.cancelByFocus
-                                host testCaller focusId)
-                        (CoreMailbox.coreChanges host testCaller)
-                        body
+                    CoreMailbox.postEvents host testCaller [ cancel ]
                     |> Async.StartAsTask
-                match box result with
-                | :? ContentHttpResult as content ->
-                    match decodeUniversal content.ResponseContent with
+                let accepted =
+                    match result with
+                    | Ok value -> value
                     | Error err -> failwith err
-                    | Ok (response: UniversalResponse) ->
-                        let cancelled =
-                            response.events
-                            |> List.exists (fun event ->
-                                match event.body with
-                                | EventBody.ActorStop(fid, ActorCancelled)
-                                    when fid = request.focusId -> true
-                                | _ -> false)
-                        Assert.True(cancelled)
-                | other ->
-                    failwith
-                        $"expected JSON content, got {other.GetType().Name}"
+                let cancelled =
+                    accepted.events
+                    |> List.exists (fun event ->
+                        match event.body with
+                        | EventBody.ActorStop(fid, ActorCancelled)
+                            when fid = request.focusId -> true
+                        | _ -> false)
+                Assert.True(cancelled)
                 do! expectActorCancelled host pool request.focusId
                 let! sawCancel = waitFakeCancelled 2000
                 Assert.True(sawCancel)

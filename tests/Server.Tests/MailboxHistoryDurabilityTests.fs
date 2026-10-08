@@ -102,6 +102,7 @@ let private bodyKind (event: Ev) =
     | EventBody.ActorStart _ -> "start"
     | EventBody.Change _ -> "change"
     | EventBody.ActorStop _ -> "stop"
+    | EventBody.Cancel _ -> "cancel"
     | EventBody.Undo _ -> "undo"
     | EventBody.Redo _ -> "redo"
 

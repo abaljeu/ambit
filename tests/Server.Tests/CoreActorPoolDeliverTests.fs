@@ -191,6 +191,8 @@ let ``focus exclusivity still rejects a second live Focus`` () =
               eventId = EventId.zero }
             (fun () -> Graph.create ())
     with
-    | Error msg ->
-        Assert.Contains("focus already has a live Actor", msg)
+    | Error error ->
+        Assert.Contains(
+            "focus already has a live Actor",
+            StartError.text error)
     | Ok _ -> Assert.Fail("expected focus exclusivity")

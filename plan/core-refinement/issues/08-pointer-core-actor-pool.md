@@ -21,3 +21,5 @@ Follow the source ticket’s remaining unchecked work and Comments. This pointer
 ## See also
 
 [[plan/core-refinement/project.md]], [[plan/core-refinement/arch.md]], [[plan/core-creation/issues/02-core-actor-pool.md]]
+
+Pool admission and registry stay on this pointer. The ordered stream calls that bookkeeping from the events list. It does not rebuild the pool. [22 — One ordered event stream](../../single-event-source/issues/22-ordered-event-stream.md).
