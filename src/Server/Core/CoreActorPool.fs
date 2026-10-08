@@ -35,13 +35,26 @@ type FunctionStart =
       focusId: NodeId
       commandId: NodeId }
 
+[<RequireQualifiedAccess>]
+type StartError =
+    | UnknownActor of name: string
+    | Rejected of message: string
+
+[<RequireQualifiedAccess>]
+module StartError =
+    let text error =
+        match error with
+        | StartError.UnknownActor name ->
+            $"actor '{name}' not registered"
+        | StartError.Rejected message -> message
+
 type CoreActorPool =
     { register: ActorName -> ActorFn -> unit
       registerPeer: PeerActorName -> ActorFn -> unit
       startActor:
         Gambol.Shared.ActorStart ->
             (unit -> Graph) ->
-            Result<Credential, string>
+            Result<Credential, StartError>
       startFunction: FunctionStart -> Result<Credential, string>
       startPeerActor:
         PeerActorName ->
@@ -186,18 +199,22 @@ module CoreActorPool =
     let private runStartActor putLive getModel request getState =
         let fullGraph = getState ()
         match admitStart request (getModel ()) with
-        | Error err -> Error err
+        | Error err -> Error (StartError.Rejected err)
         | Ok() ->
             let actorGraph = actorGraphFrom fullGraph request
             match Map.tryFind request.commandId actorGraph.nodes with
-            | None -> Error "command node not found in provided graphIds"
+            | None ->
+                Error (
+                    StartError.Rejected
+                        "command node not found in provided graphIds")
             | Some commandNode ->
                 let actorName = actorNameFrom commandNode
                 match Map.tryFind actorName (getModel ()).defs with
-                | None -> Error $"actor '{actorName}' not registered"
+                | None -> Error (StartError.UnknownActor actorName)
                 | Some actorFn ->
                     putActorStart
                         putLive request fullGraph actorFn
+                    |> Result.mapError StartError.Rejected
 
     let private admitFunctionStart
         (request: FunctionStart)

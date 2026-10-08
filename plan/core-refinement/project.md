@@ -2,7 +2,7 @@
 
 Stage: build
 Summary: Sequel to [[plan/core-creation/project.md]]: refine Core so that after transport lands files, Core works through disk and Graph changes (Parse stack, Persist stack, state axes) until everything is updated.
-Updated: 2026-10-07
+Updated: 2026-10-08
 Started: 2026-09-29
 Actual: 10h15m
 
@@ -33,6 +33,7 @@ Actual: 10h15m
 - 2026-10-07 — Alan locked both Unparsed approaches. After pull, the git changed list immediately marks matching File Nodes and Directory Nodes Unparsed. The workspace lock sequence stays [[arch.md]] §6. Ticket: [07 — Git changed list sets Unparsed](issues/07-git-changed-list-unparsed.md). The Directory reconcile approach stays [07 — Directory Unparsed during reconcile](../parse-thread/issues/07-directory-unparsed-during-reconcile.md). Stage stays `build`.
 - 2026-10-07 — Alan: leftover core-creation work continues here via pointer tickets [08](issues/08-pointer-core-actor-pool.md)–[17](issues/17-pointer-prove-testactor-hello.md). Solid core v1 is implemented on [[plan/core-creation/project.md]]; this Project is v2. Stage stays `build`.
 - 2026-10-07 — [18 — Core Persist stack](issues/18-core-persist-stack.md) stands the persist collectors and persist thread inside Core. Callers use the collectors. The write body stays [[src/Server/DocumentPersistChange.fs]]. Parse setup is unchanged. Stage stays `build`.
+- 2026-10-08 — The ordered Event stream for Run and Cancel is [22 — One ordered event stream](../single-event-source/issues/22-ordered-event-stream.md) on [Single event source](../single-event-source/project.md). Pointers [08 — Pointer: Core Actor pool](issues/08-pointer-core-actor-pool.md), [12 — Pointer: Launch Actor (Focus registration)](issues/12-pointer-launch-actor-and-hold-span.md), and [13 — Pointer: Finish and drop](issues/13-pointer-finish-and-drop.md) keep pool, launch, and drop. This Project does not own that stream. Stage stays `build`.
 
 ## Issues
 

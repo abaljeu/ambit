@@ -43,7 +43,7 @@ Summary: xUnit layers for Shared ops, serialization, persistence, and server han
 
 ### **API**
 Details: [[doc/current/api.md]].
-Summary: Index of published contracts between parties.
+Summary: Index of published contracts between parties. A route or Event body change follows expand, then migrate, then contract on the events door.
 
 ### **HTTP contract**
 Details: [[doc/current/http-contract.md]].

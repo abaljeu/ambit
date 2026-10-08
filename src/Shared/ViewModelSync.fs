@@ -79,7 +79,6 @@ module SyncInfo =
 
 type Effect =
     | SubmitPendingBatch of baseEventId: EventId * events: Ev list
-    | SubmitCommand of ActorStart
     /// Find and Move after the search text settles. Query does not use this.
     | RequestSearchPicture of text: string * zoomRoot: NodeId
     /// Arm the quiet gap. The gap sends no Start until it elapses.
@@ -87,7 +86,6 @@ type Effect =
     /// A text change or a closed dialog drops an unsent Start.
     | CancelSearchQuietGap
     | SubmitLoadSaveCommand of LoadSaveCommandRequest
-    | SubmitCancel of NodeId
     | PollServer of eventId: EventId
     | LoadServer of eventId: EventId * targets: LoadTarget list
     | ScheduleRetry of delayMs: int

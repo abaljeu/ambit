@@ -110,7 +110,13 @@ let private execRunOp (model: VM) : VM * Effect list =
                         focusId
                         committed.eventId with
                 | Ok request ->
-                    committed, commitEffects @ [ SubmitCommand request ]
+                    let syncInfo, queued =
+                        RunLaunch.queueStart
+                            request
+                            committed.eventId
+                            committed.syncInfo
+                            commitEffects
+                    { committed with syncInfo = syncInfo }, queued
                 | Error msg ->
                     if AmbleRun.shouldExec committed.graph focusId then
                         execAmbleRunOp committed commitEffects focusId

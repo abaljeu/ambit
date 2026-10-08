@@ -25,7 +25,13 @@ let private afterEditCommitThenTryStart
                     focusId
                     committed.eventId with
             | Ok request ->
-                committed, commitEffects @ [ SubmitCommand request ]
+                let syncInfo, queued =
+                    RunLaunch.queueStart
+                        request
+                        committed.eventId
+                        committed.syncInfo
+                        commitEffects
+                { committed with syncInfo = syncInfo }, queued
             | Error msg ->
                 { committed with
                     lastCmdResult =
@@ -86,34 +92,26 @@ let private commitFailingSetTextCas (model: VM) : VM * Effect list =
     | _ -> failwith "expected Editing selection"
 
 [<Fact>]
-let ``failed Editing SetText CAS does not SubmitCommand`` () =
+let ``failed Editing SetText CAS does not queue ActorStart`` () =
     let model = editingCommandModel ()
     let ran, effects =
         afterEditCommitThenTryStart commitFailingSetTextCas model
     Assert.Empty(effects)
-    Assert.False(
-        effects
-        |> List.exists (function
-            | SubmitCommand _ -> true
-            | _ -> false))
+    Assert.Empty(ran.syncInfo.pending)
     match ran.lastCmdResult with
     | Some (CmdLastResult.Error (None, msg)) ->
         Assert.Equal("old text does not match", msg)
     | other -> failwith $"expected commit Error, got %A{other}"
 
 [<Fact>]
-let ``failed Editing SetText with same prior Error does not SubmitCommand`` () =
+let ``failed Editing SetText with same prior Error does not queue ActorStart`` () =
     let stale =
         Some (CmdLastResult.Error (None, "old text does not match"))
     let model = { editingCommandModel () with lastCmdResult = stale }
     let ran, effects =
         afterEditCommitThenTryStart commitFailingSetTextCas model
     Assert.Empty(effects)
-    Assert.False(
-        effects
-        |> List.exists (function
-            | SubmitCommand _ -> true
-            | _ -> false))
+    Assert.Empty(ran.syncInfo.pending)
     match ran.lastCmdResult with
     | Some (CmdLastResult.Error (None, msg)) ->
         Assert.Equal("old text does not match", msg)
@@ -150,7 +148,74 @@ let private commitLiveEdit (liveText: string) (model: VM) : VM * Effect list =
     | _ -> model, []
 
 [<Fact>]
-let ``stale Editing snapshot commits live text and Submits`` () =
+let ``edit then Run queues ActorStart behind the edit in one batch`` () =
+    let model = editingCommandModel ()
+    let focusId =
+        match model.selectedNodes with
+        | None -> failwith "expected command selection"
+        | Some sel ->
+            ViewModelSelection.focusedNodeId model.graph sel
+    let live = "?test hello now"
+    let commit (model: VM) =
+        let ops = RunEditCommit.commitTextOps focusId live model.graph
+        let event = ClientHistory.mintChange "Edit node" ops
+        match
+            ChangeValidation.applyOps
+                ops { graph = model.graph; eventId = model.eventId }
+        with
+        | ApplyResult.Changed next ->
+            let sync, effects =
+                SyncPlanner.enqueuePending
+                    event model.eventId model.syncInfo
+            { model with
+                graph = next.graph
+                mode = Selecting
+                syncInfo = sync },
+            effects
+        | other -> failwith $"expected Changed, got %A{other}"
+    let ran, effects = afterEditCommitThenTryStart commit model
+    match ran.syncInfo.pending with
+    | [ edit; start ] ->
+        match edit.body, start.body with
+        | EventBody.Change _, EventBody.ActorStart request ->
+            Assert.Equal(focusId, request.commandId)
+        | _ -> failwith "expected Change then ActorStart"
+    | other -> failwith $"expected two pending, got %A{other}"
+    let batches =
+        effects
+        |> List.choose (function
+            | SubmitPendingBatch (_, events) -> Some events
+            | _ -> None)
+    Assert.Equal<Ev list list>([ ran.syncInfo.pending ], batches)
+
+[<Fact>]
+let ``Cancel queues behind an edit and does not post a side channel`` () =
+    let model = editingCommandModel ()
+    let focusId =
+        match model.selectedNodes with
+        | None -> failwith "expected command selection"
+        | Some sel ->
+            ViewModelSelection.focusedNodeId model.graph sel
+    let edit = ClientHistory.mintChange "Edit node" []
+    let sync, editEffects =
+        SyncPlanner.enqueuePending edit model.eventId model.syncInfo
+    let queued, effects =
+        RunLaunch.queueCancel focusId model.eventId sync editEffects
+    match queued.pending with
+    | [ _; cancel ] ->
+        match cancel.body with
+        | EventBody.Cancel id -> Assert.Equal(focusId, id)
+        | other -> failwith $"expected Cancel, got %A{other}"
+    | other -> failwith $"expected two pending, got %A{other}"
+    let batches =
+        effects
+        |> List.choose (function
+            | SubmitPendingBatch (_, events) -> Some events
+            | _ -> None)
+    Assert.Equal<Ev list list>([ queued.pending ], batches)
+
+[<Fact>]
+let ``stale Editing snapshot commits live text and queues ActorStart`` () =
     let model = editingCommandModel ()
     let focusId =
         match model.selectedNodes with
@@ -167,9 +232,9 @@ let ``stale Editing snapshot commits live text and Submits`` () =
         afterEditCommitThenTryStart (commitLiveEdit live) model
     Assert.Equal(live, ran.graph.nodes.[focusId].text)
     Assert.True(
-        effects
+        ran.syncInfo.pending
         |> List.exists (function
-            | SubmitCommand _ -> true
+            | { body = EventBody.ActorStart _ } -> true
             | _ -> false))
     match ran.lastCmdResult with
     | Some (CmdLastResult.Error (_, msg)) ->

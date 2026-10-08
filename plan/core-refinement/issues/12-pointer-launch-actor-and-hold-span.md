@@ -21,3 +21,5 @@ Follow the source ticket’s remaining unchecked work and Comments. This pointer
 ## See also
 
 [[plan/core-refinement/project.md]], [[plan/core-refinement/arch.md]], [[plan/core-creation/issues/15-launch-actor-and-hold-span.md]]
+
+Launch registration stays on this pointer. The ordered stream calls that launch from the events list, after the edits in the same list. [22 — One ordered event stream](../../single-event-source/issues/22-ordered-event-stream.md).

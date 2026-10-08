@@ -49,4 +49,6 @@ The mailbox is the Core loop and the public post path.
 
 ## Explanation
 The queue stays short so one slow body cannot block every other message. That slow body is an Actor.
+The one mailbox queue is the Event Source order on the server. The puller handles one message, then the next. A later message on that queue does not pass an earlier message. A posted list is applied in order, as one unit; lists from different clients do not interleave. The only rejection is the credential check. That check refuses the whole list before anything applies. Otherwise every posted list applies whole. `postEvents` pushes that list onto the queue as one `PostEvent` after another. On ActorStart, a refusal and a fail are the same stored pair: ActorStart and a failed ActorStop. `UnknownActor` uses `unknown actor`. `Rejected` uses that message.
+How a route or an Event body changes is [API expansion](api.md#api-expansion). This page does not define a second change protocol.
 The parse thread and the persist thread finish off the loop. An `InMsg` brings that finish back onto the same queue. The puller hands it to the InMsg handler. The handler writes the axis.
