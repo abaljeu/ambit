@@ -18,7 +18,7 @@ None that still stand. The earlier string match for an unregistered actor is gon
 
 ### (a) Missing or partial
 
-Contract item 3 is partial on the test. The routes return 404. No test names the deleted `runSubmitCommand` and `runSubmitCancel` functions. Those functions are absent from the tree.
+Contract test is partial on the test. The routes return 404. No test names the deleted `runSubmitCommand` and `runSubmitCancel` functions. Those functions are absent from the tree.
 
 ### (b) Scope creep
 

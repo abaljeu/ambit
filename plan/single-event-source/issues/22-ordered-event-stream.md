@@ -21,7 +21,7 @@ This ticket changes every Run that [execRunOp](../../../src/Client/Commands.fs) 
 
 ## Current state
 
-These facts are from this tree, plus the code-read of the ticket 11 branch for the `=` path.
+These facts are from this tree, plus the code-read of the [11 — Server evaluates](../../online-search/issues/11-server-evaluates.md) branch for the `=` path.
 
 1. **Edit enqueue** — `execRunOp` calls `afterEditCommit`, which calls [commitIfEditing](../../../src/Client/UpdateHelpers.fs). When the text changed, `commitTextEdit` calls [applyAndPost](../../../src/Client/UpdateHelpers.fs). That calls [SyncPlanner.enqueuePending](../../../src/Shared/SyncPlanner.fs) and appends the Change to `syncInfo.pending`.
 2. **Batch gate** — `enqueuePending` emits `SubmitPendingBatch` only when no post is in flight. [tryStartSubmit](../../../src/Shared/SyncPlanner.fs) does not emit it when `syncState` is `Sending`, `Polling`, `Uploading`, `Parsing`, or `Loading`. The Change then stays on `syncInfo.pending`.
@@ -110,7 +110,7 @@ These doors stay for now. The expansion rule says a new capability expands the e
 - 2026-10-07 — Alan. Remove `POST /ambit/command`. Run goes through the events door as an ActorStart in the same ordered list as the edits.
 - 2026-10-08 — Alan. The goal is Event Source order. Cancel joins that same stream. The route removal is the mechanism.
 - 2026-10-08 — Alan. The change follows the API expansion protocol. Expand accepts ActorStart and Cancel on the events list. Migrate moves `execRunOp` and Cancel onto `syncInfo.pending`. Contract deletes the old routes only after no caller uses them.
-- 2026-10-08 — Code-read from the ticket 11 branch. Today `completeAction` treats a client ActorStart as rejectable. Earlier items stay committed and later items are not posted. That path is a gap. A client ActorStop is not a client event type.
+- 2026-10-08 — Code-read from the [11 — Server evaluates](../../online-search/issues/11-server-evaluates.md) branch. Today `completeAction` treats a client ActorStart as rejectable. Earlier items stay committed and later items are not posted. That path is a gap. A client ActorStop is not a client event type.
 - 2026-10-08 — Alan. If you post 3 events and they post 3, it is ABCDEF or DEFABC, nothing else.
 - 2026-10-08 — Alan. "we aren't writing rejectable events, except for credential."
 - 2026-10-08 — Alan. Don't land the pull request for [11 — Server evaluates](../../online-search/issues/11-server-evaluates.md). Make this ticket happen, then rebase and correct that ticket on this ticket.
