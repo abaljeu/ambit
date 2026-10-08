@@ -340,6 +340,36 @@ let ``events door accepts an edit followed by Cancel`` () = task {
 }
 
 [<Fact>]
+let ``edit then unknown ActorStart stores a failed ActorStop`` () = task {
+    use client = createClientForDir (newTempDir ())
+    let! commandId = seedOwned client "row"
+    let edit =
+        posted
+            "edit"
+            (EventBody.Change
+                [ Op.SetText(commandId, "row", "?nope") ])
+    let! response =
+        postEventsHttp client [ edit; launch commandId EventId.zero ]
+    let! accepted = requireHttp "unknown" response
+    let started =
+        accepted.events
+        |> List.exists (fun event ->
+            match event.body with
+            | EventBody.ActorStart start ->
+                start.commandId = commandId
+            | _ -> false)
+    let failed =
+        accepted.events
+        |> List.exists (fun event ->
+            match event.body with
+            | EventBody.ActorStop(id, ActorFailed "unknown actor") ->
+                id = commandId
+            | _ -> false)
+    Assert.True(started, "ActorStart was not stored")
+    Assert.True(failed, "failed ActorStop was not stored")
+}
+
+[<Fact>]
 let ``events door refuses a missing cookie before apply`` () = task {
     use client = createClientForDirWithoutCookie (newTempDir ())
     let body =

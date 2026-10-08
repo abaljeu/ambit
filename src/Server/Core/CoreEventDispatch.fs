@@ -13,7 +13,10 @@ module internal CoreEventDispatch =
     type Context =
         { admit: Caller -> Result<unit, string>
           persist: PersistHandlers
-          eventLog: EventLog ref }
+          eventLog: EventLog ref
+          pool: CoreActorPool
+          changes: unit -> (Caller -> CoreChanges) option
+          isReady: unit -> bool }
 
     let private eventAuthority (Authority name) =
         Gambol.Shared.Authority name
@@ -33,19 +36,21 @@ module internal CoreEventDispatch =
                         EventId.max mailbox.nextId persistLog.nextId }
 
     /// submissionId is Guid dedup (event-abstraction): replay returns the stored Ev.
+    let private appendNew (context: Context) (event: Ev) =
+        let stored =
+            { event with id = EventLog.nextId context.eventLog.Value }
+        match context.persist.appendEvent stored with
+        | Error error -> Error error
+        | Ok () ->
+            context.eventLog.Value <-
+                EventLog.append stored context.eventLog.Value
+            Ok stored
+
     let private commit (context: Context) (event: Ev) =
         catchUpNextId context
         match tryStored context event.submissionId with
         | Some existing -> Ok existing
-        | None ->
-            let stored =
-                { event with id = EventLog.nextId context.eventLog.Value }
-            match context.persist.appendEvent stored with
-            | Error error -> Error error
-            | Ok () ->
-                context.eventLog.Value <-
-                    EventLog.append stored context.eventLog.Value
-                Ok stored
+        | None -> appendNew context event
 
     let private lifecycleEvent
         (caller: Caller)
@@ -64,20 +69,9 @@ module internal CoreEventDispatch =
         |> commit context
         |> Result.map ignore
 
-    /// Stored lifecycle Ev for a client submission. Reuses submissionId so a retry dedupes.
-    let commitClientBody
-        (context: Context)
-        (caller: Caller)
-        (submissionId: System.Guid)
-        (body: Gambol.Shared.EventBody)
-        : Result<Ev, string> =
-        catchUpNextId context
-        match tryStored context submissionId with
-        | Some existing -> Ok existing
-        | None ->
-            { lifecycleEvent caller body with
-                submissionId = submissionId }
-            |> commit context
+    let private clientBody caller submissionId body =
+        { lifecycleEvent caller body with
+            submissionId = submissionId }
 
     let actorStop (context: Context) caller focusId result =
         let sharedResult =
@@ -189,6 +183,152 @@ module internal CoreEventDispatch =
                     | Error error -> Error error
                     | Ok stored -> Ok(stored, accepted)
 
+    let private currentGraph context =
+        match context.persist.getState () with
+        | Ok state -> state.graph
+        | Error _ -> Graph.create ()
+
+    let private isUnregistered (err: string) =
+        err.StartsWith("actor '", System.StringComparison.Ordinal)
+        && err.EndsWith("not registered", System.StringComparison.Ordinal)
+
+    let private unknownStop context focusId (afterId: EventId) =
+        context.eventLog.Value.events
+        |> List.tryFind (fun (event: Ev) ->
+            match event.body with
+            | EventBody.ActorStop(id, ActorFailed "unknown actor") ->
+                id = focusId && event.id > afterId
+            | _ -> false)
+
+    let private appendStop context caller focusId =
+        lifecycleEvent
+            caller
+            (EventBody.ActorStop(
+                focusId,
+                ActorFailed "unknown actor"))
+        |> appendNew context
+
+    let private bundle context (events: Ev list) =
+        match context.persist.getEventId () with
+        | Error err -> Error err
+        | Ok eventId ->
+            let anchor =
+                events
+                |> List.tryLast
+                |> Option.map (fun event -> event.id)
+                |> Option.defaultValue eventId
+            Ok (
+                CoreChanges.accepted
+                    anchor
+                    (context.isReady ())
+                    events
+                    false
+                    None)
+
+    let private withBundle context events tail =
+        bundle context events
+        |> Result.map (fun accepted -> tail, Some accepted)
+
+    /// Same submission returns the stored Ev. `r` stays the current head.
+    let private ackStored context (event: Ev) =
+        match context.persist.getEventId () with
+        | Error err -> Error err
+        | Ok eventId ->
+            Ok(
+                event,
+                Some (
+                    CoreChanges.accepted
+                        eventId
+                        (context.isReady ())
+                        [ event ]
+                        false
+                        None))
+
+    let private scheduleStart context caller secret stored =
+        match context.changes () with
+        | None ->
+            context.pool.drop secret
+            Error "mailbox not initialized"
+        | Some make ->
+            context.pool.schedule secret (make caller)
+            Ok(stored, None)
+
+    let private recordUnknown context caller request submissionId =
+        let started =
+            clientBody
+                caller
+                submissionId
+                (EventBody.ActorStart request)
+        match appendNew context started with
+        | Error err -> Error err
+        | Ok started ->
+            match appendStop context caller request.focusId with
+            | Error err -> Error err
+            | Ok stopped ->
+                withBundle context [ started; stopped ] stopped
+
+    let private launchFresh context caller request submissionId =
+        match
+            context.pool.startActor
+                request
+                (fun () -> currentGraph context)
+        with
+        | Error err when isUnregistered err ->
+            recordUnknown context caller request submissionId
+        | Error err -> Error err
+        | Ok secret ->
+            let started =
+                clientBody
+                    caller
+                    submissionId
+                    (EventBody.ActorStart request)
+            match appendNew context started with
+            | Error err ->
+                context.pool.drop secret
+                Error err
+            | Ok stored ->
+                scheduleStart context caller secret stored
+
+    let private recoverStart context request (existing: Ev) =
+        match unknownStop context request.focusId existing.id with
+        | None -> ackStored context existing
+        | Some stopped ->
+            withBundle context [ existing; stopped ] stopped
+
+    let private launchClient context caller request submissionId =
+        catchUpNextId context
+        match tryStored context submissionId with
+        | Some existing -> recoverStart context request existing
+        | None -> launchFresh context caller request submissionId
+
+    let private cancelFresh context caller event focusId submissionId =
+        match context.pool.trySecretForFocus focusId with
+        | None -> withBundle context [] event
+        | Some secret ->
+            let stopped =
+                clientBody
+                    caller
+                    submissionId
+                    (EventBody.ActorStop(focusId, ActorCancelled))
+            match appendNew context stopped with
+            | Error err -> Error err
+            | Ok stored ->
+                match context.pool.finish secret ActorCancelled with
+                | Error err -> Error err
+                | Ok () -> Ok(stored, None)
+
+    let private cancelClient context caller event focusId =
+        catchUpNextId context
+        match tryStored context event.submissionId with
+        | Some existing -> ackStored context existing
+        | None ->
+            cancelFresh
+                context
+                caller
+                event
+                focusId
+                event.submissionId
+
     let postEvent
         (context: Context)
         (caller: Caller)
@@ -198,6 +338,15 @@ module internal CoreEventDispatch =
         match context.admit caller with
         | Error error -> Error error
         | Ok () ->
-            match tryStored context event.submissionId with
-            | Some existing -> Ok(existing, None)
-            | None -> persistNew context caller event graphOnly
+            match event.body with
+            | EventBody.ActorStop _ ->
+                Error "ActorStop is not a client event type"
+            | EventBody.ActorStart request ->
+                launchClient
+                    context caller request event.submissionId
+            | EventBody.Cancel focusId ->
+                cancelClient context caller event focusId
+            | _ ->
+                match tryStored context event.submissionId with
+                | Some existing -> ackStored context existing
+                | None -> persistNew context caller event graphOnly

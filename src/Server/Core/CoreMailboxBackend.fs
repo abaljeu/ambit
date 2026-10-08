@@ -93,7 +93,6 @@ module internal CoreMailboxBackend =
         | Logout _ -> "Logout", ""
         | AdmitCaller _ -> "AdmitCaller", ""
         | PostEvent _ -> "PostEvent", ""
-        | PostEvents _ -> "PostEvents", ""
         | EventsSince (after, _) -> "EventsSince", $"after={after}"
 
     let replyFailure error msg =
@@ -118,7 +117,6 @@ module internal CoreMailboxBackend =
         | Logout (_, reply) -> reply.Reply(Error error)
         | AdmitCaller (_, reply) -> reply.Reply(false)
         | PostEvent (_, _, reply) -> reply.Reply(Error error)
-        | PostEvents (_, _, reply) -> reply.Reply(Error error)
         | EventsSince (_, reply) -> reply.Reply(EventLog.empty)
 
     type Started = {
@@ -165,7 +163,10 @@ module internal CoreMailboxBackend =
     let private eventDispatchContext context : CoreEventDispatch.Context =
         { admit = admitCaller context
           persist = context.persist
-          eventLog = context.eventLog }
+          eventLog = context.eventLog
+          pool = context.pool
+          changes = fun () -> context.coreChanges.Value
+          isReady = context.isReady }
 
     let private dispatchActorStartResult
         (context: MailboxContext)
@@ -329,100 +330,6 @@ module internal CoreMailboxBackend =
         CoreEventDispatch.postEvent (eventDispatchContext context) caller event false
         |> reply.Reply
 
-    let private storedSubmission context submissionId =
-        context.eventLog.Value.events
-        |> List.tryFind (fun event ->
-            event.submissionId = submissionId)
-
-    let private currentGraph context =
-        match context.persist.getState () with
-        | Ok state -> state.graph
-        | Error _ -> Graph.create ()
-
-    let private launchPosted
-        context caller (request: ActorStart) submissionId =
-        match storedSubmission context submissionId with
-        | Some existing -> Ok existing
-        | None ->
-            match context.coreChanges.Value with
-            | None -> Error "mailbox not initialized"
-            | Some make ->
-                match
-                    context.pool.startActor
-                        request
-                        (fun () -> currentGraph context)
-                with
-                | Error err -> Error err
-                | Ok secret ->
-                    match
-                        CoreEventDispatch.commitClientBody
-                            (eventDispatchContext context)
-                            caller
-                            submissionId
-                            (EventBody.ActorStart request)
-                    with
-                    | Error err ->
-                        context.pool.drop secret
-                        Error err
-                    | Ok stored ->
-                        context.pool.schedule secret (make caller)
-                        Ok stored
-
-    let private cancelPosted context caller focusId submissionId =
-        match storedSubmission context submissionId with
-        | Some existing -> Ok [ existing ]
-        | None ->
-            match context.pool.trySecretForFocus focusId with
-            | None -> Ok []
-            | Some secret ->
-                match
-                    CoreEventDispatch.commitClientBody
-                        (eventDispatchContext context)
-                        caller
-                        submissionId
-                        (EventBody.ActorStop(
-                            focusId,
-                            ActorCancelled))
-                with
-                | Error err -> Error err
-                | Ok stored ->
-                    match context.pool.finish secret ActorCancelled with
-                    | Error err -> Error err
-                    | Ok () -> Ok [ stored ]
-
-    let private postedHost context caller : CorePostedList.Host =
-        { admit = admitCaller context
-          postChange =
-            fun event ->
-                CoreEventDispatch.postEvent
-                    (eventDispatchContext context)
-                    caller
-                    event
-                    false
-          launch =
-            fun event ->
-                match event.body with
-                | EventBody.ActorStart request ->
-                    launchPosted
-                        context caller request event.submissionId
-                | _ -> Error "ActorStart is required"
-          cancel =
-            fun event ->
-                match event.body with
-                | EventBody.Cancel focusId ->
-                    cancelPosted
-                        context caller focusId event.submissionId
-                | _ -> Error "Cancel is required"
-          eventId = context.persist.getEventId
-          isReady = context.isReady }
-
-    let private dispatchPostEvents
-        context caller events
-        (reply: AsyncReplyChannel<Result<CoreChangesAccepted, string>>)
-        =
-        CorePostedList.apply (postedHost context caller) caller events
-        |> reply.Reply
-
     let private isFileSubject (graph: Graph) (subject: NodeId) =
         match Map.tryFind subject graph.nodes with
         | Some { kind = Special File } -> Ok ()
@@ -525,8 +432,6 @@ module internal CoreMailboxBackend =
             reply.Reply(hasCaller context caller)
         | PostEvent (caller, event, reply) ->
             dispatchPostEvent context caller event reply
-        | PostEvents (caller, events, reply) ->
-            dispatchPostEvents context caller events reply
         | EventsSince (after, reply) ->
             reply.Reply(EventLog.since after context.eventLog.Value)
 

@@ -69,11 +69,6 @@ type internal CoreMsg =
                 Ev *
                 CoreChangesAccepted option,
                 string>>
-    /// One posted list. Applied in order before the next mailbox message.
-    | PostEvents of
-        caller: Caller *
-        events: Ev list *
-        AsyncReplyChannel<Result<CoreChangesAccepted, string>>
     | EventsSince of
         after: Gambol.Shared.EventId *
         AsyncReplyChannel<Gambol.Shared.EventLog>

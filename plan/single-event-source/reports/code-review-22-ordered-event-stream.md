@@ -1,39 +1,37 @@
-# Code review — 22 One ordered event stream
+# Code review — 22 ordered event stream
 
-Range: uncommitted work vs `HEAD` (`git diff HEAD` plus untracked `CorePostedList.fs`, `RunLaunch.fs`, and `OrderedEventStreamTests.fs`). Spec: [22 — One ordered event stream](../issues/22-ordered-event-stream.md).
-
-Ticket **Status** stays `coded`. This report is not approval.
-
-Scan: `python3 .agents/skills/code-review/scripts/standards-scan.py`. Printed `MUTABLE` lines are in tests. [fsharp-source.md](../../../.agents/rules/fsharp-source.md) does not apply that rule to tests, so those lines are not findings. Measured functions are under 40 lines. No line over 100 characters in this diff. [History.fs](../../../src/Shared/History.fs) stays at 800 lines.
-
-Follow-up before this report: `CorePostedList.Host` takes an `Ev` instead of a one-off tuple. Unused command-test helpers are gone. Plan lines name [11 — Server evaluates](../../online-search/issues/11-server-evaluates.md). `POST /ambit/events` tests cover an edit then ActorStart, and an edit then Cancel.
+Range: uncommitted work vs `HEAD` (`git diff HEAD`). Spec: [22 — One ordered event stream](../issues/22-ordered-event-stream.md). Alan, 2026-10-08: push the list serially onto the queue; an unregistered actor is not a rejection.
 
 ## Standards
 
-No hard violation.
-
-### Judgement
-
-Possible Duplicated Code. `storedSubmission` scans the event log by `submissionId`, then `commitClientBody` scans that log again. `currentGraph` repeats the `Graph.create ()` fallback already in `dispatchActorStartResult`.
-
-## Spec
-
-### (a) Partial
-
-The contract checklist asks a test to show `runSubmitCommand` and `runSubmitCancel` are absent. Those functions are deleted. `POST /ambit/command` and `POST /ambit/cancel` return 404. The Fable client build compiles without the posters. No test asserts those two names.
-
-The events-door checks that the checklist names are present: one list with an edit then ActorStart, and one list with an edit then Cancel, both on `POST /ambit/events`.
-
-### (b) Scope creep
+### (a) Violations
 
 None.
 
-### (c) Wrong implementation
+The earlier list-merge used `@` inside the per-reply fold. The merge now conses each reply's events and reverses once.
 
-None on the success path. An unregistered actor name still returns HTTP 400 after earlier events in that list are stored. That is the existing `startActor` bookkeeping failure. Credential refusal and a client ActorStop still apply nothing.
+### (b) Smells
 
-### (d) Types the spec did not name
+1. **Primitive Obsession** — an unregistered start is still recognized from the `startActor` error string (`actor '…' not registered`). The pool does not return a typed error. Peer-actor text does not match this predicate.
 
-`CoreMsg.PostEvents` is the one mailbox message the spec asked for. The spec did not name that case. `CorePostedList.Host` is the apply seam. The spec did not name that record. `EventBody.Cancel` is the client Cancel the spec named.
+## Spec
 
-Standards: 0 hard, 1 judgement (duplicated submission scan). Spec: 1 partial (no test names the deleted posters), 2 unnamed types (`PostEvents`, `Host`).
+### (a) Missing or partial
+
+None. `postEvents` pushes each `PostEvent` under one gate, then merges the replies. Client ActorStart and Cancel run on that path. The Actor body stays off the mailbox. One submission scan. An edit then an unknown ActorStart returns HTTP success and stores ActorStart plus ActorStop `unknown actor`.
+
+### (b) Scope creep
+
+None. `CoreMsg.PostEvents` and `CorePostedList` are deleted. No new `CoreMsg` case.
+
+### (c) Implemented but wrong
+
+None against Alan's decision. A launch error other than an unregistered actor still returns that error, and earlier events in the list stay stored. [http-contract.md](../../../doc/current/http-contract.md) names that remaining case.
+
+### (d) Unnamed types
+
+`CoreMsg.PostEvents` is only deleted. `CorePostedList.Host` is only deleted. `MailboxHost` gains a private `gate`. `CoreEventDispatch.Context` gains `pool`, `changes`, and `isReady`. The spec did not name those fields.
+
+## Summary
+
+Standards: 0 hard, 1 judgement (string match for an unregistered actor). Spec: 0 partial, 0 wrong. Three implementation fields the spec did not name.

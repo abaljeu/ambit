@@ -359,7 +359,7 @@ let private seedQuestion (client: HttpClient) rootId commandId text = task {
 [<Theory>]
 [<InlineData("?unknown")>]
 [<InlineData("?nope")>]
-let ``production Command of unregistered Actor name is not success``
+let ``production events door records a failed ActorStop for an unknown actor``
     (text: string)
     =
     task {
@@ -383,7 +383,21 @@ let ``production Command of unregistered Actor name is not success``
         let! commandResp = postEventsHttp client [ launch ]
         let! commandJson = commandResp.Content.ReadAsStringAsync()
         Assert.True(
-            commandResp.StatusCode <> HttpStatusCode.OK,
-            $"expected launch failure, got {commandResp.StatusCode}: {commandJson}")
-        Assert.Equal(HttpStatusCode.BadRequest, commandResp.StatusCode)
+            commandResp.StatusCode = HttpStatusCode.OK,
+            $"events {commandResp.StatusCode}: {commandJson}")
+        match
+            Decode.fromString
+                ApiResponseSerialization.decodeChangeSuccessResponseDecoder
+                commandJson
+        with
+        | Error err -> failwith err
+        | Ok accepted ->
+            let failed =
+                accepted.events
+                |> List.exists (fun event ->
+                    match event.body with
+                    | EventBody.ActorStop(id, ActorFailed "unknown actor") ->
+                        id = commandId
+                    | _ -> false)
+            Assert.True(failed, "failed ActorStop missing")
     }

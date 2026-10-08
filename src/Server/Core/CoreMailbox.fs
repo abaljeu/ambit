@@ -87,14 +87,62 @@ module CoreMailbox =
             return result |> Result.map fst
         }
 
-    /// One mailbox message for the whole list. No other message interleaves.
+    let private isClientActorStop (event: Ev) =
+        match event.body with
+        | EventBody.ActorStop _ -> true
+        | _ -> false
+
+    let private replyOf host (stored: Ev, accepted) =
+        match accepted with
+        | Some value -> value
+        | None ->
+            CoreChanges.accepted
+                stored.id
+                (MailboxHost.isReady host ())
+                [ stored ]
+                false
+                None
+
+    let private consEvents reversed events =
+        List.fold (fun acc event -> event :: acc) reversed events
+
+    let private mergeReplies host results =
+        let step (state, reversed) result =
+            match state, result with
+            | Error err, _ -> Error err, reversed
+            | _, Error err -> Error err, reversed
+            | Ok _, Ok pair ->
+                let next = replyOf host pair
+                Ok next, consEvents reversed next.events
+        match results with
+        | [] -> Error "events must not be empty"
+        | Error err :: _ -> Error err
+        | Ok pair :: rest ->
+            let first = replyOf host pair
+            match List.fold step (Ok first, consEvents [] first.events) rest with
+            | Error err, _ -> Error err
+            | Ok last, reversed ->
+                Ok { last with events = List.rev reversed }
+
+    /// Push the list back to back, then merge the replies.
     let postEvents
         (host: MailboxHost)
         (caller: Caller)
         (events: Ev list)
         : Async<Result<CoreChangesAccepted, string>> =
-        reply host (fun channel ->
-            PostEvents(caller, events, channel))
+        async {
+            if List.isEmpty events then
+                return Error "events must not be empty"
+            elif List.exists isClientActorStop events then
+                return Error "ActorStop is not a client event type"
+            else
+                let builds =
+                    events
+                    |> List.map (fun (event: Ev) ->
+                        fun channel -> PostEvent(caller, event, channel))
+                let! results = MailboxHost.postForReplies host builds
+                return mergeReplies host results
+        }
 
     let eventsSince
         (host: MailboxHost)

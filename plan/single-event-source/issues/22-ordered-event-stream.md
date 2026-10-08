@@ -17,7 +17,7 @@ This ticket changes every Run that [execRunOp](../../../src/Client/Commands.fs) 
 ## Settled
 
 1. **Posted list** — Alan, 2026-10-08. If you post 3 events and they post 3, it is ABCDEF or DEFABC, nothing else. A posted list is applied in order, as one unit. Lists from different clients do not interleave.
-2. **Credential only** — Alan, 2026-10-08. "we aren't writing rejectable events, except for credential." The credential check refuses the whole list before anything applies. Otherwise every posted list applies whole.
+2. **Credential only** — Alan, 2026-10-08. "we aren't writing rejectable events, except for credential." The credential check refuses the whole list before anything applies. Otherwise every posted list applies whole. An ActorStart that names an unregistered actor is not a rejection. The list applies whole. The mailbox records that ActorStart and a failed ActorStop (`unknown actor`).
 
 ## Current state
 
@@ -49,8 +49,8 @@ A `PostEvent` whose body is ActorStart takes the same path as `CoreMailbox.start
 
 1. [x] ActorStart path — After the earlier events commit, that `PostEvent` runs `startActor` bookkeeping: admission, registry, and revision. The client body is a launch request, not the durable event. The stored ActorStart stays mailbox-generated. The Actor body, including query eval, stays off the mailbox. [Core mailbox messages clear fast](../../../doc/Decisions/0004-core-mailbox-messages-clear-fast.md) holds.
 2. [x] Valid types — Client ActorStart and Cancel are valid event types. The mailbox does not reject them. A client ActorStop is not a client event type. The durable ActorStop stays mailbox-generated. Cancel runs `cancelByFocus` inside the list. That step stays fast.
-3. [x] Credential only — The credential check is the only refusal. A missing cookie, or a caller the mailbox does not admit, returns 401 and applies nothing from the list. After that check, the list applies whole.
-4. [x] One mailbox unit — A posted list is one mailbox unit. `postEvents` enqueues the whole list as one mailbox message, or it holds the queue for that list. The mechanism is an implementation choice. Each step stays fast per [Core mailbox messages clear fast](../../../doc/Decisions/0004-core-mailbox-messages-clear-fast.md). The ActorStart Actor body stays off the mailbox. Another client's list cannot enter inside this list.
+3. [x] Credential only — The credential check is the only refusal. A missing cookie, or a caller the mailbox does not admit, returns 401 and applies nothing from the list. After that check, the list applies whole. An ActorStart for an unregistered actor is not a rejection. The mailbox stores that ActorStart and a failed ActorStop (`unknown actor`).
+4. [x] One mailbox unit — A posted list is one mailbox unit. `postEvents` pushes each event onto the queue as a `PostEvent`, back to back, under a lock, then awaits the replies. Each step stays fast per [Core mailbox messages clear fast](../../../doc/Decisions/0004-core-mailbox-messages-clear-fast.md). The ActorStart Actor body stays off the mailbox. Another client's list cannot enter inside this push.
 5. [x] Expand test — A test posts one list on `POST /ambit/events`: an edit, then an ActorStart for that same line. The server classifies the line from State after that edit. The read does not use the State from before the edit. The Actor body does not run inside the mailbox. A failed credential check applies nothing. After admission, the edit and the ActorStart both apply.
 6. [x] Two-list test — Two clients each post 3 events at the same time. The applied order is ABCDEF or DEFABC. The order is never interleaved.
 
@@ -108,6 +108,7 @@ These doors stay for now. The expansion rule says a new capability expands the e
 - 2026-10-08 — Alan. If you post 3 events and they post 3, it is ABCDEF or DEFABC, nothing else.
 - 2026-10-08 — Alan. "we aren't writing rejectable events, except for credential."
 - 2026-10-08 — Alan. Don't land the pull request for [11 — Server evaluates](../../online-search/issues/11-server-evaluates.md). Make this ticket happen, then rebase and correct that ticket on this ticket.
+- 2026-10-08 — Alan. `CoreMsg.PostEvents` was not the plan. `postEvents` pushes the list serially onto the queue. An unregistered actor is not a rejection. The list applies whole. The mailbox records the ActorStart and a failed ActorStop (`unknown actor`).
 
 ## Time
 
