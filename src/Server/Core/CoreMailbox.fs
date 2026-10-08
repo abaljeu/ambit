@@ -77,58 +77,6 @@ module CoreMailbox =
         =
         reply host (fun channel -> PostEvent(caller, event, channel))
 
-    let private acceptedFromPosted
-        (host: MailboxHost)
-        (posted:
-            Result<
-                Ev *
-                CoreChangesAccepted option,
-                string>)
-        : Async<Result<CoreChangesAccepted, string>> =
-        async {
-            match posted with
-            | Error error -> return Error error
-            | Ok (stored, Some accepted) ->
-                return Ok { accepted with events = [ stored ] }
-            | Ok (stored, None) ->
-                let! eventId = getEventId host
-                return
-                    Ok(
-                        CoreChanges.accepted
-                            eventId
-                            (MailboxHost.isReady host ())
-                            [ stored ]
-                            false
-                            None)
-        }
-
-    let private mergePostLoop postOne host caller first rest =
-        async {
-            let! firstAccepted = postOne host caller first
-            match firstAccepted with
-            | Error error -> return Error error
-            | Ok accepted ->
-                let folder acc item =
-                    async {
-                        match! acc with
-                        | Error error -> return Error error
-                        | Ok prior ->
-                            match! postOne host caller item with
-                            | Error error -> return Error error
-                            | Ok next ->
-                                return
-                                    Ok(
-                                        CoreChanges.mergeAccepted
-                                            prior
-                                            next)
-                    }
-                return!
-                    List.fold
-                        folder
-                        (async.Return(Ok accepted))
-                        rest
-        }
-
     let postEvent
         (host: MailboxHost)
         (caller: Caller)
@@ -139,31 +87,14 @@ module CoreMailbox =
             return result |> Result.map fst
         }
 
-    let private postOneEvent host caller event =
-        async {
-            let! posted = postEventAccepted host caller event
-            return! acceptedFromPosted host posted
-        }
-
-    /// Transport may pass an Ev list; each Ev becomes one PostEvent
-    /// on the mailbox queue (no multi-Ev CoreMsg / postMany).
+    /// One mailbox message for the whole list. No other message interleaves.
     let postEvents
         (host: MailboxHost)
         (caller: Caller)
         (events: Ev list)
         : Async<Result<CoreChangesAccepted, string>> =
-        async {
-            match events with
-            | [] -> return Error "events must not be empty"
-            | first :: rest ->
-                return!
-                    mergePostLoop
-                        postOneEvent
-                        host
-                        caller
-                        first
-                        rest
-        }
+        reply host (fun channel ->
+            PostEvents(caller, events, channel))
 
     let eventsSince
         (host: MailboxHost)

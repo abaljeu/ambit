@@ -129,17 +129,13 @@ let ``ActorStop without Command uses generic lastCmdResult`` () =
             (CmdLastResult.Detail (Some "Run", "Actor started.")))
 
 [<Fact>]
-let ``cancelEffect sends SubmitCancel only while the Focus is live`` () =
+let ``offersCancel is true only while the Focus is live`` () =
     let focusId = NodeId.New()
     let otherId = NodeId.New()
     let live = Set.singleton focusId
     Assert.True(ActorLive.offersCancel focusId live)
     Assert.False(ActorLive.offersCancel otherId live)
-    Assert.Equal(
-        Some (SubmitCancel focusId),
-        ActorLive.cancelEffect focusId live)
-    Assert.Equal(None, ActorLive.cancelEffect otherId live)
-    Assert.Equal(None, ActorLive.cancelEffect focusId Set.empty)
+    Assert.False(ActorLive.offersCancel focusId Set.empty)
 
 [<Fact>]
 let ``focusIdsFromLockPresent reads GetState overlay`` () =

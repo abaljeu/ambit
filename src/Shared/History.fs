@@ -68,6 +68,7 @@ type EventBody =
     | Redo of target: EventId * ops: Op list
     | ActorStart of ActorStart
     | ActorStop of focusId: NodeId * result: ActorResult
+    | Cancel of focusId: NodeId
 
 type Ev =
     { id: EventId
@@ -79,7 +80,6 @@ type Ev =
 type State =
     { graph: Graph
       eventId: EventId }
-
 
 [<RequireQualifiedAccess>]
 type ApplyResult =
@@ -410,7 +410,7 @@ module Ev =
         | EventBody.Change ops
         | EventBody.Undo(_, ops)
         | EventBody.Redo(_, ops) -> Some ops
-        | EventBody.ActorStart _
+        | EventBody.ActorStart _ | EventBody.Cancel _
         | EventBody.ActorStop _ -> None
 
     let isAction (event: Ev) : bool = ops event |> Option.isSome
@@ -420,7 +420,7 @@ module Ev =
         | EventBody.Undo(target, _)
         | EventBody.Redo(target, _) -> Some target
         | EventBody.Change _
-        | EventBody.ActorStart _
+        | EventBody.ActorStart _ | EventBody.Cancel _
         | EventBody.ActorStop _ -> None
 
     let inverseOps (event: Ev) : Op list option =
@@ -786,7 +786,7 @@ module PersistStamp =
             | EventBody.Redo(target, ops) ->
                 { event with
                     body = EventBody.Redo(target, appendToOps ops stampOps) }
-            | EventBody.ActorStart _
+            | EventBody.ActorStart _ | EventBody.Cancel _
             | EventBody.ActorStop _ -> event
 
     let appendToLastEvent (events: Ev list) (stampOps: Op list) : Ev list =

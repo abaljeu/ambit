@@ -325,30 +325,6 @@ module RouteRegistration =
             Func<HttpRequest, Task<IResult>>(
                 postSearchRequest persistence))
         |> ignore
-        this.MapPost("/ambit/command", Func<HttpRequest, Task<IResult>>(fun req -> task {
-            bindClientHint req |> ignore
-            use reader = new StreamReader(req.Body)
-            let! body = reader.ReadToEndAsync()
-            match BrowserRequestCreds.tryCookieCaller req with
-            | None -> return Results.Unauthorized()
-            | Some caller ->
-                let! live =
-                    CoreMailbox.isAdmitted persistence.Core.host caller
-                    |> Async.StartAsTask
-                if not live then
-                    return Results.Unauthorized()
-                else
-                    return!
-                        Api.postCommand
-                            (fun request ->
-                                CoreMailbox.startActor
-                                    persistence.Core.host
-                                    caller
-                                    request)
-                            (boundChanges persistence caller)
-                            body
-                        |> Async.StartAsTask
-        })) |> ignore
         this.MapPost(
             "/ambit/load-save-command",
             Func<HttpRequest, Task<IResult>>(fun req -> task {
@@ -401,31 +377,6 @@ module RouteRegistration =
                     persistence.Core.pool.deliver
                     body
         })) |> ignore
-        this.MapPost("/ambit/cancel", Func<HttpRequest, Task<IResult>>(fun req -> task {
-            bindClientHint req |> ignore
-            use reader = new StreamReader(req.Body)
-            let! body = reader.ReadToEndAsync()
-            match BrowserRequestCreds.tryCookieCaller req with
-            | None -> return Results.Unauthorized()
-            | Some caller ->
-                let! live =
-                    CoreMailbox.isAdmitted persistence.Core.host caller
-                    |> Async.StartAsTask
-                if not live then
-                    return Results.Unauthorized()
-                else
-                    return!
-                        Api.postCancel
-                            (fun focusId ->
-                                CoreMailbox.cancelByFocus
-                                    persistence.Core.host
-                                    caller
-                                    focusId)
-                            (boundChanges persistence caller)
-                            body
-                        |> Async.StartAsTask
-        })) |> ignore
-
     let private prepareGitSave (persistence: PersistenceContext) () = async {
         let handle = parseBound persistence
         return!

@@ -7,7 +7,7 @@ The HTTP contract is the JSON contract between the Browser and the Server under 
 
 API expansion. Contract rule: expand, then migrate, then contract. Expand ships the new Event body on the events door beside the old route. Migrate moves the caller while both exist. Connected Events stay in one ordered stream. No new side-channel route is added. Contract removes the old route only after no caller uses it. A new capability is a new EventBody case on `POST /ambit/changes` (alias `POST /ambit/events`). It is not a new POST route. A posted list is applied in order, as one unit; lists from different clients do not interleave. The only rejection is the credential check. That check refuses the whole list before anything applies. Otherwise every posted list applies whole. Home: [API expansion](api.md#api-expansion).
 
-1. [x] Events door today — `POST /ambit/changes` and `POST /ambit/events` are the same handler. `POST /ambit/command` and `POST /ambit/cancel` are separate routes. Their removal is not done.
+1. [x] Events door — `POST /ambit/changes` and `POST /ambit/events` are the same handler. Run and Cancel are events on that door. `POST /ambit/command` and `POST /ambit/cancel` are removed.
 
 ## Sources
 
@@ -290,7 +290,7 @@ sequenceDiagram
 { "error": "events must not be empty" }
 ```
 
-7. [x] **Apply order.** The server posts the events one at a time. A later error leaves the earlier events stored. The HTTP result is that error.
+7. [x] **Apply order.** The posted list is one mailbox message. The server applies it in order. A credential refusal applies nothing. A client ActorStop applies nothing. A launch bookkeeping error returns that error; earlier events in the list stay stored.
 8. [x] **want.** `want` is an array of Node id strings. The array is required. It may be empty.
 9. [x] **Success.** `200` and `application/json`. The body uses the same change-success codec as poll.
 

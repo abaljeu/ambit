@@ -103,6 +103,7 @@
     <Compile Include="ApiResponseSerialization.fs" />
     <Compile Include="SyncBatch.fs" />
     <Compile Include="SyncPlanner.fs" />
+    <Compile Include="RunLaunch.fs" />
     <Compile Include="SyncRetry.fs" />
     <Compile Include="ResidentProjection.fs" />
     <Compile Include="ActorLive.fs" />

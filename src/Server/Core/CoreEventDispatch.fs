@@ -64,6 +64,21 @@ module internal CoreEventDispatch =
         |> commit context
         |> Result.map ignore
 
+    /// Stored lifecycle Ev for a client submission. Reuses submissionId so a retry dedupes.
+    let commitClientBody
+        (context: Context)
+        (caller: Caller)
+        (submissionId: System.Guid)
+        (body: Gambol.Shared.EventBody)
+        : Result<Ev, string> =
+        catchUpNextId context
+        match tryStored context submissionId with
+        | Some existing -> Ok existing
+        | None ->
+            { lifecycleEvent caller body with
+                submissionId = submissionId }
+            |> commit context
+
     let actorStop (context: Context) caller focusId result =
         let sharedResult =
             match result with
@@ -102,7 +117,8 @@ module internal CoreEventDispatch =
         | Gambol.Shared.EventBody.Undo _
         | Gambol.Shared.EventBody.Redo _ -> Ok event
         | Gambol.Shared.EventBody.ActorStart _
-        | Gambol.Shared.EventBody.ActorStop _ ->
+        | Gambol.Shared.EventBody.ActorStop _
+        | Gambol.Shared.EventBody.Cancel _ ->
             Error "Actor lifecycle Events are mailbox-generated"
 
     let private withConfirmedOps

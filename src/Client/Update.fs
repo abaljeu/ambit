@@ -119,6 +119,7 @@ let private finishAppliedSubmit
     let updated', autoEffects =
         UpdateWorkspaceDownload.accumulateAutoDownloadFromOps
             applied.suffixOps updated
+    let updated' = withLaunchResults response.events updated'
     let nextSync, pollEffects =
         if
             applied.needsCatchUp

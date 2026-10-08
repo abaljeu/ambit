@@ -19,10 +19,10 @@ Contract means the old route is removed only after no caller uses it.
 One Event source means one ordered stream. Connected Events are queued in order, posted in that order, and processed in that order. A later Event does not pass an earlier connected Event. A posted list is applied in order, as one unit; lists from different clients do not interleave. The only rejection is the credential check. That check refuses the whole list before anything applies. Otherwise every posted list applies whole.
 
 1. [x] Events door — `POST /ambit/changes` and `POST /ambit/events` call `Api.postEvents`. Detail: [HTTP contract](http-contract.md).
-2. [x] Separate routes today — `POST /ambit/command` and `POST /ambit/cancel` are registered. Removal is not done.
+2. [x] Command and Cancel routes are removed. Run and Cancel are events on the events door.
 3. [x] Mailbox order — The one mailbox queue handles one message, then the next. A later message on that queue does not pass an earlier message. Detail: [Mailbox](mailbox.md).
-4. [x] List gap — `postEvents` posts each event as its own `PostEvent` and waits. Another client's message can land inside that list. A posted list is not one mailbox unit yet.
-5. [x] Per-item reject — `completeAction` can refuse one event. Earlier items in that list are already committed. Later items are not posted. That path is a gap. Client ActorStart and Cancel are not rejectable event types.
+4. [x] Posted list — `postEvents` enqueues the whole list as one mailbox message. Another client's list cannot enter inside it.
+5. [x] Credential only — The credential check refuses the whole list before anything applies. Client ActorStart and Cancel apply. A client ActorStop is not a client event type.
 
 ## Parties
 

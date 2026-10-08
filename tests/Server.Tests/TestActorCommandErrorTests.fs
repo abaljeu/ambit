@@ -374,12 +374,16 @@ let ``production Command of unregistered Actor name is not success``
               commandId = commandId
               graphIds = [ commandId ]
               eventId = afterId }
-        use commandBody = jsonPost (encodeRequest request)
-        let! commandResp =
-            client.PostAsync("/ambit/command", commandBody)
+        let launch =
+            { id = EventId.zero
+              submissionId = Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = "Exec"
+              body = EventBody.ActorStart request }
+        let! commandResp = postEventsHttp client [ launch ]
         let! commandJson = commandResp.Content.ReadAsStringAsync()
         Assert.True(
             commandResp.StatusCode <> HttpStatusCode.OK,
-            $"expected Command failure, got {commandResp.StatusCode}: {commandJson}")
+            $"expected launch failure, got {commandResp.StatusCode}: {commandJson}")
         Assert.Equal(HttpStatusCode.BadRequest, commandResp.StatusCode)
     }

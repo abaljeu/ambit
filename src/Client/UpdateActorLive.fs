@@ -35,10 +35,23 @@ let withAppliedResult
         |> withApplyDetail state
     { next with syncInfo = syncInfo }
 
+let withLaunchResults (events: Ev list) (model: VM) : VM =
+    let next = withActorCmdResult events model
+    { next with
+        actorLiveFocusIds =
+            ActorLive.applyEvents events next.actorLiveFocusIds }
+
 let cancelFocusOp (focusId: NodeId) (model: VM) : VM * Effect list =
-    match ActorLive.cancelEffect focusId model.actorLiveFocusIds with
-    | Some effect -> model, [ effect ]
-    | None -> model, []
+    if not (ActorLive.offersCancel focusId model.actorLiveFocusIds) then
+        model, []
+    else
+        let syncInfo, effects =
+            RunLaunch.queueCancel
+                focusId
+                model.eventId
+                model.syncInfo
+                []
+        { model with syncInfo = syncInfo }, effects
 
 let applyCommandEvents (events: Ev list) (model: VM) : VM * Effect list =
     match SyncLogic.applyServerTail events (clientSyncState model) with
