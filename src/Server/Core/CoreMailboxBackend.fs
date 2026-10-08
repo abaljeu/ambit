@@ -429,33 +429,24 @@ module internal CoreMailboxBackend =
             let events = eventsForStored context stored
             replyList reply context (List.last events) events
         | None ->
-            match admitCaller context caller with
-            | Error err -> reply.Reply(Error err)
-            | Ok () ->
-                match context.coreChanges.Value with
-                | None ->
-                    recordFailedStart
-                        context caller request event.submissionId
-                        "mailbox not initialized" reply
-                | Some make ->
-                    match
-                        context.pool.startActor
-                            request
-                            (fun () -> graphNow context)
-                    with
-                    | Error error ->
-                        recordFailedStart
-                            context caller request event.submissionId
-                            (failedMessage error) reply
-                    | Ok secret ->
-                        match
-                            finishReadyStart
-                                context caller request secret make
-                                event.submissionId
-                        with
-                        | Error err -> reply.Reply(Error err)
-                        | Ok stored ->
-                            replyList reply context stored [ stored ]
+            let start req getState =
+                context.pool.startActor req getState
+                |> Result.map Some
+            match prepareActorStart context caller request start with
+            | Error error ->
+                recordFailedStart
+                    context caller request event.submissionId
+                    (failedMessage error) reply
+            | Ok (None, _) -> replyList reply context event []
+            | Ok (Some secret, make) ->
+                match
+                    finishReadyStart
+                        context caller request secret make
+                        event.submissionId
+                with
+                | Error err -> reply.Reply(Error err)
+                | Ok stored ->
+                    replyList reply context stored [ stored ]
 
     let private postCancel context caller event focusId reply =
         match storedBySubmission context event.submissionId with

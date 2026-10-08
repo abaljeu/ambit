@@ -290,7 +290,7 @@ sequenceDiagram
 { "error": "events must not be empty" }
 ```
 
-7. [x] **Apply order.** `postEvents` pushes the list onto the mailbox queue back to back. The server applies it in order. A credential refusal applies nothing. A client ActorStop applies nothing. A start bookkeeping error stores that ActorStart and a failed ActorStop. `UnknownActor` uses `unknown actor`. `Rejected` uses that message. The HTTP result is success.
+7. [x] **Apply order.** `postEvents` pushes the list onto the mailbox queue back to back. The server applies it in order. A credential refusal applies nothing. A client ActorStop applies nothing. On ActorStart, a refusal and a fail are the same stored pair: ActorStart and a failed ActorStop. `UnknownActor` uses `unknown actor`. `Rejected` uses that message. The HTTP result is success.
 8. [x] **want.** `want` is an array of Node id strings. The array is required. It may be empty.
 9. [x] **Success.** `200` and `application/json`. The body uses the same change-success codec as poll.
 
