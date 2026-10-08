@@ -141,24 +141,26 @@ module CoreMailbox =
                         last.message)
 
     /// Push the list back to back, then merge the replies.
+    /// The push runs before this function returns, so the next call cannot pass it.
     let postEvents
         (host: MailboxHost)
         (caller: Caller)
         (events: Ev list)
         : Async<Result<CoreChangesAccepted, string>> =
-        async {
-            if List.isEmpty events then
-                return Error "events must not be empty"
-            elif List.exists isClientActorStop events then
-                return Error "ActorStop is not a client event type"
-            else
-                let builds =
-                    events
-                    |> List.map (fun (event: Ev) ->
-                        fun channel -> PostEvent(caller, event, channel))
-                let! results = MailboxHost.postForReplies host builds
+        if List.isEmpty events then
+            async { return Error "events must not be empty" }
+        elif List.exists isClientActorStop events then
+            async { return Error "ActorStop is not a client event type" }
+        else
+            let builds =
+                events
+                |> List.map (fun (event: Ev) ->
+                    fun channel -> PostEvent(caller, event, channel))
+            let waiting = MailboxHost.postForReplies host builds
+            async {
+                let! results = waiting
                 return mergeReplies host results
-        }
+            }
 
     let eventsSince
         (host: MailboxHost)
