@@ -370,6 +370,41 @@ let ``edit then unknown ActorStart stores a failed ActorStop`` () = task {
 }
 
 [<Fact>]
+let ``edit then rejected ActorStart stores a failed ActorStop`` () = task {
+    use client = createClientForDir (newTempDir ())
+    let! commandId = seedOwned client "row"
+    let edit =
+        posted
+            "edit"
+            (EventBody.Change
+                [ Op.SetText(commandId, "row", "row b") ])
+    let request: ActorStart =
+        { zoomId = commandId
+          focusId = commandId
+          commandId = commandId
+          graphIds = []
+          eventId = EventId.zero }
+    let start = posted "Exec" (EventBody.ActorStart request)
+    let! response = postEventsHttp client [ edit; start ]
+    let! accepted = requireHttp "rejected" response
+    let started =
+        accepted.events
+        |> List.exists (fun event ->
+            match event.body with
+            | EventBody.ActorStart _ -> true
+            | _ -> false)
+    let failed =
+        accepted.events
+        |> List.exists (fun event ->
+            match event.body with
+            | EventBody.ActorStop(id, ActorFailed message) ->
+                id = commandId && message.StartsWith("graphIds required")
+            | _ -> false)
+    Assert.True(started, "ActorStart was not stored")
+    Assert.True(failed, "failed ActorStop was not stored")
+}
+
+[<Fact>]
 let ``events door refuses a missing cookie before apply`` () = task {
     use client = createClientForDirWithoutCookie (newTempDir ())
     let body =

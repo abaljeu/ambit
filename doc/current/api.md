@@ -22,7 +22,7 @@ One Event source means one ordered stream. Connected Events are queued in order,
 2. [x] Command and Cancel routes are removed. Run and Cancel are events on the events door.
 3. [x] Mailbox order — The one mailbox queue handles one message, then the next. A later message on that queue does not pass an earlier message. Detail: [Mailbox](mailbox.md).
 4. [x] Posted list — `postEvents` pushes each event onto the mailbox queue back to back. Another client's list cannot enter inside that push.
-5. [x] Credential only — The credential check refuses the whole list before anything applies. Client ActorStart and Cancel apply. An unregistered actor stores ActorStart and a failed ActorStop (`unknown actor`). A client ActorStop is not a client event type.
+5. [x] Credential only — The credential check refuses the whole list before anything applies. Client ActorStart and Cancel apply. A start bookkeeping error stores ActorStart and a failed ActorStop (`unknown actor`, or the `Rejected` message). A client ActorStop is not a client event type.
 
 ## Parties
 
