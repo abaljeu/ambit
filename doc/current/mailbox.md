@@ -50,4 +50,5 @@ The mailbox is the Core loop and the public post path.
 ## Explanation
 The queue stays short so one slow body cannot block every other message. That slow body is an Actor.
 The one mailbox queue is the Event Source order on the server. The puller handles one message, then the next. A later message on that queue does not pass an earlier message.
+How a route or an Event body changes is [API expansion](api.md#api-expansion). This page does not define a second change protocol.
 The parse thread and the persist thread finish off the loop. An `InMsg` brings that finish back onto the same queue. The puller hands it to the InMsg handler. The handler writes the axis.

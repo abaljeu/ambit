@@ -36,7 +36,7 @@ Home: [[plan/roadmap/epics/robust-outliner.md]] Required for done (Live). Chart 
 - [04 — Write core-creation arch.md last](plan/single-event-source/issues/04-write-core-creation-arch-md-last.md) — after contract. Status `coded`.
 - [20 — SES smell-cleanup quality criteria](plan/single-event-source/issues/20-ses-smell-cleanup-quality-criteria.md) — Type `research`. Status `needs-info`. Naming + improper type usage; file/function length out of scope except functions a follow-on cleanup touches. Sources: SES 11/11-repair/12 reviews + 34b review.
 - [21 — SES smell-cleanup](plan/single-event-source/issues/21-ses-smell-cleanup.md) — apply [SES smell-cleanup quality criteria](plan/single-event-source/reports/ses-smell-cleanup-quality-criteria.md). Status `coded`.
-- [22 — One ordered event stream](plan/single-event-source/issues/22-ordered-event-stream.md) — connected Events stay in order from `syncInfo.pending` through the events door to the mailbox. `POST /ambit/command` is removed. Cancel joins that stream. Status `defined`. Blocked by [11 — Server evaluates](plan/online-search/issues/11-server-evaluates.md).
+- [22 — One ordered event stream](plan/single-event-source/issues/22-ordered-event-stream.md) — expand ActorStart and Cancel on the events list, migrate `execRunOp` and Cancel onto `syncInfo.pending`, then contract `POST /ambit/command` and `POST /ambit/cancel`. Status `defined`. Blocked by [11 — Server evaluates](plan/online-search/issues/11-server-evaluates.md).
 
 ## Notes
 

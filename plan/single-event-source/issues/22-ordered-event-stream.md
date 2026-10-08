@@ -31,36 +31,35 @@ The Browser event door is `/{file}/changes`. On the Ambit page that path is `POS
 
 ## What to build
 
-One ordered stream from the Browser to the mailbox. An edit and the ActorStart or Cancel that depends on it share one queue. No separate post can pass that queue.
+One ordered stream from the Browser to the mailbox. The change follows [API expansion](../../../doc/current/api.md#api-expansion): expand, then migrate, then contract. Connected Events are queued in order, posted in that order, and processed in that order. A later Event does not pass an earlier connected Event.
 
-### 1. Ordered stream
+The events door is `POST /ambit/changes`. `POST /ambit/events` is the alias. Both call [Api.postEvents](../../../src/Server/Api.fs). The Browser posts `/{file}/changes`.
 
-The goal is the order. Route removal is how the order holds.
+### 1. Expand
 
-1. [ ] Ordered stream — Connected Events are queued on the Browser in order (`syncInfo.pending`), posted in that order on the events door, and processed in that order by the mailbox. A later Event does not pass an earlier connected Event. No separate post can pass that queue.
-2. [ ] Post-edit State — An edit followed by Run on the same line is classified against the post-edit State, every time. A test posts that edit and that Run in one events list. The server reads the command Node text from State after that edit is applied. The read does not use the State from before the edit.
+ActorStart and Cancel are accepted in the events list. The old routes stay.
 
-### 2. Browser queue
+1. [ ] ActorStart in the list — `POST /ambit/events` accepts an ActorStart after the edits in that same list. The mailbox applies the edit first. It then runs `startActor` bookkeeping: admission, registry, and revision. It records ActorStart. It schedules the body. It does not run the body on the mailbox queue. `POST /ambit/command` still exists.
+2. [ ] Cancel in the list — That same list accepts a Cancel. The mailbox runs `cancelByFocus` at that position. Earlier Events in the list already ran. The Cancel message stays fast. `POST /ambit/cancel` still exists.
+3. [ ] Expand test — A test posts one list on `POST /ambit/events`: an edit, then an ActorStart for that same line. The server classifies the line from State after that edit. The read does not use the State from before the edit. A second test posts an edit, then a Cancel, and the Cancel runs after the edit. Both old routes still answer.
 
-Run and Cancel join `syncInfo.pending`. They do not call their own `postJson`.
+### 2. Migrate
 
-1. [ ] Run joins the queue — `execRunOp` appends the ActorStart Event behind the edit Events already on `syncInfo.pending`. It does not return `SubmitCommand`. `runSubmitCommand` does not post `/{file}/command`.
-2. [ ] Cancel joins the queue — Cancel is an Event on `syncInfo.pending`. `runSubmitCancel` does not post `/{file}/cancel`.
-3. [ ] One post — `runSubmitPendingBatch` posts that list, in order, to `/{file}/changes`. The server route is `POST /ambit/changes`. `POST /ambit/events` stays the alias. Both call `Api.postEvents`.
+`execRunOp` and Cancel go through `syncInfo.pending`. The old routes still exist.
 
-### 3. Mailbox
+1. [ ] Run joins the queue — `execRunOp` appends the ActorStart behind the edit Events on `syncInfo.pending`. It does not return `SubmitCommand`.
+2. [ ] Cancel joins the queue — Cancel is an Event on `syncInfo.pending`. It does not post `/{file}/cancel`.
+3. [ ] One post — `runSubmitPendingBatch` posts that list, in order, to `/{file}/changes`.
+4. [ ] Reply — The events-door answer, or a later Poll, carries the Events the Browser reads today from the command response. That includes ActorStop. On [11 — Server evaluates](../../online-search/issues/11-server-evaluates.md) the Node ids ride that ActorStop as `ActorQuery`. They stay on that Event.
+5. [ ] Migrate test — A test runs an edit and then Run on the same line. Both Events are on `syncInfo.pending` in that order. One post goes to `/{file}/changes`. `execRunOp` does not call `postJson` for `/{file}/command`. The server classifies that line from the post-edit State, every time. A Cancel queued behind an edit does not call `postJson` for `/{file}/cancel`.
 
-`postEvents` launches an ActorStart in list order after the edits. It cancels in list order when the list holds a Cancel. The Actor body stays off the queue.
+### 3. Contract
 
-1. [ ] ActorStart in order — When the list holds an ActorStart after an edit, the mailbox applies the edit first. It then runs `startActor` bookkeeping: admission, registry, and revision. It records ActorStart. It schedules the body. It does not run the body on the mailbox queue.
-2. [ ] Cancel in order — When the list holds a Cancel, the mailbox runs `cancelByFocus` bookkeeping at that position. Earlier Events in the list already ran. The Cancel message stays fast.
-3. [ ] No separate post — `POST /ambit/command` is removed. `POST /ambit/cancel` is removed. A caller cannot start or cancel by a post that passes the queue.
+The old routes go away only after no caller uses them.
 
-### 4. Reply
-
-The Browser still receives the Events it needs.
-
-1. [ ] Events or Poll — The events-door answer, or a later Poll, carries the Events the Browser reads today from the command response. That includes ActorStop. On [11 — Server evaluates](../../online-search/issues/11-server-evaluates.md) the Node ids ride that ActorStop as `ActorQuery`. They stay on that Event. They do not move to a new field on the HTTP body.
+1. [ ] Delete routes — `POST /ambit/command` and `POST /ambit/cancel` are removed.
+2. [ ] Delete posters — `runSubmitCommand` and `runSubmitCancel` are removed.
+3. [ ] Contract test — A test shows `POST /ambit/command` and `POST /ambit/cancel` are absent, and `runSubmitCommand` and `runSubmitCancel` are absent. The events door still accepts an edit followed by ActorStart, and an edit followed by Cancel.
 
 ## Scope questions
 
@@ -84,9 +83,10 @@ The Browser still receives the Events it needs.
 
 ## See also
 
-[Single event source architecture](../arch.md), [02 — Files, Query, and Command as Event work](02-files-query-and-command-as-event-work.md), [07 — Lock the Run Agent architecture](../../llm-connector/issues/07-lock-run-agent-architecture.md), [Core mailbox messages clear fast](../../../doc/Decisions/0004-core-mailbox-messages-clear-fast.md)
+[API expansion](../../../doc/current/api.md#api-expansion), [Single event source architecture](../arch.md), [02 — Files, Query, and Command as Event work](02-files-query-and-command-as-event-work.md), [07 — Lock the Run Agent architecture](../../llm-connector/issues/07-lock-run-agent-architecture.md), [Core mailbox messages clear fast](../../../doc/Decisions/0004-core-mailbox-messages-clear-fast.md)
 
 ## Comments
 
 - 2026-10-07 — Alan. Remove `POST /ambit/command`. Run goes through the events door as an ActorStart in the same ordered list as the edits.
 - 2026-10-08 — Alan. The goal is Event Source order. Cancel joins that same stream. The route removal is the mechanism.
+- 2026-10-08 — Alan. The change follows the API expansion protocol. Expand accepts ActorStart and Cancel on the events list. Migrate moves `execRunOp` and Cancel onto `syncInfo.pending`. Contract deletes the old routes only after no caller uses them.
