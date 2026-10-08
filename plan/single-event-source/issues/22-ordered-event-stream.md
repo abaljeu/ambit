@@ -14,6 +14,10 @@ Alan, 2026-10-08. One Event source means one ordered stream. Connected Events ar
 
 This ticket changes every Run that [execRunOp](../../../src/Client/Commands.fs) posts. That includes a query line and a named actor. Find (`POST /ambit/search`) and Load/Save (`POST /ambit/load-save-command`) keep their own doors for now.
 
+## Settled
+
+1. **Cross-client gap** — Alan, 2026-10-08. Another client's message between this client's edit and ActorStart is a safe scenario. It is normal mailbox FIFO. Only same-client connected Events must stay in order. There is no atomic batch.
+
 ## Current state
 
 These facts are from this tree, plus the code-read of the ticket 11 branch for the `=` path.
@@ -64,10 +68,6 @@ The old routes go away only after no caller uses them.
 2. [ ] Delete posters — `runSubmitCommand` and `runSubmitCancel` are removed.
 3. [ ] Contract test — A test shows `POST /ambit/command` and `POST /ambit/cancel` are absent, and `runSubmitCommand` and `runSubmitCancel` are absent. The events door still accepts an edit followed by ActorStart, and an edit followed by Cancel.
 
-## Open question
-
-1. **Cross-client gap** — `postEvents` posts one `PostEvent`, waits, then posts the next. Another client's message can land in the mailbox between the edit and the ActorStart. Same-client connected events stay in order. Cross-client interleave is normal mailbox FIFO. This ticket does not add an atomic batch. Alan can require a batch that another client cannot enter.
-
 ## Scope questions
 
 These doors stay for now. The expansion rule says a new capability expands the events door, not a new POST route. The question is whether a later change moves them onto that door.
@@ -90,7 +90,7 @@ These doors stay for now. The expansion rule says a new capability expands the e
 4. **Query contract** — This ticket is not [10 — Pointer: Core Query contract](../../core-refinement/issues/10-pointer-core-query-contract.md). That pointer is the typed Query contract. It is not Run launch and not the events list.
 5. **Pool rebuild** — [08 — Pointer: Core Actor pool](../../core-refinement/issues/08-pointer-core-actor-pool.md), [12 — Pointer: Launch Actor (Focus registration)](../../core-refinement/issues/12-pointer-launch-actor-and-hold-span.md), and [13 — Pointer: Finish and drop](../../core-refinement/issues/13-pointer-finish-and-drop.md) keep admission, registry, launch, and drop. This ticket calls that bookkeeping. It does not rebuild it.
 6. **Core API name** — The Core API call Command stays the in-mailbox launch. There is no fifth Core API. Contract removes the HTTP post that passes the queue.
-7. **Atomic batch** — Open question 1. Cross-client interleave stays normal unless Alan requires a batch.
+7. **Atomic batch** — Settled. Another client's message between this client's edit and ActorStart is normal mailbox FIFO. This ticket does not add an atomic batch.
 
 ## See also
 
@@ -102,3 +102,4 @@ These doors stay for now. The expansion rule says a new capability expands the e
 - 2026-10-08 — Alan. The goal is Event Source order. Cancel joins that same stream. The route removal is the mechanism.
 - 2026-10-08 — Alan. The change follows the API expansion protocol. Expand accepts ActorStart and Cancel on the events list. Migrate moves `execRunOp` and Cancel onto `syncInfo.pending`. Contract deletes the old routes only after no caller uses them.
 - 2026-10-08 — Code-read from the ticket 11 branch. An ActorStart inside `POST /ambit/events` is rejected after earlier edits commit. Expand sends that `PostEvent` through `startActor`. The stored ActorStart stays mailbox-generated. A client ActorStop stays rejected.
+- 2026-10-08 — Alan. The cross-client gap is safe. Another client's message between this client's edit and ActorStart is normal mailbox FIFO. Only same-client connected Events must stay in order. No atomic batch.
