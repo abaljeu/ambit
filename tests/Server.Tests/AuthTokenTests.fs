@@ -113,8 +113,8 @@ let ``upload capability rejects tampering wrong user and expiry`` () =
     let now = DateTimeOffset(2026, 7, 24, 2, 0, 0, TimeSpan.Zero)
     let claim = uploadClaim (now.AddSeconds(30).ToUnixTimeSeconds())
     let token = UploadCapability.issue "secret" claim
-    let replacement = if token.EndsWith("A") then "B" else "A"
-    let tampered = token.Substring(0, token.Length - 1) + replacement
+    let first = if token.StartsWith("M") then "N" else "M"
+    let tampered = first + token.Substring(1)
     Assert.Equal(
         Error "invalid_upload_capability",
         UploadCapability.validate "secret" "alice" now tampered)
