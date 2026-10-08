@@ -1,7 +1,7 @@
 # Single event source
 
 Stage: build
-Summary: One Event source means one ordered stream, with one event id. Connected Events are queued in order, posted in that order, and processed in that order. A later Event does not pass an earlier connected Event. Then [[plan/core-creation/arch.md]] matches what this Project created.
+Summary: One Event source means one ordered stream, with one event id. Connected Events are queued in order, posted in that order, and processed in that order. A later Event does not pass an earlier connected Event. A posted list is applied in order, as one unit; lists from different clients do not interleave. The only rejection is the credential check. That check refuses the whole list before anything applies. Otherwise every posted list applies whole. Then [[plan/core-creation/arch.md]] matches what this Project created.
 Updated: 2026-10-08
 Started: 2026-09-16
 Actual: 29h30m
@@ -42,7 +42,7 @@ Home: [[plan/roadmap/epics/robust-outliner.md]] Required for done (Live). Chart 
 
 - 2026-09-17 — Charted [[plan/single-event-source/issues/20-ses-smell-cleanup-quality-criteria.md|20 — SES smell-cleanup quality criteria]] (research; Status `needs-info`).
 - 2026-09-17 — [20 — SES smell-cleanup quality criteria](plan/single-event-source/issues/20-ses-smell-cleanup-quality-criteria.md) Answer filled; checklist [SES smell-cleanup quality criteria](plan/single-event-source/reports/ses-smell-cleanup-quality-criteria.md). Status stays `needs-info` until Alan accepts.
-- 2026-10-08 — Alan. One Event source means one ordered stream. Connected Events are queued in order, posted in that order, and processed in that order. A later Event does not pass an earlier connected Event. Ticket: [22 — One ordered event stream](plan/single-event-source/issues/22-ordered-event-stream.md).
+- 2026-10-08 — Alan. One Event source means one ordered stream. Connected Events are queued in order, posted in that order, and processed in that order. A later Event does not pass an earlier connected Event. A posted list is applied in order, as one unit; lists from different clients do not interleave. The only rejection is the credential check. That check refuses the whole list before anything applies. Otherwise every posted list applies whole. Ticket: [22 — One ordered event stream](plan/single-event-source/issues/22-ordered-event-stream.md).
 
 ## Related work
 

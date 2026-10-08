@@ -10,13 +10,14 @@ A person edits a line and then Runs that line. The edit and the Run are connecte
 
 Today the Browser queues the edit and posts the Run on a separate route. The Run can reach the server first. The server then classifies the line from State that does not contain the edit. A `=` from that edit can be missing.
 
-Alan, 2026-10-08. One Event source means one ordered stream. Connected Events are queued in order, posted in that order, and processed in that order. A later Event does not pass an earlier connected Event. Removing `POST /ambit/command`, and making Cancel an Event in that same stream, is the mechanism. The order is the goal.
+Alan, 2026-10-08. One Event source means one ordered stream. Connected Events are queued in order, posted in that order, and processed in that order. A later Event does not pass an earlier connected Event. A posted list is applied in order, as one unit; lists from different clients do not interleave. The only rejection is the credential check. That check refuses the whole list before anything applies. Otherwise every posted list applies whole. Removing `POST /ambit/command`, and making Cancel an Event in that same stream, is the mechanism. The order is the goal.
 
 This ticket changes every Run that [execRunOp](../../../src/Client/Commands.fs) posts. That includes a query line and a named actor. Find (`POST /ambit/search`) and Load/Save (`POST /ambit/load-save-command`) keep their own doors for now.
 
 ## Settled
 
-1. **Cross-client gap** — Alan, 2026-10-08. Another client's message between this client's edit and ActorStart is a safe scenario. It is normal mailbox FIFO. Only same-client connected Events must stay in order. There is no atomic batch.
+1. **Posted list** — Alan, 2026-10-08. If you post 3 events and they post 3, it is ABCDEF or DEFABC, nothing else. A posted list is applied in order, as one unit. Lists from different clients do not interleave.
+2. **Credential only** — Alan, 2026-10-08. "we aren't writing rejectable events, except for credential." The credential check refuses the whole list before anything applies. Otherwise every posted list applies whole.
 
 ## Current state
 
@@ -27,8 +28,8 @@ These facts are from this tree, plus the code-read of the ticket 11 branch for t
 3. **Edit post** — [runSubmitPendingBatch](../../../src/Client/App.fs) calls [postJson](../../../src/Client/JsInterop.fs) to `/{file}/changes`. On the Ambit page that path is `POST /ambit/changes`. `postJson` is `fetch`. It returns before the response.
 4. **Run post** — When [CommandRequest.tryStart](../../../src/Shared/CommandRequest.fs) returns Ok, `execRunOp` returns `commitEffects @ [ SubmitCommand request ]`. [runEffects](../../../src/Client/App.fs) runs that list in order. [runSubmitCommand](../../../src/Client/App.fs) then posts `/{file}/command` (`POST /ambit/command`) at once. It does not read or write `syncInfo.pending`. It does not wait for the changes batch.
 5. **Run is not parked** — [SyncPlanner.tryReleaseQueued](../../../src/Shared/SyncPlanner.fs) parks Load and workspace push until `pending` is empty and `syncState` is `Idle`. It does not park Run.
-6. **Server list order** — [CoreMailbox.postEvents](../../../src/Server/Core/CoreMailbox.fs) calls `mergePostLoop`. Each event is its own `PostEvent`. The loop waits for that `PostEvent` before it posts the next. Order inside one list already holds on the server.
-7. **Lifecycle reject** — [CoreEventDispatch.completeAction](../../../src/Server/Core/CoreEventDispatch.fs) returns `Actor lifecycle Events are mailbox-generated` for `EventBody.ActorStart` and `EventBody.ActorStop`. An ActorStart inside `POST /ambit/events` is rejected. Earlier edits in that same list are already committed. `mergePostLoop` does not post the later items.
+6. **List is not one unit** — [CoreMailbox.postEvents](../../../src/Server/Core/CoreMailbox.fs) calls `mergePostLoop`. Each event is its own `PostEvent`. The loop waits for that `PostEvent` before it posts the next. Another client's message can land between those posts. Two lists of three can apply as ABDCEF. That is the gap Expand closes.
+7. **Per-item reject** — [CoreEventDispatch.completeAction](../../../src/Server/Core/CoreEventDispatch.fs) returns `Actor lifecycle Events are mailbox-generated` for `EventBody.ActorStart` and `EventBody.ActorStop`. That path is a gap. A client ActorStart and a client Cancel must be valid event types. They are not rejectable. Today an ActorStart in the list is treated as rejectable. Earlier items are already committed. Later items are not posted. A client ActorStop is not a client event type. The durable ActorStop stays mailbox-generated.
 8. **Server classify** — `POST /ambit/command` calls [CoreMailbox.startActor](../../../src/Server/Core/CoreMailbox.fs). [CoreActorPool.runStartActor](../../../src/Server/Core/CoreActorPool.fs) reads the command Node from `getState()` and takes the actor name from that text (`actorNameFrom`). That State is stale when the edit is still in flight.
 9. **Amble on this tree** — When [CommandRequest.isAmbleScanStop](../../../src/Shared/CommandRequest.fs) is true, `execRunOp` calls `execAmbleRunOp` and does not return `SubmitCommand`. A `=` line on this tree does not post `/ambit/command`.
 10. **Equals on PR #215** — [11 — Server evaluates](../../online-search/issues/11-server-evaluates.md) (draft PR #215) sends a `=` line through `POST /ambit/command`. `CoreMailboxBackend.startChosen` classifies from server State. A `=` from the edit can still be absent. This ticket is the order that makes that read see the edit.
@@ -38,7 +39,7 @@ The Browser event door is `/{file}/changes`. On the Ambit page that path is `POS
 
 ## What to build
 
-One ordered stream from the Browser to the mailbox. The change follows [API expansion](../../../doc/current/api.md#api-expansion): expand, then migrate, then contract. Connected Events are queued in order, posted in that order, and processed in that order. A later Event does not pass an earlier connected Event.
+One ordered stream from the Browser to the mailbox. The change follows [API expansion](../../../doc/current/api.md#api-expansion): expand, then migrate, then contract. Connected Events are queued in order, posted in that order, and processed in that order. A later Event does not pass an earlier connected Event. A posted list is applied in order, as one unit; lists from different clients do not interleave. The only rejection is the credential check. That check refuses the whole list before anything applies. Otherwise every posted list applies whole.
 
 The events door is `POST /ambit/changes`. `POST /ambit/events` is the alias. Both call [Api.postEvents](../../../src/Server/Api.fs). The Browser posts `/{file}/changes`.
 
@@ -47,8 +48,11 @@ The events door is `POST /ambit/changes`. `POST /ambit/events` is the alias. Bot
 A `PostEvent` whose body is ActorStart takes the same path as `CoreMailbox.startActor` after the earlier events in that list commit. The old routes stay. This is not a new POST route. A new route would not fit [07 — Lock the Run Agent architecture](../../llm-connector/issues/07-lock-run-agent-architecture.md): one mailbox orders Change and launch, and HTTP is an adapter. There is no fifth Core API.
 
 1. [ ] ActorStart path — After the earlier events commit, that `PostEvent` runs `startActor` bookkeeping: admission, registry, and revision. The client body is a launch request, not the durable event. The stored ActorStart stays mailbox-generated. The Actor body, including query eval, stays off the mailbox. [Core mailbox messages clear fast](../../../doc/Decisions/0004-core-mailbox-messages-clear-fast.md) holds. `POST /ambit/command` still exists.
-2. [ ] ActorStop stays rejected — A client `EventBody.ActorStop` in the list still gets `Actor lifecycle Events are mailbox-generated`. The durable ActorStop stays mailbox-generated. Cancel in this stream is not that body. After earlier events commit, the mailbox runs `cancelByFocus`. That step stays fast. `POST /ambit/cancel` still exists.
-3. [ ] Expand test — A test posts one list on `POST /ambit/events`: an edit, then an ActorStart for that same line. The server classifies the line from State after that edit. The read does not use the State from before the edit. The Actor body does not run inside the mailbox. A client ActorStop in a list is still rejected. Earlier edits in that list stay committed. Items after that ActorStop are not posted. `POST /ambit/command` and `POST /ambit/cancel` still answer.
+2. [ ] Valid types — Client ActorStart and Cancel are valid event types. The mailbox does not reject them. A client ActorStop is not a client event type. The durable ActorStop stays mailbox-generated. Cancel runs `cancelByFocus` inside the list. That step stays fast. `POST /ambit/cancel` still exists during expand.
+3. [ ] Credential only — The credential check is the only refusal. A missing cookie, or a caller the mailbox does not admit, returns 401 and applies nothing from the list. After that check, the list applies whole.
+4. [ ] One mailbox unit — A posted list is one mailbox unit. `postEvents` enqueues the whole list as one mailbox message, or it holds the queue for that list. The mechanism is an implementation choice. Each step stays fast per [Core mailbox messages clear fast](../../../doc/Decisions/0004-core-mailbox-messages-clear-fast.md). The ActorStart Actor body stays off the mailbox. Another client's list cannot enter inside this list.
+5. [ ] Expand test — A test posts one list on `POST /ambit/events`: an edit, then an ActorStart for that same line. The server classifies the line from State after that edit. The read does not use the State from before the edit. The Actor body does not run inside the mailbox. A failed credential check applies nothing. After admission, the edit and the ActorStart both apply. `POST /ambit/command` and `POST /ambit/cancel` still answer.
+6. [ ] Two-list test — Two clients each post 3 events at the same time. The applied order is ABCDEF or DEFABC. The order is never interleaved.
 
 ### 2. Migrate
 
@@ -74,7 +78,7 @@ These doors stay for now. The expansion rule says a new capability expands the e
 
 1. **Search** — Find keeps `POST /ambit/search` for now. It calls `CoreMailbox.recordSearchStart`, then the walk, then `recordSearchStop`. Does Find stay on that door, or later expand onto the events list?
 2. **Load/Save** — Load/Save keeps `POST /ambit/load-save-command` for now. It calls `CoreMailbox.startLoadSaveCommand`. Does Load/Save stay on that door, or later expand onto the events list?
-3. **Cancel** — Browser Cancel joins this stream. A client ActorStop stays rejected. Confirm that no other caller keeps `POST /ambit/cancel`. On this tree the Browser path is `SubmitCancel` only (`execCancelOp` and the row Cancel control).
+3. **Cancel** — Browser Cancel joins this stream. A client ActorStop is not a client event type. Confirm that no other caller keeps `POST /ambit/cancel`. On this tree the Browser path is `SubmitCancel` only (`execCancelOp` and the row Cancel control).
 
 ## Conflicts
 
@@ -90,7 +94,6 @@ These doors stay for now. The expansion rule says a new capability expands the e
 4. **Query contract** — This ticket is not [10 — Pointer: Core Query contract](../../core-refinement/issues/10-pointer-core-query-contract.md). That pointer is the typed Query contract. It is not Run launch and not the events list.
 5. **Pool rebuild** — [08 — Pointer: Core Actor pool](../../core-refinement/issues/08-pointer-core-actor-pool.md), [12 — Pointer: Launch Actor (Focus registration)](../../core-refinement/issues/12-pointer-launch-actor-and-hold-span.md), and [13 — Pointer: Finish and drop](../../core-refinement/issues/13-pointer-finish-and-drop.md) keep admission, registry, launch, and drop. This ticket calls that bookkeeping. It does not rebuild it.
 6. **Core API name** — The Core API call Command stays the in-mailbox launch. There is no fifth Core API. Contract removes the HTTP post that passes the queue.
-7. **Atomic batch** — Settled. Another client's message between this client's edit and ActorStart is normal mailbox FIFO. This ticket does not add an atomic batch.
 
 ## See also
 
@@ -101,5 +104,6 @@ These doors stay for now. The expansion rule says a new capability expands the e
 - 2026-10-07 — Alan. Remove `POST /ambit/command`. Run goes through the events door as an ActorStart in the same ordered list as the edits.
 - 2026-10-08 — Alan. The goal is Event Source order. Cancel joins that same stream. The route removal is the mechanism.
 - 2026-10-08 — Alan. The change follows the API expansion protocol. Expand accepts ActorStart and Cancel on the events list. Migrate moves `execRunOp` and Cancel onto `syncInfo.pending`. Contract deletes the old routes only after no caller uses them.
-- 2026-10-08 — Code-read from the ticket 11 branch. An ActorStart inside `POST /ambit/events` is rejected after earlier edits commit. Expand sends that `PostEvent` through `startActor`. The stored ActorStart stays mailbox-generated. A client ActorStop stays rejected.
-- 2026-10-08 — Alan. The cross-client gap is safe. Another client's message between this client's edit and ActorStart is normal mailbox FIFO. Only same-client connected Events must stay in order. No atomic batch.
+- 2026-10-08 — Code-read from the ticket 11 branch. Today `completeAction` treats a client ActorStart as rejectable. Earlier items stay committed and later items are not posted. That path is a gap. A client ActorStop is not a client event type.
+- 2026-10-08 — Alan. If you post 3 events and they post 3, it is ABCDEF or DEFABC, nothing else.
+- 2026-10-08 — Alan. "we aren't writing rejectable events, except for credential."

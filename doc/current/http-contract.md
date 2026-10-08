@@ -5,7 +5,7 @@ See Also: [Multi-client sync](sync-mvp.md), [Browser](browser.md), [Persistence 
 
 The HTTP contract is the JSON contract between the Browser and the Server under the app pathname.
 
-API expansion. Contract rule: expand, then migrate, then contract. Expand ships the new Event body on the events door beside the old route. Migrate moves the caller while both exist. Connected Events stay in one ordered stream. No new side-channel route is added. Contract removes the old route only after no caller uses it. A new capability is a new EventBody case on `POST /ambit/changes` (alias `POST /ambit/events`). It is not a new POST route. Home: [API expansion](api.md#api-expansion).
+API expansion. Contract rule: expand, then migrate, then contract. Expand ships the new Event body on the events door beside the old route. Migrate moves the caller while both exist. Connected Events stay in one ordered stream. No new side-channel route is added. Contract removes the old route only after no caller uses it. A new capability is a new EventBody case on `POST /ambit/changes` (alias `POST /ambit/events`). It is not a new POST route. A posted list is applied in order, as one unit; lists from different clients do not interleave. The only rejection is the credential check. That check refuses the whole list before anything applies. Otherwise every posted list applies whole. Home: [API expansion](api.md#api-expansion).
 
 1. [x] Events door today — `POST /ambit/changes` and `POST /ambit/events` are the same handler. `POST /ambit/command` and `POST /ambit/cancel` are separate routes. Their removal is not done.
 

@@ -4,7 +4,7 @@ Labels: wayfinder:map
 
 ## 1. Destination
 
-Every unit of work that today goes through a Change record, a Revision, or a parallel persist/command path is an Event with one event id. Other divergences from that rule left by [[plan/core-creation/project.md]] are in scope as they are found. One Event source means one ordered stream. Connected Events are queued in order, posted in that order, and processed in that order. A later Event does not pass an earlier connected Event. [[plan/core-creation/project.md]] is suspended until that architecture is created. Then [[plan/core-creation/arch.md]] is corrected to match what was created. Do not edit that arch before then.
+Every unit of work that today goes through a Change record, a Revision, or a parallel persist/command path is an Event with one event id. Other divergences from that rule left by [[plan/core-creation/project.md]] are in scope as they are found. One Event source means one ordered stream. Connected Events are queued in order, posted in that order, and processed in that order. A later Event does not pass an earlier connected Event. A posted list is applied in order, as one unit; lists from different clients do not interleave. The only rejection is the credential check. That check refuses the whole list before anything applies. Otherwise every posted list applies whole. [[plan/core-creation/project.md]] is suspended until that architecture is created. Then [[plan/core-creation/arch.md]] is corrected to match what was created. Do not edit that arch before then.
 
 ## 2. Notes
 
@@ -22,7 +22,7 @@ Every unit of work that today goes through a Change record, a Revision, or a par
 1. [[plan/single-event-source/issues/01-inventory-non-event-write-paths.md|01 — Inventory non-Event write paths]] — HTTP posts Ev; Core copies Ev to leftover Change for persist apply, then appends Ev; Revision and Change.id remain a second serial. [[plan/single-event-source/reports/inventory-non-event-write-paths.md]]
 2. [[plan/single-event-source/issues/02-files-query-and-command-as-event-work.md|02 — Files, Query, and Command as Event work]] — Files and Query are not EventLog appends; file-upload Actor is later; Run is ActorStart or a Change Event with `commandName`.
 3. [[plan/single-event-source/issues/03-cleanup-seam-order.md|03 — Cleanup seam order]] — Ev transported, Ops local; compile preamble; persist and command in any order; `Change.id` is `EventId` (no Revision stop); leftover Change dies last.
-4. [22 — One ordered event stream](issues/22-ordered-event-stream.md) — Alan, 2026-10-08. One Event source means one ordered stream. Connected Events are queued in order, posted in that order, and processed in that order. A later Event does not pass an earlier connected Event. `POST /ambit/command` is removed. Cancel joins that stream.
+4. [22 — One ordered event stream](issues/22-ordered-event-stream.md) — Alan, 2026-10-08. One Event source means one ordered stream. Connected Events are queued in order, posted in that order, and processed in that order. A later Event does not pass an earlier connected Event. A posted list is applied in order, as one unit; lists from different clients do not interleave. The only rejection is the credential check. That check refuses the whole list before anything applies. Otherwise every posted list applies whole. `POST /ambit/command` is removed. Cancel joins that stream.
 
 ## 4. Not yet specified
 
