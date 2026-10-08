@@ -1,10 +1,12 @@
 # Single event source architecture
 
 Spec: [[map.md]]
-Updated: 2026-09-17
+Updated: 2026-10-08
 Sequence: expand-contract
 
 Feature under design: leftover Change record and Revision serial out of the running code. Ev is transported. Ops are not. Apply, validation, invert, amend, and PersistStamp take an Op list locally. Decisions: [[map.md]]. Inventory: [[reports/inventory-non-event-write-paths.md]]. [04 — Write core-creation arch.md last](issues/04-write-core-creation-arch-md-last.md) writes [[plan/core-creation/arch.md]] last to match what this Project created. Prefer existing seams. Do not open Wayfinder map tickets for items under Unsettled.
+
+Event source order. One Event source means one ordered stream. Connected Events are queued in order, posted in that order, and processed in that order. A later Event does not pass an earlier connected Event. The Browser queue is `syncInfo.pending`. The post is `POST /ambit/changes` (alias `POST /ambit/events`, both [Api.postEvents](../../src/Server/Api.fs)). The processor is the one mailbox queue. [22 — One ordered event stream](issues/22-ordered-event-stream.md) is that rule for Run and Cancel.
 
 ## 1. Story paths
 
