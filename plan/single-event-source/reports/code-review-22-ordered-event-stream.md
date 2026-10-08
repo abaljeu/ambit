@@ -1,37 +1,39 @@
 # Code review — 22 ordered event stream
 
-Range: uncommitted work vs `HEAD` (`git diff HEAD`). Spec: [22 — One ordered event stream](../issues/22-ordered-event-stream.md). Alan, 2026-10-08: push the list serially onto the queue; an unregistered actor is not a rejection.
+Range: uncommitted work vs `HEAD`. Spec: [22 — One ordered event stream](../issues/22-ordered-event-stream.md). Alan, 2026-10-08: typed match for an unregistered actor. Start and cancel stay on the existing mailbox handlers. `CoreEventDispatch.Context` is `{ admit; persist; eventLog }`.
 
 ## Standards
 
 ### (a) Violations
 
-None.
+None. Bindings in the scan are under 40 lines. [CoreMailboxBackend.fs](../../../src/Server/Core/CoreMailboxBackend.fs) is 783 lines. [History.fs](../../../src/Shared/History.fs) is 800. No added line over 100 characters.
 
-The earlier list-merge used `@` inside the per-reply fold. The merge now conses each reply's events and reverses once.
+`commit` and `appendLifecycle` both call `appendNew`. The reply merge ors `externalChanges` and keeps a message from either reply. It conses events and reverses once.
 
 ### (b) Smells
 
-1. **Primitive Obsession** — an unregistered start is still recognized from the `startActor` error string (`actor '…' not registered`). The pool does not return a typed error. Peer-actor text does not match this predicate.
+None that still stand. The earlier string match for an unregistered actor is gone. `StartError.UnknownActor` is the match.
 
 ## Spec
 
 ### (a) Missing or partial
 
-None. `postEvents` pushes each `PostEvent` under one gate, then merges the replies. Client ActorStart and Cancel run on that path. The Actor body stays off the mailbox. One submission scan. An edit then an unknown ActorStart returns HTTP success and stores ActorStart plus ActorStop `unknown actor`.
+Contract item 3 is partial on the test. The routes return 404. No test names the deleted `runSubmitCommand` and `runSubmitCancel` functions. Those functions are absent from the tree.
 
 ### (b) Scope creep
 
-None. `CoreMsg.PostEvents` and `CorePostedList` are deleted. No new `CoreMsg` case.
+None.
 
 ### (c) Implemented but wrong
 
-None against Alan's decision. A launch error other than an unregistered actor still returns that error, and earlier events in the list stay stored. [http-contract.md](../../../doc/current/http-contract.md) names that remaining case.
+None after the retry reply. A second post of the same unknown-actor ActorStart includes the ActorStop that was stored as the next event for that focus. The match is on the body case, not the message string.
+
+The direct `startActor` door still returns an error for an unregistered actor and stores nothing. The events list is the path that stores ActorStart and the failed ActorStop.
 
 ### (d) Unnamed types
 
-`CoreMsg.PostEvents` is only deleted. `CorePostedList.Host` is only deleted. `MailboxHost` gains a private `gate`. `CoreEventDispatch.Context` gains `pool`, `changes`, and `isReady`. The spec did not name those fields.
+The ticket section Unnamed types names `MailboxHost.gate`, `StartError`, and `EventBody.Cancel`. `CoreEventDispatch.Context` has no added field. `PostedReply` in the backend is a private alias for the existing PostEvent reply channel.
 
 ## Summary
 
-Standards: 0 hard, 1 judgement (string match for an unregistered actor). Spec: 0 partial, 0 wrong. Three implementation fields the spec did not name.
+Standards: 0 hard. Spec: 1 partial (contract test does not name the deleted posters). No new `CoreEventDispatch` field.

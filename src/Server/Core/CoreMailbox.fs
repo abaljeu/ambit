@@ -107,13 +107,23 @@ module CoreMailbox =
         List.fold (fun acc event -> event :: acc) reversed events
 
     let private mergeReplies host results =
-        let step (state, reversed) result =
+        let step
+            (state: Result<CoreChangesAccepted, string>, reversed)
+            result
+            =
             match state, result with
             | Error err, _ -> Error err, reversed
             | _, Error err -> Error err, reversed
-            | Ok _, Ok pair ->
+            | Ok prior, Ok pair ->
                 let next = replyOf host pair
-                Ok next, consEvents reversed next.events
+                let merged =
+                    CoreChanges.accepted
+                        next.eventId
+                        next.isReady
+                        []
+                        (prior.externalChanges || next.externalChanges)
+                        (next.message |> Option.orElse prior.message)
+                Ok merged, consEvents reversed next.events
         match results with
         | [] -> Error "events must not be empty"
         | Error err :: _ -> Error err
@@ -122,7 +132,13 @@ module CoreMailbox =
             match List.fold step (Ok first, consEvents [] first.events) rest with
             | Error err, _ -> Error err
             | Ok last, reversed ->
-                Ok { last with events = List.rev reversed }
+                Ok(
+                    CoreChanges.accepted
+                        last.eventId
+                        (MailboxHost.isReady host ())
+                        (List.rev reversed)
+                        last.externalChanges
+                        last.message)
 
     /// Push the list back to back, then merge the replies.
     let postEvents

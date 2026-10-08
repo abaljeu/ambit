@@ -95,6 +95,12 @@ These doors stay for now. The expansion rule says a new capability expands the e
 5. **Pool rebuild** — [08 — Pointer: Core Actor pool](../../core-refinement/issues/08-pointer-core-actor-pool.md), [12 — Pointer: Launch Actor (Focus registration)](../../core-refinement/issues/12-pointer-launch-actor-and-hold-span.md), and [13 — Pointer: Finish and drop](../../core-refinement/issues/13-pointer-finish-and-drop.md) keep admission, registry, launch, and drop. This ticket calls that bookkeeping. It does not rebuild it.
 6. **Core API name** — The Core API call Command stays the in-mailbox launch. There is no fifth Core API. Contract removes the HTTP post that passes the queue.
 
+## Unnamed types
+
+1. `MailboxHost.gate` — the lock around one list's serial push onto the queue.
+2. `StartError` — `UnknownActor of name` and `Rejected of message`. The events-list handler matches `UnknownActor` and stores ActorStart plus ActorStop `unknown actor`.
+3. `EventBody.Cancel` — the client Cancel on the events list. No existing body is a cancel. The durable stop stays ActorStop.
+
 ## See also
 
 [API expansion](../../../doc/current/api.md#api-expansion), [Single event source architecture](../arch.md), [02 — Files, Query, and Command as Event work](02-files-query-and-command-as-event-work.md), [07 — Lock the Run Agent architecture](../../llm-connector/issues/07-lock-run-agent-architecture.md), [Core mailbox messages clear fast](../../../doc/Decisions/0004-core-mailbox-messages-clear-fast.md)
@@ -109,6 +115,7 @@ These doors stay for now. The expansion rule says a new capability expands the e
 - 2026-10-08 — Alan. "we aren't writing rejectable events, except for credential."
 - 2026-10-08 — Alan. Don't land the pull request for [11 — Server evaluates](../../online-search/issues/11-server-evaluates.md). Make this ticket happen, then rebase and correct that ticket on this ticket.
 - 2026-10-08 — Alan. `CoreMsg.PostEvents` was not the plan. `postEvents` pushes the list serially onto the queue. An unregistered actor is not a rejection. The list applies whole. The mailbox records the ActorStart and a failed ActorStop (`unknown actor`).
+- 2026-10-08 — Alan. Use typed matching for an unregistered actor. Do not re-implement start and cancel inside `CoreEventDispatch`.
 
 ## Time
 
