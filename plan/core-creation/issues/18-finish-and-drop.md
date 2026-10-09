@@ -1,10 +1,14 @@
 # 18 — Finish and drop
 
+**Type:** coding
 **Status:** defined
 **Blocked by:** [[plan/core-creation/issues/16-track-running-job.md]]
+**Implement home:** [13 — Pointer: Finish and drop](../../core-refinement/issues/13-pointer-finish-and-drop.md). Do not chart or implement from this file.
 Actual: 1h35m
 
 ## Context
+
+Succeeded, Failed, Cancelled, and drop are in use. Restart Interrupted is open on [13 — Pointer: Finish and drop](../../core-refinement/issues/13-pointer-finish-and-drop.md).
 
 When an Actor reaches a terminal outcome, Core must append the durable result and drop the live Actor without reversing earlier accepted output. The 2026-09-07 delivery used a second pool mailbox, had no durable terminal Event, and did not drop on failed stop. That product was rewound. Rebuild from [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]]. Do not wrap-patch a pool mailbox.
 

@@ -1,7 +1,9 @@
 # 15 — Launch an Actor and hold the span
 
-**Status:** defined
+**Type:** coding
+**Status:** done
 **Blocked by:** [[plan/core-creation/issues/14-server-tracks-credentials.md]]
+**Implement home:** [12 — Pointer: Launch Actor (Focus registration)](../../core-refinement/issues/12-pointer-launch-actor-and-hold-span.md). Status `done`. Do not implement from this file.
 **Actual:** 1h40m
 
 ## Context

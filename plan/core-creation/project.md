@@ -63,13 +63,13 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 ## Issues
 
 - [[plan/core-creation/issues/01-generalized-server-actor-produce-path.md]] — establish the shared Core Changes path.
-- [[plan/core-creation/issues/02-core-actor-pool.md]] — establish Core-owned Actor pool machinery. Status `ready-for-agent` after rewind named the mailbox/TaskPool shape.
+- [[plan/core-creation/issues/02-core-actor-pool.md]] — history. Open work is [08 — Pointer: Core Actor pool](../core-refinement/issues/08-pointer-core-actor-pool.md). Status `defined`.
 - [[plan/core-creation/issues/13-delete-runtime-mirror-and-remove-production-persistence-mode.md]] — use Database persistence when available and reject Changes when unavailable. Status `done`.
 - [[plan/core-creation/issues/14-server-tracks-credentials.md]] — public/secret Authority admission and durable readable Authority; Status `blocked` by the Actor pool baseline.
-- [[plan/core-creation/issues/15-launch-actor-and-hold-span.md]] — historical span delivery superseded by typed launch and ActorStarted; Status `blocked`.
+- [[plan/core-creation/issues/15-launch-actor-and-hold-span.md]] — Focus registration is landed. Status `done` with [12 — Pointer: Launch Actor (Focus registration)](../core-refinement/issues/12-pointer-launch-actor-and-hold-span.md).
 - [[plan/core-creation/issues/16-track-running-job.md]] — live public-identity query plus durable lifecycle Events; Status `done`.
 - [[plan/core-creation/issues/17-cancel-a-job.md]] — terminal Cancelled by Focus NodeId without Undo; Status `done`.
-- [[plan/core-creation/issues/18-finish-and-drop.md]] — durable ActorFinished, synchronous registry removal, non-blocking termination, and Interrupted restart reconciliation; Status `blocked`.
+- [[plan/core-creation/issues/18-finish-and-drop.md]] — Succeeded, Failed, Cancelled, and drop are in use. Restart Interrupted is open on [13 — Pointer: Finish and drop](../core-refinement/issues/13-pointer-finish-and-drop.md). Status `defined`.
 - [[plan/core-creation/issues/19-database-down-and-host-stop.md]] — Database-down state and mutating Post/launch probe; blocked by [[plan/core-creation/issues/13-delete-runtime-mirror-and-remove-production-persistence-mode.md]].
 - [[plan/core-creation/issues/20-client-presents-credential.md]] — live Browser presents a credential on every message.
 - [[plan/core-creation/issues/21-client-shows-lock-present.md]] — historical name; any Browser running indicator projects lifecycle Events.
@@ -78,12 +78,12 @@ This increment: Core owns the authoritative Graph, Authority validation, and the
 - [[plan/core-creation/issues/24-clarify-core-increment-boundary.md]] — agent instruction: Core vs Adapter vs Client; no lock UI this increment.
 - [[plan/core-creation/issues/25-bind-changes-at-core-seam.md]] — leftover after 23: HTTP posts through bound Changes, not unpacked CoreAuth. Status `done`.
 - [[plan/core-creation/issues/26-failed-actor-stop-still-drops.md]] — failed Actor stop must still enqueue delete-actor. Status `cancelled` (rewind/redo, not a wrap patch).
-- [[plan/core-creation/issues/27-prove-core-actor-lifecycle-with-testactor.md]] — prove the public Core lifecycle and universal response without an Agent transport.
-- [[plan/core-creation/issues/28-drain-actor-lifecycle-on-host-stop.md]] — later host-stop terminal drain and restart reconciliation, separate from Database availability.
+- [[plan/core-creation/issues/27-prove-core-actor-lifecycle-with-testactor.md]] — open catalog work is [15 — Pointer: Prove Core Actor lifecycle with TestActor](../core-refinement/issues/15-pointer-prove-core-actor-lifecycle-testactor.md). Status `defined`.
+- [[plan/core-creation/issues/28-drain-actor-lifecycle-on-host-stop.md]] — host-stop drain is still open on [16 — Pointer: Drain Actor lifecycle on host stop](../core-refinement/issues/16-pointer-drain-actor-lifecycle-on-host-stop.md). Status `defined`.
 - [[plan/core-creation/issues/30-reshape-coreactorpool-synchronized-table.md]] — Point 0 preamble (done): strip CoreActorPool mailbox-queue design; synchronized table + thread pool.
 - [[plan/core-creation/issues/31-one-coremsg-loop-parameterized-persist.md]] — Point 0 (done): one CoreMsg loop, parameterized persist.
 - [[plan/core-creation/issues/32-move-persist-agents-under-coremailbox.md]] — Point 0 (done): persist agents under Core; generic CoreMailbox door.
-- [[plan/core-creation/issues/29-prove-testactor-hello.md]] — current cut: section 1 mailbox foundation on `dev`; remaining hello sections open. Redo: land [[plan/core-creation/arch.md]] before further hello implement — [[plan/core-creation/reports/redo-29-architecture-before-proceed.md]].
+- [[plan/core-creation/issues/29-prove-testactor-hello.md]] — Status `done`. Acceptance is closed by [34b — Outside Core lifecycle proof](issues/34b-outside-core-lifecycle-proof.md) and [35b — Browser Run hello](issues/35b-browser-run-hello.md).
 - [[plan/core-creation/issues/33-credentialed-browser-change-posts.md]] — Story path Browser Change posts: cookie-as-credential, boot seed, CoreMailbox admit only; Status `done`. `auth.Disabled` skip removed; development cookie is auto-issued and still required.
 - [[plan/core-creation/issues/34b-outside-core-lifecycle-proof.md|34b — Outside Core lifecycle proof]] — Story path Outside Core lifecycle proof: TestActor hello from Pool/Actor seam without HTTP. Status `done` (independent review approve; report [[plan/core-creation/reports/code-review-34b-outside-core-lifecycle-proof.md]]).
 - [[plan/core-creation/issues/35b-browser-run-hello.md|35b — Browser Run hello]] — Story path Browser Run hello: `?` one-Node Command through HTTP to Owned child `hello`; Status `done`. §6 durability → [[plan/core-creation/issues/49-mailbox-history-durability.md|49]]; §7 proof does not need 49.
