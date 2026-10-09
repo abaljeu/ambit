@@ -2,7 +2,7 @@
 
 Stage: build
 Summary: Server Actor pulls from and pushes to a Workspace GitHub remote (round-trip v1, fast-forward only). After [[plan/core-refinement/project.md]] is done, this Project only locks the workspace, receives the files, and informs the revised Core of changes; Core works through the updates. The App stays thin. Skip on that remote is whatever `.gitignore` already says.
-Updated: 2026-09-30
+Updated: 2026-10-09
 Started: 2026-09-27
 Actual: 10h45m
 
@@ -28,6 +28,7 @@ Actual: 10h45m
 - 2026-09-28 — Alan lock: Core alone knows where files reside. Everyone else has a relative path. One hardened control point. Map decision: [[map.md]]. Cross-cutting: [[plan/transport-layer/map.md]].
 - 2026-09-29 — [20 — State axes on special nodes](issues/20-state-axes-on-special-nodes.md) Status `done`. Alan accepted; squash-landed onto staging. Workspace, Directory, and File content nodes carry Parsed|Unparsed and Persisted|Unpersisted. A Directory File does not carry those axes. Further axis-migration steps stay on [[plan/core-refinement/arch.md]] §5. Stage stays `build`.
 - 2026-09-30 — Core seam sole authority is [[plan/core-refinement/project.md]] ([[plan/core-refinement/arch.md]]); this Project keeps transport-only mechanics and does not restate a parallel Core design.
+- 2026-10-09 — [21 — Git Load informs Core](issues/21-git-load-informs-core.md) Status `defined`. The git Load Actor stops calling `reconcileWorkspace` inline, informs Core, and the Parse thread paces the workspace reconcile inside the Azure CPU budgets (60% short window, 5% daily average). [22 — Browser Load paths that reconcile or parse](issues/22-browser-load-reconcile-paths.md) Status `needs-info`. Home stays this Project: the incident is this Actor and the Browser after-step left by [13 — Run git Load and Save through the Server Actor](issues/13-actor-runs-git-load-save.md). Directory reconcile stays [[plan/parse-thread/project.md]]. The inform doors and the workspace lock stay [[plan/core-refinement/project.md]]. Stage stays `build`.
 - Prior spec [[plan/workspace-git/project.md]] is not this home. That spec’s non-FF accept of non-overlapping edits is not this Destination.
 - Map: [[map.md]]. Spec: [[spec.md]]. Arch: [[arch.md]].
 - 2026-09-27 — [13 — Run git Load and Save through the Server Peer Actor](issues/13-actor-runs-git-load-save.md) coded. A peer-only mailbox/pool door keeps git Load/Save outside Run and `?git`; the Server Peer Actor resolves Focus to the Workspace work tree, runs the gated tracked-branch operation, and continues Load through Parse reconciliation.

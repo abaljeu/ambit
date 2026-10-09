@@ -26,6 +26,8 @@ Prior spec [[plan/workspace-git/project.md]] is not this home. Do not inherit th
 
 2026-09-28 — Alan lock: Core alone knows where files reside. Everyone else has a relative path. One hardened control point. Cross-cutting home: [[plan/transport-layer/map.md]]. This Project uses relative paths; it does not hold file residence.
 
+2026-10-09 — git Load on the life Workspace ran two whole-workspace reconciles and the app was stopped. [21 — Git Load informs Core](issues/21-git-load-informs-core.md) is the server build (Status `defined`). [22 — Browser Load paths that reconcile or parse](issues/22-browser-load-reconcile-paths.md) is the Browser inventory and grilling (Status `needs-info`). Home stays this Project. The reconcile body stays [[plan/parse-thread/project.md]]. The inform doors stay [[plan/core-refinement/project.md]].
+
 Skills: [[.agents/skills/wayfinder/SKILL.md]], [[.agents/skills/grilling/SKILL.md]], [[.agents/skills/domain-modeling/SKILL.md]], [[.agents/skills/project-work/SKILL.md]].
 
 ## 3. Decisions so far
@@ -51,7 +53,8 @@ Skills: [[.agents/skills/wayfinder/SKILL.md]], [[.agents/skills/grilling/SKILL.m
 
 ## 4. Not yet specified
 
-None for transport mechanics. Core handoff detail: [[plan/core-refinement/map.md]].
+1. **Transport mechanics** — None open. Core handoff detail: [[plan/core-refinement/map.md]].
+2. **Browser Load paths** — Which Browser paths that post reconcile or parse stay, remain on the Parse thread, or go is open. Research and questions: [22 — Browser Load paths that reconcile or parse](issues/22-browser-load-reconcile-paths.md). Status `needs-info`.
 
 ## 5. Out of scope
 
