@@ -10,8 +10,9 @@ New docs should normally go in a subfolder:
 - `history/` — assessed historical project materials
 - `reference/` — operational and reference material
 - `unsorted/` — unassessed docs; temporary and non-authoritative
+- `user/` — end-user wiki. How to operate the software. This folder is not a current baseline.
 
-Authority rule: when a roadmap, history, or unsorted doc disagrees with a current doc, the current doc wins. `doc/` holds what is coded (achieved, current behavior); what will be coded lives under `plan/`. When plan work is achieved, update `doc/`.
+Authority rule: when a roadmap, history, or unsorted doc disagrees with a current doc, the current doc wins. `doc/` holds what is coded (achieved, current behavior); what will be coded lives under `plan/`. When plan work is achieved, update `doc/`. `doc/user/` is separate from that rule. It does not document coded behavior. It does not document planned product work.
 
 Document header rule:
 

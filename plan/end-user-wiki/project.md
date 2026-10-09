@@ -2,4 +2,4 @@
 
 Stage: chart
 Summary: A browsable wiki that describes the software for people who use it.
-Updated: 2026-08-29
+Updated: 2026-10-09
