@@ -29,6 +29,23 @@ module ParseThread =
     let private reportPost (err: string) =
         eprintfn "ParseThread: content post failed: %s" err
 
+    // Queue processing is currently wrong. It caused a whole-workspace
+    // reconcile that exceeded the Azure Free plan CPU quota: 60%
+    // short-window, 5% daily average. This is not a decision to drop the
+    // requeue step. Re-enable once queue processing is fixed (pending
+    // github-transport Load ticket: move Load onto a paced Parse thread).
+    let private requeueOnUnparsed = false
+
+    let private enqueueIfRequeue
+        (push: NodeId -> unit)
+        (ids: NodeId list)
+        =
+        // Same hold as requeueOnUnparsed: Unparsed is still set by the
+        // caller. The Parse queue does not receive these ids until the
+        // flag above is true.
+        if requeueOnUnparsed then
+            ids |> List.iter push
+
     let private alreadyParsed (graph: Graph) (nodeId: NodeId) =
         match Map.tryFind nodeId graph.nodes with
         | Some node when node.parseState = ParseState.Parsed -> true
@@ -44,7 +61,15 @@ module ParseThread =
         | Error err -> reportPost err
         | Ok () ->
             push |> List.iter deps.markUnparsed
-            push |> List.iter deps.push
+            // requeueOnUnparsed is false: Unparsed stays set, and these
+            // ids are not added to the Parse queue. Queue processing is
+            // currently wrong. It caused a whole-workspace reconcile that
+            // exceeded the Azure Free plan CPU quota: 60% short-window,
+            // 5% daily average. This is not a decision to drop the requeue
+            // step. Re-enable once queue processing is fixed (pending
+            // github-transport Load ticket: move Load onto a paced Parse
+            // thread).
+            enqueueIfRequeue deps.push push
             deps.finishParse nodeId
 
     let private parseFile
