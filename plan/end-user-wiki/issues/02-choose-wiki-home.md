@@ -1,7 +1,7 @@
 # Choose the end-user wiki home
 
 **Type:** grilling
-**Status:** ready-for-agent
+**Status:** done
 Blocked by:
 
 ## Question
@@ -11,3 +11,10 @@ Where does the end-user wiki live: a `doc/` subtree, a GitLab wiki, in-app Graph
 ## Comments
 
 - 2026-09-02: Filed unclaimed from WORK.md. Map: [[../map.md]].
+- 2026-10-09 — Answer recorded from Alan.
+
+## Answer
+
+Alan, 2026-10-09.
+
+The end-user wiki home is a `doc/` subtree in the ambit repo. The folder is `doc/user/`.
