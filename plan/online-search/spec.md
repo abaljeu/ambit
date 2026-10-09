@@ -87,7 +87,7 @@ This file records the Destination, the Notes that still stand, and Alan's later 
 5. **Want-fulfillment** — If the server finds N items, the query expression inserts them. That insert is Want-fulfillment.
 6. **Separate from Find** — This spec is not the Find dialog. Find and Move are [§1 Search spec](#1-search-spec).
 7. **Example is not a catalog row** — The expression `= root descendants with name like "Bob"` shows the kind of expression. It does not add words to the expression-language catalog. The word `trash` is the locked function name.
-8. **Insertion module** — [ExprRun](src/Shared/ExprRun.fs) already builds a Ref for a Node answer (`ChildNode.reference` on the path `run` uses to materialise). The server eval, and posting that Ref under the query line, are a proposed design in [arch](arch.md). They are not a second lock on top of Refs.
+8. **Insertion module** — [ExprRun](src/Shared/ExprRun.fs) already builds a Ref for a Node answer (`ChildNode.reference` on the path `run` uses to materialise). Server eval is a lock. See [map](map.md) Decisions so far item 6 **Remote query eval**. Posting that Ref under the query line stays a proposed design in [arch](arch.md). That post is not a second lock on top of Refs.
 
 ### 3. User Stories
 

@@ -145,6 +145,8 @@ module ActorLive =
             match result with
             | ActorSucceeded ->
                 Some (CmdLastResult.Detail (chip, "Actor succeeded."))
+            | ActorQuery ids ->
+                Some (CmdLastResult.Query (chip, ids))
             | ActorFailed message ->
                 Some (CmdLastResult.Error (chip, failedText message))
             | ActorCancelled ->

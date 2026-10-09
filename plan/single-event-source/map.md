@@ -23,6 +23,7 @@ Every unit of work that today goes through a Change record, a Revision, or a par
 2. [[plan/single-event-source/issues/02-files-query-and-command-as-event-work.md|02 — Files, Query, and Command as Event work]] — Files and Query are not EventLog appends; file-upload Actor is later; Run is ActorStart or a Change Event with `commandName`.
 3. [[plan/single-event-source/issues/03-cleanup-seam-order.md|03 — Cleanup seam order]] — Ev transported, Ops local; compile preamble; persist and command in any order; `Change.id` is `EventId` (no Revision stop); leftover Change dies last.
 4. [22 — One ordered event stream](issues/22-ordered-event-stream.md) — Alan, 2026-10-08. One Event source means one ordered stream. Connected Events are queued in order, posted in that order, and processed in that order. A later Event does not pass an earlier connected Event. A posted list is applied in order, as one unit; lists from different clients do not interleave. The only rejection is the credential check. That check refuses the whole list before anything applies. Otherwise every posted list applies whole. `POST /ambit/command` is removed. Cancel joins that stream.
+5. [23 — Endpoint switch](issues/23-endpoint-switch-events.md) — The ordered list posts to `POST /ambit/events`. `POST /ambit/changes` is removed. Status `defined`.
 
 ## 4. Not yet specified
 

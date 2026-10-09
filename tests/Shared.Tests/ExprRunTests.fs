@@ -120,6 +120,7 @@ let ``type failure writes the type error not the input`` () =
     Assert.Equal<string list>([ "type error" ], newNodeTexts plan.ops)
     Assert.True(hasBlueletterText plan.ops "type error")
     Assert.DoesNotContain(line, newNodeTexts plan.ops)
+    Assert.Empty(ExprRun.answerNodeIds f.focus f.graph line)
 
 [<Fact>]
 let ``zero Answers write blueletter No matches found`` () =
@@ -268,3 +269,17 @@ let ``bang-star containing plans at most maxMaterialisedAnswers without SiteMap`
         Assert.True(kids.Length <= ExprRun.maxMaterialisedAnswers)
         Assert.Contains(hitId, kids)
         Assert.Contains(focusId, kids)
+
+[<Fact>]
+let ``answerNodeIds returns the named node and no ref plan`` () =
+    let focusId = NodeId.New()
+    let hitId = NodeId.New()
+    let line = "= root descendant named \"hit\""
+    let graph0 = Graph.create ()
+    let graph =
+        graph0
+        |> addUnder graph0.root
+            (Node.Create(focusId, text = line, owner = graph0.root))
+        |> addUnder Graph.workspacesId (namedNormal hitId "hit" Graph.workspacesId)
+    let ids = ExprRun.answerNodeIds focusId graph line
+    Assert.Equal<NodeId list>([ hitId ], ids)

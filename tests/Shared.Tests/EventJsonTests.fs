@@ -87,6 +87,15 @@ let ``Ev JSON round-trips ActorStart and ActorStop`` () =
     let genericJson =
         Enc.toString 0 (EventJson.encode genericFailed)
     Assert.DoesNotContain("\"message\"", genericJson)
+    let hitId = NodeId(Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"))
+    let queried =
+        { changeEvent with
+            commandName = ""
+            body = EventBody.ActorStop(start.focusId, ActorQuery [ hitId ]) }
+    Assert.Equal(queried, roundTrip queried)
+    let queryJson = Enc.toString 0 (EventJson.encode queried)
+    Assert.Contains("\"result\":\"query\"", queryJson)
+    Assert.Contains(hitId.Value.ToString(), queryJson)
 
 [<Fact>]
 let ``ActorStop failed without message decodes as empty`` () =

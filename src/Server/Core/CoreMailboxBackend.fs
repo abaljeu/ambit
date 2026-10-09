@@ -88,6 +88,7 @@ module internal CoreMailboxBackend =
             | ActorSucceeded -> "ActorStop", "ActorSucceeded"
             | ActorFailed _ -> "ActorStop", "ActorFailed"
             | ActorCancelled -> "ActorStop", "ActorCancelled"
+            | ActorQuery _ -> "ActorStop", "ActorQuery"
         | CancelActor _ -> "CancelActor", ""
         | Login _ -> "Login", ""
         | Logout _ -> "Logout", ""
@@ -230,6 +231,21 @@ module internal CoreMailboxBackend =
             with
             | Error err -> reply.Reply(Error err)
             | Ok _ -> reply.Reply(Ok ())
+
+    /// Query reads post-edit State. `graphIds` do not replace that Graph.
+    let private startChosen
+        (context: MailboxContext)
+        (request: Gambol.Shared.ActorStart)
+        (getState: unit -> Graph)
+        : Result<Credential option, StartError> =
+        if SearchActor.isQueryRequest (getState ()) request then
+            SearchActor.functionStart request getState
+            |> context.pool.startFunction
+            |> Result.mapError StartError.Rejected
+            |> Result.map Some
+        else
+            context.pool.startActor request getState
+            |> Result.map Some
 
     let private dispatchStartActor context caller request reply =
         dispatchActorStartResult
@@ -430,8 +446,7 @@ module internal CoreMailboxBackend =
             replyList reply context (List.last events) events
         | None ->
             let start req getState =
-                context.pool.startActor req getState
-                |> Result.map Some
+                startChosen context req getState
             match prepareActorStart context caller request start with
             | Error error ->
                 recordFailedStart

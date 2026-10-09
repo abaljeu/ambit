@@ -53,6 +53,7 @@ type ActorResult =
     | ActorSucceeded
     | ActorFailed of string
     | ActorCancelled
+    | ActorQuery of ids: NodeId list
 
 type ActorStart =
     { zoomId: NodeId
@@ -80,7 +81,6 @@ type Ev =
 type State =
     { graph: Graph
       eventId: EventId }
-
 [<RequireQualifiedAccess>]
 type ApplyResult =
     | Changed of State

@@ -1,6 +1,6 @@
 # core-refinement architecture
 
-Updated: 2026-10-07
+Updated: 2026-10-09
 Sequence: expand-contract
 
 Home: [[project.md]]. This note is the sole authority for the Core seam (what will be coded): Target — Server Core, the expand-contract sequence (§3 and §9 Story paths), axes, stacks, path control, mailbox git handoff, the locking model (§6), and InMsg on the mailbox queue (§10 **Core loop**). Spec.md and User Stories are absent. Map decision 9 keeps Sequence `expand-contract`. Story paths, Shared segments, the Module map, and Seams are on this note. Expand-contract does not drop them. Stage on [[project.md]] stays `build`. Claim marks for committed elements live under [[doc/current/]]. This note links to those pages. Map §4 (mailbox enable, call, and stop) stays in §3 step 6. It is not copied into [[doc/current/]]. The locking model (§6) is not copied into [[doc/current/]].
@@ -47,6 +47,9 @@ Ordered path from §2 Starting point to Target — Server Core. The expand-contr
       2. [ ] **Client Load marks Unparsed** — Client Load on a Directory Node or a File Node marks that node Unparsed. The mailbox Load door accepts a File Node only. It does not mark Unparsed.
       3. [x] **File push** — Mailbox Load of a File Node pushes that node onto the Parse stack. Selection push has no special priority. Ticket: [06 — Explicit parse command on a File (Load)](issues/06-explicit-parse-command-load-file.md) (Status `coded`). See [05 — Selection-scoped Parse after whole-tree git Load](issues/05-selection-scoped-parse-after-whole-tree-git-load.md).
       4. [x] **Directory reconcile** — The parse thread runs Directory reconcile for a Directory Node and for a Workspace Node. The walk covers the Directory body. It creates missing File Nodes. A disk-newer File Node is marked Unparsed through `InMsg` `MarkUnparsed` and is pushed. Tickets: [05 — Directory reconcile](../parse-thread/issues/05-directory-reconcile.md) (Status `coded`), [06 — Setting Unparsed, recursive update](../parse-thread/issues/06-setting-unparsed-recursive-update.md) (Status `coded`). Grilling: [03 — Workspace Load after incoming files](../parse-thread/issues/03-workspace-load-after-incoming-files.md) (Status `done`).
+
+      > Temporarily disabled (2026-10-08): MarkUnparsed does not enqueue; see requeueOnUnparsed in src/Server/ParseThread.fs. Disabling step: [28 — Stop enqueueing nodes just marked Unparsed](../github-transport/issues/28-stop-enqueueing-nodes-just-marked-unparsed.md). Re-enabled by [08 — Re-enable recursive update: enqueue on MarkUnparsed](../parse-thread/issues/08-re-enable-recursive-update-enqueue-on-markunparsed.md).
+
       5. [ ] **Child Directory Unparsed** — A child Directory Node that needs reparse is marked Unparsed on that same reconcile. Ticket: [07 — Directory Unparsed during reconcile](../parse-thread/issues/07-directory-unparsed-during-reconcile.md) (Status `defined`).
       6. [x] **ParseFinished** — When the parse thread finishes a File Node or a Directory Node, it adds `InMsg` `ParseFinished` through the private function (§10). It does not edit the graph.
    3. **Contract** — [ ] Retire today’s Load → Parse / graph-push hop once every handoff uses the stack. Claim home: [Parse and persist](doc/current/parse-persist.md) (Parse stack claims).
@@ -101,6 +104,9 @@ Locked 2026-09-28 (Alan). These rules say who writes each axis and which node th
 8. **Client Load on Directory** — Mark the Directory Node **Unparsed** (re-process). Reconciliation with no extra info can spot disk members the Graph lacks.
 9. **Client Load on File** — Mark the File Node **Unparsed**. Mailbox Load of a File Node pushes that node onto the Parse stack. That push is coded. Ticket: [06 — Explicit parse command on a File (Load)](issues/06-explicit-parse-command-load-file.md) (Status `coded`). The Unparsed mark on that Load is not coded.
 10. **Directory reconcile** — [Parse thread](../parse-thread/project.md) owns this. Definition: [Parse thread architecture](../parse-thread/arch.md) §2 Module map, item 1 **Directory reconcile**. The walk, missing File Nodes, disk-newer File **Unparsed** through `InMsg` `MarkUnparsed`, and push are coded. Tickets: [05 — Directory reconcile](../parse-thread/issues/05-directory-reconcile.md) (Status `coded`), [06 — Setting Unparsed, recursive update](../parse-thread/issues/06-setting-unparsed-recursive-update.md) (Status `coded`). A Workspace Node uses the same reconcile. Grilling: [03 — Workspace Load after incoming files](../parse-thread/issues/03-workspace-load-after-incoming-files.md) (Status `done`). A child Directory Node that needs reparse is not coded. Ticket: [07 — Directory Unparsed during reconcile](../parse-thread/issues/07-directory-unparsed-during-reconcile.md) (Status `defined`).
+
+    > Temporarily disabled (2026-10-08): MarkUnparsed does not enqueue; see requeueOnUnparsed in src/Server/ParseThread.fs. Disabling step: [28 — Stop enqueueing nodes just marked Unparsed](../github-transport/issues/28-stop-enqueueing-nodes-just-marked-unparsed.md). Re-enabled by [08 — Re-enable recursive update: enqueue on MarkUnparsed](../parse-thread/issues/08-re-enable-recursive-update-enqueue-on-markunparsed.md).
+
 11. **Parse stack pop** — If the node is already **Parsed**, the parse thread skips it. Real work arrives **Unparsed**. That skip is coded.
 12. **InMsg** — The internal message type is `InMsg` on **Core loop** (§10). It is not an Op. Cases: `ParseFinished`, `SnapshotDone`, `MarkUnparsed`.
 13. **One mailbox queue** — The mailbox has one queue. A private function adds `InMsg`. A public function adds `CoreMsg`. The queue puller hands a `CoreMsg` to the `CoreMsg` handler and an `InMsg` to the `InMsg` handler. There is no second queue. The puller file is `src/Server/Core/CoreMailboxBackend.fs`. The private function is on the mailbox, `src/Server/Core/CoreMailbox.fs`.
@@ -164,6 +170,9 @@ Sequence stays `expand-contract`. These paths are that implementation sequence. 
       2. [ ] **Client Load Unparsed** — Client Load on a Directory Node or a File Node marks that node Unparsed.
       3. [x] **File push** — Mailbox Load of a File Node pushes onto the Parse stack.
       4. [x] **Directory reconcile** — Directory reconcile walks the Directory body, creates missing File Nodes, marks a disk-newer File Node Unparsed through `InMsg` `MarkUnparsed`, and pushes that File Node. A Workspace Node uses the same reconcile.
+
+      > Temporarily disabled (2026-10-08): MarkUnparsed does not enqueue; see requeueOnUnparsed in src/Server/ParseThread.fs. Disabling step: [28 — Stop enqueueing nodes just marked Unparsed](../github-transport/issues/28-stop-enqueueing-nodes-just-marked-unparsed.md). Re-enabled by [08 — Re-enable recursive update: enqueue on MarkUnparsed](../parse-thread/issues/08-re-enable-recursive-update-enqueue-on-markunparsed.md).
+
       5. [ ] **Child Directory Unparsed** — A child Directory Node that needs reparse is marked Unparsed on that same reconcile. Ticket: [07 — Directory Unparsed during reconcile](../parse-thread/issues/07-directory-unparsed-during-reconcile.md) (Status `defined`).
       6. [x] **ParseFinished** — File parse and Directory reconcile add `InMsg` `ParseFinished` through the private function.
    3. [ ] **Contract** — Load uses that stack.

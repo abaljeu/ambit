@@ -21,18 +21,20 @@ module EventJson =
         | ActorSucceeded -> Encode.string "succeeded"
         | ActorFailed _ -> Encode.string "failed"
         | ActorCancelled -> Encode.string "cancelled"
+        | ActorQuery _ -> Encode.string "query"
 
     let private decodeActorResultTag: Decoder<string> =
         Decode.string
         |> Decode.andThen (function
-            | ("succeeded" | "failed" | "cancelled") as tag ->
+            | ("succeeded" | "failed" | "cancelled" | "query") as tag ->
                 Decode.succeed tag
             | other -> Decode.fail ("Unknown actor result: " + other))
 
-    let private actorResultFrom tag message =
+    let private actorResultFrom tag message ids =
         match tag with
         | "succeeded" -> ActorSucceeded
         | "cancelled" -> ActorCancelled
+        | "query" -> ActorQuery (Option.defaultValue [] ids)
         | _ -> ActorFailed (Option.defaultValue "" message)
 
     let private encodeOps ops =
@@ -121,6 +123,23 @@ module EventJson =
                 get.Required.Field "focusId" Serialization.decodeNodeId
               eventId = get.Required.Field "eventId" decodeEventId })
 
+    let private encodeNodeIds ids =
+        ids |> List.map Serialization.encodeNodeId |> Encode.list
+
+    let private encodeActorStop focusId result =
+        let fields =
+            [ "kind", Encode.string "actorStop"
+              "focusId", Serialization.encodeNodeId focusId
+              "result", encodeActorResult result ]
+        match result with
+        | ActorFailed message when message <> "" ->
+            Encode.object (fields @ [ "message", Encode.string message ])
+        | ActorQuery ids ->
+            Encode.object (fields @ [ "ids", encodeNodeIds ids ])
+        | ActorSucceeded
+        | ActorFailed _
+        | ActorCancelled -> Encode.object fields
+
     let private encodeBody (body: EventBody) =
         match body with
         | EventBody.Change ops ->
@@ -143,15 +162,7 @@ module EventJson =
                 [ "kind", Encode.string "cancel"
                   "focusId", Serialization.encodeNodeId focusId ]
         | EventBody.ActorStop(focusId, result) ->
-            let fields =
-                [ "kind", Encode.string "actorStop"
-                  "focusId", Serialization.encodeNodeId focusId
-                  "result", encodeActorResult result ]
-            match result with
-            | ActorFailed message when message <> "" ->
-                Encode.object (
-                    fields @ [ "message", Encode.string message ])
-            | _ -> Encode.object fields
+            encodeActorStop focusId result
 
     let private decodeChangeBody: Decoder<EventBody> =
         Decode.object (fun get ->
@@ -175,7 +186,10 @@ module EventJson =
                 get.Required.Field "focusId" Serialization.decodeNodeId,
                 actorResultFrom
                     (get.Required.Field "result" decodeActorResultTag)
-                    (get.Optional.Field "message" Decode.string)))
+                    (get.Optional.Field "message" Decode.string)
+                    (get.Optional.Field
+                        "ids"
+                        (Decode.list Serialization.decodeNodeId))))
 
     let private decodeBody: Decoder<EventBody> =
         Decode.field "kind" Decode.string

@@ -189,6 +189,77 @@ let ``edit then Run queues ActorStart behind the edit in one batch`` () =
     Assert.Equal<Ev list list>([ ran.syncInfo.pending ], batches)
 
 [<Fact>]
+let ``edit then Run on an equals line queues ActorStart behind the edit`` () =
+    let graph, _, ids =
+        ownerChain [ "= root descendant named \"Bob\"" ]
+    let focusId = ids.[0]
+    let model = emptyModel graph
+    let selected =
+        match ViewModelSelection.singleSelection graph model.siteMap focusId with
+        | None -> failwith "expected equals selection"
+        | Some sel ->
+            { model with
+                selectedNodes = Some sel
+                zoomRoot = focusId
+                mode = Editing ("old", EditCaret.Utf16Index 0) }
+    let live = "= root descendant named \"Bob\" now"
+    let commit (model: VM) =
+        let ops = RunEditCommit.commitTextOps focusId live model.graph
+        let event = ClientHistory.mintChange "Edit node" ops
+        match
+            ChangeValidation.applyOps
+                ops { graph = model.graph; eventId = model.eventId }
+        with
+        | ApplyResult.Changed next ->
+            let sync, effects =
+                SyncPlanner.enqueuePending
+                    event model.eventId model.syncInfo
+            { model with
+                graph = next.graph
+                mode = Selecting
+                syncInfo = sync },
+            effects
+        | other -> failwith $"expected Changed, got %A{other}"
+    let ran, effects =
+        RunEditCommit.afterEditCommit commit selected (fun committed commitEffects ->
+            match committed.selectedNodes with
+            | None -> failwith "expected selection"
+            | Some sel ->
+                let focus =
+                    ViewModelSelection.focusedNodeId committed.graph sel
+                match
+                    CommandRequest.tryQueryStart
+                        committed.graph
+                        committed.siteMap
+                        committed.zoomRoot
+                        focus
+                        committed.eventId
+                with
+                | None -> failwith "expected query start"
+                | Some request ->
+                    let syncInfo, queued =
+                        RunLaunch.queueStart
+                            request
+                            committed.eventId
+                            committed.syncInfo
+                            commitEffects
+                    { committed with syncInfo = syncInfo }, queued)
+    match ran.syncInfo.pending with
+    | [ edit; start ] ->
+        match edit.body, start.body with
+        | EventBody.Change _, EventBody.ActorStart request ->
+            Assert.Equal(focusId, request.commandId)
+            Assert.Equal(focusId, request.focusId)
+        | _ -> failwith "expected Change then ActorStart"
+    | other -> failwith $"expected two pending, got %A{other}"
+    let batches =
+        effects
+        |> List.choose (function
+            | SubmitPendingBatch (_, events) -> Some events
+            | _ -> None)
+    Assert.Equal<Ev list list>([ ran.syncInfo.pending ], batches)
+
+[<Fact>]
 let ``Cancel queues behind an edit and does not post a side channel`` () =
     let model = editingCommandModel ()
     let focusId =

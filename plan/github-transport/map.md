@@ -26,6 +26,8 @@ Prior spec [[plan/workspace-git/project.md]] is not this home. Do not inherit th
 
 2026-09-28 — Alan lock: Core alone knows where files reside. Everyone else has a relative path. One hardened control point. Cross-cutting home: [[plan/transport-layer/map.md]]. This Project uses relative paths; it does not hold file residence.
 
+2026-10-09 — git Load on the life Workspace ran two whole-workspace reconciles and the app was stopped. Alan's trial is one fix per step. The tickets, in trial order: [28 — Stop enqueueing nodes just marked Unparsed](issues/28-stop-enqueueing-nodes-just-marked-unparsed.md) (`done`), [23 — Directory or File Load posts to the parse stack](issues/23-directory-file-load-parse-stack.md) (`defined`), [21 — Git Load posts the Workspace](issues/21-git-load-posts-workspace.md) (`defined`), [22 — Drop the Browser git Load after-step](issues/22-drop-browser-git-load-after-step.md) (`defined`), [24 — Load and Save on the events list](issues/24-load-save-on-events.md) (`defined`), [25 — Pace server functions](issues/25-pace-server-functions.md) (`defined`), [27 — Field test the Load trial sequence](issues/27-field-test-the-load-trial-sequence.md) (`defined`), [26 — Revisit WebDAV parse](issues/26-revisit-webdav-parse.md) (`needs-info`). Re-enable stays [08 — Re-enable recursive update: enqueue on MarkUnparsed](../parse-thread/issues/08-re-enable-recursive-update-enqueue-on-markunparsed.md) and is not this map. Home stays this Project. The reconcile body stays [[plan/parse-thread/project.md]]. The inform doors stay [[plan/core-refinement/project.md]]. `requeueOnUnparsed` stays false through this trial.
+
 Skills: [[.agents/skills/wayfinder/SKILL.md]], [[.agents/skills/grilling/SKILL.md]], [[.agents/skills/domain-modeling/SKILL.md]], [[.agents/skills/project-work/SKILL.md]].
 
 ## 3. Decisions so far
@@ -51,7 +53,8 @@ Skills: [[.agents/skills/wayfinder/SKILL.md]], [[.agents/skills/grilling/SKILL.m
 
 ## 4. Not yet specified
 
-None for transport mechanics. Core handoff detail: [[plan/core-refinement/map.md]].
+1. **Transport mechanics** — None open. Core handoff detail: [[plan/core-refinement/map.md]].
+2. **WebDAV client parse** — Which Desktop parse callers go is open. Questions: [26 — Revisit WebDAV parse](issues/26-revisit-webdav-parse.md). Status `needs-info`. WebDAV transit stays.
 
 ## 5. Out of scope
 

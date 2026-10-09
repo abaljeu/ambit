@@ -1,14 +1,15 @@
 ---
 name: code-review
-description: Review working-tree changes vs HEAD (or a user-named fixed point when given) along Standards and Spec axes. Spec comes from local plan/ paths. Use when the user wants to review a branch, work-in-progress changes, or asks to "review since X".
+description: Review working-tree changes vs HEAD (or a user-named fixed point when given) along Standards, Spec, and binding arch. Spec comes from local plan/ paths. Use when the user wants to review a branch, work-in-progress changes, or asks to "review since X".
 ---
 
-Two-axis review of a working-tree or tip diff:
+Review of a working-tree or tip diff:
 
 - **Standards** — does the code conform to this repo's documented coding standards?
 - **Spec** — does the code faithfully implement the originating issue / PRD / spec?
+- **Arch** — does the diff obey each binding `arch.md` rule it touches?
 
-Both axes run as **parallel sub-agents** so they don't pollute each other's context, then this skill aggregates their findings.
+The three passes run as **parallel sub-agents** so they don't pollute each other's context, then this skill aggregates their findings.
 
 Issue tracker: [[doc/agents/issue-tracker.md]] (local `plan/`). Git: [[.agents/skills/git-protocol/SKILL.md]].
 
@@ -52,9 +53,13 @@ Live coding standards for this repo live under [[.agents/rules/]]: [[.agents/rul
 
 The Standards axis also always carries the smell baseline in [[SMELLS.md]]. Done: the Standards prompt will list the rules paths plus [[SMELLS.md]].
 
-### 5. Spawn both sub-agents in parallel
+### 5. List binding arch
 
-Send a single message with two `Agent` tool calls. Use the `general-purpose` subagent for both.
+List the binding arch files for this diff. Use the discovery in [[.agents/skills/implement/SKILL.md]] step 2 on this diff. Read those files. Done: the Arch prompt lists those files, or it says no binding arch.
+
+### 6. Spawn the sub-agents in parallel
+
+Send a single message with three `Agent` tool calls. Use the `general-purpose` subagent for each. When Spec or Arch is skipped, spawn only the passes that run.
 
 **Standards sub-agent prompt** — include:
 
@@ -71,16 +76,24 @@ Send a single message with two `Agent` tool calls. Use the `general-purpose` sub
     (a) Requirements the spec asked for that are missing or partial. 
     (b) Behaviour in the diff that was not asked for (scope creep). 
     (c) Requirements that look implemented but where the implementation looks wrong. 
-    (d) Each global type or interface the diff adds or changes that the local spec did not name, focusing on the data, not functions.
+    (d) Each global type or interface the diff adds or changes that the local spec did not name, focusing on the data, not functions."
 
-If the spec is missing, skip the Spec sub-agent and note this in the final report. Done: Standards has been spawned; Spec has been spawned or skipped with "no spec available".
+If the spec is missing, skip the Spec sub-agent and note this in the final report.
 
-### 6. Aggregate
+**Arch sub-agent prompt** — include:
 
-Make a report file under a Project path (`plan/<slug>/reports/…`) per [[doc/agents/issue-tracker.md]] Conventions. Do not write the report directly under `plan/`. Present the two reports under `## Standards` and `## Spec` headings. Keep findings only. If an axis has no findings, keep its one line. Keep the axes separate: do not merge or rerank findings, and do not pick a single winner across axes.
+- The same diff command (and commit list if any).
+- The binding arch file list from step 5, or `no binding arch`.
+- The brief: "Report only findings. Check each relevant rule in the binding arch files. A break is a blocker. Name the arch file, the section, and the code location. When no arch.md binds this diff, one line: no binding arch. When every touched rule holds, one line."
 
-End with a one-line summary: total findings per axis, and the worst issue _within each axis_ (if any). Done: the report file exists with both headings and the one-line totals.
+When no arch.md binds this diff, skip the Arch sub-agent and note that in the final report. Done: Standards has been spawned; Spec has been spawned or skipped with "no spec available"; Arch has been spawned or skipped with "no binding arch".
 
-### 7. Ticket Status
+### 7. Aggregate
+
+Make a report file under a Project path (`plan/<slug>/reports/…`) per [[doc/agents/issue-tracker.md]] Conventions. Do not write the report directly under `plan/`. Present the three reports under `## Standards`, `## Spec`, and `## Arch` headings. Keep findings only. An Arch finding is a blocker and names the arch file, the section, and the code location. If an axis has no findings, keep its one line. Keep the axes separate: do not merge or rerank findings, and do not pick a single winner across axes.
+
+End with a one-line summary: total findings per axis, and the worst issue _within each axis_ (if any). Done: the report file exists with all three headings and the one-line totals.
+
+### 8. Ticket Status
 
 A report is not approval. Leave `coded` unless the user approves the review for a named ticket. Then set that ticket `**Status:** done` ([[doc/agents/triage-labels.md]]). Do not rewrite a legacy Status on a ticket you did not set to `coded`. Done: Status is `done` only after that approval; otherwise Status is unchanged.
