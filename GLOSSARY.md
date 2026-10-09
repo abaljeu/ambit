@@ -374,3 +374,18 @@ These terms are permitted with standard definition:
 - **Marker** (for `.amb` Directory/Workspace documents, or “marker-only” cold bootstrap) — deprecated; say **Directory File**
 - **Peer** - as in peer actor.  The adjective is not descriptive.
 - **Piece** and **Slice** as names for git commit granularity — say what the commits are: ordinary commits on `dev`, one squashed merge per commit on `master`. The separate `plan/` sense of slice (an implementation increment) is unaffected.
+
+## Banned phrasings
+
+The standards scan reads this table. The match is case-insensitive.
+
+| Phrase | Preferred wording |
+| --- | --- |
+| sends a command | A person invokes a Command. A Command is not sent. |
+| send commands | A person invokes Commands. A Command is not sent. |
+| command is sent | A person invokes a Command. A Command is not sent. |
+| posts a Node | The mailbox posts an Event. |
+| posts nodes | The mailbox posts Events. |
+| node sends | A Node does not send a message, a Command, or an Event. |
+| nodes send | A Node does not send a message, a Command, or an Event. |
+| Load sends an event | Load sends a core message, not a Command or an Event. |
