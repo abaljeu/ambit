@@ -73,6 +73,7 @@
     <Compile Include="ApiPostLoadTests.fs" />
     <Compile Include="BrowserResidencyClientTests.fs" />
     <Compile Include="LoadSaveCommandClientTests.fs" />
+    <Compile Include="DeskLoadParseStackTests.fs" />
     <Compile Include="LoadSaveCommandTests.fs" />
     <Compile Include="OrderedEventStreamTests.fs" />
     <Compile Include="ApiPostCommandTests.fs" />

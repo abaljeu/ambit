@@ -54,7 +54,10 @@
     <Compile Include="RunAgentActor.fs" />
     <Compile Include="Core\CoreMsg.fs" />
     <Compile Include="Core\CoreEventDispatch.fs" />
-    <Compile Include="Core\CoreMailboxBackend.fs" />
+    <Compile Include="Core\DeskLoadPush.fs" />
+    <Compile Include="Core\CoreMailboxEvents.fs" />
+    <Compile Include="Core\CoreMailboxActors.fs" />
+    <Compile Include="Core\CoreMailboxLoad.fs" />
     <Compile Include="Core\MailboxHost.fs" />
     <Compile Include="Core\PersistCollectors.fs" />
     <Compile Include="Core\PersistThread.fs" />

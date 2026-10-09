@@ -82,7 +82,7 @@ Deltas only. Hello / Actor-pool modules do not change.
    3. Uses
       1. [ ] Ev
       2. [ ] EventId
-5. **CoreMailbox** — [[src/Server/Core/CoreMailbox.fs]] / [[src/Server/Core/CoreMsg.fs]] / [[src/Server/Core/CoreMailboxBackend.fs]]
+5. **CoreMailbox** — [[src/Server/Core/CoreMailbox.fs]] / [[src/Server/Core/CoreMsg.fs]] / [[src/Server/Core/CoreMailboxEvents.fs]] / [[src/Server/Core/CoreMailboxActors.fs]] / [[src/Server/Core/CoreMailboxLoad.fs]]
    1. State
       1. [ ] EventLog ref (unchanged)
    2. Interface

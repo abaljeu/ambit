@@ -18,7 +18,9 @@ module LoadSaveRouting =
         (state: State)
         (request: LoadSaveCommandRequest)
         : Result<LoadSavePath, string> =
-        PathPick.resolve request.prePick (fun () ->
+        let choice =
+            LoadPathChoice.ofRequest request state.graph
+        PathPick.resolveCommand choice (fun () ->
             match
                 DocumentPersistPath.workspaceRootFor
                     dataDir

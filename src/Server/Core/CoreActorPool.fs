@@ -72,6 +72,12 @@ type CoreActorPool =
       deliver: string * string -> Result<unit, string>
       takeInbox: string -> Result<string list, string> }
 
+/// Pool, graph reader, and peer name for one Load or Save.
+type LoadSaveContext =
+    { pool: CoreActorPool
+      getState: unit -> Graph
+      peerName: PeerActorName }
+
 [<RequireQualifiedAccess>]
 module CoreActorPool =
 
@@ -265,17 +271,19 @@ module CoreActorPool =
                 putActorStart putLive request fullGraph actorFn
 
     let startLoadSaveCommand
-        (pool: CoreActorPool)
+        (run: LoadSaveContext)
         (path: LoadSavePath)
-        (peerName: PeerActorName)
+        (choice: LoadPathChoice)
         (request: LoadSaveCommandRequest)
-        (getState: unit -> Graph)
         : Result<Credential option, string>
         =
         match path with
         | LoadSavePath.Desk -> Ok None
         | LoadSavePath.Git ->
-            pool.startPeerActor peerName request.start getState
+            run.pool.startPeerActor
+                run.peerName
+                request.start
+                run.getState
             |> Result.map Some
 
     let private takePending (model: Model) secret =

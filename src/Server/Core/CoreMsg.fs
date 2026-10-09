@@ -44,7 +44,7 @@ type internal CoreMsg =
         caller: Caller *
         rootId: NodeId *
         AsyncReplyChannel<Result<unit, string>>
-    /// Parse-stack Load: subject must be a File node. Fast push only.
+    /// Parse-stack Load: subject is a Workspace, Directory, or File. Fast push only.
     | Load of
         caller: Caller *
         subject: NodeId *

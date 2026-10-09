@@ -133,6 +133,10 @@ _Avoid_: kids, subordinates, child list (as a synonym for the Children themselve
 The Emacs Action view of Change, Undo, and Redo Events. Not the server Event sequence.
 _Avoid_: History (as a module name), EventLog (for this view), the full Event sequence, audit log
 
+**Command**:
+A user operation a person invokes. A Command is not a message and is not sent.
+_Avoid_: event, core message, request payload
+
 **Core**:
 The Subsystem that owns persistent state (durable Graph and EventLog facts; file bytes and git of those files) and that manages the Actor pool. Persist algorithms stay outside and persist via Core API; Core owns open and write of the file. It does not own advanced logic (Parse algorithms, Graph↔document persist algorithms). Not the Solid core bar on [[plan/roadmap/epics/robust-outliner.md]].
 _Avoid_: kernel, Module (for this Subsystem), apply Module (as the name)
@@ -166,8 +170,8 @@ A user-facing command that downloads files from the Server. Not Fetch.
 _Avoid_: Fetch (for this command), pull (as the command name)
 
 **Event**:
-One durable record in EventLog. An Event is a Change, Undo, Redo, ActorStart, or ActorStop. Code name `Ev`. It carries the Command that produced it (`commandName`).
-_Avoid_: Action (when lifecycle Events are included), audit record, Change (for the record)
+One durable record in EventLog. An Event is a Change, Undo, Redo, ActorStart, or ActorStop. The mailbox posts an Event. Code name `Ev`. It carries the Command that produced it (`commandName`).
+_Avoid_: Action (when lifecycle Events are included), audit record, Change (for the record), Command (a Command is not an Event), a Node sending an Event
 
 **event id**:
 The unique ordered position of an Event in EventLog. The one serial type (`EventId`). Field, JSON key, and Core door follow this term (`eventId`, `getEventId`).
@@ -225,15 +229,15 @@ The machine and the setup the Server needs.
 _Avoid_: Server (for this machine)
 
 **Load**:
-A user-facing command that runs up to three operations in sequence: Upload, Parse, then Fetch. Often only one of the three applies for a given run. The final stage Fetches part of the Graph and also Polls updates.
-_Avoid_: Upload (for the command), Download (for this command), sync (for this command)
+A user-facing Command whose subject is one Workspace Node, Directory Node, or File Node. Nodes inside one File Node share that File Node as the single subject. Load sends a core message to the server, not a Command or an Event.
+_Avoid_: Upload (for the command), a sent command, a sent event, a Node that sends
 
 **Loaded**:
 A Node whose Children are present.
 _Avoid_: lazy, expanded, hydrated (for this meaning)
 
 **Node**:
-One addressable unit in a Graph, consisting of a Header and Children.
+One addressable unit in a Graph, consisting of a Header and Children. A Node exists and has data. A Node does not send a message, a Command, or an Event.
 _Avoid_: item, bullet, line, row, entry
 
 **Normal**:

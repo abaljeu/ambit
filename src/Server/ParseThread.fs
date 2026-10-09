@@ -158,3 +158,27 @@ module ParseThread =
                 | Error err -> return Error err
                 | Ok state -> return Ok state.graph
             }
+
+    /// Builds the parse stack and starts the consumer. Callers do not receive push.
+    let bootCore (coreBoot: CoreBoot) : CoreRuntime =
+        let rawPush, consumer = ParseStack.create ()
+        let core, push = CoreRuntime.createPublishing coreBoot rawPush
+        let parseHandle =
+            CoreMailbox.coreChanges core.host core.parseCaller
+        start
+            { dataDir = coreBoot.DataDir
+              consumer = consumer
+              push = push
+              getGraph = graphFromHost core.host
+              postOps = postParseOps parseHandle
+              markUnparsed =
+                fun nodeId ->
+                    CoreMailbox.addInMsg
+                        core.host
+                        (InMsg.MarkUnparsed nodeId)
+              finishParse =
+                fun nodeId ->
+                    CoreMailbox.addInMsg
+                        core.host
+                        (InMsg.ParseFinished nodeId) }
+        core

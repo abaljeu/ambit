@@ -136,7 +136,7 @@ module FileAgent =
                 | ApplyResult.Changed s' ->
                     let nextState = { s' with eventId = event.id }
                     let applied =
-                        CoreMailboxBackend.withAppliedOps event appliedOps
+                        CoreMailboxEvents.withAppliedOps event appliedOps
                     Ok(
                         nextState,
                         applied :: confirmations,
@@ -198,7 +198,7 @@ module FileAgent =
                 stamped.message
             | None -> [], newState.graph, None
         let stampedFresh, ackEvents =
-            CoreMailboxBackend.overlayFreshEvents
+            CoreMailboxEvents.overlayFreshEvents
                 confirmations
                 fresh
                 stampOps

@@ -232,8 +232,16 @@ let private requestFor operation prePick seed =
               seed.focusId ]
           eventId = seed.eventId } }
 
-let private postRouted operation prePick harness = task {
-    let command = requestFor operation prePick harness.seed
+let private requestForFocus operation prePick seed focusId =
+    let command = requestFor operation prePick seed
+    { command with
+        start =
+            { command.start with
+                zoomId = focusId
+                focusId = focusId } }
+
+let private postRoutedFocus operation prePick focusId harness = task {
+    let command = requestForFocus operation prePick harness.seed focusId
     let! result =
         Api.postLoadSaveCommand
             (productionRouter harness)
@@ -244,6 +252,9 @@ let private postRouted operation prePick harness = task {
     Assert.Equal(LoadSavePath.Git, response.path)
     Assert.True(Option.isSome response.command)
 }
+
+let private postRouted operation prePick harness =
+    postRoutedFocus operation prePick harness.seed.focusId harness
 
 let rec private waitForStopUntil
     host
@@ -355,7 +366,11 @@ let private routeMatrixHarness operation operationName =
 let private routeMatrixRouter host operation =
     { resolvePath =
         fun _ command ->
-            PathPick.resolve command.prePick (fun () -> Result.Ok true)
+            PathPick.resolveCommand
+                { operation = command.operation
+                  prePick = command.prePick
+                  subject = Some LoadSubject.Directory }
+                (fun () -> Result.Ok true)
       startCommand =
         fun path command ->
             CoreMailbox.startLoadSaveCommand
@@ -382,7 +397,6 @@ let private prePickFromName =
 
 [<Theory>]
 [<InlineData("load", "git")>]
-[<InlineData("load", "plain")>]
 [<InlineData("save", "git")>]
 [<InlineData("save", "plain")>]
 let ``every Git choice starts the Server Peer Actor``
@@ -410,6 +424,29 @@ let ``every Git choice starts the Server Peer Actor``
     finally
         CoreMailbox.dispose host
 }
+
+[<Fact>]
+let ``plain Load of a non-Workspace returns Desk when a remote exists`` () =
+    task {
+        let operation = LoadSaveOperation.Load
+        let host, seed, started =
+            routeMatrixHarness operation "load"
+        try
+            let command =
+                requestFor operation LoadSavePrePick.Plain seed
+            let! result =
+                Api.postLoadSaveCommand
+                    (routeMatrixRouter host operation)
+                    (CoreMailbox.coreChanges host testCaller)
+                    (encodeRequest command)
+                |> Async.StartAsTask
+            let response = requireResponse result
+            Assert.Equal(LoadSavePath.Desk, response.path)
+            Assert.True(response.command.IsNone)
+            Assert.False(started.Task.IsCompleted)
+        finally
+            CoreMailbox.dispose host
+    }
 
 [<SkippableFact>]
 let ``routed Git Save commits then pushes through Peer Actor`` () = task {
@@ -449,20 +486,25 @@ let ``routed Git Load pulls and Poll sees Parse lifecycle`` () = task {
             "remote-change"
         git harness.source "push origin main" |> ignore
         do!
-            postRouted
+            postRoutedFocus
                 LoadSaveOperation.Load
                 LoadSavePrePick.Plain
+                harness.seed.workspaceId
                 harness
         let! stopped =
-            waitForStop harness.host harness.seed.focusId
+            waitForStop harness.host harness.seed.workspaceId
         Assert.Equal(Some ActorSucceeded, stopped)
         Assert.Equal(
             "pulled",
             File.ReadAllText(
                 Path.Combine(harness.workspace, "from-remote.txt")))
         let! poll = pollSince harness
-        Assert.Contains(poll.events, hasActorStart harness.seed.focusId)
-        Assert.Contains(poll.events, hasActorStop harness.seed.focusId)
+        Assert.Contains(
+            poll.events,
+            hasActorStart harness.seed.workspaceId)
+        Assert.Contains(
+            poll.events,
+            hasActorStop harness.seed.workspaceId)
         Assert.Contains(poll.events, isParseChange)
     finally
         CoreMailbox.dispose harness.host
@@ -555,6 +597,53 @@ let ``git Load reflects a staging checkout already fetched`` () = task {
     finally
         CoreMailbox.dispose host
 }
+
+[<SkippableFact>]
+let ``plain Load of a File or Directory stays Desk when a remote exists`` () =
+    task {
+        Skip.IfNot(DesktopGit.isAvailable(), "git not on PATH")
+        let harness = createGitHarness "load"
+        try
+            let graph = readGraph harness.host
+            let fileId, fileOps =
+                FileNodeOps.planCreateOwnedFile
+                    graph
+                    harness.seed.workspaceId
+                    "note.txt"
+            postChange harness.host fileOps
+            let graph = readGraph harness.host
+            let dirId, dirOps =
+                FileNodeOps.planCreateOwnedDirectory
+                    graph
+                    harness.seed.workspaceId
+                    "docs"
+            postChange harness.host dirOps
+            for focusId in [ fileId; dirId ] do
+                let command =
+                    requestForFocus
+                        LoadSaveOperation.Load
+                        LoadSavePrePick.Plain
+                        harness.seed
+                        focusId
+                let! result =
+                    Api.postLoadSaveCommand
+                        (productionRouter harness)
+                        (CoreMailbox.coreChanges
+                            harness.host
+                            testCaller)
+                        (encodeRequest command)
+                    |> Async.StartAsTask
+                let response = requireResponse result
+                Assert.Equal(LoadSavePath.Desk, response.path)
+                Assert.True(response.command.IsNone)
+            let! history =
+                CoreMailbox.eventHistory harness.host
+                |> Async.StartAsTask
+            Assert.DoesNotContain(history.events, hasActorStart fileId)
+            Assert.DoesNotContain(history.events, hasActorStart dirId)
+        finally
+            CoreMailbox.dispose harness.host
+    }
 
 [<SkippableFact>]
 let ``git Load on a file parses that file`` () = task {
