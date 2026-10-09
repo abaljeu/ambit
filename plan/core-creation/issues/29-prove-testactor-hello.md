@@ -1,12 +1,15 @@
 # 29 — Prove TestActor hello
 
-**Status:** ready-for-agent
-**Blocked by:** none — Point 0 ([[32-move-persist-agents-under-coremailbox.md]] and prior) is done. Sections 1ff are not implemented.
+**Type:** coding
+**Status:** done
+**Blocked by:** None. Status `done`. Do not implement from this file.
 Actual: 5h
 
 ## Context
 
-Core can already apply a Change from a test Actor through the produce path. [[plan/core-creation/issues/01-generalized-server-actor-produce-path.md]], [[plan/core-creation/issues/12-define-actor-pool-shutdown-behavior.md]], and [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] are done. The eight Phase 2 items name pieces of that program; they are not this increment. A first proof must use the existing Browser Run path, launch TestActor through the public Core path (`StartActor`), and show one successful hello from outside.
+Status is `done`. Acceptance is closed by [34b — Outside Core lifecycle proof](34b-outside-core-lifecycle-proof.md) and [35b — Browser Run hello](35b-browser-run-hello.md).
+
+Core can already apply a Change from a test Actor through the produce path. [[plan/core-creation/issues/01-generalized-server-actor-produce-path.md]], [[plan/core-creation/issues/12-define-actor-pool-shutdown-behavior.md]], and [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]] are done. The eight Phase 2 items name pieces of that program; they are not this increment. A first proof used the Browser Run path.
 
 Architecture (Story paths, Module map, Seams): [[plan/core-creation/arch.md|Core creation architecture]]. This ticket holds acceptance for the hello tracer; do not restate Module map Interface here.
 

@@ -3,9 +3,12 @@
 **Type:** task
 **Status:** defined
 **Blocked by:** [[plan/core-creation/issues/27-prove-core-actor-lifecycle-with-testactor.md]]
+**Implement home:** [16 — Pointer: Drain Actor lifecycle on host stop](../../core-refinement/issues/16-pointer-drain-actor-lifecycle-on-host-stop.md). Do not chart or implement from this file.
 Actual: 10m
 
 ## Context
+
+Host-stop drain is still open on [16 — Pointer: Drain Actor lifecycle on host stop](../../core-refinement/issues/16-pointer-drain-actor-lifecycle-on-host-stop.md).
 
 Host shutdown is Actor lifecycle work, not Database availability policy. It follows the terminal and recovery model in [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]]. Implement it after the current mailbox, cancellation, and shared-drop redo.
 

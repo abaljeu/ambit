@@ -2,7 +2,9 @@
 
 **Context:** Core owns Actor pool machinery. Actor definitions stay outside Core.
 
-**What to build:** Rebuild the provider-neutral Actor pool locked by [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]]. One Core mailbox owns registry and admission. TaskPool runs and terminates Actors without waiting. See [[doc/Decisions/0004-core-mailbox-messages-clear-fast.md]]. Rebuild the discarded second-pool-mailbox shape. Do not wrap-patch it.
+**What to build:** History. Status `defined`. Implement from [08 — Pointer: Core Actor pool](../../core-refinement/issues/08-pointer-core-actor-pool.md). Do not implement the boxes below.
+
+Rebuild the provider-neutral Actor pool locked by [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]]. One Core mailbox owns registry and admission. TaskPool runs and terminates Actors without waiting. See [[doc/Decisions/0004-core-mailbox-messages-clear-fast.md]]. Rebuild the discarded second-pool-mailbox shape. Do not wrap-patch it.
 
 Launch and query exist on a discarded second pool mailbox. Rebuild the shape.
 
@@ -10,7 +12,9 @@ Launch and query exist on a discarded second pool mailbox. Rebuild the shape.
 
 **See also:** [[plan/core-creation/project.md]], [[plan/core-creation/reports/kernel-fsproj.md]], [[plan/event-sourced-ops/details/actors-and-jobs.md]], [[plan/event-sourced-ops/issues/09-job-identity-with-advisory-soft-lock.md]]. Look up Actors this way: [function-shaped start](../../actor-as-client/function-shaped-start.md).
 
-**Status:** ready-for-agent
+**Type:** coding
+**Status:** defined
+**Implement home:** [08 — Pointer: Core Actor pool](../../core-refinement/issues/08-pointer-core-actor-pool.md). Do not chart or implement from this file.
 Actual: 25m
 
 - [ ] Launch does not hold the mailbox while the Actor runs. Registration is [[15-launch-actor-and-hold-span.md]].
