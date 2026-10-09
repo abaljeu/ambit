@@ -3,7 +3,7 @@
 **Status:** `defined`
 **Type:** coding
 **Blocked by:** [24 — Load and Save on the events list](24-load-save-on-events.md)
-**Trial step:** 6. Trial step 7 is field testing and has no ticket. Next ticket: [26 — Revisit WebDAV parse](26-revisit-webdav-parse.md), after that testing.
+**Trial step:** 6. Next: [27 — Field test the Load trial sequence](27-field-test-the-load-trial-sequence.md).
 
 **Binding arch:** [github-transport architecture](../arch.md), [core-refinement architecture](../../core-refinement/arch.md), [parse-thread architecture](../../parse-thread/arch.md).
 

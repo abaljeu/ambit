@@ -2,7 +2,7 @@
 
 **Status:** `needs-info`
 **Type:** grilling
-**Blocked by:** [25 — Pace server functions](25-pace-server-functions.md). Trial step 7 is field testing and has no ticket. Start this ticket after that testing.
+**Blocked by:** [27 — Field test the Load trial sequence](27-field-test-the-load-trial-sequence.md)
 **Trial step:** 8.
 
 **Binding arch:** [github-transport architecture](../arch.md), [core-refinement architecture](../../core-refinement/arch.md), [parse-thread architecture](../../parse-thread/arch.md).
