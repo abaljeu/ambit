@@ -78,6 +78,10 @@ Put the original request, the diff, and the skills this run used in the call sta
 
 **Facet table.** Put a facet table in the pull request body after Binding arch. This table replaces a single yes/no/unclear block. One row per facet. Each row shows the facet name, the axis, the winning label, and the percentiles. Percentiles are the per-option probabilities, the confidence, or both, when the tool returns them. The label alone is not the row. When a facet has no percentiles, write that absence in the row. Do not invent numbers. Do not add an overall yes/no line.
 
+<!-- Trial rule from Alan 2026-10-07. -->
+
+**Land bar.** After the facet table, score each Spec facet. Score each Standards facet that applies. For a Spec facet, multiply confidence by the probability of `met`. For a Standards facet, multiply confidence by the probability of `clean`. When any product is below 0.5, run [[.agents/skills/code-review/SKILL.md]] in full before you recommend land. The minimum run is the Spec axis of that skill. Do not squash-land while any product is below 0.5, unless Alan has accepted that review.
+
 A `missed` facet is a gap. A `blocker` facet is a gap. A `partial` facet or a `nit` facet that Alan should see is a gap. Surface each gap in the table. Do not squash-land until Alan accepts the gap or the gap is fixed.
 
-A connector failure is not a pass. Report the failure to Alan and leave the labels unset. Done: the pull request body has one row per facet with the winning label and the percentiles, or Alan has the connector failure. A gap blocks squash-land.
+A connector failure is not a pass. Report the failure to Alan and leave the labels unset. Done: the pull request body has one row per facet with the winning label and the percentiles, or Alan has the connector failure. A gap blocks squash-land. You have applied the land bar in this step.
