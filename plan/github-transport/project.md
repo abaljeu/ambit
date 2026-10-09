@@ -2,7 +2,7 @@
 
 Stage: build
 Summary: Server Actor pulls from and pushes to a Workspace GitHub remote (round-trip v1, fast-forward only). After [[plan/core-refinement/project.md]] is done, this Project only locks the workspace, receives the files, and informs the revised Core of changes; Core works through the updates. The App stays thin. Skip on that remote is whatever `.gitignore` already says.
-Updated: 2026-09-30
+Updated: 2026-10-09
 Started: 2026-09-27
 Actual: 10h45m
 
@@ -28,6 +28,7 @@ Actual: 10h45m
 - 2026-09-28 — Alan lock: Core alone knows where files reside. Everyone else has a relative path. One hardened control point. Map decision: [[map.md]]. Cross-cutting: [[plan/transport-layer/map.md]].
 - 2026-09-29 — [20 — State axes on special nodes](issues/20-state-axes-on-special-nodes.md) Status `done`. Alan accepted; squash-landed onto staging. Workspace, Directory, and File content nodes carry Parsed|Unparsed and Persisted|Unpersisted. A Directory File does not carry those axes. Further axis-migration steps stay on [[plan/core-refinement/arch.md]] §5. Stage stays `build`.
 - 2026-09-30 — Core seam sole authority is [[plan/core-refinement/project.md]] ([[plan/core-refinement/arch.md]]); this Project keeps transport-only mechanics and does not restate a parallel Core design.
+- 2026-10-09 — Trial tickets, one fix each. Step 1 is pull request [220](https://github.com/abaljeu/ambit/pull/220). Step 7 is field testing and has no ticket. [23 — Directory or File Load posts to the parse stack](issues/23-directory-file-load-parse-stack.md) Status `defined`. [21 — Git Load posts the Workspace](issues/21-git-load-posts-workspace.md) Status `defined`. [22 — Drop the Browser git Load after-step](issues/22-drop-browser-git-load-after-step.md) Status `defined`. [24 — Load and Save on the events list](issues/24-load-save-on-events.md) Status `defined`. [25 — Pace server functions](issues/25-pace-server-functions.md) Status `defined` (60% short window, 5% daily average). [26 — Revisit WebDAV parse](issues/26-revisit-webdav-parse.md) Status `needs-info`. `requeueOnUnparsed` stays false. Home stays this Project. Directory reconcile stays [[plan/parse-thread/project.md]]. The inform doors stay [[plan/core-refinement/project.md]]. Stage stays `build`.
 - Prior spec [[plan/workspace-git/project.md]] is not this home. That spec’s non-FF accept of non-overlapping edits is not this Destination.
 - Map: [[map.md]]. Spec: [[spec.md]]. Arch: [[arch.md]].
 - 2026-09-27 — [13 — Run git Load and Save through the Server Peer Actor](issues/13-actor-runs-git-load-save.md) coded. A peer-only mailbox/pool door keeps git Load/Save outside Run and `?git`; the Server Peer Actor resolves Focus to the Workspace work tree, runs the gated tracked-branch operation, and continues Load through Parse reconciliation.
