@@ -210,8 +210,15 @@ let ``ParseThread loop runs planParseFile for stacked File`` () =
             CoreMailbox.dispose host
     }
 
+// requeueOnUnparsed is false in ParseThread. A disk-newer file is still
+// marked Unparsed. It is not added to the Parse queue, so its text does
+// not land. Queue processing is currently wrong. It caused a
+// whole-workspace reconcile that exceeded the Azure Free plan CPU quota:
+// 60% short-window, 5% daily average. This is not a decision to drop the
+// requeue step. Re-enable once queue processing is fixed (pending
+// github-transport Load ticket: move Load onto a paced Parse thread).
 [<Fact>]
-let ``disk-newer file text lands after directory reconcile`` () =
+let ``disk-newer file stays Unparsed and is not requeued`` () =
     task {
         let dataDir = newTempDir ()
         let push, consumer = ParseStack.create ()
@@ -262,13 +269,35 @@ let ``disk-newer file text lands after directory reconcile`` () =
             File.WriteAllText(diskPath, "NEWER\n")
             File.SetLastWriteTimeUtc(diskPath, DateTime.UtcNow)
             push dirId
-            let! landed =
+            let! marked =
                 waitUntil
-                    (fun () -> graphHasText host fileId "NEWER")
+                    (fun () ->
+                        match
+                            CoreMailbox.getState host
+                            |> Async.RunSynchronously
+                        with
+                        | Error _ -> false
+                        | Ok state ->
+                            let node = state.graph.nodes.[fileId]
+                            node.parseState = ParseState.Unparsed)
                     2000
+            Assert.True(marked, "disk-newer file should be Unparsed")
+            do! Task.Delay 400
+            let stillUnparsed =
+                match
+                    CoreMailbox.getState host
+                    |> Async.RunSynchronously
+                with
+                | Error _ -> false
+                | Ok state ->
+                    let node = state.graph.nodes.[fileId]
+                    node.parseState = ParseState.Unparsed
             Assert.True(
-                landed,
-                "disk-newer file should parse into the graph")
+                stillUnparsed,
+                "requeue is disabled; file stays Unparsed")
+            Assert.False(
+                graphHasText host fileId "NEWER",
+                "requeue is disabled; disk text is not parsed")
         finally
             CoreMailbox.dispose host
     }
