@@ -47,3 +47,42 @@ module SearchActor =
               zoomRoot = graph.root
               graph = graph
               matchKey = SearchPicture.matchKeyOf request }
+
+    /// The command Node on the server Graph is a query line.
+    let isQueryRequest (graph: Graph) (request: ActorStart) =
+        match Map.tryFind request.commandId graph.nodes with
+        | None -> false
+        | Some node -> CommandRequest.isQueryText node.text
+
+    let private actorCaller (secret: Credential) : Caller =
+        { authority = Authority "Actor"
+          name = ""
+          secret = secret }
+
+    /// One eval on the carrier Graph. `graphIds` do not select that Graph.
+    let private queryIds (getGraph: unit -> Graph) (lineId: NodeId) =
+        let graph = getGraph ()
+        match Map.tryFind lineId graph.nodes with
+        | None -> []
+        | Some node -> ExprRun.answerNodeIds lineId graph node.text
+
+    /// Query Actor body. ActorStop carries the Node ids. It does not use
+    /// the Find walk.
+    let functionStart
+        (request: ActorStart)
+        (getGraph: GraphCarrier)
+        : FunctionStart =
+        let lineId = request.commandId
+        { actor =
+            fun run changes ->
+                async {
+                    let result = ActorQuery (queryIds run.getGraph lineId)
+                    let! _ =
+                        changes
+                            .asCaller(actorCaller run.secret)
+                            .actorStop result
+                    return ()
+                }
+          getGraph = getGraph
+          focusId = request.focusId
+          commandId = request.commandId }

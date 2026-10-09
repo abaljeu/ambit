@@ -122,7 +122,8 @@ module CoreActorPool =
         match result with
         | ActorSucceeded
         | ActorFailed _
-        | ActorCancelled ->
+        | ActorCancelled
+        | ActorQuery _ ->
             runDrop takeLive secret
             Ok ()
 
