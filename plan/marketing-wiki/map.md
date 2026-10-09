@@ -4,7 +4,7 @@ Labels: wayfinder:map
 
 ## Destination
 
-A GitLab-level browsable wiki that describes uses of Gambol (who it is for, what jobs it does, example situations). Not a campaign: no ads, no launch plan, no funnel.
+A GitLab-level browsable wiki that describes uses of Ambit (who it is for, what jobs it does, example situations). Not a campaign: no ads, no launch plan, no funnel.
 
 ## Notes
 
