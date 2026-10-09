@@ -4,9 +4,7 @@
 
 This folder explains how to operate Ambit. The lead document is [End-user wiki](README.md). No details, only overview and links.
 
-Most of the product is [Concepts](guide/concepts.md).
-
-The Guide gives high-level concepts and general usage patterns. Reference is the detail of every behavior, and the detail of every command.
+[Concepts](guide/concepts.md) is the complete big picture. The Guide guides. [Reference](reference/README.md) expands those concepts with detail. Feature has its ordinary software meaning. Why to use Ambit is marketing. This work does not cover that.
 
 The wiki uses concepts as the user sees them, and tasks in the App and in the Browser.
 
@@ -16,7 +14,7 @@ These documents should not be complicated, and they should not lie about complex
 
 ## 2. Goals
 
-The Guide is the lead path. Reference is detail. Explanation is secondary.
+Explanation is secondary.
 
 One subject is one page, and the home links that page. When the App and the Browser do the same task, that task is one description.
 
@@ -50,10 +48,9 @@ A subject page has one category.
 
 Omit a topic that has nothing to say.
 
-1. **Concept.** The topics are Meaning and Parts. A Concept page lives in the Guide.
-2. **Pattern.** The topics are Situation and Steps. A Pattern page lives in the Guide.
-3. **Command.** The topics are Effect and Form. A command and a config item use this category. A Command page lives in Reference.
-4. **Format.** The topics are Shape and Rules. A language and a document format use this category. A Format page lives in Reference.
+1. **Concept.** The page abstracts the product.
+2. **Guide.** The page guides a task.
+3. **Reference.** The page defines a feature.
 
 ## 4. Subject page
 
@@ -70,12 +67,13 @@ There is no Sources section. There is no Where section. The page does not name s
 
 ## 5. Kinds
 
-These four kinds are not page categories and are not sections on the home.
+These kinds are not page categories and are not sections on the home.
 
 1. **Context.** Context is this file.
-2. **Guide.** The Guide is [Guide](guide/README.md).
-3. **Reference.** Reference is [Reference](reference/README.md).
-4. **Architecture page.** An architecture page is a page under [doc/current/](../current/). A link to one is optional. Dependence on one is forbidden.
+2. **Concepts.** Concepts is [Concepts](guide/concepts.md).
+3. **Guide.** The Guide is [Guide](guide/README.md).
+4. **Reference.** Reference is [Reference](reference/README.md).
+5. **Architecture page.** An architecture page is a page under [doc/current/](../current/). A link to one is optional. Dependence on one is forbidden.
 
 ## 6. Status claims
 
@@ -85,13 +83,11 @@ A page says how to operate the software now. A page does not say what the progra
 
 ## 7. Out of scope
 
-1. **How it is built and run.** [Architecture](../current/architecture.md). A link is allowed. Dependence is forbidden.
+1. **How it is built and run.** [Architecture](../current/architecture.md). This subject has no link. Dependence on an architecture page is forbidden.
 2. **Work.** plan/. This wiki does not describe the work of changing the program.
-3. **Agent glossary.** [GLOSSARY.md](../../GLOSSARY.md) is for agents. This wiki uses the user's words.
+3. **Agent glossary.** [GLOSSARY.md](../../GLOSSARY.md) is architecture-level. This wiki uses the user's words.
 4. **Committed Decision.** [Decisions](../Decisions/). Do not copy a decision. When the user needs the rule, write the user-visible rule on the page.
 
 ## 8. Pages outside this folder
 
-Engineer pages may still hold a fact that belongs here in the user's words. Which of those pages are linked, and which are rewritten, is not chosen.
-
-Until that choice, write the user page so it stands alone.
+A subject is in scope when [Concepts](guide/concepts.md) or [Reference](reference/README.md) names it. Link the doc page for that subject. An out-of-scope subject has no link. Rewrite that page into Reference when the detail is needed. The user page still stands alone.

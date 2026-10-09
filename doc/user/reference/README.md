@@ -1,7 +1,8 @@
 # Reference
 
-Every concept and statement about the product should have a singular home wdthin the reference.
+Reference expands a concept with detail. The big picture stays in Concepts.
 
+- [Actor](actor.md)
 - [Commands](commands.md)
 - [Config](config.md)
 - [Amble Language](amble-language.md)

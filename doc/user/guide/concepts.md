@@ -5,4 +5,5 @@
 - [File Mapping](file-mapping.md)
 - [Workspaces](workspaces.md)
 - [Query Language](query-language.md)
-- [AI Actors](ai-actors.md)
+- [Actor](actor.md)
+- [AI](ai.md)

@@ -84,16 +84,16 @@ A Core-managed execution thread for a specific long-running task. Its public ide
 _Avoid_: Agent, job, task, Peer Actor, Server Actor
 
 **Agent**:
-An external LLM-empowered worker a connector talks to (for example Cursor Cloud Agents). Not an Ambit Actor.
-_Avoid_: Actor (for this counterpart), AI (as this name — AI is the Ambit Actor), Ask, bot, copilot, assistant (as the glossary name), Grok (as this name)
+An external worker that an AI Actor runs. Not an Ambit Actor. Cursor is the name of one Agent.
+_Avoid_: Actor (for this counterpart), AI (as this name — AI is a type of Actor), AI Agent (as this name), Ask, bot, copilot, assistant (as the glossary name), Grok (as this name), Cursor Cloud Agents (as this name)
 
 **Agentic**:
 Pertaining to an Agent (the external LLM worker) or to AI Actor work that uses one.
 _Avoid_: using Agentic for Sync, Upload, or a long-running job; Ask
 
 **AI**:
-The Ambit Actor that invokes an LLM Agent. Command spelling is `?ai` plus optional keyname and options. Spoken and UI wording use AI (for example "Run: AI started."). It is not named Ask.
-_Avoid_: Ask (as this Actor or command name), Agent (as this Actor's name), Run Ask
+A type of Actor. This Actor runs Agents. Command spelling is `?ai` plus optional keyname and options. Spoken and UI wording use AI (for example "Run: AI started."). It is not named Ask.
+_Avoid_: Ask (as this Actor or command name), Agent (as this Actor's name), AI Agent (as this name), Run Ask
 
 **Ambit**: The name of the SaaS.  Gambol is the name of the repo on this computer, but not a front facing name.
 **Amble**: Ambit's Embedded query Language.
@@ -140,6 +140,10 @@ _Avoid_: kernel, Module (for this Subsystem), apply Module (as the name)
 **Core API**:
 The four-call Interface of Core: Files, Changes, Query, Command. Files is send, get, and git of file bytes; Core owns the open and write. Persist algorithms do not open the file themselves. inner apply is the Changes path that applies a Change. Advanced logic and Actor definitions work to this Interface. Not the web API.
 _Avoid_: web API, REST, `/ambit` (those are HTTP Adapters that may call Core API)
+
+**Cursor**:
+The name of one Agent.
+_Avoid_: Cursor Cloud Agents (as this name), AI Agent (as this name)
 
 **Directory File**:
 The `.amb` document that belongs to a Directory Node or Workspace Node (root `.amb` or `DirName/.amb`). It is that node's document artifact, not a File Node child. The `.amb` format can hold a total graph. The program does not use it for the whole graph. Cold bootstrap that reads only Directory Files leaves other File Nodes Unparsed until Parse.

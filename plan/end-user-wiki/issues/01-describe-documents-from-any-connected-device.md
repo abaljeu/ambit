@@ -1,7 +1,7 @@
 # Describe documents from any connected device
 
 **Type:** task
-**Status:** needs-info
+**Status:** done
 Blocked by:
 
 ## Question
@@ -13,3 +13,10 @@ This how-to lands under the Guide. This ticket does not write that page.
 ## Comments
 
 - 2026-10-09: Alan. This how-to lands under the Guide. Do not write the page content in this ticket.
+- 2026-10-09 — Answer recorded from Alan.
+
+## Answer
+
+Alan, 2026-10-09.
+
+The Guide page is [Connecting your Documents](../../../doc/user/guide/connecting-your-documents.md). This ticket does not write the steps.

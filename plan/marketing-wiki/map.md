@@ -16,12 +16,12 @@ A GitLab-level browsable wiki that describes uses of Ambit (who it is for, what 
 
 - Uses, not a campaign.
 - Browsable at GitLab documentation quality, not a one-page pitch.
+- Why to use Ambit. The end-user wiki does not cover that. [06 — Boundary vs marketing wiki](../end-user-wiki/issues/06-boundary-vs-marketing-wiki.md). Alan, 2026-10-09.
 
 ## Not yet specified
 
 - Home: a `doc/` subtree, a GitLab wiki/Pages tree, in-app Graph content, or another browse tree.
 - First use pages besides documents from any connected device (that use is a child ticket).
-- Boundary vs End-user wiki (how-to vs why/where you would use it).
 
 ## Out of scope
 
