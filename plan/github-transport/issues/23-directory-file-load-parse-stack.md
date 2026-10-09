@@ -2,7 +2,7 @@
 
 **Status:** `defined`
 **Type:** coding
-**Blocked by:** Pull request [220 — Stop enqueueing nodes just marked Unparsed](https://github.com/abaljeu/ambit/pull/220) (trial step 1). That pull request has no local ticket. The re-enable ticket is on [parse-thread](../../parse-thread/project.md) and is not this sequence.
+**Blocked by:** [28 — Stop enqueueing nodes just marked Unparsed](28-stop-enqueueing-nodes-just-marked-unparsed.md)
 **Trial step:** 2. Next: [21 — Git Load posts the Workspace](21-git-load-posts-workspace.md).
 
 **Binding arch:** [github-transport architecture](../arch.md), [core-refinement architecture](../../core-refinement/arch.md), [parse-thread architecture](../../parse-thread/arch.md).
