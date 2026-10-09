@@ -17,9 +17,9 @@ What is in the end-user wiki vs [[plan/architecture/map.md]] (internals) vs [[pl
 
 Alan, 2026-10-09.
 
-The end-user wiki is how to operate Gambol. It uses concepts as the user sees them, and tasks in the App and in the Browser.
+The end-user wiki is how to operate Ambit. It uses concepts as the user sees them, and tasks in the App and in the Browser.
 
-Plan and architecture are how Gambol is built and run. That covers Actors, the event source, the HTTP contract, and storage.
+Plan and architecture are how Ambit is built and run. That covers Actors, the event source, the HTTP contract, and storage.
 
 User pages may link to architecture pages. User pages must not depend on architecture pages.
 
