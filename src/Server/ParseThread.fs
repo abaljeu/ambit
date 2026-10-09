@@ -40,9 +40,12 @@ module ParseThread =
         (push: NodeId -> unit)
         (ids: NodeId list)
         =
-        // Same hold as requeueOnUnparsed: Unparsed is still set by the
-        // caller. The Parse queue does not receive these ids until the
-        // flag above is true.
+        // Queue processing is currently wrong. It caused a whole-workspace
+        // reconcile that exceeded the Azure Free plan CPU quota: 60%
+        // short-window, 5% daily average. This is not a decision to drop
+        // the requeue step. Re-enable once queue processing is fixed
+        // (pending github-transport Load ticket: move Load onto a paced
+        // Parse thread). Unparsed is still set by the caller.
         if requeueOnUnparsed then
             ids |> List.iter push
 
