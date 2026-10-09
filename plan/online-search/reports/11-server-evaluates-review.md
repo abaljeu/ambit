@@ -1,6 +1,6 @@
-# Code review — 11 Server evaluates
+# Code review — Server evaluates
 
-Review of the working tree for [11 — Server evaluates](../issues/11-server-evaluates.md).
+Review of the working tree for [Server evaluates](../issues/11-server-evaluates.md).
 
 ## 1. Standards
 

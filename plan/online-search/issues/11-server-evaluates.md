@@ -46,7 +46,7 @@ The request is the existing Run [ActorStart](src/Shared/History.fs). [CommandReq
 
 ### 3. Door
 
-The door is Run on the ordered event list. [22 — One ordered event stream](../../single-event-source/issues/22-ordered-event-stream.md) removed `POST /ambit/command`, `POST /ambit/cancel`, and `SubmitCommand`. A `=` line queues its ActorStart on `syncInfo.pending` behind the edit. Find keeps `POST /ambit/search`.
+The door is Run on the ordered event list. [One ordered event stream](../../single-event-source/issues/22-ordered-event-stream.md) removed `POST /ambit/command`, `POST /ambit/cancel`, and `SubmitCommand`. A `=` line queues its ActorStart on `syncInfo.pending` behind the edit. Find keeps `POST /ambit/search`.
 
 1. [x] Local run today — [execRunOp](src/Client/Commands.fs) sees an Amble scan stop and calls [execAmbleRunOp](src/Client/Commands.fs). [CommandRequest.isAmbleScanStop](src/Shared/CommandRequest.fs) is that stop. Run on the query line is handled before that stop. A Focus under the line stays Amble.
 2. [x] Remote run — Run on a Node whose text contains `=` calls [RunLaunch.queueStart](src/Shared/RunLaunch.fs). That appends the ActorStart on `syncInfo.pending` behind the edit. One post goes to `POST /ambit/changes`. `POST /ambit/events` is the alias. Both call [Api.postEvents](src/Server/Api.fs).
@@ -94,7 +94,7 @@ The observable reply is Node ids. They ride ActorStop as `ActorQuery` on [ActorR
 
 - 2026-10-07: Alan. The door is the existing Run command. This ticket changes that door from local run to remote run. The reply is Node ids. The Ref post stays [16 — Insert Refs under the query line](16-insert-refs-under-the-query-line.md). Server eval stays the lock in Decisions so far item 6 **Remote query eval**. A new search-style door is out.
 - 2026-10-07: Alan. The Node ids ride ActorStop as `ActorQuery`. They do not ride a command response body.
-- 2026-10-09: Alan. Rebase onto [22 — One ordered event stream](../../single-event-source/issues/22-ordered-event-stream.md). A `=` line queues ActorStart behind the edit. Classify from post-edit State in the list turn.
+- 2026-10-09: Alan. Rebase onto [One ordered event stream](../../single-event-source/issues/22-ordered-event-stream.md). A `=` line queues ActorStart behind the edit. Classify from post-edit State in the list turn.
 
 ## Time
 

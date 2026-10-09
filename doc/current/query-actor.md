@@ -24,7 +24,7 @@ A query expression runs on its own Actor.
 
 ## Interface
 
-[x] Eval: one evaluation of the expression on the server Graph when Run hits a Node whose text contains `=`. The request is the existing Run ActorStart (`zoomId`, `focusId`, `commandId`, `graphIds`, `eventId`) queued on `syncInfo.pending` behind the edit. The post is `POST /ambit/changes`. The observable reply is Node ids on ActorStop (`ActorQuery`). Detail: [11 — Server evaluates](../../plan/online-search/issues/11-server-evaluates.md).
+[x] Eval: one evaluation of the expression on the server Graph when Run hits a Node whose text contains `=`. The request is the existing Run ActorStart (`zoomId`, `focusId`, `commandId`, `graphIds`, `eventId`) queued on `syncInfo.pending` behind the edit. The post is `POST /ambit/changes`. The observable reply is Node ids on ActorStop (`ActorQuery`). Detail: [Server evaluates](../../plan/online-search/issues/11-server-evaluates.md).
 [ ] Refs: each result under the query line is a Ref, `ChildNode.reference`, not an Owned Child. That post is a proposed design. [16 — Insert Refs under the query line](../../plan/online-search/issues/16-insert-refs-under-the-query-line.md) owns it.
 
 ## Messages

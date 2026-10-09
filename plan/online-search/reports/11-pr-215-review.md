@@ -1,6 +1,6 @@
-# Code review — 11 Server evaluates — PR 215
+# Code review — Server evaluates
 
-Review of `git diff origin/staging...HEAD` for [11 — Server evaluates](../issues/11-server-evaluates.md). A `=` line queues ActorStart behind the edit. The list turn classifies from the post-edit State.
+Review of `git diff origin/staging...HEAD` for [Server evaluates](../issues/11-server-evaluates.md). A `=` line queues ActorStart behind the edit. The list turn classifies from the post-edit State.
 
 ## Standards
 
