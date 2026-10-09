@@ -24,14 +24,14 @@ A query expression runs on its own Actor.
 
 ## Interface
 
-[x] Eval: one evaluation of the expression on the server Graph when Run hits a Node whose text contains `=`. The request is the existing Run ActorStart (`zoomId`, `focusId`, `commandId`, `graphIds`, `eventId`) on `POST /ambit/command`. The observable reply is Node ids on ActorStop (`ActorQuery`). Detail: [11 — Server evaluates](../../plan/online-search/issues/11-server-evaluates.md).
+[x] Eval: one evaluation of the expression on the server Graph when Run hits a Node whose text contains `=`. The request is the existing Run ActorStart (`zoomId`, `focusId`, `commandId`, `graphIds`, `eventId`) queued on `syncInfo.pending` behind the edit. The post is `POST /ambit/changes`. The observable reply is Node ids on ActorStop (`ActorQuery`). Detail: [11 — Server evaluates](../../plan/online-search/issues/11-server-evaluates.md).
 [ ] Refs: each result under the query line is a Ref, `ChildNode.reference`, not an Owned Child. That post is a proposed design. [16 — Insert Refs under the query line](../../plan/online-search/issues/16-insert-refs-under-the-query-line.md) owns it.
 
 ## Messages
 
 [x] Eval. The Actor starts when the line runs. A keypress does not start this Actor.
 [x] Start. Run on a Node whose text contains `=`. The request is the existing ActorStart. `focusId` is that line when Run is on it. `commandId` is that same Node.
-[x] Eval reply. The result is Node ids on ActorStop (`ActorQuery`). This reply is the server evaluation. The command response stays the existing Run response. The client reads the ids from that event. The applied chip keeps those ids.
+[x] Eval reply. The result is Node ids on ActorStop (`ActorQuery`). This reply is the server evaluation. The client reads the ids from that event on the events-door answer or a later Poll. The applied chip keeps those ids.
 [ ] Result item. Proposed design. Each result under the query line is one `ChildNode.reference`. `ref` is the string `ref`. `id` is a Node id string. [16 — Insert Refs under the query line](../../plan/online-search/issues/16-insert-refs-under-the-query-line.md) owns this post. It is not the eval reply.
 
 ```json

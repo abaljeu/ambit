@@ -232,8 +232,7 @@ module internal CoreMailboxBackend =
             | Error err -> reply.Reply(Error err)
             | Ok _ -> reply.Reply(Ok ())
 
-    /// Query uses the full server Graph after earlier events in this list.
-    /// An empty `graphIds` stays the named-actor error.
+    /// Query reads post-edit State. Empty `graphIds` stays the named-actor error.
     let private startChosen
         (context: MailboxContext)
         (request: Gambol.Shared.ActorStart)
@@ -251,7 +250,6 @@ module internal CoreMailboxBackend =
         else
             context.pool.startActor request getState
             |> Result.map Some
-
     let private dispatchStartActor context caller request reply =
         dispatchActorStartResult
             context

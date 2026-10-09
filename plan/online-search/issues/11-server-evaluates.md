@@ -2,8 +2,9 @@
 
 **Status:** `coded`
 **Type:** coding
-**Actual:** 4h
+**Actual:** 5h
 **Blocked by:** [07 — Server completes the picture](07-server-completes-the-picture.md)
+**Binding arch:** [Online search architecture](../arch.md), [Single event source architecture](../../single-event-source/arch.md), [Core refinement architecture](../../core-refinement/arch.md)
 
 ## Context
 
@@ -45,15 +46,15 @@ The request is the existing Run [ActorStart](src/Shared/History.fs). [CommandReq
 
 ### 3. Door
 
-The door is the existing Run command. Today a `=` line runs locally. This ticket sends that line through the existing command path. Find keeps `POST /ambit/search`.
+The door is Run on the ordered event list. [22 — One ordered event stream](../../single-event-source/issues/22-ordered-event-stream.md) removed `POST /ambit/command`, `POST /ambit/cancel`, and `SubmitCommand`. A `=` line queues its ActorStart on `syncInfo.pending` behind the edit. Find keeps `POST /ambit/search`.
 
-1. [x] Local run today — [execRunOp](src/Client/Commands.fs) sees an Amble scan stop and calls [execAmbleRunOp](src/Client/Commands.fs). [CommandRequest.isAmbleScanStop](src/Shared/CommandRequest.fs) is that stop. The eval is local.
-2. [x] Remote run — Run on a Node whose text contains `=` submits the existing command. [SubmitCommand](src/Shared/ViewModelSync.fs) posts that ActorStart. The server runs the Query Actor.
-3. [x] Route — The route stays `POST /ambit/command`. [Api.postCommand](src/Server/Api.fs) decodes the ActorStart. [CoreMailbox.startActor](src/Server/Core/CoreMailbox.fs) is the mailbox case `StartActor`. This ticket adds no Query route and no search-style door.
+1. [x] Local run today — [execRunOp](src/Client/Commands.fs) sees an Amble scan stop and calls [execAmbleRunOp](src/Client/Commands.fs). [CommandRequest.isAmbleScanStop](src/Shared/CommandRequest.fs) is that stop. A query line is not that stop.
+2. [x] Remote run — Run on a Node whose text contains `=` calls [RunLaunch.queueStart](src/Shared/RunLaunch.fs). That appends the ActorStart on `syncInfo.pending` behind the edit. One post goes to `POST /ambit/changes`. `POST /ambit/events` is the alias. Both call [Api.postEvents](src/Server/Api.fs).
+3. [x] No new door — This ticket adds no route and no `CoreMsg`. The list turn classifies the line from State after the earlier events in that list. A start error stores ActorStart and ActorStop `ActorFailed`. The list applies whole. Only the list-level credential check refuses.
 
 ### 4. Reply
 
-The observable reply is Node ids. They ride ActorStop as `ActorQuery`. [16 — Insert Refs under the query line](16-insert-refs-under-the-query-line.md) owns the Ref post. The HTTP body of `POST /ambit/command` stays the existing command response. The client reads the ids from that ActorStop event on the command `events` list or on a later Poll. The applied chip keeps those ids as `CmdLastResult.Query`. Find stays the `ActorSucceeded` chip.
+The observable reply is Node ids. They ride ActorStop as `ActorQuery` on [ActorResult](src/Shared/History.fs). [16 — Insert Refs under the query line](16-insert-refs-under-the-query-line.md) owns the Ref post. The client reads the ids from that ActorStop on the events-door answer or on a later Poll. The applied chip keeps those ids as `CmdLastResult.Query`. Find stays the `ActorSucceeded` chip.
 
 1. [x] Node ids — The eval result is the Node ids of the Node Answers. ActorStop carries them as `ActorQuery`. Tests read that event. [ExprRun](src/Shared/ExprRun.fs) `run` builds a Plan that posts Refs. This ticket returns the Node ids on ActorStop. [16 — Insert Refs under the query line](16-insert-refs-under-the-query-line.md) owns that Plan.
 
@@ -68,8 +69,8 @@ The observable reply is Node ids. They ride ActorStop as `ActorQuery`. [16 — I
 
 ### 5. Lifecycle
 
-1. [x] ActorStart — `StartActor` records ActorStart before the eval. `focusId` is the query line when Run is on that line, so ActorStop can pair on that id. The Search Actor keeps its own root-only start.
-2. [x] One eval — The Query Actor in `src/Server/SearchActor.fs` evaluates once, off the mailbox, on the full server Graph from State. `graphIds` do not replace that Graph. A `=` line does not select a `?` actor name.
+1. [x] ActorStart — The list turn records ActorStart before the eval. Classification reads the post-edit State in that turn. `focusId` is the query line when Run is on that line, so ActorStop can pair on that id. The Search Actor keeps its own root-only start.
+2. [x] One eval — The Query Actor in `src/Server/SearchActor.fs` evaluates once, off the mailbox, on the full server Graph from State. `graphIds` do not replace that Graph. A `=` line does not select a `?` actor name. A start error is ActorStart plus ActorStop `ActorFailed` of that message. The match is `StartError`, not a string.
 3. [x] ActorStop — The Actor posts ActorStop and stops. The id is the query-line Node id. The result is `ActorQuery`. That result carries the Node ids. `ActorSucceeded` stays the result for other Actors.
 
 ### 6. Cap
@@ -92,10 +93,12 @@ The observable reply is Node ids. They ride ActorStop as `ActorQuery`. [16 — I
 ## Comments
 
 - 2026-10-07: Alan. The door is the existing Run command. This ticket changes that door from local run to remote run. The reply is Node ids. The Ref post stays [16 — Insert Refs under the query line](16-insert-refs-under-the-query-line.md). Server eval stays the lock in Decisions so far item 6 **Remote query eval**. A new search-style door is out.
-- 2026-10-07: Alan. The Node ids ride ActorStop as `ActorQuery`. They do not ride the `POST /ambit/command` response body.
+- 2026-10-07: Alan. The Node ids ride ActorStop as `ActorQuery`. They do not ride a command response body.
+- 2026-10-09: Alan. Rebase onto [22 — One ordered event stream](../../single-event-source/issues/22-ordered-event-stream.md). A `=` line queues ActorStart behind the edit. Classify from post-edit State in the list turn.
 
 ## Time
 
 - 2026-10-07 2h — remote query eval on Run (from chat)
 - 2026-10-07 1h — Node ids ride ActorStop (from chat)
 - 2026-10-08 1h — Query chip keeps the Node ids (from chat)
+- 2026-10-09 1h — Rebase onto the ordered event list (from chat)

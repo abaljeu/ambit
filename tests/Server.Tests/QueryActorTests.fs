@@ -1,17 +1,11 @@
 module Gambol.Server.Tests.QueryActorTests
 
 open System
-open System.Threading
 open System.Threading.Tasks
-open Microsoft.AspNetCore.Http
-open Microsoft.AspNetCore.Http.HttpResults
 open Xunit
 open Gambol.Server
 open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
-
-module Encode = Thoth.Json.Newtonsoft.Encode
-module Decode = Thoth.Json.Newtonsoft.Decode
 
 let private insertAtRoot (ids: NodeId list) (graph: Graph) : Graph =
     match Graph.replace graph.root 0 [] (ChildNode.owners ids) graph with
@@ -136,19 +130,17 @@ let ``empty equals line stops with no node ids`` () =
     let stops = stopFor (fun () -> graph) lineId
     Assert.Equal<ActorResult list>([ ActorQuery [] ], stops)
 
-let private decodeUniversal json =
-    Decode.fromString
-        ApiResponseSerialization.decodeUniversalResponseDecoder
-        json
+let private posted (commandName: string) (body: EventBody) : Ev =
+    { id = EventId.zero
+      submissionId = Guid.NewGuid()
+      authority = Authority "Browser"
+      commandName = commandName
+      body = body }
 
-let private requireUniversal (result: IResult) =
-    match box result with
-    | :? ContentHttpResult as content ->
-        match decodeUniversal content.ResponseContent with
-        | Error err -> failwith err
-        | Ok response -> response
-    | other ->
-        failwith $"expected command JSON, got {other.GetType().Name}"
+let private requireOk label result =
+    match result with
+    | Ok value -> value
+    | Error err -> failwith $"{label}: {err}"
 
 let private waitStopEvent (host: MailboxHost) (lineId: NodeId) = task {
     let mutable found: Ev option = None
@@ -173,104 +165,160 @@ let private idsOfStop (event: Ev) =
     | EventBody.ActorStop(_, ActorQuery ids) -> ids
     | other -> failwith $"expected ActorQuery, got {other}"
 
+let private hostNow () =
+    CoreMailbox.host
+        (CoreActorPool.create ())
+        (FileAgent.persist (FileAgent.create (newTempDir ())))
+        admittedCredentials
+
+let private seedPlain host = task {
+    let! state = CoreMailbox.getState host |> Async.StartAsTask
+    let graph =
+        match state with
+        | Ok value -> value.graph
+        | Error err -> failwith err
+    let root = graph.root
+    let lineId = NodeId.New()
+    let bobId = NodeId.New()
+    let oldKids = Graph.children graph root
+    let seed =
+        posted
+            "seed"
+            (EventBody.Change
+                [ Op.NewNode(lineId, "plain")
+                  Op.NewNode(bobId, "other")
+                  Op.SetName(bobId, "", "Bob")
+                  Op.Replace(
+                      root,
+                      oldKids,
+                      oldKids
+                      @ [ ChildNode.owner lineId
+                          ChildNode.owner bobId ]) ])
+    let! seeded =
+        CoreMailbox.postEvents host testCaller [ seed ]
+        |> Async.StartAsTask
+    requireOk "seed" seeded |> ignore
+    return root, lineId, bobId
+}
+
+let private queryStart root lineId eventId : Ev =
+    let request: ActorStart =
+        { zoomId = root
+          focusId = lineId
+          commandId = lineId
+          graphIds = [ root; lineId ]
+          eventId = eventId }
+    posted "Exec" (EventBody.ActorStart request)
+
 [<Fact>]
-let ``Run on an equals line evals the server graph once then stops`` () =
+let ``edit then ActorStart classifies the equals line after the edit`` () =
     task {
-        let dataDir = newTempDir ()
-        let agent = FileAgent.create dataDir
-        let filling = FileAgent.persist agent
-        let calls = ref 0
-        let handlers = filling.handlers
-        let wrapped =
-            { filling with
-                handlers =
-                    { handlers with
-                        getState =
-                            fun () ->
-                                Interlocked.Increment calls |> ignore
-                                handlers.getState () } }
-        let host =
-            CoreMailbox.host
-                (CoreActorPool.create ())
-                wrapped
-                admittedCredentials
-        let handle = CoreMailbox.coreChanges host testCaller
+        let host = hostNow ()
         try
-            let! stateResult = handle.getState () |> Async.StartAsTask
-            let state =
-                match stateResult with
-                | Ok value -> value
-                | Error err -> failwith err
-            let root = state.graph.root
-            let lineId = NodeId.New()
-            let bobId = NodeId.New()
-            let oldKids = Graph.children state.graph root
-            let seed =
-                changeEvent
-                    ""
-                    EventId.zero
-                    (Guid.NewGuid())
-                    [ Op.NewNode(lineId, lineText)
-                      Op.NewNode(bobId, "other")
-                      Op.SetName(bobId, "", "Bob")
-                      Op.Replace(
-                          root,
-                          oldKids,
-                          oldKids
-                          @ [ ChildNode.owner lineId
-                              ChildNode.owner bobId ]) ]
-            let! seeded =
-                handle.postGraphOnly seed |> Async.StartAsTask
-            match seeded with
-            | Error err -> failwith err
-            | Ok _ -> ()
+            let! root, lineId, bobId = seedPlain host
             let! eventId =
                 CoreMailbox.getEventId host |> Async.StartAsTask
-            calls := 0
-            let request: ActorStart =
-                { zoomId = root
-                  focusId = lineId
-                  commandId = lineId
-                  graphIds = [ root ]
-                  eventId = eventId }
-            let body =
-                Encode.toString 0 (EventJson.encodeStartRequest request)
+            let edit =
+                posted
+                    "edit"
+                    (EventBody.Change
+                        [ Op.SetText(lineId, "plain", lineText) ])
             let! result =
-                Api.postCommand
-                    (fun start ->
-                        CoreMailbox.startActor host testCaller start)
-                    handle
-                    body
+                CoreMailbox.postEvents
+                    host testCaller
+                    [ edit; queryStart root lineId eventId ]
                 |> Async.StartAsTask
-            let response = requireUniversal result
-            let started =
-                response.events
-                |> List.exists (fun event ->
+            let accepted = requireOk "list" result
+            Assert.Contains(
+                accepted.events,
+                fun event ->
                     match event.body with
-                    | EventBody.ActorStart start ->
-                        start.focusId = lineId
-                        && start.commandId = lineId
-                        && start.graphIds = [ root ]
+                    | EventBody.Change _ -> true
                     | _ -> false)
-            Assert.True(started, "ActorStart missing from the command response")
             let! stopped = waitStopEvent host lineId
             let event =
                 match stopped with
                 | Some value -> value
                 | None -> failwith "ActorStop missing after the one eval"
             Assert.Equal<NodeId list>([ bobId ], idsOfStop event)
-            let json = Encode.toString 0 (EventJson.encode event)
-            match Decode.fromString EventJson.decode json with
-            | Error err -> failwith err
-            | Ok decoded ->
-                Assert.Equal<NodeId list>([ bobId ], idsOfStop decoded)
-            Assert.Equal(3, !calls)
-            let! after = handle.getState () |> Async.StartAsTask
+            let! after = CoreMailbox.getState host |> Async.StartAsTask
             match after with
             | Error err -> failwith err
             | Ok afterState ->
-                let kids = Graph.children afterState.graph lineId
-                Assert.Empty(kids)
+                Assert.Empty(Graph.children afterState.graph lineId)
         finally
+            CoreMailbox.dispose host
+    }
+
+[<Fact>]
+let ``query start error stores ActorStart and ActorFailed and keeps the edit`` () =
+    task {
+        let hold = TaskCompletionSource<unit>()
+        let actor (input: ActorInput) (changes: CoreChanges) =
+            async {
+                do! Async.AwaitTask hold.Task
+                let caller =
+                    { authority = Authority "Actor"
+                      name = ""
+                      secret = input.secret }
+                let! _ =
+                    changes.asCaller(caller).actorStop ActorSucceeded
+                return ()
+            }
+        let pool = CoreActorPool.create ()
+        pool.register (ActorName "gate") actor
+        let host =
+            CoreMailbox.host
+                pool
+                (FileAgent.persist (FileAgent.create (newTempDir ())))
+                admittedCredentials
+        try
+            let! root, lineId, _ = seedPlain host
+            let! eventId =
+                CoreMailbox.getEventId host |> Async.StartAsTask
+            let gate =
+                posted
+                    "edit"
+                    (EventBody.Change
+                        [ Op.SetText(lineId, "plain", "?gate") ])
+            let! started =
+                CoreMailbox.postEvents
+                    host testCaller
+                    [ gate; queryStart root lineId eventId ]
+                |> Async.StartAsTask
+            requireOk "gate" started |> ignore
+            let! again =
+                CoreMailbox.getEventId host |> Async.StartAsTask
+            let edit =
+                posted
+                    "edit"
+                    (EventBody.Change
+                        [ Op.SetText(lineId, "?gate", lineText) ])
+            let! result =
+                CoreMailbox.postEvents
+                    host testCaller
+                    [ edit; queryStart root lineId again ]
+                |> Async.StartAsTask
+            requireOk "list" result |> ignore
+            let! history =
+                CoreMailbox.eventHistory host |> Async.StartAsTask
+            let failed =
+                history.events
+                |> List.exists (fun event ->
+                    match event.body with
+                    | EventBody.ActorStop(id, ActorFailed message) ->
+                        id = lineId
+                        && message = "focus already has a live Actor"
+                    | _ -> false)
+            Assert.True(failed, "ActorFailed missing")
+            let! after = CoreMailbox.getState host |> Async.StartAsTask
+            match after with
+            | Error err -> failwith err
+            | Ok afterState ->
+                Assert.Equal(
+                    lineText,
+                    afterState.graph.nodes.[lineId].text)
+        finally
+            hold.TrySetResult() |> ignore
             CoreMailbox.dispose host
     }

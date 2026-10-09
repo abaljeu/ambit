@@ -69,7 +69,7 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
     2. [ ] **Nodes then Refs** — Proposed design: the same Poll carries the Want `nodes` for those ids and the Change that inserts the Refs, so a Ref points at a Node the Browser has.
 
 12. **Server evaluates**
-    1. [x] **Server Graph** — The Query Actor evaluates the query on the full server Graph once, when Run hits a Node whose text contains `=`, off the mailbox. The Actor then stops. The door is the existing Run command. The observable reply is Node ids on ActorStop. A keypress does not start this Actor. This eval is remote. Detail is [11 — Server evaluates](issues/11-server-evaluates.md). The Ref post stays [16 — Insert Refs under the query line](issues/16-insert-refs-under-the-query-line.md).
+    1. [x] **Server Graph** — The Query Actor evaluates the query on the full server Graph once, when Run hits a Node whose text contains `=`, off the mailbox. The Actor then stops. Run queues that ActorStart on `syncInfo.pending` behind the edit. The post is `POST /ambit/changes` (alias `POST /ambit/events`). The list turn classifies from the post-edit State. The observable reply is Node ids on ActorStop. A keypress does not start this Actor. This eval is remote. Detail is [11 — Server evaluates](issues/11-server-evaluates.md). The Ref post stays [16 — Insert Refs under the query line](issues/16-insert-refs-under-the-query-line.md).
 
 ### 13. Shared segments
 
@@ -121,7 +121,7 @@ Vocabulary: say event source. Say Server git Actor for that git Actor. Do not sa
       2. [ ] **Limit** — The function may stop under 200. A request above 200 stops at 200.
       3. [ ] **Trash** — Ordinary eval skips trash. `trash` reaches trash the way `root` reaches ROOT.
    2. **Interface**
-      1. [x] **Eval** — The Actor evaluates the expression on the server Graph once, when Run hits a Node whose text contains `=`. The request is the existing Run ActorStart. The observable reply is Node ids on ActorStop. The door is the existing Run command. Detail: [11 — Server evaluates](issues/11-server-evaluates.md). Claim home: [Query Actor](../../doc/current/query-actor.md) Interface and Messages.
+      1. [x] **Eval** — The Actor evaluates the expression on the server Graph once, when Run hits a Node whose text contains `=`. The request is the existing Run ActorStart on the pending event list, behind the edit. The observable reply is Node ids on ActorStop. Detail: [11 — Server evaluates](issues/11-server-evaluates.md). Claim home: [Query Actor](../../doc/current/query-actor.md) Interface and Messages.
       2. [ ] **Refs** — Proposed design. The Actor posts a Change that inserts `ChildNode.reference` children under the query line. The shape matches [ExprRun](src/Shared/ExprRun.fs). This Ref post has no doc/current home. The locked Ref shape is [Query Actor](../../doc/current/query-actor.md) Interface and Messages. Server eval is Interface item 1 **Eval**.
    3. **Uses**
       1. [ ] **Event source** — Proposed design. The Ref Replace is a Change on the event source. This proposed design has no doc/current home.
