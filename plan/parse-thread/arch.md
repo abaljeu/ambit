@@ -70,7 +70,7 @@ Sequence is module-build. Directory reconcile is in code. Story paths that only 
     1. [x] **Push** — Directory reconcile pushes that Unparsed File Node when the Parse stack exists.
     2. [x] **Stack door** — The push door is [Parse stack](../../src/Server/ParseStack.fs).
 
-    > Temporarily disabled (2026-10-08): MarkUnparsed does not enqueue; see requeueOnUnparsed in src/Server/ParseThread.fs. Re-enabled by [08 — Re-enable recursive update: enqueue on MarkUnparsed](issues/08-re-enable-recursive-update-enqueue-on-markunparsed.md).
+    > Temporarily disabled (2026-10-08): MarkUnparsed does not enqueue; see requeueOnUnparsed in src/Server/ParseThread.fs. Disabling step: [28 — Stop enqueueing nodes just marked Unparsed](../github-transport/issues/28-stop-enqueueing-nodes-just-marked-unparsed.md). Re-enabled by [08 — Re-enable recursive update: enqueue on MarkUnparsed](issues/08-re-enable-recursive-update-enqueue-on-markunparsed.md).
 
 17. **Emit Changes**
     1. [x] **File Change** — File parse posts ops through [Parse thread](../../src/Server/ParseThread.fs) `postParseOps`.
@@ -113,7 +113,7 @@ Sequence is module-build. Directory reconcile is in code. Story paths that only 
    2. [x] **Directory reconcile** — Walk, create, disk-newer, push.
    3. [x] **File into Graph** — A pushed File Node uses segment 1 **File into Graph**.
 
-   > Temporarily disabled (2026-10-08): MarkUnparsed does not enqueue; see requeueOnUnparsed in src/Server/ParseThread.fs. Re-enabled by [08 — Re-enable recursive update: enqueue on MarkUnparsed](issues/08-re-enable-recursive-update-enqueue-on-markunparsed.md).
+   > Temporarily disabled (2026-10-08): MarkUnparsed does not enqueue; see requeueOnUnparsed in src/Server/ParseThread.fs. Disabling step: [28 — Stop enqueueing nodes just marked Unparsed](../github-transport/issues/28-stop-enqueueing-nodes-just-marked-unparsed.md). Re-enabled by [08 — Re-enable recursive update: enqueue on MarkUnparsed](issues/08-re-enable-recursive-update-enqueue-on-markunparsed.md).
 
 3. **Outside Parse**
    1. [x] **Download** — Story path 7 **Download leaves Parse on the Server** does not cross the parse thread.
