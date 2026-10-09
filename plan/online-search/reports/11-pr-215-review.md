@@ -1,19 +1,19 @@
 # Code review — 11 Server evaluates — PR 215
 
-Review of `git diff origin/staging...HEAD` for [11 — Server evaluates](../issues/11-server-evaluates.md). Node ids ride ActorStop as `ActorQuery`. The applied chip keeps them.
+Review of `git diff origin/staging...HEAD` for [11 — Server evaluates](../issues/11-server-evaluates.md). A `=` line queues ActorStart behind the edit. The list turn classifies from the post-edit State.
 
 ## Standards
 
-No findings.
+[History.fs](../../../src/Shared/History.fs) drops the blank line between `State` and `ApplyResult`. [Core agent behavior](../../../.agents/rules/core-agent-behavior.md) says do not change adjacent formatting. [F# source](../../../.agents/rules/fsharp-source.md) says 800 lines or less. The file is 800 with that blank removed.
 
-The scan's `item N` lines name the item. `let mutable found` is in a test. [F# source](../../../.agents/rules/fsharp-source.md) does not apply that rule to tests. New functions are under 40 lines.
-
-No smells.
+No smells on the tip. The empty-`graphIds` duplicate in `startChosen` is gone. `queueRun` is the one queue call. `idsFromSource` uses `ExprCompile.evalOutcome`.
 
 ## Spec
 
-No missing requirement inside this ticket. The Run race stays out of this diff. Alan assigned it to a follow-on ticket. That deferral is not acceptance.
+No findings.
 
-[CmdLastResult](../../../src/Shared/ViewModel.fs) case `Query` was unnamed. Section 4 **Reply** now names `CmdLastResult.Query`. Find stays the `ActorSucceeded` chip.
+## Arch
 
-Standards: no findings. Spec: no findings inside this ticket. The Run race is a follow-on gap, not accepted.
+No findings.
+
+Standards: 1 finding, the History.fs blank line. Spec: no findings. Arch: no findings.
