@@ -1,12 +1,12 @@
 ---
 name: to-tickets
-description: Propagate arch.md Sequence into implementation tickets (tracer-cut from Story paths, module-build from Module map, or expand-contract), each declaring blocking edges, published via PUBLISH.md.
+description: Propagate arch.md Sequence into implementation tickets (tracer-cut from Story paths, module-build from Module map, or expand-contract), each declaring blocking edges and Binding arch, published via PUBLISH.md.
 disable-model-invocation: true
 ---
 
 # To Tickets
 
-Turn the Project's `arch.md` into **tickets**. Propagate its **Sequence** — do not re-choose or quiz. Draft and publish the full predefined set for that Sequence immediately; the written files are the review surface. Each ticket declares the tickets that **block** it.
+Turn the Project's `arch.md` into **tickets**. Propagate its **Sequence** — do not re-choose or quiz. Draft and publish the full predefined set for that Sequence immediately; the written files are the review surface. Each ticket declares the tickets that **block** it and names **Binding arch**.
 
 ## Process
 
@@ -56,7 +56,7 @@ Use when a **wide mechanical change** ( rename a column, retype a shared symbol 
 
 First **expand** ( add the new form beside the old so nothing breaks. Then **migrate** call sites in batches sized by blast radius (per package, per directory), each batch its own ticket blocked by the expand, keeping CI green batch to batch because the old form still exists. Finally **contract** — delete the old form once no caller remains, in a ticket blocked by every migrate batch. When even the batches cannot stay green alone, keep the sequence but let them share an integration branch that all block a final integrate-and-verify ticket ) green is promised only there.
 
-Done: a draft list exists for every item in the Sequence's set, each with title, blockers, and what it delivers. Checklist leaves follow [[PUBLISH.md]].
+Done: a draft list exists for every item in the Sequence's set, each with title, blockers, Binding arch, and what it delivers. Checklist leaves and Binding arch follow [[PUBLISH.md]].
 
 ### 4. Publish
 
