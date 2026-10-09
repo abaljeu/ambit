@@ -9,7 +9,9 @@
 
 A person runs Load in the Browser. Several client paths then ask the Server to reconcile a directory or parse a file on the request. git Load does this after the Actor returns. Desk Load on the web does this instead of a Desktop upload. The life Workspace incident ran two whole-workspace reconciles at once. [21 — Git Load informs Core](21-git-load-informs-core.md) stops the Actor's inline walk and leaves every Browser path in place.
 
-Alan, 2026-10-08: the only reconcile is the Parse thread. The Server Actor posts work to that thread. The Browser was never instructed to reconcile. The Desktop app did, and that was disabled in favor of webdav-only uploading.
+Alan, 2026-10-08: the only reconcile is the Parse thread. The Server Actor posts work to that thread. The Browser was never instructed to reconcile. The Desktop app did, and that path was disabled in favor of webdav-only uploading.
+
+Alan, 2026-10-09. Load from a Browser must not trigger any client reconcile function. That rule is the basis for **goes** on `gitLoadAfterOp`, `startDirectoryReconcile`, and `ContinueDirectoryReconcile`. The call chain today is [LoadSaveCommandClient.fs](../../../src/Client/LoadSaveCommandClient.fs) `applyResponse` (line 27) to `continueGitLoad` (line 39, defined at line 76) to [UpdateWorkspaceLoad.fs](../../../src/Client/UpdateWorkspaceLoad.fs) `gitLoadAfterOp` (line 56) to `startDirectoryReconcile` (line 67, defined at line 31) to `Effect.ContinueDirectoryReconcile` (line 39; the effect is [ViewModelSync.fs](../../../src/Shared/ViewModelSync.fs) line 109). [App.fs](../../../src/Client/App.fs) line 166 posts that effect to `POST /ambit/workspace/reconciliation/directory`.
 
 Binding clauses: [core-refinement architecture](../../core-refinement/arch.md) §5 item 10 **Directory reconcile** and §3 step 2 Migrate item 1 **Workspace lock handoff**. [github-transport architecture](../arch.md) story path 17 **Inform Core after files land**. [parse-thread architecture](../../parse-thread/arch.md) §2 Module map item 1 **Directory reconcile**.
 
@@ -49,7 +51,7 @@ Server: no route of its own. It emits `ContinueDirectoryReconcile` or `ContinueP
 
 History: commit `2a23835a`, 2026-09-27, "fixing github to work" (Alan). That is the web git Load era, the same day as [13 — Run git Load and Save through the Server Actor](13-actor-runs-git-load-save.md). It is not the July 2026 Desktop upload era.
 
-Proposed **goes**. The Actor informs Core. The Parse thread reconciles. The Browser was not instructed to start a second walk. Fetch+Poll stays so the outline updates. This call is one of the two walks in the life Workspace incident. Ticket 21 leaves it in place until this decision.
+**Goes**, on Alan's rule. Load from a Browser must not trigger a client reconcile function. This function is the git Load step in that chain. The Actor informs Core. The Parse thread reconciles. Fetch+Poll stays so the outline updates. [21 — Git Load informs Core](21-git-load-informs-core.md) does not edit this client path.
 
 ### 2. startDirectoryReconcile
 
@@ -61,7 +63,7 @@ Server: none until the effect handler posts.
 
 History: the function landed in `2a23835a` (2026-09-27). The effect it emits is older (item 3).
 
-Proposed **goes**. It only starts the inline HTTP reconcile. A caller that remains informs Core by Unparsed plus a parse push, and does not call this function.
+**Goes**, on the same rule. `gitLoadAfterOp` calls it at line 67, and it emits `Effect.ContinueDirectoryReconcile` at line 39. A Browser Load must not call it. Desk Load also calls it for `ReconcileServerDisk` (line 92). That caller is question 1. The function itself is a client reconcile.
 
 ### 3. ContinueDirectoryReconcile
 
@@ -73,7 +75,7 @@ Server: [LazyLoadReconciliationServer.fs](../../../src/Server/LazyLoadReconcilia
 
 History: the handler is commit `d118060e`, 2026-08-08, "fix slow Load responsiveness" (Alan). The route string first appears in `fcee49e7`, 2026-07-22, "refactoring, eliminating git mentions", during Upload. Ticket 14 reused it: `3cde2784`, 2026-09-27, "Ticket 14: route Load-Save by pre-pick (#141)".
 
-Proposed **goes**. This is the inline whole-workspace reconcile. Binding arch gives that walk to the Parse thread.
+**Goes**, on the same rule. `startDirectoryReconcile` emits this effect, and [App.fs](../../../src/Client/App.fs) line 166 posts it. A Browser Load must not run that effect. Binding arch gives the walk to the Parse thread. `completeWorkspacePush` also emits it (line 265). That caller is question 3.
 
 ### 4. ReconcileServerDisk
 
@@ -123,7 +125,7 @@ Server: none until the replayed desk Load.
 
 History: commit `d1d46d87`, 2026-08-08, "refactor" (Alan).
 
-Proposed **stays**. It parks desk Load. It does not reconcile. Whether the replayed action remains is question 2 below. That question owns the replay. This function is not a separate decision.
+Proposed **stays**. It parks desk Load. It does not reconcile. Whether the replayed action remains is questions 1 and 2 below. Those questions own the replay. This function is not a separate decision.
 
 ### 8. reconcileWorkspaceAck
 
@@ -175,31 +177,31 @@ Proposed **goes**. Nothing in the Browser posts it. Deleting the route waits unt
 
 Not a Browser path. [GithubTransportActor.fs](../../../src/Server/GithubTransportActor.fs) production `continueLoad` (line 216) calls `reconcileWorkspace`. Commit `cdc12c42`, 2026-09-27, "Run git Load and Save through the Server Peer Actor", introduced that call. `2a23835a` the same day pointed it at `reconcileWorkspace` and added `gitLoadAfterOp`. Those two calls are the life Workspace pair. [21 — Git Load informs Core](21-git-load-informs-core.md) owns the Actor call.
 
+## Settled
+
+Alan, 2026-10-09. Load from a Browser must not trigger any client reconcile function. `gitLoadAfterOp`, `startDirectoryReconcile`, and `ContinueDirectoryReconcile` go. The chain is `applyResponse` line 27, `continueGitLoad` line 39 and line 76, `gitLoadAfterOp` line 56, `startDirectoryReconcile` line 67 and line 31, `Effect.ContinueDirectoryReconcile` line 39.
+
 ## Grilling
 
-One round. Each question is one decision. This ticket does not decide them.
+One round. Each question is one decision. This ticket does not decide them. The git Load reconcile chain is settled above.
 
-❓ **Q1** - **Git Load after-step**: After git Load, `gitLoadAfterOp` parses a focused File or posts directory reconcile for the Workspace root. That post is the Browser half of the life Workspace incident. Does this after-step go?
+❓ **Q1** - **Web Directory Load**: Web Load of a Directory or a Workspace plans `ReconcileServerDisk` and posts `/ambit/workspace/reconciliation/directory`. A Browser Load must not call a client reconcile function. Does that HTTP walk go, with the need remaining as a parse-stack push of that node only?
 
-➡️ It goes. The Actor informs Core. The Parse thread reconciles. The Browser keeps Fetch+Poll.
+➡️ The need remains. The HTTP walk goes. Web Load queues that Directory Node or that Workspace Node on the server. It does not call `startDirectoryReconcile`.
 
-❓ **Q2** - **Web Directory Load**: Web Load of a Directory or a Workspace plans `ReconcileServerDisk` and posts `/ambit/workspace/reconciliation/directory`. Does that HTTP walk go, with the need remaining as Unparsed plus a parse-stack push?
+❓ **Q2** - **Web File Load**: Web Load of a File plans `ParseServerDisk` and posts `/ambit/file/parse`, which runs `planParseFile` on the request. Mailbox Load already pushes a File Node. Does the inline parse go, with the need remaining on that push?
 
-➡️ The need remains. The HTTP walk goes. Web Load informs Core the same way git Load does.
+➡️ The need remains. The inline parse goes. Web File Load uses mailbox Load. The queue item is that File Node only.
 
-❓ **Q3** - **Web File Load**: Web Load of a File plans `ParseServerDisk` and posts `/ambit/file/parse`, which runs `planParseFile` on the request. Mailbox Load already pushes a File Node. Does the inline parse go, with the need remaining on that push?
-
-➡️ The need remains. The inline parse goes. Web File Load uses mailbox Load.
-
-❓ **Q4** - **Desktop push**: `DesktopPush` and `startWorkspacePush` post `/_desktop/workspace-push`, then parse a file or reconcile a directory. `GitGateway.completeWorkspacePush` reconciles again after receive. Do these paths go?
+❓ **Q3** - **Desktop push**: `DesktopPush` and `startWorkspacePush` post `/_desktop/workspace-push`, then parse a file or reconcile a directory. `GitGateway.completeWorkspacePush` reconciles again after receive. Do these paths go?
 
 ➡️ They go, including the reconcile after receive. WebDAV Upload and Download stay.
 
-❓ **Q5** - **Change ack**: `reconcileWorkspaceAck` applies the ack from `POST /{file}/changes`. It does not scan disk. Does it stay?
+❓ **Q4** - **Change ack**: `reconcileWorkspaceAck` applies the ack from `POST /{file}/changes`. It does not scan disk. Does it stay?
 
 ➡️ It stays. It is Sync.
 
-❓ **Q6** - **Added route**: `POST /ambit/workspace/reconciliation/added` has an encoder and no caller. Does that route go?
+❓ **Q5** - **Added route**: `POST /ambit/workspace/reconciliation/added` has an encoder and no caller. Does that route go?
 
 ➡️ It goes once no caller remains. This grilling does not delete it.
 
@@ -211,3 +213,4 @@ One round. Each question is one decision. This ticket does not decide them.
 ## Comments
 
 - 2026-10-09 — Research written from this tree. Status stays `needs-info` until Alan answers the grilling.
+- 2026-10-09 — Alan. Load from a Browser must not trigger any client reconcile function. `gitLoadAfterOp`, `startDirectoryReconcile`, and `ContinueDirectoryReconcile` go on that rule.
