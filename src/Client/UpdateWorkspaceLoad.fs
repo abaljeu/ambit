@@ -85,73 +85,129 @@ let private runDeskLoadAction
         uploadCreateWorkspaceOp model
     | WorkspaceUploadAction.CreateWorkspaceFromFolder ->
         queueLoadRequest model
-    | WorkspaceUploadAction.ReconcileServerDisk when
-        WorkspaceUpload.canStartWeb model.syncInfo ->
-        match syncScopeFromFocus model with
-        | Error msg -> fail model msg
-        | Ok scope -> startDirectoryReconcile scope model
-    | (WorkspaceUploadAction.ParseServerDisk fileId as parseAction) when
-        WorkspaceUpload.canStartWeb model.syncInfo ->
-        parseFileOp parseAction fileId model
     | WorkspaceUploadAction.ReconcileServerDisk
     | WorkspaceUploadAction.ParseServerDisk _ ->
-        queueLoadRequest model
+        // Mailbox Load already took this Workspace, Directory, or File.
+        model, []
     | WorkspaceUploadAction.Unavailable msg ->
         withResult
             model
             (CmdLastResult.Error(Some(displayName Load), msg))
 
-/// Load command: desktop Upload when mapped; else graph-only from DataDir (web / unmapped).
-let deskLoadOp (model: VM) : VM * Effect list =
-    let targetIds = selectedLoadTargetIds model
-    if
-        ResidentProjection.selectionSpansMultipleWorkspaces
-            model.graph
-            targetIds
-    then
-        withResult
-            model
-            (CmdLastResult.Error(
-                Some(displayName Load),
-                "Load requires all selected targets in one Workspace"))
+let private uploadPlan (model: VM) : WorkspaceUploadAction =
+    let canPush =
+        DesktopCapabilities.canWorkspacePush model.desktopCapabilities
+    let hasMapping =
+        match syncScopeFromFocus model with
+        | Ok scope -> canCompareWorkspacePathSync model scope.label
+        | Error _ -> false
+    WorkspaceUpload.plan
+        canPush
+        hasMapping
+        (focusIsWorkspaces model)
+        (contextualTargetForModel model)
+
+let private spansWorkspaces (model: VM) =
+    ResidentProjection.selectionSpansMultipleWorkspaces
+        model.graph
+        (selectedLoadTargetIds model)
+
+let private oneWorkspaceError (model: VM) : VM * Effect list =
+    withResult
+        model
+        (CmdLastResult.Error(
+            Some(displayName Load),
+            "Load requires all selected targets in one Workspace"))
+
+let private deskAfter
+    (action: WorkspaceUploadAction)
+    (model: VM)
+    : VM * Effect list =
+    if spansWorkspaces model then
+        oneWorkspaceError model
     else
-        let canPush =
-            DesktopCapabilities.canWorkspacePush model.desktopCapabilities
-        let target = contextualTargetForModel model
-        let hasMapping =
-            match syncScopeFromFocus model with
-            | Ok scope ->
-                canCompareWorkspacePathSync model scope.label
-            | Error _ -> false
-        WorkspaceUpload.plan
-            canPush
-            hasMapping
-            (focusIsWorkspaces model)
-            target
-        |> fun action -> runDeskLoadAction action model
+        runDeskLoadAction action model
+
+/// Desktop Upload when mapped; else the desk after-step for DataDir.
+let deskLoadOp (model: VM) : VM * Effect list =
+    deskAfter (uploadPlan model) model
+
+/// Desk after-step for a plan already chosen for this Load.
+let deskLoadWith
+    (action: WorkspaceUploadAction)
+    (model: VM)
+    : VM * Effect list =
+    deskAfter action model
+
+let private loadRequestFor
+    (prePick: LoadSavePrePick)
+    (nodeId: NodeId)
+    (graphIds: NodeId list)
+    (model: VM)
+    =
+    { operation = LoadSaveOperation.Load
+      prePick = prePick
+      start =
+        { zoomId = model.zoomRoot
+          focusId = nodeId
+          commandId = nodeId
+          graphIds = graphIds
+          eventId = model.eventId } }
+
+/// Whole selection. Explicit git Load and a desktop push stay one focus message.
+let private subjectsForLoad
+    (prePick: LoadSavePrePick)
+    (plan: WorkspaceUploadAction option)
+    (model: VM)
+    : NodeId list =
+    match prePick, plan with
+    | LoadSavePrePick.Git, _ -> []
+    | _, Some (WorkspaceUploadAction.DesktopPush _) -> []
+    | _ ->
+        WorkspaceUpload.loadSubjects
+            model.graph
+            (selectedLoadTargetIds model)
+
+let private plannedUpload (prePick: LoadSavePrePick) (model: VM) =
+    if prePick = LoadSavePrePick.Git then
+        None
+    else
+        Some (uploadPlan model)
+
+let private submitLoad
+    (plan: WorkspaceUploadAction option)
+    (request: LoadSaveCommandRequest)
+    =
+    SubmitLoadSaveCommand (request, plan)
 
 let loadOpFor
     (prePick: LoadSavePrePick)
     (model: VM)
     : VM * Effect list =
-    let targetIds = selectedLoadTargetIds model
-    if
-        ResidentProjection.selectionSpansMultipleWorkspaces
-            model.graph
-            targetIds
-    then
-        withResult
-            model
-            (CmdLastResult.Error(
-                Some(displayName Load),
-                "Load requires all selected targets in one Workspace"))
+    if spansWorkspaces model then
+        oneWorkspaceError model
     else
-        model,
-        [ SubmitLoadSaveCommand
-            (loadSaveCommandRequest
-                LoadSaveOperation.Load
-                prePick
-                model) ]
+        let plan = plannedUpload prePick model
+        let targets = subjectsForLoad prePick plan model
+        let graphIds =
+            IncludedDescendantIds.throughChildrenOfExpandedNodes
+                model.graph
+                model.siteMap
+                model.zoomRoot
+        match targets with
+        | [] ->
+            model,
+            [ submitLoad
+                plan
+                (loadSaveCommandRequest
+                    LoadSaveOperation.Load
+                    prePick
+                    model) ]
+        | ids ->
+            model,
+            ids
+            |> List.map (fun nodeId ->
+                submitLoad plan (loadRequestFor prePick nodeId graphIds model))
 
 let loadOp = loadOpFor LoadSavePrePick.Plain
 

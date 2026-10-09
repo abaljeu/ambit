@@ -73,10 +73,23 @@ let continueDesk (dispatch: Msg -> unit) =
     | LoadSaveOperation.Save ->
         dispatch (ApplyOp deskSaveOp)
 
+let private continueDeskWith
+    (action: WorkspaceUploadAction)
+    (dispatch: Msg -> unit)
+    =
+    function
+    | LoadSaveOperation.Load ->
+        dispatch (ApplyOp (deskLoadWith action))
+    | LoadSaveOperation.Save ->
+        dispatch (ApplyOp deskSaveOp)
+
 let continueGitLoad (dispatch: Msg -> unit) =
     dispatch (ApplyOp gitLoadAfterOp)
 
-let private productionDependencies (dispatch: Msg -> unit) =
+let private productionDependencies
+    (dispatch: Msg -> unit)
+    (plan: WorkspaceUploadAction option)
+    =
     { encodeRequest = encodeLoadSaveCommandRequest
       decodeResponse = decodeLoadSaveCommandResponse
       post =
@@ -84,12 +97,15 @@ let private productionDependencies (dispatch: Msg -> unit) =
             postJson
                 url body onOk onHttp onFail
                 (jsonMutatingPostHeaders ())
-      continueDesk = continueDesk dispatch
+      continueDesk =
+        match plan with
+        | Some action -> continueDeskWith action dispatch
+        | None -> continueDesk dispatch
       continueGitLoad = fun () -> continueGitLoad dispatch
       commandDone =
         fun events -> dispatch (SysMsg (CommandDone events))
       commandFailed =
         fun detail -> dispatch (SysMsg (CommandFailed detail)) }
 
-let run dispatch request =
-    runWith (productionDependencies dispatch) currentFile request
+let run dispatch plan request =
+    runWith (productionDependencies dispatch plan) currentFile request

@@ -93,7 +93,8 @@ let createRuntime (initialModel: VM) =
             SearchDialogView.armQuietGap query dispatch
         | CancelSearchQuietGap ->
             SearchDialogView.cancelQuietGap ()
-        | SubmitLoadSaveCommand request -> LoadSaveCommandClient.run dispatch request
+        | SubmitLoadSaveCommand (request, plan) ->
+            LoadSaveCommandClient.run dispatch plan request
         | PollServer eventId -> runPollServer eventId
         | LoadServer (_, targets) ->
             runLoadServer targets

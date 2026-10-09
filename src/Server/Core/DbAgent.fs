@@ -172,7 +172,7 @@ module DbAgent =
                 | ApplyResult.Changed s' ->
                     let nextState = { s' with eventId = event.id }
                     let applied =
-                        CoreMailboxBackend.withAppliedOps event appliedOps
+                        CoreMailboxEvents.withAppliedOps event appliedOps
                     Ok(
                         nextState,
                         applied :: confirmations,
@@ -378,7 +378,7 @@ module DbAgent =
                 stamped.message
             | None -> [], newState, None
         let stampedFresh, ackEvents =
-            CoreMailboxBackend.overlayFreshEvents confirmations fresh stampOps
+            CoreMailboxEvents.overlayFreshEvents confirmations fresh stampOps
         stateToStore, ackEvents, persistMessage
 
     let private commitPostChange
@@ -392,8 +392,8 @@ module DbAgent =
         (live: LivePersist)
         =
         match
-            CoreMailboxBackend.runBounded
-                CoreMailboxBackend.ChangeProcessingTimeoutMs
+            CoreMailboxEvents.runBounded
+                CoreMailboxEvents.ChangeProcessingTimeoutMs
                 (fun () -> persistGraphProjection loaded stateToStore ackEvents)
         with
         | Error err -> Error err
@@ -451,8 +451,8 @@ module DbAgent =
             Error "changes must not be empty"
         else
             match
-                CoreMailboxBackend.runBounded
-                    CoreMailboxBackend.ChangeProcessingTimeoutMs
+                CoreMailboxEvents.runBounded
+                    CoreMailboxEvents.ChangeProcessingTimeoutMs
                     (fun () -> applyBatch loaded graphOnly events)
             with
             | Error err -> Error err
@@ -549,8 +549,8 @@ module DbAgent =
             recordPersistedEvent loaded persisted
             Ok ()
         else
-            CoreMailboxBackend.runBounded
-                CoreMailboxBackend.ChangeProcessingTimeoutMs
+            CoreMailboxEvents.runBounded
+                CoreMailboxEvents.ChangeProcessingTimeoutMs
                 (fun () -> writePersistedEvent loaded persisted)
 
     let private catchUpParsed (loaded: LoadedPersist) (nodeId: NodeId) =
