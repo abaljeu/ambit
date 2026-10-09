@@ -92,6 +92,19 @@ let private execAmbleRunOp
             let ran, runEffects = runAmbleOp afterDelete
             ran, commitEffects @ delEffects @ runEffects
 
+let private queueRun
+    (request: ActorStart)
+    (committed: VM)
+    (commitEffects: Effect list)
+    : VM * Effect list =
+    let syncInfo, queued =
+        RunLaunch.queueStart
+            request
+            committed.eventId
+            committed.syncInfo
+            commitEffects
+    { committed with syncInfo = syncInfo }, queued
+
 let private submitQuery
     (committed: VM)
     (commitEffects: Effect list)
@@ -106,13 +119,7 @@ let private submitQuery
             committed.eventId with
     | None -> None
     | Some request ->
-        let syncInfo, queued =
-            RunLaunch.queueStart
-                request
-                committed.eventId
-                committed.syncInfo
-                commitEffects
-        Some ({ committed with syncInfo = syncInfo }, queued)
+        Some (queueRun request committed commitEffects)
 
 let private execRunOp (model: VM) : VM * Effect list =
     afterEditCommit model (fun committed commitEffects ->
@@ -135,13 +142,7 @@ let private execRunOp (model: VM) : VM * Effect list =
                             focusId
                             committed.eventId with
                     | Ok request ->
-                        let syncInfo, queued =
-                            RunLaunch.queueStart
-                                request
-                                committed.eventId
-                                committed.syncInfo
-                                commitEffects
-                        { committed with syncInfo = syncInfo }, queued
+                        queueRun request committed commitEffects
                     | Error msg ->
                         if AmbleRun.shouldExec committed.graph focusId then
                             execAmbleRunOp committed commitEffects focusId

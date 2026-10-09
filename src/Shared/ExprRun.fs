@@ -135,14 +135,14 @@ module ExprRun =
         match Map.tryFind focusId graph.nodes with
         | None -> []
         | Some focus ->
-            let catalog = ExprPrimitive.catalog graph
-            match ExprCompile.inferType catalog source with
-            | Error _ -> []
-            | Ok _ ->
-                let input = ExprAnswer.Node focus
-                match ExprCompile.eval graph input source with
-                | Error _ -> []
-                | Ok answers -> List.choose (nodeIdOf graph) answers
+            match
+                ExprCompile.evalOutcome
+                    graph (ExprAnswer.Node focus) source
+            with
+            | ExprCompile.Hits (_, answers) ->
+                List.choose (nodeIdOf graph) answers
+            | ExprCompile.ParseFailed _
+            | ExprCompile.TypeFailed _ -> []
 
     /// Node ids of Node Answers. This does not build the Ref Plan.
     let answerNodeIds

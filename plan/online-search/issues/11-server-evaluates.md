@@ -48,7 +48,7 @@ The request is the existing Run [ActorStart](src/Shared/History.fs). [CommandReq
 
 The door is Run on the ordered event list. [22 — One ordered event stream](../../single-event-source/issues/22-ordered-event-stream.md) removed `POST /ambit/command`, `POST /ambit/cancel`, and `SubmitCommand`. A `=` line queues its ActorStart on `syncInfo.pending` behind the edit. Find keeps `POST /ambit/search`.
 
-1. [x] Local run today — [execRunOp](src/Client/Commands.fs) sees an Amble scan stop and calls [execAmbleRunOp](src/Client/Commands.fs). [CommandRequest.isAmbleScanStop](src/Shared/CommandRequest.fs) is that stop. A query line is not that stop.
+1. [x] Local run today — [execRunOp](src/Client/Commands.fs) sees an Amble scan stop and calls [execAmbleRunOp](src/Client/Commands.fs). [CommandRequest.isAmbleScanStop](src/Shared/CommandRequest.fs) is that stop. Run on the query line is handled before that stop. A Focus under the line stays Amble.
 2. [x] Remote run — Run on a Node whose text contains `=` calls [RunLaunch.queueStart](src/Shared/RunLaunch.fs). That appends the ActorStart on `syncInfo.pending` behind the edit. One post goes to `POST /ambit/changes`. `POST /ambit/events` is the alias. Both call [Api.postEvents](src/Server/Api.fs).
 3. [x] No new door — This ticket adds no route and no `CoreMsg`. The list turn classifies the line from State after the earlier events in that list. A start error stores ActorStart and ActorStop `ActorFailed`. The list applies whole. Only the list-level credential check refuses.
 

@@ -232,17 +232,13 @@ module internal CoreMailboxBackend =
             | Error err -> reply.Reply(Error err)
             | Ok _ -> reply.Reply(Ok ())
 
-    /// Query reads post-edit State. Empty `graphIds` stays the named-actor error.
+    /// Query reads post-edit State. `graphIds` do not replace that Graph.
     let private startChosen
         (context: MailboxContext)
         (request: Gambol.Shared.ActorStart)
         (getState: unit -> Graph)
         : Result<Credential option, StartError> =
-        let graph = getState ()
-        if request.graphIds.IsEmpty then
-            context.pool.startActor request getState
-            |> Result.map Some
-        elif SearchActor.isQueryRequest graph request then
+        if SearchActor.isQueryRequest (getState ()) request then
             SearchActor.functionStart request getState
             |> context.pool.startFunction
             |> Result.mapError StartError.Rejected
@@ -250,6 +246,7 @@ module internal CoreMailboxBackend =
         else
             context.pool.startActor request getState
             |> Result.map Some
+
     let private dispatchStartActor context caller request reply =
         dispatchActorStartResult
             context
@@ -257,7 +254,8 @@ module internal CoreMailboxBackend =
             request
             reply
             (fun start getState ->
-                startChosen context start getState)
+                context.pool.startActor start getState
+                |> Result.map Some)
 
     let private dispatchStartPeerActor
         context caller peerName request reply =
