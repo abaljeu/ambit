@@ -3,9 +3,12 @@
 **Type:** task
 **Status:** defined
 **Blocked by:** [[plan/core-creation/issues/17-cancel-a-job.md]]
+**Implement home:** [15 — Pointer: Prove Core Actor lifecycle with TestActor](../../core-refinement/issues/15-pointer-prove-core-actor-lifecycle-testactor.md). Do not chart or implement from this file.
 Actual: 15m
 
 ## Context
+
+Open catalog work is [15 — Pointer: Prove Core Actor lifecycle with TestActor](../../core-refinement/issues/15-pointer-prove-core-actor-lifecycle-testactor.md).
 
 The rebuilt Actor system needs public-boundary proof of the lifecycle locked by [[plan/llm-connector/issues/07-lock-run-agent-architecture.md]]. It must not depend on Cursor, CloudAgents, or another Agent transport.
 

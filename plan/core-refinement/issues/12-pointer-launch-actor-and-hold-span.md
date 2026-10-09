@@ -1,25 +1,25 @@
 # 12 — Pointer: Launch Actor (Focus registration)
 
 **Type:** pointer
-**Status:** defined
-**Blocked by:** None — chart/implement from the source ticket; this file is the ownership home
+**Status:** done
+**Blocked by:** None
 
 ## Context
 
-Solid core v1 ([[plan/core-creation/project.md]]) is treated as implemented (Alan 2026-10-07). Leftover work continues on this Project (Core v2 / Core-seam).
+Solid core v1 ([core-creation](../../core-creation/project.md)) is implemented (Alan 2026-10-07).
 
 ## Pointer
 
-- **Source (history):** [[plan/core-creation/issues/15-launch-actor-and-hold-span.md|15 — Launch an Actor and hold the span]]
-- **Owned / continued here:** do not implement further from the source file; chart and code from this pointer + the source body as the detailed spec.
-- **Why v2:** Replacement launch / Focus registration (span model superseded); continues pool rebuild.
+- **Source (history):** [15 — Launch an Actor and hold the span](../../core-creation/issues/15-launch-actor-and-hold-span.md)
+- **Owned / continued here:** no open work.
+- **Why v2:** Focus registration. The span model is superseded.
 
 ## What to build
 
-Follow the source ticket’s remaining unchecked work and Comments. This pointer does not rewrite that spec.
+Focus registration is landed. A second live Focus does not register: a start error stores ActorStart and ActorStop with reason ActorFailed ([22 — One ordered event stream](../../single-event-source/issues/22-ordered-event-stream.md)).
 
 ## See also
 
-[[plan/core-refinement/project.md]], [[plan/core-refinement/arch.md]], [[plan/core-creation/issues/15-launch-actor-and-hold-span.md]]
+[core-refinement](../project.md), [core-refinement architecture](../arch.md), [15 — Launch an Actor and hold the span](../../core-creation/issues/15-launch-actor-and-hold-span.md)
 
 Launch registration stays on this pointer. The ordered stream calls that launch from the events list, after the edits in the same list. [22 — One ordered event stream](../../single-event-source/issues/22-ordered-event-stream.md).
