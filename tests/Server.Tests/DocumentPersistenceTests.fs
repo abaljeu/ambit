@@ -957,6 +957,56 @@ let ``discoverArtifactRelatives lists plain file alongside amb artifacts`` () =
     Assert.EndsWith(".txt", fileRel, StringComparison.OrdinalIgnoreCase)
     Assert.EndsWith(".amb", dirRel, StringComparison.OrdinalIgnoreCase)
 
+let private writeImmediateMemberTree (dataDir: string) =
+    Directory.CreateDirectory(Path.Combine(dataDir, "docs", "inner")) |> ignore
+    Directory.CreateDirectory(Path.Combine(dataDir, "empty")) |> ignore
+    File.WriteAllText(Path.Combine(dataDir, "readme.txt"), "top")
+    File.WriteAllText(Path.Combine(dataDir, "notes.amb"), "")
+    File.WriteAllText(Path.Combine(dataDir, "docs", "nested.txt"), "nested")
+    File.WriteAllText(
+        Path.Combine(dataDir, "docs", "inner", "deep.txt"),
+        "deep")
+
+let private immediateMembers (dataDir: string) =
+    DocumentPersistPath.discoverImmediateMembers dataDir
+    |> requireOk "discover"
+    |> Set.ofList
+
+[<Fact>]
+let ``discoverImmediateMembers returns the files in that directory`` () =
+    let dataDir = newTempDir ()
+    writeImmediateMemberTree dataDir
+    let members = immediateMembers dataDir
+    Assert.Contains("readme.txt", members)
+    Assert.Contains("notes.amb", members)
+
+[<Fact>]
+let ``discoverImmediateMembers returns the child directories`` () =
+    let dataDir = newTempDir ()
+    writeImmediateMemberTree dataDir
+    let members = immediateMembers dataDir
+    Assert.Contains("docs", members)
+    Assert.Contains("empty", members)
+    Assert.DoesNotContain("docs/inner", members)
+
+[<Fact>]
+let ``discoverImmediateMembers omits a file inside a child directory`` () =
+    let dataDir = newTempDir ()
+    writeImmediateMemberTree dataDir
+    let members = immediateMembers dataDir
+    Assert.DoesNotContain("docs/nested.txt", members)
+    Assert.DoesNotContain("docs/inner/deep.txt", members)
+
+[<Fact>]
+let ``discoverArtifactRelatives returns a nested file`` () =
+    let dataDir = newTempDir ()
+    writeImmediateMemberTree dataDir
+    let relatives =
+        DocumentPersistPath.discoverArtifactRelatives dataDir
+        |> requireOk "discover"
+    Assert.Contains("docs/nested.txt", relatives)
+    Assert.Contains("docs/inner/deep.txt", relatives)
+
 [<Fact>]
 let ``resolveArtifactPath plain file resolves to named extension path`` () =
     let dataDir = newTempDir ()

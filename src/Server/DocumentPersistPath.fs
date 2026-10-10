@@ -314,3 +314,67 @@ module DocumentPersistPath =
                 |> Result.map List.rev
             with ex ->
                 Error ex.Message
+
+    let private keptDiscoveryRel
+        (dir: string)
+        (fullPath: string)
+        (skipped: bool)
+        : Result<string option, string> =
+        if skipped then
+            Ok None
+        else
+            let rel = relativePathFromDataDir dir fullPath
+
+            match resolveUnderDataDir dir rel with
+            | Error msg -> Error msg
+            | Ok _ -> Ok (Some rel)
+
+    let private collectDiscoveryRels
+        (dir: string)
+        (skipped: string -> bool)
+        (fullPaths: seq<string>)
+        : Result<string list, string> =
+        fullPaths
+        |> Seq.fold
+            (fun acc fullPath ->
+                match acc with
+                | Error msg -> Error msg
+                | Ok rels ->
+                    match keptDiscoveryRel dir fullPath (skipped fullPath) with
+                    | Error msg -> Error msg
+                    | Ok None -> Ok rels
+                    | Ok (Some rel) -> Ok (rel :: rels))
+            (Ok [])
+        |> Result.map List.rev
+
+    let private immediateFileSkipped (dir: string) (fullPath: string) =
+        shouldSkipDiscoveryFile (Path.GetFileName fullPath)
+        || shouldSkipDiscoveryRel (relativePathFromDataDir dir fullPath)
+
+    let private immediateDirectorySkipped (dir: string) (fullPath: string) =
+        shouldSkipDiscoveryRel (relativePathFromDataDir dir fullPath)
+
+    /// Direct files and child directories of one directory. Paths are relative to `dir`.
+    let discoverImmediateMembers (dir: string) : Result<string list, string> =
+        let baseDir = dataDirBase dir
+
+        if not (Directory.Exists baseDir) then
+            Ok []
+        else
+            try
+                let files = Directory.EnumerateFiles baseDir
+                let children = Directory.EnumerateDirectories baseDir
+
+                match collectDiscoveryRels baseDir (immediateFileSkipped baseDir) files with
+                | Error msg -> Error msg
+                | Ok fileRels ->
+                    match
+                        collectDiscoveryRels
+                            baseDir
+                            (immediateDirectorySkipped baseDir)
+                            children
+                    with
+                    | Error msg -> Error msg
+                    | Ok dirRels -> Ok (fileRels @ dirRels)
+            with ex ->
+                Error ex.Message
