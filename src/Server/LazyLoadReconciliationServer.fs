@@ -125,6 +125,7 @@ module LazyLoadReconciliationServer =
         (dataDir: string)
         (workspaceLabel: string)
         (discoveryDirRel: string option)
+        (search: SearchOption)
         =
         let prefix =
             discoveryDirRel
@@ -139,8 +140,7 @@ module LazyLoadReconciliationServer =
                     workspaceLabel,
                     dirRel.Replace('/', Path.DirectorySeparatorChar))
         let fileAdds =
-            discoveryRoot
-            |> DocumentPersistPath.discoverArtifactRelatives
+            DocumentPersistPath.discoverArtifactRelatives discoveryRoot search
             |> Result.map (fun relatives ->
                 relatives
                 |> List.map (fun rel ->
@@ -183,6 +183,7 @@ module LazyLoadReconciliationServer =
         (workspaceLabel: string)
         (discoveryDirRel: string option)
         (changedPaths: LazyLoadReconciliation.ChangedPath list)
+        (search: SearchOption)
         : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
         async {
             let! stateResult = handle.getState ()
@@ -190,7 +191,7 @@ module LazyLoadReconciliationServer =
             | Error err -> return Error err
             | Ok stateResponse ->
                 let graph = stateResponse.graph
-                match discoveredAddedPaths dataDir workspaceLabel discoveryDirRel with
+                match discoveredAddedPaths dataDir workspaceLabel discoveryDirRel search with
                     | Error err -> return Error err
                     | Ok discovered ->
                         let allChanges = changedPaths @ discovered
@@ -235,6 +236,7 @@ module LazyLoadReconciliationServer =
             workspaceLabel
             None
             changedPaths
+            SearchOption.AllDirectories
 
     /// Load's directory match. Discovers the tree and corrects nodes the
     /// graph already holds as Current. Runs whether or not a pull changed files.
@@ -243,13 +245,14 @@ module LazyLoadReconciliationServer =
         (dataDir: string)
         (workspaceLabel: string)
         (discoveryDirRel: string option)
+        (search: SearchOption)
         : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
         async {
             let! stateResult = handle.getState ()
             match stateResult with
             | Error err -> return Error err
             | Ok stateResponse ->
-                match discoveredAddedPaths dataDir workspaceLabel discoveryDirRel with
+                match discoveredAddedPaths dataDir workspaceLabel discoveryDirRel search with
                 | Error err -> return Error err
                 | Ok discovered ->
                     let held =
@@ -264,6 +267,7 @@ module LazyLoadReconciliationServer =
                             workspaceLabel
                             discoveryDirRel
                             held
+                            search
         }
 
     let reconcileDirectory
@@ -277,14 +281,21 @@ module LazyLoadReconciliationServer =
             dataDir
             workspaceLabel
             (Some dirRel)
+            SearchOption.AllDirectories
 
     /// Discover under DataDir/{label} (workspace root) and correct the graph.
     let reconcileWorkspace
         (handle: CoreChanges)
         (dataDir: string)
         (workspaceLabel: string)
+        (search: SearchOption)
         : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
-        matchDiscoveredDirectory handle dataDir workspaceLabel None
+        matchDiscoveredDirectory
+            handle
+            dataDir
+            workspaceLabel
+            None
+            search
 
     let reconcileAddedPaths
         (handle: CoreChanges)
@@ -362,6 +373,7 @@ module LazyLoadReconciliationServer =
                                         (getHandle ())
                                         dataDir
                                         payload.workspace
+                                        SearchOption.AllDirectories
                                 else
                                     reconcileDirectory
                                         (getHandle ())

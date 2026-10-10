@@ -1,5 +1,6 @@
 namespace Gambol.Server
 
+open System.IO
 open Gambol.Shared
 
 [<RequireQualifiedAccess>]
@@ -220,6 +221,9 @@ module GithubTransportActor =
                 async {
                     let! result =
                         LazyLoadReconciliationServer.reconcileWorkspace
-                            changes dataDir label
+                            changes
+                            dataDir
+                            label
+                            SearchOption.TopDirectoryOnly
                     return result |> Result.map ignore
                 } }

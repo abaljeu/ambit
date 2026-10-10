@@ -392,7 +392,11 @@ module DocumentPersistChange =
             (Ok Map.empty)
 
     let readAllDocuments (dataDir: string) : Result<Graph, string> =
-        match DocumentPersistPath.discoverArtifactRelatives dataDir with
+        match
+            DocumentPersistPath.discoverArtifactRelatives
+                dataDir
+                SearchOption.AllDirectories
+            with
         | Error msg -> Error msg
         | Ok relatives ->
             // Cold bootstrap reads Directory File outline only; discovered File bodies

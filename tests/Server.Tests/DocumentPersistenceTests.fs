@@ -776,7 +776,9 @@ let ``discoverArtifactRelatives finds all written artifacts`` () =
     let graph, wsId, dirId, fileId, _ = graphWithNestedDocs ()
     DocumentPersistWrite.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
     let relatives =
-        DocumentPersistPath.discoverArtifactRelatives dataDir
+        DocumentPersistPath.discoverArtifactRelatives
+            dataDir
+            SearchOption.AllDirectories
         |> requireOk "discover"
         |> Set.ofList
     let expected =
@@ -837,7 +839,9 @@ let ``discoverArtifactRelatives lists stray amb file`` () =
     let dataDir = newTempDir ()
     File.WriteAllText(Path.Combine(dataDir, "foo.amb"), "")
     let relatives =
-        DocumentPersistPath.discoverArtifactRelatives dataDir
+        DocumentPersistPath.discoverArtifactRelatives
+            dataDir
+            SearchOption.AllDirectories
         |> requireOk "discover"
     Assert.Contains("foo.amb", relatives)
 
@@ -851,7 +855,9 @@ let ``discoverArtifactRelatives excludes reserved gambol dot files`` () =
     File.WriteAllText(Path.Combine(nested, "GAMBOL.meta"), "bookkeeping")
     File.WriteAllText(Path.Combine(dataDir, "gambolish"), "ordinary artifact")
     let relatives =
-        DocumentPersistPath.discoverArtifactRelatives dataDir
+        DocumentPersistPath.discoverArtifactRelatives
+            dataDir
+            SearchOption.AllDirectories
         |> requireOk "discover"
     Assert.DoesNotContain("gambol.events", relatives)
     Assert.DoesNotContain("nested/GAMBOL.meta", relatives)
@@ -947,7 +953,9 @@ let ``discoverArtifactRelatives lists plain file alongside amb artifacts`` () =
     let graph, wsId, dirId, fileId, _ = graphWithNestedDocs ()
     DocumentPersistWrite.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
     let relatives =
-        DocumentPersistPath.discoverArtifactRelatives dataDir
+        DocumentPersistPath.discoverArtifactRelatives
+            dataDir
+            SearchOption.AllDirectories
         |> requireOk "discover"
         |> Set.ofList
     let fileRel = DocumentPartition.artifactFileRelative graph fileId |> Option.get

@@ -285,14 +285,17 @@ module DocumentPersistPath =
         else
             full
 
-    let discoverArtifactRelatives (dataDir: string) : Result<string list, string> =
+    let discoverArtifactRelatives
+        (dataDir: string)
+        (search: SearchOption)
+        : Result<string list, string> =
         let baseDir = dataDirBase dataDir
 
         if not (Directory.Exists baseDir) then
             Ok []
         else
             try
-                Directory.EnumerateFiles(baseDir, "*", SearchOption.AllDirectories)
+                Directory.EnumerateFiles(baseDir, "*", search)
                 |> Seq.filter (fun fullPath ->
                     let rel = relativePathFromDataDir dataDir fullPath
                     not (shouldSkipDiscoveryFile (Path.GetFileName fullPath))

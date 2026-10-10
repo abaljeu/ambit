@@ -466,7 +466,11 @@ let ``workspace reconcile discovers under workspace root`` () =
     Directory.CreateDirectory(Path.GetDirectoryName(insidePath)) |> ignore
     File.WriteAllText(outsidePath, "outside")
     File.WriteAllText(insidePath, "inside")
-    LazyLoadReconciliationServer.reconcileWorkspace handle tempDir "home"
+    LazyLoadReconciliationServer.reconcileWorkspace
+        handle
+        tempDir
+        "home"
+        SearchOption.AllDirectories
     |> Async.RunSynchronously
     |> requireOk "workspace reconcile"
     |> ignore
@@ -496,7 +500,11 @@ let ``workspace reconcile creates Directory for empty leading-dot dir`` () =
     let workspaceId = postWorkspace fileAgent "home"
     let scratch = Path.Combine(tempDir, "home", ".scratch")
     Directory.CreateDirectory scratch |> ignore
-    LazyLoadReconciliationServer.reconcileWorkspace handle tempDir "home"
+    LazyLoadReconciliationServer.reconcileWorkspace
+        handle
+        tempDir
+        "home"
+        SearchOption.AllDirectories
     |> Async.RunSynchronously
     |> requireOk "empty .scratch reconcile"
     |> ignore
@@ -552,7 +560,11 @@ let ``SYSTEM workspace reconcile creates File stubs under systemId`` () =
     File.WriteAllText(Path.Combine(systemDir, "user.css"), "body{}")
     File.WriteAllText(Path.Combine(systemDir, "http-responses.log"), "log")
     File.WriteAllText(Path.Combine(systemDir, "gambol.meta"), "1")
-    LazyLoadReconciliationServer.reconcileWorkspace handle tempDir "SYSTEM"
+    LazyLoadReconciliationServer.reconcileWorkspace
+        handle
+        tempDir
+        "SYSTEM"
+        SearchOption.AllDirectories
     |> Async.RunSynchronously
     |> requireOk "SYSTEM reconcile"
     |> ignore
@@ -715,6 +727,7 @@ let ``directory reconcile returns resilient failures and posts good sibling`` ()
             "home"
             (Some "docs")
             [ LazyLoadReconciliation.Deleted "docs/bad.txt" ]
+            SearchOption.AllDirectories
         |> Async.RunSynchronously
         |> requireOk "directory reconcile"
     Assert.NotEmpty(failures)

@@ -302,3 +302,60 @@ let ``Peer Actor dependencies contain no credential field`` () =
             name.Contains("credential")
             || name.Contains("token")
             || name.Contains("secret"))
+
+[<Fact>]
+let ``git Load reconcile does not discover a nested file`` () =
+    task {
+        let dataDir = newTempDir ()
+        let home = Path.Combine(dataDir, "home")
+        let docs = Path.Combine(home, "docs")
+        Directory.CreateDirectory(docs) |> ignore
+        File.WriteAllText(Path.Combine(home, "top.txt"), "top")
+        File.WriteAllText(Path.Combine(docs, "nested.txt"), "nested")
+        let production =
+            GithubTransportActor.productionDependencies dataDir
+        let deps =
+            { git =
+                { withWorkTreeGate = fun _ action -> action ()
+                  trackedBranch = fun _ -> Ok tracked
+                  pullTracked = fun _ _ -> Ok "pulled"
+                  commitAll = fun _ _ _ -> Error "commit unused"
+                  pushTracked = fun _ _ _ -> Error "push unused" }
+              continueLoad = production.continueLoad }
+        let pool = CoreActorPool.create ()
+        pool.registerPeer
+            (GithubTransportActor.peerName GithubTransportOperation.Load)
+            (GithubTransportActor.actorFn
+                dataDir
+                GithubTransportOperation.Load
+                deps)
+        let host =
+            CoreMailbox.host
+                pool
+                (FileAgent.persist (FileAgent.create dataDir))
+                admittedCredentials
+        try
+            let seed = seedOperation host "load"
+            let! started =
+                GithubTransportActor.start
+                    host
+                    testCaller
+                    GithubTransportOperation.Load
+                    (request seed)
+                |> Async.StartAsTask
+            requireOk "start Load" started
+            let! stopped = waitForStop host seed.focusId 2000
+            Assert.Equal(Some ActorSucceeded, stopped)
+            let! state =
+                CoreMailbox.getState host |> Async.StartAsTask
+            let graph = (requireOk "state" state).graph
+            let names =
+                graph.nodes
+                |> Map.toList
+                |> List.choose (fun (_, node) ->
+                    Filename.tryValue node.name)
+            Assert.Contains("top.txt", names)
+            Assert.DoesNotContain("nested.txt", names)
+        finally
+            CoreMailbox.dispose host
+    }
