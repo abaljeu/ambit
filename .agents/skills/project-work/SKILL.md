@@ -25,7 +25,19 @@ Set `Stage:` and `Updated:` in `project.md` when the effort starts or advances. 
 
 ## 3. Work
 
-Edit the project's files. Placement of files under `plan/` follows [[doc/agents/issue-tracker.md]] Conventions. On issues you touch, keep `**Type:**` set ([[doc/agents/issue-tracker.md]] Ticket Type: Wayfinder `research`/`prototype`/`grilling`/`task`, or `coding` / `bug-fixing` for implement). Time, Status, Started, Finished, and project Actual: [[doc/agents/issue-tracker.md]] Time tracking and Claim / Resolve; Status values: [[doc/agents/triage-labels.md]]. Done: every file you edited sits under the Project, and every touched issue carries Type plus tracker time/Status fields per those docs.
+Edit the project's files. Placement of files under `plan/` follows [[doc/agents/issue-tracker.md]] conventions.
+Status values live in [[doc/agents/triage-labels.md]].
+
+Project files usually describe the program, but this description also represents work items.  Therefore write such as checklists, not paragraphs.
+E.g.
+[ ] The module calls this.
+[ ] This calculates that and returns.
+
+
+Done: 
+    - every file you edited sits under the Project
+    - every touched issue carries Type, Time, Status fields 
+
 
 ## 4. Finish
 

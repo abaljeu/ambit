@@ -23,9 +23,9 @@ Look in these seven places. Put each candidate in one place.
 1. **Navigation** — the agent was slow to find a file, or a dependency was hidden. A navigation pointer is the usual fix.
 2. **Automated checks** — a mistake a check could catch, or the repo has no guardrail. Read the existing checks first: `dotnet test`, [[.agents/skills/code-review/SKILL.md]] `standards-scan.py`, and CI. A check that exists but did not run is the finding. Do not invent a second checker for the same rule.
 3. **Coding standards** — the reviewer missed a mistake. A mechanical miss (a fixed pattern, a banned call, an import shape, a file location) becomes a deterministic check. A judgement call stays in [[.agents/rules/]] and in [[.agents/skills/code-review/SMELLS.md]]. Do not create `CODING_STANDARDS.md`. The reviewer holds that standard. The implementer does not receive a new prose rule for the same miss.
-4. **Global instructions** — a steering line belongs in a narrower rule or in a check. [[AGENTS.md]] stays a short pointer. The catalog is [[.agents/rules/gambol.md]]. Do not grow [[AGENTS.md]].
+4. **Global instructions** — a steering line belongs in a narrower rule or in a check. Find the responsible file relative to [[.agents/rules/gambol.md]]. Do not grow [[AGENTS.md]].
 5. **Tool economy** — an expensive tool call has a cheaper path.
-6. **No-ops** — a steering sentence does not change behaviour. Delete that sentence when the human picks it ([[.agents/skills/writing-for-agents/SKILL.md]]).
+6. **No-ops** — a steering sentence does not change behaviour. Contradicting constructions forced a poor choice.  Delete that sentence when the human picks it ([[.agents/skills/writing-for-agents/SKILL.md]]).
 7. **Information access** — a fact the agent needed was not available.
 
 Send other findings to their owner:

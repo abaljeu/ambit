@@ -7,6 +7,6 @@ Depends: piece-goal, piece-arch.
 
 Output: the numbered checklist under `## What to build`.
 
-1. From the goal output, the architecture output, and the given `spec.md`, add one checklist item for each test, doc, glossary entry, or Committed Decision this ticket must update.
+1. From the goal output, the architecture output, and the given `spec.md`, add one checklist item for each test, doc, glossary entry, or Committed Decision this ticket must update. Paths and links follow [[PUBLISH.md]].
 
 Done: each checklist item is work this ticket must accomplish. An empty checklist means this ticket has none of those updates.

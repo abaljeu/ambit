@@ -32,11 +32,13 @@ module CoreRuntime =
             reject readOnlyMsg
         let rejectGraph (_: Ev) = reject readOnlyMsg
         let rejectActorStop (_: ActorResult) = reject readOnlyMsg
+        let rejectLoad (_: NodeId) = reject readOnlyMsg
         let rec wrap h : CoreChanges =
             { h with
                 postEvents = rejectEvents
                 postGraphOnly = rejectGraph
                 actorStop = rejectActorStop
+                load = rejectLoad
                 getEventsSince = h.getEventsSince
                 asCaller = fun caller -> wrap (h.asCaller caller) }
         wrap handle

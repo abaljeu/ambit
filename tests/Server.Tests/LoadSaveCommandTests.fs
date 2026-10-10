@@ -150,7 +150,7 @@ let private registerPeer dataDir pool operation dependencies =
 let private createProductionHost dataDir =
     let pool = CoreActorPool.create ()
     let dependencies =
-        GithubTransportActor.productionDependencies dataDir
+        GithubTransportActor.productionDependencies
     registerPeer dataDir pool GithubTransportOperation.Load dependencies
     registerPeer dataDir pool GithubTransportOperation.Save dependencies
     CoreMailbox.host
@@ -344,8 +344,7 @@ let private routeMatrixDependencies (started: TaskCompletionSource<unit>) =
             fun _ _ _ ->
                 markStarted ()
                 Result.Ok(tracked, "committed")
-          pushTracked = fun _ _ _ -> Result.Ok "pushed" }
-      continueLoad = fun _ _ -> async.Return(Result.Ok ()) }
+          pushTracked = fun _ _ _ -> Result.Ok "pushed" } }
 
 let private routeMatrixHarness operation operationName =
     let dataDir = newTempDir ()
@@ -475,7 +474,7 @@ let ``routed Git Save commits then pushes through Peer Actor`` () = task {
 }
 
 [<SkippableFact>]
-let ``routed Git Load pulls and Poll sees Parse lifecycle`` () = task {
+let ``routed Git Load pulls the tracked branch`` () = task {
     Skip.IfNot(DesktopGit.isAvailable(), "git not on PATH")
     let harness = createGitHarness "load"
     try
@@ -505,7 +504,7 @@ let ``routed Git Load pulls and Poll sees Parse lifecycle`` () = task {
         Assert.Contains(
             poll.events,
             hasActorStop harness.seed.workspaceId)
-        Assert.Contains(poll.events, isParseChange)
+        Assert.DoesNotContain(poll.events, isParseChange)
     finally
         CoreMailbox.dispose harness.host
 }
@@ -558,7 +557,7 @@ let private fetchSwitchStaging workspace remote =
     git workspace "switch staging" |> ignore
 
 [<SkippableFact>]
-let ``git Load reflects a staging checkout already fetched`` () = task {
+let ``git Load pulls a staging checkout and does not reconcile`` () = task {
     Skip.IfNot(DesktopGit.isAvailable(), "git not on PATH")
     let dataDir = newTempDir ()
     let workspace = Path.Combine(dataDir, "home")
@@ -592,8 +591,13 @@ let ``git Load reflects a staging checkout already fetched`` () = task {
             Graph.children after seed.workspaceId
             |> List.choose (fun child ->
                 Filename.tryValue after.nodes.[child.id].name)
-        Assert.Contains("arrived.txt", names)
-        Assert.Equal(Unparsed, (childNamed after seed.workspaceId "note.txt").documentState)
+        Assert.Equal(
+            "arrived",
+            File.ReadAllText(Path.Combine(workspace, "arrived.txt")))
+        Assert.DoesNotContain("arrived.txt", names)
+        Assert.Equal(
+            Unparsed,
+            (childNamed after seed.workspaceId "note.txt").documentState)
     finally
         CoreMailbox.dispose host
 }
@@ -691,7 +695,7 @@ let ``git Load on a file parses that file`` () = task {
 }
 
 [<SkippableFact>]
-let ``git Load after-step creates a disk file the graph does not hold`` () = task {
+let ``git Load does not reconcile a disk file into the graph`` () = task {
     Skip.IfNot(DesktopGit.isAvailable(), "git not on PATH")
     let harness = createGitHarness "load"
     try
@@ -711,8 +715,12 @@ let ``git Load after-step creates a disk file the graph does not hold`` () = tas
             Graph.children after harness.seed.workspaceId
             |> List.choose (fun child ->
                 Filename.tryValue after.nodes.[child.id].name)
-        Assert.Contains("leftover.txt", names)
-        Assert.Contains("note.txt", names)
+        Assert.Equal(
+            "already on disk",
+            File.ReadAllText(
+                Path.Combine(harness.workspace, "leftover.txt")))
+        Assert.DoesNotContain("leftover.txt", names)
+        Assert.DoesNotContain("note.txt", names)
     finally
         CoreMailbox.dispose harness.host
 }

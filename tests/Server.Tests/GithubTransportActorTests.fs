@@ -26,7 +26,6 @@ let private dependencies
     pull
     commit
     push
-    continueLoad
     =
     let git =
         { withWorkTreeGate =
@@ -43,7 +42,7 @@ let private dependencies
           pullTracked = pull
           commitAll = commit
           pushTracked = push }
-    { git = git; continueLoad = continueLoad }
+    { git = git }
 
 let private postGraph host ops =
     let event =
@@ -114,7 +113,7 @@ let private request seed =
           seed.focusId ]
       eventId = EventId.zero }
 
-let private withActor operation dependencies operationName body =
+let private runActor operation dependencies operationName onPush body =
     task {
         let dataDir = newTempDir ()
         let pool = CoreActorPool.create ()
@@ -123,10 +122,11 @@ let private withActor operation dependencies operationName body =
             (GithubTransportActor.actorFn
                 dataDir operation dependencies)
         let host =
-            CoreMailbox.host
+            CoreMailbox.hostWithParsePush
                 pool
                 (FileAgent.persist (FileAgent.create dataDir))
                 admittedCredentials
+                onPush
         try
             let seed = seedOperation host operationName
             do! body dataDir host pool operation seed
@@ -134,19 +134,19 @@ let private withActor operation dependencies operationName body =
             CoreMailbox.dispose host
     }
 
+let private withActor operation dependencies operationName body =
+    runActor operation dependencies operationName ignore body
+
 [<Fact>]
-let ``git Load gates pull then continues to Parse from subnode Focus`` () =
+let ``git Load gates pull from subnode Focus`` () =
     let steps = ResizeArray<string>()
     let pull root _ =
         steps.Add($"pull {root}")
         Ok "pulled"
     let commit _ _ _ = Error "commit unused"
     let push _ _ _ = Error "push unused"
-    let continueLoad _ label =
-        steps.Add($"parse {label}")
-        async.Return(Ok ())
     let deps =
-        dependencies steps pull commit push continueLoad
+        dependencies steps pull commit push
     withActor GithubTransportOperation.Load deps "load"
         (fun dataDir host pool operation seed -> task {
             let! started =
@@ -161,9 +161,78 @@ let ``git Load gates pull then continues to Parse from subnode Focus`` () =
                 [ $"gate acquire {root}"
                   $"tracked {root}"
                   $"pull {root}"
-                  $"gate release {root}"
-                  "parse home" ],
+                  $"gate release {root}" ],
                 steps |> Seq.toList)
+            Assert.False(
+                Set.contains seed.focusId (pool.liveFocusIds ()))
+        })
+
+[<Fact>]
+let ``git Load posts that Workspace id and does not reconcile`` () =
+    let steps = ResizeArray<string>()
+    let pushed = ResizeArray<NodeId>()
+    let pull root _ =
+        steps.Add($"pull {root}")
+        Ok "pulled"
+    let commit _ _ _ = Error "commit unused"
+    let push _ _ _ = Error "push unused"
+    let deps =
+        dependencies steps pull commit push
+    runActor
+        GithubTransportOperation.Load
+        deps
+        "load"
+        (fun id -> pushed.Add id)
+        (fun dataDir host _ operation seed -> task {
+            let! started =
+                GithubTransportActor.start
+                    host testCaller operation (request seed)
+                |> Async.StartAsTask
+            requireOk "start Load" started
+            let! stopped = waitForStop host seed.focusId 1000
+            Assert.Equal(Some ActorSucceeded, stopped)
+            Assert.Equal<NodeId list>(
+                [ seed.workspaceId ],
+                pushed |> Seq.toList)
+            Assert.DoesNotContain(seed.focusId, pushed)
+            let! history =
+                CoreMailbox.eventHistory host
+                |> Async.StartAsTask
+            let reconciled =
+                history.events
+                |> List.exists (fun event ->
+                    event.commandName = "Parse")
+            Assert.False(reconciled)
+            let root = Path.Combine(dataDir, "home")
+            Assert.Contains($"pull {root}", steps)
+        })
+
+[<Fact>]
+let ``git Load ends when the pull fails and posts nothing`` () =
+    let steps = ResizeArray<string>()
+    let pushed = ResizeArray<NodeId>()
+    let conflict = "Git conflict: notes/today.md"
+    let pull _ _ = Error conflict
+    let deps =
+        dependencies
+            steps
+            pull
+            (fun _ _ _ -> Error "commit unused")
+            (fun _ _ _ -> Error "push unused")
+    runActor
+        GithubTransportOperation.Load
+        deps
+        "load"
+        (fun id -> pushed.Add id)
+        (fun _ host pool operation seed -> task {
+            let! started =
+                GithubTransportActor.start
+                    host testCaller operation (request seed)
+                |> Async.StartAsTask
+            requireOk "start Load" started
+            let! stopped = waitForStop host seed.focusId 1000
+            Assert.Equal(Some(ActorFailed conflict), stopped)
+            Assert.Empty(pushed)
             Assert.False(
                 Set.contains seed.focusId (pool.liveFocusIds ()))
         })
@@ -182,9 +251,8 @@ let ``git Save gates commit then releases before push`` () =
         Assert.Equal(tracked, received)
         Assert.Equal("committed", commitOutput)
         Ok "pushed"
-    let continueLoad _ _ = async.Return(Error "parse unused")
     let deps =
-        dependencies steps pull commit push continueLoad
+        dependencies steps pull commit push
     withActor GithubTransportOperation.Save deps "save"
         (fun dataDir host _ operation seed -> task {
             let! started =
@@ -218,7 +286,6 @@ let ``Peer Actor row is live only while git work runs`` () =
             pull
             (fun _ _ _ -> Error "commit unused")
             (fun _ _ _ -> Error "push unused")
-            (fun _ _ -> async.Return(Ok ()))
     withActor GithubTransportOperation.Load deps "load"
         (fun _ host pool operation seed -> task {
             let! started =
@@ -245,9 +312,8 @@ let ``Load and Save return the same conflict reject shape`` operationName =
     let pull _ _ = Error conflict
     let commit _ _ _ = Error conflict
     let push _ _ _ = Error "push unused"
-    let continueLoad _ _ = async.Return(Error "parse unused")
     let deps =
-        dependencies steps pull commit push continueLoad
+        dependencies steps pull commit push
     let operation =
         if operationName = "load" then
             GithubTransportOperation.Load
@@ -274,7 +340,6 @@ let ``Peer Actor is not available through the Run actor table`` () =
             (fun _ _ -> Ok "pulled")
             (fun _ _ _ -> Ok(tracked, "committed"))
             (fun _ _ _ -> Ok "pushed")
-            (fun _ _ -> async.Return(Ok ()))
     withActor GithubTransportOperation.Load deps "load"
         (fun _ host _ _ seed -> task {
             let! result =

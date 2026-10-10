@@ -1,12 +1,12 @@
 ---
 name: to-tickets
-description: Propagate arch.md Sequence into implementation tickets (tracer-cut from Story paths, module-build from Module map, or expand-contract), each declaring blocking edges and Binding arch, published via PUBLISH.md.
+description: Propagate arch.md Sequence into implementation tickets (tracer-cut from Story paths, module-build from Module map, or expand-contract), each declaring blocking edges and Trackers, published via PUBLISH.md.
 disable-model-invocation: true
 ---
 
 # To Tickets
 
-Turn the Project's `arch.md` into **tickets**. Propagate its **Sequence** — do not re-choose or quiz. Draft and publish the full predefined set for that Sequence immediately; the written files are the review surface. Each ticket declares the tickets that **block** it and names **Binding arch** and **Trackers**.
+Turn the Project's `arch.md` into **tickets**. Propagate its **Sequence** — do not re-choose or quiz. Draft and publish the full predefined set for that Sequence immediately; the written files are the review surface. Each ticket declares the tickets that **block** it and names **Trackers**.
 
 ## Process
 
@@ -63,9 +63,9 @@ Done: every named ticket has one returned output for each piece file.
 
 ### 5. Assemble
 
-Write one file per ticket per [[PUBLISH.md]]. Place each returned output in the section that piece names. Under What to build, place the goal opening, then the architecture subsections, then the obligation checklist.
+Write one file per ticket per [[PUBLISH.md]]. Place each returned output in the section that piece names. Under What to build, place the goal opening, then the architecture subsections, then the obligation checklist. Apply the link rules in [[PUBLISH.md]].
 
-Done: each ticket is one file in that shape, Trackers is set, Finish-up is present, and the ticket text holds each piece's decisions.
+Done: each ticket is one file in that shape, Trackers is set, Finish-up is present, the ticket text holds each piece's decisions, and link placement matches [[PUBLISH.md]].
 
 ### 6. Publish
 

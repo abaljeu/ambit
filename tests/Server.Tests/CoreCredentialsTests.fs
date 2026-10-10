@@ -25,6 +25,7 @@ let private unusedHandle
       postEvents = post
       postGraphOnly = fun _ -> async.Return(Result.Error "unused")
       actorStop = fun _ -> async.Return(Result.Error "unused")
+      load = fun _ -> async.Return(Result.Error "unused")
       asCaller = fun _ -> Unchecked.defaultof<CoreChanges> }
 
 let private addRootChild text = addRootChildEvent text |> snd

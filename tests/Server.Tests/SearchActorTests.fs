@@ -190,6 +190,7 @@ let private handle (graph: Graph) : CoreChanges =
       postEvents = fun _ -> async.Return (Result.Error "no graph change")
       postGraphOnly = fun _ -> async.Return (Result.Error "no graph change")
       actorStop = fun _ -> async.Return (Result.Ok ())
+      load = fun _ -> async.Return (Result.Error "unused")
       asCaller = fun _ -> Unchecked.defaultof<CoreChanges> }
 
 [<Fact>]

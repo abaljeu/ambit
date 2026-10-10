@@ -61,7 +61,7 @@ module RouteRegistration =
         let boot = this.CreateBoot ()
         let core = ParseThread.bootCore boot
         let github =
-            GithubTransportActor.productionDependencies boot.DataDir
+            GithubTransportActor.productionDependencies
         core.pool.registerPeer
             (GithubTransportActor.peerName GithubTransportOperation.Load)
             (GithubTransportActor.actorFn

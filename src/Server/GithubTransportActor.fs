@@ -27,9 +27,7 @@ type GithubTransportGit =
         Result<string, string> }
 
 type GithubTransportActorDependencies =
-    { git: GithubTransportGit
-      continueLoad:
-        CoreChanges -> string -> Async<Result<unit, string>> }
+    { git: GithubTransportGit }
 
 /// Server Peer Actor for person-started git Load and git Save.
 [<RequireQualifiedAccess>]
@@ -61,7 +59,7 @@ module GithubTransportActor =
                 |> Option.bind (fun node -> Filename.tryValue node.name),
                 DocumentPersistPath.workspaceRootFor dataDir graph focusId
             with
-            | Some label, Some root -> Ok(label, root)
+            | Some _, Some root -> Ok(id, root)
             | _ -> Error "Focus does not name a Workspace work tree."
 
     let private pullTracked git workspaceRoot =
@@ -88,7 +86,7 @@ module GithubTransportActor =
             | Some { kind = Special File } -> Some rootId
             | _ -> None
 
-    /// After directory match, parse the focused File from DataDir.
+    /// Parse the focused File from DataDir. A non-File focus is a no-op.
     let private parseFocusFile dataDir (changes: CoreChanges) focusId =
         async {
             let! state = changes.getState ()
@@ -114,29 +112,24 @@ module GithubTransportActor =
                                 (GraphOnlyChangeChunks.split ops)
         }
 
-    /// Load step 1 pulls. Step 2 corrects the graph even when pull
-    /// failed or changed no files. Step 3 parses a focused File.
-    /// Pull's error is the actor result.
+    /// A successful pull posts that one Workspace, then parses a focused File.
+    /// A failed pull is the actor result.
     let private runLoad
         dependencies
         dataDir
         changes
         focusId
-        label
+        workspaceId
         workspaceRoot
         =
         async {
-            let pulled =
-                pullTracked dependencies.git workspaceRoot
-            let! matched =
-                dependencies.continueLoad changes label
-            let! parsed = parseFocusFile dataDir changes focusId
-            match pulled with
+            match pullTracked dependencies.git workspaceRoot with
             | Error err -> return Error err
             | Ok _ ->
-                match matched with
+                match! changes.load workspaceId with
                 | Error err -> return Error err
-                | Ok () -> return parsed
+                | Ok () ->
+                    return! parseFocusFile dataDir changes focusId
         }
 
     let private runOperation
@@ -145,7 +138,7 @@ module GithubTransportActor =
         dataDir
         changes
         focusId
-        label
+        workspaceId
         root
         =
         match operation with
@@ -155,7 +148,7 @@ module GithubTransportActor =
                 dataDir
                 changes
                 focusId
-                label
+                workspaceId
                 root
         | GithubTransportOperation.Save ->
             async.Return(
@@ -175,7 +168,7 @@ module GithubTransportActor =
                         dataDir current.graph input.focusId
                 with
                 | Error err -> return ActorFailed err
-                | Ok(label, root) ->
+                | Ok(workspaceId, root) ->
                     match!
                         runOperation
                             operation
@@ -183,7 +176,7 @@ module GithubTransportActor =
                             dataDir
                             actorChanges
                             input.focusId
-                            label
+                            workspaceId
                             root
                     with
                     | Ok () -> return ActorSucceeded
@@ -213,13 +206,5 @@ module GithubTransportActor =
           commitAll = WorkspaceGit.commitTracked
           pushTracked = WorkspaceGit.pushTrackedBranch }
 
-    let productionDependencies dataDir =
-        { git = workspaceGit
-          continueLoad =
-            fun changes label ->
-                async {
-                    let! result =
-                        LazyLoadReconciliationServer.reconcileWorkspace
-                            changes dataDir label
-                    return result |> Result.map ignore
-                } }
+    let productionDependencies =
+        { git = workspaceGit }
