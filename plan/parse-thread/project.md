@@ -2,7 +2,7 @@
 
 Stage: build
 Summary: A continuous Server parse thread turns file-shaped disk into Graph, takes priority from Browser wants, and emits Changes. A continuous persist thread turns Graph into disk. Both add InMsg through the mailbox private function. The core loop sets the axes.
-Updated: 2026-10-07
+Updated: 2026-10-10
 Started: 2026-09-28
 Actual: 3h 15m
 
@@ -29,3 +29,4 @@ Actual: 3h 15m
 - 2026-10-07 — Alan accepted InMsg MarkUnparsed. The case is on [core-refinement architecture](../core-refinement/arch.md) §10 Core loop and [Mailbox](../../doc/current/mailbox.md). Stage stays build.
 - 2026-10-07 — Alan locked both Unparsed approaches. Directory Nodes during reconcile are [07 — Directory Unparsed during reconcile](issues/07-directory-unparsed-during-reconcile.md). The git changed list is [07 — Git changed list sets Unparsed](../core-refinement/issues/07-git-changed-list-unparsed.md). [06 — Setting Unparsed, recursive update](issues/06-setting-unparsed-recursive-update.md) stays disk-newer File Node Unparsed only. Stage stays build.
 - 2026-10-07 — [07 — Directory Unparsed during reconcile](issues/07-directory-unparsed-during-reconcile.md) is coded. A child Directory Node that needs reparse is named for the same InMsg as a File Node, and for push. A missing disk directory gets a Directory Node. Stage stays build.
+- 2026-10-10 — [09 — Grill reconcile discovery depth](issues/09-grill-reconcile-discovery-depth.md) Status `done`. git Load, Directory Load, and Workspace Load walk one level. Coding tickets: [10 — Add discoverImmediateMembers](issues/10-add-discover-immediate-members.md) (`defined`, frontier), [11 — Load reconciles walk one level](issues/11-load-reconciles-walk-one-level.md), [12 — Git pull marks each received file Unparsed](issues/12-git-pull-marks-each-received-file-unparsed.md). Each blocks [24 — Command Load/Save](../github-transport/issues/24-load-save-on-events.md). Stage stays build.

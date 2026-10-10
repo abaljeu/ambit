@@ -2,14 +2,14 @@
 
 **Status:** `defined`
 **Type:** coding
-**Blocked by:** None — can start immediately
+**Blocked by:** 10 — Add discoverImmediateMembers, 11 — Load reconciles walk one level, 12 — Git pull marks each received file Unparsed.
 **Trackers:** architecture, project spec
 
 ## Context
 
 A person uses the Load Command and the Save Command. The spoken names are Load and Save. A Command is a user operation. A Command is not sent. The Workspace DataDir work tree is a git work tree. These Commands do not bring files from GitHub. These Commands do not send files to GitHub. Upload and Download move files between the App and the Server. Upload and Download do not talk to the GitHub remote. When the work tree has a remote, no Server Actor pulls the tracked branch from Load or Save. No Server Actor pushes the tracked branch from Load or Save.
 
-PathPick chooses git when a remote exists. PathPick chooses desk when a remote does not exist. The Server Actor does pull and push. Desk Load and desk Save are the desk path. 26 — Desk WebDAV keeps desktop-mapped WebDAV. The core-refinement Project is the home for how Core works through changes.
+PathPick chooses git when a remote exists. PathPick chooses desk when a remote does not exist. The Server Actor does pull and push. Desk Load and desk Save are the desk path. 26 — Desk WebDAV keeps desktop-mapped WebDAV. The core-refinement Project is the home for how Core works through changes. 09 — Grill reconcile discovery depth is done. This ticket waits on 10 — Add discoverImmediateMembers, 11 — Load reconciles walk one level, and 12 — Git pull marks each received file Unparsed.
 
 ## What to build
 
@@ -48,3 +48,7 @@ Command Load/Save is the person Command for Load and Save. A plain path asks Pat
 6. [07 — Actor start door](07-actor-start-door.md)
 7. [core-refinement](../../core-refinement/project.md)
 8. [Parse thread](../../parse-thread/project.md)
+9. [09 — Grill reconcile discovery depth](../../parse-thread/issues/09-grill-reconcile-discovery-depth.md)
+10. [10 — Add discoverImmediateMembers](../../parse-thread/issues/10-add-discover-immediate-members.md)
+11. [11 — Load reconciles walk one level](../../parse-thread/issues/11-load-reconciles-walk-one-level.md)
+12. [12 — Git pull marks each received file Unparsed](../../parse-thread/issues/12-git-pull-marks-each-received-file-unparsed.md)
