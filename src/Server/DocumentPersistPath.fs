@@ -285,36 +285,6 @@ module DocumentPersistPath =
         else
             full
 
-    let discoverArtifactRelatives (dataDir: string) : Result<string list, string> =
-        let baseDir = dataDirBase dataDir
-
-        if not (Directory.Exists baseDir) then
-            Ok []
-        else
-            try
-                Directory.EnumerateFiles(baseDir, "*", SearchOption.AllDirectories)
-                |> Seq.filter (fun fullPath ->
-                    let rel = relativePathFromDataDir dataDir fullPath
-                    not (shouldSkipDiscoveryFile (Path.GetFileName fullPath))
-                    && not (shouldSkipDiscoveryRel rel))
-                |> Seq.map (fun fullPath ->
-                    relativePathFromDataDir dataDir fullPath,
-                    resolveUnderDataDir
-                        dataDir
-                        (relativePathFromDataDir dataDir fullPath))
-                |> Seq.fold
-                    (fun acc (rel, resolved) ->
-                        match acc with
-                        | Error msg -> Error msg
-                        | Ok paths ->
-                            match resolved with
-                            | Error msg -> Error msg
-                            | Ok _ -> Ok (rel :: paths))
-                    (Ok [])
-                |> Result.map List.rev
-            with ex ->
-                Error ex.Message
-
     let private keptDiscoveryRel
         (dir: string)
         (fullPath: string)
@@ -347,34 +317,38 @@ module DocumentPersistPath =
             (Ok [])
         |> Result.map List.rev
 
-    let private immediateFileSkipped (dir: string) (fullPath: string) =
+    let private fileDiscoverySkipped (dir: string) (fullPath: string) =
         shouldSkipDiscoveryFile (Path.GetFileName fullPath)
         || shouldSkipDiscoveryRel (relativePathFromDataDir dir fullPath)
 
-    let private immediateDirectorySkipped (dir: string) (fullPath: string) =
+    let private directoryDiscoverySkipped (dir: string) (fullPath: string) =
         shouldSkipDiscoveryRel (relativePathFromDataDir dir fullPath)
 
-    /// Direct files and child directories of one directory. Paths are relative to `dir`.
-    let discoverImmediateMembers (dir: string) : Result<string list, string> =
+    let private discoverInDirectory
+        (dir: string)
+        (read: string -> Result<string list, string>)
+        : Result<string list, string> =
         let baseDir = dataDirBase dir
 
         if not (Directory.Exists baseDir) then
             Ok []
         else
             try
-                let files = Directory.EnumerateFiles baseDir
-                let children = Directory.EnumerateDirectories baseDir
-
-                match collectDiscoveryRels baseDir (immediateFileSkipped baseDir) files with
-                | Error msg -> Error msg
-                | Ok fileRels ->
-                    match
-                        collectDiscoveryRels
-                            baseDir
-                            (immediateDirectorySkipped baseDir)
-                            children
-                    with
-                    | Error msg -> Error msg
-                    | Ok dirRels -> Ok (fileRels @ dirRels)
+                read baseDir
             with ex ->
                 Error ex.Message
+
+    let discoverArtifactRelatives (dataDir: string) : Result<string list, string> =
+        discoverInDirectory dataDir (fun baseDir ->
+            Directory.EnumerateFiles(baseDir, "*", SearchOption.AllDirectories)
+            |> collectDiscoveryRels baseDir (fileDiscoverySkipped baseDir))
+
+    /// Direct files and child directories of one directory. Paths are relative to `dir`.
+    let discoverImmediateMembers (dir: string) : Result<string list, string> =
+        discoverInDirectory dir (fun baseDir ->
+            Directory.EnumerateFiles baseDir
+            |> collectDiscoveryRels baseDir (fileDiscoverySkipped baseDir)
+            |> Result.bind (fun fileRels ->
+                Directory.EnumerateDirectories baseDir
+                |> collectDiscoveryRels baseDir (directoryDiscoverySkipped baseDir)
+                |> Result.map (fun dirRels -> fileRels @ dirRels)))

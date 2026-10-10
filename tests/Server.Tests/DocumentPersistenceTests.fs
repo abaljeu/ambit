@@ -967,45 +967,34 @@ let private writeImmediateMemberTree (dataDir: string) =
         Path.Combine(dataDir, "docs", "inner", "deep.txt"),
         "deep")
 
-let private immediateMembers (dataDir: string) =
-    DocumentPersistPath.discoverImmediateMembers dataDir
-    |> requireOk "discover"
-    |> Set.ofList
-
 [<Fact>]
-let ``discoverImmediateMembers returns the files in that directory`` () =
+let ``discoverImmediateMembers returns direct files and child directories`` () =
     let dataDir = newTempDir ()
     writeImmediateMemberTree dataDir
-    let members = immediateMembers dataDir
-    Assert.Contains("readme.txt", members)
-    Assert.Contains("notes.amb", members)
+    let members =
+        DocumentPersistPath.discoverImmediateMembers dataDir
+        |> requireOk "discover"
+        |> Set.ofList
+    let expected =
+        Set.ofList [ "readme.txt"; "notes.amb"; "docs"; "empty" ]
+    Assert.Equal<Set<string>>(expected, members)
 
 [<Fact>]
-let ``discoverImmediateMembers returns the child directories`` () =
-    let dataDir = newTempDir ()
-    writeImmediateMemberTree dataDir
-    let members = immediateMembers dataDir
-    Assert.Contains("docs", members)
-    Assert.Contains("empty", members)
-    Assert.DoesNotContain("docs/inner", members)
-
-[<Fact>]
-let ``discoverImmediateMembers omits a file inside a child directory`` () =
-    let dataDir = newTempDir ()
-    writeImmediateMemberTree dataDir
-    let members = immediateMembers dataDir
-    Assert.DoesNotContain("docs/nested.txt", members)
-    Assert.DoesNotContain("docs/inner/deep.txt", members)
-
-[<Fact>]
-let ``discoverArtifactRelatives returns a nested file`` () =
+let ``discoverArtifactRelatives returns nested files`` () =
     let dataDir = newTempDir ()
     writeImmediateMemberTree dataDir
     let relatives =
         DocumentPersistPath.discoverArtifactRelatives dataDir
         |> requireOk "discover"
-    Assert.Contains("docs/nested.txt", relatives)
-    Assert.Contains("docs/inner/deep.txt", relatives)
+        |> Set.ofList
+    let expected =
+        Set.ofList [
+            "readme.txt"
+            "notes.amb"
+            "docs/nested.txt"
+            "docs/inner/deep.txt"
+        ]
+    Assert.Equal<Set<string>>(expected, relatives)
 
 [<Fact>]
 let ``resolveArtifactPath plain file resolves to named extension path`` () =

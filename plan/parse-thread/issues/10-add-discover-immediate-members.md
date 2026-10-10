@@ -2,7 +2,7 @@
 
 **Status:** `coded`
 **Type:** coding
-Actual: 20m
+Actual: 35m
 **Blocked by:** None — can start immediately
 **Trackers:** architecture, project spec
 
@@ -44,9 +44,10 @@ Cold bootstrap reads every file under the data directory. `discoverArtifactRelat
 1. **Return shape** — `discoverImmediateMembers` returns `Result<string list, string>`. Each path is relative to that directory, with `/` separators and no trailing slash. A direct file is that file's path. A child directory is that directory's path, not a `/.amb` path.
 2. **Skips** — A direct file uses the same skips as `discoverArtifactRelatives`: a reserved name, a `.meta` suffix, a `.tmp` suffix, a `.bak.` segment, and a path inside `.git`. A child directory is skipped only when the path is inside `.git`.
 3. **Missing directory** — A directory that is not on disk returns `Ok []`.
-4. **Callers** — `discoverArtifactRelatives` is unchanged. `readAllDocuments` still calls it. No Load reconcile calls `discoverImmediateMembers`.
+4. **Callers** — `discoverArtifactRelatives` stays recursive. It shares the directory check, the path fold, and the file skips with `discoverImmediateMembers`. `readAllDocuments` still calls it. No Load reconcile calls `discoverImmediateMembers`.
 5. **Docs** — [Parse thread architecture](../arch.md) story path 18 **Pull handoff stays the pull sentence**, **Two discovery functions**, is checked. [Parse thread spec](../spec.md) story 18 **Pull handoff stays the pull sentence** already states the depth. No sentence there became false. doc/current and doc/user do not state this discovery depth.
 
 ## Time
 
 - 2026-10-10 20m — discoverImmediateMembers, tests, and finish-up (from chat)
+- 2026-10-10 15m — share the discovery fold and assert the member set (from chat)
