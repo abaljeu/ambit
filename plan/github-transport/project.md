@@ -4,7 +4,7 @@ Stage: build
 Summary: Server Actor pulls from and pushes to a Workspace GitHub remote (round-trip v1, fast-forward only). After [[plan/core-refinement/project.md]] is done, this Project only locks the workspace, receives the files, and informs the revised Core of changes; Core works through the updates. The App stays thin. Skip on that remote is whatever `.gitignore` already says.
 Updated: 2026-10-10
 Started: 2026-09-27
-Actual: 16h45m
+Actual: 17h30m
 
 **Part of:** [[plan/roadmap/epics/chapters/send-to-and-from-github.md]]
 **Part of / under:** [[plan/transport-layer/project.md]] (file transit)
@@ -31,6 +31,7 @@ Actual: 16h45m
 - 2026-10-09 — A Command is a user operation and is not sent. An Event is what the mailbox posts. The Load command sends a core message. A Node does not send. Load's subject is a Workspace Node, a Directory Node, or a File Node. Nodes inside one File Node share that File Node. Desktop-mapped Load stays [26 — Desk WebDAV](issues/26-desk-webdav.md).
 - 2026-10-09 — Trial tickets, one fix each. [28 — Stop enqueueing nodes just marked Unparsed](issues/28-stop-enqueueing-nodes-just-marked-unparsed.md) Status `done`. [23 — Desk Load/Save](issues/23-desk-load-save.md) Status `coded`. [21 — Server Actor](issues/21-server-actor.md) Status `defined`. [22 — App](issues/22-app.md) Status `defined`. [24 — Command Load/Save](issues/24-command-load-save.md) Status `defined`. [25 — Parse and Persist stacks stay off this Project](issues/25-parse-and-persist-stay-off-this-project.md) Status `defined` (60% short window, 5% daily average). [27 — Field test is not a module](issues/27-field-test-is-not-a-module.md) Status `defined`. [26 — Desk WebDAV](issues/26-desk-webdav.md) Status `needs-info`. `requeueOnUnparsed` stays false. Home stays this Project. Directory reconcile stays [[plan/parse-thread/project.md]]. The inform doors stay [[plan/core-refinement/project.md]]. Stage stays `build`.
 - 2026-10-10 — [21 — Git Load posts the Workspace](issues/21-git-load-posts-workspace.md) Status `coded`. After the tracked-branch pull, git Load posts that one Workspace Node. Stage set to `build`.
+- 2026-10-10 — [22 — Drop the Browser git Load after-step](issues/22-drop-browser-git-load-after-step.md) Status `coded`. After git Load returns, the Browser does not run a second reconcile or parse. Stage stays `build`.
 - 2026-10-10 — Reconsideration of issues 21–27 under Sequence `module-build`. Arch module lines are checked, so those tickets record no new build. [21 — Server Actor](issues/21-server-actor.md), [22 — App](issues/22-app.md), [24 — Command Load/Save](issues/24-command-load-save.md), and [26 — Desk WebDAV](issues/26-desk-webdav.md) are `done`. [23 — Desk Load/Save](issues/23-desk-load-save.md) stays `coded`. [25 — Parse and Persist stacks stay off this Project](issues/25-parse-and-persist-stay-off-this-project.md) and [27 — Field test is not a module](issues/27-field-test-is-not-a-module.md) are `cancelled`. Stage set to `slice`.
 - Prior spec [[plan/workspace-git/project.md]] is not this home. That spec’s non-FF accept of non-overlapping edits is not this Destination.
 - Map: [[map.md]]. Spec: [[spec.md]]. Arch: [[arch.md]].

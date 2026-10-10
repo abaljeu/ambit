@@ -29,10 +29,13 @@ Edit the project's files. Placement of files under `plan/` follows [[doc/agents/
 Status values live in [[doc/agents/triage-labels.md]].
 
 Project files usually describe the program, but this description also represents work items.  Therefore write such as checklists, not paragraphs.
+Other statements are expectations of the program, though not steps.  These also need to be checklists.
+
 E.g.
 [ ] The module calls this.
 [ ] This calculates that and returns.
 
+Don't number these lists.
 
 Done: 
     - every file you edited sits under the Project

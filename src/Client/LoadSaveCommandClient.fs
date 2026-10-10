@@ -20,7 +20,6 @@ type Dependencies =
         (unit -> unit) ->
         unit
       continueDesk: LoadSaveOperation -> unit
-      continueGitLoad: unit -> unit
       commandDone: Ev list -> unit
       commandFailed: string -> unit }
 
@@ -34,10 +33,6 @@ let private applyResponse
         dependencies.continueDesk operation
     | LoadSavePath.Git, Some command ->
         dependencies.commandDone command.events
-        match operation with
-        | LoadSaveOperation.Load ->
-            dependencies.continueGitLoad ()
-        | LoadSaveOperation.Save -> ()
     | LoadSavePath.Git, None ->
         dependencies.commandFailed
             "git Load/Save response omitted command events"
@@ -83,9 +78,6 @@ let private continueDeskWith
     | LoadSaveOperation.Save ->
         dispatch (ApplyOp deskSaveOp)
 
-let continueGitLoad (dispatch: Msg -> unit) =
-    dispatch (ApplyOp gitLoadAfterOp)
-
 let private productionDependencies
     (dispatch: Msg -> unit)
     (plan: WorkspaceUploadAction option)
@@ -101,7 +93,6 @@ let private productionDependencies
         match plan with
         | Some action -> continueDeskWith action dispatch
         | None -> continueDesk dispatch
-      continueGitLoad = fun () -> continueGitLoad dispatch
       commandDone =
         fun events -> dispatch (SysMsg (CommandDone events))
       commandFailed =

@@ -385,9 +385,7 @@ The standards scan reads this table. The match is case-insensitive.
 
 | Phrase | Preferred wording |
 | --- | --- |
-| sends a command | A person invokes a Command. A Command is not sent. |
-| send commands | A person invokes Commands. A Command is not sent. |
-| command is sent | A person invokes a Command. A Command is not sent. |
+| sends a command | send or post a message |
 | posts a Node | The mailbox posts an Event. |
 | posts nodes | The mailbox posts Events. |
 | node sends | A Node does not send a message, a Command, or an Event. |
