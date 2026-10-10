@@ -1,6 +1,6 @@
 # core-refinement architecture
 
-Updated: 2026-10-09
+Updated: 2026-10-10
 Sequence: expand-contract
 
 Home: [[project.md]]. This note is the sole authority for the Core seam (what will be coded): Target — Server Core, the expand-contract sequence (§3 and §9 Story paths), axes, stacks, path control, mailbox git handoff, the locking model (§6), and InMsg on the mailbox queue (§10 **Core loop**). Spec.md and User Stories are absent. Map decision 9 keeps Sequence `expand-contract`. Story paths, Shared segments, the Module map, and Seams are on this note. Expand-contract does not drop them. Stage on [[project.md]] stays `build`. Claim marks for committed elements live under [[doc/current/]]. This note links to those pages. Map §4 (mailbox enable, call, and stop) stays in §3 step 6. It is not copied into [[doc/current/]]. The locking model (§6) is not copied into [[doc/current/]].
@@ -97,7 +97,7 @@ Locked 2026-09-28 (Alan). These rules say who writes each axis and which node th
 1. **Writer target** — The core loop writes the axes on the live graph. The parse thread and the persist thread enqueue an axis completion. They do not edit the graph. Until the loop owns every axis write, set the axes at today’s file-edit sites and graph-edit sites.
 2. **Graph edit** — Mark the nearest owning special node (File Node, Directory Node, or Workspace Node) **Unpersisted** only. Do not mark ancestors.
 3. **Discovery** — Whoever finds a disk change writes the axis. Parse is not the discovery tool. A new member or a deleted member marks the Directory Node **Unparsed**. A modified file marks the File Node **Unparsed**.
-4. **git pull finish** — After the workspace lock drains and files land (§6), notes the same discoveries. The git changed list is that discovery. Matching File Nodes and Directory Nodes are marked Unparsed immediately. There is no separate axis path. The lock sequence stays §6. Ticket: [07 — Git changed list sets Unparsed](issues/07-git-changed-list-unparsed.md).
+4. **git pull finish** — After the workspace lock drains and files land (§6), the pull marks each file it received Unparsed. Each file is an entry in the git changed list, at any depth. The changed list does not drive discovery otherwise. There is no separate axis path. The lock sequence stays §6. Lock: [09 — Grill reconcile discovery depth](../parse-thread/issues/09-grill-reconcile-discovery-depth.md). Ticket: [12 — Git pull marks each received file Unparsed](../parse-thread/issues/12-git-pull-marks-each-received-file-unparsed.md).
 5. **Persist done** — Mark that node **Persisted** only. The persist thread adds `InMsg` `SnapshotDone` through the private function. **Core loop** applies it (§10). `PersistFinished` was the persist thread's file-write finish, and today's `SnapshotDone` is the background live-document snapshot on `CoreMsg`; the target is one `SnapshotDone` case of `InMsg`, packaged with setting Persisted.
 6. **Directory Parse done** — Mark that Directory Node **Parsed** only. The parse thread adds `InMsg` `ParseFinished` through the private function. **Core loop** applies it (§10). That completion does not change PersistState.
 7. **Create special** — A new special node starts **Unparsed** and **Persisted**.

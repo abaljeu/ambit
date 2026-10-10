@@ -38,3 +38,7 @@ The list marks File Nodes and Directory Nodes.
 [02 — Git Load: Unparsed then Parse stack](02-git-load-unparsed-then-parse-stack.md)
 
 [core-refinement architecture](plan/core-refinement/arch.md)
+
+## Comments
+
+- 2026-10-10 — Alan locked discovery depth on 09 — Grill reconcile discovery depth. A git pull marks each received file Unparsed, at any depth. The changed list does not drive discovery otherwise. The coding home is 12 — Git pull marks each received file Unparsed. §5 item 4 **git pull finish** states that lock.
