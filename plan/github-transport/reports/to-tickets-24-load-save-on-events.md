@@ -1,0 +1,10 @@
+# to-tickets 24 — Command Load/Save
+
+1. **Ticket** — [24 — Command Load/Save](../issues/24-load-save-on-events.md) replaces the previous writeup in that same file. Sequence is `module-build`. The capability is module map entry 1, Command Load/Save.
+2. **Old writeup** — The previous body was a codebase inventory. The line Alan marked named a Browser post function, a source file, and two line numbers for a load-save route. The rest of that file did the same for a route, an effect, and a queued Load, then listed an expand, migrate, and contract procedure. Arch Sequence is `module-build`, so that procedure was the wrong kind.
+3. **Replacement** — The new body states the Command Load/Save capability from [github-transport architecture](../arch.md) and [github-transport spec](../spec.md). It does not cite source files, functions, or line numbers. Trackers are architecture and project spec. The obligation piece found no test, doc, glossary, or Committed Decision update.
+4. **Blocking edges** — Blocked by is None. Command Load/Save uses PathPick, the Server Actor, and Desk Load/Save. Arch marks those module lines checked. The old block on 22 — Drop the Browser git Load after-step is not an arch edge. That ticket is `done`. This rewrite does not treat a clear blocker as an open one, and it does not add a blocker arch does not state.
+5. **Frontier** — [24 — Command Load/Save](../issues/24-load-save-on-events.md). Status is `defined`. Blocked by is None. It is the lowest-numbered `defined` ticket in this Project with a clear Blocked-by list.
+6. **Stage** — [github-transport](../project.md) Stage was already `build`. This correction does not change Stage and does not set `Updated:`. Stage stays `build`.
+7. **Time** — The previous file had no Time log. This correction does not invent one.
+8. **See also gap** — The prose names 26 — Desk WebDAV, which is the name in the architecture. The architecture link target for that name is not a file in `issues/`. See also does not link a missing file. The on-disk 26 — Revisit WebDAV parse file is a different ticket and is not a source of this rewrite.

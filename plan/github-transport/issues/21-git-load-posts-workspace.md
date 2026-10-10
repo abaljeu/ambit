@@ -1,6 +1,6 @@
 # 21 — Git Load posts the Workspace
 
-**Status:** `coded`
+**Status:** `done`
 **Actual:** `2h`
 **Type:** coding
 **Blocked by:** 23 — Directory or File Load posts to the parse stack

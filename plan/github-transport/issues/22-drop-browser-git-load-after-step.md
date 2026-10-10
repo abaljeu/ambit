@@ -1,6 +1,6 @@
 # 22 — Drop the Browser git Load after-step
 
-**Status:** `coded`
+**Status:** `done`
 **Type:** coding
 **Actual:** `45m`
 **Blocked by:** 21 — Git Load posts the Workspace
