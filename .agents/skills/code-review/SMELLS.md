@@ -21,4 +21,5 @@ Each smell reads *what it is* → *how to fix*. Match it against the diff:
 - **Middle Man** — a class or function that mostly just delegates onward. → cut it, call the real target direct.
 - **Refused Bequest** — a subclass or implementer that ignores or overrides most of what it inherits. → drop the inheritance, use composition.
 - **Parameter Explosion** - a function has a large number of parameters.  → Identify among its call chain what subset of the parameters come as a package and establish a meaninful type, not "FunctionParametersType".
+- **Argument Count** — a function takes more than four positional arguments, or the same argument tuple repeats across functions. → Give that tuple a record type. Example: `runLoadSave`'s six arguments became `LoadSaveContext` plus `LoadPathChoice`.
 - **Overcomplication** - what the code accomplishes could be done more simply.  Replace with the simpler approach.

@@ -57,36 +57,9 @@ module RouteRegistration =
     let private registerErrorReportRoute (routes: AppShellContext) =
         HttpResponseLog.registerErrorReportRoute routes.AmbitApp
 
-    let private startParseThread
-        (boot: CoreBoot)
-        (core: CoreRuntime)
-        (pushParsed: NodeId -> unit)
-        (consumer: unit -> NodeId)
-        =
-        let parseHandle =
-            CoreMailbox.coreChanges core.host core.parseCaller
-        ParseThread.start
-            { dataDir = boot.DataDir
-              consumer = consumer
-              push = pushParsed
-              getGraph = ParseThread.graphFromHost core.host
-              postOps = ParseThread.postParseOps parseHandle
-              markUnparsed =
-                fun nodeId ->
-                    CoreMailbox.addInMsg
-                        core.host
-                        (InMsg.MarkUnparsed nodeId)
-              finishParse =
-                fun nodeId ->
-                    CoreMailbox.addInMsg
-                        core.host
-                        (InMsg.ParseFinished nodeId) }
-
     let private createPersistenceContext (this: AmbitApp) =
         let boot = this.CreateBoot ()
-        let parsePush, consumer = ParseStack.create ()
-        let core = CoreRuntime.create boot parsePush
-        startParseThread boot core parsePush consumer
+        let core = ParseThread.bootCore boot
         let github =
             GithubTransportActor.productionDependencies boot.DataDir
         core.pool.registerPeer

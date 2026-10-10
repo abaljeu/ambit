@@ -176,9 +176,11 @@ module GraphMutate =
                             let edited = { graph with nodes = nodes }
                             Ok (finishPersist markUnpersisted nodeId edited)
 
+    /// `oldState` stays on the op for undo. Apply writes `newState`
+    /// even when the node already holds a different document state.
     let setDocumentState
         (nodeId: NodeId)
-        (oldState: DocumentState)
+        (_oldState: DocumentState)
         (newState: DocumentState)
         (graph: Graph)
         : Result<Graph, string>
@@ -189,9 +191,7 @@ module GraphMutate =
             Error "workspaces is not a graph document"
         | Some node when node.kind = Normal ->
             Error "normal nodes do not have document state"
-        | Some node when node.documentState <> oldState ->
-            Error "old document state does not match"
-        | Some node when oldState = newState ->
+        | Some node when node.documentState = newState ->
             Ok graph
         | Some node ->
             let updated =

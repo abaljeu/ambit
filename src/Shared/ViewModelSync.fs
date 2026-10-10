@@ -77,6 +77,19 @@ module SyncInfo =
         if wasR = nowR then { si with syncState = newState }
         else { si with syncState = newState; syncRiskAcknowledged = false }
 
+/// What Upload should do for the current Load focus.
+[<RequireQualifiedAccess>]
+type WorkspaceUploadAction =
+    /// Workspaces focus: pick folder, create named workspace, map, push.
+    | CreateWorkspaceFromFolder
+    /// Desktop WebDAV push; Some fileId → Parse that file after push (single-file only).
+    | DesktopPush of parseFileId: NodeId option
+    /// Web (no desktop): stub-reconcile DataDir children under focus.
+    | ReconcileServerDisk
+    /// Web (no desktop): parse/reconcile file from DataDir into the graph.
+    | ParseServerDisk of NodeId
+    | Unavailable of reason: string
+
 type Effect =
     | SubmitPendingBatch of baseEventId: EventId * events: Ev list
     /// Find and Move after the search text settles. Query does not use this.
@@ -85,7 +98,9 @@ type Effect =
     | ArmSearchQuietGap of query: string
     /// A text change or a closed dialog drops an unsent Start.
     | CancelSearchQuietGap
-    | SubmitLoadSaveCommand of LoadSaveCommandRequest
+    /// Load carries the desk plan chosen for this command. Save and git Load pass None.
+    | SubmitLoadSaveCommand of
+        LoadSaveCommandRequest * WorkspaceUploadAction option
     | PollServer of eventId: EventId
     | LoadServer of eventId: EventId * targets: LoadTarget list
     | ScheduleRetry of delayMs: int

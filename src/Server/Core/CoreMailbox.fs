@@ -227,7 +227,7 @@ module CoreMailbox =
                 request,
                 channel))
 
-    /// Mailbox Load of a File node: push onto the Parse stack (clear-fast).
+    /// Mailbox Load of a Workspace, Directory, or File: push onto the Parse stack.
     let load
         (host: MailboxHost)
         (caller: Caller)
@@ -297,23 +297,32 @@ module CoreMailbox =
 
     let dispose (host: MailboxHost) = MailboxHost.dispose host
 
+    let internal hostPublishing
+        (pool: CoreActorPool)
+        (persist: PersistFilling)
+        (credentials: CoreCredentials)
+        (parsePush: NodeId -> unit)
+        : MailboxHost * (NodeId -> unit) =
+        let context, push =
+            CoreMailboxLoad.makeMailBox
+                credentials
+                persist
+                pool
+                parsePush
+        let started = CoreMailboxLoad.start context persist
+        let created = MailboxHost.create started.processor persist
+        persist.bindSnapshot (addInMsg created)
+        started.bindCoreChanges (coreChanges created)
+        created, push
+
     let internal hostWithParsePush
         (pool: CoreActorPool)
         (persist: PersistFilling)
         (credentials: CoreCredentials)
         (parsePush: NodeId -> unit)
         : MailboxHost =
-        let context =
-            CoreMailboxBackend.makeMailBox
-                credentials
-                persist
-                pool
-                parsePush
-        let started = CoreMailboxBackend.start context persist
-        let created = MailboxHost.create started.processor persist
-        persist.bindSnapshot (addInMsg created)
-        started.bindCoreChanges (coreChanges created)
-        created
+        let host, _ = hostPublishing pool persist credentials parsePush
+        host
 
     let internal host
         (pool: CoreActorPool)

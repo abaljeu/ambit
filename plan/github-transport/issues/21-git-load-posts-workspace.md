@@ -19,15 +19,15 @@ The post is that one Workspace node. Desk Directory Load and desk File Load post
 
 1. **Actor** — [GithubTransportActor.fs](../../../src/Server/GithubTransportActor.fs) `runLoad` (line 120) pulls, then calls `dependencies.continueLoad`, then `parseFocusFile`.
 2. **Inline reconcile** — `productionDependencies` (line 216) sets `continueLoad` to [LazyLoadReconciliationServer.reconcileWorkspace](../../../src/Server/LazyLoadReconciliationServer.fs) (line 222). That walk runs on the Actor turn.
-3. **File parse** — `parseFocusFile` (the call at line 133) parses a focused File on that same turn.
+3. **File parse** — `parseFocusFile` (the call at line 133) calls [DocumentPersistWrite.fs](../../../src/Server/DocumentPersistWrite.fs) `planParseFile` on that same turn.
 
 ## What to build
 
-`runLoad` does not call `reconcileWorkspace`. After the pull, it posts that Workspace id to the parse stack. `parseFocusFile` stays as it is.
+`runLoad` does not call `reconcileWorkspace`. After the pull, the Load command sends a core message whose subject is that Workspace. The parse push is [CoreMailboxLoad.fs](../../../src/Server/Core/CoreMailboxLoad.fs) `markUnparsedThenPush`. The mailbox modules are [CoreMailboxEvents.fs](../../../src/Server/Core/CoreMailboxEvents.fs), [CoreMailboxActors.fs](../../../src/Server/Core/CoreMailboxActors.fs), and [CoreMailboxLoad.fs](../../../src/Server/Core/CoreMailboxLoad.fs). The mailbox posts Events. `parseFocusFile` stays as it is.
 
 1. [ ] No inline reconcile — `continueLoad` does not call `reconcileWorkspace`. The function stays in its module.
-2. [ ] Workspace post — git Load posts that Workspace id. The post is one node.
-3. [ ] File parse stays — This ticket does not change the `parseFocusFile` call.
+2. [ ] Workspace post — git Load posts that Workspace id through `markUnparsedThenPush`. The post is one node.
+3. [ ] File parse stays — This ticket does not change the `parseFocusFile` call or `planParseFile`.
 4. [ ] Pull stays — The tracked-branch pull still runs.
 5. [ ] Flag stays off — Do not set `requeueOnUnparsed` to true.
 6. [ ] Test — A git Load posts that Workspace id and does not call `reconcileWorkspace`.

@@ -4,8 +4,12 @@
   python .agents/skills/code-review/scripts/standards-scan.py
   python .agents/skills/code-review/scripts/standards-scan.py --diff HEAD
   python .agents/skills/code-review/scripts/standards-scan.py --diff origin/ready
+  python .agents/skills/code-review/scripts/standards-scan.py --glossary-tree
 
 Default: git diff HEAD plus untracked. Named ref: git diff REF...HEAD.
+--glossary-tree scans doc/, plan/, and GLOSSARY.md (not reports/) for
+the Banned phrasings table in GLOSSARY.md. Other modes flag those
+phrases on touched lines of those files only. That table is not a hit.
 Invokes measure-fs-size.py when *.fs/*.fsi are in range (no duplicated logic).
 measure-fs-size still uses two-dot --diff REF; this script uses three-dot for
 named refs. Nested modules are not scanned (unreliable from a hunk).
@@ -21,6 +25,7 @@ SKIP = ("/bin/", "/obj/", "/node_modules/", "/.git/", "/packages/")
 FSHARP = ".agents/rules/fsharp-source.md"
 REFER = ".agents/rules/refer-by-name.md"
 MARK = ".agents/rules/markdown-writing.md"
+GLOSSARY = "GLOSSARY.md"
 BARE = re.compile(r"(?i)\b(?:keep|ticket|issue)\s+#?(\d+)\b")
 HASH = re.compile(r"(?<![#\w])#(\d+)\b")
 ITEMS = re.compile(r"(?i)\b(?:user\s+)?items?\s+\d+(?:\s*[–—-]\s*\d+)?\b")
@@ -50,9 +55,9 @@ def ext(p):
     return Path(p).suffix.lower()
 
 
-def emit(path, loc, rule, kind, text):
+def emit(path, loc, rule, kind, text, n=72):
     where = f"{path}:{loc}" if loc else path
-    print(f"{where}  {rule}  {kind}  {quote(text)}")
+    print(f"{where}  {rule}  {kind}  {quote(text, n)}")
 
 
 def parse_diff(text):
@@ -106,6 +111,91 @@ def old_count(base, path):
     return len(r.stdout.splitlines())
 
 
+def load_phrases():
+    lines = read_lines(GLOSSARY)
+    if lines is None:
+        raise SystemExit(f"missing {GLOSSARY}")
+    start = None
+    for i, raw in enumerate(lines):
+        if raw.strip() == "## Banned phrasings":
+            start = i
+            break
+    if start is None:
+        raise SystemExit("missing ## Banned phrasings in " + GLOSSARY)
+    end = len(lines)
+    for j in range(start + 1, len(lines)):
+        if lines[j].strip().startswith("#"):
+            end = j
+            break
+    skip = set(range(start + 1, end + 1))
+    rows = []
+    for raw in lines[start + 1:end]:
+        line = raw.strip()
+        if not line.startswith("|"):
+            continue
+        cells = [c.strip() for c in line.strip("|").split("|")]
+        if len(cells) < 2 or not cells[0] or not cells[1]:
+            raise SystemExit(f"bad phrase row: {line}")
+        phrase, preferred = cells[0], cells[1]
+        if phrase.lower() == "phrase" or set(phrase) <= set("-: "):
+            continue
+        pat = r"\b" + re.escape(phrase) + r"\b"
+        rows.append((phrase, preferred, re.compile(pat, re.I)))
+    if not rows:
+        raise SystemExit("no banned phrases in " + GLOSSARY)
+    return rows, skip
+
+
+def glossary_doc(path):
+    p = path.replace("\\", "/").lower()
+    if not p.endswith(".md"):
+        return False
+    if "/reports/" in p or p.startswith("reports/"):
+        return False
+    if p == "glossary.md":
+        return True
+    return p.startswith("doc/") or p.startswith("plan/")
+
+
+def glossary_hits(line, phrases):
+    hits = []
+    for phrase, preferred, rx in phrases:
+        if rx.search(line):
+            hits.append((phrase, preferred))
+    return hits
+
+
+def phrase_emits(path, ln, line, phrases, skip):
+    if path.replace("\\", "/") == GLOSSARY and ln in skip:
+        return False
+    bad = False
+    for phrase, preferred in glossary_hits(line, phrases):
+        text = f"{phrase} -> {preferred}"
+        emit(path, ln, GLOSSARY, "PHRASE", text, 180)
+        bad = True
+    return bad
+
+
+def scan_glossary_tree(phrases, skip):
+    bad = False
+    paths = []
+    for root in ("doc", "plan"):
+        base = Path(root)
+        if base.is_dir():
+            for found in base.rglob("*.md"):
+                paths.append(found.as_posix())
+    paths.append(GLOSSARY)
+    for path in sorted(set(paths)):
+        if not glossary_doc(path):
+            continue
+        lines = read_lines(path)
+        if lines is None:
+            continue
+        for i, line in enumerate(lines, 1):
+            bad = phrase_emits(path, i, line, phrases, skip) or bad
+    return bad
+
+
 def named(num, line):
     if re.search(rf"{num}\s+[—–-]\s+\S", line):
         return True
@@ -129,7 +219,7 @@ def refer_hits(line):
     return hits
 
 
-def scan_added(path, lines, added, untracked_fs, bad):
+def scan_added(path, lines, added, untracked_fs, phrases, skip, bad):
     is_fs = ext(path) in FS
     is_src = ext(path) in SRC
     is_plan = path.startswith("plan/") and path.endswith(".md")
@@ -154,6 +244,8 @@ def scan_added(path, lines, added, untracked_fs, bad):
             if line.strip() == "" and ln > 1 and lines[ln - 2].strip() == "":
                 emit(path, ln, MARK, "BLANK_BLANK", "(consecutive blank)")
                 bad = True
+        if glossary_doc(path):
+            bad = phrase_emits(path, ln, line, phrases, skip) or bad
     return bad
 
 
@@ -188,8 +280,14 @@ def measure_fs(ref):
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--diff", nargs="?", const="HEAD", default="HEAD")
+    p.add_argument(
+        "--glossary-tree", action="store_true",
+        help="scan all in-scope docs for banned phrases")
     args = p.parse_args()
     os.chdir(git("rev-parse", "--show-toplevel").strip())
+    phrases, listed = load_phrases()
+    if args.glossary_tree:
+        return 1 if scan_glossary_tree(phrases, listed) else 0
     ref = args.diff
     if ref == "HEAD":
         diff = git("diff", "--no-color", "HEAD")
@@ -218,7 +316,7 @@ def main():
         if ext(path) in FS:
             fs_paths.append(path)
         is_untracked = path in extra
-        bad = scan_added(path, lines, lns, is_untracked, bad)
+        bad = scan_added(path, lines, lns, is_untracked, phrases, listed, bad)
         bad = file_growth(path, old_count(base, path), len(lines), bad)
     if fs_paths:
         bad = measure_fs(ref) or bad

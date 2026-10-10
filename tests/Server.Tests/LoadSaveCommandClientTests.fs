@@ -169,7 +169,7 @@ let ``Command surface keeps Load and Save pre-picks``
         |> requireSome $"command unavailable: {commandName}"
     let _, effects = updater (VmTestHelpers.emptyModel (Graph.create ()))
     match effects with
-    | [ SubmitLoadSaveCommand actual ] ->
+    | [ SubmitLoadSaveCommand (actual, _) ] ->
         Assert.Equal(operation, actual.operation)
         Assert.Equal(prePick, actual.prePick)
     | other -> Assert.Fail($"expected load/save request, got {other}")

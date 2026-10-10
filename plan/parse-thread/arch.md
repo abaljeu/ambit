@@ -43,8 +43,8 @@ Sequence is module-build. Directory reconcile is in code. Story paths that only 
    2. [x] **App** — The App has no `planParseFile` door. File transit stays [transport-layer](../transport-layer/project.md).
 
 9. **Load a Directory Node**
-   1. [x] **Mark Unparsed** — Client Load on a Directory Node marks that Directory Node Unparsed. Rule: [core-refinement architecture](../core-refinement/arch.md) §5 item 8.
-   2. [x] **File Load door** — Mailbox Load of a File Node stays [Core mailbox backend](../../src/Server/Core/CoreMailboxBackend.fs) `dispatchLoad`. This Project does not widen that door.
+   1. [x] **Mark Unparsed** — The parse push marks that Directory Node Unparsed before the push. The mark does not enqueue. Rule: [core-refinement architecture](../core-refinement/arch.md) §5 Load on Directory.
+   2. [x] **Load door** — Mailbox Load accepts a Workspace Node, a Directory Node, or a File Node. A node inside a File Node uses that File Node. The door is [Core mailbox load](../../src/Server/Core/CoreMailboxLoad.fs) `dispatchLoad`. The mailbox posts Events.
 
 10. **Same as a Workspace**
     1. [x] **Same axis write** — Item 8 includes a Directory Node that is not a Workspace Node.
@@ -95,7 +95,7 @@ Sequence is module-build. Directory reconcile is in code. Story paths that only 
 22. **Add InMsg**
     1. [x] **Parse thread** — On finish the parse thread adds InMsg ParseFinished through the private function. It does not edit the graph axes.
     2. [x] **Persist thread** — On finish the persist thread adds InMsg SnapshotDone through the private function. It does not edit the graph axes. This Project does not design the persist write body.
-    3. [x] **Core loop** — The mailbox has one queue. A private function adds InMsg. The queue puller in [Core mailbox backend](../../src/Server/Core/CoreMailboxBackend.fs) hands InMsg to the InMsg handler. ParseFinished sets Parsed only through `GraphMutate.setParseState`. PersistState stays unchanged. SnapshotDone sets Persisted only through `GraphMutate.setPersistState`.
+    3. [x] **Core loop** — The mailbox has one queue. A private function adds InMsg. The queue puller in [Core mailbox load](../../src/Server/Core/CoreMailboxLoad.fs) hands InMsg to the InMsg handler. ParseFinished sets Parsed only through `GraphMutate.setParseState`. PersistState stays unchanged. SnapshotDone sets Persisted only through `GraphMutate.setPersistState`.
     4. [x] **Not an Op** — InMsg is not an Op. `Op.SetPersistState` is not a writer. `Op.SetDocumentState` is not the writer of the parsed axis. `CoreMailbox.postEvents` and `CoreMailbox.postGraphOnly` do not carry InMsg.
     5. [x] **Type home** — [core-refinement architecture](../core-refinement/arch.md) §10 Core loop.
     6. [x] **MarkUnparsed** — For a disk-newer File Node the parse thread adds InMsg MarkUnparsed through the private function. The core loop sets Unparsed only through `GraphMutate.setParseState`. PersistState stays unchanged. `Op.SetDocumentState` is not the writer.
@@ -166,7 +166,7 @@ Sequence is module-build. Directory reconcile is in code. Story paths that only 
 3. **File parse**
    1. [x] Interface on `planParseFile`. Unchanged.
 4. **Client Load on Directory**
-   1. [x] Interface on [core-refinement architecture](../core-refinement/arch.md) §5 item 8. The mailbox Load door stays File-only.
+   1. [x] Interface on [core-refinement architecture](../core-refinement/arch.md) §5 **Client Load on Directory**. The mailbox Load door accepts a Workspace Node, a Directory Node, or a File Node. A node inside a File Node uses that File Node.
 
 ## 4. Alternative considered
 

@@ -7,8 +7,7 @@ open Gambol.Shared
 type CoreRuntime =
     { host: MailboxHost
       parseCaller: Caller
-      pool: CoreActorPool
-      parsePush: NodeId -> unit }
+      pool: CoreActorPool }
 
 /// Persist choice, auth seed, and optional actors to boot a CoreRuntime.
 type CoreBoot =
@@ -47,10 +46,10 @@ module CoreRuntime =
         (pool: CoreActorPool)
         (credentials: CoreCredentials)
         (parsePush: NodeId -> unit)
-        : MailboxHost =
+        : MailboxHost * (NodeId -> unit) =
         match boot.DbStatus with
         | DatabaseSetup.DbStatus.Ok ->
-            CoreMailbox.hostWithParsePush
+            CoreMailbox.hostPublishing
                 pool
                 (DbAgent.persist
                     (DbAgent.createWithDataDir
@@ -59,7 +58,7 @@ module CoreRuntime =
                 credentials
                 parsePush
         | _ ->
-            CoreMailbox.hostWithParsePush
+            CoreMailbox.hostPublishing
                 pool
                 (FileAgent.persist (FileAgent.create boot.DataDir))
                 credentials
@@ -80,15 +79,15 @@ module CoreRuntime =
               secret = Credential parseSecret }
         browserCaller, parseCaller
 
-    let create
+    let internal createPublishing
         (boot: CoreBoot)
         (parsePush: NodeId -> unit)
-        : CoreRuntime =
+        : CoreRuntime * (NodeId -> unit) =
         let browserCaller, parseCaller = bootCallers boot
         let pool = CoreActorPool.create ()
         boot.Actors
         |> List.iter (fun (name, actorFn) -> pool.register name actorFn)
-        let host =
+        let host, push =
             startHost
                 boot
                 pool
@@ -97,5 +96,9 @@ module CoreRuntime =
                 parsePush
         { host = host
           parseCaller = parseCaller
-          pool = pool
-          parsePush = parsePush }
+          pool = pool },
+        push
+
+    let create (boot: CoreBoot) (parsePush: NodeId -> unit) : CoreRuntime =
+        let runtime, _ = createPublishing boot parsePush
+        runtime

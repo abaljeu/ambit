@@ -1,6 +1,7 @@
 # 23 — Directory or File Load posts to the parse stack
 
-**Status:** `defined`
+**Status:** `coded`
+**Actual:** 6h
 **Type:** coding
 **Blocked by:** [28 — Stop enqueueing nodes just marked Unparsed](28-stop-enqueueing-nodes-just-marked-unparsed.md)
 **Trial step:** 2. Next: [21 — Git Load posts the Workspace](21-git-load-posts-workspace.md).
@@ -11,7 +12,7 @@
 
 Trial step 2. Load on a Directory or a File posts that node to the parse stack and does nothing else. Directory Load and File Load still finish. The reconcile and parse functions stay. The caller changes.
 
-Alan, 2026-10-08. Load queues its target. A Directory queues that Directory. A File queues that File. A multi-selection queues one item per selected node. The Browser does not run a client reconcile on Load.
+Alan, 2026-10-08. Load queues its subject. A Directory queues that Directory. A File queues that File. Nodes inside one File share that File. The Browser does not run a client reconcile on Load.
 
 `requeueOnUnparsed` stays false. That flag stops the child requeue inside directory reconcile. It does not stop Load from posting the node the person named.
 
@@ -30,12 +31,30 @@ The desk path is the caller this ticket changes.
 
 A Directory Load or a File Load posts that node to the parse stack. It does not call the reconcile or parse functions itself. Those functions stay for the parse thread and for the other callers.
 
-1. [ ] Directory caller — `ReconcileServerDisk` posts that Directory id to the parse stack. It does not call `startDirectoryReconcile`.
-2. [ ] File caller — `ParseServerDisk` posts that File id to the parse stack. It does not call `parseFileOp`.
-3. [ ] One item per node — A multi-selection posts one item for each selected Directory or File. It does not post a parent Workspace in their place.
-4. [ ] Functions stay — `reconcileDirectory`, `reconcileWorkspace`, and `planParseFile` stay in their modules. This ticket does not delete them.
-5. [ ] No new route — The post uses the parse thread push. Do not add a route. Desktop push still uses the directory and file routes until [26 — Revisit WebDAV parse](26-revisit-webdav-parse.md).
-6. [ ] Flag stays off — Do not set `requeueOnUnparsed` to true.
-7. [ ] Test, directory — A Directory Load posts that Directory id and does not post `POST /ambit/workspace/reconciliation/directory`. The directory still reconciles when the parse thread pops that id.
-8. [ ] Test, file — A File Load posts that File id and does not post `POST /ambit/file/parse`. The file still parses when the parse thread pops that id.
-9. [ ] Test, selection — Two selected Files produce two posts, one per File.
+1. [x] Directory caller — A Directory Load sends a core message whose subject is that Directory Node. The server Desk path pushes that Directory through mailbox Load. The browser does not call `startDirectoryReconcile`.
+2. [x] File caller — A File Load sends a core message whose subject is that File Node. The server Desk path pushes that File. The browser does not call `parseFileOp`.
+3. [x] Subject rule — Load's subject is a Workspace Node, a Directory Node, or a File Node. A selected node inside a File Node uses that owning File Node. Several selected nodes in one File Node yield one message. A selected child does not become its parent Workspace Node.
+4. [x] Functions stay — `reconcileDirectory`, `reconcileWorkspace`, and `planParseFile` stay in their modules. This ticket does not delete them.
+5. [x] No new route — The message uses mailbox Load on the existing `POST /ambit/load-save-command` wire. The desktop-mapped path is left to [26 — Revisit WebDAV parse](26-revisit-webdav-parse.md). This ticket does not fix that timing.
+6. [x] Flag stays off — Do not set `requeueOnUnparsed` to true.
+7. [x] Test, directory — A Directory Load names that Directory id and does not post `POST /ambit/workspace/reconciliation/directory`. The Desk path pushes that id. The directory still reconciles when the parse thread pops it.
+8. [x] Test, file — A File Load names that File id and does not post `POST /ambit/file/parse`. The Desk path pushes that id. The file still parses when the thread pops it.
+9. [x] Test, selection — Two selected File Nodes produce two messages, one per File Node. Two nodes inside one File Node produce one message for that File Node.
+10. [x] Git actor stays on a Workspace — Plain Load of a File Node or a Directory Node stays Desk when that Workspace has a git remote. Explicit git Load, and plain Load of a Workspace Node, may start the git actor. A web desk Load of a Workspace Node with no remote sends a core message whose subject is that Workspace Node.
+11. [x] Push front end — Before an id is pushed onto the parse stack, [CoreMailboxLoad.fs](../../../src/Server/Core/CoreMailboxLoad.fs) `markUnparsedThenPush` marks that node Unparsed. Every push uses that front end. `requeueOnUnparsed` stays false, so the mark does not enqueue.
+12. [x] Whole selection — The subject list is the whole selection: each Workspace, Directory, or File, and a node inside a File uses that File. Explicit git Load and the desktop-mapped path stay one focus message.
+
+## Comments
+
+- 2026-10-09 — The desktop-mapped path is left to [26 — Revisit WebDAV parse](26-revisit-webdav-parse.md). This ticket does not fix its timing.
+- 2026-10-09 — A Command is a user operation and is not sent. The Load command sends a core message. Load's subject is a Workspace Node, a Directory Node, or a File Node. Nodes inside one File Node share that File Node.
+- 2026-10-09 — Plain Load of a File or a Directory stays on the parse stack when the Workspace has a git remote. The git actor starts for a Workspace target, or for explicit git Load.
+- 2026-10-09 — Alan rejected `POST /ambit/parse-stack`. Directory and File Load use `SubmitLoadSaveCommand` on `POST /ambit/load-save-command`. The server Desk path pushes a File or Directory through mailbox Load. The browser after-step does not reconcile or parse those targets. Decision: [0005 — No new POST endpoints](../../../doc/Decisions/0005-no-new-post-endpoints.md). Load stays on this wire until [24 — Load and Save on the events list](24-load-save-on-events.md).
+- 2026-10-09 — The parse push marks its subject Unparsed before the push. That mark does not enqueue. The Load command's subject list is the whole selection.
+
+## Time
+
+- 2026-10-09 2h — Directory and File Load post to the parse stack (from chat)
+- 2026-10-09 1h — Move that post onto the Load command wire (from chat)
+- 2026-10-09 1h — Plain File or Directory Load stays on the parse stack when a remote exists (from chat)
+- 2026-10-09 2h — Unparsed push front end, whole-selection subjects, mailbox split (from chat)

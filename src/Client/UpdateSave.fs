@@ -53,10 +53,11 @@ let saveOpFor
     (model: VM)
     : VM * Effect list =
     model,
-    [ SubmitLoadSaveCommand
-        (loadSaveCommandRequest
+    [ SubmitLoadSaveCommand (
+        loadSaveCommandRequest
             LoadSaveOperation.Save
             prePick
-            model) ]
+            model,
+        None) ]
 
 let saveOp = saveOpFor LoadSavePrePick.Plain

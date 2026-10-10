@@ -62,7 +62,7 @@ let private hostFor state snaps =
         admittedCredentials
 
 let private apply persist msg =
-    match CoreMailboxBackend.applyInMsg persist msg with
+    match CoreMailboxLoad.applyInMsg persist msg with
     | Ok () -> ()
     | Error err -> Assert.Fail(err)
 
@@ -130,13 +130,13 @@ let ``axis write failure is returned`` () =
     let snaps = ResizeArray<NodeId * Graph option>()
     let missing = NodeId.New()
     let missingResult =
-        CoreMailboxBackend.applyInMsg
+        CoreMailboxLoad.applyInMsg
             (handlers state snaps)
             (InMsg.ParseFinished missing)
     Assert.Equal(Error "node not found", missingResult)
     Assert.Equal(ParseState.Unparsed, state.Value.graph.nodes.[id].parseState)
     let rejected =
-        CoreMailboxBackend.applyInMsg
+        CoreMailboxLoad.applyInMsg
             (handlers state snaps)
             (InMsg.SnapshotDone(Graph.workspacesId, None))
     Assert.Equal(

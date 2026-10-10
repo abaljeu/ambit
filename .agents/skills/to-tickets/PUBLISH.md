@@ -15,6 +15,7 @@ Existing tickets stay in their current shape. See [[.agents/rules/no-retrofit.md
 **Status:** `defined` when fully specified (implement when Blocked-by is clear); `needs-info` when information is missing; or later `coded`. Never `blocked`, `ready-for-agent`, `ready-for-human`, or `ready-to-implement`.
 **Blocked by:** the numbers and names of the tickets that gate this one, or "None — can start immediately".
 **Binding arch:** this project's `plan/<slug>/arch.md`, plus every other `plan/*/arch.md` whose modules or doors this ticket touches.
+**Trackers:** the trackers this ticket touches.
 
 ## Context
 Explain the scenario where the newly built feature will be applied. Write in the style of [[.agents/skills/wait-what/SKILL.md]].
@@ -23,10 +24,15 @@ Explain the scenario where the newly built feature will be applied. Write in the
 The end-to-end behaviour this ticket makes work, from the user's perspective — not a layer-by-layer implementation list. Write in the style of [[.agents/skills/wait-what/SKILL.md]].
 
 ### 1. <Module or capability name>
-What this part contributes. Point to the arch Module map for State / Interface / Uses instead of copying it.
+What this part contributes, including the architecture decisions it uses.
 
 1. [ ] <criterion name> — Acceptance criterion
 2. [ ] <criterion name> — Acceptance criterion
+
+## Finish-up
+
+1. [ ] Piece answers — changes during implementation are written on this ticket, or the ticket records that none changed.
+2. [ ] Basis and reference docs — the ticket's basis, and the reference docs for each tracker named on Trackers, match those changes.
 
 ## See also
 One or two wikilinks to the defining spec and decision files this ticket was derived from (not only the parent `spec.md`).

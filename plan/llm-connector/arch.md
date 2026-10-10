@@ -85,7 +85,7 @@ Narrowest shared test seam:
       1. [x] CoreMailbox doors only
 
 3. **CoreMailbox / CoreMsg / CoreActorPool**
-   Files: [[src/Server/Core/CoreMailbox.fs]], [[src/Server/Core/CoreMailboxBackend.fs]], [[src/Server/Core/CoreActorPool.fs]].
+   Files: [[src/Server/Core/CoreMailbox.fs]], [[src/Server/Core/CoreMailboxEvents.fs]], [[src/Server/Core/CoreMailboxActors.fs]], [[src/Server/Core/CoreMailboxLoad.fs]], [[src/Server/Core/CoreActorPool.fs]].
    1. State
       1. [x] One mailbox; live registry table; EventLog tip
       2. [x] Focus exclusivity for live Actors

@@ -33,9 +33,9 @@ Run against the range from step 1 (cwd = repo root):
 python .agents/skills/code-review/scripts/standards-scan.py
 ```
 
-If a fixed point was named, pass `--diff <fixed-point>`. The script invokes [[.agents/skills/code-review-fsharp/SKILL.md]] measure-fs-size when `*.fs` / `*.fsi` are in the range — do not run measure-fs-size as a second parent command. Paste the full stdout into the Standards prompt. Count a printed line as a finding only when it breaks the limit in the rule it cites ([[.agents/rules/fsharp-source.md]], [[.agents/rules/refer-by-name.md]], [[.agents/rules/markdown-writing.md]]). The file limit is the one in [[.agents/rules/fsharp-source.md]]. Surgical under-100-line preference is not a script fail ([[.agents/rules/core-agent-behavior.md]]). Smells stay human ([[SMELLS.md]]).
+If a fixed point was named, pass `--diff <fixed-point>`. The script invokes [[.agents/skills/code-review-fsharp/SKILL.md]] measure-fs-size when `*.fs` / `*.fsi` are in the range — do not run measure-fs-size as a second parent command. Paste the full stdout into the Standards prompt. Count a printed line as a finding only when it breaks the limit in the rule it cites ([[.agents/rules/fsharp-source.md]], [[.agents/rules/refer-by-name.md]], [[.agents/rules/markdown-writing.md]]), or when it is a [[GLOSSARY.md]] PHRASE line. The phrase list is the Banned phrasings section of [[GLOSSARY.md]]. The file limit is the one in [[.agents/rules/fsharp-source.md]]. Surgical under-100-line preference is not a script fail ([[.agents/rules/core-agent-behavior.md]]). Smells stay human ([[SMELLS.md]]).
 
-Done: the script has been run for this range, its stdout is in the Standards prompt (or the prompt says `scan: none`), and that prompt counts a printed line as a finding only when it breaks the cited limit.
+Done: the script has been run for this range, its stdout is in the Standards prompt (or the prompt says `scan: none`), and that prompt counts a printed line as a finding only when it breaks the cited limit or it is a GLOSSARY.md PHRASE line.
 
 ### 3. Identify the spec source
 
@@ -66,7 +66,7 @@ Send a single message with three `Agent` tool calls. Use the `general-purpose` s
 - The full diff command (default `git diff HEAD`) and commit list if a fixed point was named.
 - The stdout of the mechanical scan from step 2 (or `scan: none`).
 - The list of standards-source files you found in step 4, **plus [[SMELLS.md]]**: include that file's contents in the prompt, or give the path and instruct the sub-agent to read it. The sub-agent has no other access to the smell baseline.
-- The brief: "Report only findings. (a) Each documented-standard violation: cite the standard (file + the rule). (b) Each smell you will stand behind: name it and quote the hunk. Distinguish hard violations from judgement calls per the included smell baseline. Count a scan line only when it breaks the limit in the rule it cites. The file limit is in .agents/rules/fsharp-source.md. If there are no findings, one line. Under 400 words."
+- The brief: "Report only findings. (a) Each documented-standard violation: cite the standard (file + the rule). (b) Each smell you will stand behind: name it and quote the hunk. Distinguish hard violations from judgement calls per the included smell baseline. Count a scan line only when it breaks the limit in the rule it cites, or when it is a GLOSSARY.md PHRASE line. The phrase list is the Banned phrasings section of GLOSSARY.md. The file limit is in .agents/rules/fsharp-source.md. If there are no findings, one line. Under 400 words."
 
 **Spec sub-agent prompt** — include:
 

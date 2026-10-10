@@ -2,19 +2,6 @@ namespace Gambol.Shared
 
 open Gambol.Shared.CommandEntry
 
-/// What Upload (file push / parse) should do for the current Load focus.
-[<RequireQualifiedAccess>]
-type WorkspaceUploadAction =
-    /// Workspaces focus: pick folder, create named workspace, map, push.
-    | CreateWorkspaceFromFolder
-    /// Desktop WebDAV push; Some fileId → Parse that file after push (single-file only).
-    | DesktopPush of parseFileId: NodeId option
-    /// Web (no desktop): stub-reconcile DataDir children under focus.
-    | ReconcileServerDisk
-    /// Web (no desktop): parse/reconcile file from DataDir into the graph.
-    | ParseServerDisk of NodeId
-    | Unavailable of reason: string
-
 [<RequireQualifiedAccess>]
 module WorkspaceUpload =
 
@@ -70,6 +57,26 @@ module WorkspaceUpload =
             | Some(ReconcileWorkspace _)
             | Some(ReconcileDirectory _) -> true
             | None -> false
+
+    let private owningFile (graph: Graph) (nodeId: NodeId) : NodeId option =
+        match DocumentPartition.documentRootForNode graph nodeId with
+        | None -> None
+        | Some rootId ->
+            match LoadSubject.ofId graph rootId with
+            | Ok LoadSubject.File -> Some rootId
+            | _ -> None
+
+    /// Workspace, Directory, or File. A node inside a File uses that File.
+    /// Several nodes in one File yield that File once.
+    let loadSubjects (graph: Graph) (selected: NodeId list) : NodeId list =
+        selected
+        |> List.choose (fun nodeId ->
+            match LoadSubject.ofId graph nodeId with
+            | Ok _ -> Some nodeId
+            | Error LoadSubjectRejection.NotFound -> None
+            | Error LoadSubjectRejection.NotLoadSubject ->
+                owningFile graph nodeId)
+        |> List.distinct
 
     /// Desktop push when caps + mapping exist; else graph-only from server DataDir.
     /// Unmapped labels still Parse / Reconcile — do not fail Upload on missing mapping.

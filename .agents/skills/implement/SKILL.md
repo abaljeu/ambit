@@ -42,6 +42,8 @@ Anything you write on tickets or under `reports/` — number and name every sect
 
 ### 5. Log time and finish
 
-Done: the ticket's What to build is implemented and verified. Set ticket `**Status:** coded` only when the step 4 re-check found no contradiction. Do not set `done`. `done` is review approval only ([[doc/agents/triage-labels.md]]).
+Complete the ticket's Finish-up section ([[.agents/skills/to-tickets/PUBLISH.md]]).
+
+Done: the ticket's What to build is implemented and verified, and Finish-up is complete. Set ticket `**Status:** coded` only when the step 4 re-check found no contradiction. Do not set `done`. `done` is review approval only ([[doc/agents/triage-labels.md]]).
 
 Time: on issues you touched, append `## Time` and keep `Actual:`; on the project set/keep `Started:` / `Finished:` / `Actual:` per [[doc/agents/issue-tracker.md]] (Time tracking). Backfill from this chat and commits when a session was not logged.
