@@ -281,7 +281,7 @@ module LazyLoadReconciliationServer =
         }
 
     /// Plan and post. `artifactReads` is the set whose text is read.
-    let private reconcileListed (listed: ListedReconcile) =
+    let private reconcileListed plan (listed: ListedReconcile) =
         async {
             let artifacts =
                 readDirInfoArtifacts
@@ -291,7 +291,7 @@ module LazyLoadReconciliationServer =
                       workspaceLabel = listed.workspaceLabel }
                     listed.artifactReads
             match
-                LazyLoadReconciliationReport.planChangedPathsWithArtifacts
+                plan
                     listed.graph
                     listed.workspaceLabel
                     listed.changes
@@ -325,6 +325,7 @@ module LazyLoadReconciliationServer =
                     let allChanges = changedPaths @ discovered
                     return!
                         reconcileListed
+                            LazyLoadReconciliationReport.planChangedPathsWithArtifacts
                             { handle = workspace.handle
                               dataDir = workspace.dataDir
                               workspaceLabel = workspace.workspaceLabel
@@ -339,7 +340,8 @@ module LazyLoadReconciliationServer =
         : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
         reconcileChangedPathsWithDiscovery workspace None changedPaths
 
-    /// Git pull. Each received file is marked. The list does not discover members.
+    /// Git pull. Each received file is marked. An added, removed, or renamed
+    /// file marks its containing Directory. The list does not discover members.
     let reconcileReceivedFiles
         (workspace: WorkspaceReconcile)
         (changedPaths: LazyLoadReconciliation.ChangedPath list)
@@ -353,6 +355,7 @@ module LazyLoadReconciliationServer =
                     LazyLoadReconciliation.receivedFileChanges changedPaths
                 return!
                     reconcileListed
+                        LazyLoadReconciliationReport.planReceivedFiles
                         { handle = workspace.handle
                           dataDir = workspace.dataDir
                           workspaceLabel = workspace.workspaceLabel
@@ -386,6 +389,7 @@ module LazyLoadReconciliationServer =
                     let fileChanges = held @ files
                     return!
                         reconcileListed
+                            LazyLoadReconciliationReport.planChangedPathsWithArtifacts
                             { handle = workspace.handle
                               dataDir = workspace.dataDir
                               workspaceLabel = label

@@ -39,6 +39,19 @@ let private requireChangedPlan graph label changes =
     | Ok ops -> ops
     | Error err -> failwith err
 
+let private requireReceivedPlan graph label changes =
+    match
+        LazyLoadReconciliationReport.planReceivedFiles
+            graph
+            label
+            changes
+            Map.empty
+    with
+    | Ok report ->
+        Assert.Empty(report.failures)
+        report.ops
+    | Error err -> failwith err
+
 let private childNamed graph parentId name =
     ownedNamedChildren graph parentId
     |> List.find (fst >> (=) name)
@@ -837,6 +850,145 @@ let ``received file plan marks top and nested files and leaves the directory`` (
     Assert.Equal(Unparsed, graph3.nodes.[top.id].documentState)
     Assert.Equal(Unparsed, graph3.nodes.[nested.id].documentState)
     Assert.Equal(Current, graph3.nodes.[docs.id].documentState)
+
+[<Fact>]
+let ``received file add marks the containing directory Unparsed`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+    let graph1 = createPaths graph [ "docs/keep.txt" ]
+    let graph2 = markDocumentsCurrent graph1
+    let docs = childNamed graph2 workspaceId "docs"
+    let graph3 =
+        requireReceivedPlan
+            graph2
+            "home"
+            [ LazyLoadReconciliation.Added "docs/new.txt" ]
+        |> applyOps graph2
+    Assert.Equal(Unparsed, graph3.nodes.[docs.id].documentState)
+    Assert.Equal(Unparsed, (childNamed graph3 docs.id "new.txt").documentState)
+
+[<Fact>]
+let ``received file add leaves an Unparsed directory Unparsed`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+    let graph1 = createPaths graph [ "docs/keep.txt" ]
+    let graph2 = markDocumentsCurrent graph1
+    let docs = childNamed graph2 workspaceId "docs"
+    let graphUnparsed =
+        applyOps graph2 [ Op.SetDocumentState(docs.id, Current, Unparsed) ]
+    let graph3 =
+        requireReceivedPlan
+            graphUnparsed
+            "home"
+            [ LazyLoadReconciliation.Added "docs/new.txt" ]
+        |> applyOps graphUnparsed
+    Assert.Equal(Unparsed, graph3.nodes.[docs.id].documentState)
+
+[<Fact>]
+let ``received file removal marks the containing directory Unparsed`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+    let graph1 = createPaths graph [ "docs/keep.txt"; "docs/gone.txt" ]
+    let graph2 = markDocumentsCurrent graph1
+    let docs = childNamed graph2 workspaceId "docs"
+    let graph3 =
+        requireReceivedPlan
+            graph2
+            "home"
+            [ LazyLoadReconciliation.Deleted "docs/gone.txt" ]
+        |> applyOps graph2
+    Assert.Equal(Unparsed, graph3.nodes.[docs.id].documentState)
+    Assert.Equal(Current, (childNamed graph3 docs.id "keep.txt").documentState)
+
+[<Fact>]
+let ``received file rename marks both directories Unparsed`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+    let graph1 =
+        createPaths graph [ "docs/keep.txt"; "docs/move.txt"; "other/keep.txt" ]
+    let graph2 = markDocumentsCurrent graph1
+    let docs = childNamed graph2 workspaceId "docs"
+    let other = childNamed graph2 workspaceId "other"
+    let graph3 =
+        requireReceivedPlan
+            graph2
+            "home"
+            [ LazyLoadReconciliation.Renamed("docs/move.txt", "other/move.txt") ]
+        |> applyOps graph2
+    Assert.Equal(Unparsed, graph3.nodes.[docs.id].documentState)
+    Assert.Equal(Unparsed, graph3.nodes.[other.id].documentState)
+
+[<Fact>]
+let ``received file at the workspace top marks the workspace Unparsed`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+    let graph1 = markDocumentsCurrent graph
+    let graph2 =
+        requireReceivedPlan
+            graph1
+            "home"
+            [ LazyLoadReconciliation.Added "top.txt" ]
+        |> applyOps graph1
+    Assert.Equal(Unparsed, graph2.nodes.[workspaceId].documentState)
+
+[<Fact>]
+let ``received file at the workspace top leaves an Unparsed workspace Unparsed`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+    let graph1 = markDocumentsCurrent graph
+    let graphUnparsed =
+        applyOps graph1 [ Op.SetDocumentState(workspaceId, Current, Unparsed) ]
+    let graph2 =
+        requireReceivedPlan
+            graphUnparsed
+            "home"
+            [ LazyLoadReconciliation.Added "top.txt" ]
+        |> applyOps graphUnparsed
+    Assert.Equal(Unparsed, graph2.nodes.[workspaceId].documentState)
+
+[<Fact>]
+let ``received file modification leaves the containing directory Current`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+    let graph1 = createPaths graph [ "docs/note.txt" ]
+    let graph2 = markDocumentsCurrent graph1
+    let docs = childNamed graph2 workspaceId "docs"
+    let graph3 =
+        requireReceivedPlan
+            graph2
+            "home"
+            [ LazyLoadReconciliation.Modified "docs/note.txt" ]
+        |> applyOps graph2
+    Assert.Equal(Current, graph3.nodes.[docs.id].documentState)
+    Assert.Equal(Unparsed, (childNamed graph3 docs.id "note.txt").documentState)
+
+[<Fact>]
+let ``received file add marks the nearest existing ancestor directory`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+    let graph1 = createPaths graph [ "w/x/keep.txt" ]
+    let graph2 = markDocumentsCurrent graph1
+    let w = childNamed graph2 workspaceId "w"
+    let x = childNamed graph2 w.id "x"
+    let graph3 =
+        requireReceivedPlan
+            graph2
+            "home"
+            [ LazyLoadReconciliation.Added "w/x/y/z" ]
+        |> applyOps graph2
+    Assert.Equal(Unparsed, graph3.nodes.[x.id].documentState)
+    Assert.Equal(Current, graph3.nodes.[w.id].documentState)
+    Assert.Equal(Current, graph3.nodes.[workspaceId].documentState)
+
+[<Fact>]
+let ``received file add leaves an Unparsed nearest ancestor Unparsed`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+    let graph1 = createPaths graph [ "w/x/keep.txt" ]
+    let graph2 = markDocumentsCurrent graph1
+    let w = childNamed graph2 workspaceId "w"
+    let x = childNamed graph2 w.id "x"
+    let graphUnparsed =
+        applyOps graph2 [ Op.SetDocumentState(x.id, Current, Unparsed) ]
+    let graph3 =
+        requireReceivedPlan
+            graphUnparsed
+            "home"
+            [ LazyLoadReconciliation.Added "w/x/y/z" ]
+        |> applyOps graphUnparsed
+    Assert.Equal(Unparsed, graph3.nodes.[x.id].documentState)
+    Assert.Equal(Current, graph3.nodes.[w.id].documentState)
 
 [<Collection("ExclusiveTiming")>]
 type SecondRediscoveryTiming() =

@@ -320,6 +320,66 @@ module LazyLoadReconciliation =
         |> List.filter (fun change ->
             changePaths change |> List.forall (fun path -> not (pathIsDirectory path)))
 
+    let rec private nearestExistingDirectory
+        (graph: Graph)
+        workspaceId
+        (parts: string list)
+        =
+        let info: Path.PathInfo =
+            { parts = parts
+              kind = Directory
+              isDirInfo = false }
+        match Path.resolveInfo graph workspaceId info with
+        | Ok(Some(nodeId, _)) -> nodeId
+        | _ ->
+            match parts with
+            | [] -> workspaceId
+            | _ ->
+                nearestExistingDirectory
+                    graph
+                    workspaceId
+                    (List.take (parts.Length - 1) parts)
+
+    let private fileParentParts path =
+        match Path.classifyValidated path with
+        | Ok(Some info) when not info.isDirInfo ->
+            match List.rev info.parts with
+            | _ :: parentRev -> Some(List.rev parentRev)
+            | [] -> None
+        | _ -> None
+
+    let private changedFileParents change =
+        match change with
+        | Added path
+        | Deleted path ->
+            match fileParentParts path with
+            | Some parts -> [ parts ]
+            | None -> []
+        | Renamed(oldPath, newPath) ->
+            List.choose fileParentParts [ oldPath; newPath ]
+        | Modified _ -> []
+
+    let private containingDirectoryIds graph workspaceId changes =
+        changes
+        |> List.collect changedFileParents
+        |> List.map (nearestExistingDirectory graph workspaceId)
+        |> List.distinct
+
+    /// Always Unparsed. Appended after the file plan, so it follows markParentCurrent.
+    let private unparsedStateOp (graph: Graph) nodeId =
+        Op.SetDocumentState(nodeId, graph.nodes.[nodeId].documentState, Unparsed)
+
+    /// Marks for an added, removed, or renamed file. Targets come from `graph`.
+    let containingDirectoryMarkOps
+        (graph: Graph)
+        (workspaceLabel: string)
+        (changes: ChangedPath list)
+        : Result<Op list, string> =
+        GraphQuery.trySyncRootByLabel graph workspaceLabel
+        |> Result.map (fun workspaceId ->
+            containingDirectoryIds graph workspaceId changes
+            |> List.map (unparsedStateOp graph))
+
     let planChangedPathsWithArtifacts
         (graph: Graph)
         (workspaceLabel: string)
