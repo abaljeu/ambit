@@ -87,12 +87,28 @@ let private setsDocumentState (ops: Op list) =
         | Op.SetDocumentState _ -> true
         | _ -> false)
 
+let private listImmediate (full: string) =
+    if not (Directory.Exists full) then
+        Ok []
+    else
+        try
+            let names =
+                Seq.append
+                    (Directory.EnumerateFiles full)
+                    (Directory.EnumerateDirectories full)
+                |> Seq.map Path.GetFileName
+                |> Seq.toList
+            Ok names
+        with ex ->
+            Error ex.Message
+
 let private plan dataDir graph directoryId =
     match
         DirectoryReconcile.planDirectoryReconcile
             { dataDir = dataDir
               graph = graph
-              directoryId = directoryId }
+              directoryId = directoryId
+              discover = listImmediate }
     with
     | Ok planned -> planned
     | Error err -> failwith err

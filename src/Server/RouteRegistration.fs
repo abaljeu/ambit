@@ -462,9 +462,9 @@ module RouteRegistration =
             }
             let reconcileGitPush label changedPaths =
                 LazyLoadReconciliationServer.reconcileChangedPaths
-                    (parseBound persistence)
-                    persistence.DataDir
-                    label
+                    { handle = parseBound persistence
+                      dataDir = persistence.DataDir
+                      workspaceLabel = label }
                     changedPaths
             GitGateway.registerRoutes
                 { shell = routes

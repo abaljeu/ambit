@@ -2,9 +2,9 @@
 
 Stage: build
 Summary: A continuous Server parse thread turns file-shaped disk into Graph, takes priority from Browser wants, and emits Changes. A continuous persist thread turns Graph into disk. Both add InMsg through the mailbox private function. The core loop sets the axes.
-Updated: 2026-10-10
+Updated: 2026-10-11
 Started: 2026-09-28
-Actual: 3h 50m
+Actual: 5h 10m
 
 **Part of:** [[plan/roadmap/epics/chapters/automatic-parse.md]]
 
@@ -31,3 +31,5 @@ Actual: 3h 50m
 - 2026-10-07 — [07 — Directory Unparsed during reconcile](issues/07-directory-unparsed-during-reconcile.md) is coded. A child Directory Node that needs reparse is named for the same InMsg as a File Node, and for push. A missing disk directory gets a Directory Node. Stage stays build.
 - 2026-10-10 — [09 — Grill reconcile discovery depth](issues/09-grill-reconcile-discovery-depth.md) Status `done`. git Load, Directory Load, and Workspace Load walk one level. Coding tickets: [10 — Add discoverImmediateMembers](issues/10-add-discover-immediate-members.md) (`defined`, frontier), [11 — Load reconciles walk one level](issues/11-load-reconciles-walk-one-level.md), [12 — Git pull marks each received file Unparsed](issues/12-git-pull-marks-each-received-file-unparsed.md). Each blocks [24 — Command Load/Save](../github-transport/issues/24-load-save-on-events.md). Stage stays build.
 - 2026-10-10 — [10 — Add discoverImmediateMembers](issues/10-add-discover-immediate-members.md) is coded. `discoverImmediateMembers` returns the direct files and the child directories. `discoverArtifactRelatives` stays the recursive walk. No Load reconcile calls the new function. Stage stays build.
+- 2026-10-11 — [11 — Load reconciles walk one level](issues/11-load-reconciles-walk-one-level.md) is coded. git Load, Directory Load, and Workspace Load call `discoverImmediateMembers`. A new child Directory Node is Unparsed and its contents stay unread. A child Directory Node held Current stays Current. `readAllDocuments` stays recursive. Stage stays build.
+- 2026-10-11 — The same ticket, [11 — Load reconciles walk one level](issues/11-load-reconciles-walk-one-level.md), gives the reconcile doors `WorkspaceReconcile` (core handle, data directory, workspace label) in place of those three positional arguments. Stage stays build.
