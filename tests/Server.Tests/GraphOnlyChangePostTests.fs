@@ -72,7 +72,11 @@ let ``reconcile posts graph-only chunks at or under maxOps`` () =
         File.WriteAllText(Path.Combine(home, sprintf "n%03d.txt" i), "x")
     let inner = admittedChanges fileAgent
     let handle, posts = recordingHandle inner
-    LazyLoadReconciliationServer.reconcileChangedPaths handle tempDir "home" []
+    LazyLoadReconciliationServer.reconcileChangedPaths
+        { handle = handle
+          dataDir = tempDir
+          workspaceLabel = "home" }
+        []
     |> Async.RunSynchronously
     |> requireOk "reconcile"
     |> ignore

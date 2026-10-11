@@ -11,7 +11,8 @@ module DirectoryReconcile =
     type Input =
         { dataDir: string
           graph: Graph
-          directoryId: NodeId }
+          directoryId: NodeId
+          discover: string -> Result<string list, string> }
 
     type Output =
         { ops: Op list
@@ -53,36 +54,51 @@ module DirectoryReconcile =
             else
                 Error "path escapes data directory"
 
-    let private diskEntries
-        (enumerate: string -> seq<string>)
-        (mtime: string -> DateTime)
+    [<RequireQualifiedAccess>]
+    type private DiskMember =
+        | File of string * DateTime
+        | Dir of string * DateTime
+
+    let private namedEntry (dirFull: string) (rel: string) =
+        let trimmed = rel.Replace('\\', '/').Trim('/')
+        if trimmed = "" || trimmed.Contains "/" then
+            None
+        else
+            let full = Path.Combine(dirFull, trimmed)
+            match Filename.create trimmed with
+            | Filename.Ok name when Directory.Exists full ->
+                let mtime = Directory.GetLastWriteTimeUtc full
+                Some(DiskMember.Dir(name, mtime))
+            | Filename.Ok name when File.Exists full ->
+                let mtime = File.GetLastWriteTimeUtc full
+                Some(DiskMember.File(name, mtime))
+            | _ -> None
+
+    let private splitMembers (dirFull: string) (rels: string list) =
+        let entries = rels |> List.choose (namedEntry dirFull)
+        let files =
+            entries
+            |> List.choose (function
+                | DiskMember.File(name, mtime) -> Some(name, mtime)
+                | DiskMember.Dir _ -> None)
+        let dirs =
+            entries
+            |> List.choose (function
+                | DiskMember.Dir(name, mtime) -> Some(name, mtime)
+                | DiskMember.File _ -> None)
+        files, dirs
+
+    let private membersOf
+        (discover: string -> Result<string list, string>)
         (dirFull: string)
         =
-        try
-            if not (Directory.Exists dirFull) then
-                Ok []
-            else
-                enumerate dirFull
-                |> Seq.choose (fun full ->
-                    match Filename.create (Path.GetFileName full) with
-                    | Filename.Ok name -> Some(name, mtime full)
-                    | _ -> None)
-                |> Seq.toList
-                |> Ok
-        with ex ->
-            Error ex.Message
-
-    let private diskFiles (dirFull: string) =
-        diskEntries
-            (fun dir -> Directory.EnumerateFiles dir)
-            File.GetLastWriteTimeUtc
-            dirFull
-
-    let private diskDirectories (dirFull: string) =
-        diskEntries
-            (fun dir -> Directory.EnumerateDirectories dir)
-            Directory.GetLastWriteTimeUtc
-            dirFull
+        match discover dirFull with
+        | Error err -> Error err
+        | Ok rels ->
+            try
+                Ok(splitMembers dirFull rels)
+            with ex ->
+                Error ex.Message
 
     type private CreatePlan =
         { graph: Graph
@@ -231,12 +247,10 @@ module DirectoryReconcile =
             | Some relative ->
                 resolveDirectory input.dataDir relative
                 |> Result.bind (fun full ->
-                    diskFiles full
-                    |> Result.bind (fun files ->
-                        diskDirectories full
-                        |> Result.bind (fun dirs ->
-                            planFromEntries
-                                input.graph
-                                input.directoryId
-                                files
-                                dirs)))
+                    membersOf input.discover full
+                    |> Result.bind (fun (files, dirs) ->
+                        planFromEntries
+                            input.graph
+                            input.directoryId
+                            files
+                            dirs))

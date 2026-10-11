@@ -142,7 +142,11 @@ let ``server reconciler applies planner ops through active agent`` () =
     let sourcePath = Path.Combine(tempDir, "home", "src", "main.fs")
     Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)) |> ignore
     File.WriteAllText(sourcePath, "module Main")
-    LazyLoadReconciliationServer.reconcileAddedPaths handle tempDir "home" [ "src/main.fs" ]
+    LazyLoadReconciliationServer.reconcileAddedPaths
+        { handle = handle
+          dataDir = tempDir
+          workspaceLabel = "home" }
+        [ "src/main.fs" ]
     |> Async.RunSynchronously
     |> requireOk "reconcile"
     |> ignore
@@ -181,9 +185,9 @@ let ``server reconciler adds disk files outside the changed path list`` () =
     File.WriteAllText(existingPath, "already on disk")
     File.WriteAllText(updatedPath, "in the delta")
     LazyLoadReconciliationServer.reconcileChangedPaths
-        handle
-        tempDir
-        "home"
+        { handle = handle
+          dataDir = tempDir
+          workspaceLabel = "home" }
         [ LazyLoadReconciliation.Added "updated.txt" ]
     |> Async.RunSynchronously
     |> requireOk "reconcile"
@@ -219,9 +223,9 @@ let ``server reconciler adds missing directory and file nodes from discovered pa
     Directory.CreateDirectory(Path.GetDirectoryName(nestedPath)) |> ignore
     File.WriteAllText(nestedPath, "hello")
     LazyLoadReconciliationServer.reconcileChangedPaths
-        handle
-        tempDir
-        "home"
+        { handle = handle
+          dataDir = tempDir
+          workspaceLabel = "home" }
         []
     |> Async.RunSynchronously
     |> requireOk "reconcile"
@@ -266,9 +270,9 @@ let ``post receive rename of unparsed stub is rejected without moving disk twice
     Directory.CreateDirectory(Path.GetDirectoryName(oldPath)) |> ignore
     File.WriteAllText(oldPath, "received content")
     LazyLoadReconciliationServer.reconcileChangedPaths
-        handle
-        tempDir
-        "home"
+        { handle = handle
+          dataDir = tempDir
+          workspaceLabel = "home" }
         [ LazyLoadReconciliation.Added "old.txt" ]
     |> Async.RunSynchronously
     |> requireOk "add stub"
@@ -276,9 +280,9 @@ let ``post receive rename of unparsed stub is rejected without moving disk twice
     File.Move(oldPath, newPath)
     let renameResult =
         LazyLoadReconciliationServer.reconcileChangedPaths
-            handle
-            tempDir
-            "home"
+            { handle = handle
+              dataDir = tempDir
+              workspaceLabel = "home" }
             [ LazyLoadReconciliation.Renamed("old.txt", "new.txt") ]
         |> Async.RunSynchronously
     match renameResult with
@@ -330,18 +334,18 @@ let ``server reconciler posts good sibling when one path fails`` () =
     File.WriteAllText(badPath, "unparsed stub")
     File.WriteAllText(goodPath, "sibling")
     LazyLoadReconciliationServer.reconcileAddedPaths
-        handle
-        tempDir
-        "home"
+        { handle = handle
+          dataDir = tempDir
+          workspaceLabel = "home" }
         [ "bad.txt" ]
     |> Async.RunSynchronously
     |> requireOk "seed bad"
     |> ignore
     let result =
         LazyLoadReconciliationServer.reconcileChangedPaths
-            handle
-            tempDir
-            "home"
+            { handle = handle
+              dataDir = tempDir
+              workspaceLabel = "home" }
             [ LazyLoadReconciliation.Deleted "bad.txt"
               LazyLoadReconciliation.Added "good.txt" ]
         |> Async.RunSynchronously
@@ -439,7 +443,11 @@ let ``directory reconcile discovers only under directory prefix`` () =
     Directory.CreateDirectory(Path.GetDirectoryName(insidePath)) |> ignore
     File.WriteAllText(outsidePath, "outside")
     File.WriteAllText(insidePath, "inside")
-    LazyLoadReconciliationServer.reconcileDirectory handle tempDir "home" "docs"
+    LazyLoadReconciliationServer.reconcileDirectory
+        { handle = handle
+          dataDir = tempDir
+          workspaceLabel = "home" }
+        "docs"
     |> Async.RunSynchronously
     |> requireOk "directory reconcile"
     |> ignore
@@ -466,7 +474,13 @@ let ``workspace reconcile discovers under workspace root`` () =
     Directory.CreateDirectory(Path.GetDirectoryName(insidePath)) |> ignore
     File.WriteAllText(outsidePath, "outside")
     File.WriteAllText(insidePath, "inside")
-    LazyLoadReconciliationServer.reconcileWorkspace handle tempDir "home"
+    let inner = Path.Combine(tempDir, "home", "docs", "inner")
+    Directory.CreateDirectory(inner) |> ignore
+    File.WriteAllText(Path.Combine(inner, "deep.txt"), "deep")
+    LazyLoadReconciliationServer.reconcileWorkspace
+        { handle = handle
+          dataDir = tempDir
+          workspaceLabel = "home" }
     |> Async.RunSynchronously
     |> requireOk "workspace reconcile"
     |> ignore
@@ -476,17 +490,139 @@ let ``workspace reconcile discovers under workspace root`` () =
         |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
         |> List.sort
     Assert.Equal<string list>([ "docs"; "outside.txt" ], workspaceNames)
-    let docsId =
+    let docsNode =
         Graph.children graph workspaceId
         |> List.pick (fun child ->
             match Filename.tryValue graph.nodes.[child.id].name with
-            | Some "docs" -> Some child.id
+            | Some "docs" -> Some graph.nodes.[child.id]
             | _ -> None)
+    Assert.Equal(Special SpecialKind.Directory, docsNode.kind)
+    Assert.Equal(Unparsed, docsNode.documentState)
     let docsChildren =
-        Graph.children graph docsId
+        Graph.children graph docsNode.id
         |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
+    Assert.Empty(docsChildren)
+    CoreMailbox.dispose fileAgent
+
+[<Fact>]
+let ``directory reconcile walks one level`` () =
+    let tempDir = newTempDir ()
+    let fileAgent, handle = createAdmittedFile tempDir
+    let workspaceId = postWorkspace fileAgent "home"
+    let graph1 = readGraph fileAgent
+    let docsId, docsOps =
+        FileNodeOps.planCreateOwnedDirectory graph1 workspaceId "docs"
+    postOps fileAgent 1 docsOps
+    let docs = Path.Combine(tempDir, "home", "docs")
+    let side = Path.Combine(docs, "side", "inner")
+    Directory.CreateDirectory(side) |> ignore
+    File.WriteAllText(Path.Combine(docs, "note.txt"), "note")
+    File.WriteAllText(Path.Combine(docs, "side", "deep.txt"), "deep")
+    LazyLoadReconciliationServer.reconcileDirectory
+        { handle = handle
+          dataDir = tempDir
+          workspaceLabel = "home" }
+        "docs"
+    |> Async.RunSynchronously
+    |> requireOk "directory reconcile"
+    |> ignore
+    let graph = readGraph fileAgent
+    let names =
+        Graph.children graph docsId
+        |> List.choose (fun child ->
+            Filename.tryValue graph.nodes.[child.id].name)
         |> List.sort
-    Assert.Equal<string list>([ "inside.txt" ], docsChildren)
+    Assert.Equal<string list>([ "note.txt"; "side" ], names)
+    let sideNode =
+        Graph.children graph docsId
+        |> List.pick (fun child ->
+            match Filename.tryValue graph.nodes.[child.id].name with
+            | Some "side" -> Some graph.nodes.[child.id]
+            | _ -> None)
+    Assert.Equal(Special SpecialKind.Directory, sideNode.kind)
+    Assert.Equal(Unparsed, sideNode.documentState)
+    Assert.Empty(Graph.children graph sideNode.id)
+    CoreMailbox.dispose fileAgent
+
+[<Fact>]
+let ``workspace reconcile leaves a current child directory current`` () =
+    let tempDir = newTempDir ()
+    let fileAgent, handle = createAdmittedFile tempDir
+    let workspaceId = postWorkspace fileAgent "home"
+    let graph1 = readGraph fileAgent
+    let keptId, keptOps =
+        FileNodeOps.planCreateOwnedDirectory graph1 workspaceId "kept"
+    postOps
+        fileAgent
+        1
+        (keptOps @ [ Op.SetDocumentState(keptId, Unparsed, Current) ])
+    let keptDir = Path.Combine(tempDir, "home", "kept")
+    Directory.CreateDirectory(keptDir) |> ignore
+    File.WriteAllText(Path.Combine(keptDir, "secret.txt"), "secret")
+    Directory.CreateDirectory(Path.Combine(tempDir, "home", "fresh"))
+    |> ignore
+    File.WriteAllText(Path.Combine(tempDir, "home", "top.txt"), "top")
+    LazyLoadReconciliationServer.reconcileWorkspace
+        { handle = handle
+          dataDir = tempDir
+          workspaceLabel = "home" }
+    |> Async.RunSynchronously
+    |> requireOk "workspace reconcile"
+    |> ignore
+    let graph = readGraph fileAgent
+    Assert.Equal(Current, graph.nodes.[keptId].documentState)
+    let keptNames =
+        Graph.children graph keptId
+        |> List.choose (fun child ->
+            Filename.tryValue graph.nodes.[child.id].name)
+    Assert.Empty(keptNames)
+    let fresh =
+        Graph.children graph workspaceId
+        |> List.pick (fun child ->
+            match Filename.tryValue graph.nodes.[child.id].name with
+            | Some "fresh" -> Some graph.nodes.[child.id]
+            | _ -> None)
+    Assert.Equal(Unparsed, fresh.documentState)
+    Assert.Empty(Graph.children graph fresh.id)
+    CoreMailbox.dispose fileAgent
+
+[<Fact>]
+let ``directory reconcile leaves a current child directory current`` () =
+    let tempDir = newTempDir ()
+    let fileAgent, handle = createAdmittedFile tempDir
+    let workspaceId = postWorkspace fileAgent "home"
+    let graph1 = readGraph fileAgent
+    let docsId, docsOps =
+        FileNodeOps.planCreateOwnedDirectory graph1 workspaceId "docs"
+    postOps fileAgent 1 docsOps
+    let graph2 = readGraph fileAgent
+    let keptId, keptOps =
+        FileNodeOps.planCreateOwnedDirectory graph2 docsId "kept"
+    postOps
+        fileAgent
+        2
+        (keptOps @ [ Op.SetDocumentState(keptId, Unparsed, Current) ])
+    let docs = Path.Combine(tempDir, "home", "docs")
+    Directory.CreateDirectory(Path.Combine(docs, "kept")) |> ignore
+    File.WriteAllText(Path.Combine(docs, "kept", "secret.txt"), "secret")
+    File.WriteAllText(Path.Combine(docs, "note.txt"), "note")
+    LazyLoadReconciliationServer.reconcileDirectory
+        { handle = handle
+          dataDir = tempDir
+          workspaceLabel = "home" }
+        "docs"
+    |> Async.RunSynchronously
+    |> requireOk "directory reconcile"
+    |> ignore
+    let graph = readGraph fileAgent
+    Assert.Equal(Current, graph.nodes.[keptId].documentState)
+    Assert.Empty(Graph.children graph keptId)
+    let names =
+        Graph.children graph docsId
+        |> List.choose (fun child ->
+            Filename.tryValue graph.nodes.[child.id].name)
+        |> List.sort
+    Assert.Equal<string list>([ "kept"; "note.txt" ], names)
     CoreMailbox.dispose fileAgent
 
 [<Fact>]
@@ -496,7 +632,10 @@ let ``workspace reconcile creates Directory for empty leading-dot dir`` () =
     let workspaceId = postWorkspace fileAgent "home"
     let scratch = Path.Combine(tempDir, "home", ".scratch")
     Directory.CreateDirectory scratch |> ignore
-    LazyLoadReconciliationServer.reconcileWorkspace handle tempDir "home"
+    LazyLoadReconciliationServer.reconcileWorkspace
+        { handle = handle
+          dataDir = tempDir
+          workspaceLabel = "home" }
     |> Async.RunSynchronously
     |> requireOk "empty .scratch reconcile"
     |> ignore
@@ -525,9 +664,9 @@ let ``directory reconcile keeps .agents Loaded with discovered children`` () =
     Directory.CreateDirectory(Path.GetDirectoryName skillPath) |> ignore
     File.WriteAllText(skillPath, "ok")
     LazyLoadReconciliationServer.reconcileDirectory
-        handle
-        tempDir
-        "home"
+        { handle = handle
+          dataDir = tempDir
+          workspaceLabel = "home" }
         ".agents"
     |> Async.RunSynchronously
     |> requireOk ".agents reconcile"
@@ -552,7 +691,10 @@ let ``SYSTEM workspace reconcile creates File stubs under systemId`` () =
     File.WriteAllText(Path.Combine(systemDir, "user.css"), "body{}")
     File.WriteAllText(Path.Combine(systemDir, "http-responses.log"), "log")
     File.WriteAllText(Path.Combine(systemDir, "gambol.meta"), "1")
-    LazyLoadReconciliationServer.reconcileWorkspace handle tempDir "SYSTEM"
+    LazyLoadReconciliationServer.reconcileWorkspace
+        { handle = handle
+          dataDir = tempDir
+          workspaceLabel = "SYSTEM" }
     |> Async.RunSynchronously
     |> requireOk "SYSTEM reconcile"
     |> ignore
@@ -603,7 +745,11 @@ let ``directory reconcile does not duplicate Normal-owned present file`` () =
     let presentPath = Path.Combine(tempDir, "home", "docs", "present.txt")
     Directory.CreateDirectory(Path.GetDirectoryName(presentPath)) |> ignore
     File.WriteAllText(presentPath, "already owned")
-    LazyLoadReconciliationServer.reconcileDirectory handle tempDir "home" "docs"
+    LazyLoadReconciliationServer.reconcileDirectory
+        { handle = handle
+          dataDir = tempDir
+          workspaceLabel = "home" }
+        "docs"
     |> Async.RunSynchronously
     |> requireOk "directory reconcile"
     |> ignore
@@ -630,7 +776,11 @@ let ``directory reconcile creates missing sibling under directory`` () =
     let missingPath = Path.Combine(tempDir, "home", "docs", "missing.txt")
     Directory.CreateDirectory(Path.GetDirectoryName(missingPath)) |> ignore
     File.WriteAllText(missingPath, "new")
-    LazyLoadReconciliationServer.reconcileDirectory handle tempDir "home" "docs"
+    LazyLoadReconciliationServer.reconcileDirectory
+        { handle = handle
+          dataDir = tempDir
+          workspaceLabel = "home" }
+        "docs"
     |> Async.RunSynchronously
     |> requireOk "directory reconcile"
     |> ignore
@@ -663,7 +813,11 @@ let ``directory reconcile with amb outline and missing file posts without owners
         $"-> //home/tasks/active/^{sid}\n")
     File.WriteAllText(Path.Combine(tasksDir, "inbox.txt"), "new")
     let result =
-        LazyLoadReconciliationServer.reconcileDirectory handle tempDir "home" "tasks"
+        LazyLoadReconciliationServer.reconcileDirectory
+            { handle = handle
+              dataDir = tempDir
+              workspaceLabel = "home" }
+            "tasks"
         |> Async.RunSynchronously
     match result with
     | Error err ->
@@ -701,18 +855,18 @@ let ``directory reconcile returns resilient failures and posts good sibling`` ()
     File.WriteAllText(badPath, "unparsed stub")
     File.WriteAllText(goodPath, "sibling")
     LazyLoadReconciliationServer.reconcileAddedPaths
-        handle
-        tempDir
-        "home"
+        { handle = handle
+          dataDir = tempDir
+          workspaceLabel = "home" }
         [ "docs/bad.txt" ]
     |> Async.RunSynchronously
     |> requireOk "seed bad"
     |> ignore
     let failures =
         LazyLoadReconciliationServer.reconcileChangedPathsWithDiscovery
-            handle
-            tempDir
-            "home"
+            { handle = handle
+              dataDir = tempDir
+              workspaceLabel = "home" }
             (Some "docs")
             [ LazyLoadReconciliation.Deleted "docs/bad.txt" ]
         |> Async.RunSynchronously

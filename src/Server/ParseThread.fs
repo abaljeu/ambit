@@ -104,7 +104,9 @@ module ParseThread =
                 DirectoryReconcile.planDirectoryReconcile
                     { dataDir = deps.dataDir
                       graph = graph
-                      directoryId = directoryId }
+                      directoryId = directoryId
+                      discover =
+                        DocumentPersistPath.discoverImmediateMembers }
             with
             | Error _ -> return ()
             | Ok planned ->

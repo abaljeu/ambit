@@ -871,3 +871,154 @@ let ``second Load of a Parsed Directory reconciles and does not requeue`` () =
         finally
             CoreMailbox.dispose host
     }
+
+let private openParse (dataDir: string) =
+    let push, consumer = ParseStack.create ()
+    let host =
+        CoreMailbox.hostWithParsePush
+            (CoreActorPool.create ())
+            (FileAgent.persist (FileAgent.create dataDir))
+            admittedCredentials
+            push
+    let parseHandle = CoreMailbox.coreChanges host testCaller
+    ParseThread.start
+        { dataDir = dataDir
+          consumer = consumer
+          push = push
+          getGraph = ParseThread.graphFromHost host
+          postOps = ParseThread.postParseOps parseHandle
+          markUnparsed =
+            fun nodeId ->
+                CoreMailbox.addInMsg host (InMsg.MarkUnparsed nodeId)
+          finishParse =
+            fun nodeId ->
+                CoreMailbox.addInMsg
+                    host
+                    (InMsg.ParseFinished nodeId) }
+    host
+
+let private stateOf host =
+    CoreMailbox.getState host
+    |> Async.RunSynchronously
+    |> requireOk "state"
+
+let private childNamed host parentId name =
+    let graph = (stateOf host).graph
+    Graph.children graph parentId
+    |> List.tryPick (fun child ->
+        if Filename.tryValue graph.nodes.[child.id].name = Some name then
+            Some graph.nodes.[child.id]
+        else
+            None)
+
+let private holdCurrentChild host dataDir =
+    task {
+        let! state0 =
+            CoreMailbox.getState host |> Async.StartAsTask
+        let state0 = requireOk "state0" state0
+        let workspaceId, wsOps =
+            FileNodeOps.planCreateWorkspace state0.graph "home"
+        postOps host wsOps
+        let graph1 = (stateOf host).graph
+        let keptId, keptOps =
+            FileNodeOps.planCreateOwnedDirectory graph1 workspaceId "kept"
+        postOps host keptOps
+        let diskTime = DateTime(2024, 6, 1, 12, 0, 0, DateTimeKind.Utc)
+        let keptDir = Path.Combine(dataDir, "home", "kept")
+        Directory.CreateDirectory(keptDir) |> ignore
+        File.WriteAllText(Path.Combine(keptDir, "secret.txt"), "secret")
+        Directory.SetLastWriteTimeUtc(keptDir, diskTime)
+        let keptNode = (stateOf host).graph.nodes.[keptId]
+        postOps
+            host
+            [ Op.SetDocumentState(keptId, Unparsed, Current)
+              Op.SetUpdateTime(keptId, keptNode.updateTime, diskTime) ]
+        CoreMailbox.addInMsg host (InMsg.ParseFinished keptId)
+        let! parsed =
+            waitUntil
+                (fun () -> parseStateOf host keptId = Some ParseState.Parsed)
+                2000
+        Assert.True(parsed, "held directory should be Parsed")
+        return workspaceId, keptId
+    }
+
+let private writeNestedWorkspaceFiles dataDir =
+    File.WriteAllText(Path.Combine(dataDir, "home", "readme.txt"), "top")
+    let inner = Path.Combine(dataDir, "home", "docs", "inner")
+    Directory.CreateDirectory(inner) |> ignore
+    File.WriteAllText(
+        Path.Combine(dataDir, "home", "docs", "inside.txt"),
+        "inside")
+    File.WriteAllText(Path.Combine(inner, "deep.txt"), "deep")
+
+let private assertOneLevelWorkspace host workspaceId keptId =
+    match childNamed host workspaceId "docs" with
+    | None -> Assert.Fail("child directory docs missing")
+    | Some docsNode ->
+        Assert.Equal(Special SpecialKind.Directory, docsNode.kind)
+        Assert.Equal(Unparsed, docsNode.documentState)
+        Assert.Empty(Graph.children (stateOf host).graph docsNode.id)
+    Assert.Equal(
+        Some Current,
+        childNamed host workspaceId "kept"
+        |> Option.map (fun node -> node.documentState))
+    Assert.Equal(Some ParseState.Parsed, parseStateOf host keptId)
+    Assert.True(childNamed host keptId "secret.txt" |> Option.isNone)
+
+[<Fact>]
+let ``git Load and Workspace Load reconcile walks one level`` () =
+    task {
+        let dataDir = newTempDir ()
+        let host = openParse dataDir
+        try
+            let! workspaceId, keptId = holdCurrentChild host dataDir
+            writeNestedWorkspaceFiles dataDir
+            let! loaded =
+                CoreMailbox.load host testCaller workspaceId
+                |> Async.StartAsTask
+            requireOk "load" loaded
+            let! found =
+                waitUntil
+                    (fun () ->
+                        parseStateOf host workspaceId = Some ParseState.Parsed
+                        && (childNamed host workspaceId "readme.txt"
+                            |> Option.isSome))
+                    2000
+            Assert.True(found, "direct file should be discovered")
+            assertOneLevelWorkspace host workspaceId keptId
+        finally
+            CoreMailbox.dispose host
+    }
+
+[<Fact>]
+let ``directory Load reconcile walks one level`` () =
+    task {
+        let dataDir = newTempDir ()
+        let host = openParse dataDir
+        try
+            let! _, dirId = seedDocsFile host
+            let docs = Path.Combine(dataDir, "home", "docs")
+            Directory.CreateDirectory(Path.Combine(docs, "side", "inner"))
+            |> ignore
+            File.WriteAllText(Path.Combine(docs, "added.txt"), "note")
+            File.WriteAllText(Path.Combine(docs, "side", "deep.txt"), "deep")
+            let! loaded =
+                CoreMailbox.load host testCaller dirId
+                |> Async.StartAsTask
+            requireOk "load" loaded
+            let! found =
+                waitUntil
+                    (fun () ->
+                        parseStateOf host dirId = Some ParseState.Parsed
+                        && (childNamed host dirId "added.txt" |> Option.isSome))
+                    2000
+            Assert.True(found, "direct file should be discovered")
+            match childNamed host dirId "side" with
+            | None -> Assert.Fail("child directory side missing")
+            | Some side ->
+                Assert.Equal(Special SpecialKind.Directory, side.kind)
+                Assert.Equal(Unparsed, side.documentState)
+                Assert.Empty(Graph.children (stateOf host).graph side.id)
+        finally
+            CoreMailbox.dispose host
+    }

@@ -1,7 +1,7 @@
 # Parse thread architecture
 
 Spec: [spec](spec.md)
-Updated: 2026-10-10
+Updated: 2026-10-11
 Sequence: module-build
 
 Core stacks, axes, locks, and the mailbox stay [core-refinement architecture](../core-refinement/arch.md) and [core-refinement map](../core-refinement/map.md). InMsg on the one mailbox queue stays [core-refinement architecture](../core-refinement/arch.md) §10 Core loop. This architecture is the Parse product delta only. A `[x]` hop is already true in code, or it is a Core door this Project cites and does not build. Open Core build stays on that architecture and on [Core](../../doc/current/core.md). A `[ ]` hop is Directory reconcile work.
@@ -79,7 +79,7 @@ Sequence is module-build. Directory reconcile is in code. Story paths that only 
 18. **Pull handoff stays the pull sentence**
     1. [x] **Immediate members** — The immediate-members sentence stays the git-pull handoff. Immediate members are the files and the child directories in that directory. Ticket: [02 — Git Load: Unparsed then Parse stack](../core-refinement/issues/02-git-load-unparsed-then-parse-stack.md). Lock: [09 — Grill reconcile discovery depth](issues/09-grill-reconcile-discovery-depth.md).
     2. [x] **Reconcile home** — This architecture defines Directory reconcile. [core-refinement architecture](../core-refinement/arch.md) §5 item 10 **Directory reconcile** points here. Ticket: [01 — Directory body home](issues/01-directory-parse-body-home.md). The Directory body walk stays every node tied to that Directory File. This depth is the disk discovery on Load.
-    3. [ ] **One level** — git Load, Directory Load, and Workspace Load each walk one level. A newly discovered child Directory Node is Unparsed. Its contents stay unread until that Directory Node is Loaded. A child Directory Node the Graph already holds as Current is left alone on the parent reconcile. Ticket: [11 — Load reconciles walk one level](issues/11-load-reconciles-walk-one-level.md).
+    3. [x] **One level** — git Load, Directory Load, and Workspace Load each walk one level. A newly discovered child Directory Node is Unparsed. Its contents stay unread until that Directory Node is Loaded. A child Directory Node the Graph already holds as Current is left alone on the parent reconcile. Ticket: [11 — Load reconciles walk one level](issues/11-load-reconciles-walk-one-level.md).
     4. [x] **Two discovery functions** — `discoverArtifactRelatives` stays recursive for cold bootstrap through `readAllDocuments`. `discoverImmediateMembers` returns the direct files and the child directories for the Load reconciles. There is no new positional argument. Ticket: [10 — Add discoverImmediateMembers](issues/10-add-discover-immediate-members.md).
     5. [ ] **Received files** — A git pull marks each file it received Unparsed, at any depth. The git changed list does not drive discovery otherwise. Home: [core-refinement architecture](../core-refinement/arch.md) §5 item 4 **git pull finish**. Ticket: [12 — Git pull marks each received file Unparsed](issues/12-git-pull-marks-each-received-file-unparsed.md).
 
@@ -140,7 +140,7 @@ Sequence is module-build. Directory reconcile is in code. Story paths that only 
       3. [x] **Disk-newer** — A disk-newer file has its File Node Unparsed after Directory reconcile.
       4. [x] **Directory needs reparse** — A child directory that is disk-newer, or a disk directory the Graph lacks, has its Directory Node Unparsed after Directory reconcile. Ticket: [07 — Directory Unparsed during reconcile](issues/07-directory-unparsed-during-reconcile.md).
    2. **Interface**
-      1. [x] **Inputs** — Directory reconcile takes the disk directory, the graph, and the directory id. The directory id plus the graph is the Directory Node. Directory reconcile reads the Directory body from that graph. The disk directory is required.
+      1. [x] **Inputs** — Directory reconcile takes the disk directory, the graph, and the directory id. The directory id plus the graph is the Directory Node. Directory reconcile reads the Directory body from that graph. The disk directory is required. Disk members for git Load, Directory Load, and Workspace Load come from `discoverImmediateMembers`. There is no depth argument.
       2. [x] **Create** — Directory reconcile returns ops that create each missing File Node. A new node appends alphabetically under the Directory Node.
       3. [x] **Unparsed** — Directory reconcile names a disk-newer File Node. The parse thread adds InMsg MarkUnparsed through the private function. The core loop sets that node Unparsed only through `GraphMutate.setParseState`. PersistState stays unchanged. Case home: [core-refinement architecture](../core-refinement/arch.md) §10 Core loop.
       4. [x] **Push** — Directory reconcile names that File Node for push.
