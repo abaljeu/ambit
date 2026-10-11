@@ -285,32 +285,70 @@ module DocumentPersistPath =
         else
             full
 
-    let discoverArtifactRelatives (dataDir: string) : Result<string list, string> =
-        let baseDir = dataDirBase dataDir
+    let private keptDiscoveryRel
+        (dir: string)
+        (fullPath: string)
+        (skipped: bool)
+        : Result<string option, string> =
+        if skipped then
+            Ok None
+        else
+            let rel = relativePathFromDataDir dir fullPath
+
+            match resolveUnderDataDir dir rel with
+            | Error msg -> Error msg
+            | Ok _ -> Ok (Some rel)
+
+    let private collectDiscoveryRels
+        (dir: string)
+        (skipped: string -> bool)
+        (fullPaths: seq<string>)
+        : Result<string list, string> =
+        fullPaths
+        |> Seq.fold
+            (fun acc fullPath ->
+                match acc with
+                | Error msg -> Error msg
+                | Ok rels ->
+                    match keptDiscoveryRel dir fullPath (skipped fullPath) with
+                    | Error msg -> Error msg
+                    | Ok None -> Ok rels
+                    | Ok (Some rel) -> Ok (rel :: rels))
+            (Ok [])
+        |> Result.map List.rev
+
+    let private fileDiscoverySkipped (dir: string) (fullPath: string) =
+        shouldSkipDiscoveryFile (Path.GetFileName fullPath)
+        || shouldSkipDiscoveryRel (relativePathFromDataDir dir fullPath)
+
+    let private directoryDiscoverySkipped (dir: string) (fullPath: string) =
+        shouldSkipDiscoveryRel (relativePathFromDataDir dir fullPath)
+
+    let private discoverInDirectory
+        (dir: string)
+        (read: string -> Result<string list, string>)
+        : Result<string list, string> =
+        let baseDir = dataDirBase dir
 
         if not (Directory.Exists baseDir) then
             Ok []
         else
             try
-                Directory.EnumerateFiles(baseDir, "*", SearchOption.AllDirectories)
-                |> Seq.filter (fun fullPath ->
-                    let rel = relativePathFromDataDir dataDir fullPath
-                    not (shouldSkipDiscoveryFile (Path.GetFileName fullPath))
-                    && not (shouldSkipDiscoveryRel rel))
-                |> Seq.map (fun fullPath ->
-                    relativePathFromDataDir dataDir fullPath,
-                    resolveUnderDataDir
-                        dataDir
-                        (relativePathFromDataDir dataDir fullPath))
-                |> Seq.fold
-                    (fun acc (rel, resolved) ->
-                        match acc with
-                        | Error msg -> Error msg
-                        | Ok paths ->
-                            match resolved with
-                            | Error msg -> Error msg
-                            | Ok _ -> Ok (rel :: paths))
-                    (Ok [])
-                |> Result.map List.rev
+                read baseDir
             with ex ->
                 Error ex.Message
+
+    let discoverArtifactRelatives (dataDir: string) : Result<string list, string> =
+        discoverInDirectory dataDir (fun baseDir ->
+            Directory.EnumerateFiles(baseDir, "*", SearchOption.AllDirectories)
+            |> collectDiscoveryRels baseDir (fileDiscoverySkipped baseDir))
+
+    /// Direct files and child directories of one directory. Paths are relative to `dir`.
+    let discoverImmediateMembers (dir: string) : Result<string list, string> =
+        discoverInDirectory dir (fun baseDir ->
+            Directory.EnumerateFiles baseDir
+            |> collectDiscoveryRels baseDir (fileDiscoverySkipped baseDir)
+            |> Result.bind (fun fileRels ->
+                Directory.EnumerateDirectories baseDir
+                |> collectDiscoveryRels baseDir (directoryDiscoverySkipped baseDir)
+                |> Result.map (fun dirRels -> fileRels @ dirRels)))

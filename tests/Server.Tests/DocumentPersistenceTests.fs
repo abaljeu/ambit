@@ -957,6 +957,45 @@ let ``discoverArtifactRelatives lists plain file alongside amb artifacts`` () =
     Assert.EndsWith(".txt", fileRel, StringComparison.OrdinalIgnoreCase)
     Assert.EndsWith(".amb", dirRel, StringComparison.OrdinalIgnoreCase)
 
+let private writeImmediateMemberTree (dataDir: string) =
+    Directory.CreateDirectory(Path.Combine(dataDir, "docs", "inner")) |> ignore
+    Directory.CreateDirectory(Path.Combine(dataDir, "empty")) |> ignore
+    File.WriteAllText(Path.Combine(dataDir, "readme.txt"), "top")
+    File.WriteAllText(Path.Combine(dataDir, "notes.amb"), "")
+    File.WriteAllText(Path.Combine(dataDir, "docs", "nested.txt"), "nested")
+    File.WriteAllText(
+        Path.Combine(dataDir, "docs", "inner", "deep.txt"),
+        "deep")
+
+[<Fact>]
+let ``discoverImmediateMembers returns direct files and child directories`` () =
+    let dataDir = newTempDir ()
+    writeImmediateMemberTree dataDir
+    let members =
+        DocumentPersistPath.discoverImmediateMembers dataDir
+        |> requireOk "discover"
+        |> Set.ofList
+    let expected =
+        Set.ofList [ "readme.txt"; "notes.amb"; "docs"; "empty" ]
+    Assert.Equal<Set<string>>(expected, members)
+
+[<Fact>]
+let ``discoverArtifactRelatives returns nested files`` () =
+    let dataDir = newTempDir ()
+    writeImmediateMemberTree dataDir
+    let relatives =
+        DocumentPersistPath.discoverArtifactRelatives dataDir
+        |> requireOk "discover"
+        |> Set.ofList
+    let expected =
+        Set.ofList [
+            "readme.txt"
+            "notes.amb"
+            "docs/nested.txt"
+            "docs/inner/deep.txt"
+        ]
+    Assert.Equal<Set<string>>(expected, relatives)
+
 [<Fact>]
 let ``resolveArtifactPath plain file resolves to named extension path`` () =
     let dataDir = newTempDir ()
