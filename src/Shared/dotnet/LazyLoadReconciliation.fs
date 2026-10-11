@@ -302,6 +302,24 @@ module LazyLoadReconciliation =
                     applyOps current ops
                     |> Result.map (fun next -> next, ops))
 
+    let private changePaths change =
+        match change with
+        | Added path
+        | Deleted path
+        | Modified path -> [ path ]
+        | Renamed(oldPath, newPath) -> [ oldPath; newPath ]
+
+    let private pathIsDirectory path =
+        match Path.classifyValidated path with
+        | Ok(Some info) -> info.isDirInfo
+        | _ -> false
+
+    /// File entries from a git changed list. A directory path is not a file.
+    let receivedFileChanges (changes: ChangedPath list) : ChangedPath list =
+        changes
+        |> List.filter (fun change ->
+            changePaths change |> List.forall (fun path -> not (pathIsDirectory path)))
+
     let planChangedPathsWithArtifacts
         (graph: Graph)
         (workspaceLabel: string)

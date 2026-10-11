@@ -805,6 +805,39 @@ let ``new Directory File Added still parses outline`` () =
         Assert.Equal(Current, fresh.documentState)
         Assert.Equal("hello", graph1.nodes.[(Graph.children graph1 fresh.id).Head.id].text)
 
+[<Fact>]
+let ``received file changes keep files at any depth and drop directory paths`` () =
+    let changes =
+        [ LazyLoadReconciliation.Added "top.txt"
+          LazyLoadReconciliation.Added "docs/nested.txt"
+          LazyLoadReconciliation.Modified "docs/.amb"
+          LazyLoadReconciliation.Renamed("old.txt", "new.txt")
+          LazyLoadReconciliation.Renamed("dir/.amb", "dir2/.amb") ]
+    let files = LazyLoadReconciliation.receivedFileChanges changes
+    Assert.Equal<LazyLoadReconciliation.ChangedPath list>(
+        [ LazyLoadReconciliation.Added "top.txt"
+          LazyLoadReconciliation.Added "docs/nested.txt"
+          LazyLoadReconciliation.Renamed("old.txt", "new.txt") ],
+        files)
+
+[<Fact>]
+let ``received file plan marks top and nested files and leaves the directory`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+    let graph1 = createPaths graph [ "top.txt"; "docs/nested.txt" ]
+    let graph2 = markDocumentsCurrent graph1
+    let docs = childNamed graph2 workspaceId "docs"
+    let top = childNamed graph2 workspaceId "top.txt"
+    let nested = childNamed graph2 docs.id "nested.txt"
+    let changes =
+        LazyLoadReconciliation.receivedFileChanges
+            [ LazyLoadReconciliation.Modified "top.txt"
+              LazyLoadReconciliation.Modified "docs/nested.txt"
+              LazyLoadReconciliation.Modified "docs/.amb" ]
+    let graph3 = requireChangedPlan graph2 "home" changes |> applyOps graph2
+    Assert.Equal(Unparsed, graph3.nodes.[top.id].documentState)
+    Assert.Equal(Unparsed, graph3.nodes.[nested.id].documentState)
+    Assert.Equal(Current, graph3.nodes.[docs.id].documentState)
+
 [<Collection("ExclusiveTiming")>]
 type SecondRediscoveryTiming() =
     [<Fact>]

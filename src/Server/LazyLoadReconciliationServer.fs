@@ -339,6 +339,28 @@ module LazyLoadReconciliationServer =
         : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
         reconcileChangedPathsWithDiscovery workspace None changedPaths
 
+    /// Git pull. Each received file is marked. The list does not discover members.
+    let reconcileReceivedFiles
+        (workspace: WorkspaceReconcile)
+        (changedPaths: LazyLoadReconciliation.ChangedPath list)
+        : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
+        async {
+            let! stateResult = workspace.handle.getState ()
+            match stateResult with
+            | Error err -> return Error err
+            | Ok stateResponse ->
+                let files =
+                    LazyLoadReconciliation.receivedFileChanges changedPaths
+                return!
+                    reconcileListed
+                        { handle = workspace.handle
+                          dataDir = workspace.dataDir
+                          workspaceLabel = workspace.workspaceLabel
+                          graph = stateResponse.graph
+                          changes = files
+                          artifactReads = files }
+        }
+
     /// Load's directory match. One level: direct files and child directories.
     /// A Current child Directory is left alone. A new child Directory is Unparsed.
     let private matchDiscoveredDirectory
