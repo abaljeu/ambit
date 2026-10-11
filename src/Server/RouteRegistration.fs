@@ -461,7 +461,7 @@ module RouteRegistration =
                 | Error err -> return Error err
             }
             let reconcileGitPush label changedPaths =
-                LazyLoadReconciliationServer.reconcileChangedPaths
+                LazyLoadReconciliationServer.reconcileReceivedFiles
                     { handle = parseBound persistence
                       dataDir = persistence.DataDir
                       workspaceLabel = label }

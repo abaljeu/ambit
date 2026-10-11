@@ -4,7 +4,7 @@ Stage: build
 Summary: A continuous Server parse thread turns file-shaped disk into Graph, takes priority from Browser wants, and emits Changes. A continuous persist thread turns Graph into disk. Both add InMsg through the mailbox private function. The core loop sets the axes.
 Updated: 2026-10-11
 Started: 2026-09-28
-Actual: 5h 10m
+Actual: 6h 40m
 
 **Part of:** [[plan/roadmap/epics/chapters/automatic-parse.md]]
 
@@ -33,3 +33,4 @@ Actual: 5h 10m
 - 2026-10-10 — [10 — Add discoverImmediateMembers](issues/10-add-discover-immediate-members.md) is coded. `discoverImmediateMembers` returns the direct files and the child directories. `discoverArtifactRelatives` stays the recursive walk. No Load reconcile calls the new function. Stage stays build.
 - 2026-10-11 — [11 — Load reconciles walk one level](issues/11-load-reconciles-walk-one-level.md) is coded. git Load, Directory Load, and Workspace Load call `discoverImmediateMembers`. A new child Directory Node is Unparsed and its contents stay unread. A child Directory Node held Current stays Current. `readAllDocuments` stays recursive. Stage stays build.
 - 2026-10-11 — The same ticket, [11 — Load reconciles walk one level](issues/11-load-reconciles-walk-one-level.md), gives the reconcile doors `WorkspaceReconcile` (core handle, data directory, workspace label) in place of those three positional arguments. Stage stays build.
+- 2026-10-11 — [12 — Git pull marks each received file Unparsed](issues/12-git-pull-marks-each-received-file-unparsed.md) is coded. A git pull marks each received file Unparsed at any depth. The changed list omits discovery and omits a Directory Node mark. git Load, Directory Load, and Workspace Load still use `discoverImmediateMembers`. Stage stays build.

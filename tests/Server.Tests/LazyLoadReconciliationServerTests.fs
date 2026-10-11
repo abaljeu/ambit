@@ -999,3 +999,62 @@ let ``workspace reconciliation POST with empty path discovers root`` () =
         |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
         |> List.sort
     Assert.Equal<string list>([ "root.txt" ], names)
+
+[<Fact>]
+let ``git pull marks received files at any depth and does not discover`` () =
+    let tempDir = newTempDir ()
+    let fileAgent, handle = createAdmittedFile tempDir
+    let workspaceId = postWorkspace fileAgent "home"
+    let graph1 = readGraph fileAgent
+    let topId, topOps =
+        FileNodeOps.planCreateOwnedFile graph1 workspaceId "top.txt"
+    postOps
+        fileAgent
+        1
+        (topOps @ [ Op.SetDocumentState(topId, Unparsed, Current) ])
+    let graph2 = readGraph fileAgent
+    let docsId, docsOps =
+        FileNodeOps.planCreateOwnedDirectory graph2 workspaceId "docs"
+    postOps
+        fileAgent
+        2
+        (docsOps @ [ Op.SetDocumentState(docsId, Unparsed, Current) ])
+    let graph3 = readGraph fileAgent
+    let nestedId, nestedOps =
+        FileNodeOps.planCreateOwnedFile graph3 docsId "nested.txt"
+    postOps
+        fileAgent
+        3
+        (nestedOps @ [ Op.SetDocumentState(nestedId, Unparsed, Current) ])
+    let home = Path.Combine(tempDir, "home")
+    let docs = Path.Combine(home, "docs")
+    Directory.CreateDirectory(docs) |> ignore
+    File.WriteAllText(Path.Combine(home, "top.txt"), "top")
+    File.WriteAllText(Path.Combine(home, "other.txt"), "not on the list")
+    File.WriteAllText(Path.Combine(docs, "nested.txt"), "nested")
+    File.WriteAllText(Path.Combine(docs, ".amb"), "outline")
+    LazyLoadReconciliationServer.reconcileReceivedFiles
+        { handle = handle
+          dataDir = tempDir
+          workspaceLabel = "home" }
+        [ LazyLoadReconciliation.Modified "top.txt"
+          LazyLoadReconciliation.Modified "docs/nested.txt"
+          LazyLoadReconciliation.Modified "docs/.amb" ]
+    |> Async.RunSynchronously
+    |> requireOk "pull"
+    |> ignore
+    let graph = readGraph fileAgent
+    Assert.Equal(Unparsed, graph.nodes.[topId].documentState)
+    Assert.Equal(Unparsed, graph.nodes.[nestedId].documentState)
+    Assert.Equal(Current, graph.nodes.[docsId].documentState)
+    let names =
+        Graph.children graph workspaceId
+        |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
+        |> List.sort
+    Assert.Equal<string list>([ "docs"; "top.txt" ], names)
+    let members =
+        DocumentPersistPath.discoverImmediateMembers home
+        |> requireOk "one-level walk"
+    Assert.DoesNotContain("docs/nested.txt", members)
+    Assert.Contains("docs", members)
+    CoreMailbox.dispose fileAgent
