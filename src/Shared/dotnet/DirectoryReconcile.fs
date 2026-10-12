@@ -134,30 +134,10 @@ module DirectoryReconcile =
                 Some name)
         |> List.sortWith byName
 
-    let private diskNewerIds
-        (graph: Graph)
-        (known: Map<string, NodeId>)
-        (files: (string * DateTime) list)
-        =
-        files
-        |> List.sortWith (fun (a, _) (b, _) -> byName a b)
-        |> List.choose (fun (name, mtime) ->
-            Map.tryFind (name.ToLowerInvariant()) known
-            |> Option.bind (fun id ->
-                Map.tryFind id graph.nodes
-                |> Option.bind (fun node ->
-                    let nodeTime = NodeUpdateTime.toDbPrecision node.updateTime
-                    let diskTime = NodeUpdateTime.toDbPrecision mtime
-                    if nodeTime < diskTime then Some id else None)))
-
     type private Created =
         { ops: Op list
           ids: NodeId list
           children: ChildNode list }
-
-    type private KindResult =
-        { created: Created
-          newer: NodeId list }
 
     let private planOne (plan: CreatePlan) (reserved, acc) name =
         let unique =
@@ -202,12 +182,49 @@ module DirectoryReconcile =
         (entries: (string * DateTime) list)
         (children: ChildNode list)
         =
-        let known = knownNamed plan
-        let names = missingNames known entries
+        let names = missingNames (knownNamed plan) entries
         createMissing plan children names
-        |> Result.map (fun created ->
-            { created = created
-              newer = diskNewerIds plan.graph known entries })
+
+    let private nameSet (entries: (string * DateTime) list) =
+        entries
+        |> List.map (fun (name, _) -> name.ToLowerInvariant())
+        |> Set.ofList
+
+    let private absentIds (known: Map<string, NodeId>) (present: Set<string>) =
+        known
+        |> Map.fold
+            (fun acc name id ->
+                if Set.contains name present then acc else id :: acc)
+            []
+
+    let private goneByParent (graph: Graph) (ids: NodeId list) =
+        ids
+        |> List.fold
+            (fun acc id ->
+                match Map.tryFind id graph.ownerParentByChild with
+                | None -> acc
+                | Some parentId ->
+                    let prior =
+                        Map.tryFind parentId acc
+                        |> Option.defaultValue Set.empty
+                    Map.add parentId (Set.add id prior) acc)
+            Map.empty
+
+    let private childrenAfterDrops
+        (graph: Graph)
+        (directoryId: NodeId)
+        (dropIds: Set<NodeId>)
+        =
+        GraphChildren.get graph directoryId
+        |> List.filter (fun child ->
+            Node.childOwnership graph directoryId child <> Ownership.Owner
+            || not (Set.contains child.id dropIds))
+
+    let private markCurrent (graph: Graph) (directoryId: NodeId) =
+        match Map.tryFind directoryId graph.nodes with
+        | Some node when node.documentState = Unparsed ->
+            [ Op.SetDocumentState(directoryId, Unparsed, Current) ]
+        | _ -> []
 
     let private planFromEntries
         (graph: Graph)
@@ -215,22 +232,32 @@ module DirectoryReconcile =
         (files: (string * DateTime) list)
         (dirs: (string * DateTime) list)
         =
-        let children = GraphChildren.get graph directoryId
         let filePlan =
             { graph = graph
               directoryId = directoryId
               kind = SpecialKind.File }
+        let dirPlan = { filePlan with kind = SpecialKind.Directory }
+        let gone =
+            absentIds (knownNamed filePlan) (nameSet files)
+            @ absentIds (knownNamed dirPlan) (nameSet dirs)
+        let dropIds = Set.ofList gone
+        let deleteOps =
+            let grouped = goneByParent graph gone
+            if Map.isEmpty grouped then
+                []
+            else
+                ViewModelDeleteOps.planDeleteDroppedOwnedMany graph grouped
+        let children = childrenAfterDrops graph directoryId dropIds
         reconcileKind filePlan files children
-        |> Result.bind (fun fileResult ->
-            let dirPlan =
-                { filePlan with kind = SpecialKind.Directory }
-            reconcileKind dirPlan dirs fileResult.created.children
-            |> Result.map (fun dirResult ->
-                { ops = fileResult.created.ops @ dirResult.created.ops
-                  push =
-                    fileResult.newer
-                    @ dirResult.newer
-                    @ dirResult.created.ids }))
+        |> Result.bind (fun fileCreated ->
+            reconcileKind dirPlan dirs fileCreated.children
+            |> Result.map (fun dirCreated ->
+                { ops =
+                    markCurrent graph directoryId
+                    @ deleteOps
+                    @ fileCreated.ops
+                    @ dirCreated.ops
+                  push = [] }))
 
     let planDirectoryReconcile (input: Input) : Result<Output, string> =
         match Map.tryFind input.directoryId input.graph.nodes with

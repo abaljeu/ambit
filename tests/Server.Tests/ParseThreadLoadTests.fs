@@ -432,15 +432,9 @@ let ``ParseThread loop runs planParseFile for stacked File`` () =
             CoreMailboxApi.dispose host
     }
 
-// requeueOnUnparsed is false in ParseThread. A disk-newer file is still
-// marked Unparsed. It is not added to the Parse queue, so its text does
-// not land. Queue processing is currently wrong. It caused a
-// whole-workspace reconcile that exceeded the Azure Free plan CPU quota:
-// 60% short-window, 5% daily average. This is not a decision to drop the
-// requeue step. Re-enable once queue processing is fixed (pending
-// github-transport Load ticket: move Load onto a paced Parse thread).
+// A directory reconcile does not mark an existing disk-newer file Unparsed.
 [<Fact>]
-let ``disk-newer file stays Unparsed and is not requeued`` () =
+let ``disk-newer file stays Parsed when its directory reconciles`` () =
     task {
         let dataDir = newTempDir ()
         let push, consumer = ParseStack.create ()
@@ -491,7 +485,7 @@ let ``disk-newer file stays Unparsed and is not requeued`` () =
             File.WriteAllText(diskPath, "NEWER\n")
             File.SetLastWriteTimeUtc(diskPath, DateTime.UtcNow)
             push dirId
-            let! marked =
+            let! finished =
                 waitUntil
                     (fun () ->
                         match
@@ -500,12 +494,11 @@ let ``disk-newer file stays Unparsed and is not requeued`` () =
                         with
                         | Error _ -> false
                         | Ok state ->
-                            let node = state.graph.nodes.[fileId]
-                            node.parseState = ParseState.Unparsed)
+                            let dir = state.graph.nodes.[dirId]
+                            dir.parseState = ParseState.Parsed)
                     2000
-            Assert.True(marked, "disk-newer file should be Unparsed")
-            do! Task.Delay 400
-            let stillUnparsed =
+            Assert.True(finished, "directory reconcile should finish")
+            let fileStaysParsed =
                 match
                     CoreMailboxApi.getState host
                     |> Async.RunSynchronously
@@ -513,13 +506,13 @@ let ``disk-newer file stays Unparsed and is not requeued`` () =
                 | Error _ -> false
                 | Ok state ->
                     let node = state.graph.nodes.[fileId]
-                    node.parseState = ParseState.Unparsed
+                    node.parseState = ParseState.Parsed
             Assert.True(
-                stillUnparsed,
-                "requeue is disabled; file stays Unparsed")
+                fileStaysParsed,
+                "existing disk-newer file is not marked Unparsed")
             Assert.False(
                 graphHasText host fileId "NEWER",
-                "requeue is disabled; disk text is not parsed")
+                "the file text is not parsed by the directory reconcile")
         finally
             CoreMailboxApi.dispose host
     }
@@ -1019,6 +1012,64 @@ let ``directory Load reconcile walks one level`` () =
                 Assert.Equal(Special SpecialKind.Directory, side.kind)
                 Assert.Equal(Unparsed, side.documentState)
                 Assert.Empty(Graph.children (stateOf host).graph side.id)
+        finally
+            CoreMailboxApi.dispose host
+    }
+
+[<Fact>]
+let ``Load of a newly Unparsed child Directory reconciles one level`` () =
+    task {
+        let dataDir = newTempDir ()
+        let host = openParse dataDir
+        try
+            let! _, dirId = seedDocsFile host
+            let docs = Path.Combine(dataDir, "home", "docs")
+            Directory.CreateDirectory(docs) |> ignore
+            File.WriteAllText(Path.Combine(docs, "note.txt"), "keep")
+            let sideDir = Path.Combine(docs, "side")
+            Directory.CreateDirectory(sideDir) |> ignore
+            File.WriteAllText(Path.Combine(sideDir, "inner.txt"), "inner")
+            let! parentLoad =
+                CoreMailboxApi.mbLoadNode host testCaller dirId
+                |> Async.StartAsTask
+            requireOk "parent" parentLoad
+            let! childReady =
+                waitUntil
+                    (fun () ->
+                        match childNamed host dirId "side" with
+                        | Some node ->
+                            node.documentState = Unparsed
+                            && node.kind = Special SpecialKind.Directory
+                        | None -> false)
+                    2000
+            Assert.True(childReady, "parent Load adds the child Unparsed")
+            let side = childNamed host dirId "side" |> Option.get
+            Assert.Empty(Graph.children (stateOf host).graph side.id)
+            let! heldResult =
+                CoreMailboxApi.getState host |> Async.StartAsTask
+            let held = requireOk "held" heldResult
+            let! childLoad =
+                CoreMailboxApi.mbLoadNode host testCaller side.id
+                |> Async.StartAsTask
+            requireOk "child" childLoad
+            let! memberReady =
+                waitUntil
+                    (fun () ->
+                        childNamed host side.id "inner.txt" |> Option.isSome
+                        && parseStateOf host side.id = Some ParseState.Parsed)
+                    2000
+            Assert.True(memberReady, "child Load adds its member")
+            let! events =
+                CoreMailboxApi.getEventsSince host held.eventId
+                |> Async.StartAsTask
+            let landed = applyEvents held events
+            Assert.Equal(Current, landed.graph.nodes.[side.id].documentState)
+            let replayedMember =
+                Graph.children landed.graph side.id
+                |> List.exists (fun child ->
+                    Filename.tryValue landed.graph.nodes.[child.id].name
+                        = Some "inner.txt")
+            Assert.True(replayedMember, "replay shows the child member")
         finally
             CoreMailboxApi.dispose host
     }
