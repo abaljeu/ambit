@@ -46,11 +46,11 @@ Ordered path from §2 Starting point to Target — Server Core. The expand-contr
       1. [ ] **Workspace lock handoff** — After §3 step 4 **§6 locks catch-up** Expand stands the workspace lock, that lock drains in-flight member file use, then pull (or Upload land) proceeds; arrived files are marked Unparsed; the lock releases; Unparsed starts the parse thread (push onto that stack). See [02 — Git Load: Unparsed then Parse stack](issues/02-git-load-unparsed-then-parse-stack.md) and §6 Core locking model. Transport only informs Core; Core owns the lock → Unparsed → parse-thread path.
       2. [x] **Parse push marks Unparsed** — The parse push marks a Workspace Node, Directory Node, or File Node Unparsed before that id is pushed. The mark writes the axis and does not enqueue. `requeueOnUnparsed` stays false. The Load command sends a core message and does not mark Unparsed itself. A node inside a File Node uses that File Node.
       3. [x] **File push** — Mailbox Load of a File Node pushes that node onto the Parse stack. Selection push has no special priority. Ticket: [06 — Explicit parse command on a File (Load)](issues/06-explicit-parse-command-load-file.md) (Status `coded`). See [05 — Selection-scoped Parse after whole-tree git Load](issues/05-selection-scoped-parse-after-whole-tree-git-load.md).
-      4. [x] **Directory reconcile** — The parse thread runs Directory reconcile for a Directory Node and for a Workspace Node. The walk covers the Directory body. It creates missing File Nodes. A disk-newer File Node is marked Unparsed through `InMsg` `MarkUnparsed` and is pushed. Tickets: [05 — Directory reconcile](../parse-thread/issues/05-directory-reconcile.md) (Status `coded`), [06 — Setting Unparsed, recursive update](../parse-thread/issues/06-setting-unparsed-recursive-update.md) (Status `coded`). Grilling: [03 — Workspace Load after incoming files](../parse-thread/issues/03-workspace-load-after-incoming-files.md) (Status `done`).
+      4. [x] **Directory reconcile** — The parse thread runs Directory reconcile for a Directory Node and for a Workspace Node. The walk covers the Directory body. It adds a missing member node and deletes a member node that has no file. It does not mark an existing member Unparsed. Definition: [Parse thread architecture](../parse-thread/arch.md) §2 Module map, item 1 **Directory reconcile**. Ticket: [14 — Directory reconcile matches disk members](../parse-thread/issues/14-directory-reconcile-matches-disk-members.md) (Status `coded`).
 
       > Temporarily disabled (2026-10-08): MarkUnparsed does not enqueue; see requeueOnUnparsed in src/Server/ParseThread.fs. Disabling step: [28 — Stop enqueueing nodes just marked Unparsed](../github-transport/issues/28-stop-enqueueing-nodes-just-marked-unparsed.md). Re-enabled by [08 — Re-enable recursive update: enqueue on MarkUnparsed](../parse-thread/issues/08-re-enable-recursive-update-enqueue-on-markunparsed.md).
 
-      5. [ ] **Child Directory Unparsed** — A child Directory Node that needs reparse is marked Unparsed on that same reconcile. Ticket: [07 — Directory Unparsed during reconcile](../parse-thread/issues/07-directory-unparsed-during-reconcile.md) (Status `defined`).
+      5. [x] **Child Directory Unparsed** — A new child Directory Node starts Unparsed. An existing child Directory Node is not marked Unparsed. Ticket: [14 — Directory reconcile matches disk members](../parse-thread/issues/14-directory-reconcile-matches-disk-members.md) (Status `coded`).
       6. [x] **ParseFinished** — When the parse thread finishes a File Node or a Directory Node, it adds `InMsg` `ParseFinished` through the private function (§10). It does not edit the graph.
    3. **Contract** — [ ] Web desk Load of a Workspace Node, Directory Node, or File Node already posts through mailbox Load. Retire the remaining client hop once desktop-mapped Load and the git Load after-step use the stack. Claim home: [Parse and persist](doc/current/parse-persist.md) (Parse stack claims).
 
@@ -103,7 +103,7 @@ Locked 2026-09-28 (Alan). These rules say who writes each axis and which node th
 7. **Create special** — A new special node starts **Unparsed** and **Persisted**.
 8. **Load on Directory** — The parse push marks the Directory Node **Unparsed** before it is pushed, so a later Load is processed again. The Load command sends a core message whose subject is that Directory Node. Reconciliation with no extra info can spot disk members the Graph lacks.
 9. **Load on File** — The parse push marks the File Node **Unparsed** before it is pushed. The Load command sends a core message whose subject is that File Node. That push is coded. Ticket: [06 — Explicit parse command on a File (Load)](issues/06-explicit-parse-command-load-file.md) (Status `coded`). The Unparsed mark is [CoreMailboxLoad.fs](../../src/Server/Core/CoreMailboxLoad.fs) `markUnparsedThenPush`.
-10. **Directory reconcile** — [Parse thread](../parse-thread/project.md) owns this. Definition: [Parse thread architecture](../parse-thread/arch.md) §2 Module map, item 1 **Directory reconcile**. The walk, missing File Nodes, disk-newer File **Unparsed** through `InMsg` `MarkUnparsed`, and push are coded. Tickets: [05 — Directory reconcile](../parse-thread/issues/05-directory-reconcile.md) (Status `coded`), [06 — Setting Unparsed, recursive update](../parse-thread/issues/06-setting-unparsed-recursive-update.md) (Status `coded`). A Workspace Node uses the same reconcile. Grilling: [03 — Workspace Load after incoming files](../parse-thread/issues/03-workspace-load-after-incoming-files.md) (Status `done`). A child Directory Node that needs reparse is not coded. Ticket: [07 — Directory Unparsed during reconcile](../parse-thread/issues/07-directory-unparsed-during-reconcile.md) (Status `defined`).
+10. **Directory reconcile** — [Parse thread](../parse-thread/project.md) owns this. Definition: [Parse thread architecture](../parse-thread/arch.md) §2 Module map, item 1 **Directory reconcile**. It adds a missing member node, deletes a member node that has no file, and does not mark an existing member Unparsed. A new File Node and a new child Directory Node start Unparsed. Ticket: [14 — Directory reconcile matches disk members](../parse-thread/issues/14-directory-reconcile-matches-disk-members.md) (Status `coded`). A Workspace Node uses the same reconcile.
 
     > Temporarily disabled (2026-10-08): MarkUnparsed does not enqueue; see requeueOnUnparsed in src/Server/ParseThread.fs. Disabling step: [28 — Stop enqueueing nodes just marked Unparsed](../github-transport/issues/28-stop-enqueueing-nodes-just-marked-unparsed.md). Re-enabled by [08 — Re-enable recursive update: enqueue on MarkUnparsed](../parse-thread/issues/08-re-enable-recursive-update-enqueue-on-markunparsed.md).
 
@@ -169,11 +169,11 @@ Sequence stays `expand-contract`. These paths are that implementation sequence. 
       1. [ ] **Workspace lock** — Unparsed starts the parse thread after the workspace lock releases.
       2. [ ] **Client Load Unparsed** — Client Load on a Directory Node or a File Node marks that node Unparsed.
       3. [x] **File push** — Mailbox Load of a File Node pushes onto the Parse stack.
-      4. [x] **Directory reconcile** — Directory reconcile walks the Directory body, creates missing File Nodes, marks a disk-newer File Node Unparsed through `InMsg` `MarkUnparsed`, and pushes that File Node. A Workspace Node uses the same reconcile.
+      4. [x] **Directory reconcile** — Directory reconcile walks the Directory body, adds a missing member node, deletes a member node that has no file, and does not mark an existing member Unparsed. A Workspace Node uses the same reconcile. Ticket: [14 — Directory reconcile matches disk members](../parse-thread/issues/14-directory-reconcile-matches-disk-members.md).
 
       > Temporarily disabled (2026-10-08): MarkUnparsed does not enqueue; see requeueOnUnparsed in src/Server/ParseThread.fs. Disabling step: [28 — Stop enqueueing nodes just marked Unparsed](../github-transport/issues/28-stop-enqueueing-nodes-just-marked-unparsed.md). Re-enabled by [08 — Re-enable recursive update: enqueue on MarkUnparsed](../parse-thread/issues/08-re-enable-recursive-update-enqueue-on-markunparsed.md).
 
-      5. [ ] **Child Directory Unparsed** — A child Directory Node that needs reparse is marked Unparsed on that same reconcile. Ticket: [07 — Directory Unparsed during reconcile](../parse-thread/issues/07-directory-unparsed-during-reconcile.md) (Status `defined`).
+      5. [x] **Child Directory Unparsed** — A new child Directory Node starts Unparsed. An existing child Directory Node is not marked Unparsed. Ticket: [14 — Directory reconcile matches disk members](../parse-thread/issues/14-directory-reconcile-matches-disk-members.md) (Status `coded`).
       6. [x] **ParseFinished** — File parse and Directory reconcile add `InMsg` `ParseFinished` through the private function.
    3. [ ] **Contract** — Load uses that stack.
 
@@ -229,7 +229,7 @@ Deltas for this Project. Claim homes: [Mailbox](doc/current/mailbox.md) and [Par
       1. [x] **InMsg** — Internal message type. Not an Op. It carries the node.
          1. [x] **ParseFinished** — That `NodeId`. Parse finished.
          2. [x] **SnapshotDone** — That `NodeId` and the snapshot `Graph option`. Snapshot finished and that node is Persisted. This case replaces `PersistFinished`.
-         3. [x] **MarkUnparsed** — That `NodeId`. A disk-newer File Node is set Unparsed. A Directory Node that needs reparse uses this same case.
+         3. [x] **MarkUnparsed** — That `NodeId`. Directory reconcile does not name an existing member for this case.
       2. [x] **One queue** — The mailbox queue. Its element is a private sum of `CoreMsg` and `InMsg`. That sum has no public name. There is no second queue.
    2. **Interface**
       1. [x] **Private add** — A private function on the mailbox takes `InMsg` and adds it to the queue.
@@ -247,7 +247,7 @@ Deltas for this Project. Claim homes: [Mailbox](doc/current/mailbox.md) and [Par
       2. [x] **Persist thread** — Adds `InMsg` `SnapshotDone` through the private function.
       3. [x] **Db agent** — Adds `InMsg` `SnapshotDone` through the private function when the live-document snapshot finishes. It does not post `CoreMsg`.
       4. [x] **Field write** — `GraphMutate.setParseState` and `GraphMutate.setPersistState` are the existing field writes.
-      5. [x] **Disk-newer** — The parse thread adds `InMsg` `MarkUnparsed` for that File Node through the private function. It does not edit the graph.
+      5. [x] **Disk-newer** — Directory reconcile does not add `InMsg` `MarkUnparsed` for an existing member. It does not edit the graph.
 
 2. **Parse thread**
    File: `src/Server/ParseThread.fs`.
@@ -255,7 +255,7 @@ Deltas for this Project. Claim homes: [Mailbox](doc/current/mailbox.md) and [Par
       1. [x] **No queue** — The parse thread does not hold the mailbox queue.
    2. **Interface**
       1. [x] **Add** — On finish it adds `InMsg` `ParseFinished` for that node through the private function. It does not edit the graph.
-      2. [x] **Mark unparsed** — For a disk-newer File Node, or a Directory Node that needs reparse, it adds `InMsg` `MarkUnparsed` through the private function. It does not edit the graph.
+      2. [x] **Mark unparsed** — Directory reconcile does not add `InMsg` `MarkUnparsed` for an existing member. It does not edit the graph.
    3. **Uses**
       1. [x] **Private add** — The private function on the mailbox.
 

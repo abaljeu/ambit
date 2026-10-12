@@ -64,10 +64,10 @@ Sequence is module-build. Directory reconcile is in code. Story paths that only 
     1. [x] **Missing File Node** — Directory reconcile creates a File Node for a disk member the Graph lacks.
 
 15. **Disk-newer Unparsed**
-    1. [x] **Disk-newer** — When disk is newer, the parse thread adds InMsg MarkUnparsed for that File Node. The core loop sets Unparsed. Case home: [core-refinement architecture](../core-refinement/arch.md) §10 Core loop.
+    1. [x] **Disk-newer** — An existing disk-newer File Node stays as it is. Directory reconcile does not mark it Unparsed. Ticket: [14 — Directory reconcile matches disk members](issues/14-directory-reconcile-matches-disk-members.md).
 
 16. **Push when the stack exists**
-    1. [x] **Push** — Directory reconcile pushes that Unparsed File Node when the Parse stack exists.
+    1. [x] **Push** — Directory reconcile does not name an existing member for push.
     2. [x] **Stack door** — The push door is [Parse stack](../../src/Server/ParseStack.fs).
 
     > Temporarily disabled (2026-10-08): MarkUnparsed does not enqueue; see requeueOnUnparsed in src/Server/ParseThread.fs. Disabling step: [28 — Stop enqueueing nodes just marked Unparsed](../github-transport/issues/28-stop-enqueueing-nodes-just-marked-unparsed.md). Re-enabled by [08 — Re-enable recursive update: enqueue on MarkUnparsed](issues/08-re-enable-recursive-update-enqueue-on-markunparsed.md).
@@ -131,24 +131,24 @@ Sequence is module-build. Directory reconcile is in code. Story paths that only 
 ## 2. Module map
 
 1. **Directory reconcile**
-   Directory reconcile scans the directory and updates the Directory body. The Directory body is the nodes tied to that `.amb`. Scanning the `.amb` file would be Directory parse. That scan is not this operation. Directory reconcile walks all nodes tied to that `.amb`, not only immediate children. It creates missing File Nodes. When disk is newer, the parse thread adds InMsg MarkUnparsed for that File Node and names that File Node for push. The core loop sets Unparsed. A Directory Node under that node that needs reparse is marked Unparsed the same way. Ticket: [07 — Directory Unparsed during reconcile](issues/07-directory-unparsed-during-reconcile.md).
+   Directory reconcile scans the directory and updates the Directory body. The Directory body is the nodes tied to that `.amb`. Scanning the `.amb` file would be Directory parse. That scan is not this operation. Directory reconcile walks all nodes tied to that `.amb`, not only immediate children. It adds a missing member node. A new File Node starts Unparsed. A new child Directory Node starts Unparsed. It deletes a member node that has no file. It does not mark an existing member Unparsed. When that Directory Node or Workspace Node is Unparsed, the ops start with SetDocumentState from Unparsed to Current. Ticket: [14 — Directory reconcile matches disk members](issues/14-directory-reconcile-matches-disk-members.md).
    File: `src/Shared/dotnet/DirectoryReconcile.fs`
    Claim home: [Parse and persist](../../doc/current/parse-persist.md)
 
    1. **State**
       1. [x] **Whole tie** — The walk covers the Directory body, every node tied to that Directory File, including nodes below the immediate children.
       2. [x] **Missing File Node** — A disk member the Graph lacks has a File Node after Directory reconcile.
-      3. [x] **Disk-newer** — A disk-newer file has its File Node Unparsed after Directory reconcile.
-      4. [x] **Directory needs reparse** — A child directory that is disk-newer, or a disk directory the Graph lacks, has its Directory Node Unparsed after Directory reconcile. Ticket: [07 — Directory Unparsed during reconcile](issues/07-directory-unparsed-during-reconcile.md).
+      3. [x] **Existing member** — An existing File Node stays as it is. An existing child Directory Node stays as it is. Directory reconcile does not mark either Unparsed. A disk-newer member is an existing member.
+      4. [x] **New member** — A file the Graph lacks gets a File Node. A child directory the Graph lacks gets a Directory Node. The new File Node starts Unparsed. The new Directory Node starts Unparsed. Ticket: [14 — Directory reconcile matches disk members](issues/14-directory-reconcile-matches-disk-members.md).
    2. **Interface**
       1. [x] **Inputs** — Directory reconcile takes the disk directory, the graph, and the directory id. The directory id plus the graph is the Directory Node. Directory reconcile reads the Directory body from that graph. The disk directory is required. Disk members for git Load, Directory Load, and Workspace Load come from `discoverImmediateMembers`. There is no depth argument.
       2. [x] **Create** — Directory reconcile returns ops that create each missing File Node. A new node appends alphabetically under the Directory Node.
-      3. [x] **Unparsed** — Directory reconcile names a disk-newer File Node. The parse thread adds InMsg MarkUnparsed through the private function. The core loop sets that node Unparsed only through `GraphMutate.setParseState`. PersistState stays unchanged. Case home: [core-refinement architecture](../core-refinement/arch.md) §10 Core loop.
-      4. [x] **Push** — Directory reconcile names that File Node for push.
+      3. [x] **Current** — When the reconciled Directory Node or Workspace Node is Unparsed, the ops start with SetDocumentState from Unparsed to Current. That op is present when there are no member ops. Ticket: [14 — Directory reconcile matches disk members](issues/14-directory-reconcile-matches-disk-members.md).
+      4. [x] **No mark** — Directory reconcile does not name an existing member for push.
       5. [x] **No extra info** — Structure-match uses the Directory body and the Graph only.
       6. [x] **Workspace** — Workspace nodes use the same reconcile process. (They also do other things.)
       7. [x] **ParseFinished** — When Directory reconcile is done, the parse thread adds InMsg ParseFinished for that Directory Node through the private function. It does not edit the graph axes. The core loop sets Parsed only through `GraphMutate.setParseState`. PersistState stays unchanged.
-      8. [x] **Directory Unparsed** — Directory reconcile names a Directory Node that needs reparse. A disk directory the Graph lacks gets a Directory Node. The parse thread sets Unparsed by the same InMsg as a File Node. The parse thread does not edit the graph axes. Reconcile ops do not carry the Unparsed write. Directory reconcile names that Directory Node for push when the Parse stack exists. Ticket: [07 — Directory Unparsed during reconcile](issues/07-directory-unparsed-during-reconcile.md).
+      8. [x] **New child Directory Node** — A disk directory the Graph lacks gets a Directory Node. That Directory Node starts Unparsed. An existing child Directory Node is not marked Unparsed. Ticket: [14 — Directory reconcile matches disk members](issues/14-directory-reconcile-matches-disk-members.md).
    3. **Uses**
       1. [x] **Parse thread** — [Parse thread](../../src/Server/ParseThread.fs) calls Directory reconcile when the popped node is a Directory Node.
       2. [x] **Parse stack** — Push uses [Parse stack](../../src/Server/ParseStack.fs).
@@ -180,6 +180,6 @@ Sequence is module-build. Directory reconcile is in code. Story paths that only 
 
 ## 5. Unsettled
 
-1. **Directory reconcile acceptance** — §2 Module map, item 1 **Directory reconcile** names the walk, missing File Nodes, and disk-newer Unparsed. The coding ticket is [05 — Directory reconcile](issues/05-directory-reconcile.md), Status `coded`. Child Directory Unparsed stays [07 — Directory Unparsed during reconcile](issues/07-directory-unparsed-during-reconcile.md), Status `defined`.
+1. **Directory reconcile acceptance** — §2 Module map, item 1 **Directory reconcile** names the walk, missing members, and no mark of an existing member. The coding ticket is [14 — Directory reconcile matches disk members](issues/14-directory-reconcile-matches-disk-members.md), Status `coded`.
 2. **Changes from directory reconcile** — The destination says the thread emits Changes. How a Directory reconcile meets Poll is open. See [Parse thread map](map.md) Not yet specified, Changes from directory reconcile. Story path 17 **Emit Changes** records only the existing File Change door.
 3. **Browser want priority versus directory reconcile** — [04 — Browser want priority versus directory reconcile](issues/04-browser-want-priority-versus-directory-reconcile.md) stays `defined`. [browser-residency](../browser-residency/project.md) computes Browser wants. [05 — Selection-scoped Parse after whole-tree git Load](../core-refinement/issues/05-selection-scoped-parse-after-whole-tree-git-load.md) says a selection push has no special priority. Whether a Browser want uses that rule when the other work is Directory reconcile stays on that ticket.
