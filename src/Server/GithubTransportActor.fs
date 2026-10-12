@@ -78,21 +78,66 @@ module GithubTransportActor =
         |> Result.bind (fun (tracked, commitOutput) ->
             git.pushTracked workspaceRoot tracked commitOutput)
 
-    /// Git pull, then changes.load on the Workspace.
+    /// Changed list after a pull. None when HEAD cannot be read.
+    let private changedAfterPull workspaceRoot before =
+        match before, WorkspaceGit.tryHead workspaceRoot with
+        | Ok oldHead, Ok(Some newHead) ->
+            match
+                WorkspaceGit.changedPathsBetween
+                    workspaceRoot
+                    oldHead
+                    newHead
+            with
+            | Ok paths -> Some paths
+            | Error _ -> None
+        | _ -> None
+
+    /// Mark received files and containing Directories, then Load.
+    let internal finishLoadPull
+        (workspace: LazyLoadReconciliationServer.WorkspaceReconcile)
+        workspaceId
+        changedPaths
+        =
+        async {
+            match!
+                LazyLoadReconciliationServer.reconcileReceivedFiles
+                    workspace
+                    changedPaths
+            with
+            | Error err -> return Error err
+            | Ok _ ->
+                return! workspace.handle.load workspaceId
+        }
+
+    /// A successful pull marks received files, then posts that Workspace.
     /// A failed pull is the actor result.
     let private runLoad
         dependencies
+        dataDir
         changes
         workspaceId
         workspaceRoot
         =
         async {
+            let before = WorkspaceGit.tryHead workspaceRoot
             match pullTracked dependencies.git workspaceRoot with
             | Error err -> return Error err
             | Ok _ ->
                 match! CoreDoor.loadNode changes workspaceId with
                 | Error err -> return Error err
                 | Ok () -> return Ok ()
+                // let changed =
+                //     changedAfterPull workspaceRoot before
+                //     |> Option.defaultValue []
+                // return!
+                //     finishLoadPull
+                //         { handle = changes
+                //           dataDir = dataDir
+                //           workspaceLabel =
+                //             System.IO.Path.GetFileName
+                //                 workspaceRoot }
+                //         workspaceId
+                //         changed
         }
 
     let private runOperation
@@ -100,7 +145,6 @@ module GithubTransportActor =
         dependencies
         dataDir
         changes
-        focusId
         workspaceId
         root
         =
@@ -108,6 +152,7 @@ module GithubTransportActor =
         | GithubTransportOperation.Load ->
             runLoad
                 dependencies
+                dataDir
                 changes
                 workspaceId
                 root
@@ -136,7 +181,6 @@ module GithubTransportActor =
                             dependencies
                             dataDir
                             actorChanges
-                            input.focusId
                             workspaceId
                             root
                     with

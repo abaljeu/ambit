@@ -1,7 +1,7 @@
 # 12 — Git pull marks each received file Unparsed
 
 **Status:** `coded`
-Actual: 1h 30m
+Actual: 1h 45m
 **Type:** coding
 **Blocked by:** 11 — Load reconciles walk one level
 **Trackers:** architecture, project spec
@@ -24,6 +24,7 @@ A git pull receives files. A received file can sit at any depth. The pull marks 
 3. [x] **No discovery from the list** — A path that is only on the changed list does not become a discovered member of the one-level walk.
 4. [x] **Directory Node stays** — A directory path on the changed list does not mark that Directory Node Unparsed through this list.
 5. [x] **One-level walk stays** — git Load, Directory Load, and Workspace Load still use `discoverImmediateMembers`.
+6. [x] **git Load pull** — git Load's pull (`runLoad`) marks each received file Unparsed.
 
 ## Finish-up
 
@@ -50,6 +51,11 @@ A git pull receives files. A received file can sit at any depth. The pull marks 
 5. **Piece answers** — None of the piece answers changed.
 6. **Docs** — [Parse thread architecture](../arch.md) story path 18 **Pull handoff stays the pull sentence**, **Received files**, is checked. [Parse thread spec](../spec.md) story 18 **Pull handoff stays the pull sentence** already stated this mark. Further note 10 **Dual Unparsed approaches** now states the received-file mark. [core-refinement architecture](../../core-refinement/arch.md) §5 **git pull finish** already stated this lock. doc/current and doc/user do not state this mark.
 
+## Further
+
+1. **Load pull wiring** — [Github transport actor](../../../src/Server/GithubTransportActor.fs) `runLoad` records HEAD before and after `pullTracked`. On success it passes [Workspace git](../../../src/Server/WorkspaceGit.fs) `changedPathsBetween` to [Lazy load reconciliation server](../../../src/Server/LazyLoadReconciliationServer.fs) `reconcileReceivedFiles` before `changes.load`.
+
 ## Time
 
 - 2026-10-11 1h 30m — received-file pull mark, tests, and finish-up (from chat)
+- 2026-10-12 15m — Load pull wiring in `runLoad` (from chat)

@@ -504,7 +504,7 @@ let ``routed Git Load pulls the tracked branch`` () = task {
         Assert.Contains(
             poll.events,
             hasActorStop harness.seed.workspaceId)
-        Assert.DoesNotContain(poll.events, isParseChange)
+        Assert.Contains(poll.events, isParseChange)
     finally
         CoreMailboxApi.dispose harness.host
 }
