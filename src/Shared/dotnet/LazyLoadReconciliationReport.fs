@@ -242,3 +242,20 @@ module LazyLoadReconciliationReport =
                     (finalizeAdded artifacts workspaceId)
                     afterModified
             Ok { ops = ops; failures = failures })
+
+    /// Git pull plan. Each file is marked. An added, removed, or renamed file
+    /// also marks the containing Directory, or the nearest ancestor that exists.
+    let planReceivedFiles
+        (graph: Graph)
+        (workspaceLabel: string)
+        (changes: LazyLoadReconciliation.ChangedPath list)
+        (artifacts: Map<string, string>)
+        : Result<Report, string> =
+        planChangedPathsWithArtifacts graph workspaceLabel changes artifacts
+        |> Result.bind (fun report ->
+            LazyLoadReconciliation.containingDirectoryMarkOps
+                graph
+                workspaceLabel
+                changes
+            |> Result.map (fun markOps ->
+                { report with ops = report.ops @ markOps }))

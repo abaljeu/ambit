@@ -1058,3 +1058,50 @@ let ``git pull marks received files at any depth and does not discover`` () =
     Assert.DoesNotContain("docs/nested.txt", members)
     Assert.Contains("docs", members)
     CoreMailbox.dispose fileAgent
+
+[<Fact>]
+let ``git pull add marks the containing directory Unparsed`` () =
+    let tempDir = newTempDir ()
+    let fileAgent, handle = createAdmittedFile tempDir
+    let workspaceId = postWorkspace fileAgent "home"
+    let graph1 = readGraph fileAgent
+    let docsId, docsOps =
+        FileNodeOps.planCreateOwnedDirectory graph1 workspaceId "docs"
+    postOps
+        fileAgent
+        1
+        (docsOps @ [ Op.SetDocumentState(docsId, Unparsed, Current) ])
+    let graph2 = readGraph fileAgent
+    let keepId, keepOps =
+        FileNodeOps.planCreateOwnedFile graph2 docsId "keep.txt"
+    postOps
+        fileAgent
+        2
+        (keepOps @ [ Op.SetDocumentState(keepId, Unparsed, Current) ])
+    let home = Path.Combine(tempDir, "home")
+    let docs = Path.Combine(home, "docs")
+    Directory.CreateDirectory(docs) |> ignore
+    File.WriteAllText(Path.Combine(docs, "keep.txt"), "keep")
+    File.WriteAllText(Path.Combine(docs, "extra.txt"), "extra")
+    File.WriteAllText(Path.Combine(home, "other.txt"), "not on the list")
+    LazyLoadReconciliationServer.reconcileReceivedFiles
+        { handle = handle
+          dataDir = tempDir
+          workspaceLabel = "home" }
+        [ LazyLoadReconciliation.Added "docs/extra.txt" ]
+    |> Async.RunSynchronously
+    |> requireOk "pull"
+    |> ignore
+    let graph = readGraph fileAgent
+    Assert.Equal(Unparsed, graph.nodes.[docsId].documentState)
+    let extra =
+        Graph.children graph docsId
+        |> List.map (fun child -> graph.nodes.[child.id])
+        |> List.find (fun node -> Filename.tryValue node.name = Some "extra.txt")
+    Assert.Equal(Unparsed, extra.documentState)
+    let names =
+        Graph.children graph workspaceId
+        |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
+        |> List.sort
+    Assert.Equal<string list>([ "docs" ], names)
+    CoreMailbox.dispose fileAgent
