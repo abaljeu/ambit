@@ -111,7 +111,7 @@ module GithubTransportActor =
 
     /// A successful pull marks received files, then posts that Workspace.
     /// A failed pull is the actor result.
-    let private runLoad
+    let internal runLoad
         dependencies
         dataDir
         changes
@@ -123,21 +123,18 @@ module GithubTransportActor =
             match pullTracked dependencies.git workspaceRoot with
             | Error err -> return Error err
             | Ok _ ->
-                match! CoreDoor.loadNode changes workspaceId with
-                | Error err -> return Error err
-                | Ok () -> return Ok ()
-                // let changed =
-                //     changedAfterPull workspaceRoot before
-                //     |> Option.defaultValue []
-                // return!
-                //     finishLoadPull
-                //         { handle = changes
-                //           dataDir = dataDir
-                //           workspaceLabel =
-                //             System.IO.Path.GetFileName
-                //                 workspaceRoot }
-                //         workspaceId
-                //         changed
+                let changed =
+                    changedAfterPull workspaceRoot before
+                    |> Option.defaultValue []
+                return!
+                    finishLoadPull
+                        { handle = changes
+                          dataDir = dataDir
+                          workspaceLabel =
+                            System.IO.Path.GetFileName
+                                workspaceRoot }
+                        workspaceId
+                        changed
         }
 
     let private runOperation
