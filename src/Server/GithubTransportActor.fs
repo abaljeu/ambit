@@ -78,47 +78,11 @@ module GithubTransportActor =
         |> Result.bind (fun (tracked, commitOutput) ->
             git.pushTracked workspaceRoot tracked commitOutput)
 
-    let private focusFileId (graph: Graph) (focusId: NodeId) =
-        match DocumentPartition.documentRootForNode graph focusId with
-        | None -> None
-        | Some rootId ->
-            match Map.tryFind rootId graph.nodes with
-            | Some { kind = Special File } -> Some rootId
-            | _ -> None
-
-    /// Parse the focused File from DataDir. A non-File focus is a no-op.
-    let private parseFocusFile dataDir (changes: CoreChanges) focusId =
-        async {
-            let! state = changes.getState ()
-            match state with
-            | Error err -> return Error err
-            | Ok current ->
-                match focusFileId current.graph focusId with
-                | None -> return Ok ()
-                | Some fileId ->
-                    match
-                        DocumentPersistWrite.planParseFile
-                            dataDir
-                            current.graph
-                            fileId
-                            None
-                    with
-                    | Error err -> return Error err
-                    | Ok ops ->
-                        return!
-                            GraphOnlyChangePost.postChunks
-                                changes.postGraphOnly
-                                "Parse"
-                                (GraphOnlyChangeChunks.split ops)
-        }
-
-    /// A successful pull posts that one Workspace, then parses a focused File.
+    /// Git pull, then changes.load on the Workspace.
     /// A failed pull is the actor result.
     let private runLoad
         dependencies
-        dataDir
         changes
-        focusId
         workspaceId
         workspaceRoot
         =
@@ -128,8 +92,7 @@ module GithubTransportActor =
             | Ok _ ->
                 match! changes.load workspaceId with
                 | Error err -> return Error err
-                | Ok () ->
-                    return! parseFocusFile dataDir changes focusId
+                | Ok () -> return Ok ()
         }
 
     let private runOperation
@@ -145,9 +108,7 @@ module GithubTransportActor =
         | GithubTransportOperation.Load ->
             runLoad
                 dependencies
-                dataDir
                 changes
-                focusId
                 workspaceId
                 root
         | GithubTransportOperation.Save ->
