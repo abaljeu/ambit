@@ -111,6 +111,8 @@ type Effect =
     | RequestServerFileStatus of nodeId: NodeId * path: string
     /// Desktop: refresh mapped labels + sync-ledger facts for path-status UI.
     | RequestWorkspacePathSyncSnapshot
+    /// Refresh Workspace bullet-tip git remotes from server work trees.
+    | RequestWorkspaceRemotes
     /// After create or Upload: async inventory, then local stubs + structure POST.
     | ContinueWorkspaceStubsThenPush of WorkspaceSyncScope * parseFileId: NodeId option
     /// After local stubs painted: async structure Change POST, then workspace-push.

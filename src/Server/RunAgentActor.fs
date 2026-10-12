@@ -107,7 +107,7 @@ module RunAgentActor =
 
     let private postReplace
         (input: ActorInput)
-        (coreChanges: CoreChanges)
+        (coreChanges: CoreChangesDoor)
         ops
         =
         async {
@@ -118,7 +118,8 @@ module RunAgentActor =
                   commandName = ""
                   body = EventBody.Change ops }
             let! _ =
-                coreChanges.asCaller(actorCaller input).postEvents
+                CoreDoor.postEvents
+                    (CoreDoor.forCaller (actorCaller input) coreChanges)
                     [ event ]
             return ()
         }
@@ -159,12 +160,12 @@ module RunAgentActor =
 
     let private postAdd
         (input: ActorInput)
-        (coreChanges: CoreChanges)
+        (coreChanges: CoreChangesDoor)
         (lists: Map<NodeId, ChildNode list>)
         (add: FocusXmlStream.PlannedAdd)
         =
         async {
-            let! state = coreChanges.getState ()
+            let! state = CoreDoor.getState coreChanges
             let graph =
                 match state with
                 | Ok s -> s.graph
@@ -369,23 +370,24 @@ module RunAgentActor =
 
     let private stop
         (input: ActorInput)
-        (coreChanges: CoreChanges)
+        (coreChanges: CoreChangesDoor)
         result
         =
         async {
             let! _ =
-                coreChanges.asCaller(actorCaller input).actorStop
+                CoreDoor.actorStop
+                    (CoreDoor.forCaller (actorCaller input) coreChanges)
                     result
             return ()
         }
 
     let private planOnCurrent
         (input: ActorInput)
-        (coreChanges: CoreChanges)
+        (coreChanges: CoreChangesDoor)
         text
         =
         async {
-            let! state = coreChanges.getState ()
+            let! state = CoreDoor.getState coreChanges
             let graph =
                 match state with
                 | Ok s -> s.graph

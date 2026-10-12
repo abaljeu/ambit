@@ -56,16 +56,16 @@ let private hostDb connStr secret =
 
 let private runMixedHello host secret childText = task {
     let! started =
-        CoreMailbox.startActor host testCaller sampleActorStart
+        CoreMailboxApi.startActor host testCaller sampleActorStart
         |> Async.StartAsTask
     requireOk "startActor" started
     let childId, event = addRootChildEvent childText
     let! accepted =
-        CoreMailbox.postEvents host testCaller [ event ]
+        CoreMailboxApi.postEvents host testCaller [ event ]
         |> Async.StartAsTask
     requireOk "postEvents" accepted |> ignore
     let! stopped =
-        CoreMailbox.actorStop
+        CoreMailboxApi.actorStop
             host
             (actorCaller secret)
             ActorSucceeded
@@ -92,7 +92,7 @@ let private assertChild state childId text =
 
 let private assertTipEquals host (history: EventLog) = task {
     let stopId, _, _ = mixedIds history
-    let! eventId = CoreMailbox.getEventId host |> Async.StartAsTask
+    let! eventId = CoreMailboxApi.getEventId host |> Async.StartAsTask
     Assert.Equal(stopId, eventId)
     Assert.Equal(stopId, history.events.Head.id)
 }
@@ -131,9 +131,9 @@ let private nameOnlyUndo target : Ev =
       body = EventBody.Undo(target, []) }
 
 let private assertRestartLog host = task {
-    let! history = CoreMailbox.eventHistory host |> Async.StartAsTask
+    let! history = CoreMailboxApi.eventHistory host |> Async.StartAsTask
     let! since =
-        CoreMailbox.getEventsSince host EventId.zero
+        CoreMailboxApi.getEventsSince host EventId.zero
         |> Async.StartAsTask
     assertBodiesMatch history since
     do! assertTipEquals host history
@@ -141,7 +141,7 @@ let private assertRestartLog host = task {
 
 let private assertRestartGraph host childId text = task {
     do! assertRestartLog host
-    let! state = CoreMailbox.getState host |> Async.StartAsTask
+    let! state = CoreMailboxApi.getState host |> Async.StartAsTask
     assertChild (requireOk "getState" state) childId text
 }
 
@@ -155,13 +155,13 @@ let ``File mixed hello survives dispose create`` () = task {
             try
                 return! runMixedHello first secret "file-hello"
             finally
-                CoreMailbox.dispose first
+                CoreMailboxApi.dispose first
         }
     let second = CoreMailbox.createFile dir admittedCredentials
     try
         do! assertRestartLog second
     finally
-        CoreMailbox.dispose second
+        CoreMailboxApi.dispose second
 }
 
 [<Fact>]
@@ -175,13 +175,13 @@ let ``Db mixed hello survives dispose create`` () = task {
             try
                 return! runMixedHello first secret "db-hello"
             finally
-                CoreMailbox.dispose first
+                CoreMailboxApi.dispose first
         }
     let second = hostDb connStr (Credential "mailbox-history-db-hello-2")
     try
         do! assertRestartGraph second childId "db-hello"
     finally
-        CoreMailbox.dispose second
+        CoreMailboxApi.dispose second
 }
 
 [<Fact>]
@@ -202,12 +202,12 @@ let ``File recover applies Ops Ev ahead of Graph checkpoint`` () = task {
     persist.dispose ()
     let host = CoreMailbox.createFile dir admittedCredentials
     try
-        let! state = CoreMailbox.getState host |> Async.StartAsTask
-        let! eventId = CoreMailbox.getEventId host |> Async.StartAsTask
+        let! state = CoreMailboxApi.getState host |> Async.StartAsTask
+        let! eventId = CoreMailboxApi.getEventId host |> Async.StartAsTask
         assertChild (requireOk "getState" state) childId "file-recover"
         Assert.Equal(EventId.fromJson 3, eventId)
     finally
-        CoreMailbox.dispose host
+        CoreMailboxApi.dispose host
 }
 
 [<Fact>]
@@ -229,12 +229,12 @@ let ``Db recover applies Ops Ev ahead of projection revision`` () = task {
     persist.dispose ()
     let host = admittedHostDb (DbAgent.create connStr)
     try
-        let! state = CoreMailbox.getState host |> Async.StartAsTask
-        let! eventId = CoreMailbox.getEventId host |> Async.StartAsTask
+        let! state = CoreMailboxApi.getState host |> Async.StartAsTask
+        let! eventId = CoreMailboxApi.getEventId host |> Async.StartAsTask
         assertChild (requireOk "getState" state) childId "db-recover"
         Assert.Equal(EventId.fromJson 3, eventId)
     finally
-        CoreMailbox.dispose host
+        CoreMailboxApi.dispose host
 }
 
 [<Fact>]
@@ -246,14 +246,14 @@ let ``Undo after File restart fills Change and rejects ActorStart`` () = task {
         let! _ = runMixedHello first secret "undo-hello"
         ()
     finally
-        CoreMailbox.dispose first
+        CoreMailboxApi.dispose first
     let second = CoreMailbox.createFile dir admittedCredentials
     try
-        let! history = CoreMailbox.eventHistory second |> Async.StartAsTask
+        let! history = CoreMailboxApi.eventHistory second |> Async.StartAsTask
         let stopId, changeId, startId = mixedIds history
         Assert.NotEqual(stopId, changeId)
         let! undone =
-            CoreMailbox.postEvent
+            CoreMailboxApi.postEvent
                 second
                 testCaller
                 (nameOnlyUndo changeId)
@@ -261,7 +261,7 @@ let ``Undo after File restart fills Change and rejects ActorStart`` () = task {
         let stored = requireOk "undo Change" undone
         Assert.NotEmpty(Ev.ops stored |> Option.defaultValue [])
         let! rejected =
-            CoreMailbox.postEvent
+            CoreMailboxApi.postEvent
                 second
                 testCaller
                 (nameOnlyUndo startId)
@@ -271,7 +271,7 @@ let ``Undo after File restart fills Change and rejects ActorStart`` () = task {
         | Error error ->
             Assert.Contains("no inverse Ops", error)
     finally
-        CoreMailbox.dispose second
+        CoreMailboxApi.dispose second
 }
 
 [<Fact>]
@@ -280,10 +280,10 @@ let ``File empty EventLog recover exposes getEventId Graph checkpoint`` () = tas
     Bookkeeping.writeEventId dir (EventId.fromJson 4) |> requireOk "writeEventId"
     let host = CoreMailbox.createFile dir admittedCredentials
     try
-        let! eventId = CoreMailbox.getEventId host |> Async.StartAsTask
+        let! eventId = CoreMailboxApi.getEventId host |> Async.StartAsTask
         Assert.Equal(EventId.fromJson 4, eventId)
     finally
-        CoreMailbox.dispose host
+        CoreMailboxApi.dispose host
 }
 
 [<Fact>]
@@ -298,12 +298,12 @@ let ``File Graph greater than Log drops persist EventLog`` () =
     persist.dispose ()
     let host = CoreMailbox.createFile dir admittedCredentials
     try
-        let history = CoreMailbox.eventHistory host |> Async.RunSynchronously
-        let eventId = CoreMailbox.getEventId host |> Async.RunSynchronously
+        let history = CoreMailboxApi.eventHistory host |> Async.RunSynchronously
+        let eventId = CoreMailboxApi.getEventId host |> Async.RunSynchronously
         Assert.Empty(history.events)
         Assert.Equal(EventId.fromJson 5, eventId)
     finally
-        CoreMailbox.dispose host
+        CoreMailboxApi.dispose host
 
 [<Fact>]
 let ``File equal Log and Graph keeps EventLog`` () =
@@ -317,12 +317,12 @@ let ``File equal Log and Graph keeps EventLog`` () =
     persist.dispose ()
     let host = CoreMailbox.createFile dir admittedCredentials
     try
-        let history = CoreMailbox.eventHistory host |> Async.RunSynchronously
-        let eventId = CoreMailbox.getEventId host |> Async.RunSynchronously
+        let history = CoreMailboxApi.eventHistory host |> Async.RunSynchronously
+        let eventId = CoreMailboxApi.getEventId host |> Async.RunSynchronously
         Assert.Equal(2, history.events.Length)
         Assert.Equal(EventId.fromJson 2, eventId)
     finally
-        CoreMailbox.dispose host
+        CoreMailboxApi.dispose host
 
 [<Fact>]
 let ``Db Graph greater than Log drops persist EventLog`` () = task {
@@ -340,12 +340,12 @@ let ``Db Graph greater than Log drops persist EventLog`` () = task {
             { graph = Graph.create (); eventId = EventId.fromJson 5 }
     let host = admittedHostDb (DbAgent.create connStr)
     try
-        let history = CoreMailbox.eventHistory host |> Async.RunSynchronously
-        let eventId = CoreMailbox.getEventId host |> Async.RunSynchronously
+        let history = CoreMailboxApi.eventHistory host |> Async.RunSynchronously
+        let eventId = CoreMailboxApi.getEventId host |> Async.RunSynchronously
         Assert.Empty(history.events)
         Assert.Equal(EventId.fromJson 5, eventId)
     finally
-        CoreMailbox.dispose host
+        CoreMailboxApi.dispose host
 }
 
 [<Fact>]
@@ -355,15 +355,15 @@ let ``File empty Graph checkpoint live append continues past Graph`` () = task {
     let host = hostFile dir (Credential "mailbox-history-continue")
     try
         let! started =
-            CoreMailbox.startActor host testCaller sampleActorStart
+            CoreMailboxApi.startActor host testCaller sampleActorStart
             |> Async.StartAsTask
         requireOk "startActor" started
-        let! history = CoreMailbox.eventHistory host |> Async.StartAsTask
-        let! eventId = CoreMailbox.getEventId host |> Async.StartAsTask
+        let! history = CoreMailboxApi.eventHistory host |> Async.StartAsTask
+        let! eventId = CoreMailboxApi.getEventId host |> Async.StartAsTask
         Assert.Equal(EventId.fromJson 6, history.events.Head.id)
         Assert.Equal(EventId.fromJson 6, eventId)
     finally
-        CoreMailbox.dispose host
+        CoreMailboxApi.dispose host
 }
 
 [<Fact>]
@@ -373,8 +373,8 @@ let ``getEventId is ActorStop after in-process hello`` () = task {
     let host = hostFile dir secret
     try
         let! _ = runMixedHello host secret "live-serial"
-        let! history = CoreMailbox.eventHistory host |> Async.StartAsTask
+        let! history = CoreMailboxApi.eventHistory host |> Async.StartAsTask
         do! assertTipEquals host history
     finally
-        CoreMailbox.dispose host
+        CoreMailboxApi.dispose host
 }

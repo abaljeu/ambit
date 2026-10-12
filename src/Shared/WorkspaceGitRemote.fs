@@ -9,6 +9,50 @@ type WorkspaceGitStatus =
       behind: int
       dirty: bool }
 
+/// Remote URL plus local ahead/behind for one Workspace bullet tip.
+type WorkspaceRemoteTip =
+    { remote: string
+      ahead: int
+      behind: int }
+
+module WorkspaceRemoteTip =
+
+    open Thoth.Json.Core
+    open Thoth.Json.JavaScript
+
+    /// `Remote: <url>` plus `ahead N` and `behind N` when those counts are non-zero.
+    let bulletLine (tip: WorkspaceRemoteTip) : string =
+        let status =
+            match tip.ahead > 0, tip.behind > 0 with
+            | true, true ->
+                sprintf " ahead %d, behind %d" tip.ahead tip.behind
+            | true, false -> sprintf " ahead %d" tip.ahead
+            | false, true -> sprintf " behind %d" tip.behind
+            | false, false -> ""
+        "Remote: " + tip.remote + status
+
+    let private encodeRow (label: string) (tip: WorkspaceRemoteTip) =
+        Encode.object
+            [ "label", Encode.string label
+              "remote", Encode.string tip.remote
+              "ahead", Encode.int tip.ahead
+              "behind", Encode.int tip.behind ]
+
+    let encodeList (rows: (string * WorkspaceRemoteTip) list) : IEncodable =
+        rows
+        |> List.map (fun (label, tip) -> encodeRow label tip)
+        |> Encode.list
+
+    let private rowDecoder : Decoder<string * WorkspaceRemoteTip> =
+        Decode.object (fun get ->
+            get.Required.Field "label" Decode.string,
+            { remote = get.Required.Field "remote" Decode.string
+              ahead = get.Required.Field "ahead" Decode.int
+              behind = get.Required.Field "behind" Decode.int })
+
+    let decodeList (text: string) =
+        Decode.fromString (Decode.list rowDecoder) text
+
 /// Pure helpers for the workspace git remote URL / service shape.
 module WorkspaceGitRemote =
 

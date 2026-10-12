@@ -215,6 +215,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
           desktopFileIndicator = BlankFileIndicator
           workspaceMappedLabels = model.workspaceMappedLabels
           workspaceRoots = model.workspaceRoots
+          workspaceRemotes = model.workspaceRemotes
           workspaceSyncFacts = model.workspaceSyncFacts
           pendingAutoDownloads = []
           syncInfo =
@@ -269,7 +270,17 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
             []
 
     | SysMsg (ServerCapabilitiesDetected capabilities) ->
-        { model with serverCapabilities = capabilities }, []
+        { model with serverCapabilities = capabilities },
+        [ RequestWorkspaceRemotes ]
+
+    | SysMsg (WorkspaceRemotesReceived remotes) ->
+        let normalized =
+            remotes
+            |> Map.toList
+            |> List.map (fun (label, tip) ->
+                label.Trim().ToLowerInvariant(), tip)
+            |> Map.ofList
+        { model with workspaceRemotes = normalized }, []
 
     | SysMsg (DesktopFileStatusReceived (nodeId, path, status, sourceModifiedUtc)) ->
         applyDesktopFileStatus nodeId path status sourceModifiedUtc model, []

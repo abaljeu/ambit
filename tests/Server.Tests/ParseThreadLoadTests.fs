@@ -28,7 +28,7 @@ let private waitUntil pred timeoutMs =
 
 let private postOps host ops =
     let event = GraphOnlyChangePost.mint "seed" ops
-    CoreMailbox.postGraphOnly host testCaller event
+    CoreMailboxApi.postGraphOnly host testCaller event
     |> Async.RunSynchronously
     |> requireOk "seed"
     |> ignore
@@ -36,13 +36,13 @@ let private postOps host ops =
 let private seedWorkspaceFile host label fileName =
     task {
         let! state0 =
-            CoreMailbox.getState host |> Async.StartAsTask
+            CoreMailboxApi.getState host |> Async.StartAsTask
         let state0 = requireOk "state0" state0
         let workspaceId, wsOps =
             FileNodeOps.planCreateWorkspace state0.graph label
         postOps host wsOps
         let! state1 =
-            CoreMailbox.getState host |> Async.StartAsTask
+            CoreMailboxApi.getState host |> Async.StartAsTask
         let state1 = requireOk "state1" state1
         let fileId, fileOps =
             FileNodeOps.planCreateOwnedFile
@@ -56,13 +56,13 @@ let private seedWorkspaceFile host label fileName =
 let private seedDocsFile host =
     task {
         let! state0 =
-            CoreMailbox.getState host |> Async.StartAsTask
+            CoreMailboxApi.getState host |> Async.StartAsTask
         let state0 = requireOk "state0" state0
         let workspaceId, wsOps =
             FileNodeOps.planCreateWorkspace state0.graph "home"
         postOps host wsOps
         let! state1 =
-            CoreMailbox.getState host |> Async.StartAsTask
+            CoreMailboxApi.getState host |> Async.StartAsTask
         let state1 = requireOk "state1" state1
         let dirId, dirOps =
             FileNodeOps.planCreateOwnedDirectory
@@ -71,7 +71,7 @@ let private seedDocsFile host =
                 "docs"
         postOps host dirOps
         let! state2 =
-            CoreMailbox.getState host |> Async.StartAsTask
+            CoreMailboxApi.getState host |> Async.StartAsTask
         let state2 = requireOk "state2" state2
         let fileId, fileOps =
             FileNodeOps.planCreateOwnedFile
@@ -83,7 +83,7 @@ let private seedDocsFile host =
     }
 
 let private graphHasText host fileId text =
-    match CoreMailbox.getState host |> Async.RunSynchronously with
+    match CoreMailboxApi.getState host |> Async.RunSynchronously with
     | Error _ -> false
     | Ok state ->
         Graph.children state.graph fileId
@@ -115,12 +115,12 @@ let ``mailbox Load of File node pushes onto Parse stack`` () =
             let! fileId, _ =
                 seedWorkspaceFile host "home" "note.txt"
             let! loaded =
-                CoreMailbox.mbLoadNode host testCaller fileId
+                CoreMailboxApi.mbLoadNode host testCaller fileId
                 |> Async.StartAsTask
             requireOk "Load" loaded
             Assert.Equal(fileId, consumer ())
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }
 
 [<Fact>]
@@ -138,12 +138,12 @@ let ``mailbox Load of a Workspace pushes onto the Parse stack`` () =
             let! _, workspaceId =
                 seedWorkspaceFile host "home" "note.txt"
             let! loaded =
-                CoreMailbox.mbLoadNode host testCaller workspaceId
+                CoreMailboxApi.mbLoadNode host testCaller workspaceId
                 |> Async.StartAsTask
             requireOk "Load" loaded
             Assert.Equal<NodeId list>([ workspaceId ], pushed |> Seq.toList)
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }
 
 [<Fact>]
@@ -159,7 +159,7 @@ let ``mailbox Load refuses a node that is not a Workspace, Directory, or File`` 
                 pushed.Add
         try
             let! loaded =
-                CoreMailbox.mbLoadNode host testCaller Graph.workspacesId
+                CoreMailboxApi.mbLoadNode host testCaller Graph.workspacesId
                 |> Async.StartAsTask
             Assert.Equal(
                 Error
@@ -167,7 +167,7 @@ let ``mailbox Load refuses a node that is not a Workspace, Directory, or File`` 
                 loaded)
             Assert.Empty(pushed)
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }
 
 [<Fact>]
@@ -184,12 +184,12 @@ let ``mailbox Load of a Directory pushes onto the Parse stack`` () =
         try
             let! _, dirId = seedDocsFile host
             let! loaded =
-                CoreMailbox.mbLoadNode host testCaller dirId
+                CoreMailboxApi.mbLoadNode host testCaller dirId
                 |> Async.StartAsTask
             requireOk "Load" loaded
             Assert.Equal<NodeId list>([ dirId ], pushed |> Seq.toList)
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }
 
 let private deskLoadRequest (nodeId: NodeId) =
@@ -217,7 +217,7 @@ let ``Desk Load pushes a Workspace`` () =
             let! fileId, workspaceId =
                 seedWorkspaceFile host "home" "note.txt"
             let! loaded =
-                CoreMailbox.startLoadSaveCommand
+                CoreMailboxApi.startLoadSaveCommand
                     host
                     testCaller
                     LoadSavePath.Desk
@@ -230,7 +230,7 @@ let ``Desk Load pushes a Workspace`` () =
                 pushed |> Seq.toList)
             Assert.DoesNotContain(fileId, pushed)
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }
 
 [<Fact>]
@@ -247,7 +247,7 @@ let ``Desk Load command pushes a Directory and a File`` () =
         try
             let! fileId, dirId = seedDocsFile host
             let! directory =
-                CoreMailbox.startLoadSaveCommand
+                CoreMailboxApi.startLoadSaveCommand
                     host
                     testCaller
                     LoadSavePath.Desk
@@ -256,7 +256,7 @@ let ``Desk Load command pushes a Directory and a File`` () =
                 |> Async.StartAsTask
             requireOk "directory" directory
             let! file =
-                CoreMailbox.startLoadSaveCommand
+                CoreMailboxApi.startLoadSaveCommand
                     host
                     testCaller
                     LoadSavePath.Desk
@@ -268,7 +268,7 @@ let ``Desk Load command pushes a Directory and a File`` () =
                 [ dirId; fileId ],
                 pushed |> Seq.toList)
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }
 
 let private plainLoadRequest (nodeId: NodeId) (prePick: LoadSavePrePick) =
@@ -288,7 +288,7 @@ let ``plain Load of a File or Directory ignores a Git path`` () =
         try
             let! fileId, dirId = seedDocsFile host
             let! directory =
-                CoreMailbox.startLoadSaveCommand
+                CoreMailboxApi.startLoadSaveCommand
                     host
                     testCaller
                     LoadSavePath.Git
@@ -297,7 +297,7 @@ let ``plain Load of a File or Directory ignores a Git path`` () =
                 |> Async.StartAsTask
             requireOk "directory" directory
             let! file =
-                CoreMailbox.startLoadSaveCommand
+                CoreMailboxApi.startLoadSaveCommand
                     host
                     testCaller
                     LoadSavePath.Git
@@ -309,7 +309,7 @@ let ``plain Load of a File or Directory ignores a Git path`` () =
                 [ dirId; fileId ],
                 pushed |> Seq.toList)
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }
 
 [<Fact>]
@@ -327,7 +327,7 @@ let ``plain Load of a Workspace still requires the git actor`` () =
             let! _, workspaceId =
                 seedWorkspaceFile host "home" "note.txt"
             let! loaded =
-                CoreMailbox.startLoadSaveCommand
+                CoreMailboxApi.startLoadSaveCommand
                     host
                     testCaller
                     LoadSavePath.Git
@@ -341,7 +341,7 @@ let ``plain Load of a Workspace still requires the git actor`` () =
                 loaded)
             Assert.Empty(pushed)
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }
 
 [<Fact>]
@@ -359,7 +359,7 @@ let ``explicit git Load of a File still requires the git actor`` () =
             let! fileId, _ =
                 seedWorkspaceFile host "home" "note.txt"
             let! loaded =
-                CoreMailbox.startLoadSaveCommand
+                CoreMailboxApi.startLoadSaveCommand
                     host
                     testCaller
                     LoadSavePath.Git
@@ -371,7 +371,7 @@ let ``explicit git Load of a File still requires the git actor`` () =
                 loaded)
             Assert.Empty(pushed)
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }
 
 [<Fact>]
@@ -386,7 +386,7 @@ let ``ParseThread loop runs planParseFile for stacked File`` () =
                 admittedCredentials
                 push
         let parseHandle =
-            CoreMailbox.coreChanges host testCaller
+            CoreDoor.create true host testCaller
         ParseThread.start
             { dataDir = dataDir
               consumer = consumer
@@ -396,7 +396,7 @@ let ``ParseThread loop runs planParseFile for stacked File`` () =
               markUnparsed = ignore
               finishParse =
                 fun nodeId ->
-                    CoreMailbox.addInMsg
+                    CoreMailboxApi.addInMsg
                         host
                         (InMsg.ParseFinished nodeId) }
         try
@@ -409,14 +409,14 @@ let ``ParseThread loop runs planParseFile for stacked File`` () =
             |> ignore
             File.WriteAllText(diskPath, "HELLO\n")
             let! loaded =
-                CoreMailbox.mbLoadNode host testCaller fileId
+                CoreMailboxApi.mbLoadNode host testCaller fileId
                 |> Async.StartAsTask
             requireOk "Load" loaded
             let! parsed =
                 waitUntil
                     (fun () ->
                         match
-                            CoreMailbox.getState host
+                            CoreMailboxApi.getState host
                             |> Async.RunSynchronously
                         with
                         | Error _ -> false
@@ -429,7 +429,7 @@ let ``ParseThread loop runs planParseFile for stacked File`` () =
                     2000
             Assert.True(parsed, "parse loop should apply HELLO")
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }
 
 // requeueOnUnparsed is false in ParseThread. A disk-newer file is still
@@ -445,7 +445,7 @@ let ``disk-newer file stays Unparsed and is not requeued`` () =
         let dataDir = newTempDir ()
         let push, consumer = ParseStack.create ()
         let host = CoreMailbox.createFile dataDir admittedCredentials
-        let parseHandle = CoreMailbox.coreChanges host testCaller
+        let parseHandle = CoreDoor.create true host testCaller
         ParseThread.start
             { dataDir = dataDir
               consumer = consumer
@@ -454,22 +454,22 @@ let ``disk-newer file stays Unparsed and is not requeued`` () =
               postOps = ParseThread.postParseOps parseHandle
               markUnparsed =
                 fun nodeId ->
-                    CoreMailbox.addInMsg
+                    CoreMailboxApi.addInMsg
                         host
                         (InMsg.MarkUnparsed nodeId)
               finishParse =
                 fun nodeId ->
-                    CoreMailbox.addInMsg
+                    CoreMailboxApi.addInMsg
                         host
                         (InMsg.ParseFinished nodeId) }
         try
             let! fileId, dirId = seedDocsFile host
-            CoreMailbox.addInMsg host (InMsg.ParseFinished fileId)
+            CoreMailboxApi.addInMsg host (InMsg.ParseFinished fileId)
             let! parsed =
                 waitUntil
                     (fun () ->
                         match
-                            CoreMailbox.getState host
+                            CoreMailboxApi.getState host
                             |> Async.RunSynchronously
                         with
                         | Error _ -> false
@@ -495,7 +495,7 @@ let ``disk-newer file stays Unparsed and is not requeued`` () =
                 waitUntil
                     (fun () ->
                         match
-                            CoreMailbox.getState host
+                            CoreMailboxApi.getState host
                             |> Async.RunSynchronously
                         with
                         | Error _ -> false
@@ -507,7 +507,7 @@ let ``disk-newer file stays Unparsed and is not requeued`` () =
             do! Task.Delay 400
             let stillUnparsed =
                 match
-                    CoreMailbox.getState host
+                    CoreMailboxApi.getState host
                     |> Async.RunSynchronously
                 with
                 | Error _ -> false
@@ -521,11 +521,11 @@ let ``disk-newer file stays Unparsed and is not requeued`` () =
                 graphHasText host fileId "NEWER",
                 "requeue is disabled; disk text is not parsed")
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }
 
 let private ownedNames (host: MailboxHost) (parentId: NodeId) =
-    match CoreMailbox.getState host |> Async.RunSynchronously with
+    match CoreMailboxApi.getState host |> Async.RunSynchronously with
     | Error _ -> []
     | Ok state ->
         Graph.children state.graph parentId
@@ -543,7 +543,7 @@ let ``Directory Load push reconciles when the parse thread pops it`` () =
                 (FileAgent.persist (FileAgent.create dataDir))
                 admittedCredentials
                 push
-        let parseHandle = CoreMailbox.coreChanges host testCaller
+        let parseHandle = CoreDoor.create true host testCaller
         ParseThread.start
             { dataDir = dataDir
               consumer = consumer
@@ -553,7 +553,7 @@ let ``Directory Load push reconciles when the parse thread pops it`` () =
               markUnparsed = ignore
               finishParse =
                 fun nodeId ->
-                    CoreMailbox.addInMsg
+                    CoreMailboxApi.addInMsg
                         host
                         (InMsg.ParseFinished nodeId) }
         try
@@ -564,7 +564,7 @@ let ``Directory Load push reconciles when the parse thread pops it`` () =
             |> ignore
             File.WriteAllText(extra, "EXTRA\n")
             let! started =
-                CoreMailbox.startLoadSaveCommand
+                CoreMailboxApi.startLoadSaveCommand
                     host
                     testCaller
                     LoadSavePath.Desk
@@ -581,7 +581,7 @@ let ``Directory Load push reconciles when the parse thread pops it`` () =
                 created,
                 "popped directory should reconcile extra.txt")
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }
 
 [<Fact>]
@@ -595,7 +595,7 @@ let ``File Load push parses when the parse thread pops it`` () =
                 (FileAgent.persist (FileAgent.create dataDir))
                 admittedCredentials
                 push
-        let parseHandle = CoreMailbox.coreChanges host testCaller
+        let parseHandle = CoreDoor.create true host testCaller
         ParseThread.start
             { dataDir = dataDir
               consumer = consumer
@@ -605,7 +605,7 @@ let ``File Load push parses when the parse thread pops it`` () =
               markUnparsed = ignore
               finishParse =
                 fun nodeId ->
-                    CoreMailbox.addInMsg
+                    CoreMailboxApi.addInMsg
                         host
                         (InMsg.ParseFinished nodeId) }
         try
@@ -615,7 +615,7 @@ let ``File Load push parses when the parse thread pops it`` () =
             |> ignore
             File.WriteAllText(diskPath, "HELLO\n")
             let! started =
-                CoreMailbox.startLoadSaveCommand
+                CoreMailboxApi.startLoadSaveCommand
                     host
                     testCaller
                     LoadSavePath.Desk
@@ -629,18 +629,18 @@ let ``File Load push parses when the parse thread pops it`` () =
                     2000
             Assert.True(parsed, "popped file should parse HELLO")
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }
 
 let private parseStateOf host nodeId =
-    match CoreMailbox.getState host |> Async.RunSynchronously with
+    match CoreMailboxApi.getState host |> Async.RunSynchronously with
     | Error _ -> None
     | Ok state ->
         Map.tryFind nodeId state.graph.nodes
         |> Option.map (fun node -> node.parseState)
 
 let private childIdNamed host parentId name =
-    match CoreMailbox.getState host |> Async.RunSynchronously with
+    match CoreMailboxApi.getState host |> Async.RunSynchronously with
     | Error _ -> None
     | Ok state ->
         Graph.children state.graph parentId
@@ -659,7 +659,7 @@ let ``second Load of a Parsed File is parsed again`` () =
                 (FileAgent.persist (FileAgent.create dataDir))
                 admittedCredentials
                 push
-        let parseHandle = CoreMailbox.coreChanges host testCaller
+        let parseHandle = CoreDoor.create true host testCaller
         ParseThread.start
             { dataDir = dataDir
               consumer = consumer
@@ -669,7 +669,7 @@ let ``second Load of a Parsed File is parsed again`` () =
               markUnparsed = ignore
               finishParse =
                 fun nodeId ->
-                    CoreMailbox.addInMsg
+                    CoreMailboxApi.addInMsg
                         host
                         (InMsg.ParseFinished nodeId) }
         try
@@ -679,7 +679,7 @@ let ``second Load of a Parsed File is parsed again`` () =
             |> ignore
             File.WriteAllText(diskPath, "HELLO\n")
             let! first =
-                CoreMailbox.startLoadSaveCommand
+                CoreMailboxApi.startLoadSaveCommand
                     host
                     testCaller
                     LoadSavePath.Desk
@@ -696,7 +696,7 @@ let ``second Load of a Parsed File is parsed again`` () =
             Assert.True(parsed, "first Load should parse HELLO")
             File.WriteAllText(diskPath, "AGAIN\n")
             let! second =
-                CoreMailbox.startLoadSaveCommand
+                CoreMailboxApi.startLoadSaveCommand
                     host
                     testCaller
                     LoadSavePath.Desk
@@ -710,7 +710,7 @@ let ``second Load of a Parsed File is parsed again`` () =
                     2000
             Assert.True(again, "second Load should parse AGAIN")
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }
 
 let private applyEvents (state: State) (events: Ev list) : State =
@@ -739,7 +739,7 @@ let ``second Load of a Current File lands its parse Event on a client that still
                 (FileAgent.persist (FileAgent.create dataDir))
                 admittedCredentials
                 push
-        let parseHandle = CoreMailbox.coreChanges host testCaller
+        let parseHandle = CoreDoor.create true host testCaller
         ParseThread.start
             { dataDir = dataDir
               consumer = consumer
@@ -749,7 +749,7 @@ let ``second Load of a Current File lands its parse Event on a client that still
               markUnparsed = ignore
               finishParse =
                 fun nodeId ->
-                    CoreMailbox.addInMsg
+                    CoreMailboxApi.addInMsg
                         host
                         (InMsg.ParseFinished nodeId) }
         try
@@ -759,7 +759,7 @@ let ``second Load of a Current File lands its parse Event on a client that still
             |> ignore
             File.WriteAllText(diskPath, "HELLO\n")
             let! first =
-                CoreMailbox.startLoadSaveCommand
+                CoreMailboxApi.startLoadSaveCommand
                     host testCaller LoadSavePath.Desk
                     (PeerActorName "unregistered")
                     (deskLoadRequest fileId)
@@ -773,12 +773,12 @@ let ``second Load of a Current File lands its parse Event on a client that still
                     2000
             Assert.True(ready, "first Load should parse HELLO")
             let! heldResult =
-                CoreMailbox.getState host |> Async.StartAsTask
+                CoreMailboxApi.getState host |> Async.StartAsTask
             let held = requireOk "held" heldResult
             Assert.Equal(Current, held.graph.nodes.[fileId].documentState)
             File.WriteAllText(diskPath, "AGAIN\n")
             let! second =
-                CoreMailbox.startLoadSaveCommand
+                CoreMailboxApi.startLoadSaveCommand
                     host testCaller LoadSavePath.Desk
                     (PeerActorName "unregistered")
                     (deskLoadRequest fileId)
@@ -790,13 +790,13 @@ let ``second Load of a Current File lands its parse Event on a client that still
                     2000
             Assert.True(parsed, "second Load should parse AGAIN")
             let! events =
-                CoreMailbox.getEventsSince host held.eventId
+                CoreMailboxApi.getEventsSince host held.eventId
                 |> Async.StartAsTask
             let landed = applyEvents held events
             Assert.True(childText landed.graph fileId "AGAIN")
             Assert.Equal(Current, landed.graph.nodes.[fileId].documentState)
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }
 
 [<Fact>]
@@ -810,7 +810,7 @@ let ``second Load of a Parsed Directory reconciles and does not requeue`` () =
                 (FileAgent.persist (FileAgent.create dataDir))
                 admittedCredentials
                 push
-        let parseHandle = CoreMailbox.coreChanges host testCaller
+        let parseHandle = CoreDoor.create true host testCaller
         ParseThread.start
             { dataDir = dataDir
               consumer = consumer
@@ -819,18 +819,18 @@ let ``second Load of a Parsed Directory reconciles and does not requeue`` () =
               postOps = ParseThread.postParseOps parseHandle
               markUnparsed =
                 fun nodeId ->
-                    CoreMailbox.addInMsg
+                    CoreMailboxApi.addInMsg
                         host
                         (InMsg.MarkUnparsed nodeId)
               finishParse =
                 fun nodeId ->
-                    CoreMailbox.addInMsg
+                    CoreMailboxApi.addInMsg
                         host
                         (InMsg.ParseFinished nodeId) }
         try
             let! _, dirId = seedDocsFile host
             let! first =
-                CoreMailbox.startLoadSaveCommand
+                CoreMailboxApi.startLoadSaveCommand
                     host
                     testCaller
                     LoadSavePath.Desk
@@ -849,7 +849,7 @@ let ``second Load of a Parsed Directory reconciles and does not requeue`` () =
             |> ignore
             File.WriteAllText(extra, "EXTRA\n")
             let! second =
-                CoreMailbox.startLoadSaveCommand
+                CoreMailboxApi.startLoadSaveCommand
                     host
                     testCaller
                     LoadSavePath.Desk
@@ -869,7 +869,7 @@ let ``second Load of a Parsed Directory reconciles and does not requeue`` () =
                 Assert.Equal(Some ParseState.Unparsed, parseStateOf host extraId)
                 Assert.False(graphHasText host extraId "EXTRA")
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }
 
 let private openParse (dataDir: string) =
@@ -880,7 +880,7 @@ let private openParse (dataDir: string) =
             (FileAgent.persist (FileAgent.create dataDir))
             admittedCredentials
             push
-    let parseHandle = CoreMailbox.coreChanges host testCaller
+    let parseHandle = CoreDoor.create true host testCaller
     ParseThread.start
         { dataDir = dataDir
           consumer = consumer
@@ -889,16 +889,16 @@ let private openParse (dataDir: string) =
           postOps = ParseThread.postParseOps parseHandle
           markUnparsed =
             fun nodeId ->
-                CoreMailbox.addInMsg host (InMsg.MarkUnparsed nodeId)
+                CoreMailboxApi.addInMsg host (InMsg.MarkUnparsed nodeId)
           finishParse =
             fun nodeId ->
-                CoreMailbox.addInMsg
+                CoreMailboxApi.addInMsg
                     host
                     (InMsg.ParseFinished nodeId) }
     host
 
 let private stateOf host =
-    CoreMailbox.getState host
+    CoreMailboxApi.getState host
     |> Async.RunSynchronously
     |> requireOk "state"
 
@@ -914,7 +914,7 @@ let private childNamed host parentId name =
 let private holdCurrentChild host dataDir =
     task {
         let! state0 =
-            CoreMailbox.getState host |> Async.StartAsTask
+            CoreMailboxApi.getState host |> Async.StartAsTask
         let state0 = requireOk "state0" state0
         let workspaceId, wsOps =
             FileNodeOps.planCreateWorkspace state0.graph "home"
@@ -933,7 +933,7 @@ let private holdCurrentChild host dataDir =
             host
             [ Op.SetDocumentState(keptId, Unparsed, Current)
               Op.SetUpdateTime(keptId, keptNode.updateTime, diskTime) ]
-        CoreMailbox.addInMsg host (InMsg.ParseFinished keptId)
+        CoreMailboxApi.addInMsg host (InMsg.ParseFinished keptId)
         let! parsed =
             waitUntil
                 (fun () -> parseStateOf host keptId = Some ParseState.Parsed)
@@ -974,7 +974,7 @@ let ``git Load and Workspace Load reconcile walks one level`` () =
             let! workspaceId, keptId = holdCurrentChild host dataDir
             writeNestedWorkspaceFiles dataDir
             let! loaded =
-                CoreMailbox.mbLoadNode host testCaller workspaceId
+                CoreMailboxApi.mbLoadNode host testCaller workspaceId
                 |> Async.StartAsTask
             requireOk "load" loaded
             let! found =
@@ -987,7 +987,7 @@ let ``git Load and Workspace Load reconcile walks one level`` () =
             Assert.True(found, "direct file should be discovered")
             assertOneLevelWorkspace host workspaceId keptId
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }
 
 [<Fact>]
@@ -1003,7 +1003,7 @@ let ``directory Load reconcile walks one level`` () =
             File.WriteAllText(Path.Combine(docs, "added.txt"), "note")
             File.WriteAllText(Path.Combine(docs, "side", "deep.txt"), "deep")
             let! loaded =
-                CoreMailbox.mbLoadNode host testCaller dirId
+                CoreMailboxApi.mbLoadNode host testCaller dirId
                 |> Async.StartAsTask
             requireOk "load" loaded
             let! found =
@@ -1020,5 +1020,5 @@ let ``directory Load reconcile walks one level`` () =
                 Assert.Equal(Unparsed, side.documentState)
                 Assert.Empty(Graph.children (stateOf host).graph side.id)
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }

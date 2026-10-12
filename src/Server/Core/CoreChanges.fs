@@ -19,21 +19,6 @@ type CoreChangesAccepted =
       message: string option
       isReady: bool }
 
-/// The Core Changes contract. Both doors take Ev.
-/// Graph-only skips file persist, not EventLog.
-type CoreChanges =
-    { getState: unit -> Async<Result<State, string>>
-      getEventId: unit -> Async<Gambol.Shared.EventId>
-      getEventsSince: Gambol.Shared.EventId -> Async<Ev list>
-      isReady: unit -> bool
-      postEvents: Ev list -> Async<Result<CoreChangesAccepted, string>>
-      postGraphOnly: Ev -> Async<Result<CoreChangesAccepted, string>>
-      actorStop: ActorResult -> Async<Result<unit, string>>
-      /// Mailbox Load of one Workspace, Directory, or File.
-      loadNode: NodeId -> Async<Result<unit, string>>
-      /// Rebind posts to another Caller on the same mailbox door.
-      asCaller: Caller -> CoreChanges }
-
 [<RequireQualifiedAccess>]
 module CoreChanges =
 

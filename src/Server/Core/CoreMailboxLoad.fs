@@ -204,7 +204,7 @@ module internal CoreMailboxLoad =
             | Ok () -> ()
             | Error err -> reportInMsg context err
 
-    let private failedPersist persist error : PersistHandlers = {
+    let private failedPersist (persist: PersistHandlers) error : PersistHandlers = {
         getState = persist.getState
         getEventId = persist.getEventId
         getEventsSince = persist.getEventsSince

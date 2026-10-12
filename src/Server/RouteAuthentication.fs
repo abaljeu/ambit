@@ -65,7 +65,7 @@ module RouteAuthentication =
             Credential(
                 AuthToken.deriveToken auth.ExpectedUser auth.ExpectedPass)
         async {
-            let! result = CoreMailbox.login host "" secret
+            let! result = CoreMailboxApi.login host "" secret
             match result with
             | Ok () ->
                 auth.SetCookie response

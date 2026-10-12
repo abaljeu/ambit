@@ -31,8 +31,8 @@ let private fileRuntime () =
         }
         (fun _ -> ())
 
-let private browserHandle runtime user pass =
-    CoreMailbox.coreChanges runtime.host (browserCallerFromAuth user pass)
+let private browserHandle (runtime: CoreRuntime) user pass : CoreChangesDoor =
+    CoreDoor.create true runtime.host (browserCallerFromAuth user pass)
 
 [<Fact>]
 let ``CoreRuntime seeds Browser credential from AuthToken.deriveToken`` () =
@@ -40,7 +40,7 @@ let ``CoreRuntime seeds Browser credential from AuthToken.deriveToken`` () =
         let runtime = fileRuntime ()
         let expected = browserCallerFromAuth "alice" "secret"
         let! browserLive =
-            CoreMailbox.isAdmitted runtime.host expected
+            CoreMailboxApi.isAdmitted runtime.host expected
             |> Async.StartAsTask
         Assert.True(browserLive)
     }
@@ -50,15 +50,15 @@ let ``bound Changes refuses an inactive sender and does not enqueue`` () =
     task {
         let runtime = fileRuntime ()
         let bound =
-            CoreMailbox.coreChanges
+            CoreDoor.create true
                 runtime.host
                 (BrowserRequestCreds.callerFromSecret (Credential "inactive"))
-        let! before = bound.getEventId () |> Async.StartAsTask
+        let! before = CoreDoor.getEventId bound |> Async.StartAsTask
         let event = addRootChild "refused"
         let! result =
-            bound.postEvents [ event ] 
+            CoreDoor.postEvents bound [ event ] 
             |> Async.StartAsTask
-        let! after = bound.getEventId () |> Async.StartAsTask
+        let! after = CoreDoor.getEventId bound |> Async.StartAsTask
         Assert.Equal(Error CoreAuth.refuse, result)
         Assert.Equal(before, after)
     }
@@ -68,7 +68,7 @@ let ``bound Browser Changes admits a live Browser cookie credential`` () = task 
     let runtime = fileRuntime ()
     let event = addRootChild "admitted"
     let! result =
-        (browserHandle runtime "alice" "secret").postEvents [ event ]
+        CoreDoor.postEvents (browserHandle runtime "alice" "secret") [ event ]
         |> Async.StartAsTask
     let accepted = requireOk "browser post" result
     Assert.Equal<Guid list>(
@@ -84,12 +84,12 @@ let ``HTTP Adapter refuses inactive Core sender with 401 and does not enqueue``
         let agent, handle, _ = createAdmittedFileWithCredentials dataDir
         try
             let bound =
-                CoreAuth.bindHandle
+                CoreDoor.forCaller
                     { authority = Authority "Caller"
                       name = ""
                       secret = Credential "inactive" }
                     handle
-            let! before = handle.getEventId () |> Async.StartAsTask
+            let! before = CoreDoor.getEventId handle |> Async.StartAsTask
             let event = addRootChild "http"
             let body =
                 Encode.toString 0 (
@@ -98,11 +98,11 @@ let ``HTTP Adapter refuses inactive Core sender with 401 and does not enqueue``
             let! result =
                 Api.postEvents bound 10 20 body
                 |> Async.StartAsTask
-            let! after = handle.getEventId () |> Async.StartAsTask
+            let! after = CoreDoor.getEventId handle |> Async.StartAsTask
             Assert.Equal("UnauthorizedHttpResult", result.GetType().Name)
             Assert.Equal(before, after)
         finally
-            CoreMailbox.dispose agent
+            CoreMailboxApi.dispose agent
     }
 
 [<Fact>]
@@ -119,17 +119,17 @@ let ``HTTP Adapter enqueues when Browser credential is live`` () = task {
             Api.postEvents handle 10 20 body
             |> Async.StartAsTask
         Assert.False(result.GetType().Name = "UnauthorizedHttpResult")
-        let! rev = handle.getEventId () |> Async.StartAsTask
+        let! rev = CoreDoor.getEventId handle |> Async.StartAsTask
         Assert.True(EventId.isAccepted rev)
     finally
-        CoreMailbox.dispose agent
+        CoreMailboxApi.dispose agent
 }
 
 [<Fact>]
 let ``callers reach changes on the mailbox Core door`` () = task {
     let runtime = fileRuntime ()
     let! rev =
-        CoreMailbox.getEventId runtime.host |> Async.StartAsTask
+        CoreMailboxApi.getEventId runtime.host |> Async.StartAsTask
     Assert.Equal(EventId.zero, rev)
 }
 
@@ -137,12 +137,12 @@ let ``callers reach changes on the mailbox Core door`` () = task {
 let ``Graph-only post refuses an inactive Caller`` () = task {
     let runtime = fileRuntime ()
     let bound =
-        CoreMailbox.coreChanges
+        CoreDoor.create true
             runtime.host
             (BrowserRequestCreds.callerFromSecret (Credential "inactive"))
     let! result =
         GraphOnlyChangePost.postChunks
-            bound.postGraphOnly
+            (CoreDoor.postGraphOnly bound)
             "Parse"
             [ [ Op.NewNode(NodeId.New(), "x") ] ]
         |> Async.StartAsTask
@@ -159,11 +159,11 @@ let ``CoreRuntime seeds a Parse process Caller distinct from Browser cookie`` ()
         Assert.NotEqual(cookie.secret, runtime.parseCaller.secret)
         Assert.Equal(Authority "Parse", runtime.parseCaller.authority)
         let! parseLive =
-            CoreMailbox.isAdmitted runtime.host runtime.parseCaller
+            CoreMailboxApi.isAdmitted runtime.host runtime.parseCaller
             |> Async.StartAsTask
         let event = addRootChild "parse-process"
         let! posted =
-            CoreMailbox.postGraphOnly
+            CoreMailboxApi.postGraphOnly
                 runtime.host
                 runtime.parseCaller
                 event

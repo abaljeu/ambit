@@ -142,6 +142,61 @@ module WorkspaceGit =
             | _ ->
                 Error $"Current branch '{branch}' has no upstream.")
 
+    let private nonemptyLines (text: string) =
+        text.Split(
+            [| '\r'; '\n' |],
+            StringSplitOptions.RemoveEmptyEntries
+            ||| StringSplitOptions.TrimEntries)
+        |> Array.toList
+
+    let private remoteNames (workspaceRoot: string) =
+        runGitCondensed workspaceRoot "remote"
+        |> Result.map nonemptyLines
+
+    /// Upstream remote when the branch tracks one; otherwise the first remote.
+    let private preferredRemoteName
+        (workspaceRoot: string)
+        (names: string list)
+        =
+        match names with
+        | [] -> None
+        | first :: _ ->
+            match trackedBranch workspaceRoot with
+            | Ok tracked when List.contains tracked.remote names ->
+                Some tracked.remote
+            | _ -> Some first
+
+    let private aheadBehind (workspaceRoot: string) =
+        match runGitCondensed workspaceRoot "status -sb" with
+        | Ok text ->
+            let status = WorkspaceGitRemote.parseShortStatus text
+            status.ahead, status.behind
+        | Error _ -> 0, 0
+
+    /// Remote URL and local ahead/behind. None when the work tree has no remote.
+    let remoteTip
+        (workspaceRoot: string)
+        : Result<WorkspaceRemoteTip option, string> =
+        if not (isRepo workspaceRoot) then
+            Ok None
+        else
+            remoteNames workspaceRoot
+            |> Result.bind (fun names ->
+                match preferredRemoteName workspaceRoot names with
+                | None -> Ok None
+                | Some name ->
+                    runGitCondensed workspaceRoot $"remote get-url {name}"
+                    |> Result.map (fun url ->
+                        let trimmed = url.Trim()
+                        if trimmed.Length = 0 then
+                            None
+                        else
+                            let ahead, behind = aheadBehind workspaceRoot
+                            Some
+                                { remote = trimmed
+                                  ahead = ahead
+                                  behind = behind }))
+
     let private unmergedPath (workspaceRoot: string) : Result<string option, string> =
         runGitCondensed workspaceRoot "diff --name-only --diff-filter=U"
         |> Result.map (fun output ->

@@ -28,17 +28,9 @@ let private requireOk label result =
         Unchecked.defaultof<_>
 
 let private handleWithGetState
-    (getState: unit -> Async<Result<State, string>>)
-    : CoreChanges =
-    { getState = getState
-      getEventId = fun () -> async.Return(EventId.zero)
-      getEventsSince = fun _ -> async.Return []
-      isReady = fun () -> true
-      postEvents = fun _ -> async.Return(Result.Error "unused")
-      postGraphOnly = fun _ -> async.Return(Result.Error "unused")
-      actorStop = fun _ -> async.Return(Result.Error "unused")
-      loadNode = fun _ -> async.Return(Result.Error "unused")
-      asCaller = fun _ -> Unchecked.defaultof<CoreChanges> }
+    (readState: unit -> Result<State, string>)
+    : CoreChangesDoor =
+    doorForReads readState (fun _ -> [])
 
 let private defaultStateRequest () =
     DefaultHttpContext().Request
@@ -115,7 +107,7 @@ let ``getState returns 500 text body when agent fails`` () = task {
     let err =
         "Internal server error in FileAgent GetState (dataDir=C:\\data)."
     let handle =
-        handleWithGetState (fun () -> async.Return(Result.Error err))
+        handleWithGetState (fun () -> Result.Error err)
     let! result = Api.getState handle (defaultStateRequest()) |> Async.StartAsTask
     match box result with
     | :? ContentHttpResult as content ->
@@ -130,7 +122,7 @@ let ``getState returns 500 text body when agent fails`` () = task {
 let ``getState returns JSON content when agent succeeds`` () = task {
     let response = minimalStateResponse ()
     let handle =
-        handleWithGetState (fun () -> async.Return(Result.Ok response))
+        handleWithGetState (fun () -> Result.Ok response)
     let! result = Api.getState handle (defaultStateRequest()) |> Async.StartAsTask
     match box result with
     | :? ContentHttpResult as content ->
@@ -157,8 +149,7 @@ let ``getState seeds liveFocusIds from lockPresent overlay`` () = task {
             (Map.add focusId [] graph0.childMap)
     let handle =
         handleWithGetState (fun () ->
-            async.Return(
-                Result.Ok { graph = graph; eventId = EventId.zero }))
+            Result.Ok { graph = graph; eventId = EventId.zero })
     let! result =
         Api.getState handle (defaultStateRequest()) |> Async.StartAsTask
     match box result with
@@ -175,7 +166,7 @@ let ``getState seeds liveFocusIds from lockPresent overlay`` () = task {
 let ``getState scope full skips bootstrap projection`` () = task {
     let response, _, dirId, _, grandId = nestedWorkspaceStateResponse ()
     let handle =
-        handleWithGetState (fun () -> async.Return(Result.Ok response))
+        handleWithGetState (fun () -> Result.Ok response)
     let req = DefaultHttpContext().Request
     req.QueryString <- QueryString.Create("scope", "full")
     let! result = Api.getState handle req |> Async.StartAsTask
@@ -195,7 +186,7 @@ let ``getState zoom outside ROOT adds owning Workspace`` () = task {
     let response, wsId, dirId, fileId, grandId =
         nestedWorkspaceStateResponse ()
     let handle =
-        handleWithGetState (fun () -> async.Return(Result.Ok response))
+        handleWithGetState (fun () -> Result.Ok response)
     let req = DefaultHttpContext().Request
     let (NodeId zoomGuid) = dirId
     req.QueryString <- QueryString.Create("zoom", zoomGuid.ToString())
@@ -219,7 +210,7 @@ let ``getState without zoom keeps nested Workspace Unloaded`` () = task {
     let response, wsId, dirId, fileId, grandId =
         nestedWorkspaceStateResponse ()
     let handle =
-        handleWithGetState (fun () -> async.Return(Result.Ok response))
+        handleWithGetState (fun () -> Result.Ok response)
     let! result = Api.getState handle (defaultStateRequest()) |> Async.StartAsTask
     match box result with
     | :? ContentHttpResult as content ->
@@ -237,10 +228,7 @@ let ``getState without zoom keeps nested Workspace Unloaded`` () = task {
 
 [<Fact>]
 let ``getState returns 500 text body when getState throws`` () = task {
-    let handle =
-        handleWithGetState (fun () -> async {
-            return failwith "injected GetState boom"
-        })
+    let handle = doorForThrownRead "injected GetState boom"
     let! result = Api.getState handle (defaultStateRequest()) |> Async.StartAsTask
     match box result with
     | :? ContentHttpResult as content ->

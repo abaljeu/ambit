@@ -79,14 +79,14 @@ let private withHost pool body =
         try
             do! body host
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }
 
 let private postStartActor host caller request =
-    CoreMailbox.startActor host caller request
+    CoreMailboxApi.startActor host caller request
 
 let private postActorStop host caller result =
-    CoreMailbox.actorStop host caller result
+    CoreMailboxApi.actorStop host caller result
 
 [<Fact>]
 let ``StartActor with live credentials calls startActor with ActorStart`` () =
@@ -129,7 +129,7 @@ let ``GetState stamps lockPresent from the live table after startActor`` () =
             |> Async.StartAsTask
         requireOk "StartActor" started
         let! state =
-            CoreMailbox.getState host
+            CoreMailboxApi.getState host
             |> Async.StartAsTask
         let state = requireOk "GetState" state
         Assert.True(state.graph.nodes.[sampleRequest.focusId].lockPresent)
@@ -175,7 +175,7 @@ let ``Actor PostChange with live row reaches PersistHandlers`` () =
     withHost pool (fun host -> task {
         let event = addRootChild "actor-hello"
         let! result =
-            CoreMailbox.postEvents
+            CoreMailboxApi.postEvents
                 host
                 (actorCaller actorSecret)
                 [ event ]
@@ -189,15 +189,15 @@ let ``Actor PostChange without live row is refused before persist`` () =
     let _, _, _, pool = recordingPool ()
     let actorSecret = Credential "actor-not-live"
     withHost pool (fun host -> task {
-        let handle = CoreMailbox.coreChanges host testCaller
-        let! before = handle.getEventId () |> Async.StartAsTask
+        let handle = CoreDoor.create true host testCaller
+        let! before = CoreDoor.getEventId handle |> Async.StartAsTask
         let! result =
-            CoreMailbox.postEvents
+            CoreMailboxApi.postEvents
                 host
                 (actorCaller actorSecret)
                 [ addRootChild "nope" ]
             |> Async.StartAsTask
-        let! after = handle.getEventId () |> Async.StartAsTask
+        let! after = CoreDoor.getEventId handle |> Async.StartAsTask
         Assert.Equal(Error CoreAuth.refuse, result)
         Assert.Equal(before, after)
     })
@@ -207,7 +207,7 @@ let ``Browser PostChange does not require a live row`` () =
     let _, _, _, pool = recordingPool ()
     withHost pool (fun host -> task {
         let! result =
-            CoreMailbox.postEvents
+            CoreMailboxApi.postEvents
                 host
                 testCaller
                 [ addRootChild "browser" ]
@@ -362,7 +362,7 @@ let ``ActorStop with Browser credentials is refused`` () =
     withHost pool (fun host -> task {
         let secret = Credential "browser-stop"
         let! logged =
-            CoreMailbox.login host "browser" secret
+            CoreMailboxApi.login host "browser" secret
             |> Async.StartAsTask
         requireOk "login" logged
         let browserCaller =
@@ -402,5 +402,5 @@ let ``ActorStop with Parse credentials is refused`` () =
             Assert.Equal(0, stopped.Count)
             Assert.True(live.Contains actorSecret)
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }

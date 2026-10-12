@@ -141,12 +141,12 @@ module ParseThread =
         thread.Start()
 
     let postParseOps
-        (handle: CoreChanges)
+        (handle: CoreChangesDoor)
         (ops: Op list)
         : Async<Result<unit, string>> =
         async {
             let event = GraphOnlyChangePost.mint "Parse" ops
-            match! handle.postGraphOnly event with
+            match! CoreDoor.postGraphOnly handle event with
             | Ok _ -> return Ok ()
             | Error err -> return Error err
         }
@@ -156,7 +156,7 @@ module ParseThread =
         : unit -> Async<Result<Graph, string>> =
         fun () ->
             async {
-                match! CoreMailbox.tryGetState host with
+                match! CoreMailboxApi.tryGetState host with
                 | Error err -> return Error err
                 | Ok state -> return Ok state.graph
             }
@@ -166,7 +166,7 @@ module ParseThread =
         let rawPush, consumer = ParseStack.create ()
         let core, push = CoreRuntime.createPublishing coreBoot rawPush
         let parseHandle =
-            CoreMailbox.coreChanges core.host core.parseCaller
+            CoreDoor.create true core.host core.parseCaller
         start
             { dataDir = coreBoot.DataDir
               consumer = consumer
@@ -175,12 +175,12 @@ module ParseThread =
               postOps = postParseOps parseHandle
               markUnparsed =
                 fun nodeId ->
-                    CoreMailbox.addInMsg
+                    CoreMailboxApi.addInMsg
                         core.host
                         (InMsg.MarkUnparsed nodeId)
               finishParse =
                 fun nodeId ->
-                    CoreMailbox.addInMsg
+                    CoreMailboxApi.addInMsg
                         core.host
                         (InMsg.ParseFinished nodeId) }
         core

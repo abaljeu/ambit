@@ -44,21 +44,18 @@ let private postWorkspace (fileAgent: MailboxHost) (label: string) =
           authority = Authority "Browser"
           commandName = ""
           body = EventBody.Change ops }
-    (admittedChanges fileAgent).postEvents [ event ]
+    CoreDoor.postEvents (admittedChanges fileAgent) [ event ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
     workspaceId
 
-let private recordingHandle (inner: CoreChanges) =
-    let posts = ResizeArray<Ev>()
-    let handle =
-        { inner with
-            postGraphOnly =
-                fun event ->
-                    posts.Add(event)
-                    inner.postGraphOnly event }
-    handle, posts
+let private parsePosts (host: MailboxHost) =
+    CoreMailboxApi.eventHistory host
+    |> Async.RunSynchronously
+    |> fun log ->
+        log.events
+        |> List.filter (fun event -> event.commandName = "Parse")
 
 [<Fact>]
 let ``reconcile posts graph-only chunks at or under maxOps`` () =
@@ -70,8 +67,7 @@ let ``reconcile posts graph-only chunks at or under maxOps`` () =
     Directory.CreateDirectory(home) |> ignore
     for i in 1 .. fileCount do
         File.WriteAllText(Path.Combine(home, sprintf "n%03d.txt" i), "x")
-    let inner = admittedChanges fileAgent
-    let handle, posts = recordingHandle inner
+    let handle = admittedChanges fileAgent
     LazyLoadReconciliationServer.reconcileChangedPaths
         { handle = handle
           dataDir = tempDir
@@ -80,9 +76,10 @@ let ``reconcile posts graph-only chunks at or under maxOps`` () =
     |> Async.RunSynchronously
     |> requireOk "reconcile"
     |> ignore
+    let posts = parsePosts fileAgent
     Assert.True(
-        posts.Count >= 2,
-        sprintf "expected multiple posts, got %d" posts.Count)
+        posts.Length >= 2,
+        sprintf "expected multiple posts, got %d" posts.Length)
     for event in posts do
         let n = Ev.ops event |> Option.defaultValue [] |> List.length
         Assert.True(
@@ -90,7 +87,7 @@ let ``reconcile posts graph-only chunks at or under maxOps`` () =
             sprintf "chunk had %d ops" n)
         Assert.True(n > 0)
     let graph =
-        CoreMailbox.getState fileAgent
+        CoreMailboxApi.getState fileAgent
         |> Async.RunSynchronously
         |> requireOk "state"
         |> fun state -> state.graph
@@ -99,4 +96,4 @@ let ``reconcile posts graph-only chunks at or under maxOps`` () =
         |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
         |> List.sort
     Assert.Equal(fileCount, names.Length)
-    CoreMailbox.dispose fileAgent
+    CoreMailboxApi.dispose fileAgent

@@ -8,6 +8,7 @@ open Xunit
 open Gambol.Server
 open Gambol.Shared
 open Gambol.Shared
+open Gambol.Server.Tests.TestBackend
 open Thoth.Json.Newtonsoft
 
 module Encode = Thoth.Json.Newtonsoft.Encode
@@ -75,19 +76,11 @@ let private stateResponse (graph: Graph) (revision: int) =
     }
 
 let private handleForLoad
-    (revision: int)
+    (_revision: int)
     (events: Ev list)
     (state: State)
-    : CoreChanges =
-    { getState = fun () -> async.Return(Result.Ok state)
-      getEventId = fun () -> async.Return(EventIdFixtures.storedId revision)
-      getEventsSince = fun _ -> async.Return events
-      isReady = fun () -> true
-      postEvents = fun _ -> async.Return(Result.Error "unused")
-      postGraphOnly = fun _ -> async.Return(Result.Error "unused")
-      actorStop = fun _ -> async.Return(Result.Error "unused")
-      loadNode = fun _ -> async.Return(Result.Error "unused")
-      asCaller = fun _ -> Unchecked.defaultof<CoreChanges> }
+    : CoreChangesDoor =
+    doorForReads (fun () -> Result.Ok state) (fun _ -> events)
 
 let private encodeRequest (request: LoadRequest) =
     Encode.toString 0 (ApiResponseSerialization.encodeLoadRequest request)

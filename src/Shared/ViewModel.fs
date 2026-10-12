@@ -335,6 +335,8 @@ and VM = // the client state
       workspaceMappedLabels: Set<string>
       /// Lowercased label → desktop local root path (e.g. "life" → "d:\life").
       workspaceRoots: Map<string, string>
+      /// Lowercased label → git remote URL and local ahead/behind.
+      workspaceRemotes: Map<string, WorkspaceRemoteTip>
       /// label → relative → ledger fact for File/Directory row sync status.
       workspaceSyncFacts: Map<string, Map<string, WorkspaceSyncPathFact>>
       /// Persist-stamped file targets awaiting a debounced auto-download.
@@ -376,6 +378,7 @@ type SystemMsg =
         mappedLabels: Set<string> *
         factsByLabel: Map<string, Map<string, WorkspaceSyncPathFact>> *
         rootsByLabel: Map<string, string>
+    | WorkspaceRemotesReceived of Map<string, WorkspaceRemoteTip>
     | SetPollingActive of bool
     | PollTick            // polling timer fired; update decides whether to emit PollServer effect
     | AutoDownloadTick    // debounce timer fired; update coalesces + fires auto-downloads

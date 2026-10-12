@@ -35,6 +35,7 @@ let private modelFor graph siteMap nextSiteId zoomRoot =
       desktopFileIndicator = BlankFileIndicator
       workspaceMappedLabels = Set.empty
       workspaceRoots = Map.empty
+      workspaceRemotes = Map.empty
       workspaceSyncFacts = Map.empty
       pendingAutoDownloads = []
       syncInfo = { SyncInfo.initial with syncState = Polling }

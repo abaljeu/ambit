@@ -23,7 +23,7 @@ let private requireOk label result =
 
 let private eventPast host =
     async {
-        let! history = CoreMailbox.eventHistory host
+        let! history = CoreMailboxApi.eventHistory host
         return history.events
     }
 
@@ -93,7 +93,7 @@ let private withHost body =
         try
             do! body host pool
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }
 
 let private seedCommand host text =
@@ -112,7 +112,7 @@ let private seedCommand host text =
                           [],
                           [ ChildNode.owner commandId ]) ] }
         let! posted =
-            CoreMailbox.postGraphOnly host testCaller event
+            CoreMailboxApi.postGraphOnly host testCaller event
             |> Async.StartAsTask
         requireOk "postChange" posted |> ignore
         return commandId
@@ -142,7 +142,7 @@ let private seedCommandWithChildren host text childTexts =
               commandName = ""
               body = EventBody.Change ops }
         let! posted =
-            CoreMailbox.postGraphOnly host testCaller event
+            CoreMailboxApi.postGraphOnly host testCaller event
             |> Async.StartAsTask
         requireOk "postChange" posted |> ignore
         return commandId
@@ -193,7 +193,7 @@ let ``unregistered Actor name fails start`` (text: string) (name: string) =
         let! commandId = seedCommand host text
         let request = sampleRequest commandId commandId
         let! result =
-            CoreMailbox.startActor host testCaller request
+            CoreMailboxApi.startActor host testCaller request
             |> Async.StartAsTask
         match result with
         | Error err ->
@@ -221,7 +221,7 @@ let ``TestActor non-hello command fails without Owned child`` (text: string) =
         let! commandId = seedCommand host text
         let request = sampleRequest commandId commandId
         let! result =
-            CoreMailbox.startActor host testCaller request
+            CoreMailboxApi.startActor host testCaller request
             |> Async.StartAsTask
         requireOk "startActor" result
         let! stop = waitForActorStop host request.focusId 1000
@@ -230,7 +230,7 @@ let ``TestActor non-hello command fails without Owned child`` (text: string) =
         | other -> Assert.Fail($"expected ActorFailed, got {other}")
         Assert.False(Set.contains request.focusId (pool.liveFocusIds ()))
         let! state =
-            CoreMailbox.getState host |> Async.StartAsTask
+            CoreMailboxApi.getState host |> Async.StartAsTask
         let state = requireOk "getState" state
         Assert.Empty(helloChildren state.graph commandId commandId)
     })
@@ -245,13 +245,13 @@ let ``TestActor non-hello preserves Focus Children and posts no Change`` () =
                 [ "keep-me"; "also-keep" ]
         let request = sampleRequest commandId commandId
         let! beforeState =
-            CoreMailbox.getState host |> Async.StartAsTask
+            CoreMailboxApi.getState host |> Async.StartAsTask
         let before = requireOk "getState before" beforeState
         let beforeChildren = ownedChildFacts before.graph commandId
         let beforeTexts = nodeTexts before.graph
         Assert.Equal(2, beforeChildren.Length)
         let! start =
-            CoreMailbox.startActor host testCaller request
+            CoreMailboxApi.startActor host testCaller request
             |> Async.StartAsTask
         requireOk "startActor" start
         let! stop = waitForActorStop host request.focusId 1000
@@ -260,7 +260,7 @@ let ``TestActor non-hello preserves Focus Children and posts no Change`` () =
         | other -> Assert.Fail($"expected ActorFailed, got {other}")
         Assert.False(Set.contains request.focusId (pool.liveFocusIds ()))
         let! afterState =
-            CoreMailbox.getState host |> Async.StartAsTask
+            CoreMailboxApi.getState host |> Async.StartAsTask
         let after = requireOk "getState after" afterState
         Assert.Equal<(NodeId * Ownership * string) list>(
             beforeChildren,
@@ -289,7 +289,7 @@ let ``TestActor ?test hello posts Owned hello and succeeds`` () =
         let! commandId = seedCommand host "?test hello"
         let request = sampleRequest commandId commandId
         let! result =
-            CoreMailbox.startActor host testCaller request
+            CoreMailboxApi.startActor host testCaller request
             |> Async.StartAsTask
         requireOk "startActor" result
         let! stop = waitForActorStop host request.focusId 1000
@@ -297,7 +297,7 @@ let ``TestActor ?test hello posts Owned hello and succeeds`` () =
         | Some ActorSucceeded -> ()
         | other -> Assert.Fail($"expected ActorSucceeded, got {other}")
         let! state =
-            CoreMailbox.getState host |> Async.StartAsTask
+            CoreMailboxApi.getState host |> Async.StartAsTask
         let state = requireOk "getState" state
         Assert.Equal(
             1,

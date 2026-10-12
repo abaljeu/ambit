@@ -3,10 +3,6 @@ namespace Gambol.Server
 open System
 open Gambol.Shared
 
-type ActorName = ActorName of string
-
-type PeerActorName = PeerActorName of string
-
 /// Actor input: Graph plus named ids and Actor secret.
 type ActorInput =
     { graph: Graph
@@ -16,7 +12,7 @@ type ActorInput =
       sessionId: string
       secret: Credential }
 
-type ActorFn = ActorInput -> CoreChanges -> Async<unit>
+type ActorFn = ActorInput -> CoreChangesDoor -> Async<unit>
 
 /// Graph carrier the Actor calls. The pool does not invoke this.
 type GraphCarrier = unit -> Graph
@@ -26,7 +22,7 @@ type FunctionRun =
     { getGraph: GraphCarrier
       secret: Credential }
 
-type FunctionActor = FunctionRun -> CoreChanges -> Async<unit>
+type FunctionActor = FunctionRun -> CoreChangesDoor -> Async<unit>
 
 /// Lifecycle keys for the pool; Graph arrives only via getGraph.
 type FunctionStart =
@@ -61,7 +57,7 @@ type CoreActorPool =
             Gambol.Shared.ActorStart ->
             (unit -> Graph) ->
             Result<Credential, string>
-      schedule: Credential -> CoreChanges -> unit
+      schedule: Credential -> CoreChangesDoor -> unit
       isLive: Credential -> bool
       admit: Credential -> Result<unit, string>
       drop: Credential -> unit
@@ -300,7 +296,7 @@ module CoreActorPool =
     let private runSchedule
         (takePendingBody: Credential -> (PendingBody * LiveRow) option)
         (secret: Credential)
-        (coreChanges: CoreChanges)
+        (coreChanges: CoreChangesDoor)
         =
         match takePendingBody secret with
         | None -> ()

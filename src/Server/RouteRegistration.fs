@@ -86,10 +86,11 @@ module RouteRegistration =
     let private boundChanges
         (persistence: PersistenceContext)
         (caller: Caller)
-        : CoreChanges =
-        let raw = CoreMailbox.coreChanges persistence.Core.host caller
-        if isWritable persistence then raw
-        else CoreRuntime.readOnly raw
+        : CoreChangesDoor =
+        CoreDoor.create
+            (isWritable persistence)
+            persistence.Core.host
+            caller
 
     let private parseBound (persistence: PersistenceContext) =
         boundChanges persistence persistence.Core.parseCaller
@@ -103,14 +104,14 @@ module RouteRegistration =
     let private withBrowserChanges
         (persistence: PersistenceContext)
         (req: HttpRequest)
-        (cont: CoreChanges -> Async<IResult>)
+        (cont: CoreChangesDoor -> Async<IResult>)
         : Async<IResult> =
         match BrowserRequestCreds.tryCookieCaller req with
         | None -> async.Return(Results.Unauthorized())
         | Some caller ->
             async {
                 let! live =
-                    CoreMailbox.isAdmitted persistence.Core.host caller
+                    CoreMailboxApi.isAdmitted persistence.Core.host caller
                 if live then return! cont (boundChanges persistence caller)
                 else return Results.Unauthorized()
             }
@@ -143,7 +144,7 @@ module RouteRegistration =
         this.MapGet("/ambit/logout", Func<HttpContext, IResult>(fun ctx ->
             match BrowserRequestCreds.tryCookieCaller ctx.Request with
             | Some caller ->
-                CoreMailbox.logout persistence.Core.host caller
+                CoreMailboxApi.logout persistence.Core.host caller
                 |> Async.RunSynchronously
                 |> ignore
             | None -> ()
@@ -177,18 +178,18 @@ module RouteRegistration =
     let private searchDoor
         (persistence: PersistenceContext)
         (caller: Caller)
-        (changes: CoreChanges)
+        (changes: CoreChangesDoor)
         : Api.SearchActorDoor =
         let host = persistence.Core.host
         { changes = changes
           recordStart =
             fun start ->
-                CoreMailbox.recordSearchStart host caller start
+                CoreMailboxApi.recordSearchStart host caller start
           recordStop =
             fun rootId ->
                 async {
                     let! _ =
-                        CoreMailbox.recordSearchStop host caller rootId
+                        CoreMailboxApi.recordSearchStop host caller rootId
                     return ()
                 } }
 
@@ -204,7 +205,7 @@ module RouteRegistration =
             | None -> return Results.Unauthorized()
             | Some caller ->
                 let! live =
-                    CoreMailbox.isAdmitted persistence.Core.host caller
+                    CoreMailboxApi.isAdmitted persistence.Core.host caller
                     |> Async.StartAsTask
                 if not live then
                     return Results.Unauthorized()
@@ -308,7 +309,7 @@ module RouteRegistration =
                 | None -> return Results.Unauthorized()
                 | Some caller ->
                     let! live =
-                        CoreMailbox.isAdmitted persistence.Core.host caller
+                        CoreMailboxApi.isAdmitted persistence.Core.host caller
                         |> Async.StartAsTask
                     if not live then
                         return Results.Unauthorized()
@@ -318,7 +319,7 @@ module RouteRegistration =
                                 LoadSaveRouting.resolvePath persistence.DataDir
                               startCommand =
                                 fun path request ->
-                                    CoreMailbox.startLoadSaveCommand
+                                    CoreMailboxApi.startLoadSaveCommand
                                         persistence.Core.host
                                         caller
                                         path
@@ -331,6 +332,15 @@ module RouteRegistration =
                                 (boundChanges persistence caller)
                                 body
                             |> Async.StartAsTask
+            }))
+        |> ignore
+        this.MapGet(
+            "/ambit/workspace-remotes",
+            Func<HttpRequest, Task<IResult>>(fun req -> task {
+                return!
+                    withBrowserChanges persistence req (fun handle ->
+                        Api.getWorkspaceRemotes persistence.DataDir handle)
+                    |> Async.StartAsTask
             }))
         |> ignore
         this.MapPost("/ambit/actors/deliver", Func<HttpRequest, Task<IResult>>(fun req -> task {
@@ -355,9 +365,9 @@ module RouteRegistration =
         return!
             SavePrep.syncDataDir
                 persistence.DbStatus
-                (fun () -> handle.getState ())
-                (fun () -> CoreMailbox.flushSnapshot persistence.Core.host)
-                (fun () -> CoreMailbox.getEventId persistence.Core.host)
+                (fun () -> CoreDoor.getState handle)
+                (fun () -> CoreMailboxApi.flushSnapshot persistence.Core.host)
+                (fun () -> CoreMailboxApi.getEventId persistence.Core.host)
                 persistence.DataDir
     }
 
@@ -415,7 +425,7 @@ module RouteRegistration =
         match BrowserRequestCreds.tryCookieCaller req with
         | None -> false
         | Some caller ->
-            CoreMailbox.isAdmitted
+            CoreMailboxApi.isAdmitted
                 persistence.Core.host
                 caller
             |> Async.RunSynchronously
@@ -450,11 +460,11 @@ module RouteRegistration =
                 let! flushResult =
                     SavePrep.syncGitArtifacts
                         persistence.DbStatus
-                        (fun () -> handle.getState ())
+                        (fun () -> CoreDoor.getState handle)
                         (fun () ->
-                            CoreMailbox.flushSnapshot persistence.Core.host)
+                            CoreMailboxApi.flushSnapshot persistence.Core.host)
                         (fun () ->
-                            CoreMailbox.getEventId persistence.Core.host)
+                            CoreMailboxApi.getEventId persistence.Core.host)
                         persistence.DataDir
                 match flushResult with
                 | Ok _ -> return Ok ()

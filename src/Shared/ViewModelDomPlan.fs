@@ -106,6 +106,7 @@ module ViewModelDomPlan =
         && oldModel.workspaceSyncFacts = newModel.workspaceSyncFacts
         && oldModel.workspaceMappedLabels = newModel.workspaceMappedLabels
         && oldModel.workspaceRoots = newModel.workspaceRoots
+        && oldModel.workspaceRemotes = newModel.workspaceRemotes
         && oldModel.desktopCapabilities = newModel.desktopCapabilities
         && oldModel.serverCapabilities = newModel.serverCapabilities
         && oldModel.actorLiveFocusIds = newModel.actorLiveFocusIds
@@ -176,9 +177,16 @@ module ViewModelDomPlan =
                             rowChildrenIndicator newModel.graph newNode
                         let oldKind = oldNode |> Option.map (fun n -> n.kind)
                         let newKind = newNode.kind
+                        let remoteArrived =
+                            oldModel.workspaceRemotes <> newModel.workspaceRemotes
+                            && match newNode.kind with
+                               | Special Workspace when newNode.id <> Graph.rootId ->
+                                   true
+                               | _ -> false
                         if wasEditing <> nowEditing
                            || oldChildrenIndicator <> newChildrenIndicator
-                           || oldKind <> Some newKind then
+                           || oldKind <> Some newKind
+                           || remoteArrived then
                             RecreateRow instId
                         else
                             let oldEntry = Map.tryFind instId oldModel.siteMap.entries

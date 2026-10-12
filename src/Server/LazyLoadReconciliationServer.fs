@@ -29,7 +29,7 @@ module LazyLoadReconciliationServer =
 
     /// Core handle, data directory, and workspace label for one reconcile.
     type WorkspaceReconcile =
-        { handle: CoreChanges
+        { handle: CoreChangesDoor
           dataDir: string
           workspaceLabel: string }
 
@@ -255,7 +255,7 @@ module LazyLoadReconciliationServer =
                 failure.message
 
     type private ListedReconcile =
-        { handle: CoreChanges
+        { handle: CoreChangesDoor
           dataDir: string
           workspaceLabel: string
           graph: Graph
@@ -263,7 +263,7 @@ module LazyLoadReconciliationServer =
           artifactReads: LazyLoadReconciliation.ChangedPath list }
 
     let private postReconcileReport
-        (handle: CoreChanges)
+        (handle: CoreChangesDoor)
         (workspaceLabel: string)
         (report: LazyLoadReconciliationReport.Report)
         =
@@ -274,7 +274,7 @@ module LazyLoadReconciliationServer =
             | ops ->
                 let! result =
                     GraphOnlyChangePost.postChunks
-                        handle.postGraphOnly
+                        (CoreDoor.postGraphOnly handle)
                         "Parse"
                         (GraphOnlyChangeChunks.split ops)
                 return result |> Result.map (fun () -> report.failures)
@@ -314,7 +314,7 @@ module LazyLoadReconciliationServer =
         (changedPaths: LazyLoadReconciliation.ChangedPath list)
         : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
         async {
-            let! stateResult = workspace.handle.getState ()
+            let! stateResult = CoreDoor.getState workspace.handle
             match stateResult with
             | Error err -> return Error err
             | Ok stateResponse ->
@@ -347,7 +347,7 @@ module LazyLoadReconciliationServer =
         (changedPaths: LazyLoadReconciliation.ChangedPath list)
         : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
         async {
-            let! stateResult = workspace.handle.getState ()
+            let! stateResult = CoreDoor.getState workspace.handle
             match stateResult with
             | Error err -> return Error err
             | Ok stateResponse ->
@@ -371,7 +371,7 @@ module LazyLoadReconciliationServer =
         (discoveryDirRel: string option)
         : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
         async {
-            let! stateResult = workspace.handle.getState ()
+            let! stateResult = CoreDoor.getState workspace.handle
             match stateResult with
             | Error err -> return Error err
             | Ok stateResponse ->
@@ -459,7 +459,7 @@ module LazyLoadReconciliationServer =
 
     let registerDirectoryRoute
         (this: AmbitApp)
-        (getHandle: unit -> CoreChanges)
+        (getHandle: unit -> CoreChangesDoor)
         =
         let isAuthenticated = this.Auth.IsAuthenticated
         let dataDir = this.DataDir
@@ -494,7 +494,7 @@ module LazyLoadReconciliationServer =
 
     let registerAddedRoute
         (this: AmbitApp)
-        (getHandle: unit -> CoreChanges)
+        (getHandle: unit -> CoreChangesDoor)
         =
         let isAuthenticated = this.Auth.IsAuthenticated
         let dataDir = this.DataDir

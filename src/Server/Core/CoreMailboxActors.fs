@@ -36,7 +36,7 @@ module internal CoreMailboxActors =
         (caller: Caller)
         (request: Gambol.Shared.ActorStart)
         (secret: Credential)
-        (make: Caller -> CoreChanges)
+        (make: Caller -> CoreChangesDoor)
         (submissionId: System.Guid)
         =
         match

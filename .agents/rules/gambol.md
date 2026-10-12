@@ -11,6 +11,8 @@ READ EXACTLY ONE OF THESE TWO:
 - [[.agents/rules/environment-windows-cursor-ide.md]] — Windows Cursor IDE (shell, paths, tooling)
 - [[.agents/rules/environment-cursor-cloud.md]] — Cursor Cloud (toolchain, Postgres, runtime)
 
+
+Do no work on the git branch staging.
 - [[.agents/rules/fsharp-source.md]] — F# conventions (scoped to *.fs)
 - [[.agents/rules/core-api.md]] — Core vs Adapter pointers (scoped to Server Core / Adapter)
 - [[.agents/rules/markdown-writing.md]] — markdown conventions (scoped to *.md)

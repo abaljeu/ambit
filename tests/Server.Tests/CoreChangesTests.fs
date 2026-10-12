@@ -42,7 +42,7 @@ let ``typed Normal caller publishes accepted Change to Poll`` () = task {
     try
         let event = addRootChild 0 "typed caller"
         let! accepted =
-            handle.postEvents [ event ]
+            CoreDoor.postEvents handle [ event ]
             |> Async.StartAsTask
         let accepted = requireOk "typed post" accepted
         Assert.True(EventId.isAccepted accepted.eventId)
@@ -62,20 +62,20 @@ let ``typed Normal caller publishes accepted Change to Poll`` () = task {
         | other ->
             Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
     finally
-        CoreMailbox.dispose agent
+        CoreMailboxApi.dispose agent
 }
 
-/// Thread-pool Actor: Local Graph plus full CoreChanges, off the apply mailbox.
+/// Thread-pool Actor: Local Graph plus full CoreChangesDoor, off the apply mailbox.
 let private runActor
     (subgraph: Graph)
-    (handle: CoreChanges)
-    (act: Graph -> CoreChanges -> Async<'a>)
+    (handle: CoreChangesDoor)
+    (act: Graph -> CoreChangesDoor -> Async<'a>)
     : Task<'a> =
     act subgraph handle |> Async.StartAsTask
 
 let private produceFromSubgraph
     (subgraph: Graph)
-    (handle: CoreChanges)
+    (handle: CoreChangesDoor)
     : Async<Result<CoreChangesAccepted, string>> =
     async {
         let priorChildren =
@@ -93,7 +93,7 @@ let private produceFromSubgraph
                       Graph.rootId,
                       priorChildren,
                       priorChildren @ [ ChildNode.owner childId ]) ]
-        return! handle.postEvents [ event ]
+        return! CoreDoor.postEvents handle [ event ]
     }
 
 [<Fact>]
@@ -123,37 +123,13 @@ let ``test Actor posts Normal Change off apply mailbox and Poll sees it`` () =
                 Assert.Fail(
                     $"Expected ContentHttpResult, got {other.GetType().FullName}")
         finally
-            CoreMailbox.dispose agent
+            CoreMailboxApi.dispose agent
     }
-
-let private recordingHandle (posts: ResizeArray<Ev list>) =
-    let state =
-        { graph = Graph.create ()
-          eventId = EventIdFixtures.storedId 1 }
-    let accepted events : CoreChangesAccepted =
-        { eventId = EventIdFixtures.storedId 1
-          events = events
-          externalChanges = false
-          message = None
-          isReady = true }
-    { getState = fun () -> async.Return(Result.Ok state)
-      getEventId = fun () -> async.Return state.eventId
-      getEventsSince = fun _ -> async.Return []
-      isReady = fun () -> true
-      postEvents =
-        fun events ->
-            posts.Add(events)
-            async.Return(Result.Ok(accepted events))
-      postGraphOnly = fun _ -> async.Return(Result.Error "unused")
-      actorStop = fun _ -> async.Return(Result.Error "unused")
-      loadNode = fun _ -> async.Return(Result.Error "unused")
-      asCaller = fun _ -> Unchecked.defaultof<CoreChanges> }
-    : CoreChanges
 
 [<Fact>]
 let ``HTTP Adapter passes typed Changes only after valid decode`` () = task {
-    let posts = ResizeArray<Ev list>()
-    let handle = recordingHandle posts
+    let dataDir = newTempDir ()
+    let agent, handle = createAdmittedFile dataDir
     let event = addRootChild 0 "adapter"
     let validBody =
         Encode.toString 0 (
@@ -171,8 +147,9 @@ let ``HTTP Adapter passes typed Changes only after valid decode`` () = task {
         Api.postEvents handle 10 20 """{"events":[]}"""
         |> Async.StartAsTask
 
-    let posted = Assert.Single(posts)
-    Assert.Equal<Ev list>([ event ], posted)
+    let! history = CoreMailboxApi.eventHistory agent |> Async.StartAsTask
+    let posted = Assert.Single(history.events)
+    Assert.Equal(event.submissionId, posted.submissionId)
     match missingWant with
     | :? Microsoft.AspNetCore.Http.IStatusCodeHttpResult as status ->
         Assert.Equal(Nullable 400, status.StatusCode)
@@ -181,9 +158,12 @@ let ``HTTP Adapter passes typed Changes only after valid decode`` () = task {
     match box result with
     | :? ContentHttpResult as content ->
         let response = decodeChangeResponse content.ResponseContent
-        Assert.Equal<Ev list>([ event ], response.events)
+        Assert.Equal<Guid list>(
+            [ event.submissionId ],
+            response.events |> List.map _.submissionId)
         Assert.True(Map.containsKey Graph.rootId response.childMap)
         Assert.NotEmpty(response.nodes)
     | other ->
         Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
+    CoreMailboxApi.dispose agent
 }

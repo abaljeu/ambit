@@ -11,7 +11,7 @@ module Enc = Thoth.Json.Newtonsoft.Encode
 
 let private lastActorStopEvent host focusId =
     task {
-        let! history = CoreMailbox.eventHistory host
+        let! history = CoreMailboxApi.eventHistory host
         return
             history.events
             |> List.tryFind (fun event ->

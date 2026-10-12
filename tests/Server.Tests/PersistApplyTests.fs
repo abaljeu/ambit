@@ -73,11 +73,11 @@ let ``CoreEventDispatch persist apply does not copy Ev to leftover Change`` () =
             admittedCredentials
     try
         let stored =
-            CoreMailbox.postEvent host testCaller event
+            CoreMailboxApi.postEvent host testCaller event
             |> Async.RunSynchronously
             |> requireOk "postEvent"
         let state =
-            CoreMailbox.getState host
+            CoreMailboxApi.getState host
             |> Async.RunSynchronously
             |> requireOk "getState"
         Assert.Equal("no-change-copy", state.graph.nodes.[childId].text)
@@ -87,8 +87,8 @@ let ``CoreEventDispatch persist apply does not copy Ev to leftover Change`` () =
             Assert.Equal<Op list>(ops, List.take ops.Length storedOps)
         | None -> Assert.Fail("expected Change EventBody Ops")
         let logged =
-            CoreMailbox.getEventsSince host (EventId.zero)
+            CoreMailboxApi.getEventsSince host (EventId.zero)
             |> Async.RunSynchronously
         Assert.Equal(event.submissionId, Assert.Single(logged).submissionId)
     finally
-        CoreMailbox.dispose host
+        CoreMailboxApi.dispose host

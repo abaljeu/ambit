@@ -122,7 +122,7 @@ module internal CoreMailboxEvents =
 
     type Started = {
         processor: MailboxProcessor<QueueSum>
-        bindCoreChanges: (Caller -> CoreChanges) -> unit
+        bindCoreChanges: (Caller -> CoreChangesDoor) -> unit
     }
 
     type MailboxContext = {
@@ -133,7 +133,7 @@ module internal CoreMailboxEvents =
         onError: string -> string -> exn -> unit
         formatError: string -> string
         eventLog: EventLog ref
-        coreChanges: (Caller -> CoreChanges) option ref
+        coreChanges: (Caller -> CoreChangesDoor) option ref
     }
 
     let addCaller (context: MailboxContext) caller =

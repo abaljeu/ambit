@@ -23,26 +23,6 @@ type CoreBoot =
 [<RequireQualifiedAccess>]
 module CoreRuntime =
 
-    let readOnly (handle: CoreChanges) : CoreChanges =
-        let reject msg =
-            async.Return(Error msg)
-        let readOnlyMsg =
-            "Database persistence is unavailable; file fallback is read-only."
-        let rejectEvents (_: Ev list) =
-            reject readOnlyMsg
-        let rejectGraph (_: Ev) = reject readOnlyMsg
-        let rejectActorStop (_: ActorResult) = reject readOnlyMsg
-        let rejectLoad (_: NodeId) = reject readOnlyMsg
-        let rec wrap h : CoreChanges =
-            { h with
-                postEvents = rejectEvents
-                postGraphOnly = rejectGraph
-                actorStop = rejectActorStop
-                loadNode = rejectLoad
-                getEventsSince = h.getEventsSince
-                asCaller = fun caller -> wrap (h.asCaller caller) }
-        wrap handle
-
     let private startHost
         (boot: CoreBoot)
         (pool: CoreActorPool)

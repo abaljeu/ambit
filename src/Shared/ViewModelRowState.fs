@@ -552,10 +552,24 @@ module ViewModelRowState =
                 let relBack = relative.Replace('/', '\\')
                 if relBack = "" then trimmedRoot else trimmedRoot + "\\" + relBack))
 
+    /// Remote line for a named Workspace when that label has a configured git remote.
+    let private workspaceRemoteLine (model: VM) (node: Node) : string option =
+        match node.kind with
+        | Special Workspace when node.id <> Graph.rootId ->
+            match Filename.tryValue node.name with
+            | None -> None
+            | Some label ->
+                Map.tryFind
+                    (normalizeWorkspaceLabel label)
+                    model.workspaceRemotes
+                |> Option.map WorkspaceRemoteTip.bulletLine
+        | _ -> None
+
     /// Bullet hover-inspector tip: `\n`-joined non-obvious Node facts in fixed order
-    /// (Guid tail, residency, workspace path, local path, Update Time, CSS classes). Each
-    /// line is self-gating; absent facts are omitted. `formatLocal` renders a UTC time in
-    /// the viewer's local zone (injected because Shared has no browser clock).
+    /// (Guid tail, residency, workspace path, local path, remote, Update Time, CSS
+    /// classes). Each line is self-gating; absent facts are omitted. `formatLocal`
+    /// renders a UTC time in the viewer's local zone (injected because Shared has no
+    /// browser clock).
     let bulletTip (formatLocal: System.DateTime -> string) (model: VM) (node: Node) : string =
         let workspacePathLine =
             NodeDesktopPath.pathForNodeId model.graph node.id
@@ -575,6 +589,7 @@ module ViewModelRowState =
           Some(residencyText model.graph node)
           workspacePathLine
           localPathLine
+          workspaceRemoteLine model node
           Some $"Updated: {formatLocal node.updateTime}"
           cssLine ]
         |> List.choose id

@@ -177,21 +177,13 @@ let private acceptRecord _ = async.Return (Result.Ok ())
 
 let private acceptStop _ = async.Return ()
 
-let private door (handle: CoreChanges) : Api.SearchActorDoor =
+let private door (handle: CoreChangesDoor) : Api.SearchActorDoor =
     { changes = handle
       recordStart = acceptRecord
       recordStop = acceptStop }
 
-let private handle (graph: Graph) : CoreChanges =
-    { getState = fun () -> async.Return (Result.Ok (stateOf graph))
-      getEventId = fun () -> async.Return EventId.zero
-      getEventsSince = fun _ -> async.Return []
-      isReady = fun () -> true
-      postEvents = fun _ -> async.Return (Result.Error "no graph change")
-      postGraphOnly = fun _ -> async.Return (Result.Error "no graph change")
-      actorStop = fun _ -> async.Return (Result.Ok ())
-      loadNode = fun _ -> async.Return (Result.Error "unused")
-      asCaller = fun _ -> Unchecked.defaultof<CoreChanges> }
+let private handle (graph: Graph) : CoreChangesDoor =
+    doorForReads (fun () -> Result.Ok (stateOf graph)) (fun _ -> [])
 
 [<Fact>]
 let ``postSearch returns one reply from the server graph`` () = task {
@@ -224,7 +216,7 @@ let ``postSearch records ActorStart at the root`` () = task {
     let dir = newTempDir ()
     let host, handle = createAdmittedFile dir
     try
-        let! stateResult = handle.getState () |> Async.StartAsTask
+        let! stateResult = CoreDoor.getState handle |> Async.StartAsTask
         let state =
             match stateResult with
             | Ok state -> state
@@ -239,12 +231,12 @@ let ``postSearch records ActorStart at the root`` () = task {
             { changes = handle
               recordStart =
                 fun start ->
-                    CoreMailbox.recordSearchStart host testCaller start
+                    CoreMailboxApi.recordSearchStart host testCaller start
               recordStop =
                 fun rootId ->
                     async {
                         let! _ =
-                            CoreMailbox.recordSearchStop
+                            CoreMailboxApi.recordSearchStop
                                 host
                                 testCaller
                                 rootId
@@ -256,7 +248,7 @@ let ``postSearch records ActorStart at the root`` () = task {
         | other ->
             failwith $"expected JSON content, got {other.GetType().Name}"
         let! history =
-            CoreMailbox.eventHistory host |> Async.StartAsTask
+            CoreMailboxApi.eventHistory host |> Async.StartAsTask
         let recorded =
             history.events
             |> List.tryPick (fun event ->
@@ -281,7 +273,7 @@ let ``postSearch records ActorStart at the root`` () = task {
                 | _ -> false)
         Assert.True(stopped, "ActorStop missing after the one reply")
     finally
-        CoreMailbox.dispose host
+        CoreMailboxApi.dispose host
 }
 
 [<Fact>]

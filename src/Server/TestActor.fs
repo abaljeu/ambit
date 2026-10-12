@@ -7,7 +7,7 @@ open Gambol.Shared
 module TestActor =
 
     /// Posts one Owned child text "hello" under Focus.
-    let private hello (input: ActorInput) (coreChanges: CoreChanges) =
+    let private hello (input: ActorInput) (coreChanges: CoreChangesDoor) =
         async {
             let helloNodeId = NodeId.New()
             let event =
@@ -27,12 +27,14 @@ module TestActor =
                   name = ""
                   secret = input.secret }
             let! _ =
-                coreChanges.asCaller(caller).postEvents [ event ]
+                CoreDoor.postEvents
+                    (CoreDoor.forCaller caller coreChanges)
+                    [ event ]
             return ()
         }
 
     /// Hello-only. Any other command text is ActorFailed. No exception path.
-    let private dispatch (input: ActorInput) (coreChanges: CoreChanges) =
+    let private dispatch (input: ActorInput) (coreChanges: CoreChangesDoor) =
         async {
             let! result =
                 match Map.tryFind input.commandId input.graph.nodes with
@@ -53,7 +55,9 @@ module TestActor =
                   name = ""
                   secret = input.secret }
             let! _ =
-                coreChanges.asCaller(caller).actorStop result
+                CoreDoor.actorStop
+                    (CoreDoor.forCaller caller coreChanges)
+                    result
             return ()
         }
 
@@ -69,7 +73,7 @@ module TestActor =
         (parentId: NodeId)
         (text: string)
         (secret: Credential)
-        (coreChanges: CoreChanges)
+        (coreChanges: CoreChangesDoor)
         =
         async {
             let childId = NodeId.New()
@@ -86,9 +90,9 @@ module TestActor =
                               [],
                               [ ChildNode.owner childId ]) ] }
             let! _ =
-                coreChanges
-                    .asCaller(actorCaller secret)
-                    .postEvents [ event ]
+                CoreDoor.postEvents
+                    (CoreDoor.forCaller (actorCaller secret) coreChanges)
+                    [ event ]
             return ()
         }
 
@@ -130,8 +134,10 @@ module TestActor =
                         }
                     | _ -> async.Return (ActorFailed "")
                 let! _ =
-                    coreChanges
-                        .asCaller(actorCaller run.secret)
-                        .actorStop result
+                    CoreDoor.actorStop
+                        (CoreDoor.forCaller
+                            (actorCaller run.secret)
+                            coreChanges)
+                        result
                 return ()
             }

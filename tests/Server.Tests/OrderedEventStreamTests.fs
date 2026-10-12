@@ -51,13 +51,13 @@ let ``two posted lists do not interleave`` () = task {
             [ 1; 2; 3 ]
             |> List.map (fun n -> newNode $"{name}{n}" $"{name}{n}")
         let post events =
-            CoreMailbox.postEvents host testCaller events
+            CoreMailboxApi.postEvents host testCaller events
         let! pair =
             Async.Parallel [ post (list "A"); post (list "B") ]
             |> Async.StartAsTask
         pair |> Array.iter (requireOk "post" >> ignore)
         let! history =
-            CoreMailbox.eventHistory host |> Async.StartAsTask
+            CoreMailboxApi.eventHistory host |> Async.StartAsTask
         let ordered = commandNames history.events
         let forward = [ "A1"; "A2"; "A3"; "B1"; "B2"; "B3" ]
         let reverse = [ "B1"; "B2"; "B3"; "A1"; "A2"; "A3" ]
@@ -65,7 +65,7 @@ let ``two posted lists do not interleave`` () = task {
             ordered = forward || ordered = reverse,
             $"interleaved order {ordered}")
     finally
-        CoreMailbox.dispose host
+        CoreMailboxApi.dispose host
 }
 
 [<Fact>]
@@ -74,20 +74,20 @@ let ``credential refusal applies nothing from the list`` () = task {
     try
         let stranger = { testCaller with secret = Credential "nope" }
         let! before =
-            CoreMailbox.eventHistory host |> Async.StartAsTask
+            CoreMailboxApi.eventHistory host |> Async.StartAsTask
         let events =
             [ 1; 2; 3 ] |> List.map (fun n -> newNode $"C{n}" $"C{n}")
         let! result =
-            CoreMailbox.postEvents host stranger events
+            CoreMailboxApi.postEvents host stranger events
             |> Async.StartAsTask
         match result with
         | Error err -> Assert.True(CoreAuth.isAuthRefuse err, err)
         | Ok _ -> failwith "expected credential refusal"
         let! after =
-            CoreMailbox.eventHistory host |> Async.StartAsTask
+            CoreMailboxApi.eventHistory host |> Async.StartAsTask
         Assert.Equal(before.events.Length, after.events.Length)
     finally
-        CoreMailbox.dispose host
+        CoreMailboxApi.dispose host
 }
 
 [<Fact>]
@@ -101,19 +101,19 @@ let ``ActorStop in a posted list applies nothing`` () = task {
                   "stop"
                   (EventBody.ActorStop(focusId, ActorSucceeded)) ]
         let! before =
-            CoreMailbox.eventHistory host |> Async.StartAsTask
+            CoreMailboxApi.eventHistory host |> Async.StartAsTask
         let! result =
-            CoreMailbox.postEvents host testCaller events
+            CoreMailboxApi.postEvents host testCaller events
             |> Async.StartAsTask
         match result with
         | Error err ->
             Assert.Contains("not a client event type", err)
         | Ok _ -> failwith "expected ActorStop to be refused"
         let! after =
-            CoreMailbox.eventHistory host |> Async.StartAsTask
+            CoreMailboxApi.eventHistory host |> Async.StartAsTask
         Assert.Equal(before.events.Length, after.events.Length)
     finally
-        CoreMailbox.dispose host
+        CoreMailboxApi.dispose host
 }
 
 let private seedCommand host text = task {
@@ -126,7 +126,7 @@ let private seedCommand host text = task {
                   Op.Replace(
                       Graph.rootId, [], [ ChildNode.owner commandId ]) ])
     let! postedResult =
-        CoreMailbox.postEvents host testCaller [ event ]
+        CoreMailboxApi.postEvents host testCaller [ event ]
         |> Async.StartAsTask
     requireOk "seed" postedResult |> ignore
     return commandId
@@ -148,7 +148,7 @@ let private waitHello host focusId timeoutMs = task {
         not found
         && (DateTime.UtcNow - started).TotalMilliseconds < float timeoutMs
         do
-        let! state = CoreMailbox.getState host |> Async.StartAsTask
+        let! state = CoreMailboxApi.getState host |> Async.StartAsTask
         match state with
         | Ok graphState ->
             let helloChild child =
@@ -171,14 +171,14 @@ let ``edit then ActorStart classifies the line after the edit`` () = task {
     try
         let! commandId = seedCommand host "?test nope"
         let! before =
-            CoreMailbox.getEventId host |> Async.StartAsTask
+            CoreMailboxApi.getEventId host |> Async.StartAsTask
         let edit =
             posted
                 "edit"
                 (EventBody.Change
                     [ Op.SetText(commandId, "?test nope", "?test hello") ])
         let! result =
-            CoreMailbox.postEvents
+            CoreMailboxApi.postEvents
                 host testCaller [ edit; launch commandId before ]
             |> Async.StartAsTask
         let accepted = requireOk "list" result
@@ -193,13 +193,13 @@ let ``edit then ActorStart classifies the line after the edit`` () = task {
         let! hello = waitHello host commandId 1000
         Assert.True(hello, "hello child missing; edit was not visible")
     finally
-        CoreMailbox.dispose host
+        CoreMailboxApi.dispose host
 }
 
 [<Fact>]
 let ``ActorStart body does not run inside the mailbox turn`` () = task {
     let hold = TaskCompletionSource<unit>()
-    let actor (input: ActorInput) (changes: CoreChanges) =
+    let actor (input: ActorInput) (changes: CoreChangesDoor) =
         async {
             do! Async.AwaitTask hold.Task
             let caller =
@@ -207,7 +207,9 @@ let ``ActorStart body does not run inside the mailbox turn`` () = task {
                   name = ""
                   secret = input.secret }
             let! _ =
-                changes.asCaller(caller).actorStop ActorSucceeded
+                CoreDoor.actorStop
+                    (CoreDoor.forCaller caller changes)
+                    ActorSucceeded
             return ()
         }
     let pool = CoreActorPool.create ()
@@ -216,9 +218,9 @@ let ``ActorStart body does not run inside the mailbox turn`` () = task {
     try
         let! commandId = seedCommand host "?gate"
         let! before =
-            CoreMailbox.getEventId host |> Async.StartAsTask
+            CoreMailboxApi.getEventId host |> Async.StartAsTask
         let posting =
-            CoreMailbox.postEvents
+            CoreMailboxApi.postEvents
                 host testCaller [ launch commandId before ]
             |> Async.StartAsTask
         Assert.True(posting.Wait(1000), "list did not return while body held")
@@ -226,7 +228,7 @@ let ``ActorStart body does not run inside the mailbox turn`` () = task {
         hold.TrySetResult(()) |> ignore
         requireOk "launch" posting.Result |> ignore
     finally
-        CoreMailbox.dispose host
+        CoreMailboxApi.dispose host
 }
 
 let private postEventsHttp (client: HttpClient) (events: Ev list) = task {

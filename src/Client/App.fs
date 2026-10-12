@@ -106,6 +106,7 @@ let createRuntime (initialModel: VM) =
         | RequestDesktopFileStatus (nodeId, path) -> runDesktopFileStatus nodeId path
         | RequestServerFileStatus (nodeId, path) -> runServerFileStatus nodeId path
         | RequestWorkspacePathSyncSnapshot -> runWorkspacePathSyncSnapshot ()
+        | RequestWorkspaceRemotes -> runWorkspaceRemotes ()
         | ContinueWorkspaceStubsThenPush (scope, parseFileId) ->
             DeskLoadSaveEffectClient.runWorkspaceStubsThenPush
                 dispatch scope parseFileId
@@ -411,6 +412,23 @@ let createRuntime (initialModel: VM) =
 
     and runServerFileStatus (nodeId: NodeId) (path: string) : unit =
         runFileStatusEndpoint ($"/{currentFile}/file-status") "server" nodeId path
+
+    and runWorkspaceRemotes () : unit =
+        fetchGet
+            ("/" + currentFile + "/workspace-remotes")
+            (fun text ->
+                match WorkspaceRemoteTip.decodeList text with
+                | Ok rows ->
+                    dispatch (
+                        SysMsg (WorkspaceRemotesReceived (Map.ofList rows)))
+                | Error err ->
+                    consoleLog (
+                        "[Gambol] workspace remotes decode: " + err))
+            (fun status _ ->
+                consoleLog (
+                    "[Gambol] workspace remotes HTTP " + string status))
+            (fun () ->
+                consoleLog "[Gambol] workspace remotes fetch failed")
 
     and runWorkspacePathSyncSnapshot () : unit =
         let status, text = getJsonSync "/_desktop/workspace-mappings"

@@ -106,7 +106,7 @@ type CancelByFocusTests() =
                       commandName = "Cancel"
                       body = EventBody.Cancel request.focusId }
                 let! result =
-                    CoreMailbox.postEvents host testCaller [ cancel ]
+                    CoreMailboxApi.postEvents host testCaller [ cancel ]
                     |> Async.StartAsTask
                 let accepted =
                     match result with
@@ -141,7 +141,7 @@ type CancelByFocusTests() =
                 do! cancelFocus host request.focusId
                 do! expectActorCancelled host pool request.focusId
                 let! _ =
-                    CoreMailbox.actorStop
+                    CoreMailboxApi.actorStop
                         host
                         (actorCaller secret)
                         ActorSucceeded

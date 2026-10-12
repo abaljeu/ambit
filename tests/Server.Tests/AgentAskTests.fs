@@ -47,7 +47,7 @@ type AgentAskTests() =
                         hasActorStart host request.focusId
                     Assert.True(started)
                     let! state =
-                        CoreMailbox.getState host
+                        CoreMailboxApi.getState host
                         |> Async.StartAsTask
                     match state with
                     | Error err -> Assert.Fail(err)
@@ -101,7 +101,8 @@ type AgentAskTests() =
                           name = ""
                           secret = input.secret }
                     let! _ =
-                        coreChanges.asCaller(caller).actorStop
+                        CoreDoor.actorStop
+                            (CoreDoor.forCaller caller coreChanges)
                             ActorSucceeded
                     return ()
                 }
@@ -124,7 +125,7 @@ type AgentAskTests() =
                     let! seeded = seedAskTree host "?ai"
                     let request = askRequest seeded
                     let! first =
-                        CoreMailbox.startActor
+                        CoreMailboxApi.startActor
                             host testCaller request
                         |> Async.StartAsTask
                     match first with
@@ -132,7 +133,7 @@ type AgentAskTests() =
                     | Error err ->
                         Assert.Fail($"first start: {err}")
                     let! second =
-                        CoreMailbox.startActor
+                        CoreMailboxApi.startActor
                             host testCaller request
                         |> Async.StartAsTask
                     match second with

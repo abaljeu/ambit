@@ -815,3 +815,67 @@ let ``bulletTip renders update time via the injected formatter verbatim`` () =
     let tip = bulletTip spy (modelWithLooseNode node) node
     Assert.Equal<System.DateTime list>([ t ], seen)
     Assert.Contains("Updated: STAMP", tip)
+
+[<Fact>]
+let ``bulletTip shows workspace remote with ahead or behind`` () =
+    let model, wsId, fileId = modelWithWorkspaceFile Current
+    let workspace = model.graph.nodes.[wsId]
+    let file = model.graph.nodes.[fileId]
+    let withRemote ahead behind =
+        { model with
+            workspaceRemotes =
+                Map.ofList [
+                    "home",
+                    { remote = "https://example/home.git"
+                      ahead = ahead
+                      behind = behind } ] }
+    let both = bulletTip stubFormatLocal (withRemote 2 1) workspace
+    let lines = both.Split('\n')
+    let pathIdx = System.Array.FindIndex(lines, fun l -> l.StartsWith "Path:")
+    let remoteIdx = System.Array.FindIndex(lines, fun l -> l.StartsWith "Remote:")
+    let updatedIdx = System.Array.FindIndex(lines, fun l -> l.StartsWith "Updated:")
+    Assert.Equal(
+        "Remote: https://example/home.git ahead 2, behind 1",
+        lines.[remoteIdx])
+    Assert.True(pathIdx < remoteIdx && remoteIdx < updatedIdx)
+    Assert.Contains(
+        "Remote: https://example/home.git ahead 4",
+        bulletTip stubFormatLocal (withRemote 4 0) workspace)
+    Assert.Contains(
+        "Remote: https://example/home.git behind 3",
+        bulletTip stubFormatLocal (withRemote 0 3) workspace)
+    Assert.Equal(
+        "Remote: https://example/home.git",
+        (bulletTip stubFormatLocal (withRemote 0 0) workspace).Split('\n')
+        |> Array.find (fun l -> l.StartsWith "Remote:"))
+    Assert.DoesNotContain(
+        "Remote:",
+        bulletTip stubFormatLocal (withRemote 2 1) file)
+    Assert.DoesNotContain("Remote:", bulletTip stubFormatLocal model workspace)
+
+[<Fact>]
+let ``planPatchDOM recreates a workspace row when remotes arrive`` () =
+    let model, wsId, fileId = modelWithWorkspaceFile Current
+    let workspaceEntry = entryUnderParentNode Graph.workspacesId wsId model
+    let fileEntry = entryUnderParentNode wsId fileId model
+    let cached =
+        Set.ofList [
+            model.siteMap.rootId
+            workspaceEntry.instanceId
+            fileEntry.instanceId ]
+    let next =
+        { model with
+            workspaceRemotes =
+                Map.ofList [
+                    "home",
+                    { remote = "https://example/home.git"
+                      ahead = 1
+                      behind = 0 } ] }
+    let mutations = planPatchDOM model next cached
+    let recreated =
+        mutations
+        |> List.choose (function
+            | RecreateRow id -> Some id
+            | _ -> None)
+    Assert.Contains(workspaceEntry.instanceId, recreated)
+    Assert.DoesNotContain(fileEntry.instanceId, recreated)

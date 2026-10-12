@@ -27,7 +27,7 @@ let private freshState () : State =
 let private host agent = admittedHostDb agent
 
 let private getState agent = async {
-    match! CoreMailbox.getState (host agent) with
+    match! CoreMailboxApi.getState (host agent) with
     | Ok state -> return state
     | Error error ->
         Assert.Fail($"get state: {error}")
@@ -49,7 +49,7 @@ let ``persistence failure is returned and mailbox survives`` () = task {
             throwingPersist
             (fun _ -> Ok [])
     let! postResult =
-        (admittedChanges (host agent)).postEvents
+        CoreDoor.postEvents (admittedChanges (host agent))
             ((changedBody ()))
         |> Async.StartAsTask
         |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))

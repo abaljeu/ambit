@@ -7,7 +7,7 @@ open Gambol.Server
 open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
 
-/// Seam: Actor CoreChanges is CoreMailbox.coreChanges (the public door).
+/// Seam: Actor CoreChangesDoor is the CoreDoor public door.
 
 let private requireOk label result =
     match result with
@@ -30,7 +30,7 @@ let private withPersist persist body =
         try
             do! body host pool
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }
 
 let private filePersist () =
@@ -38,7 +38,7 @@ let private filePersist () =
 
 let private startRootActor host pool actorFn =
     pool.register (ActorName "root") actorFn
-    CoreMailbox.startActor host testCaller sampleRequest
+    CoreMailboxApi.startActor host testCaller sampleRequest
 
 [<Fact>]
 let ``Actor getEventId surfaces persist error instead of Revision 0`` () =
@@ -53,7 +53,7 @@ let ``Actor getEventId surfaces persist error instead of Revision 0`` () =
         let! started =
             startRootActor host pool (fun _ coreChanges -> async {
                 try
-                    let! _ = coreChanges.getEventId ()
+                    let! _ = CoreDoor.getEventId coreChanges
                     seen.TrySetResult None |> ignore
                 with ex ->
                     seen.TrySetResult (Some ex.Message) |> ignore
@@ -71,10 +71,10 @@ let ``Actor isReady uses mailbox host isReady`` () =
     let filling = { persist with isReady = fun () -> false }
     let seen = TaskCompletionSource<bool>()
     withPersist filling (fun host pool -> task {
-        let doorReady = (CoreMailbox.coreChanges host testCaller).isReady ()
+        let doorReady = CoreDoor.isReady (CoreDoor.create true host testCaller)
         let! started =
             startRootActor host pool (fun _ coreChanges -> async {
-                seen.TrySetResult (coreChanges.isReady ()) |> ignore
+                seen.TrySetResult (CoreDoor.isReady coreChanges) |> ignore
             })
             |> Async.StartAsTask
         requireOk "startActor" started
@@ -98,7 +98,7 @@ let ``Actor postChange on scheduled handle reaches persist`` () =
     withPersist persist (fun host pool -> task {
         let! started =
             startRootActor host pool (fun _ coreChanges -> async {
-                let! result = coreChanges.postEvents [ event ]
+                let! result = CoreDoor.postEvents coreChanges [ event ]
                 seen.TrySetResult result |> ignore
             })
             |> Async.StartAsTask

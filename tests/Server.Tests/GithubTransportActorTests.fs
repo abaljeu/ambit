@@ -51,7 +51,7 @@ let private postGraph host ops =
           authority = Authority "Browser"
           commandName = ""
           body = EventBody.Change ops }
-    CoreMailbox.postGraphOnly host testCaller event
+    CoreMailboxApi.postGraphOnly host testCaller event
     |> Async.RunSynchronously
     |> requireOk "post graph"
     |> ignore
@@ -84,7 +84,7 @@ let private seedOperation host operationName =
 let rec private waitForStop host focusId remainingMs =
     task {
         let! history =
-            CoreMailbox.eventHistory host
+            CoreMailboxApi.eventHistory host
             |> Async.StartAsTask
         let stopped =
             history.events
@@ -131,7 +131,7 @@ let private runActor operation dependencies operationName onPush body =
             let seed = seedOperation host operationName
             do! body dataDir host pool operation seed
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }
 
 let private withActor operation dependencies operationName body =
@@ -196,7 +196,7 @@ let ``git Load posts that Workspace id and does not reconcile`` () =
                 pushed |> Seq.toList)
             Assert.DoesNotContain(seed.focusId, pushed)
             let! history =
-                CoreMailbox.eventHistory host
+                CoreMailboxApi.eventHistory host
                 |> Async.StartAsTask
             let reconciled =
                 history.events
@@ -343,7 +343,7 @@ let ``Peer Actor is not available through the Run actor table`` () =
     withActor GithubTransportOperation.Load deps "load"
         (fun _ host _ _ seed -> task {
             let! result =
-                CoreMailbox.startActor host testCaller (request seed)
+                CoreMailboxApi.startActor host testCaller (request seed)
                 |> Async.StartAsTask
             match result with
             | Error err ->

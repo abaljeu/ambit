@@ -155,16 +155,16 @@ let ``mailbox queue applies ParseFinished`` () =
         let snaps = ResizeArray<NodeId * Graph option>()
         let host = hostFor state snaps
         try
-            CoreMailbox.addInMsg host (InMsg.ParseFinished id)
+            CoreMailboxApi.addInMsg host (InMsg.ParseFinished id)
             let! got =
-                CoreMailbox.getState host |> Async.StartAsTask
+                CoreMailboxApi.getState host |> Async.StartAsTask
             let got = requireState "state" got
             let node = got.graph.nodes.[id]
             Assert.Equal(ParseState.Parsed, node.parseState)
             Assert.Equal(PersistState.Unpersisted, node.persistState)
             Assert.Empty(snaps)
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }
 
 [<Fact>]
@@ -177,14 +177,14 @@ let ``mailbox queue applies SnapshotDone off CoreMsg`` () =
         let host = hostFor state snaps
         try
             let shot = Some initial.graph
-            CoreMailbox.addInMsg host (InMsg.SnapshotDone(id, shot))
+            CoreMailboxApi.addInMsg host (InMsg.SnapshotDone(id, shot))
             let! got =
-                CoreMailbox.getState host |> Async.StartAsTask
+                CoreMailboxApi.getState host |> Async.StartAsTask
             let got = requireState "state" got
             let node = got.graph.nodes.[id]
             Assert.Equal(PersistState.Persisted, node.persistState)
             Assert.Equal(ParseState.Parsed, node.parseState)
             Assert.Equal(1, snaps.Count)
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }

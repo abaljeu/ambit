@@ -78,9 +78,11 @@ module SearchActor =
                 async {
                     let result = ActorQuery (queryIds run.getGraph lineId)
                     let! _ =
-                        changes
-                            .asCaller(actorCaller run.secret)
-                            .actorStop result
+                        CoreDoor.actorStop
+                            (CoreDoor.forCaller
+                                (actorCaller run.secret)
+                                changes)
+                            result
                     return ()
                 }
           getGraph = getGraph

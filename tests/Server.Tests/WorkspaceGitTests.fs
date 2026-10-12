@@ -582,3 +582,24 @@ let ``saveTracked waits for the work tree gate then continues`` () =
     Task.WaitAll(holder, save)
     save.Result |> requireOk "queued save" |> ignore
     Assert.Equal("queued-save", git workspace "log -1 --pretty=%s")
+
+[<SkippableFact>]
+let ``remoteTip is absent until a remote exists then reports ahead`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let bare = newTempDir ()
+    git bare "init -b master" |> ignore
+    Assert.Equal(Ok None, WorkspaceGit.remoteTip bare)
+    let _, remote, _, workspace = trackedWorkspace ()
+    let synced = WorkspaceGit.remoteTip workspace |> requireOk "synced"
+    match synced with
+    | None -> failwith "expected a remote"
+    | Some tip ->
+        Assert.Contains("remote.git", tip.remote.Replace('\\', '/'))
+        Assert.Equal(0, tip.ahead)
+        Assert.Equal(0, tip.behind)
+        Assert.Contains(Path.GetFileName remote, tip.remote)
+    commitFile workspace "note.txt" "changed" "ahead-one"
+    let ahead = WorkspaceGit.remoteTip workspace |> requireOk "ahead"
+    match ahead with
+    | Some tip -> Assert.Equal(1, tip.ahead)
+    | None -> failwith "expected a remote after commit"

@@ -24,11 +24,11 @@ let ``getEventsSince returns Ev after postChange`` () = task {
     try
         let _, event = addRootChild "persist-event"
         let! accepted =
-            CoreMailbox.postEvents host testCaller [ event ]
+            CoreMailboxApi.postEvents host testCaller [ event ]
             |> Async.StartAsTask
         requireOk "postChange" accepted |> ignore
         let! events =
-            CoreMailbox.getEventsSince
+            CoreMailboxApi.getEventsSince
                 host
                 (EventId.zero)
             |> Async.StartAsTask
@@ -38,7 +38,7 @@ let ``getEventsSince returns Ev after postChange`` () = task {
         | EventBody.Change _ -> ()
         | _ -> Assert.Fail("expected Change EventBody")
     finally
-        CoreMailbox.dispose host
+        CoreMailboxApi.dispose host
 }
 
 [<Fact>]
@@ -48,22 +48,22 @@ let ``EventLog.restore seeds mailbox across File restart`` () = task {
     let first = CoreMailbox.createFile dir admittedCredentials
     try
         let! accepted =
-            CoreMailbox.postEvents first testCaller [ event ]
+            CoreMailboxApi.postEvents first testCaller [ event ]
             |> Async.StartAsTask
         requireOk "postChange" accepted |> ignore
     finally
-        CoreMailbox.dispose first
+        CoreMailboxApi.dispose first
     let second = CoreMailbox.createFile dir admittedCredentials
     try
         let! history =
-            CoreMailbox.eventHistory second
+            CoreMailboxApi.eventHistory second
             |> Async.StartAsTask
         let stored = Assert.Single(history.events)
         Assert.Equal(event.submissionId, stored.submissionId)
         Assert.True(EventId.isAccepted stored.id)
         Assert.NotEqual(stored.id, EventLog.nextId history)
     finally
-        CoreMailbox.dispose second
+        CoreMailboxApi.dispose second
 }
 
 [<Fact>]
@@ -74,22 +74,22 @@ let ``EventLog.restore seeds mailbox across Db restart`` () = task {
     let first = admittedHostDb (DbAgent.create connStr)
     try
         let! accepted =
-            CoreMailbox.postEvents first testCaller [ event ]
+            CoreMailboxApi.postEvents first testCaller [ event ]
             |> Async.StartAsTask
         requireOk "postChange" accepted |> ignore
     finally
-        CoreMailbox.dispose first
+        CoreMailboxApi.dispose first
     let second = admittedHostDb (DbAgent.create connStr)
     try
         let! history =
-            CoreMailbox.eventHistory second
+            CoreMailboxApi.eventHistory second
             |> Async.StartAsTask
         let stored = Assert.Single(history.events)
         Assert.Equal(event.submissionId, stored.submissionId)
         Assert.True(EventId.isAccepted stored.id)
         Assert.NotEqual(stored.id, EventLog.nextId history)
     finally
-        CoreMailbox.dispose second
+        CoreMailboxApi.dispose second
 }
 
 [<Fact>]
@@ -125,15 +125,15 @@ let ``ActorStart persists across File restart`` () = task {
               graphIds = [ Graph.rootId ]
               eventId = EventId.zero }
         let! started =
-            CoreMailbox.startActor first testCaller request
+            CoreMailboxApi.startActor first testCaller request
             |> Async.StartAsTask
         requireOk "startActor" started
     finally
-        CoreMailbox.dispose first
+        CoreMailboxApi.dispose first
     let second = CoreMailbox.createFile dir admittedCredentials
     try
         let! events =
-            CoreMailbox.getEventsSince second (EventId.zero)
+            CoreMailboxApi.getEventsSince second (EventId.zero)
             |> Async.StartAsTask
         Assert.True(
             events
@@ -143,7 +143,7 @@ let ``ActorStart persists across File restart`` () = task {
                 | _ -> false),
             "ActorStart missing after restore")
     finally
-        CoreMailbox.dispose second
+        CoreMailboxApi.dispose second
 }
 
 let private sampleActorStart: ActorStart =
@@ -175,7 +175,7 @@ let private withFilling filling pool body = task {
     try
         do! body host
     finally
-        CoreMailbox.dispose host
+        CoreMailboxApi.dispose host
 }
 
 [<Fact>]
@@ -190,14 +190,14 @@ let ``getEventsSince Error does not seed empty EventLog as success`` () =
     withFilling filling (CoreActorPool.create ()) (fun host -> task {
         try
             let! _ =
-                CoreMailbox.getEventsSince host (EventId.zero)
+                CoreMailboxApi.getEventsSince host (EventId.zero)
                 |> Async.StartAsTask
             Assert.Fail("expected persist getEventsSince Error")
         with ex ->
             Assert.Contains("events unavailable", ex.Message)
         let _, event = addRootChild "seed-fail"
         let! posted =
-            CoreMailbox.postEvents host testCaller [ event ]
+            CoreMailboxApi.postEvents host testCaller [ event ]
             |> Async.StartAsTask
         match posted with
         | Ok _ ->
@@ -217,14 +217,14 @@ let ``ActorStart persist Error does not keep Ev in mailbox log`` () =
     let pool = stubPool (Credential "persist-append-fail")
     withFilling filling pool (fun host -> task {
         let! started =
-            CoreMailbox.startActor host testCaller sampleActorStart
+            CoreMailboxApi.startActor host testCaller sampleActorStart
             |> Async.StartAsTask
         match started with
         | Ok _ -> Assert.Fail("expected appendEvent Error")
         | Error error ->
             Assert.Contains("event persist failed", error)
         let! history =
-            CoreMailbox.eventHistory host |> Async.StartAsTask
+            CoreMailboxApi.eventHistory host |> Async.StartAsTask
         Assert.Empty(history.events)
     })
 
@@ -244,7 +244,7 @@ let ``post Change uses Event id past Database row when payload does not decode``
     try
         let _, event = addRootChild "after-stale-row"
         let! posted =
-            CoreMailbox.postEvents host testCaller [ event ]
+            CoreMailboxApi.postEvents host testCaller [ event ]
             |> Async.StartAsTask
         match posted with
         | Error error -> Assert.Fail($"postChange: {error}")
@@ -253,5 +253,5 @@ let ``post Change uses Event id past Database row when payload does not decode``
             Assert.True(EventId.isAccepted stored.id)
             Assert.NotEqual(occupied, stored.id)
     finally
-        CoreMailbox.dispose host
+        CoreMailboxApi.dispose host
 }

@@ -15,18 +15,17 @@ let private requireOk label result =
         Assert.Fail($"{label}: {err}")
         Unchecked.defaultof<_>
 
-let private unusedHandle
-    (post: Ev list -> Async<Result<CoreChangesAccepted, string>>)
-    : CoreChanges =
-    { getState = fun () -> async.Return(Result.Error "unused")
-      getEventId = fun () -> async.Return(EventId.zero)
-      getEventsSince = fun _ -> async.Return []
-      isReady = fun () -> true
-      postEvents = post
-      postGraphOnly = fun _ -> async.Return(Result.Error "unused")
-      actorStop = fun _ -> async.Return(Result.Error "unused")
-      loadNode = fun _ -> async.Return(Result.Error "unused")
-      asCaller = fun _ -> Unchecked.defaultof<CoreChanges> }
+let private strangerDoor () =
+    let host = CoreMailbox.createFile (newTempDir ()) admittedCredentials
+    let caller =
+        { authority = Authority "Browser"
+          name = "stranger"
+          secret = Credential "stranger" }
+    host, CoreDoor.create true host caller
+
+let private readOnlyDoor () =
+    let host = CoreMailbox.createFile (newTempDir ()) admittedCredentials
+    host, CoreDoor.create false host testCaller
 
 let private addRootChild text = addRootChildEvent text |> snd
 
@@ -72,18 +71,20 @@ let ``live credential is enqueued`` () = task {
 let ``Adapter cookie fail and inactive sender are the same refuse family`` () =
     task {
         let cookieFail = Results.Unauthorized()
-        let handle =
-            unusedHandle (fun _ -> async.Return(Error CoreAuth.refuse))
+        let host, handle = strangerDoor ()
         let event = addRootChild "adapter"
         let body =
             Encode.toString 0 (
                 ApiResponseSerialization.encodeChangeRequest
                     { events = [ event ]; want = [] })
-        let! coreFail =
-            Api.postEvents handle 10 20 body
-            |> Async.StartAsTask
-        Assert.Equal(cookieFail.GetType(), coreFail.GetType())
-        Assert.Equal("UnauthorizedHttpResult", coreFail.GetType().Name)
+        try
+            let! coreFail =
+                Api.postEvents handle 10 20 body
+                |> Async.StartAsTask
+            Assert.Equal(cookieFail.GetType(), coreFail.GetType())
+            Assert.Equal("UnauthorizedHttpResult", coreFail.GetType().Name)
+        finally
+            CoreMailboxApi.dispose host
     }
 
 [<Fact>]
@@ -94,14 +95,17 @@ let ``TCP or Database failure is not that auth refuse`` () = task {
     Assert.False(CoreAuth.isAuthRefuse unavailable)
     Assert.False(CoreAuth.isAuthRefuse tcp)
     Assert.True(CoreAuth.isAuthRefuse CoreAuth.refuse)
-    let handle = unusedHandle (fun _ -> async.Return(Error unavailable))
+    let host, handle = readOnlyDoor ()
     let event = addRootChild "system"
     let body =
         Encode.toString 0 (
             ApiResponseSerialization.encodeChangeRequest
                 { events = [ event ]; want = [] })
-    let! result =
-        Api.postEvents handle 10 20 body
-        |> Async.StartAsTask
-    Assert.False(result.GetType().Name = "UnauthorizedHttpResult")
+    try
+        let! result =
+            Api.postEvents handle 10 20 body
+            |> Async.StartAsTask
+        Assert.False(result.GetType().Name = "UnauthorizedHttpResult")
+    finally
+        CoreMailboxApi.dispose host
 }

@@ -5,6 +5,7 @@ open System.Threading.Tasks
 open Xunit
 open Gambol.Server
 open Gambol.Shared
+open Gambol.Server.Tests.TestBackend
 
 let private requireOk label result =
     match result with
@@ -13,47 +14,9 @@ let private requireOk label result =
         Assert.Fail($"{label}: {err}")
         Unchecked.defaultof<_>
 
-let private waitUntil pred timeoutMs =
-    task {
-        let start = DateTime.UtcNow
-        while
-            not (pred ())
-            && (DateTime.UtcNow - start).TotalMilliseconds
-               < float timeoutMs do
-            do! Task.Delay 10
-        return pred ()
-    }
-
 let private carrierGraph (text: string) : Graph * NodeId =
     let graph, nodeId = Graph.newNode text (Graph.create ())
     Graph.withFocus (Some nodeId) graph, nodeId
-
-let private recordingChanges
-    (posted: ResizeArray<Ev>)
-    (stops: ResizeArray<ActorResult>)
-    : CoreChanges =
-    let accepted =
-        CoreChanges.accepted EventId.zero true [] false None
-    let rec make () : CoreChanges =
-        { getState = fun () -> async.Return (Error "unused")
-          getEventId = fun () -> async.Return EventId.zero
-          getEventsSince = fun _ -> async.Return []
-          isReady = fun () -> true
-          postEvents =
-            fun events ->
-                posted.AddRange events
-                async.Return (Ok accepted)
-          postGraphOnly =
-            fun event ->
-                posted.Add event
-                async.Return (Ok accepted)
-          actorStop =
-            fun result ->
-                stops.Add result
-                async.Return (Ok ())
-          loadNode = fun _ -> async.Return (Error "unused")
-          asCaller = fun _ -> make () }
-    make ()
 
 let private functionStart
     (getGraph: GraphCarrier)
@@ -65,9 +28,9 @@ let private functionStart
       focusId = focusId
       commandId = commandId }
 
-let private postedTexts (posted: ResizeArray<Ev>) =
-    posted
-    |> Seq.collect (fun event ->
+let private postedTexts (events: Ev list) =
+    events
+    |> List.collect (fun event ->
         match event.body with
         | EventBody.Change ops ->
             ops
@@ -75,7 +38,27 @@ let private postedTexts (posted: ResizeArray<Ev>) =
                 | Op.NewNode(_, text) -> Some text
                 | _ -> None)
         | _ -> [])
-    |> Seq.toList
+
+let private stopped (events: Ev list) =
+    events
+    |> List.exists (fun event ->
+        match event.body with
+        | EventBody.ActorStop(_, ActorSucceeded) -> true
+        | _ -> false)
+
+let private waitLog (host: MailboxHost) = task {
+    let mutable found = None
+    let start = DateTime.UtcNow
+    while
+        found.IsNone
+        && (DateTime.UtcNow - start).TotalMilliseconds < 2000.0 do
+        let! history = CoreMailboxApi.eventHistory host |> Async.StartAsTask
+        if stopped history.events then
+            found <- Some history
+        else
+            do! Task.Delay 10
+    return found
+}
 
 [<Fact>]
 let ``function start does not invoke Graph carrier`` () =
@@ -100,38 +83,45 @@ let ``TestActor function start posts hello from Graph carrier`` () =
         let getGraph () =
             calls := !calls + 1
             graph
-        let posted = ResizeArray<Ev>()
-        let stops = ResizeArray<ActorResult>()
         let pool = CoreActorPool.create ()
-        let secret =
-            pool.startFunction (functionStart getGraph nodeId nodeId)
-            |> requireOk "startFunction"
-        Assert.Equal(0, !calls)
-        pool.schedule secret (recordingChanges posted stops)
-        let! finished = waitUntil (fun () -> stops.Count > 0) 1000
-        Assert.True(finished, "function Actor did not stop")
-        Assert.True(!calls >= 1, "Actor did not call getGraph")
-        Assert.Contains("hello", postedTexts posted)
-        Assert.Equal(ActorSucceeded, stops.[0])
+        let host = acceptingHost pool
+        try
+            let secret =
+                pool.startFunction (functionStart getGraph nodeId nodeId)
+                |> requireOk "startFunction"
+            Assert.Equal(0, !calls)
+            pool.schedule secret (CoreDoor.create true host testCaller)
+            let! log = waitLog host
+            match log with
+            | None -> Assert.Fail("function Actor did not stop")
+            | Some history ->
+                Assert.True(!calls >= 1, "Actor did not call getGraph")
+                Assert.Contains("hello", postedTexts history.events)
+        finally
+            CoreMailboxApi.dispose host
     }
 
 [<Fact>]
 let ``TestActor function start routes ping to pong`` () =
     task {
         let graph, nodeId = carrierGraph "ping"
-        let posted = ResizeArray<Ev>()
-        let stops = ResizeArray<ActorResult>()
         let pool = CoreActorPool.create ()
-        let secret =
-            pool.startFunction
-                (functionStart (fun () -> graph) nodeId nodeId)
-            |> requireOk "startFunction"
-        pool.schedule secret (recordingChanges posted stops)
-        let! finished = waitUntil (fun () -> stops.Count > 0) 1000
-        Assert.True(finished, "function Actor did not stop")
-        Assert.Contains("pong", postedTexts posted)
-        Assert.DoesNotContain("hello", postedTexts posted)
-        Assert.Equal(ActorSucceeded, stops.[0])
+        let host = acceptingHost pool
+        try
+            let secret =
+                pool.startFunction
+                    (functionStart (fun () -> graph) nodeId nodeId)
+                |> requireOk "startFunction"
+            pool.schedule secret (CoreDoor.create true host testCaller)
+            let! log = waitLog host
+            match log with
+            | None -> Assert.Fail("function Actor did not stop")
+            | Some history ->
+                let texts = postedTexts history.events
+                Assert.Contains("pong", texts)
+                Assert.DoesNotContain("hello", texts)
+        finally
+            CoreMailboxApi.dispose host
     }
 
 [<Fact>]
@@ -144,16 +134,19 @@ let ``ID-bag startActor still starts TestActor hello`` () =
               commandId = helloId
               graphIds = [ helloGraph.root; helloId ]
               eventId = EventId.zero }
-        let posted = ResizeArray<Ev>()
-        let stops = ResizeArray<ActorResult>()
         let pool = CoreActorPool.create ()
-        pool.register (ActorName "test") TestActor.actorFn
-        let secret =
-            pool.startActor request (fun () -> helloGraph)
-            |> requireOk "startActor"
-        pool.schedule secret (recordingChanges posted stops)
-        let! finished = waitUntil (fun () -> stops.Count > 0) 1000
-        Assert.True(finished, "ID-bag Actor did not stop")
-        Assert.Contains("hello", postedTexts posted)
-        Assert.Equal(ActorSucceeded, stops.[0])
+        let host = acceptingHost pool
+        try
+            pool.register (ActorName "test") TestActor.actorFn
+            let secret =
+                pool.startActor request (fun () -> helloGraph)
+                |> requireOk "startActor"
+            pool.schedule secret (CoreDoor.create true host testCaller)
+            let! log = waitLog host
+            match log with
+            | None -> Assert.Fail("ID-bag Actor did not stop")
+            | Some history ->
+                Assert.Contains("hello", postedTexts history.events)
+        finally
+            CoreMailboxApi.dispose host
     }

@@ -10,9 +10,9 @@ We keep owned mutable state instead of threading a value. The earlier idea was a
 
 Mutation is confined behind the Core seam. [[.agents/rules/project-values.md]] and [[.agents/rules/fsharp-source.md]] ask for pure functional F# with no mutable. Core satisfies this at the seam, not inside: the state reference lives in one owner's mailbox loop, the arrangement [[src/Server/Core/CoreMailboxBackend.fs]] already uses. This is the intended exception, not a regression to report.
 
-In F# the container is a record of closures over private state. The handle in [[src/Server/Core/CoreChanges.fs]] already has this form, so no new mechanism is necessary.
+In F# the Core door is data, not a record of closures. [[src/Server/Core/CoreChangesDoor.fs]] holds `{ host; caller; writable }`. [[src/Server/Core/CoreDoor.fs]] applies the writable policy and calls the mailbox reply API. The mailbox owns the mutable state behind that seam.
 
-Core must not re-declare a subobject's operation at Core level. A forwarder such as `core.postChange` that calls `core.changeAgent.postChange` adds a needless hop and is the Middle Man smell. Keep the nesting visible at the call site.
+Core must not re-declare a subobject's operation at Core level. A forwarder such as `core.postChange` that calls `core.changeAgent.postChange` adds a needless hop and is the Middle Man smell. Keep the nesting visible at the call site. `CoreDoor` is the writable check in front of the mailbox, not a second implementation of those operations.
 
 The change agent owns the Change sequence, and Core owns the change agent. [[src/Server/Core/FileAgent.fs]] reads disk information into the graph and writes graph information to files. [[src/Server/Core/DbAgent.fs]] keeps graph and event info in the database. What is common is factored so only the distinctives remain.
 

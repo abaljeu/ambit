@@ -169,11 +169,11 @@ let ``file persist rejects ignored graph state before acceptance`` () =
     let agent, _ = createAdmittedFile dataDir
     let body = encodeChange (Graph.create ()) Graph.rootId "blocked.txt"
     let result =
-        (admittedChanges agent).postEvents (body)
+        CoreDoor.postEvents (admittedChanges agent) (body)
         |> Async.RunSynchronously
     Assert.True(Result.isError result)
-    Assert.Equal(EventId.zero, CoreMailbox.getEventId agent |> Async.RunSynchronously)
-    CoreMailbox.dispose agent
+    Assert.Equal(EventId.zero, CoreMailboxApi.getEventId agent |> Async.RunSynchronously)
+    CoreMailboxApi.dispose agent
 
 [<SkippableFact>]
 let ``db persist rejects ignored graph state before acceptance`` () = task {
@@ -189,9 +189,9 @@ let ``db persist rejects ignored graph state before acceptance`` () = task {
             admittedCredentials
     let body = encodeChange (Graph.create ()) Graph.rootId "blocked.txt"
     let! result =
-        (admittedChanges agent).postEvents (body)
+        CoreDoor.postEvents (admittedChanges agent) (body)
         |> Async.StartAsTask
     Assert.True(Result.isError result)
-    let! revision = CoreMailbox.getEventId agent |> Async.StartAsTask
+    let! revision = CoreMailboxApi.getEventId agent |> Async.StartAsTask
     Assert.Equal(EventId.zero, revision)
 }

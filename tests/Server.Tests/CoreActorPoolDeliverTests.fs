@@ -34,11 +34,11 @@ let private withPool body =
         try
             do! body host pool
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }
 
 let private startAt host focusId commandId graphIds =
-    CoreMailbox.startActor
+    CoreMailboxApi.startActor
         host
         testCaller
         { zoomId = Graph.rootId
@@ -60,7 +60,7 @@ let ``mint deliver enqueue drop then deliver fails`` () =
             admittedCredentials
     try
         let started =
-            CoreMailbox.startActor
+            CoreMailboxApi.startActor
                 host
                 testCaller
                 { zoomId = Graph.rootId
@@ -86,7 +86,7 @@ let ``mint deliver enqueue drop then deliver fails`` () =
         | Error "not live" -> ()
         | other -> Assert.Fail($"drop deliver: {other}")
     finally
-        CoreMailbox.dispose host
+        CoreMailboxApi.dispose host
 
 [<Fact>]
 let ``empty deliver keeps session live for a later chunk`` () =
@@ -101,7 +101,7 @@ let ``empty deliver keeps session live for a later chunk`` () =
             admittedCredentials
     try
         let started =
-            CoreMailbox.startActor
+            CoreMailboxApi.startActor
                 host
                 testCaller
                 { zoomId = Graph.rootId
@@ -128,7 +128,7 @@ let ``empty deliver keeps session live for a later chunk`` () =
         | Error "not live" -> ()
         | other -> Assert.Fail($"drop deliver: {other}")
     finally
-        CoreMailbox.dispose host
+        CoreMailboxApi.dispose host
 
 [<Fact>]
 let ``second start on the same commandId is rejected`` () =
@@ -147,7 +147,7 @@ let ``second start on the same commandId is rejected`` () =
                           [],
                           [ ChildNode.owner childId ]) ] }
         let! posted =
-            CoreMailbox.postGraphOnly host testCaller event
+            CoreMailboxApi.postGraphOnly host testCaller event
             |> Async.StartAsTask
         requireOk "child" posted |> ignore
         let! first =

@@ -41,7 +41,7 @@ module GithubTransportActor =
             PeerActorName "github-save"
 
     let start host caller operation request =
-        CoreMailbox.startPeerActor
+        CoreMailboxApi.startPeerActor
             host caller (peerName operation) request
 
     let private actorCaller (input: ActorInput) : Caller =
@@ -90,7 +90,7 @@ module GithubTransportActor =
             match pullTracked dependencies.git workspaceRoot with
             | Error err -> return Error err
             | Ok _ ->
-                match! changes.loadNode workspaceId with
+                match! CoreDoor.loadNode changes workspaceId with
                 | Error err -> return Error err
                 | Ok () -> return Ok ()
         }
@@ -119,8 +119,8 @@ module GithubTransportActor =
     let private runBody dataDir operation dependencies input coreChanges =
         async {
             let actorChanges =
-                coreChanges.asCaller(actorCaller input)
-            let! state = actorChanges.getState ()
+                CoreDoor.forCaller (actorCaller input) coreChanges
+            let! state = CoreDoor.getState actorChanges
             match state with
             | Error err -> return ActorFailed err
             | Ok current ->
@@ -155,8 +155,8 @@ module GithubTransportActor =
                     runBody
                         dataDir operation dependencies input coreChanges
                 let actorChanges =
-                    coreChanges.asCaller(actorCaller input)
-                let! _ = actorChanges.actorStop result
+                    CoreDoor.forCaller (actorCaller input) coreChanges
+                let! _ = CoreDoor.actorStop actorChanges result
                 return ()
             }
 

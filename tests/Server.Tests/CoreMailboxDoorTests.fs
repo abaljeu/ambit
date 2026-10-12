@@ -8,7 +8,7 @@ open Gambol.Server
 open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
 
-/// CoreMailbox door — public API tests using CoreMailbox.startActor / actorStop.
+/// CoreMailbox door — public API tests using CoreMailboxApi.startActor / actorStop.
 
 let private requireOk label result =
     match result with
@@ -19,7 +19,7 @@ let private requireOk label result =
 
 let private eventPast host =
     async {
-        let! history = CoreMailbox.eventHistory host
+        let! history = CoreMailboxApi.eventHistory host
         return history.events
     }
 
@@ -53,24 +53,24 @@ let private withHost body =
         try
             do! body host pool
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }
 
 [<Fact>]
-let ``CoreMailbox.startActor calls pool.startActor and returns bookkeeping result`` () =
+let ``CoreMailboxApi.startActor calls pool.startActor and returns bookkeeping result`` () =
     withHost (fun host pool -> task {
         let! result =
-            CoreMailbox.startActor host testCaller sampleRequest
+            CoreMailboxApi.startActor host testCaller sampleRequest
             |> Async.StartAsTask
         requireOk "startActor" result
         Assert.True(Set.contains sampleRequest.focusId (pool.liveFocusIds ()))
     })
 
 [<Fact>]
-let ``CoreMailbox.startActor with inactive secret is refused`` () =
+let ``CoreMailboxApi.startActor with inactive secret is refused`` () =
     withHost (fun host _ -> task {
         let! result =
-            CoreMailbox.startActor
+            CoreMailboxApi.startActor
                 host
                 { authority = testAuthority
                   name = testCaller.name
@@ -81,7 +81,7 @@ let ``CoreMailbox.startActor with inactive secret is refused`` () =
     })
 
 [<Fact>]
-let ``CoreMailbox.login privately admits a Browser secret`` () =
+let ``CoreMailboxApi.login privately admits a Browser secret`` () =
     task {
         let dataDir = newTempDir ()
         let host =
@@ -108,31 +108,31 @@ let ``CoreMailbox.login privately admits a Browser secret`` () =
                                                 [],
                                                 [ ChildNode.owner childId ]) ] }
             let! refused =
-                CoreMailbox.postEvents host caller [ event ]
+                CoreMailboxApi.postEvents host caller [ event ]
                 |> Async.StartAsTask
             Assert.Equal(Error CoreAuth.refuse, refused)
             let! before =
-                CoreMailbox.isAdmitted host caller
+                CoreMailboxApi.isAdmitted host caller
                 |> Async.StartAsTask
             Assert.False(before)
             let! loggedIn =
-                CoreMailbox.login host name secret
+                CoreMailboxApi.login host name secret
                 |> Async.StartAsTask
             requireOk "login" loggedIn
             let! after =
-                CoreMailbox.isAdmitted host caller
+                CoreMailboxApi.isAdmitted host caller
                 |> Async.StartAsTask
             Assert.True(after)
             let! posted =
-                CoreMailbox.postEvents host caller [ event ]
+                CoreMailboxApi.postEvents host caller [ event ]
                 |> Async.StartAsTask
             requireOk "post after login" posted |> ignore
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }
 
 [<Fact>]
-let ``CoreMailbox.login name distinguishes Callers that share a secret`` () =
+let ``CoreMailboxApi.login name distinguishes Callers that share a secret`` () =
     task {
         let dataDir = newTempDir ()
         let host =
@@ -149,23 +149,23 @@ let ``CoreMailbox.login name distinguishes Callers that share a secret`` () =
             let otherName =
                 { loggedIn with name = "browser-b" }
             let! logged =
-                CoreMailbox.login host loggedIn.name secret
+                CoreMailboxApi.login host loggedIn.name secret
                 |> Async.StartAsTask
             requireOk "login" logged
             let! admitted =
-                CoreMailbox.isAdmitted host loggedIn
+                CoreMailboxApi.isAdmitted host loggedIn
                 |> Async.StartAsTask
             let! refusedName =
-                CoreMailbox.isAdmitted host otherName
+                CoreMailboxApi.isAdmitted host otherName
                 |> Async.StartAsTask
             Assert.True(admitted)
             Assert.False(refusedName)
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }
 
 [<Fact>]
-let ``CoreMailbox.actorStop with valid credential drops live row`` () =
+let ``CoreMailboxApi.actorStop with valid credential drops live row`` () =
     let actorSecret = Credential "actor-live"
     let stopped = ResizeArray<Credential * ActorResult>()
     let live = ResizeArray<Credential>()
@@ -202,7 +202,7 @@ let ``CoreMailbox.actorStop with valid credential drops live row`` () =
                 admittedCredentials
         try
             let! result =
-                CoreMailbox.actorStop
+                CoreMailboxApi.actorStop
                     host
                     (actorCaller actorSecret)
                     ActorSucceeded
@@ -212,28 +212,28 @@ let ``CoreMailbox.actorStop with valid credential drops live row`` () =
             Assert.Equal(actorSecret, fst stopped.[0])
             Assert.False(live.Contains actorSecret)
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }
 
 [<Fact>]
 let ``CoreMailbox door exposes Graph lockPresent via getState`` () =
     withHost (fun host _ -> task {
         let! result =
-            CoreMailbox.startActor host testCaller sampleRequest
+            CoreMailboxApi.startActor host testCaller sampleRequest
             |> Async.StartAsTask
         requireOk "startActor" result
         let! state =
-            CoreMailbox.getState host
+            CoreMailboxApi.getState host
             |> Async.StartAsTask
         let state = requireOk "getState" state
         Assert.True(state.graph.nodes.[sampleRequest.focusId].lockPresent)
     })
 
 [<Fact>]
-let ``CoreMailbox.startActor appends ActorStart to lifecycle events`` () =
+let ``CoreMailboxApi.startActor appends ActorStart to lifecycle events`` () =
     withHost (fun host _ -> task {
         let! result =
-            CoreMailbox.startActor host testCaller sampleRequest
+            CoreMailboxApi.startActor host testCaller sampleRequest
             |> Async.StartAsTask
         requireOk "startActor" result
         let! events =
@@ -251,7 +251,7 @@ let ``CoreMailbox.startActor appends ActorStart to lifecycle events`` () =
     })
 
 [<Fact>]
-let ``CoreMailbox.actorStop appends ActorStop and drops live row`` () =
+let ``CoreMailboxApi.actorStop appends ActorStop and drops live row`` () =
     let actorSecret = Credential "actor-live"
     let live = ResizeArray<Credential>()
     live.Add actorSecret
@@ -286,7 +286,7 @@ let ``CoreMailbox.actorStop appends ActorStop and drops live row`` () =
                 admittedCredentials
         try
             let! stopResult =
-                CoreMailbox.actorStop
+                CoreMailboxApi.actorStop
                     host
                     (actorCaller actorSecret)
                     ActorSucceeded
@@ -306,7 +306,7 @@ let ``CoreMailbox.actorStop appends ActorStop and drops live row`` () =
                     | _ -> None)
             Assert.Equal(1, actorFinishedEvents.Length)
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }
 
 [<Fact>]
@@ -322,7 +322,7 @@ let ``CoreActorPool.startActor uses client graphIds to build subgraph`` () =
                                         Op.Replace(Graph.rootId, [],
                                             [ ChildNode.owner childId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnly host testCaller event
+            CoreMailboxApi.postGraphOnly host testCaller event
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
@@ -334,11 +334,11 @@ let ``CoreActorPool.startActor uses client graphIds to build subgraph`` () =
               eventId = EventId.zero }
         
         let! result =
-            CoreMailbox.startActor host testCaller request
+            CoreMailboxApi.startActor host testCaller request
             |> Async.StartAsTask
         requireOk "startActor" result
         let! history =
-            CoreMailbox.eventHistory host
+            CoreMailboxApi.eventHistory host
             |> Async.StartAsTask
         Assert.Contains(
             history.events,
@@ -362,7 +362,7 @@ let ``CoreActorPool.startActor selects actor from command node text`` () =
                                         Op.Replace(Graph.rootId, [],
                                             [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnly host testCaller event
+            CoreMailboxApi.postGraphOnly host testCaller event
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
@@ -374,11 +374,11 @@ let ``CoreActorPool.startActor selects actor from command node text`` () =
               eventId = EventId.zero }
         
         let! result =
-            CoreMailbox.startActor host testCaller request
+            CoreMailboxApi.startActor host testCaller request
             |> Async.StartAsTask
         requireOk "startActor" result
         let! history =
-            CoreMailbox.eventHistory host
+            CoreMailboxApi.eventHistory host
             |> Async.StartAsTask
         Assert.Contains(
             history.events,
@@ -400,7 +400,7 @@ let ``CoreActorPool.startActor fails when graphIds is empty`` () =
               eventId = EventId.zero }
         
         let! result =
-            CoreMailbox.startActor host testCaller request
+            CoreMailboxApi.startActor host testCaller request
             |> Async.StartAsTask
         
         match result with
@@ -421,7 +421,7 @@ let ``CoreActorPool.startActor fails when commandId not in graphIds`` () =
                                         Op.Replace(Graph.rootId, [],
                                             [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnly host testCaller event
+            CoreMailboxApi.postGraphOnly host testCaller event
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
@@ -433,7 +433,7 @@ let ``CoreActorPool.startActor fails when commandId not in graphIds`` () =
               eventId = EventId.zero }
         
         let! result =
-            CoreMailbox.startActor host testCaller request
+            CoreMailboxApi.startActor host testCaller request
             |> Async.StartAsTask
         
         match result with
@@ -445,7 +445,7 @@ let ``CoreActorPool.startActor fails when commandId not in graphIds`` () =
 let ``mailbox records ActorStarted before actor body runs`` () =
     withHost (fun host _ -> task {
         let! result =
-            CoreMailbox.startActor host testCaller sampleRequest
+            CoreMailboxApi.startActor host testCaller sampleRequest
             |> Async.StartAsTask
         requireOk "startActor" result
         
@@ -469,7 +469,7 @@ let ``mailbox records ActorStarted before actor body runs`` () =
 let ``CoreActorPool.startActor creates live row synchronously`` () =
     withHost (fun host pool -> task {
         let! result =
-            CoreMailbox.startActor host testCaller sampleRequest
+            CoreMailboxApi.startActor host testCaller sampleRequest
             |> Async.StartAsTask
         requireOk "startActor" result
         
@@ -486,7 +486,7 @@ let ``Graph-only post without admitted Caller is refused`` () =
                       commandName = ""
                       body = EventBody.Change [ Op.NewNode(NodeId.New(), "nope") ] }
         let! result =
-            CoreMailbox.postGraphOnly
+            CoreMailboxApi.postGraphOnly
                 host
                 { testCaller with secret = Credential "inactive" }
                 event
@@ -507,26 +507,26 @@ let ``Graph-only post with admitted Caller reaches persist`` () =
                                         Op.Replace(Graph.rootId, [],
                                             [ ChildNode.owner childId ]) ] }
         let! result =
-            CoreMailbox.postGraphOnly host testCaller event
+            CoreMailboxApi.postGraphOnly host testCaller event
             |> Async.StartAsTask
         let accepted = requireOk "graph-only admitted" result
         Assert.True(EventId.isAccepted accepted.eventId)
     })
 
 [<Fact>]
-let ``CoreMailbox.logout revokes the Caller at the mailbox`` () =
+let ``CoreMailboxApi.logout revokes the Caller at the mailbox`` () =
     withHost (fun host _ -> task {
         let! before =
-            CoreMailbox.isAdmitted host testCaller |> Async.StartAsTask
+            CoreMailboxApi.isAdmitted host testCaller |> Async.StartAsTask
         Assert.True(before)
         let! loggedOut =
-            CoreMailbox.logout host testCaller |> Async.StartAsTask
+            CoreMailboxApi.logout host testCaller |> Async.StartAsTask
         requireOk "logout" loggedOut
         let! after =
-            CoreMailbox.isAdmitted host testCaller |> Async.StartAsTask
+            CoreMailboxApi.isAdmitted host testCaller |> Async.StartAsTask
         Assert.False(after)
         let! refused =
-            CoreMailbox.postEvents
+            CoreMailboxApi.postEvents
                 host
                 testCaller
                 [ { id = EventId.zero
@@ -570,15 +570,15 @@ let private postedEvent () : Ev =
                   [ ChildNode.owner childId ]) ] }
 
 [<Fact>]
-let ``CoreMailbox.postEvent appends an Ev that eventsSince returns`` () =
+let ``CoreMailboxApi.postEvent appends an Ev that eventsSince returns`` () =
     withHost (fun host _ -> task {
         let event = postedEvent ()
         let! posted =
-            CoreMailbox.postEvent host testCaller event
+            CoreMailboxApi.postEvent host testCaller event
             |> Async.StartAsTask
         let stored = requireOk "postEvent" posted
         let! tail =
-            CoreMailbox.eventsSince
+            CoreMailboxApi.eventsSince
                 host
                 EventId.zero
             |> Async.StartAsTask
@@ -586,16 +586,16 @@ let ``CoreMailbox.postEvent appends an Ev that eventsSince returns`` () =
         Assert.Contains(stored, tail.events)
         Assert.Equal(event.submissionId, stored.submissionId)
         let! afterStored =
-            CoreMailbox.eventsSince host stored.id
+            CoreMailboxApi.eventsSince host stored.id
             |> Async.StartAsTask
         Assert.Empty(afterStored.events)
     })
 
 [<Fact>]
-let ``CoreMailbox.postEvent without admitted Caller is refused`` () =
+let ``CoreMailboxApi.postEvent without admitted Caller is refused`` () =
     withHost (fun host _ -> task {
         let! result =
-            CoreMailbox.postEvent
+            CoreMailboxApi.postEvent
                 host
                 { testCaller with secret = Credential "inactive" }
                 (postedEvent ())
@@ -624,7 +624,7 @@ let ``ActorStart persist Error leaves Focus out of liveFocusIds`` () =
     task {
         try
             let! started =
-                CoreMailbox.startActor host testCaller sampleRequest
+                CoreMailboxApi.startActor host testCaller sampleRequest
                 |> Async.StartAsTask
             match started with
             | Ok _ -> Assert.Fail("expected ActorStart persist Error")
@@ -633,5 +633,5 @@ let ``ActorStart persist Error leaves Focus out of liveFocusIds`` () =
             Assert.False(
                 Set.contains sampleRequest.focusId (pool.liveFocusIds ()))
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }

@@ -66,4 +66,4 @@ let applyCommandEvents (events: Ev list) (model: VM) : VM * Effect list =
             |> withApplyDetail state
             |> withSiteMap
             |> adjustModeAfterServerApply model.graph
-        next, []
+        next, [ RequestWorkspaceRemotes ]

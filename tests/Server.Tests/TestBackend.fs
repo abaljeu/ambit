@@ -154,17 +154,92 @@ let admittedHostDb (db: DbAgent) =
 
 let createAdmittedFile (dataDir: string) =
     let host = CoreMailbox.createFile dataDir admittedCredentials
-    let handle = CoreMailbox.coreChanges host testCaller
+    let handle = CoreDoor.create true host testCaller
     host, handle
 
 /// Same as createAdmittedFile. Third value is the admitted Browser secret.
 let createAdmittedFileWithCredentials (dataDir: string) =
     let host = CoreMailbox.createFile dataDir admittedCredentials
-    let handle = CoreMailbox.coreChanges host testCaller
+    let handle = CoreDoor.create true host testCaller
     host, handle, testSecret
 
 let admittedChanges (host: MailboxHost) =
-    CoreMailbox.coreChanges host testCaller
+    CoreDoor.create true host testCaller
+
+let private cannedHandlers
+    (readState: unit -> Result<State, string>)
+    (eventsSince: EventId -> Ev list)
+    (apply: Ev -> bool -> Result<CoreChangesAccepted, string>)
+    : PersistHandlers =
+    { getState = readState
+      getEventId = fun () ->
+          readState () |> Result.map (fun state -> state.eventId)
+      getEventsSince = fun after -> Ok(eventsSince after)
+      getEventLog = fun () -> Ok EventLog.empty
+      appendEvent = fun _ -> Ok ()
+      applyEvent = apply
+      replaceGraph = ignore
+      snapshotDone = fun _ _ -> ()
+      noteParsed = ignore }
+
+let private cannedFilling readState eventsSince apply : PersistFilling =
+    { handlers = cannedHandlers readState eventsSince apply
+      onError = fun _ _ _ -> ()
+      formatError = id
+      isReady = fun () -> true
+      flushSnapshot = fun () -> async.Return(Ok ())
+      dispose = ignore
+      until = None
+      bindSnapshot = ignore }
+
+/// Mailbox whose reads and apply are supplied by the test.
+let hostCanned
+    (pool: CoreActorPool)
+    (readState: unit -> Result<State, string>)
+    (eventsSince: EventId -> Ev list)
+    (apply: Ev -> bool -> Result<CoreChangesAccepted, string>)
+    : MailboxHost =
+    CoreMailbox.host
+        pool
+        (cannedFilling readState eventsSince apply)
+        admittedCredentials
+
+/// Door whose getState and getEventsSince come from the mailbox persist.
+let doorForReads
+    (readState: unit -> Result<State, string>)
+    (eventsSince: EventId -> Ev list)
+    : CoreChangesDoor =
+    let pool = CoreActorPool.create ()
+    let host =
+        hostCanned
+            pool
+            readState
+            eventsSince
+            (fun _ _ -> Error "unused")
+    CoreDoor.create true host testCaller
+
+/// Persist throw becomes the mailbox error reply, with the message in the text.
+let doorForThrownRead (message: string) : CoreChangesDoor =
+    let readState () = failwith message
+    let pool = CoreActorPool.create ()
+    let filling =
+        { cannedFilling readState (fun _ -> []) (fun _ _ -> Error "unused") with
+            formatError = fun operation ->
+                $"Internal server error in {operation}: {message}" }
+    let host = CoreMailbox.host pool filling admittedCredentials
+    CoreDoor.create true host testCaller
+
+/// Mailbox that accepts Change and ActorStop without a File graph.
+let acceptingHost (pool: CoreActorPool) : MailboxHost =
+    let state =
+        { graph = Graph.create ()
+          eventId = EventId.zero }
+    hostCanned
+        pool
+        (fun () -> Ok state)
+        (fun _ -> [])
+        (fun event _ ->
+            Ok(CoreChanges.accepted event.id true [ event ] false None))
 
 let private suppressDailyGitSave (dataDir: string) =
     DailyGitSave.writeStamp

@@ -962,7 +962,7 @@ let ``POST changes creates log file`` () = task {
     let host, handle = createAdmittedFile tempDir
     try
         let change, _ = changeAddChild Graph.rootId 0 "logged"
-        let! result = handle.postEvents [ change ] |> Async.StartAsTask
+        let! result = CoreDoor.postEvents handle [ change ] |> Async.StartAsTask
         match result with
         | Error err -> Assert.Fail(err)
         | Ok _ -> ()
@@ -973,7 +973,7 @@ let ``POST changes creates log file`` () = task {
         let content = readFileShared logPath
         Assert.Contains("logged", content)
     finally
-        CoreMailbox.dispose host
+        CoreMailboxApi.dispose host
 }
 
 [<Fact>]
@@ -982,7 +982,7 @@ let ``Snapshot writes amb artifacts asynchronously after change`` () = task {
     let host, handle = createAdmittedFile tempDir
     try
         let change, _ = changeAddChild Graph.rootId 0 "snapped"
-        let! result = handle.postEvents [ change ] |> Async.StartAsTask
+        let! result = CoreDoor.postEvents handle [ change ] |> Async.StartAsTask
         match result with
         | Error err -> Assert.Fail(err)
         | Ok _ -> ()
@@ -996,7 +996,7 @@ let ``Snapshot writes amb artifacts asynchronously after change`` () = task {
         let rev = Int32.Parse(File.ReadAllText(metaPath).Trim())
         Assert.Equal(1, rev)
     finally
-        CoreMailbox.dispose host
+        CoreMailboxApi.dispose host
 }
 
 [<Fact>]
@@ -1005,7 +1005,7 @@ let ``Log contains valid change data after POST`` () = task {
     let host, handle = createAdmittedFile tempDir
     try
         let change, _ = changeAddChild Graph.rootId 0 "logged-entry"
-        let! result = handle.postEvents [ change ] |> Async.StartAsTask
+        let! result = CoreDoor.postEvents handle [ change ] |> Async.StartAsTask
         match result with
         | Error err -> Assert.Fail(err)
         | Ok _ -> ()
@@ -1017,7 +1017,7 @@ let ``Log contains valid change data after POST`` () = task {
             content.StartsWith("00000001"),
             "Log entry should have 8-digit padded id prefix")
     finally
-        CoreMailbox.dispose host
+        CoreMailboxApi.dispose host
 }
 
 // ---- DB restart tests (DB backend only) ----
@@ -1215,7 +1215,7 @@ let ``New server uses snapshot + log replay`` () = task {
     let change, firstId = changeAddChild Graph.rootId 0 "first"
     let host1, handle1 = createAdmittedFile tempDir
     try
-        let! first = handle1.postEvents [ change ] |> Async.StartAsTask
+        let! first = CoreDoor.postEvents handle1 [ change ] |> Async.StartAsTask
         match first with
         | Error err -> Assert.Fail(err)
         | Ok _ -> ()
@@ -1227,15 +1227,15 @@ let ``New server uses snapshot + log replay`` () = task {
                 EventId.zero
                 (Guid.NewGuid())
                 ops
-        let! second = handle1.postEvents [ update ] |> Async.StartAsTask
+        let! second = CoreDoor.postEvents handle1 [ update ] |> Async.StartAsTask
         match second with
         | Error err -> Assert.Fail(err)
         | Ok _ -> ()
     finally
-        CoreMailbox.dispose host1
+        CoreMailboxApi.dispose host1
     let host2, handle2 = createAdmittedFile tempDir
     try
-        let! stateResult = handle2.getState () |> Async.StartAsTask
+        let! stateResult = CoreDoor.getState handle2 |> Async.StartAsTask
         match stateResult with
         | Error err -> Assert.Fail(err)
         | Ok state ->
@@ -1247,7 +1247,7 @@ let ``New server uses snapshot + log replay`` () = task {
             Assert.Equal("updated", child.text)
             Assert.Equal(EventId.fromJson 2, state.eventId)
     finally
-        CoreMailbox.dispose host2
+        CoreMailboxApi.dispose host2
 }
 
 let private postChangeOk (client: HttpClient) (change: Ev) = task {

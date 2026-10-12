@@ -58,7 +58,3 @@ module CoreAuth =
             | Error err -> return Error(CoreAdmissionError.text err)
             | Ok () -> return! enqueue events
         }
-
-    /// Stamp Caller onto posts; mailbox CoreMsg validates before persist.
-    let bindHandle (caller: Caller) (handle: CoreChanges) : CoreChanges =
-        handle.asCaller caller

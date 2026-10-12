@@ -132,13 +132,15 @@ let ``server reconciler applies planner ops through active agent`` () =
           body =
             EventBody.Change(
                 ops @ [ Op.SetDocumentState(workspaceId, Unparsed, Current) ]) }
-    handle.postEvents [ event ]
+    CoreDoor.postEvents handle [ event ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
     Assert.True(File.Exists(Path.Combine(tempDir, "home", ".amb")))
     Assert.Equal("1", File.ReadAllText(Bookkeeping.metaPath tempDir))
-    CoreMailbox.flushSnapshot fileAgent |> Async.RunSynchronously |> requireOk "workspace persist"
+    CoreMailboxApi.flushSnapshot fileAgent
+    |> Async.RunSynchronously
+    |> requireOk "workspace persist"
     let sourcePath = Path.Combine(tempDir, "home", "src", "main.fs")
     Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)) |> ignore
     File.WriteAllText(sourcePath, "module Main")
@@ -150,9 +152,11 @@ let ``server reconciler applies planner ops through active agent`` () =
     |> Async.RunSynchronously
     |> requireOk "reconcile"
     |> ignore
-    CoreMailbox.flushSnapshot fileAgent |> Async.RunSynchronously |> requireOk "reconcile persist"
+    CoreMailboxApi.flushSnapshot fileAgent
+    |> Async.RunSynchronously
+    |> requireOk "reconcile persist"
     let state =
-        CoreMailbox.getState fileAgent
+        CoreMailboxApi.getState fileAgent
         |> Async.RunSynchronously
         |> requireOk "state"
     let graph = state.graph
@@ -162,7 +166,7 @@ let ``server reconciler applies planner ops through active agent`` () =
     Assert.Equal(Special SpecialKind.File, graph.nodes.[fileId].kind)
     Assert.Empty(Graph.children graph fileId)
     Assert.Equal("module Main", File.ReadAllText(sourcePath))
-    CoreMailbox.dispose fileAgent
+    CoreMailboxApi.dispose fileAgent
 
 [<Fact>]
 let ``server reconciler adds disk files outside the changed path list`` () =
@@ -175,7 +179,7 @@ let ``server reconciler adds disk files outside the changed path list`` () =
           authority = Authority "Browser"
           commandName = ""
           body = EventBody.Change ops }
-    handle.postEvents [ event ]
+    CoreDoor.postEvents handle [ event ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
@@ -193,7 +197,7 @@ let ``server reconciler adds disk files outside the changed path list`` () =
     |> requireOk "reconcile"
     |> ignore
     let state =
-        CoreMailbox.getState fileAgent
+        CoreMailboxApi.getState fileAgent
         |> Async.RunSynchronously
         |> requireOk "state"
     let graph = state.graph
@@ -202,7 +206,7 @@ let ``server reconciler adds disk files outside the changed path list`` () =
         |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
         |> List.sort
     Assert.Equal<string list>([ "existing.txt"; "updated.txt" ], childNames)
-    CoreMailbox.dispose fileAgent
+    CoreMailboxApi.dispose fileAgent
 
 [<Fact>]
 let ``server reconciler adds missing directory and file nodes from discovered paths`` () =
@@ -215,7 +219,7 @@ let ``server reconciler adds missing directory and file nodes from discovered pa
           authority = Authority "Browser"
           commandName = ""
           body = EventBody.Change ops }
-    handle.postEvents [ event ]
+    CoreDoor.postEvents handle [ event ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
@@ -231,7 +235,7 @@ let ``server reconciler adds missing directory and file nodes from discovered pa
     |> requireOk "reconcile"
     |> ignore
     let state =
-        CoreMailbox.getState fileAgent
+        CoreMailboxApi.getState fileAgent
         |> Async.RunSynchronously
         |> requireOk "state"
     let graph = state.graph
@@ -247,7 +251,7 @@ let ``server reconciler adds missing directory and file nodes from discovered pa
         |> fun child -> child.id
     Assert.Equal(Special SpecialKind.Directory, graph.nodes.[docsId].kind)
     Assert.Equal(Special SpecialKind.File, graph.nodes.[notesId].kind)
-    CoreMailbox.dispose fileAgent
+    CoreMailboxApi.dispose fileAgent
 
 [<Fact>]
 let ``post receive rename of unparsed stub is rejected without moving disk twice`` () =
@@ -261,7 +265,7 @@ let ``post receive rename of unparsed stub is rejected without moving disk twice
           authority = Authority "Browser"
           commandName = ""
           body = EventBody.Change ops }
-    handle.postEvents [ event ]
+    CoreDoor.postEvents handle [ event ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
@@ -292,11 +296,11 @@ let ``post receive rename of unparsed stub is rejected without moving disk twice
         Assert.Contains(
             failures,
             fun f -> f.message.Contains("unparsed document"))
-    CoreMailbox.flushSnapshot fileAgent
+    CoreMailboxApi.flushSnapshot fileAgent
     |> Async.RunSynchronously
     |> requireOk "flush"
     let state =
-        CoreMailbox.getState fileAgent
+        CoreMailboxApi.getState fileAgent
         |> Async.RunSynchronously
         |> requireOk "state"
     let graph = state.graph
@@ -310,7 +314,7 @@ let ``post receive rename of unparsed stub is rejected without moving disk twice
         graph.nodes.[fileId].kind)
     Assert.False(File.Exists(oldPath))
     Assert.Equal("received content", File.ReadAllText(newPath))
-    CoreMailbox.dispose fileAgent
+    CoreMailboxApi.dispose fileAgent
 
 [<Fact>]
 let ``server reconciler posts good sibling when one path fails`` () =
@@ -324,7 +328,7 @@ let ``server reconciler posts good sibling when one path fails`` () =
           authority = Authority "Browser"
           commandName = ""
           body = EventBody.Change ops }
-    handle.postEvents [ event ]
+    CoreDoor.postEvents handle [ event ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
@@ -357,7 +361,7 @@ let ``server reconciler posts good sibling when one path fails`` () =
             f.path = "bad.txt"
             && f.message.Contains("unparsed document"))
     let state =
-        CoreMailbox.getState fileAgent
+        CoreMailboxApi.getState fileAgent
         |> Async.RunSynchronously
         |> requireOk "state"
     let graph = state.graph
@@ -366,7 +370,7 @@ let ``server reconciler posts good sibling when one path fails`` () =
         |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
         |> List.sort
     Assert.Equal<string list>([ "bad.txt"; "good.txt" ], names)
-    CoreMailbox.dispose fileAgent
+    CoreMailboxApi.dispose fileAgent
 
 [<Fact>]
 let ``latest diagnostics GET returns failures once then empty`` () =
@@ -405,7 +409,7 @@ let private postWorkspace (fileAgent: MailboxHost) (label: string) =
           authority = Authority "Browser"
           commandName = ""
           body = EventBody.Change ops }
-    (admittedChanges fileAgent).postEvents [ event ]
+    CoreDoor.postEvents (admittedChanges fileAgent) [ event ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
@@ -418,13 +422,13 @@ let private postOps (fileAgent: MailboxHost) (_revision: int) (ops: Op list) =
           authority = Authority "Browser"
           commandName = ""
           body = EventBody.Change ops }
-    (admittedChanges fileAgent).postEvents [ event ]
+    CoreDoor.postEvents (admittedChanges fileAgent) [ event ]
     |> Async.RunSynchronously
     |> requireOk "ops"
     |> ignore
 
 let private readGraph (fileAgent: MailboxHost) =
-    CoreMailbox.getState fileAgent
+    CoreMailboxApi.getState fileAgent
     |> Async.RunSynchronously
     |> requireOk "state"
     |> fun state -> state.graph
@@ -462,7 +466,7 @@ let ``directory reconcile discovers only under directory prefix`` () =
         |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
         |> List.sort
     Assert.Equal<string list>([ "docs" ], workspaceNames)
-    CoreMailbox.dispose fileAgent
+    CoreMailboxApi.dispose fileAgent
 
 [<Fact>]
 let ``workspace reconcile discovers under workspace root`` () =
@@ -502,7 +506,7 @@ let ``workspace reconcile discovers under workspace root`` () =
         Graph.children graph docsNode.id
         |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
     Assert.Empty(docsChildren)
-    CoreMailbox.dispose fileAgent
+    CoreMailboxApi.dispose fileAgent
 
 [<Fact>]
 let ``directory reconcile walks one level`` () =
@@ -542,7 +546,7 @@ let ``directory reconcile walks one level`` () =
     Assert.Equal(Special SpecialKind.Directory, sideNode.kind)
     Assert.Equal(Unparsed, sideNode.documentState)
     Assert.Empty(Graph.children graph sideNode.id)
-    CoreMailbox.dispose fileAgent
+    CoreMailboxApi.dispose fileAgent
 
 [<Fact>]
 let ``workspace reconcile leaves a current child directory current`` () =
@@ -584,7 +588,7 @@ let ``workspace reconcile leaves a current child directory current`` () =
             | _ -> None)
     Assert.Equal(Unparsed, fresh.documentState)
     Assert.Empty(Graph.children graph fresh.id)
-    CoreMailbox.dispose fileAgent
+    CoreMailboxApi.dispose fileAgent
 
 [<Fact>]
 let ``directory reconcile leaves a current child directory current`` () =
@@ -623,7 +627,7 @@ let ``directory reconcile leaves a current child directory current`` () =
             Filename.tryValue graph.nodes.[child.id].name)
         |> List.sort
     Assert.Equal<string list>([ "kept"; "note.txt" ], names)
-    CoreMailbox.dispose fileAgent
+    CoreMailboxApi.dispose fileAgent
 
 [<Fact>]
 let ``workspace reconcile creates Directory for empty leading-dot dir`` () =
@@ -648,7 +652,7 @@ let ``workspace reconcile creates Directory for empty leading-dot dir`` () =
             | _ -> None)
     Assert.Equal(Special SpecialKind.Directory, scratchNode.kind)
     Assert.Equal(Loaded, Graph.childrenStatus graph scratchNode.id)
-    CoreMailbox.dispose fileAgent
+    CoreMailboxApi.dispose fileAgent
 
 [<Fact>]
 let ``directory reconcile keeps .agents Loaded with discovered children`` () =
@@ -680,7 +684,7 @@ let ``directory reconcile keeps .agents Loaded with discovered children`` () =
         |> List.choose (fun child ->
             Filename.tryValue graph.nodes.[child.id].name)
     Assert.Contains("skill.md", childNames)
-    CoreMailbox.dispose fileAgent
+    CoreMailboxApi.dispose fileAgent
 
 [<Fact>]
 let ``SYSTEM workspace reconcile creates File stubs under systemId`` () =
@@ -718,7 +722,7 @@ let ``SYSTEM workspace reconcile creates File stubs under systemId`` () =
                 c.ref = Ownership.Owner
                 && Filename.tryValue graph.nodes.[c.id].name = Some name
                 && Graph.isSpecialSystemDirectoryMember graph c.id)))
-    CoreMailbox.dispose fileAgent
+    CoreMailboxApi.dispose fileAgent
 
 [<Fact>]
 let ``directory reconcile does not duplicate Normal-owned present file`` () =
@@ -762,7 +766,7 @@ let ``directory reconcile does not duplicate Normal-owned present file`` () =
             |> Option.map (fun _ -> nodeId))
     Assert.Equal(1, matches.Length)
     Assert.Equal(fileId, matches.Head)
-    CoreMailbox.dispose fileAgent
+    CoreMailboxApi.dispose fileAgent
 
 [<Fact>]
 let ``directory reconcile creates missing sibling under directory`` () =
@@ -790,7 +794,7 @@ let ``directory reconcile creates missing sibling under directory`` () =
         |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
         |> List.sort
     Assert.Equal<string list>([ "missing.txt" ], names)
-    CoreMailbox.dispose fileAgent
+    CoreMailboxApi.dispose fileAgent
 
 [<Fact>]
 let ``directory reconcile with amb outline and missing file posts without ownership error`` () =
@@ -838,7 +842,7 @@ let ``directory reconcile with amb outline and missing file posts without owners
             |> List.filter (fun c -> c.id = activeId)
         Assert.Equal(1, occurrences.Length)
         Assert.Equal(Ownership.Owner, occurrences.Head.ref)
-    CoreMailbox.dispose fileAgent
+    CoreMailboxApi.dispose fileAgent
 
 [<Fact>]
 let ``directory reconcile returns resilient failures and posts good sibling`` () =
@@ -883,7 +887,7 @@ let ``directory reconcile returns resilient failures and posts good sibling`` ()
         |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
         |> List.sort
     Assert.Equal<string list>([ "bad.txt"; "good.txt" ], names)
-    CoreMailbox.dispose fileAgent
+    CoreMailboxApi.dispose fileAgent
 
 [<Fact>]
 let ``directory reconciliation POST returns failures JSON`` () =
@@ -1057,7 +1061,7 @@ let ``git pull marks received files at any depth and does not discover`` () =
         |> requireOk "one-level walk"
     Assert.DoesNotContain("docs/nested.txt", members)
     Assert.Contains("docs", members)
-    CoreMailbox.dispose fileAgent
+    CoreMailboxApi.dispose fileAgent
 
 [<Fact>]
 let ``git pull add marks the containing directory Unparsed`` () =
@@ -1104,4 +1108,4 @@ let ``git pull add marks the containing directory Unparsed`` () =
         |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
         |> List.sort
     Assert.Equal<string list>([ "docs" ], names)
-    CoreMailbox.dispose fileAgent
+    CoreMailboxApi.dispose fileAgent

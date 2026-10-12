@@ -20,7 +20,7 @@ let private xmlStream texts resultText =
 
 let private lastActorStop host focusId =
     task {
-        let! history = CoreMailbox.eventHistory host
+        let! history = CoreMailboxApi.eventHistory host
         return
             history.events
             |> List.tryFind (fun event ->
@@ -67,7 +67,7 @@ let private ambitPrompt =
 let private packedExtract host (seeded: SeededAsk) =
     task {
         let! state =
-            CoreMailbox.getState host |> Async.StartAsTask
+            CoreMailboxApi.getState host |> Async.StartAsTask
         match state with
         | Error err ->
             Assert.Fail(err)

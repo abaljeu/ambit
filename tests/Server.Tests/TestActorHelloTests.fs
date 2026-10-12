@@ -16,7 +16,7 @@ let private requireOk label result =
 
 let private eventPast host =
     async {
-        let! history = CoreMailbox.eventHistory host
+        let! history = CoreMailboxApi.eventHistory host
         return history.events
     }
 let private waitForActorFinished host focusId timeoutMs =
@@ -87,7 +87,7 @@ let private withHost body =
         try
             do! body host pool
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }
 
 [<Fact>]
@@ -103,14 +103,14 @@ let ``TestActor hello posts one Owned child text hello under Focus`` () =
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnly host testCaller event
+            CoreMailboxApi.postGraphOnly host testCaller event
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
         let request = sampleRequest Graph.rootId commandId [ Graph.rootId; commandId ]
         
         let! result =
-            CoreMailbox.startActor host testCaller request
+            CoreMailboxApi.startActor host testCaller request
             |> Async.StartAsTask
         requireOk "startActor" result
         
@@ -118,7 +118,7 @@ let ``TestActor hello posts one Owned child text hello under Focus`` () =
         Assert.True(finished, "ActorFinished not received within timeout")
         
         let! state =
-            CoreMailbox.getState host
+            CoreMailboxApi.getState host
             |> Async.StartAsTask
         let state = requireOk "getState" state
         
@@ -144,19 +144,19 @@ let ``TestActor hello interprets ?test hello without actor CSS`` () =
                           [],
                           [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnly host testCaller event
+            CoreMailboxApi.postGraphOnly host testCaller event
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         let request =
             sampleRequest commandId commandId [ Graph.rootId; commandId ]
         let! result =
-            CoreMailbox.startActor host testCaller request
+            CoreMailboxApi.startActor host testCaller request
             |> Async.StartAsTask
         requireOk "startActor" result
         let! finished = waitForActorFinished host request.focusId 1000
         Assert.True(finished, "ActorFinished not received within timeout")
         let! state =
-            CoreMailbox.getState host
+            CoreMailboxApi.getState host
             |> Async.StartAsTask
         let state = requireOk "getState" state
         let helloChildren =
@@ -187,7 +187,7 @@ let ``TestActor hello reply sits under question Focus not Command`` () =
                           [],
                           [ ChildNode.owner focusId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnly host testCaller event
+            CoreMailboxApi.postGraphOnly host testCaller event
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         let request =
@@ -199,13 +199,13 @@ let ``TestActor hello reply sits under question Focus not Command`` () =
             { baseReq with zoomId = commandId }
         Assert.NotEqual(request.commandId, request.focusId)
         let! result =
-            CoreMailbox.startActor host testCaller request
+            CoreMailboxApi.startActor host testCaller request
             |> Async.StartAsTask
         requireOk "startActor" result
         let! finished = waitForActorFinished host request.focusId 1000
         Assert.True(finished, "ActorFinished not received within timeout")
         let! state =
-            CoreMailbox.getState host
+            CoreMailboxApi.getState host
             |> Async.StartAsTask
         let state = requireOk "getState" state
         Assert.Equal("What time is it?", state.graph.nodes.[focusId].text)
@@ -234,14 +234,14 @@ let ``TestActor hello stops successfully with ActorSucceeded`` () =
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnly host testCaller event
+            CoreMailboxApi.postGraphOnly host testCaller event
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
         let request = sampleRequest Graph.rootId commandId [ Graph.rootId; commandId ]
         
         let! result =
-            CoreMailbox.startActor host testCaller request
+            CoreMailboxApi.startActor host testCaller request
             |> Async.StartAsTask
         requireOk "startActor" result
         
@@ -275,14 +275,14 @@ let ``TestActor hello drops live row after successful stop`` () =
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnly host testCaller event
+            CoreMailboxApi.postGraphOnly host testCaller event
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
         let request = sampleRequest Graph.rootId commandId [ Graph.rootId; commandId ]
         
         let! result =
-            CoreMailbox.startActor host testCaller request
+            CoreMailboxApi.startActor host testCaller request
             |> Async.StartAsTask
         requireOk "startActor" result
         
@@ -307,14 +307,14 @@ let ``TestActor hello observes ActorStarted before output`` () =
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnly host testCaller event
+            CoreMailboxApi.postGraphOnly host testCaller event
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
         let request = sampleRequest Graph.rootId commandId [ Graph.rootId; commandId ]
         
         let! result =
-            CoreMailbox.startActor host testCaller request
+            CoreMailboxApi.startActor host testCaller request
             |> Async.StartAsTask
         requireOk "startActor" result
         
@@ -360,14 +360,14 @@ let ``TestActor hello interprets command node text`` () =
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnly host testCaller event
+            CoreMailboxApi.postGraphOnly host testCaller event
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
         let request = sampleRequest Graph.rootId commandId [ Graph.rootId; commandId ]
         
         let! result =
-            CoreMailbox.startActor host testCaller request
+            CoreMailboxApi.startActor host testCaller request
             |> Async.StartAsTask
         requireOk "startActor" result
         
@@ -375,7 +375,7 @@ let ``TestActor hello interprets command node text`` () =
         Assert.True(finished, "ActorFinished not received within timeout")
         
         let! state =
-            CoreMailbox.getState host
+            CoreMailboxApi.getState host
             |> Async.StartAsTask
         let state = requireOk "getState" state
         
@@ -397,12 +397,12 @@ let ``TestActor unknown command is ActorFailed with no hello child`` () =
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnly host testCaller event
+            CoreMailboxApi.postGraphOnly host testCaller event
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         let request = sampleRequest Graph.rootId commandId [ Graph.rootId; commandId ]
         let! result =
-            CoreMailbox.startActor host testCaller request
+            CoreMailboxApi.startActor host testCaller request
             |> Async.StartAsTask
         requireOk "startActor" result
         let! finished = waitForActorFinished host request.focusId 1000
@@ -420,7 +420,7 @@ let ``TestActor unknown command is ActorFailed with no hello child`` () =
                 | _ -> None)
         Assert.Equal(Some (ActorFailed ""), stopResult)
         let! state =
-            CoreMailbox.getState host |> Async.StartAsTask
+            CoreMailboxApi.getState host |> Async.StartAsTask
         let state = requireOk "getState" state
         Assert.Empty(helloOutputChildren state.graph Graph.rootId commandId)
     })
@@ -438,14 +438,14 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
                   Op.SetClasses(commandId, CssClass.empty, CssClass.ofList [ "actor-test" ])
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner commandId ]) ] }
         let! postResult =
-            CoreMailbox.postGraphOnly host testCaller event
+            CoreMailboxApi.postGraphOnly host testCaller event
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         
         let request = sampleRequest Graph.rootId commandId [ Graph.rootId; commandId ]
         
         let! result =
-            CoreMailbox.startActor host testCaller request
+            CoreMailboxApi.startActor host testCaller request
             |> Async.StartAsTask
         requireOk "startActor" result
         
@@ -459,7 +459,7 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
         Assert.True(dropped, "Live row not dropped within timeout")
         
         let! state =
-            CoreMailbox.getState host
+            CoreMailboxApi.getState host
             |> Async.StartAsTask
         let state = requireOk "getState" state
         

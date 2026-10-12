@@ -23,7 +23,7 @@ let private requireOk label result =
 
 let private eventPast host =
     async {
-        let! history = CoreMailbox.eventHistory host
+        let! history = CoreMailboxApi.eventHistory host
         return history.events
     }
 
@@ -95,7 +95,7 @@ let private clearFake () =
 
 let private graphState host =
     task {
-        let! state = CoreMailbox.getState host |> Async.StartAsTask
+        let! state = CoreMailboxApi.getState host |> Async.StartAsTask
         return requireOk "getState" state
     }
 
@@ -164,7 +164,7 @@ let withHostKeysReposGrok keys repos grok body =
         try
             do! body host pool
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }
 
 let withHostKeysRepos keys repos body =
@@ -258,7 +258,7 @@ let private postBrowserChange host label ops =
               commandName = ""
               body = EventBody.Change ops }
         let! posted =
-            CoreMailbox.postGraphOnly host testCaller event
+            CoreMailboxApi.postGraphOnly host testCaller event
             |> Async.StartAsTask
         requireOk label posted |> ignore
     }
@@ -292,7 +292,7 @@ let startAsk host (seeded: SeededAsk) =
     task {
         let request = askRequest seeded
         let! result =
-            CoreMailbox.startActor host testCaller request
+            CoreMailboxApi.startActor host testCaller request
             |> Async.StartAsTask
         requireOk "startActor" result
         return request
@@ -331,7 +331,7 @@ let startOnCommand host commandId =
             sampleRequest
                 commandId commandId commandId [ commandId ]
         let! result =
-            CoreMailbox.startActor host testCaller request
+            CoreMailboxApi.startActor host testCaller request
             |> Async.StartAsTask
         requireOk "start command" result
         return request
@@ -348,8 +348,11 @@ let postChildThenWait childText =
                 let event =
                     replaceFocusChild input.focusId childText
                 let! accepted =
-                    coreChanges.asCaller(actorCaller input.secret)
-                        .postEvents [ event ]
+                    CoreDoor.postEvents
+                        (CoreDoor.forCaller
+                            (actorCaller input.secret)
+                            coreChanges)
+                        [ event ]
                 match accepted with
                 | Ok _ -> posted.TrySetResult() |> ignore
                 | Error err ->
@@ -363,7 +366,7 @@ let postChildThenWait childText =
 let cancelFocus host focusId =
     task {
         let! result =
-            CoreMailbox.cancelByFocus host testCaller focusId
+            CoreMailboxApi.cancelByFocus host testCaller focusId
             |> Async.StartAsTask
         requireOk "cancelByFocus" result
     }
@@ -497,7 +500,7 @@ let postOwnedChild host focusId text =
                           [],
                           [ ChildNode.owner childId ]) ] }
         let! posted =
-            CoreMailbox.postEvents host testCaller [ event ]
+            CoreMailboxApi.postEvents host testCaller [ event ]
             |> Async.StartAsTask
         requireOk "postOwnedChild" posted |> ignore
     }
@@ -536,7 +539,7 @@ let private startBrowserAsk host commandId =
                 commandId
                 state.eventId
         let! result =
-            CoreMailbox.startActor host testCaller request
+            CoreMailboxApi.startActor host testCaller request
             |> Async.StartAsTask
         requireOk "startActor" result
         return request
@@ -559,7 +562,7 @@ let launchBrowserAsk host commandText =
     }
 
 let pollEventsSince host afterId =
-    CoreMailbox.getEventsSince host afterId
+    CoreMailboxApi.getEventsSince host afterId
     |> Async.StartAsTask
 
 let expectOneNodeStart (request: ActorStart) =

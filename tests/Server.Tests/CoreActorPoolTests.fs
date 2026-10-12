@@ -12,12 +12,12 @@ let ``Actor handle wrap refuses a different inactive credential`` () = task {
     let agent, handle, _ = createAdmittedFileWithCredentials dataDir
     try
         let bound =
-            CoreAuth.bindHandle
+            CoreDoor.forCaller
                 { authority = Authority "Actor"
                   name = ""
                   secret = Credential "inactive" }
                 handle
-        let! state = handle.getState () |> Async.StartAsTask
+        let! state = CoreDoor.getState handle |> Async.StartAsTask
         let state =
             match state with
             | Ok value -> value
@@ -35,9 +35,9 @@ let ``Actor handle wrap refuses a different inactive credential`` () = task {
                       [],
                       [ ChildNode.owner (NodeId.New()) ]) ]
         let! result =
-            bound.postEvents [ event ]
+            CoreDoor.postEvents bound [ event ]
             |> Async.StartAsTask
         Assert.Equal(Error CoreAuth.refuse, result)
     finally
-        CoreMailbox.dispose agent
+        CoreMailboxApi.dispose agent
 }

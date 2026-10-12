@@ -28,7 +28,7 @@ let private host agent = admittedHostFile agent
 let private oldPersistTimeoutMs = 8000
 
 let private getState agent = async {
-    match! CoreMailbox.getState (host agent) with
+    match! CoreMailboxApi.getState (host agent) with
     | Ok state -> return state
     | Error error ->
         Assert.Fail($"get state: {error}")
@@ -77,7 +77,7 @@ let ``persistence failure is returned and mailbox survives`` () = task {
     let agent = FileAgent.createWithDependencies dependencies dataDir
     try
         let! postResult =
-            (admittedChanges (host agent)).postEvents
+            CoreDoor.postEvents (admittedChanges (host agent))
                 ((changedBody ()))
             |> Async.StartAsTask
             |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
@@ -92,7 +92,7 @@ let ``persistence failure is returned and mailbox survives`` () = task {
             |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
         Assert.Equal(EventId.zero, state.eventId)
     finally
-        CoreMailbox.dispose (host agent)
+        CoreMailboxApi.dispose (host agent)
 }
 
 [<Fact>]
@@ -125,7 +125,7 @@ let ``Persist waits past the old timeout and continues after gate release`` () =
     let agent = FileAgent.createWithDependencies dependencies dataDir
     try
         let pending =
-            (admittedChanges (host agent)).postEvents
+            CoreDoor.postEvents (admittedChanges (host agent))
                 ((changedBody ()))
             |> Async.StartAsTask
         persistAttempted.Task.Wait()
@@ -148,7 +148,7 @@ let ``Persist waits past the old timeout and continues after gate release`` () =
     finally
         releaseHolder.TrySetResult() |> ignore
         holder.Wait()
-        CoreMailbox.dispose (host agent)
+        CoreMailboxApi.dispose (host agent)
 }
 
 [<Fact>]
@@ -159,7 +159,7 @@ let ``soft-fail live-save still commits graph and returns could-not-save message
     let agent = FileAgent.createWithDependencies dependencies dataDir
     try
         let! postResult =
-            (admittedChanges (host agent)).postEvents
+            CoreDoor.postEvents (admittedChanges (host agent))
                 ((softFailEditBody ()))
             |> Async.StartAsTask
         match postResult with
@@ -175,7 +175,7 @@ let ``soft-fail live-save still commits graph and returns could-not-save message
             |> Map.exists (fun _ n -> n.text = "soft-fail-probe"))
         Assert.True(EventId.isAccepted state.eventId)
     finally
-        CoreMailbox.dispose (host agent)
+        CoreMailboxApi.dispose (host agent)
 }
 
 [<Fact>]
@@ -186,14 +186,14 @@ let ``soft-fail log is replayed into FileAgent state after restart`` () = task {
     let agent1 = FileAgent.createWithDependencies dependencies dataDir
     try
         let! postResult =
-            (admittedChanges (host agent1)).postEvents
+            CoreDoor.postEvents (admittedChanges (host agent1))
                 ((softFailEditBody ()))
             |> Async.StartAsTask
         match postResult with
         | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")
         | Ok _ -> ()
     finally
-        CoreMailbox.dispose (host agent1)
+        CoreMailboxApi.dispose (host agent1)
 
     // Meta stays behind after soft-fail; EventLog is authority and recover replays.
     Assert.Equal(EventId.zero, Bookkeeping.readEventId dataDir)
@@ -206,7 +206,7 @@ let ``soft-fail log is replayed into FileAgent state after restart`` () = task {
             |> Map.exists (fun _ n -> n.text = "soft-fail-probe"))
         Assert.Equal(EventId.fromJson 1, state.eventId)
     finally
-        CoreMailbox.dispose (host agent2)
+        CoreMailboxApi.dispose (host agent2)
 }
 
 let private stampBase = DateTime(2026, 8, 16, 12, 0, 0, DateTimeKind.Utc)
@@ -249,7 +249,7 @@ let ``ACK returns stamped complete Change equal to EventLog`` () = task {
     try
         let change = addChildChange 0 "stamp-prefix"
         let! postResult =
-            (admittedChanges (host agent)).postEvents
+            CoreDoor.postEvents (admittedChanges (host agent))
                 [ change ]
             |> Async.StartAsTask
         match postResult with
@@ -271,7 +271,7 @@ let ``ACK returns stamped complete Change equal to EventLog`` () = task {
                     Assert.Equal(Graph.workspacesId, nodeId)
                 | _ -> failwith "expected SetUpdateTime suffix")
             let! events =
-                CoreMailbox.getEventsSince (host agent) (EventId.zero)
+                CoreMailboxApi.getEventsSince (host agent) (EventId.zero)
                 |> Async.StartAsTask
             Assert.Single(events) |> ignore
             let event = events.[0]
@@ -281,6 +281,6 @@ let ``ACK returns stamped complete Change equal to EventLog`` () = task {
             | None ->
                 Assert.Fail("Expected Change event")
     finally
-        CoreMailbox.dispose (host agent)
+        CoreMailboxApi.dispose (host agent)
 }
 

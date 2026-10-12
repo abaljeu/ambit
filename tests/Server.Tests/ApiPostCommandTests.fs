@@ -68,7 +68,7 @@ let private seedActorCommand host text : Task<NodeId> =
                           [],
                           [ ChildNode.owner commandId ]) ] }
         let! posted =
-            CoreMailbox.postGraphOnly host testCaller event
+            CoreMailboxApi.postGraphOnly host testCaller event
             |> Async.StartAsTask
         match posted with
         | Error err -> return failwith err
@@ -83,7 +83,7 @@ let private launchEvent (request: ActorStart) : Ev =
       body = EventBody.ActorStart request }
 
 let private startViaEvents host (request: ActorStart) =
-    CoreMailbox.postEvents host testCaller [ launchEvent request ]
+    CoreMailboxApi.postEvents host testCaller [ launchEvent request ]
 
 let private waitForHello host focusId timeoutMs =
     task {
@@ -93,7 +93,7 @@ let private waitForHello host focusId timeoutMs =
               && (DateTime.UtcNow - startTime).TotalMilliseconds
                  < float timeoutMs do
             let! state =
-                CoreMailbox.getState host |> Async.StartAsTask
+                CoreMailboxApi.getState host |> Async.StartAsTask
             match state with
             | Error _ -> ()
             | Ok s ->
@@ -115,7 +115,7 @@ let ``postCommand through CoreMailbox encodes ActorStart in latestId events`` ()
         try
             let! commandId = seedActorCommand host "hello"
             let! beforeId =
-                CoreMailbox.getEventId host |> Async.StartAsTask
+                CoreMailboxApi.getEventId host |> Async.StartAsTask
             let request: ActorStart =
                 { zoomId = commandId
                   focusId = commandId
@@ -138,12 +138,12 @@ let ``postCommand through CoreMailbox encodes ActorStart in latestId events`` ()
                         started.commandId = commandId
                     | _ -> false)
             Assert.True(started, "ActorStart missing from events")
-            let! state = CoreMailbox.getState host |> Async.StartAsTask
+            let! state = CoreMailboxApi.getState host |> Async.StartAsTask
             match state with
             | Ok s -> Assert.True(s.graph.nodes.ContainsKey commandId)
             | Error err -> failwith err
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }
 
 [<Fact>]
@@ -153,7 +153,7 @@ let ``postCommand startActor can produce hello child`` () =
         try
             let! commandId = seedActorCommand host "hello"
             let! beforeId =
-                CoreMailbox.getEventId host |> Async.StartAsTask
+                CoreMailboxApi.getEventId host |> Async.StartAsTask
             let request: ActorStart =
                 { zoomId = commandId
                   focusId = commandId
@@ -167,7 +167,7 @@ let ``postCommand startActor can produce hello child`` () =
             let! hello = waitForHello host commandId 1000
             Assert.True(hello, "hello child not posted under Focus")
         finally
-            CoreMailbox.dispose host
+            CoreMailboxApi.dispose host
     }
 
 let private decodeStateGraph json =

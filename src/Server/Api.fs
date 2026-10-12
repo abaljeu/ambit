@@ -40,11 +40,11 @@ module Api =
           childMap: Map<NodeId, ChildNode list> }
 
     let private wantAnswerFromHandle
-        (handle: CoreChanges)
+        (handle: CoreChangesDoor)
         (want: NodeId list)
         : Async<Result<SnapshotAnswer, string>> =
         async {
-            match! handle.getState () with
+            match! CoreDoor.getState handle with
             | Error err -> return Error err
             | Ok state ->
                 let childMap, nodes =
@@ -57,7 +57,7 @@ module Api =
         }
 
     let private eventsThroughSnapshot
-        (handle: CoreChanges)
+        (handle: CoreChangesDoor)
         (after: EventId)
         (snapshotId: EventId)
         : Async<Ev list> =
@@ -65,7 +65,7 @@ module Api =
             if snapshotId <= after then
                 return []
             else
-                let! events = handle.getEventsSince after
+                let! events = CoreDoor.getEventsSince handle after
                 return
                     events
                     |> List.filter (fun event ->
@@ -73,7 +73,7 @@ module Api =
         }
 
     let postPoll
-        (handle: CoreChanges)
+        (handle: CoreChangesDoor)
         (buildEpochSec: int)
         (pageBuildEpochSec: int)
         (body: string)
@@ -100,7 +100,7 @@ module Api =
                           buildEpochSec = buildEpochSec
                           pageBuildEpochSec = pageBuildEpochSec
                           apiVersion = ApiVersion.current
-                          isReady = handle.isReady ()
+                          isReady = CoreDoor.isReady handle
                           externalChanges = not events.IsEmpty
                           events = events
                           message = None
@@ -110,11 +110,11 @@ module Api =
     }
 
     let private loadWantAnswer
-        (handle: CoreChanges)
+        (handle: CoreChangesDoor)
         (targets: LoadTarget list)
         : Async<Result<Result<SnapshotAnswer, ResidentProjection.LoadRefuse>, string>> =
         async {
-            match! handle.getState () with
+            match! CoreDoor.getState handle with
             | Error err -> return Error err
             | Ok state ->
                 return
@@ -127,7 +127,7 @@ module Api =
         }
 
     let postLoad
-        (handle: CoreChanges)
+        (handle: CoreChangesDoor)
         (buildEpochSec: int)
         (pageBuildEpochSec: int)
         (body: string)
@@ -158,7 +158,7 @@ module Api =
                       buildEpochSec = buildEpochSec
                       pageBuildEpochSec = pageBuildEpochSec
                       apiVersion = ApiVersion.current
-                      isReady = handle.isReady ()
+                      isReady = CoreDoor.isReady handle
                       events = events
                       nodes = answer.nodes
                       childMap = answer.childMap }
@@ -181,17 +181,17 @@ module Api =
             | _ -> None
         | _ -> None
 
-    let getState (handle: CoreChanges) (req: HttpRequest) : Async<IResult> = async {
+    let getState (handle: CoreChangesDoor) (req: HttpRequest) : Async<IResult> = async {
         try
             let scope = parseBootstrapScope req
             let savedZoom = parseSavedZoom req
-            let! result = handle.getState ()
+            let! result = CoreDoor.getState handle
             match result with
             | Ok state ->
                 let response: StateResponse =
                     { graph = state.graph
                       eventId = state.eventId
-                      isReady = handle.isReady ()
+                      isReady = CoreDoor.isReady handle
                       seedLiveFocusIds =
                         ActorLive.focusIdsFromLockPresent state.graph }
                 let scoped =
@@ -215,7 +215,7 @@ module Api =
     }
 
     let postEvents
-        (handle: CoreChanges)
+        (handle: CoreChangesDoor)
         (buildEpochSec: int)
         (pageBuildEpochSec: int)
         (body: string)
@@ -228,7 +228,7 @@ module Api =
         | Error err ->
             return agentErrorResult $"Invalid JSON: {err}"
         | Ok request ->
-            match! handle.postEvents request.events with
+            match! CoreDoor.postEvents handle request.events with
             | Ok accepted ->
                 match! wantAnswerFromHandle handle request.want with
                 | Error err -> return agentErrorResult err
@@ -266,13 +266,13 @@ module Api =
         |> List.fold EventId.max persistId
 
     let private universalResponseFromHandle
-        (handle: CoreChanges)
+        (handle: CoreChangesDoor)
         (after: EventId)
         (nodes: Node list)
         : Async<UniversalResponse> =
         async {
-            let! events = handle.getEventsSince after
-            let! persistId = handle.getEventId ()
+            let! events = CoreDoor.getEventsSince handle after
+            let! persistId = CoreDoor.getEventId handle
             return
                 { nodes = nodes
                   events = events
@@ -287,7 +287,7 @@ module Api =
 
     let postLoadSaveCommand
         (router: LoadSaveCommandRouter)
-        (handle: CoreChanges)
+        (handle: CoreChangesDoor)
         (body: string)
         : Async<IResult> =
         async {
@@ -295,7 +295,7 @@ module Api =
             | Error err ->
                 return agentErrorResult $"Invalid JSON: {err}"
             | Ok request ->
-                match! handle.getState () with
+                match! CoreDoor.getState handle with
                 | Error err -> return agentErrorResult err
                 | Ok state ->
                     match router.resolvePath state request with
@@ -320,6 +320,61 @@ module Api =
                                 loadSaveSuccessResult
                                     LoadSavePath.Git
                                     (Some command)
+        }
+
+    let private remoteTipForLabel
+        (dataDir: string)
+        (graph: Graph)
+        (nodeId: NodeId)
+        (label: string)
+        =
+        if String.IsNullOrWhiteSpace label then
+            None
+        else
+            match DocumentPersistPath.workspaceRootFor dataDir graph nodeId with
+            | None -> None
+            | Some root ->
+                match WorkspaceGit.remoteTip root with
+                | Ok (Some tip) -> Some (label, tip)
+                | _ -> None
+
+    let private workspaceRemoteRow
+        (dataDir: string)
+        (graph: Graph)
+        (child: ChildNode)
+        =
+        if child.ref <> Ownership.Owner then
+            None
+        else
+            match Map.tryFind child.id graph.nodes with
+            | None -> None
+            | Some node ->
+                match node.kind with
+                | Special Workspace ->
+                    match Filename.tryValue node.name with
+                    | Some label ->
+                        remoteTipForLabel dataDir graph node.id label
+                    | None -> None
+                | _ -> None
+
+    let private workspaceRemoteRows (dataDir: string) (graph: Graph) =
+        GraphChildren.get graph Graph.workspacesId
+        |> List.choose (workspaceRemoteRow dataDir graph)
+
+    let getWorkspaceRemotes
+        (dataDir: string)
+        (handle: CoreChangesDoor)
+        : Async<IResult> =
+        async {
+            match! CoreDoor.getState handle with
+            | Error err -> return agentErrorResult err
+            | Ok state ->
+                let json =
+                    Encode.toString
+                        0
+                        (WorkspaceRemoteTip.encodeList
+                            (workspaceRemoteRows dataDir state.graph))
+                return jsonResult json
         }
 
     let getCapabilities (dataDir: string) : IResult =
@@ -368,7 +423,7 @@ module Api =
         Decode.fromString decoder json
 
     let private applyParseFile
-        (handle: CoreChanges)
+        (handle: CoreChangesDoor)
         (dataDir: string)
         (fileId: NodeId)
         (text: string option)
@@ -388,14 +443,14 @@ module Api =
                 return jsonResult """{"ok":true}"""
             | Ok ops ->
                 let event = GraphOnlyChangePost.mint "Parse" ops
-                match! handle.postGraphOnly event with
+                match! CoreDoor.postGraphOnly handle event with
                 | Ok _ -> return jsonResult """{"ok":true}"""
                 | Error err -> return agentErrorResult err
         }
 
     /// ParseFile command: optional body text or DataDir read → apply on agent graph.
     let postParseFile
-        (handle: CoreChanges)
+        (handle: CoreChangesDoor)
         (dataDir: string)
         (body: string)
         : Async<IResult> =
@@ -408,7 +463,7 @@ module Api =
                 | None ->
                     return Results.BadRequest({| error = "fileId is invalid" |})
                 | Some fileId ->
-                    match! handle.getState () with
+                    match! CoreDoor.getState handle with
                     | Error err ->
                         return agentErrorResult err
                     | Ok state ->
@@ -481,7 +536,7 @@ module Api =
 
     /// Search door. `changes` reads State. Start and stop hit the event source.
     type SearchActorDoor =
-        { changes: CoreChanges
+        { changes: CoreChangesDoor
           recordStart:
             ActorStart -> Async<Result<unit, string>>
           recordStop: NodeId -> Async<unit> }
@@ -516,7 +571,7 @@ module Api =
             | Error err ->
                 return agentErrorResult $"Invalid JSON: {err}"
             | Ok request ->
-                match! door.changes.getState () with
+                match! CoreDoor.getState door.changes with
                 | Error err -> return agentErrorResult err
                 | Ok state -> return! searchReply door request state
         }
