@@ -2,9 +2,9 @@
 
 Stage: build
 Summary: A continuous Server parse thread turns file-shaped disk into Graph, takes priority from Browser wants, and emits Changes. A continuous persist thread turns Graph into disk. Both add InMsg through the mailbox private function. The core loop sets the axes.
-Updated: 2026-10-11
+Updated: 2026-10-12
 Started: 2026-09-28
-Actual: 8h 10m
+Actual: 8h 40m
 
 **Part of:** [[plan/roadmap/epics/chapters/automatic-parse.md]]
 
@@ -36,3 +36,4 @@ Actual: 8h 10m
 - 2026-10-11 — [12 — Git pull marks each received file Unparsed](issues/12-git-pull-marks-each-received-file-unparsed.md) is coded. A git pull marks each received file Unparsed at any depth. The changed list omits discovery and omits a Directory Node mark. git Load, Directory Load, and Workspace Load still use `discoverImmediateMembers`. Stage stays build.
 - 2026-10-11 — [13 — Git pull marks containing Directories Unparsed](issues/13-git-pull-marks-containing-directories-unparsed.md) is `defined` and is the frontier. When a pulled file is added or removed, the pull marks its containing Directory Node Unparsed, or the nearest ancestor Directory Node that exists. [12 — Git pull marks each received file Unparsed](issues/12-git-pull-marks-each-received-file-unparsed.md) is landed. Stage stays build.
 - 2026-10-11 — [13 — Git pull marks containing Directories Unparsed](issues/13-git-pull-marks-containing-directories-unparsed.md) is coded. An added, removed, or renamed file marks its containing Directory Node Unparsed, or the nearest ancestor Directory Node that exists. A modified file leaves that Directory Node Current. Stage stays build.
+- 2026-10-12 — [12 — Git pull marks each received file Unparsed](issues/12-git-pull-marks-each-received-file-unparsed.md) and [13 — Git pull marks containing Directories Unparsed](issues/13-git-pull-marks-containing-directories-unparsed.md) stay `coded`. git Load's pull (`runLoad`) records HEAD around `pullTracked` and passes that changed list to `reconcileReceivedFiles` before `changes.load`. Stage stays build.

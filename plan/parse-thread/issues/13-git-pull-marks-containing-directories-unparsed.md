@@ -1,7 +1,7 @@
 # 13 — Git pull marks containing Directories Unparsed
 
 **Status:** `coded`
-Actual: 1h 30m
+Actual: 1h 45m
 **Type:** coding
 **Blocked by:** None — can start immediately
 **Trackers:** architecture, project spec
@@ -26,6 +26,7 @@ An added file marks the Directory Node that will contain it Unparsed. A removed 
 4. [x] **Top of the workspace** — A file at the top of the workspace uses the Workspace Node.
 5. [x] **Modified file** — A modified file leaves its containing Directory Node Current.
 6. [x] **Nearest existing ancestor** — File `w/x/y/z` is added. Directory Node `w/x/y` is absent. Directory Node `w/x` exists. The pull marks Directory Node `w/x` Unparsed.
+7. [x] **git Load pull** — git Load's pull (`runLoad`) marks each containing Directory Unparsed.
 
 ## Finish-up
 
@@ -40,9 +41,14 @@ An added file marks the Directory Node that will contain it Unparsed. A removed 
 3. **Piece answers** — None of the piece answers changed. The pull still omits discovery. A directory path on the changed list still does not mark that Directory Node.
 4. **Docs** — [Parse thread architecture](../arch.md) story path 18 **Pull handoff stays the pull sentence**, **Containing Directory**, is checked. [Parse thread spec](../spec.md) story 18 **Pull handoff stays the pull sentence** now states this mark. Further note 10 **Dual Unparsed approaches** now states the containing-Directory mark. [core-refinement architecture](../../core-refinement/arch.md) §5 **git pull finish** now states this mark. doc/current and doc/user do not state this mark. [Parse thread map](../map.md) still states the received-file mark and does not state this mark.
 
+## Further
+
+1. **Load pull wiring** — [Github transport actor](../../../src/Server/GithubTransportActor.fs) `runLoad` records HEAD before and after `pullTracked`. On success it passes [Workspace git](../../../src/Server/WorkspaceGit.fs) `changedPathsBetween` to [Lazy load reconciliation server](../../../src/Server/LazyLoadReconciliationServer.fs) `reconcileReceivedFiles` before `changes.load`.
+
 ## Time
 
 - 2026-10-11 1h 30m — containing-Directory pull mark, tests, and finish-up (from chat)
+- 2026-10-12 15m — Load pull wiring in `runLoad` (from chat)
 
 ## See also
 
