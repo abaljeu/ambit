@@ -649,49 +649,97 @@ let ``plain Load of a File or Directory stays Desk when a remote exists`` () =
             CoreMailbox.dispose harness.host
     }
 
-[<SkippableFact>]
-let ``git Load on a file parses that file`` () = task {
-    Skip.IfNot(DesktopGit.isAvailable(), "git not on PATH")
-    let harness = createGitHarness "load"
+let rec private waitForParsedFile host fileId text deadline = task {
+    let after = readGraph host
+    let parsed =
+        match Map.tryFind fileId after.nodes with
+        | Some node when node.documentState = Current ->
+            Graph.children after fileId
+            |> List.exists (fun kid ->
+                after.nodes.[kid.id].text = text)
+        | _ -> false
+    if parsed then
+        return Some after
+    elif DateTime.UtcNow >= deadline then
+        return None
+    else
+        do! Task.Delay 10
+        return! waitForParsedFile host fileId text deadline
+}
+
+let private fileLoadHost (dataDir: string) =
+    let push, consumer = ParseStack.create ()
+    let host =
+        CoreMailbox.hostWithParsePush
+            (CoreActorPool.create ())
+            (FileAgent.persist (FileAgent.create dataDir))
+            admittedCredentials
+            push
+    let handle = CoreMailbox.coreChanges host testCaller
+    ParseThread.start
+        { dataDir = dataDir
+          consumer = consumer
+          push = push
+          getGraph = ParseThread.graphFromHost host
+          postOps = ParseThread.postParseOps handle
+          markUnparsed =
+            fun nodeId ->
+                CoreMailbox.addInMsg host (InMsg.MarkUnparsed nodeId)
+          finishParse =
+            fun nodeId ->
+                CoreMailbox.addInMsg
+                    host
+                    (InMsg.ParseFinished nodeId) }
+    let router =
+        { resolvePath = LoadSaveRouting.resolvePath dataDir
+          startCommand =
+            fun path request ->
+                CoreMailbox.startLoadSaveCommand
+                    host
+                    testCaller
+                    path
+                    (GithubTransportActor.peerName
+                        GithubTransportOperation.Load)
+                    request }
+    host, handle, router
+
+[<Fact>]
+let ``Load on a file parses that file`` () = task {
+    let dataDir = newTempDir ()
+    let host, handle, router = fileLoadHost dataDir
     try
-        let graph = readGraph harness.host
+        let seed = seedWorkspace host "load"
         let fileId, fileOps =
             FileNodeOps.planCreateOwnedFile
-                graph
-                harness.seed.workspaceId
-                "note.txt"
-        postChange harness.host fileOps
+                (readGraph host) seed.workspaceId "note.txt"
+        postChange host fileOps
+        let disk = Path.Combine(dataDir, "home", "note.txt")
+        Directory.CreateDirectory(Path.GetDirectoryName disk) |> ignore
+        File.WriteAllText(disk, "seed")
         let command =
-            { operation = LoadSaveOperation.Load
-              prePick = LoadSavePrePick.Git
-              start =
-                { zoomId = harness.seed.workspaceId
-                  focusId = fileId
-                  commandId = harness.seed.commandId
-                  graphIds =
-                    [ Graph.rootId
-                      Graph.workspacesId
-                      harness.seed.workspaceId
-                      harness.seed.commandId
-                      fileId ]
-                  eventId = harness.seed.eventId } }
+            requestForFocus
+                LoadSaveOperation.Load
+                LoadSavePrePick.Plain
+                seed
+                fileId
         let! result =
             Api.postLoadSaveCommand
-                (productionRouter harness)
-                (CoreMailbox.coreChanges harness.host testCaller)
+                router
+                handle
                 (encodeRequest command)
             |> Async.StartAsTask
-        let response = requireResponse result
-        Assert.Equal(LoadSavePath.Git, response.path)
-        let! stopped = waitForStop harness.host fileId
-        Assert.Equal(Some ActorSucceeded, stopped)
-        let after = readGraph harness.host
-        Assert.Equal(Current, after.nodes.[fileId].documentState)
-        let kids = Graph.children after fileId
-        Assert.NotEmpty(kids)
-        Assert.Equal("seed", after.nodes.[kids.Head.id].text)
+        Assert.Equal(LoadSavePath.Desk, (requireResponse result).path)
+        let! parsed =
+            waitForParsedFile host fileId "seed" (DateTime.UtcNow.AddSeconds 2.0)
+        match parsed with
+        | Some after ->
+            Assert.Equal(Current, after.nodes.[fileId].documentState)
+            Assert.Equal(
+                "seed",
+                after.nodes.[(Graph.children after fileId).Head.id].text)
+        | None -> Assert.Fail("Load did not parse the file")
     finally
-        CoreMailbox.dispose harness.host
+        CoreMailbox.dispose host
 }
 
 [<SkippableFact>]
