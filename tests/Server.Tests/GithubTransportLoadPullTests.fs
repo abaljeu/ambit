@@ -51,21 +51,45 @@ let private fileNamed (graph: Graph) parentId name =
     |> List.find (fun node ->
         Filename.tryValue node.name = Some name)
 
-[<Fact>]
+let private pullAddsExtra root =
+    fun _ _ ->
+        let docs = Path.Combine(root, "docs")
+        Directory.CreateDirectory(docs) |> ignore
+        File.WriteAllText(Path.Combine(docs, "extra.txt"), "extra")
+        WorkspaceGit.commitAll root "pull" None
+        |> Result.map (fun _ -> "pulled")
+
+let private markingDependencies pull =
+    let tracked =
+        { branch = "master"
+          remote = "origin"
+          upstream = "refs/heads/master" }
+    { git =
+        { withWorkTreeGate = fun _ action -> action ()
+          trackedBranch = fun _ -> Ok tracked
+          pullTracked = pull
+          commitAll = fun _ _ _ -> Error "unused"
+          pushTracked = fun _ _ _ -> Error "unused" } }
+
+[<SkippableFact>]
 let ``git Load pull marks a received file and its directory Unparsed`` () =
+    Skip.IfNot(DesktopGit.isAvailable(), "git not on PATH")
     let dataDir = newTempDir ()
     let host, changes = createAdmittedFile dataDir
     try
         let workspaceId, docsId = seedDocs host
-        let docs = Path.Combine(dataDir, "home", "docs")
-        Directory.CreateDirectory(docs) |> ignore
-        File.WriteAllText(Path.Combine(docs, "extra.txt"), "extra")
-        GithubTransportActor.finishLoadPull
-            { handle = changes
-              dataDir = dataDir
-              workspaceLabel = "home" }
+        let root = Path.Combine(dataDir, "home")
+        WorkspaceGit.ensureInit root |> requireOk "init" |> ignore
+        File.WriteAllText(Path.Combine(root, "seed.txt"), "seed")
+        WorkspaceGit.commitAll root "seed" None
+        |> requireOk "seed"
+        |> ignore
+        GithubTransportActor.runLoad
+            (markingDependencies (pullAddsExtra root))
+            dataDir
+            changes
             workspaceId
-            [ LazyLoadReconciliation.Added "docs/extra.txt" ]
+            root
         |> Async.RunSynchronously
         |> requireOk "load pull"
         |> ignore
