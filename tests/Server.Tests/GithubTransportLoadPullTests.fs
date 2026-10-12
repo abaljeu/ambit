@@ -21,13 +21,13 @@ let private postChange (host: MailboxHost) (ops: Op list) =
           authority = Authority "Browser"
           commandName = ""
           body = EventBody.Change ops }
-    CoreMailbox.postGraphOnly host testCaller event
+    CoreMailboxApi.postGraphOnly host testCaller event
     |> Async.RunSynchronously
     |> requireOk "post"
     |> ignore
 
 let private readGraph (host: MailboxHost) =
-    CoreMailbox.getState host
+    CoreMailboxApi.getState host
     |> Async.RunSynchronously
     |> requireOk "state"
     |> fun state -> state.graph
@@ -75,4 +75,4 @@ let ``git Load pull marks a received file and its directory Unparsed`` () =
             Unparsed,
             (fileNamed graph docsId "extra.txt").documentState)
     finally
-        CoreMailbox.dispose host
+        CoreMailboxApi.dispose host
