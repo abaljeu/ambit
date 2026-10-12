@@ -61,22 +61,20 @@ List the binding arch files for this diff. Use the discovery in [[.agents/skills
 
 Send a single message with three `Agent` tool calls. Use the `general-purpose` subagent for each. When Spec or Arch is skipped, spawn only the passes that run.
 
+Paste the matching step 7 labels into each brief. Each sub-agent returns a Markdown list in that shape: one finding per item, no paragraphs. Under 400 words.
+
 **Standards sub-agent prompt** — include:
 
 - The full diff command (default `git diff HEAD`) and commit list if a fixed point was named.
 - The stdout of the mechanical scan from step 2 (or `scan: none`).
 - The list of standards-source files you found in step 4, **plus [[SMELLS.md]]**: include that file's contents in the prompt, or give the path and instruct the sub-agent to read it. The sub-agent has no other access to the smell baseline.
-- The brief: "Report only findings. (a) Each documented-standard violation: cite the standard (file + the rule). (b) Each smell you will stand behind: name it and quote the hunk. Distinguish hard violations from judgement calls per the included smell baseline. Count a scan line only when it breaks the limit in the rule it cites, or when it is a GLOSSARY.md PHRASE line. The phrase list is the Banned phrasings section of GLOSSARY.md. The file limit is in .agents/rules/fsharp-source.md. If there are no findings, one line. Under 400 words."
+- The brief: each documented-standard violation cites the standard (file + the rule) as a **Hard** item. Each smell you will stand behind names the smell, quotes the hunk, and is a **Judgement** item. Distinguish hard violations from judgement calls per the included smell baseline. Count a scan line only when it breaks the limit in the rule it cites, or when it is a GLOSSARY.md PHRASE line. The phrase list is the Banned phrasings section of GLOSSARY.md. The file limit is in .agents/rules/fsharp-source.md. No findings: one item, `No findings.` Scan notes that are not findings are further items.
 
 **Spec sub-agent prompt** — include:
 
 - The same diff command (and commit list if any).
 - The path or contents of the local spec.
-- The brief: "Report only findings. 
-    (a) Requirements the spec asked for that are missing or partial. 
-    (b) Behaviour in the diff that was not asked for (scope creep). 
-    (c) Requirements that look implemented but where the implementation looks wrong. 
-    (d) Each global type or interface the diff adds or changes that the local spec did not name, focusing on the data, not functions."
+- The brief: one item per finding, using **Missing**, **Partial**, **Extra**, **Wrong**, or **Unnamed**. (a) Requirements the spec asked for that are missing or partial. (b) Behaviour in the diff that was not asked for (scope creep) is **Extra**. (c) Requirements that look implemented but where the implementation looks wrong. (d) Each global type or interface the diff adds or changes that the local spec did not name, focusing on the data, not functions, is **Unnamed**.
 
 If the spec is missing, skip the Spec sub-agent and note this in the final report.
 
@@ -84,15 +82,46 @@ If the spec is missing, skip the Spec sub-agent and note this in the final repor
 
 - The same diff command (and commit list if any).
 - The binding arch file list from step 5, or `no binding arch`.
-- The brief: "Report only findings. Check each relevant rule in the binding arch files. A break is a blocker. Name the arch file, the section, and the code location. When no arch.md binds this diff, one line: no binding arch. When every touched rule holds, one line."
+- The brief: check each relevant rule in the binding arch files. A break is a **Blocker** item and names the arch file, the section, and the code location. When no arch.md binds this diff, one item: `No binding arch.` When every touched rule holds, one item: `No findings.`
 
 When no arch.md binds this diff, skip the Arch sub-agent and note that in the final report. Done: Standards has been spawned; Spec has been spawned or skipped with "no spec available"; Arch has been spawned or skipped with "no binding arch".
 
 ### 7. Aggregate
 
-Make a report file under a Project path (`plan/<slug>/reports/…`) per [[doc/agents/issue-tracker.md]] Conventions. Do not write the report directly under `plan/`. Present the three reports under `## Standards`, `## Spec`, and `## Arch` headings. Keep findings only. An Arch finding is a blocker and names the arch file, the section, and the code location. If an axis has no findings, keep its one line. Keep the axes separate: do not merge or rerank findings, and do not pick a single winner across axes.
+Write the report under a Project path (`plan/<slug>/reports/…`) per [[doc/agents/issue-tracker.md]] Conventions. Do not write the report directly under `plan/`. The report is a title plus lists. Each section body is a list. If a sub-agent returns a paragraph, split it into list items before writing the file. Keep the axes separate: do not merge or rerank findings, and do not pick a single winner across axes.
 
-End with a one-line summary: total findings per axis, and the worst issue _within each axis_ (if any). Done: the report file exists with all three headings and the one-line totals.
+```markdown
+# Code review — <name>
+
+- Range: `<diff command>`
+- Spec: [<ticket name>](<path>)
+- Arch: [<arch name>](<path>)
+
+## 1. Standards
+
+1. **Hard** — [<rule file>](<path>): "<rule sentence>". <file, binding, what is wrong>.
+2. **Judgement — <smell>** — <file, binding>. <what is wrong>.
+
+## 2. Spec
+
+1. **Missing** — <requirement>. <what is absent>.
+2. **Partial** — <requirement>. <what is incomplete>.
+3. **Extra** — <behaviour>. <why the spec did not ask for it>.
+4. **Wrong** — <requirement>. <what the code does instead>.
+5. **Unnamed** — `<Type>`. <why the spec did not name this data>.
+
+## 3. Arch
+
+1. **Blocker** — [<arch file>](<path>) §<section>. <code location>. <rule that broke>.
+
+## 4. Totals
+
+- Standards: <n> findings. Worst: <one clause>.
+- Spec: <n> findings. Worst: <one clause>.
+- Arch: <n> findings. Worst: <one clause>.
+```
+
+Omit a header bullet when that source was not in the review. An empty axis is one item: `No findings.` Notes that are not findings, such as a clean scan, are further items in that section. A skipped Spec section is one item: `No spec available.` A skipped Arch section is one item: `No binding arch.` Totals has one item per axis, and the worst issue within that axis when the count is not zero. Done: the report file has the four numbered headings, every section body is a list, and Totals has one item per axis.
 
 ### 8. Ticket Status
 

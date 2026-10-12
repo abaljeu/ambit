@@ -16,7 +16,7 @@ This rule does not apply to tests.  Tests should split to match the source files
 
 Splitting should be a standalone operation, executed after the project edits are posted.  This operation will only have commits whose role is to restructure code.  Avoid creating a forwarding module in favor of updating the users to point to the right new file.
 
-Public function names must be either more than one word, or explicitly require context to be called.
+A public function name must be more than one word.  That name must not be used by another entity.  All single-word public names must `[<RequireQualifiedAccess>]` so a use can be distinguished by the qualifier.
 
 TABs are not allowed in F#. Always indent 4 spaces.
 Indentation is equally important as it is in python or Haskell.

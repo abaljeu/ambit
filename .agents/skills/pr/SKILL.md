@@ -74,6 +74,8 @@ Add one Spec facet for each binding arch rule this diff touches. Score that face
 
 **Standards facets.** Use the mechanical standards scan from [[.agents/skills/code-review/SKILL.md]]. Add one choice question for each rule or smell cluster that had a chance to apply. Take clusters from that scan. Take clusters from each file under [[.agents/rules/]] the diff can hit. Take clusters from [[.agents/skills/code-review/SMELLS.md]] when a smell cluster had a chance to apply. Files that often apply are [[.agents/rules/fsharp-source.md]], [[.agents/rules/refer-by-name.md]], [[.agents/rules/core-api.md]], [[.agents/rules/core-agent-behavior.md]], and [[.agents/rules/markdown-writing.md]]. Skip a rule that had no chance to apply.
 
+**Public names.** When the diff touches `*.fs` or `*.fsi`, add one Standards facet for the public-name rule in [[.agents/rules/fsharp-source.md]]. The question asks Jev to find each new public name in the diff and score that rule. Skip this facet when the diff does not touch F#.
+
 Put the original request, the diff, and the skills this run used in the call state. Put one question per facet in the call. The connector may reject the call because the question map is too large. Send further `jev_decide` calls with the same state until every facet has a row. Keep every facet. Do not merge facets into one yes/no question.
 
 **Facet table.** Put a facet table in the pull request body after Binding arch. This table replaces a single yes/no/unclear block. One row per facet. Each row shows the facet name, the axis, the winning label, and the percentiles. Percentiles are the per-option probabilities, the confidence, or both, when the tool returns them. The label alone is not the row. When a facet has no percentiles, write that absence in the row. Do not invent numbers. Do not add an overall yes/no line.
@@ -84,4 +86,4 @@ Put the original request, the diff, and the skills this run used in the call sta
 
 A `missed` facet is a gap. A `blocker` facet is a gap. A `partial` facet or a `nit` facet that Alan should see is a gap. Surface each gap in the table. Do not squash-land until Alan accepts the gap or the gap is fixed.
 
-A connector failure is not a pass. Report the failure to Alan and leave the labels unset. Done: the pull request body has one row per facet with the winning label and the percentiles, or Alan has the connector failure. A gap blocks squash-land. You have applied the land bar in this step.
+A connector failure is not a pass. Report the failure to Alan and leave the labels unset. Done: the pull request body has one row per facet with the winning label and the percentiles, or Alan has the connector failure. When the diff touches F#, that table includes the public-name facet. A gap blocks squash-land. You have applied the land bar in this step.
