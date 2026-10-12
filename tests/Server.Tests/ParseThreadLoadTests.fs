@@ -115,7 +115,7 @@ let ``mailbox Load of File node pushes onto Parse stack`` () =
             let! fileId, _ =
                 seedWorkspaceFile host "home" "note.txt"
             let! loaded =
-                CoreMailbox.load host testCaller fileId
+                CoreMailbox.mbLoadNode host testCaller fileId
                 |> Async.StartAsTask
             requireOk "Load" loaded
             Assert.Equal(fileId, consumer ())
@@ -138,7 +138,7 @@ let ``mailbox Load of a Workspace pushes onto the Parse stack`` () =
             let! _, workspaceId =
                 seedWorkspaceFile host "home" "note.txt"
             let! loaded =
-                CoreMailbox.load host testCaller workspaceId
+                CoreMailbox.mbLoadNode host testCaller workspaceId
                 |> Async.StartAsTask
             requireOk "Load" loaded
             Assert.Equal<NodeId list>([ workspaceId ], pushed |> Seq.toList)
@@ -159,7 +159,7 @@ let ``mailbox Load refuses a node that is not a Workspace, Directory, or File`` 
                 pushed.Add
         try
             let! loaded =
-                CoreMailbox.load host testCaller Graph.workspacesId
+                CoreMailbox.mbLoadNode host testCaller Graph.workspacesId
                 |> Async.StartAsTask
             Assert.Equal(
                 Error
@@ -184,7 +184,7 @@ let ``mailbox Load of a Directory pushes onto the Parse stack`` () =
         try
             let! _, dirId = seedDocsFile host
             let! loaded =
-                CoreMailbox.load host testCaller dirId
+                CoreMailbox.mbLoadNode host testCaller dirId
                 |> Async.StartAsTask
             requireOk "Load" loaded
             Assert.Equal<NodeId list>([ dirId ], pushed |> Seq.toList)
@@ -409,7 +409,7 @@ let ``ParseThread loop runs planParseFile for stacked File`` () =
             |> ignore
             File.WriteAllText(diskPath, "HELLO\n")
             let! loaded =
-                CoreMailbox.load host testCaller fileId
+                CoreMailbox.mbLoadNode host testCaller fileId
                 |> Async.StartAsTask
             requireOk "Load" loaded
             let! parsed =
@@ -974,7 +974,7 @@ let ``git Load and Workspace Load reconcile walks one level`` () =
             let! workspaceId, keptId = holdCurrentChild host dataDir
             writeNestedWorkspaceFiles dataDir
             let! loaded =
-                CoreMailbox.load host testCaller workspaceId
+                CoreMailbox.mbLoadNode host testCaller workspaceId
                 |> Async.StartAsTask
             requireOk "load" loaded
             let! found =
@@ -1003,7 +1003,7 @@ let ``directory Load reconcile walks one level`` () =
             File.WriteAllText(Path.Combine(docs, "added.txt"), "note")
             File.WriteAllText(Path.Combine(docs, "side", "deep.txt"), "deep")
             let! loaded =
-                CoreMailbox.load host testCaller dirId
+                CoreMailbox.mbLoadNode host testCaller dirId
                 |> Async.StartAsTask
             requireOk "load" loaded
             let! found =

@@ -30,7 +30,7 @@ type CoreChanges =
       postGraphOnly: Ev -> Async<Result<CoreChangesAccepted, string>>
       actorStop: ActorResult -> Async<Result<unit, string>>
       /// Mailbox Load of one Workspace, Directory, or File.
-      load: NodeId -> Async<Result<unit, string>>
+      loadNode: NodeId -> Async<Result<unit, string>>
       /// Rebind posts to another Caller on the same mailbox door.
       asCaller: Caller -> CoreChanges }
 

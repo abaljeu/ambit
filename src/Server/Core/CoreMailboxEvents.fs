@@ -81,7 +81,7 @@ module internal CoreMailboxEvents =
             "StartLoadSaveCommand", $"{path}:{name}"
         | RecordSearchStart _ -> "RecordSearchStart", ""
         | RecordSearchStop _ -> "RecordSearchStop", ""
-        | Load (_, subject, _) ->
+        | LoadNode (_, subject, _) ->
             "Load", $"{subject}"
         | ActorStop (_, result, _) ->
             match result with
@@ -111,7 +111,7 @@ module internal CoreMailboxEvents =
             reply.Reply(Error error)
         | RecordSearchStop (_, _, reply) ->
             reply.Reply(Error error)
-        | Load (_, _, reply) -> reply.Reply(Error error)
+        | LoadNode (_, _, reply) -> reply.Reply(Error error)
         | ActorStop (_, _, reply) -> reply.Reply(Error error)
         | CancelActor (_, _, reply) -> reply.Reply(Error error)
         | Login (_, reply) -> reply.Reply(Error error)

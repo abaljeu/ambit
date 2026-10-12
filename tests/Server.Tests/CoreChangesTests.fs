@@ -146,7 +146,7 @@ let private recordingHandle (posts: ResizeArray<Ev list>) =
             async.Return(Result.Ok(accepted events))
       postGraphOnly = fun _ -> async.Return(Result.Error "unused")
       actorStop = fun _ -> async.Return(Result.Error "unused")
-      load = fun _ -> async.Return(Result.Error "unused")
+      loadNode = fun _ -> async.Return(Result.Error "unused")
       asCaller = fun _ -> Unchecked.defaultof<CoreChanges> }
     : CoreChanges
 

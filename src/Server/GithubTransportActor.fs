@@ -90,7 +90,7 @@ module GithubTransportActor =
             match pullTracked dependencies.git workspaceRoot with
             | Error err -> return Error err
             | Ok _ ->
-                match! changes.load workspaceId with
+                match! changes.loadNode workspaceId with
                 | Error err -> return Error err
                 | Ok () -> return Ok ()
         }

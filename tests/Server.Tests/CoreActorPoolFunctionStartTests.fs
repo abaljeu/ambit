@@ -51,7 +51,7 @@ let private recordingChanges
             fun result ->
                 stops.Add result
                 async.Return (Ok ())
-          load = fun _ -> async.Return (Error "unused")
+          loadNode = fun _ -> async.Return (Error "unused")
           asCaller = fun _ -> make () }
     make ()
 

@@ -228,13 +228,13 @@ module CoreMailbox =
                 channel))
 
     /// Mailbox Load of a Workspace, Directory, or File: push onto the Parse stack.
-    let load
+    let mbLoadNode
         (host: MailboxHost)
         (caller: Caller)
         (subject: NodeId)
         : Async<Result<unit, string>> =
         reply host (fun channel ->
-            Load(caller, subject, channel))
+            LoadNode(caller, subject, channel))
 
     let actorStop
         (host: MailboxHost)
@@ -279,7 +279,6 @@ module CoreMailbox =
         (host: MailboxHost)
         (caller: Caller)
         : CoreChanges =
-        let postLoad = load
         let rec make (c: Caller) : CoreChanges =
             { getState = fun () -> tryGetState host
               getEventId = fun () -> getEventId host
@@ -288,7 +287,7 @@ module CoreMailbox =
               postEvents = postEvents host c
               postGraphOnly = fun event -> postGraphOnly host c event
               actorStop = fun result -> actorStop host c result
-              load = fun subject -> postLoad host c subject
+              loadNode = fun subject -> mbLoadNode host c subject
               asCaller = make }
         make caller
 

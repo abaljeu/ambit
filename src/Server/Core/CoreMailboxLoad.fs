@@ -103,7 +103,7 @@ module internal CoreMailboxLoad =
         | RecordSearchStop (caller, rootId, reply) ->
             CoreMailboxActors.dispatchRecordSearchStop
                 context caller rootId reply
-        | Load (caller, subject, reply) ->
+        | LoadNode (caller, subject, reply) ->
             reply.Reply(dispatchLoad context caller subject)
         | ActorStop (caller, result, reply) ->
             CoreMailboxActors.dispatchActorStop context caller result reply

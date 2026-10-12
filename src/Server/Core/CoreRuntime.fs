@@ -38,7 +38,7 @@ module CoreRuntime =
                 postEvents = rejectEvents
                 postGraphOnly = rejectGraph
                 actorStop = rejectActorStop
-                load = rejectLoad
+                loadNode = rejectLoad
                 getEventsSince = h.getEventsSince
                 asCaller = fun caller -> wrap (h.asCaller caller) }
         wrap handle

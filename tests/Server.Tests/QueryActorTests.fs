@@ -56,7 +56,7 @@ let private recordingStops (stops: ResizeArray<ActorResult>) : CoreChanges =
             fun result ->
                 stops.Add result
                 async.Return (Result.Ok ())
-          load = fun _ -> async.Return (Result.Error "unused")
+          loadNode = fun _ -> async.Return (Result.Error "unused")
           asCaller = fun _ -> make () }
     make ()
 
