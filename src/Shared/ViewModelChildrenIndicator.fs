@@ -1,19 +1,21 @@
 namespace Gambol.Shared
 
-/// Left-edge children indicator on an outline row (chevron vs solid/hollow circle).
+/// Left-edge children indicator on an outline row.
 [<RequireQualifiedAccess>]
 type RowChildrenIndicator =
     | FoldChevron
     | SolidCircle
     | HollowCircle
+    | SlashedHollowCircle
 
 module ViewModelChildrenIndicator =
 
-    /// Hollow for Unloaded or Unparsed; solid for Loaded+Parsed leaves;
-    /// chevron for Loaded+Parsed Nodes with Children.
+    /// Slashed hollow for Unparsed; hollow for Unloaded;
+    /// solid for Loaded+Parsed leaves;
+    /// chevron for Loaded+Parsed nodes with children.
     let rowChildrenIndicator (graph: Graph) (node: Node) : RowChildrenIndicator =
         if node.documentState = Unparsed then
-            RowChildrenIndicator.HollowCircle
+            RowChildrenIndicator.SlashedHollowCircle
         else
             match GraphChildren.tryGet graph node.id with
             | None -> RowChildrenIndicator.HollowCircle
