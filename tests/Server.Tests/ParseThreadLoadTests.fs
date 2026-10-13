@@ -1073,3 +1073,235 @@ let ``Load of a newly Unparsed child Directory reconciles one level`` () =
         finally
             CoreMailboxApi.dispose host
     }
+
+type private LoadRig =
+    { host: MailboxHost
+      pushed: ResizeArray<NodeId>
+      startThread: unit -> unit }
+
+let private pushedIds (pushed: ResizeArray<NodeId>) =
+    lock pushed (fun () -> pushed |> Seq.toList)
+
+let private loadRig (dataDir: string) =
+    let stackPush, consumer = ParseStack.create ()
+    let pushed = ResizeArray<NodeId>()
+    let push nodeId =
+        lock pushed (fun () -> pushed.Add nodeId)
+        stackPush nodeId
+    let host =
+        CoreMailbox.hostWithParsePush
+            (CoreActorPool.create ())
+            (FileAgent.persist (FileAgent.create dataDir))
+            admittedCredentials
+            push
+    let startThread () =
+        let parseHandle = CoreDoor.create true host testCaller
+        ParseThread.start
+            { dataDir = dataDir
+              consumer = consumer
+              push = push
+              getGraph = ParseThread.graphFromHost host
+              postOps = ParseThread.postParseOps parseHandle
+              markUnparsed =
+                fun nodeId ->
+                    CoreMailboxApi.addInMsg
+                        host
+                        (InMsg.MarkUnparsed nodeId)
+              finishParse =
+                fun nodeId ->
+                    CoreMailboxApi.addInMsg
+                        host
+                        (InMsg.ParseFinished nodeId) }
+    { host = host
+      pushed = pushed
+      startThread = startThread }
+
+let private userLoad host nodeId =
+    CoreMailboxApi.mbLoadNode host testCaller nodeId
+    |> Async.StartAsTask
+
+let private ensureDocsDisk dataDir =
+    let docs = Path.Combine(dataDir, "home", "docs")
+    Directory.CreateDirectory(docs) |> ignore
+    docs
+
+[<Fact>]
+let ``user Load on a Parsed Directory marks it Unparsed then reconciles`` () =
+    task {
+        let dataDir = newTempDir ()
+        let rig = loadRig dataDir
+        try
+            let! _, dirId = seedDocsFile rig.host
+            let docs = ensureDocsDisk dataDir
+            File.WriteAllText(Path.Combine(docs, "note.txt"), "keep")
+            File.WriteAllText(Path.Combine(docs, "extra.txt"), "EXTRA\n")
+            CoreMailboxApi.addInMsg rig.host (InMsg.ParseFinished dirId)
+            let! parsed =
+                waitUntil
+                    (fun () ->
+                        parseStateOf rig.host dirId = Some ParseState.Parsed)
+                    2000
+            Assert.True(parsed, "directory should be Parsed before Load")
+            let! loaded = userLoad rig.host dirId
+            requireOk "Load" loaded
+            Assert.Equal(
+                Some ParseState.Unparsed,
+                parseStateOf rig.host dirId)
+            Assert.Equal<NodeId list>([ dirId ], pushedIds rig.pushed)
+            rig.startThread ()
+            let! created =
+                waitUntil
+                    (fun () ->
+                        parseStateOf rig.host dirId = Some ParseState.Parsed
+                        && (childIdNamed rig.host dirId "extra.txt"
+                            |> Option.isSome))
+                    2000
+            Assert.True(created, "Load should reconcile extra.txt")
+        finally
+            CoreMailboxApi.dispose rig.host
+    }
+
+[<Fact>]
+let ``Directory reconcile leaves existing member parse state unchanged`` () =
+    task {
+        let dataDir = newTempDir ()
+        let rig = loadRig dataDir
+        rig.startThread ()
+        try
+            let! fileId, dirId = seedDocsFile rig.host
+            let graph = (stateOf rig.host).graph
+            let keptId, keptOps =
+                FileNodeOps.planCreateOwnedDirectory graph dirId "kept"
+            postOps rig.host keptOps
+            let docs = ensureDocsDisk dataDir
+            File.WriteAllText(Path.Combine(docs, "note.txt"), "DISK-NOTE\n")
+            Directory.CreateDirectory(Path.Combine(docs, "kept")) |> ignore
+            File.WriteAllText(
+                Path.Combine(docs, "kept", "inner.txt"),
+                "INNER\n")
+            File.WriteAllText(Path.Combine(docs, "extra.txt"), "EXTRA\n")
+            CoreMailboxApi.addInMsg rig.host (InMsg.ParseFinished fileId)
+            CoreMailboxApi.addInMsg rig.host (InMsg.ParseFinished keptId)
+            let! held =
+                waitUntil
+                    (fun () ->
+                        parseStateOf rig.host fileId = Some ParseState.Parsed
+                        && parseStateOf rig.host keptId
+                           = Some ParseState.Parsed)
+                    2000
+            Assert.True(held, "existing members should be Parsed before reconcile")
+            let! loaded = userLoad rig.host dirId
+            requireOk "Load" loaded
+            let! reconciled =
+                waitUntil
+                    (fun () ->
+                        parseStateOf rig.host dirId = Some ParseState.Parsed
+                        && (childIdNamed rig.host dirId "extra.txt"
+                            |> Option.isSome))
+                    2000
+            Assert.True(reconciled, "parent Load should reconcile")
+            Assert.Equal(Some fileId, childIdNamed rig.host dirId "note.txt")
+            Assert.Equal(Some ParseState.Parsed, parseStateOf rig.host fileId)
+            Assert.Equal(Some ParseState.Parsed, parseStateOf rig.host keptId)
+            Assert.False(graphHasText rig.host fileId "DISK-NOTE")
+            Assert.True(
+                childNamed rig.host keptId "inner.txt" |> Option.isNone)
+            match childIdNamed rig.host dirId "extra.txt" with
+            | None -> Assert.Fail("extra.txt missing")
+            | Some extraId ->
+                Assert.Equal(
+                    Some ParseState.Unparsed,
+                    parseStateOf rig.host extraId)
+        finally
+            CoreMailboxApi.dispose rig.host
+    }
+
+[<Fact>]
+let ``File Load parses its file regardless of Parsed state or disk date`` () =
+    task {
+        let dataDir = newTempDir ()
+        let rig = loadRig dataDir
+        try
+            let! fileId, _ = seedWorkspaceFile rig.host "home" "note.txt"
+            let diskPath = Path.Combine(dataDir, "home", "note.txt")
+            Directory.CreateDirectory(Path.GetDirectoryName diskPath)
+            |> ignore
+            let old = DateTime(1999, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+            File.WriteAllText(diskPath, "OLD\n")
+            File.SetLastWriteTimeUtc(diskPath, old)
+            CoreMailboxApi.addInMsg rig.host (InMsg.ParseFinished fileId)
+            let! wasParsed =
+                waitUntil
+                    (fun () ->
+                        parseStateOf rig.host fileId = Some ParseState.Parsed)
+                    2000
+            Assert.True(wasParsed, "file should be Parsed before Load")
+            let! first = userLoad rig.host fileId
+            requireOk "first" first
+            Assert.Equal(Some ParseState.Unparsed, parseStateOf rig.host fileId)
+            Assert.Equal<NodeId list>([ fileId ], pushedIds rig.pushed)
+            rig.startThread ()
+            let! parsed =
+                waitUntil
+                    (fun () ->
+                        graphHasText rig.host fileId "OLD"
+                        && parseStateOf rig.host fileId
+                           = Some ParseState.Parsed)
+                    2000
+            Assert.True(parsed, "Load should parse OLD when the disk date is older")
+            File.WriteAllText(diskPath, "NEW\n")
+            File.SetLastWriteTimeUtc(diskPath, old)
+            let! second = userLoad rig.host fileId
+            requireOk "second" second
+            let! again =
+                waitUntil
+                    (fun () -> graphHasText rig.host fileId "NEW")
+                    2000
+            Assert.True(
+                again,
+                "a later Load of that Parsed file should parse NEW")
+        finally
+            CoreMailboxApi.dispose rig.host
+    }
+
+[<Fact>]
+let ``Directory reconcile pushes nothing onto the parse stack`` () =
+    task {
+        let dataDir = newTempDir ()
+        let rig = loadRig dataDir
+        rig.startThread ()
+        try
+            let! fileId, dirId = seedDocsFile rig.host
+            let docs = ensureDocsDisk dataDir
+            File.WriteAllText(Path.Combine(docs, "note.txt"), "keep")
+            Directory.CreateDirectory(Path.Combine(docs, "side")) |> ignore
+            File.WriteAllText(Path.Combine(docs, "extra.txt"), "EXTRA\n")
+            let! loaded = userLoad rig.host dirId
+            requireOk "Load" loaded
+            let! reconciled =
+                waitUntil
+                    (fun () ->
+                        parseStateOf rig.host dirId = Some ParseState.Parsed
+                        && (childIdNamed rig.host dirId "extra.txt"
+                            |> Option.isSome)
+                        && (childNamed rig.host dirId "side" |> Option.isSome))
+                    2000
+            Assert.True(reconciled, "directory Load should reconcile members")
+            do! Task.Delay 400
+            Assert.Equal<NodeId list>([ dirId ], pushedIds rig.pushed)
+            Assert.DoesNotContain(fileId, pushedIds rig.pushed)
+            match childIdNamed rig.host dirId "extra.txt" with
+            | None -> Assert.Fail("extra.txt missing")
+            | Some extraId ->
+                Assert.DoesNotContain(extraId, pushedIds rig.pushed)
+                Assert.Equal(
+                    Some ParseState.Unparsed,
+                    parseStateOf rig.host extraId)
+            match childNamed rig.host dirId "side" with
+            | None -> Assert.Fail("side missing")
+            | Some side ->
+                Assert.DoesNotContain(side.id, pushedIds rig.pushed)
+                Assert.Equal(ParseState.Unparsed, side.parseState)
+        finally
+            CoreMailboxApi.dispose rig.host
+    }
