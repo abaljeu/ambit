@@ -58,25 +58,29 @@ module SyncLogic =
         (events: Ev list)
         (state: ClientSyncState)
         : Result<ClientSyncState * bool, string> =
-        let step (st, undid) event =
-            let ops = Ev.ops event |> Option.defaultValue []
-            let mark = Op.marksOwningPersist event.commandName
-            let guard = Op.guardsUnparsedDocument event.commandName
-            match
-                ResidentProjection.applyOpsForSyncAllowing
-                    guard
-                    mark
-                    ops
-                    (asProjectionState st)
-                    { pending = st.pending
-                      submissionId = event.submissionId }
-            with
-            | ApplyResult.Changed newSt, note
-            | ApplyResult.Unchanged newSt, note ->
-                Ok(
-                    withProjectedGraph event st newSt note,
-                    undid || note.IsSome)
-            | ApplyResult.Invalid (_, msg), _ -> Error msg
+        let step (st: ClientSyncState, undid) (event: Ev) =
+            // Already applied. An append-style Replace is not idempotent.
+            if event.id <= st.eventId then
+                Ok(st, undid)
+            else
+                let ops = Ev.ops event |> Option.defaultValue []
+                let mark = Op.marksOwningPersist event.commandName
+                let guard = Op.guardsUnparsedDocument event.commandName
+                match
+                    ResidentProjection.applyOpsForSyncAllowing
+                        guard
+                        mark
+                        ops
+                        (asProjectionState st)
+                        { pending = st.pending
+                          submissionId = event.submissionId }
+                with
+                | ApplyResult.Changed newSt, note
+                | ApplyResult.Unchanged newSt, note ->
+                    Ok(
+                        withProjectedGraph event st newSt note,
+                        undid || note.IsSome)
+                | ApplyResult.Invalid (_, msg), _ -> Error msg
         events
         |> List.fold
             (fun acc event ->

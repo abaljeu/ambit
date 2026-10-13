@@ -164,7 +164,7 @@ let private withRecorded (event: Ev) (state: ClientSyncState) =
 let private stateWithNode text : ClientSyncState * NodeId =
     let graph0 = Graph.create ()
     let graph1, nodeId = Graph.newNode text graph0
-    { emptyState() with graph = graph1; eventId = EventIdFixtures.storedId 3 }, nodeId
+    { emptyState() with graph = graph1; eventId = EventIdFixtures.storedId 2 }, nodeId
 
 [<Fact>]
 let ``applyServerTail empty list returns Ok with state unchanged`` () =
@@ -214,6 +214,42 @@ let ``applyServerTail applies graph mutations`` () =
     | Ok result ->
         Assert.Equal("after", result.graph.nodes.[nodeId].text)
         Assert.Equal(EventIdFixtures.storedId 3, result.eventId)
+
+[<Fact>]
+let ``applyServerTail applies the same Replace-append event twice and keeps one copy`` () =
+    let graph0 = Graph.create ()
+    let graph1, parentId = Graph.newNode "parent" graph0
+    let keptId = NodeId.New()
+    let addedId = NodeId.New()
+    let kept = Node.Create(keptId, text = "kept", owner = parentId)
+    let added = Node.Create(addedId, text = "added", owner = parentId)
+    let graph =
+        graph1
+        |> addDetachedMany [ kept; added ]
+        |> appendKids parentId [ ChildNode.owner keptId ]
+    let st =
+        { emptyState () with
+            graph = graph
+            eventId = EventIdFixtures.storedId 3 }
+    let oldList = Graph.children graph parentId
+    let newList = oldList @ [ ChildNode.owner addedId ]
+    let event =
+        { id = EventIdFixtures.storedId 4
+          submissionId = System.Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change [ Op.Replace(parentId, oldList, newList) ] }
+    match applyTail [ event ] st with
+    | Error msg -> failwith $"Expected Ok, got Error: {msg}"
+    | Ok once ->
+        match applyTail [ event ] once with
+        | Error msg -> failwith $"Expected Ok, got Error: {msg}"
+        | Ok twice ->
+            let kids = Graph.children twice.graph parentId
+            Assert.Equal(2, kids.Length)
+            Assert.Equal(keptId, kids.[0].id)
+            Assert.Equal(addedId, kids.[1].id)
+            Assert.Equal(EventIdFixtures.storedId 4, twice.eventId)
 
 let private actorStartEvent eventId focusId : Ev =
     { id = eventId
@@ -646,13 +682,13 @@ let ``applyServerTail multi-change tail advances revision and graph`` () =
     let nodeA = state0.graph.nodes.[rootKids.[0].id]
     let nodeB = state0.graph.nodes.[rootKids.[1].id]
     let change1 =
-        { id = EventIdFixtures.storedId 1
+        { id = EventIdFixtures.storedId 11
           submissionId = System.Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
           body = EventBody.Change [ Op.SetText(nodeA.id, nodeA.text, nodeA.text + "1") ] }
     let change2 =
-        { id = EventIdFixtures.storedId 2
+        { id = EventIdFixtures.storedId 12
           submissionId = System.Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
@@ -660,7 +696,7 @@ let ``applyServerTail multi-change tail advances revision and graph`` () =
     match applyTail [ change1; change2 ] (ofState state0) with
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
     | Ok result ->
-        Assert.Equal(EventIdFixtures.storedId 2, result.eventId)
+        Assert.Equal(EventIdFixtures.storedId 12, result.eventId)
         Assert.Equal(nodeA.text + "1", result.graph.nodes.[nodeA.id].text)
         Assert.Equal(nodeB.text + "2", result.graph.nodes.[nodeB.id].text)
 
