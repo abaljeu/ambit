@@ -175,6 +175,21 @@ let private editMoveDown () : Updater option =
         | None -> None
         | Some x -> Some (moveEditDownAtClientX x)
 
+/// `<` and `O` are one-character keys. Editing drops those before this runs.
+let private selectionShift (onEdge: HTMLElement -> bool) (delta: int) : CommandOp =
+    fun () ->
+        let el = document.getElementById "edit-input"
+        if isNull el || onEdge el then Some (shiftArrowOp delta) else None
+
+/// Edit-mode keys only. Dock and palette keep the always-on command run.
+let editingKeyHandler (id: CommandId) (fallback: CommandOp) : CommandOp =
+    match id with
+    | SelectionUp ->
+        selectionShift isContentEditableFocusOnVisualFirstLine -1
+    | SelectionDown ->
+        selectionShift isContentEditableFocusOnVisualLastLine 1
+    | _ -> fallback
+
 let private handleBackspace () : Updater option =
     if readEditInputCursor () = 0 && readEditInputSelectionEnd () = 0 then
         Some (joinWithPrevious (readEditInputValue ()))
