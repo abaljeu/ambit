@@ -227,7 +227,8 @@ body {
     border-left: 1px solid #666;
 }
 .amb-bullet-dot::before,
-.amb-bullet-hollow::before {
+.amb-bullet-hollow::before,
+.amb-bullet-hollow-slash::before {
     content: "";
     display: block;
     width: 0.4em;
@@ -242,6 +243,15 @@ body {
 .amb-bullet-hollow::before {
     background: transparent;
     border: 1.5px solid currentColor;
+}
+.amb-bullet-hollow-slash::before {
+    border: 1.5px solid currentColor;
+    background: linear-gradient(
+        135deg,
+        transparent calc(50% - 0.75px),
+        currentColor calc(50% - 0.75px),
+        currentColor calc(50% + 0.75px),
+        transparent calc(50% + 0.75px));
 }
 .amb-row-owned .amb-fold-toggle {
     color: #000;

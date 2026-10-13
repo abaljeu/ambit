@@ -182,6 +182,12 @@ module Layout =
                 dot.classList.add "amb-bullet-hollow"
                 row.appendChild dot |> ignore
                 dot
+            | RowChildrenIndicator.SlashedHollowCircle ->
+                let dot = document.createElement "span"
+                dot.classList.add "amb-fold-toggle"
+                dot.classList.add "amb-bullet-hollow-slash"
+                row.appendChild dot |> ignore
+                dot
         let cssClasses = CssClass.toList node.cssClasses
         for cls in cssClasses do
             nodeBullet.classList.add cls

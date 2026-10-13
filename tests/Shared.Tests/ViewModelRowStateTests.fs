@@ -556,7 +556,7 @@ let ``mapped Unparsed file keeps ledger stamps despite newer node updateTime`` (
             model.graph.nodes.[fileId])
 
 // ---------------------------------------------------------------------------
-// rowChildrenIndicator — hollow circle for Unloaded / Unparsed leaves
+// rowChildrenIndicator — hollow Unloaded, slashed hollow Unparsed, solid loaded leaf
 // ---------------------------------------------------------------------------
 
 let private graphWithNode (node: Node) =
@@ -574,7 +574,7 @@ let ``rowChildrenIndicator is HollowCircle when children are Unloaded`` () =
     Assert.Equal(RowChildrenIndicator.HollowCircle, rowChildrenIndicator graph node)
 
 [<Fact>]
-let ``rowChildrenIndicator is HollowCircle when document is Unparsed leaf`` () =
+let ``rowChildrenIndicator is SlashedHollowCircle when document is Unparsed leaf`` () =
     let node =
         Node.Create(
             NodeId.New(),
@@ -582,7 +582,7 @@ let ``rowChildrenIndicator is HollowCircle when document is Unparsed leaf`` () =
             kind = Special File,
             documentState = Unparsed)
     Assert.Equal(
-        RowChildrenIndicator.HollowCircle,
+        RowChildrenIndicator.SlashedHollowCircle,
         rowChildrenIndicator (graphWithNode node) node)
 
 [<Fact>]
@@ -602,7 +602,7 @@ let ``rowChildrenIndicator is FoldChevron when Loaded with children`` () =
         rowChildrenIndicator (graphWithKids node child) node)
 
 [<Fact>]
-let ``rowChildrenIndicator stays HollowCircle when Unparsed has resident children`` () =
+let ``rowChildrenIndicator stays SlashedHollowCircle when Unparsed has resident children`` () =
     let childId = NodeId.New()
     let node =
         Node.Create(
@@ -612,7 +612,7 @@ let ``rowChildrenIndicator stays HollowCircle when Unparsed has resident childre
             documentState = Unparsed)
     let child = Node.Create(childId, text = "c")
     Assert.Equal(
-        RowChildrenIndicator.HollowCircle,
+        RowChildrenIndicator.SlashedHollowCircle,
         rowChildrenIndicator (graphWithKids node child) node)
 
 [<Fact>]
