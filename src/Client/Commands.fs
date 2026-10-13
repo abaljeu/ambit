@@ -179,11 +179,7 @@ let private editMoveDown () : Updater option =
 let private selectionShift (onEdge: HTMLElement -> bool) (delta: int) : CommandOp =
     fun () ->
         let el = document.getElementById "edit-input"
-        let place =
-            if isNull el then SelectionMode
-            elif onEdge el then EditFocusOnEdge
-            else EditFocusInside
-        if shiftArrowActivates place then Some (shiftArrowOp delta) else None
+        if isNull el || onEdge el then Some (shiftArrowOp delta) else None
 
 /// Edit-mode keys only. Dock and palette keep the always-on command run.
 let editingKeyHandler (id: CommandId) (fallback: CommandOp) : CommandOp =

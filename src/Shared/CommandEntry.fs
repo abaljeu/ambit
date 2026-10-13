@@ -315,16 +315,3 @@ let scopeInEditing (scope: CommandKeyScope) : bool =
     match scope with
     | EditingOnly | SelectionOrEditing -> true
     | SelectionOnly -> false
-
-/// Where Shift+Arrow is asked to run the node command.
-type ShiftArrowPlace =
-    | SelectionMode
-    | EditFocusOnEdge
-    | EditFocusInside
-
-/// Selection mode always runs. Edit mode runs only on the visual edge.
-let shiftArrowActivates (place: ShiftArrowPlace) : bool =
-    match place with
-    | SelectionMode
-    | EditFocusOnEdge -> true
-    | EditFocusInside -> false
