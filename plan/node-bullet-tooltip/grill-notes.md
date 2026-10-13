@@ -27,7 +27,7 @@ From [[src/Client/RowView.fs]] + [[src/Shared/ViewModelRowState.fs]]:
 | Filename / name token | `rowNameDisplayText node.name` → `.amb-node-guid` (**class name lies**: not a Guid) |
 | Workspace path-sync glyph | `rowFileIndicator` → `.amb-file-indicator` text |
 | Sync short label | native `title` on `.amb-file-indicator` (`WorkspacePathSyncStatus.shortLabel`) |
-| Children shape | `RowChildrenIndicator`: FoldChevron / SolidCircle / HollowCircle |
+| Children shape | `RowChildrenIndicator`: FoldChevron / SolidCircle / HollowCircle / SlashedHollowCircle |
 | Owned vs Ref | row CSS `amb-row-owned` / `amb-row-ref` |
 | Kind chrome | special row classes / text border |
 
@@ -40,8 +40,8 @@ From [[src/Client/RowView.fs]] + [[src/Shared/ViewModelRowState.fs]]:
 | Raw `sourceModifiedUtc` | App `POST /_desktop/file-status` → `DesktopFileStatusResponse` → `FileStatusIndicator` on VM | Only after status fetch; see [[doc/current/desktop-local-files.md]]. |
 | Derived current/old/edited | `FileSyncIndicator.indicatorTextForStatus` via `desktopFileIndicatorText` | **Computed + tested, not rendered in Browser DOM.** |
 | Absolute / resolved local path | App status path + `NodeDesktopPath` | Not on the left control; may appear elsewhere indirectly. |
-| `documentState` | Shared Node | Hollow already encodes Unloaded **or** Unparsed; not spelled out as text. |
-| `childrenStatus` | Shared Node | Same. |
+| `documentState` | Shared Node | Slashed hollow encodes Unparsed; not spelled out as text. |
+| `childrenStatus` | Shared Node | Hollow encodes Unloaded; not spelled out as text. |
 | Owner parent `NodeId` | Shared Node.owner | Not shown. |
 | Instance / SiteId | SiteMap | Not shown. |
 
@@ -49,9 +49,10 @@ From [[src/Client/RowView.fs]] + [[src/Shared/ViewModelRowState.fs]]:
 
 [[src/Shared/ViewModelChildrenIndicator.fs]]:
 
-- **FoldChevron** — resident children present; fold + deferred Zoom handlers on the control.
+- **FoldChevron** — Loaded with children; fold + deferred Zoom handlers on the control.
 - **SolidCircle** — Loaded + Parsed leaf.
-- **HollowCircle** — Unloaded **or** Unparsed leaf (distinct facts, shared glyph; Load click still pending issue 28).
+- **HollowCircle** — Unloaded. Load click still pending issue 28.
+- **SlashedHollowCircle** — Unparsed, including Unparsed with resident children.
 
 Binding today: circle variants also get row activate / double-click when `not hasChildren`. Chevron keeps fold/zoom. Tooltip attachment must not break those handlers.
 

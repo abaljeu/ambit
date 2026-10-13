@@ -60,10 +60,10 @@ Sources: [map.md](map.md) Destination, Notes, and Decisions so far (2026-09-26 l
     2. [x] Indicator reads absent `childMap` key as Unloaded
     3. [x] [src/Client/RowView.fs](src/Client/RowView.fs) paints `amb-bullet-hollow`
 
-11. **Hollow Unparsed Bullet**
-    1. [x] Indicator hollow when `documentState = Unparsed`
-    2. [x] Unloaded and Unparsed stay distinct facts on one glyph
-    3. [x] RowView uses the same hollow class
+11. **Slashed Unparsed Bullet**
+    1. [x] Indicator is `SlashedHollowCircle` when `documentState = Unparsed`, including resident children
+    2. [x] Unloaded stays `HollowCircle`; Unparsed stays `SlashedHollowCircle`
+    3. [x] RowView class `amb-bullet-hollow-slash`
 
 12. **No new loading Status**
     1. [x] No per-Node loading Status on Node
@@ -139,7 +139,7 @@ Sources: [map.md](map.md) Destination, Notes, and Decisions so far (2026-09-26 l
 
 26. **Children arrive on the Bullet**
     1. [ ] After install, `childMap` is present for that parent
-    2. [x] Indicator leaves HollowCircle when children exist (chevron) or when Loaded and not Unparsed (solid)
+    2. [x] Loaded with children is FoldChevron; a Loaded leaf is SolidCircle; Unloaded is HollowCircle; Unparsed is SlashedHollowCircle, including resident children
     3. [x] RowView re-renders from the indicator
 
 27. **Growth while I work**
@@ -332,9 +332,9 @@ Narrowest shared test seam:
     1. State
        1. [x] None
     2. Interface
-       1. [x] HollowCircle for Unloaded or Unparsed; FoldChevron when children present; SolidCircle otherwise
+       1. [x] SlashedHollowCircle when Unparsed, including resident children; HollowCircle when Unloaded; SolidCircle for a Loaded leaf; FoldChevron when Loaded with children
       2. [x] Unloaded means absent `childMap` key
-       3. [x] RowView class `amb-bullet-hollow`
+       3. [x] RowView class `amb-bullet-hollow` for Unloaded and `amb-bullet-hollow-slash` for Unparsed
     3. Uses
       1. [x] Graph childMap
        2. [x] `documentState`

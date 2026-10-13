@@ -10,7 +10,7 @@ Server file time / Last sync) moved to [[plan/bullet-tip-times/time-requirements
 ## Candidate terms
 
 **Node marker**:
-The left-edge outline control that presents FoldChevron, SolidCircle, or HollowCircle for a Node occurrence.
+The left-edge outline control that presents FoldChevron, SolidCircle, HollowCircle, or SlashedHollowCircle for a Node occurrence.
 _Avoid (spoken)_: bullet, leafBullet, nodeBullet, fold toggle (when the control is a circle)
 
 **Children indicator**:
