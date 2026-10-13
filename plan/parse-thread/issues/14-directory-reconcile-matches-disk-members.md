@@ -1,7 +1,7 @@
 # 14 — Directory reconcile matches disk members
 
 **Status:** `coded`
-Actual: 1h
+Actual: 1h 45m
 **Type:** coding
 **Blocked by:** None — can start immediately
 **Trackers:** architecture, project spec
@@ -52,6 +52,7 @@ Directory reconcile examines the directory on disk. It adds a missing member nod
 ## Time
 
 - 2026-10-12 1h — directory reconcile members, Current event, and tests (from chat)
+- 2026-10-12 45m — Load posts the Unparsed Event (from chat)
 
 ## See also
 
