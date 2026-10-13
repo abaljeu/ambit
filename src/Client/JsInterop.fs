@@ -93,13 +93,27 @@ let private rangeLineTop (container: DomNode) (offset: float) : float =
     rr.collapse true
     rr.getBoundingClientRect().top
 
-let private selectionCaretTop (root: HTMLElement) : float option =
+type private CaretEdge =
+    | CaretAtRangeStart
+    | CaretAtFocus
+
+/// Ordered range start, or the selection focus (the end that moves).
+let private caretBoundary (root: HTMLElement) (edge: CaretEdge) : (DomNode * float) option =
     let s = window.getSelection ()
     if isNull s || s.rangeCount < 1. then None
     else
-        let r = s.getRangeAt 0.
-        if not (root.contains r.startContainer) then None
-        else Some (rangeLineTop r.startContainer r.startOffset)
+        let node, offset =
+            match edge with
+            | CaretAtRangeStart ->
+                let r = s.getRangeAt 0.
+                r.startContainer, r.startOffset
+            | CaretAtFocus -> s.focusNode, s.focusOffset
+        if isNull node || not (root.contains node) then None
+        else Some (node, offset)
+
+let private boundaryLineTop (root: HTMLElement) (edge: CaretEdge) : float option =
+    caretBoundary root edge
+    |> Option.map (fun (node, offset) -> rangeLineTop node offset)
 
 /// Viewport `left` of the collapsed caret at the selection **start**, if it lies in `root`.
 let getContentEditableCaretClientX (root: HTMLElement) : float option =
@@ -124,23 +138,36 @@ let private refTopForVisualLine (t: Text) (kind: VisualLineKind) : float =
     | VisualLineLast -> rangeLineTop t (float t.length)
 
 /// Shared: flat empty = one line; `FlatOneText` compares caret `top` to line end.
-let private isContentEditableCaretOnVisualLine (kind: VisualLineKind) (root: HTMLElement) : bool =
+let private isContentEditableCaretOnVisualLine
+    (kind: VisualLineKind)
+    (edge: CaretEdge)
+    (root: HTMLElement)
+    : bool =
     match classifyFlatEditable root with
     | FlatInvalid -> false
-    | FlatEmpty -> selectionCaretTop root |> Option.isSome
+    | FlatEmpty -> boundaryLineTop root edge |> Option.isSome
     | FlatOneText t ->
-        match selectionCaretTop root with
+        match boundaryLineTop root edge with
         | None -> false
         | Some y -> abs (y - refTopForVisualLine t kind) < visualLineEpsilon
 
 /// True when the selection start lies on the first visual line (`root` flat per
 /// `classifyFlatEditable`). Non-collapsed ranges use the start boundary.
 let isContentEditableCaretOnVisualFirstLine (root: HTMLElement) : bool =
-    isContentEditableCaretOnVisualLine VisualLineFirst root
+    isContentEditableCaretOnVisualLine VisualLineFirst CaretAtRangeStart root
 
 /// True when the selection start lies on the last visual line (`root` flat).
 let isContentEditableCaretOnVisualLastLine (root: HTMLElement) : bool =
-    isContentEditableCaretOnVisualLine VisualLineLast root
+    isContentEditableCaretOnVisualLine VisualLineLast CaretAtRangeStart root
+
+/// True when the selection focus lies on the first visual line.
+/// Focus is the moving end, including a backward range.
+let isContentEditableFocusOnVisualFirstLine (root: HTMLElement) : bool =
+    isContentEditableCaretOnVisualLine VisualLineFirst CaretAtFocus root
+
+/// True when the selection focus lies on the last visual line.
+let isContentEditableFocusOnVisualLastLine (root: HTMLElement) : bool =
+    isContentEditableCaretOnVisualLine VisualLineLast CaretAtFocus root
 
 /// Collapsed range at (x, y) in viewport coords, or null — caretRangeFromPoint /
 /// caretPositionFromPoint.

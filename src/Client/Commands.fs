@@ -175,6 +175,16 @@ let private editMoveDown () : Updater option =
         | None -> None
         | Some x -> Some (moveEditDownAtClientX x)
 
+/// `<` and `O` are one-character keys. Editing drops those before this runs.
+let private selectionShift (onEdge: HTMLElement -> bool) (delta: int) : CommandOp =
+    fun () ->
+        let el = document.getElementById "edit-input"
+        let place =
+            if isNull el then SelectionMode
+            elif onEdge el then EditFocusOnEdge
+            else EditFocusInside
+        if shiftArrowActivates place then Some (shiftArrowOp delta) else None
+
 let private handleBackspace () : Updater option =
     if readEditInputCursor () = 0 && readEditInputSelectionEnd () = 0 then
         Some (joinWithPrevious (readEditInputValue ()))
@@ -300,8 +310,8 @@ let commandRegistry : CommandEntry2 list =
       cmd CursorRightToChild (keyAlways arrowRightSelectionOp)
       cmd MoveToPreviousNode handleArrowLeft
       cmd MoveToNextNode handleArrowRight
-      cmd SelectionUp (keyAlways (shiftArrowOp -1))
-      cmd SelectionDown (keyAlways (shiftArrowOp 1))
+      cmd SelectionUp (selectionShift isContentEditableFocusOnVisualFirstLine -1)
+      cmd SelectionDown (selectionShift isContentEditableFocusOnVisualLastLine 1)
       cmd EditCursorUp editMoveUp
       cmd EditCursorDown editMoveDown
       cmd MoveUp (keyAlways moveNodeUpOp)

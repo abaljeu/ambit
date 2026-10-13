@@ -28,6 +28,23 @@ let ``scopeInEditing includes editing scopes only`` () =
     Assert.True(scopeInEditing SelectionOrEditing)
 
 [<Fact>]
+let ``shift arrow activates in selection mode and on an edit edge`` () =
+    Assert.True(shiftArrowActivates SelectionMode)
+    Assert.True(shiftArrowActivates EditFocusOnEdge)
+    Assert.False(shiftArrowActivates EditFocusInside)
+
+[<Fact>]
+let ``selection shift keys stay on selection up and down`` () =
+    let up = commandFor SelectionUp
+    let down = commandFor SelectionDown
+    Assert.Equal(Some [ "Shift+ArrowUp"; "<" ], up |> Option.map (fun e -> e.keys))
+    Assert.Equal(Some SelectionOrEditing, up |> Option.map (fun e -> e.keyScope))
+    Assert.Equal(
+        Some [ "Shift+ArrowDown"; "O" ],
+        down |> Option.map (fun e -> e.keys))
+    Assert.Equal(Some SelectionOrEditing, down |> Option.map (fun e -> e.keyScope))
+
+[<Fact>]
 let ``allCommands has unique ids for every CommandId case`` () =
     let unionCases =
         FSharpType.GetUnionCases typeof<CommandId>
