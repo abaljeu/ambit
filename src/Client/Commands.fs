@@ -185,6 +185,15 @@ let private selectionShift (onEdge: HTMLElement -> bool) (delta: int) : CommandO
             else EditFocusInside
         if shiftArrowActivates place then Some (shiftArrowOp delta) else None
 
+/// Edit-mode keys only. Dock and palette keep the always-on command run.
+let editingKeyHandler (id: CommandId) (fallback: CommandOp) : CommandOp =
+    match id with
+    | SelectionUp ->
+        selectionShift isContentEditableFocusOnVisualFirstLine -1
+    | SelectionDown ->
+        selectionShift isContentEditableFocusOnVisualLastLine 1
+    | _ -> fallback
+
 let private handleBackspace () : Updater option =
     if readEditInputCursor () = 0 && readEditInputSelectionEnd () = 0 then
         Some (joinWithPrevious (readEditInputValue ()))
@@ -310,8 +319,8 @@ let commandRegistry : CommandEntry2 list =
       cmd CursorRightToChild (keyAlways arrowRightSelectionOp)
       cmd MoveToPreviousNode handleArrowLeft
       cmd MoveToNextNode handleArrowRight
-      cmd SelectionUp (selectionShift isContentEditableFocusOnVisualFirstLine -1)
-      cmd SelectionDown (selectionShift isContentEditableFocusOnVisualLastLine 1)
+      cmd SelectionUp (keyAlways (shiftArrowOp -1))
+      cmd SelectionDown (keyAlways (shiftArrowOp 1))
       cmd EditCursorUp editMoveUp
       cmd EditCursorDown editMoveDown
       cmd MoveUp (keyAlways moveNodeUpOp)

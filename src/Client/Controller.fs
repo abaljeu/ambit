@@ -343,7 +343,7 @@ let private editingKeyBindings : KeyBinding list =
             | Some meta ->
                 if not (CommandMeta.scopeInEditing meta.keyScope) then collect seen acc rest
                 else
-                    let rowHandler = entry.run
+                    let rowHandler = editingKeyHandler entry.id entry.run
                     let bindings =
                         meta.keys
                         |> List.choose (fun k ->
