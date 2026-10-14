@@ -287,6 +287,23 @@ let ``applyServerTail ActorStart adds and ActorStop removes a live Focus`` () =
             Assert.False(Set.contains focusId afterStop.actorLiveFocusIds)
 
 [<Fact>]
+let ``applyServerTail newest-head tail still removes a live Focus`` () =
+    let focusId = NodeId.New()
+    let otherId = NodeId.New()
+    let st = emptyState ()
+    let started = actorStartEvent (EventIdFixtures.storedId 6) focusId
+    match applyTail [ started ] st with
+    | Error msg -> failwith $"Expected Ok, got Error: {msg}"
+    | Ok afterStart ->
+        let stopped = actorStopEvent (EventIdFixtures.storedId 7) focusId
+        let later = actorStartEvent (EventIdFixtures.storedId 8) otherId
+        match applyTail [ later; stopped ] afterStart with
+        | Error msg -> failwith $"Expected Ok, got Error: {msg}"
+        | Ok afterTail ->
+            Assert.False(Set.contains focusId afterTail.actorLiveFocusIds)
+            Assert.True(Set.contains otherId afterTail.actorLiveFocusIds)
+
+[<Fact>]
 let ``applyServerTail ActorStart keeps pending Graph ops`` () =
     let st, nodeId = stateWithNode "orig"
     let localOps = [ Op.SetText(nodeId, "orig", "local") ]

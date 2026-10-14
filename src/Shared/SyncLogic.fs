@@ -54,6 +54,10 @@ module SyncLogic =
                 | Some _ as existing -> existing
                 | None -> note }
 
+    /// EventLog storage is newest-head. Apply from the older id upward.
+    let private inStoredOrder (events: Ev list) =
+        events |> List.sortBy (fun event -> EventId.value event.id)
+
     let private foldProjectedEvents
         (events: Ev list)
         (state: ClientSyncState)
@@ -81,7 +85,7 @@ module SyncLogic =
                         withProjectedGraph event st newSt note,
                         undid || note.IsSome)
                 | ApplyResult.Invalid (_, msg), _ -> Error msg
-        events
+        inStoredOrder events
         |> List.fold
             (fun acc event ->
                 match acc with

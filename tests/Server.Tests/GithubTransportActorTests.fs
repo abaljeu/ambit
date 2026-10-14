@@ -137,6 +137,86 @@ let private runActor operation dependencies operationName onPush body =
 let private withActor operation dependencies operationName body =
     runActor operation dependencies operationName ignore body
 
+let private applyTail label events state =
+    match SyncLogic.applyServerTail events state with
+    | Ok next -> next
+    | Error err ->
+        Assert.Fail($"{label}: {err}")
+        Unchecked.defaultof<_>
+
+let private offersCancel focusId (state: ClientSyncState) =
+    ActorLive.offersCancel focusId state.actorLiveFocusIds
+
+[<Fact>]
+let ``git Load tells the client the actor completed`` () =
+    let entered =
+        TaskCompletionSource<unit>(
+            TaskCreationOptions.RunContinuationsAsynchronously)
+    let release =
+        TaskCompletionSource<unit>(
+            TaskCreationOptions.RunContinuationsAsynchronously)
+    let pull _ _ =
+        entered.TrySetResult() |> ignore
+        if not (release.Task.Wait 5000) then
+            Error "pull wait timed out"
+        else
+            Ok "pulled"
+    let deps =
+        dependencies
+            (ResizeArray())
+            pull
+            (fun _ _ _ -> Error "commit unused")
+            (fun _ _ _ -> Error "push unused")
+    withActor GithubTransportOperation.Load deps "load"
+        (fun _ host _ _ seed -> task {
+            try
+                let! state =
+                    CoreMailboxApi.getState host |> Async.StartAsTask
+                let baseline = requireOk "state" state
+                let! started =
+                    GithubTransportActor.start
+                        host testCaller GithubTransportOperation.Load
+                        (request seed)
+                    |> Async.StartAsTask
+                requireOk "start Load" started
+                do! entered.Task.WaitAsync(TimeSpan.FromSeconds 2.0)
+                let! commandEvents =
+                    CoreMailboxApi.getEventsSince host baseline.eventId
+                    |> Async.StartAsTask
+                let afterCommand =
+                    applyTail
+                        "command response"
+                        commandEvents
+                        (ClientSyncState.create
+                            baseline.graph
+                            baseline.eventId
+                            (ClientHistory.clear ()))
+                Assert.True(
+                    offersCancel seed.focusId afterCommand,
+                    "command response did not show Cancel")
+                release.TrySetResult() |> ignore
+                let! stopped = waitForStop host seed.focusId 2000
+                Assert.Equal(Some ActorSucceeded, stopped)
+                postGraph
+                    host
+                    [ Op.SetUpdateTime(
+                        seed.focusId,
+                        DateTime.UnixEpoch,
+                        DateTime.UtcNow) ]
+                let! pollEvents =
+                    CoreMailboxApi.getEventsSince
+                        host
+                        afterCommand.eventId
+                    |> Async.StartAsTask
+                let afterPoll =
+                    applyTail "poll" pollEvents afterCommand
+                Assert.False(
+                    offersCancel seed.focusId afterPoll,
+                    "Cancel stays: client was not told the actor completed")
+            finally
+                release.TrySetResult() |> ignore
+        })
+
 [<Fact>]
 let ``git Load gates pull from subnode Focus`` () =
     let steps = ResizeArray<string>()
