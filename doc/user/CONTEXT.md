@@ -8,7 +8,7 @@ This folder explains how to operate Ambit. The lead document is [End-user wiki](
 
 The wiki uses concepts as the user sees them, and tasks in the App and in the Browser.
 
-It describes how to operate the software now. It does not describe work. Work stays in plan/. It does not describe how the program is built and run. That stays in [doc/current/](../current/).
+It describes how to operate the software now, and how it shall operate. It does not describe work. Work stays in plan/. It does not describe how the program is built and run. That stays in [doc/current/](../current/).
 
 These documents should not be complicated, and they should not lie about complexity. When complexity shows up, look for a way to simplify the product.
 
@@ -32,7 +32,13 @@ Refer by name, never by number.
 
 Never state a thing twice within this wiki. Do not multiply links.
 
-Write a list as lines. A line is `Name: fact`. A task uses numbered steps. Do not write a sentence where a line will do. No blank lines between those lines.
+Write a list as checkbox lines. Do not write a sentence where a line will do. Do not write a sentence like "The X is Y". A task uses numbered steps. No blank lines between those lines.
+
+```
+[ ] X: Y
+[o] X: Z
+[x] More complicated claims are sentences or paragraphs.
+```
 
 Links stand alone. Say only how the neighbor fits. Do not restate the neighbor.
 
@@ -77,9 +83,20 @@ These kinds are not page categories and are not sections on the home.
 
 ## 6. Status claims
 
-This wiki has no status marks.
+Every claim about how to operate the software gets a checkbox. The checkbox is filled according to these rules.
 
-A page says how to operate the software now. A page does not say what the program shall be. A page does not say what work remains. Do not use `[x]`, `[ ]`, `[/]`, or `[o]` on these pages.
+Is and Shall be
+
+Status is a mark on a claim, never a section heading.
+
+A claim that replaces another sits on the next line under the same topic. Achievement is checking the successor and deleting the dead claim.
+
+1. **Is** — `[x]` The software operates this way.
+2. **Shall be** — `[ ]` The software shall operate this way. Write in present tense. The lack of x shows the claim is pending.
+3. **Started** — `[/]`
+4. **Obsolete yet implemented** — `[o]` The software still operates this way. Delete this claim when the software no longer matches the description.
+
+If status marks are absent, assume the claims indicate both present and future fact, the same as [x].
 
 ## 7. Out of scope
 
