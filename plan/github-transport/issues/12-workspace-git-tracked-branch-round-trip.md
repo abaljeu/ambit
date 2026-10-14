@@ -19,14 +19,13 @@ Extend **WorkspaceGit** as defined by the Module map in [[../arch.md]]. This cap
 - [x] 3.2.2 Report remote existence — Return whether any `git remote` exists for the Workspace root.
 - [x] 3.2.3 Use the tracked branch — Derive the current branch and upstream from git without a Server branch map.
 - [x] 3.2.4 Pull the whole work tree — git Load uses the current tracked branch for the whole Workspace and does not use a file pathspec.
-- [o] git Load pulls that branch fast-forward-only.
-- [ ] git Load is one merge of the tracked remote branch, completed by committing that merge as part of the pull.
-- [ ] A file only the Server changed stays the Server file.
-- [ ] A file only the remote changed becomes the remote file.
-- [ ] Both sides edited the file, or both added the path. The file contents are the remote file. git writes no conflict markers.
-- [ ] A Server edit and a remote delete remove the file. A Server delete and a remote edit leave the remote file. git writes no conflict markers. That path is resolved to the remote action so the merge commit can be created.
-- [ ] The merge commit includes the remote tip, so a later git Save fast-forwards.
-- [ ] The work tree holds that merge.
+- [x] git Load is one merge of the tracked remote branch, completed by committing that merge as part of the pull.
+- [x] A file only the Server changed stays the Server file.
+- [x] A file only the remote changed becomes the remote file.
+- [x] Both sides edited the file, or both added the path. The file contents are the remote file. git writes no conflict markers.
+- [x] A Server edit and a remote delete remove the file. A Server delete and a remote edit leave the remote file. git writes no conflict markers. That path is resolved to the remote action so the merge commit can be created.
+- [x] The merge commit includes the remote tip, so a later git Save fast-forwards.
+- [x] The work tree holds that merge.
 - [x] 3.2.5 Commit then push the whole work tree — git Save uses `GitSave.commitAll`, then pushes the same tracked branch, without a file pathspec.
 - [x] 3.2.5 Reject a conflicted or non-fast-forward push — A conflicted or non-fast-forward push fails. A conflict error names at least one file path.
 - [x] 3.2.6 Honor `.gitignore` — The git round-trip uses normal `.gitignore` behavior and adds no Ambit skip key or hard `.amb` default.
@@ -39,8 +38,7 @@ Extend **WorkspaceGit** as defined by the Module map in [[../arch.md]]. This cap
 - [x] 3.3.2 Leave credential loading to git — Ambit adds no appsettings, user-secrets, Graph, or DataDir credential store.
 - [x] 3.2.2 Prove remote facts — Temp-work-tree tests cover a remote that is present and absent.
 - [x] 3.2.4 Prove the round-trip — Temp-work-tree tests cover commit-then-push, fast-forward push acceptance, non-fast-forward push rejection, `.gitignore`, and condensed errors.
-- [o] Temp-work-tree tests cover a fast-forward-only pull.
-- [ ] Temp-work-tree tests cover the remote-wins merge of the tracked remote branch.
+- [x] Temp-work-tree tests cover the remote-wins merge of the tracked remote branch.
 
 ## 3. Review notes
 

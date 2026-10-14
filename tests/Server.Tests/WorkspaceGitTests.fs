@@ -377,6 +377,90 @@ let ``pullTracked fast forwards the current tracked branch`` () =
     Assert.Equal(branchOid source "main", branchOid workspace "main")
 
 [<SkippableFact>]
+let ``pullTracked keeps a file only the Server changed`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let _, _, source, workspace = trackedWorkspace ()
+    commitFile workspace "server.txt" "server" "server-change"
+    commitFile source "remote.txt" "remote" "remote-change"
+    git source "push origin main" |> ignore
+
+    WorkspaceGit.pullTracked workspace |> requireOk "pull" |> ignore
+
+    Assert.Equal(
+        "server",
+        File.ReadAllText(Path.Combine(workspace, "server.txt")))
+    Assert.Equal(
+        "remote",
+        File.ReadAllText(Path.Combine(workspace, "remote.txt")))
+
+let private assertNoConflictMarkers (text: string) =
+    Assert.DoesNotContain("<<<<<<<", text)
+    Assert.DoesNotContain("=======", text)
+    Assert.DoesNotContain(">>>>>>>", text)
+
+[<SkippableFact>]
+let ``pullTracked takes the remote file when both sides edited`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let _, _, source, workspace = trackedWorkspace ()
+    commitFile workspace "note.txt" "server" "server-edit"
+    commitFile source "note.txt" "remote" "remote-edit"
+    git source "push origin main" |> ignore
+
+    WorkspaceGit.pullTracked workspace |> requireOk "pull" |> ignore
+
+    let text = File.ReadAllText(Path.Combine(workspace, "note.txt"))
+    Assert.Equal("remote", text)
+    assertNoConflictMarkers text
+    let remoteTip = branchOid source "main"
+    Assert.Equal(remoteTip, git workspace "rev-parse HEAD^2")
+    File.WriteAllText(Path.Combine(workspace, "later.txt"), "later")
+    WorkspaceGit.saveTracked workspace "later" None
+    |> requireOk "save"
+    |> ignore
+
+[<SkippableFact>]
+let ``pullTracked takes the remote file when both sides added the path`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let _, _, source, workspace = trackedWorkspace ()
+    commitFile workspace "added.txt" "server" "server-add"
+    commitFile source "added.txt" "remote" "remote-add"
+    git source "push origin main" |> ignore
+
+    WorkspaceGit.pullTracked workspace |> requireOk "pull" |> ignore
+
+    let text = File.ReadAllText(Path.Combine(workspace, "added.txt"))
+    Assert.Equal("remote", text)
+    assertNoConflictMarkers text
+
+[<SkippableFact>]
+let ``pullTracked removes a file the remote deleted`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let _, _, source, workspace = trackedWorkspace ()
+    commitFile workspace "note.txt" "server" "server-edit"
+    git source "rm note.txt" |> ignore
+    git source "commit -m remote-delete" |> ignore
+    git source "push origin main" |> ignore
+
+    WorkspaceGit.pullTracked workspace |> requireOk "pull" |> ignore
+
+    Assert.False(File.Exists(Path.Combine(workspace, "note.txt")))
+
+[<SkippableFact>]
+let ``pullTracked keeps a remote edit when the Server deleted the path`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let _, _, source, workspace = trackedWorkspace ()
+    git workspace "rm note.txt" |> ignore
+    git workspace "commit -m server-delete" |> ignore
+    commitFile source "note.txt" "remote" "remote-edit"
+    git source "push origin main" |> ignore
+
+    WorkspaceGit.pullTracked workspace |> requireOk "pull" |> ignore
+
+    let text = File.ReadAllText(Path.Combine(workspace, "note.txt"))
+    Assert.Equal("remote", text)
+    assertNoConflictMarkers text
+
+[<SkippableFact>]
 let ``saveTracked commits then pushes while honoring gitignore`` () =
     Skip.IfNot(gitOnPath(), "git not on PATH")
     let parent, remote, _, workspace = trackedWorkspace ()

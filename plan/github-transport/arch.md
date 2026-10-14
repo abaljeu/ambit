@@ -44,14 +44,13 @@ Sources:
    3. [x] Conflict error names at least one file path
    4. [x] Other failures use a matching short error that reflects git, condensed
    5. [x] Reject does not accept non-overlapping diverge on push (not [[plan/workspace-git/project.md]])
-   6. [o] git Load pulls the tracked remote branch fast-forward-only.
-   7. [ ] git Load is one merge of the tracked remote branch, completed by committing that merge as part of the pull.
-   8. [ ] A file only the Server changed stays the Server file.
-   9. [ ] A file only the remote changed becomes the remote file.
-   10. [ ] Both sides edited the file, or both added the path. The file contents are the remote file. git writes no conflict markers.
-   11. [ ] A Server edit and a remote delete remove the file. A Server delete and a remote edit leave the remote file. git writes no conflict markers. That path is resolved to the remote action so the merge commit can be created.
-   12. [ ] The merge commit includes the remote tip, so a later git Save fast-forwards.
-   13. [ ] The work tree holds that merge.
+   6. [x] git Load is one merge of the tracked remote branch, completed by committing that merge as part of the pull.
+   7. [x] A file only the Server changed stays the Server file.
+   8. [x] A file only the remote changed becomes the remote file.
+   9. [x] Both sides edited the file, or both added the path. The file contents are the remote file. git writes no conflict markers.
+   10. [x] A Server edit and a remote delete remove the file. A Server delete and a remote edit leave the remote file. git writes no conflict markers. That path is resolved to the remote action so the merge commit can be created.
+   11. [x] The merge commit includes the remote tip, so a later git Save fast-forwards.
+   12. [x] The work tree holds that merge.
 
 7. **Remotes accept push**
    1. [x] Operator sets `git remote` on the work tree so git works
@@ -74,17 +73,16 @@ Sources:
     1. [x] Person names git Load (explicit pre-pick)
     2. [x] PathPick is skipped
     3. [x] Mailbox → actor pool invokes Server Actor; Actor uses Focus as the work tree
-    4. [o] The Server Actor pulls the whole Workspace work tree fast-forward-only. The invocation node does not narrow git.
-    5. [ ] git Load is one merge of the tracked remote branch, completed by committing that merge as part of the pull.
-    6. [ ] A file only the Server changed stays the Server file.
-    7. [ ] A file only the remote changed becomes the remote file.
-    8. [ ] Both sides edited the file, or both added the path. The file contents are the remote file. git writes no conflict markers.
-    9. [ ] A Server edit and a remote delete remove the file. A Server delete and a remote edit leave the remote file. git writes no conflict markers. That path is resolved to the remote action so the merge commit can be created.
-    10. [ ] The merge commit includes the remote tip, so a later git Save fast-forwards.
-    11. [ ] The work tree holds that merge.
-    12. [x] Reject uses condensed git error (conflict names at least one path)
-    13. [x] After files land, Load informs Core of changes (today’s Parse / graph-push hop until [[plan/core-refinement/project.md]] retargets). Fetch+Poll stays
-    14. [ ] Thin remainder: lock workspace, receive files, inform revised Core ([[plan/core-refinement/project.md]] owns how Core works through changes)
+    4. [x] git Load is one merge of the tracked remote branch, completed by committing that merge as part of the pull.
+    5. [x] A file only the Server changed stays the Server file.
+    6. [x] A file only the remote changed becomes the remote file.
+    7. [x] Both sides edited the file, or both added the path. The file contents are the remote file. git writes no conflict markers.
+    8. [x] A Server edit and a remote delete remove the file. A Server delete and a remote edit leave the remote file. git writes no conflict markers. That path is resolved to the remote action so the merge commit can be created.
+    9. [x] The merge commit includes the remote tip, so a later git Save fast-forwards.
+    10. [x] The work tree holds that merge.
+    11. [x] Reject uses condensed git error (conflict names at least one path)
+    12. [x] After files land, Load informs Core of changes (today’s Parse / graph-push hop until [[plan/core-refinement/project.md]] retargets). Fetch+Poll stays
+    13. [ ] Thin remainder: lock workspace, receive files, inform revised Core ([[plan/core-refinement/project.md]] owns how Core works through changes)
 
 11. **git Save**
     1. [x] Person names git Save (explicit pre-pick)
@@ -200,10 +198,9 @@ Shared segments:
 Narrowest shared test seam:
 1. [x] PathPick: remote exists → git; else desk. Plain Load of a Directory, a File, or a non-subject stays Desk even when a remote exists (pure; no git process)
 2. [x] WorkspaceGit remote-exists + tracked-branch push stays fast-forward-only through GitRun on a temp work tree.
-3. [o] The temp-work-tree pull is fast-forward-only.
-4. [ ] git Load is one merge of the tracked remote branch, completed by committing that merge as part of the pull.
-5. [x] Server Actor git Load / git Save invoke that WorkspaceGit interface; no Ambit credential argument
-6. [x] Work-tree gate: a second Persist, pull, or commit waits for the holder and continues after release without overlap — **revoked 2026-09-28**; not current required architecture
+3. [x] git Load is one merge of the tracked remote branch, completed by committing that merge as part of the pull.
+4. [x] Server Actor git Load / git Save invoke that WorkspaceGit interface; no Ambit credential argument
+5. [x] Work-tree gate: a second Persist, pull, or commit waits for the holder and continues after release without overlap — **revoked 2026-09-28**; not current required architecture
 
 ## 2. Module map
 
@@ -247,22 +244,21 @@ Narrowest shared test seam:
       2. [x] `remoteExists: workspaceRoot -> Result<bool, string>` from `git remote` (any remote counts)
       3. [x] Tracked branch + upstream from that work tree (no Server map)
       4. [x] git Load uses the current tracked branch of the whole Workspace work tree. The pull is not file-level git.
-      5. [o] That pull is fast-forward-only.
-      6. [ ] git Load is one merge of the tracked remote branch, completed by committing that merge as part of the pull.
-      7. [ ] A file only the Server changed stays the Server file.
-      8. [ ] A file only the remote changed becomes the remote file.
-      9. [ ] Both sides edited the file, or both added the path. The file contents are the remote file. git writes no conflict markers.
-      10. [ ] A Server edit and a remote delete remove the file. A Server delete and a remote edit leave the remote file. git writes no conflict markers. That path is resolved to the remote action so the merge commit can be created.
-      11. [ ] The merge commit includes the remote tip, so a later git Save fast-forwards.
-      12. [ ] The work tree holds that merge.
-      13. [x] git Save: `git commit` work-tree edits (`GitSave.commitAll`), then push the same tracked branch of the whole Workspace work tree; reject conflicted or non-FF; never file-level git
-      14. [x] Skip list is `.gitignore` on that work tree (person edits that file; no Ambit skip key)
-      15. [x] Reject error: conflict names at least one file path; other failures a matching short git-condensed message
-      16. [x] No checkout, switch, or older-commit move
-      17. [x] No GitHub credential argument
-      18. [x] Does not invoke Graph→file Persist
-      19. [x] Persist file writes, git Load pull, and git Save commit acquire and release the Workspace work-tree gate — **superseded**; not current required interface
-      20. [x] A second caller waits for the gate and continues after release instead of rejecting as busy — **superseded**
+      5. [x] git Load is one merge of the tracked remote branch, completed by committing that merge as part of the pull.
+      6. [x] A file only the Server changed stays the Server file.
+      7. [x] A file only the remote changed becomes the remote file.
+      8. [x] Both sides edited the file, or both added the path. The file contents are the remote file. git writes no conflict markers.
+      9. [x] A Server edit and a remote delete remove the file. A Server delete and a remote edit leave the remote file. git writes no conflict markers. That path is resolved to the remote action so the merge commit can be created.
+      10. [x] The merge commit includes the remote tip, so a later git Save fast-forwards.
+      11. [x] The work tree holds that merge.
+      12. [x] git Save: `git commit` work-tree edits (`GitSave.commitAll`), then push the same tracked branch of the whole Workspace work tree; reject conflicted or non-FF; never file-level git
+      13. [x] Skip list is `.gitignore` on that work tree (person edits that file; no Ambit skip key)
+      14. [x] Reject error: conflict names at least one file path; other failures a matching short git-condensed message
+      15. [x] No checkout, switch, or older-commit move
+      16. [x] No GitHub credential argument
+      17. [x] Does not invoke Graph→file Persist
+      18. [x] Persist file writes, git Load pull, and git Save commit acquire and release the Workspace work-tree gate — **superseded**; not current required interface
+      19. [x] A second caller waits for the gate and continues after release instead of rejecting as busy — **superseded**
    3. Uses
       1. [x] GitSave.runGit / GitSave.commitAll / GitRun.gitExec (host `git`)
       2. [x] Host credential helper (git’s, not Ambit’s)
@@ -277,14 +273,13 @@ Narrowest shared test seam:
       2. [x] Actor cares about Focus only (which Workspace / work tree)
       3. [x] Same wiring for Save as Load
       4. [x] After git Load, the Server Actor informs Core that files changed.
-      5. [o] git Load pulls the whole Workspace work tree fast-forward-only.
-      6. [ ] git Load is one merge of the tracked remote branch, completed by committing that merge as part of the pull.
-      7. [x] Commit-before-pull already happens.
-      8. [x] git Save: `git commit` work-tree edits, then push whole Workspace work tree / same tracked branch; FF-only reject; never file-level git; Persist stays independent
-      9. [x] Reject UX: conflict names at least one file path; other failures a matching short git-condensed error; same reject wording for Load and Save. That wording does not mean pull is fast-forward
-      10. [x] Same Actor shape for every device that maps through Server
-      11. [x] Invokes WorkspaceGit; does not call git with an Ambit-supplied token
-      12. [x] Acquires and releases the Workspace work-tree gate around git Load pull and git Save commit — **superseded**; exclusive gate revoked ([[plan/core-refinement/issues/01-persist-git-work-tree-gate.md]])
+      5. [x] git Load is one merge of the tracked remote branch, completed by committing that merge as part of the pull.
+      6. [x] Commit-before-pull already happens.
+      7. [x] git Save: `git commit` work-tree edits, then push whole Workspace work tree / same tracked branch; FF-only reject; never file-level git; Persist stays independent
+      8. [x] Reject UX: conflict names at least one file path; other failures a matching short git-condensed error; same reject wording for Load and Save. That wording does not mean pull is fast-forward
+      9. [x] Same Actor shape for every device that maps through Server
+      10. [x] Invokes WorkspaceGit; does not call git with an Ambit-supplied token
+      11. [x] Acquires and releases the Workspace work-tree gate around git Load pull and git Save commit — **superseded**; exclusive gate revoked ([[plan/core-refinement/issues/01-persist-git-work-tree-gate.md]])
    3. Uses
       1. [x] CoreActorPool / ActorFn ([[src/Server/Core/CoreActorPool.fs]])
       2. [x] WorkspaceGit
@@ -326,25 +321,23 @@ Narrowest shared test seam:
    Interface on **WorkspaceGit**. Tests cross GitRun on a temp work tree (remote present / absent; FF push accept / reject; `.gitignore` skip).
    1. [x] `remoteExists` + tracked branch
    2. [x] push stays fast-forward-only.
-   3. [o] The pull is fast-forward-only.
-   4. [ ] git Load is one merge of the tracked remote branch, completed by committing that merge as part of the pull.
-   5. [x] git Save: commit work-tree edits, then push
-   6. [x] skip list is `.gitignore`
-   7. [x] reject text: conflict names a path; other failures short git-condensed
-   8. [x] no credential parameter
-   9. [x] no Persist call
-   10. [x] one gate per Workspace; a second Persist, pull, or commit waits for the holder and continues after release — **revoked 2026-09-28**; not current required seam
+   3. [x] git Load is one merge of the tracked remote branch, completed by committing that merge as part of the pull.
+   4. [x] git Save: commit work-tree edits, then push
+   5. [x] skip list is `.gitignore`
+   6. [x] reject text: conflict names a path; other failures short git-condensed
+   7. [x] no credential parameter
+   8. [x] no Persist call
+   9. [x] one gate per Workspace; a second Persist, pull, or commit waits for the holder and continues after release — **revoked 2026-09-28**; not current required seam
 
 3. **Server Actor git Load/Save**
    Interface on **Server Actor**. Tests stub WorkspaceGit. Start door is mailbox → actor pool from Load/Save ([07 — Actor start door](issues/07-actor-start-door.md)).
    1. [x] The Load or Save core message reaches the pool, which invokes the Actor; Focus names the work tree
-   2. [o] git Load pulls fast-forward-only.
-   3. [ ] git Load is one merge of the tracked remote branch, completed by committing that merge as part of the pull.
-   4. [x] git Save → commit work-tree edits, then push
-   5. [x] Persist is not invoked from git Save
-   6. [x] reject UX same wording for Load and Save. That wording does not mean pull is fast-forward
-   7. [x] no Ambit credential store
-   8. [x] pull and commit acquire and release the Workspace work-tree gate — **superseded**; exclusive gate revoked
+   2. [x] git Load is one merge of the tracked remote branch, completed by committing that merge as part of the pull.
+   3. [x] git Save → commit work-tree edits, then push
+   4. [x] Persist is not invoked from git Save
+   5. [x] reject UX same wording for Load and Save. That wording does not mean pull is fast-forward
+   6. [x] no Ambit credential store
+   7. [x] pull and commit acquire and release the Workspace work-tree gate — **superseded**; exclusive gate revoked
 
 4. **Desk WebDAV**
    Interface on **Desk Load/Save**. Existing seam. This Project does not redesign it.

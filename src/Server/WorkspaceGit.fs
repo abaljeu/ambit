@@ -205,6 +205,60 @@ module WorkspaceGit =
                 StringSplitOptions.RemoveEmptyEntries ||| StringSplitOptions.TrimEntries)
             |> Array.tryHead)
 
+    let private listingHasStage (stage: string) (listing: string) =
+        nonemptyLines listing
+        |> List.exists (fun line ->
+            let parts =
+                line.Split(
+                    [| ' '; '\t' |],
+                    StringSplitOptions.RemoveEmptyEntries)
+            parts.Length >= 3 && parts.[2] = stage)
+
+    let private takeRemoteFile (workspaceRoot: string) (path: string) =
+        runGitCondensed workspaceRoot $"checkout --theirs -- {path}"
+        |> Result.bind (fun _ ->
+            runGitCondensed workspaceRoot $"add -- {path}")
+
+    let private resolveUnmergedPath (workspaceRoot: string) (path: string) =
+        runGitCondensed workspaceRoot $"ls-files --unmerged -- {path}"
+        |> Result.bind (fun listing ->
+            if listingHasStage "3" listing then
+                takeRemoteFile workspaceRoot path
+            else
+                runGitCondensed workspaceRoot $"rm -f -- {path}")
+
+    let private resolveUnmergedPaths
+        (workspaceRoot: string)
+        (paths: string list)
+        =
+        paths
+        |> List.fold
+            (fun state path ->
+                state
+                |> Result.bind (fun _ ->
+                    resolveUnmergedPath workspaceRoot path))
+            (Ok "")
+
+    let private completeRemoteWins
+        (workspaceRoot: string)
+        (pull: Result<string, string>)
+        =
+        match pull with
+        | Ok output -> Ok output
+        | Error original ->
+            match
+                runGitCondensed
+                    workspaceRoot
+                    "diff --name-only --diff-filter=U"
+                |> Result.map nonemptyLines
+            with
+            | Error err -> Error err
+            | Ok [] -> Error original
+            | Ok paths ->
+                resolveUnmergedPaths workspaceRoot paths
+                |> Result.bind (fun _ ->
+                    runGitCondensed workspaceRoot "commit --no-edit")
+
     let internal pullTrackedBranch
         (workspaceRoot: string)
         (tracked: WorkspaceTrackedBranch)
@@ -213,9 +267,12 @@ module WorkspaceGit =
         |> Result.bind (function
             | Some path -> Error $"Git conflict: {path}"
             | None ->
-                runGitCondensed
+                let arguments =
+                    "pull --no-rebase --no-edit -X theirs "
+                    + $"{tracked.remote} {tracked.upstream}"
+                completeRemoteWins
                     workspaceRoot
-                    $"pull --ff-only --no-rebase {tracked.remote} {tracked.upstream}")
+                    (runGitCondensed workspaceRoot arguments))
 
     let pullTracked (workspaceRoot: string) : Result<string, string> =
         withWorkTreeGate workspaceRoot (fun () ->

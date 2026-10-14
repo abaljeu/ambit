@@ -42,3 +42,7 @@ git Load is one merge of the tracked remote branch, completed by committing that
 8. [12 — Run the Workspace git tracked-branch round-trip](../issues/12-workspace-git-tracked-branch-round-trip.md)
 9. [transport-layer map](../../transport-layer/map.md)
 10. [transport-layer project](../../transport-layer/project.md)
+
+## Later
+
+Alan confirmed the pull works on 2026-10-14. The lock text above is the record of that earlier doc lock.

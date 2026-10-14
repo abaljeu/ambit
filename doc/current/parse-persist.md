@@ -21,7 +21,26 @@ Parse and persist move text between disk and the graph.
 [x] [Import document](../../src/Shared/dotnet/ImportDocument.fs) `planParseFile` marks an Unparsed File Node Current.
 [x] File parse posts ops through [Parse thread](../../src/Server/ParseThread.fs) `postParseOps`. That post is the existing graph-only Change door.
 [x] Mailbox Load of a Workspace Node, a Directory Node, or a File Node pushes that node onto the Parse stack. A node inside a File Node uses that File Node. The door is [Core mailbox backend](../../src/Server/Core/CoreMailboxBackend.fs) `dispatchLoad`.
-[x] Load on Directory goes through that Directory's members on disk. A new directory on disk gets marked: it is added and starts Unparsed. A deleted directory gets marked: it is removed. A directory that already exists and is still present is untouched; this operation does nothing to it. Load on Directory does not mark a file Unparsed unless it is a new file. A new file on disk gets marked Unparsed. An existing file that is still present is left alone. A deleted file is removed. Load on a Workspace has an additional existing step: it pulls files from the Git server. If Git shows a file is modified, that file is marked Unparsed. If Git shows a file is moved, deleted, or added, the containing directory is marked Unparsed. A modified file does not mark its directory.
+[x] Load on Directory goes through that Directory's members on disk. 
+[x] A new directory on disk gets marked: it is added and starts Unparsed. 
+[x] A deleted directory gets marked: it is removed. 
+[x] A directory that already exists and is still present is untouched; this operation does nothing to it. 
+[x] Load on Directory does not mark a file Unparsed unless it is a new file. 
+[x] A new file on disk gets marked Unparsed. 
+[x] An existing file that is still present is left alone. 
+[x] A deleted file is removed. 
+[x] If Git shows a file is modified, that file is marked Unparsed. 
+[x] If Git shows a file is moved, deleted, or added, the containing directory is marked Unparsed. 
+[x] A modified file does not mark its directory.
+[x] git Load is one merge of the tracked remote branch of the whole Workspace work tree, completed by committing that merge as part of the pull.
+[x] A file only the Server changed stays the Server file.
+[x] A file only the remote changed becomes the remote file.
+[x] Both sides edited, or both added the path: the file contents are the remote file, with no conflict markers.
+[x] Edit-versus-delete is remote-wins. A Server edit and a remote delete remove the file. A Server delete and a remote edit leave the remote file. No conflict markers.
+[x] The merge commit includes the remote tip, so a later git Save can still fast-forward.
+[x] git Load commits the work tree before the pull.
+[x] git push is fast-forward-only.
+[x] A network failure, a credential failure, or a missing remote fails git Load and git Save.
 [x] File-shaped Parse stays on the Server. The Browser has no `planParseFile` door. The App has no `planParseFile` door.
 [o] [Route registration](../../src/Server/RouteRegistration.fs) calls [Parse thread](../../src/Server/ParseThread.fs) `bootCore`. That function builds the stack and starts the consumer. Route registration does not hold the push function.
 [ ] Parse setup (stack, push, and consumer) lives only in [Core](../../src/Server/Core). Route registration does not construct Parse, does not start Parse, and does not hold Parse handles.
