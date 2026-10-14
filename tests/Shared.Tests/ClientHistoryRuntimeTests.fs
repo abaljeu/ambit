@@ -133,7 +133,7 @@ let ``non-empty Poll tail preserves ClientHistory before projection`` () =
         |> ClientHistory.record { change with commandName = "Edit node" }
     let state = clientState graph1 (EventIdFixtures.storedId 3) history
     let upstream =
-        { id = EventIdFixtures.storedId 3
+        { id = EventIdFixtures.storedId 4
           submissionId = Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
@@ -143,7 +143,7 @@ let ``non-empty Poll tail preserves ClientHistory before projection`` () =
     | Ok result ->
         Assert.Equal(state.history, result.history)
         Assert.Equal("remote", result.graph.nodes.[nodeId].text)
-        Assert.Equal(EventIdFixtures.storedId 3, result.eventId)
+        Assert.Equal(EventIdFixtures.storedId 4, result.eventId)
 
 [<Fact>]
 let ``answer-only Load at the same event id preserves ClientHistory`` () =
