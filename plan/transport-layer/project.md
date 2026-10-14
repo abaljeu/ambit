@@ -2,7 +2,7 @@
 
 Stage: chart
 Summary: Cross-cutting transport layer — inbound, outbound, and round-trip patterns for moving information between outside sources and the Graph while Graph stays authority; Parse/Persist as the shared text-processing unit; module contract for connector Actors; `plan` until promoted to `doc/`.
-Updated: 2026-10-07
+Updated: 2026-10-14
 
 ## Objective
 
@@ -23,6 +23,7 @@ Chart how arbitrary outside sources connect to Gambol: materialize external data
 
 ## Notes
 
+- 2026-10-14 — GitHub connector pull is a remote-wins merge. git push stays fast-forward-only. Detail: [Solution item 4 — Fast-forward push, remote-wins pull](plan/github-transport/spec.md).
 - 2026-10-07 — Alan lock: auto-upload as a sibling Project is withdrawn. Keep-files-current outbound is UPDATE = Persist (Graph → text) then push. Desktop App sync implementation stays under Chapter [[plan/roadmap/epics/chapters/automatic-upload-and-download.md]], on the Projects this chart names. [07 — Chart Automatic upload and download onto Projects](plan/roadmap/issues/07-chart-automatic-upload-and-download.md) is done. GitHub stays the separate external remote on [[plan/github-transport/project.md]].
 - 2026-09-26 — Addressed leftover `doc/roadmap/workspace-file-sync.md` and deleted it. Implemented WebDAV Upload / Download is [[doc/current/workspace-file-sync.md]]. The Desktop App sync redesign chart stays on this Project. Auto-download remainder stays [[plan/auto-download-persisted-files/project.md]]. Leftover DAV / client-structure detail: [[doc/roadmap/workspace-webdav.md]], [[doc/roadmap/workspace-upload-client-structure.md]]. External GitHub detail stays on [[plan/github-transport/project.md]].
 - 2026-09-26 — Connector leg [[plan/github-transport/project.md]]: external GitHub remote pull/push Actor (FF-only, Server-side). WebDAV Upload and Download stay App folder ↔ Server DataDir on this Project / [[plan/auto-download-persisted-files/project.md]]. github-transport is not a second WebDAV transit Project. GitHub stays separate from Desktop App sync.

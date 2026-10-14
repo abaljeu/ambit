@@ -23,7 +23,7 @@ Any / every Workspace connects (all have git). Server-git applies when a remote 
 
 Config lives in git on that work tree: `git remote` + current branch / upstream. **No separate Server branch map** in v1.
 
-Pull and push the **same** tracked branch (FF-only already locked on Destination).
+Pull and push the **same** tracked branch. Fast-forward push and remote-wins pull are locked on [Decisions so far item 2 — Operator sets remote and credentials](../map.md) and on [Solution item 4 — Fast-forward push, remote-wins pull](../spec.md). An edit-versus-delete is remote-wins, the same rule as a content conflict: a Server edit and a remote delete remove the file; a Server delete and a remote edit leave the remote file. No conflict markers.
 
 Checkout / switch branch / older commits are **out of this chart** (future). See [[../map.md]] Out of scope.
 
@@ -32,6 +32,7 @@ Map gist: [[../map.md]] Decisions so far item 7.
 ## Comments
 
 - 2026-09-26: Alan locked in chat. Status `done`. Prefer Workspace, not label. Server-git vs desk is remote-exists.
+- 2026-10-14: The parenthetical that treated Destination as fast-forward for pull is replaced. Pull and push still share the tracked branch. Pull is the remote-wins merge. An edit-versus-delete is remote-wins, the same rule as a content conflict: a Server edit and a remote delete remove the file; a Server delete and a remote edit leave the remote file. No conflict markers.
 
 ## Time
 
