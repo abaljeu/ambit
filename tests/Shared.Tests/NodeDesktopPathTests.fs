@@ -193,13 +193,16 @@ let ``pathForNodeId directory owned by file uses canonical root path`` () =
 
 [<Fact>]
 let ``canonicalDesktopPath collapses file owned directory ref`` () =
+    let graph, _, _ = graphFileOwnsDirectory ()
     Assert.Equal(
         Some "//inner/",
-        NodeDesktopPath.canonicalDesktopPath "//container.txt/inner/")
-    Assert.Equal(Some "//docs/", NodeDesktopPath.canonicalDesktopPath "//docs/")
+        NodeDesktopPath.canonicalDesktopPath graph "//container.txt/inner/")
+    Assert.Equal(
+        Some "//docs/",
+        NodeDesktopPath.canonicalDesktopPath graph "//docs/")
     Assert.Equal(
         Some "//home/docs/",
-        NodeDesktopPath.canonicalDesktopPath "//home/docs/")
+        NodeDesktopPath.canonicalDesktopPath graph "//home/docs/")
 
 [<Fact>]
 let ``fileReferenceForNodeId Normal preserves invalid file reference`` () =
@@ -240,11 +243,18 @@ let ``artifactRelativeForReference maps workspace and root directory refs`` () =
     Assert.Equal("docs/.amb", rootDir)
 
 [<Fact>]
-let ``artifactRelativeForReference maps file owned directory to sibling amb`` () =
+let ``artifactRelativeForReference keeps a dotted workspace directory`` () =
+    let dotted =
+        NodeDesktopPath.artifactRelativeForReference "//my.notes/docs/"
+        |> requireOk "dotted workspace directory"
+    Assert.Equal("my.notes/docs/.amb", dotted)
+
+[<Fact>]
+let ``artifactRelativeForReference keeps a file segment without a graph`` () =
     let inner =
         NodeDesktopPath.artifactRelativeForReference "//container.txt/inner/"
         |> requireOk "non-canonical file owns directory"
-    Assert.Equal("inner/.amb", inner)
+    Assert.Equal("container.txt/inner/.amb", inner)
 
     let canonical =
         NodeDesktopPath.artifactRelativeForReference "//inner/"
@@ -284,17 +294,46 @@ let ``fileOpenUrl builds escaped dav url for a workspace file`` () =
         Some "/ambit/dav/my%20home/my%20docs/read%20me.txt",
         NodeDesktopPath.fileOpenUrl graph fileId)
 
-[<Fact>]
-let ``fileOpenUrl returns None for a ROOT file`` () =
+let private graphWithRootFile (name: string) : Graph * NodeId =
     let graph0 = Graph.create ()
     let fileId = NodeId.New()
-    let fileNode = specialNode fileId File "name.ext" Graph.rootId
+    let fileNode = specialNode fileId File name Graph.rootId
     let graph1 = Graph.addDetachedNode fileNode graph0
     let idx = Graph.fileTreeInsertIndex graph1 Graph.rootId
     let graph2 =
         Graph.replace Graph.rootId idx [] (owned [ fileId ]) graph1
         |> requireOk "root->file"
-    Assert.Equal(None, NodeDesktopPath.fileOpenUrl graph2 fileId)
+    graph2, fileId
+
+[<Fact>]
+let ``fileOpenUrl returns None for a ROOT file`` () =
+    let graph, fileId = graphWithRootFile "name.ext"
+    Assert.Equal(None, NodeDesktopPath.fileOpenUrl graph fileId)
+
+[<Fact>]
+let ``fileOpenUrl returns None for an extensionless ROOT file`` () =
+    let graph, fileId = graphWithRootFile "README"
+    Assert.Equal(None, NodeDesktopPath.fileOpenUrl graph fileId)
+
+[<Fact>]
+let ``fileOpenUrl builds dav url for a file in a dotted workspace`` () =
+    let graph, fileId = namedWorkspaceFile "my.notes" "docs" "readme.txt"
+    Assert.Equal(
+        Some "/ambit/dav/my.notes/docs/readme.txt",
+        NodeDesktopPath.fileOpenUrl graph fileId)
+
+[<Fact>]
+let ``canonicalDesktopPath keeps a dotted workspace directory`` () =
+    let graph, _ = namedWorkspaceFile "my.notes" "docs" "readme.txt"
+    Assert.Equal(
+        Some "//my.notes/docs/",
+        NodeDesktopPath.canonicalDesktopPath graph "//my.notes/docs/")
+
+[<Fact>]
+let ``tryParseWorkspacePath keeps a dotted workspace label`` () =
+    Assert.Equal(
+        Some ("my.notes", "docs/readme.txt"),
+        NodeDesktopPath.tryParseWorkspacePath "//my.notes/docs/readme.txt")
 
 [<Fact>]
 let ``fileOpenUrl builds dav url for home docs readme`` () =

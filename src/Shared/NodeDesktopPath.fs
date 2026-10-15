@@ -115,9 +115,6 @@ module NodeDesktopPath =
         if slash < 0 then rest, ""
         else rest.Substring(0, slash), rest.Substring(slash + 1)
 
-    let private isRootFileSegment (segment: string) =
-        segment.Contains '.' && not (segment.EndsWith "/")
-
     let private toDiskPath (rest: string) =
         if String.IsNullOrEmpty rest then
             None
@@ -129,23 +126,47 @@ module NodeDesktopPath =
             else
                 Some (segment + "/" + tail)
 
-    let private canonicalDirectoryInner (inner: string) =
-        let rec strip (rest: string) =
-            if String.IsNullOrEmpty rest then
-                rest
-            elif not (rest.Contains '/') then
+    /// A leading segment is a File only when that node's kind is File.
+    /// A Workspace or Directory keeps a dot in its name.
+    let private nodeNamedUnder
+        (graph: Graph)
+        (parentId: NodeId)
+        (segment: string)
+        : Node option =
+        GraphChildren.get graph parentId
+        |> List.tryPick (fun child ->
+            match Map.tryFind child.id graph.nodes with
+            | Some node ->
+                match Filename.tryValue node.name with
+                | Some name when name = segment -> Some node
+                | _ -> None
+            | None -> None)
+
+    let private fileIdForSegment
+        (graph: Graph)
+        (parents: NodeId list)
+        (segment: string)
+        : NodeId option =
+        parents
+        |> List.tryPick (fun parentId ->
+            match nodeNamedUnder graph parentId segment with
+            | Some { kind = Special File; id = id } -> Some id
+            | _ -> None)
+
+    let private stripLeadingFileSegments (graph: Graph) (inner: string) =
+        let rec strip (parents: NodeId list) (rest: string) =
+            if String.IsNullOrEmpty rest || not (rest.Contains '/') then
                 rest
             else
                 let segment, tail = firstSegment rest
 
-                if isRootFileSegment segment then
-                    strip (tail.TrimStart('/'))
-                else
-                    rest
+                match fileIdForSegment graph parents segment with
+                | Some fileId -> strip [ fileId ] (tail.TrimStart '/')
+                | None -> rest
 
-        strip (inner.TrimEnd('/'))
+        strip [ Graph.rootId; Graph.workspacesId ] (inner.TrimEnd '/')
 
-    let canonicalDesktopPath (path: string) : string option =
+    let canonicalDesktopPath (graph: Graph) (path: string) : string option =
         let trimmed = path.Trim()
 
         if not (trimmed.StartsWith(rootPrefix, StringComparison.Ordinal)) then
@@ -158,14 +179,17 @@ module NodeDesktopPath =
             if String.IsNullOrEmpty inner then
                 None
             else
-                Some (rootPrefix + canonicalDirectoryInner inner + "/")
+                let canonical = stripLeadingFileSegments graph inner
+                Some (rootPrefix + canonical + "/")
         else
             Some trimmed
 
     let private directoryArtifactRelative (inner: string) : Result<string, string> =
-        let canonical = canonicalDirectoryInner inner
+        let canonical = inner.TrimEnd('/')
 
-        if canonical.Contains '/' then
+        if String.IsNullOrEmpty canonical then
+            Error ("invalid node reference: //" + inner + "/")
+        elif canonical.Contains '/' then
             match toDiskPath canonical with
             | Some disk -> Ok (disk + "/.amb")
             | None -> Error ("invalid node reference: //" + inner + "/")
@@ -185,6 +209,22 @@ module NodeDesktopPath =
         if parts.Length = 0 then head
         else head + "/" + String.Join("/", parts)
 
+    /// Path tail under `//label`, or empty when the path is the Workspace itself.
+    let relativeUnderLabel (label: string) (path: string) : string option =
+        if String.IsNullOrEmpty label then
+            None
+        else
+            let exact = rootPrefix + label
+            let prefix = exact + "/"
+            let trimmed = path.Trim()
+
+            if trimmed = exact then
+                Some ""
+            elif trimmed.StartsWith(prefix, StringComparison.Ordinal) then
+                Some (trimmed.Substring prefix.Length)
+            else
+                None
+
     let tryParseWorkspacePath (path: string) : (string * string) option =
         let trimmed = path.Trim()
 
@@ -197,23 +237,7 @@ module NodeDesktopPath =
                 Some ("", "")
             else
                 let segment, tail = firstSegment (rest.TrimStart('/'))
-
-                if isRootFileSegment segment then
-                    None
-                else
-                    Some (segment, tail)
-
-    let fileOpenUrl (graph: Graph) (nodeId: NodeId) : string option =
-        match Map.tryFind nodeId graph.nodes with
-        | Some { kind = Special File } ->
-            match
-                pathForNodeId graph nodeId
-                |> Option.bind tryParseWorkspacePath
-            with
-            | Some (label, relative) when label <> "" ->
-                Some (davFileUrl label relative)
-            | _ -> None
-        | _ -> None
+                Some (segment, tail)
 
     let private isNamedWorkspaceNode (node: Node) : bool =
         node.id <> Graph.rootId
@@ -231,6 +255,17 @@ module NodeDesktopPath =
         |> Option.bind (fun wsId ->
             Map.tryFind wsId graph.nodes
             |> Option.bind (fun n -> Filename.tryValue n.name))
+
+    let fileOpenUrl (graph: Graph) (nodeId: NodeId) : string option =
+        match Map.tryFind nodeId graph.nodes with
+        | Some { kind = Special File } ->
+            match enclosingWorkspaceName graph nodeId with
+            | None -> None
+            | Some label ->
+                pathForNodeId graph nodeId
+                |> Option.bind (relativeUnderLabel label)
+                |> Option.map (fun relative -> davFileUrl label relative)
+        | _ -> None
 
     let artifactRelativeForReference (nodeReference: string) : Result<string, string> =
         let path = nodeReference.Trim()
@@ -251,7 +286,10 @@ module NodeDesktopPath =
 
             if String.IsNullOrEmpty inner then
                 Error ("invalid node reference: " + nodeReference)
-            elif not (inner.Contains '/') && isRootFileSegment inner then
+            // No Graph on this path. A single segment that contains '.' is a
+            // root File on disk (`name.ext`). A dotted Workspace needs a Graph
+            // before it can map to `label/.amb`.
+            elif not (inner.Contains '/') && inner.Contains '.' then
                 Ok inner
             elif not (inner.Contains '/') then
                 Ok (inner + "/.amb")

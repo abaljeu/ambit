@@ -279,7 +279,7 @@ module ViewModelRowState =
         | _ -> false
 
     let private graphContainsArtifactPath (graph: Graph) (path: string) : bool =
-        match NodeDesktopPath.canonicalDesktopPath path with
+        match NodeDesktopPath.canonicalDesktopPath graph path with
         | None -> false
         | Some canonicalPath ->
             graph.nodes
@@ -290,7 +290,7 @@ module ViewModelRowState =
                 | Special (Workspace | Directory | File) -> true
                 | _ -> false)
             |> Seq.choose (fun n -> NodeDesktopPath.pathForNodeId graph n.id)
-            |> Seq.choose NodeDesktopPath.canonicalDesktopPath
+            |> Seq.choose (NodeDesktopPath.canonicalDesktopPath graph)
             |> Seq.exists ((=) canonicalPath)
 
     /// Graph-derived indicator when the row's artifact cannot resolve (same DU as desktop).
