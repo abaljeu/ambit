@@ -29,6 +29,7 @@ Start here:
 - [[current/api.md]]
 - [[index.md]] — Feature index of the current program
 - [[roadmap/postgres-roadmap.md]] — persistence-focused roadmap index
+- [[roadmap/two-panel-view.md]] — Two-panel view (vision, not planned work)
 
 
 Reference (`reference/`):

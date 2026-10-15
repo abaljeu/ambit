@@ -141,3 +141,9 @@ Implementation workset: [[plan/roadmap/epics/chapters/incremental-operations.md]
 **Server workspace files:** Documents rooted at workspace, directory, and file nodes persist on the server under `{DataDir}/{label}/{path}`. Desktop label mapping and manual Import/Export are unchanged. See [[doc/roadmap/workspace-file-model.md]] § Documents and server file persistence.
 
 *Source:* [[doc/current/desktop-local-files.md]], [[doc/current/workspace-stage-plan.md]].
+
+## Vision
+
+Two-panel view is a long-term product vision. It sits outside the persistence steps on this index. It is not planned work.
+
+- [[doc/roadmap/two-panel-view.md]] — Two-panel view

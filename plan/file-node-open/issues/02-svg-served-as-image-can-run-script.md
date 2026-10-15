@@ -9,6 +9,8 @@
 
 A person runs Open on an SVG File node inside a named Workspace. The Server sends that file as `image/svg+xml`. The same GET sends `.html` and `.htm` as plain text so a Workspace file cannot run script on the Ambit origin. A browser can run script in an SVG document that uses `image/svg+xml` from that origin.
 
+The intended long-term answer is the sandboxed web panel in Two-panel view. A `Content-Security-Policy: sandbox` response header on DAV GET is a nearer-term server option.
+
 ## What to build
 
 1. [ ] **SVG does not run script** — Open on an SVG File node still shows the image when the browser can show an SVG. Script in that file does not run on the Ambit origin.
@@ -34,3 +36,4 @@ A person runs Open on an SVG File node inside a named Workspace. The Server send
 3. [File node Open architecture](plan/file-node-open/arch.md)
 4. [File node Open](plan/file-node-open/spec.md)
 5. [workspace file sync](doc/current/workspace-file-sync.md)
+6. [Two-panel view](doc/roadmap/two-panel-view.md)
