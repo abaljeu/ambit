@@ -36,7 +36,7 @@ Sources: [spec.md](spec.md) Solution and 7 stories; Alan's 2026-10-14 locks (one
    3. [x] The browser applies its native handling
 
 6. **Markdown as text**
-   1. [ ] **File content type** maps `.md` and `.markdown` to `text/plain; charset=utf-8`
+   1. [ ] **File content type** maps `.md` and `.markdown` to `text/plain; charset=utf-8` (table in Module map, File content type)
 
 7. **Nothing to open**
    1. [ ] **File open URL** returns `None` when the node has no Workspace path; **Open dispatch** then does nothing, the same as a node with no link
@@ -73,16 +73,37 @@ Sources: [spec.md](spec.md) Solution and 7 stories; Alan's 2026-10-14 locks (one
       1. [x] Files under `DataDir/{label}/`.
    2. Interface
       1. [x] `GET /ambit/dav/{label}/{*path}` admits by the Browser cookie.
-      2. [ ] The response Content-Type comes from **File content type**, replacing today's fixed `application/octet-stream`.
+      2. [ ] The response Content-Type comes from **File content type** at the call site in `handleGet` (line 380), replacing today's fixed `application/octet-stream`.
       3. [x] No `Content-Disposition: attachment`.
    3. Uses
       1. [ ] **File content type**
 
-4. **File content type** — [src/Server/WorkspaceWebDav.fs](src/Server/WorkspaceWebDav.fs) private `contentTypeFor`
+4. **File content type** — [src/Server/WorkspaceWebDav.fs](src/Server/WorkspaceWebDav.fs) private module function `contentTypeFor` (subject home: [[doc/current/workspace-file-sync.md]])
    1. State
-      1. [ ] None; pure.
+      1. [ ] None; pure. The mapping is a fixed table in code, not configuration.
    2. Interface
-      1. [ ] `contentTypeFor : string -> string` uses ASP.NET Core `FileExtensionContentTypeProvider`, maps `.md` and `.markdown` to `text/plain; charset=utf-8`, and returns `application/octet-stream` for unknown extensions.
+      1. [ ] `contentTypeFor : fileName: string -> string` reads the extension with `Path.GetExtension`, compares it case-insensitively, and returns a Content-Type. It never fails: an unknown or missing extension returns the default.
+      2. [ ] Mapping table:
+         1. `.pdf` → `application/pdf`
+         2. `.png` → `image/png`
+         3. `.jpg`, `.jpeg` → `image/jpeg`
+         4. `.gif` → `image/gif`
+         5. `.webp` → `image/webp`
+         6. `.svg` → `image/svg+xml`
+         7. `.heic` → `image/heic`
+         8. `.txt`, `.log`, `.csv` → `text/plain; charset=utf-8`
+         9. `.md`, `.markdown` → `text/plain; charset=utf-8`
+         10. `.json` → `application/json; charset=utf-8`
+         11. `.html`, `.htm` → `text/plain; charset=utf-8`, so a Workspace file cannot run script on the Ambit origin
+         12. Any other extension, or none → `application/octet-stream`
+   3. Uses
+      1. [x] `System.IO.Path.GetExtension`
+   4. Call site
+      1. [ ] `handleGet` passes `contentTypeFor resolved.fullPath` to `Results.File` in place of the fixed `"application/octet-stream"` ([src/Server/WorkspaceWebDav.fs:380](src/Server/WorkspaceWebDav.fs)). PROPFIND, PUT, and MKCOL are unchanged.
+   5. Tests
+      1. [ ] Server tests check one row of the table per entry, including uppercase extensions such as `.PDF`.
+      2. [ ] Server tests check that a name with no extension, and an unknown extension, return `application/octet-stream`.
+      3. [ ] A Server route test sends a cookie-bearing `GET /ambit/dav/{label}/doc.pdf` and checks status 200, Content-Type `application/pdf`, and no `Content-Disposition: attachment`.
 
 ## 4. Seams
 
@@ -95,6 +116,10 @@ Sources: [spec.md](spec.md) Solution and 7 stories; Alan's 2026-10-14 locks (one
 1. **New browser GET endpoint** — A dedicated route such as `GET /ambit/file/{label}/{*path}` with its own content-type logic. It would duplicate path resolution, the `.git` guard, the ignore check, and cookie admission that the DAV route already has ([src/Server/WorkspaceWebDav.fs:62](src/Server/WorkspaceWebDav.fs)). The only gap in the DAV route is the fixed Content-Type, a one-line change that is harmless to the Desktop client. Reusing DAV won.
 2. **Opaque token URL** — `/ambit/dav-resource/{token}` already accepts GET ([src/Server/WorkspaceWebDav.fs:728](src/Server/WorkspaceWebDav.fs)). It hides the path but the opened tab would show a meaningless name, and it still needs the same login. The readable path route won.
 
-## 6. Unsettled
+## 6. Out of scope; later work
 
-1. **Root Workspace files** — `tryParseWorkspacePath` returns `None` for a file directly under ROOT, so such a File node has no URL in this design. Whether ROOT files need a DAV mount is left for later.
+1. **Root Workspace files** — Alan settled on 2026-10-14 that File nodes directly under ROOT, outside any named Workspace, are out of scope for now. `tryParseWorkspacePath` returns `None` for them, so **File open URL** returns `None` and Open does nothing. Serving them is later work.
+
+## 7. Unsettled
+
+None.

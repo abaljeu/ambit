@@ -30,5 +30,6 @@ Sources: [project.md](project.md), [01 — File node: Open button opens the file
 1. **Per-type handling** — This effort does not add special handling for types the browser cannot render, such as Office documents on a phone. Alan chose to assume Open works and expand later.
 2. **Download versus new tab** — This effort always opens a new tab. A choice between downloading and opening is later work.
 3. **Rendering** — This effort does not render Markdown or any other format inside Ambit.
-4. **Directories and Workspaces** — This effort opens File nodes only. Open on a Directory node or a Workspace node keeps today's link behavior.
-5. **Desktop local paths** — This effort does not open a mapped local copy through the Desktop app.
+4. **Directories and Workspaces** — This effort opens File nodes in named Workspaces only. Open on a Directory node or a Workspace node keeps today's link behavior.
+5. **Root Workspace files** — This effort does not open File nodes directly under ROOT, outside any named Workspace. Alan settled this as later work.
+6. **Desktop local paths** — This effort does not open a mapped local copy through the Desktop app.
