@@ -260,9 +260,15 @@ let jumpTargetOp (model: VM) : VM * Effect list =
         | Some sel -> focusedNodeId model.graph sel
 
     match Map.tryFind focusId model.graph.nodes with
-    | Some { kind = Special File } -> openFileNode model focusId
-    | Some _ -> openLinkTarget model focusId
     | None -> model, []
+    | Some node ->
+        match NodeDesktopPath.nodeOpenAction node.kind with
+        | NodeDesktopPath.NodeOpenAction.OpenFile ->
+            openFileNode model focusId
+        | NodeDesktopPath.NodeOpenAction.OpenLink ->
+            openLinkTarget model focusId
+        | NodeDesktopPath.NodeOpenAction.NoOp ->
+            model, []
 
 [<Emit("navigator.clipboard.writeText($0).then(function(){ $1(); }).catch(function(e){ console.error('Clipboard write failed:', e); })")>]
 let private writeClipboardText (text: string) (continuation: unit -> unit) : unit = jsNative

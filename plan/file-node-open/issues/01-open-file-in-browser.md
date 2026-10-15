@@ -11,7 +11,7 @@ A person sees a File node in the Browser and presses Open. Open already opens a 
 
 ## What to build
 
-1. [x] **One Open command** — Open stays one command. A File node opens its file. Every other node opens a link as it does today.
+1. [x] **One Open command** — Open stays one command. A File node opens its file. A Workspace node or a Directory node does nothing. Every other node opens a link as it does today.
 2. [x] **Server file in a new tab** — Open on a File node inside a named Workspace opens `/ambit/dav/{label}/{relative}` in a new tab. The label and each path segment are escaped. A dot in a Workspace name stays part of that name.
 3. [x] **No local path** — The URL comes from the Graph. Open does not read a Desktop path.
 4. [x] **Same login** — The new tab uses the Browser cookie. The person is not asked to sign in again.
@@ -20,10 +20,10 @@ A person sees a File node in the Browser and presses Open. Open already opens a 
 
 ### Acceptance Criteria
 
-1. [x] **Open dispatch** — `jumpTargetOp` sends `Special File` to `fileOpenUrl` and does not fall back to link search. Every other kind keeps the link search.
+1. [x] **Open dispatch** — `jumpTargetOp` sends `Special File` to `fileOpenUrl` and does not fall back to link search. `Special Workspace` and `Special Directory` do nothing, including a name such as `my.notes`. Every other kind keeps the link search.
 2. [x] **File open URL** — `fileOpenUrl` uses the named Workspace from the node's kind (`enclosingWorkspaceName`) and the path under that label. It does not decide from a dot in the name.
 3. [x] **Content type** — `contentTypeFor` follows the architecture table, including the `.html` / `.htm` plain-text row and the `.svg` row. `handleGet` passes that type to `Results.File` with no download name.
-4. [x] **Tests** — Shared tests cover a dotted Workspace name, a ROOT File with an extension, and a ROOT File with no extension. Server tests cover the content-type table and a cookie GET of a PDF.
+4. [x] **Tests** — Shared tests cover a dotted Workspace name, a ROOT File with an extension, and a ROOT File with no extension. Shared tests cover Open on a Workspace named `my.notes` and a Directory named `my.notes`: no file URL, and the open action is no-op. A File node inside that Workspace still opens. Server tests cover the content-type table and a cookie GET of a PDF.
 
 ## Amendments
 
@@ -32,6 +32,7 @@ A person sees a File node in the Browser and presses Open. Open already opens a 
 3. **Node kind replaces the dot heuristic** — Only a File node looks at an extension. A Workspace, a Directory, and any other kind do not treat a dot in the name as meaningful. File open URL reads the named Workspace from the node's kind. It does not guess a root File from a dot in the name.
 4. **String reference without a Graph** — A single path segment that contains `.` still maps to a root File on disk (`name.ext`). A directory reference keeps a dotted segment. The Graph path drops a leading segment only when that node is a File.
 5. **Extracted tickets** — SVG script, native HTML display, serving ROOT files, download versus new tab, and file types the mobile browser cannot render are the later tickets named in See also.
+6. **Workspace and Directory no-op** — Jump to Target on a Workspace node or a Directory node does nothing. It does not open a file URL and it does not search the node for a link. A dot in the name is not an extension. A File node inside that Workspace or Directory still opens.
 
 ## Finish-up
 
@@ -56,3 +57,4 @@ A person sees a File node in the Browser and presses Open. Open already opens a 
 
 - 2026-10-15 2h — file open URL, content type, Jump to Target dispatch, and tests (from chat)
 - 2026-10-15 2h — kind-based Workspace path, tests, and ticket split (from chat)
+- 2026-10-15 30m — Workspace and Directory Open no-op (from chat)

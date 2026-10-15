@@ -35,6 +35,7 @@ The Browser is the spoken name for Gambol.Client.
 [x] A File node inside a named Workspace opens `/ambit/dav/{label}/{relative}` in a new tab. `fileOpenUrl` builds that URL from the Workspace node's kind. A Workspace name may contain `.`. File: [NodeDesktopPath.fs](src/Shared/NodeDesktopPath.fs).
 [x] A File node outside a named Workspace has no URL. Jump to Target does nothing for that node. The name may contain `.` or no `.`.
 [x] A File node does not fall back to link search.
+[x] A Workspace node or a Directory node does nothing. A dot in the name is not an extension. A File node inside that Workspace or Directory still opens.
 [x] Any other node opens a link from the node text, then the first Child, in a new tab.
 
 ## Explanation

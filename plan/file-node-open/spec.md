@@ -10,7 +10,7 @@ Sources: [project.md](project.md), [01 — File node: Open button opens the file
 
 ## 2. Solution
 
-1. **One Open command** — Open stays one command. It dispatches on the node: a File node opens its file, and every other node opens a link exactly as it does today.
+1. **One Open command** — Open stays one command. It dispatches on the node: a File node opens its file, a Workspace node or a Directory node does nothing, and every other node opens a link exactly as it does today.
 2. **The Server's copy, opened natively** — On a File node, Open opens the Server's copy of the file in a new browser tab. The browser then does whatever it natively does with that file type. No local path is involved.
 3. **Same login** — The tab uses the login the Browser already has. The person is not asked to sign in again.
 4. **Assume it works** — This effort assumes the browser shows every file type usefully. Per-type and per-platform behavior is expanded in later work.
@@ -18,7 +18,7 @@ Sources: [project.md](project.md), [01 — File node: Open button opens the file
 ## 3. User Stories
 
 1. [x] **Open a File node** — As a person, I want Open on a File node to open that file in a new tab, so that I can read the file without leaving Ambit for another app. A Workspace whose name contains `.` is still a Workspace.
-2. [x] **Open a link as today** — As a person, I want Open on a link node, or a node with link text, to open the link exactly as it does today, so that the File case does not change what I already rely on.
+2. [x] **Open a link as today** — As a person, I want Open on a link node, or a node with link text, to open the link exactly as it does today, so that the File case does not change what I already rely on. A Workspace node or a Directory node does nothing, including when the name contains `.`.
 3. [x] **No local path** — As a person on a phone, I want Open to use the Server's copy, so that I can open a file I have never downloaded.
 4. [x] **Same login** — As a signed-in person, I want the opened tab to use my existing login, so that I am not asked to sign in again or shown an error page.
 5. **Native display** — As a person, I want the browser to receive the file with its real content type and no forced download, so that the browser can show a PDF, image, or text file inline when it is able to.
@@ -36,7 +36,7 @@ Sources: [project.md](project.md), [01 — File node: Open button opens the file
    1. [x] **New tab** — This effort always opens a new tab.
    2. [ ] **Choice** — A choice between downloading and opening is later work. [05 — Download versus new tab](issues/05-download-versus-new-tab.md)
 3. [x] **Rendering** — This effort does not render Markdown or any other format inside Ambit.
-4. [x] **Directories and Workspaces** — This effort opens File nodes in named Workspaces only. Open on a Directory node or a Workspace node keeps today's link behavior.
+4. [x] **Directories and Workspaces** — This effort opens File nodes in named Workspaces only. Open on a Directory node or a Workspace node does nothing. It does not open a file URL and it does not open a link. A dot in that name is not an extension. A File node inside that Workspace or Directory still opens.
 5. **Root Workspace files**
    1. [x] **Open does nothing** — Open does nothing for a File node outside a named Workspace. The name may contain an extension or no extension.
    2. [ ] **Serving those files** — Serving a File node outside a named Workspace is later work. [04 — Serve ROOT files outside a named Workspace](issues/04-serve-root-files-outside-a-named-workspace.md)

@@ -256,6 +256,19 @@ module NodeDesktopPath =
             Map.tryFind wsId graph.nodes
             |> Option.bind (fun n -> Filename.tryValue n.name))
 
+    /// Jump to Target: only a File node opens a file. A Workspace or Directory does nothing.
+    [<RequireQualifiedAccess>]
+    type NodeOpenAction =
+        | OpenFile
+        | OpenLink
+        | NoOp
+
+    let nodeOpenAction (kind: NodeKind) : NodeOpenAction =
+        match kind with
+        | Special File -> NodeOpenAction.OpenFile
+        | Special (Workspace | Directory) -> NodeOpenAction.NoOp
+        | _ -> NodeOpenAction.OpenLink
+
     let fileOpenUrl (graph: Graph) (nodeId: NodeId) : string option =
         match Map.tryFind nodeId graph.nodes with
         | Some { kind = Special File } ->

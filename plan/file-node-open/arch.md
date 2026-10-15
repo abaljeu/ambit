@@ -16,37 +16,43 @@ Sources: [spec.md](spec.md) Solution and 7 stories; Alan's 2026-10-14 locks (one
    5. [x] **Workspace WebDAV GET** admits the request and streams the file ([src/Server/WorkspaceWebDav.fs:391](src/Server/WorkspaceWebDav.fs))
 
 2. **Open a link as today**
-   1. [x] **Open dispatch** sees any kind other than `Special File`
+   1. [x] **Open dispatch** sees a kind other than `Special File`, `Special Workspace`, and `Special Directory`
    2. [x] `OpenTarget.tryFindOpenableUriWithFirstChildFallback` finds the URL in the node text, then the first Child ([src/Client/Commands.fs:250](src/Client/Commands.fs))
    3. [x] The Browser opens the URL in a new tab
 
-3. **No local path**
+3. **Workspace and Directory do nothing**
+   1. [x] **Open dispatch** on `Special Workspace` or `Special Directory` returns no effects
+   2. [x] That dispatch does not call **File open URL** and does not call link search
+   3. [x] A dot in the Workspace or Directory name is not an extension
+   4. [x] A File node inside that Workspace or Directory still opens
+
+4. **No local path**
    1. [x] `NodeDesktopPath.pathForNodeId` gives the File node's path from the Graph alone ([src/Shared/NodeDesktopPath.fs:94](src/Shared/NodeDesktopPath.fs))
    2. [x] `NodeDesktopPath.enclosingWorkspaceName` reads the named Workspace from the node's kind ([src/Shared/NodeDesktopPath.fs:253](src/Shared/NodeDesktopPath.fs)). A dot in a Workspace name is not an extension. Only a File node looks at an extension.
    3. [x] `relativeUnderLabel` takes the path under that label ([src/Shared/NodeDesktopPath.fs:213](src/Shared/NodeDesktopPath.fs))
    4. [x] **File open URL** uses only that pair; no Desktop mapping is consulted
 
-4. **Same login**
+5. **Same login**
    1. [x] Login sets the auth cookie as `HttpOnly`, `Secure`, `SameSite=Lax` ([src/Server/RouteAuthentication.fs:22](src/Server/RouteAuthentication.fs))
    2. [x] A same-origin top-level navigation from `window.open` carries that cookie
    3. [x] The DAV route admits by cookie: `IsAuthenticated` is `mailboxIsAuthenticated`, which reads `BrowserRequestCreds.tryCookieCaller` ([src/Server/RouteRegistration.fs:424](src/Server/RouteRegistration.fs), used at [src/Server/WorkspaceWebDav.fs:554](src/Server/WorkspaceWebDav.fs))
 
-5. **Native display**
+6. **Native display**
    1. [x] **Workspace WebDAV GET** answers with a Content-Type chosen by **File content type** from the file extension
    2. [x] The answer carries no `Content-Disposition: attachment` (`Results.File` without a download name, [src/Server/WorkspaceWebDav.fs:400](src/Server/WorkspaceWebDav.fs))
    3. [x] The browser applies its native handling
 
-6. **Markdown as text**
+7. **Markdown as text**
    1. [x] **File content type** maps `.md` and `.markdown` to `text/plain; charset=utf-8` (table in Module map, File content type)
 
-7. **Nothing to open**
+8. **Nothing to open**
    1. [x] **File open URL** returns `None` when the File node is not inside a named Workspace, including a name with no `.`; **Open dispatch** then does nothing, the same as a node with no link
    2. [x] **Workspace WebDAV GET** answers 404 for a missing or ignored file and 400 for an invalid path, as values through `Result` ([src/Server/WorkspaceWebDav.fs:391](src/Server/WorkspaceWebDav.fs))
 
 ## 2. Shared segments and test seam
 
 1. **Core path** — every File story crosses **Open dispatch**, then **File open URL**, then **Workspace WebDAV GET**.
-2. **Test seam** — **File open URL** is a pure Shared function from Graph and NodeId to `string option`, testable in Shared tests without a browser or server. **File content type** is a pure function from file name to content type, testable in Server tests.
+2. **Test seam** — **File open URL** is a pure Shared function from Graph and NodeId to `string option`, testable in Shared tests without a browser or server. `nodeOpenAction` is a pure Shared function from node kind to open-file, open-link, or no-op. **File content type** is a pure function from file name to content type, testable in Server tests.
 
 ## 3. Module map
 
@@ -54,12 +60,14 @@ Sources: [spec.md](spec.md) Solution and 7 stories; Alan's 2026-10-14 locks (one
    1. State
       1. [x] None; reads the focused node from the ViewModel.
    2. Interface
-      1. [x] `jumpTargetOp : VM -> VM * Effect list` dispatches on the focused node's kind: `Special File` uses **File open URL**; every other kind uses the existing `OpenTarget` link search.
+      1. [x] `jumpTargetOp : VM -> VM * Effect list` dispatches on `nodeOpenAction`: `Special File` uses **File open URL**; `Special Workspace` and `Special Directory` do nothing; every other kind uses the existing `OpenTarget` link search.
       2. [x] A File node with no URL does nothing; it does not fall back to link search.
+      3. [x] A Workspace or Directory does nothing even when its text contains a link, and a dot in its name is not an extension.
    3. Uses
-      1. [x] **File open URL**
-      2. [x] `OpenTarget` ([src/Shared/OpenTarget.fs](src/Shared/OpenTarget.fs))
-      3. [x] `openUrlInNewTab`
+      1. [x] `nodeOpenAction`
+      2. [x] **File open URL**
+      3. [x] `OpenTarget` ([src/Shared/OpenTarget.fs](src/Shared/OpenTarget.fs))
+      4. [x] `openUrlInNewTab`
 
 2. **File open URL** — [src/Shared/NodeDesktopPath.fs](src/Shared/NodeDesktopPath.fs) `fileOpenUrl` (subject home: [[doc/current/browser.md]])
    1. State

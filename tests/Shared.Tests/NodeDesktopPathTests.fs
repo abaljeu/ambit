@@ -261,11 +261,11 @@ let ``artifactRelativeForReference keeps a file segment without a graph`` () =
         |> requireOk "canonical root directory"
     Assert.Equal("inner/.amb", canonical)
 
-let private namedWorkspaceFile
+let private namedWorkspaceNodes
     (label: string)
     (dirName: string)
     (fileName: string)
-    : Graph * NodeId =
+    : Graph * NodeId * NodeId * NodeId =
     let graph0 = Graph.create ()
     let wsId = NodeId.New()
     let dirId = NodeId.New()
@@ -285,7 +285,15 @@ let private namedWorkspaceFile
     let graph4 =
         Graph.replace dirId 0 [] (owned [ fileId ]) graph3
         |> requireOk "dir->file"
-    graph4, fileId
+    graph4, wsId, dirId, fileId
+
+let private namedWorkspaceFile
+    (label: string)
+    (dirName: string)
+    (fileName: string)
+    : Graph * NodeId =
+    let graph, _, _, fileId = namedWorkspaceNodes label dirName fileName
+    graph, fileId
 
 [<Fact>]
 let ``fileOpenUrl builds escaped dav url for a workspace file`` () =
@@ -314,6 +322,34 @@ let ``fileOpenUrl returns None for a ROOT file`` () =
 let ``fileOpenUrl returns None for an extensionless ROOT file`` () =
     let graph, fileId = graphWithRootFile "README"
     Assert.Equal(None, NodeDesktopPath.fileOpenUrl graph fileId)
+
+[<Fact>]
+let ``fileOpenUrl returns None for a dotted Workspace and Directory`` () =
+    let graph, wsId, dirId, fileId =
+        namedWorkspaceNodes "my.notes" "my.notes" "readme.txt"
+    Assert.Equal(None, NodeDesktopPath.fileOpenUrl graph wsId)
+    Assert.Equal(None, NodeDesktopPath.fileOpenUrl graph dirId)
+    Assert.Equal(
+        Some "/ambit/dav/my.notes/my.notes/readme.txt",
+        NodeDesktopPath.fileOpenUrl graph fileId)
+
+[<Fact>]
+let ``nodeOpenAction no-ops a dotted Workspace and Directory`` () =
+    let graph, wsId, dirId, fileId =
+        namedWorkspaceNodes "my.notes" "my.notes" "readme.txt"
+    let kind id = graph.nodes.[id].kind
+    Assert.Equal(
+        NodeDesktopPath.NodeOpenAction.NoOp,
+        NodeDesktopPath.nodeOpenAction (kind wsId))
+    Assert.Equal(
+        NodeDesktopPath.NodeOpenAction.NoOp,
+        NodeDesktopPath.nodeOpenAction (kind dirId))
+    Assert.Equal(
+        NodeDesktopPath.NodeOpenAction.OpenFile,
+        NodeDesktopPath.nodeOpenAction (kind fileId))
+    Assert.Equal(
+        NodeDesktopPath.NodeOpenAction.OpenLink,
+        NodeDesktopPath.nodeOpenAction Normal)
 
 [<Fact>]
 let ``fileOpenUrl builds dav url for a file in a dotted workspace`` () =
