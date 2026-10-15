@@ -1,6 +1,8 @@
-# File node: Open button opens the file in the browser
+# 01 — File node: Open button opens the file in the browser
 
-Status: feature request. This is a product decision logged for Admiral review. It is not an implementation task yet.
+**Type:** feature
+**Status:** open
+**Blocked by:** None
 
 ## Core design point: one Open command
 
@@ -31,3 +33,4 @@ For file nodes, the same Open action should also work in desktop browsers. There
 
 1. Does the choice between downloading and opening in a new tab matter beyond iPhone Safari?
 2. How should file types the browser can't render be handled on mobile?
+3. How does the browser fetch the file's bytes? Either open a new server endpoint for this, or reuse the existing WebDAV endpoint at `/ambit/dav/{label}/…` ([[doc/current/workspace-file-sync.md]]). Reusing WebDAV needs a check that a plain browser GET works there with the browser's existing login, and that it sends a content type that lets the browser render the file inline.
