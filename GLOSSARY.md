@@ -51,8 +51,8 @@ Integration place. Procedure: [[.agents/skills/git-protocol/SKILL.md]].
 _Avoid_: original branch (for this place)
 
 **Roadmap**:
-The Project at [[plan/roadmap/]] that sequences Epics toward the application. It answers what to work on next by grouping Epics by Stage. It carries neither Stage nor Status. Epics are parallel. Continue from recent work: that Epic, its current Chapter (or Developer Required live items), then Project Stage and ticket Status. Order inside a Stage does not rank Epics.
-_Avoid_: master project, master steering, doc/roadmap (as this Project), numbered Epic sequence (as the listing rule)
+The word roadmap means the Project at [[plan/roadmap/]]. That Project sequences Epics toward the application. It answers what to work on next by grouping Epics by Stage. It carries neither Stage nor Status. Epics are parallel. Continue from recent work: that Epic, its current Chapter (or Developer Required live items), then Project Stage and ticket Status. Order inside a Stage does not rank Epics. `doc/roadmap` is deprecated.
+_Avoid_: master project, master steering, doc/roadmap, numbered Epic sequence (as the listing rule)
 
 **Stage**:
 The arc field (`Stage:`) on a feature-set Project, an Epic, or a Chapter. The value list is [[doc/agents/project-status.md]]. The Roadmap does not carry Stage. A ticket does not carry Stage.

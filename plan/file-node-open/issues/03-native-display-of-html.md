@@ -9,7 +9,7 @@
 
 A person runs Open on an HTML File node and expects the browser to show the page. The spec story Native display asks for the file's real content type. The architecture `.html` / `.htm` row sends `text/plain; charset=utf-8` so a Workspace file cannot run script on the Ambit origin. The browser then shows the HTML source.
 
-The intended long-term answer is the sandboxed web panel in Two-panel view. A `Content-Security-Policy: sandbox` response header on DAV GET is a nearer-term server option.
+The intended long-term answer is the sandboxed web panel in Chapter Two-panel view. A `Content-Security-Policy: sandbox` response header on DAV GET is a nearer-term server option.
 
 ## What to build
 
@@ -38,4 +38,4 @@ The intended long-term answer is the sandboxed web panel in Two-panel view. A `C
 3. [File node Open architecture](plan/file-node-open/arch.md)
 4. [File node Open](plan/file-node-open/spec.md)
 5. [workspace file sync](doc/current/workspace-file-sync.md)
-6. [Two-panel view](doc/roadmap/two-panel-view.md)
+6. [Two-panel view](plan/roadmap/epics/chapters/two-panel-view.md)
