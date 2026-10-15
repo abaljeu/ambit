@@ -250,3 +250,61 @@ let ``artifactRelativeForReference maps file owned directory to sibling amb`` ()
         NodeDesktopPath.artifactRelativeForReference "//inner/"
         |> requireOk "canonical root directory"
     Assert.Equal("inner/.amb", canonical)
+
+let private namedWorkspaceFile
+    (label: string)
+    (dirName: string)
+    (fileName: string)
+    : Graph * NodeId =
+    let graph0 = Graph.create ()
+    let wsId = NodeId.New()
+    let dirId = NodeId.New()
+    let fileId = NodeId.New()
+    let wsNode = specialNode wsId Workspace label Graph.workspacesId
+    let dirNode = specialNode dirId Directory dirName wsId
+    let fileNode = specialNode fileId File fileName dirId
+    let graph1 =
+        graph0
+        |> addDetachedMany [ wsNode; dirNode; fileNode ]
+    let graph2 =
+        Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
+        |> requireOk "workspaces->ws"
+    let graph3 =
+        Graph.replace wsId 0 [] (owned [ dirId ]) graph2
+        |> requireOk "ws->dir"
+    let graph4 =
+        Graph.replace dirId 0 [] (owned [ fileId ]) graph3
+        |> requireOk "dir->file"
+    graph4, fileId
+
+[<Fact>]
+let ``fileOpenUrl builds escaped dav url for a workspace file`` () =
+    let graph, fileId = namedWorkspaceFile "my home" "my docs" "read me.txt"
+    Assert.Equal(
+        Some "/ambit/dav/my%20home/my%20docs/read%20me.txt",
+        NodeDesktopPath.fileOpenUrl graph fileId)
+
+[<Fact>]
+let ``fileOpenUrl returns None for a ROOT file`` () =
+    let graph0 = Graph.create ()
+    let fileId = NodeId.New()
+    let fileNode = specialNode fileId File "name.ext" Graph.rootId
+    let graph1 = Graph.addDetachedNode fileNode graph0
+    let idx = Graph.fileTreeInsertIndex graph1 Graph.rootId
+    let graph2 =
+        Graph.replace Graph.rootId idx [] (owned [ fileId ]) graph1
+        |> requireOk "root->file"
+    Assert.Equal(None, NodeDesktopPath.fileOpenUrl graph2 fileId)
+
+[<Fact>]
+let ``fileOpenUrl builds dav url for home docs readme`` () =
+    let graph, _, _, fileId = graphWithWorkspaceTree ()
+    Assert.Equal(
+        Some "/ambit/dav/home/docs/readme.txt",
+        NodeDesktopPath.fileOpenUrl graph fileId)
+
+[<Fact>]
+let ``fileOpenUrl returns None for a directory and a missing node`` () =
+    let graph, _, dirId, _ = graphWithWorkspaceTree ()
+    Assert.Equal(None, NodeDesktopPath.fileOpenUrl graph dirId)
+    Assert.Equal(None, NodeDesktopPath.fileOpenUrl graph (NodeId.New()))

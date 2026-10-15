@@ -172,6 +172,19 @@ module NodeDesktopPath =
         else
             Ok (canonical + "/.amb")
 
+    let private escapeDavSegment (segment: string) =
+        Uri.EscapeDataString segment
+
+    let private davFileUrl (label: string) (relative: string) =
+        let head = "/ambit/dav/" + escapeDavSegment label
+        let parts =
+            relative.Split(
+                [| '/' |],
+                StringSplitOptions.RemoveEmptyEntries)
+            |> Array.map escapeDavSegment
+        if parts.Length = 0 then head
+        else head + "/" + String.Join("/", parts)
+
     let tryParseWorkspacePath (path: string) : (string * string) option =
         let trimmed = path.Trim()
 
@@ -189,6 +202,18 @@ module NodeDesktopPath =
                     None
                 else
                     Some (segment, tail)
+
+    let fileOpenUrl (graph: Graph) (nodeId: NodeId) : string option =
+        match Map.tryFind nodeId graph.nodes with
+        | Some { kind = Special File } ->
+            match
+                pathForNodeId graph nodeId
+                |> Option.bind tryParseWorkspacePath
+            with
+            | Some (label, relative) when label <> "" ->
+                Some (davFileUrl label relative)
+            | _ -> None
+        | _ -> None
 
     let private isNamedWorkspaceNode (node: Node) : bool =
         node.id <> Graph.rootId

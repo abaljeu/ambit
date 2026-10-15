@@ -1,7 +1,7 @@
 # 01 — File node: Open button opens the file in the browser
 
-**Type:** feature
-**Status:** open
+**Type:** coding
+**Status:** coded
 **Blocked by:** None
 
 ## Core design point: one Open command
@@ -36,3 +36,13 @@ Alan chose to assume Open works for every file type for now, so questions 1 and 
 1. Does the choice between downloading and opening in a new tab matter beyond iPhone Safari?
 2. How should file types the browser can't render be handled on mobile?
 3. **Answered in [arch.md](../arch.md):** reuse the existing WebDAV GET, which already admits the Browser cookie, and give it an extension-based Content-Type. How does the browser fetch the file's bytes? Either open a new server endpoint for this, or reuse the existing WebDAV endpoint at `/ambit/dav/{label}/…` ([[doc/current/workspace-file-sync.md]]). Reusing WebDAV needs a check that a plain browser GET works there with the browser's existing login, and that it sends a content type that lets the browser render the file inline.
+
+## Finish-up
+
+[x] Piece answers — no design change. `contentTypeFor` is `internal` so the Server test project can call the pure function. A `private` function is invisible across that project boundary. The mapping table is the architecture table.
+[x] Basis and reference docs — [arch.md](plan/file-node-open/arch.md) checkboxes match the coded behavior. [workspace file sync](doc/current/workspace-file-sync.md) records the GET content type and the File node Open URL.
+[x] Those current-doc referents are checked for the finished behavior of this ticket.
+
+## Time
+
+- 2026-10-15 2h — file open URL, content type, Jump to Target dispatch, and tests (from chat)

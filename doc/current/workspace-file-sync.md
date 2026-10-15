@@ -37,8 +37,8 @@ Workspace file sync transfers a tree between an App folder and Server `DataDir/{
 [x] Server mount: `/ambit/dav/{label}/…` on `DataDir/{label}/`.
 [x] Class 1 methods in use: `PROPFIND`, `GET`, `PUT`, and `MKCOL`.
 [x] `GET` admits the Browser auth cookie and sends no `Content-Disposition: attachment`.
-[ ] `GET` sets Content-Type from the file extension through `contentTypeFor`, with `.md`, `.txt`, and `.html` as `text/plain` and unknown types as `application/octet-stream` ([File node Open](plan/file-node-open/arch.md)).
-[ ] The Browser's Open command on a File node opens `/ambit/dav/{label}/{relative}` in a new tab, built by `NodeDesktopPath.fileOpenUrl` ([File node Open](plan/file-node-open/arch.md)).
+[x] `GET` sets Content-Type from the file extension through `contentTypeFor`, with `.md`, `.txt`, and `.html` as `text/plain` and unknown types as `application/octet-stream` ([File node Open](plan/file-node-open/arch.md)).
+[x] The Browser's Open command on a File node opens `/ambit/dav/{label}/{relative}` in a new tab, built by `NodeDesktopPath.fileOpenUrl` ([File node Open](plan/file-node-open/arch.md)).
 [x] After a Push batch, the desktop calls `_prepare-push`, then `_finish-commit`, on that mount.
 [x] `_prepare-push` runs `WorkspaceGit.jitCommitBeforeWorkspacePush` when DataDir is dirty.
 [x] `_finish-commit` adds and commits through [WorkspaceGit.fs](src/Server/WorkspaceGit.fs) and [GitSave.fs](src/Server/GitSave.fs), so Server `HEAD` advances.
