@@ -13,7 +13,7 @@
 
 ## 2. Spec
 
-1. **Wrong** — Native display. `contentTypeFor` sends `.html` and `.htm` as `text/plain; charset=utf-8`. The spec story asks for the real content type. Left in place because [File node Open architecture](plan/file-node-open/arch.md) table row 11 requires plain text so a Workspace HTML file cannot run script on the Ambit origin.
+1. **Wrong** — Native display. `contentTypeFor` sends `.html` and `.htm` as `text/plain; charset=utf-8`. The spec story asks for the real content type. Left in place because [File node Open architecture](plan/file-node-open/arch.md) `.html` / `.htm` row requires plain text so a Workspace HTML file cannot run script on the Ambit origin.
 2. **Wrong** — Open a File node. `fileOpenUrl` returns `None` when `tryParseWorkspacePath` treats a dotted first segment as a root file, so a Workspace named `my.notes` does not open. Left in place because the architecture says **File open URL** uses `tryParseWorkspacePath`.
 
 ## 3. Arch

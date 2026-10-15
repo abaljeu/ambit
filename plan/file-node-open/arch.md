@@ -21,9 +21,10 @@ Sources: [spec.md](spec.md) Solution and 7 stories; Alan's 2026-10-14 locks (one
    3. [x] The Browser opens the URL in a new tab
 
 3. **No local path**
-   1. [x] `NodeDesktopPath.pathForNodeId` gives the File node's `//label/relative` path from the Graph alone ([src/Shared/NodeDesktopPath.fs:94](src/Shared/NodeDesktopPath.fs))
-   2. [x] `NodeDesktopPath.tryParseWorkspacePath` splits it into label and relative path ([src/Shared/NodeDesktopPath.fs:188](src/Shared/NodeDesktopPath.fs))
-   3. [x] **File open URL** uses only that pair; no Desktop mapping is consulted
+   1. [x] `NodeDesktopPath.pathForNodeId` gives the File node's path from the Graph alone ([src/Shared/NodeDesktopPath.fs:94](src/Shared/NodeDesktopPath.fs))
+   2. [x] `NodeDesktopPath.enclosingWorkspaceName` reads the named Workspace from the node's kind ([src/Shared/NodeDesktopPath.fs:253](src/Shared/NodeDesktopPath.fs)). A dot in a Workspace name is not an extension. Only a File node looks at an extension.
+   3. [x] `relativeUnderLabel` takes the path under that label ([src/Shared/NodeDesktopPath.fs:213](src/Shared/NodeDesktopPath.fs))
+   4. [x] **File open URL** uses only that pair; no Desktop mapping is consulted
 
 4. **Same login**
    1. [x] Login sets the auth cookie as `HttpOnly`, `Secure`, `SameSite=Lax` ([src/Server/RouteAuthentication.fs:22](src/Server/RouteAuthentication.fs))
@@ -39,7 +40,7 @@ Sources: [spec.md](spec.md) Solution and 7 stories; Alan's 2026-10-14 locks (one
    1. [x] **File content type** maps `.md` and `.markdown` to `text/plain; charset=utf-8` (table in Module map, File content type)
 
 7. **Nothing to open**
-   1. [x] **File open URL** returns `None` when the node has no Workspace path; **Open dispatch** then does nothing, the same as a node with no link
+   1. [x] **File open URL** returns `None` when the File node is not inside a named Workspace, including a name with no `.`; **Open dispatch** then does nothing, the same as a node with no link
    2. [x] **Workspace WebDAV GET** answers 404 for a missing or ignored file and 400 for an invalid path, as values through `Result` ([src/Server/WorkspaceWebDav.fs:391](src/Server/WorkspaceWebDav.fs))
 
 ## 2. Shared segments and test seam
@@ -60,13 +61,13 @@ Sources: [spec.md](spec.md) Solution and 7 stories; Alan's 2026-10-14 locks (one
       2. [x] `OpenTarget` ([src/Shared/OpenTarget.fs](src/Shared/OpenTarget.fs))
       3. [x] `openUrlInNewTab`
 
-2. **File open URL** — [src/Shared/NodeDesktopPath.fs](src/Shared/NodeDesktopPath.fs) `fileOpenUrl` (subject home: [[doc/current/workspace-file-sync.md]])
+2. **File open URL** — [src/Shared/NodeDesktopPath.fs](src/Shared/NodeDesktopPath.fs) `fileOpenUrl` (subject home: [[doc/current/browser.md]])
    1. State
       1. [x] None; pure.
    2. Interface
       1. [x] `fileOpenUrl : Graph -> NodeId -> string option` returns `/ambit/dav/{label}/{relative}` for a `Special File` node inside a named Workspace, with the label and each path segment escaped, else `None`.
    3. Uses
-      1. [x] `pathForNodeId` and `tryParseWorkspacePath`
+      1. [x] `enclosingWorkspaceName`, `pathForNodeId`, and `relativeUnderLabel`
 
 3. **Workspace WebDAV GET** — [src/Server/WorkspaceWebDav.fs](src/Server/WorkspaceWebDav.fs) `handleGet` (subject home: [[doc/current/workspace-file-sync.md]])
    1. State
@@ -78,7 +79,7 @@ Sources: [spec.md](spec.md) Solution and 7 stories; Alan's 2026-10-14 locks (one
    3. Uses
       1. [x] **File content type**
 
-4. **File content type** — [src/Server/WorkspaceWebDav.fs](src/Server/WorkspaceWebDav.fs) private module function `contentTypeFor` (subject home: [[doc/current/workspace-file-sync.md]])
+4. **File content type** — [src/Server/WorkspaceWebDav.fs](src/Server/WorkspaceWebDav.fs) `internal` module function `contentTypeFor` (subject home: [[doc/current/workspace-file-sync.md]])
    1. State
       1. [x] None; pure. The mapping is a fixed table in code, not configuration.
    2. Interface
@@ -118,8 +119,15 @@ Sources: [spec.md](spec.md) Solution and 7 stories; Alan's 2026-10-14 locks (one
 
 ## 6. Out of scope; later work
 
-1. **Root Workspace files** — Alan settled on 2026-10-14 that File nodes directly under ROOT, outside any named Workspace, are out of scope for now. `tryParseWorkspacePath` returns `None` for them, so **File open URL** returns `None` and Open does nothing. Serving them is later work.
+1. **Root Workspace files**
+   1. [x] Open on a File node that is not inside a named Workspace returns no URL, so Open does nothing. The name may contain an extension or no extension. The decision uses the node's kind, not a dot in the name.
+   2. [ ] Serving a File node outside a named Workspace is later work. [04 — Serve ROOT files outside a named Workspace](issues/04-serve-root-files-outside-a-named-workspace.md)
+2. [ ] **SVG script** — `.svg` is `image/svg+xml` in the table above. A same-origin SVG document can run script. [02 — SVG served as image/svg+xml can run script](issues/02-svg-served-as-image-can-run-script.md)
+3. [ ] **HTML native display** — The `.html` / `.htm` row is plain text so a Workspace file cannot run script. Native HTML display is later work. [03 — Native display of HTML](issues/03-native-display-of-html.md)
+4. [ ] **Download versus new tab** — Open always uses a new tab. The choice is later work. [05 — Download versus new tab](issues/05-download-versus-new-tab.md)
+5. [ ] **File types the browser cannot render on mobile** — This effort adds no per-type handling. [06 — File types the browser cannot render on mobile](issues/06-file-types-the-browser-cannot-render-on-mobile.md)
 
 ## 7. Unsettled
 
-None.
+1. [ ] **Download versus new tab** — [05 — Download versus new tab](issues/05-download-versus-new-tab.md)
+2. [ ] **File types the browser cannot render on mobile** — [06 — File types the browser cannot render on mobile](issues/06-file-types-the-browser-cannot-render-on-mobile.md)
