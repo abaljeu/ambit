@@ -2,7 +2,7 @@
 
 **Status:** `defined`
 **Type:** coding
-**Blocked by:** 26 — Revisit WebDAV parse
+**Blocked by:** [26 — Revisit WebDAV parse](../../github-transport/issues/26-revisit-webdav-parse.md)
 **Trackers:** architecture, user manual
 
 ## Context
@@ -35,6 +35,6 @@ The remaining client hop retires. Load of a Workspace Node, Directory Node, or F
 - [core-refinement architecture](plan/core-refinement/arch.md)
 - [core-refinement map](plan/core-refinement/map.md)
 - [core-refinement](plan/core-refinement/project.md)
-- [26 — Revisit WebDAV parse](plan/github-transport/issues/26-revisit-webdav-parse.md)
+- [26 — Revisit WebDAV parse](../../github-transport/issues/26-revisit-webdav-parse.md)
 - [22 — Drop the Browser git Load after-step](plan/github-transport/issues/22-drop-browser-git-load-after-step.md)
 - [Parse and persist](doc/current/parse-persist.md)

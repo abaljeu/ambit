@@ -2,7 +2,7 @@
 
 Stage: slice
 Summary: Sequel to [[plan/core-creation/project.md]]: refine Core so that after transport lands files, Core works through disk and Graph changes (Parse stack, Persist stack, state axes) until everything is updated.
-Updated: 2026-10-15
+Updated: 2026-10-16
 Started: 2026-09-29
 Actual: 10h15m
 
@@ -36,6 +36,7 @@ Actual: 10h15m
 - 2026-10-08 — The ordered Event stream for Run and Cancel is [22 — One ordered event stream](../single-event-source/issues/22-ordered-event-stream.md) on [Single event source](../single-event-source/project.md). Pointers [08 — Pointer: Core Actor pool](issues/08-pointer-core-actor-pool.md), [12 — Pointer: Launch Actor (Focus registration)](issues/12-pointer-launch-actor-and-hold-span.md), and [13 — Pointer: Finish and drop](issues/13-pointer-finish-and-drop.md) keep pool, launch, and drop. This Project does not own that stream. Stage stays `build`.
 - 2026-10-09 — Run and Cancel are ActorStart and Cancel on `POST /ambit/events`. `POST /ambit/command` and `POST /ambit/cancel` are removed. A start error stores ActorStart and ActorStop with reason ActorFailed. Rule: [Single event source architecture](../single-event-source/arch.md). Stage stays `build`.
 - 2026-10-15 — Contract on [[arch.md]] §3 step 1 **State axes on special nodes**: `DocumentState` stays and becomes the record. Until migrate, the Node field `documentState` stays `DocumentStateEnum`. Open expand-contract beats are published. Stage is `slice`.
+- 2026-10-16 — Correction to the state contraction: the existing four-field `DocumentState` record is the valid temporary migrate shape. Contract removes its obsolete nested `documentState` field and the standalone axes, not `noServerFile`. The final record is exactly `{ parseState: ParseState; persistState: PersistState; noServerFile: bool }`. Stage stays `slice`.
 
 ## Issues
 
@@ -57,8 +58,8 @@ Actual: 10h15m
 - [16 — Pointer: Drain Actor lifecycle on host stop](issues/16-pointer-drain-actor-lifecycle-on-host-stop.md) — host `StopAsync` refuse and drain are still open. Status `defined`.
 - [17 — Pointer: Prove TestActor hello](issues/17-pointer-prove-testactor-hello.md) — Status `done`. Acceptance is closed by [34b — Outside Core lifecycle proof](../core-creation/issues/34b-outside-core-lifecycle-proof.md) and [35b — Browser Run hello](../core-creation/issues/35b-browser-run-hello.md).
 - [18 — Core Persist stack](issues/18-core-persist-stack.md) — collectors and the persist thread inside Core; callers use the collectors; the thread adds `InMsg` `SnapshotDone`. Status `coded`.
-- [19 — Migrate special-node state onto the DocumentState record](issues/19-migrate-special-node-state-onto-the-document-state-record.md) — the Node field `documentState` becomes the `DocumentState` record. Standalone axes stay for this beat. Status `defined`.
-- [20 — Contract special-node state inside DocumentState](issues/20-contract-special-node-state-inside-document-state.md) — standalone `parseState` and `persistState` leave the Node. `DocumentState` remains. Status `defined`.
+- [19 — Migrate special-node state onto the DocumentState record](issues/19-migrate-special-node-state-onto-the-document-state-record.md) — the Node field `documentState` becomes the temporary four-field `DocumentState` record. Standalone axes stay for this beat. Status `defined`.
+- [20 — Contract special-node state inside DocumentState](issues/20-contract-special-node-state-inside-document-state.md) — standalone axes and the record's obsolete nested `documentState` field leave. The final record keeps `parseState`, `persistState`, and `noServerFile`. Status `defined`.
 - [21 — Contract Load onto the Parse stack](issues/21-contract-load-onto-the-parse-stack.md) — the remaining client hop retires. Status `defined`.
 - [22 — Expand Core path control](issues/22-expand-core-path-control.md) — Core stands read file, write file, read directory, and write directory. Status `defined`.
 - [23 — Migrate callers onto Core path control](issues/23-migrate-callers-onto-core-path-control.md) — classify each inventoried DataDir use. Status `defined`.

@@ -7,24 +7,24 @@
 
 ## Context
 
-Special nodes already store an enum and two axes. The enum cases are Current, Unparsed, and NoServerFile. The axes are Parsed or Unparsed, and Persisted or Unpersisted. The expand form is the DocumentState record. The Node field documentState is still DocumentStateEnum.
+Special nodes already store an enum and two standalone axes. The enum cases are Current, Unparsed, and NoServerFile. The axes are Parsed or Unparsed, and Persisted or Unpersisted. The temporary expanded `DocumentState` record already has four fields: `parseState`, `persistState`, `noServerFile`, and the legacy `documentState`. This is a valid expand-contract state. The Node field `documentState` is still `DocumentStateEnum`.
 
 ## What to build
 
-A state change stores that record on the Node. The record holds the parse axis, the persist axis, and the enum. Current keeps its name. The standalone axes stay on the Node and receive the same values in that change.
+A state change stores that temporary four-field record on the Node. The standalone axes stay on the Node and receive the same values in that change. The record's `noServerFile` field and legacy nested `documentState` field both remain during this migration.
 
 ### Migrate
 
-1. [ ] **Record field** — The Node field documentState has type DocumentState. Until this migrate, that field stays DocumentStateEnum.
-2. [ ] **Record shape** — The record fields are parseState, persistState, and documentState.
-3. [ ] **Enum cases** — DocumentStateEnum keeps Current, Unparsed, and NoServerFile. NoServerFile stays its own case. Current keeps its name.
-4. [ ] **Dual-write** — A state change writes the record and the standalone parseState and persistState fields. Old uses follow the axis-write rules.
-5. [ ] **DocumentState remains** — DocumentState remains. This migrate does not delete it.
+1. [ ] **Record field** — The Node field `documentState` has type `DocumentState`. Until this migrate, that field stays `DocumentStateEnum`.
+2. [ ] **Temporary record shape** — The record fields are `parseState`, `persistState`, `noServerFile`, and legacy `documentState`.
+3. [ ] **Legacy enum remains for migration** — `DocumentStateEnum` keeps Current, Unparsed, and NoServerFile. The record's `noServerFile` value and its legacy nested `documentState` value stay coherent while callers migrate.
+4. [ ] **Dual-write** — A state change writes the record and the standalone `parseState` and `persistState` fields. Old uses follow the axis-write rules.
+5. [ ] **Contraction stays later** — This migration does not remove the standalone axes, the record's legacy nested `documentState` field, `DocumentStateEnum`, or `noServerFile`.
 
 ### Obligations
 
-1. [ ] **Workspace graph** — The Workspace graph claim shows the Node field as the DocumentState record and shows the enum cases that remain.
-2. [ ] **Store test** — A test shows a special node stores the record and still stores the standalone axes.
+1. [ ] **Workspace graph** — The Workspace graph claim shows the Node field as the temporary four-field `DocumentState` record and shows the legacy enum during migration.
+2. [ ] **Store test** — A test shows a special node stores the four-field record and still stores the standalone axes.
 
 ## Finish-up
 
