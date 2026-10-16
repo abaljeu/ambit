@@ -46,6 +46,7 @@ The graph is the central data structure of the outliner.  There are rules for wo
 [x] Desktop Upload creates new File stubs as `NoServerFile`.
 [x] A successful PUT, or an already-present mtime skip, changes matching paths to Unparsed before Parse.
 [x] Directories keep their existing state behavior.
+[x] Parsed with `noServerFile` is not a state. `ParseFinished` sets a File Node Parsed only when `noServerFile` is clear. When `noServerFile` is set, that File Node stays Unparsed.
 [x] Node field `documentState` stores the `DocumentState` record: `parseState`, `persistState`, and `noServerFile`.
 [x] `parseState`, `persistState`, and `noServerFile` live only inside that record. The Node has no standalone `parseState` or `persistState` field, and the record has no nested `documentState` field.
 [o] Graph JSON and the PostgreSQL node projection still encode a derived `documentState` enum (`current` | `unparsed` | `noServerFile`) plus sibling `parseState` and `persistState` keys.

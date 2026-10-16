@@ -4,7 +4,7 @@ Stage: build
 Summary: Sequel to [[plan/core-creation/project.md]]: refine Core so that after transport lands files, Core works through disk and Graph changes (Parse stack, Persist stack, state axes) until everything is updated.
 Updated: 2026-10-16
 Started: 2026-09-29
-Actual: 17h15m
+Actual: 17h30m
 
 **Sequel to:** [[plan/core-creation/project.md]]
 **Feeds:** [[plan/github-transport/project.md]] (thin remainder: lock workspace, receive files, inform Core)
@@ -41,6 +41,7 @@ Actual: 17h15m
 - 2026-10-16 — [20 — Contract special-node state inside DocumentState](issues/20-contract-special-node-state-inside-document-state.md) removes standalone axes and the nested `documentState` field. The Node field stores `{ parseState; persistState; noServerFile }`. Status `coded`. Stage stays `build`.
 - 2026-10-16 — [21 — Contract Load onto the Parse stack](issues/21-contract-load-onto-the-parse-stack.md) retires the client hop. Desktop-mapped Load stores bytes, then posts mailbox Load. Git Load stays on the Parse stack. Status `coded`. Stage stays `build`.
 - 2026-10-16 — Alan accepted [21 — Contract Load onto the Parse stack](issues/21-contract-load-onto-the-parse-stack.md). Status `done`. Stage stays `build`.
+- 2026-10-16 — [28 — Parsed when clear](issues/28-parsed-when-clear.md) sets a File Node Parsed from `ParseFinished` only when `noServerFile` is clear. Status `coded`. Stage stays `build`.
 
 ## Issues
 
@@ -71,3 +72,4 @@ Actual: 17h15m
 - [25 — Enable mailbox git requests](issues/25-enable-mailbox-git-requests.md) — the mailbox accepts git requests. Status `defined`.
 - [26 — Call mailbox git requests](issues/26-call-mailbox-git-requests.md) — callers use those requests. Status `defined`.
 - [27 — Stop the old git path](issues/27-stop-the-old-git-path.md) — the old git path stops. Status `defined`.
+- [28 — Parsed when clear](issues/28-parsed-when-clear.md) — `ParseFinished` sets a File Node Parsed only when `noServerFile` is clear. Status `coded`.

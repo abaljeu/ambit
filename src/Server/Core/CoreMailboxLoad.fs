@@ -165,8 +165,10 @@ module internal CoreMailboxLoad =
         writeParseState persist nodeId ParseState.Unparsed
         |> Result.map (fun () -> rawPush nodeId)
 
-    /// Core loop apply. ParseFinished writes Parsed only, then noteParsed
-    /// so a blocked edit can catch up. It does not set Persisted.
+    /// Core loop apply. ParseFinished writes Parsed only when noServerFile
+    /// is clear, then noteParsed so a blocked edit can catch up. When
+    /// noServerFile is set, that File Node stays Unparsed. It does not
+    /// set Persisted.
     /// MarkUnparsed writes Unparsed only.
     /// SnapshotDone runs snapshot bookkeeping, then sets Persisted.
     let internal applyInMsg

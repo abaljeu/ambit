@@ -239,7 +239,7 @@ Deltas for this Project. Claim homes: [Mailbox](doc/current/mailbox.md) and [Par
       2. [x] **Public add** — A public function takes `CoreMsg` and adds it to the same queue.
       3. [x] **Pull** — The queue puller receives the next item and hands a `CoreMsg` to the `CoreMsg` handler and an `InMsg` to the `InMsg` handler.
       4. [x] **Parse finished** — `ParseFinished` sets that node Parsed only. The field write is `GraphMutate.setParseState`. PersistState stays unchanged.
-         1. [ ] **Parsed when clear** — `ParseFinished` sets a File Node Parsed only when `noServerFile` is clear.
+         1. [x] **Parsed when clear** — `ParseFinished` sets a File Node Parsed only when `noServerFile` is clear.
       5. [x] **Snapshot done** — `SnapshotDone` sets that node Persisted through `GraphMutate.setPersistState`, and the same completion stores the snapshot graph as `persistedGraph` when it equals the live graph, clears the in-progress flag, and starts another snapshot when one is needed.
       6. [x] **Public post** — `CoreMailbox.postEvents` and `CoreMailbox.postGraphOnly` do not carry `InMsg`.
       7. [ ] **Not an Actor mailbox** — The mailbox queue is not an Actor mailbox. The persist thread does not get a `MailboxProcessor`.

@@ -76,7 +76,33 @@ let ``ParseFinished sets Parsed and leaves PersistState`` () =
     let node = state.Value.graph.nodes.[id]
     Assert.Equal(ParseState.Parsed, node.documentState.parseState)
     Assert.Equal(Current, node.documentState.AsEnum)
+    Assert.False(node.documentState.noServerFile)
     Assert.Equal(PersistState.Unpersisted, node.documentState.persistState)
+    Assert.Empty(snaps)
+
+[<Fact>]
+let ``ParseFinished leaves a noServerFile File Node Unparsed`` () =
+    let id = NodeId.New()
+    let node =
+        Node.Create(
+            id,
+            text = "note.txt",
+            name = Filename.create "note.txt",
+            kind = Special File,
+            documentState = NoServerFile,
+            parseState = ParseState.Unparsed,
+            persistState = PersistState.Unpersisted)
+    let state =
+        ref {
+            graph = Graph.addDetachedNode node (Graph.create ())
+            eventId = EventId.zero }
+    let snaps = ResizeArray<NodeId * Graph option>()
+    apply (handlers state snaps) (InMsg.ParseFinished id)
+    let after = state.Value.graph.nodes.[id]
+    Assert.Equal(ParseState.Unparsed, after.documentState.parseState)
+    Assert.True(after.documentState.noServerFile)
+    Assert.Equal(NoServerFile, after.documentState.AsEnum)
+    Assert.Equal(PersistState.Unpersisted, after.documentState.persistState)
     Assert.Empty(snaps)
 
 [<Fact>]

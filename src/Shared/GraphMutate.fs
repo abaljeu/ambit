@@ -220,6 +220,10 @@ module GraphMutate =
         match artifactNode graph nodeId with
         | Error msg -> Error msg
         | Ok node when
+            parseState = ParseState.Parsed
+            && node.documentState.noServerFile ->
+            Ok graph
+        | Ok node when
             node.documentState.parseState = parseState
             && not node.documentState.noServerFile ->
             Ok graph
