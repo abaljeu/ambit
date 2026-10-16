@@ -63,7 +63,7 @@ Actual: 17h15m
 - [18 — Core Persist stack](issues/18-core-persist-stack.md) — collectors and the persist thread inside Core; callers use the collectors; the thread adds `InMsg` `SnapshotDone`. Status `coded`.
 - [19 — Migrate special-node state onto the DocumentState record](issues/19-migrate-special-node-state-onto-the-document-state-record.md) — the Node field `documentState` becomes the temporary four-field `DocumentState` record. Standalone axes stay for this beat. Status `coded`.
 - [20 — Contract special-node state inside DocumentState](issues/20-contract-special-node-state-inside-document-state.md) — standalone axes and the record's obsolete nested `documentState` field leave. The final record keeps `parseState`, `persistState`, and `noServerFile`. Status `coded`.
-- [21 — Contract Load onto the Parse stack](issues/21-contract-load-onto-the-parse-stack.md) — the remaining client hop retires. Status `coded`.
+- [21 — Contract Load onto the Parse stack](issues/21-contract-load-onto-the-parse-stack.md) — the remaining client hop retires. Status `done`.
 - [22 — Expand Core path control](issues/22-expand-core-path-control.md) — Core stands read file, write file, read directory, and write directory. Status `defined`.
 - [23 — Migrate callers onto Core path control](issues/23-migrate-callers-onto-core-path-control.md) — classify each inventoried DataDir use. Status `defined`.
 - [24 — Contract absolute paths out of callers](issues/24-contract-absolute-paths-out-of-callers.md) — no caller outside Core holds a DataDir absolute path. Status `defined`.

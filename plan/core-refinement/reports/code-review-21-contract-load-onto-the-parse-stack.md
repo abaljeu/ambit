@@ -4,7 +4,7 @@
 - Spec: [21 — Contract Load onto the Parse stack](../issues/21-contract-load-onto-the-parse-stack.md)
 - Arch: [core-refinement architecture](../arch.md)
 
-This report is not approval. Ticket Status stays `coded`.
+Alan accepted the pull request. Ticket Status is `done`.
 
 ## 1. Standards
 
