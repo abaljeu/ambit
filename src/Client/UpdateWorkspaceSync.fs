@@ -3,7 +3,6 @@ module Gambol.Client.UpdateWorkspaceSync
 open Gambol.Client.JsInterop
 open Gambol.Client.UpdateCodec
 open Gambol.Client.UpdateHelpers
-open Gambol.Client.UpdateImport
 open Gambol.Client.UpdateWorkspaceDesktop
 open Gambol.Shared
 open Gambol.Shared.CommandEntry
@@ -228,10 +227,44 @@ let failDirectoryReconcileHttp
     : VM * Effect list =
     failDirectoryReconcile (httpError status body) model
 
-/// After async workspace-push success: clear Uploading; parse only for single-file Upload.
+let private quietPlan (subjectId: NodeId) (model: VM) =
+    match Map.tryFind subjectId model.graph.nodes with
+    | Some { kind = Special File } ->
+        Some (WorkspaceUploadAction.ParseServerDisk subjectId)
+    | _ -> Some WorkspaceUploadAction.ReconcileServerDisk
+
+/// Mailbox Load of the subject. The quiet plan does not start another push.
+let private stackLoad (subjectId: NodeId) (model: VM) : Effect =
+    let request =
+        { operation = LoadSaveOperation.Load
+          prePick = LoadSavePrePick.Desk
+          holdStack = false
+          start =
+            CommandRequest.actorStart
+                model.graph
+                model.siteMap
+                model.zoomRoot
+                subjectId
+                subjectId
+                model.eventId }
+    SubmitLoadSaveCommand (request, quietPlan subjectId model)
+
+/// After desktop bytes are stored, Load that subject on the Parse stack.
+let loadAfterDesktopPush
+    (subjectId: NodeId option)
+    (model: VM)
+    : VM * Effect list =
+    match subjectId with
+    | None -> model, []
+    | Some id ->
+        let syncInfo, poll = tryStartLoadFetch model
+        { model with syncInfo = syncInfo },
+        stackLoad id model :: poll
+
+/// After workspace-push success: bytes are stored, then Load uses the Parse stack.
 let completeWorkspacePush
     (scope: WorkspaceSyncScope)
-    (parseFileId: NodeId option)
+    (subjectId: NodeId option)
     (text: string)
     (model: VM)
     : VM * Effect list =
@@ -247,23 +280,8 @@ let completeWorkspacePush
         match markServerFilesPresent scope (uploaded @ skipped) model' with
         | Error error -> failWorkspacePush error model'
         | Ok presentModel ->
-            match parseFileId with
-            | Some fileId ->
-                parseFileOp
-                    (WorkspaceUploadAction.DesktopPush(Some fileId))
-                    fileId
-                    presentModel
-                |> withPathSyncRefresh
-            | None ->
-                let parsing =
-                    { presentModel with
-                        syncInfo =
-                            SyncInfo.withSyncState Parsing presentModel.syncInfo }
-                let model', effs =
-                    okDetail parsing "reconciling server disk"
-                (model',
-                 effs @ [ Effect.ContinueDirectoryReconcile scope ])
-                |> withPathSyncRefresh
+            loadAfterDesktopPush subjectId presentModel
+            |> withPathSyncRefresh
     | Ok { error = Some e } -> failWorkspacePush e model
     | Ok _ -> failWorkspacePush "request failed" model
 
@@ -396,4 +414,4 @@ let uploadCreateWorkspaceOp (model: VM) : VM * Effect list =
                               relative = ""
                               kind = SyncScopeKind.Workspace }
                         keepUploading model',
-                        [ Effect.ContinueWorkspaceStubsThenPush (scope, None) ]
+                        [ Effect.ContinueWorkspaceStubsThenPush (scope, Some wsId) ]
