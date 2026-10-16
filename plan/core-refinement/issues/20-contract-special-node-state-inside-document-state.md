@@ -2,28 +2,28 @@
 
 **Status:** `defined`
 **Type:** coding
-**Blocked by:** 19 — Migrate special-node state onto the DocumentState record
+**Blocked by:** [19 — Migrate special-node state onto the DocumentState record](19-migrate-special-node-state-onto-the-document-state-record.md)
 **Trackers:** architecture, user manual
 
 ## Context
 
-After the migrate, the Node stores the DocumentState record and still stores standalone parseState and persistState fields. The enum inside the record is still Current, Unparsed, or NoServerFile.
+After [19 — Migrate special-node state onto the DocumentState record](19-migrate-special-node-state-onto-the-document-state-record.md), the Node stores the temporary four-field `DocumentState` record and still stores standalone `parseState` and `persistState` fields. The record fields are `parseState`, `persistState`, `noServerFile`, and the legacy nested `documentState`.
 
 ## What to build
 
-The standalone axes leave the Node. ParseState and PersistState remain the field types inside the DocumentState record. DocumentState remains. The enum remains, including NoServerFile. Current keeps its name.
+The standalone axes leave the Node. The obsolete nested `documentState` field leaves the record, and `DocumentStateEnum` leaves after its callers have migrated. The Node field `documentState` and the `DocumentState` record remain. The final record is exactly `{ parseState: ParseState; persistState: PersistState; noServerFile: bool }`. The contraction keeps `noServerFile`.
 
 ### Contract
 
-1. [ ] **Standalone axes leave** — The Node has no standalone parseState field and no standalone persistState field.
-2. [ ] **Record remains** — The Node field documentState is the DocumentState record. Its fields are parseState, persistState, and documentState.
-3. [ ] **Enum remains** — DocumentStateEnum keeps Current, Unparsed, and NoServerFile. NoServerFile stays its own case. Current keeps its name.
-4. [ ] **DocumentState remains** — DocumentState is not deleted.
+1. [ ] **Standalone axes leave** — The Node has no standalone `parseState` field and no standalone `persistState` field.
+2. [ ] **Legacy field leaves** — The `DocumentState` record has no nested `documentState` field, and `DocumentStateEnum` is removed after its callers have migrated.
+3. [ ] **Exact record remains** — The Node field `documentState` stores `DocumentState`, whose fields are exactly `parseState`, `persistState`, and `noServerFile`.
+4. [ ] **No-server-file flag remains** — The contraction does not remove `noServerFile`.
 
 ### Obligations
 
-1. [ ] **Workspace graph** — The Workspace graph claim shows parse and persist only inside the DocumentState record.
-2. [ ] **Read test** — A test reads parse and persist from the record after the standalone fields are gone.
+1. [ ] **Workspace graph** — The Workspace graph claim shows `parseState`, `persistState`, and `noServerFile` only inside the `DocumentState` record, with no legacy nested `documentState`.
+2. [ ] **Read test** — A test reads all three final fields from the record after the standalone axes and legacy nested field are gone.
 
 ## Finish-up
 
