@@ -520,8 +520,8 @@ body {
 .amb-text.md-list::before { font-size: 1.4em; font-weight: bolder;content: "- "; }
 .amb-text.md-list-star::before { font-size: 1.4em; font-weight: bolder;content: "* "; }
 .amb-text.md-number::before { font-size: 1.4em; font-weight: bolder;content: "n. "; }
-.amb-text.md-table::before { font-size: 1.4em;content: "| "; }
-.amb-text.md-table::after{ font-size: 1.4em; font-weight: bolder;content: "| "; }
+.amb-text.md-table::before { font-size: 1.4em;content: "[ "; }
+.amb-text.md-table::after{ font-size: 1.4em; font-weight: bolder;content: "] "; }
 
 
 .amb-text.code-brace::after{ content: " { ... }"; }

@@ -21,10 +21,11 @@ The layer-by-layer implementation list, including the architecture decisions it 
 [ ] Acceptance criterion
 
 ## Finish-up
+Insert these verbatim:
 
-[ ] Piece answers — changes during implementation are written on this ticket, or the ticket records that none changed.
+[ ] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
 [ ] Basis and reference docs — the ticket's basis, and the reference docs for each tracker named on Trackers, match those changes.
-[ ] Also where those sources reference [[doc/current]], [[doc/user]] files, update those referents to match the finished state of this ticket, deleting things no longer true and checking off things newly achieved.
+[ ] Documentation - files in [[doc/current]] and [[doc/user]] reflect what has been implemented by this ticket, deleting things no longer true and checking off things newly achieved.
 
 ## See also
 Each source link for this ticket, once.

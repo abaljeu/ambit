@@ -55,17 +55,17 @@ First **expand** ( add the new form beside the old so nothing breaks. Then **mig
 
 Done: a draft list exists for every item in the Sequence's set, each with a title, a one-line goal, and blockers.
 
-### 4. Dispatch pieces
+### 4. Dispatch sections
 
-For each named ticket, dispatch one subagent per piece file: [piece-goal](piece-goal.md), [piece-arch](piece-arch.md), [piece-obligations](piece-obligations.md), and [piece-trackers](piece-trackers.md). Run a piece when every name on its Depends line has returned. Pieces with `Depends: none` run separately, each in a fresh context. Give a subagent that file and only its Inputs: the ticket's one-line goal, the Project `spec.md` and `arch.md` paths, and earlier outputs only for names on Depends. The subagent returns the output section. It does not write a report.
+For each named ticket, dispatch one subagent for these sections: [section-goal](section-goal.md), [section-arch](section-arch.md), [section-obligations](section-obligations.md), and [section-trackers](section-trackers.md). Run a section when every name on its Depends line has returned. sections with `Depends: none` run separately, each in a fresh context. Give a subagent that file and only its Inputs: the ticket's one-line goal, the Project `spec.md` and `arch.md` paths, and earlier outputs only for names on Depends. The subagent returns the output section. It does not write a report.
 
-Done: every named ticket has one returned output for each piece file.
+Done: every named ticket has one returned output for each section file.
 
 ### 5. Assemble
 
-Write one file per ticket per [[PUBLISH.md]]. Place each returned output in the section that piece names. Under What to build, place the goal opening, then the architecture subsections, then the obligation checklist. Apply the link rules in [[PUBLISH.md]].
+Write one file per ticket per [[PUBLISH.md]]. Place each returned output in the section that section names. Under What to build, place the goal opening, then the architecture subsections, then the obligation checklist. Apply the link rules in [[PUBLISH.md]].
 
-Done: each ticket is one file in that shape, Trackers is set, Finish-up is present, the ticket text holds each piece's decisions, and link placement matches [[PUBLISH.md]].
+Done: each ticket is one file in that shape, Trackers is set, Finish-up is present, the ticket text holds each section's decisions, and link placement matches [[PUBLISH.md]].
 
 ### 6. Publish
 

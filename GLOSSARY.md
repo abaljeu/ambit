@@ -377,7 +377,8 @@ These terms are permitted with standard definition:
 - affordance
 - **Marker** (for `.amb` Directory/Workspace documents, or “marker-only” cold bootstrap) — deprecated; say **Directory File**
 - **Peer** - as in peer actor.  The adjective is not descriptive.
-- **Piece** and **Slice** as names for git commit granularity — say what the commits are: ordinary commits on `dev`, one squashed merge per commit on `master`. The separate `plan/` sense of slice (an implementation increment) is unaffected.
+- **Piece** used as an adjective.
+- **Piece**  and **Slice** as names for git commit granularity — say what the commits are: ordinary commits on `dev`, one squashed merge per commit on `master`. The separate `plan/` sense of slice (an implementation increment) is unaffected.
 
 ## Banned phrasings
 

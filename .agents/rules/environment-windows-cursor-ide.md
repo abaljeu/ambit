@@ -4,7 +4,7 @@ Windows 10 with GIT Bash. The Shell tool is already bash.
 
 ## Shell
 
-For a repo script, the command string that works (and matches auto-approve) is the script path alone — e.g. `scripts/gitstatus.sh`. Same for other scripts under `scripts/` and `./tmp/`. Prefixing `bash`, `sh`, `bash -lc`, or another shell binary is a different command and breaks auto-approve.
+For a repo script, the command string that works (and matches auto-approve) is the script path alone — e.g. `scripts/commit.sh`. Same for other scripts under `scripts/` and `./tmp/`. Prefixing `bash`, `sh`, `bash -lc`, or another shell binary is a different command and breaks auto-approve.
 
 DO not invoke `bash scripts/<name>` because that will trip up command approval.  Use `scripts/name` instead.
 
