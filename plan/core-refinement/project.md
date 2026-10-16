@@ -4,7 +4,7 @@ Stage: slice
 Summary: Sequel to [[plan/core-creation/project.md]]: refine Core so that after transport lands files, Core works through disk and Graph changes (Parse stack, Persist stack, state axes) until everything is updated.
 Updated: 2026-10-16
 Started: 2026-09-29
-Actual: 17h15m
+Actual: 17h30m
 
 **Sequel to:** [[plan/core-creation/project.md]]
 **Feeds:** [[plan/github-transport/project.md]] (thin remainder: lock workspace, receive files, inform Core)
@@ -73,7 +73,7 @@ Actual: 17h15m
 - [26 — Call mailbox git requests](issues/26-call-mailbox-git-requests.md) — callers use those requests. Status `defined`.
 - [27 — Stop the old git path](issues/27-stop-the-old-git-path.md) — the old git path stops. Status `defined`.
 - [28 — Parsed when clear](issues/28-parsed-when-clear.md) — `ParseFinished` sets a File Node Parsed only when `noServerFile` is clear. Status `defined`.
-- [29 — Graph change crosses Core loop](issues/29-graph-change-crosses-core-loop.md) — a path that changes the graph crosses Core loop. Status `defined`.
+- [29 — Graph change crosses Core loop](issues/29-graph-change-crosses-core-loop.md) — `markUnparsedThenPush` is mailbox-only; secondary parse-state API and authorized parse/reconcile callers queue through the private `InMsg` mailbox queue rather than off-loop `replaceGraph` or public `Op.SetDocumentState`. Status `defined`.
 - [30 — Expand the workspace lock](issues/30-expand-the-workspace-lock.md) — the workspace lock and per-member persist locks stand beside `withWorkTreeGate`. Status `defined`.
 - [31 — Migrate onto the workspace lock](issues/31-migrate-onto-the-workspace-lock.md) — Persist, parse-thread file use, and git Load and git Save follow the workspace lock. Status `defined`.
 - [32 — Workspace lock handoff](issues/32-workspace-lock-handoff.md) — after the lock drains, pull or Upload lands, arrived files are marked Unparsed, the lock releases, and Unparsed starts the parse thread. Status `defined`.

@@ -214,7 +214,7 @@ Sequence stays `expand-contract`. These paths are that implementation sequence. 
    2. [x] **Core loop** — The queue puller hands `InMsg` to the `InMsg` handler. **Core loop** applies `InMsg`.
 
 2. **Graph change**
-   1. [ ] **Core loop** — A path that changes the graph crosses **Core loop**.
+   1. [ ] **Core loop** — Every path that changes the graph crosses **Core loop** on the `MailboxProcessor`. `markUnparsedThenPush` is invokable only by the mailbox on the loop; secondary parse-state calls and authorized parse/reconcile workers use the private `InMsg` queue from the mailbox rather than direct `replaceGraph` calls or public `Op.SetDocumentState` posts. Ticket: [29 — Graph change crosses Core loop](issues/29-graph-change-crosses-core-loop.md).
 
 ### Test seam
 
@@ -244,7 +244,7 @@ Deltas for this Project. Claim homes: [Mailbox](doc/current/mailbox.md) and [Par
       6. [x] **Public post** — `CoreMailbox.postEvents` and `CoreMailbox.postGraphOnly` do not carry `InMsg`.
       7. [ ] **Not an Actor mailbox** — The mailbox queue is not an Actor mailbox. The persist thread does not get a `MailboxProcessor`.
       8. [x] **CoreMsg** — `CoreMsg` has no `SnapshotDone`. The other `CoreMsg` cases are the public mailbox doors. The live-document completion is `InMsg` `SnapshotDone`, added by the private function.
-      9. [ ] **Private axes** — PersistState and the parsed axis are internal. Outsiders may see them. The core loop writes them. `Op.SetPersistState` is not a writer. `Op.SetDocumentState` is not the writer of the parsed axis.
+      9. [ ] **Private axes** — PersistState and the parsed axis are internal. Outsiders may see them. The core loop writes them through the private `InMsg` queue. `markUnparsedThenPush` is invokable only on the mailbox loop. `Op.SetPersistState` is not a writer. `Op.SetDocumentState` is not the writer of the parsed axis. Ticket: [29 — Graph change crosses Core loop](issues/29-graph-change-crosses-core-loop.md).
       10. [x] **Mark unparsed** — `MarkUnparsed` sets that node Unparsed only. The field write is `GraphMutate.setParseState`. PersistState stays unchanged. `Op.SetDocumentState` is not the writer.
    3. **Uses**
       1. [x] **Parse thread** — Adds `InMsg` `ParseFinished` through the private function.
