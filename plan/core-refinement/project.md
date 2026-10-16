@@ -40,6 +40,7 @@ Actual: 17h15m
 - 2026-10-16 — [19 — Migrate special-node state onto the DocumentState record](issues/19-migrate-special-node-state-onto-the-document-state-record.md) stores the four-field record on the Node and dual-writes the standalone axes. Status `coded`. Stage is `build`.
 - 2026-10-16 — [20 — Contract special-node state inside DocumentState](issues/20-contract-special-node-state-inside-document-state.md) removes standalone axes and the nested `documentState` field. The Node field stores `{ parseState; persistState; noServerFile }`. Status `coded`. Stage stays `build`.
 - 2026-10-16 — [21 — Contract Load onto the Parse stack](issues/21-contract-load-onto-the-parse-stack.md) retires the client hop. Desktop-mapped Load stores bytes, then posts mailbox Load. Git Load stays on the Parse stack. Status `coded`. Stage stays `build`.
+- 2026-10-16 — Alan accepted [21 — Contract Load onto the Parse stack](issues/21-contract-load-onto-the-parse-stack.md). Status `done`. Stage stays `build`.
 
 ## Issues
 
