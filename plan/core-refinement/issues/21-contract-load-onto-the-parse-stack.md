@@ -33,7 +33,7 @@ The remaining client hop retires. Load of a Workspace Node, Directory Node, or F
 ## Amendments
 
 1. **Hold the stack** — The first desktop-mapped Load command sets `holdStack`. Desk Load does not push while that flag is set. After the mapped bytes are stored, a second Load posts the subject with `holdStack` clear. That second Load uses the Parse stack. Its quiet plan does not start another desktop push.
-2. **Git Load after-step** — That Browser after-step was already retired. This ticket's test shows the Browser does not run a second reconcile or parse. Server git Load still posts the Workspace onto the Parse stack.
+2. **Git Load after-step** — That Browser after-step was already retired. This ticket's test shows the Browser does not run a second reconcile or parse. Server git Load still pushes that Workspace Node onto the Parse stack.
 3. **Parse routes remain** — `POST /ambit/file/parse` and the directory reconcile route stay. Load does not call them.
 
 ## Time
