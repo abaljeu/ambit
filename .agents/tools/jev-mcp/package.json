@@ -1,0 +1,17 @@
+{
+  "name": "@gambol/jev-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "zod": "4.6.7"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
