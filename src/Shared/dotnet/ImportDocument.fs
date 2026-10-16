@@ -99,10 +99,12 @@ module ImportDocument =
         |> Result.bind (fun () ->
             match Map.tryFind fileId graph.nodes with
             | Some { kind = Special File
-                     documentState = { documentState = NoServerFile } } ->
+                     documentState = ds } when
+                DocumentState.toLegacy ds = NoServerFile ->
                 Error "no file on server"
             | Some { kind = Special File
-                     documentState = { documentState = state } } ->
+                     documentState = ds } ->
+                let state = DocumentState.toLegacy ds
                 match DocumentPartition.artifactFileRelative graph fileId with
                 | None -> Error "no artifact path for file"
                 | Some relativePath ->
@@ -144,13 +146,16 @@ module ImportDocument =
         : Result<DesktopImportPackage, string> =
         match Map.tryFind fileId graph.nodes with
         | Some { kind = Special File
-                 documentState = { documentState = NoServerFile } } ->
+                 documentState = ds } when
+            DocumentState.toLegacy ds = NoServerFile ->
             Error "no file on server"
         | Some { kind = Special File
-                 documentState = { documentState = Unparsed } } ->
+                 documentState = ds } when
+            DocumentState.toLegacy ds = Unparsed ->
             Error "file is unparsed; use cold import"
         | Some { kind = Special File
-                 documentState = { documentState = Current } } ->
+                 documentState = ds } when
+            DocumentState.toLegacy ds = Current ->
             planParseFile graph fileId text
             |> Result.map (fun ops ->
                 { sourcePath = sourcePath

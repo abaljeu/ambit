@@ -63,7 +63,7 @@ module GraphProjection =
           name = Filename.tryValue node.name
           kind = NodeKindPersistence.toPersistString node.kind
           documentState =
-            match node.documentState.documentState with
+            match DocumentState.toLegacy node.documentState with
             | Current -> "current"
             | Unparsed -> "unparsed"
             | NoServerFile -> "noServerFile"

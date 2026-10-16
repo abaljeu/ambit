@@ -27,7 +27,8 @@ module internal LazyLoadReconciliationApply =
     let private markParentCurrent (graph: Graph) nodeId =
         match Map.tryFind nodeId graph.nodes with
         | Some { kind = Special (Directory | Workspace)
-                 documentState = { documentState = Unparsed } } ->
+                 documentState = ds } when
+            DocumentState.toLegacy ds = Unparsed ->
             [ Op.SetDocumentState(nodeId, Unparsed, Current) ]
         | _ -> []
 

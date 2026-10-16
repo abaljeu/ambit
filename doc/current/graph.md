@@ -46,9 +46,9 @@ The graph is the central data structure of the outliner.  There are rules for wo
 [x] Desktop Upload creates new File stubs as `NoServerFile`.
 [x] A successful PUT, or an already-present mtime skip, changes matching paths to Unparsed before Parse.
 [x] Directories keep their existing state behavior.
-[x] Node field `documentState` stores the temporary four-field `DocumentState` record: `parseState`, `persistState`, `noServerFile`, and nested `documentState` (`DocumentStateEnum`: `Current` | `Unparsed` | `NoServerFile`).
-[x] Standalone `parseState` and `persistState` remain on the Node. A state change dual-writes the record and those axes.
-[o] Graph JSON and the PostgreSQL node projection still store the nested enum as `documentState` (`current` | `unparsed` | `noServerFile`).
+[x] Node field `documentState` stores the `DocumentState` record: `parseState`, `persistState`, and `noServerFile`.
+[x] `parseState`, `persistState`, and `noServerFile` live only inside that record. The Node has no standalone `parseState` or `persistState` field, and the record has no nested `documentState` field.
+[o] Graph JSON and the PostgreSQL node projection still encode a derived `documentState` enum (`current` | `unparsed` | `noServerFile`) plus sibling `parseState` and `persistState` keys.
 [ ] `DocumentState`: not the special-node document axis.
 [x] `ParseState` and `PersistState` markers exist on Workspace, Directory, and File content nodes. A Directory File does not carry those axes. Values: `ParseState` (`Parsed` | `Unparsed`) and `PersistState` (`Persisted` | `Unpersisted`).
 [x] A state change on a special node writes `ParseState` and `PersistState`.

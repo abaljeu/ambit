@@ -140,9 +140,12 @@ module Serialization =
               "cssClasses", node.cssClasses |> CssClass.toList |> List.map Encode.string |> Encode.list
               "kind", encodeNodeKind node.kind
               "documentState",
-                encodeDocumentState node.documentState.documentState
-              "parseState", encodeParseState node.parseState
-              "persistState", encodePersistState node.persistState
+                encodeDocumentState
+                    (DocumentState.toLegacy node.documentState)
+              "parseState",
+                encodeParseState node.documentState.parseState
+              "persistState",
+                encodePersistState node.documentState.persistState
               "updateTime", Encode.int64 node.updateTime.Ticks ]
 
     let private nodeFromFields

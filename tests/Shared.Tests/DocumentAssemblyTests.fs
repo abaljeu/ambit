@@ -443,7 +443,7 @@ let ``assembleFromArtifactsBounded seeds Unparsed File stub without body`` () =
         |> requireOk "assemble"
     let file = actual.nodes.[fileId]
     Assert.Equal(Special File, file.kind)
-    Assert.Equal(Unparsed, file.documentState.documentState)
+    Assert.Equal(Unparsed, file.documentState.AsEnum)
     Assert.Empty(Graph.children actual fileId)
     let owned =
         Graph.children actual Graph.systemId

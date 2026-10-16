@@ -148,8 +148,8 @@ module Op =
             DocumentPartition.isMemberOfInaccessibleDocument graph id
         let shell =
             match Map.tryFind parentId graph.nodes with
-            | Some { kind = Special(Directory | Workspace)
-                     documentState = { documentState = Unparsed } } -> true
+            | Some { kind = Special(Directory | Workspace); documentState = ds }
+                when DocumentState.toLegacy ds = Unparsed -> true
             | _ -> false
         let stub =
             shell

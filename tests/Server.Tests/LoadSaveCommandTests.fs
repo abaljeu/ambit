@@ -597,7 +597,7 @@ let ``git Load pulls a staging checkout and does not reconcile`` () = task {
         Assert.DoesNotContain("arrived.txt", names)
         Assert.Equal(
             Unparsed,
-            (childNamed after seed.workspaceId "note.txt").documentState.documentState)
+            (childNamed after seed.workspaceId "note.txt").documentState.AsEnum)
     finally
         CoreMailboxApi.dispose host
 }
@@ -733,7 +733,7 @@ let ``Load on a file parses that file`` () = task {
             waitForParsedFile host fileId "seed" (DateTime.UtcNow.AddSeconds 2.0)
         match parsed with
         | Some after ->
-            Assert.Equal(Current, after.nodes.[fileId].documentState.documentState)
+            Assert.Equal(Current, after.nodes.[fileId].documentState.AsEnum)
             Assert.Equal(
                 "seed",
                 after.nodes.[(Graph.children after fileId).Head.id].text)

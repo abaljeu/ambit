@@ -340,7 +340,7 @@ let ``planParseFile plain keeps id on line text edit`` () =
     Assert.Equal(aId, (Graph.children after fileId).Head.id)
     Assert.Equal("ALPHA", after.nodes.[aId].text)
     Assert.Equal(bId, (Graph.children after fileId).[1].id)
-    Assert.Equal(Current, after.nodes.[fileId].documentState.documentState)
+    Assert.Equal(Current, after.nodes.[fileId].documentState.AsEnum)
 
 [<Fact>]
 let ``planParseFile blank input marks Unparsed file Current`` () =
@@ -376,7 +376,7 @@ let ``planParseFile blank input marks Unparsed file Current`` () =
         body = EventBody.Change ops
     }
 
-    Assert.Equal(Current, after.nodes.[fileId].documentState.documentState)
+    Assert.Equal(Current, after.nodes.[fileId].documentState.AsEnum)
 
 [<Fact>]
 let ``planParseFile rejects binary image extension`` () =
@@ -454,7 +454,7 @@ let ``planParseFile unparsed marks Current`` () =
         body = EventBody.Change ops
     }
 
-    Assert.Equal(Current, after.nodes.[fileId].documentState.documentState)
+    Assert.Equal(Current, after.nodes.[fileId].documentState.AsEnum)
     Assert.False(List.isEmpty (Graph.children after fileId))
 
 [<Fact>]
@@ -537,7 +537,7 @@ let ``planParseFile Unparsed with prior children warms and keeps line ids`` () =
         Assert.True(false, "Unparsed warm parse must apply; got: " + msg)
     | ApplyResult.Unchanged _ -> failwith "expected Changed"
     | ApplyResult.Changed after ->
-        Assert.Equal(Current, after.graph.nodes.[fileId].documentState.documentState)
+        Assert.Equal(Current, after.graph.nodes.[fileId].documentState.AsEnum)
         Assert.Equal(aId, (Graph.children after.graph fileId).Head.id)
         Assert.Equal("ALPHA", after.graph.nodes.[aId].text)
         Assert.Equal(bId, (Graph.children after.graph fileId).[1].id)
@@ -1154,7 +1154,7 @@ let ``planParseFile succeeds despite unrelated dual-Owner on graph`` () =
             "parse must not fail from unrelated dual-Owner; got: " + msg)
     | ApplyResult.Unchanged after
     | ApplyResult.Changed after ->
-        Assert.Equal(Current, after.graph.nodes.[parseFileId].documentState.documentState)
+        Assert.Equal(Current, after.graph.nodes.[parseFileId].documentState.AsEnum)
 
 /// Dual-Owner of the File being parsed does not block applyChange: Replace parent
 /// is not ownership-scoped; only Owner-edge-touched child ids are. Global validate
@@ -1201,7 +1201,7 @@ let ``planParseFile succeeds when parse File itself has dual Owner`` () =
         Assert.True(false, $"parse must not be blocked by File dual-Owner: {msg}")
     | ApplyResult.Unchanged after
     | ApplyResult.Changed after ->
-        Assert.Equal(Current, after.graph.nodes.[fileId].documentState.documentState)
+        Assert.Equal(Current, after.graph.nodes.[fileId].documentState.AsEnum)
 
 let private markDocumentCurrent id (state: State) =
     applyOpsState state [ Op.SetDocumentState(id, Unparsed, Current) ]
@@ -1257,4 +1257,4 @@ let ``planParseFile after Insert Ref reaches Current`` () =
         Assert.True(false, "parse after Insert Ref must apply; got: " + msg)
     | ApplyResult.Unchanged after
     | ApplyResult.Changed after ->
-        Assert.Equal(Current, after.graph.nodes.[fileId].documentState.documentState)
+        Assert.Equal(Current, after.graph.nodes.[fileId].documentState.AsEnum)

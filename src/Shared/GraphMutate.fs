@@ -44,7 +44,8 @@ module GraphMutate =
         | None -> graph
         | Some ownerId ->
             match Map.tryFind ownerId graph.nodes with
-            | Some node when node.persistState <> PersistState.Unpersisted ->
+            | Some node when
+                node.documentState.persistState <> PersistState.Unpersisted ->
                 let updated =
                     Node.withPersistState PersistState.Unpersisted node
                 { graph with nodes = graph.nodes |> Map.add ownerId updated }
@@ -219,10 +220,8 @@ module GraphMutate =
         match artifactNode graph nodeId with
         | Error msg -> Error msg
         | Ok node when
-            node.parseState = parseState
-            && node.documentState.parseState = parseState
-            && Node.documentStateEnum node
-                = ParseState.toDocumentState parseState ->
+            node.documentState.parseState = parseState
+            && not node.documentState.noServerFile ->
             Ok graph
         | Ok node ->
             let updated =
@@ -237,9 +236,7 @@ module GraphMutate =
         =
         match artifactNode graph nodeId with
         | Error msg -> Error msg
-        | Ok node when
-            node.persistState = persistState
-            && node.documentState.persistState = persistState ->
+        | Ok node when node.documentState.persistState = persistState ->
             Ok graph
         | Ok node ->
             let updated = Node.withPersistState persistState node

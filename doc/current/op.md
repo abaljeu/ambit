@@ -49,4 +49,4 @@ A single Graph modification, to a Node Header or to its Children.
 
 ## Explanation
 
-A content Op changes the Graph away from disk, so the enclosing carrier becomes Unpersisted and Persist can write the file. A Parse Action copies disk into the Graph, so that apply leaves PersistState unchanged. DocumentState and the parsed axis are different fields.
+A content Op changes the Graph away from disk, so the enclosing carrier becomes Unpersisted and Persist can write the file. A Parse Action copies disk into the Graph, so that apply leaves PersistState unchanged. The parsed axis is `DocumentState.parseState` on the Node field `documentState`.
