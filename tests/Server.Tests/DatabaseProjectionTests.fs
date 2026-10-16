@@ -44,7 +44,7 @@ let private expectedRow node =
       name = Filename.tryValue node.name
       kind = NodeKindPersistence.toPersistString node.kind
       documentState =
-        match node.documentState with
+        match Node.documentStateEnum node with
         | Current -> "current"
         | Unparsed -> "unparsed"
         | NoServerFile -> "noServerFile"

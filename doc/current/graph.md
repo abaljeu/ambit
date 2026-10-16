@@ -46,10 +46,12 @@ The graph is the central data structure of the outliner.  There are rules for wo
 [x] Desktop Upload creates new File stubs as `NoServerFile`.
 [x] A successful PUT, or an already-present mtime skip, changes matching paths to Unparsed before Parse.
 [x] Directories keep their existing state behavior.
-[o] `DocumentState` (`Current` | `Unparsed` | `NoServerFile`): the special-node document axis in graph JSON and the PostgreSQL node projection.
+[x] Node field `documentState` stores the temporary four-field `DocumentState` record: `parseState`, `persistState`, `noServerFile`, and nested `documentState` (`DocumentStateEnum`: `Current` | `Unparsed` | `NoServerFile`).
+[x] Standalone `parseState` and `persistState` remain on the Node. A state change dual-writes the record and those axes.
+[o] Graph JSON and the PostgreSQL node projection still store the nested enum as `documentState` (`current` | `unparsed` | `noServerFile`).
 [ ] `DocumentState`: not the special-node document axis.
 [x] `ParseState` and `PersistState` markers exist on Workspace, Directory, and File content nodes. A Directory File does not carry those axes. Values: `ParseState` (`Parsed` | `Unparsed`) and `PersistState` (`Persisted` | `Unpersisted`).
-[ ] A state change on a special node writes `ParseState` and `PersistState`.
+[x] A state change on a special node writes `ParseState` and `PersistState`.
 [x] The filesystem file whose basename is exactly `.amb`, ignoring case, is the persistence and proxy artifact of its containing Directory document, or of the Workspace document at workspace root.
 [x] That file never has a graph node of its own. It must not appear as a child File.
 [x] `Filename.create`, `NewSpecialNode`, and `SetName` reject that exact basename. Create helpers fall back to a default name.

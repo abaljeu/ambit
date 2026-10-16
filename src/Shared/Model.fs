@@ -84,11 +84,23 @@ type PersistState =
     | Persisted
     | Unpersisted
 
-type DocumentState = 
+type DocumentState =
     { parseState: ParseState
       persistState: PersistState
       noServerFile: bool
       documentState: DocumentStateEnum }
+
+[<RequireQualifiedAccess>]
+module DocumentState =
+    let fromParts
+        (parseState: ParseState)
+        (persistState: PersistState)
+        (legacy: DocumentStateEnum)
+        : DocumentState =
+        { parseState = parseState
+          persistState = persistState
+          noServerFile = legacy = NoServerFile
+          documentState = legacy }
 
 [<RequireQualifiedAccess>]
 module ParseState =
@@ -117,7 +129,7 @@ type Node =
       cssClasses : CssClasses
       owner      : NodeId
       kind       : NodeKind
-      documentState : DocumentStateEnum
+      documentState : DocumentState
       parseState : ParseState
       persistState : PersistState
       /// Mutation time via `touch`; after server persist, artifact disk mtime.
@@ -174,17 +186,20 @@ type Node with
             ?updateTime: DateTime,
             ?lockPresent: bool
         ) : Node =
-        let documentState = defaultArg documentState Current
+        let legacy = defaultArg documentState Current
+        let parseState =
+            defaultArg parseState (ParseState.ofDocumentState legacy)
+        let persistState = defaultArg persistState PersistState.Persisted
         { id = id
           text = defaultArg text ""
           name = defaultArg name Filename.Empty
           cssClasses = defaultArg cssClasses CssClass.empty
           owner = defaultArg owner (NodeId Guid.Empty)
           kind = defaultArg kind Normal
-          documentState = documentState
-          parseState =
-            defaultArg parseState (ParseState.ofDocumentState documentState)
-          persistState = defaultArg persistState PersistState.Persisted
+          documentState =
+            DocumentState.fromParts parseState persistState legacy
+          parseState = parseState
+          persistState = persistState
           updateTime = defaultArg updateTime NodeUpdateTime.missing
           lockPresent = defaultArg lockPresent false }
 
@@ -240,15 +255,34 @@ module Node =
         NodeKind.artifact node.kind
         && not (Filename.isDirectoryFileFilename node.name)
 
+    /// Nested legacy enum on the temporary DocumentState record.
+    let documentStateEnum (node: Node) : DocumentStateEnum =
+        node.documentState.documentState
+
     /// Set DocumentState. The parsed axis is written by setParseState.
     let withDocumentState (state: DocumentStateEnum) (node: Node) : Node =
-        { node with documentState = state }
+        { node with
+            documentState =
+                { node.documentState with
+                    documentState = state
+                    noServerFile = state = NoServerFile } }
 
     /// Set the parse axis and the Current | Unparsed DocumentState pole together.
     let withParseState (state: ParseState) (node: Node) : Node =
         { node with
             parseState = state
-            documentState = ParseState.toDocumentState state }
+            documentState =
+                { node.documentState with
+                    parseState = state
+                    documentState = ParseState.toDocumentState state
+                    noServerFile = false } }
+
+    /// Set the persist axis on the Node and inside the record.
+    let withPersistState (state: PersistState) (node: Node) : Node =
+        { node with
+            persistState = state
+            documentState =
+                { node.documentState with persistState = state } }
 
     /// Owner vs Ref for the parent→child edge.
     /// Edge.ref is authoritative while it exists: same-parent Refs (Duplicate link)

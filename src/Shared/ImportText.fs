@@ -43,7 +43,7 @@ module ImportText =
         match Map.tryFind focusId graph.nodes with
         | Some node
             when DocumentPartition.isDocumentRootNode graph focusId
-                 && node.documentState = Unparsed ->
+                 && Node.documentStateEnum node = Unparsed ->
             [ Op.SetDocumentState(focusId, Unparsed, Current) ]
         | _ -> []
 

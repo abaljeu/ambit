@@ -14,7 +14,7 @@ module DocumentPartition =
     /// Current document roots write; exact `.amb` node names never do.
     /// Legitimate Workspace/Directory `xx` still writes `xx/.amb`.
     let shouldWriteDocumentRoot (node: Node) : bool =
-        node.documentState = Current
+        Node.documentStateEnum node = Current
         && not (Filename.isDirectoryFileFilename node.name)
 
     let documentRootForNode (graph: Graph) (nodeId: NodeId) : NodeId option =
@@ -71,7 +71,7 @@ module DocumentPartition =
         a.text = b.text
         && a.name = b.name
         && a.kind = b.kind
-        && a.documentState = b.documentState
+        && Node.documentStateEnum a = Node.documentStateEnum b
         && a.owner = b.owner
         && CssClass.toList a.cssClasses = CssClass.toList b.cssClasses
 
@@ -135,7 +135,7 @@ module DocumentPartition =
         containingDocumentRootIds graph nodeId
         |> List.exists (fun rootId ->
             match Map.tryFind rootId graph.nodes with
-            | Some node -> node.documentState = state
+            | Some node -> Node.documentStateEnum node = state
             | None -> false)
 
     let isMemberOfUnparsedDocument (graph: Graph) (nodeId: NodeId) : bool =
@@ -149,15 +149,17 @@ module DocumentPartition =
         |> List.exists (fun rootId ->
             match Map.tryFind rootId graph.nodes with
             | Some node ->
-                node.documentState = Unparsed
-                || node.documentState = NoServerFile
+                Node.documentStateEnum node = Unparsed
+                || Node.documentStateEnum node = NoServerFile
             | None -> false)
 
     let isMemberOfUnparsedFile (graph: Graph) (nodeId: NodeId) : bool =
         containingDocumentRootIds graph nodeId
         |> List.exists (fun rootId ->
             match Map.tryFind rootId graph.nodes with
-            | Some node -> node.kind = Special File && node.documentState = Unparsed
+            | Some node ->
+                node.kind = Special File
+                && Node.documentStateEnum node = Unparsed
             | None -> false)
 
     let isMemberOfNoServerFile (graph: Graph) (nodeId: NodeId) : bool =
@@ -166,7 +168,7 @@ module DocumentPartition =
             match Map.tryFind rootId graph.nodes with
             | Some node ->
                 node.kind = Special File
-                && node.documentState = NoServerFile
+                && Node.documentStateEnum node = NoServerFile
             | None -> false)
 
     let private isDirectoryNode (node: Node) : bool =

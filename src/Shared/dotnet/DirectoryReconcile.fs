@@ -222,7 +222,7 @@ module DirectoryReconcile =
 
     let private markCurrent (graph: Graph) (directoryId: NodeId) =
         match Map.tryFind directoryId graph.nodes with
-        | Some node when node.documentState = Unparsed ->
+        | Some node when Node.documentStateEnum node = Unparsed ->
             [ Op.SetDocumentState(directoryId, Unparsed, Current) ]
         | _ -> []
 

@@ -37,8 +37,7 @@ let ``planParseFile rejects file with no server body`` () =
             graph0.root
             (Map.add
                 rootId
-                { graph0.nodes.[rootId] with
-                    documentState = NoServerFile }
+                (Node.withDocumentState NoServerFile graph0.nodes.[rootId])
                 graph0.nodes)
             graph0.childMap
     match ImportDocument.planParseFile graph rootId "body" with

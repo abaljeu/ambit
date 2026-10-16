@@ -75,7 +75,7 @@ let ``ParseFinished sets Parsed and leaves PersistState`` () =
     apply (handlers state snaps) (InMsg.ParseFinished id)
     let node = state.Value.graph.nodes.[id]
     Assert.Equal(ParseState.Parsed, node.parseState)
-    Assert.Equal(Current, node.documentState)
+    Assert.Equal(Current, node.documentState.documentState)
     Assert.Equal(PersistState.Unpersisted, node.persistState)
     Assert.Empty(snaps)
 
@@ -88,7 +88,7 @@ let ``MarkUnparsed sets Unparsed and leaves PersistState`` () =
     apply (handlers state snaps) (InMsg.MarkUnparsed id)
     let node = state.Value.graph.nodes.[id]
     Assert.Equal(ParseState.Unparsed, node.parseState)
-    Assert.Equal(Unparsed, node.documentState)
+    Assert.Equal(Unparsed, node.documentState.documentState)
     Assert.Equal(PersistState.Unpersisted, node.persistState)
     Assert.Empty(snaps)
 
@@ -103,7 +103,7 @@ let ``SnapshotDone sets Persisted and calls the snapshot handler`` () =
     let node = state.Value.graph.nodes.[id]
     Assert.Equal(PersistState.Persisted, node.persistState)
     Assert.Equal(ParseState.Parsed, node.parseState)
-    Assert.Equal(Current, node.documentState)
+    Assert.Equal(Current, node.documentState.documentState)
     let snapId, snapGraph = Assert.Single(snaps)
     Assert.Equal(id, snapId)
     Assert.Equal(shot, snapGraph)

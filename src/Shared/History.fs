@@ -134,7 +134,7 @@ module Op =
         match Map.tryFind nodeId graph.nodes with
         | Some node ->
             DocumentPartition.isDocumentRootNode graph nodeId
-            && node.documentState = Current
+            && Node.documentStateEnum node = Current
         | None -> false
 
     let private ownedAreDocumentRoots graph parentId children =
@@ -149,7 +149,7 @@ module Op =
         let shell =
             match Map.tryFind parentId graph.nodes with
             | Some { kind = Special(Directory | Workspace)
-                     documentState = Unparsed } -> true
+                     documentState = { documentState = Unparsed } } -> true
             | _ -> false
         let stub =
             shell

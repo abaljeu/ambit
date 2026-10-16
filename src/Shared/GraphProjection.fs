@@ -28,7 +28,7 @@ module GraphProjection =
         && a.text = b.text
         && a.name = b.name
         && a.kind = b.kind
-        && a.documentState = b.documentState
+        && Node.documentStateEnum a = Node.documentStateEnum b
         && CssClass.toList a.cssClasses = CssClass.toList b.cssClasses
         && a.updateTime = b.updateTime
 
@@ -63,7 +63,7 @@ module GraphProjection =
           name = Filename.tryValue node.name
           kind = NodeKindPersistence.toPersistString node.kind
           documentState =
-            match node.documentState with
+            match node.documentState.documentState with
             | Current -> "current"
             | Unparsed -> "unparsed"
             | NoServerFile -> "noServerFile"

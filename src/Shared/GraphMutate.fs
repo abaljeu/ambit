@@ -45,7 +45,8 @@ module GraphMutate =
         | Some ownerId ->
             match Map.tryFind ownerId graph.nodes with
             | Some node when node.persistState <> PersistState.Unpersisted ->
-                let updated = { node with persistState = PersistState.Unpersisted }
+                let updated =
+                    Node.withPersistState PersistState.Unpersisted node
                 { graph with nodes = graph.nodes |> Map.add ownerId updated }
             | _ -> graph
 
@@ -191,7 +192,7 @@ module GraphMutate =
             Error "workspaces is not a graph document"
         | Some node when node.kind = Normal ->
             Error "normal nodes do not have document state"
-        | Some node when node.documentState = newState ->
+        | Some node when Node.documentStateEnum node = newState ->
             Ok graph
         | Some node ->
             let updated =
@@ -219,10 +220,13 @@ module GraphMutate =
         | Error msg -> Error msg
         | Ok node when
             node.parseState = parseState
-            && node.documentState = ParseState.toDocumentState parseState ->
+            && node.documentState.parseState = parseState
+            && Node.documentStateEnum node
+                = ParseState.toDocumentState parseState ->
             Ok graph
         | Ok node ->
-            let updated = NodeUpdateTime.touch (Node.withParseState parseState node)
+            let updated =
+                NodeUpdateTime.touch (Node.withParseState parseState node)
             Ok { graph with nodes = graph.nodes |> Map.add nodeId updated }
 
     let setPersistState
@@ -233,9 +237,12 @@ module GraphMutate =
         =
         match artifactNode graph nodeId with
         | Error msg -> Error msg
-        | Ok node when node.persistState = persistState -> Ok graph
+        | Ok node when
+            node.persistState = persistState
+            && node.documentState.persistState = persistState ->
+            Ok graph
         | Ok node ->
-            let updated = { node with persistState = persistState }
+            let updated = Node.withPersistState persistState node
             Ok { graph with nodes = graph.nodes |> Map.add nodeId updated }
 
     let replace

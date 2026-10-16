@@ -340,7 +340,7 @@ let ``planParseFile plain keeps id on line text edit`` () =
     Assert.Equal(aId, (Graph.children after fileId).Head.id)
     Assert.Equal("ALPHA", after.nodes.[aId].text)
     Assert.Equal(bId, (Graph.children after fileId).[1].id)
-    Assert.Equal(Current, after.nodes.[fileId].documentState)
+    Assert.Equal(Current, after.nodes.[fileId].documentState.documentState)
 
 [<Fact>]
 let ``planParseFile blank input marks Unparsed file Current`` () =
@@ -376,7 +376,7 @@ let ``planParseFile blank input marks Unparsed file Current`` () =
         body = EventBody.Change ops
     }
 
-    Assert.Equal(Current, after.nodes.[fileId].documentState)
+    Assert.Equal(Current, after.nodes.[fileId].documentState.documentState)
 
 [<Fact>]
 let ``planParseFile rejects binary image extension`` () =
@@ -454,7 +454,7 @@ let ``planParseFile unparsed marks Current`` () =
         body = EventBody.Change ops
     }
 
-    Assert.Equal(Current, after.nodes.[fileId].documentState)
+    Assert.Equal(Current, after.nodes.[fileId].documentState.documentState)
     Assert.False(List.isEmpty (Graph.children after fileId))
 
 [<Fact>]
@@ -537,7 +537,7 @@ let ``planParseFile Unparsed with prior children warms and keeps line ids`` () =
         Assert.True(false, "Unparsed warm parse must apply; got: " + msg)
     | ApplyResult.Unchanged _ -> failwith "expected Changed"
     | ApplyResult.Changed after ->
-        Assert.Equal(Current, after.graph.nodes.[fileId].documentState)
+        Assert.Equal(Current, after.graph.nodes.[fileId].documentState.documentState)
         Assert.Equal(aId, (Graph.children after.graph fileId).Head.id)
         Assert.Equal("ALPHA", after.graph.nodes.[aId].text)
         Assert.Equal(bId, (Graph.children after.graph fileId).[1].id)
@@ -585,7 +585,7 @@ let ``planParseFile Current warm plain defers matching Ref`` () =
     let noteNode = withNote.graph.nodes.[noteId]
     let graph =
         addDetachedMany [ sectionA; sectionB; urlNode ] withNote.graph
-        |> Graph.addDetachedNode { noteNode with documentState = Current }
+        |> Graph.addDetachedNode (Node.withDocumentState Current noteNode)
         |> setChildren
             noteId
             [ ChildNode.owner sectionAId
@@ -694,8 +694,8 @@ let ``planParseFile Current warm plain keeps foreign Ref`` () =
     let otherNode = withOther.graph.nodes.[otherId]
     let graph =
         addDetachedMany [ local; foreign ] withOther.graph
-        |> Graph.addDetachedNode { noteNode with documentState = Current }
-        |> Graph.addDetachedNode { otherNode with documentState = Current }
+        |> Graph.addDetachedNode (Node.withDocumentState Current noteNode)
+        |> Graph.addDetachedNode (Node.withDocumentState Current otherNode)
         |> setChildren
             noteId
             [ ChildNode.owner localId
@@ -787,8 +787,8 @@ let ``planParseFile Current warm Amb reuses foreign owner without Ref`` () =
     let otherNode = withOther.graph.nodes.[otherId]
     let graph =
         addDetachedMany [ prior; foreign ] withOther.graph
-        |> Graph.addDetachedNode { noteNode with documentState = Current }
-        |> Graph.addDetachedNode { otherNode with documentState = Current }
+        |> Graph.addDetachedNode (Node.withDocumentState Current noteNode)
+        |> Graph.addDetachedNode (Node.withDocumentState Current otherNode)
         |> setChildren noteId [ ChildNode.owner priorId ]
         |> setChildren otherId [ ChildNode.owner foreignId ]
 
@@ -868,7 +868,7 @@ let ``planParseFile Current warm overlay reparent does not dual-Own`` () =
             "reparent.txt"
     let withFile = applyOps withWs fileOps
     let seededGraph =
-        { withFile.graph.nodes.[fileId] with documentState = Unparsed }
+        (Node.withDocumentState Unparsed withFile.graph.nodes.[fileId])
         |> fun n -> Graph.addDetachedNode n withFile.graph
     let seedBody =
         "Section"
@@ -964,7 +964,7 @@ let ``planParseFile Current warm unmatched owned child Deletes to trash`` () =
     let withFile = applyOps withWs fileOps
     // Seed via parse so warm previousText matches outline ids.
     let seededGraph =
-        { withFile.graph.nodes.[fileId] with documentState = Unparsed }
+        (Node.withDocumentState Unparsed withFile.graph.nodes.[fileId])
         |> fun n -> Graph.addDetachedNode n withFile.graph
     let seedBody =
         "Listing Draft"
@@ -1064,7 +1064,7 @@ let ``planParseFile Unparsed plain upload body applies via History`` () =
             withWs
     let graph =
         Graph.addDetachedNode
-            { withNote.graph.nodes.[noteId] with documentState = Unparsed }
+            (Node.withDocumentState Unparsed withNote.graph.nodes.[noteId])
             withNote.graph
 
     let ops =
@@ -1121,9 +1121,9 @@ let private graphWithUnrelatedDualOwner () =
     let parseNode = withB.graph.nodes.[parseFileId]
     let graph =
         Graph.addDetachedNode victim withB.graph
-        |> Graph.addDetachedNode { aNode with documentState = Current }
-        |> Graph.addDetachedNode { bNode with documentState = Current }
-        |> Graph.addDetachedNode { parseNode with documentState = Unparsed }
+        |> Graph.addDetachedNode (Node.withDocumentState Current aNode)
+        |> Graph.addDetachedNode (Node.withDocumentState Current bNode)
+        |> Graph.addDetachedNode (Node.withDocumentState Unparsed parseNode)
         |> setChildren otherAId [ ChildNode.owner victimId ]
         |> setChildren otherBId [ ChildNode.owner victimId ]
     parseFileId, victimId, graph
@@ -1154,7 +1154,7 @@ let ``planParseFile succeeds despite unrelated dual-Owner on graph`` () =
             "parse must not fail from unrelated dual-Owner; got: " + msg)
     | ApplyResult.Unchanged after
     | ApplyResult.Changed after ->
-        Assert.Equal(Current, after.graph.nodes.[parseFileId].documentState)
+        Assert.Equal(Current, after.graph.nodes.[parseFileId].documentState.documentState)
 
 /// Dual-Owner of the File being parsed does not block applyChange: Replace parent
 /// is not ownership-scoped; only Owner-edge-touched child ids are. Global validate
@@ -1177,7 +1177,7 @@ let ``planParseFile succeeds when parse File itself has dual Owner`` () =
     let file = withOther.graph.nodes.[fileId]
     let hostKids = Graph.children withOther.graph otherId
     let graph =
-        Graph.addDetachedNode { file with documentState = Unparsed } withOther.graph
+        Graph.addDetachedNode (Node.withDocumentState Unparsed file) withOther.graph
         |> setChildren otherId (hostKids @ [ ChildNode.owner fileId ])
 
     match ChangeValidation.validateOwnershipLocated graph with
@@ -1201,7 +1201,7 @@ let ``planParseFile succeeds when parse File itself has dual Owner`` () =
         Assert.True(false, $"parse must not be blocked by File dual-Owner: {msg}")
     | ApplyResult.Unchanged after
     | ApplyResult.Changed after ->
-        Assert.Equal(Current, after.graph.nodes.[fileId].documentState)
+        Assert.Equal(Current, after.graph.nodes.[fileId].documentState.documentState)
 
 let private markDocumentCurrent id (state: State) =
     applyOpsState state [ Op.SetDocumentState(id, Unparsed, Current) ]
@@ -1227,7 +1227,7 @@ let private unparsedFileAfterInsertRef () =
         FileNodeOps.planInsertFileRefAtFocus insert fileId withHost.graph
         |> applyOpsState withHost
     let graph =
-        { withRef.graph.nodes.[fileId] with documentState = Unparsed }
+        (Node.withDocumentState Unparsed withRef.graph.nodes.[fileId])
         |> fun n -> Graph.addDetachedNode n withRef.graph
     graph, fileId
 
@@ -1257,4 +1257,4 @@ let ``planParseFile after Insert Ref reaches Current`` () =
         Assert.True(false, "parse after Insert Ref must apply; got: " + msg)
     | ApplyResult.Unchanged after
     | ApplyResult.Changed after ->
-        Assert.Equal(Current, after.graph.nodes.[fileId].documentState)
+        Assert.Equal(Current, after.graph.nodes.[fileId].documentState.documentState)

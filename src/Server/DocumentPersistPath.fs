@@ -217,7 +217,7 @@ module DocumentPersistPath =
         let stamped = NodeUpdateTime.withStamp time node
 
         if markPersisted && Node.carriesStateAxes stamped then
-            { stamped with persistState = PersistState.Persisted }
+            Node.withPersistState PersistState.Persisted stamped
         else
             stamped
 

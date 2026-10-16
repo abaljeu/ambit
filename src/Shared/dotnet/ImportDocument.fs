@@ -98,9 +98,11 @@ module ImportDocument =
         DocumentParseLimits.refuseText text
         |> Result.bind (fun () ->
             match Map.tryFind fileId graph.nodes with
-            | Some { kind = Special File; documentState = NoServerFile } ->
+            | Some { kind = Special File
+                     documentState = { documentState = NoServerFile } } ->
                 Error "no file on server"
-            | Some { kind = Special File; documentState = state } ->
+            | Some { kind = Special File
+                     documentState = { documentState = state } } ->
                 match DocumentPartition.artifactFileRelative graph fileId with
                 | None -> Error "no artifact path for file"
                 | Some relativePath ->
@@ -141,11 +143,14 @@ module ImportDocument =
         (text: string)
         : Result<DesktopImportPackage, string> =
         match Map.tryFind fileId graph.nodes with
-        | Some { kind = Special File; documentState = NoServerFile } ->
+        | Some { kind = Special File
+                 documentState = { documentState = NoServerFile } } ->
             Error "no file on server"
-        | Some { kind = Special File; documentState = Unparsed } ->
+        | Some { kind = Special File
+                 documentState = { documentState = Unparsed } } ->
             Error "file is unparsed; use cold import"
-        | Some { kind = Special File; documentState = Current } ->
+        | Some { kind = Special File
+                 documentState = { documentState = Current } } ->
             planParseFile graph fileId text
             |> Result.map (fun ops ->
                 { sourcePath = sourcePath

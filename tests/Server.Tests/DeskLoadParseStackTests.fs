@@ -34,7 +34,7 @@ let private markCurrent (graph: Graph) (nodeId: NodeId) =
     | Some node ->
         { graph with
             nodes =
-                Map.add nodeId { node with documentState = Current } graph.nodes }
+                Map.add nodeId (Node.withDocumentState Current node) graph.nodes }
 
 let private selectRange (model: VM) (startIndex: int) (endIndex: int) =
     let parent = model.siteMap.entries.[model.siteMap.rootId]
